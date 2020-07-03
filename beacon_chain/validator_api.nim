@@ -50,32 +50,139 @@ proc boundsCheckRequestAgainstBlockRef(slot: Slot, head: BlockRef) =
 proc boundsCheckRequestAgainstBlockRef(epoch: Epoch, head: BlockRef) =
   boundsCheckRequestAgainstBlockRef(epoch.compute_start_slot_at_epoch, head)
 
+proc checkSynced(node: BeaconNode, head: BlockRef) =
+  if not node.isSynced(head):
+    raise newException(CatchableError, "Cannot fulfill this request until synced")
+
+proc doChecksAndGetHead(node: BeaconNode, slot: Slot): BlockRef =
+  result = node.blockPool.head.blck
+  boundsCheckRequestAgainstBlockRef(slot, result)
+  node.checkSynced(result)
+
+proc doChecksAndGetHead(node: BeaconNode, epoch: Epoch): BlockRef =
+  node.doChecksAndGetHead(epoch.compute_start_slot_at_epoch)
+
+# TODO currently this function throws if the validator isn't found - is this OK?
+proc getValidatorInfoFromValidatorId(
+    state: BeaconState,
+    current_epoch: Epoch,
+    validatorId: string,
+    status = ""):
+    Option[BeaconStatesValidatorsTuple] =
+  const allowedStatuses = ["", "pending", "pending_initialized", "pending_queued",
+    "active", "active_ongoing", "active_exiting", "active_slashed", "exited",
+    "exited_unslashed", "exited_slashed", "withdrawal", "withdrawal_possible",
+    "withdrawal_done"]
+  if status notin allowedStatuses:
+    raise newException(CatchableError, "Invalid status requested")
+
+  let validator = if validatorId.startsWith("0x"):
+    let pubkey = getRootOrPubkey(ValidatorPubKey, validatorId)
+    let idx = state.validators.asSeq.findIt(it.pubKey == pubkey)
+    if idx == -1:
+      raise newException(CatchableError, "Could not find validator")
+    state.validators[idx]
+  else:
+    var valIdx: BiggestInt
+    if parseBiggestInt(validatorId, valIdx) != validatorId.len:
+      raise newException(CatchableError, "Not a valid index")
+    if state.validators.len >= valIdx:
+      raise newException(CatchableError, "Index out of bounds")
+    state.validators[valIdx]
+
+  # time to determine the status of the validator - the code mimics
+  # whatever is detailed here: https://hackmd.io/ofFJ5gOmQpu1jjHilHbdQQ
+  let actual_status = if validator.activation_epoch > current_epoch:
+    # pending
+    if validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH:
+      "pending_initialized"
+    else:
+      # validator.activation_eligibility_epoch < FAR_FUTURE_EPOCH:
+      "pending_queued"
+  elif validator.activation_epoch <= current_epoch and
+      current_epoch < validator.exit_epoch:
+    # active
+    if validator.exit_epoch == FAR_FUTURE_EPOCH:
+      "active_ongoing"
+    elif not validator.slashed:
+      # validator.exit_epoch < FAR_FUTURE_EPOCH
+      "active_exiting"
+    else:
+      # validator.exit_epoch < FAR_FUTURE_EPOCH and validator.slashed:
+      "active_slashed"
+  elif validator.exit_epoch <= current_epoch and
+      current_epoch < validator.withdrawable_epoch:
+    # exited
+    if not validator.slashed:
+      "exited_unslashed"
+    else:
+      # validator.slashed
+      "exited_slashed"
+  elif validator.withdrawable_epoch <= current_epoch:
+    # withdrawal
+    if validator.effective_balance != 0:
+      "withdrawal_possible"
+    else:
+      # validator.effective_balance == 0
+      "withdrawal_done"
+  else:
+    raise newException(CatchableError, "Invalid validator status")
+
+  # if the requested status doesn't match the actual status
+  if status != "" and status notin actual_status:
+    return none(BeaconStatesValidatorsTuple)
+
+  return some((validator: validator, status: actual_status,
+                balance: validator.effective_balance))
+
+proc getBlockSlotFromString(node: BeaconNode, slot: string): BlockSlot =
+  var parsed: BiggestInt
+  if parseBiggestInt(slot, parsed) != slot.len:
+    raise newException(CatchableError, "Not a valid slot number")
+  let head = node.blockPool.head.blck
+  boundsCheckRequestAgainstBlockRef(parsed.Slot, head)
+  return head.atSlot(parsed.Slot)
+
+proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData =
+  case blockId:
+    of "head":
+      return node.blockPool.get(node.blockPool.head.blck)
+    of "genesis":
+      return node.blockPool.get(node.blockPool.head.blck.atSlot(0.Slot).blck)
+    of "finalized":
+      return node.blockPool.get(node.blockPool.finalizedHead.blck)
+    else:
+      if blockId.startsWith("0x"):
+        let blckRoot = getRootOrPubkey(Eth2Digest, blockId)
+        let blockData = node.blockPool.get(blckRoot)
+        if blockData.isNone:
+          raise newException(CatchableError, "Block not found")
+        return blockData.get()
+      else:
+        let blockSlot = node.getBlockSlotFromString(blockId)
+        if blockSlot.blck.isNil:
+          raise newException(CatchableError, "Block not found")
+        return node.blockPool.get(blockSlot.blck)
+
 # TODO Probably the `beacon` ones should be defined elsewhere...?
 
 proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
-  proc getBlockSlotFromString(slot: string): BlockSlot =
-    var parsed: BiggestInt
-    if parseBiggestInt(slot, parsed) != slot.len:
-      raise newException(CatchableError, "Not a valid slot number")
-    let head = node.updateHead()
-    boundsCheckRequestAgainstBlockRef(parsed.Slot, head)
-    return head.atSlot(parsed.Slot)
 
   template withStateForSlot(stateId: string, body: untyped): untyped =
-    let blockSlot = getBlockSlotFromString(stateId)
+    let blockSlot = node.getBlockSlotFromString(stateId)
     node.blockPool.withState(node.blockPool.tmpState, blockSlot):
       body
 
   template withStateForStateId(stateId: string, body: untyped): untyped =
     case stateId:
       of "head":
-        let head = node.updateHead()
+        let head = node.blockPool.head.blck
         let headSlot = head.atSlot(head.slot)
         node.blockPool.withState(node.blockPool.tmpState, headSlot):
           body
       of "genesis":
         # TODO is this the best way? is it even OK?
-        let head = node.updateHead()
+        let head = node.blockPool.head.blck
         let headSlot = head.atSlot(0.Slot)
         node.blockPool.withState(node.blockPool.tmpState, headSlot):
           body
@@ -110,7 +217,6 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   # TODO rework using withStateForStateId?
   rpcServer.rpc("get_v1_beacon_states_root") do (stateId: string) -> Eth2Digest:
     debug "get_v1_beacon_states_root", stateId = stateId
-    # TODO do we need to call node.updateHead() before using headState?
     result = case stateId:
       of "head":
         node.blockPool.headState.data.root
@@ -128,33 +234,10 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
           withStateForSlot(stateId):
             hashedState.root
 
-  # TODO rework using withStateForStateId?
   rpcServer.rpc("get_v1_beacon_states_fork") do (stateId: string) -> Fork:
     debug "get_v1_beacon_states_fork", stateId = stateId
-    result = case stateId:
-      of "head":
-        node.blockPool.headState.data.data.fork
-      of "genesis":
-        Fork(previous_version: Version(GENESIS_FORK_VERSION),
-             current_version: Version(GENESIS_FORK_VERSION),
-             epoch: GENESIS_EPOCH)
-      of "finalized":
-        node.blockPool.withState(node.blockPool.tmpState, node.blockPool.finalizedHead):
-          state.fork
-      of "justified":
-        node.blockPool.justifiedState.data.data.fork
-      else:
-        if stateId.startsWith("0x"):
-          let blckRoot = getRootOrPubkey(Eth2Digest, stateId)
-          let blckRef = node.blockPool.getRef(blckRoot)
-          if blckRef.isNil:
-            raise newException(CatchableError, "Block not found")
-          let blckSlot = blckRef.atSlot(blckRef.slot)
-          node.blockPool.withState(node.blockPool.tmpState, blckSlot):
-            state.fork
-        else:
-          withStateForSlot(stateId):
-            state.fork
+    withStateForStateId(stateId):
+      return state.fork
   
   rpcServer.rpc("get_v1_beacon_states_finality_checkpoints") do (
       stateId: string) -> BeaconStatesFinalityCheckpointsTuple:
@@ -162,79 +245,6 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       return (previous_justified: state.previous_justified_checkpoint,
               current_justified: state.current_justified_checkpoint,
               finalized: state.finalized_checkpoint)
-
-  # TODO currently this function throws if the validator isn't found - is this OK?
-  proc getValidatorInfoFromValidatorId(
-      state: BeaconState,
-      current_epoch: Epoch,
-      validatorId: string,
-      status = ""):
-      Option[BeaconStatesValidatorsTuple] =
-    const allowedStatuses = ["", "pending", "pending_initialized", "pending_queued",
-      "active", "active_ongoing", "active_exiting", "active_slashed", "exited",
-      "exited_unslashed", "exited_slashed", "withdrawal", "withdrawal_possible",
-      "withdrawal_done"]
-    if status notin allowedStatuses:
-      raise newException(CatchableError, "Invalid status requested")
-
-    let validator = if validatorId.startsWith("0x"):
-      let pubkey = getRootOrPubkey(ValidatorPubKey, validatorId)
-      let idx = state.validators.asSeq.findIt(it.pubKey == pubkey)
-      if idx == -1:
-        raise newException(CatchableError, "Could not find validator")
-      state.validators[idx]
-    else:
-      var valIdx: BiggestInt
-      if parseBiggestInt(validatorId, valIdx) != validatorId.len:
-        raise newException(CatchableError, "Not a valid index")
-      if state.validators.len >= valIdx:
-        raise newException(CatchableError, "Index out of bounds")
-      state.validators[valIdx]
-
-    # time to determine the status of the validator - the code mimics
-    # whatever is detailed here: https://hackmd.io/ofFJ5gOmQpu1jjHilHbdQQ
-    let actual_status = if validator.activation_epoch > current_epoch:
-      # pending
-      if validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH:
-        "pending_initialized"
-      else:
-        # validator.activation_eligibility_epoch < FAR_FUTURE_EPOCH:
-        "pending_queued"
-    elif validator.activation_epoch <= current_epoch and
-        current_epoch < validator.exit_epoch:
-      # active
-      if validator.exit_epoch == FAR_FUTURE_EPOCH:
-        "active_ongoing"
-      elif not validator.slashed:
-        # validator.exit_epoch < FAR_FUTURE_EPOCH
-        "active_exiting"
-      else:
-        # validator.exit_epoch < FAR_FUTURE_EPOCH and validator.slashed:
-        "active_slashed"
-    elif validator.exit_epoch <= current_epoch and
-        current_epoch < validator.withdrawable_epoch:
-      # exited
-      if not validator.slashed:
-        "exited_unslashed"
-      else:
-        # validator.slashed
-        "exited_slashed"
-    elif validator.withdrawable_epoch <= current_epoch:
-      # withdrawal
-      if validator.effective_balance != 0:
-        "withdrawal_possible"
-      else:
-        # validator.effective_balance == 0
-        "withdrawal_done"
-    else:
-      raise newException(CatchableError, "Invalid validator status")
-
-    # if the requested status doesn't match the actual status
-    if status != "" and status notin actual_status:
-      return none(BeaconStatesValidatorsTuple)
-
-    return some((validator: validator, status: actual_status,
-                 balance: validator.effective_balance))
 
   rpcServer.rpc("get_v1_beacon_states_stateId_validators") do (
       stateId: string, validatorIds: seq[string],
@@ -281,54 +291,20 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       else:
         forSlot(slot.Slot, result)
 
-  proc getBlockDataFromBlockId(blockId: string): BlockData =
-    case blockId:
-      of "head":
-        return node.blockPool.get(node.updateHead())
-      of "genesis":
-        return node.blockPool.get(node.updateHead().atSlot(0.Slot).blck)
-      of "finalized":
-        return node.blockPool.get(node.blockPool.finalizedHead.blck)
-      else:
-        if blockId.startsWith("0x"):
-          let blckRoot = getRootOrPubkey(Eth2Digest, blockId)
-          let blockData = node.blockPool.get(blckRoot)
-          if blockData.isNone:
-            raise newException(CatchableError, "Block not found")
-          return blockData.get()
-        else:
-          let blockSlot = getBlockSlotFromString(blockId)
-          if blockSlot.blck.isNil:
-            raise newException(CatchableError, "Block not found")
-          return node.blockPool.get(blockSlot.blck)
-
   rpcServer.rpc("get_v1_beacon_headers") do (
       slot: uint64, parent_root: Eth2Digest) -> seq[BeaconHeadersTuple]:
-    # let head = node.updateHead()
-
-    # let blockData = node.blockPool.get(head)
-    # if blockData.isNone:
-    #   raise newException(CatchableError, "Block not found")
-    # return blockData.get()
-
-    #let bd = getBlockDataFromBlockId(parent_root)
-
-    #BlockPool.heads
-    
     # @mratsim: I'm adding a toposorted iterator that returns all blocks from last finalization to all heads in the dual fork choice PR @viktor
 
-    
     # filterIt(dag.blocks.values(), it.blck.slot == slot_of_interest)
+    # maybe usesBlockPool.heads ??? or getBlockRange ???
 
-    # getBlockRange
-    
     # https://discordapp.com/channels/613988663034118151/614014714590134292/726095138484518912
 
-    discard # raise newException(CatchableError, "Not implemented")
+    discard # raise newException(CatchableError, "Not implemented") # cannot compile...
 
   rpcServer.rpc("get_v1_beacon_headers_blockId") do (
       blockId: string) -> tuple[canonical: bool, header: SignedBeaconBlockHeader]:
-    let bd = getBlockDataFromBlockId(blockId)
+    let bd = node.getBlockDataFromBlockId(blockId)
     let tsbb = bd.data
     result.header.signature.blob = tsbb.signature.data
 
@@ -338,20 +314,19 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     result.header.message.state_root = tsbb.message.state_root
     result.header.message.body_root = tsbb.message.body.hash_tree_root()
 
-    let head = node.updateHead()
-    result.canonical = bd.refs.isAncestorOf(head)
+    result.canonical = bd.refs.isAncestorOf(node.blockPool.head.blck)
 
   rpcServer.rpc("get_v1_beacon_blocks_blockId") do (
       blockId: string) -> TrustedSignedBeaconBlock:
-    return getBlockDataFromBlockId(blockId).data
+    return node.getBlockDataFromBlockId(blockId).data
 
   rpcServer.rpc("get_v1_beacon_blocks_blockId_root") do (
       blockId: string) -> Eth2Digest:
-    return getBlockDataFromBlockId(blockId).data.message.state_root
+    return node.getBlockDataFromBlockId(blockId).data.message.state_root
 
   rpcServer.rpc("get_v1_beacon_blocks_blockId_attestations") do (
       blockId: string) -> seq[TrustedAttestation]:
-    return getBlockDataFromBlockId(blockId).data.message.body.attestations.asSeq
+    return node.getBlockDataFromBlockId(blockId).data.message.body.attestations.asSeq
 
   rpcServer.rpc("post_v1_beacon_pool_attestations") do (
       attestation: Attestation) -> bool:
@@ -370,7 +345,8 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("get_v1_validator_block") do (
       slot: Slot, graffiti: Eth2Digest, randao_reveal: ValidatorSig) -> BeaconBlock:
     debug "get_v1_validator_block", slot = slot
-    let head = node.updateHead()
+    let head = node.doChecksAndGetHead(slot)
+    
     let proposer = node.blockPool.getProposer(head, slot)
     if proposer.isNone():
       raise newException(CatchableError, "could not retrieve block for slot: " & $slot)
@@ -386,14 +362,9 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     debug "post_v1_validator_block",
       slot = body.message.slot,
       prop_idx = body.message.proposer_index
+    let head = node.doChecksAndGetHead(body.message.slot)
 
-    let head = node.updateHead()
     if head.slot >= body.message.slot:
-      warn "Skipping proposal, have newer head already",
-        headSlot = shortLog(head.slot),
-        headBlockRoot = shortLog(head.root),
-        slot = shortLog(body.message.slot),
-        cat = "fastforward"
       raise newException(CatchableError,
         "Proposal is for a past slot: " & $body.message.slot)
     if head == await proposeSignedBlock(node, head, AttachedValidator(), 
@@ -403,10 +374,9 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
 
   rpcServer.rpc("get_v1_validator_attestation") do (
       slot: Slot, committee_index: CommitteeIndex) -> AttestationData:
-    let head = node.updateHead()
-    boundsCheckRequestAgainstBlockRef(slot, head)
-    let attestationHead = head.atSlot(slot)
-    node.blockPool.withState(node.blockPool.tmpState, attestationHead):
+    let head = node.doChecksAndGetHead(slot)
+
+    node.blockPool.withState(node.blockPool.tmpState, head.atSlot(slot)):
       return makeAttestationData(state, slot, committee_index.uint64, blck.root)
 
   rpcServer.rpc("get_v1_validator_aggregate_and_proof") do (
@@ -416,14 +386,14 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
 
   rpcServer.rpc("post_v1_validator_aggregate_and_proof") do (
       payload: SignedAggregateAndProof) -> bool:
-    node.network.broadcast(node.topicAggregateAndProofs, payload)
-    return true
+    debug "post_v1_validator_aggregate_and_proof"
+    raise newException(CatchableError, "Not implemented")
 
   rpcServer.rpc("post_v1_validator_duties_attester") do (
       epoch: Epoch, public_keys: seq[ValidatorPubKey]) -> seq[AttesterDuties]:
     debug "post_v1_validator_duties_attester", epoch = epoch
-    let head = node.updateHead()
-    boundsCheckRequestAgainstBlockRef(epoch, head)
+    let head = node.doChecksAndGetHead(epoch)
+
     let attestationHead = head.atSlot(compute_start_slot_at_epoch(epoch))
     node.blockPool.withState(node.blockPool.tmpState, attestationHead):
       for pubkey in public_keys:
@@ -441,8 +411,8 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("get_v1_validator_duties_proposer") do (
       epoch: Epoch) -> seq[ValidatorPubkeySlotPair]:
     debug "get_v1_validator_duties_proposer", epoch = epoch
-    let head = node.updateHead()
-    boundsCheckRequestAgainstBlockRef(epoch, head)
+    let head = node.doChecksAndGetHead(epoch)
+
     for i in 0 ..< SLOTS_PER_EPOCH:
       let currSlot = (compute_start_slot_at_epoch(epoch).int + i).Slot
       let proposer = node.blockPool.getProposer(head, currSlot)
