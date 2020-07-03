@@ -1,5 +1,5 @@
-[book] 
-authors = ["Lee Ting Ting"]
+[book]
+authors = ["Lee Ting Ting", "Jacek Sieka"]
 language = "en"
 multilingual = false
 src = "src"

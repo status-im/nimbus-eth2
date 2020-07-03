@@ -1,16 +1,69 @@
-# Command-line Options
+# The beacon node
 
-You can run your customized beacon node using the `beacon_node` executable. The available options are shown below - you can also run `beacon_node --help` for a reminder.
+The beacon node application connects to an Ethereum 2 network, manages the block chain and provides API's to interact with the beacon chain.
+
+You can run the beacon node without being a validator - doing so will allow you to sync the network and access its latest state.
 
 ## Prerequisites
 
-Specifying a genesis file is mandatory to run this executable. You can either get it from the official eth2 repository [here](https://github.com/eth2-clients/eth2-testnets/blob/master/shared/witti/genesis.ssz) or generate your own like [this](https://github.com/status-im/nim-beacon-chain/blob/db92c2f2549a339be60896c3907cefdb394b5e11/scripts/launch_local_testnet.sh#L154) when starting a local testnet. You can also specify the path of your genesis file like [this](https://github.com/status-im/nim-beacon-chain/blob/db92c2f2549a339be60896c3907cefdb394b5e11/scripts/launch_local_testnet.sh#L229).
+Before compiling and running the application, make sure you've completed the [installation guidelines](./install.md) for the prerequisites.
 
-For example, download a genesis file and then run the following command to start the node:
+## Running the node
 
-<img src="./img/beacon_node_example.PNG" alt="" style="margin: 0 40 0 40"/>
+When running the beacon node, you connect to a specific ethereum 2 network - this may be a private network or a public testnet like [altona](https://github.com/goerli/altona/tree/master/altona).
 
-## Usage
+When running the node for the first time, you need to specify network parameters, boot nodes and genesis information. This information can typically be found in the [eth2 testnets](https://github.com/eth2-clients/eth2-testnets) repository. This information is automatically downloaded when using the simplified startup.
+
+Once the beacon node is running, it will first connect to the boot nodes in the network, look for more peers and start syncing the chain. Once sync is complete, it will keep following the head of the chain and can be interacted with through the [API](./api.md).
+
+Before running the beacon node, it is important that computer has the correct time set - preferably from a trusted time source (this can be an NTP server you trust, GPS time or any other precise source of time).
+
+To start syncing the `altona` network, run the build process. When asked for a key, just press enter.
+
+```
+$ make altona
+
+# Build output...
+
+Please enter your Goerli Eth1 private key in hex form (e.g. 0x1a2...f3c) in order to become a validator (you'll need access to 32 GoETH).
+Hit Enter to skip this.
+>
+```
+
+Hit enter above - you will be prompted again if you want to become a validator. Beacon node will launch and start syncing.
+
+```
+INF 2020-07-03 15:28:15+02:00 Starting beacon node                       topics="beacnde" tid=176865 file=beacon_node.nim:866 SECONDS_PER_SLOT=12 SLOTS_PER_EPOCH=32 SPEC_VERSION=0.12.1 cat=init dataDir=/home/arnetheduck/status/nim-beacon-chain/build/data/shared_altona_0 finalizedRoot=72e7b21c finalizedSlot=20064 headRoot=f92bf720 headSlot=20142 nim="Nim Compiler Version 1.2.2 [Linux: amd64] (be34b5ab)" pcs=start_beacon_node timeSinceFinalization=-108322 version="0.5.0 (c64737e)"
+
+
+ peers: 7 ❯ finalized: 3a806c9f:634 ❯ head: b364f8e9:636:29 ❯ time: 909:7 (29095)              ETH: 0.0
+
+```
+
+### Status bar
+
+The status bar shows important health information about your node:
+
+* peers - The number of peers you're connected to
+* finalized - The block root and epoch of the latest finalized checkpoint - when the network is healthy, this value will stay at 2-3 epochs from the wall clock
+* head - The block root and time of the head block - as blocks are produced and processed, this will be updated to the latest head block as chosen by the consensus algorithm.
+* time - The current wall time according to your computer - when the node is synced, the head block will closely follow this time.
+* ETH: the total ETH validators attached to the node have accumulated. When there are no validators attached, this number will be 0.
+
+Time is shown as `epoch:subslot`, starting from the block chain genesis time - one epoch is typically 32 slots but this may vary between networks.
+
+The status bar content may be updated using command line flags.
+
+### Metrics
+
+Nimbus includes metrics support using the Prometheus format. To enable it, you need to enable insecure feature when compiling the application. The http server that exports Prometheus metrics should not be exposed to external parties.
+
+```
+# Compile with insecure features enabled
+make NIMFLAGS="-d:insecure" altona
+```
+
+## Command line options
 
 ```
 $ ./beacon_node --help
@@ -141,3 +194,7 @@ beacon_node_shared_altona_0 wallets list
 
 Lists details about all wallets.
 ```
+
+## Next steps
+
+Once you're synced, you can move on to become a [validator](./validator.md).

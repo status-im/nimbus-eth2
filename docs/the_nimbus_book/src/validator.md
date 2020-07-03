@@ -2,6 +2,8 @@
 
 To become a validator, you need to install the beacon chain software, acquire 32 ETH, set up your validator account and register with the deposit contract on Ethereum.
 
+Before becoming a validator, you can [run the beacon node](./beacon_node.md) itself and sync the network.
+
 There is currently no Eth2 mainnet - all networks are testnets.
 
 ## Recommended Testnets
@@ -12,6 +14,8 @@ Though Nimbus can connect to any of the testnets published in the [eth2-clients/
 - Nimbus Testnet: testnet0 (experimental, not always active)
 
 ## Altona
+
+The steps to connect to any testnet are similar - we'll use altona as an example.
 
 ### Initial setup
 
