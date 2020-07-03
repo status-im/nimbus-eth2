@@ -44,16 +44,6 @@ proc setupMainProc*(logLevel: string) =
     stderr.write "Invalid value for --log-level. " & err.msg
     quit 1
 
-template ctrlCHandling*(extraCode: untyped) =
-  ## Ctrl+C handling
-  proc controlCHandler() {.noconv.} =
-    when defined(windows):
-      # workaround for https://github.com/nim-lang/Nim/issues/4057
-      setupForeignThreadGc()
-    info "Shutting down after having received SIGINT"
-    extraCode
-  setControlCHook(controlCHandler)
-
 template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
   let
     version = clientId & "\p" & copyrights & "\p\p" &

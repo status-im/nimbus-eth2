@@ -44,18 +44,6 @@ type
     attestationsForEpoch: Table[Epoch, Table[Slot, seq[AttesterDuties]]]
     beaconGenesis: BeaconGenesisTuple
 
-proc connectToBN(vc: ValidatorClient) {.gcsafe, async.} =
-  while true:
-    try:
-      await vc.client.connect($vc.config.rpcAddress, Port(vc.config.rpcPort))
-      info "Connected to BN",
-        port = vc.config.rpcPort,
-        address = vc.config.rpcAddress
-      return
-    except CatchableError as err:
-      warn "Could not connect to the BN - retrying!", err = err.msg
-    await sleepAsync(chronos.seconds(1)) # 1 second before retrying
-
 template attemptUntilSuccess(vc: ValidatorClient, body: untyped) =
   while true:
     try:
@@ -63,9 +51,11 @@ template attemptUntilSuccess(vc: ValidatorClient, body: untyped) =
       break
     except CatchableError as err:
       warn "Caught an unexpected error", err = err.msg
-    waitFor vc.connectToBN()
+    waitFor sleepAsync(chronos.seconds(1)) # 1 second before retrying
 
 proc getValidatorDutiesForEpoch(vc: ValidatorClient, epoch: Epoch) {.gcsafe, async.} =
+  info "Getting validator duties for epoch", epoch = epoch
+
   let proposals = await vc.client.get_v1_validator_duties_proposer(epoch)
   # update the block proposal duties this VC should do during this epoch
   vc.proposalsForCurrentEpoch.clear()
@@ -79,28 +69,34 @@ proc getValidatorDutiesForEpoch(vc: ValidatorClient, epoch: Epoch) {.gcsafe, asy
     validatorPubkeys.add key
 
   proc getAttesterDutiesForEpoch(epoch: Epoch) {.gcsafe, async.} =
-    let attestations = await vc.client.post_v1_validator_duties_attester(
-      epoch, validatorPubkeys)
     # make sure there's an entry
     if not vc.attestationsForEpoch.contains epoch:
       vc.attestationsForEpoch.add(epoch, Table[Slot, seq[AttesterDuties]]())
+    let attestations = await vc.client.post_v1_validator_duties_attester(
+      epoch, validatorPubkeys)
     for a in attestations:
       if vc.attestationsForEpoch[epoch].hasKeyOrPut(a.slot, @[a]):
         vc.attestationsForEpoch[epoch][a.slot].add(a)
 
+  # clear both for the current epoch and the next because a change of
+  # fork could invalidate the attester duties even the current epoch
+  vc.attestationsForEpoch.clear()
+  await getAttesterDutiesForEpoch(epoch)
   # obtain the attestation duties this VC should do during the next epoch
+  # TODO currently we aren't making use of this but perhaps we should
   await getAttesterDutiesForEpoch(epoch + 1)
-  # also get the attestation duties for the current epoch if missing
-  if not vc.attestationsForEpoch.contains epoch:
-    await getAttesterDutiesForEpoch(epoch)
-  # cleanup old epoch attestation duties
-  vc.attestationsForEpoch.del(epoch - 1)
-  # TODO handle subscriptions to beacon committees for both the next epoch and
-  # for the current if missing (beacon_committee_subscriptions from the REST api)
 
   # for now we will get the fork each time we update the validator duties for each epoch
   # TODO should poll occasionally `/v1/config/fork_schedule`
   vc.fork = await vc.client.get_v1_beacon_states_fork("head")
+
+  var numAttestationsForEpoch = 0
+  for _, dutiesForSlot in vc.attestationsForEpoch[epoch]:
+    numAttestationsForEpoch += dutiesForSlot.len
+
+  info "Got validator duties for epoch",
+    num_proposals = vc.proposalsForCurrentEpoch.len,
+    num_attestations = numAttestationsForEpoch
 
 proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, async.} =
 
@@ -135,18 +131,20 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
       let public_key = vc.proposalsForCurrentEpoch[slot]
       let validator = vc.attachedValidators.validators[public_key]
 
+      info "Proposing block", slot = slot, public_key = public_key
+
       let randao_reveal = validator.genRandaoReveal(
         vc.fork, vc.beaconGenesis.genesis_validators_root, slot)
 
       var newBlock = SignedBeaconBlock(
-          message: await vc.client.get_v1_validator_blocks(slot, Eth2Digest(), randao_reveal)
+          message: await vc.client.get_v1_validator_block(slot, Eth2Digest(), randao_reveal)
         )
 
       let blockRoot = hash_tree_root(newBlock.message)
       newBlock.signature = await validator.signBlockProposal(
         vc.fork, vc.beaconGenesis.genesis_validators_root, slot, blockRoot)
 
-      discard await vc.client.post_v1_beacon_blocks(newBlock)
+      discard await vc.client.post_v1_validator_block(newBlock)
 
     # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#attesting
     # A validator should create and broadcast the attestation to the associated
@@ -158,11 +156,13 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
       seconds(int64(SECONDS_PER_SLOT)) div 3, slot, "Waiting to send attestations")
 
     # check if we have validators which need to attest on this slot
-    if vc.attestationsForEpoch[epoch].contains slot:
+    if vc.attestationsForEpoch.contains(epoch) and
+        vc.attestationsForEpoch[epoch].contains slot:
       for a in vc.attestationsForEpoch[epoch][slot]:
-        let validator = vc.attachedValidators.validators[a.public_key]
+        info "Attesting", slot = slot, public_key = a.public_key
 
-        let ad = await vc.client.get_v1_validator_attestation_data(slot, a.committee_index)
+        let validator = vc.attachedValidators.validators[a.public_key]
+        let ad = await vc.client.get_v1_validator_attestation(slot, a.committee_index)
 
         # TODO I don't like these (u)int64-to-int conversions...
         let attestation = await validator.produceAndSignAttestation(
@@ -173,7 +173,6 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
 
   except CatchableError as err:
     warn "Caught an unexpected error", err = err.msg, slot = shortLog(slot)
-    await vc.connectToBN()
 
   let
     nextSlotStart = saturate(vc.beaconClock.fromNow(nextSlot))
@@ -202,10 +201,6 @@ programMain:
 
   setupMainProc(config.logLevel)
 
-  # TODO figure out how to re-enable this without the VCs continuing
-  # to run when `make eth2_network_simulation` is killed with CTRL+C
-  #ctrlCHandling: discard
-
   case config.cmd
   of VCNoCommand:
     debug "Launching validator client",
@@ -222,7 +217,10 @@ programMain:
     for curr in vc.config.validatorKeys:
       vc.attachedValidators.addLocalValidator(curr.toPubKey, curr)
 
-    waitFor vc.connectToBN()
+    waitFor vc.client.connect($vc.config.rpcAddress, Port(vc.config.rpcPort))
+    info "Connected to BN",
+      port = vc.config.rpcPort,
+      address = vc.config.rpcAddress
 
     vc.attemptUntilSuccess:
       # init the beacon clock
