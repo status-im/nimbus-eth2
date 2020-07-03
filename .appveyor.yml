@@ -34,7 +34,7 @@ build_script:
 
 test_script:
   - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% LOG_LEVEL=TRACE
-  - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image"
+  - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" beacon_node
   - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% DISABLE_TEST_FIXTURES_SCRIPT=1 test
 
 deploy: off
