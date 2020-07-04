@@ -586,7 +586,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
       peer.updateScore(PeerScoreGoodBlocks)
     return res
 
-  let queue = SyncQueue.init(A, getLocalHeadSlotCb(), getLocalWallSlotCb(),
+  let queue = SyncQueue.init(A, getFSAFECb(), getLocalWallSlotCb(),
                              chunkSize, syncUpdate, getFSAFECb, 2)
 
   result = SyncManager[A, B](
@@ -875,7 +875,7 @@ proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
                 debug "Synchronization lost, restoring",
                       wall_head_slot = wallSlot, local_head_slot = headSlot,
                       queue_last_slot = man.queue.lastSlot, topics = "syncman"
-                man.queue = SyncQueue.init(A, headSlot, wallSlot,
+                man.queue = SyncQueue.init(A, man.getFirstSlotAFE(), wallSlot,
                                            man.chunkSize, man.syncUpdate,
                                            man.getFirstSlotAFE, 2)
 
