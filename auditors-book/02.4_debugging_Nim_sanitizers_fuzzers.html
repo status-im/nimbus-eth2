@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Nim FAQ - The Auditors Handbook to Nimbus Beacon Chain</title>
+        <title>Debugging Nim, sanitizers, fuzzers - The Auditors Handbook to Nimbus Beacon Chain</title>
         
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="01_introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="02_the_Nim_programming_language.html"><strong aria-hidden="true">2.</strong> The Nim Programming Language</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="02.1_nim_routines_proc_func_templates_macros.html"><strong aria-hidden="true">2.1.</strong> Nim routines, procedures, functions, templates, macros</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="02.1.1_operators_bit_manipulation.html"><strong aria-hidden="true">2.1.1.</strong> Operators, bit manipulation</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="02.2_stack_ref_ptr_types.html"><strong aria-hidden="true">3.</strong> Datatypes: value, ref, ptr</a></li><li class="chapter-item expanded "><a href="02.3_correctness_distinct_mutability_effects_exceptions.html"><strong aria-hidden="true">4.</strong> Correctness: distinct, mutability, effects, exceptions</a></li><li class="chapter-item expanded "><a href="02.4_debugging_Nim_sanitizers_fuzzers.html"><strong aria-hidden="true">5.</strong> Debugging Nim, sanitizers, fuzzers</a></li><li class="chapter-item expanded "><a href="02.5_foreign_lang_to_from_interop.html"><strong aria-hidden="true">6.</strong> Foreign lang interop: C and C++</a></li><li class="chapter-item expanded "><a href="02.8_Nim_threat_model.html"><strong aria-hidden="true">7.</strong> Nim threat model</a></li><li class="chapter-item expanded "><a href="02.10_Nim_FAQ.html" class="active"><strong aria-hidden="true">8.</strong> Nim FAQ</a></li><li class="chapter-item expanded "><a href="03_nbc_nimbus_beacon_chain.html"><strong aria-hidden="true">9.</strong> Nimbus NBC - The Nim-Beacon-Chain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="03.2_build_system_and_dependencies.html"><strong aria-hidden="true">9.1.</strong> Build system and dependencies</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="01_introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="02_the_Nim_programming_language.html"><strong aria-hidden="true">2.</strong> The Nim Programming Language</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="02.1_nim_routines_proc_func_templates_macros.html"><strong aria-hidden="true">2.1.</strong> Nim routines, procedures, functions, templates, macros</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="02.1.1_operators_bit_manipulation.html"><strong aria-hidden="true">2.1.1.</strong> Operators, bit manipulation</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="02.2_stack_ref_ptr_types.html"><strong aria-hidden="true">3.</strong> Datatypes: value, ref, ptr</a></li><li class="chapter-item expanded "><a href="02.3_correctness_distinct_mutability_effects_exceptions.html"><strong aria-hidden="true">4.</strong> Correctness: distinct, mutability, effects, exceptions</a></li><li class="chapter-item expanded "><a href="02.4_debugging_Nim_sanitizers_fuzzers.html" class="active"><strong aria-hidden="true">5.</strong> Debugging Nim, sanitizers, fuzzers</a></li><li class="chapter-item expanded "><a href="02.5_foreign_lang_to_from_interop.html"><strong aria-hidden="true">6.</strong> Foreign lang interop: C and C++</a></li><li class="chapter-item expanded "><a href="02.8_Nim_threat_model.html"><strong aria-hidden="true">7.</strong> Nim threat model</a></li><li class="chapter-item expanded "><a href="02.10_Nim_FAQ.html"><strong aria-hidden="true">8.</strong> Nim FAQ</a></li><li class="chapter-item expanded "><a href="03_nbc_nimbus_beacon_chain.html"><strong aria-hidden="true">9.</strong> Nimbus NBC - The Nim-Beacon-Chain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="03.2_build_system_and_dependencies.html"><strong aria-hidden="true">9.1.</strong> Build system and dependencies</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -147,20 +147,72 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#nim-faq" id="nim-faq">Nim FAQ</a></h1>
+                        <h1><a class="header" href="#debugging-nim" id="debugging-nim">Debugging Nim</a></h1>
+<p>Reference article: https://nim-lang.org/blog/2017/10/02/documenting-profiling-and-debugging-nim-code.html</p>
+<h2><a class="header" href="#gdb--lldb" id="gdb--lldb">GDB / LLDB</a></h2>
+<p>Nim can be instrumented with sourcemaps:</p>
+<ul>
+<li>by passing <code>--debugger:native</code> to the compiler, so that the stacktraces in gdb shows the Nim source code</li>
+<li>by passing <code>--passC:&quot;-g&quot;</code> to the compiler, so that the stacktraces in gdb shows the C source code</li>
+</ul>
+<h2><a class="header" href="#sanitizers--valgrind" id="sanitizers--valgrind">Sanitizers &amp; Valgrind</a></h2>
+<p>LLVM and GCC sanitizers can be used with</p>
+<pre><code class="language-Nim">nim c --cc:clang -r -d:release --debugger:native \
+  --passC:&quot;-fsanitize=address&quot; --passL:&quot;-fsanitize=address&quot; \
+  --outdir:build target_application.nim
+</code></pre>
+<p>Note on deactivating Nim memory allocator:</p>
+<p>As mentioned in the memory management section, Nim has</p>
+<ul>
+<li>a garbage collector, by default deferred reference counting + cycle detection via mark-and-sweep if the types can have cycles (and is not tagged {.acyclic.})</li>
+<li>an allocator based on TLSF</li>
+</ul>
+<p>Instead of Nim custom allocators, the sys malloc/free can be used by passing
+<code>-d:useMalloc</code> in the command-line</p>
+<p><em>Some GC/versions might not properly accept the flag, this is a Nim bug and we can patch upstream and our own fork in that case</em></p>
+<h2><a class="header" href="#fuzzers" id="fuzzers">Fuzzers</a></h2>
+<p>TODO</p>
+<h3><a class="header" href="#internal-fuzzing" id="internal-fuzzing">Internal fuzzing</a></h3>
+<p>We are currently adding fuzzing to our repositories via libFuzzer and AFL.</p>
+<ul>
+<li>Fuzzing abstraction: https://github.com/status-im/nim-testutils</li>
+<li>Network lib fuzzing: https://github.com/status-im/nim-eth/tree/4f533eb5/tests/fuzzing</li>
+<li>Eth2 core/Validator core fuzzing: https://github.com/status-im/nim-blscurve/tree/271a5738/tests/fuzzing</li>
+</ul>
+<h3><a class="header" href="#external-consensus-fuzzing" id="external-consensus-fuzzing">External &quot;Consensus&quot; fuzzing</a></h3>
+<p>Sigma Prima is fuzzing all Ethereum 2 clients on the spec (Eth2 core/Validator core)</p>
+<p>We provide them with a simple C API</p>
+<ul>
+<li>https://github.com/status-im/nim-beacon-chain/blob/4a2e1806/nfuzz/libnfuzz.h</li>
+</ul>
+<p>That we implement:</p>
+<ul>
+<li>https://github.com/status-im/nim-beacon-chain/blob/4a2e1806/nfuzz/libnfuzz.nim</li>
+</ul>
+<p>And compile the nim code as a shared or static library.</p>
+<p>On usage, the only extra limitation compared to a C library is the need to call <code>NimMain()</code> before calling any Nim function to initialize the Nim runtime.</p>
+<h2><a class="header" href="#inspecting-the-generated-intermediate-code-and-objects" id="inspecting-the-generated-intermediate-code-and-objects">Inspecting the generated intermediate code and objects</a></h2>
+<p>The intermediate C code and object files are stored in</p>
+<ul>
+<li><code>$HOME/.cache/nim/compiled_target_d</code> or <code>$HOME/.cache/nim/compiled_target_r</code> on UNIX (d for debug, r for release)</li>
+<li><code>$HOME/nimcache/compiled_target_d</code> or <code>$HOME/.cache/nim/compiled_target_r</code> on Windows</li>
+</ul>
+<p>The cache directory can be set with the <code>--nimcache=&lt;targetdir&gt;</code> compiler flag.</p>
+<p>Repositories vendoring <code>nimbus-build-system</code> do not use the default setting
+but generate directly in the (gitignored) <code>nimcache</code> folder of the repo.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="02.8_Nim_threat_model.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="02.3_correctness_distinct_mutability_effects_exceptions.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
                         
-                            <a rel="next" href="03_nbc_nimbus_beacon_chain.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="02.5_foreign_lang_to_from_interop.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -172,13 +224,13 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="02.8_Nim_threat_model.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="02.3_correctness_distinct_mutability_effects_exceptions.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a rel="next" href="03_nbc_nimbus_beacon_chain.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="02.5_foreign_lang_to_from_interop.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 

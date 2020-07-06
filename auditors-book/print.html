@@ -83,7 +83,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="01_introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="02_the_Nim_programming_language.html"><strong aria-hidden="true">2.</strong> The Nim Programming Language</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="02.10_Nim_FAQ.html"><strong aria-hidden="true">2.1.</strong> Nim FAQ</a></li></ol></li><li class="chapter-item expanded "><a href="03_nbc_nimbus_beacon_chain.html"><strong aria-hidden="true">3.</strong> Nimbus NBC - The Nim-Beacon-Chain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="03.2_build_system_and_dependencies.html"><strong aria-hidden="true">3.1.</strong> Build system and dependencies</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="01_introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="02_the_Nim_programming_language.html"><strong aria-hidden="true">2.</strong> The Nim Programming Language</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="02.1_nim_routines_proc_func_templates_macros.html"><strong aria-hidden="true">2.1.</strong> Nim routines, procedures, functions, templates, macros</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="02.1.1_operators_bit_manipulation.html"><strong aria-hidden="true">2.1.1.</strong> Operators, bit manipulation</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="02.2_stack_ref_ptr_types.html"><strong aria-hidden="true">3.</strong> Datatypes: value, ref, ptr</a></li><li class="chapter-item expanded "><a href="02.3_correctness_distinct_mutability_effects_exceptions.html"><strong aria-hidden="true">4.</strong> Correctness: distinct, mutability, effects, exceptions</a></li><li class="chapter-item expanded "><a href="02.4_debugging_Nim_sanitizers_fuzzers.html"><strong aria-hidden="true">5.</strong> Debugging Nim, sanitizers, fuzzers</a></li><li class="chapter-item expanded "><a href="02.5_foreign_lang_to_from_interop.html"><strong aria-hidden="true">6.</strong> Foreign lang interop: C and C++</a></li><li class="chapter-item expanded "><a href="02.8_Nim_threat_model.html"><strong aria-hidden="true">7.</strong> Nim threat model</a></li><li class="chapter-item expanded "><a href="02.10_Nim_FAQ.html"><strong aria-hidden="true">8.</strong> Nim FAQ</a></li><li class="chapter-item expanded "><a href="03_nbc_nimbus_beacon_chain.html"><strong aria-hidden="true">9.</strong> Nimbus NBC - The Nim-Beacon-Chain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="03.2_build_system_and_dependencies.html"><strong aria-hidden="true">9.1.</strong> Build system and dependencies</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -247,6 +247,555 @@ https://nim-lang.org/docs/manual.html</p>
 <ul>
 <li>https://nim-lang.org/docs/nep1.html</li>
 </ul>
+<h1><a class="header" href="#nim-routines" id="nim-routines">Nim Routines</a></h1>
+<p>Nim offers several kinds of &quot;routines&quot; that:</p>
+<ul>
+<li>do computation</li>
+<li>produce side-effect</li>
+<li>generate code</li>
+</ul>
+<p>Those are:</p>
+<ul>
+<li><code>proc</code> and <code>func</code></li>
+<li><code>method</code></li>
+<li><code>converter</code></li>
+<li><code>iterator</code></li>
+<li><code>template</code></li>
+<li><code>macro</code></li>
+</ul>
+<h2><a class="header" href="#proc-and-func" id="proc-and-func"><code>proc</code> and <code>func</code></a></h2>
+<p><code>proc</code> and <code>func</code> are the most basic routines.</p>
+<p>At the moment, Nim requires forward declaration of proc and func.
+Also it prevents circular dependencies, this means that a procedure is
+always coming from one of the imports.</p>
+<p>Additionally, all dependencies are submodules and a proc can be found by greping
+<code>procname*</code>, the <code>*</code> being the export marker.</p>
+<p>The only exception being the standard library. Procedures from the standard library are all listed in &quot;<a href="https://nim-lang.org/docs/theindex.html">The Index</a>&quot;.</p>
+<h3><a class="header" href="#function-call-syntax" id="function-call-syntax">Function call syntax</a></h3>
+<p>Nim provides flexible call syntax, the following are possible:</p>
+<pre><code class="language-Nim">prof foo(a: int) =
+  discard
+
+foo(a)
+foo a
+a.foo()
+a.foo
+</code></pre>
+<p>Additionally this is also possible for strings:</p>
+<pre><code class="language-Nim">let a = fromHex&quot;0x12345&quot; # Without spaces
+</code></pre>
+<p>Nim doesn't enforce namespacing by default but is an option</p>
+<pre><code class="language-Nim">let a = byteutils.fromhex&quot;0x12345&quot;
+</code></pre>
+<h3><a class="header" href="#parameters" id="parameters">Parameters</a></h3>
+<p>Mutable parameters must be tagged with <code>var</code></p>
+<p>TODO</p>
+<h3><a class="header" href="#symbol-resolution" id="symbol-resolution">Symbol resolution</a></h3>
+<p>If 2 procedures are visible in the same module (a module is a file) and
+have the same name the compiler will infer which to call from the arguments
+signatures. In case both are applicable, the compiler will throw an &quot;ambiguous call&quot; compile-time error.</p>
+<p>Note that a procedure specialized to a concrete type has priority over a generic procedure, for example a procedure for int64 over a procedure for all number types.</p>
+<h3><a class="header" href="#func-and-side-effect-analysis" id="func-and-side-effect-analysis"><code>func</code> and side effect analysis</a></h3>
+<p>In Nim a proc is considered to have side-effect if it accesses a global variable.
+Mutating a declared function parameter is not considered a side-effect as there is no access to a global variable.
+Printing to the standard output or reading the standard input is considered a sideeffect.</p>
+<p><code>func</code> are syntactic sugar for <code>proc</code> without sideeffects. In particular this means that <code>func</code> behaviors are fully determined by their input parameters.</p>
+<p>In the codebase, logging at the <code>trace</code> level are not considered a sideeffect.</p>
+<p>Additionally some logging statements and metrics statement may be in an explicit <code>{.noSideEffect.}:</code> code-block.</p>
+<h3><a class="header" href="#returning-values" id="returning-values">Returning values</a></h3>
+<p>There are 3 syntaxes to return a value from a procedure:</p>
+<ol>
+<li>The return statement</li>
+<li>The implicit <code>result</code> variable</li>
+<li>The &quot;last statement as expression&quot;</li>
+</ol>
+<pre><code class="language-Nim">proc add1(x: int): int =
+  return x + 1
+
+proc add2(x: int): int =
+  result = x + 2
+
+proc add3(x: int): int =
+  x + 3
+</code></pre>
+<p>The main differences are:</p>
+<ol>
+<li><code>return</code> allows early returns, in particular from a loop.</li>
+<li><code>result</code> offers Return Value Optimization and Copy Elision
+which is particularly valuable for array types.</li>
+<li>Requires the last statement to be a valid expression.
+This is particularly interesting for conditional return values
+as forgetting to set the value in a branch will be a compile-time error,
+for example:
+<pre><code class="language-Nim">proc select(ctl: bool, a, b: int): int =
+  if ctl:
+    echo &quot;heavy processing&quot;
+    a
+  else:
+    echo &quot;heavy processing&quot;
+    b
+</code></pre>
+Omitting <code>a</code> or <code>b</code> will be a compiletime error, unlike
+<pre><code class="language-Nim">proc select(ctl: bool, a, b: int): int =
+  if ctl:
+    echo &quot;heavy processing&quot;
+    return a
+  else:
+    echo &quot;heavy processing&quot;
+    # Forgot to return b
+</code></pre>
+<pre><code class="language-Nim">proc select(ctl: bool, a, b: int): int =
+  if ctl:
+    echo &quot;heavy processing&quot;
+    result = a
+  else:
+    echo &quot;heavy processing&quot;
+    # Forgot to result = b
+</code></pre>
+</li>
+</ol>
+<p>Due to the differences we prefer using the &quot;last statement as expression&quot; unless</p>
+<ul>
+<li>copying the type is expensive (SHA256 hash for example)</li>
+<li>or we need early returns</li>
+</ul>
+<h4><a class="header" href="#ignoring-return-values" id="ignoring-return-values">Ignoring return values</a></h4>
+<p>Unlike C, return values MUST be used or explicitly discarded.</p>
+<h4><a class="header" href="#mutable-return-values" id="mutable-return-values">Mutable return values</a></h4>
+<p>TODO</p>
+<h3><a class="header" href="#at-a-low-level" id="at-a-low-level">At a low-level</a></h3>
+<h4><a class="header" href="#argument-passing" id="argument-passing">Argument passing</a></h4>
+<p>Nim passes arguments by value if they take less than 3*sizeof(pointer) (i.e. 24 bytes on 64-bit OS) and passes them by pointer with the C backend or reference with the C++ backend if they are bigger.
+Mutable arguments are always passed by pointer.</p>
+<p>This behavior can be changed on a type-by-type bases by tagging them {.bycopy.} or {.byref.}. This is only used for interfacing with non-Nim code.</p>
+<h4><a class="header" href="#stacktraces" id="stacktraces">Stacktraces</a></h4>
+<p>With <code>--stacktrace:on</code>, Nim create a stackframe on <code>proc</code> entry and destroys it on exit. This is used for reporting stacktraces.</p>
+<p>NBC is always compiled with <code>--stacktraces:on</code></p>
+<p>NBC uses <a href="https://github.com/ianlancetaylor/libbacktrace">libbacktrace</a> to have less costly stacktraces.</p>
+<h4><a class="header" href="#name-in-the-c-code-or-assembly" id="name-in-the-c-code-or-assembly">Name in the C code or Assembly</a></h4>
+<p><code>proc</code> and <code>func</code> are materialized in the produced C code with name-mangling appended at the end. For the purpose of building Nim libraries, the name can be controlled by:</p>
+<ul>
+<li><code>{.exportc.}</code> so that the generated C name is the same as Nim</li>
+<li>`{.exportc: &quot;specific_name&quot;.} to generate a specific name</li>
+</ul>
+<h2><a class="header" href="#method" id="method"><code>method</code></a></h2>
+<p><code>method</code>s are used for dynamic dispatch when an object has an inherited subtype only known at runtime.</p>
+<p><code>method</code> are dispatched using a dispatch tree in the C code instead of a VTable.</p>
+<p>There might be some cases where <code>method</code> were used not for their intended purpose</p>
+<h2><a class="header" href="#converter" id="converter"><code>converter</code></a></h2>
+<p>Converters are procedures that are implicitly called on a value to change its type.</p>
+<p>For example with a fictional option type that automatically extracts the boxed type.</p>
+<pre><code class="language-Nim">type Option[T] = object
+  case hasValue: bool
+  of true:
+    value: T
+  else:
+    discard
+
+converter get[T](x: Option[T]): T =
+  x.value
+
+let x = Option[int](hasValue: true, value: 1)
+let y = Option[int](hasValue: true, value: 2)
+
+let z = x + y
+</code></pre>
+<p>Even though the <code>+</code> operator is not defined for <code>Option[int]</code> it is defined for <code>int</code> and Nim implicitly calls the converter.</p>
+<p><code>converter</code> are seldom used in the codebase as we prefer explicit over implicit.</p>
+<p>Note that in case an operation is defined on both the convertible and the converted type, the operation without conversion should be preferred however <a href="https://github.com/nim-lang/Nim/issues/7416">the compiler might throw an ambiguous call instead</a>.</p>
+<h2><a class="header" href="#iterators" id="iterators">Iterators</a></h2>
+<p>Iterators are construct that transforms a for loop.</p>
+<p>For example to iterate on a custom array collection</p>
+<pre><code class="language-Nim">const MaxSize = 7
+
+type SmallVec[T] = object
+    buffer*: array[MaxSize, T]
+    len*: int
+
+iterator items*[T](a: SmallVec[T]): T =
+  for i in 0 ..&lt; a.len:
+    yield a.data[i]
+</code></pre>
+<p>Now iterating becomes</p>
+<pre><code class="language-Nim">for value in a.items():
+  echo a
+</code></pre>
+<p>A singly-linked list forward iterator could be implemented as</p>
+<pre><code class="language-Nim">iterator items[T](head: ref T): ref T =
+  ## Singly-linked list iterator
+  assert: not head.isNil
+  var cur = head
+  while true:
+    let next = cur.next
+    yield cur
+    cur = next
+    if cur.isNil:
+      break
+</code></pre>
+<p>a doubly-linked list backward iterator as</p>
+<pre><code class="language-Nim">iterator backward[T](tail: ptr T): ptr T =
+  var cur = tail
+  while not cur.isNil:
+    let prev = cur.prev
+    yield cur
+    cur = prev
+</code></pre>
+<p>an iterator to unpack individual bits from a byte as:</p>
+<pre><code class="language-Nim">iterator unpack(scalarByte: byte): bool =
+  yield bool((scalarByte and 0b10000000) shr 7)
+  yield bool((scalarByte and 0b01000000) shr 6)
+  yield bool((scalarByte and 0b00100000) shr 5)
+  yield bool((scalarByte and 0b00010000) shr 4)
+  yield bool((scalarByte and 0b00001000) shr 3)
+  yield bool((scalarByte and 0b00000100) shr 2)
+  yield bool((scalarByte and 0b00000010) shr 1)
+  yield bool( scalarByte and 0b00000001)
+</code></pre>
+<p>In all cases, the syntax to iterate on the collection remains:</p>
+<pre><code class="language-Nim">for value in a.items():
+  echo a
+
+for value in b.backward():
+  echo b
+
+for bit in s.unpack():
+  echo s
+</code></pre>
+<p>The echo is inlined at &quot;yield&quot;.</p>
+<p>Iterators are not present in the produced C code, they are always inlined at the callsite.</p>
+<p>Iterators are prone to code bloat, for example</p>
+<pre><code class="language-Nim">iterator iterate[T](s: seq[T], backward: bool): T =
+  if backward:
+    for i in s.len-1 .. 0:
+      yield s[i]
+  else:
+    for i in 0 ..&lt; s.len:
+      yield s[i]
+
+for value in s.iterate(backward = false):
+  ## Long-series of operations
+  echo value
+</code></pre>
+<p>The long series of operation will be duplicated.</p>
+<h3><a class="header" href="#items-and-pairs" id="items-and-pairs"><code>items</code> and <code>pairs</code></a></h3>
+<p>The <code>items</code> and <code>pairs</code> iterator are special cased and implictly call
+if there is respectively one and two iteration variables hence:</p>
+<pre><code class="language-Nim">for x in collection:
+  echo x
+</code></pre>
+<p>will automatically call the <code>items</code> proc defined for the collection (or error)</p>
+<pre><code class="language-Nim">for x, y in collection:
+  echo x
+  echo y
+</code></pre>
+<p>will automatically call the <code>pairs</code> proc defined for the collection (or error)</p>
+<h3><a class="header" href="#fields-and-fieldpairs" id="fields-and-fieldpairs"><code>fields</code> and <code>fieldPairs</code></a></h3>
+<p><code>fields</code> and <code>fieldsPairs</code> are iterator-like magic, that allow &quot;iterating&quot; on an object field. Note that those are unrolled at compile-time.</p>
+<h2><a class="header" href="#closures-and-closure-iterators" id="closures-and-closure-iterators">Closures and closure iterators</a></h2>
+<p>Will be covered in a dedicated section.</p>
+<p>They are the backbone of Chronos, our async/await framework and also
+have a major potential for memory leaks.</p>
+<h2><a class="header" href="#template" id="template"><code>template</code></a></h2>
+<p><code>template</code>s in Nim allows raw code substitution.</p>
+<p><code>templates</code> are hygienic and typechecked unlike the C preprocessor.
+Also they create their own scope unless tagged with the <code>{.dirty.}</code> pragma.</p>
+<p>A major issue with templates is that as they &quot;copy-paste&quot; code, it is very easy to misuse them and do a computation twice.</p>
+<p>For instance</p>
+<pre><code class="language-Nim">proc foo(): int =
+  echo &quot;launch missile&quot;
+  return 1
+
+template doSomething(a: int) =
+  process(a)
+  log(a)
+</code></pre>
+<p>This would be transformed to:</p>
+<pre><code class="language-Nim">process(foo())
+log(foo())
+</code></pre>
+<p>and triggers the &quot;launch missile&quot; side-effect twice.</p>
+<p>Another issue with templates is that they may not generate stacktraces properly as
+they are not materialized in the C code.</p>
+<h3><a class="header" href="#symbol-visibility-and-inject" id="symbol-visibility-and-inject">Symbol visibility and {.inject.}</a></h3>
+<p>TODO</p>
+<h2><a class="header" href="#macro" id="macro"><code>macro</code></a></h2>
+<p>TODO</p>
+<h2><a class="header" href="#the-do-notation" id="the-do-notation">The <code>do</code> notation</a></h2>
+<p>TODO</p>
+<h1><a class="header" href="#operators-and-bit-manipulation" id="operators-and-bit-manipulation">Operators and bit manipulation</a></h1>
+<h2><a class="header" href="#operators" id="operators">Operators</a></h2>
+<p>A set of symbol and keywords can be used as infix operators
+Nim supports operator overloading.</p>
+<p>Those symbols are:</p>
+<pre><code>=     +     -     *     /     &lt;     &gt;
+@     $     ~     &amp;     %     |
+!     ?     ^     .     :     \
+</code></pre>
+<p>The keyword operators are</p>
+<pre><code>and or not xor shl shr div mod in notin is isnot of as
+</code></pre>
+<p>In-particular:</p>
+<ul>
+<li>bitwise and, or, flip, xor are denoted <code>and</code>, <code>or</code>, <code>not</code>, <code>xor</code> instead of using a symbol</li>
+<li>shift left and right are <code>shl</code> and <code>shr</code></li>
+<li>division and modulo are <code>div</code> and <code>mod</code></li>
+</ul>
+<h3><a class="header" href="#implementation-defined-behaviors" id="implementation-defined-behaviors">Implementation-defined behaviors</a></h3>
+<p><code>mod</code> is defined as the mathematical remainder, like C. With signed integers <code>a mod b</code> has the same sign as <code>a</code></p>
+<p><code>shr</code> of a signed integer will not preserve the sign bit.
+<code>ashr</code> can be used for arithmetic right shift.</p>
+<p>This distinction was introduced recently and may lead to subtle bugs,
+also <code>ashr</code> relies on the C compiler actually lowering <code>&gt;&gt;</code> to SAR for signed integer.
+This is specified for GCC and Clang (https://gcc.gnu.org/onlinedocs/gcc/Integers-implementation.html#Integers-implementation)
+but implementation defined in general.</p>
+<h3><a class="header" href="#operator-precedence" id="operator-precedence">Operator precedence</a></h3>
+<p>Operator precedence is specified described in the manual:</p>
+<p>https://nim-lang.org/docs/manual.html#syntax-precedence</p>
+<h3><a class="header" href="#additional-system-operators" id="additional-system-operators">Additional system operators</a></h3>
+<p>Nim system exports additional operators with a <code>%</code> like <code>+%</code> and <code>-%</code>.
+Those cast the signed integer operand to unsigned and cast the result back to signed.
+This is intended to use with the ByteAddress type for pointer arithmetic</p>
+<h2><a class="header" href="#bit-manipulation" id="bit-manipulation">Bit manipulation</a></h2>
+<p>https://github.com/status-im/nim-stew/blob/master/stew/bitops2.nim</p>
+<h1><a class="header" href="#nim-data-types" id="nim-data-types">Nim data types</a></h1>
+<h2><a class="header" href="#builtin-types" id="builtin-types">Builtin types</a></h2>
+<h3><a class="header" href="#numerical-types" id="numerical-types">Numerical types</a></h3>
+<p>For integers, Nim offers <code>uint8</code>, <code>uint16</code>, <code>uint32</code> and <code>uint64</code> types as well as <code>int8</code>, <code>int16</code>, <code>int32</code>, <code>int64</code> types.</p>
+<p>Operations on signed integers are overflowed and underflowed checked unless the flag <code>--overflowChecks:off</code> is used.</p>
+<p>Nim also offers <code>int</code> and <code>uint</code> types, which have the same size as the platform word size, so 4 bytes when compiled for 32-bit OS
+or 8 bytes for a 64-bit OS.</p>
+<p>Conversion between <code>int</code> and <code>int32</code> or <code>int64</code> must be explicit except for string literals.</p>
+<p>Integer literals default to <code>int</code>.</p>
+<p><code>float32</code> and <code>float64</code> maps to C <code>float</code> and <code>double</code>. <code>float</code> is an alias to <code>float64</code> whether on a 32-bit or 64-bit platform</p>
+<h4><a class="header" href="#binary-blobs" id="binary-blobs">Binary blobs</a></h4>
+<p>Nim has a specific <code>byte</code> type which behaves like uint8.</p>
+<p>It is the preferred type to represent binary blobs, i.e. we use <code>seq[byte]</code> over <code>string</code>, <code>seq[char]</code> or <code>seq[uint8]</code> for binary data.</p>
+<h4><a class="header" href="#range-types" id="range-types">Range types</a></h4>
+<p>Nim allows defining ranges of valid value which will be runtime checked everytime the value changes for example
+Nim defines by default <code>type Natural = range[0 .. high(int)]</code>. If the value of a Natural becomes less than 0
+an RangeError exception will be thrown.</p>
+<p>This is valuable to catch / prevent underflows.</p>
+<h2><a class="header" href="#sequences" id="sequences">Sequences</a></h2>
+<p>Sequences are heap-allocated containers similar to C++ vectors.</p>
+<p>They have value-semantics and are copied on assignments.</p>
+<p>Sequences have a data pointer, reserved memory and current length</p>
+<h2><a class="header" href="#strings" id="strings">Strings</a></h2>
+<p>Sequences are heap-allocated containers.</p>
+<p>They have value-semantics and are copied on assignments.</p>
+<p>Strings have a data pointer, reserved memory and current length.</p>
+<p>The data is terminated by <code>\0</code>.</p>
+<p>Nim strings automatically decays without copy to C strings in FFI calls</p>
+<p>The representation is the same as a <code>seq[byte]</code> or <code>seq[char]</code> except for the terminating nul-byte,
+including within the GC tracking data structures
+Consequently, strings can be cast to <code>seq[byte]</code> but inversely casting <code>seq[byte]</code> to string
+will lead to non nul-terminated string in C FFI and buffer overflows.</p>
+<h2><a class="header" href="#record--structs" id="record--structs">Record / structs</a></h2>
+<p>Nim has 3 kinds of record types</p>
+<ul>
+<li>
+<p>Value</p>
+<pre><code class="language-Nim">type Foo = object
+  field0: int
+  field1: float
+</code></pre>
+</li>
+<li>
+<p>Reference</p>
+<pre><code class="language-Nim">type Foo = ref object
+  field0: int
+  field1: float
+</code></pre>
+</li>
+<li>
+<p>Pointer</p>
+<pre><code class="language-Nim">type Foo = ptr object
+  field0: int
+  field1: float
+</code></pre>
+</li>
+</ul>
+<h3><a class="header" href="#value" id="value">Value</a></h3>
+<p>A value object is allocated on the stack (unless if nested in heap-allocated types).</p>
+<p>The equality check is structural.</p>
+<p>Copy is done by copyMem (C memcpy)</p>
+<p>Object variants do not have an equality operator set by default</p>
+<h3><a class="header" href="#reference" id="reference">Reference</a></h3>
+<p>A reference object is allocated on the heap and managed by the GC.</p>
+<p>They are not thread-safe.</p>
+<p>The equality check is by reference</p>
+<p>Copy is done by copying the reference and increment the reference count</p>
+<h3><a class="header" href="#pointer" id="pointer">Pointer</a></h3>
+<p>A pointer object is manually managed, it can be on the heap (malloc) or on the stack (alloca)</p>
+<h1><a class="header" href="#correctness-distinct-mutability-effects-exceptions" id="correctness-distinct-mutability-effects-exceptions">Correctness, distinct, mutability, effects, exceptions</a></h1>
+<p>The Nim compiler provides several constraints that can be used to enforce
+proper usage of variables, types and error handling at compile-time.</p>
+<p>One was already mentioned in previous paragraphs:</p>
+<ul>
+<li>Side-Effect analysis via using <code>func</code> or <code>{.noSideEffect.}</code> (in the routines chapter)</li>
+</ul>
+<p><em>Note that range types currently work at runtime only</em></p>
+<h2><a class="header" href="#side-effect" id="side-effect">Side-Effect</a></h2>
+<p>As mentioned in the routines chapter, using a <code>func</code> or a proc tagged with <code>{.noSideEffect.}</code> will prevent reading or writing to global variables (i.e. variables that are neither parameters or locals).</p>
+<p>Note that side-effect analysis cannot analyse raw emitted C code</p>
+<p>Additionally, allocating a sequence or a string, even if they technically
+access a global memory allocator, is not considered a side-effect.</p>
+<p>The compiler will ignore statements in a <code>{.noSIdeEffect.}</code> block for the purpose of side-effect analysis. At the moment this is only used for trace and some debug logs, as writing to stdout/stderr is considered writing to a global variables and so a side-effect.</p>
+<h2><a class="header" href="#not-nil" id="not-nil"><code>not nil</code></a></h2>
+<p>The compiler exposes a &quot;not nil&quot; annotation for reference and pointer types.
+This enforces that parameters are proven always initialized in tagged:</p>
+<ul>
+<li>procedures</li>
+<li>types</li>
+</ul>
+<p>This is not used in the codebase as a more powerful prover is required for our application.</p>
+<p>Currently, the compiler warns when it cannot prove that a result reference is not nil.</p>
+<h2><a class="header" href="#distinct-types" id="distinct-types"><code>distinct</code> types</a></h2>
+<p>A distinct type is a type that has the same representation as a base type at a low-level but cannot be used in its stead.</p>
+<pre><code class="language-Nim">type Miles = distinct float32
+type Meters = distinct float32
+</code></pre>
+<p>Procedures accepting:</p>
+<ul>
+<li><code>float32</code> will not accept <code>Miles</code> or <code>Meters</code></li>
+<li><code>Miles</code> will not accept <code>float32</code> or <code>Meters</code></li>
+<li><code>Meters</code> will not accept <code>float32</code> or <code>Miles</code></li>
+</ul>
+<p><code>distinct</code> type can reuse the base type procedures and fields via the borrow annotation as described in the manual https://nim-lang.org/docs/manual.html#types-distinct-type</p>
+<h2><a class="header" href="#enforcing-exception-handling" id="enforcing-exception-handling">Enforcing exception handling</a></h2>
+<p>The codebase uses a mix of Result and Exceptions for error handling
+with option types and bool in some cases.</p>
+<p>As an effort to sanitize error handling and ensure that all exception paths are handled, we use the effect tracking system the following way:</p>
+<pre><code class="language-Nim">proc foo() {.raises: [].} =
+  discard
+</code></pre>
+<p>The procedure above will refuse to compile if its body can throw an unhandled exception.</p>
+<pre><code class="language-Nim">proc foo() {.raises: [ValueError].} =
+  discard
+</code></pre>
+<p>The procedure above will refuse to compile if its body can throw an exception besides a ValueError.</p>
+<p>In particular Nim distinguishes between Defects, which are non-recoverable, and Exceptions, which we should recover from.</p>
+<p>For our purposes, we allow all procedures to throw a Defect (for example an assertion broken), this is done by adding <code>{.push raises:[Defect]}</code> at the start of a file</p>
+<pre><code class="language-Nim">{.push raises:[Defect]}
+
+proc foo1() =
+  discard
+
+proc foo2() =
+  discard
+
+{.pop.}
+</code></pre>
+<h2><a class="header" href="#mutability" id="mutability">Mutability</a></h2>
+<p>Only variables declared with <code>var</code> and <code>var</code> parameters are mutable.</p>
+<p>Note that mutability analysis is not deep for reference types or pointer types.
+You can always mutate through a pointer.</p>
+<h2><a class="header" href="#future" id="future">Future</a></h2>
+<p>Significant improvements are in-progress planned to improve Nim safety:</p>
+<ul>
+<li><code>lent</code> return values and owned reference, a limited form of borrow checker: https://nim-lang.org/docs/destructors.html#lent-type</li>
+<li>Z3 theorem prover for bound checks and nil checks at compile-time: https://nim-lang.org/docs/drnim.html</li>
+<li>write-tracking to prevent deep immutability: https://github.com/nim-lang/RFCs/issues/234 (https://nim-lang.org/araq/writetracking.html)</li>
+</ul>
+<p>however it is too early to use them</p>
+<h1><a class="header" href="#debugging-nim" id="debugging-nim">Debugging Nim</a></h1>
+<p>Reference article: https://nim-lang.org/blog/2017/10/02/documenting-profiling-and-debugging-nim-code.html</p>
+<h2><a class="header" href="#gdb--lldb" id="gdb--lldb">GDB / LLDB</a></h2>
+<p>Nim can be instrumented with sourcemaps:</p>
+<ul>
+<li>by passing <code>--debugger:native</code> to the compiler, so that the stacktraces in gdb shows the Nim source code</li>
+<li>by passing <code>--passC:&quot;-g&quot;</code> to the compiler, so that the stacktraces in gdb shows the C source code</li>
+</ul>
+<h2><a class="header" href="#sanitizers--valgrind" id="sanitizers--valgrind">Sanitizers &amp; Valgrind</a></h2>
+<p>LLVM and GCC sanitizers can be used with</p>
+<pre><code class="language-Nim">nim c --cc:clang -r -d:release --debugger:native \
+  --passC:&quot;-fsanitize=address&quot; --passL:&quot;-fsanitize=address&quot; \
+  --outdir:build target_application.nim
+</code></pre>
+<p>Note on deactivating Nim memory allocator:</p>
+<p>As mentioned in the memory management section, Nim has</p>
+<ul>
+<li>a garbage collector, by default deferred reference counting + cycle detection via mark-and-sweep if the types can have cycles (and is not tagged {.acyclic.})</li>
+<li>an allocator based on TLSF</li>
+</ul>
+<p>Instead of Nim custom allocators, the sys malloc/free can be used by passing
+<code>-d:useMalloc</code> in the command-line</p>
+<p><em>Some GC/versions might not properly accept the flag, this is a Nim bug and we can patch upstream and our own fork in that case</em></p>
+<h2><a class="header" href="#fuzzers" id="fuzzers">Fuzzers</a></h2>
+<p>TODO</p>
+<h3><a class="header" href="#internal-fuzzing" id="internal-fuzzing">Internal fuzzing</a></h3>
+<p>We are currently adding fuzzing to our repositories via libFuzzer and AFL.</p>
+<ul>
+<li>Fuzzing abstraction: https://github.com/status-im/nim-testutils</li>
+<li>Network lib fuzzing: https://github.com/status-im/nim-eth/tree/4f533eb5/tests/fuzzing</li>
+<li>Eth2 core/Validator core fuzzing: https://github.com/status-im/nim-blscurve/tree/271a5738/tests/fuzzing</li>
+</ul>
+<h3><a class="header" href="#external-consensus-fuzzing" id="external-consensus-fuzzing">External &quot;Consensus&quot; fuzzing</a></h3>
+<p>Sigma Prima is fuzzing all Ethereum 2 clients on the spec (Eth2 core/Validator core)</p>
+<p>We provide them with a simple C API</p>
+<ul>
+<li>https://github.com/status-im/nim-beacon-chain/blob/4a2e1806/nfuzz/libnfuzz.h</li>
+</ul>
+<p>That we implement:</p>
+<ul>
+<li>https://github.com/status-im/nim-beacon-chain/blob/4a2e1806/nfuzz/libnfuzz.nim</li>
+</ul>
+<p>And compile the nim code as a shared or static library.</p>
+<p>On usage, the only extra limitation compared to a C library is the need to call <code>NimMain()</code> before calling any Nim function to initialize the Nim runtime.</p>
+<h2><a class="header" href="#inspecting-the-generated-intermediate-code-and-objects" id="inspecting-the-generated-intermediate-code-and-objects">Inspecting the generated intermediate code and objects</a></h2>
+<p>The intermediate C code and object files are stored in</p>
+<ul>
+<li><code>$HOME/.cache/nim/compiled_target_d</code> or <code>$HOME/.cache/nim/compiled_target_r</code> on UNIX (d for debug, r for release)</li>
+<li><code>$HOME/nimcache/compiled_target_d</code> or <code>$HOME/.cache/nim/compiled_target_r</code> on Windows</li>
+</ul>
+<p>The cache directory can be set with the <code>--nimcache=&lt;targetdir&gt;</code> compiler flag.</p>
+<p>Repositories vendoring <code>nimbus-build-system</code> do not use the default setting
+but generate directly in the (gitignored) <code>nimcache</code> folder of the repo.</p>
+<h1><a class="header" href="#foreign-language-interop" id="foreign-language-interop">Foreign language interop</a></h1>
+<h2><a class="header" href="#wrapping-c" id="wrapping-c">Wrapping C</a></h2>
+<h3><a class="header" href="#using-shared-library" id="using-shared-library">Using shared library</a></h3>
+<p>Example: secp256k1</p>
+<p>https://github.com/status-im/nim-secp256k1/blob/master/secp256k1_abi.nim</p>
+<h3><a class="header" href="#compiling-directly-the-c-files" id="compiling-directly-the-c-files">Compiling directly the C files</a></h3>
+<p>Example: Apache Milagro Crypto</p>
+<p>https://github.com/status-im/nim-blscurve/blob/master/blscurve/milagro.nim</p>
+<h2><a class="header" href="#wrapping-c-1" id="wrapping-c-1">Wrapping C++</a></h2>
+<p>Beyond the syntax for wrapping C, Nim offers a flexible syntax for wrapping C++,
+for example for vectors:</p>
+<pre><code class="language-Nim">type
+  CppVector* {.importcpp&quot;std::vector&quot;, header: &quot;&lt;vector&gt;&quot;, byref.} [T] = object
+
+proc newCppVector*[T](): CppVector[T] {.importcpp: &quot;std::vector&lt;'*0&gt;()&quot;, header: &quot;&lt;vector&gt;&quot;, constructor.}
+proc newCppVector*[T](size: int): CppVector[T] {.importcpp: &quot;std::vector&lt;'*0&gt;(#)&quot;, header: &quot;&lt;vector&gt;&quot;, constructor.}
+proc len*(v: CppVector): int {.importcpp: &quot;#.size()&quot;, header: &quot;&lt;vector&gt;&quot;.}
+proc add*[T](v: var CppVector[T], elem: T){.importcpp: &quot;#.push_back(#)&quot;, header: &quot;&lt;vector&gt;&quot;.}
+proc `[]`*[T](v: CppVector[T], idx: int): T{.importcpp: &quot;#[#]&quot;, header: &quot;&lt;vector&gt;&quot;.}
+proc `[]`*[T](v: var CppVector[T], idx: int): var T{.importcpp: &quot;#[#]&quot;, header: &quot;&lt;vector&gt;&quot;.}
+proc `[]=`*[T](v: var CppVector[T], idx: int, value: T) {.importcpp: &quot;#[#]=#&quot;, header: &quot;&lt;vector&gt;&quot;.}
+</code></pre>
+<p>Example: ttmath</p>
+<p>https://github.com/status-im/nim-ttmath/blob/master/src/ttmath.nim</p>
+<h2><a class="header" href="#exporting" id="exporting">Exporting</a></h2>
+<p>See &quot;Fuzzing&quot; chapter for exporting a C API for fuzzing</p>
+<h2><a class="header" href="#references-1" id="references-1">References</a></h2>
+<ul>
+<li>Nim manual:
+<ul>
+<li>https://nim-lang.org/docs/manual.html#foreign-function-interface-importc-pragma</li>
+<li>https://nim-lang.org/docs/manual.html#implementation-specific-pragmas-importcpp-pragma</li>
+</ul>
+</li>
+<li>Nim backend integration: https://nim-lang.org/docs/backends.html</li>
+</ul>
+<h1><a class="header" href="#nim-threat-model" id="nim-threat-model">Nim threat model</a></h1>
+<p>Nim and its standard library are not the focus of the audits.</p>
+<p>In particular the codebase intentionally limits reliance on the standard library
+so that it is not tied to Nim release schedule, instead of the standard library
+we use <code>stew</code> most of the time: https://github.com/status-im/nim-stew.</p>
+<p>Nim standard library is implemented here:</p>
+<ul>
+<li>https://github.com/nim-lang/Nim/tree/v1.2.4/lib</li>
+</ul>
+<p>We target Nim v1.2.2</p>
 <h1><a class="header" href="#nim-faq" id="nim-faq">Nim FAQ</a></h1>
 <h1><a class="header" href="#nimbus-beacon-chain" id="nimbus-beacon-chain">Nimbus Beacon Chain</a></h1>
 <p>https://github.com/status-im/nim-beacon-chain</p>

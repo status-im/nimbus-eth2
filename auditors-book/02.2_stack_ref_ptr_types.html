@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Nim FAQ - The Auditors Handbook to Nimbus Beacon Chain</title>
+        <title>Datatypes: value, ref, ptr - The Auditors Handbook to Nimbus Beacon Chain</title>
         
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="01_introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="02_the_Nim_programming_language.html"><strong aria-hidden="true">2.</strong> The Nim Programming Language</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="02.1_nim_routines_proc_func_templates_macros.html"><strong aria-hidden="true">2.1.</strong> Nim routines, procedures, functions, templates, macros</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="02.1.1_operators_bit_manipulation.html"><strong aria-hidden="true">2.1.1.</strong> Operators, bit manipulation</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="02.2_stack_ref_ptr_types.html"><strong aria-hidden="true">3.</strong> Datatypes: value, ref, ptr</a></li><li class="chapter-item expanded "><a href="02.3_correctness_distinct_mutability_effects_exceptions.html"><strong aria-hidden="true">4.</strong> Correctness: distinct, mutability, effects, exceptions</a></li><li class="chapter-item expanded "><a href="02.4_debugging_Nim_sanitizers_fuzzers.html"><strong aria-hidden="true">5.</strong> Debugging Nim, sanitizers, fuzzers</a></li><li class="chapter-item expanded "><a href="02.5_foreign_lang_to_from_interop.html"><strong aria-hidden="true">6.</strong> Foreign lang interop: C and C++</a></li><li class="chapter-item expanded "><a href="02.8_Nim_threat_model.html"><strong aria-hidden="true">7.</strong> Nim threat model</a></li><li class="chapter-item expanded "><a href="02.10_Nim_FAQ.html" class="active"><strong aria-hidden="true">8.</strong> Nim FAQ</a></li><li class="chapter-item expanded "><a href="03_nbc_nimbus_beacon_chain.html"><strong aria-hidden="true">9.</strong> Nimbus NBC - The Nim-Beacon-Chain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="03.2_build_system_and_dependencies.html"><strong aria-hidden="true">9.1.</strong> Build system and dependencies</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="01_introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="02_the_Nim_programming_language.html"><strong aria-hidden="true">2.</strong> The Nim Programming Language</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="02.1_nim_routines_proc_func_templates_macros.html"><strong aria-hidden="true">2.1.</strong> Nim routines, procedures, functions, templates, macros</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="02.1.1_operators_bit_manipulation.html"><strong aria-hidden="true">2.1.1.</strong> Operators, bit manipulation</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="02.2_stack_ref_ptr_types.html" class="active"><strong aria-hidden="true">3.</strong> Datatypes: value, ref, ptr</a></li><li class="chapter-item expanded "><a href="02.3_correctness_distinct_mutability_effects_exceptions.html"><strong aria-hidden="true">4.</strong> Correctness: distinct, mutability, effects, exceptions</a></li><li class="chapter-item expanded "><a href="02.4_debugging_Nim_sanitizers_fuzzers.html"><strong aria-hidden="true">5.</strong> Debugging Nim, sanitizers, fuzzers</a></li><li class="chapter-item expanded "><a href="02.5_foreign_lang_to_from_interop.html"><strong aria-hidden="true">6.</strong> Foreign lang interop: C and C++</a></li><li class="chapter-item expanded "><a href="02.8_Nim_threat_model.html"><strong aria-hidden="true">7.</strong> Nim threat model</a></li><li class="chapter-item expanded "><a href="02.10_Nim_FAQ.html"><strong aria-hidden="true">8.</strong> Nim FAQ</a></li><li class="chapter-item expanded "><a href="03_nbc_nimbus_beacon_chain.html"><strong aria-hidden="true">9.</strong> Nimbus NBC - The Nim-Beacon-Chain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="03.2_build_system_and_dependencies.html"><strong aria-hidden="true">9.1.</strong> Build system and dependencies</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -147,20 +147,88 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#nim-faq" id="nim-faq">Nim FAQ</a></h1>
+                        <h1><a class="header" href="#nim-data-types" id="nim-data-types">Nim data types</a></h1>
+<h2><a class="header" href="#builtin-types" id="builtin-types">Builtin types</a></h2>
+<h3><a class="header" href="#numerical-types" id="numerical-types">Numerical types</a></h3>
+<p>For integers, Nim offers <code>uint8</code>, <code>uint16</code>, <code>uint32</code> and <code>uint64</code> types as well as <code>int8</code>, <code>int16</code>, <code>int32</code>, <code>int64</code> types.</p>
+<p>Operations on signed integers are overflowed and underflowed checked unless the flag <code>--overflowChecks:off</code> is used.</p>
+<p>Nim also offers <code>int</code> and <code>uint</code> types, which have the same size as the platform word size, so 4 bytes when compiled for 32-bit OS
+or 8 bytes for a 64-bit OS.</p>
+<p>Conversion between <code>int</code> and <code>int32</code> or <code>int64</code> must be explicit except for string literals.</p>
+<p>Integer literals default to <code>int</code>.</p>
+<p><code>float32</code> and <code>float64</code> maps to C <code>float</code> and <code>double</code>. <code>float</code> is an alias to <code>float64</code> whether on a 32-bit or 64-bit platform</p>
+<h4><a class="header" href="#binary-blobs" id="binary-blobs">Binary blobs</a></h4>
+<p>Nim has a specific <code>byte</code> type which behaves like uint8.</p>
+<p>It is the preferred type to represent binary blobs, i.e. we use <code>seq[byte]</code> over <code>string</code>, <code>seq[char]</code> or <code>seq[uint8]</code> for binary data.</p>
+<h4><a class="header" href="#range-types" id="range-types">Range types</a></h4>
+<p>Nim allows defining ranges of valid value which will be runtime checked everytime the value changes for example
+Nim defines by default <code>type Natural = range[0 .. high(int)]</code>. If the value of a Natural becomes less than 0
+an RangeError exception will be thrown.</p>
+<p>This is valuable to catch / prevent underflows.</p>
+<h2><a class="header" href="#sequences" id="sequences">Sequences</a></h2>
+<p>Sequences are heap-allocated containers similar to C++ vectors.</p>
+<p>They have value-semantics and are copied on assignments.</p>
+<p>Sequences have a data pointer, reserved memory and current length</p>
+<h2><a class="header" href="#strings" id="strings">Strings</a></h2>
+<p>Sequences are heap-allocated containers.</p>
+<p>They have value-semantics and are copied on assignments.</p>
+<p>Strings have a data pointer, reserved memory and current length.</p>
+<p>The data is terminated by <code>\0</code>.</p>
+<p>Nim strings automatically decays without copy to C strings in FFI calls</p>
+<p>The representation is the same as a <code>seq[byte]</code> or <code>seq[char]</code> except for the terminating nul-byte,
+including within the GC tracking data structures
+Consequently, strings can be cast to <code>seq[byte]</code> but inversely casting <code>seq[byte]</code> to string
+will lead to non nul-terminated string in C FFI and buffer overflows.</p>
+<h2><a class="header" href="#record--structs" id="record--structs">Record / structs</a></h2>
+<p>Nim has 3 kinds of record types</p>
+<ul>
+<li>
+<p>Value</p>
+<pre><code class="language-Nim">type Foo = object
+  field0: int
+  field1: float
+</code></pre>
+</li>
+<li>
+<p>Reference</p>
+<pre><code class="language-Nim">type Foo = ref object
+  field0: int
+  field1: float
+</code></pre>
+</li>
+<li>
+<p>Pointer</p>
+<pre><code class="language-Nim">type Foo = ptr object
+  field0: int
+  field1: float
+</code></pre>
+</li>
+</ul>
+<h3><a class="header" href="#value" id="value">Value</a></h3>
+<p>A value object is allocated on the stack (unless if nested in heap-allocated types).</p>
+<p>The equality check is structural.</p>
+<p>Copy is done by copyMem (C memcpy)</p>
+<p>Object variants do not have an equality operator set by default</p>
+<h3><a class="header" href="#reference" id="reference">Reference</a></h3>
+<p>A reference object is allocated on the heap and managed by the GC.</p>
+<p>They are not thread-safe.</p>
+<p>The equality check is by reference</p>
+<p>Copy is done by copying the reference and increment the reference count</p>
+<h3><a class="header" href="#pointer" id="pointer">Pointer</a></h3>
+<p>A pointer object is manually managed, it can be on the heap (malloc) or on the stack (alloca)</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="02.8_Nim_threat_model.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="02.1.1_operators_bit_manipulation.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
                         
-                            <a rel="next" href="03_nbc_nimbus_beacon_chain.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="02.3_correctness_distinct_mutability_effects_exceptions.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -172,13 +240,13 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="02.8_Nim_threat_model.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="02.1.1_operators_bit_manipulation.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a rel="next" href="03_nbc_nimbus_beacon_chain.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="02.3_correctness_distinct_mutability_effects_exceptions.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
