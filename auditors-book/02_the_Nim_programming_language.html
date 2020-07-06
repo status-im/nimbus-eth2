@@ -156,12 +156,12 @@
 <p>Nim can be installed via:</p>
 <ul>
 <li>A Linux distribution package manager or Homebrew on MacOS</li>
-<li>Instructions at https://nim-lang.org/install.html</li>
-<li>Docker: https://hub.docker.com/r/nimlang/nim/</li>
-<li>https://github.com/dom96/choosenim</li>
+<li>Instructions at <a href="https://nim-lang.org/install.html">https://nim-lang.org/install.html</a></li>
+<li>Docker: <a href="https://hub.docker.com/r/nimlang/nim/">https://hub.docker.com/r/nimlang/nim/</a></li>
+<li>Choosenim <a href="https://github.com/dom96/choosenim">https://github.com/dom96/choosenim</a></li>
 </ul>
-<p>Nim Vagrant (https://github.com/status-im/nim-vagrant) is unmaintained but might
-help setting up your own virtualized environment</p>
+<p>Nim Vagrant <a href="https://github.com/status-im/nim-vagrant">https://github.com/status-im/nim-vagrant</a> is unmaintained but might
+help setting up your own virtualized environment.</p>
 <p>We target Nim 1.2.2 and should be compatible with the latest stable, Nim 1.2.4</p>
 <h2><a class="header" href="#casings" id="casings">Casings</a></h2>
 <p>Nim has unusual partial case insensitivity for identifiers. The rationales being:</p>
@@ -177,8 +177,8 @@ help setting up your own virtualized environment</p>
 <li><code>camelCase</code> for our own additional code</li>
 <li><code>PascalCase</code> for our additional constants</li>
 </ul>
-<p>In short, we respect the Ethereum spec for Ethereum specified identifiers
-and use Nim NEP-1 for the rest</p>
+<p>In summary, we respect the Ethereum spec for Ethereum specified identifiers
+and use Nim NEP-1 for the rest.</p>
 <h2><a class="header" href="#checking-the-c-code" id="checking-the-c-code">Checking the C code</a></h2>
 <p>By default the intermediate C code produced by the Nim compiler is available at</p>
 <ul>
@@ -188,8 +188,8 @@ and use Nim NEP-1 for the rest</p>
 <p>The suffix <code>_d</code> indicates a debug build, the suffix <code>_d</code> indicates a release build</p>
 <h2><a class="header" href="#compiler-options" id="compiler-options">Compiler options</a></h2>
 <p>At the time of writing, NBC targets Nim v1.2.2 compiler.
-The build system is at https://github.com/status-im/nimbus-build-system.
-No patching is done</p>
+The build system is at <a href="https://github.com/status-im/nimbus-build-system">https://github.com/status-im/nimbus-build-system</a>
+No patching is done at the moment on the Nim compiler, we use vanilla v1.2.2 upstream.</p>
 <p>Nim compiler offers debug, release with <code>-d:release</code> and danger with <code>-d:danger</code> flag.</p>
 <p>The debug and <code>-d:release</code> build differ by, the verbosity of stacktraces and passing <code>-O3</code> or equivalent to the C compiler.</p>
 <p>Runtime checks (overflow, array bounds checks, nil checks, ...) are still included in <code>-d:release</code> build. We also choose to have verbose stacktraces in NBC.</p>
@@ -200,40 +200,40 @@ as it may enable optimizations that were not possible like optimizing tail calls
 <li>
 <p>Nim by example:</p>
 <ul>
-<li>https://nim-by-example.github.io/getting_started/</li>
+<li><a href="https://nim-by-example.github.io/getting_started/">https://nim-by-example.github.io/getting_started/</a></li>
 </ul>
 </li>
 <li>
 <p>The Nim Manual, is a specification of how Nim should behave<br />
-https://nim-lang.org/docs/manual.html</p>
+<a href="https://nim-lang.org/docs/manual.html">https://nim-lang.org/docs/manual.html</a></p>
 </li>
 <li>
 <p>Nim tutorials</p>
 <ul>
-<li>https://nim-lang.org/docs/tut1.html</li>
-<li>https://nim-lang.org/docs/tut2.html</li>
-<li>https://nim-lang.org/docs/tut3.html</li>
+<li><a href="https://nim-lang.org/docs/tut1.html">https://nim-lang.org/docs/tut1.html</a></li>
+<li><a href="https://nim-lang.org/docs/tut2.html">https://nim-lang.org/docs/tut2.html</a></li>
+<li><a href="https://nim-lang.org/docs/tut3.html">https://nim-lang.org/docs/tut3.html</a></li>
 </ul>
 </li>
 <li>
 <p>Nim for</p>
 <ul>
-<li>the C programmer: https://github.com/nim-lang/Nim/wiki/Nim-for-C-programmers</li>
-<li>Python programmer: https://github.com/nim-lang/Nim/wiki/Nim-for-Python-Programmers</li>
+<li>the C programmer: <a href="https://github.com/nim-lang/Nim/wiki/Nim-for-C-programmers">https://github.com/nim-lang/Nim/wiki/Nim-for-C-programmers</a></li>
+<li>Python programmer: <a href="https://github.com/nim-lang/Nim/wiki/Nim-for-Python-Programmers">https://github.com/nim-lang/Nim/wiki/Nim-for-Python-Programmers</a></li>
 </ul>
 </li>
 </ul>
 <p>Further resources are collected at:</p>
 <ul>
-<li>https://nim-lang.org/learn.html</li>
+<li><a href="https://nim-lang.org/learn.html">https://nim-lang.org/learn.html</a></li>
 </ul>
 <h3><a class="header" href="#compiler-configuration" id="compiler-configuration">Compiler configuration</a></h3>
 <ul>
-<li>Compiler User Guide: https://nim-lang.org/docs/nimc.html</li>
+<li>Compiler User Guide: <a href="https://nim-lang.org/docs/nimc.html">https://nim-lang.org/docs/nimc.html</a></li>
 </ul>
 <h3><a class="header" href="#style-guide" id="style-guide">Style Guide</a></h3>
 <ul>
-<li>https://nim-lang.org/docs/nep1.html</li>
+<li><a href="https://nim-lang.org/docs/nep1.html">https://nim-lang.org/docs/nep1.html</a></li>
 </ul>
 
                     </main>

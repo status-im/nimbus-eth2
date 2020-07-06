@@ -148,7 +148,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#debugging-nim" id="debugging-nim">Debugging Nim</a></h1>
-<p>Reference article: https://nim-lang.org/blog/2017/10/02/documenting-profiling-and-debugging-nim-code.html</p>
+<p>Reference article: <a href="https://nim-lang.org/blog/2017/10/02/documenting-profiling-and-debugging-nim-code.html">https://nim-lang.org/blog/2017/10/02/documenting-profiling-and-debugging-nim-code.html</a></p>
 <h2><a class="header" href="#gdb--lldb" id="gdb--lldb">GDB / LLDB</a></h2>
 <p>Nim can be instrumented with sourcemaps:</p>
 <ul>
@@ -175,19 +175,19 @@
 <h3><a class="header" href="#internal-fuzzing" id="internal-fuzzing">Internal fuzzing</a></h3>
 <p>We are currently adding fuzzing to our repositories via libFuzzer and AFL.</p>
 <ul>
-<li>Fuzzing abstraction: https://github.com/status-im/nim-testutils</li>
-<li>Network lib fuzzing: https://github.com/status-im/nim-eth/tree/4f533eb5/tests/fuzzing</li>
-<li>Eth2 core/Validator core fuzzing: https://github.com/status-im/nim-blscurve/tree/271a5738/tests/fuzzing</li>
+<li>Fuzzing abstraction: <a href="https://github.com/status-im/nim-testutils">https://github.com/status-im/nim-testutils</a></li>
+<li>Network lib fuzzing: <a href="https://github.com/status-im/nim-eth/tree/4f533eb5/tests/fuzzing">https://github.com/status-im/nim-eth/tree/4f533eb5/tests/fuzzing</a></li>
+<li>Eth2 core/Validator core fuzzing: <a href="https://github.com/status-im/nim-blscurve/tree/271a5738/tests/fuzzing">https://github.com/status-im/nim-blscurve/tree/271a5738/tests/fuzzing</a></li>
 </ul>
 <h3><a class="header" href="#external-consensus-fuzzing" id="external-consensus-fuzzing">External &quot;Consensus&quot; fuzzing</a></h3>
 <p>Sigma Prima is fuzzing all Ethereum 2 clients on the spec (Eth2 core/Validator core)</p>
 <p>We provide them with a simple C API</p>
 <ul>
-<li>https://github.com/status-im/nim-beacon-chain/blob/4a2e1806/nfuzz/libnfuzz.h</li>
+<li><a href="https://github.com/status-im/nim-beacon-chain/blob/4a2e1806/nfuzz/libnfuzz.h">https://github.com/status-im/nim-beacon-chain/blob/4a2e1806/nfuzz/libnfuzz.h</a></li>
 </ul>
 <p>That we implement:</p>
 <ul>
-<li>https://github.com/status-im/nim-beacon-chain/blob/4a2e1806/nfuzz/libnfuzz.nim</li>
+<li><a href="https://github.com/status-im/nim-beacon-chain/blob/4a2e1806/nfuzz/libnfuzz.nim">https://github.com/status-im/nim-beacon-chain/blob/4a2e1806/nfuzz/libnfuzz.nim</a></li>
 </ul>
 <p>And compile the nim code as a shared or static library.</p>
 <p>On usage, the only extra limitation compared to a C library is the need to call <code>NimMain()</code> before calling any Nim function to initialize the Nim runtime.</p>

@@ -151,10 +151,10 @@
 <h2><a class="header" href="#wrapping-c" id="wrapping-c">Wrapping C</a></h2>
 <h3><a class="header" href="#using-shared-library" id="using-shared-library">Using shared library</a></h3>
 <p>Example: secp256k1</p>
-<p>https://github.com/status-im/nim-secp256k1/blob/master/secp256k1_abi.nim</p>
+<p><a href="https://github.com/status-im/nim-secp256k1/blob/master/secp256k1_abi.nim">https://github.com/status-im/nim-secp256k1/blob/master/secp256k1_abi.nim</a></p>
 <h3><a class="header" href="#compiling-directly-the-c-files" id="compiling-directly-the-c-files">Compiling directly the C files</a></h3>
 <p>Example: Apache Milagro Crypto</p>
-<p>https://github.com/status-im/nim-blscurve/blob/master/blscurve/milagro.nim</p>
+<p><a href="https://github.com/status-im/nim-blscurve/blob/master/blscurve/milagro.nim">https://github.com/status-im/nim-blscurve/blob/master/blscurve/milagro.nim</a></p>
 <h2><a class="header" href="#wrapping-c-1" id="wrapping-c-1">Wrapping C++</a></h2>
 <p>Beyond the syntax for wrapping C, Nim offers a flexible syntax for wrapping C++,
 for example for vectors:</p>
@@ -170,18 +170,18 @@ proc `[]`*[T](v: var CppVector[T], idx: int): var T{.importcpp: &quot;#[#]&quot;
 proc `[]=`*[T](v: var CppVector[T], idx: int, value: T) {.importcpp: &quot;#[#]=#&quot;, header: &quot;&lt;vector&gt;&quot;.}
 </code></pre>
 <p>Example: ttmath</p>
-<p>https://github.com/status-im/nim-ttmath/blob/master/src/ttmath.nim</p>
+<p><a href="https://github.com/status-im/nim-ttmath/blob/master/src/ttmath.nim">https://github.com/status-im/nim-ttmath/blob/master/src/ttmath.nim</a></p>
 <h2><a class="header" href="#exporting" id="exporting">Exporting</a></h2>
 <p>See &quot;Fuzzing&quot; chapter for exporting a C API for fuzzing</p>
 <h2><a class="header" href="#references" id="references">References</a></h2>
 <ul>
 <li>Nim manual:
 <ul>
-<li>https://nim-lang.org/docs/manual.html#foreign-function-interface-importc-pragma</li>
-<li>https://nim-lang.org/docs/manual.html#implementation-specific-pragmas-importcpp-pragma</li>
+<li><a href="https://nim-lang.org/docs/manual.html#foreign-function-interface-importc-pragma">https://nim-lang.org/docs/manual.html#foreign-function-interface-importc-pragma</a></li>
+<li><a href="https://nim-lang.org/docs/manual.html#implementation-specific-pragmas-importcpp-pragma">https://nim-lang.org/docs/manual.html#implementation-specific-pragmas-importcpp-pragma</a></li>
 </ul>
 </li>
-<li>Nim backend integration: https://nim-lang.org/docs/backends.html</li>
+<li>Nim backend integration: <a href="https://nim-lang.org/docs/backends.html">https://nim-lang.org/docs/backends.html</a></li>
 </ul>
 
                     </main>

@@ -157,8 +157,9 @@
 <li>The NBC project.</li>
 <li>The dependencies of the project.</li>
 </ul>
-<p>A particular focus will be given to feature related to safety, correctness, error handling, testing, fuzzing, or inspecting Nim code.</p>
-<p>One of the major highlight of Nim is that it compiles to C or C++ before compiling to native code. All techniques available to audit C code can be used to audit Nim.</p>
+<p>A particular focus will be given to features related to safety, correctness, error handling, testing, fuzzing, or inspecting Nim code.</p>
+<p>One of the major highlights of Nim is that it compiles to C or C++ before compiling to native code. All techniques available to audit C code can be used to audit Nim.</p>
+<p>The dependencies NBC rely on are detailed per audit phase in the <a href="03.2_build_system_and_dependencies.html">build system and dependencies</a> section.</p>
 <h1><a class="header" href="#the-nim-programming-language" id="the-nim-programming-language">The Nim Programming Language</a></h1>
 <p>The Nim programming language is a compiled language, with strong static typing.</p>
 <p>The rest of the Handbook will assume that Nim-by-example was read.</p>
@@ -168,12 +169,12 @@
 <p>Nim can be installed via:</p>
 <ul>
 <li>A Linux distribution package manager or Homebrew on MacOS</li>
-<li>Instructions at https://nim-lang.org/install.html</li>
-<li>Docker: https://hub.docker.com/r/nimlang/nim/</li>
-<li>https://github.com/dom96/choosenim</li>
+<li>Instructions at <a href="https://nim-lang.org/install.html">https://nim-lang.org/install.html</a></li>
+<li>Docker: <a href="https://hub.docker.com/r/nimlang/nim/">https://hub.docker.com/r/nimlang/nim/</a></li>
+<li>Choosenim <a href="https://github.com/dom96/choosenim">https://github.com/dom96/choosenim</a></li>
 </ul>
-<p>Nim Vagrant (https://github.com/status-im/nim-vagrant) is unmaintained but might
-help setting up your own virtualized environment</p>
+<p>Nim Vagrant <a href="https://github.com/status-im/nim-vagrant">https://github.com/status-im/nim-vagrant</a> is unmaintained but might
+help setting up your own virtualized environment.</p>
 <p>We target Nim 1.2.2 and should be compatible with the latest stable, Nim 1.2.4</p>
 <h2><a class="header" href="#casings" id="casings">Casings</a></h2>
 <p>Nim has unusual partial case insensitivity for identifiers. The rationales being:</p>
@@ -189,8 +190,8 @@ help setting up your own virtualized environment</p>
 <li><code>camelCase</code> for our own additional code</li>
 <li><code>PascalCase</code> for our additional constants</li>
 </ul>
-<p>In short, we respect the Ethereum spec for Ethereum specified identifiers
-and use Nim NEP-1 for the rest</p>
+<p>In summary, we respect the Ethereum spec for Ethereum specified identifiers
+and use Nim NEP-1 for the rest.</p>
 <h2><a class="header" href="#checking-the-c-code" id="checking-the-c-code">Checking the C code</a></h2>
 <p>By default the intermediate C code produced by the Nim compiler is available at</p>
 <ul>
@@ -200,8 +201,8 @@ and use Nim NEP-1 for the rest</p>
 <p>The suffix <code>_d</code> indicates a debug build, the suffix <code>_d</code> indicates a release build</p>
 <h2><a class="header" href="#compiler-options" id="compiler-options">Compiler options</a></h2>
 <p>At the time of writing, NBC targets Nim v1.2.2 compiler.
-The build system is at https://github.com/status-im/nimbus-build-system.
-No patching is done</p>
+The build system is at <a href="https://github.com/status-im/nimbus-build-system">https://github.com/status-im/nimbus-build-system</a>
+No patching is done at the moment on the Nim compiler, we use vanilla v1.2.2 upstream.</p>
 <p>Nim compiler offers debug, release with <code>-d:release</code> and danger with <code>-d:danger</code> flag.</p>
 <p>The debug and <code>-d:release</code> build differ by, the verbosity of stacktraces and passing <code>-O3</code> or equivalent to the C compiler.</p>
 <p>Runtime checks (overflow, array bounds checks, nil checks, ...) are still included in <code>-d:release</code> build. We also choose to have verbose stacktraces in NBC.</p>
@@ -212,40 +213,40 @@ as it may enable optimizations that were not possible like optimizing tail calls
 <li>
 <p>Nim by example:</p>
 <ul>
-<li>https://nim-by-example.github.io/getting_started/</li>
+<li><a href="https://nim-by-example.github.io/getting_started/">https://nim-by-example.github.io/getting_started/</a></li>
 </ul>
 </li>
 <li>
 <p>The Nim Manual, is a specification of how Nim should behave<br />
-https://nim-lang.org/docs/manual.html</p>
+<a href="https://nim-lang.org/docs/manual.html">https://nim-lang.org/docs/manual.html</a></p>
 </li>
 <li>
 <p>Nim tutorials</p>
 <ul>
-<li>https://nim-lang.org/docs/tut1.html</li>
-<li>https://nim-lang.org/docs/tut2.html</li>
-<li>https://nim-lang.org/docs/tut3.html</li>
+<li><a href="https://nim-lang.org/docs/tut1.html">https://nim-lang.org/docs/tut1.html</a></li>
+<li><a href="https://nim-lang.org/docs/tut2.html">https://nim-lang.org/docs/tut2.html</a></li>
+<li><a href="https://nim-lang.org/docs/tut3.html">https://nim-lang.org/docs/tut3.html</a></li>
 </ul>
 </li>
 <li>
 <p>Nim for</p>
 <ul>
-<li>the C programmer: https://github.com/nim-lang/Nim/wiki/Nim-for-C-programmers</li>
-<li>Python programmer: https://github.com/nim-lang/Nim/wiki/Nim-for-Python-Programmers</li>
+<li>the C programmer: <a href="https://github.com/nim-lang/Nim/wiki/Nim-for-C-programmers">https://github.com/nim-lang/Nim/wiki/Nim-for-C-programmers</a></li>
+<li>Python programmer: <a href="https://github.com/nim-lang/Nim/wiki/Nim-for-Python-Programmers">https://github.com/nim-lang/Nim/wiki/Nim-for-Python-Programmers</a></li>
 </ul>
 </li>
 </ul>
 <p>Further resources are collected at:</p>
 <ul>
-<li>https://nim-lang.org/learn.html</li>
+<li><a href="https://nim-lang.org/learn.html">https://nim-lang.org/learn.html</a></li>
 </ul>
 <h3><a class="header" href="#compiler-configuration" id="compiler-configuration">Compiler configuration</a></h3>
 <ul>
-<li>Compiler User Guide: https://nim-lang.org/docs/nimc.html</li>
+<li>Compiler User Guide: <a href="https://nim-lang.org/docs/nimc.html">https://nim-lang.org/docs/nimc.html</a></li>
 </ul>
 <h3><a class="header" href="#style-guide" id="style-guide">Style Guide</a></h3>
 <ul>
-<li>https://nim-lang.org/docs/nep1.html</li>
+<li><a href="https://nim-lang.org/docs/nep1.html">https://nim-lang.org/docs/nep1.html</a></li>
 </ul>
 <h1><a class="header" href="#nim-routines" id="nim-routines">Nim Routines</a></h1>
 <p>Nim offers several kinds of &quot;routines&quot; that:</p>
@@ -546,17 +547,17 @@ Nim supports operator overloading.</p>
 <code>ashr</code> can be used for arithmetic right shift.</p>
 <p>This distinction was introduced recently and may lead to subtle bugs,
 also <code>ashr</code> relies on the C compiler actually lowering <code>&gt;&gt;</code> to SAR for signed integer.
-This is specified for GCC and Clang (https://gcc.gnu.org/onlinedocs/gcc/Integers-implementation.html#Integers-implementation)
+This is specified for GCC and Clang (<a href="https://gcc.gnu.org/onlinedocs/gcc/Integers-implementation.html#Integers-implementation">https://gcc.gnu.org/onlinedocs/gcc/Integers-implementation.html#Integers-implementation</a>)
 but implementation defined in general.</p>
 <h3><a class="header" href="#operator-precedence" id="operator-precedence">Operator precedence</a></h3>
 <p>Operator precedence is specified described in the manual:</p>
-<p>https://nim-lang.org/docs/manual.html#syntax-precedence</p>
+<p><a href="https://nim-lang.org/docs/manual.html#syntax-precedence">https://nim-lang.org/docs/manual.html#syntax-precedence</a></p>
 <h3><a class="header" href="#additional-system-operators" id="additional-system-operators">Additional system operators</a></h3>
 <p>Nim system exports additional operators with a <code>%</code> like <code>+%</code> and <code>-%</code>.
 Those cast the signed integer operand to unsigned and cast the result back to signed.
 This is intended to use with the ByteAddress type for pointer arithmetic</p>
 <h2><a class="header" href="#bit-manipulation" id="bit-manipulation">Bit manipulation</a></h2>
-<p>https://github.com/status-im/nim-stew/blob/master/stew/bitops2.nim</p>
+<p><a href="https://github.com/status-im/nim-stew/blob/master/stew/bitops2.nim">https://github.com/status-im/nim-stew/blob/master/stew/bitops2.nim</a></p>
 <h1><a class="header" href="#closures-and-closures-iterators" id="closures-and-closures-iterators">Closures and closures iterators</a></h1>
 <p>TODO</p>
 <h2><a class="header" href="#at-a-low-level-1" id="at-a-low-level-1">At a low-level</a></h2>
@@ -572,8 +573,8 @@ which may lead to long-lived ref objects and unreclaimable memory.</p>
 <p>This may also extend to other resources like socket connections or file descriptors and
 a significant effort is underway to track memory usage and detect such scenarios:</p>
 <ul>
-<li>https://github.com/status-im/nim-libp2p/issues/145</li>
-<li>https://github.com/status-im/nim-libp2p/issues/207</li>
+<li><a href="https://github.com/status-im/nim-libp2p/issues/145">https://github.com/status-im/nim-libp2p/issues/145</a></li>
+<li><a href="https://github.com/status-im/nim-libp2p/issues/207">https://github.com/status-im/nim-libp2p/issues/207</a></li>
 </ul>
 <h1><a class="header" href="#nim-data-types" id="nim-data-types">Nim data types</a></h1>
 <h2><a class="header" href="#builtin-types" id="builtin-types">Builtin types</a></h2>
@@ -678,10 +679,10 @@ to cycles, Nim will add &quot;mark-and-sweep&quot; passes to collect them.</p>
 <h2><a class="header" href="#references-1" id="references-1">References</a></h2>
 <ul>
 <li>
-<p>https://nim-lang.org/docs/gc.html</p>
+<p><a href="https://nim-lang.org/docs/gc.html">https://nim-lang.org/docs/gc.html</a></p>
 </li>
 <li>
-<p>http://www.gii.upv.es/tlsf/</p>
+<p><a href="http://www.gii.upv.es/tlsf/">http://www.gii.upv.es/tlsf/</a></p>
 </li>
 </ul>
 <h1><a class="header" href="#generics-and-static-types" id="generics-and-static-types">Generics and Static types</a></h1>
@@ -750,7 +751,7 @@ type Meters = distinct float32
 <li><code>Miles</code> will not accept <code>float32</code> or <code>Meters</code></li>
 <li><code>Meters</code> will not accept <code>float32</code> or <code>Miles</code></li>
 </ul>
-<p><code>distinct</code> type can reuse the base type procedures and fields via the borrow annotation as described in the manual https://nim-lang.org/docs/manual.html#types-distinct-type</p>
+<p><code>distinct</code> type can reuse the base type procedures and fields via the borrow annotation as described in the manual (<a href="https://nim-lang.org/docs/manual.html#types-distinct-type">https://nim-lang.org/docs/manual.html#types-distinct-type</a>)</p>
 <h2><a class="header" href="#enforcing-exception-handling" id="enforcing-exception-handling">Enforcing exception handling</a></h2>
 <p>The codebase uses a mix of Result and Exceptions for error handling
 with option types and bool in some cases.</p>
@@ -782,13 +783,13 @@ You can always mutate through a pointer.</p>
 <h2><a class="header" href="#future" id="future">Future</a></h2>
 <p>Significant improvements are in-progress planned to improve Nim safety:</p>
 <ul>
-<li><code>lent</code> return values and owned reference, a limited form of borrow checker: https://nim-lang.org/docs/destructors.html#lent-type</li>
-<li>Z3 theorem prover for bound checks and nil checks at compile-time: https://nim-lang.org/docs/drnim.html</li>
-<li>write-tracking to prevent deep immutability: https://github.com/nim-lang/RFCs/issues/234 (https://nim-lang.org/araq/writetracking.html)</li>
+<li><code>lent</code> return values and owned reference, a limited form of borrow checker: <a href="https://nim-lang.org/docs/destructors.html#lent-type">https://nim-lang.org/docs/destructors.html#lent-type</a></li>
+<li>Z3 theorem prover for bound checks and nil checks at compile-time: <a href="https://nim-lang.org/docs/drnim.html">https://nim-lang.org/docs/drnim.html</a></li>
+<li>write-tracking to prevent deep immutability: <a href="https://github.com/nim-lang/RFCs/issues/234">https://github.com/nim-lang/RFCs/issues/234</a> (<a href="https://nim-lang.org/araq/writetracking.html">https://nim-lang.org/araq/writetracking.html</a>)</li>
 </ul>
-<p>however it is too early to use them</p>
+<p>however it is too early to use them in a production codebase.</p>
 <h1><a class="header" href="#debugging-nim" id="debugging-nim">Debugging Nim</a></h1>
-<p>Reference article: https://nim-lang.org/blog/2017/10/02/documenting-profiling-and-debugging-nim-code.html</p>
+<p>Reference article: <a href="https://nim-lang.org/blog/2017/10/02/documenting-profiling-and-debugging-nim-code.html">https://nim-lang.org/blog/2017/10/02/documenting-profiling-and-debugging-nim-code.html</a></p>
 <h2><a class="header" href="#gdb--lldb" id="gdb--lldb">GDB / LLDB</a></h2>
 <p>Nim can be instrumented with sourcemaps:</p>
 <ul>
@@ -815,19 +816,19 @@ You can always mutate through a pointer.</p>
 <h3><a class="header" href="#internal-fuzzing" id="internal-fuzzing">Internal fuzzing</a></h3>
 <p>We are currently adding fuzzing to our repositories via libFuzzer and AFL.</p>
 <ul>
-<li>Fuzzing abstraction: https://github.com/status-im/nim-testutils</li>
-<li>Network lib fuzzing: https://github.com/status-im/nim-eth/tree/4f533eb5/tests/fuzzing</li>
-<li>Eth2 core/Validator core fuzzing: https://github.com/status-im/nim-blscurve/tree/271a5738/tests/fuzzing</li>
+<li>Fuzzing abstraction: <a href="https://github.com/status-im/nim-testutils">https://github.com/status-im/nim-testutils</a></li>
+<li>Network lib fuzzing: <a href="https://github.com/status-im/nim-eth/tree/4f533eb5/tests/fuzzing">https://github.com/status-im/nim-eth/tree/4f533eb5/tests/fuzzing</a></li>
+<li>Eth2 core/Validator core fuzzing: <a href="https://github.com/status-im/nim-blscurve/tree/271a5738/tests/fuzzing">https://github.com/status-im/nim-blscurve/tree/271a5738/tests/fuzzing</a></li>
 </ul>
 <h3><a class="header" href="#external-consensus-fuzzing" id="external-consensus-fuzzing">External &quot;Consensus&quot; fuzzing</a></h3>
 <p>Sigma Prima is fuzzing all Ethereum 2 clients on the spec (Eth2 core/Validator core)</p>
 <p>We provide them with a simple C API</p>
 <ul>
-<li>https://github.com/status-im/nim-beacon-chain/blob/4a2e1806/nfuzz/libnfuzz.h</li>
+<li><a href="https://github.com/status-im/nim-beacon-chain/blob/4a2e1806/nfuzz/libnfuzz.h">https://github.com/status-im/nim-beacon-chain/blob/4a2e1806/nfuzz/libnfuzz.h</a></li>
 </ul>
 <p>That we implement:</p>
 <ul>
-<li>https://github.com/status-im/nim-beacon-chain/blob/4a2e1806/nfuzz/libnfuzz.nim</li>
+<li><a href="https://github.com/status-im/nim-beacon-chain/blob/4a2e1806/nfuzz/libnfuzz.nim">https://github.com/status-im/nim-beacon-chain/blob/4a2e1806/nfuzz/libnfuzz.nim</a></li>
 </ul>
 <p>And compile the nim code as a shared or static library.</p>
 <p>On usage, the only extra limitation compared to a C library is the need to call <code>NimMain()</code> before calling any Nim function to initialize the Nim runtime.</p>
@@ -844,10 +845,10 @@ but generate directly in the (gitignored) <code>nimcache</code> folder of the re
 <h2><a class="header" href="#wrapping-c" id="wrapping-c">Wrapping C</a></h2>
 <h3><a class="header" href="#using-shared-library" id="using-shared-library">Using shared library</a></h3>
 <p>Example: secp256k1</p>
-<p>https://github.com/status-im/nim-secp256k1/blob/master/secp256k1_abi.nim</p>
+<p><a href="https://github.com/status-im/nim-secp256k1/blob/master/secp256k1_abi.nim">https://github.com/status-im/nim-secp256k1/blob/master/secp256k1_abi.nim</a></p>
 <h3><a class="header" href="#compiling-directly-the-c-files" id="compiling-directly-the-c-files">Compiling directly the C files</a></h3>
 <p>Example: Apache Milagro Crypto</p>
-<p>https://github.com/status-im/nim-blscurve/blob/master/blscurve/milagro.nim</p>
+<p><a href="https://github.com/status-im/nim-blscurve/blob/master/blscurve/milagro.nim">https://github.com/status-im/nim-blscurve/blob/master/blscurve/milagro.nim</a></p>
 <h2><a class="header" href="#wrapping-c-1" id="wrapping-c-1">Wrapping C++</a></h2>
 <p>Beyond the syntax for wrapping C, Nim offers a flexible syntax for wrapping C++,
 for example for vectors:</p>
@@ -863,32 +864,32 @@ proc `[]`*[T](v: var CppVector[T], idx: int): var T{.importcpp: &quot;#[#]&quot;
 proc `[]=`*[T](v: var CppVector[T], idx: int, value: T) {.importcpp: &quot;#[#]=#&quot;, header: &quot;&lt;vector&gt;&quot;.}
 </code></pre>
 <p>Example: ttmath</p>
-<p>https://github.com/status-im/nim-ttmath/blob/master/src/ttmath.nim</p>
+<p><a href="https://github.com/status-im/nim-ttmath/blob/master/src/ttmath.nim">https://github.com/status-im/nim-ttmath/blob/master/src/ttmath.nim</a></p>
 <h2><a class="header" href="#exporting" id="exporting">Exporting</a></h2>
 <p>See &quot;Fuzzing&quot; chapter for exporting a C API for fuzzing</p>
 <h2><a class="header" href="#references-2" id="references-2">References</a></h2>
 <ul>
 <li>Nim manual:
 <ul>
-<li>https://nim-lang.org/docs/manual.html#foreign-function-interface-importc-pragma</li>
-<li>https://nim-lang.org/docs/manual.html#implementation-specific-pragmas-importcpp-pragma</li>
+<li><a href="https://nim-lang.org/docs/manual.html#foreign-function-interface-importc-pragma">https://nim-lang.org/docs/manual.html#foreign-function-interface-importc-pragma</a></li>
+<li><a href="https://nim-lang.org/docs/manual.html#implementation-specific-pragmas-importcpp-pragma">https://nim-lang.org/docs/manual.html#implementation-specific-pragmas-importcpp-pragma</a></li>
 </ul>
 </li>
-<li>Nim backend integration: https://nim-lang.org/docs/backends.html</li>
+<li>Nim backend integration: <a href="https://nim-lang.org/docs/backends.html">https://nim-lang.org/docs/backends.html</a></li>
 </ul>
 <h1><a class="header" href="#nim-threat-model" id="nim-threat-model">Nim threat model</a></h1>
 <p>Nim and its standard library are not the focus of the audits.</p>
 <p>In particular the codebase intentionally limits reliance on the standard library
 so that it is not tied to Nim release schedule, instead of the standard library
-we use <code>stew</code> most of the time: https://github.com/status-im/nim-stew.</p>
+we use <code>stew</code> most of the time: <a href="https://github.com/status-im/nim-stew">https://github.com/status-im/nim-stew</a>.</p>
 <p>Nim standard library is implemented here:</p>
 <ul>
-<li>https://github.com/nim-lang/Nim/tree/v1.2.4/lib</li>
+<li><a href="https://github.com/nim-lang/Nim/tree/v1.2.4/lib">https://github.com/nim-lang/Nim/tree/v1.2.4/lib</a></li>
 </ul>
 <p>We target Nim v1.2.2</p>
 <h1><a class="header" href="#nim-faq" id="nim-faq">Nim FAQ</a></h1>
 <h1><a class="header" href="#nimbus-beacon-chain" id="nimbus-beacon-chain">Nimbus Beacon Chain</a></h1>
-<p>https://github.com/status-im/nim-beacon-chain</p>
+<p><a href="https://github.com/status-im/nim-beacon-chain">https://github.com/status-im/nim-beacon-chain</a></p>
 <p>Nimbus Beacon Chain (NBC) is an implementation of an Ethereum 2 client.</p>
 <h2><a class="header" href="#audit-scope" id="audit-scope">Audit scope</a></h2>
 <h3><a class="header" href="#network-core-leveraging-the-libp2p-framework" id="network-core-leveraging-the-libp2p-framework">Network Core (leveraging the libp2p framework)</a></h3>
@@ -921,13 +922,13 @@ we use <code>stew</code> most of the time: https://github.com/status-im/nim-stew
 <tr><td>Command Line Interface (CLI)</td></tr>
 </tbody></table>
 <h2><a class="header" href="#high-level-view-of-the-stack" id="high-level-view-of-the-stack">High-level view of the stack</a></h2>
-<p>https://miro.com/app/board/o9J_kvfytDI=/</p>
+<p><a href="https://miro.com/app/board/o9J_kvfytDI=/">https://miro.com/app/board/o9J_kvfytDI=/</a></p>
 <h2><a class="header" href="#diagram" id="diagram">Diagram</a></h2>
 <p>TODO</p>
 <h2><a class="header" href="#specifications" id="specifications">Specifications</a></h2>
-<p>We target v0.12.1 phase0 of https://github.com/ethereum/eth2.0-specs</p>
+<p>We target v0.12.1 phase0 of <a href="https://github.com/ethereum/eth2.0-specs">https://github.com/ethereum/eth2.0-specs</a></p>
 <ul>
-<li>https://github.com/ethereum/eth2.0-specs/tree/v0.12.1/specs/phase0</li>
+<li><a href="https://github.com/ethereum/eth2.0-specs/tree/v0.12.1/specs/phase0">https://github.com/ethereum/eth2.0-specs/tree/v0.12.1/specs/phase0</a></li>
 </ul>
 <p>The p2p-interface specs in particular describe the subset of libp2p spec that
 are used to implement Ethereum 2</p>
