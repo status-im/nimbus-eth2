@@ -22,6 +22,11 @@ In this book, we will cover:
 
 Feel free to give us feedback on how to improve as well as contribute to our book on github. :)
 
+## Get in touch
+
+Need help with anything? Join us using [Status](https://join.status.im/nimbus-general) or [Discord](https://discord.gg/9dWwPnG)!
+
+
 ## Disclaimer
 
 This documentation is assuming Nimbus is in its ideal state. The project is still under active development. Please submit Github issues if encountered any problem.
