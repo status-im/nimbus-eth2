@@ -9,14 +9,16 @@
 # ---------------------------------------------------------------
 
 import
+  bearssl, eth/keys,
   # Specs
   ../../beacon_chain/spec/[datatypes, crypto]
 
 # this is being indexed inside "mock_deposits.nim" by a value up to `validatorCount`
 # which is `num_validators` which is `MIN_GENESIS_ACTIVE_VALIDATOR_COUNT`
 proc genMockPrivKeys(privkeys: var array[MIN_GENESIS_ACTIVE_VALIDATOR_COUNT, ValidatorPrivKey]) =
+  let rng = newRng()
   for i in 0 ..< privkeys.len:
-    let pair = newKeyPair()[]
+    let pair = newKeyPair(rng[])[]
     privkeys[i] = pair.priv
 
 func genMockPubKeys(

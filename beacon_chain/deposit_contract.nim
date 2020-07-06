@@ -1,6 +1,6 @@
 import
   os, strutils, options, json,
-  chronos, nimcrypto, confutils, web3, stint,
+  chronos, confutils, web3, stint,
   eth/keys
 
 # Compiled version of /scripts/depositContract.v.py in this repo

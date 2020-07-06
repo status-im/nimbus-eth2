@@ -28,10 +28,10 @@ import
   ./digest,
   # Status
   stew/[endians2, objects, results, byteutils],
-  nimcrypto/sysrand,
   blscurve,
   chronicles,
   json_serialization,
+  bearssl,
   # Standard library
   hashes
 
@@ -175,7 +175,7 @@ func blsFastAggregateVerify*(
 
   fastAggregateVerify(unwrapped, message, signature.blsValue)
 
-proc newKeyPair*(): BlsResult[tuple[pub: ValidatorPubKey, priv: ValidatorPrivKey]] =
+proc newKeyPair*(rng: var BrHmacDrbgContext): BlsResult[tuple[pub: ValidatorPubKey, priv: ValidatorPrivKey]] =
   ## Generates a new public-private keypair
   ## This requires entropy on the system
   # The input-keying-material requires 32 bytes at least for security
@@ -183,8 +183,7 @@ proc newKeyPair*(): BlsResult[tuple[pub: ValidatorPubKey, priv: ValidatorPrivKey
   # must be protected against side-channel attacks
 
   var ikm: array[32, byte]
-  if randomBytes(ikm) != 32:
-    return err "bls: no random bytes"
+  brHmacDrbgGenerate(rng, ikm)
 
   var
     sk: SecretKey
@@ -363,15 +362,7 @@ func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noInit
     raise (ref ValueError)(msg: $v.error)
   return v[]
 
-proc getRandomBytes*(n: Natural): seq[byte]
-                    {.raises: [RandomSourceDepleted, Defect].} =
+proc getRandomBytes*(rng: var BrHmacDrbgContext, n: Natural): seq[byte]
+                    {.raises: [Defect].} =
   result = newSeq[byte](n)
-  if randomBytes(result) != result.len:
-    raise newException(RandomSourceDepleted, "Failed to generate random bytes")
-
-proc getRandomBytesOrPanic*(output: var openArray[byte]) =
-  doAssert randomBytes(output) == output.len
-
-proc getRandomBytesOrPanic*(n: Natural): seq[byte] =
-  result = newSeq[byte](n)
-  getRandomBytesOrPanic(result)
+  brHmacDrbgGenerate(rng, result)
