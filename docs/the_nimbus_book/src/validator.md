@@ -126,7 +126,7 @@ You can then browse the metrics by connecting to:
 
 http://localhost:8008/metrics
 
-Make sure this port is protected as the http server used is not considered secure and should not be used by untrusted peers.
+Make sure this port is protected as the http server used is not considered secure (it should not be used by untrusted peers).
 
 ## Troubleshooting
 
