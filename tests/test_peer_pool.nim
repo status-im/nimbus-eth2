@@ -80,7 +80,7 @@ suiteReport "PeerPool testing suite":
       doAssert(fut1.finished == false)
       doAssert(fut2.finished == false)
       peer0.close()
-      await sleepAsync(100.milliseconds)
+      await sleepAsync(10.milliseconds)
       doAssert(fut1.finished == false)
       doAssert(fut2.finished == true and fut2.failed == false)
       result = true
@@ -102,11 +102,11 @@ suiteReport "PeerPool testing suite":
       doAssert(fut2.finished == false)
       doAssert(fut3.finished == false)
       peer0.close()
-      await sleepAsync(100.milliseconds)
+      await sleepAsync(10.milliseconds)
       doAssert(fut2.finished == true and fut2.failed == false)
       doAssert(fut3.finished == false)
       peer1.close()
-      await sleepAsync(100.milliseconds)
+      await sleepAsync(10.milliseconds)
       doAssert(fut3.finished == true and fut3.failed == false)
       result = true
 
@@ -128,18 +128,61 @@ suiteReport "PeerPool testing suite":
       doAssert(fut2.finished == true and fut2.failed == false)
       doAssert(fut3.finished == false)
       peer0.close()
-      await sleepAsync(100.milliseconds)
+      await sleepAsync(10.milliseconds)
       doAssert(fut1.finished == true and fut1.failed == false)
       doAssert(fut3.finished == false)
       peer2.close()
-      await sleepAsync(100.milliseconds)
+      await sleepAsync(10.milliseconds)
       doAssert(fut3.finished == true and fut3.failed == false)
+      result = true
+
+    proc testAddPeer4(): Future[bool] {.async.} =
+      var pool = newPeerPool[PeerTest, PeerTestID](maxPeers = 3)
+
+      var peer0 = PeerTest.init("idInc0")
+      var peer1 = PeerTest.init("idInc1")
+      var peer2 = PeerTest.init("idOut0")
+      var peer3 = PeerTest.init("idOut1")
+      var peer4 = PeerTest.init("idOut2")
+      var peer5 = PeerTest.init("idInc2")
+
+      var fut0 = pool.addIncomingPeer(peer0)
+      var fut1 = pool.addIncomingPeer(peer1)
+      var fut2 = pool.addOutgoingPeer(peer2)
+      var fut3 = pool.addOutgoingPeer(peer3)
+      var fut4 = pool.addOutgoingPeer(peer4)
+      var fut5 = pool.addIncomingPeer(peer5)
+
+      doAssert(fut0.finished == true and fut0.failed == false)
+      doAssert(fut1.finished == true and fut1.failed == false)
+      doAssert(fut2.finished == true and fut2.failed == false)
+      doAssert(fut3.finished == false)
+      doAssert(fut4.finished == false)
+      doAssert(fut5.finished == false)
+
+      await sleepAsync(10.milliseconds)
+      doAssert(fut3.finished == false)
+      doAssert(fut4.finished == false)
+      doAssert(fut5.finished == false)
+      peer0.close()
+      await sleepAsync(10.milliseconds)
+      doAssert(fut3.finished == true and fut3.failed == false)
+      doAssert(fut4.finished == false)
+      doAssert(fut5.finished == false)
+      peer1.close()
+      await sleepAsync(10.milliseconds)
+      doAssert(fut4.finished == true and fut4.failed == false)
+      doAssert(fut5.finished == false)
+      peer2.close()
+      await sleepAsync(10.milliseconds)
+      doAssert(fut5.finished == true and fut5.failed == false)
       result = true
 
     check:
       waitFor(testAddPeer1()) == true
       waitFor(testAddPeer2()) == true
       waitFor(testAddPeer3()) == true
+      waitFor(testAddPeer4()) == true
 
   timedTest "Acquire from empty pool":
     var pool0 = newPeerPool[PeerTest, PeerTestID]()
@@ -399,7 +442,7 @@ suiteReport "PeerPool testing suite":
 
     proc testConsumer() {.async.} =
       var p = await pool.acquire()
-      await sleepAsync(100.milliseconds)
+      await sleepAsync(10.milliseconds)
       pool.release(p)
 
     proc testClose(): Future[bool] {.async.} =
