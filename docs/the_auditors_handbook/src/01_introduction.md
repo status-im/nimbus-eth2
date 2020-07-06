@@ -7,6 +7,8 @@ The Auditors' Handbook aims to be provide a comprehensive introduction to:
 - The NBC project.
 - The dependencies of the project.
 
-A particular focus will be given to feature related to safety, correctness, error handling, testing, fuzzing, or inspecting Nim code.
+A particular focus will be given to features related to safety, correctness, error handling, testing, fuzzing, or inspecting Nim code.
 
-One of the major highlight of Nim is that it compiles to C or C++ before compiling to native code. All techniques available to audit C code can be used to audit Nim.
+One of the major highlights of Nim is that it compiles to C or C++ before compiling to native code. All techniques available to audit C code can be used to audit Nim.
+
+The dependencies NBC rely on are detailed per audit phase in the [build system and dependencies](03.2_build_system_and_dependencies.md) section.

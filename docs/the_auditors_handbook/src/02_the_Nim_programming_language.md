@@ -12,12 +12,12 @@ Nim can target any combination of C compiler, host OS and hardware architecture 
 
 Nim can be installed via:
 - A Linux distribution package manager or Homebrew on MacOS
-- Instructions at https://nim-lang.org/install.html
-- Docker: https://hub.docker.com/r/nimlang/nim/
-- https://github.com/dom96/choosenim
+- Instructions at [https://nim-lang.org/install.html](https://nim-lang.org/install.html)
+- Docker: [https://hub.docker.com/r/nimlang/nim/](https://hub.docker.com/r/nimlang/nim/)
+- Choosenim [https://github.com/dom96/choosenim](https://github.com/dom96/choosenim)
 
-Nim Vagrant (https://github.com/status-im/nim-vagrant) is unmaintained but might
-help setting up your own virtualized environment
+Nim Vagrant [https://github.com/status-im/nim-vagrant](https://github.com/status-im/nim-vagrant) is unmaintained but might
+help setting up your own virtualized environment.
 
 We target Nim 1.2.2 and should be compatible with the latest stable, Nim 1.2.4
 
@@ -34,8 +34,8 @@ The convention used in Nim-Beacon-Chain is:
 - `camelCase` for our own additional code
 - `PascalCase` for our additional constants
 
-In short, we respect the Ethereum spec for Ethereum specified identifiers
-and use Nim NEP-1 for the rest
+In summary, we respect the Ethereum spec for Ethereum specified identifiers
+and use Nim NEP-1 for the rest.
 
 ## Checking the C code
 
@@ -49,8 +49,8 @@ The suffix `_d` indicates a debug build, the suffix `_d` indicates a release bui
 ## Compiler options
 
 At the time of writing, NBC targets Nim v1.2.2 compiler.
-The build system is at https://github.com/status-im/nimbus-build-system.
-No patching is done
+The build system is at [https://github.com/status-im/nimbus-build-system](https://github.com/status-im/nimbus-build-system)
+No patching is done at the moment on the Nim compiler, we use vanilla v1.2.2 upstream.
 
 Nim compiler offers debug, release with `-d:release` and danger with `-d:danger` flag.
 
@@ -64,27 +64,27 @@ as it may enable optimizations that were not possible like optimizing tail calls
 ## References
 
 - Nim by example:
-  - https://nim-by-example.github.io/getting_started/
+  - [https://nim-by-example.github.io/getting_started/](https://nim-by-example.github.io/getting_started/)
 
 - The Nim Manual, is a specification of how Nim should behave\
-  https://nim-lang.org/docs/manual.html
+  [https://nim-lang.org/docs/manual.html](https://nim-lang.org/docs/manual.html)
 
 - Nim tutorials
-  - https://nim-lang.org/docs/tut1.html
-  - https://nim-lang.org/docs/tut2.html
-  - https://nim-lang.org/docs/tut3.html
+  - [https://nim-lang.org/docs/tut1.html](https://nim-lang.org/docs/tut1.html)
+  - [https://nim-lang.org/docs/tut2.html](https://nim-lang.org/docs/tut2.html)
+  - [https://nim-lang.org/docs/tut3.html](https://nim-lang.org/docs/tut3.html)
 
 - Nim for
-  - the C programmer: https://github.com/nim-lang/Nim/wiki/Nim-for-C-programmers
-  - Python programmer: https://github.com/nim-lang/Nim/wiki/Nim-for-Python-Programmers
+  - the C programmer: [https://github.com/nim-lang/Nim/wiki/Nim-for-C-programmers](https://github.com/nim-lang/Nim/wiki/Nim-for-C-programmers)
+  - Python programmer: [https://github.com/nim-lang/Nim/wiki/Nim-for-Python-Programmers](https://github.com/nim-lang/Nim/wiki/Nim-for-Python-Programmers)
 
 Further resources are collected at:
-- https://nim-lang.org/learn.html
+- [https://nim-lang.org/learn.html](https://nim-lang.org/learn.html)
 
 ### Compiler configuration
 
-- Compiler User Guide: https://nim-lang.org/docs/nimc.html
+- Compiler User Guide: [https://nim-lang.org/docs/nimc.html](https://nim-lang.org/docs/nimc.html)
 
 ### Style Guide
 
-- https://nim-lang.org/docs/nep1.html
+- [https://nim-lang.org/docs/nep1.html](https://nim-lang.org/docs/nep1.html)
