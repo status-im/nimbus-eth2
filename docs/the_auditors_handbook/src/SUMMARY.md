@@ -18,7 +18,10 @@
 - [Nimbus NBC - The Nim-Beacon-Chain](03_nbc_nimbus_beacon_chain.md)
   - [Build system and dependencies](03.2_build_system_and_dependencies.md)
   - [Threat model](03.5_the_threat_model.md)
-
+- [Serialization](04_serialization.md)
+- [Async/Await with Chronos](05_async_with_chronos.md)
+- [Cryptography](06_cryptography_and_rng.md)
+- [Ethereum Networking](07_nim-eth.md)
 
 <!-- Not fleshed out, out of line because mdbook bug -->
 

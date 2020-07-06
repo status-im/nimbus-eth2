@@ -56,3 +56,8 @@ We target v0.12.1 phase0 of [https://github.com/ethereum/eth2.0-specs](https://g
 
 The p2p-interface specs in particular describe the subset of libp2p spec that
 are used to implement Ethereum 2
+
+## Resources
+
+Ethereum 2.0 Ask Me Anything:
+- [https://docs.ethhub.io/other/ethereum-2.0-ama/](https://docs.ethhub.io/other/ethereum-2.0-ama/)
