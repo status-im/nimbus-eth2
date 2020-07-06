@@ -17,6 +17,7 @@
   - [Nim FAQ](02.10_Nim_FAQ.md)
 - [Nimbus NBC - The Nim-Beacon-Chain](03_nbc_nimbus_beacon_chain.md)
   - [Build system and dependencies](03.2_build_system_and_dependencies.md)
+  - [Threat model](03.5_the_threat_model.md)
 
 
 <!-- Not fleshed out, out of line because mdbook bug -->
