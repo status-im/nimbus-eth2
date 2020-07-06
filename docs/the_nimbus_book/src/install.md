@@ -41,7 +41,7 @@ yourAURmanager -S base-devel pcre-static
 Assuming you use [Homebrew](https://brew.sh/) to manage packages
 
 ```sh
-brew install pcre
+brew install pcre cmake
 ```
 
 ### Windows
