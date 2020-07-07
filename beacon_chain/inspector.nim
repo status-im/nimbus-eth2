@@ -593,6 +593,7 @@ proc run(conf: InspectorConf) {.async.} =
   var pubsubPeers = newTable[PeerID, PeerInfo]()
   var resolveQueue = newAsyncQueue[PeerID](10)
   var connectQueue = newAsyncQueue[PeerInfo](10)
+  let rng = lcrypto.newRng()
 
   let bootnodes = loadBootstrapNodes(conf)
   if len(bootnodes) == 0:
@@ -667,7 +668,7 @@ proc run(conf: InspectorConf) {.async.} =
              bootstrap_fork_digest = forkDigest.get()
         forkDigest = argForkDigest
 
-  let seckey = lcrypto.PrivateKey.random(PKScheme.Secp256k1).tryGet()
+  let seckey = lcrypto.PrivateKey.random(PKScheme.Secp256k1, rng[]).tryGet()
   # let pubkey = seckey.getKey()
 
   let hostAddress = tryGetMultiAddress(conf.bindAddress)
@@ -677,7 +678,7 @@ proc run(conf: InspectorConf) {.async.} =
 
   var switch = newStandardSwitch(some(seckey), hostAddress.get(),
                                  triggerSelf = true, gossip = true,
-                                 sign = false, verifySignature = false)
+                                 sign = false, verifySignature = false, rng = rng)
 
   if len(conf.topics) > 0:
     for item in conf.topics:

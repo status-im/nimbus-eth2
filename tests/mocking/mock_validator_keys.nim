@@ -9,14 +9,35 @@
 # ---------------------------------------------------------------
 
 import
+  bearssl, eth/keys,
   # Specs
+  blscurve/bls_signature_scheme,
   ../../beacon_chain/spec/[datatypes, crypto]
+
+proc newKeyPair(rng: var BrHmacDrbgContext): BlsResult[tuple[pub: ValidatorPubKey, priv: ValidatorPrivKey]] =
+  ## Generates a new public-private keypair
+  ## This requires entropy on the system
+  # The input-keying-material requires 32 bytes at least for security
+  # The generation is deterministic and the input-keying-material
+  # must be protected against side-channel attacks
+
+  var ikm: array[32, byte]
+  brHmacDrbgGenerate(rng, ikm)
+
+  var
+    sk: SecretKey
+    pk: bls_signature_scheme.PublicKey
+  if keyGen(ikm, pk, sk):
+    ok((ValidatorPubKey(kind: Real, blsValue: pk), ValidatorPrivKey(sk)))
+  else:
+    err "bls: cannot generate keypair"
 
 # this is being indexed inside "mock_deposits.nim" by a value up to `validatorCount`
 # which is `num_validators` which is `MIN_GENESIS_ACTIVE_VALIDATOR_COUNT`
 proc genMockPrivKeys(privkeys: var array[MIN_GENESIS_ACTIVE_VALIDATOR_COUNT, ValidatorPrivKey]) =
+  let rng = newRng()
   for i in 0 ..< privkeys.len:
-    let pair = newKeyPair()[]
+    let pair = newKeyPair(rng[])[]
     privkeys[i] = pair.priv
 
 func genMockPubKeys(

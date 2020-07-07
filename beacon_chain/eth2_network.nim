@@ -4,7 +4,7 @@ import
   options as stdOptions,
 
   # Status libs
-  stew/[varints, base58, base64, endians2, results, byteutils],
+  stew/[varints, base58, base64, endians2, results, byteutils], bearssl,
   stew/shims/net as stewNet,
   stew/shims/[macros, tables],
   faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
@@ -65,6 +65,7 @@ type
     connWorkers: seq[Future[void]]
     connTable: Table[PeerID, PeerInfo]
     forkId: ENRForkID
+    rng*: ref BrHmacDrbgContext
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
@@ -796,7 +797,7 @@ proc getPersistentNetMetadata*(conf: BeaconNodeConf): Eth2Metadata =
 
 proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
            switch: Switch, ip: Option[ValidIpAddress], tcpPort, udpPort: Port,
-           privKey: keys.PrivateKey): T =
+           privKey: keys.PrivateKey, rng: ref BrHmacDrbgContext): T =
   new result
   result.switch = switch
   result.wantedPeers = conf.maxPeers
@@ -810,7 +811,8 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
   result.forkId = enrForkId
   result.discovery = Eth2DiscoveryProtocol.new(
     conf, ip, tcpPort, udpPort, privKey,
-    {"eth2": SSZ.encode(result.forkId), "attnets": SSZ.encode(result.metadata.attnets)})
+    {"eth2": SSZ.encode(result.forkId), "attnets": SSZ.encode(result.metadata.attnets)},
+    rng)
 
   newSeq result.protocolStates, allProtocols.len
   for proto in allProtocols:
@@ -1064,13 +1066,14 @@ proc initAddress*(T: type MultiAddress, str: string): T =
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
-proc getPersistentNetKeys*(conf: BeaconNodeConf): KeyPair =
+proc getPersistentNetKeys*(
+    rng: var BrHmacDrbgContext, conf: BeaconNodeConf): KeyPair =
   let
     privKeyPath = conf.dataDir / networkKeyFilename
     privKey =
       if not fileExists(privKeyPath):
         createDir conf.dataDir.string
-        let key = PrivateKey.random(Secp256k1).tryGet()
+        let key = PrivateKey.random(Secp256k1, rng).tryGet()
         writeFile(privKeyPath, key.getBytes().tryGet())
         key
       else:
@@ -1086,7 +1089,7 @@ func gossipId(data: openArray[byte]): string =
 func msgIdProvider(m: messages.Message): string =
   gossipId(m.data)
 
-proc createEth2Node*(conf: BeaconNodeConf, enrForkId: ENRForkID): Future[Eth2Node] {.async, gcsafe.} =
+proc createEth2Node*(rng: ref BrHmacDrbgContext, conf: BeaconNodeConf, enrForkId: ENRForkID): Future[Eth2Node] {.async, gcsafe.} =
   var
     (extIp, extTcpPort, extUdpPort) = setupNat(conf)
     hostAddress = tcpEndPoint(conf.libp2pAddress, conf.tcpPort)
@@ -1096,7 +1099,7 @@ proc createEth2Node*(conf: BeaconNodeConf, enrForkId: ENRForkID): Future[Eth2Nod
   info "Initializing networking", hostAddress,
                                   announcedAddresses
 
-  let keys = conf.getPersistentNetKeys
+  let keys = getPersistentNetKeys(rng[], conf)
   # TODO nim-libp2p still doesn't have support for announcing addresses
   # that are different from the host address (this is relevant when we
   # are running behind a NAT).
@@ -1104,14 +1107,15 @@ proc createEth2Node*(conf: BeaconNodeConf, enrForkId: ENRForkID): Future[Eth2Nod
                                  triggerSelf = true, gossip = true,
                                  sign = false, verifySignature = false,
                                  transportFlags = {ServerFlags.ReuseAddr},
-                                 msgIdProvider = msgIdProvider)
+                                 msgIdProvider = msgIdProvider,
+                                 rng = rng)
   result = Eth2Node.init(conf, enrForkId, switch,
                          extIp, extTcpPort, extUdpPort,
-                         keys.seckey.asEthKey)
+                         keys.seckey.asEthKey, rng = rng)
 
-proc getPersistenBootstrapAddr*(conf: BeaconNodeConf,
+proc getPersistenBootstrapAddr*(rng: var BrHmacDrbgContext, conf: BeaconNodeConf,
                                 ip: ValidIpAddress, port: Port): EnrResult[enr.Record] =
-  let pair = getPersistentNetKeys(conf)
+  let pair = getPersistentNetKeys(rng, conf)
   return enr.Record.init(1'u64, # sequence number
                          pair.seckey.asEthKey,
                          some(ip), port, port, @[])

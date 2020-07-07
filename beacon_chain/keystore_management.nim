@@ -1,8 +1,9 @@
 import
-  os, strutils, terminal,
-  chronicles, chronos, blscurve, nimcrypto, json_serialization, serialization,
-  web3, stint, eth/keys, confutils,
-  spec/[datatypes, digest, crypto, keystore], conf, ssz/merkleization, merkle_minimal
+  os, strutils, terminal, stew/byteutils,
+  chronicles, chronos, blscurve, json_serialization, serialization,
+  web3, stint, eth/keys, confutils, bearssl,
+  spec/[datatypes, digest, crypto, keystore],
+  conf, ssz/merkleization, merkle_minimal
 
 export
   keystore
@@ -101,20 +102,19 @@ type
     FailedToCreateKeystoreFile
     FailedToCreateDepositFile
 
-proc generateDeposits*(totalValidators: int,
+proc generateDeposits*(rng: var BrHmacDrbgContext, totalValidators: int,
                        validatorsDir: string,
                        secretsDir: string): Result[seq[Deposit], GenerateDepositsError] =
   var deposits: seq[Deposit]
 
   info "Generating deposits", totalValidators, validatorsDir, secretsDir
   for i in 0 ..< totalValidators:
-    let password = KeyStorePass getRandomBytesOrPanic(32).toHex
-    let credentials = generateCredentials(password = password)
+    let password = KeyStorePass getRandomBytes(rng, 32).toHex
+    let credentials = generateCredentials(rng, password = password)
 
     let
       keyName = intToStr(i, 6) & "_" & $(credentials.signingKey.toPubKey)
       validatorDir = validatorsDir / keyName
-      passphraseFile = secretsDir / keyName
       depositFile = validatorDir / depositFileName
       keystoreFile = validatorDir / keystoreFileName
 

@@ -6,10 +6,10 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  json, math, strutils, strformat, typetraits,
+  json, math, strutils, strformat, typetraits, bearssl,
   stew/[results, byteutils, bitseqs, bitops2], stew/shims/macros,
   eth/keyfile/uuid, blscurve, json_serialization,
-  nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, sysrand, utils],
+  nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, utils],
   ./datatypes, ./crypto, ./digest, ./signatures
 
 export
@@ -132,6 +132,11 @@ template burnMem*(m: var (SensitiveData|TaintedString)) =
   #       to make its usage less error-prone.
   utils.burnMem(string m)
 
+proc getRandomBytes*(rng: var BrHmacDrbgContext, n: Natural): seq[byte]
+                    {.raises: [Defect].} =
+  result = newSeq[byte](n)
+  brHmacDrbgGenerate(rng, result)
+
 macro wordListArray(filename: static string): array[wordListLen, cstring] =
   result = newTree(nnkBracket)
   var words = slurp(filename).split()
@@ -180,14 +185,17 @@ func getSeed*(mnemonic: Mnemonic, password: KeyStorePass): KeySeed =
   let salt = "mnemonic-" & password.string
   KeySeed sha512.pbkdf2(mnemonic.string, salt, 2048, 64)
 
-proc generateMnemonic*(words: openarray[cstring] = englishWords,
-                       entropyParam: openarray[byte] = @[]): Mnemonic =
+proc generateMnemonic*(
+    rng: var BrHmacDrbgContext,
+    words: openarray[cstring] = englishWords,
+    entropyParam: openarray[byte] = @[]): Mnemonic =
   # https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#generating-the-mnemonic
   doAssert words.len == wordListLen
 
   var entropy: seq[byte]
   if entropyParam.len == 0:
-    entropy = getRandomBytesOrPanic(32)
+    setLen(entropy, 32)
+    brHmacDrbgGenerate(rng, entropy)
   else:
     doAssert entropyParam.len >= 128 and
              entropyParam.len <= 256 and
@@ -325,6 +333,7 @@ proc decryptKeystore*(data: KeyStoreContent,
   ValidatorPrivKey.fromRaw(? secret)
 
 proc createCryptoField(T: type[KdfParams],
+                       rng: var BrHmacDrbgContext,
                        secret: openarray[byte],
                        password = KeyStorePass "",
                        salt: openarray[byte] = @[],
@@ -340,13 +349,13 @@ proc createCryptoField(T: type[KdfParams],
     doAssert salt.len == saltSize
     @salt
   else:
-    getRandomBytesOrPanic(saltSize)
+    getRandomBytes(rng, saltSize)
 
   let aesIv = if iv.len > 0:
     doAssert iv.len == AES.sizeBlock
     @iv
   else:
-    getRandomBytesOrPanic(AES.sizeBlock)
+    getRandomBytes(rng, AES.sizeBlock)
 
   when T is KdfPbkdf2:
     decKey = sha256.pbkdf2(password.string, kdfSalt, pbkdf2Params.c,
@@ -374,6 +383,7 @@ proc createCryptoField(T: type[KdfParams],
       message: byteutils.toHex(cipherMsg)))
 
 proc encryptKeystore*(T: type[KdfParams],
+                      rng: var BrHmacDrbgContext,
                       privKey: ValidatorPrivkey,
                       password = KeyStorePass "",
                       path = KeyPath "",
@@ -382,7 +392,7 @@ proc encryptKeystore*(T: type[KdfParams],
                       pretty = true): KeyStoreContent =
   let
     secret = privKey.toRaw[^32..^1]
-    cryptoField = createCryptoField(T, secret, password, salt, iv)
+    cryptoField = createCryptoField(T, rng, secret, password, salt, iv)
     pubkey = privKey.toPubKey()
     uuid = uuidGenerate().expect("Random bytes should be available")
     keystore = Keystore[T](
@@ -396,6 +406,7 @@ proc encryptKeystore*(T: type[KdfParams],
                   else: $(%keystore)
 
 proc createWallet*(T: type[KdfParams],
+                   rng: var BrHmacDrbgContext,
                    mnemonic: Mnemonic,
                    name = WalletName "",
                    salt: openarray[byte] = @[],
@@ -409,7 +420,7 @@ proc createWallet*(T: type[KdfParams],
     # we want the wallet restoration procedure to depend only on the
     # mnemonic (the user is asked to treat the mnemonic as a password).
     seed = getSeed(mnemonic, KeyStorePass"")
-    cryptoField = %createCryptoField(T, distinctBase seed, password, salt, iv)
+    cryptoField = %createCryptoField(T,rng, distinctBase seed, password, salt, iv)
 
   Wallet(
     uuid: uuid,
@@ -422,6 +433,7 @@ proc createWallet*(T: type[KdfParams],
     nextAccount: nextAccount.get(0))
 
 proc createWalletContent*(T: type[KdfParams],
+                          rng: var BrHmacDrbgContext,
                           mnemonic: Mnemonic,
                           name = WalletName "",
                           salt: openarray[byte] = @[],
@@ -429,10 +441,12 @@ proc createWalletContent*(T: type[KdfParams],
                           password = KeyStorePass "",
                           nextAccount = none(Natural),
                           pretty = true): (UUID, WalletContent) =
-  let wallet = createWallet(T, mnemonic, name, salt, iv, password, nextAccount, pretty)
+  let wallet = createWallet(
+    T, rng, mnemonic, name, salt, iv, password, nextAccount, pretty)
   (wallet.uuid, WalletContent Json.encode(wallet, pretty = pretty))
 
-proc restoreCredentials*(mnemonic: Mnemonic,
+proc restoreCredentials*(rng: var BrHmacDrbgContext,
+                         mnemonic: Mnemonic,
                          password = KeyStorePass ""): Credentials =
   let
     withdrawalKeyPath = makeKeyPath(0, withdrawalKeyKind)
@@ -443,14 +457,15 @@ proc restoreCredentials*(mnemonic: Mnemonic,
 
   Credentials(
     mnemonic: mnemonic,
-    keyStore: encryptKeystore(KdfPbkdf2, signingKey, password, signingKeyPath),
+    keyStore: encryptKeystore(KdfPbkdf2, rng, signingKey, password, signingKeyPath),
     signingKey: signingKey,
     withdrawalKey: withdrawalKey)
 
-proc generateCredentials*(entropy: openarray[byte] = @[],
+proc generateCredentials*(rng: var BrHmacDrbgContext,
+                          entropy: openarray[byte] = @[],
                           password = KeyStorePass ""): Credentials =
-  let mnemonic = generateMnemonic(englishWords, entropy)
-  restoreCredentials(mnemonic, password)
+  let mnemonic = generateMnemonic(rng, englishWords, entropy)
+  restoreCredentials(rng, mnemonic, password)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/deposit-contract.md#withdrawal-credentials
 proc makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
