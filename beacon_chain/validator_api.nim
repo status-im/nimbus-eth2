@@ -128,98 +128,68 @@ proc getBlockSlotFromString(node: BeaconNode, slot: string): BlockSlot =
   return head.atSlot(parsed.Slot)
 
 proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData =
-  case blockId:
+  result = case blockId:
     of "head":
-      return node.blockPool.get(node.blockPool.head.blck)
+      node.blockPool.get(node.blockPool.head.blck)
     of "genesis":
-      return node.blockPool.get(node.blockPool.head.blck.atSlot(0.Slot).blck)
+      node.blockPool.get(node.blockPool.head.blck.atSlot(0.Slot).blck)
     of "finalized":
-      return node.blockPool.get(node.blockPool.finalizedHead.blck)
+      node.blockPool.get(node.blockPool.finalizedHead.blck)
     else:
       if blockId.startsWith("0x"):
         let blckRoot = parseRoot(blockId)
         let blockData = node.blockPool.get(blckRoot)
         if blockData.isNone:
           raise newException(CatchableError, "Block not found")
-        return blockData.get()
+        blockData.get()
       else:
         let blockSlot = node.getBlockSlotFromString(blockId)
         if blockSlot.blck.isNil:
           raise newException(CatchableError, "Block not found")
-        return node.blockPool.get(blockSlot.blck)
+        node.blockPool.get(blockSlot.blck)
+
+proc stateIdToBlockSlot(node: BeaconNode, stateId: string): BlockSlot =
+  result = case stateId:
+    of "head":
+      let head = node.blockPool.head.blck
+      head.atSlot(head.slot)
+    of "genesis":
+      node.blockPool.head.blck.atSlot(0.Slot)
+    of "finalized":
+      node.blockPool.finalizedHead
+    of "justified":
+      let blckRef = node.blockPool.justifiedState.blck
+      blckRef.atSlot(blckRef.slot)
+    else:
+      if stateId.startsWith("0x"):
+        let blckRoot = parseRoot(stateId)
+        let blckRef = node.blockPool.getRef(blckRoot)
+        if blckRef.isNil:
+          raise newException(CatchableError, "Block not found")
+        blckRef.atSlot(blckRef.slot)
+      else:
+        node.getBlockSlotFromString(stateId)
 
 # TODO Probably the `beacon` ones should be defined elsewhere...?
 
 proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
 
-  template withStateForSlot(stateId: string, body: untyped): untyped =
-    let blockSlot = node.getBlockSlotFromString(stateId)
-    node.blockPool.withState(node.blockPool.tmpState, blockSlot):
+  template withStateForStateId(stateId: string, body: untyped): untyped =
+    node.blockPool.withState(node.blockPool.tmpState,
+                             node.stateIdToBlockSlot(stateId)):
       body
 
-  template withStateForStateId(stateId: string, body: untyped): untyped =
-    case stateId:
-      of "head":
-        let head = node.blockPool.head.blck
-        let headSlot = head.atSlot(head.slot)
-        node.blockPool.withState(node.blockPool.tmpState, headSlot):
-          body
-      of "genesis":
-        # TODO is this the best way? is it even OK?
-        let head = node.blockPool.head.blck
-        let headSlot = head.atSlot(0.Slot)
-        node.blockPool.withState(node.blockPool.tmpState, headSlot):
-          body
-      of "finalized":
-        node.blockPool.withState(node.blockPool.tmpState, node.blockPool.finalizedHead):
-          body
-      of "justified":
-        let blckRef = node.blockPool.justifiedState.blck
-        let blckSlot = blckRef.atSlot(blckRef.slot)
-        node.blockPool.withState(node.blockPool.tmpState, blckSlot):
-          body
-      else:
-        if stateId.startsWith("0x"):
-          let blckRoot = parseRoot(stateId)
-          let blckRef = node.blockPool.getRef(blckRoot)
-          if blckRef.isNil:
-            raise newException(CatchableError, "Block not found")
-          let blckSlot = blckRef.atSlot(blckRef.slot)
-          node.blockPool.withState(node.blockPool.tmpState, blckSlot):
-            body
-        else:
-          withStateForSlot(stateId):
-            body
-
   rpcServer.rpc("get_v1_beacon_genesis") do () -> BeaconGenesisTuple:
-    debug "get_v1_beacon_genesis"
     return (genesis_time: node.blockPool.headState.data.data.genesis_time,
              genesis_validators_root:
               node.blockPool.headState.data.data.genesis_validators_root,
              genesis_fork_version: Version(GENESIS_FORK_VERSION))
 
-  # TODO rework using withStateForStateId?
   rpcServer.rpc("get_v1_beacon_states_root") do (stateId: string) -> Eth2Digest:
-    debug "get_v1_beacon_states_root", stateId = stateId
-    result = case stateId:
-      of "head":
-        node.blockPool.headState.data.root
-      of "genesis":
-        node.blockPool.headState.data.data.genesis_validators_root
-      of "finalized":
-        node.blockPool.headState.data.data.finalized_checkpoint.root
-      of "justified":
-        node.blockPool.headState.data.data.current_justified_checkpoint.root
-      else:
-        if stateId.startsWith("0x"):
-          # we return whatever was passed to us (this is a nonsense request)
-          parseRoot(stateId)
-        else:
-          withStateForSlot(stateId):
-            hashedState.root
+    withStateForStateId(stateId):
+      return hashedState.root
 
   rpcServer.rpc("get_v1_beacon_states_fork") do (stateId: string) -> Fork:
-    debug "get_v1_beacon_states_fork", stateId = stateId
     withStateForStateId(stateId):
       return state.fork
   
@@ -358,6 +328,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
 
   rpcServer.rpc("get_v1_validator_attestation") do (
       slot: Slot, committee_index: CommitteeIndex) -> AttestationData:
+    debug "get_v1_validator_attestation", slot = slot
     let head = node.doChecksAndGetCurrentHead(slot)
 
     node.blockPool.withState(node.blockPool.tmpState, head.atSlot(slot)):
