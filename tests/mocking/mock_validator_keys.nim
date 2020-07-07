@@ -10,30 +10,28 @@
 
 import
   # Specs
-  ../../beacon_chain/spec/[datatypes, crypto]
+  ../../beacon_chain/spec/[datatypes, crypto, presets]
 
 # this is being indexed inside "mock_deposits.nim" by a value up to `validatorCount`
 # which is `num_validators` which is `MIN_GENESIS_ACTIVE_VALIDATOR_COUNT`
-proc genMockPrivKeys(privkeys: var array[MIN_GENESIS_ACTIVE_VALIDATOR_COUNT, ValidatorPrivKey]) =
+proc genMockPrivKeys(privkeys: var openarray[ValidatorPrivKey]) =
   for i in 0 ..< privkeys.len:
     let pair = newKeyPair()[]
     privkeys[i] = pair.priv
 
 proc genMockPubKeys(
-       pubkeys: var array[MIN_GENESIS_ACTIVE_VALIDATOR_COUNT, ValidatorPubKey],
-       privkeys: array[MIN_GENESIS_ACTIVE_VALIDATOR_COUNT, ValidatorPrivKey]
+       pubkeys: var openarray[ValidatorPubKey],
+       privkeys: openarray[ValidatorPrivKey]
      ) =
   for i in 0 ..< privkeys.len:
     pubkeys[i] = toPubKey(privkeys[i])
 
 # Ref array necessary to limit stack usage / binary size
-var MockPrivKeys*: ref array[MIN_GENESIS_ACTIVE_VALIDATOR_COUNT, ValidatorPrivKey]
-new MockPrivKeys
-genMockPrivKeys(MockPrivKeys[])
+var MockPrivKeys* = newSeq[ValidatorPrivKey](defaultRuntimePreset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT)
+genMockPrivKeys(MockPrivKeys)
 
-var MockPubKeys*: ref array[MIN_GENESIS_ACTIVE_VALIDATOR_COUNT, ValidatorPubKey]
-new MockPubKeys
-genMockPubKeys(MockPubKeys[], MockPrivKeys[])
+var MockPubKeys* = newSeq[ValidatorPubKey](defaultRuntimePreset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT)
+genMockPubKeys(MockPubKeys, MockPrivKeys)
 
 type MockKey = ValidatorPrivKey or ValidatorPubKey
 
@@ -43,7 +41,7 @@ template `[]`*[N: static int](a: array[N, MockKey], idx: ValidatorIndex): MockKe
 when isMainModule:
   echo "========================================"
   echo "Mock keys"
-  for i in 0 ..< MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
+  for i in 0 ..< defaultRuntimePreset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
     echo "  validator ", i
     echo "    seckey: ", MockPrivKeys[i].toHex()
     echo "    pubkey: ", MockPubKeys[i]

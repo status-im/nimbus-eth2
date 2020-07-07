@@ -459,6 +459,7 @@ proc makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
   bytes
 
 proc prepareDeposit*(credentials: Credentials,
+                     preset: RuntimePreset,
                      amount = MAX_EFFECTIVE_BALANCE.Gwei): Deposit =
   let
     withdrawalPubKey = credentials.withdrawalKey.toPubKey
@@ -471,6 +472,6 @@ proc prepareDeposit*(credentials: Credentials,
         pubkey: signingPubKey,
         withdrawal_credentials: makeWithdrawalCredentials(withdrawalPubKey)))
 
-  ret.data.signature = get_deposit_signature(ret.data, credentials.signingKey)
-
+  ret.data.signature = preset.get_deposit_signature(ret.data,
+                                                    credentials.signingKey)
   ret

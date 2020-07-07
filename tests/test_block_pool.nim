@@ -10,7 +10,8 @@
 import
   options, sequtils, unittest,
   ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[datatypes, digest, helpers, validator, state_transition],
+  ../beacon_chain/spec/[datatypes, digest, helpers, validator,
+                        state_transition, presets],
   ../beacon_chain/[beacon_node_types, block_pool, ssz]
 
 when isMainModule:
@@ -89,7 +90,7 @@ suiteReport "Block pool processing" & preset():
   setup:
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      pool = BlockPool.init(db)
+      pool = BlockPool.init(defaultRuntimePreset, db)
       stateData = newClone(pool.loadTailState())
       cache = get_empty_per_epoch_cache()
       b1 = addTestBlock(stateData.data, pool.tail.root, cache)
@@ -202,7 +203,7 @@ suiteReport "Block pool processing" & preset():
 
     # check that init also reloads block graph
     var
-      pool2 = BlockPool.init(db)
+      pool2 = BlockPool.init(defaultRuntimePreset, db)
 
     check:
       # ensure we loaded the correct head state
@@ -284,7 +285,7 @@ suiteReport "BlockPool finalization tests" & preset():
   setup:
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      pool = BlockPool.init(db)
+      pool = BlockPool.init(defaultRuntimePreset, db)
       cache = get_empty_per_epoch_cache()
 
   timedTest "prune heads on finalization" & preset():
@@ -327,7 +328,7 @@ suiteReport "BlockPool finalization tests" & preset():
       pool.add(hash_tree_root(lateBlock.message), lateBlock).error == Unviable
 
     let
-      pool2 = BlockPool.init(db)
+      pool2 = BlockPool.init(defaultRuntimePreset, db)
 
     # check that the state reloaded from database resembles what we had before
     check:
@@ -367,7 +368,7 @@ suiteReport "BlockPool finalization tests" & preset():
     pool.updateHead(added)
 
     let
-      pool2 = BlockPool.init(db)
+      pool2 = BlockPool.init(defaultRuntimePreset, db)
 
     # check that the state reloaded from database resembles what we had before
     check:

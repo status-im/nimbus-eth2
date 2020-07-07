@@ -16,7 +16,7 @@ import
   chronicles,
   stew/byteutils,
   ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[digest, validator, state_transition],
+  ../beacon_chain/spec/[digest, validator, state_transition, presets],
   ../beacon_chain/[beacon_node_types, attestation_pool, block_pool]
 
 suiteReport "Attestation pool processing" & preset():
@@ -26,7 +26,7 @@ suiteReport "Attestation pool processing" & preset():
   setup:
     # Genesis state that results in 3 members per committee
     var
-      blockPool = newClone(BlockPool.init(makeTestDB(SLOTS_PER_EPOCH * 3)))
+      blockPool = newClone(BlockPool.init(defaultRuntimePreset, makeTestDB(SLOTS_PER_EPOCH * 3)))
       pool = newClone(AttestationPool.init(blockPool[]))
       state = newClone(loadTailState(blockPool[]))
     # Slot 0 is a finalized slot - won't be making attestations for it..

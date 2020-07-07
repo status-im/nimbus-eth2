@@ -33,7 +33,7 @@ import
   algorithm, collections/sets, chronicles, options, sequtils, sets,
   ../extras, ../ssz/merkleization, metrics,
   ./beaconstate, ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
-  ./signatures,
+  ./signatures, ./presets,
   ../../nbench/bench_lab
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
@@ -313,8 +313,11 @@ proc process_voluntary_exit*(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#operations
-proc process_operations(state: var BeaconState, body: SomeBeaconBlockBody,
-    flags: UpdateFlags, stateCache: var StateCache): bool {.nbench.} =
+proc process_operations(preset: RuntimePreset,
+                        state: var BeaconState,
+                        body: SomeBeaconBlockBody,
+                        flags: UpdateFlags,
+                        stateCache: var StateCache): bool {.nbench.} =
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
   let
@@ -342,13 +345,18 @@ proc process_operations(state: var BeaconState, body: SomeBeaconBlockBody,
   for_ops_cached(body.proposer_slashings, process_proposer_slashing)
   for_ops_cached(body.attester_slashings, process_attester_slashing)
   for_ops_cached(body.attestations, process_attestation)
-  for_ops(body.deposits, process_deposit)
+
+  for deposit in body.deposits:
+    if not process_deposit(preset, state, deposit, flags):
+      return false
+
   for_ops(body.voluntary_exits, process_voluntary_exit)
 
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#block-processing
 proc process_block*(
+    preset: RuntimePreset,
     state: var BeaconState, blck: SomeBeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
   ## When there's a new block, we need to verify that the block is sane and
@@ -380,7 +388,7 @@ proc process_block*(
     return false
 
   process_eth1_data(state, blck.body)
-  if not process_operations(state, blck.body, flags, stateCache):
+  if not process_operations(preset, state, blck.body, flags, stateCache):
     # One could combine this and the default-true, but that's a bit implicit
     return false
 

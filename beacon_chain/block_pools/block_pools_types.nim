@@ -123,6 +123,8 @@ type
 
     updateFlags*: UpdateFlags
 
+    runtimePreset*: RuntimePreset
+
   EpochRef* = ref object
     shuffled_active_validator_indices*: seq[ValidatorIndex]
     epoch*: Epoch

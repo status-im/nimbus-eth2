@@ -134,6 +134,8 @@ type
       stateSnapshotContents* {.hidden.}: ref string
         # This is ref so we can mutate it (to erase it) after the initial loading.
 
+      runtimePreset* {.hidden.}: RuntimePreset
+
       nodeName* {.
         defaultValue: ""
         desc: "A name for this node that will appear in the logs. " &

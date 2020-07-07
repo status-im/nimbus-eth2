@@ -10,7 +10,7 @@ import
   algorithm, os, tables, strutils, times, math, terminal, random,
 
   # Nimble packages
-  stew/[objects, byteutils], stew/shims/macros,
+  stew/[objects, byteutils, endians2], stew/shims/macros,
   chronos, confutils, metrics, json_rpc/[rpcserver, jsonmarshal],
   chronicles,
   json_serialization/std/[options, sets, net], serialization/errors,
@@ -18,8 +18,8 @@ import
   eth/p2p/enode, eth/[keys, async_utils], eth/p2p/discoveryv5/[protocol, enr],
 
   # Local modules
-  spec/[datatypes, digest, crypto, beaconstate, helpers, network],
-  spec/state_transition, spec/presets/custom,
+  spec/[datatypes, digest, crypto, beaconstate, helpers, network, presets],
+  spec/state_transition,
   conf, time, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, eth2_discovery,
   beacon_node_common, beacon_node_types, block_pools/block_pools_types,
@@ -163,6 +163,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
       # TODO Could move this to a separate "GenesisMonitor" process or task
       #      that would do only this - see Paul's proposal for this.
       mainchainMonitor = MainchainMonitor.init(
+        conf.runtimePreset,
         web3Provider(conf.web3Url),
         conf.depositContractAddress.get,
         Eth1Data(block_hash: conf.depositContractDeployedAt.get, deposit_count: 0))
@@ -200,17 +201,16 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     conf.stateSnapshotContents[] = ""
 
   # TODO check that genesis given on command line (if any) matches database
-  let blockPool = BlockPool.init(
-    db,
-    if conf.verifyFinalization:
-      {verifyFinalization}
-    else:
-      {})
+  let
+    blockPoolFlags = if conf.verifyFinalization: {verifyFinalization}
+                     else: {}
+    blockPool = BlockPool.init(conf.runtimePreset, db, blockPoolFlags)
 
   if mainchainMonitor.isNil and
      conf.web3Url.len > 0 and
      conf.depositContractAddress.isSome:
     mainchainMonitor = MainchainMonitor.init(
+      conf.runtimePreset,
       web3Provider(conf.web3Url),
       conf.depositContractAddress.get,
       blockPool.headState.data.data.eth1_data)
@@ -707,13 +707,19 @@ proc installDebugApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
 
   rpcServer.rpc("getSpecPreset") do () -> JsonNode:
     var res = newJObject()
-    genCode:
-      for setting in BeaconChainConstants:
-        let
-          settingSym = ident($setting)
-          settingKey = newLit(toLowerAscii($setting))
-        yield quote do:
-          res[`settingKey`] = %`settingSym`
+    genStmtList:
+      for presetValue in PresetValue:
+        if presetValue notin ignoredValues + runtimeValues:
+          let
+            settingSym = ident($presetValue)
+            settingKey = newLit(toLowerAscii($presetValue))
+          let f = quote do:
+            res[`settingKey`] = %`settingSym`
+          yield f
+
+    for field, value in fieldPairs(node.config.runtimePreset):
+      res[field] = when value isnot Version: %value
+                   else: %value.toUInt64
 
     return res
 
@@ -1139,6 +1145,8 @@ programMain:
             fatal "Unrecognized network name", networkName
             quit 1
 
+    config.runtimePreset = metadata.runtimePreset
+
     if config.cmd == noCommand:
       for node in metadata.bootstrapNodes:
         config.bootstrapNodes.add node
@@ -1161,6 +1169,8 @@ programMain:
 
     config.depositContractAddress = some metadata.depositContractAddress
     config.depositContractDeployedAt = some metadata.depositContractDeployedAt
+  else:
+    config.runtimePreset = defaultRuntimePreset
 
   case config.cmd
   of createTestnet:
@@ -1198,7 +1208,7 @@ programMain:
                  else: waitFor getLatestEth1BlockHash(config.web3Url)
     var
       initialState = initialize_beacon_state_from_eth1(
-        eth1Hash, startTime, deposits, {skipBlsValidation})
+        defaultRuntimePreset, eth1Hash, startTime, deposits, {skipBlsValidation})
 
     # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
     initialState.genesis_time = startTime
@@ -1267,6 +1277,7 @@ programMain:
       createDir(config.outSecretsDir)
 
       let deposits = generateDeposits(
+        config.runtimePreset,
         config.totalDeposits,
         config.outValidatorsDir,
         config.outSecretsDir)

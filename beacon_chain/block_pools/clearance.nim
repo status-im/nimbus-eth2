@@ -207,8 +207,8 @@ proc add*(
       assign(poolPtr.tmpState, poolPtr.headState)
 
     var stateCache = getEpochCache(parent, dag.tmpState.data.data)
-    if not state_transition(
-        dag.tmpState.data, signedBlock, stateCache, dag.updateFlags, restore):
+    if not state_transition(dag.runtimePreset, dag.tmpState.data, signedBlock,
+                            stateCache, dag.updateFlags, restore):
       # TODO find a better way to log all this block data
       notice "Invalid block",
         blck = shortLog(blck),

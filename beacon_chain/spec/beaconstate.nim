@@ -50,8 +50,10 @@ func decrease_balance*(
       state.balances[index] - delta
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#deposits
-proc process_deposit*(
-    state: var BeaconState, deposit: Deposit, flags: UpdateFlags = {}): bool {.nbench.}=
+proc process_deposit*(preset: RuntimePreset,
+                      state: var BeaconState,
+                      deposit: Deposit,
+                      flags: UpdateFlags = {}): bool {.nbench.}=
   # Process an Eth1 deposit, registering a validator or increasing its balance.
 
   # Verify the Merkle branch
@@ -80,7 +82,7 @@ proc process_deposit*(
     # Verify the deposit signature (proof of possession) which is not checked
     # by the deposit contract
     if skipBLSValidation notin flags:
-      if not verify_deposit_signature(deposit.data):
+      if not verify_deposit_signature(preset, deposit.data):
         # It's ok that deposits fail - they get included in blocks regardless
         # TODO spec test?
         # TODO: This is temporary set to trace level in order to deal with the
@@ -194,16 +196,17 @@ proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
   increase_balance(
     state, whistleblower_index, whistleblowing_reward - proposer_reward)
 
-func genesis_time_from_eth1_timestamp*(eth1_timestamp: uint64): uint64 =
+func genesis_time_from_eth1_timestamp*(preset: RuntimePreset, eth1_timestamp: uint64): uint64 =
   # TODO: remove once we switch completely to v0.12.1
   when SPEC_VERSION == "0.12.1":
-    eth1_timestamp + GENESIS_DELAY
+    eth1_timestamp + preset.GENESIS_DELAY
   else:
     const SECONDS_PER_DAY = uint64(60*60*24)
     eth1_timestamp + 2'u64 * SECONDS_PER_DAY - (eth1_timestamp mod SECONDS_PER_DAY)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#genesis
 proc initialize_beacon_state_from_eth1*(
+    preset: RuntimePreset,
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
     deposits: openArray[Deposit],
@@ -226,10 +229,10 @@ proc initialize_beacon_state_from_eth1*(
 
   var state = BeaconStateRef(
     fork: Fork(
-      previous_version: GENESIS_FORK_VERSION,
-      current_version: GENESIS_FORK_VERSION,
+      previous_version: preset.GENESIS_FORK_VERSION,
+      current_version: preset.GENESIS_FORK_VERSION,
       epoch: GENESIS_EPOCH),
-    genesis_time: genesis_time_from_eth1_timestamp(eth1_timestamp),
+    genesis_time: genesis_time_from_eth1_timestamp(preset, eth1_timestamp),
     eth1_data:
       Eth1Data(block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
     latest_block_header:
@@ -253,7 +256,7 @@ proc initialize_beacon_state_from_eth1*(
   for prefix_root in hash_tree_roots_prefix(
       leaves, 2'i64^DEPOSIT_CONTRACT_TREE_DEPTH):
     state.eth1_data.deposit_root = prefix_root
-    discard process_deposit(state[], deposits[i], flags)
+    discard process_deposit(preset, state[], deposits[i], flags)
     i += 1
 
   # Process activations
@@ -275,19 +278,22 @@ proc initialize_beacon_state_from_eth1*(
   state
 
 proc initialize_hashed_beacon_state_from_eth1*(
+    preset: RuntimePreset,
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
     deposits: openArray[Deposit],
     flags: UpdateFlags = {}): HashedBeaconState =
   let genesisState = initialize_beacon_state_from_eth1(
-    eth1_block_hash, eth1_timestamp, deposits, flags)
+    preset, eth1_block_hash, eth1_timestamp, deposits, flags)
   HashedBeaconState(data: genesisState[], root: hash_tree_root(genesisState[]))
 
-func is_valid_genesis_state*(state: BeaconState, active_validator_indices: seq[ValidatorIndex]): bool =
-  if state.genesis_time < MIN_GENESIS_TIME:
+func is_valid_genesis_state*(preset: RuntimePreset,
+                             state: BeaconState,
+                             active_validator_indices: seq[ValidatorIndex]): bool =
+  if state.genesis_time < preset.MIN_GENESIS_TIME:
     return false
   # This is an okay get_active_validator_indices(...) for the time being.
-  if len(active_validator_indices) < MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
+  if active_validator_indices.len.uint64 < preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
     return false
   return true
 

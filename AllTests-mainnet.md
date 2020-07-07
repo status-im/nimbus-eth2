@@ -106,7 +106,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + BASE_REWARD_FACTOR                                64                   [Preset: mainnet]   OK
 + BLS_WITHDRAWAL_PREFIX                             "0x00"               [Preset: mainnet]   OK
 + CHURN_LIMIT_QUOTIENT                              65536                [Preset: mainnet]   OK
-+ CUSTODY_PERIOD_TO_RANDAO_PADDING                  2048                 [Preset: mainnet]   OK
+  CUSTODY_PERIOD_TO_RANDAO_PADDING                  2048                 [Preset: mainnet]   Skip
   DEPOSIT_CONTRACT_ADDRESS                          "0x1234567890123456789012345678901234567 Skip
 + DOMAIN_AGGREGATE_AND_PROOF                        "0x06000000"         [Preset: mainnet]   OK
 + DOMAIN_BEACON_ATTESTER                            "0x01000000"         [Preset: mainnet]   OK
@@ -119,7 +119,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + DOMAIN_SHARD_COMMITTEE                            "0x81000000"         [Preset: mainnet]   OK
 + DOMAIN_SHARD_PROPOSAL                             "0x80000000"         [Preset: mainnet]   OK
 + DOMAIN_VOLUNTARY_EXIT                             "0x04000000"         [Preset: mainnet]   OK
-+ EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS    16384                [Preset: mainnet]   OK
+  EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS    16384                [Preset: mainnet]   Skip
 + EARLY_DERIVED_SECRET_REVEAL_SLOT_REWARD_MULTIPLE  2                    [Preset: mainnet]   OK
 + EFFECTIVE_BALANCE_INCREMENT                       1000000000           [Preset: mainnet]   OK
 + EJECTION_BALANCE                                  16000000000          [Preset: mainnet]   OK
@@ -130,7 +130,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + EPOCHS_PER_SLASHINGS_VECTOR                       8192                 [Preset: mainnet]   OK
 + ETH1_FOLLOW_DISTANCE                              1024                 [Preset: mainnet]   OK
 + GASPRICE_ADJUSTMENT_COEFFICIENT                   8                    [Preset: mainnet]   OK
-+ GENESIS_DELAY                                     172800               [Preset: mainnet]   OK
+  GENESIS_DELAY                                     172800               [Preset: mainnet]   Skip
   GENESIS_FORK_VERSION                              "0x00000000"         [Preset: mainnet]   Skip
 + HISTORICAL_ROOTS_LIMIT                            16777216             [Preset: mainnet]   OK
 + HYSTERESIS_DOWNWARD_MULTIPLIER                    1                    [Preset: mainnet]   OK
@@ -163,8 +163,8 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + MIN_DEPOSIT_AMOUNT                                1000000000           [Preset: mainnet]   OK
 + MIN_EPOCHS_TO_INACTIVITY_PENALTY                  4                    [Preset: mainnet]   OK
 + MIN_GASPRICE                                      8                    [Preset: mainnet]   OK
-+ MIN_GENESIS_ACTIVE_VALIDATOR_COUNT                16384                [Preset: mainnet]   OK
-+ MIN_GENESIS_TIME                                  1578009600           [Preset: mainnet]   OK
+  MIN_GENESIS_ACTIVE_VALIDATOR_COUNT                16384                [Preset: mainnet]   Skip
+  MIN_GENESIS_TIME                                  1578009600           [Preset: mainnet]   Skip
 + MIN_PER_EPOCH_CHURN_LIMIT                         4                    [Preset: mainnet]   OK
 + MIN_SEED_LOOKAHEAD                                1                    [Preset: mainnet]   OK
 + MIN_SLASHING_PENALTY_QUOTIENT                     32                   [Preset: mainnet]   OK
@@ -190,7 +190,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + VALIDATOR_REGISTRY_LIMIT                          1099511627776        [Preset: mainnet]   OK
 + WHISTLEBLOWER_REWARD_QUOTIENT                     512                  [Preset: mainnet]   OK
 ```
-OK: 83/86 Fail: 0/86 Skip: 3/86
+OK: 78/86 Fail: 0/86 Skip: 8/86
 ## PeerPool testing suite
 ```diff
 + Access peers by key test                                                                   OK
@@ -265,4 +265,4 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 160/163 Fail: 0/163 Skip: 3/163
+OK: 155/163 Fail: 0/163 Skip: 8/163

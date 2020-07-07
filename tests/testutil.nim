@@ -9,7 +9,7 @@ import
   algorithm, strformat, stats, times, tables, std/monotimes, stew/endians2,
   testutils/markdown_reports, chronicles,
   ../beacon_chain/[beacon_chain_db, block_pool, extras, ssz],
-  ../beacon_chain/spec/[digest, beaconstate, datatypes],
+  ../beacon_chain/spec/[digest, beaconstate, datatypes, presets],
   eth/db/kvstore,
   testblockutil
 
@@ -103,7 +103,7 @@ proc makeTestDB*(tailState: BeaconState, tailBlock: SignedBeaconBlock): BeaconCh
 proc makeTestDB*(validators: int): BeaconChainDB =
   let
     genState = initialize_beacon_state_from_eth1(
-      Eth2Digest(), 0,
+      defaultRuntimePreset, Eth2Digest(), 0,
       makeInitialDeposits(validators, flags = {skipBlsValidation}),
         {skipBlsValidation})
     genBlock = get_initial_beacon_block(genState[])

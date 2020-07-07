@@ -13,7 +13,7 @@ import
   sets,
   # Specs
   ../../beacon_chain/spec/[datatypes, beaconstate, helpers, validator, crypto,
-    signatures, state_transition],
+                           signatures, state_transition, presets],
   # Internals
   ../../beacon_chain/[ssz, extras],
   # Mocking procs
@@ -130,5 +130,8 @@ proc add*(state: var HashedBeaconState, attestation: Attestation, slot: Slot) =
   doAssert process_slots(state, slot)
   signMockBlock(state.data, signedBlock)
 
-  doAssert state_transition(
-    state, signedBlock, flags = {skipStateRootValidation}, noRollback)
+  let success = state_transition(
+    defaultRuntimePreset, state, signedBlock,
+    flags = {skipStateRootValidation}, noRollback)
+
+  doAssert success

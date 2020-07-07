@@ -19,9 +19,8 @@ import
   strformat,
   options, random, tables,
   ../tests/[testblockutil],
-  ../beacon_chain/spec/[
-    beaconstate, crypto, datatypes, digest, helpers, validator, signatures,
-    state_transition],
+  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, presets,
+                        helpers, validator, signatures, state_transition],
   ../beacon_chain/[
     attestation_pool, block_pool, beacon_node_types, beacon_chain_db,
     interop, validator_pool],
@@ -55,7 +54,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   BlockPool.preInit(db, state[].data, genesisBlock)
 
   var
-    blockPool = BlockPool.init(db)
+    blockPool = BlockPool.init(defaultRuntimePreset, db)
     attPool = AttestationPool.init(blockPool)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
@@ -109,6 +108,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         eth1data = get_eth1data_stub(
           state.eth1_deposit_index, slot.compute_epoch_at_slot())
         message = makeBeaconBlock(
+          defaultRuntimePreset,
           hashedState,
           proposerIdx,
           head.root,

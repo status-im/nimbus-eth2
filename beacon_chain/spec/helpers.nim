@@ -158,7 +158,7 @@ func compute_fork_digest*(current_version: Version,
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_domain
 func compute_domain*(
     domain_type: DomainType,
-    fork_version = GENESIS_FORK_VERSION,
+    fork_version: Version,
     genesis_validators_root: Eth2Digest = ZERO_HASH): Domain =
   # Return the domain for the ``domain_type`` and ``fork_version``.
   let fork_data_root =

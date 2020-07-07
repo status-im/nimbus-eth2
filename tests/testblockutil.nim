@@ -8,10 +8,11 @@
 import
   options, stew/endians2,
   chronicles, eth/trie/[db],
-  ../beacon_chain/[beacon_chain_db, block_pool, extras, merkle_minimal,
-  ../beacon_chain/ssz/merkleization, validator_pool],
-  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest,
-    helpers, validator, signatures, state_transition]
+  ../beacon_chain/[beacon_chain_db, block_pool, extras,
+                   merkle_minimal, validator_pool],
+  ../beacon_chain/ssz/merkleization,
+  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, presets,
+                        helpers, validator, signatures, state_transition]
 
 func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
   # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
@@ -53,7 +54,8 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
   )
 
   if skipBLSValidation notin flags:
-    result.data.signature = get_deposit_signature(result.data, privkey)
+    result.data.signature = get_deposit_signature(
+      defaultRuntimePreset, result.data, privkey)
 
 proc makeInitialDeposits*(
     n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}): seq[Deposit] =
@@ -106,6 +108,7 @@ proc addTestBlock*(
 
   let
     message = makeBeaconBlock(
+      defaultRuntimePreset,
       state,
       proposer_index.get(),
       parent_root,

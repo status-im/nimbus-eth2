@@ -189,8 +189,10 @@ func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
 func init*(T: type BlockRef, root: Eth2Digest, blck: SomeBeaconBlock): BlockRef =
   BlockRef.init(root, blck.slot)
 
-proc init*(T: type CandidateChains, db: BeaconChainDB,
-    updateFlags: UpdateFlags = {}): CandidateChains =
+proc init*(T: type CandidateChains,
+           preset: RuntimePreset,
+           db: BeaconChainDB,
+           updateFlags: UpdateFlags = {}): CandidateChains =
   # TODO we require that the db contains both a head and a tail block -
   #      asserting here doesn't seem like the right way to go about it however..
 
@@ -291,7 +293,8 @@ proc init*(T: type CandidateChains, db: BeaconChainDB,
 
     # The only allowed flag right now is verifyFinalization, as the others all
     # allow skipping some validation.
-    updateFlags: {verifyFinalization} * updateFlags
+    updateFlags: {verifyFinalization} * updateFlags,
+    runtimePreset: preset,
   )
 
   doAssert res.updateFlags in [{}, {verifyFinalization}]
@@ -501,7 +504,8 @@ proc skipAndUpdateState(
 
   var stateCache = getEpochCache(blck.refs, state.data.data)
   let ok = state_transition(
-    state.data, blck.data, stateCache, flags + dag.updateFlags, restore)
+    dag.runtimePreset, state.data, blck.data,
+    stateCache, flags + dag.updateFlags, restore)
 
   if ok and save:
     dag.putState(state.data, blck.refs)

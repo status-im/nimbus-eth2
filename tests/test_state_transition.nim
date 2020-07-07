@@ -10,8 +10,8 @@
 import
   unittest,
   ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[
-    beaconstate, datatypes, digest, validator, state_transition],
+  ../beacon_chain/spec/[beaconstate, datatypes, digest,
+                        validator, state_transition, presets],
   ../beacon_chain/ssz
 
 suiteReport "Block processing" & preset():
@@ -22,7 +22,7 @@ suiteReport "Block processing" & preset():
     # Genesis state with minimal number of deposits
     # TODO bls verification is a bit of a bottleneck here
     genesisState = newClone(initialize_hashed_beacon_state_from_eth1(
-      Eth2Digest(), 0, makeInitialDeposits(), {}))
+      defaultRuntimePreset, Eth2Digest(), 0, makeInitialDeposits(), {}))
     genesisBlock = get_initial_beacon_block(genesisState.data)
     genesisRoot = hash_tree_root(genesisBlock.message)
 
@@ -40,7 +40,7 @@ suiteReport "Block processing" & preset():
       cache = get_empty_per_epoch_cache()
       new_block = makeTestBlock(state[], previous_block_root, cache)
 
-    let block_ok = state_transition(state[], new_block, {}, noRollback)
+    let block_ok = state_transition(defaultRuntimePreset, state[], new_block, {}, noRollback)
 
     check:
       block_ok
@@ -60,7 +60,7 @@ suiteReport "Block processing" & preset():
     for i in 1..SLOTS_PER_EPOCH.int:
       let new_block = makeTestBlock(state[], previous_block_root, cache)
 
-      let block_ok = state_transition(state[], new_block, {}, noRollback)
+      let block_ok = state_transition(defaultRuntimePreset, state[], new_block, {}, noRollback)
 
       check:
         block_ok
@@ -96,7 +96,7 @@ suiteReport "Block processing" & preset():
       new_block = makeTestBlock(state[], previous_block_root, cache,
         attestations = @[attestation]
       )
-    check state_transition(state[], new_block, {}, noRollback)
+    check state_transition(defaultRuntimePreset, state[], new_block, {}, noRollback)
 
     check:
       # TODO epoch attestations can get multiplied now; clean up paths to

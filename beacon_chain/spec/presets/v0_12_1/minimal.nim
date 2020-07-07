@@ -11,11 +11,6 @@
 import
   math
 
-type
-  Slot* = distinct uint64
-  Epoch* = distinct uint64
-  Version* = distinct array[4, byte]
-
 {.experimental: "codeReordering".} # SLOTS_PER_EPOCH is use before being defined in spec
 
 const

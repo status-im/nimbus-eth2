@@ -198,6 +198,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
 
     var cache = get_empty_per_epoch_cache()
     let message = makeBeaconBlock(
+      node.config.runtimePreset,
       hashedState,
       validator_index,
       head.root,

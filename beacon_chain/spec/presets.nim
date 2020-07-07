@@ -2,10 +2,16 @@ import
   macros, strutils, parseutils, tables,
   stew/endians2
 
+{.push raises: [Defect].}
+
 export
   toBytesBE
 
 type
+  Slot* = distinct uint64
+  Epoch* = distinct uint64
+  Version* = distinct array[4, byte]
+
   PresetValue* {.pure.} = enum
     BASE_REWARD_FACTOR
     BLS_WITHDRAWAL_PREFIX
@@ -66,22 +72,35 @@ type
     VALIDATOR_REGISTRY_LIMIT
     WHISTLEBLOWER_REWARD_QUOTIENT
 
+  RuntimePreset* = object
+    GENESIS_FORK_VERSION*: Version
+    GENESIS_DELAY*: uint64
+    MIN_GENESIS_ACTIVE_VALIDATOR_COUNT*: uint64
+    MIN_GENESIS_TIME*: uint64
+
+  PresetFile* = object
+    values*: Table[PresetValue, TaintedString]
+    missingValues*: set[PresetValue]
+
+  PresetFileError* = object of CatchableError
+
 const
+  const_preset* {.strdefine.} = "mainnet"
+
   runtimeValues* = {
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT,
     MIN_GENESIS_TIME,
-    DEPOSIT_CONTRACT_ADDRESS,
     GENESIS_FORK_VERSION,
     GENESIS_DELAY,
   }
 
   # These constants cannot really be overriden in a preset.
   # If we encounter them, we'll just ignore the preset value.
-  ignoredValues = {
+  ignoredValues* = {
     # The deposit contract address is loaded through a dedicated
     # metadata file. It would break the property we are exploiting
     # right now that all preset values can be parsed as uint64
-    DEPOSIT_CONTRACT_ADDRESS
+    DEPOSIT_CONTRACT_ADDRESS,
 
     # These are defined as an enum in datatypes.nim:
     DOMAIN_BEACON_PROPOSER,
@@ -91,7 +110,6 @@ const
     DOMAIN_VOLUNTARY_EXIT,
     DOMAIN_SELECTION_PROOF,
     DOMAIN_AGGREGATE_AND_PROOF,
-    DOMAIN_CUSTODY_BIT_SLASHING,
   }
 
   presetValueTypes* = {
@@ -100,12 +118,14 @@ const
     EFFECTIVE_BALANCE_INCREMENT: "uint64",
     EJECTION_BALANCE: "uint64",
     EPOCHS_PER_SLASHINGS_VECTOR: "uint64",
+    GENESIS_DELAY: "uint64",
     GENESIS_FORK_VERSION: "Version",
-    GENESIS_SLOT: "Slot",
     INACTIVITY_PENALTY_QUOTIENT: "uint64",
     MAX_EFFECTIVE_BALANCE: "uint64",
     MIN_DEPOSIT_AMOUNT: "uint64",
     MIN_EPOCHS_TO_INACTIVITY_PENALTY: "uint64",
+    MIN_GENESIS_TIME: "uint64",
+    MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: "uint64",
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY: "uint64",
     PROPOSER_REWARD_QUOTIENT: "uint64",
     SECONDS_PER_SLOT: "uint64",
@@ -114,16 +134,26 @@ const
 
 func parse*(T: type uint64, input: string): T
            {.raises: [ValueError, Defect].} =
+  var res: BiggestUInt
   if input.len > 2 and input[0] == '0' and input[1] == 'x':
-    parseHex(input, result)
+    if parseHex(input, res) != input.len:
+      raise newException(ValueError, "The constant value should be a valid hex integer")
   else:
-    parseInt(input, result)
+    if parseBiggestUInt(input, res) != input.len:
+      raise newException(ValueError, "The constant value should be a valid unsigned integer")
+
+  result = uint64(res)
 
 template parse*(T: type byte, input: string): T =
   byte parse(uint64, input)
 
-proc parse*(T: type Version, input: string): T =
-  toBytesBE(uint32 parse(uint64, input))
+template parse*(T: type int, input: string): T =
+  # TODO: remove this
+  int parse(uint64, input)
+
+proc parse*(T: type Version, input: string): T
+           {.raises: [ValueError, Defect].} =
+  Version toBytesBE(uint32 parse(uint64, input))
 
 template parse*(T: type Slot, input: string): T =
   Slot parse(uint64, input)
@@ -131,44 +161,24 @@ template parse*(T: type Slot, input: string): T =
 template getType*(presetValue: PresetValue): string =
   presetValueTypes.getOrDefault(presetValue, "int")
 
+template toUInt64*(v: Version): uint64 =
+  fromBytesBE(uint64, array[4, byte](v))
+
 template entireSet(T: type enum): untyped =
   {low(T) .. high(T)}
 
-macro genRuntimePresetType: untyped =
-  var fields = newTree(nnkRecList)
-
-  for field in runtimeValues:
-    fields.add newTree(nnkIdentDefs,
-                       ident $field,
-                       ident getType(field),
-                       newEmptyNode()) # default value
-
-  result = newTree(nnkObjectTy,
-                   newEmptyNode(), # pragmas
-                   newEmptyNode(), # base type
-                   fields)
-
-type
-  RuntimePresetObj* = genRuntimePresetType()
-  RuntimePreset* = ref RuntimePresetObj
-
-  PresetFile = object
-    values*: Table[PresetValue, TaintedString]
-    missingValues*: set[PresetValue]
-
-  PresetFileError = object of CatchableError
-
-proc readPresetFile(path: string): PresetFile
-                   {.raises: [IOError, PresetFileError, Defect].} =
+proc readPresetFile*(path: string): PresetFile
+                    {.raises: [IOError, PresetFileError, Defect].} =
   var
     lineNum = 0
     presetValues = ignoredValues
 
   template lineinfo: string =
-    "$1($2) " % [path, $lineNum]
+    try: "$1($2) " % [path, $lineNum]
+    except ValueError: path
 
   template fail(msg) =
-    raise newException(PresetFileError, lineinfo & msg)
+    raise newException(PresetFileError, lineinfo() & msg)
 
   for line in splitLines(readFile(path)):
     inc lineNum
@@ -183,24 +193,58 @@ proc readPresetFile(path: string): PresetFile
 
     if value in ignoredValues: continue
     presetValues.incl value
-    result.add value, lineParts[1]
+    result.values.add value, lineParts[1].strip
 
   result.missingValues = PresetValue.entireSet - presetValues
 
-macro createConstantsFromPreset*(path: static string): untyped =
-  result = newStmtList()
+const
+  mainnetRuntimePreset* = RuntimePreset(
+    MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: 16384,
+    MIN_GENESIS_TIME: 1578009600,
+    GENESIS_FORK_VERSION: Version [byte 0, 0, 0, 0],
+    GENESIS_DELAY: 172800)
 
-  let preset = try: loadPreset(path)
-               except PresetError as err: error err.msg
+  minimalRuntimePreset* = RuntimePreset(
+    MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: 64,
+    MIN_GENESIS_TIME: 1578009600,
+    GENESIS_FORK_VERSION: Version [byte 0, 0, 0, 1],
+    GENESIS_DELAY: 300)
 
-  for name, value in preset:
-    var value = value
-    if presetValueTypes.hasKey(name):
-      let typ = presetValueTypes[name]
-      value = typ & "(" & value & ")"
+when const_preset == "mainnet":
+  template defaultRuntimePreset*: auto = mainnetRuntimePreset
+  import ./presets/v0_12_1/mainnet
+  export mainnet
 
-    result.add parseStmt("const $1* {.intdefine.} = $2" % [name, value])
+elif const_preset == "minimal":
+  template defaultRuntimePreset*: auto = minimalRuntimePreset
+  import ./presets/v0_12_1/minimal
+  export minimal
 
-  if preset.missingValues.card > 0:
-    warning "Missing constants in preset: " & $preset.missingValues
+else:
+  macro createConstantsFromPreset*(path: static string): untyped =
+    result = newStmtList()
+
+    let preset = try: readPresetFile(path)
+                 except CatchableError as err:
+                   error err.msg # TODO: This should be marked as noReturn
+                   return
+
+    for name, value in preset.values:
+      var value = string value
+      if presetValueTypes.hasKey(name):
+        let typ = presetValueTypes[name]
+        value = typ & "(" & value & ")"
+
+      result.add parseStmt("const $1* {.intdefine.} = $2" % [$name, value])
+
+    if preset.missingValues.card > 0:
+      warning "Missing constants in preset: " & $preset.missingValues
+
+  createConstantsFromPreset const_preset
+
+  const defaultRuntimePreset* = RuntimePreset(
+    MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: MIN_GENESIS_ACTIVE_VALIDATOR_COUNT,
+    MIN_GENESIS_TIME: MIN_GENESIS_TIME,
+    GENESIS_FORK_VERSION: GENESIS_FORK_VERSION,
+    GENESIS_DELAY: GENESIS_DELAY)
 

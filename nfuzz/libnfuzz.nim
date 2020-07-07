@@ -5,7 +5,7 @@ import
   stew/ptrops, stew/ranges/ptr_arith, chronicles,
   ../beacon_chain/extras,
   ../beacon_chain/spec/[crypto, datatypes, digest, validator, beaconstate,
-      state_transition_block, state_transition],
+                        state_transition_block, state_transition, presets],
   ../beacon_chain/ssz/[merkleization, ssz_serialization]
 
 type
@@ -110,15 +110,15 @@ proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
   # and requiring HashedBeaconState (yet). So to keep consistent, puts wrapper
   # only in one function.
   proc state_transition(
-      data: auto, blck: auto, flags: auto, rollback: RollbackHashedProc):
+      preset: RuntimePreset, data: auto, blck: auto, flags: auto, rollback: RollbackHashedProc):
       auto =
     var hashedState =
       HashedBeaconState(data: data.state, root: hash_tree_root(data.state))
-    result = state_transition(hashedState, blck, flags, rollback)
+    result = state_transition(preset, hashedState, blck, flags, rollback)
     data.state = hashedState.data
 
   decodeAndProcess(BlockInput):
-    state_transition(data, data.beaconBlock, flags, noRollback)
+    state_transition(defaultRuntimePreset, data, data.beaconBlock, flags, noRollback)
 
 proc nfuzz_block_header(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
@@ -128,7 +128,7 @@ proc nfuzz_block_header(input: openArray[byte], xoutput: ptr byte,
 proc nfuzz_deposit(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(DepositInput):
-    process_deposit(data.state, data.deposit, flags)
+    process_deposit(defaultRuntimePreset, data.state, data.deposit, flags)
 
 proc nfuzz_proposer_slashing(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =

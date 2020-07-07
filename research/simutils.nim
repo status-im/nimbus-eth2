@@ -3,7 +3,7 @@ import
   ../tests/[testblockutil],
   ../beacon_chain/[extras],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
-  ../beacon_chain/spec/[beaconstate, datatypes, digest, helpers]
+  ../beacon_chain/spec/[beaconstate, datatypes, digest, helpers, presets]
 
 template withTimer*(stats: var RunningStat, body: untyped) =
   # TODO unify timing somehow
@@ -67,7 +67,7 @@ proc loadGenesis*(validators: int, validate: bool): ref HashedBeaconState =
     echo "Generating Genesis..."
 
     res.data =
-      initialize_beacon_state_from_eth1(Eth2Digest(), 0, deposits, flags)[]
+      initialize_beacon_state_from_eth1(defaultRuntimePreset, Eth2Digest(), 0, deposits, flags)[]
     res.root = hash_tree_root(res.data)
 
     echo &"Saving to {fn}..."

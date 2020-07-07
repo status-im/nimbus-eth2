@@ -50,6 +50,7 @@ type
     allDeposits*: seq[Deposit]
 
   MainchainMonitor* = ref object
+    preset: RuntimePreset
     depositContractAddress: Address
     dataProviderFactory*: DataProviderFactory
 
@@ -95,18 +96,15 @@ const
   reorgDepthLimit = 1000
   web3Timeouts = 5.seconds
   followDistanceInSeconds = uint64(SECONDS_PER_ETH1_BLOCK * ETH1_FOLLOW_DISTANCE)
-  totalDepositsNeededForGenesis = uint64 max(SLOTS_PER_EPOCH,
-                                             MIN_GENESIS_ACTIVE_VALIDATOR_COUNT)
+
+# TODO: Add preset validation
+# MIN_GENESIS_ACTIVE_VALIDATOR_COUNT should be larger than SLOTS_PER_EPOCH
+#  doAssert SECONDS_PER_ETH1_BLOCK * ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
+#             "Invalid configuration: GENESIS_DELAY is set too low"
 
 # TODO Nim's analysis on the lock level of the methods in this
 # module seems broken. Investigate and file this as an issue.
 {.push warning[LockLevel]: off.}
-
-static:
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#genesis
-  when SPEC_VERSION == "0.12.1":
-    doAssert SECONDS_PER_ETH1_BLOCK * ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
-             "Invalid configuration: GENESIS_DELAY is set too low"
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#get_eth1_data
 func compute_time_at_slot(state: BeaconState, slot: Slot): uint64 =
@@ -460,56 +458,63 @@ template getBlockProposalData*(m: MainchainMonitor, state: BeaconState): untyped
   getBlockProposalData(m.eth1Chain, state)
 
 proc init*(T: type MainchainMonitor,
+           preset: RuntimePreset,
            dataProviderFactory: DataProviderFactory,
            depositContractAddress: Eth1Address,
            startPosition: Eth1Data): T =
-  T(depositQueue: newAsyncQueue[Eth1BlockHeader](),
+  T(preset: preset,
+    depositQueue: newAsyncQueue[Eth1BlockHeader](),
     dataProviderFactory: dataProviderFactory,
     depositContractAddress: Address depositContractAddress,
     eth1Chain: Eth1Chain(knownStart: startPosition))
 
-proc isCandidateForGenesis(timeNow: float, blk: Eth1Block): bool =
+proc isCandidateForGenesis(preset: RuntimePreset,
+                           timeNow: float,
+                           blk: Eth1Block): bool =
   if float(blk.timestamp + followDistanceInSeconds) > timeNow:
     return false
 
-  if genesis_time_from_eth1_timestamp(blk.timestamp) < MIN_GENESIS_TIME:
+  if genesis_time_from_eth1_timestamp(preset, blk.timestamp) < preset.MIN_GENESIS_TIME:
     return false
 
   if blk.knownGoodDepositsCount.isSome:
-    blk.knownGoodDepositsCount.get >= totalDepositsNeededForGenesis
+    blk.knownGoodDepositsCount.get >= preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT
   else:
-    blk.voteData.deposit_count >= totalDepositsNeededForGenesis
+    blk.voteData.deposit_count >= preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT
 
-proc minGenesisCandidateBlockIdx(eth1Chain: Eth1Chain): Option[int]
+proc minGenesisCandidateBlockIdx(m: MainchainMonitor): Option[int]
                                 {.raises: [Defect].} =
-  if eth1Chain.blocks.len == 0:
+  if m.eth1Chain.blocks.len == 0:
     return
 
   let now = epochTime()
-  if not isCandidateForGenesis(now, eth1Chain.blocks.peekLast):
+  if not isCandidateForGenesis(m.preset, now, m.eth1Chain.blocks.peekLast):
     return
 
-  var candidatePos = eth1Chain.blocks.len - 1
+  var candidatePos = m.eth1Chain.blocks.len - 1
   while candidatePos > 1:
-    if not isCandidateForGenesis(now, eth1Chain.blocks[candidatePos - 1]):
+    if not isCandidateForGenesis(m.preset, now, m.eth1Chain.blocks[candidatePos - 1]):
       break
     dec candidatePos
 
   return some(candidatePos)
 
-proc createBeaconStateAux(eth1Block: Eth1Block,
+proc createBeaconStateAux(preset: RuntimePreset,
+                          eth1Block: Eth1Block,
                           deposits: var openarray[Deposit]): BeaconStateRef =
   attachMerkleProofs deposits
-  result = initialize_beacon_state_from_eth1(eth1Block.voteData.block_hash,
+  result = initialize_beacon_state_from_eth1(preset,
+                                             eth1Block.voteData.block_hash,
                                              eth1Block.timestamp.uint64,
                                              deposits, {})
   let activeValidators = get_active_validator_indices(result[], GENESIS_EPOCH)
   eth1Block.knownGoodDepositsCount = some len(activeValidators).uint64
 
-proc createBeaconState(eth1Chain: var Eth1Chain, eth1Block: Eth1Block): BeaconStateRef =
+proc createBeaconState(m: MainchainMonitor, eth1Block: Eth1Block): BeaconStateRef =
   createBeaconStateAux(
+    m.preset,
     eth1Block,
-    eth1Chain.allDeposits.toOpenArray(0, int(eth1Block.voteData.deposit_count - 1)))
+    m.eth1Chain.allDeposits.toOpenArray(0, int(eth1Block.voteData.deposit_count - 1)))
 
 proc signalGenesis(m: MainchainMonitor, genesisState: BeaconStateRef) =
   m.genesisState = genesisState
@@ -534,7 +539,8 @@ proc findGenesisBlockInRange(m: MainchainMonitor,
 
   while startBlock.number + 1 < endBlock.number:
     let
-      startBlockTime = genesis_time_from_eth1_timestamp(startBlock.timestamp)
+      MIN_GENESIS_TIME = m.preset.MIN_GENESIS_TIME
+      startBlockTime = genesis_time_from_eth1_timestamp(m.preset, startBlock.timestamp)
       secondsPerBlock = float(endBlock.timestamp - startBlock.timestamp) /
                         float(endBlock.number - startBlock.number)
       blocksToJump = max(float(MIN_GENESIS_TIME - startBlockTime) / secondsPerBlock, 1.0)
@@ -546,11 +552,14 @@ proc findGenesisBlockInRange(m: MainchainMonitor,
                                          voteData: depositData)
     candidateAsEth1Block.voteData.block_hash = candidateBlock.hash.asEth2Digest
 
+    let candidateGenesisTime = genesis_time_from_eth1_timestamp(
+      m.preset, candidateBlock.timestamp.uint64)
+
     info "Probing possible genesis block",
       `block` = candidateBlock.number.uint64,
-      timestamp = genesis_time_from_eth1_timestamp(candidateBlock.timestamp.uint64)
+      candidateGenesisTime
 
-    if genesis_time_from_eth1_timestamp(candidateBlock.timestamp.uint64) < MIN_GENESIS_TIME:
+    if candidateGenesisTime < MIN_GENESIS_TIME:
       startBlock = candidateAsEth1Block
     else:
       endBlock = candidateAsEth1Block
@@ -563,14 +572,14 @@ proc checkForGenesisLoop(m: MainchainMonitor) {.async.} =
       return
 
     try:
-      let genesisCandidateIdx = m.eth1Chain.minGenesisCandidateBlockIdx
+      let genesisCandidateIdx = m.minGenesisCandidateBlockIdx
       if genesisCandidateIdx.isSome:
         let
           genesisCandidateIdx = genesisCandidateIdx.get
           genesisCandidate =  m.eth1Chain.blocks[genesisCandidateIdx]
-          candidateState = m.eth1Chain.createBeaconState(genesisCandidate)
+          candidateState = m.createBeaconState(genesisCandidate)
 
-        if genesisCandidate.knownGoodDepositsCount.get >= totalDepositsNeededForGenesis:
+        if genesisCandidate.knownGoodDepositsCount.get >= m.preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
           # We have a candidate state on our hands, but our current Eth1Chain
           # may consist only of blocks that have deposits attached to them
           # while the real genesis may have happened in a block without any
@@ -589,13 +598,13 @@ proc checkForGenesisLoop(m: MainchainMonitor) {.async.} =
             if preceedingEth1Block.voteData.deposit_root == genesisCandidate.voteData.deposit_root:
               preceedingEth1Block.knownGoodDepositsCount = genesisCandidate.knownGoodDepositsCount
             else:
-              discard m.eth1Chain.createBeaconState(preceedingEth1Block)
+              discard m.createBeaconState(preceedingEth1Block)
 
-            if preceedingEth1Block.knownGoodDepositsCount.get >= totalDepositsNeededForGenesis and
+            if preceedingEth1Block.knownGoodDepositsCount.get >= m.preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT and
                genesisCandidate.number - preceedingEth1Block.number > 1:
               let genesisBlock = await m.findGenesisBlockInRange(preceedingEth1Block, genesisCandidate)
               if genesisBlock.number != genesisCandidate.number:
-                m.signalGenesis m.eth1Chain.createBeaconState(genesisBlock)
+                m.signalGenesis m.createBeaconState(genesisBlock)
               return
 
           m.signalGenesis candidateState
@@ -604,7 +613,7 @@ proc checkForGenesisLoop(m: MainchainMonitor) {.async.} =
           info "Eth2 genesis candidate block rejected",
                `block` = shortLog(genesisCandidate),
                validDeposits = genesisCandidate.knownGoodDepositsCount.get,
-               needed = totalDepositsNeededForGenesis
+               needed = m.preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT
       else:
         # TODO: check for a stale monitor
         discard
@@ -678,7 +687,7 @@ proc processDeposits(m: MainchainMonitor,
     let eth1Blocks = await dataProvider.fetchDepositData(latestKnownBlock + 1,
                                                          Eth1BlockNumber blk.number)
     if eth1Blocks.len == 0:
-      if m.eth1Chain.maxValidDeposits > totalDepositsNeededForGenesis and
+      if m.eth1Chain.maxValidDeposits > m.preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT and
          m.eth1Chain.knownStart.deposit_count == 0:
         let latestEth1Data = m.eth1Chain.latestEth1Data
 

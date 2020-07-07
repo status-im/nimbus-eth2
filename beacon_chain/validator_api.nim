@@ -31,6 +31,8 @@ logScope: topics = "valapi"
 
 proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
 
+  let GENESIS_FORK_VERSION = node.config.runtimePreset.GENESIS_FORK_VERSION
+
   template withStateForSlot(stateId: string, body: untyped): untyped =
     var res: BiggestInt
     if parseBiggestInt(stateId, res) == stateId.len:
@@ -132,7 +134,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
         cat = "fastforward"
       raise newException(CatchableError,
         "Proposal is for a past slot: " & $body.message.slot)
-    if head == await proposeSignedBlock(node, head, AttachedValidator(), 
+    if head == await proposeSignedBlock(node, head, AttachedValidator(),
                                         body, hash_tree_root(body.message)):
       raise newException(CatchableError, "Could not propose block")
     return true

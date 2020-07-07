@@ -16,7 +16,7 @@ import
   # Standard library
   unittest, math,
   # Specs
-  ../../beacon_chain/spec/[beaconstate, datatypes, crypto],
+  ../../beacon_chain/spec/[beaconstate, datatypes, crypto, presets],
   # Internals
   ../../beacon_chain/[ssz, extras],
   # Mock helpers
@@ -55,7 +55,7 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
       # State transition
       # ----------------------------------------
-      check: process_deposit(state.data, deposit, {skipBlsValidation})
+      check: process_deposit(defaultRuntimePreset(), state.data, deposit, {skipBlsValidation})
 
       # Check invariants
       # ----------------------------------------
@@ -97,7 +97,7 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
     # State transition
     # ----------------------------------------
-    check: process_deposit(state.data, deposit, {skipBlsValidation})
+    check: process_deposit(defaultRuntimePreset(), state.data, deposit, {skipBlsValidation})
 
     # Check invariants
     # ----------------------------------------

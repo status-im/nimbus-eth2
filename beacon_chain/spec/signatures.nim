@@ -8,7 +8,8 @@
 {.push raises: [Defect].}
 
 import
-  ./crypto, ./digest, ./datatypes, ./helpers, ../ssz/merkleization
+  ../ssz/merkleization,
+  ./crypto, ./digest, ./datatypes, ./helpers, ./presets
 
 template withTrust(sig: SomeSig, body: untyped): bool =
   when sig is TrustedSig:
@@ -114,23 +115,23 @@ func verify_attestation_signature*(
     blsFastAggregateVerify(pubkeys, signing_root.data, signature)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#deposits
-func get_deposit_signature*(
-    deposit: DepositData,
-    privkey: ValidatorPrivKey): ValidatorSig =
-
+func get_deposit_signature*(preset: RuntimePreset,
+                            deposit: DepositData,
+                            privkey: ValidatorPrivKey): ValidatorSig =
   let
     deposit_message = deposit.getDepositMessage()
     # Fork-agnostic domain since deposits are valid across forks
-    domain = compute_domain(DOMAIN_DEPOSIT)
+    domain = compute_domain(DOMAIN_DEPOSIT, preset.GENESIS_FORK_VERSION)
     signing_root = compute_signing_root(deposit_message, domain)
 
   blsSign(privKey, signing_root.data)
 
-func verify_deposit_signature*(deposit: DepositData): bool =
+func verify_deposit_signature*(preset: RuntimePreset,
+                               deposit: DepositData): bool =
   let
     deposit_message = deposit.getDepositMessage()
     # Fork-agnostic domain since deposits are valid across forks
-    domain = compute_domain(DOMAIN_DEPOSIT)
+    domain = compute_domain(DOMAIN_DEPOSIT, preset.GENESIS_FORK_VERSION)
     signing_root = compute_signing_root(deposit_message, domain)
 
   blsVerify(deposit.pubkey, signing_root.data, deposit.signature)

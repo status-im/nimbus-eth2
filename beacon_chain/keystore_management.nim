@@ -102,7 +102,8 @@ type
     FailedToCreateKeystoreFile
     FailedToCreateDepositFile
 
-proc generateDeposits*(totalValidators: int,
+proc generateDeposits*(preset: RuntimePreset,
+                       totalValidators: int,
                        validatorsDir: string,
                        secretsDir: string): Result[seq[Deposit], GenerateDepositsError] =
   var deposits: seq[Deposit]
@@ -131,7 +132,7 @@ proc generateDeposits*(totalValidators: int,
     try: writeFile(keystoreFile, credentials.keyStore.string)
     except IOError: return err FailedToCreateKeystoreFile
 
-    deposits.add credentials.prepareDeposit()
+    deposits.add credentials.prepareDeposit(preset)
 
     # Does quadratic additional work, but fast enough, and otherwise more
     # cleanly allows free intermixing of pre-existing and newly generated

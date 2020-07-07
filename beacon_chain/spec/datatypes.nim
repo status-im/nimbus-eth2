@@ -25,10 +25,10 @@ import
   macros, hashes, json, strutils, tables, typetraits,
   stew/[byteutils], chronicles,
   json_serialization/types as jsonTypes,
-  ../ssz/types as sszTypes, ./crypto, ./digest
+  ../ssz/types as sszTypes, ./crypto, ./digest, ./presets
 
 export
-  sszTypes
+  sszTypes, presets
 
 # TODO Data types:
 # Presently, we're reusing the data types from the serialization (uint64) in the
@@ -45,23 +45,6 @@ export
 #
 # Eventually, we could also differentiate between user/tainted data and
 # internal state that's gone through sanity checks already.
-
-# Constant presets
-const const_preset* {.strdefine.} = "mainnet"
-
-when const_preset == "mainnet":
-  import ./presets/v0_12_1/mainnet
-  export mainnet
-elif const_preset == "minimal":
-  import ./presets/v0_12_1/minimal
-  export minimal
-else:
-  type
-    Slot* = distinct uint64
-    Epoch* = distinct uint64
-
-  import ./presets/custom
-  createConstantsFromPreset const_preset
 
 const
   SPEC_VERSION* = "0.12.1" ## \

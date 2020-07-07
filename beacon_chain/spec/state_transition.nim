@@ -174,6 +174,7 @@ proc noRollback*(state: var HashedBeaconState) =
   trace "Skipping rollback of broken state"
 
 proc state_transition*(
+    preset: RuntimePreset,
     state: var HashedBeaconState, signedBlock: SomeSignedBeaconBlock,
     # TODO this is ... okay, but not perfect; align with EpochRef
     stateCache: var StateCache,
@@ -229,7 +230,7 @@ proc state_transition*(
     trace "in state_transition: processing block, signature passed",
       signature = signedBlock.signature,
       blockRoot = hash_tree_root(signedBlock.message)
-    if process_block(state.data, signedBlock.message, flags, stateCache):
+    if process_block(preset, state.data, signedBlock.message, flags, stateCache):
       if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
         # State root is what it should be - we're done!
 
@@ -249,6 +250,7 @@ proc state_transition*(
   false
 
 proc state_transition*(
+    preset: RuntimePreset,
     state: var HashedBeaconState, signedBlock: SomeSignedBeaconBlock,
     flags: UpdateFlags, rollback: RollbackHashedProc): bool {.nbench.} =
   # TODO consider moving this to testutils or similar, since non-testing
@@ -260,12 +262,13 @@ proc state_transition*(
   cache.shuffled_active_validator_indices[state.data.slot.compute_epoch_at_slot] =
     get_shuffled_active_validator_indices(
       state.data, state.data.slot.compute_epoch_at_slot)
-  state_transition(state, signedBlock, cache, flags, rollback)
+  state_transition(preset, state, signedBlock, cache, flags, rollback)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md
 # TODO There's more to do here - the spec has helpers that deal set up some of
 #      the fields in here!
 proc makeBeaconBlock*(
+    preset: RuntimePreset,
     state: var HashedBeaconState,
     proposer_index: ValidatorIndex,
     parent_root: Eth2Digest,
@@ -294,7 +297,7 @@ proc makeBeaconBlock*(
       attestations: List[Attestation, MAX_ATTESTATIONS](attestations),
       deposits: List[Deposit, MAX_DEPOSITS](deposits)))
 
-  let ok = process_block(state.data, blck, {skipBlsValidation}, cache)
+  let ok = process_block(preset, state.data, blck, {skipBlsValidation}, cache)
 
   if not ok:
     warn "Unable to apply new block to state", blck = shortLog(blck)

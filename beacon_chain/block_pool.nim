@@ -8,7 +8,7 @@
 import
   extras, beacon_chain_db,
   stew/results,
-  spec/[crypto, datatypes, digest]
+  spec/[crypto, datatypes, digest, presets]
 
 
 import
@@ -64,9 +64,11 @@ export get_ancestor  # func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef
 export atSlot        # func atSlot*(blck: BlockRef, slot: Slot): BlockSlot
 
 
-proc init*(T: type BlockPools, db: BeaconChainDB,
-    updateFlags: UpdateFlags = {}): BlockPools =
-  result.dag = init(CandidateChains, db, updateFlags)
+proc init*(T: type BlockPools,
+           preset: RuntimePreset,
+           db: BeaconChainDB,
+           updateFlags: UpdateFlags = {}): BlockPools =
+  result.dag = init(CandidateChains, preset, db, updateFlags)
 
 export init          # func init*(T: type BlockRef, root: Eth2Digest, blck: BeaconBlock): BlockRef
 
