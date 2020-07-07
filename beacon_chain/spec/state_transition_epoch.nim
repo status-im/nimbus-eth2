@@ -62,8 +62,6 @@ func get_total_active_balance*(state: BeaconState, cache: var StateCache): Gwei 
   let
     epoch = state.slot.compute_epoch_at_slot
   try:
-    # TODO refactor get_empty_per_epoch_cache() not to be, well, empty, so can
-    # avoid this ever refilling, and raiseAssert, and get rid of var
     if epoch notin cache.shuffled_active_validator_indices:
       cache.shuffled_active_validator_indices[epoch] =
         get_shuffled_active_validator_indices(state, epoch)
@@ -249,9 +247,8 @@ func get_base_reward(state: BeaconState, index: ValidatorIndex,
     integer_squareroot(total_balance) div BASE_REWARDS_PER_EPOCH
 
 func get_proposer_reward(state: BeaconState, attesting_index: ValidatorIndex,
-    cache: var StateCache): Gwei =
-  let total_balance = get_total_active_balance(state, cache)
-
+    total_balance: Gwei): Gwei =
+  # Spec version recalculates get_total_active_balance(state) quadratically
   get_base_reward(state, attesting_index, total_balance) div PROPOSER_REWARD_QUOTIENT
 
 func get_finality_delay(state: BeaconState): uint64 =
@@ -355,10 +352,11 @@ func get_inclusion_delay_deltas(state: BeaconState, cache: var StateCache):
       if a.inclusion_delay < attestation.inclusion_delay:
         attestation = a
 
-    # TODO remove duplicate calculation of get_proposer_reward()
-    rewards[attestation.proposer_index] += get_proposer_reward(state, index, cache)
+    rewards[attestation.proposer_index] +=
+      get_proposer_reward(state, index, total_balance)
     let max_attester_reward =
-      get_base_reward(state, index, total_balance) - get_proposer_reward(state, index, cache)
+      get_base_reward(state, index, total_balance) -
+        get_proposer_reward(state, index, total_balance)
     rewards[index] += Gwei(max_attester_reward div attestation.inclusion_delay)
 
   # No penalties associated with inclusion delay
@@ -369,7 +367,7 @@ func get_inactivity_penalty_deltas(state: BeaconState, cache: var StateCache):
     seq[Gwei] =
   # Return inactivity reward/penalty deltas for each validator.
   var penalties = repeat(0'u64, len(state.validators))
-  let total_balance = get_total_active_balance(state, cache) # DO NOT KEEP RECALCULATING THIS
+  let total_balance = get_total_active_balance(state, cache)
   if is_in_inactivity_leak(state):
     let
       matching_target_attestations =
@@ -381,7 +379,7 @@ func get_inactivity_penalty_deltas(state: BeaconState, cache: var StateCache):
       let base_reward = get_base_reward(state, index, total_balance)
       penalties[index] +=
         Gwei(BASE_REWARDS_PER_EPOCH * base_reward -
-          get_proposer_reward(state, index, cache))
+          get_proposer_reward(state, index, total_balance))
       # matching_target_attesting_indices is a HashSet
       if index notin matching_target_attesting_indices:
         let effective_balance = state.validators[index].effective_balance
