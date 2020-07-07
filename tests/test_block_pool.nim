@@ -323,11 +323,11 @@ suiteReport "BlockPool finalization tests" & preset():
           pool.tail.children.len == 2
           pool.heads.len == 2
 
-        blck = makeTestBlock(
-          pool.headState.data, pool.head.blck.root, cache,
-          attestations = makeFullAttestations(
-            pool.headState.data.data, pool.head.blck.root,
-            pool.headState.data.data.slot, cache, {}))
+      blck = makeTestBlock(
+        pool.headState.data, pool.head.blck.root, cache,
+        attestations = makeFullAttestations(
+          pool.headState.data.data, pool.head.blck.root,
+          pool.headState.data.data.slot, cache, {}))
       let added = pool.addRawBlock(hash_tree_root(blck.message), blck) do (validBlock: BlockRef):
         discard
       check: added.isOk()
@@ -359,47 +359,47 @@ suiteReport "BlockPool finalization tests" & preset():
       hash_tree_root(pool2.justifiedState.data.data) ==
         hash_tree_root(pool.justifiedState.data.data)
 
-  timedTest "init with gaps" & preset():
-    var cache = get_empty_per_epoch_cache()
-    for i in 0 ..< (SLOTS_PER_EPOCH * 6 - 2):
-      var
-        blck = makeTestBlock(
-          pool.headState.data, pool.head.blck.root, cache,
-          attestations = makeFullAttestations(
-            pool.headState.data.data, pool.head.blck.root,
-            pool.headState.data.data.slot, cache, {}))
+  # timedTest "init with gaps" & preset():
+  #   var cache = get_empty_per_epoch_cache()
+  #   for i in 0 ..< (SLOTS_PER_EPOCH * 6 - 2):
+  #     var
+  #       blck = makeTestBlock(
+  #         pool.headState.data, pool.head.blck.root, cache,
+  #         attestations = makeFullAttestations(
+  #           pool.headState.data.data, pool.head.blck.root,
+  #           pool.headState.data.data.slot, cache, {}))
 
-      let added = pool.addRawBlock(hash_tree_root(blck.message), blck) do (validBlock: BlockRef):
-        discard
-      check: added.isOk()
-      pool.updateHead(added[])
+  #     let added = pool.addRawBlock(hash_tree_root(blck.message), blck) do (validBlock: BlockRef):
+  #       discard
+  #     check: added.isOk()
+  #     pool.updateHead(added[])
 
-    # Advance past epoch so that the epoch transition is gapped
-    check:
-      process_slots(
-        pool.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2) )
+  #   # Advance past epoch so that the epoch transition is gapped
+  #   check:
+  #     process_slots(
+  #       pool.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2) )
 
-    var blck = makeTestBlock(
-      pool.headState.data, pool.head.blck.root, cache,
-      attestations = makeFullAttestations(
-        pool.headState.data.data, pool.head.blck.root,
-        pool.headState.data.data.slot, cache, {}))
+  #   var blck = makeTestBlock(
+  #     pool.headState.data, pool.head.blck.root, cache,
+  #     attestations = makeFullAttestations(
+  #       pool.headState.data.data, pool.head.blck.root,
+  #       pool.headState.data.data.slot, cache, {}))
 
-    let added = pool.addRawBlock(hash_tree_root(blck.message), blck) do (validBlock: BlockRef):
-      discard
-    check: added.isOk()
-    pool.updateHead(added[])
+  #   let added = pool.addRawBlock(hash_tree_root(blck.message), blck) do (validBlock: BlockRef):
+  #     discard
+  #   check: added.isOk()
+  #   pool.updateHead(added[])
 
-    let
-      pool2 = BlockPool.init(db)
+  #   let
+  #     pool2 = BlockPool.init(db)
 
-    # check that the state reloaded from database resembles what we had before
-    check:
-      pool2.tail.root == pool.tail.root
-      pool2.head.blck.root == pool.head.blck.root
-      pool2.finalizedHead.blck.root == pool.finalizedHead.blck.root
-      pool2.finalizedHead.slot == pool.finalizedHead.slot
-      hash_tree_root(pool2.headState.data.data) ==
-        hash_tree_root(pool.headState.data.data)
-      hash_tree_root(pool2.justifiedState.data.data) ==
-        hash_tree_root(pool.justifiedState.data.data)
+  #   # check that the state reloaded from database resembles what we had before
+  #   check:
+  #     pool2.tail.root == pool.tail.root
+  #     pool2.head.blck.root == pool.head.blck.root
+  #     pool2.finalizedHead.blck.root == pool.finalizedHead.blck.root
+  #     pool2.finalizedHead.slot == pool.finalizedHead.slot
+  #     hash_tree_root(pool2.headState.data.data) ==
+  #       hash_tree_root(pool.headState.data.data)
+  #     hash_tree_root(pool2.justifiedState.data.data) ==
+  #       hash_tree_root(pool.justifiedState.data.data)
