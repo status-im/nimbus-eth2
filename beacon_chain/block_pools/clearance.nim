@@ -143,7 +143,7 @@ proc addRawBlock*(
 
 
   let blck = signedBlock.message
-  doAssert blockRoot == hash_tree_root(blck)
+  doAssert blockRoot == hash_tree_root(blck), "blockRoot: 0x" & shortLog(blockRoot) & ", signedBlock: 0x" & shortLog(hash_tree_root(blck))
 
   logScope: pcs = "block_addition"
 
