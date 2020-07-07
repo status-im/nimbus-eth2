@@ -2,7 +2,8 @@ import
   os, strutils, terminal, stew/byteutils,
   chronicles, chronos, blscurve, json_serialization, serialization,
   web3, stint, eth/keys, confutils, bearssl,
-  spec/[datatypes, digest, crypto, keystore], conf, ssz/merkleization, merkle_minimal
+  spec/[datatypes, digest, crypto, keystore],
+  conf, ssz/merkleization, merkle_minimal
 
 export
   keystore

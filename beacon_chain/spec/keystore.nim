@@ -132,6 +132,11 @@ template burnMem*(m: var (SensitiveData|TaintedString)) =
   #       to make its usage less error-prone.
   utils.burnMem(string m)
 
+proc getRandomBytes*(rng: var BrHmacDrbgContext, n: Natural): seq[byte]
+                    {.raises: [Defect].} =
+  result = newSeq[byte](n)
+  brHmacDrbgGenerate(rng, result)
+
 macro wordListArray(filename: static string): array[wordListLen, cstring] =
   result = newTree(nnkBracket)
   var words = slurp(filename).split()
@@ -189,7 +194,8 @@ proc generateMnemonic*(
 
   var entropy: seq[byte]
   if entropyParam.len == 0:
-    entropy = getRandomBytes(rng, 32)
+    setLen(entropy, 32)
+    brHmacDrbgGenerate(rng, entropy)
   else:
     doAssert entropyParam.len >= 128 and
              entropyParam.len <= 256 and

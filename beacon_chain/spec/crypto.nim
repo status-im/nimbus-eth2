@@ -31,7 +31,6 @@ import
   blscurve,
   chronicles,
   json_serialization,
-  bearssl,
   # Standard library
   hashes
 
@@ -174,24 +173,6 @@ func blsFastAggregateVerify*(
     unwrapped.add pubkey.blsValue
 
   fastAggregateVerify(unwrapped, message, signature.blsValue)
-
-proc newKeyPair*(rng: var BrHmacDrbgContext): BlsResult[tuple[pub: ValidatorPubKey, priv: ValidatorPrivKey]] =
-  ## Generates a new public-private keypair
-  ## This requires entropy on the system
-  # The input-keying-material requires 32 bytes at least for security
-  # The generation is deterministic and the input-keying-material
-  # must be protected against side-channel attacks
-
-  var ikm: array[32, byte]
-  brHmacDrbgGenerate(rng, ikm)
-
-  var
-    sk: SecretKey
-    pk: PublicKey
-  if keyGen(ikm, pk, sk):
-    ok((ValidatorPubKey(kind: Real, blsValue: pk), ValidatorPrivKey(sk)))
-  else:
-    err "bls: cannot generate keypair"
 
 proc toGaugeValue*(hash: Eth2Digest): int64 =
   # Only the last 8 bytes are taken into consideration in accordance
@@ -361,8 +342,3 @@ func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noInit
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
   return v[]
-
-proc getRandomBytes*(rng: var BrHmacDrbgContext, n: Natural): seq[byte]
-                    {.raises: [Defect].} =
-  result = newSeq[byte](n)
-  brHmacDrbgGenerate(rng, result)
