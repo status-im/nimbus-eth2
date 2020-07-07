@@ -247,7 +247,10 @@ cli do (skipGoerliKey {.
     validatorsDir = dataDir / "validators"
     secretsDir = dataDir / "secrets"
     beaconNodeBinary = buildDir / "beacon_node_" & dataDirName
-    validatorClientBinary = if separateVC: buildDir / "validator_client_" & dataDirName else: ""
+    # using a separate VC is disabled on windows until we find a substitute for `&`
+    validatorClientBinary = if not defined(windows) and separateVC:
+      buildDir / "validator_client_" & dataDirName
+      else: ""
   var
     nimFlagsBN = &"-d:chronicles_log_level=TRACE " & getEnv("NIM_PARAMS")
     nimFlagsVC = nimFlagsBN

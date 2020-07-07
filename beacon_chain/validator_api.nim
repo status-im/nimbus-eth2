@@ -10,7 +10,7 @@ import
   tables, strutils, parseutils, sequtils,
 
   # Nimble packages
-  stew/[objects],
+  stew/[byteutils, objects],
   chronos, metrics, json_rpc/[rpcserver, jsonmarshal],
   chronicles,
 
@@ -27,40 +27,25 @@ type
 
 logScope: topics = "valapi"
 
-proc getRootOrPubkey(T: type[Eth2Digest|ValidatorPubKey], str: string): T =
-  when T is Eth2Digest:
-    const example_root = "0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2"
-    if str.len != example_root.len:
-      raise newException(CatchableError, "Not a valid root hash")
-    return fromHex(Eth2Digest, str[2..<str.len]) # skip first 2 chars
-  else:
-    const example_pubkey = "0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a"
-    if str.len != example_pubkey.len:
-      raise newException(CatchableError, "Not a valid public key")
-    let pubkeyRes = fromHex(ValidatorPubKey, str[2..<str.len]) # skip first 2 chars
-    if pubkeyRes.isErr:
-      raise newException(CatchableError, "Not a valid public key")
-    return pubkeyRes[]
+proc parseRoot(str: string): Eth2Digest =
+  return Eth2Digest(data: hexToByteArray[32](str))
 
-proc boundsCheckRequestAgainstBlockRef(slot: Slot, head: BlockRef) =
+proc parsePubkey(str: string): ValidatorPubKey =
+  let pubkeyRes = fromHex(ValidatorPubKey, str)
+  if pubkeyRes.isErr:
+    raise newException(CatchableError, "Not a valid public key")
+  return pubkeyRes[]
+
+proc doChecksAndGetCurrentHead(node: BeaconNode, slot: Slot): BlockRef =
+  result = node.blockPool.head.blck
+  if not node.isSynced(result):
+    raise newException(CatchableError, "Cannot fulfill request until ndoe is synced")
   # TODO for now we limit the requests arbitrarily by up to 2 epochs into the future
-  if head.slot.compute_epoch_at_slot + 2 < slot.compute_epoch_at_slot:
+  if result.slot.compute_epoch_at_slot + 2 < slot.compute_epoch_at_slot:
     raise newException(CatchableError, "Requesting way ahead of the current head")
 
-proc boundsCheckRequestAgainstBlockRef(epoch: Epoch, head: BlockRef) =
-  boundsCheckRequestAgainstBlockRef(epoch.compute_start_slot_at_epoch, head)
-
-proc checkSynced(node: BeaconNode, head: BlockRef) =
-  if not node.isSynced(head):
-    raise newException(CatchableError, "Cannot fulfill this request until synced")
-
-proc doChecksAndGetHead(node: BeaconNode, slot: Slot): BlockRef =
-  result = node.blockPool.head.blck
-  boundsCheckRequestAgainstBlockRef(slot, result)
-  node.checkSynced(result)
-
-proc doChecksAndGetHead(node: BeaconNode, epoch: Epoch): BlockRef =
-  node.doChecksAndGetHead(epoch.compute_start_slot_at_epoch)
+proc doChecksAndGetCurrentHead(node: BeaconNode, epoch: Epoch): BlockRef =
+  node.doChecksAndGetCurrentHead(epoch.compute_start_slot_at_epoch)
 
 # TODO currently this function throws if the validator isn't found - is this OK?
 proc getValidatorInfoFromValidatorId(
@@ -77,16 +62,16 @@ proc getValidatorInfoFromValidatorId(
     raise newException(CatchableError, "Invalid status requested")
 
   let validator = if validatorId.startsWith("0x"):
-    let pubkey = getRootOrPubkey(ValidatorPubKey, validatorId)
+    let pubkey = parsePubkey(validatorId)
     let idx = state.validators.asSeq.findIt(it.pubKey == pubkey)
     if idx == -1:
       raise newException(CatchableError, "Could not find validator")
     state.validators[idx]
   else:
-    var valIdx: BiggestInt
-    if parseBiggestInt(validatorId, valIdx) != validatorId.len:
+    var valIdx: BiggestUInt
+    if parseBiggestUInt(validatorId, valIdx) != validatorId.len:
       raise newException(CatchableError, "Not a valid index")
-    if state.validators.len >= valIdx:
+    if state.validators.len >= valIdx.int:
       raise newException(CatchableError, "Index out of bounds")
     state.validators[valIdx]
 
@@ -136,11 +121,10 @@ proc getValidatorInfoFromValidatorId(
                 balance: validator.effective_balance))
 
 proc getBlockSlotFromString(node: BeaconNode, slot: string): BlockSlot =
-  var parsed: BiggestInt
-  if parseBiggestInt(slot, parsed) != slot.len:
+  var parsed: BiggestUInt
+  if parseBiggestUInt(slot, parsed) != slot.len:
     raise newException(CatchableError, "Not a valid slot number")
-  let head = node.blockPool.head.blck
-  boundsCheckRequestAgainstBlockRef(parsed.Slot, head)
+  let head = node.doChecksAndGetCurrentHead(parsed.Slot)
   return head.atSlot(parsed.Slot)
 
 proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData =
@@ -153,7 +137,7 @@ proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData =
       return node.blockPool.get(node.blockPool.finalizedHead.blck)
     else:
       if blockId.startsWith("0x"):
-        let blckRoot = getRootOrPubkey(Eth2Digest, blockId)
+        let blckRoot = parseRoot(blockId)
         let blockData = node.blockPool.get(blckRoot)
         if blockData.isNone:
           raise newException(CatchableError, "Block not found")
@@ -196,7 +180,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
           body
       else:
         if stateId.startsWith("0x"):
-          let blckRoot = getRootOrPubkey(Eth2Digest, stateId)
+          let blckRoot = parseRoot(stateId)
           let blckRef = node.blockPool.getRef(blckRoot)
           if blckRef.isNil:
             raise newException(CatchableError, "Block not found")
@@ -229,7 +213,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       else:
         if stateId.startsWith("0x"):
           # we return whatever was passed to us (this is a nonsense request)
-          getRootOrPubkey(Eth2Digest, stateId)
+          parseRoot(stateId)
         else:
           withStateForSlot(stateId):
             hashedState.root
@@ -345,7 +329,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("get_v1_validator_block") do (
       slot: Slot, graffiti: Eth2Digest, randao_reveal: ValidatorSig) -> BeaconBlock:
     debug "get_v1_validator_block", slot = slot
-    let head = node.doChecksAndGetHead(slot)
+    let head = node.doChecksAndGetCurrentHead(slot)
     
     let proposer = node.blockPool.getProposer(head, slot)
     if proposer.isNone():
@@ -362,7 +346,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     debug "post_v1_validator_block",
       slot = body.message.slot,
       prop_idx = body.message.proposer_index
-    let head = node.doChecksAndGetHead(body.message.slot)
+    let head = node.doChecksAndGetCurrentHead(body.message.slot)
 
     if head.slot >= body.message.slot:
       raise newException(CatchableError,
@@ -374,7 +358,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
 
   rpcServer.rpc("get_v1_validator_attestation") do (
       slot: Slot, committee_index: CommitteeIndex) -> AttestationData:
-    let head = node.doChecksAndGetHead(slot)
+    let head = node.doChecksAndGetCurrentHead(slot)
 
     node.blockPool.withState(node.blockPool.tmpState, head.atSlot(slot)):
       return makeAttestationData(state, slot, committee_index.uint64, blck.root)
@@ -392,7 +376,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("post_v1_validator_duties_attester") do (
       epoch: Epoch, public_keys: seq[ValidatorPubKey]) -> seq[AttesterDuties]:
     debug "post_v1_validator_duties_attester", epoch = epoch
-    let head = node.doChecksAndGetHead(epoch)
+    let head = node.doChecksAndGetCurrentHead(epoch)
 
     let attestationHead = head.atSlot(compute_start_slot_at_epoch(epoch))
     node.blockPool.withState(node.blockPool.tmpState, attestationHead):
@@ -411,7 +395,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("get_v1_validator_duties_proposer") do (
       epoch: Epoch) -> seq[ValidatorPubkeySlotPair]:
     debug "get_v1_validator_duties_proposer", epoch = epoch
-    let head = node.doChecksAndGetHead(epoch)
+    let head = node.doChecksAndGetCurrentHead(epoch)
 
     for i in 0 ..< SLOTS_PER_EPOCH:
       let currSlot = (compute_start_slot_at_epoch(epoch).int + i).Slot

@@ -10,7 +10,7 @@ import
   os, strutils, json, times,
 
   # Nimble packages
-  stew/shims/[tables, macros],
+  stew/byteutils, stew/shims/[tables, macros],
   chronos, confutils, metrics, json_rpc/[rpcclient, jsonmarshal],
   chronicles,
   blscurve, json_serialization/std/[options, sets, net],
@@ -136,8 +136,10 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
       let randao_reveal = validator.genRandaoReveal(
         vc.fork, vc.beaconGenesis.genesis_validators_root, slot)
 
+      var graffiti: Eth2Digest
+      graffiti.data[0..<5] = toBytes("quack")
       var newBlock = SignedBeaconBlock(
-          message: await vc.client.get_v1_validator_block(slot, Eth2Digest(), randao_reveal)
+          message: await vc.client.get_v1_validator_block(slot, graffiti, randao_reveal)
         )
 
       let blockRoot = hash_tree_root(newBlock.message)
