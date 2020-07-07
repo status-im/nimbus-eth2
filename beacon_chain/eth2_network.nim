@@ -1108,6 +1108,9 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext, conf: BeaconNodeConf, enrForkId
                                  sign = false, verifySignature = false,
                                  transportFlags = {ServerFlags.ReuseAddr},
                                  msgIdProvider = msgIdProvider,
+                                 secureManagers = [
+                                   SecureProtocol.Noise, # Only noise in ETH2!
+                                 ],
                                  rng = rng)
   result = Eth2Node.init(conf, enrForkId, switch,
                          extIp, extTcpPort, extUdpPort,
