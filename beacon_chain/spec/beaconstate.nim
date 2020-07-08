@@ -174,12 +174,12 @@ proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
     validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT)
 
   # The rest doesn't make sense without there being any proposer index, so skip
-  # Apply proposer and whistleblower rewards
   let proposer_index = get_beacon_proposer_index(state, cache)
   if proposer_index.isNone:
     debug "No beacon proposer index and probably no active validators"
     return
 
+  # Apply proposer and whistleblower rewards
   let
     # Spec has whistleblower_index as optional param, but it's never used.
     whistleblower_index = proposer_index.get
