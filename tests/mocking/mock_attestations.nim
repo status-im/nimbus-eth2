@@ -112,7 +112,7 @@ proc mockAttestation*(
        flags: UpdateFlags = {}): Attestation {.inline.}=
   mockAttestationImpl(state, slot, flags)
 
-proc fillAggregateAttestation*(state: BeaconState, attestation: var Attestation) =
+func fillAggregateAttestation*(state: BeaconState, attestation: var Attestation) =
   var cache = get_empty_per_epoch_cache()
   let beacon_committee = get_beacon_committee(
     state,

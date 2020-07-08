@@ -29,6 +29,18 @@ func get_slot_signature*(
 
   blsSign(privKey, signing_root.data)
 
+func verify_slot_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
+    pubkey: ValidatorPubKey, signature: SomeSig): bool =
+  withTrust(signature):
+    let
+      epoch = compute_epoch_at_slot(slot)
+      domain = get_domain(
+        fork, DOMAIN_SELECTION_PROOF, epoch, genesis_validators_root)
+      signing_root = compute_signing_root(slot, domain)
+
+    blsVerify(pubkey, signing_root.data, signature)
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#randao-reveal
 func get_epoch_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
@@ -86,6 +98,18 @@ func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth
     signing_root = compute_signing_root(aggregate_and_proof, domain)
 
   blsSign(privKey, signing_root.data)
+
+func verify_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
+                                           aggregate_and_proof: AggregateAndProof,
+                                           pubkey: ValidatorPubKey, signature: SomeSig): bool =
+  withTrust(signature):
+    let
+      epoch = compute_epoch_at_slot(aggregate_and_proof.aggregate.data.slot)
+      domain = get_domain(
+        fork, DOMAIN_AGGREGATE_AND_PROOF, epoch, genesis_validators_root)
+      signing_root = compute_signing_root(aggregate_and_proof, domain)
+
+    blsVerify(pubKey, signing_root.data, signature)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#aggregate-signature
 func get_attestation_signature*(

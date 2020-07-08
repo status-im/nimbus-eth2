@@ -83,7 +83,7 @@ yourAURmanager -S base-devel pcre-static
 Assuming you use [Homebrew](https://brew.sh/) to manage packages:
 
 ```sh
-brew install pcre
+brew install pcre cmake
 ```
 
 Make sure you have [CMake](https://cmake.org/) installed, to be able to build libunwind (used for [lightweight stack traces](https://github.com/status-im/nim-libbacktrace)).

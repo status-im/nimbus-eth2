@@ -20,9 +20,7 @@ logScope:
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregation-selection
 func is_aggregator(state: BeaconState, slot: Slot, index: CommitteeIndex,
-    slot_signature: ValidatorSig): bool =
-  var cache = get_empty_per_epoch_cache()
-
+    slot_signature: ValidatorSig, cache: var StateCache): bool =
   let
     committee = get_beacon_committee(state, slot, index, cache)
     modulo = max(1, len(committee) div TARGET_AGGREGATORS_PER_COMMITTEE).uint64
@@ -33,7 +31,7 @@ proc aggregate_attestations*(
     privkey: ValidatorPrivKey, trailing_distance: uint64): Option[AggregateAndProof] =
   doAssert state.slot >= trailing_distance
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#configuration
   doAssert trailing_distance <= ATTESTATION_PROPAGATION_SLOT_RANGE
 
   let
@@ -49,8 +47,9 @@ proc aggregate_attestations*(
 
   # TODO for testing purposes, refactor this into the condition check
   # and just calculation
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregation-selection
-  if not is_aggregator(state, slot, index, slot_signature):
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#aggregation-selection
+  var cache = get_empty_per_epoch_cache()
+  if not is_aggregator(state, slot, index, slot_signature, cache):
     return none(AggregateAndProof)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#attestation-data
@@ -67,7 +66,7 @@ proc aggregate_attestations*(
   for attestation in getAttestationsForBlock(pool, state):
     # getAttestationsForBlock(...) already aggregates
     if attestation.data == attestation_data:
-      # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregateandproof
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#aggregateandproof
       return some(AggregateAndProof(
         aggregator_index: index.uint64,
         aggregate: attestation,
@@ -159,4 +158,121 @@ proc isValidAttestation*(
       debug "signature verification failed"
       return false
 
+  true
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#global-topics
+proc isValidAggregatedAttestation*(
+    pool: var AttestationPool,
+    signedAggregateAndProof: SignedAggregateAndProof,
+    current_slot: Slot): bool =
+  let
+    aggregate_and_proof = signedAggregateAndProof.message
+    aggregate = aggregate_and_proof.aggregate
+
+  # There's some overlap between this and isValidAttestation(), but unclear if
+  # saving a few lines of code would balance well with losing straightforward,
+  # spec-based synchronization.
+  #
+  # [IGNORE] aggregate.data.slot is within the last
+  # ATTESTATION_PROPAGATION_SLOT_RANGE slots (with a
+  # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. aggregate.data.slot +
+  # ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= aggregate.data.slot
+  if not (aggregate.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >=
+      current_slot and current_slot >= aggregate.data.slot):
+    debug "isValidAggregatedAttestation: aggregation.data.slot not within ATTESTATION_PROPAGATION_SLOT_RANGE"
+    return false
+
+  # [IGNORE] The valid aggregate attestation defined by
+  # hash_tree_root(aggregate) has not already been seen (via aggregate gossip,
+  # within a verified block, or through the creation of an equivalent aggregate
+  # locally).
+  #
+  # This is [IGNORE] and already checked by attestation pool when aggregate is
+  # added.
+
+  # [IGNORE] The aggregate is the first valid aggregate received for the
+  # aggregator with index aggregate_and_proof.aggregator_index for the epoch
+  # aggregate.data.target.epoch.
+  #
+  # This is [IGNORE] and already effectively checked by attestation pool upon
+  # attempting to resolve attestations.
+
+  # [REJECT] The block being voted for (aggregate.data.beacon_block_root)
+  # passes validation.
+  let attestationBlck = pool.blockPool.getRef(aggregate.data.beacon_block_root)
+  if attestationBlck.isNil:
+    debug "isValidAggregatedAttestation: block doesn't exist in block pool"
+    pool.blockPool.addMissing(aggregate.data.beacon_block_root)
+    return false
+
+  # [REJECT] The attestation has participants -- that is,
+  # len(get_attesting_indices(state, aggregate.data, aggregate.aggregation_bits)) >= 1.
+  #
+  # get_attesting_indices() is:
+  # committee = get_beacon_committee(state, data.slot, data.index)
+  # return set(index for i, index in enumerate(committee) if bits[i])
+  #
+  # the attestation doesn't have participants is iff either:
+  # (1) the aggregation bits are all 0; or
+  # (2) the non-zero aggregation bits don't overlap with extant committee
+  #     members, i.e. they counts don't match.
+  # But (2) would reflect an invalid aggregation in other ways, so reject it
+  # either way.
+  if isZeros(aggregate.aggregation_bits):
+    debug "isValidAggregatedAttestation: attestation has no or invalid aggregation bits"
+    return false
+
+  # [REJECT] aggregate_and_proof.selection_proof selects the validator as an
+  # aggregator for the slot -- i.e. is_aggregator(state, aggregate.data.slot,
+  # aggregate.data.index, aggregate_and_proof.selection_proof) returns True.
+  # TODO use withEpochState when it works more reliably
+  pool.blockPool.withState(
+      pool.blockPool.tmpState,
+      BlockSlot(blck: attestationBlck, slot: aggregate.data.slot)):
+    var cache = getEpochCache(blck, state)
+    if not is_aggregator(
+        state, aggregate.data.slot, aggregate.data.index.CommitteeIndex,
+        aggregate_and_proof.selection_proof, cache):
+      debug "isValidAggregatedAttestation: incorrect aggregator"
+      return false
+
+    # [REJECT] The aggregator's validator index is within the committee -- i.e.
+    # aggregate_and_proof.aggregator_index in get_beacon_committee(state,
+    # aggregate.data.slot, aggregate.data.index).
+    if aggregate_and_proof.aggregator_index.ValidatorIndex notin
+        get_beacon_committee(
+          state, aggregate.data.slot, aggregate.data.index.CommitteeIndex, cache):
+      debug "isValidAggregatedAttestation: aggregator's validator index not in committee"
+      return false
+
+    # [REJECT] The aggregate_and_proof.selection_proof is a valid signature of the
+    # aggregate.data.slot by the validator with index
+    # aggregate_and_proof.aggregator_index.
+    # get_slot_signature(state, aggregate.data.slot, privkey)
+    if aggregate_and_proof.aggregator_index >= state.validators.len.uint64:
+      debug "isValidAggregatedAttestation: invalid aggregator_index"
+      return false
+
+    if not verify_slot_signature(
+        state.fork, state.genesis_validators_root, aggregate.data.slot,
+        state.validators[aggregate_and_proof.aggregator_index].pubkey,
+        aggregate_and_proof.selection_proof):
+      debug "isValidAggregatedAttestation: selection_proof signature verification failed"
+      return false
+
+    # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
+    if not verify_aggregate_and_proof_signature(
+        state.fork, state.genesis_validators_root, aggregate_and_proof,
+        state.validators[aggregate_and_proof.aggregator_index].pubkey,
+        signed_aggregate_and_proof.signature):
+      debug "isValidAggregatedAttestation: signed_aggregate_and_proof signature verification failed"
+      return false
+
+    # [REJECT] The signature of aggregate is valid.
+    if not is_valid_indexed_attestation(
+        state, get_indexed_attestation(state, aggregate, cache), {}):
+      debug "isValidAggregatedAttestation: aggregate signature verification failed"
+      return false
+
+  debug "isValidAggregatedAttestation: succeeded"
   true

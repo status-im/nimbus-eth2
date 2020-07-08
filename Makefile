@@ -199,4 +199,21 @@ publish-book: | book
 	git worktree remove -f tmp-book && \
 	rm -rf tmp-book
 
+auditors-book:
+	cd docs/the_auditors_handbook && \
+	mdbook build
+
+publish-auditors-book: | auditors-book
+	git worktree add tmp-book gh-pages && \
+	mkdir -p tmp-book/auditors-book && \
+	rm -rf tmp-book/auditors-book/* && \
+	cp -a docs/the_auditors_handbook/book/* tmp-book/auditors-book/ && \
+	cd tmp-book && \
+	git add . && { \
+		git commit -m "make publish-auditors-book" && \
+		git push origin gh-pages || true; } && \
+	cd .. && \
+	git worktree remove -f tmp-book && \
+	rm -rf tmp-book
+
 endif # "variables.mk" was not included

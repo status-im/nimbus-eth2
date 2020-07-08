@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  algorithm, os, tables, strutils, times, math, terminal, random,
+  algorithm, os, tables, strutils, times, math, terminal, bearssl, random,
 
   # Nimble packages
   stew/[objects, byteutils, endians2], stew/shims/macros,
@@ -131,9 +131,11 @@ func enrForkIdFromState(state: BeaconState): ENRForkID =
     next_fork_version: forkVer,
     next_fork_epoch: FAR_FUTURE_EPOCH)
 
-proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
+proc init*(
+    T: type BeaconNode, rng: ref BrHmacDrbgContext,
+    conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
   let
-    netKeys = getPersistentNetKeys(conf)
+    netKeys = getPersistentNetKeys(rng[], conf)
     nickname = if conf.nodeName == "auto": shortForm(netKeys)
                else: conf.nodeName
     db = BeaconChainDB.init(kvStore SqStoreRef.init(conf.databaseDir, "nbc").tryGet())
@@ -227,7 +229,7 @@ proc init*(T: type BeaconNode, conf: BeaconNodeConf): Future[BeaconNode] {.async
     enrForkId = enrForkIdFromState(blockPool.headState.data.data)
     topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.forkDigest)
     topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.forkDigest)
-    network = await createEth2Node(conf, enrForkId)
+    network = await createEth2Node(rng, conf, enrForkId)
 
   var res = BeaconNode(
     nickname: nickname,
@@ -763,6 +765,13 @@ proc installAttestationHandlers(node: BeaconNode) =
       return false
     node.attestationPool.isValidAttestation(attestation, slot, committeeIndex)
 
+  proc aggregatedAttestationValidator(
+      signedAggregateAndProof: SignedAggregateAndProof): bool =
+    let (afterGenesis, slot) = node.beaconClock.now().toSlot()
+    if not afterGenesis:
+      return false
+    node.attestationPool.isValidAggregatedAttestation(signedAggregateAndProof, slot)
+
   var attestationSubscriptions: seq[Future[void]] = @[]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
@@ -775,6 +784,14 @@ proc installAttestationHandlers(node: BeaconNode) =
         proc(attestation: Attestation): bool =
           attestationValidator(attestation, ci)
       ))
+
+  attestationSubscriptions.add(node.network.subscribe(
+    getAggregateAndProofsTopic(node.forkDigest),
+    proc(signedAggregateAndProof: SignedAggregateAndProof) =
+      attestationHandler(signedAggregateAndProof.message.aggregate),
+    proc(signedAggregateAndProof: SignedAggregateAndProof): bool =
+      aggregatedAttestationValidator(signedAggregateAndProof)
+  ))
 
   waitFor allFutures(attestationSubscriptions)
 
@@ -1027,12 +1044,14 @@ when hasPrompt:
       # var t: Thread[ptr Prompt]
       # createThread(t, processPromptCommands, addr p)
 
-proc createWalletInteractively(conf: BeaconNodeConf): OutFile {.raises: [Defect].} =
+proc createWalletInteractively(
+    rng: var BrHmacDrbgContext,
+    conf: BeaconNodeConf): OutFile {.raises: [Defect].} =
   if conf.nonInteractive:
     fatal "Wallets can be created only in interactive mode"
     quit 1
 
-  var mnemonic = generateMnemonic()
+  var mnemonic = generateMnemonic(rng)
   defer: keystore_management.burnMem(mnemonic)
 
   template readLine: string =
@@ -1099,7 +1118,8 @@ proc createWalletInteractively(conf: BeaconNodeConf): OutFile {.raises: [Defect]
                          continue
               break
 
-          let (uuid, walletContent) = KdfPbkdf2.createWalletContent(mnemonic, name)
+          let (uuid, walletContent) = KdfPbkdf2.createWalletContent(
+            rng, mnemonic, name)
           try:
             var outWalletFile: OutFile
 
@@ -1172,6 +1192,10 @@ programMain:
   else:
     config.runtimePreset = defaultRuntimePreset
 
+  # Single RNG instance for the application - will be seeded on construction
+  # and avoid using system resources (such as urandom) after that
+  let rng = keys.newRng()
+
   case config.cmd
   of createTestnet:
     var
@@ -1227,7 +1251,7 @@ programMain:
     let bootstrapFile = config.outputBootstrapFile.string
     if bootstrapFile.len > 0:
       let
-        networkKeys = getPersistentNetKeys(config)
+        networkKeys = getPersistentNetKeys(rng[], config)
         metadata = getPersistentNetMetadata(config)
         bootstrapEnr = enr.Record.init(
           1, # sequence number
@@ -1251,9 +1275,16 @@ programMain:
 
     config.createDumpDirs()
 
-    var node = waitFor BeaconNode.init(config)
+    var node = waitFor BeaconNode.init(rng, config)
 
-    ctrlCHandling: status = BeaconNodeStatus.Stopping
+    ## Ctrl+C handling
+    proc controlCHandler() {.noconv.} =
+      when defined(windows):
+        # workaround for https://github.com/nim-lang/Nim/issues/4057
+        setupForeignThreadGc()
+      info "Shutting down after having received SIGINT"
+      status = BeaconNodeStatus.Stopping
+    setControlCHook(controlCHandler)
 
     when hasPrompt:
       initPrompt(node)
@@ -1278,6 +1309,7 @@ programMain:
 
       let deposits = generateDeposits(
         config.runtimePreset,
+        rng[],
         config.totalDeposits,
         config.outValidatorsDir,
         config.outSecretsDir)
@@ -1310,7 +1342,7 @@ programMain:
   of wallets:
     case config.walletsCmd:
     of WalletsCmd.create:
-      let walletFile = createWalletInteractively(config)
+      let walletFile = createWalletInteractively(rng[], config)
     of WalletsCmd.list:
       # TODO
       discard

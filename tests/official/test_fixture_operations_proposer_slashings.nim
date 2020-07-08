@@ -10,6 +10,8 @@
 import
   # Standard library
   os, unittest,
+  # Utilities
+  stew/results,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, state_transition_block, validator],
   ../../beacon_chain/ssz,
@@ -44,12 +46,12 @@ proc runTest(identifier: string) =
 
       if existsFile(testDir/"post.ssz"):
         let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
-        let done = process_proposer_slashing(preState[], proposerSlashing, {}, cache)
+        let done = process_proposer_slashing(preState[], proposerSlashing, {}, cache).isOk
         doAssert done, "Valid proposer slashing not processed"
         check: preState[].hash_tree_root() == postState[].hash_tree_root()
         reportDiff(preState, postState)
       else:
-        let done = process_proposer_slashing(preState[], proposerSlashing, {}, cache)
+        let done = process_proposer_slashing(preState[], proposerSlashing, {}, cache).isOk
         doAssert done == false, "We didn't expect this invalid proposer slashing to be processed."
 
   `testImpl_proposer_slashing _ identifier`()

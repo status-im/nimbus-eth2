@@ -30,7 +30,6 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
   doAssert genesisState.data.validators.len == int NumValidators
 
   template valid_deposit(deposit_amount: uint64, name: string): untyped =
-    # TODO: BLS signature
     timedTest "Deposit " & name & " MAX_EFFECTIVE_BALANCE balance (" &
           $(MAX_EFFECTIVE_BALANCE div 10'u64^9) & " ETH)":
       var state = assignClone(genesisState[])
@@ -42,7 +41,7 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
                       state.data,
                       uint64 validator_index,
                       deposit_amount,
-                      flags = {skipBlsValidation}
+                      flags = {}
                     )
 
       # Params for sanity checks
@@ -55,7 +54,7 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
       # State transition
       # ----------------------------------------
-      check: process_deposit(defaultRuntimePreset(), state.data, deposit, {skipBlsValidation})
+      check: process_deposit(defaultRuntimePreset(), state.data, deposit, {}).isOk
 
       # Check invariants
       # ----------------------------------------
@@ -84,7 +83,7 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
                     state.data,
                     uint64 validator_index,
                     deposit_amount,
-                    flags = {skipBlsValidation}
+                    flags = {}
                   )
 
     # Params for sanity checks
@@ -97,7 +96,7 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
     # State transition
     # ----------------------------------------
-    check: process_deposit(defaultRuntimePreset(), state.data, deposit, {skipBlsValidation})
+    check: process_deposit(defaultRuntimePreset(), state.data, deposit, {}).isOk
 
     # Check invariants
     # ----------------------------------------
@@ -111,8 +110,39 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
           EFFECTIVE_BALANCE_INCREMENT
         )
 
+  template invalid_signature(deposit_amount: uint64, name: string): untyped =
+    timedTest "Invalid deposit " & name & " MAX_EFFECTIVE_BALANCE balance (" &
+          $(MAX_EFFECTIVE_BALANCE div 10'u64^9) & " ETH)":
+      var state = assignClone(genesisState[])
+
+      # Test configuration
+      # ----------------------------------------
+      let validator_index = state.data.validators.len
+      var deposit = mockUpdateStateForNewDeposit(
+                      state.data,
+                      uint64 validator_index,
+                      deposit_amount,
+                      flags = {skipBlsValidation}
+                    )
+
+      # Params for sanity checks
+      # ----------------------------------------
+      let pre_val_count = state.data.validators.len
+
+      # State transition
+      # ----------------------------------------
+      check:
+        process_deposit(defaultRuntimePreset(), state.data, deposit, {}).isOk
+
+      # Check invariants
+      # ----------------------------------------
+      check:
+        state.data.validators.len == pre_val_count
+        state.data.balances.len == pre_val_count
+
+  invalid_signature(MAX_EFFECTIVE_BALANCE, "at")
+
   # TODO, tests with:
-  # - invalid BLS signature
   # - invalid withdrawal credential
   # - invalid deposit root
   # - invalid merkle proof

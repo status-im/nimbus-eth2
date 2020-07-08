@@ -53,7 +53,7 @@ func decrease_balance*(
 proc process_deposit*(preset: RuntimePreset,
                       state: var BeaconState,
                       deposit: Deposit,
-                      flags: UpdateFlags = {}): bool {.nbench.}=
+                      flags: UpdateFlags = {}): Result[void, cstring] {.nbench.}=
   # Process an Eth1 deposit, registering a validator or increasing its balance.
 
   # Verify the Merkle branch
@@ -64,10 +64,7 @@ proc process_deposit*(preset: RuntimePreset,
     state.eth1_deposit_index,
     state.eth1_data.deposit_root,
   ):
-    notice "Deposit Merkle validation failed",
-      proof = deposit.proof, deposit_root = state.eth1_data.deposit_root,
-      deposit_index = state.eth1_deposit_index
-    return false
+    return err("process_deposit: deposit Merkle validation failed")
 
   # Deposits must be processed in order
   state.eth1_deposit_index += 1
@@ -89,7 +86,7 @@ proc process_deposit*(preset: RuntimePreset,
         #       large number of invalid deposits on Altona
         trace "Skipping deposit with invalid signature",
           deposit = shortLog(deposit.data)
-        return true
+        return ok()
 
     # Add validator and balance entries
     state.validators.add(Validator(
@@ -107,7 +104,7 @@ proc process_deposit*(preset: RuntimePreset,
      # Increase balance by deposit amount
      increase_balance(state, index.ValidatorIndex, amount)
 
-  true
+  ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
 func compute_activation_exit_epoch(epoch: Epoch): Epoch =
@@ -178,12 +175,12 @@ proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
     validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT)
 
   # The rest doesn't make sense without there being any proposer index, so skip
-  # Apply proposer and whistleblower rewards
   let proposer_index = get_beacon_proposer_index(state, cache)
   if proposer_index.isNone:
     debug "No beacon proposer index and probably no active validators"
     return
 
+  # Apply proposer and whistleblower rewards
   let
     # Spec has whistleblower_index as optional param, but it's never used.
     whistleblower_index = proposer_index.get
@@ -642,7 +639,7 @@ proc check_attestation*(
 
 proc process_attestation*(
     state: var BeaconState, attestation: SomeAttestation, flags: UpdateFlags,
-    stateCache: var StateCache): bool {.nbench.}=
+    stateCache: var StateCache): Result[void, cstring] {.nbench.} =
   # In the spec, attestation validation is mixed with state mutation, so here
   # we've split it into two functions so that the validation logic can be
   # reused when looking for suitable blocks to include in attestations.
@@ -651,8 +648,7 @@ proc process_attestation*(
 
   let proposer_index = get_beacon_proposer_index(state, stateCache)
   if proposer_index.isNone:
-    debug "No beacon proposer index and probably no active validators"
-    return false
+    return err("process_attestation: no beacon proposer index and probably no active validators")
 
   if check_attestation(state, attestation, flags, stateCache):
     let
@@ -679,13 +675,9 @@ proc process_attestation*(
           state, attestation.data, attestation.aggregation_bits, stateCache).len
       state.previous_epoch_attestations.add(pending_attestation)
 
-    true
+    ok()
   else:
-    trace "process_attestation: check_attestation failed",
-      attestation = shortLog(attestation),
-      indices = get_attesting_indices(
-        state, attestation.data, attestation.aggregation_bits, stateCache).len
-    false
+    err("process_attestation: check_attestation failed")
 
 func makeAttestationData*(
     state: BeaconState, slot: Slot, committee_index: uint64,
