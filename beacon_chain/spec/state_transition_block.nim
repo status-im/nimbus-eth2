@@ -225,7 +225,7 @@ proc process_attester_slashing*(
     return err("Attester slashing: Trying to slash participant(s) twice")
   ok()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.9.4/specs/core/0_beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#voluntary-exits
 proc process_voluntary_exit*(
     state: var BeaconState,
     signed_voluntary_exit: SignedVoluntaryExit,
@@ -243,7 +243,7 @@ proc process_voluntary_exit*(
   if not is_active_validator(validator, get_current_epoch(state)):
     return err("Exit: validator not active")
 
-  # Verify the validator has not yet exited
+  # Verify exit has not been initiated
   if validator.exit_epoch != FAR_FUTURE_EPOCH:
     return err("Exit: validator has exited")
 
