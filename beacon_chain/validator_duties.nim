@@ -73,7 +73,7 @@ func getAttachedValidator*(node: BeaconNode,
   let validatorKey = state.validators[idx].pubkey
   node.attachedValidators.getValidator(validatorKey)
 
-proc isSynced(node: BeaconNode, head: BlockRef): bool =
+proc isSynced*(node: BeaconNode, head: BlockRef): bool =
   ## TODO This function is here as a placeholder for some better heurestics to
   ##      determine if we're in sync and should be producing blocks and
   ##      attestations. Generally, the problem is that slot time keeps advancing

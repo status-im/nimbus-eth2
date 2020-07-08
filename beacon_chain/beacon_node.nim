@@ -1223,7 +1223,14 @@ programMain:
 
     var node = waitFor BeaconNode.init(rng, config)
 
-    ctrlCHandling: status = BeaconNodeStatus.Stopping
+    ## Ctrl+C handling
+    proc controlCHandler() {.noconv.} =
+      when defined(windows):
+        # workaround for https://github.com/nim-lang/Nim/issues/4057
+        setupForeignThreadGc()
+      info "Shutting down after having received SIGINT"
+      status = BeaconNodeStatus.Stopping
+    setControlCHook(controlCHandler)
 
     when hasPrompt:
       initPrompt(node)

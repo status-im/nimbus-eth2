@@ -40,10 +40,11 @@ proc updateTestnetsRepo(allTestnetsDir, buildDir: string) =
 
 proc makePrometheusConfig(nodeID, baseMetricsPort: int, dataDir: string) =
   # macOS may not have gnu-getopts installed and in the PATH
-  execIgnoringExitCode &"""./scripts/make_prometheus_config.sh --nodes """ & $(1 + nodeID) & &""" --base-metrics-port {baseMetricsPort} --config-file "{dataDir}/prometheus.yml""""
+  execIgnoringExitCode &"""./scripts/make_prometheus_config.sh --nodes """ & $(1 + nodeID) & &""" --base-metrics-port {baseMetricsPort} --config-file "{dataDir}/prometheus.yml" """
 
-proc buildNode(nimFlags, preset, beaconNodeBinary: string) =
-  exec &"""nim c {nimFlags} -d:"const_preset={preset}" -o:"{beaconNodeBinary}" beacon_chain/beacon_node.nim"""
+proc buildBinary(nimFlags, preset, binary, nimFile: string) =
+  if binary != "":
+    exec &"""nim c {nimFlags} -d:"const_preset={preset}" -o:"{binary}" beacon_chain/{nimFile}"""
 
 proc becomeValidator(validatorsDir, beaconNodeBinary, secretsDir, depositContractOpt, privateGoerliKey: string,
                     becomeValidatorOnly: bool) =
@@ -75,8 +76,8 @@ proc becomeValidator(validatorsDir, beaconNodeBinary, secretsDir, depositContrac
       echo "\nDeposit sent, wait for confirmation then press enter to continue"
       discard readLineFromStdin()
 
-proc runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt,
-             genesisFileOpt, extraBeaconNodeOptions: string,
+proc runNode(dataDir, beaconNodeBinary, validatorClientBinary, bootstrapFileOpt,
+             depositContractOpt, genesisFileOpt, extraBeaconNodeOptions: string,
              basePort, nodeID, baseMetricsPort, baseRpcPort: int,
              printCmdOnly: bool) =
   let logLevel = getEnv("LOG_LEVEL")
@@ -99,21 +100,36 @@ proc runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt,
     echo &"cd {dataDir}; exec {cmd}"
   else:
     cd dataDir
+    mkDir dataDir & "/empty_dummy_folder"
+
+    # if launching a VC as well - send the BN looking nowhere for validators/secrets
+    # TODO use `start` (or something else) on windows (instead of `&`) for the 2 processes
+    let vcCommand = if validatorClientBinary == "": "" else:
+      &"""
+      --secrets-dir={dataDir}/empty_dummy_folder
+      --validators-dir={dataDir}/empty_dummy_folder
+      & {validatorClientBinary}
+      --rpc-port={baseRpcPort + nodeID}
+      --data-dir="{dataDir}"
+      {logLevelOpt}
+      """
+
     cmd = replace(&"""{beaconNodeBinary}
       --data-dir="{dataDir}"
       --dump
       --web3-url={web3Url}
-      --tcp-port=""" & $(basePort + nodeID) & &"""
-      --udp-port=""" & $(basePort + nodeID) & &"""
+      --tcp-port={basePort + nodeID}
+      --udp-port={basePort + nodeID}
       --metrics
-      --metrics-port=""" & $(baseMetricsPort + nodeID) & &"""
+      --metrics-port={baseMetricsPort + nodeID}
       --rpc
-      --rpc-port=""" & $(baseRpcPort + nodeID) & &"""
+      --rpc-port={baseRpcPort + nodeID}
       {bootstrapFileOpt}
       {logLevelOpt}
       {depositContractOpt}
       {genesisFileOpt}
-      {extraBeaconNodeOptions}""", "\n", " ")
+      {extraBeaconNodeOptions}
+      {vcCommand} """, "\n", " ")
     execIgnoringExitCode cmd
 
 cli do (skipGoerliKey {.
@@ -156,6 +172,9 @@ cli do (skipGoerliKey {.
 
         runOnly {.
           desc: "Just run it." .} = false,
+
+        separateVC {.
+          desc: "use a separate validator client process." .} = false,
 
         printCmdOnly {.
           desc: "Just print the commands (suitable for passing to 'eval'; might replace current shell)." .} = false,
@@ -220,6 +239,11 @@ cli do (skipGoerliKey {.
 
   doAssert specVersion in ["v0.11.3", "v0.12.1"]
 
+  if defined(windows) and separateVC:
+    # TODO use `start` (or something else) on windows (instead of `&`) for the 2 processes
+    echo "Cannot use a separate validator client process on Windows! (remove --separateVC)"
+    quit(1)
+
   let
     dataDirName = testnetName.replace("/", "_")
                              .replace("(", "_")
@@ -228,12 +252,17 @@ cli do (skipGoerliKey {.
     validatorsDir = dataDir / "validators"
     secretsDir = dataDir / "secrets"
     beaconNodeBinary = buildDir / "beacon_node_" & dataDirName
+    # using a separate VC is disabled on windows until we find a substitute for `&`
+    validatorClientBinary = if separateVC: buildDir / "validator_client_" & dataDirName else: ""
   var
-    nimFlags = &"-d:chronicles_log_level=TRACE " & getEnv("NIM_PARAMS")
+    nimFlagsBN = &"-d:chronicles_log_level=TRACE " & getEnv("NIM_PARAMS")
+    nimFlagsVC = nimFlagsBN
 
   if writeLogFile:
     # write the logs to a file
-    nimFlags.add """ -d:"chronicles_sinks=textlines,json[file(nbc""" & staticExec("date +\"%Y%m%d%H%M%S\"") & """.log)]" """
+    let logFileNimParams = """ -d:"chronicles_sinks=textlines,json[file(placeholder_""" & staticExec("date +\"%Y%m%d%H%M%S\"") & """.log)]" """
+    nimFlagsBN.add logFileNimParams.replace("placeholder_", "nbc_bn_")
+    nimFlagsVC.add logFileNimParams.replace("placeholder_", "nbc_vc_")
 
   let depositContractFile = testnetDir / depositContractFileName
   if system.fileExists(depositContractFile):
@@ -248,7 +277,8 @@ cli do (skipGoerliKey {.
 
   if doBuild:
     makePrometheusConfig(nodeID, baseMetricsPort, dataDir)
-    buildNode(nimFlags, preset, beaconNodeBinary)
+    buildBinary(nimFlagsBN, preset, beaconNodeBinary, "beacon_node.nim")
+    buildBinary(nimFlagsVC, preset, validatorClientBinary, "validator_client.nim")
 
   if doBecomeValidator and depositContractOpt.len > 0 and not system.dirExists(validatorsDir):
     becomeValidator(validatorsDir, beaconNodeBinary, secretsDir, depositContractOpt, privateGoerliKey, becomeValidatorOnly)
@@ -256,7 +286,7 @@ cli do (skipGoerliKey {.
   echo &"extraBeaconNodeOptions = '{extraBeaconNodeOptions}'"
 
   if doRun:
-    runNode(dataDir, beaconNodeBinary, bootstrapFileOpt, depositContractOpt,
-            genesisFileOpt, extraBeaconNodeOptions,
+    runNode(dataDir, beaconNodeBinary, validatorClientBinary, bootstrapFileOpt,
+            depositContractOpt, genesisFileOpt, extraBeaconNodeOptions,
             basePort, nodeID, baseMetricsPort, baseRpcPort,
             printCmdOnly)
