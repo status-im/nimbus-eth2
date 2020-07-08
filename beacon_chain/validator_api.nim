@@ -41,7 +41,7 @@ proc doChecksAndGetCurrentHead(node: BeaconNode, slot: Slot): BlockRef =
   if not node.isSynced(result):
     raise newException(CatchableError, "Cannot fulfill request until ndoe is synced")
   # TODO for now we limit the requests arbitrarily by up to 2 epochs into the future
-  if result.slot.compute_epoch_at_slot + 2 < slot.compute_epoch_at_slot:
+  if result.slot + 2 * SLOTS_PER_EPOCH < slot:
     raise newException(CatchableError, "Requesting way ahead of the current head")
 
 proc doChecksAndGetCurrentHead(node: BeaconNode, epoch: Epoch): BlockRef =
