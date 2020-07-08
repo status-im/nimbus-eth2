@@ -18,7 +18,7 @@ import
 logScope:
   topics = "att_aggr"
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#aggregation-selection
 func is_aggregator(state: BeaconState, slot: Slot, index: CommitteeIndex,
     slot_signature: ValidatorSig, cache: var StateCache): bool =
   let
@@ -60,7 +60,7 @@ proc aggregate_attestations*(
     index: index.uint64,
     beacon_block_root: get_block_root_at_slot(state, slot))
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#construct-aggregate
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#construct-aggregate
   # TODO once EV goes in w/ refactoring of getAttestationsForBlock, pull out the getSlot version and use
   # it. This is incorrect.
   for attestation in getAttestationsForBlock(pool, state):

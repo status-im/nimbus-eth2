@@ -439,7 +439,7 @@ func is_valid_indexed_attestation*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(state: BeaconState,
                             data: AttestationData,
                             bits: CommitteeValidatorsBits,
@@ -691,7 +691,7 @@ func makeAttestationData*(
 
   doAssert slot.compute_epoch_at_slot == current_epoch
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index,
