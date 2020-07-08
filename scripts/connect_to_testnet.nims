@@ -239,6 +239,11 @@ cli do (skipGoerliKey {.
 
   doAssert specVersion in ["v0.11.3", "v0.12.1"]
 
+  if defined(windows) and separateVC:
+    # TODO use `start` (or something else) on windows (instead of `&`) for the 2 processes
+    echo "Cannot use a separate validator client process on Windows! (remove --separateVC)"
+    quit(1)
+
   let
     dataDirName = testnetName.replace("/", "_")
                              .replace("(", "_")
@@ -248,9 +253,7 @@ cli do (skipGoerliKey {.
     secretsDir = dataDir / "secrets"
     beaconNodeBinary = buildDir / "beacon_node_" & dataDirName
     # using a separate VC is disabled on windows until we find a substitute for `&`
-    validatorClientBinary = if not defined(windows) and separateVC:
-      buildDir / "validator_client_" & dataDirName
-      else: ""
+    validatorClientBinary = if separateVC: buildDir / "validator_client_" & dataDirName else: ""
   var
     nimFlagsBN = &"-d:chronicles_log_level=TRACE " & getEnv("NIM_PARAMS")
     nimFlagsVC = nimFlagsBN

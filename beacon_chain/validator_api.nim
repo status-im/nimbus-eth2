@@ -27,6 +27,9 @@ type
 
 logScope: topics = "valapi"
 
+proc toBlockSlot(blckRef: BlockRef): BlockSlot =
+  blckRef.atSlot(blckRef.slot)
+
 proc parseRoot(str: string): Eth2Digest =
   return Eth2Digest(data: hexToByteArray[32](str))
 
@@ -41,7 +44,7 @@ proc doChecksAndGetCurrentHead(node: BeaconNode, slot: Slot): BlockRef =
   if not node.isSynced(result):
     raise newException(CatchableError, "Cannot fulfill request until ndoe is synced")
   # TODO for now we limit the requests arbitrarily by up to 2 epochs into the future
-  if result.slot + 2 * SLOTS_PER_EPOCH < slot:
+  if result.slot + uint64(2 * SLOTS_PER_EPOCH) < slot:
     raise newException(CatchableError, "Requesting way ahead of the current head")
 
 proc doChecksAndGetCurrentHead(node: BeaconNode, epoch: Epoch): BlockRef =
@@ -132,7 +135,7 @@ proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData =
     of "head":
       node.blockPool.get(node.blockPool.head.blck)
     of "genesis":
-      node.blockPool.get(node.blockPool.head.blck.atSlot(0.Slot).blck)
+      node.blockPool.get(node.blockPool.tail)
     of "finalized":
       node.blockPool.get(node.blockPool.finalizedHead.blck)
     else:
@@ -151,22 +154,20 @@ proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData =
 proc stateIdToBlockSlot(node: BeaconNode, stateId: string): BlockSlot =
   result = case stateId:
     of "head":
-      let head = node.blockPool.head.blck
-      head.atSlot(head.slot)
+      node.blockPool.head.blck.toBlockSlot()
     of "genesis":
-      node.blockPool.head.blck.atSlot(0.Slot)
+      node.blockPool.tail.toBlockSlot()
     of "finalized":
       node.blockPool.finalizedHead
     of "justified":
-      let blckRef = node.blockPool.justifiedState.blck
-      blckRef.atSlot(blckRef.slot)
+      node.blockPool.justifiedState.blck.toBlockSlot()
     else:
       if stateId.startsWith("0x"):
         let blckRoot = parseRoot(stateId)
         let blckRef = node.blockPool.getRef(blckRoot)
         if blckRef.isNil:
           raise newException(CatchableError, "Block not found")
-        blckRef.atSlot(blckRef.slot)
+        blckRef.toBlockSlot()
       else:
         node.getBlockSlotFromString(stateId)
 
@@ -289,7 +290,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
 
   rpcServer.rpc("get_v1_config_fork_schedule") do (
       ) -> seq[tuple[epoch: uint64, version: Version]]:
-    return @[]
+    discard # raise newException(CatchableError, "Not implemented") # cannot compile...
 
   rpcServer.rpc("get_v1_debug_beacon_states_stateId") do (
       stateId: string) -> BeaconState:
