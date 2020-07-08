@@ -356,11 +356,14 @@ func putStateCache(
   # with the concomitant memory allocator and GC load. Instead, use a
   # more memory-intensive (but more conceptually straightforward, and
   # faster) strategy to just store, for the most recent slots.
+  if state.data.slot mod 2 != 0:
+    return
+
   let stateCacheIndex = dag.getStateCacheIndex(blck.root, state.data.slot)
   if stateCacheIndex == -1:
     # Could use a deque or similar, but want simpler structure, and the data
     # items are small and few.
-    const MAX_CACHE_SIZE = 32
+    const MAX_CACHE_SIZE = 16
 
     let cacheLen = dag.cachedStates.len
     doAssert cacheLen <= MAX_CACHE_SIZE
