@@ -21,11 +21,11 @@ proc initGenesisState*(num_validators: uint64, genesis_time: uint64 = 0): Hashed
   let deposits = mockGenesisBalancedDeposits(
       validatorCount = num_validators,
       amountInEth = 32, # We create canonical validators with 32 Eth
-      flags = {skipBlsValidation}
+      flags = {}
     )
 
   initialize_hashed_beacon_state_from_eth1(
-    eth1BlockHash, 0, deposits, {skipBlsValidation})
+    eth1BlockHash, 0, deposits, {})
 
 when isMainModule:
   # Smoke test
