@@ -113,23 +113,8 @@ const
   }
 
   presetValueTypes* = {
-    BASE_REWARD_FACTOR: "uint64",
     BLS_WITHDRAWAL_PREFIX: "byte",
-    EFFECTIVE_BALANCE_INCREMENT: "uint64",
-    EJECTION_BALANCE: "uint64",
-    EPOCHS_PER_SLASHINGS_VECTOR: "uint64",
-    GENESIS_DELAY: "uint64",
     GENESIS_FORK_VERSION: "Version",
-    INACTIVITY_PENALTY_QUOTIENT: "uint64",
-    MAX_EFFECTIVE_BALANCE: "uint64",
-    MIN_DEPOSIT_AMOUNT: "uint64",
-    MIN_EPOCHS_TO_INACTIVITY_PENALTY: "uint64",
-    MIN_GENESIS_TIME: "uint64",
-    MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: "uint64",
-    MIN_VALIDATOR_WITHDRAWABILITY_DELAY: "uint64",
-    PROPOSER_REWARD_QUOTIENT: "uint64",
-    SECONDS_PER_SLOT: "uint64",
-    WHISTLEBLOWER_REWARD_QUOTIENT: "uint64",
   }.toTable
 
 func parse*(T: type uint64, input: string): T
@@ -159,7 +144,7 @@ template parse*(T: type Slot, input: string): T =
   Slot parse(uint64, input)
 
 template getType*(presetValue: PresetValue): string =
-  presetValueTypes.getOrDefault(presetValue, "int")
+  presetValueTypes.getOrDefault(presetValue, "uint64")
 
 template toUInt64*(v: Version): uint64 =
   fromBytesBE(uint64, array[4, byte](v))
