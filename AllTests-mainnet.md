@@ -243,9 +243,10 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Deposit at MAX_EFFECTIVE_BALANCE balance (32 ETH)                                          OK
 + Deposit over MAX_EFFECTIVE_BALANCE balance (32 ETH)                                        OK
 + Deposit under MAX_EFFECTIVE_BALANCE balance (32 ETH)                                       OK
++ Invalid deposit at MAX_EFFECTIVE_BALANCE balance (32 ETH)                                  OK
 + Validator top-up                                                                           OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## [Unit - Spec - Epoch processing] Justification and Finalization  [Preset: mainnet]
 ```diff
 +  Rule I - 234 finalization with enough support                                             OK
@@ -265,4 +266,4 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 160/163 Fail: 0/163 Skip: 3/163
+OK: 161/164 Fail: 0/164 Skip: 3/164
