@@ -13,6 +13,14 @@ BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
+BUILD_LOG_LEVEL := TRACE
+LOG_LEVEL := DEBUG
+NODE_ID := 0
+BASE_PORT := 9000
+BASE_RPC_PORT := 9190
+BASE_METRICS_PORT := 8008
+GOERLI_WEB3_URL := "wss://goerli.infura.io/ws/v3/6224f3c792cc443fafb64e70a98f871e"
+
 # unconditionally built by the default Make target
 TOOLS := \
 	beacon_node \
@@ -88,11 +96,13 @@ ifeq ($(OS), Windows_NT)
   endif
 endif
 
+CHRONICLES_PARAMS := -d:chronicles_log_level=$(BUILD_LOG_LEVEL)
+
 # "--define:release" implies "--stacktrace:off" and it cannot be added to config.nims
 ifeq ($(USE_LIBBACKTRACE), 0)
-NIM_PARAMS := $(NIM_PARAMS) -d:debug -d:disable_libbacktrace
+NIM_PARAMS := $(NIM_PARAMS) $(CHRONICLES_PARAMS) -d:debug -d:disable_libbacktrace
 else
-NIM_PARAMS := $(NIM_PARAMS) -d:release
+NIM_PARAMS := $(NIM_PARAMS) $(CHRONICLES_PARAMS) -d:release
 endif
 
 deps: | deps-common nat-libs beacon_chain.nims
@@ -133,6 +143,16 @@ clean_eth2_network_simulation_data:
 clean_eth2_network_simulation_all:
 	rm -rf tests/simulation/{data,validators}
 
+GOERLI_TESTNETS_PARAMS := \
+  --dump \
+  --web3-url=$(GOERLI_WEB3_URL) \
+  --tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
+  --udp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
+  --metrics \
+  --metrics-port=$$(( $(BASE_METRICS_PORT) + $(NODE_ID) )) \
+  --rpc \
+  --rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) ))
+
 eth2_network_simulation: | build deps clean_eth2_network_simulation_data
 	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start-in-tmux.sh
 
@@ -151,11 +171,22 @@ testnet0 testnet1: | build deps
 clean-altona:
 	rm -rf build/data/shared_altona*
 
-altona: | build deps
-	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/altona
+altona-deposit: | beacon_node build deps
+	build/beacon_node deposits create --network=altona
 
-altona-dev: | build deps
-	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/altona
+altona: | beacon_node build deps
+	build/beacon_node \
+		--network=altona \
+		--log-level="$(LOG_LEVEL)" \
+		--data-dir=build/data/altona-$(NODE_ID) \
+		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
+
+altona-dev: | beacon_node build deps
+	build/beacon_node \
+		--network=altona \
+		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
+		--data-dir=build/data/altona-$(NODE_ID) \
+		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
 ctail: | build deps
 	mkdir -p vendor/.nimble/bin/
