@@ -3,7 +3,7 @@ import
   chronos, web3, web3/ethtypes as web3Types, json, chronicles,
   eth/common/eth_types, eth/async_utils,
   spec/[datatypes, digest, crypto, beaconstate, helpers],
-  merkle_minimal
+  network_metadata, merkle_minimal
 
 from times import epochTime
 
@@ -29,7 +29,6 @@ contract(DepositContract):
 # Exceptions being reported from Chronos's asyncfutures2.
 
 type
-  Eth1Address = eth_types.EthAddress
   Eth1BlockNumber* = uint64
   Eth1BlockTimestamp* = uint64
   Eth1BlockHeader = web3Types.BlockHeader

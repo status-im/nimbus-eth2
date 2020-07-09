@@ -14,8 +14,11 @@ import
   chronos, confutils, metrics, json_rpc/[rpcserver, jsonmarshal],
   chronicles,
   json_serialization/std/[options, sets, net], serialization/errors,
-  eth/db/kvstore, eth/db/kvstore_sqlite3,
-  eth/p2p/enode, eth/[keys, async_utils], eth/p2p/discoveryv5/[protocol, enr],
+
+  eth/[keys, async_utils],
+  eth/common/eth_types_json_serialization,
+  eth/db/[kvstore, kvstore_sqlite3],
+  eth/p2p/enode, eth/p2p/discoveryv5/[protocol, enr],
 
   # Local modules
   spec/[datatypes, digest, crypto, beaconstate, helpers, network, presets],
@@ -168,7 +171,8 @@ proc init*(
         conf.runtimePreset,
         web3Provider(conf.web3Url),
         conf.depositContractAddress.get,
-        Eth1Data(block_hash: conf.depositContractDeployedAt.get, deposit_count: 0))
+        Eth1Data(block_hash: conf.depositContractDeployedAt.get.asEth2Digest,
+                 deposit_count: 0))
       mainchainMonitor.start()
 
       genesisState = await mainchainMonitor.waitGenesis()
@@ -1160,10 +1164,19 @@ programMain:
           altonaMetadata
         else:
           if fileExists(networkName):
-            Json.loadFile(networkName, Eth2NetworkMetadata)
+            try:
+              Json.loadFile(networkName, Eth2NetworkMetadata)
+            except SerializationError as err:
+              echo err.formatMsg(networkName)
+              quit 1
           else:
             fatal "Unrecognized network name", networkName
             quit 1
+
+    if metadata.incompatible:
+      fatal "The selected network is not compatible with the current build",
+             reason = metadata.incompatibilityDesc
+      quit 1
 
     config.runtimePreset = metadata.runtimePreset
 

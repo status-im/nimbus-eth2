@@ -146,9 +146,11 @@ $MAKE LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image ${
 
 PIDS=""
 WEB3_ARG=""
-DEPOSIT_CONTRACT_ARG=""
 STATE_SNAPSHOT_ARG=""
 BOOTSTRAP_TIMEOUT=10 # in seconds
+DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
+DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
+NETWORK_METADATA_FILE="${DATA_DIR}/network.json"
 
 ./build/beacon_node deposits create \
 	--count=${TOTAL_VALIDATORS} \
@@ -179,10 +181,16 @@ else
 	ganache-cli --blockTime 17 --gasLimit 100000000 -e 100000 --verbose > "${DATA_DIR}/log_ganache.txt" 2>&1 &
 	PIDS="${PIDS},$!"
 
-	echo "Deploying deposit contract"
 	WEB3_ARG="--web3-url=ws://localhost:8545"
-	DEPOSIT_CONTRACT_ADDRESS=$(./build/deposit_contract deploy $WEB3_ARG)
-	DEPOSIT_CONTRACT_ARG="--deposit-contract=$DEPOSIT_CONTRACT_ADDRESS"
+
+	echo "Deploying deposit contract"
+	DEPLOY_CMD_OUTPUT=$(./build/deposit_contract deploy $WEB3_ARG)
+	# https://stackoverflow.com/questions/918886/how-do-i-split-a-string-on-a-delimiter-in-bash
+	OUTPUT_PIECES=(${DEPLOY_CMD_OUTPUT//;/ })
+	DEPOSIT_CONTRACT_ADDRESS=${OUTPUT_PIECES[0]}
+	DEPOSIT_CONTRACT_BLOCK=${OUTPUT_PIECES[1]}
+
+	echo Contract deployed at $DEPOSIT_CONTRACT_ADDRESS:$DEPOSIT_CONTRACT_BLOCK
 
 	MIN_DELAY=1
 	MAX_DELAY=5
@@ -194,7 +202,7 @@ else
 		--deposits-dir="${DEPOSITS_DIR}" \
 		--min-delay=$MIN_DELAY --max-delay=$MAX_DELAY \
 		$WEB3_ARG \
-		$DEPOSIT_CONTRACT_ARG > "${DATA_DIR}/log_deposit_maker.txt" 2>&1 &
+		--deposit-contract=${DEPOSIT_CONTRACT_ADDRESS} > "${DATA_DIR}/log_deposit_maker.txt" 2>&1 &
 
 	PIDS="${PIDS},$!"
 fi
@@ -204,6 +212,20 @@ fi
 		--base-metrics-port ${BASE_METRICS_PORT} \
 		--config-file "${DATA_DIR}/prometheus.yml" || true # TODO: this currently fails on macOS,
 																											 # but it can be considered non-critical
+
+echo Wrote $NETWORK_METADATA_FILE:
+tee "$NETWORK_METADATA_FILE" <<EOF
+{
+  "runtimePreset": {
+    "MIN_GENESIS_ACTIVE_VALIDATOR_COUNT": ${TOTAL_VALIDATORS},
+    "MIN_GENESIS_TIME": 0,
+    "GENESIS_DELAY": 10,
+    "GENESIS_FORK_VERSION": "0x00000000"
+  },
+  "depositContractAddress": "${DEPOSIT_CONTRACT_ADDRESS}",
+  "depositContractDeployedAt": "${DEPOSIT_CONTRACT_BLOCK}"
+}
+EOF
 
 # Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
 # instance as the parent and the target process name as a pattern to the
@@ -264,6 +286,7 @@ for NUM_NODE in $(seq $BOOTSTRAP_NODE -1 0); do
 	./build/beacon_node \
 		--non-interactive \
 		--nat:extip:127.0.0.1 \
+		--network="${NETWORK_METADATA_FILE}" \
 		--log-level="${LOG_LEVEL}" \
 		--tcp-port=$(( BASE_PORT + NUM_NODE )) \
 		--udp-port=$(( BASE_PORT + NUM_NODE )) \
@@ -271,7 +294,6 @@ for NUM_NODE in $(seq $BOOTSTRAP_NODE -1 0); do
 		${BOOTSTRAP_ARG} \
 		${STATE_SNAPSHOT_ARG} \
 		${WEB3_ARG} \
-		${DEPOSIT_CONTRACT_ARG} \
 		--metrics \
 		--metrics-address="127.0.0.1" \
 		--metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \

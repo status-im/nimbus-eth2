@@ -1,7 +1,7 @@
 import
-  tables, strutils, os,
-  stew/byteutils, stew/shims/macros, nimcrypto/hash,
-  eth/common/[eth_types, eth_types_json_serialization],
+  tables, strutils, os, options,
+  stew/shims/macros, nimcrypto/hash,
+  web3/[ethtypes, conversions],
   spec/presets
 
 # ATTENTION! This file will produce a large C file, because we are inlining
@@ -15,46 +15,46 @@ import
 {.push raises: [Defect].}
 
 export
-  eth_types_json_serialization, RuntimePreset
+  ethtypes, conversions, RuntimePreset
 
 type
-  Eth1Address* = eth_types.EthAddress
-  Eth1BlockHash* = eth_types.Hash256
+  Eth1Address* = ethtypes.Address
+  Eth1BlockHash* = ethtypes.BlockHash
 
   Eth1Network* = enum
     mainnet
     rinkeby
     goerli
 
-  Eth2Network* = enum
-    customEth2Network
-    altona
-
   PresetIncompatible* = object of CatchableError
 
   Eth2NetworkMetadata* = object
-    eth1Network*: Eth1Network
-    runtimePreset*: RuntimePreset
+    case incompatible*: bool
+    of false:
+      eth1Network*: Option[Eth1Network]
+      runtimePreset*: RuntimePreset
 
-    # Parsing `enr.Records` is still not possible at compile-time
-    bootstrapNodes*: seq[string]
+      # Parsing `enr.Records` is still not possible at compile-time
+      bootstrapNodes*: seq[string]
 
-    depositContractAddress*: Eth1Address
-    depositContractDeployedAt*: Eth1BlockHash
+      depositContractAddress*: Eth1Address
+      depositContractDeployedAt*: Eth1BlockHash
 
-    # Please note that we are using `string` here because SSZ.decode
-    # is not currently usable at compile time and we want to load the
-    # network metadata into a constant.
-    #
-    # We could have also used `seq[byte]`, but this results in a lot
-    # more generated code that slows down compilation. The impact on
-    # compilation times of embedding the genesis as a string is roughly
-    # 0.1s on my machine (you can test this by choosing an invalid name
-    # for the genesis file below).
-    #
-    # `genesisData` will have `len == 0` for networks with a still
-    # unknown genesis state.
-    genesisData*: string
+      # Please note that we are using `string` here because SSZ.decode
+      # is not currently usable at compile time and we want to load the
+      # network metadata into a constant.
+      #
+      # We could have also used `seq[byte]`, but this results in a lot
+      # more generated code that slows down compilation. The impact on
+      # compilation times of embedding the genesis as a string is roughly
+      # 0.1s on my machine (you can test this by choosing an invalid name
+      # for the genesis file below).
+      #
+      # `genesisData` will have `len == 0` for networks with a still
+      # unknown genesis state.
+      genesisData*: string
+    else:
+      incompatibilityDesc*: string
 
 const presetValueLoaders = genExpr(nnkBracket):
   for constName in PresetValue:
@@ -92,23 +92,30 @@ proc extractRuntimePreset*(configPath: string, configData: PresetFile): RuntimeP
 
 proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
                              {.raises: [CatchableError, Defect].} =
-  let
-    genesisPath = path / "genesis.ssz"
-    configPath = path / "config.yaml"
-    runtimePreset = extractRuntimePreset(configPath, readPresetFile(configPath))
+  try:
+    let
+      genesisPath = path / "genesis.ssz"
+      configPath = path / "config.yaml"
+      runtimePreset = extractRuntimePreset(configPath, readPresetFile(configPath))
 
-  Eth2NetworkMetadata(
-    eth1Network: goerli,
-    runtimePreset: runtimePreset,
-    bootstrapNodes: readFile(path / "bootstrap_nodes.txt").split("\n"),
-    depositContractAddress: Eth1Address.fromHex readFile(path / "deposit_contract.txt").strip,
-    depositContractDeployedAt: Eth1BlockHash.fromHex readFile(path / "deposit_contract_block.txt").strip,
-    genesisData: if fileExists(genesisPath): readFile(genesisPath) else: "")
+    Eth2NetworkMetadata(
+      incompatible: false,
+      eth1Network: some goerli,
+      runtimePreset: runtimePreset,
+      bootstrapNodes: readFile(path / "bootstrap_nodes.txt").split("\n"),
+      depositContractAddress: Eth1Address.fromHex readFile(path / "deposit_contract.txt").strip,
+      depositContractDeployedAt: Eth1BlockHash.fromHex readFile(path / "deposit_contract_block.txt").strip,
+      genesisData: if fileExists(genesisPath): readFile(genesisPath) else: "")
+  except PresetIncompatible as err:
+    Eth2NetworkMetadata(incompatible: true,
+                        incompatibilityDesc: err.msg)
 
 when const_preset == "mainnet":
   const
     mainnetMetadata* = Eth2NetworkMetadata(
-      eth1Network: mainnet,
+      incompatible: false, # TODO: This can be more accurate if we verify
+                           # that there are no constant overrides
+      eth1Network: some mainnet,
       runtimePreset: mainnetRuntimePreset,
       # TODO The values below are just placeholders for now
       bootstrapNodes: @[],

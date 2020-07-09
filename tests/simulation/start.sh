@@ -54,10 +54,7 @@ GANACHE_BLOCK_TIME=5
 
 # Run with "SLOTS_PER_EPOCH=8 ./start.sh" to change these
 DEFS=""
-DEFS+="-d:MIN_GENESIS_ACTIVE_VALIDATOR_COUNT=${NUM_VALIDATORS} \
-       -d:MIN_GENESIS_TIME=0 \
-       -d:GENESIS_DELAY=10 \
-       -d:SECONDS_PER_ETH1_BLOCK=$GANACHE_BLOCK_TIME \
+DEFS+="-d:SECONDS_PER_ETH1_BLOCK=$GANACHE_BLOCK_TIME \
        -d:ETH1_FOLLOW_DISTANCE=1 "
 DEFS+="-d:MAX_COMMITTEES_PER_SLOT=${MAX_COMMITTEES_PER_SLOT:-1} "      # Spec default: 64
 DEFS+="-d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH:-6} "   # Spec default: 32
@@ -163,6 +160,9 @@ function run_cmd {
   fi
 }
 
+DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
+DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
+
 if [ "$USE_GANACHE" != "no" ]; then
   make deposit_contract
   echo Deploying the validator deposit contract...
@@ -174,8 +174,6 @@ if [ "$USE_GANACHE" != "no" ]; then
   DEPOSIT_CONTRACT_BLOCK=${OUTPUT_PIECES[1]}
 
   echo Contract deployed at $DEPOSIT_CONTRACT_ADDRESS:$DEPOSIT_CONTRACT_BLOCK
-  echo $DEPOSIT_CONTRACT_ADDRESS > $DEPOSIT_CONTRACT_FILE
-  echo $DEPOSIT_CONTRACT_BLOCK > $DEPOSIT_CONTRACT_BLOCK_FILE
 
   if [[ "$WAIT_GENESIS" == "yes" ]]; then
     run_cmd "(deposit maker)" "$BEACON_NODE_BIN deposits send \
@@ -186,6 +184,20 @@ if [ "$USE_GANACHE" != "no" ]; then
       --deposit-contract=${DEPOSIT_CONTRACT_ADDRESS}"
   fi
 fi
+
+echo Wrote $NETWORK_METADATA_FILE:
+tee "$NETWORK_METADATA_FILE" <<EOF
+{
+  "runtimePreset": {
+    "MIN_GENESIS_ACTIVE_VALIDATOR_COUNT": ${NUM_VALIDATORS},
+    "MIN_GENESIS_TIME": 0,
+    "GENESIS_DELAY": 10,
+    "GENESIS_FORK_VERSION": "0x00000000"
+  },
+  "depositContractAddress": "${DEPOSIT_CONTRACT_ADDRESS}",
+  "depositContractDeployedAt": "${DEPOSIT_CONTRACT_BLOCK}"
+}
+EOF
 
 if [[ "$USE_TMUX" == "yes" ]]; then
   $TMUX_CMD select-window -t "${TMUX_SESSION_NAME}:sim"

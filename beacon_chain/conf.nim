@@ -62,7 +62,7 @@ type
 
     depositContractDeployedAt* {.
       desc: "The Eth1 block hash where the deposit contract has been deployed"
-      name: "deposit-contract-block" }: Option[Eth2Digest]
+      name: "deposit-contract-block" }: Option[Eth1BlockHash]
 
     nonInteractive* {.
       desc: "Do not display interative prompts. Quit on missing configuration"
@@ -419,11 +419,11 @@ func parseCmdArg*(T: type Eth1Address, input: TaintedString): T
 func completeCmdArg*(T: type Eth1Address, input: TaintedString): seq[string] =
   return @[]
 
-func parseCmdArg*(T: type Eth2Digest, input: TaintedString): T
+func parseCmdArg*(T: type Eth1BlockHash, input: TaintedString): T
                  {.raises: [ValueError, Defect].} =
   fromHex(T, string input)
 
-func completeCmdArg*(T: type Eth2Digest, input: TaintedString): seq[string] =
+func completeCmdArg*(T: type Eth1BlockHash, input: TaintedString): seq[string] =
   return @[]
 
 func parseCmdArg*(T: type WalletName, input: TaintedString): T

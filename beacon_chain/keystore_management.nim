@@ -2,7 +2,8 @@ import
   os, strutils, terminal,
   stew/byteutils, chronicles, chronos, web3, stint, json_serialization,
   serialization, blscurve, eth/common/eth_types, eth/keys, confutils, bearssl,
-  spec/[datatypes, digest, crypto, keystore], conf, ssz/merkleization, merkle_minimal
+  spec/[datatypes, digest, crypto, keystore],
+  conf, ssz/merkleization, merkle_minimal, network_metadata
 
 export
   keystore
@@ -15,7 +16,6 @@ const
   depositFileName* = "deposit.json"
 
 type
-  Eth1Address* = eth_types.EthAddress
   DelayGenerator* = proc(): chronos.Duration {.closure, gcsafe.}
 
 {.push raises: [Defect].}
