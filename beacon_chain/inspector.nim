@@ -509,7 +509,7 @@ proc pubsubLogger(conf: InspectorConf, switch: Switch,
     try:
       if topic.endsWith(topicBeaconBlocksSuffix & "_snappy"):
         info "SignedBeaconBlock", msg = SSZ.decode(buffer, SignedBeaconBlock)
-      elif topic.endsWith(topicMainnetAttestationsSuffix & "_snappy"):
+      elif topic.endsWith("_snappy") and topic.contains("/beacon_attestation_"):
         info "Attestation", msg = SSZ.decode(buffer, Attestation)
       elif topic.endsWith(topicVoluntaryExitsSuffix & "_snappy"):
         info "SignedVoluntaryExit", msg = SSZ.decode(buffer,

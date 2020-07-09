@@ -19,9 +19,6 @@ const
   topicAttesterSlashingsSuffix* = "attester_slashing/ssz"
   topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz"
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/p2p-interface.md#topics-and-messages
-  topicMainnetAttestationsSuffix* = "_beacon_attestation/ssz"
-
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#misc
   ATTESTATION_SUBNET_COUNT* = 64
 

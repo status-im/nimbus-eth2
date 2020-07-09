@@ -12,7 +12,7 @@ import
   # Specs
   ../../beacon_chain/spec/[datatypes, beaconstate],
   # Internals
-  ../../beacon_chain/[extras, interop],
+  ../../beacon_chain/interop,
   # Mocking procs
   ./mock_deposits
 

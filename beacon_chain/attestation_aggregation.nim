@@ -52,7 +52,7 @@ proc aggregate_attestations*(
   if not is_aggregator(state, slot, index, slot_signature, cache):
     return none(AggregateAndProof)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#attestation-data
   # describes how to construct an attestation, which applies for makeAttestationData(...)
   # TODO this won't actually match anything
   let attestation_data = AttestationData(

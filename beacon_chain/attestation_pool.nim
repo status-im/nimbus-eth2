@@ -473,7 +473,7 @@ proc getAttestationsForBlock*(pool: AttestationPool,
   var cache = get_empty_per_epoch_cache()
   for a in attestations:
     var
-      # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#construct-attestation
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#construct-attestation
       attestation = Attestation(
         aggregation_bits: a.validations[0].aggregation_bits,
         data: a.data,
