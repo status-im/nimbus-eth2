@@ -22,7 +22,7 @@
 {.push raises: [Defect].}
 
 import
-  math, sequtils, tables,
+  math, sequtils, tables, algorithm,
   stew/[bitops2], chronicles, json_serialization/std/sets,
   metrics, ../extras, ../ssz/merkleization,
   beaconstate, crypto, datatypes, digest, helpers, validator,
@@ -330,41 +330,41 @@ func get_inclusion_delay_deltas(
     state: BeaconState, total_balance: Gwei, cache: var StateCache):
     seq[Gwei] =
   # Return proposer and inclusion delay micro-rewards/penalties for each validator.
-  var rewards = repeat(0'u64, len(state.validators))
-  let
+  var
+    rewards = repeat(0'u64, len(state.validators))
     matching_source_attestations =
       get_matching_source_attestations(state, get_previous_epoch(state))
-    source_attestation_attesting_indices = mapIt(
-      matching_source_attestations,
-      get_attesting_indices(state, it.data, it.aggregation_bits, cache))
 
-  for index in get_unslashed_attesting_indices(state, matching_source_attestations, cache):
-    # Translation of attestation = min([...])
-    # Start by filtering the right attestations
-    var filtered_matching_source_attestations: seq[PendingAttestation]
+  # Translation of attestation = min([...])
+  # The spec (pseudo)code defines this in terms of Python's min(), which per
+  # https://docs.python.org/3/library/functions.html#min:
+  # If multiple items are minimal, the function returns the first one
+  # encountered.
+  # Therefore, this approach depends on Nim's default sort being stable, per
+  # https://nim-lang.org/docs/algorithm.html#sort,openArray[T],proc(T,T) via
+  # "The sorting is guaranteed to be stable and the worst case is guaranteed
+  # to be O(n log n)."
+  matching_source_attestations.sort do (x, y: PendingAttestation) -> int:
+    cmp(x.inclusion_delay, y.inclusion_delay)
 
-    for source_attestation_index, a in matching_source_attestations:
-      if index notin
+  # Order/indices in source_attestation_attesting_indices matches sorted order
+  let source_attestation_attesting_indices = mapIt(
+    matching_source_attestations,
+    get_attesting_indices(state, it.data, it.aggregation_bits, cache))
+
+  for index in get_unslashed_attesting_indices(
+      state, matching_source_attestations, cache):
+    for source_attestation_index, attestation in matching_source_attestations:
+      if index in
           source_attestation_attesting_indices[source_attestation_index]:
-        continue
-      filtered_matching_source_attestations.add a
-
-    if filtered_matching_source_attestations.len == 0:
-      continue
-
-    # The first filtered attestation serves as min until we find something
-    # better
-    var attestation = filtered_matching_source_attestations[0]
-    for source_attestation_index, a in filtered_matching_source_attestations:
-      if a.inclusion_delay < attestation.inclusion_delay:
-        attestation = a
-
-    rewards[attestation.proposer_index] +=
-      get_proposer_reward(state, index, total_balance)
-    let max_attester_reward =
-      get_base_reward(state, index, total_balance) -
-        get_proposer_reward(state, index, total_balance)
-    rewards[index] += Gwei(max_attester_reward div attestation.inclusion_delay)
+        rewards[attestation.proposer_index] +=
+          get_proposer_reward(state, index, total_balance)
+        let max_attester_reward =
+          get_base_reward(state, index, total_balance) -
+            get_proposer_reward(state, index, total_balance)
+        rewards[index] +=
+          Gwei(max_attester_reward div attestation.inclusion_delay)
+        break
 
   # No penalties associated with inclusion delay
   # Spec constructs both and returns both; this doesn't

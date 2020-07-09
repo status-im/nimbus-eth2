@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  tables, strutils, parseutils, sequtils,
+  tables, strutils, parseutils, sequtils, sets,
 
   # Nimble packages
   stew/[byteutils, objects],
@@ -356,7 +356,8 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
         let idx = state.validators.asSeq.findIt(it.pubKey == pubkey)
         if idx == -1:
           continue
-        let ca = state.get_committee_assignment(epoch, idx.ValidatorIndex)
+        let ca = state.get_committee_assignment(
+          epoch, toHashSet([idx.ValidatorIndex]))
         if ca.isSome:
           result.add((public_key: pubkey,
                       committee_index: ca.get.b,
