@@ -8,8 +8,11 @@
 {.push raises: [Defect].}
 
 import
-  chronicles, options, sequtils, tables,
+  # Standard libraries
+  chronicles, options, sequtils, tables, sets,
+  # Status libraries
   metrics,
+  # Internals
   ../ssz/merkleization, ../beacon_chain_db, ../extras,
   ../spec/[crypto, datatypes, digest, helpers, validator, state_transition],
   block_pools_types
@@ -304,6 +307,25 @@ proc init*(T: type CandidateChains, db: BeaconChainDB,
     totalBlocks = blocks.len
 
   res
+
+iterator topoSortedSinceLastFinalization*(dag: CandidateChains): BlockRef =
+  ## Iterate on the dag in topological order
+  # TODO: this uses "children" for simplicity
+  #       but "children" should be deleted as it introduces cycles
+  #       that causes significant overhead at least and leaks at worst
+  #       for the GC.
+  # This is not perf critical, it is only used to bootstrap the fork choice.
+  var visited: HashSet[BlockRef]
+  var stack: seq[BlockRef]
+
+  stack.add dag.finalizedHead.blck
+
+  while stack.len != 0:
+    let node = stack.pop()
+    if node notin visited:
+      visited.incl node
+      stack.add node.children
+      yield node
 
 proc getState(
     dag: CandidateChains, db: BeaconChainDB, stateRoot: Eth2Digest, blck: BlockRef,

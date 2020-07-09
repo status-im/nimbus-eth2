@@ -305,7 +305,7 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
       attestationSlot = attestation.data.slot, headSlot = head.blck.slot
     return
 
-  node.attestationPool.add(attestation)
+  node.attestationPool.addAttestation(attestation)
 
 proc dumpBlock[T](
     node: BeaconNode, signedBlock: SignedBeaconBlock,
@@ -333,10 +333,17 @@ proc storeBlock(
     pcs = "receive_block"
 
   beacon_blocks_received.inc()
-  let blck = node.blockPool.add(blockRoot, signedBlock)
+
+  {.gcsafe.}: # TODO: fork choice and blockpool should sync via messages instead of callbacks
+    let blck = node.blockPool.addRawBlock(blockRoot, signedBlock) do (validBlock: BlockRef):
+      # Callback add to fork choice if valid
+      node.attestationPool.addForkChoice_v2(validBlock)
 
   node.dumpBlock(signedBlock, blck)
 
+  # There can be a scenario where we receive a block we already received.
+  # However this block was before the last finalized epoch and so its parent
+  # was pruned from the ForkChoice.
   if blck.isErr:
     return err(blck.error)
 
@@ -347,7 +354,7 @@ proc storeBlock(
       attestation = shortLog(attestation),
       cat = "consensus" # Tag "consensus|attestation"?
 
-    node.attestationPool.add(attestation)
+    node.attestationPool.addAttestation(attestation)
   ok()
 
 proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) =
@@ -565,7 +572,10 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
       # We going to ignore `BlockError.Unviable` errors because we have working
       # backward sync and it can happens that we can perform overlapping
       # requests.
-      if res.isErr and res.error != BlockError.Unviable:
+      # For the same reason we ignore Duplicate blocks as if they are duplicate
+      # from before the current finalized epoch, we can drop them
+      # (and they may have no parents anymore in the fork choice if it was pruned)
+      if res.isErr and res.error notin {BlockError.Unviable, BlockError.Old, BLockError.Duplicate}:
         return res
     discard node.updateHead()
 

@@ -223,7 +223,12 @@ proc proposeSignedBlock*(node: BeaconNode,
                          validator: AttachedValidator,
                          newBlock: SignedBeaconBlock,
                          blockRoot: Eth2Digest): Future[BlockRef] {.async.} =
-  let newBlockRef = node.blockPool.add(blockRoot, newBlock)
+
+  {.gcsafe.}: # TODO: fork choice and blockpool should sync via messages instead of callbacks
+    let newBlockRef = node.blockPool.addRawBlock(blockRoot, newBlock) do (validBlock: BlockRef):
+      # Callback Add to fork choice
+      node.attestationPool.addForkChoice_v2(validBlock)
+
   if newBlockRef.isErr:
     warn "Unable to add proposed block to block pool",
       newBlock = shortLog(newBlock.message),
