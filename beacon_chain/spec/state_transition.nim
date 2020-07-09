@@ -264,7 +264,7 @@ proc state_transition*(
       state.data, state.data.slot.compute_epoch_at_slot)
   state_transition(preset, state, signedBlock, cache, flags, rollback)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#preparing-for-a-beaconblock
 # TODO There's more to do here - the spec has helpers that deal set up some of
 #      the fields in here!
 proc makeBeaconBlock*(

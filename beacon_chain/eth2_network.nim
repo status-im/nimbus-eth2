@@ -189,7 +189,7 @@ const
   HandshakeTimeout = FaultOrError
 
   # Spec constants
-  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/networking/p2p-interface.md#eth-20-network-interaction-domains
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#eth2-network-interaction-domains
   MAX_CHUNK_SIZE* = 1 * 1024 * 1024 # bytes
   GOSSIP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
   TTFB_TIMEOUT* = 5.seconds

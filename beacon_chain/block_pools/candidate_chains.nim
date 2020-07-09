@@ -8,8 +8,11 @@
 {.push raises: [Defect].}
 
 import
-  chronicles, options, sequtils, tables,
+  # Standard libraries
+  chronicles, options, sequtils, tables, sets,
+  # Status libraries
   metrics,
+  # Internals
   ../ssz/merkleization, ../beacon_chain_db, ../extras,
   ../spec/[crypto, datatypes, digest, helpers, validator, state_transition],
   block_pools_types
@@ -108,7 +111,7 @@ func getAncestorAt*(blck: BlockRef, slot: Slot): BlockRef =
     blck = blck.parent
 
 func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef =
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/fork-choice.md#get_ancestor
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/fork-choice.md#get_ancestor
   ## Return ancestor at slot, or nil if queried block is older
   var blck = blck
 
@@ -307,6 +310,25 @@ proc init*(T: type CandidateChains,
     totalBlocks = blocks.len
 
   res
+
+iterator topoSortedSinceLastFinalization*(dag: CandidateChains): BlockRef =
+  ## Iterate on the dag in topological order
+  # TODO: this uses "children" for simplicity
+  #       but "children" should be deleted as it introduces cycles
+  #       that causes significant overhead at least and leaks at worst
+  #       for the GC.
+  # This is not perf critical, it is only used to bootstrap the fork choice.
+  var visited: HashSet[BlockRef]
+  var stack: seq[BlockRef]
+
+  stack.add dag.finalizedHead.blck
+
+  while stack.len != 0:
+    let node = stack.pop()
+    if node notin visited:
+      visited.incl node
+      stack.add node.children
+      yield node
 
 proc getState(
     dag: CandidateChains, db: BeaconChainDB, stateRoot: Eth2Digest, blck: BlockRef,
@@ -902,7 +924,6 @@ proc getProposer*(
   dag.withState(dag.tmpState, head.atSlot(slot)):
     var cache = get_empty_per_epoch_cache()
 
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/validator.md#validator-assignments
     let proposerIdx = get_beacon_proposer_index(state, cache)
     if proposerIdx.isNone:
       warn "Missing proposer index",

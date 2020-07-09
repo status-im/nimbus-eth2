@@ -34,15 +34,24 @@ func getOrResolve*(dag: CandidateChains, quarantine: var Quarantine, root: Eth2D
   if result.isNil:
     quarantine.missing[root] = MissingBlock()
 
-proc add*(
-    dag: var CandidateChains, quarantine: var Quarantine,
-    blockRoot: Eth2Digest,
-    signedBlock: SignedBeaconBlock): Result[BlockRef, BlockError] {.gcsafe.}
+proc addRawBlock*(
+      dag: var CandidateChains, quarantine: var Quarantine,
+      blockRoot: Eth2Digest,
+      signedBlock: SignedBeaconBlock,
+      callback: proc(blck: BlockRef)
+     ): Result[BlockRef, BlockError]
 
 proc addResolvedBlock(
-    dag: var CandidateChains, quarantine: var Quarantine,
-    state: BeaconState, blockRoot: Eth2Digest,
-    signedBlock: SignedBeaconBlock, parent: BlockRef): BlockRef =
+       dag: var CandidateChains, quarantine: var Quarantine,
+       state: BeaconState, blockRoot: Eth2Digest,
+       signedBlock: SignedBeaconBlock, parent: BlockRef,
+       callback: proc(blck: BlockRef)
+     ): BlockRef =
+  # TODO: `addResolvedBlock` is accumulating significant cruft
+  # and is in dire need of refactoring
+  # - the ugly `quarantine.inAdd` field
+  # - the callback
+  # - callback may be problematic as it's called in async validator duties
   logScope: pcs = "block_resolution"
   doAssert state.slot == signedBlock.message.slot, "state must match block"
 
@@ -86,6 +95,9 @@ proc addResolvedBlock(
     heads = dag.heads.len(),
     cat = "filtering"
 
+  # This MUST be added before the quarantine
+  callback(blockRef)
+
   # Now that we have the new block, we should see if any of the previously
   # unresolved blocks magically become resolved
   # TODO there are more efficient ways of doing this that don't risk
@@ -94,6 +106,7 @@ proc addResolvedBlock(
   #      blocks being synced, there's a stack overflow as `add` gets called
   #      for the whole chain of blocks. Instead we use this ugly field in `dag`
   #      which could be avoided by refactoring the code
+  # TODO unit test the logic, in particular interaction with fork choice block parents
   if not quarantine.inAdd:
     quarantine.inAdd = true
     defer: quarantine.inAdd = false
@@ -101,20 +114,26 @@ proc addResolvedBlock(
     while keepGoing:
       let retries = quarantine.orphans
       for k, v in retries:
-        discard add(dag, quarantine, k, v)
+        discard addRawBlock(dag, quarantine, k, v, callback)
       # Keep going for as long as the pending dag is shrinking
       # TODO inefficient! so what?
       keepGoing = quarantine.orphans.len < retries.len
+
   blockRef
 
-proc add*(
-    dag: var CandidateChains, quarantine: var Quarantine,
-    blockRoot: Eth2Digest,
-    signedBlock: SignedBeaconBlock): Result[BlockRef, BlockError] {.gcsafe.} =
+proc addRawBlock*(
+       dag: var CandidateChains, quarantine: var Quarantine,
+       blockRoot: Eth2Digest,
+       signedBlock: SignedBeaconBlock,
+       callback: proc(blck: BlockRef)
+     ): Result[BlockRef, BlockError] =
   ## return the block, if resolved...
-  ## the state parameter may be updated to include the given block, if
-  ## everything checks out
-  # TODO reevaluate passing the state in like this
+
+  # TODO: `addRawBlock` is accumulating significant cruft
+  # and is in dire need of refactoring
+  # - the ugly `quarantine.inAdd` field
+  # - the callback
+  # - callback may be problematic as it's called in async validator duties
 
   # TODO: to facilitate adding the block to the attestation pool
   #       this should also return justified and finalized epoch corresponding
@@ -124,18 +143,22 @@ proc add*(
 
 
   let blck = signedBlock.message
-  doAssert blockRoot == hash_tree_root(blck)
+  doAssert blockRoot == hash_tree_root(blck), "blockRoot: 0x" & shortLog(blockRoot) & ", signedBlock: 0x" & shortLog(hash_tree_root(blck))
 
   logScope: pcs = "block_addition"
 
   # Already seen this block??
-  dag.blocks.withValue(blockRoot, blockRef):
+  if blockRoot in dag.blocks:
     debug "Block already exists",
       blck = shortLog(blck),
       blockRoot = shortLog(blockRoot),
       cat = "filtering"
 
-    return ok blockRef[]
+    # There can be a scenario where we receive a block we already received.
+    # However this block was before the last finalized epoch and so its parent
+    # was pruned from the ForkChoice. Trying to add it again, even if the fork choice
+    # supports duplicate will lead to a crash.
+    return err Duplicate
 
   quarantine.missing.del(blockRoot)
 
@@ -220,9 +243,12 @@ proc add*(
     # the BlockRef first!
     dag.tmpState.blck = addResolvedBlock(
       dag, quarantine,
-      dag.tmpState.data.data, blockRoot, signedBlock, parent)
+      dag.tmpState.data.data, blockRoot, signedBlock, parent,
+      callback
+    )
     dag.putState(dag.tmpState.data, dag.tmpState.blck)
 
+    callback(dag.tmpState.blck)
     return ok dag.tmpState.blck
 
   # TODO already checked hash though? main reason to keep this is because

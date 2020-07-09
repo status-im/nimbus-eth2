@@ -24,7 +24,7 @@ func getValidator*(pool: ValidatorPool,
                    validatorKey: ValidatorPubKey): AttachedValidator =
   pool.validators.getOrDefault(validatorKey)
 
-# TODO: Honest validator - https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md
+# TODO: Honest validator - https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md
 proc signBlockProposal*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,
                         blockRoot: Eth2Digest): Future[ValidatorSig] {.async.} =

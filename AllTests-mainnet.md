@@ -9,8 +9,10 @@ AllTests-mainnet
 + Can add and retrieve simple attestation [Preset: mainnet]                                  OK
 + Fork choice returns block with attestation                                                 OK
 + Fork choice returns latest block with no attestations                                      OK
++ Trying to add a block twice tags the second as an error                                    OK
++ Trying to add a duplicate block from an old pruned epoch is tagged as an error             OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
+OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Beacon chain DB [Preset: mainnet]
 ```diff
 + empty database [Preset: mainnet]                                                           OK
@@ -32,7 +34,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Block pool processing [Preset: mainnet]
 ```diff
-+ Can add same block twice [Preset: mainnet]                                                 OK
++ Adding the same block twice returns a Duplicate error [Preset: mainnet]                    OK
 + Reverse order block add & get [Preset: mainnet]                                            OK
 + Simple block add&get [Preset: mainnet]                                                     OK
 + getRef returns nil for missing blocks                                                      OK
@@ -52,10 +54,9 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 OK: 5/5 Fail: 0/5 Skip: 0/5
 ## BlockPool finalization tests [Preset: mainnet]
 ```diff
-+ init with gaps [Preset: mainnet]                                                           OK
 + prune heads on finalization [Preset: mainnet]                                              OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## BlockRef and helpers [Preset: mainnet]
 ```diff
 + getAncestorAt sanity [Preset: mainnet]                                                     OK
@@ -266,4 +267,4 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 156/164 Fail: 0/164 Skip: 8/164
+OK: 157/165 Fail: 0/165 Skip: 8/165

@@ -6,8 +6,11 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  deques, tables,
+  # Standard library
+  deques, tables, hashes,
+  # Status libraries
   stew/[endians2, byteutils], chronicles,
+  # Internals
   ../spec/[datatypes, crypto, digest],
   ../beacon_chain_db, ../extras
 
@@ -36,6 +39,8 @@ type
     Invalid ##\
       ## Block is broken / doesn't apply cleanly - whoever sent it is fishy (or
       ## we're buggy)
+    Old
+    Duplicate
 
   Quarantine* = object
     ## Keeps track of unsafe blocks coming from the network
@@ -190,3 +195,6 @@ proc shortLog*(v: BlockRef): string =
 
 chronicles.formatIt BlockSlot: shortLog(it)
 chronicles.formatIt BlockRef: shortLog(it)
+
+func hash*(blockRef: BlockRef): Hash =
+  hash(blockRef.root)

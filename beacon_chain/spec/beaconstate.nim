@@ -444,7 +444,7 @@ func is_valid_indexed_attestation*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(state: BeaconState,
                             data: AttestationData,
                             bits: CommitteeValidatorsBits,
@@ -458,7 +458,7 @@ func get_attesting_indices*(state: BeaconState,
   # This shouldn't happen if one begins with a valid BeaconState and applies
   # valid updates, but one can construct a BeaconState where it does. Do not
   # do anything here since the PendingAttestation wouldn't have made it past
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#attestations
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#attestations
   # which checks len(attestation.aggregation_bits) == len(committee) that in
   # nim-beacon-chain lives in check_attestation(...).
   # Addresses https://github.com/status-im/nim-beacon-chain/issues/922
@@ -573,7 +573,7 @@ proc isValidAttestationTargetEpoch*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase0/beacon-chain.md#attestations
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#attestations
 proc check_attestation*(
     state: BeaconState, attestation: SomeAttestation, flags: UpdateFlags,
     stateCache: var StateCache): bool =
@@ -694,9 +694,11 @@ func makeAttestationData*(
       if start_slot == state.slot: beacon_block_root
       else: get_block_root_at_slot(state, start_slot)
 
-  doAssert slot.compute_epoch_at_slot == current_epoch
+  doAssert slot.compute_epoch_at_slot == current_epoch,
+    "Computed epoch was " & $slot.compute_epoch_at_slot &
+    "  while the state current_epoch was " & $current_epoch
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.11.2/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index,

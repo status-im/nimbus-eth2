@@ -224,7 +224,12 @@ proc proposeSignedBlock*(node: BeaconNode,
                          validator: AttachedValidator,
                          newBlock: SignedBeaconBlock,
                          blockRoot: Eth2Digest): Future[BlockRef] {.async.} =
-  let newBlockRef = node.blockPool.add(blockRoot, newBlock)
+
+  {.gcsafe.}: # TODO: fork choice and blockpool should sync via messages instead of callbacks
+    let newBlockRef = node.blockPool.addRawBlock(blockRoot, newBlock) do (validBlock: BlockRef):
+      # Callback Add to fork choice
+      node.attestationPool.addForkChoice_v2(validBlock)
+
   if newBlockRef.isErr:
     warn "Unable to add proposed block to block pool",
       newBlock = shortLog(newBlock.message),
@@ -324,7 +329,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # We need to run attestations exactly for the slot that we're attesting to.
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/validator/0_beacon-chain-validator.md#validator-assignments
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#validator-assignments
   # TODO we could cache the validator assignment since it's valid for the entire
   #      epoch since it doesn't change, but that has to be weighed against
   #      the complexity of handling forks correctly - instead, we use an adapted
