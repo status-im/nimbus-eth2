@@ -479,7 +479,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
              request_slot = req.slot, request_count = req.count,
              request_step = req.step, blocks_count = len(item.data),
              blocks_map = getShortMap(req, item.data), errorCode = res.error,
-             , topics = "syncman"
+             topics = "syncman"
         req.item.updateScore(PeerScoreBadBlocks)
 
       # We need to move failed response to the debts queue.
