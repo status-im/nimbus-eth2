@@ -92,7 +92,7 @@ proc addTestBlock*(
     graffiti = Eth2Digest(),
     flags: set[UpdateFlag] = {}): SignedBeaconBlock =
   # Create and add a block to state - state will advance by one slot!
-  advance_slot(state, err(Opt[Eth2Digest]), flags, cache)
+  advance_slot(state, flags, cache)
 
   let
     proposer_index = get_beacon_proposer_index(state.data, cache)
