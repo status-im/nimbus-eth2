@@ -182,8 +182,8 @@ func updateLatestVotes(
     if current.isNil or current.slot < attestationSlot:
       pool.latestAttestations[pubKey] = blck
 
-    # ForkChoice v2
-    pool.forkChoice_v2.process_attestation(validator, blck.root, target_epoch)
+    # # ForkChoice v2
+    # pool.forkChoice_v2.process_attestation(validator, blck.root, target_epoch)
 
 func get_attesting_indices_seq(state: BeaconState,
                                attestation_data: AttestationData,
@@ -636,11 +636,11 @@ proc pruneBefore*(pool: var AttestationPool, finalizedhead: BlockSlot) =
 
 proc selectHead*(pool: var AttestationPool): BlockRef =
   let head_v1 = pool.selectHead_v1()
-  let head_v2 = pool.selectHead_v2()
-
-  if head_v1 != head_v2:
-    error "Fork choice engines in disagreement, using block from v1.",
-      v1_block = shortlog(head_v1),
-      v2_block = shortlog(head_v2)
+  # let head_v2 = pool.selectHead_v2()
+  # 
+  # if head_v1 != head_v2:
+  #   error "Fork choice engines in disagreement, using block from v1.",
+  #     v1_block = shortlog(head_v1),
+  #     v2_block = shortlog(head_v2)
 
   return head_v1
