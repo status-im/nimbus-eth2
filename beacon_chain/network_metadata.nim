@@ -96,16 +96,36 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
     let
       genesisPath = path / "genesis.ssz"
       configPath = path / "config.yaml"
-      runtimePreset = extractRuntimePreset(configPath, readPresetFile(configPath))
+      depositContractPath = path / "deposit_contract.txt"
+      depositContractBlockPath = path / "deposit_contract_block.txt"
+
+      runtimePreset = if fileExists(configPath):
+        extractRuntimePreset(configPath, readPresetFile(configPath))
+      else:
+        mainnetRuntimePreset
+
+      depositContractAddress = if fileExists(depositContractPath):
+        Eth1Address.fromHex readFile(depositContractPath).strip
+      else:
+        default(Eth1Address)
+
+      depositContractBlock = if fileExists(depositContractBlockPath):
+        Eth1BlockHash.fromHex readFile(depositContractBlockPath).strip
+      else:
+        default(Eth1BlockHash)
+
+      genesisData = if fileExists(genesisPath): readFile(genesisPath)
+                    else: ""
 
     Eth2NetworkMetadata(
       incompatible: false,
       eth1Network: some goerli,
       runtimePreset: runtimePreset,
       bootstrapNodes: readFile(path / "bootstrap_nodes.txt").split("\n"),
-      depositContractAddress: Eth1Address.fromHex readFile(path / "deposit_contract.txt").strip,
-      depositContractDeployedAt: Eth1BlockHash.fromHex readFile(path / "deposit_contract_block.txt").strip,
-      genesisData: if fileExists(genesisPath): readFile(genesisPath) else: "")
+      depositContractAddress: depositContractAddress,
+      depositContractDeployedAt: depositContractBlock,
+      genesisData: genesisData)
+
   except PresetIncompatible as err:
     Eth2NetworkMetadata(incompatible: true,
                         incompatibilityDesc: err.msg)
@@ -131,4 +151,10 @@ const
 const
   altonaMetadata* = loadEth2NetworkMetadata(
     currentSourcePath.parentDir / ".." / "vendor" / "eth2-testnets" / "shared" / "altona")
+
+  testnet0Metadata* = loadEth2NetworkMetadata(
+    currentSourcePath.parentDir / ".." / "vendor" / "eth2-testnets" / "nimbus" / "testnet0")
+
+  testnet1Metadata* = loadEth2NetworkMetadata(
+    currentSourcePath.parentDir / ".." / "vendor" / "eth2-testnets" / "nimbus" / "testnet1")
 

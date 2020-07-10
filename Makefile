@@ -164,9 +164,12 @@ clean-testnet1:
 
 # - we're getting the preset from a testnet-specific .env file
 # - try SCRIPT_PARAMS="--skipGoerliKey"
-testnet0 testnet1: | build deps
-	source scripts/$@.env; \
-		NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --const-preset=$$CONST_PRESET --dev-build $@
+testnet0 testnet1: | beacon_node build deps
+	build/beacon_node \
+		--network=$@ \
+		--log-level="$(LOG_LEVEL)" \
+		--data-dir=build/data/$@_$(NODE_ID) \
+		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
 clean-altona:
 	rm -rf build/data/shared_altona*

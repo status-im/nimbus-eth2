@@ -1172,6 +1172,10 @@ programMain:
           mainnetMetadata
         of "altona":
           altonaMetadata
+        of "testnet0":
+          testnet0Metadata
+        of "testnet1":
+          testnet1Metadata
         else:
           if fileExists(networkName):
             try:
