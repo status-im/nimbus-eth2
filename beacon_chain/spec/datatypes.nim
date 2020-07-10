@@ -460,7 +460,6 @@ type
   StateCache* = object
     shuffled_active_validator_indices*:
       Table[Epoch, seq[ValidatorIndex]]
-    committee_count_cache*: Table[Epoch, uint64]
     beacon_proposer_indices*: Table[Slot, Option[ValidatorIndex]]
 
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =

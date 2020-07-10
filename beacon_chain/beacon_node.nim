@@ -417,7 +417,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
       epoch = scheduledSlot.compute_epoch_at_slot(),
       slot = scheduledSlot
 
-    # Brute-force, but ensure it's reliably enough to run in CI.
+    # Brute-force, but ensure it's reliable enough to run in CI.
     quit(0)
 
   if not wallSlot.afterGenesis or (wallSlot.slot < lastSlot):
