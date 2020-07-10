@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  os, sequtils, strutils,
+  os, strutils,
   chronicles, stew/shims/net, stew/results, eth/keys, eth/trie/db, bearssl,
   eth/p2p/discoveryv5/[enr, protocol, discovery_db, node],
   conf
