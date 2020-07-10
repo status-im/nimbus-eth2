@@ -96,6 +96,5 @@ proc new*(T: type Eth2DiscoveryProtocol,
   if fileExists(persistentBootstrapFile):
     loadBootstrapFile(persistentBootstrapFile, bootstrapEnrs, ourPubKey)
 
-  let enrFieldPairs = mapIt(enrFields, toFieldPair(it[0], it[1]))
   newProtocol(
-    pk, db, ip, tcpPort, udpPort, enrFieldPairs, bootstrapEnrs, rng = rng)
+    pk, db, ip, tcpPort, udpPort, enrFields, bootstrapEnrs, rng = rng)
