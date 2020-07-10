@@ -274,8 +274,6 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
           #      sets by virtue of not overlapping with some other attestation
           #      and therefore being useful after all?
           trace "Ignoring subset attestation",
-            existingParticipants = get_attesting_indices_seq(
-              state, a.data, v.aggregation_bits, cache),
             newParticipants = participants,
             cat = "filtering"
           found = true
@@ -286,10 +284,6 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
         # can now be removed per same logic as above
 
         trace "Removing subset attestations",
-          existingParticipants = a.validations.filterIt(
-            it.aggregation_bits.isSubsetOf(validation.aggregation_bits)
-          ).mapIt(get_attesting_indices_seq(
-            state, a.data, it.aggregation_bits, cache)),
           newParticipants = participants,
           cat = "pruning"
 

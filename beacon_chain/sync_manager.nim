@@ -440,7 +440,8 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
             request_count = item.request.count,
             request_step = item.request.step,
             blocks_map = getShortMap(item.request, item.data),
-            blocks_count = len(item.data), errCode = res.error
+            blocks_count = len(item.data), errCode = res.error,
+            topics = "syncman"
 
       var resetSlot: Option[Slot]
 
@@ -455,7 +456,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
                peer = req.item, rewind_to_slot = finalizedSlot,
                request_slot = req.slot, request_count = req.count,
                request_step = req.step, blocks_count = len(item.data),
-               blocks_map = getShortMap(req, item.data)
+               blocks_map = getShortMap(req, item.data), topics = "syncman"
           resetSlot = some(finalizedSlot)
           req.item.updateScore(PeerScoreMissingBlocks)
         else:
@@ -463,21 +464,22 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
                 peer = req.item, to_slot = finalizedSlot,
                 request_slot = req.slot, request_count = req.count,
                 request_step = req.step, blocks_count = len(item.data),
-                blocks_map = getShortMap(req, item.data)
+                blocks_map = getShortMap(req, item.data), topics = "syncman"
           req.item.updateScore(PeerScoreBadBlocks)
       elif res.error == BlockError.Invalid:
         let req = item.request
         warn "Received invalid sequence of blocks", peer = req.item,
               request_slot = req.slot, request_count = req.count,
               request_step = req.step, blocks_count = len(item.data),
-              blocks_map = getShortMap(req, item.data)
+              blocks_map = getShortMap(req, item.data), topics = "syncman"
         req.item.updateScore(PeerScoreBadBlocks)
       else:
         let req = item.request
         warn "Received unexpected response from block_pool", peer = req.item,
              request_slot = req.slot, request_count = req.count,
              request_step = req.step, blocks_count = len(item.data),
-             blocks_map = getShortMap(req, item.data), errorCode = res.error
+             blocks_map = getShortMap(req, item.data), errorCode = res.error,
+             topics = "syncman"
         req.item.updateScore(PeerScoreBadBlocks)
 
       # We need to move failed response to the debts queue.
@@ -486,7 +488,8 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         await sq.resetWait(resetSlot)
         debug "Rewind to slot was happened", reset_slot = reset_slot.get(),
                                              queue_input_slot = sq.inpSlot,
-                                             queue_output_slot = sq.outSlot
+                                             queue_output_slot = sq.outSlot,
+                                             topics = "syncman"
       break
 
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T]) =
@@ -824,7 +827,7 @@ proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
           debug "Syncing process is not progressing, reset the queue",
                 workers_count = workersCount(),
                 to_slot = man.queue.outSlot,
-                local_head_slot = lsm1.slot
+                local_head_slot = lsm1.slot, topics = "syncman"
           await man.queue.resetWait(none[Slot]())
         else:
           syncSpeed = speed(lsm1, lsm2)
@@ -924,7 +927,7 @@ proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
         await sleepAsync(man.sleepTime)
       else:
         debug "Synchronization loop waiting for workers completion",
-              workers_count = workersCount()
+              workers_count = workersCount(), topics = "syncman"
         discard await withTimeout(one(pending), man.sleepTime)
     else:
       man.inProgress = true
