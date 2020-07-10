@@ -70,8 +70,9 @@ proc updateHead*(node: BeaconNode): BlockRef =
   node.blockPool.updateHead(newHead)
   beacon_head_root.set newHead.root.toGaugeValue
 
+  # TODO - deactivated
   # Cleanup the fork choice v2 if we have a finalized head
-  node.attestationPool.pruneBefore(node.blockPool.finalizedHead)
+  # node.attestationPool.pruneBefore(node.blockPool.finalizedHead)
 
   newHead
 

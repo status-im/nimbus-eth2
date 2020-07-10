@@ -228,7 +228,8 @@ proc proposeSignedBlock*(node: BeaconNode,
   {.gcsafe.}: # TODO: fork choice and blockpool should sync via messages instead of callbacks
     let newBlockRef = node.blockPool.addRawBlock(blockRoot, newBlock) do (validBlock: BlockRef):
       # Callback Add to fork choice
-      node.attestationPool.addForkChoice_v2(validBlock)
+      # node.attestationPool.addForkChoice_v2(validBlock)
+      discard "TODO: Deactivated"
 
   if newBlockRef.isErr:
     warn "Unable to add proposed block to block pool",
