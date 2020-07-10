@@ -178,14 +178,14 @@ altona: | beacon_node build deps
 	build/beacon_node \
 		--network=altona \
 		--log-level="$(LOG_LEVEL)" \
-		--data-dir=build/data/altona-$(NODE_ID) \
+		--data-dir=build/data/shared_altona_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
 altona-dev: | beacon_node build deps
 	build/beacon_node \
 		--network=altona \
 		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
-		--data-dir=build/data/altona-$(NODE_ID) \
+		--data-dir=build/data/shared_altona_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
 ctail: | build deps
