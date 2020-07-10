@@ -342,7 +342,13 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
           cache.shuffled_active_validator_indices[
             slot.compute_epoch_at_slot].len.uint64
         except KeyError:
-          raiseAssert "getEpochCache(...) didn't fill cache"
+          when false:
+            # TODO re-enable when getEpochCache() works
+            raiseAssert "getEpochCache(...) didn't fill cache"
+          let epoch = slot.compute_epoch_at_slot
+          cache.shuffled_active_validator_indices[epoch] =
+            get_shuffled_active_validator_indices(state, epoch)
+          cache.shuffled_active_validator_indices[epoch].len.uint64
 
     for committee_index in 0'u64..<committees_per_slot:
       let committee = get_beacon_committee(
