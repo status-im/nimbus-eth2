@@ -182,7 +182,6 @@ proc sendDeposits*(deposits: seq[Deposit],
 
   let depositContract = web3.contractSender(DepositContract,
                                             Address depositContractAddress)
-
   for i, dp in deposits:
     let status = await depositContract.deposit(
       Bytes48(dp.data.pubKey.toRaw()),

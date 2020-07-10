@@ -1331,6 +1331,19 @@ programMain:
   of deposits:
     case config.depositsCmd
     of DepositsCmd.create:
+      if config.askForKey and config.depositPrivateKey.len == 0:
+        let
+          depositsWord = if config.totalDeposits > 1: "deposits"
+                         else: "deposit"
+          totalEthNeeded = 32 * config.totalDeposits
+
+        echo "Please enter your Goerli Eth1 private key in hex form " &
+             "(e.g. 0x1a2...f3c) in order to make your $1 (you'll need " &
+             "access to $2 GoETH)" % [depositsWord, $totalEthNeeded]
+
+        if not readPasswordFromStdin("> ", TaintedString config.depositPrivateKey):
+          error "Failed to read an Eth1 private key from standard input"
+
       createDir(config.outValidatorsDir)
       createDir(config.outSecretsDir)
 

@@ -308,6 +308,11 @@ type
           desc: "Output folder for randomly generated keystore passphrases"
           name: "out-secrets-dir" }: string
 
+        askForKey* {.
+          defaultValue: false
+          desc: "Ask for an Eth1 private key used to fund the deposits"
+          name: "ask-for-key" }: bool
+
         dontSend* {.
           defaultValue: false,
           desc: "By default, all created deposits are also immediately sent " &

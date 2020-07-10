@@ -20,6 +20,7 @@ BASE_PORT := 9000
 BASE_RPC_PORT := 9190
 BASE_METRICS_PORT := 8008
 GOERLI_WEB3_URL := "wss://goerli.infura.io/ws/v3/6224f3c792cc443fafb64e70a98f871e"
+VALIDATORS := 1
 
 # unconditionally built by the default Make target
 TOOLS := \
@@ -162,8 +163,6 @@ clean-testnet0:
 clean-testnet1:
 	rm -rf build/data/testnet1*
 
-# - we're getting the preset from a testnet-specific .env file
-# - try SCRIPT_PARAMS="--skipGoerliKey"
 testnet0 testnet1: | beacon_node build deps
 	build/beacon_node \
 		--network=$@ \
@@ -175,7 +174,11 @@ clean-altona:
 	rm -rf build/data/shared_altona*
 
 altona-deposit: | beacon_node build deps
-	build/beacon_node deposits create --network=altona
+	build/beacon_node deposits create \
+		--network=altona \
+		--count=$(VALIDATORS)	\
+		--ask-for-key \
+		--web3-url=$(GOERLI_WEB3_URL)
 
 altona: | beacon_node build deps
 	build/beacon_node \
