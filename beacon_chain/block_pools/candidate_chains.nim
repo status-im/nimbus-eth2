@@ -505,12 +505,8 @@ proc skipAndUpdateState(
     state: var HashedBeaconState, blck: BlockRef, slot: Slot, save: bool) =
   while state.data.slot < slot:
     # Process slots one at a time in case afterUpdate needs to see empty states
-    # TODO when replaying, we already do this query when loading the ancestors -
-    #      save and reuse
-    # TODO possibly we should keep this in memory for the hot blocks
-    let nextStateRoot = dag.db.getStateRoot(blck.root, state.data.slot + 1)
     var stateCache = getEpochCache(blck, state.data)
-    advance_slot(state, nextStateRoot, dag.updateFlags, stateCache)
+    advance_slot(state, dag.updateFlags, stateCache)
 
     if save:
       dag.putState(state, blck)

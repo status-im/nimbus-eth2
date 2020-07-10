@@ -125,8 +125,8 @@ func process_slot*(state: var HashedBeaconState) {.nbench.} =
     hash_tree_root(state.data.latest_block_header)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-proc advance_slot*(state: var HashedBeaconState,
-    nextStateRoot: Opt[Eth2Digest], updateFlags: UpdateFlags,
+proc advance_slot*(
+    state: var HashedBeaconState, updateFlags: UpdateFlags,
     epochCache: var StateCache) {.nbench.} =
   # Special case version of process_slots that moves one slot at a time - can
   # run faster if the state root is known already (for example when replaying
@@ -141,10 +141,7 @@ proc advance_slot*(state: var HashedBeaconState,
   if is_epoch_transition:
     beacon_current_validators.set(get_epoch_validator_count(state.data))
 
-  if nextStateRoot.isSome:
-    state.root = nextStateRoot.get()
-  else:
-    state.root = hash_tree_root(state.data)
+  state.root = hash_tree_root(state.data)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc process_slots*(state: var HashedBeaconState, slot: Slot,
@@ -166,7 +163,7 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot,
   # Catch up to the target slot
   var cache = get_empty_per_epoch_cache()
   while state.data.slot < slot:
-    advance_slot(state, err(Opt[Eth2Digest]), updateFlags, cache)
+    advance_slot(state, updateFlags, cache)
 
   true
 
