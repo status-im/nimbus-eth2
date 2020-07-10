@@ -54,10 +54,9 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 OK: 5/5 Fail: 0/5 Skip: 0/5
 ## BlockPool finalization tests [Preset: mainnet]
 ```diff
-+ init with gaps [Preset: mainnet]                                                           OK
 + prune heads on finalization [Preset: mainnet]                                              OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## BlockRef and helpers [Preset: mainnet]
 ```diff
 + getAncestorAt sanity [Preset: mainnet]                                                     OK
@@ -268,4 +267,4 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 161/164 Fail: 0/164 Skip: 3/164
+OK: 162/165 Fail: 0/165 Skip: 3/165
