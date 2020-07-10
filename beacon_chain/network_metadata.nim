@@ -110,9 +110,9 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
     Eth2NetworkMetadata(incompatible: true,
                         incompatibilityDesc: err.msg)
 
-when const_preset == "mainnet":
-  const
-    mainnetMetadata* = Eth2NetworkMetadata(
+const
+  mainnetMetadata* = when const_preset == "mainnet":
+    Eth2NetworkMetadata(
       incompatible: false, # TODO: This can be more accurate if we verify
                            # that there are no constant overrides
       eth1Network: some mainnet,
@@ -122,7 +122,13 @@ when const_preset == "mainnet":
       depositContractAddress: Eth1Address.fromHex "0x1234567890123456789012345678901234567890",
       depositContractDeployedAt: Eth1BlockHash.fromHex "0x73056f16a59bf70abad5b4365438e8a7d646aa0d7f56d22c3d9e4c6000d8e176",
       genesisData: "")
+  else:
+    Eth2NetworkMetadata(
+      incompatible: true,
+      incompatibilityDesc: "This build is compiled with the " & const_preset & " const preset. " &
+                           "It's not compatible with mainnet")
 
-    altonaMetadata* = loadEth2NetworkMetadata(
-      currentSourcePath.parentDir / ".." / "vendor" / "eth2-testnets" / "shared" / "altona")
+const
+  altonaMetadata* = loadEth2NetworkMetadata(
+    currentSourcePath.parentDir / ".." / "vendor" / "eth2-testnets" / "shared" / "altona")
 
