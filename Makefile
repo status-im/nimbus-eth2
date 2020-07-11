@@ -163,7 +163,7 @@ clean-testnet0:
 clean-testnet1:
 	rm -rf build/data/testnet1*
 
-testnet0 testnet1: | beacon_node build deps
+testnet0 testnet1: | beacon_node
 	build/beacon_node \
 		--network=$@ \
 		--log-level="$(LOG_LEVEL)" \
@@ -173,21 +173,21 @@ testnet0 testnet1: | beacon_node build deps
 clean-altona:
 	rm -rf build/data/shared_altona*
 
-altona-deposit: | beacon_node build deps
+altona-deposit: | beacon_node
 	build/beacon_node deposits create \
 		--network=altona \
 		--count=$(VALIDATORS)	\
 		--ask-for-key \
 		--web3-url=$(GOERLI_WEB3_URL)
 
-altona: | beacon_node build deps
+altona: | beacon_node
 	build/beacon_node \
 		--network=altona \
 		--log-level="$(LOG_LEVEL)" \
 		--data-dir=build/data/shared_altona_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
-altona-dev: | beacon_node build deps
+altona-dev: | beacon_node
 	build/beacon_node \
 		--network=altona \
 		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
