@@ -100,6 +100,6 @@ fi
 if [[ "$RUN" == "1" ]]; then
   cd /root/.cache/nimbus/nim-beacon-chain
   # make sure Docker's SIGINT reaches the beacon_node binary
-  exec build/beacon_node --network=${NETWORK} --data-dir=build/data/shared_${NETWORK}_0 ${EXTRA_ARGS}
+  exec build/beacon_node --network="${NETWORK}" --data-dir="build/data/shared_${NETWORK}_0" --web3-url="wss://goerli.infura.io/ws/v3/6224f3c792cc443fafb64e70a98f871e" ${EXTRA_ARGS}
 fi
 
