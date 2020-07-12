@@ -207,8 +207,10 @@ proc state_transition*(
   #      the changes in case of failure (look out for `var BeaconState` and
   #      bool return values...)
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
-  doAssert stateCache.shuffled_active_validator_indices.hasKey(
-    state.data.slot.compute_epoch_at_slot)
+  when false:
+    # TODO readd this assetion when epochref cache is back
+    doAssert stateCache.shuffled_active_validator_indices.hasKey(
+      state.data.slot.compute_epoch_at_slot)
 
   if not process_slots(state, signedBlock.message.slot, flags):
     rollback(state)
