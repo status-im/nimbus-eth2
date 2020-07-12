@@ -697,6 +697,7 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
                                       root: Option[Eth2Digest]) -> StringOfJson:
     requireOneOf(slot, root)
     if slot.isSome:
+      # TODO sanity check slot so that it doesn't cause excessive rewinding
       let blk = node.blockPool.head.blck.atSlot(slot.get)
       node.blockPool.withState(node.blockPool.tmpState, blk):
         return jsonResult(state)

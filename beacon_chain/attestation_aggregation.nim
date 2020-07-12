@@ -74,6 +74,25 @@ proc aggregate_attestations*(
 
   none(AggregateAndProof)
 
+proc isValidAttestationSlot(
+    pool: AttestationPool, attestationSlot: Slot, attestationBlck: BlockRef): bool =
+  # If we allow voting for very old blocks, the state transaction below will go
+  # nuts and keep processing empty slots
+  if not (attestationBlck.slot > pool.blockPool.finalizedHead.slot):
+    debug "voting for already-finalized block"
+    return false
+
+  # we'll also cap it at 4 epochs which is somewhat arbitrary, but puts an
+  # upper bound on the processing done to validate the attestation
+  # TODO revisit with less arbitrary approach
+  if not (attestationSlot > attestationBlck.slot):
+    debug "voting for block that didn't exist at the time"
+    return false
+
+  if not ((attestationSlot - attestationBlck.slot) <= 4 * SLOTS_PER_EPOCH):
+    debug "voting for very old block"
+    return false
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
 proc isValidAttestation*(
     pool: var AttestationPool, attestation: Attestation, current_slot: Slot,
@@ -130,6 +149,10 @@ proc isValidAttestation*(
   if attestationBlck.isNil:
     debug "block doesn't exist in block pool"
     pool.blockPool.addMissing(attestation.data.beacon_block_root)
+    return false
+
+  if not isValidAttestationSlot(pool, attestation.data.slot, attestationBlck):
+    # Not in spec - check that rewinding to the state is sane
     return false
 
   pool.blockPool.withState(
@@ -220,6 +243,10 @@ proc isValidAggregatedAttestation*(
   # either way.
   if isZeros(aggregate.aggregation_bits):
     debug "isValidAggregatedAttestation: attestation has no or invalid aggregation bits"
+    return false
+
+  if not isValidAttestationSlot(pool, aggregate.data.slot, attestationBlck):
+    # Not in spec - check that rewinding to the state is sane
     return false
 
   # [REJECT] aggregate_and_proof.selection_proof selects the validator as an
