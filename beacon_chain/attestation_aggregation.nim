@@ -89,7 +89,7 @@ proc isValidAttestationSlot(
     debug "voting for block that didn't exist at the time"
     return false
 
-  if not ((attestationSlot - attestationBlck.slot) <= 4 * SLOTS_PER_EPOCH):
+  if not ((attestationSlot - attestationBlck.slot) <= uint64(4 * SLOTS_PER_EPOCH)):
     debug "voting for very old block"
     return false
 
