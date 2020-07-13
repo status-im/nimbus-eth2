@@ -93,6 +93,8 @@ proc isValidAttestationSlot(
     debug "voting for very old block"
     return false
 
+  true
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
 proc isValidAttestation*(
     pool: var AttestationPool, attestation: Attestation, current_slot: Slot,
