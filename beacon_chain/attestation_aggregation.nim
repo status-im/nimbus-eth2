@@ -78,6 +78,10 @@ proc isValidAttestationSlot(
     pool: AttestationPool, attestationSlot: Slot, attestationBlck: BlockRef): bool =
   # If we allow voting for very old blocks, the state transaction below will go
   # nuts and keep processing empty slots
+  logScope:
+    attestationSlot
+    attestationBlck = shortLog(attestationBlck)
+
   if not (attestationBlck.slot > pool.blockPool.finalizedHead.slot):
     debug "voting for already-finalized block"
     return false
@@ -85,7 +89,7 @@ proc isValidAttestationSlot(
   # we'll also cap it at 4 epochs which is somewhat arbitrary, but puts an
   # upper bound on the processing done to validate the attestation
   # TODO revisit with less arbitrary approach
-  if not (attestationSlot > attestationBlck.slot):
+  if not (attestationSlot >= attestationBlck.slot):
     debug "voting for block that didn't exist at the time"
     return false
 
