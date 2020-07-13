@@ -46,7 +46,7 @@ func get_shuffled_seq*(seed: Eth2Digest,
   pivot_buffer[0..31] = seed.data
   source_buffer[0..31] = seed.data
 
-  for round in 0 ..< SHUFFLE_ROUND_COUNT:
+  for round in 0 ..< SHUFFLE_ROUND_COUNT.int:
     let round_bytes1 = int_to_bytes1(round)[0]
     pivot_buffer[32] = round_bytes1
     source_buffer[32] = round_bytes1
@@ -142,7 +142,7 @@ func get_beacon_committee*(
 
   try:
     let committee_count = get_committee_count_at_slot(
-      cache.shuffled_active_validator_indices[epoch].len)
+      cache.shuffled_active_validator_indices[epoch].len.uint64.Slot)
     compute_committee(
       cache.shuffled_active_validator_indices[epoch],
       get_seed(state, epoch, DOMAIN_BEACON_ATTESTER),

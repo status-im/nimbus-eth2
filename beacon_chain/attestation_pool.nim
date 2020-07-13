@@ -501,7 +501,7 @@ proc getAttestationsForBlock*(pool: AttestationPool,
 
     result.add(attestation)
 
-    if result.len >= MAX_ATTESTATIONS:
+    if result.len >= MAX_ATTESTATIONS.int:
       debug "getAttestationsForBlock: returning early after hitting MAX_ATTESTATIONS",
         attestationSlot = newBlockSlot - 1
       return

@@ -37,7 +37,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
        validators = SLOTS_PER_EPOCH * 100, # One per shard is minimum
        json_interval = SLOTS_PER_EPOCH,
        write_last_json = false,
-       prefix = 0,
+       prefix: int = 0,
        attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.73,
        validate = true):
   let

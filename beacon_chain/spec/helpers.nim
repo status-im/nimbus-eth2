@@ -65,8 +65,7 @@ func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
       result.add idx.ValidatorIndex
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_committee_count_at_slot
-func get_committee_count_at_slot*(num_active_validators: auto):
-    uint64 =
+func get_committee_count_at_slot*(num_active_validators: Slot): uint64 =
   clamp(
     num_active_validators div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
     1, MAX_COMMITTEES_PER_SLOT).uint64
@@ -80,7 +79,7 @@ func get_committee_count_at_slot*(state: BeaconState, slot: Slot): uint64 =
   # CommitteeIndex return type here.
   let epoch = compute_epoch_at_slot(slot)
   let active_validator_indices = get_active_validator_indices(state, epoch)
-  result = get_committee_count_at_slot(len(active_validator_indices))
+  result = get_committee_count_at_slot(len(active_validator_indices).uint64.Slot)
 
   # Otherwise, get_beacon_committee(...) cannot access some committees.
   doAssert (SLOTS_PER_EPOCH * MAX_COMMITTEES_PER_SLOT).uint64 >= result
@@ -94,8 +93,8 @@ func get_current_epoch*(state: BeaconState): Epoch =
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: BeaconState,
                      epoch: Epoch): Eth2Digest =
-    ## Returns the randao mix at a recent ``epoch``.
-    state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR]
+  ## Returns the randao mix at a recent ``epoch``.
+  state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR]
 
 func bytes_to_int*(data: openarray[byte]): uint64 =
   doAssert data.len == 8

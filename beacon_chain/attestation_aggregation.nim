@@ -23,7 +23,7 @@ func is_aggregator(state: BeaconState, slot: Slot, index: CommitteeIndex,
     slot_signature: ValidatorSig, cache: var StateCache): bool =
   let
     committee = get_beacon_committee(state, slot, index, cache)
-    modulo = max(1, len(committee) div TARGET_AGGREGATORS_PER_COMMITTEE).uint64
+    modulo = max(1'u64, len(committee).uint64 div TARGET_AGGREGATORS_PER_COMMITTEE)
   bytes_to_int(eth2digest(slot_signature.toRaw()).data[0..7]) mod modulo == 0
 
 proc aggregate_attestations*(

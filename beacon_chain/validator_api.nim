@@ -244,7 +244,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
 
       if slot == 0: # TODO this means if the parameter is missing (its optional)
         for i in 0 ..< SLOTS_PER_EPOCH:
-          forSlot((compute_start_slot_at_epoch(epoch.Epoch).int + i).Slot, result)
+          forSlot(compute_start_slot_at_epoch(epoch.Epoch) + i, result)
       else:
         forSlot(slot.Slot, result)
 
@@ -372,7 +372,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     let head = node.doChecksAndGetCurrentHead(epoch)
 
     for i in 0 ..< SLOTS_PER_EPOCH:
-      let currSlot = (compute_start_slot_at_epoch(epoch).int + i).Slot
+      let currSlot = compute_start_slot_at_epoch(epoch) + i
       let proposer = node.blockPool.getProposer(head, currSlot)
       if proposer.isSome():
         result.add((public_key: proposer.get()[1], slot: currSlot))

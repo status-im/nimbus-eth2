@@ -1,76 +1,17 @@
 import
   macros, strutils, parseutils, tables,
-  stew/endians2
+  stew/endians2,
+  preset_values
 
 {.push raises: [Defect].}
 
 export
-  toBytesBE
+  PresetValue, toBytesBE
 
 type
   Slot* = distinct uint64
   Epoch* = distinct uint64
   Version* = distinct array[4, byte]
-
-  PresetValue* {.pure.} = enum
-    BASE_REWARD_FACTOR
-    BLS_WITHDRAWAL_PREFIX
-    CHURN_LIMIT_QUOTIENT
-    DEPOSIT_CONTRACT_ADDRESS
-    DOMAIN_AGGREGATE_AND_PROOF
-    DOMAIN_BEACON_ATTESTER
-    DOMAIN_BEACON_PROPOSER
-    DOMAIN_DEPOSIT
-    DOMAIN_RANDAO
-    DOMAIN_SELECTION_PROOF
-    DOMAIN_VOLUNTARY_EXIT
-    EARLY_DERIVED_SECRET_REVEAL_SLOT_REWARD_MULTIPLE
-    EFFECTIVE_BALANCE_INCREMENT
-    EJECTION_BALANCE
-    EPOCHS_PER_ETH1_VOTING_PERIOD
-    EPOCHS_PER_HISTORICAL_VECTOR
-    EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION
-    EPOCHS_PER_SLASHINGS_VECTOR
-    ETH1_FOLLOW_DISTANCE
-    GENESIS_FORK_VERSION
-    GENESIS_DELAY
-    HISTORICAL_ROOTS_LIMIT
-    HYSTERESIS_DOWNWARD_MULTIPLIER
-    HYSTERESIS_QUOTIENT
-    HYSTERESIS_UPWARD_MULTIPLIER
-    INACTIVITY_PENALTY_QUOTIENT
-    MAX_ATTESTATIONS
-    MAX_ATTESTER_SLASHINGS
-    MAX_COMMITTEES_PER_SLOT
-    MAX_DEPOSITS
-    MAX_EFFECTIVE_BALANCE
-    MAX_EPOCHS_PER_CROSSLINK
-    MAX_PROPOSER_SLASHINGS
-    MAX_SEED_LOOKAHEAD
-    MAX_VALIDATORS_PER_COMMITTEE
-    MAX_VOLUNTARY_EXITS
-    MIN_ATTESTATION_INCLUSION_DELAY
-    MIN_DEPOSIT_AMOUNT
-    MIN_EPOCHS_TO_INACTIVITY_PENALTY
-    MIN_GENESIS_ACTIVE_VALIDATOR_COUNT
-    MIN_GENESIS_TIME
-    MIN_PER_EPOCH_CHURN_LIMIT
-    MIN_SEED_LOOKAHEAD
-    MIN_SLASHING_PENALTY_QUOTIENT
-    MIN_VALIDATOR_WITHDRAWABILITY_DELAY
-    PROPOSER_REWARD_QUOTIENT
-    RANDOM_SUBNETS_PER_VALIDATOR
-    SAFE_SLOTS_TO_UPDATE_JUSTIFIED
-    SECONDS_PER_ETH1_BLOCK
-    SECONDS_PER_SLOT
-    SHARD_COMMITTEE_PERIOD
-    SHUFFLE_ROUND_COUNT
-    SLOTS_PER_EPOCH
-    SLOTS_PER_HISTORICAL_ROOT
-    TARGET_AGGREGATORS_PER_COMMITTEE
-    TARGET_COMMITTEE_SIZE
-    VALIDATOR_REGISTRY_LIMIT
-    WHISTLEBLOWER_REWARD_QUOTIENT
 
   RuntimePreset* = object
     GENESIS_FORK_VERSION*: Version
@@ -131,10 +72,6 @@ func parse*(T: type uint64, input: string): T
 
 template parse*(T: type byte, input: string): T =
   byte parse(uint64, input)
-
-template parse*(T: type int, input: string): T =
-  # TODO: remove this
-  int parse(uint64, input)
 
 proc parse*(T: type Version, input: string): T
            {.raises: [ValueError, Defect].} =
@@ -215,12 +152,14 @@ else:
                    return
 
     for name, value in preset.values:
-      var value = string value
-      if presetValueTypes.hasKey(name):
-        let typ = presetValueTypes[name]
-        value = typ & "(" & value & ")"
-
-      result.add parseStmt("const $1* {.intdefine.} = $2" % [$name, value])
+      let
+        typ = getType(name)
+        value = if typ in ["int64", "uint64", "byte"]: typ & "(" & value & ")"
+                else: "parse(" & typ & ", \"" & value & "\")"
+      try:
+        result.add parseStmt("const $1* {.intdefine.} = $2" % [$name, value])
+      except ValueError:
+        doAssert false, "All values in the presets are printable"
 
     if preset.missingValues.card > 0:
       warning "Missing constants in preset: " & $preset.missingValues

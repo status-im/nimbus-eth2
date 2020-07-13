@@ -55,12 +55,12 @@ template chunkIdx*(T: type, dataIdx: int64): int64 =
   # Given a data index, which chunk does it belong to?
   dataIdx div dataPerChunk(T)
 
-template maxChunkIdx*(T: type, maxLen: int64): int64 =
+template maxChunkIdx*(T: type, maxLen: Limit): int64 =
   # Given a number of data items, how many chunks are needed?
   # TODO compiler bug:
   # beacon_chain/ssz/types.nim(75, 53) Error: cannot generate code for: maxLen
   # nextPow2(chunkIdx(T, maxLen + dataPerChunk(T) - 1).uint64).int64
-  nextPow2Int64(chunkIdx(T, maxLen + dataPerChunk(T) - 1))
+  nextPow2Int64(chunkIdx(T, maxLen.int64 + dataPerChunk(T) - 1))
 
 template layer*(vIdx: int64): int =
   ## Layer 0 = layer at which the root hash is

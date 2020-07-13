@@ -728,7 +728,7 @@ proc installDebugApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
             settingSym = ident($presetValue)
             settingKey = newLit(toLowerAscii($presetValue))
           let f = quote do:
-            res[`settingKey`] = %`settingSym`
+            res[`settingKey`] = %(presets.`settingSym`)
           yield f
 
     for field, value in fieldPairs(node.config.runtimePreset):

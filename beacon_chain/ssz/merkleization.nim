@@ -278,7 +278,7 @@ func bitListHashTreeRoot(merkleizer: var SszChunksMerkleizer, x: BitSeq): Eth2Di
   let contentsHash = merkleizer.getFinalHash
   mixInLength contentsHash, x.len
 
-func maxChunksCount(T: type, maxLen: int64): int64 =
+func maxChunksCount(T: type, maxLen: Limit): Limit =
   when T is BitList|BitArray:
     (maxLen + bitsPerChunk - 1) div bitsPerChunk
   elif T is array|List:
@@ -306,7 +306,7 @@ func hashTreeRootAux[T](x: T): Eth2Digest =
           pos += sizeof(E)
     else:
       trs "FIXED TYPE; USE CHUNK STREAM"
-      var markleizer = createMerkleizer(maxChunksCount(T, x.len))
+      var markleizer = createMerkleizer(maxChunksCount(T, Limit x.len))
       chunkedHashTreeRootForBasicTypes(markleizer, x)
   elif T is BitArray:
     hashTreeRootAux(x.bytes)
@@ -314,7 +314,7 @@ func hashTreeRootAux[T](x: T): Eth2Digest =
     trs "MERKLEIZING FIELDS"
     const totalFields = when T is array: len(x)
                         else: totalSerializedFields(T)
-    merkleizeFields(totalFields):
+    merkleizeFields(Limit totalFields):
       x.enumerateSubFields(f):
         addField f
   #elif isCaseObject(T):
