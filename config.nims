@@ -49,7 +49,7 @@ switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
 switch("import", "testutils/moduletests")
 
 const useLibStackTrace = not defined(macosx) and
-                         not (defined(windows) and defined(i386)) and
+                         not defined(windows) and
                          not defined(disable_libbacktrace)
 
 when useLibStackTrace:
