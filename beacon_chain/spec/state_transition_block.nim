@@ -289,9 +289,9 @@ proc process_operations(preset: RuntimePreset,
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
   let
-    num_deposits = len(body.deposits).int64
+    num_deposits = uint64 len(body.deposits)
     req_deposits = min(MAX_DEPOSITS,
-      state.eth1_data.deposit_count.int64 - state.eth1_deposit_index.int64)
+                       state.eth1_data.deposit_count - state.eth1_deposit_index)
   if not (num_deposits == req_deposits):
     return err("incorrect number of deposits")
 

@@ -218,6 +218,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + simple object fields                                                                       OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Spec datatypes
+```diff
++ Graffiti bytes                                                                             OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Spec helpers
 ```diff
 + integer_squareroot                                                                         OK
@@ -267,4 +272,4 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 157/165 Fail: 0/165 Skip: 8/165
+OK: 158/166 Fail: 0/166 Skip: 8/166

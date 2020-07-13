@@ -113,12 +113,10 @@ func compute_activation_exit_epoch(epoch: Epoch): Epoch =
   epoch + 1 + MAX_SEED_LOOKAHEAD
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_validator_churn_limit
-func get_validator_churn_limit(state: BeaconState, cache: var StateCache):
-    uint64 =
+func get_validator_churn_limit(state: BeaconState, cache: var StateCache): uint64 =
   # Return the validator churn limit for the current epoch.
   max(MIN_PER_EPOCH_CHURN_LIMIT,
-    len(cache.shuffled_active_validator_indices) div
-      CHURN_LIMIT_QUOTIENT).uint64
+      len(cache.shuffled_active_validator_indices).uint64 div CHURN_LIMIT_QUOTIENT)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
@@ -222,7 +220,7 @@ proc initialize_beacon_state_from_eth1*(
   # validators - there needs to be at least one member in each committee -
   # good to know for testing, though arguably the system is not that useful at
   # at that point :)
-  doAssert deposits.len >= SLOTS_PER_EPOCH
+  doAssert deposits.len >= SLOTS_PER_EPOCH.int
 
   var state = BeaconStateRef(
     fork: Fork(
@@ -481,7 +479,7 @@ func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
 
   IndexedAttestation(
     attesting_indices:
-      List[uint64, MAX_VALIDATORS_PER_COMMITTEE].init(
+      List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE].init(
         sorted(mapIt(attesting_indices.toSeq, it.uint64), system.cmp)),
     data: attestation.data,
     signature: attestation.signature
@@ -497,7 +495,7 @@ func get_indexed_attestation*(state: BeaconState, attestation: TrustedAttestatio
 
   TrustedIndexedAttestation(
     attesting_indices:
-      List[uint64, MAX_VALIDATORS_PER_COMMITTEE].init(
+      List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE].init(
         sorted(mapIt(attesting_indices.toSeq, it.uint64), system.cmp)),
     data: attestation.data,
     signature: attestation.signature

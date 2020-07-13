@@ -40,7 +40,7 @@ func verifyConsensus*(state: BeaconState, attesterRatio: auto) =
   if current_epoch >= 4:
     doAssert state.finalized_checkpoint.epoch + 2 >= current_epoch
 
-proc loadGenesis*(validators: int, validate: bool): ref HashedBeaconState =
+proc loadGenesis*(validators: Natural, validate: bool): ref HashedBeaconState =
   let fn = &"genesim_{const_preset}_{validators}_{SPEC_VERSION}.ssz"
   let res = (ref HashedBeaconState)()
   if fileExists(fn):
@@ -62,7 +62,7 @@ proc loadGenesis*(validators: int, validate: bool): ref HashedBeaconState =
     echo "Preparing validators..."
     let
       flags = if validate: {} else: {skipBlsValidation}
-      deposits = makeInitialDeposits(validators, flags)
+      deposits = makeInitialDeposits(validators.uint64, flags)
 
     echo "Generating Genesis..."
 

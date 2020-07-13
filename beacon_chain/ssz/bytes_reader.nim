@@ -70,7 +70,7 @@ proc `[]`[T, U, V](s: openArray[T], x: HSlice[U, V]) {.error:
 
 template checkForForbiddenBits(ResulType: type,
                                input: openarray[byte],
-                               expectedBits: static int) =
+                               expectedBits: static int64) =
   ## This checks if the input contains any bits set above the maximum
   ## sized allowed. We only need to check the last byte to verify this:
   const bitsInLastByte = (expectedBits mod 8)

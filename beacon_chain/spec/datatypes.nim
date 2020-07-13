@@ -51,7 +51,7 @@ const
   ## Spec version we're aiming to be compatible with, right now
 
   GENESIS_SLOT* = Slot(0)
-  GENESIS_EPOCH* = (GENESIS_SLOT.int div SLOTS_PER_EPOCH).Epoch ##\
+  GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
   ## compute_epoch_at_slot(GENESIS_SLOT)
 
   FAR_FUTURE_EPOCH* = (not 0'u64).Epoch # 2^64 - 1 in spec
@@ -123,17 +123,17 @@ type
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#indexedattestation
   IndexedAttestation* = object
     # TODO ValidatorIndex, but that doesn't serialize properly
-    attesting_indices*: List[uint64, MAX_VALIDATORS_PER_COMMITTEE]
+    attesting_indices*: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]
     data*: AttestationData
     signature*: ValidatorSig
 
   TrustedIndexedAttestation* = object
     # TODO ValidatorIndex, but that doesn't serialize properly
-    attesting_indices*: List[uint64, MAX_VALIDATORS_PER_COMMITTEE]
+    attesting_indices*: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]
     data*: AttestationData
     signature*: TrustedSig
 
-  CommitteeValidatorsBits* = BitList[MAX_VALIDATORS_PER_COMMITTEE]
+  CommitteeValidatorsBits* = BitList[Limit MAX_VALIDATORS_PER_COMMITTEE]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#attestation
   Attestation* = object
@@ -266,11 +266,11 @@ type
     graffiti*: GraffitiBytes
 
     # Operations
-    proposer_slashings*: List[ProposerSlashing, MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[AttesterSlashing, MAX_ATTESTER_SLASHINGS]
-    attestations*: List[Attestation, MAX_ATTESTATIONS]
-    deposits*: List[Deposit, MAX_DEPOSITS]
-    voluntary_exits*: List[SignedVoluntaryExit, MAX_VOLUNTARY_EXITS]
+    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
+    deposits*: List[Deposit, Limit MAX_DEPOSITS]
+    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
   TrustedBeaconBlockBody* = object
     randao_reveal*: TrustedSig
@@ -278,11 +278,11 @@ type
     graffiti*: GraffitiBytes
 
     # Operations
-    proposer_slashings*: List[ProposerSlashing, MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[AttesterSlashing, MAX_ATTESTER_SLASHINGS]
-    attestations*: List[TrustedAttestation, MAX_ATTESTATIONS]
-    deposits*: List[Deposit, MAX_DEPOSITS]
-    voluntary_exits*: List[SignedVoluntaryExit, MAX_VOLUNTARY_EXITS]
+    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
+    deposits*: List[Deposit, Limit MAX_DEPOSITS]
+    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
   SomeSignedBeaconBlock* = SignedBeaconBlock | TrustedSignedBeaconBlock
   SomeBeaconBlock* = BeaconBlock | TrustedBeaconBlock
@@ -302,34 +302,34 @@ type
     latest_block_header*: BeaconBlockHeader ##\
     ## `latest_block_header.state_root == ZERO_HASH` temporarily
 
-    block_roots*: HashArray[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
+    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
     ## Needed to process attestations, older to newer
 
-    state_roots*: HashArray[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
-    historical_roots*: HashList[Eth2Digest, HISTORICAL_ROOTS_LIMIT]
+    state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+    historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
 
     # Eth1
     eth1_data*: Eth1Data
     eth1_data_votes*:
-      HashList[Eth1Data, EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH]
+      HashList[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
     eth1_deposit_index*: uint64
 
     # Registry
-    validators*: HashList[Validator, VALIDATOR_REGISTRY_LIMIT]
-    balances*: HashList[uint64, VALIDATOR_REGISTRY_LIMIT]
+    validators*: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
-    randao_mixes*: HashArray[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
+    randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
 
     # Slashings
-    slashings*: HashArray[int64(EPOCHS_PER_SLASHINGS_VECTOR), uint64] ##\
+    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
     ## Per-epoch sums of slashed effective balances
 
     # Attestations
     previous_epoch_attestations*:
-      HashList[PendingAttestation, MAX_ATTESTATIONS * SLOTS_PER_EPOCH]
+      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
     current_epoch_attestations*:
-      HashList[PendingAttestation, MAX_ATTESTATIONS * SLOTS_PER_EPOCH]
+      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
 
     # Finality
     justification_bits*: uint8 ##\
