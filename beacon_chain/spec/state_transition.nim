@@ -137,6 +137,7 @@ proc advance_slot*(
     # Note: Genesis epoch = 0, no need to test if before Genesis
     beacon_previous_validators.set(get_epoch_validator_count(state.data))
     process_epoch(state.data, updateFlags, epochCache)
+    epochCache = get_empty_per_epoch_cache()
   state.data.slot += 1
   if is_epoch_transition:
     beacon_current_validators.set(get_epoch_validator_count(state.data))
@@ -207,10 +208,8 @@ proc state_transition*(
   #      the changes in case of failure (look out for `var BeaconState` and
   #      bool return values...)
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
-  when false:
-    # TODO readd this assetion when epochref cache is back
-    doAssert stateCache.shuffled_active_validator_indices.hasKey(
-      state.data.slot.compute_epoch_at_slot)
+  doAssert stateCache.shuffled_active_validator_indices.hasKey(
+    state.data.slot.compute_epoch_at_slot)
 
   if not process_slots(state, signedBlock.message.slot, flags):
     rollback(state)
@@ -256,8 +255,6 @@ proc state_transition*(
   # and fuzzing code should always be coming from blockpool which should
   # always be providing cache or equivalent
   var cache = get_empty_per_epoch_cache()
-  # TODO not here, but in blockpool, should fill in as far ahead towards
-  # block's slot as protocol allows to be known already
   cache.shuffled_active_validator_indices[state.data.slot.compute_epoch_at_slot] =
     get_shuffled_active_validator_indices(
       state.data, state.data.slot.compute_epoch_at_slot)

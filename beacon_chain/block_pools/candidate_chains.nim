@@ -14,7 +14,9 @@ import
   metrics,
   # Internals
   ../ssz/merkleization, ../beacon_chain_db, ../extras,
-  ../spec/[crypto, datatypes, digest, helpers, validator, state_transition],
+  ../spec/[
+    crypto, datatypes, digest, helpers, validator, state_transition,
+    beaconstate],
   block_pools_types
 
 declareCounter beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # On fork choice
@@ -58,7 +60,7 @@ func parent*(bs: BlockSlot): BlockSlot =
     )
 
 func populateEpochCache(state: BeaconState, epoch: Epoch): EpochRef =
-  result = (EpochRef)(
+  (EpochRef)(
     epoch: state.slot.compute_epoch_at_slot,
     shuffled_active_validator_indices:
       get_shuffled_active_validator_indices(state, epoch))
@@ -167,7 +169,12 @@ func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
 
   if matching_epochinfo.len == 0:
     let cache = populateEpochCache(state, state_epoch)
-    blck.epochsInfo.add(cache)
+
+    # Don't use BlockRef caching as far as the epoch where the active
+    # validator indices can diverge.
+    if (compute_activation_exit_epoch(blck.slot.compute_epoch_at_slot) <
+        state_epoch):
+      blck.epochsInfo.add(cache)
     trace "candidate_chains.getEpochInfo: back-filling parent.epochInfo",
       state_slot = state.slot
     cache
@@ -177,13 +184,11 @@ func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
     raiseAssert "multiple EpochRefs per epoch per BlockRef invalid"
 
 func getEpochCache*(blck: BlockRef, state: BeaconState): StateCache =
-  when false:
-    let epochInfo = getEpochInfo(blck, state)
-    result = get_empty_per_epoch_cache()
-    result.shuffled_active_validator_indices[
-      state.slot.compute_epoch_at_slot] =
-        epochInfo.shuffled_active_validator_indices
-  get_empty_per_epoch_cache()
+  let epochInfo = getEpochInfo(blck, state)
+  result = get_empty_per_epoch_cache()
+  result.shuffled_active_validator_indices[
+    state.slot.compute_epoch_at_slot] =
+      epochInfo.shuffled_active_validator_indices
 
 func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
   BlockRef(

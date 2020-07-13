@@ -324,10 +324,6 @@ suiteReport "BlockPool finalization tests" & preset():
           pool.tail.children.len == 2
           pool.heads.len == 2
 
-      if i mod SLOTS_PER_EPOCH == 0:
-        # Reset cache at epoch boundaries
-        cache = get_empty_per_epoch_cache()
-
       blck = makeTestBlock(
         pool.headState.data, pool.head.blck.root, cache,
         attestations = makeFullAttestations(

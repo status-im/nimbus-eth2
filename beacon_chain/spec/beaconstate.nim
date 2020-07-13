@@ -107,7 +107,7 @@ proc process_deposit*(preset: RuntimePreset,
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
-func compute_activation_exit_epoch(epoch: Epoch): Epoch =
+func compute_activation_exit_epoch*(epoch: Epoch): Epoch =
   ## Return the epoch during which validator activations and exits initiated in
   ## ``epoch`` take effect.
   epoch + 1 + MAX_SEED_LOOKAHEAD
