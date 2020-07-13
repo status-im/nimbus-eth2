@@ -83,12 +83,11 @@ proc extractRuntimePreset*(configPath: string, configData: PresetFile): RuntimeP
   result = RuntimePreset()
 
   for name, value in configData.values:
-    if name notin runtimeValues:
-      if not presetValueLoaders[name.int](result, value):
-        let errMsg = "The preset '" & configPath & "'is not compatible with " &
-                     "the current build due to an incompatible value " &
-                     $name & " = " & value.string
-        raise newException(PresetIncompatible, errMsg)
+    if not presetValueLoaders[name.int](result, value):
+      let errMsg = "The preset '" & configPath & "'is not compatible with " &
+                   "the current build due to an incompatible value " &
+                   $name & " = " & value.string
+      raise newException(PresetIncompatible, errMsg)
 
 proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
                              {.raises: [CatchableError, Defect].} =
