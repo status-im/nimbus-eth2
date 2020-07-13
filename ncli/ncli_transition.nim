@@ -1,7 +1,7 @@
 import
   confutils, chronicles,
   ../beacon_chain/spec/[crypto, datatypes, state_transition, presets],
-  ../beacon_chain/extras,
+  ../beacon_chain/[extras, network_metadata],
   ../beacon_chain/ssz/[merkleization, ssz_serialization]
 
 cli do(pre: string, blck: string, post: string, verifyStateRoot = true):
@@ -14,7 +14,9 @@ cli do(pre: string, blck: string, post: string, verifyStateRoot = true):
 
   stateY.root = hash_tree_root(stateY.data)
 
-  if not state_transition(defaultRuntimePreset, stateY[], blckX, flags, noRollback):
+  var preset = altonaMetadata.runtimePreset
+
+  if not state_transition(preset, stateY[], blckX, flags, noRollback):
     error "State transition failed"
     quit 1
   else:

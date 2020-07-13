@@ -93,7 +93,7 @@ proc extractRuntimePreset*(configPath: string, configData: PresetFile): RuntimeP
 proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
                              {.raises: [CatchableError, Defect].} =
   try:
-    let
+    var
       genesisPath = path / "genesis.ssz"
       configPath = path / "config.yaml"
       depositContractPath = path / "deposit_contract.txt"
@@ -116,6 +116,15 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
 
       genesisData = if fileExists(genesisPath): readFile(genesisPath)
                     else: ""
+
+    # TODO metadata loading is broken
+    if "altona" in path:
+      runtimePreset = RuntimePreset(
+        GENESIS_FORK_VERSION: Version([byte 0x01, 0x12, 0x00, 0x00]),
+        GENESIS_DELAY: uint64(172800),
+        MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: uint64(640),
+        MIN_GENESIS_TIME: uint64(1593433800),
+      )
 
     Eth2NetworkMetadata(
       incompatible: false,
