@@ -48,8 +48,10 @@ switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
 
 switch("import", "testutils/moduletests")
 
+# TODO: figure out what corrupts the stack on 64-bit Windows, preventing us from
+# traversing it with libunwind
 const useLibStackTrace = not defined(macosx) and
-                         not (defined(windows) and defined(i386)) and
+                         not defined(windows) and
                          not defined(disable_libbacktrace)
 
 when useLibStackTrace:
