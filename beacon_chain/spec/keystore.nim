@@ -137,15 +137,20 @@ proc getRandomBytes*(rng: var BrHmacDrbgContext, n: Natural): seq[byte]
   result = newSeq[byte](n)
   brHmacDrbgGenerate(rng, result)
 
-macro wordListArray(filename: static string): array[wordListLen, cstring] =
+macro wordListArray*(filename: static string,
+                     maxWords: static int = 0,
+                     minWordLength: static int = 0): untyped =
   result = newTree(nnkBracket)
   var words = slurp(filename).split()
-  words.setLen wordListLen
   for word in words:
-    result.add newCall("cstring", newLit(word))
+    if word.len >= minWordLength:
+      result.add newCall("cstring", newLit(word))
+      if maxWords > 0 and result.len >= maxWords:
+        return
 
 const
-  englishWords = wordListArray "english_word_list.txt"
+  englishWords = wordListArray("english_word_list.txt",
+                                maxWords = wordListLen)
 
 iterator pathNodesImpl(path: string): Natural
                       {.raises: [ValueError].} =

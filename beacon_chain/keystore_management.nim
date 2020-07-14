@@ -1,5 +1,5 @@
 import
-  os, strutils, terminal,
+  std/[os, strutils, terminal, wordwrap],
   stew/byteutils, chronicles, chronos, web3, stint, json_serialization,
   serialization, blscurve, eth/common/eth_types, eth/keys, confutils, bearssl,
   spec/[datatypes, digest, crypto, keystore],
@@ -161,6 +161,156 @@ proc loadDeposits*(depositsDir: string): seq[Deposit] =
     error "Deposits directory not accessible",
            path = depositsDir, err = err.msg
     quit 1
+
+const
+  minPasswordLen = 10
+
+  mostCommonPasswords = wordListArray(
+    currentSourcePath.parentDir /
+      "../vendor/nimbus-security-resources/passwords/10-million-password-list-top-100000.txt",
+    minWordLength = minPasswordLen)
+
+proc createWalletInteractively*(
+    rng: var BrHmacDrbgContext,
+    conf: BeaconNodeConf): Result[OutFile, cstring] =
+
+  if conf.nonInteractive:
+    return err "Wallets can be created only in interactive mode"
+
+  var mnemonic = generateMnemonic(rng)
+  defer: burnMem(mnemonic)
+
+  template ask(prompt: string): string =
+    try:
+      stdout.write prompt, ": "
+      stdin.readLine()
+    except IOError:
+      return err "Failed to read data from stdin"
+
+  template echo80(msg: string) =
+    echo wrapWords(msg, 80)
+
+  proc readPasswordInput(prompt: string, password: var TaintedString): bool =
+    try: readPasswordFromStdin(prompt, password)
+    except IOError: false
+
+  echo80 "The generated wallet is uniquely identified by a seed phrase " &
+         "consisting of 24 words. In case you lose your wallet and you " &
+         "need to restore it on a different machine, you must use the " &
+         "words displayed below:"
+
+  try:
+    echo ""
+    stdout.setStyle({styleBright})
+    stdout.setForegroundColor fgCyan
+    echo80 $mnemonic
+    stdout.resetAttributes()
+    echo ""
+  except IOError, ValueError:
+    return err "Failed to write to the standard output"
+
+  echo80 "Please back up the seed phrase now to a safe location as " &
+         "if you are protecting a sensitive password. The seed phrase " &
+         "can be used to withdrawl funds from your wallet."
+
+  echo ""
+  echo "Did you back up your seed recovery phrase?\p" &
+       "(please type 'yes' to continue or press enter to quit)"
+
+  while true:
+    let answer = ask "Answer"
+    if answer == "":
+      return err "Wallet creation aborted"
+    elif answer != "yes":
+      echo "To continue, please type 'yes' (without the quotes) or press enter to quit"
+    else:
+      break
+
+  echo ""
+  echo80 "When you perform operations with your wallet such as withdrawals " &
+         "and additional deposits, you'll be asked to enter a password. " &
+         "Please note that this password is local to the current Nimbus " &
+         "installation and can be changed at any time."
+  echo ""
+
+  while true:
+    var password, confirmedPassword: TaintedString
+    try:
+      var firstTry = true
+
+      template prompt: string =
+        if firstTry:
+          "Please enter a password:"
+        else:
+          "Please enter a new password:"
+
+      while true:
+        if not readPasswordInput(prompt, password):
+          return err "Failed to read a password from stdin"
+
+        if password.len < minPasswordLen:
+          try:
+            echo "The entered password should be at least $1 characters." %
+                 [$minPasswordLen]
+          except ValueError as err:
+            raiseAssert "The format string above is correct"
+        elif password in mostCommonPasswords:
+          echo80 "The entered password is too commonly used and it would be easy " &
+                 "to brute-force with automated tools."
+        else:
+          break
+
+        firstTry = false
+
+      if not readPasswordInput("Please repeat the password:", confirmedPassword):
+        return err "Failed to read a password from stdin"
+
+      if password != confirmedPassword:
+        echo "Passwords don't match, please try again"
+        continue
+
+      var name: WalletName
+      if conf.createdWalletName.isSome:
+        name = conf.createdWalletName.get
+      else:
+        echo ""
+        echo80 "For your convenience, the wallet can be identified with a name " &
+               "of your choice. Please enter a wallet name below or press ENTER " &
+               "to continue with a machine-generated name."
+
+        while true:
+          var enteredName = ask "Wallet name"
+          if enteredName.len > 0:
+            name = try: WalletName.parseCmdArg(enteredName)
+                   except CatchableError as err:
+                     echo err.msg & ". Please try again."
+                     continue
+          break
+
+      let (uuid, walletContent) = KdfPbkdf2.createWalletContent(
+                                    rng, mnemonic,
+                                    name = name,
+                                    password = KeyStorePass password)
+      try:
+        var outWalletFile: OutFile
+
+        if conf.createdWalletFile.isSome:
+          outWalletFile = conf.createdWalletFile.get
+          createDir splitFile(string outWalletFile).dir
+        else:
+          let walletsDir = conf.walletsDir
+          createDir walletsDir
+          outWalletFile = OutFile(walletsDir / addFileExt(string uuid, "json"))
+
+        writeFile(string outWalletFile, string walletContent)
+        echo "Wallet file written to ", outWalletFile
+        return ok outWalletFile
+      except CatchableError as err:
+        return err "Failed to write wallet file"
+
+    finally:
+      burnMem(password)
+      burnMem(confirmedPassword)
 
 {.pop.}
 

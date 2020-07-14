@@ -268,6 +268,10 @@ type
           desc: "Initial value for the 'nextaccount' property of the wallet"
           name: "next-account" }: Option[Natural]
 
+        outWalletsDirFlag* {.
+          desc: "A directory containing wallet files"
+          name: "wallets-dir" }: Option[OutDir]
+
         createdWalletFile* {.
           desc: "Output wallet file"
           name: "out" }: Option[OutFile]
@@ -295,6 +299,11 @@ type
         defaultValue: ""
         desc: "Private key of the controlling (sending) account",
         name: "deposit-private-key" }: string
+
+      depositsDir* {.
+        defaultValue: "validators"
+        desc: "A folder with validator metadata created by the `deposits create` command"
+        name: "deposits-dir" }: string
 
       case depositsCmd* {.command.}: DepositsCmd
       of DepositsCmd.create:
@@ -331,11 +340,6 @@ type
           name: "dont-send" .}: bool
 
       of DepositsCmd.send:
-        depositsDir* {.
-          defaultValue: "validators"
-          desc: "A folder with validator metadata created by the `deposits create` command"
-          name: "deposits-dir" }: string
-
         minDelay* {.
           defaultValue: 0.0
           desc: "Minimum possible delay between making two deposits (in seconds)"
@@ -474,7 +478,18 @@ func secretsDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
   string conf.secretsDirFlag.get(InputDir(conf.dataDir / "secrets"))
 
 func walletsDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
-  string conf.walletsDirFlag.get(InputDir(conf.dataDir / "wallets"))
+  case conf.cmd
+  of noCommand:
+    if conf.walletsDirFlag.isSome:
+      return conf.walletsDirFlag.get.string
+  of wallets:
+    doAssert conf.walletsCmd == WalletsCmd.create
+    if conf.outWalletsDirFlag.isSome:
+      return conf.outWalletsDirFlag.get.string
+  else:
+    raiseAssert "Inappropraite call to walletsDir"
+
+  return conf.dataDir / "wallets"
 
 func databaseDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
   conf.dataDir / "db"
