@@ -10,22 +10,21 @@
 
 import
   # Specs
-  ../../beacon_chain/spec/[datatypes, beaconstate],
+  ../../beacon_chain/spec/[datatypes, beaconstate, presets],
   # Internals
-  ../../beacon_chain/[extras, interop],
+  ../../beacon_chain/interop,
   # Mocking procs
   ./mock_deposits
-
 
 proc initGenesisState*(num_validators: uint64, genesis_time: uint64 = 0): HashedBeaconState =
   let deposits = mockGenesisBalancedDeposits(
       validatorCount = num_validators,
       amountInEth = 32, # We create canonical validators with 32 Eth
-      flags = {skipBlsValidation}
+      flags = {}
     )
 
   initialize_hashed_beacon_state_from_eth1(
-    eth1BlockHash, 0, deposits, {skipBlsValidation})
+    defaultRuntimePreset, eth1BlockHash, 0, deposits, {})
 
 when isMainModule:
   # Smoke test

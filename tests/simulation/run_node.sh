@@ -81,18 +81,12 @@ if [ -f "${SNAPSHOT_FILE}" ]; then
   SNAPSHOT_ARG="--state-snapshot=${SNAPSHOT_FILE}"
 fi
 
-DEPOSIT_CONTRACT_ARGS=""
-if [ -f "${DEPOSIT_CONTRACT_FILE}" ]; then
-  DEPOSIT_CONTRACT_ARGS="$WEB3_ARG \
-    --deposit-contract=$(cat $DEPOSIT_CONTRACT_FILE) \
-    --deposit-contract-block=$(cat $DEPOSIT_CONTRACT_BLOCK_FILE)"
-fi
-
 cd "$NODE_DATA_DIR"
 
 $BEACON_NODE_BIN \
   --log-level=${LOG_LEVEL:-DEBUG} \
   $BOOTSTRAP_ARG \
+  --network=$NETWORK_METADATA_FILE \
   --data-dir=$NODE_DATA_DIR \
   --secrets-dir=$NODE_SECRETS_DIR \
   --node-name=$NODE_ID \
@@ -100,7 +94,7 @@ $BEACON_NODE_BIN \
   --udp-port=$PORT \
   $SNAPSHOT_ARG \
   $NAT_ARG \
-  $DEPOSIT_CONTRACT_ARGS \
+  $WEB3_ARG \
   --rpc \
   --rpc-address="127.0.0.1" \
   --rpc-port="$(( $BASE_RPC_PORT + $NODE_ID ))" \

@@ -74,7 +74,7 @@ type
     pending*: Table[uint64, SyncRequest[T]]
     waiters: seq[SyncWaiter[T]]
     syncUpdate*: SyncUpdateCallback[T]
-    getFirstSlotAFE*: GetSlotCallback
+    getFinalizedSlot*: GetSlotCallback
     debtsQueue: HeapQueue[SyncRequest[T]]
     debtsCount: uint64
     readyQueue: HeapQueue[SyncResult[T]]
@@ -91,7 +91,7 @@ type
     toleranceValue: uint64
     getLocalHeadSlot: GetSlotCallback
     getLocalWallSlot: GetSlotCallback
-    getFirstSlotAFE: GetSlotCallback
+    getFinalizedSlot: GetSlotCallback
     syncUpdate: SyncUpdateCallback[A]
     chunkSize: uint64
     queue: SyncQueue[A]
@@ -208,7 +208,7 @@ proc isEmpty*[T](sr: SyncRequest[T]): bool {.inline.} =
 proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
               start, last: Slot, chunkSize: uint64,
               updateCb: SyncUpdateCallback[T],
-              fsafeCb: GetSlotCallback,
+              getFinalizedSlotCb: GetSlotCallback,
               queueSize: int = -1): SyncQueue[T] =
   ## Create new synchronization queue with parameters
   ##
@@ -268,7 +268,7 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
     chunkSize: chunkSize,
     queueSize: queueSize,
     syncUpdate: updateCb,
-    getFirstSlotAFE: fsafeCb,
+    getFinalizedSlot: getFinalizedSlotCb,
     waiters: newSeq[SyncWaiter[T]](),
     counter: 1'u64,
     pending: initTable[uint64, SyncRequest[T]](),
@@ -440,7 +440,8 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
             request_count = item.request.count,
             request_step = item.request.step,
             blocks_map = getShortMap(item.request, item.data),
-            blocks_count = len(item.data), errCode = res.error
+            blocks_count = len(item.data), errCode = res.error,
+            topics = "syncman"
 
       var resetSlot: Option[Slot]
 
@@ -449,13 +450,13 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         # of blocks with holes or `block_pool` is in incomplete state. We going
         # to rewind to the first slot at latest finalized epoch.
         let req = item.request
-        let finalizedSlot = sq.getFirstSlotAFE()
+        let finalizedSlot = sq.getFinalizedSlot()
         if finalizedSlot < req.slot:
           warn "Unexpected missing parent, rewind happens",
                peer = req.item, rewind_to_slot = finalizedSlot,
                request_slot = req.slot, request_count = req.count,
                request_step = req.step, blocks_count = len(item.data),
-               blocks_map = getShortMap(req, item.data)
+               blocks_map = getShortMap(req, item.data), topics = "syncman"
           resetSlot = some(finalizedSlot)
           req.item.updateScore(PeerScoreMissingBlocks)
         else:
@@ -463,21 +464,22 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
                 peer = req.item, to_slot = finalizedSlot,
                 request_slot = req.slot, request_count = req.count,
                 request_step = req.step, blocks_count = len(item.data),
-                blocks_map = getShortMap(req, item.data)
+                blocks_map = getShortMap(req, item.data), topics = "syncman"
           req.item.updateScore(PeerScoreBadBlocks)
       elif res.error == BlockError.Invalid:
         let req = item.request
         warn "Received invalid sequence of blocks", peer = req.item,
               request_slot = req.slot, request_count = req.count,
               request_step = req.step, blocks_count = len(item.data),
-              blocks_map = getShortMap(req, item.data)
+              blocks_map = getShortMap(req, item.data), topics = "syncman"
         req.item.updateScore(PeerScoreBadBlocks)
       else:
         let req = item.request
         warn "Received unexpected response from block_pool", peer = req.item,
              request_slot = req.slot, request_count = req.count,
              request_step = req.step, blocks_count = len(item.data),
-             blocks_map = getShortMap(req, item.data), errorCode = res.error
+             blocks_map = getShortMap(req, item.data), errorCode = res.error,
+             topics = "syncman"
         req.item.updateScore(PeerScoreBadBlocks)
 
       # We need to move failed response to the debts queue.
@@ -486,7 +488,8 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         await sq.resetWait(resetSlot)
         debug "Rewind to slot was happened", reset_slot = reset_slot.get(),
                                              queue_input_slot = sq.inpSlot,
-                                             queue_output_slot = sq.outSlot
+                                             queue_output_slot = sq.outSlot,
+                                             topics = "syncman"
       break
 
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T]) =
@@ -566,7 +569,7 @@ proc speed*(start, finish: SyncMoment): float {.inline.} =
 proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            getLocalHeadSlotCb: GetSlotCallback,
                            getLocalWallSlotCb: GetSlotCallback,
-                           getFSAFECb: GetSlotCallback,
+                           getFinalizedSlotCb: GetSlotCallback,
                            updateLocalBlocksCb: UpdateLocalBlocksCallback,
                            maxWorkers = 10,
                            maxStatusAge = uint64(SLOTS_PER_EPOCH * 4),
@@ -586,8 +589,8 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
       peer.updateScore(PeerScoreGoodBlocks)
     return res
 
-  let queue = SyncQueue.init(A, getLocalHeadSlotCb(), getLocalWallSlotCb(),
-                             chunkSize, syncUpdate, getFSAFECb, 2)
+  let queue = SyncQueue.init(A, getFinalizedSlotCb(), getLocalWallSlotCb(),
+                             chunkSize, syncUpdate, getFinalizedSlotCb, 2)
 
   result = SyncManager[A, B](
     pool: pool,
@@ -596,7 +599,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     getLocalHeadSlot: getLocalHeadSlotCb,
     syncUpdate: syncUpdate,
     getLocalWallSlot: getLocalWallSlotCb,
-    getFirstSlotAFE: getFSAFECb,
+    getFinalizedSlot: getFinalizedSlotCb,
     maxHeadAge: maxHeadAge,
     maxRecurringFailures: maxRecurringFailures,
     sleepTime: sleepTime,
@@ -824,7 +827,7 @@ proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
           debug "Syncing process is not progressing, reset the queue",
                 workers_count = workersCount(),
                 to_slot = man.queue.outSlot,
-                local_head_slot = lsm1.slot
+                local_head_slot = lsm1.slot, topics = "syncman"
           await man.queue.resetWait(none[Slot]())
         else:
           syncSpeed = speed(lsm1, lsm2)
@@ -875,9 +878,9 @@ proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
                 debug "Synchronization lost, restoring",
                       wall_head_slot = wallSlot, local_head_slot = headSlot,
                       queue_last_slot = man.queue.lastSlot, topics = "syncman"
-                man.queue = SyncQueue.init(A, headSlot, wallSlot,
+                man.queue = SyncQueue.init(A, man.getFinalizedSlot(), wallSlot,
                                            man.chunkSize, man.syncUpdate,
-                                           man.getFirstSlotAFE, 2)
+                                           man.getFinalizedSlot, 2)
 
               debug "Synchronization loop starting new worker", peer = peer,
                     wall_head_slot = wallSlot, local_head_slot = headSlot,
@@ -924,7 +927,7 @@ proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
         await sleepAsync(man.sleepTime)
       else:
         debug "Synchronization loop waiting for workers completion",
-              workers_count = workersCount()
+              workers_count = workersCount(), topics = "syncman"
         discard await withTimeout(one(pending), man.sleepTime)
     else:
       man.inProgress = true

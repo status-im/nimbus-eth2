@@ -10,10 +10,10 @@
 import
   times, unittest,
   ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[beaconstate, datatypes, digest]
+  ../beacon_chain/spec/[beaconstate, datatypes, digest, presets]
 
 suiteReport "Beacon state" & preset():
   timedTest "Smoke test initialize_beacon_state_from_eth1" & preset():
     let state = initialize_beacon_state_from_eth1(
-      Eth2Digest(), 0, makeInitialDeposits(SLOTS_PER_EPOCH, {}), {})
-    check: state.validators.len == SLOTS_PER_EPOCH
+      defaultRuntimePreset, Eth2Digest(), 0, makeInitialDeposits(SLOTS_PER_EPOCH, {}), {})
+    check: state.validators.len == SLOTS_PER_EPOCH.int

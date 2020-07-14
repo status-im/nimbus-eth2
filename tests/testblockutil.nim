@@ -8,10 +8,11 @@
 import
   options, stew/endians2,
   chronicles, eth/trie/[db],
-  ../beacon_chain/[beacon_chain_db, block_pool, extras, merkle_minimal,
-  ../beacon_chain/ssz/merkleization, validator_pool],
-  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest,
-    helpers, validator, signatures, state_transition]
+  ../beacon_chain/[beacon_chain_db, block_pool, extras,
+                   merkle_minimal, validator_pool],
+  ../beacon_chain/ssz/merkleization,
+  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, presets,
+                        helpers, validator, signatures, state_transition]
 
 func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
   # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
@@ -53,7 +54,8 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
   )
 
   if skipBLSValidation notin flags:
-    result.data.signature = get_deposit_signature(result.data, privkey)
+    result.data.signature = get_deposit_signature(
+      defaultRuntimePreset, result.data, privkey)
 
 proc makeInitialDeposits*(
     n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}): seq[Deposit] =
@@ -89,10 +91,10 @@ proc addTestBlock*(
     eth1_data = Eth1Data(),
     attestations = newSeq[Attestation](),
     deposits = newSeq[Deposit](),
-    graffiti = Eth2Digest(),
+    graffiti = default(GraffitiBytes),
     flags: set[UpdateFlag] = {}): SignedBeaconBlock =
   # Create and add a block to state - state will advance by one slot!
-  advance_slot(state, err(Opt[Eth2Digest]), flags, cache)
+  advance_slot(state, flags, cache)
 
   let
     proposer_index = get_beacon_proposer_index(state.data, cache)
@@ -106,6 +108,7 @@ proc addTestBlock*(
 
   let
     message = makeBeaconBlock(
+      defaultRuntimePreset,
       state,
       proposer_index.get(),
       parent_root,
@@ -137,13 +140,13 @@ proc makeTestBlock*(
     eth1_data = Eth1Data(),
     attestations = newSeq[Attestation](),
     deposits = newSeq[Deposit](),
-    graffiti = Eth2Digest(),
+    graffiti = default(GraffitiBytes),
     flags: set[UpdateFlag] = {}): SignedBeaconBlock =
   # Create a block for `state.slot + 1` - like a block proposer would do!
   # It's a bit awkward - in order to produce a block for N+1, we need to
   # calculate what the state will look like after that block has been applied,
   # because the block includes the state root.
-  var tmpState = newClone(state)
+  var tmpState = assignClone(state)
   addTestBlock(
     tmpState[], parent_root, cache, eth1_data, attestations, deposits,
     graffiti, flags)

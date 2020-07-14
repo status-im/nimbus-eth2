@@ -10,7 +10,7 @@ import
   os, tables, strutils,
 
   # Nimble packages
-  stew/[byteutils, objects], stew/shims/macros,
+  stew/[objects], stew/shims/macros,
   chronos, metrics, json_rpc/[rpcserver, jsonmarshal],
   chronicles,
   json_serialization/std/[options, sets, net], serialization/errors,
@@ -73,7 +73,7 @@ func getAttachedValidator*(node: BeaconNode,
   let validatorKey = state.validators[idx].pubkey
   node.attachedValidators.getValidator(validatorKey)
 
-proc isSynced(node: BeaconNode, head: BlockRef): bool =
+proc isSynced*(node: BeaconNode, head: BlockRef): bool =
   ## TODO This function is here as a placeholder for some better heurestics to
   ##      determine if we're in sync and should be producing blocks and
   ##      attestations. Generally, the problem is that slot time keeps advancing
@@ -160,7 +160,7 @@ type
 proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     val_info: ValidatorInfoForMakeBeaconBlock,
                                     validator_index: ValidatorIndex,
-                                    graffiti: Eth2Digest,
+                                    graffiti: GraffitiBytes,
                                     head: BlockRef,
                                     slot: Slot):
     tuple[message: Option[BeaconBlock], fork: Fork, genesis_validators_root: Eth2Digest] =
@@ -198,6 +198,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
 
     var cache = get_empty_per_epoch_cache()
     let message = makeBeaconBlock(
+      node.config.runtimePreset,
       hashedState,
       validator_index,
       head.root,
@@ -223,7 +224,13 @@ proc proposeSignedBlock*(node: BeaconNode,
                          validator: AttachedValidator,
                          newBlock: SignedBeaconBlock,
                          blockRoot: Eth2Digest): Future[BlockRef] {.async.} =
-  let newBlockRef = node.blockPool.add(blockRoot, newBlock)
+
+  {.gcsafe.}: # TODO: fork choice and blockpool should sync via messages instead of callbacks
+    let newBlockRef = node.blockPool.addRawBlock(blockRoot, newBlock) do (validBlock: BlockRef):
+      # Callback Add to fork choice
+      # node.attestationPool.addForkChoice_v2(validBlock)
+      discard "TODO: Deactivated"
+
   if newBlockRef.isErr:
     warn "Unable to add proposed block to block pool",
       newBlock = shortLog(newBlock.message),
@@ -264,11 +271,8 @@ proc proposeBlock(node: BeaconNode,
       cat = "fastforward"
     return head
 
-  var graffiti: Eth2Digest
-  graffiti.data[0..<5] = toBytes("quack")
   let valInfo = ValidatorInfoForMakeBeaconBlock(kind: viValidator, validator: validator)
-  let beaconBlockTuple = makeBeaconBlockForHeadAndSlot(node, valInfo, validator_index, graffiti, head, slot)
-
+  let beaconBlockTuple = makeBeaconBlockForHeadAndSlot(node, valInfo, validator_index, node.graffitiBytes, head, slot)
   if not beaconBlockTuple.message.isSome():
     return head # already logged elsewhere!
   var
@@ -323,7 +327,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # We need to run attestations exactly for the slot that we're attesting to.
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/validator/0_beacon-chain-validator.md#validator-assignments
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#validator-assignments
   # TODO we could cache the validator assignment since it's valid for the entire
   #      epoch since it doesn't change, but that has to be weighed against
   #      the complexity of handling forks correctly - instead, we use an adapted
@@ -337,7 +341,13 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
           cache.shuffled_active_validator_indices[
             slot.compute_epoch_at_slot].len.uint64
         except KeyError:
-          raiseAssert "getEpochCache(...) didn't fill cache"
+          when false:
+            # TODO re-enable when getEpochCache() works
+            raiseAssert "getEpochCache(...) didn't fill cache"
+          let epoch = slot.compute_epoch_at_slot
+          cache.shuffled_active_validator_indices[epoch] =
+            get_shuffled_active_validator_indices(state, epoch)
+          cache.shuffled_active_validator_indices[epoch].len.uint64
 
     for committee_index in 0'u64..<committees_per_slot:
       let committee = get_beacon_committee(

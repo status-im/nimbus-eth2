@@ -22,7 +22,7 @@ jobs:
       - task: CacheBeta@1
         displayName: 'cache official test fixtures'
         inputs:
-          key: jsonTestsCache
+          key: jsonTestsCacheV1
           path: jsonTestsCache
 
       - task: CacheBeta@1
@@ -67,7 +67,7 @@ jobs:
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE
           if [[ $PLATFORM == "x64" ]]; then
             # everything builds more slowly on 32-bit, since there's no libbacktrace support
-            mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image"
+            mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" beacon_node
           fi
           file build/beacon_node
           # fail fast

@@ -10,8 +10,10 @@
 import
   # Standard library
   os, unittest,
+  # Utilities
+  stew/results,
   # Beacon chain internals
-  ../../beacon_chain/spec/[datatypes, beaconstate],
+  ../../beacon_chain/spec/[datatypes, beaconstate, presets],
   ../../beacon_chain/[ssz, extras],
   # Test utilities
   ../testutil,
@@ -45,10 +47,10 @@ proc runTest(identifier: string) =
 
       if existsFile(testDir/"post.ssz"):
         let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
-        discard process_deposit(preState[], deposit, flags)
+        discard process_deposit(defaultRuntimePreset, preState[], deposit, flags)
         reportDiff(preState, postState)
       else:
-        check not process_deposit(preState[], deposit, flags)
+        check process_deposit(defaultRuntimePreset, preState[], deposit, flags).isErr
 
   `testImpl _ operations_deposits _ identifier`()
 

@@ -13,6 +13,15 @@ BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
+BUILD_LOG_LEVEL := TRACE
+LOG_LEVEL := DEBUG
+NODE_ID := 0
+BASE_PORT := 9000
+BASE_RPC_PORT := 9190
+BASE_METRICS_PORT := 8008
+GOERLI_WEB3_URL := "wss://goerli.infura.io/ws/v3/6224f3c792cc443fafb64e70a98f871e"
+VALIDATORS := 1
+
 # unconditionally built by the default Make target
 TOOLS := \
 	beacon_node \
@@ -88,11 +97,13 @@ ifeq ($(OS), Windows_NT)
   endif
 endif
 
+CHRONICLES_PARAMS := -d:chronicles_log_level=$(BUILD_LOG_LEVEL)
+
 # "--define:release" implies "--stacktrace:off" and it cannot be added to config.nims
 ifeq ($(USE_LIBBACKTRACE), 0)
-NIM_PARAMS := $(NIM_PARAMS) -d:debug -d:disable_libbacktrace
+NIM_PARAMS := $(NIM_PARAMS) $(CHRONICLES_PARAMS) -d:debug -d:disable_libbacktrace
 else
-NIM_PARAMS := $(NIM_PARAMS) -d:release
+NIM_PARAMS := $(NIM_PARAMS) $(CHRONICLES_PARAMS) -d:release
 endif
 
 deps: | deps-common nat-libs beacon_chain.nims
@@ -133,6 +144,16 @@ clean_eth2_network_simulation_data:
 clean_eth2_network_simulation_all:
 	rm -rf tests/simulation/{data,validators}
 
+GOERLI_TESTNETS_PARAMS := \
+  --dump \
+  --web3-url=$(GOERLI_WEB3_URL) \
+  --tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
+  --udp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
+  --metrics \
+  --metrics-port=$$(( $(BASE_METRICS_PORT) + $(NODE_ID) )) \
+  --rpc \
+  --rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) ))
+
 eth2_network_simulation: | build deps clean_eth2_network_simulation_data
 	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start-in-tmux.sh
 
@@ -142,20 +163,36 @@ clean-testnet0:
 clean-testnet1:
 	rm -rf build/data/testnet1*
 
-# - we're getting the preset from a testnet-specific .env file
-# - try SCRIPT_PARAMS="--skipGoerliKey"
-testnet0 testnet1: | build deps
-	source scripts/$@.env; \
-		NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) --const-preset=$$CONST_PRESET --dev-build $@
+testnet0 testnet1: | beacon_node
+	build/beacon_node \
+		--network=$@ \
+		--log-level="$(LOG_LEVEL)" \
+		--data-dir=build/data/$@_$(NODE_ID) \
+		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
 clean-altona:
 	rm -rf build/data/shared_altona*
 
-altona: | build deps
-	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="$(LOG_LEVEL)" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/altona
+altona-deposit: | beacon_node
+	build/beacon_node deposits create \
+		--network=altona \
+		--count=$(VALIDATORS)	\
+		--ask-for-key \
+		--web3-url=$(GOERLI_WEB3_URL)
 
-altona-dev: | build deps
-	NIM_PARAMS="$(NIM_PARAMS)" LOG_LEVEL="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" $(ENV_SCRIPT) nim $(NIM_PARAMS) scripts/connect_to_testnet.nims $(SCRIPT_PARAMS) shared/altona
+altona: | beacon_node
+	build/beacon_node \
+		--network=altona \
+		--log-level="$(LOG_LEVEL)" \
+		--data-dir=build/data/shared_altona_$(NODE_ID) \
+		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
+
+altona-dev: | beacon_node
+	build/beacon_node \
+		--network=altona \
+		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
+		--data-dir=build/data/shared_altona_$(NODE_ID) \
+		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
 ctail: | build deps
 	mkdir -p vendor/.nimble/bin/
@@ -184,13 +221,21 @@ libnfuzz.a: | build deps
 		[[ -e "$@" ]] && mv "$@" build/ # workaround for https://github.com/nim-lang/Nim/issues/12745
 
 book:
-	cd docs && \
+	cd docs/the_nimbus_book && \
 	mdbook build
 
-publish-book: | book
+auditors-book:
+	cd docs/the_auditors_handbook && \
+	mdbook build
+
+publish-book: | book auditors-book
+	git branch -D gh-pages && \
+	git branch --track gh-pages origin/gh-pages && \
 	git worktree add tmp-book gh-pages && \
 	rm -rf tmp-book/* && \
-	cp -a docs/book/* tmp-book/ && \
+	mkdir -p tmp-book/auditors-book && \
+	cp -a docs/the_nimbus_book/book/* tmp-book/ && \
+	cp -a docs/the_auditors_handbook/book/* tmp-book/auditors-book/ && \
 	cd tmp-book && \
 	git add . && { \
 		git commit -m "make publish-book" && \

@@ -11,10 +11,14 @@
 import
   # Standard library
   math, random,
+
   # Specs
-  ../../beacon_chain/spec/[datatypes, crypto, digest, keystore, signatures],
+  ../../beacon_chain/spec/[datatypes, crypto, digest,
+                           keystore, signatures, presets],
+
   # Internals
   ../../beacon_chain/[ssz, extras, merkle_minimal],
+
   # Mocking procs
   ./mock_validator_keys
 
@@ -38,7 +42,7 @@ func mockDepositData(
       ): DepositData =
   var ret = mockDepositData(pubkey, amount)
   if skipBlsValidation notin flags:
-    ret.signature = get_deposit_signature(ret, privkey)
+    ret.signature = defaultRuntimePreset.get_deposit_signature(ret, privkey)
   ret
 
 template mockGenesisDepositsImpl(

@@ -25,10 +25,10 @@ import
   macros, hashes, json, strutils, tables, typetraits,
   stew/[byteutils], chronicles,
   json_serialization/types as jsonTypes,
-  ../ssz/types as sszTypes, ./crypto, ./digest
+  ../version, ../ssz/types as sszTypes, ./crypto, ./digest, ./presets
 
 export
-  sszTypes
+  sszTypes, presets
 
 # TODO Data types:
 # Presently, we're reusing the data types from the serialization (uint64) in the
@@ -46,29 +46,12 @@ export
 # Eventually, we could also differentiate between user/tainted data and
 # internal state that's gone through sanity checks already.
 
-# Constant presets
-const const_preset* {.strdefine.} = "mainnet"
-
-when const_preset == "mainnet":
-  import ./presets/v0_12_1/mainnet
-  export mainnet
-elif const_preset == "minimal":
-  import ./presets/v0_12_1/minimal
-  export minimal
-else:
-  type
-    Slot* = distinct uint64
-    Epoch* = distinct uint64
-
-  import ./presets/custom
-  loadCustomPreset const_preset
-
 const
   SPEC_VERSION* = "0.12.1" ## \
   ## Spec version we're aiming to be compatible with, right now
 
   GENESIS_SLOT* = Slot(0)
-  GENESIS_EPOCH* = (GENESIS_SLOT.int div SLOTS_PER_EPOCH).Epoch ##\
+  GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
   ## compute_epoch_at_slot(GENESIS_SLOT)
 
   FAR_FUTURE_EPOCH* = (not 0'u64).Epoch # 2^64 - 1 in spec
@@ -140,17 +123,17 @@ type
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#indexedattestation
   IndexedAttestation* = object
     # TODO ValidatorIndex, but that doesn't serialize properly
-    attesting_indices*: List[uint64, MAX_VALIDATORS_PER_COMMITTEE]
+    attesting_indices*: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]
     data*: AttestationData
     signature*: ValidatorSig
 
   TrustedIndexedAttestation* = object
     # TODO ValidatorIndex, but that doesn't serialize properly
-    attesting_indices*: List[uint64, MAX_VALIDATORS_PER_COMMITTEE]
+    attesting_indices*: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]
     data*: AttestationData
     signature*: TrustedSig
 
-  CommitteeValidatorsBits* = BitList[MAX_VALIDATORS_PER_COMMITTEE]
+  CommitteeValidatorsBits* = BitList[Limit MAX_VALIDATORS_PER_COMMITTEE]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#attestation
   Attestation* = object
@@ -163,7 +146,6 @@ type
     data*: AttestationData
     signature*: TrustedSig
 
-  Version* = distinct array[4, byte]
   ForkDigest* = distinct array[4, byte]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#forkdata
@@ -275,30 +257,32 @@ type
     object_root*: Eth2Digest
     domain*: Domain
 
+  GraffitiBytes* = distinct array[32, byte]
+
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
-    graffiti*: Eth2Digest # TODO make that raw bytes
+    graffiti*: GraffitiBytes
 
     # Operations
-    proposer_slashings*: List[ProposerSlashing, MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[AttesterSlashing, MAX_ATTESTER_SLASHINGS]
-    attestations*: List[Attestation, MAX_ATTESTATIONS]
-    deposits*: List[Deposit, MAX_DEPOSITS]
-    voluntary_exits*: List[SignedVoluntaryExit, MAX_VOLUNTARY_EXITS]
+    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
+    deposits*: List[Deposit, Limit MAX_DEPOSITS]
+    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
   TrustedBeaconBlockBody* = object
     randao_reveal*: TrustedSig
     eth1_data*: Eth1Data
-    graffiti*: Eth2Digest # TODO make that raw bytes
+    graffiti*: GraffitiBytes
 
     # Operations
-    proposer_slashings*: List[ProposerSlashing, MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[AttesterSlashing, MAX_ATTESTER_SLASHINGS]
-    attestations*: List[TrustedAttestation, MAX_ATTESTATIONS]
-    deposits*: List[Deposit, MAX_DEPOSITS]
-    voluntary_exits*: List[SignedVoluntaryExit, MAX_VOLUNTARY_EXITS]
+    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
+    deposits*: List[Deposit, Limit MAX_DEPOSITS]
+    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
   SomeSignedBeaconBlock* = SignedBeaconBlock | TrustedSignedBeaconBlock
   SomeBeaconBlock* = BeaconBlock | TrustedBeaconBlock
@@ -318,34 +302,34 @@ type
     latest_block_header*: BeaconBlockHeader ##\
     ## `latest_block_header.state_root == ZERO_HASH` temporarily
 
-    block_roots*: HashArray[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
+    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
     ## Needed to process attestations, older to newer
 
-    state_roots*: HashArray[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
-    historical_roots*: HashList[Eth2Digest, HISTORICAL_ROOTS_LIMIT]
+    state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+    historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
 
     # Eth1
     eth1_data*: Eth1Data
     eth1_data_votes*:
-      HashList[Eth1Data, EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH]
+      HashList[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
     eth1_deposit_index*: uint64
 
     # Registry
-    validators*: HashList[Validator, VALIDATOR_REGISTRY_LIMIT]
-    balances*: HashList[uint64, VALIDATOR_REGISTRY_LIMIT]
+    validators*: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
-    randao_mixes*: HashArray[EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
+    randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
 
     # Slashings
-    slashings*: HashArray[int64(EPOCHS_PER_SLASHINGS_VECTOR), uint64] ##\
+    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
     ## Per-epoch sums of slashed effective balances
 
     # Attestations
     previous_epoch_attestations*:
-      HashList[PendingAttestation, MAX_ATTESTATIONS * SLOTS_PER_EPOCH]
+      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
     current_epoch_attestations*:
-      HashList[PendingAttestation, MAX_ATTESTATIONS * SLOTS_PER_EPOCH]
+      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
 
     # Finality
     justification_bits*: uint8 ##\
@@ -460,7 +444,6 @@ type
   StateCache* = object
     shuffled_active_validator_indices*:
       Table[Epoch, seq[ValidatorIndex]]
-    committee_count_cache*: Table[Epoch, uint64]
     beacon_proposer_indices*: Table[Slot, Option[ValidatorIndex]]
 
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
@@ -607,8 +590,17 @@ template writeValue*(writer: var JsonWriter, value: BitList) =
 
 template newClone*[T: not ref](x: T): ref T =
   # TODO not nil in return type: https://github.com/nim-lang/Nim/issues/14146
+  # TODO use only when x is a function call that returns a new instance!
   let res = new typeof(x) # TODO safe to do noinit here?
   res[] = x
+  res
+
+template assignClone*[T: not ref](x: T): ref T =
+  # This is a bit of a mess: if x is an rvalue (temporary), RVO kicks in for
+  # newClone - if it's not, `genericAssign` will be called which is ridiculously
+  # slow - so `assignClone` should be used when RVO doesn't work. sigh.
+  let res = new typeof(x) # TODO safe to do noinit here?
+  assign(res[], x)
   res
 
 template newClone*[T](x: ref T not nil): ref T =
@@ -685,6 +677,51 @@ chronicles.formatIt Attestation: it.shortLog
 import json_serialization
 export json_serialization
 export writeValue, readValue
+
+const
+  # http://facweb.cs.depaul.edu/sjost/it212/documents/ascii-pr.htm
+  PrintableAsciiChars = {'!'..'~'}
+
+func `$`*(value: GraffitiBytes): string =
+  result = strip(string.fromBytes(distinctBase value),
+                 leading = false,
+                 chars = Whitespace + {'\0'})
+
+  # TODO: Perhaps handle UTF-8 at some point
+  if not allCharsInSet(result, PrintableAsciiChars):
+    result = "0x" & toHex(distinctBase value)
+
+func init*(T: type GraffitiBytes, input: string): GraffitiBytes
+          {.raises: [ValueError, Defect].} =
+  if input.len > 2 and input[0] == '0' and input[1] == 'x':
+    if input.len > sizeof(GraffitiBytes) * 2 + 2:
+      raise newException(ValueError, "The graffiti bytes should be less than 32")
+    elif input.len mod 2 != 0:
+      raise newException(ValueError, "The graffiti hex string should have an even length")
+
+    hexToByteArray(string input, distinctBase(result))
+  else:
+    if input.len > 32:
+      raise newException(ValueError, "The graffiti value should be 32 characters or less")
+    distinctBase(result)[0 ..< input.len] = toBytes(input)
+
+func defaultGraffitiBytes*(): GraffitiBytes =
+  let graffityBytes = toBytes("Nimbus " & fullVersionStr)
+  distinctBase(result)[0 ..< graffityBytes.len] = graffityBytes
+
+proc writeValue*(w: var JsonWriter, value: GraffitiBytes)
+                {.raises: [IOError, Defect].} =
+  w.writeValue $value
+
+template `==`*(lhs, rhs: GraffitiBytes): bool =
+  distinctBase(lhs) == distinctBase(rhs)
+
+proc readValue*(r: var JsonReader, T: type GraffitiBytes): T
+               {.raises: [IOError, SerializationError, Defect].} =
+  try:
+    init(GraffitiBytes, r.readValue(string))
+  except ValueError as err:
+    r.raiseUnexpectedValue err.msg
 
 static:
   # Sanity checks - these types should be trivial enough to copy with memcpy

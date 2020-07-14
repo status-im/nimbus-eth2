@@ -221,7 +221,7 @@ proc payload =
     doAssert genesisState.data.validators.len == int NumValidators
 
     setup:
-      var state = newClone(genesisState[])
+      var state = assignClone(genesisState[])
 
     timedTest " Rule I - 234 finalization with enough support":
       finalizeOn234(state[], Epoch 5, sufficient_support = true)

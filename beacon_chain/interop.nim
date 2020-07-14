@@ -36,6 +36,7 @@ const eth1BlockHash* = block:
   x
 
 func makeDeposit*(
+    preset: RuntimePreset,
     pubkey: ValidatorPubKey, privkey: ValidatorPrivKey, epoch = 0.Epoch,
     amount: Gwei = MAX_EFFECTIVE_BALANCE.Gwei,
     flags: UpdateFlags = {}): Deposit =
@@ -47,6 +48,6 @@ func makeDeposit*(
         withdrawal_credentials: makeWithdrawalCredentials(pubkey)))
 
   if skipBLSValidation notin flags:
-    ret.data.signature = get_deposit_signature(ret.data, privkey)
+    ret.data.signature = preset.get_deposit_signature(ret.data, privkey)
 
   ret

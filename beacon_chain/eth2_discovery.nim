@@ -1,8 +1,8 @@
 {.push raises: [Defect].}
 
 import
-  os, sequtils, strutils,
-  chronicles, stew/shims/net, stew/results, eth/keys, eth/trie/db,
+  os, strutils,
+  chronicles, stew/shims/net, stew/results, eth/keys, eth/trie/db, bearssl,
   eth/p2p/discoveryv5/[enr, protocol, discovery_db, node],
   conf
 
@@ -76,7 +76,7 @@ proc new*(T: type Eth2DiscoveryProtocol,
           conf: BeaconNodeConf,
           ip: Option[ValidIpAddress], tcpPort, udpPort: Port,
           pk: PrivateKey,
-          enrFields: openarray[(string, seq[byte])]):
+          enrFields: openarray[(string, seq[byte])], rng: ref BrHmacDrbgContext):
           T {.raises: [Exception, Defect].} =
   # TODO
   # Implement more configuration options:
@@ -96,5 +96,5 @@ proc new*(T: type Eth2DiscoveryProtocol,
   if fileExists(persistentBootstrapFile):
     loadBootstrapFile(persistentBootstrapFile, bootstrapEnrs, ourPubKey)
 
-  let enrFieldPairs = mapIt(enrFields, toFieldPair(it[0], it[1]))
-  newProtocol(pk, db, ip, tcpPort, udpPort, enrFieldPairs, bootstrapEnrs)
+  newProtocol(
+    pk, db, ip, tcpPort, udpPort, enrFields, bootstrapEnrs, rng = rng)

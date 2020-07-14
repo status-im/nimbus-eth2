@@ -9,7 +9,7 @@
 {.push raises: [Defect].}
 
 import
-  algorithm, options, sequtils, math, tables,
+  algorithm, options, sequtils, math, tables, sets,
   ./datatypes, ./digest, ./helpers
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_shuffled_index
@@ -46,7 +46,7 @@ func get_shuffled_seq*(seed: Eth2Digest,
   pivot_buffer[0..31] = seed.data
   source_buffer[0..31] = seed.data
 
-  for round in 0 ..< SHUFFLE_ROUND_COUNT:
+  for round in 0 ..< SHUFFLE_ROUND_COUNT.int:
     let round_bytes1 = int_to_bytes1(round)[0]
     pivot_buffer[32] = round_bytes1
     source_buffer[32] = round_bytes1
@@ -140,18 +140,15 @@ func get_beacon_committee*(
     cache.shuffled_active_validator_indices[epoch] =
       get_shuffled_active_validator_indices(state, epoch)
 
-  # Constant throughout an epoch
-  if epoch notin cache.committee_count_cache:
-    cache.committee_count_cache[epoch] =
-      get_committee_count_at_slot(state, slot)
-
   try:
+    let committee_count = get_committee_count_at_slot(
+      cache.shuffled_active_validator_indices[epoch].len.uint64.Slot)
     compute_committee(
       cache.shuffled_active_validator_indices[epoch],
       get_seed(state, epoch, DOMAIN_BEACON_ATTESTER),
-      (slot mod SLOTS_PER_EPOCH) * cache.committee_count_cache[epoch] +
+      (slot mod SLOTS_PER_EPOCH) * committee_count +
         index.uint64,
-      cache.committee_count_cache[epoch] * SLOTS_PER_EPOCH
+      committee_count * SLOTS_PER_EPOCH
     )
   except KeyError:
     raiseAssert "values are added to cache before using them"
@@ -160,7 +157,6 @@ func get_beacon_committee*(
 func get_empty_per_epoch_cache*(): StateCache =
   result.shuffled_active_validator_indices =
     initTable[Epoch, seq[ValidatorIndex]]()
-  result.committee_count_cache = initTable[Epoch, uint64]()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_proposer_index
 func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
@@ -234,7 +230,8 @@ func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache):
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#validator-assignments
 func get_committee_assignment*(
-    state: BeaconState, epoch: Epoch, validator_index: ValidatorIndex):
+    state: BeaconState, epoch: Epoch,
+    validator_indices: HashSet[ValidatorIndex]):
     Option[tuple[a: seq[ValidatorIndex], b: CommitteeIndex, c: Slot]] {.used.} =
   # Return the committee assignment in the ``epoch`` for ``validator_index``.
   # ``assignment`` returned is a tuple of the following form:
@@ -242,6 +239,9 @@ func get_committee_assignment*(
   #     * ``assignment[1]`` is the index to which the committee is assigned
   #     * ``assignment[2]`` is the slot at which the committee is assigned
   # Return None if no assignment.
+  #
+  # Slightly adapted from spec version to support multiple validator indices,
+  # since each beacon_node supports many validators.
   let next_epoch = get_current_epoch(state) + 1
   doAssert epoch <= next_epoch
 
@@ -251,9 +251,8 @@ func get_committee_assignment*(
   for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
     for index in 0 ..< get_committee_count_at_slot(state, slot):
       let idx = index.CommitteeIndex
-      let committee =
-        get_beacon_committee(state, slot, idx, cache)
-      if validator_index in committee:
+      let committee = get_beacon_committee(state, slot, idx, cache)
+      if not disjoint(validator_indices, toHashSet(committee)):
         return some((committee, idx, slot))
   none(tuple[a: seq[ValidatorIndex], b: CommitteeIndex, c: Slot])
 

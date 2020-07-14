@@ -8,8 +8,11 @@
 {.push raises: [Defect].}
 
 import
-  chronicles, options, sequtils, tables,
+  # Standard libraries
+  chronicles, options, sequtils, tables, sets,
+  # Status libraries
   metrics,
+  # Internals
   ../ssz/merkleization, ../beacon_chain_db, ../extras,
   ../spec/[crypto, datatypes, digest, helpers, validator, state_transition],
   block_pools_types
@@ -108,7 +111,7 @@ func getAncestorAt*(blck: BlockRef, slot: Slot): BlockRef =
     blck = blck.parent
 
 func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef =
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/fork-choice.md#get_ancestor
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/fork-choice.md#get_ancestor
   ## Return ancestor at slot, or nil if queried block is older
   var blck = blck
 
@@ -174,11 +177,13 @@ func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
     raiseAssert "multiple EpochRefs per epoch per BlockRef invalid"
 
 func getEpochCache*(blck: BlockRef, state: BeaconState): StateCache =
-  let epochInfo = getEpochInfo(blck, state)
-  result = get_empty_per_epoch_cache()
-  result.shuffled_active_validator_indices[
-    state.slot.compute_epoch_at_slot] =
-      epochInfo.shuffled_active_validator_indices
+  when false:
+    let epochInfo = getEpochInfo(blck, state)
+    result = get_empty_per_epoch_cache()
+    result.shuffled_active_validator_indices[
+      state.slot.compute_epoch_at_slot] =
+        epochInfo.shuffled_active_validator_indices
+  get_empty_per_epoch_cache()
 
 func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
   BlockRef(
@@ -189,8 +194,10 @@ func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
 func init*(T: type BlockRef, root: Eth2Digest, blck: SomeBeaconBlock): BlockRef =
   BlockRef.init(root, blck.slot)
 
-proc init*(T: type CandidateChains, db: BeaconChainDB,
-    updateFlags: UpdateFlags = {}): CandidateChains =
+proc init*(T: type CandidateChains,
+           preset: RuntimePreset,
+           db: BeaconChainDB,
+           updateFlags: UpdateFlags = {}): CandidateChains =
   # TODO we require that the db contains both a head and a tail block -
   #      asserting here doesn't seem like the right way to go about it however..
 
@@ -291,7 +298,8 @@ proc init*(T: type CandidateChains, db: BeaconChainDB,
 
     # The only allowed flag right now is verifyFinalization, as the others all
     # allow skipping some validation.
-    updateFlags: {verifyFinalization} * updateFlags
+    updateFlags: {verifyFinalization} * updateFlags,
+    runtimePreset: preset,
   )
 
   doAssert res.updateFlags in [{}, {verifyFinalization}]
@@ -304,6 +312,25 @@ proc init*(T: type CandidateChains, db: BeaconChainDB,
     totalBlocks = blocks.len
 
   res
+
+iterator topoSortedSinceLastFinalization*(dag: CandidateChains): BlockRef =
+  ## Iterate on the dag in topological order
+  # TODO: this uses "children" for simplicity
+  #       but "children" should be deleted as it introduces cycles
+  #       that causes significant overhead at least and leaks at worst
+  #       for the GC.
+  # This is not perf critical, it is only used to bootstrap the fork choice.
+  var visited: HashSet[BlockRef]
+  var stack: seq[BlockRef]
+
+  stack.add dag.finalizedHead.blck
+
+  while stack.len != 0:
+    let node = stack.pop()
+    if node notin visited:
+      visited.incl node
+      stack.add node.children
+      yield node
 
 proc getState(
     dag: CandidateChains, db: BeaconChainDB, stateRoot: Eth2Digest, blck: BlockRef,
@@ -356,11 +383,14 @@ func putStateCache(
   # with the concomitant memory allocator and GC load. Instead, use a
   # more memory-intensive (but more conceptually straightforward, and
   # faster) strategy to just store, for the most recent slots.
+  if state.data.slot mod 2 != 0:
+    return
+
   let stateCacheIndex = dag.getStateCacheIndex(blck.root, state.data.slot)
   if stateCacheIndex == -1:
     # Could use a deque or similar, but want simpler structure, and the data
     # items are small and few.
-    const MAX_CACHE_SIZE = 32
+    const MAX_CACHE_SIZE = 16
 
     let cacheLen = dag.cachedStates.len
     doAssert cacheLen <= MAX_CACHE_SIZE
@@ -477,12 +507,8 @@ proc skipAndUpdateState(
     state: var HashedBeaconState, blck: BlockRef, slot: Slot, save: bool) =
   while state.data.slot < slot:
     # Process slots one at a time in case afterUpdate needs to see empty states
-    # TODO when replaying, we already do this query when loading the ancestors -
-    #      save and reuse
-    # TODO possibly we should keep this in memory for the hot blocks
-    let nextStateRoot = dag.db.getStateRoot(blck.root, state.data.slot + 1)
     var stateCache = getEpochCache(blck, state.data)
-    advance_slot(state, nextStateRoot, dag.updateFlags, stateCache)
+    advance_slot(state, dag.updateFlags, stateCache)
 
     if save:
       dag.putState(state, blck)
@@ -501,7 +527,8 @@ proc skipAndUpdateState(
 
   var stateCache = getEpochCache(blck.refs, state.data.data)
   let ok = state_transition(
-    state.data, blck.data, stateCache, flags + dag.updateFlags, restore)
+    dag.runtimePreset, state.data, blck.data,
+    stateCache, flags + dag.updateFlags, restore)
 
   if ok and save:
     dag.putState(state.data, blck.refs)
@@ -640,17 +667,10 @@ template withEpochState*(
   ## cache is unsafe outside of block.
   ## TODO async transformations will lead to a race where cache gets updated
   ##      while waiting for future to complete - catch this here somehow?
-
-  for ancestor in get_ancestors_in_epoch(blockSlot):
-    if getStateDataCached(dag, cache, ancestor):
-      break
-
-  template hashedState(): HashedBeaconState {.inject, used.} = cache.data
-  template state(): BeaconState {.inject, used.} = cache.data.data
-  template blck(): BlockRef {.inject, used.} = cache.blck
-  template root(): Eth2Digest {.inject, used.} = cache.data.root
-
-  body
+  # TODO implement the looser constraints allowed by epoch, not precise slot target
+  # allow expressing preference to opt-in to looser constraints regardless
+  dag.withState(cache, blockSlot):
+    body
 
 proc updateStateData*(dag: CandidateChains, state: var StateData, bs: BlockSlot) =
   ## Rewind or advance state such that it matches the given block and slot -
@@ -902,7 +922,6 @@ proc getProposer*(
   dag.withState(dag.tmpState, head.atSlot(slot)):
     var cache = get_empty_per_epoch_cache()
 
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/validator.md#validator-assignments
     let proposerIdx = get_beacon_proposer_index(state, cache)
     if proposerIdx.isNone:
       warn "Missing proposer index",

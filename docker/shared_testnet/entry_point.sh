@@ -90,7 +90,7 @@ if [[ "$BUILD" == "1" ]]; then
   git pull
   # don't use too much RAM
   make update
-  make LOG_LEVEL="TRACE" NIMFLAGS="-d:insecure -d:testnet_servers_image --parallelBuild:1" SCRIPT_PARAMS="--skipGoerliKey --writeLogFile=false --buildOnly" ${NETWORK}
+  make LOG_LEVEL="TRACE" NIMFLAGS="-d:insecure -d:testnet_servers_image --parallelBuild:1" beacon_node
 fi
 
 #######
@@ -99,8 +99,7 @@ fi
 
 if [[ "$RUN" == "1" ]]; then
   cd /root/.cache/nimbus/nim-beacon-chain
-  echo $(make SCRIPT_PARAMS="--skipGoerliKey --writeLogFile=false --runOnly --printCmdOnly" ${NETWORK} | tail -n 1) ${EXTRA_ARGS}
   # make sure Docker's SIGINT reaches the beacon_node binary
-  eval $(make SCRIPT_PARAMS="--skipGoerliKey --writeLogFile=false --runOnly --printCmdOnly" ${NETWORK} | tail -n 1) ${EXTRA_ARGS}
+  exec build/beacon_node --network="${NETWORK}" --data-dir="build/data/shared_${NETWORK}_0" --web3-url="wss://goerli.infura.io/ws/v3/6224f3c792cc443fafb64e70a98f871e" ${EXTRA_ARGS}
 fi
 

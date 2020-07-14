@@ -117,7 +117,7 @@ func process_attestation*(
     vote.next_epoch = target_epoch
 
     {.noSideEffect.}:
-      info "Integrating vote in fork choice",
+      trace "Integrating vote in fork choice",
         validator_index = $validator_index,
         new_vote = shortlog(vote)
   else:
@@ -129,7 +129,7 @@ func process_attestation*(
           ignored_block_root = shortlog(block_root),
           ignored_target_epoch = $target_epoch
       else:
-        info "Ignoring double-vote for fork choice",
+        trace "Ignoring double-vote for fork choice",
           validator_index = $validator_index,
           current_vote = shortlog(vote),
           ignored_block_root = shortlog(block_root),
@@ -159,7 +159,7 @@ func process_block*(
     return err("process_block_error: " & $err)
 
   {.noSideEffect.}:
-    info "Integrating block in fork choice",
+    trace "Integrating block in fork choice",
       block_root = $shortlog(block_root),
       parent_root = $shortlog(parent_root),
       justified_epoch = $justified_epoch,
@@ -205,7 +205,7 @@ func find_head*(
     return err("find_head failed: " & $ghost_err)
 
   {.noSideEffect.}:
-    info "Fork choice requested",
+    debug "Fork choice requested",
       justified_epoch = $justified_epoch,
       justified_root = shortlog(justified_root),
       finalized_epoch = $finalized_epoch,

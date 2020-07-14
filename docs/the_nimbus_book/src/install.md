@@ -2,6 +2,18 @@
 
 Beacon chain can run on Linux, macOS, Windows, and Android. At the moment, Nimbus has to be built from source.
 
+## Time
+
+The beacon chain relies on your computer having the correct time set, down to at most 0.5 seconds.
+
+It is recommended that you run a high quality time service on your computer such as:
+
+* GPS
+* NTS (network time security, IETF draft)
+* Roughtime (google)
+
+As a minimum, you should run an NTP client on the server - NTP may easily be disrupted however.
+
 ## External Dependencies
 
 - Developer tools (C compiler, Make, Bash, Git)
@@ -29,7 +41,7 @@ yourAURmanager -S base-devel pcre-static
 Assuming you use [Homebrew](https://brew.sh/) to manage packages
 
 ```sh
-brew install pcre
+brew install pcre cmake
 ```
 
 ### Windows
@@ -51,4 +63,4 @@ apt install build-essential git libpcre3-dev
 
 ## Next steps
 
-Once you've installed build tools, you're ready to move on to launching the beacon node and becoming a [validator](./validator.md)
+Once you've installed the prerequisites, you're ready to move on to launching the [beacon node](./beacon_node.md).

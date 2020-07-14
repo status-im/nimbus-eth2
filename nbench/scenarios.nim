@@ -12,7 +12,7 @@ import
   confutils/defs, serialization, chronicles,
   # Beacon-chain
   ../beacon_chain/spec/[
-      datatypes, crypto, helpers, beaconstate, validator,
+      datatypes, crypto, helpers, beaconstate, validator, helpers,
       state_transition_block, state_transition_epoch, state_transition],
   ../beacon_chain/extras,
   ../beacon_chain/ssz/[merkleization, ssz_serialization]
@@ -159,7 +159,7 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
     let flags = if skipBLS: {skipBlsValidation}
                 else: {}
     let success = state_transition(
-      state[], signedBlock, flags, noRollback)
+      defaultRuntimePreset, state[], signedBlock, flags, noRollback)
     echo "State transition status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 
 proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
@@ -204,6 +204,11 @@ template genProcessEpochScenario(name, transitionFn: untyped, needCache: static 
   proc `name`*(dir, preState: string) =
     processEpochScenarioImpl(dir, preState, transitionFn, needCache)
 
+proc process_deposit(state: var BeaconState;
+                     deposit: Deposit;
+                     flags: UpdateFlags = {}): Result[void, cstring] =
+  process_deposit(defaultRuntimePreset, state, deposit, flags)
+
 template processBlockScenarioImpl(
            dir, preState: string, skipBLS: bool,
            transitionFn, paramName: untyped,
@@ -228,13 +233,13 @@ template processBlockScenarioImpl(
   var consObj = parseSSZ(consObjPath, ConsensusObjectRefType)
 
   when needFlags and needCache:
-    let success = transitionFn(state.data, consObj[], flags, cache)
+    let success = transitionFn(state.data, consObj[], flags, cache).isOk
   elif needFlags:
-    let success = transitionFn(state.data, consObj[], flags)
+    let success = transitionFn(state.data, consObj[], flags).isOk
   elif needCache:
-    let success = transitionFn(state, consObj[], flags, cache)
+    let success = transitionFn(state, consObj[], flags, cache).isOk
   else:
-    let success = transitionFn(state, consObj[])
+    let success = transitionFn(state, consObj[]).isOk
 
   echo astToStr(transitionFn) & " status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 

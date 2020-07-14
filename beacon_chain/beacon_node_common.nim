@@ -28,9 +28,11 @@ type Eth2Digest = digest.Eth2Digest
 
 type
   RpcServer* = RpcHttpServer
+  KeyPair* = eth2_network.KeyPair
 
   BeaconNode* = ref object
     nickname*: string
+    graffitiBytes*: GraffitiBytes
     network*: Eth2Node
     netKeys*: KeyPair
     requestManager*: RequestManager
@@ -48,6 +50,7 @@ type
     topicAggregateAndProofs*: string
     forwardSyncLoop*: Future[void]
     onSecondLoop*: Future[void]
+    genesisSnapshotContent*: string
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
@@ -67,6 +70,10 @@ proc updateHead*(node: BeaconNode): BlockRef =
   # justified and finalized
   node.blockPool.updateHead(newHead)
   beacon_head_root.set newHead.root.toGaugeValue
+
+  # TODO - deactivated
+  # Cleanup the fork choice v2 if we have a finalized head
+  # node.attestationPool.pruneBefore(node.blockPool.finalizedHead)
 
   newHead
 

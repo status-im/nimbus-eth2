@@ -2,7 +2,8 @@
   confutils, stats, chronicles, strformat, tables,
   stew/byteutils,
   ../beacon_chain/[beacon_chain_db, block_pool, extras],
-  ../beacon_chain/spec/[crypto, datatypes, digest, helpers, state_transition, validator],
+  ../beacon_chain/spec/[crypto, datatypes, digest, helpers,
+                        state_transition, validator, presets],
   ../beacon_chain/sszdump, ../beacon_chain/ssz/merkleization,
   ../research/simutils,
   eth/db/[kvstore, kvstore_sqlite3]
@@ -21,6 +22,8 @@ type
     dumpBlock
     rewindState
 
+  # TODO:
+  # This should probably allow specifying a run-time preset
   DbConf = object
     databaseDir* {.
         defaultValue: ""
@@ -70,7 +73,7 @@ proc cmdBench(conf: DbConf) =
 
   echo "Initializing block pool..."
   let pool = withTimerRet(timers[tInit]):
-    CandidateChains.init(db, {})
+    CandidateChains.init(defaultRuntimePreset, db, {})
 
   echo &"Loaded {pool.blocks.len} blocks, head slot {pool.head.blck.slot}"
 
@@ -102,7 +105,7 @@ proc cmdBench(conf: DbConf) =
       isEpoch = state[].data.slot.compute_epoch_at_slot !=
         b.message.slot.compute_epoch_at_slot
     withTimer(timers[if isEpoch: tApplyEpochBlock else: tApplyBlock]):
-      if not state_transition(state[], b, {}, noRollback):
+      if not state_transition(defaultRuntimePreset, state[], b, {}, noRollback):
         dump("./", b, hash_tree_root(b.message))
         echo "State transition failed (!)"
         quit 1
@@ -151,7 +154,7 @@ proc cmdRewindState(conf: DbConf) =
     quit 1
 
   echo "Initializing block pool..."
-  let pool = BlockPool.init(db, {})
+  let pool = BlockPool.init(defaultRuntimePreset, db, {})
 
   let blckRef = pool.getRef(fromHex(Eth2Digest, conf.blockRoot))
   if blckRef == nil:

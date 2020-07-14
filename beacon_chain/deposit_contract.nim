@@ -1,6 +1,6 @@
 import
   os, strutils, options, json,
-  chronos, nimcrypto, confutils, web3, stint,
+  chronos, confutils, web3, stint,
   eth/keys
 
 # Compiled version of /scripts/depositContract.v.py in this repo
@@ -75,12 +75,12 @@ proc main() {.async.} =
   case cfg.cmd
   of StartUpCommand.deploy:
     let receipt = await web3.deployContract(contractCode)
-    echo "0x", receipt.contractAddress.get, ";", receipt.blockHash
+    echo receipt.contractAddress.get, ";", receipt.blockHash
   of StartUpCommand.drain:
     let sender = web3.contractSender(Deposit, Address.fromHex(cfg.contractAddress))
     discard await sender.drain().send(gasPrice = 1)
 
   of StartUpCommand.sendEth:
-    echo "0x", await sendEth(web3, cfg.toAddress, cfg.valueEth.parseInt)
+    echo await sendEth(web3, cfg.toAddress, cfg.valueEth.parseInt)
 
 when isMainModule: waitFor main()

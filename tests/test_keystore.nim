@@ -9,7 +9,7 @@
 
 import
   unittest, ./testutil, json,
-  stew/byteutils, blscurve,
+  stew/byteutils, blscurve, eth/keys,
   ../beacon_chain/spec/[crypto, keystore]
 
 from strutils import replace
@@ -86,6 +86,9 @@ const
   salt = hexToSeqByte("d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
   iv = hexToSeqByte("264daa3f303d7259501c93d997d84fe6")
 
+let
+  rng = newRng()
+
 suiteReport "Keystore":
   setup:
     let secret = ValidatorPrivKey.fromRaw(secretBytes).get
@@ -97,7 +100,7 @@ suiteReport "Keystore":
     check secret == decrypt.get()
 
   timedTest "Pbkdf2 encryption":
-    let encrypt = encryptKeystore(KdfPbkdf2, secret,
+    let encrypt = encryptKeystore(KdfPbkdf2, rng[], secret,
                                   KeyStorePass password,
                                   salt=salt, iv=iv,
                                   path = validateKeyPath "m/12381/60/0/0")
@@ -111,10 +114,10 @@ suiteReport "Keystore":
 
   timedTest "Pbkdf2 errors":
     expect Defect:
-      echo encryptKeystore(KdfPbkdf2, secret, salt = [byte 1]).string
+      echo encryptKeystore(KdfPbkdf2, rng[], secret, salt = [byte 1]).string
 
     expect Defect:
-      echo encryptKeystore(KdfPbkdf2, secret, iv = [byte 1]).string
+      echo encryptKeystore(KdfPbkdf2, rng[], secret, iv = [byte 1]).string
 
     check decryptKeystore(KeyStoreContent pbkdf2Vector,
                           KeyStorePass "wrong pass").isErr

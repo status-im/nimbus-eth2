@@ -22,25 +22,24 @@ matrix:
         - NPROC=2
       before_install:
         - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib"
-        - sudo apt-get -q update
-    - os: linux
-      arch: arm64
-      sudo: required
-      env:
-        - NPROC=6 # Worth trying more than 2 parallel jobs: https://travis-ci.community/t/no-cache-support-on-arm64/5416/8
-        # (also used to get a different cache key than the amd64 one)
-      before_install:
-        - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib"
-        - sudo apt-get -q update
-        - sudo apt-get install -y libpcre3-dev
+    #- os: linux
+      #arch: arm64
+      #sudo: required
+      #env:
+        #- NPROC=6 # Worth trying more than 2 parallel jobs: https://travis-ci.community/t/no-cache-support-on-arm64/5416/8
+        ## (also used to get a different cache key than the amd64 one)
+      #before_install:
+        #- export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib"
+        #- sudo apt-get -q update
+        #- sudo apt-get install -y libpcre3-dev
     - os: osx
       before_install:
         - HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install ccache
       env:
         - NPROC=2
-  allow_failures:
-    # ARM64 is a bit buggy: https://travis-ci.community/t/no-output-has-been-received-and-then-build-terminated-on-arm64/8834
-    - arch: arm64
+  #allow_failures:
+    ## ARM64 is a bit buggy: https://travis-ci.community/t/no-output-has-been-received-and-then-build-terminated-on-arm64/8834
+    #- arch: arm64
 
 
 install:
@@ -52,7 +51,6 @@ script:
   # Building Nim-1.0.4 takes up to 10 minutes on Travis - the time limit after which jobs are cancelled for having no output
   - make -j${NPROC} NIMFLAGS="--parallelBuild:2" V=1 update # to allow a newer Nim version to be detected
   - make -j${NPROC} NIMFLAGS="--parallelBuild:2" LOG_LEVEL=TRACE
-  - make -j${NPROC} NIMFLAGS="--parallelBuild:2 -d:testnet_servers_image" LOG_LEVEL=TRACE
-  # Compiling "test_all" on ARM64 can take longer than 10 minutes, so make it verbose.
-  - make -j${NPROC} NIMFLAGS="--parallelBuild:2" DISABLE_TEST_FIXTURES_SCRIPT=1 V=1 test
+  - make -j${NPROC} NIMFLAGS="--parallelBuild:2 -d:testnet_servers_image" LOG_LEVEL=TRACE beacon_node
+  - make -j${NPROC} NIMFLAGS="--parallelBuild:2" DISABLE_TEST_FIXTURES_SCRIPT=1 test
 

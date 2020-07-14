@@ -41,6 +41,11 @@ func fromSszBytes*(T: type Eth2Digest, data: openarray[byte]): T {.raisesssz.} =
     raiseIncorrectSize T
   copyMem(result.data.addr, unsafeAddr data[0], sizeof(result.data))
 
+func fromSszBytes*(T: type GraffitiBytes, data: openarray[byte]): T {.raisesssz.} =
+  if data.len != sizeof(result):
+    raiseIncorrectSize T
+  copyMem(result.addr, unsafeAddr data[0], sizeof(result))
+
 template fromSszBytes*(T: type Slot, bytes: openarray[byte]): Slot =
   Slot fromSszBytes(uint64, bytes)
 
@@ -65,7 +70,7 @@ proc `[]`[T, U, V](s: openArray[T], x: HSlice[U, V]) {.error:
 
 template checkForForbiddenBits(ResulType: type,
                                input: openarray[byte],
-                               expectedBits: static int) =
+                               expectedBits: static int64) =
   ## This checks if the input contains any bits set above the maximum
   ## sized allowed. We only need to check the last byte to verify this:
   const bitsInLastByte = (expectedBits mod 8)

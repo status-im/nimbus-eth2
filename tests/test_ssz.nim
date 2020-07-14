@@ -9,7 +9,7 @@
 
 import
   unittest, options, json_serialization,
-  nimcrypto, serialization/testing/generic_suite,
+  serialization/testing/generic_suite,
   ./testutil,
   ../beacon_chain/spec/[datatypes, digest],
   ../beacon_chain/ssz, ../beacon_chain/ssz/[navigator, dynamic_navigator]

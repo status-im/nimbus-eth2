@@ -47,7 +47,7 @@ type
     blockRoot: Eth2Digest
     slot: Slot
 
-  BlockRootsList* = List[Eth2Digest, MAX_REQUESTED_BLOCKS]
+  BlockRootsList* = List[Eth2Digest, Limit MAX_REQUESTED_BLOCKS]
 
 proc shortLog*(s: StatusMsg): auto =
   (

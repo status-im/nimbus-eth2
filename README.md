@@ -83,7 +83,7 @@ yourAURmanager -S base-devel pcre-static
 Assuming you use [Homebrew](https://brew.sh/) to manage packages:
 
 ```sh
-brew install pcre
+brew install pcre cmake
 ```
 
 Make sure you have [CMake](https://cmake.org/) installed, to be able to build libunwind (used for [lightweight stack traces](https://github.com/status-im/nim-libbacktrace)).
@@ -109,36 +109,34 @@ apt install build-essential git libpcre3-dev
 
 ### Connecting to testnets
 
-Nimbus connects to any of the testnets published in the [eth2-clients/eth2-testnets repo](https://github.com/eth2-clients/eth2-testnets/tree/master/nimbus).
-
-Once the [prerequisites](#prerequisites) are installed you can connect to the [Witti testnet](https://github.com/goerli/witti) with the following commands:
+Once the [prerequisites](#prerequisites) are installed you can connect to the [Altona testnet](https://github.com/goerli/altona) with the following commands:
 
 ```bash
 git clone https://github.com/status-im/nim-beacon-chain
 cd nim-beacon-chain
-make witti           # This will build Nimbus and all other dependencies
-                     # and connect you to Witti
-```
-
-Sometimes, you may want to disable the interactive prompt asking you for a Goerli key in order to become a validator:
-
-```bash
-make SCRIPT_PARAMS="--skipGoerliKey" witti # not a validator
+make altona           # This will build Nimbus and all other dependencies
+                      # and connect you to Altona
 ```
 
 You can also start multiple local nodes, in different terminal windows/tabs, by specifying their numeric IDs:
 
 ```bash
-make SCRIPT_PARAMS="--nodeID=0" witti # the default
-make SCRIPT_PARAMS="--nodeID=1" witti
-make SCRIPT_PARAMS="--nodeID=2" witti
+make altona NODE_ID=0 # the default
+make altona NODE_ID=1
+make altona NODE_ID=2
+```
+
+If you wish to make a deposit, execute the following command:
+
+```
+make altona-deposit VALIDATORS=2 # The default is just 1 deposit
 ```
 
 ### Getting metrics from a local testnet client
 
 ```bash
 # the primitive HTTP server started to serve the metrics is considered insecure
-make NIMFLAGS="-d:insecure" witti
+make NIMFLAGS="-d:insecure" altona
 ```
 
 You can now see the raw metrics on http://127.0.0.1:8008/metrics but they're not very useful like this, so let's feed them to a Prometheus instance:
@@ -216,7 +214,7 @@ make eth2_network_simulation WAIT_GENESIS=yes
 You can also separate the output from each beacon node in its own panel, using [multitail](http://www.vanheusden.com/multitail/):
 
 ```bash
-make USE_MULTITAIL="yes" eth2_network_simulation
+make eth2_network_simulation USE_MULTITAIL="yes"
 ```
 
 You can find out more about it in the [development update](https://our.status.im/nimbus-development-update-2018-12-2/).

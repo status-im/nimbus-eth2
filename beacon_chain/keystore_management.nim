@@ -1,8 +1,9 @@
 import
-  os, strutils, terminal, random,
-  chronicles, chronos, blscurve, nimcrypto, json_serialization, serialization,
-  web3, stint, eth/keys, confutils,
-  spec/[datatypes, digest, crypto, keystore], conf, ssz/merkleization, merkle_minimal
+  os, strutils, terminal,
+  stew/byteutils, chronicles, chronos, web3, stint, json_serialization,
+  serialization, blscurve, eth/common/eth_types, eth/keys, confutils, bearssl,
+  spec/[datatypes, digest, crypto, keystore],
+  conf, ssz/merkleization, merkle_minimal, network_metadata
 
 export
   keystore
@@ -15,7 +16,7 @@ const
   depositFileName* = "deposit.json"
 
 type
- DelayGenerator* = proc(): chronos.Duration {.closure, gcsafe.}
+  DelayGenerator* = proc(): chronos.Duration {.closure, gcsafe.}
 
 {.push raises: [Defect].}
 
@@ -101,20 +102,21 @@ type
     FailedToCreateKeystoreFile
     FailedToCreateDepositFile
 
-proc generateDeposits*(totalValidators: int,
+proc generateDeposits*(preset: RuntimePreset,
+                       rng: var BrHmacDrbgContext,
+                       totalValidators: int,
                        validatorsDir: string,
                        secretsDir: string): Result[seq[Deposit], GenerateDepositsError] =
   var deposits: seq[Deposit]
 
   info "Generating deposits", totalValidators, validatorsDir, secretsDir
   for i in 0 ..< totalValidators:
-    let password = KeyStorePass getRandomBytesOrPanic(32).toHex
-    let credentials = generateCredentials(password = password)
+    let password = KeyStorePass getRandomBytes(rng, 32).toHex
+    let credentials = generateCredentials(rng, password = password)
 
     let
       keyName = intToStr(i, 6) & "_" & $(credentials.signingKey.toPubKey)
       validatorDir = validatorsDir / keyName
-      passphraseFile = secretsDir / keyName
       depositFile = validatorDir / depositFileName
       keystoreFile = validatorDir / keystoreFileName
 
@@ -130,7 +132,7 @@ proc generateDeposits*(totalValidators: int,
     try: writeFile(keystoreFile, credentials.keyStore.string)
     except IOError: return err FailedToCreateKeystoreFile
 
-    deposits.add credentials.prepareDeposit()
+    deposits.add credentials.prepareDeposit(preset)
 
     # Does quadratic additional work, but fast enough, and otherwise more
     # cleanly allows free intermixing of pre-existing and newly generated
@@ -165,7 +167,8 @@ proc loadDeposits*(depositsDir: string): seq[Deposit] =
 # TODO: async functions should note take `seq` inputs because
 #       this leads to full copies.
 proc sendDeposits*(deposits: seq[Deposit],
-                   web3Url, depositContractAddress, privateKey: string,
+                   web3Url, privateKey: string,
+                   depositContractAddress: Eth1Address,
                    delayGenerator: DelayGenerator = nil) {.async.} =
   var web3 = await newWeb3(web3Url)
   if privateKey.len != 0:
@@ -177,9 +180,8 @@ proc sendDeposits*(deposits: seq[Deposit],
       return
     web3.defaultAccount = accounts[0]
 
-  let contractAddress = Address.fromHex(depositContractAddress)
-  let depositContract = web3.contractSender(DepositContract, contractAddress)
-
+  let depositContract = web3.contractSender(DepositContract,
+                                            Address depositContractAddress)
   for i, dp in deposits:
     let status = await depositContract.deposit(
       Bytes48(dp.data.pubKey.toRaw()),
@@ -193,12 +195,8 @@ proc sendDeposits*(deposits: seq[Deposit],
       await sleepAsync(delayGenerator())
 
 proc sendDeposits*(config: BeaconNodeConf,
-                   deposits: seq[Deposit]) {.async.} =
-  var delayGenerator: DelayGenerator
-  if config.maxDelay > 0.0:
-    delayGenerator = proc (): chronos.Duration {.gcsafe.} =
-      chronos.milliseconds (rand(config.minDelay..config.maxDelay)*1000).int
-
+                   deposits: seq[Deposit],
+                   delayGenerator: DelayGenerator = nil) {.async.} =
   info "Sending deposits",
     web3 = config.web3Url,
     depositContract = config.depositContractAddress
@@ -206,7 +204,7 @@ proc sendDeposits*(config: BeaconNodeConf,
   await sendDeposits(
     deposits,
     config.web3Url,
-    config.depositContractAddress,
     config.depositPrivateKey,
+    config.depositContractAddress.get,
     delayGenerator)
 

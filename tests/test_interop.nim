@@ -3,7 +3,7 @@
 import
   unittest, stint, ./testutil, stew/byteutils,
   ../beacon_chain/[interop, merkle_minimal, ssz],
-  ../beacon_chain/spec/[beaconstate, crypto, datatypes]
+  ../beacon_chain/spec/[beaconstate, crypto, datatypes, presets]
 
 # Interop test yaml, found here:
 # https://github.com/ethereum/eth2.0-pm/blob/a0b9d22fad424574b1307828f867b30237758468/interop/mocked_start/keygen_10_validators.yaml
@@ -145,13 +145,13 @@ suiteReport "Interop":
 
     for i in 0..<64:
       let privKey = makeInteropPrivKey(i)
-      deposits.add makeDeposit(privKey.toPubKey(), privKey)
+      deposits.add makeDeposit(defaultRuntimePreset, privKey.toPubKey(), privKey)
     attachMerkleProofs(deposits)
 
     const genesis_time = 1570500000
     var
       initialState = initialize_beacon_state_from_eth1(
-        eth1BlockHash, genesis_time, deposits, {})
+        defaultRuntimePreset, eth1BlockHash, genesis_time, deposits, {})
 
     # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
     initialState.genesis_time = genesis_time

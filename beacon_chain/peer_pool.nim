@@ -8,6 +8,9 @@ type
   PeerFlags = enum
     Acquired, DeleteOnRelease
 
+  EventType = enum
+    NotEmptyEvent, NotFullEvent
+
   PeerItem[T] = object
     data: T
     peerType: PeerType
@@ -62,21 +65,35 @@ iterator pairs*[A, B](pool: PeerPool[A, B]): (B, A) =
   for peerId, peerIdx in pool.registry:
     yield (peerId, pool.storage[peerIdx.data].data)
 
-proc waitNotEmptyEvent[A, B](pool: PeerPool[A, B],
-                             filter: set[PeerType]) {.async.} =
+template incomingEvent(eventType: EventType): AsyncEvent =
+  case eventType
+  of EventType.NotEmptyEvent:
+    pool.incNotEmptyEvent
+  of EventType.NotFullEvent:
+    pool.incNotFullEvent
+
+template outgoingEvent(eventType: EventType): AsyncEvent =
+  case eventType
+  of EventType.NotEmptyEvent:
+    pool.outNotEmptyEvent
+  of EventType.NotFullEvent:
+    pool.outNotFullEvent
+
+proc waitForEvent[A, B](pool: PeerPool[A, B], eventType: EventType,
+                        filter: set[PeerType]) {.async.} =
   if filter == {PeerType.Incoming, PeerType.Outgoing} or filter == {}:
-    var fut1 = pool.incNotEmptyEvent.wait()
-    var fut2 = pool.outNotEmptyEvent.wait()
+    var fut1 = incomingEvent(eventType).wait()
+    var fut2 = outgoingEvent(eventType).wait()
     try:
       discard await one(fut1, fut2)
       if fut1.finished:
         if not(fut2.finished):
           fut2.cancel()
-        pool.incNotEmptyEvent.clear()
+        incomingEvent(eventType).clear()
       else:
         if not(fut1.finished):
           fut1.cancel()
-        pool.outNotEmptyEvent.clear()
+        outgoingEvent(eventType).clear()
     except CancelledError:
       if not(fut1.finished):
         fut1.cancel()
@@ -84,20 +101,19 @@ proc waitNotEmptyEvent[A, B](pool: PeerPool[A, B],
         fut2.cancel()
       raise
   elif PeerType.Incoming in filter:
-    await pool.incNotEmptyEvent.wait()
-    pool.incNotEmptyEvent.clear()
+    await incomingEvent(eventType).wait()
+    incomingEvent(eventType).clear()
   elif PeerType.Outgoing in filter:
-    await pool.outNotEmptyEvent.wait()
-    pool.outNotEmptyEvent.clear()
+    await outgoingEvent(eventType).wait()
+    outgoingEvent(eventType).clear()
+
+proc waitNotEmptyEvent[A, B](pool: PeerPool[A, B],
+                             filter: set[PeerType]): Future[void] =
+  pool.waitForEvent(EventType.NotEmptyEvent, filter)
 
 proc waitNotFullEvent[A, B](pool: PeerPool[A, B],
-                            peerType: PeerType) {.async.} =
-  if peerType == PeerType.Incoming:
-    await pool.incNotFullEvent.wait()
-    pool.incNotFullEvent.clear()
-  elif peerType == PeerType.Outgoing:
-    await pool.outNotFullEvent.wait()
-    pool.outNotFullEvent.clear()
+                            filter: set[PeerType]): Future[void] =
+  pool.waitForEvent(EventType.NotFullEvent, filter)
 
 template getItem[A, B](pool: PeerPool[A, B],
                        filter: set[PeerType]): ptr PeerItem[A] =
@@ -336,20 +352,19 @@ proc addPeer*[A, B](pool: PeerPool[A, B],
   let peerKey = getKey(peer)
 
   if not(pool.registry.hasKey(peerKey)) and not(peer.getFuture().finished):
-    if len(pool.registry) >= pool.maxPeersCount:
-      await pool.waitNotFullEvent(peerType)
+    while len(pool.registry) >= pool.maxPeersCount:
+      await pool.waitNotFullEvent({PeerType.Incoming, PeerType.Outgoing})
     if peerType == PeerType.Incoming:
-      if pool.curIncPeersCount >= pool.maxIncPeersCount:
-        await pool.waitNotFullEvent(peerType)
+      while pool.curIncPeersCount >= pool.maxIncPeersCount:
+        await pool.waitNotFullEvent({peerType})
       let pindex = pool.addPeerImpl(peer, peerKey, peerType)
       inc(pool.curIncPeersCount)
       pool.incQueue.push(pindex)
       pool.incNotEmptyEvent.fire()
       res = true
     elif peerType == PeerType.Outgoing:
-      if pool.curOutPeersCount >= pool.maxOutPeersCount:
-        await pool.waitNotFullEvent(peerType)
-
+      while pool.curOutPeersCount >= pool.maxOutPeersCount:
+        await pool.waitNotFullEvent({peerType})
       let pindex = pool.addPeerImpl(peer, peerKey, peerType)
       inc(pool.curOutPeersCount)
       pool.outQueue.push(pindex)

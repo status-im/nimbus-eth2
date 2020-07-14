@@ -3,7 +3,7 @@ import
   ../tests/[testblockutil],
   ../beacon_chain/[extras],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
-  ../beacon_chain/spec/[beaconstate, datatypes, digest, helpers]
+  ../beacon_chain/spec/[beaconstate, datatypes, digest, helpers, presets]
 
 template withTimer*(stats: var RunningStat, body: untyped) =
   # TODO unify timing somehow
@@ -40,7 +40,7 @@ func verifyConsensus*(state: BeaconState, attesterRatio: auto) =
   if current_epoch >= 4:
     doAssert state.finalized_checkpoint.epoch + 2 >= current_epoch
 
-proc loadGenesis*(validators: int, validate: bool): ref HashedBeaconState =
+proc loadGenesis*(validators: Natural, validate: bool): ref HashedBeaconState =
   let fn = &"genesim_{const_preset}_{validators}_{SPEC_VERSION}.ssz"
   let res = (ref HashedBeaconState)()
   if fileExists(fn):
@@ -62,12 +62,12 @@ proc loadGenesis*(validators: int, validate: bool): ref HashedBeaconState =
     echo "Preparing validators..."
     let
       flags = if validate: {} else: {skipBlsValidation}
-      deposits = makeInitialDeposits(validators, flags)
+      deposits = makeInitialDeposits(validators.uint64, flags)
 
     echo "Generating Genesis..."
 
     res.data =
-      initialize_beacon_state_from_eth1(Eth2Digest(), 0, deposits, flags)[]
+      initialize_beacon_state_from_eth1(defaultRuntimePreset, Eth2Digest(), 0, deposits, flags)[]
     res.root = hash_tree_root(res.data)
 
     echo &"Saving to {fn}..."

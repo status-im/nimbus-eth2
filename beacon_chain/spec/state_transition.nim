@@ -125,8 +125,8 @@ func process_slot*(state: var HashedBeaconState) {.nbench.} =
     hash_tree_root(state.data.latest_block_header)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-proc advance_slot*(state: var HashedBeaconState,
-    nextStateRoot: Opt[Eth2Digest], updateFlags: UpdateFlags,
+proc advance_slot*(
+    state: var HashedBeaconState, updateFlags: UpdateFlags,
     epochCache: var StateCache) {.nbench.} =
   # Special case version of process_slots that moves one slot at a time - can
   # run faster if the state root is known already (for example when replaying
@@ -141,10 +141,7 @@ proc advance_slot*(state: var HashedBeaconState,
   if is_epoch_transition:
     beacon_current_validators.set(get_epoch_validator_count(state.data))
 
-  if nextStateRoot.isSome:
-    state.root = nextStateRoot.get()
-  else:
-    state.root = hash_tree_root(state.data)
+  state.root = hash_tree_root(state.data)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc process_slots*(state: var HashedBeaconState, slot: Slot,
@@ -166,7 +163,7 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot,
   # Catch up to the target slot
   var cache = get_empty_per_epoch_cache()
   while state.data.slot < slot:
-    advance_slot(state, err(Opt[Eth2Digest]), updateFlags, cache)
+    advance_slot(state, updateFlags, cache)
 
   true
 
@@ -174,6 +171,7 @@ proc noRollback*(state: var HashedBeaconState) =
   trace "Skipping rollback of broken state"
 
 proc state_transition*(
+    preset: RuntimePreset,
     state: var HashedBeaconState, signedBlock: SomeSignedBeaconBlock,
     # TODO this is ... okay, but not perfect; align with EpochRef
     stateCache: var StateCache,
@@ -209,8 +207,10 @@ proc state_transition*(
   #      the changes in case of failure (look out for `var BeaconState` and
   #      bool return values...)
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
-  doAssert stateCache.shuffled_active_validator_indices.hasKey(
-    state.data.slot.compute_epoch_at_slot)
+  when false:
+    # TODO readd this assetion when epochref cache is back
+    doAssert stateCache.shuffled_active_validator_indices.hasKey(
+      state.data.slot.compute_epoch_at_slot)
 
   if not process_slots(state, signedBlock.message.slot, flags):
     rollback(state)
@@ -229,7 +229,7 @@ proc state_transition*(
     trace "in state_transition: processing block, signature passed",
       signature = signedBlock.signature,
       blockRoot = hash_tree_root(signedBlock.message)
-    if process_block(state.data, signedBlock.message, flags, stateCache):
+    if process_block(preset, state.data, signedBlock.message, flags, stateCache):
       if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
         # State root is what it should be - we're done!
 
@@ -249,6 +249,7 @@ proc state_transition*(
   false
 
 proc state_transition*(
+    preset: RuntimePreset,
     state: var HashedBeaconState, signedBlock: SomeSignedBeaconBlock,
     flags: UpdateFlags, rollback: RollbackHashedProc): bool {.nbench.} =
   # TODO consider moving this to testutils or similar, since non-testing
@@ -260,18 +261,19 @@ proc state_transition*(
   cache.shuffled_active_validator_indices[state.data.slot.compute_epoch_at_slot] =
     get_shuffled_active_validator_indices(
       state.data, state.data.slot.compute_epoch_at_slot)
-  state_transition(state, signedBlock, cache, flags, rollback)
+  state_transition(preset, state, signedBlock, cache, flags, rollback)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#preparing-for-a-beaconblock
 # TODO There's more to do here - the spec has helpers that deal set up some of
 #      the fields in here!
 proc makeBeaconBlock*(
+    preset: RuntimePreset,
     state: var HashedBeaconState,
     proposer_index: ValidatorIndex,
     parent_root: Eth2Digest,
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
-    graffiti: Eth2Digest,
+    graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
     rollback: RollbackHashedProc,
@@ -291,10 +293,10 @@ proc makeBeaconBlock*(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
       graffiti: graffiti,
-      attestations: List[Attestation, MAX_ATTESTATIONS](attestations),
-      deposits: List[Deposit, MAX_DEPOSITS](deposits)))
+      attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
+      deposits: List[Deposit, Limit MAX_DEPOSITS](deposits)))
 
-  let ok = process_block(state.data, blck, {skipBlsValidation}, cache)
+  let ok = process_block(preset, state.data, blck, {skipBlsValidation}, cache)
 
   if not ok:
     warn "Unable to apply new block to state", blck = shortLog(blck)

@@ -15,5 +15,5 @@ template toSszType*(x: auto): auto =
   when x is Slot|Epoch|ValidatorIndex: uint64(x)
   elif x is Eth2Digest: x.data
   elif x is BlsCurveType: toRaw(x)
-  elif x is ForkDigest|Version: distinctBase(x)
+  elif x is ForkDigest|Version|GraffitiBytes: distinctBase(x)
   else: x

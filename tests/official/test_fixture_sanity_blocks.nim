@@ -11,7 +11,7 @@ import
   # Standard library
   os, sequtils, unittest,
   # Beacon chain internals
-  ../../beacon_chain/spec/[crypto, datatypes, state_transition],
+  ../../beacon_chain/spec/[crypto, datatypes, state_transition, presets],
   ../../beacon_chain/ssz,
   # Test utilities
   ../testutil,
@@ -48,11 +48,11 @@ proc runTest(identifier: string) =
 
         if hasPostState:
           let success = state_transition(
-            hashedPreState[], blck, flags = {}, noRollback)
+            defaultRuntimePreset, hashedPreState[], blck, flags = {}, noRollback)
           doAssert success, "Failure when applying block " & $i
         else:
           let success = state_transition(
-            hashedPreState[], blck, flags = {}, noRollback)
+            defaultRuntimePreset, hashedPreState[], blck, flags = {}, noRollback)
           doAssert (i + 1 < numBlocks) or not success,
             "We didn't expect these invalid blocks to be processed"
 

@@ -5,15 +5,19 @@ proc writeValue*(writer: var JsonWriter, value: PeerID) {.inline.} =
   writer.writeValue value.pretty
 
 proc readValue*(reader: var JsonReader, value: var PeerID) {.inline.} =
-  value = PeerID.init reader.readValue(string)
+  let res = PeerID.init reader.readValue(string)
+  if res.isOk:
+    value = res.get()
+  else:
+    raiseUnexpectedValue(reader, $res.error)
 
 proc writeValue*(writer: var JsonWriter, value: MultiAddress) {.inline.} =
   writer.writeValue $value
 
 proc readValue*(reader: var JsonReader, value: var MultiAddress) {.inline.} =
-  let addressRes = MultiAddress.init reader.readValue(string)
-  if addressRes.isOk:
-    value = addressRes.value
+  let res = MultiAddress.init reader.readValue(string)
+  if res.isOk:
+    value = res.value
   else:
-    raiseUnexpectedValue(reader, "Invalid MultiAddress value")
+    raiseUnexpectedValue(reader, $res.error)
 

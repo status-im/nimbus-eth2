@@ -12,7 +12,7 @@ import
   # Status libraries
   stew/[byteutils, endians2],
   # Internals
-  ../../beacon_chain/spec/[datatypes, digest],
+  ../../beacon_chain/spec/[datatypes, digest, presets],
   # Test utilities
   ../testutil, ./fixtures_utils
 
@@ -93,7 +93,22 @@ const IgnoreKeys = [
   # Ignore all non-numeric types
   "DEPOSIT_CONTRACT_ADDRESS",
   "GENESIS_FORK_VERSION",
-  "SHARD_BLOCK_OFFSETS"
+  "SHARD_BLOCK_OFFSETS",
+
+  # TODO
+  # There constants were removed from the preset modules
+  # because we consider them run-time settings now, but
+  # it would be still useful to check them.
+  "MIN_GENESIS_ACTIVE_VALIDATOR_COUNT",
+  "MIN_GENESIS_TIME",
+  "GENESIS_FORK_VERSION",
+  "GENESIS_DELAY",
+
+  # TODO
+  # These are phase1 constants.
+  # Not currently present in the phase0 presets.
+  "CUSTODY_PERIOD_TO_RANDAO_PADDING",
+  "EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS"
 ]
 
 func parseU32LEHex(hexValue: string): uint32 =

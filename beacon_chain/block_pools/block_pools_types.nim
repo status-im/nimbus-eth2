@@ -6,8 +6,11 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  deques, tables,
+  # Standard library
+  deques, tables, hashes,
+  # Status libraries
   stew/[endians2, byteutils], chronicles,
+  # Internals
   ../spec/[datatypes, crypto, digest],
   ../beacon_chain_db, ../extras
 
@@ -24,9 +27,20 @@ import
 
 type
   BlockError* = enum
-    MissingParent
+    MissingParent ##\
+      ## We don't know the parent of this block so we can't tell if it's valid
+      ## or not - it'll go into the quarantine and be reexamined when the parent
+      ## appears or be discarded if finality obsoletes it
+
+    Unviable ##\
+      ## Block is from a different history / fork than the one we're interested
+      ## in (based on our finalized checkpoint)
+
+    Invalid ##\
+      ## Block is broken / doesn't apply cleanly - whoever sent it is fishy (or
+      ## we're buggy)
     Old
-    Invalid
+    Duplicate
 
   Quarantine* = object
     ## Keeps track of unsafe blocks coming from the network
@@ -114,6 +128,8 @@ type
 
     updateFlags*: UpdateFlags
 
+    runtimePreset*: RuntimePreset
+
   EpochRef* = ref object
     shuffled_active_validator_indices*: seq[ValidatorIndex]
     epoch*: Epoch
@@ -179,3 +195,6 @@ proc shortLog*(v: BlockRef): string =
 
 chronicles.formatIt BlockSlot: shortLog(it)
 chronicles.formatIt BlockRef: shortLog(it)
+
+func hash*(blockRef: BlockRef): Hash =
+  hash(blockRef.root)

@@ -10,10 +10,16 @@
 import
   # Standard library
   std/tables, std/options, std/typetraits,
+  # Status libraries
+  chronicles,
   # Internal
   ../spec/[datatypes, digest],
   # Fork choice
   ./fork_choice_types
+
+logScope:
+  topics = "fork_choice"
+  cat = "fork_choice"
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
@@ -176,6 +182,14 @@ func on_block*(
       # Genesis (but Genesis might not be default(Eth2Digest))
     parent_index = none(int)
   elif parent notin self.indices:
+    {.noSideEffect.}:
+      error "Trying to add block with unknown parent",
+        child_root = shortLog(root),
+        parent_root = shortLog(parent),
+        justified_epoch = $justified_epoch,
+        finalized_epoch = $finalized_epoch,
+        slot_optional = $slot
+
     return ForkChoiceError(
       kind: fcErrUnknownParent,
       child_root: root,
@@ -297,6 +311,12 @@ func maybe_prune*(
       kind: fcErrInvalidNodeIndex,
       index: finalized_index
     )
+
+  {.noSideEffect.}:
+    debug "Pruning blocks from fork choice",
+      finalizedRoot = shortlog(finalized_root),
+      pcs = "prune"
+
   for node_index in 0 ..< finalized_index:
     self.indices.del(self.nodes[node_index].root)
 

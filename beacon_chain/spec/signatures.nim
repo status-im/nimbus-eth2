@@ -8,7 +8,8 @@
 {.push raises: [Defect].}
 
 import
-  ./crypto, ./digest, ./datatypes, ./helpers, ../ssz/merkleization
+  ../ssz/merkleization,
+  ./crypto, ./digest, ./datatypes, ./helpers, ./presets
 
 template withTrust(sig: SomeSig, body: untyped): bool =
   when sig is TrustedSig:
@@ -27,6 +28,18 @@ func get_slot_signature*(
     signing_root = compute_signing_root(slot, domain)
 
   blsSign(privKey, signing_root.data)
+
+func verify_slot_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
+    pubkey: ValidatorPubKey, signature: SomeSig): bool =
+  withTrust(signature):
+    let
+      epoch = compute_epoch_at_slot(slot)
+      domain = get_domain(
+        fork, DOMAIN_SELECTION_PROOF, epoch, genesis_validators_root)
+      signing_root = compute_signing_root(slot, domain)
+
+    blsVerify(pubkey, signing_root.data, signature)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#randao-reveal
 func get_epoch_signature*(
@@ -86,6 +99,18 @@ func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth
 
   blsSign(privKey, signing_root.data)
 
+func verify_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
+                                           aggregate_and_proof: AggregateAndProof,
+                                           pubkey: ValidatorPubKey, signature: SomeSig): bool =
+  withTrust(signature):
+    let
+      epoch = compute_epoch_at_slot(aggregate_and_proof.aggregate.data.slot)
+      domain = get_domain(
+        fork, DOMAIN_AGGREGATE_AND_PROOF, epoch, genesis_validators_root)
+      signing_root = compute_signing_root(aggregate_and_proof, domain)
+
+    blsVerify(pubKey, signing_root.data, signature)
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#aggregate-signature
 func get_attestation_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
@@ -114,23 +139,23 @@ func verify_attestation_signature*(
     blsFastAggregateVerify(pubkeys, signing_root.data, signature)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#deposits
-func get_deposit_signature*(
-    deposit: DepositData,
-    privkey: ValidatorPrivKey): ValidatorSig =
-
+func get_deposit_signature*(preset: RuntimePreset,
+                            deposit: DepositData,
+                            privkey: ValidatorPrivKey): ValidatorSig =
   let
     deposit_message = deposit.getDepositMessage()
     # Fork-agnostic domain since deposits are valid across forks
-    domain = compute_domain(DOMAIN_DEPOSIT)
+    domain = compute_domain(DOMAIN_DEPOSIT, preset.GENESIS_FORK_VERSION)
     signing_root = compute_signing_root(deposit_message, domain)
 
   blsSign(privKey, signing_root.data)
 
-func verify_deposit_signature*(deposit: DepositData): bool =
+func verify_deposit_signature*(preset: RuntimePreset,
+                               deposit: DepositData): bool =
   let
     deposit_message = deposit.getDepositMessage()
     # Fork-agnostic domain since deposits are valid across forks
-    domain = compute_domain(DOMAIN_DEPOSIT)
+    domain = compute_domain(DOMAIN_DEPOSIT, preset.GENESIS_FORK_VERSION)
     signing_root = compute_signing_root(deposit_message, domain)
 
   blsVerify(deposit.pubkey, signing_root.data, deposit.signature)

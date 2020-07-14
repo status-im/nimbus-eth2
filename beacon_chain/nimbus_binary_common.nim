@@ -44,19 +44,15 @@ proc setupMainProc*(logLevel: string) =
     stderr.write "Invalid value for --log-level. " & err.msg
     quit 1
 
-template ctrlCHandling*(extraCode: untyped) =
-  ## Ctrl+C handling
-  proc controlCHandler() {.noconv.} =
-    when defined(windows):
-      # workaround for https://github.com/nim-lang/Nim/issues/4057
-      setupForeignThreadGc()
-    info "Shutting down after having received SIGINT"
-    extraCode
-  setControlCHook(controlCHandler)
-
 template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
-  let banner = clientId & "\p" & copyrights & "\p\p" & nimBanner
-  ConfType.load(version = banner, copyrightBanner = banner)
+  let
+    version = clientId & "\p" & copyrights & "\p\p" &
+      "eth2 specification v" & SPEC_VERSION & "\p\p" &
+      nimBanner
+  # TODO for some reason, copyrights are printed when doing `--help`
+  ConfType.load(
+    version = version,
+    copyrightBanner = clientId) # but a short version string makes more sense...
 
 # TODO not sure if this belongs here but it doesn't belong in `time.nim` either
 proc sleepToSlotOffset*(clock: BeaconClock, extra: chronos.Duration,

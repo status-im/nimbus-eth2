@@ -8,7 +8,7 @@
 import
   extras, beacon_chain_db,
   stew/results,
-  spec/[crypto, datatypes, digest]
+  spec/[crypto, datatypes, digest, presets]
 
 
 import
@@ -26,7 +26,7 @@ type
   BlockPools* = object
     # TODO: Rename BlockPools
     quarantine: Quarantine
-    dag: CandidateChains
+    dag*: CandidateChains
 
   BlockPool* = BlockPools
 
@@ -53,9 +53,19 @@ template head*(pool: BlockPool): Head =
 template finalizedHead*(pool: BlockPool): BlockSlot =
   pool.dag.finalizedHead
 
-proc add*(pool: var BlockPool, blockRoot: Eth2Digest,
-          signedBlock: SignedBeaconBlock): Result[BlockRef, BlockError] {.gcsafe.} =
-  add(pool.dag, pool.quarantine, blockRoot, signedBlock)
+proc addRawBlock*(pool: var BlockPool, blockRoot: Eth2Digest,
+          signedBlock: SignedBeaconBlock,
+          callback: proc(blck: BlockRef)
+        ): Result[BlockRef, BlockError] =
+  ## Add a raw block to the blockpool
+  ## Trigger "callback" on success
+  ## Adding a rawblock might unlock a consequent amount of blocks in quarantine
+  # TODO: `addRawBlock` is accumulating significant cruft
+  # and is in dire need of refactoring
+  # - the ugly `inAdd` field
+  # - the callback
+  # - callback may be problematic as it's called in async validator duties
+  result = addRawBlock(pool.dag, pool.quarantine, blockRoot, signedBlock, callback)
 
 export parent        # func parent*(bs: BlockSlot): BlockSlot
 export isAncestorOf  # func isAncestorOf*(a, b: BlockRef): bool
@@ -64,11 +74,19 @@ export get_ancestor  # func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef
 export atSlot        # func atSlot*(blck: BlockRef, slot: Slot): BlockSlot
 
 
-proc init*(T: type BlockPools, db: BeaconChainDB,
-    updateFlags: UpdateFlags = {}): BlockPools =
-  result.dag = init(CandidateChains, db, updateFlags)
+proc init*(T: type BlockPools,
+           preset: RuntimePreset,
+           db: BeaconChainDB,
+           updateFlags: UpdateFlags = {}): BlockPools =
+  result.dag = init(CandidateChains, preset, db, updateFlags)
+
+func addFlags*(pool: BlockPool, flags: UpdateFlags) =
+  ## Add a flag to the block processing
+  ## This is destined for testing to add skipBLSValidation flag
+  pool.dag.updateFlags.incl flags
 
 export init          # func init*(T: type BlockRef, root: Eth2Digest, blck: BeaconBlock): BlockRef
+export addFlags
 
 func getRef*(pool: BlockPool, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available

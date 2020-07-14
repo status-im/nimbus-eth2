@@ -2,13 +2,14 @@
 
 import
   os, options,
-  chronicles, confutils, json_serialization,
-  confutils/defs, confutils/std/net,
-  chronicles/options as chroniclesOptions,
-  spec/[crypto, keystore, digest]
+  chronicles, chronicles/options as chroniclesOptions,
+  confutils, confutils/defs, confutils/std/net,
+  stew/byteutils, json_serialization, web3/ethtypes,
+  network_metadata, spec/[crypto, keystore, digest, datatypes]
 
 export
-  defs, enabledLogLevel, parseCmdArg, completeCmdArg
+  defs, enabledLogLevel, parseCmdArg, completeCmdArg,
+  network_metadata
 
 type
   ValidatorKeyPath* = TypedInputFile[ValidatorPrivKey, Txt, "privkey"]
@@ -32,11 +33,7 @@ type
   VCStartUpCmd* = enum
     VCNoCommand
 
-  Eth1Network* = enum
-    custom
-    mainnet
-    rinkeby
-    goerli
+  Web3Url* = distinct string
 
   BeaconNodeConf* = object
     logLevel* {.
@@ -44,10 +41,9 @@ type
       desc: "Sets the log level"
       name: "log-level" }: string
 
-    eth1Network* {.
-      defaultValue: goerli
-      desc: "The Eth1 network tracked by the beacon node"
-      name: "eth1-network" }: Eth1Network
+    eth2Network* {.
+      desc: "The Eth2 network to join"
+      name: "network" }: Option[string]
 
     dataDir* {.
       defaultValue: config.defaultDataDir()
@@ -61,13 +57,12 @@ type
       name: "web3-url" }: string
 
     depositContractAddress* {.
-      defaultValue: ""
       desc: "Address of the deposit contract"
-      name: "deposit-contract" }: string
+      name: "deposit-contract" }: Option[Eth1Address]
 
     depositContractDeployedAt* {.
       desc: "The Eth1 block hash where the deposit contract has been deployed"
-      name: "deposit-contract-block" }: Option[Eth2Digest]
+      name: "deposit-contract-block" }: Option[Eth1BlockHash]
 
     nonInteractive* {.
       desc: "Do not display interative prompts. Quit on missing configuration"
@@ -132,15 +127,25 @@ type
         name: "wallets-dir" }: Option[InputDir]
 
       stateSnapshot* {.
-        desc: "Json file specifying a recent state snapshot"
+        desc: "SSZ file specifying a recent state snapshot"
         abbr: "s"
         name: "state-snapshot" }: Option[InputFile]
+
+      stateSnapshotContents* {.hidden.}: ref string
+        # This is ref so we can mutate it (to erase it) after the initial loading.
+
+      runtimePreset* {.hidden.}: RuntimePreset
 
       nodeName* {.
         defaultValue: ""
         desc: "A name for this node that will appear in the logs. " &
               "If you set this to 'auto', a persistent automatically generated ID will be selected for each --data-dir folder"
         name: "node-name" }: string
+
+      graffiti* {.
+        desc: "The graffiti value that will appear in proposed blocks. " &
+              "You can use a 0x-prefixed hex encoded string to specify raw bytes."
+        name: "graffiti" }: Option[GraffitiBytes]
 
       verifyFinalization* {.
         defaultValue: false
@@ -308,6 +313,11 @@ type
           desc: "Output folder for randomly generated keystore passphrases"
           name: "out-secrets-dir" }: string
 
+        askForKey* {.
+          defaultValue: false
+          desc: "Ask for an Eth1 private key used to fund the deposits"
+          name: "ask-for-key" }: bool
+
         dontSend* {.
           defaultValue: false,
           desc: "By default, all created deposits are also immediately sent " &
@@ -356,6 +366,11 @@ type
       defaultValue: VCNoCommand }: VCStartUpCmd
 
     of VCNoCommand:
+      graffiti* {.
+        desc: "The graffiti value that will appear in proposed blocks. " &
+              "You can use a 0x-prefixed hex encoded string to specify raw bytes."
+        name: "graffiti" }: Option[GraffitiBytes]
+
       rpcPort* {.
         defaultValue: defaultEth2RpcPort
         desc: "HTTP port of the server to connect to for RPC"
@@ -412,11 +427,25 @@ proc createDumpDirs*(conf: BeaconNodeConf) =
       # Dumping is mainly a debugging feature, so ignore these..
       warn "Cannot create dump directories", msg = err.msg
 
-func parseCmdArg*(T: type Eth2Digest, input: TaintedString): T
+func parseCmdArg*(T: type Eth1Address, input: TaintedString): T
                  {.raises: [ValueError, Defect].} =
   fromHex(T, string input)
 
-func completeCmdArg*(T: type Eth2Digest, input: TaintedString): seq[string] =
+func completeCmdArg*(T: type Eth1Address, input: TaintedString): seq[string] =
+  return @[]
+
+func parseCmdArg*(T: type Eth1BlockHash, input: TaintedString): T
+                 {.raises: [ValueError, Defect].} =
+  fromHex(T, string input)
+
+func completeCmdArg*(T: type Eth1BlockHash, input: TaintedString): seq[string] =
+  return @[]
+
+func parseCmdArg*(T: type GraffitiBytes, input: TaintedString): T
+                 {.raises: [ValueError, Defect].} =
+  GraffitiBytes.init(string input)
+
+func completeCmdArg*(T: type GraffitiBytes, input: TaintedString): seq[string] =
   return @[]
 
 func parseCmdArg*(T: type WalletName, input: TaintedString): T
@@ -453,3 +482,4 @@ func defaultAdminListenAddress*(conf: BeaconNodeConf|ValidatorClientConf): Valid
 template writeValue*(writer: var JsonWriter,
                      value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =
   writer.writeValue(string value)
+
