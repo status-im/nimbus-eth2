@@ -187,6 +187,22 @@ altona: | beacon_node
 		--data-dir=build/data/shared_altona_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
+altona-vc: | beacon_node validator_client
+	# if launching a VC as well - send the BN looking nowhere for validators/secrets
+	mkdir build/data/shared_altona_$(NODE_ID)/empty_dummy_folder
+	build/beacon_node \
+		--network=altona \
+		--log-level="$(LOG_LEVEL)" \
+		--data-dir=build/data/shared_altona_$(NODE_ID) \
+		--validators-dir=build/data/shared_altona_$(NODE_ID)/empty_dummy_folder \
+		--secrets-dir=build/data/shared_altona_$(NODE_ID)/empty_dummy_folder \
+		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS) &
+	sleep 4
+	build/validator_client \
+		--log-level="$(LOG_LEVEL)" \
+		--data-dir=build/data/shared_altona_$(NODE_ID) \
+		--rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) ))
+
 altona-dev: | beacon_node
 	build/beacon_node \
 		--network=altona \

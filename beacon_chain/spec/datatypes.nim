@@ -706,8 +706,8 @@ func init*(T: type GraffitiBytes, input: string): GraffitiBytes
     distinctBase(result)[0 ..< input.len] = toBytes(input)
 
 func defaultGraffitiBytes*(): GraffitiBytes =
-  let graffityBytes = toBytes("Nimbus " & fullVersionStr)
-  distinctBase(result)[0 ..< graffityBytes.len] = graffityBytes
+  let graffitiBytes = toBytes("Nimbus " & fullVersionStr)
+  distinctBase(result)[0 ..< graffitiBytes.len] = graffitiBytes
 
 proc writeValue*(w: var JsonWriter, value: GraffitiBytes)
                 {.raises: [IOError, Defect].} =
