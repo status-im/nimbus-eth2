@@ -7,7 +7,7 @@ import
 
 type
   MockDataProvider = ref object of DataProvider
-    
+
 
 method getBlockByHash*(p: MockDataProvider, hash: BlockHash): Future[BlockObject] {.
   async

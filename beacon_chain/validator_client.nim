@@ -10,7 +10,7 @@ import
   os, strutils, json, times,
 
   # Nimble packages
-  stew/byteutils, stew/shims/[tables, macros],
+  stew/shims/[tables, macros],
   chronos, confutils, metrics, json_rpc/[rpcclient, jsonmarshal],
   chronicles,
   blscurve, json_serialization/std/[options, sets, net],
