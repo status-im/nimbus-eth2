@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  tables, random, strutils, os,
+  tables, random, strutils, os, typetraits,
 
   # Nimble packages
   chronos, confutils/defs,
@@ -30,18 +30,21 @@ proc setupLogging*(logLevel: string, logFile: Option[OutFile]) =
   randomize()
 
   if logFile.isSome:
-    block openLogFile:
-      let
-        logFile = logFile.get.string
-        logFileDir = splitFile(logFile).dir
-      try:
-        createDir logFileDir
-      except CatchableError as err:
-        error "Failed to create directory for log file", path = logFileDir, err = err.msg
-        break openLogFile
+    when defaultChroniclesStream.outputs.type.arity > 1:
+      block openLogFile:
+        let
+          logFile = logFile.get.string
+          logFileDir = splitFile(logFile).dir
+        try:
+          createDir logFileDir
+        except CatchableError as err:
+          error "Failed to create directory for log file", path = logFileDir, err = err.msg
+          break openLogFile
 
-      if not defaultChroniclesStream.outputs[1].open(logFile):
-        error "Failed to create log file", logFile
+        if not defaultChroniclesStream.outputs[1].open(logFile):
+          error "Failed to create log file", logFile
+    else:
+      warn "The --log-file option is not active in the current build"
 
   try:
     let directives = logLevel.split(";")
