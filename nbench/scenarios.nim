@@ -187,7 +187,7 @@ template processEpochScenarioImpl(
   state.root = hash_tree_root(state.data)
 
   when needCache:
-    var cache = get_empty_per_epoch_cache()
+    var cache = StateCache()
     let epoch = state.data.slot.compute_epoch_at_slot
     cache.shuffled_active_validator_indices[epoch] =
       get_shuffled_active_validator_indices(state.data, epoch)
@@ -223,7 +223,7 @@ template processBlockScenarioImpl(
   state.root = hash_tree_root(state.data)
 
   when needCache:
-    var cache = get_empty_per_epoch_cache()
+    var cache = StateCache()
   when needFlags:
     let flags = if skipBLS: {skipBlsValidation}
                 else: {}

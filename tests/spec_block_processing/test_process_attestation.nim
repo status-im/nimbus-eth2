@@ -16,7 +16,7 @@ import
   unittest,
   stew/results,
   # Specs
-  ../../beacon_chain/spec/[beaconstate, datatypes, helpers, validator],
+  ../../beacon_chain/spec/[beaconstate, datatypes, helpers],
   # Mock helpers
   ../mocking/[mock_genesis, mock_attestations, mock_state],
   ../testutil
@@ -48,7 +48,7 @@ suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
 
       # State transition
       # ----------------------------------------
-      var cache = get_empty_per_epoch_cache()
+      var cache = StateCache()
       check process_attestation(
         state.data, attestation, flags = {}, cache
       ).isOk

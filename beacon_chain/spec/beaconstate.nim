@@ -592,10 +592,13 @@ proc check_attestation*(
   trace "process_attestation: beginning",
     attestation=attestation
 
-  if not (data.index < get_committee_count_at_slot(state, data.slot)):
+  let committee_count_at_slot =
+    get_committee_count_at_slot(get_shuffled_active_validator_indices(
+      state, stateSlot.compute_epoch_at_slot, stateCache).len.uint64).uint64
+  if not (data.index < committee_count_at_slot):
     warn("Data index exceeds committee count",
       data_index = data.index,
-      committee_count = get_committee_count_at_slot(state, data.slot))
+      committee_count = committee_count_at_slot)
     return
 
   if not isValidAttestationTargetEpoch(state, data):

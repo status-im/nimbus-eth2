@@ -13,7 +13,7 @@ import
   # Status libraries
   chronicles, stew/[byteutils], json_serialization/std/sets,
   # Internal
-  ./spec/[beaconstate, datatypes, crypto, digest, helpers, validator],
+  ./spec/[beaconstate, datatypes, crypto, digest, helpers],
   ./extras, ./block_pool, ./block_pools/candidate_chains, ./beacon_node_types,
   ./fork_choice/fork_choice
 
@@ -464,7 +464,7 @@ proc getAttestationsForBlock*(pool: AttestationPool,
   if attestations.len == 0:
     return
 
-  var cache = get_empty_per_epoch_cache()
+  var cache = StateCache()
   for a in attestations:
     var
       # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#construct-attestation

@@ -54,7 +54,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     attesters: RunningStat
     r = initRand(1)
     signedBlock: SignedBeaconBlock
-    cache = get_empty_per_epoch_cache()
+    cache = StateCache()
 
   proc maybeWrite(last: bool) =
     if write_last_json:

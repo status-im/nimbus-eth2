@@ -77,7 +77,7 @@ func get_shuffled_seq*(seed: Eth2Digest,
       if bit != 0:
         shuffled_active_validator_indices[index] = flip.ValidatorIndex
 
-  result = shuffled_active_validator_indices
+  shuffled_active_validator_indices
 
 func get_shuffled_active_validator_indices*(state: BeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
@@ -89,6 +89,16 @@ func get_shuffled_active_validator_indices*(state: BeaconState, epoch: Epoch):
       get_seed(state, epoch, DOMAIN_BEACON_ATTESTER),
       active_validator_indices.len.uint64),
     active_validator_indices[it])
+
+func get_shuffled_active_validator_indices*(
+    state: BeaconState, epoch: Epoch, cache: var StateCache):
+    seq[ValidatorIndex] =
+  try:
+    cache.shuffled_active_validator_indices[epoch]
+  except KeyError:
+    let validator_indices = get_shuffled_active_validator_indices(state, epoch)
+    cache.shuffled_active_validator_indices[epoch] = validator_indices
+    validator_indices
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(state: BeaconState): Epoch =
@@ -142,7 +152,7 @@ func get_beacon_committee*(
 
   try:
     let committee_count = get_committee_count_at_slot(
-      cache.shuffled_active_validator_indices[epoch].len.uint64.Slot)
+      cache.shuffled_active_validator_indices[epoch].len.uint64)
     compute_committee(
       cache.shuffled_active_validator_indices[epoch],
       get_seed(state, epoch, DOMAIN_BEACON_ATTESTER),
@@ -153,10 +163,44 @@ func get_beacon_committee*(
   except KeyError:
     raiseAssert "values are added to cache before using them"
 
-# Not from spec
-func get_empty_per_epoch_cache*(): StateCache =
-  result.shuffled_active_validator_indices =
-    initTable[Epoch, seq[ValidatorIndex]]()
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_shuffled_index
+func compute_shuffled_index(
+    index: uint64, index_count: uint64, seed: Eth2Digest): uint64 =
+  # Return the shuffled index corresponding to ``seed`` (and ``index_count``).
+  doAssert index < index_count
+
+  var
+    pivot_buffer: array[(32+1), byte]
+    source_buffer: array[(32+1+4), byte]
+    cur_idx_permuted = index
+
+  pivot_buffer[0..31] = seed.data
+  source_buffer[0..31] = seed.data
+
+  # Swap or not (https://link.springer.com/content/pdf/10.1007%2F978-3-642-32009-5_1.pdf)
+  # See the 'generalized domain' algorithm on page 3
+  for current_round in 0 ..< SHUFFLE_ROUND_COUNT.int:
+    let round_bytes1 = int_to_bytes1(current_round)[0]
+    pivot_buffer[32] = round_bytes1
+    source_buffer[32] = round_bytes1
+
+    let
+      # If using multiple indices, can amortize this
+      pivot =
+        bytes_to_int(eth2digest(pivot_buffer).data.toOpenArray(0, 7)) mod
+          index_count
+
+      flip = ((index_count + pivot) - cur_idx_permuted) mod index_count
+      position = max(cur_idx_permuted.int, flip.int)
+    source_buffer[33..36] = int_to_bytes4((position div 256).uint64)
+    let
+      source = eth2digest(source_buffer).data
+      byte_value = source[(position mod 256) div 8]
+      bit = (byte_value shr (position mod 8)) mod 2
+
+    cur_idx_permuted = if bit != 0: flip else: cur_idx_permuted
+
+  cur_idx_permuted
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_proposer_index
 func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
@@ -167,11 +211,7 @@ func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
   if len(indices) == 0:
     return none(ValidatorIndex)
 
-  let
-    seq_len = indices.len.uint64
-    shuffled_seq = mapIt(get_shuffled_seq(seed, seq_len), indices[it])
-
-  doAssert seq_len == shuffled_seq.len.uint64
+  let seq_len = indices.len
 
   var
     i = 0
@@ -180,7 +220,9 @@ func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
   while true:
     buffer[32..39] = int_to_bytes8(i.uint64 div 32)
     let
-      candidate_index = shuffled_seq[(i.uint64 mod seq_len).int]
+      candidate_index =
+        indices[
+          compute_shuffled_index((i mod seq_len).uint64, seq_len.uint64, seed)]
       random_byte = (eth2digest(buffer).data)[i mod 32]
       effective_balance =
         state.validators[candidate_index].effective_balance
@@ -245,7 +287,7 @@ func get_committee_assignment*(
   let next_epoch = get_current_epoch(state) + 1
   doAssert epoch <= next_epoch
 
-  var cache = get_empty_per_epoch_cache()
+  var cache = StateCache()
 
   let start_slot = compute_start_slot_at_epoch(epoch)
   for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
@@ -259,7 +301,7 @@ func get_committee_assignment*(
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#validator-assignments
 func is_proposer(
     state: BeaconState, validator_index: ValidatorIndex): bool {.used.} =
-  var cache = get_empty_per_epoch_cache()
+  var cache = StateCache()
   let proposer_index = get_beacon_proposer_index(state, cache)
   proposer_index.isSome and proposer_index.get == validator_index
 

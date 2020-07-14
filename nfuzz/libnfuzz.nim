@@ -60,7 +60,7 @@ template decodeAndProcess(typ, process: untyped): bool =
   let flags {.inject.} = if disable_bls: {skipBlsValidation} else: {}
 
   var
-    cache {.used, inject.} = get_empty_per_epoch_cache()
+    cache {.used, inject.} = StateCache()
     data {.inject.} = newClone(
       try:
         SSZ.decode(input, typ)

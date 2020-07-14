@@ -172,7 +172,7 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot,
     return false
 
   # Catch up to the target slot
-  var cache = get_empty_per_epoch_cache()
+  var cache = StateCache()
   while state.data.slot < slot:
     advance_slot(state, updateFlags, cache)
 
@@ -264,7 +264,7 @@ proc state_transition*(
   # TODO consider moving this to testutils or similar, since non-testing
   # and fuzzing code should always be coming from blockpool which should
   # always be providing cache or equivalent
-  var cache = get_empty_per_epoch_cache()
+  var cache = StateCache()
   cache.shuffled_active_validator_indices[state.data.slot.compute_epoch_at_slot] =
     get_shuffled_active_validator_indices(
       state.data, state.data.slot.compute_epoch_at_slot)

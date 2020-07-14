@@ -172,7 +172,7 @@ func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
 
     # Don't use BlockRef caching as far as the epoch where the active
     # validator indices can diverge.
-    if (compute_activation_exit_epoch(blck.slot.compute_epoch_at_slot) <
+    if (compute_activation_exit_epoch(blck.slot.compute_epoch_at_slot) >
         state_epoch):
       blck.epochsInfo.add(cache)
     trace "candidate_chains.getEpochInfo: back-filling parent.epochInfo",
@@ -185,7 +185,7 @@ func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
 
 func getEpochCache*(blck: BlockRef, state: BeaconState): StateCache =
   let epochInfo = getEpochInfo(blck, state)
-  result = get_empty_per_epoch_cache()
+  result = StateCache()
   result.shuffled_active_validator_indices[
     state.slot.compute_epoch_at_slot] =
       epochInfo.shuffled_active_validator_indices
@@ -925,7 +925,7 @@ proc getProposer*(
     dag: CandidateChains, head: BlockRef, slot: Slot):
     Option[(ValidatorIndex, ValidatorPubKey)] =
   dag.withState(dag.tmpState, head.atSlot(slot)):
-    var cache = get_empty_per_epoch_cache()
+    var cache = StateCache()
 
     let proposerIdx = get_beacon_proposer_index(state, cache)
     if proposerIdx.isNone:

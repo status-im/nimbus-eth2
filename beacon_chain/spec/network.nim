@@ -70,7 +70,7 @@ func compute_subnet_for_attestation*(
   let
     slots_since_epoch_start = attestation.data.slot mod SLOTS_PER_EPOCH
     committees_since_epoch_start =
-      get_committee_count_at_slot(num_active_validators.Slot) * slots_since_epoch_start
+      get_committee_count_at_slot(num_active_validators) * slots_since_epoch_start
 
   (committees_since_epoch_start + attestation.data.index) mod ATTESTATION_SUBNET_COUNT
 

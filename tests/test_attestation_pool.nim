@@ -44,7 +44,7 @@ suiteReport "Attestation pool processing" & preset():
       process_slots(state.data, state.data.data.slot + 1)
 
   timedTest "Can add and retrieve simple attestation" & preset():
-    var cache = get_empty_per_epoch_cache()
+    var cache = StateCache()
     let
       # Create an attestation for slot 1!
       beacon_committee = get_beacon_committee(
@@ -63,7 +63,7 @@ suiteReport "Attestation pool processing" & preset():
       attestations.len == 1
 
   timedTest "Attestations may arrive in any order" & preset():
-    var cache = get_empty_per_epoch_cache()
+    var cache = StateCache()
     let
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
@@ -92,7 +92,7 @@ suiteReport "Attestation pool processing" & preset():
       attestations.len == 1
 
   timedTest "Attestations should be combined" & preset():
-    var cache = get_empty_per_epoch_cache()
+    var cache = StateCache()
     let
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
@@ -114,7 +114,7 @@ suiteReport "Attestation pool processing" & preset():
       attestations.len == 1
 
   timedTest "Attestations may overlap, bigger first" & preset():
-    var cache = get_empty_per_epoch_cache()
+    var cache = StateCache()
 
     var
       # Create an attestation for slot 1!
@@ -139,7 +139,7 @@ suiteReport "Attestation pool processing" & preset():
       attestations.len == 1
 
   timedTest "Attestations may overlap, smaller first" & preset():
-    var cache = get_empty_per_epoch_cache()
+    var cache = StateCache()
     var
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(state.data.data,
@@ -163,7 +163,7 @@ suiteReport "Attestation pool processing" & preset():
       attestations.len == 1
 
   timedTest "Fork choice returns latest block with no attestations":
-    var cache = get_empty_per_epoch_cache()
+    var cache = StateCache()
     let
       b1 = addTestBlock(state.data, blockPool[].tail.root, cache)
       b1Root = hash_tree_root(b1.message)
@@ -189,7 +189,7 @@ suiteReport "Attestation pool processing" & preset():
       head2 == b2Add[]
 
   timedTest "Fork choice returns block with attestation":
-    var cache = get_empty_per_epoch_cache()
+    var cache = StateCache()
     let
       b10 = makeTestBlock(state.data, blockPool[].tail.root, cache)
       b10Root = hash_tree_root(b10.message)
@@ -248,7 +248,7 @@ suiteReport "Attestation pool processing" & preset():
       head4 == b11Add[]
 
   timedTest "Trying to add a block twice tags the second as an error":
-    var cache = get_empty_per_epoch_cache()
+    var cache = StateCache()
     let
       b10 = makeTestBlock(state.data, blockPool[].tail.root, cache)
       b10Root = hash_tree_root(b10.message)
@@ -270,7 +270,7 @@ suiteReport "Attestation pool processing" & preset():
     doAssert: b10Add_clone.error == Duplicate
 
   wrappedTimedTest "Trying to add a duplicate block from an old pruned epoch is tagged as an error":
-    var cache = get_empty_per_epoch_cache()
+    var cache = StateCache()
 
     blockpool[].addFlags {skipBLSValidation}
     pool.forkChoice_v2.proto_array.prune_threshold = 1
@@ -335,7 +335,7 @@ suiteReport "Attestation pool processing" & preset():
             # signature: ValidatorSig()
           )
 
-      cache = get_empty_per_epoch_cache()
+      cache = StateCache()
 
     # -------------------------------------------------------------
     # Prune

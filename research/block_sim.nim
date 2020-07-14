@@ -67,7 +67,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       attestationHead = blockPool.head.blck.atSlot(slot)
 
     blockPool.withState(blockPool.tmpState, attestationHead):
-      var cache = get_empty_per_epoch_cache()
+      var cache = StateCache()
       let committees_per_slot = get_committee_count_at_slot(state, slot)
 
       for committee_index in 0'u64..<committees_per_slot:
@@ -100,7 +100,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       head = blockPool.head.blck
 
     blockPool.withState(blockPool.tmpState, head.atSlot(slot)):
-      var cache = get_empty_per_epoch_cache()
+      var cache = StateCache()
 
       let
         proposerIdx = get_beacon_proposer_index(state, cache).get()

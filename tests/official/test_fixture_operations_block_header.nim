@@ -13,7 +13,7 @@ import
   # Utilities
   stew/results,
   # Beacon chain internals
-  ../../beacon_chain/spec/[datatypes, state_transition_block, validator],
+  ../../beacon_chain/spec/[datatypes, state_transition_block],
   ../../beacon_chain/ssz,
   # Test utilities
   ../testutil,
@@ -39,7 +39,7 @@ proc runTest(identifier: string) =
       prefix = "[Invalid] "
 
     timedTest prefix & identifier:
-      var cache = get_empty_per_epoch_cache()
+      var cache = StateCache()
 
       let blck = parseTest(testDir/"block.ssz", SSZ, BeaconBlock)
       var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
