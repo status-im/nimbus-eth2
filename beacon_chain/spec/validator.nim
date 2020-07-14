@@ -211,18 +211,17 @@ func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
   if len(indices) == 0:
     return none(ValidatorIndex)
 
-  let seq_len = indices.len
+  let seq_len = indices.len.uint64
 
   var
-    i = 0
+    i = 0'u64
     buffer: array[32+8, byte]
   buffer[0..31] = seed.data
   while true:
     buffer[32..39] = int_to_bytes8(i.uint64 div 32)
     let
       candidate_index =
-        indices[
-          compute_shuffled_index((i mod seq_len).uint64, seq_len.uint64, seed)]
+        indices[compute_shuffled_index((i mod seq_len).uint64, seq_len, seed)]
       random_byte = (eth2digest(buffer).data)[i mod 32]
       effective_balance =
         state.validators[candidate_index].effective_balance
