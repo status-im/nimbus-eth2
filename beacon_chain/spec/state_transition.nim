@@ -124,6 +124,15 @@ func process_slot*(state: var HashedBeaconState) {.nbench.} =
   state.data.block_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
     hash_tree_root(state.data.latest_block_header)
 
+func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
+  cache.shuffled_active_validator_indices.del epoch
+  let
+    start_slot = epoch.compute_start_slot_at_epoch
+    end_slot = (epoch + 1).compute_start_slot_at_epoch
+
+  for i in start_slot ..< end_slot:
+    cache.beacon_proposer_indices.del i
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc advance_slot*(
     state: var HashedBeaconState, updateFlags: UpdateFlags,
@@ -137,7 +146,8 @@ proc advance_slot*(
     # Note: Genesis epoch = 0, no need to test if before Genesis
     beacon_previous_validators.set(get_epoch_validator_count(state.data))
     process_epoch(state.data, updateFlags, epochCache)
-    epochCache = get_empty_per_epoch_cache()
+    clear_epoch_from_cache(
+      epochCache, (state.data.slot + 1).compute_epoch_at_slot)
   state.data.slot += 1
   if is_epoch_transition:
     beacon_current_validators.set(get_epoch_validator_count(state.data))
