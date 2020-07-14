@@ -231,8 +231,8 @@ for i in $(seq $BOOTSTRAP_NODE -1 $TOTAL_USER_NODES); do
 
   run_cmd $i "${SIM_ROOT}/run_node.sh ${i} --verify-finalization" "node"
 
-  if [ "${BN_VC_VALIDATOR_SPLIT:-}" == "yes" ]; then
-    # start the VC with a few seconds of delay so that we can connect through RPC
+  if [ "${USE_BN_VC_VALIDATOR_SPLIT:-}" == "yes" ]; then
+    # start the VC with a few seconds of delay so that there are less RPC connection retries
     run_cmd $i "sleep 3 && ${SIM_ROOT}/run_validator.sh ${i}" "validator"
   fi
 done

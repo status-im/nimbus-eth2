@@ -25,14 +25,15 @@ mkdir -p "$NODE_VALIDATORS_DIR"
 rm -rf "$NODE_SECRETS_DIR"
 mkdir -p "$NODE_SECRETS_DIR"
 
-VALIDATORS_PER_NODE=$((NUM_VALIDATORS / TOTAL_NODES))
+# we will split the keys for this instance in half between the BN and the VC
+# and the validators for the VCs will be from the second half of all validators
+VALIDATORS_PER_NODE=$(( (NUM_VALIDATORS / TOTAL_NODES) / 2 ))
+VALIDATOR_OFFSET=$((NUM_VALIDATORS / 2))
 
 if [[ $NODE_ID -lt $TOTAL_NODES ]]; then
-  # we will split the keys for this instance in half between the BN and the VC
-  ATTACHED_VALIDATORS=$((VALIDATORS_PER_NODE / 2))
 
   pushd "$VALIDATORS_DIR" >/dev/null
-  for VALIDATOR in $(ls | tail -n +$(( ($VALIDATORS_PER_NODE * $NODE_ID) + 1 + $ATTACHED_VALIDATORS )) | head -n $ATTACHED_VALIDATORS); do
+  for VALIDATOR in $(ls | tail -n +$(( $VALIDATOR_OFFSET + ($VALIDATORS_PER_NODE * $NODE_ID) + 1 )) | head -n $VALIDATORS_PER_NODE); do
       cp -ar "$VALIDATOR" "$NODE_VALIDATORS_DIR"
       cp -a "$SECRETS_DIR/$VALIDATOR" "$NODE_SECRETS_DIR"
     done
