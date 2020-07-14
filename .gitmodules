@@ -183,3 +183,8 @@
 	url = https://github.com/eth2-clients/eth2-testnets.git
 	ignore = dirty
 	branch = master
+[submodule "vendor/nimbus-security-resources"]
+	path = vendor/nimbus-security-resources
+	url = https://github.com/status-im/nimbus-security-resources.git
+	ignore = dirty
+	branch = master
