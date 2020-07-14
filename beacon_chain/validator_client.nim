@@ -200,7 +200,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
 programMain:
   let config = makeBannerAndConfig("Nimbus validator client v" & fullVersionStr, ValidatorClientConf)
 
-  setupMainProc(config.logLevel)
+  setupLogging(config.logLevel, config.logFile)
 
   case config.cmd
   of VCNoCommand:

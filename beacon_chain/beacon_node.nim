@@ -1161,7 +1161,7 @@ proc createWalletInteractively(
 programMain:
   var config = makeBannerAndConfig(clientId, BeaconNodeConf)
 
-  setupMainProc(config.logLevel)
+  setupLogging(config.logLevel, config.logFile)
 
   if config.eth2Network.isSome:
     let

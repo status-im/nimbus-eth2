@@ -41,6 +41,10 @@ type
       desc: "Sets the log level"
       name: "log-level" }: string
 
+    logFile* {.
+      desc: "Specifies a path for the written Json log file"
+      name: "log-file" }: Option[OutFile]
+
     eth2Network* {.
       desc: "The Eth2 network to join"
       name: "network" }: Option[string]
@@ -350,6 +354,10 @@ type
       defaultValue: "DEBUG"
       desc: "Sets the log level."
       name: "log-level" }: string
+
+    logFile* {.
+      desc: "Specifies a path for the written Json log file"
+      name: "log-file" }: Option[OutFile]
 
     dataDir* {.
       defaultValue: config.defaultDataDir()
