@@ -189,7 +189,7 @@ altona: | beacon_node
 
 altona-vc: | beacon_node validator_client
 	# if launching a VC as well - send the BN looking nowhere for validators/secrets
-	mkdir build/data/shared_altona_$(NODE_ID)/empty_dummy_folder
+	mkdir build/data/shared_altona_$(NODE_ID)/empty_dummy_folder -p
 	build/beacon_node \
 		--network=altona \
 		--log-level="$(LOG_LEVEL)" \
