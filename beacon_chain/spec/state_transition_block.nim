@@ -146,7 +146,7 @@ proc process_proposer_slashing*(
     header_2 = proposer_slashing.signed_header_2.message
 
   # Not from spec
-  if header_1.proposer_index.int >= state.validators.len:
+  if header_1.proposer_index >= state.validators.len.uint64:
     return err("process_proposer_slashing: invalid proposer index")
 
   # Verify header slots match
