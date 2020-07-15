@@ -120,7 +120,7 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
       incompatible: false,
       eth1Network: some goerli,
       runtimePreset: runtimePreset,
-      bootstrapNodes: readFile(path / "bootstrap_nodes.txt").split("\n"),
+      bootstrapNodes: readFile(path / "bootstrap_nodes.txt").splitLines(),
       depositContractAddress: depositContractAddress,
       depositContractDeployedAt: depositContractBlock,
       genesisData: genesisData)
