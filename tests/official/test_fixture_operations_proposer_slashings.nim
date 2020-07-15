@@ -13,7 +13,7 @@ import
   # Utilities
   stew/results,
   # Beacon chain internals
-  ../../beacon_chain/spec/[datatypes, state_transition_block, validator],
+  ../../beacon_chain/spec/[datatypes, state_transition_block],
   ../../beacon_chain/ssz,
   # Test utilities
   ../testutil,
@@ -42,7 +42,7 @@ proc runTest(identifier: string) =
       let proposerSlashing = parseTest(testDir/"proposer_slashing.ssz", SSZ, ProposerSlashing)
       var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
 
-      var cache = get_empty_per_epoch_cache()
+      var cache = StateCache()
 
       if existsFile(testDir/"post.ssz"):
         let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))

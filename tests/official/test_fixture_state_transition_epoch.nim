@@ -11,7 +11,7 @@ import
   # Standard library
   os, unittest, strutils,
   # Beacon chain internals
-  ../../beacon_chain/spec/[datatypes, validator, state_transition_epoch],
+  ../../beacon_chain/spec/[datatypes, state_transition_epoch],
   # Test utilities
   ../testutil,
   ./fixtures_utils,
@@ -42,7 +42,7 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
           let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
 
           when useCache:
-            var cache = get_empty_per_epoch_cache()
+            var cache = StateCache()
             transitionProc(preState[], cache)
           else:
             transitionProc(preState[])

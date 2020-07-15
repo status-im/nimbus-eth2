@@ -274,7 +274,7 @@ proc process_voluntary_exit*(
     validator_withdrawable_epoch = validator.withdrawable_epoch,
     validator_exit_epoch = validator.exit_epoch,
     validator_effective_balance = validator.effective_balance
-  var cache = get_empty_per_epoch_cache()
+  var cache = StateCache()
   initiate_validator_exit(
     state, voluntary_exit.validator_index.ValidatorIndex, cache)
 

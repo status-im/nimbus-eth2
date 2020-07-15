@@ -65,7 +65,7 @@ func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
       result.add idx.ValidatorIndex
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_committee_count_at_slot
-func get_committee_count_at_slot*(num_active_validators: Slot): uint64 =
+func get_committee_count_at_slot*(num_active_validators: uint64): uint64 =
   clamp(
     num_active_validators div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
     1, MAX_COMMITTEES_PER_SLOT).uint64
@@ -77,9 +77,10 @@ func get_committee_count_at_slot*(state: BeaconState, slot: Slot): uint64 =
   # be converted to CommitteeIndex types for get_beacon_committee(...); replace
   # with better and more type-safe use pattern, probably beginning with using a
   # CommitteeIndex return type here.
-  let epoch = compute_epoch_at_slot(slot)
-  let active_validator_indices = get_active_validator_indices(state, epoch)
-  result = get_committee_count_at_slot(len(active_validator_indices).uint64.Slot)
+  let
+    epoch = compute_epoch_at_slot(slot)
+    active_validator_indices = get_active_validator_indices(state, epoch)
+  result = get_committee_count_at_slot(len(active_validator_indices).uint64)
 
   # Otherwise, get_beacon_committee(...) cannot access some committees.
   doAssert (SLOTS_PER_EPOCH * MAX_COMMITTEES_PER_SLOT).uint64 >= result
