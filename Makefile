@@ -194,6 +194,7 @@ altona-vc: | beacon_node validator_client
 	build/beacon_node \
 		--network=altona \
 		--log-level="$(LOG_LEVEL)" \
+		--log-file=nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_altona_$(NODE_ID) \
 		--validators-dir=build/data/shared_altona_$(NODE_ID)/empty_dummy_folder \
 		--secrets-dir=build/data/shared_altona_$(NODE_ID)/empty_dummy_folder \
@@ -201,6 +202,7 @@ altona-vc: | beacon_node validator_client
 	sleep 4
 	build/validator_client \
 		--log-level="$(LOG_LEVEL)" \
+		--log-file=nbc_vc_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_altona_$(NODE_ID) \
 		--rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) ))
 
