@@ -416,9 +416,13 @@ type
     message*: BeaconBlock
     signature*: ValidatorSig
 
+    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+
   TrustedSignedBeaconBlock* = object
     message*: TrustedBeaconBlock
     signature*: TrustedSig
+
+    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#signedbeaconblockheader
   SignedBeaconBlockHeader* = object

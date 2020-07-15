@@ -295,15 +295,15 @@ func is_valid_genesis_state*(preset: RuntimePreset,
 # TODO this is now a non-spec helper function, and it's not really accurate
 # so only usable/used in research/ and tests/
 func get_initial_beacon_block*(state: BeaconState): SignedBeaconBlock =
-  SignedBeaconBlock(
-    message: BeaconBlock(
+  let message = BeaconBlock(
       slot: GENESIS_SLOT,
       state_root: hash_tree_root(state),
       body: BeaconBlockBody(
         # TODO: This shouldn't be necessary if OpaqueBlob is the default
-        randao_reveal: ValidatorSig(kind: OpaqueBlob))))
+        randao_reveal: ValidatorSig(kind: OpaqueBlob)))
       # parent_root, randao_reveal, eth1_data, signature, and body automatically
       # initialized to default values.
+  SignedBeaconBlock(message: message, root: hash_tree_root(message))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: BeaconState,
@@ -589,16 +589,16 @@ proc check_attestation*(
     stateSlot = state.slot
     data = attestation.data
 
-  trace "process_attestation: beginning",
-    attestation=attestation
+  logScope:
+    attestation = shortLog(attestation)
+  trace "process_attestation: beginning"
 
   let committee_count_at_slot =
     get_committee_count_at_slot(get_shuffled_active_validator_indices(
       state, stateSlot.compute_epoch_at_slot, stateCache).len.uint64).uint64
   if not (data.index < committee_count_at_slot):
-    warn("Data index exceeds committee count",
-      data_index = data.index,
-      committee_count = committee_count_at_slot)
+    warn "Data index exceeds committee count",
+      committee_count = committee_count_at_slot
     return
 
   if not isValidAttestationTargetEpoch(state, data):
@@ -612,10 +612,10 @@ proc check_attestation*(
   let committee = get_beacon_committee(
     state, data.slot, data.index.CommitteeIndex, stateCache)
   if attestation.aggregation_bits.len != committee.len:
-    warn("Inconsistent aggregation and committee length",
+    warn "Inconsistent aggregation and committee length",
       aggregation_bits_len = attestation.aggregation_bits.len,
       committee_len = committee.len
-    )
+
     return
 
   let ffg_check_data = (data.source.epoch, data.source.root, data.target.epoch)
@@ -623,17 +623,17 @@ proc check_attestation*(
   if data.target.epoch == get_current_epoch(state):
     if not (ffg_check_data == (state.current_justified_checkpoint.epoch,
         state.current_justified_checkpoint.root, get_current_epoch(state))):
-      warn("FFG data not matching current justified epoch")
+      warn "FFG data not matching current justified epoch"
       return
   else:
     if not (ffg_check_data == (state.previous_justified_checkpoint.epoch,
         state.previous_justified_checkpoint.root, get_previous_epoch(state))):
-      warn("FFG data not matching previous justified epoch")
+      warn "FFG data not matching previous justified epoch"
       return
 
   if not is_valid_indexed_attestation(
       state, get_indexed_attestation(state, attestation, stateCache), flags):
-    warn("process_attestation: signature or bitfields incorrect")
+    warn "process_attestation: signature or bitfields incorrect"
     return
 
   true

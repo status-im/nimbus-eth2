@@ -99,6 +99,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         flags = flags)
     latest_block_root = withTimerRet(timers[tHashBlock]):
       hash_tree_root(signedBlock.message)
+    signedBlock.root = latest_block_root
 
     if attesterRatio > 0.0:
       # attesterRatio is the fraction of attesters that actually do their

@@ -36,7 +36,7 @@ suiteReport "Block processing" & preset():
 
   timedTest "Passes from genesis state, empty block" & preset():
     var
-      previous_block_root = hash_tree_root(genesisBlock.message)
+      previous_block_root = genesisBlock.root
       cache = StateCache()
       new_block = makeTestBlock(state[], previous_block_root, cache)
 
@@ -65,7 +65,7 @@ suiteReport "Block processing" & preset():
       check:
         block_ok
 
-      previous_block_root = hash_tree_root(new_block.message)
+      previous_block_root = new_block.root
 
     check:
       state.data.slot == genesisState.data.slot + SLOTS_PER_EPOCH

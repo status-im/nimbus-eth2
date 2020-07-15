@@ -41,8 +41,7 @@ proc checkResponse(roots: openArray[Eth2Digest],
   if len(blocks) > len(roots):
     return false
   for blk in blocks:
-    let blockRoot = hash_tree_root(blk.message)
-    let res = checks.find(blockRoot)
+    let res = checks.find(blk.root)
     if res == -1:
       return false
     else:

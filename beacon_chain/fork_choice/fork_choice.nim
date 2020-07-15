@@ -45,7 +45,6 @@ func compute_deltas(
 
 logScope:
   topics = "fork_choice"
-  cat = "fork_choice"
 
 # API:
 # - The private procs uses the ForkChoiceError error code

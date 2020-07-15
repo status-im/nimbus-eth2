@@ -110,9 +110,9 @@ suiteReport "Block pool processing" & preset():
 
   timedTest "Simple block add&get" & preset():
     let
-      b1Add = pool.addRawBlock(b1Root, b1) do (validBlock: BlockRef):
+      b1Add = pool.addRawBlock(b1) do (validBlock: BlockRef):
         discard
-      b1Get = pool.get(b1Root)
+      b1Get = pool.get(b1.root)
 
     check:
       b1Get.isSome()
@@ -122,13 +122,13 @@ suiteReport "Block pool processing" & preset():
       pool.heads[0].blck == b1Add[]
 
     let
-      b2Add = pool.addRawBlock(b2Root, b2) do (validBlock: BlockRef):
+      b2Add = pool.addRawBlock(b2) do (validBlock: BlockRef):
         discard
-      b2Get = pool.get(b2Root)
+      b2Get = pool.get(b2.root)
 
     check:
       b2Get.isSome()
-      b2Get.get().refs.root == b2Root
+      b2Get.get().refs.root == b2.root
       b2Add[].root == b2Get.get().refs.root
       pool.heads.len == 1
       pool.heads[0].blck == b2Add[]
@@ -138,9 +138,8 @@ suiteReport "Block pool processing" & preset():
       process_slots(stateData.data, stateData.data.data.slot + 1)
 
     let
-      b4 = addTestBlock(stateData.data, b2Root, cache)
-      b4Root = hash_tree_root(b4.message)
-      b4Add = pool.addRawBlock(b4Root, b4) do (validBlock: BlockRef):
+      b4 = addTestBlock(stateData.data, b2.root, cache)
+      b4Add = pool.addRawBlock(b4) do (validBlock: BlockRef):
         discard
 
     check:
@@ -177,22 +176,22 @@ suiteReport "Block pool processing" & preset():
       blocks[0..<2] == [BlockRef nil, nil] # block 3 is missing!
 
   timedTest "Reverse order block add & get" & preset():
-    let missing = pool.addRawBlock(b2Root, b2) do (validBlock: BLockRef):
+    let missing = pool.addRawBlock(b2) do (validBlock: BLockRef):
       discard
     check: missing.error == MissingParent
 
     check:
-      pool.get(b2Root).isNone() # Unresolved, shouldn't show up
-      FetchRecord(root: b1Root) in pool.checkMissing()
+      pool.get(b2.root).isNone() # Unresolved, shouldn't show up
+      FetchRecord(root: b1.root) in pool.checkMissing()
 
-    let status = pool.addRawBlock(b1Root, b1) do (validBlock: BlockRef):
+    let status = pool.addRawBlock(b1) do (validBlock: BlockRef):
         discard
 
     check: status.isOk
 
     let
-      b1Get = pool.get(b1Root)
-      b2Get = pool.get(b2Root)
+      b1Get = pool.get(b1.root)
+      b2Get = pool.get(b2.root)
 
     check:
       b1Get.isSome()
@@ -223,9 +222,9 @@ suiteReport "Block pool processing" & preset():
 
   timedTest "Adding the same block twice returns a Duplicate error" & preset():
     let
-      b10 = pool.addRawBlock(b1Root, b1) do (validBlock: BlockRef):
+      b10 = pool.addRawBlock(b1) do (validBlock: BlockRef):
         discard
-      b11 = pool.addRawBlock(b1Root, b1) do (validBlock: BlockRef):
+      b11 = pool.addRawBlock(b1) do (validBlock: BlockRef):
         discard
 
     check:
@@ -234,7 +233,7 @@ suiteReport "Block pool processing" & preset():
 
   timedTest "updateHead updates head and headState" & preset():
     let
-      b1Add = pool.addRawBlock(b1Root, b1) do (validBlock: BlockRef):
+      b1Add = pool.addRawBlock(b1) do (validBlock: BlockRef):
         discard
 
     pool.updateHead(b1Add[])
@@ -245,9 +244,9 @@ suiteReport "Block pool processing" & preset():
 
   timedTest "updateStateData sanity" & preset():
     let
-      b1Add = pool.addRawBlock(b1Root, b1) do (validBlock: BlockRef):
+      b1Add = pool.addRawBlock(b1) do (validBlock: BlockRef):
         discard
-      b2Add = pool.addRawBlock(b2Root, b2) do (validBlock: BlockRef):
+      b2Add = pool.addRawBlock(b2) do (validBlock: BlockRef):
         discard
       bs1 = BlockSlot(blck: b1Add[], slot: b1.message.slot)
       bs1_3 = b1Add[].atSlot(3.Slot)
@@ -311,7 +310,7 @@ suiteReport "BlockPool finalization tests" & preset():
 
     let lateBlock = makeTestBlock(tmpState[], pool.head.blck.root, cache)
     block:
-      let status = pool.addRawBlock(hash_tree_root(blck.message), blck) do (validBlock: BlockRef):
+      let status = pool.addRawBlock(blck) do (validBlock: BlockRef):
         discard
       check: status.isOk()
 
@@ -328,7 +327,7 @@ suiteReport "BlockPool finalization tests" & preset():
         attestations = makeFullAttestations(
           pool.headState.data.data, pool.head.blck.root,
           pool.headState.data.data.slot, cache, {}))
-      let added = pool.addRawBlock(hash_tree_root(blck.message), blck) do (validBlock: BlockRef):
+      let added = pool.addRawBlock(blck) do (validBlock: BlockRef):
         discard
       check: added.isOk()
       pool.updateHead(added[])
@@ -341,7 +340,7 @@ suiteReport "BlockPool finalization tests" & preset():
     block:
       # The late block is a block whose parent was finalized long ago and thus
       # is no longer a viable head candidate
-      let status = pool.addRawBlock(hash_tree_root(lateBlock.message), lateBlock) do (validBlock: BlockRef):
+      let status = pool.addRawBlock(lateBlock) do (validBlock: BlockRef):
         discard
       check: status.error == Unviable
 

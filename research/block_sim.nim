@@ -127,14 +127,14 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
       let blockRoot = withTimerRet(timers[tHashBlock]):
         hash_tree_root(newBlock.message)
-
+      newBlock.root = blockRoot
       # Careful, state no longer valid after here because of the await..
       newBlock.signature = withTimerRet(timers[tSignBlock]):
         get_block_signature(
           state.fork, state.genesis_validators_root, newBlock.message.slot,
           blockRoot, privKey)
 
-      let added = blockPool.addRawBlock(blockRoot, newBlock) do (validBlock: BlockRef):
+      let added = blockPool.addRawBlock(newBlock) do (validBlock: BlockRef):
         # Callback Add to fork choice
         attPool.addForkChoice_v2(validBlock)
       blck() = added[]

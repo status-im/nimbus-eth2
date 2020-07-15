@@ -73,13 +73,14 @@ proc makeInitialDeposits*(
 func signBlock*(
     fork: Fork, genesis_validators_root: Eth2Digest, blck: BeaconBlock,
     privKey: ValidatorPrivKey, flags: UpdateFlags = {}): SignedBeaconBlock =
+  var root = hash_tree_root(blck)
   SignedBeaconBlock(
     message: blck,
+    root: root,
     signature:
       if skipBlsValidation notin flags:
         get_block_signature(
-          fork, genesis_validators_root, blck.slot,
-          hash_tree_root(blck), privKey)
+          fork, genesis_validators_root, blck.slot, root, privKey)
       else:
         ValidatorSig()
   )

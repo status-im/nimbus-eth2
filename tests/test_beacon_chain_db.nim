@@ -29,6 +29,12 @@ template wrappedTimedTest(name: string, body: untyped) =
         body
     wrappedTest()
 
+func withDigest(blck: TrustedBeaconBlock): TrustedSignedBeaconBlock =
+  TrustedSignedBeaconBlock(
+    message: blck,
+    root: hash_tree_root(blck)
+  )
+
 suiteReport "Beacon chain DB" & preset():
   wrappedTimedTest "empty database" & preset():
     var
@@ -42,7 +48,7 @@ suiteReport "Beacon chain DB" & preset():
       db = init(BeaconChainDB, kvStore MemStoreRef.init())
 
     let
-      signedBlock = TrustedSignedBeaconBlock()
+      signedBlock = withDigest(TrustedBeaconBlock())
       root = hash_tree_root(signedBlock.message)
 
     db.putBlock(signedBlock)
@@ -74,33 +80,31 @@ suiteReport "Beacon chain DB" & preset():
       db = init(BeaconChainDB, kvStore MemStoreRef.init())
 
     let
-      a0 = TrustedSignedBeaconBlock(message:
+      a0 = withDigest(
         TrustedBeaconBlock(slot: GENESIS_SLOT + 0))
-      a0r = hash_tree_root(a0.message)
-      a1 = TrustedSignedBeaconBlock(message:
-        TrustedBeaconBlock(slot: GENESIS_SLOT + 1, parent_root: a0r))
-      a1r = hash_tree_root(a1.message)
-      a2 = TrustedSignedBeaconBlock(message:
-        TrustedBeaconBlock(slot: GENESIS_SLOT + 2, parent_root: a1r))
+      a1 = withDigest(
+        TrustedBeaconBlock(slot: GENESIS_SLOT + 1, parent_root: a0.root))
+      a2 = withDigest(
+        TrustedBeaconBlock(slot: GENESIS_SLOT + 2, parent_root: a1.root))
       a2r = hash_tree_root(a2.message)
 
-    doAssert toSeq(db.getAncestors(a0r)) == []
-    doAssert toSeq(db.getAncestors(a2r)) == []
+    doAssert toSeq(db.getAncestors(a0.root)) == []
+    doAssert toSeq(db.getAncestors(a2.root)) == []
 
     db.putBlock(a2)
 
-    doAssert toSeq(db.getAncestors(a0r)) == []
-    doAssert toSeq(db.getAncestors(a2r)) == [(a2r, a2)]
+    doAssert toSeq(db.getAncestors(a0.root)) == []
+    doAssert toSeq(db.getAncestors(a2.root)) == [a2]
 
     db.putBlock(a1)
 
-    doAssert toSeq(db.getAncestors(a0r)) == []
-    doAssert toSeq(db.getAncestors(a2r)) == [(a2r, a2), (a1r, a1)]
+    doAssert toSeq(db.getAncestors(a0.root)) == []
+    doAssert toSeq(db.getAncestors(a2.root)) == [a2, a1]
 
     db.putBlock(a0)
 
-    doAssert toSeq(db.getAncestors(a0r)) == [(a0r, a0)]
-    doAssert toSeq(db.getAncestors(a2r)) == [(a2r, a2), (a1r, a1), (a0r, a0)]
+    doAssert toSeq(db.getAncestors(a0.root)) == [a0]
+    doAssert toSeq(db.getAncestors(a2.root)) == [a2, a1, a0]
 
   wrappedTimedTest "sanity check genesis roundtrip" & preset():
     # This is a really dumb way of checking that we can roundtrip a genesis
