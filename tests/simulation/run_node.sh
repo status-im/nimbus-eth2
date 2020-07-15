@@ -55,18 +55,16 @@ rm -rf "$NODE_SECRETS_DIR"
 mkdir -p "$NODE_SECRETS_DIR"
 
 VALIDATORS_PER_NODE=$(( NUM_VALIDATORS / (TOTAL_NODES - 1) ))
+if [ "${USE_BN_VC_VALIDATOR_SPLIT:-}" == "yes" ]; then
+  # if using validator client binaries in addition to beacon nodes we will
+  # split the keys for this instance in half between the BN and the VC
+  # and the validators for the BNs will be from the first half of all validators
+  VALIDATORS_PER_NODE=$((VALIDATORS_PER_NODE / 2 ))
+fi
 
 if [[ $NODE_ID -lt $BOOTSTRAP_NODE ]]; then
-  # if using validator client binaries in addition to beacon nodes
-  # we will split the keys for this instance in half between the BN and the VC
-  if [ "${BN_VC_VALIDATOR_SPLIT:-}" == "yes" ]; then
-    ATTACHED_VALIDATORS=$((VALIDATORS_PER_NODE / 2))
-  else
-    ATTACHED_VALIDATORS=$VALIDATORS_PER_NODE
-  fi
-
   pushd "$VALIDATORS_DIR" >/dev/null
-  for VALIDATOR in $(ls | tail -n +$(( ($VALIDATORS_PER_NODE * $NODE_ID) + 1 )) | head -n $ATTACHED_VALIDATORS); do
+  for VALIDATOR in $(ls | tail -n +$(( ($VALIDATORS_PER_NODE * $NODE_ID) + 1 )) | head -n $VALIDATORS_PER_NODE); do
       cp -a "$VALIDATOR" "$NODE_VALIDATORS_DIR"
       cp -a "$SECRETS_DIR/$VALIDATOR" "$NODE_SECRETS_DIR"
     done
