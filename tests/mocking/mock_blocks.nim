@@ -44,7 +44,7 @@ proc mockBlock(
   ## Mock a BeaconBlock for the specific slot
   ## Skip signature creation if block should not be signed (skipBlsValidation present)
 
-  var emptyCache = get_empty_per_epoch_cache()
+  var emptyCache = StateCache()
   let proposer_index = get_beacon_proposer_index(state, emptyCache)
   result.message.slot = slot
   result.message.proposer_index = proposer_index.get.uint64

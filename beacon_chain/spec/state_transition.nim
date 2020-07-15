@@ -124,6 +124,15 @@ func process_slot*(state: var HashedBeaconState) {.nbench.} =
   state.data.block_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
     hash_tree_root(state.data.latest_block_header)
 
+func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
+  cache.shuffled_active_validator_indices.del epoch
+  let
+    start_slot = epoch.compute_start_slot_at_epoch
+    end_slot = (epoch + 1).compute_start_slot_at_epoch
+
+  for i in start_slot ..< end_slot:
+    cache.beacon_proposer_indices.del i
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc advance_slot*(
     state: var HashedBeaconState, updateFlags: UpdateFlags,
@@ -137,6 +146,8 @@ proc advance_slot*(
     # Note: Genesis epoch = 0, no need to test if before Genesis
     beacon_previous_validators.set(get_epoch_validator_count(state.data))
     process_epoch(state.data, updateFlags, epochCache)
+    clear_epoch_from_cache(
+      epochCache, (state.data.slot + 1).compute_epoch_at_slot)
   state.data.slot += 1
   if is_epoch_transition:
     beacon_current_validators.set(get_epoch_validator_count(state.data))
@@ -161,7 +172,7 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot,
     return false
 
   # Catch up to the target slot
-  var cache = get_empty_per_epoch_cache()
+  var cache = StateCache()
   while state.data.slot < slot:
     advance_slot(state, updateFlags, cache)
 
@@ -207,10 +218,8 @@ proc state_transition*(
   #      the changes in case of failure (look out for `var BeaconState` and
   #      bool return values...)
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
-  when false:
-    # TODO readd this assetion when epochref cache is back
-    doAssert stateCache.shuffled_active_validator_indices.hasKey(
-      state.data.slot.compute_epoch_at_slot)
+  doAssert stateCache.shuffled_active_validator_indices.hasKey(
+    state.data.slot.compute_epoch_at_slot)
 
   if not process_slots(state, signedBlock.message.slot, flags):
     rollback(state)
@@ -255,9 +264,7 @@ proc state_transition*(
   # TODO consider moving this to testutils or similar, since non-testing
   # and fuzzing code should always be coming from blockpool which should
   # always be providing cache or equivalent
-  var cache = get_empty_per_epoch_cache()
-  # TODO not here, but in blockpool, should fill in as far ahead towards
-  # block's slot as protocol allows to be known already
+  var cache = StateCache()
   cache.shuffled_active_validator_indices[state.data.slot.compute_epoch_at_slot] =
     get_shuffled_active_validator_indices(
       state.data, state.data.slot.compute_epoch_at_slot)

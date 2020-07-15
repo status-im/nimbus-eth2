@@ -10,8 +10,7 @@
 import
   options, sequtils, unittest,
   ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[datatypes, digest, helpers, validator,
-                        state_transition, presets],
+  ../beacon_chain/spec/[datatypes, digest, helpers, state_transition, presets],
   ../beacon_chain/[beacon_node_types, block_pool, ssz]
 
 when isMainModule:
@@ -92,7 +91,7 @@ suiteReport "Block pool processing" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       pool = BlockPool.init(defaultRuntimePreset, db)
       stateData = newClone(pool.loadTailState())
-      cache = get_empty_per_epoch_cache()
+      cache = StateCache()
       b1 = addTestBlock(stateData.data, pool.tail.root, cache)
       b1Root = hash_tree_root(b1.message)
       b2 = addTestBlock(stateData.data, b1Root, cache)
@@ -299,7 +298,7 @@ suiteReport "BlockPool finalization tests" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       pool = BlockPool.init(defaultRuntimePreset, db)
-      cache = get_empty_per_epoch_cache()
+      cache = StateCache()
 
   timedTest "prune heads on finalization" & preset():
     # Create a fork that will not be taken
@@ -323,10 +322,6 @@ suiteReport "BlockPool finalization tests" & preset():
         check:
           pool.tail.children.len == 2
           pool.heads.len == 2
-
-      if i mod SLOTS_PER_EPOCH == 0:
-        # Reset cache at epoch boundaries
-        cache = get_empty_per_epoch_cache()
 
       blck = makeTestBlock(
         pool.headState.data, pool.head.blck.root, cache,
@@ -365,7 +360,7 @@ suiteReport "BlockPool finalization tests" & preset():
         hash_tree_root(pool.justifiedState.data.data)
 
   # timedTest "init with gaps" & preset():
-  #   var cache = get_empty_per_epoch_cache()
+  #   var cache = StateCache()
   #   for i in 0 ..< (SLOTS_PER_EPOCH * 6 - 2):
   #     var
   #       blck = makeTestBlock(

@@ -34,7 +34,7 @@ proc addMockAttestations*(
     raise newException(ValueError, &"Cannot include attestations from epoch {state.get_current_epoch()} in epoch {epoch}")
 
   # TODO: Working with an unsigned Gwei balance is a recipe for underflows to happen
-  var cache = get_empty_per_epoch_cache()
+  var cache = StateCache()
   cache.shuffled_active_validator_indices[epoch] =
     get_shuffled_active_validator_indices(state, epoch)
   var remaining_balance = state.get_total_active_balance(cache).int64 * 2 div 3
@@ -45,7 +45,7 @@ proc addMockAttestations*(
   for slot in start_slot.uint64 ..< start_slot.uint64 + SLOTS_PER_EPOCH:
     for index in 0 ..< get_committee_count_at_slot(state, slot.Slot):
       # TODO: can we move cache out of the loops
-      var cache = get_empty_per_epoch_cache()
+      var cache = StateCache()
 
       let committee = get_beacon_committee(
                         state, slot.Slot, index.CommitteeIndex, cache)

@@ -55,7 +55,7 @@ proc mockAttestationData(
   )
 
 proc signMockAttestation*(state: BeaconState, attestation: var Attestation) =
-  var cache = get_empty_per_epoch_cache()
+  var cache = StateCache()
   let participants = get_attesting_indices(
     state,
     attestation.data,
@@ -80,7 +80,7 @@ proc mockAttestationImpl(
        slot: Slot,
        flags: UpdateFlags): Attestation =
 
-  var cache = get_empty_per_epoch_cache()
+  var cache = StateCache()
 
   let
     beacon_committee = get_beacon_committee(
@@ -113,7 +113,7 @@ proc mockAttestation*(
   mockAttestationImpl(state, slot, flags)
 
 func fillAggregateAttestation*(state: BeaconState, attestation: var Attestation) =
-  var cache = get_empty_per_epoch_cache()
+  var cache = StateCache()
   let beacon_committee = get_beacon_committee(
     state,
     attestation.data.slot,

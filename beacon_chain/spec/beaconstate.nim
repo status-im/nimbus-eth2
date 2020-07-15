@@ -107,7 +107,7 @@ proc process_deposit*(preset: RuntimePreset,
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
-func compute_activation_exit_epoch(epoch: Epoch): Epoch =
+func compute_activation_exit_epoch*(epoch: Epoch): Epoch =
   ## Return the epoch during which validator activations and exits initiated in
   ## ``epoch`` take effect.
   epoch + 1 + MAX_SEED_LOOKAHEAD
@@ -592,10 +592,13 @@ proc check_attestation*(
   trace "process_attestation: beginning",
     attestation=attestation
 
-  if not (data.index < get_committee_count_at_slot(state, data.slot)):
+  let committee_count_at_slot =
+    get_committee_count_at_slot(get_shuffled_active_validator_indices(
+      state, stateSlot.compute_epoch_at_slot, stateCache).len.uint64).uint64
+  if not (data.index < committee_count_at_slot):
     warn("Data index exceeds committee count",
       data_index = data.index,
-      committee_count = get_committee_count_at_slot(state, data.slot))
+      committee_count = committee_count_at_slot)
     return
 
   if not isValidAttestationTargetEpoch(state, data):

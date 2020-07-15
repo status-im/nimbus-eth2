@@ -48,7 +48,7 @@ proc aggregate_attestations*(
   # TODO for testing purposes, refactor this into the condition check
   # and just calculation
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#aggregation-selection
-  var cache = get_empty_per_epoch_cache()
+  var cache = StateCache()
   if not is_aggregator(state, slot, index, slot_signature, cache):
     return none(AggregateAndProof)
 

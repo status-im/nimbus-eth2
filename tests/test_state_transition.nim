@@ -37,7 +37,7 @@ suiteReport "Block processing" & preset():
   timedTest "Passes from genesis state, empty block" & preset():
     var
       previous_block_root = hash_tree_root(genesisBlock.message)
-      cache = get_empty_per_epoch_cache()
+      cache = StateCache()
       new_block = makeTestBlock(state[], previous_block_root, cache)
 
     let block_ok = state_transition(defaultRuntimePreset, state[], new_block, {}, noRollback)
@@ -55,7 +55,7 @@ suiteReport "Block processing" & preset():
   timedTest "Passes through epoch update, empty block" & preset():
     var
       previous_block_root = genesisRoot
-      cache = get_empty_per_epoch_cache()
+      cache = StateCache()
 
     for i in 1..SLOTS_PER_EPOCH.int:
       let new_block = makeTestBlock(state[], previous_block_root, cache)
@@ -73,7 +73,7 @@ suiteReport "Block processing" & preset():
   timedTest "Attestation gets processed at epoch" & preset():
     var
       previous_block_root = genesisRoot
-      cache = get_empty_per_epoch_cache()
+      cache = StateCache()
 
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:

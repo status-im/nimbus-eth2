@@ -196,7 +196,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       doAssert v.addr == addr poolPtr.tmpState.data
       assign(poolPtr.tmpState, poolPtr.headState)
 
-    var cache = get_empty_per_epoch_cache()
+    var cache = StateCache()
     let message = makeBeaconBlock(
       node.config.runtimePreset,
       hashedState,
@@ -341,13 +341,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
           cache.shuffled_active_validator_indices[
             slot.compute_epoch_at_slot].len.uint64
         except KeyError:
-          when false:
-            # TODO re-enable when getEpochCache() works
-            raiseAssert "getEpochCache(...) didn't fill cache"
-          let epoch = slot.compute_epoch_at_slot
-          cache.shuffled_active_validator_indices[epoch] =
-            get_shuffled_active_validator_indices(state, epoch)
-          cache.shuffled_active_validator_indices[epoch].len.uint64
+          raiseAssert "getEpochCache(...) didn't fill cache"
 
     for committee_index in 0'u64..<committees_per_slot:
       let committee = get_beacon_committee(
@@ -407,7 +401,7 @@ proc broadcastAggregatedAttestations(
   node.blockPool.withState(node.blockPool.tmpState, bs):
     let
       committees_per_slot = get_committee_count_at_slot(state, aggregationSlot)
-    var cache = get_empty_per_epoch_cache()
+    var cache = StateCache()
     for committee_index in 0'u64..<committees_per_slot:
       let committee = get_beacon_committee(
         state, aggregationSlot, committee_index.CommitteeIndex, cache)
