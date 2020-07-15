@@ -235,9 +235,9 @@ proc state_transition*(
       verify_block_signature(state.data, signedBlock):
 
     # TODO after checking scaffolding, remove this
-    trace "in state_transition: processing block, signature passed",
-      signature = signedBlock.signature,
-      blockRoot = hash_tree_root(signedBlock.message)
+    trace "state_transition: processing block, signature passed",
+      signature = shortLog(signedBlock.signature),
+      blockRoot = shortLog(signedBlock.root)
     if process_block(preset, state.data, signedBlock.message, flags, stateCache):
       if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
         # State root is what it should be - we're done!

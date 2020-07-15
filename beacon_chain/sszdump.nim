@@ -18,16 +18,13 @@ proc dump*(dir: string, v: AttestationData, validator: ValidatorPubKey) =
   logErrors:
     SSZ.saveFile(dir / &"att-{v.slot}-{v.index}-{shortLog(validator)}.ssz", v)
 
-proc dump*(dir: string, v: SignedBeaconBlock, root: Eth2Digest) =
+proc dump*(dir: string, v: SignedBeaconBlock) =
   logErrors:
-    SSZ.saveFile(dir / &"block-{v.message.slot}-{shortLog(root)}.ssz", v)
+    SSZ.saveFile(dir / &"block-{v.message.slot}-{shortLog(v.root)}.ssz", v)
 
-proc dump*(dir: string, v: TrustedSignedBeaconBlock, root: Eth2Digest) =
+proc dump*(dir: string, v: TrustedSignedBeaconBlock) =
   logErrors:
-    SSZ.saveFile(dir / &"block-{v.message.slot}-{shortLog(root)}.ssz", v)
-
-proc dump*(dir: string, v: SomeSignedBeaconBlock, blck: BlockRef) =
-  dump(dir, v, blck.root)
+    SSZ.saveFile(dir / &"block-{v.message.slot}-{shortLog(v.root)}.ssz", v)
 
 proc dump*(dir: string, v: HashedBeaconState, blck: BlockRef) =
   logErrors:

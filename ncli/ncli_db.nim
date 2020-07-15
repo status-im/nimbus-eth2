@@ -106,7 +106,7 @@ proc cmdBench(conf: DbConf) =
         b.message.slot.compute_epoch_at_slot
     withTimer(timers[if isEpoch: tApplyEpochBlock else: tApplyBlock]):
       if not state_transition(defaultRuntimePreset, state[], b, {}, noRollback):
-        dump("./", b, hash_tree_root(b.message))
+        dump("./", b)
         echo "State transition failed (!)"
         quit 1
 
@@ -137,7 +137,7 @@ proc cmdDumpBlock(conf: DbConf) =
     try:
       let root = Eth2Digest(data: hexToByteArray[32](blockRoot))
       if (let blck = db.getBlock(root); blck.isSome):
-        dump("./", blck.get(), root)
+        dump("./", blck.get())
       else:
         echo "Couldn't load ", root
     except CatchableError as e:

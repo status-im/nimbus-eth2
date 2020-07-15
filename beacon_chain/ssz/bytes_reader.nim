@@ -4,7 +4,7 @@
 import
   typetraits, options,
   stew/[bitops2, endians2, objects], serialization/testing/tracing,
-  ../spec/[digest, datatypes], ./types, ./spec_types
+  ../spec/[digest, datatypes], ./types, ./spec_types, ./merkleization
 
 template raiseIncorrectSize(T: type) =
   const typeName = name(T)
@@ -267,5 +267,7 @@ func readSszValue*[T](input: openarray[byte], val: var T) {.raisesssz.} =
           type(field),
           input.toOpenArray(int(startOffset), int(endOffset - 1)))
 
+    when val is SignedBeaconBlock | TrustedSignedBeaconBlock:
+      val.root = hash_tree_root(val.message)
   else:
     unsupported T

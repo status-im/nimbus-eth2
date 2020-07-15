@@ -145,8 +145,7 @@ proc createAndSendAttestation(node: BeaconNode,
   info "Attestation sent",
     attestation = shortLog(attestation),
     validator = shortLog(validator),
-    indexInCommittee = indexInCommittee,
-    cat = "consensus"
+    indexInCommittee = indexInCommittee
 
 type
   ValidatorInfoForMakeBeaconBlockKind* = enum
@@ -222,11 +221,10 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
 proc proposeSignedBlock*(node: BeaconNode,
                          head: BlockRef,
                          validator: AttachedValidator,
-                         newBlock: SignedBeaconBlock,
-                         blockRoot: Eth2Digest): Future[BlockRef] {.async.} =
+                         newBlock: SignedBeaconBlock): Future[BlockRef] {.async.} =
 
   {.gcsafe.}: # TODO: fork choice and blockpool should sync via messages instead of callbacks
-    let newBlockRef = node.blockPool.addRawBlock(blockRoot, newBlock) do (validBlock: BlockRef):
+    let newBlockRef = node.blockPool.addRawBlock(newBlock) do (validBlock: BlockRef):
       # Callback Add to fork choice
       # node.attestationPool.addForkChoice_v2(validBlock)
       discard "TODO: Deactivated"
@@ -234,19 +232,17 @@ proc proposeSignedBlock*(node: BeaconNode,
   if newBlockRef.isErr:
     warn "Unable to add proposed block to block pool",
       newBlock = shortLog(newBlock.message),
-      blockRoot = shortLog(blockRoot),
-      cat = "bug"
+      blockRoot = shortLog(newBlock.root)
 
     return head
 
   info "Block proposed",
     blck = shortLog(newBlock.message),
     blockRoot = shortLog(newBlockRef[].root),
-    validator = shortLog(validator),
-    cat = "consensus"
+    validator = shortLog(validator)
 
   if node.config.dumpEnabled:
-    dump(node.config.dumpDirOutgoing, newBlock, newBlockRef[])
+    dump(node.config.dumpDirOutgoing, newBlock)
 
   node.network.broadcast(node.topicBeaconBlocks, newBlock)
 
@@ -267,8 +263,7 @@ proc proposeBlock(node: BeaconNode,
     warn "Skipping proposal, have newer head already",
       headSlot = shortLog(head.slot),
       headBlockRoot = shortLog(head.root),
-      slot = shortLog(slot),
-      cat = "fastforward"
+      slot = shortLog(slot)
     return head
 
   let valInfo = ValidatorInfoForMakeBeaconBlock(kind: viValidator, validator: validator)
@@ -280,17 +275,16 @@ proc proposeBlock(node: BeaconNode,
       message: beaconBlockTuple.message.get()
     )
 
-  let blockRoot = hash_tree_root(newBlock.message)
-
+  newBlock.root = hash_tree_root(newBlock.message)
   newBlock.signature = await validator.signBlockProposal(
-    beaconBlockTuple.fork, beaconBlockTuple.genesis_validators_root, slot, blockRoot)
+    beaconBlockTuple.fork, beaconBlockTuple.genesis_validators_root, slot, newBlock.root)
 
-  return await node.proposeSignedBlock(head, validator, newBlock, blockRoot)
+  return await node.proposeSignedBlock(head, validator, newBlock)
 
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   ## Perform all attestations that the validators attached to this node should
   ## perform during the given slot
-  logScope: pcs = "on_attestation"
+  logScope: pcs = "handleAttestations"
 
   if slot + SLOTS_PER_EPOCH < head.slot:
     # The latest block we know about is a lot newer than the slot we're being
@@ -316,8 +310,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
 
   trace "Checking attestations",
     attestationHeadRoot = shortLog(attestationHead.blck.root),
-    attestationSlot = shortLog(slot),
-    cat = "attestation"
+    attestationSlot = shortLog(slot)
 
   # Collect data to send before node.stateCache grows stale
   var attestations: seq[tuple[
@@ -381,7 +374,6 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     slot = shortLog(slot),
     proposer_index = proposer.get()[0],
     proposer = shortLog(proposer.get()[1]),
-    cat = "consensus",
     pcs = "wait_for_proposal"
 
   return head
@@ -455,8 +447,7 @@ proc handleValidatorDuties*(
     notice "Catching up",
       curSlot = shortLog(curSlot),
       lastSlot = shortLog(lastSlot),
-      slot = shortLog(slot),
-      cat = "overload"
+      slot = shortLog(slot)
 
     # For every slot we're catching up, we'll propose then send
     # attestations - head should normally be advancing along the same branch

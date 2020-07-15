@@ -36,15 +36,12 @@ func getOrResolve*(dag: CandidateChains, quarantine: var Quarantine, root: Eth2D
 
 proc addRawBlock*(
       dag: var CandidateChains, quarantine: var Quarantine,
-      blockRoot: Eth2Digest,
-      signedBlock: SignedBeaconBlock,
-      callback: proc(blck: BlockRef)
+      signedBlock: SignedBeaconBlock, callback: proc(blck: BlockRef)
      ): Result[BlockRef, BlockError]
 
 proc addResolvedBlock(
        dag: var CandidateChains, quarantine: var Quarantine,
-       state: BeaconState, blockRoot: Eth2Digest,
-       signedBlock: SignedBeaconBlock, parent: BlockRef,
+       state: BeaconState, signedBlock: SignedBeaconBlock, parent: BlockRef,
        callback: proc(blck: BlockRef)
      ): BlockRef =
   # TODO: `addResolvedBlock` is accumulating significant cruft
@@ -55,7 +52,9 @@ proc addResolvedBlock(
   logScope: pcs = "block_resolution"
   doAssert state.slot == signedBlock.message.slot, "state must match block"
 
-  let blockRef = BlockRef.init(blockRoot, signedBlock.message)
+  let
+    blockRoot = signedBlock.root
+    blockRef = BlockRef.init(blockRoot, signedBlock.message)
   blockRef.epochsInfo = filterIt(parent.epochsInfo,
     it.epoch + 1 >= state.slot.compute_epoch_at_slot)
   link(parent, blockRef)
@@ -64,7 +63,7 @@ proc addResolvedBlock(
   trace "Populating block dag", key = blockRoot, val = blockRef
 
   # Resolved blocks should be stored in database
-  dag.putBlock(blockRoot, signedBlock)
+  dag.putBlock(signedBlock)
 
   # This block *might* have caused a justification - make sure we stow away
   # that information:
@@ -92,8 +91,7 @@ proc addResolvedBlock(
     blck = shortLog(signedBlock.message),
     blockRoot = shortLog(blockRoot),
     justifiedHead = foundHead.get().justified,
-    heads = dag.heads.len(),
-    cat = "filtering"
+    heads = dag.heads.len()
 
   # This MUST be added before the quarantine
   callback(blockRef)
@@ -113,8 +111,8 @@ proc addResolvedBlock(
     var keepGoing = true
     while keepGoing:
       let retries = quarantine.orphans
-      for k, v in retries:
-        discard addRawBlock(dag, quarantine, k, v, callback)
+      for _, v in retries:
+        discard addRawBlock(dag, quarantine, v, callback)
       # Keep going for as long as the pending dag is shrinking
       # TODO inefficient! so what?
       keepGoing = quarantine.orphans.len < retries.len
@@ -123,7 +121,6 @@ proc addResolvedBlock(
 
 proc addRawBlock*(
        dag: var CandidateChains, quarantine: var Quarantine,
-       blockRoot: Eth2Digest,
        signedBlock: SignedBeaconBlock,
        callback: proc(blck: BlockRef)
      ): Result[BlockRef, BlockError] =
@@ -141,18 +138,16 @@ proc addRawBlock*(
   #       This would be easy apart from the "Block already exists"
   #       early return.
 
+  logScope:
+    blck = shortLog(signedBlock.message)
+    blockRoot = shortLog(signedBlock.root)
 
-  let blck = signedBlock.message
-  doAssert blockRoot == hash_tree_root(blck), "blockRoot: 0x" & shortLog(blockRoot) & ", signedBlock: 0x" & shortLog(hash_tree_root(blck))
-
-  logScope: pcs = "block_addition"
+  template blck(): untyped = signedBlock.message # shortcuts without copy
+  template blockRoot(): untyped = signedBlock.root
 
   # Already seen this block??
   if blockRoot in dag.blocks:
-    debug "Block already exists",
-      blck = shortLog(blck),
-      blockRoot = shortLog(blockRoot),
-      cat = "filtering"
+    debug "Block already exists"
 
     # There can be a scenario where we receive a block we already received.
     # However this block was before the last finalized epoch and so its parent
@@ -168,11 +163,8 @@ proc addRawBlock*(
   # by the time it gets here.
   if blck.slot <= dag.finalizedHead.slot:
     debug "Old block, dropping",
-      blck = shortLog(blck),
       finalizedHead = shortLog(dag.finalizedHead),
-      tail = shortLog(dag.tail),
-      blockRoot = shortLog(blockRoot),
-      cat = "filtering"
+      tail = shortLog(dag.tail)
 
     return err Unviable
 
@@ -183,8 +175,6 @@ proc addRawBlock*(
       # A block whose parent is newer than the block itself is clearly invalid -
       # discard it immediately
       notice "Invalid block slot",
-        blck = shortLog(blck),
-        blockRoot = shortLog(blockRoot),
         parentBlock = shortLog(parent)
 
       return err Invalid
@@ -199,11 +189,8 @@ proc addRawBlock*(
       # latest thing that happened on the chain and they're performing their
       # duty correctly.
       debug "Unviable block, dropping",
-        blck = shortLog(blck),
         finalizedHead = shortLog(dag.finalizedHead),
-        tail = shortLog(dag.tail),
-        blockRoot = shortLog(blockRoot),
-        cat = "filtering"
+        tail = shortLog(dag.tail)
 
       return err Unviable
 
@@ -233,17 +220,14 @@ proc addRawBlock*(
     if not state_transition(dag.runtimePreset, dag.tmpState.data, signedBlock,
                             stateCache, dag.updateFlags, restore):
       # TODO find a better way to log all this block data
-      notice "Invalid block",
-        blck = shortLog(blck),
-        blockRoot = shortLog(blockRoot),
-        cat = "filtering"
+      notice "Invalid block"
 
       return err Invalid
     # Careful, tmpState.data has been updated but not blck - we need to create
     # the BlockRef first!
     dag.tmpState.blck = addResolvedBlock(
       dag, quarantine,
-      dag.tmpState.data.data, blockRoot, signedBlock, parent,
+      dag.tmpState.data.data, signedBlock, parent,
       callback
     )
     dag.putState(dag.tmpState.data, dag.tmpState.blck)
@@ -255,7 +239,7 @@ proc addRawBlock*(
   # the pending dag calls this function back later in a loop, so as long
   # as dag.add(...) requires a SignedBeaconBlock, easier to keep them in
   # pending too.
-  quarantine.add(dag, signedBlock, some(blockRoot))
+  quarantine.add(dag, signedBlock)
 
   # TODO possibly, it makes sense to check the database - that would allow sync
   #      to simply fill up the database with random blocks the other clients
@@ -280,11 +264,8 @@ proc addRawBlock*(
   #      from that branch, so right now, we'll just do a blind guess
 
   debug "Unresolved block (parent missing)",
-    blck = shortLog(blck),
-    blockRoot = shortLog(blockRoot),
     orphans = quarantine.orphans.len,
-    missing = quarantine.missing.len,
-    cat = "filtering"
+    missing = quarantine.missing.len
 
   return err MissingParent
 
@@ -296,6 +277,7 @@ proc isValidBeaconBlock*(
   logScope:
     topics = "clearance valid_blck"
     received_block = shortLog(signed_beacon_block.message)
+    blockRoot = shortLog(signed_beacon_block.root)
 
   # In general, checks are ordered from cheap to expensive. Especially, crypto
   # verification could be quite a bit more expensive than the rest. This is an

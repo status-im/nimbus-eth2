@@ -115,10 +115,10 @@ proc get(db: BeaconChainDB, key: openArray[byte], res: var auto): bool =
 
   found
 
-proc putBlock*(db: BeaconChainDB, key: Eth2Digest, value: SignedBeaconBlock) =
-  db.put(subkey(type value, key), value)
-proc putBlock*(db: BeaconChainDB, key: Eth2Digest, value: TrustedSignedBeaconBlock) =
-  db.put(subkey(SignedBeaconBlock, key), value)
+proc putBlock*(db: BeaconChainDB, value: SignedBeaconBlock) =
+  db.put(subkey(type value, value.root), value)
+proc putBlock*(db: BeaconChainDB, value: TrustedSignedBeaconBlock) =
+  db.put(subkey(SignedBeaconBlock, value.root), value)
 
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   # TODO prune old states - this is less easy than it seems as we never know
@@ -132,11 +132,6 @@ proc putState*(db: BeaconChainDB, value: BeaconState) =
 proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
     value: Eth2Digest) =
   db.put(subkey(root, slot), value)
-
-proc putBlock*(db: BeaconChainDB, value: SomeSignedBeaconBlock) =
-  # TODO this should perhaps be a TrustedSignedBeaconBlock, but there's no
-  #      trivial way to coerce one type into the other, as it stands..
-  db.putBlock(hash_tree_root(value.message), value)
 
 proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.del(subkey(SignedBeaconBlock, key)).expect(
@@ -156,7 +151,7 @@ proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
 
 proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
-  result.ok(TrustedSignedBeaconBlock())
+  result.ok(TrustedSignedBeaconBlock(root: key))
   if not db.get(subkey(SignedBeaconBlock, key), result.get):
     result.err()
 
@@ -195,14 +190,14 @@ proc containsState*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(BeaconState, key)).expect("working database")
 
 iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
-    tuple[root: Eth2Digest, blck: TrustedSignedBeaconBlock] =
+    TrustedSignedBeaconBlock =
   ## Load a chain of ancestors for blck - returns a list of blocks with the
   ## oldest block last (blck will be at result[0]).
   ##
   ## The search will go on until the ancestor cannot be found.
 
-  var res: tuple[root: Eth2Digest, blck: TrustedSignedBeaconBlock]
+  var res: TrustedSignedBeaconBlock
   res.root = root
-  while db.get(subkey(SignedBeaconBlock, res.root), res.blck):
+  while db.get(subkey(SignedBeaconBlock, res.root), res):
     yield res
-    res.root = res.blck.message.parent_root
+    res.root = res.message.parent_root

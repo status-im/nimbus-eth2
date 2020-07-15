@@ -19,7 +19,6 @@ import
 
 logScope:
   topics = "fork_choice"
-  cat = "fork_choice"
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804

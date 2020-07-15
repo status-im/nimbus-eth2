@@ -26,8 +26,8 @@ declareCounter beacon_state_data_cache_misses, "dag.cachedStates misses"
 logScope: topics = "hotdb"
 
 proc putBlock*(
-    dag: var CandidateChains, blockRoot: Eth2Digest, signedBlock: SignedBeaconBlock) =
-  dag.db.putBlock(blockRoot, signedBlock)
+    dag: var CandidateChains, signedBlock: SignedBeaconBlock) =
+  dag.db.putBlock(signedBlock)
 
 proc updateStateData*(
   dag: CandidateChains, state: var StateData, bs: BlockSlot) {.gcsafe.}
@@ -226,14 +226,14 @@ proc init*(T: type CandidateChains,
   if headRoot != tailRoot:
     var curRef: BlockRef
 
-    for root, blck in db.getAncestors(headRoot):
-      if root == tailRef.root:
+    for blck in db.getAncestors(headRoot):
+      if blck.root == tailRef.root:
         doAssert(not curRef.isNil)
         link(tailRef, curRef)
         curRef = curRef.parent
         break
 
-      let newRef = BlockRef.init(root, blck.message)
+      let newRef = BlockRef.init(blck.root, blck.message)
       if curRef == nil:
         curRef = newRef
         headRef = newRef
@@ -428,8 +428,8 @@ proc putState*(dag: CandidateChains, state: HashedBeaconState, blck: BlockRef) =
       info "Storing state",
         blck = shortLog(blck),
         stateSlot = shortLog(state.data.slot),
-        stateRoot = shortLog(state.root),
-        cat = "caching"
+        stateRoot = shortLog(state.root)
+
       dag.db.putState(state.root, state.data)
       if not rootWritten:
         dag.db.putStateRoot(blck.root, state.data.slot, state.root)
@@ -542,7 +542,9 @@ proc skipAndUpdateState(
 
 proc rewindState(dag: CandidateChains, state: var StateData, bs: BlockSlot):
     seq[BlockRef] =
-  logScope: pcs = "replay_state"
+  logScope:
+    blockSlot = shortLog(bs)
+    pcs = "replay_state"
 
   var ancestors = @[bs.blck]
   # Common case: the last block applied is the parent of the block to apply:
@@ -586,11 +588,7 @@ proc rewindState(dag: CandidateChains, state: var StateData, bs: BlockSlot):
       trace "Replaying state transitions via in-memory cache",
         stateSlot = shortLog(state.data.data.slot),
         ancestorStateRoot = shortLog(state.data.root),
-        ancestorStateSlot = shortLog(state.data.data.slot),
-        slot = shortLog(bs.slot),
-        blockRoot = shortLog(bs.blck.root),
-        ancestors = ancestors.len,
-        cat = "replay_state"
+        ancestors = ancestors.len
 
       return ancestors
 
@@ -607,11 +605,7 @@ proc rewindState(dag: CandidateChains, state: var StateData, bs: BlockSlot):
     #      list of parent blocks and couldn't find a corresponding state in the
     #      database, which should never happen (at least we should have the
     #      tail state in there!)
-    error "Couldn't find ancestor state root!",
-      blockRoot = shortLog(bs.blck.root),
-      blockSlot = shortLog(bs.blck.slot),
-      slot = shortLog(bs.slot),
-      cat = "crash"
+    fatal "Couldn't find ancestor state root!"
     doAssert false, "Oh noes, we passed big bang!"
 
   let
@@ -624,20 +618,12 @@ proc rewindState(dag: CandidateChains, state: var StateData, bs: BlockSlot):
     #      list of parent blocks and couldn't find a corresponding state in the
     #      database, which should never happen (at least we should have the
     #      tail state in there!)
-    error "Couldn't find ancestor state or block parent missing!",
-      blockRoot = shortLog(bs.blck.root),
-      blockSlot = shortLog(bs.blck.slot),
-      slot = shortLog(bs.slot),
-      cat = "crash"
+    fatal "Couldn't find ancestor state or block parent missing!"
     doAssert false, "Oh noes, we passed big bang!"
 
   trace "Replaying state transitions",
     stateSlot = shortLog(state.data.data.slot),
-    ancestorStateSlot = shortLog(state.data.data.slot),
-    slot = shortLog(bs.slot),
-    blockRoot = shortLog(bs.blck.root),
-    ancestors = ancestors.len,
-    cat = "replay_state"
+    ancestors = ancestors.len
 
   ancestors
 
@@ -743,12 +729,12 @@ proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
   ## blocks that were once considered potential candidates for a tree will
   ## now fall from grace, or no longer be considered resolved.
   doAssert newHead.parent != nil or newHead.slot == 0
-  logScope: pcs = "fork_choice"
+  logScope:
+    newHead = shortLog(newHead)
+    pcs = "fork_choice"
 
   if dag.head.blck == newHead:
-    info "No head block update",
-      head = shortLog(newHead),
-      cat = "fork_choice"
+    info "No head block update"
 
     return
 
@@ -779,8 +765,7 @@ proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
       headBlock = shortLog(dag.headState.blck),
       stateSlot = shortLog(dag.headState.data.data.slot),
       justifiedEpoch = shortLog(dag.headState.data.data.current_justified_checkpoint.epoch),
-      finalizedEpoch = shortLog(dag.headState.data.data.finalized_checkpoint.epoch),
-      cat = "fork_choice"
+      finalizedEpoch = shortLog(dag.headState.data.data.finalized_checkpoint.epoch)
 
     # A reasonable criterion for "reorganizations of the chain"
     beacon_reorgs_total.inc()
@@ -790,9 +775,7 @@ proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
       headBlock = shortLog(dag.headState.blck),
       stateSlot = shortLog(dag.headState.data.data.slot),
       justifiedEpoch = shortLog(dag.headState.data.data.current_justified_checkpoint.epoch),
-      finalizedEpoch = shortLog(dag.headState.data.data.finalized_checkpoint.epoch),
-      cat = "fork_choice"
-
+      finalizedEpoch = shortLog(dag.headState.data.data.finalized_checkpoint.epoch)
   let
     finalizedEpochStartSlot =
       dag.headState.data.data.finalized_checkpoint.epoch.
@@ -855,9 +838,7 @@ proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
 
     info "Finalized block",
       finalizedHead = shortLog(finalizedHead),
-      head = shortLog(newHead),
-      heads = dag.heads.len,
-      cat = "fork_choice"
+      heads = dag.heads.len
 
     # TODO prune everything before weak subjectivity period
 
@@ -904,22 +885,18 @@ proc preInit*(
   # TODO probably should just init a blockpool with the freshly written
   #      state - but there's more refactoring needed to make it nice - doing
   #      a minimal patch for now..
-  let
-    blockRoot = hash_tree_root(signedBlock.message)
-
   doAssert signedBlock.message.state_root == hash_tree_root(state)
   notice "New database from snapshot",
-    blockRoot = shortLog(blockRoot),
+    blockRoot = shortLog(signedBlock.root),
     stateRoot = shortLog(signedBlock.message.state_root),
     fork = state.fork,
-    validators = state.validators.len(),
-    cat = "initialization"
+    validators = state.validators.len()
 
   db.putState(state)
   db.putBlock(signedBlock)
-  db.putTailBlock(blockRoot)
-  db.putHeadBlock(blockRoot)
-  db.putStateRoot(blockRoot, state.slot, signedBlock.message.state_root)
+  db.putTailBlock(signedBlock.root)
+  db.putHeadBlock(signedBlock.root)
+  db.putStateRoot(signedBlock.root, state.slot, signedBlock.message.state_root)
 
 proc getProposer*(
     dag: CandidateChains, head: BlockRef, slot: Slot):
