@@ -37,7 +37,6 @@ type
   BeaconSyncNetworkState* = ref object
     blockPool*: BlockPool
     forkDigest*: ForkDigest
-    onBeaconBlock*: BeaconBlockCallback
 
   BeaconSyncPeerState* = ref object
     initialStatusReceived*: bool
@@ -65,12 +64,6 @@ func disconnectReasonName(reason: uint64): string =
   elif reason == uint64(IrrelevantNetwork): "Irrelevant network"
   elif reason == uint64(FaultOrError): "Fault or error"
   else: "Disconnected (" & $reason & ")"
-
-proc importBlocks(state: BeaconSyncNetworkState,
-                  blocks: openarray[SignedBeaconBlock]) {.gcsafe.} =
-  for blk in blocks:
-    state.onBeaconBlock(blk)
-  info "Forward sync imported blocks", len = blocks.len
 
 proc getCurrentStatus*(state: BeaconSyncNetworkState): StatusMsg {.gcsafe.} =
   let
@@ -236,11 +229,8 @@ proc handleStatus(peer: Peer,
 
     peer.setStatusMsg(theirStatus)
 
-proc initBeaconSync*(network: Eth2Node,
-                     blockPool: BlockPool,
-                     forkDigest: ForkDigest,
-                     onBeaconBlock: BeaconBlockCallback) =
+proc initBeaconSync*(network: Eth2Node, blockPool: BlockPool,
+                     forkDigest: ForkDigest) =
   var networkState = network.protocolState(BeaconSync)
   networkState.blockPool = blockPool
   networkState.forkDigest = forkDigest
-  networkState.onBeaconBlock = onBeaconBlock
