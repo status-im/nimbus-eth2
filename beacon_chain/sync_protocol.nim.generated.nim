@@ -1,5 +1,5 @@
 
-## Generated at line 94
+## Generated at line 87
 type
   BeaconSync* = object
 template State*(PROTO: type BeaconSync): type =
