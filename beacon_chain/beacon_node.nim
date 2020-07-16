@@ -263,27 +263,7 @@ proc init*(T: type BeaconNode,
 
   # This merely configures the BeaconSync
   # The traffic will be started when we join the network.
-  network.initBeaconSync(blockPool, enrForkId.forkDigest,
-    proc(signedBlock: SignedBeaconBlock) =
-      if signedBlock.message.slot.isEpoch:
-        # TODO this is a hack to make sure that lmd ghost is run regularly
-        #      while syncing blocks - it's poor form to keep it here though -
-        #      the logic should be moved elsewhere
-        # TODO why only when syncing? well, because the way the code is written
-        #      we require a connection to a boot node to start, and that boot
-        #      node will start syncing as part of connection setup - it looks
-        #      like it needs to finish syncing before the slot timer starts
-        #      ticking which is a problem: all the synced blocks will be added
-        #      to the block pool without any periodic head updates while this
-        #      process is ongoing (during a blank start for example), which
-        #      leads to an unhealthy buildup of blocks in the non-finalized part
-        #      of the block pool
-        # TODO is it a problem that someone sending us a block can force
-        #      a potentially expensive head resolution?
-        discard res.updateHead()
-
-      onBeaconBlock(res, signedBlock))
-
+  network.initBeaconSync(blockPool, enrForkId.forkDigest)
   return res
 
 proc onAttestation(node: BeaconNode, attestation: Attestation) =
