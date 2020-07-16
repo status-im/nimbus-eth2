@@ -115,8 +115,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
     lastSlot = shortLog(lastSlot),
     scheduledSlot = shortLog(scheduledSlot),
     beaconTime = shortLog(beaconTime),
-    portBN = vc.config.rpcPort,
-    cat = "scheduling"
+    portBN = vc.config.rpcPort
 
   try:
     # at the start of each epoch - request all validator duties
@@ -141,9 +140,9 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
           message: await vc.client.get_v1_validator_block(slot, vc.graffitiBytes, randao_reveal)
         )
 
-      let blockRoot = hash_tree_root(newBlock.message)
+      newBlock.root = hash_tree_root(newBlock.message)
       newBlock.signature = await validator.signBlockProposal(
-        vc.fork, vc.beaconGenesis.genesis_validators_root, slot, blockRoot)
+        vc.fork, vc.beaconGenesis.genesis_validators_root, slot, newBlock.root)
 
       discard await vc.client.post_v1_validator_block(newBlock)
 
@@ -181,8 +180,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
   info "Slot end",
     slot = shortLog(slot),
     nextSlot = shortLog(nextSlot),
-    portBN = vc.config.rpcPort,
-    cat = "scheduling"
+    portBN = vc.config.rpcPort
 
   when declared(GC_fullCollect):
     # The slots in the validator client work as frames in a game: we want to make
@@ -240,8 +238,7 @@ programMain:
     info "Scheduling first slot action",
       beaconTime = shortLog(vc.beaconClock.now()),
       nextSlot = shortLog(nextSlot),
-      fromNow = shortLog(fromNow),
-      cat = "scheduling"
+      fromNow = shortLog(fromNow)
 
     addTimer(fromNow) do (p: pointer) {.gcsafe.}:
       asyncCheck vc.onSlotStart(curSlot, nextSlot)

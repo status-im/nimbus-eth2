@@ -80,8 +80,7 @@ proc sleepToSlotOffset*(clock: BeaconClock, extra: chronos.Duration,
   if fromNow.inFuture:
     trace msg,
       slot = shortLog(slot),
-      fromNow = shortLog(fromNow.offset),
-      cat = "scheduling"
+      fromNow = shortLog(fromNow.offset)
 
     await sleepAsync(fromNow.offset)
     return true

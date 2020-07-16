@@ -166,8 +166,7 @@ suiteReport "Attestation pool processing" & preset():
     var cache = StateCache()
     let
       b1 = addTestBlock(state.data, blockPool[].tail.root, cache)
-      b1Root = hash_tree_root(b1.message)
-      b1Add = blockpool[].addRawBlock(b1Root, b1) do (validBlock: BlockRef):
+      b1Add = blockpool[].addRawBlock(b1) do (validBlock: BlockRef):
         # Callback Add to fork choice
         pool[].addForkChoice_v2(validBlock)
 
@@ -177,9 +176,8 @@ suiteReport "Attestation pool processing" & preset():
       head == b1Add[]
 
     let
-      b2 = addTestBlock(state.data, b1Root, cache)
-      b2Root = hash_tree_root(b2.message)
-      b2Add = blockpool[].addRawBlock(b2Root, b2) do (validBlock: BlockRef):
+      b2 = addTestBlock(state.data, b1.root, cache)
+      b2Add = blockpool[].addRawBlock(b2) do (validBlock: BlockRef):
         # Callback Add to fork choice
         pool[].addForkChoice_v2(validBlock)
 
@@ -192,8 +190,7 @@ suiteReport "Attestation pool processing" & preset():
     var cache = StateCache()
     let
       b10 = makeTestBlock(state.data, blockPool[].tail.root, cache)
-      b10Root = hash_tree_root(b10.message)
-      b10Add = blockpool[].addRawBlock(b10Root, b10) do (validBlock: BlockRef):
+      b10Add = blockpool[].addRawBlock(b10) do (validBlock: BlockRef):
         # Callback Add to fork choice
         pool[].addForkChoice_v2(validBlock)
 
@@ -206,14 +203,13 @@ suiteReport "Attestation pool processing" & preset():
       b11 = makeTestBlock(state.data, blockPool[].tail.root, cache,
         graffiti = GraffitiBytes [1'u8, 0, 0, 0 ,0 ,0 ,0 ,0 ,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
       )
-      b11Root = hash_tree_root(b11.message)
-      b11Add = blockpool[].addRawBlock(b11Root, b11) do (validBlock: BlockRef):
+      b11Add = blockpool[].addRawBlock(b11) do (validBlock: BlockRef):
         # Callback Add to fork choice
         pool[].addForkChoice_v2(validBlock)
 
       bc1 = get_beacon_committee(
         state.data.data, state.data.data.slot, 1.CommitteeIndex, cache)
-      attestation0 = makeAttestation(state.data.data, b10Root, bc1[0], cache)
+      attestation0 = makeAttestation(state.data.data, b10.root, bc1[0], cache)
 
     pool[].addAttestation(attestation0)
 
@@ -224,13 +220,13 @@ suiteReport "Attestation pool processing" & preset():
       head2 == b10Add[]
 
     let
-      attestation1 = makeAttestation(state.data.data, b11Root, bc1[1], cache)
-      attestation2 = makeAttestation(state.data.data, b11Root, bc1[2], cache)
+      attestation1 = makeAttestation(state.data.data, b11.root, bc1[1], cache)
+      attestation2 = makeAttestation(state.data.data, b11.root, bc1[2], cache)
     pool[].addAttestation(attestation1)
 
     let head3 = pool[].selectHead()
     # Warning - the tiebreak are incorrect and guaranteed consensus fork, it should be bigger
-    let smaller = if b10Root.data < b11Root.data: b10Add else: b11Add
+    let smaller = if b10.root.data < b11.root.data: b10Add else: b11Add
 
     check:
       # Ties broken lexicographically in spec -> ?
@@ -251,8 +247,7 @@ suiteReport "Attestation pool processing" & preset():
     var cache = StateCache()
     let
       b10 = makeTestBlock(state.data, blockPool[].tail.root, cache)
-      b10Root = hash_tree_root(b10.message)
-      b10Add = blockpool[].addRawBlock(b10Root, b10) do (validBlock: BlockRef):
+      b10Add = blockpool[].addRawBlock(b10) do (validBlock: BlockRef):
         # Callback Add to fork choice
         pool[].addForkChoice_v2(validBlock)
 
@@ -264,7 +259,7 @@ suiteReport "Attestation pool processing" & preset():
     # -------------------------------------------------------------
     # Add back the old block to ensure we have a duplicate error
     let b10_clone = b10 # Assumes deep copy
-    let b10Add_clone = blockpool[].addRawBlock(b10Root, b10_clone) do (validBlock: BlockRef):
+    let b10Add_clone = blockpool[].addRawBlock(b10_clone) do (validBlock: BlockRef):
         # Callback Add to fork choice
         pool[].addForkChoice_v2(validBlock)
     doAssert: b10Add_clone.error == Duplicate
@@ -277,8 +272,7 @@ suiteReport "Attestation pool processing" & preset():
 
     let
       b10 = makeTestBlock(state.data, blockPool[].tail.root, cache)
-      b10Root = hash_tree_root(b10.message)
-      b10Add = blockpool[].addRawBlock(b10Root, b10) do (validBlock: BlockRef):
+      b10Add = blockpool[].addRawBlock(b10) do (validBlock: BlockRef):
         # Callback Add to fork choice
         pool[].addForkChoice_v2(validBlock)
 
@@ -294,7 +288,7 @@ suiteReport "Attestation pool processing" & preset():
 
     # -------------------------------------------------------------
     # Pass an epoch
-    var block_root = b10Root
+    var block_root = b10.root
 
     var attestations: seq[Attestation]
 
@@ -306,8 +300,8 @@ suiteReport "Attestation pool processing" & preset():
         let block_ok = state_transition(defaultRuntimePreset, state.data, new_block, {skipBLSValidation}, noRollback)
         doAssert: block_ok
 
-        block_root = hash_tree_root(new_block.message)
-        let blockRef = blockpool[].addRawBlock(block_root, new_block) do (validBlock: BlockRef):
+        block_root = new_block.root
+        let blockRef = blockpool[].addRawBlock(new_block) do (validBlock: BlockRef):
           # Callback Add to fork choice
           pool[].addForkChoice_v2(validBlock)
 
@@ -344,10 +338,10 @@ suiteReport "Attestation pool processing" & preset():
     doAssert: blockPool[].finalizedHead.slot != 0
 
     pool[].pruneBefore(blockPool[].finalizedHead)
-    doAssert: b10Root notin pool.forkChoice_v2
+    doAssert: b10.root notin pool.forkChoice_v2
 
     # Add back the old block to ensure we have a duplicate error
-    let b10Add_clone = blockpool[].addRawBlock(b10Root, b10_clone) do (validBlock: BlockRef):
+    let b10Add_clone = blockpool[].addRawBlock(b10_clone) do (validBlock: BlockRef):
         # Callback Add to fork choice
         pool[].addForkChoice_v2(validBlock)
     doAssert: b10Add_clone.error == Duplicate

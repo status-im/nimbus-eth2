@@ -50,6 +50,7 @@ proc checkSSZ(T: type SignedBeaconBlock, dir: string, expectedHash: SSZHashTreeR
     [hash_tree_root(deserialized.message),
     hash_tree_root(deserialized.signature)]))
 
+  check deserialized.root == hash_tree_root(deserialized.message)
   check SSZ.encode(deserialized[]) == encoded
   check sszSize(deserialized[]) == encoded.len
 

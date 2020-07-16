@@ -135,16 +135,14 @@ proc slotIndex(
     # to start counting at the last finalized epoch start slot - anything
     # earlier than that is thrown out by the above check
     info "First attestation!",
-      attestationSlot =  $shortLog(attestationSlot),
-      cat = "init"
+      attestationSlot =  shortLog(attestationSlot)
     pool.startingSlot =
       state.finalized_checkpoint.epoch.compute_start_slot_at_epoch()
 
   if pool.startingSlot + pool.mapSlotsToAttestations.len.uint64 <= attestationSlot:
     trace "Growing attestation pool",
-      attestationSlot =  $shortLog(attestationSlot),
-      startingSlot = $shortLog(pool.startingSlot),
-      cat = "caching"
+      attestationSlot =  shortLog(attestationSlot),
+      startingSlot = shortLog(pool.startingSlot)
 
     # Make sure there's a pool entry for every slot, even when there's a gap
     while pool.startingSlot + pool.mapSlotsToAttestations.len.uint64 <= attestationSlot:
@@ -153,11 +151,10 @@ proc slotIndex(
   if pool.startingSlot <
       state.finalized_checkpoint.epoch.compute_start_slot_at_epoch():
     debug "Pruning attestation pool",
-      startingSlot = $shortLog(pool.startingSlot),
-      finalizedSlot = $shortLog(
+      startingSlot = shortLog(pool.startingSlot),
+      finalizedSlot = shortLog(
         state.finalized_checkpoint
-             .epoch.compute_start_slot_at_epoch()),
-      cat = "pruning"
+             .epoch.compute_start_slot_at_epoch())
 
     # TODO there should be a better way to remove a whole epoch of stuff..
     while pool.startingSlot <
@@ -245,8 +242,7 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
   if not isValidAttestationTargetEpoch(state, attestation.data):
     notice "Invalid attestation",
       attestation = shortLog(attestation),
-      current_epoch = get_current_epoch(state),
-      cat = "filtering"
+      current_epoch = get_current_epoch(state)
     return
 
   # TODO inefficient data structures..
@@ -274,8 +270,7 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
           #      sets by virtue of not overlapping with some other attestation
           #      and therefore being useful after all?
           trace "Ignoring subset attestation",
-            newParticipants = participants,
-            cat = "filtering"
+            newParticipants = participants
           found = true
           break
 
@@ -284,8 +279,7 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
         # can now be removed per same logic as above
 
         trace "Removing subset attestations",
-          newParticipants = participants,
-          cat = "pruning"
+          newParticipants = participants
 
         a.validations.keepItIf(
           not it.aggregation_bits.isSubsetOf(validation.aggregation_bits))
@@ -297,8 +291,7 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
           attestation = shortLog(attestation),
           validations = a.validations.len(),
           current_epoch = get_current_epoch(state),
-          blockSlot = shortLog(blck.slot),
-          cat = "filtering"
+          blockSlot = shortLog(blck.slot)
 
         found = true
 
@@ -316,8 +309,7 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
       attestation = shortLog(attestation),
       current_epoch = get_current_epoch(state),
       validations = 1,
-      blockSlot = shortLog(blck.slot),
-      cat = "filtering"
+      blockSlot = shortLog(blck.slot)
 
 proc addAttestation*(pool: var AttestationPool, attestation: Attestation) =
   ## Add a verified attestation to the fork choice context
@@ -400,14 +392,12 @@ proc getAttestationsForSlot*(pool: AttestationPool, newBlockSlot: Slot):
     Option[AttestationsSeen] =
   if newBlockSlot < (GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY):
     debug "Too early for attestations",
-      newBlockSlot = shortLog(newBlockSlot),
-      cat = "query"
+      newBlockSlot = shortLog(newBlockSlot)
     return none(AttestationsSeen)
 
   if pool.mapSlotsToAttestations.len == 0: # startingSlot not set yet!
     info "No attestations found (pool empty)",
-      newBlockSlot = shortLog(newBlockSlot),
-      cat = "query"
+      newBlockSlot = shortLog(newBlockSlot)
     return none(AttestationsSeen)
 
   let
@@ -423,8 +413,7 @@ proc getAttestationsForSlot*(pool: AttestationPool, newBlockSlot: Slot):
     info "No attestations matching the slot range",
       attestationSlot = shortLog(attestationSlot),
       startingSlot = shortLog(pool.startingSlot),
-      endingSlot = shortLog(pool.startingSlot + pool.mapSlotsToAttestations.len.uint64),
-      cat = "query"
+      endingSlot = shortLog(pool.startingSlot + pool.mapSlotsToAttestations.len.uint64)
     return none(AttestationsSeen)
 
   let slotDequeIdx = int(attestationSlot - pool.startingSlot)
@@ -484,7 +473,7 @@ proc getAttestationsForBlock*(pool: AttestationPool,
     #      to include a broken attestation
     if not check_attestation(state, attestation, {}, cache):
       warn "Attestation no longer validates...",
-        cat = "query"
+        attestation = shortLog(attestation)
       continue
 
     for v in a.validations[1..^1]:
@@ -637,7 +626,7 @@ proc pruneBefore*(pool: var AttestationPool, finalizedhead: BlockSlot) =
 proc selectHead*(pool: var AttestationPool): BlockRef =
   let head_v1 = pool.selectHead_v1()
   # let head_v2 = pool.selectHead_v2()
-  # 
+  #
   # if head_v1 != head_v2:
   #   error "Fork choice engines in disagreement, using block from v1.",
   #     v1_block = shortlog(head_v1),

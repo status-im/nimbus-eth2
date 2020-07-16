@@ -173,8 +173,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
 
     debug "Justified with previous epoch",
       current_epoch = current_epoch,
-      checkpoint = shortLog(state.current_justified_checkpoint),
-      cat = "justification"
+      checkpoint = shortLog(state.current_justified_checkpoint)
 
   let matching_target_attestations_current =
     get_matching_target_attestations(state, current_epoch)  # Current epoch
@@ -187,8 +186,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
 
     debug "Justified with current epoch",
       current_epoch = current_epoch,
-      checkpoint = shortLog(state.current_justified_checkpoint),
-      cat = "justification"
+      checkpoint = shortLog(state.current_justified_checkpoint)
 
   # Process finalizations
   let bitfield = state.justification_bits
@@ -201,8 +199,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
 
     debug "Finalized with rule 234",
       current_epoch = current_epoch,
-      checkpoint = shortLog(state.finalized_checkpoint),
-      cat = "finalization"
+      checkpoint = shortLog(state.finalized_checkpoint)
 
   ## The 2nd/3rd most recent epochs are justified, the 2nd using the 3rd as
   ## source
@@ -212,8 +209,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
 
     debug "Finalized with rule 23",
       current_epoch = current_epoch,
-      checkpoint = shortLog(state.finalized_checkpoint),
-      cat = "finalization"
+      checkpoint = shortLog(state.finalized_checkpoint)
 
   ## The 1st/2nd/3rd most recent epochs are justified, the 1st using the 3rd as
   ## source
@@ -223,8 +219,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
 
     debug "Finalized with rule 123",
       current_epoch = current_epoch,
-      checkpoint = shortLog(state.finalized_checkpoint),
-      cat = "finalization"
+      checkpoint = shortLog(state.finalized_checkpoint)
 
   ## The 1st/2nd most recent epochs are justified, the 1st using the 2nd as
   ## source
@@ -234,8 +229,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
 
     debug "Finalized with rule 12",
       current_epoch = current_epoch,
-      checkpoint = shortLog(state.finalized_checkpoint),
-      cat = "finalization"
+      checkpoint = shortLog(state.finalized_checkpoint)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#helpers
 func get_base_reward(state: BeaconState, index: ValidatorIndex,

@@ -270,31 +270,29 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
   # We received an attestation from the network but don't know much about it
   # yet - in particular, we haven't verified that it belongs to particular chain
   # we're on, or that it follows the rules of the protocol
-  logScope: pcs = "on_attestation"
+  logScope:
+    attestation = shortLog(attestation)
+    pcs = "on_attestation"
 
   let
     wallSlot = node.beaconClock.now().toSlot()
     head = node.blockPool.head
 
   debug "Attestation received",
-    attestation = shortLog(attestation),
-    headRoot = shortLog(head.blck.root),
-    headSlot = shortLog(head.blck.slot),
-    wallSlot = shortLog(wallSlot.slot),
-    cat = "consensus" # Tag "consensus|attestation"?
+    head = shortLog(head.blck),
+    wallSlot = shortLog(wallSlot.slot)
 
   if not wallSlot.afterGenesis or wallSlot.slot < head.blck.slot:
     warn "Received attestation before genesis or head - clock is wrong?",
       afterGenesis = wallSlot.afterGenesis,
       wallSlot = shortLog(wallSlot.slot),
-      headSlot = shortLog(head.blck.slot),
-      cat = "clock_drift" # Tag "attestation|clock_drift"?
+      head = shortLog(head.blck)
     return
 
   if attestation.data.slot > head.blck.slot and
       (attestation.data.slot - head.blck.slot) > MaxEmptySlotCount:
     warn "Ignoring attestation, head block too old (out of sync?)",
-      attestationSlot = attestation.data.slot, headSlot = head.blck.slot
+      head = head.blck
     return
 
   node.attestationPool.addAttestation(attestation)
@@ -306,28 +304,24 @@ proc dumpBlock[T](
     case res.error
     of Invalid:
       dump(
-        node.config.dumpDirInvalid, signedBlock,
-        hash_tree_root(signedBlock.message))
+        node.config.dumpDirInvalid, signedBlock)
     of MissingParent:
       dump(
-        node.config.dumpDirIncoming, signedBlock,
-        hash_tree_root(signedBlock.message))
+        node.config.dumpDirIncoming, signedBlock)
     else:
       discard
 
 proc storeBlock(
     node: BeaconNode, signedBlock: SignedBeaconBlock): Result[void, BlockError] =
-  let blockRoot = hash_tree_root(signedBlock.message)
   debug "Block received",
     signedBlock = shortLog(signedBlock.message),
-    blockRoot = shortLog(blockRoot),
-    cat = "block_listener",
+    blockRoot = shortLog(signedBlock.root),
     pcs = "receive_block"
 
   beacon_blocks_received.inc()
 
   {.gcsafe.}: # TODO: fork choice and blockpool should sync via messages instead of callbacks
-    let blck = node.blockPool.addRawBlock(blockRoot, signedBlock) do (validBlock: BlockRef):
+    let blck = node.blockPool.addRawBlock(signedBlock) do (validBlock: BlockRef):
       # Callback add to fork choice if valid
       # node.attestationPool.addForkChoice_v2(validBlock)
       discard "TODO: Deactivated"
@@ -344,8 +338,7 @@ proc storeBlock(
   # all of them. Let's add them to the attestation pool.
   for attestation in signedBlock.message.body.attestations:
     debug "Attestation from block",
-      attestation = shortLog(attestation),
-      cat = "consensus" # Tag "consensus|attestation"?
+      attestation = shortLog(attestation)
 
     node.attestationPool.addAttestation(attestation)
   ok()
@@ -398,8 +391,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     headRoot = shortLog(node.blockPool.head.blck.root),
     finalizedSlot = shortLog(node.blockPool.finalizedHead.blck.slot),
     finalizedRoot = shortLog(node.blockPool.finalizedHead.blck.root),
-    finalizedEpoch = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()),
-    cat = "scheduling"
+    finalizedEpoch = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot())
 
   # Check before any re-scheduling of onSlotStart()
   # Offset backwards slightly to allow this epoch's finalization check to occur
@@ -427,8 +419,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
       beaconTime = shortLog(beaconTime),
       lastSlot = shortLog(lastSlot),
       scheduledSlot = shortLog(scheduledSlot),
-      nextSlot = shortLog(nextSlot),
-      cat = "clock_drift" # tag "scheduling|clock_drift"?
+      nextSlot = shortLog(nextSlot)
 
     addTimer(saturate(node.beaconClock.fromNow(nextSlot))) do (p: pointer):
       asyncCheck node.onSlotStart(slot, nextSlot)
@@ -454,8 +445,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
       lastSlot = shortLog(lastSlot),
       slot = shortLog(slot),
       nextSlot = shortLog(nextSlot),
-      scheduledSlot = shortLog(scheduledSlot),
-      cat = "overload"
+      scheduledSlot = shortLog(scheduledSlot)
 
     addTimer(saturate(node.beaconClock.fromNow(nextSlot))) do (p: pointer):
       # We pass the current slot here to indicate that work should be skipped!
@@ -502,8 +492,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     headRoot = shortLog(node.blockPool.head.blck.root),
     finalizedSlot = shortLog(node.blockPool.finalizedHead.blck.slot),
     finalizedEpoch = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()),
-    finalizedRoot = shortLog(node.blockPool.finalizedHead.blck.root),
-    cat = "scheduling"
+    finalizedRoot = shortLog(node.blockPool.finalizedHead.blck.root)
 
   when declared(GC_fullCollect):
     # The slots in the beacon node work as frames in a game: we want to make
@@ -824,8 +813,7 @@ proc run*(node: BeaconNode) =
     info "Scheduling first slot action",
       beaconTime = shortLog(node.beaconClock.now()),
       nextSlot = shortLog(nextSlot),
-      fromNow = shortLog(fromNow),
-      cat = "scheduling"
+      fromNow = shortLog(fromNow)
 
     addTimer(fromNow) do (p: pointer):
       asyncCheck node.onSlotStart(curSlot, nextSlot)
@@ -876,15 +864,12 @@ proc start(node: BeaconNode) =
     timeSinceFinalization =
       int64(finalizedHead.slot.toBeaconTime()) -
       int64(node.beaconClock.now()),
-    headSlot = shortLog(head.blck.slot),
-    headRoot = shortLog(head.blck.root),
-    finalizedSlot = shortLog(finalizedHead.blck.slot),
-    finalizedRoot = shortLog(finalizedHead.blck.root),
+    head = shortLog(head.blck),
+    finalizedHead = shortLog(finalizedHead),
     SLOTS_PER_EPOCH,
     SECONDS_PER_SLOT,
     SPEC_VERSION,
     dataDir = node.config.dataDir.string,
-    cat = "init",
     pcs = "start_beacon_node"
 
   if genesisTime.inFuture:

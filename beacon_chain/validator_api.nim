@@ -195,7 +195,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("get_v1_beacon_states_fork") do (stateId: string) -> Fork:
     withStateForStateId(stateId):
       return state.fork
-  
+
   rpcServer.rpc("get_v1_beacon_states_finality_checkpoints") do (
       stateId: string) -> BeaconStatesFinalityCheckpointsTuple:
     withStateForStateId(stateId):
@@ -229,11 +229,11 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       seq[BeaconStatesCommitteesTuple]:
     withStateForStateId(stateId):
       var cache = StateCache() # TODO is this OK?
-      
+
       proc getCommittee(slot: Slot, index: CommitteeIndex): BeaconStatesCommitteesTuple =
         let vals = get_beacon_committee(state, slot, index, cache).mapIt(it.uint64)
         return (index: index.uint64, slot: slot.uint64, validators: vals)
-      
+
       proc forSlot(slot: Slot, res: var seq[BeaconStatesCommitteesTuple]) =
         if index == 0: # TODO this means if the parameter is missing (its optional)
           let committees_per_slot = get_committee_count_at_slot(state, slot)
@@ -323,8 +323,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     if head.slot >= body.message.slot:
       raise newException(CatchableError,
         "Proposal is for a past slot: " & $body.message.slot)
-    if head == await proposeSignedBlock(node, head, AttachedValidator(),
-                                        body, hash_tree_root(body.message)):
+    if head == await proposeSignedBlock(node, head, AttachedValidator(), body):
       raise newException(CatchableError, "Could not propose block")
     return true
 
