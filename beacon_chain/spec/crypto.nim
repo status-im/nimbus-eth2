@@ -343,3 +343,7 @@ func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noInit
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
   v[]
+
+proc burnMem*(key: var ValidatorPrivKey) =
+  key = default(ValidatorPrivKey)
+

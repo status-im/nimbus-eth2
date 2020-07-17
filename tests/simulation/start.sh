@@ -101,22 +101,23 @@ fi
 
 $MAKE -j2 --no-print-directory NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node validator_client
 
-count_files () {
-  { ls -1q $1 2> /dev/null || true ; } | wc -l
-}
+EXISTING_VALIDATORS=0
+if [[ -f "$DEPOSITS_FILE" ]]; then
+  # We count the number of deposits by counting the number of
+  # occurrences of the 'deposit_data_root' field:
+  EXISTING_VALIDATORS=$(grep -o -i deposit_data_root "$DEPOSITS_FILE" | wc -l)
+fi
 
-EXISTING_VALIDATORS=$(count_files "$VALIDATORS_DIR/*/deposit.json")
-
-if [[ $EXISTING_VALIDATORS -lt $NUM_VALIDATORS ]]; then
+if [[ $EXISTING_VALIDATORS -ne $NUM_VALIDATORS ]]; then
   rm -rf "$VALIDATORS_DIR"
   rm -rf "$SECRETS_DIR"
 
   $BEACON_NODE_BIN deposits create \
     --count="${NUM_VALIDATORS}" \
-    --non-interactive \
+    --new-wallet-file="${SIMULATION_DIR}/wallet.json" \
     --out-deposits-dir="$VALIDATORS_DIR" \
     --out-secrets-dir="$SECRETS_DIR" \
-    --dont-send
+    --out-deposits-file="$DEPOSITS_FILE"
 
   echo "All deposits prepared"
 fi
@@ -128,7 +129,7 @@ if [ ! -f "${SNAPSHOT_FILE}" ]; then
       --data-dir="${SIMULATION_DIR}/node-$BOOTSTRAP_NODE" \
       createTestnet \
       $WEB3_ARG \
-      --validators-dir="${VALIDATORS_DIR}" \
+      --deposits-file="${DEPOSITS_FILE}" \
       --total-validators="${NUM_VALIDATORS}" \
       --output-genesis="${SNAPSHOT_FILE}" \
       --output-bootstrap-file="${NETWORK_BOOTSTRAP_FILE}" \
@@ -167,7 +168,7 @@ if [ "$USE_GANACHE" != "no" ]; then
   make deposit_contract
   echo Deploying the validator deposit contract...
 
-  DEPLOY_CMD_OUTPUT=$($DEPLOY_DEPOSIT_CONTRACT_BIN deploy $WEB3_ARG)
+  DEPLOY_CMD_OUTPUT=$($DEPOSIT_CONTRACT_BIN deploy $WEB3_ARG)
   # https://stackoverflow.com/questions/918886/how-do-i-split-a-string-on-a-delimiter-in-bash
   OUTPUT_PIECES=(${DEPLOY_CMD_OUTPUT//;/ })
   DEPOSIT_CONTRACT_ADDRESS=${OUTPUT_PIECES[0]}
@@ -176,9 +177,8 @@ if [ "$USE_GANACHE" != "no" ]; then
   echo Contract deployed at $DEPOSIT_CONTRACT_ADDRESS:$DEPOSIT_CONTRACT_BLOCK
 
   if [[ "$WAIT_GENESIS" == "yes" ]]; then
-    run_cmd "(deposit maker)" "$BEACON_NODE_BIN deposits send \
-      --non-interactive \
-      --deposits-dir='$VALIDATORS_DIR' \
+    run_cmd "(deposit maker)" "$DEPOSIT_CONTRACT_BIN makeDeposits \
+      --deposits-file='$DEPOSITS_FILE' \
       --min-delay=0 --max-delay=1 \
       $WEB3_ARG \
       --deposit-contract=${DEPOSIT_CONTRACT_ADDRESS}"

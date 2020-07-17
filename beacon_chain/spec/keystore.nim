@@ -13,7 +13,7 @@ import
   ./datatypes, ./crypto, ./digest, ./signatures
 
 export
-  results
+  results, burnMem
 
 {.push raises: [Defect].}
 
@@ -126,6 +126,12 @@ WalletName.serializesAsBaseIn Json
 
 template `$`*(m: Mnemonic): string =
   string(m)
+
+template `==`*(lhs, rhs: WalletName): bool =
+  string(lhs) == string(rhs)
+
+template `$`*(x: WalletName): string =
+  string(x)
 
 template burnMem*(m: var (SensitiveData|TaintedString)) =
   # TODO: `burnMem` in nimcrypto could use distinctBase
@@ -450,48 +456,21 @@ proc createWalletContent*(T: type[KdfParams],
     T, rng, mnemonic, name, salt, iv, password, nextAccount, pretty)
   (wallet.uuid, WalletContent Json.encode(wallet, pretty = pretty))
 
-proc restoreCredentials*(rng: var BrHmacDrbgContext,
-                         mnemonic: Mnemonic,
-                         password = KeyStorePass ""): Credentials =
-  let
-    withdrawalKeyPath = makeKeyPath(0, withdrawalKeyKind)
-    withdrawalKey = keyFromPath(mnemonic, password, withdrawalKeyPath)
-
-    signingKeyPath = withdrawalKeyPath.append 0
-    signingKey = deriveChildKey(withdrawalKey, 0)
-
-  Credentials(
-    mnemonic: mnemonic,
-    keyStore: encryptKeystore(KdfPbkdf2, rng, signingKey, password, signingKeyPath),
-    signingKey: signingKey,
-    withdrawalKey: withdrawalKey)
-
-proc generateCredentials*(rng: var BrHmacDrbgContext,
-                          entropy: openarray[byte] = @[],
-                          password = KeyStorePass ""): Credentials =
-  let mnemonic = generateMnemonic(rng, englishWords, entropy)
-  restoreCredentials(rng, mnemonic, password)
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/deposit-contract.md#withdrawal-credentials
 proc makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
   var bytes = eth2digest(k.toRaw())
   bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
   bytes
 
-proc prepareDeposit*(credentials: Credentials,
-                     preset: RuntimePreset,
-                     amount = MAX_EFFECTIVE_BALANCE.Gwei): Deposit =
-  let
-    withdrawalPubKey = credentials.withdrawalKey.toPubKey
-    signingPubKey = credentials.signingKey.toPubKey
+proc prepareDeposit*(preset: RuntimePreset,
+                     withdrawalPubKey: ValidatorPubKey,
+                     signingKey: ValidatorPrivKey, signingPubKey: ValidatorPubKey,
+                     amount = MAX_EFFECTIVE_BALANCE.Gwei): DepositData =
+  var res = DepositData(
+    amount: amount,
+    pubkey: signingPubKey,
+    withdrawal_credentials: makeWithdrawalCredentials(withdrawalPubKey))
 
-  var
-    ret = Deposit(
-      data: DepositData(
-        amount: amount,
-        pubkey: signingPubKey,
-        withdrawal_credentials: makeWithdrawalCredentials(withdrawalPubKey)))
+  res.signature = preset.get_deposit_signature(res, signingKey)
+  return res
 
-  ret.data.signature = preset.get_deposit_signature(ret.data,
-                                                    credentials.signingKey)
-  ret

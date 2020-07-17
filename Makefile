@@ -174,12 +174,20 @@ testnet0 testnet1: | beacon_node
 clean-altona:
 	rm -rf build/data/shared_altona*
 
-altona-deposit: | beacon_node
+altona-deposit: | beacon_node deposit_contract
 	build/beacon_node deposits create \
-		--network=altona \
-		--count=$(VALIDATORS)	\
+		--out-deposits-file=nbc-altona-deposits.json \
+		--count=$(VALIDATORS)
+
+	# TODO
+	# The --min-delay is needed only until we fix the invalid
+	# nonce generation on multiple transactions in web3
+	build/deposit_contract makeDeposits \
+		--web3-url=$(GOERLI_WEB3_URL) \
+		--deposit-contract=$$(cat vendor/eth2-testnets/shared/altona/deposit_contract.txt) \
+		--deposits-file=nbc-altona-deposits.json \
 		--ask-for-key \
-		--web3-url=$(GOERLI_WEB3_URL)
+		--min-delay=60
 
 altona: | beacon_node
 	build/beacon_node \

@@ -544,6 +544,11 @@ proc `<`*(x, y: ValidatorIndex) : bool {.borrow.}
 proc hash*(x: ValidatorIndex): Hash {.borrow.}
 func `$`*(x: ValidatorIndex): auto = $(x.int64)
 
+func `as`*(d: DepositData, T: type DepositMessage): T =
+  T(pubkey: d.pubkey,
+    withdrawal_credentials: d.withdrawal_credentials,
+    amount: d.amount)
+
 ethTimeUnit Slot
 ethTimeUnit Epoch
 
