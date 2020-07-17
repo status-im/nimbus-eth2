@@ -136,16 +136,16 @@ proc readLogFileForAttsMessages(file: string): seq[SlotAttMessage] =
   try:
     while not(stream.atEnd()):
       line = stream.readLine()
-      let m = Json.decode(line, LogMessage, forwardCompatible = true)
+      let m = Json.decode(line, LogMessage, allowUnknownFields = true)
       if m.msg == "Attestation sent":
         let am = Json.decode(line, AttestationSentMessage,
-                             forwardCompatible = true)
+                             allowUnknownFields = true)
         let m = SlotAttMessage(kind: SaMessageType.AttestationSent,
                                asmsg: am)
         res.add(m)
       elif m.msg == "Slot start":
         let sm = Json.decode(line, SlotStartMessage,
-                             forwardCompatible = true)
+                             allowUnknownFields = true)
         let m = SlotAttMessage(kind: SaMessageType.SlotStart,
                                ssmsg: sm)
         res.add(m)

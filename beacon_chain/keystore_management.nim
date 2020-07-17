@@ -1,27 +1,22 @@
 import
-  std/[os, strutils, terminal, wordwrap],
+  std/[os, json, strutils, terminal, wordwrap],
   stew/byteutils, chronicles, chronos, web3, stint, json_serialization,
   serialization, blscurve, eth/common/eth_types, eth/keys, confutils, bearssl,
   spec/[datatypes, digest, crypto, keystore],
-  conf, ssz/merkleization, merkle_minimal, network_metadata
+  conf, ssz/merkleization, network_metadata
 
 export
   keystore
 
-contract(DepositContract):
-  proc deposit(pubkey: Bytes48, withdrawalCredentials: Bytes32, signature: Bytes96, deposit_data_root: FixedBytes[32])
+{.push raises: [Defect].}
 
 const
   keystoreFileName* = "keystore.json"
-  depositFileName* = "deposit.json"
 
 type
-  DelayGenerator* = proc(): chronos.Duration {.closure, gcsafe.}
-
-{.push raises: [Defect].}
-
-proc ethToWei(eth: UInt256): UInt256 =
-  eth * 1000000000000000000.u256
+  WalletDataForDeposits* = object
+    mnemonic*: Mnemonic
+    nextAccount*: Natural
 
 proc loadKeyStore(conf: BeaconNodeConf|ValidatorClientConf,
                   validatorsDir, keyName: string): Option[ValidatorPrivKey] =
@@ -100,27 +95,40 @@ type
     FailedToCreateValidatoDir
     FailedToCreateSecretFile
     FailedToCreateKeystoreFile
-    FailedToCreateDepositFile
 
 proc generateDeposits*(preset: RuntimePreset,
                        rng: var BrHmacDrbgContext,
+                       walletData: WalletDataForDeposits,
                        totalValidators: int,
                        validatorsDir: string,
-                       secretsDir: string): Result[seq[Deposit], GenerateDepositsError] =
-  var deposits: seq[Deposit]
+                       secretsDir: string): Result[seq[DepositData], GenerateDepositsError] =
+  var deposits: seq[DepositData]
 
   info "Generating deposits", totalValidators, validatorsDir, secretsDir
-  for i in 0 ..< totalValidators:
-    let password = KeyStorePass getRandomBytes(rng, 32).toHex
-    let credentials = generateCredentials(rng, password = password)
 
+  let withdrawalKeyPath = makeKeyPath(0, withdrawalKeyKind)
+  # TODO: Explain why we are using an empty password
+  var withdrawalKey = keyFromPath(walletData.mnemonic, KeyStorePass"", withdrawalKeyPath)
+  defer: burnMem(withdrawalKey)
+  let withdrawalPubKey = withdrawalKey.toPubKey
+
+  for i in 0 ..< totalValidators:
+    let keyStoreIdx = walletData.nextAccount + i
+    let password = KeyStorePass getRandomBytes(rng, 32).toHex
+
+    let signingKeyPath = withdrawalKeyPath.append keyStoreIdx
+    var signingKey = deriveChildKey(withdrawalKey, keyStoreIdx)
+    defer: burnMem(signingKey)
+    let signingPubKey = signingKey.toPubKey
+
+    let keyStore = encryptKeystore(KdfPbkdf2, rng, signingKey,
+                                   password, signingKeyPath)
     let
-      keyName = intToStr(i, 6) & "_" & $(credentials.signingKey.toPubKey)
+      keyName = $signingPubKey
       validatorDir = validatorsDir / keyName
-      depositFile = validatorDir / depositFileName
       keystoreFile = validatorDir / keystoreFileName
 
-    if existsDir(validatorDir) and existsFile(depositFile):
+    if existsDir(validatorDir):
       continue
 
     try: createDir validatorDir
@@ -129,38 +137,12 @@ proc generateDeposits*(preset: RuntimePreset,
     try: writeFile(secretsDir / keyName, password.string)
     except IOError: return err FailedToCreateSecretFile
 
-    try: writeFile(keystoreFile, credentials.keyStore.string)
+    try: writeFile(keystoreFile, keyStore.string)
     except IOError: return err FailedToCreateKeystoreFile
 
-    deposits.add credentials.prepareDeposit(preset)
-
-    # Does quadratic additional work, but fast enough, and otherwise more
-    # cleanly allows free intermixing of pre-existing and newly generated
-    # deposit and private key files. TODO: only generate new Merkle proof
-    # for the most recent deposit if this becomes bottleneck.
-    attachMerkleProofs(deposits)
-    try: Json.saveFile(depositFile, deposits[^1], pretty = true)
-    except: return err FailedToCreateDepositFile
+    deposits.add preset.prepareDeposit(withdrawalPubKey, signingKey, signingPubKey)
 
   ok deposits
-
-proc loadDeposits*(depositsDir: string): seq[Deposit] =
-  try:
-    for kind, dir in walkDir(depositsDir):
-      if kind == pcDir:
-        let depositFile = dir / depositFileName
-        try:
-          result.add Json.loadFile(depositFile, Deposit)
-        except IOError as err:
-          error "Failed to open deposit file", depositFile, err = err.msg
-          quit 1
-        except SerializationError as err:
-          error "Invalid deposit file", error = formatMsg(err, depositFile)
-          quit 1
-  except OSError as err:
-    error "Deposits directory not accessible",
-           path = depositsDir, err = err.msg
-    quit 1
 
 const
   minPasswordLen = 10
@@ -170,12 +152,56 @@ const
       "../vendor/nimbus-security-resources/passwords/10-million-password-list-top-100000.txt",
     minWordLength = minPasswordLen)
 
+proc saveWallet*(wallet: Wallet, outWalletPath: string): Result[void, string] =
+  let
+    uuid = wallet.uuid
+    walletContent = WalletContent Json.encode(wallet, pretty = true)
+
+  try: createDir splitFile(outWalletPath).dir
+  except OSError, IOError:
+    let e = getCurrentException()
+    return err("failure to create wallet directory: " & e.msg)
+
+  try: writeFile(outWalletPath, string walletContent)
+  except IOError as e:
+    return err("failure to write file: " & e.msg)
+
+  ok()
+
+proc readPasswordInput(prompt: string, password: var TaintedString): bool =
+  try: readPasswordFromStdin(prompt, password)
+  except IOError: false
+
+proc setStyleNoError(styles: set[Style]) =
+  when defined(windows):
+    try: stdout.setStyle(styles)
+    except: discard
+  else:
+    try: stdout.setStyle(styles)
+    except IOError, ValueError: discard
+
+proc setForegroundColorNoError(color: ForegroundColor) =
+  when defined(windows):
+    try: stdout.setForegroundColor(color)
+    except: discard
+  else:
+    try: stdout.setForegroundColor(color)
+    except IOError, ValueError: discard
+
+proc resetAttributesNoError() =
+  when defined(windows):
+    try: stdout.resetAttributes()
+    except: discard
+  else:
+    try: stdout.resetAttributes()
+    except IOError: discard
+
 proc createWalletInteractively*(
     rng: var BrHmacDrbgContext,
-    conf: BeaconNodeConf): Result[OutFile, cstring] =
+    conf: BeaconNodeConf): Result[WalletDataForDeposits, string] =
 
   if conf.nonInteractive:
-    return err "Wallets can be created only in interactive mode"
+    return err "not running in interactive mode"
 
   var mnemonic = generateMnemonic(rng)
   defer: burnMem(mnemonic)
@@ -185,14 +211,10 @@ proc createWalletInteractively*(
       stdout.write prompt, ": "
       stdin.readLine()
     except IOError:
-      return err "Failed to read data from stdin"
+      return err "failure to read data from stdin"
 
   template echo80(msg: string) =
     echo wrapWords(msg, 80)
-
-  proc readPasswordInput(prompt: string, password: var TaintedString): bool =
-    try: readPasswordFromStdin(prompt, password)
-    except IOError: false
 
   echo80 "The generated wallet is uniquely identified by a seed phrase " &
          "consisting of 24 words. In case you lose your wallet and you " &
@@ -201,13 +223,13 @@ proc createWalletInteractively*(
 
   try:
     echo ""
-    stdout.setStyle({styleBright})
-    stdout.setForegroundColor fgCyan
+    setStyleNoError({styleBright})
+    setForegroundColorNoError fgCyan
     echo80 $mnemonic
-    stdout.resetAttributes()
+    resetAttributesNoError()
     echo ""
   except IOError, ValueError:
-    return err "Failed to write to the standard output"
+    return err "failure to write to the standard output"
 
   echo80 "Please back up the seed phrase now to a safe location as " &
          "if you are protecting a sensitive password. The seed phrase " &
@@ -220,7 +242,7 @@ proc createWalletInteractively*(
   while true:
     let answer = ask "Answer"
     if answer == "":
-      return err "Wallet creation aborted"
+      return err "aborted wallet creation"
     elif answer != "yes":
       echo "To continue, please type 'yes' (without the quotes) or press enter to quit"
     else:
@@ -246,7 +268,7 @@ proc createWalletInteractively*(
 
       while true:
         if not readPasswordInput(prompt, password):
-          return err "Failed to read a password from stdin"
+          return err "failure to read a password from stdin"
 
         if password.len < minPasswordLen:
           try:
@@ -263,15 +285,16 @@ proc createWalletInteractively*(
         firstTry = false
 
       if not readPasswordInput("Please repeat the password:", confirmedPassword):
-        return err "Failed to read a password from stdin"
+        return err "failure to read a password from stdin"
 
       if password != confirmedPassword:
         echo "Passwords don't match, please try again"
         continue
 
       var name: WalletName
-      if conf.createdWalletName.isSome:
-        name = conf.createdWalletName.get
+      let outWalletName = conf.outWalletName
+      if outWalletName.isSome:
+        name = outWalletName.get
       else:
         echo ""
         echo80 "For your convenience, the wallet can be identified with a name " &
@@ -287,74 +310,108 @@ proc createWalletInteractively*(
                      continue
           break
 
-      let (uuid, walletContent) = KdfPbkdf2.createWalletContent(
-                                    rng, mnemonic,
-                                    name = name,
-                                    password = KeyStorePass password)
-      try:
-        var outWalletFile: OutFile
+      let wallet = KdfPbkdf2.createWallet(rng, mnemonic,
+                                          name = name,
+                                          password = KeyStorePass password)
 
-        if conf.createdWalletFile.isSome:
-          outWalletFile = conf.createdWalletFile.get
-          createDir splitFile(string outWalletFile).dir
-        else:
-          let walletsDir = conf.walletsDir
-          createDir walletsDir
-          outWalletFile = OutFile(walletsDir / addFileExt(string uuid, "json"))
+      let outWalletFileFlag = conf.outWalletFile
+      let outWalletFile = if outWalletFileFlag.isSome:
+        string outWalletFileFlag.get
+      else:
+        conf.walletsDir / addFileExt(string wallet.uuid, "json")
 
-        writeFile(string outWalletFile, string walletContent)
-        echo "Wallet file written to ", outWalletFile
-        return ok outWalletFile
-      except CatchableError as err:
-        return err "Failed to write wallet file"
+      let status = saveWallet(wallet, outWalletFile)
+      if status.isErr:
+        return err("failure to create wallet file due to " & status.error)
+
+      info "Wallet file written", path = outWalletFile
+      return ok WalletDataForDeposits(mnemonic: mnemonic, nextAccount: 0)
 
     finally:
       burnMem(password)
       burnMem(confirmedPassword)
 
-{.pop.}
+proc loadWallet*(fileName: string): Result[Wallet, string] =
+  try:
+    ok Json.loadFile(fileName, Wallet)
+  except CatchableError as e:
+    err e.msg
 
-# TODO: async functions should note take `seq` inputs because
-#       this leads to full copies.
-proc sendDeposits*(deposits: seq[Deposit],
-                   web3Url, privateKey: string,
-                   depositContractAddress: Eth1Address,
-                   delayGenerator: DelayGenerator = nil) {.async.} =
-  var web3 = await newWeb3(web3Url)
-  if privateKey.len != 0:
-    web3.privateKey = some(PrivateKey.fromHex(privateKey).tryGet)
-  else:
-    let accounts = await web3.provider.eth_accounts()
-    if accounts.len == 0:
-      error "No account offered by the web3 provider", web3Url
-      return
-    web3.defaultAccount = accounts[0]
+proc unlockWalletInteractively*(wallet: Wallet): Result[WalletDataForDeposits, string] =
+  var json: JsonNode
+  try:
+    json = parseJson wallet.crypto.string
+  except Exception as e: # TODO: parseJson shouldn't raise general `Exception`
+    if e[] of Defect: raise (ref Defect)(e)
+    else: return err "failure to parse crypto field"
 
-  let depositContract = web3.contractSender(DepositContract,
-                                            Address depositContractAddress)
-  for i, dp in deposits:
-    let status = await depositContract.deposit(
-      Bytes48(dp.data.pubKey.toRaw()),
-      Bytes32(dp.data.withdrawal_credentials.data),
-      Bytes96(dp.data.signature.toRaw()),
-      FixedBytes[32](hash_tree_root(dp.data).data)).send(value = 32.u256.ethToWei, gasPrice = 1)
+  var password: TaintedString
 
-    info "Deposit sent", status = $status
+  echo "Please enter the password for unlocking the wallet"
 
-    if delayGenerator != nil:
-      await sleepAsync(delayGenerator())
+  for i in 1..3:
+    try:
+      if not readPasswordInput("Password: ", password):
+        return err "failure to read password from stdin"
 
-proc sendDeposits*(config: BeaconNodeConf,
-                   deposits: seq[Deposit],
-                   delayGenerator: DelayGenerator = nil) {.async.} =
-  info "Sending deposits",
-    web3 = config.web3Url,
-    depositContract = config.depositContractAddress
+      var status = decryptoCryptoField(json, KeyStorePass password)
+      if status.isOk:
+        defer: burnMem(status.value)
+        return ok WalletDataForDeposits(
+          mnemonic: Mnemonic string.fromBytes(status.value))
+      else:
+        echo "Unlocking of the wallet failed. Please try again."
+    finally:
+      burnMem(password)
 
-  await sendDeposits(
-    deposits,
-    config.web3Url,
-    config.depositPrivateKey,
-    config.depositContractAddress.get,
-    delayGenerator)
+  return err "failure to unlock wallet"
 
+proc findWallet*(config: BeaconNodeConf, name: WalletName): Result[Wallet, string] =
+  var walletFiles = newSeq[string]()
+
+  try:
+    for kind, walletFile in walkDir(config.walletsDir):
+      if kind != pcFile: continue
+      let fullPath = config.walletsDir / walletFile
+      if walletFile == name.string:
+        return loadWallet(fullPath)
+      walletFiles.add fullPath
+  except OSError:
+    return err "failure to list wallet directory"
+
+  for walletFile in walletFiles:
+    let wallet = loadWallet(walletFile)
+    if wallet.isOk and wallet.get.name == name:
+      return wallet
+
+  return err "failure to locate wallet file"
+
+type
+  # This is not particularly well-standardized yet.
+  # Some relevant code for generating (1) and validating (2) the data can be found below:
+  # 1) https://github.com/ethereum/eth2.0-deposit-cli/blob/dev/eth2deposit/credentials.py
+  # 2) https://github.com/ethereum/eth2.0-deposit/blob/dev/src/pages/UploadValidator/validateDepositKey.ts
+  LaunchPadDeposit* = object
+    pubkey*: ValidatorPubKey
+    withdrawal_credentials*: Eth2Digest
+    amount*: Gwei
+    signature*: ValidatorSig
+    deposit_message_root*: Eth2Digest
+    deposit_data_root*: Eth2Digest
+    fork_version*: Version
+
+func init*(T: type LaunchPadDeposit,
+           preset: RuntimePreset, d: DepositData): T =
+  T(pubkey: d.pubkey,
+    withdrawal_credentials: d.withdrawal_credentials,
+    amount: d.amount,
+    signature: d.signature,
+    deposit_message_root: hash_tree_root(d as DepositMessage),
+    deposit_data_root: hash_tree_root(d),
+    fork_version: preset.GENESIS_FORK_VERSION)
+
+func `as`*(copied: LaunchPadDeposit, T: type DepositData): T =
+  T(pubkey: copied.pubkey,
+    withdrawal_credentials: copied.withdrawal_credentials,
+    amount: copied.amount,
+    signature: copied.signature)

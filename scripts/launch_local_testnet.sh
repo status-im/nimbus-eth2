@@ -121,6 +121,8 @@ NETWORK="testnet${TESTNET}"
 
 rm -rf "${DATA_DIR}"
 
+DEPOSITS_FILE="${DATA_DIR}/deposits.json"
+
 DEPOSITS_DIR="${DATA_DIR}/deposits_dir"
 mkdir -p "${DEPOSITS_DIR}"
 
@@ -154,9 +156,10 @@ NETWORK_METADATA_FILE="${DATA_DIR}/network.json"
 
 ./build/beacon_node deposits create \
 	--count=${TOTAL_VALIDATORS} \
+  --non-interactive \
 	--out-deposits-dir="${DEPOSITS_DIR}" \
 	--out-secrets-dir="${SECRETS_DIR}" \
-	--dont-send
+  --out-deposits-file="${DEPOSITS_FILE}"
 
 if [[ $USE_GANACHE == "0" ]]; then
 	GENESIS_OFFSET=30
@@ -197,9 +200,8 @@ else
 
 	BOOTSTRAP_TIMEOUT=$(( MAX_DELAY * TOTAL_VALIDATORS ))
 
-	./build/beacon_node deposits send \
-		--non-interactive \
-		--deposits-dir="${DEPOSITS_DIR}" \
+	./build/deposit_contract makeDeposits \
+		--deposits-file="${DEPOSITS_FILE}" \
 		--min-delay=$MIN_DELAY --max-delay=$MAX_DELAY \
 		$WEB3_ARG \
 		--deposit-contract=${DEPOSIT_CONTRACT_ADDRESS} > "${DATA_DIR}/log_deposit_maker.txt" 2>&1 &

@@ -7,12 +7,12 @@
 
 import
   # Standard library
-  algorithm, os, tables, strutils, times, math, terminal, bearssl, random,
+  algorithm, os, tables, strutils, sequtils, times, math, terminal,
 
   # Nimble packages
   stew/[objects, byteutils, endians2], stew/shims/macros,
   chronos, confutils, metrics, json_rpc/[rpcserver, jsonmarshal],
-  chronicles,
+  chronicles, bearssl,
   json_serialization/std/[options, sets, net], serialization/errors,
 
   eth/[keys, async_utils],
@@ -27,7 +27,7 @@ import
   attestation_pool, block_pool, eth2_network, eth2_discovery,
   beacon_node_common, beacon_node_types, block_pools/block_pools_types,
   nimbus_binary_common, network_metadata,
-  mainchain_monitor, version, ssz/[merkleization], sszdump,
+  mainchain_monitor, version, ssz/[merkleization], sszdump, merkle_minimal,
   sync_protocol, request_manager, keystore_management, interop, statusbar,
   sync_manager, validator_duties, validator_api, attestation_aggregation
 
@@ -1082,32 +1082,18 @@ programMain:
 
   case config.cmd
   of createTestnet:
-    var
-      depositDirs: seq[string]
-      deposits: seq[Deposit]
-      i = -1
-    for kind, dir in walkDir(config.testnetDepositsDir.string):
-      if kind != pcDir:
-        continue
+    let launchPadDeposits = try:
+      Json.loadFile(config.testnetDepositsFile.string, seq[LaunchPadDeposit])
+    except SerializationError as err:
+      error "Invalid LaunchPad deposits file",
+             err = formatMsg(err, config.testnetDepositsFile.string)
+      quit 1
 
-      inc i
-      if i < config.firstValidator.int:
-        continue
+    var deposits: seq[Deposit]
+    for i in config.firstValidator.int ..< launchPadDeposits.len:
+      deposits.add Deposit(data: launchPadDeposits[i] as DepositData)
 
-      depositDirs.add dir
-
-    # Add deposits, in order, to pass Merkle validation
-    sort(depositDirs, system.cmp)
-
-    for dir in depositDirs:
-      let depositFile = dir / "deposit.json"
-      try:
-        deposits.add Json.loadFile(depositFile, Deposit)
-      except SerializationError as err:
-        stderr.write "Error while loading a deposit file:\n"
-        stderr.write err.formatMsg(depositFile), "\n"
-        stderr.write "Please regenerate the deposit files by running 'beacon_node deposits create' again\n"
-        quit 1
+    attachMerkleProofs(deposits)
 
     let
       startTime = uint64(times.toUnix(times.getTime()) + config.genesisOffset)
@@ -1188,18 +1174,26 @@ programMain:
   of deposits:
     case config.depositsCmd
     of DepositsCmd.create:
-      if config.askForKey and config.depositPrivateKey.len == 0:
-        let
-          depositsWord = if config.totalDeposits > 1: "deposits"
-                         else: "deposit"
-          totalEthNeeded = 32 * config.totalDeposits
+      var walletData = if config.existingWalletId.isSome:
+        let id = config.existingWalletId.get
+        let found = keystore_management.findWallet(config, id)
+        if found.isErr:
+          fatal "Unable to find wallet with the specified name/uuid",
+                id, err = found.error
+          quit 1
+        let unlocked = unlockWalletInteractively(found.get)
+        if unlocked.isOk:
+          unlocked.get
+        else:
+          quit 1
+      else:
+        let walletData = createWalletInteractively(rng[], config)
+        if walletData.isErr:
+          fatal "Unable to create wallet", err = walletData.error
+          quit 1
+        walletData.get
 
-        echo "Please enter your Goerli Eth1 private key in hex form " &
-             "(e.g. 0x1a2...f3c) in order to make your $1 (you'll need " &
-             "access to $2 GoETH)" % [depositsWord, $totalEthNeeded]
-
-        if not readPasswordFromStdin("> ", TaintedString config.depositPrivateKey):
-          error "Failed to read an Eth1 private key from standard input"
+      defer: burnMem(walletData.mnemonic)
 
       createDir(config.outValidatorsDir)
       createDir(config.outSecretsDir)
@@ -1207,6 +1201,7 @@ programMain:
       let deposits = generateDeposits(
         config.runtimePreset,
         rng[],
+        walletData,
         config.totalDeposits,
         config.outValidatorsDir,
         config.outSecretsDir)
@@ -1215,24 +1210,22 @@ programMain:
         fatal "Failed to generate deposits", err = deposits.error
         quit 1
 
-      if not config.dontSend:
-        waitFor sendDeposits(config, deposits.value)
+      try:
+        let depositDataPath = if config.outDepositsFile.isSome:
+          config.outDepositsFile.get.string
+        else:
+          config.outValidatorsDir / "deposit_data-" & $epochTime()
 
-    of DepositsCmd.send:
-      var delayGenerator: DelayGenerator
-      if config.maxDelay > 0.0:
-        delayGenerator = proc (): chronos.Duration {.gcsafe.} =
-          chronos.milliseconds (rand(config.minDelay..config.maxDelay)*1000).int
+        let launchPadDeposits =
+          mapIt(deposits.value, LaunchPadDeposit.init(config.runtimePreset, it))
 
-      if config.minDelay > config.maxDelay:
-        echo "The minimum delay should not be larger than the maximum delay"
+        Json.saveFile(depositDataPath, launchPadDeposits)
+        info "Deposit data written", filename = depositDataPath
+      except CatchableError as err:
+        error "Failed to create launchpad deposit data file", err = err.msg
         quit 1
 
-      let deposits = loadDeposits(config.depositsDir)
-      waitFor sendDeposits(config, deposits, delayGenerator)
-
     of DepositsCmd.status:
-      # TODO
       echo "The status command is not implemented yet"
       quit 1
 
@@ -1241,7 +1234,7 @@ programMain:
     of WalletsCmd.create:
       let status = createWalletInteractively(rng[], config)
       if status.isErr:
-        echo status.error
+        fatal "Unable to create wallet", err = status.error
         quit 1
 
     of WalletsCmd.list:

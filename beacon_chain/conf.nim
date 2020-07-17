@@ -4,7 +4,7 @@ import
   os, options,
   chronicles, chronicles/options as chroniclesOptions,
   confutils, confutils/defs, confutils/std/net,
-  stew/byteutils, json_serialization, web3/ethtypes,
+  json_serialization, web3/[ethtypes, confutils_defs],
   network_metadata, spec/[crypto, keystore, digest, datatypes]
 
 export
@@ -27,7 +27,6 @@ type
 
   DepositsCmd* {.pure.} = enum
     create = "Creates validator keystores and deposits"
-    send   = "Sends prepared deposits to the validator deposit contract"
     status = "Displays status information about all deposits"
 
   VCStartUpCmd* = enum
@@ -54,6 +53,10 @@ type
       desc: "The directory where nimbus will store all blockchain data"
       abbr: "d"
       name: "data-dir" }: OutDir
+
+    walletsDirFlag* {.
+      desc: "A directory containing wallet files"
+      name: "wallets-dir" }: Option[InputDir]
 
     web3Url* {.
       defaultValue: ""
@@ -125,10 +128,6 @@ type
       secretsDirFlag* {.
         desc: "A directory containing validator keystore passwords"
         name: "secrets-dir" }: Option[InputDir]
-
-      walletsDirFlag* {.
-        desc: "A directory containing wallet files"
-        name: "wallets-dir" }: Option[InputDir]
 
       stateSnapshot* {.
         desc: "SSZ file specifying a recent state snapshot"
@@ -211,9 +210,9 @@ type
         name: "dump" }: bool
 
     of createTestnet:
-      testnetDepositsDir* {.
-        desc: "Directory containing validator keystores"
-        name: "validators-dir" }: InputDir
+      testnetDepositsFile* {.
+        desc: "A LaunchPad deposits file for the genesis state validators"
+        name: "deposits-file" }: InputFile
 
       totalValidators* {.
         desc: "The number of validator deposits in the newly created chain"
@@ -260,26 +259,26 @@ type
     of wallets:
       case walletsCmd* {.command.}: WalletsCmd
       of WalletsCmd.create:
-        createdWalletName* {.
-          desc: "An easy-to-remember name for the wallet of your choice"
-          name: "name"}: Option[WalletName]
-
         nextAccount* {.
           desc: "Initial value for the 'nextaccount' property of the wallet"
           name: "next-account" }: Option[Natural]
 
-        outWalletsDirFlag* {.
-          desc: "A directory containing wallet files"
-          name: "wallets-dir" }: Option[OutDir]
+        createdWalletNameFlag* {.
+          desc: "An easy-to-remember name for the wallet of your choice"
+          name: "name"}: Option[WalletName]
 
-        createdWalletFile* {.
+        createdWalletFileFlag* {.
           desc: "Output wallet file"
           name: "out" }: Option[OutFile]
 
       of WalletsCmd.restore:
-        restoredWalletName* {.
+        restoredWalletNameFlag* {.
           desc: "An easy-to-remember name for the wallet of your choice"
           name: "name"}: Option[WalletName]
+
+        restoredWalletFileFlag* {.
+          desc: "Output wallet file"
+          name: "out" }: Option[OutFile]
 
         restoredDepositsCount* {.
           desc: "Expected number of deposits to recover. If not specified, " &
@@ -287,19 +286,10 @@ type
                 "beacon state"
           name: "deposits".}: Option[Natural]
 
-        restoredWalletFile* {.
-          desc: "Output wallet file"
-          name: "out" }: Option[OutFile]
-
       of WalletsCmd.list:
         discard
 
     of deposits:
-      depositPrivateKey* {.
-        defaultValue: ""
-        desc: "Private key of the controlling (sending) account",
-        name: "deposit-private-key" }: string
-
       depositsDir* {.
         defaultValue: "validators"
         desc: "A folder with validator metadata created by the `deposits create` command"
@@ -326,29 +316,17 @@ type
           desc: "Output folder for randomly generated keystore passphrases"
           name: "out-secrets-dir" }: string
 
-        askForKey* {.
-          defaultValue: false
-          desc: "Ask for an Eth1 private key used to fund the deposits"
-          name: "ask-for-key" }: bool
+        outDepositsFile* {.
+          desc: "The name of generated deposits file"
+          name: "out-deposits-file" }: Option[OutFile]
 
-        dontSend* {.
-          defaultValue: false,
-          desc: "By default, all created deposits are also immediately sent " &
-                "to the validator deposit contract. You can use this option to " &
-                "prevent this behavior. Use the `deposits send` command to send " &
-                "the deposit transactions at your convenience later"
-          name: "dont-send" .}: bool
+        newWalletNameFlag* {.
+          desc: "An easy-to-remember name for the wallet of your choice"
+          name: "new-wallet-name"}: Option[WalletName]
 
-      of DepositsCmd.send:
-        minDelay* {.
-          defaultValue: 0.0
-          desc: "Minimum possible delay between making two deposits (in seconds)"
-          name: "min-delay" }: float
-
-        maxDelay* {.
-          defaultValue: 0.0
-          desc: "Maximum possible delay between making two deposits (in seconds)"
-          name: "max-delay" }: float
+        newWalletFileFlag* {.
+          desc: "Output wallet file"
+          name: "new-wallet-file" }: Option[OutFile]
 
       of DepositsCmd.status:
         discard
@@ -439,20 +417,6 @@ proc createDumpDirs*(conf: BeaconNodeConf) =
       # Dumping is mainly a debugging feature, so ignore these..
       warn "Cannot create dump directories", msg = err.msg
 
-func parseCmdArg*(T: type Eth1Address, input: TaintedString): T
-                 {.raises: [ValueError, Defect].} =
-  fromHex(T, string input)
-
-func completeCmdArg*(T: type Eth1Address, input: TaintedString): seq[string] =
-  return @[]
-
-func parseCmdArg*(T: type Eth1BlockHash, input: TaintedString): T
-                 {.raises: [ValueError, Defect].} =
-  fromHex(T, string input)
-
-func completeCmdArg*(T: type Eth1BlockHash, input: TaintedString): seq[string] =
-  return @[]
-
 func parseCmdArg*(T: type GraffitiBytes, input: TaintedString): T
                  {.raises: [ValueError, Defect].} =
   GraffitiBytes.init(string input)
@@ -478,18 +442,44 @@ func secretsDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
   string conf.secretsDirFlag.get(InputDir(conf.dataDir / "secrets"))
 
 func walletsDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
-  case conf.cmd
-  of noCommand:
-    if conf.walletsDirFlag.isSome:
-      return conf.walletsDirFlag.get.string
-  of wallets:
-    doAssert conf.walletsCmd == WalletsCmd.create
-    if conf.outWalletsDirFlag.isSome:
-      return conf.outWalletsDirFlag.get.string
+  if conf.walletsDirFlag.isSome:
+    conf.walletsDirFlag.get.string
   else:
-    raiseAssert "Inappropraite call to walletsDir"
+    conf.dataDir / "wallets"
 
-  return conf.dataDir / "wallets"
+func outWalletName*(conf: BeaconNodeConf): Option[WalletName] =
+  proc fail {.noReturn.} =
+    raiseAssert "outWalletName should be used only in the right context"
+
+  case conf.cmd
+  of wallets:
+    case conf.walletsCmd
+    of WalletsCmd.create: conf.createdWalletNameFlag
+    of WalletsCmd.restore: conf.restoredWalletNameFlag
+    of WalletsCmd.list: fail()
+  of deposits:
+    case conf.depositsCmd
+    of DepositsCmd.create: conf.newWalletNameFlag
+    else: fail()
+  else:
+    fail()
+
+func outWalletFile*(conf: BeaconNodeConf): Option[OutFile] =
+  proc fail {.noReturn.} =
+    raiseAssert "outWalletName should be used only in the right context"
+
+  case conf.cmd
+  of wallets:
+    case conf.walletsCmd
+    of WalletsCmd.create: conf.createdWalletFileFlag
+    of WalletsCmd.restore: conf.restoredWalletFileFlag
+    of WalletsCmd.list: fail()
+  of deposits:
+    case conf.depositsCmd
+    of DepositsCmd.create: conf.newWalletFileFlag
+    else: fail()
+  else:
+    fail()
 
 func databaseDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
   conf.dataDir / "db"
