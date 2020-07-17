@@ -779,7 +779,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
             if peerRecord.isOk:
               let peerInfo = peerRecord.value.toPeerInfo
               if peerInfo != nil:
-                if peerInfo.id notin node.switch.connections:
+                if not node.switch.isConnected(peerInfo):
                   await node.connQueue.addLast(peerInfo)
                 else:
                   peerInfo.close()
