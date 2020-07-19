@@ -22,7 +22,7 @@ proc addMockAttestations*(
        sufficient_support = false
   ) =
   # We must be at the end of the epoch
-  doAssert (state.slot + 1) mod SLOTS_PER_EPOCH == 0
+  doAssert (state.slot + 1).isEpoch
 
   # Alias the attestations container
   var attestations: ptr seq[PendingAttestation]

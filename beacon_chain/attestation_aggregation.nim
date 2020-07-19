@@ -171,7 +171,9 @@ proc isValidAttestation*(
       epochInfo = blck.getEpochInfo(state)
       requiredSubnetIndex =
         compute_subnet_for_attestation(
-          epochInfo.shuffled_active_validator_indices.len.uint64, attestation)
+          get_committee_count_at_slot(
+            epochInfo.shuffled_active_validator_indices.len.uint64),
+          attestation.data.slot, attestation.data.index.CommitteeIndex)
 
     if requiredSubnetIndex != topicCommitteeIndex:
       debug "isValidAttestation: attestation's committee index not for the correct subnet",
