@@ -366,7 +366,9 @@ func getStateCacheIndex(
     int =
   for i, cachedState in dag.cachedStates:
     let (cacheBlockRoot, cacheSlot, _) = cachedState
-    if cacheBlockRoot == blockRoot and (cacheSlot == slot or (matchEpoch and cacheSlot.compute_epoch_at_slot == slot.compute_epoch_at_slot)):
+    if cacheBlockRoot == blockRoot and (cacheSlot == slot or
+        (matchEpoch and
+          cacheSlot.compute_epoch_at_slot == slot.compute_epoch_at_slot)):
       return i
 
   -1
@@ -651,7 +653,8 @@ template withEpochState*(
     body
 
 proc updateStateData*(
-    dag: CandidateChains, state: var StateData, bs: BlockSlot, matchEpoch: bool = false) =
+    dag: CandidateChains, state: var StateData, bs: BlockSlot,
+    matchEpoch: bool = false) =
   ## Rewind or advance state such that it matches the given block and slot -
   ## this may include replaying from an earlier snapshot if blck is on a
   ## different branch or has advanced to a higher slot number than slot

@@ -234,7 +234,8 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
   # Get a temporary state at the (block, slot) targeted by the attestation
   updateStateData(
     pool.blockPool, pool.blockPool.tmpState,
-    BlockSlot(blck: blck, slot: attestation.data.slot))
+    BlockSlot(blck: blck, slot: attestation.data.slot),
+    true)
 
   template state(): BeaconState = pool.blockPool.tmpState.data.data
 
