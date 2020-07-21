@@ -249,6 +249,12 @@ const useNativeSnappy = when snappy_implementation == "native": true
                         elif snappy_implementation == "libp2p": false
                         else: {.fatal: "Please set snappy_implementation to either 'libp2p' or 'native'".}
 
+when defined(libp2p_pki_schemes):
+  when libp2p_pki_schemes != "secp256k1":
+    {.fatal: "Incorrect building process, please use -d:\"libp2p_pki_schemes=secp256k1\"".}
+else:
+  {.fatal: "Incorrect building process, please use -d:\"libp2p_pki_schemes=secp256k1\"".}
+
 template libp2pProtocol*(name: string, version: int) {.pragma.}
 
 template `$`*(peer: Peer): string = id(peer.info)
