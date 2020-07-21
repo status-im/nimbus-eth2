@@ -184,6 +184,10 @@ type
     blck*: BlockRef
     justified*: BlockSlot
 
+  OnBlockAdded* = proc(
+    blckRef: BlockRef, blck: SignedBeaconBlock,
+    state: HashedBeaconState) {.raises: [Defect], gcsafe.}
+
 proc shortLog*(v: BlockSlot): string =
   if v.blck.slot == v.slot:
     v.blck.root.data[0..3].toHex() & ":" & $v.blck.slot

@@ -110,8 +110,7 @@ suiteReport "Block pool processing" & preset():
 
   timedTest "Simple block add&get" & preset():
     let
-      b1Add = pool.addRawBlock(b1) do (validBlock: BlockRef):
-        discard
+      b1Add = pool.addRawBlock(b1, nil)
       b1Get = pool.get(b1.root)
 
     check:
@@ -122,8 +121,7 @@ suiteReport "Block pool processing" & preset():
       pool.heads[0].blck == b1Add[]
 
     let
-      b2Add = pool.addRawBlock(b2) do (validBlock: BlockRef):
-        discard
+      b2Add = pool.addRawBlock(b2, nil)
       b2Get = pool.get(b2.root)
 
     check:
@@ -139,8 +137,7 @@ suiteReport "Block pool processing" & preset():
 
     let
       b4 = addTestBlock(stateData.data, b2.root, cache)
-      b4Add = pool.addRawBlock(b4) do (validBlock: BlockRef):
-        discard
+      b4Add = pool.addRawBlock(b4, nil)
 
     check:
       b4Add[].parent == b2Add[]
@@ -176,16 +173,14 @@ suiteReport "Block pool processing" & preset():
       blocks[0..<2] == [BlockRef nil, nil] # block 3 is missing!
 
   timedTest "Reverse order block add & get" & preset():
-    let missing = pool.addRawBlock(b2) do (validBlock: BLockRef):
-      discard
+    let missing = pool.addRawBlock(b2, nil)
     check: missing.error == MissingParent
 
     check:
       pool.get(b2.root).isNone() # Unresolved, shouldn't show up
       FetchRecord(root: b1.root) in pool.checkMissing()
 
-    let status = pool.addRawBlock(b1) do (validBlock: BlockRef):
-        discard
+    let status = pool.addRawBlock(b1, nil)
 
     check: status.isOk
 
@@ -222,10 +217,8 @@ suiteReport "Block pool processing" & preset():
 
   timedTest "Adding the same block twice returns a Duplicate error" & preset():
     let
-      b10 = pool.addRawBlock(b1) do (validBlock: BlockRef):
-        discard
-      b11 = pool.addRawBlock(b1) do (validBlock: BlockRef):
-        discard
+      b10 = pool.addRawBlock(b1, nil)
+      b11 = pool.addRawBlock(b1, nil)
 
     check:
       b11.error == Duplicate
@@ -233,8 +226,7 @@ suiteReport "Block pool processing" & preset():
 
   timedTest "updateHead updates head and headState" & preset():
     let
-      b1Add = pool.addRawBlock(b1) do (validBlock: BlockRef):
-        discard
+      b1Add = pool.addRawBlock(b1, nil)
 
     pool.updateHead(b1Add[])
 
@@ -244,10 +236,8 @@ suiteReport "Block pool processing" & preset():
 
   timedTest "updateStateData sanity" & preset():
     let
-      b1Add = pool.addRawBlock(b1) do (validBlock: BlockRef):
-        discard
-      b2Add = pool.addRawBlock(b2) do (validBlock: BlockRef):
-        discard
+      b1Add = pool.addRawBlock(b1, nil)
+      b2Add = pool.addRawBlock(b2, nil)
       bs1 = BlockSlot(blck: b1Add[], slot: b1.message.slot)
       bs1_3 = b1Add[].atSlot(3.Slot)
       bs2_3 = b2Add[].atSlot(3.Slot)
@@ -310,8 +300,7 @@ suiteReport "BlockPool finalization tests" & preset():
 
     let lateBlock = makeTestBlock(tmpState[], pool.head.blck.root, cache)
     block:
-      let status = pool.addRawBlock(blck) do (validBlock: BlockRef):
-        discard
+      let status = pool.addRawBlock(blck, nil)
       check: status.isOk()
 
 
@@ -327,8 +316,7 @@ suiteReport "BlockPool finalization tests" & preset():
         attestations = makeFullAttestations(
           pool.headState.data.data, pool.head.blck.root,
           pool.headState.data.data.slot, cache, {}))
-      let added = pool.addRawBlock(blck) do (validBlock: BlockRef):
-        discard
+      let added = pool.addRawBlock(blck, nil)
       check: added.isOk()
       pool.updateHead(added[])
 
@@ -340,8 +328,7 @@ suiteReport "BlockPool finalization tests" & preset():
     block:
       # The late block is a block whose parent was finalized long ago and thus
       # is no longer a viable head candidate
-      let status = pool.addRawBlock(lateBlock) do (validBlock: BlockRef):
-        discard
+      let status = pool.addRawBlock(lateBlock, nil)
       check: status.error == Unviable
 
     let

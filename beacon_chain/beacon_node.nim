@@ -321,10 +321,13 @@ proc storeBlock(
   beacon_blocks_received.inc()
 
   {.gcsafe.}: # TODO: fork choice and blockpool should sync via messages instead of callbacks
-    let blck = node.blockPool.addRawBlock(signedBlock) do (validBlock: BlockRef):
+    let blck = node.blockPool.addRawBlock(signedBlock) do (
+        blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+        state: HashedBeaconState):
       # Callback add to fork choice if valid
-      # node.attestationPool.addForkChoice_v2(validBlock)
-      discard "TODO: Deactivated"
+      node.attestationPool.addForkChoice_v2(
+        blckRef, state.data.current_justified_checkpoint.epoch,
+        state.data.finalized_checkpoint.epoch)
 
   node.dumpBlock(signedBlock, blck)
 

@@ -54,7 +54,7 @@ template finalizedHead*(pool: BlockPool): BlockSlot =
   pool.dag.finalizedHead
 
 proc addRawBlock*(pool: var BlockPool, signedBlock: SignedBeaconBlock,
-          callback: proc(blck: BlockRef)
+          onBlockAdded: OnBlockAdded
         ): Result[BlockRef, BlockError] =
   ## Add a raw block to the blockpool
   ## Trigger "callback" on success
@@ -64,7 +64,7 @@ proc addRawBlock*(pool: var BlockPool, signedBlock: SignedBeaconBlock,
   # - the ugly `inAdd` field
   # - the callback
   # - callback may be problematic as it's called in async validator duties
-  result = addRawBlock(pool.dag, pool.quarantine, signedBlock, callback)
+  result = addRawBlock(pool.dag, pool.quarantine, signedBlock, onBlockAdded)
 
 export parent        # func parent*(bs: BlockSlot): BlockSlot
 export isAncestorOf  # func isAncestorOf*(a, b: BlockRef): bool

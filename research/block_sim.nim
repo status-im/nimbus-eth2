@@ -134,9 +134,14 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           state.fork, state.genesis_validators_root, newBlock.message.slot,
           blockRoot, privKey)
 
-      let added = blockPool.addRawBlock(newBlock) do (validBlock: BlockRef):
-        # Callback Add to fork choice
-        attPool.addForkChoice_v2(validBlock)
+      let added = blockPool.addRawBlock(newBlock) do (
+          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          state: HashedBeaconState):
+        # Callback add to fork choice if valid
+        attPool.addForkChoice_v2(
+          blckRef, state.data.current_justified_checkpoint.epoch,
+          state.data.finalized_checkpoint.epoch)
+
       blck() = added[]
       blockPool.updateHead(added[])
 

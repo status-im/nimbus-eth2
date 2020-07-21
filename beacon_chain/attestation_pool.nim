@@ -317,64 +317,24 @@ proc addAttestation*(pool: var AttestationPool, attestation: Attestation) =
 
   pool.addResolved(blck, attestation)
 
-proc addForkChoice_v2*(pool: var AttestationPool, blck: BlockRef) =
+proc addForkChoice_v2*(pool: var AttestationPool, blck: BlockRef,
+                       justified_epoch, finalized_epoch: Epoch) =
   ## Add a verified block to the fork choice context
   ## The current justifiedState of the block pool is used as reference
+  let state = pool.forkChoice_v2.process_block(
+    block_root = blck.root,
+    parent_root = if not blck.parent.isNil: blck.parent.root else: default(Eth2Digest),
+    justified_epoch = justified_epoch,
+    finalized_epoch = finalized_epoch,
+  )
 
-  # TODO: add(BlockPool, blockRoot: Eth2Digest, SignedBeaconBlock): BlockRef
-  # should ideally return the justified_epoch and finalized_epoch
-  # so that we can pass them directly to this proc without having to
-  # redo "updateStateData"
-  #
-  # In any case, `updateStateData` should shortcut
-  # to `getStateDataCached`
-
-  var state: Result[void, string]
-  # A stack of block to add in case recovery is needed
-  var blockStack: seq[BlockSlot]
-  var current = BlockSlot(blck: blck, slot: blck.slot)
-
-  while true: # The while loop should not be needed but it seems a block addition
-              # scenario is unaccounted for
-    updateStateData(
-      pool.blockPool,
-      pool.blockPool.tmpState,
-      current
-    )
-
-    state = pool.forkChoice_v2.process_block(
-      block_root = current.blck.root,
-      parent_root = if not current.blck.parent.isNil: current.blck.parent.root else: default(Eth2Digest),
-      justified_epoch = pool.blockPool.tmpState.data.data.current_justified_checkpoint.epoch,
-      finalized_epoch = pool.blockPool.tmpState.data.data.finalized_checkpoint.epoch,
-    )
-
-    # This should not happen and might lead to unresponsive networking while processing occurs
-    if state.isErr:
-      # TODO investigate, potential sources:
-      # - Pruning
-      # - Quarantine adding multiple blocks at once
-      # - Own block proposal
-      error "Desync between fork_choice and blockpool services, trying to recover.",
-        msg = state.error,
-        blck = shortlog(current.blck),
-        parent = shortlog(current.blck.parent),
-        finalizedHead = shortLog(pool.blockPool.finalizedHead),
-        justifiedHead = shortLog(pool.blockPool.head.justified),
-        head = shortLog(pool.blockPool.head.blck)
-      blockStack.add(current)
-      current = BlockSlot(blck: blck.parent, slot: blck.parent.slot)
-    elif blockStack.len == 0:
-      break
-    else:
-      info "Re-added missing or pruned block to fork choice",
-        msg = state.error,
-        blck = shortlog(current.blck),
-        parent = shortlog(current.blck.parent),
-        finalizedHead = shortLog(pool.blockPool.finalizedHead),
-        justifiedHead = shortLog(pool.blockPool.head.justified),
-        head = shortLog(pool.blockPool.head.blck)
-      current = blockStack.pop()
+  if state.isErr:
+    # TODO If this happens, it is effectively a bug - the BlockRef structure
+    #      guarantees that the DAG is valid and the state transition should
+    #      guarantee that the justified and finalized epochs are ok! However,
+    #      we'll log it for now to avoid crashes
+    error "Unexpected error when applying block",
+      blck = shortLog(blck), justified_epoch, finalized_epoch, err = state.error
 
 proc getAttestationsForSlot*(pool: AttestationPool, newBlockSlot: Slot):
     Option[AttestationsSeen] =
