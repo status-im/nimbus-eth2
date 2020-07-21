@@ -93,7 +93,6 @@ func extend[T](s: var seq[T], minLen: int) =
     s.setLen(minLen)
     zeroMem(s[curLen].addr, diff * sizeof(T))
 
-
 func process_attestation*(
        self: var ForkChoice,
        validator_index: ValidatorIndex,

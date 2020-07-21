@@ -570,7 +570,8 @@ proc selectHead_v2(pool: var AttestationPool): BlockRef =
     pool.blockPool.getRef(newHead.get())
 
 proc pruneBefore*(pool: var AttestationPool, finalizedhead: BlockSlot) =
-  pool.forkChoice_v2.maybe_prune(finalizedHead.blck.root).get()
+  if (let v = pool.forkChoice_v2.maybe_prune(finalizedHead.blck.root); v.isErr):
+    error "Pruning failed", err = v.error() # TODO should never happen
 
 # Dual-Headed Fork choice
 # ---------------------------------------------------------------
