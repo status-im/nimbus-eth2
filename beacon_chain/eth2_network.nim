@@ -93,6 +93,7 @@ type
     netThroughput: AverageThroughput
     score*: int
     lacksSnappy: bool
+    pubsubFut*: Future[void]
 
   ConnectionState* = enum
     None,
@@ -756,6 +757,9 @@ proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   var peer = node.getPeer(peerInfo)
   peer.wasDialed = true
 
+  if not(isNil(peer)) and isNil(peer.pubsubFut):
+    peer.pubsubFut = node.switch.subscribePeer(peerInfo)
+
   #let msDial = newMultistream()
   #let conn = node.switch.connections.getOrDefault(peerInfo.id)
   #let ls = await msDial.list(conn)
@@ -826,7 +830,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
             if peerRecord.isOk:
               let peerInfo = peerRecord.value.toPeerInfo
               if peerInfo != nil:
-                if peerInfo.id notin node.switch.connections:
+                if not node.switch.isConnected(peerInfo):
                   await node.connQueue.addLast(peerInfo)
                 else:
                   peerInfo.close()
@@ -1165,9 +1169,34 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext, conf: BeaconNodeConf, enrForkId
                                    SecureProtocol.Noise, # Only noise in ETH2!
                                  ],
                                  rng = rng)
-  result = Eth2Node.init(conf, enrForkId, switch,
+
+  let node = Eth2Node.init(conf, enrForkId, switch,
                          extIp, extTcpPort, extUdpPort,
                          keys.seckey.asEthKey, rng = rng)
+
+  # TODO: this is to show how a hook can be used
+  # the actual subscribePeer call can be moved
+  # elsewhere, for example a good place to do this
+  # would be right after the node has synced or is
+  # about to, to prevent useless gossip traffic since
+  # most attestation are going to be rejected
+  # switch.addHook(
+  #   proc(peer: PeerInfo, cycle: Lifecycle) {.async.} =
+  #     ## trigger every time a new connection
+  #     ## for a peer is upgradded
+  #     ##
+
+  #     doAssert(cycle == Lifecycle.Upgraded)
+  #     doAssert(isNil(peer) == false)
+
+  #     let ethPeer = node.getPeer(peer)
+  #     if not(isNil(ethPeer)) and isNil(ethPeer.pubsubFut):
+  #       ethPeer.pubsubFut = switch.subscribePeer(peer)
+
+  #   , Lifecycle.Upgraded
+  # )
+
+  return node
 
 proc getPersistenBootstrapAddr*(rng: var BrHmacDrbgContext, conf: BeaconNodeConf,
                                 ip: ValidIpAddress, port: Port): EnrResult[enr.Record] =
