@@ -195,7 +195,10 @@ proc shortLog*(v: BlockSlot): string =
     v.blck.root.data[0..3].toHex() & ":" & $v.blck.slot & "@" & $v.slot
 
 proc shortLog*(v: BlockRef): string =
-  v.root.data[0..3].toHex() & ":" & $v.slot
+  if v == nil:
+    "BlockRef(nil)"
+  else:
+    v.root.data[0..3].toHex() & ":" & $v.slot
 
 chronicles.formatIt BlockSlot: shortLog(it)
 chronicles.formatIt BlockRef: shortLog(it)

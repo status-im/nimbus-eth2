@@ -561,9 +561,13 @@ proc selectHead_v2(pool: var AttestationPool): BlockRef =
     justified_root = pool.blockPool.head.justified.blck.root,
     finalized_epoch = pool.blockPool.headState.data.data.finalized_checkpoint.epoch,
     justified_state_balances = attesterBalances
-  ).get()
+  )
 
-  pool.blockPool.getRef(newHead)
+  if newHead.isErr:
+    error "Couldn't select head", err = newHead.error
+    nil
+  else:
+    pool.blockPool.getRef(newHead.get())
 
 proc pruneBefore*(pool: var AttestationPool, finalizedhead: BlockSlot) =
   pool.forkChoice_v2.maybe_prune(finalizedHead.blck.root).get()
@@ -573,11 +577,11 @@ proc pruneBefore*(pool: var AttestationPool, finalizedhead: BlockSlot) =
 
 proc selectHead*(pool: var AttestationPool): BlockRef =
   let head_v1 = pool.selectHead_v1()
-  # let head_v2 = pool.selectHead_v2()
-  #
-  # if head_v1 != head_v2:
-  #   error "Fork choice engines in disagreement, using block from v1.",
-  #     v1_block = shortlog(head_v1),
-  #     v2_block = shortlog(head_v2)
+  let head_v2 = pool.selectHead_v2()
+
+  if head_v1 != head_v2:
+    error "Fork choice engines in disagreement, using block from v1.",
+      v1_block = shortLog(head_v1),
+      v2_block = shortLog(head_v2)
 
   return head_v1
