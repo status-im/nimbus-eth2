@@ -157,21 +157,20 @@ proc slotIndex(
 
 func updateLatestVotes(
     pool: var AttestationPool, state: BeaconState, attestationSlot: Slot,
-    participants: seq[ValidatorIndex], blck: BlockRef) =
-
-  # ForkChoice v2
-  let target_epoch = compute_epoch_at_slot(attestationSlot)
+    participants: seq[ValidatorIndex], blck: BlockRef, targetEpoch: Epoch) =
 
   for validator in participants:
     # ForkChoice v1
     let
       pubKey = state.validators[validator].pubkey
       current = pool.latestAttestations.getOrDefault(pubKey)
+    # TODO using attestationSlot here is wrong, it should be target epoch -
+    #      clean this up
     if current.isNil or current.slot < attestationSlot:
       pool.latestAttestations[pubKey] = blck
 
     # ForkChoice v2
-    pool.forkChoice_v2.process_attestation(validator, blck.root, target_epoch)
+    pool.forkChoice_v2.process_attestation(validator, blck.root, targetEpoch)
 
 func get_attesting_indices_seq(state: BeaconState,
                                attestation_data: AttestationData,
@@ -276,7 +275,9 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
           not it.aggregation_bits.isSubsetOf(validation.aggregation_bits))
 
         a.validations.add(validation)
-        pool.updateLatestVotes(state, attestationSlot, participants, a.blck)
+        pool.updateLatestVotes(
+          state, attestationSlot, participants, a.blck,
+          attestation.data.target.epoch)
 
         info "Attestation resolved",
           attestation = shortLog(attestation),
@@ -294,7 +295,8 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
       blck: blck,
       validations: @[validation]
     ))
-    pool.updateLatestVotes(state, attestationSlot, participants, blck)
+    pool.updateLatestVotes(
+      state, attestationSlot, participants, blck, attestation.data.target.epoch)
 
     info "Attestation resolved",
       attestation = shortLog(attestation),
