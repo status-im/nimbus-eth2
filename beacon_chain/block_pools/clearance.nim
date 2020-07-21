@@ -98,8 +98,6 @@ proc addResolvedBlock(
 
   # Now that we have the new block, we should see if any of the previously
   # unresolved blocks magically become resolved
-  # TODO there are more efficient ways of doing this that don't risk
-  #      running out of stack etc
   # TODO This code is convoluted because when there are more than ~1.5k
   #      blocks being synced, there's a stack overflow as `add` gets called
   #      for the whole chain of blocks. Instead we use this ugly field in `dag`
@@ -131,12 +129,6 @@ proc addRawBlock*(
   # - the ugly `quarantine.inAdd` field
   # - the callback
   # - callback may be problematic as it's called in async validator duties
-
-  # TODO: to facilitate adding the block to the attestation pool
-  #       this should also return justified and finalized epoch corresponding
-  #       to each block.
-  #       This would be easy apart from the "Block already exists"
-  #       early return.
 
   logScope:
     blck = shortLog(signedBlock.message)
@@ -194,7 +186,6 @@ proc addRawBlock*(
 
       return err Unviable
 
-
     # The block might have been in either of `orphans` or `missing` - we don't
     # want any more work done on its behalf
     quarantine.orphans.del(blockRoot)
@@ -205,7 +196,7 @@ proc addRawBlock*(
     # TODO if the block is from the future, we should not be resolving it (yet),
     #      but maybe we should use it as a hint that our clock is wrong?
     updateStateData(
-      dag, dag.tmpState, BlockSlot(blck: parent, slot: blck.slot - 1))
+      dag, dag.clearanceState, BlockSlot(blck: parent, slot: blck.slot - 1))
 
     let
       poolPtr = unsafeAddr dag # safe because restore is short-lived
@@ -213,27 +204,26 @@ proc addRawBlock*(
       # TODO address this ugly workaround - there should probably be a
       #      `state_transition` that takes a `StateData` instead and updates
       #      the block as well
-      doAssert v.addr == addr poolPtr.tmpState.data
-      assign(poolPtr.tmpState, poolPtr.headState)
+      doAssert v.addr == addr poolPtr.clearanceState.data
+      assign(poolPtr.clearanceState, poolPtr.headState)
 
-    var stateCache = getEpochCache(parent, dag.tmpState.data.data)
-    if not state_transition(dag.runtimePreset, dag.tmpState.data, signedBlock,
+    var stateCache = getEpochCache(parent, dag.clearanceState.data.data)
+    if not state_transition(dag.runtimePreset, dag.clearanceState.data, signedBlock,
                             stateCache, dag.updateFlags, restore):
-      # TODO find a better way to log all this block data
       notice "Invalid block"
 
       return err Invalid
-    # Careful, tmpState.data has been updated but not blck - we need to create
+    # Careful, clearanceState.data has been updated but not blck - we need to create
     # the BlockRef first!
-    dag.tmpState.blck = addResolvedBlock(
+    dag.clearanceState.blck = addResolvedBlock(
       dag, quarantine,
-      dag.tmpState.data.data, signedBlock, parent,
+      dag.clearanceState.data.data, signedBlock, parent,
       callback
     )
-    dag.putState(dag.tmpState.data, dag.tmpState.blck)
+    dag.putState(dag.clearanceState.data, dag.clearanceState.blck)
 
-    callback(dag.tmpState.blck)
-    return ok dag.tmpState.blck
+    callback(dag.clearanceState.blck)
+    return ok dag.clearanceState.blck
 
   # TODO already checked hash though? main reason to keep this is because
   # the pending dag calls this function back later in a loop, so as long
