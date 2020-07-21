@@ -531,7 +531,7 @@ proc isValidAttestationSlot*(attestationSlot, stateSlot: Slot): bool =
 
 # TODO remove/merge with p2p-interface validation
 proc isValidAttestationTargetEpoch*(
-    state: BeaconState, data: AttestationData): bool =
+    state_epoch: Epoch, data: AttestationData): bool =
   # TODO what constitutes a valid attestation when it's about to be added to
   #      the pool? we're interested in attestations that will become viable
   #      for inclusion in blocks in the future and on any fork, so we need to
@@ -544,11 +544,6 @@ proc isValidAttestationTargetEpoch*(
   #      include an attestation in a block even if the corresponding validator
   #      was slashed in the same epoch - there's no penalty for doing this and
   #      the vote counting logic will take care of any ill effects (TODO verify)
-  # TODO re-enable check
-  #if not (data.crosslink.shard < SHARD_COUNT):
-  #  notice "Attestation shard too high",
-  #    attestation_shard = data.crosslink.shard
-  #  return
 
   # Without this check, we can't get a slot number for the attestation as
   # certain helpers will assert
@@ -558,8 +553,8 @@ proc isValidAttestationTargetEpoch*(
   #      of the attestation, we'll be safe!
   # TODO the above state selection logic should probably live here in the
   #      attestation pool
-  if not (data.target.epoch == get_previous_epoch(state) or
-      data.target.epoch == get_current_epoch(state)):
+  if not (data.target.epoch == get_previous_epoch(state_epoch) or
+      data.target.epoch == state_epoch):
     warn("Target epoch not current or previous epoch")
     return
 
@@ -601,7 +596,7 @@ proc check_attestation*(
       committee_count = committee_count_at_slot
     return
 
-  if not isValidAttestationTargetEpoch(state, data):
+  if not isValidAttestationTargetEpoch(state.slot.compute_epoch_at_slot, data):
     # Logging in isValidAttestationTargetEpoch
     return
 

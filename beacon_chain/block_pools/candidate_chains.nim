@@ -30,7 +30,7 @@ proc putBlock*(
   dag.db.putBlock(signedBlock)
 
 proc updateStateData*(
-  dag: CandidateChains, state: var StateData, bs: BlockSlot) {.gcsafe.}
+  dag: CandidateChains, state: var StateData, bs: BlockSlot, matchEpoch: bool = false) {.gcsafe.}
 
 template withState*(
     dag: CandidateChains, cache: var StateData, blockSlot: BlockSlot, body: untyped): untyped =
@@ -360,42 +360,24 @@ proc getState(
 
   true
 
-func getStateCacheIndex(dag: CandidateChains, blockRoot: Eth2Digest, slot: Slot): int =
+func getStateCacheIndex(
+    dag: CandidateChains, blockRoot: Eth2Digest, slot: Slot, matchEpoch: bool):
+    int =
   for i, cachedState in dag.cachedStates:
     let (cacheBlockRoot, cacheSlot, _) = cachedState
-    if cacheBlockRoot == blockRoot and cacheSlot == slot:
+    if cacheBlockRoot == blockRoot and (cacheSlot == slot or (matchEpoch and cacheSlot.compute_epoch_at_slot == slot.compute_epoch_at_slot)):
       return i
 
   -1
 
-func putStateCache(
+func putStateCache*(
     dag: CandidateChains, state: HashedBeaconState, blck: BlockRef) =
-  # Need to be able to efficiently access states for both attestation
-  # aggregation and to process block proposals going back to the last
-  # finalized slot. Ideally to avoid potential combinatiorial forking
-  # storage and/or memory constraints could CoW, up to and including,
-  # in particular, hash_tree_root() which is expensive to do 30 times
-  # since the previous epoch, to efficiently state_transition back to
-  # desired slot. However, none of that's in place, so there are both
-  # expensive, repeated BeaconState copies as well as computationally
-  # time-consuming-near-end-of-epoch hash tree roots. The latter are,
-  # effectively, naïvely O(n^2) in slot number otherwise, so when the
-  # slots become in the mid-to-high-20s it's spending all its time in
-  # pointlessly repeated calculations of prefix-state-transitions. An
-  # intermediate time/memory workaround involves storing only mapping
-  # between BlockRefs, or BlockSlots, and the BeaconState tree roots,
-  # but that still involves tens of megabytes worth of copying, along
-  # with the concomitant memory allocator and GC load. Instead, use a
-  # more memory-intensive (but more conceptually straightforward, and
-  # faster) strategy to just store, for the most recent slots.
-  if state.data.slot mod 2 != 0:
-    return
-
-  let stateCacheIndex = dag.getStateCacheIndex(blck.root, state.data.slot)
+  # Efficiently access states for both attestation aggregation and to process
+  # block proposals going back to the last finalized slot.
+  let stateCacheIndex =
+    dag.getStateCacheIndex(blck.root, state.data.slot, false)
   if stateCacheIndex == -1:
-    # Could use a deque or similar, but want simpler structure, and the data
-    # items are small and few.
-    const MAX_CACHE_SIZE = 16
+    const MAX_CACHE_SIZE = 18
 
     let cacheLen = dag.cachedStates.len
     doAssert cacheLen <= MAX_CACHE_SIZE
@@ -434,7 +416,8 @@ proc putState*(dag: CandidateChains, state: HashedBeaconState, blck: BlockRef) =
       if not rootWritten:
         dag.db.putStateRoot(blck.root, state.data.slot, state.root)
 
-  putStateCache(dag, state, blck)
+  if state.data.slot mod 2 == 0:
+    putStateCache(dag, state, blck)
 
 func getRef*(dag: CandidateChains, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
@@ -540,8 +523,9 @@ proc skipAndUpdateState(
 
   ok
 
-proc rewindState(dag: CandidateChains, state: var StateData, bs: BlockSlot):
-    seq[BlockRef] =
+proc rewindState(
+    dag: CandidateChains, state: var StateData, bs: BlockSlot,
+    matchEpoch: bool): seq[BlockRef] =
   logScope:
     blockSlot = shortLog(bs)
     pcs = "replay_state"
@@ -578,7 +562,7 @@ proc rewindState(dag: CandidateChains, state: var StateData, bs: BlockSlot):
     # TODO investigate replacing with getStateCached, by refactoring whole
     # function. Empirically, this becomes pretty rare once good caches are
     # used in the front-end.
-    let idx = dag.getStateCacheIndex(parBs.blck.root, parBs.slot)
+    let idx = dag.getStateCacheIndex(parBs.blck.root, parBs.slot, matchEpoch)
     if idx >= 0:
       assign(state.data, dag.cachedStates[idx].state[])
       let ancestor = ancestors.pop()
@@ -627,7 +611,9 @@ proc rewindState(dag: CandidateChains, state: var StateData, bs: BlockSlot):
 
   ancestors
 
-proc getStateDataCached(dag: CandidateChains, state: var StateData, bs: BlockSlot): bool =
+proc getStateDataCached(
+    dag: CandidateChains, state: var StateData, bs: BlockSlot,
+    matchEpoch: bool): bool =
   # This pointedly does not run rewindState or state_transition, but otherwise
   # mostly matches updateStateData(...), because it's too expensive to run the
   # rewindState(...)/skipAndUpdateState(...)/state_transition(...) procs, when
@@ -637,7 +623,7 @@ proc getStateDataCached(dag: CandidateChains, state: var StateData, bs: BlockSlo
     # any given use case.
     doAssert state.data.data.slot <= bs.slot + 4
 
-  let idx = dag.getStateCacheIndex(bs.blck.root, bs.slot)
+  let idx = dag.getStateCacheIndex(bs.blck.root, bs.slot, matchEpoch)
   if idx >= 0:
     assign(state.data, dag.cachedStates[idx].state[])
     state.blck = bs.blck
@@ -663,7 +649,8 @@ template withEpochState*(
   dag.withState(cache, blockSlot):
     body
 
-proc updateStateData*(dag: CandidateChains, state: var StateData, bs: BlockSlot) =
+proc updateStateData*(
+    dag: CandidateChains, state: var StateData, bs: BlockSlot, matchEpoch: bool = false) =
   ## Rewind or advance state such that it matches the given block and slot -
   ## this may include replaying from an earlier snapshot if blck is on a
   ## different branch or has advanced to a higher slot number than slot
@@ -679,10 +666,12 @@ proc updateStateData*(dag: CandidateChains, state: var StateData, bs: BlockSlot)
 
     return # State already at the right spot
 
-  if dag.getStateDataCached(state, bs):
+  if dag.getStateDataCached(state, bs, matchEpoch):
+    debugEcho "FOO2: ", bs.blck.root, "; ", bs.slot
     return
 
-  let ancestors = rewindState(dag, state, bs)
+  debugEcho "FOO3: ", bs.blck.root, "; ", bs.slot
+  let ancestors = rewindState(dag, state, bs, matchEpoch)
 
   # If we come this far, we found the state root. The last block on the stack
   # is the one that produced this particular state, so we can pop it
@@ -708,6 +697,8 @@ proc updateStateData*(dag: CandidateChains, state: var StateData, bs: BlockSlot)
   dag.skipAndUpdateState(state.data, bs.blck, bs.slot, true)
 
   state.blck = bs.blck
+
+  dag.putStateCache(state.data, bs.blck)
 
 proc loadTailState*(dag: CandidateChains): StateData =
   ## Load the state associated with the current tail in the dag

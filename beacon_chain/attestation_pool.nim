@@ -182,13 +182,6 @@ func updateLatestVotes(
     # # ForkChoice v2
     # pool.forkChoice_v2.process_attestation(validator, blck.root, target_epoch)
 
-func get_attesting_indices_seq(state: BeaconState,
-                               attestation_data: AttestationData,
-                               bits: CommitteeValidatorsBits,
-                               cache: var StateCache): seq[ValidatorIndex] =
-  toSeq(items(get_attesting_indices(
-    state, attestation_data, bits, cache)))
-
 func addUnresolved(pool: var AttestationPool, attestation: Attestation) =
   pool.unresolved[attestation.data.beacon_block_root] =
     UnresolvedAttestation(
@@ -227,23 +220,24 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
   #   # Logging in isValidAttestationSlot
   #   return
 
+  # Check that the attestation is indeed valid
+  # TODO: we might want to split checks that depend
+  #       on the state and those that don't to cheaply
+  #       discard invalid attestations before rewinding state.
+  if not isValidAttestationTargetEpoch(
+      attestation.data.slot.compute_epoch_at_slot, attestation.data):
+    notice "Invalid attestation",
+      attestation = shortLog(attestation),
+      current_epoch = attestation.data.slot.compute_epoch_at_slot
+    return
+
   # Get a temporary state at the (block, slot) targeted by the attestation
+  debugEcho "FOO1: ", blck.root, "; ", attestation.data.slot
   updateStateData(
     pool.blockPool, pool.blockPool.tmpState,
     BlockSlot(blck: blck, slot: attestation.data.slot))
 
   template state(): BeaconState = pool.blockPool.tmpState.data.data
-
-  # Check that the attestation is indeed valid
-  # TODO: we might want to split checks that depend
-  #       on the state and those that don't to cheaply
-  #       discard invalid attestations before rewinding state.
-
-  if not isValidAttestationTargetEpoch(state, attestation.data):
-    notice "Invalid attestation",
-      attestation = shortLog(attestation),
-      current_epoch = get_current_epoch(state)
-    return
 
   # TODO inefficient data structures..
 
@@ -255,8 +249,8 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
     validation = Validation(
       aggregation_bits: attestation.aggregation_bits,
       aggregate_signature: attestation.signature)
-    participants = get_attesting_indices_seq(
-      state, attestation.data, validation.aggregation_bits, cache)
+    participants = toSeq(items(get_attesting_indices(
+      state, attestation.data, validation.aggregation_bits, cache)))
 
   var found = false
   for a in attestationsSeen.attestations.mitems():
