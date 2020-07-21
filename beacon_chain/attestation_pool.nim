@@ -225,14 +225,13 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
   #       on the state and those that don't to cheaply
   #       discard invalid attestations before rewinding state.
   if not isValidAttestationTargetEpoch(
-      attestation.data.slot.compute_epoch_at_slot, attestation.data):
+      attestation.data.target.epoch, attestation.data):
     notice "Invalid attestation",
       attestation = shortLog(attestation),
       current_epoch = attestation.data.slot.compute_epoch_at_slot
     return
 
   # Get a temporary state at the (block, slot) targeted by the attestation
-  debugEcho "FOO1: ", blck.root, "; ", attestation.data.slot
   updateStateData(
     pool.blockPool, pool.blockPool.tmpState,
     BlockSlot(blck: blck, slot: attestation.data.slot))

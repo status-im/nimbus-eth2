@@ -668,10 +668,8 @@ proc updateStateData*(
     return # State already at the right spot
 
   if dag.getStateDataCached(state, bs, matchEpoch):
-    debugEcho "FOO2: ", bs.blck.root, "; ", bs.slot
     return
 
-  debugEcho "FOO3: ", bs.blck.root, "; ", bs.slot
   let ancestors = rewindState(dag, state, bs, matchEpoch)
 
   # If we come this far, we found the state root. The last block on the stack
