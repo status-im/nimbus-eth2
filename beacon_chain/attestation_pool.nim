@@ -27,13 +27,7 @@ proc init*(T: type AttestationPool, blockPool: BlockPool): T =
   #      probably be removed as a dependency of AttestationPool (or some other
   #      smart refactoring)
 
-  # TODO: Return Value Optimization
-
-  # TODO: In tests, on blockpool.init the finalized root
-  #       from the `headState` and `justifiedState` is zero
   var forkChoice = initForkChoice(
-    finalized_block_slot = default(Slot),             # This is unnecessary for fork choice but may help external components for example logging/debugging
-    finalized_block_state_root = default(Eth2Digest), # This is unnecessary for fork choice but may help external components for example logging/debugging
     justified_epoch = blockPool.headState.data.data.current_justified_checkpoint.epoch,
     finalized_epoch = blockPool.headState.data.data.finalized_checkpoint.epoch,
     # We should use the checkpoint, but at genesis the headState finalized checkpoint is 0x0000...0000
@@ -63,25 +57,22 @@ proc init*(T: type AttestationPool, blockPool: BlockPool): T =
     debug "Preloading fork choice with block",
       block_root = shortlog(blck.root),
       parent_root = shortlog(blck.parent.root),
-      justified_epoch = $blockPool.tmpState.data.data.current_justified_checkpoint.epoch,
-      finalized_epoch = $blockPool.tmpState.data.data.finalized_checkpoint.epoch,
-      slot = $blck.slot
+      justified_epoch = blockPool.tmpState.data.data.current_justified_checkpoint.epoch,
+      finalized_epoch = blockPool.tmpState.data.data.finalized_checkpoint.epoch,
+      slot = blck.slot
 
     let status = forkChoice.process_block(
       block_root = blck.root,
       parent_root = blck.parent.root,
       justified_epoch = blockPool.tmpState.data.data.current_justified_checkpoint.epoch,
-      finalized_epoch = blockPool.tmpState.data.data.finalized_checkpoint.epoch,
-      # Unused in fork choice - i.e. for logging or caching extra metadata
-      slot = blck.slot,
-      state_root = default(Eth2Digest)
+      finalized_epoch = blockPool.tmpState.data.data.finalized_checkpoint.epoch
     )
 
     doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
 
   info "Fork choice initialized",
-    justified_epoch = $blockPool.headState.data.data.current_justified_checkpoint.epoch,
-    finalized_epoch = $blockPool.headState.data.data.finalized_checkpoint.epoch,
+    justified_epoch = blockPool.headState.data.data.current_justified_checkpoint.epoch,
+    finalized_epoch = blockPool.headState.data.data.finalized_checkpoint.epoch,
     finalized_root = shortlog(blockPool.finalizedHead.blck.root)
 
   T(
@@ -179,8 +170,8 @@ func updateLatestVotes(
     if current.isNil or current.slot < attestationSlot:
       pool.latestAttestations[pubKey] = blck
 
-    # # ForkChoice v2
-    # pool.forkChoice_v2.process_attestation(validator, blck.root, target_epoch)
+    # ForkChoice v2
+    pool.forkChoice_v2.process_attestation(validator, blck.root, target_epoch)
 
 func get_attesting_indices_seq(state: BeaconState,
                                attestation_data: AttestationData,
@@ -351,12 +342,9 @@ proc addForkChoice_v2*(pool: var AttestationPool, blck: BlockRef) =
       current
     )
 
-    let blockData = pool.blockPool.get(current.blck)
     state = pool.forkChoice_v2.process_block(
-      slot = current.blck.slot,
       block_root = current.blck.root,
       parent_root = if not current.blck.parent.isNil: current.blck.parent.root else: default(Eth2Digest),
-      state_root = default(Eth2Digest), # This is unnecessary for fork choice but may help external components
       justified_epoch = pool.blockPool.tmpState.data.data.current_justified_checkpoint.epoch,
       finalized_epoch = pool.blockPool.tmpState.data.data.finalized_checkpoint.epoch,
     )

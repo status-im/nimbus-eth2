@@ -82,10 +82,8 @@ func apply(ctx: var ForkChoice, id: int, op: Operation) =
       debugEcho "    Detected an expected invalid head"
   of ProcessBlock:
     let r = ctx.process_block(
-      slot = default(Slot),             # unused in fork choice, only helpful for external components
       block_root = op.root,
       parent_root = op.parent_root,
-      state_root = default(Eth2Digest), # unused in fork choice, only helpful for external components
       justified_epoch = op.blk_justified_epoch,
       finalized_epoch = op.blk_finalized_epoch
     )

@@ -104,10 +104,6 @@ type
     indices*: Table[Eth2Digest, Index]
 
   ProtoNode* = object
-    # TODO: generic "Metadata" field for slot/state_root
-    slot*: Slot              # This is unnecessary for fork choice but helps external components
-    state_root*: Eth2Digest  # This is unnecessary for fork choice but helps external components
-    # Fields used in fork choice
     root*: Eth2Digest
     parent*: Option[Index]
     justified_epoch*: Epoch

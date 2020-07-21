@@ -13,8 +13,6 @@ proc setup_finality_02(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
 
   # Initialize the fork choice context
   result.fork_choice = initForkChoice(
-    finalized_block_slot = Slot(0),                   # Metadata unused in fork choice
-    finalized_block_state_root = default(Eth2Digest), # Metadata unused in fork choice
     justified_epoch = Epoch(1),
     finalized_epoch = Epoch(1),
     finalized_root = GenesisRoot
