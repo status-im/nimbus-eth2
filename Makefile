@@ -184,7 +184,7 @@ altona: | beacon_node
 	build/beacon_node \
 		--network=altona \
 		--log-level="$(LOG_LEVEL)" \
-		--log-file=nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
+		--log-file=build/data/shared_altona_$(NODE_ID)/nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_altona_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
