@@ -30,7 +30,8 @@ proc putBlock*(
   dag.db.putBlock(signedBlock)
 
 proc updateStateData*(
-  dag: CandidateChains, state: var StateData, bs: BlockSlot, matchEpoch: bool = false) {.gcsafe.}
+  dag: CandidateChains, state: var StateData, bs: BlockSlot,
+  matchEpoch: bool = false) {.gcsafe.}
 
 template withState*(
     dag: CandidateChains, cache: var StateData, blockSlot: BlockSlot, body: untyped): untyped =
