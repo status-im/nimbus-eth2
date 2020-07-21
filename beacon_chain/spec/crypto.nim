@@ -326,7 +326,7 @@ func init*(T: typedesc[ValidatorPrivKey], hex: string): T {.noInit, raises: [Val
   let v = T.fromHex(hex)
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
-  return v[]
+  v[]
 
 
 # For mainchain monitor
@@ -334,11 +334,11 @@ func init*(T: typedesc[ValidatorPubKey], data: array[RawPubKeySize, byte]): T {.
   let v = T.fromRaw(data)
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
-  return v[]
+  v[]
 
 # For mainchain monitor
 func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noInit, raises: [ValueError, Defect].} =
   let v = T.fromRaw(data)
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
-  return v[]
+  v[]

@@ -875,7 +875,7 @@ proc isInitialized*(T: type CandidateChains, db: BeaconChainDB): bool =
   if not db.containsState(tailBlock.get().message.state_root):
     return false
 
-  return true
+  true
 
 proc preInit*(
     T: type CandidateChains, db: BeaconChainDB, state: BeaconState,
