@@ -299,6 +299,8 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
 		--metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
 		${EXTRA_ARGS} \
 		> "${DATA_DIR}/log${NUM_NODE}.txt" 2>&1 &
+	
+	sleep 5
 
 	if [[ "${PIDS}" == "" ]]; then
 		PIDS="$!"
