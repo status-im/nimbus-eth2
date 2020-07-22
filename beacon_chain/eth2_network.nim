@@ -720,41 +720,50 @@ proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   inc nbc_successful_dials
   debug "Network handshakes completed"
 
-proc connectWorker(network: Eth2Node) {.async.} =
+proc connectWorker(network: Eth2Node, bootstrapPeerIDs: seq[PeerID]) {.async.} =
   debug "Connection worker started"
-  while true:
-    let pi = await network.connQueue.popFirst()
-    let r1 = network.peerPool.hasPeer(pi.peerId)
-    let r2 = network.isSeen(pi)
-    let r3 = network.connTable.hasKey(pi.peerId)
 
-    if not(r1) and not(r2) and not(r3):
-      network.connTable[pi.peerId] = pi
+  while true:
+    let remotePeerInfo = await network.connQueue.popFirst()
+    let peerPoolHasRemotePeer = network.peerPool.hasPeer(remotePeerInfo.peerId)
+    let seenTableHasRemotePeer = network.isSeen(remotePeerInfo)
+    let remotePeerAlreadyConnected = network.connTable.hasKey(remotePeerInfo.peerId)
+
+    if not(peerPoolHasRemotePeer) and not(seenTableHasRemotePeer) and not(remotePeerAlreadyConnected):
+      network.connTable[remotePeerInfo.peerId] = remotePeerInfo
       try:
         # We trying to connect to peers which are not in PeerPool, SeenTable and
         # ConnTable.
-        var fut = network.dialPeer(pi)
+        var fut = network.dialPeer(remotePeerInfo)
         # We discarding here just because we going to check future state, to avoid
         # condition where connection happens and timeout reached.
-        let res = await withTimeout(fut, network.connectTimeout)
+        discard await withTimeout(fut, network.connectTimeout)
         # We handling only timeout and errors, because successfull connections
         # will be stored in PeerPool.
         if fut.finished():
           if fut.failed() and not(fut.cancelled()):
-            debug "Unable to establish connection with peer", peer = pi.id,
+            debug "Unable to establish connection with peer", peer = remotePeerInfo.id,
                   errMsg = fut.readError().msg
             inc nbc_failed_dials
-            network.addSeen(pi, SeenTableTimeDeadPeer)
+            if remotePeerInfo.peerId in bootstrapPeerIDs:
+              # keep trying
+              await network.connQueue.addLast(remotePeerInfo)
+            else:
+              network.addSeen(remotePeerInfo, SeenTableTimeDeadPeer)
           continue
-        debug "Connection to remote peer timed out", peer = pi.id
+        debug "Connection to remote peer timed out", peer = remotePeerInfo.id
         inc nbc_timeout_dials
-        network.addSeen(pi, SeenTableTimeTimeout)
+        if remotePeerInfo.peerId in bootstrapPeerIDs:
+          # keep trying
+          await network.connQueue.addLast(remotePeerInfo)
+        else:
+          network.addSeen(remotePeerInfo, SeenTableTimeTimeout)
       finally:
-        network.connTable.del(pi.peerId)
+        network.connTable.del(remotePeerInfo.peerId)
     else:
       trace "Peer is already connected, connecting or already seen",
-            peer = pi.id, peer_pool_has_peer = $r1, seen_table_has_peer = $r2,
-            connecting_peer = $r3, seen_table_size = len(network.seenTable)
+            peer = remotePeerInfo.id, peer_pool_has_peer = $peerPoolHasRemotePeer, seen_table_has_peer = $seenTableHasRemotePeer,
+            connecting_peer = $remotePeerAlreadyConnected, seen_table_size = len(network.seenTable)
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
@@ -833,8 +842,16 @@ proc startListening*(node: Eth2Node) =
   node.discovery.open()
 
 proc start*(node: Eth2Node) {.async.} =
+  var bootstrapPeerIDs: seq[PeerID]
+  for record in node.discovery.bootstrapRecords:
+    let typedRecord = record.toTypedRecord()
+    if typedRecord.isOk:
+      let peerInfo = typedRecord.value.toPeerInfo()
+      if peerInfo != nil:
+        bootstrapPeerIDs.add(peerInfo.peerId)
+
   for i in 0 ..< ConcurrentConnections:
-    node.connWorkers.add connectWorker(node)
+    node.connWorkers.add connectWorker(node, bootstrapPeerIDs)
 
   node.libp2pTransportLoops = await node.switch.start()
   node.discovery.start()
@@ -1132,15 +1149,6 @@ proc shortForm*(id: KeyPair): string =
 
 proc startLookingForPeers*(node: Eth2Node) {.async.} =
   await node.start()
-
-  proc checkIfConnectedToBootstrapNode {.async.} =
-    await sleepAsync(30.seconds)
-    if node.discovery.bootstrapRecords.len > 0 and nbc_successful_dials.value == 0:
-      fatal "Failed to connect to any bootstrap node. Quitting",
-        bootstrapEnrs = node.discovery.bootstrapRecords
-      quit 1
-
-  traceAsyncErrors checkIfConnectedToBootstrapNode()
 
 func peersCount*(node: Eth2Node): int =
   len(node.peerPool)
