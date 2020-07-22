@@ -724,10 +724,11 @@ proc connectWorker(network: Eth2Node, bootstrapPeerIDs: seq[PeerID]) {.async.} =
   debug "Connection worker started"
 
   while true:
-    let remotePeerInfo = await network.connQueue.popFirst()
-    let peerPoolHasRemotePeer = network.peerPool.hasPeer(remotePeerInfo.peerId)
-    let seenTableHasRemotePeer = network.isSeen(remotePeerInfo)
-    let remotePeerAlreadyConnected = network.connTable.hasKey(remotePeerInfo.peerId)
+    let
+      remotePeerInfo = await network.connQueue.popFirst()
+      peerPoolHasRemotePeer = network.peerPool.hasPeer(remotePeerInfo.peerId)
+      seenTableHasRemotePeer = network.isSeen(remotePeerInfo)
+      remotePeerAlreadyConnected = network.connTable.hasKey(remotePeerInfo.peerId)
 
     if not(peerPoolHasRemotePeer) and not(seenTableHasRemotePeer) and not(remotePeerAlreadyConnected):
       network.connTable[remotePeerInfo.peerId] = remotePeerInfo
@@ -752,7 +753,7 @@ proc connectWorker(network: Eth2Node, bootstrapPeerIDs: seq[PeerID]) {.async.} =
         debug "Connection to remote peer timed out", peer = remotePeerInfo.id
         inc nbc_timeout_dials
         if remotePeerInfo.peerId notIn bootstrapPeerIDs:
-          # we want to keep retrying bootstrap nodes
+          # We want to keep retrying bootstrap nodes.
           network.addSeen(remotePeerInfo, SeenTableTimeTimeout)
       finally:
         network.connTable.del(remotePeerInfo.peerId)
@@ -760,6 +761,9 @@ proc connectWorker(network: Eth2Node, bootstrapPeerIDs: seq[PeerID]) {.async.} =
       trace "Peer is already connected, connecting or already seen",
             peer = remotePeerInfo.id, peer_pool_has_peer = $peerPoolHasRemotePeer, seen_table_has_peer = $seenTableHasRemotePeer,
             connecting_peer = $remotePeerAlreadyConnected, seen_table_size = len(network.seenTable)
+
+    # Prevent (a purely theoretical) high CPU usage when losing connectivity.
+    await sleepAsync(1.seconds)
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
