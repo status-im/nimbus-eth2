@@ -205,9 +205,9 @@ const
   ConcurrentConnections* = 10
     ## Maximum number of active concurrent connection requests.
 
-  SeenTableTimeTimeout* = 10.minutes
+  SeenTableTimeTimeout* = 1.minutes
     ## Seen period of time for timeout connections
-  SeenTableTimeDeadPeer* = 10.minutes
+  SeenTableTimeDeadPeer* = 1.minutes
     ## Period of time for dead peers.
   SeenTableTimeIrrelevantNetwork* = 24.hours
     ## Period of time for `IrrelevantNetwork` error reason.
@@ -720,7 +720,7 @@ proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   inc nbc_successful_dials
   debug "Network handshakes completed"
 
-proc connectWorker(network: Eth2Node, bootstrapPeerIDs: seq[PeerID]) {.async.} =
+proc connectWorker(network: Eth2Node) {.async.} =
   debug "Connection worker started"
 
   while true:
@@ -746,15 +746,11 @@ proc connectWorker(network: Eth2Node, bootstrapPeerIDs: seq[PeerID]) {.async.} =
             debug "Unable to establish connection with peer", peer = remotePeerInfo.id,
                   errMsg = fut.readError().msg
             inc nbc_failed_dials
-            if remotePeerInfo.peerId notIn bootstrapPeerIDs:
-              # we want to keep retrying bootstrap nodes
-              network.addSeen(remotePeerInfo, SeenTableTimeDeadPeer)
+            network.addSeen(remotePeerInfo, SeenTableTimeDeadPeer)
           continue
         debug "Connection to remote peer timed out", peer = remotePeerInfo.id
         inc nbc_timeout_dials
-        if remotePeerInfo.peerId notIn bootstrapPeerIDs:
-          # We want to keep retrying bootstrap nodes.
-          network.addSeen(remotePeerInfo, SeenTableTimeTimeout)
+        network.addSeen(remotePeerInfo, SeenTableTimeTimeout)
       finally:
         network.connTable.del(remotePeerInfo.peerId)
     else:
@@ -842,16 +838,8 @@ proc startListening*(node: Eth2Node) =
   node.discovery.open()
 
 proc start*(node: Eth2Node) {.async.} =
-  var bootstrapPeerIDs: seq[PeerID]
-  for record in node.discovery.bootstrapRecords:
-    let typedRecord = record.toTypedRecord()
-    if typedRecord.isOk:
-      let peerInfo = typedRecord.value.toPeerInfo()
-      if peerInfo != nil:
-        bootstrapPeerIDs.add(peerInfo.peerId)
-
   for i in 0 ..< ConcurrentConnections:
-    node.connWorkers.add connectWorker(node, bootstrapPeerIDs)
+    node.connWorkers.add connectWorker(node)
 
   node.libp2pTransportLoops = await node.switch.start()
   node.discovery.start()
