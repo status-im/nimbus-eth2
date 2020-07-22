@@ -32,8 +32,8 @@ func get_attesting_indices*(
   # Exported bceause of external trace-level chronicles logging.
   result = initHashSet[ValidatorIndex]()
   for a in attestations:
-    result = result.union(get_attesting_indices(
-      state, a.data, a.aggregation_bits, stateCache))
+    result.incl get_attesting_indices(
+      state, a.data, a.aggregation_bits, stateCache)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#helper-functions-1
 func get_unslashed_attesting_indices*(

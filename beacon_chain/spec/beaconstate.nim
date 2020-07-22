@@ -290,7 +290,7 @@ func is_valid_genesis_state*(preset: RuntimePreset,
   # This is an okay get_active_validator_indices(...) for the time being.
   if active_validator_indices.len.uint64 < preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
     return false
-  return true
+  true
 
 # TODO this is now a non-spec helper function, and it's not really accurate
 # so only usable/used in research/ and tests/
@@ -527,7 +527,7 @@ proc isValidAttestationSlot*(attestationSlot, stateSlot: Slot): bool =
       state_slot = shortLog(stateSlot))
     return false
 
-  return true
+  true
 
 # TODO remove/merge with p2p-interface validation
 proc isValidAttestationTargetEpoch*(

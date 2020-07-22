@@ -300,6 +300,7 @@ proc init*(T: type CandidateChains,
     headState: tmpState[],
     justifiedState: tmpState[], # This is wrong but we'll update it below
     tmpState: tmpState[],
+    clearanceState: tmpState[],
 
     # The only allowed flag right now is verifyFinalization, as the others all
     # allow skipping some validation.
@@ -311,6 +312,7 @@ proc init*(T: type CandidateChains,
 
   res.updateStateData(res.justifiedState, justifiedHead)
   res.updateStateData(res.headState, headRef.atSlot(headRef.slot))
+  res.clearanceState = res.headState
 
   info "Block dag initialized",
     head = head.blck, justifiedHead, finalizedHead, tail = tailRef,
@@ -875,7 +877,7 @@ proc isInitialized*(T: type CandidateChains, db: BeaconChainDB): bool =
   if not db.containsState(tailBlock.get().message.state_root):
     return false
 
-  return true
+  true
 
 proc preInit*(
     T: type CandidateChains, db: BeaconChainDB, state: BeaconState,

@@ -126,6 +126,10 @@ type
 
     tmpState*: StateData ## Scratchpad - may be any state
 
+    clearanceState*: StateData ##\
+      ## Cached state used during block clearance - should only be used in the
+      ## clearance module to avoid the risk of modifying it in a callback
+
     updateFlags*: UpdateFlags
 
     runtimePreset*: RuntimePreset
