@@ -185,9 +185,6 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
   #      reasonable to involve the head being voted for as well as the intended
   #      slot of the attestation - double-check this with spec
 
-  # TODO: How fast is state rewind?
-  #       Can this be a DOS vector.
-
   # TODO: filter valid attestation as much as possible before state rewind
   # TODO: the below check does not respect the inclusion delay
   #       we should use isValidAttestationSlot instead
@@ -537,23 +534,23 @@ proc selectHead_v1(pool: AttestationPool): BlockRef =
 # Fork choice v2
 # ---------------------------------------------------------------
 
-func getAttesterBalances(state: StateData): seq[Gwei] {.noInit.}=
+func getAttesterBalances*(state: BeaconState): seq[Gwei] =
   ## Get the balances from a state
-  result.newSeq(state.data.data.validators.len) # zero-init
+  result.newSeq(state.validators.len) # zero-init
 
-  let epoch = state.data.data.slot.compute_epoch_at_slot()
+  let epoch = state.get_current_epoch()
 
   for i in 0 ..< result.len:
     # All non-active validators have a 0 balance
-    template validator: Validator = state.data.data.validators[i]
+    template validator: Validator = state.validators[i]
     if validator.is_active_validator(epoch):
       result[i] = validator.effective_balance
 
 proc selectHead_v2(pool: var AttestationPool): BlockRef =
-  let attesterBalances = pool.blockPool.justifiedState.getAttesterBalances()
+  let attesterBalances = pool.blockPool.justifiedState.data.data.getAttesterBalances()
 
   let newHead = pool.forkChoice_v2.find_head(
-    justified_epoch = pool.blockPool.justifiedState.data.data.slot.compute_epoch_at_slot(),
+    justified_epoch = pool.blockPool.justifiedState.data.data.get_current_epoch(),
     justified_root = pool.blockPool.head.justified.blck.root,
     finalized_epoch = pool.blockPool.headState.data.data.finalized_checkpoint.epoch,
     justified_state_balances = attesterBalances
@@ -565,8 +562,8 @@ proc selectHead_v2(pool: var AttestationPool): BlockRef =
   else:
     pool.blockPool.getRef(newHead.get())
 
-proc pruneBefore*(pool: var AttestationPool, finalizedhead: BlockSlot) =
-  if (let v = pool.forkChoice_v2.maybe_prune(finalizedHead.blck.root); v.isErr):
+proc pruneBefore*(pool: var AttestationPool, finalizedHead: BlockRef) =
+  if (let v = pool.forkChoice_v2.maybe_prune(finalizedHead.root); v.isErr):
     error "Pruning failed", err = v.error() # TODO should never happen
 
 # Dual-Headed Fork choice

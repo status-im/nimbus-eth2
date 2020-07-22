@@ -114,20 +114,6 @@ func process_attestation*(
       trace "Integrating vote in fork choice",
         validator_index = validator_index,
         new_vote = shortlog(vote)
-  else:
-    {.noSideEffect.}:
-      if vote.next_epoch != target_epoch or vote.next_root != block_root:
-        warn "Change of vote ignored for fork choice. Potential for slashing.",
-          validator_index = validator_index,
-          current_vote = shortlog(vote),
-          ignored_block_root = shortlog(block_root),
-          ignored_target_epoch = target_epoch
-      else:
-        trace "Ignoring double-vote for fork choice",
-          validator_index = validator_index,
-          current_vote = shortlog(vote),
-          ignored_block_root = shortlog(block_root),
-          ignored_target_epoch = target_epoch
 
 func contains*(self: ForkChoice, block_root: Eth2Digest): bool =
   ## Returns `true` if a block is known to the fork choice

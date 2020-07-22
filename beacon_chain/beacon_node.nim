@@ -363,7 +363,7 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
   # during testing.
   if epoch >= 4 and slot mod SLOTS_PER_EPOCH > SETTLING_TIME_OFFSET:
     let finalizedEpoch =
-      node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()
+      node.blockPool.finalizedHead.slot.compute_epoch_at_slot()
     # Finalization rule 234, that has the most lag slots among the cases, sets
     # state.finalized_checkpoint = old_previous_justified_checkpoint.epoch + 3
     # and then state.slot gets incremented, to increase the maximum offset, if
@@ -389,11 +389,9 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     scheduledSlot = shortLog(scheduledSlot),
     beaconTime = shortLog(beaconTime),
     peers = node.network.peersCount,
-    headSlot = shortLog(node.blockPool.head.blck.slot),
+    head = shortLog(node.blockPool.head.blck),
     headEpoch = shortLog(node.blockPool.head.blck.slot.compute_epoch_at_slot()),
-    headRoot = shortLog(node.blockPool.head.blck.root),
-    finalizedSlot = shortLog(node.blockPool.finalizedHead.blck.slot),
-    finalizedRoot = shortLog(node.blockPool.finalizedHead.blck.root),
+    finalized = shortLog(node.blockPool.finalizedHead.blck),
     finalizedEpoch = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot())
 
   # Check before any re-scheduling of onSlotStart()

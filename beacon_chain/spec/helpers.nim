@@ -57,6 +57,12 @@ func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_active_validator_indices
+func count_active_validator_indices*(state: BeaconState, epoch: Epoch): int =
+  for val in state.validators:
+    if is_active_validator(val, epoch):
+      result += 1
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_active_validator_indices
 func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
   # Return the sequence of active validator indices at ``epoch``.
@@ -79,8 +85,8 @@ func get_committee_count_at_slot*(state: BeaconState, slot: Slot): uint64 =
   # CommitteeIndex return type here.
   let
     epoch = compute_epoch_at_slot(slot)
-    active_validator_indices = get_active_validator_indices(state, epoch)
-  result = get_committee_count_at_slot(len(active_validator_indices).uint64)
+    active_validator_count = count_active_validator_indices(state, epoch)
+  result = get_committee_count_at_slot(active_validator_count.uint64)
 
   # Otherwise, get_beacon_committee(...) cannot access some committees.
   doAssert (SLOTS_PER_EPOCH * MAX_COMMITTEES_PER_SLOT).uint64 >= result

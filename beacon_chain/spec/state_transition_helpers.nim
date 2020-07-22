@@ -26,7 +26,7 @@ func shortLog*(x: Checkpoint): string =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#helper-functions-1
 func get_attesting_indices*(
-    state: BeaconState, attestations: openarray[PendingAttestation],
+    state: BeaconState, attestations: openArray[PendingAttestation],
     stateCache: var StateCache): HashSet[ValidatorIndex] =
   # This is part of get_unslashed_attesting_indices(...) in spec.
   # Exported bceause of external trace-level chronicles logging.
@@ -37,7 +37,7 @@ func get_attesting_indices*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#helper-functions-1
 func get_unslashed_attesting_indices*(
-    state: BeaconState, attestations: openarray[PendingAttestation],
+    state: BeaconState, attestations: openArray[PendingAttestation],
     stateCache: var StateCache): HashSet[ValidatorIndex] =
   result = get_attesting_indices(state, attestations, stateCache)
   for index in result:

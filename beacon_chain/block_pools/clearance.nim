@@ -10,7 +10,7 @@
 import
   chronicles, sequtils, tables,
   metrics, stew/results,
-  ../ssz/merkleization, ../extras,
+  ../extras,
   ../spec/[crypto, datatypes, digest, helpers, signatures, state_transition],
   block_pools_types, candidate_chains, quarantine
 
@@ -56,7 +56,7 @@ proc addResolvedBlock(
     blockRoot = signedBlock.root
     blockRef = BlockRef.init(blockRoot, signedBlock.message)
   blockRef.epochsInfo = filterIt(parent.epochsInfo,
-    it.epoch + 1 >= state.data.slot.compute_epoch_at_slot)
+    it.epoch + 1 >= state.data.get_current_epoch())
   link(parent, blockRef)
 
   dag.blocks[blockRoot] = blockRef

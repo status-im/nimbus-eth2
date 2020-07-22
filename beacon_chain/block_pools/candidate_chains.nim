@@ -60,9 +60,10 @@ func parent*(bs: BlockSlot): BlockSlot =
       slot: bs.slot - 1
     )
 
-func populateEpochCache(state: BeaconState, epoch: Epoch): EpochRef =
-  (EpochRef)(
-    epoch: state.slot.compute_epoch_at_slot,
+func populateEpochCache(state: BeaconState): EpochRef =
+  let epoch = state.get_current_epoch()
+  EpochRef(
+    epoch: epoch,
     shuffled_active_validator_indices:
       get_shuffled_active_validator_indices(state, epoch))
 
@@ -165,11 +166,11 @@ func atSlot*(blck: BlockRef, slot: Slot): BlockSlot =
 func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
   # This is the only intended mechanism by which to get an EpochRef
   let
-    state_epoch = state.slot.compute_epoch_at_slot
+    state_epoch = state.get_current_epoch()
     matching_epochinfo = blck.epochsInfo.filterIt(it.epoch == state_epoch)
 
   if matching_epochinfo.len == 0:
-    let cache = populateEpochCache(state, state_epoch)
+    let cache = populateEpochCache(state)
 
     # Don't use BlockRef caching as far as the epoch where the active
     # validator indices can diverge.
@@ -187,8 +188,7 @@ func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
 func getEpochCache*(blck: BlockRef, state: BeaconState): StateCache =
   let epochInfo = getEpochInfo(blck, state)
   result = StateCache()
-  result.shuffled_active_validator_indices[
-    state.slot.compute_epoch_at_slot] =
+  result.shuffled_active_validator_indices[state.get_current_epoch()] =
       epochInfo.shuffled_active_validator_indices
 
 func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =

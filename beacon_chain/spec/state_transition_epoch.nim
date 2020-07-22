@@ -60,7 +60,7 @@ func get_total_active_balance*(state: BeaconState, cache: var StateCache): Gwei 
   # minimum to avoid divisions by zero.
 
   let
-    epoch = state.slot.compute_epoch_at_slot
+    epoch = state.get_current_epoch()
   try:
     if epoch notin cache.shuffled_active_validator_indices:
       cache.shuffled_active_validator_indices[epoch] =

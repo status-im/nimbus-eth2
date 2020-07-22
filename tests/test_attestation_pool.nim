@@ -370,7 +370,7 @@ suiteReport "Attestation pool processing" & preset():
 
     doAssert: blockPool[].finalizedHead.slot != 0
 
-    pool[].pruneBefore(blockPool[].finalizedHead)
+    pool[].pruneBefore(blockPool[].finalizedHead.blck)
     doAssert: b10.root notin pool.forkChoice_v2
 
     # Add back the old block to ensure we have a duplicate error
