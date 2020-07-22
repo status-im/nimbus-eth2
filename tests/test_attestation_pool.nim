@@ -166,9 +166,14 @@ suiteReport "Attestation pool processing" & preset():
     var cache = StateCache()
     let
       b1 = addTestBlock(state.data, blockPool[].tail.root, cache)
-      b1Add = blockpool[].addRawBlock(b1) do (validBlock: BlockRef):
-        # Callback Add to fork choice
-        pool[].addForkChoice_v2(validBlock)
+      b1Add = blockpool[].addRawBlock(b1) do (
+          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          state: HashedBeaconState):
+        # Callback add to fork choice if valid
+        pool[].addForkChoice_v2(
+          blckRef, state.data.current_justified_checkpoint.epoch,
+          state.data.finalized_checkpoint.epoch)
+
 
     let head = pool[].selectHead()
 
@@ -177,9 +182,13 @@ suiteReport "Attestation pool processing" & preset():
 
     let
       b2 = addTestBlock(state.data, b1.root, cache)
-      b2Add = blockpool[].addRawBlock(b2) do (validBlock: BlockRef):
-        # Callback Add to fork choice
-        pool[].addForkChoice_v2(validBlock)
+      b2Add = blockpool[].addRawBlock(b2) do (
+          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          state: HashedBeaconState):
+        # Callback add to fork choice if valid
+        pool[].addForkChoice_v2(
+          blckRef, state.data.current_justified_checkpoint.epoch,
+          state.data.finalized_checkpoint.epoch)
 
     let head2 = pool[].selectHead()
 
@@ -190,9 +199,13 @@ suiteReport "Attestation pool processing" & preset():
     var cache = StateCache()
     let
       b10 = makeTestBlock(state.data, blockPool[].tail.root, cache)
-      b10Add = blockpool[].addRawBlock(b10) do (validBlock: BlockRef):
-        # Callback Add to fork choice
-        pool[].addForkChoice_v2(validBlock)
+      b10Add = blockpool[].addRawBlock(b10) do (
+          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          state: HashedBeaconState):
+        # Callback add to fork choice if valid
+        pool[].addForkChoice_v2(
+          blckRef, state.data.current_justified_checkpoint.epoch,
+          state.data.finalized_checkpoint.epoch)
 
     let head = pool[].selectHead()
 
@@ -203,9 +216,13 @@ suiteReport "Attestation pool processing" & preset():
       b11 = makeTestBlock(state.data, blockPool[].tail.root, cache,
         graffiti = GraffitiBytes [1'u8, 0, 0, 0 ,0 ,0 ,0 ,0 ,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
       )
-      b11Add = blockpool[].addRawBlock(b11) do (validBlock: BlockRef):
-        # Callback Add to fork choice
-        pool[].addForkChoice_v2(validBlock)
+      b11Add = blockpool[].addRawBlock(b11) do (
+          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          state: HashedBeaconState):
+        # Callback add to fork choice if valid
+        pool[].addForkChoice_v2(
+          blckRef, state.data.current_justified_checkpoint.epoch,
+          state.data.finalized_checkpoint.epoch)
 
       bc1 = get_beacon_committee(
         state.data.data, state.data.data.slot, 1.CommitteeIndex, cache)
@@ -247,9 +264,13 @@ suiteReport "Attestation pool processing" & preset():
     var cache = StateCache()
     let
       b10 = makeTestBlock(state.data, blockPool[].tail.root, cache)
-      b10Add = blockpool[].addRawBlock(b10) do (validBlock: BlockRef):
-        # Callback Add to fork choice
-        pool[].addForkChoice_v2(validBlock)
+      b10Add = blockpool[].addRawBlock(b10) do (
+          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          state: HashedBeaconState):
+        # Callback add to fork choice if valid
+        pool[].addForkChoice_v2(
+          blckRef, state.data.current_justified_checkpoint.epoch,
+          state.data.finalized_checkpoint.epoch)
 
     let head = pool[].selectHead()
 
@@ -259,9 +280,14 @@ suiteReport "Attestation pool processing" & preset():
     # -------------------------------------------------------------
     # Add back the old block to ensure we have a duplicate error
     let b10_clone = b10 # Assumes deep copy
-    let b10Add_clone = blockpool[].addRawBlock(b10_clone) do (validBlock: BlockRef):
-        # Callback Add to fork choice
-        pool[].addForkChoice_v2(validBlock)
+    let b10Add_clone = blockpool[].addRawBlock(b10_clone) do (
+          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          state: HashedBeaconState):
+        # Callback add to fork choice if valid
+        pool[].addForkChoice_v2(
+          blckRef, state.data.current_justified_checkpoint.epoch,
+          state.data.finalized_checkpoint.epoch)
+
     doAssert: b10Add_clone.error == Duplicate
 
   wrappedTimedTest "Trying to add a duplicate block from an old pruned epoch is tagged as an error":
@@ -272,9 +298,13 @@ suiteReport "Attestation pool processing" & preset():
 
     let
       b10 = makeTestBlock(state.data, blockPool[].tail.root, cache)
-      b10Add = blockpool[].addRawBlock(b10) do (validBlock: BlockRef):
-        # Callback Add to fork choice
-        pool[].addForkChoice_v2(validBlock)
+      b10Add = blockpool[].addRawBlock(b10) do (
+          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          state: HashedBeaconState):
+        # Callback add to fork choice if valid
+        pool[].addForkChoice_v2(
+          blckRef, state.data.current_justified_checkpoint.epoch,
+          state.data.finalized_checkpoint.epoch)
 
     let head = pool[].selectHead()
 
@@ -301,9 +331,13 @@ suiteReport "Attestation pool processing" & preset():
         doAssert: block_ok
 
         block_root = new_block.root
-        let blockRef = blockpool[].addRawBlock(new_block) do (validBlock: BlockRef):
-          # Callback Add to fork choice
-          pool[].addForkChoice_v2(validBlock)
+        let blockRef = blockpool[].addRawBlock(new_block) do (
+            blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+            state: HashedBeaconState):
+          # Callback add to fork choice if valid
+          pool[].addForkChoice_v2(
+          blckRef, state.data.current_justified_checkpoint.epoch,
+          state.data.finalized_checkpoint.epoch)
 
         let head = pool[].selectHead()
         doassert: head == blockRef[]
@@ -334,14 +368,18 @@ suiteReport "Attestation pool processing" & preset():
     # -------------------------------------------------------------
     # Prune
 
-    echo "\nPruning all blocks before: ", shortlog(blockPool[].finalizedHead), '\n'
     doAssert: blockPool[].finalizedHead.slot != 0
 
     pool[].pruneBefore(blockPool[].finalizedHead)
     doAssert: b10.root notin pool.forkChoice_v2
 
     # Add back the old block to ensure we have a duplicate error
-    let b10Add_clone = blockpool[].addRawBlock(b10_clone) do (validBlock: BlockRef):
-        # Callback Add to fork choice
-        pool[].addForkChoice_v2(validBlock)
+    let b10Add_clone = blockpool[].addRawBlock(b10_clone) do (
+          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          state: HashedBeaconState):
+        # Callback add to fork choice if valid
+        pool[].addForkChoice_v2(
+          blckRef, state.data.current_justified_checkpoint.epoch,
+          state.data.finalized_checkpoint.epoch)
+
     doAssert: b10Add_clone.error == Duplicate

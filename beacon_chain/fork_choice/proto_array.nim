@@ -156,11 +156,9 @@ func apply_score_changes*(
 
 func on_block*(
        self: var ProtoArray,
-       slot: Slot,
        root: Eth2Digest,
        hasParentInForkChoice: bool,
        parent: Eth2Digest,
-       state_root: Eth2Digest,
        justified_epoch: Epoch,
        finalized_epoch: Epoch
      ): ForkChoiceError =
@@ -185,9 +183,8 @@ func on_block*(
       error "Trying to add block with unknown parent",
         child_root = shortLog(root),
         parent_root = shortLog(parent),
-        justified_epoch = $justified_epoch,
-        finalized_epoch = $finalized_epoch,
-        slot_optional = $slot
+        justified_epoch = justified_epoch,
+        finalized_epoch = finalized_epoch
 
     return ForkChoiceError(
       kind: fcErrUnknownParent,
@@ -200,8 +197,6 @@ func on_block*(
   let node_index = self.nodes.len
 
   let node = ProtoNode(
-    slot: slot,
-    state_root: state_root,
     root: root,
     parent: parent_index,
     justified_epoch: justified_epoch,

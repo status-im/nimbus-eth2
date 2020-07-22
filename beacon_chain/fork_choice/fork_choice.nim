@@ -51,8 +51,6 @@ logScope:
 # - The public procs use Result
 
 func initForkChoice*(
-       finalized_block_slot: Slot,             # This is unnecessary for fork choice but helps external components
-       finalized_block_state_root: Eth2Digest, # This is unnecessary for fork choice but helps external components
        justified_epoch: Epoch,
        finalized_epoch: Epoch,
        finalized_root: Eth2Digest
@@ -65,11 +63,9 @@ func initForkChoice*(
   )
 
   let err = proto_array.on_block(
-    finalized_block_slot,
     finalized_root,
     hasParentInForkChoice = false,
     default(Eth2Digest),
-    finalized_block_state_root,
     justified_epoch,
     finalized_epoch
   )
@@ -97,7 +93,6 @@ func extend[T](s: var seq[T], minLen: int) =
     s.setLen(minLen)
     zeroMem(s[curLen].addr, diff * sizeof(T))
 
-
 func process_attestation*(
        self: var ForkChoice,
        validator_index: ValidatorIndex,
@@ -117,22 +112,22 @@ func process_attestation*(
 
     {.noSideEffect.}:
       trace "Integrating vote in fork choice",
-        validator_index = $validator_index,
+        validator_index = validator_index,
         new_vote = shortlog(vote)
   else:
     {.noSideEffect.}:
       if vote.next_epoch != target_epoch or vote.next_root != block_root:
         warn "Change of vote ignored for fork choice. Potential for slashing.",
-          validator_index = $validator_index,
+          validator_index = validator_index,
           current_vote = shortlog(vote),
           ignored_block_root = shortlog(block_root),
-          ignored_target_epoch = $target_epoch
+          ignored_target_epoch = target_epoch
       else:
         trace "Ignoring double-vote for fork choice",
-          validator_index = $validator_index,
+          validator_index = validator_index,
           current_vote = shortlog(vote),
           ignored_block_root = shortlog(block_root),
-          ignored_target_epoch = $target_epoch
+          ignored_target_epoch = target_epoch
 
 func contains*(self: ForkChoice, block_root: Eth2Digest): bool =
   ## Returns `true` if a block is known to the fork choice
@@ -143,26 +138,24 @@ func contains*(self: ForkChoice, block_root: Eth2Digest): bool =
 
 func process_block*(
        self: var ForkChoice,
-       slot: Slot,
        block_root: Eth2Digest,
        parent_root: Eth2Digest,
-       state_root: Eth2Digest,
        justified_epoch: Epoch,
        finalized_epoch: Epoch
      ): Result[void, string] =
   ## Add a block to the fork choice context
   let err = self.proto_array.on_block(
-    slot, block_root, hasParentInForkChoice = true, parent_root, state_root, justified_epoch, finalized_epoch
+    block_root, hasParentInForkChoice = true, parent_root, justified_epoch, finalized_epoch
   )
   if err.kind != fcSuccess:
     return err("process_block_error: " & $err)
 
   {.noSideEffect.}:
     trace "Integrating block in fork choice",
-      block_root = $shortlog(block_root),
-      parent_root = $shortlog(parent_root),
-      justified_epoch = $justified_epoch,
-      finalized_epoch = $finalized_epoch
+      block_root = shortlog(block_root),
+      parent_root = shortlog(parent_root),
+      justified_epoch = justified_epoch,
+      finalized_epoch = finalized_epoch
 
   return ok()
 
@@ -205,9 +198,9 @@ func find_head*(
 
   {.noSideEffect.}:
     debug "Fork choice requested",
-      justified_epoch = $justified_epoch,
+      justified_epoch = justified_epoch,
       justified_root = shortlog(justified_root),
-      finalized_epoch = $finalized_epoch,
+      finalized_epoch = finalized_epoch,
       fork_choice_head = shortlog(new_head)
 
   return ok(new_head)

@@ -224,10 +224,13 @@ proc proposeSignedBlock*(node: BeaconNode,
                          newBlock: SignedBeaconBlock): Future[BlockRef] {.async.} =
 
   {.gcsafe.}: # TODO: fork choice and blockpool should sync via messages instead of callbacks
-    let newBlockRef = node.blockPool.addRawBlock(newBlock) do (validBlock: BlockRef):
-      # Callback Add to fork choice
-      # node.attestationPool.addForkChoice_v2(validBlock)
-      discard "TODO: Deactivated"
+    let newBlockRef = node.blockPool.addRawBlock(newBlock) do (
+        blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+        state: HashedBeaconState):
+      # Callback add to fork choice if valid
+      node.attestationPool.addForkChoice_v2(
+        blckRef, state.data.current_justified_checkpoint.epoch,
+        state.data.finalized_checkpoint.epoch)
 
   if newBlockRef.isErr:
     warn "Unable to add proposed block to block pool",

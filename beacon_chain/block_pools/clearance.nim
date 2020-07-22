@@ -36,13 +36,13 @@ func getOrResolve*(dag: CandidateChains, quarantine: var Quarantine, root: Eth2D
 
 proc addRawBlock*(
       dag: var CandidateChains, quarantine: var Quarantine,
-      signedBlock: SignedBeaconBlock, callback: proc(blck: BlockRef)
+      signedBlock: SignedBeaconBlock, onBlockAdded: OnBlockAdded
      ): Result[BlockRef, BlockError]
 
 proc addResolvedBlock(
        dag: var CandidateChains, quarantine: var Quarantine,
-       state: BeaconState, signedBlock: SignedBeaconBlock, parent: BlockRef,
-       callback: proc(blck: BlockRef)
+       state: HashedBeaconState, signedBlock: SignedBeaconBlock, parent: BlockRef,
+       onBlockAdded: OnBlockAdded
      ): BlockRef =
   # TODO: `addResolvedBlock` is accumulating significant cruft
   # and is in dire need of refactoring
@@ -50,13 +50,13 @@ proc addResolvedBlock(
   # - the callback
   # - callback may be problematic as it's called in async validator duties
   logScope: pcs = "block_resolution"
-  doAssert state.slot == signedBlock.message.slot, "state must match block"
+  doAssert state.data.slot == signedBlock.message.slot, "state must match block"
 
   let
     blockRoot = signedBlock.root
     blockRef = BlockRef.init(blockRoot, signedBlock.message)
   blockRef.epochsInfo = filterIt(parent.epochsInfo,
-    it.epoch + 1 >= state.slot.compute_epoch_at_slot)
+    it.epoch + 1 >= state.data.slot.compute_epoch_at_slot)
   link(parent, blockRef)
 
   dag.blocks[blockRoot] = blockRef
@@ -68,7 +68,7 @@ proc addResolvedBlock(
   # This block *might* have caused a justification - make sure we stow away
   # that information:
   let justifiedSlot =
-    state.current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
+    state.data.current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
 
   var foundHead: Option[Head]
   for head in dag.heads.mitems():
@@ -94,7 +94,8 @@ proc addResolvedBlock(
     heads = dag.heads.len()
 
   # This MUST be added before the quarantine
-  callback(blockRef)
+  if onBlockAdded != nil:
+    onBlockAdded(blockRef, signedBlock, state)
 
   # Now that we have the new block, we should see if any of the previously
   # unresolved blocks magically become resolved
@@ -110,7 +111,7 @@ proc addResolvedBlock(
     while keepGoing:
       let retries = quarantine.orphans
       for _, v in retries:
-        discard addRawBlock(dag, quarantine, v, callback)
+        discard addRawBlock(dag, quarantine, v, onBlockAdded)
       # Keep going for as long as the pending dag is shrinking
       # TODO inefficient! so what?
       keepGoing = quarantine.orphans.len < retries.len
@@ -120,7 +121,7 @@ proc addResolvedBlock(
 proc addRawBlock*(
        dag: var CandidateChains, quarantine: var Quarantine,
        signedBlock: SignedBeaconBlock,
-       callback: proc(blck: BlockRef)
+       onBlockAdded: OnBlockAdded
      ): Result[BlockRef, BlockError] =
   ## return the block, if resolved...
 
@@ -213,16 +214,16 @@ proc addRawBlock*(
       notice "Invalid block"
 
       return err Invalid
-    # Careful, clearanceState.data has been updated but not blck - we need to create
-    # the BlockRef first!
+
+    # Careful, clearanceState.data has been updated but not blck - we need to
+    # create the BlockRef first!
     dag.clearanceState.blck = addResolvedBlock(
-      dag, quarantine,
-      dag.clearanceState.data.data, signedBlock, parent,
-      callback
+      dag, quarantine, dag.clearanceState.data, signedBlock, parent,
+      onBlockAdded
     )
+
     dag.putState(dag.clearanceState.data, dag.clearanceState.blck)
 
-    callback(dag.clearanceState.blck)
     return ok dag.clearanceState.blck
 
   # TODO already checked hash though? main reason to keep this is because
