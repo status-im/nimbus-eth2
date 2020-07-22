@@ -135,7 +135,9 @@ proc createAndSendAttestation(node: BeaconNode,
                               num_active_validators: uint64) {.async.} =
   logScope: pcs = "send_attestation"
 
-  var attestation = await validator.produceAndSignAttestation(attestationData, committeeLen, indexInCommittee, fork, genesis_validators_root)
+  var attestation = await validator.produceAndSignAttestation(
+    attestationData, committeeLen, indexInCommittee, fork,
+    genesis_validators_root)
 
   node.sendAttestation(attestation, num_active_validators)
 
@@ -229,8 +231,8 @@ proc proposeSignedBlock*(node: BeaconNode,
         state: HashedBeaconState):
       # Callback add to fork choice if valid
       node.attestationPool.addForkChoice_v2(
-        blckRef, state.data.current_justified_checkpoint.epoch,
-        state.data.finalized_checkpoint.epoch)
+        state.data, blckRef, signedBlock.message,
+        node.beaconClock.now().slotOrZero())
 
   if newBlockRef.isErr:
     warn "Unable to add proposed block to block pool",

@@ -168,6 +168,9 @@ template headState*(pool: BlockPool): StateData =
 template tmpState*(pool: BlockPool): StateData =
   pool.dag.tmpState
 
+template balanceState*(pool: BlockPool): StateData =
+  pool.dag.balanceState
+
 template justifiedState*(pool: BlockPool): StateData =
   pool.dag.justifiedState
 

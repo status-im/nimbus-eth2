@@ -64,7 +64,7 @@ proc updateHead*(node: BeaconNode): BlockRef =
   node.attestationPool.resolve()
 
   # Grab the new head according to our latest attestation data
-  let newHead = node.attestationPool.selectHead()
+  let newHead = node.attestationPool.selectHead(node.beaconClock.now().slotOrZero())
 
   # Store the new head in the block pool - this may cause epochs to be
   # justified and finalized
@@ -75,7 +75,7 @@ proc updateHead*(node: BeaconNode): BlockRef =
 
   # Cleanup the fork choice v2 if we have a finalized head
   if oldFinalized != node.blockPool.finalizedHead.blck:
-    node.attestationPool.pruneBefore(node.blockPool.finalizedHead.blck)
+    node.attestationPool.prune()
 
   newHead
 

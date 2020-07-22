@@ -302,6 +302,7 @@ proc init*(T: type CandidateChains,
     justifiedState: tmpState[], # This is wrong but we'll update it below
     tmpState: tmpState[],
     clearanceState: tmpState[],
+    balanceState: tmpState[],
 
     # The only allowed flag right now is verifyFinalization, as the others all
     # allow skipping some validation.
@@ -314,31 +315,13 @@ proc init*(T: type CandidateChains,
   res.updateStateData(res.justifiedState, justifiedHead)
   res.updateStateData(res.headState, headRef.atSlot(headRef.slot))
   res.clearanceState = res.headState
+  res.balanceState = res.justifiedState
 
   info "Block dag initialized",
     head = head.blck, justifiedHead, finalizedHead, tail = tailRef,
     totalBlocks = blocks.len
 
   res
-
-iterator topoSortedSinceLastFinalization*(dag: CandidateChains): BlockRef =
-  ## Iterate on the dag in topological order
-  # TODO: this uses "children" for simplicity
-  #       but "children" should be deleted as it introduces cycles
-  #       that causes significant overhead at least and leaks at worst
-  #       for the GC.
-  # This is not perf critical, it is only used to bootstrap the fork choice.
-  var visited: HashSet[BlockRef]
-  var stack: seq[BlockRef]
-
-  stack.add dag.finalizedHead.blck
-
-  while stack.len != 0:
-    let node = stack.pop()
-    if node notin visited:
-      visited.incl node
-      stack.add node.children
-      yield node
 
 proc getState(
     dag: CandidateChains, db: BeaconChainDB, stateRoot: Eth2Digest, blck: BlockRef,

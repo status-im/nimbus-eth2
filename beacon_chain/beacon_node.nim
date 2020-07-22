@@ -326,8 +326,9 @@ proc storeBlock(
         state: HashedBeaconState):
       # Callback add to fork choice if valid
       node.attestationPool.addForkChoice_v2(
-        blckRef, state.data.current_justified_checkpoint.epoch,
-        state.data.finalized_checkpoint.epoch)
+        state.data, blckRef, signedBlock.message,
+        node.beaconClock.now().slotOrZero())
+
 
   node.dumpBlock(signedBlock, blck)
 

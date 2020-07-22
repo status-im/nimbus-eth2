@@ -60,7 +60,7 @@ type
       prune_threshold*: int
       expected_len*: int
 
-func apply(ctx: var ForkChoice, id: int, op: Operation) =
+func apply(ctx: var ForkChoiceBackend, id: int, op: Operation) =
   ## Apply the specified operation to a ForkChoice context
   ## ``id`` is additional debugging info. It is the
   ## operation index.
@@ -104,7 +104,7 @@ func apply(ctx: var ForkChoice, id: int, op: Operation) =
       &"prune (op #{id}): the resulting length ({ctx.proto_array.nodes.len}) was not expected ({op.expected_len})"
     debugEcho "    Maybe_pruned block preceding finalized block 0x", op.finalized_root
 
-func run*(ctx: var ForkChoice, ops: seq[Operation]) =
+func run*(ctx: var ForkChoiceBackend, ops: seq[Operation]) =
   ## Apply a sequence of fork-choice operations on a store
   for i, op in ops:
     ctx.apply(i, op)
