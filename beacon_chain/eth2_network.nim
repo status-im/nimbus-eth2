@@ -745,18 +745,14 @@ proc connectWorker(network: Eth2Node, bootstrapPeerIDs: seq[PeerID]) {.async.} =
             debug "Unable to establish connection with peer", peer = remotePeerInfo.id,
                   errMsg = fut.readError().msg
             inc nbc_failed_dials
-            if remotePeerInfo.peerId in bootstrapPeerIDs:
-              # keep trying
-              await network.connQueue.addLast(remotePeerInfo)
-            else:
+            if remotePeerInfo.peerId notIn bootstrapPeerIDs:
+              # we want to keep retrying bootstrap nodes
               network.addSeen(remotePeerInfo, SeenTableTimeDeadPeer)
           continue
         debug "Connection to remote peer timed out", peer = remotePeerInfo.id
         inc nbc_timeout_dials
-        if remotePeerInfo.peerId in bootstrapPeerIDs:
-          # keep trying
-          await network.connQueue.addLast(remotePeerInfo)
-        else:
+        if remotePeerInfo.peerId notIn bootstrapPeerIDs:
+          # we want to keep retrying bootstrap nodes
           network.addSeen(remotePeerInfo, SeenTableTimeTimeout)
       finally:
         network.connTable.del(remotePeerInfo.peerId)
