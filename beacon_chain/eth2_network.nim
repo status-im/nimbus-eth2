@@ -23,7 +23,7 @@ import
   # Beacon node modules
   version, conf, eth2_discovery, libp2p_json_serialization, conf,
   ssz/ssz_serialization,
-  peer_pool, spec/[datatypes, network]
+  peer_pool, spec/[datatypes, network], ./time
 
 export
   version, multiaddress, peer_pool, peerinfo, p2pProtocol,
@@ -1147,8 +1147,19 @@ proc announcedENR*(node: Eth2Node): enr.Record =
 proc shortForm*(id: KeyPair): string =
   $PeerID.init(id.pubkey)
 
+let BOOTSTRAP_NODE_CHECK_INTERVAL = 30.seconds
+proc checkIfConnectedToBootstrapNode(p: pointer) {.gcsafe.} =
+  # Keep showing warnings until we connect to at least one bootstrap node
+  # successfully, in order to allow detection of an invalid configuration.
+  let node = cast[Eth2Node](p)
+  if node.discovery.bootstrapRecords.len > 0 and nbc_successful_dials.value == 0:
+    warn "Failed to connect to any bootstrap node",
+      bootstrapEnrs = node.discovery.bootstrapRecords
+    addTimer(BOOTSTRAP_NODE_CHECK_INTERVAL, checkIfConnectedToBootstrapNode, p)
+
 proc startLookingForPeers*(node: Eth2Node) {.async.} =
   await node.start()
+  addTimer(BOOTSTRAP_NODE_CHECK_INTERVAL, checkIfConnectedToBootstrapNode, node[].addr)
 
 func peersCount*(node: Eth2Node): int =
   len(node.peerPool)
