@@ -101,13 +101,16 @@ func get_shuffled_active_validator_indices*(
     validator_indices
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_previous_epoch
-func get_previous_epoch*(state: BeaconState): Epoch =
+func get_previous_epoch*(current_epoch: Epoch): Epoch =
   # Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
-  let current_epoch = get_current_epoch(state)
   if current_epoch == GENESIS_EPOCH:
     current_epoch
   else:
     current_epoch - 1
+
+func get_previous_epoch*(state: BeaconState): Epoch =
+  # Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
+  get_previous_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_committee
 func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
