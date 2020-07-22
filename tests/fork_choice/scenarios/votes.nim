@@ -7,12 +7,12 @@
 
 # import ../interpreter # included to be able to use "suiteReport"
 
-proc setup_votes(): tuple[fork_choice: ForkChoice, ops: seq[Operation]] =
+proc setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   var balances = @[Gwei(1), Gwei(1)]
   let GenesisRoot = fakeHash(0)
 
   # Initialize the fork choice context
-  result.fork_choice = initForkChoice(
+  result.fork_choice = initForkChoiceBackend(
     justified_epoch = Epoch(1),
     finalized_epoch = Epoch(1),
     finalized_root = GenesisRoot

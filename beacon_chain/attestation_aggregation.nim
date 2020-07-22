@@ -175,7 +175,7 @@ proc isValidAttestation*(
           attestation.data.slot, attestation.data.index.CommitteeIndex)
 
     if requiredSubnetIndex != topicCommitteeIndex:
-      debug "isValidAttestation: attestation's committee index not for the correct subnet",
+      debug "attestation's committee index not for the correct subnet",
         topicCommitteeIndex = topicCommitteeIndex,
         attestation_data_index = attestation.data.index,
         requiredSubnetIndex = requiredSubnetIndex
@@ -199,6 +199,9 @@ proc isValidAggregatedAttestation*(
     aggregate_and_proof = signedAggregateAndProof.message
     aggregate = aggregate_and_proof.aggregate
 
+  logScope:
+    aggregate = shortLog(aggregate)
+
   # There's some overlap between this and isValidAttestation(), but unclear if
   # saving a few lines of code would balance well with losing straightforward,
   # spec-based synchronization.
@@ -209,7 +212,7 @@ proc isValidAggregatedAttestation*(
   # ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= aggregate.data.slot
   if not (aggregate.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >=
       current_slot and current_slot >= aggregate.data.slot):
-    debug "isValidAggregatedAttestation: aggregation.data.slot not within ATTESTATION_PROPAGATION_SLOT_RANGE"
+    debug "aggregation.data.slot not within ATTESTATION_PROPAGATION_SLOT_RANGE"
     return false
 
   # [IGNORE] The valid aggregate attestation defined by
@@ -231,7 +234,7 @@ proc isValidAggregatedAttestation*(
   # passes validation.
   let attestationBlck = pool.blockPool.getRef(aggregate.data.beacon_block_root)
   if attestationBlck.isNil:
-    debug "isValidAggregatedAttestation: block doesn't exist in block pool"
+    debug "Block not found"
     pool.blockPool.addMissing(aggregate.data.beacon_block_root)
     return false
 
@@ -249,7 +252,7 @@ proc isValidAggregatedAttestation*(
   # But (2) would reflect an invalid aggregation in other ways, so reject it
   # either way.
   if isZeros(aggregate.aggregation_bits):
-    debug "isValidAggregatedAttestation: attestation has no or invalid aggregation bits"
+    debug "Attestation has no or invalid aggregation bits"
     return false
 
   if not isValidAttestationSlot(pool, aggregate.data.slot, attestationBlck):
@@ -267,7 +270,7 @@ proc isValidAggregatedAttestation*(
     if not is_aggregator(
         state, aggregate.data.slot, aggregate.data.index.CommitteeIndex,
         aggregate_and_proof.selection_proof, cache):
-      debug "isValidAggregatedAttestation: incorrect aggregator"
+      debug "Incorrect aggregator"
       return false
 
     # [REJECT] The aggregator's validator index is within the committee -- i.e.
@@ -276,7 +279,7 @@ proc isValidAggregatedAttestation*(
     if aggregate_and_proof.aggregator_index.ValidatorIndex notin
         get_beacon_committee(
           state, aggregate.data.slot, aggregate.data.index.CommitteeIndex, cache):
-      debug "isValidAggregatedAttestation: aggregator's validator index not in committee"
+      debug "Aggregator's validator index not in committee"
       return false
 
     # [REJECT] The aggregate_and_proof.selection_proof is a valid signature of the
@@ -284,14 +287,14 @@ proc isValidAggregatedAttestation*(
     # aggregate_and_proof.aggregator_index.
     # get_slot_signature(state, aggregate.data.slot, privkey)
     if aggregate_and_proof.aggregator_index >= state.validators.len.uint64:
-      debug "isValidAggregatedAttestation: invalid aggregator_index"
+      debug "Invalid aggregator_index"
       return false
 
     if not verify_slot_signature(
         state.fork, state.genesis_validators_root, aggregate.data.slot,
         state.validators[aggregate_and_proof.aggregator_index].pubkey,
         aggregate_and_proof.selection_proof):
-      debug "isValidAggregatedAttestation: selection_proof signature verification failed"
+      debug "Selection_proof signature verification failed"
       return false
 
     # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
@@ -299,14 +302,13 @@ proc isValidAggregatedAttestation*(
         state.fork, state.genesis_validators_root, aggregate_and_proof,
         state.validators[aggregate_and_proof.aggregator_index].pubkey,
         signed_aggregate_and_proof.signature):
-      debug "isValidAggregatedAttestation: signed_aggregate_and_proof signature verification failed"
+      debug "Signed_aggregate_and_proof signature verification failed"
       return false
 
     # [REJECT] The signature of aggregate is valid.
     if not is_valid_indexed_attestation(
         state, get_indexed_attestation(state, aggregate, cache), {}):
-      debug "isValidAggregatedAttestation: aggregate signature verification failed"
+      debug "Aggregate signature verification failed"
       return false
 
-  debug "isValidAggregatedAttestation: succeeded"
   true
