@@ -153,7 +153,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     if (state[].data.slot).isEpoch:
       echo &" slot: {shortLog(state[].data.slot)} ",
-        &"epoch: {shortLog(state[].data.slot.compute_epoch_at_slot)}"
+        &"epoch: {shortLog(state[].data.get_current_epoch())}"
 
 
   maybeWrite(true) # catch that last state as well..

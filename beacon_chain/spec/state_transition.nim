@@ -219,7 +219,7 @@ proc state_transition*(
   #      bool return values...)
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
   doAssert stateCache.shuffled_active_validator_indices.hasKey(
-    state.data.slot.compute_epoch_at_slot)
+    state.data.get_current_epoch())
 
   if not process_slots(state, signedBlock.message.slot, flags):
     rollback(state)
@@ -265,9 +265,9 @@ proc state_transition*(
   # and fuzzing code should always be coming from blockpool which should
   # always be providing cache or equivalent
   var cache = StateCache()
-  cache.shuffled_active_validator_indices[state.data.slot.compute_epoch_at_slot] =
+  cache.shuffled_active_validator_indices[state.data.get_current_epoch()] =
     get_shuffled_active_validator_indices(
-      state.data, state.data.slot.compute_epoch_at_slot)
+      state.data, state.data.get_current_epoch())
   state_transition(preset, state, signedBlock, cache, flags, rollback)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#preparing-for-a-beaconblock

@@ -68,16 +68,18 @@ proc updateHead*(node: BeaconNode): BlockRef =
 
   # Store the new head in the block pool - this may cause epochs to be
   # justified and finalized
+  let oldFinalized = node.blockPool.finalizedHead.blck
+
   node.blockPool.updateHead(newHead)
   beacon_head_root.set newHead.root.toGaugeValue
 
-  # TODO - deactivated
   # Cleanup the fork choice v2 if we have a finalized head
-  # node.attestationPool.pruneBefore(node.blockPool.finalizedHead)
+  if oldFinalized != node.blockPool.finalizedHead.blck:
+    node.attestationPool.pruneBefore(node.blockPool.finalizedHead.blck)
 
   newHead
 
-template findIt*(s: openarray, predicate: untyped): int64 =
+template findIt*(s: openarray, predicate: untyped): int =
   var res = -1
   for i, it {.inject.} in s:
     if predicate:

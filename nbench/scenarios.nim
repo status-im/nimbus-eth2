@@ -188,7 +188,7 @@ template processEpochScenarioImpl(
 
   when needCache:
     var cache = StateCache()
-    let epoch = state.data.slot.compute_epoch_at_slot
+    let epoch = state.data.get_current_epoch()
     cache.shuffled_active_validator_indices[epoch] =
       get_shuffled_active_validator_indices(state.data, epoch)
 

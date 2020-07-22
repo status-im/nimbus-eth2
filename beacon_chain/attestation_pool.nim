@@ -541,7 +541,7 @@ func getAttesterBalances(state: StateData): seq[Gwei] {.noInit.}=
   ## Get the balances from a state
   result.newSeq(state.data.data.validators.len) # zero-init
 
-  let epoch = state.data.data.slot.compute_epoch_at_slot()
+  let epoch = state.data.data.get_current_epoch()
 
   for i in 0 ..< result.len:
     # All non-active validators have a 0 balance
@@ -553,7 +553,7 @@ proc selectHead_v2(pool: var AttestationPool): BlockRef =
   let attesterBalances = pool.blockPool.justifiedState.getAttesterBalances()
 
   let newHead = pool.forkChoice_v2.find_head(
-    justified_epoch = pool.blockPool.justifiedState.data.data.slot.compute_epoch_at_slot(),
+    justified_epoch = pool.blockPool.justifiedState.data.data.get_current_epoch(),
     justified_root = pool.blockPool.head.justified.blck.root,
     finalized_epoch = pool.blockPool.headState.data.data.finalized_checkpoint.epoch,
     justified_state_balances = attesterBalances
@@ -565,8 +565,8 @@ proc selectHead_v2(pool: var AttestationPool): BlockRef =
   else:
     pool.blockPool.getRef(newHead.get())
 
-proc pruneBefore*(pool: var AttestationPool, finalizedhead: BlockSlot) =
-  if (let v = pool.forkChoice_v2.maybe_prune(finalizedHead.blck.root); v.isErr):
+proc pruneBefore*(pool: var AttestationPool, finalizedHead: BlockRef) =
+  if (let v = pool.forkChoice_v2.maybe_prune(finalizedHead.root); v.isErr):
     error "Pruning failed", err = v.error() # TODO should never happen
 
 # Dual-Headed Fork choice
