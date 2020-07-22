@@ -425,7 +425,7 @@ proc broadcastAggregatedAttestations(
 
 proc handleValidatorDuties*(
     node: BeaconNode, lastSlot, slot: Slot) {.async.} =
-  ## Perform validator duties - create blocks, vote and aggreagte existing votes
+  ## Perform validator duties - create blocks, vote and aggregate existing votes
   var head = node.updateHead()
   if node.attachedValidators.count == 0:
     # Nothing to do because we have no validator attached

@@ -10,7 +10,7 @@
 
 import
   algorithm, options, sequtils, math, tables, sets,
-  ./datatypes, ./digest, ./helpers
+  ./datatypes, ./digest, ./helpers, ./network
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_shuffled_index
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_committee
@@ -274,17 +274,14 @@ func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache):
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#validator-assignments
 func get_committee_assignment*(
     state: BeaconState, epoch: Epoch,
-    validator_indices: HashSet[ValidatorIndex]):
-    Option[tuple[a: seq[ValidatorIndex], b: CommitteeIndex, c: Slot]] {.used.} =
+    validator_index: ValidatorIndex):
+    Option[tuple[a: seq[ValidatorIndex], b: CommitteeIndex, c: Slot]] =
   # Return the committee assignment in the ``epoch`` for ``validator_index``.
   # ``assignment`` returned is a tuple of the following form:
   #     * ``assignment[0]`` is the list of validators in the committee
   #     * ``assignment[1]`` is the index to which the committee is assigned
   #     * ``assignment[2]`` is the slot at which the committee is assigned
   # Return None if no assignment.
-  #
-  # Slightly adapted from spec version to support multiple validator indices,
-  # since each beacon_node supports many validators.
   let next_epoch = get_current_epoch(state) + 1
   doAssert epoch <= next_epoch
 
@@ -295,9 +292,31 @@ func get_committee_assignment*(
     for index in 0 ..< get_committee_count_at_slot(state, slot):
       let idx = index.CommitteeIndex
       let committee = get_beacon_committee(state, slot, idx, cache)
-      if not disjoint(validator_indices, toHashSet(committee)):
+      if validator_index in committee:
         return some((committee, idx, slot))
   none(tuple[a: seq[ValidatorIndex], b: CommitteeIndex, c: Slot])
+
+func get_committee_assignments*(
+    state: BeaconState, epoch: Epoch,
+    validator_indices: HashSet[ValidatorIndex]):
+    seq[tuple[subnetIndex: uint64, slot: Slot]] =
+  let next_epoch = get_current_epoch(state) + 1
+  doAssert epoch <= next_epoch
+
+  var cache = StateCache()
+  let start_slot = compute_start_slot_at_epoch(epoch)
+
+  # get_committee_count_at_slot is constant throughout an epoch
+  let committee_count_at_slot = get_committee_count_at_slot(state, start_slot)
+
+  for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
+    for index in 0 ..< committee_count_at_slot:
+      let idx = index.CommitteeIndex
+      if not disjoint(validator_indices,
+          get_beacon_committee(state, slot, idx, cache).toHashSet):
+        result.add(
+          (compute_subnet_for_attestation(committee_count_at_slot, slot, idx),
+            slot))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#validator-assignments
 func is_proposer(
