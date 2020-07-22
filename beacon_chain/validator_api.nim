@@ -160,7 +160,8 @@ proc stateIdToBlockSlot(node: BeaconNode, stateId: string): BlockSlot =
     of "finalized":
       node.blockPool.finalizedHead
     of "justified":
-      node.blockPool.justifiedState.blck.toBlockSlot()
+      node.blockPool.justifiedState.blck.atSlot(
+        node.blockPool.justifiedState.data.data.slot)
     else:
       if stateId.startsWith("0x"):
         let blckRoot = parseRoot(stateId)

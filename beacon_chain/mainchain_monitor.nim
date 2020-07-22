@@ -506,8 +506,8 @@ proc createBeaconStateAux(preset: RuntimePreset,
                                              eth1Block.voteData.block_hash,
                                              eth1Block.timestamp.uint64,
                                              deposits, {})
-  let activeValidators = get_active_validator_indices(result[], GENESIS_EPOCH)
-  eth1Block.knownGoodDepositsCount = some len(activeValidators).uint64
+  let activeValidators = count_active_validator_indices(result[], GENESIS_EPOCH)
+  eth1Block.knownGoodDepositsCount = some activeValidators.uint64
 
 proc createBeaconState(m: MainchainMonitor, eth1Block: Eth1Block): BeaconStateRef =
   createBeaconStateAux(
