@@ -4,8 +4,7 @@
   ../beacon_chain/[beacon_chain_db, block_pool, extras],
   ../beacon_chain/spec/[crypto, datatypes, digest, helpers,
                         state_transition, validator, presets],
-  ../beacon_chain/sszdump, ../beacon_chain/ssz/merkleization,
-  ../research/simutils,
+  ../beacon_chain/sszdump, ../research/simutils,
   eth/db/[kvstore, kvstore_sqlite3]
 
 type Timers = enum

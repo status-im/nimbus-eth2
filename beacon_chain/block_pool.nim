@@ -194,7 +194,9 @@ template withEpochState*(
 
   withEpochState(pool.dag, cache, blockSlot, body)
 
-proc updateStateData*(pool: BlockPool, state: var StateData, bs: BlockSlot) =
+proc updateStateData*(
+    pool: BlockPool, state: var StateData, bs: BlockSlot,
+    matchEpoch: bool = false) =
   ## Rewind or advance state such that it matches the given block and slot -
   ## this may include replaying from an earlier snapshot if blck is on a
   ## different branch or has advanced to a higher slot number than slot

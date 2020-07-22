@@ -151,7 +151,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     flushFile(stdout)
 
-    if (state[].data.slot) mod SLOTS_PER_EPOCH == 0:
+    if (state[].data.slot).isEpoch:
       echo &" slot: {shortLog(state[].data.slot)} ",
         &"epoch: {shortLog(state[].data.slot.compute_epoch_at_slot)}"
 
