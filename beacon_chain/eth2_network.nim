@@ -216,6 +216,8 @@ const
   SeemTableTimeFaultOrError* = 10.minutes
     ## Period of time for `FaultOnError` error reason.
 
+var successfullyDialledAPeer = false # used to show a warning
+
 template neterr(kindParam: Eth2NetworkingErrorKind): auto =
   err(type(result), Eth2NetworkingError(kind: kindParam))
 
@@ -718,6 +720,7 @@ proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   await performProtocolHandshakes(peer)
 
   inc nbc_successful_dials
+  successfullyDialledAPeer = true
   debug "Network handshakes completed"
 
 proc connectWorker(network: Eth2Node) {.async.} =
@@ -1140,7 +1143,7 @@ proc checkIfConnectedToBootstrapNode(p: pointer) {.gcsafe.} =
   # Keep showing warnings until we connect to at least one bootstrap node
   # successfully, in order to allow detection of an invalid configuration.
   let node = cast[Eth2Node](p)
-  if node.discovery.bootstrapRecords.len > 0 and nbc_successful_dials.value == 0:
+  if node.discovery.bootstrapRecords.len > 0 and not successfullyDialledAPeer:
     warn "Failed to connect to any bootstrap node",
       bootstrapEnrs = node.discovery.bootstrapRecords
     addTimer(BOOTSTRAP_NODE_CHECK_INTERVAL, checkIfConnectedToBootstrapNode, p)
