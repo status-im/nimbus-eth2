@@ -90,7 +90,7 @@ if [[ "$USE_PROMETHEUS" == "yes" ]]; then
     rm -rf "${METRICS_DIR}/data"
     mkdir -p "${METRICS_DIR}/data"
     # TODO: Prometheus is not shut down properly on tmux kill-session
-    killall prometheus > /dev/null || true
+    killall prometheus &>/dev/null || true
     PROMETHEUS_FLAGS="--config.file=./prometheus.yml --storage.tsdb.path=./data"
     $TMUX_CMD new-window -d -t $TMUX_SESSION_NAME -n "$PROMETHEUS_CMD" "cd '$METRICS_DIR' && $PROMETHEUS_CMD $PROMETHEUS_FLAGS"
   else
@@ -99,7 +99,7 @@ if [[ "$USE_PROMETHEUS" == "yes" ]]; then
   fi
 fi
 
-$MAKE -j3 --no-print-directory NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node validator_client
+$MAKE -j2 --no-print-directory NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node validator_client
 
 count_files () {
   { ls -1q $1 2> /dev/null || true ; } | wc -l
@@ -145,7 +145,7 @@ function run_cmd {
   if [[ "$USE_TMUX" == "yes" ]]; then
     echo "Starting node $i..."
     $TMUX_CMD select-window -t "${TMUX_SESSION_NAME}:sim"
-    $TMUX_CMD split-window -t "${TMUX_SESSION_NAME}" "if ! $CMD; then; read; fi"
+    $TMUX_CMD split-window -t "${TMUX_SESSION_NAME}" "if ! $CMD; then read; fi"
     $TMUX_CMD select-layout -t "${TMUX_SESSION_NAME}:sim" tiled
   elif [[ "$USE_MULTITAIL" != "no" ]]; then
     if [[ "$i" == "$BOOTSTRAP_NODE" ]]; then
