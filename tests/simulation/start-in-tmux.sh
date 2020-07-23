@@ -15,9 +15,12 @@ if [[ "$USE_TMUX" != "no" ]]; then
   type "$TMUX_CMD" &>/dev/null || { echo "${TMUX_CMD}" is missing; USE_TMUX="no"; }
 fi
 
+export TMUX_CMD USE_TMUX
+
 if [[ "$USE_TMUX" != "no" ]]; then
   TMUX_SESSION_NAME="${TMUX_SESSION_NAME:-nbc-sim}"
 
+  $TMUX_CMD kill-session -t "${TMUX_SESSION_NAME}" &>/dev/null || true
   $TMUX_CMD new-session -s "${TMUX_SESSION_NAME}" -d
   $TMUX_CMD setenv -t "${TMUX_SESSION_NAME}" USE_TMUX yes
 
@@ -32,7 +35,7 @@ if [[ "$USE_TMUX" != "no" ]]; then
   $TMUX_CMD new-window -d -t "${TMUX_SESSION_NAME}" -n "sim"
   $TMUX_CMD kill-pane -t "${TMUX_SESSION_NAME}:0"
 
-  $TMUX_CMD new-window -t "${TMUX_SESSION_NAME}" -n "start-script" "if ! $PWD/start.sh; then; read; tmux kill-session; fi"
+  $TMUX_CMD new-window -t "${TMUX_SESSION_NAME}" -n "start-script" "if ! $PWD/start.sh; then echo -en '\nPress any key to exit... '; read; tmux kill-session; fi"
   $TMUX_CMD select-window -t "${TMUX_SESSION_NAME}:start-script"
 
   $TMUX_CMD attach-session -t "${TMUX_SESSION_NAME}"

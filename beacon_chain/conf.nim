@@ -226,7 +226,7 @@ type
 
       lastUserValidator* {.
         defaultValue: config.totalValidators - 1,
-        desc: "The last validator index that will free for taking from a testnet participant"
+        desc: "The last validator index that will be free for taking from a testnet participant"
         name: "last-user-validator" }: uint64
 
       bootstrapAddress* {.
