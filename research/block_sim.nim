@@ -24,6 +24,7 @@ import
   ../beacon_chain/[
     attestation_pool, block_pool, beacon_node_types, beacon_chain_db,
     interop, validator_pool],
+  ../beacon_chain/block_pools/candidate_chains,
   eth/db/[kvstore, kvstore_sqlite3],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
@@ -67,8 +68,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       attestationHead = blockPool.head.blck.atSlot(slot)
 
     blockPool.withState(blockPool.tmpState, attestationHead):
-      var cache = StateCache()
-      let committees_per_slot = get_committee_count_at_slot(state, slot)
+      var cache = getEpochCache(attestationHead.blck, state)
+      let committees_per_slot = get_committee_count_per_slot(state, slot, cache)
 
       for committee_index in 0'u64..<committees_per_slot:
         let committee = get_beacon_committee(

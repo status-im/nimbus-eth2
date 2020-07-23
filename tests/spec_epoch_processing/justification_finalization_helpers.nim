@@ -39,14 +39,13 @@ proc addMockAttestations*(
     get_shuffled_active_validator_indices(state, epoch)
   var remaining_balance = state.get_total_active_balance(cache).int64 * 2 div 3
 
-  let start_slot = compute_start_slot_at_epoch(epoch)
+  let
+    start_slot = compute_start_slot_at_epoch(epoch)
+    committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
 
   # for-loop of distinct type is broken: https://github.com/nim-lang/Nim/issues/12074
   for slot in start_slot.uint64 ..< start_slot.uint64 + SLOTS_PER_EPOCH:
-    for index in 0 ..< get_committee_count_at_slot(state, slot.Slot):
-      # TODO: can we move cache out of the loops
-      var cache = StateCache()
-
+    for index in 0'u64 ..< committees_per_slot:
       let committee = get_beacon_committee(
                         state, slot.Slot, index.CommitteeIndex, cache)
 

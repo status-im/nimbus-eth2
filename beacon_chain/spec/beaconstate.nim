@@ -115,8 +115,10 @@ func compute_activation_exit_epoch*(epoch: Epoch): Epoch =
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_validator_churn_limit
 func get_validator_churn_limit(state: BeaconState, cache: var StateCache): uint64 =
   # Return the validator churn limit for the current epoch.
-  max(MIN_PER_EPOCH_CHURN_LIMIT,
-      len(cache.shuffled_active_validator_indices).uint64 div CHURN_LIMIT_QUOTIENT)
+  max(
+    MIN_PER_EPOCH_CHURN_LIMIT,
+    count_active_validators(
+      state, state.get_current_epoch(), cache) div CHURN_LIMIT_QUOTIENT)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
@@ -588,12 +590,11 @@ proc check_attestation*(
     attestation = shortLog(attestation)
   trace "process_attestation: beginning"
 
-  let committee_count_at_slot =
-    get_committee_count_at_slot(get_shuffled_active_validator_indices(
-      state, state.get_current_epoch(), stateCache).len.uint64).uint64
-  if not (data.index < committee_count_at_slot):
+  let committees_per_slot =
+    get_committee_count_per_slot(state, data.slot, stateCache)
+  if not (data.index < committees_per_slot):
     warn "Data index exceeds committee count",
-      committee_count = committee_count_at_slot
+      committee_count = committees_per_slot
     return
 
   if not isValidAttestationTargetEpoch(state.get_current_epoch(), data):

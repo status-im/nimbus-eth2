@@ -8,7 +8,7 @@
 import
   extras, beacon_chain_db,
   stew/results,
-  spec/[crypto, datatypes, digest, presets]
+  spec/[crypto, datatypes, digest, helpers, presets]
 
 
 import
@@ -212,3 +212,9 @@ proc isValidBeaconBlock*(
     current_slot: Slot, flags: UpdateFlags): Result[void, BlockError] =
   isValidBeaconBlock(
     pool.dag, pool.quarantine, signed_beacon_block, current_slot, flags)
+
+func count_active_validators*(epochInfo: EpochRef): uint64 =
+  epochInfo.shuffled_active_validator_indices.len.uint64
+
+func get_committee_count_per_slot*(epochInfo: EpochRef): uint64 =
+  get_committee_count_per_slot(count_active_validators(epochInfo))

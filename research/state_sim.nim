@@ -107,12 +107,12 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       # some variation
       let
         target_slot = state[].data.slot + MIN_ATTESTATION_INCLUSION_DELAY - 1
-        commitee_count = get_committee_count_at_slot(state[].data, target_slot)
+        committees_per_slot = get_committee_count_per_slot(state[].data, target_slot, cache)
 
       let
         scass = withTimerRet(timers[tShuffle]):
           mapIt(
-            0 ..< commitee_count.int,
+            0 ..< committees_per_slot.int,
             get_beacon_committee(state[].data, target_slot, it.CommitteeIndex, cache))
 
       for i, scas in scass:

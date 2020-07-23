@@ -154,14 +154,14 @@ func get_beacon_committee*(
       get_shuffled_active_validator_indices(state, epoch)
 
   try:
-    let committee_count = get_committee_count_at_slot(
+    let committees_per_slot = get_committee_count_per_slot(
       cache.shuffled_active_validator_indices[epoch].len.uint64)
     compute_committee(
       cache.shuffled_active_validator_indices[epoch],
       get_seed(state, epoch, DOMAIN_BEACON_ATTESTER),
-      (slot mod SLOTS_PER_EPOCH) * committee_count +
+      (slot mod SLOTS_PER_EPOCH) * committees_per_slot +
         index.uint64,
-      committee_count * SLOTS_PER_EPOCH
+      committees_per_slot * SLOTS_PER_EPOCH
     )
   except KeyError:
     raiseAssert "values are added to cache before using them"
@@ -289,7 +289,7 @@ func get_committee_assignment*(
 
   let start_slot = compute_start_slot_at_epoch(epoch)
   for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
-    for index in 0 ..< get_committee_count_at_slot(state, slot):
+    for index in 0'u64 ..< get_committee_count_per_slot(state, slot, cache):
       let idx = index.CommitteeIndex
       let committee = get_beacon_committee(state, slot, idx, cache)
       if validator_index in committee:
@@ -306,16 +306,17 @@ func get_committee_assignments*(
   var cache = StateCache()
   let start_slot = compute_start_slot_at_epoch(epoch)
 
-  # get_committee_count_at_slot is constant throughout an epoch
-  let committee_count_at_slot = get_committee_count_at_slot(state, start_slot)
+  # get_committee_count_per_slot is constant throughout an epoch
+  let committees_per_slot =
+    get_committee_count_per_slot(state, start_slot, cache)
 
   for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
-    for index in 0 ..< committee_count_at_slot:
+    for index in 0'u64 ..< committees_per_slot:
       let idx = index.CommitteeIndex
       if not disjoint(validator_indices,
           get_beacon_committee(state, slot, idx, cache).toHashSet):
         result.add(
-          (compute_subnet_for_attestation(committee_count_at_slot, slot, idx),
+          (compute_subnet_for_attestation(committees_per_slot, slot, idx),
             slot))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#validator-assignments
