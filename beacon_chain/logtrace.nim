@@ -36,9 +36,9 @@ type
       name: "sim-dir",
       defaultValue: "" }: string
 
-    buildDir* {.
+    netDir* {.
       desc: "Specifies path to network build directory",
-      name: "build-dir",
+      name: "net-dir",
       defaultValue: "" }: string
 
     nodes* {.
@@ -393,7 +393,6 @@ proc runAttSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
   var srnodes = newSeq[SRANode]()
 
   for node in nodes:
-    var logs = newSeq[SRAttMessage]()
     var srnode = SRANode(
       directory: node,
       sends: newSeq[AttestationSentMessage](),
@@ -448,8 +447,8 @@ proc run(conf: LogTraceConf) =
       logFiles.add(item)
     logNodes = getDirectoryLogFiles(conf.simDir, conf.nodes)
 
-  if len(conf.buildDir) > 0:
-    logNodes = getDirectoryLogFiles(conf.buildDir, conf.nodes)
+  if len(conf.netDir) > 0:
+    logNodes = getDirectoryLogFiles(conf.netDir, conf.nodes)
 
   if len(logFiles) == 0 and len(logNodes) == 0:
     error "Log file sources not specified or not enough log files found"
