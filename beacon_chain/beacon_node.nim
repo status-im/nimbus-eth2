@@ -325,10 +325,9 @@ proc storeBlock(
         blckRef: BlockRef, signedBlock: SignedBeaconBlock,
         state: HashedBeaconState):
       # Callback add to fork choice if valid
-      node.attestationPool.addForkChoice_v2(
+      node.attestationPool.addForkChoice(
         state.data, blckRef, signedBlock.message,
         node.beaconClock.now().slotOrZero())
-
 
   node.dumpBlock(signedBlock, blck)
 
@@ -338,13 +337,6 @@ proc storeBlock(
   if blck.isErr:
     return err(blck.error)
 
-  # The block we received contains attestations, and we might not yet know about
-  # all of them. Let's add them to the attestation pool.
-  for attestation in signedBlock.message.body.attestations:
-    debug "Attestation from block",
-      attestation = shortLog(attestation)
-
-    node.attestationPool.addAttestation(attestation)
   ok()
 
 proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) =

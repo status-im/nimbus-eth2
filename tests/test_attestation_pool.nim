@@ -170,7 +170,7 @@ suiteReport "Attestation pool processing" & preset():
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
-        pool[].addForkChoice_v2(state.data, blckRef, signedBlock.message, blckRef.slot)
+        pool[].addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
 
 
     let head = pool[].selectHead(b1Add[].slot)
@@ -184,7 +184,7 @@ suiteReport "Attestation pool processing" & preset():
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
-        pool[].addForkChoice_v2(state.data, blckRef, signedBlock.message, blckRef.slot)
+        pool[].addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
 
     let head2 = pool[].selectHead(b2Add[].slot)
 
@@ -199,7 +199,7 @@ suiteReport "Attestation pool processing" & preset():
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
-        pool[].addForkChoice_v2(state.data, blckRef, signedBlock.message, blckRef.slot)
+        pool[].addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
 
     let head = pool[].selectHead(b10Add[].slot)
 
@@ -214,7 +214,7 @@ suiteReport "Attestation pool processing" & preset():
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
-        pool[].addForkChoice_v2(state.data, blckRef, signedBlock.message, blckRef.slot)
+        pool[].addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
 
       bc1 = get_beacon_committee(
         state.data.data, state.data.data.slot, 1.CommitteeIndex, cache)
@@ -234,15 +234,11 @@ suiteReport "Attestation pool processing" & preset():
     pool[].addAttestation(attestation1)
 
     let head3 = pool[].selectHead(b10Add[].slot)
-    # Warning - the tiebreak are incorrect and guaranteed consensus fork, it should be bigger
-    let smaller = if b10.root.data < b11.root.data: b10Add else: b11Add
+    let bigger = if b11.root.data < b10.root.data: b10Add else: b11Add
 
     check:
       # Ties broken lexicographically in spec -> ?
-      # all implementations favor the biggest root
-      # TODO
-      # currently using smaller as we have used for over a year
-      head3 == smaller[]
+      head3 == bigger[]
 
     pool[].addAttestation(attestation2)
 
@@ -260,7 +256,7 @@ suiteReport "Attestation pool processing" & preset():
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
-        pool[].addForkChoice_v2(state.data, blckRef, signedBlock.message, blckRef.slot)
+        pool[].addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
 
     let head = pool[].selectHead(b10Add[].slot)
 
@@ -274,7 +270,7 @@ suiteReport "Attestation pool processing" & preset():
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
-        pool[].addForkChoice_v2(state.data, blckRef, signedBlock.message, blckRef.slot)
+        pool[].addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
 
     doAssert: b10Add_clone.error == Duplicate
 
@@ -288,7 +284,7 @@ suiteReport "Attestation pool processing" & preset():
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
-        pool[].addForkChoice_v2(state.data, blckRef, signedBlock.message, blckRef.slot)
+        pool[].addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
 
     let head = pool[].selectHead(b10Add[].slot)
 
@@ -321,14 +317,18 @@ suiteReport "Attestation pool processing" & preset():
             blckRef: BlockRef, signedBlock: SignedBeaconBlock,
             state: HashedBeaconState):
           # Callback add to fork choice if valid
-          pool[].addForkChoice_v2(state.data, blckRef, signedBlock.message, blckRef.slot)
+          pool[].addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
 
         let head = pool[].selectHead(blockRef[].slot)
         doassert: head == blockRef[]
         blockPool[].updateHead(head)
 
         attestations.setlen(0)
+<<<<<<< HEAD
         for index in 0'u64 ..< get_committee_count_per_slot(state.data.data, slot.Slot, cache):
+=======
+        for index in 0 ..< get_committee_count_at_slot(state.data.data, slot):
+>>>>>>> 405410aa... switch to fork choice v2
           let committee = get_beacon_committee(
               state.data.data, state.data.data.slot, index.CommitteeIndex, cache)
 
@@ -355,13 +355,13 @@ suiteReport "Attestation pool processing" & preset():
     doAssert: blockPool[].finalizedHead.slot != 0
 
     pool[].prune()
-    doAssert: b10.root notin pool.forkChoice_v2.backend
+    doAssert: b10.root notin pool.forkChoice.backend
 
     # Add back the old block to ensure we have a duplicate error
     let b10Add_clone = blockpool[].addRawBlock(b10_clone) do (
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
-        pool[].addForkChoice_v2(state.data, blckRef, signedBlock.message, blckRef.slot)
+        pool[].addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
 
     doAssert: b10Add_clone.error == Duplicate

@@ -153,9 +153,6 @@ type
     parent*: BlockRef ##\
     ## Not nil, except for the tail
 
-    children*: seq[BlockRef]
-    # TODO do we strictly need this?
-
     slot*: Slot # TODO could calculate this by walking to root, but..
 
     epochsInfo*: seq[EpochRef]

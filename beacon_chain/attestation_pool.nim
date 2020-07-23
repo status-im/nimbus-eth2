@@ -63,7 +63,7 @@ proc init*(T: type AttestationPool, blockPool: BlockPool): T =
     mapSlotsToAttestations: initDeque[AttestationsSeen](),
     blockPool: blockPool,
     unresolved: initTable[Eth2Digest, UnresolvedAttestation](),
-    forkChoice_v2: forkChoice
+    forkChoice: forkChoice
   )
 
 proc combine*(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
@@ -138,22 +138,12 @@ proc slotIndex(
 
   int(attestationSlot - pool.startingSlot)
 
-func updateLatestVotes(
-    pool: var AttestationPool, state: BeaconState, attestationSlot: Slot,
-    participants: seq[ValidatorIndex], blck: BlockRef, targetEpoch: Epoch) =
-
+func processAttestation(
+    pool: var AttestationPool, state: BeaconState,
+    participants: seq[ValidatorIndex], block_root: Eth2Digest, target_epoch: Epoch) =
   for validator in participants:
-    # ForkChoice v1
-    let
-      pubKey = state.validators[validator].pubkey
-      current = pool.latestAttestations.getOrDefault(pubKey)
-    # TODO using attestationSlot here is wrong, it should be target epoch -
-    #      clean this up
-    if current.isNil or current.slot < attestationSlot:
-      pool.latestAttestations[pubKey] = blck
-
     # ForkChoice v2
-    pool.forkChoice_v2.process_attestation(validator, blck.root, targetEpoch)
+    pool.forkChoice.process_attestation(validator, block_root, target_epoch)
 
 func addUnresolved(pool: var AttestationPool, attestation: Attestation) =
   pool.unresolved[attestation.data.beacon_block_root] =
@@ -249,9 +239,8 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
           not it.aggregation_bits.isSubsetOf(validation.aggregation_bits))
 
         a.validations.add(validation)
-        pool.updateLatestVotes(
-          state, attestationSlot, participants, a.blck,
-          attestation.data.target.epoch)
+        pool.processAttestation(
+          state, participants, a.blck.root, attestation.data.target.epoch)
 
         info "Attestation resolved",
           attestation = shortLog(attestation),
@@ -269,8 +258,8 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
       blck: blck,
       validations: @[validation]
     ))
-    pool.updateLatestVotes(
-      state, attestationSlot, participants, blck, attestation.data.target.epoch)
+    pool.processAttestation(
+      state, participants, blck.root, attestation.data.target.epoch)
 
     info "Attestation resolved",
       attestation = shortLog(attestation),
@@ -293,10 +282,15 @@ proc addAttestation*(pool: var AttestationPool, attestation: Attestation) =
 
   pool.addResolved(blck, attestation)
 
-proc addForkChoice_v2*(pool: var AttestationPool, state: BeaconState, blckRef: BlockRef, blck: BeaconBlock, wallSlot: Slot) =
+proc addForkChoice*(pool: var AttestationPool,
+                    state: BeaconState,
+                    blckRef: BlockRef,
+                    blck: BeaconBlock,
+                    wallSlot: Slot) =
   ## Add a verified block to the fork choice context
   ## The current justifiedState of the block pool is used as reference
-  let state = pool.forkChoice_v2.process_block(pool.blockPool, state, blckRef, blck, wallSlot)
+  let state = pool.forkChoice.process_block(
+    pool.blockPool, state, blckRef, blck, wallSlot)
 
   if state.isErr:
     # TODO If this happens, it is effectively a bug - the BlockRef structure
@@ -437,82 +431,8 @@ proc resolve*(pool: var AttestationPool) =
   for a in resolved:
     pool.addResolved(a.blck, a.attestation)
 
-# Fork choice v1
-# ---------------------------------------------------------------
-
-func latestAttestation(
-    pool: AttestationPool, pubKey: ValidatorPubKey): BlockRef =
-  pool.latestAttestations.getOrDefault(pubKey)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.8.4/specs/core/0_fork-choice.md
-# The structure of this code differs from the spec since we use a different
-# strategy for storing states and justification points - it should nonetheless
-# be close in terms of functionality.
-func lmdGhost(
-    pool: AttestationPool, start_state: BeaconState,
-    start_block: BlockRef): BlockRef =
-  # TODO: a Fenwick Tree datastructure to keep track of cumulated votes
-  #       in O(log N) complexity
-  #       https://en.wikipedia.org/wiki/Fenwick_tree
-  #       Nim implementation for cumulative frequencies at
-  #       https://github.com/numforge/laser/blob/990e59fffe50779cdef33aa0b8f22da19e1eb328/benchmarks/random_sampling/fenwicktree.nim
-
-  let
-    active_validator_indices =
-      get_active_validator_indices(
-        start_state, compute_epoch_at_slot(start_state.slot))
-
-  var latest_messages: seq[tuple[validator: ValidatorIndex, blck: BlockRef]]
-  for i in active_validator_indices:
-    let pubKey = start_state.validators[i].pubkey
-    if (let vote = pool.latestAttestation(pubKey); not vote.isNil):
-      latest_messages.add((i, vote))
-
-  # TODO: update to 0.10.1: https://github.com/ethereum/eth2.0-specs/pull/1589/files#diff-9fc3792aa94456eb29506fa77f77b918R143
-  template get_latest_attesting_balance(blck: BlockRef): uint64 =
-    var res: uint64
-    for validator_index, target in latest_messages.items():
-      if get_ancestor(target, blck.slot) == blck:
-        res += start_state.validators[validator_index].effective_balance
-    res
-
-  var head = start_block
-  while true:
-    if head.children.len() == 0:
-      return head
-
-    if head.children.len() == 1:
-      head = head.children[0]
-    else:
-      var
-        winner = head.children[0]
-        winCount = get_latest_attesting_balance(winner)
-
-      for i in 1..<head.children.len:
-        let
-          candidate = head.children[i]
-          candCount = get_latest_attesting_balance(candidate)
-
-        if (candCount > winCount) or
-            ((candCount == winCount and candidate.root.data < winner.root.data)):
-          winner = candidate
-          winCount = candCount
-      head = winner
-
-proc selectHead_v1(pool: AttestationPool): BlockRef =
-  let
-    justifiedHead = pool.blockPool.latestJustifiedBlock()
-
-  let newHead =
-    lmdGhost(pool, pool.blockPool.justifiedState.data.data, justifiedHead.blck)
-
-  newHead
-
-# Fork choice v2
-# ---------------------------------------------------------------
-
-proc selectHead_v2(pool: var AttestationPool, wallSlot: Slot): BlockRef =
-  let newHead = pool.forkChoice_v2.find_head(wallSlot, pool.blockPool)
+proc selectHead*(pool: var AttestationPool, wallSlot: Slot): BlockRef =
+  let newHead = pool.forkChoice.find_head(wallSlot, pool.blockPool)
 
   if newHead.isErr:
     error "Couldn't select head", err = newHead.error
@@ -521,19 +441,5 @@ proc selectHead_v2(pool: var AttestationPool, wallSlot: Slot): BlockRef =
     pool.blockPool.getRef(newHead.get())
 
 proc prune*(pool: var AttestationPool) =
-  if (let v = pool.forkChoice_v2.prune(); v.isErr):
+  if (let v = pool.forkChoice.prune(); v.isErr):
     error "Pruning failed", err = v.error() # TODO should never happen
-
-# Dual-Headed Fork choice
-# ---------------------------------------------------------------
-
-proc selectHead*(pool: var AttestationPool, wallSlot: Slot): BlockRef =
-  let head_v1 = pool.selectHead_v1()
-  let head_v2 = pool.selectHead_v2(wallSlot)
-
-  if head_v1 != head_v2:
-    error "Fork choice engines in disagreement, using block from v1.",
-      v1_block = shortLog(head_v1),
-      v2_block = shortLog(head_v2)
-
-  return head_v1
