@@ -331,7 +331,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   node.blockPool.withState(node.blockPool.tmpState, attestationHead):
     var cache = getEpochCache(attestationHead.blck, state)
     let
-      committees_per_slot = get_committee_count_at_slot(state, slot, cache)
+      committees_per_slot = get_committee_count_per_slot(state, slot, cache)
       num_active_validators =
         count_active_validators(state, slot.compute_epoch_at_slot, cache)
 
@@ -390,10 +390,10 @@ proc broadcastAggregatedAttestations(
 
   let bs = BlockSlot(blck: aggregationHead, slot: aggregationSlot)
   node.blockPool.withState(node.blockPool.tmpState, bs):
-    var cache = getEpochCache(attestationHead, state)
+    var cache = getEpochCache(aggregationHead, state)
     let
       committees_per_slot =
-        get_committee_count_at_slot(state, aggregationSlot, cache)
+        get_committee_count_per_slot(state, aggregationSlot, cache)
     for committee_index in 0'u64..<committees_per_slot:
       let committee = get_beacon_committee(
         state, aggregationSlot, committee_index.CommitteeIndex, cache)

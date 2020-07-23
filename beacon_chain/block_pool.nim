@@ -213,8 +213,8 @@ proc isValidBeaconBlock*(
   isValidBeaconBlock(
     pool.dag, pool.quarantine, signed_beacon_block, current_slot, flags)
 
-func count_active_validators*(epochInfo: EpochRef): int =
-  epochInfo.shuffled_active_validator_indices.len
+func count_active_validators*(epochInfo: EpochRef): uint64 =
+  epochInfo.shuffled_active_validator_indices.len.uint64
 
-func get_committee_count_at_slot*(epochInfo: EpochRef): uint64 =
-  get_committee_count_at_slot(count_active_validators(epochInfo).uint64)
+func get_committee_count_per_slot*(epochInfo: EpochRef): uint64 =
+  get_committee_count_per_slot(count_active_validators(epochInfo))

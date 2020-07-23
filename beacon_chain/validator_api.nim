@@ -237,7 +237,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
 
       proc forSlot(slot: Slot, res: var seq[BeaconStatesCommitteesTuple]) =
         if index == 0: # TODO this means if the parameter is missing (its optional)
-          let committees_per_slot = get_committee_count_at_slot(state, slot, cache)
+          let committees_per_slot = get_committee_count_per_slot(state, slot, cache)
           for committee_index in 0'u64..<committees_per_slot:
             res.add(getCommittee(slot, committee_index.CommitteeIndex))
         else:

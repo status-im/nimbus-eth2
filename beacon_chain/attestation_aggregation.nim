@@ -44,7 +44,7 @@ proc aggregate_attestations*(
 
   var cache = StateCache()
   # TODO performance issue for future, via get_active_validator_indices(...)
-  doAssert index.uint64 < get_committee_count_at_slot(state, slot, cache)
+  doAssert index.uint64 < get_committee_count_per_slot(state, slot, cache)
 
   # TODO for testing purposes, refactor this into the condition check
   # and just calculation
@@ -171,7 +171,7 @@ proc isValidAttestation*(
       epochInfo = blck.getEpochInfo(state)
       requiredSubnetIndex =
         compute_subnet_for_attestation(
-          get_committee_count_at_slot(epochInfo),
+          get_committee_count_per_slot(epochInfo),
           attestation.data.slot, attestation.data.index.CommitteeIndex)
 
     if requiredSubnetIndex != topicCommitteeIndex:

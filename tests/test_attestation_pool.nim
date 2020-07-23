@@ -344,7 +344,7 @@ suiteReport "Attestation pool processing" & preset():
         blockPool[].updateHead(head)
 
         attestations.setlen(0)
-        for index in 0 ..< get_committee_count_at_slot(state.data.data, slot.Slot, cache):
+        for index in 0'u64 ..< get_committee_count_per_slot(state.data.data, slot.Slot, cache):
           let committee = get_beacon_committee(
               state.data.data, state.data.data.slot, index.CommitteeIndex, cache)
 
