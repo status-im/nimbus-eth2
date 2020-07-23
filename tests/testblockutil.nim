@@ -190,7 +190,7 @@ proc find_beacon_committee(
     cache: var StateCache): auto =
   let epoch = compute_epoch_at_slot(state.slot)
   for epoch_committee_index in 0'u64 ..< get_committee_count_at_slot(
-      state, epoch.compute_start_slot_at_epoch) * SLOTS_PER_EPOCH:
+      state, epoch.compute_start_slot_at_epoch, cache) * SLOTS_PER_EPOCH:
     let
       slot = ((epoch_committee_index mod SLOTS_PER_EPOCH) +
         epoch.compute_start_slot_at_epoch.uint64).Slot
@@ -216,7 +216,7 @@ proc makeFullAttestations*(
   # Create attestations in which the full committee participates for each shard
   # that should be attested to during a particular slot
   let
-    count = get_committee_count_at_slot(state, slot)
+    count = get_committee_count_at_slot(state, slot, cache)
 
   for index in 0..<count:
     let

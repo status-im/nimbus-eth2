@@ -289,7 +289,7 @@ func get_committee_assignment*(
 
   let start_slot = compute_start_slot_at_epoch(epoch)
   for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
-    for index in 0 ..< get_committee_count_at_slot(state, slot):
+    for index in 0 ..< get_committee_count_at_slot(state, slot, cache):
       let idx = index.CommitteeIndex
       let committee = get_beacon_committee(state, slot, idx, cache)
       if validator_index in committee:
@@ -307,7 +307,8 @@ func get_committee_assignments*(
   let start_slot = compute_start_slot_at_epoch(epoch)
 
   # get_committee_count_at_slot is constant throughout an epoch
-  let committee_count_at_slot = get_committee_count_at_slot(state, start_slot)
+  let committee_count_at_slot =
+    get_committee_count_at_slot(state, start_slot, cache)
 
   for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
     for index in 0 ..< committee_count_at_slot:

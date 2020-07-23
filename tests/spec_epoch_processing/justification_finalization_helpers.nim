@@ -43,10 +43,7 @@ proc addMockAttestations*(
 
   # for-loop of distinct type is broken: https://github.com/nim-lang/Nim/issues/12074
   for slot in start_slot.uint64 ..< start_slot.uint64 + SLOTS_PER_EPOCH:
-    for index in 0 ..< get_committee_count_at_slot(state, slot.Slot):
-      # TODO: can we move cache out of the loops
-      var cache = StateCache()
-
+    for index in 0'u64 ..< get_committee_count_at_slot(state, slot.Slot, cache):
       let committee = get_beacon_committee(
                         state, slot.Slot, index.CommitteeIndex, cache)
 

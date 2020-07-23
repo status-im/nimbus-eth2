@@ -42,13 +42,13 @@ proc aggregate_attestations*(
   doAssert slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= state.slot
   doAssert state.slot >= slot
 
+  var cache = StateCache()
   # TODO performance issue for future, via get_active_validator_indices(...)
-  doAssert index.uint64 < get_committee_count_at_slot(state, slot)
+  doAssert index.uint64 < get_committee_count_at_slot(state, slot, cache)
 
   # TODO for testing purposes, refactor this into the condition check
   # and just calculation
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#aggregation-selection
-  var cache = StateCache()
   if not is_aggregator(state, slot, index, slot_signature, cache):
     return none(AggregateAndProof)
 
@@ -171,8 +171,7 @@ proc isValidAttestation*(
       epochInfo = blck.getEpochInfo(state)
       requiredSubnetIndex =
         compute_subnet_for_attestation(
-          get_committee_count_at_slot(
-            epochInfo.shuffled_active_validator_indices.len.uint64),
+          get_committee_count_at_slot(epochInfo),
           attestation.data.slot, attestation.data.index.CommitteeIndex)
 
     if requiredSubnetIndex != topicCommitteeIndex:
