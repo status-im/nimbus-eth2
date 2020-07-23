@@ -24,6 +24,8 @@
 {.push raises: [Defect].}
 
 import
+  # Standard library
+  options, tables,
   # Internal
   ./digest,
   # Status
@@ -103,13 +105,34 @@ func toPubKey*(privkey: ValidatorPrivKey): ValidatorPubKey =
   else:
     privkey.getKey
 
+proc toRealPubKey(pubkey: ValidatorPubKey): Option[ValidatorPubKey] =
+  var validatorKeyCache {.threadvar.}: Table[Hash, Option[ValidatorPubKey]]
+
+  if pubkey.kind == Real:
+    return some(pubkey)
+
+  doAssert pubkey.kind == OpaqueBlob
+
+  let key = hash(pubkey.blob)
+  try:
+    validatorKeyCache[key]
+  except KeyError:
+    var val: blscurve.PublicKey
+    let maybeRealKey =
+      if fromBytes(val, pubkey.blob):
+        some ValidatorPubKey(kind: Real, blsValue: val)
+      else:
+        none(ValidatorPubKey)
+    validatorKeyCache[key] = maybeRealKey
+    maybeRealKey
+
 func aggregate*(x: var ValidatorSig, other: ValidatorSig) =
   ## Aggregate 2 Validator Signatures
   ## This assumes that they are real signatures
   x.blsValue.aggregate(other.blsValue)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#bls-signatures
-func blsVerify*(
+proc blsVerify*(
     pubkey: ValidatorPubKey, message: openArray[byte],
     signature: ValidatorSig): bool =
   ## Check that a signature is valid for a message
@@ -122,7 +145,8 @@ func blsVerify*(
   if signature.kind != Real:
     # Invalid signatures are possible in deposits (discussed with Danny)
     return false
-  if pubkey.kind != Real:
+  let realkey = toRealPubKey(pubkey)
+  if realkey.isNone:
     # TODO: chronicles warning
     return false
 
@@ -135,13 +159,13 @@ func blsVerify*(
   # # a way to create many false positive matches. This seems odd.
   # if pubkey.getBytes() == default(ValidatorPubKey).getBytes():
   #   return true
-  pubkey.blsValue.verify(message, signature.blsValue)
+  realkey.get.blsValue.verify(message, signature.blsValue)
 
 func blsSign*(privkey: ValidatorPrivKey, message: openArray[byte]): ValidatorSig =
   ## Computes a signature from a secret key and a message
   ValidatorSig(kind: Real, blsValue: SecretKey(privkey).sign(message))
 
-func blsFastAggregateVerify*(
+proc blsFastAggregateVerify*(
        publicKeys: openArray[ValidatorPubKey],
        message: openArray[byte],
        signature: ValidatorSig
@@ -168,9 +192,10 @@ func blsFastAggregateVerify*(
     return false
   var unwrapped: seq[PublicKey]
   for pubkey in publicKeys:
-    if pubkey.kind != Real:
+    let realkey = toRealPubKey(pubkey)
+    if realkey.isNone:
       return false
-    unwrapped.add pubkey.blsValue
+    unwrapped.add realkey.get.blsValue
 
   fastAggregateVerify(unwrapped, message, signature.blsValue)
 
@@ -220,7 +245,7 @@ func fromRaw*(T: type ValidatorPrivKey, bytes: openArray[byte]): BlsResult[T] =
 func fromRaw*[N, T](BT: type BlsValue[N, T], bytes: openArray[byte]): BlsResult[BT] =
   # This is a workaround, so that we can deserialize the serialization of a
   # default-initialized BlsValue without raising an exception
-  when defined(ssz_testing):
+  when defined(ssz_testing) or T is blscurve.PublicKey:
     # Only for SSZ parsing tests, everything is an opaque blob
     ok BT(kind: OpaqueBlob, blob: toArray(N, bytes))
   else:
