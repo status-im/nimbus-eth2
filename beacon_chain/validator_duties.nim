@@ -60,10 +60,10 @@ proc addLocalValidators*(node: BeaconNode) =
 
   info "Local validators attached ", count = node.attachedValidators.count
 
-func getAttachedValidator*(node: BeaconNode,
+proc getAttachedValidator*(node: BeaconNode,
                            state: BeaconState,
                            idx: ValidatorIndex): AttachedValidator =
-  let validatorKey = state.validators[idx].pubkey
+  let validatorKey = state.validators[idx].pubkey.initPubKey
   node.attachedValidators.getValidator(validatorKey)
 
 proc isSynced*(node: BeaconNode, head: BlockRef): bool =

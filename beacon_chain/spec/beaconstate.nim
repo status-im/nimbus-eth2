@@ -88,11 +88,12 @@ proc process_deposit*(preset: RuntimePreset,
 
   let
     pubkey = deposit.data.pubkey
+    pubkey_inited = pubkey.initPubKey # TODO replicate previous PR semantics, check later
     amount = deposit.data.amount
   var index = -1
 
   for i, validator in state.validators:
-    if pubkey == validator.pubkey:
+    if pubkey == validator.pubkey.initPubKey:
       index = i
       break
 

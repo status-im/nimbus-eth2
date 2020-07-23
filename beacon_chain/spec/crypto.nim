@@ -122,9 +122,15 @@ proc toRealPubKey(pubkey: ValidatorPubKey): Option[ValidatorPubKey] =
       if fromBytes(val, pubkey.blob):
         some ValidatorPubKey(kind: Real, blsValue: val)
       else:
-        none(ValidatorPubKey)
+        none ValidatorPubKey
     validatorKeyCache[key] = maybeRealKey
     maybeRealKey
+
+proc initPubKey*(pubkey: ValidatorPubKey): ValidatorPubKey =
+  let key = toRealPubKey(pubkey)
+  if key.isNone:
+    return ValidatorPubKey()
+  key.get
 
 func aggregate*(x: var ValidatorSig, other: ValidatorSig) =
   ## Aggregate 2 Validator Signatures
@@ -245,8 +251,7 @@ func fromRaw*(T: type ValidatorPrivKey, bytes: openArray[byte]): BlsResult[T] =
 func fromRaw*[N, T](BT: type BlsValue[N, T], bytes: openArray[byte]): BlsResult[BT] =
   # This is a workaround, so that we can deserialize the serialization of a
   # default-initialized BlsValue without raising an exception
-  when defined(ssz_testing) or T is blscurve.PublicKey:
-    # Only for SSZ parsing tests, everything is an opaque blob
+  when defined(ssz_testing) or BT is ValidatorPubKey:
     ok BT(kind: OpaqueBlob, blob: toArray(N, bytes))
   else:
     # Try if valid BLS value
