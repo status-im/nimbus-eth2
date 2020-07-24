@@ -20,6 +20,8 @@ proc `==`*(a, b: BlsValue): bool =
   ## We sometimes need to compare real BlsValue
   ## from parsed opaque blobs that are not really on the BLS curve
   ## and full of zeros
+  unsafePromote(a.unsafeAddr)
+  unsafePromote(b.unsafeAddr)
   if a.kind == Real:
     if b.kind == Real:
       a.blsvalue == b.blsValue
