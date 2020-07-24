@@ -276,7 +276,7 @@ suiteReport "Attestation pool processing" & preset():
 
   wrappedTimedTest "Trying to add a duplicate block from an old pruned epoch is tagged as an error":
     blockpool[].addFlags {skipBLSValidation}
-    pool.forkChoice_v2.backend.proto_array.prune_threshold = 1
+    pool.forkChoice.backend.proto_array.prune_threshold = 1
     var cache = StateCache()
     let
       b10 = makeTestBlock(state.data, blockPool[].tail.root, cache)
@@ -304,8 +304,9 @@ suiteReport "Attestation pool processing" & preset():
 
     for epoch in 0 ..< 5:
       let start_slot = compute_start_slot_at_epoch(Epoch epoch)
+      let committees_per_slot =
+        get_committee_count_per_slot(state.data.data, start_slot, cache)
       for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
-
         let new_block = makeTestBlock(
           state.data, block_root, cache, attestations = attestations)
         let block_ok = state_transition(
@@ -324,11 +325,7 @@ suiteReport "Attestation pool processing" & preset():
         blockPool[].updateHead(head)
 
         attestations.setlen(0)
-<<<<<<< HEAD
-        for index in 0'u64 ..< get_committee_count_per_slot(state.data.data, slot.Slot, cache):
-=======
-        for index in 0 ..< get_committee_count_at_slot(state.data.data, slot):
->>>>>>> 405410aa... switch to fork choice v2
+        for index in 0'u64 ..< committees_per_slot:
           let committee = get_beacon_committee(
               state.data.data, state.data.data.slot, index.CommitteeIndex, cache)
 
