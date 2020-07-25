@@ -139,9 +139,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
-        attPool.addForkChoice_v2(
-          blckRef, state.data.current_justified_checkpoint.epoch,
-          state.data.finalized_checkpoint.epoch)
+        attPool.addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
 
       blck() = added[]
       blockPool.updateHead(added[])

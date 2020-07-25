@@ -130,6 +130,10 @@ type
       ## Cached state used during block clearance - should only be used in the
       ## clearance module to avoid the risk of modifying it in a callback
 
+    balanceState*: StateData ##\
+      ## Cached state for fork choice balance processing - should be replaced
+      ## with a light-weight cache of balances only
+
     updateFlags*: UpdateFlags
 
     runtimePreset*: RuntimePreset
@@ -148,9 +152,6 @@ type
 
     parent*: BlockRef ##\
     ## Not nil, except for the tail
-
-    children*: seq[BlockRef]
-    # TODO do we strictly need this?
 
     slot*: Slot # TODO could calculate this by walking to root, but..
 

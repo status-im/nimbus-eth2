@@ -72,12 +72,7 @@ type
 
     unresolved*: Table[Eth2Digest, UnresolvedAttestation]
 
-    latestAttestations*: Table[ValidatorPubKey, BlockRef] ##\
-    ## Map that keeps track of the most recent vote of each attester - see
-    ## fork_choice
-    forkChoice_v2*: ForkChoice ##\
-    ## The alternative fork choice "proto_array" that will ultimately
-    ## replace the original one
+    forkChoice*: ForkChoice
 
   # #############################################
   #

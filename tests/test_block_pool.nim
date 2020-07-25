@@ -192,7 +192,6 @@ suiteReport "Block pool processing" & preset():
       b1Get.isSome()
       b2Get.isSome()
 
-      b1Get.get().refs.children[0] == b2Get.get().refs
       b2Get.get().refs.parent == b1Get.get().refs
 
     pool.updateHead(b2Get.get().refs)
@@ -308,7 +307,6 @@ suiteReport "BlockPool finalization tests" & preset():
       if i == 1:
         # There are 2 heads now because of the fork at slot 1
         check:
-          pool.tail.children.len == 2
           pool.heads.len == 2
 
       blck = makeTestBlock(
@@ -323,7 +321,6 @@ suiteReport "BlockPool finalization tests" & preset():
     check:
       pool.heads.len() == 1
       pool.head.justified.slot.compute_epoch_at_slot() == 5
-      pool.tail.children.len == 1
 
     block:
       # The late block is a block whose parent was finalized long ago and thus

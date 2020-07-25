@@ -9,11 +9,12 @@
 
 import
   # Standard library
-  std/tables, std/options,
+  std/[tables, options],
   # Status
   chronicles,
   # Internal
-  ../spec/[datatypes, digest]
+  ../spec/[datatypes, digest],
+  ../block_pool
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
@@ -112,6 +113,20 @@ type
     best_child*: Option[Index]
     best_descendant*: Option[Index]
 
+  BalanceCheckpoint* = object
+    blck*: BlockRef
+    epoch*: Epoch
+    balances*: seq[Gwei]
+
+  FFGCheckpoints* = object
+    justified*: BalanceCheckpoint
+    finalized*: Checkpoint
+
+  Checkpoints* = object
+    current*: FFGCheckpoints
+    best*: FFGCheckpoints
+    updateAt*: Option[Epoch]
+
 const ForkChoiceSuccess* = ForkChoiceError(kind: fcSuccess)
 
 # Fork choice high-level types
@@ -123,13 +138,15 @@ type
     next_root*: Eth2Digest
     next_epoch*: Epoch
 
-  ForkChoice* = object
-    # Note: Lighthouse is protecting all fields with Reader-Writer locks.
-    #       However, given the nature of the fields, I suspect sharing those fields
-    #       will lead to thread contention. For now, stay single-threaded. - Mamy
+  ForkChoiceBackend* = object
     proto_array*: ProtoArray
     votes*: seq[VoteTracker]
     balances*: seq[Gwei]
+
+  ForkChoice* = object
+    backend*: ForkChoiceBackend
+    checkpoints*: Checkpoints
+    finalizedBlock*: BlockRef ## Any finalized block used at startup
 
 func shortlog*(vote: VoteTracker): auto =
   (
