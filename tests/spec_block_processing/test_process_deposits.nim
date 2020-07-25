@@ -27,7 +27,7 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 
   const NumValidators = uint64 5 * SLOTS_PER_EPOCH
   let genesisState = newClone(initGenesisState(NumValidators))
-  doAssert genesisState.data.validators.len64 == NumValidators
+  doAssert genesisState.data.validators.lenu64 == NumValidators
 
   template valid_deposit(deposit_amount: uint64, name: string): untyped =
     timedTest "Deposit " & name & " MAX_EFFECTIVE_BALANCE balance (" &

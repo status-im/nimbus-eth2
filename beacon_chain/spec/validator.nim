@@ -87,7 +87,7 @@ func get_shuffled_active_validator_indices*(state: BeaconState, epoch: Epoch):
   mapIt(
     get_shuffled_seq(
       get_seed(state, epoch, DOMAIN_BEACON_ATTESTER),
-      active_validator_indices.len64),
+      active_validator_indices.lenu64),
     active_validator_indices[it])
 
 func get_shuffled_active_validator_indices*(
@@ -155,7 +155,7 @@ func get_beacon_committee*(
 
   try:
     let committees_per_slot = get_committee_count_per_slot(
-      cache.shuffled_active_validator_indices[epoch].len64)
+      cache.shuffled_active_validator_indices[epoch].lenu64)
     compute_committee(
       cache.shuffled_active_validator_indices[epoch],
       get_seed(state, epoch, DOMAIN_BEACON_ATTESTER),
@@ -214,7 +214,7 @@ func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
   if len(indices) == 0:
     return none(ValidatorIndex)
 
-  let seq_len = indices.len64
+  let seq_len = indices.lenu64
 
   var
     i = 0'u64

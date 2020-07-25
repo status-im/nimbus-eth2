@@ -16,4 +16,4 @@ suiteReport "Beacon state" & preset():
   timedTest "Smoke test initialize_beacon_state_from_eth1" & preset():
     let state = initialize_beacon_state_from_eth1(
       defaultRuntimePreset, Eth2Digest(), 0, makeInitialDeposits(SLOTS_PER_EPOCH, {}), {})
-    check: state.validators.len64 == SLOTS_PER_EPOCH
+    check: state.validators.lenu64 == SLOTS_PER_EPOCH

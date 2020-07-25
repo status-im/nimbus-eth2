@@ -611,7 +611,7 @@ template assignClone*[T: not ref](x: T): ref T =
 template newClone*[T](x: ref T not nil): ref T =
   newClone(x[])
 
-template len64*(x: untyped): untyped =
+template lenu64*(x: untyped): untyped =
   x.len.uint64
 
 func `$`*(v: ForkDigest | Version): string =

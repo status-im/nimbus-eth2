@@ -222,7 +222,7 @@ proc initialize_beacon_state_from_eth1*(
   # validators - there needs to be at least one member in each committee -
   # good to know for testing, though arguably the system is not that useful at
   # at that point :)
-  doAssert deposits.len64 >= SLOTS_PER_EPOCH
+  doAssert deposits.lenu64 >= SLOTS_PER_EPOCH
 
   var state = BeaconStateRef(
     fork: Fork(
@@ -290,7 +290,7 @@ func is_valid_genesis_state*(preset: RuntimePreset,
   if state.genesis_time < preset.MIN_GENESIS_TIME:
     return false
   # This is an okay get_active_validator_indices(...) for the time being.
-  if active_validator_indices.len64 < preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
+  if active_validator_indices.lenu64 < preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
     return false
   true
 
@@ -421,7 +421,7 @@ func is_valid_indexed_attestation*(
 
   # Not from spec, but this function gets used in front-line roles, not just
   # behind firewall.
-  let num_validators = state.validators.len64
+  let num_validators = state.validators.lenu64
   if anyIt(indexed_attestation.attesting_indices, it >= num_validators):
     trace "indexed attestation: not all indices valid validators"
     return false

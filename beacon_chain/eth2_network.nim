@@ -387,7 +387,7 @@ proc writeChunk*(conn: Connection,
   if responseCode.isSome:
     output.write byte(responseCode.get)
 
-  output.write varintBytes(payload.len64)
+  output.write varintBytes(payload.lenu64)
 
   if noSnappy:
     output.write(payload)
