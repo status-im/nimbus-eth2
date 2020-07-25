@@ -74,7 +74,7 @@ proc getValidatorInfoFromValidatorId(
     var valIdx: BiggestUInt
     if parseBiggestUInt(validatorId, valIdx) != validatorId.len:
       raise newException(CatchableError, "Not a valid index")
-    if state.validators.len >= valIdx.int:
+    if state.validators.len.uint64 >= valIdx:
       raise newException(CatchableError, "Index out of bounds")
     state.validators[valIdx]
 

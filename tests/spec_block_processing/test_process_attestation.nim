@@ -25,7 +25,7 @@ suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
 
   const NumValidators = uint64(8) * SLOTS_PER_EPOCH
   let genesisState = newClone(initGenesisState(NumValidators))
-  doAssert genesisState.data.validators.len == int NumValidators
+  doAssert genesisState.data.validators.len.uint64 == NumValidators
 
   template valid_attestation(name: string, body: untyped): untyped {.dirty.}=
     # Process a valid attestation

@@ -57,7 +57,7 @@ suiteReport "Block processing" & preset():
       previous_block_root = genesisRoot
       cache = StateCache()
 
-    for i in 1..SLOTS_PER_EPOCH.int:
+    for i in 1..SLOTS_PER_EPOCH:
       let new_block = makeTestBlock(state[], previous_block_root, cache)
 
       let block_ok = state_transition(defaultRuntimePreset, state[], new_block, {}, noRollback)

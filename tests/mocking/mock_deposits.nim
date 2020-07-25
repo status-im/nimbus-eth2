@@ -58,7 +58,7 @@ template mockGenesisDepositsImpl(
   # (it can still be skipped later).
   if skipBlsValidation in flags:
     # 1st loop - build deposit data
-    for valIdx in 0 ..< validatorCount.int:
+    for valIdx in 0 ..< validatorCount:
       # Directly build the Deposit in-place for speed
       result.setLen(valIdx + 1)
 
@@ -71,7 +71,7 @@ template mockGenesisDepositsImpl(
     var depositsData: seq[DepositData]
 
     # 1st loop - build deposit data
-    for valIdx in 0 ..< validatorCount.int:
+    for valIdx in 0 ..< validatorCount:
       # Directly build the Deposit in-place for speed
       result.setLen(valIdx + 1)
 

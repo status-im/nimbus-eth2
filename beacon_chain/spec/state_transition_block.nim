@@ -125,7 +125,8 @@ proc process_randao(
 func process_eth1_data(state: var BeaconState, body: SomeBeaconBlockBody) {.nbench.}=
   state.eth1_data_votes.add body.eth1_data
 
-  if state.eth1_data_votes.asSeq.count(body.eth1_data) * 2 > SLOTS_PER_ETH1_VOTING_PERIOD.int:
+  if state.eth1_data_votes.asSeq.count(body.eth1_data).uint64 * 2 >
+      SLOTS_PER_ETH1_VOTING_PERIOD:
     state.eth1_data = body.eth1_data
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#is_slashable_validator
@@ -218,7 +219,7 @@ proc process_attester_slashing*(
       toHashSet(attestation_1.attesting_indices.asSeq),
       toHashSet(attestation_2.attesting_indices.asSeq)).items), system.cmp):
     if is_slashable_validator(
-        state.validators[index.int], get_current_epoch(state)):
+        state.validators[index], get_current_epoch(state)):
       slash_validator(state, index.ValidatorIndex, stateCache)
       slashed_any = true
   if not slashed_any:
@@ -237,7 +238,7 @@ proc process_voluntary_exit*(
   if voluntary_exit.validator_index >= state.validators.len.uint64:
     return err("Exit: invalid validator index")
 
-  let validator = state.validators[voluntary_exit.validator_index.int]
+  let validator = state.validators[voluntary_exit.validator_index]
 
   # Verify the validator is active
   if not is_active_validator(validator, get_current_epoch(state)):

@@ -85,8 +85,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       blockAttestations = attestations.getOrDefault(attestations_idx)
 
     attestations.del attestations_idx
-    doAssert len(attestations) <=
-      (SLOTS_PER_EPOCH.int + MIN_ATTESTATION_INCLUSION_DELAY.int)
+    doAssert attestations.len.uint64 <=
+      SLOTS_PER_EPOCH + MIN_ATTESTATION_INCLUSION_DELAY
 
     let t =
       if (state[].data.slot > GENESIS_SLOT and
@@ -112,7 +112,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       let
         scass = withTimerRet(timers[tShuffle]):
           mapIt(
-            0 ..< committees_per_slot.int,
+            0'u64 ..< committees_per_slot,
             get_beacon_committee(state[].data, target_slot, it.CommitteeIndex, cache))
 
       for i, scas in scass:

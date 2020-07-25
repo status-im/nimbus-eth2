@@ -134,7 +134,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
   # This is a somewhat expensive approach
   let active_validator_indices {.used.} =
     toHashSet(mapIt(
-      get_active_validator_indices(state, get_current_epoch(state)), it.int))
+      get_active_validator_indices(state, get_current_epoch(state)), it.uint32))
 
   let matching_target_attestations_previous =
     get_matching_target_attestations(state, previous_epoch)  # Previous epoch
@@ -154,11 +154,11 @@ proc process_justification_and_finalization*(state: var BeaconState,
     missing_all_validators=
       difference(active_validator_indices,
         toHashSet(mapIt(get_attesting_indices(state,
-          matching_target_attestations_previous, stateCache), it.int))),
+          matching_target_attestations_previous, stateCache), it.uint32))),
     missing_unslashed_validators=
       difference(active_validator_indices,
         toHashSet(mapIt(get_unslashed_attesting_indices(state,
-          matching_target_attestations_previous, stateCache), it.int))),
+          matching_target_attestations_previous, stateCache), it.uint32))),
     prev_attestations_len=len(state.previous_epoch_attestations),
     cur_attestations_len=len(state.current_epoch_attestations),
     num_active_validators=len(active_validator_indices),

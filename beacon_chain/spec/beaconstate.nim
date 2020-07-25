@@ -15,20 +15,20 @@ import
   ../../nbench/bench_lab
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#is_valid_merkle_branch
-func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openarray[Eth2Digest], depth: uint64, index: uint64, root: Eth2Digest): bool {.nbench.}=
+func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openarray[Eth2Digest], depth: int, index: uint64, root: Eth2Digest): bool {.nbench.}=
   ## Check if ``leaf`` at ``index`` verifies against the Merkle ``root`` and
   ## ``branch``.
   var
     value = leaf
     buf: array[64, byte]
 
-  for i in 0 ..< depth.int:
+  for i in 0 ..< depth:
     if (index div (1'u64 shl i)) mod 2 != 0:
-      buf[0..31] = branch[i.int].data
+      buf[0..31] = branch[i].data
       buf[32..63] = value.data
     else:
       buf[0..31] = value.data
-      buf[32..63] = branch[i.int].data
+      buf[32..63] = branch[i].data
     value = eth2digest(buf)
   value == root
 
@@ -222,7 +222,7 @@ proc initialize_beacon_state_from_eth1*(
   # validators - there needs to be at least one member in each committee -
   # good to know for testing, though arguably the system is not that useful at
   # at that point :)
-  doAssert deposits.len >= SLOTS_PER_EPOCH.int
+  doAssert deposits.len.uint64 >= SLOTS_PER_EPOCH
 
   var state = BeaconStateRef(
     fork: Fork(
@@ -435,7 +435,7 @@ func is_valid_indexed_attestation*(
   # Verify aggregate signature
   if skipBLSValidation notin flags:
      # TODO: fuse loops with blsFastAggregateVerify
-    let pubkeys = mapIt(indices, state.validators[it.int].pubkey)
+    let pubkeys = mapIt(indices, state.validators[it].pubkey)
     if not verify_attestation_signature(
         state.fork, state.genesis_validators_root, indexed_attestation.data,
         pubkeys, indexed_attestation.signature):

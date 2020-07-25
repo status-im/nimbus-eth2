@@ -77,8 +77,8 @@ func link*(parent, child: BlockRef) =
 
 func isAncestorOf*(a, b: BlockRef): bool =
   var b = b
-  var depth = 0
-  const maxDepth = (100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int)
+  var depth = 0'u64
+  const maxDepth = 100 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT
   while true:
     if a == b: return true
 
@@ -99,8 +99,8 @@ func getAncestorAt*(blck: BlockRef, slot: Slot): BlockRef =
 
   var blck = blck
 
-  var depth = 0
-  const maxDepth = (100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int)
+  var depth = 0'u64
+  const maxDepth = 100 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT
 
   while true:
     if blck.slot <= slot:
@@ -119,8 +119,8 @@ func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef =
   ## Return ancestor at slot, or nil if queried block is older
   var blck = blck
 
-  var depth = 0
-  const maxDepth = (100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int)
+  var depth = 0'u64
+  const maxDepth = 100 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT
 
   while true:
     if blck.slot == slot:

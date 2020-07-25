@@ -140,7 +140,7 @@ func getDepositsInRange(eth1Chain: Eth1Chain,
   # This function should be used with indices obtained with `eth1Chain.findBlock`.
   # This guarantess that both of these indices will be valid:
   doAssert sinceBlock >= firstBlockInCache and
-           int(latestBlock - firstBlockInCache) < eth1Chain.blocks.len
+           (latestBlock - firstBlockInCache) < eth1Chain.blocks.len.uint64
   let
     sinceBlockIdx = sinceBlock - firstBlockInCache
     latestBlockIdx = latestBlock - firstBlockInCache
