@@ -62,7 +62,7 @@ func count_active_validators*(state: BeaconState,
                               cache: StateCache): uint64 =
   if epoch in cache.shuffled_active_validator_indices:
     try:
-      cache.shuffled_active_validator_indices[epoch].len.uint64
+      cache.shuffled_active_validator_indices[epoch].len64
     except KeyError:
       raiseAssert "just checked"
   else:

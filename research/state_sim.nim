@@ -85,7 +85,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       blockAttestations = attestations.getOrDefault(attestations_idx)
 
     attestations.del attestations_idx
-    doAssert attestations.len.uint64 <=
+    doAssert attestations.len64 <=
       SLOTS_PER_EPOCH + MIN_ATTESTATION_INCLUSION_DELAY
 
     let t =

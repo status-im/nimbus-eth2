@@ -218,7 +218,7 @@ proc payload =
 
     const NumValidators = uint64(8) * SLOTS_PER_EPOCH
     let genesisState = newClone(initGenesisState(NumValidators))
-    doAssert genesisState.data.validators.len.uint64 == NumValidators
+    doAssert genesisState.data.validators.len64 == NumValidators
 
     setup:
       var state = assignClone(genesisState[])

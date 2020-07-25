@@ -147,7 +147,7 @@ proc process_proposer_slashing*(
     header_2 = proposer_slashing.signed_header_2.message
 
   # Not from spec
-  if header_1.proposer_index >= state.validators.len.uint64:
+  if header_1.proposer_index >= state.validators.len64:
     return err("process_proposer_slashing: invalid proposer index")
 
   # Verify header slots match
@@ -235,7 +235,7 @@ proc process_voluntary_exit*(
   let voluntary_exit = signed_voluntary_exit.message
 
   # Not in spec. Check that validator_index is in range
-  if voluntary_exit.validator_index >= state.validators.len.uint64:
+  if voluntary_exit.validator_index >= state.validators.len64:
     return err("Exit: invalid validator index")
 
   let validator = state.validators[voluntary_exit.validator_index]

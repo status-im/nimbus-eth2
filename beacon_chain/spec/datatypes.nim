@@ -533,6 +533,7 @@ proc readValue*(reader: var JsonReader, value: var ForkDigest)
     raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
 
 # `ValidatorIndex` seq handling.
+# TODO harden these against uint32/uint64 to int type conversion risks
 func max*(a: ValidatorIndex, b: int) : auto =
   max(a.int, b)
 
@@ -609,6 +610,9 @@ template assignClone*[T: not ref](x: T): ref T =
 
 template newClone*[T](x: ref T not nil): ref T =
   newClone(x[])
+
+template len64*(x: untyped): untyped =
+  x.len.uint64
 
 func `$`*(v: ForkDigest | Version): string =
   toHex(array[4, byte](v))
