@@ -112,7 +112,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       let
         scass = withTimerRet(timers[tShuffle]):
           mapIt(
-            0'u64 ..< committees_per_slot,
+            0 ..< committees_per_slot.int,
             get_beacon_committee(state[].data, target_slot, it.CommitteeIndex, cache))
 
       for i, scas in scass:
