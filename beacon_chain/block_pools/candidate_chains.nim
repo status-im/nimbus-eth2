@@ -73,7 +73,6 @@ func link*(parent, child: BlockRef) =
   doAssert parent.root != child.root, "self-references not allowed"
 
   child.parent = parent
-  parent.children.add(child)
 
 func isAncestorOf*(a, b: BlockRef): bool =
   var b = b
@@ -302,6 +301,7 @@ proc init*(T: type CandidateChains,
     justifiedState: tmpState[], # This is wrong but we'll update it below
     tmpState: tmpState[],
     clearanceState: tmpState[],
+    balanceState: tmpState[],
 
     # The only allowed flag right now is verifyFinalization, as the others all
     # allow skipping some validation.
@@ -314,31 +314,13 @@ proc init*(T: type CandidateChains,
   res.updateStateData(res.justifiedState, justifiedHead)
   res.updateStateData(res.headState, headRef.atSlot(headRef.slot))
   res.clearanceState = res.headState
+  res.balanceState = res.justifiedState
 
   info "Block dag initialized",
     head = head.blck, justifiedHead, finalizedHead, tail = tailRef,
     totalBlocks = blocks.len
 
   res
-
-iterator topoSortedSinceLastFinalization*(dag: CandidateChains): BlockRef =
-  ## Iterate on the dag in topological order
-  # TODO: this uses "children" for simplicity
-  #       but "children" should be deleted as it introduces cycles
-  #       that causes significant overhead at least and leaks at worst
-  #       for the GC.
-  # This is not perf critical, it is only used to bootstrap the fork choice.
-  var visited: HashSet[BlockRef]
-  var stack: seq[BlockRef]
-
-  stack.add dag.finalizedHead.blck
-
-  while stack.len != 0:
-    let node = stack.pop()
-    if node notin visited:
-      visited.incl node
-      stack.add node.children
-      yield node
 
 proc getState(
     dag: CandidateChains, db: BeaconChainDB, stateRoot: Eth2Digest, blck: BlockRef,
@@ -796,40 +778,35 @@ proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
       #  cur = cur.parent
       #  dag.delState(cur)
 
-    block: # Clean up block refs, walking block by block
-      var cur = finalizedHead.blck
-      while cur != dag.finalizedHead.blck:
-        # Finalization means that we choose a single chain as the canonical one -
-        # it also means we're no longer interested in any branches from that chain
-        # up to the finalization point.
-        # The new finalized head should not be cleaned! We start at its parent and
-        # clean everything including the old finalized head.
-        cur = cur.parent
 
-        # TODO what about attestations? we need to drop those too, though they
-        #      *should* be pretty harmless
-        if cur.parent != nil: # This happens for the genesis / tail block
-          for child in cur.parent.children:
-            if child != cur:
-              # TODO also remove states associated with the unviable forks!
-              # TODO the easiest thing to do here would probably be to use
-              #      dag.heads to find unviable heads, then walk those chains
-              #      and remove everything.. currently, if there's a child with
-              #      children of its own, those children will not be pruned
-              #      correctly from the database
-              dag.blocks.del(child.root)
-              dag.db.delBlock(child.root)
-          cur.parent.children = @[cur]
+    block: # Clean up block refs, walking block by block
+      # Finalization means that we choose a single chain as the canonical one -
+      # it also means we're no longer interested in any branches from that chain
+      # up to the finalization point
+      let hlen = dag.heads.len
+      for i in 0..<hlen:
+        let n = hlen - i - 1
+        let head = dag.heads[n]
+        if finalizedHead.blck.isAncestorOf(head.blck):
+          continue
+
+        var cur = head.blck
+        while not cur.isAncestorOf(finalizedHead.blck):
+          # TODO empty states need to be removed also!
+          let stateRoot = dag.db.getStateRoot(cur.root, cur.slot)
+          if stateRoot.issome():
+            dag.db.delState(stateRoot.get())
+
+          dag.blocks.del(cur.root)
+          dag.db.delBlock(cur.root)
+
+          if cur.parent.isNil:
+            break
+          cur = cur.parent
+
+        dag.heads.del(n)
 
     dag.finalizedHead = finalizedHead
-
-    let hlen = dag.heads.len
-    for i in 0..<hlen:
-      let n = hlen - i - 1
-      if not dag.finalizedHead.blck.isAncestorOf(dag.heads[n].blck):
-        # Any heads that are not derived from the newly finalized block are no
-        # longer viable candidates for future head selection
-        dag.heads.del(n)
 
     info "Finalized block",
       finalizedHead = shortLog(finalizedHead),
