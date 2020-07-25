@@ -1,6 +1,6 @@
 import
   # Std lib
-  typetraits, strutils, os, random, algorithm, sequtils,
+  typetraits, strutils, os, random, algorithm, sequtils, math,
   options as stdOptions,
 
   # Status libs
@@ -78,6 +78,10 @@ type
     next_fork_version*: Version
     next_fork_epoch*: Epoch
 
+  AverageThroughput* = object
+    count*: uint64
+    average*: float
+
   Peer* = ref object
     network*: Eth2Node
     info*: PeerInfo
@@ -86,6 +90,7 @@ type
     connectionState*: ConnectionState
     protocolStates*: seq[RootRef]
     maxInactivityAllowed*: Duration
+    netThroughput: AverageThroughput
     score*: int
     lacksSnappy: bool
 
@@ -302,10 +307,8 @@ proc getKey*(peer: Peer): PeerID {.inline.} =
 proc getFuture*(peer: Peer): Future[void] {.inline.} =
   result = peer.info.lifeFuture()
 
-proc `<`*(a, b: Peer): bool =
-  result = `<`(a.score, b.score)
-
 proc getScore*(a: Peer): int =
+  ## Returns current score value for peer ``peer``.
   result = a.score
 
 proc updateScore*(peer: Peer, score: int) {.inline.} =
@@ -313,6 +316,44 @@ proc updateScore*(peer: Peer, score: int) {.inline.} =
   peer.score = peer.score + score
   if peer.score > PeerScoreHighLimit:
     peer.score = PeerScoreHighLimit
+
+proc calcThroughput(dur: Duration, value: uint64): float {.inline.} =
+  let secs = float(chronos.seconds(1).nanoseconds)
+  if isZero(dur):
+    0.0
+  else:
+    float(value) * (secs / float(dur.nanoseconds))
+
+proc updateNetThroughput*(peer: Peer, dur: Duration,
+                          bytesCount: uint64) {.inline.} =
+  ## Update peer's ``peer`` network throughput.
+  let bytesPerSecond = calcThroughput(dur, bytesCount)
+  let a = peer.netThroughput.average
+  let n = peer.netThroughput.count
+  peer.netThroughput.average = a + (bytesPerSecond - a) / float(n + 1)
+  inc(peer.netThroughput.count)
+
+proc netBps*(peer: Peer): float {.inline.} =
+  ## Returns current network throughput average value in Bps for peer ``peer``.
+  round((peer.netThroughput.average * 10_000) / 10_000)
+
+proc netKbps*(peer: Peer): float {.inline.} =
+  ## Returns current network throughput average value in Kbps for peer ``peer``.
+  round(((peer.netThroughput.average / 1024) * 10_000) / 10_000)
+
+proc netMbps*(peer: Peer): float {.inline.} =
+  ## Returns current network throughput average value in Mbps for peer ``peer``.
+  round(((peer.netThroughput.average / (1024 * 1024)) * 10_000) / 10_000)
+
+proc `<`*(a, b: Peer): bool =
+  ## Comparison function, which first checks peer's scores, and if the peers'
+  ## score is equal it compares peers' network throughput.
+  if a.score < b.score:
+    true
+  elif a.score == b.score:
+    (a.netThroughput.average < b.netThroughput.average)
+  else:
+    false
 
 proc isSeen*(network: ETh2Node, pinfo: PeerInfo): bool =
   let currentTime = now(chronos.Moment)
@@ -473,10 +514,8 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
 
     # Read the response
     return awaitWithTimeout(
-      readResponse(when useNativeSnappy: libp2pInput(stream)
-                   else: stream,
-                   peer.lacksSnappy,
-                   ResponseMsg),
+      readResponse(when useNativeSnappy: libp2pInput(stream) else: stream,
+                   peer.lacksSnappy, peer, ResponseMsg),
       deadline, neterr(ReadResponseTimeout))
   finally:
     await safeClose(stream)
@@ -593,7 +632,7 @@ proc handleIncomingStream(network: Eth2Node,
 
     let msg = if sizeof(MsgRec) > 0:
       try:
-        awaitWithTimeout(readChunkPayload(s, noSnappy, MsgRec), deadline):
+        awaitWithTimeout(readChunkPayload(s, noSnappy, peer, MsgRec), deadline):
           returnInvalidRequest(errorMsgLit "Request full data not sent in time")
 
       except SerializationError as err:
