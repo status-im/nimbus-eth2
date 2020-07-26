@@ -106,9 +106,14 @@ type
         name: "udp-port" }: Port
 
       maxPeers* {.
-        defaultValue: 79 # The Wall gets released
-        desc: "The maximum number of peers to connect to"
+        defaultValue: 100 # The Wall gets released
+        desc: "The maximum number of connected peers"
         name: "max-peers" }: int
+
+      maxIncomingPeers* {.
+        defaultValue: 21
+        desc: "The maximum number of inbound peer's connections"
+        name: "max-incoming-peers"}: int
 
       nat* {.
         desc: "Specify method to use for determining public address. " &

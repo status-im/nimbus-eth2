@@ -776,22 +776,24 @@ proc connectWorker(network: Eth2Node) {.async.} =
       remotePeerInfo = await network.connQueue.popFirst()
       peerPoolHasRemotePeer = network.peerPool.hasPeer(remotePeerInfo.peerId)
       seenTableHasRemotePeer = network.isSeen(remotePeerInfo)
-      remotePeerAlreadyConnected = network.connTable.hasKey(remotePeerInfo.peerId)
+      remotePeerConnecting = network.connTable.hasKey(remotePeerInfo.peerId)
 
-    if not(peerPoolHasRemotePeer) and not(seenTableHasRemotePeer) and not(remotePeerAlreadyConnected):
+    if not(peerPoolHasRemotePeer) and
+       not(seenTableHasRemotePeer) and not(remotePeerConnecting):
       network.connTable[remotePeerInfo.peerId] = remotePeerInfo
       try:
         # We trying to connect to peers which are not in PeerPool, SeenTable and
         # ConnTable.
         var fut = network.dialPeer(remotePeerInfo)
-        # We discarding here just because we going to check future state, to avoid
-        # condition where connection happens and timeout reached.
+        # We discarding here just because we going to check future state,
+        # to avoid condition where connection happens and timeout reached.
         discard await withTimeout(fut, network.connectTimeout)
         # We handling only timeout and errors, because successfull connections
         # will be stored in PeerPool.
         if fut.finished():
           if fut.failed() and not(fut.cancelled()):
-            debug "Unable to establish connection with peer", peer = remotePeerInfo.id,
+            debug "Unable to establish connection with peer",
+                  peer = remotePeerInfo.id,
                   errMsg = fut.readError().msg
             inc nbc_failed_dials
             network.addSeen(remotePeerInfo, SeenTableTimeDeadPeer)
@@ -803,18 +805,18 @@ proc connectWorker(network: Eth2Node) {.async.} =
         network.connTable.del(remotePeerInfo.peerId)
     else:
       trace "Peer is already connected, connecting or already seen",
-            peer = remotePeerInfo.id, peer_pool_has_peer = $peerPoolHasRemotePeer, seen_table_has_peer = $seenTableHasRemotePeer,
-            connecting_peer = $remotePeerAlreadyConnected, seen_table_size = len(network.seenTable)
-
-    # Prevent (a purely theoretical) high CPU usage when losing connectivity.
-    await sleepAsync(1.seconds)
+            peer = remotePeerInfo.id,
+            peer_pool_has_peer = $peerPoolHasRemotePeer,
+            seen_table_has_peer = $seenTableHasRemotePeer,
+            connecting_peer = $remotePeerConnecting,
+            seen_table_size = len(network.seenTable)
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
 
   let enrField = ("eth2", SSZ.encode(node.forkId))
   while true:
-    let currentPeerCount = node.peerPool.len
+    let currentPeerCount = node.peerPool.lenAvailable({PeerType.Outgoing})
     if currentPeerCount < node.wantedPeers:
       try:
         let discoveredPeers =
@@ -853,8 +855,9 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
            privKey: keys.PrivateKey, rng: ref BrHmacDrbgContext): T =
   new result
   result.switch = switch
-  result.wantedPeers = conf.maxPeers
-  result.peerPool = newPeerPool[Peer, PeerID](maxPeers = conf.maxPeers)
+  result.wantedPeers = (conf.maxPeers - conf.maxIncomingPeers)
+  result.peerPool = newPeerPool[Peer, PeerID](
+    maxPeers = conf.maxPeers, maxIncomingPeers = conf.maxIncomingPeers)
   result.connectTimeout = 10.seconds
   result.seenThreshold = 10.minutes
   result.seenTable = initTable[PeerID, SeenItem]()
