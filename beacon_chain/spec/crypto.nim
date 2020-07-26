@@ -49,7 +49,7 @@ type
     Real
     OpaqueBlob
 
-  BlsValue*[N: static int, T] = object
+  BlsValue*[N: static int, T: blscurve.PublicKey or blscurve.Signature] = object
     # TODO This is a temporary type needed until we sort out the
     # issues with invalid BLS values appearing in the SSZ test suites.
     case kind*: BlsValueType
@@ -195,6 +195,7 @@ func `$`*(x: BlsValue): string =
     "raw: " & x.blob.toHex()
 
 func toRaw*(x: ValidatorPrivKey): array[RawPrivKeySize, byte] =
+  # TODO: distinct type - see https://github.com/status-im/nim-blscurve/pull/67
   SecretKey(x).exportRaw()
 
 func toRaw*(x: BlsValue): auto =
@@ -311,7 +312,7 @@ func shortLog*(x: BlsValue): string =
 
 func shortLog*(x: ValidatorPrivKey): string =
   ## Logging for raw unwrapped BLS types
-  x.toRaw()[0..3].toHex()
+  "<private key>"
 
 func shortLog*(x: TrustedSig): string =
   x.data[0..3].toHex()
