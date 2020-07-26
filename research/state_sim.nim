@@ -85,8 +85,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       blockAttestations = attestations.getOrDefault(attestations_idx)
 
     attestations.del attestations_idx
-    doAssert len(attestations) <=
-      (SLOTS_PER_EPOCH.int + MIN_ATTESTATION_INCLUSION_DELAY.int)
+    doAssert attestations.lenu64 <=
+      SLOTS_PER_EPOCH + MIN_ATTESTATION_INCLUSION_DELAY
 
     let t =
       if (state[].data.slot > GENESIS_SLOT and

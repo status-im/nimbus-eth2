@@ -113,13 +113,13 @@ proc slotIndex(
     pool.startingSlot =
       state.finalized_checkpoint.epoch.compute_start_slot_at_epoch()
 
-  if pool.startingSlot + pool.mapSlotsToAttestations.len.uint64 <= attestationSlot:
+  if pool.startingSlot + pool.mapSlotsToAttestations.lenu64 <= attestationSlot:
     trace "Growing attestation pool",
       attestationSlot =  shortLog(attestationSlot),
       startingSlot = shortLog(pool.startingSlot)
 
     # Make sure there's a pool entry for every slot, even when there's a gap
-    while pool.startingSlot + pool.mapSlotsToAttestations.len.uint64 <= attestationSlot:
+    while pool.startingSlot + pool.mapSlotsToAttestations.lenu64 <= attestationSlot:
       pool.mapSlotsToAttestations.addLast(AttestationsSeen())
 
   if pool.startingSlot <
@@ -321,11 +321,11 @@ proc getAttestationsForSlot*(pool: AttestationPool, newBlockSlot: Slot):
     attestationSlot = newBlockSlot - MIN_ATTESTATION_INCLUSION_DELAY
 
   if attestationSlot < pool.startingSlot or
-      attestationSlot >= pool.startingSlot + pool.mapSlotsToAttestations.len.uint64:
+      attestationSlot >= pool.startingSlot + pool.mapSlotsToAttestations.lenu64:
     info "No attestations matching the slot range",
       attestationSlot = shortLog(attestationSlot),
       startingSlot = shortLog(pool.startingSlot),
-      endingSlot = shortLog(pool.startingSlot + pool.mapSlotsToAttestations.len.uint64)
+      endingSlot = shortLog(pool.startingSlot + pool.mapSlotsToAttestations.lenu64)
     return none(AttestationsSeen)
 
   let slotDequeIdx = int(attestationSlot - pool.startingSlot)
@@ -402,7 +402,7 @@ proc getAttestationsForBlock*(pool: AttestationPool,
 
     result.add(attestation)
 
-    if result.len >= MAX_ATTESTATIONS.int:
+    if result.lenu64 >= MAX_ATTESTATIONS:
       debug "getAttestationsForBlock: returning early after hitting MAX_ATTESTATIONS",
         attestationSlot = newBlockSlot - 1
       return

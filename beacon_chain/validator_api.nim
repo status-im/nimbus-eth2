@@ -74,7 +74,7 @@ proc getValidatorInfoFromValidatorId(
     var valIdx: BiggestUInt
     if parseBiggestUInt(validatorId, valIdx) != validatorId.len:
       raise newException(CatchableError, "Not a valid index")
-    if state.validators.len >= valIdx.int:
+    if state.validators.lenu64 >= valIdx:
       raise newException(CatchableError, "Index out of bounds")
     state.validators[valIdx]
 
@@ -361,7 +361,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
         if ca.isSome:
           result.add((public_key: pubkey,
                       committee_index: ca.get.b,
-                      committee_length: ca.get.a.len.uint64,
+                      committee_length: ca.get.a.lenu64,
                       validator_committee_index: ca.get.a.find(idx.ValidatorIndex).uint64,
                       slot: ca.get.c))
 

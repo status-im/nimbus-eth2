@@ -117,7 +117,7 @@ proc addTestBlock*(
       # Keep deposit counts internally consistent.
       Eth1Data(
         deposit_root: eth1_data.deposit_root,
-        deposit_count: state.data.eth1_deposit_index + deposits.len.uint64,
+        deposit_count: state.data.eth1_deposit_index + deposits.lenu64,
         block_hash: eth1_data.block_hash),
       graffiti,
       attestations,

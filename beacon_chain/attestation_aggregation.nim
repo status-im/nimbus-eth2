@@ -286,7 +286,7 @@ proc isValidAggregatedAttestation*(
     # aggregate.data.slot by the validator with index
     # aggregate_and_proof.aggregator_index.
     # get_slot_signature(state, aggregate.data.slot, privkey)
-    if aggregate_and_proof.aggregator_index >= state.validators.len.uint64:
+    if aggregate_and_proof.aggregator_index >= state.validators.lenu64:
       debug "Invalid aggregator_index"
       return false
 

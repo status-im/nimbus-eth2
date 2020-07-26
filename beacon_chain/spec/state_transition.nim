@@ -67,7 +67,7 @@ proc verify_block_signature*(
     state: BeaconState, signed_block: SomeSignedBeaconBlock): bool {.nbench.} =
   let
     proposer_index = signed_block.message.proposer_index
-  if proposer_index >= state.validators.len.uint64:
+  if proposer_index >= state.validators.lenu64:
     notice "Invalid proposer index in block",
       blck = shortLog(signed_block.message)
     return false

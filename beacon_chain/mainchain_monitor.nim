@@ -140,7 +140,7 @@ func getDepositsInRange(eth1Chain: Eth1Chain,
   # This function should be used with indices obtained with `eth1Chain.findBlock`.
   # This guarantess that both of these indices will be valid:
   doAssert sinceBlock >= firstBlockInCache and
-           int(latestBlock - firstBlockInCache) < eth1Chain.blocks.len
+           (latestBlock - firstBlockInCache) < eth1Chain.blocks.lenu64
   let
     sinceBlockIdx = sinceBlock - firstBlockInCache
     latestBlockIdx = latestBlock - firstBlockInCache
@@ -195,7 +195,7 @@ func isSuccessorBlock(eth1Chain: Eth1Chain, newBlock: Eth1Block): bool =
     if lastBlock.number >= newBlock.number: return false
     lastBlock.voteData.deposit_count
 
-  (currentDepositCount + newBlock.deposits.len.uint64) == newBlock.voteData.deposit_count
+  (currentDepositCount + newBlock.deposits.lenu64) == newBlock.voteData.deposit_count
 
 func addSuccessorBlock*(eth1Chain: var Eth1Chain, newBlock: Eth1Block): bool =
   result = isSuccessorBlock(eth1Chain, newBlock)

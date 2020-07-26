@@ -68,7 +68,7 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#configuration
   ATTESTATION_PROPAGATION_SLOT_RANGE* = 32
 
-  SLOTS_PER_ETH1_VOTING_PERIOD* = Slot(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)
+  SLOTS_PER_ETH1_VOTING_PERIOD* = EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH
 
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
   BASE_REWARDS_PER_EPOCH* = 4
@@ -533,6 +533,7 @@ proc readValue*(reader: var JsonReader, value: var ForkDigest)
     raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
 
 # `ValidatorIndex` seq handling.
+# TODO harden these against uint32/uint64 to int type conversion risks
 func max*(a: ValidatorIndex, b: int) : auto =
   max(a.int, b)
 
@@ -609,6 +610,9 @@ template assignClone*[T: not ref](x: T): ref T =
 
 template newClone*[T](x: ref T not nil): ref T =
   newClone(x[])
+
+template lenu64*(x: untyped): untyped =
+  x.len.uint64
 
 func `$`*(v: ForkDigest | Version): string =
   toHex(array[4, byte](v))
