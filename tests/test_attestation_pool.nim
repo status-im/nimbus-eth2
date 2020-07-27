@@ -305,7 +305,7 @@ suiteReport "Attestation pool processing" & preset():
     for epoch in 0 ..< 5:
       let start_slot = compute_start_slot_at_epoch(Epoch epoch)
       let committees_per_slot =
-        get_committee_count_per_slot(state.data.data, start_slot, cache)
+        get_committee_count_per_slot(state.data.data, Epoch epoch, cache)
       for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
         let new_block = makeTestBlock(
           state.data, block_root, cache, attestations = attestations)

@@ -369,7 +369,7 @@ proc readJsonDeposits(depositsList: JsonNode): seq[Eth1Block] =
       data: DepositData(
         pubkey: ValidatorPubKey.init(array[48, byte](pubkey)),
         withdrawal_credentials: Eth2Digest(data: array[32, byte](withdrawalCredentials)),
-        amount: bytes_to_int(array[8, byte](amount)),
+        amount: bytes_to_uint64(array[8, byte](amount)),
         signature: ValidatorSig.init(array[96, byte](signature))))
 
 method fetchDepositData*(p: Web3DataProviderRef,
@@ -390,7 +390,7 @@ method fetchBlockDetails(p: Web3DataProviderRef, blk: Eth1Block) {.async.} =
   discard await depositRoot
   discard await rawCount
 
-  let depositCount = bytes_to_int(array[8, byte](rawCount.read))
+  let depositCount = bytes_to_uint64(array[8, byte](rawCount.read))
 
   blk.timestamp = Eth1BlockTimestamp(web3Block.read.timestamp)
   blk.voteData.deposit_count = depositCount

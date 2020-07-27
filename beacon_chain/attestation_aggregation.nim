@@ -24,7 +24,7 @@ func is_aggregator(state: BeaconState, slot: Slot, index: CommitteeIndex,
   let
     committee = get_beacon_committee(state, slot, index, cache)
     modulo = max(1'u64, len(committee).uint64 div TARGET_AGGREGATORS_PER_COMMITTEE)
-  bytes_to_int(eth2digest(slot_signature.toRaw()).data[0..7]) mod modulo == 0
+  bytes_to_uint64(eth2digest(slot_signature.toRaw()).data[0..7]) mod modulo == 0
 
 proc aggregate_attestations*(
     pool: AttestationPool, state: BeaconState, index: CommitteeIndex,
@@ -44,7 +44,7 @@ proc aggregate_attestations*(
 
   var cache = StateCache()
   # TODO performance issue for future, via get_active_validator_indices(...)
-  doAssert index.uint64 < get_committee_count_per_slot(state, slot, cache)
+  doAssert index.uint64 < get_committee_count_per_slot(state, slot.epoch, cache)
 
   # TODO for testing purposes, refactor this into the condition check
   # and just calculation

@@ -98,11 +98,6 @@ func get_committee_count_per_slot*(state: BeaconState,
   # Otherwise, get_beacon_committee(...) cannot access some committees.
   doAssert (SLOTS_PER_EPOCH * MAX_COMMITTEES_PER_SLOT) >= uint64(result)
 
-func get_committee_count_per_slot*(state: BeaconState,
-                                   slot: Slot,
-                                   cache: StateCache): uint64 =
-  get_committee_count_per_slot(state, slot.compute_epoch_at_slot, cache)
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: BeaconState): Epoch =
   # Return the current epoch.
@@ -115,7 +110,7 @@ func get_randao_mix*(state: BeaconState,
   ## Returns the randao mix at a recent ``epoch``.
   state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR]
 
-func bytes_to_int*(data: openarray[byte]): uint64 =
+func bytes_to_uint64*(data: openarray[byte]): uint64 =
   doAssert data.len == 8
 
   # Little-endian data representation
@@ -123,15 +118,9 @@ func bytes_to_int*(data: openarray[byte]): uint64 =
   for i in countdown(7, 0):
     result = result * 256 + data[i]
 
-# Have 1, 4, 8, and 32-byte versions. 1+ more and maybe worth metaprogramming.
-func int_to_bytes32*(x: uint64): array[32, byte] =
-  ## Little-endian data representation
-  ## TODO remove uint64 when those callers fade away
-  result[0..<7] = x.toBytesLE()
-
-func int_to_bytes32*(x: Epoch): array[32, byte] {.borrow.}
-
-func int_to_bytes8*(x: uint64): array[8, byte] =
+# Have 1, 4, and 8-byte versions. Spec only defines 8-byte version, but useful
+# to check invariants on rest.
+func uint_to_bytes8*(x: uint64): array[8, byte] =
   x.toBytesLE()
 
 func int_to_bytes1*(x: int): array[1, byte] =
@@ -140,8 +129,7 @@ func int_to_bytes1*(x: int): array[1, byte] =
 
   result[0] = x.byte
 
-func int_to_bytes4*(x: uint64): array[4, byte] =
-  doAssert x >= 0'u64
+func uint_to_bytes4*(x: uint64): array[4, byte] =
   doAssert x < 2'u64^32
 
   # Little-endian data representation
@@ -181,7 +169,7 @@ func compute_domain*(
   # Return the domain for the ``domain_type`` and ``fork_version``.
   let fork_data_root =
     compute_fork_data_root(fork_version, genesis_validators_root)
-  result[0..3] = int_to_bytes4(domain_type.uint64)
+  result[0..3] = uint_to_bytes4(domain_type.uint64)
   result[4..31] = fork_data_root.data[0..27]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_domain
@@ -222,8 +210,8 @@ func get_seed*(state: BeaconState, epoch: Epoch, domain_type: DomainType): Eth2D
   static:
     doAssert EPOCHS_PER_HISTORICAL_VECTOR > MIN_SEED_LOOKAHEAD
 
-  seed_input[0..3] = int_to_bytes4(domain_type.uint64)
-  seed_input[4..11] = int_to_bytes8(epoch.uint64)
+  seed_input[0..3] = uint_to_bytes4(domain_type.uint64)
+  seed_input[4..11] = uint_to_bytes8(epoch.uint64)
   seed_input[12..43] =
     get_randao_mix(state, # Avoid underflow
       epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1).data

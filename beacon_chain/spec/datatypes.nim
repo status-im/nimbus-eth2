@@ -47,7 +47,7 @@ export
 # internal state that's gone through sanity checks already.
 
 const
-  SPEC_VERSION* = "0.12.1" ## \
+  SPEC_VERSION* = "0.12.2" ## \
   ## Spec version we're aiming to be compatible with, right now
 
   GENESIS_SLOT* = Slot(0)
@@ -87,14 +87,6 @@ type
     DOMAIN_VOLUNTARY_EXIT = 4
     DOMAIN_SELECTION_PROOF = 5
     DOMAIN_AGGREGATE_AND_PROOF = 6
-    # Phase 1 - Sharding
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase1/beacon-chain.md#misc
-    DOMAIN_SHARD_PROPOSAL = 128
-    DOMAIN_SHARD_COMMITTEE = 129
-    DOMAIN_LIGHT_CLIENT = 130
-    # Phase 1 - Custody game
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase1/custody-game.md#signature-domain-types
-    DOMAIN_CUSTODY_BIT_SLASHING = 0x83
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#custom-types
   Domain* = array[32, byte]

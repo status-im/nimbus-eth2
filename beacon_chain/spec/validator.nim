@@ -52,13 +52,15 @@ func get_shuffled_seq*(seed: Eth2Digest,
     source_buffer[32] = round_bytes1
 
     # Only one pivot per round.
-    let pivot = bytes_to_int(eth2digest(pivot_buffer).data.toOpenArray(0, 7)) mod list_size
+    let pivot =
+      bytes_to_uint64(eth2digest(pivot_buffer).data.toOpenArray(0, 7)) mod
+        list_size
 
     ## Only need to run, per round, position div 256 hashes, so precalculate
     ## them. This consumes memory, but for low-memory devices, it's possible
     ## to mitigate by some light LRU caching and similar.
     for reduced_position in 0 ..< sources.len:
-      source_buffer[33..36] = int_to_bytes4(reduced_position.uint64)
+      source_buffer[33..36] = uint_to_bytes4(reduced_position.uint64)
       sources[reduced_position] = eth2digest(source_buffer)
 
     ## Iterate over all the indices. This was in get_permuted_index, but large
@@ -190,12 +192,12 @@ func compute_shuffled_index(
     let
       # If using multiple indices, can amortize this
       pivot =
-        bytes_to_int(eth2digest(pivot_buffer).data.toOpenArray(0, 7)) mod
+        bytes_to_uint64(eth2digest(pivot_buffer).data.toOpenArray(0, 7)) mod
           index_count
 
       flip = ((index_count + pivot) - cur_idx_permuted) mod index_count
       position = max(cur_idx_permuted.int, flip.int)
-    source_buffer[33..36] = int_to_bytes4((position div 256).uint64)
+    source_buffer[33..36] = uint_to_bytes4((position div 256).uint64)
     let
       source = eth2digest(source_buffer).data
       byte_value = source[(position mod 256) div 8]
@@ -221,7 +223,7 @@ func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
     buffer: array[32+8, byte]
   buffer[0..31] = seed.data
   while true:
-    buffer[32..39] = int_to_bytes8(i div 32)
+    buffer[32..39] = uint_to_bytes8(i div 32)
     let
       candidate_index =
         indices[compute_shuffled_index(i mod seq_len, seq_len, seed)]
@@ -246,7 +248,7 @@ func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache, slot:
 
   var buffer: array[32 + 8, byte]
   buffer[0..31] = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER).data
-  buffer[32..39] = int_to_bytes8(slot.uint64)
+  buffer[32..39] = uint_to_bytes8(slot.uint64)
 
   # TODO fixme; should only be run once per slot and cached
   # There's exactly one beacon proposer per slot.
@@ -287,9 +289,12 @@ func get_committee_assignment*(
 
   var cache = StateCache()
 
-  let start_slot = compute_start_slot_at_epoch(epoch)
+  let
+    start_slot = compute_start_slot_at_epoch(epoch)
+    committee_count_per_slot =
+      get_committee_count_per_slot(state, epoch, cache)
   for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
-    for index in 0'u64 ..< get_committee_count_per_slot(state, slot, cache):
+    for index in 0'u64 ..< committee_count_per_slot:
       let idx = index.CommitteeIndex
       let committee = get_beacon_committee(state, slot, idx, cache)
       if validator_index in committee:
@@ -306,9 +311,8 @@ func get_committee_assignments*(
   var cache = StateCache()
   let start_slot = compute_start_slot_at_epoch(epoch)
 
-  # get_committee_count_per_slot is constant throughout an epoch
   let committees_per_slot =
-    get_committee_count_per_slot(state, start_slot, cache)
+    get_committee_count_per_slot(state, epoch, cache)
 
   for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
     for index in 0'u64 ..< committees_per_slot:

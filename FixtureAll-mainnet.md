@@ -67,14 +67,19 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 OK: 21/21 Fail: 0/21 Skip: 0/21
 ## Official - Operations - Attester slashing  [Preset: mainnet]
 ```diff
++ [Invalid] all_empty_indices                                                                OK
 + [Invalid] att1_bad_extra_index                                                             OK
 + [Invalid] att1_bad_replaced_index                                                          OK
 + [Invalid] att1_duplicate_index_double_signed                                               OK
 + [Invalid] att1_duplicate_index_normal_signed                                               OK
++ [Invalid] att1_empty_indices                                                               OK
++ [Invalid] att1_high_index                                                                  OK
 + [Invalid] att2_bad_extra_index                                                             OK
 + [Invalid] att2_bad_replaced_index                                                          OK
 + [Invalid] att2_duplicate_index_double_signed                                               OK
 + [Invalid] att2_duplicate_index_normal_signed                                               OK
++ [Invalid] att2_empty_indices                                                               OK
++ [Invalid] att2_high_index                                                                  OK
 + [Invalid] invalid_sig_1                                                                    OK
 + [Invalid] invalid_sig_1_and_2                                                              OK
 + [Invalid] invalid_sig_2                                                                    OK
@@ -88,7 +93,7 @@ OK: 21/21 Fail: 0/21 Skip: 0/21
 + [Valid]   success_double                                                                   OK
 + [Valid]   success_surround                                                                 OK
 ```
-OK: 20/20 Fail: 0/20 Skip: 0/20
+OK: 25/25 Fail: 0/25 Skip: 0/25
 ## Official - Operations - Block header  [Preset: mainnet]
 ```diff
 + [Invalid] invalid_multiple_blocks_single_slot                                              OK
@@ -163,11 +168,12 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 + [Valid]   multiple_different_proposer_slashings_same_block                                 OK
 + [Valid]   multiple_different_validator_exits_same_block                                    OK
 + [Valid]   proposer_after_inactive_index                                                    OK
++ [Valid]   proposer_self_slashing                                                           OK
 + [Valid]   proposer_slashing                                                                OK
 + [Valid]   skipped_slots                                                                    OK
 + [Valid]   voluntary_exit                                                                   OK
 ```
-OK: 31/31 Fail: 0/31 Skip: 0/31
+OK: 32/32 Fail: 0/32 Skip: 0/32
 ## Official - Sanity - Slots  [Preset: mainnet]
 ```diff
 + Slots - double_empty_epoch                                                                 OK
@@ -179,4 +185,4 @@ OK: 31/31 Fail: 0/31 Skip: 0/31
 OK: 5/5 Fail: 0/5 Skip: 0/5
 
 ---TOTAL---
-OK: 129/129 Fail: 0/129 Skip: 0/129
+OK: 135/135 Fail: 0/135 Skip: 0/135
