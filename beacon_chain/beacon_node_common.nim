@@ -59,12 +59,12 @@ const
 declareGauge beacon_head_root,
   "Root of the head block of the beacon chain"
 
-proc updateHead*(node: BeaconNode): BlockRef =
+proc updateHead*(node: BeaconNode, wallSlot: Slot): BlockRef =
   # Check pending attestations - maybe we found some blocks for them
-  node.attestationPool.resolve()
+  node.attestationPool.resolve(wallSlot)
 
   # Grab the new head according to our latest attestation data
-  let newHead = node.attestationPool.selectHead(node.beaconClock.now().slotOrZero())
+  let newHead = node.attestationPool.selectHead(wallSlot)
 
   # Store the new head in the block pool - this may cause epochs to be
   # justified and finalized

@@ -60,7 +60,7 @@ func parent*(bs: BlockSlot): BlockSlot =
       slot: bs.slot - 1
     )
 
-func populateEpochCache(state: BeaconState): EpochRef =
+func init*(T: type EpochRef, state: BeaconState): T =
   let epoch = state.get_current_epoch()
   EpochRef(
     epoch: epoch,
@@ -169,16 +169,16 @@ func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
     matching_epochinfo = blck.epochsInfo.filterIt(it.epoch == state_epoch)
 
   if matching_epochinfo.len == 0:
-    let cache = populateEpochCache(state)
+    let epochInfo = EpochRef.init(state)
 
     # Don't use BlockRef caching as far as the epoch where the active
     # validator indices can diverge.
     if (compute_activation_exit_epoch(blck.slot.compute_epoch_at_slot) >
         state_epoch):
-      blck.epochsInfo.add(cache)
+      blck.epochsInfo.add(epochInfo)
     trace "candidate_chains.getEpochInfo: back-filling parent.epochInfo",
       state_slot = state.slot
-    cache
+    epochInfo
   elif matching_epochinfo.len == 1:
     matching_epochinfo[0]
   else:
@@ -321,6 +321,16 @@ proc init*(T: type CandidateChains,
     totalBlocks = blocks.len
 
   res
+
+proc getEpochRef*(pool: CandidateChains, blck: BlockRef, epoch: Epoch): EpochRef =
+  let bs = blck.atSlot(epoch.compute_start_slot_at_epoch)
+  for e in bs.blck.epochsInfo:
+    if e.epoch == epoch:
+      return e
+
+  # TODO use any state from epoch
+  pool.withState(pool.tmpState, bs):
+    getEpochInfo(blck, state)
 
 proc getState(
     dag: CandidateChains, db: BeaconChainDB, stateRoot: Eth2Digest, blck: BlockRef,
@@ -626,7 +636,8 @@ proc getStateDataCached(
   false
 
 template withEpochState*(
-    dag: CandidateChains, cache: var StateData, blockSlot: BlockSlot, body: untyped): untyped =
+    dag: CandidateChains, cache: var StateData, blockSlot: BlockSlot,
+    body: untyped): untyped =
   ## Helper template that updates state to a particular BlockSlot - usage of
   ## cache is unsafe outside of block.
   ## TODO async transformations will lead to a race where cache gets updated

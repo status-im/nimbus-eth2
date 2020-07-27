@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  chronicles, sequtils, tables,
+  chronicles, tables,
   metrics, stew/results,
   ../extras,
   ../spec/[crypto, datatypes, digest, helpers, signatures, state_transition],
@@ -41,7 +41,8 @@ proc addRawBlock*(
 
 proc addResolvedBlock(
        dag: var CandidateChains, quarantine: var Quarantine,
-       state: HashedBeaconState, signedBlock: SignedBeaconBlock, parent: BlockRef,
+       state: HashedBeaconState, signedBlock: SignedBeaconBlock,
+       parent: BlockRef, cache: StateCache,
        onBlockAdded: OnBlockAdded
      ): BlockRef =
   # TODO: `addResolvedBlock` is accumulating significant cruft
@@ -55,8 +56,11 @@ proc addResolvedBlock(
   let
     blockRoot = signedBlock.root
     blockRef = BlockRef.init(blockRoot, signedBlock.message)
-  blockRef.epochsInfo = filterIt(parent.epochsInfo,
-    it.epoch + 1 >= state.data.get_current_epoch())
+  if parent.slot.compute_epoch_at_slot() == blockRef.slot.compute_epoch_at_slot:
+    blockRef.epochsInfo = @[parent.epochsInfo[0]]
+  else:
+    discard getEpochInfo(blockRef, state.data)
+
   link(parent, blockRef)
 
   dag.blocks[blockRoot] = blockRef
@@ -208,9 +212,9 @@ proc addRawBlock*(
       doAssert v.addr == addr poolPtr.clearanceState.data
       assign(poolPtr.clearanceState, poolPtr.headState)
 
-    var stateCache = getEpochCache(parent, dag.clearanceState.data.data)
+    var cache = getEpochCache(parent, dag.clearanceState.data.data)
     if not state_transition(dag.runtimePreset, dag.clearanceState.data, signedBlock,
-                            stateCache, dag.updateFlags, restore):
+                            cache, dag.updateFlags, restore):
       notice "Invalid block"
 
       return err Invalid
@@ -218,7 +222,7 @@ proc addRawBlock*(
     # Careful, clearanceState.data has been updated but not blck - we need to
     # create the BlockRef first!
     dag.clearanceState.blck = addResolvedBlock(
-      dag, quarantine, dag.clearanceState.data, signedBlock, parent,
+      dag, quarantine, dag.clearanceState.data, signedBlock, parent, cache,
       onBlockAdded
     )
 

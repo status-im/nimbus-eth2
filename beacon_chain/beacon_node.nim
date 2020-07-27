@@ -295,7 +295,7 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
       head = head.blck
     return
 
-  node.attestationPool.addAttestation(attestation)
+  node.attestationPool.addAttestation(attestation, wallSlot.slot)
 
 proc dumpBlock[T](
     node: BeaconNode, signedBlock: SignedBeaconBlock,
@@ -466,7 +466,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   #                     disappear naturally - risky because user is not aware,
   #                     and might lose stake on canonical chain but "just works"
   #                     when reconnected..
-  var head = node.updateHead()
+  var head = node.updateHead(slot)
 
   # TODO is the slot of the clock or the head block more interesting? provide
   #      rationale in comment
@@ -539,7 +539,7 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
     let fepoch = node.blockPool.headState.data.data.finalized_checkpoint.epoch
     compute_start_slot_at_epoch(fepoch)
 
-  proc updateLocalBlocks(list: openarray[SignedBeaconBlock]): Result[void, BlockError] =
+  proc updateLocalBlocks(list: openArray[SignedBeaconBlock]): Result[void, BlockError] =
     debug "Forward sync imported blocks", count = len(list),
           local_head_slot = getLocalHeadSlot()
     let sm = now(chronos.Moment)
@@ -553,7 +553,7 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
       # (and they may have no parents anymore in the fork choice if it was pruned)
       if res.isErr and res.error notin {BlockError.Unviable, BlockError.Old, BLockError.Duplicate}:
         return res
-    discard node.updateHead()
+    discard node.updateHead(node.beaconClock.now().slotOrZero)
 
     let dur = now(chronos.Moment) - sm
     let secs = float(chronos.seconds(1).nanoseconds)

@@ -149,7 +149,7 @@ func get_previous_epoch*(state: BeaconState): Epoch =
   get_previous_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#compute_committee
-func compute_committee(shuffled_indices: seq[ValidatorIndex],
+func compute_committee*(shuffled_indices: seq[ValidatorIndex],
     index: uint64, count: uint64): seq[ValidatorIndex] =
   ## Return the committee corresponding to ``indices``, ``seed``, ``index``,
   ## and committee ``count``.

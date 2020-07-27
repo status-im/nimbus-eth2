@@ -429,7 +429,7 @@ proc broadcastAggregatedAttestations(
 proc handleValidatorDuties*(
     node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   ## Perform validator duties - create blocks, vote and aggregate existing votes
-  var head = node.updateHead()
+  var head = node.updateHead(slot)
   if node.attachedValidators.count == 0:
     # Nothing to do because we have no validator attached
     return
@@ -486,7 +486,7 @@ proc handleValidatorDuties*(
   template sleepToSlotOffsetWithHeadUpdate(extra: chronos.Duration, msg: static string) =
     if await node.beaconClock.sleepToSlotOffset(extra, slot, msg):
       # Time passed - we might need to select a new head in that case
-      head = node.updateHead()
+      head = node.updateHead(slot)
 
   sleepToSlotOffsetWithHeadUpdate(
     seconds(int64(SECONDS_PER_SLOT)) div 3, "Waiting to send attestations")

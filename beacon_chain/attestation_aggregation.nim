@@ -161,7 +161,7 @@ proc isValidAttestation*(
   # therefore propagate faster, thus reordering their arrival in some nodes
   let attestationBlck = pool.blockPool.getRef(attestation.data.beacon_block_root)
   if attestationBlck.isNil:
-    debug "block doesn't exist in block pool"
+    debug "Block not found"
     pool.blockPool.addMissing(attestation.data.beacon_block_root)
     return false
 

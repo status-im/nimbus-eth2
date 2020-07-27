@@ -10,6 +10,12 @@ import
 
 export block_pools_types
 
+const
+  ATTESTATION_LOOKBACK* =
+    min(4'u64, SLOTS_PER_EPOCH) + MIN_ATTESTATION_INCLUSION_DELAY
+    ## The number of slots we'll keep track of in terms of "free" attestations
+    ## that potentially could be added to a newly created block
+
 type
   # #############################################
   #
@@ -50,9 +56,9 @@ type
     ## "free" attestations with those found in past blocks - these votes
     ## are tracked separately in the fork choice.
 
-    mapSlotsToAttestations*: Deque[AttestationsSeen] ## \
-    ## We keep one item per slot such that indexing matches slot number
-    ## together with startingSlot
+    candidates*: array[ATTESTATION_LOOKBACK, AttestationsSeen] ## \
+      ## We keep one item per slot such that indexing matches slot number
+      ## together with startingSlot
 
     startingSlot*: Slot ## \
     ## Generally, we keep attestations only until a slot has been finalized -

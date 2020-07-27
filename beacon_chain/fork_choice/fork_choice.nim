@@ -9,14 +9,16 @@
 
 import
   # Standard library
-  std/[sequtils, sets, tables, typetraits],
+  std/[sets, tables, typetraits],
   # Status libraries
   stew/results, chronicles,
   # Internal
   ../spec/[beaconstate, datatypes, digest, helpers],
   # Fork choice
   ./fork_choice_types, ./proto_array,
-  ../block_pool
+  ../block_pool, ../block_pools/candidate_chains
+
+export sets
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
@@ -280,12 +282,15 @@ proc process_block*(self: var ForkChoice,
   # TODO current time
   maybe_update(self.checkpoints, wallSlot, pool)
 
-  var cache = StateCache() # TODO reuse shuffling
-
   for attestation in blck.body.attestations:
+    let targetBlck = pool.dag.getRef(attestation.data.target.root)
+    if targetBlck.isNil:
+      continue
+    let epochRef =
+      pool.dag.getEpochRef(targetBlck, attestation.data.target.epoch)
     if attestation.data.beacon_block_root in self.backend:
-      let participants = toSeq(items(get_attesting_indices(
-        state, attestation.data, attestation.aggregation_bits, cache)))
+      let participants = get_attesting_indices(
+        epochRef, attestation.data, attestation.aggregation_bits)
 
       for validator in participants:
         self.process_attestation(
