@@ -16,7 +16,7 @@ import
 # Helpers used in epoch transition and trace-level block transition
 # --------------------------------------------------------
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#helper-functions-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#helper-functions-1
 func get_attesting_indices*(
     state: BeaconState, attestations: openArray[PendingAttestation],
     cache: var StateCache): HashSet[ValidatorIndex] =
@@ -27,7 +27,7 @@ func get_attesting_indices*(
     result.incl get_attesting_indices(
       state, a.data, a.aggregation_bits, cache)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#helper-functions-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#helper-functions-1
 func get_unslashed_attesting_indices*(
     state: BeaconState, attestations: openArray[PendingAttestation],
     cache: var StateCache): HashSet[ValidatorIndex] =
