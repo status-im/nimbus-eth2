@@ -166,9 +166,6 @@ template tmpState*(pool: BlockPool): StateData =
 template balanceState*(pool: BlockPool): StateData =
   pool.dag.balanceState
 
-template justifiedState*(pool: BlockPool): StateData =
-  pool.dag.justifiedState
-
 template withState*(
     pool: BlockPool, cache: var StateData, blockSlot: BlockSlot, body: untyped):
     untyped =

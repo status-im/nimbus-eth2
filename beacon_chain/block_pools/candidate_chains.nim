@@ -298,7 +298,6 @@ proc init*(T: type CandidateChains,
     db: db,
     heads: @[head],
     headState: tmpState[],
-    justifiedState: tmpState[], # This is wrong but we'll update it below
     tmpState: tmpState[],
     clearanceState: tmpState[],
     balanceState: tmpState[],
@@ -311,10 +310,9 @@ proc init*(T: type CandidateChains,
 
   doAssert res.updateFlags in [{}, {verifyFinalization}]
 
-  res.updateStateData(res.justifiedState, justifiedHead)
   res.updateStateData(res.headState, headRef.atSlot(headRef.slot))
   res.clearanceState = res.headState
-  res.balanceState = res.justifiedState
+  res.balanceState = res.headState
 
   info "Block dag initialized",
     head = head.blck, justifiedHead, finalizedHead, tail = tailRef,
@@ -742,7 +740,6 @@ proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
     justifiedBS = newHead.atSlot(justifiedSlot)
 
   dag.head = Head(blck: newHead, justified: justifiedBS)
-  updateStateData(dag, dag.justifiedState, justifiedBS)
 
   # TODO isAncestorOf may be expensive - too expensive?
   if not lastHead.blck.isAncestorOf(newHead):

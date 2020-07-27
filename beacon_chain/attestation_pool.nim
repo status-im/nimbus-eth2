@@ -210,7 +210,6 @@ proc addForkChoice*(pool: var AttestationPool,
                     blck: BeaconBlock,
                     wallSlot: Slot) =
   ## Add a verified block to the fork choice context
-  ## The current justifiedState of the block pool is used as reference
   let state = pool.forkChoice.process_block(
     pool.blockPool, state, blckRef, blck, wallSlot)
 

@@ -339,8 +339,6 @@ suiteReport "BlockPool finalization tests" & preset():
       pool2.finalizedHead.slot == pool.finalizedHead.slot
       hash_tree_root(pool2.headState.data.data) ==
         hash_tree_root(pool.headState.data.data)
-      hash_tree_root(pool2.justifiedState.data.data) ==
-        hash_tree_root(pool.justifiedState.data.data)
 
   # timedTest "init with gaps" & preset():
   #   var cache = StateCache()
@@ -384,5 +382,3 @@ suiteReport "BlockPool finalization tests" & preset():
   #     pool2.finalizedHead.slot == pool.finalizedHead.slot
   #     hash_tree_root(pool2.headState.data.data) ==
   #       hash_tree_root(pool.headState.data.data)
-  #     hash_tree_root(pool2.justifiedState.data.data) ==
-  #       hash_tree_root(pool.justifiedState.data.data)
