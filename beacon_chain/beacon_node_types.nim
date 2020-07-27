@@ -17,28 +17,18 @@ type
   #
   # #############################################
   Validation* = object
+    ## Validations collect a set of signatures for a distict attestation - in
+    ## eth2, a single bit is used to keep track of which signatures have been
+    ## added to the aggregate meaning that only non-overlapping aggregates may
+    ## be further combined.
     aggregation_bits*: CommitteeValidatorsBits
     aggregate_signature*: ValidatorSig
 
-  # Per Danny as of 2018-12-21:
-  # Yeah, you can do any linear combination of signatures. but you have to
-  # remember the linear combination of pubkeys that constructed
-  # if you have two instances of a signature from pubkey p, then you need 2*p
-  # in the group pubkey because the attestation bitlist is only 1 bit per
-  # pubkey right now, attestations do not support this it could be extended to
-  # support N overlaps up to N times per pubkey if we had N bits per validator
-  # instead of 1
-  # We are shying away from this for the time being. If there end up being
-  # substantial difficulties in network layer aggregation, then adding bits to
-  # aid in supporting overlaps is one potential solution
-
   AttestationEntry* = object
+    ## Each entry holds the known signatures for a particular, distinct vote
     data*: AttestationData
     blck*: BlockRef
-    validations*: seq[Validation] ## \
-    ## Instead of aggregating the signatures eagerly, we simply dump them in
-    ## this seq and aggregate only when needed
-    ## TODO there are obvious caching opportunities here..
+    validations*: seq[Validation]
 
   AttestationsSeen* = object
     attestations*: seq[AttestationEntry] ## \
@@ -54,11 +44,11 @@ type
     tries*: int
 
   AttestationPool* = object
-    ## The attestation pool keeps all attestations that are known to the
-    ## client - each attestation counts as votes towards the fork choice
-    ## rule that determines which block we consider to be the head. The pool
-    ## contains both votes that have been included in the chain and those that
-    ## have not.
+    ## The attestation pool keeps track of all attestations that potentially
+    ## could be added to a block during block production.
+    ## These attestations also contribute to the fork choice, which combines
+    ## "free" attestations with those found in past blocks - these votes
+    ## are tracked separately in the fork choice.
 
     mapSlotsToAttestations*: Deque[AttestationsSeen] ## \
     ## We keep one item per slot such that indexing matches slot number

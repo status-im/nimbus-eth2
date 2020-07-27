@@ -1,8 +1,8 @@
 import
-  deques, tables, hashes, options, strformat,
+  std/[deques, tables, hashes, options, strformat],
   chronos, web3, web3/ethtypes as web3Types, json, chronicles,
   eth/common/eth_types, eth/async_utils,
-  spec/[datatypes, digest, crypto, beaconstate, helpers],
+  spec/[datatypes, digest, crypto, beaconstate, helpers, validator],
   network_metadata, merkle_minimal
 
 from times import epochTime
@@ -506,7 +506,8 @@ proc createBeaconStateAux(preset: RuntimePreset,
                                              eth1Block.voteData.block_hash,
                                              eth1Block.timestamp.uint64,
                                              deposits, {})
-  let activeValidators = count_active_validators(result[], GENESIS_EPOCH, StateCache())
+  var cache = StateCache()
+  let activeValidators = count_active_validators(result[], GENESIS_EPOCH, cache)
   eth1Block.knownGoodDepositsCount = some activeValidators
 
 proc createBeaconState(m: MainchainMonitor, eth1Block: Eth1Block): BeaconStateRef =

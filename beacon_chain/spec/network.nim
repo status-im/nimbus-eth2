@@ -8,8 +8,8 @@
 {.push raises: [Defect].}
 
 import
-  strformat,
-  datatypes, helpers
+  std/[strformat, sets],
+  ./datatypes, ./helpers, ./validator
 
 const
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#topics-and-messages
@@ -92,3 +92,22 @@ func getAttestationTopic*(forkDigest: ForkDigest,
     compute_subnet_for_attestation(
       get_committee_count_per_slot(num_active_validators),
       attestation.data.slot, attestation.data.index.CommitteeIndex))
+
+func get_committee_assignments*(
+    state: BeaconState, epoch: Epoch,
+    validator_indices: HashSet[ValidatorIndex]):
+    seq[tuple[subnetIndex: uint64, slot: Slot]] =
+  var cache = StateCache()
+
+  let
+    committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
+    start_slot = compute_start_slot_at_epoch(epoch)
+
+  for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
+    for index in 0'u64 ..< committees_per_slot:
+      let idx = index.CommitteeIndex
+      if not disjoint(validator_indices,
+          get_beacon_committee(state, slot, idx, cache).toHashSet):
+        result.add(
+          (compute_subnet_for_attestation(committees_per_slot, slot, idx),
+            slot))

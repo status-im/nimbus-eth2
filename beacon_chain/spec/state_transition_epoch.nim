@@ -61,14 +61,9 @@ func get_total_active_balance*(state: BeaconState, cache: var StateCache): Gwei 
 
   let
     epoch = state.get_current_epoch()
-  try:
-    if epoch notin cache.shuffled_active_validator_indices:
-      cache.shuffled_active_validator_indices[epoch] =
-        get_shuffled_active_validator_indices(state, epoch)
 
-    get_total_balance(state, cache.shuffled_active_validator_indices[epoch])
-  except KeyError:
-    raiseAssert("get_total_active_balance(): cache always filled before usage")
+  get_total_balance(
+    state, cache.get_shuffled_active_validator_indices(state, epoch))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#helper-functions-1
 func get_matching_source_attestations(state: BeaconState,

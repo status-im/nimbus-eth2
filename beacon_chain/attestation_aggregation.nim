@@ -22,13 +22,14 @@ logScope:
 func is_aggregator(state: BeaconState, slot: Slot, index: CommitteeIndex,
     slot_signature: ValidatorSig, cache: var StateCache): bool =
   let
-    committee = get_beacon_committee(state, slot, index, cache)
-    modulo = max(1'u64, len(committee).uint64 div TARGET_AGGREGATORS_PER_COMMITTEE)
+    committee_len = get_beacon_committee_len(state, slot, index, cache)
+    modulo = max(1'u64, committee_len div TARGET_AGGREGATORS_PER_COMMITTEE)
   bytes_to_uint64(eth2digest(slot_signature.toRaw()).data[0..7]) mod modulo == 0
 
 proc aggregate_attestations*(
     pool: AttestationPool, state: BeaconState, index: CommitteeIndex,
-    privkey: ValidatorPrivKey, trailing_distance: uint64): Option[AggregateAndProof] =
+    privkey: ValidatorPrivKey, trailing_distance: uint64,
+    cache: var StateCache): Option[AggregateAndProof] =
   doAssert state.slot >= trailing_distance
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#configuration
@@ -42,8 +43,6 @@ proc aggregate_attestations*(
   doAssert slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= state.slot
   doAssert state.slot >= slot
 
-  var cache = StateCache()
-  # TODO performance issue for future, via get_active_validator_indices(...)
   doAssert index.uint64 < get_committee_count_per_slot(state, slot.epoch, cache)
 
   # TODO for testing purposes, refactor this into the condition check
@@ -99,7 +98,12 @@ proc isValidAttestationSlot(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
+func checkPropagationSlotRange(data: AttestationData, current_slot: Slot): bool =
+  # TODO clock disparity
+  (data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot) and
+    (current_slot >= data.slot)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestation-subnets
 proc isValidAttestation*(
     pool: var AttestationPool, attestation: Attestation, current_slot: Slot,
     topicCommitteeIndex: uint64): bool =
@@ -107,8 +111,12 @@ proc isValidAttestation*(
     topics = "att_aggr valid_att"
     received_attestation = shortLog(attestation)
 
-  if not (attestation.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >=
-      current_slot and current_slot >= attestation.data.slot):
+  # TODO https://github.com/ethereum/eth2.0-specs/issues/1998
+  if (let v = check_attestation_slot_target(attestation.data); v.isErr):
+    debug "Invalid attestation", err = v.error
+    return false
+
+  if not checkPropagationSlotRange(attestation.data, current_slot):
     debug "attestation.data.slot not within ATTESTATION_PROPAGATION_SLOT_RANGE"
     return false
 
@@ -202,6 +210,11 @@ proc isValidAggregatedAttestation*(
   logScope:
     aggregate = shortLog(aggregate)
 
+  # TODO https://github.com/ethereum/eth2.0-specs/issues/1998
+  if (let v = check_attestation_slot_target(aggregate.data); v.isErr):
+    debug "Invalid aggregate", err = v.error
+    return false
+
   # There's some overlap between this and isValidAttestation(), but unclear if
   # saving a few lines of code would balance well with losing straightforward,
   # spec-based synchronization.
@@ -210,8 +223,7 @@ proc isValidAggregatedAttestation*(
   # ATTESTATION_PROPAGATION_SLOT_RANGE slots (with a
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. aggregate.data.slot +
   # ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= aggregate.data.slot
-  if not (aggregate.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >=
-      current_slot and current_slot >= aggregate.data.slot):
+  if not checkPropagationSlotRange(aggregate.data, current_slot):
     debug "aggregation.data.slot not within ATTESTATION_PROPAGATION_SLOT_RANGE"
     return false
 
