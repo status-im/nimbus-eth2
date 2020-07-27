@@ -123,8 +123,8 @@ rm -rf "${DATA_DIR}"
 
 DEPOSITS_FILE="${DATA_DIR}/deposits.json"
 
-DEPOSITS_DIR="${DATA_DIR}/deposits_dir"
-mkdir -p "${DEPOSITS_DIR}"
+VALIDATORS_DIR="${DATA_DIR}/validators"
+mkdir -p "${VALIDATORS_DIR}"
 
 SECRETS_DIR="${DATA_DIR}/secrets"
 mkdir -p "${SECRETS_DIR}"
@@ -154,10 +154,11 @@ DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
 DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
 NETWORK_METADATA_FILE="${DATA_DIR}/network.json"
 
-./build/beacon_node deposits create \
+make deposit_contract
+
+./build/deposit_contract generateSimulationDeposits \
 	--count=${TOTAL_VALIDATORS} \
-  --non-interactive \
-	--out-deposits-dir="${DEPOSITS_DIR}" \
+	--out-validators-dir="${VALIDATORS_DIR}" \
 	--out-secrets-dir="${SECRETS_DIR}" \
   --out-deposits-file="${DEPOSITS_FILE}"
 
@@ -167,7 +168,7 @@ if [[ $USE_GANACHE == "0" ]]; then
 
 	./build/beacon_node createTestnet \
 		--data-dir="${DATA_DIR}/node0" \
-		--validators-dir="${DEPOSITS_DIR}" \
+		--deposits-file="${DEPOSITS_FILE}" \
 		--total-validators=${TOTAL_VALIDATORS} \
 		--last-user-validator=${USER_VALIDATORS} \
 		--output-genesis="${NETWORK_DIR}/genesis.ssz" \
@@ -178,8 +179,6 @@ if [[ $USE_GANACHE == "0" ]]; then
 
 	STATE_SNAPSHOT_ARG="--state-snapshot=${NETWORK_DIR}/genesis.ssz"
 else
-	make deposit_contract
-
 	echo "Launching ganache"
 	ganache-cli --blockTime 17 --gasLimit 100000000 -e 100000 --verbose > "${DATA_DIR}/log_ganache.txt" 2>&1 &
 	PIDS="${PIDS},$!"
@@ -200,7 +199,7 @@ else
 
 	BOOTSTRAP_TIMEOUT=$(( MAX_DELAY * TOTAL_VALIDATORS ))
 
-	./build/deposit_contract makeDeposits \
+	./build/deposit_contract sendDeposits \
 		--deposits-file="${DEPOSITS_FILE}" \
 		--min-delay=$MIN_DELAY --max-delay=$MAX_DELAY \
 		$WEB3_ARG \
@@ -279,8 +278,8 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
 	mkdir -p "${NODE_DATA_DIR}/secrets"
 
 	if [[ $NUM_NODE -lt $NODES_WITH_VALIDATORS ]]; then
-		for VALIDATOR in $(ls ${DEPOSITS_DIR} | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
-			cp -ar "${DEPOSITS_DIR}/$VALIDATOR" "${NODE_DATA_DIR}/validators/"
+		for VALIDATOR in $(ls ${VALIDATORS_DIR} | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
+			cp -ar "${VALIDATORS_DIR}/$VALIDATOR" "${NODE_DATA_DIR}/validators/"
 			cp -a "${SECRETS_DIR}/${VALIDATOR}" "${NODE_DATA_DIR}/secrets/"
 		done
 	fi

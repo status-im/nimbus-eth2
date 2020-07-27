@@ -1,7 +1,8 @@
 import
-  os, strutils, options, json, terminal, random,
-  chronos, chronicles, confutils, web3, web3/confutils_defs, stint, eth/keys,
-  spec/[datatypes, crypto], ssz/merkleization, keystore_management
+  os, sequtils, strutils, options, json, terminal, random,
+  chronos, chronicles, confutils, stint, json_serialization,
+  web3, web3/confutils_defs, eth/keys,
+  spec/[datatypes, crypto, presets], ssz/merkleization, keystore_management
 
 # Compiled version of /scripts/depositContract.v.py in this repo
 # The contract was compiled in Remix (https://remix.ethereum.org/) with vyper (remote) compiler.
@@ -14,10 +15,12 @@ type
     deploy
     drain
     sendEth
-    makeDeposits
+    generateSimulationDeposits
+    sendDeposits
 
   CliConfig = object
     web3Url* {.
+      defaultValue: "",
       desc: "URL of the Web3 server to observe Eth1"
       name: "web3-url" }: string
 
@@ -44,7 +47,24 @@ type
       toAddress {.name: "to".}: Eth1Address
       valueEth {.name: "eth".}: string
 
-    of makeDeposits:
+    of generateSimulationDeposits:
+      simulationDepositsCount {.
+        desc: "The number of validator keystores to generate"
+        name: "count" }: Natural
+
+      outValidatorsDir {.
+        desc: "A directory to store the generated validator keystores"
+        name: "out-validators-dir" }: OutDir
+
+      outSecretsDir {.
+        desc: "A directory to store the generated keystore password files"
+        name: "out-secrets-dir" }: OutDir
+
+      outDepositsFile {.
+        desc: "A LaunchPad deposits file to write"
+        name: "out-deposits-file" }: OutFile
+
+    of sendDeposits:
       depositsFile {.
         desc: "A LaunchPad deposits file"
         name: "deposits-file" }: InputFile
@@ -135,9 +155,37 @@ proc sendDeposits*(deposits: seq[LaunchPadDeposit],
 
 proc main() {.async.} =
   var cfg = CliConfig.load()
+  let rng = keys.newRng()
+
+  if cfg.cmd == StartUpCommand.generateSimulationDeposits:
+    let
+      walletData = WalletDataForDeposits(mnemonic: generateMnemonic(rng[]))
+      runtimePreset = defaultRuntimePreset()
+
+    createDir(string cfg.outValidatorsDir)
+    createDir(string cfg.outSecretsDir)
+
+    let deposits = generateDeposits(
+      runtimePreset,
+      rng[],
+      walletData,
+      cfg.simulationDepositsCount,
+      string cfg.outValidatorsDir,
+      string cfg.outSecretsDir)
+
+    if deposits.isErr:
+      fatal "Failed to generate deposits", err = deposits.error
+      quit 1
+
+    let launchPadDeposits =
+      mapIt(deposits.value, LaunchPadDeposit.init(runtimePreset, it))
+
+    Json.saveFile(string cfg.outDepositsFile, launchPadDeposits)
+    info "Deposit data written", filename = cfg.outDepositsFile
+    quit 0
 
   var deposits: seq[LaunchPadDeposit]
-  if cfg.cmd == makeDeposits:
+  if cfg.cmd == StartUpCommand.sendDeposits:
     deposits = Json.loadFile(string cfg.depositsFile, seq[LaunchPadDeposit])
 
   if cfg.askForKey:
@@ -145,7 +193,7 @@ proc main() {.async.} =
       privateKey: TaintedString
       reasonForKey = ""
 
-    if cfg.cmd == makeDeposits:
+    if cfg.cmd == StartUpCommand.sendDeposits:
       let
         depositsWord = if deposits.len > 1: "deposits" else: "deposit"
         totalEthNeeded = 32 * deposits.len
@@ -182,7 +230,7 @@ proc main() {.async.} =
   of StartUpCommand.sendEth:
     echo await sendEth(web3, cfg.toAddress, cfg.valueEth.parseInt)
 
-  of StartUpCommand.makeDeposits:
+  of StartUpCommand.sendDeposits:
     var delayGenerator: DelayGenerator
     if cfg.maxDelay > 0.0:
       delayGenerator = proc (): chronos.Duration {.gcsafe.} =
@@ -194,5 +242,9 @@ proc main() {.async.} =
 
     await sendDeposits(deposits, cfg.web3Url, cfg.privateKey,
                        cfg.depositContractAddress, delayGenerator)
+
+  of StartUpCommand.generateSimulationDeposits:
+    # This is handled above before the case statement
+    discard
 
 when isMainModule: waitFor main()
