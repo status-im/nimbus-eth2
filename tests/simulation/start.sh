@@ -67,6 +67,14 @@ else
   MAKE="make"
 fi
 
+make_once () {
+  target_flag_var="$1_name"
+  if [[ -z "${!target_flag_var}" ]]; then
+    export $target_flag_var=1
+    $MAKE $1
+  fi
+}
+
 mkdir -p "${METRICS_DIR}"
 ./scripts/make_prometheus_config.sh \
   --nodes ${TOTAL_NODES} \
@@ -109,13 +117,14 @@ if [[ -f "$DEPOSITS_FILE" ]]; then
 fi
 
 if [[ $EXISTING_VALIDATORS -ne $NUM_VALIDATORS ]]; then
+  make_once deposit_contract
+
   rm -rf "$VALIDATORS_DIR"
   rm -rf "$SECRETS_DIR"
 
-  $BEACON_NODE_BIN deposits create \
+  build/deposit_contract generateSimulationDeposits \
     --count="${NUM_VALIDATORS}" \
-    --new-wallet-file="${SIMULATION_DIR}/wallet.json" \
-    --out-deposits-dir="$VALIDATORS_DIR" \
+    --out-validators-dir="$VALIDATORS_DIR" \
     --out-secrets-dir="$SECRETS_DIR" \
     --out-deposits-file="$DEPOSITS_FILE"
 
@@ -165,7 +174,7 @@ DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
 DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
 
 if [ "$USE_GANACHE" != "no" ]; then
-  make deposit_contract
+  make_once deposit_contract
   echo Deploying the validator deposit contract...
 
   DEPLOY_CMD_OUTPUT=$($DEPOSIT_CONTRACT_BIN deploy $WEB3_ARG)
@@ -177,7 +186,7 @@ if [ "$USE_GANACHE" != "no" ]; then
   echo Contract deployed at $DEPOSIT_CONTRACT_ADDRESS:$DEPOSIT_CONTRACT_BLOCK
 
   if [[ "$WAIT_GENESIS" == "yes" ]]; then
-    run_cmd "(deposit maker)" "$DEPOSIT_CONTRACT_BIN makeDeposits \
+    run_cmd "(deposit maker)" "$DEPOSIT_CONTRACT_BIN sendDeposits \
       --deposits-file='$DEPOSITS_FILE' \
       --min-delay=0 --max-delay=1 \
       $WEB3_ARG \

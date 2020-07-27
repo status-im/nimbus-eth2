@@ -182,7 +182,7 @@ altona-deposit: | beacon_node deposit_contract
 	# TODO
 	# The --min-delay is needed only until we fix the invalid
 	# nonce generation on multiple transactions in web3
-	build/deposit_contract makeDeposits \
+	build/deposit_contract sendDeposits \
 		--web3-url=$(GOERLI_WEB3_URL) \
 		--deposit-contract=$$(cat vendor/eth2-testnets/shared/altona/deposit_contract.txt) \
 		--deposits-file=nbc-altona-deposits.json \
