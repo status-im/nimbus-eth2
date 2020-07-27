@@ -11,7 +11,7 @@
 
 import
   # Standard lib
-  std/[math, sequtils, tables],
+  std/[math, tables],
   # Third-party
   stew/endians2,
   # Internal
@@ -57,46 +57,12 @@ func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_active_validator_indices
-func count_active_validators*(state: BeaconState,
-                              epoch: Epoch,
-                              cache: StateCache): uint64 =
-  if epoch in cache.shuffled_active_validator_indices:
-    try:
-      cache.shuffled_active_validator_indices[epoch].lenu64
-    except KeyError:
-      raiseAssert "just checked"
-  else:
-    countIt(state.validators, is_active_validator(it, epoch)).uint64
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_active_validator_indices
 func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
   # Return the sequence of active validator indices at ``epoch``.
   for idx, val in state.validators:
     if is_active_validator(val, epoch):
       result.add idx.ValidatorIndex
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_committee_count_per_slot
-func get_committee_count_per_slot*(num_active_validators: uint64): uint64 =
-  clamp(
-    num_active_validators div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
-    1'u64, MAX_COMMITTEES_PER_SLOT)
-
-func get_committee_count_per_slot*(state: BeaconState,
-                                   epoch: Epoch,
-                                   cache: StateCache): uint64 =
-  # Return the number of committees at ``slot``.
-
-  # TODO this is mostly used in for loops which have indexes which then need to
-  # be converted to CommitteeIndex types for get_beacon_committee(...); replace
-  # with better and more type-safe use pattern, probably beginning with using a
-  # CommitteeIndex return type here.
-  let
-    active_validator_count = count_active_validators(state, epoch, cache)
-  result = get_committee_count_per_slot(active_validator_count)
-
-  # Otherwise, get_beacon_committee(...) cannot access some committees.
-  doAssert (SLOTS_PER_EPOCH * MAX_COMMITTEES_PER_SLOT) >= uint64(result)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: BeaconState): Epoch =
@@ -122,12 +88,6 @@ func bytes_to_uint64*(data: openarray[byte]): uint64 =
 # to check invariants on rest.
 func uint_to_bytes8*(x: uint64): array[8, byte] =
   x.toBytesLE()
-
-func int_to_bytes1*(x: int): array[1, byte] =
-  doAssert x >= 0
-  doAssert x < 256
-
-  result[0] = x.byte
 
 func uint_to_bytes4*(x: uint64): array[4, byte] =
   doAssert x < 2'u64^32

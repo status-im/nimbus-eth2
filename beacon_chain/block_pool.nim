@@ -8,7 +8,7 @@
 import
   extras, beacon_chain_db,
   stew/results,
-  spec/[crypto, datatypes, digest, helpers, presets]
+  spec/[crypto, datatypes, digest, presets, validator]
 
 
 import

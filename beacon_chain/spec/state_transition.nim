@@ -201,25 +201,7 @@ proc state_transition*(
   ## it is safe to use `noRollback` and leave it broken, else the state
   ## object should be rolled back to a consistent state. If the transition fails
   ## before the state has been updated, `rollback` will not be called.
-  #
-  # TODO this function can be written with a loop inside to handle all empty
-  #      slots up to the slot of the new_block - but then again, why not eagerly
-  #      update the state as time passes? Something to ponder...
-  #      One reason to keep it this way is that you need to look ahead if you're
-  #      the block proposer, though in reality we only need a partial update for
-  #      that ===> Implemented as process_slots
-  # TODO There's a discussion about what this function should do, and when:
-  #      https://github.com/ethereum/eth2.0-specs/issues/284
-
-  # TODO check to which extent this copy can be avoided (considering forks etc),
-  #      for now, it serves as a reminder that we need to handle invalid blocks
-  #      somewhere..
-  #      many functions will mutate `state` partially without rolling back
-  #      the changes in case of failure (look out for `var BeaconState` and
-  #      bool return values...)
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
-  doAssert stateCache.shuffled_active_validator_indices.hasKey(
-    state.data.get_current_epoch())
 
   if not process_slots(state, signedBlock.message.slot, flags):
     rollback(state)
@@ -229,8 +211,6 @@ proc state_transition*(
   # by the block proposer. Every actor in the network will update its state
   # according to the contents of this block - but first they will validate
   # that the block is sane.
-  # TODO what should happen if block processing fails?
-  #      https://github.com/ethereum/eth2.0-specs/issues/293
   if skipBLSValidation in flags or
       verify_block_signature(state.data, signedBlock):
 
@@ -265,9 +245,6 @@ proc state_transition*(
   # and fuzzing code should always be coming from blockpool which should
   # always be providing cache or equivalent
   var cache = StateCache()
-  cache.shuffled_active_validator_indices[state.data.get_current_epoch()] =
-    get_shuffled_active_validator_indices(
-      state.data, state.data.get_current_epoch())
   state_transition(preset, state, signedBlock, cache, flags, rollback)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#preparing-for-a-beaconblock

@@ -35,8 +35,6 @@ proc addMockAttestations*(
 
   # TODO: Working with an unsigned Gwei balance is a recipe for underflows to happen
   var cache = StateCache()
-  cache.shuffled_active_validator_indices[epoch] =
-    get_shuffled_active_validator_indices(state, epoch)
   var remaining_balance = state.get_total_active_balance(cache).int64 * 2 div 3
 
   let

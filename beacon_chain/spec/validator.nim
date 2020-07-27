@@ -9,8 +9,8 @@
 {.push raises: [Defect].}
 
 import
-  algorithm, options, sequtils, math, tables, sets,
-  ./datatypes, ./digest, ./helpers, ./network
+  algorithm, options, sequtils, math, tables,
+  ./datatypes, ./digest, ./helpers
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_shuffled_index
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_committee
@@ -46,10 +46,10 @@ func get_shuffled_seq*(seed: Eth2Digest,
   pivot_buffer[0..31] = seed.data
   source_buffer[0..31] = seed.data
 
-  for round in 0 ..< SHUFFLE_ROUND_COUNT.int:
-    let round_bytes1 = int_to_bytes1(round)[0]
-    pivot_buffer[32] = round_bytes1
-    source_buffer[32] = round_bytes1
+  static: doAssert SHUFFLE_ROUND_COUNT < uint8.high
+  for round in 0'u8 ..< SHUFFLE_ROUND_COUNT.uint8:
+    pivot_buffer[32] = round
+    source_buffer[32] = round
 
     # Only one pivot per round.
     let pivot =
@@ -93,14 +93,48 @@ func get_shuffled_active_validator_indices*(state: BeaconState, epoch: Epoch):
     active_validator_indices[it])
 
 func get_shuffled_active_validator_indices*(
-    state: BeaconState, epoch: Epoch, cache: var StateCache):
-    seq[ValidatorIndex] =
-  try:
-    cache.shuffled_active_validator_indices[epoch]
-  except KeyError:
-    let validator_indices = get_shuffled_active_validator_indices(state, epoch)
-    cache.shuffled_active_validator_indices[epoch] = validator_indices
-    validator_indices
+    cache: var StateCache, state: BeaconState, epoch: Epoch):
+    var seq[ValidatorIndex] =
+  # `cache` comes first because of nim's borrowing rules for the `var` return -
+  # the `var` returns avoids copying the validator set.
+  cache.shuffled_active_validator_indices.withValue(epoch, validator_indices) do:
+    return validator_indices[]
+  do:
+    let indices = get_shuffled_active_validator_indices(state, epoch)
+    return cache.shuffled_active_validator_indices.mgetOrPut(epoch, indices)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_active_validator_indices
+func count_active_validators*(state: BeaconState,
+                              epoch: Epoch,
+                              cache: var StateCache): uint64 =
+  cache.get_shuffled_active_validator_indices(state, epoch).lenu64
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_committee_count_per_slot
+func get_committee_count_per_slot*(num_active_validators: uint64): uint64 =
+  clamp(
+    num_active_validators div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
+    1'u64, MAX_COMMITTEES_PER_SLOT)
+
+func get_committee_count_per_slot*(state: BeaconState,
+                                   epoch: Epoch,
+                                   cache: var StateCache): uint64 =
+  # Return the number of committees at ``slot``.
+
+  # TODO this is mostly used in for loops which have indexes which then need to
+  # be converted to CommitteeIndex types for get_beacon_committee(...); replace
+  # with better and more type-safe use pattern, probably beginning with using a
+  # CommitteeIndex return type here.
+  let
+    active_validator_count = count_active_validators(state, epoch, cache)
+  result = get_committee_count_per_slot(active_validator_count)
+
+  # Otherwise, get_beacon_committee(...) cannot access some committees.
+  doAssert (SLOTS_PER_EPOCH * MAX_COMMITTEES_PER_SLOT) >= uint64(result)
+
+func get_committee_count_per_slot*(state: BeaconState,
+                                   slot: Slot,
+                                   cache: var StateCache): uint64 =
+  get_committee_count_per_slot(state, slot.compute_epoch_at_slot, cache)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(current_epoch: Epoch): Epoch =
@@ -115,28 +149,47 @@ func get_previous_epoch*(state: BeaconState): Epoch =
   get_previous_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_committee
-func compute_committee(indices: seq[ValidatorIndex], seed: Eth2Digest,
+func compute_committee(shuffled_indices: seq[ValidatorIndex],
     index: uint64, count: uint64): seq[ValidatorIndex] =
+  ## Return the committee corresponding to ``indices``, ``seed``, ``index``,
+  ## and committee ``count``.
+  ## In this version, we pass in the shuffled indices meaning we no longer need
+  ## the seed.
+
+  let
+    active_validators = shuffled_indices.len.uint64
+    start = (active_validators * index) div count
+    endIdx = (active_validators * (index + 1)) div count
+
+  # These assertions from compute_shuffled_index(...)
+  doAssert endIdx <= active_validators
+  doAssert active_validators <= 2'u64^40
+
+  # In spec, this calls get_shuffled_index() every time, but that's wasteful
+  # Here, get_beacon_committee() gets the shuffled version.
+  try:
+    shuffled_indices[start.int .. (endIdx.int-1)]
+  except KeyError:
+    raiseAssert("Cached entries are added before use")
+
+func compute_committee_len(active_validators: uint64,
+    index: uint64, count: uint64): uint64 =
   ## Return the committee corresponding to ``indices``, ``seed``, ``index``,
   ## and committee ``count``.
 
   # indices only used here for its length, or for the shuffled version,
   # so unlike spec, pass the shuffled version in directly.
   let
-    start = (len(indices).uint64 * index) div count
-    endIdx = (len(indices).uint64 * (index + 1)) div count
+    start = (active_validators * index) div count
+    endIdx = (active_validators * (index + 1)) div count
 
   # These assertions from compute_shuffled_index(...)
-  let index_count = indices.len().uint64
-  doAssert endIdx <= index_count
-  doAssert index_count <= 2'u64^40
+  doAssert endIdx <= active_validators
+  doAssert active_validators <= 2'u64^40
 
   # In spec, this calls get_shuffled_index() every time, but that's wasteful
   # Here, get_beacon_committee() gets the shuffled version.
-  try:
-    indices[start.int .. (endIdx.int-1)]
-  except KeyError:
-    raiseAssert("Cached entries are added before use")
+  endIdx - start
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee*(
@@ -145,28 +198,28 @@ func get_beacon_committee*(
   # Return the beacon committee at ``slot`` for ``index``.
   let
     epoch = compute_epoch_at_slot(slot)
+    committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
+  compute_committee(
+    cache.get_shuffled_active_validator_indices(state, epoch),
+    (slot mod SLOTS_PER_EPOCH) * committees_per_slot +
+      index.uint64,
+    committees_per_slot * SLOTS_PER_EPOCH
+  )
 
-  # This is a somewhat more fragile, but high-ROI, caching setup --
-  # get_active_validator_indices() is slow to run in a loop and only
-  # changes once per epoch. It is not, in the general case, possible
-  # to precompute these arbitrarily far out so still need to pick up
-  # missing cases here.
-  if epoch notin cache.shuffled_active_validator_indices:
-    cache.shuffled_active_validator_indices[epoch] =
-      get_shuffled_active_validator_indices(state, epoch)
+func get_beacon_committee_len*(
+    state: BeaconState, slot: Slot, index: CommitteeIndex,
+    cache: var StateCache): uint64 =
+  # Return the number of members in the beacon committee at ``slot`` for ``index``.
+  let
+    epoch = compute_epoch_at_slot(slot)
+    committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
 
-  try:
-    let committees_per_slot = get_committee_count_per_slot(
-      cache.shuffled_active_validator_indices[epoch].lenu64)
-    compute_committee(
-      cache.shuffled_active_validator_indices[epoch],
-      get_seed(state, epoch, DOMAIN_BEACON_ATTESTER),
-      (slot mod SLOTS_PER_EPOCH) * committees_per_slot +
-        index.uint64,
-      committees_per_slot * SLOTS_PER_EPOCH
-    )
-  except KeyError:
-    raiseAssert "values are added to cache before using them"
+  compute_committee_len(
+    count_active_validators(state, epoch, cache),
+    (slot mod SLOTS_PER_EPOCH) * committees_per_slot +
+      index.uint64,
+    committees_per_slot * SLOTS_PER_EPOCH
+  )
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_shuffled_index
 func compute_shuffled_index(
@@ -184,10 +237,9 @@ func compute_shuffled_index(
 
   # Swap or not (https://link.springer.com/content/pdf/10.1007%2F978-3-642-32009-5_1.pdf)
   # See the 'generalized domain' algorithm on page 3
-  for current_round in 0 ..< SHUFFLE_ROUND_COUNT.int:
-    let round_bytes1 = int_to_bytes1(current_round)[0]
-    pivot_buffer[32] = round_bytes1
-    source_buffer[32] = round_bytes1
+  for current_round in 0'u8 ..< SHUFFLE_ROUND_COUNT.uint8:
+    pivot_buffer[32] = current_round
+    source_buffer[32] = current_round
 
     let
       # If using multiple indices, can amortize this
@@ -237,36 +289,26 @@ func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache, slot: Slot):
     Option[ValidatorIndex] =
-  try:
-    if slot in cache.beacon_proposer_indices:
-      return cache.beacon_proposer_indices[slot]
-  except KeyError:
-    raiseAssert("Cached entries are added before use")
+  cache.beacon_proposer_indices.withValue(slot, proposer) do:
+    return proposer[]
+  do:
 
-  # Return the beacon proposer index at the current slot.
-  let epoch = get_current_epoch(state)
+    # Return the beacon proposer index at the current slot.
+    let epoch = get_current_epoch(state)
 
-  var buffer: array[32 + 8, byte]
-  buffer[0..31] = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER).data
-  buffer[32..39] = uint_to_bytes8(slot.uint64)
+    var buffer: array[32 + 8, byte]
+    buffer[0..31] = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER).data
+    buffer[32..39] = uint_to_bytes8(slot.uint64)
 
-  # TODO fixme; should only be run once per slot and cached
-  # There's exactly one beacon proposer per slot.
-  if epoch notin cache.shuffled_active_validator_indices:
-    cache.shuffled_active_validator_indices[epoch] =
-      get_shuffled_active_validator_indices(state, epoch)
+    # There's exactly one beacon proposer per slot.
 
-  try:
     let
       seed = eth2digest(buffer)
       indices =
-        sorted(cache.shuffled_active_validator_indices[epoch], system.cmp)
+        sorted(cache.get_shuffled_active_validator_indices(state, epoch), system.cmp)
 
-    cache.beacon_proposer_indices[slot] =
-      compute_proposer_index(state, indices, seed)
-    cache.beacon_proposer_indices[slot]
-  except KeyError:
-    raiseAssert("Cached entries are added before use")
+    return cache.beacon_proposer_indices.mgetOrPut(
+      slot, compute_proposer_index(state, indices, seed))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache):
@@ -300,33 +342,3 @@ func get_committee_assignment*(
       if validator_index in committee:
         return some((committee, idx, slot))
   none(tuple[a: seq[ValidatorIndex], b: CommitteeIndex, c: Slot])
-
-func get_committee_assignments*(
-    state: BeaconState, epoch: Epoch,
-    validator_indices: HashSet[ValidatorIndex]):
-    seq[tuple[subnetIndex: uint64, slot: Slot]] =
-  let next_epoch = get_current_epoch(state) + 1
-  doAssert epoch <= next_epoch
-
-  var cache = StateCache()
-  let start_slot = compute_start_slot_at_epoch(epoch)
-
-  let committees_per_slot =
-    get_committee_count_per_slot(state, epoch, cache)
-
-  for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
-    for index in 0'u64 ..< committees_per_slot:
-      let idx = index.CommitteeIndex
-      if not disjoint(validator_indices,
-          get_beacon_committee(state, slot, idx, cache).toHashSet):
-        result.add(
-          (compute_subnet_for_attestation(committees_per_slot, slot, idx),
-            slot))
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#validator-assignments
-func is_proposer(
-    state: BeaconState, validator_index: ValidatorIndex): bool {.used.} =
-  var cache = StateCache()
-  let proposer_index = get_beacon_proposer_index(state, cache)
-  proposer_index.isSome and proposer_index.get == validator_index
-

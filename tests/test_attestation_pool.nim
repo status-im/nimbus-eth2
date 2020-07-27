@@ -8,15 +8,11 @@
 {.used.}
 
 import
-  ../beacon_chain/spec/datatypes,
-  ../beacon_chain/ssz
-
-import
   unittest,
   chronicles,
   stew/byteutils,
-  ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[digest, validator, state_transition,
+  ./testutil, ./testblockutil, ../research/simutils,
+  ../beacon_chain/spec/[crypto, datatypes, digest, validator, state_transition,
                         helpers, beaconstate, presets],
   ../beacon_chain/[beacon_node_types, attestation_pool, block_pool, extras],
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice]

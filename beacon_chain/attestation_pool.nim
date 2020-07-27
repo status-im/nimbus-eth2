@@ -14,8 +14,10 @@ import
   chronicles, stew/[byteutils], json_serialization/std/sets,
   # Internal
   ./spec/[beaconstate, datatypes, crypto, digest, helpers],
-  ./extras, ./block_pool, ./block_pools/candidate_chains, ./beacon_node_types,
+  ./block_pool, ./block_pools/candidate_chains, ./beacon_node_types,
   ./fork_choice/fork_choice
+
+export beacon_node_types
 
 logScope: topics = "attpool"
 
@@ -32,7 +34,10 @@ proc init*(T: type AttestationPool, blockPool: BlockPool): T =
       blockPool.tmpState,
     ).get()
 
-  # Feed fork choice with unfinalized history
+  # Feed fork choice with unfinalized history - during startup, block pool only
+  # keeps track of a single history so we just need to follow it
+  doAssert blockPool.heads.len == 1, "Init only supports a single history"
+
   var blocks: seq[BlockRef]
   var cur = blockPool.head.blck
   while cur != blockPool.finalizedHead.blck:
@@ -65,25 +70,6 @@ proc init*(T: type AttestationPool, blockPool: BlockPool): T =
     unresolved: initTable[Eth2Digest, UnresolvedAttestation](),
     forkChoice: forkChoice
   )
-
-proc combine*(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
-  ## Combine the signature and participation bitfield, with the assumption that
-  ## the same data is being signed - if the signatures overlap, they are not
-  ## combined.
-  # TODO: Exported only for testing, all usage are internals
-
-  doAssert tgt.data == src.data
-
-  # In a BLS aggregate signature, one needs to count how many times a
-  # particular public key has been added - since we use a single bit per key, we
-  # can only it once, thus we can never combine signatures that overlap already!
-  if not tgt.aggregation_bits.overlaps(src.aggregation_bits):
-    tgt.aggregation_bits.combine(src.aggregation_bits)
-
-    if skipBlsValidation notin flags:
-      tgt.signature.aggregate(src.signature)
-  else:
-    trace "Ignoring overlapping attestations"
 
 proc slotIndex(
     pool: var AttestationPool, state: BeaconState, attestationSlot: Slot): int =
@@ -139,10 +125,10 @@ proc slotIndex(
   int(attestationSlot - pool.startingSlot)
 
 func processAttestation(
-    pool: var AttestationPool, state: BeaconState,
-    participants: seq[ValidatorIndex], block_root: Eth2Digest, target_epoch: Epoch) =
+    pool: var AttestationPool, participants: HashSet[ValidatorIndex],
+    block_root: Eth2Digest, target_epoch: Epoch) =
+  # Add attestation votes to fork choice
   for validator in participants:
-    # ForkChoice v2
     pool.forkChoice.process_attestation(validator, block_root, target_epoch)
 
 func addUnresolved(pool: var AttestationPool, attestation: Attestation) =
@@ -152,6 +138,9 @@ func addUnresolved(pool: var AttestationPool, attestation: Attestation) =
     )
 
 proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attestation) =
+  logScope:
+    attestation = shortLog(attestation)
+
   doAssert blck.root == attestation.data.beacon_block_root
 
   # TODO Which state should we use to validate the attestation? It seems
@@ -163,7 +152,6 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
   #       we should use isValidAttestationSlot instead
   if blck.slot > attestation.data.slot:
     notice "Invalid attestation (too new!)",
-      attestation = shortLog(attestation),
       blockSlot = shortLog(blck.slot)
     return
 
@@ -172,7 +160,6 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
     # though they no longer are relevant for finalization - let's clear
     # these out
     debug "Old attestation",
-      attestation = shortLog(attestation),
       startingSlot = pool.startingSlot
     return
 
@@ -181,14 +168,8 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
   #   return
 
   # Check that the attestation is indeed valid
-  # TODO: we might want to split checks that depend
-  #       on the state and those that don't to cheaply
-  #       discard invalid attestations before rewinding state.
-  if not isValidAttestationTargetEpoch(
-      attestation.data.target.epoch, attestation.data):
-    notice "Invalid attestation",
-      attestation = shortLog(attestation),
-      current_epoch = attestation.data.slot.compute_epoch_at_slot
+  if (let v = check_attestation_slot_target(attestation.data); v.isErr):
+    debug "Invalid attestation", err = v.error
     return
 
   # Get a temporary state at the (block, slot) targeted by the attestation
@@ -209,8 +190,8 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
     validation = Validation(
       aggregation_bits: attestation.aggregation_bits,
       aggregate_signature: attestation.signature)
-    participants = toSeq(items(get_attesting_indices(
-      state, attestation.data, validation.aggregation_bits, cache)))
+    participants = get_attesting_indices(
+      state, attestation.data, validation.aggregation_bits, cache)
 
   var found = false
   for a in attestationsSeen.attestations.mitems():
@@ -240,7 +221,7 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
 
         a.validations.add(validation)
         pool.processAttestation(
-          state, participants, a.blck.root, attestation.data.target.epoch)
+          participants, a.blck.root, attestation.data.target.epoch)
 
         info "Attestation resolved",
           attestation = shortLog(attestation),
@@ -259,7 +240,7 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
       validations: @[validation]
     ))
     pool.processAttestation(
-      state, participants, blck.root, attestation.data.target.epoch)
+      participants, blck.root, attestation.data.target.epoch)
 
     info "Attestation resolved",
       attestation = shortLog(attestation),
@@ -383,9 +364,11 @@ proc getAttestationsForBlock*(pool: AttestationPool,
     #      state should they be validated, if at all?
     # TODO we're checking signatures here every time which is very slow and we don't want
     #      to include a broken attestation
-    if not check_attestation(state, attestation, {}, cache):
+    if (let v = check_attestation(state, attestation, {}, cache); v.isErr):
       warn "Attestation no longer validates...",
-        attestation = shortLog(attestation)
+        attestation = shortLog(attestation),
+        err = v.error
+
       continue
 
     for v in a.validations[1..^1]:

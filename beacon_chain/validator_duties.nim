@@ -414,7 +414,7 @@ proc broadcastAggregatedAttestations(
               # TODO https://github.com/status-im/nim-beacon-chain/issues/545
               # this assumes in-process private keys
               validator.privKey,
-              trailing_distance)
+              trailing_distance, cache)
 
           # Don't broadcast when, e.g., this node isn't an aggregator
           if aggregateAndProof.isSome:
