@@ -69,7 +69,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     blockPool.withState(blockPool.tmpState, attestationHead):
       var cache = getEpochCache(attestationHead.blck, state)
-      let committees_per_slot = get_committee_count_per_slot(state, slot, cache)
+      let committees_per_slot =
+        get_committee_count_per_slot(state, slot.epoch, cache)
 
       for committee_index in 0'u64..<committees_per_slot:
         let committee = get_beacon_committee(

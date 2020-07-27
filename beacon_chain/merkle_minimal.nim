@@ -94,7 +94,7 @@ func attachMerkleProofs*(deposits: var openarray[Deposit]) =
   for val_idx in 0 ..< deposits.len:
     let merkle_tree = merkleTreeFromLeaves(deposit_data_roots[0..val_idx])
     deposits[val_idx].proof[0..31] = merkle_tree.getMerkleProof(val_idx)
-    deposits[val_idx].proof[32].data[0..7] = int_to_bytes8((val_idx + 1).uint64)
+    deposits[val_idx].proof[32].data[0..7] = uint_to_bytes8((val_idx + 1).uint64)
 
     doAssert is_valid_merkle_branch(
       deposit_data_roots[val_idx], deposits[val_idx].proof,

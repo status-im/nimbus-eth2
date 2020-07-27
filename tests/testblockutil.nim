@@ -215,8 +215,8 @@ proc makeFullAttestations*(
     flags: UpdateFlags = {}): seq[Attestation] =
   # Create attestations in which the full committee participates for each shard
   # that should be attested to during a particular slot
-  let
-    committees_per_slot = get_committee_count_per_slot(state, slot, cache)
+  let committees_per_slot =
+    get_committee_count_per_slot(state, slot.epoch, cache)
 
   for index in 0'u64..<committees_per_slot:
     let

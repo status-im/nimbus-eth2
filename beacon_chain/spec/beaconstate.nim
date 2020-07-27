@@ -50,6 +50,23 @@ func decrease_balance*(
       state.balances[index] - delta
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#deposits
+func get_validator_from_deposit(state: BeaconState, deposit: Deposit):
+    Validator =
+  let
+    amount = deposit.data.amount
+    effective_balance = min(
+      amount - amount mod EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE)
+
+  Validator(
+    pubkey: deposit.data.pubkey,
+    withdrawal_credentials: deposit.data.withdrawal_credentials,
+    activation_eligibility_epoch: FAR_FUTURE_EPOCH,
+    activation_epoch: FAR_FUTURE_EPOCH,
+    exit_epoch: FAR_FUTURE_EPOCH,
+    withdrawable_epoch: FAR_FUTURE_EPOCH,
+    effective_balance: effective_balance
+  )
+
 proc process_deposit*(preset: RuntimePreset,
                       state: var BeaconState,
                       deposit: Deposit,
@@ -89,16 +106,7 @@ proc process_deposit*(preset: RuntimePreset,
         return ok()
 
     # Add validator and balance entries
-    state.validators.add(Validator(
-      pubkey: pubkey,
-      withdrawal_credentials: deposit.data.withdrawal_credentials,
-      activation_eligibility_epoch: FAR_FUTURE_EPOCH,
-      activation_epoch: FAR_FUTURE_EPOCH,
-      exit_epoch: FAR_FUTURE_EPOCH,
-      withdrawable_epoch: FAR_FUTURE_EPOCH,
-      effective_balance: min(amount - amount mod EFFECTIVE_BALANCE_INCREMENT,
-        MAX_EFFECTIVE_BALANCE)
-    ))
+    state.validators.add(get_validator_from_deposit(state, deposit))
     state.balances.add(amount)
   else:
      # Increase balance by deposit amount
@@ -590,19 +598,28 @@ proc check_attestation*(
     attestation = shortLog(attestation)
   trace "process_attestation: beginning"
 
-  let committees_per_slot =
-    get_committee_count_per_slot(state, data.slot, stateCache)
-  if not (data.index < committees_per_slot):
-    warn "Data index exceeds committee count",
-      committee_count = committees_per_slot
-    return
-
   if not isValidAttestationTargetEpoch(state.get_current_epoch(), data):
     # Logging in isValidAttestationTargetEpoch
     return
 
   if not isValidAttestationSlot(data.slot, stateSlot):
     # Logging in isValidAttestationSlot
+    return
+
+  let committees_per_slot =
+    get_committee_count_per_slot(
+      state, data.target.epoch, stateCache)
+  if not (data.index < committees_per_slot):
+    warn "Data index exceeds committee count",
+      committee_count = committees_per_slot
+    return
+
+  if not (data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= state.slot):
+    warn "Attestation too new"
+    return
+
+  if not (state.slot <= data.slot + SLOTS_PER_EPOCH):
+    warn "Attestation too old"
     return
 
   let committee = get_beacon_committee(

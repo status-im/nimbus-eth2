@@ -19,7 +19,7 @@ import
 const
   SpecDir = currentSourcePath.rsplit(DirSep, 1)[0] /
                   ".."/".."/"beacon_chain"/"spec"
-  Config = SszTestsDir/const_preset/"config.yaml"
+  Config = SszTestsDir/const_preset/"config"/"phase0.yaml"
 
 type
   CheckedType = SomeInteger or Slot or Epoch

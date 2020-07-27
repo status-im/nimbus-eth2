@@ -107,7 +107,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       # some variation
       let
         target_slot = state[].data.slot + MIN_ATTESTATION_INCLUSION_DELAY - 1
-        committees_per_slot = get_committee_count_per_slot(state[].data, target_slot, cache)
+        committees_per_slot =
+          get_committee_count_per_slot(state[].data, target_slot.epoch, cache)
 
       let
         scass = withTimerRet(timers[tShuffle]):
