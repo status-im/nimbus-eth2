@@ -709,12 +709,15 @@ proc handleIncomingPeer*(peer: Peer): Future[bool] {.async.} =
     debug "Peer (incoming) lost", peer
     nbc_peers.set int64(len(network.peerPool))
 
-  let res = await network.peerPool.addIncomingPeer(peer)
+  let res = network.peerPool.addIncomingPeerNoWait(peer)
   if res:
     peer.updateScore(NewPeerScore)
     debug "Peer (incoming) has been added to PeerPool", peer
     peer.getFuture().addCallback(onPeerClosed)
     result = true
+  else:
+    debug "Too many incoming connections in PeerPool, disconnecting", peer
+    result = false
 
   nbc_peers.set int64(len(network.peerPool))
 
