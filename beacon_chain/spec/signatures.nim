@@ -138,7 +138,7 @@ func verify_attestation_signature*(
 
     blsFastAggregateVerify(pubkeys, signing_root.data, signature)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#deposits
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#deposits
 func get_deposit_signature*(preset: RuntimePreset,
                             deposit: DepositData,
                             privkey: ValidatorPrivKey): ValidatorSig =
