@@ -17,7 +17,15 @@ cd "$(dirname "${BASH_SOURCE[0]}")"/..
 ####################
 # argument parsing #
 ####################
-! getopt --test > /dev/null
+
+GETOPT_BINARY="getopt"
+if uname | grep -qi darwin; then
+  # macOS
+  GETOPT_BINARY="/usr/local/opt/gnu-getopt/bin/getopt"
+	[[ -f "$GETOPT_BINARY" ]] || { echo "GNU getopt not installed. Please run 'brew install gnu-getopt'. Aborting."; exit 1; }
+fi
+
+! ${GETOPT_BINARY} --test > /dev/null
 if [ ${PIPESTATUS[0]} != 4 ]; then
 	echo '`getopt --test` failed in this environment.'
 	exit 1
@@ -55,7 +63,7 @@ CI run: $(basename $0) --disable-htop -- --verify-finalization --stop-at-epoch=5
 EOF
 }
 
-! PARSED=$(getopt --options=${OPTS} --longoptions=${LONGOPTS} --name "$0" -- "$@")
+! PARSED=$(${GETOPT_BINARY} --options=${OPTS} --longoptions=${LONGOPTS} --name "$0" -- "$@")
 if [ ${PIPESTATUS[0]} != 0 ]; then
 	# getopt has complained about wrong arguments to stdout
 	exit 1
