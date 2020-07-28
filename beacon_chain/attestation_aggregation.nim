@@ -32,7 +32,7 @@ proc aggregate_attestations*(
     cache: var StateCache): Option[AggregateAndProof] =
   doAssert state.slot >= trailing_distance
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#configuration
   doAssert trailing_distance <= ATTESTATION_PROPAGATION_SLOT_RANGE
 
   let
@@ -65,7 +65,7 @@ proc aggregate_attestations*(
   for attestation in getAttestationsForBlock(pool, state):
     # getAttestationsForBlock(...) already aggregates
     if attestation.data == attestation_data:
-      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#aggregateandproof
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#aggregateandproof
       return some(AggregateAndProof(
         aggregator_index: index.uint64,
         aggregate: attestation,
