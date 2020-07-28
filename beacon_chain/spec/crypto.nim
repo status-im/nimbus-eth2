@@ -53,16 +53,21 @@ type
 
   BlsValue*[N: static int, T: blscurve.PublicKey or blscurve.Signature] = object
     ## This is a lazily initiated wrapper for the underlying cryptographic type
-    ## Note, since 0.20 case object transition are very restrictive
-    ## and do not allow to preserve content (https://github.com/nim-lang/RFCs/issues/56)
-    ## Fortunately, the content is transformed anyway if the object is valid
-    ## but we might want to keep the invalid content at least for logging before discarding it.
-    ## Our usage requires "-d:nimOldCaseObjects"
-    case kind*: BlsValueKind
+    ##
+    ## Fields intentionally private to avoid displaying/logging the raw data
+    ## or accessing fields without promoting them
+    ## or trying to iterate on a case object even though the case is wrong (SSZ/Chronicles)
+    #
+    # Note, since 0.20 case object transition are very restrictive
+    # and do not allow to preserve content (https://github.com/nim-lang/RFCs/issues/56)
+    # Fortunately, the content is transformed anyway if the object is valid
+    # but we might want to keep the invalid content at least for logging before discarding it.
+    # Our usage requires "-d:nimOldCaseObjects"
+    case kind: BlsValueKind
     of Real:
-      blsValue*: T
+      blsValue: T
     of ToBeChecked, InvalidBLS, OpaqueBlob:
-      blob*: array[N, byte]
+      blob: array[N, byte]
 
   ValidatorPubKey* = BlsValue[RawPubKeySize, blscurve.PublicKey]
 
@@ -80,6 +85,9 @@ type
     data*: array[RawSigSize, byte]
 
   SomeSig* = TrustedSig | ValidatorSig
+
+# Lazy parsing
+# ----------------------------------------------------------------------
 
 func unsafePromote*[N, T](a: ptr BlsValue[N, T]) =
   ## Try promoting an opaque blob to its corresponding
@@ -101,6 +109,16 @@ func unsafePromote*[N, T](a: ptr BlsValue[N, T]) =
     a.blsValue = buffer
   else:
     a.kind = InvalidBLS
+
+# Accessors
+# ----------------------------------------------------------------------
+
+func setBlob*[N, T](a: var BlsValue[N, T], data: array[N, byte]) {.inline.} =
+  ## Set a BLS Value lazily
+  a.blob = data
+
+# Comparison
+# ----------------------------------------------------------------------
 
 func `==`*(a, b: BlsValue): bool =
   unsafePromote(a.unsafeAddr)
@@ -342,6 +360,10 @@ func shortLog*(x: ValidatorPrivKey): string =
 
 func shortLog*(x: TrustedSig): string =
   x.data[0..3].toHex()
+
+chronicles.formatIt BlsValue: it.shortLog
+chronicles.formatIt ValidatorPrivKey: it.shortLog
+chronicles.formatIt TrustedSig: it.shortLog
 
 # Initialization
 # ----------------------------------------------------------------------
