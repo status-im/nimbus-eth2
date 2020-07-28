@@ -68,8 +68,8 @@ type
       name: "deposit-contract" }: Option[Eth1Address]
 
     depositContractDeployedAt* {.
-      desc: "The Eth1 block hash where the deposit contract has been deployed"
-      name: "deposit-contract-block" }: Option[Eth1BlockHash]
+      desc: "The Eth1 block number or hash where the deposit contract has been deployed"
+      name: "deposit-contract-block" }: Option[string]
 
     nonInteractive* {.
       desc: "Do not display interative prompts. Quit on missing configuration"

@@ -38,7 +38,7 @@ type
       bootstrapNodes*: seq[string]
 
       depositContractAddress*: Eth1Address
-      depositContractDeployedAt*: Eth1BlockHash
+      depositContractDeployedAt*: string
 
       # Please note that we are using `string` here because SSZ.decode
       # is not currently usable at compile time and we want to load the
@@ -110,9 +110,9 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
         default(Eth1Address)
 
       depositContractBlock = if fileExists(depositContractBlockPath):
-        Eth1BlockHash.fromHex readFile(depositContractBlockPath).strip
+        readFile(depositContractBlockPath).strip
       else:
-        default(Eth1BlockHash)
+        ""
 
       bootstrapNodes = if fileExists(bootstrapNodesPath):
         readFile(bootstrapNodesPath).splitLines()
@@ -145,7 +145,7 @@ const
       # TODO The values below are just placeholders for now
       bootstrapNodes: @[],
       depositContractAddress: Eth1Address.fromHex "0x1234567890123456789012345678901234567890",
-      depositContractDeployedAt: Eth1BlockHash.fromHex "0x73056f16a59bf70abad5b4365438e8a7d646aa0d7f56d22c3d9e4c6000d8e176",
+      depositContractDeployedAt: "0",
       genesisData: "")
   else:
     Eth2NetworkMetadata(

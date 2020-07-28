@@ -165,14 +165,28 @@ proc init*(T: type BeaconNode,
         fatal "Deposit contract deployment block not specified"
         quit 1
 
+      let web3 = web3Provider(conf.web3Url)
+      let deployedAtAsHash =
+        if conf.depositContractDeployedAt.get.startsWith "0x":
+          try: BlockHash.fromHex conf.depositContractDeployedAt.get
+          except ValueError:
+            fatal "Invalid hex value specified for deposit-contract-block"
+            quit 1
+        else:
+          let blockNum = try: parseBiggestUInt conf.depositContractDeployedAt.get
+                         except ValueError:
+                           fatal "Invalid nummeric value for deposit-contract-block"
+                           quit 1
+          await getEth1BlockHash(conf.web3Url, blockId blockNum)
+
       # TODO Could move this to a separate "GenesisMonitor" process or task
       #      that would do only this - see Paul's proposal for this.
       mainchainMonitor = MainchainMonitor.init(
         conf.runtimePreset,
-        web3Provider(conf.web3Url),
+        web3,
         conf.depositContractAddress.get,
-        Eth1Data(block_hash: conf.depositContractDeployedAt.get.asEth2Digest,
-                 deposit_count: 0))
+        Eth1Data(block_hash: deployedAtAsHash.asEth2Digest, deposit_count: 0))
+
       mainchainMonitor.start()
 
       genesisState = await mainchainMonitor.waitGenesis()
@@ -1097,7 +1111,7 @@ programMain:
       startTime = uint64(times.toUnix(times.getTime()) + config.genesisOffset)
       outGenesis = config.outputGenesis.string
       eth1Hash = if config.web3Url.len == 0: eth1BlockHash
-                 else: waitFor getLatestEth1BlockHash(config.web3Url)
+                 else: (waitFor getEth1BlockHash(config.web3Url, blockId("latest"))).asEth2Digest
     var
       initialState = initialize_beacon_state_from_eth1(
         defaultRuntimePreset, eth1Hash, startTime, deposits, {skipBlsValidation})

@@ -798,11 +798,11 @@ proc start(m: MainchainMonitor, delayBeforeStart: Duration) =
 proc start*(m: MainchainMonitor) {.inline.} =
   m.start(0.seconds)
 
-proc getLatestEth1BlockHash*(url: string): Future[Eth2Digest] {.async.} =
+proc getEth1BlockHash*(url: string, blockId: RtBlockIdentifier): Future[BlockHash] {.async.} =
   let web3 = await newWeb3(url)
   try:
-    let blk = await web3.provider.eth_getBlockByNumber("latest", false)
-    return Eth2Digest(data: array[32, byte](blk.hash))
+    let blk = await web3.provider.eth_getBlockByNumber(blockId, false)
+    return blk.hash
   finally:
     await web3.close()
 
