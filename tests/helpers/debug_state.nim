@@ -7,31 +7,10 @@
 
 import
   macros,
-  nimcrypto/utils,
   ../../beacon_chain/spec/[datatypes, crypto, digest], ../../beacon_chain/ssz/types
   # digest is necessary for them to be printed as hex
 
-# Define comparison of object variants for BLSValue
-# https://github.com/nim-lang/Nim/issues/6676
-# (fully generic available - see also https://github.com/status-im/nim-beacon-chain/commit/993789bad684721bd7c74ea14b35c2d24dbb6e51)
-# ----------------------------------------------------------------
-
-proc `==`*(a, b: BlsValue): bool =
-  ## We sometimes need to compare real BlsValue
-  ## from parsed opaque blobs that are not really on the BLS curve
-  ## and full of zeros
-  unsafePromote(a.unsafeAddr)
-  unsafePromote(b.unsafeAddr)
-  if a.kind == Real:
-    if b.kind == Real:
-      a.blsvalue == b.blsValue
-    else:
-      $a.blsvalue == toHex(b.blob, true)
-  else:
-    if b.kind == Real:
-      toHex(a.blob, true) == $b.blsValue
-    else:
-      a.blob == b.blob
+export crypto.`==`
 
 # ---------------------------------------------------------------------
 
@@ -50,9 +29,10 @@ proc compareStmt(xSubField, ySubField: NimNode, stmts: var NimNode) =
   let xStr = $xSubField.toStrLit
   let yStr = $ySubField.toStrLit
 
+  let isEqual = bindSym("==") # Bind all expose equality, in particular for BlsValue
   stmts.add quote do:
     doAssert(
-      `xSubField` == `ySubField`,
+      `isEqual`(`xSubField`, `ySubField`),
       "\nDiff: " & `xStr` & " = " & $`xSubField` & "\n" &
       "and   " & `yStr` & " = " & $`ySubField` & "\n"
     )
@@ -61,16 +41,16 @@ proc compareContainerStmt(xSubField, ySubField: NimNode, stmts: var NimNode) =
   let xStr = $xSubField.toStrLit
   let yStr = $ySubField.toStrLit
 
-
+  let isEqual = bindSym("==") # Bind all expose equality, in particular for BlsValue
   stmts.add quote do:
     doAssert(
-      `xSubField`.len == `ySubField`.len,
+      `isEqual`(`xSubField`.len, `ySubField`.len),
         "\nDiff: " & `xStr` & ".len = " & $`xSubField`.len & "\n" &
         "and   " & `yStr` & ".len = " & $`ySubField`.len & "\n"
     )
     for idx in `xSubField`.low .. `xSubField`.high:
       doAssert(
-        `xSubField`[idx] == `ySubField`[idx],
+        `isEqual`(`xSubField`[idx], `ySubField`[idx]),
         "\nDiff: " & `xStr` & "[" & $idx & "] = " & $`xSubField`[idx] & "\n" &
         "and   " & `yStr` & "[" & $idx & "] = " & $`ySubField`[idx] & "\n"
       )

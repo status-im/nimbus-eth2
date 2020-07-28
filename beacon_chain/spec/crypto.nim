@@ -118,6 +118,21 @@ func setBlob*[N, T](a: var BlsValue[N, T], data: array[N, byte]) {.inline.} =
   ## Set a BLS Value lazily
   a.blob = data
 
+func keyGen*(ikm: openArray[byte]): BlsResult[tuple[pub: ValidatorPubKey, priv: ValidatorPrivKey]] {.inline.} =
+  ## Key generation using the BLS Signature draft 2 (https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-02)
+  ## Note: As of July-2020, the only use-case is for testing
+  ##
+  ## Validator key generation should use Lamport Signatures (EIP-2333)
+  ## (https://eips.ethereum.org/EIPS/eip-2333)
+  ## and be done in a dedicated hardened module/process.
+  var
+    sk: SecretKey
+    pk: PublicKey
+  if keyGen(ikm, pk, sk):
+    ok((ValidatorPubKey(kind: Real, blsValue: pk), ValidatorPrivKey(sk)))
+  else:
+    err "bls: cannot generate keypair"
+
 # Comparison
 # ----------------------------------------------------------------------
 

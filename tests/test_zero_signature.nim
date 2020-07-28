@@ -39,14 +39,17 @@ suiteReport "Zero signature sanity checks":
   timedTest "SSZ serialization roundtrip of SignedBeaconBlockHeader":
 
     let defaultBlockHeader = SignedBeaconBlockHeader(
-      signature: ValidatorSig(kind: ToBeChecked)
+      signature: ValidatorSig()
     )
 
     check:
       block:
+        let sigBytes = cast[ptr array[ValidatorSig.sizeof(), byte]](
+          defaultBlockHeader.signature.unsafeAddr)
+
         var allZeros = true
-        for val in defaultBlockHeader.signature.blob:
-          allZeros = allZeros and val == 0
+        for i in 0 ..< ValidatorSig.sizeof():
+          allZeros = allZeros and sigBytes[i] == byte 0
         allZeros
 
     let sszDefaultBlockHeader = SSZ.encode(defaultBlockHeader)
