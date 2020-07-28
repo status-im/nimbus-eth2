@@ -12,9 +12,9 @@ import
   confutils, stats, times,
   strformat,
   options, sequtils, random, tables,
-  ../tests/[testblockutil],
+  ../tests/testblockutil,
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
-  ../beacon_chain/[attestation_pool, extras],
+  ../beacon_chain/extras,
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
 
