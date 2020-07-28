@@ -56,7 +56,8 @@ type
     ##
     ## Fields intentionally private to avoid displaying/logging the raw data
     ## or accessing fields without promoting them
-    ## or trying to iterate on a case object even though the case is wrong (SSZ/Chronicles)
+    ## or trying to iterate on a case object even though the case is wrong.
+    ## Is there a way to prevent macro from doing that? (SSZ/Chronicles)
     #
     # Note, since 0.20 case object transition are very restrictive
     # and do not allow to preserve content (https://github.com/nim-lang/RFCs/issues/56)
@@ -148,6 +149,9 @@ func toPubKey*(privkey: ValidatorPrivKey): ValidatorPubKey =
 func aggregate*(x: var ValidatorSig, other: ValidatorSig) =
   ## Aggregate 2 Validator Signatures
   ## This assumes that they are real signatures
+  ## and will crash if they are not
+  unsafePromote(x.addr)
+  unsafePromote(other.unsafeAddr)
   x.blsValue.aggregate(other.blsValue)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#bls-signatures
