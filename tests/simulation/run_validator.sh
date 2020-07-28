@@ -34,7 +34,7 @@ if [[ $NODE_ID -lt $TOTAL_NODES ]]; then
 
   pushd "$VALIDATORS_DIR" >/dev/null
   for VALIDATOR in $(ls | tail -n +$(( $VALIDATOR_OFFSET + ($VALIDATORS_PER_NODE * $NODE_ID) + 1 )) | head -n $VALIDATORS_PER_NODE); do
-      cp -ar "$VALIDATOR" "$NODE_VALIDATORS_DIR"
+      cp -a "$VALIDATOR" "$NODE_VALIDATORS_DIR"
       cp -a "$SECRETS_DIR/$VALIDATOR" "$NODE_SECRETS_DIR"
     done
   popd >/dev/null
