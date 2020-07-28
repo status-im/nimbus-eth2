@@ -54,17 +54,11 @@ proc addLocalValidator*(node: BeaconNode,
 
   node.attachedValidators.addLocalValidator(pubKey, privKey)
 
-proc addLocalValidators*(node: BeaconNode) {.async.} =
-  let
-    head = node.blockPool.head
+proc addLocalValidators*(node: BeaconNode) =
+  for validatorKey in node.config.validatorKeys:
+    node.addLocalValidator node.blockPool.headState.data.data, validatorKey
 
-  node.blockPool.withState(node.blockPool.tmpState, head.atSlot(head.slot)):
-    for validatorKey in node.config.validatorKeys:
-      node.addLocalValidator state, validatorKey
-      # Allow some network events to be processed:
-      await sleepAsync(0.seconds)
-
-    info "Local validators attached ", count = node.attachedValidators.count
+  info "Local validators attached ", count = node.attachedValidators.count
 
 func getAttachedValidator*(node: BeaconNode,
                            state: BeaconState,
@@ -116,12 +110,10 @@ proc sendAttestation*(node: BeaconNode, attestation: Attestation) =
     debug "Attempt to send attestation without corresponding block"
     return
 
-  node.blockPool.withEpochState(
-      node.blockPool.tmpState,
-      BlockSlot(blck: attestationBlck, slot: attestation.data.slot)):
-    node.sendAttestation(
-      attestation,
-      count_active_validators(blck.getEpochInfo(state)))
+  node.sendAttestation(
+    attestation,
+    count_active_validators(
+      node.blockPool.dag.getEpochRef(attestationBlck, attestation.data.target.epoch)))
 
 proc createAndSendAttestation(node: BeaconNode,
                               fork: Fork,

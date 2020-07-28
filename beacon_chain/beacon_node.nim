@@ -273,7 +273,7 @@ proc init*(T: type BeaconNode,
       onBeaconBlock(res, signedBlock)
   )
 
-  await res.addLocalValidators()
+  res.addLocalValidators()
 
   # This merely configures the BeaconSync
   # The traffic will be started when we join the network.

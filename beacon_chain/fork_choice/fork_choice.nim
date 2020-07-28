@@ -177,8 +177,8 @@ func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## In particular, before adding a block, its parent must be known to the fork choice
   self.proto_array.indices.contains(block_root)
 
-proc get_balances_for_block(self: var Checkpoints, blck: BlockRef, pool: BlockPool): seq[Gwei] =
-  pool.withState(pool.balanceState, blck.atSlot(blck.slot)):
+proc get_balances_for_block(self: var Checkpoints, blck: BlockSlot, pool: BlockPool): seq[Gwei] =
+  pool.withState(pool.balanceState, blck):
     get_effective_balances(state)
 
 proc process_state(self: var Checkpoints,
@@ -204,7 +204,7 @@ proc process_state(self: var Checkpoints,
       justified: BalanceCheckpoint(
           blck: justifiedBlck.blck,
           epoch: state.current_justified_checkpoint.epoch,
-          balances: self.get_balances_for_block(justifiedBlck.blck, pool),
+          balances: self.get_balances_for_block(justifiedBlck, pool),
       ),
       finalized: state.finalized_checkpoint,
     )
@@ -279,7 +279,7 @@ proc process_block*(self: var ForkChoice,
                     blck: SomeBeaconBlock,
                     wallSlot: Slot): Result[void, string] =
   ? process_state(self.checkpoints, pool, state, blckRef)
-  # TODO current time
+
   maybe_update(self.checkpoints, wallSlot, pool)
 
   for attestation in blck.body.attestations:

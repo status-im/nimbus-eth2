@@ -186,7 +186,18 @@ func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
 
 func getEpochCache*(blck: BlockRef, state: BeaconState): StateCache =
   let epochInfo = getEpochInfo(blck, state)
-  result = StateCache()
+  if blck.slot.compute_epoch_at_slot > 1:
+    # When doing state transitioning, both the current and previous epochs are
+    # useful from a cache perspective since attestations may come from either
+    let
+      prevEpochBlck =
+        blck.atSlot(epochInfo.epoch.compute_start_slot_at_epoch - 1).blck
+
+    for ei in prevEpochBlck.epochsInfo:
+      if ei.epoch == epochInfo.epoch - 1:
+        result.shuffled_active_validator_indices[ei.epoch] =
+          ei.shuffled_active_validator_indices
+
   result.shuffled_active_validator_indices[state.get_current_epoch()] =
       epochInfo.shuffled_active_validator_indices
 
@@ -723,9 +734,16 @@ proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
     lastHead = dag.head
   dag.db.putHeadBlock(newHead.root)
 
-  # Start off by making sure we have the right state
-  updateStateData(
-    dag, dag.headState, BlockSlot(blck: newHead, slot: newHead.slot))
+  # Start off by making sure we have the right state - as a special case, we'll
+  # check the last block that was cleared by clearance - it might be just the
+  # thing we're looking for
+
+  if dag.clearanceState.blck == newHead and
+      dag.clearanceState.data.data.slot == newHead.slot:
+    assign(dag.headState, dag.clearanceState)
+  else:
+    updateStateData(
+      dag, dag.headState, BlockSlot(blck: newHead, slot: newHead.slot))
 
   dag.head = newHead
 

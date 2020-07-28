@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/tables,
+  std/[sequtils, tables],
   chronicles,
   metrics, stew/results,
   ../extras,
@@ -57,9 +57,14 @@ proc addResolvedBlock(
   let
     blockRoot = signedBlock.root
     blockRef = BlockRef.init(blockRoot, signedBlock.message)
-  if parent.slot.compute_epoch_at_slot() == blockRef.slot.compute_epoch_at_slot:
-    blockRef.epochsInfo = @[parent.epochsInfo[0]]
+    blockEpoch = blockRef.slot.compute_epoch_at_slot()
+  if parent.slot.compute_epoch_at_slot() == blockEpoch:
+    # If the parent and child blocks are from the same epoch, we can reuse
+    # the epoch cache - but we'll only use the current epoch because the new
+    # block might have affected what the next epoch looks like
+    blockRef.epochsInfo = filterIt(parent.epochsInfo, it.epoch == blockEpoch)
   else:
+    # Ensure we collect the epoch info if it's missing
     discard getEpochInfo(blockRef, state.data)
 
   link(parent, blockRef)
