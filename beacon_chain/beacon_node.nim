@@ -1041,6 +1041,8 @@ programMain:
           mainnetMetadata
         of "altona":
           altonaMetadata
+        of "medalla":
+          medallaMetadata
         of "testnet0":
           testnet0Metadata
         of "testnet1":

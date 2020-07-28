@@ -157,6 +157,9 @@ const
   altonaMetadata* = loadEth2NetworkMetadata(
     currentSourcePath.parentDir / ".." / "vendor" / "eth2-testnets" / "shared" / "altona")
 
+  medallaMetadata* = loadEth2NetworkMetadata(
+    currentSourcePath.parentDir / ".." / "vendor" / "eth2-testnets" / "shared" / "medalla")
+
   testnet0Metadata* = loadEth2NetworkMetadata(
     currentSourcePath.parentDir / ".." / "vendor" / "eth2-testnets" / "nimbus" / "testnet0")
 
