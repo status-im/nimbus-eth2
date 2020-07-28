@@ -97,6 +97,7 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
       configPath = path / "config.yaml"
       depositContractPath = path / "deposit_contract.txt"
       depositContractBlockPath = path / "deposit_contract_block.txt"
+      bootstrapNodesPath = path / "bootstrap_nodes.txt"
 
       runtimePreset = if fileExists(configPath):
         extractRuntimePreset(configPath, readPresetFile(configPath))
@@ -113,6 +114,11 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
       else:
         default(Eth1BlockHash)
 
+      bootstrapNodes = if fileExists(bootstrapNodesPath):
+        readFile(bootstrapNodesPath).splitLines()
+      else:
+        @[]
+
       genesisData = if fileExists(genesisPath): readFile(genesisPath)
                     else: ""
 
@@ -120,7 +126,7 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
       incompatible: false,
       eth1Network: some goerli,
       runtimePreset: runtimePreset,
-      bootstrapNodes: readFile(path / "bootstrap_nodes.txt").splitLines(),
+      bootstrapNodes: bootstrapNodes,
       depositContractAddress: depositContractAddress,
       depositContractDeployedAt: depositContractBlock,
       genesisData: genesisData)
