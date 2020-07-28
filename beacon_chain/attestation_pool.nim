@@ -39,7 +39,7 @@ proc init*(T: type AttestationPool, blockPool: BlockPool): T =
   doAssert blockPool.heads.len == 1, "Init only supports a single history"
 
   var blocks: seq[BlockRef]
-  var cur = blockPool.head.blck
+  var cur = blockPool.head
   while cur != blockPool.finalizedHead.blck:
     blocks.add cur
     cur = cur.parent

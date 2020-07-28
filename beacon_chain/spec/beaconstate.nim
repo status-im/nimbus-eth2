@@ -612,16 +612,16 @@ proc process_attestation*(
     )
 
   if attestation.data.target.epoch == get_current_epoch(state):
-    trace "process_attestation: current_epoch_attestations.add",
+    trace "current_epoch_attestations.add",
       attestation = shortLog(attestation),
-      pending_attestation = pending_attestation,
+      pending_attestation = shortLog(pending_attestation),
       indices = get_attesting_indices(
         state, attestation.data, attestation.aggregation_bits, cache).len
     state.current_epoch_attestations.add(pending_attestation)
   else:
-    trace "process_attestation: previous_epoch_attestations.add",
+    trace "previous_epoch_attestations.add",
       attestation = shortLog(attestation),
-      pending_attestation = pending_attestation,
+      pending_attestation = shortLog(pending_attestation),
       indices = get_attesting_indices(
         state, attestation.data, attestation.aggregation_bits, cache).len
     state.previous_epoch_attestations.add(pending_attestation)

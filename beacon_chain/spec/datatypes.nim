@@ -665,6 +665,14 @@ func shortLog*(v: AttestationData): auto =
     target: shortLog(v.target),
   )
 
+func shortLog*(v: PendingAttestation): auto =
+  (
+    aggregation_bits: v.aggregation_bits,
+    data: shortLog(v.data),
+    inclusion_delay: v.inclusion_delay,
+    proposer_index: v.proposer_index
+  )
+
 func shortLog*(v: SomeAttestation): auto =
   (
     aggregation_bits: v.aggregation_bits,

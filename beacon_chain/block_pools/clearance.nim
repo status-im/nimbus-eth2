@@ -74,27 +74,22 @@ proc addResolvedBlock(
   let justifiedSlot =
     state.data.current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
 
-  var foundHead: Option[Head]
+  var foundHead: BlockRef
   for head in dag.heads.mitems():
-    if head.blck.isAncestorOf(blockRef):
-      if head.justified.slot != justifiedSlot:
-        head.justified = blockRef.atSlot(justifiedSlot)
+    if head.isAncestorOf(blockRef):
 
-      head.blck = blockRef
+      head = blockRef
 
-      foundHead = some(head)
+      foundHead = head
       break
 
-  if foundHead.isNone():
-    foundHead = some(Head(
-      blck: blockRef,
-      justified: blockRef.atSlot(justifiedSlot)))
-    dag.heads.add(foundHead.get())
+  if foundHead.isNil:
+    foundHead = blockRef
+    dag.heads.add(foundHead)
 
   info "Block resolved",
     blck = shortLog(signedBlock.message),
     blockRoot = shortLog(blockRoot),
-    justifiedHead = foundHead.get().justified,
     heads = dag.heads.len()
 
   # This MUST be added before the quarantine

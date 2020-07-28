@@ -27,7 +27,7 @@ type
 
 logScope: topics = "valapi"
 
-proc toBlockSlot(blckRef: BlockRef): BlockSlot =
+proc  toBlockSlot(blckRef: BlockRef): BlockSlot =
   blckRef.atSlot(blckRef.slot)
 
 proc parseRoot(str: string): Eth2Digest =
@@ -40,7 +40,7 @@ proc parsePubkey(str: string): ValidatorPubKey =
   return pubkeyRes[]
 
 proc doChecksAndGetCurrentHead(node: BeaconNode, slot: Slot): BlockRef =
-  result = node.blockPool.head.blck
+  result = node.blockPool.head
   if not node.isSynced(result):
     raise newException(CatchableError, "Cannot fulfill request until ndoe is synced")
   # TODO for now we limit the requests arbitrarily by up to 2 epochs into the future
@@ -133,7 +133,7 @@ proc getBlockSlotFromString(node: BeaconNode, slot: string): BlockSlot =
 proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData =
   result = case blockId:
     of "head":
-      node.blockPool.get(node.blockPool.head.blck)
+      node.blockPool.get(node.blockPool.head)
     of "genesis":
       node.blockPool.get(node.blockPool.tail)
     of "finalized":
@@ -154,13 +154,13 @@ proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData =
 proc stateIdToBlockSlot(node: BeaconNode, stateId: string): BlockSlot =
   result = case stateId:
     of "head":
-      node.blockPool.head.blck.toBlockSlot()
+      node.blockPool.head.toBlockSlot()
     of "genesis":
       node.blockPool.tail.toBlockSlot()
     of "finalized":
       node.blockPool.finalizedHead
     of "justified":
-      node.blockPool.head.blck.atSlot(
+      node.blockPool.head.atSlot(
         node.blockPool.headState.data.data.current_justified_checkpoint.
           epoch.compute_start_slot_at_epoch)
     else:
@@ -274,7 +274,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     result.header.message.state_root = tsbb.message.state_root
     result.header.message.body_root = tsbb.message.body.hash_tree_root()
 
-    result.canonical = bd.refs.isAncestorOf(node.blockPool.head.blck)
+    result.canonical = bd.refs.isAncestorOf(node.blockPool.head)
 
   rpcServer.rpc("get_v1_beacon_blocks_blockId") do (
       blockId: string) -> TrustedSignedBeaconBlock:

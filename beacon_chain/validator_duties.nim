@@ -57,9 +57,8 @@ proc addLocalValidator*(node: BeaconNode,
 proc addLocalValidators*(node: BeaconNode) {.async.} =
   let
     head = node.blockPool.head
-    bs = BlockSlot(blck: head.blck, slot: head.blck.slot)
 
-  node.blockPool.withState(node.blockPool.tmpState, bs):
+  node.blockPool.withState(node.blockPool.tmpState, head.atSlot(head.slot)):
     for validatorKey in node.config.validatorKeys:
       node.addLocalValidator state, validatorKey
       # Allow some network events to be processed:

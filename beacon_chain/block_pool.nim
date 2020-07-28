@@ -39,10 +39,10 @@ func checkMissing*(pool: var BlockPool): seq[FetchRecord] =
 template tail*(pool: BlockPool): BlockRef =
   pool.dag.tail
 
-template heads*(pool: BlockPool): seq[Head] =
+template heads*(pool: BlockPool): seq[BlockRef] =
   pool.dag.heads
 
-template head*(pool: BlockPool): Head =
+template head*(pool: BlockPool): BlockRef =
   pool.dag.head
 
 template finalizedHead*(pool: BlockPool): BlockSlot =
@@ -134,11 +134,6 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
   ## now fall from grace, or no longer be considered resolved.
   updateHead(pool.dag, newHead)
 
-proc latestJustifiedBlock*(pool: BlockPool): BlockSlot =
-  ## Return the most recent block that is justified and at least as recent
-  ## as the latest finalized block
-  latestJustifiedBlock(pool.dag)
-
 proc addMissing*(pool: var BlockPool, broot: Eth2Digest) {.inline.} =
   pool.quarantine.addMissing(broot)
 
@@ -208,6 +203,7 @@ proc isValidBeaconBlock*(
   isValidBeaconBlock(
     pool.dag, pool.quarantine, signed_beacon_block, current_slot, flags)
 
+# Spec functions implemented based on cached values instead of the full state
 func count_active_validators*(epochInfo: EpochRef): uint64 =
   epochInfo.shuffled_active_validator_indices.lenu64
 

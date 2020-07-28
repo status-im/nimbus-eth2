@@ -272,6 +272,7 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
   # we're on, or that it follows the rules of the protocol
   logScope:
     attestation = shortLog(attestation)
+    head = shortLog(node.blockPool.head)
     pcs = "on_attestation"
 
   let
@@ -279,20 +280,17 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
     head = node.blockPool.head
 
   debug "Attestation received",
-    head = shortLog(head.blck),
     wallSlot = shortLog(wallSlot.slot)
 
-  if not wallSlot.afterGenesis or wallSlot.slot < head.blck.slot:
+  if not wallSlot.afterGenesis or wallSlot.slot < head.slot:
     warn "Received attestation before genesis or head - clock is wrong?",
       afterGenesis = wallSlot.afterGenesis,
-      wallSlot = shortLog(wallSlot.slot),
-      head = shortLog(head.blck)
+      wallSlot = shortLog(wallSlot.slot)
     return
 
-  if attestation.data.slot > head.blck.slot and
-      (attestation.data.slot - head.blck.slot) > MaxEmptySlotCount:
-    warn "Ignoring attestation, head block too old (out of sync?)",
-      head = head.blck
+  if attestation.data.slot > head.slot and
+      (attestation.data.slot - head.slot) > MaxEmptySlotCount:
+    warn "Ignoring attestation, head block too old (out of sync?)"
     return
 
   node.attestationPool.addAttestation(attestation, wallSlot.slot)
@@ -382,8 +380,8 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     scheduledSlot = shortLog(scheduledSlot),
     beaconTime = shortLog(beaconTime),
     peers = node.network.peersCount,
-    head = shortLog(node.blockPool.head.blck),
-    headEpoch = shortLog(node.blockPool.head.blck.slot.compute_epoch_at_slot()),
+    head = shortLog(node.blockPool.head),
+    headEpoch = shortLog(node.blockPool.head.slot.compute_epoch_at_slot()),
     finalized = shortLog(node.blockPool.finalizedHead.blck),
     finalizedEpoch = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot())
 
@@ -481,12 +479,10 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   info "Slot end",
     slot = shortLog(slot),
     nextSlot = shortLog(nextSlot),
-    headSlot = shortLog(node.blockPool.head.blck.slot),
-    headEpoch = shortLog(node.blockPool.head.blck.slot.compute_epoch_at_slot()),
-    headRoot = shortLog(node.blockPool.head.blck.root),
-    finalizedSlot = shortLog(node.blockPool.finalizedHead.blck.slot),
-    finalizedEpoch = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()),
-    finalizedRoot = shortLog(node.blockPool.finalizedHead.blck.root)
+    head = shortLog(node.blockPool.head),
+    headEpoch = shortLog(node.blockPool.head.slot.compute_epoch_at_slot()),
+    finalizedHead = shortLog(node.blockPool.finalizedHead.blck),
+    finalizedEpoch = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot())
 
   when declared(GC_fullCollect):
     # The slots in the beacon node work as frames in a game: we want to make
@@ -528,7 +524,7 @@ proc runOnSecondLoop(node: BeaconNode) {.async.} =
 
 proc runForwardSyncLoop(node: BeaconNode) {.async.} =
   func getLocalHeadSlot(): Slot =
-    result = node.blockPool.head.blck.slot
+    result = node.blockPool.head.slot
 
   proc getLocalWallSlot(): Slot {.gcsafe.} =
     let epoch = node.beaconClock.now().slotOrZero.compute_epoch_at_slot() +
@@ -602,7 +598,7 @@ proc connectedPeersCount(node: BeaconNode): int =
 
 proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("getBeaconHead") do () -> Slot:
-    return node.blockPool.head.blck.slot
+    return node.blockPool.head.slot
 
   rpcServer.rpc("getChainHead") do () -> JsonNode:
     let
@@ -610,8 +606,8 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
       finalized = node.blockPool.headState.data.data.finalized_checkpoint
       justified = node.blockPool.headState.data.data.current_justified_checkpoint
     return %* {
-      "head_slot": head.blck.slot,
-      "head_block_root": head.blck.root.data.toHex(),
+      "head_slot": head.slot,
+      "head_block_root": head.root.data.toHex(),
       "finalized_slot": finalized.epoch * SLOTS_PER_EPOCH,
       "finalized_block_root": finalized.root.data.toHex(),
       "justified_slot": justified.epoch * SLOTS_PER_EPOCH,
@@ -622,7 +618,7 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
     let
       beaconTime = node.beaconClock.now()
       wallSlot = currentSlot(node)
-      headSlot = node.blockPool.head.blck.slot
+      headSlot = node.blockPool.head.slot
     # FIXME: temporary hack: If more than 1 block away from expected head, then we are "syncing"
     return (headSlot + 1) < wallSlot
 
@@ -658,7 +654,7 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
     requireOneOf(slot, root)
     if slot.isSome:
       # TODO sanity check slot so that it doesn't cause excessive rewinding
-      let blk = node.blockPool.head.blck.atSlot(slot.get)
+      let blk = node.blockPool.head.atSlot(slot.get)
       node.blockPool.withState(node.blockPool.tmpState, blk):
         return jsonResult(state)
     else:
@@ -858,7 +854,7 @@ proc start(node: BeaconNode) =
     timeSinceFinalization =
       int64(finalizedHead.slot.toBeaconTime()) -
       int64(node.beaconClock.now()),
-    head = shortLog(head.blck),
+    head = shortLog(head),
     finalizedHead = shortLog(finalizedHead),
     SLOTS_PER_EPOCH,
     SECONDS_PER_SLOT,
@@ -919,6 +915,9 @@ when hasPrompt:
       # p.useHistoryFile()
 
       proc dataResolver(expr: string): string =
+        template justified: untyped = node.blockPool.head.atSlot(
+          node.blockPool.headState.data.data.current_justified_checkpoint.epoch.
+            compute_start_slot_at_epoch)
         # TODO:
         # We should introduce a general API for resolving dot expressions
         # such as `db.latest_block.slot` or `metrics.connected_peers`.
@@ -931,22 +930,22 @@ when hasPrompt:
           $(node.connectedPeersCount)
 
         of "head_root":
-          shortLog(node.blockPool.head.blck.root)
+          shortLog(node.blockPool.head.root)
         of "head_epoch":
-          $(node.blockPool.head.blck.slot.epoch)
+          $(node.blockPool.head.slot.epoch)
         of "head_epoch_slot":
-          $(node.blockPool.head.blck.slot mod SLOTS_PER_EPOCH)
+          $(node.blockPool.head.slot mod SLOTS_PER_EPOCH)
         of "head_slot":
-          $(node.blockPool.head.blck.slot)
+          $(node.blockPool.head.slot)
 
         of "justifed_root":
-          shortLog(node.blockPool.head.justified.blck.root)
+          shortLog(justified.blck.root)
         of "justifed_epoch":
-          $(node.blockPool.head.justified.slot.epoch)
+          $(justified.slot.epoch)
         of "justifed_epoch_slot":
-          $(node.blockPool.head.justified.slot mod SLOTS_PER_EPOCH)
+          $(justified.slot mod SLOTS_PER_EPOCH)
         of "justifed_slot":
-          $(node.blockPool.head.justified.slot)
+          $(justified.slot)
 
         of "finalized_root":
           shortLog(node.blockPool.finalizedHead.blck.root)

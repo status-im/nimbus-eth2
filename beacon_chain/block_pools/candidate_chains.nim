@@ -282,21 +282,14 @@ proc init*(T: type CandidateChains,
     finalizedSlot =
        tmpState.data.data.finalized_checkpoint.epoch.compute_start_slot_at_epoch()
     finalizedHead = headRef.atSlot(finalizedSlot)
-    justifiedSlot =
-      tmpState.data.data.current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
-    justifiedHead = headRef.atSlot(justifiedSlot)
-    head = Head(blck: headRef, justified: justifiedHead)
-
-  doAssert justifiedHead.slot >= finalizedHead.slot,
-    "justified head comes before finalized head - database corrupt?"
 
   let res = CandidateChains(
     blocks: blocks,
     tail: tailRef,
-    head: head,
+    head: headRef,
     finalizedHead: finalizedHead,
     db: db,
-    heads: @[head],
+    heads: @[headRef],
     headState: tmpState[],
     tmpState: tmpState[],
     clearanceState: tmpState[],
@@ -315,7 +308,9 @@ proc init*(T: type CandidateChains,
   res.balanceState = res.headState
 
   info "Block dag initialized",
-    head = head.blck, justifiedHead, finalizedHead, tail = tailRef,
+    head = shortLog(headRef),
+    finalizedHead = shortLog(finalizedHead),
+    tail = shortLog(tailRef),
     totalBlocks = blocks.len
 
   res
@@ -434,14 +429,14 @@ func getBlockRange*(
   ## If there were no blocks in the range, `output.len` will be returned.
   let count = output.len
   trace "getBlockRange entered",
-    head = shortLog(dag.head.blck.root), count, startSlot, skipStep
+    head = shortLog(dag.head.root), count, startSlot, skipStep
 
   let
     skipStep = max(1, skipStep) # Treat 0 step as 1
     endSlot = startSlot + uint64(count * skipStep)
 
   var
-    b = dag.head.blck.atSlot(endSlot)
+    b = dag.head.atSlot(endSlot)
     o = count
   for i in 0..<count:
     for j in 0..<skipStep:
@@ -459,7 +454,7 @@ func getBlockRange*(
 func getBlockBySlot*(dag: CandidateChains, slot: Slot): BlockRef =
   ## Retrieves the first block in the current canonical chain
   ## with slot number less or equal to `slot`.
-  dag.head.blck.atSlot(slot).blck
+  dag.head.atSlot(slot).blck
 
 func getBlockByPreciseSlot*(dag: CandidateChains, slot: Slot): BlockRef =
   ## Retrieves a block from the canonical chain with a slot
@@ -719,8 +714,8 @@ proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
     newHead = shortLog(newHead)
     pcs = "fork_choice"
 
-  if dag.head.blck == newHead:
-    info "No head block update"
+  if dag.head == newHead:
+    debug "No head block update"
 
     return
 
@@ -732,25 +727,18 @@ proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
   updateStateData(
     dag, dag.headState, BlockSlot(blck: newHead, slot: newHead.slot))
 
-  let
-    justifiedSlot = dag.headState.data.data
-                      .current_justified_checkpoint
-                      .epoch
-                      .compute_start_slot_at_epoch()
-    justifiedBS = newHead.atSlot(justifiedSlot)
-
-  dag.head = Head(blck: newHead, justified: justifiedBS)
+  dag.head = newHead
 
   # TODO isAncestorOf may be expensive - too expensive?
-  if not lastHead.blck.isAncestorOf(newHead):
-    info "Updated head block (new parent)",
-      lastHead = shortLog(lastHead.blck),
+  if not lastHead.isAncestorOf(newHead):
+    info "Updated head block with reorg",
+      lastHead = shortLog(lastHead),
       headParent = shortLog(newHead.parent),
       stateRoot = shortLog(dag.headState.data.root),
       headBlock = shortLog(dag.headState.blck),
       stateSlot = shortLog(dag.headState.data.data.slot),
-      justifiedEpoch = shortLog(dag.headState.data.data.current_justified_checkpoint.epoch),
-      finalizedEpoch = shortLog(dag.headState.data.data.finalized_checkpoint.epoch)
+      justified = shortLog(dag.headState.data.data.current_justified_checkpoint),
+      finalized = shortLog(dag.headState.data.data.finalized_checkpoint)
 
     # A reasonable criterion for "reorganizations of the chain"
     beacon_reorgs_total.inc()
@@ -759,13 +747,12 @@ proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
       stateRoot = shortLog(dag.headState.data.root),
       headBlock = shortLog(dag.headState.blck),
       stateSlot = shortLog(dag.headState.data.data.slot),
-      justifiedEpoch = shortLog(dag.headState.data.data.current_justified_checkpoint.epoch),
-      finalizedEpoch = shortLog(dag.headState.data.data.finalized_checkpoint.epoch)
+      justified = shortLog(dag.headState.data.data.current_justified_checkpoint),
+      finalized = shortLog(dag.headState.data.data.finalized_checkpoint)
   let
     finalizedEpochStartSlot =
       dag.headState.data.data.finalized_checkpoint.epoch.
       compute_start_slot_at_epoch()
-    # TODO there might not be a block at the epoch boundary - what then?
     finalizedHead = newHead.atSlot(finalizedEpochStartSlot)
 
   doAssert (not finalizedHead.blck.isNil),
@@ -795,20 +782,22 @@ proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
       for i in 0..<hlen:
         let n = hlen - i - 1
         let head = dag.heads[n]
-        if finalizedHead.blck.isAncestorOf(head.blck):
+        if finalizedHead.blck.isAncestorOf(head):
           continue
 
-        var cur = head.blck
-        while not cur.isAncestorOf(finalizedHead.blck):
-          # TODO empty states need to be removed also!
-          let stateRoot = dag.db.getStateRoot(cur.root, cur.slot)
-          if stateRoot.issome():
-            dag.db.delState(stateRoot.get())
+        var cur = head.atSlot(head.slot)
+        while not cur.blck.isAncestorOf(finalizedHead.blck):
+          # TODO there may be more empty states here: those that have a slot
+          #      higher than head.slot and those near the branch point - one
+          #      needs to be careful though because those close to the branch
+          #      point should not necessarily be cleaned up
+          dag.delState(cur)
 
-          dag.blocks.del(cur.root)
-          dag.db.delBlock(cur.root)
+          if cur.blck.slot == cur.slot:
+            dag.blocks.del(cur.blck.root)
+            dag.db.delBlock(cur.blck.root)
 
-          if cur.parent.isNil:
+          if cur.blck.parent.isNil:
             break
           cur = cur.parent
 
@@ -816,26 +805,9 @@ proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
 
     dag.finalizedHead = finalizedHead
 
-    info "Finalized block",
+    info "Reached new finalization checkpoint",
       finalizedHead = shortLog(finalizedHead),
       heads = dag.heads.len
-
-    # TODO prune everything before weak subjectivity period
-
-func latestJustifiedBlock*(dag: CandidateChains): BlockSlot =
-  ## Return the most recent block that is justified and at least as recent
-  ## as the latest finalized block
-
-  doAssert dag.heads.len > 0,
-    "We should have at least the genesis block in heads"
-  doAssert (not dag.head.blck.isNil()),
-    "Genesis block will be head, if nothing else"
-
-  # Prefer stability: use justified block from current head to break ties!
-  result = dag.head.justified
-  for head in dag.heads[1 ..< ^0]:
-    if head.justified.slot > result.slot:
-      result = head.justified
 
 proc isInitialized*(T: type CandidateChains, db: BeaconChainDB): bool =
   let
