@@ -500,6 +500,9 @@ proc process_epoch*(state: var BeaconState, updateFlags: UpdateFlags,
   process_justification_and_finalization(state, per_epoch_cache, updateFlags)
 
   # state.slot hasn't been incremented yet.
+  if verifyFinalization in updateFlags and currentEpoch >= 2:
+    doAssert state.current_justified_checkpoint.epoch + 2 >= currentEpoch
+
   if verifyFinalization in updateFlags and currentEpoch >= 3:
     # Rule 2/3/4 finalization results in the most pessimal case. The other
     # three finalization rules finalize more quickly as long as the any of
