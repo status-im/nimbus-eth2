@@ -8,11 +8,12 @@
 {.push raises: [Defect].}
 
 import
-  chronicles, tables,
+  std/tables,
+  chronicles,
   metrics, stew/results,
   ../extras,
   ../spec/[crypto, datatypes, digest, helpers, signatures, state_transition],
-  block_pools_types, candidate_chains, quarantine
+  ./block_pools_types, ./candidate_chains, ./quarantine
 
 export results
 
@@ -69,11 +70,6 @@ proc addResolvedBlock(
   # Resolved blocks should be stored in database
   dag.putBlock(signedBlock)
 
-  # This block *might* have caused a justification - make sure we stow away
-  # that information:
-  let justifiedSlot =
-    state.data.current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
-
   var foundHead: BlockRef
   for head in dag.heads.mitems():
     if head.isAncestorOf(blockRef):
@@ -106,14 +102,15 @@ proc addResolvedBlock(
   if not quarantine.inAdd:
     quarantine.inAdd = true
     defer: quarantine.inAdd = false
-    var keepGoing = true
-    while keepGoing:
-      let retries = quarantine.orphans
-      for _, v in retries:
+    var entries = 0
+    while entries != quarantine.orphans.len:
+      entries = quarantine.orphans.len # keep going while quarantine is shrinking
+      var resolved: seq[SignedBeaconBlock]
+      for _, v in quarantine.orphans:
+        if v.message.parent_root in dag.blocks: resolved.add(v)
+
+      for v in resolved:
         discard addRawBlock(dag, quarantine, v, onBlockAdded)
-      # Keep going for as long as the pending dag is shrinking
-      # TODO inefficient! so what?
-      keepGoing = quarantine.orphans.len < retries.len
 
   blockRef
 
