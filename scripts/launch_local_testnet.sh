@@ -318,7 +318,7 @@ done
 
 # give the regular nodes time to crash
 sleep 5
-BG_JOBS="$(jobs | wc -l)"
+BG_JOBS="$(jobs | wc -l | tr -d ' ')"
 if [[ "$BG_JOBS" != "$NUM_NODES" ]]; then
 	echo "$((NUM_NODES - BG_JOBS)) beacon_node instance(s) exited early. Aborting."
 	dump_logs
