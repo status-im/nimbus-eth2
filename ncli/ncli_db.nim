@@ -74,12 +74,12 @@ proc cmdBench(conf: DbConf) =
   let pool = withTimerRet(timers[tInit]):
     CandidateChains.init(defaultRuntimePreset, db, {})
 
-  echo &"Loaded {pool.blocks.len} blocks, head slot {pool.head.blck.slot}"
+  echo &"Loaded {pool.blocks.len} blocks, head slot {pool.head.slot}"
 
   var
     blockRefs: seq[BlockRef]
     blocks: seq[TrustedSignedBeaconBlock]
-    cur = pool.head.blck
+    cur = pool.head
 
   while cur != nil:
     blockRefs.add cur
