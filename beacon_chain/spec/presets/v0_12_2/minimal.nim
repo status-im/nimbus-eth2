@@ -47,7 +47,7 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L70
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L73
 
   BLS_WITHDRAWAL_PREFIX*: byte = 0
 
@@ -87,7 +87,7 @@ const
 
   # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L105
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L108
 
   # Changed
   EPOCHS_PER_HISTORICAL_VECTOR*: uint64 = 64
@@ -99,7 +99,7 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L117
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L120
 
   BASE_REWARD_FACTOR*: uint64 = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT*: uint64 = 2'u64^9
@@ -109,7 +109,7 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L131
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L134
 
   MAX_PROPOSER_SLASHINGS*: uint64 = 2'u64 ^ 4
   MAX_ATTESTER_SLASHINGS*: uint64 = 2'u64 ^ 1
@@ -127,7 +127,7 @@ const
 
   # Fork choice
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L32
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L32
 
   # Changed
   SAFE_SLOTS_TO_UPDATE_JUSTIFIED*: uint64 = 2

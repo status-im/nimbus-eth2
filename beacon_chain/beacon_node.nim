@@ -731,7 +731,6 @@ proc installAttestationHandlers(node: BeaconNode) =
 
   proc attestationValidator(attestation: Attestation,
                             committeeIndex: uint64): bool =
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestation-subnets
     let (afterGenesis, slot) = node.beaconClock.now().toSlot()
     if not afterGenesis:
       return false

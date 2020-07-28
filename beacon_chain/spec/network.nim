@@ -12,14 +12,14 @@ import
   ./datatypes, ./helpers, ./validator
 
 const
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#topics-and-messages
   topicBeaconBlocksSuffix* = "beacon_block/ssz"
   topicVoluntaryExitsSuffix* = "voluntary_exit/ssz"
   topicProposerSlashingsSuffix* = "proposer_slashing/ssz"
   topicAttesterSlashingsSuffix* = "attester_slashing/ssz"
   topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz"
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#misc
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#misc
   ATTESTATION_SUBNET_COUNT* = 64
 
   defaultEth2TcpPort* = 9000
@@ -57,8 +57,7 @@ func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
   except ValueError as e:
     raiseAssert e.msg
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#broadcast-attestation
-# https://github.com/ethereum/eth2.0-specs/pull/1876
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#broadcast-attestation
 func compute_subnet_for_attestation*(
     committees_per_slot: uint64, slot: Slot, committee_index: CommitteeIndex):
     uint64 =
@@ -73,7 +72,7 @@ func compute_subnet_for_attestation*(
   (committees_since_epoch_start + committee_index.uint64) mod
     ATTESTATION_SUBNET_COUNT
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#broadcast-attestation
 func getAttestationTopic*(forkDigest: ForkDigest, subnetIndex: uint64):
     string =
   # This is for subscribing or broadcasting manually to a known index.
