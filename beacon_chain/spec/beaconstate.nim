@@ -453,16 +453,9 @@ func is_valid_indexed_attestation*(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_attesting_indices
-func get_attesting_indices*(state: BeaconState,
-                            data: AttestationData,
-                            bits: CommitteeValidatorsBits,
-                            stateCache: var StateCache):
+func get_attesting_indices*(bits: CommitteeValidatorsBits,
+                            committee: openArray[ValidatorIndex]):
                             HashSet[ValidatorIndex] =
-  # Return the set of attesting indices corresponding to ``data`` and ``bits``.
-  result = initHashSet[ValidatorIndex]()
-  let committee = get_beacon_committee(
-    state, data.slot, data.index.CommitteeIndex, stateCache)
-
   # This shouldn't happen if one begins with a valid BeaconState and applies
   # valid updates, but one can construct a BeaconState where it does. Do not
   # do anything here since the PendingAttestation wouldn't have made it past
@@ -478,14 +471,25 @@ func get_attesting_indices*(state: BeaconState,
     if bits[i]:
       result.incl index
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_attesting_indices
+func get_attesting_indices*(state: BeaconState,
+                            data: AttestationData,
+                            bits: CommitteeValidatorsBits,
+                            cache: var StateCache):
+                            HashSet[ValidatorIndex] =
+  # Return the set of attesting indices corresponding to ``data`` and ``bits``.
+  get_attesting_indices(
+    bits,
+    get_beacon_committee(state, data.slot, data.index.CommitteeIndex, cache))
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_indexed_attestation
 func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
-    stateCache: var StateCache): IndexedAttestation =
+    cache: var StateCache): IndexedAttestation =
   # Return the indexed attestation corresponding to ``attestation``.
   let
     attesting_indices =
       get_attesting_indices(
-        state, attestation.data, attestation.aggregation_bits, stateCache)
+        state, attestation.data, attestation.aggregation_bits, cache)
 
   IndexedAttestation(
     attesting_indices:
@@ -496,12 +500,12 @@ func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
   )
 
 func get_indexed_attestation*(state: BeaconState, attestation: TrustedAttestation,
-    stateCache: var StateCache): TrustedIndexedAttestation =
+    cache: var StateCache): TrustedIndexedAttestation =
   # Return the indexed attestation corresponding to ``attestation``.
   let
     attesting_indices =
       get_attesting_indices(
-        state, attestation.data, attestation.aggregation_bits, stateCache)
+        state, attestation.data, attestation.aggregation_bits, cache)
 
   TrustedIndexedAttestation(
     attesting_indices:
@@ -608,16 +612,16 @@ proc process_attestation*(
     )
 
   if attestation.data.target.epoch == get_current_epoch(state):
-    trace "process_attestation: current_epoch_attestations.add",
+    trace "current_epoch_attestations.add",
       attestation = shortLog(attestation),
-      pending_attestation = pending_attestation,
+      pending_attestation = shortLog(pending_attestation),
       indices = get_attesting_indices(
         state, attestation.data, attestation.aggregation_bits, cache).len
     state.current_epoch_attestations.add(pending_attestation)
   else:
-    trace "process_attestation: previous_epoch_attestations.add",
+    trace "previous_epoch_attestations.add",
       attestation = shortLog(attestation),
-      pending_attestation = pending_attestation,
+      pending_attestation = shortLog(pending_attestation),
       indices = get_attesting_indices(
         state, attestation.data, attestation.aggregation_bits, cache).len
     state.previous_epoch_attestations.add(pending_attestation)

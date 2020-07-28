@@ -118,7 +118,7 @@ suiteReport "Block pool processing" & preset():
       b1Get.get().refs.root == b1Root
       b1Add[].root == b1Get.get().refs.root
       pool.heads.len == 1
-      pool.heads[0].blck == b1Add[]
+      pool.heads[0] == b1Add[]
 
     let
       b2Add = pool.addRawBlock(b2, nil)
@@ -129,7 +129,7 @@ suiteReport "Block pool processing" & preset():
       b2Get.get().refs.root == b2.root
       b2Add[].root == b2Get.get().refs.root
       pool.heads.len == 1
-      pool.heads[0].blck == b2Add[]
+      pool.heads[0] == b2Add[]
 
     # Skip one slot to get a gap
     check:
@@ -199,7 +199,7 @@ suiteReport "Block pool processing" & preset():
     # The heads structure should have been updated to contain only the new
     # b2 head
     check:
-      pool.heads.mapIt(it.blck) == @[b2Get.get().refs]
+      pool.heads.mapIt(it) == @[b2Get.get().refs]
 
     # check that init also reloads block graph
     var
@@ -207,12 +207,12 @@ suiteReport "Block pool processing" & preset():
 
     check:
       # ensure we loaded the correct head state
-      pool2.head.blck.root == b2Root
+      pool2.head.root == b2Root
       hash_tree_root(pool2.headState.data.data) == b2.message.state_root
       pool2.get(b1Root).isSome()
       pool2.get(b2Root).isSome()
       pool2.heads.len == 1
-      pool2.heads[0].blck.root == b2Root
+      pool2.heads[0].root == b2Root
 
   timedTest "Adding the same block twice returns a Duplicate error" & preset():
     let
@@ -230,7 +230,7 @@ suiteReport "Block pool processing" & preset():
     pool.updateHead(b1Add[])
 
     check:
-      pool.head.blck == b1Add[]
+      pool.head == b1Add[]
       pool.headState.data.data.slot == b1Add[].slot
 
   timedTest "updateStateData sanity" & preset():
@@ -291,17 +291,16 @@ suiteReport "BlockPool finalization tests" & preset():
   timedTest "prune heads on finalization" & preset():
     # Create a fork that will not be taken
     var
-      blck = makeTestBlock(pool.headState.data, pool.head.blck.root, cache)
+      blck = makeTestBlock(pool.headState.data, pool.head.root, cache)
       tmpState = assignClone(pool.headState.data)
     check:
       process_slots(
         tmpState[], tmpState.data.slot + (5 * SLOTS_PER_EPOCH).uint64)
 
-    let lateBlock = makeTestBlock(tmpState[], pool.head.blck.root, cache)
+    let lateBlock = makeTestBlock(tmpState[], pool.head.root, cache)
     block:
       let status = pool.addRawBlock(blck, nil)
       check: status.isOk()
-
 
     for i in 0 ..< (SLOTS_PER_EPOCH * 6):
       if i == 1:
@@ -310,9 +309,9 @@ suiteReport "BlockPool finalization tests" & preset():
           pool.heads.len == 2
 
       blck = makeTestBlock(
-        pool.headState.data, pool.head.blck.root, cache,
+        pool.headState.data, pool.head.root, cache,
         attestations = makeFullAttestations(
-          pool.headState.data.data, pool.head.blck.root,
+          pool.headState.data.data, pool.head.root,
           pool.headState.data.data.slot, cache, {}))
       let added = pool.addRawBlock(blck, nil)
       check: added.isOk()
@@ -320,7 +319,6 @@ suiteReport "BlockPool finalization tests" & preset():
 
     check:
       pool.heads.len() == 1
-      pool.head.justified.slot.compute_epoch_at_slot() == 5
 
     block:
       # The late block is a block whose parent was finalized long ago and thus
@@ -334,13 +332,11 @@ suiteReport "BlockPool finalization tests" & preset():
     # check that the state reloaded from database resembles what we had before
     check:
       pool2.tail.root == pool.tail.root
-      pool2.head.blck.root == pool.head.blck.root
+      pool2.head.root == pool.head.root
       pool2.finalizedHead.blck.root == pool.finalizedHead.blck.root
       pool2.finalizedHead.slot == pool.finalizedHead.slot
       hash_tree_root(pool2.headState.data.data) ==
         hash_tree_root(pool.headState.data.data)
-      hash_tree_root(pool2.justifiedState.data.data) ==
-        hash_tree_root(pool.justifiedState.data.data)
 
   # timedTest "init with gaps" & preset():
   #   var cache = StateCache()
@@ -384,5 +380,3 @@ suiteReport "BlockPool finalization tests" & preset():
   #     pool2.finalizedHead.slot == pool.finalizedHead.slot
   #     hash_tree_root(pool2.headState.data.data) ==
   #       hash_tree_root(pool.headState.data.data)
-  #     hash_tree_root(pool2.justifiedState.data.data) ==
-  #       hash_tree_root(pool.justifiedState.data.data)

@@ -68,7 +68,7 @@ func disconnectReasonName(reason: uint64): string =
 proc getCurrentStatus*(state: BeaconSyncNetworkState): StatusMsg {.gcsafe.} =
   let
     blockPool = state.blockPool
-    headBlock = blockPool.head.blck
+    headBlock = blockPool.head
 
   StatusMsg(
     forkDigest: state.forkDigest,

@@ -65,7 +65,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
   proc handleAttestations(slot: Slot) =
     let
-      attestationHead = blockPool.head.blck.atSlot(slot)
+      attestationHead = blockPool.head.atSlot(slot)
 
     blockPool.withState(blockPool.tmpState, attestationHead):
       var cache = getEpochCache(attestationHead.blck, state)
@@ -92,14 +92,14 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
                 data: data,
                 aggregation_bits: aggregation_bits,
                 signature: sig
-              ))
+              ), data.slot)
 
   proc proposeBlock(slot: Slot) =
     if rand(r, 1.0) > blockRatio:
       return
 
     let
-      head = blockPool.head.blck
+      head = blockPool.head
 
     blockPool.withState(blockPool.tmpState, head.atSlot(slot)):
       var cache = StateCache()
@@ -173,7 +173,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   if replay:
     withTimer(timers[tReplay]):
       blockPool.updateStateData(
-        replayState[], blockPool.head.blck.atSlot(Slot(slots)))
+        replayState[], blockPool.head.atSlot(Slot(slots)))
 
   echo "Done!"
 

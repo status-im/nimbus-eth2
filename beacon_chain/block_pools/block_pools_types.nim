@@ -101,10 +101,10 @@ type
     tail*: BlockRef ##\
     ## The earliest finalized block we know about
 
-    heads*: seq[Head] ##\
+    heads*: seq[BlockRef] ##\
     ## Candidate heads of candidate chains
 
-    head*: Head ##\
+    head*: BlockRef ##\
     ## The latest block we know about, that's been chosen as a head by the fork
     ## choice rule
 
@@ -121,8 +121,6 @@ type
     headState*: StateData ##\
     ## State given by the head block; only update in `updateHead`, not anywhere
     ## else via `withState`
-
-    justifiedState*: StateData ## Latest justified state, as seen from the head
 
     tmpState*: StateData ## Scratchpad - may be any state
 
@@ -184,10 +182,6 @@ type
     slot*: Slot ##\
       ## Slot time for this BlockSlot which may differ from blck.slot when time
       ## has advanced without blocks
-
-  Head* = object
-    blck*: BlockRef
-    justified*: BlockSlot
 
   OnBlockAdded* = proc(
     blckRef: BlockRef, blck: SignedBeaconBlock,

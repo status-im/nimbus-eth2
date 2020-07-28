@@ -9,15 +9,15 @@
 
 import
   # Standard libraries
-  std/[algorithm, deques, sequtils, tables, options],
+  std/[algorithm, deques, sequtils, sets, tables, options],
   # Status libraries
-  chronicles, stew/[byteutils], json_serialization/std/sets,
+  chronicles, stew/[byteutils], json_serialization/std/sets as jsonSets,
   # Internal
   ./spec/[beaconstate, datatypes, crypto, digest, helpers],
   ./block_pool, ./block_pools/candidate_chains, ./beacon_node_types,
   ./fork_choice/fork_choice
 
-export beacon_node_types
+export beacon_node_types, sets
 
 logScope: topics = "attpool"
 
@@ -39,7 +39,7 @@ proc init*(T: type AttestationPool, blockPool: BlockPool): T =
   doAssert blockPool.heads.len == 1, "Init only supports a single history"
 
   var blocks: seq[BlockRef]
-  var cur = blockPool.head.blck
+  var cur = blockPool.head
   while cur != blockPool.finalizedHead.blck:
     blocks.add cur
     cur = cur.parent
@@ -65,64 +65,10 @@ proc init*(T: type AttestationPool, blockPool: BlockPool): T =
     finalized_root = shortlog(blockPool.finalizedHead.blck.root)
 
   T(
-    mapSlotsToAttestations: initDeque[AttestationsSeen](),
     blockPool: blockPool,
     unresolved: initTable[Eth2Digest, UnresolvedAttestation](),
     forkChoice: forkChoice
   )
-
-proc slotIndex(
-    pool: var AttestationPool, state: BeaconState, attestationSlot: Slot): int =
-  ## Grow and garbage collect pool, returning the deque index of the slot
-
-  # We keep a sliding window of attestations, roughly from the last finalized
-  # epoch to now, because these are the attestations that may affect the voting
-  # outcome. Some of these attestations will already have been added to blocks,
-  # while others are fresh off the network.
-  # TODO only the latest vote of each validator counts. Can we use that somehow?
-  logScope: pcs = "atp_slot_maintenance"
-
-  doAssert attestationSlot >= pool.startingSlot,
-    """
-    We should have checked in addResolved that attestation is newer than
-    finalized_slot and we never prune things before that, per below condition!
-    """ &
-    ", attestationSlot: " & $shortLog(attestationSlot) &
-    ", startingSlot: " & $shortLog(pool.startingSlot)
-
-  if pool.mapSlotsToAttestations.len == 0:
-    # Because the first attestations may arrive in any order, we'll make sure
-    # to start counting at the last finalized epoch start slot - anything
-    # earlier than that is thrown out by the above check
-    info "First attestation!",
-      attestationSlot =  shortLog(attestationSlot)
-    pool.startingSlot =
-      state.finalized_checkpoint.epoch.compute_start_slot_at_epoch()
-
-  if pool.startingSlot + pool.mapSlotsToAttestations.lenu64 <= attestationSlot:
-    trace "Growing attestation pool",
-      attestationSlot =  shortLog(attestationSlot),
-      startingSlot = shortLog(pool.startingSlot)
-
-    # Make sure there's a pool entry for every slot, even when there's a gap
-    while pool.startingSlot + pool.mapSlotsToAttestations.lenu64 <= attestationSlot:
-      pool.mapSlotsToAttestations.addLast(AttestationsSeen())
-
-  if pool.startingSlot <
-      state.finalized_checkpoint.epoch.compute_start_slot_at_epoch():
-    debug "Pruning attestation pool",
-      startingSlot = shortLog(pool.startingSlot),
-      finalizedSlot = shortLog(
-        state.finalized_checkpoint
-             .epoch.compute_start_slot_at_epoch())
-
-    # TODO there should be a better way to remove a whole epoch of stuff..
-    while pool.startingSlot <
-        state.finalized_checkpoint.epoch.compute_start_slot_at_epoch():
-      pool.mapSlotsToAttestations.popFirst()
-      pool.startingSlot += 1
-
-  int(attestationSlot - pool.startingSlot)
 
 func processAttestation(
     pool: var AttestationPool, participants: HashSet[ValidatorIndex],
@@ -137,61 +83,56 @@ func addUnresolved(pool: var AttestationPool, attestation: Attestation) =
       attestation: attestation,
     )
 
-proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attestation) =
+func candidateIdx(pool: AttestationPool, slot: Slot): Option[uint64] =
+  if slot >= pool.startingSlot and
+      slot < (pool.startingSlot + pool.candidates.lenu64):
+    some(slot mod pool.candidates.lenu64)
+  else:
+    none(uint64)
+
+proc updateCurrent(pool: var AttestationPool, wallSlot: Slot) =
+  if wallSlot + 1 < pool.candidates.lenu64:
+    return
+
+  if pool.startingSlot + pool.candidates.lenu64 - 1 > wallSlot:
+    error "Current slot older than attestation pool view, clock reset?",
+      poolSlot = pool.startingSlot, wallSlot
+    return
+
+  # As time passes we'll clear out any old attestations as they are no longer
+  # viable to be included in blocks
+
+  let newWallSlot = wallSlot + 1 - pool.candidates.lenu64
+  for i in pool.startingSlot..newWallSlot:
+    pool.candidates[i.uint64 mod pool.candidates.lenu64] = AttestationsSeen()
+
+  pool.startingSlot = newWallSlot
+
+proc addResolved(
+    pool: var AttestationPool, blck: BlockRef, attestation: Attestation,
+    wallSlot: Slot) =
+  # Add an attestation whose parent we know
   logScope:
     attestation = shortLog(attestation)
 
+  updateCurrent(pool, wallSlot)
+
   doAssert blck.root == attestation.data.beacon_block_root
 
-  # TODO Which state should we use to validate the attestation? It seems
-  #      reasonable to involve the head being voted for as well as the intended
-  #      slot of the attestation - double-check this with spec
-
-  # TODO: filter valid attestation as much as possible before state rewind
-  # TODO: the below check does not respect the inclusion delay
-  #       we should use isValidAttestationSlot instead
-  if blck.slot > attestation.data.slot:
-    notice "Invalid attestation (too new!)",
-      blockSlot = shortLog(blck.slot)
-    return
-
-  if attestation.data.slot < pool.startingSlot:
-    # It can happen that attestations in blocks for example are included even
-    # though they no longer are relevant for finalization - let's clear
-    # these out
-    debug "Old attestation",
+  let candidateIdx = pool.candidateIdx(attestation.data.slot)
+  if candidateIdx.isNone:
+    debug "Attestation slot out of range",
       startingSlot = pool.startingSlot
     return
 
-  # if not isValidAttestationSlot(attestation.data.slot, blck.slot):
-  #   # Logging in isValidAttestationSlot
-  #   return
-
-  # Check that the attestation is indeed valid
-  if (let v = check_attestation_slot_target(attestation.data); v.isErr):
-    debug "Invalid attestation", err = v.error
-    return
-
-  # Get a temporary state at the (block, slot) targeted by the attestation
-  updateStateData(
-    pool.blockPool, pool.blockPool.tmpState,
-    BlockSlot(blck: blck, slot: attestation.data.slot),
-    true)
-
-  template state(): BeaconState = pool.blockPool.tmpState.data.data
-
-  # TODO inefficient data structures..
-
-  var cache = getEpochCache(blck, state)
   let
-    attestationSlot = attestation.data.slot
-    idx = pool.slotIndex(state, attestationSlot)
-    attestationsSeen = addr pool.mapSlotsToAttestations[idx]
+    epochRef = pool.blockPool.dag.getEpochRef(blck, attestation.data.target.epoch)
+    attestationsSeen = addr pool.candidates[candidateIdx.get]
     validation = Validation(
       aggregation_bits: attestation.aggregation_bits,
       aggregate_signature: attestation.signature)
     participants = get_attesting_indices(
-      state, attestation.data, validation.aggregation_bits, cache)
+      epochRef, attestation.data, validation.aggregation_bits)
 
   var found = false
   for a in attestationsSeen.attestations.mitems():
@@ -226,7 +167,6 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
         info "Attestation resolved",
           attestation = shortLog(attestation),
           validations = a.validations.len(),
-          current_epoch = get_current_epoch(state),
           blockSlot = shortLog(blck.slot)
 
         found = true
@@ -244,11 +184,12 @@ proc addResolved(pool: var AttestationPool, blck: BlockRef, attestation: Attesta
 
     info "Attestation resolved",
       attestation = shortLog(attestation),
-      current_epoch = get_current_epoch(state),
       validations = 1,
       blockSlot = shortLog(blck.slot)
 
-proc addAttestation*(pool: var AttestationPool, attestation: Attestation) =
+proc addAttestation*(pool: var AttestationPool,
+                     attestation: Attestation,
+                     wallSlot: Slot) =
   ## Add a verified attestation to the fork choice context
   logScope: pcs = "atp_add_attestation"
 
@@ -261,7 +202,7 @@ proc addAttestation*(pool: var AttestationPool, attestation: Attestation) =
     pool.addUnresolved(attestation)
     return
 
-  pool.addResolved(blck, attestation)
+  pool.addResolved(blck, attestation, wallSlot)
 
 proc addForkChoice*(pool: var AttestationPool,
                     state: BeaconState,
@@ -269,7 +210,6 @@ proc addForkChoice*(pool: var AttestationPool,
                     blck: BeaconBlock,
                     wallSlot: Slot) =
   ## Add a verified block to the fork choice context
-  ## The current justifiedState of the block pool is used as reference
   let state = pool.forkChoice.process_block(
     pool.blockPool, state, blckRef, blck, wallSlot)
 
@@ -288,29 +228,17 @@ proc getAttestationsForSlot*(pool: AttestationPool, newBlockSlot: Slot):
       newBlockSlot = shortLog(newBlockSlot)
     return none(AttestationsSeen)
 
-  if pool.mapSlotsToAttestations.len == 0: # startingSlot not set yet!
-    info "No attestations found (pool empty)",
-      newBlockSlot = shortLog(newBlockSlot)
-    return none(AttestationsSeen)
-
   let
-    # TODO in theory we could include attestations from other slots also, but
-    # we're currently not tracking which attestations have already been included
-    # in blocks on the fork we're aiming for.. this is a conservative approach
-    # that's guaranteed to not include any duplicates, because it's the first
-    # time the attestations are up for inclusion!
     attestationSlot = newBlockSlot - MIN_ATTESTATION_INCLUSION_DELAY
+    candidateIdx = pool.candidateIdx(attestationSlot)
 
-  if attestationSlot < pool.startingSlot or
-      attestationSlot >= pool.startingSlot + pool.mapSlotsToAttestations.lenu64:
+  if candidateIdx.isNone:
     info "No attestations matching the slot range",
       attestationSlot = shortLog(attestationSlot),
-      startingSlot = shortLog(pool.startingSlot),
-      endingSlot = shortLog(pool.startingSlot + pool.mapSlotsToAttestations.lenu64)
+      startingSlot = shortLog(pool.startingSlot)
     return none(AttestationsSeen)
 
-  let slotDequeIdx = int(attestationSlot - pool.startingSlot)
-  some(pool.mapSlotsToAttestations[slotDequeIdx])
+  some(pool.candidates[candidateIdx.get()])
 
 proc getAttestationsForBlock*(pool: AttestationPool,
                               state: BeaconState): seq[Attestation] =
@@ -337,8 +265,7 @@ proc getAttestationsForBlock*(pool: AttestationPool,
   # addResolved, too, the new attestations get added to the end, while in
   # these functions, it's reading from the beginning, et cetera. This all
   # needs a single unified strategy.
-  const LOOKBACK_WINDOW = 3
-  for i in max(1, newBlockSlot.int64 - LOOKBACK_WINDOW) .. newBlockSlot.int64:
+  for i in max(1, newBlockSlot.int64 - ATTESTATION_LOOKBACK.int64) .. newBlockSlot.int64:
     let maybeSlotData = getAttestationsForSlot(pool, i.Slot)
     if maybeSlotData.isSome:
       insert(attestations, maybeSlotData.get.attestations)
@@ -390,7 +317,7 @@ proc getAttestationsForBlock*(pool: AttestationPool,
         attestationSlot = newBlockSlot - 1
       return
 
-proc resolve*(pool: var AttestationPool) =
+proc resolve*(pool: var AttestationPool, wallSlot: Slot) =
   ## Check attestations in our unresolved deque
   ## if they can be integrated to the fork choice
   logScope: pcs = "atp_resolve"
@@ -412,7 +339,7 @@ proc resolve*(pool: var AttestationPool) =
     pool.unresolved.del(k)
 
   for a in resolved:
-    pool.addResolved(a.blck, a.attestation)
+    pool.addResolved(a.blck, a.attestation, wallSlot)
 
 proc selectHead*(pool: var AttestationPool, wallSlot: Slot): BlockRef =
   let newHead = pool.forkChoice.find_head(wallSlot, pool.blockPool)

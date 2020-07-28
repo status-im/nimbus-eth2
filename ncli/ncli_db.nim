@@ -3,7 +3,7 @@
   stew/byteutils,
   ../beacon_chain/[beacon_chain_db, block_pool, extras],
   ../beacon_chain/spec/[crypto, datatypes, digest, helpers,
-                        state_transition, validator, presets],
+                        state_transition, presets],
   ../beacon_chain/sszdump, ../research/simutils,
   eth/db/[kvstore, kvstore_sqlite3]
 
@@ -74,12 +74,12 @@ proc cmdBench(conf: DbConf) =
   let pool = withTimerRet(timers[tInit]):
     CandidateChains.init(defaultRuntimePreset, db, {})
 
-  echo &"Loaded {pool.blocks.len} blocks, head slot {pool.head.blck.slot}"
+  echo &"Loaded {pool.blocks.len} blocks, head slot {pool.head.slot}"
 
   var
     blockRefs: seq[BlockRef]
     blocks: seq[TrustedSignedBeaconBlock]
-    cur = pool.head.blck
+    cur = pool.head
 
   while cur != nil:
     blockRefs.add cur

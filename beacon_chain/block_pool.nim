@@ -6,12 +6,10 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
+  std/[algorithm, sequtils, sets],
   extras, beacon_chain_db,
   stew/results,
-  spec/[crypto, datatypes, digest, presets, validator]
-
-
-import
+  spec/[beaconstate, crypto, datatypes, digest, presets, validator],
   block_pools/[block_pools_types, clearance, candidate_chains, quarantine]
 
 export results, block_pools_types
@@ -23,12 +21,9 @@ export results, block_pools_types
 # during block_pool refactor
 
 type
-  BlockPools* = object
-    # TODO: Rename BlockPools
+  BlockPool* = object
     quarantine: Quarantine
     dag*: CandidateChains
-
-  BlockPool* = BlockPools
 
 {.push raises: [Defect], inline.}
 
@@ -44,10 +39,10 @@ func checkMissing*(pool: var BlockPool): seq[FetchRecord] =
 template tail*(pool: BlockPool): BlockRef =
   pool.dag.tail
 
-template heads*(pool: BlockPool): seq[Head] =
+template heads*(pool: BlockPool): seq[BlockRef] =
   pool.dag.heads
 
-template head*(pool: BlockPool): Head =
+template head*(pool: BlockPool): BlockRef =
   pool.dag.head
 
 template finalizedHead*(pool: BlockPool): BlockSlot =
@@ -73,10 +68,10 @@ export get_ancestor  # func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef
 export atSlot        # func atSlot*(blck: BlockRef, slot: Slot): BlockSlot
 
 
-proc init*(T: type BlockPools,
+proc init*(T: type BlockPool,
            preset: RuntimePreset,
            db: BeaconChainDB,
-           updateFlags: UpdateFlags = {}): BlockPools =
+           updateFlags: UpdateFlags = {}): BlockPool =
   result.dag = init(CandidateChains, preset, db, updateFlags)
 
 func addFlags*(pool: BlockPool, flags: UpdateFlags) =
@@ -139,11 +134,6 @@ proc updateHead*(pool: BlockPool, newHead: BlockRef) =
   ## now fall from grace, or no longer be considered resolved.
   updateHead(pool.dag, newHead)
 
-proc latestJustifiedBlock*(pool: BlockPool): BlockSlot =
-  ## Return the most recent block that is justified and at least as recent
-  ## as the latest finalized block
-  latestJustifiedBlock(pool.dag)
-
 proc addMissing*(pool: var BlockPool, broot: Eth2Digest) {.inline.} =
   pool.quarantine.addMissing(broot)
 
@@ -170,9 +160,6 @@ template tmpState*(pool: BlockPool): StateData =
 
 template balanceState*(pool: BlockPool): StateData =
   pool.dag.balanceState
-
-template justifiedState*(pool: BlockPool): StateData =
-  pool.dag.justifiedState
 
 template withState*(
     pool: BlockPool, cache: var StateData, blockSlot: BlockSlot, body: untyped):
@@ -216,8 +203,46 @@ proc isValidBeaconBlock*(
   isValidBeaconBlock(
     pool.dag, pool.quarantine, signed_beacon_block, current_slot, flags)
 
+# Spec functions implemented based on cached values instead of the full state
 func count_active_validators*(epochInfo: EpochRef): uint64 =
   epochInfo.shuffled_active_validator_indices.lenu64
 
 func get_committee_count_per_slot*(epochInfo: EpochRef): uint64 =
   get_committee_count_per_slot(count_active_validators(epochInfo))
+
+func get_beacon_committee*(
+    epochRef: EpochRef, slot: Slot, index: CommitteeIndex): seq[ValidatorIndex] =
+  # Return the beacon committee at ``slot`` for ``index``.
+  let
+    committees_per_slot = get_committee_count_per_slot(epochRef)
+  compute_committee(
+    epochRef.shuffled_active_validator_indices,
+    (slot mod SLOTS_PER_EPOCH) * committees_per_slot +
+      index.uint64,
+    committees_per_slot * SLOTS_PER_EPOCH
+  )
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_attesting_indices
+func get_attesting_indices*(epochRef: EpochRef,
+                            data: AttestationData,
+                            bits: CommitteeValidatorsBits):
+                            HashSet[ValidatorIndex] =
+  get_attesting_indices(
+    bits,
+    get_beacon_committee(epochRef, data.slot, data.index.CommitteeIndex))
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_indexed_attestation
+func get_indexed_attestation*(epochRef: EpochRef, attestation: Attestation): IndexedAttestation =
+  # Return the indexed attestation corresponding to ``attestation``.
+  let
+    attesting_indices =
+      get_attesting_indices(
+        epochRef, attestation.data, attestation.aggregation_bits)
+
+  IndexedAttestation(
+    attesting_indices:
+      List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE].init(
+        sorted(mapIt(attesting_indices, it.uint64), system.cmp)),
+    data: attestation.data,
+    signature: attestation.signature
+  )

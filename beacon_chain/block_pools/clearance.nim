@@ -8,11 +8,12 @@
 {.push raises: [Defect].}
 
 import
-  chronicles, sequtils, tables,
+  std/tables,
+  chronicles,
   metrics, stew/results,
   ../extras,
   ../spec/[crypto, datatypes, digest, helpers, signatures, state_transition],
-  block_pools_types, candidate_chains, quarantine
+  ./block_pools_types, ./candidate_chains, ./quarantine
 
 export results
 
@@ -41,7 +42,8 @@ proc addRawBlock*(
 
 proc addResolvedBlock(
        dag: var CandidateChains, quarantine: var Quarantine,
-       state: HashedBeaconState, signedBlock: SignedBeaconBlock, parent: BlockRef,
+       state: HashedBeaconState, signedBlock: SignedBeaconBlock,
+       parent: BlockRef, cache: StateCache,
        onBlockAdded: OnBlockAdded
      ): BlockRef =
   # TODO: `addResolvedBlock` is accumulating significant cruft
@@ -55,8 +57,11 @@ proc addResolvedBlock(
   let
     blockRoot = signedBlock.root
     blockRef = BlockRef.init(blockRoot, signedBlock.message)
-  blockRef.epochsInfo = filterIt(parent.epochsInfo,
-    it.epoch + 1 >= state.data.get_current_epoch())
+  if parent.slot.compute_epoch_at_slot() == blockRef.slot.compute_epoch_at_slot:
+    blockRef.epochsInfo = @[parent.epochsInfo[0]]
+  else:
+    discard getEpochInfo(blockRef, state.data)
+
   link(parent, blockRef)
 
   dag.blocks[blockRoot] = blockRef
@@ -65,32 +70,22 @@ proc addResolvedBlock(
   # Resolved blocks should be stored in database
   dag.putBlock(signedBlock)
 
-  # This block *might* have caused a justification - make sure we stow away
-  # that information:
-  let justifiedSlot =
-    state.data.current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
-
-  var foundHead: Option[Head]
+  var foundHead: BlockRef
   for head in dag.heads.mitems():
-    if head.blck.isAncestorOf(blockRef):
-      if head.justified.slot != justifiedSlot:
-        head.justified = blockRef.atSlot(justifiedSlot)
+    if head.isAncestorOf(blockRef):
 
-      head.blck = blockRef
+      head = blockRef
 
-      foundHead = some(head)
+      foundHead = head
       break
 
-  if foundHead.isNone():
-    foundHead = some(Head(
-      blck: blockRef,
-      justified: blockRef.atSlot(justifiedSlot)))
-    dag.heads.add(foundHead.get())
+  if foundHead.isNil:
+    foundHead = blockRef
+    dag.heads.add(foundHead)
 
   info "Block resolved",
     blck = shortLog(signedBlock.message),
     blockRoot = shortLog(blockRoot),
-    justifiedHead = foundHead.get().justified,
     heads = dag.heads.len()
 
   # This MUST be added before the quarantine
@@ -107,14 +102,15 @@ proc addResolvedBlock(
   if not quarantine.inAdd:
     quarantine.inAdd = true
     defer: quarantine.inAdd = false
-    var keepGoing = true
-    while keepGoing:
-      let retries = quarantine.orphans
-      for _, v in retries:
+    var entries = 0
+    while entries != quarantine.orphans.len:
+      entries = quarantine.orphans.len # keep going while quarantine is shrinking
+      var resolved: seq[SignedBeaconBlock]
+      for _, v in quarantine.orphans:
+        if v.message.parent_root in dag.blocks: resolved.add(v)
+
+      for v in resolved:
         discard addRawBlock(dag, quarantine, v, onBlockAdded)
-      # Keep going for as long as the pending dag is shrinking
-      # TODO inefficient! so what?
-      keepGoing = quarantine.orphans.len < retries.len
 
   blockRef
 
@@ -208,9 +204,9 @@ proc addRawBlock*(
       doAssert v.addr == addr poolPtr.clearanceState.data
       assign(poolPtr.clearanceState, poolPtr.headState)
 
-    var stateCache = getEpochCache(parent, dag.clearanceState.data.data)
+    var cache = getEpochCache(parent, dag.clearanceState.data.data)
     if not state_transition(dag.runtimePreset, dag.clearanceState.data, signedBlock,
-                            stateCache, dag.updateFlags, restore):
+                            cache, dag.updateFlags, restore):
       notice "Invalid block"
 
       return err Invalid
@@ -218,7 +214,7 @@ proc addRawBlock*(
     # Careful, clearanceState.data has been updated but not blck - we need to
     # create the BlockRef first!
     dag.clearanceState.blck = addResolvedBlock(
-      dag, quarantine, dag.clearanceState.data, signedBlock, parent,
+      dag, quarantine, dag.clearanceState.data, signedBlock, parent, cache,
       onBlockAdded
     )
 
