@@ -42,7 +42,7 @@ proc parsePubkey(str: string): ValidatorPubKey =
 proc doChecksAndGetCurrentHead(node: BeaconNode, slot: Slot): BlockRef =
   result = node.blockPool.head
   if not node.isSynced(result):
-    raise newException(CatchableError, "Cannot fulfill request until ndoe is synced")
+    raise newException(CatchableError, "Cannot fulfill request until node is synced")
   # TODO for now we limit the requests arbitrarily by up to 2 epochs into the future
   if result.slot + uint64(2 * SLOTS_PER_EPOCH) < slot:
     raise newException(CatchableError, "Requesting way ahead of the current head")
