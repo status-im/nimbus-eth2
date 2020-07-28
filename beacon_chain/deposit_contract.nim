@@ -119,6 +119,15 @@ type
 proc ethToWei(eth: UInt256): UInt256 =
   eth * 1000000000000000000.u256
 
+proc initWeb3(web3Url, privateKey: string): Future[Web3] {.async.} =
+  result = await newWeb3(web3Url)
+  if privateKey.len != 0:
+    result.privateKey = some(PrivateKey.fromHex(privateKey)[])
+  else:
+    let accounts = await result.provider.eth_accounts()
+    doAssert(accounts.len > 0)
+    result.defaultAccount = accounts[0]
+
 # TODO: async functions should note take `seq` inputs because
 #       this leads to full copies.
 proc sendDeposits*(deposits: seq[LaunchPadDeposit],
@@ -129,29 +138,31 @@ proc sendDeposits*(deposits: seq[LaunchPadDeposit],
     web3 = web3Url,
     depositContract = depositContractAddress
 
-  var web3 = await newWeb3(web3Url)
-  if privateKey.len != 0:
-    web3.privateKey = some(PrivateKey.fromHex(privateKey).tryGet)
-  else:
-    let accounts = await web3.provider.eth_accounts()
-    if accounts.len == 0:
-      error "No account offered by the web3 provider", web3Url
-      return
-    web3.defaultAccount = accounts[0]
-
+  var web3 = await initWeb3(web3Url, privateKey)
   let depositContract = web3.contractSender(DepositContract,
                                             Address depositContractAddress)
-  for i, dp in deposits:
-    let status = await depositContract.deposit(
-      Bytes48(dp.pubKey.toRaw()),
-      Bytes32(dp.withdrawal_credentials.data),
-      Bytes96(dp.signature.toRaw()),
-      FixedBytes[32](hash_tree_root(dp).data)).send(value = 32.u256.ethToWei, gasPrice = 1)
+  for i, launchPadDeposit in deposits:
+    let dp = launchPadDeposit as DepositData
 
-    info "Deposit sent", status = $status
+    while true:
+      try:
+        let tx = depositContract.deposit(
+          Bytes48(dp.pubKey.toRaw()),
+          Bytes32(dp.withdrawal_credentials.data),
+          Bytes96(dp.signature.toRaw()),
+          FixedBytes[32](hash_tree_root(dp).data))
 
-    if delayGenerator != nil:
-      await sleepAsync(delayGenerator())
+        let status = await tx.send(value = 32.u256.ethToWei, gasPrice = 1)
+
+        info "Deposit sent", status = $status
+
+        if delayGenerator != nil:
+          await sleepAsync(delayGenerator())
+
+        break
+      except CatchableError as err:
+        await sleepAsync(60.seconds)
+        web3 = await initWeb3(web3Url, privateKey)
 
 proc main() {.async.} =
   var cfg = CliConfig.load()
@@ -209,13 +220,7 @@ proc main() {.async.} =
     if privateKey.len > 0:
       cfg.privateKey = privateKey.string
 
-  let web3 = await newWeb3(cfg.web3Url)
-  if cfg.privateKey.len != 0:
-    web3.privateKey = some(PrivateKey.fromHex(cfg.privateKey)[])
-  else:
-    let accounts = await web3.provider.eth_accounts()
-    doAssert(accounts.len > 0)
-    web3.defaultAccount = accounts[0]
+  let web3 = await initWeb3(cfg.web3Url, cfg.privateKey)
 
   case cfg.cmd
   of StartUpCommand.deploy:
@@ -232,13 +237,15 @@ proc main() {.async.} =
 
   of StartUpCommand.sendDeposits:
     var delayGenerator: DelayGenerator
+    if not (cfg.maxDelay > 0.0):
+      cfg.maxDelay = cfg.minDelay
+    elif cfg.minDelay > cfg.maxDelay:
+      echo "The minimum delay should not be larger than the maximum delay"
+      quit 1
+
     if cfg.maxDelay > 0.0:
       delayGenerator = proc (): chronos.Duration {.gcsafe.} =
         chronos.milliseconds (rand(cfg.minDelay..cfg.maxDelay)*1000).int
-
-    if cfg.minDelay > cfg.maxDelay:
-      echo "The minimum delay should not be larger than the maximum delay"
-      quit 1
 
     await sendDeposits(deposits, cfg.web3Url, cfg.privateKey,
                        cfg.depositContractAddress, delayGenerator)

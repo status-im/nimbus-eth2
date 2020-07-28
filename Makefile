@@ -96,6 +96,7 @@ ifeq ($(OS), Windows_NT)
 endif
 
 CHRONICLES_PARAMS := -d:chronicles_log_level=$(BUILD_LOG_LEVEL)
+DEPOSITS_DELAY := 0
 
 # "--define:release" implies "--stacktrace:off" and it cannot be added to config.nims
 ifeq ($(USE_LIBBACKTRACE), 0)
@@ -211,6 +212,22 @@ medalla-deposit-data: | beacon_node deposit_contract
 		--out-deposits-file=medalla-deposits_data-$$(date +"%Y%m%d%H%M%S").json \
 		--count=$(VALIDATORS)
 
+medalla-deposit: | beacon_node deposit_contract
+	build/beacon_node deposits create \
+		--network=medalla \
+		--out-deposits-file=nbc-medalla-deposits.json \
+		--new-wallet-file=build/data/shared_medalla_$(NODE_ID)/wallet.json \
+		--out-deposits-dir=build/data/shared_medalla_$(NODE_ID)/validators \
+		--out-secrets-dir=build/data/shared_medalla_$(NODE_ID)/secrets \
+		--count=$(VALIDATORS)
+
+	build/deposit_contract sendDeposits \
+		--web3-url=$(GOERLI_WEB3_URL) \
+		--deposit-contract=$$(cat vendor/eth2-testnets/shared/medalla/deposit_contract.txt) \
+		--deposits-file=nbc-medalla-deposits.json \
+		--min-delay=$(DEPOSITS_DELAY) \
+		--ask-for-key
+
 clean-medalla:
 	rm -rf build/data/shared_medalla*
 
@@ -249,18 +266,19 @@ altona-dev: | beacon_node
 
 altona-deposit: | beacon_node deposit_contract
 	build/beacon_node deposits create \
+		--network=altona \
 		--out-deposits-file=nbc-altona-deposits.json \
+		--new-wallet-file=build/data/shared_algona_$(NODE_ID)/wallet.json \
+		--out-deposits-dir=build/data/shared_altona_$(NODE_ID)/validators \
+		--out-secrets-dir=build/data/shared_altona_$(NODE_ID)/secrets \
 		--count=$(VALIDATORS)
 
-	# TODO
-	# The --min-delay is needed only until we fix the invalid
-	# nonce generation on multiple transactions in web3
 	build/deposit_contract sendDeposits \
 		--web3-url=$(GOERLI_WEB3_URL) \
 		--deposit-contract=$$(cat vendor/eth2-testnets/shared/altona/deposit_contract.txt) \
 		--deposits-file=nbc-altona-deposits.json \
-		--ask-for-key \
-		--min-delay=60
+		--min-delay=$(DEPOSITS_DELAY) \
+		--ask-for-key
 
 clean-altona:
 	rm -rf build/data/shared_altona*
