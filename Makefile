@@ -171,23 +171,50 @@ testnet0 testnet1: | beacon_node
 		--data-dir=build/data/$@_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
-clean-altona:
-	rm -rf build/data/shared_altona*
+medalla: | beacon_node
+	build/beacon_node \
+		--network=medalla \
+		--log-level="$(LOG_LEVEL)" \
+		--log-file=build/data/shared_medalla_$(NODE_ID)/nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
+		--data-dir=build/data/shared_medalla_$(NODE_ID) \
+		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
-altona-deposit: | beacon_node deposit_contract
+medalla-vc: | beacon_node validator_client
+	# if launching a VC as well - send the BN looking nowhere for validators/secrets
+	mkdir build/data/shared_medalla_$(NODE_ID)/empty_dummy_folder -p
+	build/beacon_node \
+		--network=medalla \
+		--log-level="$(LOG_LEVEL)" \
+		--log-file=nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
+		--data-dir=build/data/shared_medalla_$(NODE_ID) \
+		--validators-dir=build/data/shared_medalla_$(NODE_ID)/empty_dummy_folder \
+		--secrets-dir=build/data/shared_medalla_$(NODE_ID)/empty_dummy_folder \
+		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS) &
+	sleep 4
+	build/validator_client \
+		--log-level="$(LOG_LEVEL)" \
+		--log-file=nbc_vc_$$(date +"%Y%m%d%H%M%S").log \
+		--data-dir=build/data/shared_medalla_$(NODE_ID) \
+		--rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) ))
+
+medalla-dev: | beacon_node
+	build/beacon_node \
+		--network=medalla \
+		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
+		--data-dir=build/data/shared_medalla_$(NODE_ID) \
+		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
+
+medalla-deposit-data: | beacon_node deposit_contract
 	build/beacon_node deposits create \
-		--out-deposits-file=nbc-altona-deposits.json \
+		--network=medalla \
+		--new-wallet-file=build/data/shared_medalla_$(NODE_ID)/wallet.json \
+		--out-deposits-dir=build/data/shared_medalla_$(NODE_ID)/validators \
+		--out-secrets-dir=build/data/shared_medalla_$(NODE_ID)/secrets \
+		--out-deposits-file=medalla-deposits_data-$$(date +"%Y%m%d%H%M%S").json \
 		--count=$(VALIDATORS)
 
-	# TODO
-	# The --min-delay is needed only until we fix the invalid
-	# nonce generation on multiple transactions in web3
-	build/deposit_contract sendDeposits \
-		--web3-url=$(GOERLI_WEB3_URL) \
-		--deposit-contract=$$(cat vendor/eth2-testnets/shared/altona/deposit_contract.txt) \
-		--deposits-file=nbc-altona-deposits.json \
-		--ask-for-key \
-		--min-delay=60
+clean-medalla:
+	rm -rf build/data/shared_medalla*
 
 altona: | beacon_node
 	build/beacon_node \
@@ -221,6 +248,24 @@ altona-dev: | beacon_node
 		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
 		--data-dir=build/data/shared_altona_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
+
+altona-deposit: | beacon_node deposit_contract
+	build/beacon_node deposits create \
+		--out-deposits-file=nbc-altona-deposits.json \
+		--count=$(VALIDATORS)
+
+	# TODO
+	# The --min-delay is needed only until we fix the invalid
+	# nonce generation on multiple transactions in web3
+	build/deposit_contract sendDeposits \
+		--web3-url=$(GOERLI_WEB3_URL) \
+		--deposit-contract=$$(cat vendor/eth2-testnets/shared/altona/deposit_contract.txt) \
+		--deposits-file=nbc-altona-deposits.json \
+		--ask-for-key \
+		--min-delay=60
+
+clean-altona:
+	rm -rf build/data/shared_altona*
 
 ctail: | build deps
 	mkdir -p vendor/.nimble/bin/
