@@ -23,6 +23,7 @@ GOERLI_WEB3_URL := "wss://goerli.infura.io/ws/v3/6224f3c792cc443fafb64e70a98f871
 VALIDATORS := 1
 
 # unconditionally built by the default Make target
+# TODO re-enable ncli_query if/when it works again
 TOOLS := \
 	beacon_node \
 	block_sim \
@@ -31,11 +32,8 @@ TOOLS := \
 	logtrace \
 	nbench \
 	nbench_spec_scenarios \
+	ncli \
 	ncli_db \
-	ncli_hash_tree_root \
-	ncli_pretty \
-	ncli_query \
-	ncli_transition \
 	process_dashboard \
 	stack_sizes \
 	state_sim \
