@@ -12,7 +12,7 @@ import
   confutils/defs, serialization, chronicles,
   # Beacon-chain
   ../beacon_chain/spec/[
-      datatypes, crypto, helpers, beaconstate, validator, helpers,
+      datatypes, crypto, helpers, beaconstate, helpers,
       state_transition_block, state_transition_epoch, state_transition],
   ../beacon_chain/extras,
   ../beacon_chain/ssz/[merkleization, ssz_serialization]

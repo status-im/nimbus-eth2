@@ -32,9 +32,8 @@ TOOLS := \
 	nbench \
 	nbench_spec_scenarios \
 	ncli_db \
-	ncli_hash_tree_root \
-	ncli_pretty \
 	ncli_query \
+	ncli_ssz \
 	ncli_transition \
 	process_dashboard \
 	stack_sizes \
