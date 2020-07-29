@@ -80,7 +80,7 @@ proc signAggregateAndProof*(v: AttachedValidator,
     error "Out of process signAggregateAndProof not implemented"
     quit 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#randao-reveal
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#randao-reveal
 func genRandaoReveal*(k: ValidatorPrivKey, fork: Fork,
     genesis_validators_root: Eth2Digest, slot: Slot): ValidatorSig =
   get_epoch_signature(
