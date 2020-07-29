@@ -45,18 +45,30 @@ const
   RawPrivKeySize* = 48
 
 type
-  BlsValueType* = enum
+  BlsValueKind* = enum
+    ToBeChecked
     Real
-    OpaqueBlob
+    InvalidBLS
+    OpaqueBlob # For SSZ testing only
 
   BlsValue*[N: static int, T: blscurve.PublicKey or blscurve.Signature] = object
-    # TODO This is a temporary type needed until we sort out the
-    # issues with invalid BLS values appearing in the SSZ test suites.
-    case kind*: BlsValueType
+    ## This is a lazily initiated wrapper for the underlying cryptographic type
+    ##
+    ## Fields intentionally private to avoid displaying/logging the raw data
+    ## or accessing fields without promoting them
+    ## or trying to iterate on a case object even though the case is wrong.
+    ## Is there a way to prevent macro from doing that? (SSZ/Chronicles)
+    #
+    # Note, since 0.20 case object transition are very restrictive
+    # and do not allow to preserve content (https://github.com/nim-lang/RFCs/issues/56)
+    # Fortunately, the content is transformed anyway if the object is valid
+    # but we might want to keep the invalid content at least for logging before discarding it.
+    # Our usage requires "-d:nimOldCaseObjects"
+    case kind: BlsValueKind
     of Real:
-      blsValue*: T
-    of OpaqueBlob:
-      blob*: array[N, byte]
+      blsValue: T
+    of ToBeChecked, InvalidBLS, OpaqueBlob:
+      blob: array[N, byte]
 
   ValidatorPubKey* = BlsValue[RawPubKeySize, blscurve.PublicKey]
 
@@ -75,7 +87,58 @@ type
 
   SomeSig* = TrustedSig | ValidatorSig
 
+# Lazy parsing
+# ----------------------------------------------------------------------
+
+func unsafePromote*[N, T](a: ptr BlsValue[N, T]) =
+  ## Try promoting an opaque blob to its corresponding
+  ## BLS value.
+  ##
+  ## ⚠️ Warning - unsafe.
+  ## At a low-level we mutate the input but all API like
+  ## bls_sign, bls_verify assume that their inputs are immutable
+  if a.kind != ToBeChecked:
+    return
+
+  # Try if valid BLS value
+  var buffer: T
+  let success = buffer.fromBytes(a.blob)
+
+  # Unsafe hidden mutation of the input
+  if true:
+    a.kind = Real # Requires "-d:nimOldCaseObjects"
+    a.blsValue = buffer
+  else:
+    a.kind = InvalidBLS
+
+# Accessors
+# ----------------------------------------------------------------------
+
+func setBlob*[N, T](a: var BlsValue[N, T], data: array[N, byte]) {.inline.} =
+  ## Set a BLS Value lazily
+  a.blob = data
+
+func keyGen*(ikm: openArray[byte]): BlsResult[tuple[pub: ValidatorPubKey, priv: ValidatorPrivKey]] {.inline.} =
+  ## Key generation using the BLS Signature draft 2 (https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-02)
+  ## Note: As of July-2020, the only use-case is for testing
+  ##
+  ## Validator key generation should use Lamport Signatures (EIP-2333)
+  ## (https://eips.ethereum.org/EIPS/eip-2333)
+  ## and be done in a dedicated hardened module/process.
+  var
+    sk: SecretKey
+    pk: PublicKey
+  if keyGen(ikm, pk, sk):
+    ok((ValidatorPubKey(kind: Real, blsValue: pk), ValidatorPrivKey(sk)))
+  else:
+    err "bls: cannot generate keypair"
+
+# Comparison
+# ----------------------------------------------------------------------
+
 func `==`*(a, b: BlsValue): bool =
+  unsafePromote(a.unsafeAddr)
+  unsafePromote(b.unsafeAddr)
   if a.kind != b.kind: return false
   if a.kind == Real:
     return a.blsValue == b.blsValue
@@ -96,16 +159,14 @@ func toPubKey*(privkey: ValidatorPrivKey): ValidatorPubKey =
   ## Create a private key from a public key
   # Un-specced in either hash-to-curve or Eth2
   # TODO: Test suite should use `keyGen` instead
-  when ValidatorPubKey is BlsValue:
-    ValidatorPubKey(kind: Real, blsValue: SecretKey(privkey).privToPub())
-  elif ValidatorPubKey is array:
-    privkey.getKey.getBytes
-  else:
-    privkey.getKey
+  ValidatorPubKey(kind: Real, blsValue: SecretKey(privkey).privToPub())
 
 func aggregate*(x: var ValidatorSig, other: ValidatorSig) =
   ## Aggregate 2 Validator Signatures
   ## This assumes that they are real signatures
+  ## and will crash if they are not
+  unsafePromote(x.addr)
+  unsafePromote(other.unsafeAddr)
   x.blsValue.aggregate(other.blsValue)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#bls-signatures
@@ -119,8 +180,11 @@ func blsVerify*(
   ## The proof-of-possession MUST be verified before calling this function.
   ## It is recommended to use the overload that accepts a proof-of-possession
   ## to enforce correct usage.
+  unsafePromote(pubkey.unsafeAddr)
+  unsafePromote(signature.unsafeAddr)
+
   if signature.kind != Real:
-    # Invalid signatures are possible in deposits (discussed with Danny)
+    # InvalidBLS signatures are possible in deposits (discussed with Danny)
     return false
   if pubkey.kind != Real:
     # TODO: chronicles warning
@@ -164,13 +228,15 @@ func blsFastAggregateVerify*(
   #           in blscurve which already exists internally
   #         - or at network/databases/serialization boundaries we do not
   #           allow invalid BLS objects to pollute consensus routines
+  unsafePromote(signature.unsafeAddr)
   if signature.kind != Real:
     return false
   var unwrapped: seq[PublicKey]
-  for pubkey in publicKeys:
-    if pubkey.kind != Real:
+  for i in 0 ..< publicKeys.len:
+    unsafePromote(publicKeys[i].unsafeAddr)
+    if publicKeys[i].kind != Real:
       return false
-    unwrapped.add pubkey.blsValue
+    unwrapped.add publicKeys[i].blsValue
 
   fastAggregateVerify(unwrapped, message, signature.blsValue)
 
@@ -224,12 +290,9 @@ func fromRaw*[N, T](BT: type BlsValue[N, T], bytes: openArray[byte]): BlsResult[
     # Only for SSZ parsing tests, everything is an opaque blob
     ok BT(kind: OpaqueBlob, blob: toArray(N, bytes))
   else:
-    # Try if valid BLS value
-    var val: T
-    if fromBytes(val, bytes):
-      ok BT(kind: Real, blsValue: val)
-    else:
-      ok BT(kind: OpaqueBlob, blob: toArray(N, bytes))
+    # Lazily instantiate the value, it will be checked only on use
+    # TODO BlsResult is now unnecessary
+    ok BT(kind: ToBeChecked, blob: toArray(N, bytes))
 
 func fromHex*(T: type BlsCurveType, hexStr: string): BlsResult[T] {.inline.} =
   ## Initialize a BLSValue from its hex representation
@@ -317,6 +380,10 @@ func shortLog*(x: ValidatorPrivKey): string =
 func shortLog*(x: TrustedSig): string =
   x.data[0..3].toHex()
 
+chronicles.formatIt BlsValue: it.shortLog
+chronicles.formatIt ValidatorPrivKey: it.shortLog
+chronicles.formatIt TrustedSig: it.shortLog
+
 # Initialization
 # ----------------------------------------------------------------------
 
@@ -346,4 +413,3 @@ func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noInit
 
 proc burnMem*(key: var ValidatorPrivKey) =
   key = default(ValidatorPrivKey)
-

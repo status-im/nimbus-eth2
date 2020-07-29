@@ -242,12 +242,10 @@ proc initialize_beacon_state_from_eth1*(
       Eth1Data(block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
     latest_block_header:
       BeaconBlockHeader(
-        body_root: hash_tree_root(BeaconBlockBody(
-          # This differs from the spec intentionally.
-          # We must specify the default value for `ValidatorSig`
-          # in order to get a correct `hash_tree_root`.
-          randao_reveal: ValidatorSig(kind: OpaqueBlob)
-        ))
+        # This differs from the spec intentionally.
+        # We must specify the default value for `ValidatorSig`/`BeaconBlockBody`
+        # in order to get a correct `hash_tree_root`.
+        body_root: hash_tree_root(BeaconBlockBody())
       )
   )
 
@@ -307,10 +305,7 @@ func is_valid_genesis_state*(preset: RuntimePreset,
 func get_initial_beacon_block*(state: BeaconState): SignedBeaconBlock =
   let message = BeaconBlock(
       slot: GENESIS_SLOT,
-      state_root: hash_tree_root(state),
-      body: BeaconBlockBody(
-        # TODO: This shouldn't be necessary if OpaqueBlob is the default
-        randao_reveal: ValidatorSig(kind: OpaqueBlob)))
+      state_root: hash_tree_root(state))
       # parent_root, randao_reveal, eth1_data, signature, and body automatically
       # initialized to default values.
   SignedBeaconBlock(message: message, root: hash_tree_root(message))

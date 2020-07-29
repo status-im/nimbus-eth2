@@ -10,7 +10,6 @@
 
 import
   bearssl, eth/keys,
-  blscurve/bls_signature_scheme,
   ../../beacon_chain/spec/[datatypes, crypto, presets]
 
 proc newKeyPair(rng: var BrHmacDrbgContext): BlsResult[tuple[pub: ValidatorPubKey, priv: ValidatorPrivKey]] =
@@ -22,14 +21,7 @@ proc newKeyPair(rng: var BrHmacDrbgContext): BlsResult[tuple[pub: ValidatorPubKe
 
   var ikm: array[32, byte]
   brHmacDrbgGenerate(rng, ikm)
-
-  var
-    sk: SecretKey
-    pk: bls_signature_scheme.PublicKey
-  if keyGen(ikm, pk, sk):
-    ok((ValidatorPubKey(kind: Real, blsValue: pk), ValidatorPrivKey(sk)))
-  else:
-    err "bls: cannot generate keypair"
+  return ikm.keygen()
 
 # this is being indexed inside "mock_deposits.nim" by a value up to `validatorCount`
 # which is `num_validators` which is `MIN_GENESIS_ACTIVE_VALIDATOR_COUNT`
