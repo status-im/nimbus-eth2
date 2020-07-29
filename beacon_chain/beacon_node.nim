@@ -25,7 +25,8 @@ import
   spec/state_transition,
   conf, time, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, eth2_discovery,
-  beacon_node_common, beacon_node_types, block_pools/block_pools_types,
+  beacon_node_common, beacon_node_types,
+  block_pools/[block_pools_types, candidate_chains],
   nimbus_binary_common, network_metadata,
   mainchain_monitor, version, ssz/[merkleization], sszdump, merkle_minimal,
   sync_protocol, request_manager, keystore_management, interop, statusbar,
@@ -247,7 +248,7 @@ proc init*(T: type BeaconNode,
     enrForkId = enrForkIdFromState(blockPool.headState.data.data)
     topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.forkDigest)
     topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.forkDigest)
-    network = await createEth2Node(rng, conf, enrForkId)
+    network = createEth2Node(rng, conf, enrForkId)
 
   var res = BeaconNode(
     nickname: nickname,
