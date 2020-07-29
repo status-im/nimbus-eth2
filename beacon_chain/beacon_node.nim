@@ -928,9 +928,8 @@ when hasPrompt:
       # p.useHistoryFile()
 
       proc dataResolver(expr: string): string =
-        template justified: untyped = node.blockPool.head.atSlot(
-          node.blockPool.headState.data.data.current_justified_checkpoint.epoch.
-            compute_start_slot_at_epoch)
+        template justified: untyped = node.blockPool.head.atEpochStart(
+          node.blockPool.headState.data.data.current_justified_checkpoint.epoch)
         # TODO:
         # We should introduce a general API for resolving dot expressions
         # such as `db.latest_block.slot` or `metrics.connected_peers`.

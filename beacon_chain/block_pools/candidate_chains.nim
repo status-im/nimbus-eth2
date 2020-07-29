@@ -162,6 +162,14 @@ func atSlot*(blck: BlockRef, slot: Slot): BlockSlot =
   ## block proposal)
   BlockSlot(blck: blck.getAncestorAt(slot), slot: slot)
 
+func atEpochStart*(blck: BlockRef, epoch: Epoch): BlockSlot =
+  ## Return the BlockSlot corresponding to the first slot in the given epoch
+  atSlot(blck, epoch.compute_start_slot_at_epoch)
+
+func atEpochEnd*(blck: BlockRef, epoch: Epoch): BlockSlot =
+  ## Return the BlockSlot corresponding to the last slot in the given epoch
+  atSlot(blck, (epoch + 1).compute_start_slot_at_epoch - 1)
+
 func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
   # This is the only intended mechanism by which to get an EpochRef
   let
@@ -186,12 +194,14 @@ func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
 
 func getEpochCache*(blck: BlockRef, state: BeaconState): StateCache =
   let epochInfo = getEpochInfo(blck, state)
-  if blck.slot.compute_epoch_at_slot > 1:
+  if epochInfo.epoch > 0:
     # When doing state transitioning, both the current and previous epochs are
-    # useful from a cache perspective since attestations may come from either
+    # useful from a cache perspective since attestations may come from either -
+    # we'll use the last slot from the epoch because it is more likely to
+    # be filled in already, compared to the first slot where the block might
+    # be from the epoch before.
     let
-      prevEpochBlck =
-        blck.atSlot(epochInfo.epoch.compute_start_slot_at_epoch - 1).blck
+      prevEpochBlck = blck.atEpochEnd(epochInfo.epoch - 1).blck
 
     for ei in prevEpochBlck.epochsInfo:
       if ei.epoch == epochInfo.epoch - 1:
@@ -290,9 +300,8 @@ proc init*(T: type CandidateChains,
   # from the same epoch as the head, thus the finalized and justified slots are
   # the same - these only change on epoch boundaries.
   let
-    finalizedSlot =
-       tmpState.data.data.finalized_checkpoint.epoch.compute_start_slot_at_epoch()
-    finalizedHead = headRef.atSlot(finalizedSlot)
+    finalizedHead = headRef.atEpochStart(
+      tmpState.data.data.finalized_checkpoint.epoch)
 
   let res = CandidateChains(
     blocks: blocks,
@@ -327,12 +336,18 @@ proc init*(T: type CandidateChains,
   res
 
 proc getEpochRef*(pool: CandidateChains, blck: BlockRef, epoch: Epoch): EpochRef =
-  let bs = blck.atSlot(epoch.compute_start_slot_at_epoch)
-  for e in bs.blck.epochsInfo:
-    if e.epoch == epoch:
-      return e
+  var bs = blck.atEpochEnd(epoch)
 
-  # TODO use any state from epoch
+  while true:
+    # Any block from within the same epoch will carry the same epochinfo, so
+    # we start at the most recent one
+    for e in bs.blck.epochsInfo:
+      if e.epoch == epoch:
+        return e
+    if bs.slot == epoch.compute_start_slot_at_epoch:
+      break
+    bs = bs.parent
+
   pool.withState(pool.tmpState, bs):
     getEpochInfo(blck, state)
 
@@ -743,11 +758,10 @@ proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
     assign(dag.headState, dag.clearanceState)
   else:
     updateStateData(
-      dag, dag.headState, BlockSlot(blck: newHead, slot: newHead.slot))
+      dag, dag.headState, newHead.atSlot(newHead.slot))
 
   dag.head = newHead
 
-  # TODO isAncestorOf may be expensive - too expensive?
   if not lastHead.isAncestorOf(newHead):
     info "Updated head block with reorg",
       lastHead = shortLog(lastHead),
@@ -768,10 +782,8 @@ proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
       justified = shortLog(dag.headState.data.data.current_justified_checkpoint),
       finalized = shortLog(dag.headState.data.data.finalized_checkpoint)
   let
-    finalizedEpochStartSlot =
-      dag.headState.data.data.finalized_checkpoint.epoch.
-      compute_start_slot_at_epoch()
-    finalizedHead = newHead.atSlot(finalizedEpochStartSlot)
+    finalizedHead = newHead.atEpochStart(
+      dag.headState.data.data.finalized_checkpoint.epoch)
 
   doAssert (not finalizedHead.blck.isNil),
     "Block graph should always lead to a finalized block"
@@ -790,7 +802,6 @@ proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
       # while cur != dag.finalizedHead:
       #  cur = cur.parent
       #  dag.delState(cur)
-
 
     block: # Clean up block refs, walking block by block
       # Finalization means that we choose a single chain as the canonical one -

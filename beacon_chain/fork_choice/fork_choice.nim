@@ -194,8 +194,8 @@ proc process_state(self: var Checkpoints,
 
   if (state.current_justified_checkpoint.epoch > self.current.justified.epoch) and
       (state.finalized_checkpoint.epoch >= self.current.finalized.epoch):
-    let justifiedBlck = blck.atSlot(
-      state.current_justified_checkpoint.epoch.compute_start_slot_at_epoch)
+    let justifiedBlck = blck.atEpochStart(
+      state.current_justified_checkpoint.epoch)
 
     if justifiedBlck.blck.root != state.current_justified_checkpoint.root:
       return err("invalid history?")
@@ -303,9 +303,8 @@ proc process_block*(self: var ForkChoice,
       state.current_justified_checkpoint.epoch, state.finalized_checkpoint.epoch
     )
 
-  {.noSideEffect.}:
-    trace "Integrating block in fork choice",
-      block_root = shortLog(blckRef)
+  trace "Integrating block in fork choice",
+    block_root = shortLog(blckRef)
 
   return ok()
 

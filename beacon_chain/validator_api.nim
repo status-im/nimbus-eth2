@@ -160,9 +160,8 @@ proc stateIdToBlockSlot(node: BeaconNode, stateId: string): BlockSlot =
     of "finalized":
       node.blockPool.finalizedHead
     of "justified":
-      node.blockPool.head.atSlot(
-        node.blockPool.headState.data.data.current_justified_checkpoint.
-          epoch.compute_start_slot_at_epoch)
+      node.blockPool.head.atEpochStart(
+        node.blockPool.headState.data.data.current_justified_checkpoint.epoch)
     else:
       if stateId.startsWith("0x"):
         let blckRoot = parseRoot(stateId)
@@ -353,7 +352,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     debug "post_v1_validator_duties_attester", epoch = epoch
     let head = node.doChecksAndGetCurrentHead(epoch)
 
-    let attestationHead = head.atSlot(compute_start_slot_at_epoch(epoch))
+    let attestationHead = head.atEpochStart(epoch)
     node.blockPool.withState(node.blockPool.tmpState, attestationHead):
       for pubkey in public_keys:
         let idx = state.validators.asSeq.findIt(it.pubKey == pubkey)
