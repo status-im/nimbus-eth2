@@ -17,7 +17,15 @@ cd "$(dirname "${BASH_SOURCE[0]}")"/..
 ####################
 # argument parsing #
 ####################
-! getopt --test > /dev/null
+
+GETOPT_BINARY="getopt"
+if uname | grep -qi darwin; then
+  # macOS
+  GETOPT_BINARY="/usr/local/opt/gnu-getopt/bin/getopt"
+	[[ -f "$GETOPT_BINARY" ]] || { echo "GNU getopt not installed. Please run 'brew install gnu-getopt'. Aborting."; exit 1; }
+fi
+
+! ${GETOPT_BINARY} --test > /dev/null
 if [ ${PIPESTATUS[0]} != 4 ]; then
 	echo '`getopt --test` failed in this environment.'
 	exit 1
@@ -55,7 +63,7 @@ CI run: $(basename $0) --disable-htop -- --verify-finalization --stop-at-epoch=5
 EOF
 }
 
-! PARSED=$(getopt --options=${OPTS} --longoptions=${LONGOPTS} --name "$0" -- "$@")
+! PARSED=$(${GETOPT_BINARY} --options=${OPTS} --longoptions=${LONGOPTS} --name "$0" -- "$@")
 if [ ${PIPESTATUS[0]} != 0 ]; then
 	# getopt has complained about wrong arguments to stdout
 	exit 1
@@ -279,7 +287,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
 
 	if [[ $NUM_NODE -lt $NODES_WITH_VALIDATORS ]]; then
 		for VALIDATOR in $(ls ${VALIDATORS_DIR} | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
-			cp -ar "${VALIDATORS_DIR}/$VALIDATOR" "${NODE_DATA_DIR}/validators/"
+			cp -a "${VALIDATORS_DIR}/$VALIDATOR" "${NODE_DATA_DIR}/validators/"
 			cp -a "${SECRETS_DIR}/${VALIDATOR}" "${NODE_DATA_DIR}/secrets/"
 		done
 	fi
@@ -310,7 +318,7 @@ done
 
 # give the regular nodes time to crash
 sleep 5
-BG_JOBS="$(jobs | wc -l)"
+BG_JOBS="$(jobs | wc -l | tr -d ' ')"
 if [[ "$BG_JOBS" != "$NUM_NODES" ]]; then
 	echo "$((NUM_NODES - BG_JOBS)) beacon_node instance(s) exited early. Aborting."
 	dump_logs
