@@ -12,6 +12,7 @@ import
   std/tables, std/options, std/typetraits,
   # Status libraries
   chronicles,
+  stew/results,
   # Internal
   ../spec/[datatypes, digest],
   # Fork choice
@@ -19,6 +20,8 @@ import
 
 logScope:
   topics = "fork_choice"
+
+export results
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
@@ -65,9 +68,10 @@ template unsafeGet*[K, V](table: Table[K, V], key: K): V =
 # Forward declarations
 # ----------------------------------------------------------------------
 
-func maybe_update_best_child_and_descendant(self: var ProtoArray, parent_index: Index, child_index: Index): ForkChoiceError
+func maybe_update_best_child_and_descendant(
+  self: var ProtoArray, parent_index: Index, child_index: Index): FcResult[void]
 func node_is_viable_for_head(self: ProtoArray, node: ProtoNode): bool
-func node_leads_to_viable_head(self: ProtoArray, node: ProtoNode): tuple[viable: bool, err: ForkChoiceError]
+func node_leads_to_viable_head(self: ProtoArray, node: ProtoNode): FcResult[bool]
 
 # ProtoArray routines
 # ----------------------------------------------------------------------
@@ -77,7 +81,7 @@ func apply_score_changes*(
        deltas: var openarray[Delta],
        justified_epoch: Epoch,
        finalized_epoch: Epoch
-     ): ForkChoiceError =
+     ): FcResult[void] =
   ## Iterate backwards through the array, touching all nodes and their parents
   ## and potentially the best-child of each parent.
   ##
@@ -92,8 +96,8 @@ func apply_score_changes*(
   ##    updating if the current node should become the best-child
   ## 4. If required, update the parent's best-descendant with the current node or its best-descendant
   if deltas.len != self.indices.len:
-    return ForkChoiceError(
-             kind: fcErrInvalidDeltaLen,
+    return err ForkChoiceError(
+             kind: fcInvalidDeltaLen,
              deltasLen: deltas.len,
              indicesLen: self.indices.len
            )
@@ -115,8 +119,8 @@ func apply_score_changes*(
       #       and we can probably assume that
       #       `self.indices.len == self.nodes.len` by construction
       #       and avoid this check in a loop or altogether
-      return ForkChoiceError(
-        kind: fcErrInvalidNodeDelta,
+      return err ForkChoiceError(
+        kind: fcInvalidNodeDelta,
         index: node_index
       )
     let node_delta = deltas[node_index]
@@ -126,8 +130,8 @@ func apply_score_changes*(
     # Note that delta can be negative but weight cannot
     let weight = node.weight + node_delta
     if weight < 0:
-      return ForkChoiceError(
-        kind: fcErrDeltaUnderflow,
+      return err ForkChoiceError(
+        kind: fcDeltaUnderflow,
         index: node_index
       )
     node.weight = weight
@@ -139,20 +143,17 @@ func apply_score_changes*(
       #       and a "no exceptions" (only panics) implementation.
       let parent_index = node.parent.unsafeGet()
       if parent_index notin {0..deltas.len-1}:
-        return ForkChoiceError(
-          kind: fcErrInvalidParentDelta,
+        return err ForkChoiceError(
+          kind: fcInvalidParentDelta,
           index: parent_index
         )
 
       # Back-propagate the nodes delta to its parent.
       deltas[parent_index] += node_delta
 
-      let err = self.maybe_update_best_child_and_descendant(parent_index, node_index)
-      if err.kind != fcSuccess:
-        return err
+      ? self.maybe_update_best_child_and_descendant(parent_index, node_index)
 
-  return ForkChoiceSuccess
-
+  return ok()
 
 func on_block*(
        self: var ProtoArray,
@@ -161,7 +162,7 @@ func on_block*(
        parent: Eth2Digest,
        justified_epoch: Epoch,
        finalized_epoch: Epoch
-     ): ForkChoiceError =
+     ): FcResult[void] =
   ## Register a block with the fork choice
   ## A block `hasParentInForkChoice` may be false
   ## on fork choice initialization:
@@ -172,22 +173,15 @@ func on_block*(
 
   # If the block is already known, ignore it
   if root in self.indices:
-    return ForkChoiceSuccess
+    return ok()
 
   var parent_index: Option[int]
   if not hasParentInForkChoice:
       # Genesis (but Genesis might not be default(Eth2Digest))
     parent_index = none(int)
   elif parent notin self.indices:
-    {.noSideEffect.}:
-      error "Trying to add block with unknown parent",
-        child_root = shortLog(root),
-        parent_root = shortLog(parent),
-        justified_epoch = justified_epoch,
-        finalized_epoch = finalized_epoch
-
-    return ForkChoiceError(
-      kind: fcErrUnknownParent,
+    return err ForkChoiceError(
+      kind: fcUnknownParent,
       child_root: root,
       parent_root: parent
     )
@@ -210,17 +204,15 @@ func on_block*(
   self.nodes.add node # TODO: if this is costly, we can setLen + construct the node in-place
 
   if parent_index.isSome(): # parent_index is always valid except for Genesis
-    let err = self.maybe_update_best_child_and_descendant(parent_index.unsafeGet(), node_index)
-    if err.kind != fcSuccess:
-      return err
+    ? self.maybe_update_best_child_and_descendant(parent_index.unsafeGet(), node_index)
 
-  return ForkChoiceSuccess
+  return ok()
 
 func find_head*(
         self: var ProtoArray,
         head: var Eth2Digest,
         justified_root: Eth2Digest
-     ): ForkChoiceError =
+     ): FcResult[void] =
   ## Follows the best-descendant links to find the best-block (i.e. head-block)
   ##
   ## ⚠️ Warning
@@ -229,18 +221,18 @@ func find_head*(
   ## update the whole tree.
 
   let justified_index = self.indices.getOrFailcase(justified_root):
-    return ForkChoiceError(
-      kind: fcErrJustifiedNodeUnknown,
+    return err ForkChoiceError(
+      kind: fcJustifiedNodeUnknown,
       block_root: justified_root
     )
 
   if justified_index notin {0..self.nodes.len-1}:
-    return ForkChoiceError(
-      kind: fcErrInvalidJustifiedIndex,
+    return err ForkChoiceError(
+      kind: fcInvalidJustifiedIndex,
       index: justified_index
     )
 
-  template justified_node: untyped {.dirty.} = self.nodes[justified_index]
+  template justified_node: untyped = self.nodes[justified_index]
     # Alias, IndexError are defects
 
   let best_descendant_index = block:
@@ -250,17 +242,17 @@ func find_head*(
       justified_index
 
   if best_descendant_index notin {0..self.nodes.len-1}:
-    return ForkChoiceError(
-      kind: fcErrInvalidBestDescendant,
+    return err ForkChoiceError(
+      kind: fcInvalidBestDescendant,
       index: best_descendant_index
     )
-  template best_node: untyped {.dirty.} = self.nodes[best_descendant_index]
+  template best_node: untyped = self.nodes[best_descendant_index]
     # Alias, IndexError are defects
 
   # Perform a sanity check to ensure the node can be head
   if not self.node_is_viable_for_head(best_node):
-    return ForkChoiceError(
-      kind: fcErrInvalidBestNode,
+    return err ForkChoiceError(
+      kind: fcInvalidBestNode,
       start_root: justified_root,
       justified_epoch: self.justified_epoch,
       finalized_epoch: self.finalized_epoch,
@@ -270,7 +262,7 @@ func find_head*(
     )
 
   head = best_node.root
-  return ForkChoiceSuccess
+  return ok()
 
 # TODO: pruning can be made cheaper by keeping the new offset as a field
 #       in proto_array instead of scanning the table to substract the offset.
@@ -279,7 +271,7 @@ func find_head*(
 func maybe_prune*(
        self: var ProtoArray,
        finalized_root: Eth2Digest
-     ): ForkChoiceError =
+     ): FcResult[void] =
   ## Update the tree with new finalization information.
   ## The tree is pruned if and only if:
   ## - The `finalized_root` and finalized epoch are different from current
@@ -290,26 +282,25 @@ func maybe_prune*(
   ## - The finalized epoch matches the current one but the finalized root is different
   ## - Internal error due to invalid indices in `self`
   let finalized_index = self.indices.getOrFailcase(finalized_root):
-    return ForkChoiceError(
-      kind: fcErrFinalizedNodeUnknown,
+    return err ForkChoiceError(
+      kind: fcFinalizedNodeUnknown,
       block_root: finalized_root
     )
 
   if finalized_index < self.prune_threshold:
     # Pruning small numbers of nodes incurs more overhead than leaving them as is
-    return ForkChoiceSuccess
+    return ok()
 
   # Remove the `self.indices` key/values for the nodes slated for deletion
   if finalized_index notin {0..self.nodes.len-1}:
-    return ForkChoiceError(
-      kind: fcErrInvalidNodeIndex,
+    return err ForkChoiceError(
+      kind: fcInvalidNodeIndex,
       index: finalized_index
     )
 
-  {.noSideEffect.}:
-    debug "Pruning blocks from fork choice",
-      finalizedRoot = shortlog(finalized_root),
-      pcs = "prune"
+  trace "Pruning blocks from fork choice",
+    finalizedRoot = shortlog(finalized_root),
+    pcs = "prune"
 
   for node_index in 0 ..< finalized_index:
     self.indices.del(self.nodes[node_index].root)
@@ -326,8 +317,8 @@ func maybe_prune*(
   for index in self.indices.mvalues():
     index -= finalized_index
     if index < 0:
-      return ForkChoiceError(
-        kind: fcErrIndexUnderflow,
+      return err ForkChoiceError(
+        kind: fcIndexUnderflow,
         underflowKind: fcUnderflowIndices
       )
 
@@ -345,8 +336,8 @@ func maybe_prune*(
     if node.best_child.isSome():
       let new_best_child = node.best_child.unsafeGet() - finalized_index
       if new_best_child < 0:
-        return ForkChoiceError(
-          kind: fcErrIndexUnderflow,
+        return err ForkChoiceError(
+          kind: fcIndexUnderflow,
           underflowKind: fcUnderflowBestChild
         )
       node.best_child = some(new_best_child)
@@ -354,19 +345,19 @@ func maybe_prune*(
     if node.best_descendant.isSome():
       let new_best_descendant = node.best_descendant.unsafeGet() - finalized_index
       if new_best_descendant < 0:
-        return ForkChoiceError(
-          kind: fcErrIndexUnderflow,
+        return err ForkChoiceError(
+          kind: fcIndexUnderflow,
           underflowKind: fcUnderflowBestDescendant
         )
       node.best_descendant = some(new_best_descendant)
 
-  return ForkChoiceSuccess
+  return ok()
 
 
 func maybe_update_best_child_and_descendant(
        self: var ProtoArray,
        parent_index: Index,
-       child_index: Index): ForkChoiceError =
+       child_index: Index): Result[void, ForkChoiceError] =
   ## Observe the parent at `parent_index` with respect to the child at `child_index` and
   ## potentiatlly modify the `parent.best_child` and `parent.best_descendant` values
   ##
@@ -380,13 +371,13 @@ func maybe_update_best_child_and_descendant(
   ## 4. The child is not the best child and does not become the best child
 
   if child_index notin {0..self.nodes.len-1}:
-    return ForkChoiceError(
-      kind: fcErrInvalidNodeIndex,
+    return err ForkChoiceError(
+      kind: fcInvalidNodeIndex,
       index: child_index
     )
   if parent_index notin {0..self.nodes.len-1}:
-    return ForkChoiceError(
-      kind: fcErrInvalidNodeIndex,
+    return err ForkChoiceError(
+      kind: fcInvalidNodeIndex,
       index: parent_index
     )
 
@@ -394,9 +385,7 @@ func maybe_update_best_child_and_descendant(
   template child: untyped {.dirty.} = self.nodes[child_index]
   template parent: untyped {.dirty.} = self.nodes[parent_index]
 
-  let (child_leads_to_viable_head, err) = self.node_leads_to_viable_head(child)
-  if err.kind != fcSuccess:
-    return err
+  let child_leads_to_viable_head = ? self.node_leads_to_viable_head(child)
 
   let # Aliases to the 3 possible (best_child, best_descendant) tuples
     change_to_none = (none(Index), none(Index))
@@ -422,15 +411,14 @@ func maybe_update_best_child_and_descendant(
         change_to_child
       else:
         if best_child_index notin {0..self.nodes.len-1}:
-          return ForkChoiceError(
-            kind: fcErrInvalidBestDescendant,
+          return err ForkChoiceError(
+            kind: fcInvalidBestDescendant,
             index: best_child_index
           )
         let best_child = self.nodes[best_child_index]
 
-        let (best_child_leads_to_viable_head, err) = self.node_leads_to_viable_head(best_child)
-        if err.kind != fcSuccess:
-          return err
+        let best_child_leads_to_viable_head =
+          ? self.node_leads_to_viable_head(best_child)
 
         if child_leads_to_viable_head and not best_child_leads_to_viable_head:
           # The child leads to a viable head, but the current best-child doesn't
@@ -460,34 +448,28 @@ func maybe_update_best_child_and_descendant(
   self.nodes[parent_index].best_child = new_best_child
   self.nodes[parent_index].best_descendant = new_best_descendant
 
-  return ForkChoiceSuccess
+  return ok()
 
 func node_leads_to_viable_head(
        self: ProtoArray, node: ProtoNode
-     ): tuple[viable: bool, err: ForkChoiceError] =
+     ): FcResult[bool] =
   ## Indicates if the node itself or its best-descendant are viable
   ## for blockchain head
   let best_descendant_is_viable_for_head = block:
     if node.best_descendant.isSome():
       let best_descendant_index = node.best_descendant.unsafeGet()
       if best_descendant_index notin {0..self.nodes.len-1}:
-        return (
-          false,
-          ForkChoiceError(
-            kind: fcErrInvalidBestDescendant,
+        return err ForkChoiceError(
+            kind: fcInvalidBestDescendant,
             index: best_descendant_index
           )
-        )
       let best_descendant = self.nodes[best_descendant_index]
       self.node_is_viable_for_head(best_descendant)
     else:
       false
 
-  return (
-    best_descendant_is_viable_for_head or
-      self.node_is_viable_for_head(node),
-    ForkChoiceSuccess
-  )
+  return ok(best_descendant_is_viable_for_head or
+      self.node_is_viable_for_head(node))
 
 func node_is_viable_for_head(self: ProtoArray, node: ProtoNode): bool =
   ## This is the equivalent of `filter_block_tree` function in eth2 spec
