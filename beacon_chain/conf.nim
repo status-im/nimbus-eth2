@@ -106,12 +106,12 @@ type
         name: "udp-port" }: Port
 
       maxPeers* {.
-        defaultValue: 100 # The Wall gets released
+        defaultValue: 101 # The Wall gets released
         desc: "The maximum number of connected peers"
         name: "max-peers" }: int
 
       maxIncomingPeers* {.
-        defaultValue: 21
+        defaultValue: 23
         desc: "The maximum number of inbound peer's connections"
         name: "max-incoming-peers"}: int
 

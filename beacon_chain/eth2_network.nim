@@ -859,6 +859,10 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
   new result
   result.switch = switch
   result.wantedPeers = (conf.maxPeers - conf.maxIncomingPeers)
+  # We are limiting number of incoming connections (peers) to some value,
+  # otherwise it is possible to fill our PeerPool with only incoming connections
+  # This is undesired behavior, because in such way attackers could easily
+  # falsify our vision of network and beacon chain.
   result.peerPool = newPeerPool[Peer, PeerID](
     maxPeers = conf.maxPeers, maxIncomingPeers = conf.maxIncomingPeers)
   result.connectTimeout = 10.seconds
