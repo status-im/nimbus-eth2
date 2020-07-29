@@ -210,14 +210,14 @@ proc readLogFileForASRMessages(file: string,
   try:
     while not(stream.atEnd()):
       line = stream.readLine()
-      let m = Json.decode(line, LogMessage, forwardCompatible = true)
+      let m = Json.decode(line, LogMessage, allowUnknownFields = true)
       if m.msg == "Attestation sent":
         let sm = Json.decode(line, AttestationSentMessage,
-                             forwardCompatible = true)
+                             allowUnknownFields = true)
         srnode.sends.add(sm)
       elif m.msg == "Attestation received":
         let rm = Json.decode(line, AttestationReceivedMessage,
-                             forwardCompatible = true)
+                             allowUnknownFields = true)
         discard srnode.recvs.hasKeyOrPut(rm.attestation.signature, rm)
       inc(counter)
       if counter mod 10_000 == 0:
