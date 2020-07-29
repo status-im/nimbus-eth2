@@ -32,9 +32,8 @@ TOOLS := \
 	logtrace \
 	nbench \
 	nbench_spec_scenarios \
+	ncli \
 	ncli_db \
-	ncli_ssz \
-	ncli_transition \
 	process_dashboard \
 	stack_sizes \
 	state_sim \

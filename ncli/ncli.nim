@@ -1,13 +1,15 @@
 import
-  confutils, os, strutils, json_serialization,
+  confutils, chronicles, os, strutils, json_serialization,
   stew/byteutils,
-  ../beacon_chain/spec/[crypto, datatypes, digest],
+  ../beacon_chain/spec/[crypto, datatypes, digest, state_transition],
+  ../beacon_chain/extras,
   ../beacon_chain/ssz/[merkleization, ssz_serialization]
 
 type
   Cmd* = enum
     hashTreeRoot = "Compute hash tree root of SSZ object"
     pretty = "Pretty-print SSZ object"
+    transition = "Run state transition function"
 
   NcliConf* = object
     # TODO confutils argument pragma doesn't seem to do much; also, the cases
@@ -21,6 +23,7 @@ type
       htrFile* {.
         argument
         desc: "filename of SSZ or JSON-encoded object of which to compute hash tree root"}: string
+
     of pretty:
       prettyKind* {.
         argument
@@ -30,13 +33,47 @@ type
         argument
         desc: "filename of SSZ or JSON-encoded object to pretty-print"}: string
 
-when isMainModule:
-  let conf = NcliConf.load()
+    of transition:
+      preState* {.
+        argument
+        desc: "State to which to apply specified block"}: string
 
+      blck* {.
+        argument
+        desc: "Block to apply to preState"}: string
+
+      postState* {.
+        argument
+        desc: "Filename of state resulting from applying blck to preState"}: string
+
+      verifyStateRoot* {.
+        argument
+        desc: "Verify state root (default true)"
+        defaultValue: true}: bool
+
+proc doTransition(conf: NcliConf) =
+  let
+    stateY = (ref HashedBeaconState)(
+      data: SSZ.loadFile(conf.preState, BeaconState),
+    )
+    blckX = SSZ.loadFile(conf.blck, SignedBeaconBlock)
+    flags = if not conf.verifyStateRoot: {skipStateRootValidation} else: {}
+
+  stateY.root = hash_tree_root(stateY.data)
+
+  if not state_transition(defaultRuntimePreset, stateY[], blckX, flags, noRollback):
+    error "State transition failed"
+    quit 1
+  else:
+    SSZ.saveFile(conf.postState, stateY.data)
+
+proc doSSZ(conf: NcliConf) =
   let (kind, file) =
     case conf.cmd:
     of hashTreeRoot: (conf.htrKind, conf.htrFile)
     of pretty: (conf.prettyKind, conf.prettyFile)
+    of transition:
+      raiseAssert "doSSZ() only implements hashTreeRoot and pretty commands"
 
   template printit(t: untyped) {.dirty.} =
     let v = newClone(
@@ -57,6 +94,8 @@ when isMainModule:
         echo hash_tree_root(v[]).data.toHex()
     of pretty:
       echo JSON.encode(v[], pretty = true)
+    of transition:
+      raiseAssert "doSSZ() only implements hashTreeRoot and pretty commands"
 
   let ext = splitFile(file).ext
 
@@ -73,3 +112,11 @@ when isMainModule:
   of "state": printit(BeaconState)
   of "proposer_slashing": printit(ProposerSlashing)
   of "voluntary_exit": printit(VoluntaryExit)
+
+when isMainModule:
+  let conf = NcliConf.load()
+
+  case conf.cmd:
+  of hashTreeRoot: doSSZ(conf)
+  of pretty: doSSZ(conf)
+  of transition: doTransition(conf)
