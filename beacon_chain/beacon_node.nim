@@ -61,6 +61,10 @@ declareCounter beacon_attestations_received,
 declareCounter beacon_blocks_received,
   "Number of beacon chain blocks received by this peer"
 
+# Finalization tracking
+declareGauge finalization_delay,
+  "Epoch delay between scheduled epoch and finalized epoch"
+
 declareHistogram beacon_attestation_received_seconds_from_slot_start,
   "Interval between slot start and attestation receival", buckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
@@ -388,6 +392,8 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     # The slot we should be at, according to the clock
     beaconTime = node.beaconClock.now()
     wallSlot = beaconTime.toSlot()
+    finalizedEpoch =
+      node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()
 
   info "Slot start",
     lastSlot = shortLog(lastSlot),
@@ -397,7 +403,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     head = shortLog(node.blockPool.head),
     headEpoch = shortLog(node.blockPool.head.slot.compute_epoch_at_slot()),
     finalized = shortLog(node.blockPool.finalizedHead.blck),
-    finalizedEpoch = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot())
+    finalizedEpoch = shortLog(finalizedEpoch)
 
   # Check before any re-scheduling of onSlotStart()
   # Offset backwards slightly to allow this epoch's finalization check to occur
@@ -437,6 +443,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     nextSlot = slot + 1
 
   beacon_slot.set slot.int64
+  finalization_delay.set scheduledSlot.epoch.int64 - finalizedEpoch.int64
 
   if node.config.verifyFinalization:
     verifyFinalization(node, scheduledSlot)
