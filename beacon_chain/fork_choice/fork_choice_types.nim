@@ -11,6 +11,8 @@ import
   # Standard library
   std/[tables, options],
   # Status
+  stew/results,
+
   chronicles,
   # Internal
   ../spec/[datatypes, digest],
@@ -28,27 +30,26 @@ import
 # ----------------------------------------------------------------------
 
 type
-  FcErrKind* = enum
+  fcKind* = enum
     ## Fork Choice Error Kinds
-    fcSuccess
-    fcErrFinalizedNodeUnknown
-    fcErrJustifiedNodeUnknown
-    fcErrInvalidFinalizedRootCHange
-    fcErrInvalidNodeIndex
-    fcErrInvalidParentIndex
-    fcErrInvalidBestChildIndex
-    fcErrInvalidJustifiedIndex
-    fcErrInvalidBestDescendant
-    fcErrInvalidParentDelta
-    fcErrInvalidNodeDelta
-    fcErrDeltaUnderflow
-    fcErrIndexUnderflow
-    fcErrInvalidDeltaLen
-    fcErrRevertedFinalizedEpoch
-    fcErrInvalidBestNode
+    fcFinalizedNodeUnknown
+    fcJustifiedNodeUnknown
+    fcInvalidFinalizedRootCHange
+    fcInvalidNodeIndex
+    fcInvalidParentIndex
+    fcInvalidBestChildIndex
+    fcInvalidJustifiedIndex
+    fcInvalidBestDescendant
+    fcInvalidParentDelta
+    fcInvalidNodeDelta
+    fcDeltaUnderflow
+    fcIndexUnderflow
+    fcInvalidDeltaLen
+    fcRevertedFinalizedEpoch
+    fcInvalidBestNode
     # -------------------------
     # TODO: Extra error modes beyond Proto/Lighthouse to be reviewed
-    fcErrUnknownParent
+    fcUnknownParent
 
   FcUnderflowKind* = enum
     ## Fork Choice Overflow Kinds
@@ -61,41 +62,41 @@ type
     ## Delta indices
 
   ForkChoiceError* = object
-    case kind*: FcErrKind
-    of fcSuccess:
-      discard
-    of fcErrFinalizedNodeUnknown,
-       fcErrJustifiedNodeUnknown:
+    case kind*: fcKind
+    of fcFinalizedNodeUnknown,
+       fcJustifiedNodeUnknown:
          block_root*: Eth2Digest
-    of fcErrInvalidFinalizedRootChange:
+    of fcInvalidFinalizedRootChange:
       discard
-    of fcErrInvalidNodeIndex,
-       fcErrInvalidParentIndex,
-       fcErrInvalidBestChildIndex,
-       fcErrInvalidJustifiedIndex,
-       fcErrInvalidBestDescendant,
-       fcErrInvalidParentDelta,
-       fcErrInvalidNodeDelta,
-       fcErrDeltaUnderflow:
+    of fcInvalidNodeIndex,
+       fcInvalidParentIndex,
+       fcInvalidBestChildIndex,
+       fcInvalidJustifiedIndex,
+       fcInvalidBestDescendant,
+       fcInvalidParentDelta,
+       fcInvalidNodeDelta,
+       fcDeltaUnderflow:
          index*: Index
-    of fcErrIndexUnderflow:
+    of fcIndexUnderflow:
       underflowKind*: FcUnderflowKind
-    of fcErrInvalidDeltaLen:
+    of fcInvalidDeltaLen:
       deltasLen*: int
       indicesLen*: int
-    of fcErrRevertedFinalizedEpoch:
+    of fcRevertedFinalizedEpoch:
       current_finalized_epoch*: Epoch
       new_finalized_epoch*: Epoch
-    of fcErrInvalidBestNode:
+    of fcInvalidBestNode:
       start_root*: Eth2Digest
       justified_epoch*: Epoch
       finalized_epoch*: Epoch
       head_root*: Eth2Digest
       head_justified_epoch*: Epoch
       head_finalized_epoch*: Epoch
-    of fcErrUnknownParent:
+    of fcUnknownParent:
       child_root*: Eth2Digest
       parent_root*: Eth2Digest
+
+  FcResult*[T] = Result[T, ForkChoiceError]
 
   ProtoArray* = object
     prune_threshold*: int
@@ -126,8 +127,6 @@ type
     current*: FFGCheckpoints
     best*: FFGCheckpoints
     updateAt*: Option[Epoch]
-
-const ForkChoiceSuccess* = ForkChoiceError(kind: fcSuccess)
 
 # Fork choice high-level types
 # ----------------------------------------------------------------------

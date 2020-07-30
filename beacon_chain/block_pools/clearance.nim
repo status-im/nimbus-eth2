@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/tables,
+  std/[sequtils, tables],
   chronicles,
   metrics, stew/results,
   ../extras,
@@ -46,20 +46,21 @@ proc addResolvedBlock(
        parent: BlockRef, cache: StateCache,
        onBlockAdded: OnBlockAdded
      ): BlockRef =
-  # TODO: `addResolvedBlock` is accumulating significant cruft
-  # and is in dire need of refactoring
-  # - the ugly `quarantine.inAdd` field
-  # - the callback
-  # - callback may be problematic as it's called in async validator duties
+  # TODO move quarantine processing out of here
   logScope: pcs = "block_resolution"
   doAssert state.data.slot == signedBlock.message.slot, "state must match block"
 
   let
     blockRoot = signedBlock.root
     blockRef = BlockRef.init(blockRoot, signedBlock.message)
-  if parent.slot.compute_epoch_at_slot() == blockRef.slot.compute_epoch_at_slot:
-    blockRef.epochsInfo = @[parent.epochsInfo[0]]
+    blockEpoch = blockRef.slot.compute_epoch_at_slot()
+  if parent.slot.compute_epoch_at_slot() == blockEpoch:
+    # If the parent and child blocks are from the same epoch, we can reuse
+    # the epoch cache - but we'll only use the current epoch because the new
+    # block might have affected what the next epoch looks like
+    blockRef.epochsInfo = filterIt(parent.epochsInfo, it.epoch == blockEpoch)
   else:
+    # Ensure we collect the epoch info if it's missing
     discard getEpochInfo(blockRef, state.data)
 
   link(parent, blockRef)
@@ -88,7 +89,8 @@ proc addResolvedBlock(
     blockRoot = shortLog(blockRoot),
     heads = dag.heads.len()
 
-  # This MUST be added before the quarantine
+  # Notify others of the new block before processing the quarantine, such that
+  # notifications for parents happens before those of the children
   if onBlockAdded != nil:
     onBlockAdded(blockRef, signedBlock, state)
 
@@ -119,13 +121,8 @@ proc addRawBlock*(
        signedBlock: SignedBeaconBlock,
        onBlockAdded: OnBlockAdded
      ): Result[BlockRef, BlockError] =
-  ## return the block, if resolved...
-
-  # TODO: `addRawBlock` is accumulating significant cruft
-  # and is in dire need of refactoring
-  # - the ugly `quarantine.inAdd` field
-  # - the callback
-  # - callback may be problematic as it's called in async validator duties
+  ## Try adding a block to the chain, verifying first that it passes the state
+  ## transition function.
 
   logScope:
     blck = shortLog(signedBlock.message)
@@ -134,14 +131,12 @@ proc addRawBlock*(
   template blck(): untyped = signedBlock.message # shortcuts without copy
   template blockRoot(): untyped = signedBlock.root
 
-  # Already seen this block??
   if blockRoot in dag.blocks:
     debug "Block already exists"
 
-    # There can be a scenario where we receive a block we already received.
-    # However this block was before the last finalized epoch and so its parent
-    # was pruned from the ForkChoice. Trying to add it again, even if the fork choice
-    # supports duplicate will lead to a crash.
+    # We should not call the block added callback for blocks that already
+    # existed in the pool, as that may confuse consumers such as the fork
+    # choice.
     return err Duplicate
 
   quarantine.missing.del(blockRoot)
@@ -168,7 +163,9 @@ proc addRawBlock*(
 
       return err Invalid
 
-    if parent.slot < dag.finalizedHead.slot:
+    if (parent.slot < dag.finalizedHead.slot) or
+        (parent.slot == dag.finalizedHead.slot and
+          parent != dag.finalizedHead.blck):
       # We finalized a block that's newer than the parent of this block - this
       # block, although recent, is thus building on a history we're no longer
       # interested in pursuing. This can happen if a client produces a block

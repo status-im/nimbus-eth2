@@ -25,7 +25,8 @@ import
   spec/state_transition,
   conf, time, beacon_chain_db, validator_pool, extras,
   attestation_pool, block_pool, eth2_network, eth2_discovery,
-  beacon_node_common, beacon_node_types, block_pools/block_pools_types,
+  beacon_node_common, beacon_node_types,
+  block_pools/[block_pools_types, candidate_chains],
   nimbus_binary_common, network_metadata,
   mainchain_monitor, version, ssz/[merkleization], sszdump, merkle_minimal,
   sync_protocol, request_manager, keystore_management, interop, statusbar,
@@ -251,7 +252,7 @@ proc init*(T: type BeaconNode,
     enrForkId = enrForkIdFromState(blockPool.headState.data.data)
     topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.forkDigest)
     topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.forkDigest)
-    network = await createEth2Node(rng, conf, enrForkId)
+    network = createEth2Node(rng, conf, enrForkId)
 
   var res = BeaconNode(
     nickname: nickname,
@@ -277,7 +278,7 @@ proc init*(T: type BeaconNode,
       onBeaconBlock(res, signedBlock)
   )
 
-  await res.addLocalValidators()
+  res.addLocalValidators()
 
   # This merely configures the BeaconSync
   # The traffic will be started when we join the network.
@@ -935,9 +936,8 @@ when hasPrompt:
       # p.useHistoryFile()
 
       proc dataResolver(expr: string): string =
-        template justified: untyped = node.blockPool.head.atSlot(
-          node.blockPool.headState.data.data.current_justified_checkpoint.epoch.
-            compute_start_slot_at_epoch)
+        template justified: untyped = node.blockPool.head.atEpochStart(
+          node.blockPool.headState.data.data.current_justified_checkpoint.epoch)
         # TODO:
         # We should introduce a general API for resolving dot expressions
         # such as `db.latest_block.slot` or `metrics.connected_peers`.

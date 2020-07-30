@@ -153,7 +153,8 @@ type
 
     slot*: Slot # TODO could calculate this by walking to root, but..
 
-    epochsInfo*: seq[EpochRef]
+    epochsInfo*: seq[EpochRef] ##\
+    ## Cached information about the epochs starting at this block.
     ## Could be multiple, since blocks could skip slots, but usually, not many
     ## Even if competing forks happen later during this epoch, potential empty
     ## slots beforehand must all be from this fork. getEpochInfo() is the only

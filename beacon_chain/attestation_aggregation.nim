@@ -169,9 +169,16 @@ proc isValidAttestation*(
     # Not in spec - check that rewinding to the state is sane
     return false
 
+  let tgtBlck = pool.blockPool.getRef(attestation.data.target.root)
+  if tgtBlck.isNil:
+    debug "Target block not found"
+    pool.blockPool.addMissing(attestation.data.beacon_block_root)
+    return
+
+  # TODO this could be any state in the target epoch
   pool.blockPool.withState(
       pool.blockPool.tmpState,
-      BlockSlot(blck: attestationBlck, slot: attestation.data.slot)):
+      tgtBlck.atSlot(attestation.data.target.epoch.compute_start_slot_at_epoch)):
     # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestation-subnets
     # [REJECT] The attestation is for the correct subnet (i.e.
     # compute_subnet_for_attestation(state, attestation) == subnet_id).
@@ -274,10 +281,17 @@ proc isValidAggregatedAttestation*(
   # [REJECT] aggregate_and_proof.selection_proof selects the validator as an
   # aggregator for the slot -- i.e. is_aggregator(state, aggregate.data.slot,
   # aggregate.data.index, aggregate_and_proof.selection_proof) returns True.
-  # TODO use withEpochState when it works more reliably
+
+  let tgtBlck = pool.blockPool.getRef(aggregate.data.target.root)
+  if tgtBlck.isNil:
+    debug "Target block not found"
+    pool.blockPool.addMissing(aggregate.data.beacon_block_root)
+    return
+
+  # TODO this could be any state in the target epoch
   pool.blockPool.withState(
       pool.blockPool.tmpState,
-      BlockSlot(blck: attestationBlck, slot: aggregate.data.slot)):
+      tgtBlck.atSlot(aggregate.data.target.epoch.compute_start_slot_at_epoch)):
     var cache = getEpochCache(blck, state)
     if not is_aggregator(
         state, aggregate.data.slot, aggregate.data.index.CommitteeIndex,
