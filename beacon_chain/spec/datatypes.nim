@@ -453,40 +453,42 @@ func getDepositMessage*(depositData: DepositData): DepositMessage =
 func getDepositMessage*(deposit: Deposit): DepositMessage =
   deposit.data.getDepositMessage
 
+# TODO when https://github.com/nim-lang/Nim/issues/14440 lands in Status's Nim,
+# switch proc {.noSideEffect.} to func.
 template ethTimeUnit(typ: type) {.dirty.} =
-  proc `+`*(x: typ, y: uint64): typ {.borrow.}
-  proc `-`*(x: typ, y: uint64): typ {.borrow.}
-  proc `-`*(x: uint64, y: typ): typ {.borrow.}
+  proc `+`*(x: typ, y: uint64): typ {.borrow, noSideEffect.}
+  proc `-`*(x: typ, y: uint64): typ {.borrow, noSideEffect.}
+  proc `-`*(x: uint64, y: typ): typ {.borrow, noSideEffect.}
 
   # Not closed over type in question (Slot or Epoch)
-  proc `mod`*(x: typ, y: uint64): uint64 {.borrow.}
-  proc `div`*(x: typ, y: uint64): uint64 {.borrow.}
-  proc `div`*(x: uint64, y: typ): uint64 {.borrow.}
-  proc `-`*(x: typ, y: typ): uint64 {.borrow.}
+  proc `mod`*(x: typ, y: uint64): uint64 {.borrow, noSideEffect.}
+  proc `div`*(x: typ, y: uint64): uint64 {.borrow, noSideEffect.}
+  proc `div`*(x: uint64, y: typ): uint64 {.borrow, noSideEffect.}
+  proc `-`*(x: typ, y: typ): uint64 {.borrow, noSideEffect.}
 
-  proc `*`*(x: typ, y: uint64): uint64 {.borrow.}
+  proc `*`*(x: typ, y: uint64): uint64 {.borrow, noSideEffect.}
 
-  proc `+=`*(x: var typ, y: typ) {.borrow.}
-  proc `+=`*(x: var typ, y: uint64) {.borrow.}
-  proc `-=`*(x: var typ, y: typ) {.borrow.}
-  proc `-=`*(x: var typ, y: uint64) {.borrow.}
+  proc `+=`*(x: var typ, y: typ) {.borrow, noSideEffect.}
+  proc `+=`*(x: var typ, y: uint64) {.borrow, noSideEffect.}
+  proc `-=`*(x: var typ, y: typ) {.borrow, noSideEffect.}
+  proc `-=`*(x: var typ, y: uint64) {.borrow, noSideEffect.}
 
   # Comparison operators
-  proc `<`*(x: typ, y: typ): bool {.borrow.}
-  proc `<`*(x: typ, y: uint64): bool {.borrow.}
-  proc `<`*(x: uint64, y: typ): bool {.borrow.}
-  proc `<=`*(x: typ, y: typ): bool {.borrow.}
-  proc `<=`*(x: typ, y: uint64): bool {.borrow.}
-  proc `<=`*(x: uint64, y: typ): bool {.borrow.}
+  proc `<`*(x: typ, y: typ): bool {.borrow, noSideEffect.}
+  proc `<`*(x: typ, y: uint64): bool {.borrow, noSideEffect.}
+  proc `<`*(x: uint64, y: typ): bool {.borrow, noSideEffect.}
+  proc `<=`*(x: typ, y: typ): bool {.borrow, noSideEffect.}
+  proc `<=`*(x: typ, y: uint64): bool {.borrow, noSideEffect.}
+  proc `<=`*(x: uint64, y: typ): bool {.borrow, noSideEffect.}
 
-  proc `==`*(x: typ, y: typ): bool {.borrow.}
-  proc `==`*(x: typ, y: uint64): bool {.borrow.}
-  proc `==`*(x: uint64, y: typ): bool {.borrow.}
+  proc `==`*(x: typ, y: typ): bool {.borrow, noSideEffect.}
+  proc `==`*(x: typ, y: uint64): bool {.borrow, noSideEffect.}
+  proc `==`*(x: uint64, y: typ): bool {.borrow, noSideEffect.}
 
   # Nim integration
-  proc `$`*(x: typ): string {.borrow.}
-  proc hash*(x: typ): Hash {.borrow.}
-  proc `%`*(x: typ): JsonNode {.borrow.}
+  proc `$`*(x: typ): string {.borrow, noSideEffect.}
+  proc hash*(x: typ): Hash {.borrow, noSideEffect.}
+  proc `%`*(x: typ): JsonNode {.borrow, noSideEffect.}
 
   # Serialization
   proc writeValue*(writer: var JsonWriter, value: typ)
@@ -539,9 +541,9 @@ func `[]=`*[T](a: var seq[T], b: ValidatorIndex, c: T) =
   a[b.int] = c
 
 # `ValidatorIndex` Nim integration
-proc `==`*(x, y: ValidatorIndex) : bool {.borrow.}
-proc `<`*(x, y: ValidatorIndex) : bool {.borrow.}
-proc hash*(x: ValidatorIndex): Hash {.borrow.}
+proc `==`*(x, y: ValidatorIndex) : bool {.borrow, noSideEffect.}
+proc `<`*(x, y: ValidatorIndex) : bool {.borrow, noSideEffect.}
+proc hash*(x: ValidatorIndex): Hash {.borrow, noSideEffect.}
 func `$`*(x: ValidatorIndex): auto = $(x.int64)
 
 func `as`*(d: DepositData, T: type DepositMessage): T =
