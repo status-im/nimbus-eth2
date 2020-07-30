@@ -109,7 +109,7 @@ const
 func compute_time_at_slot(state: BeaconState, slot: Slot): uint64 =
   state.genesis_time + slot * SECONDS_PER_SLOT
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#get_eth1_data
 func voting_period_start_time*(state: BeaconState): uint64 =
   let eth1_voting_period_start_slot =
     state.slot - state.slot mod SLOTS_PER_ETH1_VOTING_PERIOD.uint64

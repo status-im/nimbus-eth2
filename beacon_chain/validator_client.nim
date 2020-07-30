@@ -146,7 +146,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
 
       discard await vc.client.post_v1_validator_block(newBlock)
 
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#attesting
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#attesting
     # A validator should create and broadcast the attestation to the associated
     # attestation subnet when either (a) the validator has received a valid
     # block from the expected block proposer for the assigned slot or

@@ -202,12 +202,7 @@ proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
     state, whistleblower_index, whistleblowing_reward - proposer_reward)
 
 func genesis_time_from_eth1_timestamp*(preset: RuntimePreset, eth1_timestamp: uint64): uint64 =
-  # TODO: remove once we switch completely to v0.12.1
-  when SPEC_VERSION == "0.12.1":
-    eth1_timestamp + preset.GENESIS_DELAY
-  else:
-    const SECONDS_PER_DAY = uint64(60*60*24)
-    eth1_timestamp + 2'u64 * SECONDS_PER_DAY - (eth1_timestamp mod SECONDS_PER_DAY)
+  eth1_timestamp + preset.GENESIS_DELAY
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#genesis
 proc initialize_beacon_state_from_eth1*(

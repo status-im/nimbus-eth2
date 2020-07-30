@@ -17,7 +17,7 @@ template withTrust(sig: SomeSig, body: untyped): bool =
   else:
     body
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#aggregation-selection
 func get_slot_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     privkey: ValidatorPrivKey): ValidatorSig =

@@ -18,7 +18,7 @@ import
 logScope:
   topics = "att_aggr"
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#aggregation-selection
 func is_aggregator(state: BeaconState, slot: Slot, index: CommitteeIndex,
     slot_signature: ValidatorSig, cache: var StateCache): bool =
   let
