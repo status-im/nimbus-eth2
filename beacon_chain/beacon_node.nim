@@ -396,7 +396,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     beaconTime = node.beaconClock.now()
     wallSlot = beaconTime.toSlot()
     finalizedEpoch =
-      node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()
+      node.chainDag.finalizedHead.blck.slot.compute_epoch_at_slot()
 
   info "Slot start",
     lastSlot = shortLog(lastSlot),
