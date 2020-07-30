@@ -226,7 +226,8 @@ proc handleStatus(peer: Peer,
 
       if not res:
         debug "Peer is dead or already in pool", peer
-        await peer.disconnect(ClientShutDown)
+        # TODO: DON NOT DROP THE PEER!
+        # await peer.disconnect(ClientShutDown)
 
     peer.setStatusMsg(theirStatus)
 
