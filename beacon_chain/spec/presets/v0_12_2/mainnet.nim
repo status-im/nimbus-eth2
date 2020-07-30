@@ -16,7 +16,7 @@ import
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/mainnet.yaml#L6
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/mainnet/phase0.yaml#L6
 
   MAX_COMMITTEES_PER_SLOT* {.intdefine.}: uint64 = 64
 
@@ -66,7 +66,7 @@ const
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/mainnet.yaml#L77
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/mainnet/phase0.yaml#L80
   SECONDS_PER_SLOT* {.intdefine.}: uint64 = 12'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 12x faster slots
   ## TODO consistent time unit across projects, similar to C++ chrono?
 
@@ -137,7 +137,7 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/mainnet.yaml#L131
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/mainnet/phase0.yaml#L134
   MAX_PROPOSER_SLASHINGS*: uint64 = 2'u64 ^ 4
   MAX_ATTESTER_SLASHINGS*: uint64 = 2'u64 ^ 1
   MAX_ATTESTATIONS*: uint64 = 2'u64 ^ 7

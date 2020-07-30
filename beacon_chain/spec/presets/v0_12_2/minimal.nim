@@ -16,7 +16,7 @@ import
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L4
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L4
 
   # Changed
   MAX_COMMITTEES_PER_SLOT*: uint64 = 4
@@ -37,7 +37,7 @@ const
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L58
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L61
 
   # Unchanged
   MIN_DEPOSIT_AMOUNT*: uint64 = 2'u64^0 * 10'u64^9
