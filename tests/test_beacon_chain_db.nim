@@ -16,7 +16,7 @@ import  options, unittest, sequtils,
   ./testutil, ./testblockutil
 
 proc getStateRef(db: BeaconChainDB, root: Eth2Digest): NilableBeaconStateRef =
-  # load beaconstate the way BlockPool does it - into an existing instance
+  # load beaconstate the way the block pool does it - into an existing instance
   let res = BeaconStateRef()
   if db.getState(root, res[], noRollback):
     return res

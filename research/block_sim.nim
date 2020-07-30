@@ -22,9 +22,10 @@ import
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, presets,
                         helpers, validator, signatures, state_transition],
   ../beacon_chain/[
-    attestation_pool, block_pool, beacon_node_types, beacon_chain_db,
+    attestation_pool, beacon_node_types, beacon_chain_db,
     interop, validator_pool],
-  ../beacon_chain/block_pools/candidate_chains,
+  ../beacon_chain/block_pools/[
+    spec_cache, candidate_chains, quarantine, clearance],
   eth/db/[kvstore, kvstore_sqlite3],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
@@ -52,22 +53,23 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   let
     db = BeaconChainDB.init(kvStore SqStoreRef.init(".", "block_sim").tryGet())
 
-  BlockPool.preInit(db, state[].data, genesisBlock)
+  CandidateChains.preInit(db, state[].data, genesisBlock)
 
   var
-    blockPool = BlockPool.init(defaultRuntimePreset, db)
-    attPool = AttestationPool.init(blockPool)
+    chainDag = init(CandidateChains, defaultRuntimePreset, db)
+    quarantine = Quarantine()
+    attPool = AttestationPool.init(chainDag, quarantine)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r = initRand(1)
 
-  let replayState = assignClone(blockPool.headState)
+  let replayState = assignClone(chainDag.headState)
 
   proc handleAttestations(slot: Slot) =
     let
-      attestationHead = blockPool.head.atSlot(slot)
+      attestationHead = chainDag.head.atSlot(slot)
 
-    blockPool.withState(blockPool.tmpState, attestationHead):
+    chainDag.withState(chainDag.tmpState, attestationHead):
       var cache = getEpochCache(attestationHead.blck, state)
       let committees_per_slot =
         get_committee_count_per_slot(state, slot.epoch, cache)
@@ -99,9 +101,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       return
 
     let
-      head = blockPool.head
+      head = chainDag.head
 
-    blockPool.withState(blockPool.tmpState, head.atSlot(slot)):
+    chainDag.withState(chainDag.tmpState, head.atSlot(slot)):
       var cache = StateCache()
 
       let
@@ -136,14 +138,14 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           state.fork, state.genesis_validators_root, newBlock.message.slot,
           blockRoot, privKey)
 
-      let added = blockPool.addRawBlock(newBlock) do (
+      let added = chainDag.addRawBlock(quarantine, newBlock) do (
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
         attPool.addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
 
       blck() = added[]
-      blockPool.updateHead(added[])
+      chainDag.updateHead(added[])
 
   for i in 0..<slots:
     let
@@ -161,7 +163,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     # TODO if attestation pool was smarter, it would include older attestations
     #      too!
-    verifyConsensus(blockPool.headState.data.data, attesterRatio * blockRatio)
+    verifyConsensus(chainDag.headState.data.data, attesterRatio * blockRatio)
 
     if t == tEpoch:
       echo &". slot: {shortLog(slot)} ",
@@ -172,9 +174,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
   if replay:
     withTimer(timers[tReplay]):
-      blockPool.updateStateData(
-        replayState[], blockPool.head.atSlot(Slot(slots)))
+      chainDag.updateStateData(
+        replayState[], chainDag.head.atSlot(Slot(slots)))
 
   echo "Done!"
 
-  printTimers(blockPool.headState.data.data, attesters, true, timers)
+  printTimers(chainDag.headState.data.data, attesters, true, timers)

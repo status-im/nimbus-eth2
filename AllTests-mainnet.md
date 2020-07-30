@@ -52,11 +52,6 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 + Passes through epoch update, no block [Preset: mainnet]                                    OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
-## BlockPool finalization tests [Preset: mainnet]
-```diff
-+ prune heads on finalization [Preset: mainnet]                                              OK
-```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## BlockRef and helpers [Preset: mainnet]
 ```diff
 + getAncestorAt sanity [Preset: mainnet]                                                     OK
@@ -238,6 +233,11 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +  Rule IV - 12 finalization without support                                                 OK
 ```
 OK: 8/8 Fail: 0/8 Skip: 0/8
+## chain DAG finalization tests [Preset: mainnet]
+```diff
++ prune heads on finalization [Preset: mainnet]                                              OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## hash
 ```diff
 + HashArray                                                                                  OK

@@ -18,7 +18,8 @@ import
   # Local modules
   spec/[datatypes, crypto, digest],
   conf, time, beacon_chain_db,
-  attestation_pool, block_pool, eth2_network,
+  attestation_pool, eth2_network,
+  block_pools/[candidate_chains, quarantine],
   beacon_node_types, mainchain_monitor, request_manager,
   sync_manager
 
@@ -39,7 +40,8 @@ type
     db*: BeaconChainDB
     config*: BeaconNodeConf
     attachedValidators*: ValidatorPool
-    blockPool*: BlockPool
+    chainDag*: CandidateChains
+    quarantine*: Quarantine
     attestationPool*: AttestationPool
     mainchainMonitor*: MainchainMonitor
     beaconClock*: BeaconClock
@@ -66,15 +68,15 @@ proc updateHead*(node: BeaconNode, wallSlot: Slot): BlockRef =
   # Grab the new head according to our latest attestation data
   let newHead = node.attestationPool.selectHead(wallSlot)
 
-  # Store the new head in the block pool - this may cause epochs to be
+  # Store the new head in the chain DAG - this may cause epochs to be
   # justified and finalized
-  let oldFinalized = node.blockPool.finalizedHead.blck
+  let oldFinalized = node.chainDag.finalizedHead.blck
 
-  node.blockPool.updateHead(newHead)
+  node.chainDag.updateHead(newHead)
   beacon_head_root.set newHead.root.toGaugeValue
 
   # Cleanup the fork choice v2 if we have a finalized head
-  if oldFinalized != node.blockPool.finalizedHead.blck:
+  if oldFinalized != node.chainDag.finalizedHead.blck:
     node.attestationPool.prune()
 
   newHead

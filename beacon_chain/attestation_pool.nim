@@ -14,38 +14,38 @@ import
   chronicles, stew/[byteutils], json_serialization/std/sets as jsonSets,
   # Internal
   ./spec/[beaconstate, datatypes, crypto, digest, helpers],
-  ./block_pool, ./block_pools/candidate_chains, ./beacon_node_types,
+  ./block_pools/[spec_cache, candidate_chains, clearance], ./beacon_node_types,
   ./fork_choice/fork_choice
 
 export beacon_node_types, sets
 
 logScope: topics = "attpool"
 
-proc init*(T: type AttestationPool, blockPool: BlockPool): T =
-  ## Initialize an AttestationPool from the blockPool `headState`
+proc init*(T: type AttestationPool, chainDag: CandidateChains, quarantine: Quarantine): T =
+  ## Initialize an AttestationPool from the chainDag `headState`
   ## The `finalized_root` works around the finalized_checkpoint of the genesis block
   ## holding a zero_root.
-  # TODO blockPool is only used when resolving orphaned attestations - it should
-  #      probably be removed as a dependency of AttestationPool (or some other
+  # TODO chainDag/quarantine are only used when resolving orphaned attestations - they
+  #      should probably be removed as a dependency of AttestationPool (or some other
   #      smart refactoring)
 
-  blockPool.withState(blockPool.tmpState, blockPool.finalizedHead):
+  chainDag.withState(chainDag.tmpState, chainDag.finalizedHead):
     var forkChoice = initForkChoice(
-      blockPool.tmpState,
+      chainDag.tmpState,
     ).get()
 
   # Feed fork choice with unfinalized history - during startup, block pool only
   # keeps track of a single history so we just need to follow it
-  doAssert blockPool.heads.len == 1, "Init only supports a single history"
+  doAssert chainDag.heads.len == 1, "Init only supports a single history"
 
   var blocks: seq[BlockRef]
-  var cur = blockPool.head
-  while cur != blockPool.finalizedHead.blck:
+  var cur = chainDag.head
+  while cur != chainDag.finalizedHead.blck:
     blocks.add cur
     cur = cur.parent
 
   for blck in reversed(blocks):
-    blockPool.withState(blockPool.tmpState, blck.atSlot(blck.slot)):
+    chainDag.withState(chainDag.tmpState, blck.atSlot(blck.slot)):
       debug "Preloading fork choice with block",
         block_root = shortlog(blck.root),
         parent_root = shortlog(blck.parent.root),
@@ -55,17 +55,18 @@ proc init*(T: type AttestationPool, blockPool: BlockPool): T =
 
       let status =
         forkChoice.process_block(
-          blockPool, state, blck, blockPool.get(blck).data.message, blck.slot)
+          chainDag, state, blck, chainDag.get(blck).data.message, blck.slot)
 
       doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
 
   info "Fork choice initialized",
-    justified_epoch = blockPool.headState.data.data.current_justified_checkpoint.epoch,
-    finalized_epoch = blockPool.headState.data.data.finalized_checkpoint.epoch,
-    finalized_root = shortlog(blockPool.finalizedHead.blck.root)
+    justified_epoch = chainDag.headState.data.data.current_justified_checkpoint.epoch,
+    finalized_epoch = chainDag.headState.data.data.finalized_checkpoint.epoch,
+    finalized_root = shortlog(chainDag.finalizedHead.blck.root)
 
   T(
-    blockPool: blockPool,
+    chainDag: chainDag,
+    quarantine: quarantine,
     unresolved: initTable[Eth2Digest, UnresolvedAttestation](),
     forkChoice: forkChoice
   )
@@ -126,7 +127,7 @@ proc addResolved(
     return
 
   let
-    epochRef = pool.blockPool.dag.getEpochRef(blck, attestation.data.target.epoch)
+    epochRef = pool.chainDag.getEpochRef(blck, attestation.data.target.epoch)
     attestationsSeen = addr pool.candidates[candidateIdx.get]
     validation = Validation(
       aggregation_bits: attestation.aggregation_bits,
@@ -194,7 +195,9 @@ proc addAttestation*(pool: var AttestationPool,
   logScope: pcs = "atp_add_attestation"
 
   # Fetch the target block or notify the block pool that it's needed
-  let blck = pool.blockPool.getOrResolve(attestation.data.beacon_block_root)
+  let blck = pool.chainDag.getOrResolve(
+    pool.quarantine,
+    attestation.data.beacon_block_root)
 
   # If the block exist, add it to the fork choice context
   # Otherwise delay until it resolves
@@ -211,7 +214,7 @@ proc addForkChoice*(pool: var AttestationPool,
                     wallSlot: Slot) =
   ## Add a verified block to the fork choice context
   let state = pool.forkChoice.process_block(
-    pool.blockPool, state, blckRef, blck, wallSlot)
+    pool.chainDag, state, blckRef, blck, wallSlot)
 
   if state.isErr:
     # TODO If this happens, it is effectively a bug - the BlockRef structure
@@ -327,7 +330,7 @@ proc resolve*(pool: var AttestationPool, wallSlot: Slot) =
     resolved: seq[tuple[blck: BlockRef, attestation: Attestation]]
 
   for k, v in pool.unresolved.mpairs():
-    if (let blck = pool.blockPool.getRef(k); not blck.isNil()):
+    if (let blck = pool.chainDag.getRef(k); not blck.isNil()):
       resolved.add((blck, v.attestation))
       done.add(k)
     elif v.tries > 8:
@@ -342,13 +345,13 @@ proc resolve*(pool: var AttestationPool, wallSlot: Slot) =
     pool.addResolved(a.blck, a.attestation, wallSlot)
 
 proc selectHead*(pool: var AttestationPool, wallSlot: Slot): BlockRef =
-  let newHead = pool.forkChoice.find_head(wallSlot, pool.blockPool)
+  let newHead = pool.forkChoice.find_head(wallSlot)
 
   if newHead.isErr:
     error "Couldn't select head", err = newHead.error
     nil
   else:
-    pool.blockPool.getRef(newHead.get())
+    pool.chainDag.getRef(newHead.get())
 
 proc prune*(pool: var AttestationPool) =
   if (let v = pool.forkChoice.prune(); v.isErr):

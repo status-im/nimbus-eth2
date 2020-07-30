@@ -12,7 +12,7 @@ import
   ../spec/[datatypes, digest],
   block_pools_types
 
-export options
+export options, block_pools_types
 
 logScope:
   topics = "quarant"

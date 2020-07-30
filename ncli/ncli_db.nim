@@ -1,7 +1,8 @@
   import
   confutils, stats, chronicles, strformat, tables,
   stew/byteutils,
-  ../beacon_chain/[beacon_chain_db, block_pool, extras],
+  ../beacon_chain/[beacon_chain_db, extras],
+  ../beacon_chain/block_pools/[candidate_chains],
   ../beacon_chain/spec/[crypto, datatypes, digest, helpers,
                         state_transition, presets],
   ../beacon_chain/sszdump, ../research/simutils,
@@ -66,7 +67,7 @@ proc cmdBench(conf: DbConf) =
     db = BeaconChainDB.init(
       kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
 
-  if not BlockPool.isInitialized(db):
+  if not CandidateChains.isInitialized(db):
     echo "Database not initialized"
     quit 1
 
@@ -148,19 +149,19 @@ proc cmdRewindState(conf: DbConf) =
     db = BeaconChainDB.init(
       kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
 
-  if not BlockPool.isInitialized(db):
+  if not CandidateChains.isInitialized(db):
     echo "Database not initialized"
     quit 1
 
   echo "Initializing block pool..."
-  let pool = BlockPool.init(defaultRuntimePreset, db, {})
+  let dag = init(CandidateChains, defaultRuntimePreset, db)
 
-  let blckRef = pool.getRef(fromHex(Eth2Digest, conf.blockRoot))
+  let blckRef = dag.getRef(fromHex(Eth2Digest, conf.blockRoot))
   if blckRef == nil:
     echo "Block not found in database"
     return
 
-  pool.withState(pool.tmpState, blckRef.atSlot(Slot(conf.slot))):
+  dag.withState(dag.tmpState, blckRef.atSlot(Slot(conf.slot))):
     echo "Writing state..."
     dump("./", hashedState, blck)
 

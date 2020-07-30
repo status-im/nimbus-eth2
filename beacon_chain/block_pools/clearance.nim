@@ -22,7 +22,7 @@ export results
 #
 # This module is in charge of making the
 # "quarantined" network blocks
-# pass the firewall and be stored in the blockpool
+# pass the firewall and be stored in the chain DAG
 
 logScope:
   topics = "clearance"

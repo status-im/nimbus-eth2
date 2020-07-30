@@ -16,7 +16,7 @@ import
   chronicles,
   # Internal
   ../spec/[datatypes, digest],
-  ../block_pool
+  ../block_pools/block_pools_types
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804

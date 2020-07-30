@@ -19,6 +19,8 @@ import
     beaconstate],
   block_pools_types
 
+export block_pools_types
+
 declareCounter beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # On fork choice
 declareCounter beacon_state_data_cache_hits, "dag.cachedStates hits"
 declareCounter beacon_state_data_cache_misses, "dag.cachedStates misses"
@@ -335,7 +337,7 @@ proc init*(T: type CandidateChains,
 
   res
 
-proc getEpochRef*(pool: CandidateChains, blck: BlockRef, epoch: Epoch): EpochRef =
+proc getEpochRef*(dag: CandidateChains, blck: BlockRef, epoch: Epoch): EpochRef =
   var bs = blck.atEpochEnd(epoch)
 
   while true:
@@ -348,7 +350,7 @@ proc getEpochRef*(pool: CandidateChains, blck: BlockRef, epoch: Epoch): EpochRef
       break
     bs = bs.parent
 
-  pool.withState(pool.tmpState, bs):
+  dag.withState(dag.tmpState, bs):
     getEpochInfo(blck, state)
 
 proc getState(
@@ -646,7 +648,7 @@ proc getStateDataCached(
     beacon_state_data_cache_hits.inc()
     return true
 
-  # In-memory caches didn't hit. Try main blockpool database. This is slower
+  # In-memory caches didn't hit. Try main block pool database. This is slower
   # than the caches due to SSZ (de)serializing and disk I/O, so prefer them.
   beacon_state_data_cache_misses.inc()
   if (let tmp = dag.db.getStateRoot(bs.blck.root, bs.slot); tmp.isSome()):
@@ -863,7 +865,7 @@ proc preInit*(
     signedBlock: SignedBeaconBlock) =
   # write a genesis state, the way the CandidateChains expects it to be stored in
   # database
-  # TODO probably should just init a blockpool with the freshly written
+  # TODO probably should just init a block pool with the freshly written
   #      state - but there's more refactoring needed to make it nice - doing
   #      a minimal patch for now..
   doAssert signedBlock.message.state_root == hash_tree_root(state)

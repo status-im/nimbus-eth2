@@ -24,9 +24,9 @@ import
   spec/[datatypes, digest, crypto, beaconstate, helpers, network, presets],
   spec/state_transition,
   conf, time, beacon_chain_db, validator_pool, extras,
-  attestation_pool, block_pool, eth2_network, eth2_discovery,
+  attestation_pool, eth2_network, eth2_discovery,
   beacon_node_common, beacon_node_types,
-  block_pools/[block_pools_types, candidate_chains],
+  block_pools/[spec_cache, candidate_chains, quarantine, clearance, block_pools_types],
   nimbus_binary_common, network_metadata,
   mainchain_monitor, version, ssz/[merkleization], sszdump, merkle_minimal,
   sync_protocol, request_manager, keystore_management, interop, statusbar,
@@ -150,7 +150,7 @@ proc init*(T: type BeaconNode,
 
   var mainchainMonitor: MainchainMonitor
 
-  if not BlockPool.isInitialized(db):
+  if not CandidateChains.isInitialized(db):
     # Fresh start - need to load a genesis state from somewhere
     var genesisState = conf.getStateFromSnapshot()
 
@@ -215,8 +215,8 @@ proc init*(T: type BeaconNode,
       let tailBlock = get_initial_beacon_block(genesisState[])
 
       try:
-        BlockPool.preInit(db, genesisState[], tailBlock)
-        doAssert BlockPool.isInitialized(db), "preInit should have initialized db"
+        CandidateChains.preInit(db, genesisState[], tailBlock)
+        doAssert CandidateChains.isInitialized(db), "preInit should have initialized db"
       except CatchableError as e:
         error "Failed to initialize database", err = e.msg
         quit 1
@@ -227,9 +227,10 @@ proc init*(T: type BeaconNode,
 
   # TODO check that genesis given on command line (if any) matches database
   let
-    blockPoolFlags = if conf.verifyFinalization: {verifyFinalization}
+    chainDagFlags = if conf.verifyFinalization: {verifyFinalization}
                      else: {}
-    blockPool = BlockPool.init(conf.runtimePreset, db, blockPoolFlags)
+    chainDag = init(CandidateChains, conf.runtimePreset, db, chainDagFlags)
+    quarantine = Quarantine()
 
   if mainchainMonitor.isNil and
      conf.web3Url.len > 0 and
@@ -238,7 +239,7 @@ proc init*(T: type BeaconNode,
       conf.runtimePreset,
       web3Provider(conf.web3Url),
       conf.depositContractAddress.get,
-      blockPool.headState.data.data.eth1_data)
+      chainDag.headState.data.data.eth1_data)
     # TODO if we don't have any validators attached, we don't need a mainchain
     #      monitor
     mainchainMonitor.start()
@@ -249,7 +250,7 @@ proc init*(T: type BeaconNode,
     nil
 
   let
-    enrForkId = enrForkIdFromState(blockPool.headState.data.data)
+    enrForkId = enrForkIdFromState(chainDag.headState.data.data)
     topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.forkDigest)
     topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.forkDigest)
     network = createEth2Node(rng, conf, enrForkId)
@@ -263,10 +264,11 @@ proc init*(T: type BeaconNode,
     db: db,
     config: conf,
     attachedValidators: ValidatorPool.init(),
-    blockPool: blockPool,
-    attestationPool: AttestationPool.init(blockPool),
+    chainDag: chainDag,
+    quarantine: quarantine,
+    attestationPool: AttestationPool.init(chainDag, quarantine),
     mainchainMonitor: mainchainMonitor,
-    beaconClock: BeaconClock.init(blockPool.headState.data.data),
+    beaconClock: BeaconClock.init(chainDag.headState.data.data),
     rpcServer: rpcServer,
     forkDigest: enrForkId.forkDigest,
     topicBeaconBlocks: topicBeaconBlocks,
@@ -282,7 +284,7 @@ proc init*(T: type BeaconNode,
 
   # This merely configures the BeaconSync
   # The traffic will be started when we join the network.
-  network.initBeaconSync(blockPool, enrForkId.forkDigest)
+  network.initBeaconSync(chainDag, enrForkId.forkDigest)
   return res
 
 proc onAttestation(node: BeaconNode, attestation: Attestation) =
@@ -291,12 +293,12 @@ proc onAttestation(node: BeaconNode, attestation: Attestation) =
   # we're on, or that it follows the rules of the protocol
   logScope:
     attestation = shortLog(attestation)
-    head = shortLog(node.blockPool.head)
+    head = shortLog(node.chainDag.head)
     pcs = "on_attestation"
 
   let
     wallSlot = node.beaconClock.now().toSlot()
-    head = node.blockPool.head
+    head = node.chainDag.head
 
   debug "Attestation received",
     wallSlot = shortLog(wallSlot.slot)
@@ -337,8 +339,8 @@ proc storeBlock(
 
   beacon_blocks_received.inc()
 
-  {.gcsafe.}: # TODO: fork choice and blockpool should sync via messages instead of callbacks
-    let blck = node.blockPool.addRawBlock(signedBlock) do (
+  {.gcsafe.}: # TODO: fork choice and quarantine should sync via messages instead of callbacks
+    let blck = node.chainDag.addRawBlock(node.quarantine, signedBlock) do (
         blckRef: BlockRef, signedBlock: SignedBeaconBlock,
         state: HashedBeaconState):
       # Callback add to fork choice if valid
@@ -373,7 +375,7 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
   # during testing.
   if epoch >= 4 and slot mod SLOTS_PER_EPOCH > SETTLING_TIME_OFFSET:
     let finalizedEpoch =
-      node.blockPool.finalizedHead.slot.compute_epoch_at_slot()
+      node.chainDag.finalizedHead.slot.compute_epoch_at_slot()
     # Finalization rule 234, that has the most lag slots among the cases, sets
     # state.finalized_checkpoint = old_previous_justified_checkpoint.epoch + 3
     # and then state.slot gets incremented, to increase the maximum offset, if
@@ -394,16 +396,16 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     beaconTime = node.beaconClock.now()
     wallSlot = beaconTime.toSlot()
     finalizedEpoch =
-      node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()
+      node.chainDag.finalizedHead.blck.slot.compute_epoch_at_slot()
 
   info "Slot start",
     lastSlot = shortLog(lastSlot),
     scheduledSlot = shortLog(scheduledSlot),
     beaconTime = shortLog(beaconTime),
     peers = node.network.peersCount,
-    head = shortLog(node.blockPool.head),
-    headEpoch = shortLog(node.blockPool.head.slot.compute_epoch_at_slot()),
-    finalized = shortLog(node.blockPool.finalizedHead.blck),
+    head = shortLog(node.chainDag.head),
+    headEpoch = shortLog(node.chainDag.head.slot.compute_epoch_at_slot()),
+    finalized = shortLog(node.chainDag.finalizedHead.blck),
     finalizedEpoch = shortLog(finalizedEpoch)
 
   # Check before any re-scheduling of onSlotStart()
@@ -501,10 +503,10 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   info "Slot end",
     slot = shortLog(slot),
     nextSlot = shortLog(nextSlot),
-    head = shortLog(node.blockPool.head),
-    headEpoch = shortLog(node.blockPool.head.slot.compute_epoch_at_slot()),
-    finalizedHead = shortLog(node.blockPool.finalizedHead.blck),
-    finalizedEpoch = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot())
+    head = shortLog(node.chainDag.head),
+    headEpoch = shortLog(node.chainDag.head.slot.compute_epoch_at_slot()),
+    finalizedHead = shortLog(node.chainDag.finalizedHead.blck),
+    finalizedEpoch = shortLog(node.chainDag.finalizedHead.blck.slot.compute_epoch_at_slot())
 
   when declared(GC_fullCollect):
     # The slots in the beacon node work as frames in a game: we want to make
@@ -520,7 +522,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     asyncCheck node.onSlotStart(slot, nextSlot)
 
 proc handleMissingBlocks(node: BeaconNode) =
-  let missingBlocks = node.blockPool.checkMissing()
+  let missingBlocks = node.quarantine.checkMissing()
   if missingBlocks.len > 0:
     var left = missingBlocks.len
     info "Requesting detected missing blocks", blocks = shortLog(missingBlocks)
@@ -546,7 +548,7 @@ proc runOnSecondLoop(node: BeaconNode) {.async.} =
 
 proc runForwardSyncLoop(node: BeaconNode) {.async.} =
   func getLocalHeadSlot(): Slot =
-    result = node.blockPool.head.slot
+    result = node.chainDag.head.slot
 
   proc getLocalWallSlot(): Slot {.gcsafe.} =
     let epoch = node.beaconClock.now().slotOrZero.compute_epoch_at_slot() +
@@ -554,7 +556,7 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
     result = epoch.compute_start_slot_at_epoch()
 
   func getFirstSlotAtFinalizedEpoch(): Slot {.gcsafe.} =
-    let fepoch = node.blockPool.headState.data.data.finalized_checkpoint.epoch
+    let fepoch = node.chainDag.headState.data.data.finalized_checkpoint.epoch
     compute_start_slot_at_epoch(fepoch)
 
   proc updateLocalBlocks(list: openArray[SignedBeaconBlock]): Result[void, BlockError] =
@@ -620,13 +622,13 @@ proc connectedPeersCount(node: BeaconNode): int =
 
 proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("getBeaconHead") do () -> Slot:
-    return node.blockPool.head.slot
+    return node.chainDag.head.slot
 
   rpcServer.rpc("getChainHead") do () -> JsonNode:
     let
-      head = node.blockPool.head
-      finalized = node.blockPool.headState.data.data.finalized_checkpoint
-      justified = node.blockPool.headState.data.data.current_justified_checkpoint
+      head = node.chainDag.head
+      finalized = node.chainDag.headState.data.data.finalized_checkpoint
+      justified = node.chainDag.headState.data.data.current_justified_checkpoint
     return %* {
       "head_slot": head.slot,
       "head_block_root": head.root.data.toHex(),
@@ -640,7 +642,7 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
     let
       beaconTime = node.beaconClock.now()
       wallSlot = currentSlot(node)
-      headSlot = node.blockPool.head.slot
+      headSlot = node.chainDag.head.slot
     # FIXME: temporary hack: If more than 1 block away from expected head, then we are "syncing"
     return (headSlot + 1) < wallSlot
 
@@ -659,7 +661,7 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
     if root.isSome:
       blockHash = root.get
     else:
-      let foundRef = node.blockPool.getBlockByPreciseSlot(slot.get)
+      let foundRef = node.chainDag.getBlockByPreciseSlot(slot.get)
       if foundRef != nil:
         blockHash = foundRef.root
       else:
@@ -676,8 +678,8 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
     requireOneOf(slot, root)
     if slot.isSome:
       # TODO sanity check slot so that it doesn't cause excessive rewinding
-      let blk = node.blockPool.head.atSlot(slot.get)
-      node.blockPool.withState(node.blockPool.tmpState, blk):
+      let blk = node.chainDag.head.atSlot(slot.get)
+      node.chainDag.withState(node.chainDag.tmpState, blk):
         return jsonResult(state)
     else:
       let tmp = BeaconStateRef() # TODO use tmpState - but load the entire StateData!
@@ -809,7 +811,8 @@ proc run*(node: BeaconNode) =
       if not afterGenesis:
         return false
 
-      let blck = node.blockPool.isValidBeaconBlock(signedBlock, slot, {})
+      let blck = node.chainDag.isValidBeaconBlock(node.quarantine,
+                                                       signedBlock, slot, {})
       node.dumpBlock(signedBlock, blck)
 
       blck.isOk
@@ -865,8 +868,8 @@ proc initializeNetworking(node: BeaconNode) {.async.} =
 
 proc start(node: BeaconNode) =
   let
-    head = node.blockPool.head
-    finalizedHead = node.blockPool.finalizedHead
+    head = node.chainDag.head
+    finalizedHead = node.chainDag.finalizedHead
     genesisTime = node.beaconClock.fromNow(toBeaconTime(Slot 0))
 
   info "Starting beacon node",
@@ -936,8 +939,8 @@ when hasPrompt:
       # p.useHistoryFile()
 
       proc dataResolver(expr: string): string =
-        template justified: untyped = node.blockPool.head.atEpochStart(
-          node.blockPool.headState.data.data.current_justified_checkpoint.epoch)
+        template justified: untyped = node.chainDag.head.atEpochStart(
+          node.chainDag.headState.data.data.current_justified_checkpoint.epoch)
         # TODO:
         # We should introduce a general API for resolving dot expressions
         # such as `db.latest_block.slot` or `metrics.connected_peers`.
@@ -950,13 +953,13 @@ when hasPrompt:
           $(node.connectedPeersCount)
 
         of "head_root":
-          shortLog(node.blockPool.head.root)
+          shortLog(node.chainDag.head.root)
         of "head_epoch":
-          $(node.blockPool.head.slot.epoch)
+          $(node.chainDag.head.slot.epoch)
         of "head_epoch_slot":
-          $(node.blockPool.head.slot mod SLOTS_PER_EPOCH)
+          $(node.chainDag.head.slot mod SLOTS_PER_EPOCH)
         of "head_slot":
-          $(node.blockPool.head.slot)
+          $(node.chainDag.head.slot)
 
         of "justifed_root":
           shortLog(justified.blck.root)
@@ -968,13 +971,13 @@ when hasPrompt:
           $(justified.slot)
 
         of "finalized_root":
-          shortLog(node.blockPool.finalizedHead.blck.root)
+          shortLog(node.chainDag.finalizedHead.blck.root)
         of "finalized_epoch":
-          $(node.blockPool.finalizedHead.slot.epoch)
+          $(node.chainDag.finalizedHead.slot.epoch)
         of "finalized_epoch_slot":
-          $(node.blockPool.finalizedHead.slot mod SLOTS_PER_EPOCH)
+          $(node.chainDag.finalizedHead.slot mod SLOTS_PER_EPOCH)
         of "finalized_slot":
-          $(node.blockPool.finalizedHead.slot)
+          $(node.chainDag.finalizedHead.slot)
 
         of "epoch":
           $node.currentSlot.epoch
@@ -996,9 +999,9 @@ when hasPrompt:
         of "attached_validators_balance":
           var balance = uint64(0)
           # TODO slow linear scan!
-          for idx, b in node.blockPool.headState.data.data.balances:
+          for idx, b in node.chainDag.headState.data.data.balances:
             if node.getAttachedValidator(
-                node.blockPool.headState.data.data, ValidatorIndex(idx)) != nil:
+                node.chainDag.headState.data.data, ValidatorIndex(idx)) != nil:
               balance += b
           formatGwei(balance)
 

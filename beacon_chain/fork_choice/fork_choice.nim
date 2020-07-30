@@ -16,7 +16,7 @@ import
   ../spec/[beaconstate, datatypes, digest, helpers],
   # Fork choice
   ./fork_choice_types, ./proto_array,
-  ../block_pool, ../block_pools/candidate_chains
+  ../block_pools/[spec_cache, candidate_chains]
 
 export sets, results, fork_choice_types
 
@@ -160,12 +160,12 @@ func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## In particular, before adding a block, its parent must be known to the fork choice
   self.proto_array.indices.contains(block_root)
 
-proc get_balances_for_block(self: var Checkpoints, blck: BlockSlot, pool: BlockPool): seq[Gwei] =
-  pool.withState(pool.balanceState, blck):
+proc get_balances_for_block(self: var Checkpoints, blck: BlockSlot, dag: CandidateChains): seq[Gwei] =
+  dag.withState(dag.balanceState, blck):
     get_effective_balances(state)
 
 proc process_state(self: var Checkpoints,
-                   pool: BlockPool,
+                   dag: CandidateChains,
                    state: BeaconState,
                    blck: BlockRef) =
   trace "Processing state",
@@ -186,7 +186,7 @@ proc process_state(self: var Checkpoints,
       justified: BalanceCheckpoint(
           blck: justifiedBlck.blck,
           epoch: state.current_justified_checkpoint.epoch,
-          balances: self.get_balances_for_block(justifiedBlck, pool),
+          balances: self.get_balances_for_block(justifiedBlck, dag),
       ),
       finalized: state.finalized_checkpoint,
     )
@@ -218,7 +218,7 @@ proc process_state(self: var Checkpoints,
 func compute_slots_since_epoch_start(slot: Slot): uint64 =
   slot - compute_start_slot_at_epoch(compute_epoch_at_slot(slot))
 
-proc maybe_update(self: var Checkpoints, current_slot: Slot, pool: BlockPool) =
+proc maybe_update(self: var Checkpoints, current_slot: Slot) =
   trace "Updating checkpoint",
     current_slot,
     best = shortLog(self.best.justified.blck),
@@ -248,24 +248,23 @@ proc process_block*(self: var ForkChoiceBackend,
     justified_epoch, finalized_epoch)
 
 proc process_block*(self: var ForkChoice,
-                    pool: BlockPool,
+                    dag: CandidateChains,
                     state: BeaconState,
                     blckRef: BlockRef,
                     blck: SomeBeaconBlock,
                     wallSlot: Slot): FcResult[void] =
-  process_state(self.checkpoints, pool, state, blckRef)
+  process_state(self.checkpoints, dag, state, blckRef)
 
-  maybe_update(self.checkpoints, wallSlot, pool)
+  maybe_update(self.checkpoints, wallSlot)
 
   for attestation in blck.body.attestations:
-    let targetBlck = pool.dag.getRef(attestation.data.target.root)
+    let targetBlck = dag.getRef(attestation.data.target.root)
     if targetBlck.isNil:
       continue
-
     if attestation.data.beacon_block_root in self.backend:
       let
         epochRef =
-          pool.dag.getEpochRef(targetBlck, attestation.data.target.epoch)
+          dag.getEpochRef(targetBlck, attestation.data.target.epoch)
         participants = get_attesting_indices(
           epochRef, attestation.data, attestation.aggregation_bits)
 
@@ -325,14 +324,14 @@ proc find_head*(
   return ok(new_head)
 
 proc find_head*(self: var ForkChoice,
-                wallSlot: Slot, pool: BlockPool): FcResult[Eth2Digest] =
+                wallSlot: Slot): FcResult[Eth2Digest] =
   template remove_alias(blck_root: Eth2Digest): Eth2Digest =
     if blck_root == Eth2Digest():
       self.finalizedBlock.root
     else:
       blck_root
 
-  self.checkpoints.maybe_update(wallSlot, pool)
+  self.checkpoints.maybe_update(wallSlot)
 
   self.backend.find_head(
     self.checkpoints.current.justified.epoch,
