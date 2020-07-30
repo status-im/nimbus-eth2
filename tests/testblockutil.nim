@@ -8,7 +8,7 @@
 import
   options, stew/endians2,
   chronicles, eth/trie/[db],
-  ../beacon_chain/[beacon_chain_db, block_pool, extras,
+  ../beacon_chain/[beacon_chain_db, extras,
                    merkle_minimal, validator_pool],
   ../beacon_chain/ssz/merkleization,
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, presets,

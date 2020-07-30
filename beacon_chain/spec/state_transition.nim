@@ -242,7 +242,7 @@ proc state_transition*(
     state: var HashedBeaconState, signedBlock: SomeSignedBeaconBlock,
     flags: UpdateFlags, rollback: RollbackHashedProc): bool {.nbench.} =
   # TODO consider moving this to testutils or similar, since non-testing
-  # and fuzzing code should always be coming from blockpool which should
+  # and fuzzing code should always be coming from block pool which should
   # always be providing cache or equivalent
   var cache = StateCache()
   state_transition(preset, state, signedBlock, cache, flags, rollback)

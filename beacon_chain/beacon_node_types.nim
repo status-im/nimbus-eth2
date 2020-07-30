@@ -5,7 +5,6 @@ import
   stew/endians2,
   spec/[datatypes, crypto, digest],
   block_pools/block_pools_types,
-  block_pool, # TODO: refactoring compat shim
   fork_choice/fork_choice_types
 
 export block_pools_types
@@ -64,7 +63,8 @@ type
     ## Generally, we keep attestations only until a slot has been finalized -
     ## after that, they may no longer affect fork choice.
 
-    blockPool*: BlockPool
+    chainDag*: CandidateChains
+    quarantine*: Quarantine
 
     unresolved*: Table[Eth2Digest, UnresolvedAttestation]
 

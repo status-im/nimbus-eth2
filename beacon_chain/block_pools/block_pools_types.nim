@@ -46,8 +46,8 @@ type
     ## Keeps track of unsafe blocks coming from the network
     ## and that cannot be added to the chain
     ##
-    ## This only stores valid blocks that cannot be linked to the BlockPool DAG
-    ## due to missing ancestor(s).
+    ## This only stores valid blocks that cannot be linked to the
+    ## CandidateChains DAG due to missing ancestor(s).
     ##
     ## Invalid blocks are dropped immediately.
 
@@ -71,7 +71,7 @@ type
   CandidateChains* = ref object
     ## Pool of blocks responsible for keeping a DAG of resolved blocks.
     ##
-    ## The BlockPool is responsible for the following
+    ## It is responsible for the following
     ##
     ## - Handle requests and updates to the "ColdDB" which
     ##   holds the canonical chain.
@@ -80,8 +80,8 @@ type
     ##   finalized block.
     ##
     ## When a chain becomes finalized, it is saved in the ColdDB,
-    ## the rejected candidates are discard and the BlockPool
-    ## is CandidateChains is pruned, only keeping the last finalized block.
+    ## the rejected candidates are discarded and this pool
+    ## is pruned, only keeping the last finalized block.
     ##
     ## The last finalized block is called the tail block.
 

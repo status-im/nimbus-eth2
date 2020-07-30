@@ -12,7 +12,7 @@ import
   ./spec/[
     beaconstate, datatypes, crypto, digest, helpers, network, validator,
     signatures],
-  ./block_pool, ./block_pools/candidate_chains, ./attestation_pool,
+  ./block_pools/[spec_cache, candidate_chains, quarantine], ./attestation_pool,
   ./beacon_node_types, ./ssz
 
 logScope:
@@ -81,7 +81,7 @@ proc isValidAttestationSlot(
     attestationSlot
     attestationBlck = shortLog(attestationBlck)
 
-  if not (attestationBlck.slot > pool.blockPool.finalizedHead.slot):
+  if not (attestationBlck.slot > pool.chainDag.finalizedHead.slot):
     debug "voting for already-finalized block"
     return false
 
@@ -154,30 +154,30 @@ proc isValidAttestation*(
 
   # The block being voted for (attestation.data.beacon_block_root) passes
   # validation.
-  # We rely on the block pool to have been validated, so check for the
+  # We rely on the chain DAG to have been validated, so check for the
   # existence of the block in the pool.
   # TODO: consider a "slush pool" of attestations whose blocks have not yet
   # propagated - i.e. imagine that attestations are smaller than blocks and
   # therefore propagate faster, thus reordering their arrival in some nodes
-  let attestationBlck = pool.blockPool.getRef(attestation.data.beacon_block_root)
+  let attestationBlck = pool.chainDag.getRef(attestation.data.beacon_block_root)
   if attestationBlck.isNil:
     debug "Block not found"
-    pool.blockPool.addMissing(attestation.data.beacon_block_root)
+    pool.quarantine.addMissing(attestation.data.beacon_block_root)
     return false
 
   if not isValidAttestationSlot(pool, attestation.data.slot, attestationBlck):
     # Not in spec - check that rewinding to the state is sane
     return false
 
-  let tgtBlck = pool.blockPool.getRef(attestation.data.target.root)
+  let tgtBlck = pool.chainDag.getRef(attestation.data.target.root)
   if tgtBlck.isNil:
     debug "Target block not found"
-    pool.blockPool.addMissing(attestation.data.beacon_block_root)
+    pool.quarantine.addMissing(attestation.data.beacon_block_root)
     return
 
   # TODO this could be any state in the target epoch
-  pool.blockPool.withState(
-      pool.blockPool.tmpState,
+  pool.chainDag.withState(
+      pool.chainDag.tmpState,
       tgtBlck.atSlot(attestation.data.target.epoch.compute_start_slot_at_epoch)):
     # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestation-subnets
     # [REJECT] The attestation is for the correct subnet (i.e.
@@ -251,10 +251,10 @@ proc isValidAggregatedAttestation*(
 
   # [REJECT] The block being voted for (aggregate.data.beacon_block_root)
   # passes validation.
-  let attestationBlck = pool.blockPool.getRef(aggregate.data.beacon_block_root)
+  let attestationBlck = pool.chainDag.getRef(aggregate.data.beacon_block_root)
   if attestationBlck.isNil:
     debug "Block not found"
-    pool.blockPool.addMissing(aggregate.data.beacon_block_root)
+    pool.quarantine.addMissing(aggregate.data.beacon_block_root)
     return false
 
   # [REJECT] The attestation has participants -- that is,
@@ -282,15 +282,15 @@ proc isValidAggregatedAttestation*(
   # aggregator for the slot -- i.e. is_aggregator(state, aggregate.data.slot,
   # aggregate.data.index, aggregate_and_proof.selection_proof) returns True.
 
-  let tgtBlck = pool.blockPool.getRef(aggregate.data.target.root)
+  let tgtBlck = pool.chainDag.getRef(aggregate.data.target.root)
   if tgtBlck.isNil:
     debug "Target block not found"
-    pool.blockPool.addMissing(aggregate.data.beacon_block_root)
+    pool.quarantine.addMissing(aggregate.data.beacon_block_root)
     return
 
   # TODO this could be any state in the target epoch
-  pool.blockPool.withState(
-      pool.blockPool.tmpState,
+  pool.chainDag.withState(
+      pool.chainDag.tmpState,
       tgtBlck.atSlot(aggregate.data.target.epoch.compute_start_slot_at_epoch)):
     var cache = getEpochCache(blck, state)
     if not is_aggregator(

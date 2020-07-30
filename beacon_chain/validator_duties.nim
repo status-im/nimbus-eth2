@@ -21,8 +21,8 @@ import
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network],
   spec/state_transition,
   conf, time, validator_pool,
-  attestation_pool, block_pool, block_pools/candidate_chains, eth2_network,
-  keystore_management, beacon_node_common, beacon_node_types,
+  attestation_pool, block_pools/[spec_cache, candidate_chains, clearance],
+  eth2_network, keystore_management, beacon_node_common, beacon_node_types,
   nimbus_binary_common, mainchain_monitor, version, ssz/merkleization, interop,
   attestation_aggregation, sync_manager, sszdump
 
@@ -56,7 +56,7 @@ proc addLocalValidator*(node: BeaconNode,
 
 proc addLocalValidators*(node: BeaconNode) =
   for validatorKey in node.config.validatorKeys:
-    node.addLocalValidator node.blockPool.headState.data.data, validatorKey
+    node.addLocalValidator node.chainDag.headState.data.data, validatorKey
 
   info "Local validators attached ", count = node.attachedValidators.count
 
@@ -105,7 +105,7 @@ proc sendAttestation*(
 proc sendAttestation*(node: BeaconNode, attestation: Attestation) =
   # For the validator API, which doesn't supply num_active_validators.
   let attestationBlck =
-    node.blockPool.getRef(attestation.data.beacon_block_root)
+    node.chainDag.getRef(attestation.data.beacon_block_root)
   if attestationBlck.isNil:
     debug "Attempt to send attestation without corresponding block"
     return
@@ -113,7 +113,7 @@ proc sendAttestation*(node: BeaconNode, attestation: Attestation) =
   node.sendAttestation(
     attestation,
     count_active_validators(
-      node.blockPool.dag.getEpochRef(attestationBlck, attestation.data.target.epoch)))
+      node.chainDag.getEpochRef(attestationBlck, attestation.data.target.epoch)))
 
 proc createAndSendAttestation(node: BeaconNode,
                               fork: Fork,
@@ -157,8 +157,8 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
     tuple[message: Option[BeaconBlock], fork: Fork, genesis_validators_root: Eth2Digest] =
   # Advance state to the slot that we're proposing for - this is the equivalent
   # of running `process_slots` up to the slot of the new block.
-  node.blockPool.withState(
-      node.blockPool.tmpState, head.atSlot(slot)):
+  node.chainDag.withState(
+      node.chainDag.tmpState, head.atSlot(slot)):
     let (eth1data, deposits) =
       if node.mainchainMonitor.isNil:
         (get_eth1data_stub(state.eth1_deposit_index, slot.compute_epoch_at_slot()),
@@ -178,7 +178,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
         return val_info.randao_reveal
 
     let
-      poolPtr = unsafeAddr node.blockPool.dag # safe because restore is short-lived
+      poolPtr = unsafeAddr node.chainDag # safe because restore is short-lived
 
     func restore(v: var HashedBeaconState) =
       # TODO address this ugly workaround - there should probably be a
@@ -215,8 +215,9 @@ proc proposeSignedBlock*(node: BeaconNode,
                          validator: AttachedValidator,
                          newBlock: SignedBeaconBlock): Future[BlockRef] {.async.} =
 
-  {.gcsafe.}: # TODO: fork choice and blockpool should sync via messages instead of callbacks
-    let newBlockRef = node.blockPool.addRawBlock(newBlock) do (
+  {.gcsafe.}: # TODO: fork choice and quarantine should sync via messages instead of callbacks
+    let newBlockRef = node.chainDag.addRawBlock(node.quarantine,
+                                                     newBlock) do (
         blckRef: BlockRef, signedBlock: SignedBeaconBlock,
         state: HashedBeaconState):
       # Callback add to fork choice if valid
@@ -320,7 +321,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   #      epoch since it doesn't change, but that has to be weighed against
   #      the complexity of handling forks correctly - instead, we use an adapted
   #      version here that calculates the committee for a single slot only
-  node.blockPool.withState(node.blockPool.tmpState, attestationHead):
+  node.chainDag.withState(node.chainDag.tmpState, attestationHead):
     var cache = getEpochCache(attestationHead.blck, state)
     let
       committees_per_slot =
@@ -352,7 +353,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   #      proposing for it - basically, we're selecting proposer based on an
   #      empty slot
 
-  let proposer = node.blockPool.getProposer(head, slot)
+  let proposer = node.chainDag.getProposer(head, slot)
   if proposer.isNone():
     return head
 
@@ -382,7 +383,7 @@ proc broadcastAggregatedAttestations(
   # the corresponding one -- whatver they are, they match.
 
   let bs = BlockSlot(blck: aggregationHead, slot: aggregationSlot)
-  node.blockPool.withState(node.blockPool.tmpState, bs):
+  node.chainDag.withState(node.chainDag.tmpState, bs):
     var cache = getEpochCache(aggregationHead, state)
     let
       committees_per_slot =

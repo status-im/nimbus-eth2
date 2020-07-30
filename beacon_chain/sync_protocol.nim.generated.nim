@@ -1,5 +1,5 @@
 
-## Generated at line 87
+## Generated at line 88
 type
   BeaconSync* = object
 template State*(PROTO: type BeaconSync): type =
@@ -203,16 +203,16 @@ proc beaconBlocksByRangeUserHandler(peer: Peer; startSlot: Slot; count: uint64;
   if count > 0'u64:
     var blocks: array[MAX_REQUESTED_BLOCKS, BlockRef]
     let
-      pool = peer.networkState.blockPool
+      chainDag = peer.networkState.chainDag
       count = min(count.Natural, blocks.len)
     let
       endIndex = count - 1
-      startIndex = pool.getBlockRange(startSlot, step,
-                                    blocks.toOpenArray(0, endIndex))
+      startIndex = chainDag.getBlockRange(startSlot, step,
+                                        blocks.toOpenArray(0, endIndex))
     for b in blocks[startIndex .. endIndex]:
       doAssert not b.isNil, "getBlockRange should return non-nil blocks only"
       trace "wrote response block", slot = b.slot, roor = shortLog(b.root)
-      await response.write(pool.get(b).data)
+      await response.write(chainDag.get(b).data)
     debug "Block range request done", peer, startSlot, count, step,
          found = count - startIndex
 
@@ -228,13 +228,13 @@ proc beaconBlocksByRootUserHandler(peer: Peer; blockRoots: BlockRootsList; respo
         BeaconSyncProtocol))
 
   let
-    pool = peer.networkState.blockPool
+    chainDag = peer.networkState.chainDag
     count = blockRoots.len
   var found = 0
   for root in blockRoots[0 ..< count]:
-    let blockRef = pool.getRef(root)
+    let blockRef = chainDag.getRef(root)
     if not isNil(blockRef):
-      await response.write(pool.get(blockRef).data)
+      await response.write(chainDag.get(blockRef).data)
       inc found
   debug "Block root request done", peer, roots = blockRoots.len, count, found
 

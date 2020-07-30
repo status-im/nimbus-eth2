@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  os, sequtils, unittest,
+  os, sequtils, unittest, chronicles,
   # Beacon chain internals
   ../../beacon_chain/spec/[crypto, datatypes, state_transition, presets],
   ../../beacon_chain/ssz,
