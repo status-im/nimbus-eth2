@@ -757,6 +757,9 @@ proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   var peer = node.getPeer(peerInfo)
   peer.wasDialed = true
 
+  if not(isNil(peer)) and isNil(peer.pubsubFut):
+    peer.pubsubFut = node.switch.subscribePeer(peerInfo)
+
   #let msDial = newMultistream()
   #let conn = node.switch.connections.getOrDefault(peerInfo.id)
   #let ls = await msDial.list(conn)
@@ -1177,21 +1180,21 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext, conf: BeaconNodeConf, enrForkId
   # would be right after the node has synced or is
   # about to, to prevent useless gossip traffic since
   # most attestation are going to be rejected
-  switch.addHook(
-    proc(peer: PeerInfo, cycle: Lifecycle) {.async.} =
-      ## trigger every time a new connection
-      ## for a peer is upgradded
-      ##
+  # switch.addHook(
+  #   proc(peer: PeerInfo, cycle: Lifecycle) {.async.} =
+  #     ## trigger every time a new connection
+  #     ## for a peer is upgradded
+  #     ##
 
-      doAssert(cycle == Lifecycle.Upgraded)
-      doAssert(isNil(peer) == false)
+  #     doAssert(cycle == Lifecycle.Upgraded)
+  #     doAssert(isNil(peer) == false)
 
-      let ethPeer = node.getPeer(peer)
-      if not(isNil(ethPeer)) and isNil(ethPeer.pubsubFut):
-        ethPeer.pubsubFut = switch.subscribePeer(peer)
+  #     let ethPeer = node.getPeer(peer)
+  #     if not(isNil(ethPeer)) and isNil(ethPeer.pubsubFut):
+  #       ethPeer.pubsubFut = switch.subscribePeer(peer)
 
-    , Lifecycle.Upgraded
-  )
+  #   , Lifecycle.Upgraded
+  # )
 
   return node
 
