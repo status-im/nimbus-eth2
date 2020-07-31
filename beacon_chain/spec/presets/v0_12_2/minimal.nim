@@ -53,7 +53,7 @@ const
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L77
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L80
   # Changed: Faster to spin up testnets, but does not give validator
   # reasonable warning time for genesis
 
@@ -134,7 +134,7 @@ const
 
   # Validators
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L38
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L38
 
   # Changed
   ETH1_FOLLOW_DISTANCE* {.intdefine.}: uint64 = 16 # blocks
