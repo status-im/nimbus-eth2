@@ -21,7 +21,7 @@ import
 # #############################################
 #
 # The Quarantine and DagChain data structures
-# keeps track respectively of unsafe blocks coming from the network
+# keep track respectively of unsafe blocks coming from the network
 # and blocks that underwent verification and have a resolved path to
 # the last finalized block known.
 
@@ -42,12 +42,12 @@ type
     Old
     Duplicate
 
-  Quarantine* = object
+  QuarantineRef* = ref object
     ## Keeps track of unsafe blocks coming from the network
     ## and that cannot be added to the chain
     ##
     ## This only stores valid blocks that cannot be linked to the
-    ## CandidateChains DAG due to missing ancestor(s).
+    ## ChainDAGRef DAG due to missing ancestor(s).
     ##
     ## Invalid blocks are dropped immediately.
 
@@ -68,7 +68,7 @@ type
   FetchRecord* = object
     root*: Eth2Digest
 
-  CandidateChains* = ref object
+  ChainDAGRef* = ref object
     ## Pool of blocks responsible for keeping a DAG of resolved blocks.
     ##
     ## It is responsible for the following
@@ -92,7 +92,7 @@ type
       ## ColdDB - Stores the canonical chain
 
     # -----------------------------------
-    # CandidateChains - DAG of candidate chains
+    # ChainDAGRef - DAG of candidate chains
 
     blocks*: Table[Eth2Digest, BlockRef] ##\
     ## Directed acyclic graph of blocks pointing back to a finalized block on the chain we're

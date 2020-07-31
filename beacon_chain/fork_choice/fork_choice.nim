@@ -16,7 +16,7 @@ import
   ../spec/[beaconstate, datatypes, digest, helpers],
   # Fork choice
   ./fork_choice_types, ./proto_array,
-  ../block_pools/[spec_cache, candidate_chains]
+  ../block_pools/[spec_cache, chain_dag]
 
 export sets, results, fork_choice_types
 
@@ -160,12 +160,12 @@ func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## In particular, before adding a block, its parent must be known to the fork choice
   self.proto_array.indices.contains(block_root)
 
-proc get_balances_for_block(self: var Checkpoints, blck: BlockSlot, dag: CandidateChains): seq[Gwei] =
+proc get_balances_for_block(self: var Checkpoints, blck: BlockSlot, dag: ChainDAGRef): seq[Gwei] =
   dag.withState(dag.balanceState, blck):
     get_effective_balances(state)
 
 proc process_state(self: var Checkpoints,
-                   dag: CandidateChains,
+                   dag: ChainDAGRef,
                    state: BeaconState,
                    blck: BlockRef) =
   trace "Processing state",
@@ -248,7 +248,7 @@ proc process_block*(self: var ForkChoiceBackend,
     justified_epoch, finalized_epoch)
 
 proc process_block*(self: var ForkChoice,
-                    dag: CandidateChains,
+                    dag: ChainDAGRef,
                     state: BeaconState,
                     blckRef: BlockRef,
                     blck: SomeBeaconBlock,

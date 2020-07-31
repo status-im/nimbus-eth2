@@ -3,7 +3,7 @@ import
   chronicles, chronos, stew/ranges/bitranges, libp2p/switch,
   spec/[datatypes, crypto, digest],
   beacon_node_types, eth2_network,
-  block_pools/candidate_chains
+  block_pools/chain_dag
 
 logScope:
   topics = "sync"
@@ -36,7 +36,7 @@ type
   BeaconBlockCallback* = proc(signedBlock: SignedBeaconBlock) {.gcsafe.}
 
   BeaconSyncNetworkState* = ref object
-    chainDag*: CandidateChains
+    chainDag*: ChainDAGRef
     forkDigest*: ForkDigest
 
   BeaconSyncPeerState* = ref object
@@ -230,7 +230,7 @@ proc handleStatus(peer: Peer,
 
     peer.setStatusMsg(theirStatus)
 
-proc initBeaconSync*(network: Eth2Node, chainDag: CandidateChains,
+proc initBeaconSync*(network: Eth2Node, chainDag: ChainDAGRef,
                      forkDigest: ForkDigest) =
   var networkState = network.protocolState(BeaconSync)
   networkState.chainDag = chainDag

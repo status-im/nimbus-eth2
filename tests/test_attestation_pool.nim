@@ -16,7 +16,7 @@ import
                         helpers, beaconstate, presets],
   ../beacon_chain/[beacon_node_types, attestation_pool, extras],
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
-  ../beacon_chain/block_pools/[candidate_chains, clearance]
+  ../beacon_chain/block_pools/[chain_dag, clearance]
 
 template wrappedTimedTest(name: string, body: untyped) =
   # `check` macro takes a copy of whatever it's checking, on the stack!
@@ -33,9 +33,9 @@ suiteReport "Attestation pool processing" & preset():
   setup:
     # Genesis state that results in 3 members per committee
     var
-      chainDag = newClone(init(CandidateChains, defaultRuntimePreset, makeTestDB(SLOTS_PER_EPOCH * 3)))
-      quarantine = newClone(Quarantine())
-      pool = newClone(AttestationPool.init(chainDag, quarantine[]))
+      chainDag = newClone(init(ChainDAGRef, defaultRuntimePreset, makeTestDB(SLOTS_PER_EPOCH * 3)))
+      quarantine = newClone(QuarantineRef())
+      pool = newClone(AttestationPool.init(chainDag, quarantine))
       state = newClone(loadTailState(chainDag))
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
@@ -164,7 +164,7 @@ suiteReport "Attestation pool processing" & preset():
     var cache = StateCache()
     let
       b1 = addTestBlock(state.data, chainDag.tail.root, cache)
-      b1Add = chainDag.addRawBlock(quarantine[], b1) do (
+      b1Add = chainDag.addRawBlock(quarantine, b1) do (
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
@@ -177,7 +177,7 @@ suiteReport "Attestation pool processing" & preset():
 
     let
       b2 = addTestBlock(state.data, b1.root, cache)
-      b2Add = chainDag.addRawBlock(quarantine[], b2) do (
+      b2Add = chainDag.addRawBlock(quarantine, b2) do (
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
@@ -192,7 +192,7 @@ suiteReport "Attestation pool processing" & preset():
     var cache = StateCache()
     let
       b10 = makeTestBlock(state.data, chainDag.tail.root, cache)
-      b10Add = chainDag.addRawBlock(quarantine[], b10) do (
+      b10Add = chainDag.addRawBlock(quarantine, b10) do (
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
@@ -207,7 +207,7 @@ suiteReport "Attestation pool processing" & preset():
       b11 = makeTestBlock(state.data, chainDag.tail.root, cache,
         graffiti = GraffitiBytes [1'u8, 0, 0, 0 ,0 ,0 ,0 ,0 ,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
       )
-      b11Add = chainDag.addRawBlock(quarantine[], b11) do (
+      b11Add = chainDag.addRawBlock(quarantine, b11) do (
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
@@ -249,7 +249,7 @@ suiteReport "Attestation pool processing" & preset():
     var cache = StateCache()
     let
       b10 = makeTestBlock(state.data, chainDag.tail.root, cache)
-      b10Add = chainDag.addRawBlock(quarantine[], b10) do (
+      b10Add = chainDag.addRawBlock(quarantine, b10) do (
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
@@ -263,7 +263,7 @@ suiteReport "Attestation pool processing" & preset():
     # -------------------------------------------------------------
     # Add back the old block to ensure we have a duplicate error
     let b10_clone = b10 # Assumes deep copy
-    let b10Add_clone = chainDag.addRawBlock(quarantine[], b10_clone) do (
+    let b10Add_clone = chainDag.addRawBlock(quarantine, b10_clone) do (
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
@@ -277,7 +277,7 @@ suiteReport "Attestation pool processing" & preset():
     var cache = StateCache()
     let
       b10 = makeTestBlock(state.data, chainDag.tail.root, cache)
-      b10Add = chainDag.addRawBlock(quarantine[], b10) do (
+      b10Add = chainDag.addRawBlock(quarantine, b10) do (
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
@@ -311,7 +311,7 @@ suiteReport "Attestation pool processing" & preset():
         doAssert: block_ok
 
         block_root = new_block.root
-        let blockRef = chainDag.addRawBlock(quarantine[], new_block) do (
+        let blockRef = chainDag.addRawBlock(quarantine, new_block) do (
             blckRef: BlockRef, signedBlock: SignedBeaconBlock,
             state: HashedBeaconState):
           # Callback add to fork choice if valid
@@ -352,7 +352,7 @@ suiteReport "Attestation pool processing" & preset():
     doAssert: b10.root notin pool.forkChoice.backend
 
     # Add back the old block to ensure we have a duplicate error
-    let b10Add_clone = chainDag.addRawBlock(quarantine[], b10_clone) do (
+    let b10Add_clone = chainDag.addRawBlock(quarantine, b10_clone) do (
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid

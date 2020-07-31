@@ -19,7 +19,7 @@ import
   spec/[datatypes, crypto, digest],
   conf, time, beacon_chain_db,
   attestation_pool, eth2_network,
-  block_pools/[candidate_chains, quarantine],
+  block_pools/[chain_dag, quarantine],
   beacon_node_types, mainchain_monitor, request_manager,
   sync_manager
 
@@ -40,8 +40,8 @@ type
     db*: BeaconChainDB
     config*: BeaconNodeConf
     attachedValidators*: ValidatorPool
-    chainDag*: CandidateChains
-    quarantine*: Quarantine
+    chainDag*: ChainDAGRef
+    quarantine*: QuarantineRef
     attestationPool*: AttestationPool
     mainchainMonitor*: MainchainMonitor
     beaconClock*: BeaconClock

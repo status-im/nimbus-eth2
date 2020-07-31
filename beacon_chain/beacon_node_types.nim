@@ -63,8 +63,8 @@ type
     ## Generally, we keep attestations only until a slot has been finalized -
     ## after that, they may no longer affect fork choice.
 
-    chainDag*: CandidateChains
-    quarantine*: Quarantine
+    chainDag*: ChainDAGRef
+    quarantine*: QuarantineRef
 
     unresolved*: Table[Eth2Digest, UnresolvedAttestation]
 

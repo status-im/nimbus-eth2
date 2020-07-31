@@ -14,14 +14,14 @@ import
   chronicles, stew/[byteutils], json_serialization/std/sets as jsonSets,
   # Internal
   ./spec/[beaconstate, datatypes, crypto, digest, helpers],
-  ./block_pools/[spec_cache, candidate_chains, clearance], ./beacon_node_types,
+  ./block_pools/[spec_cache, chain_dag, clearance], ./beacon_node_types,
   ./fork_choice/fork_choice
 
 export beacon_node_types, sets
 
 logScope: topics = "attpool"
 
-proc init*(T: type AttestationPool, chainDag: CandidateChains, quarantine: Quarantine): T =
+proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: QuarantineRef): T =
   ## Initialize an AttestationPool from the chainDag `headState`
   ## The `finalized_root` works around the finalized_checkpoint of the genesis block
   ## holding a zero_root.

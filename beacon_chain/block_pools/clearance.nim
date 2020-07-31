@@ -13,7 +13,7 @@ import
   metrics, stew/results,
   ../extras,
   ../spec/[crypto, datatypes, digest, helpers, signatures, state_transition],
-  ./block_pools_types, ./candidate_chains, ./quarantine
+  ./block_pools_types, ./chain_dag, ./quarantine
 
 export results
 
@@ -27,7 +27,7 @@ export results
 logScope:
   topics = "clearance"
 
-func getOrResolve*(dag: CandidateChains, quarantine: var Quarantine, root: Eth2Digest): BlockRef =
+func getOrResolve*(dag: ChainDAGRef, quarantine: var QuarantineRef, root: Eth2Digest): BlockRef =
   ## Fetch a block ref, or nil if not found (will be added to list of
   ## blocks-to-resolve)
   result = dag.getRef(root)
@@ -36,12 +36,12 @@ func getOrResolve*(dag: CandidateChains, quarantine: var Quarantine, root: Eth2D
     quarantine.missing[root] = MissingBlock()
 
 proc addRawBlock*(
-      dag: var CandidateChains, quarantine: var Quarantine,
+      dag: var ChainDAGRef, quarantine: var QuarantineRef,
       signedBlock: SignedBeaconBlock, onBlockAdded: OnBlockAdded
      ): Result[BlockRef, BlockError]
 
 proc addResolvedBlock(
-       dag: var CandidateChains, quarantine: var Quarantine,
+       dag: var ChainDAGRef, quarantine: var QuarantineRef,
        state: HashedBeaconState, signedBlock: SignedBeaconBlock,
        parent: BlockRef, cache: StateCache,
        onBlockAdded: OnBlockAdded
@@ -117,7 +117,7 @@ proc addResolvedBlock(
   blockRef
 
 proc addRawBlock*(
-       dag: var CandidateChains, quarantine: var Quarantine,
+       dag: var ChainDAGRef, quarantine: var QuarantineRef,
        signedBlock: SignedBeaconBlock,
        onBlockAdded: OnBlockAdded
      ): Result[BlockRef, BlockError] =
@@ -255,7 +255,7 @@ proc addRawBlock*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#global-topics
 proc isValidBeaconBlock*(
-       dag: CandidateChains, quarantine: var Quarantine,
+       dag: ChainDAGRef, quarantine: var QuarantineRef,
        signed_beacon_block: SignedBeaconBlock, current_slot: Slot,
        flags: UpdateFlags): Result[void, BlockError] =
   logScope:
@@ -338,9 +338,9 @@ proc isValidBeaconBlock*(
     # the future this block moves from pending to being resolved, consider if
     # it's worth broadcasting it then.
 
-    # Pending dag gets checked via `CandidateChains.add(...)` later, and relevant
+    # Pending dag gets checked via `ChainDAGRef.add(...)` later, and relevant
     # checks are performed there. In usual paths beacon_node adds blocks via
-    # CandidateChains.add(...) directly, with no additional validity checks. TODO,
+    # ChainDAGRef.add(...) directly, with no additional validity checks. TODO,
     # not specific to this, but by the pending dag keying on the htr of the
     # BeaconBlock, not SignedBeaconBlock, opens up certain spoofing attacks.
     debug "parent unknown, putting block in quarantine"
