@@ -12,7 +12,7 @@ import
   ./spec/[
     beaconstate, datatypes, crypto, digest, helpers, network, validator,
     signatures],
-  ./block_pools/[spec_cache, candidate_chains, quarantine], ./attestation_pool,
+  ./block_pools/[spec_cache, chain_dag, quarantine], ./attestation_pool,
   ./beacon_node_types, ./ssz
 
 logScope:

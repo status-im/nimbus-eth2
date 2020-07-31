@@ -16,7 +16,7 @@ import
 
   # Local modules
   spec/[datatypes, digest, crypto, validator, beaconstate, helpers],
-  block_pools/candidate_chains, ssz/merkleization,
+  block_pools/chain_dag, ssz/merkleization,
   beacon_node_common, beacon_node_types,
   validator_duties, eth2_network,
   spec/eth2_apis/callsigs_types,

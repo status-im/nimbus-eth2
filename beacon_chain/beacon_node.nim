@@ -26,7 +26,7 @@ import
   conf, time, beacon_chain_db, validator_pool, extras,
   attestation_pool, eth2_network, eth2_discovery,
   beacon_node_common, beacon_node_types,
-  block_pools/[spec_cache, candidate_chains, quarantine, clearance, block_pools_types],
+  block_pools/[spec_cache, chain_dag, quarantine, clearance, block_pools_types],
   nimbus_binary_common, network_metadata,
   mainchain_monitor, version, ssz/[merkleization], sszdump, merkle_minimal,
   sync_protocol, request_manager, keystore_management, interop, statusbar,
@@ -150,7 +150,7 @@ proc init*(T: type BeaconNode,
 
   var mainchainMonitor: MainchainMonitor
 
-  if not CandidateChains.isInitialized(db):
+  if not ChainDAGRef.isInitialized(db):
     # Fresh start - need to load a genesis state from somewhere
     var genesisState = conf.getStateFromSnapshot()
 
@@ -215,8 +215,8 @@ proc init*(T: type BeaconNode,
       let tailBlock = get_initial_beacon_block(genesisState[])
 
       try:
-        CandidateChains.preInit(db, genesisState[], tailBlock)
-        doAssert CandidateChains.isInitialized(db), "preInit should have initialized db"
+        ChainDAGRef.preInit(db, genesisState[], tailBlock)
+        doAssert ChainDAGRef.isInitialized(db), "preInit should have initialized db"
       except CatchableError as e:
         error "Failed to initialize database", err = e.msg
         quit 1
@@ -229,8 +229,8 @@ proc init*(T: type BeaconNode,
   let
     chainDagFlags = if conf.verifyFinalization: {verifyFinalization}
                      else: {}
-    chainDag = init(CandidateChains, conf.runtimePreset, db, chainDagFlags)
-    quarantine = Quarantine()
+    chainDag = init(ChainDAGRef, conf.runtimePreset, db, chainDagFlags)
+    quarantine = QuarantineRef()
 
   if mainchainMonitor.isNil and
      conf.web3Url.len > 0 and

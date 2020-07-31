@@ -2,7 +2,7 @@
   confutils, stats, chronicles, strformat, tables,
   stew/byteutils,
   ../beacon_chain/[beacon_chain_db, extras],
-  ../beacon_chain/block_pools/[candidate_chains],
+  ../beacon_chain/block_pools/[chain_dag],
   ../beacon_chain/spec/[crypto, datatypes, digest, helpers,
                         state_transition, presets],
   ../beacon_chain/sszdump, ../research/simutils,
@@ -67,13 +67,13 @@ proc cmdBench(conf: DbConf) =
     db = BeaconChainDB.init(
       kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
 
-  if not CandidateChains.isInitialized(db):
+  if not ChainDAGRef.isInitialized(db):
     echo "Database not initialized"
     quit 1
 
   echo "Initializing block pool..."
   let pool = withTimerRet(timers[tInit]):
-    CandidateChains.init(defaultRuntimePreset, db, {})
+    ChainDAGRef.init(defaultRuntimePreset, db, {})
 
   echo &"Loaded {pool.blocks.len} blocks, head slot {pool.head.slot}"
 
@@ -149,12 +149,12 @@ proc cmdRewindState(conf: DbConf) =
     db = BeaconChainDB.init(
       kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
 
-  if not CandidateChains.isInitialized(db):
+  if not ChainDAGRef.isInitialized(db):
     echo "Database not initialized"
     quit 1
 
   echo "Initializing block pool..."
-  let dag = init(CandidateChains, defaultRuntimePreset, db)
+  let dag = init(ChainDAGRef, defaultRuntimePreset, db)
 
   let blckRef = dag.getRef(fromHex(Eth2Digest, conf.blockRoot))
   if blckRef == nil:

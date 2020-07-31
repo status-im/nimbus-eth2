@@ -12,7 +12,7 @@ import
   ./testutil, ./testblockutil,
   ../beacon_chain/spec/[datatypes, digest, state_transition, presets],
   ../beacon_chain/[beacon_node_types, ssz],
-  ../beacon_chain/block_pools/[candidate_chains, quarantine, clearance]
+  ../beacon_chain/block_pools/[chain_dag, quarantine, clearance]
 
 when isMainModule:
   import chronicles # or some random compile error happens...
@@ -90,8 +90,8 @@ suiteReport "Block pool processing" & preset():
   setup:
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(CandidateChains, defaultRuntimePreset, db)
-      quarantine: Quarantine
+      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+      quarantine = QuarantineRef()
       stateData = newClone(dag.loadTailState())
       cache = StateCache()
       b1 = addTestBlock(stateData.data, dag.tail.root, cache)
@@ -205,7 +205,7 @@ suiteReport "Block pool processing" & preset():
 
     # check that init also reloads block graph
     var
-      dag2 = init(CandidateChains, defaultRuntimePreset, db)
+      dag2 = init(ChainDAGRef, defaultRuntimePreset, db)
 
     check:
       # ensure we loaded the correct head state
@@ -287,8 +287,8 @@ suiteReport "chain DAG finalization tests" & preset():
   setup:
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(CandidateChains, defaultRuntimePreset, db)
-      quarantine: Quarantine
+      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+      quarantine = QuarantineRef()
       cache = StateCache()
 
   timedTest "prune heads on finalization" & preset():
@@ -330,7 +330,7 @@ suiteReport "chain DAG finalization tests" & preset():
       check: status.error == Unviable
 
     let
-      dag2 = init(CandidateChains, defaultRuntimePreset, db)
+      dag2 = init(ChainDAGRef, defaultRuntimePreset, db)
 
     # check that the state reloaded from database resembles what we had before
     check:

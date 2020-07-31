@@ -28,15 +28,15 @@ declareCounter beacon_state_data_cache_misses, "dag.cachedStates misses"
 logScope: topics = "hotdb"
 
 proc putBlock*(
-    dag: var CandidateChains, signedBlock: SignedBeaconBlock) =
+    dag: var ChainDAGRef, signedBlock: SignedBeaconBlock) =
   dag.db.putBlock(signedBlock)
 
 proc updateStateData*(
-  dag: CandidateChains, state: var StateData, bs: BlockSlot,
+  dag: ChainDAGRef, state: var StateData, bs: BlockSlot,
   matchEpoch: bool = false) {.gcsafe.}
 
 template withState*(
-    dag: CandidateChains, cache: var StateData, blockSlot: BlockSlot, body: untyped): untyped =
+    dag: ChainDAGRef, cache: var StateData, blockSlot: BlockSlot, body: untyped): untyped =
   ## Helper template that updates state to a particular BlockSlot - usage of
   ## cache is unsafe outside of block.
   ## TODO async transformations will lead to a race where cache gets updated
@@ -186,7 +186,7 @@ func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
     if (compute_activation_exit_epoch(blck.slot.compute_epoch_at_slot) >
         state_epoch):
       blck.epochsInfo.add(epochInfo)
-    trace "candidate_chains.getEpochInfo: back-filling parent.epochInfo",
+    trace "chain_dag.getEpochInfo: back-filling parent.epochInfo",
       state_slot = state.slot
     epochInfo
   elif matching_epochinfo.len == 1:
@@ -222,10 +222,10 @@ func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
 func init*(T: type BlockRef, root: Eth2Digest, blck: SomeBeaconBlock): BlockRef =
   BlockRef.init(root, blck.slot)
 
-proc init*(T: type CandidateChains,
+proc init*(T: type ChainDAGRef,
            preset: RuntimePreset,
            db: BeaconChainDB,
-           updateFlags: UpdateFlags = {}): CandidateChains =
+           updateFlags: UpdateFlags = {}): ChainDAGRef =
   # TODO we require that the db contains both a head and a tail block -
   #      asserting here doesn't seem like the right way to go about it however..
 
@@ -305,7 +305,7 @@ proc init*(T: type CandidateChains,
     finalizedHead = headRef.atEpochStart(
       tmpState.data.data.finalized_checkpoint.epoch)
 
-  let res = CandidateChains(
+  let res = ChainDAGRef(
     blocks: blocks,
     tail: tailRef,
     head: headRef,
@@ -337,7 +337,7 @@ proc init*(T: type CandidateChains,
 
   res
 
-proc getEpochRef*(dag: CandidateChains, blck: BlockRef, epoch: Epoch): EpochRef =
+proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
   var bs = blck.atEpochEnd(epoch)
 
   while true:
@@ -354,7 +354,7 @@ proc getEpochRef*(dag: CandidateChains, blck: BlockRef, epoch: Epoch): EpochRef 
     getEpochInfo(blck, state)
 
 proc getState(
-    dag: CandidateChains, db: BeaconChainDB, stateRoot: Eth2Digest, blck: BlockRef,
+    dag: ChainDAGRef, db: BeaconChainDB, stateRoot: Eth2Digest, blck: BlockRef,
     output: var StateData): bool =
   let outputAddr = unsafeAddr output # local scope
   func restore(v: var BeaconState) =
@@ -377,7 +377,7 @@ proc getState(
   true
 
 func getStateCacheIndex(
-    dag: CandidateChains, blockRoot: Eth2Digest, slot: Slot, matchEpoch: bool):
+    dag: ChainDAGRef, blockRoot: Eth2Digest, slot: Slot, matchEpoch: bool):
     int =
   for i, cachedState in dag.cachedStates:
     let (cacheBlockRoot, cacheSlot, _) = cachedState
@@ -389,7 +389,7 @@ func getStateCacheIndex(
   -1
 
 func putStateCache*(
-    dag: CandidateChains, state: HashedBeaconState, blck: BlockRef) =
+    dag: ChainDAGRef, state: HashedBeaconState, blck: BlockRef) =
   # Efficiently access states for both attestation aggregation and to process
   # block proposals going back to the last finalized slot.
   let stateCacheIndex =
@@ -406,10 +406,10 @@ func putStateCache*(
     assign(entry[], state)
 
     insert(dag.cachedStates, (blck.root, state.data.slot, entry))
-    trace "CandidateChains.putState(): state cache updated",
+    trace "ChainDAGRef.putState(): state cache updated",
       cacheLen, root = shortLog(blck.root), slot = state.data.slot
 
-proc putState*(dag: CandidateChains, state: HashedBeaconState, blck: BlockRef) =
+proc putState*(dag: ChainDAGRef, state: HashedBeaconState, blck: BlockRef) =
   # TODO we save state at every epoch start but never remove them - we also
   #      potentially save multiple states per slot if reorgs happen, meaning
   #      we could easily see a state explosion
@@ -437,12 +437,12 @@ proc putState*(dag: CandidateChains, state: HashedBeaconState, blck: BlockRef) =
   if state.data.slot mod 2 == 0:
     putStateCache(dag, state, blck)
 
-func getRef*(dag: CandidateChains, root: Eth2Digest): BlockRef =
+func getRef*(dag: ChainDAGRef, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
   dag.blocks.getOrDefault(root, nil)
 
 func getBlockRange*(
-    dag: CandidateChains, startSlot: Slot, skipStep: Natural,
+    dag: ChainDAGRef, startSlot: Slot, skipStep: Natural,
     output: var openArray[BlockRef]): Natural =
   ## This function populates an `output` buffer of blocks
   ## with a slots ranging from `startSlot` up to, but not including,
@@ -479,18 +479,18 @@ func getBlockRange*(
 
   o # Return the index of the first non-nil item in the output
 
-func getBlockBySlot*(dag: CandidateChains, slot: Slot): BlockRef =
+func getBlockBySlot*(dag: ChainDAGRef, slot: Slot): BlockRef =
   ## Retrieves the first block in the current canonical chain
   ## with slot number less or equal to `slot`.
   dag.head.atSlot(slot).blck
 
-func getBlockByPreciseSlot*(dag: CandidateChains, slot: Slot): BlockRef =
+func getBlockByPreciseSlot*(dag: ChainDAGRef, slot: Slot): BlockRef =
   ## Retrieves a block from the canonical chain with a slot
   ## number equal to `slot`.
   let found = dag.getBlockBySlot(slot)
   if found.slot != slot: found else: nil
 
-proc get*(dag: CandidateChains, blck: BlockRef): BlockData =
+proc get*(dag: ChainDAGRef, blck: BlockRef): BlockData =
   ## Retrieve the associated block body of a block reference
   doAssert (not blck.isNil), "Trying to get nil BlockRef"
 
@@ -499,7 +499,7 @@ proc get*(dag: CandidateChains, blck: BlockRef): BlockData =
 
   BlockData(data: data.get(), refs: blck)
 
-proc get*(dag: CandidateChains, root: Eth2Digest): Option[BlockData] =
+proc get*(dag: ChainDAGRef, root: Eth2Digest): Option[BlockData] =
   ## Retrieve a resolved block reference and its associated body, if available
   let refs = dag.getRef(root)
 
@@ -509,7 +509,7 @@ proc get*(dag: CandidateChains, root: Eth2Digest): Option[BlockData] =
     none(BlockData)
 
 proc skipAndUpdateState(
-    dag: CandidateChains,
+    dag: ChainDAGRef,
     state: var HashedBeaconState, blck: BlockRef, slot: Slot, save: bool) =
   while state.data.slot < slot:
     # Process slots one at a time in case afterUpdate needs to see empty states
@@ -520,7 +520,7 @@ proc skipAndUpdateState(
       dag.putState(state, blck)
 
 proc skipAndUpdateState(
-    dag: CandidateChains,
+    dag: ChainDAGRef,
     state: var StateData, blck: BlockData, flags: UpdateFlags, save: bool): bool =
 
   dag.skipAndUpdateState(
@@ -542,7 +542,7 @@ proc skipAndUpdateState(
   ok
 
 proc rewindState(
-    dag: CandidateChains, state: var StateData, bs: BlockSlot,
+    dag: ChainDAGRef, state: var StateData, bs: BlockSlot,
     matchEpoch: bool): seq[BlockRef] =
   logScope:
     blockSlot = shortLog(bs)
@@ -630,7 +630,7 @@ proc rewindState(
   ancestors
 
 proc getStateDataCached(
-    dag: CandidateChains, state: var StateData, bs: BlockSlot,
+    dag: ChainDAGRef, state: var StateData, bs: BlockSlot,
     matchEpoch: bool): bool =
   # This pointedly does not run rewindState or state_transition, but otherwise
   # mostly matches updateStateData(...), because it's too expensive to run the
@@ -657,7 +657,7 @@ proc getStateDataCached(
   false
 
 template withEpochState*(
-    dag: CandidateChains, cache: var StateData, blockSlot: BlockSlot,
+    dag: ChainDAGRef, cache: var StateData, blockSlot: BlockSlot,
     body: untyped): untyped =
   ## Helper template that updates state to a particular BlockSlot - usage of
   ## cache is unsafe outside of block.
@@ -669,7 +669,7 @@ template withEpochState*(
     body
 
 proc updateStateData*(
-    dag: CandidateChains, state: var StateData, bs: BlockSlot,
+    dag: ChainDAGRef, state: var StateData, bs: BlockSlot,
     matchEpoch: bool = false) =
   ## Rewind or advance state such that it matches the given block and slot -
   ## this may include replaying from an earlier snapshot if blck is on a
@@ -718,19 +718,19 @@ proc updateStateData*(
 
   dag.putStateCache(state.data, bs.blck)
 
-proc loadTailState*(dag: CandidateChains): StateData =
+proc loadTailState*(dag: ChainDAGRef): StateData =
   ## Load the state associated with the current tail in the dag
   let stateRoot = dag.db.getBlock(dag.tail.root).get().message.state_root
   let found = dag.getState(dag.db, stateRoot, dag.tail, result)
   # TODO turn into regular error, this can happen
   doAssert found, "Failed to load tail state, database corrupt?"
 
-proc delState(dag: CandidateChains, bs: BlockSlot) =
+proc delState(dag: ChainDAGRef, bs: BlockSlot) =
   # Delete state state and mapping for a particular block+slot
   if (let root = dag.db.getStateRoot(bs.blck.root, bs.slot); root.isSome()):
     dag.db.delState(root.get())
 
-proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
+proc updateHead*(dag: ChainDAGRef, newHead: BlockRef) =
   ## Update what we consider to be the current head, as given by the fork
   ## choice.
   ## The choice of head affects the choice of finalization point - the order
@@ -840,7 +840,7 @@ proc updateHead*(dag: CandidateChains, newHead: BlockRef) =
       finalizedHead = shortLog(finalizedHead),
       heads = dag.heads.len
 
-proc isInitialized*(T: type CandidateChains, db: BeaconChainDB): bool =
+proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): bool =
   let
     headBlockRoot = db.getHeadBlock()
     tailBlockRoot = db.getTailBlock()
@@ -861,9 +861,9 @@ proc isInitialized*(T: type CandidateChains, db: BeaconChainDB): bool =
   true
 
 proc preInit*(
-    T: type CandidateChains, db: BeaconChainDB, state: BeaconState,
+    T: type ChainDAGRef, db: BeaconChainDB, state: BeaconState,
     signedBlock: SignedBeaconBlock) =
-  # write a genesis state, the way the CandidateChains expects it to be stored in
+  # write a genesis state, the way the ChainDAGRef expects it to be stored in
   # database
   # TODO probably should just init a block pool with the freshly written
   #      state - but there's more refactoring needed to make it nice - doing
@@ -882,7 +882,7 @@ proc preInit*(
   db.putStateRoot(signedBlock.root, state.slot, signedBlock.message.state_root)
 
 proc getProposer*(
-    dag: CandidateChains, head: BlockRef, slot: Slot):
+    dag: ChainDAGRef, head: BlockRef, slot: Slot):
     Option[(ValidatorIndex, ValidatorPubKey)] =
   dag.withState(dag.tmpState, head.atSlot(slot)):
     var cache = StateCache()

@@ -25,7 +25,7 @@ import
     attestation_pool, beacon_node_types, beacon_chain_db,
     interop, validator_pool],
   ../beacon_chain/block_pools/[
-    spec_cache, candidate_chains, quarantine, clearance],
+    spec_cache, chain_dag, quarantine, clearance],
   eth/db/[kvstore, kvstore_sqlite3],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
@@ -53,11 +53,11 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   let
     db = BeaconChainDB.init(kvStore SqStoreRef.init(".", "block_sim").tryGet())
 
-  CandidateChains.preInit(db, state[].data, genesisBlock)
+  ChainDAGRef.preInit(db, state[].data, genesisBlock)
 
   var
-    chainDag = init(CandidateChains, defaultRuntimePreset, db)
-    quarantine = Quarantine()
+    chainDag = init(ChainDAGRef, defaultRuntimePreset, db)
+    quarantine = QuarantineRef()
     attPool = AttestationPool.init(chainDag, quarantine)
     timers: array[Timers, RunningStat]
     attesters: RunningStat

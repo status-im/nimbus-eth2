@@ -10,7 +10,7 @@ import
   testutils/markdown_reports, chronicles,
   ../beacon_chain/[beacon_chain_db, extras, ssz],
   ../beacon_chain/spec/[digest, beaconstate, datatypes, presets],
-  ../beacon_chain/block_pools/candidate_chains,
+  ../beacon_chain/block_pools/chain_dag,
   eth/db/kvstore,
   testblockutil
 
@@ -99,7 +99,7 @@ template timedTest*(name, body) =
 
 proc makeTestDB*(tailState: BeaconState, tailBlock: SignedBeaconBlock): BeaconChainDB =
   result = init(BeaconChainDB, kvStore MemStoreRef.init())
-  CandidateChains.preInit(result, tailState, tailBlock)
+  ChainDAGRef.preInit(result, tailState, tailBlock)
 
 proc makeTestDB*(validators: Natural): BeaconChainDB =
   let
