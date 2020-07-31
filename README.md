@@ -49,7 +49,7 @@ You can find complete information about running a beacon node and operating as a
 ## Related projects
 
 * [status-im/nimbus](https://github.com/status-im/nimbus/): Nimbus for Ethereum 1
-* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v0.12.1#phase-0): Serenity specification that this project implements
+* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v0.12.2#phase-0): Serenity specification that this project implements
 
 You can check where the beacon chain fits in the Ethereum ecosystem our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
 

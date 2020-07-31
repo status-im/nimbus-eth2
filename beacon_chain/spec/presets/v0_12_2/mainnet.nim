@@ -146,7 +146,7 @@ const
 
   # Fork choice
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/mainnet.yaml#L32
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/mainnet/phase0.yaml#L32
   SAFE_SLOTS_TO_UPDATE_JUSTIFIED*: uint64 = 8 # 96 seconds
 
   # Validators
