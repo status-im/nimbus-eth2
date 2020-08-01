@@ -9,9 +9,9 @@ type
   CliConfig = object
     network: string
 
-    depositsDir {.
-      defaultValue: "deposits"
-      name: "deposits-dir" }: string
+    validatorsDir {.
+      defaultValue: "validators"
+      name: "validators-dir" }: string
 
     case cmd {.command.}: Command
     of restart_nodes:
@@ -40,7 +40,7 @@ var conf = load CliConfig
 var
   serverCount = 6
   instancesCount = 1
-  validators = listDirs(conf.depositsDir).mapIt(splitPath(it)[1])
+  validators = listDirs(conf.validatorsDir).mapIt(splitPath(it)[1])
 
 sort(validators)
 
@@ -120,7 +120,7 @@ of reset_network:
 
     for i in firstValidator ..< lastValidator:
       validatorDirs.add " "
-      validatorDirs.add conf.depositsDir / validators[i]
+      validatorDirs.add conf.validatorsDir / validators[i]
       secretFiles.add " "
       secretFiles.add conf.secretsDir / validators[i]
 

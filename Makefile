@@ -207,7 +207,7 @@ medalla-deposit-data: | beacon_node deposit_contract
 	build/beacon_node deposits create \
 		--network=medalla \
 		--new-wallet-file=build/data/shared_medalla_$(NODE_ID)/wallet.json \
-		--out-deposits-dir=build/data/shared_medalla_$(NODE_ID)/validators \
+		--out-validators-dir=build/data/shared_medalla_$(NODE_ID)/validators \
 		--out-secrets-dir=build/data/shared_medalla_$(NODE_ID)/secrets \
 		--out-deposits-file=medalla-deposits_data-$$(date +"%Y%m%d%H%M%S").json \
 		--count=$(VALIDATORS)
@@ -217,7 +217,7 @@ medalla-deposit: | beacon_node deposit_contract
 		--network=medalla \
 		--out-deposits-file=nbc-medalla-deposits.json \
 		--new-wallet-file=build/data/shared_medalla_$(NODE_ID)/wallet.json \
-		--out-deposits-dir=build/data/shared_medalla_$(NODE_ID)/validators \
+		--out-validators-dir=build/data/shared_medalla_$(NODE_ID)/validators \
 		--out-secrets-dir=build/data/shared_medalla_$(NODE_ID)/secrets \
 		--count=$(VALIDATORS)
 

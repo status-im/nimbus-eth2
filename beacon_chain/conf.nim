@@ -54,6 +54,10 @@ type
       abbr: "d"
       name: "data-dir" }: OutDir
 
+    validatorsDirFlag* {.
+      desc: "A directory containing validator keystores"
+      name: "validators-dir" }: Option[InputDir]
+
     walletsDirFlag* {.
       desc: "A directory containing wallet files"
       name: "wallets-dir" }: Option[InputDir]
@@ -120,10 +124,6 @@ type
         desc: "Path to a validator keystore"
         abbr: "v"
         name: "validator" }: seq[ValidatorKeyPath]
-
-      validatorsDirFlag* {.
-        desc: "A directory containing validator keystores"
-        name: "validators-dir" }: Option[InputDir]
 
       secretsDirFlag* {.
         desc: "A directory containing validator keystore passwords"
@@ -290,11 +290,6 @@ type
         discard
 
     of deposits:
-      depositsDir* {.
-        defaultValue: "validators"
-        desc: "A folder with validator metadata created by the `deposits create` command"
-        name: "deposits-dir" }: string
-
       case depositsCmd* {.command.}: DepositsCmd
       of DepositsCmd.create:
         totalDeposits* {.
@@ -308,8 +303,8 @@ type
 
         outValidatorsDir* {.
           defaultValue: "validators"
-          desc: "Output folder for validator keystores and deposits"
-          name: "out-deposits-dir" }: string
+          desc: "Output folder for validator keystores"
+          name: "out-validators-dir" }: string
 
         outSecretsDir* {.
           defaultValue: "secrets"

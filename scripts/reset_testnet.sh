@@ -45,7 +45,7 @@ git clone --quiet --depth=1 $ETH2_TESTNETS_GIT_URL "$ETH2_TESTNETS"
 ETH2_TESTNETS_ABS=$(cd "$ETH2_TESTNETS"; pwd)
 NETWORK_DIR_ABS="$ETH2_TESTNETS_ABS/nimbus/$NETWORK"
 DATA_DIR_ABS=$(mkdir -p "$DATA_DIR"; cd "$DATA_DIR"; pwd)
-DEPOSITS_DIR_ABS="$DATA_DIR_ABS/deposits"
+VALIDATORS_DIR_ABS="$DATA_DIR_ABS/validators"
 SECRETS_DIR_ABS="$DATA_DIR_ABS/secrets"
 DEPOSIT_CONTRACT_ADDRESS=""
 DEPOSIT_CONTRACT_ADDRESS_ARG=""
@@ -54,7 +54,7 @@ if [ "$WEB3_URL" != "" ]; then
   WEB3_URL_ARG="--web3-url=$WEB3_URL"
 fi
 
-mkdir -p "$DEPOSITS_DIR_ABS"
+mkdir -p "$VALIDATORS_DIR_ABS"
 mkdir -p "$SECRETS_DIR_ABS"
 
 if [ "$ETH1_PRIVATE_KEY" != "" ]; then
@@ -85,13 +85,13 @@ make build
 
 ../build/beacon_node deposits create \
   --count=$TOTAL_VALIDATORS \
-  --out-deposits-dir="$DEPOSITS_DIR_ABS" \
+  --out-validators-dir="$VALIDATORS_DIR_ABS" \
   --out-secrets-dir="$SECRETS_DIR_ABS" \
   --dont-send
 
 ../build/beacon_node createTestnet \
   --data-dir="$DATA_DIR_ABS" \
-  --validators-dir="$DEPOSITS_DIR_ABS" \
+  --validators-dir="$VALIDATORS_DIR_ABS" \
   --total-validators=$TOTAL_VALIDATORS \
   --last-user-validator=$USER_VALIDATORS \
   --output-genesis="$NETWORK_DIR_ABS/genesis.ssz" \
@@ -115,7 +115,7 @@ if [[ $PUBLISH_TESTNET_RESETS != "0" ]]; then
 
   ../env.sh nim --verbosity:0 --hints:off manage_testnet_hosts.nims reset_network \
     --network=$NETWORK \
-    --deposits-dir="$DEPOSITS_DIR_ABS" \
+    --validators-dir="$VALIDATORS_DIR_ABS" \
     --secrets-dir="$SECRETS_DIR_ABS" \
     --network-data-dir="$NETWORK_DIR_ABS" \
     --user-validators=$USER_VALIDATORS \
