@@ -134,16 +134,29 @@ proc process_justification_and_finalization*(state: var BeaconState,
   let matching_target_attestations_previous =
     get_matching_target_attestations(state, previous_epoch)  # Previous epoch
 
-  ## This epoch processing is the last time these previous attestations can
-  ## matter -- in the next epoch, they'll be 2 epochs old, when BeaconState
-  ## tracks current_epoch_attestations and previous_epoch_attestations only
-  ## per
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#attestations
-  ## and `get_matching_source_attestations(...)` via
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#helper-functions-1
-  ## and
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#final-updates
-  ## after which the state.previous_epoch_attestations is replaced.
+  if verifyFinalization in updateFlags:
+    # Non-attesting indices in previous epoch
+    let missing_all_validators =
+      difference(active_validator_indices,
+        toHashSet(mapIt(get_attesting_indices(state,
+          matching_target_attestations_previous, stateCache), it.uint32)))
+
+    # testnet0 and testnet1 have 8 non-attesting validators each, by default
+    if missing_all_validators.len > 10:
+      fatal "Missing too many attesters from previous epoch in verifyFinalization mode",
+        missing_all_validators
+      doAssert false
+
+  # This epoch processing is the last time these previous attestations can
+  # matter -- in the next epoch, they'll be 2 epochs old, when BeaconState
+  # tracks current_epoch_attestations and previous_epoch_attestations only
+  # per
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#attestations
+  # and `get_matching_source_attestations(...)` via
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#helper-functions-1
+  # and
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#final-updates
+  # after which the state.previous_epoch_attestations is replaced.
   let total_active_balance = get_total_active_balance(state, stateCache)
   trace "Non-attesting indices in previous epoch",
     missing_all_validators=
