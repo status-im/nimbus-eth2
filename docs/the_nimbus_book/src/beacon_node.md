@@ -144,7 +144,7 @@ The following options are available:
 
      --count                   Number of deposits to generate.
      --wallet                  An existing wallet ID. If not specified, a new wallet will be created.
-     --out-deposits-dir        Output folder for validator keystores and deposits.
+     --out-validatorss-dir     Output folder for validator keystores and deposits.
      --out-secrets-dir         Output folder for randomly generated keystore passphrases.
      --dont-send               By default, all created deposits are also immediately sent to the validator
                                deposit contract. You can use this option to prevent this behavior. Use the
@@ -157,7 +157,7 @@ Sends prepared deposits to the validator deposit contract.
 
 The following options are available:
 
-     --deposits-dir            A folder with validator metadata created by the `deposits create` command.
+     --validators-dir          A folder with validator metadata created by the `deposits create` command.
      --min-delay               Minimum possible delay between making two deposits (in seconds).
      --max-delay               Maximum possible delay between making two deposits (in seconds).
 
