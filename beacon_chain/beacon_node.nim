@@ -1238,7 +1238,7 @@ programMain:
         let depositDataPath = if config.outDepositsFile.isSome:
           config.outDepositsFile.get.string
         else:
-          config.outValidatorsDir / "deposit_data-" & $epochTime()
+          config.outValidatorsDir / "deposit_data-" & $epochTime() & ".json"
 
         let launchPadDeposits =
           mapIt(deposits.value, LaunchPadDeposit.init(config.runtimePreset, it))
