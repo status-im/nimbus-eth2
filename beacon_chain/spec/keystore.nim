@@ -9,7 +9,7 @@ import
   math, strutils, strformat, typetraits, bearssl,
   stew/[results, byteutils, bitseqs, bitops2], stew/shims/macros,
   eth/keyfile/uuid, blscurve, faststreams/textio, json_serialization,
-  nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, utils],
+  nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, utils, scrypt],
   ./datatypes, ./crypto, ./digest, ./signatures
 
 export
@@ -130,8 +130,8 @@ const
   scryptParams = ScryptParams(
     dklen: keyLen,
     n: 2^18,
-    r: 1,
-    p: 8
+    p: 1,
+    r: 8
   )
 
   pbkdf2Params = Pbkdf2Params(
@@ -393,6 +393,13 @@ template writeValue*(w: var JsonWriter,
 template bytes(value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv): seq[byte] =
   distinctBase value
 
+func scrypt(password: openArray[char], salt: openArray[byte],
+            N, r, p, keyLen: static[int]): array[keyLen, byte] =
+  let (xyvLen, bLen) = scryptCalc(N, r, p)
+  var xyv = newSeq[uint32](xyvLen)
+  var b = newSeq[byte](bLen)
+  discard scrypt(password, salt, N, r, p, xyv, b, result)
+
 proc decryptCryptoField*(crypto: Crypto, password: KeystorePass): seq[byte] =
   ## Returns 0 bytes if the supplied password is incorrect
 
@@ -401,7 +408,19 @@ proc decryptCryptoField*(crypto: Crypto, password: KeystorePass): seq[byte] =
       template params: auto = crypto.kdf.pbkdf2Params
       sha256.pbkdf2(password.string, params.salt.bytes, params.c, params.dklen)
     of kdfScrypt:
-      raiseAssert "Scrypt is not supported yet"
+      template params: auto = crypto.kdf.scryptParams
+      if params.dklen != scryptParams.dklen or
+         params.n != scryptParams.n or
+         params.r != scryptParams.r or
+         params.p != scryptParams.p:
+        # TODO This should be reported in a better way
+        return
+      @(scrypt(password.string,
+               params.salt.bytes,
+               scryptParams.n,
+               scryptParams.r,
+               scryptParams.p,
+               scryptParams.dklen))
 
   let derivedChecksum = shaChecksum(decKey.toOpenArray(16, 31),
                                     crypto.cipher.message.bytes)
@@ -441,7 +460,7 @@ proc createCryptoField(kdfKind: KdfKind,
                        iv: openarray[byte] = @[]): Crypto =
   type AES = aes128
 
-  let kdfSalt = Pbkdf2Salt:
+  let kdfSalt =
     if salt.len > 0:
       doAssert salt.len == keyLen
       @salt
@@ -454,17 +473,22 @@ proc createCryptoField(kdfKind: KdfKind,
   else:
     getRandomBytes(rng, AES.sizeBlock)
 
-  let decKey = sha256.pbkdf2(password.string,
-                             kdfSalt.bytes,
-                             pbkdf2Params.c,
-                             pbkdf2Params.dklen)
+  var decKey: seq[byte]
   let kdf = case kdfKind
     of kdfPbkdf2:
+      decKey = sha256.pbkdf2(password.string,
+                             kdfSalt,
+                             pbkdf2Params.c,
+                             pbkdf2Params.dklen)
       var params = pbkdf2Params
-      params.salt = kdfSalt
+      params.salt = Pbkdf2Salt kdfSalt
       Kdf(function: kdfPbkdf2, pbkdf2Params: params, message: "")
     of kdfScrypt:
-      raiseAssert "Scrypt is not implemented yet"
+      decKey = @(scrypt(password.string, kdfSalt,
+                        scryptParams.n, scryptParams.r, scryptParams.p, keyLen))
+      var params = scryptParams
+      params.salt = ScryptSalt kdfSalt
+      Kdf(function: kdfScrypt, scryptParams: params, message: "")
 
   var
     aesCipher: CTR[AES]
