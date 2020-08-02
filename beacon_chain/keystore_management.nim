@@ -1,5 +1,5 @@
 import
-  std/[os, json, strutils, terminal, wordwrap],
+  std/[os, strutils, terminal, wordwrap],
   stew/byteutils, chronicles, chronos, web3, stint, json_serialization,
   serialization, blscurve, eth/common/eth_types, eth/keys, confutils, bearssl,
   spec/[datatypes, digest, crypto, keystore],
@@ -18,26 +18,29 @@ type
     mnemonic*: Mnemonic
     nextAccount*: Natural
 
-proc loadKeyStore(conf: BeaconNodeConf|ValidatorClientConf,
+proc loadKeystore(conf: BeaconNodeConf|ValidatorClientConf,
                   validatorsDir, keyName: string): Option[ValidatorPrivKey] =
   let
     keystorePath = validatorsDir / keyName / keystoreFileName
-    keystoreContents = KeyStoreContent:
-      try: readFile(keystorePath)
+    keystore =
+      try: Json.loadFile(keystorePath, Keystore)
       except IOError as err:
         error "Failed to read keystore", err = err.msg, path = keystorePath
+        return
+      except SerializationError as err:
+        error "Invalid keystore", err = err.formatMsg(keystorePath)
         return
 
   let passphrasePath = conf.secretsDir / keyName
   if fileExists(passphrasePath):
     let
-      passphrase = KeyStorePass:
+      passphrase = KeystorePass:
         try: readFile(passphrasePath)
         except IOError as err:
           error "Failed to read passphrase file", err = err.msg, path = passphrasePath
           return
 
-    let res = decryptKeystore(keystoreContents, passphrase)
+    let res = decryptKeystore(keystore, passphrase)
     if res.isOk:
       return res.get.some
     else:
@@ -52,13 +55,13 @@ proc loadKeyStore(conf: BeaconNodeConf|ValidatorClientConf,
   var remainingAttempts = 3
   var prompt = "Please enter passphrase for key \"" & validatorsDir/keyName & "\"\n"
   while remainingAttempts > 0:
-    let passphrase = KeyStorePass:
+    let passphrase = KeystorePass:
       try: readPasswordFromStdin(prompt)
       except IOError:
-        error "STDIN not readable. Cannot obtain KeyStore password"
+        error "STDIN not readable. Cannot obtain Keystore password"
         return
 
-    let decrypted = decryptKeystore(keystoreContents, passphrase)
+    let decrypted = decryptKeystore(keystore, passphrase)
     if decrypted.isOk:
       return decrypted.get.some
     else:
@@ -79,7 +82,7 @@ iterator validatorKeys*(conf: BeaconNodeConf|ValidatorClientConf): ValidatorPriv
     for kind, file in walkDir(validatorsDir):
       if kind == pcDir:
         let keyName = splitFile(file).name
-        let key = loadKeyStore(conf, validatorsDir, keyName)
+        let key = loadKeystore(conf, validatorsDir, keyName)
         if key.isSome:
           yield key.get
         else:
@@ -90,46 +93,28 @@ iterator validatorKeys*(conf: BeaconNodeConf|ValidatorClientConf): ValidatorPriv
     quit 1
 
 type
-  GenerateDepositsError = enum
+  KeystoreGenerationError = enum
     RandomSourceDepleted,
     FailedToCreateValidatoDir
     FailedToCreateSecretFile
     FailedToCreateKeystoreFile
 
-proc generateDeposits*(preset: RuntimePreset,
-                       rng: var BrHmacDrbgContext,
-                       walletData: WalletDataForDeposits,
-                       totalValidators: int,
-                       validatorsDir: string,
-                       secretsDir: string): Result[seq[DepositData], GenerateDepositsError] =
-  var deposits: seq[DepositData]
+proc saveKeystore(rng: var BrHmacDrbgContext,
+                  validatorsDir, secretsDir: string,
+                  signingKey: ValidatorPrivKey, signingPubKey: ValidatorPubKey,
+                  signingKeyPath: KeyPath): Result[void, KeystoreGenerationError] =
+  let
+    keyName = $signingPubKey
+    validatorDir = validatorsDir / keyName
 
-  info "Generating deposits", totalValidators, validatorsDir, secretsDir
+  if not existsDir(validatorDir):
+    var password = KeystorePass getRandomBytes(rng, 32).toHex
+    defer: burnMem(password)
 
-  let withdrawalKeyPath = makeKeyPath(0, withdrawalKeyKind)
-  # TODO: Explain why we are using an empty password
-  var withdrawalKey = keyFromPath(walletData.mnemonic, KeyStorePass"", withdrawalKeyPath)
-  defer: burnMem(withdrawalKey)
-  let withdrawalPubKey = withdrawalKey.toPubKey
-
-  for i in 0 ..< totalValidators:
-    let keyStoreIdx = walletData.nextAccount + i
-    let password = KeyStorePass getRandomBytes(rng, 32).toHex
-
-    let signingKeyPath = withdrawalKeyPath.append keyStoreIdx
-    var signingKey = deriveChildKey(withdrawalKey, keyStoreIdx)
-    defer: burnMem(signingKey)
-    let signingPubKey = signingKey.toPubKey
-
-    let keyStore = encryptKeystore(KdfPbkdf2, rng, signingKey,
-                                   password, signingKeyPath)
     let
-      keyName = $signingPubKey
-      validatorDir = validatorsDir / keyName
+      keyStore = createKeystore(kdfPbkdf2, rng, signingKey,
+                                password, signingKeyPath)
       keystoreFile = validatorDir / keystoreFileName
-
-    if existsDir(validatorDir):
-      continue
 
     try: createDir validatorDir
     except OSError, IOError: return err FailedToCreateValidatoDir
@@ -137,8 +122,37 @@ proc generateDeposits*(preset: RuntimePreset,
     try: writeFile(secretsDir / keyName, password.string)
     except IOError: return err FailedToCreateSecretFile
 
-    try: writeFile(keystoreFile, keyStore.string)
-    except IOError: return err FailedToCreateKeystoreFile
+    try: Json.saveFile(keystoreFile, keyStore)
+    except IOError, SerializationError:
+      return err FailedToCreateKeystoreFile
+
+  ok()
+
+proc generateDeposits*(preset: RuntimePreset,
+                       rng: var BrHmacDrbgContext,
+                       walletData: WalletDataForDeposits,
+                       totalValidators: int,
+                       validatorsDir: string,
+                       secretsDir: string): Result[seq[DepositData], KeystoreGenerationError] =
+  var deposits: seq[DepositData]
+
+  info "Generating deposits", totalValidators, validatorsDir, secretsDir
+
+  let withdrawalKeyPath = makeKeyPath(0, withdrawalKeyKind)
+  # TODO: Explain why we are using an empty password
+  var withdrawalKey = keyFromPath(walletData.mnemonic, KeystorePass"", withdrawalKeyPath)
+  defer: burnMem(withdrawalKey)
+  let withdrawalPubKey = withdrawalKey.toPubKey
+
+  for i in 0 ..< totalValidators:
+    let keyStoreIdx = walletData.nextAccount + i
+    let signingKeyPath = withdrawalKeyPath.append keyStoreIdx
+    var signingKey = deriveChildKey(withdrawalKey, keyStoreIdx)
+    defer: burnMem(signingKey)
+    let signingPubKey = signingKey.toPubKey
+
+    ? saveKeystore(rng, validatorsDir, secretsDir,
+                   signingKey, signingPubKey, signingKeyPath)
 
     deposits.add preset.prepareDeposit(withdrawalPubKey, signingKey, signingPubKey)
 
@@ -153,18 +167,18 @@ const
     minWordLength = minPasswordLen)
 
 proc saveWallet*(wallet: Wallet, outWalletPath: string): Result[void, string] =
-  let
-    uuid = wallet.uuid
-    walletContent = WalletContent Json.encode(wallet, pretty = true)
-
   try: createDir splitFile(outWalletPath).dir
   except OSError, IOError:
     let e = getCurrentException()
     return err("failure to create wallet directory: " & e.msg)
 
-  try: writeFile(outWalletPath, string walletContent)
+  try: Json.saveFile(outWalletPath, wallet, pretty = true)
   except IOError as e:
     return err("failure to write file: " & e.msg)
+  except SerializationError as e:
+    # TODO: Saving a wallet should not produce SerializationErrors.
+    # Investigate the source of this exception.
+    return err("failure to serialize wallet: " & e.formatMsg("wallet"))
 
   ok()
 
@@ -195,6 +209,65 @@ proc resetAttributesNoError() =
   else:
     try: stdout.resetAttributes()
     except IOError: discard
+
+proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
+                             importedDir, validatorsDir, secretsDir: string) =
+  var password: TaintedString
+  defer: burnMem(password)
+
+  try:
+    for file in walkDirRec(importedDir):
+      let ext = splitFile(file).ext
+      if toLowerAscii(ext) != ".json":
+        continue
+
+      let keystore = try:
+        Json.loadFile(file, Keystore)
+      except SerializationError as e:
+        warn "Invalid keystore", err = e.formatMsg(file)
+        continue
+      except IOError as e:
+        warn "Failed to read keystore file", file, err = e.msg
+        continue
+
+      var firstDecryptionAttempt = true
+
+      while true:
+        var secret = decryptCryptoField(keystore.crypto, KeystorePass password)
+
+        if secret.len == 0:
+          if firstDecryptionAttempt:
+            try:
+              echo "Please enter the password for decrypting '$1' " &
+                   "or press ENTER to skip importing this keystore" % [file]
+            except ValueError:
+              raiseAssert "The format string above is correct"
+          else:
+            echo "The entered password was incorrect. Please try again."
+          firstDecryptionAttempt = false
+
+          if not readPasswordInput("Password: ", password):
+            echo "System error while entering password. Please try again."
+
+          if password.len == 0:
+            break
+        else:
+          let privKey = ValidatorPrivKey.fromRaw(secret)
+          if privKey.isOk:
+            let pubKey = privKey.value.toPubKey
+            let status = saveKeystore(rng, validatorsDir, secretsDir,
+                                      privKey.value, pubKey,
+                                      keystore.path)
+            if status.isOk:
+              info "Keystore imported", file
+            else:
+              error "Failed to import keystore", file, err = status.error
+          else:
+            error "Imported keystore holds invalid key", file, err = privKey.error
+          break
+  except OSError:
+    fatal "Failed to access the imported deposits directory"
+    quit 1
 
 proc createWalletInteractively*(
     rng: var BrHmacDrbgContext,
@@ -310,9 +383,8 @@ proc createWalletInteractively*(
                      continue
           break
 
-      let wallet = KdfPbkdf2.createWallet(rng, mnemonic,
-                                          name = name,
-                                          password = KeyStorePass password)
+      let wallet = createWallet(kdfPbkdf2, rng, mnemonic,
+                                name = name, password = KeystorePass password)
 
       let outWalletFileFlag = conf.outWalletFile
       let outWalletFile = if outWalletFileFlag.isSome:
@@ -338,27 +410,19 @@ proc loadWallet*(fileName: string): Result[Wallet, string] =
     err e.msg
 
 proc unlockWalletInteractively*(wallet: Wallet): Result[WalletDataForDeposits, string] =
-  var json: JsonNode
-  try:
-    json = parseJson wallet.crypto.string
-  except Exception as e: # TODO: parseJson shouldn't raise general `Exception`
-    if e[] of Defect: raise (ref Defect)(e)
-    else: return err "failure to parse crypto field"
-
-  var password: TaintedString
-
   echo "Please enter the password for unlocking the wallet"
 
   for i in 1..3:
+    var password: TaintedString
     try:
       if not readPasswordInput("Password: ", password):
         return err "failure to read password from stdin"
 
-      var status = decryptoCryptoField(json, KeyStorePass password)
-      if status.isOk:
-        defer: burnMem(status.value)
+      var secret = decryptCryptoField(wallet.crypto, KeystorePass password)
+      if secret.len > 0:
+        defer: burnMem(secret)
         return ok WalletDataForDeposits(
-          mnemonic: Mnemonic string.fromBytes(status.value))
+          mnemonic: Mnemonic string.fromBytes(secret))
       else:
         echo "Unlocking of the wallet failed. Please try again."
     finally:

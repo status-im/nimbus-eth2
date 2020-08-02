@@ -26,8 +26,9 @@ type
     list    = "Lists details about all wallets"
 
   DepositsCmd* {.pure.} = enum
-    create = "Creates validator keystores and deposits"
-    status = "Displays status information about all deposits"
+    create   = "Creates validator keystores and deposits"
+    `import` = "Imports password-protected keystores interactively"
+    status   = "Displays status information about all deposits"
 
   VCStartUpCmd* = enum
     VCNoCommand
@@ -57,6 +58,10 @@ type
     validatorsDirFlag* {.
       desc: "A directory containing validator keystores"
       name: "validators-dir" }: Option[InputDir]
+
+    secretsDirFlag* {.
+      desc: "A directory containing validator keystore passwords"
+      name: "secrets-dir" }: Option[InputDir]
 
     walletsDirFlag* {.
       desc: "A directory containing wallet files"
@@ -124,10 +129,6 @@ type
         desc: "Path to a validator keystore"
         abbr: "v"
         name: "validator" }: seq[ValidatorKeyPath]
-
-      secretsDirFlag* {.
-        desc: "A directory containing validator keystore passwords"
-        name: "secrets-dir" }: Option[InputDir]
 
       stateSnapshot* {.
         desc: "SSZ file specifying a recent state snapshot"
@@ -317,11 +318,16 @@ type
 
         newWalletNameFlag* {.
           desc: "An easy-to-remember name for the wallet of your choice"
-          name: "new-wallet-name"}: Option[WalletName]
+          name: "new-wallet-name" }: Option[WalletName]
 
         newWalletFileFlag* {.
           desc: "Output wallet file"
           name: "new-wallet-file" }: Option[OutFile]
+
+      of DepositsCmd.`import`:
+        importedDepositsDir* {.
+          argument
+          desc: "A directory with keystores to import" }: InputDir
 
       of DepositsCmd.status:
         discard

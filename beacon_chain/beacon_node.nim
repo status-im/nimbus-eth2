@@ -1249,6 +1249,12 @@ programMain:
         error "Failed to create launchpad deposit data file", err = err.msg
         quit 1
 
+    of DepositsCmd.`import`:
+      importKeystoresFromDir(
+        rng[],
+        config.importedDepositsDir.string,
+        config.validatorsDir, config.secretsDir)
+
     of DepositsCmd.status:
       echo "The status command is not implemented yet"
       quit 1
