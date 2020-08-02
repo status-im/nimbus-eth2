@@ -491,6 +491,7 @@ proc createKeystore*(kdfKind: KdfKind,
                      privKey: ValidatorPrivkey,
                      password = KeystorePass "",
                      path = KeyPath "",
+                     description = "",
                      salt: openarray[byte] = @[],
                      iv: openarray[byte] = @[]): Keystore =
   let
@@ -503,6 +504,7 @@ proc createKeystore*(kdfKind: KdfKind,
     crypto: cryptoField,
     pubkey: pubkey,
     path: path,
+    description: description,
     uuid: $uuid,
     version: 4)
 
