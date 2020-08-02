@@ -162,6 +162,7 @@ proc isValidAttestation*(
   let attestationBlck = pool.chainDag.getRef(attestation.data.beacon_block_root)
   if attestationBlck.isNil:
     debug "Block not found"
+    pool.addUnresolved(attestation)
     pool.quarantine.addMissing(attestation.data.beacon_block_root)
     return false
 
