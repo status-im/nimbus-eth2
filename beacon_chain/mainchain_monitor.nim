@@ -544,7 +544,7 @@ proc findGenesisBlockInRange(m: MainchainMonitor,
       secondsPerBlock = float(endBlock.timestamp - startBlock.timestamp) /
                         float(endBlock.number - startBlock.number)
       blocksToJump = max(float(MIN_GENESIS_TIME - startBlockTime) / secondsPerBlock, 1.0)
-      candidateNumber = min(endBlock.number - 1, startBlock.number + blocksToJump.uint64)
+      candidateNumber = min(endBlock.number - 1, startBlock.number + 1) # blocksToJump.uint64)
       candidateBlock = await dataProvider.getBlockByNumber(candidateNumber)
 
     var candidateAsEth1Block = Eth1Block(number: candidateBlock.number.uint64,
@@ -564,6 +564,11 @@ proc findGenesisBlockInRange(m: MainchainMonitor,
     else:
       endBlock = candidateAsEth1Block
 
+  info "Genesis block selected",
+       blockNum = endBlock.number,
+       blockHash = endBlock.voteData.block_hash,
+       blockTime = endBlock.timestamp
+
   return endBlock
 
 proc checkForGenesisLoop(m: MainchainMonitor) {.async.} =
@@ -577,6 +582,13 @@ proc checkForGenesisLoop(m: MainchainMonitor) {.async.} =
         let
           genesisCandidateIdx = genesisCandidateIdx.get
           genesisCandidate =  m.eth1Chain.blocks[genesisCandidateIdx]
+
+        info "Generating state for candidate block for genesis",
+             blockNum = genesisCandidate.number,
+             blockHash = genesisCandidate.voteData.block_hash,
+             potentialDeposits = genesisCandidate.voteData.deposit_count
+
+        let
           candidateState = m.createBeaconState(genesisCandidate)
 
         if genesisCandidate.knownGoodDepositsCount.get >= m.preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
@@ -755,7 +767,7 @@ proc run(m: MainchainMonitor, delayBeforeStart: Duration) {.async.} =
       url = m.dataProviderFactory.desc
 
     await dataProvider.onBlockHeaders do (blk: Eth1BlockHeader)
-                                         {.raises: [Defect], gcsafe}:
+                                         {.raises: [Defect], gcsafe.}:
       try:
         m.depositQueue.addLastNoWait(blk)
       except AsyncQueueFullError:

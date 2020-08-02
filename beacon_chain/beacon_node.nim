@@ -1079,7 +1079,7 @@ programMain:
       for node in metadata.bootstrapNodes:
         config.bootstrapNodes.add node
 
-      if config.stateSnapshot.isNone:
+      if config.stateSnapshot.isNone and metadata.genesisData.len > 0:
         config.stateSnapshotContents = newClone metadata.genesisData
 
     template checkForIncompatibleOption(flagName, fieldName) =
