@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  algorithm, os, tables, strutils, sequtils, times, math, terminal,
+  std/[algorithm, os, tables, strutils, sequtils, times, math, terminal],
 
   # Nimble packages
   stew/[objects, byteutils, endians2], stew/shims/macros,
@@ -727,7 +727,7 @@ proc installDebugApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
     for id, peer in node.network.peerPool:
       peers.add(
         %(
-          info: shortLog(peer.info),
+          info: peer.peerId,
           wasDialed: peer.wasDialed,
           connectionState: $peer.connectionState,
           score: peer.score,
@@ -855,7 +855,7 @@ proc createPidFile(filename: string) =
   addQuitProc proc {.noconv.} = removeFile gPidFile
 
 proc initializeNetworking(node: BeaconNode) {.async.} =
-  node.network.startListening()
+  await node.network.startListening()
 
   let addressFile = node.config.dataDir / "beacon_node.enr"
   writeFile(addressFile, node.network.announcedENR.toURI)

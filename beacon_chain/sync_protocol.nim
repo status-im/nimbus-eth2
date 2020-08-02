@@ -91,7 +91,7 @@ p2pProtocol BeaconSync(version = 1,
 
   onPeerConnected do (peer: Peer) {.async.}:
     debug "Peer connected",
-      peer, peerInfo = shortLog(peer.info), wasDialed = peer.wasDialed
+      peer, peerInfo = peer.peerId, wasDialed = peer.wasDialed
     if peer.wasDialed:
       let
         ourStatus = peer.networkState.getCurrentStatus()

@@ -32,7 +32,7 @@ template RecType*(MSG: type pingObj): untyped =
 
 type
   getMetadataObj* = object
-  
+
 template getMetadata*(PROTO: type BeaconSync): type =
   getMetadataObj
 
@@ -375,7 +375,7 @@ proc BeaconSyncPeerConnected(peer: Peer; stream: Connection) {.async, gcsafe.} =
     cast[ref[BeaconSyncNetworkState:ObjectType]](getNetworkState(peer.network,
         BeaconSyncProtocol))
 
-  debug "Peer connected", peer, peerInfo = shortLog(peer.info),
+  debug "Peer connected", peer, peerInfo = peer.peerId,
        wasDialed = peer.wasDialed
   if peer.wasDialed:
     let
