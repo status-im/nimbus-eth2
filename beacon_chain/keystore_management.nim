@@ -95,7 +95,8 @@ iterator validatorKeys*(conf: BeaconNodeConf|ValidatorClientConf): ValidatorPriv
 type
   KeystoreGenerationError = enum
     RandomSourceDepleted,
-    FailedToCreateValidatoDir
+    FailedToCreateValidatorDir
+    FailedToCreateSecretsDir
     FailedToCreateSecretFile
     FailedToCreateKeystoreFile
 
@@ -117,7 +118,10 @@ proc saveKeystore(rng: var BrHmacDrbgContext,
       keystoreFile = validatorDir / keystoreFileName
 
     try: createDir validatorDir
-    except OSError, IOError: return err FailedToCreateValidatoDir
+    except OSError, IOError: return err FailedToCreateValidatorDir
+
+    try: createDir secretsDir
+    except OSError, IOError: return err FailedToCreateSecretsDir
 
     try: writeFile(secretsDir / keyName, password.string)
     except IOError: return err FailedToCreateSecretFile
@@ -238,8 +242,9 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
         if secret.len == 0:
           if firstDecryptionAttempt:
             try:
-              echo "Please enter the password for decrypting '$1' " &
-                   "or press ENTER to skip importing this keystore" % [file]
+              const msg = "Please enter the password for decrypting '$1' " &
+                          "or press ENTER to skip importing this keystore"
+              echo msg % [file]
             except ValueError:
               raiseAssert "The format string above is correct"
           else:
