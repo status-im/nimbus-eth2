@@ -217,9 +217,9 @@ const
     ## Period of time for dead peers.
   SeenTableTimeIrrelevantNetwork* = 24.hours
     ## Period of time for `IrrelevantNetwork` error reason.
-  SeenTableTimeClientShutDown* = 10.minutes
+  SeenTableTimeClientShutDown* = 1.minutes
     ## Period of time for `ClientShutDown` error reason.
-  SeemTableTimeFaultOrError* = 10.minutes
+  SeemTableTimeFaultOrError* = 1.minutes
     ## Period of time for `FaultOnError` error reason.
 
 var successfullyDialledAPeer = false # used to show a warning
@@ -757,8 +757,8 @@ proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   var peer = node.getPeer(peerInfo)
   peer.wasDialed = true
 
-  if not(isNil(peer)) and isNil(peer.pubsubFut):
-    peer.pubsubFut = node.switch.subscribePeer(peerInfo)
+  # if not(isNil(peer)) and isNil(peer.pubsubFut):
+  #   peer.pubsubFut = node.switch.subscribePeer(peerInfo)
 
   #let msDial = newMultistream()
   #let conn = node.switch.connections.getOrDefault(peerInfo.id)
