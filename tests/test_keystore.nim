@@ -45,6 +45,7 @@ const
             "message": "54ecc8863c0550351eee5720f3be6a5d4a016025aa91cd6436cfec938d6a8d30"
         }
     },
+    "description": "This is a test keystore that uses scrypt to secure the secret.",
     "pubkey": "9612d7a727c9d0a22e185a1c768478dfe919cada9266988cb32359c11f2b7b27f4ae4040902382ae2910c15e2b420d07",
     "path": "m/12381/60/3141592653/589793238",
     "uuid": "1d85ae20-35c5-4611-98e8-aa14a633906f",
@@ -76,6 +77,7 @@ const
             "message": "a9249e0ca7315836356e4c7440361ff22b9fe71e2e2ed34fc1eb03976924ed48"
         }
     },
+    "description": "This is a test keystore that uses scrypt to secure the secret.",
     "pubkey": "9612d7a727c9d0a22e185a1c768478dfe919cada9266988cb32359c11f2b7b27f4ae4040902382ae2910c15e2b420d07",
     "path": "m/12381/60/0/0",
     "uuid": "64625def-3331-4eea-ab6f-782f3ed16a83",
@@ -86,6 +88,8 @@ const
   secretBytes = hexToSeqByte("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f")
   salt = hexToSeqByte("d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
   iv = hexToSeqByte("264daa3f303d7259501c93d997d84fe6")
+
+  description = "This is a test keystore that uses scrypt to secure the secret."
 
 let
   rng = newRng()
@@ -106,6 +110,7 @@ suiteReport "Keystore":
     let keystore = createKeystore(kdfPbkdf2, rng[], secret,
                                   KeystorePass password,
                                   salt=salt, iv=iv,
+                                  description = description,
                                   path = validateKeyPath "m/12381/60/0/0")
     var
       encryptJson = parseJson Json.encode(keystore)
