@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Running the beacon node - The Nimbus Beacon Chain Book</title>
+        <title>Run the beacon node - The Nimbus Beacon Chain Book</title>
         
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="beacon_node.html" class="active"><strong aria-hidden="true">3.</strong> Running the beacon node</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">4.</strong> Becoming a Validator</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">5.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">7.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">8.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html" class="active"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">5.</strong> Become a validator (custom)</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">6.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">7.</strong> Advanced usage for developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">8.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">9.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -148,30 +148,33 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#the-beacon-node" id="the-beacon-node">The beacon node</a></h1>
-<p>The beacon node application connects to an Ethereum 2 network, manages the block chain and provides API's to interact with the beacon chain.</p>
-<p>You can run the beacon node without being a validator - doing so will allow you to sync the network and access its latest state.</p>
+<p>The beacon node application connects to the eth2 network, manages the blockchain, and provides API's to interact with the beacon chain.</p>
+<p>You can run the beacon node without being a validator - doing so allows you to sync the network and access its latest state.</p>
 <h2><a class="header" href="#prerequisites" id="prerequisites">Prerequisites</a></h2>
-<p>Before compiling and running the application, make sure you've completed the <a href="./install.html">installation guidelines</a> for the prerequisites.</p>
+<p>Before compiling and running the application, make sure you've gone through the <a href="./install.html">installation guidelines</a>.</p>
 <h2><a class="header" href="#running-the-node" id="running-the-node">Running the node</a></h2>
-<p>When running the beacon node, you connect to a specific ethereum 2 network - this may be a private network or a public testnet like <a href="https://github.com/goerli/altona/tree/master/altona">altona</a>.</p>
+<p>When running the beacon node, you connect to a specific ethereum 2 network - this may be a private network or a public testnet like <a href="https://github.com/goerli/medalla/">Medalla</a>.</p>
 <p>When running the node for the first time, you need to specify network parameters, boot nodes and genesis information. This information can typically be found in the <a href="https://github.com/eth2-clients/eth2-testnets">eth2 testnets</a> repository. This information is automatically downloaded when using the simplified startup.</p>
-<p>Once the beacon node is running, it will first connect to the boot nodes in the network, look for more peers and start syncing the chain. Once sync is complete, it will keep following the head of the chain and can be interacted with through the <a href="./api.html">API</a>.</p>
-<p>Before running the beacon node, it is important that computer has the correct time set - preferably from a trusted time source (this can be an NTP server you trust, GPS time or any other precise source of time).</p>
-<p>To start syncing the <code>altona</code> network, run the build process. When asked for a key, just press enter.</p>
-<pre><code>$ make altona
+<p>Once the beacon node is running, it will first connect to the boot nodes in the network, look for more peers and start syncing the chain. Once the sync is complete, it will keep following the head of the chain (you can interact with it through the <a href="./api.html">API</a>.</p>
+<p>Before running the beacon node, it's important that your computer is set to the correct time - preferably using a trusted time source (this can be an NTP server you trust, GPS time or another precise source of time) -- however don't worry if you're unsure of how to do this, it isn't essential for testnet purposes.</p>
+<h3><a class="header" href="#syncing" id="syncing">Syncing</a></h3>
+<p>To start syncing the <code>medalla</code> network:</p>
+<h4><a class="header" href="#1-clone-the-nim-beacon-chain-repository" id="1-clone-the-nim-beacon-chain-repository">1. Clone the nim beacon chain repository</a></h4>
+<pre><code>git clone https://github.com/status-im/nim-beacon-chain
+cd nim-beacon-chain
+</code></pre>
+<h4><a class="header" href="#2-run-the-build-process" id="2-run-the-build-process">2. Run the build process</a></h4>
+<pre><code>make medalla
 
 # Build output...
 
-Please enter your Goerli Eth1 private key in hex form (e.g. 0x1a2...f3c) in order to become a validator (you'll need access to 32 GoETH).
-Hit Enter to skip this.
-&gt;
 </code></pre>
-<p>Hit enter above - you will be prompted again if you want to become a validator. Beacon node will launch and start syncing.</p>
-<pre><code>INF 2020-07-03 15:28:15+02:00 Starting beacon node                       topics=&quot;beacnde&quot; tid=176865 file=beacon_node.nim:866 SECONDS_PER_SLOT=12 SLOTS_PER_EPOCH=32 SPEC_VERSION=0.12.1 cat=init dataDir=/home/arnetheduck/status/nim-beacon-chain/build/data/shared_altona_0 finalizedRoot=72e7b21c finalizedSlot=20064 headRoot=f92bf720 headSlot=20142 nim=&quot;Nim Compiler Version 1.2.2 [Linux: amd64] (be34b5ab)&quot; pcs=start_beacon_node timeSinceFinalization=-108322 version=&quot;0.5.0 (c64737e)&quot;
+<p>This will build Nimbus and its dependencies, and connect you to Medalla.
+You should see that the beacon node has launched and started syncing.</p>
+<pre><code>INF 2020-07-03 15:28:15+02:00 Starting beacon node                       topics=&quot;beacnde&quot; tid=176865 file=beacon_node.nim:866 SECONDS_PER_SLOT=12 SLOTS_PER_EPOCH=32 SPEC_VERSION=0.12.1 cat=init dataDir=/home/arnetheduck/status/nim-beacon-chain/build/data/shared_medalla_0 finalizedRoot=72e7b21c finalizedSlot=20064 headRoot=f92bf720 headSlot=20142 nim=&quot;Nim Compiler Version 1.2.2 [Linux: amd64] (be34b5ab)&quot; pcs=start_beacon_node timeSinceFinalization=-108322 version=&quot;0.5.0 (c64737e)&quot;
 
 
  peers: 7 ❯ finalized: 3a806c9f:634 ❯ head: b364f8e9:636:29 ❯ time: 909:7 (29095)              ETH: 0.0
-
 </code></pre>
 <h3><a class="header" href="#status-bar" id="status-bar">Status bar</a></h3>
 <p>The status bar shows important health information about your node:</p>
@@ -187,7 +190,7 @@ Hit Enter to skip this.
 <h3><a class="header" href="#metrics" id="metrics">Metrics</a></h3>
 <p>Nimbus includes metrics support using the Prometheus format. To enable it, you need to enable insecure feature when compiling the application. The http server that exports Prometheus metrics should not be exposed to external parties.</p>
 <pre><code># Compile with insecure features enabled
-make NIMFLAGS=&quot;-d:insecure&quot; altona
+make NIMFLAGS=&quot;-d:insecure&quot; medalla
 </code></pre>
 <h2><a class="header" href="#command-line-options" id="command-line-options">Command line options</a></h2>
 <pre><code>$ ./beacon_node --help
@@ -236,7 +239,7 @@ The following options are available:
 
 Available sub-commands:
 
-beacon_node_shared_altona_0 createTestnet [OPTIONS]...
+beacon_node_shared_medalla_0 createTestnet [OPTIONS]...
 
 The following options are available:
 
@@ -252,7 +255,7 @@ The following options are available:
      --with-genesis-root       Include a genesis root in 'network.json'.
      --output-bootstrap-file   Output file with list of bootstrap nodes for the network.
 
-beacon_node_shared_altona_0 deposits [OPTIONS]... command
+beacon_node_shared_medalla_0 deposits [OPTIONS]... command
 
 The following options are available:
 
@@ -260,7 +263,7 @@ The following options are available:
 
 Available sub-commands:
 
-beacon_node_shared_altona_0 deposits create [OPTIONS]...
+beacon_node_shared_medalla_0 deposits create [OPTIONS]...
 
 Creates validator keystores and deposits.
 
@@ -268,32 +271,32 @@ The following options are available:
 
      --count                   Number of deposits to generate.
      --wallet                  An existing wallet ID. If not specified, a new wallet will be created.
-     --out-deposits-dir        Output folder for validator keystores and deposits.
+     --out-validatorss-dir     Output folder for validator keystores and deposits.
      --out-secrets-dir         Output folder for randomly generated keystore passphrases.
      --dont-send               By default, all created deposits are also immediately sent to the validator
                                deposit contract. You can use this option to prevent this behavior. Use the
                                `deposits send` command to send the deposit transactions at your convenience
                                later.
 
-beacon_node_shared_altona_0 deposits send [OPTIONS]...
+beacon_node_shared_medalla_0 deposits send [OPTIONS]...
 
 Sends prepared deposits to the validator deposit contract.
 
 The following options are available:
 
-     --deposits-dir            A folder with validator metadata created by the `deposits create` command.
+     --validators-dir          A folder with validator metadata created by the `deposits create` command.
      --min-delay               Minimum possible delay between making two deposits (in seconds).
      --max-delay               Maximum possible delay between making two deposits (in seconds).
 
-beacon_node_shared_altona_0 deposits status
+beacon_node_shared_medalla_0 deposits status
 
 Displays status information about all deposits.
 
-beacon_node_shared_altona_0 wallets command
+beacon_node_shared_medalla_0 wallets command
 
 Available sub-commands:
 
-beacon_node_shared_altona_0 wallets create [OPTIONS]...
+beacon_node_shared_medalla_0 wallets create [OPTIONS]...
 
 Creates a new EIP-2386 wallet.
 
@@ -303,7 +306,7 @@ The following options are available:
      --next-account            Initial value for the 'nextaccount' property of the wallet.
      --out                     Output wallet file.
 
-beacon_node_shared_altona_0 wallets restore [OPTIONS]...
+beacon_node_shared_medalla_0 wallets restore [OPTIONS]...
 
 Restores a wallet from cold storage.
 
@@ -314,7 +317,7 @@ The following options are available:
                                guess the number by inspecting the latest beacon state.
      --out                     Output wallet file.
 
-beacon_node_shared_altona_0 wallets list
+beacon_node_shared_medalla_0 wallets list
 
 Lists details about all wallets.
 </code></pre>
@@ -326,7 +329,7 @@ Lists details about all wallets.
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="install.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="medalla.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
@@ -344,7 +347,7 @@ Lists details about all wallets.
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="install.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="medalla.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 

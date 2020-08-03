@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">3.</strong> Running the beacon node</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">4.</strong> Becoming a Validator</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">5.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">7.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">8.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">5.</strong> Become a validator (custom)</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">6.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">7.</strong> Advanced usage for developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">8.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">9.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -147,30 +147,41 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#the-nim-beacon-chain-book" id="the-nim-beacon-chain-book">The nim-beacon-chain Book</a></h1>
-<p><em>Documentation for Nimbus Beacon Chain users and developers.</em></p>
-<p>Nimbus beacon chain is a research implementation of the beacon chain component of the upcoming Ethereum Serenity upgrade, aka Eth2.</p>
+                        <h1><a class="header" href="#the-nim-beacon-chain-book" id="the-nim-beacon-chain-book">The nim-beacon-chain book</a></h1>
+<p><em>Documentation for Nimbus beacon chain users and developers.</em></p>
+<p>The Nimbus beacon chain is a research implementation of the Beacon Chain – the core system level chain at the heart of Ethereum 2.0.</p>
 <ul>
-<li>Open sourced at <a href="https://github.com/status-im/nim-beacon-chain/tree/master">github.com/status-im/nim-beacon-chain</a>.</li>
-<li>Specification of our implementation can be found at <a href="https://github.com/ethereum/eth2.0-specs/tree/v0.12.1#phase-0">ethereum/eth2.0-specs</a>.</li>
+<li>
+<p>Open sourced at <a href="https://github.com/status-im/nim-beacon-chain/tree/master">github.com/status-im/nim-beacon-chain</a></p>
+</li>
+<li>
+<p>Specification described at <a href="https://github.com/ethereum/eth2.0-specs/tree/v0.12.2#phase-0">ethereum/eth2.0-specs</a></p>
+</li>
+<li>
+<p><a href="https://benjaminion.xyz/eth2-annotated-spec/phase0/beacon-chain/">Annotated Specification</a> </p>
+</li>
+<li>
+<p><a href="./medalla.html">Become a Medalla validator</a></p>
+</li>
 </ul>
 <h2><a class="header" href="#overview" id="overview">Overview</a></h2>
 <p>In this book, we will cover:</p>
 <ol>
-<li><a href="./faq.html#1-what-is-beacon-chain">What is beacon chain</a> and <a href="./faq.html#4-what-is-nimbus">what is Nimbus</a> to equip you with some basic knowledge.</li>
-<li><a href="./install.html">Installation steps</a> outline the prerequisites to get started.</li>
-<li><a href="./beacon_node.html">Running the beacon node</a> describes how to run the beacon node software to sync the beacon chain.</li>
-<li>How to <a href="./validator.html">become a validator</a> in Ethereum 2.0 as a user, for example on the Altona testnet.</li>
-<li><a href="./api.html">API</a> for monitoring your node through <code>http</code>.</li>
+<li>An introduction to the <a href="./faq.html#1-what-is-beacon-chain">beacon chain</a> and <a href="./faq.html#4-what-is-nimbus">Nimbus</a> to equip you with some basic knowledge.</li>
+<li><a href="./install.html">Installation steps</a> outlining the prerequisites to get started.</li>
+<li><a href="./medalla.html">Become a Medalla validator</a>: If you generated your signing key using the eth2 launchpad, and wish to import it into the Nimbus client, this page is for you.</li>
+<li>How to <a href="./beacon_node.html">run the beacon node</a> software to sync the beacon chain.</li>
+<li>How to generate keys, deposit, and <a href="./validator.html">become a validator</a> in eth2.</li>
+<li>The <a href="./api.html">API</a> for monitoring your node through <code>http</code>.</li>
 <li><a href="./advanced.html">Advanced usage</a> for developers.</li>
 <li>Common <a href="./faq.html">questions and answers</a> to satisfy your curiosity.</li>
 <li>How to <a href="./contribute.html">contribute</a> to this book.</li>
 </ol>
-<p>Feel free to give us feedback on how to improve as well as contribute to our book on github. :)</p>
+<p>Feel free to give us feedback on how to improve :)</p>
 <h2><a class="header" href="#get-in-touch" id="get-in-touch">Get in touch</a></h2>
 <p>Need help with anything? Join us using <a href="https://join.status.im/nimbus-general">Status</a> or <a href="https://discord.gg/9dWwPnG">Discord</a>!</p>
 <h2><a class="header" href="#disclaimer" id="disclaimer">Disclaimer</a></h2>
-<p>This documentation is assuming Nimbus is in its ideal state. The project is still under active development. Please submit Github issues if encountered any problem.</p>
+<p>This documentation assumes Nimbus is in its ideal state. The project is still under active development. Please submit a <a href="https://github.com/status-im/nim-beacon-chain/issues">Github issue</a> if you come across a problem.</p>
 <!-- > > > TODO:
 
 1. fill up the gitbook content

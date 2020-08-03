@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Becoming a Validator - The Nimbus Beacon Chain Book</title>
+        <title>Become a validator (custom) - The Nimbus Beacon Chain Book</title>
         
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">3.</strong> Running the beacon node</a></li><li class="chapter-item expanded "><a href="validator.html" class="active"><strong aria-hidden="true">4.</strong> Becoming a Validator</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">5.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">7.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">8.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="validator.html" class="active"><strong aria-hidden="true">5.</strong> Become a validator (custom)</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">6.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">7.</strong> Advanced usage for developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">8.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">9.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -148,8 +148,12 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#become-a-validator" id="become-a-validator">Become a Validator</a></h1>
-<p>To become a validator, you need to install the beacon chain software, acquire 32 ETH, set up your validator account, and register with the deposit contract on ethereum.</p>
-<p>There is currently no eth2 mainnet - all networks are testnets.</p>
+<blockquote>
+<p>Note, the instructions below currently apply to Altona. They will be updated shortly to explain how you can use Nimbus to create your validator keys and interact with the Medalla deposit contract.</p>
+<p>To become a validator on Medalla using the <a href="https://medalla.launchpad.ethereum.org/">eth2 launchpad</a>, see <a href="./medalla.html">here</a>.</p>
+</blockquote>
+<p>To become a validator, you need to install the beacon chain software, acquire 32 ETH, set up your validator account, and register with the deposit contract on ethereum.
+There is currently no eth2 mainnet - all networks are testnets.</p>
 <h2><a class="header" href="#recommended-testnets" id="recommended-testnets">Recommended Testnets</a></h2>
 <p>Though Nimbus can connect to any of the testnets published in the <a href="https://github.com/eth2-clients/eth2-testnets/tree/master/nimbus">eth2-clients/eth2-testnets repo</a>, below are the recommended ones:</p>
 <ul>

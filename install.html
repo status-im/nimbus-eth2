@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html" class="active"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">3.</strong> Running the beacon node</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">4.</strong> Becoming a Validator</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">5.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> Advanced Usage for Developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">7.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">8.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html" class="active"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">5.</strong> Become a validator (custom)</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">6.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">7.</strong> Advanced usage for developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">8.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">9.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -148,16 +148,17 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#installation" id="installation">Installation</a></h1>
-<p>Beacon chain can run on Linux, macOS, Windows, and Android. At the moment, Nimbus has to be built from source.</p>
+<p>The Beacon chain can run on Linux, macOS, Windows, and Android. At the moment, Nimbus has to be built from source.</p>
 <h2><a class="header" href="#time" id="time">Time</a></h2>
 <p>The beacon chain relies on your computer having the correct time set, down to at most 0.5 seconds.</p>
-<p>It is recommended that you run a high quality time service on your computer such as:</p>
+<p>We recommended you run a high quality time service on your computer such as:</p>
 <ul>
 <li>GPS</li>
 <li>NTS (network time security, IETF draft)</li>
 <li>Roughtime (google)</li>
 </ul>
-<p>As a minimum, you should run an NTP client on the server - NTP may easily be disrupted however.</p>
+<p>As a minimum, you should run an NTP client on the server.</p>
+<p>If that makes no sense to you, don't worry. For testnets, just making sure your computer is set at the correct time should be fine.</p>
 <h2><a class="header" href="#external-dependencies" id="external-dependencies">External Dependencies</a></h2>
 <ul>
 <li>Developer tools (C compiler, Make, Bash, Git)</li>
@@ -192,7 +193,7 @@ Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on 
 <pre><code class="language-sh">apt install build-essential git libpcre3-dev
 </code></pre>
 <h2><a class="header" href="#next-steps" id="next-steps">Next steps</a></h2>
-<p>Once you've installed the prerequisites, you're ready to move on to launching the <a href="./beacon_node.html">beacon node</a>.</p>
+<p>Once you've installed the prerequisites, you're ready to move on to <a href="./medalla.html">running a validator on Medalla</a>.</p>
 
                     </main>
 
@@ -205,7 +206,7 @@ Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on 
                         
 
                         
-                            <a rel="next" href="beacon_node.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="medalla.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -223,7 +224,7 @@ Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on 
                 
 
                 
-                    <a rel="next" href="beacon_node.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="medalla.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
