@@ -882,14 +882,14 @@ template publicKey*(node: Eth2Node): keys.PublicKey =
 template addKnownPeer*(node: Eth2Node, peer: enr.Record) =
   node.discovery.addNode peer
 
-proc startListening*(node: Eth2Node) =
+proc startListening*(node: Eth2Node) {.async.} =
   node.discovery.open()
+  node.libp2pTransportLoops = await node.switch.start()
 
 proc start*(node: Eth2Node) {.async.} =
   for i in 0 ..< ConcurrentConnections:
     node.connWorkers.add connectWorker(node)
 
-  node.libp2pTransportLoops = await node.switch.start()
   node.discovery.start()
   node.discoveryLoop = node.runDiscoveryLoop()
   traceAsyncErrors node.discoveryLoop
