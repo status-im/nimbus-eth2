@@ -137,8 +137,10 @@ type
     runtimePreset*: RuntimePreset
 
   EpochRef* = ref object
-    shuffled_active_validator_indices*: seq[ValidatorIndex]
     epoch*: Epoch
+    current_justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+    shuffled_active_validator_indices*: seq[ValidatorIndex]
 
   BlockRef* = ref object
     ## Node in object graph guaranteed to lead back to tail block, and to have

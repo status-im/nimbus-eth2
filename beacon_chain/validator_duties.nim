@@ -221,8 +221,9 @@ proc proposeSignedBlock*(node: BeaconNode,
         blckRef: BlockRef, signedBlock: SignedBeaconBlock,
         state: HashedBeaconState):
       # Callback add to fork choice if valid
+      let epochRef = getEpochInfo(blckRef, state.data)
       node.attestationPool.addForkChoice(
-        state.data, blckRef, signedBlock.message,
+        epochRef, blckRef, signedBlock.message,
         node.beaconClock.now().slotOrZero())
 
   if newBlockRef.isErr:

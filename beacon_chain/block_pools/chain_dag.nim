@@ -66,6 +66,8 @@ func init*(T: type EpochRef, state: BeaconState): T =
   let epoch = state.get_current_epoch()
   EpochRef(
     epoch: epoch,
+    current_justified_checkpoint: state.current_justified_checkpoint,
+    finalized_checkpoint: state.finalized_checkpoint,
     shuffled_active_validator_indices:
       get_shuffled_active_validator_indices(state, epoch))
 
