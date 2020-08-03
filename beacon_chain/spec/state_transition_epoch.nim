@@ -142,7 +142,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
           matching_target_attestations_previous, stateCache), it.uint32)))
 
     # testnet0 and testnet1 have 8 non-attesting validators each, by default
-    if missing_all_validators.len > 10:
+    if missing_all_validators.len > 15:
       fatal "Missing too many attesters from previous epoch in verifyFinalization mode",
         missing_all_validators
       doAssert false
