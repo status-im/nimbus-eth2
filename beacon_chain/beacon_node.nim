@@ -852,7 +852,7 @@ proc createPidFile(filename: string) =
   addQuitProc proc {.noconv.} = removeFile gPidFile
 
 proc initializeNetworking(node: BeaconNode) {.async.} =
-  node.network.startListening()
+  await node.network.startListening()
 
   let addressFile = node.config.dataDir / "beacon_node.enr"
   writeFile(addressFile, node.network.announcedENR.toURI)
