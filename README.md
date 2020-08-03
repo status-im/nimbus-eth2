@@ -109,40 +109,40 @@ apt install build-essential git libpcre3-dev
 
 ### Connecting to testnets
 
-Once the [prerequisites](#prerequisites) are installed you can connect to the [Altona testnet](https://github.com/goerli/altona) with the following commands:
+Once the [prerequisites](#prerequisites) are installed you can connect to the [Medalla testnet](https://github.com/goerli/medalla) with the following commands:
 
 ```bash
 git clone https://github.com/status-im/nim-beacon-chain
 cd nim-beacon-chain
-make altona           # This will build Nimbus and all other dependencies
-                      # and connect you to Altona
+make medalla           # This will build Nimbus and all other dependencies
+                      # and connect you to Medalla
 ```
 
 You can also start multiple local nodes, in different terminal windows/tabs, by specifying their numeric IDs:
 
 ```bash
-make altona NODE_ID=0 # the default
-make altona NODE_ID=1
-make altona NODE_ID=2
+make medalla NODE_ID=0 # the default
+make medalla NODE_ID=1
+make medalla NODE_ID=2
 ```
 
 If you wish to make a deposit, execute the following command:
 
 ```
-make altona-deposit VALIDATORS=2 # The default is just 1 deposit
+make medalla-deposit VALIDATORS=2 # The default is just 1 deposit
 ```
 
 ### Getting metrics from a local testnet client
 
 ```bash
 # the primitive HTTP server started to serve the metrics is considered insecure
-make NIMFLAGS="-d:insecure" altona
+make NIMFLAGS="-d:insecure" medalla
 ```
 
 You can now see the raw metrics on http://127.0.0.1:8008/metrics but they're not very useful like this, so let's feed them to a Prometheus instance:
 
 ```bash
-prometheus --config.file=build/data/shared_witti_0/prometheus.yml
+prometheus --config.file=build/data/shared_medalla_0/prometheus.yml
 # when starting multiple nodes at the same time, just use the config file from the one with the highest ID
 ```
 
