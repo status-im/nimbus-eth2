@@ -74,7 +74,7 @@ const presetValueLoaders = genExpr(nnkBracket):
               true
             else:
               `constType`(`constNameIdent`) == parse(`constType`, presetValue)
-          except CatchableError as err:
+          except CatchableError:
             false
       )
 

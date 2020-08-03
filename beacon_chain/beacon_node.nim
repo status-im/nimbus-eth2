@@ -38,7 +38,6 @@ const
 
 type
   RpcServer* = RpcHttpServer
-  KeyPair = eth2_network.KeyPair
 
   # "state" is already taken by BeaconState
   BeaconNodeStatus* = enum
@@ -488,7 +487,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   #                     disappear naturally - risky because user is not aware,
   #                     and might lose stake on canonical chain but "just works"
   #                     when reconnected..
-  var head = node.updateHead(slot)
+  discard node.updateHead(slot)
 
   # TODO is the slot of the clock or the head block more interesting? provide
   #      rationale in comment
@@ -524,7 +523,6 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
 proc handleMissingBlocks(node: BeaconNode) =
   let missingBlocks = node.quarantine.checkMissing()
   if missingBlocks.len > 0:
-    var left = missingBlocks.len
     info "Requesting detected missing blocks", blocks = shortLog(missingBlocks)
     node.requestManager.fetchAncestorBlocks(missingBlocks)
 
@@ -640,7 +638,6 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
 
   rpcServer.rpc("getSyncing") do () -> bool:
     let
-      beaconTime = node.beaconClock.now()
       wallSlot = currentSlot(node)
       headSlot = node.chainDag.head.slot
     # FIXME: temporary hack: If more than 1 block away from expected head, then we are "syncing"
