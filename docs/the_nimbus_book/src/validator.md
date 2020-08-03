@@ -1,7 +1,11 @@
 # Become a Validator
 
-To become a validator, you need to install the beacon chain software, acquire 32 ETH, set up your validator account, and register with the deposit contract on ethereum.
+> Note, the instructions below currently apply to Altona. They will be updated shortly to explain how you can use Nimbus to create your validator keys and interact with the Medalla deposit contract.
+>
+> To become a validator on Medalla using the [eth2 launchpad](https://medalla.launchpad.ethereum.org/), see [here](./medalla.md).
 
+
+To become a validator, you need to install the beacon chain software, acquire 32 ETH, set up your validator account, and register with the deposit contract on ethereum.
 There is currently no eth2 mainnet - all networks are testnets.
 
 ## Recommended Testnets

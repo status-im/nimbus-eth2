@@ -2,9 +2,10 @@
 
 - [Introduction](./intro.md)
 - [Installation](./install.md)
-- [Running the beacon node](./beacon_node.md)
-- [Becoming a Validator](./validator.md)
+- [Become a Medalla validator](./medalla.md)
+- [Run the beacon node](./beacon_node.md)
+- [Become a validator (custom)](./validator.md)
 - [API](./api.md)
-- [Advanced Usage for Developers](./advanced.md)
+- [Advanced usage for developers](./advanced.md)
 - [FAQs](./faq.md)
 - [Contribute](./contribute.md)
