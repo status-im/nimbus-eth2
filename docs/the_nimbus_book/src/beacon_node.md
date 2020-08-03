@@ -1,43 +1,52 @@
 # The beacon node
 
-The beacon node application connects to an Ethereum 2 network, manages the block chain and provides API's to interact with the beacon chain.
+The beacon node application connects to the eth2 network, manages the blockchain, and provides API's to interact with the beacon chain.
 
-You can run the beacon node without being a validator - doing so will allow you to sync the network and access its latest state.
+You can run the beacon node without being a validator - doing so allows you to sync the network and access its latest state.
 
 ## Prerequisites
 
-Before compiling and running the application, make sure you've completed the [installation guidelines](./install.md) for the prerequisites.
+Before compiling and running the application, make sure you've gone through the [installation guidelines](./install.md).
 
 ## Running the node
 
-When running the beacon node, you connect to a specific ethereum 2 network - this may be a private network or a public testnet like [altona](https://github.com/goerli/altona/tree/master/altona).
+When running the beacon node, you connect to a specific ethereum 2 network - this may be a private network or a public testnet like [Medalla](https://github.com/goerli/medalla/).
 
 When running the node for the first time, you need to specify network parameters, boot nodes and genesis information. This information can typically be found in the [eth2 testnets](https://github.com/eth2-clients/eth2-testnets) repository. This information is automatically downloaded when using the simplified startup.
 
-Once the beacon node is running, it will first connect to the boot nodes in the network, look for more peers and start syncing the chain. Once sync is complete, it will keep following the head of the chain and can be interacted with through the [API](./api.md).
+Once the beacon node is running, it will first connect to the boot nodes in the network, look for more peers and start syncing the chain. Once the sync is complete, it will keep following the head of the chain (you can interact with it through the [API](./api.md).
 
-Before running the beacon node, it is important that computer has the correct time set - preferably from a trusted time source (this can be an NTP server you trust, GPS time or any other precise source of time).
+Before running the beacon node, it's important that your computer is set to the correct time - preferably using a trusted time source (this can be an NTP server you trust, GPS time or another precise source of time) -- however don't worry if you're unsure of how to do this, it isn't essential for testnet purposes.
 
-To start syncing the `altona` network, run the build process. When asked for a key, just press enter.
+### Syncing
+
+To start syncing the `medalla` network:
+
+
+#### 1. Clone the nim beacon chain repository
 
 ```
-$ make altona
+git clone https://github.com/status-im/nim-beacon-chain
+cd nim-beacon-chain
+```
+
+#### 2. Run the build process
+
+```
+make medalla
 
 # Build output...
 
-Please enter your Goerli Eth1 private key in hex form (e.g. 0x1a2...f3c) in order to become a validator (you'll need access to 32 GoETH).
-Hit Enter to skip this.
->
 ```
 
-Hit enter above - you will be prompted again if you want to become a validator. Beacon node will launch and start syncing.
+This will build Nimbus and its dependencies, and connect you to Medalla.
+You should see that the beacon node has launched and started syncing.
 
 ```
-INF 2020-07-03 15:28:15+02:00 Starting beacon node                       topics="beacnde" tid=176865 file=beacon_node.nim:866 SECONDS_PER_SLOT=12 SLOTS_PER_EPOCH=32 SPEC_VERSION=0.12.1 cat=init dataDir=/home/arnetheduck/status/nim-beacon-chain/build/data/shared_altona_0 finalizedRoot=72e7b21c finalizedSlot=20064 headRoot=f92bf720 headSlot=20142 nim="Nim Compiler Version 1.2.2 [Linux: amd64] (be34b5ab)" pcs=start_beacon_node timeSinceFinalization=-108322 version="0.5.0 (c64737e)"
+INF 2020-07-03 15:28:15+02:00 Starting beacon node                       topics="beacnde" tid=176865 file=beacon_node.nim:866 SECONDS_PER_SLOT=12 SLOTS_PER_EPOCH=32 SPEC_VERSION=0.12.1 cat=init dataDir=/home/arnetheduck/status/nim-beacon-chain/build/data/shared_medalla_0 finalizedRoot=72e7b21c finalizedSlot=20064 headRoot=f92bf720 headSlot=20142 nim="Nim Compiler Version 1.2.2 [Linux: amd64] (be34b5ab)" pcs=start_beacon_node timeSinceFinalization=-108322 version="0.5.0 (c64737e)"
 
 
  peers: 7 ❯ finalized: 3a806c9f:634 ❯ head: b364f8e9:636:29 ❯ time: 909:7 (29095)              ETH: 0.0
-
 ```
 
 ### Status bar
@@ -60,7 +69,7 @@ Nimbus includes metrics support using the Prometheus format. To enable it, you n
 
 ```
 # Compile with insecure features enabled
-make NIMFLAGS="-d:insecure" altona
+make NIMFLAGS="-d:insecure" medalla
 ```
 
 ## Command line options
@@ -112,7 +121,7 @@ The following options are available:
 
 Available sub-commands:
 
-beacon_node_shared_altona_0 createTestnet [OPTIONS]...
+beacon_node_shared_medalla_0 createTestnet [OPTIONS]...
 
 The following options are available:
 
@@ -128,7 +137,7 @@ The following options are available:
      --with-genesis-root       Include a genesis root in 'network.json'.
      --output-bootstrap-file   Output file with list of bootstrap nodes for the network.
 
-beacon_node_shared_altona_0 deposits [OPTIONS]... command
+beacon_node_shared_medalla_0 deposits [OPTIONS]... command
 
 The following options are available:
 
@@ -136,7 +145,7 @@ The following options are available:
 
 Available sub-commands:
 
-beacon_node_shared_altona_0 deposits create [OPTIONS]...
+beacon_node_shared_medalla_0 deposits create [OPTIONS]...
 
 Creates validator keystores and deposits.
 
@@ -151,7 +160,7 @@ The following options are available:
                                `deposits send` command to send the deposit transactions at your convenience
                                later.
 
-beacon_node_shared_altona_0 deposits send [OPTIONS]...
+beacon_node_shared_medalla_0 deposits send [OPTIONS]...
 
 Sends prepared deposits to the validator deposit contract.
 
@@ -161,15 +170,15 @@ The following options are available:
      --min-delay               Minimum possible delay between making two deposits (in seconds).
      --max-delay               Maximum possible delay between making two deposits (in seconds).
 
-beacon_node_shared_altona_0 deposits status
+beacon_node_shared_medalla_0 deposits status
 
 Displays status information about all deposits.
 
-beacon_node_shared_altona_0 wallets command
+beacon_node_shared_medalla_0 wallets command
 
 Available sub-commands:
 
-beacon_node_shared_altona_0 wallets create [OPTIONS]...
+beacon_node_shared_medalla_0 wallets create [OPTIONS]...
 
 Creates a new EIP-2386 wallet.
 
@@ -179,7 +188,7 @@ The following options are available:
      --next-account            Initial value for the 'nextaccount' property of the wallet.
      --out                     Output wallet file.
 
-beacon_node_shared_altona_0 wallets restore [OPTIONS]...
+beacon_node_shared_medalla_0 wallets restore [OPTIONS]...
 
 Restores a wallet from cold storage.
 
@@ -190,7 +199,7 @@ The following options are available:
                                guess the number by inspecting the latest beacon state.
      --out                     Output wallet file.
 
-beacon_node_shared_altona_0 wallets list
+beacon_node_shared_medalla_0 wallets list
 
 Lists details about all wallets.
 ```
