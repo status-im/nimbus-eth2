@@ -1243,7 +1243,7 @@ proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
   inc nbc_gossip_messages_sent
   let
     data = snappy.encode(SSZ.encode(msg))
-  var futSnappy = node.switch.publish(topic & "_snappy", data)
+  var futSnappy = node.switch.publish(topic & "_snappy", data, 1.minutes)
   traceMessage(futSnappy, gossipId(data))
 
 # TODO:
