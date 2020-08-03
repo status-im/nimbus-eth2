@@ -253,7 +253,7 @@ proc addRawBlock*(
 
   return err MissingParent
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#global-topics
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#beacon_block
 proc isValidBeaconBlock*(
        dag: ChainDAGRef, quarantine: var QuarantineRef,
        signed_beacon_block: SignedBeaconBlock, current_slot: Slot,
@@ -277,16 +277,15 @@ proc isValidBeaconBlock*(
       current_slot
     return err(Invalid)
 
-  # The block is from a slot greater than the latest finalized slot (with a
-  # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
-  # signed_beacon_block.message.slot >
+  # [IGNORE] The block is from a slot greater than the latest finalized slot --
+  # i.e. validate that signed_beacon_block.message.slot >
   # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)
   if not (signed_beacon_block.message.slot > dag.finalizedHead.slot):
     debug "block is not from a slot greater than the latest finalized slot"
     return err(Invalid)
 
-  # The block is the first block with valid signature received for the proposer
-  # for the slot, signed_beacon_block.message.slot.
+  # [IGNORE] The block is the first block with valid signature received for the
+  # proposer for the slot, signed_beacon_block.message.slot.
   #
   # While this condition is similar to the proposer slashing condition at
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#proposer-slashing
@@ -325,19 +324,14 @@ proc isValidBeaconBlock*(
         existing_block = shortLog(blck.message)
       return err(Invalid)
 
-  # If this block doesn't have a parent we know about, we can't/don't really
-  # trace it back to a known-good state/checkpoint to verify its prevenance;
-  # while one could getOrResolve to queue up searching for missing parent it
-  # might not be the best place. As much as feasible, this function aims for
-  # answering yes/no, not queuing other action or otherwise altering state.
+  # [IGNORE] The block's parent (defined by block.parent_root) has been seen
+  # (via both gossip and non-gossip sources) (a client MAY queue blocks for
+  # processing once the parent block is retrieved).
+  #
+  # And implicitly:
+  # [REJECT] The block's parent (defined by block.parent_root) passes validation.
   let parent_ref = dag.getRef(signed_beacon_block.message.parent_root)
   if parent_ref.isNil:
-    # This doesn't mean a block is forever invalid, only that we haven't seen
-    # its ancestor blocks yet. While that means for now it should be blocked,
-    # at least, from libp2p propagation, it shouldn't be ignored. TODO, if in
-    # the future this block moves from pending to being resolved, consider if
-    # it's worth broadcasting it then.
-
     # Pending dag gets checked via `ChainDAGRef.add(...)` later, and relevant
     # checks are performed there. In usual paths beacon_node adds blocks via
     # ChainDAGRef.add(...) directly, with no additional validity checks. TODO,
@@ -347,8 +341,29 @@ proc isValidBeaconBlock*(
     quarantine.add(dag, signed_beacon_block)
     return err(MissingParent)
 
-  # The proposer signature, signed_beacon_block.signature, is valid with
-  # respect to the proposer_index pubkey.
+  # [REJECT] The current finalized_checkpoint is an ancestor of block -- i.e.
+  # get_ancestor(store, block.parent_root,
+  # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
+  # store.finalized_checkpoint.root
+  let
+    finalized_checkpoint = dag.headState.data.data.finalized_checkpoint
+    ancestor = get_ancestor(
+      parent_ref, compute_start_slot_at_epoch(finalized_checkpoint.epoch))
+
+  if ancestor.isNil:
+    debug "couldn't find ancestor block"
+    return err(Invalid)
+
+  if not (finalized_checkpoint.root in [ancestor.root, Eth2Digest()]):
+    debug "block not descendent of finalized block"
+    return err(Invalid)
+
+  # [REJECT] The block is proposed by the expected proposer_index for the
+  # block's slot in the context of the current shuffling (defined by
+  # parent_root/slot). If the proposer_index cannot immediately be verified
+  # against the expected shuffling, the block MAY be queued for later
+  # processing while proposers for the block's branch are calculated -- in such
+  # a case do not REJECT, instead IGNORE this message.
   let
     proposer = getProposer(dag, parent_ref, signed_beacon_block.message.slot)
 
@@ -362,6 +377,8 @@ proc isValidBeaconBlock*(
       expected_proposer = proposer.get()[0]
     return err(Invalid)
 
+  # [REJECT] The proposer signature, signed_beacon_block.signature, is valid
+  # with respect to the proposer_index pubkey.
   if not verify_block_signature(
       dag.headState.data.data.fork,
       dag.headState.data.data.genesis_validators_root,

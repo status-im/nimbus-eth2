@@ -54,7 +54,7 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 OK: 5/5 Fail: 0/5 Skip: 0/5
 ## BlockRef and helpers [Preset: mainnet]
 ```diff
-+ getAncestorAt sanity [Preset: mainnet]                                                     OK
++ get_ancestor sanity [Preset: mainnet]                                                      OK
 + isAncestorOf sanity [Preset: mainnet]                                                      OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
