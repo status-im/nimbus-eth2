@@ -78,7 +78,7 @@ func processAttestation(
   for validator in participants:
     pool.forkChoice.process_attestation(validator, block_root, target_epoch)
 
-func addUnresolved(pool: var AttestationPool, attestation: Attestation) =
+func addUnresolved*(pool: var AttestationPool, attestation: Attestation) =
   pool.unresolved[attestation.data.beacon_block_root] =
     UnresolvedAttestation(
       attestation: attestation,
