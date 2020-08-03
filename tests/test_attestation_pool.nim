@@ -168,7 +168,8 @@ suiteReport "Attestation pool processing" & preset():
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
-        pool[].addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
+        let epochRef = getEpochInfo(blckRef, state.data)
+        pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
     let head = pool[].selectHead(b1Add[].slot)
 
@@ -181,7 +182,8 @@ suiteReport "Attestation pool processing" & preset():
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
-        pool[].addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
+        let epochRef = getEpochInfo(blckRef, state.data)
+        pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
     let head2 = pool[].selectHead(b2Add[].slot)
 
@@ -196,7 +198,8 @@ suiteReport "Attestation pool processing" & preset():
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
-        pool[].addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
+        let epochRef = getEpochInfo(blckRef, state.data)
+        pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
     let head = pool[].selectHead(b10Add[].slot)
 
@@ -211,7 +214,8 @@ suiteReport "Attestation pool processing" & preset():
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
-        pool[].addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
+        let epochRef = getEpochInfo(blckRef, state.data)
+        pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
       bc1 = get_beacon_committee(
         state.data.data, state.data.data.slot, 1.CommitteeIndex, cache)
@@ -253,7 +257,8 @@ suiteReport "Attestation pool processing" & preset():
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
-        pool[].addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
+        let epochRef = getEpochInfo(blckRef, state.data)
+        pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
     let head = pool[].selectHead(b10Add[].slot)
 
@@ -267,7 +272,8 @@ suiteReport "Attestation pool processing" & preset():
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
-        pool[].addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
+        let epochRef = getEpochInfo(blckRef, state.data)
+        pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
     doAssert: b10Add_clone.error == Duplicate
 
@@ -281,7 +287,8 @@ suiteReport "Attestation pool processing" & preset():
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
-        pool[].addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
+        let epochRef = getEpochInfo(blckRef, state.data)
+        pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
     let head = pool[].selectHead(b10Add[].slot)
 
@@ -315,7 +322,8 @@ suiteReport "Attestation pool processing" & preset():
             blckRef: BlockRef, signedBlock: SignedBeaconBlock,
             state: HashedBeaconState):
           # Callback add to fork choice if valid
-          pool[].addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
+          let epochRef = getEpochInfo(blckRef, state.data)
+          pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
         let head = pool[].selectHead(blockRef[].slot)
         doassert: head == blockRef[]
@@ -356,6 +364,7 @@ suiteReport "Attestation pool processing" & preset():
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           state: HashedBeaconState):
         # Callback add to fork choice if valid
-        pool[].addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
+        let epochRef = getEpochInfo(blckRef, state.data)
+        pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
     doAssert: b10Add_clone.error == Duplicate
