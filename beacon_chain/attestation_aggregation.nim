@@ -197,7 +197,6 @@ proc isValidAttestation*(
     debug "Incorrect ancestor block",
       ancestor_root = ancestor.root,
       finalized_root = pool.chainDag.headState.data.data.finalized_checkpoint.root
-    doAssert false
     return false
 
   pool.chainDag.withState(
