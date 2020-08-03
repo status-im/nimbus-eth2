@@ -826,7 +826,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
             if peerRecord.isOk:
               let peerInfo = peerRecord.value.toPeerInfo
               if peerInfo != nil:
-                if peerInfo.id notin node.switch.connections:
+                if not node.switch.isConnected(peerInfo):
                   await node.connQueue.addLast(peerInfo)
                 else:
                   peerInfo.close()
@@ -855,8 +855,8 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
   result.switch = switch
   result.wantedPeers = conf.maxPeers
   result.peerPool = newPeerPool[Peer, PeerID](maxPeers = conf.maxPeers)
-  result.connectTimeout = 10.seconds
-  result.seenThreshold = 10.minutes
+  result.connectTimeout = 1.minutes
+  result.seenThreshold = 1.minutes
   result.seenTable = initTable[PeerID, SeenItem]()
   result.connTable = initTable[PeerID, PeerInfo]()
   result.connQueue = newAsyncQueue[PeerInfo](ConcurrentConnections)
@@ -1243,7 +1243,7 @@ proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
   inc nbc_gossip_messages_sent
   let
     data = snappy.encode(SSZ.encode(msg))
-  var futSnappy = node.switch.publish(topic & "_snappy", data)
+  var futSnappy = node.switch.publish(topic & "_snappy", data, 1.minutes)
   traceMessage(futSnappy, gossipId(data))
 
 # TODO:
