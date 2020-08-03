@@ -508,6 +508,7 @@ func get_indexed_attestation*(state: BeaconState, attestation: TrustedAttestatio
 # Attestation validation
 # ------------------------------------------------------------------------------------------
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#attestations
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 
 func check_attestation_slot_target*(data: AttestationData): Result[void, cstring] =
   if not (data.target.epoch == compute_epoch_at_slot(data.slot)):

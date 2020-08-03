@@ -498,7 +498,7 @@ proc handleValidatorDuties*(
     const TRAILING_DISTANCE = 1
     let
       aggregationSlot = slot - TRAILING_DISTANCE
-      aggregationHead = getAncestorAt(head, aggregationSlot)
+      aggregationHead = get_ancestor(head, aggregationSlot)
 
     broadcastAggregatedAttestations(
       node, aggregationHead, aggregationSlot, TRAILING_DISTANCE)

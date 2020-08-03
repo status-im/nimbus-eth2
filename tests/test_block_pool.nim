@@ -35,7 +35,7 @@ suiteReport "BlockRef and helpers" & preset():
       not s2.isAncestorOf(s1)
       not s1.isAncestorOf(s0)
 
-  timedTest "getAncestorAt sanity" & preset():
+  timedTest "get_ancestor sanity" & preset():
     let
       s0 = BlockRef(slot: Slot(0))
       s1 = BlockRef(slot: Slot(1), parent: s0)
@@ -43,17 +43,17 @@ suiteReport "BlockRef and helpers" & preset():
       s4 = BlockRef(slot: Slot(4), parent: s2)
 
     check:
-      s0.getAncestorAt(Slot(0)) == s0
-      s0.getAncestorAt(Slot(1)) == s0
+      s0.get_ancestor(Slot(0)) == s0
+      s0.get_ancestor(Slot(1)) == s0
 
-      s1.getAncestorAt(Slot(0)) == s0
-      s1.getAncestorAt(Slot(1)) == s1
+      s1.get_ancestor(Slot(0)) == s0
+      s1.get_ancestor(Slot(1)) == s1
 
-      s4.getAncestorAt(Slot(0)) == s0
-      s4.getAncestorAt(Slot(1)) == s1
-      s4.getAncestorAt(Slot(2)) == s2
-      s4.getAncestorAt(Slot(3)) == s2
-      s4.getAncestorAt(Slot(4)) == s4
+      s4.get_ancestor(Slot(0)) == s0
+      s4.get_ancestor(Slot(1)) == s1
+      s4.get_ancestor(Slot(2)) == s2
+      s4.get_ancestor(Slot(3)) == s2
+      s4.get_ancestor(Slot(4)) == s4
 
 suiteReport "BlockSlot and helpers" & preset():
   timedTest "atSlot sanity" & preset():

@@ -94,9 +94,11 @@ func isAncestorOf*(a, b: BlockRef): bool =
     doAssert b.slot > b.parent.slot
     b = b.parent
 
-func getAncestorAt*(blck: BlockRef, slot: Slot): BlockRef =
+func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef =
+  ## https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/fork-choice.md#get_ancestor
   ## Return the most recent block as of the time at `slot` that not more recent
   ## than `blck` itself
+  doAssert not blck.isNil
 
   var blck = blck
 
@@ -106,29 +108,6 @@ func getAncestorAt*(blck: BlockRef, slot: Slot): BlockRef =
   while true:
     if blck.slot <= slot:
       return blck
-
-    if blck.parent.isNil:
-      return nil
-
-    doAssert depth < maxDepth
-    depth += 1
-
-    blck = blck.parent
-
-func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef =
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/fork-choice.md#get_ancestor
-  ## Return ancestor at slot, or nil if queried block is older
-  var blck = blck
-
-  var depth = 0
-  const maxDepth = (100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int)
-
-  while true:
-    if blck.slot == slot:
-      return blck
-
-    if blck.slot < slot:
-      return nil
 
     if blck.parent.isNil:
       return nil
@@ -162,7 +141,7 @@ func atSlot*(blck: BlockRef, slot: Slot): BlockSlot =
   ## particular moment in time, or when imagining what it will look like in the
   ## near future if nothing happens (such as when looking ahead for the next
   ## block proposal)
-  BlockSlot(blck: blck.getAncestorAt(slot), slot: slot)
+  BlockSlot(blck: blck.get_ancestor(slot), slot: slot)
 
 func atEpochStart*(blck: BlockRef, epoch: Epoch): BlockSlot =
   ## Return the BlockSlot corresponding to the first slot in the given epoch

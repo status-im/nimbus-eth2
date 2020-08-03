@@ -99,11 +99,14 @@ proc isValidAttestationSlot(
   true
 
 func checkPropagationSlotRange(data: AttestationData, current_slot: Slot): bool =
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
   # TODO clock disparity
+  # attestation.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >=
+  # current_slot >= attestation.data.slot
   (data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot) and
     (current_slot >= data.slot)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestation-subnets
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 proc isValidAttestation*(
     pool: var AttestationPool, attestation: Attestation, current_slot: Slot,
     topicCommitteeIndex: uint64): bool =
@@ -154,11 +157,8 @@ proc isValidAttestation*(
 
   # The block being voted for (attestation.data.beacon_block_root) passes
   # validation.
-  # We rely on the chain DAG to have been validated, so check for the
-  # existence of the block in the pool.
-  # TODO: consider a "slush pool" of attestations whose blocks have not yet
-  # propagated - i.e. imagine that attestations are smaller than blocks and
-  # therefore propagate faster, thus reordering their arrival in some nodes
+  # We rely on the chain DAG to have been validated, so check for the existence
+  # of the block in the pool.
   let attestationBlck = pool.chainDag.getRef(attestation.data.beacon_block_root)
   if attestationBlck.isNil:
     debug "Block not found"
@@ -173,16 +173,43 @@ proc isValidAttestation*(
   let tgtBlck = pool.chainDag.getRef(attestation.data.target.root)
   if tgtBlck.isNil:
     debug "Target block not found"
+    pool.addUnresolved(attestation)
     pool.quarantine.addMissing(attestation.data.beacon_block_root)
-    return
+    return false
 
-  # TODO this could be any state in the target epoch
+  # The current finalized_checkpoint is an ancestor of the block defined by
+  # attestation.data.beacon_block_root -- i.e. get_ancestor(store,
+  # attestation.data.beacon_block_root,
+  # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
+  # store.finalized_checkpoint.root
+  let
+    ancestor = get_ancestor(
+      attestationBlck,
+      compute_start_slot_at_epoch(
+        pool.chainDag.headState.data.data.finalized_checkpoint.epoch))
+    finalized_root =
+      pool.chainDag.headState.data.data.finalized_checkpoint.root
+  if ancestor.isNil:
+    debug "Can't find ancestor block"
+    return false
+  # TODO spec doesn't note the pre-finalization case, but maybe necessary
+  if not (finalized_root in [Eth2Digest(), ancestor.root]):
+    debug "Incorrect ancestor block",
+      ancestor_root = ancestor.root,
+      finalized_root = pool.chainDag.headState.data.data.finalized_checkpoint.root
+    doAssert false
+    return false
+
   pool.chainDag.withState(
       pool.chainDag.tmpState,
       tgtBlck.atSlot(attestation.data.target.epoch.compute_start_slot_at_epoch)):
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestation-subnets
-    # [REJECT] The attestation is for the correct subnet (i.e.
-    # compute_subnet_for_attestation(state, attestation) == subnet_id).
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+    # [REJECT] The attestation is for the correct subnet -- i.e.
+    # compute_subnet_for_attestation(committees_per_slot,
+    # attestation.data.slot, attestation.data.index) == subnet_id, where
+    # committees_per_slot = get_committee_count_per_slot(state,
+    # attestation.data.target.epoch), which may be pre-computed along with the
+    # committee information for the signature check.
     let
       epochInfo = blck.getEpochInfo(state)
       requiredSubnetIndex =
