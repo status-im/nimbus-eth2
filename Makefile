@@ -144,7 +144,6 @@ clean_eth2_network_simulation_all:
 	rm -rf tests/simulation/{data,validators}
 
 GOERLI_TESTNETS_PARAMS := \
-  --dump \
   --web3-url=$(GOERLI_WEB3_URL) \
   --tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
   --udp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
@@ -201,7 +200,7 @@ medalla-dev: | beacon_node
 		--network=medalla \
 		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
 		--data-dir=build/data/shared_medalla_$(NODE_ID) \
-		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
+		$(GOERLI_TESTNETS_PARAMS) --dump $(NODE_PARAMS)
 
 medalla-deposit-data: | beacon_node deposit_contract
 	build/beacon_node deposits create \
@@ -262,7 +261,7 @@ altona-dev: | beacon_node
 		--network=altona \
 		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
 		--data-dir=build/data/shared_altona_$(NODE_ID) \
-		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
+		$(GOERLI_TESTNETS_PARAMS) --dump $(NODE_PARAMS)
 
 altona-deposit: | beacon_node deposit_contract
 	build/beacon_node deposits create \
