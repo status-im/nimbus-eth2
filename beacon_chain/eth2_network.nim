@@ -1171,21 +1171,21 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext, conf: BeaconNodeConf, enrForkId
                          extIp, extTcpPort, extUdpPort,
                          keys.seckey.asEthKey, rng = rng)
 
-  switch.addHook(
-    proc(peer: PeerInfo, cycle: Lifecycle) {.async.} =
-      ## trigger every time a new connection
-      ## for a peer is upgradded
-      ##
+  # switch.addHook(
+  #   proc(peer: PeerInfo, cycle: Lifecycle) {.async.} =
+  #     ## trigger every time a new connection
+  #     ## for a peer is upgradded
+  #     ##
 
-      doAssert(cycle == Lifecycle.Upgraded)
-      doAssert(isNil(peer) == false)
+  #     doAssert(cycle == Lifecycle.Upgraded)
+  #     doAssert(isNil(peer) == false)
 
-      let ethPeer = node.getPeer(peer)
-      if not(isNil(ethPeer)) and isNil(ethPeer.pubsubFut):
-        ethPeer.pubsubFut = switch.subscribePeer(peer)
+  #     let ethPeer = node.getPeer(peer)
+  #     if not(isNil(ethPeer)) and isNil(ethPeer.pubsubFut):
+  #       ethPeer.pubsubFut = switch.subscribePeer(peer)
 
-    , Lifecycle.Upgraded
-  )
+  #   , Lifecycle.Upgraded
+  # )
 
   return node
 
