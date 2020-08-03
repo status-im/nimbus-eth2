@@ -90,8 +90,10 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Pbkdf2 decryption                                                                          OK
 + Pbkdf2 encryption                                                                          OK
 + Pbkdf2 errors                                                                              OK
++ Scrypt decryption                                                                          OK
++ Scrypt encryption                                                                          OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Mocking utilities
 ```diff
 + merkle_minimal                                                                             OK
@@ -245,4 +247,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 134/139 Fail: 0/139 Skip: 5/139
+OK: 136/141 Fail: 0/141 Skip: 5/141
