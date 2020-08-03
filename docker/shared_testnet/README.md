@@ -24,13 +24,13 @@ From the "infra-nimbus" repo:
 ```text
 git pull
 make requirements
-ansible-playbook ansible/nimbus.yml -i ansible/inventory/test -t beacon-node -u YOUR_USER -K -l nimbus-slaves[5:8]
+ansible-playbook ansible/nimbus.yml -i ansible/inventory/test -t beacon-node -u YOUR_USER -K -l nimbus.test[6:9]
 
 # faster way to pull the Docker image and recreate the containers (this also stops any running container)
-ansible nimbus-slaves[5:8] -i ansible/inventory/test -u YOUR_USER -o -m shell -a "echo; cd /docker/beacon-node-testnet2-1; docker-compose --compatibility pull; docker-compose --compatibility up --no-start; echo '---'" | sed 's/\\n/\n/g'
+ansible nimbus.test[6:9] -i ansible/inventory/test -u YOUR_USER -o -m shell -a "echo; cd /docker/beacon-node-testnet2; docker-compose --compatibility pull; docker-compose --compatibility up --no-start; echo '---'" | sed 's/\\n/\n/g'
 
 # build beacon_node in an external volume
-ansible nimbus-slaves[5:8] -i ansible/inventory/test -u YOUR_USER -o -m shell -a "echo; cd /docker/beacon-node-testnet2-1; docker-compose --compatibility run --rm beacon_node --build; echo '---'" | sed 's/\\n/\n/g'
+ansible nimbus.test[6:9] -i ansible/inventory/test -u YOUR_USER -o -m shell -a "echo; cd /docker/beacon-node-testnet2; docker-compose --compatibility run --rm beacon_node --build; echo '---'" | sed 's/\\n/\n/g'
 ```
 
 ### create and copy validator keys
@@ -52,7 +52,7 @@ From the nim-beacon-chain repo:
 From the "infra-nimbus" repo:
 
 ```bash
-ansible nimbus-slaves[5:8] -i ansible/inventory/test -u YOUR_USER -o -m shell -a "echo; cd /docker/beacon-node-testnet2-1; docker-compose --compatibility up -d; echo '---'" | sed 's/\\n/\n/g'
+ansible nimbus.test[6:9] -i ansible/inventory/test -u YOUR_USER -o -m shell -a "echo; cd /docker/beacon-node-testnet2; docker-compose --compatibility up -d; echo '---'" | sed 's/\\n/\n/g'
 ```
 
 ### restarting the containers
@@ -60,12 +60,20 @@ ansible nimbus-slaves[5:8] -i ansible/inventory/test -u YOUR_USER -o -m shell -a
 Periodic rebuilds and restarts are implemented using Cron jobs on the servers:
 
 ```crontab
-10 0,6,12,18 * * * PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin'; cd /docker/beacon-node-testnet2-1; docker-compose --compatibility run --rm --name beacon-node-testnet2-1-build-run beacon_node --build; docker-compose restart -t 60
+0 0,6,12,18 * * * PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin'; cd /docker/beacon-node-testnet2; docker-compose --compatibility run --rm --name beacon-node-testnet2-build-run beacon_node --build; docker-compose restart -t 60
 ```
 
 The same, using Ansible (not normally needed):
 
 ```bash
-ansible nimbus-slaves[5:8] -i ansible/inventory/test -u YOUR_USER -o -m shell -a "echo; cd /docker/beacon-node-testnet2-1; docker-compose --compatibility run --rm --name beacon-node-testnet2-1-build-run beacon_node --build; docker-compose restart -t 60; echo '---'" | sed 's/\\n/\n/g'
+ansible nimbus.test[6:9] -i ansible/inventory/test -u YOUR_USER -o -m shell -a "echo; cd /docker/beacon-node-testnet2; docker-compose --compatibility run --rm --name beacon-node-testnet2-build-run beacon_node --build; docker-compose restart -t 60; echo '---'" | sed 's/\\n/\n/g'
+```
+
+## Medalla
+
+```bash
+make -C docker/shared_testnet IMAGE_TAG=testnet3 push
+cd ../infra-nimbus
+ansible nimbus.test[0:5] -i ansible/inventory/test -u YOUR_USER -o -m shell -a "echo; cd /docker/beacon-node-testnet3; docker-compose --compatibility run --rm --name beacon-node-testnet3-build-run beacon_node --build; docker-compose restart -t 60; echo '---'" | sed 's/\\n/\n/g'
 ```
 
