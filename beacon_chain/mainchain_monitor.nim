@@ -53,7 +53,7 @@ type
     depositContractAddress: Address
     dataProviderFactory*: DataProviderFactory
 
-    genesisState: NilableBeaconStateRef
+    genesisState: BeaconStateRef
     genesisStateFut: Future[void]
     genesisMonitoringFut: Future[void]
 
@@ -641,7 +641,6 @@ proc waitGenesis*(m: MainchainMonitor): Future[BeaconStateRef] {.async.} =
   if m.genesisState != nil:
     return m.genesisState
   else:
-    result = new BeaconStateRef # make the compiler happy
     raiseAssert "Unreachable code"
 
 func totalNonFinalizedBlocks(eth1Chain: Eth1Chain): Natural =

@@ -17,8 +17,6 @@
 # `ref` - this can be achieved by wrapping them in higher-level
 # types / composition
 
-{.experimental: "notnil".}
-
 {.push raises: [Defect].}
 
 import
@@ -335,8 +333,7 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-  BeaconStateRef* = ref BeaconState not nil
-  NilableBeaconStateRef* = ref BeaconState
+  BeaconStateRef* = ref BeaconState
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#validator
   Validator* = object
@@ -607,8 +604,11 @@ template assignClone*[T: not ref](x: T): ref T =
   assign(res[], x)
   res
 
-template newClone*[T](x: ref T not nil): ref T =
-  newClone(x[])
+template newClone*[T](x: ref T): ref T =
+  if x.isNil:
+    nil
+  else:
+    newClone(x[])
 
 template lenu64*(x: untyped): untyped =
   x.len.uint64
