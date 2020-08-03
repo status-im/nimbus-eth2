@@ -19,7 +19,7 @@ NODE_ID := 0
 BASE_PORT := 9000
 BASE_RPC_PORT := 9190
 BASE_METRICS_PORT := 8008
-GOERLI_WEB3_URL := "wss://goerli.infura.io/ws/v3/6224f3c792cc443fafb64e70a98f871e"
+GOERLI_WEB3_URL := "wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
 VALIDATORS := 1
 
 # unconditionally built by the default Make target

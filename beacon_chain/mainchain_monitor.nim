@@ -564,11 +564,6 @@ proc findGenesisBlockInRange(m: MainchainMonitor,
     else:
       endBlock = candidateAsEth1Block
 
-  info "Genesis block selected",
-       blockNum = endBlock.number,
-       blockHash = endBlock.voteData.block_hash,
-       blockTime = endBlock.timestamp
-
   return endBlock
 
 proc checkForGenesisLoop(m: MainchainMonitor) {.async.} =
@@ -617,7 +612,7 @@ proc checkForGenesisLoop(m: MainchainMonitor) {.async.} =
               let genesisBlock = await m.findGenesisBlockInRange(preceedingEth1Block, genesisCandidate)
               if genesisBlock.number != genesisCandidate.number:
                 m.signalGenesis m.createBeaconState(genesisBlock)
-              return
+                return
 
           m.signalGenesis candidateState
           return
