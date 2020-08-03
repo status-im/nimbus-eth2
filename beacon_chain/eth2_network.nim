@@ -855,8 +855,8 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
   result.switch = switch
   result.wantedPeers = conf.maxPeers
   result.peerPool = newPeerPool[Peer, PeerID](maxPeers = conf.maxPeers)
-  result.connectTimeout = 10.seconds
-  result.seenThreshold = 10.minutes
+  result.connectTimeout = 1.minutes
+  result.seenThreshold = 1.minutes
   result.seenTable = initTable[PeerID, SeenItem]()
   result.connTable = initTable[PeerID, PeerInfo]()
   result.connQueue = newAsyncQueue[PeerInfo](ConcurrentConnections)
