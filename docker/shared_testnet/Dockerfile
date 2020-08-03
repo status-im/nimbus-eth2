@@ -7,9 +7,6 @@ RUN apt-get -qq update \
  && apt-get -qq clean \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-ARG NETWORK
-ENV NETWORK=${NETWORK}
-
 STOPSIGNAL SIGINT
 
 COPY "entry_point.sh" "/root/"
