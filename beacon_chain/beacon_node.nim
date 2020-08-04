@@ -65,8 +65,13 @@ declareCounter beacon_blocks_received,
 declareGauge finalization_delay,
   "Epoch delay between scheduled epoch and finalized epoch"
 
+const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
+
 declareHistogram beacon_attestation_received_seconds_from_slot_start,
-  "Interval between slot start and attestation receival", buckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
+  "Interval between slot start and attestation receival", buckets = delayBuckets
+
+declareHistogram beacon_block_received_seconds_from_slot_start,
+  "Interval between slot start and beacon block receival", buckets = delayBuckets
 
 logScope: topics = "beacnde"
 
@@ -747,8 +752,7 @@ proc installAttestationHandlers(node: BeaconNode) =
     # when they're reflected through beacon blocks
     beacon_attestations_received.inc()
     beacon_attestation_received_seconds_from_slot_start.observe(
-      node.beaconClock.now.int64 -
-        (attestation.data.slot.int64 * SECONDS_PER_SLOT.int64))
+      node.beaconClock.now.int64 - attestation.data.slot.toBeaconTime.int64)
 
     node.onAttestation(attestation)
 
@@ -773,7 +777,8 @@ proc installAttestationHandlers(node: BeaconNode) =
     closureScope:
       let ci = it
       attestationSubscriptions.add(node.network.subscribe(
-        getAttestationTopic(node.forkDigest, ci), attestationHandler,
+        getAttestationTopic(node.forkDigest, ci),
+        attestationHandler,
         # This proc needs to be within closureScope; don't lift out of loop.
         proc(attestation: Attestation): bool =
           attestationValidator(attestation, ci)
@@ -806,12 +811,36 @@ proc run*(node: BeaconNode) =
     waitFor node.network.subscribe(node.topicBeaconBlocks) do (signedBlock: SignedBeaconBlock):
       onBeaconBlock(node, signedBlock)
     do (signedBlock: SignedBeaconBlock) -> bool:
-      let (afterGenesis, slot) = node.beaconClock.now.toSlot()
+      let
+        now = node.beaconClock.now
+        (afterGenesis, slot) = now.toSlot()
+
       if not afterGenesis:
         return false
 
+      logScope:
+        blk = shortLog(signedBlock.message)
+        root = shortLog(signedBlock.root)
+
+      let isKnown = signedBlock.root in node.chainDag.blocks
+      if isKnown:
+        trace "Received known gossip block"
+        # TODO:
+        # Potentially use a fast exit here. We only need to check that
+        # the contents of the incoming message match our previously seen
+        # version of the block. We don't need to use HTR for this - for
+        # better efficiency we can use vanilla SHA256 or direct comparison
+        # if we still have the previous block in memory.
+        # TODO:
+        # We are seeing extreme delays sometimes (e.g. 300 seconds).
+        # Should we drop such blocks? The spec doesn't set a policy on this.
+      else:
+        let delay = (now.int64 - signedBlock.message.slot.toBeaconTime.int64)
+        debug "Incoming gossip block", delay
+        beacon_block_received_seconds_from_slot_start.observe delay
+
       let blck = node.chainDag.isValidBeaconBlock(node.quarantine,
-                                                       signedBlock, slot, {})
+                                                  signedBlock, slot, {})
       node.dumpBlock(signedBlock, blck)
 
       blck.isOk
