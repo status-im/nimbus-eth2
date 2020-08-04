@@ -100,10 +100,10 @@ proc isValidAttestationSlot(
 
 func checkPropagationSlotRange(data: AttestationData, current_slot: Slot): bool =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
-  # TODO clock disparity
+  # TODO clock disparity of 0.5s instead of whole slot
   # attestation.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >=
   # current_slot >= attestation.data.slot
-  (data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot) and
+  (data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE + 1 >= current_slot) and
     (current_slot >= data.slot)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
@@ -120,7 +120,8 @@ proc isValidAttestation*(
     return false
 
   if not checkPropagationSlotRange(attestation.data, current_slot):
-    debug "attestation.data.slot not within ATTESTATION_PROPAGATION_SLOT_RANGE"
+    debug "attestation.data.slot not within ATTESTATION_PROPAGATION_SLOT_RANGE",
+      current_slot
     return false
 
   # The attestation is unaggregated -- that is, it has exactly one
