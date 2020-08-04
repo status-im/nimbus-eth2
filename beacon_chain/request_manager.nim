@@ -71,6 +71,7 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
   except CancelledError as exc:
     raise exc
   except CatchableError as exc:
+    peer.updateScore(PeerScoreNoBlocks)
     debug "Error while fetching ancestor blocks", exc = exc.msg,
           items = shortLog(items), peer = peer, peer_score = peer.getScore()
     raise exc
