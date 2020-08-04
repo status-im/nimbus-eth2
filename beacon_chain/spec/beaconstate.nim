@@ -89,8 +89,12 @@ proc process_deposit*(preset: RuntimePreset,
   let
     pubkey = deposit.data.pubkey
     amount = deposit.data.amount
-    validator_pubkeys = mapIt(state.validators, it.pubkey)
-    index = validator_pubkeys.find(pubkey)
+  var index = -1
+
+  for i, validator in state.validators:
+    if pubkey == validator.pubkey:
+      index = i
+      break
 
   if index == -1:
     # Verify the deposit signature (proof of possession) which is not checked
