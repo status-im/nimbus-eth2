@@ -16,7 +16,7 @@ import
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L4
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L4
 
   # Changed
   MAX_COMMITTEES_PER_SLOT*: uint64 = 4
@@ -37,7 +37,7 @@ const
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L58
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L61
 
   # Unchanged
   MIN_DEPOSIT_AMOUNT*: uint64 = 2'u64^0 * 10'u64^9
@@ -47,13 +47,13 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L70
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L73
 
   BLS_WITHDRAWAL_PREFIX*: byte = 0
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L77
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L80
   # Changed: Faster to spin up testnets, but does not give validator
   # reasonable warning time for genesis
 
@@ -87,7 +87,7 @@ const
 
   # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L105
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L108
 
   # Changed
   EPOCHS_PER_HISTORICAL_VECTOR*: uint64 = 64
@@ -99,7 +99,7 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L117
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L120
 
   BASE_REWARD_FACTOR*: uint64 = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT*: uint64 = 2'u64^9
@@ -109,7 +109,7 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L131
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L134
 
   MAX_PROPOSER_SLASHINGS*: uint64 = 2'u64 ^ 4
   MAX_ATTESTER_SLASHINGS*: uint64 = 2'u64 ^ 1
@@ -117,16 +117,24 @@ const
   MAX_DEPOSITS*: uint64 = 2'u64 ^ 4
   MAX_VOLUNTARY_EXITS*: uint64 = 2'u64 ^ 4
 
+  # Deposit contract
+  # ---------------------------------------------------------------
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L52
+
+  # Ethereum Goerli testnet
+  DEPOSIT_CHAIN_ID* = 5
+  DEPOSIT_NETWORK_ID* = 5
+
   # Fork choice
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L32
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L32
 
   # Changed
   SAFE_SLOTS_TO_UPDATE_JUSTIFIED*: uint64 = 2
 
   # Validators
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L38
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L38
 
   # Changed
   ETH1_FOLLOW_DISTANCE* {.intdefine.}: uint64 = 16 # blocks
@@ -136,44 +144,3 @@ const
   RANDOM_SUBNETS_PER_VALIDATOR*: uint64 = 1 # subnet
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64 = 256 # epochs ~ 27 hours
   SECONDS_PER_ETH1_BLOCK* {.intdefine.}: uint64 = 14 # estimate from Eth1 mainnet)
-
-  # Phase 1: Upgrade from Phase 0
-  # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L161
-  PHASE_1_FORK_VERSION*: uint64 = 16777217
-  PHASE_1_GENESIS_SLOT*: uint64 = 8
-  INITIAL_ACTIVE_SHARDS*: uint64 = 4
-
-  # Phase 1: General
-  # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L171
-  MAX_SHARDS*: uint64 = 8
-  ONLINE_PERIOD*: uint64 = 8 # epochs ~ 51 minutes
-  LIGHT_CLIENT_COMMITTEE_SIZE*: uint64 = 128
-  LIGHT_CLIENT_COMMITTEE_PERIOD*: uint64 = 256 # epochs
-  SHARD_BLOCK_CHUNK_SIZE*: uint64 = 262144
-  MAX_SHARD_BLOCK_CHUNKS*: uint64 = 4
-  TARGET_SHARD_BLOCK_SIZE*: uint64 = 196608
-  MAX_SHARD_BLOCKS_PER_ATTESTATION*: uint64 = 12
-  MAX_GASPRICE*: uint64 = 16384 # Gwei
-  MIN_GASPRICE*: uint64 = 8 # Gwei
-  GASPRICE_ADJUSTMENT_COEFFICIENT*: uint64 = 8
-
-  # Phase 1 - Custody game
-  # ---------------------------------------------------------------
-  # Time parameters
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L202
-  RANDAO_PENALTY_EPOCHS*: uint64 = 2
-  EPOCHS_PER_CUSTODY_PERIOD*: uint64 = 2048
-  MAX_REVEAL_LATENESS_DECREMENT*: uint64 = 128
-
-  # Max operations
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L214
-  MAX_CUSTODY_KEY_REVEALS*: uint64 = 256
-  MAX_EARLY_DERIVED_SECRET_REVEALS*: uint64 = 1
-  MAX_CUSTODY_SLASHINGS*: uint64 = 1
-
-  # Reward and penalty quotients
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/configs/minimal.yaml#L220
-  EARLY_DERIVED_SECRET_REVEAL_SLOT_REWARD_MULTIPLE*: uint64 = 2
-  MINOR_REWARD_QUOTIENT*: uint64 = 256

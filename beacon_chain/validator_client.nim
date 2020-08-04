@@ -115,8 +115,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
     lastSlot = shortLog(lastSlot),
     scheduledSlot = shortLog(scheduledSlot),
     beaconTime = shortLog(beaconTime),
-    portBN = vc.config.rpcPort,
-    cat = "scheduling"
+    portBN = vc.config.rpcPort
 
   try:
     # at the start of each epoch - request all validator duties
@@ -141,13 +140,13 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
           message: await vc.client.get_v1_validator_block(slot, vc.graffitiBytes, randao_reveal)
         )
 
-      let blockRoot = hash_tree_root(newBlock.message)
+      newBlock.root = hash_tree_root(newBlock.message)
       newBlock.signature = await validator.signBlockProposal(
-        vc.fork, vc.beaconGenesis.genesis_validators_root, slot, blockRoot)
+        vc.fork, vc.beaconGenesis.genesis_validators_root, slot, newBlock.root)
 
       discard await vc.client.post_v1_validator_block(newBlock)
 
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#attesting
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#attesting
     # A validator should create and broadcast the attestation to the associated
     # attestation subnet when either (a) the validator has received a valid
     # block from the expected block proposer for the assigned slot or
@@ -181,8 +180,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
   info "Slot end",
     slot = shortLog(slot),
     nextSlot = shortLog(nextSlot),
-    portBN = vc.config.rpcPort,
-    cat = "scheduling"
+    portBN = vc.config.rpcPort
 
   when declared(GC_fullCollect):
     # The slots in the validator client work as frames in a game: we want to make
@@ -200,7 +198,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
 programMain:
   let config = makeBannerAndConfig("Nimbus validator client v" & fullVersionStr, ValidatorClientConf)
 
-  setupMainProc(config.logLevel)
+  setupLogging(config.logLevel, config.logFile)
 
   case config.cmd
   of VCNoCommand:
@@ -240,8 +238,7 @@ programMain:
     info "Scheduling first slot action",
       beaconTime = shortLog(vc.beaconClock.now()),
       nextSlot = shortLog(nextSlot),
-      fromNow = shortLog(fromNow),
-      cat = "scheduling"
+      fromNow = shortLog(fromNow)
 
     addTimer(fromNow) do (p: pointer) {.gcsafe.}:
       asyncCheck vc.onSlotStart(curSlot, nextSlot)

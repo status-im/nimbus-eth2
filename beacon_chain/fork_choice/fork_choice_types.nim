@@ -9,11 +9,14 @@
 
 import
   # Standard library
-  std/tables, std/options,
+  std/[tables, options],
   # Status
+  stew/results,
+
   chronicles,
   # Internal
-  ../spec/[datatypes, digest]
+  ../spec/[datatypes, digest],
+  ../block_pools/block_pools_types
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
@@ -27,27 +30,26 @@ import
 # ----------------------------------------------------------------------
 
 type
-  FcErrKind* = enum
+  fcKind* = enum
     ## Fork Choice Error Kinds
-    fcSuccess
-    fcErrFinalizedNodeUnknown
-    fcErrJustifiedNodeUnknown
-    fcErrInvalidFinalizedRootCHange
-    fcErrInvalidNodeIndex
-    fcErrInvalidParentIndex
-    fcErrInvalidBestChildIndex
-    fcErrInvalidJustifiedIndex
-    fcErrInvalidBestDescendant
-    fcErrInvalidParentDelta
-    fcErrInvalidNodeDelta
-    fcErrDeltaUnderflow
-    fcErrIndexUnderflow
-    fcErrInvalidDeltaLen
-    fcErrRevertedFinalizedEpoch
-    fcErrInvalidBestNode
+    fcFinalizedNodeUnknown
+    fcJustifiedNodeUnknown
+    fcInvalidFinalizedRootCHange
+    fcInvalidNodeIndex
+    fcInvalidParentIndex
+    fcInvalidBestChildIndex
+    fcInvalidJustifiedIndex
+    fcInvalidBestDescendant
+    fcInvalidParentDelta
+    fcInvalidNodeDelta
+    fcDeltaUnderflow
+    fcIndexUnderflow
+    fcInvalidDeltaLen
+    fcRevertedFinalizedEpoch
+    fcInvalidBestNode
     # -------------------------
     # TODO: Extra error modes beyond Proto/Lighthouse to be reviewed
-    fcErrUnknownParent
+    fcUnknownParent
 
   FcUnderflowKind* = enum
     ## Fork Choice Overflow Kinds
@@ -60,41 +62,41 @@ type
     ## Delta indices
 
   ForkChoiceError* = object
-    case kind*: FcErrKind
-    of fcSuccess:
-      discard
-    of fcErrFinalizedNodeUnknown,
-       fcErrJustifiedNodeUnknown:
+    case kind*: fcKind
+    of fcFinalizedNodeUnknown,
+       fcJustifiedNodeUnknown:
          block_root*: Eth2Digest
-    of fcErrInvalidFinalizedRootChange:
+    of fcInvalidFinalizedRootChange:
       discard
-    of fcErrInvalidNodeIndex,
-       fcErrInvalidParentIndex,
-       fcErrInvalidBestChildIndex,
-       fcErrInvalidJustifiedIndex,
-       fcErrInvalidBestDescendant,
-       fcErrInvalidParentDelta,
-       fcErrInvalidNodeDelta,
-       fcErrDeltaUnderflow:
+    of fcInvalidNodeIndex,
+       fcInvalidParentIndex,
+       fcInvalidBestChildIndex,
+       fcInvalidJustifiedIndex,
+       fcInvalidBestDescendant,
+       fcInvalidParentDelta,
+       fcInvalidNodeDelta,
+       fcDeltaUnderflow:
          index*: Index
-    of fcErrIndexUnderflow:
+    of fcIndexUnderflow:
       underflowKind*: FcUnderflowKind
-    of fcErrInvalidDeltaLen:
+    of fcInvalidDeltaLen:
       deltasLen*: int
       indicesLen*: int
-    of fcErrRevertedFinalizedEpoch:
+    of fcRevertedFinalizedEpoch:
       current_finalized_epoch*: Epoch
       new_finalized_epoch*: Epoch
-    of fcErrInvalidBestNode:
+    of fcInvalidBestNode:
       start_root*: Eth2Digest
       justified_epoch*: Epoch
       finalized_epoch*: Epoch
       head_root*: Eth2Digest
       head_justified_epoch*: Epoch
       head_finalized_epoch*: Epoch
-    of fcErrUnknownParent:
+    of fcUnknownParent:
       child_root*: Eth2Digest
       parent_root*: Eth2Digest
+
+  FcResult*[T] = Result[T, ForkChoiceError]
 
   ProtoArray* = object
     prune_threshold*: int
@@ -104,10 +106,6 @@ type
     indices*: Table[Eth2Digest, Index]
 
   ProtoNode* = object
-    # TODO: generic "Metadata" field for slot/state_root
-    slot*: Slot              # This is unnecessary for fork choice but helps external components
-    state_root*: Eth2Digest  # This is unnecessary for fork choice but helps external components
-    # Fields used in fork choice
     root*: Eth2Digest
     parent*: Option[Index]
     justified_epoch*: Epoch
@@ -116,7 +114,19 @@ type
     best_child*: Option[Index]
     best_descendant*: Option[Index]
 
-const ForkChoiceSuccess* = ForkChoiceError(kind: fcSuccess)
+  BalanceCheckpoint* = object
+    blck*: BlockRef
+    epoch*: Epoch
+    balances*: seq[Gwei]
+
+  FFGCheckpoints* = object
+    justified*: BalanceCheckpoint
+    finalized*: Checkpoint
+
+  Checkpoints* = object
+    current*: FFGCheckpoints
+    best*: FFGCheckpoints
+    updateAt*: Option[Epoch]
 
 # Fork choice high-level types
 # ----------------------------------------------------------------------
@@ -127,13 +137,15 @@ type
     next_root*: Eth2Digest
     next_epoch*: Epoch
 
-  ForkChoice* = object
-    # Note: Lighthouse is protecting all fields with Reader-Writer locks.
-    #       However, given the nature of the fields, I suspect sharing those fields
-    #       will lead to thread contention. For now, stay single-threaded. - Mamy
+  ForkChoiceBackend* = object
     proto_array*: ProtoArray
     votes*: seq[VoteTracker]
     balances*: seq[Gwei]
+
+  ForkChoice* = object
+    backend*: ForkChoiceBackend
+    checkpoints*: Checkpoints
+    finalizedBlock*: BlockRef ## Any finalized block used at startup
 
 func shortlog*(vote: VoteTracker): auto =
   (

@@ -12,26 +12,27 @@ import
   ./spec/[
     beaconstate, datatypes, crypto, digest, helpers, network, validator,
     signatures],
-  ./block_pool, ./block_pools/candidate_chains, ./attestation_pool,
+  ./block_pools/[spec_cache, chain_dag, quarantine], ./attestation_pool,
   ./beacon_node_types, ./ssz
 
 logScope:
   topics = "att_aggr"
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#aggregation-selection
 func is_aggregator(state: BeaconState, slot: Slot, index: CommitteeIndex,
     slot_signature: ValidatorSig, cache: var StateCache): bool =
   let
-    committee = get_beacon_committee(state, slot, index, cache)
-    modulo = max(1'u64, len(committee).uint64 div TARGET_AGGREGATORS_PER_COMMITTEE)
-  bytes_to_int(eth2digest(slot_signature.toRaw()).data[0..7]) mod modulo == 0
+    committee_len = get_beacon_committee_len(state, slot, index, cache)
+    modulo = max(1'u64, committee_len div TARGET_AGGREGATORS_PER_COMMITTEE)
+  bytes_to_uint64(eth2digest(slot_signature.toRaw()).data[0..7]) mod modulo == 0
 
 proc aggregate_attestations*(
     pool: AttestationPool, state: BeaconState, index: CommitteeIndex,
-    privkey: ValidatorPrivKey, trailing_distance: uint64): Option[AggregateAndProof] =
+    privkey: ValidatorPrivKey, trailing_distance: uint64,
+    cache: var StateCache): Option[AggregateAndProof] =
   doAssert state.slot >= trailing_distance
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#configuration
   doAssert trailing_distance <= ATTESTATION_PROPAGATION_SLOT_RANGE
 
   let
@@ -42,13 +43,11 @@ proc aggregate_attestations*(
   doAssert slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= state.slot
   doAssert state.slot >= slot
 
-  # TODO performance issue for future, via get_active_validator_indices(...)
-  doAssert index.uint64 < get_committee_count_at_slot(state, slot)
+  doAssert index.uint64 < get_committee_count_per_slot(state, slot.epoch, cache)
 
   # TODO for testing purposes, refactor this into the condition check
   # and just calculation
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#aggregation-selection
-  var cache = get_empty_per_epoch_cache()
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#aggregation-selection
   if not is_aggregator(state, slot, index, slot_signature, cache):
     return none(AggregateAndProof)
 
@@ -66,7 +65,7 @@ proc aggregate_attestations*(
   for attestation in getAttestationsForBlock(pool, state):
     # getAttestationsForBlock(...) already aggregates
     if attestation.data == attestation_data:
-      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#aggregateandproof
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#aggregateandproof
       return some(AggregateAndProof(
         aggregator_index: index.uint64,
         aggregate: attestation,
@@ -82,7 +81,7 @@ proc isValidAttestationSlot(
     attestationSlot
     attestationBlck = shortLog(attestationBlck)
 
-  if not (attestationBlck.slot > pool.blockPool.finalizedHead.slot):
+  if not (attestationBlck.slot > pool.chainDag.finalizedHead.slot):
     debug "voting for already-finalized block"
     return false
 
@@ -99,7 +98,15 @@ proc isValidAttestationSlot(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#attestation-subnets
+func checkPropagationSlotRange(data: AttestationData, current_slot: Slot): bool =
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+  # TODO clock disparity
+  # attestation.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >=
+  # current_slot >= attestation.data.slot
+  (data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot) and
+    (current_slot >= data.slot)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 proc isValidAttestation*(
     pool: var AttestationPool, attestation: Attestation, current_slot: Slot,
     topicCommitteeIndex: uint64): bool =
@@ -107,8 +114,12 @@ proc isValidAttestation*(
     topics = "att_aggr valid_att"
     received_attestation = shortLog(attestation)
 
-  if not (attestation.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >=
-      current_slot and current_slot >= attestation.data.slot):
+  # TODO https://github.com/ethereum/eth2.0-specs/issues/1998
+  if (let v = check_attestation_slot_target(attestation.data); v.isErr):
+    debug "Invalid attestation", err = v.error
+    return false
+
+  if not checkPropagationSlotRange(attestation.data, current_slot):
     debug "attestation.data.slot not within ATTESTATION_PROPAGATION_SLOT_RANGE"
     return false
 
@@ -146,35 +157,67 @@ proc isValidAttestation*(
 
   # The block being voted for (attestation.data.beacon_block_root) passes
   # validation.
-  # We rely on the block pool to have been validated, so check for the
-  # existence of the block in the pool.
-  # TODO: consider a "slush pool" of attestations whose blocks have not yet
-  # propagated - i.e. imagine that attestations are smaller than blocks and
-  # therefore propagate faster, thus reordering their arrival in some nodes
-  let attestationBlck = pool.blockPool.getRef(attestation.data.beacon_block_root)
+  # We rely on the chain DAG to have been validated, so check for the existence
+  # of the block in the pool.
+  let attestationBlck = pool.chainDag.getRef(attestation.data.beacon_block_root)
   if attestationBlck.isNil:
-    debug "block doesn't exist in block pool"
-    pool.blockPool.addMissing(attestation.data.beacon_block_root)
+    debug "Block not found"
+    pool.addUnresolved(attestation)
+    pool.quarantine.addMissing(attestation.data.beacon_block_root)
     return false
 
   if not isValidAttestationSlot(pool, attestation.data.slot, attestationBlck):
     # Not in spec - check that rewinding to the state is sane
     return false
 
-  pool.blockPool.withState(
-      pool.blockPool.tmpState,
-      BlockSlot(blck: attestationBlck, slot: attestation.data.slot)):
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestation-subnets
-    # [REJECT] The attestation is for the correct subnet (i.e.
-    # compute_subnet_for_attestation(state, attestation) == subnet_id).
+  let tgtBlck = pool.chainDag.getRef(attestation.data.target.root)
+  if tgtBlck.isNil:
+    debug "Target block not found"
+    pool.addUnresolved(attestation)
+    pool.quarantine.addMissing(attestation.data.beacon_block_root)
+    return false
+
+  # The current finalized_checkpoint is an ancestor of the block defined by
+  # attestation.data.beacon_block_root -- i.e. get_ancestor(store,
+  # attestation.data.beacon_block_root,
+  # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
+  # store.finalized_checkpoint.root
+  let
+    ancestor = get_ancestor(
+      attestationBlck,
+      compute_start_slot_at_epoch(
+        pool.chainDag.headState.data.data.finalized_checkpoint.epoch))
+    finalized_root =
+      pool.chainDag.headState.data.data.finalized_checkpoint.root
+  if ancestor.isNil:
+    debug "Can't find ancestor block"
+    return false
+  # TODO spec doesn't note the pre-finalization case, but maybe necessary
+  if not (finalized_root in [Eth2Digest(), ancestor.root]):
+    debug "Incorrect ancestor block",
+      ancestor_root = ancestor.root,
+      finalized_root = pool.chainDag.headState.data.data.finalized_checkpoint.root
+    return false
+
+  pool.chainDag.withState(
+      pool.chainDag.tmpState,
+      tgtBlck.atSlot(attestation.data.target.epoch.compute_start_slot_at_epoch)):
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+    # [REJECT] The attestation is for the correct subnet -- i.e.
+    # compute_subnet_for_attestation(committees_per_slot,
+    # attestation.data.slot, attestation.data.index) == subnet_id, where
+    # committees_per_slot = get_committee_count_per_slot(state,
+    # attestation.data.target.epoch), which may be pre-computed along with the
+    # committee information for the signature check.
     let
       epochInfo = blck.getEpochInfo(state)
       requiredSubnetIndex =
         compute_subnet_for_attestation(
-          epochInfo.shuffled_active_validator_indices.len.uint64, attestation)
+          get_committee_count_per_slot(epochInfo),
+          attestation.data.slot, attestation.data.index.CommitteeIndex)
 
     if requiredSubnetIndex != topicCommitteeIndex:
-      debug "isValidAttestation: attestation's committee index not for the correct subnet",
+      debug "attestation's committee index not for the correct subnet",
         topicCommitteeIndex = topicCommitteeIndex,
         attestation_data_index = attestation.data.index,
         requiredSubnetIndex = requiredSubnetIndex
@@ -198,6 +241,14 @@ proc isValidAggregatedAttestation*(
     aggregate_and_proof = signedAggregateAndProof.message
     aggregate = aggregate_and_proof.aggregate
 
+  logScope:
+    aggregate = shortLog(aggregate)
+
+  # TODO https://github.com/ethereum/eth2.0-specs/issues/1998
+  if (let v = check_attestation_slot_target(aggregate.data); v.isErr):
+    debug "Invalid aggregate", err = v.error
+    return false
+
   # There's some overlap between this and isValidAttestation(), but unclear if
   # saving a few lines of code would balance well with losing straightforward,
   # spec-based synchronization.
@@ -206,9 +257,8 @@ proc isValidAggregatedAttestation*(
   # ATTESTATION_PROPAGATION_SLOT_RANGE slots (with a
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. aggregate.data.slot +
   # ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= aggregate.data.slot
-  if not (aggregate.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >=
-      current_slot and current_slot >= aggregate.data.slot):
-    debug "isValidAggregatedAttestation: aggregation.data.slot not within ATTESTATION_PROPAGATION_SLOT_RANGE"
+  if not checkPropagationSlotRange(aggregate.data, current_slot):
+    debug "aggregation.data.slot not within ATTESTATION_PROPAGATION_SLOT_RANGE"
     return false
 
   # [IGNORE] The valid aggregate attestation defined by
@@ -228,10 +278,10 @@ proc isValidAggregatedAttestation*(
 
   # [REJECT] The block being voted for (aggregate.data.beacon_block_root)
   # passes validation.
-  let attestationBlck = pool.blockPool.getRef(aggregate.data.beacon_block_root)
+  let attestationBlck = pool.chainDag.getRef(aggregate.data.beacon_block_root)
   if attestationBlck.isNil:
-    debug "isValidAggregatedAttestation: block doesn't exist in block pool"
-    pool.blockPool.addMissing(aggregate.data.beacon_block_root)
+    debug "Block not found"
+    pool.quarantine.addMissing(aggregate.data.beacon_block_root)
     return false
 
   # [REJECT] The attestation has participants -- that is,
@@ -248,7 +298,7 @@ proc isValidAggregatedAttestation*(
   # But (2) would reflect an invalid aggregation in other ways, so reject it
   # either way.
   if isZeros(aggregate.aggregation_bits):
-    debug "isValidAggregatedAttestation: attestation has no or invalid aggregation bits"
+    debug "Attestation has no or invalid aggregation bits"
     return false
 
   if not isValidAttestationSlot(pool, aggregate.data.slot, attestationBlck):
@@ -258,15 +308,22 @@ proc isValidAggregatedAttestation*(
   # [REJECT] aggregate_and_proof.selection_proof selects the validator as an
   # aggregator for the slot -- i.e. is_aggregator(state, aggregate.data.slot,
   # aggregate.data.index, aggregate_and_proof.selection_proof) returns True.
-  # TODO use withEpochState when it works more reliably
-  pool.blockPool.withState(
-      pool.blockPool.tmpState,
-      BlockSlot(blck: attestationBlck, slot: aggregate.data.slot)):
+
+  let tgtBlck = pool.chainDag.getRef(aggregate.data.target.root)
+  if tgtBlck.isNil:
+    debug "Target block not found"
+    pool.quarantine.addMissing(aggregate.data.beacon_block_root)
+    return
+
+  # TODO this could be any state in the target epoch
+  pool.chainDag.withState(
+      pool.chainDag.tmpState,
+      tgtBlck.atSlot(aggregate.data.target.epoch.compute_start_slot_at_epoch)):
     var cache = getEpochCache(blck, state)
     if not is_aggregator(
         state, aggregate.data.slot, aggregate.data.index.CommitteeIndex,
         aggregate_and_proof.selection_proof, cache):
-      debug "isValidAggregatedAttestation: incorrect aggregator"
+      debug "Incorrect aggregator"
       return false
 
     # [REJECT] The aggregator's validator index is within the committee -- i.e.
@@ -275,22 +332,22 @@ proc isValidAggregatedAttestation*(
     if aggregate_and_proof.aggregator_index.ValidatorIndex notin
         get_beacon_committee(
           state, aggregate.data.slot, aggregate.data.index.CommitteeIndex, cache):
-      debug "isValidAggregatedAttestation: aggregator's validator index not in committee"
+      debug "Aggregator's validator index not in committee"
       return false
 
     # [REJECT] The aggregate_and_proof.selection_proof is a valid signature of the
     # aggregate.data.slot by the validator with index
     # aggregate_and_proof.aggregator_index.
     # get_slot_signature(state, aggregate.data.slot, privkey)
-    if aggregate_and_proof.aggregator_index >= state.validators.len.uint64:
-      debug "isValidAggregatedAttestation: invalid aggregator_index"
+    if aggregate_and_proof.aggregator_index >= state.validators.lenu64:
+      debug "Invalid aggregator_index"
       return false
 
     if not verify_slot_signature(
         state.fork, state.genesis_validators_root, aggregate.data.slot,
         state.validators[aggregate_and_proof.aggregator_index].pubkey,
         aggregate_and_proof.selection_proof):
-      debug "isValidAggregatedAttestation: selection_proof signature verification failed"
+      debug "Selection_proof signature verification failed"
       return false
 
     # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
@@ -298,14 +355,13 @@ proc isValidAggregatedAttestation*(
         state.fork, state.genesis_validators_root, aggregate_and_proof,
         state.validators[aggregate_and_proof.aggregator_index].pubkey,
         signed_aggregate_and_proof.signature):
-      debug "isValidAggregatedAttestation: signed_aggregate_and_proof signature verification failed"
+      debug "Signed_aggregate_and_proof signature verification failed"
       return false
 
     # [REJECT] The signature of aggregate is valid.
     if not is_valid_indexed_attestation(
         state, get_indexed_attestation(state, aggregate, cache), {}):
-      debug "isValidAggregatedAttestation: aggregate signature verification failed"
+      debug "Aggregate signature verification failed"
       return false
 
-  debug "isValidAggregatedAttestation: succeeded"
   true

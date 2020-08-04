@@ -6,43 +6,69 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  json, math, strutils, strformat, typetraits, bearssl,
+  math, strutils, strformat, typetraits, bearssl,
   stew/[results, byteutils, bitseqs, bitops2], stew/shims/macros,
-  eth/keyfile/uuid, blscurve, json_serialization,
-  nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, utils],
+  eth/keyfile/uuid, blscurve, faststreams/textio, json_serialization,
+  nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, utils, scrypt],
   ./datatypes, ./crypto, ./digest, ./signatures
 
 export
-  results
+  results, burnMem, writeValue, readValue
 
 {.push raises: [Defect].}
 
 type
-  ChecksumParams = object
+  ChecksumFunctionKind* = enum
+    sha256Checksum = "sha256"
 
-  Checksum = object
-    function: string
-    params: ChecksumParams
-    message: string
+  Sha256Params* = object
+  Sha256Digest* = MDigest[256]
 
-  CipherParams = object
-    iv: string
+  ChecksumBytes* = distinct seq[byte]
 
-  Cipher = object
-    function: string
-    params: CipherParams
-    message: string
+  Checksum* = object
+    case function*: ChecksumFunctionKind
+    of sha256Checksum:
+      params*: Sha256Params
+      message*: Sha256Digest
 
-  KdfScrypt* = object
+  Aes128CtrIv* = distinct seq[byte]
+
+  Aes128CtrParams* = object
+    iv*: Aes128CtrIv
+
+  CipherFunctionKind* = enum
+    aes128CtrCipher = "aes-128-ctr"
+
+  CipherBytes* = distinct seq[byte]
+
+  Cipher* = object
+    case function*: CipherFunctionKind
+    of aes128ctrCipher:
+      params*: Aes128CtrParams
+    message*: CipherBytes
+
+  KdfKind* = enum
+    kdfPbkdf2 = "pbkdf2"
+    kdfScrypt = "scrypt"
+
+  ScryptSalt* = distinct seq[byte]
+
+  ScryptParams* = object
     dklen: int
     n, p, r: int
-    salt: string
+    salt: ScryptSalt
 
-  KdfPbkdf2* = object
-    dklen: int
-    c: int
-    prf: string
-    salt: string
+  Pbkdf2Salt* = distinct seq[byte]
+
+  PrfKind* = enum # Pseudo-random-function Kind
+    HmacSha256 = "hmac-sha256"
+
+  Pbkdf2Params* = object
+    dklen*: int
+    c*: int
+    prf*: PrfKind
+    salt*: Pbkdf2Salt
 
   # https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md#specification
   Wallet* = object
@@ -52,29 +78,31 @@ type
     walletType* {.serializedFieldName: "type"}: string
     # TODO: The use of `JsonString` can be removed once we
     #       solve the serialization problem for `Crypto[T]`
-    crypto*: JsonString
+    crypto*: Crypto
     nextAccount* {.serializedFieldName: "nextaccount".}: Natural
 
-  KdfParams = KdfPbkdf2 | KdfScrypt
+  Kdf* = object
+    case function*: KdfKind
+    of kdfPbkdf2:
+      pbkdf2Params* {.serializedFieldName: "params".}: Pbkdf2Params
+    of kdfScrypt:
+      scryptParams* {.serializedFieldName: "params".}: ScryptParams
+    message*: string
 
-  Kdf[T: KdfParams] = object
-    function: string
-    params: T
-    message: string
+  Crypto* = object
+    kdf*: Kdf
+    checksum*: Checksum
+    cipher*: Cipher
 
-  Crypto[T: KdfParams] = object
-    kdf: Kdf[T]
-    checksum: Checksum
-    cipher: Cipher
+  Keystore* = object
+    crypto*: Crypto
+    description*: string
+    pubkey*: ValidatorPubKey
+    path*: KeyPath
+    uuid*: string
+    version*: int
 
-  Keystore[T: KdfParams] = object
-    crypto: Crypto[T]
-    pubkey: string
-    path: string
-    uuid: string
-    version: int
-
-  KsResult*[T] = Result[T, cstring]
+  KsResult*[T] = Result[T, string]
 
   Eth2KeyKind* = enum
     signingKeyKind # Also known as voting key
@@ -84,34 +112,32 @@ type
   WalletName* = distinct string
   Mnemonic* = distinct string
   KeyPath* = distinct string
-  KeyStorePass* = distinct string
+  KeystorePass* = distinct string
   KeySeed* = distinct seq[byte]
-
-  KeyStoreContent* = distinct JsonString
-  WalletContent* = distinct JsonString
-
-  SensitiveData = Mnemonic|KeyStorePass|KeySeed
 
   Credentials* = object
     mnemonic*: Mnemonic
-    keyStore*: KeyStoreContent
+    keystore*: Keystore
     signingKey*: ValidatorPrivKey
     withdrawalKey*: ValidatorPrivKey
 
-const
-  saltSize = 32
+  SensitiveData = Mnemonic|KeystorePass|KeySeed
+  SimpleHexEncodedTypes = ScryptSalt|ChecksumBytes|CipherBytes
 
-  scryptParams = KdfScrypt(
-    dklen: saltSize,
+const
+  keyLen = 32
+
+  scryptParams = ScryptParams(
+    dklen: keyLen,
     n: 2^18,
-    r: 1,
-    p: 8
+    p: 1,
+    r: 8
   )
 
-  pbkdf2Params = KdfPbkdf2(
-    dklen: saltSize,
+  pbkdf2Params = Pbkdf2Params(
+    dklen: keyLen,
     c: 2^18,
-    prf: "hmac-sha256"
+    prf: HmacSha256
   )
 
   # https://eips.ethereum.org/EIPS/eip-2334
@@ -122,10 +148,22 @@ const
   wordListLen = 2048
 
 UUID.serializesAsBaseIn Json
+KeyPath.serializesAsBaseIn Json
 WalletName.serializesAsBaseIn Json
+
+ChecksumFunctionKind.serializesAsTextInJson
+CipherFunctionKind.serializesAsTextInJson
+PrfKind.serializesAsTextInJson
+KdfKind.serializesAsTextInJson
 
 template `$`*(m: Mnemonic): string =
   string(m)
+
+template `==`*(lhs, rhs: WalletName): bool =
+  string(lhs) == string(rhs)
+
+template `$`*(x: WalletName): string =
+  string(x)
 
 template burnMem*(m: var (SensitiveData|TaintedString)) =
   # TODO: `burnMem` in nimcrypto could use distinctBase
@@ -137,15 +175,20 @@ proc getRandomBytes*(rng: var BrHmacDrbgContext, n: Natural): seq[byte]
   result = newSeq[byte](n)
   brHmacDrbgGenerate(rng, result)
 
-macro wordListArray(filename: static string): array[wordListLen, cstring] =
+macro wordListArray*(filename: static string,
+                     maxWords: static int = 0,
+                     minWordLength: static int = 0): untyped =
   result = newTree(nnkBracket)
   var words = slurp(filename).split()
-  words.setLen wordListLen
   for word in words:
-    result.add newCall("cstring", newLit(word))
+    if word.len >= minWordLength:
+      result.add newCall("cstring", newLit(word))
+      if maxWords > 0 and result.len >= maxWords:
+        return
 
 const
-  englishWords = wordListArray "english_word_list.txt"
+  englishWords = wordListArray("english_word_list.txt",
+                                maxWords = wordListLen)
 
 iterator pathNodesImpl(path: string): Natural
                       {.raises: [ValueError].} =
@@ -180,7 +223,7 @@ func makeKeyPath*(validatorIdx: Natural,
   except ValueError:
     raiseAssert "All values above can be converted successfully to strings"
 
-func getSeed*(mnemonic: Mnemonic, password: KeyStorePass): KeySeed =
+func getSeed*(mnemonic: Mnemonic, password: KeystorePass): KeySeed =
   # https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed
   let salt = "mnemonic-" & password.string
   KeySeed sha512.pbkdf2(mnemonic.string, salt, 2048, 64)
@@ -240,7 +283,7 @@ proc deriveMasterKey*(seed: KeySeed): ValidatorPrivKey =
   doAssert success
 
 proc deriveMasterKey*(mnemonic: Mnemonic,
-                      password: KeyStorePass): ValidatorPrivKey =
+                      password: KeystorePass): ValidatorPrivKey =
   deriveMasterKey(getSeed(mnemonic, password))
 
 proc deriveChildKey*(masterKey: ValidatorPrivKey,
@@ -250,23 +293,17 @@ proc deriveChildKey*(masterKey: ValidatorPrivKey,
     result = deriveChildKey(result, idx)
 
 proc keyFromPath*(mnemonic: Mnemonic,
-                  password: KeyStorePass,
+                  password: KeystorePass,
                   path: KeyPath): ValidatorPrivKey =
   deriveChildKey(deriveMasterKey(mnemonic, password), path)
 
-proc shaChecksum(key, cipher: openarray[byte]): array[32, byte] =
+proc shaChecksum(key, cipher: openarray[byte]): Sha256Digest =
   var ctx: sha256
   ctx.init()
   ctx.update(key)
   ctx.update(cipher)
-  result = ctx.finish().data
+  result = ctx.finish()
   ctx.clear()
-
-template tryJsonToCrypto(json: JsonNode; crypto: typedesc): untyped =
-  try:
-    json.to(Crypto[crypto])
-  except Exception:
-    return err "ks: failed to parse crypto"
 
 template hexToBytes(data, name: string): untyped =
   try:
@@ -274,82 +311,161 @@ template hexToBytes(data, name: string): untyped =
   except ValueError:
     return err "ks: failed to parse " & name
 
-proc decryptoCryptoField*(json: JsonNode,
-                          password:  KeyStorePass): KsResult[seq[byte]] =
+proc writeJsonHexString(s: OutputStream, data: openarray[byte])
+                       {.raises: [IOError, Defect].} =
+  s.write '"'
+  s.writeHex data
+  s.write '"'
+
+proc readValue*(r: var JsonReader, value: var Pbkdf2Salt)
+               {.raises: [SerializationError, IOError, Defect].} =
+  var s = r.readValue(string)
+
+  if s.len == 0 or s.len mod 16 != 0:
+    r.raiseUnexpectedValue(
+      "The Pbkdf2Salt salf must have a non-zero length divisible by 16")
+
+  try:
+    value = Pbkdf2Salt hexToSeqByte(s)
+  except ValueError:
+    r.raiseUnexpectedValue(
+      "The Pbkdf2Salt must be a valid hex string")
+
+proc readValue*(r: var JsonReader, value: var Aes128CtrIv)
+               {.raises: [SerializationError, IOError, Defect].} =
+  var s = r.readValue(string)
+
+  if s.len != 32:
+    r.raiseUnexpectedValue(
+      "The aes-128-ctr IV must be a string of length 32")
+
+  try:
+    value = Aes128CtrIv hexToSeqByte(s)
+  except ValueError:
+    r.raiseUnexpectedValue(
+      "The aes-128-ctr IV must be a valid hex string")
+
+proc readValue*[T: SimpleHexEncodedTypes](r: var JsonReader, value: var T)
+               {.raises: [SerializationError, IOError, Defect].} =
+  try:
+    value = T hexToSeqByte(r.readValue(string))
+  except ValueError:
+    r.raiseUnexpectedValue("Valid hex string expected")
+
+proc readValue*(r: var JsonReader, value: var Kdf)
+               {.raises: [SerializationError, IOError, Defect].} =
   var
-    decKey: seq[byte]
-    salt: seq[byte]
-    iv: seq[byte]
-    cipherMsg: seq[byte]
-    checksumMsg: seq[byte]
+    functionSpecified = false
+    paramsSpecified = false
 
-  let kdf = json{"kdf", "function"}.getStr
+  for fieldName in readObjectFields(r):
+    case fieldName
+    of "function":
+      value.function = r.readValue(KdfKind)
+      functionSpecified = true
 
-  case kdf
-  of "scrypt":
-    let crypto = tryJsonToCrypto(json, KdfScrypt)
-    return err "ks: scrypt not supported"
-  of "pbkdf2":
-    let
-      crypto = tryJsonToCrypto(json, KdfPbkdf2)
-      kdfParams = crypto.kdf.params
+    of "params":
+      if functionSpecified:
+        case value.function
+        of kdfPbkdf2:
+          r.readValue(value.pbkdf2Params)
+        of kdfScrypt:
+          r.readValue(value.scryptParams)
+      else:
+        r.raiseUnexpectedValue(
+          "The 'params' field must be specified after the 'function' field")
+      paramsSpecified = true
 
-    salt = hexToBytes(kdfParams.salt, "salt")
-    decKey = sha256.pbkdf2(password.string, salt, kdfParams.c, kdfParams.dklen)
-    iv = hexToBytes(crypto.cipher.params.iv, "iv")
-    cipherMsg = hexToBytes(crypto.cipher.message, "cipher")
-    checksumMsg = hexToBytes(crypto.checksum.message, "checksum")
-  else:
-    return err "ks: unknown cipher"
+    of "message":
+      r.readValue(value.message)
 
-  if decKey.len < saltSize:
-    return err "ks: decryption key must be at least 32 bytes"
+    else:
+      r.raiseUnexpectedField(fieldName, "Kdf")
 
-  if iv.len < aes128.sizeBlock:
-    return err "ks: invalid iv"
+  if not (functionSpecified and paramsSpecified):
+    r.raiseUnexpectedValue(
+      "The Kdf value should have sub-fields named 'function' and 'params'")
 
-  let sum = shaChecksum(decKey.toOpenArray(16, 31), cipherMsg)
-  if sum != checksumMsg:
-    return err "ks: invalid checksum"
+template writeValue*(w: var JsonWriter,
+                     value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv) =
+  writeJsonHexString(w.stream, distinctBase value)
+
+template bytes(value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv): seq[byte] =
+  distinctBase value
+
+func scrypt(password: openArray[char], salt: openArray[byte],
+            N, r, p, keyLen: static[int]): array[keyLen, byte] =
+  let (xyvLen, bLen) = scryptCalc(N, r, p)
+  var xyv = newSeq[uint32](xyvLen)
+  var b = newSeq[byte](bLen)
+  discard scrypt(password, salt, N, r, p, xyv, b, result)
+
+proc decryptCryptoField*(crypto: Crypto, password: KeystorePass): seq[byte] =
+  ## Returns 0 bytes if the supplied password is incorrect
+
+  let decKey = case crypto.kdf.function
+    of kdfPbkdf2:
+      template params: auto = crypto.kdf.pbkdf2Params
+      sha256.pbkdf2(password.string, params.salt.bytes, params.c, params.dklen)
+    of kdfScrypt:
+      template params: auto = crypto.kdf.scryptParams
+      if params.dklen != scryptParams.dklen or
+         params.n != scryptParams.n or
+         params.r != scryptParams.r or
+         params.p != scryptParams.p:
+        # TODO This should be reported in a better way
+        return
+      @(scrypt(password.string,
+               params.salt.bytes,
+               scryptParams.n,
+               scryptParams.r,
+               scryptParams.p,
+               scryptParams.dklen))
+
+  let derivedChecksum = shaChecksum(decKey.toOpenArray(16, 31),
+                                    crypto.cipher.message.bytes)
+  if derivedChecksum != crypto.checksum.message:
+    return
 
   var
     aesCipher: CTR[aes128]
-    secret = newSeq[byte](cipherMsg.len)
+    secret = newSeq[byte](crypto.cipher.message.bytes.len)
 
-  aesCipher.init(decKey.toOpenArray(0, 15), iv)
-  aesCipher.decrypt(cipherMsg, secret)
+  aesCipher.init(decKey.toOpenArray(0, 15), crypto.cipher.params.iv.bytes)
+  aesCipher.decrypt(crypto.cipher.message.bytes, secret)
   aesCipher.clear()
 
-  ok secret
+  return secret
 
-proc decryptKeystore*(data: KeyStoreContent,
-                      password: KeyStorePass): KsResult[ValidatorPrivKey] =
-  # TODO: `parseJson` can raise a general `Exception`
-  let
-    ks = try: parseJson(data.string)
-         except Exception: return err "ks: failed to parse keystore"
-    secret = decryptoCryptoField(ks{"crypto"}, password)
+func cstringToStr(v: cstring): string = $v
 
-  ValidatorPrivKey.fromRaw(? secret)
+proc decryptKeystore*(keystore: Keystore,
+                      password: KeystorePass): KsResult[ValidatorPrivKey] =
+  let decryptedBytes = decryptCryptoField(keystore.crypto, password)
+  if decryptedBytes.len > 0:
+    return ValidatorPrivKey.fromRaw(decryptedBytes).mapErr(cstringToStr)
 
-proc createCryptoField(T: type[KdfParams],
+proc decryptKeystore*(keystore: JsonString,
+                      password: KeystorePass): KsResult[ValidatorPrivKey] =
+  let keystore = try: Json.decode(keystore.string, Keystore)
+                 except SerializationError as e:
+                   return err e.formatMsg("<keystore>")
+  decryptKeystore(keystore, password)
+
+proc createCryptoField(kdfKind: KdfKind,
                        rng: var BrHmacDrbgContext,
                        secret: openarray[byte],
-                       password = KeyStorePass "",
+                       password = KeystorePass "",
                        salt: openarray[byte] = @[],
-                       iv: openarray[byte] = @[]): Crypto[T] =
+                       iv: openarray[byte] = @[]): Crypto =
   type AES = aes128
 
-  var
-    decKey: seq[byte]
-    aesCipher: CTR[AES]
-    cipherMsg = newSeq[byte](secret.len)
-
-  let kdfSalt = if salt.len > 0:
-    doAssert salt.len == saltSize
-    @salt
-  else:
-    getRandomBytes(rng, saltSize)
+  let kdfSalt =
+    if salt.len > 0:
+      doAssert salt.len == keyLen
+      @salt
+    else:
+      getRandomBytes(rng, keyLen)
 
   let aesIv = if iv.len > 0:
     doAssert iv.len == AES.sizeBlock
@@ -357,14 +473,26 @@ proc createCryptoField(T: type[KdfParams],
   else:
     getRandomBytes(rng, AES.sizeBlock)
 
-  when T is KdfPbkdf2:
-    decKey = sha256.pbkdf2(password.string, kdfSalt, pbkdf2Params.c,
-                           pbkdf2Params.dklen)
+  var decKey: seq[byte]
+  let kdf = case kdfKind
+    of kdfPbkdf2:
+      decKey = sha256.pbkdf2(password.string,
+                             kdfSalt,
+                             pbkdf2Params.c,
+                             pbkdf2Params.dklen)
+      var params = pbkdf2Params
+      params.salt = Pbkdf2Salt kdfSalt
+      Kdf(function: kdfPbkdf2, pbkdf2Params: params, message: "")
+    of kdfScrypt:
+      decKey = @(scrypt(password.string, kdfSalt,
+                        scryptParams.n, scryptParams.r, scryptParams.p, keyLen))
+      var params = scryptParams
+      params.salt = ScryptSalt kdfSalt
+      Kdf(function: kdfScrypt, scryptParams: params, message: "")
 
-    var kdf = Kdf[KdfPbkdf2](function: "pbkdf2", params: pbkdf2Params, message: "")
-    kdf.params.salt = byteutils.toHex(kdfSalt)
-  else:
-    {.fatal: "Other KDFs are supported yet".}
+  var
+    aesCipher: CTR[AES]
+    cipherMsg = newSeq[byte](secret.len)
 
   aesCipher.init(decKey.toOpenArray(0, 15), aesIv)
   aesCipher.encrypt(secret, cipherMsg)
@@ -372,46 +500,45 @@ proc createCryptoField(T: type[KdfParams],
 
   let sum = shaChecksum(decKey.toOpenArray(16, 31), cipherMsg)
 
-  Crypto[T](
+  Crypto(
     kdf: kdf,
     checksum: Checksum(
-      function: "sha256",
-      message: byteutils.toHex(sum)),
+      function: sha256Checksum,
+      message: sum),
     cipher: Cipher(
-      function: "aes-128-ctr",
-      params: CipherParams(iv: byteutils.toHex(aesIv)),
-      message: byteutils.toHex(cipherMsg)))
+      function: aes128CtrCipher,
+      params: Aes128CtrParams(iv: Aes128CtrIv aesIv),
+      message: CipherBytes cipherMsg))
 
-proc encryptKeystore*(T: type[KdfParams],
-                      rng: var BrHmacDrbgContext,
-                      privKey: ValidatorPrivkey,
-                      password = KeyStorePass "",
-                      path = KeyPath "",
-                      salt: openarray[byte] = @[],
-                      iv: openarray[byte] = @[],
-                      pretty = true): KeyStoreContent =
+proc createKeystore*(kdfKind: KdfKind,
+                     rng: var BrHmacDrbgContext,
+                     privKey: ValidatorPrivkey,
+                     password = KeystorePass "",
+                     path = KeyPath "",
+                     description = "",
+                     salt: openarray[byte] = @[],
+                     iv: openarray[byte] = @[]): Keystore =
   let
     secret = privKey.toRaw[^32..^1]
-    cryptoField = createCryptoField(T, rng, secret, password, salt, iv)
+    cryptoField = createCryptoField(kdfKind, rng, secret, password, salt, iv)
     pubkey = privKey.toPubKey()
     uuid = uuidGenerate().expect("Random bytes should be available")
-    keystore = Keystore[T](
-      crypto: cryptoField,
-      pubkey: toHex(pubkey),
-      path: path.string,
-      uuid: $uuid,
-      version: 4)
 
-  KeyStoreContent if pretty: json.pretty(%keystore)
-                  else: $(%keystore)
+  Keystore(
+    crypto: cryptoField,
+    pubkey: pubkey,
+    path: path,
+    description: description,
+    uuid: $uuid,
+    version: 4)
 
-proc createWallet*(T: type[KdfParams],
+proc createWallet*(kdfKind: KdfKind,
                    rng: var BrHmacDrbgContext,
                    mnemonic: Mnemonic,
                    name = WalletName "",
                    salt: openarray[byte] = @[],
                    iv: openarray[byte] = @[],
-                   password = KeyStorePass "",
+                   password = KeystorePass "",
                    nextAccount = none(Natural),
                    pretty = true): Wallet =
   let
@@ -419,8 +546,9 @@ proc createWallet*(T: type[KdfParams],
     # Please note that we are passing an empty password here because
     # we want the wallet restoration procedure to depend only on the
     # mnemonic (the user is asked to treat the mnemonic as a password).
-    seed = getSeed(mnemonic, KeyStorePass"")
-    cryptoField = %createCryptoField(T,rng, distinctBase seed, password, salt, iv)
+    seed = getSeed(mnemonic, KeystorePass"")
+    crypto = createCryptoField(kdfKind, rng, distinctBase seed,
+                               password, salt, iv)
 
   Wallet(
     uuid: uuid,
@@ -428,65 +556,24 @@ proc createWallet*(T: type[KdfParams],
           else: WalletName(uuid),
     version: 1,
     walletType: "hierarchical deterministic",
-    crypto: JsonString(if pretty: json.pretty(cryptoField)
-                       else: $cryptoField),
+    crypto: crypto,
     nextAccount: nextAccount.get(0))
 
-proc createWalletContent*(T: type[KdfParams],
-                          rng: var BrHmacDrbgContext,
-                          mnemonic: Mnemonic,
-                          name = WalletName "",
-                          salt: openarray[byte] = @[],
-                          iv: openarray[byte] = @[],
-                          password = KeyStorePass "",
-                          nextAccount = none(Natural),
-                          pretty = true): (UUID, WalletContent) =
-  let wallet = createWallet(
-    T, rng, mnemonic, name, salt, iv, password, nextAccount, pretty)
-  (wallet.uuid, WalletContent Json.encode(wallet, pretty = pretty))
-
-proc restoreCredentials*(rng: var BrHmacDrbgContext,
-                         mnemonic: Mnemonic,
-                         password = KeyStorePass ""): Credentials =
-  let
-    withdrawalKeyPath = makeKeyPath(0, withdrawalKeyKind)
-    withdrawalKey = keyFromPath(mnemonic, password, withdrawalKeyPath)
-
-    signingKeyPath = withdrawalKeyPath.append 0
-    signingKey = deriveChildKey(withdrawalKey, 0)
-
-  Credentials(
-    mnemonic: mnemonic,
-    keyStore: encryptKeystore(KdfPbkdf2, rng, signingKey, password, signingKeyPath),
-    signingKey: signingKey,
-    withdrawalKey: withdrawalKey)
-
-proc generateCredentials*(rng: var BrHmacDrbgContext,
-                          entropy: openarray[byte] = @[],
-                          password = KeyStorePass ""): Credentials =
-  let mnemonic = generateMnemonic(rng, englishWords, entropy)
-  restoreCredentials(rng, mnemonic, password)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/deposit-contract.md#withdrawal-credentials
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/deposit-contract.md#withdrawal-credentials
 proc makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
   var bytes = eth2digest(k.toRaw())
   bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
   bytes
 
-proc prepareDeposit*(credentials: Credentials,
-                     preset: RuntimePreset,
-                     amount = MAX_EFFECTIVE_BALANCE.Gwei): Deposit =
-  let
-    withdrawalPubKey = credentials.withdrawalKey.toPubKey
-    signingPubKey = credentials.signingKey.toPubKey
+proc prepareDeposit*(preset: RuntimePreset,
+                     withdrawalPubKey: ValidatorPubKey,
+                     signingKey: ValidatorPrivKey, signingPubKey: ValidatorPubKey,
+                     amount = MAX_EFFECTIVE_BALANCE.Gwei): DepositData =
+  var res = DepositData(
+    amount: amount,
+    pubkey: signingPubKey,
+    withdrawal_credentials: makeWithdrawalCredentials(withdrawalPubKey))
 
-  var
-    ret = Deposit(
-      data: DepositData(
-        amount: amount,
-        pubkey: signingPubKey,
-        withdrawal_credentials: makeWithdrawalCredentials(withdrawalPubKey)))
+  res.signature = preset.get_deposit_signature(res, signingKey)
+  return res
 
-  ret.data.signature = preset.get_deposit_signature(ret.data,
-                                                    credentials.signingKey)
-  ret

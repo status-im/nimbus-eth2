@@ -38,7 +38,7 @@ type
       bootstrapNodes*: seq[string]
 
       depositContractAddress*: Eth1Address
-      depositContractDeployedAt*: Eth1BlockHash
+      depositContractDeployedAt*: string
 
       # Please note that we are using `string` here because SSZ.decode
       # is not currently usable at compile time and we want to load the
@@ -74,7 +74,7 @@ const presetValueLoaders = genExpr(nnkBracket):
               true
             else:
               `constType`(`constNameIdent`) == parse(`constType`, presetValue)
-          except CatchableError as err:
+          except CatchableError:
             false
       )
 
@@ -97,6 +97,7 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
       configPath = path / "config.yaml"
       depositContractPath = path / "deposit_contract.txt"
       depositContractBlockPath = path / "deposit_contract_block.txt"
+      bootstrapNodesPath = path / "bootstrap_nodes.txt"
 
       runtimePreset = if fileExists(configPath):
         extractRuntimePreset(configPath, readPresetFile(configPath))
@@ -109,9 +110,14 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
         default(Eth1Address)
 
       depositContractBlock = if fileExists(depositContractBlockPath):
-        Eth1BlockHash.fromHex readFile(depositContractBlockPath).strip
+        readFile(depositContractBlockPath).strip
       else:
-        default(Eth1BlockHash)
+        ""
+
+      bootstrapNodes = if fileExists(bootstrapNodesPath):
+        readFile(bootstrapNodesPath).splitLines()
+      else:
+        @[]
 
       genesisData = if fileExists(genesisPath): readFile(genesisPath)
                     else: ""
@@ -120,7 +126,7 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
       incompatible: false,
       eth1Network: some goerli,
       runtimePreset: runtimePreset,
-      bootstrapNodes: readFile(path / "bootstrap_nodes.txt").split("\n"),
+      bootstrapNodes: bootstrapNodes,
       depositContractAddress: depositContractAddress,
       depositContractDeployedAt: depositContractBlock,
       genesisData: genesisData)
@@ -139,7 +145,7 @@ const
       # TODO The values below are just placeholders for now
       bootstrapNodes: @[],
       depositContractAddress: Eth1Address.fromHex "0x1234567890123456789012345678901234567890",
-      depositContractDeployedAt: Eth1BlockHash.fromHex "0x73056f16a59bf70abad5b4365438e8a7d646aa0d7f56d22c3d9e4c6000d8e176",
+      depositContractDeployedAt: "0",
       genesisData: "")
   else:
     Eth2NetworkMetadata(
@@ -150,6 +156,9 @@ const
 const
   altonaMetadata* = loadEth2NetworkMetadata(
     currentSourcePath.parentDir / ".." / "vendor" / "eth2-testnets" / "shared" / "altona")
+
+  medallaMetadata* = loadEth2NetworkMetadata(
+    currentSourcePath.parentDir / ".." / "vendor" / "eth2-testnets" / "shared" / "medalla")
 
   testnet0Metadata* = loadEth2NetworkMetadata(
     currentSourcePath.parentDir / ".." / "vendor" / "eth2-testnets" / "nimbus" / "testnet0")

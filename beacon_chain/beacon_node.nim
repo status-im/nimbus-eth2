@@ -7,12 +7,12 @@
 
 import
   # Standard library
-  algorithm, os, tables, strutils, times, math, terminal, bearssl, random,
+  algorithm, os, tables, strutils, sequtils, times, math, terminal,
 
   # Nimble packages
   stew/[objects, byteutils, endians2], stew/shims/macros,
   chronos, confutils, metrics, json_rpc/[rpcserver, jsonmarshal],
-  chronicles,
+  chronicles, bearssl,
   json_serialization/std/[options, sets, net], serialization/errors,
 
   eth/[keys, async_utils],
@@ -24,10 +24,11 @@ import
   spec/[datatypes, digest, crypto, beaconstate, helpers, network, presets],
   spec/state_transition,
   conf, time, beacon_chain_db, validator_pool, extras,
-  attestation_pool, block_pool, eth2_network, eth2_discovery,
-  beacon_node_common, beacon_node_types, block_pools/block_pools_types,
+  attestation_pool, eth2_network, eth2_discovery,
+  beacon_node_common, beacon_node_types,
+  block_pools/[spec_cache, chain_dag, quarantine, clearance, block_pools_types],
   nimbus_binary_common, network_metadata,
-  mainchain_monitor, version, ssz/[merkleization], sszdump,
+  mainchain_monitor, version, ssz/[merkleization], sszdump, merkle_minimal,
   sync_protocol, request_manager, keystore_management, interop, statusbar,
   sync_manager, validator_duties, validator_api, attestation_aggregation
 
@@ -37,7 +38,6 @@ const
 
 type
   RpcServer* = RpcHttpServer
-  KeyPair = eth2_network.KeyPair
 
   # "state" is already taken by BeaconState
   BeaconNodeStatus* = enum
@@ -60,6 +60,10 @@ declareCounter beacon_attestations_received,
   "Number of beacon chain attestations received by this peer"
 declareCounter beacon_blocks_received,
   "Number of beacon chain blocks received by this peer"
+
+# Finalization tracking
+declareGauge finalization_delay,
+  "Epoch delay between scheduled epoch and finalized epoch"
 
 declareHistogram beacon_attestation_received_seconds_from_slot_start,
   "Interval between slot start and attestation receival", buckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
@@ -145,7 +149,7 @@ proc init*(T: type BeaconNode,
 
   var mainchainMonitor: MainchainMonitor
 
-  if not BlockPool.isInitialized(db):
+  if not ChainDAGRef.isInitialized(db):
     # Fresh start - need to load a genesis state from somewhere
     var genesisState = conf.getStateFromSnapshot()
 
@@ -165,14 +169,28 @@ proc init*(T: type BeaconNode,
         fatal "Deposit contract deployment block not specified"
         quit 1
 
+      let web3 = web3Provider(conf.web3Url)
+      let deployedAtAsHash =
+        if conf.depositContractDeployedAt.get.startsWith "0x":
+          try: BlockHash.fromHex conf.depositContractDeployedAt.get
+          except ValueError:
+            fatal "Invalid hex value specified for deposit-contract-block"
+            quit 1
+        else:
+          let blockNum = try: parseBiggestUInt conf.depositContractDeployedAt.get
+                         except ValueError:
+                           fatal "Invalid nummeric value for deposit-contract-block"
+                           quit 1
+          await getEth1BlockHash(conf.web3Url, blockId blockNum)
+
       # TODO Could move this to a separate "GenesisMonitor" process or task
       #      that would do only this - see Paul's proposal for this.
       mainchainMonitor = MainchainMonitor.init(
         conf.runtimePreset,
-        web3Provider(conf.web3Url),
+        web3,
         conf.depositContractAddress.get,
-        Eth1Data(block_hash: conf.depositContractDeployedAt.get.asEth2Digest,
-                 deposit_count: 0))
+        Eth1Data(block_hash: deployedAtAsHash.asEth2Digest, deposit_count: 0))
+
       mainchainMonitor.start()
 
       genesisState = await mainchainMonitor.waitGenesis()
@@ -196,8 +214,8 @@ proc init*(T: type BeaconNode,
       let tailBlock = get_initial_beacon_block(genesisState[])
 
       try:
-        BlockPool.preInit(db, genesisState[], tailBlock)
-        doAssert BlockPool.isInitialized(db), "preInit should have initialized db"
+        ChainDAGRef.preInit(db, genesisState[], tailBlock)
+        doAssert ChainDAGRef.isInitialized(db), "preInit should have initialized db"
       except CatchableError as e:
         error "Failed to initialize database", err = e.msg
         quit 1
@@ -208,9 +226,10 @@ proc init*(T: type BeaconNode,
 
   # TODO check that genesis given on command line (if any) matches database
   let
-    blockPoolFlags = if conf.verifyFinalization: {verifyFinalization}
+    chainDagFlags = if conf.verifyFinalization: {verifyFinalization}
                      else: {}
-    blockPool = BlockPool.init(conf.runtimePreset, db, blockPoolFlags)
+    chainDag = init(ChainDAGRef, conf.runtimePreset, db, chainDagFlags)
+    quarantine = QuarantineRef()
 
   if mainchainMonitor.isNil and
      conf.web3Url.len > 0 and
@@ -219,7 +238,7 @@ proc init*(T: type BeaconNode,
       conf.runtimePreset,
       web3Provider(conf.web3Url),
       conf.depositContractAddress.get,
-      blockPool.headState.data.data.eth1_data)
+      chainDag.headState.data.data.eth1_data)
     # TODO if we don't have any validators attached, we don't need a mainchain
     #      monitor
     mainchainMonitor.start()
@@ -230,10 +249,10 @@ proc init*(T: type BeaconNode,
     nil
 
   let
-    enrForkId = enrForkIdFromState(blockPool.headState.data.data)
+    enrForkId = enrForkIdFromState(chainDag.headState.data.data)
     topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.forkDigest)
     topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.forkDigest)
-    network = await createEth2Node(rng, conf, enrForkId)
+    network = createEth2Node(rng, conf, enrForkId)
 
   var res = BeaconNode(
     nickname: nickname,
@@ -244,10 +263,11 @@ proc init*(T: type BeaconNode,
     db: db,
     config: conf,
     attachedValidators: ValidatorPool.init(),
-    blockPool: blockPool,
-    attestationPool: AttestationPool.init(blockPool),
+    chainDag: chainDag,
+    quarantine: quarantine,
+    attestationPool: AttestationPool.init(chainDag, quarantine),
     mainchainMonitor: mainchainMonitor,
-    beaconClock: BeaconClock.init(blockPool.headState.data.data),
+    beaconClock: BeaconClock.init(chainDag.headState.data.data),
     rpcServer: rpcServer,
     forkDigest: enrForkId.forkDigest,
     topicBeaconBlocks: topicBeaconBlocks,
@@ -259,65 +279,41 @@ proc init*(T: type BeaconNode,
       onBeaconBlock(res, signedBlock)
   )
 
-  await res.addLocalValidators()
+  res.addLocalValidators()
 
   # This merely configures the BeaconSync
   # The traffic will be started when we join the network.
-  network.initBeaconSync(blockPool, enrForkId.forkDigest,
-    proc(signedBlock: SignedBeaconBlock) =
-      if signedBlock.message.slot.isEpoch:
-        # TODO this is a hack to make sure that lmd ghost is run regularly
-        #      while syncing blocks - it's poor form to keep it here though -
-        #      the logic should be moved elsewhere
-        # TODO why only when syncing? well, because the way the code is written
-        #      we require a connection to a boot node to start, and that boot
-        #      node will start syncing as part of connection setup - it looks
-        #      like it needs to finish syncing before the slot timer starts
-        #      ticking which is a problem: all the synced blocks will be added
-        #      to the block pool without any periodic head updates while this
-        #      process is ongoing (during a blank start for example), which
-        #      leads to an unhealthy buildup of blocks in the non-finalized part
-        #      of the block pool
-        # TODO is it a problem that someone sending us a block can force
-        #      a potentially expensive head resolution?
-        discard res.updateHead()
-
-      onBeaconBlock(res, signedBlock))
-
+  network.initBeaconSync(chainDag, enrForkId.forkDigest)
   return res
 
 proc onAttestation(node: BeaconNode, attestation: Attestation) =
   # We received an attestation from the network but don't know much about it
   # yet - in particular, we haven't verified that it belongs to particular chain
   # we're on, or that it follows the rules of the protocol
-  logScope: pcs = "on_attestation"
+  logScope:
+    attestation = shortLog(attestation)
+    head = shortLog(node.chainDag.head)
+    pcs = "on_attestation"
 
   let
     wallSlot = node.beaconClock.now().toSlot()
-    head = node.blockPool.head
+    head = node.chainDag.head
 
   debug "Attestation received",
-    attestation = shortLog(attestation),
-    headRoot = shortLog(head.blck.root),
-    headSlot = shortLog(head.blck.slot),
-    wallSlot = shortLog(wallSlot.slot),
-    cat = "consensus" # Tag "consensus|attestation"?
+    wallSlot = shortLog(wallSlot.slot)
 
-  if not wallSlot.afterGenesis or wallSlot.slot < head.blck.slot:
+  if not wallSlot.afterGenesis or wallSlot.slot < head.slot:
     warn "Received attestation before genesis or head - clock is wrong?",
       afterGenesis = wallSlot.afterGenesis,
-      wallSlot = shortLog(wallSlot.slot),
-      headSlot = shortLog(head.blck.slot),
-      cat = "clock_drift" # Tag "attestation|clock_drift"?
+      wallSlot = shortLog(wallSlot.slot)
     return
 
-  if attestation.data.slot > head.blck.slot and
-      (attestation.data.slot - head.blck.slot) > MaxEmptySlotCount:
-    warn "Ignoring attestation, head block too old (out of sync?)",
-      attestationSlot = attestation.data.slot, headSlot = head.blck.slot
+  if attestation.data.slot > head.slot and
+      (attestation.data.slot - head.slot) > MaxEmptySlotCount:
+    warn "Ignoring attestation, head block too old (out of sync?)"
     return
 
-  node.attestationPool.addAttestation(attestation)
+  node.attestationPool.addAttestation(attestation, wallSlot.slot)
 
 proc dumpBlock[T](
     node: BeaconNode, signedBlock: SignedBeaconBlock,
@@ -326,31 +322,30 @@ proc dumpBlock[T](
     case res.error
     of Invalid:
       dump(
-        node.config.dumpDirInvalid, signedBlock,
-        hash_tree_root(signedBlock.message))
+        node.config.dumpDirInvalid, signedBlock)
     of MissingParent:
       dump(
-        node.config.dumpDirIncoming, signedBlock,
-        hash_tree_root(signedBlock.message))
+        node.config.dumpDirIncoming, signedBlock)
     else:
       discard
 
 proc storeBlock(
     node: BeaconNode, signedBlock: SignedBeaconBlock): Result[void, BlockError] =
-  let blockRoot = hash_tree_root(signedBlock.message)
   debug "Block received",
     signedBlock = shortLog(signedBlock.message),
-    blockRoot = shortLog(blockRoot),
-    cat = "block_listener",
+    blockRoot = shortLog(signedBlock.root),
     pcs = "receive_block"
 
   beacon_blocks_received.inc()
 
-  {.gcsafe.}: # TODO: fork choice and blockpool should sync via messages instead of callbacks
-    let blck = node.blockPool.addRawBlock(blockRoot, signedBlock) do (validBlock: BlockRef):
+  {.gcsafe.}: # TODO: fork choice and quarantine should sync via messages instead of callbacks
+    let blck = node.chainDag.addRawBlock(node.quarantine, signedBlock) do (
+        blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+        state: HashedBeaconState):
       # Callback add to fork choice if valid
-      # node.attestationPool.addForkChoice_v2(validBlock)
-      discard "TODO: Deactivated"
+      node.attestationPool.addForkChoice(
+        state.data, blckRef, signedBlock.message,
+        node.beaconClock.now().slotOrZero())
 
   node.dumpBlock(signedBlock, blck)
 
@@ -360,14 +355,6 @@ proc storeBlock(
   if blck.isErr:
     return err(blck.error)
 
-  # The block we received contains attestations, and we might not yet know about
-  # all of them. Let's add them to the attestation pool.
-  for attestation in signedBlock.message.body.attestations:
-    debug "Attestation from block",
-      attestation = shortLog(attestation),
-      cat = "consensus" # Tag "consensus|attestation"?
-
-    node.attestationPool.addAttestation(attestation)
   ok()
 
 proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) =
@@ -387,7 +374,7 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
   # during testing.
   if epoch >= 4 and slot mod SLOTS_PER_EPOCH > SETTLING_TIME_OFFSET:
     let finalizedEpoch =
-      node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()
+      node.chainDag.finalizedHead.slot.compute_epoch_at_slot()
     # Finalization rule 234, that has the most lag slots among the cases, sets
     # state.finalized_checkpoint = old_previous_justified_checkpoint.epoch + 3
     # and then state.slot gets incremented, to increase the maximum offset, if
@@ -407,19 +394,18 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     # The slot we should be at, according to the clock
     beaconTime = node.beaconClock.now()
     wallSlot = beaconTime.toSlot()
+    finalizedEpoch =
+      node.chainDag.finalizedHead.blck.slot.compute_epoch_at_slot()
 
   info "Slot start",
     lastSlot = shortLog(lastSlot),
     scheduledSlot = shortLog(scheduledSlot),
     beaconTime = shortLog(beaconTime),
     peers = node.network.peersCount,
-    headSlot = shortLog(node.blockPool.head.blck.slot),
-    headEpoch = shortLog(node.blockPool.head.blck.slot.compute_epoch_at_slot()),
-    headRoot = shortLog(node.blockPool.head.blck.root),
-    finalizedSlot = shortLog(node.blockPool.finalizedHead.blck.slot),
-    finalizedRoot = shortLog(node.blockPool.finalizedHead.blck.root),
-    finalizedEpoch = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()),
-    cat = "scheduling"
+    head = shortLog(node.chainDag.head),
+    headEpoch = shortLog(node.chainDag.head.slot.compute_epoch_at_slot()),
+    finalized = shortLog(node.chainDag.finalizedHead.blck),
+    finalizedEpoch = shortLog(finalizedEpoch)
 
   # Check before any re-scheduling of onSlotStart()
   # Offset backwards slightly to allow this epoch's finalization check to occur
@@ -447,8 +433,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
       beaconTime = shortLog(beaconTime),
       lastSlot = shortLog(lastSlot),
       scheduledSlot = shortLog(scheduledSlot),
-      nextSlot = shortLog(nextSlot),
-      cat = "clock_drift" # tag "scheduling|clock_drift"?
+      nextSlot = shortLog(nextSlot)
 
     addTimer(saturate(node.beaconClock.fromNow(nextSlot))) do (p: pointer):
       asyncCheck node.onSlotStart(slot, nextSlot)
@@ -460,6 +445,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     nextSlot = slot + 1
 
   beacon_slot.set slot.int64
+  finalization_delay.set scheduledSlot.epoch.int64 - finalizedEpoch.int64
 
   if node.config.verifyFinalization:
     verifyFinalization(node, scheduledSlot)
@@ -474,8 +460,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
       lastSlot = shortLog(lastSlot),
       slot = shortLog(slot),
       nextSlot = shortLog(nextSlot),
-      scheduledSlot = shortLog(scheduledSlot),
-      cat = "overload"
+      scheduledSlot = shortLog(scheduledSlot)
 
     addTimer(saturate(node.beaconClock.fromNow(nextSlot))) do (p: pointer):
       # We pass the current slot here to indicate that work should be skipped!
@@ -502,7 +487,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   #                     disappear naturally - risky because user is not aware,
   #                     and might lose stake on canonical chain but "just works"
   #                     when reconnected..
-  var head = node.updateHead()
+  discard node.updateHead(slot)
 
   # TODO is the slot of the clock or the head block more interesting? provide
   #      rationale in comment
@@ -517,13 +502,10 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   info "Slot end",
     slot = shortLog(slot),
     nextSlot = shortLog(nextSlot),
-    headSlot = shortLog(node.blockPool.head.blck.slot),
-    headEpoch = shortLog(node.blockPool.head.blck.slot.compute_epoch_at_slot()),
-    headRoot = shortLog(node.blockPool.head.blck.root),
-    finalizedSlot = shortLog(node.blockPool.finalizedHead.blck.slot),
-    finalizedEpoch = shortLog(node.blockPool.finalizedHead.blck.slot.compute_epoch_at_slot()),
-    finalizedRoot = shortLog(node.blockPool.finalizedHead.blck.root),
-    cat = "scheduling"
+    head = shortLog(node.chainDag.head),
+    headEpoch = shortLog(node.chainDag.head.slot.compute_epoch_at_slot()),
+    finalizedHead = shortLog(node.chainDag.finalizedHead.blck),
+    finalizedEpoch = shortLog(node.chainDag.finalizedHead.blck.slot.compute_epoch_at_slot())
 
   when declared(GC_fullCollect):
     # The slots in the beacon node work as frames in a game: we want to make
@@ -539,9 +521,8 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     asyncCheck node.onSlotStart(slot, nextSlot)
 
 proc handleMissingBlocks(node: BeaconNode) =
-  let missingBlocks = node.blockPool.checkMissing()
+  let missingBlocks = node.quarantine.checkMissing()
   if missingBlocks.len > 0:
-    var left = missingBlocks.len
     info "Requesting detected missing blocks", blocks = shortLog(missingBlocks)
     node.requestManager.fetchAncestorBlocks(missingBlocks)
 
@@ -565,7 +546,7 @@ proc runOnSecondLoop(node: BeaconNode) {.async.} =
 
 proc runForwardSyncLoop(node: BeaconNode) {.async.} =
   func getLocalHeadSlot(): Slot =
-    result = node.blockPool.head.blck.slot
+    result = node.chainDag.head.slot
 
   proc getLocalWallSlot(): Slot {.gcsafe.} =
     let epoch = node.beaconClock.now().slotOrZero.compute_epoch_at_slot() +
@@ -573,10 +554,10 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
     result = epoch.compute_start_slot_at_epoch()
 
   func getFirstSlotAtFinalizedEpoch(): Slot {.gcsafe.} =
-    let fepoch = node.blockPool.headState.data.data.finalized_checkpoint.epoch
+    let fepoch = node.chainDag.headState.data.data.finalized_checkpoint.epoch
     compute_start_slot_at_epoch(fepoch)
 
-  proc updateLocalBlocks(list: openarray[SignedBeaconBlock]): Result[void, BlockError] =
+  proc updateLocalBlocks(list: openArray[SignedBeaconBlock]): Result[void, BlockError] =
     debug "Forward sync imported blocks", count = len(list),
           local_head_slot = getLocalHeadSlot()
     let sm = now(chronos.Moment)
@@ -590,7 +571,7 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
       # (and they may have no parents anymore in the fork choice if it was pruned)
       if res.isErr and res.error notin {BlockError.Unviable, BlockError.Old, BLockError.Duplicate}:
         return res
-    discard node.updateHead()
+    discard node.updateHead(node.beaconClock.now().slotOrZero)
 
     let dur = now(chronos.Moment) - sm
     let secs = float(chronos.seconds(1).nanoseconds)
@@ -639,16 +620,16 @@ proc connectedPeersCount(node: BeaconNode): int =
 
 proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("getBeaconHead") do () -> Slot:
-    return node.blockPool.head.blck.slot
+    return node.chainDag.head.slot
 
   rpcServer.rpc("getChainHead") do () -> JsonNode:
     let
-      head = node.blockPool.head
-      finalized = node.blockPool.headState.data.data.finalized_checkpoint
-      justified = node.blockPool.headState.data.data.current_justified_checkpoint
+      head = node.chainDag.head
+      finalized = node.chainDag.headState.data.data.finalized_checkpoint
+      justified = node.chainDag.headState.data.data.current_justified_checkpoint
     return %* {
-      "head_slot": head.blck.slot,
-      "head_block_root": head.blck.root.data.toHex(),
+      "head_slot": head.slot,
+      "head_block_root": head.root.data.toHex(),
       "finalized_slot": finalized.epoch * SLOTS_PER_EPOCH,
       "finalized_block_root": finalized.root.data.toHex(),
       "justified_slot": justified.epoch * SLOTS_PER_EPOCH,
@@ -657,9 +638,8 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
 
   rpcServer.rpc("getSyncing") do () -> bool:
     let
-      beaconTime = node.beaconClock.now()
       wallSlot = currentSlot(node)
-      headSlot = node.blockPool.head.blck.slot
+      headSlot = node.chainDag.head.slot
     # FIXME: temporary hack: If more than 1 block away from expected head, then we are "syncing"
     return (headSlot + 1) < wallSlot
 
@@ -678,7 +658,7 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
     if root.isSome:
       blockHash = root.get
     else:
-      let foundRef = node.blockPool.getBlockByPreciseSlot(slot.get)
+      let foundRef = node.chainDag.getBlockByPreciseSlot(slot.get)
       if foundRef != nil:
         blockHash = foundRef.root
       else:
@@ -695,8 +675,8 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
     requireOneOf(slot, root)
     if slot.isSome:
       # TODO sanity check slot so that it doesn't cause excessive rewinding
-      let blk = node.blockPool.head.blck.atSlot(slot.get)
-      node.blockPool.withState(node.blockPool.tmpState, blk):
+      let blk = node.chainDag.head.atSlot(slot.get)
+      node.chainDag.withState(node.chainDag.tmpState, blk):
         return jsonResult(state)
     else:
       let tmp = BeaconStateRef() # TODO use tmpState - but load the entire StateData!
@@ -772,7 +752,6 @@ proc installAttestationHandlers(node: BeaconNode) =
 
   proc attestationValidator(attestation: Attestation,
                             committeeIndex: uint64): bool =
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestation-subnets
     let (afterGenesis, slot) = node.beaconClock.now().toSlot()
     if not afterGenesis:
       return false
@@ -787,7 +766,7 @@ proc installAttestationHandlers(node: BeaconNode) =
 
   var attestationSubscriptions: seq[Future[void]] = @[]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#attestations-and-aggregation
   for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
     closureScope:
       let ci = it
@@ -829,7 +808,8 @@ proc run*(node: BeaconNode) =
       if not afterGenesis:
         return false
 
-      let blck = node.blockPool.isValidBeaconBlock(signedBlock, slot, {})
+      let blck = node.chainDag.isValidBeaconBlock(node.quarantine,
+                                                       signedBlock, slot, {})
       node.dumpBlock(signedBlock, blck)
 
       blck.isOk
@@ -844,8 +824,7 @@ proc run*(node: BeaconNode) =
     info "Scheduling first slot action",
       beaconTime = shortLog(node.beaconClock.now()),
       nextSlot = shortLog(nextSlot),
-      fromNow = shortLog(fromNow),
-      cat = "scheduling"
+      fromNow = shortLog(fromNow)
 
     addTimer(fromNow) do (p: pointer):
       asyncCheck node.onSlotStart(curSlot, nextSlot)
@@ -873,7 +852,7 @@ proc createPidFile(filename: string) =
   addQuitProc proc {.noconv.} = removeFile gPidFile
 
 proc initializeNetworking(node: BeaconNode) {.async.} =
-  node.network.startListening()
+  await node.network.startListening()
 
   let addressFile = node.config.dataDir / "beacon_node.enr"
   writeFile(addressFile, node.network.announcedENR.toURI)
@@ -886,8 +865,8 @@ proc initializeNetworking(node: BeaconNode) {.async.} =
 
 proc start(node: BeaconNode) =
   let
-    head = node.blockPool.head
-    finalizedHead = node.blockPool.finalizedHead
+    head = node.chainDag.head
+    finalizedHead = node.chainDag.finalizedHead
     genesisTime = node.beaconClock.fromNow(toBeaconTime(Slot 0))
 
   info "Starting beacon node",
@@ -896,15 +875,12 @@ proc start(node: BeaconNode) =
     timeSinceFinalization =
       int64(finalizedHead.slot.toBeaconTime()) -
       int64(node.beaconClock.now()),
-    headSlot = shortLog(head.blck.slot),
-    headRoot = shortLog(head.blck.root),
-    finalizedSlot = shortLog(finalizedHead.blck.slot),
-    finalizedRoot = shortLog(finalizedHead.blck.root),
+    head = shortLog(head),
+    finalizedHead = shortLog(finalizedHead),
     SLOTS_PER_EPOCH,
     SECONDS_PER_SLOT,
     SPEC_VERSION,
     dataDir = node.config.dataDir.string,
-    cat = "init",
     pcs = "start_beacon_node"
 
   if genesisTime.inFuture:
@@ -960,6 +936,8 @@ when hasPrompt:
       # p.useHistoryFile()
 
       proc dataResolver(expr: string): string =
+        template justified: untyped = node.chainDag.head.atEpochStart(
+          node.chainDag.headState.data.data.current_justified_checkpoint.epoch)
         # TODO:
         # We should introduce a general API for resolving dot expressions
         # such as `db.latest_block.slot` or `metrics.connected_peers`.
@@ -972,31 +950,31 @@ when hasPrompt:
           $(node.connectedPeersCount)
 
         of "head_root":
-          shortLog(node.blockPool.head.blck.root)
+          shortLog(node.chainDag.head.root)
         of "head_epoch":
-          $(node.blockPool.head.blck.slot.epoch)
+          $(node.chainDag.head.slot.epoch)
         of "head_epoch_slot":
-          $(node.blockPool.head.blck.slot mod SLOTS_PER_EPOCH)
+          $(node.chainDag.head.slot mod SLOTS_PER_EPOCH)
         of "head_slot":
-          $(node.blockPool.head.blck.slot)
+          $(node.chainDag.head.slot)
 
         of "justifed_root":
-          shortLog(node.blockPool.head.justified.blck.root)
+          shortLog(justified.blck.root)
         of "justifed_epoch":
-          $(node.blockPool.head.justified.slot.epoch)
+          $(justified.slot.epoch)
         of "justifed_epoch_slot":
-          $(node.blockPool.head.justified.slot mod SLOTS_PER_EPOCH)
+          $(justified.slot mod SLOTS_PER_EPOCH)
         of "justifed_slot":
-          $(node.blockPool.head.justified.slot)
+          $(justified.slot)
 
         of "finalized_root":
-          shortLog(node.blockPool.finalizedHead.blck.root)
+          shortLog(node.chainDag.finalizedHead.blck.root)
         of "finalized_epoch":
-          $(node.blockPool.finalizedHead.slot.epoch)
+          $(node.chainDag.finalizedHead.slot.epoch)
         of "finalized_epoch_slot":
-          $(node.blockPool.finalizedHead.slot mod SLOTS_PER_EPOCH)
+          $(node.chainDag.finalizedHead.slot mod SLOTS_PER_EPOCH)
         of "finalized_slot":
-          $(node.blockPool.finalizedHead.slot)
+          $(node.chainDag.finalizedHead.slot)
 
         of "epoch":
           $node.currentSlot.epoch
@@ -1018,9 +996,9 @@ when hasPrompt:
         of "attached_validators_balance":
           var balance = uint64(0)
           # TODO slow linear scan!
-          for idx, b in node.blockPool.headState.data.data.balances:
+          for idx, b in node.chainDag.headState.data.data.balances:
             if node.getAttachedValidator(
-                node.blockPool.headState.data.data, ValidatorIndex(idx)) != nil:
+                node.chainDag.headState.data.data, ValidatorIndex(idx)) != nil:
               balance += b
           formatGwei(balance)
 
@@ -1057,111 +1035,10 @@ when hasPrompt:
       # var t: Thread[ptr Prompt]
       # createThread(t, processPromptCommands, addr p)
 
-proc createWalletInteractively(
-    rng: var BrHmacDrbgContext,
-    conf: BeaconNodeConf): OutFile {.raises: [Defect].} =
-  if conf.nonInteractive:
-    fatal "Wallets can be created only in interactive mode"
-    quit 1
-
-  var mnemonic = generateMnemonic(rng)
-  defer: keystore_management.burnMem(mnemonic)
-
-  template readLine: string =
-    try: stdin.readLine()
-    except IOError:
-      fatal "Failed to read data from stdin"
-      quit 1
-
-  echo "The created wallet will be protected with a password " &
-       "that applies only to the current Nimbus installation. " &
-       "In case you lose your wallet and you need to restore " &
-       "it on a different machine, you must use the following " &
-       "seed recovery phrase: \n"
-
-  echo $mnemonic
-
-  echo "Please back up the seed phrase now to a safe location as " &
-       "if you are protecting a sensitive password. The seed phrase " &
-       "be used to withdrawl funds from your wallet.\n"
-
-  echo "Did you back up your seed recovery phrase? (please type 'yes' to continue or press enter to quit)"
-  while true:
-    let answer = readLine()
-    if answer == "":
-      quit 1
-    elif answer != "yes":
-      echo "To continue, please type 'yes' (without the quotes) or press enter to quit"
-    else:
-      break
-
-  echo "When you perform operations with your wallet such as withdrawals " &
-       "and additional deposits, you'll be asked to enter a password. " &
-       "Please note that this password is local to the current Nimbus " &
-       "installation and can be changed at any time."
-
-  while true:
-    var password, confirmedPassword: TaintedString
-    try:
-      let status = try:
-        readPasswordFromStdin("Please enter a password:", password) and
-        readPasswordFromStdin("Please repeat the password:", confirmedPassword)
-      except IOError:
-        fatal "Failed to read password interactively"
-        quit 1
-
-      if status:
-        if password != confirmedPassword:
-          echo "Passwords don't match, please try again"
-        else:
-          var name: WalletName
-          if conf.createdWalletName.isSome:
-            name = conf.createdWalletName.get
-          else:
-            echo "For your convenience, the wallet can be identified with a name " &
-                 "of your choice. Please enter a wallet name below or press ENTER " &
-                 "to continue with a machine-generated name."
-
-            while true:
-              var enteredName = readLine()
-              if enteredName.len > 0:
-                name = try: WalletName.parseCmdArg(enteredName)
-                       except CatchableError as err:
-                         echo err.msg & ". Please try again."
-                         continue
-              break
-
-          let (uuid, walletContent) = KdfPbkdf2.createWalletContent(
-            rng, mnemonic, name)
-          try:
-            var outWalletFile: OutFile
-
-            if conf.createdWalletFile.isSome:
-              outWalletFile = conf.createdWalletFile.get
-              createDir splitFile(string outWalletFile).dir
-            else:
-              let walletsDir = conf.walletsDir
-              createDir walletsDir
-              outWalletFile = OutFile(walletsDir / addFileExt(string uuid, "json"))
-
-            writeFile(string outWalletFile, string walletContent)
-            return outWalletFile
-          except CatchableError as err:
-            fatal "Failed to write wallet file", err = err.msg
-            quit 1
-
-      if not status:
-        fatal "Failed to read a password from stdin"
-        quit 1
-
-    finally:
-      keystore_management.burnMem(password)
-      keystore_management.burnMem(confirmedPassword)
-
 programMain:
   var config = makeBannerAndConfig(clientId, BeaconNodeConf)
 
-  setupMainProc(config.logLevel)
+  setupLogging(config.logLevel, config.logFile)
 
   if config.eth2Network.isSome:
     let
@@ -1171,6 +1048,8 @@ programMain:
           mainnetMetadata
         of "altona":
           altonaMetadata
+        of "medalla":
+          medallaMetadata
         of "testnet0":
           testnet0Metadata
         of "testnet1":
@@ -1197,7 +1076,7 @@ programMain:
       for node in metadata.bootstrapNodes:
         config.bootstrapNodes.add node
 
-      if config.stateSnapshot.isNone:
+      if config.stateSnapshot.isNone and metadata.genesisData.len > 0:
         config.stateSnapshotContents = newClone metadata.genesisData
 
     template checkForIncompatibleOption(flagName, fieldName) =
@@ -1224,38 +1103,24 @@ programMain:
 
   case config.cmd
   of createTestnet:
-    var
-      depositDirs: seq[string]
-      deposits: seq[Deposit]
-      i = -1
-    for kind, dir in walkDir(config.testnetDepositsDir.string):
-      if kind != pcDir:
-        continue
+    let launchPadDeposits = try:
+      Json.loadFile(config.testnetDepositsFile.string, seq[LaunchPadDeposit])
+    except SerializationError as err:
+      error "Invalid LaunchPad deposits file",
+             err = formatMsg(err, config.testnetDepositsFile.string)
+      quit 1
 
-      inc i
-      if i < config.firstValidator.int:
-        continue
+    var deposits: seq[Deposit]
+    for i in config.firstValidator.int ..< launchPadDeposits.len:
+      deposits.add Deposit(data: launchPadDeposits[i] as DepositData)
 
-      depositDirs.add dir
-
-    # Add deposits, in order, to pass Merkle validation
-    sort(depositDirs, system.cmp)
-
-    for dir in depositDirs:
-      let depositFile = dir / "deposit.json"
-      try:
-        deposits.add Json.loadFile(depositFile, Deposit)
-      except SerializationError as err:
-        stderr.write "Error while loading a deposit file:\n"
-        stderr.write err.formatMsg(depositFile), "\n"
-        stderr.write "Please regenerate the deposit files by running 'beacon_node deposits create' again\n"
-        quit 1
+    attachMerkleProofs(deposits)
 
     let
       startTime = uint64(times.toUnix(times.getTime()) + config.genesisOffset)
       outGenesis = config.outputGenesis.string
       eth1Hash = if config.web3Url.len == 0: eth1BlockHash
-                 else: waitFor getLatestEth1BlockHash(config.web3Url)
+                 else: (waitFor getEth1BlockHash(config.web3Url, blockId("latest"))).asEth2Digest
     var
       initialState = initialize_beacon_state_from_eth1(
         defaultRuntimePreset, eth1Hash, startTime, deposits, {skipBlsValidation})
@@ -1330,18 +1195,26 @@ programMain:
   of deposits:
     case config.depositsCmd
     of DepositsCmd.create:
-      if config.askForKey and config.depositPrivateKey.len == 0:
-        let
-          depositsWord = if config.totalDeposits > 1: "deposits"
-                         else: "deposit"
-          totalEthNeeded = 32 * config.totalDeposits
+      var walletData = if config.existingWalletId.isSome:
+        let id = config.existingWalletId.get
+        let found = keystore_management.findWallet(config, id)
+        if found.isErr:
+          fatal "Unable to find wallet with the specified name/uuid",
+                id, err = found.error
+          quit 1
+        let unlocked = unlockWalletInteractively(found.get)
+        if unlocked.isOk:
+          unlocked.get
+        else:
+          quit 1
+      else:
+        let walletData = createWalletInteractively(rng[], config)
+        if walletData.isErr:
+          fatal "Unable to create wallet", err = walletData.error
+          quit 1
+        walletData.get
 
-        echo "Please enter your Goerli Eth1 private key in hex form " &
-             "(e.g. 0x1a2...f3c) in order to make your $1 (you'll need " &
-             "access to $2 GoETH)" % [depositsWord, $totalEthNeeded]
-
-        if not readPasswordFromStdin("> ", TaintedString config.depositPrivateKey):
-          error "Failed to read an Eth1 private key from standard input"
+      defer: burnMem(walletData.mnemonic)
 
       createDir(config.outValidatorsDir)
       createDir(config.outSecretsDir)
@@ -1349,6 +1222,7 @@ programMain:
       let deposits = generateDeposits(
         config.runtimePreset,
         rng[],
+        walletData,
         config.totalDeposits,
         config.outValidatorsDir,
         config.outSecretsDir)
@@ -1357,34 +1231,43 @@ programMain:
         fatal "Failed to generate deposits", err = deposits.error
         quit 1
 
-      if not config.dontSend:
-        waitFor sendDeposits(config, deposits.value)
+      try:
+        let depositDataPath = if config.outDepositsFile.isSome:
+          config.outDepositsFile.get.string
+        else:
+          config.outValidatorsDir / "deposit_data-" & $epochTime() & ".json"
 
-    of DepositsCmd.send:
-      var delayGenerator: DelayGenerator
-      if config.maxDelay > 0.0:
-        delayGenerator = proc (): chronos.Duration {.gcsafe.} =
-          chronos.milliseconds (rand(config.minDelay..config.maxDelay)*1000).int
+        let launchPadDeposits =
+          mapIt(deposits.value, LaunchPadDeposit.init(config.runtimePreset, it))
 
-      if config.minDelay > config.maxDelay:
-        echo "The minimum delay should not be larger than the maximum delay"
+        Json.saveFile(depositDataPath, launchPadDeposits)
+        info "Deposit data written", filename = depositDataPath
+      except CatchableError as err:
+        error "Failed to create launchpad deposit data file", err = err.msg
         quit 1
 
-      let deposits = loadDeposits(config.depositsDir)
-      waitFor sendDeposits(config, deposits, delayGenerator)
+    of DepositsCmd.`import`:
+      importKeystoresFromDir(
+        rng[],
+        config.importedDepositsDir.string,
+        config.validatorsDir, config.secretsDir)
 
     of DepositsCmd.status:
-      # TODO
       echo "The status command is not implemented yet"
       quit 1
 
   of wallets:
     case config.walletsCmd:
     of WalletsCmd.create:
-      let walletFile = createWalletInteractively(rng[], config)
+      let status = createWalletInteractively(rng[], config)
+      if status.isErr:
+        fatal "Unable to create wallet", err = status.error
+        quit 1
+
     of WalletsCmd.list:
       # TODO
       discard
+
     of WalletsCmd.restore:
       # TODO
       discard

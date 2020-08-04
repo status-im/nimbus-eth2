@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # process_attestation (beaconstate.nim)
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#attestations
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#attestations
 # ---------------------------------------------------------------
 
 {.used.}
@@ -16,7 +16,7 @@ import
   unittest,
   stew/results,
   # Specs
-  ../../beacon_chain/spec/[beaconstate, datatypes, helpers, validator],
+  ../../beacon_chain/spec/[beaconstate, datatypes, helpers],
   # Mock helpers
   ../mocking/[mock_genesis, mock_attestations, mock_state],
   ../testutil
@@ -25,7 +25,7 @@ suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
 
   const NumValidators = uint64(8) * SLOTS_PER_EPOCH
   let genesisState = newClone(initGenesisState(NumValidators))
-  doAssert genesisState.data.validators.len == int NumValidators
+  doAssert genesisState.data.validators.lenu64 == NumValidators
 
   template valid_attestation(name: string, body: untyped): untyped {.dirty.}=
     # Process a valid attestation
@@ -48,7 +48,7 @@ suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
 
       # State transition
       # ----------------------------------------
-      var cache = get_empty_per_epoch_cache()
+      var cache = StateCache()
       check process_attestation(
         state.data, attestation, flags = {}, cache
       ).isOk

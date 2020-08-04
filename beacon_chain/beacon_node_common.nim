@@ -18,7 +18,8 @@ import
   # Local modules
   spec/[datatypes, crypto, digest],
   conf, time, beacon_chain_db,
-  attestation_pool, block_pool, eth2_network,
+  attestation_pool, eth2_network,
+  block_pools/[chain_dag, quarantine],
   beacon_node_types, mainchain_monitor, request_manager,
   sync_manager
 
@@ -39,7 +40,8 @@ type
     db*: BeaconChainDB
     config*: BeaconNodeConf
     attachedValidators*: ValidatorPool
-    blockPool*: BlockPool
+    chainDag*: ChainDAGRef
+    quarantine*: QuarantineRef
     attestationPool*: AttestationPool
     mainchainMonitor*: MainchainMonitor
     beaconClock*: BeaconClock
@@ -59,25 +61,27 @@ const
 declareGauge beacon_head_root,
   "Root of the head block of the beacon chain"
 
-proc updateHead*(node: BeaconNode): BlockRef =
+proc updateHead*(node: BeaconNode, wallSlot: Slot): BlockRef =
   # Check pending attestations - maybe we found some blocks for them
-  node.attestationPool.resolve()
+  node.attestationPool.resolve(wallSlot)
 
   # Grab the new head according to our latest attestation data
-  let newHead = node.attestationPool.selectHead()
+  let newHead = node.attestationPool.selectHead(wallSlot)
 
-  # Store the new head in the block pool - this may cause epochs to be
+  # Store the new head in the chain DAG - this may cause epochs to be
   # justified and finalized
-  node.blockPool.updateHead(newHead)
+  let oldFinalized = node.chainDag.finalizedHead.blck
+
+  node.chainDag.updateHead(newHead)
   beacon_head_root.set newHead.root.toGaugeValue
 
-  # TODO - deactivated
   # Cleanup the fork choice v2 if we have a finalized head
-  # node.attestationPool.pruneBefore(node.blockPool.finalizedHead)
+  if oldFinalized != node.chainDag.finalizedHead.blck:
+    node.attestationPool.prune()
 
   newHead
 
-template findIt*(s: openarray, predicate: untyped): int64 =
+template findIt*(s: openarray, predicate: untyped): int =
   var res = -1
   for i, it {.inject.} in s:
     if predicate:

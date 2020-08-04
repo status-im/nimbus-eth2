@@ -2,7 +2,8 @@ import
   options, tables, sets, macros,
   chronicles, chronos, stew/ranges/bitranges, libp2p/switch,
   spec/[datatypes, crypto, digest],
-  beacon_node_types, eth2_network, block_pool
+  beacon_node_types, eth2_network,
+  block_pools/chain_dag
 
 logScope:
   topics = "sync"
@@ -35,9 +36,8 @@ type
   BeaconBlockCallback* = proc(signedBlock: SignedBeaconBlock) {.gcsafe.}
 
   BeaconSyncNetworkState* = ref object
-    blockPool*: BlockPool
+    chainDag*: ChainDAGRef
     forkDigest*: ForkDigest
-    onBeaconBlock*: BeaconBlockCallback
 
   BeaconSyncPeerState* = ref object
     initialStatusReceived*: bool
@@ -66,21 +66,15 @@ func disconnectReasonName(reason: uint64): string =
   elif reason == uint64(FaultOrError): "Fault or error"
   else: "Disconnected (" & $reason & ")"
 
-proc importBlocks(state: BeaconSyncNetworkState,
-                  blocks: openarray[SignedBeaconBlock]) {.gcsafe.} =
-  for blk in blocks:
-    state.onBeaconBlock(blk)
-  info "Forward sync imported blocks", len = blocks.len
-
 proc getCurrentStatus*(state: BeaconSyncNetworkState): StatusMsg {.gcsafe.} =
   let
-    blockPool = state.blockPool
-    headBlock = blockPool.head.blck
+    chainDag = state.chainDag
+    headBlock = chainDag.head
 
   StatusMsg(
     forkDigest: state.forkDigest,
-    finalizedRoot: blockPool.headState.data.data.finalized_checkpoint.root,
-    finalizedEpoch: blockPool.headState.data.data.finalized_checkpoint.epoch,
+    finalizedRoot: chainDag.headState.data.data.finalized_checkpoint.root,
+    finalizedEpoch: chainDag.headState.data.data.finalized_checkpoint.epoch,
     headRoot: headBlock.root,
     headSlot: headBlock.slot)
 
@@ -140,19 +134,19 @@ p2pProtocol BeaconSync(version = 1,
     if count > 0'u64:
       var blocks: array[MAX_REQUESTED_BLOCKS, BlockRef]
       let
-        pool = peer.networkState.blockPool
+        chainDag = peer.networkState.chainDag
         # Limit number of blocks in response
         count = min(count.Natural, blocks.len)
 
       let
         endIndex = count - 1
         startIndex =
-          pool.getBlockRange(startSlot, step, blocks.toOpenArray(0, endIndex))
+          chainDag.getBlockRange(startSlot, step, blocks.toOpenArray(0, endIndex))
 
       for b in blocks[startIndex..endIndex]:
         doAssert not b.isNil, "getBlockRange should return non-nil blocks only"
         trace "wrote response block", slot = b.slot, roor = shortLog(b.root)
-        await response.write(pool.get(b).data)
+        await response.write(chainDag.get(b).data)
 
       debug "Block range request done",
         peer, startSlot, count, step, found = count - startIndex
@@ -163,15 +157,15 @@ p2pProtocol BeaconSync(version = 1,
       response: MultipleChunksResponse[SignedBeaconBlock])
       {.async, libp2pProtocol("beacon_blocks_by_root", 1).} =
     let
-      pool = peer.networkState.blockPool
+      chainDag = peer.networkState.chainDag
       count = blockRoots.len
 
     var found = 0
 
     for root in blockRoots[0..<count]:
-      let blockRef = pool.getRef(root)
+      let blockRef = chainDag.getRef(root)
       if not isNil(blockRef):
-        await response.write(pool.get(blockRef).data)
+        await response.write(chainDag.get(blockRef).data)
         inc found
 
     debug "Block root request done",
@@ -232,15 +226,13 @@ proc handleStatus(peer: Peer,
 
       if not res:
         debug "Peer is dead or already in pool", peer
-        await peer.disconnect(ClientShutDown)
+        # TODO: DON NOT DROP THE PEER!
+        # await peer.disconnect(ClientShutDown)
 
     peer.setStatusMsg(theirStatus)
 
-proc initBeaconSync*(network: Eth2Node,
-                     blockPool: BlockPool,
-                     forkDigest: ForkDigest,
-                     onBeaconBlock: BeaconBlockCallback) =
+proc initBeaconSync*(network: Eth2Node, chainDag: ChainDAGRef,
+                     forkDigest: ForkDigest) =
   var networkState = network.protocolState(BeaconSync)
-  networkState.blockPool = blockPool
+  networkState.chainDag = chainDag
   networkState.forkDigest = forkDigest
-  networkState.onBeaconBlock = onBeaconBlock

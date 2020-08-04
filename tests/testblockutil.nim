@@ -8,7 +8,7 @@
 import
   options, stew/endians2,
   chronicles, eth/trie/[db],
-  ../beacon_chain/[beacon_chain_db, block_pool, extras,
+  ../beacon_chain/[beacon_chain_db, extras,
                    merkle_minimal, validator_pool],
   ../beacon_chain/ssz/merkleization,
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, presets,
@@ -73,13 +73,14 @@ proc makeInitialDeposits*(
 func signBlock*(
     fork: Fork, genesis_validators_root: Eth2Digest, blck: BeaconBlock,
     privKey: ValidatorPrivKey, flags: UpdateFlags = {}): SignedBeaconBlock =
+  var root = hash_tree_root(blck)
   SignedBeaconBlock(
     message: blck,
+    root: root,
     signature:
       if skipBlsValidation notin flags:
         get_block_signature(
-          fork, genesis_validators_root, blck.slot,
-          hash_tree_root(blck), privKey)
+          fork, genesis_validators_root, blck.slot, root, privKey)
       else:
         ValidatorSig()
   )
@@ -116,7 +117,7 @@ proc addTestBlock*(
       # Keep deposit counts internally consistent.
       Eth1Data(
         deposit_root: eth1_data.deposit_root,
-        deposit_count: state.data.eth1_deposit_index + deposits.len.uint64,
+        deposit_count: state.data.eth1_deposit_index + deposits.lenu64,
         block_hash: eth1_data.block_hash),
       graffiti,
       attestations,
@@ -188,8 +189,8 @@ proc find_beacon_committee(
     state: BeaconState, validator_index: ValidatorIndex,
     cache: var StateCache): auto =
   let epoch = compute_epoch_at_slot(state.slot)
-  for epoch_committee_index in 0'u64 ..< get_committee_count_at_slot(
-      state, epoch.compute_start_slot_at_epoch) * SLOTS_PER_EPOCH:
+  for epoch_committee_index in 0'u64 ..< get_committee_count_per_slot(
+      state, epoch, cache) * SLOTS_PER_EPOCH:
     let
       slot = ((epoch_committee_index mod SLOTS_PER_EPOCH) +
         epoch.compute_start_slot_at_epoch.uint64).Slot
@@ -214,10 +215,10 @@ proc makeFullAttestations*(
     flags: UpdateFlags = {}): seq[Attestation] =
   # Create attestations in which the full committee participates for each shard
   # that should be attested to during a particular slot
-  let
-    count = get_committee_count_at_slot(state, slot)
+  let committees_per_slot =
+    get_committee_count_per_slot(state, slot.epoch, cache)
 
-  for index in 0..<count:
+  for index in 0'u64..<committees_per_slot:
     let
       committee = get_beacon_committee(
         state, slot, index.CommitteeIndex, cache)

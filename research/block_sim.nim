@@ -22,8 +22,10 @@ import
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, presets,
                         helpers, validator, signatures, state_transition],
   ../beacon_chain/[
-    attestation_pool, block_pool, beacon_node_types, beacon_chain_db,
+    attestation_pool, beacon_node_types, beacon_chain_db,
     interop, validator_pool],
+  ../beacon_chain/block_pools/[
+    spec_cache, chain_dag, quarantine, clearance],
   eth/db/[kvstore, kvstore_sqlite3],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
@@ -51,24 +53,26 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   let
     db = BeaconChainDB.init(kvStore SqStoreRef.init(".", "block_sim").tryGet())
 
-  BlockPool.preInit(db, state[].data, genesisBlock)
+  ChainDAGRef.preInit(db, state[].data, genesisBlock)
 
   var
-    blockPool = BlockPool.init(defaultRuntimePreset, db)
-    attPool = AttestationPool.init(blockPool)
+    chainDag = init(ChainDAGRef, defaultRuntimePreset, db)
+    quarantine = QuarantineRef()
+    attPool = AttestationPool.init(chainDag, quarantine)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r = initRand(1)
 
-  let replayState = assignClone(blockPool.headState)
+  let replayState = assignClone(chainDag.headState)
 
   proc handleAttestations(slot: Slot) =
     let
-      attestationHead = blockPool.head.blck.atSlot(slot)
+      attestationHead = chainDag.head.atSlot(slot)
 
-    blockPool.withState(blockPool.tmpState, attestationHead):
-      var cache = get_empty_per_epoch_cache()
-      let committees_per_slot = get_committee_count_at_slot(state, slot)
+    chainDag.withState(chainDag.tmpState, attestationHead):
+      var cache = getEpochCache(attestationHead.blck, state)
+      let committees_per_slot =
+        get_committee_count_per_slot(state, slot.epoch, cache)
 
       for committee_index in 0'u64..<committees_per_slot:
         let committee = get_beacon_committee(
@@ -90,17 +94,17 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
                 data: data,
                 aggregation_bits: aggregation_bits,
                 signature: sig
-              ))
+              ), data.slot)
 
   proc proposeBlock(slot: Slot) =
     if rand(r, 1.0) > blockRatio:
       return
 
     let
-      head = blockPool.head.blck
+      head = chainDag.head
 
-    blockPool.withState(blockPool.tmpState, head.atSlot(slot)):
-      var cache = get_empty_per_epoch_cache()
+    chainDag.withState(chainDag.tmpState, head.atSlot(slot)):
+      var cache = StateCache()
 
       let
         proposerIdx = get_beacon_proposer_index(state, cache).get()
@@ -127,18 +131,21 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
       let blockRoot = withTimerRet(timers[tHashBlock]):
         hash_tree_root(newBlock.message)
-
+      newBlock.root = blockRoot
       # Careful, state no longer valid after here because of the await..
       newBlock.signature = withTimerRet(timers[tSignBlock]):
         get_block_signature(
           state.fork, state.genesis_validators_root, newBlock.message.slot,
           blockRoot, privKey)
 
-      let added = blockPool.addRawBlock(blockRoot, newBlock) do (validBlock: BlockRef):
-        # Callback Add to fork choice
-        attPool.addForkChoice_v2(validBlock)
+      let added = chainDag.addRawBlock(quarantine, newBlock) do (
+          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          state: HashedBeaconState):
+        # Callback add to fork choice if valid
+        attPool.addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
+
       blck() = added[]
-      blockPool.updateHead(added[])
+      chainDag.updateHead(added[])
 
   for i in 0..<slots:
     let
@@ -156,7 +163,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     # TODO if attestation pool was smarter, it would include older attestations
     #      too!
-    verifyConsensus(blockPool.headState.data.data, attesterRatio * blockRatio)
+    verifyConsensus(chainDag.headState.data.data, attesterRatio * blockRatio)
 
     if t == tEpoch:
       echo &". slot: {shortLog(slot)} ",
@@ -167,9 +174,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
   if replay:
     withTimer(timers[tReplay]):
-      blockPool.updateStateData(
-        replayState[], blockPool.head.blck.atSlot(Slot(slots)))
+      chainDag.updateStateData(
+        replayState[], chainDag.head.atSlot(Slot(slots)))
 
   echo "Done!"
 
-  printTimers(blockPool.headState.data.data, attesters, true, timers)
+  printTimers(chainDag.headState.data.data, attesters, true, timers)

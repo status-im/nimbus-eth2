@@ -570,7 +570,7 @@ proc discoveryLoop(conf: InspectorConf,
         if pinfoOpt.isOk():
           let pinfo = pinfoOpt.get()
           if pinfo.hasTCP():
-            if pinfo.id() notin switch.connections:
+            if not switch.isConnected(pinfo):
               debug "Discovered new peer", peer = pinfo,
                                            peers_count = len(peers)
               await connQueue.addLast(pinfo)

@@ -8,11 +8,12 @@
 {.push raises: [Defect].}
 
 import
-  chronicles, sequtils, tables,
+  std/[sequtils, tables],
+  chronicles,
   metrics, stew/results,
-  ../ssz/merkleization, ../extras,
+  ../extras,
   ../spec/[crypto, datatypes, digest, helpers, signatures, state_transition],
-  block_pools_types, candidate_chains, quarantine
+  ./block_pools_types, ./chain_dag, ./quarantine
 
 export results
 
@@ -21,12 +22,12 @@ export results
 #
 # This module is in charge of making the
 # "quarantined" network blocks
-# pass the firewall and be stored in the blockpool
+# pass the firewall and be stored in the chain DAG
 
 logScope:
   topics = "clearance"
 
-func getOrResolve*(dag: CandidateChains, quarantine: var Quarantine, root: Eth2Digest): BlockRef =
+func getOrResolve*(dag: ChainDAGRef, quarantine: var QuarantineRef, root: Eth2Digest): BlockRef =
   ## Fetch a block ref, or nil if not found (will be added to list of
   ## blocks-to-resolve)
   result = dag.getRef(root)
@@ -35,73 +36,66 @@ func getOrResolve*(dag: CandidateChains, quarantine: var Quarantine, root: Eth2D
     quarantine.missing[root] = MissingBlock()
 
 proc addRawBlock*(
-      dag: var CandidateChains, quarantine: var Quarantine,
-      blockRoot: Eth2Digest,
-      signedBlock: SignedBeaconBlock,
-      callback: proc(blck: BlockRef)
+      dag: var ChainDAGRef, quarantine: var QuarantineRef,
+      signedBlock: SignedBeaconBlock, onBlockAdded: OnBlockAdded
      ): Result[BlockRef, BlockError]
 
 proc addResolvedBlock(
-       dag: var CandidateChains, quarantine: var Quarantine,
-       state: BeaconState, blockRoot: Eth2Digest,
-       signedBlock: SignedBeaconBlock, parent: BlockRef,
-       callback: proc(blck: BlockRef)
+       dag: var ChainDAGRef, quarantine: var QuarantineRef,
+       state: HashedBeaconState, signedBlock: SignedBeaconBlock,
+       parent: BlockRef, cache: StateCache,
+       onBlockAdded: OnBlockAdded
      ): BlockRef =
-  # TODO: `addResolvedBlock` is accumulating significant cruft
-  # and is in dire need of refactoring
-  # - the ugly `quarantine.inAdd` field
-  # - the callback
-  # - callback may be problematic as it's called in async validator duties
+  # TODO move quarantine processing out of here
   logScope: pcs = "block_resolution"
-  doAssert state.slot == signedBlock.message.slot, "state must match block"
+  doAssert state.data.slot == signedBlock.message.slot, "state must match block"
 
-  let blockRef = BlockRef.init(blockRoot, signedBlock.message)
-  blockRef.epochsInfo = filterIt(parent.epochsInfo,
-    it.epoch + 1 >= state.slot.compute_epoch_at_slot)
+  let
+    blockRoot = signedBlock.root
+    blockRef = BlockRef.init(blockRoot, signedBlock.message)
+    blockEpoch = blockRef.slot.compute_epoch_at_slot()
+  if parent.slot.compute_epoch_at_slot() == blockEpoch:
+    # If the parent and child blocks are from the same epoch, we can reuse
+    # the epoch cache - but we'll only use the current epoch because the new
+    # block might have affected what the next epoch looks like
+    blockRef.epochsInfo = filterIt(parent.epochsInfo, it.epoch == blockEpoch)
+  else:
+    # Ensure we collect the epoch info if it's missing
+    discard getEpochInfo(blockRef, state.data)
+
   link(parent, blockRef)
 
   dag.blocks[blockRoot] = blockRef
   trace "Populating block dag", key = blockRoot, val = blockRef
 
   # Resolved blocks should be stored in database
-  dag.putBlock(blockRoot, signedBlock)
+  dag.putBlock(signedBlock)
 
-  # This block *might* have caused a justification - make sure we stow away
-  # that information:
-  let justifiedSlot =
-    state.current_justified_checkpoint.epoch.compute_start_slot_at_epoch()
-
-  var foundHead: Option[Head]
+  var foundHead: BlockRef
   for head in dag.heads.mitems():
-    if head.blck.isAncestorOf(blockRef):
-      if head.justified.slot != justifiedSlot:
-        head.justified = blockRef.atSlot(justifiedSlot)
+    if head.isAncestorOf(blockRef):
 
-      head.blck = blockRef
+      head = blockRef
 
-      foundHead = some(head)
+      foundHead = head
       break
 
-  if foundHead.isNone():
-    foundHead = some(Head(
-      blck: blockRef,
-      justified: blockRef.atSlot(justifiedSlot)))
-    dag.heads.add(foundHead.get())
+  if foundHead.isNil:
+    foundHead = blockRef
+    dag.heads.add(foundHead)
 
   info "Block resolved",
     blck = shortLog(signedBlock.message),
     blockRoot = shortLog(blockRoot),
-    justifiedHead = foundHead.get().justified,
-    heads = dag.heads.len(),
-    cat = "filtering"
+    heads = dag.heads.len()
 
-  # This MUST be added before the quarantine
-  callback(blockRef)
+  # Notify others of the new block before processing the quarantine, such that
+  # notifications for parents happens before those of the children
+  if onBlockAdded != nil:
+    onBlockAdded(blockRef, signedBlock, state)
 
   # Now that we have the new block, we should see if any of the previously
   # unresolved blocks magically become resolved
-  # TODO there are more efficient ways of doing this that don't risk
-  #      running out of stack etc
   # TODO This code is convoluted because when there are more than ~1.5k
   #      blocks being synced, there's a stack overflow as `add` gets called
   #      for the whole chain of blocks. Instead we use this ugly field in `dag`
@@ -110,54 +104,39 @@ proc addResolvedBlock(
   if not quarantine.inAdd:
     quarantine.inAdd = true
     defer: quarantine.inAdd = false
-    var keepGoing = true
-    while keepGoing:
-      let retries = quarantine.orphans
-      for k, v in retries:
-        discard addRawBlock(dag, quarantine, k, v, callback)
-      # Keep going for as long as the pending dag is shrinking
-      # TODO inefficient! so what?
-      keepGoing = quarantine.orphans.len < retries.len
+    var entries = 0
+    while entries != quarantine.orphans.len:
+      entries = quarantine.orphans.len # keep going while quarantine is shrinking
+      var resolved: seq[SignedBeaconBlock]
+      for _, v in quarantine.orphans:
+        if v.message.parent_root in dag.blocks: resolved.add(v)
+
+      for v in resolved:
+        discard addRawBlock(dag, quarantine, v, onBlockAdded)
 
   blockRef
 
 proc addRawBlock*(
-       dag: var CandidateChains, quarantine: var Quarantine,
-       blockRoot: Eth2Digest,
+       dag: var ChainDAGRef, quarantine: var QuarantineRef,
        signedBlock: SignedBeaconBlock,
-       callback: proc(blck: BlockRef)
+       onBlockAdded: OnBlockAdded
      ): Result[BlockRef, BlockError] =
-  ## return the block, if resolved...
+  ## Try adding a block to the chain, verifying first that it passes the state
+  ## transition function.
 
-  # TODO: `addRawBlock` is accumulating significant cruft
-  # and is in dire need of refactoring
-  # - the ugly `quarantine.inAdd` field
-  # - the callback
-  # - callback may be problematic as it's called in async validator duties
+  logScope:
+    blck = shortLog(signedBlock.message)
+    blockRoot = shortLog(signedBlock.root)
 
-  # TODO: to facilitate adding the block to the attestation pool
-  #       this should also return justified and finalized epoch corresponding
-  #       to each block.
-  #       This would be easy apart from the "Block already exists"
-  #       early return.
+  template blck(): untyped = signedBlock.message # shortcuts without copy
+  template blockRoot(): untyped = signedBlock.root
 
-
-  let blck = signedBlock.message
-  doAssert blockRoot == hash_tree_root(blck), "blockRoot: 0x" & shortLog(blockRoot) & ", signedBlock: 0x" & shortLog(hash_tree_root(blck))
-
-  logScope: pcs = "block_addition"
-
-  # Already seen this block??
   if blockRoot in dag.blocks:
-    debug "Block already exists",
-      blck = shortLog(blck),
-      blockRoot = shortLog(blockRoot),
-      cat = "filtering"
+    debug "Block already exists"
 
-    # There can be a scenario where we receive a block we already received.
-    # However this block was before the last finalized epoch and so its parent
-    # was pruned from the ForkChoice. Trying to add it again, even if the fork choice
-    # supports duplicate will lead to a crash.
+    # We should not call the block added callback for blocks that already
+    # existed in the pool, as that may confuse consumers such as the fork
+    # choice.
     return err Duplicate
 
   quarantine.missing.del(blockRoot)
@@ -168,11 +147,8 @@ proc addRawBlock*(
   # by the time it gets here.
   if blck.slot <= dag.finalizedHead.slot:
     debug "Old block, dropping",
-      blck = shortLog(blck),
       finalizedHead = shortLog(dag.finalizedHead),
-      tail = shortLog(dag.tail),
-      blockRoot = shortLog(blockRoot),
-      cat = "filtering"
+      tail = shortLog(dag.tail)
 
     return err Unviable
 
@@ -183,13 +159,13 @@ proc addRawBlock*(
       # A block whose parent is newer than the block itself is clearly invalid -
       # discard it immediately
       notice "Invalid block slot",
-        blck = shortLog(blck),
-        blockRoot = shortLog(blockRoot),
         parentBlock = shortLog(parent)
 
       return err Invalid
 
-    if parent.slot < dag.finalizedHead.slot:
+    if (parent.slot < dag.finalizedHead.slot) or
+        (parent.slot == dag.finalizedHead.slot and
+          parent != dag.finalizedHead.blck):
       # We finalized a block that's newer than the parent of this block - this
       # block, although recent, is thus building on a history we're no longer
       # interested in pursuing. This can happen if a client produces a block
@@ -199,14 +175,10 @@ proc addRawBlock*(
       # latest thing that happened on the chain and they're performing their
       # duty correctly.
       debug "Unviable block, dropping",
-        blck = shortLog(blck),
         finalizedHead = shortLog(dag.finalizedHead),
-        tail = shortLog(dag.tail),
-        blockRoot = shortLog(blockRoot),
-        cat = "filtering"
+        tail = shortLog(dag.tail)
 
       return err Unviable
-
 
     # The block might have been in either of `orphans` or `missing` - we don't
     # want any more work done on its behalf
@@ -218,7 +190,7 @@ proc addRawBlock*(
     # TODO if the block is from the future, we should not be resolving it (yet),
     #      but maybe we should use it as a hint that our clock is wrong?
     updateStateData(
-      dag, dag.tmpState, BlockSlot(blck: parent, slot: blck.slot - 1))
+      dag, dag.clearanceState, BlockSlot(blck: parent, slot: blck.slot - 1))
 
     let
       poolPtr = unsafeAddr dag # safe because restore is short-lived
@@ -226,36 +198,32 @@ proc addRawBlock*(
       # TODO address this ugly workaround - there should probably be a
       #      `state_transition` that takes a `StateData` instead and updates
       #      the block as well
-      doAssert v.addr == addr poolPtr.tmpState.data
-      assign(poolPtr.tmpState, poolPtr.headState)
+      doAssert v.addr == addr poolPtr.clearanceState.data
+      assign(poolPtr.clearanceState, poolPtr.headState)
 
-    var stateCache = getEpochCache(parent, dag.tmpState.data.data)
-    if not state_transition(dag.runtimePreset, dag.tmpState.data, signedBlock,
-                            stateCache, dag.updateFlags, restore):
-      # TODO find a better way to log all this block data
-      notice "Invalid block",
-        blck = shortLog(blck),
-        blockRoot = shortLog(blockRoot),
-        cat = "filtering"
+    var cache = getEpochCache(parent, dag.clearanceState.data.data)
+    if not state_transition(dag.runtimePreset, dag.clearanceState.data, signedBlock,
+                            cache, dag.updateFlags, restore):
+      notice "Invalid block"
 
       return err Invalid
-    # Careful, tmpState.data has been updated but not blck - we need to create
-    # the BlockRef first!
-    dag.tmpState.blck = addResolvedBlock(
-      dag, quarantine,
-      dag.tmpState.data.data, blockRoot, signedBlock, parent,
-      callback
-    )
-    dag.putState(dag.tmpState.data, dag.tmpState.blck)
 
-    callback(dag.tmpState.blck)
-    return ok dag.tmpState.blck
+    # Careful, clearanceState.data has been updated but not blck - we need to
+    # create the BlockRef first!
+    dag.clearanceState.blck = addResolvedBlock(
+      dag, quarantine, dag.clearanceState.data, signedBlock, parent, cache,
+      onBlockAdded
+    )
+
+    dag.putState(dag.clearanceState.data, dag.clearanceState.blck)
+
+    return ok dag.clearanceState.blck
 
   # TODO already checked hash though? main reason to keep this is because
   # the pending dag calls this function back later in a loop, so as long
   # as dag.add(...) requires a SignedBeaconBlock, easier to keep them in
   # pending too.
-  quarantine.add(dag, signedBlock, some(blockRoot))
+  quarantine.add(dag, signedBlock)
 
   # TODO possibly, it makes sense to check the database - that would allow sync
   #      to simply fill up the database with random blocks the other clients
@@ -280,22 +248,20 @@ proc addRawBlock*(
   #      from that branch, so right now, we'll just do a blind guess
 
   debug "Unresolved block (parent missing)",
-    blck = shortLog(blck),
-    blockRoot = shortLog(blockRoot),
     orphans = quarantine.orphans.len,
-    missing = quarantine.missing.len,
-    cat = "filtering"
+    missing = quarantine.missing.len
 
   return err MissingParent
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/p2p-interface.md#global-topics
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#beacon_block
 proc isValidBeaconBlock*(
-       dag: CandidateChains, quarantine: var Quarantine,
+       dag: ChainDAGRef, quarantine: var QuarantineRef,
        signed_beacon_block: SignedBeaconBlock, current_slot: Slot,
        flags: UpdateFlags): Result[void, BlockError] =
   logScope:
     topics = "clearance valid_blck"
     received_block = shortLog(signed_beacon_block.message)
+    blockRoot = shortLog(signed_beacon_block.root)
 
   # In general, checks are ordered from cheap to expensive. Especially, crypto
   # verification could be quite a bit more expensive than the rest. This is an
@@ -311,19 +277,18 @@ proc isValidBeaconBlock*(
       current_slot
     return err(Invalid)
 
-  # The block is from a slot greater than the latest finalized slot (with a
-  # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
-  # signed_beacon_block.message.slot >
+  # [IGNORE] The block is from a slot greater than the latest finalized slot --
+  # i.e. validate that signed_beacon_block.message.slot >
   # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)
   if not (signed_beacon_block.message.slot > dag.finalizedHead.slot):
     debug "block is not from a slot greater than the latest finalized slot"
     return err(Invalid)
 
-  # The block is the first block with valid signature received for the proposer
-  # for the slot, signed_beacon_block.message.slot.
+  # [IGNORE] The block is the first block with valid signature received for the
+  # proposer for the slot, signed_beacon_block.message.slot.
   #
   # While this condition is similar to the proposer slashing condition at
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#proposer-slashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#proposer-slashing
   # it's not identical, and this check does not address slashing:
   #
   # (1) The beacon blocks must be conflicting, i.e. different, for the same
@@ -359,30 +324,46 @@ proc isValidBeaconBlock*(
         existing_block = shortLog(blck.message)
       return err(Invalid)
 
-  # If this block doesn't have a parent we know about, we can't/don't really
-  # trace it back to a known-good state/checkpoint to verify its prevenance;
-  # while one could getOrResolve to queue up searching for missing parent it
-  # might not be the best place. As much as feasible, this function aims for
-  # answering yes/no, not queuing other action or otherwise altering state.
+  # [IGNORE] The block's parent (defined by block.parent_root) has been seen
+  # (via both gossip and non-gossip sources) (a client MAY queue blocks for
+  # processing once the parent block is retrieved).
+  #
+  # And implicitly:
+  # [REJECT] The block's parent (defined by block.parent_root) passes validation.
   let parent_ref = dag.getRef(signed_beacon_block.message.parent_root)
   if parent_ref.isNil:
-    # This doesn't mean a block is forever invalid, only that we haven't seen
-    # its ancestor blocks yet. While that means for now it should be blocked,
-    # at least, from libp2p propagation, it shouldn't be ignored. TODO, if in
-    # the future this block moves from pending to being resolved, consider if
-    # it's worth broadcasting it then.
-
-    # Pending dag gets checked via `CandidateChains.add(...)` later, and relevant
+    # Pending dag gets checked via `ChainDAGRef.add(...)` later, and relevant
     # checks are performed there. In usual paths beacon_node adds blocks via
-    # CandidateChains.add(...) directly, with no additional validity checks. TODO,
+    # ChainDAGRef.add(...) directly, with no additional validity checks. TODO,
     # not specific to this, but by the pending dag keying on the htr of the
     # BeaconBlock, not SignedBeaconBlock, opens up certain spoofing attacks.
     debug "parent unknown, putting block in quarantine"
     quarantine.add(dag, signed_beacon_block)
     return err(MissingParent)
 
-  # The proposer signature, signed_beacon_block.signature, is valid with
-  # respect to the proposer_index pubkey.
+  # [REJECT] The current finalized_checkpoint is an ancestor of block -- i.e.
+  # get_ancestor(store, block.parent_root,
+  # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
+  # store.finalized_checkpoint.root
+  let
+    finalized_checkpoint = dag.headState.data.data.finalized_checkpoint
+    ancestor = get_ancestor(
+      parent_ref, compute_start_slot_at_epoch(finalized_checkpoint.epoch))
+
+  if ancestor.isNil:
+    debug "couldn't find ancestor block"
+    return err(Invalid)
+
+  if not (finalized_checkpoint.root in [ancestor.root, Eth2Digest()]):
+    debug "block not descendent of finalized block"
+    return err(Invalid)
+
+  # [REJECT] The block is proposed by the expected proposer_index for the
+  # block's slot in the context of the current shuffling (defined by
+  # parent_root/slot). If the proposer_index cannot immediately be verified
+  # against the expected shuffling, the block MAY be queued for later
+  # processing while proposers for the block's branch are calculated -- in such
+  # a case do not REJECT, instead IGNORE this message.
   let
     proposer = getProposer(dag, parent_ref, signed_beacon_block.message.slot)
 
@@ -396,6 +377,8 @@ proc isValidBeaconBlock*(
       expected_proposer = proposer.get()[0]
     return err(Invalid)
 
+  # [REJECT] The proposer signature, signed_beacon_block.signature, is valid
+  # with respect to the proposer_index pubkey.
   if not verify_block_signature(
       dag.headState.data.data.fork,
       dag.headState.data.data.genesis_validators_root,

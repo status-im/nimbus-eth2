@@ -12,7 +12,7 @@ import
   confutils/defs, serialization, chronicles,
   # Beacon-chain
   ../beacon_chain/spec/[
-      datatypes, crypto, helpers, beaconstate, validator, helpers,
+      datatypes, crypto, helpers, beaconstate, helpers,
       state_transition_block, state_transition_epoch, state_transition],
   ../beacon_chain/extras,
   ../beacon_chain/ssz/[merkleization, ssz_serialization]
@@ -187,13 +187,7 @@ template processEpochScenarioImpl(
   state.root = hash_tree_root(state.data)
 
   when needCache:
-    var cache = get_empty_per_epoch_cache()
-    let epoch = state.data.slot.compute_epoch_at_slot
-    cache.shuffled_active_validator_indices[epoch] =
-      get_shuffled_active_validator_indices(state.data, epoch)
-
-  # Epoch transitions can't fail (TODO is this true?)
-  when needCache:
+    var cache = StateCache()
     transitionFn(state.data, cache)
   else:
     transitionFn(state.data)
@@ -223,7 +217,7 @@ template processBlockScenarioImpl(
   state.root = hash_tree_root(state.data)
 
   when needCache:
-    var cache = get_empty_per_epoch_cache()
+    var cache = StateCache()
   when needFlags:
     let flags = if skipBLS: {skipBlsValidation}
                 else: {}

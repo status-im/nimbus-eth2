@@ -9,18 +9,18 @@
 
 import
   # Standard library
-  tables, random, strutils,
+  tables, random, strutils, os, typetraits,
 
   # Nimble packages
-  chronos,
+  chronos, confutils/defs,
   chronicles, chronicles/helpers as chroniclesHelpers,
 
   # Local modules
   spec/[datatypes, crypto], eth2_network, time
 
-proc setupMainProc*(logLevel: string) =
+proc setupLogging*(logLevel: string, logFile: Option[OutFile]) =
   when compiles(defaultChroniclesStream.output.writer):
-    defaultChroniclesStream.output.writer =
+    defaultChroniclesStream.outputs[0].writer =
       proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe, raises: [Defect].} =
         try:
           stdout.write(msg)
@@ -28,6 +28,23 @@ proc setupMainProc*(logLevel: string) =
           logLoggingFailure(cstring(msg), err)
 
   randomize()
+
+  if logFile.isSome:
+    when defaultChroniclesStream.outputs.type.arity > 1:
+      block openLogFile:
+        let
+          logFile = logFile.get.string
+          logFileDir = splitFile(logFile).dir
+        try:
+          createDir logFileDir
+        except CatchableError as err:
+          error "Failed to create directory for log file", path = logFileDir, err = err.msg
+          break openLogFile
+
+        if not defaultChroniclesStream.outputs[1].open(logFile):
+          error "Failed to create log file", logFile
+    else:
+      warn "The --log-file option is not active in the current build"
 
   try:
     let directives = logLevel.split(";")
@@ -63,8 +80,7 @@ proc sleepToSlotOffset*(clock: BeaconClock, extra: chronos.Duration,
   if fromNow.inFuture:
     trace msg,
       slot = shortLog(slot),
-      fromNow = shortLog(fromNow.offset),
-      cat = "scheduling"
+      fromNow = shortLog(fromNow.offset)
 
     await sleepAsync(fromNow.offset)
     return true

@@ -1,6 +1,6 @@
 import
   # Std lib
-  typetraits, strutils, os, random, algorithm, sequtils,
+  typetraits, strutils, os, random, algorithm, sequtils, math,
   options as stdOptions,
 
   # Status libs
@@ -23,7 +23,7 @@ import
   # Beacon node modules
   version, conf, eth2_discovery, libp2p_json_serialization, conf,
   ssz/ssz_serialization,
-  peer_pool, spec/[datatypes, network]
+  peer_pool, spec/[datatypes, network], ./time
 
 export
   version, multiaddress, peer_pool, peerinfo, p2pProtocol,
@@ -78,6 +78,10 @@ type
     next_fork_version*: Version
     next_fork_epoch*: Epoch
 
+  AverageThroughput* = object
+    count*: uint64
+    average*: float
+
   Peer* = ref object
     network*: Eth2Node
     info*: PeerInfo
@@ -86,6 +90,7 @@ type
     connectionState*: ConnectionState
     protocolStates*: seq[RootRef]
     maxInactivityAllowed*: Duration
+    netThroughput: AverageThroughput
     score*: int
     lacksSnappy: bool
 
@@ -189,7 +194,7 @@ const
   HandshakeTimeout = FaultOrError
 
   # Spec constants
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#eth2-network-interaction-domains
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#eth2-network-interaction-domains
   MAX_CHUNK_SIZE* = 1 * 1024 * 1024 # bytes
   GOSSIP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
   TTFB_TIMEOUT* = 5.seconds
@@ -205,9 +210,9 @@ const
   ConcurrentConnections* = 10
     ## Maximum number of active concurrent connection requests.
 
-  SeenTableTimeTimeout* = 10.minutes
+  SeenTableTimeTimeout* = 1.minutes
     ## Seen period of time for timeout connections
-  SeenTableTimeDeadPeer* = 10.minutes
+  SeenTableTimeDeadPeer* = 1.minutes
     ## Period of time for dead peers.
   SeenTableTimeIrrelevantNetwork* = 24.hours
     ## Period of time for `IrrelevantNetwork` error reason.
@@ -215,6 +220,8 @@ const
     ## Period of time for `ClientShutDown` error reason.
   SeemTableTimeFaultOrError* = 10.minutes
     ## Period of time for `FaultOnError` error reason.
+
+var successfullyDialledAPeer = false # used to show a warning
 
 template neterr(kindParam: Eth2NetworkingErrorKind): auto =
   err(type(result), Eth2NetworkingError(kind: kindParam))
@@ -248,6 +255,12 @@ const
 const useNativeSnappy = when snappy_implementation == "native": true
                         elif snappy_implementation == "libp2p": false
                         else: {.fatal: "Please set snappy_implementation to either 'libp2p' or 'native'".}
+
+const
+  libp2p_pki_schemes {.strdefine.} = ""
+
+when libp2p_pki_schemes != "secp256k1":
+  {.fatal: "Incorrect building process, please use -d:\"libp2p_pki_schemes=secp256k1\"".}
 
 template libp2pProtocol*(name: string, version: int) {.pragma.}
 
@@ -294,10 +307,8 @@ proc getKey*(peer: Peer): PeerID {.inline.} =
 proc getFuture*(peer: Peer): Future[void] {.inline.} =
   result = peer.info.lifeFuture()
 
-proc `<`*(a, b: Peer): bool =
-  result = `<`(a.score, b.score)
-
 proc getScore*(a: Peer): int =
+  ## Returns current score value for peer ``peer``.
   result = a.score
 
 proc updateScore*(peer: Peer, score: int) {.inline.} =
@@ -305,6 +316,44 @@ proc updateScore*(peer: Peer, score: int) {.inline.} =
   peer.score = peer.score + score
   if peer.score > PeerScoreHighLimit:
     peer.score = PeerScoreHighLimit
+
+proc calcThroughput(dur: Duration, value: uint64): float {.inline.} =
+  let secs = float(chronos.seconds(1).nanoseconds)
+  if isZero(dur):
+    0.0
+  else:
+    float(value) * (secs / float(dur.nanoseconds))
+
+proc updateNetThroughput*(peer: Peer, dur: Duration,
+                          bytesCount: uint64) {.inline.} =
+  ## Update peer's ``peer`` network throughput.
+  let bytesPerSecond = calcThroughput(dur, bytesCount)
+  let a = peer.netThroughput.average
+  let n = peer.netThroughput.count
+  peer.netThroughput.average = a + (bytesPerSecond - a) / float(n + 1)
+  inc(peer.netThroughput.count)
+
+proc netBps*(peer: Peer): float {.inline.} =
+  ## Returns current network throughput average value in Bps for peer ``peer``.
+  round((peer.netThroughput.average * 10_000) / 10_000)
+
+proc netKbps*(peer: Peer): float {.inline.} =
+  ## Returns current network throughput average value in Kbps for peer ``peer``.
+  round(((peer.netThroughput.average / 1024) * 10_000) / 10_000)
+
+proc netMbps*(peer: Peer): float {.inline.} =
+  ## Returns current network throughput average value in Mbps for peer ``peer``.
+  round(((peer.netThroughput.average / (1024 * 1024)) * 10_000) / 10_000)
+
+proc `<`*(a, b: Peer): bool =
+  ## Comparison function, which first checks peer's scores, and if the peers'
+  ## score is equal it compares peers' network throughput.
+  if a.score < b.score:
+    true
+  elif a.score == b.score:
+    (a.netThroughput.average < b.netThroughput.average)
+  else:
+    false
 
 proc isSeen*(network: ETh2Node, pinfo: PeerInfo): bool =
   let currentTime = now(chronos.Moment)
@@ -379,7 +428,7 @@ proc writeChunk*(conn: Connection,
   if responseCode.isSome:
     output.write byte(responseCode.get)
 
-  output.write varintBytes(payload.len.uint64)
+  output.write varintBytes(payload.lenu64)
 
   if noSnappy:
     output.write(payload)
@@ -465,10 +514,8 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
 
     # Read the response
     return awaitWithTimeout(
-      readResponse(when useNativeSnappy: libp2pInput(stream)
-                   else: stream,
-                   peer.lacksSnappy,
-                   ResponseMsg),
+      readResponse(when useNativeSnappy: libp2pInput(stream) else: stream,
+                   peer.lacksSnappy, peer, ResponseMsg),
       deadline, neterr(ReadResponseTimeout))
   finally:
     await safeClose(stream)
@@ -585,7 +632,7 @@ proc handleIncomingStream(network: Eth2Node,
 
     let msg = if sizeof(MsgRec) > 0:
       try:
-        awaitWithTimeout(readChunkPayload(s, noSnappy, MsgRec), deadline):
+        awaitWithTimeout(readChunkPayload(s, noSnappy, peer, MsgRec), deadline):
           returnInvalidRequest(errorMsgLit "Request full data not sent in time")
 
       except SerializationError as err:
@@ -718,43 +765,49 @@ proc dialPeer*(node: Eth2Node, peerInfo: PeerInfo) {.async.} =
   await performProtocolHandshakes(peer)
 
   inc nbc_successful_dials
+  successfullyDialledAPeer = true
   debug "Network handshakes completed"
 
 proc connectWorker(network: Eth2Node) {.async.} =
   debug "Connection worker started"
-  while true:
-    let pi = await network.connQueue.popFirst()
-    let r1 = network.peerPool.hasPeer(pi.peerId)
-    let r2 = network.isSeen(pi)
-    let r3 = network.connTable.hasKey(pi.peerId)
 
-    if not(r1) and not(r2) and not(r3):
-      network.connTable[pi.peerId] = pi
+  while true:
+    let
+      remotePeerInfo = await network.connQueue.popFirst()
+      peerPoolHasRemotePeer = network.peerPool.hasPeer(remotePeerInfo.peerId)
+      seenTableHasRemotePeer = network.isSeen(remotePeerInfo)
+      remotePeerAlreadyConnected = network.connTable.hasKey(remotePeerInfo.peerId)
+
+    if not(peerPoolHasRemotePeer) and not(seenTableHasRemotePeer) and not(remotePeerAlreadyConnected):
+      network.connTable[remotePeerInfo.peerId] = remotePeerInfo
       try:
         # We trying to connect to peers which are not in PeerPool, SeenTable and
         # ConnTable.
-        var fut = network.dialPeer(pi)
+        var fut = network.dialPeer(remotePeerInfo)
         # We discarding here just because we going to check future state, to avoid
         # condition where connection happens and timeout reached.
-        let res = await withTimeout(fut, network.connectTimeout)
+        discard await withTimeout(fut, network.connectTimeout)
         # We handling only timeout and errors, because successfull connections
         # will be stored in PeerPool.
         if fut.finished():
           if fut.failed() and not(fut.cancelled()):
-            debug "Unable to establish connection with peer", peer = pi.id,
+            debug "Unable to establish connection with peer", peer = remotePeerInfo.id,
                   errMsg = fut.readError().msg
             inc nbc_failed_dials
-            network.addSeen(pi, SeenTableTimeDeadPeer)
+            network.addSeen(remotePeerInfo, SeenTableTimeDeadPeer)
           continue
-        debug "Connection to remote peer timed out", peer = pi.id
+        debug "Connection to remote peer timed out", peer = remotePeerInfo.id
         inc nbc_timeout_dials
-        network.addSeen(pi, SeenTableTimeTimeout)
+        network.addSeen(remotePeerInfo, SeenTableTimeTimeout)
       finally:
-        network.connTable.del(pi.peerId)
+        network.connTable.del(remotePeerInfo.peerId)
     else:
       trace "Peer is already connected, connecting or already seen",
-            peer = pi.id, peer_pool_has_peer = $r1, seen_table_has_peer = $r2,
-            connecting_peer = $r3, seen_table_size = len(network.seenTable)
+            peer = remotePeerInfo.id, peer_pool_has_peer = $peerPoolHasRemotePeer, seen_table_has_peer = $seenTableHasRemotePeer,
+            connecting_peer = $remotePeerAlreadyConnected, seen_table_size = len(network.seenTable)
+
+    # Prevent (a purely theoretical) high CPU usage when losing connectivity.
+    await sleepAsync(1.seconds)
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
@@ -773,7 +826,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
             if peerRecord.isOk:
               let peerInfo = peerRecord.value.toPeerInfo
               if peerInfo != nil:
-                if peerInfo.id notin node.switch.connections:
+                if not node.switch.isConnected(peerInfo):
                   await node.connQueue.addLast(peerInfo)
                 else:
                   peerInfo.close()
@@ -802,8 +855,8 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
   result.switch = switch
   result.wantedPeers = conf.maxPeers
   result.peerPool = newPeerPool[Peer, PeerID](maxPeers = conf.maxPeers)
-  result.connectTimeout = 10.seconds
-  result.seenThreshold = 10.minutes
+  result.connectTimeout = 1.minutes
+  result.seenThreshold = 1.minutes
   result.seenTable = initTable[PeerID, SeenItem]()
   result.connTable = initTable[PeerID, PeerInfo]()
   result.connQueue = newAsyncQueue[PeerInfo](ConcurrentConnections)
@@ -829,14 +882,14 @@ template publicKey*(node: Eth2Node): keys.PublicKey =
 template addKnownPeer*(node: Eth2Node, peer: enr.Record) =
   node.discovery.addNode peer
 
-proc startListening*(node: Eth2Node) =
+proc startListening*(node: Eth2Node) {.async.} =
   node.discovery.open()
+  node.libp2pTransportLoops = await node.switch.start()
 
 proc start*(node: Eth2Node) {.async.} =
   for i in 0 ..< ConcurrentConnections:
     node.connWorkers.add connectWorker(node)
 
-  node.libp2pTransportLoops = await node.switch.start()
   node.discovery.start()
   node.discoveryLoop = node.runDiscoveryLoop()
   traceAsyncErrors node.discoveryLoop
@@ -1083,13 +1136,13 @@ proc getPersistentNetKeys*(
   KeyPair(seckey: privKey, pubkey: privKey.getKey().tryGet())
 
 func gossipId(data: openArray[byte]): string =
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#topics-and-messages
   base64.encode(Base64Url, sha256.digest(data).data)
 
 func msgIdProvider(m: messages.Message): string =
   gossipId(m.data)
 
-proc createEth2Node*(rng: ref BrHmacDrbgContext, conf: BeaconNodeConf, enrForkId: ENRForkID): Future[Eth2Node] {.async, gcsafe.} =
+proc createEth2Node*(rng: ref BrHmacDrbgContext, conf: BeaconNodeConf, enrForkId: ENRForkID): Eth2Node {.gcsafe.} =
   var
     (extIp, extTcpPort, extUdpPort) = setupNat(conf)
     hostAddress = tcpEndPoint(conf.libp2pAddress, conf.tcpPort)
@@ -1130,17 +1183,19 @@ proc announcedENR*(node: Eth2Node): enr.Record =
 proc shortForm*(id: KeyPair): string =
   $PeerID.init(id.pubkey)
 
+let BOOTSTRAP_NODE_CHECK_INTERVAL = 30.seconds
+proc checkIfConnectedToBootstrapNode(p: pointer) {.gcsafe.} =
+  # Keep showing warnings until we connect to at least one bootstrap node
+  # successfully, in order to allow detection of an invalid configuration.
+  let node = cast[Eth2Node](p)
+  if node.discovery.bootstrapRecords.len > 0 and not successfullyDialledAPeer:
+    warn "Failed to connect to any bootstrap node",
+      bootstrapEnrs = node.discovery.bootstrapRecords
+    addTimer(BOOTSTRAP_NODE_CHECK_INTERVAL, checkIfConnectedToBootstrapNode, p)
+
 proc startLookingForPeers*(node: Eth2Node) {.async.} =
   await node.start()
-
-  proc checkIfConnectedToBootstrapNode {.async.} =
-    await sleepAsync(30.seconds)
-    if node.discovery.bootstrapRecords.len > 0 and nbc_successful_dials.value == 0:
-      fatal "Failed to connect to any bootstrap node. Quitting",
-        bootstrapEnrs = node.discovery.bootstrapRecords
-      quit 1
-
-  traceAsyncErrors checkIfConnectedToBootstrapNode()
+  addTimer(BOOTSTRAP_NODE_CHECK_INTERVAL, checkIfConnectedToBootstrapNode, node[].addr)
 
 func peersCount*(node: Eth2Node): int =
   len(node.peerPool)
@@ -1188,7 +1243,7 @@ proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
   inc nbc_gossip_messages_sent
   let
     data = snappy.encode(SSZ.encode(msg))
-  var futSnappy = node.switch.publish(topic & "_snappy", data)
+  var futSnappy = node.switch.publish(topic & "_snappy", data, 1.minutes)
   traceMessage(futSnappy, gossipId(data))
 
 # TODO:

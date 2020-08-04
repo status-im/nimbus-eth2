@@ -1,11 +1,11 @@
   import
   confutils, stats, chronicles, strformat, tables,
   stew/byteutils,
-  ../beacon_chain/[beacon_chain_db, block_pool, extras],
+  ../beacon_chain/[beacon_chain_db, extras],
+  ../beacon_chain/block_pools/[chain_dag],
   ../beacon_chain/spec/[crypto, datatypes, digest, helpers,
-                        state_transition, validator, presets],
-  ../beacon_chain/sszdump, ../beacon_chain/ssz/merkleization,
-  ../research/simutils,
+                        state_transition, presets],
+  ../beacon_chain/sszdump, ../research/simutils,
   eth/db/[kvstore, kvstore_sqlite3]
 
 type Timers = enum
@@ -67,20 +67,20 @@ proc cmdBench(conf: DbConf) =
     db = BeaconChainDB.init(
       kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
 
-  if not BlockPool.isInitialized(db):
+  if not ChainDAGRef.isInitialized(db):
     echo "Database not initialized"
     quit 1
 
   echo "Initializing block pool..."
   let pool = withTimerRet(timers[tInit]):
-    CandidateChains.init(defaultRuntimePreset, db, {})
+    ChainDAGRef.init(defaultRuntimePreset, db, {})
 
-  echo &"Loaded {pool.blocks.len} blocks, head slot {pool.head.blck.slot}"
+  echo &"Loaded {pool.blocks.len} blocks, head slot {pool.head.slot}"
 
   var
     blockRefs: seq[BlockRef]
     blocks: seq[TrustedSignedBeaconBlock]
-    cur = pool.head.blck
+    cur = pool.head
 
   while cur != nil:
     blockRefs.add cur
@@ -102,11 +102,11 @@ proc cmdBench(conf: DbConf) =
 
   for b in blocks:
     let
-      isEpoch = state[].data.slot.compute_epoch_at_slot !=
+      isEpoch = state[].data.get_current_epoch() !=
         b.message.slot.compute_epoch_at_slot
     withTimer(timers[if isEpoch: tApplyEpochBlock else: tApplyBlock]):
       if not state_transition(defaultRuntimePreset, state[], b, {}, noRollback):
-        dump("./", b, hash_tree_root(b.message))
+        dump("./", b)
         echo "State transition failed (!)"
         quit 1
 
@@ -137,7 +137,7 @@ proc cmdDumpBlock(conf: DbConf) =
     try:
       let root = Eth2Digest(data: hexToByteArray[32](blockRoot))
       if (let blck = db.getBlock(root); blck.isSome):
-        dump("./", blck.get(), root)
+        dump("./", blck.get())
       else:
         echo "Couldn't load ", root
     except CatchableError as e:
@@ -149,19 +149,19 @@ proc cmdRewindState(conf: DbConf) =
     db = BeaconChainDB.init(
       kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
 
-  if not BlockPool.isInitialized(db):
+  if not ChainDAGRef.isInitialized(db):
     echo "Database not initialized"
     quit 1
 
   echo "Initializing block pool..."
-  let pool = BlockPool.init(defaultRuntimePreset, db, {})
+  let dag = init(ChainDAGRef, defaultRuntimePreset, db)
 
-  let blckRef = pool.getRef(fromHex(Eth2Digest, conf.blockRoot))
+  let blckRef = dag.getRef(fromHex(Eth2Digest, conf.blockRoot))
   if blckRef == nil:
     echo "Block not found in database"
     return
 
-  pool.withState(pool.tmpState, blckRef.atSlot(Slot(conf.slot))):
+  dag.withState(dag.tmpState, blckRef.atSlot(Slot(conf.slot))):
     echo "Writing state..."
     dump("./", hashedState, blck)
 

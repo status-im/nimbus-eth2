@@ -29,9 +29,10 @@ proc signMockBlockImpl(
   signedBlock.message.body.randao_reveal = get_epoch_signature(
     state.fork, state.genesis_validators_root, block_slot.compute_epoch_at_slot,
     privkey)
+  signedBlock.root = hash_tree_root(signedBlock.message)
   signedBlock.signature = get_block_signature(
     state.fork, state.genesis_validators_root, block_slot,
-    hash_tree_root(signedBlock.message), privkey)
+    signedBlock.root, privkey)
 
 proc signMockBlock*(state: BeaconState, signedBlock: var SignedBeaconBlock) =
   signMockBlockImpl(state, signedBlock)
@@ -44,7 +45,7 @@ proc mockBlock(
   ## Mock a BeaconBlock for the specific slot
   ## Skip signature creation if block should not be signed (skipBlsValidation present)
 
-  var emptyCache = get_empty_per_epoch_cache()
+  var emptyCache = StateCache()
   let proposer_index = get_beacon_proposer_index(state, emptyCache)
   result.message.slot = slot
   result.message.proposer_index = proposer_index.get.uint64

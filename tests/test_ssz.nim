@@ -137,7 +137,7 @@ suiteReport "SSZ navigator":
   timedTest "basictype":
     var leaves = HashList[uint64, 1'i64 shl 3]()
     while leaves.len < leaves.maxLen:
-      leaves.add leaves.len.uint64
+      leaves.add leaves.lenu64
       check hash_tree_root(leaves) == hash_tree_root(leaves.data)
 
 suiteReport "SSZ dynamic navigator":

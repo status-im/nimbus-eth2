@@ -8,18 +8,18 @@
 {.push raises: [Defect].}
 
 import
-  strformat,
-  datatypes, helpers
+  std/[strformat, sets],
+  ./datatypes, ./helpers, ./validator
 
 const
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#topics-and-messages
   topicBeaconBlocksSuffix* = "beacon_block/ssz"
   topicVoluntaryExitsSuffix* = "voluntary_exit/ssz"
   topicProposerSlashingsSuffix* = "proposer_slashing/ssz"
   topicAttesterSlashingsSuffix* = "attester_slashing/ssz"
   topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz"
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#misc
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#misc
   ATTESTATION_SUBNET_COUNT* = 64
 
   defaultEth2TcpPort* = 9000
@@ -57,33 +57,56 @@ func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
   except ValueError as e:
     raiseAssert e.msg
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#broadcast-attestation
 func compute_subnet_for_attestation*(
-    num_active_validators: uint64, attestation: Attestation): uint64 =
+    committees_per_slot: uint64, slot: Slot, committee_index: CommitteeIndex):
+    uint64 =
   # Compute the correct subnet for an attestation for Phase 0.
   # Note, this mimics expected Phase 1 behavior where attestations will be
   # mapped to their shard subnet.
-  #
-  # The spec version has params (state: BeaconState, attestation: Attestation),
-  # but it's only to call get_committee_count_at_slot(), which needs only epoch
-  # and the number of active validators.
   let
-    slots_since_epoch_start = attestation.data.slot mod SLOTS_PER_EPOCH
+    slots_since_epoch_start = slot mod SLOTS_PER_EPOCH
     committees_since_epoch_start =
-      get_committee_count_at_slot(num_active_validators.Slot) * slots_since_epoch_start
+      committees_per_slot * slots_since_epoch_start
 
-  (committees_since_epoch_start + attestation.data.index) mod ATTESTATION_SUBNET_COUNT
+  (committees_since_epoch_start + committee_index.uint64) mod
+    ATTESTATION_SUBNET_COUNT
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#broadcast-attestation
 func getAttestationTopic*(forkDigest: ForkDigest, subnetIndex: uint64):
     string =
   # This is for subscribing or broadcasting manually to a known index.
+  doAssert subnetIndex < ATTESTATION_SUBNET_COUNT
+
   try:
     &"/eth2/{$forkDigest}/beacon_attestation_{subnetIndex}/ssz"
   except ValueError as e:
     raiseAssert e.msg
 
-func getAttestationTopic*(forkDigest: ForkDigest, attestation: Attestation, num_active_validators: uint64): string =
+func getAttestationTopic*(forkDigest: ForkDigest,
+                          attestation: Attestation,
+                          num_active_validators: uint64): string =
   getAttestationTopic(
     forkDigest,
-    compute_subnet_for_attestation(num_active_validators, attestation))
+    compute_subnet_for_attestation(
+      get_committee_count_per_slot(num_active_validators),
+      attestation.data.slot, attestation.data.index.CommitteeIndex))
+
+func get_committee_assignments*(
+    state: BeaconState, epoch: Epoch,
+    validator_indices: HashSet[ValidatorIndex]):
+    seq[tuple[subnetIndex: uint64, slot: Slot]] =
+  var cache = StateCache()
+
+  let
+    committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
+    start_slot = compute_start_slot_at_epoch(epoch)
+
+  for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
+    for index in 0'u64 ..< committees_per_slot:
+      let idx = index.CommitteeIndex
+      if not disjoint(validator_indices,
+          get_beacon_committee(state, slot, idx, cache).toHashSet):
+        result.add(
+          (compute_subnet_for_attestation(committees_per_slot, slot, idx),
+            slot))

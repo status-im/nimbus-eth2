@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/tests/core/pyspec/eth2spec/utils/merkle_minimal.py
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/tests/core/pyspec/eth2spec/utils/merkle_minimal.py
 
 # Merkle tree helpers
 # ---------------------------------------------------------------
@@ -94,7 +94,7 @@ func attachMerkleProofs*(deposits: var openarray[Deposit]) =
   for val_idx in 0 ..< deposits.len:
     let merkle_tree = merkleTreeFromLeaves(deposit_data_roots[0..val_idx])
     deposits[val_idx].proof[0..31] = merkle_tree.getMerkleProof(val_idx)
-    deposits[val_idx].proof[32].data[0..7] = int_to_bytes8((val_idx + 1).uint64)
+    deposits[val_idx].proof[32].data[0..7] = uint_to_bytes8((val_idx + 1).uint64)
 
     doAssert is_valid_merkle_branch(
       deposit_data_roots[val_idx], deposits[val_idx].proof,

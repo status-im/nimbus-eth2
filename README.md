@@ -49,7 +49,7 @@ You can find complete information about running a beacon node and operating as a
 ## Related projects
 
 * [status-im/nimbus](https://github.com/status-im/nimbus/): Nimbus for Ethereum 1
-* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v0.12.1#phase-0): Serenity specification that this project implements
+* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v0.12.2#phase-0): Serenity specification that this project implements
 
 You can check where the beacon chain fits in the Ethereum ecosystem our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
 
@@ -109,40 +109,46 @@ apt install build-essential git libpcre3-dev
 
 ### Connecting to testnets
 
-Once the [prerequisites](#prerequisites) are installed you can connect to the [Altona testnet](https://github.com/goerli/altona) with the following commands:
+Once the [prerequisites](#prerequisites) are installed you can connect to the [Medalla testnet](https://github.com/goerli/medalla) with the following commands:
 
 ```bash
 git clone https://github.com/status-im/nim-beacon-chain
 cd nim-beacon-chain
-make altona           # This will build Nimbus and all other dependencies
-                      # and connect you to Altona
+make medalla           # This will build Nimbus and all other dependencies
+                      # and connect you to Medalla
 ```
 
 You can also start multiple local nodes, in different terminal windows/tabs, by specifying their numeric IDs:
 
 ```bash
-make altona NODE_ID=0 # the default
-make altona NODE_ID=1
-make altona NODE_ID=2
+make medalla NODE_ID=0 # the default
+make medalla NODE_ID=1
+make medalla NODE_ID=2
+```
+
+To change the TCP and UDP ports from the default value of 9000:
+
+```bash
+make BASE_PORT=9100 medalla
 ```
 
 If you wish to make a deposit, execute the following command:
 
 ```
-make altona-deposit VALIDATORS=2 # The default is just 1 deposit
+make medalla-deposit VALIDATORS=2 # The default is just 1 deposit
 ```
 
 ### Getting metrics from a local testnet client
 
 ```bash
 # the primitive HTTP server started to serve the metrics is considered insecure
-make NIMFLAGS="-d:insecure" altona
+make NIMFLAGS="-d:insecure" medalla
 ```
 
 You can now see the raw metrics on http://127.0.0.1:8008/metrics but they're not very useful like this, so let's feed them to a Prometheus instance:
 
 ```bash
-prometheus --config.file=build/data/shared_witti_0/prometheus.yml
+prometheus --config.file=build/data/shared_medalla_0/prometheus.yml
 # when starting multiple nodes at the same time, just use the config file from the one with the highest ID
 ```
 
@@ -202,6 +208,17 @@ additional argument to the `make eth2_network_simulation` command and that will 
 the `VALIDATORS` between beacon nodes and validator clients - for example with `192`
 validators and `6` nodes you will end up with 6 beacon node and 6 validator client
 processes, where each of them will handle 16 validators.
+
+<!--
+By default, validators will be split in half between beacon node and validator
+client processes, communicating through the
+[official validator API](https://ethereum.github.io/eth2.0-APIs/#/ValidatorRequiredApi)
+(for example with `192` validators and `6` nodes you will roughly end up with 6
+beacon node and 6 validator client processes, where each of them will handle 16
+validators), but if you don't want to use external validator clients and instead
+want to have all the validators handled in-process by the beacon nodes you may
+use `BN_VC_VALIDATOR_SPLIT=no` as an additional argument to `make eth2_network_simulation`.
+-->
 
 By default, the simulation will start from a pre-generated genesis state. If you wish to
 simulate the bootstrap process with a Ethereum 1.0 validator deposit contract, start the

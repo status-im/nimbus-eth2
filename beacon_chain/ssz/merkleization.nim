@@ -7,7 +7,7 @@
 
 # This module contains the parts necessary to create a merkle hash from the core
 # SSZ types outlined in the spec:
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/ssz/simple-serialize.md#merkleization
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/ssz/simple-serialize.md#merkleization
 
 {.push raises: [Defect].}
 

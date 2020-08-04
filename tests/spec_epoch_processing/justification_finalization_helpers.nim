@@ -22,7 +22,7 @@ proc addMockAttestations*(
        sufficient_support = false
   ) =
   # We must be at the end of the epoch
-  doAssert (state.slot + 1) mod SLOTS_PER_EPOCH == 0
+  doAssert (state.slot + 1).isEpoch
 
   # Alias the attestations container
   var attestations: ptr seq[PendingAttestation]
@@ -34,19 +34,16 @@ proc addMockAttestations*(
     raise newException(ValueError, &"Cannot include attestations from epoch {state.get_current_epoch()} in epoch {epoch}")
 
   # TODO: Working with an unsigned Gwei balance is a recipe for underflows to happen
-  var cache = get_empty_per_epoch_cache()
-  cache.shuffled_active_validator_indices[epoch] =
-    get_shuffled_active_validator_indices(state, epoch)
+  var cache = StateCache()
   var remaining_balance = state.get_total_active_balance(cache).int64 * 2 div 3
 
-  let start_slot = compute_start_slot_at_epoch(epoch)
+  let
+    start_slot = compute_start_slot_at_epoch(epoch)
+    committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
 
   # for-loop of distinct type is broken: https://github.com/nim-lang/Nim/issues/12074
   for slot in start_slot.uint64 ..< start_slot.uint64 + SLOTS_PER_EPOCH:
-    for index in 0 ..< get_committee_count_at_slot(state, slot.Slot):
-      # TODO: can we move cache out of the loops
-      var cache = get_empty_per_epoch_cache()
-
+    for index in 0'u64 ..< committees_per_slot:
       let committee = get_beacon_committee(
                         state, slot.Slot, index.CommitteeIndex, cache)
 

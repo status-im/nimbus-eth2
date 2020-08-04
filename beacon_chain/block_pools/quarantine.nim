@@ -10,15 +10,16 @@ import
   stew/bitops2,
   metrics,
   ../spec/[datatypes, digest],
-  ../ssz/merkleization,
   block_pools_types
 
-export options
+export options, block_pools_types
 
-logScope: topics = "quarant"
+logScope:
+  topics = "quarant"
+
 {.push raises: [Defect].}
 
-func checkMissing*(quarantine: var Quarantine): seq[FetchRecord] =
+func checkMissing*(quarantine: var QuarantineRef): seq[FetchRecord] =
   ## Return a list of blocks that we should try to resolve from other client -
   ## to be called periodically but not too often (once per slot?)
   var done: seq[Eth2Digest]
@@ -39,19 +40,13 @@ func checkMissing*(quarantine: var Quarantine): seq[FetchRecord] =
     if countOnes(v.tries.uint64) == 1:
       result.add(FetchRecord(root: k))
 
-func addMissing*(quarantine: var Quarantine, broot: Eth2Digest) {.inline.} =
+func addMissing*(quarantine: var QuarantineRef, broot: Eth2Digest) {.inline.} =
   discard quarantine.missing.hasKeyOrPut(broot, MissingBlock())
 
-func add*(quarantine: var Quarantine, dag: CandidateChains,
-          sblck: SignedBeaconBlock,
-          broot: Option[Eth2Digest] = none[Eth2Digest]()) =
+func add*(quarantine: var QuarantineRef, dag: ChainDAGRef,
+          sblck: SignedBeaconBlock) =
   ## Adds block to quarantine's `orphans` and `missing` lists.
-  let blockRoot = if broot.isSome():
-      broot.get()
-    else:
-      hash_tree_root(sblck.message)
-
-  quarantine.orphans[blockRoot] = sblck
+  quarantine.orphans[sblck.root] = sblck
 
   let parentRoot = sblck.message.parent_root
   quarantine.addMissing(parentRoot)

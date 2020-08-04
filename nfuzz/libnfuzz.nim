@@ -60,7 +60,7 @@ template decodeAndProcess(typ, process: untyped): bool =
   let flags {.inject.} = if disable_bls: {skipBlsValidation} else: {}
 
   var
-    cache {.used, inject.} = get_empty_per_epoch_cache()
+    cache {.used, inject.} = StateCache()
     data {.inject.} = newClone(
       try:
         SSZ.decode(input, typ)
@@ -148,22 +148,22 @@ proc nfuzz_shuffle(input_seed: ptr byte, xoutput: var openArray[uint64]): bool
     {.exportc, raises: [Defect].} =
   var seed: Eth2Digest
   # Should be OK as max 2 bytes are passed by the framework.
-  let list_size = xoutput.len.uint64
+  let list_size = xoutput.len
 
   copyMem(addr(seed.data), input_seed, sizeof(seed.data))
 
   var shuffled_seq: seq[ValidatorIndex]
-  shuffled_seq = get_shuffled_seq(seed, list_size)
+  shuffled_seq = get_shuffled_seq(seed, list_size.uint64)
 
   doAssert(
-    list_size == shuffled_seq.len.uint64,
+    list_size == shuffled_seq.len,
     "Shuffled list should be of requested size."
   )
 
   for i in 0..<list_size:
     # ValidatorIndex is currently wrongly uint32 so we copy this 1 by 1,
     # assumes passed xoutput is zeroed.
-    copyMem(offset(addr xoutput, i.int), shuffled_seq[i.int].unsafeAddr,
+    copyMem(offset(addr xoutput, i), shuffled_seq[i].unsafeAddr,
       sizeof(ValidatorIndex))
 
-  result = true
+  true

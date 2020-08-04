@@ -67,6 +67,14 @@ else
   MAKE="make"
 fi
 
+make_once () {
+  target_flag_var="$1_name"
+  if [[ -z "${!target_flag_var}" ]]; then
+    export $target_flag_var=1
+    $MAKE $1
+  fi
+}
+
 mkdir -p "${METRICS_DIR}"
 ./scripts/make_prometheus_config.sh \
   --nodes ${TOTAL_NODES} \
@@ -90,7 +98,7 @@ if [[ "$USE_PROMETHEUS" == "yes" ]]; then
     rm -rf "${METRICS_DIR}/data"
     mkdir -p "${METRICS_DIR}/data"
     # TODO: Prometheus is not shut down properly on tmux kill-session
-    killall prometheus > /dev/null || true
+    killall prometheus &>/dev/null || true
     PROMETHEUS_FLAGS="--config.file=./prometheus.yml --storage.tsdb.path=./data"
     $TMUX_CMD new-window -d -t $TMUX_SESSION_NAME -n "$PROMETHEUS_CMD" "cd '$METRICS_DIR' && $PROMETHEUS_CMD $PROMETHEUS_FLAGS"
   else
@@ -99,24 +107,26 @@ if [[ "$USE_PROMETHEUS" == "yes" ]]; then
   fi
 fi
 
-$MAKE -j3 --no-print-directory NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node validator_client
+$MAKE -j2 --no-print-directory NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node validator_client
 
-count_files () {
-  { ls -1q $1 2> /dev/null || true ; } | wc -l
-}
+EXISTING_VALIDATORS=0
+if [[ -f "$DEPOSITS_FILE" ]]; then
+  # We count the number of deposits by counting the number of
+  # occurrences of the 'deposit_data_root' field:
+  EXISTING_VALIDATORS=$(grep -o -i deposit_data_root "$DEPOSITS_FILE" | wc -l)
+fi
 
-EXISTING_VALIDATORS=$(count_files "$VALIDATORS_DIR/*/deposit.json")
+if [[ $EXISTING_VALIDATORS -ne $NUM_VALIDATORS ]]; then
+  make_once deposit_contract
 
-if [[ $EXISTING_VALIDATORS -lt $NUM_VALIDATORS ]]; then
   rm -rf "$VALIDATORS_DIR"
   rm -rf "$SECRETS_DIR"
 
-  $BEACON_NODE_BIN deposits create \
+  build/deposit_contract generateSimulationDeposits \
     --count="${NUM_VALIDATORS}" \
-    --non-interactive \
-    --out-deposits-dir="$VALIDATORS_DIR" \
+    --out-validators-dir="$VALIDATORS_DIR" \
     --out-secrets-dir="$SECRETS_DIR" \
-    --dont-send
+    --out-deposits-file="$DEPOSITS_FILE"
 
   echo "All deposits prepared"
 fi
@@ -128,7 +138,7 @@ if [ ! -f "${SNAPSHOT_FILE}" ]; then
       --data-dir="${SIMULATION_DIR}/node-$BOOTSTRAP_NODE" \
       createTestnet \
       $WEB3_ARG \
-      --validators-dir="${VALIDATORS_DIR}" \
+      --deposits-file="${DEPOSITS_FILE}" \
       --total-validators="${NUM_VALIDATORS}" \
       --output-genesis="${SNAPSHOT_FILE}" \
       --output-bootstrap-file="${NETWORK_BOOTSTRAP_FILE}" \
@@ -145,7 +155,7 @@ function run_cmd {
   if [[ "$USE_TMUX" == "yes" ]]; then
     echo "Starting node $i..."
     $TMUX_CMD select-window -t "${TMUX_SESSION_NAME}:sim"
-    $TMUX_CMD split-window -t "${TMUX_SESSION_NAME}" "if ! $CMD; then; read; fi"
+    $TMUX_CMD split-window -t "${TMUX_SESSION_NAME}" "if ! $CMD; then read; fi"
     $TMUX_CMD select-layout -t "${TMUX_SESSION_NAME}:sim" tiled
   elif [[ "$USE_MULTITAIL" != "no" ]]; then
     if [[ "$i" == "$BOOTSTRAP_NODE" ]]; then
@@ -164,10 +174,10 @@ DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
 DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
 
 if [ "$USE_GANACHE" != "no" ]; then
-  make deposit_contract
+  make_once deposit_contract
   echo Deploying the validator deposit contract...
 
-  DEPLOY_CMD_OUTPUT=$($DEPLOY_DEPOSIT_CONTRACT_BIN deploy $WEB3_ARG)
+  DEPLOY_CMD_OUTPUT=$($DEPOSIT_CONTRACT_BIN deploy $WEB3_ARG)
   # https://stackoverflow.com/questions/918886/how-do-i-split-a-string-on-a-delimiter-in-bash
   OUTPUT_PIECES=(${DEPLOY_CMD_OUTPUT//;/ })
   DEPOSIT_CONTRACT_ADDRESS=${OUTPUT_PIECES[0]}
@@ -176,9 +186,8 @@ if [ "$USE_GANACHE" != "no" ]; then
   echo Contract deployed at $DEPOSIT_CONTRACT_ADDRESS:$DEPOSIT_CONTRACT_BLOCK
 
   if [[ "$WAIT_GENESIS" == "yes" ]]; then
-    run_cmd "(deposit maker)" "$BEACON_NODE_BIN deposits send \
-      --non-interactive \
-      --deposits-dir='$VALIDATORS_DIR' \
+    run_cmd "(deposit maker)" "$DEPOSIT_CONTRACT_BIN sendDeposits \
+      --deposits-file='$DEPOSITS_FILE' \
       --min-delay=0 --max-delay=1 \
       $WEB3_ARG \
       --deposit-contract=${DEPOSIT_CONTRACT_ADDRESS}"
@@ -231,8 +240,8 @@ for i in $(seq $BOOTSTRAP_NODE -1 $TOTAL_USER_NODES); do
 
   run_cmd $i "${SIM_ROOT}/run_node.sh ${i} --verify-finalization" "node"
 
-  if [ "${BN_VC_VALIDATOR_SPLIT:-}" == "yes" ]; then
-    # start the VC with a few seconds of delay so that we can connect through RPC
+  if [ "${USE_BN_VC_VALIDATOR_SPLIT:-}" == "yes" ]; then
+    # start the VC with a few seconds of delay so that there are less RPC connection retries
     run_cmd $i "sleep 3 && ${SIM_ROOT}/run_validator.sh ${i}" "validator"
   fi
 done

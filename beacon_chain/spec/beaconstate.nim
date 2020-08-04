@@ -14,31 +14,31 @@ import
   ./crypto, ./datatypes, ./digest, ./helpers, ./signatures, ./validator,
   ../../nbench/bench_lab
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#is_valid_merkle_branch
-func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openarray[Eth2Digest], depth: uint64, index: uint64, root: Eth2Digest): bool {.nbench.}=
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#is_valid_merkle_branch
+func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openarray[Eth2Digest], depth: int, index: uint64, root: Eth2Digest): bool {.nbench.}=
   ## Check if ``leaf`` at ``index`` verifies against the Merkle ``root`` and
   ## ``branch``.
   var
     value = leaf
     buf: array[64, byte]
 
-  for i in 0 ..< depth.int:
+  for i in 0 ..< depth:
     if (index div (1'u64 shl i)) mod 2 != 0:
-      buf[0..31] = branch[i.int].data
+      buf[0..31] = branch[i].data
       buf[32..63] = value.data
     else:
       buf[0..31] = value.data
-      buf[32..63] = branch[i.int].data
+      buf[32..63] = branch[i].data
     value = eth2digest(buf)
   value == root
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#increase_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#increase_balance
 func increase_balance*(
     state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
   # Increase the validator balance at index ``index`` by ``delta``.
   state.balances[index] += delta
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#decrease_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#decrease_balance
 func decrease_balance*(
     state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
   # Decrease the validator balance at index ``index`` by ``delta``, with
@@ -49,7 +49,24 @@ func decrease_balance*(
     else:
       state.balances[index] - delta
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#deposits
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#deposits
+func get_validator_from_deposit(state: BeaconState, deposit: Deposit):
+    Validator =
+  let
+    amount = deposit.data.amount
+    effective_balance = min(
+      amount - amount mod EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE)
+
+  Validator(
+    pubkey: deposit.data.pubkey,
+    withdrawal_credentials: deposit.data.withdrawal_credentials,
+    activation_eligibility_epoch: FAR_FUTURE_EPOCH,
+    activation_epoch: FAR_FUTURE_EPOCH,
+    exit_epoch: FAR_FUTURE_EPOCH,
+    withdrawable_epoch: FAR_FUTURE_EPOCH,
+    effective_balance: effective_balance
+  )
+
 proc process_deposit*(preset: RuntimePreset,
                       state: var BeaconState,
                       deposit: Deposit,
@@ -89,16 +106,7 @@ proc process_deposit*(preset: RuntimePreset,
         return ok()
 
     # Add validator and balance entries
-    state.validators.add(Validator(
-      pubkey: pubkey,
-      withdrawal_credentials: deposit.data.withdrawal_credentials,
-      activation_eligibility_epoch: FAR_FUTURE_EPOCH,
-      activation_epoch: FAR_FUTURE_EPOCH,
-      exit_epoch: FAR_FUTURE_EPOCH,
-      withdrawable_epoch: FAR_FUTURE_EPOCH,
-      effective_balance: min(amount - amount mod EFFECTIVE_BALANCE_INCREMENT,
-        MAX_EFFECTIVE_BALANCE)
-    ))
+    state.validators.add(get_validator_from_deposit(state, deposit))
     state.balances.add(amount)
   else:
      # Increase balance by deposit amount
@@ -106,19 +114,21 @@ proc process_deposit*(preset: RuntimePreset,
 
   ok()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
-func compute_activation_exit_epoch(epoch: Epoch): Epoch =
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
+func compute_activation_exit_epoch*(epoch: Epoch): Epoch =
   ## Return the epoch during which validator activations and exits initiated in
   ## ``epoch`` take effect.
   epoch + 1 + MAX_SEED_LOOKAHEAD
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_validator_churn_limit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_validator_churn_limit
 func get_validator_churn_limit(state: BeaconState, cache: var StateCache): uint64 =
   # Return the validator churn limit for the current epoch.
-  max(MIN_PER_EPOCH_CHURN_LIMIT,
-      len(cache.shuffled_active_validator_indices).uint64 div CHURN_LIMIT_QUOTIENT)
+  max(
+    MIN_PER_EPOCH_CHURN_LIMIT,
+    count_active_validators(
+      state, state.get_current_epoch(), cache) div CHURN_LIMIT_QUOTIENT)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#initiate_validator_exit
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
                               index: ValidatorIndex, cache: var StateCache) =
   # Initiate the exit of the validator with index ``index``.
@@ -147,7 +157,7 @@ func initiate_validator_exit*(state: var BeaconState,
   validator.withdrawable_epoch =
     validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#slash_validator
 proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
     cache: var StateCache) =
   # Slash the validator with index ``index``.
@@ -192,14 +202,9 @@ proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
     state, whistleblower_index, whistleblowing_reward - proposer_reward)
 
 func genesis_time_from_eth1_timestamp*(preset: RuntimePreset, eth1_timestamp: uint64): uint64 =
-  # TODO: remove once we switch completely to v0.12.1
-  when SPEC_VERSION == "0.12.1":
-    eth1_timestamp + preset.GENESIS_DELAY
-  else:
-    const SECONDS_PER_DAY = uint64(60*60*24)
-    eth1_timestamp + 2'u64 * SECONDS_PER_DAY - (eth1_timestamp mod SECONDS_PER_DAY)
+  eth1_timestamp + preset.GENESIS_DELAY
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#genesis
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#genesis
 proc initialize_beacon_state_from_eth1*(
     preset: RuntimePreset,
     eth1_block_hash: Eth2Digest,
@@ -220,7 +225,7 @@ proc initialize_beacon_state_from_eth1*(
   # validators - there needs to be at least one member in each committee -
   # good to know for testing, though arguably the system is not that useful at
   # at that point :)
-  doAssert deposits.len >= SLOTS_PER_EPOCH.int
+  doAssert deposits.lenu64 >= SLOTS_PER_EPOCH
 
   var state = BeaconStateRef(
     fork: Fork(
@@ -232,12 +237,10 @@ proc initialize_beacon_state_from_eth1*(
       Eth1Data(block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
     latest_block_header:
       BeaconBlockHeader(
-        body_root: hash_tree_root(BeaconBlockBody(
-          # This differs from the spec intentionally.
-          # We must specify the default value for `ValidatorSig`
-          # in order to get a correct `hash_tree_root`.
-          randao_reveal: ValidatorSig(kind: OpaqueBlob)
-        ))
+        # This differs from the spec intentionally.
+        # We must specify the default value for `ValidatorSig`/`BeaconBlockBody`
+        # in order to get a correct `hash_tree_root`.
+        body_root: hash_tree_root(BeaconBlockBody())
       )
   )
 
@@ -288,24 +291,21 @@ func is_valid_genesis_state*(preset: RuntimePreset,
   if state.genesis_time < preset.MIN_GENESIS_TIME:
     return false
   # This is an okay get_active_validator_indices(...) for the time being.
-  if active_validator_indices.len.uint64 < preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
+  if active_validator_indices.lenu64 < preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
     return false
-  return true
+  true
 
 # TODO this is now a non-spec helper function, and it's not really accurate
 # so only usable/used in research/ and tests/
 func get_initial_beacon_block*(state: BeaconState): SignedBeaconBlock =
-  SignedBeaconBlock(
-    message: BeaconBlock(
+  let message = BeaconBlock(
       slot: GENESIS_SLOT,
-      state_root: hash_tree_root(state),
-      body: BeaconBlockBody(
-        # TODO: This shouldn't be necessary if OpaqueBlob is the default
-        randao_reveal: ValidatorSig(kind: OpaqueBlob))))
+      state_root: hash_tree_root(state))
       # parent_root, randao_reveal, eth1_data, signature, and body automatically
       # initialized to default values.
+  SignedBeaconBlock(message: message, root: hash_tree_root(message))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_block_root_at_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: BeaconState,
                              slot: Slot): Eth2Digest =
   # Return the block root at a recent ``slot``.
@@ -314,12 +314,12 @@ func get_block_root_at_slot*(state: BeaconState,
   doAssert slot < state.slot
   state.block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_block_root
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_block_root
 func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
   # Return the block root at the start of a recent ``epoch``.
   get_block_root_at_slot(state, compute_start_slot_at_epoch(epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_total_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_total_balance
 func get_total_balance*(state: BeaconState, validators: auto): Gwei =
   ## Return the combined effective balance of the ``indices``.
   ## ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
@@ -328,13 +328,13 @@ func get_total_balance*(state: BeaconState, validators: auto): Gwei =
     foldl(validators, a + state.validators[b].effective_balance, 0'u64)
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#is_eligible_for_activation_queue
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#is_eligible_for_activation_queue
 func is_eligible_for_activation_queue(validator: Validator): bool =
   # Check if ``validator`` is eligible to be placed into the activation queue.
   validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
     validator.effective_balance == MAX_EFFECTIVE_BALANCE
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#is_eligible_for_activation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#is_eligible_for_activation
 func is_eligible_for_activation(state: BeaconState, validator: Validator):
     bool =
   # Check if ``validator`` is eligible for activation.
@@ -344,7 +344,7 @@ func is_eligible_for_activation(state: BeaconState, validator: Validator):
   # Has not yet been activated
     validator.activation_epoch == FAR_FUTURE_EPOCH
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#registry-updates
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#registry-updates
 proc process_registry_updates*(state: var BeaconState,
     cache: var StateCache) {.nbench.}=
   ## Process activation eligibility and ejections
@@ -403,7 +403,7 @@ proc process_registry_updates*(state: var BeaconState,
     validator.activation_epoch =
       compute_activation_exit_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 func is_valid_indexed_attestation*(
     state: BeaconState, indexed_attestation: SomeIndexedAttestation,
     flags: UpdateFlags): bool =
@@ -419,7 +419,7 @@ func is_valid_indexed_attestation*(
 
   # Not from spec, but this function gets used in front-line roles, not just
   # behind firewall.
-  let num_validators = state.validators.len.uint64
+  let num_validators = state.validators.lenu64
   if anyIt(indexed_attestation.attesting_indices, it >= num_validators):
     trace "indexed attestation: not all indices valid validators"
     return false
@@ -433,7 +433,7 @@ func is_valid_indexed_attestation*(
   # Verify aggregate signature
   if skipBLSValidation notin flags:
      # TODO: fuse loops with blsFastAggregateVerify
-    let pubkeys = mapIt(indices, state.validators[it.int].pubkey)
+    let pubkeys = mapIt(indices, state.validators[it].pubkey)
     if not verify_attestation_signature(
         state.fork, state.genesis_validators_root, indexed_attestation.data,
         pubkeys, indexed_attestation.signature):
@@ -442,21 +442,14 @@ func is_valid_indexed_attestation*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_attesting_indices
-func get_attesting_indices*(state: BeaconState,
-                            data: AttestationData,
-                            bits: CommitteeValidatorsBits,
-                            stateCache: var StateCache):
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_attesting_indices
+func get_attesting_indices*(bits: CommitteeValidatorsBits,
+                            committee: openArray[ValidatorIndex]):
                             HashSet[ValidatorIndex] =
-  # Return the set of attesting indices corresponding to ``data`` and ``bits``.
-  result = initHashSet[ValidatorIndex]()
-  let committee = get_beacon_committee(
-    state, data.slot, data.index.CommitteeIndex, stateCache)
-
   # This shouldn't happen if one begins with a valid BeaconState and applies
   # valid updates, but one can construct a BeaconState where it does. Do not
   # do anything here since the PendingAttestation wouldn't have made it past
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#attestations
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#attestations
   # which checks len(attestation.aggregation_bits) == len(committee) that in
   # nim-beacon-chain lives in check_attestation(...).
   # Addresses https://github.com/status-im/nim-beacon-chain/issues/922
@@ -468,14 +461,25 @@ func get_attesting_indices*(state: BeaconState,
     if bits[i]:
       result.incl index
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#get_indexed_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_attesting_indices
+func get_attesting_indices*(state: BeaconState,
+                            data: AttestationData,
+                            bits: CommitteeValidatorsBits,
+                            cache: var StateCache):
+                            HashSet[ValidatorIndex] =
+  # Return the set of attesting indices corresponding to ``data`` and ``bits``.
+  get_attesting_indices(
+    bits,
+    get_beacon_committee(state, data.slot, data.index.CommitteeIndex, cache))
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_indexed_attestation
 func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
-    stateCache: var StateCache): IndexedAttestation =
+    cache: var StateCache): IndexedAttestation =
   # Return the indexed attestation corresponding to ``attestation``.
   let
     attesting_indices =
       get_attesting_indices(
-        state, attestation.data, attestation.aggregation_bits, stateCache)
+        state, attestation.data, attestation.aggregation_bits, cache)
 
   IndexedAttestation(
     attesting_indices:
@@ -486,12 +490,12 @@ func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
   )
 
 func get_indexed_attestation*(state: BeaconState, attestation: TrustedAttestation,
-    stateCache: var StateCache): TrustedIndexedAttestation =
+    cache: var StateCache): TrustedIndexedAttestation =
   # Return the indexed attestation corresponding to ``attestation``.
   let
     attesting_indices =
       get_attesting_indices(
-        state, attestation.data, attestation.aggregation_bits, stateCache)
+        state, attestation.data, attestation.aggregation_bits, cache)
 
   TrustedIndexedAttestation(
     attesting_indices:
@@ -503,179 +507,117 @@ func get_indexed_attestation*(state: BeaconState, attestation: TrustedAttestatio
 
 # Attestation validation
 # ------------------------------------------------------------------------------------------
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.3/specs/phase0/beacon-chain.md#attestations
-#
-# TODO: Refactor, we need:
-# - cheap validations that do not involve the fork state (to avoid unnecessary and costly rewinding which are probably a DOS vector)
-# - check that must be done on the targeted state (for example beacon committee consistency)
-# - check that requires easily computed data from the targeted sate (slots, epoch, justified checkpoints)
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#attestations
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 
-proc isValidAttestationSlot*(attestationSlot, stateSlot: Slot): bool =
-  ## Attestation check that does not depend on the whole block state
-  ## for cheaper prefiltering of attestations that come from the network
-  ## to limit DOS via state rewinding
-
-  if not (attestationSlot + MIN_ATTESTATION_INCLUSION_DELAY <= stateSlot):
-    warn("Attestation too new",
-      attestation_slot = shortLog(attestationSlot),
-      state_slot = shortLog(stateSlot))
-    return false
-
-  if not (stateSlot <= attestationSlot + SLOTS_PER_EPOCH):
-    warn("Attestation too old",
-      attestation_slot = shortLog(attestationSlot),
-      state_slot = shortLog(stateSlot))
-    return false
-
-  return true
-
-# TODO remove/merge with p2p-interface validation
-proc isValidAttestationTargetEpoch*(
-    state: BeaconState, data: AttestationData): bool =
-  # TODO what constitutes a valid attestation when it's about to be added to
-  #      the pool? we're interested in attestations that will become viable
-  #      for inclusion in blocks in the future and on any fork, so we need to
-  #      consider that validations might happen using the state of a different
-  #      fork.
-  #      Some things are always invalid (like out-of-bounds issues etc), but
-  #      others are more subtle - how do we validate the signature for example?
-  #      It might be valid on one fork but not another. One thing that helps
-  #      is that committees are stable per epoch and that it should be OK to
-  #      include an attestation in a block even if the corresponding validator
-  #      was slashed in the same epoch - there's no penalty for doing this and
-  #      the vote counting logic will take care of any ill effects (TODO verify)
-  # TODO re-enable check
-  #if not (data.crosslink.shard < SHARD_COUNT):
-  #  notice "Attestation shard too high",
-  #    attestation_shard = data.crosslink.shard
-  #  return
-
-  # Without this check, we can't get a slot number for the attestation as
-  # certain helpers will assert
-  # TODO this could probably be avoided by being smart about the specific state
-  #      used to validate the attestation: most likely if we pick the state of
-  #      the beacon block being voted for and a slot in the target epoch
-  #      of the attestation, we'll be safe!
-  # TODO the above state selection logic should probably live here in the
-  #      attestation pool
-  if not (data.target.epoch == get_previous_epoch(state) or
-      data.target.epoch == get_current_epoch(state)):
-    warn("Target epoch not current or previous epoch")
-    return
-
+func check_attestation_slot_target*(data: AttestationData): Result[void, cstring] =
   if not (data.target.epoch == compute_epoch_at_slot(data.slot)):
-    warn("Target epoch inconsistent with epoch of data slot",
-      target_epoch = data.target.epoch,
-      data_slot_epoch = compute_epoch_at_slot(data.slot))
-    return
+    return err("Target epoch doesn't match attestation slot")
 
-  true
+  ok()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#attestations
+func check_attestation_target_epoch*(
+    data: AttestationData, current_epoch: Epoch): Result[void, cstring] =
+  if not (data.target.epoch == get_previous_epoch(current_epoch) or
+      data.target.epoch == current_epoch):
+    return err("Target epoch not current or previous epoch")
+
+  ok()
+
+func check_attestation_inclusion*(data: AttestationData,
+                                  current_slot: Slot): Result[void, cstring] =
+  if not (data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= current_slot):
+    return err("Attestation too new")
+
+  if not (current_slot <= data.slot + SLOTS_PER_EPOCH):
+    return err("Attestation too old")
+
+  ok()
+
+func check_attestation_index*(
+    data: AttestationData, committees_per_slot: uint64): Result[void, cstring] =
+  if not (data.index < committees_per_slot):
+    return err("Data index exceeds committee count")
+
+  ok()
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#attestations
 proc check_attestation*(
     state: BeaconState, attestation: SomeAttestation, flags: UpdateFlags,
-    stateCache: var StateCache): bool =
+    cache: var StateCache): Result[void, cstring] =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
   ## be followed!
 
-  # TODO: When checking attestation from the network, currently rewinding/advancing
-  #       a temporary state is needed.
-  #       If this is too costly we can be DOS-ed.
-  #       We might want to split this into "state-dependent" checks and "state-independent" checks
-  #       The latter one should be made prior to state-rewinding.
-
   let
-    stateSlot = state.slot
     data = attestation.data
 
-  trace "process_attestation: beginning",
-    attestation=attestation
+  ? check_attestation_target_epoch(data, state.get_current_epoch())
+  ? check_attestation_slot_target(data)
+  ? check_attestation_inclusion(data, state.slot)
+  ? check_attestation_index(
+      data,
+      get_committee_count_per_slot(state, data.target.epoch, cache))
 
-  if not (data.index < get_committee_count_at_slot(state, data.slot)):
-    warn("Data index exceeds committee count",
-      data_index = data.index,
-      committee_count = get_committee_count_at_slot(state, data.slot))
-    return
+  let committee_len = get_beacon_committee_len(
+    state, data.slot, data.index.CommitteeIndex, cache)
 
-  if not isValidAttestationTargetEpoch(state, data):
-    # Logging in isValidAttestationTargetEpoch
-    return
-
-  if not isValidAttestationSlot(data.slot, stateSlot):
-    # Logging in isValidAttestationSlot
-    return
-
-  let committee = get_beacon_committee(
-    state, data.slot, data.index.CommitteeIndex, stateCache)
-  if attestation.aggregation_bits.len != committee.len:
-    warn("Inconsistent aggregation and committee length",
-      aggregation_bits_len = attestation.aggregation_bits.len,
-      committee_len = committee.len
-    )
-    return
-
-  let ffg_check_data = (data.source.epoch, data.source.root, data.target.epoch)
+  if attestation.aggregation_bits.lenu64 != committee_len:
+    return err("Inconsistent aggregation and committee length")
 
   if data.target.epoch == get_current_epoch(state):
-    if not (ffg_check_data == (state.current_justified_checkpoint.epoch,
-        state.current_justified_checkpoint.root, get_current_epoch(state))):
-      warn("FFG data not matching current justified epoch")
-      return
+    if not (data.source == state.current_justified_checkpoint):
+      return err("FFG data not matching current justified epoch")
   else:
-    if not (ffg_check_data == (state.previous_justified_checkpoint.epoch,
-        state.previous_justified_checkpoint.root, get_previous_epoch(state))):
-      warn("FFG data not matching previous justified epoch")
-      return
+    if not (data.source == state.previous_justified_checkpoint):
+      return err("FFG data not matching previous justified epoch")
 
   if not is_valid_indexed_attestation(
-      state, get_indexed_attestation(state, attestation, stateCache), flags):
-    warn("process_attestation: signature or bitfields incorrect")
-    return
+      state, get_indexed_attestation(state, attestation, cache), flags):
+    return err("signature or bitfields incorrect")
 
-  true
+  ok()
 
 proc process_attestation*(
     state: var BeaconState, attestation: SomeAttestation, flags: UpdateFlags,
-    stateCache: var StateCache): Result[void, cstring] {.nbench.} =
+    cache: var StateCache): Result[void, cstring] {.nbench.} =
   # In the spec, attestation validation is mixed with state mutation, so here
   # we've split it into two functions so that the validation logic can be
   # reused when looking for suitable blocks to include in attestations.
   # TODO don't log warnings when looking for attestations (return
   #      Result[void, cstring] instead of logging in check_attestation?)
 
-  let proposer_index = get_beacon_proposer_index(state, stateCache)
+  let proposer_index = get_beacon_proposer_index(state, cache)
   if proposer_index.isNone:
     return err("process_attestation: no beacon proposer index and probably no active validators")
 
-  if check_attestation(state, attestation, flags, stateCache):
-    let
-      attestation_slot = attestation.data.slot
-      pending_attestation = PendingAttestation(
-        data: attestation.data,
-        aggregation_bits: attestation.aggregation_bits,
-        inclusion_delay: state.slot - attestation_slot,
-        proposer_index: proposer_index.get.uint64,
-      )
+  ? check_attestation(state, attestation, flags, cache)
 
-    if attestation.data.target.epoch == get_current_epoch(state):
-      trace "process_attestation: current_epoch_attestations.add",
-        attestation = shortLog(attestation),
-        pending_attestation = pending_attestation,
-        indices = get_attesting_indices(
-          state, attestation.data, attestation.aggregation_bits, stateCache).len
-      state.current_epoch_attestations.add(pending_attestation)
-    else:
-      trace "process_attestation: previous_epoch_attestations.add",
-        attestation = shortLog(attestation),
-        pending_attestation = pending_attestation,
-        indices = get_attesting_indices(
-          state, attestation.data, attestation.aggregation_bits, stateCache).len
-      state.previous_epoch_attestations.add(pending_attestation)
+  let
+    attestation_slot = attestation.data.slot
+    pending_attestation = PendingAttestation(
+      data: attestation.data,
+      aggregation_bits: attestation.aggregation_bits,
+      inclusion_delay: state.slot - attestation_slot,
+      proposer_index: proposer_index.get.uint64,
+    )
 
-    ok()
+  if attestation.data.target.epoch == get_current_epoch(state):
+    trace "current_epoch_attestations.add",
+      attestation = shortLog(attestation),
+      pending_attestation = shortLog(pending_attestation),
+      indices = get_attesting_indices(
+        state, attestation.data, attestation.aggregation_bits, cache).len
+    state.current_epoch_attestations.add(pending_attestation)
   else:
-    err("process_attestation: check_attestation failed")
+    trace "previous_epoch_attestations.add",
+      attestation = shortLog(attestation),
+      pending_attestation = shortLog(pending_attestation),
+      indices = get_attesting_indices(
+        state, attestation.data, attestation.aggregation_bits, cache).len
+    state.previous_epoch_attestations.add(pending_attestation)
+
+  ok()
 
 func makeAttestationData*(
     state: BeaconState, slot: Slot, committee_index: uint64,

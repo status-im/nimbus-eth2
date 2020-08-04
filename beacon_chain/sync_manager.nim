@@ -613,18 +613,21 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
   doAssert(not(req.isEmpty()), "Request must not be empty!")
   debug "Requesting blocks from peer", peer = peer,
         slot = req.slot, slot_count = req.count, step = req.step,
-        peer_score = peer.getScore(), topics = "syncman"
+        peer_score = peer.getScore(), peer_speed = peer.netKbps(),
+        topics = "syncman"
   var workFut = awaitne beaconBlocksByRange(peer, req.slot, req.count, req.step)
   if workFut.failed():
     debug "Error, while waiting getBlocks response", peer = peer,
           slot = req.slot, slot_count = req.count, step = req.step,
-          errMsg = workFut.readError().msg, topics = "syncman"
+          errMsg = workFut.readError().msg, peer_speed = peer.netKbps(),
+          topics = "syncman"
   else:
     let res = workFut.read()
     if res.isErr:
       debug "Error, while reading getBlocks response",
             peer = peer, slot = req.slot, count = req.count,
-            step = req.step, topics = "syncman"
+            step = req.step, peer_speed = peer.netKbps(),
+            topics = "syncman"
     result = res
 
 template headAge(): uint64 =
@@ -663,6 +666,7 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
 
   debug "Starting syncing with peer", peer = peer,
                                       peer_score = peer.getScore(),
+                                      peer_speed = peer.netKbps(),
                                       topics = "syncman"
   try:
     while true:
@@ -674,14 +678,15 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
 
       debug "Peer's syncing status", wall_clock_slot = wallSlot,
             remote_head_slot = peerSlot, local_head_slot = headSlot,
-            peer_score = peer.getScore(), peer = peer, topics = "syncman"
+            peer_score = peer.getScore(), peer = peer,
+            peer_speed = peer.netKbps(), topics = "syncman"
 
       if peerSlot > wallSlot + man.toleranceValue:
         # Our wall timer is broken, or peer's status information is invalid.
         debug "Local timer is broken or peer's status information is invalid",
               wall_clock_slot = wallSlot, remote_head_slot = peerSlot,
               local_head_slot = headSlot, peer = peer,
-              tolerance_value = man.toleranceValue,
+              tolerance_value = man.toleranceValue, peer_speed = peer.netKbps(),
               peer_score = peer.getScore(), topics = "syncman"
         let failure = SyncFailure.init(SyncFailureKind.StatusInvalid, peer)
         man.failures.add(failure)
@@ -691,7 +696,8 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
         # Peer's status information is very old, we going to update it.
         debug "Updating peer's status information", wall_clock_slot = wallSlot,
               remote_head_slot = peerSlot, local_head_slot = headSlot,
-              peer = peer, peer_score = peer.getScore(), topics = "syncman"
+              peer = peer, peer_score = peer.getScore(),
+              peer_speed = peer.netKbps(), topics = "syncman"
 
         checkPeerScore peer:
           let res = await peer.updateStatus()
@@ -700,7 +706,7 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
           peer.updateScore(PeerScoreNoStatus)
           debug "Failed to get remote peer's status, exiting", peer = peer,
                 peer_score = peer.getScore(), peer_head_slot = peerSlot,
-                topics = "syncman"
+                peer_speed = peer.netKbps(), topics = "syncman"
           let failure = SyncFailure.init(SyncFailureKind.StatusDownload, peer)
           man.failures.add(failure)
           break
@@ -710,9 +716,9 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
           peer.updateScore(PeerScoreStaleStatus)
           debug "Peer's status information is stale, exiting",
                 wall_clock_slot = wallSlot, remote_old_head_slot = peerSlot,
-                local_head_slot = headSlot,
-                remote_new_head_slot = newPeerSlot,
-                peer = peer, peer_score = peer.getScore(), topics = "syncman"
+                local_head_slot = headSlot, remote_new_head_slot = newPeerSlot,
+                peer = peer, peer_score = peer.getScore(),
+                peer_speed = peer.netKbps(), topics = "syncman"
           let failure = SyncFailure.init(SyncFailureKind.StatusStale, peer)
           man.failures.add(failure)
           break
@@ -720,14 +726,16 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
         debug "Peer's status information updated", wall_clock_slot = wallSlot,
               remote_old_head_slot = peerSlot, local_head_slot = headSlot,
               remote_new_head_slot = newPeerSlot, peer = peer,
-              peer_score = peer.getScore(), topics = "syncman"
+              peer_score = peer.getScore(), peer_speed = peer.netKbps(),
+              topics = "syncman"
         peer.updateScore(PeerScoreGoodStatus)
         peerSlot = newPeerSlot
 
       if (peerAge <= man.maxHeadAge) and (headAge <= man.maxHeadAge):
         debug "We are in sync with peer, exiting", wall_clock_slot = wallSlot,
               remote_head_slot = peerSlot, local_head_slot = headSlot,
-              peer = peer, peer_score = peer.getScore(), topics = "syncman"
+              peer = peer, peer_score = peer.getScore(),
+              peer_speed = peer.netKbps(), topics = "syncman"
         break
 
       let req = man.queue.pop(peerSlot, peer)
@@ -737,12 +745,12 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
               queue_input_slot = man.queue.inpSlot,
               queue_output_slot = man.queue.outSlot,
               queue_last_slot = man.queue.lastSlot,
-              peer_score = peer.getScore(), topics = "syncman"
+              peer_speed = peer.netKbps(), peer_score = peer.getScore(),
+              topics = "syncman"
         # Sometimes when syncing is almost done but last requests are still
         # pending, this can fall into endless cycle, when low number of peers
         # are available in PeerPool. We going to wait for RESP_TIMEOUT time,
         # so all pending requests should be finished at this moment.
-
         checkPeerScore peer:
           await sleepAsync(RESP_TIMEOUT)
 
@@ -753,7 +761,7 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
       debug "Creating new request for peer", wall_clock_slot = wallSlot,
             remote_head_slot = peerSlot, local_head_slot = headSlot,
             request_slot = req.slot, request_count = req.count,
-            request_step = req.step, peer = peer,
+            request_step = req.step, peer = peer, peer_speed = peer.netKbps(),
             peer_score = peer.getScore(), topics = "syncman"
 
       checkPeerScore peer:
@@ -765,7 +773,8 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
         debug "Received blocks on request", blocks_count = len(data),
               blocks_map = smap, request_slot = req.slot,
               request_count = req.count, request_step = req.step,
-              peer = peer, peer_score = peer.getScore(), topics = "syncman"
+              peer = peer, peer_score = peer.getScore(),
+              peer_speed = peer.netKbps(), topics = "syncman"
 
         if not(checkResponse(req, data)):
           peer.updateScore(PeerScoreBadResponse)
@@ -773,7 +782,8 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
                blocks_count = len(data), blocks_map = smap,
                request_slot = req.slot, request_count = req.count,
                request_step = req.step, peer = peer,
-               peer_score = peer.getScore(), topics = "syncman"
+               peer_score = peer.getScore(), peer_speed = peer.netKbps(),
+               topics = "syncman"
           let failure = SyncFailure.init(SyncFailureKind.BadResponse, peer)
           man.failures.add(failure)
           break
@@ -789,7 +799,8 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
         debug "Failed to receive blocks on request",
               request_slot = req.slot, request_count = req.count,
               request_step = req.step, peer = peer,
-              peer_score = peer.getScore(), topics = "syncman"
+              peer_score = peer.getScore(), peer_speed = peer.netKbps(),
+              topics = "syncman"
         let failure = SyncFailure.init(SyncFailureKind.BlockDownload, peer)
         man.failures.add(failure)
         break
@@ -884,7 +895,8 @@ proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
 
               debug "Synchronization loop starting new worker", peer = peer,
                     wall_head_slot = wallSlot, local_head_slot = headSlot,
-                    peer_score = peer.getScore(), topics = "syncman"
+                    peer_score = peer.getScore(), peer_speed = peer.netKbps(),
+                    topics = "syncman"
               temp.add(syncWorker(man, peer))
 
             # We will create new `acquireFut` later.
@@ -900,6 +912,7 @@ proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
             debug "Synchronization loop got worker finished",
                    wall_head_slot = wallSlot, local_head_slot = headSlot,
                    peer = peer, peer_score = peer.getScore(),
+                   peer_speed = peer.netKbps(),
                    topics = "syncman"
       else:
         if fut == acquireFut:

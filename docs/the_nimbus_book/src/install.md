@@ -1,18 +1,20 @@
 # Installation
 
-Beacon chain can run on Linux, macOS, Windows, and Android. At the moment, Nimbus has to be built from source.
+The Beacon chain can run on Linux, macOS, Windows, and Android. At the moment, Nimbus has to be built from source.
 
 ## Time
 
 The beacon chain relies on your computer having the correct time set, down to at most 0.5 seconds.
 
-It is recommended that you run a high quality time service on your computer such as:
+We recommended you run a high quality time service on your computer such as:
 
 * GPS
 * NTS (network time security, IETF draft)
 * Roughtime (google)
 
-As a minimum, you should run an NTP client on the server - NTP may easily be disrupted however.
+As a minimum, you should run an NTP client on the server.
+
+If that makes no sense to you, don't worry. For testnets, just making sure your computer is set at the correct time should be fine.
 
 ## External Dependencies
 
@@ -63,4 +65,4 @@ apt install build-essential git libpcre3-dev
 
 ## Next steps
 
-Once you've installed the prerequisites, you're ready to move on to launching the [beacon node](./beacon_node.md).
+Once you've installed the prerequisites, you're ready to move on to [running a validator on Medalla](./medalla.md).

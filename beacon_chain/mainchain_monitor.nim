@@ -1,8 +1,8 @@
 import
-  deques, tables, hashes, options, strformat,
+  std/[deques, tables, hashes, options, strformat],
   chronos, web3, web3/ethtypes as web3Types, json, chronicles,
   eth/common/eth_types, eth/async_utils,
-  spec/[datatypes, digest, crypto, beaconstate, helpers],
+  spec/[datatypes, digest, crypto, beaconstate, helpers, validator],
   network_metadata, merkle_minimal
 
 from times import epochTime
@@ -105,17 +105,17 @@ const
 # module seems broken. Investigate and file this as an issue.
 {.push warning[LockLevel]: off.}
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#get_eth1_data
 func compute_time_at_slot(state: BeaconState, slot: Slot): uint64 =
   state.genesis_time + slot * SECONDS_PER_SLOT
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#get_eth1_data
 func voting_period_start_time*(state: BeaconState): uint64 =
   let eth1_voting_period_start_slot =
     state.slot - state.slot mod SLOTS_PER_ETH1_VOTING_PERIOD.uint64
   compute_time_at_slot(state, eth1_voting_period_start_slot)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#get_eth1_data
 func is_candidate_block(blk: Eth1Block, period_start: uint64): bool =
   (blk.timestamp + SECONDS_PER_ETH1_BLOCK.uint64 * ETH1_FOLLOW_DISTANCE.uint64 <= period_start) and
   (blk.timestamp + SECONDS_PER_ETH1_BLOCK.uint64 * ETH1_FOLLOW_DISTANCE.uint64 * 2 >= period_start)
@@ -140,7 +140,7 @@ func getDepositsInRange(eth1Chain: Eth1Chain,
   # This function should be used with indices obtained with `eth1Chain.findBlock`.
   # This guarantess that both of these indices will be valid:
   doAssert sinceBlock >= firstBlockInCache and
-           int(latestBlock - firstBlockInCache) < eth1Chain.blocks.len
+           (latestBlock - firstBlockInCache) < eth1Chain.blocks.lenu64
   let
     sinceBlockIdx = sinceBlock - firstBlockInCache
     latestBlockIdx = latestBlock - firstBlockInCache
@@ -195,7 +195,7 @@ func isSuccessorBlock(eth1Chain: Eth1Chain, newBlock: Eth1Block): bool =
     if lastBlock.number >= newBlock.number: return false
     lastBlock.voteData.deposit_count
 
-  (currentDepositCount + newBlock.deposits.len.uint64) == newBlock.voteData.deposit_count
+  (currentDepositCount + newBlock.deposits.lenu64) == newBlock.voteData.deposit_count
 
 func addSuccessorBlock*(eth1Chain: var Eth1Chain, newBlock: Eth1Block): bool =
   result = isSuccessorBlock(eth1Chain, newBlock)
@@ -369,7 +369,7 @@ proc readJsonDeposits(depositsList: JsonNode): seq[Eth1Block] =
       data: DepositData(
         pubkey: ValidatorPubKey.init(array[48, byte](pubkey)),
         withdrawal_credentials: Eth2Digest(data: array[32, byte](withdrawalCredentials)),
-        amount: bytes_to_int(array[8, byte](amount)),
+        amount: bytes_to_uint64(array[8, byte](amount)),
         signature: ValidatorSig.init(array[96, byte](signature))))
 
 method fetchDepositData*(p: Web3DataProviderRef,
@@ -390,7 +390,7 @@ method fetchBlockDetails(p: Web3DataProviderRef, blk: Eth1Block) {.async.} =
   discard await depositRoot
   discard await rawCount
 
-  let depositCount = bytes_to_int(array[8, byte](rawCount.read))
+  let depositCount = bytes_to_uint64(array[8, byte](rawCount.read))
 
   blk.timestamp = Eth1BlockTimestamp(web3Block.read.timestamp)
   blk.voteData.deposit_count = depositCount
@@ -506,8 +506,9 @@ proc createBeaconStateAux(preset: RuntimePreset,
                                              eth1Block.voteData.block_hash,
                                              eth1Block.timestamp.uint64,
                                              deposits, {})
-  let activeValidators = get_active_validator_indices(result[], GENESIS_EPOCH)
-  eth1Block.knownGoodDepositsCount = some len(activeValidators).uint64
+  var cache = StateCache()
+  let activeValidators = count_active_validators(result[], GENESIS_EPOCH, cache)
+  eth1Block.knownGoodDepositsCount = some activeValidators
 
 proc createBeaconState(m: MainchainMonitor, eth1Block: Eth1Block): BeaconStateRef =
   createBeaconStateAux(
@@ -543,7 +544,7 @@ proc findGenesisBlockInRange(m: MainchainMonitor,
       secondsPerBlock = float(endBlock.timestamp - startBlock.timestamp) /
                         float(endBlock.number - startBlock.number)
       blocksToJump = max(float(MIN_GENESIS_TIME - startBlockTime) / secondsPerBlock, 1.0)
-      candidateNumber = min(endBlock.number - 1, startBlock.number + blocksToJump.uint64)
+      candidateNumber = min(endBlock.number - 1, startBlock.number + 1) # blocksToJump.uint64)
       candidateBlock = await dataProvider.getBlockByNumber(candidateNumber)
 
     var candidateAsEth1Block = Eth1Block(number: candidateBlock.number.uint64,
@@ -576,6 +577,13 @@ proc checkForGenesisLoop(m: MainchainMonitor) {.async.} =
         let
           genesisCandidateIdx = genesisCandidateIdx.get
           genesisCandidate =  m.eth1Chain.blocks[genesisCandidateIdx]
+
+        info "Generating state for candidate block for genesis",
+             blockNum = genesisCandidate.number,
+             blockHash = genesisCandidate.voteData.block_hash,
+             potentialDeposits = genesisCandidate.voteData.deposit_count
+
+        let
           candidateState = m.createBeaconState(genesisCandidate)
 
         if genesisCandidate.knownGoodDepositsCount.get >= m.preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
@@ -604,7 +612,7 @@ proc checkForGenesisLoop(m: MainchainMonitor) {.async.} =
               let genesisBlock = await m.findGenesisBlockInRange(preceedingEth1Block, genesisCandidate)
               if genesisBlock.number != genesisCandidate.number:
                 m.signalGenesis m.createBeaconState(genesisBlock)
-              return
+                return
 
           m.signalGenesis candidateState
           return
@@ -754,7 +762,7 @@ proc run(m: MainchainMonitor, delayBeforeStart: Duration) {.async.} =
       url = m.dataProviderFactory.desc
 
     await dataProvider.onBlockHeaders do (blk: Eth1BlockHeader)
-                                         {.raises: [Defect], gcsafe}:
+                                         {.raises: [Defect], gcsafe.}:
       try:
         m.depositQueue.addLastNoWait(blk)
       except AsyncQueueFullError:
@@ -797,11 +805,11 @@ proc start(m: MainchainMonitor, delayBeforeStart: Duration) =
 proc start*(m: MainchainMonitor) {.inline.} =
   m.start(0.seconds)
 
-proc getLatestEth1BlockHash*(url: string): Future[Eth2Digest] {.async.} =
+proc getEth1BlockHash*(url: string, blockId: RtBlockIdentifier): Future[BlockHash] {.async.} =
   let web3 = await newWeb3(url)
   try:
-    let blk = await web3.provider.eth_getBlockByNumber("latest", false)
-    return Eth2Digest(data: array[32, byte](blk.hash))
+    let blk = await web3.provider.eth_getBlockByNumber(blockId, false)
+    return blk.hash
   finally:
     await web3.close()
 

@@ -12,9 +12,9 @@ import
   confutils, stats, times,
   strformat,
   options, sequtils, random, tables,
-  ../tests/[testblockutil],
+  ../tests/testblockutil,
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
-  ../beacon_chain/[attestation_pool, extras],
+  ../beacon_chain/extras,
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
 
@@ -54,7 +54,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     attesters: RunningStat
     r = initRand(1)
     signedBlock: SignedBeaconBlock
-    cache = get_empty_per_epoch_cache()
+    cache = StateCache()
 
   proc maybeWrite(last: bool) =
     if write_last_json:
@@ -85,8 +85,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       blockAttestations = attestations.getOrDefault(attestations_idx)
 
     attestations.del attestations_idx
-    doAssert len(attestations) <=
-      (SLOTS_PER_EPOCH.int + MIN_ATTESTATION_INCLUSION_DELAY.int)
+    doAssert attestations.lenu64 <=
+      SLOTS_PER_EPOCH + MIN_ATTESTATION_INCLUSION_DELAY
 
     let t =
       if (state[].data.slot > GENESIS_SLOT and
@@ -99,6 +99,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         flags = flags)
     latest_block_root = withTimerRet(timers[tHashBlock]):
       hash_tree_root(signedBlock.message)
+    signedBlock.root = latest_block_root
 
     if attesterRatio > 0.0:
       # attesterRatio is the fraction of attesters that actually do their
@@ -106,12 +107,13 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       # some variation
       let
         target_slot = state[].data.slot + MIN_ATTESTATION_INCLUSION_DELAY - 1
-        commitee_count = get_committee_count_at_slot(state[].data, target_slot)
+        committees_per_slot =
+          get_committee_count_per_slot(state[].data, target_slot.epoch, cache)
 
       let
         scass = withTimerRet(timers[tShuffle]):
           mapIt(
-            0 ..< commitee_count.int,
+            0 ..< committees_per_slot.int,
             get_beacon_committee(state[].data, target_slot, it.CommitteeIndex, cache))
 
       for i, scas in scass:
@@ -150,9 +152,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     flushFile(stdout)
 
-    if (state[].data.slot) mod SLOTS_PER_EPOCH == 0:
+    if (state[].data.slot).isEpoch:
       echo &" slot: {shortLog(state[].data.slot)} ",
-        &"epoch: {shortLog(state[].data.slot.compute_epoch_at_slot)}"
+        &"epoch: {shortLog(state[].data.get_current_epoch())}"
 
 
   maybeWrite(true) # catch that last state as well..

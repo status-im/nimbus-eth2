@@ -10,9 +10,9 @@
 import
   options, sequtils, unittest,
   ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[datatypes, digest, helpers, validator,
-                        state_transition, presets],
-  ../beacon_chain/[beacon_node_types, block_pool, ssz]
+  ../beacon_chain/spec/[datatypes, digest, state_transition, presets],
+  ../beacon_chain/[beacon_node_types, ssz],
+  ../beacon_chain/block_pools/[chain_dag, quarantine, clearance]
 
 when isMainModule:
   import chronicles # or some random compile error happens...
@@ -35,7 +35,7 @@ suiteReport "BlockRef and helpers" & preset():
       not s2.isAncestorOf(s1)
       not s1.isAncestorOf(s0)
 
-  timedTest "getAncestorAt sanity" & preset():
+  timedTest "get_ancestor sanity" & preset():
     let
       s0 = BlockRef(slot: Slot(0))
       s1 = BlockRef(slot: Slot(1), parent: s0)
@@ -43,17 +43,17 @@ suiteReport "BlockRef and helpers" & preset():
       s4 = BlockRef(slot: Slot(4), parent: s2)
 
     check:
-      s0.getAncestorAt(Slot(0)) == s0
-      s0.getAncestorAt(Slot(1)) == s0
+      s0.get_ancestor(Slot(0)) == s0
+      s0.get_ancestor(Slot(1)) == s0
 
-      s1.getAncestorAt(Slot(0)) == s0
-      s1.getAncestorAt(Slot(1)) == s1
+      s1.get_ancestor(Slot(0)) == s0
+      s1.get_ancestor(Slot(1)) == s1
 
-      s4.getAncestorAt(Slot(0)) == s0
-      s4.getAncestorAt(Slot(1)) == s1
-      s4.getAncestorAt(Slot(2)) == s2
-      s4.getAncestorAt(Slot(3)) == s2
-      s4.getAncestorAt(Slot(4)) == s4
+      s4.get_ancestor(Slot(0)) == s0
+      s4.get_ancestor(Slot(1)) == s1
+      s4.get_ancestor(Slot(2)) == s2
+      s4.get_ancestor(Slot(3)) == s2
+      s4.get_ancestor(Slot(4)) == s4
 
 suiteReport "BlockSlot and helpers" & preset():
   timedTest "atSlot sanity" & preset():
@@ -90,144 +90,136 @@ suiteReport "Block pool processing" & preset():
   setup:
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      pool = BlockPool.init(defaultRuntimePreset, db)
-      stateData = newClone(pool.loadTailState())
-      cache = get_empty_per_epoch_cache()
-      b1 = addTestBlock(stateData.data, pool.tail.root, cache)
+      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+      quarantine = QuarantineRef()
+      stateData = newClone(dag.loadTailState())
+      cache = StateCache()
+      b1 = addTestBlock(stateData.data, dag.tail.root, cache)
       b1Root = hash_tree_root(b1.message)
       b2 = addTestBlock(stateData.data, b1Root, cache)
       b2Root {.used.} = hash_tree_root(b2.message)
 
   timedTest "getRef returns nil for missing blocks":
     check:
-      pool.getRef(default Eth2Digest) == nil
+      dag.getRef(default Eth2Digest) == nil
 
   timedTest "loadTailState gets genesis block on first load" & preset():
     let
-      b0 = pool.get(pool.tail.root)
+      b0 = dag.get(dag.tail.root)
 
     check:
       b0.isSome()
 
   timedTest "Simple block add&get" & preset():
     let
-      b1Add = pool.addRawBlock(b1Root, b1) do (validBlock: BlockRef):
-        discard
-      b1Get = pool.get(b1Root)
+      b1Add = dag.addRawBlock(quarantine, b1, nil)
+      b1Get = dag.get(b1.root)
 
     check:
       b1Get.isSome()
       b1Get.get().refs.root == b1Root
       b1Add[].root == b1Get.get().refs.root
-      pool.heads.len == 1
-      pool.heads[0].blck == b1Add[]
+      dag.heads.len == 1
+      dag.heads[0] == b1Add[]
 
     let
-      b2Add = pool.addRawBlock(b2Root, b2) do (validBlock: BlockRef):
-        discard
-      b2Get = pool.get(b2Root)
+      b2Add = dag.addRawBlock(quarantine, b2, nil)
+      b2Get = dag.get(b2.root)
 
     check:
       b2Get.isSome()
-      b2Get.get().refs.root == b2Root
+      b2Get.get().refs.root == b2.root
       b2Add[].root == b2Get.get().refs.root
-      pool.heads.len == 1
-      pool.heads[0].blck == b2Add[]
+      dag.heads.len == 1
+      dag.heads[0] == b2Add[]
 
     # Skip one slot to get a gap
     check:
       process_slots(stateData.data, stateData.data.data.slot + 1)
 
     let
-      b4 = addTestBlock(stateData.data, b2Root, cache)
-      b4Root = hash_tree_root(b4.message)
-      b4Add = pool.addRawBlock(b4Root, b4) do (validBlock: BlockRef):
-        discard
+      b4 = addTestBlock(stateData.data, b2.root, cache)
+      b4Add = dag.addRawBlock(quarantine, b4, nil)
 
     check:
       b4Add[].parent == b2Add[]
 
-    pool.updateHead(b4Add[])
+    dag.updateHead(b4Add[])
 
     var blocks: array[3, BlockRef]
 
     check:
-      pool.getBlockRange(Slot(0), 1, blocks.toOpenArray(0, 0)) == 0
-      blocks[0..<1] == [pool.tail]
+      dag.getBlockRange(Slot(0), 1, blocks.toOpenArray(0, 0)) == 0
+      blocks[0..<1] == [dag.tail]
 
-      pool.getBlockRange(Slot(0), 1, blocks.toOpenArray(0, 1)) == 0
-      blocks[0..<2] == [pool.tail, b1Add[]]
+      dag.getBlockRange(Slot(0), 1, blocks.toOpenArray(0, 1)) == 0
+      blocks[0..<2] == [dag.tail, b1Add[]]
 
-      pool.getBlockRange(Slot(0), 2, blocks.toOpenArray(0, 1)) == 0
-      blocks[0..<2] == [pool.tail, b2Add[]]
+      dag.getBlockRange(Slot(0), 2, blocks.toOpenArray(0, 1)) == 0
+      blocks[0..<2] == [dag.tail, b2Add[]]
 
-      pool.getBlockRange(Slot(0), 3, blocks.toOpenArray(0, 1)) == 1
-      blocks[0..<2] == [nil, pool.tail] # block 3 is missing!
+      dag.getBlockRange(Slot(0), 3, blocks.toOpenArray(0, 1)) == 1
+      blocks[0..<2] == [nil, dag.tail] # block 3 is missing!
 
-      pool.getBlockRange(Slot(2), 2, blocks.toOpenArray(0, 1)) == 0
+      dag.getBlockRange(Slot(2), 2, blocks.toOpenArray(0, 1)) == 0
       blocks[0..<2] == [b2Add[], b4Add[]] # block 3 is missing!
 
       # empty length
-      pool.getBlockRange(Slot(2), 2, blocks.toOpenArray(0, -1)) == 0
+      dag.getBlockRange(Slot(2), 2, blocks.toOpenArray(0, -1)) == 0
 
       # No blocks in sight
-      pool.getBlockRange(Slot(5), 1, blocks.toOpenArray(0, 1)) == 2
+      dag.getBlockRange(Slot(5), 1, blocks.toOpenArray(0, 1)) == 2
 
       # No blocks in sight either due to gaps
-      pool.getBlockRange(Slot(3), 2, blocks.toOpenArray(0, 1)) == 2
+      dag.getBlockRange(Slot(3), 2, blocks.toOpenArray(0, 1)) == 2
       blocks[0..<2] == [BlockRef nil, nil] # block 3 is missing!
 
   timedTest "Reverse order block add & get" & preset():
-    let missing = pool.addRawBlock(b2Root, b2) do (validBlock: BLockRef):
-      discard
+    let missing = dag.addRawBlock(quarantine, b2, nil)
     check: missing.error == MissingParent
 
     check:
-      pool.get(b2Root).isNone() # Unresolved, shouldn't show up
-      FetchRecord(root: b1Root) in pool.checkMissing()
+      dag.get(b2.root).isNone() # Unresolved, shouldn't show up
+      FetchRecord(root: b1.root) in quarantine.checkMissing()
 
-    let status = pool.addRawBlock(b1Root, b1) do (validBlock: BlockRef):
-        discard
+    let status = dag.addRawBlock(quarantine, b1, nil)
 
     check: status.isOk
 
     let
-      b1Get = pool.get(b1Root)
-      b2Get = pool.get(b2Root)
+      b1Get = dag.get(b1.root)
+      b2Get = dag.get(b2.root)
 
     check:
       b1Get.isSome()
       b2Get.isSome()
 
-      b1Get.get().refs.children[0] == b2Get.get().refs
       b2Get.get().refs.parent == b1Get.get().refs
 
-    pool.updateHead(b2Get.get().refs)
+    dag.updateHead(b2Get.get().refs)
 
     # The heads structure should have been updated to contain only the new
     # b2 head
     check:
-      pool.heads.mapIt(it.blck) == @[b2Get.get().refs]
+      dag.heads.mapIt(it) == @[b2Get.get().refs]
 
     # check that init also reloads block graph
     var
-      pool2 = BlockPool.init(defaultRuntimePreset, db)
+      dag2 = init(ChainDAGRef, defaultRuntimePreset, db)
 
     check:
       # ensure we loaded the correct head state
-      pool2.head.blck.root == b2Root
-      hash_tree_root(pool2.headState.data.data) == b2.message.state_root
-      pool2.get(b1Root).isSome()
-      pool2.get(b2Root).isSome()
-      pool2.heads.len == 1
-      pool2.heads[0].blck.root == b2Root
+      dag2.head.root == b2Root
+      hash_tree_root(dag2.headState.data.data) == b2.message.state_root
+      dag2.get(b1Root).isSome()
+      dag2.get(b2Root).isSome()
+      dag2.heads.len == 1
+      dag2.heads[0].root == b2Root
 
   timedTest "Adding the same block twice returns a Duplicate error" & preset():
     let
-      b10 = pool.addRawBlock(b1Root, b1) do (validBlock: BlockRef):
-        discard
-      b11 = pool.addRawBlock(b1Root, b1) do (validBlock: BlockRef):
-        discard
+      b10 = dag.addRawBlock(quarantine, b1, nil)
+      b11 = dag.addRawBlock(quarantine, b1, nil)
 
     check:
       b11.error == Duplicate
@@ -235,176 +227,159 @@ suiteReport "Block pool processing" & preset():
 
   timedTest "updateHead updates head and headState" & preset():
     let
-      b1Add = pool.addRawBlock(b1Root, b1) do (validBlock: BlockRef):
-        discard
+      b1Add = dag.addRawBlock(quarantine, b1, nil)
 
-    pool.updateHead(b1Add[])
+    dag.updateHead(b1Add[])
 
     check:
-      pool.head.blck == b1Add[]
-      pool.headState.data.data.slot == b1Add[].slot
+      dag.head == b1Add[]
+      dag.headState.data.data.slot == b1Add[].slot
 
   timedTest "updateStateData sanity" & preset():
     let
-      b1Add = pool.addRawBlock(b1Root, b1) do (validBlock: BlockRef):
-        discard
-      b2Add = pool.addRawBlock(b2Root, b2) do (validBlock: BlockRef):
-        discard
+      b1Add = dag.addRawBlock(quarantine, b1, nil)
+      b2Add = dag.addRawBlock(quarantine, b2, nil)
       bs1 = BlockSlot(blck: b1Add[], slot: b1.message.slot)
       bs1_3 = b1Add[].atSlot(3.Slot)
       bs2_3 = b2Add[].atSlot(3.Slot)
 
-    var tmpState = assignClone(pool.headState)
+    var tmpState = assignClone(dag.headState)
 
     # move to specific block
-    pool.updateStateData(tmpState[], bs1)
+    dag.updateStateData(tmpState[], bs1)
 
     check:
       tmpState.blck == b1Add[]
       tmpState.data.data.slot == bs1.slot
 
     # Skip slots
-    pool.updateStateData(tmpState[], bs1_3) # skip slots
+    dag.updateStateData(tmpState[], bs1_3) # skip slots
 
     check:
       tmpState.blck == b1Add[]
       tmpState.data.data.slot == bs1_3.slot
 
     # Move back slots, but not blocks
-    pool.updateStateData(tmpState[], bs1_3.parent())
+    dag.updateStateData(tmpState[], bs1_3.parent())
     check:
       tmpState.blck == b1Add[]
       tmpState.data.data.slot == bs1_3.parent().slot
 
     # Move to different block and slot
-    pool.updateStateData(tmpState[], bs2_3)
+    dag.updateStateData(tmpState[], bs2_3)
     check:
       tmpState.blck == b2Add[]
       tmpState.data.data.slot == bs2_3.slot
 
     # Move back slot and block
-    pool.updateStateData(tmpState[], bs1)
+    dag.updateStateData(tmpState[], bs1)
     check:
       tmpState.blck == b1Add[]
       tmpState.data.data.slot == bs1.slot
 
     # Move back to genesis
-    pool.updateStateData(tmpState[], bs1.parent())
+    dag.updateStateData(tmpState[], bs1.parent())
     check:
       tmpState.blck == b1Add[].parent
       tmpState.data.data.slot == bs1.parent.slot
 
-suiteReport "BlockPool finalization tests" & preset():
+suiteReport "chain DAG finalization tests" & preset():
   setup:
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      pool = BlockPool.init(defaultRuntimePreset, db)
-      cache = get_empty_per_epoch_cache()
+      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+      quarantine = QuarantineRef()
+      cache = StateCache()
 
   timedTest "prune heads on finalization" & preset():
     # Create a fork that will not be taken
     var
-      blck = makeTestBlock(pool.headState.data, pool.head.blck.root, cache)
-      tmpState = assignClone(pool.headState.data)
+      blck = makeTestBlock(dag.headState.data, dag.head.root, cache)
+      tmpState = assignClone(dag.headState.data)
     check:
       process_slots(
         tmpState[], tmpState.data.slot + (5 * SLOTS_PER_EPOCH).uint64)
 
-    let lateBlock = makeTestBlock(tmpState[], pool.head.blck.root, cache)
+    let lateBlock = makeTestBlock(tmpState[], dag.head.root, cache)
     block:
-      let status = pool.addRawBlock(hash_tree_root(blck.message), blck) do (validBlock: BlockRef):
-        discard
+      let status = dag.addRawBlock(quarantine, blck, nil)
       check: status.isOk()
-
 
     for i in 0 ..< (SLOTS_PER_EPOCH * 6):
       if i == 1:
         # There are 2 heads now because of the fork at slot 1
         check:
-          pool.tail.children.len == 2
-          pool.heads.len == 2
-
-      if i mod SLOTS_PER_EPOCH == 0:
-        # Reset cache at epoch boundaries
-        cache = get_empty_per_epoch_cache()
+          dag.heads.len == 2
 
       blck = makeTestBlock(
-        pool.headState.data, pool.head.blck.root, cache,
+        dag.headState.data, dag.head.root, cache,
         attestations = makeFullAttestations(
-          pool.headState.data.data, pool.head.blck.root,
-          pool.headState.data.data.slot, cache, {}))
-      let added = pool.addRawBlock(hash_tree_root(blck.message), blck) do (validBlock: BlockRef):
-        discard
+          dag.headState.data.data, dag.head.root,
+          dag.headState.data.data.slot, cache, {}))
+      let added = dag.addRawBlock(quarantine, blck, nil)
       check: added.isOk()
-      pool.updateHead(added[])
+      dag.updateHead(added[])
 
     check:
-      pool.heads.len() == 1
-      pool.head.justified.slot.compute_epoch_at_slot() == 5
-      pool.tail.children.len == 1
+      dag.heads.len() == 1
 
     block:
       # The late block is a block whose parent was finalized long ago and thus
       # is no longer a viable head candidate
-      let status = pool.addRawBlock(hash_tree_root(lateBlock.message), lateBlock) do (validBlock: BlockRef):
-        discard
+      let status = dag.addRawBlock(quarantine, lateBlock, nil)
       check: status.error == Unviable
 
     let
-      pool2 = BlockPool.init(defaultRuntimePreset, db)
+      dag2 = init(ChainDAGRef, defaultRuntimePreset, db)
 
     # check that the state reloaded from database resembles what we had before
     check:
-      pool2.tail.root == pool.tail.root
-      pool2.head.blck.root == pool.head.blck.root
-      pool2.finalizedHead.blck.root == pool.finalizedHead.blck.root
-      pool2.finalizedHead.slot == pool.finalizedHead.slot
-      hash_tree_root(pool2.headState.data.data) ==
-        hash_tree_root(pool.headState.data.data)
-      hash_tree_root(pool2.justifiedState.data.data) ==
-        hash_tree_root(pool.justifiedState.data.data)
+      dag2.tail.root == dag.tail.root
+      dag2.head.root == dag.head.root
+      dag2.finalizedHead.blck.root == dag.finalizedHead.blck.root
+      dag2.finalizedHead.slot == dag.finalizedHead.slot
+      hash_tree_root(dag2.headState.data.data) ==
+        hash_tree_root(dag.headState.data.data)
 
   # timedTest "init with gaps" & preset():
-  #   var cache = get_empty_per_epoch_cache()
+  #   var cache = StateCache()
   #   for i in 0 ..< (SLOTS_PER_EPOCH * 6 - 2):
   #     var
   #       blck = makeTestBlock(
-  #         pool.headState.data, pool.head.blck.root, cache,
+  #         dag.headState.data, pool.head.blck.root, cache,
   #         attestations = makeFullAttestations(
-  #           pool.headState.data.data, pool.head.blck.root,
-  #           pool.headState.data.data.slot, cache, {}))
+  #           dag.headState.data.data, pool.head.blck.root,
+  #           dag.headState.data.data.slot, cache, {}))
 
-  #     let added = pool.addRawBlock(hash_tree_root(blck.message), blck) do (validBlock: BlockRef):
+  #     let added = dag.addRawBlock(quarantine, hash_tree_root(blck.message), blck) do (validBlock: BlockRef):
   #       discard
   #     check: added.isOk()
-  #     pool.updateHead(added[])
+  #     dag.updateHead(added[])
 
   #   # Advance past epoch so that the epoch transition is gapped
   #   check:
   #     process_slots(
-  #       pool.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2) )
+  #       dag.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2) )
 
   #   var blck = makeTestBlock(
-  #     pool.headState.data, pool.head.blck.root, cache,
+  #     dag.headState.data, pool.head.blck.root, cache,
   #     attestations = makeFullAttestations(
-  #       pool.headState.data.data, pool.head.blck.root,
-  #       pool.headState.data.data.slot, cache, {}))
+  #       dag.headState.data.data, pool.head.blck.root,
+  #       dag.headState.data.data.slot, cache, {}))
 
-  #   let added = pool.addRawBlock(hash_tree_root(blck.message), blck) do (validBlock: BlockRef):
+  #   let added = dag.addRawBlock(quarantine, hash_tree_root(blck.message), blck) do (validBlock: BlockRef):
   #     discard
   #   check: added.isOk()
-  #   pool.updateHead(added[])
+  #   dag.updateHead(added[])
 
   #   let
   #     pool2 = BlockPool.init(db)
-
+ 
   #   # check that the state reloaded from database resembles what we had before
   #   check:
-  #     pool2.tail.root == pool.tail.root
-  #     pool2.head.blck.root == pool.head.blck.root
-  #     pool2.finalizedHead.blck.root == pool.finalizedHead.blck.root
-  #     pool2.finalizedHead.slot == pool.finalizedHead.slot
+  #     pool2.dag.tail.root == dag.tail.root
+  #     pool2.dag.head.blck.root == dag.head.blck.root
+  #     pool2.dag.finalizedHead.blck.root == dag.finalizedHead.blck.root
+  #     pool2.dag.finalizedHead.slot == dag.finalizedHead.slot
   #     hash_tree_root(pool2.headState.data.data) ==
-  #       hash_tree_root(pool.headState.data.data)
-  #     hash_tree_root(pool2.justifiedState.data.data) ==
-  #       hash_tree_root(pool.justifiedState.data.data)
+  #       hash_tree_root(dag.headState.data.data)

@@ -134,12 +134,12 @@ const
 
 when const_preset == "mainnet":
   template defaultRuntimePreset*: auto = mainnetRuntimePreset
-  import ./presets/v0_12_1/mainnet
+  import ./presets/v0_12_2/mainnet
   export mainnet
 
 elif const_preset == "minimal":
   template defaultRuntimePreset*: auto = minimalRuntimePreset
-  import ./presets/v0_12_1/minimal
+  import ./presets/v0_12_2/minimal
   export minimal
 
 else:

@@ -4,7 +4,7 @@ import testutils/fuzzing_engines
 
 const
   gitRoot = thisDir() / ".."
-  fixturesDir = gitRoot / "vendor" / "nim-eth2-scenarios" / "tests-v0.11.3" / "mainnet" / "phase0" / "ssz_static"
+  fixturesDir = gitRoot / "vendor" / "nim-eth2-scenarios" / "tests-v0.12.2" / "mainnet" / "phase0" / "ssz_static"
 
   fuzzingTestsDir = gitRoot / "tests" / "fuzzing"
   fuzzingCorpusesDir = fuzzingTestsDir / "corpus"
@@ -38,6 +38,5 @@ cli do (testname {.argument.}: string,
       cpFile file, corpusDir / nextInputName()
 
   let testProgram = fuzzingTestsDir / &"ssz_decode_{testname}.nim"
-
   exec &"""ntu fuzz --fuzzer={fuzzer} --corpus="{corpusDir}" "{testProgram}" """
 

@@ -9,15 +9,18 @@
 
 import
   # Standard library
-  std/tables, std/typetraits,
+  std/[sets, tables, typetraits],
   # Status libraries
   stew/results, chronicles,
   # Internal
-  ../spec/[datatypes, digest],
+  ../spec/[beaconstate, datatypes, digest, helpers],
   # Fork choice
-  ./fork_choice_types, ./proto_array
+  ./fork_choice_types, ./proto_array,
+  ../block_pools/[spec_cache, chain_dag]
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/fork-choice.md
+export sets, results, fork_choice_types
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
 # which is a port of "Proto-Array": https://github.com/protolambda/lmd-ghost
 # See also:
@@ -36,7 +39,7 @@ func compute_deltas(
        votes: var openArray[VoteTracker],
        old_balances: openarray[Gwei],
        new_balances: openarray[Gwei]
-     ): ForkChoiceError
+     ): FcResult[void]
 # TODO: raises [Defect] - once https://github.com/nim-lang/Nim/issues/12862 is fixed
 #       https://github.com/status-im/nim-beacon-chain/pull/865#pullrequestreview-389117232
 
@@ -45,70 +48,91 @@ func compute_deltas(
 
 logScope:
   topics = "fork_choice"
-  cat = "fork_choice"
 
 # API:
 # - The private procs uses the ForkChoiceError error code
 # - The public procs use Result
 
-func initForkChoice*(
-       finalized_block_slot: Slot,             # This is unnecessary for fork choice but helps external components
-       finalized_block_state_root: Eth2Digest, # This is unnecessary for fork choice but helps external components
-       justified_epoch: Epoch,
-       finalized_epoch: Epoch,
-       finalized_root: Eth2Digest
-     ): Result[ForkChoice, string] =
-  ## Initialize a fork choice context
+func get_effective_balances(state: BeaconState): seq[Gwei] =
+  ## Get the balances from a state
+  result.newSeq(state.validators.len) # zero-init
+
+  let epoch = state.get_current_epoch()
+
+  for i in 0 ..< result.len:
+    # All non-active validators have a 0 balance
+    template validator: Validator = state.validators[i]
+    if validator.is_active_validator(epoch):
+      result[i] = validator.effective_balance
+
+proc initForkChoiceBackend*(justified_epoch: Epoch,
+                            finalized_epoch: Epoch,
+                            finalized_root: Eth2Digest,
+                            ): FcResult[ForkChoiceBackend] =
   var proto_array = ProtoArray(
     prune_threshold: DefaultPruneThreshold,
-    justified_epoch: justified_epoch,
+    justified_epoch: finalized_epoch,
     finalized_epoch: finalized_epoch
   )
 
-  let err = proto_array.on_block(
-    finalized_block_slot,
+  ? proto_array.on_block(
     finalized_root,
     hasParentInForkChoice = false,
-    default(Eth2Digest),
-    finalized_block_state_root,
-    justified_epoch,
+    Eth2Digest(),
+    finalized_epoch,
     finalized_epoch
   )
 
-  if err.kind != fcSuccess:
-    return err("Failed to add finalized block to proto_array: " & $err)
-  return ok(ForkChoice(proto_array: proto_array))
+  ok(ForkChoiceBackend(
+    proto_array: proto_array,
+  ))
+
+proc initForkChoice*(finalizedState: StateData, ): FcResult[ForkChoice] =
+  ## Initialize a fork choice context
+  debug "Initializing fork choice",
+    state_epoch = finalizedState.data.data.get_current_epoch(),
+    blck = shortLog(finalizedState.blck)
+
+  let finalized_epoch = finalizedState.data.data.get_current_epoch()
+
+  let ffgCheckpoint = FFGCheckpoints(
+    justified: BalanceCheckpoint(
+      blck: finalizedState.blck,
+      epoch: finalized_epoch,
+      balances: get_effective_balances(finalizedState.data.data)),
+    finalized: Checkpoint(root: finalizedState.blck.root, epoch: finalized_epoch))
+
+  let backend = ? initForkChoiceBackend(
+    finalized_epoch, finalized_epoch, finalizedState.blck.root)
+
+  ok(ForkChoice(
+    backend: backend,
+    checkpoints: Checkpoints(
+      current: ffgCheckpoint,
+      best: ffgCheckpoint),
+    finalizedBlock: finalizedState.blck,
+  ))
 
 func extend[T](s: var seq[T], minLen: int) =
   ## Extend a sequence so that it can contains at least `minLen` elements.
   ## If it's already bigger, the sequence is unmodified.
   ## The extension is zero-initialized
-  let curLen = s.len
-  let diff = minLen - curLen
-  if diff > 0:
-    # Note: seq has a length and a capacity.
-    #       If the new length is less than the original capacity
-    #         => setLen will not zeroMem
-    #       If the capacity was too small
-    #         => reallocation occurs
-    #         => the fresh buffer is zeroMem-ed
-    #       In the second case our own zeroMem is redundant
-    #       but this should happen rarely as we reuse the buffer
-    #       most of the time
+  if s.len < minLen:
     s.setLen(minLen)
-    zeroMem(s[curLen].addr, diff * sizeof(T))
-
 
 func process_attestation*(
-       self: var ForkChoice,
+       self: var ForkChoiceBackend,
        validator_index: ValidatorIndex,
        block_root: Eth2Digest,
        target_epoch: Epoch
      ) =
+  if block_root == Eth2Digest():
+    return
+
   ## Add an attestation to the fork choice context
   self.votes.extend(validator_index.int + 1)
 
-  template vote: untyped {.dirty.} = self.votes[validator_index.int]
+  template vote: untyped = self.votes[validator_index.int]
     # alias
 
   if target_epoch > vote.next_epoch or vote == default(VoteTracker):
@@ -118,110 +142,213 @@ func process_attestation*(
 
     {.noSideEffect.}:
       trace "Integrating vote in fork choice",
-        validator_index = $validator_index,
-        new_vote = shortlog(vote)
-  else:
-    {.noSideEffect.}:
-      if vote.next_epoch != target_epoch or vote.next_root != block_root:
-        warn "Change of vote ignored for fork choice. Potential for slashing.",
-          validator_index = $validator_index,
-          current_vote = shortlog(vote),
-          ignored_block_root = shortlog(block_root),
-          ignored_target_epoch = $target_epoch
-      else:
-        trace "Ignoring double-vote for fork choice",
-          validator_index = $validator_index,
-          current_vote = shortlog(vote),
-          ignored_block_root = shortlog(block_root),
-          ignored_target_epoch = $target_epoch
+        validator_index = validator_index,
+        new_vote = shortLog(vote)
 
-func contains*(self: ForkChoice, block_root: Eth2Digest): bool =
+func process_attestation*(
+       self: var ForkChoice,
+       validator_index: ValidatorIndex,
+       block_root: Eth2Digest,
+       target_epoch: Epoch
+     ) =
+  self.backend.process_attestation(validator_index, block_root, target_epoch)
+
+func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## Returns `true` if a block is known to the fork choice
   ## and `false` otherwise.
   ##
   ## In particular, before adding a block, its parent must be known to the fork choice
   self.proto_array.indices.contains(block_root)
 
-func process_block*(
-       self: var ForkChoice,
-       slot: Slot,
-       block_root: Eth2Digest,
-       parent_root: Eth2Digest,
-       state_root: Eth2Digest,
-       justified_epoch: Epoch,
-       finalized_epoch: Epoch
-     ): Result[void, string] =
-  ## Add a block to the fork choice context
-  let err = self.proto_array.on_block(
-    slot, block_root, hasParentInForkChoice = true, parent_root, state_root, justified_epoch, finalized_epoch
-  )
-  if err.kind != fcSuccess:
-    return err("process_block_error: " & $err)
+proc get_balances_for_block(self: var Checkpoints, blck: BlockSlot, dag: ChainDAGRef): seq[Gwei] =
+  dag.withState(dag.balanceState, blck):
+    get_effective_balances(state)
 
-  {.noSideEffect.}:
-    trace "Integrating block in fork choice",
-      block_root = $shortlog(block_root),
-      parent_root = $shortlog(parent_root),
-      justified_epoch = $justified_epoch,
-      finalized_epoch = $finalized_epoch
+proc process_state(self: var Checkpoints,
+                   dag: ChainDAGRef,
+                   state: BeaconState,
+                   blck: BlockRef) =
+  trace "Processing state",
+    state_slot = state.slot,
+    state_justified = state.current_justified_checkpoint.epoch,
+    current_justified = self.current.justified.epoch,
+    state_finalized = state.finalized_checkpoint.epoch,
+    current_finalized = self.current.finalized
 
-  return ok()
+  if (state.current_justified_checkpoint.epoch > self.current.justified.epoch) and
+      (state.finalized_checkpoint.epoch >= self.current.finalized.epoch):
+    let justifiedBlck = blck.atEpochStart(
+      state.current_justified_checkpoint.epoch)
 
+    doAssert justifiedBlck.blck.root == state.current_justified_checkpoint.root
 
-func find_head*(
-       self: var ForkChoice,
+    let candidate = FFGCheckpoints(
+      justified: BalanceCheckpoint(
+          blck: justifiedBlck.blck,
+          epoch: state.current_justified_checkpoint.epoch,
+          balances: self.get_balances_for_block(justifiedBlck, dag),
+      ),
+      finalized: state.finalized_checkpoint,
+    )
+
+    trace "Applying candidate",
+      justified_block = shortLog(candidate.justified.blck),
+      justified_epoch = shortLog(candidate.justified.epoch),
+      finalized = candidate.finalized,
+      state_finalized = state.finalized_checkpoint.epoch
+
+    if self.current.justified.blck.isAncestorOf(justifiedBlck.blck):
+      trace "Updating current",
+        prev = shortLog(self.current.justified.blck)
+      self.current = candidate
+    else:
+      trace "No current update",
+        prev = shortLog(self.current.justified.blck)
+
+    if candidate.justified.epoch > self.best.justified.epoch:
+      trace "Updating best",
+        prev = shortLog(self.best.justified.blck)
+      self.best = candidate
+    else:
+      trace "No best update",
+        prev = shortLog(self.best.justified.blck)
+
+    # self.balances_cache.process_state(block_root, state)?;
+
+func compute_slots_since_epoch_start(slot: Slot): uint64 =
+  slot - compute_start_slot_at_epoch(compute_epoch_at_slot(slot))
+
+proc maybe_update(self: var Checkpoints, current_slot: Slot) =
+  trace "Updating checkpoint",
+    current_slot,
+    best = shortLog(self.best.justified.blck),
+    current = shortLog(self.current.justified.blck),
+    updateAt = self.updateAt
+
+  if self.best.justified.epoch > self.current.justified.epoch:
+    let current_epoch = current_slot.compute_epoch_at_slot()
+
+    if self.update_at.isNone():
+      if self.best.justified.epoch > self.current.justified.epoch:
+        if compute_slots_since_epoch_start(current_slot) < SAFE_SLOTS_TO_UPDATE_JUSTIFIED:
+          self.current = self.best
+        else:
+          self.update_at = some(current_epoch + 1)
+    elif self.updateAt.get() <= current_epoch:
+      self.current = self.best
+      self.update_at = none(Epoch)
+
+proc process_block*(self: var ForkChoiceBackend,
+                    block_root: Eth2Digest,
+                    parent_root: Eth2Digest,
+                    justified_epoch: Epoch,
+                    finalized_epoch: Epoch): FcResult[void] =
+  self.proto_array.on_block(
+    block_root, hasParentInForkChoice = true, parent_root,
+    justified_epoch, finalized_epoch)
+
+proc process_block*(self: var ForkChoice,
+                    dag: ChainDAGRef,
+                    state: BeaconState,
+                    blckRef: BlockRef,
+                    blck: SomeBeaconBlock,
+                    wallSlot: Slot): FcResult[void] =
+  process_state(self.checkpoints, dag, state, blckRef)
+
+  maybe_update(self.checkpoints, wallSlot)
+
+  for attestation in blck.body.attestations:
+    let targetBlck = dag.getRef(attestation.data.target.root)
+    if targetBlck.isNil:
+      continue
+    if attestation.data.beacon_block_root in self.backend:
+      let
+        epochRef =
+          dag.getEpochRef(targetBlck, attestation.data.target.epoch)
+        participants = get_attesting_indices(
+          epochRef, attestation.data, attestation.aggregation_bits)
+
+      for validator in participants:
+        self.process_attestation(
+          validator,
+          attestation.data.beacon_block_root,
+          attestation.data.target.epoch)
+
+  ? process_block(
+      self.backend, blckRef.root, blck.parent_root,
+      state.current_justified_checkpoint.epoch, state.finalized_checkpoint.epoch
+    )
+
+  trace "Integrating block in fork choice",
+    block_root = shortLog(blckRef)
+
+  ok()
+
+proc find_head*(
+       self: var ForkChoiceBackend,
        justified_epoch: Epoch,
        justified_root: Eth2Digest,
        finalized_epoch: Epoch,
        justified_state_balances: seq[Gwei]
-     ): Result[Eth2Digest, string] =
+     ): FcResult[Eth2Digest] =
   ## Returns the new blockchain head
 
   # Compute deltas with previous call
   #   we might want to reuse the `deltas` buffer across calls
   var deltas = newSeq[Delta](self.proto_array.indices.len)
-  let delta_err = deltas.compute_deltas(
+  ? deltas.compute_deltas(
     indices = self.proto_array.indices,
     votes = self.votes,
     old_balances = self.balances,
     new_balances = justified_state_balances
   )
-  if delta_err.kind != fcSuccess:
-    return err("find_head compute_deltas failed: " & $delta_err)
 
   # Apply score changes
-  let score_err = self.proto_array.apply_score_changes(
+  ? self.proto_array.apply_score_changes(
     deltas, justified_epoch, finalized_epoch
   )
-  if score_err.kind != fcSuccess:
-    return err("find_head apply_score_changes failed: " & $score_err)
 
   self.balances = justified_state_balances
 
   # Find the best block
   var new_head{.noInit.}: Eth2Digest
-  let ghost_err = self.proto_array.find_head(new_head, justified_root)
-  if ghost_err.kind != fcSuccess:
-    return err("find_head failed: " & $ghost_err)
+  ? self.proto_array.find_head(new_head, justified_root)
 
   {.noSideEffect.}:
     debug "Fork choice requested",
-      justified_epoch = $justified_epoch,
-      justified_root = shortlog(justified_root),
-      finalized_epoch = $finalized_epoch,
-      fork_choice_head = shortlog(new_head)
+      justified_epoch = justified_epoch,
+      justified_root = shortLog(justified_root),
+      finalized_epoch = finalized_epoch,
+      fork_choice_head = shortLog(new_head)
 
   return ok(new_head)
 
+proc find_head*(self: var ForkChoice,
+                wallSlot: Slot): FcResult[Eth2Digest] =
+  template remove_alias(blck_root: Eth2Digest): Eth2Digest =
+    if blck_root == Eth2Digest():
+      self.finalizedBlock.root
+    else:
+      blck_root
+
+  self.checkpoints.maybe_update(wallSlot)
+
+  self.backend.find_head(
+    self.checkpoints.current.justified.epoch,
+    remove_alias(self.checkpoints.current.justified.blck.root),
+    self.checkpoints.current.finalized.epoch,
+    self.checkpoints.current.justified.balances,
+  )
 
 func maybe_prune*(
-       self: var ForkChoice, finalized_root: Eth2Digest
-     ): Result[void, string] =
+       self: var ForkChoiceBackend, finalized_root: Eth2Digest
+     ): FcResult[void] =
   ## Prune blocks preceding the finalized root as they are now unneeded.
-  let err = self.proto_array.maybe_prune(finalized_root)
-  if err.kind != fcSuccess:
-    return err("find_head maybe_pruned failed: " & $err)
-  return ok()
+  self.proto_array.maybe_prune(finalized_root)
+
+func prune*(self: var ForkChoice): FcResult[void] =
+  let finalized_root = self.checkpoints.current.finalized.root
+  self.backend.maybe_prune(finalized_root)
 
 func compute_deltas(
        deltas: var openarray[Delta],
@@ -229,7 +356,7 @@ func compute_deltas(
        votes: var openArray[VoteTracker],
        old_balances: openarray[Gwei],
        new_balances: openarray[Gwei]
-     ): ForkChoiceError =
+     ): FcResult[void] =
   ## Update `deltas`
   ##   between old and new balances
   ##   between votes
@@ -268,8 +395,8 @@ func compute_deltas(
       if vote.current_root in indices:
         let index = indices.unsafeGet(vote.current_root)
         if index >= deltas.len:
-          return ForkChoiceError(
-            kind: fcErrInvalidNodeDelta,
+          return err ForkChoiceError(
+            kind: fcInvalidNodeDelta,
             index: index
           )
         deltas[index] -= Delta old_balance
@@ -279,8 +406,8 @@ func compute_deltas(
       if vote.next_root in indices:
         let index = indices.unsafeGet(vote.next_root)
         if index >= deltas.len:
-          return ForkChoiceError(
-            kind: fcErrInvalidNodeDelta,
+          return err ForkChoiceError(
+            kind: fcInvalidNodeDelta,
             index: index
           )
         deltas[index] += Delta new_balance
@@ -288,7 +415,7 @@ func compute_deltas(
           # TODO: is int64 big enough?
 
       vote.current_root = vote.next_root
-  return ForkChoiceSuccess
+  return ok()
 
 # Sanity checks
 # ----------------------------------------------------------------------
@@ -326,7 +453,7 @@ when isMainModule:
       indices, votes, old_balances, new_balances
     )
 
-    doAssert err.kind == fcSuccess, "compute_deltas finished with error: " & $err
+    doAssert err.isOk, "compute_deltas finished with error: " & $err
 
     doAssert deltas == newSeq[Delta](validator_count), "deltas should be zeros"
 
@@ -361,7 +488,7 @@ when isMainModule:
       indices, votes, old_balances, new_balances
     )
 
-    doAssert err.kind == fcSuccess, "compute_deltas finished with error: " & $err
+    doAssert err.isOk, "compute_deltas finished with error: " & $err
 
     for i, delta in deltas.pairs:
       if i == 0:
@@ -400,7 +527,7 @@ when isMainModule:
       indices, votes, old_balances, new_balances
     )
 
-    doAssert err.kind == fcSuccess, "compute_deltas finished with error: " & $err
+    doAssert err.isOk, "compute_deltas finished with error: " & $err
 
     for i, delta in deltas.pairs:
       doAssert delta == Delta(Balance), "Each root should have a delta"
@@ -438,7 +565,7 @@ when isMainModule:
       indices, votes, old_balances, new_balances
     )
 
-    doAssert err.kind == fcSuccess, "compute_deltas finished with error: " & $err
+    doAssert err.isOk, "compute_deltas finished with error: " & $err
 
     for i, delta in deltas.pairs:
       if i == 0:
@@ -486,7 +613,7 @@ when isMainModule:
       indices, votes, old_balances, new_balances
     )
 
-    doAssert err.kind == fcSuccess, "compute_deltas finished with error: " & $err
+    doAssert err.isOk, "compute_deltas finished with error: " & $err
 
     doAssert deltas[0] == -Delta(Balance)*2, "The 0th block should have lost both balances."
 
@@ -525,7 +652,7 @@ when isMainModule:
       indices, votes, old_balances, new_balances
     )
 
-    doAssert err.kind == fcSuccess, "compute_deltas finished with error: " & $err
+    doAssert err.isOk, "compute_deltas finished with error: " & $err
 
     for i, delta in deltas.pairs:
       if i == 0:
@@ -569,7 +696,7 @@ when isMainModule:
       indices, votes, old_balances, new_balances
     )
 
-    doAssert err.kind == fcSuccess, "compute_deltas finished with error: " & $err
+    doAssert err.isOk, "compute_deltas finished with error: " & $err
 
     doAssert deltas[0] == -Delta(Balance), "Block 1 should have lost only 1 balance"
     doAssert deltas[1] == Delta(Balance)*2, "Block 2 should have gained 2 balances"
@@ -608,7 +735,7 @@ when isMainModule:
       indices, votes, old_balances, new_balances
     )
 
-    doAssert err.kind == fcSuccess, "compute_deltas finished with error: " & $err
+    doAssert err.isOk, "compute_deltas finished with error: " & $err
 
     doAssert deltas[0] == -Delta(Balance)*2, "Block 1 should have lost 2 balances"
     doAssert deltas[1] == Delta(Balance), "Block 2 should have gained 1 balance"

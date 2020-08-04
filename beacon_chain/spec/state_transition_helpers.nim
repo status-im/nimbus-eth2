@@ -9,37 +9,29 @@
 
 import
   # Standard library
-  sets,
+  std/sets,
   # Internals
-  ./datatypes, ./digest, ./beaconstate
-
-# Logging utilities
-# --------------------------------------------------------
-
-# TODO: gather all logging utilities
-#       from crypto, digest, etc in a single file
-func shortLog*(x: Checkpoint): string =
-  "(epoch: " & $x.epoch & ", root: \"" & shortLog(x.root) & "\")"
+  ./datatypes, ./beaconstate
 
 # Helpers used in epoch transition and trace-level block transition
 # --------------------------------------------------------
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#helper-functions-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#helper-functions-1
 func get_attesting_indices*(
-    state: BeaconState, attestations: openarray[PendingAttestation],
-    stateCache: var StateCache): HashSet[ValidatorIndex] =
+    state: BeaconState, attestations: openArray[PendingAttestation],
+    cache: var StateCache): HashSet[ValidatorIndex] =
   # This is part of get_unslashed_attesting_indices(...) in spec.
   # Exported bceause of external trace-level chronicles logging.
   result = initHashSet[ValidatorIndex]()
   for a in attestations:
-    result = result.union(get_attesting_indices(
-      state, a.data, a.aggregation_bits, stateCache))
+    result.incl get_attesting_indices(
+      state, a.data, a.aggregation_bits, cache)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/beacon-chain.md#helper-functions-1
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#helper-functions-1
 func get_unslashed_attesting_indices*(
-    state: BeaconState, attestations: openarray[PendingAttestation],
-    stateCache: var StateCache): HashSet[ValidatorIndex] =
-  result = get_attesting_indices(state, attestations, stateCache)
+    state: BeaconState, attestations: openArray[PendingAttestation],
+    cache: var StateCache): HashSet[ValidatorIndex] =
+  result = get_attesting_indices(state, attestations, cache)
   for index in result:
     if state.validators[index].slashed:
       result.excl index
