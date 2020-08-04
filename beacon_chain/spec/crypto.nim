@@ -106,15 +106,15 @@ func toPubKey*(privkey: ValidatorPrivKey): ValidatorPubKey =
     privkey.getKey
 
 proc toRealPubKey(pubkey: ValidatorPubKey): Option[ValidatorPubKey] =
-  var validatorKeyCache {.threadvar.}: Table[Hash, Option[ValidatorPubKey]]
+  var validatorKeyCache {.threadvar.}:
+    Table[array[RawPubKeySize, byte], Option[ValidatorPubKey]]
 
   case pubkey.kind:
   of Real:
     return some(pubkey)
   of OpaqueBlob:
-    let key = hash(pubkey.blob)
     try:
-      validatorKeyCache[key]
+      validatorKeyCache[pubkey.blob]
     except KeyError:
       var val: blscurve.PublicKey
       let maybeRealKey =
@@ -122,7 +122,7 @@ proc toRealPubKey(pubkey: ValidatorPubKey): Option[ValidatorPubKey] =
           some ValidatorPubKey(kind: Real, blsValue: val)
         else:
           none ValidatorPubKey
-      validatorKeyCache[key] = maybeRealKey
+      validatorKeyCache[pubkey.blob] = maybeRealKey
       maybeRealKey
 
 proc initPubKey*(pubkey: ValidatorPubKey): ValidatorPubKey =
