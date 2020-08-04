@@ -126,6 +126,12 @@ make medalla NODE_ID=1
 make medalla NODE_ID=2
 ```
 
+To change the TCP and UDP ports from the default value of 9000:
+
+```bash
+make BASE_PORT=9100 medalla
+```
+
 If you wish to make a deposit, execute the following command:
 
 ```
