@@ -41,12 +41,14 @@ func checkMissing*(quarantine: var QuarantineRef): seq[FetchRecord] =
       result.add(FetchRecord(root: k))
 
 func addMissing*(quarantine: var QuarantineRef, broot: Eth2Digest) {.inline.} =
-  discard quarantine.missing.hasKeyOrPut(broot, MissingBlock())
+  if broot notin quarantine.orphans:
+    discard quarantine.missing.hasKeyOrPut(broot, MissingBlock())
 
 func add*(quarantine: var QuarantineRef, dag: ChainDAGRef,
           sblck: SignedBeaconBlock) =
   ## Adds block to quarantine's `orphans` and `missing` lists.
   quarantine.orphans[sblck.root] = sblck
+  quarantine.missing.del(sblck.root)
 
   let parentRoot = sblck.message.parent_root
   if parentRoot notin quarantine.orphans:
