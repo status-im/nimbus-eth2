@@ -174,7 +174,7 @@ proc isValidAttestation*(
   if tgtBlck.isNil:
     debug "Target block not found"
     pool.addUnresolved(attestation)
-    pool.quarantine.addMissing(attestation.data.beacon_block_root)
+    pool.quarantine.addMissing(attestation.data.target.root)
     return false
 
   # The following rule follows implicitly from that we clear out any
@@ -299,7 +299,7 @@ proc isValidAggregatedAttestation*(
   let tgtBlck = pool.chainDag.getRef(aggregate.data.target.root)
   if tgtBlck.isNil:
     debug "Target block not found"
-    pool.quarantine.addMissing(aggregate.data.beacon_block_root)
+    pool.quarantine.addMissing(aggregate.data.target.root)
     return
 
   # TODO this could be any state in the target epoch
