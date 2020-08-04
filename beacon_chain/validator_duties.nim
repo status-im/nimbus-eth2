@@ -416,7 +416,11 @@ proc broadcastAggregatedAttestations(
               signature: validator.signAggregateAndProof(
                 aggregateAndProof.get, state.fork,
                 state.genesis_validators_root))
+
             node.network.broadcast(node.topicAggregateAndProofs, signedAP)
+            info "Aggregated attestation sent",
+              attestation = shortLog(signedAP.message.aggregate),
+              validator = shortLog(validator)
 
 proc handleValidatorDuties*(
     node: BeaconNode, lastSlot, slot: Slot) {.async.} =
