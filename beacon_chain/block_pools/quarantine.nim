@@ -49,4 +49,5 @@ func add*(quarantine: var QuarantineRef, dag: ChainDAGRef,
   quarantine.orphans[sblck.root] = sblck
 
   let parentRoot = sblck.message.parent_root
-  quarantine.addMissing(parentRoot)
+  if parentRoot notin quarantine.orphans:
+    quarantine.addMissing(parentRoot)

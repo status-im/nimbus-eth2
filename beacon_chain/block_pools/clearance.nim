@@ -232,6 +232,10 @@ proc addRawBlock*(
 
   if blck.parent_root in quarantine.missing or
       blck.parent_root in quarantine.orphans:
+    debug "Unresolved block (parent missing or orphaned)",
+      orphans = quarantine.orphans.len,
+      missing = quarantine.missing.len
+
     return err MissingParent
 
   # This is an unresolved block - put its parent on the missing list for now...
