@@ -104,11 +104,9 @@ const IgnoreKeys = [
   "GENESIS_FORK_VERSION",
   "GENESIS_DELAY",
 
-  # TODO
-  # These are phase1 constants.
-  # Not currently present in the phase0 presets.
-  "CUSTODY_PERIOD_TO_RANDAO_PADDING",
-  "EARLY_DERIVED_SECRET_PENALTY_MAX_FUTURE_EPOCHS"
+  # TODO remove when possible
+  "DEPOSIT_CHAIN_ID",
+  "DEPOSIT_NETWORK_ID"
 ]
 
 func parseU32LEHex(hexValue: string): uint32 =
