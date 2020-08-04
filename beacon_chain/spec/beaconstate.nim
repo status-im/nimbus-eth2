@@ -93,7 +93,7 @@ proc process_deposit*(preset: RuntimePreset,
   var index = -1
 
   for i, validator in state.validators:
-    if pubkey == validator.pubkey.initPubKey:
+    if pubkey_inited == validator.pubkey.initPubKey:
       index = i
       break
 
