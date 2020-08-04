@@ -86,6 +86,7 @@ if [[ "$BUILD" == "1" ]]; then
   [[ -d nim-beacon-chain ]] || git clone https://github.com/status-im/nim-beacon-chain.git
   cd nim-beacon-chain
   git config pull.rebase false
+  git checkout -- .
   git checkout devel
   git pull
   # don't use too much RAM
