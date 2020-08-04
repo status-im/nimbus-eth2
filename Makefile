@@ -268,7 +268,7 @@ altona-deposit: | beacon_node deposit_contract
 	build/beacon_node deposits create \
 		--network=altona \
 		--out-deposits-file=nbc-altona-deposits.json \
-		--new-wallet-file=build/data/shared_algona_$(NODE_ID)/wallet.json \
+		--new-wallet-file=build/data/shared_altona_$(NODE_ID)/wallet.json \
 		--out-deposits-dir=build/data/shared_altona_$(NODE_ID)/validators \
 		--out-secrets-dir=build/data/shared_altona_$(NODE_ID)/secrets \
 		--count=$(VALIDATORS)
