@@ -228,7 +228,7 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
       let keystore = try:
         Json.loadFile(file, Keystore)
       except SerializationError as e:
-        warn "Invalid keystore", err = e.formatMsg(file)
+        trace "Invalid keystore", err = e.formatMsg(file)
         continue
       except IOError as e:
         warn "Failed to read keystore file", file, err = e.msg

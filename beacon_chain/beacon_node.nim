@@ -72,7 +72,7 @@ logScope: topics = "beacnde"
 
 proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) {.gcsafe.}
 
-proc getStateFromSnapshot(conf: BeaconNodeConf): NilableBeaconStateRef =
+proc getStateFromSnapshot(conf: BeaconNodeConf, stateSnapshotContents: ref string): NilableBeaconStateRef =
   var
     genesisPath = conf.dataDir/genesisFile
     snapshotContents: TaintedString
@@ -105,8 +105,8 @@ proc getStateFromSnapshot(conf: BeaconNodeConf): NilableBeaconStateRef =
     except CatchableError as err:
       error "Failed to read genesis file", err = err.msg
       quit 1
-  elif conf.stateSnapshotContents != nil:
-    swap(snapshotContents, TaintedString conf.stateSnapshotContents[])
+  elif stateSnapshotContents != nil:
+    swap(snapshotContents, TaintedString stateSnapshotContents[])
   else:
     # No snapshot was provided. We should wait for genesis.
     return nil
@@ -140,7 +140,8 @@ func enrForkIdFromState(state: BeaconState): ENRForkID =
 
 proc init*(T: type BeaconNode,
            rng: ref BrHmacDrbgContext,
-           conf: BeaconNodeConf): Future[BeaconNode] {.async.} =
+           conf: BeaconNodeConf,
+           stateSnapshotContents: ref string): Future[BeaconNode] {.async.} =
   let
     netKeys = getPersistentNetKeys(rng[], conf)
     nickname = if conf.nodeName == "auto": shortForm(netKeys)
@@ -151,7 +152,7 @@ proc init*(T: type BeaconNode,
 
   if not ChainDAGRef.isInitialized(db):
     # Fresh start - need to load a genesis state from somewhere
-    var genesisState = conf.getStateFromSnapshot()
+    var genesisState = conf.getStateFromSnapshot(stateSnapshotContents)
 
     # Try file from command line first
     if genesisState.isNil:
@@ -220,9 +221,9 @@ proc init*(T: type BeaconNode,
         error "Failed to initialize database", err = e.msg
         quit 1
 
-  if conf.stateSnapshotContents != nil:
+  if stateSnapshotContents != nil:
     # The memory for the initial snapshot won't be needed anymore
-    conf.stateSnapshotContents[] = ""
+    stateSnapshotContents[] = ""
 
   # TODO check that genesis given on command line (if any) matches database
   let
@@ -1036,7 +1037,10 @@ when hasPrompt:
       # createThread(t, processPromptCommands, addr p)
 
 programMain:
-  var config = makeBannerAndConfig(clientId, BeaconNodeConf)
+  var
+    config = makeBannerAndConfig(clientId, BeaconNodeConf)
+    # This is ref so we can mutate it (to erase it) after the initial loading.
+    stateSnapshotContents: ref string
 
   setupLogging(config.logLevel, config.logFile)
 
@@ -1077,7 +1081,7 @@ programMain:
         config.bootstrapNodes.add node
 
       if config.stateSnapshot.isNone and metadata.genesisData.len > 0:
-        config.stateSnapshotContents = newClone metadata.genesisData
+        stateSnapshotContents = newClone metadata.genesisData
 
     template checkForIncompatibleOption(flagName, fieldName) =
       # TODO: This will have to be reworked slightly when we introduce config files.
@@ -1166,7 +1170,7 @@ programMain:
 
     config.createDumpDirs()
 
-    var node = waitFor BeaconNode.init(rng, config)
+    var node = waitFor BeaconNode.init(rng, config, stateSnapshotContents)
 
     ## Ctrl+C handling
     proc controlCHandler() {.noconv.} =
