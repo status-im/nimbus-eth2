@@ -177,27 +177,14 @@ proc isValidAttestation*(
     pool.quarantine.addMissing(attestation.data.beacon_block_root)
     return false
 
+  # The following rule follows implicitly from that we clear out any
+  # unviable blocks from the chain dag:
+  #
   # The current finalized_checkpoint is an ancestor of the block defined by
   # attestation.data.beacon_block_root -- i.e. get_ancestor(store,
   # attestation.data.beacon_block_root,
   # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
   # store.finalized_checkpoint.root
-  let
-    ancestor = get_ancestor(
-      attestationBlck,
-      compute_start_slot_at_epoch(
-        pool.chainDag.headState.data.data.finalized_checkpoint.epoch))
-    finalized_root =
-      pool.chainDag.headState.data.data.finalized_checkpoint.root
-  if ancestor.isNil:
-    debug "Can't find ancestor block"
-    return false
-  # TODO spec doesn't note the pre-finalization case, but maybe necessary
-  if not (finalized_root in [Eth2Digest(), ancestor.root]):
-    debug "Incorrect ancestor block",
-      ancestor_root = ancestor.root,
-      finalized_root = pool.chainDag.headState.data.data.finalized_checkpoint.root
-    return false
 
   pool.chainDag.withState(
       pool.chainDag.tmpState,
