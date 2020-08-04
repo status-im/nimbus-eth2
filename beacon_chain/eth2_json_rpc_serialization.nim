@@ -14,7 +14,6 @@ proc fromJson*(n: JsonNode, argName: string, result: var ValidatorPubKey) =
   result = ValidatorPubKey.fromHex(n.getStr()).tryGet()
 
 proc `%`*(pubkey: ValidatorPubKey): JsonNode =
-  unsafePromote(pubkey.unsafeAddr)
   result = newJString($pubkey)
 
 proc fromJson*(n: JsonNode, argName: string, result: var List) =
@@ -32,7 +31,6 @@ proc fromJson*(n: JsonNode, argName: string, result: var ValidatorSig) =
   result = ValidatorSig.fromHex(n.getStr()).tryGet()
 
 proc `%`*(value: ValidatorSig): JsonNode =
-  unsafePromote(value.unsafeAddr)
   result = newJString($value)
 
 proc fromJson*(n: JsonNode, argName: string, result: var Version) =
