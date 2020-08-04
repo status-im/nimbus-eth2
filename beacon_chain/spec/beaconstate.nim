@@ -50,7 +50,7 @@ func decrease_balance*(
       state.balances[index] - delta
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#deposits
-func get_validator_from_deposit(state: BeaconState, deposit: Deposit):
+proc get_validator_from_deposit(state: BeaconState, deposit: Deposit):
     Validator =
   let
     amount = deposit.data.amount
@@ -58,7 +58,7 @@ func get_validator_from_deposit(state: BeaconState, deposit: Deposit):
       amount - amount mod EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE)
 
   Validator(
-    pubkey: deposit.data.pubkey,
+    pubkey: deposit.data.pubkey.initPubKey,
     withdrawal_credentials: deposit.data.withdrawal_credentials,
     activation_eligibility_epoch: FAR_FUTURE_EPOCH,
     activation_epoch: FAR_FUTURE_EPOCH,
