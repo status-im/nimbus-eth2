@@ -148,6 +148,8 @@ suiteReport "Block pool processing" & preset():
 
     var blocks: array[3, BlockRef]
 
+
+
     check:
       dag.getBlockRange(Slot(0), 1, blocks.toOpenArray(0, 0)) == 0
       blocks[0..<1] == [dag.tail]
@@ -159,7 +161,7 @@ suiteReport "Block pool processing" & preset():
       blocks[0..<2] == [dag.tail, b2Add[]]
 
       dag.getBlockRange(Slot(0), 3, blocks.toOpenArray(0, 1)) == 1
-      blocks[0..<2] == [nil, dag.tail] # block 3 is missing!
+      blocks[1..<2] == [dag.tail] # block 3 is missing!
 
       dag.getBlockRange(Slot(2), 2, blocks.toOpenArray(0, 1)) == 0
       blocks[0..<2] == [b2Add[], b4Add[]] # block 3 is missing!
@@ -172,7 +174,7 @@ suiteReport "Block pool processing" & preset():
 
       # No blocks in sight either due to gaps
       dag.getBlockRange(Slot(3), 2, blocks.toOpenArray(0, 1)) == 2
-      blocks[0..<2] == [BlockRef nil, nil] # block 3 is missing!
+      blocks[2..<2].len == 0
 
   timedTest "Reverse order block add & get" & preset():
     let missing = dag.addRawBlock(quarantine, b2, nil)
