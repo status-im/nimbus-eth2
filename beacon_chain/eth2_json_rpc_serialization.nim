@@ -14,7 +14,7 @@ proc fromJson*(n: JsonNode, argName: string, result: var ValidatorPubKey) =
   result = ValidatorPubKey.fromHex(n.getStr()).tryGet()
 
 proc `%`*(pubkey: ValidatorPubKey): JsonNode =
-  result = newJString($pubkey)
+  result = newJString($initPubKey(pubkey))
 
 proc fromJson*(n: JsonNode, argName: string, result: var List) =
   fromJson(n, argName, asSeq result)
