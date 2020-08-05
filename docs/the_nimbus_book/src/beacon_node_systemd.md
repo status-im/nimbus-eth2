@@ -112,7 +112,7 @@ WantedBy=default.target
 
 ```
 
-Make sure you replace:
+Replace:
 
 `<BASE-DIRECTORY>` with the location of the repository in which you performed the `git clone` command in step 1.
 
