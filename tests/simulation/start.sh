@@ -99,7 +99,7 @@ if [[ "$USE_PROMETHEUS" == "yes" ]]; then
     mkdir -p "${METRICS_DIR}/data"
     # TODO: Prometheus is not shut down properly on tmux kill-session
     killall prometheus &>/dev/null || true
-    PROMETHEUS_FLAGS="--config.file=./prometheus.yml --storage.tsdb.path=./data"
+    PROMETHEUS_FLAGS="--config.file=./prometheus.yml --storage.tsdb.path=./prometheus"
     $TMUX_CMD new-window -d -t $TMUX_SESSION_NAME -n "$PROMETHEUS_CMD" "cd '$METRICS_DIR' && $PROMETHEUS_CMD $PROMETHEUS_FLAGS"
   else
     echo NOTICE: $PROMETHEUS_CMD will be started automatically only with USE_TMUX=yes

@@ -148,7 +148,8 @@ make NIMFLAGS="-d:insecure" medalla
 You can now see the raw metrics on http://127.0.0.1:8008/metrics but they're not very useful like this, so let's feed them to a Prometheus instance:
 
 ```bash
-prometheus --config.file=build/data/shared_medalla_0/prometheus.yml
+cd build/data/shared_medalla_0
+prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
 # when starting multiple nodes at the same time, just use the config file from the one with the highest ID
 ```
 
