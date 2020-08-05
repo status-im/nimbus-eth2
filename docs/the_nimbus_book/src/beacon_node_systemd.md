@@ -49,7 +49,7 @@ Add your node to eth2stats and run a data collector app that connects to your be
 --beacon.metrics-addr="http://localhost:8008/metrics"
 ```
 
-Replace `<NODE_NAME>` with the name you wish to identify your node with on [eth2stats](https://eth2stats.io/).
+Replace `<NODE_NAME>` with the name you wish to give your node on [eth2stats](https://eth2stats.io/).
 
 ### 4. Create an executable script
 
