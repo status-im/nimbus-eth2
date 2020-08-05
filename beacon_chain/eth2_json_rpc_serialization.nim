@@ -11,7 +11,7 @@ import
 
 proc fromJson*(n: JsonNode, argName: string, result: var ValidatorPubKey) =
   n.kind.expect(JString, argName)
-  result = ValidatorPubKey.fromHex(n.getStr()).tryGet()
+  result = ValidatorPubKey.fromHex(n.getStr()).tryGet().initPubKey()
 
 proc `%`*(pubkey: ValidatorPubKey): JsonNode =
   result = newJString($initPubKey(pubkey))
