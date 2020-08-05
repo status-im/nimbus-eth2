@@ -3,6 +3,10 @@
 This guide will take you through how to set up a `systemd` service for your beacon node.
 > [`systemd`](https://www.freedesktop.org/wiki/Software/systemd/) is a service manager designed specifically for Linux. There is no port to Mac OS.
 
+## Prerequisites
+
+NBC's [external dependencies](./install.md#external-dependencies) and a working [Go](https://golang.org/doc/install) installation (v1.11 or later).
+
 ### 1. Clone repositories
 
 Clone the [nim-beacon-chain](https://github.com/status-im/nim-beacon-chain) and [eth2stats](https://github.com/Alethio/eth2stats-client) repositories in the same directory (so that both repositories are adjacent to each other).
@@ -14,13 +18,7 @@ git clone https://github.com/Alethio/eth2stats-client.git
 
 ### 2. Build repositories
 
-Build both repositories by following their respective build instructions.
-
-*eth2stats*
-```console
-cd eth2stats-client
-make build
-```
+Build both repositories by following their respective build instructions. 
 
 *nim-beacon-chain*
 ```console
@@ -28,7 +26,30 @@ cd nim-beacon-chain
 make beacon_node
 ```
 
+
+*eth2stats*
+```console
+cd eth2stats-client
+make build
+```
+
 The resulting binaries should appear in `nim-beacon-chain/build/beacon_node` and `eth2stats-client/eth2stats-client`, respectively.
+
+### 3. Register your node
+
+Add your node to eth2stats and run a data collector app that connects to your beacon chain client.
+
+```
+./eth2stats-client run \
+--eth2stats.node-name="<NODE_NAME>" \
+--data.folder ~/.eth2stats/data \
+--eth2stats.addr="grpc.medalla.eth2stats.io:443" --eth2stats.tls=true \
+--beacon.type="nimbus" \
+--beacon.addr="http://localhost:9190" \
+--beacon.metrics-addr="http://localhost:8008/metrics"
+```
+
+Replace `<NODE_NAME>` with the name you wish to identify your node with on [eth2stats](https://eth2stats.io/).
 
 ### 3. Create an executable script
 
@@ -69,7 +90,7 @@ mkdir -p /tmp/e2s-$ID
 make NIMFLAGS="-d:insecure" NODE_ID=$NODE_ID ${NETWORK}
 ```
 
-> Tip: Don't forget to mark the script as executable by running `chmod +x` on it.
+> Tip: don't forget to mark the script as executable by running `chmod +x` on it.
 
 ### 4. Create a systemd service unit file
 
