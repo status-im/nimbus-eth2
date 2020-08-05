@@ -434,6 +434,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
     if res.isOk:
       sq.outSlot = sq.outSlot + item.request.count
       sq.wakeupWaiters()
+      break
     else:
       debug "Block pool rejected peer's response", peer = item.request.item,
             request_slot = item.request.slot,
@@ -590,7 +591,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     return res
 
   let queue = SyncQueue.init(A, getFinalizedSlotCb(), getLocalWallSlotCb(),
-                             chunkSize, syncUpdate, getFinalizedSlotCb, 2)
+                             chunkSize, syncUpdate, getFinalizedSlotCb, 1)
 
   result = SyncManager[A, B](
     pool: pool,
@@ -891,7 +892,7 @@ proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
                       queue_last_slot = man.queue.lastSlot, topics = "syncman"
                 man.queue = SyncQueue.init(A, man.getFinalizedSlot(), wallSlot,
                                            man.chunkSize, man.syncUpdate,
-                                           man.getFinalizedSlot, 2)
+                                           man.getFinalizedSlot, 1)
 
               debug "Synchronization loop starting new worker", peer = peer,
                     wall_head_slot = wallSlot, local_head_slot = headSlot,
