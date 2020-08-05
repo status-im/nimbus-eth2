@@ -29,10 +29,9 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
   #      should probably be removed as a dependency of AttestationPool (or some other
   #      smart refactoring)
 
-  chainDag.withState(chainDag.tmpState, chainDag.finalizedHead):
-    var forkChoice = initForkChoice(
-      chainDag.tmpState,
-    ).get()
+  let tmpState = newClone(chainDag.headState)
+  chainDag.withState(tmpState[], chainDag.finalizedHead):
+    var forkChoice = initForkChoice(tmpState[]).get()
 
   # Feed fork choice with unfinalized history - during startup, block pool only
   # keeps track of a single history so we just need to follow it

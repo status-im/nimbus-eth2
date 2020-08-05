@@ -22,8 +22,8 @@ import
 export block_pools_types
 
 declareCounter beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # On fork choice
-declareCounter beacon_state_data_cache_hits, "dag.cachedStates hits"
-declareCounter beacon_state_data_cache_misses, "dag.cachedStates misses"
+declareCounter beacon_state_data_cache_hits, "EpochRef hits"
+declareCounter beacon_state_data_cache_misses, "EpochRef misses"
 
 logScope: topics = "hotdb"
 
@@ -76,7 +76,9 @@ proc init*(T: type EpochRef, state: BeaconState, cache: var StateCache): T =
       state, cache, epoch.compute_start_slot_at_epoch() + i)
     if idx.isSome():
       epochRef.beacon_proposers[i] =
-        some((idx.get(), state.validators[idx.get].pubkey.initPubKey))
+        some((idx.get(), state.validators[idx.get].pubkey))
+
+  epochRef.validator_keys = mapIt(state.validators.toSeq, it.pubkey)
   epochRef
 
 func link*(parent, child: BlockRef) =
@@ -344,10 +346,13 @@ proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
     # we start at the most recent one
     for e in bs.blck.epochsInfo:
       if e.epoch == epoch:
+        beacon_state_data_cache_hits.inc
         return e
     if bs.slot == epoch.compute_start_slot_at_epoch:
       break
     bs = bs.parent
+
+  beacon_state_data_cache_misses.inc
 
   dag.withState(dag.tmpState, bs):
     var cache = StateCache()
@@ -376,39 +381,6 @@ proc getState(
 
   true
 
-func getStateCacheIndex(
-    dag: ChainDAGRef, blockRoot: Eth2Digest, slot: Slot, matchEpoch: bool):
-    int =
-  for i, cachedState in dag.cachedStates:
-    let (cacheBlockRoot, cacheSlot, _) = cachedState
-    if cacheBlockRoot == blockRoot and (cacheSlot == slot or
-        (matchEpoch and
-          cacheSlot.compute_epoch_at_slot == slot.compute_epoch_at_slot)):
-      return i
-
-  -1
-
-func putStateCache*(
-    dag: ChainDAGRef, state: HashedBeaconState, blck: BlockRef) =
-  # Efficiently access states for both attestation aggregation and to process
-  # block proposals going back to the last finalized slot.
-  let stateCacheIndex =
-    dag.getStateCacheIndex(blck.root, state.data.slot, false)
-  if stateCacheIndex == -1:
-    const MAX_CACHE_SIZE = 18
-
-    let cacheLen = dag.cachedStates.len
-    doAssert cacheLen <= MAX_CACHE_SIZE
-
-    let entry =
-      if dag.cachedStates.len == MAX_CACHE_SIZE: dag.cachedStates.pop().state
-      else: (ref HashedBeaconState)()
-    assign(entry[], state)
-
-    insert(dag.cachedStates, (blck.root, state.data.slot, entry))
-    trace "ChainDAGRef.putState(): state cache updated",
-      cacheLen, root = shortLog(blck.root), slot = state.data.slot
-
 proc putState*(dag: ChainDAGRef, state: HashedBeaconState, blck: BlockRef) =
   # TODO we save state at every epoch start but never remove them - we also
   #      potentially save multiple states per slot if reorgs happen, meaning
@@ -433,9 +405,6 @@ proc putState*(dag: ChainDAGRef, state: HashedBeaconState, blck: BlockRef) =
       dag.db.putState(state.root, state.data)
       if not rootWritten:
         dag.db.putStateRoot(blck.root, state.data.slot, state.root)
-
-  if state.data.slot mod 2 == 0:
-    putStateCache(dag, state, blck)
 
 func getRef*(dag: ChainDAGRef, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
@@ -577,24 +546,6 @@ proc rewindState(
     if parBs.blck != curBs.blck:
       ancestors.add(parBs.blck)
 
-    # TODO investigate replacing with getStateCached, by refactoring whole
-    # function. Empirically, this becomes pretty rare once good caches are
-    # used in the front-end.
-    let idx = dag.getStateCacheIndex(parBs.blck.root, parBs.slot, matchEpoch)
-    if idx >= 0:
-      assign(state.data, dag.cachedStates[idx].state[])
-      let ancestor = ancestors.pop()
-      state.blck = ancestor
-
-      beacon_state_data_cache_hits.inc()
-      trace "Replaying state transitions via in-memory cache",
-        stateSlot = shortLog(state.data.data.slot),
-        ancestorStateRoot = shortLog(state.data.root),
-        ancestors = ancestors.len
-
-      return ancestors
-
-    beacon_state_data_cache_misses.inc()
     if (let tmp = dag.db.getStateRoot(parBs.blck.root, parBs.slot); tmp.isSome()):
       if dag.db.containsState(tmp.get):
         stateRoot = tmp
@@ -636,21 +587,9 @@ proc getStateDataCached(
   # mostly matches updateStateData(...), because it's too expensive to run the
   # rewindState(...)/skipAndUpdateState(...)/state_transition(...) procs, when
   # each hash_tree_root(...) consumes a nontrivial fraction of a second.
-  when false:
-    # For debugging/development purposes to assess required lookback window for
-    # any given use case.
-    doAssert state.data.data.slot <= bs.slot + 4
-
-  let idx = dag.getStateCacheIndex(bs.blck.root, bs.slot, matchEpoch)
-  if idx >= 0:
-    assign(state.data, dag.cachedStates[idx].state[])
-    state.blck = bs.blck
-    beacon_state_data_cache_hits.inc()
-    return true
 
   # In-memory caches didn't hit. Try main block pool database. This is slower
   # than the caches due to SSZ (de)serializing and disk I/O, so prefer them.
-  beacon_state_data_cache_misses.inc()
   if (let tmp = dag.db.getStateRoot(bs.blck.root, bs.slot); tmp.isSome()):
     return dag.getState(dag.db, tmp.get(), bs.blck, state)
 
@@ -715,8 +654,6 @@ proc updateStateData*(
   dag.skipAndUpdateState(state.data, bs.blck, bs.slot, true)
 
   state.blck = bs.blck
-
-  dag.putStateCache(state.data, bs.blck)
 
 proc loadTailState*(dag: ChainDAGRef): StateData =
   ## Load the state associated with the current tail in the dag

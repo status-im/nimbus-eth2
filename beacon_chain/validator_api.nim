@@ -375,7 +375,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       let currSlot = compute_start_slot_at_epoch(epoch) + i
       let proposer = node.chainDag.getProposer(head, currSlot)
       if proposer.isSome():
-        result.add((public_key: proposer.get()[1], slot: currSlot))
+        result.add((public_key: proposer.get()[1].initPubKey(), slot: currSlot))
 
   rpcServer.rpc("post_v1_validator_beacon_committee_subscriptions") do (
       committee_index: CommitteeIndex, slot: Slot, aggregator: bool,

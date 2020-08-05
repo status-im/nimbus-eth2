@@ -7,8 +7,12 @@
 
 import
   std/[algorithm, sequtils, sets],
-  ../spec/[beaconstate, datatypes, presets, validator],
-  block_pools_types
+  chronicles,
+  ../spec/[
+    beaconstate, crypto, datatypes, digest, helpers, presets, signatures,
+    validator],
+  ../extras,
+  ./block_pools_types
 
 # Spec functions implemented based on cached values instead of the full state
 func count_active_validators*(epochInfo: EpochRef): uint64 =
@@ -53,3 +57,63 @@ func get_indexed_attestation*(epochRef: EpochRef, attestation: Attestation): Ind
     data: attestation.data,
     signature: attestation.signature
   )
+
+func get_beacon_committee_len*(
+    epochRef: EpochRef, slot: Slot, index: CommitteeIndex): uint64 =
+  # Return the number of members in the beacon committee at ``slot`` for ``index``.
+  let
+    epoch = compute_epoch_at_slot(slot)
+    committees_per_slot = get_committee_count_per_slot(epochRef)
+
+  compute_committee_len(
+    count_active_validators(epochRef),
+    (slot mod SLOTS_PER_EPOCH) * committees_per_slot +
+      index.uint64,
+    committees_per_slot * SLOTS_PER_EPOCH
+  )
+
+func is_aggregator*(epochRef: EpochRef, slot: Slot, index: CommitteeIndex,
+    slot_signature: ValidatorSig): bool =
+  let
+    committee_len = get_beacon_committee_len(epochRef, slot, index)
+    modulo = max(1'u64, committee_len div TARGET_AGGREGATORS_PER_COMMITTEE)
+  bytes_to_uint64(eth2digest(slot_signature.toRaw()).data[0..7]) mod modulo == 0
+
+proc is_valid_indexed_attestation*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    epochRef: EpochRef, indexed_attestation: SomeIndexedAttestation,
+    flags: UpdateFlags): bool =
+  # Check if ``indexed_attestation`` is not empty, has sorted and unique
+  # indices and has a valid aggregate signature.
+
+  template is_sorted_and_unique(s: untyped): bool =
+    for i in 1 ..< s.len:
+      if s[i - 1].uint64 >= s[i].uint64:
+        return false
+
+    true
+
+  # Not from spec, but this function gets used in front-line roles, not just
+  # behind firewall.
+  let num_validators = epochRef.validator_keys.lenu64
+  if anyIt(indexed_attestation.attesting_indices, it >= num_validators):
+    trace "indexed attestation: not all indices valid validators"
+    return false
+
+  # Verify indices are sorted and unique
+  let indices = indexed_attestation.attesting_indices.asSeq
+  if len(indices) == 0 or not is_sorted_and_unique(indices):
+    trace "indexed attestation: indices not sorted and unique"
+    return false
+
+  # Verify aggregate signature
+  if skipBLSValidation notin flags:
+     # TODO: fuse loops with blsFastAggregateVerify
+    let pubkeys = mapIt(indices, epochRef.validator_keys[it])
+    if not verify_attestation_signature(
+        fork, genesis_validators_root, indexed_attestation.data,
+        pubkeys, indexed_attestation.signature):
+      trace "indexed attestation: signature verification failure"
+      return false
+
+  true

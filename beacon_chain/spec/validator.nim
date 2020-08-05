@@ -172,7 +172,7 @@ func compute_committee*(shuffled_indices: seq[ValidatorIndex],
   except KeyError:
     raiseAssert("Cached entries are added before use")
 
-func compute_committee_len(active_validators: uint64,
+func compute_committee_len*(active_validators: uint64,
     index: uint64, count: uint64): uint64 =
   ## Return the committee corresponding to ``indices``, ``seed``, ``index``,
   ## and committee ``count``.
