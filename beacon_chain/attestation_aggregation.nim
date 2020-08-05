@@ -197,8 +197,9 @@ proc isValidAttestation*(
     # committees_per_slot = get_committee_count_per_slot(state,
     # attestation.data.target.epoch), which may be pre-computed along with the
     # committee information for the signature check.
+    var cache = getEpochCache(blck, state)
     let
-      epochInfo = blck.getEpochInfo(state)
+      epochInfo = blck.getEpochInfo(state, cache)
       requiredSubnetIndex =
         compute_subnet_for_attestation(
           get_committee_count_per_slot(epochInfo),
@@ -212,7 +213,6 @@ proc isValidAttestation*(
       return false
 
     # The signature of attestation is valid.
-    var cache = getEpochCache(blck, state)
     if not is_valid_indexed_attestation(
         state, get_indexed_attestation(state, attestation, cache), {}):
       debug "signature verification failed"

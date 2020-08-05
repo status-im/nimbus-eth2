@@ -43,7 +43,7 @@ proc addRawBlock*(
 proc addResolvedBlock(
        dag: var ChainDAGRef, quarantine: var QuarantineRef,
        state: HashedBeaconState, signedBlock: SignedBeaconBlock,
-       parent: BlockRef, cache: StateCache,
+       parent: BlockRef, cache: var StateCache,
        onBlockAdded: OnBlockAdded
      ): BlockRef =
   # TODO move quarantine processing out of here
@@ -61,7 +61,7 @@ proc addResolvedBlock(
     blockRef.epochsInfo = filterIt(parent.epochsInfo, it.epoch == blockEpoch)
   else:
     # Ensure we collect the epoch info if it's missing
-    discard getEpochInfo(blockRef, state.data)
+    discard getEpochInfo(blockRef, state.data, cache)
 
   link(parent, blockRef)
 

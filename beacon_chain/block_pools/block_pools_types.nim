@@ -140,6 +140,8 @@ type
     epoch*: Epoch
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
+    beacon_proposers*: array[
+      SLOTS_PER_EPOCH, Option[(ValidatorIndex, ValidatorPubKey)]]
     shuffled_active_validator_indices*: seq[ValidatorIndex]
 
   BlockRef* = ref object
