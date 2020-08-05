@@ -96,7 +96,7 @@ type
 
   Keystore* = object
     crypto*: Crypto
-    description*: string
+    description*: ref string
     pubkey*: ValidatorPubKey
     path*: KeyPath
     uuid*: string
@@ -528,7 +528,7 @@ proc createKeystore*(kdfKind: KdfKind,
     crypto: cryptoField,
     pubkey: pubkey,
     path: path,
-    description: description,
+    description: newClone(description),
     uuid: $uuid,
     version: 4)
 
