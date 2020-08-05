@@ -51,7 +51,7 @@ Add your node to eth2stats and run a data collector app that connects to your be
 
 Replace `<NODE_NAME>` with the name you wish to identify your node with on [eth2stats](https://eth2stats.io/).
 
-### 3. Create an executable script
+### 4. Create an executable script
 
 Create an executable script, `run_nimbus_node.sh`, and place it adjacent to the repositories you cloned in step 1 (same directory level).
 
@@ -92,7 +92,7 @@ make NIMFLAGS="-d:insecure" NODE_ID=$NODE_ID ${NETWORK}
 
 > Tip: don't forget to mark the script as executable by running `chmod +x` on it.
 
-### 4. Create a systemd service unit file
+### 5. Create a systemd service unit file
 
 Create a `systemd` service unit file, `nbc.service`, and save it in `/etc/systemd/system/`.
 
@@ -118,13 +118,13 @@ Make sure you replace:
 
 `<USERNAME>` with the username of the system user responsible for running the launched processes.
 
-### 5. Notify systemd of the newly added service
+### 6. Notify systemd of the newly added service
 
 ```console
 sudo systemctl daemon-reload
 ```
 
-### 6. Start the nim beacon chain service
+### 7. Start the nim beacon chain service
 
 ```console
 sudo systemctl enable nbc --now
