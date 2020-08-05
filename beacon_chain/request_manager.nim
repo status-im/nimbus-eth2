@@ -7,8 +7,8 @@ logScope:
   topics = "requman"
 
 const
-  MAX_REQUEST_BLOCKS* = 4 # Specification's value is 1024.
-    ## Maximum number of blocks, which can be requested by beaconBlocksByRoot.
+  SYNC_MAX_REQUESTED_BLOCKS* = 4 # Spec allows up to MAX_REQUEST_BLOCKS.
+    ## Maximum number of blocks which will be requested in each `beaconBlocksByRoot` invocation.
   PARALLEL_REQUESTS* = 2
     ## Number of peers we using to resolve our request.
 
@@ -88,7 +88,7 @@ proc requestManagerLoop(rman: RequestManager) {.async.} =
       let req = await rman.queue.popFirst()
       rootList.add(req.root)
 
-      var count = min(MAX_REQUEST_BLOCKS - 1, len(rman.queue))
+      var count = min(SYNC_MAX_REQUESTED_BLOCKS - 1, len(rman.queue))
       while count > 0:
         rootList.add(rman.queue.popFirstNoWait().root)
         dec(count)

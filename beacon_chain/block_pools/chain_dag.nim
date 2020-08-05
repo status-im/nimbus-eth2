@@ -394,7 +394,7 @@ func getRef*(dag: ChainDAGRef, root: Eth2Digest): BlockRef =
   dag.blocks.getOrDefault(root, nil)
 
 func getBlockRange*(
-    dag: ChainDAGRef, startSlot: Slot, skipStep: Natural,
+    dag: ChainDAGRef, startSlot: Slot, skipStep: uint64,
     output: var openArray[BlockRef]): Natural =
   ## This function populates an `output` buffer of blocks
   ## with a slots ranging from `startSlot` up to, but not including,
@@ -407,27 +407,27 @@ func getBlockRange*(
   ## at this index.
   ##
   ## If there were no blocks in the range, `output.len` will be returned.
-  let count = output.len
+  let requestedCount = output.lenu64
   trace "getBlockRange entered",
-    head = shortLog(dag.head.root), count, startSlot, skipStep
+    head = shortLog(dag.head.root), requestedCount, startSlot, skipStep
 
   let
-    skipStep = max(1, skipStep) # Treat 0 step as 1
-    endSlot = startSlot + uint64(count * skipStep)
+    headSlot = dag.head.slot
+    runway = if headSlot > startSlot: uint64(headSlot - startSlot)
+             else: return output.len # Identical to returning an empty set of block as indicated above
+    skipStep = max(skipStep, 1) # Treat 0 step as 1
+    count = min(1'u64 + (runway div skipStep), requestedCount)
+    endSlot = startSlot + count * skipStep
 
   var
     b = dag.head.atSlot(endSlot)
-    o = count
+    o = output.len
   for i in 0..<count:
     for j in 0..<skipStep:
       b = b.parent
     if b.blck.slot == b.slot:
       dec o
       output[o] = b.blck
-
-  # Make sure the given input is cleared, just in case
-  for i in 0..<o:
-    output[i] = nil
 
   o # Return the index of the first non-nil item in the output
 

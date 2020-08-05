@@ -9,10 +9,7 @@ logScope:
   topics = "sync"
 
 const
-  MAX_REQUESTED_BLOCKS = SLOTS_PER_EPOCH  * 4
-    # A boundary on the number of blocks we'll allow in any single block
-    # request - typically clients will ask for an epoch or so at a time, but we
-    # allow a little bit more in case they want to stream blocks faster
+  MAX_REQUEST_BLOCKS = 1024
 
 type
   StatusMsg* = object
@@ -46,7 +43,7 @@ type
     blockRoot: Eth2Digest
     slot: Slot
 
-  BlockRootsList* = List[Eth2Digest, Limit MAX_REQUESTED_BLOCKS]
+  BlockRootsList* = List[Eth2Digest, Limit MAX_REQUEST_BLOCKS]
 
 proc shortLog*(s: StatusMsg): auto =
   (
@@ -135,23 +132,24 @@ p2pProtocol BeaconSync(version = 1,
   proc beaconBlocksByRange(
       peer: Peer,
       startSlot: Slot,
-      count: uint64,
-      step: uint64,
+      reqCount: uint64,
+      reqStep: uint64,
       response: MultipleChunksResponse[SignedBeaconBlock])
       {.async, libp2pProtocol("beacon_blocks_by_range", 1).} =
-    trace "got range request", peer, startSlot, count, step
-
-    if count > 0'u64:
-      var blocks: array[MAX_REQUESTED_BLOCKS, BlockRef]
+    trace "got range request", peer, startSlot,
+                               count = reqCount, step = reqStep
+    if reqCount > 0'u64:
+      var blocks: array[MAX_REQUEST_BLOCKS, BlockRef]
       let
         chainDag = peer.networkState.chainDag
         # Limit number of blocks in response
-        count = min(count.Natural, blocks.len)
+        count = int min(reqCount, blocks.lenu64)
 
       let
         endIndex = count - 1
         startIndex =
-          chainDag.getBlockRange(startSlot, step, blocks.toOpenArray(0, endIndex))
+          chainDag.getBlockRange(startSlot, reqStep,
+                                 blocks.toOpenArray(0, endIndex))
 
       for b in blocks[startIndex..endIndex]:
         doAssert not b.isNil, "getBlockRange should return non-nil blocks only"
@@ -159,7 +157,7 @@ p2pProtocol BeaconSync(version = 1,
         await response.write(chainDag.get(b).data)
 
       debug "Block range request done",
-        peer, startSlot, count, step, found = count - startIndex
+        peer, startSlot, count, reqStep, found = count - startIndex
 
   proc beaconBlocksByRoot(
       peer: Peer,
