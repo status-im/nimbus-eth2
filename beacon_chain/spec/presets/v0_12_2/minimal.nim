@@ -136,9 +136,6 @@ const
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L38
 
-  # Changed
-  ETH1_FOLLOW_DISTANCE* {.intdefine.}: uint64 = 16 # blocks
-
   # Unchanged
   TARGET_AGGREGATORS_PER_COMMITTEE*: uint64 = 16 # validators
   RANDOM_SUBNETS_PER_VALIDATOR*: uint64 = 1 # subnet

@@ -94,11 +94,10 @@ type
 const
   reorgDepthLimit = 1000
   web3Timeouts = 5.seconds
-  followDistanceInSeconds = uint64(SECONDS_PER_ETH1_BLOCK * ETH1_FOLLOW_DISTANCE)
 
 # TODO: Add preset validation
 # MIN_GENESIS_ACTIVE_VALIDATOR_COUNT should be larger than SLOTS_PER_EPOCH
-#  doAssert SECONDS_PER_ETH1_BLOCK * ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
+#  doAssert SECONDS_PER_ETH1_BLOCK * preset.ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
 #             "Invalid configuration: GENESIS_DELAY is set too low"
 
 # TODO Nim's analysis on the lock level of the methods in this
@@ -116,9 +115,9 @@ func voting_period_start_time*(state: BeaconState): uint64 =
   compute_time_at_slot(state, eth1_voting_period_start_slot)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#get_eth1_data
-func is_candidate_block(blk: Eth1Block, period_start: uint64): bool =
-  (blk.timestamp + SECONDS_PER_ETH1_BLOCK.uint64 * ETH1_FOLLOW_DISTANCE.uint64 <= period_start) and
-  (blk.timestamp + SECONDS_PER_ETH1_BLOCK.uint64 * ETH1_FOLLOW_DISTANCE.uint64 * 2 >= period_start)
+func is_candidate_block(preset: RuntimePreset, blk: Eth1Block, period_start: uint64): bool =
+  (blk.timestamp + SECONDS_PER_ETH1_BLOCK.uint64 * preset.ETH1_FOLLOW_DISTANCE <= period_start) and
+  (blk.timestamp + SECONDS_PER_ETH1_BLOCK.uint64 * preset.ETH1_FOLLOW_DISTANCE * 2 >= period_start)
 
 func asEth2Digest*(x: BlockHash): Eth2Digest =
   Eth2Digest(data: array[32, byte](x))
@@ -164,10 +163,10 @@ proc findParent*(eth1Chain: Eth1Chain, blk: BlockObject): Eth1Block =
           parentHash = blk.parentHash.toHex, parentNumber = result.number
     result = nil
 
-func latestCandidateBlock(eth1Chain: Eth1Chain, periodStart: uint64): Eth1Block =
+func latestCandidateBlock(eth1Chain: Eth1Chain, preset: RuntimePreset, periodStart: uint64): Eth1Block =
   for i in countdown(eth1Chain.blocks.len - 1, 0):
     let blk = eth1Chain.blocks[i]
-    if is_candidate_block(blk, periodStart):
+    if is_candidate_block(preset, blk, periodStart):
       return blk
 
 func popBlock(eth1Chain: var Eth1Chain) =
@@ -421,7 +420,7 @@ method onBlockHeaders*(p: Web3DataProviderRef,
     options, blockHeaderHandler, errorHandler)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#get_eth1_data
-func getBlockProposalData*(eth1Chain: Eth1Chain,
+func getBlockProposalData*(preset: RuntimePreset, eth1Chain: Eth1Chain,
                            state: BeaconState): (Eth1Data, seq[Deposit]) =
   template voteForNoChange() =
     return (state.eth1_data, newSeq[Deposit]())
@@ -440,21 +439,21 @@ func getBlockProposalData*(eth1Chain: Eth1Chain,
   var otherVotesCountTable = initCountTable[Eth1Block]()
   for vote in state.eth1_data_votes:
     let eth1Block = eth1Chain.findBlock(vote)
-    if eth1Block != nil and is_candidate_block(eth1Block, periodStart):
+    if eth1Block != nil and is_candidate_block(preset, eth1Block, periodStart):
       otherVotesCountTable.inc eth1Block
 
   var ourVote: Eth1Block
   if otherVotesCountTable.len > 0:
     ourVote = otherVotesCountTable.largest.key
   else:
-    ourVote = eth1Chain.latestCandidateBlock(periodStart)
+    ourVote = eth1Chain.latestCandidateBlock(preset, periodStart)
     if ourVote == nil:
       voteForNoChange()
 
   (ourVote.voteData, eth1Chain.getDepositsInRange(prevBlock.number, ourVote.number))
 
 template getBlockProposalData*(m: MainchainMonitor, state: BeaconState): untyped =
-  getBlockProposalData(m.eth1Chain, state)
+  getBlockProposalData(m.preset, m.eth1Chain, state)
 
 proc init*(T: type MainchainMonitor,
            preset: RuntimePreset,
@@ -470,6 +469,7 @@ proc init*(T: type MainchainMonitor,
 proc isCandidateForGenesis(preset: RuntimePreset,
                            timeNow: float,
                            blk: Eth1Block): bool =
+  let followDistanceInSeconds = uint64(SECONDS_PER_ETH1_BLOCK) * preset.ETH1_FOLLOW_DISTANCE
   if float(blk.timestamp + followDistanceInSeconds) > timeNow:
     return false
 
