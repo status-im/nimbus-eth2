@@ -355,7 +355,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     let attestationHead = head.atEpochStart(epoch)
     node.chainDag.withState(node.chainDag.tmpState, attestationHead):
       for pubkey in public_keys:
-        let idx = state.validators.asSeq.findIt(it.pubKey == pubkey)
+        let idx = state.validators.asSeq.findIt(it.pubKey.initPubKey == pubkey)
         if idx == -1:
           continue
         let ca = state.get_committee_assignment(epoch, idx.ValidatorIndex)
