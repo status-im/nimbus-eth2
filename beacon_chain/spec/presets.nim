@@ -18,6 +18,7 @@ type
     GENESIS_DELAY*: uint64
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT*: uint64
     MIN_GENESIS_TIME*: uint64
+    ETH1_FOLLOW_DISTANCE*: uint64
 
   PresetFile* = object
     values*: Table[PresetValue, TaintedString]
@@ -33,6 +34,7 @@ const
     MIN_GENESIS_TIME,
     GENESIS_FORK_VERSION,
     GENESIS_DELAY,
+    ETH1_FOLLOW_DISTANCE,
   }
 
   # These constants cannot really be overriden in a preset.
@@ -124,13 +126,15 @@ const
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: 16384,
     MIN_GENESIS_TIME: 1578009600,
     GENESIS_FORK_VERSION: Version [byte 0, 0, 0, 0],
-    GENESIS_DELAY: 172800)
+    GENESIS_DELAY: 172800,
+    ETH1_FOLLOW_DISTANCE: 1024)
 
   minimalRuntimePreset* = RuntimePreset(
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: 64,
     MIN_GENESIS_TIME: 1578009600,
     GENESIS_FORK_VERSION: Version [byte 0, 0, 0, 1],
-    GENESIS_DELAY: 300)
+    GENESIS_DELAY: 300,
+    ETH1_FOLLOW_DISTANCE: 16)
 
 when const_preset == "mainnet":
   template defaultRuntimePreset*: auto = mainnetRuntimePreset
@@ -170,5 +174,6 @@ else:
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: MIN_GENESIS_ACTIVE_VALIDATOR_COUNT,
     MIN_GENESIS_TIME: MIN_GENESIS_TIME,
     GENESIS_FORK_VERSION: GENESIS_FORK_VERSION,
-    GENESIS_DELAY: GENESIS_DELAY)
+    GENESIS_DELAY: GENESIS_DELAY,
+    ETH1_FOLLOW_DISTANCE: ETH1_FOLLOW_DISTANCE)
 
