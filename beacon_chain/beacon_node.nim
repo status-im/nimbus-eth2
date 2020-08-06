@@ -392,6 +392,63 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
     # finalization occurs every slot, to 4 slots vs scheduledSlot.
     doAssert finalizedEpoch + 4 >= epoch
 
+proc installAttestationSubnetHandlers(node: BeaconNode, subnets: HashSet[uint64]) =
+  proc attestationHandler(attestation: Attestation) =
+    # Avoid double-counting attestation-topic attestations on shared codepath
+    # when they're reflected through beacon blocks
+    beacon_attestations_received.inc()
+    beacon_attestation_received_seconds_from_slot_start.observe(
+      node.beaconClock.now.int64 - attestation.data.slot.toBeaconTime.int64)
+
+    node.onAttestation(attestation)
+
+  var attestationSubscriptions: seq[Future[void]] = @[]
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  for subnet in subnets:
+    attestationSubscriptions.add(node.network.subscribe(
+      getAttestationTopic(node.forkDigest, subnet),
+      attestationHandler,
+    ))
+
+  waitFor allFutures(attestationSubscriptions)
+
+proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) =
+  let epochParity = slot.epoch mod 2
+  var attachedValidators: seq[ValidatorIndex]
+  for validatorIndex in 0 ..< node.chainDag.headState.data.data.validators.len:
+    if node.getAttachedValidator(node.chainDag.headState.data.data, validatorIndex.ValidatorIndex) != nil:
+      attachedValidators.add validatorIndex.ValidatorIndex
+
+  let
+    currentEpochSubnets =
+      node.attestationSubnets.subscribedSubnets[1 - epochParity]
+    nextEpochSubnets = mapIt(
+      get_committee_assignments(
+        node.chainDag.headState.data.data,
+        node.chainDag.headState.data.data.slot.epoch + 1,
+        attachedValidators.toHashSet),
+      it.subnetIndex).toHashSet
+    expiringSubnets =
+      node.attestationSubnets.subscribedSubnets[epochParity] -
+        nextEpochSubnets - currentEpochSubnets
+
+  node.attestationSubnets.subscribedSubnets[epochParity] = nextEpochSubnets
+  debug "Attestation subnets",
+    expiring_subnets = expiringSubnets,
+    ongoing_subnets = currentEpochSubnets,
+    upcoming_subnets = nextEpochSubnets
+
+  block:
+    var unsubscriptions: seq[Future[void]] = @[]
+    for expiringSubnet in expiringSubnets:
+      unsubscriptions.add(node.network.unsubscribe(
+        getAttestationTopic(node.forkDigest, expiringSubnet)))
+
+    waitFor allFutures(unsubscriptions)
+
+  node.installAttestationSubnetHandlers(nextEpochSubnets - currentEpochSubnets)
+
 proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
   ## skip a few in case we're running late.
@@ -503,6 +560,9 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   # TODO is the slot of the clock or the head block more interesting? provide
   #      rationale in comment
   beacon_head_slot.set slot.int64
+
+  if slot.isEpoch:
+    node.cycleAttestationSubnets(slot)
 
   # Time passes in here..
   asyncCheck node.handleValidatorDuties(lastSlot, slot)
@@ -776,29 +836,34 @@ proc installAttestationHandlers(node: BeaconNode) =
       return false
     node.attestationPool.isValidAggregatedAttestation(signedAggregateAndProof, slot)
 
-  var attestationSubscriptions: seq[Future[void]] = @[]
-
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # These validators stay around the whole time, regardless of which specific
+  # subnets are subscribed to during any given epoch.
   for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
     closureScope:
       let ci = it
-      attestationSubscriptions.add(node.network.subscribe(
+      node.network.addValidator(
         getAttestationTopic(node.forkDigest, ci),
-        attestationHandler,
         # This proc needs to be within closureScope; don't lift out of loop.
         proc(attestation: Attestation): bool =
           attestationValidator(attestation, ci)
-      ))
+      )
 
-  attestationSubscriptions.add(node.network.subscribe(
+  var initialSubnets: HashSet[uint64]
+  for i in 0'u64 ..< 64:
+    initialSubnets.incl i
+  node.installAttestationSubnetHandlers(initialSubnets)
+
+  # Relative to epoch 0, this sets the "current" validators.
+  node.attestationSubnets.subscribedSubnets[1 - (GENESIS_EPOCH mod 2)] =
+    initialSubnets
+
+  waitFor node.network.subscribe(
     getAggregateAndProofsTopic(node.forkDigest),
     proc(signedAggregateAndProof: SignedAggregateAndProof) =
       attestationHandler(signedAggregateAndProof.message.aggregate),
     proc(signedAggregateAndProof: SignedAggregateAndProof): bool =
-      aggregatedAttestationValidator(signedAggregateAndProof)
-  ))
-
-  waitFor allFutures(attestationSubscriptions)
+      aggregatedAttestationValidator(signedAggregateAndProof))
 
 proc stop*(node: BeaconNode) =
   status = BeaconNodeStatus.Stopping

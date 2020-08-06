@@ -30,6 +30,9 @@ type Eth2Digest = digest.Eth2Digest
 type
   RpcServer* = RpcHttpServer
   KeyPair* = eth2_network.KeyPair
+  AttestationSubnets* = object # TODO might not belong here
+    # TODO track the 256-epoch attestation subnet stability choice
+    subscribedSubnets*: array[2, HashSet[uint64]]
 
   BeaconNode* = ref object
     nickname*: string
@@ -54,6 +57,7 @@ type
     blockProcessingLoop*: Future[void]
     onSecondLoop*: Future[void]
     genesisSnapshotContent*: string
+    attestationSubnets*: AttestationSubnets
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
