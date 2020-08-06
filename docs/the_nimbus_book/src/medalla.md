@@ -70,7 +70,18 @@ The best way to keep track of your validator's status is [medalla.beaconcha.in](
 
 You can even [create an account](https://medalla.beaconcha.in/register) to add alerts and keep track it its [performance](https://medalla.beaconcha.in/dashboard).
 
-Finally, makes sure you stay on the lookout for any critical updates to Nimbus. This best way to do so is through our [discord](https://discord.com/invite/XRxWahP).
+#### 6. Keep your validator updated
+
+Finally, makes sure you stay on the lookout for any critical updates to Nimbus. This best way to do so is through the **medalla-announcements** channel on our [discord](https://discord.com/invite/XRxWahP).
+
+To update to the latest version, disconnect from medalla and run:
+
+```
+git pull
+make update
+```
+
+Once the update is complete, run `make medalla` to reconnect to the network.
 
 Looking forward to seeing you on Medalla! 💛
 
