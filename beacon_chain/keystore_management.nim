@@ -105,7 +105,7 @@ proc saveKeystore(rng: var BrHmacDrbgContext,
                   signingKey: ValidatorPrivKey, signingPubKey: ValidatorPubKey,
                   signingKeyPath: KeyPath): Result[void, KeystoreGenerationError] =
   let
-    keyName = $signingPubKey
+    keyName = "0x" & $signingPubKey
     validatorDir = validatorsDir / keyName
 
   if not existsDir(validatorDir):
