@@ -66,7 +66,7 @@ proc addResolvedBlock(
   link(parent, blockRef)
 
   dag.blocks[blockRoot] = blockRef
-  trace "Populating block dag", key = blockRoot, val = blockRef
+  debug "Populating block dag", key = blockRoot, val = blockRef
 
   # Resolved blocks should be stored in database
   dag.putBlock(signedBlock)
