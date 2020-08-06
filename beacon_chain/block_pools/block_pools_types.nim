@@ -115,9 +115,6 @@ type
     # -----------------------------------
     # Rewinder - Mutable state processing
 
-    cachedStates*: seq[tuple[blockRoot: Eth2Digest, slot: Slot,
-      state: ref HashedBeaconState]]
-
     headState*: StateData ##\
     ## State given by the head block; only update in `updateHead`, not anywhere
     ## else via `withState`
@@ -143,6 +140,10 @@ type
     beacon_proposers*: array[
       SLOTS_PER_EPOCH, Option[(ValidatorIndex, ValidatorPubKey)]]
     shuffled_active_validator_indices*: seq[ValidatorIndex]
+    # This is an expensive cache that could probably be shared among epochref
+    # instances - in particular, validators keep their keys and locations in the
+    # structure
+    validator_keys*: seq[ValidatorPubKey]
 
   BlockRef* = ref object
     ## Node in object graph guaranteed to lead back to tail block, and to have

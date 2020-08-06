@@ -358,7 +358,8 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   if proposer.isNone():
     return head
 
-  let validator = node.attachedValidators.getValidator(proposer.get()[1])
+  let validator =
+    node.attachedValidators.getValidator(proposer.get()[1].initPubKey())
 
   if validator != nil:
     return await proposeBlock(node, validator, proposer.get()[0], head, slot)
@@ -367,7 +368,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     headRoot = shortLog(head.root),
     slot = shortLog(slot),
     proposer_index = proposer.get()[0],
-    proposer = shortLog(proposer.get()[1]),
+    proposer = shortLog(proposer.get()[1].initPubKey()),
     pcs = "wait_for_proposal"
 
   return head
