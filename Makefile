@@ -186,7 +186,7 @@ medalla: | beacon_node
 
 medalla-vc: | beacon_node validator_client
 	# if launching a VC as well - send the BN looking nowhere for validators/secrets
-	mkdir build/data/shared_medalla_$(NODE_ID)/empty_dummy_folder -p
+	mkdir -p build/data/shared_medalla_$(NODE_ID)/empty_dummy_folder
 
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \
