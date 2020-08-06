@@ -157,7 +157,7 @@ func compute_committee*(shuffled_indices: seq[ValidatorIndex],
   ## the seed.
 
   let
-    active_validators = shuffled_indices.lenu64
+    active_validators = shuffled_indices.len.uint64
     start = (active_validators * index) div count
     endIdx = (active_validators * (index + 1)) div count
 
