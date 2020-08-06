@@ -211,12 +211,12 @@ const
   PeerScoreHighLimit* = 1000
     ## Max value of peer's score
 
-  ConcurrentConnections* = 10
+  ConcurrentConnections* = 4
     ## Maximum number of active concurrent connection requests.
 
-  SeenTableTimeTimeout* = 1.minutes
+  SeenTableTimeTimeout* = 5.minutes
     ## Seen period of time for timeout connections
-  SeenTableTimeDeadPeer* = 1.minutes
+  SeenTableTimeDeadPeer* = 5.minutes
     ## Period of time for dead peers.
   SeenTableTimeIrrelevantNetwork* = 24.hours
     ## Period of time for `IrrelevantNetwork` error reason.
@@ -858,7 +858,7 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
   result.wantedPeers = conf.maxPeers
   result.peerPool = newPeerPool[Peer, PeerID](maxPeers = conf.maxPeers)
   result.connectTimeout = 1.minutes
-  result.seenThreshold = 1.minutes
+  result.seenThreshold = 5.minutes
   result.seenTable = initTable[PeerID, SeenItem]()
   result.connTable = initHashSet[PeerID]()
   result.connQueue = newAsyncQueue[PeerAddr](ConcurrentConnections)
