@@ -170,6 +170,8 @@ testnet0 testnet1: | beacon_node
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
 medalla: | beacon_node
+	mkdir -p build/data/shared_medalla_$(NODE_ID)
+
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \
 		--base-metrics-port $$(($(BASE_METRICS_PORT) + $(NODE_ID))) \
