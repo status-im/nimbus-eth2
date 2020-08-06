@@ -35,23 +35,7 @@ make build
 
 The resulting binaries should appear in `nim-beacon-chain/build/beacon_node` and `eth2stats-client/eth2stats-client`, respectively.
 
-### 3. Register your node
-
-Add your node to eth2stats and run a data collector app that connects to your beacon chain client.
-
-```
-./eth2stats-client run \
---eth2stats.node-name="<NODE_NAME>" \
---data.folder ~/.eth2stats/data \
---eth2stats.addr="grpc.medalla.eth2stats.io:443" --eth2stats.tls=true \
---beacon.type="nimbus" \
---beacon.addr="http://localhost:9190" \
---beacon.metrics-addr="http://localhost:8008/metrics"
-```
-
-Replace `<NODE_NAME>` with the name you wish to give your node on [eth2stats](https://eth2stats.io/).
-
-### 4. Create an executable script
+### 3. Create an executable script
 
 Create an executable script, `run_nimbus_node.sh`, and place it adjacent to the repositories you cloned in step 1 (same directory level).
 
@@ -78,6 +62,7 @@ fi
 let METRICS_PORT=8008+${NODE_ID}
 let RPC_PORT=9190+${NODE_ID}
 
+# add your node to eth2stats and run a data collector app that connects to your beacon chain client
 mkdir -p /tmp/e2s-$ID
 ../eth2stats-client/eth2stats-client run \
   --data.folder=/tmp/${NODE_NAME} \
@@ -87,12 +72,13 @@ mkdir -p /tmp/e2s-$ID
   --beacon.addr="http://localhost:$RPC_PORT" \
   --beacon.metrics-addr="http://localhost:$METRICS_PORT/metrics" > /tmp/ethstats.$NODE_NAME.log 2>&1 &
 
+# build and run the beacon node
 make NIMFLAGS="-d:insecure" NODE_ID=$NODE_ID ${NETWORK}
 ```
 
 > Tip: don't forget to mark the script as executable by running `chmod +x` on it.
 
-### 5. Create a systemd service unit file
+### 4. Create a systemd service unit file
 
 Create a `systemd` service unit file, `nbc.service`, and save it in `/etc/systemd/system/`.
 
@@ -118,13 +104,13 @@ Replace:
 
 `<USERNAME>` with the username of the system user responsible for running the launched processes.
 
-### 6. Notify systemd of the newly added service
+### 5. Notify systemd of the newly added service
 
 ```console
 sudo systemctl daemon-reload
 ```
 
-### 7. Start the nim beacon chain service
+### 6. Start the nim beacon chain service
 
 ```console
 sudo systemctl enable nbc --now
