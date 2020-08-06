@@ -18,9 +18,11 @@ import
 func count_active_validators*(epochInfo: EpochRef): uint64 =
   epochInfo.shuffled_active_validator_indices.lenu64
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_committee_count_per_slot
 func get_committee_count_per_slot*(epochInfo: EpochRef): uint64 =
   get_committee_count_per_slot(count_active_validators(epochInfo))
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee*(
     epochRef: EpochRef, slot: Slot, index: CommitteeIndex): seq[ValidatorIndex] =
   # Return the beacon committee at ``slot`` for ``index``.
@@ -58,6 +60,7 @@ func get_indexed_attestation*(epochRef: EpochRef, attestation: Attestation): Ind
     signature: attestation.signature
   )
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee_len*(
     epochRef: EpochRef, slot: Slot, index: CommitteeIndex): uint64 =
   # Return the number of members in the beacon committee at ``slot`` for ``index``.
@@ -72,6 +75,7 @@ func get_beacon_committee_len*(
     committees_per_slot * SLOTS_PER_EPOCH
   )
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#aggregation-selection
 func is_aggregator*(epochRef: EpochRef, slot: Slot, index: CommitteeIndex,
     slot_signature: ValidatorSig): bool =
   let
@@ -79,6 +83,7 @@ func is_aggregator*(epochRef: EpochRef, slot: Slot, index: CommitteeIndex,
     modulo = max(1'u64, committee_len div TARGET_AGGREGATORS_PER_COMMITTEE)
   bytes_to_uint64(eth2digest(slot_signature.toRaw()).data[0..7]) mod modulo == 0
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     epochRef: EpochRef, indexed_attestation: SomeIndexedAttestation,

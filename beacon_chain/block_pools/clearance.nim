@@ -388,7 +388,7 @@ proc isValidBeaconBlock*(
       dag.headState.data.data.genesis_validators_root,
       signed_beacon_block.message.slot,
       signed_beacon_block.message,
-      proposer.get()[1].initPubKey(),
+      proposer.get()[1],
       signed_beacon_block.signature):
     debug "block failed signature verification",
       signature = shortLog(signed_beacon_block.signature)
