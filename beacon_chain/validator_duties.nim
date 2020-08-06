@@ -60,10 +60,10 @@ proc addLocalValidators*(node: BeaconNode) =
 
   info "Local validators attached ", count = node.attachedValidators.count
 
-func getAttachedValidator*(node: BeaconNode,
+proc getAttachedValidator*(node: BeaconNode,
                            state: BeaconState,
                            idx: ValidatorIndex): AttachedValidator =
-  let validatorKey = state.validators[idx].pubkey
+  let validatorKey = state.validators[idx].pubkey.initPubKey
   node.attachedValidators.getValidator(validatorKey)
 
 proc isSynced*(node: BeaconNode, head: BlockRef): bool =
@@ -416,7 +416,11 @@ proc broadcastAggregatedAttestations(
               signature: validator.signAggregateAndProof(
                 aggregateAndProof.get, state.fork,
                 state.genesis_validators_root))
+
             node.network.broadcast(node.topicAggregateAndProofs, signedAP)
+            info "Aggregated attestation sent",
+              attestation = shortLog(signedAP.message.aggregate),
+              validator = shortLog(validator)
 
 proc handleValidatorDuties*(
     node: BeaconNode, lastSlot, slot: Slot) {.async.} =

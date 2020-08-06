@@ -100,10 +100,10 @@ proc isValidAttestationSlot(
 
 func checkPropagationSlotRange(data: AttestationData, current_slot: Slot): bool =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
-  # TODO clock disparity
+  # TODO clock disparity of 0.5s instead of whole slot
   # attestation.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >=
   # current_slot >= attestation.data.slot
-  (data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot) and
+  (data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE + 1 >= current_slot) and
     (current_slot >= data.slot)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
@@ -120,7 +120,8 @@ proc isValidAttestation*(
     return false
 
   if not checkPropagationSlotRange(attestation.data, current_slot):
-    debug "attestation.data.slot not within ATTESTATION_PROPAGATION_SLOT_RANGE"
+    debug "attestation.data.slot not within ATTESTATION_PROPAGATION_SLOT_RANGE",
+      current_slot
     return false
 
   # The attestation is unaggregated -- that is, it has exactly one
@@ -174,7 +175,7 @@ proc isValidAttestation*(
   if tgtBlck.isNil:
     debug "Target block not found"
     pool.addUnresolved(attestation)
-    pool.quarantine.addMissing(attestation.data.beacon_block_root)
+    pool.quarantine.addMissing(attestation.data.target.root)
     return false
 
   # The following rule follows implicitly from that we clear out any
@@ -196,8 +197,9 @@ proc isValidAttestation*(
     # committees_per_slot = get_committee_count_per_slot(state,
     # attestation.data.target.epoch), which may be pre-computed along with the
     # committee information for the signature check.
+    var cache = getEpochCache(blck, state)
     let
-      epochInfo = blck.getEpochInfo(state)
+      epochInfo = blck.getEpochInfo(state, cache)
       requiredSubnetIndex =
         compute_subnet_for_attestation(
           get_committee_count_per_slot(epochInfo),
@@ -211,7 +213,6 @@ proc isValidAttestation*(
       return false
 
     # The signature of attestation is valid.
-    var cache = getEpochCache(blck, state)
     if not is_valid_indexed_attestation(
         state, get_indexed_attestation(state, attestation, cache), {}):
       debug "signature verification failed"
@@ -299,7 +300,7 @@ proc isValidAggregatedAttestation*(
   let tgtBlck = pool.chainDag.getRef(aggregate.data.target.root)
   if tgtBlck.isNil:
     debug "Target block not found"
-    pool.quarantine.addMissing(aggregate.data.beacon_block_root)
+    pool.quarantine.addMissing(aggregate.data.target.root)
     return
 
   # TODO this could be any state in the target epoch

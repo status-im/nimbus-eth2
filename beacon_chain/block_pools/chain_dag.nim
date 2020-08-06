@@ -62,14 +62,22 @@ func parent*(bs: BlockSlot): BlockSlot =
       slot: bs.slot - 1
     )
 
-func init*(T: type EpochRef, state: BeaconState): T =
-  let epoch = state.get_current_epoch()
-  EpochRef(
-    epoch: epoch,
-    current_justified_checkpoint: state.current_justified_checkpoint,
-    finalized_checkpoint: state.finalized_checkpoint,
-    shuffled_active_validator_indices:
-      get_shuffled_active_validator_indices(state, epoch))
+proc init*(T: type EpochRef, state: BeaconState, cache: var StateCache): T =
+  let
+    epoch = state.get_current_epoch()
+    epochRef = EpochRef(
+      epoch: epoch,
+      current_justified_checkpoint: state.current_justified_checkpoint,
+      finalized_checkpoint: state.finalized_checkpoint,
+      shuffled_active_validator_indices:
+        cache.get_shuffled_active_validator_indices(state, epoch))
+  for i in 0'u64..<SLOTS_PER_EPOCH:
+    let idx = get_beacon_proposer_index(
+      state, cache, epoch.compute_start_slot_at_epoch() + i)
+    if idx.isSome():
+      epochRef.beacon_proposers[i] =
+        some((idx.get(), state.validators[idx.get].pubkey.initPubKey))
+  epochRef
 
 func link*(parent, child: BlockRef) =
   doAssert (not (parent.root == Eth2Digest() or child.root == Eth2Digest())),
@@ -153,14 +161,14 @@ func atEpochEnd*(blck: BlockRef, epoch: Epoch): BlockSlot =
   ## Return the BlockSlot corresponding to the last slot in the given epoch
   atSlot(blck, (epoch + 1).compute_start_slot_at_epoch - 1)
 
-func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
+proc getEpochInfo*(blck: BlockRef, state: BeaconState, cache: var StateCache): EpochRef =
   # This is the only intended mechanism by which to get an EpochRef
   let
     state_epoch = state.get_current_epoch()
     matching_epochinfo = blck.epochsInfo.filterIt(it.epoch == state_epoch)
 
   if matching_epochinfo.len == 0:
-    let epochInfo = EpochRef.init(state)
+    let epochInfo = EpochRef.init(state, cache)
 
     # Don't use BlockRef caching as far as the epoch where the active
     # validator indices can diverge.
@@ -175,8 +183,14 @@ func getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
   else:
     raiseAssert "multiple EpochRefs per epoch per BlockRef invalid"
 
-func getEpochCache*(blck: BlockRef, state: BeaconState): StateCache =
-  let epochInfo = getEpochInfo(blck, state)
+proc getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
+  # This is the only intended mechanism by which to get an EpochRef
+  var cache = StateCache()
+  getEpochInfo(blck, state, cache)
+
+proc getEpochCache*(blck: BlockRef, state: BeaconState): StateCache =
+  var tmp = StateCache() # TODO Resolve circular init issue
+  let epochInfo = getEpochInfo(blck, state, tmp)
   if epochInfo.epoch > 0:
     # When doing state transitioning, both the current and previous epochs are
     # useful from a cache perspective since attestations may come from either -
@@ -193,6 +207,10 @@ func getEpochCache*(blck: BlockRef, state: BeaconState): StateCache =
 
   result.shuffled_active_validator_indices[state.get_current_epoch()] =
       epochInfo.shuffled_active_validator_indices
+  for i, idx in epochInfo.beacon_proposers:
+    result.beacon_proposer_indices[
+      epochInfo.epoch.compute_start_slot_at_epoch + i] =
+        if idx.isSome: some(idx.get()[0]) else: none(ValidatorIndex)
 
 func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
   BlockRef(
@@ -332,7 +350,8 @@ proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
     bs = bs.parent
 
   dag.withState(dag.tmpState, bs):
-    getEpochInfo(blck, state)
+    var cache = StateCache()
+    getEpochInfo(blck, state, cache)
 
 proc getState(
     dag: ChainDAGRef, db: BeaconChainDB, stateRoot: Eth2Digest, blck: BlockRef,
@@ -814,6 +833,15 @@ proc updateHead*(dag: ChainDAGRef, newHead: BlockRef) =
           cur = cur.parent
 
         dag.heads.del(n)
+    block: # Clean up old EpochRef instances
+      # After finalization, we can clear up the epoch cache and save memory -
+      # it will be recomputed if needed
+      # TODO don't store recomputed pre-finalization epoch refs
+      var tmp = finalizedHead.blck
+      while tmp != dag.finalizedHead.blck:
+        # leave the epoch cache in the last block of the epoch..
+        tmp = tmp.parent
+        tmp.epochsInfo = @[]
 
     dag.finalizedHead = finalizedHead
 
@@ -865,18 +893,8 @@ proc preInit*(
 proc getProposer*(
     dag: ChainDAGRef, head: BlockRef, slot: Slot):
     Option[(ValidatorIndex, ValidatorPubKey)] =
-  dag.withState(dag.tmpState, head.atSlot(slot)):
-    var cache = StateCache()
+  let
+    epochRef = dag.getEpochRef(head, slot.compute_epoch_at_slot())
+    slotInEpoch = slot - slot.compute_epoch_at_slot().compute_start_slot_at_epoch()
 
-    let proposerIdx = get_beacon_proposer_index(state, cache)
-    if proposerIdx.isNone:
-      warn "Missing proposer index",
-        slot=slot,
-        epoch=slot.compute_epoch_at_slot,
-        num_validators=state.validators.len,
-        active_validators=
-          get_active_validator_indices(state, slot.compute_epoch_at_slot),
-        balances=state.balances
-      return
-
-    return some((proposerIdx.get(), state.validators[proposerIdx.get()].pubkey))
+  epochRef.beacon_proposers[slotInEpoch]

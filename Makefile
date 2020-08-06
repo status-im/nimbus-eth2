@@ -170,6 +170,11 @@ testnet0 testnet1: | beacon_node
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
 medalla: | beacon_node
+	scripts/make_prometheus_config.sh \
+		--nodes 1 \
+		--base-metrics-port $$(($(BASE_METRICS_PORT) + $(NODE_ID))) \
+		--config-file "build/data/shared_medalla_$(NODE_ID)/prometheus.yml"
+
 	build/beacon_node \
 		--network=medalla \
 		--log-level="$(LOG_LEVEL)" \
@@ -180,6 +185,12 @@ medalla: | beacon_node
 medalla-vc: | beacon_node validator_client
 	# if launching a VC as well - send the BN looking nowhere for validators/secrets
 	mkdir build/data/shared_medalla_$(NODE_ID)/empty_dummy_folder -p
+
+	scripts/make_prometheus_config.sh \
+		--nodes 1 \
+		--base-metrics-port $$(($(BASE_METRICS_PORT) + $(NODE_ID))) \
+		--config-file "build/data/shared_medalla_$(NODE_ID)/prometheus.yml"
+
 	build/beacon_node \
 		--network=medalla \
 		--log-level="$(LOG_LEVEL)" \
@@ -188,7 +199,9 @@ medalla-vc: | beacon_node validator_client
 		--validators-dir=build/data/shared_medalla_$(NODE_ID)/empty_dummy_folder \
 		--secrets-dir=build/data/shared_medalla_$(NODE_ID)/empty_dummy_folder \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS) &
+
 	sleep 4
+
 	build/validator_client \
 		--log-level="$(LOG_LEVEL)" \
 		--log-file=build/data/shared_medalla_$(NODE_ID)/nbc_vc_$$(date +"%Y%m%d%H%M%S").log \

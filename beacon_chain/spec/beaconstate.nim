@@ -88,11 +88,12 @@ proc process_deposit*(preset: RuntimePreset,
 
   let
     pubkey = deposit.data.pubkey
+    pubkey_inited = pubkey.initPubKey # TODO replicate previous PR semantics, check later
     amount = deposit.data.amount
   var index = -1
 
   for i, validator in state.validators:
-    if pubkey == validator.pubkey:
+    if pubkey_inited == validator.pubkey.initPubKey:
       index = i
       break
 
@@ -413,7 +414,7 @@ proc process_registry_updates*(state: var BeaconState,
       compute_activation_exit_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
-func is_valid_indexed_attestation*(
+proc is_valid_indexed_attestation*(
     state: BeaconState, indexed_attestation: SomeIndexedAttestation,
     flags: UpdateFlags): bool =
   # Check if ``indexed_attestation`` is not empty, has sorted and unique
