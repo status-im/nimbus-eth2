@@ -321,7 +321,7 @@ proc getBlockNumber(p: DataProviderRef, hash: BlockHash): Future[Eth1BlockNumber
   except CatchableError as exc:
     notice "Failed to get Eth1 block number from hash",
       hash = $hash, err = exc.msg
-    raise
+    raise exc
 
 template readJsonField(j: JsonNode,
                        fieldName: string,
