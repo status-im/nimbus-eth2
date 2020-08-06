@@ -280,9 +280,9 @@ proc openStream(node: Eth2Node,
   let protocolId = protocolId & (if peer.lacksSnappy: "ssz" else: "ssz_snappy")
   try:
     result = await dial(node.switch, peer.info.peerId, peer.info.addrs, protocolId)
-  except CancelledError:
-    raise
-  except CatchableError:
+  except CancelledError as exc:
+    raise exc
+  except CatchableError as exc:
     # TODO: LibP2P should raise a more specific exception here
     if peer.lacksSnappy == false:
       peer.lacksSnappy = true
@@ -290,7 +290,7 @@ proc openStream(node: Eth2Node,
             peer, protocolId
       return await openStream(node, peer, protocolId)
     else:
-      raise
+      raise exc
 
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer {.gcsafe.}
 

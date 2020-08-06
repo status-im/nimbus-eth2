@@ -94,12 +94,12 @@ proc waitForEvent[A, B](pool: PeerPool[A, B], eventType: EventType,
         if not(fut1.finished):
           fut1.cancel()
         outgoingEvent(eventType).clear()
-    except CancelledError:
+    except CancelledError as exc:
       if not(fut1.finished):
         fut1.cancel()
       if not(fut2.finished):
         fut2.cancel()
-      raise
+      raise exc
   elif PeerType.Incoming in filter:
     await incomingEvent(eventType).wait()
     incomingEvent(eventType).clear()
@@ -497,13 +497,13 @@ proc acquire*[A, B](pool: PeerPool[A, B],
           doAssert(PeerFlags.Acquired notin item[].flags)
           item[].flags.incl(PeerFlags.Acquired)
           peers.add(item[].data)
-  except CancelledError:
+  except CancelledError as exc:
     # If we got cancelled, we need to return all the acquired peers back to
     # pool.
     for item in peers:
       pool.release(item)
     peers.setLen(0)
-    raise
+    raise exc
   result = peers
 
 proc acquireNoWait*[A, B](pool: PeerPool[A, B],
