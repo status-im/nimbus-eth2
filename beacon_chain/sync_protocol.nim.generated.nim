@@ -365,7 +365,7 @@ registerMsg(BeaconSyncProtocol, "beaconBlocksByRoot", beaconBlocksByRootMounter,
             "/eth2/beacon_chain/req/beacon_blocks_by_root/1/")
 registerMsg(BeaconSyncProtocol, "goodbye", goodbyeMounter,
             "/eth2/beacon_chain/req/goodbye/1/")
-proc BeaconSyncPeerConnected(peer: Peer; stream: Connection) {.async, gcsafe.} =
+proc BeaconSyncPeerConnected(peer: Peer; incoming: bool) {.async, gcsafe.} =
   type
     CurrentProtocol = BeaconSync
   template state(peer: Peer): ref[BeaconSyncPeerState:ObjectType] =
@@ -375,16 +375,15 @@ proc BeaconSyncPeerConnected(peer: Peer; stream: Connection) {.async, gcsafe.} =
     cast[ref[BeaconSyncNetworkState:ObjectType]](getNetworkState(peer.network,
         BeaconSyncProtocol))
 
-  debug "Peer connected", peer, peerInfo = shortLog(peer.info),
-       wasDialed = peer.wasDialed
-  if peer.wasDialed:
+  debug "Peer connected", peer, peerInfo = shortLog(peer.info), incoming
+  if not incoming:
     let
       ourStatus = peer.networkState.getCurrentStatus()
       theirStatus = await peer.status(ourStatus, timeout = 60.seconds)
     if theirStatus.isOk:
       await peer.handleStatus(peer.networkState, ourStatus, theirStatus.get())
     else:
-      warn "Status response not received in time", peer
+      warn "Status response not received in time", peer, error = theirStatus.error
 
 setEventHandlers(BeaconSyncProtocol, BeaconSyncPeerConnected, nil)
 registerProtocol(BeaconSyncProtocol)

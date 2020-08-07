@@ -729,7 +729,6 @@ proc installDebugApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
       peers.add(
         %(
           info: shortLog(peer.info),
-          wasDialed: peer.wasDialed,
           connectionState: $peer.connectionState,
           score: peer.score,
         )
