@@ -587,13 +587,17 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
 
   while true:
     let sblock = await node.syncManager.getBlock()
-    let sm = now(chronos.Moment)
+    let sm1 = now(chronos.Moment)
     let res = node.storeBlock(sblock.blk)
+    let em1 = now(chronos.Moment)
     if res.isOk() or (res.error() in {BlockError.Duplicate, BlockError.Old}):
+      let sm2 = now(chronos.Moment)
       discard node.updateHead(node.beaconClock.now().slotOrZero)
-      let em = now(chronos.Moment)
+      let em2 = now(chronos.Moment)
       sblock.done()
-      let duration = em - sm
+      let duration1 = em1 - sm1
+      let duration2 = em2 - sm2
+      let duration = em2 - sm1
       let storeSpeed =
         block:
           let secs = float(chronos.seconds(1).nanoseconds)
@@ -605,7 +609,9 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
       debug "Block got imported successfully",
              local_head_slot = getLocalHeadSlot(), store_speed = storeSpeed,
              block_root = shortLog(sblock.blk.root),
-             block_slot = sblock.blk.message.slot, duration = $duration
+             block_slot = sblock.blk.message.slot,
+             store_block_duration = $duration1,
+             update_head_duration = $duration2
     else:
       sblock.fail(res.error)
 
