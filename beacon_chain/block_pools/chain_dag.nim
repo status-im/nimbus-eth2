@@ -32,8 +32,7 @@ proc putBlock*(
   dag.db.putBlock(signedBlock)
 
 proc updateStateData*(
-  dag: ChainDAGRef, state: var StateData, bs: BlockSlot,
-  matchEpoch: bool = false) {.gcsafe.}
+  dag: ChainDAGRef, state: var StateData, bs: BlockSlot) {.gcsafe.}
 
 template withState*(
     dag: ChainDAGRef, cache: var StateData, blockSlot: BlockSlot, body: untyped): untyped =
@@ -128,22 +127,6 @@ func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef =
     depth += 1
 
     blck = blck.parent
-
-iterator get_ancestors_in_epoch(blockSlot: BlockSlot): BlockSlot =
-  let min_slot =
-    blockSlot.slot.compute_epoch_at_slot.compute_start_slot_at_epoch
-  var blockSlot = blockSlot
-
-  while true:
-    for slot in countdown(blockSlot.slot, max(blockSlot.blck.slot, min_slot)):
-      yield BlockSlot(blck: blockSlot.blck, slot: slot)
-
-    if blockSlot.blck.parent.isNil or blockSlot.blck.slot <= min_slot:
-      break
-
-    doAssert blockSlot.blck.slot > blockSlot.blck.parent.slot
-    blockSlot =
-      BlockSlot(blck: blockSlot.blck.parent, slot: blockSlot.blck.slot - 1)
 
 func atSlot*(blck: BlockRef, slot: Slot): BlockSlot =
   ## Return a BlockSlot at a given slot, with the block set to the closest block
@@ -511,8 +494,7 @@ proc skipAndUpdateState(
   ok
 
 proc rewindState(
-    dag: ChainDAGRef, state: var StateData, bs: BlockSlot,
-    matchEpoch: bool): seq[BlockRef] =
+    dag: ChainDAGRef, state: var StateData, bs: BlockSlot): seq[BlockRef] =
   logScope:
     blockSlot = shortLog(bs)
     pcs = "replay_state"
@@ -581,8 +563,7 @@ proc rewindState(
   ancestors
 
 proc getStateDataCached(
-    dag: ChainDAGRef, state: var StateData, bs: BlockSlot,
-    matchEpoch: bool): bool =
+    dag: ChainDAGRef, state: var StateData, bs: BlockSlot): bool =
   # This pointedly does not run rewindState or state_transition, but otherwise
   # mostly matches updateStateData(...), because it's too expensive to run the
   # rewindState(...)/skipAndUpdateState(...)/state_transition(...) procs, when
@@ -595,21 +576,8 @@ proc getStateDataCached(
 
   false
 
-template withEpochState*(
-    dag: ChainDAGRef, cache: var StateData, blockSlot: BlockSlot,
-    body: untyped): untyped =
-  ## Helper template that updates state to a particular BlockSlot - usage of
-  ## cache is unsafe outside of block.
-  ## TODO async transformations will lead to a race where cache gets updated
-  ##      while waiting for future to complete - catch this here somehow?
-  # TODO implement the looser constraints allowed by epoch, not precise slot target
-  # allow expressing preference to opt-in to looser constraints regardless
-  dag.withState(cache, blockSlot):
-    body
-
 proc updateStateData*(
-    dag: ChainDAGRef, state: var StateData, bs: BlockSlot,
-    matchEpoch: bool = false) =
+    dag: ChainDAGRef, state: var StateData, bs: BlockSlot) =
   ## Rewind or advance state such that it matches the given block and slot -
   ## this may include replaying from an earlier snapshot if blck is on a
   ## different branch or has advanced to a higher slot number than slot
@@ -625,10 +593,10 @@ proc updateStateData*(
 
     return # State already at the right spot
 
-  if dag.getStateDataCached(state, bs, matchEpoch):
+  if dag.getStateDataCached(state, bs):
     return
 
-  let ancestors = rewindState(dag, state, bs, matchEpoch)
+  let ancestors = rewindState(dag, state, bs)
 
   # If we come this far, we found the state root. The last block on the stack
   # is the one that produced this particular state, so we can pop it
