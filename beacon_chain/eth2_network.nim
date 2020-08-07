@@ -854,7 +854,7 @@ proc getPersistentNetMetadata*(conf: BeaconNodeConf): Eth2Metadata =
 proc onPeerEvent(node: Eth2Node, peerId: PeerID, event: PeerEvent) {.async.} =
   let peer = node.getPeer(peerId)
   case event.kind
-  of PeerEventKind.Upgraded:
+  of PeerEventKind.Connected:
     inc peer.connections
     debug "Peer upgraded", peer = peerId, connections = peer.connections
 
@@ -927,7 +927,7 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
   proc peerHook(peerId: PeerID, event: PeerEvent): Future[void] {.gcsafe.} =
     onPeerEvent(node, peerId, event)
 
-  switch.addPeerEventHandler(peerHook, PeerEventKind.Upgraded)
+  switch.addPeerEventHandler(peerHook, PeerEventKind.Connected)
   switch.addPeerEventHandler(peerHook, PeerEventKind.Disconnected)
 
 template publicKey*(node: Eth2Node): keys.PublicKey =

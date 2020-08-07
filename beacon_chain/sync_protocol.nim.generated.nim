@@ -1,5 +1,5 @@
 
-## Generated at line 88
+## Generated at line 87
 type
   BeaconSync* = object
 template State*(PROTO: type BeaconSync): type =
@@ -376,14 +376,13 @@ proc BeaconSyncPeerConnected(peer: Peer; incoming: bool) {.async, gcsafe.} =
         BeaconSyncProtocol))
 
   debug "Peer connected", peer, peerInfo = shortLog(peer.info), incoming
-  if not incoming:
-    let
-      ourStatus = peer.networkState.getCurrentStatus()
-      theirStatus = await peer.status(ourStatus, timeout = 60.seconds)
-    if theirStatus.isOk:
-      await peer.handleStatus(peer.networkState, ourStatus, theirStatus.get())
-    else:
-      warn "Status response not received in time", peer, error = theirStatus.error
+  let
+    ourStatus = peer.networkState.getCurrentStatus()
+    theirStatus = await peer.status(ourStatus, timeout = 60.seconds)
+  if theirStatus.isOk:
+    await peer.handleStatus(peer.networkState, ourStatus, theirStatus.get())
+  else:
+    warn "Status response not received in time", peer, error = theirStatus.error
 
 setEventHandlers(BeaconSyncProtocol, BeaconSyncPeerConnected, nil)
 registerProtocol(BeaconSyncProtocol)
