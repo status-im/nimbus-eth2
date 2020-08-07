@@ -1,36 +1,13 @@
-import jenkins.model.CauseOfInterruption.UserInterruption
-import hudson.model.Result
-import hudson.model.Run
-
-// https://stackoverflow.com/questions/40760716/jenkins-abort-running-build-if-new-one-is-started/49901413#49901413
-@NonCPS
-def abortPreviousRunningBuilds() {
-  /* aborting makes sense only for PR builds, since devs start so many of them */
-  if (env.CHANGE_ID == null) {
-    println ">> Not a PR build. Not aborting any previous jobs."
-    return
-  }
-
-  Run previousBuild = currentBuild.rawBuild.getPreviousBuildInProgress()
-  while (previousBuild != null) {
-    if (previousBuild.isInProgress()) {
-      def executor = previousBuild.getExecutor()
-      if (executor != null) {
-        println ">> Aborting older build #${previousBuild.number}"
-        executor.interrupt(Result.ABORTED, new UserInterruption(
-          "Aborted by newer build #${currentBuild.number}"
-        ))
-      }
-    }
-    previousBuild = previousBuild.getPreviousBuildInProgress()
-  }
+// https://stackoverflow.com/questions/40760716/jenkins-abort-running-build-if-new-one-is-started
+def buildNumber = env.BUILD_NUMBER as int
+if (buildNumber > 1) {
+	milestone(buildNumber - 1)
 }
+milestone(buildNumber)
 
 def runStages() {
 	try {
 		stage("Clone") {
-			/* abort older running jobs if this is a PR build */
-			abortPreviousRunningBuilds()
 			/* source code checkout */
 			checkout scm
 			/* we need to update the submodules before caching kicks in */
