@@ -393,7 +393,7 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
     # finalization occurs every slot, to 4 slots vs scheduledSlot.
     doAssert finalizedEpoch + 4 >= epoch
 
-proc installAttestationSubnetHandlers(node: BeaconNode, subnets: HashSet[uint64]) =
+proc installAttestationSubnetHandlers(node: BeaconNode, subnets: set[uint8]) =
   proc attestationHandler(attestation: Attestation) =
     # Avoid double-counting attestation-topic attestations on shared codepath
     # when they're reflected through beacon blocks
@@ -420,6 +420,9 @@ proc getStabilitySubnetLength(): uint64 =
     rand(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION.int).uint64
 
 proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) =
+  static:
+    doAssert ATTESTATION_SUBNET_COUNT == 64
+
   let epochParity = slot.epoch mod 2
   var attachedValidators: seq[ValidatorIndex]
   for validatorIndex in 0 ..< node.chainDag.headState.data.data.validators.len:
@@ -427,23 +430,23 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) =
       attachedValidators.add validatorIndex.ValidatorIndex
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
-  let prevStabilitySubnet =
-    toHashSet([node.attestationSubnets.stabilitySubnet])
+  let prevStabilitySubnet = {node.attestationSubnets.stabilitySubnet.uint8}
   if slot.epoch >= node.attestationSubnets.stabilitySubnetExpirationEpoch:
     node.attestationSubnets.stabilitySubnet = rand(ATTESTATION_SUBNET_COUNT - 1).uint64
     node.attestationSubnets.stabilitySubnetExpirationEpoch =
       slot.epoch + getStabilitySubnetLength()
 
+  var nextEpochSubnets: set[uint8]
+  for it in get_committee_assignments(
+      node.chainDag.headState.data.data,
+      node.chainDag.headState.data.data.slot.epoch + 1,
+      attachedValidators.toHashSet):
+    nextEpochSubnets.incl it.subnetIndex.uint8
+
   let
-    stabilitySet = toHashSet([node.attestationSubnets.stabilitySubnet])
+    stabilitySet = {node.attestationSubnets.stabilitySubnet.uint8}
     currentEpochSubnets =
       node.attestationSubnets.subscribedSubnets[1 - epochParity]
-    nextEpochSubnets = mapIt(
-      get_committee_assignments(
-        node.chainDag.headState.data.data,
-        node.chainDag.headState.data.data.slot.epoch + 1,
-        attachedValidators.toHashSet),
-      it.subnetIndex).toHashSet
     expiringSubnets =
       (prevStabilitySubnet + node.attestationSubnets.subscribedSubnets[epochParity]) -
         nextEpochSubnets - currentEpochSubnets - stabilitySet
@@ -872,8 +875,8 @@ proc installAttestationHandlers(node: BeaconNode) =
           attestationValidator(attestation, ci)
       )
 
-  var initialSubnets: HashSet[uint64]
-  for i in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
+  var initialSubnets: set[uint8]
+  for i in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
     initialSubnets.incl i
   node.installAttestationSubnetHandlers(initialSubnets)
 
