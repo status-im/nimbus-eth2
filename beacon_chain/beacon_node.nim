@@ -595,9 +595,9 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
       discard node.updateHead(node.beaconClock.now().slotOrZero)
       let em2 = now(chronos.Moment)
       sblock.done()
-      let duration1 = if res.isOk(): em1 - sm1 else: 0
-      let duration2 = if res.isOk(): em2 - sm2 else: 0
-      let duration = if res.isOk(): em2 - sm1 else: 0
+      let duration1 = if res.isOk(): em1 - sm1 else: ZeroDuration
+      let duration2 = if res.isOk(): em2 - sm2 else: ZeroDuration
+      let duration = if res.isOk(): em2 - sm1 else: ZeroDuration
       let storeSpeed =
         block:
           let secs = float(chronos.seconds(1).nanoseconds)
