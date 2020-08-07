@@ -64,7 +64,12 @@ def runStages() {
 			[[ -d "\$D" ]] && tar cjf "\${D}-\${NODE_NAME}.tar.bz2" "\${D}"/*.txt || true
 		done
 		"""
-		archiveArtifacts("*.tar.bz2")
+		try {
+			archiveArtifacts("*.tar.bz2")
+		} catch(e) {
+			println("Couldn't archive artefacts.")
+			println(e.toString());
+		}
 		// clean the workspace
 		cleanWs(disableDeferredWipeout: true, deleteDirs: true)
 	}
