@@ -1,6 +1,14 @@
+// https://stackoverflow.com/questions/40760716/jenkins-abort-running-build-if-new-one-is-started
+def buildNumber = env.BUILD_NUMBER as int
+if (buildNumber > 1) {
+	milestone(buildNumber - 1)
+}
+milestone(buildNumber)
+
 def runStages() {
 	try {
 		stage("Clone") {
+			/* source code checkout */
 			checkout scm
 			/* we need to update the submodules before caching kicks in */
 			sh "git submodule update --init --recursive"
@@ -56,7 +64,13 @@ def runStages() {
 			[[ -d "\$D" ]] && tar cjf "\${D}-\${NODE_NAME}.tar.bz2" "\${D}"/*.txt || true
 		done
 		"""
-		archiveArtifacts("*.tar.bz2")
+		try {
+			archiveArtifacts("*.tar.bz2")
+		} catch(e) {
+			println("Couldn't archive artefacts.")
+			println(e.toString());
+			// we don't need to re-raise it here; it might be a PR build being cancelled by a newer one
+		}
 		// clean the workspace
 		cleanWs(disableDeferredWipeout: true, deleteDirs: true)
 	}
