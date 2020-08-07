@@ -8,6 +8,7 @@
 import
   # Standard library
   std/[algorithm, os, tables, strutils, sequtils, times, math, terminal],
+  std/random,
 
   # Nimble packages
   stew/[objects, byteutils, endians2], stew/shims/macros,
@@ -413,6 +414,11 @@ proc installAttestationSubnetHandlers(node: BeaconNode, subnets: HashSet[uint64]
 
   waitFor allFutures(attestationSubscriptions)
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+proc getStabilitySubnetLength(): uint64 =
+  EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION +
+    rand(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION.int).uint64
+
 proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) =
   let epochParity = slot.epoch mod 2
   var attachedValidators: seq[ValidatorIndex]
@@ -420,7 +426,16 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) =
     if node.getAttachedValidator(node.chainDag.headState.data.data, validatorIndex.ValidatorIndex) != nil:
       attachedValidators.add validatorIndex.ValidatorIndex
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  let prevStabilitySubnet =
+    toHashSet([node.attestationSubnets.stabilitySubnet])
+  if slot.epoch >= node.attestationSubnets.stabilitySubnetExpirationEpoch:
+    node.attestationSubnets.stabilitySubnet = rand(ATTESTATION_SUBNET_COUNT - 1).uint64
+    node.attestationSubnets.stabilitySubnetExpirationEpoch =
+      slot.epoch + getStabilitySubnetLength()
+
   let
+    stabilitySet = toHashSet([node.attestationSubnets.stabilitySubnet])
     currentEpochSubnets =
       node.attestationSubnets.subscribedSubnets[1 - epochParity]
     nextEpochSubnets = mapIt(
@@ -430,14 +445,22 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) =
         attachedValidators.toHashSet),
       it.subnetIndex).toHashSet
     expiringSubnets =
-      node.attestationSubnets.subscribedSubnets[epochParity] -
-        nextEpochSubnets - currentEpochSubnets
+      (prevStabilitySubnet + node.attestationSubnets.subscribedSubnets[epochParity]) -
+        nextEpochSubnets - currentEpochSubnets - stabilitySet
+    newSubnets =
+      (nextEpochSubnets + stabilitySet) -
+        (currentEpochSubnets + prevStabilitySubnet)
 
   node.attestationSubnets.subscribedSubnets[epochParity] = nextEpochSubnets
   debug "Attestation subnets",
     expiring_subnets = expiringSubnets,
     ongoing_subnets = currentEpochSubnets,
-    upcoming_subnets = nextEpochSubnets
+    upcoming_subnets = nextEpochSubnets,
+    new_subnets = newSubnets,
+    prev_stability_subnet = prevStabilitySubnet,
+    stability_subnet = node.attestationSubnets.stabilitySubnet,
+    stability_subnet_expiration_epoch =
+      node.attestationSubnets.stabilitySubnetExpirationEpoch
 
   block:
     var unsubscriptions: seq[Future[void]] = @[]
@@ -447,7 +470,7 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) =
 
     waitFor allFutures(unsubscriptions)
 
-  node.installAttestationSubnetHandlers(nextEpochSubnets - currentEpochSubnets)
+  node.installAttestationSubnetHandlers(newSubnets)
 
 proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
@@ -850,9 +873,14 @@ proc installAttestationHandlers(node: BeaconNode) =
       )
 
   var initialSubnets: HashSet[uint64]
-  for i in 0'u64 ..< 64:
+  for i in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
     initialSubnets.incl i
   node.installAttestationSubnetHandlers(initialSubnets)
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  node.attestationSubnets.stabilitySubnet = rand(ATTESTATION_SUBNET_COUNT - 1).uint64
+  node.attestationSubnets.stabilitySubnetExpirationEpoch =
+    GENESIS_EPOCH + getStabilitySubnetLength()
 
   # Relative to epoch 0, this sets the "current" validators.
   node.attestationSubnets.subscribedSubnets[1 - (GENESIS_EPOCH mod 2)] =
