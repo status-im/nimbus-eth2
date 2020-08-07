@@ -564,34 +564,6 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
     let fepoch = node.chainDag.headState.data.data.finalized_checkpoint.epoch
     compute_start_slot_at_epoch(fepoch)
 
-  proc updateLocalBlocks(list: openArray[SignedBeaconBlock]): Result[void, BlockError] =
-    debug "Forward sync imported blocks", count = len(list),
-          local_head_slot = getLocalHeadSlot()
-    let sm = now(chronos.Moment)
-    for blk in list:
-      let res = node.storeBlock(blk)
-      # We going to ignore `BlockError.Unviable` errors because we have working
-      # backward sync and it can happens that we can perform overlapping
-      # requests.
-      # For the same reason we ignore Duplicate blocks as if they are duplicate
-      # from before the current finalized epoch, we can drop them
-      # (and they may have no parents anymore in the fork choice if it was pruned)
-      if res.isErr and res.error notin {BlockError.Unviable, BlockError.Old, BLockError.Duplicate}:
-        return res
-    discard node.updateHead(node.beaconClock.now().slotOrZero)
-
-    let dur = now(chronos.Moment) - sm
-    let secs = float(chronos.seconds(1).nanoseconds)
-    var storeSpeed = 0.0
-    if not(dur.isZero()):
-      let v = float(len(list)) * (secs / float(dur.nanoseconds))
-      # We doing round manually because stdlib.round is deprecated
-      storeSpeed = round(v * 10000) / 10000
-
-    info "Forward sync blocks got imported successfully", count = len(list),
-         local_head_slot = getLocalHeadSlot(), store_speed = storeSpeed
-    ok()
-
   proc scoreCheck(peer: Peer): bool =
     if peer.score < PeerScoreLowLimit:
       try:
@@ -608,16 +580,34 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
 
   node.syncManager = newSyncManager[Peer, PeerID](
     node.network.peerPool, getLocalHeadSlot, getLocalWallSlot,
-    getFirstSlotAtFinalizedEpoch, updateLocalBlocks,
-    # 4 blocks per chunk is the optimal value right now, because our current
-    # syncing speed is around 4 blocks per second. So there no need to request
-    # more then 4 blocks right now. As soon as `store_speed` value become
-    # significantly more then 4 blocks per second you can increase this
-    # value appropriately.
-    chunkSize = 4
+    getFirstSlotAtFinalizedEpoch, chunkSize = 32
   )
 
-  await node.syncManager.sync()
+  node.syncManager.start()
+
+  while true:
+    let sblock = await node.syncManager.getBlock()
+    let sm = now(chronos.Moment)
+    let res = node.storeBlock(sblock.blk)
+    if res.isOk() or (res.error() in {BlockError.Duplicate, BlockError.Old}):
+      discard node.updateHead(node.beaconClock.now().slotOrZero)
+      let em = now(chronos.Moment)
+      sblock.done()
+      let duration = em - sm
+      let storeSpeed =
+        block:
+          let secs = float(chronos.seconds(1).nanoseconds)
+          if not(duration.isZero()):
+            let v = secs / float(duration.nanoseconds)
+            round(v * 10_000) / 10_000
+          else:
+            0.0
+      debug "Block got imported successfully",
+             local_head_slot = getLocalHeadSlot(), store_speed = storeSpeed,
+             block_root = shortLog(sblock.blk.root),
+             block_slot = sblock.blk.message.slot, duration = $duration
+    else:
+      sblock.fail(res.error)
 
 proc currentSlot(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
