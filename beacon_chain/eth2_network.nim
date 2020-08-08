@@ -542,6 +542,8 @@ template send*[M](r: SingleChunkResponse[M], val: auto): untyped =
   sendResponseChunkObj(UntypedResponse(r), val)
 
 proc performProtocolHandshakes*(peer: Peer, incoming: bool) {.async.} =
+  # Loop down serially because it's easier to reason about the connection state
+  # when there are fewer async races, specially during setup
   for protocol in allProtocols:
     if protocol.onPeerConnected != nil:
       await protocol.onPeerConnected(peer, incoming)
@@ -851,10 +853,10 @@ proc getPersistentNetMetadata*(conf: BeaconNodeConf): Eth2Metadata =
   else:
     result = Json.loadFile(metadataPath, Eth2Metadata)
 
-proc onPeerEvent(node: Eth2Node, peerId: PeerID, event: PeerEvent) {.async.} =
+proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
   let peer = node.getPeer(peerId)
   case event.kind
-  of PeerEventKind.Connected:
+  of ConnEventKind.Connected:
     inc peer.connections
     debug "Peer upgraded", peer = peerId, connections = peer.connections
 
@@ -886,7 +888,7 @@ proc onPeerEvent(node: Eth2Node, peerId: PeerID, event: PeerEvent) {.async.} =
           # We must have hit a limit!
           await peer.disconnect(FaultOrError)
 
-  of PeerEventKind.Disconnected:
+  of ConnEventKind.Disconnected:
     dec peer.connections
     debug "Peer disconnected", peer = peerId, connections = peer.connections
     if peer.connections == 0:
@@ -924,11 +926,11 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
         msg.protocolMounter result
 
   let node = result
-  proc peerHook(peerId: PeerID, event: PeerEvent): Future[void] {.gcsafe.} =
-    onPeerEvent(node, peerId, event)
+  proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
+    onConnEvent(node, peerId, event)
 
-  switch.addPeerEventHandler(peerHook, PeerEventKind.Connected)
-  switch.addPeerEventHandler(peerHook, PeerEventKind.Disconnected)
+  switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
+  switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
 
 template publicKey*(node: Eth2Node): keys.PublicKey =
   node.discovery.privKey.toPublicKey
