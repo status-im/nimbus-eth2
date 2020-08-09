@@ -30,10 +30,6 @@ type Eth2Digest = digest.Eth2Digest
 type
   RpcServer* = RpcHttpServer
   KeyPair* = eth2_network.KeyPair
-  AttestationSubnets* = object
-    subscribedSubnets*: array[2, set[uint8]]
-    stabilitySubnet*: uint64
-    stabilitySubnetExpirationEpoch*: Epoch
 
   BeaconNode* = ref object
     nickname*: string

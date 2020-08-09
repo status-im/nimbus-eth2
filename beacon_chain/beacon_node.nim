@@ -414,53 +414,26 @@ proc installAttestationSubnetHandlers(node: BeaconNode, subnets: set[uint8]) =
 
   waitFor allFutures(attestationSubscriptions)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
-proc getStabilitySubnetLength(): uint64 =
-  EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION +
-    rand(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION.int).uint64
-
 proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) =
-  static:
-    doAssert ATTESTATION_SUBNET_COUNT == 64
-
   let epochParity = slot.epoch mod 2
   var attachedValidators: seq[ValidatorIndex]
   for validatorIndex in 0 ..< node.chainDag.headState.data.data.validators.len:
-    if node.getAttachedValidator(node.chainDag.headState.data.data, validatorIndex.ValidatorIndex) != nil:
+    if node.getAttachedValidator(
+        node.chainDag.headState.data.data, validatorIndex.ValidatorIndex) != nil:
       attachedValidators.add validatorIndex.ValidatorIndex
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
-  let prevStabilitySubnet = {node.attestationSubnets.stabilitySubnet.uint8}
-  if slot.epoch >= node.attestationSubnets.stabilitySubnetExpirationEpoch:
-    node.attestationSubnets.stabilitySubnet = rand(ATTESTATION_SUBNET_COUNT - 1).uint64
-    node.attestationSubnets.stabilitySubnetExpirationEpoch =
-      slot.epoch + getStabilitySubnetLength()
+  let (newAttestationSubnets, expiringSubnets, newSubnets) =
+    get_attestation_subnet_changes(
+      node.chainDag.headState.data.data, attachedValidators,
+      node.attestationSubnets, slot.epoch)
 
-  var nextEpochSubnets: set[uint8]
-  for it in get_committee_assignments(
-      node.chainDag.headState.data.data,
-      node.chainDag.headState.data.data.slot.epoch + 1,
-      attachedValidators.toHashSet):
-    nextEpochSubnets.incl it.subnetIndex.uint8
-
-  let
-    stabilitySet = {node.attestationSubnets.stabilitySubnet.uint8}
-    currentEpochSubnets =
-      node.attestationSubnets.subscribedSubnets[1 - epochParity]
-    expiringSubnets =
-      (prevStabilitySubnet + node.attestationSubnets.subscribedSubnets[epochParity]) -
-        nextEpochSubnets - currentEpochSubnets - stabilitySet
-    newSubnets =
-      (nextEpochSubnets + stabilitySet) -
-        (currentEpochSubnets + prevStabilitySubnet)
-
-  node.attestationSubnets.subscribedSubnets[epochParity] = nextEpochSubnets
+  node.attestationSubnets = newAttestationSubnets
   debug "Attestation subnets",
     expiring_subnets = expiringSubnets,
-    ongoing_subnets = currentEpochSubnets,
-    upcoming_subnets = nextEpochSubnets,
+    current_epoch_subnets =
+      node.attestationSubnets.subscribedSubnets[1 - epochParity],
+    upcoming_subnets = node.attestationSubnets.subscribedSubnets[epochParity],
     new_subnets = newSubnets,
-    prev_stability_subnet = prevStabilitySubnet,
     stability_subnet = node.attestationSubnets.stabilitySubnet,
     stability_subnet_expiration_epoch =
       node.attestationSubnets.stabilitySubnetExpirationEpoch
