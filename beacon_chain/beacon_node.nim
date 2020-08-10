@@ -517,6 +517,9 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   if node.config.verifyFinalization:
     verifyFinalization(node, scheduledSlot)
 
+  if slot.isEpoch:
+    node.cycleAttestationSubnets(slot)
+
   if slot > lastSlot + SLOTS_PER_EPOCH:
     # We've fallen behind more than an epoch - there's nothing clever we can
     # do here really, except skip all the work and try again later.
@@ -559,9 +562,6 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   # TODO is the slot of the clock or the head block more interesting? provide
   #      rationale in comment
   beacon_head_slot.set slot.int64
-
-  if slot.isEpoch:
-    node.cycleAttestationSubnets(slot)
 
   # Time passes in here..
   asyncCheck node.handleValidatorDuties(lastSlot, slot)

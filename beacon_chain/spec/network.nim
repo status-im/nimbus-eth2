@@ -138,6 +138,9 @@ proc get_attestation_subnet_changes*(
       state, state.slot.epoch + 1, attachedValidators.toHashSet):
     nextEpochSubnets.incl it.subnetIndex.uint8
 
+  doAssert nextEpochSubnets.len > 0 and
+    nextEpochSubnets.len <= attachedValidators.len
+
   let
     epochParity = epoch mod 2
     stabilitySet = {attestationSubnets.stabilitySubnet.uint8}
@@ -150,6 +153,8 @@ proc get_attestation_subnet_changes*(
     newSubnets =
       (nextEpochSubnets + stabilitySet) -
         (currentEpochSubnets + prevStabilitySubnet)
+
+  doAssert newSubnets.len <= attachedValidators.len + 1
 
   attestationSubnets.subscribedSubnets[epochParity] = newSubnets
   (attestationSubnets, expiringSubnets, newSubnets)
