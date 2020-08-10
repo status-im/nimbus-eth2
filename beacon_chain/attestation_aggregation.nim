@@ -225,7 +225,7 @@ proc isValidAttestation*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/p2p-interface.md#global-topics
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
 proc isValidAggregatedAttestation*(
     pool: var AttestationPool,
     signedAggregateAndProof: SignedAggregateAndProof,
@@ -301,7 +301,6 @@ proc isValidAggregatedAttestation*(
   # [REJECT] aggregate_and_proof.selection_proof selects the validator as an
   # aggregator for the slot -- i.e. is_aggregator(state, aggregate.data.slot,
   # aggregate.data.index, aggregate_and_proof.selection_proof) returns True.
-
   let tgtBlck = pool.chainDag.getRef(aggregate.data.target.root)
   if tgtBlck.isNil:
     debug "Target block not found"
@@ -358,5 +357,14 @@ proc isValidAggregatedAttestation*(
       epochRef, get_indexed_attestation(epochRef, aggregate), {}):
     debug "Aggregate signature verification failed"
     return false
+
+  # The following rule follows implicitly from that we clear out any
+  # unviable blocks from the chain dag:
+  #
+  # The current finalized_checkpoint is an ancestor of the block defined by
+  # aggregate.data.beacon_block_root -- i.e. get_ancestor(store,
+  # aggregate.data.beacon_block_root,
+  # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
+  # store.finalized_checkpoint.root
 
   true
