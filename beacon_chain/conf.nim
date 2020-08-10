@@ -185,8 +185,7 @@ type
         defaultValue: "peers: $connected_peers;" &
                       "finalized: $finalized_root:$finalized_epoch;" &
                       "head: $head_root:$head_epoch:$head_epoch_slot;" &
-                      "time: $epoch:$epoch_slot ($slot)|" &
-                      "ETH: $attached_validators_balance"
+                      "time: $epoch:$epoch_slot ($slot)|"
         desc: "Textual template for the contents of the status bar"
         name: "status-bar-contents" }: string
 
