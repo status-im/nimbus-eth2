@@ -414,6 +414,11 @@ proc installAttestationSubnetHandlers(node: BeaconNode, subnets: set[uint8]) =
 
   waitFor allFutures(attestationSubscriptions)
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#metadata
+  node.network.metadata.seq_number += 1
+  for subnet in subnets:
+    node.network.metadata.attnets[subnet] = true
+
 proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) =
   let epochParity = slot.epoch mod 2
   var attachedValidators: seq[ValidatorIndex]
@@ -445,6 +450,13 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) =
         getAttestationTopic(node.forkDigest, expiringSubnet)))
 
     waitFor allFutures(unsubscriptions)
+
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#metadata
+    # The race condition window is smaller by placing the fast, local, and
+    # synchronous operation after a variable-latency, asynchronous action.
+    node.network.metadata.seq_number += 1
+    for expiringSubnet in expiringSubnets:
+      node.network.metadata.attnets[expiringSubnet] = false
 
   node.installAttestationSubnetHandlers(newSubnets)
 
@@ -858,7 +870,7 @@ proc installAttestationHandlers(node: BeaconNode) =
   node.attestationSubnets.stabilitySubnetExpirationEpoch =
     GENESIS_EPOCH + getStabilitySubnetLength()
 
-  # Relative to epoch 0, this sets the "current" validators.
+  # Relative to epoch 0, this sets the "current" attestation subnets.
   node.attestationSubnets.subscribedSubnets[1 - (GENESIS_EPOCH mod 2)] =
     initialSubnets
 
