@@ -97,6 +97,11 @@ p2pProtocol BeaconSync(version = 1,
     # makes the incoming flag unreliable / obsolete by the time we get to
     # this point - instead of making assumptions, we'll just send a status
     # message redundantly.
+    # TODO the spec does not prohibit sending the extra status message on
+    #      incoming connections, but it should not be necessary - this would
+    #      need a dedicated flow in libp2p that resolves the race conditions -
+    #      this needs more thinking around the ordering of events and the
+    #      given incoming flag
     let
       ourStatus = peer.networkState.getCurrentStatus()
       # TODO: The timeout here is so high only because we fail to
