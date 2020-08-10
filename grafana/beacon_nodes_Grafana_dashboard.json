@@ -1990,6 +1990,74 @@
       "yBucketSize": null
     },
     {
+      "cards": {
+        "cardPadding": null,
+        "cardRound": null
+      },
+      "color": {
+        "cardColor": "#b4ff00",
+        "colorScale": "sqrt",
+        "colorScheme": "interpolateSpectral",
+        "exponent": 0.1,
+        "max": null,
+        "min": 0,
+        "mode": "opacity"
+      },
+      "dataFormat": "tsbuckets",
+      "datasource": null,
+      "gridPos": {
+        "h": 6,
+        "w": 14,
+        "x": 0,
+        "y": 53
+      },
+      "heatmap": {},
+      "hideZeroBuckets": false,
+      "highlightCards": true,
+      "id": 50,
+      "interval": "",
+      "legend": {
+        "show": false
+      },
+      "reverseYBuckets": false,
+      "targets": [
+        {
+          "expr": "rate(beacon_store_block_duration_seconds_bucket{node=\"${node}\"}[4s]) * 3",
+          "format": "heatmap",
+          "instant": false,
+          "interval": "",
+          "intervalFactor": 1,
+          "legendFormat": "{{le}}",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "storeBlock() duration (s) #${node}",
+      "tooltip": {
+        "show": true,
+        "showHistogram": false
+      },
+      "type": "heatmap",
+      "xAxis": {
+        "show": true
+      },
+      "xBucketNumber": null,
+      "xBucketSize": null,
+      "yAxis": {
+        "decimals": null,
+        "format": "short",
+        "logBase": 1,
+        "max": null,
+        "min": null,
+        "show": true,
+        "splitFactor": null
+      },
+      "yBucketBound": "auto",
+      "yBucketNumber": null,
+      "yBucketSize": null
+    },
+    {
       "aliasColors": {},
       "bars": false,
       "dashLength": 10,
@@ -2001,7 +2069,7 @@
         "h": 6,
         "w": 14,
         "x": 0,
-        "y": 53
+        "y": 59
       },
       "hiddenSeries": false,
       "id": 45,
@@ -2094,7 +2162,7 @@
         "h": 15,
         "w": 14,
         "x": 0,
-        "y": 59
+        "y": 65
       },
       "hiddenSeries": false,
       "id": 46,
@@ -2187,7 +2255,7 @@
         "h": 6,
         "w": 14,
         "x": 0,
-        "y": 74
+        "y": 80
       },
       "hiddenSeries": false,
       "id": 47,
@@ -2280,7 +2348,7 @@
         "h": 6,
         "w": 14,
         "x": 0,
-        "y": 80
+        "y": 86
       },
       "hiddenSeries": false,
       "id": 48,
@@ -2373,7 +2441,7 @@
         "h": 11,
         "w": 14,
         "x": 0,
-        "y": 86
+        "y": 92
       },
       "hiddenSeries": false,
       "id": 49,
@@ -2491,7 +2559,7 @@
     ]
   },
   "time": {
-    "from": "now-30m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {
@@ -2514,5 +2582,5 @@
   "variables": {
     "list": []
   },
-  "version": 10
+  "version": 15
 }
