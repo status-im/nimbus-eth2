@@ -98,12 +98,7 @@ func toPubKey*(privkey: ValidatorPrivKey): ValidatorPubKey =
   ## Create a private key from a public key
   # Un-specced in either hash-to-curve or Eth2
   # TODO: Test suite should use `keyGen` instead
-  when ValidatorPubKey is BlsValue:
-    ValidatorPubKey(kind: Real, blsValue: SecretKey(privkey).privToPub())
-  elif ValidatorPubKey is array:
-    privkey.getKey.getBytes
-  else:
-    privkey.getKey
+  ValidatorPubKey(kind: Real, blsValue: SecretKey(privkey).privToPub())
 
 proc toRealPubKey(pubkey: ValidatorPubKey): Option[ValidatorPubKey] =
   var validatorKeyCache {.threadvar.}:
@@ -113,17 +108,16 @@ proc toRealPubKey(pubkey: ValidatorPubKey): Option[ValidatorPubKey] =
   of Real:
     return some(pubkey)
   of OpaqueBlob:
-    try:
-      validatorKeyCache[pubkey.blob]
-    except KeyError:
+    validatorKeyCache.withValue(pubkey.blob, key) do:
+      return key[]
+    do:
       var val: blscurve.PublicKey
       let maybeRealKey =
         if fromBytes(val, pubkey.blob):
           some ValidatorPubKey(kind: Real, blsValue: val)
         else:
           none ValidatorPubKey
-      validatorKeyCache[pubkey.blob] = maybeRealKey
-      maybeRealKey
+      return validatorKeyCache.mGetOrPut(pubkey.blob, maybeRealKey)
 
 proc initPubKey*(pubkey: ValidatorPubKey): ValidatorPubKey =
   let key = toRealPubKey(pubkey)
@@ -375,4 +369,3 @@ func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noInit
 
 proc burnMem*(key: var ValidatorPrivKey) =
   key = default(ValidatorPrivKey)
-
