@@ -460,6 +460,15 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) =
 
   node.installAttestationSubnetHandlers(newSubnets)
 
+  block:
+    let subscribed_subnets =
+      node.attestationSubnets.subscribedSubnets[0] +
+      node.attestationSubnets.subscribedSubnets[1] +
+      {node.attestationSubnets.stabilitySubnet.uint8}
+    for subnet in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
+      doAssert node.network.metadata.attnets[subnet] ==
+        (subnet in subscribed_subnets)
+
 proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
   ## skip a few in case we're running late.
