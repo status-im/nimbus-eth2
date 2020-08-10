@@ -12,7 +12,7 @@ import
     beaconstate, crypto, datatypes, digest, helpers, presets, signatures,
     validator],
   ../extras,
-  ./block_pools_types
+  ./block_pools_types, ./chain_dag
 
 # Spec functions implemented based on cached values instead of the full state
 func count_active_validators*(epochInfo: EpochRef): uint64 =
@@ -122,3 +122,31 @@ proc is_valid_indexed_attestation*(
       return false
 
   true
+
+func makeAttestationData*(
+    epochRef: EpochRef, bs: BlockSlot,
+    committee_index: uint64): AttestationData =
+  ## Create an attestation / vote for the block `bs` using the
+  ## data in `epochRef` to fill in the rest of the fields.
+  ## `epochRef` is the epoch information corresponding to the `bs` advanced to
+  ## the slot we're attesting to.
+
+  let
+    slot = bs.slot
+    current_epoch = slot.compute_epoch_at_slot()
+    epoch_boundary_slot = compute_start_slot_at_epoch(current_epoch)
+    epoch_boundary_block = bs.blck.atSlot(epoch_boundary_slot)
+
+  doAssert current_epoch == epochRef.epoch
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#attestation-data
+  AttestationData(
+    slot: slot,
+    index: committee_index,
+    beacon_block_root: bs.blck.root,
+    source: epochRef.current_justified_checkpoint,
+    target: Checkpoint(
+      epoch: current_epoch,
+      root: epoch_boundary_block.blck.root
+    )
+  )
