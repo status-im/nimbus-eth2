@@ -68,10 +68,13 @@ declareGauge finalization_delay,
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
 declareHistogram beacon_attestation_received_seconds_from_slot_start,
-  "Interval between slot start and attestation receival", buckets = delayBuckets
+  "Interval between slot start and attestation reception", buckets = delayBuckets
 
 declareHistogram beacon_block_received_seconds_from_slot_start,
-  "Interval between slot start and beacon block receival", buckets = delayBuckets
+  "Interval between slot start and beacon block reception", buckets = delayBuckets
+
+declareHistogram beacon_store_block_duration_seconds,
+  "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
 
 logScope: topics = "beacnde"
 
@@ -337,6 +340,7 @@ proc dumpBlock[T](
 
 proc storeBlock(
     node: BeaconNode, signedBlock: SignedBeaconBlock): Result[void, BlockError] =
+  let start = Moment.now()
   debug "Block received",
     signedBlock = shortLog(signedBlock.message),
     blockRoot = shortLog(signedBlock.root),
@@ -362,7 +366,8 @@ proc storeBlock(
   if blck.isErr:
     return err(blck.error)
 
-  ok()
+  beacon_store_block_duration_seconds.observe((Moment.now() - start).milliseconds.float64 / 1000)
+  return ok()
 
 proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) =
   # We received a block but don't know much about it yet - in particular, we
