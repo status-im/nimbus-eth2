@@ -7,29 +7,33 @@ The Nimbus beacon chain is a research implementation of the Beacon Chain – the
 - Open sourced at [github.com/status-im/nim-beacon-chain](https://github.com/status-im/nim-beacon-chain/tree/master)
 
 - Specification described at [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v0.12.2#phase-0)
-- [Annotated Specification](https://benjaminion.xyz/eth2-annotated-spec/phase0/beacon-chain/) 
 
-- [Become a Medalla validator](./medalla.md)
+
+### Further resources
+- [Ben Edgington's annotated spec](https://benjaminion.xyz/eth2-annotated-spec/phase0/beacon-chain/) 
+
+- [Vitalik's annotated spec](https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md)
+- [Danny Ryan's annotated spec](https://notes.ethereum.org/@djrtwo/Bkn3zpwxB)
+
 
 ## Overview
 
 In this book, we will cover:
 
-1. An introduction to the [beacon chain](./faq.md#1-what-is-beacon-chain) and [Nimbus](./faq.md#4-what-is-nimbus) to equip you with some basic knowledge.
-2. [Installation steps](./install.md) outlining the prerequisites to get started.
-3. [Become a Medalla validator](./medalla.md): If you generated your signing key using the eth2 launchpad, and wish to import it into the Nimbus client, this page is for you.
-3. How to [run the beacon node](./beacon_node.md) software to sync the beacon chain.
-4. How to generate keys, deposit, and [become a validator](./validator.md) in eth2.
-5. The [API](./api.md) for monitoring your node through `http`.
-6. [Advanced usage](./advanced.md) for developers.
-7. Common [questions and answers](./faq.md) to satisfy your curiosity.
-8. How to [contribute](./contribute.md) to this book.
+1. An introduction to the [beacon chain](./faq.md#1-what-is-beacon-chain) and [Nimbus](./faq.md#4-what-is-nimbus) to equip you with some basic knowledge
+2. [Installation steps](./install.md) outlining the prerequisites to get started
+3. How to [become a Medalla validator](./medalla.md)
+3. How to [run the beacon node](./beacon_node.md) software to sync the beacon chain
+4. How to generate keys, deposit, and [become a validator](./validator.md) in eth2
+5. The [API](./api.md) for monitoring your node through `http`
+6. [Advanced usage](./advanced.md) for developers
+7. Common [questions and answers](./faq.md) to satisfy your curiosity
+8. How to [contribute](./contribute.md) to this book
 
-Feel free to give us feedback on how to improve :)
 
 ## Get in touch
 
-Need help with anything? Join us using [Status](https://join.status.im/nimbus-general) or [Discord](https://discord.gg/9dWwPnG)!
+Need help with anything? Join us on [Status](https://join.status.im/nimbus-general) or [Discord](https://discord.gg/9dWwPnG)!
 
 
 ## Disclaimer
