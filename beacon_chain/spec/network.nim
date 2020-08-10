@@ -151,5 +151,5 @@ proc get_attestation_subnet_changes*(
       (nextEpochSubnets + stabilitySet) -
         (currentEpochSubnets + prevStabilitySubnet)
 
-  attestationSubnets.subscribedSubnets[epochParity] = nextEpochSubnets
+  attestationSubnets.subscribedSubnets[epochParity] = newSubnets
   (attestationSubnets, expiringSubnets, newSubnets)
