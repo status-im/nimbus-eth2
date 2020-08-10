@@ -66,6 +66,7 @@ type
     connTable: HashSet[PeerID]
     forkId: ENRForkID
     rng*: ref BrHmacDrbgContext
+    peers: Table[PeerID, Peer]
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
@@ -85,7 +86,6 @@ type
   Peer* = ref object
     network*: Eth2Node
     info*: PeerInfo
-    wasDialed*: bool
     discoveryId*: Eth2DiscoveryId
     connectionState*: ConnectionState
     protocolStates*: seq[RootRef]
@@ -93,6 +93,8 @@ type
     netThroughput: AverageThroughput
     score*: int
     lacksSnappy: bool
+    connections*: int
+    disconnectedFut: Future[void]
 
   PeerAddr* = object
     peerId*: PeerID
@@ -148,7 +150,7 @@ type
 
   PeerStateInitializer* = proc(peer: Peer): RootRef {.gcsafe.}
   NetworkStateInitializer* = proc(network: EthereumNode): RootRef {.gcsafe.}
-  OnPeerConnectedHandler* = proc(peer: Peer, conn: Connection): Future[void] {.gcsafe.}
+  OnPeerConnectedHandler* = proc(peer: Peer, incoming: bool): Future[void] {.gcsafe.}
   OnPeerDisconnectedHandler* = proc(peer: Peer): Future[void] {.gcsafe.}
   ThunkProc* = LPProtoHandler
   MounterProc* = proc(network: Eth2Node) {.gcsafe.}
@@ -295,10 +297,11 @@ proc openStream(node: Eth2Node,
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer {.gcsafe.}
 
 proc getPeer*(node: Eth2Node, peerId: PeerID): Peer {.gcsafe.} =
-  result = node.peerPool.getOrDefault(peerId)
-  if result == nil:
-    # TODO: We should register this peer in the pool!
-    result = Peer.init(node, PeerInfo.init(peerId))
+  node.peers.withValue(peerId, peer) do:
+    return peer[]
+  do:
+    let peer = Peer.init(node, PeerInfo.init(peerId))
+    return node.peers.mGetOrPut(peerId, peer)
 
 proc peerFromStream(network: Eth2Node, conn: Connection): Peer {.gcsafe.} =
   # TODO: Can this be `nil`?
@@ -308,7 +311,9 @@ proc getKey*(peer: Peer): PeerID {.inline.} =
   result = peer.info.peerId
 
 proc getFuture*(peer: Peer): Future[void] {.inline.} =
-  result = peer.info.lifeFuture()
+  if peer.disconnectedFut.isNil:
+    peer.disconnectedFut = newFuture[void]()
+  result = peer.disconnectedFut
 
 proc getScore*(a: Peer): int =
   ## Returns current score value for peer ``peer``.
@@ -390,7 +395,6 @@ proc disconnect*(peer: Peer, reason: DisconnectionReason,
       of FaultOrError:
         SeemTableTimeFaultOrError
     peer.network.addSeen(peer.info.peerId, seenTime)
-    peer.info.close()
 
 include eth/p2p/p2p_backends_helpers
 include eth/p2p/p2p_tracing
@@ -537,13 +541,12 @@ template send*[M](r: SingleChunkResponse[M], val: auto): untyped =
   doAssert UntypedResponse(r).writtenChunks == 0
   sendResponseChunkObj(UntypedResponse(r), val)
 
-proc performProtocolHandshakes*(peer: Peer) {.async.} =
-  var subProtocolsHandshakes = newSeqOfCap[Future[void]](allProtocols.len)
+proc performProtocolHandshakes*(peer: Peer, incoming: bool) {.async.} =
+  # Loop down serially because it's easier to reason about the connection state
+  # when there are fewer async races, specially during setup
   for protocol in allProtocols:
     if protocol.onPeerConnected != nil:
-      subProtocolsHandshakes.add protocol.onPeerConnected(peer, nil)
-
-  await allFuturesThrowing(subProtocolsHandshakes)
+      await protocol.onPeerConnected(peer, incoming)
 
 proc initProtocol(name: string,
                   peerInit: PeerStateInitializer,
@@ -688,7 +691,7 @@ proc handleIncomingStream(network: Eth2Node,
   finally:
     await safeClose(conn)
 
-proc handleOutgoingPeer*(peer: Peer): Future[bool] {.async.} =
+proc handleOutgoingPeer(peer: Peer): Future[bool] {.async.} =
   let network = peer.network
 
   proc onPeerClosed(udata: pointer) {.gcsafe.} =
@@ -704,7 +707,7 @@ proc handleOutgoingPeer*(peer: Peer): Future[bool] {.async.} =
 
   nbc_peers.set int64(len(network.peerPool))
 
-proc handleIncomingPeer*(peer: Peer): Future[bool] {.async.} =
+proc handleIncomingPeer(peer: Peer): Future[bool] {.async.} =
   let network = peer.network
 
   proc onPeerClosed(udata: pointer) {.gcsafe.} =
@@ -754,17 +757,17 @@ proc dialPeer*(node: Eth2Node, peerAddr: PeerAddr) {.async.} =
   logScope: peer = peerAddr.peerId
 
   debug "Connecting to discovered peer"
+
+  # TODO connect is called here, but there's no guarantee that the connection
+  #      we get when using dialPeer later on is the one we just connected
+  let peer = node.getPeer(peerAddr.peerId)
+
   await node.switch.connect(peerAddr.peerId, peerAddr.addrs)
-  var peer = node.getPeer(peerAddr.peerId)
-  peer.wasDialed = true
 
   #let msDial = newMultistream()
   #let conn = node.switch.connections.getOrDefault(peerInfo.id)
   #let ls = await msDial.list(conn)
   #debug "Supported protocols", ls
-
-  debug "Initializing connection"
-  await performProtocolHandshakes(peer)
 
   inc nbc_successful_dials
   successfullyDialledAPeer = true
@@ -850,6 +853,50 @@ proc getPersistentNetMetadata*(conf: BeaconNodeConf): Eth2Metadata =
   else:
     result = Json.loadFile(metadataPath, Eth2Metadata)
 
+proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
+  let peer = node.getPeer(peerId)
+  case event.kind
+  of ConnEventKind.Connected:
+    inc peer.connections
+    debug "Peer upgraded", peer = peerId, connections = peer.connections
+
+    if peer.connections == 1:
+      # Libp2p may connect multiple times to the same peer - using different
+      # transports or both incoming and outgoing. For now, we'll count our
+      # "fist" encounter with the peer as the true connection, leaving the
+      # other connections be - libp2p limits the number of concurrent
+      # connections to the same peer, and only one of these connections will be
+      # active. Nonetheless, this quirk will cause a number of odd behaviours:
+      # * For peer limits, we might miscount the incoming vs outgoing quota
+      # * Protocol handshakes are wonky: we'll not necessarily use the newly
+      #   connected transport - instead we'll just pick a random one!
+      await performProtocolHandshakes(peer, event.incoming)
+
+      # While performing the handshake, the peer might have been disconnected -
+      # there's still a slim chance of a race condition here if a reconnect
+      # happens quickly
+      if peer.connections == 1:
+
+        # TODO when the pool is full, adding it will block - this means peers
+        #      will be left in limbo until some other peer makes room for it
+        let added = if event.incoming:
+          await handleIncomingPeer(peer)
+        else:
+          await handleOutgoingPeer(peer)
+
+        if not added:
+          # We must have hit a limit!
+          await peer.disconnect(FaultOrError)
+
+  of ConnEventKind.Disconnected:
+    dec peer.connections
+    debug "Peer disconnected", peer = peerId, connections = peer.connections
+    if peer.connections == 0:
+      let fut = peer.disconnectedFut
+      if fut != nil:
+        peer.disconnectedFut = nil
+        fut.complete()
+
 proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
            switch: Switch, ip: Option[ValidIpAddress], tcpPort, udpPort: Port,
            privKey: keys.PrivateKey, rng: ref BrHmacDrbgContext): T =
@@ -878,11 +925,15 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
       if msg.protocolMounter != nil:
         msg.protocolMounter result
 
+  let node = result
+  proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
+    onConnEvent(node, peerId, event)
+
+  switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
+  switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
+
 template publicKey*(node: Eth2Node): keys.PublicKey =
   node.discovery.privKey.toPublicKey
-
-template addKnownPeer*(node: Eth2Node, peer: enr.Record) =
-  node.discovery.addNode peer
 
 proc startListening*(node: Eth2Node) {.async.} =
   node.discovery.open()
@@ -955,9 +1006,6 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   result.setEventHandlers = bindSym "setEventHandlers"
   result.SerializationFormat = Format
   result.RequestResultsWrapper = ident "NetRes"
-
-  result.afterProtocolInit = proc (p: P2PProtocol) =
-    p.onPeerConnected.params.add newIdentDefs(streamVar, Connection)
 
   result.implementMsg = proc (msg: p2p_protocol_dsl.Message) =
     if msg.kind == msgResponse:
