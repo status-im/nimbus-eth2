@@ -11,7 +11,7 @@ import
   json_serialization, json_serialization/std/[net, options],
   chronos, chronicles, metrics,
   # TODO: create simpler to use libp2p modules that use re-exports
-  libp2p/[switch, standard_setup, peerinfo, errors,
+  libp2p/[switch, standard_setup, peerinfo,
           multiaddress, multicodec, crypto/crypto, crypto/secp,
           protocols/identify, protocols/protocol],
   libp2p/protocols/secure/[secure, secio],
@@ -92,7 +92,6 @@ type
     maxInactivityAllowed*: Duration
     netThroughput: AverageThroughput
     score*: int
-    lacksSnappy: bool
     connections*: int
     disconnectedFut: Future[void]
 
@@ -110,7 +109,6 @@ type
   UntypedResponse = ref object
     peer*: Peer
     stream*: Connection
-    noSnappy*: bool
     writtenChunks*: int
 
   SingleChunkResponse*[MsgType] = distinct UntypedResponse
@@ -279,20 +277,17 @@ template remote*(peer: Peer): untyped =
 proc openStream(node: Eth2Node,
                 peer: Peer,
                 protocolId: string): Future[Connection] {.async.} =
-  let protocolId = protocolId & (if peer.lacksSnappy: "ssz" else: "ssz_snappy")
-  try:
-    result = await dial(node.switch, peer.info.peerId, peer.info.addrs, protocolId)
-  except CancelledError as exc:
-    raise exc
-  except CatchableError as exc:
-    # TODO: LibP2P should raise a more specific exception here
-    if peer.lacksSnappy == false:
-      peer.lacksSnappy = true
-      trace "Snappy connection failed. Trying without Snappy",
-            peer, protocolId
-      return await openStream(node, peer, protocolId)
-    else:
-      raise exc
+  let
+    protocolId = protocolId & "ssz_snappy"
+    conn = await dial(
+      node.switch, peer.info.peerId, peer.info.addrs, protocolId)
+
+  # libp2p may replace peerinfo ref sometimes, so make sure we have a recent
+  # one
+  if conn.peerInfo != nil:
+    peer.info = conn.peerInfo
+
+  return conn
 
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer {.gcsafe.}
 
@@ -303,7 +298,7 @@ proc getPeer*(node: Eth2Node, peerId: PeerID): Peer {.gcsafe.} =
     let peer = Peer.init(node, PeerInfo.init(peerId))
     return node.peers.mGetOrPut(peerId, peer)
 
-proc peerFromStream(network: Eth2Node, conn: Connection): Peer {.gcsafe.} =
+proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
   # TODO: Can this be `nil`?
   return network.getPeer(conn.peerInfo.peerId)
 
@@ -427,19 +422,14 @@ proc disconnectAndRaise(peer: Peer,
 
 proc writeChunk*(conn: Connection,
                  responseCode: Option[ResponseCode],
-                 payload: Bytes,
-                 noSnappy: bool) {.async.} =
+                 payload: Bytes) {.async.} =
   var output = memoryOutput()
 
   if responseCode.isSome:
     output.write byte(responseCode.get)
 
   output.write varintBytes(payload.lenu64)
-
-  if noSnappy:
-    output.write(payload)
-  else:
-    output.write(framingFormatCompress payload)
+  output.write(framingFormatCompress payload)
 
   await conn.write(output.getOutput)
 
@@ -458,12 +448,11 @@ proc formatErrorMsg(msg: ErrorMSg): string =
 
 proc sendErrorResponse(peer: Peer,
                        conn: Connection,
-                       noSnappy: bool,
                        responseCode: ResponseCode,
                        errMsg: ErrorMsg) {.async.} =
   debug "Error processing request",
     peer, responseCode, errMsg = formatErrorMsg(errMsg)
-  await conn.writeChunk(some responseCode, SSZ.encode(errMsg), noSnappy)
+  await conn.writeChunk(some responseCode, SSZ.encode(errMsg))
 
 proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async} =
   var
@@ -478,28 +467,26 @@ proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.
 
   let stream = streamFut.read
   try:
-    await stream.writeChunk(none ResponseCode, requestBytes, peer.lacksSnappy)
+    await stream.writeChunk(none ResponseCode, requestBytes)
   finally:
     await safeClose(stream)
 
 proc sendResponseChunkBytes(response: UntypedResponse, payload: Bytes) {.async.} =
   inc response.writtenChunks
-  await response.stream.writeChunk(some Success, payload, response.noSnappy)
+  await response.stream.writeChunk(some Success, payload)
 
 proc sendResponseChunkObj(response: UntypedResponse, val: auto) {.async.} =
   inc response.writtenChunks
-  await response.stream.writeChunk(some Success, SSZ.encode(val), response.noSnappy)
+  await response.stream.writeChunk(some Success, SSZ.encode(val))
 
 template sendUserHandlerResultAsChunkImpl*(stream: Connection,
-                                           noSnappy: bool,
                                            handlerResultFut: Future): untyped =
   let handlerRes = await handlerResultFut
-  writeChunk(stream, some Success, SSZ.encode(handlerRes), noSnappy)
+  writeChunk(stream, some Success, SSZ.encode(handlerRes))
 
 template sendUserHandlerResultAsChunkImpl*(stream: Connection,
-                                           noSnappy: bool,
                                            handlerResult: auto): untyped =
-  writeChunk(stream, some Success, SSZ.encode(handlerResult), noSnappy)
+  writeChunk(stream, some Success, SSZ.encode(handlerResult))
 
 when useNativeSnappy:
   include faststreams_backend
@@ -516,23 +503,23 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
                                 deadline): return neterr StreamOpenTimeout
   try:
     # Send the request
-    await stream.writeChunk(none ResponseCode, requestBytes, peer.lacksSnappy)
+    await stream.writeChunk(none ResponseCode, requestBytes)
 
     # Read the response
     return awaitWithTimeout(
       readResponse(when useNativeSnappy: libp2pInput(stream) else: stream,
-                   peer.lacksSnappy, peer, ResponseMsg),
+                   peer, ResponseMsg),
       deadline, neterr(ReadResponseTimeout))
   finally:
     await safeClose(stream)
 
 proc init*[MsgType](T: type MultipleChunksResponse[MsgType],
-                    peer: Peer, conn: Connection, noSnappy: bool): T =
-  T(UntypedResponse(peer: peer, stream: conn, noSnappy: noSnappy))
+                    peer: Peer, conn: Connection): T =
+  T(UntypedResponse(peer: peer, stream: conn))
 
 proc init*[MsgType](T: type SingleChunkResponse[MsgType],
-                    peer: Peer, conn: Connection, noSnappy: bool): T =
-  T(UntypedResponse(peer: peer, stream: conn, noSnappy: noSnappy))
+                    peer: Peer, conn: Connection): T =
+  T(UntypedResponse(peer: peer, stream: conn))
 
 template write*[M](r: MultipleChunksResponse[M], val: auto): untyped =
   sendResponseChunkObj(UntypedResponse(r), val)
@@ -592,7 +579,6 @@ proc implementSendProcBody(sendProc: SendProc) =
 
 proc handleIncomingStream(network: Eth2Node,
                           conn: Connection,
-                          noSnappy: bool,
                           MsgType: type) {.async, gcsafe.} =
   mixin callUserHandler, RecType
 
@@ -616,7 +602,7 @@ proc handleIncomingStream(network: Eth2Node,
     peer.info = conn.peerInfo
 
     template returnInvalidRequest(msg: ErrorMsg) =
-      await sendErrorResponse(peer, conn, noSnappy, InvalidRequest, msg)
+      await sendErrorResponse(peer, conn, InvalidRequest, msg)
       return
 
     template returnInvalidRequest(msg: string) =
@@ -637,7 +623,7 @@ proc handleIncomingStream(network: Eth2Node,
 
     let msg = if sizeof(MsgRec) > 0:
       try:
-        awaitWithTimeout(readChunkPayload(s, noSnappy, peer, MsgRec), deadline):
+        awaitWithTimeout(readChunkPayload(s, peer, MsgRec), deadline):
           returnInvalidRequest(errorMsgLit "Request full data not sent in time")
 
       except SerializationError as err:
@@ -675,14 +661,14 @@ proc handleIncomingStream(network: Eth2Node,
         of BrokenConnection:
           return
 
-      await sendErrorResponse(peer, conn, noSnappy, responseCode, errMsg)
+      await sendErrorResponse(peer, conn, responseCode, errMsg)
       return
 
     try:
       logReceivedMsg(peer, MsgType(msg.get))
-      await callUserHandler(MsgType, peer, conn, noSnappy, msg.get)
+      await callUserHandler(MsgType, peer, conn, msg.get)
     except CatchableError as err:
-      await sendErrorResponse(peer, conn, noSnappy, ServerError,
+      await sendErrorResponse(peer, conn, ServerError,
                               ErrorMsg err.msg.toBytes)
 
   except CatchableError as err:
@@ -992,7 +978,6 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     msgVar = ident "msg"
     networkVar = ident "network"
     callUserHandler = ident "callUserHandler"
-    noSnappyVar = ident "noSnappy"
     MSG = ident "MSG"
 
   p.useRequestIds = false
@@ -1044,7 +1029,6 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
         if msg.kind == msgRequest:
           userHandlerCall = newCall(ident"sendUserHandlerResultAsChunkImpl",
                                     streamVar,
-                                    noSnappyVar,
                                     userHandlerCall)
       else:
         if OutputParamType.kind == nnkVarTy:
@@ -1060,30 +1044,20 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
         userHandlerCall = newStmtList(
           newVarStmt(responseVar,
                      newCall(ident"init", OutputParamType,
-                                          peerVar, streamVar, noSnappyVar)),
+                                          peerVar, streamVar)),
           msg.genUserHandlerCall(msgVar, [peerVar], outputParam = responseVar))
 
     protocol.outRecvProcs.add quote do:
       template `callUserHandler`(`MSG`: type `MsgStrongRecName`,
                                  `peerVar`: `Peer`,
                                  `streamVar`: `Connection`,
-                                 `noSnappyVar`: bool,
                                  `msgVar`: `MsgRecName`): untyped =
         `userHandlerCall`
 
       proc `protocolMounterName`(`networkVar`: `Eth2Node`) =
-        proc sszThunk(`streamVar`: `Connection`,
-                      `protocolVar`: string): Future[void] {.gcsafe.} =
-          return handleIncomingStream(`networkVar`, `streamVar`, true,
-                                      `MsgStrongRecName`)
-
-        mount `networkVar`.switch,
-              LPProtocol(codec: `codecNameLit` & "ssz",
-                         handler: sszThunk)
-
         proc snappyThunk(`streamVar`: `Connection`,
                          `protocolVar`: string): Future[void] {.gcsafe.} =
-          return handleIncomingStream(`networkVar`, `streamVar`, false,
+          return handleIncomingStream(`networkVar`, `streamVar`,
                                       `MsgStrongRecName`)
 
         mount `networkVar`.switch,
