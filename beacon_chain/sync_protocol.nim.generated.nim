@@ -252,103 +252,69 @@ proc goodbyeUserHandler(peer: Peer; reason: uint64) {.async,
   debug "Received Goodbye message", reason = disconnectReasonName(reason), peer
 
 template callUserHandler(MSG: type statusObj; peer: Peer; stream: Connection;
-                        noSnappy: bool; msg: StatusMsg): untyped =
-  var response = init(SingleChunkResponse[StatusMsg], peer, stream, noSnappy)
+                        msg: StatusMsg): untyped =
+  var response = init(SingleChunkResponse[StatusMsg], peer, stream)
   statusUserHandler(peer, msg, response)
 
 proc statusMounter(network: Eth2Node) =
-  proc sszThunk(stream: Connection; protocol: string): Future[void] {.gcsafe.} =
-    return handleIncomingStream(network, stream, true, statusObj)
-
-  mount network.switch, LPProtocol(codec: "/eth2/beacon_chain/req/status/1/" &
-      "ssz", handler: sszThunk)
   proc snappyThunk(stream: Connection; protocol: string): Future[void] {.gcsafe.} =
-    return handleIncomingStream(network, stream, false, statusObj)
+    return handleIncomingStream(network, stream, statusObj)
 
   mount network.switch, LPProtocol(codec: "/eth2/beacon_chain/req/status/1/" &
       "ssz_snappy", handler: snappyThunk)
 
-template callUserHandler(MSG: type pingObj; peer: Peer; stream: Connection;
-                        noSnappy: bool; msg: uint64): untyped =
-  sendUserHandlerResultAsChunkImpl(stream, noSnappy, pingUserHandler(peer, msg))
+template callUserHandler(MSG: type pingObj; peer: Peer; stream: Connection; msg: uint64): untyped =
+  sendUserHandlerResultAsChunkImpl(stream, pingUserHandler(peer, msg))
 
 proc pingMounter(network: Eth2Node) =
-  proc sszThunk(stream: Connection; protocol: string): Future[void] {.gcsafe.} =
-    return handleIncomingStream(network, stream, true, pingObj)
-
-  mount network.switch, LPProtocol(codec: "/eth2/beacon_chain/req/ping/1/" & "ssz",
-                                 handler: sszThunk)
   proc snappyThunk(stream: Connection; protocol: string): Future[void] {.gcsafe.} =
-    return handleIncomingStream(network, stream, false, pingObj)
+    return handleIncomingStream(network, stream, pingObj)
 
   mount network.switch, LPProtocol(codec: "/eth2/beacon_chain/req/ping/1/" &
       "ssz_snappy", handler: snappyThunk)
 
 template callUserHandler(MSG: type getMetadataObj; peer: Peer; stream: Connection;
-                        noSnappy: bool; msg: getMetadataObj): untyped =
-  sendUserHandlerResultAsChunkImpl(stream, noSnappy, getMetadataUserHandler(peer))
+                        msg: getMetadataObj): untyped =
+  sendUserHandlerResultAsChunkImpl(stream, getMetadataUserHandler(peer))
 
 proc getMetadataMounter(network: Eth2Node) =
-  proc sszThunk(stream: Connection; protocol: string): Future[void] {.gcsafe.} =
-    return handleIncomingStream(network, stream, true, getMetadataObj)
-
-  mount network.switch, LPProtocol(codec: "/eth2/beacon_chain/req/metadata/1/" &
-      "ssz", handler: sszThunk)
   proc snappyThunk(stream: Connection; protocol: string): Future[void] {.gcsafe.} =
-    return handleIncomingStream(network, stream, false, getMetadataObj)
+    return handleIncomingStream(network, stream, getMetadataObj)
 
   mount network.switch, LPProtocol(codec: "/eth2/beacon_chain/req/metadata/1/" &
       "ssz_snappy", handler: snappyThunk)
 
 template callUserHandler(MSG: type beaconBlocksByRangeObj; peer: Peer;
-                        stream: Connection; noSnappy: bool;
-                        msg: beaconBlocksByRangeObj): untyped =
-  var response = init(MultipleChunksResponse[SignedBeaconBlock], peer, stream,
-                   noSnappy)
+                        stream: Connection; msg: beaconBlocksByRangeObj): untyped =
+  var response = init(MultipleChunksResponse[SignedBeaconBlock], peer, stream)
   beaconBlocksByRangeUserHandler(peer, msg.startSlot, msg.count, msg.step, response)
 
 proc beaconBlocksByRangeMounter(network: Eth2Node) =
-  proc sszThunk(stream: Connection; protocol: string): Future[void] {.gcsafe.} =
-    return handleIncomingStream(network, stream, true, beaconBlocksByRangeObj)
-
-  mount network.switch, LPProtocol(codec: "/eth2/beacon_chain/req/beacon_blocks_by_range/1/" &
-      "ssz", handler: sszThunk)
   proc snappyThunk(stream: Connection; protocol: string): Future[void] {.gcsafe.} =
-    return handleIncomingStream(network, stream, false, beaconBlocksByRangeObj)
+    return handleIncomingStream(network, stream, beaconBlocksByRangeObj)
 
   mount network.switch, LPProtocol(codec: "/eth2/beacon_chain/req/beacon_blocks_by_range/1/" &
       "ssz_snappy", handler: snappyThunk)
 
 template callUserHandler(MSG: type beaconBlocksByRootObj; peer: Peer;
-                        stream: Connection; noSnappy: bool; msg: BlockRootsList): untyped =
-  var response = init(MultipleChunksResponse[SignedBeaconBlock], peer, stream,
-                   noSnappy)
+                        stream: Connection; msg: BlockRootsList): untyped =
+  var response = init(MultipleChunksResponse[SignedBeaconBlock], peer, stream)
   beaconBlocksByRootUserHandler(peer, msg, response)
 
 proc beaconBlocksByRootMounter(network: Eth2Node) =
-  proc sszThunk(stream: Connection; protocol: string): Future[void] {.gcsafe.} =
-    return handleIncomingStream(network, stream, true, beaconBlocksByRootObj)
-
-  mount network.switch, LPProtocol(codec: "/eth2/beacon_chain/req/beacon_blocks_by_root/1/" &
-      "ssz", handler: sszThunk)
   proc snappyThunk(stream: Connection; protocol: string): Future[void] {.gcsafe.} =
-    return handleIncomingStream(network, stream, false, beaconBlocksByRootObj)
+    return handleIncomingStream(network, stream, beaconBlocksByRootObj)
 
   mount network.switch, LPProtocol(codec: "/eth2/beacon_chain/req/beacon_blocks_by_root/1/" &
       "ssz_snappy", handler: snappyThunk)
 
 template callUserHandler(MSG: type goodbyeObj; peer: Peer; stream: Connection;
-                        noSnappy: bool; msg: uint64): untyped =
+                        msg: uint64): untyped =
   goodbyeUserHandler(peer, msg)
 
 proc goodbyeMounter(network: Eth2Node) =
-  proc sszThunk(stream: Connection; protocol: string): Future[void] {.gcsafe.} =
-    return handleIncomingStream(network, stream, true, goodbyeObj)
-
-  mount network.switch, LPProtocol(codec: "/eth2/beacon_chain/req/goodbye/1/" &
-      "ssz", handler: sszThunk)
   proc snappyThunk(stream: Connection; protocol: string): Future[void] {.gcsafe.} =
-    return handleIncomingStream(network, stream, false, goodbyeObj)
+    return handleIncomingStream(network, stream, goodbyeObj)
 
   mount network.switch, LPProtocol(codec: "/eth2/beacon_chain/req/goodbye/1/" &
       "ssz_snappy", handler: snappyThunk)
