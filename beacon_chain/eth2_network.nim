@@ -1,6 +1,6 @@
 import
   # Std lib
-  std/[typetraits, strutils, os, random, algorithm, sequtils, math, sets],
+  std/[typetraits, strutils, os, algorithm, sequtils, math, sets],
   std/options as stdOptions,
 
   # Status libs
@@ -1247,13 +1247,3 @@ proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
     data = snappy.encode(SSZ.encode(msg))
   var futSnappy = node.switch.publish(topic & "_snappy", data, 1.minutes)
   traceMessage(futSnappy, gossipId(data))
-
-# TODO:
-# At the moment, this is just a compatiblity shim for the existing RLPx functionality.
-# The filtering is not implemented properly yet.
-iterator randomPeers*(node: Eth2Node, maxPeers: int, Protocol: type): Peer =
-  var peers = newSeq[Peer]()
-  for _, peer in pairs(node.peers): peers.add peer
-  shuffle peers
-  if peers.len > maxPeers: peers.setLen(maxPeers)
-  for p in peers: yield p
