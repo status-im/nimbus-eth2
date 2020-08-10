@@ -211,6 +211,13 @@ medalla-vc: | beacon_node validator_client
 		--rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) ))
 
 medalla-dev: | beacon_node
+	mkdir -p build/data/shared_medalla_$(NODE_ID)
+
+	scripts/make_prometheus_config.sh \
+		--nodes 1 \
+		--base-metrics-port $$(($(BASE_METRICS_PORT) + $(NODE_ID))) \
+		--config-file "build/data/shared_medalla_$(NODE_ID)/prometheus.yml"
+
 	build/beacon_node \
 		--network=medalla \
 		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \

@@ -65,6 +65,9 @@ declareCounter beacon_blocks_received,
 declareGauge finalization_delay,
   "Epoch delay between scheduled epoch and finalized epoch"
 
+declareGauge ticks_delay,
+  "How long does to take to run the onSecond loop"
+
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
 declareHistogram beacon_attestation_received_seconds_from_slot_start,
@@ -538,23 +541,24 @@ proc handleMissingBlocks(node: BeaconNode) =
     info "Requesting detected missing blocks", blocks = shortLog(missingBlocks)
     node.requestManager.fetchAncestorBlocks(missingBlocks)
 
-proc onSecond(node: BeaconNode) {.async.} =
+proc onSecond(node: BeaconNode) =
   ## This procedure will be called once per second.
   if not(node.syncManager.inProgress):
     node.handleMissingBlocks()
 
 proc runOnSecondLoop(node: BeaconNode) {.async.} =
-  var sleepTime = chronos.seconds(1)
+  let sleepTime = chronos.seconds(1)
+  const nanosecondsIn1s = float(chronos.seconds(1).nanoseconds)
   while true:
-    await chronos.sleepAsync(sleepTime)
     let start = chronos.now(chronos.Moment)
-    await node.onSecond()
-    let finish = chronos.now(chronos.Moment)
-    debug "onSecond task completed", elapsed = $(finish - start)
-    if finish - start > chronos.seconds(1):
-      sleepTime = chronos.seconds(0)
-    else:
-      sleepTime = chronos.seconds(1) - (finish - start)
+    await chronos.sleepAsync(sleepTime)
+    let afterSleep = chronos.now(chronos.Moment)
+    let sleepTime = afterSleep - start
+    node.onSecond()
+    let finished = chronos.now(chronos.Moment)
+    let processingTime = finished - afterSleep
+    ticks_delay.set(sleepTime.nanoseconds.float / nanosecondsIn1s)
+    debug "onSecond task completed", sleepTime, processingTime
 
 proc runForwardSyncLoop(node: BeaconNode) {.async.} =
   func getLocalHeadSlot(): Slot =
