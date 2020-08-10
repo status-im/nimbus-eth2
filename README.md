@@ -44,7 +44,9 @@ Nimbus beacon chain is a research implementation of the beacon chain component o
 
 ## Documentation
 
-You can find complete information about running a beacon node and operating as a validator in [The Book](https://status-im.github.io/nim-beacon-chain/).
+You can find the information you need to run a beacon node and operate as a validator in [The Book](https://status-im.github.io/nim-beacon-chain/).
+
+See [this page](https://status-im.github.io/nim-beacon-chain/medalla.html) for how to become a validator on Medalla.
 
 ## Related projects
 
