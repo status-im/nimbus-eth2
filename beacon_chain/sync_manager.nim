@@ -587,6 +587,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            getLocalHeadSlotCb: GetSlotCallback,
                            getLocalWallSlotCb: GetSlotCallback,
                            getFinalizedSlotCb: GetSlotCallback,
+                           outputQueue: AsyncQueue[SyncBlock],
                            maxWorkers = 10,
                            maxStatusAge = uint64(SLOTS_PER_EPOCH * 4),
                            maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
@@ -594,11 +595,8 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                                         int(SECONDS_PER_SLOT)).seconds,
                            chunkSize = uint64(SLOTS_PER_EPOCH),
                            toleranceValue = uint64(1),
-                           maxRecurringFailures = 3,
-                           outputQueueSize = 1,
+                           maxRecurringFailures = 3
                            ): SyncManager[A, B] =
-
-  var outputQueue = newAsyncQueue[SyncBlock](outputQueueSize)
 
   let queue = SyncQueue.init(A, getFinalizedSlotCb(), getLocalWallSlotCb(),
                              chunkSize, getFinalizedSlotCb, outputQueue, 1)
@@ -981,10 +979,6 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
 proc start*[A, B](man: SyncManager[A, B]) =
   ## Starts SyncManager's main loop.
   man.syncFut = man.syncLoop()
-
-proc getBlock*[A, B](man: SyncManager[A, B]): Future[SyncBlock] =
-  ## Get the block that was received during synchronization.
-  man.outQueue.popFirst()
 
 proc done*(blk: SyncBlock) =
   ## Send signal to SyncManager that the block ``blk`` has passed
