@@ -152,7 +152,7 @@ GOERLI_TESTNETS_PARAMS := \
   --rpc \
   --rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) ))
 
-eth2_network_simulation: | clean_eth2_network_simulation_data
+eth2_network_simulation: | build deps clean_eth2_network_simulation_all
 	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start-in-tmux.sh
 	killall prometheus &>/dev/null
 
