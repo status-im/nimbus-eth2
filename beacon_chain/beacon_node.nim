@@ -559,7 +559,7 @@ proc runOnSecondLoop(node: BeaconNode) {.async.} =
 proc importBlock(node: BeaconNode,
                  sblock: SignedBeaconBlock): Result[void, BlockError] =
   let sm1 = now(chronos.Moment)
-  let res = node.storeBlock(sblock.blk)
+  let res = node.storeBlock(sblock)
   let em1 = now(chronos.Moment)
   if res.isOk() or (res.error() in {BlockError.Duplicate, BlockError.Old}):
     let sm2 = now(chronos.Moment)
