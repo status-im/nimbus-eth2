@@ -31,7 +31,9 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
 
   let tmpState = newClone(chainDag.headState)
   chainDag.withState(tmpState[], chainDag.finalizedHead):
-    var forkChoice = initForkChoice(tmpState[]).get()
+    var cache = StateCache()
+    var forkChoice = initForkChoice(
+      tmpState[], getEpochInfo(chainDag.finalizedHead.blck, state, cache)).get()
 
   # Feed fork choice with unfinalized history - during startup, block pool only
   # keeps track of a single history so we just need to follow it

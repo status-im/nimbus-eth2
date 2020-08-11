@@ -125,10 +125,6 @@ type
       ## Cached state used during block clearance - should only be used in the
       ## clearance module to avoid the risk of modifying it in a callback
 
-    balanceState*: StateData ##\
-      ## Cached state for fork choice balance processing - should be replaced
-      ## with a light-weight cache of balances only
-
     updateFlags*: UpdateFlags
 
     runtimePreset*: RuntimePreset
@@ -144,6 +140,9 @@ type
     # instances - in particular, validators keep their keys and locations in the
     # validator list in each particular history.
     validator_key_store*: (Eth2Digest, ref seq[ValidatorPubKey])
+
+    # balances, as used in fork choice
+    effective_balances*: seq[Gwei]
 
   BlockRef* = ref object
     ## Node in object graph guaranteed to lead back to tail block, and to have
