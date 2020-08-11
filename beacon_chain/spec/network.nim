@@ -92,7 +92,7 @@ func getAttestationTopic*(forkDigest: ForkDigest,
       get_committee_count_per_slot(num_active_validators),
       attestation.data.slot, attestation.data.index.CommitteeIndex))
 
-func get_committee_assignments*(
+func get_committee_assignments(
     state: BeaconState, epoch: Epoch,
     validator_indices: HashSet[ValidatorIndex]):
     seq[tuple[subnetIndex: uint64, slot: Slot]] =
