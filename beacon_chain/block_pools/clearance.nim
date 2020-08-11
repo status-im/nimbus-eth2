@@ -54,6 +54,9 @@ proc addResolvedBlock(
     blockRoot = signedBlock.root
     blockRef = BlockRef.init(blockRoot, signedBlock.message)
     blockEpoch = blockRef.slot.compute_epoch_at_slot()
+
+  link(parent, blockRef)
+
   if parent.slot.compute_epoch_at_slot() == blockEpoch:
     # If the parent and child blocks are from the same epoch, we can reuse
     # the epoch cache - but we'll only use the current epoch because the new
@@ -62,8 +65,6 @@ proc addResolvedBlock(
   else:
     # Ensure we collect the epoch info if it's missing
     discard getEpochInfo(blockRef, state.data, cache)
-
-  link(parent, blockRef)
 
   dag.blocks[blockRoot] = blockRef
   trace "Populating block dag", key = blockRoot, val = blockRef

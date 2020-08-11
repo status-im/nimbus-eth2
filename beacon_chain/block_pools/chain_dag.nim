@@ -61,7 +61,7 @@ func parent*(bs: BlockSlot): BlockSlot =
       slot: bs.slot - 1
     )
 
-proc init*(T: type EpochRef, state: BeaconState, cache: var StateCache): T =
+proc init*(T: type EpochRef, state: BeaconState, cache: var StateCache, prevEpoch: EpochRef): T =
   let
     epoch = state.get_current_epoch()
     epochRef = EpochRef(
@@ -77,7 +77,17 @@ proc init*(T: type EpochRef, state: BeaconState, cache: var StateCache): T =
       epochRef.beacon_proposers[i] =
         some((idx.get(), state.validators[idx.get].pubkey))
 
-  epochRef.validator_keys = mapIt(state.validators.toSeq, it.pubkey)
+  if prevEpoch != nil and
+      (prevEpoch.validator_key_store[0] == hash_tree_root(state.validators)):
+    # Validator sets typically don't change between epochs - a more efficient
+    # scheme could be devised where parts of the validator key set is reused
+    # between epochs because in a single history, the validator set only
+    # grows - this however is a trivially implementable compromise.
+    epochRef.validator_key_store = prevEpoch.validator_key_store
+  else:
+    epochRef.validator_key_store = (
+      hash_tree_root(state.validators),
+      newClone(mapIt(state.validators.toSeq, it.pubkey)))
   epochRef
 
 func link*(parent, child: BlockRef) =
@@ -153,7 +163,21 @@ proc getEpochInfo*(blck: BlockRef, state: BeaconState, cache: var StateCache): E
     matching_epochinfo = blck.epochsInfo.filterIt(it.epoch == state_epoch)
 
   if matching_epochinfo.len == 0:
-    let epochInfo = EpochRef.init(state, cache)
+    # When creating an epochref, we can somtimes reuse some of the information
+    # from an earlier epoch in the same history - if we're processing slots
+    # only, the epochref of an earlier slot of the same block will be the most
+    # similar
+
+    var prevEpochRefs = blck.epochsInfo.filterIt(it.epoch < state_epoch)
+    var prevEpochRef: EpochRef = nil # nil ok
+    if prevEpochRefs.len > 0:
+      prevEpochRef = prevEpochRefs[^1]
+    elif state_epoch > 0:
+      let parent = blck.atEpochEnd((state_epoch - 1))
+      if parent.blck != nil and parent.blck.epochsInfo.len > 0:
+        prevEpochRef = parent.blck.epochsInfo[0]
+
+    let epochInfo = EpochRef.init(state, cache, prevEpochRef)
 
     # Don't use BlockRef caching as far as the epoch where the active
     # validator indices can diverge.
