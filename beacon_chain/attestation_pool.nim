@@ -283,6 +283,9 @@ proc getAttestationsForBlock*(pool: AttestationPool,
         signature: a.validations[0].aggregate_signature
       )
 
+      agg {.noInit.}: AggregateSignature
+    agg.init(a.validations[0].aggregate_signature)
+
     # TODO what's going on here is that when producing a block, we need to
     #      include only such attestations that will not cause block validation
     #      to fail. How this interacts with voting and the acceptance of
@@ -308,8 +311,9 @@ proc getAttestationsForBlock*(pool: AttestationPool,
       #      one new attestation in there
       if not attestation.aggregation_bits.overlaps(v.aggregation_bits):
         attestation.aggregation_bits.combine(v.aggregation_bits)
-        attestation.signature.aggregate(v.aggregate_signature)
+        agg.aggregate(v.aggregate_signature)
 
+    attestation.signature = agg.finish()
     result.add(attestation)
 
     if result.lenu64 >= MAX_ATTESTATIONS:

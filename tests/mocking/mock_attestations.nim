@@ -63,6 +63,7 @@ proc signMockAttestation*(state: BeaconState, attestation: var Attestation) =
     cache
   )
 
+  var agg {.noInit.}: AggregateSignature
   var first_iter = true # Can't do while loop on hashset
   for validator_index in participants:
     let sig = get_attestation_signature(
@@ -70,10 +71,14 @@ proc signMockAttestation*(state: BeaconState, attestation: var Attestation) =
       MockPrivKeys[validator_index]
     )
     if first_iter:
-      attestation.signature = sig
+      agg.init(sig)
       first_iter = false
     else:
-      aggregate(attestation.signature, sig)
+      agg.aggregate(sig)
+
+  if first_iter != true:
+    attestation.signature = agg.finish()
+    # Otherwise no participants so zero sig
 
 proc mockAttestationImpl(
        state: BeaconState,
