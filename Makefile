@@ -162,14 +162,14 @@ clean-testnet0:
 clean-testnet1:
 	rm -rf build/data/testnet1*
 
-testnet0 testnet1: | beacon_node
+testnet0 testnet1: | beacon_node validator_client
 	build/beacon_node \
 		--network=$@ \
 		--log-level="$(LOG_LEVEL)" \
 		--data-dir=build/data/$@_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
-medalla: | beacon_node
+medalla: | beacon_node validator_client
 	mkdir -p build/data/shared_medalla_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
@@ -210,7 +210,7 @@ medalla-vc: | beacon_node validator_client
 		--data-dir=build/data/shared_medalla_$(NODE_ID) \
 		--rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) ))
 
-medalla-dev: | beacon_node
+medalla-dev: | beacon_node validator_client
 	mkdir -p build/data/shared_medalla_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
@@ -224,7 +224,7 @@ medalla-dev: | beacon_node
 		--data-dir=build/data/shared_medalla_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) --dump $(NODE_PARAMS)
 
-medalla-deposit-data: | beacon_node deposit_contract
+medalla-deposit-data: | beacon_node validator_client deposit_contract
 	build/beacon_node deposits create \
 		--network=medalla \
 		--new-wallet-file=build/data/shared_medalla_$(NODE_ID)/wallet.json \
@@ -233,7 +233,7 @@ medalla-deposit-data: | beacon_node deposit_contract
 		--out-deposits-file=medalla-deposits_data-$$(date +"%Y%m%d%H%M%S").json \
 		--count=$(VALIDATORS)
 
-medalla-deposit: | beacon_node deposit_contract
+medalla-deposit: | beacon_node validator_client deposit_contract
 	build/beacon_node deposits create \
 		--network=medalla \
 		--out-deposits-file=nbc-medalla-deposits.json \
@@ -252,7 +252,7 @@ medalla-deposit: | beacon_node deposit_contract
 clean-medalla:
 	rm -rf build/data/shared_medalla*
 
-altona: | beacon_node
+altona: | beacon_node validator_client
 	build/beacon_node \
 		--network=altona \
 		--log-level="$(LOG_LEVEL)" \
@@ -278,14 +278,14 @@ altona-vc: | beacon_node validator_client
 		--data-dir=build/data/shared_altona_$(NODE_ID) \
 		--rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) ))
 
-altona-dev: | beacon_node
+altona-dev: | beacon_node validator_client
 	build/beacon_node \
 		--network=altona \
 		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
 		--data-dir=build/data/shared_altona_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) --dump $(NODE_PARAMS)
 
-altona-deposit: | beacon_node deposit_contract
+altona-deposit: | beacon_node validator_client deposit_contract
 	build/beacon_node deposits create \
 		--network=altona \
 		--out-deposits-file=nbc-altona-deposits.json \

@@ -91,7 +91,7 @@ if [[ "$BUILD" == "1" ]]; then
   git pull
   # don't use too much RAM
   make update
-  make LOG_LEVEL="TRACE" NIMFLAGS="-d:insecure -d:testnet_servers_image --parallelBuild:1" beacon_node
+  make LOG_LEVEL="TRACE" NIMFLAGS="-d:insecure -d:testnet_servers_image --parallelBuild:1" beacon_node validator_client
 fi
 
 #######
