@@ -10,7 +10,7 @@
 import
   options, sequtils, unittest,
   ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[datatypes, digest, state_transition, presets],
+  ../beacon_chain/spec/[datatypes, digest, helpers, state_transition, presets],
   ../beacon_chain/[beacon_node_types, ssz],
   ../beacon_chain/block_pools/[chain_dag, quarantine, clearance]
 
@@ -132,6 +132,9 @@ suiteReport "Block pool processing" & preset():
       b2Add[].root == b2Get.get().refs.root
       dag.heads.len == 1
       dag.heads[0] == b2Add[]
+      # both should have the same epoch ref instance because they're from the
+      # same epoch
+      addr(b2Add[].epochsInfo[0][]) == addr(b1Add[].epochsInfo[0][])
 
     # Skip one slot to get a gap
     check:
@@ -147,8 +150,6 @@ suiteReport "Block pool processing" & preset():
     dag.updateHead(b4Add[])
 
     var blocks: array[3, BlockRef]
-
-
 
     check:
       dag.getBlockRange(Slot(0), 1, blocks.toOpenArray(0, 0)) == 0
@@ -325,6 +326,13 @@ suiteReport "chain DAG finalization tests" & preset():
     check:
       dag.heads.len() == 1
 
+      # Epochrefs should share validator key set when the validator set is
+      # stable
+      addr(dag.heads[0].epochsInfo[0].validator_key_store[1][]) ==
+        addr(dag.heads[0].atEpochEnd(
+          dag.heads[0].slot.compute_epoch_at_slot() - 1).
+            blck.epochsInfo[0].validator_key_store[1][])
+
     block:
       # The late block is a block whose parent was finalized long ago and thus
       # is no longer a viable head candidate
@@ -376,7 +384,7 @@ suiteReport "chain DAG finalization tests" & preset():
 
   #   let
   #     pool2 = BlockPool.init(db)
- 
+
   #   # check that the state reloaded from database resembles what we had before
   #   check:
   #     pool2.dag.tail.root == dag.tail.root

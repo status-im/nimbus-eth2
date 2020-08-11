@@ -140,10 +140,10 @@ type
     beacon_proposers*: array[
       SLOTS_PER_EPOCH, Option[(ValidatorIndex, ValidatorPubKey)]]
     shuffled_active_validator_indices*: seq[ValidatorIndex]
-    # This is an expensive cache that could probably be shared among epochref
+    # This is an expensive cache that is sometimes shared among epochref
     # instances - in particular, validators keep their keys and locations in the
-    # structure
-    validator_keys*: seq[ValidatorPubKey]
+    # validator list in each particular history.
+    validator_key_store*: (Eth2Digest, ref seq[ValidatorPubKey])
 
   BlockRef* = ref object
     ## Node in object graph guaranteed to lead back to tail block, and to have
@@ -192,6 +192,8 @@ type
   OnBlockAdded* = proc(
     blckRef: BlockRef, blck: SignedBeaconBlock,
     state: HashedBeaconState) {.raises: [Defect], gcsafe.}
+
+template validator_keys*(e: EpochRef): untyped = e.validator_key_store[1][]
 
 proc shortLog*(v: BlockSlot): string =
   if v.blck.slot == v.slot:
