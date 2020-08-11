@@ -43,11 +43,6 @@ proc signBlockProposal*(v: AttachedValidator, fork: Fork,
                         blockRoot: Eth2Digest): Future[ValidatorSig] {.async.} =
 
   if v.kind == inProcess:
-    # TODO this is an ugly hack to fake a delay and subsequent async reordering
-    #      for the purpose of testing the external validator delay - to be
-    #      replaced by something more sensible
-    await sleepAsync(chronos.milliseconds(1))
-
     result = get_block_signature(
       fork, genesis_validators_root, slot, blockRoot, v.privKey)
   else:
@@ -59,11 +54,6 @@ proc signAttestation*(v: AttachedValidator,
                       fork: Fork, genesis_validators_root: Eth2Digest):
                       Future[ValidatorSig] {.async.} =
   if v.kind == inProcess:
-    # TODO this is an ugly hack to fake a delay and subsequent async reordering
-    #      for the purpose of testing the external validator delay - to be
-    #      replaced by something more sensible
-    await sleepAsync(chronos.milliseconds(1))
-
     result = get_attestation_signature(
       fork, genesis_validators_root, attestation, v.privKey)
   else:
@@ -115,11 +105,6 @@ proc getSlotSig*(v: AttachedValidator, fork: Fork,
   let slot = state_slot - trailing_distance
 
   if v.kind == inProcess:
-    # TODO this is an ugly hack to fake a delay and subsequent async reordering
-    #      for the purpose of testing the external validator delay - to be
-    #      replaced by something more sensible
-    await sleepAsync(chronos.milliseconds(1))
-
     result = get_slot_signature(
       fork, genesis_validators_root, slot, v.privKey)
   else:

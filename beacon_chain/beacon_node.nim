@@ -320,12 +320,17 @@ proc init*(T: type BeaconNode,
       except:
         discard
 
-    waitFor res.rpcPushClient.connect($res.config.rpcPushAddress,
+    await res.rpcPushClient.connect($res.config.rpcPushAddress,
                                       Port(res.config.rpcPushPort))
+
+    waitFor sleepAsync(chronos.seconds(1)) # to avoid refused connections
 
     attemptUntilSuccess:
       info "fetching all remote keys", pushPort = $res.config.rpcPushPort
-      let keys = waitFor res.rpcPushClient.getAllValidatorPubkeys()
+      while true:
+        if await res.rpcPushClient.areAllKeysLoaded(): break
+        waitFor sleepAsync(chronos.seconds(1)) # 1 second before retrying
+      let keys = await res.rpcPushClient.getAllValidatorPubkeys()
       res.addRemoteValidators(keys)
 
   # This merely configures the BeaconSync
@@ -932,6 +937,8 @@ proc installAttestationHandlers(node: BeaconNode) =
 proc stop*(node: BeaconNode) =
   status = BeaconNodeStatus.Stopping
   info "Graceful shutdown"
+  if node.config.pushMode:
+    node.vcProcess.close()
   waitFor node.network.stop()
 
 proc run*(node: BeaconNode) =

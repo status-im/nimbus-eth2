@@ -6,6 +6,8 @@ import
   json_rpc/jsonmarshal,
   callsigs_types
 
+proc areAllKeysLoaded(): bool
+
 proc getAllValidatorPubkeys(): seq[ValidatorPubKey]
 
 proc signBlockProposal(pubkey: ValidatorPubKey,

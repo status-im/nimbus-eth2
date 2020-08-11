@@ -47,10 +47,14 @@ type
     attestationsForEpoch: Table[Epoch, Table[Slot, seq[AttesterDuties]]]
     beaconGenesis: BeaconGenesisTuple
     rpcPushServer: RpcServer
+    areAllKeysLoaded: bool
 
 proc installRpcHandlers(rpcPushServer: RpcServer, vc: ValidatorClient) =
   template toPrivKey(pubkey: ValidatorPubKey): ValidatorPrivKey =
     vc.attachedValidators.validators[pubkey].privKey
+
+  rpcPushServer.rpc("areAllKeysLoaded") do () -> bool:
+    return vc.areAllKeysLoaded
 
   rpcPushServer.rpc("getAllValidatorPubkeys") do () -> seq[ValidatorPubKey]:
     debug "Returning all pubkeys to the BN for the push model",
@@ -230,6 +234,13 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
   addTimer(nextSlotStart) do (p: pointer):
     asyncCheck vc.onSlotStart(slot, nextSlot)
 
+proc loadAllKeys(vc: ValidatorClient) {.async.} =
+  # load all the validators from the data dir into memory
+  for curr in vc.config.validatorKeys:
+    vc.attachedValidators.addLocalValidator(curr.toPubKey.initPubKey, curr)
+    await sleepAsync(chronos.milliseconds(1))
+  vc.areAllKeysLoaded = true
+
 programMain:
   let config = makeBannerAndConfig("Nimbus validator client v" & fullVersionStr, ValidatorClientConf)
 
@@ -240,23 +251,14 @@ programMain:
         cmdParams = commandLineParams(),
         config
 
-  var vc = ValidatorClient(
-    config: config,
-    client: newRpcHttpClient(),
-    rpcPushServer: RpcServer.init(config.rpcPushAddress, config.rpcPushPort),
-    graffitiBytes: if config.graffiti.isSome: config.graffiti.get.GraffitiBytes
-                    else: defaultGraffitiBytes())
-
-  # load all the validators from the data dir into memory
-  for curr in vc.config.validatorKeys:
-    vc.attachedValidators.addLocalValidator(curr.toPubKey.initPubKey, curr)
+  var vc = ValidatorClient(config: config, areAllKeysLoaded: false)
 
   case config.cmd
-  of pushMode:
-    vc.rpcPushServer.installRpcHandlers(vc)
-    vc.rpcPushServer.start()
-
   of VCNoCommand:
+    waitFor vc.loadAllKeys()
+    vc.client = newRpcHttpClient()
+    vc.graffitiBytes = if config.graffiti.isSome: config.graffiti.get.GraffitiBytes
+                       else: defaultGraffitiBytes()
     waitFor vc.client.connect($vc.config.rpcAddress, Port(vc.config.rpcPort))
     info "Connected to BN",
       port = vc.config.rpcPort,
@@ -282,5 +284,11 @@ programMain:
 
     addTimer(fromNow) do (p: pointer) {.gcsafe.}:
       asyncCheck vc.onSlotStart(curSlot, nextSlot)
+
+  of pushMode:
+    vc.rpcPushServer = RpcServer.init(config.rpcPushAddress, config.rpcPushPort)
+    vc.rpcPushServer.installRpcHandlers(vc)
+    vc.rpcPushServer.start()
+    waitFor vc.loadAllKeys() # load the keys after the server => connections are accepted
 
   runForever()
