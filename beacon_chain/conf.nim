@@ -32,6 +32,7 @@ type
 
   VCStartUpCmd* = enum
     VCNoCommand
+    pushMode
 
   Web3Url* = distinct string
 
@@ -204,6 +205,21 @@ type
         desc: "Listening address of the RPC server"
         name: "rpc-address" }: ValidIpAddress
 
+      pushMode* {.
+        defaultValue: true
+        desc: "Enable the push model (the beacon node tells the validator client what to do and when)"
+        name: "push-mode" }: bool
+
+      rpcPushPort* {.
+        defaultValue: defaultEth2RpcPort + 1
+        desc: "HTTP port of the client to connect to for RPC - used for remote signing in a push model (the beacon node tells the validator client what to do and when)"
+        name: "rpc-push-port" }: Port
+
+      rpcPushAddress* {.
+        defaultValue: defaultAdminListenAddress(config)
+        desc: "Address of the validator client to connect to for RPC - used for remote signing in a push model (the beacon node tells the validator client what to do and when)"
+        name: "rpc-push-address" }: ValidIpAddress
+
       dumpEnabled* {.
         defaultValue: false
         desc: "Write SSZ dumps of blocks, attestations and states to data dir"
@@ -351,9 +367,34 @@ type
       desc: "Do not display interative prompts. Quit on missing configuration"
       name: "non-interactive" }: bool
 
+    validators* {.
+      required
+      desc: "Attach a validator by supplying a keystore path"
+      abbr: "v"
+      name: "validator" }: seq[ValidatorKeyPath]
+
+    validatorsDirFlag* {.
+      desc: "A directory containing validator keystores"
+      name: "validators-dir" }: Option[InputDir]
+
+    secretsDirFlag* {.
+      desc: "A directory containing validator keystore passwords"
+      name: "secrets-dir" }: Option[InputDir]
+
     case cmd* {.
       command
       defaultValue: VCNoCommand }: VCStartUpCmd
+    
+    of pushMode:
+      rpcPushPort* {.
+        defaultValue: defaultEth2RpcPort + 1
+        desc: "HTTP port of the RPC server in the push model (the beacon node tells the validator client what to do and when)"
+        name: "rpc-push-port" }: Port
+
+      rpcPushAddress* {.
+        defaultValue: defaultAdminListenAddress(config)
+        desc: "Listening address of the RPC server in the push model (the beacon node tells the validator client what to do and when)"
+        name: "rpc-push-address" }: ValidIpAddress
 
     of VCNoCommand:
       graffiti* {.
@@ -363,27 +404,13 @@ type
 
       rpcPort* {.
         defaultValue: defaultEth2RpcPort
-        desc: "HTTP port of the server to connect to for RPC"
+        desc: "HTTP port of the server to connect to for RPC - for the validator duties in the pull model"
         name: "rpc-port" }: Port
 
       rpcAddress* {.
         defaultValue: defaultAdminListenAddress(config)
-        desc: "Address of the server to connect to for RPC"
+        desc: "Address of the server to connect to for RPC - for the validator duties in the pull model"
         name: "rpc-address" }: ValidIpAddress
-
-      validators* {.
-        required
-        desc: "Attach a validator by supplying a keystore path"
-        abbr: "v"
-        name: "validator" }: seq[ValidatorKeyPath]
-
-      validatorsDirFlag* {.
-        desc: "A directory containing validator keystores"
-        name: "validators-dir" }: Option[InputDir]
-
-      secretsDirFlag* {.
-        desc: "A directory containing validator keystore passwords"
-        name: "secrets-dir" }: Option[InputDir]
 
 proc defaultDataDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
   let dataDir = when defined(windows):

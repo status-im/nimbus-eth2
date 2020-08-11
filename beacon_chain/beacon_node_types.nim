@@ -3,6 +3,7 @@
 import
   deques, tables,
   stew/endians2,
+  json_rpc/rpcclient,
   spec/[datatypes, crypto, digest],
   block_pools/block_pools_types,
   fork_choice/fork_choice_types
@@ -80,6 +81,7 @@ type
     remote
 
   ValidatorConnection* = object
+    rpcPushClient*: RpcHttpClient
 
   AttachedValidator* = ref object
     pubKey*: ValidatorPubKey

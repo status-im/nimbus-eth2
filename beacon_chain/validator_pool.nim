@@ -1,8 +1,16 @@
 import
-  tables,
+  tables, strutils, std/os, json,
   chronos, chronicles,
   spec/[datatypes, crypto, digest, signatures, helpers],
-  beacon_node_types
+  beacon_node_types,
+  json_rpc/[rpcclient, jsonmarshal],
+  json_serialization/std/[sets, net],
+  eth2_json_rpc_serialization
+
+template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
+
+createRpcSigs(RpcClient, sourceDir / "spec" / "eth2_apis" /
+              "validator_push_model_callsigs.nim")
 
 func init*(T: type ValidatorPool): T =
   result.validators = initTable[ValidatorPubKey, AttachedValidator]()
@@ -17,8 +25,13 @@ proc addLocalValidator*(pool: var ValidatorPool,
                             kind: inProcess,
                             privKey: privKey)
   pool.validators[pubKey] = v
-
   info "Local validator attached", pubKey, validator = shortLog(v)
+
+proc addRemoteValidator*(pool: var ValidatorPool,
+                         pubKey: ValidatorPubKey,
+                         v: AttachedValidator) =
+  pool.validators[pubKey] = v
+  info "Remote validator attached", pubKey, validator = shortLog(v)
 
 proc getValidator*(pool: ValidatorPool,
                    validatorKey: ValidatorPubKey): AttachedValidator =
@@ -38,8 +51,8 @@ proc signBlockProposal*(v: AttachedValidator, fork: Fork,
     result = get_block_signature(
       fork, genesis_validators_root, slot, blockRoot, v.privKey)
   else:
-    error "Unimplemented"
-    quit 1
+    result = await v.connection.rpcPushClient.signBlockProposal(
+      v.pubKey, fork, genesis_validators_root, slot, blockRoot)
 
 proc signAttestation*(v: AttachedValidator,
                       attestation: AttestationData,
@@ -54,8 +67,8 @@ proc signAttestation*(v: AttachedValidator,
     result = get_attestation_signature(
       fork, genesis_validators_root, attestation, v.privKey)
   else:
-    error "Unimplemented"
-    quit 1
+    result = await v.connection.rpcPushClient.signAttestation(
+      v.pubKey, fork, genesis_validators_root, attestation)
 
 proc produceAndSignAttestation*(validator: AttachedValidator,
                                 attestationData: AttestationData,
@@ -72,13 +85,14 @@ proc produceAndSignAttestation*(validator: AttachedValidator,
 
 proc signAggregateAndProof*(v: AttachedValidator,
                             aggregate_and_proof: AggregateAndProof,
-                            fork: Fork, genesis_validators_root: Eth2Digest): ValidatorSig =
+                            fork: Fork, genesis_validators_root: Eth2Digest):
+                            Future[ValidatorSig] {.async.} =
   if v.kind == inProcess:
     result = get_aggregate_and_proof_signature(
       fork, genesis_validators_root, aggregate_and_proof, v.privKey)
   else:
-    error "Out of process signAggregateAndProof not implemented"
-    quit 1
+    result = await v.connection.rpcPushClient.signAggregateAndProof(
+      v.pubKey, fork, genesis_validators_root, aggregate_and_proof)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#randao-reveal
 func genRandaoReveal*(k: ValidatorPrivKey, fork: Fork,
@@ -86,6 +100,28 @@ func genRandaoReveal*(k: ValidatorPrivKey, fork: Fork,
   get_epoch_signature(
     fork, genesis_validators_root, slot.compute_epoch_at_slot, k)
 
-func genRandaoReveal*(v: AttachedValidator, fork: Fork,
-    genesis_validators_root: Eth2Digest, slot: Slot): ValidatorSig =
-  genRandaoReveal(v.privKey, fork, genesis_validators_root, slot)
+proc genRandaoReveal*(v: AttachedValidator, fork: Fork,
+                      genesis_validators_root: Eth2Digest, slot: Slot):
+                      Future[ValidatorSig] {.async.} =
+  if v.kind == inProcess:
+    return genRandaoReveal(v.privKey, fork, genesis_validators_root, slot)
+  else:
+    return await v.connection.rpcPushClient.genRandaoReveal(
+      v.pubKey, fork, genesis_validators_root, slot)
+
+proc getSlotSig*(v: AttachedValidator, fork: Fork,
+                 genesis_validators_root: Eth2Digest, state_slot: Slot,
+                 trailing_distance: uint64): Future[ValidatorSig] {.async.} =
+  let slot = state_slot - trailing_distance
+
+  if v.kind == inProcess:
+    # TODO this is an ugly hack to fake a delay and subsequent async reordering
+    #      for the purpose of testing the external validator delay - to be
+    #      replaced by something more sensible
+    await sleepAsync(chronos.milliseconds(1))
+
+    result = get_slot_signature(
+      fork, genesis_validators_root, slot, v.privKey)
+  else:
+    return await v.connection.rpcPushClient.getSlotSig(
+      v.pubKey, fork, genesis_validators_root, slot)

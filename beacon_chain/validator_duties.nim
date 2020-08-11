@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  os, tables, strutils,
+  os, tables, strutils, sequtils,
 
   # Nimble packages
   stew/[objects], stew/shims/macros,
@@ -41,24 +41,37 @@ proc saveValidatorKey*(keyName, key: string, conf: BeaconNodeConf) =
   writeFile(outputFile, key)
   info "Imported validator key", file = outputFile
 
-proc addLocalValidator*(node: BeaconNode,
-                        state: BeaconState,
-                        privKey: ValidatorPrivKey) =
-  let pubKey = privKey.toPubKey()
-
+proc checkValidatorInRegistry(state: BeaconState,
+                              pubKey: ValidatorPubKey) =
   let idx = state.validators.asSeq.findIt(it.pubKey == pubKey)
   if idx == -1:
     # We allow adding a validator even if its key is not in the state registry:
     # it might be that the deposit for this validator has not yet been processed
     warn "Validator not in registry (yet?)", pubKey
 
+proc addLocalValidator*(node: BeaconNode,
+                        state: BeaconState,
+                        privKey: ValidatorPrivKey) =
+  let pubKey = privKey.toPubKey()
+  state.checkValidatorInRegistry(pubKey)
   node.attachedValidators.addLocalValidator(pubKey, privKey)
 
 proc addLocalValidators*(node: BeaconNode) =
   for validatorKey in node.config.validatorKeys:
     node.addLocalValidator node.chainDag.headState.data.data, validatorKey
-
   info "Local validators attached ", count = node.attachedValidators.count
+
+# json_rpc/[rpcclient, rpcserver, jsonmarshal]
+
+proc addRemoteValidators*(node: BeaconNode, keys: seq[ValidatorPubKey]) =
+  for validatorKey in keys:
+    node.chainDag.headState.data.data.checkValidatorInRegistry(validatorKey)
+    let v = AttachedValidator(pubKey: validatorKey,
+                              kind: ValidatorKind.remote,
+                              connection: ValidatorConnection(
+                                rpcPushClient: node.rpcPushClient))
+    node.attachedValidators.addRemoteValidator(validatorKey, v)
+  info "Remote validators attached ", count = node.attachedValidators.count
 
 proc getAttachedValidator*(node: BeaconNode,
                            pubkey: ValidatorPubKey): AttachedValidator =
@@ -172,7 +185,8 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     graffiti: GraffitiBytes,
                                     head: BlockRef,
                                     slot: Slot):
-    tuple[message: Option[BeaconBlock], fork: Fork, genesis_validators_root: Eth2Digest] =
+    Future[tuple[message: Option[BeaconBlock], fork: Fork,
+                 genesis_validators_root: Eth2Digest]] {.async.} =
   # Advance state to the slot that we're proposing for - this is the equivalent
   # of running `process_slots` up to the slot of the new block.
   node.chainDag.withState(
@@ -189,9 +203,11 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
     # need for the discriminated union)... but we need the `state` from `withState`
     # in order to get the fork/root for the specific head/slot for the randao_reveal
     # and it's causing problems when the function becomes a generic for 2 types...
-    proc getRandaoReveal(val_info: ValidatorInfoForMakeBeaconBlock): ValidatorSig =
+    proc getRandaoReveal(val_info: ValidatorInfoForMakeBeaconBlock):
+        Future[ValidatorSig] {.async.} =
       if val_info.kind == viValidator:
-        return val_info.validator.genRandaoReveal(state.fork, state.genesis_validators_root, slot)
+        return await val_info.validator.genRandaoReveal(
+          state.fork, state.genesis_validators_root, slot)
       elif val_info.kind == viRandao_reveal:
         return val_info.randao_reveal
 
@@ -211,7 +227,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       hashedState,
       validator_index,
       head.root,
-      getRandaoReveal(val_info),
+      await getRandaoReveal(val_info),
       eth1data,
       graffiti,
       node.attestationPool.getAttestationsForBlock(state),
@@ -282,7 +298,8 @@ proc proposeBlock(node: BeaconNode,
     return head
 
   let valInfo = ValidatorInfoForMakeBeaconBlock(kind: viValidator, validator: validator)
-  let beaconBlockTuple = makeBeaconBlockForHeadAndSlot(node, valInfo, validator_index, node.graffitiBytes, head, slot)
+  let beaconBlockTuple = await makeBeaconBlockForHeadAndSlot(
+    node, valInfo, validator_index, node.graffitiBytes, head, slot)
   if not beaconBlockTuple.message.isSome():
     return head # already logged elsewhere!
   var
@@ -391,7 +408,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
 
 proc broadcastAggregatedAttestations(
     node: BeaconNode, aggregationHead: BlockRef, aggregationSlot: Slot,
-    trailing_distance: uint64) =
+    trailing_distance: uint64) {.async.} =
   # The index is via a
   # locally attested validator. Unlike in handleAttestations(...) there's a
   # single one at most per slot (because that's how aggregation attestation
@@ -406,6 +423,11 @@ proc broadcastAggregatedAttestations(
     let
       committees_per_slot =
         get_committee_count_per_slot(state, aggregationSlot.epoch, cache)
+    
+    var
+      slotSigs: seq[Future[ValidatorSig]] = @[]
+      slotSigsData: seq[tuple[committee_index: uint64, v: AttachedValidator]] = @[]
+      
     for committee_index in 0'u64..<committees_per_slot:
       let committee = get_beacon_committee(
         state, aggregationSlot, committee_index.CommitteeIndex, cache)
@@ -415,29 +437,34 @@ proc broadcastAggregatedAttestations(
         if validator != nil:
           # This is slightly strange/inverted control flow, since really it's
           # going to happen once per slot, but this is the best way to get at
-          # the validator index and private key pair. TODO verify it only has
-          # one isSome() with test.
-          let aggregateAndProof =
-            aggregate_attestations(node.attestationPool, state,
-              committee_index.CommitteeIndex,
-              # TODO https://github.com/status-im/nim-beacon-chain/issues/545
-              # this assumes in-process private keys
-              validator.privKey,
-              trailing_distance, cache)
+          # the validator index and private key pair.
+          slotSigs.add getSlotSig(validator, state.fork,
+            state.genesis_validators_root, state.slot, trailing_distance)
+          slotSigsData.add (committee_index, validator)
+          # TODO https://github.com/status-im/nim-beacon-chain/issues/545
 
-          # Don't broadcast when, e.g., this node isn't an aggregator
-          if aggregateAndProof.isSome:
-            var signedAP = SignedAggregateAndProof(
-              message: aggregateAndProof.get,
-              # TODO Make the signing async here
-              signature: validator.signAggregateAndProof(
-                aggregateAndProof.get, state.fork,
-                state.genesis_validators_root))
+    await allFutures(slotSigs)
 
-            node.network.broadcast(node.topicAggregateAndProofs, signedAP)
-            info "Aggregated attestation sent",
-              attestation = shortLog(signedAP.message.aggregate),
-              validator = shortLog(validator)
+    for curr in zip(slotSigsData, slotSigs):
+      let aggregateAndProof =
+        aggregate_attestations(node.attestationPool, state,
+                               curr[0].committee_index.CommitteeIndex,
+                               curr[1].read, trailing_distance, cache)
+
+      # Don't broadcast when, e.g., this node isn't an aggregator
+      # TODO verify there is only one isSome() with test.
+      if aggregateAndProof.isSome:
+        let sig = await signAggregateAndProof(curr[0].v, 
+          aggregateAndProof.get, state.fork,
+          state.genesis_validators_root)
+        var signedAP = SignedAggregateAndProof(
+          message: aggregateAndProof.get,
+          # TODO Make the signing async here
+          signature: sig)
+        node.network.broadcast(node.topicAggregateAndProofs, signedAP)
+        info "Aggregated attestation sent",
+          attestation = shortLog(signedAP.message.aggregate),
+          validator = shortLog(curr[0].v)
 
 proc handleValidatorDuties*(
     node: BeaconNode, lastSlot, slot: Slot) {.async.} =
@@ -522,5 +549,5 @@ proc handleValidatorDuties*(
       aggregationSlot = slot - TRAILING_DISTANCE
       aggregationHead = get_ancestor(head, aggregationSlot)
 
-    broadcastAggregatedAttestations(
+    await broadcastAggregatedAttestations(
       node, aggregationHead, aggregationSlot, TRAILING_DISTANCE)

@@ -12,7 +12,8 @@ import
   tables, random, strutils, os, typetraits,
 
   # Nimble packages
-  chronos, confutils/defs,
+  stew/shims/net,
+  chronos, confutils/defs, json_rpc/rpcserver,
   chronicles, chronicles/helpers as chroniclesHelpers,
 
   # Local modules
@@ -73,6 +74,18 @@ template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
     copyrightBanner = clientId) # but a short version string makes more sense...
   {.pop.}
   config
+
+template init*(T: type RpcHttpServer, ip: ValidIpAddress, port: Port): T =
+  newRpcHttpServer([initTAddress(ip, port)])
+
+template attemptUntilSuccess*(body: untyped) =
+  while true:
+    try:
+      body
+      break
+    except CatchableError as err:
+      warn "Caught an unexpected error", err = err.msg
+    waitFor sleepAsync(chronos.seconds(1)) # 1 second before retrying
 
 # TODO not sure if this belongs here but it doesn't belong in `time.nim` either
 proc sleepToSlotOffset*(clock: BeaconClock, extra: chronos.Duration,

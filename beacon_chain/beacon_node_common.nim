@@ -9,10 +9,10 @@
 
 import
   # Standard library
-  tables,
+  tables, osproc,
 
   # Nimble packages
-  chronos, json_rpc/rpcserver, metrics,
+  chronos, json_rpc/[rpcclient, rpcserver], metrics,
   chronicles,
 
   # Local modules
@@ -45,6 +45,8 @@ type
     mainchainMonitor*: MainchainMonitor
     beaconClock*: BeaconClock
     rpcServer*: RpcServer
+    rpcPushClient*: RpcHttpClient
+    vcProcess*: Process
     forkDigest*: ForkDigest
     blocksQueue*: AsyncQueue[SyncBlock]
     requestManager*: RequestManager
@@ -55,6 +57,8 @@ type
     onSecondLoop*: Future[void]
     genesisSnapshotContent*: string
     attestationSubnets*: AttestationSubnets
+
+var externalVcProcessPtr*: ptr Process
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT

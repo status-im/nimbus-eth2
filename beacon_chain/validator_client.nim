@@ -7,16 +7,16 @@
 
 import
   # Standard library
-  os, strutils, json, times,
+  os, strutils, json,
 
   # Nimble packages
   stew/shims/[tables, macros],
-  chronos, confutils, metrics, json_rpc/[rpcclient, jsonmarshal],
+  chronos, confutils, metrics, json_rpc/[rpcclient, rpcserver, jsonmarshal],
   chronicles,
   blscurve, json_serialization/std/[options, sets, net],
 
   # Local modules
-  spec/[datatypes, digest, crypto, helpers, network],
+  spec/[datatypes, signatures, digest, crypto, helpers, network],
   conf, time, version,
   eth2_network, eth2_discovery, validator_pool, beacon_node_types,
   nimbus_binary_common,
@@ -34,6 +34,8 @@ createRpcSigs(RpcClient, sourceDir / "spec" / "eth2_apis" / "validator_callsigs.
 createRpcSigs(RpcClient, sourceDir / "spec" / "eth2_apis" / "beacon_callsigs.nim")
 
 type
+  RpcServer* = RpcHttpServer
+
   ValidatorClient = ref object
     config: ValidatorClientConf
     graffitiBytes: GraffitiBytes
@@ -44,15 +46,48 @@ type
     proposalsForCurrentEpoch: Table[Slot, ValidatorPubKey]
     attestationsForEpoch: Table[Epoch, Table[Slot, seq[AttesterDuties]]]
     beaconGenesis: BeaconGenesisTuple
+    rpcPushServer: RpcServer
 
-template attemptUntilSuccess(vc: ValidatorClient, body: untyped) =
-  while true:
-    try:
-      body
-      break
-    except CatchableError as err:
-      warn "Caught an unexpected error", err = err.msg
-    waitFor sleepAsync(chronos.seconds(1)) # 1 second before retrying
+proc installRpcHandlers(rpcPushServer: RpcServer, vc: ValidatorClient) =
+  template toPrivKey(pubkey: ValidatorPubKey): ValidatorPrivKey =
+    vc.attachedValidators.validators[pubkey].privKey
+
+  rpcPushServer.rpc("getAllValidatorPubkeys") do () -> seq[ValidatorPubKey]:
+    debug "Returning all pubkeys to the BN for the push model",
+      num_keys = vc.attachedValidators.validators.len
+    for key in vc.attachedValidators.validators.keys:
+      result.add key
+
+  rpcPushServer.rpc("signBlockProposal") do (
+      pubkey: ValidatorPubKey,
+      fork: Fork, genesis_validators_root: Eth2Digest,
+      slot: Slot, blockRoot: Eth2Digest) -> ValidatorSig:
+    return get_block_signature(fork, genesis_validators_root, slot,
+                               blockRoot, pubkey.toPrivKey)
+
+  rpcPushServer.rpc("signAttestation") do (
+      pubkey: ValidatorPubKey,
+      fork: Fork, genesis_validators_root: Eth2Digest,
+      attestation_data: AttestationData) -> ValidatorSig:
+    return get_attestation_signature(fork, genesis_validators_root,
+                                     attestation_data, pubkey.toPrivKey)
+
+  rpcPushServer.rpc("signAggregateAndProof") do (
+      pubkey: ValidatorPubKey,
+      fork: Fork, genesis_validators_root: Eth2Digest,
+      aggregate_and_proof: AggregateAndProof) -> ValidatorSig:
+    return get_aggregate_and_proof_signature(
+      fork, genesis_validators_root, aggregate_and_proof, pubkey.toPrivKey)
+
+  rpcPushServer.rpc("genRandaoReveal") do (
+      pubkey: ValidatorPubKey,
+      fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot) -> ValidatorSig:
+    return genRandaoReveal(pubkey.toPrivKey, fork, genesis_validators_root, slot)
+
+  rpcPushServer.rpc("getSlotSig") do (
+      pubkey: ValidatorPubKey,
+      fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot) -> ValidatorSig:
+    return get_slot_signature(fork, genesis_validators_root, slot, pubkey.toPrivKey)
 
 proc getValidatorDutiesForEpoch(vc: ValidatorClient, epoch: Epoch) {.gcsafe, async.} =
   info "Getting validator duties for epoch", epoch = epoch
@@ -133,7 +168,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
 
       info "Proposing block", slot = slot, public_key = public_key
 
-      let randao_reveal = validator.genRandaoReveal(
+      let randao_reveal = await validator.genRandaoReveal(
         vc.fork, vc.beaconGenesis.genesis_validators_root, slot)
 
       var newBlock = SignedBeaconBlock(
@@ -200,29 +235,34 @@ programMain:
 
   setupLogging(config.logLevel, config.logFile)
 
+  debug "Launching validator client",
+        version = fullVersionStr,
+        cmdParams = commandLineParams(),
+        config
+
+  var vc = ValidatorClient(
+    config: config,
+    client: newRpcHttpClient(),
+    rpcPushServer: RpcServer.init(config.rpcPushAddress, config.rpcPushPort),
+    graffitiBytes: if config.graffiti.isSome: config.graffiti.get.GraffitiBytes
+                    else: defaultGraffitiBytes())
+
+  # load all the validators from the data dir into memory
+  for curr in vc.config.validatorKeys:
+    vc.attachedValidators.addLocalValidator(curr.toPubKey.initPubKey, curr)
+
   case config.cmd
+  of pushMode:
+    vc.rpcPushServer.installRpcHandlers(vc)
+    vc.rpcPushServer.start()
+
   of VCNoCommand:
-    debug "Launching validator client",
-          version = fullVersionStr,
-          cmdParams = commandLineParams(),
-          config
-
-    var vc = ValidatorClient(
-      config: config,
-      client: newRpcHttpClient(),
-      graffitiBytes: if config.graffiti.isSome: config.graffiti.get.GraffitiBytes
-                     else: defaultGraffitiBytes())
-
-    # load all the validators from the data dir into memory
-    for curr in vc.config.validatorKeys:
-      vc.attachedValidators.addLocalValidator(curr.toPubKey.initPubKey, curr)
-
     waitFor vc.client.connect($vc.config.rpcAddress, Port(vc.config.rpcPort))
     info "Connected to BN",
       port = vc.config.rpcPort,
       address = vc.config.rpcAddress
 
-    vc.attemptUntilSuccess:
+    attemptUntilSuccess:
       # init the beacon clock
       vc.beaconGenesis = waitFor vc.client.get_v1_beacon_genesis()
       vc.beaconClock = BeaconClock.init(vc.beaconGenesis.genesis_time)
@@ -232,7 +272,7 @@ programMain:
       nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
       fromNow = saturate(vc.beaconClock.fromNow(nextSlot))
 
-    vc.attemptUntilSuccess:
+    attemptUntilSuccess:
       waitFor vc.getValidatorDutiesForEpoch(curSlot.compute_epoch_at_slot)
 
     info "Scheduling first slot action",
@@ -243,4 +283,4 @@ programMain:
     addTimer(fromNow) do (p: pointer) {.gcsafe.}:
       asyncCheck vc.onSlotStart(curSlot, nextSlot)
 
-    runForever()
+  runForever()

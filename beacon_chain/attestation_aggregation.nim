@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  options, chronicles,
+  options, chronos, chronicles,
   ./spec/[
     beaconstate, datatypes, crypto, digest, helpers, network, validator,
     signatures],
@@ -28,7 +28,7 @@ func is_aggregator(state: BeaconState, slot: Slot, index: CommitteeIndex,
 
 proc aggregate_attestations*(
     pool: AttestationPool, state: BeaconState, index: CommitteeIndex,
-    privkey: ValidatorPrivKey, trailing_distance: uint64,
+    slot_signature: ValidatorSig, trailing_distance: uint64,
     cache: var StateCache): Option[AggregateAndProof] =
   doAssert state.slot >= trailing_distance
 
@@ -37,8 +37,6 @@ proc aggregate_attestations*(
 
   let
     slot = state.slot - trailing_distance
-    slot_signature = get_slot_signature(
-      state.fork, state.genesis_validators_root, slot, privkey)
 
   doAssert slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= state.slot
   doAssert state.slot >= slot
@@ -71,7 +69,7 @@ proc aggregate_attestations*(
         aggregate: attestation,
         selection_proof: slot_signature))
 
-  none(AggregateAndProof)
+  return none(AggregateAndProof)
 
 proc isValidAttestationSlot(
     pool: AttestationPool, attestationSlot: Slot, attestationBlck: BlockRef): bool =

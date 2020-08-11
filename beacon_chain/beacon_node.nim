@@ -8,11 +8,11 @@
 import
   # Standard library
   std/[algorithm, os, tables, strutils, sequtils, times, math, terminal],
-  std/random,
+  std/[osproc, random],
 
   # Nimble packages
   stew/[objects, byteutils, endians2], stew/shims/macros,
-  chronos, confutils, metrics, json_rpc/[rpcserver, jsonmarshal],
+  chronos, confutils, metrics, json_rpc/[rpcclient, rpcserver, jsonmarshal],
   chronicles, bearssl,
   json_serialization/std/[options, sets, net], serialization/errors,
 
@@ -31,7 +31,8 @@ import
   nimbus_binary_common, network_metadata,
   mainchain_monitor, version, ssz/[merkleization], sszdump, merkle_minimal,
   sync_protocol, request_manager, keystore_management, interop, statusbar,
-  sync_manager, validator_duties, validator_api, attestation_aggregation
+  sync_manager, validator_duties, validator_api, attestation_aggregation,
+  eth2_json_rpc_serialization
 
 const
   genesisFile* = "genesis.ssz"
@@ -44,11 +45,13 @@ type
   BeaconNodeStatus* = enum
     Starting, Running, Stopping
 
+template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
+
+createRpcSigs(RpcClient, sourceDir / "spec" / "eth2_apis" /
+              "validator_push_model_callsigs.nim")
+
 # this needs to be global, so it can be set in the Ctrl+C signal handler
 var status = BeaconNodeStatus.Starting
-
-template init(T: type RpcHttpServer, ip: ValidIpAddress, port: Port): T =
-  newRpcHttpServer([initTAddress(ip, port)])
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_slot,
@@ -282,13 +285,48 @@ proc init*(T: type BeaconNode,
     mainchainMonitor: mainchainMonitor,
     beaconClock: BeaconClock.init(chainDag.headState.data.data),
     rpcServer: rpcServer,
+    rpcPushClient: newRpcHttpClient(),
     forkDigest: enrForkId.forkDigest,
     topicBeaconBlocks: topicBeaconBlocks,
     topicAggregateAndProofs: topicAggregateAndProofs,
     blocksQueue: newAsyncQueue[SyncBlock](1),
   )
+
   res.requestManager = RequestManager.init(network, res.blocksQueue)
-  res.addLocalValidators()
+
+  if not res.config.pushMode:
+    res.addLocalValidators()
+  else:
+    var args = newSeq[string]()
+    args.add("pushMode")
+    args.add("--log-level=" & $res.config.logLevel)
+    args.add("--data-dir=" & $res.config.dataDir)
+    args.add("--validators-dir=" & $res.config.validatorsDir)
+    args.add("--secrets-dir=" & $res.config.secretsDir)
+    args.add("--rpc-push-port=" & $res.config.rpcPushPort)
+
+    res.vcProcess = startProcess(getAppDir() & "/validator_client",
+                                getCurrentDir(), args, nil, {poParentStreams})
+
+    # using a global pointer to a ref-counted type because
+    # we need to pass a gcsafe non-closure proc as the hook
+    externalVcProcessPtr = addr res.vcProcess
+    # we need to set this in order for the child process to be killed in
+    # the case of a crash/assert/defect or just an unhandled exception
+    unhandledExceptionHook = proc(e: ref Exception)
+        {.nimcall, gcsafe, tags: [], raises: [], locks: 0.} =
+      try:
+        externalVcProcessPtr[].terminate
+      except:
+        discard
+
+    waitFor res.rpcPushClient.connect($res.config.rpcPushAddress,
+                                      Port(res.config.rpcPushPort))
+
+    attemptUntilSuccess:
+      info "fetching all remote keys", pushPort = $res.config.rpcPushPort
+      let keys = waitFor res.rpcPushClient.getAllValidatorPubkeys()
+      res.addRemoteValidators(keys)
 
   # This merely configures the BeaconSync
   # The traffic will be started when we join the network.
