@@ -459,7 +459,6 @@ proc broadcastAggregatedAttestations(
           state.genesis_validators_root)
         var signedAP = SignedAggregateAndProof(
           message: aggregateAndProof.get,
-          # TODO Make the signing async here
           signature: sig)
         node.network.broadcast(node.topicAggregateAndProofs, signedAP)
         info "Aggregated attestation sent",
