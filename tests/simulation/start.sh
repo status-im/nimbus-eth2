@@ -49,7 +49,7 @@ mkdir -p "$SECRETS_DIR"
 
 cd "$GIT_ROOT"
 
-CUSTOM_NIMFLAGS="${NIMFLAGS} -d:useSysAsserts -d:chronicles_sinks:textlines,json[file] -d:const_preset=mainnet -d:insecure"
+CUSTOM_NIMFLAGS="${NIMFLAGS} -d:useSysAsserts -d:chronicles_sinks:textlines,json[file] -d:const_preset=mainnet -d:insecure -d:local_testnet"
 GANACHE_BLOCK_TIME=5
 
 # Run with "SLOTS_PER_EPOCH=8 ./start.sh" to change these

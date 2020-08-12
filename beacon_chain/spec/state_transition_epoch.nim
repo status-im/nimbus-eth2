@@ -143,9 +143,9 @@ proc process_justification_and_finalization*(state: var BeaconState,
 
     # testnet0 and testnet1 have 8 non-attesting validators each, by default
     if missing_all_validators.len > 15:
-      fatal "Missing too many attesters from previous epoch in verifyFinalization mode",
-        missing_all_validators
-      doAssert false
+      info "Missing too many attesters from previous epoch in verifyFinalization mode",
+        missing_all_validators,
+        epoch = get_current_epoch(state)
 
   # This epoch processing is the last time these previous attestations can
   # matter -- in the next epoch, they'll be 2 epochs old, when BeaconState
