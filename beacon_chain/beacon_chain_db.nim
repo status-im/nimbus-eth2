@@ -99,26 +99,26 @@ type GetResult = enum
   notFound
   corrupted
 
-proc get(db: BeaconChainDB, key: openArray[byte], res: var auto): GetResult =
-  var ok = GetResult.notFound
+proc get(db: BeaconChainDB, key: openArray[byte], output: var auto): GetResult =
+  var status = GetResult.notFound
 
   # TODO address is needed because there's no way to express lifetimes in nim
   #      we'll use unsafeAddr to find the code later
-  var resPtr = unsafeAddr res # callback is local, ptr wont escape
+  var outputPtr = unsafeAddr output # callback is local, ptr wont escape
   proc decode(data: openArray[byte]) =
     try:
-      resPtr[] = SSZ.decode(snappy.decode(data), type res)
-      ok = GetResult.found
+      outputPtr[] = SSZ.decode(snappy.decode(data), type output)
+      status = GetResult.found
     except SerializationError as e:
       # If the data can't be deserialized, it could be because it's from a
       # version of the software that uses a different SSZ encoding
       warn "Unable to deserialize data, old database?",
-        err = e.msg, typ = name(type res), dataLen = data.len
-      ok = GetResult.corrupted
+        err = e.msg, typ = name(type output), dataLen = data.len
+      status = GetResult.corrupted
 
   discard db.backend.get(key, decode).expect("working database")
 
-  ok
+  status
 
 proc putBlock*(db: BeaconChainDB, value: SignedBeaconBlock) =
   db.put(subkey(type value, value.root), value)
