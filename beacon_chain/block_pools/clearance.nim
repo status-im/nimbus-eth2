@@ -216,7 +216,7 @@ proc addRawBlock*(
       onBlockAdded
     )
 
-    dag.putState(dag.clearanceState.data, dag.clearanceState.blck)
+    dag.putState(dag.clearanceState)
 
     return ok dag.clearanceState.blck
 

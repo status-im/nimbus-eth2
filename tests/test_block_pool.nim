@@ -351,45 +351,82 @@ suiteReport "chain DAG finalization tests" & preset():
       hash_tree_root(dag2.headState.data.data) ==
         hash_tree_root(dag.headState.data.data)
 
-  # timedTest "init with gaps" & preset():
-  #   var cache = StateCache()
-  #   for i in 0 ..< (SLOTS_PER_EPOCH * 6 - 2):
-  #     var
-  #       blck = makeTestBlock(
-  #         dag.headState.data, pool.head.blck.root, cache,
-  #         attestations = makeFullAttestations(
-  #           dag.headState.data.data, pool.head.blck.root,
-  #           dag.headState.data.data.slot, cache, {}))
+  timedTest "orphaned epoch block" & preset():
+    var prestate = (ref HashedBeaconState)()
+    for i in 0 ..< SLOTS_PER_EPOCH:
+      if i == SLOTS_PER_EPOCH - 1:
+        assign(prestate[], dag.headState.data)
 
-  #     let added = dag.addRawBlock(quarantine, hash_tree_root(blck.message), blck) do (validBlock: BlockRef):
-  #       discard
-  #     check: added.isOk()
-  #     dag.updateHead(added[])
+      let blck = makeTestBlock(
+        dag.headState.data, dag.head.root, cache)
+      let added = dag.addRawBlock(quarantine, blck, nil)
+      check: added.isOk()
+      dag.updateHead(added[])
 
-  #   # Advance past epoch so that the epoch transition is gapped
-  #   check:
-  #     process_slots(
-  #       dag.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2) )
+    check:
+      dag.heads.len() == 1
 
-  #   var blck = makeTestBlock(
-  #     dag.headState.data, pool.head.blck.root, cache,
-  #     attestations = makeFullAttestations(
-  #       dag.headState.data.data, pool.head.blck.root,
-  #       dag.headState.data.data.slot, cache, {}))
+    advance_slot(prestate[], {}, cache)
 
-  #   let added = dag.addRawBlock(quarantine, hash_tree_root(blck.message), blck) do (validBlock: BlockRef):
-  #     discard
-  #   check: added.isOk()
-  #   dag.updateHead(added[])
+    # create another block, orphaning the head
+    let blck = makeTestBlock(
+      prestate[], dag.head.parent.root, cache)
 
-  #   let
-  #     pool2 = BlockPool.init(db)
+    # Add block, but don't update head
+    let added = dag.addRawBlock(quarantine, blck, nil)
+    check: added.isOk()
 
-  #   # check that the state reloaded from database resembles what we had before
-  #   check:
-  #     pool2.dag.tail.root == dag.tail.root
-  #     pool2.dag.head.blck.root == dag.head.blck.root
-  #     pool2.dag.finalizedHead.blck.root == dag.finalizedHead.blck.root
-  #     pool2.dag.finalizedHead.slot == dag.finalizedHead.slot
-  #     hash_tree_root(pool2.headState.data.data) ==
-  #       hash_tree_root(dag.headState.data.data)
+    var
+      dag2 = init(ChainDAGRef, defaultRuntimePreset, db)
+
+    # check that we can apply the block after the orphaning
+    let added2 = dag2.addRawBlock(quarantine, blck, nil)
+    check: added2.isOk()
+
+suiteReport "chain DAG finalization tests" & preset():
+  setup:
+    var
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+      quarantine = QuarantineRef()
+      cache = StateCache()
+
+  timedTest "init with gaps" & preset():
+    for i in 0 ..< (SLOTS_PER_EPOCH * 6 - 2):
+      var
+        blck = makeTestBlock(
+          dag.headState.data, dag.head.root, cache,
+          attestations = makeFullAttestations(
+            dag.headState.data.data, dag.head.root,
+            dag.headState.data.data.slot, cache, {}))
+
+      let added = dag.addRawBlock(quarantine, blck, nil)
+      check: added.isOk()
+      dag.updateHead(added[])
+
+    # Advance past epoch so that the epoch transition is gapped
+    check:
+      process_slots(
+        dag.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2) )
+
+    var blck = makeTestBlock(
+      dag.headState.data, dag.head.root, cache,
+      attestations = makeFullAttestations(
+        dag.headState.data.data, dag.head.root,
+        dag.headState.data.data.slot, cache, {}))
+
+    let added = dag.addRawBlock(quarantine, blck, nil)
+    check: added.isOk()
+    dag.updateHead(added[])
+
+    let
+      dag2 = init(ChainDAGRef, defaultRuntimePreset, db)
+
+    # check that the state reloaded from database resembles what we had before
+    check:
+      dag2.tail.root == dag.tail.root
+      dag2.head.root == dag.head.root
+      dag2.finalizedHead.blck.root == dag.finalizedHead.blck.root
+      dag2.finalizedHead.slot == dag.finalizedHead.slot
+      hash_tree_root(dag2.headState.data.data) ==
+        hash_tree_root(dag.headState.data.data)
