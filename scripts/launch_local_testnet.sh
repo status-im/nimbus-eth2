@@ -307,6 +307,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     --log-level="${LOG_LEVEL}" \
     --tcp-port=$(( BASE_PORT + NUM_NODE )) \
     --udp-port=$(( BASE_PORT + NUM_NODE )) \
+    --rpc-push-port=$(( BASE_PORT + NUM_NODE + 100 )) \
     --data-dir="${NODE_DATA_DIR}" \
     ${BOOTSTRAP_ARG} \
     ${STATE_SNAPSHOT_ARG} \

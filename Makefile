@@ -150,7 +150,8 @@ GOERLI_TESTNETS_PARAMS := \
   --metrics \
   --metrics-port=$$(( $(BASE_METRICS_PORT) + $(NODE_ID) )) \
   --rpc \
-  --rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) ))
+  --rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) )) \
+  --rpc-push-port=$(( $BASE_RPC_PORT + $NODE_ID + 100 ))
 
 eth2_network_simulation: | build deps clean_eth2_network_simulation_all
 	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start-in-tmux.sh

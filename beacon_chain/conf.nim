@@ -388,7 +388,7 @@ type
     of pushMode:
       rpcPushPort* {.
         defaultValue: defaultEth2RpcPort + 1
-        desc: "HTTP port of the RPC server in the push model (the beacon node tells the validator client what to do and when)"
+        desc: "HTTP port of the RPC server in the push model (the beacon node tells the validator client what to do and when) - on by default."
         name: "rpc-push-port" }: Port
 
       rpcPushAddress* {.

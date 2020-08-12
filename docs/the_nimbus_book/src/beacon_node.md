@@ -120,6 +120,14 @@ The following options are available:
      --rpc                     Enable the JSON-RPC server.
      --rpc-port                HTTP port for the JSON-RPC service.
      --rpc-address             Listening address of the RPC server.
+     --push-mode               Enable the push model (the beacon node tells the validator client what to do and
+                               when) - on by default.
+     --rpc-push-port           HTTP port of the client to connect to for RPC - used for remote signing in a
+                               push model (the beacon node tells the validator client what to do and when).
+     --rpc-push-address        Address of the validator client to connect to for RPC - used for remote signing
+                               in a push model (the beacon node tells the validator client what to do and
+                               when).
+
      --dump                    Write SSZ dumps of blocks, attestations and states to data dir.
 
 Available sub-commands:
