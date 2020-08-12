@@ -21,7 +21,7 @@ func isEqual*(a, b: ValidatorPrivKey): bool =
   let pb = cast[ptr UncheckedArray[byte]](b.unsafeAddr)
   result = true
   for i in 0 ..< sizeof(a):
-    result = result and pa[i] == pdec[i]
+    result = result and pa[i] == pb[i]
 
 const
   scryptVector = """{
