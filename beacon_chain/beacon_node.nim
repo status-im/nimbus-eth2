@@ -538,8 +538,9 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   if node.config.verifyFinalization:
     verifyFinalization(node, scheduledSlot)
 
-  if slot.isEpoch:
-    node.cycleAttestationSubnets(slot)
+  when false:
+    if slot.isEpoch:
+      node.cycleAttestationSubnets(slot)
 
   if slot > lastSlot + SLOTS_PER_EPOCH:
     # We've fallen behind more than an epoch - there's nothing clever we can
