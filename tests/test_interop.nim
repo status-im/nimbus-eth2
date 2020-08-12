@@ -124,7 +124,7 @@ suiteReport "Interop":
 
       check:
         # getBytes is bigendian and returns full 48 bytes of key..
-        Uint256.fromBytesBE(key.toRaw()[48-32..<48]) == v
+        Uint256.fromBytesBE(key.toRaw()) == v
 
   timedTest "Interop signatures":
     for dep in depositsConfig:
