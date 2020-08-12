@@ -54,6 +54,7 @@ type
     blockProcessingLoop*: Future[void]
     onSecondLoop*: Future[void]
     genesisSnapshotContent*: string
+    attestationSubnets*: AttestationSubnets
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
