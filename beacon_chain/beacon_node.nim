@@ -565,14 +565,14 @@ proc importBlock(node: BeaconNode,
     let sm2 = now(chronos.Moment)
     discard node.updateHead(node.beaconClock.now().slotOrZero)
     let em2 = now(chronos.Moment)
-    let duration1 = if res.isOk(): em1 - sm1 else: ZeroDuration
-    let duration2 = if res.isOk(): em2 - sm2 else: ZeroDuration
-    let duration = if res.isOk(): em2 - sm1 else: ZeroDuration
+    let storeBlockDuration = if res.isOk(): em1 - sm1 else: ZeroDuration
+    let updateHeadDuration = if res.isOk(): em2 - sm2 else: ZeroDuration
+    let overallDuration = if res.isOk(): em2 - sm1 else: ZeroDuration
     let storeSpeed =
       block:
         let secs = float(chronos.seconds(1).nanoseconds)
-        if not(duration.isZero()):
-          let v = secs / float(duration.nanoseconds)
+        if not(overallDuration.isZero()):
+          let v = secs / float(overallDuration.nanoseconds)
           round(v * 10_000) / 10_000
         else:
           0.0
@@ -580,9 +580,9 @@ proc importBlock(node: BeaconNode,
            local_head_slot = node.chainDag.head.slot, store_speed = storeSpeed,
            block_root = shortLog(sblock.root),
            block_slot = sblock.message.slot,
-           store_block_duration = $duration1,
-           update_head_duration = $duration2,
-           store_duration = $duration
+           store_block_duration = $storeBlockDuration,
+           update_head_duration = $updateHeadDuration,
+           overall_duration = $overallDuration
     ok()
   else:
     err(res.error())
@@ -613,6 +613,7 @@ proc startSyncManager(node: BeaconNode) =
       true
 
   node.network.peerPool.setScoreCheck(scoreCheck)
+
   node.syncManager = newSyncManager[Peer, PeerID](
     node.network.peerPool, getLocalHeadSlot, getLocalWallSlot,
     getFirstSlotAtFinalizedEpoch, node.blocksQueue, chunkSize = 32
@@ -620,13 +621,10 @@ proc startSyncManager(node: BeaconNode) =
   node.syncManager.start()
 
 proc runBlockProcessingLoop(node: BeaconNode) {.async.} =
+  ## Incoming blocks processing loop.
   while true:
     let sblock = await node.blocksQueue.popFirst()
-    let res = node.importBlock(sblock.blk)
-    if res.isOk():
-      sblock.done()
-    else:
-      sblock.fail(res.error)
+    sblock.complete(node.importBlock(sblock.blk))
 
 proc currentSlot(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
