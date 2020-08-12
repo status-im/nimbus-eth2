@@ -8,9 +8,9 @@
 {.used.}
 
 import
-  unittest,
+  unittest, chronicles,
   ./testutil, ./testblockutil,
-  ../beacon_chain/spec/[beaconstate, datatypes, digest,
+  ../beacon_chain/spec/[beaconstate, datatypes, digest, crypto,
                         validator, state_transition, presets],
   ../beacon_chain/ssz
 
