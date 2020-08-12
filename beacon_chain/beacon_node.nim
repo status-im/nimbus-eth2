@@ -284,13 +284,9 @@ proc init*(T: type BeaconNode,
     forkDigest: enrForkId.forkDigest,
     topicBeaconBlocks: topicBeaconBlocks,
     topicAggregateAndProofs: topicAggregateAndProofs,
+    blocksQueue: newAsyncQueue[SyncBlock](1),
   )
-
-  res.requestManager = RequestManager.init(network,
-    proc(signedBlock: SignedBeaconBlock) =
-      onBeaconBlock(res, signedBlock)
-  )
-
+  res.requestManager = RequestManager.init(network, res.blocksQueue)
   res.addLocalValidators()
 
   # This merely configures the BeaconSync
@@ -560,14 +556,45 @@ proc runOnSecondLoop(node: BeaconNode) {.async.} =
     ticks_delay.set(sleepTime.nanoseconds.float / nanosecondsIn1s)
     debug "onSecond task completed", sleepTime, processingTime
 
-proc runForwardSyncLoop(node: BeaconNode) {.async.} =
+proc importBlock(node: BeaconNode,
+                 sblock: SignedBeaconBlock): Result[void, BlockError] =
+  let sm1 = now(chronos.Moment)
+  let res = node.storeBlock(sblock)
+  let em1 = now(chronos.Moment)
+  if res.isOk() or (res.error() in {BlockError.Duplicate, BlockError.Old}):
+    let sm2 = now(chronos.Moment)
+    discard node.updateHead(node.beaconClock.now().slotOrZero)
+    let em2 = now(chronos.Moment)
+    let storeBlockDuration = if res.isOk(): em1 - sm1 else: ZeroDuration
+    let updateHeadDuration = if res.isOk(): em2 - sm2 else: ZeroDuration
+    let overallDuration = if res.isOk(): em2 - sm1 else: ZeroDuration
+    let storeSpeed =
+      block:
+        let secs = float(chronos.seconds(1).nanoseconds)
+        if not(overallDuration.isZero()):
+          let v = secs / float(overallDuration.nanoseconds)
+          round(v * 10_000) / 10_000
+        else:
+          0.0
+    debug "Block got imported successfully",
+           local_head_slot = node.chainDag.head.slot, store_speed = storeSpeed,
+           block_root = shortLog(sblock.root),
+           block_slot = sblock.message.slot,
+           store_block_duration = $storeBlockDuration,
+           update_head_duration = $updateHeadDuration,
+           overall_duration = $overallDuration
+    ok()
+  else:
+    err(res.error())
+
+proc startSyncManager(node: BeaconNode) =
   func getLocalHeadSlot(): Slot =
-    result = node.chainDag.head.slot
+    node.chainDag.head.slot
 
   proc getLocalWallSlot(): Slot {.gcsafe.} =
     let epoch = node.beaconClock.now().slotOrZero.compute_epoch_at_slot() +
                 1'u64
-    result = epoch.compute_start_slot_at_epoch()
+    epoch.compute_start_slot_at_epoch()
 
   func getFirstSlotAtFinalizedEpoch(): Slot {.gcsafe.} =
     let fepoch = node.chainDag.headState.data.data.finalized_checkpoint.epoch
@@ -581,49 +608,23 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
               score_high_limit = PeerScoreHighLimit
       except:
         discard
-      result = false
+      false
     else:
-      result = true
+      true
 
   node.network.peerPool.setScoreCheck(scoreCheck)
 
   node.syncManager = newSyncManager[Peer, PeerID](
     node.network.peerPool, getLocalHeadSlot, getLocalWallSlot,
-    getFirstSlotAtFinalizedEpoch, chunkSize = 32
+    getFirstSlotAtFinalizedEpoch, node.blocksQueue, chunkSize = 32
   )
-
   node.syncManager.start()
 
+proc runBlockProcessingLoop(node: BeaconNode) {.async.} =
+  ## Incoming blocks processing loop.
   while true:
-    let sblock = await node.syncManager.getBlock()
-    let sm1 = now(chronos.Moment)
-    let res = node.storeBlock(sblock.blk)
-    let em1 = now(chronos.Moment)
-    if res.isOk() or (res.error() in {BlockError.Duplicate, BlockError.Old}):
-      let sm2 = now(chronos.Moment)
-      discard node.updateHead(node.beaconClock.now().slotOrZero)
-      let em2 = now(chronos.Moment)
-      sblock.done()
-      let duration1 = if res.isOk(): em1 - sm1 else: ZeroDuration
-      let duration2 = if res.isOk(): em2 - sm2 else: ZeroDuration
-      let duration = if res.isOk(): em2 - sm1 else: ZeroDuration
-      let storeSpeed =
-        block:
-          let secs = float(chronos.seconds(1).nanoseconds)
-          if not(duration.isZero()):
-            let v = secs / float(duration.nanoseconds)
-            round(v * 10_000) / 10_000
-          else:
-            0.0
-      debug "Block got imported successfully",
-             local_head_slot = getLocalHeadSlot(), store_speed = storeSpeed,
-             block_root = shortLog(sblock.blk.root),
-             block_slot = sblock.blk.message.slot,
-             store_block_duration = $duration1,
-             update_head_duration = $duration2,
-             store_duration = $duration
-    else:
-      sblock.fail(res.error)
+    let sblock = await node.blocksQueue.popFirst()
+    sblock.complete(node.importBlock(sblock.blk))
 
 proc currentSlot(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
@@ -866,9 +867,10 @@ proc run*(node: BeaconNode) =
       asyncCheck node.onSlotStart(curSlot, nextSlot)
 
     node.onSecondLoop = runOnSecondLoop(node)
-    node.forwardSyncLoop = runForwardSyncLoop(node)
+    node.blockProcessingLoop = runBlockProcessingLoop(node)
 
     node.requestManager.start()
+    node.startSyncManager()
 
   # main event loop
   while status == BeaconNodeStatus.Running:

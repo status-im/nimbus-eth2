@@ -2,24 +2,24 @@ import options, sequtils, strutils
 import chronos, chronicles
 import spec/[datatypes, digest], eth2_network, beacon_node_types, sync_protocol,
        sync_manager, ssz/merkleization
+export sync_manager
 
 logScope:
   topics = "requman"
 
 const
-  SYNC_MAX_REQUESTED_BLOCKS* = 4 # Spec allows up to MAX_REQUEST_BLOCKS.
-    ## Maximum number of blocks which will be requested in each `beaconBlocksByRoot` invocation.
+  SYNC_MAX_REQUESTED_BLOCKS* = 32 # Spec allows up to MAX_REQUEST_BLOCKS.
+    ## Maximum number of blocks which will be requested in each
+    ## `beaconBlocksByRoot` invocation.
   PARALLEL_REQUESTS* = 2
     ## Number of peers we using to resolve our request.
 
 type
   RequestManager* = object
     network*: Eth2Node
-    queue*: AsyncQueue[FetchRecord]
-    responseHandler*: FetchAncestorsResponseHandler
+    inpQueue*: AsyncQueue[FetchRecord]
+    outQueue*: AsyncQueue[SyncBlock]
     loopFuture: Future[void]
-
-  FetchAncestorsResponseHandler = proc (b: SignedBeaconBlock) {.gcsafe.}
 
 func shortLog*(x: seq[Eth2Digest]): string =
   "[" & x.mapIt(shortLog(it)).join(", ") & "]"
@@ -28,10 +28,11 @@ func shortLog*(x: seq[FetchRecord]): string =
   "[" & x.mapIt(shortLog(it.root)).join(", ") & "]"
 
 proc init*(T: type RequestManager, network: Eth2Node,
-           responseCb: FetchAncestorsResponseHandler): T =
-  T(
-    network: network, queue: newAsyncQueue[FetchRecord](),
-    responseHandler: responseCb
+           outputQueue: AsyncQueue[SyncBlock]): RequestManager =
+  RequestManager(
+    network: network,
+    inpQueue: newAsyncQueue[FetchRecord](),
+    outQueue: outputQueue
   )
 
 proc checkResponse(roots: openArray[Eth2Digest],
@@ -48,6 +49,15 @@ proc checkResponse(roots: openArray[Eth2Digest],
       checks.del(res)
   return true
 
+proc validate(rman: RequestManager,
+             b: SignedBeaconBlock): Future[Result[void, BlockError]] {.async.} =
+  let sblock = SyncBlock(
+    blk: b,
+    resfut: newFuture[Result[void, BlockError]]("request.manager.validate")
+  )
+  await rman.outQueue.addLast(sblock)
+  return await sblock.resfut
+
 proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
                                     items: seq[Eth2Digest]) {.async.} =
   var peer: Peer
@@ -60,9 +70,19 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
     if blocks.isOk:
       let ublocks = blocks.get()
       if checkResponse(items, ublocks):
-        for b in ublocks:
-          rman.responseHandler(b)
-        peer.updateScore(PeerScoreGoodBlocks)
+        var res: Result[void, BlockError]
+        if len(ublocks) > 0:
+          for b in ublocks:
+            res = await rman.validate(b)
+            if not(res.isOk):
+              break
+        else:
+          res = Result[void, BlockError].ok()
+
+        if res.isOk():
+          peer.updateScore(PeerScoreGoodBlocks)
+        else:
+          peer.updateScore(PeerScoreBadBlocks)
       else:
         peer.updateScore(PeerScoreBadResponse)
     else:
@@ -85,12 +105,12 @@ proc requestManagerLoop(rman: RequestManager) {.async.} =
   while true:
     try:
       rootList.setLen(0)
-      let req = await rman.queue.popFirst()
+      let req = await rman.inpQueue.popFirst()
       rootList.add(req.root)
 
-      var count = min(SYNC_MAX_REQUESTED_BLOCKS - 1, len(rman.queue))
+      var count = min(SYNC_MAX_REQUESTED_BLOCKS - 1, len(rman.inpQueue))
       while count > 0:
-        rootList.add(rman.queue.popFirstNoWait().root)
+        rootList.add(rman.inpQueue.popFirstNoWait().root)
         dec(count)
 
       let start = SyncMoment.now(Slot(0))
@@ -111,7 +131,7 @@ proc requestManagerLoop(rman: RequestManager) {.async.} =
       debug "Request manager tick", blocks_count = len(rootList),
                                     succeed = succeed,
                                     failed = (len(workers) - succeed),
-                                    queue_size = len(rman.queue),
+                                    queue_size = len(rman.inpQueue),
                                     sync_speed = speed(start, finish)
 
     except CatchableError as exc:
@@ -119,7 +139,7 @@ proc requestManagerLoop(rman: RequestManager) {.async.} =
 
 proc start*(rman: var RequestManager) =
   ## Start Request Manager's loop.
-  rman.loopFuture = requestManagerLoop(rman)
+  rman.loopFuture = rman.requestManagerLoop()
 
 proc stop*(rman: RequestManager) =
   ## Stop Request Manager's loop.
@@ -130,4 +150,4 @@ proc fetchAncestorBlocks*(rman: RequestManager, roots: seq[FetchRecord]) =
   ## Enqueue list missing blocks roots ``roots`` for download by
   ## Request Manager ``rman``.
   for item in roots:
-    rman.queue.addLastNoWait(item)
+    rman.inpQueue.addLastNoWait(item)

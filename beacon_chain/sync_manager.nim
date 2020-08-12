@@ -440,7 +440,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
     var res: Result[void, BlockError]
     if len(item.data) > 0:
       for blk in item.data:
-        debug "Pushing block", block_root = blk.root,
+        trace "Pushing block", block_root = blk.root,
                                block_slot = blk.message.slot
         res = await sq.validate(blk)
         if not(res.isOk):
@@ -587,6 +587,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            getLocalHeadSlotCb: GetSlotCallback,
                            getLocalWallSlotCb: GetSlotCallback,
                            getFinalizedSlotCb: GetSlotCallback,
+                           outputQueue: AsyncQueue[SyncBlock],
                            maxWorkers = 10,
                            maxStatusAge = uint64(SLOTS_PER_EPOCH * 4),
                            maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
@@ -594,11 +595,8 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                                         int(SECONDS_PER_SLOT)).seconds,
                            chunkSize = uint64(SLOTS_PER_EPOCH),
                            toleranceValue = uint64(1),
-                           maxRecurringFailures = 3,
-                           outputQueueSize = 1,
+                           maxRecurringFailures = 3
                            ): SyncManager[A, B] =
-
-  var outputQueue = newAsyncQueue[SyncBlock](outputQueueSize)
 
   let queue = SyncQueue.init(A, getFinalizedSlotCb(), getLocalWallSlotCb(),
                              chunkSize, getFinalizedSlotCb, outputQueue, 1)
@@ -982,16 +980,17 @@ proc start*[A, B](man: SyncManager[A, B]) =
   ## Starts SyncManager's main loop.
   man.syncFut = man.syncLoop()
 
-proc getBlock*[A, B](man: SyncManager[A, B]): Future[SyncBlock] =
-  ## Get the block that was received during synchronization.
-  man.outQueue.popFirst()
-
 proc done*(blk: SyncBlock) =
-  ## Send signal to SyncManager that the block ``blk`` has passed
+  ## Send signal to [Sync/Request]Manager that the block ``blk`` has passed
   ## verification successfully.
   blk.resfut.complete(Result[void, BlockError].ok())
 
 proc fail*(blk: SyncBlock, error: BlockError) =
-  ## Send signal to SyncManager that the block ``blk`` has NOT passed
+  ## Send signal to [Sync/Request]Manager that the block ``blk`` has NOT passed
   ## verification with specific ``error``.
   blk.resfut.complete(Result[void, BlockError].err(error))
+
+proc complete*(blk: SyncBlock, res: Result[void, BlockError]) {.inline.} =
+  ## Send signal to [Sync/Request]Manager about result ``res`` of block ``blk``
+  ## verification.
+  blk.resfut.complete(res)
