@@ -116,8 +116,7 @@ type
 
   BalanceCheckpoint* = object
     blck*: BlockRef
-    epoch*: Epoch
-    balances*: seq[Gwei]
+    epochRef*: EpochRef
 
   FFGCheckpoints* = object
     justified*: BalanceCheckpoint

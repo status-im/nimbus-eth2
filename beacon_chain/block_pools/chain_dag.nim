@@ -61,6 +61,18 @@ func parent*(bs: BlockSlot): BlockSlot =
       slot: bs.slot - 1
     )
 
+func get_effective_balances*(state: BeaconState): seq[Gwei] =
+  ## Get the balances from a state as counted for fork choice
+  result.newSeq(state.validators.len) # zero-init
+
+  let epoch = state.get_current_epoch()
+
+  for i in 0 ..< result.len:
+    # All non-active validators have a 0 balance
+    template validator: Validator = state.validators[i]
+    if validator.is_active_validator(epoch):
+      result[i] = validator.effective_balance
+
 proc init*(T: type EpochRef, state: BeaconState, cache: var StateCache, prevEpoch: EpochRef): T =
   let
     epoch = state.get_current_epoch()
@@ -88,6 +100,12 @@ proc init*(T: type EpochRef, state: BeaconState, cache: var StateCache, prevEpoc
     epochRef.validator_key_store = (
       hash_tree_root(state.validators),
       newClone(mapIt(state.validators.toSeq, it.pubkey)))
+
+  # When fork choice runs, it will need the effective balance of the justified
+  # epoch - we pre-load the balances here to avoid rewinding the justified
+  # state later
+  epochRef.effective_balances = get_effective_balances(state)
+
   epochRef
 
 func link*(parent, child: BlockRef) =
@@ -323,7 +341,6 @@ proc init*(T: type ChainDAGRef,
     headState: tmpState[],
     tmpState: tmpState[],
     clearanceState: tmpState[],
-    balanceState: tmpState[],
 
     # The only allowed flag right now is verifyFinalization, as the others all
     # allow skipping some validation.
@@ -335,7 +352,6 @@ proc init*(T: type ChainDAGRef,
 
   res.updateStateData(res.headState, headRef.atSlot(headRef.slot))
   res.clearanceState = res.headState
-  res.balanceState = res.headState
 
   info "Block dag initialized",
     head = shortLog(headRef),
