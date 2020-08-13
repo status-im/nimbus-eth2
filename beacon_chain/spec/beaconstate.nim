@@ -15,7 +15,9 @@ import
   ../../nbench/bench_lab
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#is_valid_merkle_branch
-func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openarray[Eth2Digest], depth: int, index: uint64, root: Eth2Digest): bool {.nbench.}=
+func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openarray[Eth2Digest],
+                             depth: int, index: uint64,
+                             root: Eth2Digest): bool {.nbench.}=
   ## Check if ``leaf`` at ``index`` verifies against the Merkle ``root`` and
   ## ``branch``.
   var
@@ -416,41 +418,41 @@ proc process_registry_updates*(state: var BeaconState,
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     state: BeaconState, indexed_attestation: SomeIndexedAttestation,
-    flags: UpdateFlags): bool =
+    flags: UpdateFlags): Result[void, cstring] =
   # Check if ``indexed_attestation`` is not empty, has sorted and unique
   # indices and has a valid aggregate signature.
 
   template is_sorted_and_unique(s: untyped): bool =
+    var res = true
     for i in 1 ..< s.len:
       if s[i - 1].uint64 >= s[i].uint64:
-        return false
+        res = false
+        break
+    res
 
-    true
+  if len(indexed_attestation.attesting_indices) == 0:
+    return err("indexed_attestation: no attesting indices")
 
   # Not from spec, but this function gets used in front-line roles, not just
   # behind firewall.
   let num_validators = state.validators.lenu64
   if anyIt(indexed_attestation.attesting_indices, it >= num_validators):
-    trace "indexed attestation: not all indices valid validators"
-    return false
+    return err("indexed attestation: not all indices valid validators")
 
-  # Verify indices are sorted and unique
-  let indices = indexed_attestation.attesting_indices.asSeq
-  if len(indices) == 0 or not is_sorted_and_unique(indices):
-    trace "indexed attestation: indices not sorted and unique"
-    return false
+  if not is_sorted_and_unique(indexed_attestation.attesting_indices):
+    return err("indexed attestation: indices not sorted and unique")
 
   # Verify aggregate signature
   if skipBLSValidation notin flags:
      # TODO: fuse loops with blsFastAggregateVerify
-    let pubkeys = mapIt(indices, state.validators[it].pubkey)
+    let pubkeys = mapIt(
+      indexed_attestation.attesting_indices, state.validators[it].pubkey)
     if not verify_attestation_signature(
         state.fork, state.genesis_validators_root, indexed_attestation.data,
         pubkeys, indexed_attestation.signature):
-      trace "indexed attestation: signature verification failure"
-      return false
+      return err("indexed attestation: signature verification failure")
 
-  true
+  ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(bits: CommitteeValidatorsBits,
@@ -582,9 +584,8 @@ proc check_attestation*(
     if not (data.source == state.previous_justified_checkpoint):
       return err("FFG data not matching previous justified epoch")
 
-  if not is_valid_indexed_attestation(
-      state, get_indexed_attestation(state, attestation, cache), flags):
-    return err("signature or bitfields incorrect")
+  ? is_valid_indexed_attestation(
+      state, get_indexed_attestation(state, attestation, cache), flags)
 
   ok()
 

@@ -167,10 +167,7 @@ func compute_committee*(shuffled_indices: seq[ValidatorIndex],
 
   # In spec, this calls get_shuffled_index() every time, but that's wasteful
   # Here, get_beacon_committee() gets the shuffled version.
-  try:
-    shuffled_indices[start.int .. (endIdx.int-1)]
-  except KeyError:
-    raiseAssert("Cached entries are added before use")
+  shuffled_indices[start.int .. (endIdx.int-1)]
 
 func compute_committee_len*(active_validators: uint64,
     index: uint64, count: uint64): uint64 =
