@@ -1,6 +1,4 @@
-# The nim-beacon-chain book
-
-_Documentation for Nimbus beacon chain users and developers._
+# The Nimbus beacon chain book
 
 The Nimbus beacon chain is a research implementation of the Beacon Chain – the core system level chain at the heart of Ethereum 2.0.
 
