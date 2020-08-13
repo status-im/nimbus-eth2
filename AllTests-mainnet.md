@@ -237,7 +237,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 OK: 8/8 Fail: 0/8 Skip: 0/8
 ## chain DAG finalization tests [Preset: mainnet]
 ```diff
-+ prune heads on finalization [Preset: mainnet]                                              OK
++ init with gaps [Preset: mainnet]                                                           OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## hash

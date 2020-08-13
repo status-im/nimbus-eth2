@@ -18,21 +18,15 @@ import
   ../../beacon_chain/spec/[beaconstate, datatypes, digest, helpers],
   ../../beacon_chain/ssz/merkleization
 
-# TODO
-#
-# This module currently represents a direct translation of the Python
-# code, appearing in the spec. We need to review it to ensure that it
-# doesn't duplicate any code defined in ssz.nim already.
-#
-# All tests need to be moved to the test suite.
+# TODO All tests need to be moved to the test suite.
 
-func round_step_down*(x: Natural, step: static Natural): int {.inline.} =
+func round_step_down(x: Natural, step: static Natural): int {.inline.} =
   ## Round the input to the previous multiple of "step"
   when (step and (step - 1)) == 0:
     # Step is a power of 2. (If compiler cannot prove that x>0 it does not make the optim)
-    result = x and not(step - 1)
+    x and not(step - 1)
   else:
-    result = x - x mod step
+    x - x mod step
 
 type SparseMerkleTree*[Depth: static int] = object
   ## Sparse Merkle tree
@@ -41,7 +35,7 @@ type SparseMerkleTree*[Depth: static int] = object
   # and the root hash at the last depth
   nnznodes: array[Depth+1, seq[Eth2Digest]]  # nodes that leads to non-zero leaves
 
-proc merkleTreeFromLeaves*(
+func merkleTreeFromLeaves(
         values: openarray[Eth2Digest],
         Depth: static[int] = DEPOSIT_CONTRACT_TREE_DEPTH
       ): SparseMerkleTree[Depth] =
@@ -68,20 +62,27 @@ proc merkleTreeFromLeaves*(
         h.update zeroHashes[depth-1]
       result.nnznodes[depth].add nodeHash
 
-proc getMerkleProof*[Depth: static int](tree: SparseMerkleTree[Depth],
-                                        index: int): array[Depth, Eth2Digest] =
-
+func getMerkleProof[Depth: static int](tree: SparseMerkleTree[Depth],
+                                       index: int,
+                                       depositMode = false): array[Depth, Eth2Digest] =
   # Descend down the tree according to the bit representation
   # of the index:
   #   - 0 --> go left
   #   - 1 --> go right
   let path = uint32(index)
+  var depthLen = index + 1
   for depth in 0 ..< Depth:
     let nodeIdx = int((path shr depth) xor 1)
-    if nodeIdx < tree.nnznodes[depth].len:
+
+    # depositMode simulates only having constructed SparseMerkleTree[Depth]
+    # through exactly deposit specified.
+    if nodeIdx < tree.nnznodes[depth].len and
+        (nodeIdx < depthLen or not depositMode):
       result[depth] = tree.nnznodes[depth][nodeIdx]
     else:
       result[depth] = zeroHashes[depth]
+
+    depthLen = (depthLen + 1) div 2
 
 func attachMerkleProofs*(deposits: var openarray[Deposit]) =
   let deposit_data_roots = mapIt(deposits, it.data.hash_tree_root)
@@ -91,9 +92,9 @@ func attachMerkleProofs*(deposits: var openarray[Deposit]) =
       deposit_data_roots, 1'i64 shl DEPOSIT_CONTRACT_TREE_DEPTH):
     deposit_data_sums.add prefix_root
 
+  let merkle_tree = merkleTreeFromLeaves(deposit_data_roots)
   for val_idx in 0 ..< deposits.len:
-    let merkle_tree = merkleTreeFromLeaves(deposit_data_roots[0..val_idx])
-    deposits[val_idx].proof[0..31] = merkle_tree.getMerkleProof(val_idx)
+    deposits[val_idx].proof[0..31] = merkle_tree.getMerkleProof(val_idx, true)
     deposits[val_idx].proof[32].data[0..7] = uint_to_bytes8((val_idx + 1).uint64)
 
     doAssert is_valid_merkle_branch(
