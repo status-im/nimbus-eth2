@@ -32,7 +32,7 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="hgt:n:d:"
-LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop,log-level:,base-port:,base-metrics-port:,with-ganache,reuse-existing-data-dir"
+LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop,enable-logtrace,log-level:,base-port:,base-metrics-port:,with-ganache,reuse-existing-data-dir"
 
 # default values
 TESTNET="1"
@@ -116,7 +116,7 @@ while true; do
       REUSE_EXISTING_DATA_DIR="1"
       shift
       ;;
-    --use-logtrace)
+    --enable-logtrace)
       USE_LOGTRACE="0"
       shift
       ;;

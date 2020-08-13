@@ -45,8 +45,8 @@ def runStages() {
 					stage("testnet finalization") {
 						// EXECUTOR_NUMBER will be 0 or 1, since we have 2 executors per Jenkins node
 						sh """#!/bin/bash
-						./scripts/launch_local_testnet.sh --testnet 0 --nodes 4 --log-level INFO --disable-htop --use-logtrace --data-dir local_testnet0_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) -- --verify-finalization --stop-at-epoch=5
-						./scripts/launch_local_testnet.sh --testnet 1 --nodes 4 --log-level INFO --disable-htop --use-logtrace --data-dir local_testnet1_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) -- --verify-finalization --stop-at-epoch=5
+						./scripts/launch_local_testnet.sh --testnet 0 --nodes 4 --log-level INFO --disable-htop --enable-logtrace --data-dir local_testnet0_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) -- --verify-finalization --stop-at-epoch=5
+						./scripts/launch_local_testnet.sh --testnet 1 --nodes 4 --log-level INFO --disable-htop --enable-logtrace --data-dir local_testnet1_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) -- --verify-finalization --stop-at-epoch=5
 						"""
 					}
 				}
