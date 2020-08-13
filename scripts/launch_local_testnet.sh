@@ -44,6 +44,7 @@ LOG_LEVEL="DEBUG"
 BASE_PORT="9000"
 BASE_METRICS_PORT="8008"
 REUSE_EXISTING_DATA_DIR="0"
+USE_LOGTRACE="0"
 
 print_help() {
   cat <<EOF
@@ -115,6 +116,10 @@ while true; do
       REUSE_EXISTING_DATA_DIR="1"
       shift
       ;;
+    --use-logtrace)
+      USE_LOGTRACE="0"
+      shift
+      ;;
     --)
       shift
       break
@@ -161,6 +166,9 @@ fi
 
 NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh ${NETWORK})
 $MAKE -j2 LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" beacon_node deposit_contract
+if [[ "$USE_LOGTRACE" == "1" ]]; then
+  make logtrace
+fi
 
 PIDS=""
 WEB3_ARG=""
@@ -323,6 +331,10 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     PIDS="${PIDS},$!"
   fi
 done
+
+if [[ "$USE_LOGTRACE" == "1" ]]; then
+  ./build/logtrace asr --log-dir=local_testnet_data --nodes=log0.txt --nodes=log1.txt --nodes=log2.txt --nodes=log3.txt
+fi
 
 # give the regular nodes time to crash
 sleep 5
