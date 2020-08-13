@@ -33,8 +33,8 @@ else:
     switch("passC", "-mno-avx512vl")
 
 --threads:on
-# --opt:speed
-switch("passC", "-O2 -fno-strict-aliasing -fno-ident")
+--opt:speed
+switch("passC", "-fno-tree-vectorize")
 --excessiveStackTrace:on
 # enable metric collection
 --define:metrics
