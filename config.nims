@@ -26,14 +26,15 @@ if defined(windows):
 if defined(disableMarchNative):
   switch("passC", "-msse3")
 else:
-  switch("passC", "-march=native")
+  # switch("passC", "-march=native")
   if defined(windows):
     # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
     # ("-fno-asynchronous-unwind-tables" breaks Nim's exception raising, sometimes)
     switch("passC", "-mno-avx512vl")
 
 --threads:on
---opt:speed
+# --opt:speed
+switch("passC", "-O2 -fno-strict-aliasing -fno-ident")
 --excessiveStackTrace:on
 # enable metric collection
 --define:metrics
@@ -52,7 +53,7 @@ const useLibStackTrace = not defined(macosx) and
                          not defined(windows) and
                          not defined(disable_libbacktrace)
 
-when useLibStackTrace:
+when false: # useLibStackTrace:
   --define:nimStackTraceOverride
   switch("import", "libbacktrace")
 else:
@@ -79,4 +80,3 @@ switch("warning", "LockLevel:off")
 
 # Useful for Chronos metrics.
 --define:chronosFutureTracking
-

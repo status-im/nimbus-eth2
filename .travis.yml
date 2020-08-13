@@ -4,7 +4,7 @@ dist: bionic
 
 # https://docs.travis-ci.com/user/caching/
 cache:
-  ccache: false
+  ccache: true
   directories:
     - vendor/nimbus-build-system/vendor/Nim/bin
     - jsonTestsCache
