@@ -64,7 +64,6 @@ Time is shown as `epoch:subslot`, starting from the block chain genesis time - o
 The status bar content may be updated using command line flags.
 
 ### Metrics
-
 Nimbus includes metrics support using the Prometheus format. To enable it, you need to enable insecure feature when compiling the application. The http server that exports Prometheus metrics should not be exposed to external parties.
 
 ```
@@ -72,12 +71,16 @@ Nimbus includes metrics support using the Prometheus format. To enable it, you n
 make NIMFLAGS="-d:insecure" medalla
 ```
 
-## Command line options
+## Help
+To see a list of command line options with descriptions, navigate to the `build` directory and run:
 
 ```
-$ ./beacon_node --help
-Nimbus beacon node v0.3.0 (877a358)
+./beacon_node --help
+```
 
+You should see the following output:
+
+```
 Usage:
 
 beacon_node [OPTIONS]... command
