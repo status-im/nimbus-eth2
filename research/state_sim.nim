@@ -34,7 +34,7 @@ proc writeJson*(fn, v: auto) =
   Json.saveFile(fn, v, pretty = true)
 
 cli do(slots = SLOTS_PER_EPOCH * 6,
-       validators = SLOTS_PER_EPOCH * 100, # One per shard is minimum
+       validators = SLOTS_PER_EPOCH * 200, # One per shard is minimum
        json_interval = SLOTS_PER_EPOCH,
        write_last_json = false,
        prefix: int = 0,
