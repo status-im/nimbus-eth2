@@ -232,9 +232,7 @@ func `$`*(x: BlsValue): string =
 
 func toRaw*(x: ValidatorPrivKey): array[32, byte] =
   # TODO: distinct type - see https://github.com/status-im/nim-blscurve/pull/67
-  when BLS_BACKEND == "blst" or (
-    BLS_BACKEND == "auto" and (defined(arm64) or defined(amd64))
-  ):
+  when BLS_BACKEND == BLST:
     result = SecretKey(x).exportRaw()
   else:
     # Miracl exports to 384-bit arrays, but Curve order is 256-bit
