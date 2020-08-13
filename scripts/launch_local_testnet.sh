@@ -165,10 +165,9 @@ else
 fi
 
 NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh ${NETWORK})
-$MAKE -j2 LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" beacon_node deposit_contract
-if [[ "$USE_LOGTRACE" == "1" ]]; then
-  $MAKE -j2 LOG_LEVEL="${LOG_LEVEL}" logtrace
-fi
+$MAKE -j2 LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" beacon_node deposit_contract logtrace
+#if [[ "$USE_LOGTRACE" == "1" ]]; then
+#fi
 
 PIDS=""
 WEB3_ARG=""
