@@ -18,7 +18,7 @@ import
   eth/[keys, async_utils], eth/p2p/discoveryv5/[protocol, enr],
 
   # Local modules
-  spec/[datatypes, digest, crypto, beaconstate, helpers, validator, network],
+  spec/[datatypes, digest, crypto, helpers, validator, network],
   spec/state_transition,
   conf, time, validator_pool,
   attestation_pool, block_pools/[spec_cache, chain_dag, clearance],
@@ -60,11 +60,29 @@ proc addLocalValidators*(node: BeaconNode) =
 
   info "Local validators attached ", count = node.attachedValidators.count
 
-func getAttachedValidator*(node: BeaconNode,
+proc getAttachedValidator*(node: BeaconNode,
+                           pubkey: ValidatorPubKey): AttachedValidator =
+  node.attachedValidators.getValidator(pubkey)
+
+proc getAttachedValidator*(node: BeaconNode,
                            state: BeaconState,
                            idx: ValidatorIndex): AttachedValidator =
-  let validatorKey = state.validators[idx].pubkey
-  node.attachedValidators.getValidator(validatorKey)
+  if idx < state.validators.len.ValidatorIndex:
+    node.getAttachedValidator(state.validators[idx].pubkey)
+  else:
+    warn "Validator index out of bounds",
+      idx, stateSlot = state.slot, validators = state.validators.len
+    nil
+
+proc getAttachedValidator*(node: BeaconNode,
+                           epochRef: EpochRef,
+                           idx: ValidatorIndex): AttachedValidator =
+  if idx < epochRef.validator_keys.len.ValidatorIndex:
+    node.getAttachedValidator(epochRef.validator_keys[idx])
+  else:
+    warn "Validator index out of bounds",
+      idx, epoch = epochRef.epoch, validators = epochRef.validator_keys.len
+    nil
 
 proc isSynced*(node: BeaconNode, head: BlockRef): bool =
   ## TODO This function is here as a placeholder for some better heurestics to
@@ -221,8 +239,9 @@ proc proposeSignedBlock*(node: BeaconNode,
         blckRef: BlockRef, signedBlock: SignedBeaconBlock,
         state: HashedBeaconState):
       # Callback add to fork choice if valid
+      let epochRef = getEpochInfo(blckRef, state.data)
       node.attestationPool.addForkChoice(
-        state.data, blckRef, signedBlock.message,
+        epochRef, blckRef, signedBlock.message,
         node.beaconClock.now().slotOrZero())
 
   if newBlockRef.isErr:
@@ -317,32 +336,30 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#validator-assignments
-  # TODO we could cache the validator assignment since it's valid for the entire
-  #      epoch since it doesn't change, but that has to be weighed against
-  #      the complexity of handling forks correctly - instead, we use an adapted
-  #      version here that calculates the committee for a single slot only
-  node.chainDag.withState(node.chainDag.tmpState, attestationHead):
-    var cache = getEpochCache(attestationHead.blck, state)
-    let
-      committees_per_slot =
-        get_committee_count_per_slot(state, slot.epoch, cache)
-      num_active_validators =
-        count_active_validators(state, slot.compute_epoch_at_slot, cache)
+  let
+    epochRef = node.chainDag.getEpochRef(
+      attestationHead.blck, slot.compute_epoch_at_slot())
+    committees_per_slot =
+      get_committee_count_per_slot(epochRef)
+    num_active_validators = count_active_validators(epochRef)
+    fork = node.chainDag.headState.data.data.fork
+    genesis_validators_root =
+      node.chainDag.headState.data.data.genesis_validators_root
 
-    for committee_index in 0'u64..<committees_per_slot:
-      let committee = get_beacon_committee(
-        state, slot, committee_index.CommitteeIndex, cache)
+  for committee_index in 0'u64..<committees_per_slot:
+    let committee = get_beacon_committee(
+      epochRef, slot, committee_index.CommitteeIndex)
 
-      for index_in_committee, validatorIdx in committee:
-        let validator = node.getAttachedValidator(state, validatorIdx)
-        if validator != nil:
-          let ad = makeAttestationData(state, slot, committee_index, blck.root)
-          attestations.add((ad, committee.len, index_in_committee, validator))
+    for index_in_committee, validatorIdx in committee:
+      let validator = node.getAttachedValidator(epochRef, validatorIdx)
+      if validator != nil:
+        let ad = makeAttestationData(epochRef, attestationHead, committee_index)
+        attestations.add((ad, committee.len, index_in_committee, validator))
 
-    for a in attestations:
-      traceAsyncErrors createAndSendAttestation(
-        node, state.fork, state.genesis_validators_root, a.validator, a.data,
-        a.committeeLen, a.indexInCommittee, num_active_validators)
+  for a in attestations:
+    traceAsyncErrors createAndSendAttestation(
+      node, fork, genesis_validators_root, a.validator, a.data,
+      a.committeeLen, a.indexInCommittee, num_active_validators)
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async.} =
@@ -357,7 +374,8 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   if proposer.isNone():
     return head
 
-  let validator = node.attachedValidators.getValidator(proposer.get()[1])
+  let validator =
+    node.attachedValidators.getValidator(proposer.get()[1])
 
   if validator != nil:
     return await proposeBlock(node, validator, proposer.get()[0], head, slot)
@@ -366,7 +384,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     headRoot = shortLog(head.root),
     slot = shortLog(slot),
     proposer_index = proposer.get()[0],
-    proposer = shortLog(proposer.get()[1]),
+    proposer = shortLog(proposer.get()[1].initPubKey()),
     pcs = "wait_for_proposal"
 
   return head
@@ -415,7 +433,11 @@ proc broadcastAggregatedAttestations(
               signature: validator.signAggregateAndProof(
                 aggregateAndProof.get, state.fork,
                 state.genesis_validators_root))
+
             node.network.broadcast(node.topicAggregateAndProofs, signedAP)
+            info "Aggregated attestation sent",
+              attestation = shortLog(signedAP.message.aggregate),
+              validator = shortLog(validator)
 
 proc handleValidatorDuties*(
     node: BeaconNode, lastSlot, slot: Slot) {.async.} =

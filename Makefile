@@ -170,6 +170,13 @@ testnet0 testnet1: | beacon_node
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
 medalla: | beacon_node
+	mkdir -p build/data/shared_medalla_$(NODE_ID)
+
+	scripts/make_prometheus_config.sh \
+		--nodes 1 \
+		--base-metrics-port $$(($(BASE_METRICS_PORT) + $(NODE_ID))) \
+		--config-file "build/data/shared_medalla_$(NODE_ID)/prometheus.yml"
+
 	build/beacon_node \
 		--network=medalla \
 		--log-level="$(LOG_LEVEL)" \
@@ -179,7 +186,13 @@ medalla: | beacon_node
 
 medalla-vc: | beacon_node validator_client
 	# if launching a VC as well - send the BN looking nowhere for validators/secrets
-	mkdir build/data/shared_medalla_$(NODE_ID)/empty_dummy_folder -p
+	mkdir -p build/data/shared_medalla_$(NODE_ID)/empty_dummy_folder
+
+	scripts/make_prometheus_config.sh \
+		--nodes 1 \
+		--base-metrics-port $$(($(BASE_METRICS_PORT) + $(NODE_ID))) \
+		--config-file "build/data/shared_medalla_$(NODE_ID)/prometheus.yml"
+
 	build/beacon_node \
 		--network=medalla \
 		--log-level="$(LOG_LEVEL)" \
@@ -188,7 +201,9 @@ medalla-vc: | beacon_node validator_client
 		--validators-dir=build/data/shared_medalla_$(NODE_ID)/empty_dummy_folder \
 		--secrets-dir=build/data/shared_medalla_$(NODE_ID)/empty_dummy_folder \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS) &
+
 	sleep 4
+
 	build/validator_client \
 		--log-level="$(LOG_LEVEL)" \
 		--log-file=build/data/shared_medalla_$(NODE_ID)/nbc_vc_$$(date +"%Y%m%d%H%M%S").log \
@@ -196,6 +211,13 @@ medalla-vc: | beacon_node validator_client
 		--rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) ))
 
 medalla-dev: | beacon_node
+	mkdir -p build/data/shared_medalla_$(NODE_ID)
+
+	scripts/make_prometheus_config.sh \
+		--nodes 1 \
+		--base-metrics-port $$(($(BASE_METRICS_PORT) + $(NODE_ID))) \
+		--config-file "build/data/shared_medalla_$(NODE_ID)/prometheus.yml"
+
 	build/beacon_node \
 		--network=medalla \
 		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
@@ -240,7 +262,7 @@ altona: | beacon_node
 
 altona-vc: | beacon_node validator_client
 	# if launching a VC as well - send the BN looking nowhere for validators/secrets
-	mkdir build/data/shared_altona_$(NODE_ID)/empty_dummy_folder -p
+	mkdir -p build/data/shared_altona_$(NODE_ID)/empty_dummy_folder
 	build/beacon_node \
 		--network=altona \
 		--log-level="$(LOG_LEVEL)" \

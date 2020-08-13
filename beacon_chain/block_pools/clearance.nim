@@ -43,7 +43,7 @@ proc addRawBlock*(
 proc addResolvedBlock(
        dag: var ChainDAGRef, quarantine: var QuarantineRef,
        state: HashedBeaconState, signedBlock: SignedBeaconBlock,
-       parent: BlockRef, cache: StateCache,
+       parent: BlockRef, cache: var StateCache,
        onBlockAdded: OnBlockAdded
      ): BlockRef =
   # TODO move quarantine processing out of here
@@ -54,6 +54,9 @@ proc addResolvedBlock(
     blockRoot = signedBlock.root
     blockRef = BlockRef.init(blockRoot, signedBlock.message)
     blockEpoch = blockRef.slot.compute_epoch_at_slot()
+
+  link(parent, blockRef)
+
   if parent.slot.compute_epoch_at_slot() == blockEpoch:
     # If the parent and child blocks are from the same epoch, we can reuse
     # the epoch cache - but we'll only use the current epoch because the new
@@ -61,9 +64,7 @@ proc addResolvedBlock(
     blockRef.epochsInfo = filterIt(parent.epochsInfo, it.epoch == blockEpoch)
   else:
     # Ensure we collect the epoch info if it's missing
-    discard getEpochInfo(blockRef, state.data)
-
-  link(parent, blockRef)
+    discard getEpochInfo(blockRef, state.data, cache)
 
   dag.blocks[blockRoot] = blockRef
   trace "Populating block dag", key = blockRoot, val = blockRef
@@ -215,7 +216,7 @@ proc addRawBlock*(
       onBlockAdded
     )
 
-    dag.putState(dag.clearanceState.data, dag.clearanceState.blck)
+    dag.putState(dag.clearanceState)
 
     return ok dag.clearanceState.blck
 
@@ -232,6 +233,10 @@ proc addRawBlock*(
 
   if blck.parent_root in quarantine.missing or
       blck.parent_root in quarantine.orphans:
+    debug "Unresolved block (parent missing or orphaned)",
+      orphans = quarantine.orphans.len,
+      missing = quarantine.missing.len
+
     return err MissingParent
 
   # This is an unresolved block - put its parent on the missing list for now...

@@ -88,9 +88,14 @@ proc process_deposit*(preset: RuntimePreset,
 
   let
     pubkey = deposit.data.pubkey
+    pubkey_inited = pubkey.initPubKey # TODO replicate previous PR semantics, check later
     amount = deposit.data.amount
-    validator_pubkeys = mapIt(state.validators, it.pubkey)
-    index = validator_pubkeys.find(pubkey)
+  var index = -1
+
+  for i, validator in state.validators:
+    if pubkey_inited == validator.pubkey.initPubKey:
+      index = i
+      break
 
   if index == -1:
     # Verify the deposit signature (proof of possession) which is not checked
@@ -237,10 +242,12 @@ proc initialize_beacon_state_from_eth1*(
       Eth1Data(block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
     latest_block_header:
       BeaconBlockHeader(
-        # This differs from the spec intentionally.
-        # We must specify the default value for `ValidatorSig`/`BeaconBlockBody`
-        # in order to get a correct `hash_tree_root`.
-        body_root: hash_tree_root(BeaconBlockBody())
+        body_root: hash_tree_root(BeaconBlockBody(
+          # This differs from the spec intentionally.
+          # We must specify the default value for `ValidatorSig`
+          # in order to get a correct `hash_tree_root`.
+          randao_reveal: ValidatorSig(kind: OpaqueBlob)
+        ))
       )
   )
 
@@ -300,7 +307,10 @@ func is_valid_genesis_state*(preset: RuntimePreset,
 func get_initial_beacon_block*(state: BeaconState): SignedBeaconBlock =
   let message = BeaconBlock(
       slot: GENESIS_SLOT,
-      state_root: hash_tree_root(state))
+      state_root: hash_tree_root(state),
+      body: BeaconBlockBody(
+        # TODO: This shouldn't be necessary if OpaqueBlob is the default
+        randao_reveal: ValidatorSig(kind: OpaqueBlob)))
       # parent_root, randao_reveal, eth1_data, signature, and body automatically
       # initialized to default values.
   SignedBeaconBlock(message: message, root: hash_tree_root(message))
@@ -404,7 +414,7 @@ proc process_registry_updates*(state: var BeaconState,
       compute_activation_exit_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
-func is_valid_indexed_attestation*(
+proc is_valid_indexed_attestation*(
     state: BeaconState, indexed_attestation: SomeIndexedAttestation,
     flags: UpdateFlags): bool =
   # Check if ``indexed_attestation`` is not empty, has sorted and unique
@@ -638,7 +648,7 @@ func makeAttestationData*(
     "Computed epoch was " & $slot.compute_epoch_at_slot &
     "  while the state current_epoch was " & $current_epoch
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index,

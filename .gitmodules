@@ -105,9 +105,9 @@
 	branch = master
 [submodule "vendor/news"]
 	path = vendor/news
-	url = https://github.com/tormund/news.git
+	url = https://github.com/status-im/news.git
 	ignore = dirty
-	branch = master
+	branch = status
 [submodule "vendor/nim-prompt"]
 	path = vendor/nim-prompt
 	url = https://github.com/status-im/nim-prompt.git

@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[strformat, sets],
+  std/[strformat, sets, random],
   ./datatypes, ./helpers, ./validator
 
 const
@@ -92,7 +92,7 @@ func getAttestationTopic*(forkDigest: ForkDigest,
       get_committee_count_per_slot(num_active_validators),
       attestation.data.slot, attestation.data.index.CommitteeIndex))
 
-func get_committee_assignments*(
+func get_committee_assignments(
     state: BeaconState, epoch: Epoch,
     validator_indices: HashSet[ValidatorIndex]):
     seq[tuple[subnetIndex: uint64, slot: Slot]] =
@@ -110,3 +110,51 @@ func get_committee_assignments*(
         result.add(
           (compute_subnet_for_attestation(committees_per_slot, slot, idx),
             slot))
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+proc getStabilitySubnetLength*(): uint64 =
+  EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION +
+    rand(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION.int).uint64
+
+proc get_attestation_subnet_changes*(
+    state: BeaconState, attachedValidators: openarray[ValidatorIndex],
+    prevAttestationSubnets: AttestationSubnets, epoch: Epoch):
+    tuple[a: AttestationSubnets, b: set[uint8], c: set[uint8]] =
+  static:
+    doAssert ATTESTATION_SUBNET_COUNT == 64
+
+  var attestationSubnets = prevAttestationSubnets
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  let prevStabilitySubnet = {attestationSubnets.stabilitySubnet.uint8}
+  if epoch >= attestationSubnets.stabilitySubnetExpirationEpoch:
+    attestationSubnets.stabilitySubnet =
+      rand(ATTESTATION_SUBNET_COUNT - 1).uint64
+    attestationSubnets.stabilitySubnetExpirationEpoch =
+      epoch + getStabilitySubnetLength()
+
+  var nextEpochSubnets: set[uint8]
+  for it in get_committee_assignments(
+      state, state.slot.epoch + 1, attachedValidators.toHashSet):
+    nextEpochSubnets.incl it.subnetIndex.uint8
+
+  doAssert nextEpochSubnets.len > 0 and
+    nextEpochSubnets.len <= attachedValidators.len
+
+  let
+    epochParity = epoch mod 2
+    stabilitySet = {attestationSubnets.stabilitySubnet.uint8}
+    currentEpochSubnets = attestationSubnets.subscribedSubnets[1 - epochParity]
+
+    expiringSubnets =
+      (prevStabilitySubnet +
+        attestationSubnets.subscribedSubnets[epochParity]) -
+        nextEpochSubnets - currentEpochSubnets - stabilitySet
+    newSubnets =
+      (nextEpochSubnets + stabilitySet) -
+        (currentEpochSubnets + prevStabilitySubnet)
+
+  doAssert newSubnets.len <= attachedValidators.len + 1
+
+  attestationSubnets.subscribedSubnets[epochParity] = newSubnets
+  (attestationSubnets, expiringSubnets, newSubnets)

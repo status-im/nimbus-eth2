@@ -67,9 +67,12 @@ template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
       "eth2 specification v" & SPEC_VERSION & "\p\p" &
       nimBanner
   # TODO for some reason, copyrights are printed when doing `--help`
-  ConfType.load(
+  {.push warning[ProveInit]: off.}
+  let config = ConfType.load(
     version = version,
     copyrightBanner = clientId) # but a short version string makes more sense...
+  {.pop.}
+  config
 
 # TODO not sure if this belongs here but it doesn't belong in `time.nim` either
 proc sleepToSlotOffset*(clock: BeaconClock, extra: chronos.Duration,

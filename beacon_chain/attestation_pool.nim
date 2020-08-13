@@ -29,10 +29,11 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
   #      should probably be removed as a dependency of AttestationPool (or some other
   #      smart refactoring)
 
-  chainDag.withState(chainDag.tmpState, chainDag.finalizedHead):
+  let tmpState = newClone(chainDag.headState)
+  chainDag.withState(tmpState[], chainDag.finalizedHead):
+    var cache = StateCache()
     var forkChoice = initForkChoice(
-      chainDag.tmpState,
-    ).get()
+      tmpState[], getEpochInfo(chainDag.finalizedHead.blck, state, cache)).get()
 
   # Feed fork choice with unfinalized history - during startup, block pool only
   # keeps track of a single history so we just need to follow it
@@ -44,20 +45,16 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
     blocks.add cur
     cur = cur.parent
 
+  debug "Preloading fork choice with blocks", blocks = blocks.len
+
   for blck in reversed(blocks):
-    chainDag.withState(chainDag.tmpState, blck.atSlot(blck.slot)):
-      debug "Preloading fork choice with block",
-        block_root = shortlog(blck.root),
-        parent_root = shortlog(blck.parent.root),
-        justified_epoch = state.current_justified_checkpoint.epoch,
-        finalized_epoch = state.finalized_checkpoint.epoch,
-        slot = blck.slot
-
-      let status =
+    let
+      epochRef = chainDag.getEpochRef(blck, blck.slot.compute_epoch_at_slot)
+      status =
         forkChoice.process_block(
-          chainDag, state, blck, chainDag.get(blck).data.message, blck.slot)
+          chainDag, epochRef, blck, chainDag.get(blck).data.message, blck.slot)
 
-      doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
+    doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
 
   info "Fork choice initialized",
     justified_epoch = chainDag.headState.data.data.current_justified_checkpoint.epoch,
@@ -208,13 +205,13 @@ proc addAttestation*(pool: var AttestationPool,
   pool.addResolved(blck, attestation, wallSlot)
 
 proc addForkChoice*(pool: var AttestationPool,
-                    state: BeaconState,
+                    epochRef: EpochRef,
                     blckRef: BlockRef,
                     blck: BeaconBlock,
                     wallSlot: Slot) =
   ## Add a verified block to the fork choice context
   let state = pool.forkChoice.process_block(
-    pool.chainDag, state, blckRef, blck, wallSlot)
+    pool.chainDag, epochRef, blckRef, blck, wallSlot)
 
   if state.isErr:
     # TODO If this happens, it is effectively a bug - the BlockRef structure
@@ -279,7 +276,7 @@ proc getAttestationsForBlock*(pool: AttestationPool,
   var cache = StateCache()
   for a in attestations:
     var
-      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#construct-attestation
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#construct-attestation
       attestation = Attestation(
         aggregation_bits: a.validations[0].aggregation_bits,
         data: a.data,

@@ -11,11 +11,10 @@ import
 
 proc fromJson*(n: JsonNode, argName: string, result: var ValidatorPubKey) =
   n.kind.expect(JString, argName)
-  result = ValidatorPubKey.fromHex(n.getStr()).tryGet()
+  result = ValidatorPubKey.fromHex(n.getStr()).tryGet().initPubKey()
 
 proc `%`*(pubkey: ValidatorPubKey): JsonNode =
-  unsafePromote(pubkey.unsafeAddr)
-  result = newJString($pubkey)
+  result = newJString($initPubKey(pubkey))
 
 proc fromJson*(n: JsonNode, argName: string, result: var List) =
   fromJson(n, argName, asSeq result)
@@ -32,7 +31,6 @@ proc fromJson*(n: JsonNode, argName: string, result: var ValidatorSig) =
   result = ValidatorSig.fromHex(n.getStr()).tryGet()
 
 proc `%`*(value: ValidatorSig): JsonNode =
-  unsafePromote(value.unsafeAddr)
   result = newJString($value)
 
 proc fromJson*(n: JsonNode, argName: string, result: var Version) =

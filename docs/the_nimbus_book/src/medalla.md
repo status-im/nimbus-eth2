@@ -62,6 +62,21 @@ INF 2020-08-03 16:24:17.951+02:00 Local validator attached                   tid
 INF 2020-08-03 16:24:17.951+02:00 Local validators attached                  topics="beacval" tid=11677993 file=validator_duties.nim:61 count=1
 INF 2020-08-03 16:24:17.958+02:00 Starting beacon node                       topics="beacnde" tid=11677993 file=beacon_node.nim:875 version="0.5.0 (31b33907)" nim="Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)" timeSinceFinalization=81350 head=ebe49843:0 finalizedHead=ebe49843:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.2 dataDir=build/data/shared_medalla_0 pcs=start_beacon_node
 ```
+<details>
+
+<summary>Tips on how to graffiti and run multiple clients</summary>
+
+> To draw on the [graffitwall](https://medalla.beaconcha.in/graffitiwall), pass the graffiti parameter like this:
+>```
+>make NODE_PARAMS="--graffiti='<YOUR_GRAFFITI>'" medalla
+>```
+
+> If you are running another client, you may need to use a different port. To change port, run:
+>```
+>make BASE_PORT=<YOUR_PORT_NUMBER> medalla
+>```
+
+</details>
 
 > Tip: to 🎨 on the [graffitwall](https://medalla.beaconcha.in/graffitiwall), pass the graffiti parameter like this:
 >```

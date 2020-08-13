@@ -172,7 +172,7 @@ func compute_committee*(shuffled_indices: seq[ValidatorIndex],
   except KeyError:
     raiseAssert("Cached entries are added before use")
 
-func compute_committee_len(active_validators: uint64,
+func compute_committee_len*(active_validators: uint64,
     index: uint64, count: uint64): uint64 =
   ## Return the committee corresponding to ``indices``, ``seed``, ``index``,
   ## and committee ``count``.
@@ -206,6 +206,7 @@ func get_beacon_committee*(
     committees_per_slot * SLOTS_PER_EPOCH
   )
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee_len*(
     state: BeaconState, slot: Slot, index: CommitteeIndex,
     cache: var StateCache): uint64 =

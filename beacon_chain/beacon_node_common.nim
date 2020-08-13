@@ -36,7 +36,6 @@ type
     graffitiBytes*: GraffitiBytes
     network*: Eth2Node
     netKeys*: KeyPair
-    requestManager*: RequestManager
     db*: BeaconChainDB
     config*: BeaconNodeConf
     attachedValidators*: ValidatorPool
@@ -47,12 +46,15 @@ type
     beaconClock*: BeaconClock
     rpcServer*: RpcServer
     forkDigest*: ForkDigest
+    blocksQueue*: AsyncQueue[SyncBlock]
+    requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerID]
     topicBeaconBlocks*: string
     topicAggregateAndProofs*: string
-    forwardSyncLoop*: Future[void]
+    blockProcessingLoop*: Future[void]
     onSecondLoop*: Future[void]
     genesisSnapshotContent*: string
+    attestationSubnets*: AttestationSubnets
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT

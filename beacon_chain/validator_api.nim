@@ -265,7 +265,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       blockId: string) -> tuple[canonical: bool, header: SignedBeaconBlockHeader]:
     let bd = node.getBlockDataFromBlockId(blockId)
     let tsbb = bd.data
-    result.header.signature.setBlob(tsbb.signature.data)
+    result.header.signature.blob = tsbb.signature.data
 
     result.header.message.slot = tsbb.message.slot
     result.header.message.proposer_index = tsbb.message.proposer_index
@@ -355,7 +355,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     let attestationHead = head.atEpochStart(epoch)
     node.chainDag.withState(node.chainDag.tmpState, attestationHead):
       for pubkey in public_keys:
-        let idx = state.validators.asSeq.findIt(it.pubKey == pubkey)
+        let idx = state.validators.asSeq.findIt(it.pubKey.initPubKey == pubkey)
         if idx == -1:
           continue
         let ca = state.get_committee_assignment(epoch, idx.ValidatorIndex)
@@ -375,7 +375,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       let currSlot = compute_start_slot_at_epoch(epoch) + i
       let proposer = node.chainDag.getProposer(head, currSlot)
       if proposer.isSome():
-        result.add((public_key: proposer.get()[1], slot: currSlot))
+        result.add((public_key: proposer.get()[1].initPubKey(), slot: currSlot))
 
   rpcServer.rpc("post_v1_validator_beacon_committee_subscriptions") do (
       committee_index: CommitteeIndex, slot: Slot, aggregator: bool,

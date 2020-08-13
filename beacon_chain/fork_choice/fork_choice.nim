@@ -49,22 +49,6 @@ func compute_deltas(
 logScope:
   topics = "fork_choice"
 
-# API:
-# - The private procs uses the ForkChoiceError error code
-# - The public procs use Result
-
-func get_effective_balances(state: BeaconState): seq[Gwei] =
-  ## Get the balances from a state
-  result.newSeq(state.validators.len) # zero-init
-
-  let epoch = state.get_current_epoch()
-
-  for i in 0 ..< result.len:
-    # All non-active validators have a 0 balance
-    template validator: Validator = state.validators[i]
-    if validator.is_active_validator(epoch):
-      result[i] = validator.effective_balance
-
 proc initForkChoiceBackend*(justified_epoch: Epoch,
                             finalized_epoch: Epoch,
                             finalized_root: Eth2Digest,
@@ -87,7 +71,8 @@ proc initForkChoiceBackend*(justified_epoch: Epoch,
     proto_array: proto_array,
   ))
 
-proc initForkChoice*(finalizedState: StateData, ): FcResult[ForkChoice] =
+proc initForkChoice*(finalizedState: StateData,
+                     epochRef: EpochRef): FcResult[ForkChoice] =
   ## Initialize a fork choice context
   debug "Initializing fork choice",
     state_epoch = finalizedState.data.data.get_current_epoch(),
@@ -98,8 +83,7 @@ proc initForkChoice*(finalizedState: StateData, ): FcResult[ForkChoice] =
   let ffgCheckpoint = FFGCheckpoints(
     justified: BalanceCheckpoint(
       blck: finalizedState.blck,
-      epoch: finalized_epoch,
-      balances: get_effective_balances(finalizedState.data.data)),
+      epochRef: epochRef),
     finalized: Checkpoint(root: finalizedState.blck.root, epoch: finalized_epoch))
 
   let backend = ? initForkChoiceBackend(
@@ -160,42 +144,40 @@ func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## In particular, before adding a block, its parent must be known to the fork choice
   self.proto_array.indices.contains(block_root)
 
-proc get_balances_for_block(self: var Checkpoints, blck: BlockSlot, dag: ChainDAGRef): seq[Gwei] =
-  dag.withState(dag.balanceState, blck):
-    get_effective_balances(state)
-
 proc process_state(self: var Checkpoints,
                    dag: ChainDAGRef,
-                   state: BeaconState,
+                   epochRef: EpochRef,
                    blck: BlockRef) =
-  trace "Processing state",
-    state_slot = state.slot,
-    state_justified = state.current_justified_checkpoint.epoch,
-    current_justified = self.current.justified.epoch,
-    state_finalized = state.finalized_checkpoint.epoch,
+  let
+    state_justified_epoch = epochRef.current_justified_checkpoint.epoch
+    state_finalized_epoch = epochRef.finalized_checkpoint.epoch
+
+  trace "Processing epoch",
+    epoch = epochRef.epoch,
+    state_justified_epoch = state_justified_epoch,
+    current_justified = self.current.justified.epochRef.epoch,
+    state_finalized_epoch = state_finalized_epoch,
     current_finalized = self.current.finalized
 
-  if (state.current_justified_checkpoint.epoch > self.current.justified.epoch) and
-      (state.finalized_checkpoint.epoch >= self.current.finalized.epoch):
-    let justifiedBlck = blck.atEpochStart(
-      state.current_justified_checkpoint.epoch)
+  if (state_justified_epoch > self.current.justified.epochRef.epoch) and
+      (state_finalized_epoch >= self.current.finalized.epoch):
+    let justifiedBlck = blck.atEpochStart(state_justified_epoch)
 
-    doAssert justifiedBlck.blck.root == state.current_justified_checkpoint.root
+    doAssert justifiedBlck.blck.root == epochRef.current_justified_checkpoint.root
 
     let candidate = FFGCheckpoints(
       justified: BalanceCheckpoint(
           blck: justifiedBlck.blck,
-          epoch: state.current_justified_checkpoint.epoch,
-          balances: self.get_balances_for_block(justifiedBlck, dag),
+          epochRef: dag.getEpochRef(justifiedBlck.blck, state_justified_epoch),
       ),
-      finalized: state.finalized_checkpoint,
+      finalized: epochRef.finalized_checkpoint,
     )
 
     trace "Applying candidate",
       justified_block = shortLog(candidate.justified.blck),
-      justified_epoch = shortLog(candidate.justified.epoch),
+      justified_epoch = shortLog(candidate.justified.epochRef.epoch),
       finalized = candidate.finalized,
-      state_finalized = state.finalized_checkpoint.epoch
+      state_finalized = state_finalized_epoch
 
     if self.current.justified.blck.isAncestorOf(justifiedBlck.blck):
       trace "Updating current",
@@ -205,7 +187,7 @@ proc process_state(self: var Checkpoints,
       trace "No current update",
         prev = shortLog(self.current.justified.blck)
 
-    if candidate.justified.epoch > self.best.justified.epoch:
+    if candidate.justified.epochRef.epoch > self.best.justified.epochRef.epoch:
       trace "Updating best",
         prev = shortLog(self.best.justified.blck)
       self.best = candidate
@@ -225,11 +207,11 @@ proc maybe_update(self: var Checkpoints, current_slot: Slot) =
     current = shortLog(self.current.justified.blck),
     updateAt = self.updateAt
 
-  if self.best.justified.epoch > self.current.justified.epoch:
+  if self.best.justified.epochRef.epoch > self.current.justified.epochRef.epoch:
     let current_epoch = current_slot.compute_epoch_at_slot()
 
     if self.update_at.isNone():
-      if self.best.justified.epoch > self.current.justified.epoch:
+      if self.best.justified.epochRef.epoch > self.current.justified.epochRef.epoch:
         if compute_slots_since_epoch_start(current_slot) < SAFE_SLOTS_TO_UPDATE_JUSTIFIED:
           self.current = self.best
         else:
@@ -249,11 +231,11 @@ proc process_block*(self: var ForkChoiceBackend,
 
 proc process_block*(self: var ForkChoice,
                     dag: ChainDAGRef,
-                    state: BeaconState,
+                    epochRef: EpochRef,
                     blckRef: BlockRef,
                     blck: SomeBeaconBlock,
                     wallSlot: Slot): FcResult[void] =
-  process_state(self.checkpoints, dag, state, blckRef)
+  process_state(self.checkpoints, dag, epochRef, blckRef)
 
   maybe_update(self.checkpoints, wallSlot)
 
@@ -276,7 +258,7 @@ proc process_block*(self: var ForkChoice,
 
   ? process_block(
       self.backend, blckRef.root, blck.parent_root,
-      state.current_justified_checkpoint.epoch, state.finalized_checkpoint.epoch
+      epochRef.current_justified_checkpoint.epoch, epochRef.finalized_checkpoint.epoch
     )
 
   trace "Integrating block in fork choice",
@@ -334,10 +316,10 @@ proc find_head*(self: var ForkChoice,
   self.checkpoints.maybe_update(wallSlot)
 
   self.backend.find_head(
-    self.checkpoints.current.justified.epoch,
+    self.checkpoints.current.justified.epochRef.epoch,
     remove_alias(self.checkpoints.current.justified.blck.root),
     self.checkpoints.current.finalized.epoch,
-    self.checkpoints.current.justified.balances,
+    self.checkpoints.current.justified.epochRef.effective_balances,
   )
 
 func maybe_prune*(

@@ -94,26 +94,31 @@ proc get(db: BeaconChainDB, key: openArray[byte], T: type Eth2Digest): Opt[T] =
 
   res
 
-proc get(db: BeaconChainDB, key: openArray[byte], res: var auto): bool =
-  var found = false
+type GetResult = enum
+  found
+  notFound
+  corrupted
+
+proc get(db: BeaconChainDB, key: openArray[byte], output: var auto): GetResult =
+  var status = GetResult.notFound
 
   # TODO address is needed because there's no way to express lifetimes in nim
   #      we'll use unsafeAddr to find the code later
-  var resPtr = unsafeAddr res # callback is local, ptr wont escape
+  var outputPtr = unsafeAddr output # callback is local, ptr wont escape
   proc decode(data: openArray[byte]) =
     try:
-      resPtr[] = SSZ.decode(snappy.decode(data), type res)
-      found = true
+      outputPtr[] = SSZ.decode(snappy.decode(data), type output)
+      status = GetResult.found
     except SerializationError as e:
       # If the data can't be deserialized, it could be because it's from a
       # version of the software that uses a different SSZ encoding
       warn "Unable to deserialize data, old database?",
-        err = e.msg, typ = name(type res), dataLen = data.len
-      discard
+        err = e.msg, typ = name(type output), dataLen = data.len
+      status = GetResult.corrupted
 
   discard db.backend.get(key, decode).expect("working database")
 
-  found
+  status
 
 proc putBlock*(db: BeaconChainDB, value: SignedBeaconBlock) =
   db.put(subkey(type value, value.root), value)
@@ -152,7 +157,7 @@ proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
   result.ok(TrustedSignedBeaconBlock(root: key))
-  if not db.get(subkey(SignedBeaconBlock, key), result.get):
+  if db.get(subkey(SignedBeaconBlock, key), result.get) != GetResult.found:
     result.err()
 
 proc getState*(
@@ -162,15 +167,20 @@ proc getState*(
   ## re-allocating it if possible
   ## Return `true` iff the entry was found in the database and `output` was
   ## overwritten.
+  ## Rollback will be called only if output was partially written - if it was
+  ## not found at all, rollback will not be called
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
   # TODO RVO is inefficient for large objects:
   #      https://github.com/nim-lang/Nim/issues/13879
-  if not db.get(subkey(BeaconState, key), output):
+  case db.get(subkey(BeaconState, key), output)
+  of GetResult.found:
+    true
+  of GetResult.notFound:
+    false
+  of GetResult.corrupted:
     rollback(output)
     false
-  else:
-    true
 
 proc getStateRoot*(db: BeaconChainDB,
                    root: Eth2Digest,
@@ -198,6 +208,6 @@ iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
 
   var res: TrustedSignedBeaconBlock
   res.root = root
-  while db.get(subkey(SignedBeaconBlock, res.root), res):
+  while db.get(subkey(SignedBeaconBlock, res.root), res) == GetResult.found:
     yield res
     res.root = res.message.parent_root

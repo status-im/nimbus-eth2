@@ -7,7 +7,8 @@
 
 import
   # Standard library
-  algorithm, os, tables, strutils, sequtils, times, math, terminal,
+  std/[algorithm, os, tables, strutils, sequtils, times, math, terminal],
+  std/random,
 
   # Nimble packages
   stew/[objects, byteutils, endians2], stew/shims/macros,
@@ -65,8 +66,19 @@ declareCounter beacon_blocks_received,
 declareGauge finalization_delay,
   "Epoch delay between scheduled epoch and finalized epoch"
 
+declareGauge ticks_delay,
+  "How long does to take to run the onSecond loop"
+
+const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
+
 declareHistogram beacon_attestation_received_seconds_from_slot_start,
-  "Interval between slot start and attestation receival", buckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
+  "Interval between slot start and attestation reception", buckets = delayBuckets
+
+declareHistogram beacon_block_received_seconds_from_slot_start,
+  "Interval between slot start and beacon block reception", buckets = delayBuckets
+
+declareHistogram beacon_store_block_duration_seconds,
+  "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
 
 logScope: topics = "beacnde"
 
@@ -273,13 +285,9 @@ proc init*(T: type BeaconNode,
     forkDigest: enrForkId.forkDigest,
     topicBeaconBlocks: topicBeaconBlocks,
     topicAggregateAndProofs: topicAggregateAndProofs,
+    blocksQueue: newAsyncQueue[SyncBlock](1),
   )
-
-  res.requestManager = RequestManager.init(network,
-    proc(signedBlock: SignedBeaconBlock) =
-      onBeaconBlock(res, signedBlock)
-  )
-
+  res.requestManager = RequestManager.init(network, res.blocksQueue)
   res.addLocalValidators()
 
   # This merely configures the BeaconSync
@@ -332,6 +340,7 @@ proc dumpBlock[T](
 
 proc storeBlock(
     node: BeaconNode, signedBlock: SignedBeaconBlock): Result[void, BlockError] =
+  let start = Moment.now()
   debug "Block received",
     signedBlock = shortLog(signedBlock.message),
     blockRoot = shortLog(signedBlock.root),
@@ -344,8 +353,9 @@ proc storeBlock(
         blckRef: BlockRef, signedBlock: SignedBeaconBlock,
         state: HashedBeaconState):
       # Callback add to fork choice if valid
+      let epochRef = getEpochInfo(blckRef, state.data)
       node.attestationPool.addForkChoice(
-        state.data, blckRef, signedBlock.message,
+        epochRef, blckRef, signedBlock.message,
         node.beaconClock.now().slotOrZero())
 
   node.dumpBlock(signedBlock, blck)
@@ -356,7 +366,8 @@ proc storeBlock(
   if blck.isErr:
     return err(blck.error)
 
-  ok()
+  beacon_store_block_duration_seconds.observe((Moment.now() - start).milliseconds.float64 / 1000)
+  return ok()
 
 proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) =
   # We received a block but don't know much about it yet - in particular, we
@@ -381,6 +392,82 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
     # and then state.slot gets incremented, to increase the maximum offset, if
     # finalization occurs every slot, to 4 slots vs scheduledSlot.
     doAssert finalizedEpoch + 4 >= epoch
+
+proc installAttestationSubnetHandlers(node: BeaconNode, subnets: set[uint8]) =
+  proc attestationHandler(attestation: Attestation) =
+    # Avoid double-counting attestation-topic attestations on shared codepath
+    # when they're reflected through beacon blocks
+    beacon_attestations_received.inc()
+    beacon_attestation_received_seconds_from_slot_start.observe(
+      node.beaconClock.now.int64 - attestation.data.slot.toBeaconTime.int64)
+
+    node.onAttestation(attestation)
+
+  var attestationSubscriptions: seq[Future[void]] = @[]
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  for subnet in subnets:
+    attestationSubscriptions.add(node.network.subscribe(
+      getAttestationTopic(node.forkDigest, subnet),
+      attestationHandler,
+    ))
+
+  waitFor allFutures(attestationSubscriptions)
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#metadata
+  node.network.metadata.seq_number += 1
+  for subnet in subnets:
+    node.network.metadata.attnets[subnet] = true
+
+proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) =
+  let epochParity = slot.epoch mod 2
+  var attachedValidators: seq[ValidatorIndex]
+  for validatorIndex in 0 ..< node.chainDag.headState.data.data.validators.len:
+    if node.getAttachedValidator(
+        node.chainDag.headState.data.data, validatorIndex.ValidatorIndex) != nil:
+      attachedValidators.add validatorIndex.ValidatorIndex
+
+  let (newAttestationSubnets, expiringSubnets, newSubnets) =
+    get_attestation_subnet_changes(
+      node.chainDag.headState.data.data, attachedValidators,
+      node.attestationSubnets, slot.epoch)
+
+  node.attestationSubnets = newAttestationSubnets
+  debug "Attestation subnets",
+    expiring_subnets = expiringSubnets,
+    current_epoch_subnets =
+      node.attestationSubnets.subscribedSubnets[1 - epochParity],
+    upcoming_subnets = node.attestationSubnets.subscribedSubnets[epochParity],
+    new_subnets = newSubnets,
+    stability_subnet = node.attestationSubnets.stabilitySubnet,
+    stability_subnet_expiration_epoch =
+      node.attestationSubnets.stabilitySubnetExpirationEpoch
+
+  block:
+    var unsubscriptions: seq[Future[void]] = @[]
+    for expiringSubnet in expiringSubnets:
+      unsubscriptions.add(node.network.unsubscribe(
+        getAttestationTopic(node.forkDigest, expiringSubnet)))
+
+    waitFor allFutures(unsubscriptions)
+
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#metadata
+    # The race condition window is smaller by placing the fast, local, and
+    # synchronous operation after a variable-latency, asynchronous action.
+    node.network.metadata.seq_number += 1
+    for expiringSubnet in expiringSubnets:
+      node.network.metadata.attnets[expiringSubnet] = false
+
+  node.installAttestationSubnetHandlers(newSubnets)
+
+  block:
+    let subscribed_subnets =
+      node.attestationSubnets.subscribedSubnets[0] +
+      node.attestationSubnets.subscribedSubnets[1] +
+      {node.attestationSubnets.stabilitySubnet.uint8}
+    for subnet in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
+      doAssert node.network.metadata.attnets[subnet] ==
+        (subnet in subscribed_subnets)
 
 proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
@@ -450,6 +537,10 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
 
   if node.config.verifyFinalization:
     verifyFinalization(node, scheduledSlot)
+
+  when false:
+    if slot.isEpoch:
+      node.cycleAttestationSubnets(slot)
 
   if slot > lastSlot + SLOTS_PER_EPOCH:
     # We've fallen behind more than an epoch - there's nothing clever we can
@@ -527,64 +618,68 @@ proc handleMissingBlocks(node: BeaconNode) =
     info "Requesting detected missing blocks", blocks = shortLog(missingBlocks)
     node.requestManager.fetchAncestorBlocks(missingBlocks)
 
-proc onSecond(node: BeaconNode) {.async.} =
+proc onSecond(node: BeaconNode) =
   ## This procedure will be called once per second.
   if not(node.syncManager.inProgress):
     node.handleMissingBlocks()
 
 proc runOnSecondLoop(node: BeaconNode) {.async.} =
-  var sleepTime = chronos.seconds(1)
+  let sleepTime = chronos.seconds(1)
+  const nanosecondsIn1s = float(chronos.seconds(1).nanoseconds)
   while true:
-    await chronos.sleepAsync(sleepTime)
     let start = chronos.now(chronos.Moment)
-    await node.onSecond()
-    let finish = chronos.now(chronos.Moment)
-    debug "onSecond task completed", elapsed = $(finish - start)
-    if finish - start > chronos.seconds(1):
-      sleepTime = chronos.seconds(0)
-    else:
-      sleepTime = chronos.seconds(1) - (finish - start)
+    await chronos.sleepAsync(sleepTime)
+    let afterSleep = chronos.now(chronos.Moment)
+    let sleepTime = afterSleep - start
+    node.onSecond()
+    let finished = chronos.now(chronos.Moment)
+    let processingTime = finished - afterSleep
+    ticks_delay.set(sleepTime.nanoseconds.float / nanosecondsIn1s)
+    debug "onSecond task completed", sleepTime, processingTime
 
-proc runForwardSyncLoop(node: BeaconNode) {.async.} =
+proc importBlock(node: BeaconNode,
+                 sblock: SignedBeaconBlock): Result[void, BlockError] =
+  let sm1 = now(chronos.Moment)
+  let res = node.storeBlock(sblock)
+  let em1 = now(chronos.Moment)
+  if res.isOk() or (res.error() in {BlockError.Duplicate, BlockError.Old}):
+    let sm2 = now(chronos.Moment)
+    discard node.updateHead(node.beaconClock.now().slotOrZero)
+    let em2 = now(chronos.Moment)
+    let storeBlockDuration = if res.isOk(): em1 - sm1 else: ZeroDuration
+    let updateHeadDuration = if res.isOk(): em2 - sm2 else: ZeroDuration
+    let overallDuration = if res.isOk(): em2 - sm1 else: ZeroDuration
+    let storeSpeed =
+      block:
+        let secs = float(chronos.seconds(1).nanoseconds)
+        if not(overallDuration.isZero()):
+          let v = secs / float(overallDuration.nanoseconds)
+          round(v * 10_000) / 10_000
+        else:
+          0.0
+    debug "Block got imported successfully",
+           local_head_slot = node.chainDag.head.slot, store_speed = storeSpeed,
+           block_root = shortLog(sblock.root),
+           block_slot = sblock.message.slot,
+           store_block_duration = $storeBlockDuration,
+           update_head_duration = $updateHeadDuration,
+           overall_duration = $overallDuration
+    ok()
+  else:
+    err(res.error())
+
+proc startSyncManager(node: BeaconNode) =
   func getLocalHeadSlot(): Slot =
-    result = node.chainDag.head.slot
+    node.chainDag.head.slot
 
   proc getLocalWallSlot(): Slot {.gcsafe.} =
     let epoch = node.beaconClock.now().slotOrZero.compute_epoch_at_slot() +
                 1'u64
-    result = epoch.compute_start_slot_at_epoch()
+    epoch.compute_start_slot_at_epoch()
 
   func getFirstSlotAtFinalizedEpoch(): Slot {.gcsafe.} =
     let fepoch = node.chainDag.headState.data.data.finalized_checkpoint.epoch
     compute_start_slot_at_epoch(fepoch)
-
-  proc updateLocalBlocks(list: openArray[SignedBeaconBlock]): Result[void, BlockError] =
-    debug "Forward sync imported blocks", count = len(list),
-          local_head_slot = getLocalHeadSlot()
-    let sm = now(chronos.Moment)
-    for blk in list:
-      let res = node.storeBlock(blk)
-      # We going to ignore `BlockError.Unviable` errors because we have working
-      # backward sync and it can happens that we can perform overlapping
-      # requests.
-      # For the same reason we ignore Duplicate blocks as if they are duplicate
-      # from before the current finalized epoch, we can drop them
-      # (and they may have no parents anymore in the fork choice if it was pruned)
-      if res.isErr and res.error notin {BlockError.Unviable, BlockError.Old, BLockError.Duplicate}:
-        return res
-    discard node.updateHead(node.beaconClock.now().slotOrZero)
-
-    let dur = now(chronos.Moment) - sm
-    let secs = float(chronos.seconds(1).nanoseconds)
-    var storeSpeed = 0.0
-    if not(dur.isZero()):
-      let v = float(len(list)) * (secs / float(dur.nanoseconds))
-      # We doing round manually because stdlib.round is deprecated
-      storeSpeed = round(v * 10000) / 10000
-
-    info "Forward sync blocks got imported successfully", count = len(list),
-         local_head_slot = getLocalHeadSlot(), store_speed = storeSpeed
-    ok()
 
   proc scoreCheck(peer: Peer): bool =
     if peer.score < PeerScoreLowLimit:
@@ -594,24 +689,23 @@ proc runForwardSyncLoop(node: BeaconNode) {.async.} =
               score_high_limit = PeerScoreHighLimit
       except:
         discard
-      result = false
+      false
     else:
-      result = true
+      true
 
   node.network.peerPool.setScoreCheck(scoreCheck)
 
   node.syncManager = newSyncManager[Peer, PeerID](
     node.network.peerPool, getLocalHeadSlot, getLocalWallSlot,
-    getFirstSlotAtFinalizedEpoch, updateLocalBlocks,
-    # 4 blocks per chunk is the optimal value right now, because our current
-    # syncing speed is around 4 blocks per second. So there no need to request
-    # more then 4 blocks right now. As soon as `store_speed` value become
-    # significantly more then 4 blocks per second you can increase this
-    # value appropriately.
-    chunkSize = 4
+    getFirstSlotAtFinalizedEpoch, node.blocksQueue, chunkSize = 32
   )
+  node.syncManager.start()
 
-  await node.syncManager.sync()
+proc runBlockProcessingLoop(node: BeaconNode) {.async.} =
+  ## Incoming blocks processing loop.
+  while true:
+    let sblock = await node.blocksQueue.popFirst()
+    sblock.complete(node.importBlock(sblock.blk))
 
 proc currentSlot(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
@@ -726,7 +820,6 @@ proc installDebugApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
       peers.add(
         %(
           info: shortLog(peer.info),
-          wasDialed: peer.wasDialed,
           connectionState: $peer.connectionState,
           score: peer.score,
         )
@@ -746,8 +839,7 @@ proc installAttestationHandlers(node: BeaconNode) =
     # when they're reflected through beacon blocks
     beacon_attestations_received.inc()
     beacon_attestation_received_seconds_from_slot_start.observe(
-      node.beaconClock.now.int64 -
-        (attestation.data.slot.int64 * SECONDS_PER_SLOT.int64))
+      node.beaconClock.now.int64 - attestation.data.slot.toBeaconTime.int64)
 
     node.onAttestation(attestation)
 
@@ -765,28 +857,39 @@ proc installAttestationHandlers(node: BeaconNode) =
       return false
     node.attestationPool.isValidAggregatedAttestation(signedAggregateAndProof, slot)
 
-  var attestationSubscriptions: seq[Future[void]] = @[]
-
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # These validators stay around the whole time, regardless of which specific
+  # subnets are subscribed to during any given epoch.
   for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
     closureScope:
       let ci = it
-      attestationSubscriptions.add(node.network.subscribe(
-        getAttestationTopic(node.forkDigest, ci), attestationHandler,
+      node.network.addValidator(
+        getAttestationTopic(node.forkDigest, ci),
         # This proc needs to be within closureScope; don't lift out of loop.
         proc(attestation: Attestation): bool =
           attestationValidator(attestation, ci)
-      ))
+      )
 
-  attestationSubscriptions.add(node.network.subscribe(
+  var initialSubnets: set[uint8]
+  for i in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
+    initialSubnets.incl i
+  node.installAttestationSubnetHandlers(initialSubnets)
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  node.attestationSubnets.stabilitySubnet = rand(ATTESTATION_SUBNET_COUNT - 1).uint64
+  node.attestationSubnets.stabilitySubnetExpirationEpoch =
+    GENESIS_EPOCH + getStabilitySubnetLength()
+
+  # Relative to epoch 0, this sets the "current" attestation subnets.
+  node.attestationSubnets.subscribedSubnets[1 - (GENESIS_EPOCH mod 2)] =
+    initialSubnets
+
+  waitFor node.network.subscribe(
     getAggregateAndProofsTopic(node.forkDigest),
     proc(signedAggregateAndProof: SignedAggregateAndProof) =
       attestationHandler(signedAggregateAndProof.message.aggregate),
     proc(signedAggregateAndProof: SignedAggregateAndProof): bool =
-      aggregatedAttestationValidator(signedAggregateAndProof)
-  ))
-
-  waitFor allFutures(attestationSubscriptions)
+      aggregatedAttestationValidator(signedAggregateAndProof))
 
 proc stop*(node: BeaconNode) =
   status = BeaconNodeStatus.Stopping
@@ -805,12 +908,36 @@ proc run*(node: BeaconNode) =
     waitFor node.network.subscribe(node.topicBeaconBlocks) do (signedBlock: SignedBeaconBlock):
       onBeaconBlock(node, signedBlock)
     do (signedBlock: SignedBeaconBlock) -> bool:
-      let (afterGenesis, slot) = node.beaconClock.now.toSlot()
+      let
+        now = node.beaconClock.now
+        (afterGenesis, slot) = now.toSlot()
+
       if not afterGenesis:
         return false
 
+      logScope:
+        blk = shortLog(signedBlock.message)
+        root = shortLog(signedBlock.root)
+
+      let isKnown = signedBlock.root in node.chainDag.blocks
+      if isKnown:
+        trace "Received known gossip block"
+        # TODO:
+        # Potentially use a fast exit here. We only need to check that
+        # the contents of the incoming message match our previously seen
+        # version of the block. We don't need to use HTR for this - for
+        # better efficiency we can use vanilla SHA256 or direct comparison
+        # if we still have the previous block in memory.
+        # TODO:
+        # We are seeing extreme delays sometimes (e.g. 300 seconds).
+        # Should we drop such blocks? The spec doesn't set a policy on this.
+      else:
+        let delay = (now.int64 - signedBlock.message.slot.toBeaconTime.int64)
+        debug "Incoming gossip block", delay
+        beacon_block_received_seconds_from_slot_start.observe delay
+
       let blck = node.chainDag.isValidBeaconBlock(node.quarantine,
-                                                       signedBlock, slot, {})
+                                                  signedBlock, slot, {})
       node.dumpBlock(signedBlock, blck)
 
       blck.isOk
@@ -831,9 +958,10 @@ proc run*(node: BeaconNode) =
       asyncCheck node.onSlotStart(curSlot, nextSlot)
 
     node.onSecondLoop = runOnSecondLoop(node)
-    node.forwardSyncLoop = runForwardSyncLoop(node)
+    node.blockProcessingLoop = runBlockProcessingLoop(node)
 
     node.requestManager.start()
+    node.startSyncManager()
 
   # main event loop
   while status == BeaconNodeStatus.Running:

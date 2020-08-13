@@ -115,9 +115,6 @@ type
     # -----------------------------------
     # Rewinder - Mutable state processing
 
-    cachedStates*: seq[tuple[blockRoot: Eth2Digest, slot: Slot,
-      state: ref HashedBeaconState]]
-
     headState*: StateData ##\
     ## State given by the head block; only update in `updateHead`, not anywhere
     ## else via `withState`
@@ -128,17 +125,24 @@ type
       ## Cached state used during block clearance - should only be used in the
       ## clearance module to avoid the risk of modifying it in a callback
 
-    balanceState*: StateData ##\
-      ## Cached state for fork choice balance processing - should be replaced
-      ## with a light-weight cache of balances only
-
     updateFlags*: UpdateFlags
 
     runtimePreset*: RuntimePreset
 
   EpochRef* = ref object
-    shuffled_active_validator_indices*: seq[ValidatorIndex]
     epoch*: Epoch
+    current_justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+    beacon_proposers*: array[
+      SLOTS_PER_EPOCH, Option[(ValidatorIndex, ValidatorPubKey)]]
+    shuffled_active_validator_indices*: seq[ValidatorIndex]
+    # This is an expensive cache that is sometimes shared among epochref
+    # instances - in particular, validators keep their keys and locations in the
+    # validator list in each particular history.
+    validator_key_store*: (Eth2Digest, ref seq[ValidatorPubKey])
+
+    # balances, as used in fork choice
+    effective_balances*: seq[Gwei]
 
   BlockRef* = ref object
     ## Node in object graph guaranteed to lead back to tail block, and to have
@@ -187,6 +191,8 @@ type
   OnBlockAdded* = proc(
     blckRef: BlockRef, blck: SignedBeaconBlock,
     state: HashedBeaconState) {.raises: [Defect], gcsafe.}
+
+template validator_keys*(e: EpochRef): untyped = e.validator_key_store[1][]
 
 proc shortLog*(v: BlockSlot): string =
   if v.blck.slot == v.slot:

@@ -44,7 +44,9 @@ Nimbus beacon chain is a research implementation of the beacon chain component o
 
 ## Documentation
 
-You can find complete information about running a beacon node and operating as a validator in [The Book](https://status-im.github.io/nim-beacon-chain/).
+You can find the information you need to run a beacon node and operate as a validator in [The Book](https://status-im.github.io/nim-beacon-chain/).
+
+See [this page](https://status-im.github.io/nim-beacon-chain/medalla.html) for how to become a validator on Medalla.
 
 ## Related projects
 
@@ -148,7 +150,8 @@ make NIMFLAGS="-d:insecure" medalla
 You can now see the raw metrics on http://127.0.0.1:8008/metrics but they're not very useful like this, so let's feed them to a Prometheus instance:
 
 ```bash
-prometheus --config.file=build/data/shared_medalla_0/prometheus.yml
+cd build/data/shared_medalla_0
+prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
 # when starting multiple nodes at the same time, just use the config file from the one with the highest ID
 ```
 

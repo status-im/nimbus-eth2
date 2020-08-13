@@ -49,13 +49,12 @@ mkdir -p "$SECRETS_DIR"
 
 cd "$GIT_ROOT"
 
-CUSTOM_NIMFLAGS="${NIMFLAGS} -d:useSysAsserts -d:chronicles_sinks:textlines,json[file] -d:const_preset=mainnet -d:insecure"
+CUSTOM_NIMFLAGS="${NIMFLAGS} -d:useSysAsserts -d:chronicles_sinks:textlines,json[file] -d:const_preset=mainnet -d:insecure -d:local_testnet"
 GANACHE_BLOCK_TIME=5
 
 # Run with "SLOTS_PER_EPOCH=8 ./start.sh" to change these
 DEFS=""
-DEFS+="-d:SECONDS_PER_ETH1_BLOCK=$GANACHE_BLOCK_TIME \
-       -d:ETH1_FOLLOW_DISTANCE=1 "
+DEFS+="-d:SECONDS_PER_ETH1_BLOCK=$GANACHE_BLOCK_TIME "
 DEFS+="-d:MAX_COMMITTEES_PER_SLOT=${MAX_COMMITTEES_PER_SLOT:-1} "      # Spec default: 64
 DEFS+="-d:SLOTS_PER_EPOCH=${SLOTS_PER_EPOCH:-6} "   # Spec default: 32
 DEFS+="-d:SECONDS_PER_SLOT=${SECONDS_PER_SLOT:-6} "  # Spec default: 12
@@ -99,7 +98,7 @@ if [[ "$USE_PROMETHEUS" == "yes" ]]; then
     mkdir -p "${METRICS_DIR}/data"
     # TODO: Prometheus is not shut down properly on tmux kill-session
     killall prometheus &>/dev/null || true
-    PROMETHEUS_FLAGS="--config.file=./prometheus.yml --storage.tsdb.path=./data"
+    PROMETHEUS_FLAGS="--config.file=./prometheus.yml --storage.tsdb.path=./prometheus"
     $TMUX_CMD new-window -d -t $TMUX_SESSION_NAME -n "$PROMETHEUS_CMD" "cd '$METRICS_DIR' && $PROMETHEUS_CMD $PROMETHEUS_FLAGS"
   else
     echo NOTICE: $PROMETHEUS_CMD will be started automatically only with USE_TMUX=yes
@@ -201,7 +200,8 @@ tee "$NETWORK_METADATA_FILE" <<EOF
     "MIN_GENESIS_ACTIVE_VALIDATOR_COUNT": ${NUM_VALIDATORS},
     "MIN_GENESIS_TIME": 0,
     "GENESIS_DELAY": 10,
-    "GENESIS_FORK_VERSION": "0x00000000"
+    "GENESIS_FORK_VERSION": "0x00000000",
+    "ETH1_FOLLOW_DISTANCE": 1,
   },
   "depositContractAddress": "${DEPOSIT_CONTRACT_ADDRESS}",
   "depositContractDeployedAt": "${DEPOSIT_CONTRACT_BLOCK}"

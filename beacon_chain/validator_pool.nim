@@ -20,9 +20,9 @@ proc addLocalValidator*(pool: var ValidatorPool,
 
   info "Local validator attached", pubKey, validator = shortLog(v)
 
-func getValidator*(pool: ValidatorPool,
+proc getValidator*(pool: ValidatorPool,
                    validatorKey: ValidatorPubKey): AttachedValidator =
-  pool.validators.getOrDefault(validatorKey)
+  pool.validators.getOrDefault(validatorKey.initPubKey)
 
 # TODO: Honest validator - https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md
 proc signBlockProposal*(v: AttachedValidator, fork: Fork,
