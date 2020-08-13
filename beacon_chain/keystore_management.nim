@@ -441,16 +441,16 @@ proc findWallet*(config: BeaconNodeConf, name: WalletName): Result[Wallet, strin
   try:
     for kind, walletFile in walkDir(config.walletsDir):
       if kind != pcFile: continue
-      let fullPath = config.walletsDir / walletFile
-      if walletFile == name.string:
-        return loadWallet(fullPath)
-      walletFiles.add fullPath
+      let walletId = splitFile(walletFile).name
+      if cmpIgnoreCase(walletId, name.string) == 0:
+        return loadWallet(walletFile)
+      walletFiles.add walletFile
   except OSError:
     return err "failure to list wallet directory"
 
   for walletFile in walletFiles:
     let wallet = loadWallet(walletFile)
-    if wallet.isOk and wallet.get.name == name:
+    if wallet.isOk and cmpIgnoreCase(wallet.get.name.string, name.string) == 0:
       return wallet
 
   return err "failure to locate wallet file"
