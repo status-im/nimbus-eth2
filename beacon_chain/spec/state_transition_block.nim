@@ -207,10 +207,10 @@ proc process_attester_slashing*(
       attestation_1.data, attestation_2.data):
     return err("Attester slashing: surround or double vote check failed")
 
-  if not is_valid_indexed_attestation(state, attestation_1, flags):
+  if not is_valid_indexed_attestation(state, attestation_1, flags).isOk():
     return err("Attester slashing: invalid attestation 1")
 
-  if not is_valid_indexed_attestation(state, attestation_2, flags):
+  if not is_valid_indexed_attestation(state, attestation_2, flags).isOk():
     return err("Attester slashing: invalid attestation 2")
 
   var slashed_any = false

@@ -82,18 +82,18 @@ proc isValidAttestationSlot(
     attestationBlck = shortLog(attestationBlck)
 
   if not (attestationBlck.slot > pool.chainDag.finalizedHead.slot):
-    debug "voting for already-finalized block"
+    debug "Voting for already-finalized block"
     return false
 
   # we'll also cap it at 4 epochs which is somewhat arbitrary, but puts an
   # upper bound on the processing done to validate the attestation
   # TODO revisit with less arbitrary approach
   if not (attestationSlot >= attestationBlck.slot):
-    debug "voting for block that didn't exist at the time"
+    debug "Voting for block that didn't exist at the time"
     return false
 
   if not ((attestationSlot - attestationBlck.slot) <= uint64(4 * SLOTS_PER_EPOCH)):
-    debug "voting for very old block"
+    debug "Voting for very old block"
     return false
 
   true
@@ -121,7 +121,7 @@ proc isValidAttestation*(
     return false
 
   if not checkPropagationSlotRange(attestation.data, current_slot):
-    debug "attestation.data.slot not within ATTESTATION_PROPAGATION_SLOT_RANGE",
+    debug "Attestation slot not in propagation range",
       current_slot
     return false
 
@@ -137,10 +137,10 @@ proc isValidAttestation*(
       continue
     onesCount += 1
     if onesCount > 1:
-      debug "attestation has too many aggregation bits"
+      debug "Attestation has too many aggregation bits"
       return false
   if onesCount != 1:
-    debug "attestation has too few aggregation bits"
+    debug "Attestation has too few aggregation bits"
     return false
 
   # The attestation is the first valid attestation received for the
@@ -153,7 +153,7 @@ proc isValidAttestation*(
       # Attestations might be aggregated eagerly or lazily; allow for both.
       for validation in attestationEntry.validations:
         if attestation.aggregation_bits.isSubsetOf(validation.aggregation_bits):
-          debug "attestation already exists at slot",
+          debug "Attestation already exists at slot",
             attestation_pool_validation = validation.aggregation_bits
           return false
 
@@ -163,7 +163,7 @@ proc isValidAttestation*(
   # of the block in the pool.
   let attestationBlck = pool.chainDag.getRef(attestation.data.beacon_block_root)
   if attestationBlck.isNil:
-    debug "Block not found"
+    debug "Attestation block unknown"
     pool.addUnresolved(attestation)
     pool.quarantine.addMissing(attestation.data.beacon_block_root)
     return false
@@ -174,7 +174,7 @@ proc isValidAttestation*(
 
   let tgtBlck = pool.chainDag.getRef(attestation.data.target.root)
   if tgtBlck.isNil:
-    debug "Target block not found"
+    debug "Attestation target block unknown"
     pool.addUnresolved(attestation)
     pool.quarantine.addMissing(attestation.data.target.root)
     return false
@@ -205,7 +205,7 @@ proc isValidAttestation*(
         attestation.data.slot, attestation.data.index.CommitteeIndex)
 
   if requiredSubnetIndex != topicCommitteeIndex:
-    debug "attestation's committee index not for the correct subnet",
+    debug "Attestation's committee index not for the correct subnet",
       topicCommitteeIndex = topicCommitteeIndex,
       attestation_data_index = attestation.data.index,
       requiredSubnetIndex = requiredSubnetIndex
@@ -217,10 +217,10 @@ proc isValidAttestation*(
       pool.chainDag.headState.data.data.genesis_validators_root
 
     # The signature of attestation is valid.
-  if not is_valid_indexed_attestation(
+  if (let v = is_valid_indexed_attestation(
       fork, genesis_validators_root,
-      epochRef, get_indexed_attestation(epochRef, attestation), {}):
-    debug "signature verification failed"
+      epochRef, get_indexed_attestation(epochRef, attestation), {}); v.isErr):
+    debug "Attestation verification failed", err = v.error()
     return false
 
   true
@@ -251,7 +251,7 @@ proc isValidAggregatedAttestation*(
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. aggregate.data.slot +
   # ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= aggregate.data.slot
   if not checkPropagationSlotRange(aggregate.data, current_slot):
-    debug "aggregation.data.slot not within ATTESTATION_PROPAGATION_SLOT_RANGE"
+    debug "Aggregate slot not in propoagation range"
     return false
 
   # [IGNORE] The valid aggregate attestation defined by
@@ -273,7 +273,7 @@ proc isValidAggregatedAttestation*(
   # passes validation.
   let attestationBlck = pool.chainDag.getRef(aggregate.data.beacon_block_root)
   if attestationBlck.isNil:
-    debug "Block not found"
+    debug "Aggregate block unknown"
     pool.quarantine.addMissing(aggregate.data.beacon_block_root)
     return false
 
@@ -291,7 +291,7 @@ proc isValidAggregatedAttestation*(
   # But (2) would reflect an invalid aggregation in other ways, so reject it
   # either way.
   if isZeros(aggregate.aggregation_bits):
-    debug "Attestation has no or invalid aggregation bits"
+    debug "Aggregate has no or invalid aggregation bits"
     return false
 
   if not isValidAttestationSlot(pool, aggregate.data.slot, attestationBlck):
@@ -303,7 +303,7 @@ proc isValidAggregatedAttestation*(
   # aggregate.data.index, aggregate_and_proof.selection_proof) returns True.
   let tgtBlck = pool.chainDag.getRef(aggregate.data.target.root)
   if tgtBlck.isNil:
-    debug "Target block not found"
+    debug "Aggregate target block unknown"
     pool.quarantine.addMissing(aggregate.data.target.root)
     return
 
@@ -348,14 +348,14 @@ proc isValidAggregatedAttestation*(
       fork, genesis_validators_root, aggregate_and_proof,
       epochRef.validator_keys[aggregate_and_proof.aggregator_index],
       signed_aggregate_and_proof.signature):
-    debug "Signed_aggregate_and_proof signature verification failed"
+    debug "signed_aggregate_and_proof signature verification failed"
     return false
 
   # [REJECT] The signature of aggregate is valid.
-  if not is_valid_indexed_attestation(
+  if (let v = is_valid_indexed_attestation(
       fork, genesis_validators_root,
-      epochRef, get_indexed_attestation(epochRef, aggregate), {}):
-    debug "Aggregate signature verification failed"
+      epochRef, get_indexed_attestation(epochRef, aggregate), {}); v.isErr):
+    debug "Aggregate verification failed", err = v.error()
     return false
 
   # The following rule follows implicitly from that we clear out any
