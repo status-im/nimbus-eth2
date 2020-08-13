@@ -4,8 +4,8 @@
 window.onunload = function () { };
 
 // Global variable, shared between modules
-function playground_text(playground) {
-    let code_block = playground.querySelector("code");
+function playpen_text(playpen) {
+    let code_block = playpen.querySelector("code");
 
     if (window.ace && code_block.classList.contains("editable")) {
         let editor = window.ace.edit(code_block);
@@ -23,8 +23,8 @@ function playground_text(playground) {
         ]);
     }
 
-    var playgrounds = Array.from(document.querySelectorAll(".playground"));
-    if (playgrounds.length > 0) {
+    var playpens = Array.from(document.querySelectorAll(".playpen"));
+    if (playpens.length > 0) {
         fetch_with_timeout("https://play.rust-lang.org/meta/crates", {
             headers: {
                 'Content-Type': "application/json",
@@ -36,21 +36,21 @@ function playground_text(playground) {
         .then(response => {
             // get list of crates available in the rust playground
             let playground_crates = response.crates.map(item => item["id"]);
-            playgrounds.forEach(block => handle_crate_list_update(block, playground_crates));
+            playpens.forEach(block => handle_crate_list_update(block, playground_crates));
         });
     }
 
-    function handle_crate_list_update(playground_block, playground_crates) {
+    function handle_crate_list_update(playpen_block, playground_crates) {
         // update the play buttons after receiving the response
-        update_play_button(playground_block, playground_crates);
+        update_play_button(playpen_block, playground_crates);
 
         // and install on change listener to dynamically update ACE editors
         if (window.ace) {
-            let code_block = playground_block.querySelector("code");
+            let code_block = playpen_block.querySelector("code");
             if (code_block.classList.contains("editable")) {
                 let editor = window.ace.edit(code_block);
                 editor.addEventListener("change", function (e) {
-                    update_play_button(playground_block, playground_crates);
+                    update_play_button(playpen_block, playground_crates);
                 });
                 // add Ctrl-Enter command to execute rust code
                 editor.commands.addCommand({
@@ -59,7 +59,7 @@ function playground_text(playground) {
                         win: "Ctrl-Enter",
                         mac: "Ctrl-Enter"
                     },
-                    exec: _editor => run_rust_code(playground_block)
+                    exec: _editor => run_rust_code(playpen_block)
                 });
             }
         }
@@ -77,7 +77,7 @@ function playground_text(playground) {
         }
 
         // get list of `extern crate`'s from snippet
-        var txt = playground_text(pre_block);
+        var txt = playpen_text(pre_block);
         var re = /extern\s+crate\s+([a-zA-Z_0-9]+)\s*;/g;
         var snippet_crates = [];
         var item;
@@ -106,7 +106,7 @@ function playground_text(playground) {
             code_block.append(result_block);
         }
 
-        let text = playground_text(code_block);
+        let text = playpen_text(code_block);
         let classes = code_block.querySelector('code').classList;
         let has_2018 = classes.contains("edition2018");
         let edition = has_2018 ? "2018" : "2015";
@@ -200,10 +200,10 @@ function playground_text(playground) {
         });
     });
 
-    if (window.playground_copyable) {
+    if (window.playpen_copyable) {
         Array.from(document.querySelectorAll('pre code')).forEach(function (block) {
             var pre_block = block.parentNode;
-            if (!pre_block.classList.contains('playground')) {
+            if (!pre_block.classList.contains('playpen')) {
                 var buttons = pre_block.querySelector(".buttons");
                 if (!buttons) {
                     buttons = document.createElement('div');
@@ -222,8 +222,8 @@ function playground_text(playground) {
         });
     }
 
-    // Process playground code blocks
-    Array.from(document.querySelectorAll(".playground")).forEach(function (pre_block) {
+    // Process playpen code blocks
+    Array.from(document.querySelectorAll(".playpen")).forEach(function (pre_block) {
         // Add play button
         var buttons = pre_block.querySelector(".buttons");
         if (!buttons) {
@@ -243,7 +243,7 @@ function playground_text(playground) {
             run_rust_code(pre_block);
         });
 
-        if (window.playground_copyable) {
+        if (window.playpen_copyable) {
             var copyCodeClipboardButton = document.createElement('button');
             copyCodeClipboardButton.className = 'fa fa-copy clip-button';
             copyCodeClipboardButton.innerHTML = '<i class="tooltiptext"></i>';
@@ -456,11 +456,6 @@ function playground_text(playground) {
     // Toggle sidebar
     sidebarToggleButton.addEventListener('click', function sidebarToggle() {
         if (html.classList.contains("sidebar-hidden")) {
-            var current_width = parseInt(
-                document.documentElement.style.getPropertyValue('--sidebar-width'), 10);
-            if (current_width < 150) {
-                document.documentElement.style.setProperty('--sidebar-width', '150px');
-            }
             showSidebar();
         } else if (html.classList.contains("sidebar-visible")) {
             hideSidebar();
@@ -481,16 +476,7 @@ function playground_text(playground) {
         html.classList.add('sidebar-resizing');
     }
     function resize(e) {
-        var pos = (e.clientX - sidebar.offsetLeft);
-        if (pos < 20) {
-            hideSidebar();
-        } else {
-            if (html.classList.contains("sidebar-hidden")) {
-                showSidebar();
-            }
-            pos = Math.min(pos, window.innerWidth - 100);
-            document.documentElement.style.setProperty('--sidebar-width', pos + 'px');
-        }
+        document.documentElement.style.setProperty('--sidebar-width', (e.clientX - sidebar.offsetLeft) + 'px');
     }
     //on mouseup remove windows functions mousemove & mouseup
     function stopResize(e) {
@@ -572,8 +558,8 @@ function playground_text(playground) {
     var clipboardSnippets = new ClipboardJS('.clip-button', {
         text: function (trigger) {
             hideTooltip(trigger);
-            let playground = trigger.closest("pre");
-            return playground_text(playground);
+            let playpen = trigger.closest("pre");
+            return playpen_text(playpen);
         }
     });
 
