@@ -63,7 +63,7 @@ let METRICS_PORT=8008+${NODE_ID}
 let RPC_PORT=9190+${NODE_ID}
 
 # add your node to eth2stats and run a data collector app that connects to your beacon chain client
-mkdir -p /tmp/e2s-$ID
+mkdir -p /tmp/${NODE_NAME}
 ../eth2stats-client/eth2stats-client run \
   --data.folder=/tmp/${NODE_NAME} \
   --eth2stats.node-name="${NODE_NAME}" \
