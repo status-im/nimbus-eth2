@@ -89,7 +89,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html" class="active"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">5.</strong> Become a validator (custom)</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">6.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">7.</strong> Advanced usage for developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">8.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">9.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">10.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html" class="active"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">5.</strong> Wallet and deposit tools</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">6.</strong> Become a validator (custom)</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">7.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">8.</strong> Advanced usage for developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">9.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">10.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">11.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -159,8 +159,9 @@
 <p>This page will take you through how to become a validator on the eth2 testnet <a href="https://github.com/goerli/medalla">Medalla</a>.</p>
 <p>If you generated your signing key using the <a href="https://medalla.launchpad.ethereum.org/">eth2 launchpad</a>, and wish to import it into the Nimbus client, this page is for you.</p>
 <blockquote>
-<p>If you haven't created your validator key yet, we recommend you go through the <a href="https://medalla.launchpad.ethereum.org/">launchpad first</a>. If you're not sure what the eth2 launchpad is, we recommend reading this <a href="https://blog.ethereum.org/2020/07/27/eth2-validator-launchpad/">introductory post</a>.</p>
+<p>If you haven't created your validator key yet, we recommend you do so using the <a href="https://medalla.launchpad.ethereum.org/">launchpad</a>. If you're not sure what the eth2 launchpad is, we recommend reading this <a href="https://blog.ethereum.org/2020/07/27/eth2-validator-launchpad/">introductory post</a> first.</p>
 </blockquote>
+<p>For advanced users, <a href="./create_wallet_and_deposit.html">this page</a>  explains how to use Nimbus to create a walletstore to generate your keys.</p>
 <h2><a class="header" href="#prerequisites" id="prerequisites">Prerequisites</a></h2>
 <p>If this is your first time playing with Nimbus, make sure you <a href="./install.html">install our external dependencies</a> first.</p>
 <p>This tutorial assumes basic knowledge of the <a href="https://www.learnenough.com/command-line-tutorial/basics#:%7E:text=Learn%20Enough%20Command%20Line%20to%20Be%20Dangerous%20is%20an%20introduction,broad%20an%20audience%20as%20possible.">command line</a>.</p>
@@ -187,12 +188,11 @@ git checkout devel
 <pre><code>make medalla
 </code></pre>
 <p>This will build Nimbus and its dependencies, and connect you to Medalla.
-You should see that the beacon node has launched with your validator attached and is waiting for <a href="https://hackmd.io/@benjaminion/genesis">genesis</a> to start:</p>
+You should see that the beacon node has launched with your validator attached:</p>
 <pre><code>WRN 2020-08-03 16:24:17.950+02:00 Validator not in registry (yet?)           topics=&quot;beacval&quot; tid=11677993 file=validator_duties.nim:53 pubKey=a9c4df36
 INF 2020-08-03 16:24:17.951+02:00 Local validator attached                   tid=11677993 file=validator_pool.nim:21 pubKey=a9c4df36 validator=a9c4df36
 INF 2020-08-03 16:24:17.951+02:00 Local validators attached                  topics=&quot;beacval&quot; tid=11677993 file=validator_duties.nim:61 count=1
 INF 2020-08-03 16:24:17.958+02:00 Starting beacon node                       topics=&quot;beacnde&quot; tid=11677993 file=beacon_node.nim:875 version=&quot;0.5.0 (31b33907)&quot; nim=&quot;Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)&quot; timeSinceFinalization=81350 head=ebe49843:0 finalizedHead=ebe49843:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.2 dataDir=build/data/shared_medalla_0 pcs=start_beacon_node
-NOT 2020-08-03 16:24:17.958+02:00 Waiting for genesis                        topics=&quot;beacnde&quot; tid=11677993 file=beacon_node.nim:890 genesisIn=22h35m50s0ns
 </code></pre>
 <details>
 <summary>Tips on how to graffiti and run multiple clients</summary>
@@ -207,10 +207,15 @@ NOT 2020-08-03 16:24:17.958+02:00 Waiting for genesis                        top
 </code></pre>
 </blockquote>
 </details>
+<blockquote>
+<p>Tip: to 🎨 on the <a href="https://medalla.beaconcha.in/graffitiwall">graffitwall</a>, pass the graffiti parameter like this:</p>
+<pre><code>make NODE_PARAMS=&quot;--graffiti='&lt;YOUR_GRAFFITI&gt;'&quot; medalla
+</code></pre>
+</blockquote>
 <h4><a class="header" href="#5-keep-an-eye-on-your-validator" id="5-keep-an-eye-on-your-validator">5. Keep an eye on your validator</a></h4>
 <p>If you deposited after the <a href="https://hackmd.io/@benjaminion/genesis">genesis</a> state was decided (August 2nd 1300 UTC), your validators will have been put in a queue based on deposit time, and will slowly be inducted into the validator set after genesis. Getting through the queue may take a few hours or days.</p>
 <p>The best way to keep track of your validator's status is <a href="https://medalla.beaconcha.in">medalla.beaconcha.in</a> (click on the orange magnifying glass at the very top and paste in its public key). </p>
-<p>You can even <a href="https://medalla.beaconcha.in/register">create an account</a> to add alerts and keep track it its <a href="https://medalla.beaconcha.in/dashboard">performance</a>.</p>
+<p>You can even <a href="https://medalla.beaconcha.in/register">create an account</a> to add alerts and keep track of your validator's <a href="https://medalla.beaconcha.in/dashboard">performance</a>.</p>
 <h4><a class="header" href="#6-keep-your-validator-updated" id="6-keep-your-validator-updated">6. Keep your validator updated</a></h4>
 <p>Finally, makes sure you stay on the lookout for any critical updates to Nimbus. This best way to do so is through the <strong>medalla-announcements</strong> channel on our <a href="https://discord.com/invite/XRxWahP">discord</a>.</p>
 <p>To update to the latest version, disconnect from medalla and run:</p>
@@ -219,9 +224,25 @@ NOT 2020-08-03 16:24:17.958+02:00 Waiting for genesis                        top
 <p>Once the update is complete, run <code>make medalla</code> to reconnect to the network.</p>
 <p>Looking forward to seeing you on Medalla! 💛</p>
 <h3><a class="header" href="#a-note-on-keys" id="a-note-on-keys">A note on keys</a></h3>
-<p>The Nimbus client will only ever import your signing key -- in any case, if you used the deposit launchpad, this is the only key you should have (you can generate the withdrawal key from your mnemonic when you wish to withdraw). The keys your Nimbus client has access to are stored in the <code>build/data/shared_medalla_0/</code> folder, under <code>secrets</code> and <code>validators</code>.</p>
+<p>The Nimbus client will only ever import your signing key -- in any case, if you used the deposit launchpad, this is the only key you should have (you can generate the withdrawal key from your mnemonic when you wish to withdraw).</p>
+<p>The keys your Nimbus client has access to are stored in the <code>build/data/shared_medalla_0/</code> folder, under <code>secrets</code> and <code>validators</code>.</p>
 <p>The <code>secrets</code> folder contains the common secret that gives you access to all your validator keys. And the <code>validators</code> folder contains your keystores.</p>
 <p>For more on keys in eth2, see <a href="https://blog.ethereum.org/2020/05/21/keys/">here</a>.</p>
+<h2><a class="header" href="#advanced-options" id="advanced-options">Advanced options</a></h2>
+<h3><a class="header" href="#start-multiple-nodes" id="start-multiple-nodes">Start multiple nodes</a></h3>
+<p>You can start multiple local nodes, in different terminal windows/tabs, by specifying numeric IDs:</p>
+<pre><code>make medalla NODE_ID=0 # the default
+make medalla NODE_ID=1
+make medalla NODE_ID=2
+</code></pre>
+<h3><a class="header" href="#change-the-tcp-and-udp-ports" id="change-the-tcp-and-udp-ports">Change the TCP and UDP ports</a></h3>
+<p>To change the TCP and UDP ports from their default value of 9000 to 9100, say, run:</p>
+<pre><code>make BASE_PORT=9100 medalla
+</code></pre>
+<p>You may need to do this if you are running another client.</p>
+<h3><a class="header" href="#make-a-deposit-directly-using-nimbus" id="make-a-deposit-directly-using-nimbus">Make a deposit directly using Nimbus</a></h3>
+<pre><code>make medalla-deposit VALIDATORS=2 # default is just 1
+</code></pre>
 
                     </main>
 

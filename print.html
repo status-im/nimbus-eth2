@@ -91,7 +91,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">5.</strong> Become a validator (custom)</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">6.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">7.</strong> Advanced usage for developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">8.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">9.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">10.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">5.</strong> Wallet and deposit tools</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">6.</strong> Become a validator (custom)</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">7.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">8.</strong> Advanced usage for developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">9.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">10.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">11.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -157,8 +157,7 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#the-nim-beacon-chain-book" id="the-nim-beacon-chain-book">The nim-beacon-chain book</a></h1>
-<p><em>Documentation for Nimbus beacon chain users and developers.</em></p>
+                        <h1><a class="header" href="#the-nimbus-beacon-chain-book" id="the-nimbus-beacon-chain-book">The Nimbus beacon chain book</a></h1>
 <p>The Nimbus beacon chain is a research implementation of the Beacon Chain – the core system level chain at the heart of Ethereum 2.0.</p>
 <ul>
 <li>
@@ -202,25 +201,25 @@
 1. fill up the gitbook content
 2. write questions in the faq.md page -->
 <h1><a class="header" href="#installation" id="installation">Installation</a></h1>
-<p>The Beacon chain can run on Linux, macOS, Windows, and Android. At the moment, Nimbus has to be built from source.</p>
+<p>The Nimbus beacon chain can run on Linux, macOS, Windows, and Android. At the moment, Nimbus has to be built from source.</p>
 <h2><a class="header" href="#time" id="time">Time</a></h2>
-<p>The beacon chain relies on your computer having the correct time set, down to at most 0.5 seconds.</p>
+<p>The beacon chain relies on your computer having the correct time set (plus or minus 0.5 seconds).</p>
 <p>We recommended you run a high quality time service on your computer such as:</p>
 <ul>
 <li>GPS</li>
-<li>NTS (network time security, IETF draft)</li>
-<li>Roughtime (google)</li>
+<li>NTS (network time security, <a href="https://tools.ietf.org/html/draft-ietf-ntp-using-nts-for-ntp-19">IETF draft</a>)</li>
+<li><a href="https://roughtime.googlesource.com/roughtime">Roughtime</a> (google)</li>
 </ul>
-<p>As a minimum, you should run an NTP client on the server.</p>
-<p>If that makes no sense to you, don't worry. For testnets, just making sure your computer is set at the correct time should be fine.</p>
+<p>At a minimum, you should run an NTP client on the server.</p>
+<p>If that sounds like latin to you, don't worry. For testnet purposes, you should be fine as long as your computer is set to the correct time.</p>
 <h2><a class="header" href="#external-dependencies" id="external-dependencies">External Dependencies</a></h2>
 <ul>
 <li>Developer tools (C compiler, Make, Bash, Git)</li>
-<li>PCRE</li>
+<li><a href="https://www.pcre.org/">PCRE</a></li>
 </ul>
-<p>Nim is not an external dependency, Nimbus will build its own local copy.</p>
+<p>Nimbus will build its own local copy of Nim, so Nim is not an external dependency, </p>
 <h2><a class="header" href="#linux" id="linux">Linux</a></h2>
-<p>On common Linux distributions the dependencies can be installed with:</p>
+<p>On common Linux distributions the dependencies can be installed with</p>
 <pre><code class="language-sh"># Debian and Ubuntu
 sudo apt-get install build-essential git libpcre3-dev
 
@@ -236,24 +235,25 @@ yourAURmanager -S base-devel pcre-static
 </code></pre>
 <h3><a class="header" href="#windows" id="windows">Windows</a></h3>
 <p>You can install the developer tools by following the instruction in our <a href="./advanced.html#windows-dev-environment">Windows dev environment section</a>.
-It also provides a downloading script for prebuilt PCRE.</p>
+We also provide a downloading script for prebuilt PCRE.</p>
 <h3><a class="header" href="#android" id="android">Android</a></h3>
 <ul>
 <li>Install the <a href="https://termux.com">Termux</a> app from FDroid or the Google Play store</li>
 <li>Install a <a href="https://wiki.termux.com/wiki/PRoot">PRoot</a> of your choice following the instructions for your preferred distribution.
-Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on Arm64 architecture (common architecture for Android devices).</li>
+Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on Arm64 architecture (the most common architecture for Android devices).</li>
 </ul>
-<p><em>Assuming Ubuntu PRoot is used</em></p>
+<p>Assuming you  use Ubuntu PRoot</p>
 <pre><code class="language-sh">apt install build-essential git libpcre3-dev
 </code></pre>
 <h2><a class="header" href="#next-steps" id="next-steps">Next steps</a></h2>
-<p>Once you've installed the prerequisites, you're ready to move on to <a href="./medalla.html">running a validator on Medalla</a>.</p>
+<p>You're now ready to move on to <a href="./medalla.html">running a validator on Medalla</a>.</p>
 <h1><a class="header" href="#become-a-medalla-validator" id="become-a-medalla-validator">Become a Medalla validator</a></h1>
 <p>This page will take you through how to become a validator on the eth2 testnet <a href="https://github.com/goerli/medalla">Medalla</a>.</p>
 <p>If you generated your signing key using the <a href="https://medalla.launchpad.ethereum.org/">eth2 launchpad</a>, and wish to import it into the Nimbus client, this page is for you.</p>
 <blockquote>
-<p>If you haven't created your validator key yet, we recommend you go through the <a href="https://medalla.launchpad.ethereum.org/">launchpad first</a>. If you're not sure what the eth2 launchpad is, we recommend reading this <a href="https://blog.ethereum.org/2020/07/27/eth2-validator-launchpad/">introductory post</a>.</p>
+<p>If you haven't created your validator key yet, we recommend you do so using the <a href="https://medalla.launchpad.ethereum.org/">launchpad</a>. If you're not sure what the eth2 launchpad is, we recommend reading this <a href="https://blog.ethereum.org/2020/07/27/eth2-validator-launchpad/">introductory post</a> first.</p>
 </blockquote>
+<p>For advanced users, <a href="./create_wallet_and_deposit.html">this page</a>  explains how to use Nimbus to create a walletstore to generate your keys.</p>
 <h2><a class="header" href="#prerequisites" id="prerequisites">Prerequisites</a></h2>
 <p>If this is your first time playing with Nimbus, make sure you <a href="./install.html">install our external dependencies</a> first.</p>
 <p>This tutorial assumes basic knowledge of the <a href="https://www.learnenough.com/command-line-tutorial/basics#:%7E:text=Learn%20Enough%20Command%20Line%20to%20Be%20Dangerous%20is%20an%20introduction,broad%20an%20audience%20as%20possible.">command line</a>.</p>
@@ -280,12 +280,11 @@ git checkout devel
 <pre><code>make medalla
 </code></pre>
 <p>This will build Nimbus and its dependencies, and connect you to Medalla.
-You should see that the beacon node has launched with your validator attached and is waiting for <a href="https://hackmd.io/@benjaminion/genesis">genesis</a> to start:</p>
+You should see that the beacon node has launched with your validator attached:</p>
 <pre><code>WRN 2020-08-03 16:24:17.950+02:00 Validator not in registry (yet?)           topics=&quot;beacval&quot; tid=11677993 file=validator_duties.nim:53 pubKey=a9c4df36
 INF 2020-08-03 16:24:17.951+02:00 Local validator attached                   tid=11677993 file=validator_pool.nim:21 pubKey=a9c4df36 validator=a9c4df36
 INF 2020-08-03 16:24:17.951+02:00 Local validators attached                  topics=&quot;beacval&quot; tid=11677993 file=validator_duties.nim:61 count=1
 INF 2020-08-03 16:24:17.958+02:00 Starting beacon node                       topics=&quot;beacnde&quot; tid=11677993 file=beacon_node.nim:875 version=&quot;0.5.0 (31b33907)&quot; nim=&quot;Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)&quot; timeSinceFinalization=81350 head=ebe49843:0 finalizedHead=ebe49843:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.2 dataDir=build/data/shared_medalla_0 pcs=start_beacon_node
-NOT 2020-08-03 16:24:17.958+02:00 Waiting for genesis                        topics=&quot;beacnde&quot; tid=11677993 file=beacon_node.nim:890 genesisIn=22h35m50s0ns
 </code></pre>
 <details>
 <summary>Tips on how to graffiti and run multiple clients</summary>
@@ -300,10 +299,15 @@ NOT 2020-08-03 16:24:17.958+02:00 Waiting for genesis                        top
 </code></pre>
 </blockquote>
 </details>
+<blockquote>
+<p>Tip: to 🎨 on the <a href="https://medalla.beaconcha.in/graffitiwall">graffitwall</a>, pass the graffiti parameter like this:</p>
+<pre><code>make NODE_PARAMS=&quot;--graffiti='&lt;YOUR_GRAFFITI&gt;'&quot; medalla
+</code></pre>
+</blockquote>
 <h4><a class="header" href="#5-keep-an-eye-on-your-validator" id="5-keep-an-eye-on-your-validator">5. Keep an eye on your validator</a></h4>
 <p>If you deposited after the <a href="https://hackmd.io/@benjaminion/genesis">genesis</a> state was decided (August 2nd 1300 UTC), your validators will have been put in a queue based on deposit time, and will slowly be inducted into the validator set after genesis. Getting through the queue may take a few hours or days.</p>
 <p>The best way to keep track of your validator's status is <a href="https://medalla.beaconcha.in">medalla.beaconcha.in</a> (click on the orange magnifying glass at the very top and paste in its public key). </p>
-<p>You can even <a href="https://medalla.beaconcha.in/register">create an account</a> to add alerts and keep track it its <a href="https://medalla.beaconcha.in/dashboard">performance</a>.</p>
+<p>You can even <a href="https://medalla.beaconcha.in/register">create an account</a> to add alerts and keep track of your validator's <a href="https://medalla.beaconcha.in/dashboard">performance</a>.</p>
 <h4><a class="header" href="#6-keep-your-validator-updated" id="6-keep-your-validator-updated">6. Keep your validator updated</a></h4>
 <p>Finally, makes sure you stay on the lookout for any critical updates to Nimbus. This best way to do so is through the <strong>medalla-announcements</strong> channel on our <a href="https://discord.com/invite/XRxWahP">discord</a>.</p>
 <p>To update to the latest version, disconnect from medalla and run:</p>
@@ -312,9 +316,25 @@ NOT 2020-08-03 16:24:17.958+02:00 Waiting for genesis                        top
 <p>Once the update is complete, run <code>make medalla</code> to reconnect to the network.</p>
 <p>Looking forward to seeing you on Medalla! 💛</p>
 <h3><a class="header" href="#a-note-on-keys" id="a-note-on-keys">A note on keys</a></h3>
-<p>The Nimbus client will only ever import your signing key -- in any case, if you used the deposit launchpad, this is the only key you should have (you can generate the withdrawal key from your mnemonic when you wish to withdraw). The keys your Nimbus client has access to are stored in the <code>build/data/shared_medalla_0/</code> folder, under <code>secrets</code> and <code>validators</code>.</p>
+<p>The Nimbus client will only ever import your signing key -- in any case, if you used the deposit launchpad, this is the only key you should have (you can generate the withdrawal key from your mnemonic when you wish to withdraw).</p>
+<p>The keys your Nimbus client has access to are stored in the <code>build/data/shared_medalla_0/</code> folder, under <code>secrets</code> and <code>validators</code>.</p>
 <p>The <code>secrets</code> folder contains the common secret that gives you access to all your validator keys. And the <code>validators</code> folder contains your keystores.</p>
 <p>For more on keys in eth2, see <a href="https://blog.ethereum.org/2020/05/21/keys/">here</a>.</p>
+<h2><a class="header" href="#advanced-options" id="advanced-options">Advanced options</a></h2>
+<h3><a class="header" href="#start-multiple-nodes" id="start-multiple-nodes">Start multiple nodes</a></h3>
+<p>You can start multiple local nodes, in different terminal windows/tabs, by specifying numeric IDs:</p>
+<pre><code>make medalla NODE_ID=0 # the default
+make medalla NODE_ID=1
+make medalla NODE_ID=2
+</code></pre>
+<h3><a class="header" href="#change-the-tcp-and-udp-ports" id="change-the-tcp-and-udp-ports">Change the TCP and UDP ports</a></h3>
+<p>To change the TCP and UDP ports from their default value of 9000 to 9100, say, run:</p>
+<pre><code>make BASE_PORT=9100 medalla
+</code></pre>
+<p>You may need to do this if you are running another client.</p>
+<h3><a class="header" href="#make-a-deposit-directly-using-nimbus" id="make-a-deposit-directly-using-nimbus">Make a deposit directly using Nimbus</a></h3>
+<pre><code>make medalla-deposit VALIDATORS=2 # default is just 1
+</code></pre>
 <h1><a class="header" href="#the-beacon-node" id="the-beacon-node">The beacon node</a></h1>
 <p>The beacon node application connects to the eth2 network, manages the blockchain, and provides API's to interact with the beacon chain.</p>
 <p>You can run the beacon node without being a validator - doing so allows you to sync the network and access its latest state.</p>
@@ -360,11 +380,12 @@ You should see that the beacon node has launched and started syncing.</p>
 <pre><code># Compile with insecure features enabled
 make NIMFLAGS=&quot;-d:insecure&quot; medalla
 </code></pre>
-<h2><a class="header" href="#command-line-options" id="command-line-options">Command line options</a></h2>
-<pre><code>$ ./beacon_node --help
-Nimbus beacon node v0.3.0 (877a358)
-
-Usage:
+<h2><a class="header" href="#help" id="help">Help</a></h2>
+<p>To see a list of command line options with descriptions, navigate to the <code>build</code> directory and run:</p>
+<pre><code>./beacon_node --help
+</code></pre>
+<p>You should see the following output:</p>
+<pre><code>Usage:
 
 beacon_node [OPTIONS]... command
 
@@ -491,6 +512,37 @@ Lists details about all wallets.
 </code></pre>
 <h2><a class="header" href="#next-steps-1" id="next-steps-1">Next steps</a></h2>
 <p>Once you're synced, you can move on to become a <a href="./validator.html">validator</a>.</p>
+<h1><a class="header" href="#create-a-walletstore-and-make-a-deposit" id="create-a-walletstore-and-make-a-deposit">Create a walletstore and make a deposit</a></h1>
+<p>In this page we'll take you through how to create a walletstore and make a deposit (from now on we'll use the terms wallet and walletstore interchangeably)</p>
+<p>First, we'll create a wallet.</p>
+<blockquote>
+<p>For our purposes, a wallet is the <a href="https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md">EIP-2386</a> JSON file which contains an encrypted seed, a name, and a counter (<code>nextaccount</code>) that allows for creating validators (generating keystores) incrementally as outlined in <a href="https://eips.ethereum.org/EIPS/eip-2334">EIP-2334</a> (Deterministic Account Hierarchy).</p>
+</blockquote>
+<p>The wallet we'll create will be <a href="https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md">hierarchical deterministic</a>.</p>
+<p>An HD wallet can create keys from a <em>seed</em> and a <em>path</em>. The encrypted seed is stored in the wallet (it needs to be accessible to create new keys). Further, HD wallets also have a mechanism (a <code>nextaccount</code> index) for maintaining state about which keys have been generated (to ensure keys are not duplicated).</p>
+<h2><a class="header" href="#when-do-i-need-to-use-a-walletstore" id="when-do-i-need-to-use-a-walletstore">When do I need to use a walletstore?</a></h2>
+<p>If you're asking yourself this question then you probably don't need to use one :)</p>
+<p>To be clear, the purpose of a walletstore is to generate new validators. But you don't need a walletstore to do this.</p>
+<p>You can use the Ethereum Foundation's <a href="https://medalla.launchpad.ethereum.org/">launchpad</a> or <a href="https://github.com/ethereum/eth2.0-deposit-cli">deposit-cli</a> to do this without a walletstore.</p>
+<h2><a class="header" href="#create--a-wallet" id="create--a-wallet">Create  a wallet</a></h2>
+<pre><code>build/beacon_node wallets create
+</code></pre>
+<p><em>TO BE FILLED</em></p>
+<h2><a class="header" href="#create-a-deposit" id="create-a-deposit">Create a deposit</a></h2>
+<pre><code>build/beacon_node deposits create
+</code></pre>
+<p><em>TO BE FILLED</em></p>
+<p><em>Creates a deposits_data file that should be compatible with the new Ethereum Launchpad.</em></p>
+<ul>
+<li>creates wallet</li>
+<li>generates deposits</li>
+<li>writes to deposit_data file</li>
+</ul>
+<blockquote>
+<p>Note: when you create deposits with <code>deposits create</code>, you can reference an existing wallet or you can create a new one which will guide through the standard wallets create procedure.</p>
+</blockquote>
+<h2><a class="header" href="#which-keys-do-i-pass-to-my-validator-client" id="which-keys-do-i-pass-to-my-validator-client">Which keys do i pass to my validator client?</a></h2>
+<p>Importantly, to run a validator you only need to pass the voting keystore which leaks nothing about the withdrawal key (except perhaps the path that it can be derived with).</p>
 <h1><a class="header" href="#become-a-validator" id="become-a-validator">Become a Validator</a></h1>
 <blockquote>
 <p>Note, the instructions below currently apply to Altona. They will be updated shortly to explain how you can use Nimbus to create your validator keys and interact with the Medalla deposit contract.</p>
@@ -789,6 +841,8 @@ make LOG_LEVEL=TRACE beacon_node # log everything
 </ul>
 <pre><code class="language-bash">make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
 </code></pre>
+<h3><a class="header" href="#multi-client-interop-scripts" id="multi-client-interop-scripts">Multi-client interop scripts</a></h3>
+<p><a href="https://github.com/eth2-clients/multinet">This repository</a> contains a set of scripts used by the client implementation teams to test interop between the clients (in certain simplified scenarios). It mostly helps us find and debug issues.</p>
 <h1><a class="header" href="#setting-up-a-systemd-service" id="setting-up-a-systemd-service">Setting up a systemd service</a></h1>
 <p>This guide will take you through how to set up a <code>systemd</code> service for your beacon node.</p>
 <blockquote>

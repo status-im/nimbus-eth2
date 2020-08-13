@@ -89,7 +89,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html" class="active"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">5.</strong> Become a validator (custom)</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">6.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">7.</strong> Advanced usage for developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">8.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">9.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">10.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html" class="active"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">5.</strong> Wallet and deposit tools</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">6.</strong> Become a validator (custom)</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">7.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">8.</strong> Advanced usage for developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">9.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">10.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">11.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -156,25 +156,25 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#installation" id="installation">Installation</a></h1>
-<p>The Beacon chain can run on Linux, macOS, Windows, and Android. At the moment, Nimbus has to be built from source.</p>
+<p>The Nimbus beacon chain can run on Linux, macOS, Windows, and Android. At the moment, Nimbus has to be built from source.</p>
 <h2><a class="header" href="#time" id="time">Time</a></h2>
-<p>The beacon chain relies on your computer having the correct time set, down to at most 0.5 seconds.</p>
+<p>The beacon chain relies on your computer having the correct time set (plus or minus 0.5 seconds).</p>
 <p>We recommended you run a high quality time service on your computer such as:</p>
 <ul>
 <li>GPS</li>
-<li>NTS (network time security, IETF draft)</li>
-<li>Roughtime (google)</li>
+<li>NTS (network time security, <a href="https://tools.ietf.org/html/draft-ietf-ntp-using-nts-for-ntp-19">IETF draft</a>)</li>
+<li><a href="https://roughtime.googlesource.com/roughtime">Roughtime</a> (google)</li>
 </ul>
-<p>As a minimum, you should run an NTP client on the server.</p>
-<p>If that makes no sense to you, don't worry. For testnets, just making sure your computer is set at the correct time should be fine.</p>
+<p>At a minimum, you should run an NTP client on the server.</p>
+<p>If that sounds like latin to you, don't worry. For testnet purposes, you should be fine as long as your computer is set to the correct time.</p>
 <h2><a class="header" href="#external-dependencies" id="external-dependencies">External Dependencies</a></h2>
 <ul>
 <li>Developer tools (C compiler, Make, Bash, Git)</li>
-<li>PCRE</li>
+<li><a href="https://www.pcre.org/">PCRE</a></li>
 </ul>
-<p>Nim is not an external dependency, Nimbus will build its own local copy.</p>
+<p>Nimbus will build its own local copy of Nim, so Nim is not an external dependency, </p>
 <h2><a class="header" href="#linux" id="linux">Linux</a></h2>
-<p>On common Linux distributions the dependencies can be installed with:</p>
+<p>On common Linux distributions the dependencies can be installed with</p>
 <pre><code class="language-sh"># Debian and Ubuntu
 sudo apt-get install build-essential git libpcre3-dev
 
@@ -190,18 +190,18 @@ yourAURmanager -S base-devel pcre-static
 </code></pre>
 <h3><a class="header" href="#windows" id="windows">Windows</a></h3>
 <p>You can install the developer tools by following the instruction in our <a href="./advanced.html#windows-dev-environment">Windows dev environment section</a>.
-It also provides a downloading script for prebuilt PCRE.</p>
+We also provide a downloading script for prebuilt PCRE.</p>
 <h3><a class="header" href="#android" id="android">Android</a></h3>
 <ul>
 <li>Install the <a href="https://termux.com">Termux</a> app from FDroid or the Google Play store</li>
 <li>Install a <a href="https://wiki.termux.com/wiki/PRoot">PRoot</a> of your choice following the instructions for your preferred distribution.
-Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on Arm64 architecture (common architecture for Android devices).</li>
+Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on Arm64 architecture (the most common architecture for Android devices).</li>
 </ul>
-<p><em>Assuming Ubuntu PRoot is used</em></p>
+<p>Assuming you  use Ubuntu PRoot</p>
 <pre><code class="language-sh">apt install build-essential git libpcre3-dev
 </code></pre>
 <h2><a class="header" href="#next-steps" id="next-steps">Next steps</a></h2>
-<p>Once you've installed the prerequisites, you're ready to move on to <a href="./medalla.html">running a validator on Medalla</a>.</p>
+<p>You're now ready to move on to <a href="./medalla.html">running a validator on Medalla</a>.</p>
 
                     </main>
 

@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Contribute - The Nimbus Beacon Chain Book</title>
+        <title>Wallet and deposit tools - The Nimbus Beacon Chain Book</title>
         
         
 
@@ -89,7 +89,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">5.</strong> Wallet and deposit tools</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">6.</strong> Become a validator (custom)</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">7.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">8.</strong> Advanced usage for developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">9.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">10.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html" class="active"><strong aria-hidden="true">11.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html" class="active"><strong aria-hidden="true">5.</strong> Wallet and deposit tools</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">6.</strong> Become a validator (custom)</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">7.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">8.</strong> Advanced usage for developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">9.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">10.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">11.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -155,52 +155,52 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#contribute" id="contribute">Contribute</a></h1>
-<p>Follow these steps to contribute to this book!</p>
-<p>We use an utility tool called mdBook to create online books from Markdown files.</p>
-<h2><a class="header" href="#before-you-start" id="before-you-start">Before You Start</a></h2>
-<ol>
-<li>Install mdBook from <a href="https://github.com/rust-lang/mdBook">here</a>.</li>
-<li>Clone the repository by <code>git clone https://github.com/status-im/nim-beacon-chain.git</code>.</li>
-<li>Go to where the Markdown files are located by <code>cd docs</code>.</li>
-</ol>
-<h2><a class="header" href="#real-time-update-and-preview-changes" id="real-time-update-and-preview-changes">Real-Time Update and Preview Changes</a></h2>
-<ol>
-<li>Run <code>mdbook serve</code> in the terminal.</li>
-<li>Preview the book at <a href="http://localhost:3000">http://localhost:3000</a>.</li>
-</ol>
-<h2><a class="header" href="#build-and-deploy" id="build-and-deploy">Build and Deploy</a></h2>
-<p>The first step is to submit a pull request to the <a href="https://github.com/status-im/nim-beacon-chain/tree/devel">devel branch</a>.
-Then, after it is merged, do the following under our main repository:</p>
-<ol>
-<li><code>cd nim-beacon-chain</code></li>
-<li><code>git checkout devel</code></li>
-<li><code>git pull</code></li>
-<li><code>make update</code> (This is to update the submodules to the latest version)</li>
-<li><code>make publish-book</code></li>
-</ol>
-<h2><a class="header" href="#trouble-shooting" id="trouble-shooting">Trouble Shooting</a></h2>
-<p>If you see file conflicts in the pull request, this may due to that you have created your new branch from an old version of the <code>devel</code> branch. Update your new branch using the following commands:</p>
-<pre><code>git checkout devel
-git pull
-make update
-git checkout readme
-git merge devel
-# use something like `git mergetool` to resolve conflicts, then read the instructions for completing the merge (usually just a `git commit`)
-# check the output of `git diff devel`
+                        <h1><a class="header" href="#create-a-walletstore-and-make-a-deposit" id="create-a-walletstore-and-make-a-deposit">Create a walletstore and make a deposit</a></h1>
+<p>In this page we'll take you through how to create a walletstore and make a deposit (from now on we'll use the terms wallet and walletstore interchangeably)</p>
+<p>First, we'll create a wallet.</p>
+<blockquote>
+<p>For our purposes, a wallet is the <a href="https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md">EIP-2386</a> JSON file which contains an encrypted seed, a name, and a counter (<code>nextaccount</code>) that allows for creating validators (generating keystores) incrementally as outlined in <a href="https://eips.ethereum.org/EIPS/eip-2334">EIP-2334</a> (Deterministic Account Hierarchy).</p>
+</blockquote>
+<p>The wallet we'll create will be <a href="https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md">hierarchical deterministic</a>.</p>
+<p>An HD wallet can create keys from a <em>seed</em> and a <em>path</em>. The encrypted seed is stored in the wallet (it needs to be accessible to create new keys). Further, HD wallets also have a mechanism (a <code>nextaccount</code> index) for maintaining state about which keys have been generated (to ensure keys are not duplicated).</p>
+<h2><a class="header" href="#when-do-i-need-to-use-a-walletstore" id="when-do-i-need-to-use-a-walletstore">When do I need to use a walletstore?</a></h2>
+<p>If you're asking yourself this question then you probably don't need to use one :)</p>
+<p>To be clear, the purpose of a walletstore is to generate new validators. But you don't need a walletstore to do this.</p>
+<p>You can use the Ethereum Foundation's <a href="https://medalla.launchpad.ethereum.org/">launchpad</a> or <a href="https://github.com/ethereum/eth2.0-deposit-cli">deposit-cli</a> to do this without a walletstore.</p>
+<h2><a class="header" href="#create--a-wallet" id="create--a-wallet">Create  a wallet</a></h2>
+<pre><code>build/beacon_node wallets create
 </code></pre>
-<p>Thank you so much for your help to the decentralized and open source community. :)</p>
+<p><em>TO BE FILLED</em></p>
+<h2><a class="header" href="#create-a-deposit" id="create-a-deposit">Create a deposit</a></h2>
+<pre><code>build/beacon_node deposits create
+</code></pre>
+<p><em>TO BE FILLED</em></p>
+<p><em>Creates a deposits_data file that should be compatible with the new Ethereum Launchpad.</em></p>
+<ul>
+<li>creates wallet</li>
+<li>generates deposits</li>
+<li>writes to deposit_data file</li>
+</ul>
+<blockquote>
+<p>Note: when you create deposits with <code>deposits create</code>, you can reference an existing wallet or you can create a new one which will guide through the standard wallets create procedure.</p>
+</blockquote>
+<h2><a class="header" href="#which-keys-do-i-pass-to-my-validator-client" id="which-keys-do-i-pass-to-my-validator-client">Which keys do i pass to my validator client?</a></h2>
+<p>Importantly, to run a validator you only need to pass the voting keystore which leaks nothing about the withdrawal key (except perhaps the path that it can be derived with).</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="faq.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="beacon_node.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
+                        
+                            <a rel="next" href="validator.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
                         
 
                         <div style="clear: both"></div>
@@ -210,11 +210,15 @@ git merge devel
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="faq.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="beacon_node.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
+                
+                    <a rel="next" href="validator.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
                 
             </nav>
 
