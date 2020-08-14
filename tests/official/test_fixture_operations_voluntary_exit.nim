@@ -42,14 +42,18 @@ proc runTest(identifier: string) =
       let voluntaryExit = parseTest(testDir/"voluntary_exit.ssz", SSZ, SignedVoluntaryExit)
       var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
 
+      var cache = StateCache()
+
       if existsFile(testDir/"post.ssz"):
         let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
-        let done = process_voluntary_exit(preState[], voluntaryExit, {}).isOk
+        let done =
+          process_voluntary_exit(preState[], voluntaryExit, {}, cache).isOk
         doAssert done, "Valid voluntary exit not processed"
         check: preState[].hash_tree_root() == postState[].hash_tree_root()
         reportDiff(preState, postState)
       else:
-        let done = process_voluntary_exit(preState[], voluntaryExit, {}).isOk
+        let done =
+          process_voluntary_exit(preState[], voluntaryExit, {}, cache).isOk
         doAssert done == false, "We didn't expect this invalid voluntary exit to be processed."
 
   `testImpl _ voluntary_exit _ identifier`()

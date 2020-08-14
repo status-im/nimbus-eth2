@@ -70,7 +70,11 @@ func getMerkleProof[Depth: static int](tree: SparseMerkleTree[Depth],
   #   - 0 --> go left
   #   - 1 --> go right
   let path = uint32(index)
+
+  # This is what the nnznodes[depth].len would be if `index` had been the last
+  # deposit on the Merkle tree
   var depthLen = index + 1
+
   for depth in 0 ..< Depth:
     let nodeIdx = int((path shr depth) xor 1)
 
@@ -82,17 +86,20 @@ func getMerkleProof[Depth: static int](tree: SparseMerkleTree[Depth],
     else:
       result[depth] = zeroHashes[depth]
 
+    # Round up, i.e. a half-pair of Merkle nodes/leaves still requires a node
+    # in the next Merkle tree layer calculated
     depthLen = (depthLen + 1) div 2
 
 func attachMerkleProofs*(deposits: var openarray[Deposit]) =
-  let deposit_data_roots = mapIt(deposits, it.data.hash_tree_root)
+  let
+    deposit_data_roots = mapIt(deposits, it.data.hash_tree_root)
+    merkle_tree = merkleTreeFromLeaves(deposit_data_roots)
   var
     deposit_data_sums: seq[Eth2Digest]
   for prefix_root in hash_tree_roots_prefix(
       deposit_data_roots, 1'i64 shl DEPOSIT_CONTRACT_TREE_DEPTH):
     deposit_data_sums.add prefix_root
 
-  let merkle_tree = merkleTreeFromLeaves(deposit_data_roots)
   for val_idx in 0 ..< deposits.len:
     deposits[val_idx].proof[0..31] = merkle_tree.getMerkleProof(val_idx, true)
     deposits[val_idx].proof[32].data[0..7] = uint_to_bytes8((val_idx + 1).uint64)

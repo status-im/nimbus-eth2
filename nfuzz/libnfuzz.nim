@@ -138,7 +138,7 @@ proc nfuzz_proposer_slashing(input: openArray[byte], xoutput: ptr byte,
 proc nfuzz_voluntary_exit(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(VoluntaryExitInput):
-    process_voluntary_exit(data.state, data.exit, flags).isOk
+    process_voluntary_exit(data.state, data.exit, flags, cache).isOk
 
 # Note: Could also accept raw input pointer and access list_size + seed here.
 # However, list_size needs to be known also outside this proc to allocate xoutput.
