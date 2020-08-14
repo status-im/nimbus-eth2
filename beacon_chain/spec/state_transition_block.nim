@@ -230,7 +230,8 @@ proc process_attester_slashing*(
 proc process_voluntary_exit*(
     state: var BeaconState,
     signed_voluntary_exit: SignedVoluntaryExit,
-    flags: UpdateFlags): Result[void, cstring] {.nbench.} =
+    flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] {.nbench.} =
 
   let voluntary_exit = signed_voluntary_exit.message
 
@@ -266,16 +267,6 @@ proc process_voluntary_exit*(
       return err("Exit: invalid signature")
 
   # Initiate exit
-  debug "Exit: processing voluntary exit (validator_leaving)",
-    index = voluntary_exit.validator_index,
-    num_validators = state.validators.len,
-    epoch = voluntary_exit.epoch,
-    current_epoch = get_current_epoch(state),
-    validator_slashed = validator.slashed,
-    validator_withdrawable_epoch = validator.withdrawable_epoch,
-    validator_exit_epoch = validator.exit_epoch,
-    validator_effective_balance = validator.effective_balance
-  var cache = StateCache()
   initiate_validator_exit(
     state, voluntary_exit.validator_index.ValidatorIndex, cache)
 
@@ -284,40 +275,60 @@ proc process_voluntary_exit*(
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#operations
 proc process_operations(preset: RuntimePreset,
                         state: var BeaconState,
-                        body: SomeBeaconBlockBody,
+                        blck: SomeBeaconBlock,
                         flags: UpdateFlags,
-                        stateCache: var StateCache): Result[void, cstring] {.nbench.} =
+                        cache: var StateCache): Result[void, cstring] {.nbench.} =
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
   let
+    body = blck.body   # so processing validator exit can record blck information
     num_deposits = uint64 len(body.deposits)
     req_deposits = min(MAX_DEPOSITS,
                        state.eth1_data.deposit_count - state.eth1_deposit_index)
   if not (num_deposits == req_deposits):
     return err("incorrect number of deposits")
 
-  template for_ops_cached(operations: auto, fn: auto) =
-    for operation in operations:
-      let res = fn(state, operation, flags, stateCache)
-      if res.isErr:
-        return res
-
   template for_ops(operations: auto, fn: auto) =
     for operation in operations:
-      let res = fn(state, operation, flags)
+      let res = fn(state, operation, flags, cache)
       if res.isErr:
         return res
 
-  for_ops_cached(body.proposer_slashings, process_proposer_slashing)
-  for_ops_cached(body.attester_slashings, process_attester_slashing)
-  for_ops_cached(body.attestations, process_attestation)
+  for_ops(body.proposer_slashings, process_proposer_slashing)
+  for_ops(body.attester_slashings, process_attester_slashing)
+  for_ops(body.attestations, process_attestation)
 
   for deposit in body.deposits:
     let res = process_deposit(preset, state, deposit, flags)
     if res.isErr:
       return res
 
-  for_ops(body.voluntary_exits, process_voluntary_exit)
+  for signed_voluntary_exit in body.voluntary_exits:
+    let
+      res = process_voluntary_exit(state, signed_voluntary_exit, flags, cache)
+      voluntary_exit = signed_voluntary_exit.message
+    if res.isOk:
+      let validator = state.validators[voluntary_exit.validator_index]
+      debug "Exit: processed valid voluntary exit (validator_leaving)",
+        index = voluntary_exit.validator_index,
+        num_validators = state.validators.len,
+        epoch = voluntary_exit.epoch,
+        current_epoch = get_current_epoch(state),
+        validator_slashed = validator.slashed,
+        validator_withdrawable_epoch = validator.withdrawable_epoch,
+        validator_exit_epoch = validator.exit_epoch,
+        validator_effective_balance = validator.effective_balance,
+        blck = shortLog(blck),
+        block_root = hash_tree_root(blck)
+    else:
+      debug "Exit: processed invalid voluntary exit (validator_leaving)",
+        index = voluntary_exit.validator_index,
+        num_validators = state.validators.len,
+        epoch = voluntary_exit.epoch,
+        current_epoch = get_current_epoch(state),
+        blck = shortLog(blck),
+        block_root = hash_tree_root(blck)
+      return res
 
   ok()
 
@@ -361,7 +372,9 @@ proc process_block*(
 
   process_eth1_data(state, blck.body)
 
-  let res_ops = process_operations(preset, state, blck.body, flags, stateCache)
+  # process_operations only uses the full `blck` for process_voluntary_exit()
+  # logging
+  let res_ops = process_operations(preset, state, blck, flags, stateCache)
   if res_ops.isErr:
     debug "process_operations encountered error",
       operation_error = $(res_ops.error),
