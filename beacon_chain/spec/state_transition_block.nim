@@ -348,6 +348,10 @@ proc process_block*(
 
   logScope:
     blck = shortLog(blck)
+
+  debug "Processing block",
+    blockRoot = hash_tree_root(blck) # don't incur other cost unless enabled
+
   let res_block = process_block_header(state, blck, flags, stateCache)
   if res_block.isErr:
     debug "Block header not valid",
