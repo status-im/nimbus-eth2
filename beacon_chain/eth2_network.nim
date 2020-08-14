@@ -1264,13 +1264,6 @@ proc addValidator*[MsgType](node: Eth2Node,
 
   node.switch.addValidator(topic & "_snappy", execValidator)
 
-proc subscribe*[MsgType](node: Eth2Node,
-                         topic: string,
-                         msgHandler: proc(msg: MsgType) {.gcsafe.},
-                         msgValidator: proc(msg: MsgType): bool {.gcsafe.} ) {.async, gcsafe.} =
-  node.addValidator(topic, msgValidator)
-  await node.subscribe(topic, msgHandler)
-
 proc unsubscribe*(node: Eth2Node, topic: string): Future[void] =
   node.switch.unsubscribeAll(topic)
 

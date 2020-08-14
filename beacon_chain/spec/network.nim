@@ -75,7 +75,7 @@ func compute_subnet_for_attestation*(
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#broadcast-attestation
 func getAttestationTopic*(forkDigest: ForkDigest, subnetIndex: uint64):
     string =
-  # This is for subscribing or broadcasting manually to a known index.
+  ## For subscribing, unsubscribing, or broadcasting manually to/from an index.
   doAssert subnetIndex < ATTESTATION_SUBNET_COUNT
 
   try:
