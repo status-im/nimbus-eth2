@@ -66,6 +66,14 @@ task test, "Run all tests":
   buildAndRunBinary "fork_choice", "beacon_chain/fork_choice/", "-d:const_preset=mainnet"
   buildAndRunBinary "all_tests", "tests/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet"
 
+  # Check Miracl/Milagro fallback on select tests
+  buildAndRunBinary "test_interop", "tests/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl"
+  buildAndRunBinary "test_process_attestation", "tests/spec_block_processing/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl"
+  buildAndRunBinary "test_process_deposits", "tests/spec_block_processing/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl"
+  buildAndRunBinary "all_fixtures_require_ssz", "tests/official/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl"
+  buildAndRunBinary "test_attestation_pool", "tests/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl"
+  buildAndRunBinary "test_block_pool", "tests/", "-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl"
+
   # Generic SSZ test, doesn't use consensus objects minimal/mainnet presets
   buildAndRunBinary "test_fixture_ssz_generic_types", "tests/official/", "-d:chronicles_log_level=TRACE"
 
@@ -76,4 +84,6 @@ task test, "Run all tests":
 
   # State and block sims; getting to 4th epoch triggers consensus checks
   buildAndRunBinary "state_sim", "research/", "-d:const_preset=mainnet", "--validators=3000 --slots=128"
+  buildAndRunBinary "state_sim", "research/", "-d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl", "--validators=3000 --slots=128"
   buildAndRunBinary "block_sim", "research/", "-d:const_preset=mainnet", "--validators=3000 --slots=128"
+  buildAndRunBinary "block_sim", "research/", "-d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl", "--validators=3000 --slots=128"

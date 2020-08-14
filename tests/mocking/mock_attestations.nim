@@ -11,6 +11,8 @@
 import
   # Standard library
   sets,
+  # Status
+  chronicles,
   # Specs
   ../../beacon_chain/spec/[datatypes, beaconstate, helpers, validator, crypto,
                            signatures, state_transition, presets],
