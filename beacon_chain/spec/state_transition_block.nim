@@ -230,7 +230,8 @@ proc process_attester_slashing*(
 proc process_voluntary_exit*(
     state: var BeaconState,
     signed_voluntary_exit: SignedVoluntaryExit,
-    flags: UpdateFlags): Result[void, cstring] {.nbench.} =
+    flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] {.nbench.} =
 
   let voluntary_exit = signed_voluntary_exit.message
 
@@ -275,7 +276,6 @@ proc process_voluntary_exit*(
     validator_withdrawable_epoch = validator.withdrawable_epoch,
     validator_exit_epoch = validator.exit_epoch,
     validator_effective_balance = validator.effective_balance
-  var cache = StateCache()
   initiate_validator_exit(
     state, voluntary_exit.validator_index.ValidatorIndex, cache)
 
@@ -286,7 +286,7 @@ proc process_operations(preset: RuntimePreset,
                         state: var BeaconState,
                         body: SomeBeaconBlockBody,
                         flags: UpdateFlags,
-                        stateCache: var StateCache): Result[void, cstring] {.nbench.} =
+                        cache: var StateCache): Result[void, cstring] {.nbench.} =
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
   let
@@ -296,21 +296,15 @@ proc process_operations(preset: RuntimePreset,
   if not (num_deposits == req_deposits):
     return err("incorrect number of deposits")
 
-  template for_ops_cached(operations: auto, fn: auto) =
-    for operation in operations:
-      let res = fn(state, operation, flags, stateCache)
-      if res.isErr:
-        return res
-
   template for_ops(operations: auto, fn: auto) =
     for operation in operations:
-      let res = fn(state, operation, flags)
+      let res = fn(state, operation, flags, cache)
       if res.isErr:
         return res
 
-  for_ops_cached(body.proposer_slashings, process_proposer_slashing)
-  for_ops_cached(body.attester_slashings, process_attester_slashing)
-  for_ops_cached(body.attestations, process_attestation)
+  for_ops(body.proposer_slashings, process_proposer_slashing)
+  for_ops(body.attester_slashings, process_attester_slashing)
+  for_ops(body.attestations, process_attestation)
 
   for deposit in body.deposits:
     let res = process_deposit(preset, state, deposit, flags)

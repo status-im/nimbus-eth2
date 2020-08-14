@@ -306,4 +306,4 @@ genProcessBlockScenario(runProcessVoluntaryExits,
                         deposit,
                         SignedVoluntaryExit,
                         needFlags = true,
-                        needCache = false)
+                        needCache = true)
