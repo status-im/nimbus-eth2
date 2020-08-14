@@ -273,7 +273,7 @@ dump_logs() {
 
 dump_logtrace() {
   if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
-    find local_testnet_data -maxdepth 1 -type f -name 'log*.txt' | sed -e's/local_testnet_data\//--nodes=/' | sort | xargs ./build/logtrace asr --log-dir=local_testnet_data --nodes=log0.txt --nodes=log1.txt --nodes=log2.txt --nodes=log3.txt || true
+    find local_testnet_data -maxdepth 1 -type f -name 'log*.txt' | sed -e's/local_testnet_data\//--nodes=/' | sort | xargs ./build/logtrace asr --log-dir=local_testnet_data || true
   fi
 }
 
