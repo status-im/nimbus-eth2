@@ -10,7 +10,7 @@
 
 import
   bearssl, eth/keys,
-  blscurve/bls_signature_scheme,
+  blscurve,
   ../../beacon_chain/spec/[datatypes, crypto, presets]
 
 proc newKeyPair(rng: var BrHmacDrbgContext): BlsResult[tuple[pub: ValidatorPubKey, priv: ValidatorPrivKey]] =
@@ -25,7 +25,7 @@ proc newKeyPair(rng: var BrHmacDrbgContext): BlsResult[tuple[pub: ValidatorPubKe
 
   var
     sk: SecretKey
-    pk: bls_signature_scheme.PublicKey
+    pk: blscurve.PublicKey
   if keyGen(ikm, pk, sk):
     ok((ValidatorPubKey(kind: Real, blsValue: pk), ValidatorPrivKey(sk)))
   else:

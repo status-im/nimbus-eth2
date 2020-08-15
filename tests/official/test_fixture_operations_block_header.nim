@@ -13,7 +13,7 @@ import
   # Utilities
   stew/results,
   # Beacon chain internals
-  ../../beacon_chain/spec/[datatypes, state_transition_block],
+  ../../beacon_chain/spec/[datatypes, state_transition_block, crypto],
   ../../beacon_chain/ssz,
   # Test utilities
   ../testutil,

@@ -53,4 +53,3 @@ script:
   - make -j${NPROC} NIMFLAGS="--parallelBuild:2" LOG_LEVEL=TRACE
   - make -j${NPROC} NIMFLAGS="--parallelBuild:2 -d:testnet_servers_image" LOG_LEVEL=TRACE beacon_node
   - make -j${NPROC} NIMFLAGS="--parallelBuild:2" DISABLE_TEST_FIXTURES_SCRIPT=1 test
-

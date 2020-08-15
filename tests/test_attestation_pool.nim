@@ -11,12 +11,31 @@ import
   unittest,
   chronicles,
   stew/byteutils,
-  ./testutil, ./testblockutil, ../research/simutils,
+  ./testutil, ./testblockutil,
   ../beacon_chain/spec/[crypto, datatypes, digest, validator, state_transition,
                         helpers, beaconstate, presets],
   ../beacon_chain/[beacon_node_types, attestation_pool, extras],
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
   ../beacon_chain/block_pools/[chain_dag, clearance]
+
+func combine(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
+  ## Combine the signature and participation bitfield, with the assumption that
+  ## the same data is being signed - if the signatures overlap, they are not
+  ## combined.
+
+  doAssert tgt.data == src.data
+
+  # In a BLS aggregate signature, one needs to count how many times a
+  # particular public key has been added - since we use a single bit per key, we
+  # can only it once, thus we can never combine signatures that overlap already!
+  if not tgt.aggregation_bits.overlaps(src.aggregation_bits):
+    tgt.aggregation_bits.combine(src.aggregation_bits)
+
+    if skipBlsValidation notin flags:
+      var agg {.noInit.}: AggregateSignature
+      agg.init(tgt.signature)
+      agg.aggregate(src.signature)
+      tgt.signature = agg.finish()
 
 template wrappedTimedTest(name: string, body: untyped) =
   # `check` macro takes a copy of whatever it's checking, on the stack!

@@ -124,18 +124,24 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         attesters.push scas.len()
 
         withTimer(timers[tAttest]):
+          var agg {.noInit.}: AggregateSignature
           for v in scas:
             if (rand(r, high(int)).float * attesterRatio).int <= high(int):
               if first:
                 attestation =
                   makeAttestation(state[].data, latest_block_root, scas, target_slot,
                     i.uint64, v, cache, flags)
+                agg.init(attestation.signature)
                 first = false
               else:
-                attestation.combine(
+                let att2 =
                   makeAttestation(state[].data, latest_block_root, scas, target_slot,
-                    i.uint64, v, cache, flags),
-                  flags)
+                    i.uint64, v, cache, flags)
+                if not att2.aggregation_bits.overlaps(attestation.aggregation_bits):
+                  attestation.aggregation_bits.combine(att2.aggregation_bits)
+                  if skipBlsValidation notin flags:
+                    agg.aggregate(att2.signature)
+          attestation.signature = agg.finish()
 
         if not first:
           # add the attestation if any of the validators attested, as given

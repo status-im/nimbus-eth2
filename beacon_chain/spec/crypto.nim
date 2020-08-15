@@ -44,7 +44,7 @@ export results, json_serialization
 const
   RawSigSize* = 96
   RawPubKeySize* = 48
-  RawPrivKeySize* = 48
+  # RawPrivKeySize* = 48 for Miracl / 32 for BLST
 
 type
   BlsValueType* = enum
@@ -76,6 +76,8 @@ type
     data*: array[RawSigSize, byte]
 
   SomeSig* = TrustedSig | ValidatorSig
+
+export AggregateSignature
 
 func `==`*(a, b: BlsValue): bool =
   if a.kind != b.kind: return false
@@ -125,10 +127,20 @@ proc initPubKey*(pubkey: ValidatorPubKey): ValidatorPubKey =
     return ValidatorPubKey()
   key.get
 
-func aggregate*(x: var ValidatorSig, other: ValidatorSig) =
-  ## Aggregate 2 Validator Signatures
+func init*(agg: var AggregateSignature, sig: ValidatorSig) {.inline.}=
+  ## Initializes an aggregate signature context
+  ## This assumes that the signature is valid
+  agg.init(sig.blsValue)
+
+func aggregate*(agg: var AggregateSignature, sig: ValidatorSig) {.inline.}=
+  ## Aggregate two Validator Signatures
   ## This assumes that they are real signatures
-  x.blsValue.aggregate(other.blsValue)
+  agg.aggregate(sig.blsValue)
+
+func finish*(agg: AggregateSignature): ValidatorSig {.inline.}=
+  ## Canonicalize an AggregateSignature into a signature
+  result.kind = Real
+  result.blsValue.finish(agg)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#bls-signatures
 proc blsVerify*(
@@ -218,9 +230,14 @@ func `$`*(x: BlsValue): string =
   else:
     "raw: " & x.blob.toHex()
 
-func toRaw*(x: ValidatorPrivKey): array[RawPrivKeySize, byte] =
+func toRaw*(x: ValidatorPrivKey): array[32, byte] =
   # TODO: distinct type - see https://github.com/status-im/nim-blscurve/pull/67
-  SecretKey(x).exportRaw()
+  when BLS_BACKEND == BLST:
+    result = SecretKey(x).exportRaw()
+  else:
+    # Miracl exports to 384-bit arrays, but Curve order is 256-bit
+    let raw = SecretKey(x).exportRaw()
+    result[0..32-1] = raw.toOpenArray(48-32, 48-1)
 
 func toRaw*(x: BlsValue): auto =
   if x.kind == Real:

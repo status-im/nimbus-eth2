@@ -233,14 +233,18 @@ proc makeFullAttestations*(
         state.fork, state.genesis_validators_root, data,
         hackPrivKey(state.validators[committee[0]]))
     )
+    var agg {.noInit.}: AggregateSignature
+    agg.init(attestation.signature)
+
     # Aggregate the remainder
     attestation.aggregation_bits.setBit 0
     for j in 1 ..< committee.len():
       attestation.aggregation_bits.setBit j
       if skipBLSValidation notin flags:
-        attestation.signature.aggregate(get_attestation_signature(
+        agg.aggregate(get_attestation_signature(
           state.fork, state.genesis_validators_root, data,
           hackPrivKey(state.validators[committee[j]])
         ))
 
+    attestation.signature = agg.finish()
     result.add attestation

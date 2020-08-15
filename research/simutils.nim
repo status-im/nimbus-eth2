@@ -99,19 +99,3 @@ proc printTimers*[Timers: enum](
   echo "Validators: ", state.validators.len, ", epoch length: ", SLOTS_PER_EPOCH
   echo "Validators per attestation (mean): ", attesters.mean
   printTimers(validate, timers)
-
-proc combine*(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
-  ## Combine the signature and participation bitfield, with the assumption that
-  ## the same data is being signed - if the signatures overlap, they are not
-  ## combined.
-
-  doAssert tgt.data == src.data
-
-  # In a BLS aggregate signature, one needs to count how many times a
-  # particular public key has been added - since we use a single bit per key, we
-  # can only it once, thus we can never combine signatures that overlap already!
-  if not tgt.aggregation_bits.overlaps(src.aggregation_bits):
-    tgt.aggregation_bits.combine(src.aggregation_bits)
-
-    if skipBlsValidation notin flags:
-      tgt.signature.aggregate(src.signature)
