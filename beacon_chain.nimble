@@ -84,7 +84,7 @@ task test, "Run all tests":
   buildAndRunBinary "all_fixtures_require_ssz", "tests/official/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]""""
 
   # State and block sims; getting to 4th epoch triggers consensus checks
-  buildAndRunBinary "state_sim", "research/", "-d:const_preset=mainnet", "--validators=3000 --slots=128 -d:chronicles_log_level=INFO"
-  buildAndRunBinary "state_sim", "research/", "-d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl", "--validators=3000 --slots=128 -d:chronicles_log_level=INFO"
+  buildAndRunBinary "state_sim", "research/", "-d:const_preset=mainnet -d:chronicles_log_level=INFO", "--validators=3000 --slots=128"
+  buildAndRunBinary "state_sim", "research/", "-d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl -d:chronicles_log_level=INFO", "--validators=3000 --slots=128"
   buildAndRunBinary "block_sim", "research/", "-d:const_preset=mainnet", "--validators=3000 --slots=128"
   buildAndRunBinary "block_sim", "research/", "-d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl", "--validators=3000 --slots=128"
