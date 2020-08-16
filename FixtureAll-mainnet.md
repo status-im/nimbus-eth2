@@ -138,6 +138,54 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + [Valid]   success_exit_queue                                                               OK
 ```
 OK: 9/9 Fail: 0/9 Skip: 0/9
+## Official - Rewards  [Preset: mainnet]
+```diff
++ Rewards - all_balances_too_low_for_reward [Preset: mainnet]                                OK
++ Rewards - duplicate_attestations_at_later_slots [Preset: mainnet]                          OK
++ Rewards - empty [Preset: mainnet]                                                          OK
++ Rewards - empty_leak [Preset: mainnet]                                                     OK
++ Rewards - full_all_correct [Preset: mainnet]                                               OK
++ Rewards - full_but_partial_participation [Preset: mainnet]                                 OK
++ Rewards - full_but_partial_participation_leak [Preset: mainnet]                            OK
++ Rewards - full_correct_target_incorrect_head [Preset: mainnet]                             OK
++ Rewards - full_correct_target_incorrect_head_leak [Preset: mainnet]                        OK
++ Rewards - full_delay_max_slots [Preset: mainnet]                                           OK
++ Rewards - full_delay_one_slot [Preset: mainnet]                                            OK
++ Rewards - full_half_correct_target_incorrect_head [Preset: mainnet]                        OK
++ Rewards - full_half_correct_target_incorrect_head_leak [Preset: mainnet]                   OK
++ Rewards - full_half_incorrect_target_correct_head [Preset: mainnet]                        OK
++ Rewards - full_half_incorrect_target_correct_head_leak [Preset: mainnet]                   OK
++ Rewards - full_half_incorrect_target_incorrect_head [Preset: mainnet]                      OK
++ Rewards - full_half_incorrect_target_incorrect_head_leak [Preset: mainnet]                 OK
++ Rewards - full_leak [Preset: mainnet]                                                      OK
++ Rewards - full_mixed_delay [Preset: mainnet]                                               OK
++ Rewards - full_random_0 [Preset: mainnet]                                                  OK
++ Rewards - full_random_1 [Preset: mainnet]                                                  OK
++ Rewards - full_random_2 [Preset: mainnet]                                                  OK
++ Rewards - full_random_five_epoch_leak [Preset: mainnet]                                    OK
++ Rewards - full_random_leak [Preset: mainnet]                                               OK
++ Rewards - full_random_low_balances [Preset: mainnet]                                       OK
++ Rewards - full_random_misc_balances [Preset: mainnet]                                      OK
++ Rewards - full_random_ten_epoch_leak [Preset: mainnet]                                     OK
++ Rewards - half_full [Preset: mainnet]                                                      OK
++ Rewards - half_full_leak [Preset: mainnet]                                                 OK
++ Rewards - one_attestation_one_correct [Preset: mainnet]                                    OK
++ Rewards - one_attestation_one_correct_leak [Preset: mainnet]                               OK
++ Rewards - proposer_not_in_attestations [Preset: mainnet]                                   OK
++ Rewards - quarter_full [Preset: mainnet]                                                   OK
++ Rewards - quarter_full_leak [Preset: mainnet]                                              OK
++ Rewards - some_very_low_effective_balances_that_attested [Preset: mainnet]                 OK
++ Rewards - some_very_low_effective_balances_that_attested_leak [Preset: mainnet]            OK
++ Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: mainnet]           OK
++ Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset: mainnet]      OK
++ Rewards - with_exited_validators [Preset: mainnet]                                         OK
++ Rewards - with_exited_validators_leak [Preset: mainnet]                                    OK
++ Rewards - with_not_yet_activated_validators [Preset: mainnet]                              OK
++ Rewards - with_not_yet_activated_validators_leak [Preset: mainnet]                         OK
++ Rewards - with_slashed_validators [Preset: mainnet]                                        OK
++ Rewards - with_slashed_validators_leak [Preset: mainnet]                                   OK
+```
+OK: 44/44 Fail: 0/44 Skip: 0/44
 ## Official - Sanity - Blocks  [Preset: mainnet]
 ```diff
 + [Invalid] double_same_proposer_slashings_same_block                                        OK
@@ -185,4 +233,4 @@ OK: 32/32 Fail: 0/32 Skip: 0/32
 OK: 5/5 Fail: 0/5 Skip: 0/5
 
 ---TOTAL---
-OK: 135/135 Fail: 0/135 Skip: 0/135
+OK: 179/179 Fail: 0/179 Skip: 0/179

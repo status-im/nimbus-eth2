@@ -32,6 +32,8 @@ func get_unslashed_attesting_indices*(
     state: BeaconState, attestations: openArray[PendingAttestation],
     cache: var StateCache): HashSet[ValidatorIndex] =
   result = get_attesting_indices(state, attestations, cache)
+  var slashedIndices = initHashSet[ValidatorIndex]()
   for index in result:
     if state.validators[index].slashed:
-      result.excl index
+      slashedIndices.incl index
+  result.excl slashedIndices
