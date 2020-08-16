@@ -32,7 +32,7 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="hgt:n:d:"
-LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop,log-level:,base-port:,base-metrics-port:,with-ganache,reuse-existing-data-dir"
+LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop,enable-logtrace,log-level:,base-port:,base-metrics-port:,with-ganache,reuse-existing-data-dir"
 
 # default values
 TESTNET="1"
@@ -44,6 +44,7 @@ LOG_LEVEL="DEBUG"
 BASE_PORT="9000"
 BASE_METRICS_PORT="8008"
 REUSE_EXISTING_DATA_DIR="0"
+ENABLE_LOGTRACE="0"
 
 print_help() {
   cat <<EOF
@@ -60,6 +61,7 @@ CI run: $(basename $0) --disable-htop -- --verify-finalization --stop-at-epoch=5
   --base-port                 bootstrap node's Eth2 traffic port (default: ${BASE_PORT})
   --base-metrics-port         bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
   --disable-htop              don't use "htop" to see the beacon_node processes
+  --enable-logtrace           display logtrace asr analysis
   --log-level                 set the log level (default: ${LOG_LEVEL})
   --reuse-existing-data-dir   instead of deleting and recreating the data dir, keep it and reuse everything we can from it
 EOF
@@ -115,6 +117,10 @@ while true; do
       REUSE_EXISTING_DATA_DIR="1"
       shift
       ;;
+    --enable-logtrace)
+      ENABLE_LOGTRACE="1"
+      shift
+      ;;
     --)
       shift
       break
@@ -161,6 +167,9 @@ fi
 
 NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh ${NETWORK})
 $MAKE -j2 LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:insecure -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" beacon_node deposit_contract
+if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
+  $MAKE LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:insecure -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" logtrace
+fi
 
 PIDS=""
 WEB3_ARG=""
@@ -262,6 +271,12 @@ dump_logs() {
   done
 }
 
+dump_logtrace() {
+  if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
+    find local_testnet_data -maxdepth 1 -type f -name 'log*.txt' | sed -e's/local_testnet_data\//--nodes=/' | sort | xargs ./build/logtrace asr --log-dir=local_testnet_data || true
+  fi
+}
+
 NODES_WITH_VALIDATORS=${NODES_WITH_VALIDATORS:-4}
 BOOTSTRAP_NODE=0
 SYSTEM_VALIDATORS=$(( TOTAL_VALIDATORS - USER_VALIDATORS ))
@@ -330,6 +345,7 @@ BG_JOBS="$(jobs | wc -l | tr -d ' ')"
 if [[ "$BG_JOBS" != "$NUM_NODES" ]]; then
   echo "$((NUM_NODES - BG_JOBS)) beacon_node instance(s) exited early. Aborting."
   dump_logs
+  dump_logtrace
   exit 1
 fi
 
@@ -344,6 +360,9 @@ else
   if [[ "$FAILED" != "0" ]]; then
     echo "${FAILED} child processes had non-zero exit codes (or exited early)."
     dump_logs
+    dump_logtrace
     exit 1
   fi
 fi
+
+dump_logtrace
