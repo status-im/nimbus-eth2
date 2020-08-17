@@ -259,14 +259,13 @@ func get_finality_delay(state: BeaconState): uint64 =
 func is_in_inactivity_leak(state: BeaconState): bool =
   get_finality_delay(state) > MIN_EPOCHS_TO_INACTIVITY_PENALTY
 
-func get_eligible_validator_indices(state: BeaconState): seq[ValidatorIndex] =
-  # TODO iterator/yield, also, probably iterates multiple times over epoch
-  # transitions
+iterator get_eligible_validator_indices(state: BeaconState): ValidatorIndex =
+  # TODO probably iterates multiple times over epoch transitions
   let previous_epoch = get_previous_epoch(state)
   for idx, v in state.validators:
     if is_active_validator(v, previous_epoch) or
         (v.slashed and previous_epoch + 1 < v.withdrawable_epoch):
-      result.add idx.ValidatorIndex
+      yield idx.ValidatorIndex
 
 func get_attestation_component_deltas(state: BeaconState,
                                       attestations: seq[PendingAttestation],
