@@ -301,7 +301,7 @@ func get_attestation_component_deltas(state: BeaconState,
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#components-of-attestation-deltas
 # These is slightly refactored to calculate total_balance once.
-func get_source_deltas(
+func get_source_deltas*(
     state: BeaconState, total_balance: Gwei, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
   # Return attester micro-rewards/penalties for source-vote for each validator.
@@ -310,7 +310,7 @@ func get_source_deltas(
   get_attestation_component_deltas(
     state, matching_source_attestations, total_balance, cache)
 
-func get_target_deltas(
+func get_target_deltas*(
     state: BeaconState, total_balance: Gwei, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
   # Return attester micro-rewards/penalties for target-vote for each validator.
@@ -319,7 +319,7 @@ func get_target_deltas(
   get_attestation_component_deltas(
     state, matching_target_attestations, total_balance, cache)
 
-func get_head_deltas(
+func get_head_deltas*(
     state: BeaconState, total_balance: Gwei, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
   # Return attester micro-rewards/penalties for head-vote for each validator.
@@ -328,7 +328,7 @@ func get_head_deltas(
   get_attestation_component_deltas(
     state, matching_head_attestations, total_balance, cache)
 
-func get_inclusion_delay_deltas(
+func get_inclusion_delay_deltas*(
     state: BeaconState, total_balance: Gwei, cache: var StateCache):
     seq[Gwei] =
   # Return proposer and inclusion delay micro-rewards/penalties for each validator.
@@ -372,7 +372,7 @@ func get_inclusion_delay_deltas(
   # Spec constructs both and returns both; this doesn't
   rewards
 
-func get_inactivity_penalty_deltas(
+func get_inactivity_penalty_deltas*(
     state: BeaconState, total_balance: Gwei, cache: var StateCache):
     seq[Gwei] =
   # Return inactivity reward/penalty deltas for each validator.

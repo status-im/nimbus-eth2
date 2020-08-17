@@ -15,6 +15,7 @@ import
   # Test utilities
   ../testutil,
   ./fixtures_utils,
+  ./test_fixture_rewards,
   ../helpers/debug_state
 
 from ../../beacon_chain/spec/beaconstate import process_registry_updates
@@ -60,7 +61,7 @@ runSuite(JustificationFinalizationDir, "Justification & Finalization",  process_
 # Rewards & Penalties
 # ---------------------------------------------------------------
 
-# No test upstream
+# in test_fixture_rewards
 
 # Registry updates
 # ---------------------------------------------------------------
