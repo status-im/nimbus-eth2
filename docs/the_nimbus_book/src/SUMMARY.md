@@ -4,7 +4,7 @@
 - [Installation](./install.md)
 - [Become a Medalla validator](./medalla.md)
 - [Run the beacon node](./beacon_node.md)
-- [Wallet and deposit tools](./create_wallet_and_deposit.md)
+- [Create a wallet and make a deposit](./create_wallet_and_deposit.md)
 - [Become a validator (custom)](./validator.md)
 - [API](./api.md)
 - [Advanced usage for developers](./advanced.md)

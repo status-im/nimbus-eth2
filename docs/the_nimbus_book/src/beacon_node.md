@@ -6,13 +6,30 @@ You can run the beacon node without being a validator - doing so allows you to s
 
 ## Prerequisites
 
-Before compiling and running the application, make sure you've gone through the [installation guidelines](./install.md).
+Before building and running the application, make sure you've gone through the [installation guidelines](./install.md).
+
+## Building the node
+
+To build the beacon run:
+
+#### 1. Clone the nim beacon chain repository
+
+```
+git clone https://github.com/status-im/nim-beacon-chain
+cd nim-beacon-chain
+```
+
+#### 2. Run the beacon node build process
+
+```
+make beacon_node
+```
 
 ## Running the node
 
 When running the beacon node, you connect to a specific ethereum 2 network - this may be a private network or a public testnet like [Medalla](https://github.com/goerli/medalla/).
 
-When running the node for the first time, you need to specify network parameters, boot nodes and genesis information. This information can typically be found in the [eth2 testnets](https://github.com/eth2-clients/eth2-testnets) repository. This information is automatically downloaded when using the simplified startup.
+> **Note:** when running the node for the first time, you may need to specify network parameters, boot nodes and genesis information. This information can typically be found in the [eth2 testnets](https://github.com/eth2-clients/eth2-testnets) repository.
 
 Once the beacon node is running, it will first connect to the boot nodes in the network, look for more peers and start syncing the chain. Once the sync is complete, it will keep following the head of the chain (you can interact with it through the [API](./api.md).
 
@@ -22,15 +39,6 @@ Before running the beacon node, it's important that your computer is set to the 
 
 To start syncing the `medalla` network:
 
-
-#### 1. Clone the nim beacon chain repository
-
-```
-git clone https://github.com/status-im/nim-beacon-chain
-cd nim-beacon-chain
-```
-
-#### 2. Run the build process
 
 ```
 make medalla
