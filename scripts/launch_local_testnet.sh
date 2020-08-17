@@ -48,9 +48,9 @@ ENABLE_LOGTRACE="0"
 
 print_help() {
   cat <<EOF
-Usage: $(basename $0) --testnet <testnet number> [OTHER OPTIONS] -- [BEACON NODE OPTIONS]
-E.g.: $(basename $0) --testnet ${TESTNET} --nodes ${NUM_NODES} --data-dir "${DATA_DIR}" # defaults
-CI run: $(basename $0) --disable-htop -- --verify-finalization --stop-at-epoch=5
+Usage: $(basename "$0") --testnet <testnet number> [OTHER OPTIONS] -- [BEACON NODE OPTIONS]
+E.g.: $(basename "$0") --testnet ${TESTNET} --nodes ${NUM_NODES} --data-dir "${DATA_DIR}" # defaults
+CI run: $(basename "$0") --disable-htop -- --verify-finalization --stop-at-epoch=5
 
   -h, --help                  this help message
   -t, --testnet               testnet number (default: ${TESTNET})
@@ -165,7 +165,7 @@ else
   MAKE="make"
 fi
 
-NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh ${NETWORK})
+NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh "${NETWORK}")
 $MAKE -j2 LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:insecure -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" beacon_node deposit_contract
 if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
   $MAKE LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:insecure -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" logtrace
@@ -216,7 +216,7 @@ else
   DEPOSIT_CONTRACT_ADDRESS=${OUTPUT_PIECES[0]}
   DEPOSIT_CONTRACT_BLOCK=${OUTPUT_PIECES[1]}
 
-  echo Contract deployed at $DEPOSIT_CONTRACT_ADDRESS:$DEPOSIT_CONTRACT_BLOCK
+  echo Contract deployed at "$DEPOSIT_CONTRACT_ADDRESS":"$DEPOSIT_CONTRACT_BLOCK"
 
   MIN_DELAY=1
   MAX_DELAY=5
@@ -273,7 +273,7 @@ dump_logs() {
 
 dump_logtrace() {
   if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
-    find local_testnet_data -maxdepth 1 -type f -name 'log*.txt' | sed -e's/local_testnet_data\//--nodes=/' | sort | xargs ./build/logtrace asr --log-dir=local_testnet_data || true
+    find "${DATA_DIR}" -maxdepth 1 -type f -name 'log*.txt' | sed -e"s/${DATA_DIR}\//--nodes=/" | sort | xargs ./build/logtrace asr --log-dir="${DATA_DIR}" || true
   fi
 }
 
@@ -309,7 +309,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   mkdir -p "${NODE_DATA_DIR}/secrets"
 
   if [[ $NUM_NODE -lt $NODES_WITH_VALIDATORS ]]; then
-    for VALIDATOR in $(ls ${VALIDATORS_DIR} | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
+    for VALIDATOR in $(ls "${VALIDATORS_DIR}" | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
       cp -a "${VALIDATORS_DIR}/$VALIDATOR" "${NODE_DATA_DIR}/validators/"
       cp -a "${SECRETS_DIR}/${VALIDATOR}" "${NODE_DATA_DIR}/secrets/"
     done
@@ -355,7 +355,7 @@ if [[ "$USE_HTOP" == "1" ]]; then
 else
   FAILED=0
   for PID in $(echo "$PIDS" | tr ',' ' '); do
-    wait $PID || FAILED="$(( FAILED += 1 ))"
+    wait "$PID" || FAILED="$(( FAILED += 1 ))"
   done
   if [[ "$FAILED" != "0" ]]; then
     echo "${FAILED} child processes had non-zero exit codes (or exited early)."

@@ -4,7 +4,7 @@ set -e
 cd $(dirname "$0")
 
 set -a
-source $1.env
+source "$1".env
 set +a
 
 NIM_FLAGS=""
@@ -19,5 +19,5 @@ add_var CONST_PRESET
 add_var SLOTS_PER_EPOCH
 add_var MAX_COMMITTEES_PER_SLOT
 
-echo $NIM_FLAGS
+echo "$NIM_FLAGS"
 
