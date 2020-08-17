@@ -17,34 +17,34 @@ import
   ../testutil,
   ./fixtures_utils
 
-const SanityBlocksDir = SszTestsDir/const_preset/"phase0"/"sanity"/"blocks"/"pyspec_tests"
+const
+  FinalityDir = SszTestsDir/const_preset/"phase0"/"finality"/"finality"/"pyspec_tests"
+  SanityBlocksDir = SszTestsDir/const_preset/"phase0"/"sanity"/"blocks"/"pyspec_tests"
 
-proc runTest(identifier: string) =
+proc runTest(testName, testDir, unitTestName: string) =
   # We wrap the tests in a proc to avoid running out of globals
   # in the future: Nim supports up to 3500 globals
   # but unittest with the macro/templates put everything as globals
   # https://github.com/nim-lang/Nim/issues/12084#issue-486866402
 
-  let testDir = SanityBlocksDir / identifier
+  let testPath = testDir / unitTestName
 
-  proc `testImpl _ blck _ identifier`() =
-    let prefix = if existsFile(testDir/"post.ssz"):
-      "[Valid]   "
-    else:
-      "[Invalid] "
+  proc `testImpl _ blck _ testName`() =
+    let
+      hasPostState = existsFile(testPath/"post.ssz")
+      prefix = if hasPostState: "[Valid]   " else: "[Invalid] "
 
-    timedTest prefix & identifier:
+    timedTest prefix & testName & " - " & unitTestName & preset():
       var
-        preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
-        hasPostState = existsFile(testDir/"post.ssz")
+        preState = newClone(parseTest(testPath/"pre.ssz", SSZ, BeaconState))
         hashedPreState = (ref HashedBeaconState)(
           data: preState[], root: hash_tree_root(preState[]))
 
       # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
       # so purely lexicographic sorting wouldn't sort properly.
-      let numBlocks = toSeq(walkPattern(testDir/"blocks_*.ssz")).len
+      let numBlocks = toSeq(walkPattern(testPath/"blocks_*.ssz")).len
       for i in 0 ..< numBlocks:
-        let blck = parseTest(testDir/"blocks_" & $i & ".ssz", SSZ, SignedBeaconBlock)
+        let blck = parseTest(testPath/"blocks_" & $i & ".ssz", SSZ, SignedBeaconBlock)
 
         if hasPostState:
           let success = state_transition(
@@ -57,13 +57,17 @@ proc runTest(identifier: string) =
             "We didn't expect these invalid blocks to be processed"
 
       if hasPostState:
-        let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
+        let postState = newClone(parseTest(testPath/"post.ssz", SSZ, BeaconState))
         when false:
           reportDiff(hashedPreState.data, postState)
         doAssert hashedPreState.root == postState[].hash_tree_root()
 
-  `testImpl _ blck _ identifier`()
+  `testImpl _ blck _ testName`()
 
 suiteReport "Official - Sanity - Blocks " & preset():
   for kind, path in walkDir(SanityBlocksDir, true):
-    runTest(path)
+    runTest("Official - Sanity - Blocks", SanityBlocksDir, path)
+
+suiteReport "Official - Finality " & preset():
+  for kind, path in walkDir(FinalityDir, true):
+    runTest("Official - Finality", FinalityDir, path)
