@@ -34,7 +34,7 @@ type
     ## Fork Choice Error Kinds
     fcFinalizedNodeUnknown
     fcJustifiedNodeUnknown
-    fcInvalidFinalizedRootCHange
+    fcInvalidFinalizedRootChange
     fcInvalidNodeIndex
     fcInvalidParentIndex
     fcInvalidBestChildIndex
@@ -47,9 +47,19 @@ type
     fcInvalidDeltaLen
     fcRevertedFinalizedEpoch
     fcInvalidBestNode
+    fcInconsistentTick
     # -------------------------
     # TODO: Extra error modes beyond Proto/Lighthouse to be reviewed
     fcUnknownParent
+
+  AttErrorKind* = enum
+    attFromFuture
+    attFromPast
+    attBadTargetEpoch
+    attUnkownTarget
+    attUnknownBlock
+    attWrongTarget
+    attFutureSlot
 
   FcUnderflowKind* = enum
     ## Fork Choice Overflow Kinds
@@ -58,15 +68,16 @@ type
      fcUnderflowBestDescendant = "Best Descendant Overflow"
 
   Index* = int
-  Delta* = int
-    ## Delta indices
+  Delta* = int64
+    ## Delta balances
 
   ForkChoiceError* = object
     case kind*: fcKind
     of fcFinalizedNodeUnknown,
        fcJustifiedNodeUnknown:
          block_root*: Eth2Digest
-    of fcInvalidFinalizedRootChange:
+    of fcInvalidFinalizedRootChange,
+       fcInconsistentTick:
       discard
     of fcInvalidNodeIndex,
        fcInvalidParentIndex,
@@ -118,14 +129,11 @@ type
     blck*: BlockRef
     epochRef*: EpochRef
 
-  FFGCheckpoints* = object
+  Checkpoints* = object
+    time*: Slot
     justified*: BalanceCheckpoint
     finalized*: Checkpoint
-
-  Checkpoints* = object
-    current*: FFGCheckpoints
-    best*: FFGCheckpoints
-    updateAt*: Option[Epoch]
+    best_justified*: Checkpoint
 
 # Fork choice high-level types
 # ----------------------------------------------------------------------
@@ -141,10 +149,17 @@ type
     votes*: seq[VoteTracker]
     balances*: seq[Gwei]
 
+  QueuedAttestation* = object
+    slot*: Slot
+    attesting_indices*: seq[ValidatorIndex]
+    block_root*: Eth2Digest
+    target_epoch*: Epoch
+
   ForkChoice* = object
     backend*: ForkChoiceBackend
     checkpoints*: Checkpoints
     finalizedBlock*: BlockRef ## Any finalized block used at startup
+    queuedAttestations*: seq[QueuedAttestation]
 
 func shortlog*(vote: VoteTracker): auto =
   (

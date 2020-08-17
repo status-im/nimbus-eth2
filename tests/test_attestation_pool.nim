@@ -237,7 +237,7 @@ suiteReport "Attestation pool processing" & preset():
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
       bc1 = get_beacon_committee(
-        state.data.data, state.data.data.slot, 1.CommitteeIndex, cache)
+        state.data.data, state.data.data.slot - 1, 1.CommitteeIndex, cache)
       attestation0 = makeAttestation(state.data.data, b10.root, bc1[0], cache)
 
     pool[].addAttestation(attestation0, attestation0.data.slot)
