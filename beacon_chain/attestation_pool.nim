@@ -68,12 +68,14 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
     forkChoice: forkChoice
   )
 
-func processAttestation(
-    pool: var AttestationPool, participants: HashSet[ValidatorIndex],
-    block_root: Eth2Digest, target_epoch: Epoch) =
+proc processAttestation(
+    pool: var AttestationPool, slot: Slot, participants: HashSet[ValidatorIndex],
+    block_root: Eth2Digest, target: Checkpoint, wallSlot: Slot) =
   # Add attestation votes to fork choice
-  for validator in participants:
-    pool.forkChoice.process_attestation(validator, block_root, target_epoch)
+  if (let v = pool.forkChoice.on_attestation(
+    pool.chainDag, slot, block_root, toSeq(participants), target, wallSlot);
+    v.isErr):
+      warn "Couldn't process attestation", err = v.error()
 
 func addUnresolved*(pool: var AttestationPool, attestation: Attestation) =
   pool.unresolved[attestation.data.beacon_block_root] =
@@ -160,7 +162,8 @@ proc addResolved(
 
         a.validations.add(validation)
         pool.processAttestation(
-          participants, a.blck.root, attestation.data.target.epoch)
+          attestation.data.slot, participants, attestation.data.beacon_block_root,
+          attestation.data.target, wallSlot)
 
         info "Attestation resolved",
           attestation = shortLog(attestation),
@@ -178,7 +181,8 @@ proc addResolved(
       validations: @[validation]
     ))
     pool.processAttestation(
-      participants, blck.root, attestation.data.target.epoch)
+      attestation.data.slot, participants, attestation.data.beacon_block_root,
+      attestation.data.target, wallSlot)
 
     info "Attestation resolved",
       attestation = shortLog(attestation),
@@ -346,7 +350,7 @@ proc resolve*(pool: var AttestationPool, wallSlot: Slot) =
     pool.addResolved(a.blck, a.attestation, wallSlot)
 
 proc selectHead*(pool: var AttestationPool, wallSlot: Slot): BlockRef =
-  let newHead = pool.forkChoice.find_head(wallSlot)
+  let newHead = pool.forkChoice.get_head(pool.chainDag, wallSlot)
 
   if newHead.isErr:
     error "Couldn't select head", err = newHead.error
