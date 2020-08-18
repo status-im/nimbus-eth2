@@ -55,6 +55,22 @@ suiteReport "BlockRef and helpers" & preset():
       s4.get_ancestor(Slot(3)) == s2
       s4.get_ancestor(Slot(4)) == s4
 
+  timedTest "epochAncestor sanity" & preset():
+    let
+      s0 = BlockRef(slot: Slot(0))
+    var cur = s0
+    for i in 1..SLOTS_PER_EPOCH * 2:
+      cur = BlockRef(slot: Slot(i), parent: cur)
+
+    let ancestor = cur.epochAncestor(cur.slot.epoch)
+
+    check:
+      ancestor.slot.epoch == cur.slot.epoch
+      ancestor.blck != cur # should have selected a parent
+
+      ancestor.blck.epochAncestor(cur.slot.epoch) == ancestor
+      ancestor.blck.epochAncestor(ancestor.blck.slot.epoch) != ancestor
+
 suiteReport "BlockSlot and helpers" & preset():
   timedTest "atSlot sanity" & preset():
     let
@@ -98,7 +114,6 @@ suiteReport "Block pool processing" & preset():
       b1Root = hash_tree_root(b1.message)
       b2 = addTestBlock(stateData.data, b1Root, cache)
       b2Root {.used.} = hash_tree_root(b2.message)
-
   timedTest "getRef returns nil for missing blocks":
     check:
       dag.getRef(default Eth2Digest) == nil
@@ -132,9 +147,10 @@ suiteReport "Block pool processing" & preset():
       b2Add[].root == b2Get.get().refs.root
       dag.heads.len == 1
       dag.heads[0] == b2Add[]
-      # both should have the same epoch ref instance because they're from the
-      # same epoch
-      addr(b2Add[].epochsInfo[0][]) == addr(b1Add[].epochsInfo[0][])
+      not b1Add[].findEpochRef(b1Add[].slot.epoch).isNil
+      b1Add[].findEpochRef(b1Add[].slot.epoch) ==
+        b2Add[].findEpochRef(b2Add[].slot.epoch)
+      b1Add[].findEpochRef(b1Add[].slot.epoch + 1).isNil
 
     # Skip one slot to get a gap
     check:
@@ -249,39 +265,40 @@ suiteReport "Block pool processing" & preset():
     var tmpState = assignClone(dag.headState)
 
     # move to specific block
-    dag.updateStateData(tmpState[], bs1)
+    var cache = StateCache()
+    dag.updateStateData(tmpState[], bs1, cache)
 
     check:
       tmpState.blck == b1Add[]
       tmpState.data.data.slot == bs1.slot
 
     # Skip slots
-    dag.updateStateData(tmpState[], bs1_3) # skip slots
+    dag.updateStateData(tmpState[], bs1_3, cache) # skip slots
 
     check:
       tmpState.blck == b1Add[]
       tmpState.data.data.slot == bs1_3.slot
 
     # Move back slots, but not blocks
-    dag.updateStateData(tmpState[], bs1_3.parent())
+    dag.updateStateData(tmpState[], bs1_3.parent(), cache)
     check:
       tmpState.blck == b1Add[]
       tmpState.data.data.slot == bs1_3.parent().slot
 
     # Move to different block and slot
-    dag.updateStateData(tmpState[], bs2_3)
+    dag.updateStateData(tmpState[], bs2_3, cache)
     check:
       tmpState.blck == b2Add[]
       tmpState.data.data.slot == bs2_3.slot
 
     # Move back slot and block
-    dag.updateStateData(tmpState[], bs1)
+    dag.updateStateData(tmpState[], bs1, cache)
     check:
       tmpState.blck == b1Add[]
       tmpState.data.data.slot == bs1.slot
 
     # Move back to genesis
-    dag.updateStateData(tmpState[], bs1.parent())
+    dag.updateStateData(tmpState[], bs1.parent(), cache)
     check:
       tmpState.blck == b1Add[].parent
       tmpState.data.data.slot == bs1.parent.slot
@@ -328,10 +345,12 @@ suiteReport "chain DAG finalization tests" & preset():
 
       # Epochrefs should share validator key set when the validator set is
       # stable
-      addr(dag.heads[0].epochsInfo[0].validator_key_store[1][]) ==
-        addr(dag.heads[0].atEpochEnd(
-          dag.heads[0].slot.compute_epoch_at_slot() - 1).
-            blck.epochsInfo[0].validator_key_store[1][])
+      not dag.heads[0].findEpochRef(dag.heads[0].slot.epoch).isNil
+      not dag.heads[0].findEpochRef(dag.heads[0].slot.epoch - 1).isNil
+      dag.heads[0].findEpochRef(dag.heads[0].slot.epoch) !=
+        dag.heads[0].findEpochRef(dag.heads[0].slot.epoch - 1)
+      dag.heads[0].findEpochRef(dag.heads[0].slot.epoch).validator_key_store[1] ==
+        dag.heads[0].findEpochRef(dag.heads[0].slot.epoch - 1).validator_key_store[1]
 
     block:
       # The late block is a block whose parent was finalized long ago and thus

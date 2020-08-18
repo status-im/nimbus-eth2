@@ -205,7 +205,6 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       doAssert v.addr == addr poolPtr.tmpState.data
       assign(poolPtr.tmpState, poolPtr.headState)
 
-    var cache = StateCache()
     let message = makeBeaconBlock(
       node.config.runtimePreset,
       hashedState,
@@ -237,9 +236,8 @@ proc proposeSignedBlock*(node: BeaconNode,
     let newBlockRef = node.chainDag.addRawBlock(node.quarantine,
                                                      newBlock) do (
         blckRef: BlockRef, signedBlock: SignedBeaconBlock,
-        state: HashedBeaconState):
+        epochRef: EpochRef, state: HashedBeaconState):
       # Callback add to fork choice if valid
-      let epochRef = getEpochInfo(blckRef, state.data)
       node.attestationPool.addForkChoice(
         epochRef, blckRef, signedBlock.message,
         node.beaconClock.now().slotOrZero())
@@ -402,7 +400,6 @@ proc broadcastAggregatedAttestations(
 
   let bs = BlockSlot(blck: aggregationHead, slot: aggregationSlot)
   node.chainDag.withState(node.chainDag.tmpState, bs):
-    var cache = getEpochCache(aggregationHead, state)
     let
       committees_per_slot =
         get_committee_count_per_slot(state, aggregationSlot.epoch, cache)

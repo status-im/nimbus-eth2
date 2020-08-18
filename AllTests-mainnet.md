@@ -54,10 +54,11 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 OK: 5/5 Fail: 0/5 Skip: 0/5
 ## BlockRef and helpers [Preset: mainnet]
 ```diff
++ epochAncestor sanity [Preset: mainnet]                                                     OK
 + get_ancestor sanity [Preset: mainnet]                                                      OK
 + isAncestorOf sanity [Preset: mainnet]                                                      OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## BlockSlot and helpers [Preset: mainnet]
 ```diff
 + atSlot sanity [Preset: mainnet]                                                            OK
@@ -247,4 +248,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 134/141 Fail: 0/141 Skip: 7/141
+OK: 135/142 Fail: 0/142 Skip: 7/142

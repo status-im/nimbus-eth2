@@ -33,21 +33,24 @@ proc putBlock*(
   dag.db.putBlock(signedBlock)
 
 proc updateStateData*(
-  dag: ChainDAGRef, state: var StateData, bs: BlockSlot) {.gcsafe.}
+  dag: ChainDAGRef, state: var StateData, bs: BlockSlot,
+  cache: var StateCache) {.gcsafe.}
 
 template withState*(
-    dag: ChainDAGRef, cache: var StateData, blockSlot: BlockSlot, body: untyped): untyped =
-  ## Helper template that updates state to a particular BlockSlot - usage of
-  ## cache is unsafe outside of block.
-  ## TODO async transformations will lead to a race where cache gets updated
+    dag: ChainDAGRef, stateData: var StateData, blockSlot: BlockSlot,
+    body: untyped): untyped =
+  ## Helper template that updates stateData to a particular BlockSlot - usage of
+  ## stateData is unsafe outside of block.
+  ## TODO async transformations will lead to a race where stateData gets updated
   ##      while waiting for future to complete - catch this here somehow?
 
-  updateStateData(dag, cache, blockSlot)
+  var cache {.inject.} = blockSlot.blck.getStateCache(blockSlot.slot.epoch())
+  updateStateData(dag, stateData, blockSlot, cache)
 
-  template hashedState(): HashedBeaconState {.inject, used.} = cache.data
-  template state(): BeaconState {.inject, used.} = cache.data.data
-  template blck(): BlockRef {.inject, used.} = cache.blck
-  template root(): Eth2Digest {.inject, used.} = cache.data.root
+  template hashedState(): HashedBeaconState {.inject, used.} = stateData.data
+  template state(): BeaconState {.inject, used.} = stateData.data.data
+  template blck(): BlockRef {.inject, used.} = stateData.blck
+  template root(): Eth2Digest {.inject, used.} = stateData.data.root
 
   body
 
@@ -74,7 +77,9 @@ func get_effective_balances*(state: BeaconState): seq[Gwei] =
     if validator.is_active_validator(epoch):
       result[i] = validator.effective_balance
 
-proc init*(T: type EpochRef, state: BeaconState, cache: var StateCache, prevEpoch: EpochRef): T =
+proc init*(
+    T: type EpochRef, state: BeaconState, cache: var StateCache,
+    prevEpoch: EpochRef): T =
   let
     epoch = state.get_current_epoch()
     epochRef = EpochRef(
@@ -90,13 +95,35 @@ proc init*(T: type EpochRef, state: BeaconState, cache: var StateCache, prevEpoc
       epochRef.beacon_proposers[i] =
         some((idx.get(), state.validators[idx.get].pubkey))
 
-  if prevEpoch != nil and
-      (prevEpoch.validator_key_store[0] == hash_tree_root(state.validators)):
-    # Validator sets typically don't change between epochs - a more efficient
-    # scheme could be devised where parts of the validator key set is reused
-    # between epochs because in a single history, the validator set only
-    # grows - this however is a trivially implementable compromise.
-    epochRef.validator_key_store = prevEpoch.validator_key_store
+  # Validator sets typically don't change between epochs - a more efficient
+  # scheme could be devised where parts of the validator key set is reused
+  # between epochs because in a single history, the validator set only
+  # grows - this however is a trivially implementable compromise.
+
+  # The validators root is cached in the state, so we can quickly compare
+  # it to see if it remains unchanged - effective balances in the validator
+  # information may however result in a different root, even if the public
+  # keys are the same
+
+  let validators_root = hash_tree_root(state.validators)
+
+  template sameKeys(a: openArray[ValidatorPubKey], b: openArray[Validator]): bool =
+    if a.len != b.len:
+      false
+    else:
+      block:
+        var ret = true
+        for i, key in a:
+          if key != b[i].pubkey:
+            ret = false
+            break
+        ret
+
+  if prevEpoch != nil and (
+    prevEpoch.validator_key_store[0] == hash_tree_root(state.validators) or
+      sameKeys(prevEpoch.validator_key_store[1][], state.validators.asSeq)):
+    epochRef.validator_key_store =
+      (validators_root, prevEpoch.validator_key_store[1])
   else:
     epochRef.validator_key_store = (
       hash_tree_root(state.validators),
@@ -175,70 +202,51 @@ func atEpochEnd*(blck: BlockRef, epoch: Epoch): BlockSlot =
   ## Return the BlockSlot corresponding to the last slot in the given epoch
   atSlot(blck, (epoch + 1).compute_start_slot_at_epoch - 1)
 
-proc getEpochInfo*(blck: BlockRef, state: BeaconState, cache: var StateCache): EpochRef =
-  # This is the only intended mechanism by which to get an EpochRef
-  let
-    state_epoch = state.get_current_epoch()
-    matching_epochinfo = blck.epochsInfo.filterIt(it.epoch == state_epoch)
+func epochAncestor*(blck: BlockRef, epoch: Epoch): BlockSlot =
+  ## The state transition works by storing information from blocks in a
+  ## "working" area until the epoch transition, then batching work collected
+  ## during the epoch. Thus, last block in the ancestor epochs is the block
+  ## that has an impact on epoch currently considered.
+  ##
+  ## This function returns a BlockSlot pointing to that epoch boundary, ie the
+  ## boundary where the last block has been applied to the state and epoch
+  ## processing has been done - we will store epoch caches in that particular
+  ## block so that any block in the dag that needs it can find it easily. In
+  ## particular, if empty slot processing is done, there may be multiple epoch
+  ## caches found there.
+  var blck = blck
+  while blck.slot.epoch >= epoch and not blck.parent.isNil:
+    blck = blck.parent
 
-  if matching_epochinfo.len == 0:
-    # When creating an epochref, we can somtimes reuse some of the information
-    # from an earlier epoch in the same history - if we're processing slots
-    # only, the epochref of an earlier slot of the same block will be the most
-    # similar
+  blck.atEpochStart(epoch)
 
-    var prevEpochRefs = blck.epochsInfo.filterIt(it.epoch < state_epoch)
-    var prevEpochRef: EpochRef = nil # nil ok
-    if prevEpochRefs.len > 0:
-      prevEpochRef = prevEpochRefs[^1]
-    elif state_epoch > 0:
-      let parent = blck.atEpochEnd((state_epoch - 1))
-      if parent.blck != nil and parent.blck.epochsInfo.len > 0:
-        prevEpochRef = parent.blck.epochsInfo[0]
+proc getStateCache*(blck: BlockRef, epoch: Epoch): StateCache =
+  # When creating a state cache, we want the current and the previous epoch
+  # information to be preloaded as both of these are used in state transition
+  # functions
 
-    let epochInfo = EpochRef.init(state, cache, prevEpochRef)
+  var res = StateCache()
+  template load(e: Epoch) =
+    let ancestor = blck.epochAncestor(epoch)
+    for epochRef in ancestor.blck.epochRefs:
+      if epochRef.epoch == e:
+        res.shuffled_active_validator_indices[epochRef.epoch] =
+          epochRef.shuffled_active_validator_indices
 
-    # Don't use BlockRef caching as far as the epoch where the active
-    # validator indices can diverge.
-    if (compute_activation_exit_epoch(blck.slot.compute_epoch_at_slot) >
-        state_epoch):
-      blck.epochsInfo.add(epochInfo)
-    trace "chain_dag.getEpochInfo: back-filling parent.epochInfo",
-      state_slot = state.slot
-    epochInfo
-  elif matching_epochinfo.len == 1:
-    matching_epochinfo[0]
-  else:
-    raiseAssert "multiple EpochRefs per epoch per BlockRef invalid"
+        if epochRef.epoch == epoch:
+          for i, idx in epochRef.beacon_proposers:
+            res.beacon_proposer_indices[
+              epoch.compute_start_slot_at_epoch + i] =
+                if idx.isSome: some(idx.get()[0]) else: none(ValidatorIndex)
 
-proc getEpochInfo*(blck: BlockRef, state: BeaconState): EpochRef =
-  # This is the only intended mechanism by which to get an EpochRef
-  var cache = StateCache()
-  getEpochInfo(blck, state, cache)
+        break
 
-proc getEpochCache*(blck: BlockRef, state: BeaconState): StateCache =
-  var tmp = StateCache() # TODO Resolve circular init issue
-  let epochInfo = getEpochInfo(blck, state, tmp)
-  if epochInfo.epoch > 0:
-    # When doing state transitioning, both the current and previous epochs are
-    # useful from a cache perspective since attestations may come from either -
-    # we'll use the last slot from the epoch because it is more likely to
-    # be filled in already, compared to the first slot where the block might
-    # be from the epoch before.
-    let
-      prevEpochBlck = blck.atEpochEnd(epochInfo.epoch - 1).blck
+  load(epoch)
 
-    for ei in prevEpochBlck.epochsInfo:
-      if ei.epoch == epochInfo.epoch - 1:
-        result.shuffled_active_validator_indices[ei.epoch] =
-          ei.shuffled_active_validator_indices
+  if epoch > 0:
+    load(epoch - 1)
 
-  result.shuffled_active_validator_indices[state.get_current_epoch()] =
-      epochInfo.shuffled_active_validator_indices
-  for i, idx in epochInfo.beacon_proposers:
-    result.beacon_proposer_indices[
-      epochInfo.epoch.compute_start_slot_at_epoch + i] =
-        if idx.isSome: some(idx.get()[0]) else: none(ValidatorIndex)
+  res
 
 func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
   BlockRef(
@@ -299,24 +307,31 @@ proc init*(T: type ChainDAGRef,
     headRef = tailRef
 
   var
-    bs = headRef.atSlot(headRef.slot)
+    cur = headRef.atSlot(headRef.slot)
     tmpState = (ref StateData)()
 
   # Now that we have a head block, we need to find the most recent state that
   # we have saved in the database
-  while bs.blck != nil:
-    let root = db.getStateRoot(bs.blck.root, bs.slot)
+  while cur.blck != nil:
+    let root = db.getStateRoot(cur.blck.root, cur.slot)
     if root.isSome():
       # TODO load StateData from BeaconChainDB
       # We save state root separately for empty slots which means we might
       # sometimes not find a state even though we saved its state root
       if db.getState(root.get(), tmpState.data.data, noRollback):
         tmpState.data.root = root.get()
-        tmpState.blck = bs.blck
+        tmpState.blck = cur.blck
 
         break
 
-    bs = bs.parent() # Iterate slot by slot in case there's a gap!
+    if cur.blck.parent != nil and
+        cur.blck.slot.epoch != epoch(cur.blck.parent.slot):
+      # We store the state of the parent block with the epoch processing applied
+      # in the database!
+      cur = cur.blck.parent.atEpochStart(cur.blck.slot.epoch)
+    else:
+      # Moves back slot by slot, in case a state for an empty slot was saved
+      cur = cur.parent
 
   if tmpState.blck == nil:
     warn "No state found in head history, database corrupt?"
@@ -324,19 +339,10 @@ proc init*(T: type ChainDAGRef,
     #      would be a good recovery model?
     raiseAssert "No state found in head history, database corrupt?"
 
-  # We presently save states on the epoch boundary - it means that the latest
-  # state we loaded might be older than head block - nonetheless, it will be
-  # from the same epoch as the head, thus the finalized and justified slots are
-  # the same - these only change on epoch boundaries.
-  let
-    finalizedHead = headRef.atEpochStart(
-      tmpState.data.data.finalized_checkpoint.epoch)
-
   let res = ChainDAGRef(
     blocks: blocks,
     tail: tailRef,
     head: headRef,
-    finalizedHead: finalizedHead,
     db: db,
     heads: @[headRef],
     headState: tmpState[],
@@ -351,36 +357,50 @@ proc init*(T: type ChainDAGRef,
 
   doAssert res.updateFlags in [{}, {verifyFinalization}]
 
-  res.updateStateData(res.headState, headRef.atSlot(headRef.slot))
+  var cache: StateCache
+  res.updateStateData(res.headState, headRef.atSlot(headRef.slot), cache)
+    # We presently save states on the epoch boundary - it means that the latest
+  # state we loaded might be older than head block - nonetheless, it will be
+  # from the same epoch as the head, thus the finalized and justified slots are
+  # the same - these only change on epoch boundaries.
+  res.finalizedHead = headRef.atEpochStart(
+      res.headState.data.data.finalized_checkpoint.epoch)
+
   res.clearanceState = res.headState
 
   info "Block dag initialized",
     head = shortLog(headRef),
-    finalizedHead = shortLog(finalizedHead),
+    finalizedHead = shortLog(res.finalizedHead),
     tail = shortLog(tailRef),
     totalBlocks = blocks.len
 
   res
 
-proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
-  var bs = blck.atEpochEnd(epoch)
+proc findEpochRef*(blck: BlockRef, epoch: Epoch): EpochRef = # may return nil!
+  let ancestor = blck.epochAncestor(epoch)
+  for epochRef in ancestor.blck.epochRefs:
+    if epochRef.epoch == epoch:
+      return epochRef
 
-  while true:
-    # Any block from within the same epoch will carry the same epochinfo, so
-    # we start at the most recent one
-    for e in bs.blck.epochsInfo:
-      if e.epoch == epoch:
-        beacon_state_data_cache_hits.inc
-        return e
-    if bs.slot == epoch.compute_start_slot_at_epoch:
-      break
-    bs = bs.parent
+proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
+  let epochRef = blck.findEpochRef(epoch)
+  if epochRef != nil:
+      beacon_state_data_cache_hits.inc
+      return epochRef
 
   beacon_state_data_cache_misses.inc
 
-  dag.withState(dag.tmpState, bs):
-    var cache = StateCache()
-    getEpochInfo(blck, state, cache)
+  let
+    ancestor = blck.epochAncestor(epoch)
+
+  dag.withState(dag.tmpState, ancestor):
+    let
+      prevEpochRef = blck.findEpochRef(epoch - 1)
+      newEpochRef = EpochRef.init(state, cache, prevEpochRef)
+
+    # TODO consider constraining the number of epochrefs per state
+    ancestor.blck.epochRefs.add newEpochRef
+    newEpochRef
 
 proc getState(
     dag: ChainDAGRef, state: var StateData, stateRoot: Eth2Digest,
@@ -412,6 +432,10 @@ proc getState(dag: ChainDAGRef, state: var StateData, bs: BlockSlot): bool =
   if not bs.slot.isEpoch:
     return false # We only ever save epoch states - no need to hit database
 
+  # TODO earlier versions would store the epoch state with a the epoch block
+  #      applied - we generally shouldn't hit the database for such states but
+  #      will do so in a transitionary upgrade period!
+
   if (let stateRoot = dag.db.getStateRoot(bs.blck.root, bs.slot);
       stateRoot.isSome()):
     return dag.getState(state, stateRoot.get(), bs.blck)
@@ -425,10 +449,15 @@ proc putState*(dag: ChainDAGRef, state: StateData) =
   #      we could easily see a state explosion
   logScope: pcs = "save_state_at_epoch_start"
 
+  # As a policy, we only store epoch boundary states without the epoch block
+  # (if it exists) applied - the rest can be reconstructed by loading an epoch
+  # boundary state and applying the missing blocks
   if not state.data.data.slot.isEpoch:
-    # As a policy, we only store epoch boundary states - the rest can be
-    # reconstructed by loading an epoch boundary state and applying the
-    # missing blocks
+    trace "Not storing non-epoch state"
+    return
+
+  if state.data.data.slot <= state.blck.slot:
+    trace "Not storing epoch state with block already applied"
     return
 
   if dag.db.containsState(state.data.root):
@@ -522,9 +551,9 @@ proc advanceSlots(
   # processing
   doAssert state.data.data.slot <= slot
 
+  var cache = getStateCache(state.blck, state.data.data.slot.epoch)
   while state.data.data.slot < slot:
     # Process slots one at a time in case afterUpdate needs to see empty states
-    var cache = getEpochCache(state.blck, state.data.data)
     advance_slot(state.data, dag.updateFlags, cache)
 
     if save:
@@ -540,18 +569,17 @@ proc applyBlock(
 
   # `state_transition` can handle empty slots, but we want to potentially save
   # some of the empty slot states
-  dag.advanceSlots(state, blck.data.message.slot - 1, save)
+  dag.advanceSlots(state, blck.data.message.slot, save)
 
   var statePtr = unsafeAddr state # safe because `restore` is locally scoped
   func restore(v: var HashedBeaconState) =
     doAssert (addr(statePtr.data) == addr v)
     statePtr[] = dag.headState
 
-  var cache = getEpochCache(blck.refs, state.data.data)
-
+  var cache = getStateCache(state.blck, state.data.data.slot.epoch)
   let ok = state_transition(
     dag.runtimePreset, state.data, blck.data,
-    cache, flags + dag.updateFlags, restore)
+    cache, flags + dag.updateFlags + {slotProcessed}, restore)
   if ok:
     state.blck = blck.refs
     dag.putState(state)
@@ -559,7 +587,8 @@ proc applyBlock(
   ok
 
 proc updateStateData*(
-    dag: ChainDAGRef, state: var StateData, bs: BlockSlot) =
+    dag: ChainDAGRef, state: var StateData, bs: BlockSlot,
+    cache: var StateCache) =
   ## Rewind or advance state such that it matches the given block and slot -
   ## this may include replaying from an earlier snapshot if blck is on a
   ## different branch or has advanced to a higher slot number than slot
@@ -590,14 +619,24 @@ proc updateStateData*(
   while not dag.getState(state, cur):
     # There's no state saved for this particular BlockSlot combination, keep
     # looking...
-    if cur.slot == cur.blck.slot:
-      # This is not an empty slot, so the block will need to be applied to
-      # eventually reach bs
+    if cur.blck.parent != nil and
+        cur.blck.slot.epoch != epoch(cur.blck.parent.slot):
+      # We store the state of the parent block with the epoch processing applied
+      # in the database - we'll need to apply the block however!
       ancestors.add(cur.blck)
+      cur = cur.blck.parent.atEpochStart(cur.blck.slot.epoch)
+    else:
+      if cur.slot == cur.blck.slot:
+        # This is not an empty slot, so the block will need to be applied to
+        # eventually reach bs
+        ancestors.add(cur.blck)
 
-    # Moves back slot by slot, in case a state for an empty slot was saved
-    cur = cur.parent
+      # Moves back slot by slot, in case a state for an empty slot was saved
+      cur = cur.parent
 
+  let
+    startSlot = state.data.data.slot
+    startRoot = state.data.root
   # Time to replay all the blocks between then and now
   for i in countdown(ancestors.len - 1, 0):
     # Because the ancestors are in the database, there's no need to persist them
@@ -615,7 +654,11 @@ proc updateStateData*(
   beacon_state_rewinds.inc()
 
   debug "State reloaded from database",
-    blocks = ancestors.len, stateRoot = shortLog(state.data.root),
+    blocks = ancestors.len,
+    slots = state.data.data.slot - startSlot,
+    stateRoot = shortLog(state.data.root),
+    stateSlot = state.data.data.slot,
+    stateRoot = shortLog(startRoot),
     blck = shortLog(bs)
 
 proc loadTailState*(dag: ChainDAGRef): StateData =
@@ -662,8 +705,9 @@ proc updateHead*(dag: ChainDAGRef, newHead: BlockRef) =
       dag.clearanceState.data.data.slot == newHead.slot:
     assign(dag.headState, dag.clearanceState)
   else:
+    var cache = getStateCache(newHead, newHead.slot.epoch())
     updateStateData(
-      dag, dag.headState, newHead.atSlot(newHead.slot))
+      dag, dag.headState, newHead.atSlot(newHead.slot), cache)
 
   dag.head = newHead
 
@@ -744,7 +788,7 @@ proc updateHead*(dag: ChainDAGRef, newHead: BlockRef) =
       while tmp != dag.finalizedHead.blck:
         # leave the epoch cache in the last block of the epoch..
         tmp = tmp.parent
-        tmp.epochsInfo = @[]
+        tmp.epochRefs = @[]
 
     dag.finalizedHead = finalizedHead
 

@@ -157,12 +157,15 @@ type
 
     slot*: Slot # TODO could calculate this by walking to root, but..
 
-    epochsInfo*: seq[EpochRef] ##\
+    epochRefs*: seq[EpochRef] ##\
     ## Cached information about the epochs starting at this block.
     ## Could be multiple, since blocks could skip slots, but usually, not many
     ## Even if competing forks happen later during this epoch, potential empty
-    ## slots beforehand must all be from this fork. getEpochInfo() is the only
-    ## supported way of accesssing these.
+    ## slots beforehand must all be from this fork. find/getEpochRef() are the
+    ## only supported way of accesssing these.
+    ## In particular, epoch refs are only stored with the last block of the
+    ## parent epoch - this way, it's easy to find them from any block in the
+    ## epoch - including when there are forks that skip the epoch slot.
 
   BlockData* = object
     ## Body and graph in one
@@ -190,7 +193,7 @@ type
 
   OnBlockAdded* = proc(
     blckRef: BlockRef, blck: SignedBeaconBlock,
-    state: HashedBeaconState) {.raises: [Defect], gcsafe.}
+    epochRef: EpochRef, state: HashedBeaconState) {.raises: [Defect], gcsafe.}
 
 template validator_keys*(e: EpochRef): untyped = e.validator_key_store[1][]
 

@@ -163,13 +163,14 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot,
   #      slots "automatically" in `state_transition`, perhaps it would be better
   #      to keep a pre-condition that state must be at the right slot already?
   if not (state.data.slot < slot):
-    notice(
-      "Unusual request for a slot in the past",
-      state_root = shortLog(state.root),
-      current_slot = state.data.slot,
-      target_slot = slot
-    )
-    return false
+    if slotProcessed notin updateFlags or state.data.slot != slot:
+      notice(
+        "Unusual request for a slot in the past",
+        state_root = shortLog(state.root),
+        current_slot = state.data.slot,
+        target_slot = slot
+      )
+      return false
 
   # Catch up to the target slot
   var cache = StateCache()

@@ -229,8 +229,6 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       stateId: string, epoch: uint64, index: uint64, slot: uint64) ->
       seq[BeaconStatesCommitteesTuple]:
     withStateForStateId(stateId):
-      var cache = StateCache() # TODO is this OK?
-
       proc getCommittee(slot: Slot, index: CommitteeIndex): BeaconStatesCommitteesTuple =
         let vals = get_beacon_committee(state, slot, index, cache).mapIt(it.uint64)
         return (index: index.uint64, slot: slot.uint64, validators: vals)
