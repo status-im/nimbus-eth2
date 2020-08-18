@@ -99,45 +99,5 @@ parallel(
 			}
 		}
 	},
-	"benchmarks": {
-		node("metal") {
-			withEnv(["NPROC=${sh(returnStdout: true, script: 'nproc').trim()}"]) {
-				try {
-					stage("Clone") {
-						/* source code checkout */
-						checkout scm
-						/* we need to update the submodules before caching kicks in */
-						sh "git submodule update --init --recursive"
-					}
-
-					cache(maxCacheSize: 250, caches: [
-						[$class: "ArbitraryFileCache", excludes: "", includes: "**/*", path: "${WORKSPACE}/vendor/nimbus-build-system/vendor/Nim/bin"],
-					]) {
-						stage("Build") {
-							sh """#!/bin/bash
-							set -e
-							make -j${env.NPROC} update # to allow a newer Nim version to be detected
-							"""
-						}
-					}
-
-					stage("Benchmark") {
-						sh """#!/bin/bash
-						set -e
-						git clone https://github.com/status-im/nimbus-benchmarking.git
-						./nimbus-benchmarking/run_nbc_benchmarks.sh
-						"""
-						benchmark(altInputSchema: "", altInputSchemaLocation: "", inputLocation: "results/*/result.json", schemaSelection: "defaultSchema", truncateStrings: true)
-					}
-				} catch(e) {
-					// we need to rethrow the exception here
-					throw e
-				} finally {
-					// clean the workspace
-					cleanWs(disableDeferredWipeout: true, deleteDirs: true)
-				}
-			}
-		}
-	}
 )
 
