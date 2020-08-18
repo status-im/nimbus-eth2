@@ -53,11 +53,11 @@ type
     switch*: Switch
     pubsub*: PubSub
     discovery*: Eth2DiscoveryProtocol
+    discoveryEnabled*: bool
     wantedPeers*: int
     peerPool*: PeerPool[Peer, PeerID]
     protocolStates*: seq[RootRef]
     libp2pTransportLoops*: seq[Future[void]]
-    discoveryLoop: Future[void]
     metadata*: Eth2Metadata
     connectTimeout*: chronos.Duration
     seenThreshold*: chronos.Duration
@@ -894,7 +894,7 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
 
 proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
            switch: Switch, pubsub: PubSub, ip: Option[ValidIpAddress],
-           tcpPort, udpPort: Port, privKey: keys.PrivateKey,
+           tcpPort, udpPort: Port, privKey: keys.PrivateKey, discovery: bool,
            rng: ref BrHmacDrbgContext): T =
   new result
   result.switch = switch
@@ -916,6 +916,7 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
     conf, ip, tcpPort, udpPort, privKey,
     {"eth2": SSZ.encode(result.forkId), "attnets": SSZ.encode(result.metadata.attnets)},
     rng)
+  result.discoveryEnabled = discovery
 
   newSeq result.protocolStates, allProtocols.len
   for proto in allProtocols:
@@ -937,7 +938,8 @@ template publicKey*(node: Eth2Node): keys.PublicKey =
   node.discovery.privKey.toPublicKey
 
 proc startListening*(node: Eth2Node) {.async.} =
-  node.discovery.open()
+  if node.discoveryEnabled:
+    node.discovery.open()
   node.libp2pTransportLoops = await node.switch.start()
   await node.pubsub.start()
 
@@ -945,9 +947,18 @@ proc start*(node: Eth2Node) {.async.} =
   for i in 0 ..< ConcurrentConnections:
     node.connWorkers.add connectWorker(node)
 
-  node.discovery.start()
-  node.discoveryLoop = node.runDiscoveryLoop()
-  traceAsyncErrors node.discoveryLoop
+  if node.discoveryEnabled:
+    node.discovery.start()
+    traceAsyncErrors node.runDiscoveryLoop()
+  else:
+    debug "Discovery disabled, trying bootstrap nodes",
+      nodes = node.discovery.bootstrapRecords.len
+    for enr in node.discovery.bootstrapRecords:
+      let tr = enr.toTypedRecord()
+      if tr.isOk():
+        let pa = tr.get().toPeerAddr()
+        if pa.isOk():
+          await node.connQueue.addLast(pa.get())
 
 proc stop*(node: Eth2Node) {.async.} =
   # Ignore errors in futures, since we're shutting down (but log them on the
@@ -1213,7 +1224,8 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext, conf: BeaconNodeConf, enrForkId
 
   result = Eth2Node.init(conf, enrForkId, switch, pubsub,
                          extIp, extTcpPort, extUdpPort,
-                         keys.seckey.asEthKey, rng = rng)
+                         keys.seckey.asEthKey, discovery = conf.discv5Enabled,
+                         rng = rng)
 
 proc getPersistenBootstrapAddr*(rng: var BrHmacDrbgContext, conf: BeaconNodeConf,
                                 ip: ValidIpAddress, port: Port): EnrResult[enr.Record] =
