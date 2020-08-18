@@ -50,11 +50,14 @@ proc uncompressFramedStream*(conn: Connection,
       # data is longer than that, snappyUncompress will fail and we will not
       # decompress the chunk at all, instead reporting failure.
       let
-        uncompressedLen = snappyUncompress(
+        # The `int` conversion below is safe, because `uncompressedLen` is
+        # bounded to `chunkLen` (which in turn is bounded by `MAX_CHUNK_SIZE`).
+        # TODO: Use a range type for the parameter.
+        uncompressedLen = int snappyUncompress(
           frameData.toOpenArray(4, dataLen - 1),
           uncompressedData.toOpenArray(0, chunkLen - 1))
 
-      if uncompressedLen <= 0:
+      if uncompressedLen == 0:
         return err "Failed to decompress snappy frame"
       doAssert output.len + uncompressedLen <= expectedSize,
         "enforced by `remains` limit above"
@@ -109,6 +112,7 @@ proc readChunkPayload(conn: Connection, peer: Peer,
   if size == 0:
     return neterr ZeroSizePrefix
 
+  # The `size.int` conversion is safe because `size` is bounded to `MAX_CHUNK_SIZE`
   let data = await conn.uncompressFramedStream(size.int)
   if data.isOk:
     # `10` is the maximum size of variable integer on wire, so error could

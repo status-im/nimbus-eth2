@@ -1254,7 +1254,12 @@ proc subscribe*[MsgType](node: Eth2Node,
     trace "Incoming pubsub message received",
       len = data.len, topic, msgId = gossipId(data)
     try:
-      msgHandler SSZ.decode(snappy.decode(data), MsgType)
+      let decompressed = snappy.decode(data, GOSSIP_MAX_SIZE)
+      if decompressed.len > 0:
+        msgHandler SSZ.decode(decompressed, MsgType)
+      else:
+        # TODO penalize peer?
+        debug "Failed to decompress gossip payload"
     except CatchableError as err:
       debug "Gossip msg handler error",
         msg = err.msg, len = data.len, topic, msgId = gossipId(data)
@@ -1270,7 +1275,12 @@ proc addValidator*[MsgType](node: Eth2Node,
     trace "Validating incoming gossip message",
       len = message.data.len, topic, msgId = gossipId(message.data)
     try:
-      return msgValidator SSZ.decode(snappy.decode(message.data), MsgType)
+      let decompressed = snappy.decode(message.data, GOSSIP_MAX_SIZE)
+      if decompressed.len > 0:
+        return msgValidator SSZ.decode(decompressed, MsgType)
+      else:
+        # TODO penalize peer?
+        debug "Failed to decompress gossip payload"
     except CatchableError as err:
       debug "Gossip validation error",
         msg = err.msg, msgId = gossipId(message.data)

@@ -35,6 +35,9 @@ type
     ##       past the weak subjectivity period.
     kBlockSlotStateRoot ## BlockSlot -> state_root mapping
 
+const
+  maxDecompressedDbRecordSize = 16*1024*1024
+
 # Subkeys essentially create "tables" within the key-value store by prefixing
 # each entry with a table id
 
@@ -99,7 +102,7 @@ type GetResult = enum
   notFound
   corrupted
 
-proc get(db: BeaconChainDB, key: openArray[byte], output: var auto): GetResult =
+proc get[T](db: BeaconChainDB, key: openArray[byte], output: var T): GetResult =
   var status = GetResult.notFound
 
   # TODO address is needed because there's no way to express lifetimes in nim
@@ -107,13 +110,18 @@ proc get(db: BeaconChainDB, key: openArray[byte], output: var auto): GetResult =
   var outputPtr = unsafeAddr output # callback is local, ptr wont escape
   proc decode(data: openArray[byte]) =
     try:
-      outputPtr[] = SSZ.decode(snappy.decode(data), type output)
-      status = GetResult.found
+      let decompressed = snappy.decode(data, maxDecompressedDbRecordSize)
+      if decompressed.len > 0:
+        outputPtr[] = SSZ.decode(decompressed, T)
+        status = GetResult.found
+      else:
+        warn "Corrupt snappy record found in database", typ = name(T)
+        status = GetResult.corrupted
     except SerializationError as e:
       # If the data can't be deserialized, it could be because it's from a
       # version of the software that uses a different SSZ encoding
       warn "Unable to deserialize data, old database?",
-        err = e.msg, typ = name(type output), dataLen = data.len
+        err = e.msg, typ = name(T), dataLen = data.len
       status = GetResult.corrupted
 
   discard db.backend.get(key, decode).expect("working database")
