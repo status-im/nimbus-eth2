@@ -12,11 +12,11 @@ proc setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
   let GenesisRoot = fakeHash(0)
 
   # Initialize the fork choice context
-  result.fork_choice = initForkChoiceBackend(
+  result.fork_choice = ForkChoiceBackend.init(
     justified_epoch = Epoch(1),
     finalized_epoch = Epoch(1),
     finalized_root = GenesisRoot
-  ).get()
+  )
 
   # ----------------------------------
 

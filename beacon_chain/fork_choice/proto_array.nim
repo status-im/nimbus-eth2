@@ -23,6 +23,8 @@ logScope:
 
 export results
 
+const DefaultPruneThreshold* = 256
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
 # which is a port of "Proto-Array": https://github.com/protolambda/lmd-ghost
@@ -46,24 +48,14 @@ func tiebreak(a, b: Eth2Digest): bool =
     # else we have equality so far
   return true
 
-template getOrFailcase*[K, V](table: Table[K, V], key: K, failcase: untyped): V =
-  ## Get a value from a Nim Table, turning KeyError into
-  ## the "failcase"
-  block:
-    # TODO: try/except expression with Nim v1.2.0:
-    #       https://github.com/status-im/nim-beacon-chain/pull/865#discussion_r404856551
-    var value: V
-    try:
-      value = table[key]
-    except KeyError:
-      failcase
-    value
-
 template unsafeGet*[K, V](table: Table[K, V], key: K): V =
   ## Get a value from a Nim Table, turning KeyError into
   ## an AssertionError defect
-  getOrFailcase(table, key):
-    doAssert false, "The " & astToStr(table) & " table shouldn't miss a key"
+  # Pointer is used to work around the lack of a `var` withValue
+  try:
+    table[key]
+  except KeyError as exc:
+    raiseAssert(exc.msg)
 
 # Forward declarations
 # ----------------------------------------------------------------------
@@ -75,6 +67,29 @@ func node_leads_to_viable_head(self: ProtoArray, node: ProtoNode): FcResult[bool
 
 # ProtoArray routines
 # ----------------------------------------------------------------------
+
+func init*(T: type ProtoArray,
+           justified_epoch: Epoch,
+           finalized_root: Eth2Digest,
+           finalized_epoch: Epoch,
+           prune_threshold = DefaultPruneThreshold): T =
+  let node = ProtoNode(
+    root: finalized_root,
+    parent: none(int),
+    justified_epoch: justified_epoch,
+    finalized_epoch: finalized_epoch,
+    weight: 0,
+    best_child: none(int),
+    best_descendant: none(int)
+  )
+
+  T(
+    prune_threshold: DefaultPruneThreshold,
+    justified_epoch: justified_epoch,
+    finalized_epoch: finalized_epoch,
+    nodes: @[node],
+    indices: {node.root: 0}.toTable()
+  )
 
 func apply_score_changes*(
        self: var ProtoArray,
@@ -158,7 +173,6 @@ func apply_score_changes*(
 func on_block*(
        self: var ProtoArray,
        root: Eth2Digest,
-       hasParentInForkChoice: bool,
        parent: Eth2Digest,
        justified_epoch: Epoch,
        finalized_epoch: Epoch
@@ -175,24 +189,21 @@ func on_block*(
   if root in self.indices:
     return ok()
 
-  var parent_index: Option[int]
-  if not hasParentInForkChoice:
-      # Genesis (but Genesis might not be default(Eth2Digest))
-    parent_index = none(int)
-  elif parent notin self.indices:
+  var parent_index: Index
+  self.indices.withValue(parent, index) do:
+    parent_index = index[]
+  do:
     return err ForkChoiceError(
       kind: fcUnknownParent,
       child_root: root,
       parent_root: parent
     )
-  else:
-    parent_index = some(self.indices.unsafeGet(parent))
 
   let node_index = self.nodes.len
 
   let node = ProtoNode(
     root: root,
-    parent: parent_index,
+    parent: some(parent_index),
     justified_epoch: justified_epoch,
     finalized_epoch: finalized_epoch,
     weight: 0,
@@ -201,10 +212,9 @@ func on_block*(
   )
 
   self.indices[node.root] = node_index
-  self.nodes.add node # TODO: if this is costly, we can setLen + construct the node in-place
+  self.nodes.add node
 
-  if parent_index.isSome(): # parent_index is always valid except for Genesis
-    ? self.maybe_update_best_child_and_descendant(parent_index.unsafeGet(), node_index)
+  ? self.maybe_update_best_child_and_descendant(parent_index, node_index)
 
   return ok()
 
@@ -220,7 +230,10 @@ func find_head*(
   ## is not followed by `apply_score_changes` as `on_new_block` does not
   ## update the whole tree.
 
-  let justified_index = self.indices.getOrFailcase(justified_root):
+  var justified_index: Index
+  self.indices.withValue(justified_root, value) do:
+    justified_index = value[]
+  do:
     return err ForkChoiceError(
       kind: fcJustifiedNodeUnknown,
       block_root: justified_root
@@ -235,11 +248,7 @@ func find_head*(
   template justified_node: untyped = self.nodes[justified_index]
     # Alias, IndexError are defects
 
-  let best_descendant_index = block:
-    if justified_node.best_descendant.isSome():
-      justified_node.best_descendant.unsafeGet()
-    else:
-      justified_index
+  let best_descendant_index = justified_node.best_descendant.get(justified_index)
 
   if best_descendant_index notin {0..self.nodes.len-1}:
     return err ForkChoiceError(
@@ -281,7 +290,11 @@ func maybe_prune*(
   ## - The finalized epoch is less than the current one
   ## - The finalized epoch matches the current one but the finalized root is different
   ## - Internal error due to invalid indices in `self`
-  let finalized_index = self.indices.getOrFailcase(finalized_root):
+
+  var finalized_index: int
+  self.indices.withValue(finalized_root, value) do:
+    finalized_index = value[]
+  do:
     return err ForkChoiceError(
       kind: fcFinalizedNodeUnknown,
       block_root: finalized_root
@@ -382,8 +395,8 @@ func maybe_update_best_child_and_descendant(
     )
 
   # Aliases
-  template child: untyped {.dirty.} = self.nodes[child_index]
-  template parent: untyped {.dirty.} = self.nodes[parent_index]
+  template child: untyped = self.nodes[child_index]
+  template parent: untyped = self.nodes[parent_index]
 
   let child_leads_to_viable_head = ? self.node_leads_to_viable_head(child)
 
