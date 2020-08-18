@@ -127,6 +127,7 @@ parallel(
 						git clone https://github.com/status-im/nimbus-benchmarking.git
 						./nimbus-benchmarking/run_nbc_benchmarks.sh
 						"""
+						benchmark(inputLocation: "results/*/result.json", schemaSelection: "defaultSchema")
 					}
 				} catch(e) {
 					// we need to rethrow the exception here
