@@ -6,7 +6,7 @@ If you generated your signing key using the [eth2 launchpad](https://medalla.lau
 
 > If you haven't created your validator key yet, we recommend you do so using the [launchpad](https://medalla.launchpad.ethereum.org/). If you're not sure what the eth2 launchpad is, we recommend reading this [introductory post](https://blog.ethereum.org/2020/07/27/eth2-validator-launchpad/) first.
 
-For advanced users, [this page](./create_wallet_and_deposit.md)  explains how to use Nimbus to create a walletstore to generate your keys.
+[This page](./create_wallet_and_deposit.md) (primarily directed at advanced users)  explains how to use Nimbus to create a validator wallet to generate your keys.
 
 ## Prerequisites
 
