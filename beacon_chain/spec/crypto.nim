@@ -79,19 +79,6 @@ type
 
 export AggregateSignature
 
-func `==`*(a, b: BlsValue): bool =
-  if a.kind != b.kind: return false
-  if a.kind == Real:
-    return a.blsValue == b.blsValue
-  else:
-    return a.blob == b.blob
-
-template `==`*[N, T](a: BlsValue[N, T], b: T): bool =
-  a.blsValue == b
-
-template `==`*[N, T](a: T, b: BlsValue[N, T]): bool =
-  a == b.blsValue
-
 # API
 # ----------------------------------------------------------------------
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#bls-signatures
@@ -225,10 +212,9 @@ func `$`*(x: ValidatorPrivKey): string =
 func `$`*(x: BlsValue): string =
   # The prefix must be short
   # due to the mechanics of the `shortLog` function.
-  if x.kind == Real:
-    x.blsValue.toHex()
-  else:
-    "raw: " & x.blob.toHex()
+  case x.kind
+  of Real: x.blsValue.toHex()
+  of OpaqueBlob: "r:" & x.blob.toHex()
 
 func toRaw*(x: ValidatorPrivKey): array[32, byte] =
   # TODO: distinct type - see https://github.com/status-im/nim-blscurve/pull/67
@@ -277,6 +263,20 @@ func fromHex*(T: type BlsCurveType, hexStr: string): BlsResult[T] {.inline.} =
     T.fromRaw(hexStr.hexToSeqByte())
   except ValueError:
     err "bls: cannot parse value"
+
+func `==`*(a, b: BlsValue): bool =
+  # The assumption here is that converting to raw is mostly fast!
+  case a.kind
+  of Real:
+    if a.kind == b.kind:
+      a.blsValue == b.blsValue
+    else:
+      a.toRaw() == b.blob
+  of OpaqueBlob:
+    if a.kind == b.kind:
+      a.blob == b.blob
+    else:
+      a.blob == b.toRaw()
 
 # Hashing
 # ----------------------------------------------------------------------
@@ -348,7 +348,7 @@ func shortLog*(x: BlsValue): string =
   if x.kind == Real:
     x.blsValue.exportRaw()[0..3].toHex()
   else:
-    "raw: " & x.blob[0..3].toHex()
+    "r:" & x.blob[0..3].toHex()
 
 func shortLog*(x: ValidatorPrivKey): string =
   ## Logging for raw unwrapped BLS types
@@ -368,7 +368,6 @@ func init*(T: typedesc[ValidatorPrivKey], hex: string): T {.noInit, raises: [Val
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
   v[]
-
 
 # For mainchain monitor
 func init*(T: typedesc[ValidatorPubKey], data: array[RawPubKeySize, byte]): T {.noInit, raises: [ValueError, Defect].} =

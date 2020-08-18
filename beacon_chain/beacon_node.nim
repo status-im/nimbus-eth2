@@ -351,9 +351,8 @@ proc storeBlock(
   {.gcsafe.}: # TODO: fork choice and quarantine should sync via messages instead of callbacks
     let blck = node.chainDag.addRawBlock(node.quarantine, signedBlock) do (
         blckRef: BlockRef, signedBlock: SignedBeaconBlock,
-        state: HashedBeaconState):
+        epochRef: EpochRef, state: HashedBeaconState):
       # Callback add to fork choice if valid
-      let epochRef = getEpochInfo(blckRef, state.data)
       node.attestationPool.addForkChoice(
         epochRef, blckRef, signedBlock.message,
         node.beaconClock.now().slotOrZero())
