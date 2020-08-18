@@ -124,10 +124,8 @@ parallel(
 					stage("Benchmark") {
 						sh """#!/bin/bash
 						set -e
-						cd ..
 						git clone https://github.com/status-im/nimbus-benchmarking.git
-						cd -
-						../nimbus-benchmarking/run_nbc_benchmarks.sh
+						./nimbus-benchmarking/run_nbc_benchmarks.sh
 						"""
 					}
 				} catch(e) {
