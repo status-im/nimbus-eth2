@@ -536,7 +536,7 @@ proc runAttSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
              receivers = misses.toSimple(), send_stamp = item.timestamp
 
     info "Statistics for sender node", sender = srnodes[i].directory.name,
-         sucessfull_broadcasts = success, failed_broadcasts = failed,
+         successful_broadcasts = success, failed_broadcasts = failed,
          total_broadcasts = len(srnodes[i].sends)
 
 proc runLatencyCheck(logConf: LogTraceConf, logFiles: seq[string],
