@@ -28,8 +28,6 @@ export sets, results, fork_choice_types
 # - Prysmatic writeup: https://hackmd.io/bABJiht3Q9SyV3Ga4FT9lQ#High-level-concept
 # - Gasper Whitepaper: https://arxiv.org/abs/2003.03052
 
-const DefaultPruneThreshold = 256
-
 # Forward declarations
 # ----------------------------------------------------------------------
 
@@ -49,54 +47,41 @@ func compute_deltas(
 logScope:
   topics = "fork_choice"
 
-proc initForkChoiceBackend*(justified_epoch: Epoch,
-                            finalized_epoch: Epoch,
-                            finalized_root: Eth2Digest,
-                            ): FcResult[ForkChoiceBackend] =
-  var proto_array = ProtoArray(
-    prune_threshold: DefaultPruneThreshold,
-    justified_epoch: finalized_epoch,
-    finalized_epoch: finalized_epoch
+proc init*(T: type ForkChoiceBackend,
+           justified_epoch: Epoch,
+           finalized_root: Eth2Digest,
+           finalized_epoch: Epoch): T =
+  T(
+    proto_array: ProtoArray.init(
+      justified_epoch,
+      finalized_root,
+      finalized_epoch
+    )
   )
 
-  ? proto_array.on_block(
-    finalized_root,
-    hasParentInForkChoice = false,
-    Eth2Digest(),
-    finalized_epoch,
-    finalized_epoch
-  )
-
-  ok(ForkChoiceBackend(
-    proto_array: proto_array,
-  ))
-
-proc initForkChoice*(finalizedState: StateData,
-                     epochRef: EpochRef): FcResult[ForkChoice] =
-  ## Initialize a fork choice context
+proc init*(T: type ForkChoice,
+           epochRef: EpochRef,
+           blck: BlockRef): T =
+  ## Initialize a fork choice context for a genesis state - in the genesis
+  ## state, the justified and finalized checkpoints are the same, so only one
+  ## is used here
   debug "Initializing fork choice",
-    state_epoch = finalizedState.data.data.get_current_epoch(),
-    blck = shortLog(finalizedState.blck)
-
-  let finalized_epoch = finalizedState.data.data.get_current_epoch()
+    epoch = epochRef.epoch, blck = shortLog(blck)
 
   let
-    justified = BalanceCheckpoint(
-      blck: finalizedState.blck, epochRef: epochRef)
-    finalized = Checkpoint(
-      root: finalizedState.blck.root, epoch: finalized_epoch)
+    justified = BalanceCheckpoint(blck: blck, epochRef: epochRef)
+    finalized = Checkpoint(root: blck.root, epoch: epochRef.epoch)
+    best_justified = Checkpoint(
+      root: justified.blck.root, epoch: justified.epochRef.epoch)
 
-  let backend = ? initForkChoiceBackend(
-    finalized_epoch, finalized_epoch, finalizedState.blck.root)
-
-  ok(ForkChoice(
-    backend: backend,
+  ForkChoice(
+    backend: ForkChoiceBackend.init(
+      epochRef.epoch, blck.root, epochRef.epoch),
     checkpoints: Checkpoints(
       justified: justified,
-      best_justified:
-        Checkpoint(root: justified.blck.root, epoch: justified.epochRef.epoch),
-      finalized: finalized)
-  ))
+      finalized: finalized,
+      best_justified: best_justified)
+  )
 
 func extend[T](s: var seq[T], minLen: int) =
   ## Extend a sequence so that it can contains at least `minLen` elements.
@@ -288,8 +273,7 @@ proc process_block*(self: var ForkChoiceBackend,
                     justified_epoch: Epoch,
                     finalized_epoch: Epoch): FcResult[void] =
   self.proto_array.on_block(
-    block_root, hasParentInForkChoice = true, parent_root,
-    justified_epoch, finalized_epoch)
+    block_root, parent_root, justified_epoch, finalized_epoch)
 
 proc process_block*(self: var ForkChoice,
                     dag: ChainDAGRef,
