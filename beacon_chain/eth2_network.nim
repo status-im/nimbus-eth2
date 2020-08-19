@@ -198,13 +198,6 @@ const
   TCP = net.Protocol.IPPROTO_TCP
   HandshakeTimeout = FaultOrError
 
-  # Spec constants
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#eth2-network-interaction-domains
-  MAX_CHUNK_SIZE* = 1 * 1024 * 1024 # bytes
-  GOSSIP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
-  TTFB_TIMEOUT* = 5.seconds
-  RESP_TIMEOUT* = 10.seconds
-
   NewPeerScore* = 200
     ## Score which will be assigned to new connected Peer
   PeerScoreLowLimit* = 0

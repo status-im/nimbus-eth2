@@ -13,7 +13,7 @@ import
   stew/shims/[tables, macros],
   chronos, confutils, metrics, json_rpc/[rpcclient, jsonmarshal],
   chronicles,
-  blscurve, json_serialization/std/[options, sets, net],
+  json_serialization/std/[options, sets, net],
 
   # Local modules
   spec/[datatypes, digest, crypto, helpers, network],

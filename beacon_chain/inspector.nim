@@ -499,7 +499,7 @@ proc pubsubLogger(conf: InspectorConf, switch: Switch,
   if conf.decode:
     if topic.endsWith("_snappy"):
       try:
-        buffer = snappy.decode(data)
+        buffer = snappy.decode(data, GOSSIP_MAX_SIZE)
       except CatchableError as exc:
         warn "Unable to decompress message", errMsg = exc.msg
     else:

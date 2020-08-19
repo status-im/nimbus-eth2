@@ -22,6 +22,12 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#misc
   ATTESTATION_SUBNET_COUNT* = 64
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#eth2-network-interaction-domains
+  MAX_CHUNK_SIZE* = 1 * 1024 * 1024 # bytes
+  GOSSIP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
+  TTFB_TIMEOUT* = 5.seconds
+  RESP_TIMEOUT* = 10.seconds
+
   defaultEth2TcpPort* = 9000
 
   # This is not part of the spec yet!
