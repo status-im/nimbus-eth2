@@ -1,4 +1,4 @@
-# Create a validator wallet and make a deposit
+# Create a wallet and make a deposit
 
 In this page we'll take you through how to create a wallet to help generate your validator keys (keystores) and make a deposit using Nimbus.
 
