@@ -188,8 +188,8 @@ testnet0 testnet1: | beacon_node signing_process
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
 # https://www.gnu.org/software/make/manual/html_node/Multi_002dLine.html
-define CONNECT_TO_NETWORK
-	mkdir -p build/data/shared_$(1)_$(NODE_ID)
+define CONNECT_TO_NETWORK =
+	mkdir -m 0750 -p build/data/shared_$(1)_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \
@@ -204,8 +204,8 @@ define CONNECT_TO_NETWORK
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 endef
 
-define CONNECT_TO_NETWORK_IN_DEV_MODE
-	mkdir -p build/data/shared_$(1)_$(NODE_ID)
+define CONNECT_TO_NETWORK_IN_DEV_MODE =
+	mkdir -m 0750 -p build/data/shared_$(1)_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \
@@ -221,7 +221,7 @@ endef
 
 define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 	# if launching a VC as well - send the BN looking nowhere for validators/secrets
-	mkdir -p build/data/shared_$(1)_$(NODE_ID)/empty_dummy_folder
+	mkdir -m 0750 -p build/data/shared_$(1)_$(NODE_ID)/empty_dummy_folder
 
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \
