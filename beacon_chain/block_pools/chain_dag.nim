@@ -658,7 +658,8 @@ proc updateStateData*(
     slots = state.data.data.slot - startSlot,
     stateRoot = shortLog(state.data.root),
     stateSlot = state.data.data.slot,
-    stateRoot = shortLog(startRoot),
+    startRoot = shortLog(startRoot),
+    startSlot,
     blck = shortLog(bs)
 
 proc loadTailState*(dag: ChainDAGRef): StateData =

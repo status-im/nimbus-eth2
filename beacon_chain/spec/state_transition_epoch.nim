@@ -101,7 +101,7 @@ func get_attesting_balance(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#justification-and-finalization
 proc process_justification_and_finalization*(state: var BeaconState,
-    stateCache: var StateCache, updateFlags: UpdateFlags = {}) {.nbench.} =
+    cache: var StateCache, updateFlags: UpdateFlags = {}) {.nbench.} =
 
   logScope: pcs = "process_justification_and_finalization"
 
@@ -126,20 +126,19 @@ proc process_justification_and_finalization*(state: var BeaconState,
   state.justification_bits = (state.justification_bits shl 1) and
     cast[uint8]((2^JUSTIFICATION_BITS_LENGTH) - 1)
 
-  # This is a somewhat expensive approach
-  let active_validator_indices {.used.} =
-    toHashSet(mapIt(
-      get_active_validator_indices(state, get_current_epoch(state)), it.uint32))
-
   let matching_target_attestations_previous =
     get_matching_target_attestations(state, previous_epoch)  # Previous epoch
 
   if verifyFinalization in updateFlags:
+    let active_validator_indices =
+      toHashSet(cache.get_shuffled_active_validator_indices(
+          state, get_current_epoch(state)))
+
     # Non-attesting indices in previous epoch
     let missing_all_validators =
       difference(active_validator_indices,
-        toHashSet(mapIt(get_attesting_indices(state,
-          matching_target_attestations_previous, stateCache), it.uint32)))
+        get_attesting_indices(
+          state, matching_target_attestations_previous, cache))
 
     # testnet0 and testnet1 have 8 non-attesting validators each, by default
     if missing_all_validators.len > 15:
@@ -157,42 +156,48 @@ proc process_justification_and_finalization*(state: var BeaconState,
   # and
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#final-updates
   # after which the state.previous_epoch_attestations is replaced.
-  let total_active_balance = get_total_active_balance(state, stateCache)
-  trace "Non-attesting indices in previous epoch",
-    missing_all_validators=
-      difference(active_validator_indices,
-        toHashSet(mapIt(get_attesting_indices(state,
-          matching_target_attestations_previous, stateCache), it.uint32))),
-    missing_unslashed_validators=
-      difference(active_validator_indices,
-        toHashSet(mapIt(get_unslashed_attesting_indices(state,
-          matching_target_attestations_previous, stateCache), it.uint32))),
-    prev_attestations_len=len(state.previous_epoch_attestations),
-    cur_attestations_len=len(state.current_epoch_attestations),
-    num_active_validators=len(active_validator_indices),
-    required_balance = total_active_balance * 2,
-    attesting_balance_prev = get_attesting_balance(state, matching_target_attestations_previous, stateCache)
+  let total_active_balance = get_total_active_balance(state, cache)
+  when chronicles.enabledLogLevel == LogLevel.TRACE:
+    let active_validator_indices =
+      toHashSet(cache.get_shuffled_active_validator_indices(
+          state, get_current_epoch(state)))
+
+    trace "Non-attesting indices in previous epoch",
+      missing_all_validators =
+        difference(active_validator_indices, get_attesting_indices(
+          state, matching_target_attestations_previous, cache)),
+      missing_unslashed_validators =
+        difference(active_validator_indices,
+          get_unslashed_attesting_indices(
+            state, matching_target_attestations_previous, cache)),
+      prev_attestations_len = len(state.previous_epoch_attestations),
+      cur_attestations_len = len(state.current_epoch_attestations),
+      num_active_validators = len(active_validator_indices),
+      total_active_balance,
+      attesting_balance_prev = get_attesting_balance(
+        state, matching_target_attestations_previous, cache)
+
   if get_attesting_balance(state, matching_target_attestations_previous,
-      stateCache) * 3 >= total_active_balance * 2:
+      cache) * 3 >= total_active_balance * 2:
     state.current_justified_checkpoint =
       Checkpoint(epoch: previous_epoch,
                  root: get_block_root(state, previous_epoch))
     state.justification_bits.setBit 1
 
-    debug "Justified with previous epoch",
+    trace "Justified with previous epoch",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.current_justified_checkpoint)
 
   let matching_target_attestations_current =
     get_matching_target_attestations(state, current_epoch)  # Current epoch
   if get_attesting_balance(state, matching_target_attestations_current,
-      stateCache) * 3 >= total_active_balance * 2:
+      cache) * 3 >= total_active_balance * 2:
     state.current_justified_checkpoint =
       Checkpoint(epoch: current_epoch,
                  root: get_block_root(state, current_epoch))
     state.justification_bits.setBit 0
 
-    debug "Justified with current epoch",
+    trace "Justified with current epoch",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.current_justified_checkpoint)
 
@@ -205,7 +210,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
      old_previous_justified_checkpoint.epoch + 3 == current_epoch:
     state.finalized_checkpoint = old_previous_justified_checkpoint
 
-    debug "Finalized with rule 234",
+    trace "Finalized with rule 234",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.finalized_checkpoint)
 
@@ -215,7 +220,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
      old_previous_justified_checkpoint.epoch + 2 == current_epoch:
     state.finalized_checkpoint = old_previous_justified_checkpoint
 
-    debug "Finalized with rule 23",
+    trace "Finalized with rule 23",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.finalized_checkpoint)
 
@@ -225,7 +230,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
      old_current_justified_checkpoint.epoch + 2 == current_epoch:
     state.finalized_checkpoint = old_current_justified_checkpoint
 
-    debug "Finalized with rule 123",
+    trace "Finalized with rule 123",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.finalized_checkpoint)
 
@@ -235,7 +240,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
      old_current_justified_checkpoint.epoch + 1 == current_epoch:
     state.finalized_checkpoint = old_current_justified_checkpoint
 
-    debug "Finalized with rule 12",
+    trace "Finalized with rule 12",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.finalized_checkpoint)
 
