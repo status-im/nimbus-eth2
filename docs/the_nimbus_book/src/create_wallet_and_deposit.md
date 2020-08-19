@@ -1,6 +1,6 @@
 # Create a wallet and make a deposit
 
-In this page we'll take you through how to create a wallet to help generate your validator keys (keystores) and make a deposit using Nimbus.
+In this page we'll take you through how to create a wallet to help you generate your validator keys (keystores) and make a deposit using Nimbus.
 
 > **Note:** this page is primarily aimed at users who wish to run multiple validators on several machines. If you simply wish to get one validator up and running with Nimbus, or run several validators on a single machine, we recommend following [this guide](./medalla.md) instead.
 
@@ -11,7 +11,7 @@ Such a wallet can create (and restore) keys from a *seed* and a *path*. The encr
 
 
 
-## When do I need to use a validator wallet?
+## When do I need to use a  wallet?
 
 If you're asking yourself this question then you probably don't need to use one :)
 
