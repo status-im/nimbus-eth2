@@ -9,7 +9,7 @@
 {.push raises: [Defect].}
 
 import
-  algorithm, options, sequtils, math, tables,
+  options, sequtils, math, tables,
   ./datatypes, ./digest, ./helpers
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#compute_shuffled_index
@@ -296,17 +296,25 @@ func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache, slot:
 
     var buffer: array[32 + 8, byte]
     buffer[0..31] = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER).data
-    buffer[32..39] = uint_to_bytes8(slot.uint64)
 
     # There's exactly one beacon proposer per slot.
 
     let
-      seed = eth2digest(buffer)
-      indices =
-        sorted(cache.get_shuffled_active_validator_indices(state, epoch), system.cmp)
+      # active validator indices are kept in cache but sorting them takes
+      # quite a while
+      indices = get_active_validator_indices(state, epoch)
+      start = slot.epoch().compute_start_slot_at_epoch()
 
-    return cache.beacon_proposer_indices.mgetOrPut(
-      slot, compute_proposer_index(state, indices, seed))
+    var res: Option[ValidatorIndex]
+    for i in 0..<SLOTS_PER_EPOCH:
+      buffer[32..39] = uint_to_bytes8((start + i).uint64)
+      let seed = eth2digest(buffer)
+      let pi = compute_proposer_index(state, indices, seed)
+      if start + i == slot:
+        res = pi
+      cache.beacon_proposer_indices[start + i] = pi
+
+    return res
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache):
