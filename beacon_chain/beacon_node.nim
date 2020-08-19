@@ -368,6 +368,33 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) =
       doAssert node.network.metadata.attnets[subnet] ==
         (subnet in subscribed_subnets)
 
+proc getAttestationHandlers(node: BeaconNode): Future[void] =
+  var initialSubnets: set[uint8]
+  for i in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
+    initialSubnets.incl i
+  node.installAttestationSubnetHandlers(initialSubnets)
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  let wallEpoch =  node.beaconClock.now().slotOrZero().epoch
+  node.attestationSubnets.stabilitySubnet = rand(ATTESTATION_SUBNET_COUNT - 1).uint64
+  node.attestationSubnets.stabilitySubnetExpirationEpoch =
+    wallEpoch + getStabilitySubnetLength()
+
+  # Sets the "current" and "future" attestation subnets. One of these gets
+  # replaced by get_attestation_subnet_changes() immediately.
+  node.attestationSubnets.subscribedSubnets[0] = initialSubnets
+  node.attestationSubnets.subscribedSubnets[1] = initialSubnets
+
+  node.network.subscribe(getAggregateAndProofsTopic(node.forkDigest))
+
+proc addMessageHandlers(node: BeaconNode): Future[void] =
+  allFutures(
+    # As a side-effect, this gets the attestation subnets too.
+    node.network.subscribe(node.topicBeaconBlocks),
+
+    node.getAttestationHandlers()
+  )
+
 proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
   ## skip a few in case we're running late.
@@ -437,9 +464,10 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   if node.config.verifyFinalization:
     verifyFinalization(node, scheduledSlot)
 
-  when false:
-    if slot.isEpoch:
-      node.cycleAttestationSubnets(slot)
+  # Syncing tends to be ~1 block/s, and allow for an epoch of time for libp2p
+  # subscribing to spin up. The faster the sync, the more wallSlot - headSlot
+  # lead time is required.
+  const GOSSIP_ACTIVATION_THRESHOLD_SLOTS = 64
 
   if slot > lastSlot + SLOTS_PER_EPOCH:
     # We've fallen behind more than an epoch - there's nothing clever we can
@@ -497,6 +525,26 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     headEpoch = shortLog(node.chainDag.head.slot.compute_epoch_at_slot()),
     finalizedHead = shortLog(node.chainDag.finalizedHead.blck),
     finalizedEpoch = shortLog(node.chainDag.finalizedHead.blck.slot.compute_epoch_at_slot())
+
+  if
+      # Don't enable if already enabled; to avoid race conditions requires care,
+      # but isn't crucial, as this condition spuriously fail, but the next time,
+      # should properly succeed.
+      node.attestationSubnets.subscribedSubnets[0].len +
+      node.attestationSubnets.subscribedSubnets[1].len == 0 and
+      # SyncManager forward sync by default runs until maxHeadAge slots, or one
+      # epoch range is achieved.
+      slot < node.chainDag.head.slot + GOSSIP_ACTIVATION_THRESHOLD_SLOTS:
+    # When node.cycleAttestationSubnets() is enabled more properly, integrate
+    # this into the node.cycleAttestationSubnets() call.
+    debug "Enabling GossipSub",
+      wallSlot = slot,
+      headSlot = node.chainDag.head.slot
+    await node.addMessageHandlers()
+
+  when false:
+    if slot.isEpoch:
+      node.cycleAttestationSubnets(slot)
 
   when declared(GC_fullCollect):
     # The slots in the beacon node work as frames in a game: we want to make
@@ -718,32 +766,6 @@ proc installMessageValidators(node: BeaconNode) =
     proc (signedBlock: SignedBeaconBlock): bool =
       node.processor[].blockValidator(signedBlock))
 
-proc getAttestationHandlers(node: BeaconNode): Future[void] =
-  var initialSubnets: set[uint8]
-  for i in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
-    initialSubnets.incl i
-  node.installAttestationSubnetHandlers(initialSubnets)
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
-  node.attestationSubnets.stabilitySubnet = rand(ATTESTATION_SUBNET_COUNT - 1).uint64
-  node.attestationSubnets.stabilitySubnetExpirationEpoch =
-    GENESIS_EPOCH + getStabilitySubnetLength()
-
-  # Relative to epoch 0, this sets the "current" attestation subnets.
-  # TODO can't assume GENESIS_EPOCH after gossip turned off/on
-  node.attestationSubnets.subscribedSubnets[1 - (GENESIS_EPOCH mod 2)] =
-    initialSubnets
-
-  node.network.subscribe(getAggregateAndProofsTopic(node.forkDigest))
-
-proc addMessageHandlers(node: BeaconNode) =
-  waitFor allFutures(
-    # As a side-effect, this gets the attestation subnets too.
-    node.network.subscribe(node.topicBeaconBlocks),
-
-    node.getAttestationHandlers()
-  )
-
 proc removeMessageHandlers(node: BeaconNode) =
   var unsubscriptions: seq[Future[void]]
 
@@ -776,7 +798,6 @@ proc run*(node: BeaconNode) =
       node.rpcServer.start()
 
     node.installMessageValidators()
-    node.addMessageHandlers()
 
     let
       curSlot = node.beaconClock.now().slotOrZero()
