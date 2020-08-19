@@ -595,8 +595,6 @@ proc process_attestation*(
   # In the spec, attestation validation is mixed with state mutation, so here
   # we've split it into two functions so that the validation logic can be
   # reused when looking for suitable blocks to include in attestations.
-  # TODO don't log warnings when looking for attestations (return
-  #      Result[void, cstring] instead of logging in check_attestation?)
 
   let proposer_index = get_beacon_proposer_index(state, cache)
   if proposer_index.isNone:

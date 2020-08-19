@@ -290,8 +290,6 @@ proc process_block*(self: var ForkChoice,
       continue
     if attestation.data.beacon_block_root in self.backend:
       let
-        epochRef =
-          dag.getEpochRef(targetBlck, attestation.data.target.epoch)
         participants = get_attesting_indices(
           epochRef, attestation.data, attestation.aggregation_bits)
 
