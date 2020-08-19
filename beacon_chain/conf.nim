@@ -218,6 +218,12 @@ type
         desc: "Write SSZ dumps of blocks, attestations and states to data dir"
         name: "dump" }: bool
 
+      netKeyFile* {.
+        defaultValue: "random",
+        desc: "Source of network (secp256k1) private key file " &
+              "(random|<path>) (default: random)"
+        name: "netkey-file" }: string
+
     of createTestnet:
       testnetDepositsFile* {.
         desc: "A LaunchPad deposits file for the genesis state validators"
@@ -264,6 +270,10 @@ type
       outputBootstrapFile* {.
         desc: "Output file with list of bootstrap nodes for the network"
         name: "output-bootstrap-file" }: OutFile
+
+      outputNetkeyFile* {.
+        desc: "Output file with network private key for the network"
+        name: "output-netkey-file" }: OutFile
 
     of wallets:
       case walletsCmd* {.command.}: WalletsCmd

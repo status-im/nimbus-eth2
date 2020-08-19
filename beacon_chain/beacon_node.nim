@@ -11,7 +11,7 @@ import
   std/[osproc, random],
 
   # Nimble packages
-  stew/[objects, byteutils, endians2], stew/shims/macros,
+  stew/[objects, byteutils, endians2, io2], stew/shims/macros,
   chronos, confutils, metrics, json_rpc/[rpcserver, jsonmarshal],
   chronicles, bearssl, blscurve,
   json_serialization/std/[options, sets, net], serialization/errors,
@@ -243,7 +243,7 @@ proc init*(T: type BeaconNode,
     enrForkId = enrForkIdFromState(chainDag.headState.data.data)
     topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.forkDigest)
     topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.forkDigest)
-    network = createEth2Node(rng, conf, enrForkId)
+    network = createEth2Node(rng, conf, netKeys, enrForkId)
     attestationPool = newClone(AttestationPool.init(chainDag, quarantine))
     exitPool = newClone(ExitPool.init(chainDag, quarantine))
   var res = BeaconNode(
@@ -894,10 +894,50 @@ proc run*(node: BeaconNode) =
 
 var gPidFile: string
 proc createPidFile(filename: string) =
-  createDir splitFile(filename).dir
   writeFile filename, $os.getCurrentProcessId()
   gPidFile = filename
-  addQuitProc proc {.noconv.} = removeFile gPidFile
+  addQuitProc proc {.noconv.} = discard io2.removeFile(gPidFile)
+
+proc checkDataDir(conf: BeaconNodeConf) =
+  ## Checks `conf.dataDir`.
+  ## If folder exists, prcoedure will check it for access and
+  ## permissions `0750 (rwxr-x---)`, if folder do not exists it will be created
+  ## with permissions `0750 (rwxr-x---)`.
+  let dataDir = string(conf.dataDir)
+  when defined(posix):
+    let amask = {AccessFlags.Read, AccessFlags.Write, AccessFlags.Execute}
+    if fileAccessible(dataDir, amask):
+      let gmask = {UserRead, UserWrite, UserExec, GroupRead, GroupExec}
+      let pmask = {OtherRead, OtherWrite, OtherExec, GroupWrite}
+      let pres = getPermissionsSet(dataDir)
+      if pres.isErr():
+        fatal "Could not check data folder permissions",
+               data_dir = dataDir, errorCode = $pres.error,
+               errorMsg = ioErrorMsg(pres.error)
+        quit QuitFailure
+      let insecurePermissions = pres.get() * pmask
+      if insecurePermissions != {}:
+        fatal "Data folder has insecure permissions",
+               data_dir = dataDir,
+               insecure_permissions = $insecurePermissions,
+               current_permissions = pres.get().toString(),
+               required_permissions = gmask.toString()
+        quit QuitFailure
+    else:
+      let res = createPath(dataDir, 0o750)
+      if res.isErr():
+        fatal "Could not create data folder", data_dir = dataDir,
+              errorMsg = ioErrorMsg(res.error), errorCode = $res.error
+        quit QuitFailure
+  elif defined(windows):
+    let res = createPath(dataDir, 0o750)
+    if res.isErr():
+      fatal "Could not create data folder", data_dir = dataDir,
+            errorMsg = ioErrorMsg(res.error), errorCode = $res.error
+      quit QuitFailure
+  else:
+    fatal "Unsupported operation system"
+    quit QuitFailure
 
 proc initializeNetworking(node: BeaconNode) {.async.} =
   await node.network.startListening()
@@ -1133,6 +1173,8 @@ programMain:
 
   case config.cmd
   of createTestnet:
+    checkDataDir(config)
+
     let launchPadDeposits = try:
       Json.loadFile(config.testnetDepositsFile.string, seq[LaunchPadDeposit])
     except SerializationError as err:
@@ -1192,6 +1234,8 @@ programMain:
           bls_backend = $BLS_BACKEND,
           cmdParams = commandLineParams(),
           config
+
+    checkDataDir(config)
 
     createPidFile(config.dataDir.string / "beacon_node.pid")
 
