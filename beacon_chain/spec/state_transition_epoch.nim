@@ -66,8 +66,8 @@ func get_total_active_balance*(state: BeaconState, cache: var StateCache): Gwei 
     state, cache.get_shuffled_active_validator_indices(state, epoch))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#helper-functions-1
-func get_matching_source_attestations(state: BeaconState,
-                                      epoch: Epoch): seq[PendingAttestation] =
+template get_matching_source_attestations(state: BeaconState,
+                                          epoch: Epoch): seq[PendingAttestation] =
   doAssert epoch in [get_current_epoch(state), get_previous_epoch(state)]
   if epoch == get_current_epoch(state):
     state.current_epoch_attestations.asSeq
@@ -309,10 +309,11 @@ func get_source_deltas*(
     state: BeaconState, total_balance: Gwei, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
   # Return attester micro-rewards/penalties for source-vote for each validator.
-  let matching_source_attestations =
-    get_matching_source_attestations(state, get_previous_epoch(state))
+
   get_attestation_component_deltas(
-    state, matching_source_attestations, total_balance, cache)
+    state,
+    get_matching_source_attestations(state, get_previous_epoch(state)),
+    total_balance, cache)
 
 func get_target_deltas*(
     state: BeaconState, total_balance: Gwei, cache: var StateCache):
