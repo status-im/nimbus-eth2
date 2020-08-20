@@ -184,7 +184,7 @@ template `$`*(x: WalletName): string =
 template burnMem*(m: var (SensitiveData|TaintedString)) =
   # TODO: `burnMem` in nimcrypto could use distinctBase
   #       to make its usage less error-prone.
-  utils.burnMem(string m)
+  ncrutils.burnMem(string m)
 
 func longName*(wallet: Wallet): string =
   if wallet.name.string == wallet.uuid.string:
