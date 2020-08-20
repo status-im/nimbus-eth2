@@ -213,7 +213,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       getRandaoReveal(val_info),
       eth1data,
       graffiti,
-      node.attestationPool.getAttestationsForBlock(state),
+      node.attestationPool[].getAttestationsForBlock(state),
       deposits,
       restore,
       cache)
@@ -238,7 +238,7 @@ proc proposeSignedBlock*(node: BeaconNode,
         blckRef: BlockRef, signedBlock: SignedBeaconBlock,
         epochRef: EpochRef, state: HashedBeaconState):
       # Callback add to fork choice if valid
-      node.attestationPool.addForkChoice(
+      node.attestationPool[].addForkChoice(
         epochRef, blckRef, signedBlock.message,
         node.beaconClock.now().slotOrZero())
 
@@ -415,7 +415,7 @@ proc broadcastAggregatedAttestations(
           # the validator index and private key pair. TODO verify it only has
           # one isSome() with test.
           let aggregateAndProof =
-            aggregate_attestations(node.attestationPool, state,
+            aggregate_attestations(node.attestationPool[], state,
               committee_index.CommitteeIndex,
               # TODO https://github.com/status-im/nim-beacon-chain/issues/545
               # this assumes in-process private keys

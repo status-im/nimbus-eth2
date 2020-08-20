@@ -21,7 +21,8 @@ import
   attestation_pool, eth2_network,
   block_pools/[chain_dag, quarantine],
   beacon_node_types, mainchain_monitor, request_manager,
-  sync_manager
+  sync_manager,
+  ./eth2_processor
 
 # This removes an invalid Nim warning that the digest module is unused here
 # It's currently used for `shortLog(head.blck.root)`
@@ -41,12 +42,11 @@ type
     attachedValidators*: ValidatorPool
     chainDag*: ChainDAGRef
     quarantine*: QuarantineRef
-    attestationPool*: AttestationPool
+    attestationPool*: ref AttestationPool
     mainchainMonitor*: MainchainMonitor
     beaconClock*: BeaconClock
     rpcServer*: RpcServer
     forkDigest*: ForkDigest
-    blocksQueue*: AsyncQueue[SyncBlock]
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerID]
     topicBeaconBlocks*: string
@@ -55,33 +55,14 @@ type
     onSecondLoop*: Future[void]
     genesisSnapshotContent*: string
     attestationSubnets*: AttestationSubnets
+    processor*: ref Eth2Processor
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
 
 # Metrics
-declareGauge beacon_head_root,
-  "Root of the head block of the beacon chain"
-
 proc updateHead*(node: BeaconNode, wallSlot: Slot): BlockRef =
-  # Check pending attestations - maybe we found some blocks for them
-  node.attestationPool.resolve(wallSlot)
-
-  # Grab the new head according to our latest attestation data
-  let newHead = node.attestationPool.selectHead(wallSlot)
-
-  # Store the new head in the chain DAG - this may cause epochs to be
-  # justified and finalized
-  let oldFinalized = node.chainDag.finalizedHead.blck
-
-  node.chainDag.updateHead(newHead)
-  beacon_head_root.set newHead.root.toGaugeValue
-
-  # Cleanup the fork choice v2 if we have a finalized head
-  if oldFinalized != node.chainDag.finalizedHead.blck:
-    node.attestationPool.prune()
-
-  newHead
+  node.processor[].updateHead(wallSlot)
 
 template findIt*(s: openarray, predicate: untyped): int =
   var res = -1

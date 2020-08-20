@@ -4,6 +4,7 @@ import stew/results, chronos, chronicles
 import spec/[datatypes, digest], peer_pool, eth2_network
 import eth/async_utils
 
+import ./eth2_processor
 import block_pools/block_pools_types
 export datatypes, digest, chronos, chronicles, results, block_pools_types
 
@@ -39,10 +40,6 @@ type
 
   GetSlotCallback* = proc(): Slot {.gcsafe, raises: [Defect].}
 
-  SyncBlock* = object
-    blk*: SignedBeaconBlock
-    resfut*: Future[Result[void, BlockError]]
-
   SyncRequest*[T] = object
     index*: uint64
     slot*: Slot
@@ -73,7 +70,7 @@ type
     debtsCount: uint64
     readyQueue: HeapQueue[SyncResult[T]]
     suspects: seq[SyncResult[T]]
-    outQueue: AsyncQueue[SyncBlock]
+    outQueue: AsyncQueue[BlockEntry]
 
   SyncManager*[A, B] = ref object
     pool: PeerPool[A, B]
@@ -91,7 +88,7 @@ type
     queue: SyncQueue[A]
     failures: seq[SyncFailure[A]]
     syncFut: Future[void]
-    outQueue: AsyncQueue[SyncBlock]
+    outQueue: AsyncQueue[BlockEntry]
     inProgress*: bool
 
   SyncMoment* = object
@@ -112,7 +109,7 @@ proc validate*[T](sq: SyncQueue[T],
     blk: blk,
     resfut: newFuture[Result[void, BlockError]]("sync.manager.validate")
   )
-  await sq.outQueue.addLast(sblock)
+  await sq.outQueue.addLast(BlockEntry(v: sblock))
   return await sblock.resfut
 
 proc getShortMap*[T](req: SyncRequest[T],
@@ -213,7 +210,7 @@ proc isEmpty*[T](sr: SyncRequest[T]): bool {.inline.} =
 proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
               start, last: Slot, chunkSize: uint64,
               getFinalizedSlotCb: GetSlotCallback,
-              outputQueue: AsyncQueue[SyncBlock],
+              outputQueue: AsyncQueue[BlockEntry],
               queueSize: int = -1): SyncQueue[T] =
   ## Create new synchronization queue with parameters
   ##
@@ -587,7 +584,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            getLocalHeadSlotCb: GetSlotCallback,
                            getLocalWallSlotCb: GetSlotCallback,
                            getFinalizedSlotCb: GetSlotCallback,
-                           outputQueue: AsyncQueue[SyncBlock],
+                           outputQueue: AsyncQueue[BlockEntry],
                            maxWorkers = 10,
                            maxStatusAge = uint64(SLOTS_PER_EPOCH * 4),
                            maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
@@ -979,18 +976,3 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
 proc start*[A, B](man: SyncManager[A, B]) =
   ## Starts SyncManager's main loop.
   man.syncFut = man.syncLoop()
-
-proc done*(blk: SyncBlock) =
-  ## Send signal to [Sync/Request]Manager that the block ``blk`` has passed
-  ## verification successfully.
-  blk.resfut.complete(Result[void, BlockError].ok())
-
-proc fail*(blk: SyncBlock, error: BlockError) =
-  ## Send signal to [Sync/Request]Manager that the block ``blk`` has NOT passed
-  ## verification with specific ``error``.
-  blk.resfut.complete(Result[void, BlockError].err(error))
-
-proc complete*(blk: SyncBlock, res: Result[void, BlockError]) {.inline.} =
-  ## Send signal to [Sync/Request]Manager about result ``res`` of block ``blk``
-  ## verification.
-  blk.resfut.complete(res)

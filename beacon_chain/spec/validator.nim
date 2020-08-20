@@ -303,7 +303,7 @@ func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache, slot:
       # active validator indices are kept in cache but sorting them takes
       # quite a while
       indices = get_active_validator_indices(state, epoch)
-      start = slot.epoch().compute_start_slot_at_epoch()
+      start = epoch.compute_start_slot_at_epoch()
 
     var res: Option[ValidatorIndex]
     for i in 0..<SLOTS_PER_EPOCH:

@@ -953,7 +953,8 @@ proc stop*(node: Eth2Node) {.async.} =
     timeout = 5.seconds
     completed = await withTimeout(allFutures(waitedFutures), timeout)
   if not completed:
-    trace "Eth2Node.stop(): timeout reached", timeout, futureErrors = waitedFutures.filterIt(it.error != nil).mapIt(it.error.msg)
+    trace "Eth2Node.stop(): timeout reached", timeout,
+      futureErrors = waitedFutures.filterIt(it.error != nil).mapIt(it.error.msg)
 
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =
   new result
@@ -1258,6 +1259,12 @@ proc subscribe*[MsgType](node: Eth2Node,
         msg = err.msg, len = data.len, topic, msgId = gossipId(data)
 
   await node.pubsub.subscribe(topic & "_snappy", execMsgHandler)
+
+proc subscribe*(node: Eth2Node, topic: string) {.async, gcsafe.} =
+  proc dummyMsgHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+    discard
+
+  await node.pubsub.subscribe(topic & "_snappy", dummyMsgHandler)
 
 proc addValidator*[MsgType](node: Eth2Node,
                             topic: string,

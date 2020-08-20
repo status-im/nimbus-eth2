@@ -115,4 +115,8 @@ func shortLog*(d: Duration): string =
       tmp &= $frac & "m"
     tmp
 
+func `$`*(v: BeaconTime): string = $(int64(v))
 func shortLog*(v: BeaconTime): int64 = v.int64
+
+func `-`*(a, b: BeaconTime): Duration =
+  seconds(int64(a)) - seconds(int64(b))

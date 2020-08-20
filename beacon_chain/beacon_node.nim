@@ -29,9 +29,10 @@ import
   beacon_node_common, beacon_node_types,
   block_pools/[spec_cache, chain_dag, quarantine, clearance, block_pools_types],
   nimbus_binary_common, network_metadata,
-  mainchain_monitor, version, ssz/[merkleization], sszdump, merkle_minimal,
+  mainchain_monitor, version, ssz/[merkleization], merkle_minimal,
   sync_protocol, request_manager, keystore_management, interop, statusbar,
-  sync_manager, validator_duties, validator_api, attestation_aggregation
+  sync_manager, validator_duties, validator_api,
+  ./eth2_processor
 
 const
   genesisFile* = "genesis.ssz"
@@ -56,12 +57,6 @@ declareGauge beacon_slot,
 declareGauge beacon_head_slot,
   "Slot of the head block of the beacon chain"
 
-# Metrics for tracking attestation and beacon block loss
-declareCounter beacon_attestations_received,
-  "Number of beacon chain attestations received by this peer"
-declareCounter beacon_blocks_received,
-  "Number of beacon chain blocks received by this peer"
-
 # Finalization tracking
 declareGauge finalization_delay,
   "Epoch delay between scheduled epoch and finalized epoch"
@@ -69,20 +64,7 @@ declareGauge finalization_delay,
 declareGauge ticks_delay,
   "How long does to take to run the onSecond loop"
 
-const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
-
-declareHistogram beacon_attestation_received_seconds_from_slot_start,
-  "Interval between slot start and attestation reception", buckets = delayBuckets
-
-declareHistogram beacon_block_received_seconds_from_slot_start,
-  "Interval between slot start and beacon block reception", buckets = delayBuckets
-
-declareHistogram beacon_store_block_duration_seconds,
-  "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
-
 logScope: topics = "beacnde"
-
-proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) {.gcsafe.}
 
 proc getStateFromSnapshot(conf: BeaconNodeConf, stateSnapshotContents: ref string): NilableBeaconStateRef =
   var
@@ -266,7 +248,7 @@ proc init*(T: type BeaconNode,
     topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.forkDigest)
     topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.forkDigest)
     network = createEth2Node(rng, conf, enrForkId)
-
+    attestationPool = newClone(AttestationPool.init(chainDag, quarantine))
   var res = BeaconNode(
     nickname: nickname,
     graffitiBytes: if conf.graffiti.isSome: conf.graffiti.get.GraffitiBytes
@@ -278,100 +260,29 @@ proc init*(T: type BeaconNode,
     attachedValidators: ValidatorPool.init(),
     chainDag: chainDag,
     quarantine: quarantine,
-    attestationPool: AttestationPool.init(chainDag, quarantine),
+    attestationPool: attestationPool,
     mainchainMonitor: mainchainMonitor,
     beaconClock: BeaconClock.init(chainDag.headState.data.data),
     rpcServer: rpcServer,
     forkDigest: enrForkId.forkDigest,
     topicBeaconBlocks: topicBeaconBlocks,
     topicAggregateAndProofs: topicAggregateAndProofs,
-    blocksQueue: newAsyncQueue[SyncBlock](1),
   )
-  res.requestManager = RequestManager.init(network, res.blocksQueue)
+
+  proc getWallTime(): BeaconTime = res.beaconClock.now()
+
+  res.processor = Eth2Processor.new(
+    conf, chainDag, attestationPool, quarantine, getWallTime)
+
+  res.requestManager = RequestManager.init(
+    network, res.processor.blocksQueue)
+
   res.addLocalValidators()
 
   # This merely configures the BeaconSync
   # The traffic will be started when we join the network.
   network.initBeaconSync(chainDag, enrForkId.forkDigest)
   return res
-
-proc onAttestation(node: BeaconNode, attestation: Attestation) =
-  # We received an attestation from the network but don't know much about it
-  # yet - in particular, we haven't verified that it belongs to particular chain
-  # we're on, or that it follows the rules of the protocol
-  logScope:
-    attestation = shortLog(attestation)
-    head = shortLog(node.chainDag.head)
-    pcs = "on_attestation"
-
-  let
-    wallSlot = node.beaconClock.now().toSlot()
-    head = node.chainDag.head
-
-  debug "Attestation received",
-    wallSlot = shortLog(wallSlot.slot)
-
-  if not wallSlot.afterGenesis or wallSlot.slot < head.slot:
-    warn "Received attestation before genesis or head - clock is wrong?",
-      afterGenesis = wallSlot.afterGenesis,
-      wallSlot = shortLog(wallSlot.slot)
-    return
-
-  if attestation.data.slot > head.slot and
-      (attestation.data.slot - head.slot) > MaxEmptySlotCount:
-    warn "Ignoring attestation, head block too old (out of sync?)"
-    return
-
-  node.attestationPool.addAttestation(attestation, wallSlot.slot)
-
-proc dumpBlock[T](
-    node: BeaconNode, signedBlock: SignedBeaconBlock,
-    res: Result[T, BlockError]) =
-  if node.config.dumpEnabled and res.isErr:
-    case res.error
-    of Invalid:
-      dump(
-        node.config.dumpDirInvalid, signedBlock)
-    of MissingParent:
-      dump(
-        node.config.dumpDirIncoming, signedBlock)
-    else:
-      discard
-
-proc storeBlock(
-    node: BeaconNode, signedBlock: SignedBeaconBlock): Result[void, BlockError] =
-  let start = Moment.now()
-  debug "Block received",
-    signedBlock = shortLog(signedBlock.message),
-    blockRoot = shortLog(signedBlock.root),
-    pcs = "receive_block"
-
-  beacon_blocks_received.inc()
-
-  {.gcsafe.}: # TODO: fork choice and quarantine should sync via messages instead of callbacks
-    let blck = node.chainDag.addRawBlock(node.quarantine, signedBlock) do (
-        blckRef: BlockRef, signedBlock: SignedBeaconBlock,
-        epochRef: EpochRef, state: HashedBeaconState):
-      # Callback add to fork choice if valid
-      node.attestationPool.addForkChoice(
-        epochRef, blckRef, signedBlock.message,
-        node.beaconClock.now().slotOrZero())
-
-  node.dumpBlock(signedBlock, blck)
-
-  # There can be a scenario where we receive a block we already received.
-  # However this block was before the last finalized epoch and so its parent
-  # was pruned from the ForkChoice.
-  if blck.isErr:
-    return err(blck.error)
-
-  beacon_store_block_duration_seconds.observe((Moment.now() - start).milliseconds.float64 / 1000)
-  return ok()
-
-proc onBeaconBlock(node: BeaconNode, signedBlock: SignedBeaconBlock) =
-  # We received a block but don't know much about it yet - in particular, we
-  # don't know if it's part of the chain we're currently building.
-  discard node.storeBlock(signedBlock)
 
 func verifyFinalization(node: BeaconNode, slot: Slot) =
   # Epoch must be >= 4 to check finalization
@@ -393,23 +304,12 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
     doAssert finalizedEpoch + 4 >= epoch
 
 proc installAttestationSubnetHandlers(node: BeaconNode, subnets: set[uint8]) =
-  proc attestationHandler(attestation: Attestation) =
-    # Avoid double-counting attestation-topic attestations on shared codepath
-    # when they're reflected through beacon blocks
-    beacon_attestations_received.inc()
-    beacon_attestation_received_seconds_from_slot_start.observe(
-      node.beaconClock.now.int64 - attestation.data.slot.toBeaconTime.int64)
-
-    node.onAttestation(attestation)
-
   var attestationSubscriptions: seq[Future[void]] = @[]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#attestations-and-aggregation
   for subnet in subnets:
     attestationSubscriptions.add(node.network.subscribe(
-      getAttestationTopic(node.forkDigest, subnet),
-      attestationHandler,
-    ))
+      getAttestationTopic(node.forkDigest, subnet)))
 
   waitFor allFutures(attestationSubscriptions)
 
@@ -636,37 +536,6 @@ proc runOnSecondLoop(node: BeaconNode) {.async.} =
     ticks_delay.set(sleepTime.nanoseconds.float / nanosecondsIn1s)
     debug "onSecond task completed", sleepTime, processingTime
 
-proc importBlock(node: BeaconNode,
-                 sblock: SignedBeaconBlock): Result[void, BlockError] =
-  let sm1 = now(chronos.Moment)
-  let res = node.storeBlock(sblock)
-  let em1 = now(chronos.Moment)
-  if res.isOk() or (res.error() in {BlockError.Duplicate, BlockError.Old}):
-    let sm2 = now(chronos.Moment)
-    discard node.updateHead(node.beaconClock.now().slotOrZero)
-    let em2 = now(chronos.Moment)
-    let storeBlockDuration = if res.isOk(): em1 - sm1 else: ZeroDuration
-    let updateHeadDuration = if res.isOk(): em2 - sm2 else: ZeroDuration
-    let overallDuration = if res.isOk(): em2 - sm1 else: ZeroDuration
-    let storeSpeed =
-      block:
-        let secs = float(chronos.seconds(1).nanoseconds)
-        if not(overallDuration.isZero()):
-          let v = secs / float(overallDuration.nanoseconds)
-          round(v * 10_000) / 10_000
-        else:
-          0.0
-    debug "Block got imported successfully",
-           local_head_slot = node.chainDag.head.slot, store_speed = storeSpeed,
-           block_root = shortLog(sblock.root),
-           block_slot = sblock.message.slot,
-           store_block_duration = $storeBlockDuration,
-           update_head_duration = $updateHeadDuration,
-           overall_duration = $overallDuration
-    ok()
-  else:
-    err(res.error())
-
 proc startSyncManager(node: BeaconNode) =
   func getLocalHeadSlot(): Slot =
     node.chainDag.head.slot
@@ -696,15 +565,9 @@ proc startSyncManager(node: BeaconNode) =
 
   node.syncManager = newSyncManager[Peer, PeerID](
     node.network.peerPool, getLocalHeadSlot, getLocalWallSlot,
-    getFirstSlotAtFinalizedEpoch, node.blocksQueue, chunkSize = 32
+    getFirstSlotAtFinalizedEpoch, node.processor.blocksQueue, chunkSize = 32
   )
   node.syncManager.start()
-
-proc runBlockProcessingLoop(node: BeaconNode) {.async.} =
-  ## Incoming blocks processing loop.
-  while true:
-    let sblock = await node.blocksQueue.popFirst()
-    sblock.complete(node.importBlock(sblock.blk))
 
 proc currentSlot(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
@@ -833,20 +696,6 @@ proc installRpcHandlers(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.installDebugApiHandlers(node)
 
 proc installMessageValidators(node: BeaconNode) =
-  proc attestationValidator(attestation: Attestation,
-                            committeeIndex: uint64): bool =
-    let (afterGenesis, slot) = node.beaconClock.now().toSlot()
-    if not afterGenesis:
-      return false
-    node.attestationPool.isValidAttestation(attestation, slot, committeeIndex)
-
-  proc aggregatedAttestationValidator(
-      signedAggregateAndProof: SignedAggregateAndProof): bool =
-    let (afterGenesis, slot) = node.beaconClock.now().toSlot()
-    if not afterGenesis:
-      return false
-    node.attestationPool.isValidAggregatedAttestation(signedAggregateAndProof, slot)
-
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # These validators stay around the whole time, regardless of which specific
   # subnets are subscribed to during any given epoch.
@@ -857,59 +706,19 @@ proc installMessageValidators(node: BeaconNode) =
         getAttestationTopic(node.forkDigest, ci),
         # This proc needs to be within closureScope; don't lift out of loop.
         proc(attestation: Attestation): bool =
-          attestationValidator(attestation, ci)
-      )
+          node.processor[].attestationValidator(attestation, ci))
 
   node.network.addValidator(
     getAggregateAndProofsTopic(node.forkDigest),
     proc(signedAggregateAndProof: SignedAggregateAndProof): bool =
-      aggregatedAttestationValidator(signedAggregateAndProof))
+      node.processor[].aggregateValidator(signedAggregateAndProof))
 
-  node.network.addValidator(node.topicBeaconBlocks) do (signedBlock: SignedBeaconBlock) -> bool:
-    let
-      now = node.beaconClock.now
-      (afterGenesis, slot) = now.toSlot()
-
-    if not afterGenesis:
-      return false
-
-    logScope:
-      blk = shortLog(signedBlock.message)
-      root = shortLog(signedBlock.root)
-
-    let isKnown = signedBlock.root in node.chainDag.blocks
-    if isKnown:
-      trace "Received known gossip block"
-      # TODO:
-      # Potentially use a fast exit here. We only need to check that
-      # the contents of the incoming message match our previously seen
-      # version of the block. We don't need to use HTR for this - for
-      # better efficiency we can use vanilla SHA256 or direct comparison
-      # if we still have the previous block in memory.
-      # TODO:
-      # We are seeing extreme delays sometimes (e.g. 300 seconds).
-      # Should we drop such blocks? The spec doesn't set a policy on this.
-    else:
-      let delay = (now.int64 - signedBlock.message.slot.toBeaconTime.int64)
-      debug "Incoming gossip block", delay
-      beacon_block_received_seconds_from_slot_start.observe delay
-
-    let blck = node.chainDag.isValidBeaconBlock(node.quarantine,
-                                                signedBlock, slot, {})
-    node.dumpBlock(signedBlock, blck)
-
-    blck.isOk
+  node.network.addValidator(
+    node.topicBeaconBlocks,
+    proc (signedBlock: SignedBeaconBlock): bool =
+      node.processor[].blockValidator(signedBlock))
 
 proc getAttestationHandlers(node: BeaconNode): Future[void] =
-  proc attestationHandler(attestation: Attestation) =
-    # Avoid double-counting attestation-topic attestations on shared codepath
-    # when they're reflected through beacon blocks
-    beacon_attestations_received.inc()
-    beacon_attestation_received_seconds_from_slot_start.observe(
-      node.beaconClock.now.int64 - attestation.data.slot.toBeaconTime.int64)
-
-    node.onAttestation(attestation)
-
   var initialSubnets: set[uint8]
   for i in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
     initialSubnets.incl i
@@ -925,16 +734,12 @@ proc getAttestationHandlers(node: BeaconNode): Future[void] =
   node.attestationSubnets.subscribedSubnets[1 - (GENESIS_EPOCH mod 2)] =
     initialSubnets
 
-  node.network.subscribe(
-    getAggregateAndProofsTopic(node.forkDigest),
-    proc(signedAggregateAndProof: SignedAggregateAndProof) =
-      attestationHandler(signedAggregateAndProof.message.aggregate))
+  node.network.subscribe(getAggregateAndProofsTopic(node.forkDigest))
 
 proc addMessageHandlers(node: BeaconNode) =
   waitFor allFutures(
     # As a side-effect, this gets the attestation subnets too.
-    node.network.subscribe(node.topicBeaconBlocks) do (signedBlock: SignedBeaconBlock):
-      onBeaconBlock(node, signedBlock),
+    node.network.subscribe(node.topicBeaconBlocks),
 
     node.getAttestationHandlers()
   )
@@ -987,7 +792,7 @@ proc run*(node: BeaconNode) =
       asyncCheck node.onSlotStart(curSlot, nextSlot)
 
     node.onSecondLoop = runOnSecondLoop(node)
-    node.blockProcessingLoop = runBlockProcessingLoop(node)
+    node.blockProcessingLoop = node.processor.runQueueProcessingLoop()
 
     node.requestManager.start()
     node.startSyncManager()

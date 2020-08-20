@@ -1,7 +1,7 @@
 import options, sequtils, strutils
 import chronos, chronicles
 import spec/[datatypes, digest], eth2_network, beacon_node_types, sync_protocol,
-       sync_manager, ssz/merkleization
+       sync_manager, ssz/merkleization, ./eth2_processor
 export sync_manager
 
 logScope:
@@ -18,7 +18,7 @@ type
   RequestManager* = object
     network*: Eth2Node
     inpQueue*: AsyncQueue[FetchRecord]
-    outQueue*: AsyncQueue[SyncBlock]
+    outQueue*: AsyncQueue[BlockEntry]
     loopFuture: Future[void]
 
 func shortLog*(x: seq[Eth2Digest]): string =
@@ -28,7 +28,7 @@ func shortLog*(x: seq[FetchRecord]): string =
   "[" & x.mapIt(shortLog(it.root)).join(", ") & "]"
 
 proc init*(T: type RequestManager, network: Eth2Node,
-           outputQueue: AsyncQueue[SyncBlock]): RequestManager =
+           outputQueue: AsyncQueue[BlockEntry]): RequestManager =
   RequestManager(
     network: network,
     inpQueue: newAsyncQueue[FetchRecord](),
@@ -55,7 +55,7 @@ proc validate(rman: RequestManager,
     blk: b,
     resfut: newFuture[Result[void, BlockError]]("request.manager.validate")
   )
-  await rman.outQueue.addLast(sblock)
+  await rman.outQueue.addLast(BlockEntry(v: sblock))
   return await sblock.resfut
 
 proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
