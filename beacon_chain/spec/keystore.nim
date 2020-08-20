@@ -11,9 +11,13 @@ import
   # Status libraries
   stew/[results, byteutils, bitseqs, bitops2], stew/shims/macros,
   bearssl, eth/keyfile/uuid, blscurve, faststreams/textio, json_serialization,
-  nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, utils, scrypt],
+  nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, scrypt],
   # Internal
+  libp2p/crypto/crypto as lcrypto,
   ./datatypes, ./crypto, ./digest, ./signatures
+
+# We use `ncrutils` for constant-time hexadecimal encoding/decoding procedures.
+import nimcrypto/utils as ncrutils
 
 export
   results, burnMem, writeValue, readValue
@@ -101,6 +105,14 @@ type
     crypto*: Crypto
     description*: ref string
     pubkey*: ValidatorPubKey
+    path*: KeyPath
+    uuid*: string
+    version*: int
+
+  NetKeystore* = object
+    crypto*: Crypto
+    description*: ref string
+    pubkey*: lcrypto.PublicKey
     path*: KeyPath
     uuid*: string
     version*: int
@@ -375,7 +387,7 @@ proc shaChecksum(key, cipher: openarray[byte]): Sha256Digest =
 proc writeJsonHexString(s: OutputStream, data: openarray[byte])
                        {.raises: [IOError, Defect].} =
   s.write '"'
-  s.writeHex data
+  s.write ncrutils.toHex(data, {HexFlags.LowerCase})
   s.write '"'
 
 proc readValue*(r: var JsonReader, value: var Pbkdf2Salt)
@@ -384,11 +396,11 @@ proc readValue*(r: var JsonReader, value: var Pbkdf2Salt)
 
   if s.len == 0 or s.len mod 16 != 0:
     r.raiseUnexpectedValue(
-      "The Pbkdf2Salt salf must have a non-zero length divisible by 16")
+      "The Pbkdf2Salt salt must have a non-zero length divisible by 16")
 
-  try:
-    value = Pbkdf2Salt hexToSeqByte(s)
-  except ValueError:
+  value = Pbkdf2Salt ncrutils.fromHex(s)
+  let length = len(seq[byte](value))
+  if length == 0 or (length mod 8) != 0:
     r.raiseUnexpectedValue(
       "The Pbkdf2Salt must be a valid hex string")
 
@@ -400,17 +412,15 @@ proc readValue*(r: var JsonReader, value: var Aes128CtrIv)
     r.raiseUnexpectedValue(
       "The aes-128-ctr IV must be a string of length 32")
 
-  try:
-    value = Aes128CtrIv hexToSeqByte(s)
-  except ValueError:
+  value = Aes128CtrIv ncrutils.fromHex(s)
+  if len(seq[byte](value)) != 16:
     r.raiseUnexpectedValue(
       "The aes-128-ctr IV must be a valid hex string")
 
 proc readValue*[T: SimpleHexEncodedTypes](r: var JsonReader, value: var T)
                {.raises: [SerializationError, IOError, Defect].} =
-  try:
-    value = T hexToSeqByte(r.readValue(string))
-  except ValueError:
+  value = T ncrutils.fromHex(r.readValue(string))
+  if len(seq[byte](value)) == 0:
     r.raiseUnexpectedValue("Valid hex string expected")
 
 proc readValue*(r: var JsonReader, value: var Kdf)
@@ -513,6 +523,40 @@ proc decryptKeystore*(keystore: JsonString,
                    return err e.formatMsg("<keystore>")
   decryptKeystore(keystore, password)
 
+proc writeValue*(writer: var JsonWriter, value: lcrypto.PublicKey) {.
+     inline, raises: [IOError, Defect].} =
+  writer.writeValue(ncrutils.toHex(value.getBytes().get(),
+                                   {HexFlags.LowerCase}))
+
+proc readValue*(reader: var JsonReader, value: var lcrypto.PublicKey) {.
+     raises: [SerializationError, IOError, Defect].} =
+  let res = init(lcrypto.PublicKey, reader.readValue(string))
+  if res.isOk():
+    value = res.get()
+  else:
+    # TODO: Can we provide better diagnostic?
+    raiseUnexpectedValue(reader, "Valid hex-encoded public key expected")
+
+proc decryptNetKeystore*(nkeystore: NetKeystore,
+                         password: KeystorePass): KsResult[lcrypto.PrivateKey] =
+  let decryptedBytes = decryptCryptoField(nkeystore.crypto, password)
+  if len(decryptedBytes) > 0:
+    let res = init(lcrypto.PrivateKey, decryptedBytes)
+    if res.isOk():
+      ok(res.get())
+    else:
+      err("Incorrect network private key")
+  else:
+    err("Empty network private key")
+
+proc decryptNetKeystore*(nkeystore: JsonString,
+                         password: KeystorePass): KsResult[lcrypto.PrivateKey] =
+  try:
+    let keystore = Json.decode(string(nkeystore), NetKeystore)
+    return decryptNetKeystore(keystore, password)
+  except SerializationError as exc:
+    return err(exc.formatMsg("<keystore>"))
+
 proc createCryptoField(kdfKind: KdfKind,
                        rng: var BrHmacDrbgContext,
                        secret: openarray[byte],
@@ -570,6 +614,29 @@ proc createCryptoField(kdfKind: KdfKind,
       function: aes128CtrCipher,
       params: Aes128CtrParams(iv: Aes128CtrIv aesIv),
       message: CipherBytes cipherMsg))
+
+proc createNetKeystore*(kdfKind: KdfKind,
+                        rng: var BrHmacDrbgContext,
+                        privKey: lcrypto.PrivateKey,
+                        password = KeystorePass "",
+                        path = KeyPath "",
+                        description = "",
+                        salt: openarray[byte] = @[],
+                        iv: openarray[byte] = @[]): NetKeystore =
+  let
+    secret = privKey.getBytes().get()
+    cryptoField = createCryptoField(kdfKind, rng, secret, password, salt, iv)
+    pubKey = privKey.getKey().get()
+    uuid = uuidGenerate().expect("Random bytes should be available")
+
+  NetKeystore(
+    crypto: cryptoField,
+    pubkey: pubKey,
+    path: path,
+    description: newClone(description),
+    uuid: $uuid,
+    version: 4
+  )
 
 proc createKeystore*(kdfKind: KdfKind,
                      rng: var BrHmacDrbgContext,
