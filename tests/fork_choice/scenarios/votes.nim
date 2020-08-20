@@ -622,25 +622,7 @@ proc setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
     expected_head: fakeHash(9)
   )
 
-  # Pruning below the prune threshold doesn't prune
-  result.ops.add Operation(
-    kind: Prune,
-    finalized_root: fakeHash(5),
-    prune_threshold: high(int),
-    expected_len: 11
-  )
-
-  # Prune shouldn't have changed the head
-  result.ops.add Operation(
-    kind: FindHead,
-    justified_epoch: Epoch(2),
-    justified_root: fakeHash(5),
-    finalized_epoch: Epoch(2),
-    justified_state_balances: balances,
-    expected_head: fakeHash(9)
-  )
-
-  # Ensure that pruning above the prune threshold does prune.
+  # Ensure that pruning does prune.
   #
   #
   #          0
@@ -661,7 +643,6 @@ proc setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   result.ops.add Operation(
     kind: Prune,
     finalized_root: fakeHash(5),
-    prune_threshold: 1,
     expected_len: 6
   )
 

@@ -19,6 +19,7 @@ import
   ../block_pools/[spec_cache, chain_dag]
 
 export sets, results, fork_choice_types
+export proto_array.len
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
@@ -362,14 +363,14 @@ proc get_head*(self: var ForkChoice,
     self.checkpoints.justified.epochRef.effective_balances,
   )
 
-func maybe_prune*(
+func prune*(
        self: var ForkChoiceBackend, finalized_root: Eth2Digest
      ): FcResult[void] =
   ## Prune blocks preceding the finalized root as they are now unneeded.
-  self.proto_array.maybe_prune(finalized_root)
+  self.proto_array.prune(finalized_root)
 
 func prune*(self: var ForkChoice): FcResult[void] =
-  self.backend.maybe_prune(self.checkpoints.finalized.root)
+  self.backend.prune(self.checkpoints.finalized.root)
 
 func compute_deltas(
        deltas: var openarray[Delta],
