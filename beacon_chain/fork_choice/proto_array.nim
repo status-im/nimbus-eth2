@@ -156,12 +156,31 @@ func apply_score_changes*(
 
     # If the node has a parent, try to update its best-child and best-descendant
     if node.parent.isSome():
-      # TODO: Nim `options` module could use some {.inline.}
-      #       and a mutable overload for unsafeGet
-      #       and a "no exceptions" (only panics) implementation.
       let parent_logical_index = node.parent.unsafeGet()
       let parent_physical_index = parent_logical_index - self.nodes.offset
-      if parent_physical_index notin {0..deltas.len-1}:
+      if parent_physical_index < 0:
+        # Orphan, for example
+        #          0
+        #         / \
+        #        2   1
+        #            |
+        #            3
+        #            |
+        #            4
+        # -------pruned here ------
+        #          5   6
+        #          |
+        #          7
+        #          |
+        #          8
+        #         / \
+        #        9  10
+        #
+        # with 5 the canonical chain and 6 a discarded fork
+        # that will be pruned next.
+        break
+
+      if parent_physical_index >= deltas.len:
         return err ForkChoiceError(
           kind: fcInvalidParentDelta,
           index: parent_physical_index
@@ -322,6 +341,9 @@ func prune*(
   moveMem(self.nodes.buf[0].addr, self.nodes.buf[final_phys_index].addr, tail * sizeof(ProtoNode))
   self.nodes.buf.setLen(tail)
 
+  # update offset
+  self.nodes.offset = finalized_index
+
   return ok()
 
 
@@ -403,7 +425,9 @@ func maybe_update_best_child_and_descendant(
           else:
             no_change
         else: # Choose winner by weight
-          if child.get().weight >= best_child.get().weight:
+          let cw = child.get().weight
+          let bw = best_child.get().weight
+          if cw >= bw:
             change_to_child
           else:
             no_change
@@ -415,8 +439,8 @@ func maybe_update_best_child_and_descendant(
         # There is no current best-child but the child is not viable
         no_change
 
-  self.nodes.buf[parent_index].best_child = new_best_child
-  self.nodes.buf[parent_index].best_descendant = new_best_descendant
+  self.nodes.buf[parent_index - self.nodes.offset].best_child = new_best_child
+  self.nodes.buf[parent_index - self.nodes.offset].best_descendant = new_best_descendant
 
   return ok()
 

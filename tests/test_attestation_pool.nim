@@ -292,7 +292,6 @@ suiteReport "Attestation pool processing" & preset():
 
   wrappedTimedTest "Trying to add a duplicate block from an old pruned epoch is tagged as an error":
     chainDag.updateFlags.incl {skipBLSValidation}
-    pool.forkChoice.backend.proto_array.prune_threshold = 1
     var cache = StateCache()
     let
       b10 = makeTestBlock(state.data, chainDag.tail.root, cache)

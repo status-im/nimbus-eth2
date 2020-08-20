@@ -640,6 +640,9 @@ proc setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   #          8
   #         / \
   #        9  10
+  # Note: 5 and 6 become orphans
+  # - 5 is the new root
+  # - 6 is a discarded chain
   result.ops.add Operation(
     kind: Prune,
     finalized_root: fakeHash(5),
