@@ -28,21 +28,15 @@ func is_aggregator(state: BeaconState, slot: Slot, index: CommitteeIndex,
 
 proc aggregate_attestations*(
     pool: AttestationPool, state: BeaconState, index: CommitteeIndex,
-    privkey: ValidatorPrivKey, trailing_distance: uint64,
-    cache: var StateCache): Option[AggregateAndProof] =
-  doAssert state.slot >= trailing_distance
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#configuration
-  doAssert trailing_distance <= ATTESTATION_PROPAGATION_SLOT_RANGE
-
+    validatorIndex: ValidatorIndex, privkey: ValidatorPrivKey,
+    cache: var StateCache):
+    Option[AggregateAndProof] =
   let
-    slot = state.slot - trailing_distance
+    slot = state.slot
     slot_signature = get_slot_signature(
       state.fork, state.genesis_validators_root, slot, privkey)
 
-  doAssert slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= state.slot
-  doAssert state.slot >= slot
-
+  doAssert validatorIndex in get_beacon_committee(state, slot, index, cache)
   doAssert index.uint64 < get_committee_count_per_slot(state, slot.epoch, cache)
 
   # TODO for testing purposes, refactor this into the condition check
@@ -51,27 +45,16 @@ proc aggregate_attestations*(
   if not is_aggregator(state, slot, index, slot_signature, cache):
     return none(AggregateAndProof)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#attestation-data
-  # describes how to construct an attestation, which applies for makeAttestationData(...)
-  # TODO this won't actually match anything
-  let attestation_data = AttestationData(
-    slot: slot,
-    index: index.uint64,
-    beacon_block_root: get_block_root_at_slot(state, slot))
+  let maybe_slot_attestation = getAggregatedAttestation(pool, slot, index)
+  if maybe_slot_attestation.isNone:
+    return none(AggregateAndProof)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#construct-aggregate
-  # TODO once EV goes in w/ refactoring of getAttestationsForBlock, pull out the getSlot version and use
-  # it. This is incorrect.
-  for attestation in getAttestationsForBlock(pool, state):
-    # getAttestationsForBlock(...) already aggregates
-    if attestation.data == attestation_data:
-      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#aggregateandproof
-      return some(AggregateAndProof(
-        aggregator_index: index.uint64,
-        aggregate: attestation,
-        selection_proof: slot_signature))
-
-  none(AggregateAndProof)
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#aggregateandproof
+  some(AggregateAndProof(
+    aggregator_index: validatorIndex.uint64,
+    aggregate: maybe_slot_attestation.get,
+    selection_proof: slot_signature))
 
 proc isValidAttestationSlot(
     pool: AttestationPool, attestationSlot: Slot, attestationBlck: BlockRef): bool =
@@ -251,7 +234,7 @@ proc isValidAggregatedAttestation*(
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. aggregate.data.slot +
   # ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= aggregate.data.slot
   if not checkPropagationSlotRange(aggregate.data, current_slot):
-    debug "Aggregate slot not in propoagation range"
+    debug "Aggregate slot not in propagation range"
     return false
 
   # [IGNORE] The valid aggregate attestation defined by
