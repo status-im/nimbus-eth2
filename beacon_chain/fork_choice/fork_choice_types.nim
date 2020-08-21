@@ -177,3 +177,4 @@ func shortlog*(vote: VoteTracker): auto =
   )
 
 chronicles.formatIt VoteTracker: it.shortLog
+chronicles.formatIt ForkChoiceError: $it
