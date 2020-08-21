@@ -23,7 +23,7 @@ import
   ./mock_validator_keys
 
 proc mockAttestationData(
-       state: BeaconState,
+       state: BeaconStateView,
        slot: Slot,
        index: uint64): AttestationData =
   doAssert state.slot >= slot
@@ -56,7 +56,7 @@ proc mockAttestationData(
     epoch: target_epoch, root: epoch_boundary_root
   )
 
-proc signMockAttestation*(state: BeaconState, attestation: var Attestation) =
+proc signMockAttestation*(state: BeaconStateView, attestation: var Attestation) =
   var cache = StateCache()
   let participants = get_attesting_indices(
     state,
@@ -83,7 +83,7 @@ proc signMockAttestation*(state: BeaconState, attestation: var Attestation) =
     # Otherwise no participants so zero sig
 
 proc mockAttestationImpl(
-       state: BeaconState,
+       state: BeaconStateView,
        slot: Slot,
        flags: UpdateFlags): Attestation =
 
@@ -109,17 +109,17 @@ proc mockAttestationImpl(
     signMockAttestation(state, result)
 
 proc mockAttestation*(
-       state: BeaconState,
+       state: BeaconStateView,
        flags: UpdateFlags = {}): Attestation {.inline.}=
   mockAttestationImpl(state, state.slot, flags)
 
 proc mockAttestation*(
-       state: BeaconState,
+       state: BeaconStateView,
        slot: Slot,
        flags: UpdateFlags = {}): Attestation {.inline.}=
   mockAttestationImpl(state, slot, flags)
 
-func fillAggregateAttestation*(state: BeaconState, attestation: var Attestation) =
+func fillAggregateAttestation*(state: BeaconStateView, attestation: var Attestation) =
   var cache = StateCache()
   let beacon_committee = get_beacon_committee(
     state,
@@ -131,11 +131,11 @@ func fillAggregateAttestation*(state: BeaconState, attestation: var Attestation)
     attestation.aggregation_bits[i] = true
 
 proc add*(state: var HashedBeaconState, attestation: Attestation, slot: Slot) =
-  var signedBlock = mockBlockForNextSlot(state.data)
+  var signedBlock = mockBlockForNextSlot(state.data.unsafeView())
   signedBlock.message.slot = slot
   signedBlock.message.body.attestations.add attestation
   doAssert process_slots(state, slot)
-  signMockBlock(state.data, signedBlock)
+  signMockBlock(state.data.unsafeView(), signedBlock)
 
   let success = state_transition(
     defaultRuntimePreset, state, signedBlock,

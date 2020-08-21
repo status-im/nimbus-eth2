@@ -52,7 +52,7 @@ proc doChecksAndGetCurrentHead(node: BeaconNode, epoch: Epoch): BlockRef =
 
 # TODO currently this function throws if the validator isn't found - is this OK?
 proc getValidatorInfoFromValidatorId(
-    state: BeaconState,
+    state: BeaconStateView,
     current_epoch: Epoch,
     validatorId: string,
     status = ""):

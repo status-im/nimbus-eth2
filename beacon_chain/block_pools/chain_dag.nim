@@ -65,7 +65,7 @@ func parent*(bs: BlockSlot): BlockSlot =
       slot: bs.slot - 1
     )
 
-func get_effective_balances*(state: BeaconState): seq[Gwei] =
+func get_effective_balances*(state: BeaconStateView): seq[Gwei] =
   ## Get the balances from a state as counted for fork choice
   result.newSeq(state.validators.len) # zero-init
 
@@ -78,7 +78,7 @@ func get_effective_balances*(state: BeaconState): seq[Gwei] =
       result[i] = validator.effective_balance
 
 proc init*(
-    T: type EpochRef, state: BeaconState, cache: var StateCache,
+    T: type EpochRef, state: BeaconStateView, cache: var StateCache,
     prevEpoch: EpochRef): T =
   let
     epoch = state.get_current_epoch()
@@ -396,7 +396,7 @@ proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
   dag.withState(dag.tmpState, ancestor):
     let
       prevEpochRef = blck.findEpochRef(epoch - 1)
-      newEpochRef = EpochRef.init(state, cache, prevEpochRef)
+      newEpochRef = EpochRef.init(state.unsafeView(), cache, prevEpochRef)
 
     # TODO consider constraining the number of epochrefs per state
     ancestor.blck.epochRefs.add newEpochRef
@@ -818,21 +818,21 @@ proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): bool =
   true
 
 proc preInit*(
-    T: type ChainDAGRef, db: BeaconChainDB, state: BeaconState,
+    T: type ChainDAGRef, db: BeaconChainDB, state: BeaconStateView,
     signedBlock: SignedBeaconBlock) =
   # write a genesis state, the way the ChainDAGRef expects it to be stored in
   # database
   # TODO probably should just init a block pool with the freshly written
   #      state - but there's more refactoring needed to make it nice - doing
   #      a minimal patch for now..
-  doAssert signedBlock.message.state_root == hash_tree_root(state)
+  doAssert signedBlock.message.state_root == hash_tree_root(state.unsafeDeref)
   notice "New database from snapshot",
     blockRoot = shortLog(signedBlock.root),
     stateRoot = shortLog(signedBlock.message.state_root),
     fork = state.fork,
     validators = state.validators.len()
 
-  db.putState(state)
+  db.putState(state.unsafeDeref())
   db.putBlock(signedBlock)
   db.putTailBlock(signedBlock.root)
   db.putHeadBlock(signedBlock.root)

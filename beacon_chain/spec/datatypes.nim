@@ -337,6 +337,12 @@ type
 
   BeaconStateRef* = ref BeaconState not nil
   NilableBeaconStateRef* = ref BeaconState
+  BeaconStateView* = ptr BeaconState not nil
+    ## The goal is to ensure that BeaconState is never copied
+    ## when pass around in function that does not change it
+    ## https://github.com/status-im/nim-beacon-chain/issues/1549
+    ##
+    ## TODO: cannot use distinct type here
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#validator
   Validator* = object
@@ -447,7 +453,7 @@ type
     stabilitySubnet*: uint64
     stabilitySubnetExpirationEpoch*: Epoch
 
-func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
+func shortValidatorKey*(state: BeaconStateView, validatorIdx: int): string =
     ($state.validators[validatorIdx].pubkey)[0..7]
 
 func getDepositMessage*(depositData: DepositData): DepositMessage =
@@ -783,3 +789,9 @@ func assign*[T](tgt: var T, src: T) =
     tgt = src
   else:
     unsupported T
+
+func unsafeView*(state: BeaconState): BeaconStateView =
+  BeaconStateView(state.unsafeAddr)
+
+func unsafeDeref*(state: BeaconStateView): lent BeaconState =
+  result = (ptr BeaconState)(state)[]

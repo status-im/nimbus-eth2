@@ -40,7 +40,7 @@ import
 declareGauge beacon_current_validators, """Number of status="pending|active|exited|withdrawable" validators in current epoch""" # On epoch transition
 declareGauge beacon_previous_validators, """Number of status="pending|active|exited|withdrawable" validators in previous epoch""" # On epoch transition
 
-func get_epoch_validator_count(state: BeaconState): int64 {.nbench.} =
+func get_epoch_validator_count(state: BeaconStateView): int64 {.nbench.} =
   # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
   #
   # This O(n) loop doesn't add to the algorithmic complexity of the epoch
@@ -64,7 +64,7 @@ func get_epoch_validator_count(state: BeaconState): int64 {.nbench.} =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature*(
-    state: BeaconState, signed_block: SomeSignedBeaconBlock): bool {.nbench.} =
+    state: BeaconStateView, signed_block: SomeSignedBeaconBlock): bool {.nbench.} =
   let
     proposer_index = signed_block.message.proposer_index
   if proposer_index >= state.validators.lenu64:
@@ -83,9 +83,9 @@ proc verify_block_signature*(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
+proc verifyStateRoot(state: BeaconStateView, blck: BeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
-  let state_root = hash_tree_root(state)
+  let state_root = hash_tree_root(state.unsafeDeref)
   if state_root != blck.state_root:
     notice "Block: root verification failed",
       block_state_root = shortLog(blck.state_root), state_root = shortLog(state_root)
@@ -93,7 +93,7 @@ proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   else:
     true
 
-proc verifyStateRoot(state: BeaconState, blck: TrustedBeaconBlock): bool =
+proc verifyStateRoot(state: BeaconStateView, blck: TrustedBeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   true
 
@@ -144,13 +144,13 @@ proc advance_slot*(
   let is_epoch_transition = (state.data.slot + 1).isEpoch
   if is_epoch_transition:
     # Note: Genesis epoch = 0, no need to test if before Genesis
-    beacon_previous_validators.set(get_epoch_validator_count(state.data))
+    beacon_previous_validators.set(get_epoch_validator_count(state.data.unsafeView()))
     process_epoch(state.data, updateFlags, epochCache)
     clear_epoch_from_cache(
       epochCache, (state.data.slot + 1).compute_epoch_at_slot)
   state.data.slot += 1
   if is_epoch_transition:
-    beacon_current_validators.set(get_epoch_validator_count(state.data))
+    beacon_current_validators.set(get_epoch_validator_count(state.data.unsafeView()))
 
   state.root = hash_tree_root(state.data)
 
@@ -213,14 +213,14 @@ proc state_transition*(
   # according to the contents of this block - but first they will validate
   # that the block is sane.
   if skipBLSValidation in flags or
-      verify_block_signature(state.data, signedBlock):
+      verify_block_signature(state.data.unsafeView(), signedBlock):
 
     # TODO after checking scaffolding, remove this
     trace "state_transition: processing block, signature passed",
       signature = shortLog(signedBlock.signature),
       blockRoot = shortLog(signedBlock.root)
     if process_block(preset, state.data, signedBlock.message, flags, stateCache):
-      if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
+      if skipStateRootValidation in flags or verifyStateRoot(state.data.unsafeView(), signedBlock.message):
         # State root is what it should be - we're done!
 
         # TODO when creating a new block, state_root is not yet set.. comparing

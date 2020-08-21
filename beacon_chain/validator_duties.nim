@@ -42,7 +42,7 @@ proc saveValidatorKey*(keyName, key: string, conf: BeaconNodeConf) =
   info "Imported validator key", file = outputFile
 
 proc addLocalValidator*(node: BeaconNode,
-                        state: BeaconState,
+                        state: BeaconStateView,
                         privKey: ValidatorPrivKey) =
   let pubKey = privKey.toPubKey()
 
@@ -65,7 +65,7 @@ proc getAttachedValidator*(node: BeaconNode,
   node.attachedValidators.getValidator(pubkey)
 
 proc getAttachedValidator*(node: BeaconNode,
-                           state: BeaconState,
+                           state: BeaconStateView,
                            idx: ValidatorIndex): AttachedValidator =
   if idx < state.validators.len.ValidatorIndex:
     node.getAttachedValidator(state.validators[idx].pubkey)

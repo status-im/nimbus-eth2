@@ -54,7 +54,7 @@ declareGauge beacon_current_epoch, "Current epoch"
 # --------------------------------------------------------
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_total_active_balance
-func get_total_active_balance*(state: BeaconState, cache: var StateCache): Gwei =
+func get_total_active_balance*(state: BeaconStateView, cache: var StateCache): Gwei =
   # Return the combined effective balance of the active validators.
   # Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei
   # minimum to avoid divisions by zero.
@@ -66,7 +66,7 @@ func get_total_active_balance*(state: BeaconState, cache: var StateCache): Gwei 
     state, cache.get_shuffled_active_validator_indices(state, epoch))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#helper-functions-1
-template get_matching_source_attestations(state: BeaconState,
+template get_matching_source_attestations(state: BeaconStateView,
                                           epoch: Epoch): seq[PendingAttestation] =
   doAssert epoch in [get_current_epoch(state), get_previous_epoch(state)]
   if epoch == get_current_epoch(state):
@@ -74,14 +74,14 @@ template get_matching_source_attestations(state: BeaconState,
   else:
     state.previous_epoch_attestations.asSeq
 
-func get_matching_target_attestations(state: BeaconState, epoch: Epoch):
+func get_matching_target_attestations(state: BeaconStateView, epoch: Epoch):
     seq[PendingAttestation] =
   filterIt(
     get_matching_source_attestations(state, epoch),
     it.data.target.root == get_block_root(state, epoch)
   )
 
-func get_matching_head_attestations(state: BeaconState, epoch: Epoch):
+func get_matching_head_attestations(state: BeaconStateView, epoch: Epoch):
     seq[PendingAttestation] =
   filterIt(
      get_matching_target_attestations(state, epoch),
@@ -90,7 +90,7 @@ func get_matching_head_attestations(state: BeaconState, epoch: Epoch):
   )
 
 func get_attesting_balance(
-    state: BeaconState, attestations: seq[PendingAttestation],
+    state: BeaconStateView, attestations: seq[PendingAttestation],
     stateCache: var StateCache): Gwei =
   # Return the combined effective balance of the set of unslashed validators
   # participating in ``attestations``.
@@ -105,12 +105,12 @@ proc process_justification_and_finalization*(state: var BeaconState,
 
   logScope: pcs = "process_justification_and_finalization"
 
-  if get_current_epoch(state) <= GENESIS_EPOCH + 1:
+  if get_current_epoch(state.unsafeView()) <= GENESIS_EPOCH + 1:
     return
 
   let
-    previous_epoch = get_previous_epoch(state)
-    current_epoch = get_current_epoch(state)
+    previous_epoch = get_previous_epoch(state.unsafeView())
+    current_epoch = get_current_epoch(state.unsafeView())
     old_previous_justified_checkpoint = state.previous_justified_checkpoint
     old_current_justified_checkpoint = state.current_justified_checkpoint
 
@@ -127,24 +127,24 @@ proc process_justification_and_finalization*(state: var BeaconState,
     cast[uint8]((2^JUSTIFICATION_BITS_LENGTH) - 1)
 
   let matching_target_attestations_previous =
-    get_matching_target_attestations(state, previous_epoch)  # Previous epoch
+    get_matching_target_attestations(state.unsafeView(), previous_epoch)  # Previous epoch
 
   if verifyFinalization in updateFlags:
     let active_validator_indices =
       toHashSet(cache.get_shuffled_active_validator_indices(
-          state, get_current_epoch(state)))
+          state.unsafeView(), get_current_epoch(state.unsafeView())))
 
     # Non-attesting indices in previous epoch
     let missing_all_validators =
       difference(active_validator_indices,
         get_attesting_indices(
-          state, matching_target_attestations_previous, cache))
+          state.unsafeView(), matching_target_attestations_previous, cache))
 
     # testnet0 and testnet1 have 8 non-attesting validators each, by default
     if missing_all_validators.len > 15:
       info "Missing too many attesters from previous epoch in verifyFinalization mode",
         missing_all_validators,
-        epoch = get_current_epoch(state)
+        epoch = get_current_epoch(state.unsafeView())
 
   # This epoch processing is the last time these previous attestations can
   # matter -- in the next epoch, they'll be 2 epochs old, when BeaconState
@@ -156,32 +156,32 @@ proc process_justification_and_finalization*(state: var BeaconState,
   # and
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#final-updates
   # after which the state.previous_epoch_attestations is replaced.
-  let total_active_balance = get_total_active_balance(state, cache)
+  let total_active_balance = get_total_active_balance(state.unsafeView(), cache)
   when chronicles.enabledLogLevel == LogLevel.TRACE:
     let active_validator_indices =
       toHashSet(cache.get_shuffled_active_validator_indices(
-          state, get_current_epoch(state)))
+          state.unsafeView(), get_current_epoch(state.unsafeView())))
 
     trace "Non-attesting indices in previous epoch",
       missing_all_validators =
         difference(active_validator_indices, get_attesting_indices(
-          state, matching_target_attestations_previous, cache)),
+          state.unsafeView(), matching_target_attestations_previous, cache)),
       missing_unslashed_validators =
         difference(active_validator_indices,
           get_unslashed_attesting_indices(
-            state, matching_target_attestations_previous, cache)),
+            state.unsafeView(), matching_target_attestations_previous, cache)),
       prev_attestations_len = len(state.previous_epoch_attestations),
       cur_attestations_len = len(state.current_epoch_attestations),
       num_active_validators = len(active_validator_indices),
       total_active_balance,
       attesting_balance_prev = get_attesting_balance(
-        state, matching_target_attestations_previous, cache)
+        state.unsafeView(), matching_target_attestations_previous, cache)
 
-  if get_attesting_balance(state, matching_target_attestations_previous,
+  if get_attesting_balance(state.unsafeView(), matching_target_attestations_previous,
       cache) * 3 >= total_active_balance * 2:
     state.current_justified_checkpoint =
       Checkpoint(epoch: previous_epoch,
-                 root: get_block_root(state, previous_epoch))
+                 root: get_block_root(state.unsafeView(), previous_epoch))
     state.justification_bits.setBit 1
 
     trace "Justified with previous epoch",
@@ -189,12 +189,12 @@ proc process_justification_and_finalization*(state: var BeaconState,
       checkpoint = shortLog(state.current_justified_checkpoint)
 
   let matching_target_attestations_current =
-    get_matching_target_attestations(state, current_epoch)  # Current epoch
-  if get_attesting_balance(state, matching_target_attestations_current,
+    get_matching_target_attestations(state.unsafeView(), current_epoch)  # Current epoch
+  if get_attesting_balance(state.unsafeView(), matching_target_attestations_current,
       cache) * 3 >= total_active_balance * 2:
     state.current_justified_checkpoint =
       Checkpoint(epoch: current_epoch,
-                 root: get_block_root(state, current_epoch))
+                 root: get_block_root(state.unsafeView(), current_epoch))
     state.justification_bits.setBit 0
 
     trace "Justified with current epoch",
@@ -245,7 +245,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
       checkpoint = shortLog(state.finalized_checkpoint)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#helpers
-func get_base_reward(state: BeaconState, index: ValidatorIndex,
+func get_base_reward(state: BeaconStateView, index: ValidatorIndex,
     total_balance: auto): Gwei =
   # Spec function recalculates total_balance every time, which creates an
   # O(n^2) situation.
@@ -253,18 +253,18 @@ func get_base_reward(state: BeaconState, index: ValidatorIndex,
   effective_balance * BASE_REWARD_FACTOR div
     integer_squareroot(total_balance) div BASE_REWARDS_PER_EPOCH
 
-func get_proposer_reward(state: BeaconState, attesting_index: ValidatorIndex,
+func get_proposer_reward(state: BeaconStateView, attesting_index: ValidatorIndex,
     total_balance: Gwei): Gwei =
   # Spec version recalculates get_total_active_balance(state) quadratically
   get_base_reward(state, attesting_index, total_balance) div PROPOSER_REWARD_QUOTIENT
 
-func get_finality_delay(state: BeaconState): uint64 =
+func get_finality_delay(state: BeaconStateView): uint64 =
   get_previous_epoch(state) - state.finalized_checkpoint.epoch
 
-func is_in_inactivity_leak(state: BeaconState): bool =
+func is_in_inactivity_leak(state: BeaconStateView): bool =
   get_finality_delay(state) > MIN_EPOCHS_TO_INACTIVITY_PENALTY
 
-iterator get_eligible_validator_indices(state: BeaconState): ValidatorIndex =
+iterator get_eligible_validator_indices(state: BeaconStateView): ValidatorIndex =
   # TODO probably iterates multiple times over epoch transitions
   let previous_epoch = get_previous_epoch(state)
   for idx, v in state.validators:
@@ -272,7 +272,7 @@ iterator get_eligible_validator_indices(state: BeaconState): ValidatorIndex =
         (v.slashed and previous_epoch + 1 < v.withdrawable_epoch):
       yield idx.ValidatorIndex
 
-func get_attestation_component_deltas(state: BeaconState,
+func get_attestation_component_deltas(state: BeaconStateView,
                                       attestations: seq[PendingAttestation],
                                       total_balance: Gwei,
                                       cache: var StateCache,
@@ -306,7 +306,7 @@ func get_attestation_component_deltas(state: BeaconState,
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#components-of-attestation-deltas
 # These is slightly refactored to calculate total_balance once.
 func get_source_deltas*(
-    state: BeaconState, total_balance: Gwei, cache: var StateCache):
+    state: BeaconStateView, total_balance: Gwei, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
   # Return attester micro-rewards/penalties for source-vote for each validator.
 
@@ -316,7 +316,7 @@ func get_source_deltas*(
     total_balance, cache)
 
 func get_target_deltas*(
-    state: BeaconState, total_balance: Gwei, cache: var StateCache):
+    state: BeaconStateView, total_balance: Gwei, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
   # Return attester micro-rewards/penalties for target-vote for each validator.
   let matching_target_attestations =
@@ -325,7 +325,7 @@ func get_target_deltas*(
     state, matching_target_attestations, total_balance, cache)
 
 func get_head_deltas*(
-    state: BeaconState, total_balance: Gwei, cache: var StateCache):
+    state: BeaconStateView, total_balance: Gwei, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
   # Return attester micro-rewards/penalties for head-vote for each validator.
   let matching_head_attestations =
@@ -334,7 +334,7 @@ func get_head_deltas*(
     state, matching_head_attestations, total_balance, cache)
 
 func get_inclusion_delay_deltas*(
-    state: BeaconState, total_balance: Gwei, cache: var StateCache):
+    state: BeaconStateView, total_balance: Gwei, cache: var StateCache):
     seq[Gwei] =
   # Return proposer and inclusion delay micro-rewards/penalties for each validator.
   var
@@ -378,7 +378,7 @@ func get_inclusion_delay_deltas*(
   rewards
 
 func get_inactivity_penalty_deltas*(
-    state: BeaconState, total_balance: Gwei, cache: var StateCache):
+    state: BeaconStateView, total_balance: Gwei, cache: var StateCache):
     seq[Gwei] =
   # Return inactivity reward/penalty deltas for each validator.
   var penalties = repeat(0'u64, len(state.validators))
@@ -406,7 +406,7 @@ func get_inactivity_penalty_deltas*(
   penalties
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_attestation_deltas
-func get_attestation_deltas(state: BeaconState, cache: var StateCache):
+func get_attestation_deltas(state: BeaconStateView, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
   # Return attestation reward/penalty deltas for each validator.
   let
@@ -435,10 +435,10 @@ func get_attestation_deltas(state: BeaconState, cache: var StateCache):
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#process_rewards_and_penalties
 func process_rewards_and_penalties(
     state: var BeaconState, cache: var StateCache) {.nbench.}=
-  if get_current_epoch(state) == GENESIS_EPOCH:
+  if get_current_epoch(state.unsafeView()) == GENESIS_EPOCH:
     return
 
-  let (rewards, penalties) = get_attestation_deltas(state, cache)
+  let (rewards, penalties) = get_attestation_deltas(state.unsafeView(), cache)
 
   for i in 0 ..< len(state.validators):
     increase_balance(state, i.ValidatorIndex, rewards[i])
@@ -447,8 +447,8 @@ func process_rewards_and_penalties(
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#slashings
 func process_slashings*(state: var BeaconState, cache: var StateCache) {.nbench.}=
   let
-    epoch = get_current_epoch(state)
-    total_balance = get_total_active_balance(state, cache)
+    epoch = get_current_epoch(state.unsafeView())
+    total_balance = get_total_active_balance(state.unsafeView(), cache)
 
   for index, validator in state.validators:
     if validator.slashed and epoch + EPOCHS_PER_SLASHINGS_VECTOR div 2 ==
@@ -464,7 +464,7 @@ func process_slashings*(state: var BeaconState, cache: var StateCache) {.nbench.
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#final-updates
 func process_final_updates*(state: var BeaconState) {.nbench.}=
   let
-    current_epoch = get_current_epoch(state)
+    current_epoch = get_current_epoch(state.unsafeView())
     next_epoch = current_epoch + 1
 
   # Reset eth1 data votes
@@ -492,7 +492,7 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
 
   # Set randao mix
   state.randao_mixes[next_epoch mod EPOCHS_PER_HISTORICAL_VECTOR] =
-    get_randao_mix(state, current_epoch)
+    get_randao_mix(state.unsafeView(), current_epoch)
 
   # Set historical root accumulator
   if next_epoch mod (SLOTS_PER_HISTORICAL_ROOT div SLOTS_PER_EPOCH) == 0:
@@ -510,7 +510,7 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(state: var BeaconState, updateFlags: UpdateFlags,
     per_epoch_cache: var StateCache) {.nbench.} =
-  let currentEpoch = get_current_epoch(state)
+  let currentEpoch = get_current_epoch(state.unsafeView())
   trace "process_epoch",
     current_epoch = currentEpoch
 

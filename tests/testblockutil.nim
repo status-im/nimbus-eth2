@@ -98,7 +98,7 @@ proc addTestBlock*(
   advance_slot(state, flags, cache)
 
   let
-    proposer_index = get_beacon_proposer_index(state.data, cache)
+    proposer_index = get_beacon_proposer_index(state.data.unsafeView(), cache)
     privKey = hackPrivKey(state.data.validators[proposer_index.get])
     randao_reveal =
       if skipBlsValidation notin flags:
@@ -153,7 +153,7 @@ proc makeTestBlock*(
     graffiti, flags)
 
 proc makeAttestation*(
-    state: BeaconState, beacon_block_root: Eth2Digest,
+    state: BeaconStateView, beacon_block_root: Eth2Digest,
     committee: seq[ValidatorIndex], slot: Slot, index: uint64,
     validator_index: auto, cache: var StateCache,
     flags: UpdateFlags = {}): Attestation =
@@ -186,7 +186,7 @@ proc makeAttestation*(
   )
 
 proc find_beacon_committee(
-    state: BeaconState, validator_index: ValidatorIndex,
+    state: BeaconStateView, validator_index: ValidatorIndex,
     cache: var StateCache): auto =
   let epoch = compute_epoch_at_slot(state.slot)
   for epoch_committee_index in 0'u64 ..< get_committee_count_per_slot(
@@ -201,7 +201,7 @@ proc find_beacon_committee(
   doAssert false
 
 proc makeAttestation*(
-    state: BeaconState, beacon_block_root: Eth2Digest,
+    state: BeaconStateView, beacon_block_root: Eth2Digest,
     validator_index: ValidatorIndex, cache: var StateCache,
     flags: UpdateFlags = {}): Attestation =
   let (committee, slot, index) =
@@ -210,7 +210,7 @@ proc makeAttestation*(
     validator_index, cache, flags)
 
 proc makeFullAttestations*(
-    state: BeaconState, beacon_block_root: Eth2Digest, slot: Slot,
+    state: BeaconStateView, beacon_block_root: Eth2Digest, slot: Slot,
     cache: var StateCache,
     flags: UpdateFlags = {}): seq[Attestation] =
   # Create attestations in which the full committee participates for each shard

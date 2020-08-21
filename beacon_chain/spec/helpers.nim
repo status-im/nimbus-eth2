@@ -57,7 +57,7 @@ func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_active_validator_indices
-func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
+func get_active_validator_indices*(state: BeaconStateView, epoch: Epoch):
     seq[ValidatorIndex] =
   # Return the sequence of active validator indices at ``epoch``.
   for idx, val in state.validators:
@@ -65,13 +65,13 @@ func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
       result.add idx.ValidatorIndex
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_current_epoch
-func get_current_epoch*(state: BeaconState): Epoch =
+func get_current_epoch*(state: BeaconStateView): Epoch =
   # Return the current epoch.
   doAssert state.slot >= GENESIS_SLOT, $state.slot
   compute_epoch_at_slot(state.slot)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_randao_mix
-func get_randao_mix*(state: BeaconState,
+func get_randao_mix*(state: BeaconStateView,
                      epoch: Epoch): Eth2Digest =
   ## Returns the randao mix at a recent ``epoch``.
   state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR]
@@ -145,7 +145,7 @@ func get_domain*(
   compute_domain(domain_type, fork_version, genesis_validators_root)
 
 func get_domain*(
-    state: BeaconState, domain_type: DomainType, epoch: Epoch): Domain =
+    state: BeaconStateView, domain_type: DomainType, epoch: Epoch): Domain =
   ## Return the signature domain (fork version concatenated with domain type)
   ## of a message.
   get_domain(state.fork, domain_type, epoch, state.genesis_validators_root)
@@ -161,7 +161,7 @@ func compute_signing_root*(ssz_object: auto, domain: Domain): Eth2Digest =
   hash_tree_root(domain_wrapped_object)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_seed
-func get_seed*(state: BeaconState, epoch: Epoch, domain_type: DomainType): Eth2Digest =
+func get_seed*(state: BeaconStateView, epoch: Epoch, domain_type: DomainType): Eth2Digest =
   # Return the seed at ``epoch``.
 
   var seed_input : array[4+8+32, byte]

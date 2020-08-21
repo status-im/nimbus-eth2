@@ -64,7 +64,7 @@ proc addResolvedBlock(
   if epochRef == nil:
     let prevEpochRef = blockRef.findEpochRef(blockEpoch - 1)
 
-    epochRef = EpochRef.init(state.data.data, cache, prevEpochRef)
+    epochRef = EpochRef.init(state.data.data.unsafeView(), cache, prevEpochRef)
     blockRef.epochAncestor(blockEpoch).blck.epochRefs.add epochRef
 
   dag.blocks[blockRoot] = blockRef

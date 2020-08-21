@@ -14,7 +14,7 @@ proc get_v1_beacon_states_fork(stateId: string): Fork
 
 # TODO stateId is part of the REST path
 proc get_v1_beacon_states_finality_checkpoints(
-  stateId: string): BeaconStatesFinalityCheckpointsTuple
+  stateId: string): BeaconStateViewsFinalityCheckpointsTuple
 
 # TODO stateId is part of the REST path
 proc get_v1_beacon_states_stateId_validators(
@@ -23,7 +23,7 @@ proc get_v1_beacon_states_stateId_validators(
 
 # TODO stateId and validatorId are part of the REST path
 proc get_v1_beacon_states_stateId_validators_validatorId(
-  stateId: string, validatorId: string): BeaconStatesValidatorsTuple
+  stateId: string, validatorId: string): BeaconStateViewsValidatorsTuple
 
 # TODO stateId and epoch are part of the REST path
 proc get_v1_beacon_states_stateId_committees_epoch(stateId: string,
@@ -60,7 +60,7 @@ proc post_v1_beacon_pool_attestations(attestation: Attestation): bool
 proc get_v1_config_fork_schedule(): seq[tuple[epoch: uint64, version: Version]]
 
 # TODO stateId is part of the REST path
-proc get_v1_debug_beacon_states_stateId(stateId: string): BeaconState
+proc get_v1_debug_beacon_states_stateId(stateId: string): BeaconStateView
 
 
 # TODO: delete old stuff
@@ -69,8 +69,7 @@ proc get_v1_debug_beacon_states_stateId(stateId: string): BeaconState
 #
 proc getBeaconHead(): Slot
 proc getBeaconBlock(slot = none(Slot), root = none(Eth2Digest)): BeaconBlock
-proc getBeaconState(slot = none(Slot), root = none(Eth2Digest)): BeaconState
+proc getBeaconState(slot = none(Slot), root = none(Eth2Digest)): BeaconStateView
 proc getNetworkPeerId()
 proc getNetworkPeers()
 proc getNetworkEnr()
-

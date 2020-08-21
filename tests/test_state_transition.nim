@@ -23,7 +23,7 @@ suiteReport "Block processing" & preset():
     # TODO bls verification is a bit of a bottleneck here
     genesisState = newClone(initialize_hashed_beacon_state_from_eth1(
       defaultRuntimePreset, Eth2Digest(), 0, makeInitialDeposits(), {}))
-    genesisBlock = get_initial_beacon_block(genesisState.data)
+    genesisBlock = get_initial_beacon_block(genesisState.data.unsafeView())
     genesisRoot = hash_tree_root(genesisBlock.message)
 
   setup:
@@ -82,9 +82,9 @@ suiteReport "Block processing" & preset():
     let
       # Create an attestation for slot 1 signed by the only attester we have!
       beacon_committee =
-        get_beacon_committee(state.data, state.data.slot, 0.CommitteeIndex, cache)
+        get_beacon_committee(state.data.unsafeView(), state.data.slot, 0.CommitteeIndex, cache)
       attestation = makeAttestation(
-        state.data, previous_block_root, beacon_committee[0], cache)
+        state.data.unsafeView(), previous_block_root, beacon_committee[0], cache)
 
     # Some time needs to pass before attestations are included - this is
     # to let the attestation propagate properly to interested participants

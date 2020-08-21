@@ -122,7 +122,7 @@ proc getStateFromSnapshot(conf: BeaconNodeConf, stateSnapshotContents: ref strin
         err = err.msg, genesisFile = conf.dataDir/genesisFile
       quit 1
 
-func enrForkIdFromState(state: BeaconState): ENRForkID =
+func enrForkIdFromState(state: BeaconStateView): ENRForkID =
   let
     forkVer = state.fork.current_version
     forkDigest = compute_fork_digest(forkVer, state.genesis_validators_root)

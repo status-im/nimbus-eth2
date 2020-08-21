@@ -97,7 +97,7 @@ template timedTest*(name, body) =
   # TODO noto thread-safe as-is
   testTimes.add (f, name)
 
-proc makeTestDB*(tailState: BeaconState, tailBlock: SignedBeaconBlock): BeaconChainDB =
+proc makeTestDB*(tailState: BeaconStateView, tailBlock: SignedBeaconBlock): BeaconChainDB =
   result = init(BeaconChainDB, kvStore MemStoreRef.init())
   ChainDAGRef.preInit(result, tailState, tailBlock)
 
@@ -107,7 +107,7 @@ proc makeTestDB*(validators: Natural): BeaconChainDB =
       defaultRuntimePreset, Eth2Digest(), 0,
       makeInitialDeposits(validators.uint64, flags = {skipBlsValidation}),
         {skipBlsValidation})
-    genBlock = get_initial_beacon_block(genState[])
-  makeTestDB(genState[], genBlock)
+    genBlock = get_initial_beacon_block(genState[].unsafeView())
+  makeTestDB(genState[].unsafeView(), genBlock)
 
 export inMicroseconds

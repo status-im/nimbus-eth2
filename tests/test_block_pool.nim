@@ -334,7 +334,7 @@ suiteReport "chain DAG finalization tests" & preset():
       blck = makeTestBlock(
         dag.headState.data, dag.head.root, cache,
         attestations = makeFullAttestations(
-          dag.headState.data.data, dag.head.root,
+          dag.headState.data.data.unsafeView(), dag.head.root,
           dag.headState.data.data.slot, cache, {}))
       let added = dag.addRawBlock(quarantine, blck, nil)
       check: added.isOk()
@@ -416,7 +416,7 @@ suiteReport "chain DAG finalization tests" & preset():
         blck = makeTestBlock(
           dag.headState.data, dag.head.root, cache,
           attestations = makeFullAttestations(
-            dag.headState.data.data, dag.head.root,
+            dag.headState.data.data.unsafeView(), dag.head.root,
             dag.headState.data.data.slot, cache, {}))
 
       let added = dag.addRawBlock(quarantine, blck, nil)
@@ -431,7 +431,7 @@ suiteReport "chain DAG finalization tests" & preset():
     var blck = makeTestBlock(
       dag.headState.data, dag.head.root, cache,
       attestations = makeFullAttestations(
-        dag.headState.data.data, dag.head.root,
+        dag.headState.data.data.unsafeView(), dag.head.root,
         dag.headState.data.data.slot, cache, {}))
 
     let added = dag.addRawBlock(quarantine, blck, nil)

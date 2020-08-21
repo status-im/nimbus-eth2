@@ -46,14 +46,14 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
        replay = true):
   let
     state = loadGenesis(validators, true)
-    genesisBlock = get_initial_beacon_block(state[].data)
+    genesisBlock = get_initial_beacon_block(state[].data.unsafeView())
 
   echo "Starting simulation..."
 
   let
     db = BeaconChainDB.init(kvStore SqStoreRef.init(".", "block_sim").tryGet())
 
-  ChainDAGRef.preInit(db, state[].data, genesisBlock)
+  ChainDAGRef.preInit(db, state[].data.unsafeView(), genesisBlock)
 
   var
     chainDag = init(ChainDAGRef, defaultRuntimePreset, db)
@@ -71,16 +71,16 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     chainDag.withState(chainDag.tmpState, attestationHead):
       let committees_per_slot =
-        get_committee_count_per_slot(state, slot.epoch, cache)
+        get_committee_count_per_slot(state.unsafeView(), slot.epoch, cache)
 
       for committee_index in 0'u64..<committees_per_slot:
         let committee = get_beacon_committee(
-          state, slot, committee_index.CommitteeIndex, cache)
+          state.unsafeView(), slot, committee_index.CommitteeIndex, cache)
 
         for index_in_committee, validatorIdx in committee:
           if rand(r, 1.0) <= attesterRatio:
             let
-              data = makeAttestationData(state, slot, committee_index, blck.root)
+              data = makeAttestationData(state.unsafeView(), slot, committee_index, blck.root)
               sig =
                 get_attestation_signature(state.fork,
                   state.genesis_validators_root,
@@ -104,7 +104,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     chainDag.withState(chainDag.tmpState, head.atSlot(slot)):
       let
-        proposerIdx = get_beacon_proposer_index(state, cache).get()
+        proposerIdx = get_beacon_proposer_index(state.unsafeView(), cache).get()
         privKey = hackPrivKey(state.validators[proposerIdx])
         eth1data = get_eth1data_stub(
           state.eth1_deposit_index, slot.compute_epoch_at_slot())
@@ -116,7 +116,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           privKey.genRandaoReveal(state.fork, state.genesis_validators_root, slot),
           eth1data,
           default(GraffitiBytes),
-          attPool.getAttestationsForBlock(state),
+          attPool.getAttestationsForBlock(state.unsafeView()),
           @[],
           noRollback,
           cache)

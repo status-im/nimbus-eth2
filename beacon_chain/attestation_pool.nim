@@ -246,7 +246,7 @@ proc getAttestationsForSlot*(pool: AttestationPool, newBlockSlot: Slot):
   some(pool.candidates[candidateIdx.get()])
 
 proc getAttestationsForBlock*(pool: AttestationPool,
-                              state: BeaconState): seq[Attestation] =
+                              state: BeaconStateView): seq[Attestation] =
   ## Retrieve attestations that may be added to a new block at the slot of the
   ## given state
   logScope: pcs = "retrieve_attestation"

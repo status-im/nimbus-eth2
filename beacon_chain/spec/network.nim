@@ -99,7 +99,7 @@ func getAttestationTopic*(forkDigest: ForkDigest,
       attestation.data.slot, attestation.data.index.CommitteeIndex))
 
 func get_committee_assignments(
-    state: BeaconState, epoch: Epoch,
+    state: BeaconStateView, epoch: Epoch,
     validator_indices: HashSet[ValidatorIndex]):
     seq[tuple[subnetIndex: uint64, slot: Slot]] =
   var cache = StateCache()
@@ -123,7 +123,7 @@ proc getStabilitySubnetLength*(): uint64 =
     rand(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION.int).uint64
 
 proc get_attestation_subnet_changes*(
-    state: BeaconState, attachedValidators: openarray[ValidatorIndex],
+    state: BeaconStateView, attachedValidators: openarray[ValidatorIndex],
     prevAttestationSubnets: AttestationSubnets, epoch: Epoch):
     tuple[a: AttestationSubnets, b: set[uint8], c: set[uint8]] =
   static:

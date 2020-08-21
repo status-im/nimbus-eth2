@@ -45,7 +45,7 @@ proc runTest(identifier: string) =
         state = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
         cache = StateCache()
       let
-        total_balance = get_total_active_balance(state[], cache)
+        total_balance = get_total_active_balance(state[].unsafeView(), cache)
         sourceDeltas = parseTest(testDir/"source_deltas.ssz", SSZ, Deltas)
         targetDeltas = parseTest(testDir/"target_deltas.ssz", SSZ, Deltas)
         headDeltas = parseTest(testDir/"head_deltas.ssz", SSZ, Deltas)
@@ -55,13 +55,13 @@ proc runTest(identifier: string) =
           parseTest(testDir/"inactivity_penalty_deltas.ssz", SSZ, Deltas)
 
       check:
-        compareDeltas(sourceDeltas, get_source_deltas(state[], total_balance, cache))
-        compareDeltas(targetDeltas, get_target_deltas(state[], total_balance, cache))
-        compareDeltas(headDeltas, get_head_deltas(state[], total_balance, cache))
+        compareDeltas(sourceDeltas, get_source_deltas(state[].unsafeView, total_balance, cache))
+        compareDeltas(targetDeltas, get_target_deltas(state[].unsafeView, total_balance, cache))
+        compareDeltas(headDeltas, get_head_deltas(state[].unsafeView, total_balance, cache))
         inclusionDelayDeltas.rewards.asSeq ==
-          get_inclusion_delay_deltas(state[], total_balance, cache)
+          get_inclusion_delay_deltas(state[].unsafeView, total_balance, cache)
         inactivityPenaltyDeltas.penalties.asSeq ==
-          get_inactivity_penalty_deltas(state[], total_balance, cache)
+          get_inactivity_penalty_deltas(state[].unsafeView, total_balance, cache)
 
   `testImpl _ rewards _ identifier`()
 

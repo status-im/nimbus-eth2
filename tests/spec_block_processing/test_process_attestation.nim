@@ -54,18 +54,18 @@ suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
       ).isOk
 
       # Check that the attestation was processed
-      if attestation.data.target.epoch == get_current_epoch(state.data):
+      if attestation.data.target.epoch == get_current_epoch(state.data.unsafeView()):
         check(state.data.current_epoch_attestations.len == current_epoch_count + 1)
       else:
         check(state.data.previous_epoch_attestations.len == previous_epoch_count + 1)
 
   valid_attestation("Valid attestation"):
-    let attestation = mockAttestation(state.data)
+    let attestation = mockAttestation(state.data.unsafeView())
     state.data.slot += MIN_ATTESTATION_INCLUSION_DELAY
 
   valid_attestation("Valid attestation from previous epoch"):
     nextSlot(state[])
-    let attestation = mockAttestation(state.data)
+    let attestation = mockAttestation(state.data.unsafeView())
     state.data.slot = Slot(SLOTS_PER_EPOCH - 1)
     nextEpoch(state[])
 

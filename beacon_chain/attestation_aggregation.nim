@@ -19,7 +19,7 @@ logScope:
   topics = "att_aggr"
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#aggregation-selection
-func is_aggregator(state: BeaconState, slot: Slot, index: CommitteeIndex,
+func is_aggregator(state: BeaconStateView, slot: Slot, index: CommitteeIndex,
     slot_signature: ValidatorSig, cache: var StateCache): bool =
   let
     committee_len = get_beacon_committee_len(state, slot, index, cache)
@@ -27,7 +27,7 @@ func is_aggregator(state: BeaconState, slot: Slot, index: CommitteeIndex,
   bytes_to_uint64(eth2digest(slot_signature.toRaw()).data[0..7]) mod modulo == 0
 
 proc aggregate_attestations*(
-    pool: AttestationPool, state: BeaconState, index: CommitteeIndex,
+    pool: AttestationPool, state: BeaconStateView, index: CommitteeIndex,
     validatorIndex: ValidatorIndex, privkey: ValidatorPrivKey,
     cache: var StateCache):
     Option[AggregateAndProof] =

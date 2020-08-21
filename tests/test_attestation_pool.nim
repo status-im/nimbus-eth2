@@ -65,16 +65,16 @@ suiteReport "Attestation pool processing" & preset():
     let
       # Create an attestation for slot 1!
       beacon_committee = get_beacon_committee(
-        state.data.data, state.data.data.slot, 0.CommitteeIndex, cache)
+        state.data.data.unsafeView(), state.data.data.slot, 0.CommitteeIndex, cache)
       attestation = makeAttestation(
-        state.data.data, state.blck.root, beacon_committee[0], cache)
+        state.data.data.unsafeView(), state.blck.root, beacon_committee[0], cache)
 
     pool[].addAttestation(attestation, attestation.data.slot)
 
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1)
 
-    let attestations = pool[].getAttestationsForBlock(state.data.data)
+    let attestations = pool[].getAttestationsForBlock(state.data.data.unsafeView())
 
     check:
       attestations.len == 1
@@ -84,18 +84,18 @@ suiteReport "Attestation pool processing" & preset():
     let
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
-        state.data.data, state.data.data.slot, 0.CommitteeIndex, cache)
+        state.data.data.unsafeView(), state.data.data.slot, 0.CommitteeIndex, cache)
       attestation0 = makeAttestation(
-        state.data.data, state.blck.root, bc0[0], cache)
+        state.data.data.unsafeView(), state.blck.root, bc0[0], cache)
 
     check:
       process_slots(state.data, state.data.data.slot + 1)
 
     let
-      bc1 = get_beacon_committee(state.data.data,
+      bc1 = get_beacon_committee(state.data.data.unsafeView(),
         state.data.data.slot, 0.CommitteeIndex, cache)
       attestation1 = makeAttestation(
-        state.data.data, state.blck.root, bc1[0], cache)
+        state.data.data.unsafeView(), state.blck.root, bc1[0], cache)
 
     # test reverse order
     pool[].addAttestation(attestation1, attestation1.data.slot)
@@ -103,7 +103,7 @@ suiteReport "Attestation pool processing" & preset():
 
     discard process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1)
 
-    let attestations = pool[].getAttestationsForBlock(state.data.data)
+    let attestations = pool[].getAttestationsForBlock(state.data.data.unsafeView())
 
     check:
       attestations.len == 1
@@ -113,11 +113,11 @@ suiteReport "Attestation pool processing" & preset():
     let
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
-        state.data.data, state.data.data.slot, 0.CommitteeIndex, cache)
+        state.data.data.unsafeView(), state.data.data.slot, 0.CommitteeIndex, cache)
       attestation0 = makeAttestation(
-        state.data.data, state.blck.root, bc0[0], cache)
+        state.data.data.unsafeView(), state.blck.root, bc0[0], cache)
       attestation1 = makeAttestation(
-        state.data.data, state.blck.root, bc0[1], cache)
+        state.data.data.unsafeView(), state.blck.root, bc0[1], cache)
 
     pool[].addAttestation(attestation0, attestation0.data.slot)
     pool[].addAttestation(attestation1, attestation1.data.slot)
@@ -125,7 +125,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1)
 
-    let attestations = pool[].getAttestationsForBlock(state.data.data)
+    let attestations = pool[].getAttestationsForBlock(state.data.data.unsafeView())
 
     check:
       attestations.len == 1
@@ -136,11 +136,11 @@ suiteReport "Attestation pool processing" & preset():
     var
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
-        state.data.data, state.data.data.slot, 0.CommitteeIndex, cache)
+        state.data.data.unsafeView(), state.data.data.slot, 0.CommitteeIndex, cache)
       attestation0 = makeAttestation(
-        state.data.data, state.blck.root, bc0[0], cache)
+        state.data.data.unsafeView(), state.blck.root, bc0[0], cache)
       attestation1 = makeAttestation(
-        state.data.data, state.blck.root, bc0[1], cache)
+        state.data.data.unsafeView(), state.blck.root, bc0[1], cache)
 
     attestation0.combine(attestation1, {})
 
@@ -150,7 +150,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1)
 
-    let attestations = pool[].getAttestationsForBlock(state.data.data)
+    let attestations = pool[].getAttestationsForBlock(state.data.data.unsafeView())
 
     check:
       attestations.len == 1
@@ -159,12 +159,12 @@ suiteReport "Attestation pool processing" & preset():
     var cache = StateCache()
     var
       # Create an attestation for slot 1!
-      bc0 = get_beacon_committee(state.data.data,
+      bc0 = get_beacon_committee(state.data.data.unsafeView(),
         state.data.data.slot, 0.CommitteeIndex, cache)
       attestation0 = makeAttestation(
-        state.data.data, state.blck.root, bc0[0], cache)
+        state.data.data.unsafeView(), state.blck.root, bc0[0], cache)
       attestation1 = makeAttestation(
-        state.data.data, state.blck.root, bc0[1], cache)
+        state.data.data.unsafeView(), state.blck.root, bc0[1], cache)
 
     attestation0.combine(attestation1, {})
 
@@ -174,7 +174,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1)
 
-    let attestations = pool[].getAttestationsForBlock(state.data.data)
+    let attestations = pool[].getAttestationsForBlock(state.data.data.unsafeView())
 
     check:
       attestations.len == 1
@@ -233,8 +233,8 @@ suiteReport "Attestation pool processing" & preset():
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
       bc1 = get_beacon_committee(
-        state.data.data, state.data.data.slot - 1, 1.CommitteeIndex, cache)
-      attestation0 = makeAttestation(state.data.data, b10.root, bc1[0], cache)
+        state.data.data.unsafeView(), state.data.data.slot - 1, 1.CommitteeIndex, cache)
+      attestation0 = makeAttestation(state.data.data.unsafeView(), b10.root, bc1[0], cache)
 
     pool[].addAttestation(attestation0, attestation0.data.slot)
 
@@ -245,8 +245,8 @@ suiteReport "Attestation pool processing" & preset():
       head2 == b10Add[]
 
     let
-      attestation1 = makeAttestation(state.data.data, b11.root, bc1[1], cache)
-      attestation2 = makeAttestation(state.data.data, b11.root, bc1[2], cache)
+      attestation1 = makeAttestation(state.data.data.unsafeView(), b11.root, bc1[1], cache)
+      attestation2 = makeAttestation(state.data.data.unsafeView(), b11.root, bc1[2], cache)
     pool[].addAttestation(attestation1, attestation1.data.slot)
 
     let head3 = pool[].selectHead(b10Add[].slot)
@@ -321,7 +321,7 @@ suiteReport "Attestation pool processing" & preset():
     for epoch in 0 ..< 5:
       let start_slot = compute_start_slot_at_epoch(Epoch epoch)
       let committees_per_slot =
-        get_committee_count_per_slot(state.data.data, Epoch epoch, cache)
+        get_committee_count_per_slot(state.data.data.unsafeView(), Epoch epoch, cache)
       for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
         let new_block = makeTestBlock(
           state.data, block_root, cache, attestations = attestations)
@@ -343,7 +343,7 @@ suiteReport "Attestation pool processing" & preset():
         attestations.setlen(0)
         for index in 0'u64 ..< committees_per_slot:
           let committee = get_beacon_committee(
-              state.data.data, state.data.data.slot, index.CommitteeIndex, cache)
+              state.data.data.unsafeView(), state.data.data.slot, index.CommitteeIndex, cache)
 
           # Create a bitfield filled with the given count per attestation,
           # exactly on the right-most part of the committee field.
@@ -354,7 +354,7 @@ suiteReport "Attestation pool processing" & preset():
           attestations.add Attestation(
             aggregation_bits: aggregation_bits,
             data: makeAttestationData(
-              state.data.data, state.data.data.slot,
+              state.data.data.unsafeView(), state.data.data.slot,
               index, blockroot
             )
             # signature: ValidatorSig()

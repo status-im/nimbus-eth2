@@ -34,7 +34,7 @@ func verifyConsensus*(state: BeaconState, attesterRatio: auto) =
   if attesterRatio < 0.72:
     return
 
-  let current_epoch = get_current_epoch(state)
+  let current_epoch = get_current_epoch(state.unsafeView())
   if current_epoch >= 3:
     doAssert state.current_justified_checkpoint.epoch + 1 >= current_epoch
   if current_epoch >= 4:

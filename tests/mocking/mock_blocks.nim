@@ -18,7 +18,7 @@ import
 # ---------------------------------------------------------------
 
 proc signMockBlockImpl(
-      state: BeaconState,
+      state: BeaconStateView,
       signedBlock: var SignedBeaconBlock
     ) =
   let block_slot = signedBlock.message.slot
@@ -34,11 +34,11 @@ proc signMockBlockImpl(
     state.fork, state.genesis_validators_root, block_slot,
     signedBlock.root, privkey)
 
-proc signMockBlock*(state: BeaconState, signedBlock: var SignedBeaconBlock) =
+proc signMockBlock*(state: BeaconStateView, signedBlock: var SignedBeaconBlock) =
   signMockBlockImpl(state, signedBlock)
 
 proc mockBlock(
-    state: BeaconState,
+    state: BeaconStateView,
     slot: Slot,
     flags: UpdateFlags = {}): SignedBeaconBlock =
   ## TODO don't do this gradual construction, for exception safety
@@ -53,12 +53,12 @@ proc mockBlock(
 
   var previous_block_header = state.latest_block_header
   if previous_block_header.state_root == ZERO_HASH:
-    previous_block_header.state_root = state.hash_tree_root()
+    previous_block_header.state_root = state.unsafeDeref().hash_tree_root()
   result.message.parent_root = previous_block_header.hash_tree_root()
 
   if skipBlsValidation notin flags:
     signMockBlock(state, result)
 
-proc mockBlockForNextSlot*(state: BeaconState, flags: UpdateFlags = {}):
+proc mockBlockForNextSlot*(state: BeaconStateView, flags: UpdateFlags = {}):
     SignedBeaconBlock =
   mockBlock(state, state.slot + 1, flags)

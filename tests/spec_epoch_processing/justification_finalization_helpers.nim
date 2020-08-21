@@ -26,26 +26,26 @@ proc addMockAttestations*(
 
   # Alias the attestations container
   var attestations: ptr seq[PendingAttestation]
-  if state.get_current_epoch() == epoch:
+  if state.unsafeView().get_current_epoch() == epoch:
     attestations = state.current_epoch_attestations.asSeq.addr
-  elif state.get_previous_epoch() == epoch:
+  elif state.unsafeView().get_previous_epoch() == epoch:
     attestations = state.previous_epoch_attestations.asSeq.addr
   else:
-    raise newException(ValueError, &"Cannot include attestations from epoch {state.get_current_epoch()} in epoch {epoch}")
+    raise newException(ValueError, &"Cannot include attestations from epoch {state.unsafeView().get_current_epoch()} in epoch {epoch}")
 
   # TODO: Working with an unsigned Gwei balance is a recipe for underflows to happen
   var cache = StateCache()
-  var remaining_balance = state.get_total_active_balance(cache).int64 * 2 div 3
+  var remaining_balance = state.unsafeView().get_total_active_balance(cache).int64 * 2 div 3
 
   let
     start_slot = compute_start_slot_at_epoch(epoch)
-    committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
+    committees_per_slot = get_committee_count_per_slot(state.unsafeView(), epoch, cache)
 
   # for-loop of distinct type is broken: https://github.com/nim-lang/Nim/issues/12074
   for slot in start_slot.uint64 ..< start_slot.uint64 + SLOTS_PER_EPOCH:
     for index in 0'u64 ..< committees_per_slot:
       let committee = get_beacon_committee(
-                        state, slot.Slot, index.CommitteeIndex, cache)
+                        state.unsafeView(), slot.Slot, index.CommitteeIndex, cache)
 
       # Create a bitfield filled with the given count per attestation,
       # exactly on the right-most part of the committee field.

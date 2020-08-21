@@ -105,11 +105,11 @@ const
 {.push warning[LockLevel]: off.}
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#get_eth1_data
-func compute_time_at_slot(state: BeaconState, slot: Slot): uint64 =
+func compute_time_at_slot(state: BeaconStateView, slot: Slot): uint64 =
   state.genesis_time + slot * SECONDS_PER_SLOT
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#get_eth1_data
-func voting_period_start_time*(state: BeaconState): uint64 =
+func voting_period_start_time*(state: BeaconStateView): uint64 =
   let eth1_voting_period_start_slot =
     state.slot - state.slot mod SLOTS_PER_ETH1_VOTING_PERIOD.uint64
   compute_time_at_slot(state, eth1_voting_period_start_slot)
@@ -421,7 +421,7 @@ method onBlockHeaders*(p: Web3DataProviderRef,
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#get_eth1_data
 func getBlockProposalData*(preset: RuntimePreset, eth1Chain: Eth1Chain,
-                           state: BeaconState): (Eth1Data, seq[Deposit]) =
+                           state: BeaconStateView): (Eth1Data, seq[Deposit]) =
   template voteForNoChange() =
     return (state.eth1_data, newSeq[Deposit]())
 
@@ -452,7 +452,7 @@ func getBlockProposalData*(preset: RuntimePreset, eth1Chain: Eth1Chain,
 
   (ourVote.voteData, eth1Chain.getDepositsInRange(prevBlock.number, ourVote.number))
 
-template getBlockProposalData*(m: MainchainMonitor, state: BeaconState): untyped =
+template getBlockProposalData*(m: MainchainMonitor, state: BeaconStateView): untyped =
   getBlockProposalData(m.preset, m.eth1Chain, state)
 
 proc init*(T: type MainchainMonitor,
@@ -507,7 +507,7 @@ proc createBeaconStateAux(preset: RuntimePreset,
                                              eth1Block.timestamp.uint64,
                                              deposits, {})
   var cache = StateCache()
-  let activeValidators = count_active_validators(result[], GENESIS_EPOCH, cache)
+  let activeValidators = count_active_validators(result[].unsafeView(), GENESIS_EPOCH, cache)
   eth1Block.knownGoodDepositsCount = some activeValidators
 
 proc createBeaconState(m: MainchainMonitor, eth1Block: Eth1Block): BeaconStateRef =
@@ -814,4 +814,3 @@ proc getEth1BlockHash*(url: string, blockId: RtBlockIdentifier): Future[BlockHas
     await web3.close()
 
 {.pop.}
-

@@ -53,7 +53,7 @@ func process_block_header*(
     return err("process_block_header: block not newer than latest block header")
 
   # Verify that proposer index is the correct index
-  let proposer_index = get_beacon_proposer_index(state, stateCache)
+  let proposer_index = get_beacon_proposer_index(state.unsafeView(), stateCache)
   if proposer_index.isNone:
     return err("process_block_header: proposer missing")
 
@@ -89,7 +89,7 @@ proc process_randao(
     state: var BeaconState, body: SomeBeaconBlockBody, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.} =
   let
-    proposer_index = get_beacon_proposer_index(state, stateCache)
+    proposer_index = get_beacon_proposer_index(state.unsafeView(), stateCache)
 
   if proposer_index.isNone:
     debug "Proposer index missing, probably along with any active validators"
@@ -97,7 +97,7 @@ proc process_randao(
 
   # Verify RANDAO reveal
   let
-    epoch = state.get_current_epoch()
+    epoch = state.unsafeView().get_current_epoch()
 
   if skipBLSValidation notin flags:
     let proposer_pubkey = state.validators[proposer_index.get].pubkey
@@ -113,7 +113,7 @@ proc process_randao(
 
   # Mix it in
   let
-    mix = get_randao_mix(state, epoch)
+    mix = get_randao_mix(state.unsafeView(), epoch)
     rr = eth2digest(body.randao_reveal.toRaw()).data
 
   state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR].data =
@@ -164,7 +164,7 @@ proc process_proposer_slashing*(
 
   # Verify the proposer is slashable
   let proposer = state.validators[header_1.proposer_index]
-  if not is_slashable_validator(proposer, get_current_epoch(state)):
+  if not is_slashable_validator(proposer, get_current_epoch(state.unsafeView())):
     return err("process_proposer_slashing: slashed proposer")
 
   # Verify signatures
@@ -207,10 +207,10 @@ proc process_attester_slashing*(
       attestation_1.data, attestation_2.data):
     return err("Attester slashing: surround or double vote check failed")
 
-  if not is_valid_indexed_attestation(state, attestation_1, flags).isOk():
+  if not is_valid_indexed_attestation(state.unsafeView(), attestation_1, flags).isOk():
     return err("Attester slashing: invalid attestation 1")
 
-  if not is_valid_indexed_attestation(state, attestation_2, flags).isOk():
+  if not is_valid_indexed_attestation(state.unsafeView(), attestation_2, flags).isOk():
     return err("Attester slashing: invalid attestation 2")
 
   var slashed_any = false
@@ -219,7 +219,7 @@ proc process_attester_slashing*(
       toHashSet(attestation_1.attesting_indices.asSeq),
       toHashSet(attestation_2.attesting_indices.asSeq)).items), system.cmp):
     if is_slashable_validator(
-        state.validators[index], get_current_epoch(state)):
+        state.validators[index], get_current_epoch(state.unsafeView())):
       slash_validator(state, index.ValidatorIndex, stateCache)
       slashed_any = true
   if not slashed_any:
@@ -242,7 +242,7 @@ proc process_voluntary_exit*(
   let validator = state.validators[voluntary_exit.validator_index]
 
   # Verify the validator is active
-  if not is_active_validator(validator, get_current_epoch(state)):
+  if not is_active_validator(validator, get_current_epoch(state.unsafeView())):
     return err("Exit: validator not active")
 
   # Verify exit has not been initiated
@@ -251,11 +251,11 @@ proc process_voluntary_exit*(
 
   # Exits must specify an epoch when they become valid; they are not valid
   # before then
-  if not (get_current_epoch(state) >= voluntary_exit.epoch):
+  if not (get_current_epoch(state.unsafeView()) >= voluntary_exit.epoch):
     return err("Exit: exit epoch not passed")
 
   # Verify the validator has been active long enough
-  if not (get_current_epoch(state) >= validator.activation_epoch +
+  if not (get_current_epoch(state.unsafeView()) >= validator.activation_epoch +
       SHARD_COMMITTEE_PERIOD):
     return err("Exit: not in validator set long enough")
 
@@ -271,7 +271,7 @@ proc process_voluntary_exit*(
     index = voluntary_exit.validator_index,
     num_validators = state.validators.len,
     epoch = voluntary_exit.epoch,
-    current_epoch = get_current_epoch(state),
+    current_epoch = get_current_epoch(state.unsafeView()),
     validator_slashed = validator.slashed,
     validator_withdrawable_epoch = validator.withdrawable_epoch,
     validator_exit_epoch = validator.exit_epoch,

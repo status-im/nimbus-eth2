@@ -43,7 +43,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   let
     flags = if validate: {} else: {skipBlsValidation}
     state = loadGenesis(validators, validate)
-    genesisBlock = get_initial_beacon_block(state.data)
+    genesisBlock = get_initial_beacon_block(state.data.unsafeView)
 
   echo "Starting simulation..."
 
@@ -108,13 +108,13 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       let
         target_slot = state[].data.slot + MIN_ATTESTATION_INCLUSION_DELAY - 1
         committees_per_slot =
-          get_committee_count_per_slot(state[].data, target_slot.epoch, cache)
+          get_committee_count_per_slot(state[].data.unsafeView(), target_slot.epoch, cache)
 
       let
         scass = withTimerRet(timers[tShuffle]):
           mapIt(
             0 ..< committees_per_slot.int,
-            get_beacon_committee(state[].data, target_slot, it.CommitteeIndex, cache))
+            get_beacon_committee(state[].data.unsafeView(), target_slot, it.CommitteeIndex, cache))
 
       for i, scas in scass:
         var
@@ -129,13 +129,13 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             if (rand(r, high(int)).float * attesterRatio).int <= high(int):
               if first:
                 attestation =
-                  makeAttestation(state[].data, latest_block_root, scas, target_slot,
+                  makeAttestation(state[].data.unsafeView(), latest_block_root, scas, target_slot,
                     i.uint64, v, cache, flags)
                 agg.init(attestation.signature)
                 first = false
               else:
                 let att2 =
-                  makeAttestation(state[].data, latest_block_root, scas, target_slot,
+                  makeAttestation(state[].data.unsafeView(), latest_block_root, scas, target_slot,
                     i.uint64, v, cache, flags)
                 if not att2.aggregation_bits.overlaps(attestation.aggregation_bits):
                   attestation.aggregation_bits.combine(att2.aggregation_bits)
@@ -160,7 +160,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     if (state[].data.slot).isEpoch:
       echo &" slot: {shortLog(state[].data.slot)} ",
-        &"epoch: {shortLog(state[].data.get_current_epoch())}"
+        &"epoch: {shortLog(state[].data.unsafeView().get_current_epoch())}"
 
 
   maybeWrite(true) # catch that last state as well..
