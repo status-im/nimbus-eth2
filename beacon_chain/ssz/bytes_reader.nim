@@ -197,7 +197,7 @@ func readSszValue*[T](input: openarray[byte], val: var T) {.raisesssz.} =
       readSszValue(input.toOpenArray(offset, input.len - 1), val[resultLen - 1])
 
   # TODO: Should be possible to remove BitArray from here
-  elif val is UintN|bool|enum:
+  elif val is UintN|bool:
     trs "READING BASIC TYPE ", typetraits.name(T), "  input=", input.len
     val = fromSszBytes(T, input)
     trs "RESULT WAS ", repr(val)

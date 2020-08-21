@@ -32,7 +32,7 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="hgt:n:d:"
-LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop,log-level:,base-port:,base-metrics-port:,with-ganache,reuse-existing-data-dir"
+LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop,enable-logtrace,log-level:,base-port:,base-metrics-port:,with-ganache,reuse-existing-data-dir"
 
 # default values
 TESTNET="1"
@@ -44,12 +44,13 @@ LOG_LEVEL="DEBUG"
 BASE_PORT="9000"
 BASE_METRICS_PORT="8008"
 REUSE_EXISTING_DATA_DIR="0"
+ENABLE_LOGTRACE="0"
 
 print_help() {
   cat <<EOF
-Usage: $(basename $0) --testnet <testnet number> [OTHER OPTIONS] -- [BEACON NODE OPTIONS]
-E.g.: $(basename $0) --testnet ${TESTNET} --nodes ${NUM_NODES} --data-dir "${DATA_DIR}" # defaults
-CI run: $(basename $0) --disable-htop -- --verify-finalization --stop-at-epoch=5
+Usage: $(basename "$0") --testnet <testnet number> [OTHER OPTIONS] -- [BEACON NODE OPTIONS]
+E.g.: $(basename "$0") --testnet ${TESTNET} --nodes ${NUM_NODES} --data-dir "${DATA_DIR}" # defaults
+CI run: $(basename "$0") --disable-htop -- --verify-finalization --stop-at-epoch=5
 
   -h, --help                  this help message
   -t, --testnet               testnet number (default: ${TESTNET})
@@ -60,6 +61,7 @@ CI run: $(basename $0) --disable-htop -- --verify-finalization --stop-at-epoch=5
   --base-port                 bootstrap node's Eth2 traffic port (default: ${BASE_PORT})
   --base-metrics-port         bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
   --disable-htop              don't use "htop" to see the beacon_node processes
+  --enable-logtrace           display logtrace asr analysis
   --log-level                 set the log level (default: ${LOG_LEVEL})
   --reuse-existing-data-dir   instead of deleting and recreating the data dir, keep it and reuse everything we can from it
 EOF
@@ -115,6 +117,10 @@ while true; do
       REUSE_EXISTING_DATA_DIR="1"
       shift
       ;;
+    --enable-logtrace)
+      ENABLE_LOGTRACE="1"
+      shift
+      ;;
     --)
       shift
       break
@@ -159,8 +165,11 @@ else
   MAKE="make"
 fi
 
-NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh ${NETWORK})
-$MAKE -j2 LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node deposit_contract
+NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh "${NETWORK}")
+$MAKE -j2 LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:insecure -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" beacon_node deposit_contract
+if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
+  $MAKE LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:insecure -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" logtrace
+fi
 
 PIDS=""
 WEB3_ARG=""
@@ -207,7 +216,7 @@ else
   DEPOSIT_CONTRACT_ADDRESS=${OUTPUT_PIECES[0]}
   DEPOSIT_CONTRACT_BLOCK=${OUTPUT_PIECES[1]}
 
-  echo Contract deployed at $DEPOSIT_CONTRACT_ADDRESS:$DEPOSIT_CONTRACT_BLOCK
+  echo Contract deployed at "$DEPOSIT_CONTRACT_ADDRESS":"$DEPOSIT_CONTRACT_BLOCK"
 
   MIN_DELAY=1
   MAX_DELAY=5
@@ -262,6 +271,12 @@ dump_logs() {
   done
 }
 
+dump_logtrace() {
+  if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
+    find "${DATA_DIR}" -maxdepth 1 -type f -name 'log*.txt' | sed -e"s/${DATA_DIR}\//--nodes=/" | sort | xargs ./build/logtrace asr --log-dir="${DATA_DIR}" || true
+  fi
+}
+
 NODES_WITH_VALIDATORS=${NODES_WITH_VALIDATORS:-4}
 BOOTSTRAP_NODE=0
 SYSTEM_VALIDATORS=$(( TOTAL_VALIDATORS - USER_VALIDATORS ))
@@ -294,7 +309,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   mkdir -p "${NODE_DATA_DIR}/secrets"
 
   if [[ $NUM_NODE -lt $NODES_WITH_VALIDATORS ]]; then
-    for VALIDATOR in $(ls ${VALIDATORS_DIR} | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
+    for VALIDATOR in $(ls "${VALIDATORS_DIR}" | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
       cp -a "${VALIDATORS_DIR}/$VALIDATOR" "${NODE_DATA_DIR}/validators/"
       cp -a "${SECRETS_DIR}/${VALIDATOR}" "${NODE_DATA_DIR}/secrets/"
     done
@@ -330,6 +345,7 @@ BG_JOBS="$(jobs | wc -l | tr -d ' ')"
 if [[ "$BG_JOBS" != "$NUM_NODES" ]]; then
   echo "$((NUM_NODES - BG_JOBS)) beacon_node instance(s) exited early. Aborting."
   dump_logs
+  dump_logtrace
   exit 1
 fi
 
@@ -339,12 +355,14 @@ if [[ "$USE_HTOP" == "1" ]]; then
 else
   FAILED=0
   for PID in $(echo "$PIDS" | tr ',' ' '); do
-    wait $PID || FAILED="$(( FAILED += 1 ))"
+    wait "$PID" || FAILED="$(( FAILED += 1 ))"
   done
   if [[ "$FAILED" != "0" ]]; then
     echo "${FAILED} child processes had non-zero exit codes (or exited early)."
     dump_logs
+    dump_logtrace
     exit 1
   fi
 fi
 
+dump_logtrace

@@ -39,6 +39,9 @@ const
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L61
 
+  # Changed
+  ETH1_FOLLOW_DISTANCE* {.intdefine.}: uint64 = 16 # blocks
+
   # Unchanged
   MIN_DEPOSIT_AMOUNT*: uint64 = 2'u64^0 * 10'u64^9
   MAX_EFFECTIVE_BALANCE*: uint64 = 2'u64^5 * 10'u64^9
@@ -135,9 +138,6 @@ const
   # Validators
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/minimal/phase0.yaml#L38
-
-  # Changed
-  ETH1_FOLLOW_DISTANCE* {.intdefine.}: uint64 = 16 # blocks
 
   # Unchanged
   TARGET_AGGREGATORS_PER_COMMITTEE*: uint64 = 16 # validators

@@ -1,7 +1,7 @@
 jobs:
   - job: Windows
 
-    timeoutInMinutes: 90
+    timeoutInMinutes: 100
 
     pool:
       vmImage: windows-latest

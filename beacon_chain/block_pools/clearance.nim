@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[sequtils, tables],
+  std/[tables],
   chronicles,
   metrics, stew/results,
   ../extras,
@@ -42,28 +42,30 @@ proc addRawBlock*(
 
 proc addResolvedBlock(
        dag: var ChainDAGRef, quarantine: var QuarantineRef,
-       state: HashedBeaconState, signedBlock: SignedBeaconBlock,
-       parent: BlockRef, cache: StateCache,
+       state: var StateData, signedBlock: SignedBeaconBlock,
+       parent: BlockRef, cache: var StateCache,
        onBlockAdded: OnBlockAdded
-     ): BlockRef =
+     ) =
   # TODO move quarantine processing out of here
   logScope: pcs = "block_resolution"
-  doAssert state.data.slot == signedBlock.message.slot, "state must match block"
+  doAssert state.data.data.slot == signedBlock.message.slot,
+    "state must match block"
+  doAssert state.blck.root == signedBlock.message.parent_root,
+    "the StateData passed into the addResolved function not yet updated!"
 
   let
     blockRoot = signedBlock.root
     blockRef = BlockRef.init(blockRoot, signedBlock.message)
     blockEpoch = blockRef.slot.compute_epoch_at_slot()
-  if parent.slot.compute_epoch_at_slot() == blockEpoch:
-    # If the parent and child blocks are from the same epoch, we can reuse
-    # the epoch cache - but we'll only use the current epoch because the new
-    # block might have affected what the next epoch looks like
-    blockRef.epochsInfo = filterIt(parent.epochsInfo, it.epoch == blockEpoch)
-  else:
-    # Ensure we collect the epoch info if it's missing
-    discard getEpochInfo(blockRef, state.data)
 
   link(parent, blockRef)
+
+  var epochRef = blockRef.findEpochRef(blockEpoch)
+  if epochRef == nil:
+    let prevEpochRef = blockRef.findEpochRef(blockEpoch - 1)
+
+    epochRef = EpochRef.init(state.data.data, cache, prevEpochRef)
+    blockRef.epochAncestor(blockEpoch).blck.epochRefs.add epochRef
 
   dag.blocks[blockRoot] = blockRef
   trace "Populating block dag", key = blockRoot, val = blockRef
@@ -89,10 +91,12 @@ proc addResolvedBlock(
     blockRoot = shortLog(blockRoot),
     heads = dag.heads.len()
 
+  state.blck = blockRef
+
   # Notify others of the new block before processing the quarantine, such that
   # notifications for parents happens before those of the children
   if onBlockAdded != nil:
-    onBlockAdded(blockRef, signedBlock, state)
+    onBlockAdded(blockRef, signedBlock, epochRef, state.data)
 
   # Now that we have the new block, we should see if any of the previously
   # unresolved blocks magically become resolved
@@ -113,8 +117,6 @@ proc addResolvedBlock(
 
       for v in resolved:
         discard addRawBlock(dag, quarantine, v, onBlockAdded)
-
-  blockRef
 
 proc addRawBlock*(
        dag: var ChainDAGRef, quarantine: var QuarantineRef,
@@ -189,8 +191,9 @@ proc addRawBlock*(
 
     # TODO if the block is from the future, we should not be resolving it (yet),
     #      but maybe we should use it as a hint that our clock is wrong?
+    var cache = getStateCache(parent, blck.slot.epoch)
     updateStateData(
-      dag, dag.clearanceState, BlockSlot(blck: parent, slot: blck.slot - 1))
+      dag, dag.clearanceState, parent.atSlot(blck.slot), cache)
 
     let
       poolPtr = unsafeAddr dag # safe because restore is short-lived
@@ -201,21 +204,17 @@ proc addRawBlock*(
       doAssert v.addr == addr poolPtr.clearanceState.data
       assign(poolPtr.clearanceState, poolPtr.headState)
 
-    var cache = getEpochCache(parent, dag.clearanceState.data.data)
     if not state_transition(dag.runtimePreset, dag.clearanceState.data, signedBlock,
-                            cache, dag.updateFlags, restore):
+                            cache, dag.updateFlags + {slotProcessed}, restore):
       notice "Invalid block"
 
       return err Invalid
 
     # Careful, clearanceState.data has been updated but not blck - we need to
     # create the BlockRef first!
-    dag.clearanceState.blck = addResolvedBlock(
-      dag, quarantine, dag.clearanceState.data, signedBlock, parent, cache,
-      onBlockAdded
-    )
-
-    dag.putState(dag.clearanceState.data, dag.clearanceState.blck)
+    addResolvedBlock(
+      dag, quarantine, dag.clearanceState, signedBlock, parent, cache,
+      onBlockAdded)
 
     return ok dag.clearanceState.blck
 
@@ -232,6 +231,10 @@ proc addRawBlock*(
 
   if blck.parent_root in quarantine.missing or
       blck.parent_root in quarantine.orphans:
+    debug "Unresolved block (parent missing or orphaned)",
+      orphans = quarantine.orphans.len,
+      missing = quarantine.missing.len
+
     return err MissingParent
 
   # This is an unresolved block - put its parent on the missing list for now...

@@ -15,8 +15,13 @@ import
 
 from strutils import replace
 
-template `==`*(a, b: ValidatorPrivKey): bool =
-  blscurve.SecretKey(a) == blscurve.SecretKey(b)
+func isEqual*(a, b: ValidatorPrivKey): bool =
+  # `==` on secret keys is not allowed
+  let pa = cast[ptr UncheckedArray[byte]](a.unsafeAddr)
+  let pb = cast[ptr UncheckedArray[byte]](b.unsafeAddr)
+  result = true
+  for i in 0 ..< sizeof(a):
+    result = result and pa[i] == pb[i]
 
 const
   scryptVector = """{
@@ -103,7 +108,7 @@ suiteReport "Keystore":
       decrypt = decryptKeystore(keystore, KeystorePass password)
 
     check decrypt.isOk
-    check secret == decrypt.get()
+    check secret.isEqual(decrypt.get())
 
   timedTest "Scrypt decryption":
     let
@@ -111,7 +116,7 @@ suiteReport "Keystore":
       decrypt = decryptKeystore(keystore, KeystorePass password)
 
     check decrypt.isOk
-    check secret == decrypt.get()
+    check secret.isEqual(decrypt.get())
 
   timedTest "Pbkdf2 encryption":
     let keystore = createKeystore(kdfPbkdf2, rng[], secret,

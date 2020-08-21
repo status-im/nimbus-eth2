@@ -14,9 +14,13 @@ const
   keystoreFileName* = "keystore.json"
 
 type
-  WalletDataForDeposits* = object
+  WalletPathPair* = object
+    wallet*: Wallet
+    path*: string
+
+  CreatedWallet* = object
+    walletPath*: WalletPathPair
     mnemonic*: Mnemonic
-    nextAccount*: Natural
 
 proc loadKeystore(conf: BeaconNodeConf|ValidatorClientConf,
                   validatorsDir, keyName: string): Option[ValidatorPrivKey] =
@@ -105,7 +109,7 @@ proc saveKeystore(rng: var BrHmacDrbgContext,
                   signingKey: ValidatorPrivKey, signingPubKey: ValidatorPubKey,
                   signingKeyPath: KeyPath): Result[void, KeystoreGenerationError] =
   let
-    keyName = $signingPubKey
+    keyName = "0x" & $signingPubKey
     validatorDir = validatorsDir / keyName
 
   if not existsDir(validatorDir):
@@ -134,22 +138,22 @@ proc saveKeystore(rng: var BrHmacDrbgContext,
 
 proc generateDeposits*(preset: RuntimePreset,
                        rng: var BrHmacDrbgContext,
-                       walletData: WalletDataForDeposits,
-                       totalValidators: int,
+                       mnemonic: Mnemonic,
+                       firstValidatorIdx, totalNewValidators: int,
                        validatorsDir: string,
                        secretsDir: string): Result[seq[DepositData], KeystoreGenerationError] =
   var deposits: seq[DepositData]
 
-  info "Generating deposits", totalValidators, validatorsDir, secretsDir
+  info "Generating deposits", totalNewValidators, validatorsDir, secretsDir
 
   let withdrawalKeyPath = makeKeyPath(0, withdrawalKeyKind)
   # TODO: Explain why we are using an empty password
-  var withdrawalKey = keyFromPath(walletData.mnemonic, KeystorePass"", withdrawalKeyPath)
+  var withdrawalKey = keyFromPath(mnemonic, KeystorePass"", withdrawalKeyPath)
   defer: burnMem(withdrawalKey)
   let withdrawalPubKey = withdrawalKey.toPubKey
 
-  for i in 0 ..< totalValidators:
-    let keyStoreIdx = walletData.nextAccount + i
+  for i in 0 ..< totalNewValidators:
+    let keyStoreIdx = firstValidatorIdx + i
     let signingKeyPath = withdrawalKeyPath.append keyStoreIdx
     var signingKey = deriveChildKey(withdrawalKey, keyStoreIdx)
     defer: burnMem(signingKey)
@@ -168,7 +172,7 @@ const
   mostCommonPasswords = wordListArray(
     currentSourcePath.parentDir /
       "../vendor/nimbus-security-resources/passwords/10-million-password-list-top-100000.txt",
-    minWordLength = minPasswordLen)
+    minWordLen = minPasswordLen)
 
 proc saveWallet*(wallet: Wallet, outWalletPath: string): Result[void, string] =
   try: createDir splitFile(outWalletPath).dir
@@ -186,9 +190,20 @@ proc saveWallet*(wallet: Wallet, outWalletPath: string): Result[void, string] =
 
   ok()
 
+proc saveWallet*(wallet: WalletPathPair): Result[void, string] =
+  saveWallet(wallet.wallet, wallet.path)
+
 proc readPasswordInput(prompt: string, password: var TaintedString): bool =
-  try: readPasswordFromStdin(prompt, password)
-  except IOError: false
+  try:
+    when defined(windows):
+      # readPasswordFromStdin() on Windows always returns `false`.
+      # https://github.com/nim-lang/Nim/issues/15207
+      discard readPasswordFromStdin(prompt, password)
+      true
+    else:
+      readPasswordFromStdin(prompt, password)
+  except IOError as exc:
+    false
 
 proc setStyleNoError(styles: set[Style]) =
   when defined(windows):
@@ -274,25 +289,116 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
     fatal "Failed to access the imported deposits directory"
     quit 1
 
+template echo80(msg: string) =
+  echo wrapWords(msg, 80)
+
+template ask(prompt: string): string =
+  try:
+    stdout.write prompt, ": "
+    stdin.readLine()
+  except IOError:
+    return err "failure to read data from stdin"
+
+proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
+                               config: BeaconNodeConf,
+                               mnemonic: Mnemonic): Result[WalletPathPair, string] =
+  echo ""
+  echo80 "When you perform operations with your wallet such as withdrawals " &
+         "and additional deposits, you'll be asked to enter a password. " &
+         "Please note that this password is local to the current Nimbus " &
+         "installation and can be changed at any time."
+  echo ""
+
+  while true:
+    var password, confirmedPassword: TaintedString
+    try:
+      var firstTry = true
+
+      template prompt: string =
+        if firstTry:
+          "Please enter a password: "
+        else:
+          "Please enter a new password: "
+
+      while true:
+        if not readPasswordInput(prompt, password):
+          return err "failure to read a password from stdin"
+
+        if password.len < minPasswordLen:
+          try:
+            echo "The entered password should be at least $1 characters." %
+                 [$minPasswordLen]
+          except ValueError as err:
+            raiseAssert "The format string above is correct"
+        elif password in mostCommonPasswords:
+          echo80 "The entered password is too commonly used and it would be easy " &
+                 "to brute-force with automated tools."
+        else:
+          break
+
+        firstTry = false
+
+      if not readPasswordInput("Please repeat the password:", confirmedPassword):
+        return err "failure to read a password from stdin"
+
+      if password != confirmedPassword:
+        echo "Passwords don't match, please try again"
+        continue
+
+      var name: WalletName
+      let outWalletName = config.outWalletName
+      if outWalletName.isSome:
+        name = outWalletName.get
+      else:
+        echo ""
+        echo80 "For your convenience, the wallet can be identified with a name " &
+               "of your choice. Please enter a wallet name below or press ENTER " &
+               "to continue with a machine-generated name."
+
+        while true:
+          var enteredName = ask "Wallet name"
+          if enteredName.len > 0:
+            name = try: WalletName.parseCmdArg(enteredName)
+                   except CatchableError as err:
+                     echo err.msg & ". Please try again."
+                     continue
+          break
+
+      let nextAccount = if config.walletsCmd == WalletsCmd.restore:
+        config.restoredDepositsCount
+      else:
+        none Natural
+
+      let wallet = createWallet(kdfPbkdf2, rng, mnemonic,
+                                name = name,
+                                nextAccount = nextAccount,
+                                password = KeystorePass password)
+
+      let outWalletFileFlag = config.outWalletFile
+      let outWalletFile = if outWalletFileFlag.isSome:
+        string outWalletFileFlag.get
+      else:
+        config.walletsDir / addFileExt(string wallet.uuid, "json")
+
+      let status = saveWallet(wallet, outWalletFile)
+      if status.isErr:
+        return err("failure to create wallet file due to " & status.error)
+
+      info "Wallet file written", path = outWalletFile
+      return ok WalletPathPair(wallet: wallet, path: outWalletFile)
+    finally:
+      burnMem(password)
+      burnMem(confirmedPassword)
+
 proc createWalletInteractively*(
     rng: var BrHmacDrbgContext,
-    conf: BeaconNodeConf): Result[WalletDataForDeposits, string] =
+    config: BeaconNodeConf): Result[CreatedWallet, string] =
 
-  if conf.nonInteractive:
+  if config.nonInteractive:
     return err "not running in interactive mode"
 
   var mnemonic = generateMnemonic(rng)
   defer: burnMem(mnemonic)
-
-  template ask(prompt: string): string =
-    try:
-      stdout.write prompt, ": "
-      stdin.readLine()
-    except IOError:
-      return err "failure to read data from stdin"
-
-  template echo80(msg: string) =
-    echo wrapWords(msg, 80)
 
   echo80 "The generated wallet is uniquely identified by a seed phrase " &
          "consisting of 24 words. In case you lose your wallet and you " &
@@ -326,87 +432,31 @@ proc createWalletInteractively*(
     else:
       break
 
-  echo ""
-  echo80 "When you perform operations with your wallet such as withdrawals " &
-         "and additional deposits, you'll be asked to enter a password. " &
-         "Please note that this password is local to the current Nimbus " &
-         "installation and can be changed at any time."
-  echo ""
+  let walletPath = ? pickPasswordAndSaveWallet(rng, config, mnemonic)
+  return ok CreatedWallet(walletPath: walletPath, mnemonic: mnemonic)
 
+proc restoreWalletInteractively*(rng: var BrHmacDrbgContext,
+                                 config: BeaconNodeConf) =
+  var
+    enteredMnemonic: TaintedString
+    validatedMnemonic: Mnemonic
+
+  defer:
+    burnMem enteredMnemonic
+    burnMem validatedMnemonic
+
+  echo "To restore your wallet, please enter your backed-up seed phrase."
   while true:
-    var password, confirmedPassword: TaintedString
-    try:
-      var firstTry = true
+    if not readPasswordInput("Seedphrase:", enteredMnemonic):
+      fatal "failure to read password from stdin"
+      quit 1
 
-      template prompt: string =
-        if firstTry:
-          "Please enter a password:"
-        else:
-          "Please enter a new password:"
+    if validateMnemonic(enteredMnemonic, validatedMnemonic):
+      break
+    else:
+      echo "The entered mnemonic was not valid. Please try again."
 
-      while true:
-        if not readPasswordInput(prompt, password):
-          return err "failure to read a password from stdin"
-
-        if password.len < minPasswordLen:
-          try:
-            echo "The entered password should be at least $1 characters." %
-                 [$minPasswordLen]
-          except ValueError as err:
-            raiseAssert "The format string above is correct"
-        elif password in mostCommonPasswords:
-          echo80 "The entered password is too commonly used and it would be easy " &
-                 "to brute-force with automated tools."
-        else:
-          break
-
-        firstTry = false
-
-      if not readPasswordInput("Please repeat the password:", confirmedPassword):
-        return err "failure to read a password from stdin"
-
-      if password != confirmedPassword:
-        echo "Passwords don't match, please try again"
-        continue
-
-      var name: WalletName
-      let outWalletName = conf.outWalletName
-      if outWalletName.isSome:
-        name = outWalletName.get
-      else:
-        echo ""
-        echo80 "For your convenience, the wallet can be identified with a name " &
-               "of your choice. Please enter a wallet name below or press ENTER " &
-               "to continue with a machine-generated name."
-
-        while true:
-          var enteredName = ask "Wallet name"
-          if enteredName.len > 0:
-            name = try: WalletName.parseCmdArg(enteredName)
-                   except CatchableError as err:
-                     echo err.msg & ". Please try again."
-                     continue
-          break
-
-      let wallet = createWallet(kdfPbkdf2, rng, mnemonic,
-                                name = name, password = KeystorePass password)
-
-      let outWalletFileFlag = conf.outWalletFile
-      let outWalletFile = if outWalletFileFlag.isSome:
-        string outWalletFileFlag.get
-      else:
-        conf.walletsDir / addFileExt(string wallet.uuid, "json")
-
-      let status = saveWallet(wallet, outWalletFile)
-      if status.isErr:
-        return err("failure to create wallet file due to " & status.error)
-
-      info "Wallet file written", path = outWalletFile
-      return ok WalletDataForDeposits(mnemonic: mnemonic, nextAccount: 0)
-
-    finally:
-      burnMem(password)
-      burnMem(confirmedPassword)
+  discard pickPasswordAndSaveWallet(rng, config, validatedMnemonic)
 
 proc loadWallet*(fileName: string): Result[Wallet, string] =
   try:
@@ -414,7 +464,7 @@ proc loadWallet*(fileName: string): Result[Wallet, string] =
   except CatchableError as e:
     err e.msg
 
-proc unlockWalletInteractively*(wallet: Wallet): Result[WalletDataForDeposits, string] =
+proc unlockWalletInteractively*(wallet: Wallet): Result[Mnemonic, string] =
   echo "Please enter the password for unlocking the wallet"
 
   for i in 1..3:
@@ -426,8 +476,7 @@ proc unlockWalletInteractively*(wallet: Wallet): Result[WalletDataForDeposits, s
       var secret = decryptCryptoField(wallet.crypto, KeystorePass password)
       if secret.len > 0:
         defer: burnMem(secret)
-        return ok WalletDataForDeposits(
-          mnemonic: Mnemonic string.fromBytes(secret))
+        return ok Mnemonic(string.fromBytes(secret))
       else:
         echo "Unlocking of the wallet failed. Please try again."
     finally:
@@ -435,23 +484,24 @@ proc unlockWalletInteractively*(wallet: Wallet): Result[WalletDataForDeposits, s
 
   return err "failure to unlock wallet"
 
-proc findWallet*(config: BeaconNodeConf, name: WalletName): Result[Wallet, string] =
+proc findWallet*(config: BeaconNodeConf, name: WalletName): Result[WalletPathPair, string] =
   var walletFiles = newSeq[string]()
 
   try:
     for kind, walletFile in walkDir(config.walletsDir):
       if kind != pcFile: continue
-      let fullPath = config.walletsDir / walletFile
-      if walletFile == name.string:
-        return loadWallet(fullPath)
-      walletFiles.add fullPath
+      let walletId = splitFile(walletFile).name
+      if cmpIgnoreCase(walletId, name.string) == 0:
+        let wallet = ? loadWallet(walletFile)
+        return ok WalletPathPair(wallet: wallet, path: walletFile)
+      walletFiles.add walletFile
   except OSError:
     return err "failure to list wallet directory"
 
   for walletFile in walletFiles:
-    let wallet = loadWallet(walletFile)
-    if wallet.isOk and wallet.get.name == name:
-      return wallet
+    let wallet = ? loadWallet(walletFile)
+    if cmpIgnoreCase(wallet.name.string, name.string) == 0:
+      return ok WalletPathPair(wallet: wallet, path: walletFile)
 
   return err "failure to locate wallet file"
 

@@ -40,7 +40,7 @@ type Timers = enum
 
 # TODO confutils is an impenetrable black box. how can a help text be added here?
 cli do(slots = SLOTS_PER_EPOCH * 6,
-       validators = SLOTS_PER_EPOCH * 130, # One per shard is minimum
+       validators = SLOTS_PER_EPOCH * 200, # One per shard is minimum
        attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.73,
        blockRatio {.desc: "ratio of slots with blocks"} = 1.0,
        replay = true):
@@ -70,7 +70,6 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       attestationHead = chainDag.head.atSlot(slot)
 
     chainDag.withState(chainDag.tmpState, attestationHead):
-      var cache = getEpochCache(attestationHead.blck, state)
       let committees_per_slot =
         get_committee_count_per_slot(state, slot.epoch, cache)
 
@@ -104,8 +103,6 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       head = chainDag.head
 
     chainDag.withState(chainDag.tmpState, head.atSlot(slot)):
-      var cache = StateCache()
-
       let
         proposerIdx = get_beacon_proposer_index(state, cache).get()
         privKey = hackPrivKey(state.validators[proposerIdx])
@@ -140,9 +137,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
       let added = chainDag.addRawBlock(quarantine, newBlock) do (
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
-          state: HashedBeaconState):
+          epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
-        attPool.addForkChoice(state.data, blckRef, signedBlock.message, blckRef.slot)
+        attPool.addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
       blck() = added[]
       chainDag.updateHead(added[])
@@ -174,8 +171,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
   if replay:
     withTimer(timers[tReplay]):
+      var cache = StateCache()
       chainDag.updateStateData(
-        replayState[], chainDag.head.atSlot(Slot(slots)))
+        replayState[], chainDag.head.atSlot(Slot(slots)), cache)
 
   echo "Done!"
 

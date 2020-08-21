@@ -28,8 +28,6 @@ export sets, results, fork_choice_types
 # - Prysmatic writeup: https://hackmd.io/bABJiht3Q9SyV3Ga4FT9lQ#High-level-concept
 # - Gasper Whitepaper: https://arxiv.org/abs/2003.03052
 
-const DefaultPruneThreshold = 256
-
 # Forward declarations
 # ----------------------------------------------------------------------
 
@@ -49,69 +47,41 @@ func compute_deltas(
 logScope:
   topics = "fork_choice"
 
-# API:
-# - The private procs uses the ForkChoiceError error code
-# - The public procs use Result
-
-func get_effective_balances(state: BeaconState): seq[Gwei] =
-  ## Get the balances from a state
-  result.newSeq(state.validators.len) # zero-init
-
-  let epoch = state.get_current_epoch()
-
-  for i in 0 ..< result.len:
-    # All non-active validators have a 0 balance
-    template validator: Validator = state.validators[i]
-    if validator.is_active_validator(epoch):
-      result[i] = validator.effective_balance
-
-proc initForkChoiceBackend*(justified_epoch: Epoch,
-                            finalized_epoch: Epoch,
-                            finalized_root: Eth2Digest,
-                            ): FcResult[ForkChoiceBackend] =
-  var proto_array = ProtoArray(
-    prune_threshold: DefaultPruneThreshold,
-    justified_epoch: finalized_epoch,
-    finalized_epoch: finalized_epoch
+proc init*(T: type ForkChoiceBackend,
+           justified_epoch: Epoch,
+           finalized_root: Eth2Digest,
+           finalized_epoch: Epoch): T =
+  T(
+    proto_array: ProtoArray.init(
+      justified_epoch,
+      finalized_root,
+      finalized_epoch
+    )
   )
 
-  ? proto_array.on_block(
-    finalized_root,
-    hasParentInForkChoice = false,
-    Eth2Digest(),
-    finalized_epoch,
-    finalized_epoch
-  )
-
-  ok(ForkChoiceBackend(
-    proto_array: proto_array,
-  ))
-
-proc initForkChoice*(finalizedState: StateData, ): FcResult[ForkChoice] =
-  ## Initialize a fork choice context
+proc init*(T: type ForkChoice,
+           epochRef: EpochRef,
+           blck: BlockRef): T =
+  ## Initialize a fork choice context for a genesis state - in the genesis
+  ## state, the justified and finalized checkpoints are the same, so only one
+  ## is used here
   debug "Initializing fork choice",
-    state_epoch = finalizedState.data.data.get_current_epoch(),
-    blck = shortLog(finalizedState.blck)
+    epoch = epochRef.epoch, blck = shortLog(blck)
 
-  let finalized_epoch = finalizedState.data.data.get_current_epoch()
+  let
+    justified = BalanceCheckpoint(blck: blck, epochRef: epochRef)
+    finalized = Checkpoint(root: blck.root, epoch: epochRef.epoch)
+    best_justified = Checkpoint(
+      root: justified.blck.root, epoch: justified.epochRef.epoch)
 
-  let ffgCheckpoint = FFGCheckpoints(
-    justified: BalanceCheckpoint(
-      blck: finalizedState.blck,
-      epoch: finalized_epoch,
-      balances: get_effective_balances(finalizedState.data.data)),
-    finalized: Checkpoint(root: finalizedState.blck.root, epoch: finalized_epoch))
-
-  let backend = ? initForkChoiceBackend(
-    finalized_epoch, finalized_epoch, finalizedState.blck.root)
-
-  ok(ForkChoice(
-    backend: backend,
+  ForkChoice(
+    backend: ForkChoiceBackend.init(
+      epochRef.epoch, blck.root, epochRef.epoch),
     checkpoints: Checkpoints(
-      current: ffgCheckpoint,
-      best: ffgCheckpoint),
-    finalizedBlock: finalizedState.blck,
-  ))
+      justified: justified,
+      finalized: finalized,
+      best_justified: best_justified)
+  )
 
 func extend[T](s: var seq[T], minLen: int) =
   ## Extend a sequence so that it can contains at least `minLen` elements.
@@ -119,6 +89,38 @@ func extend[T](s: var seq[T], minLen: int) =
   ## The extension is zero-initialized
   if s.len < minLen:
     s.setLen(minLen)
+
+proc compute_slots_since_epoch_start(slot: Slot): uint64 =
+    slot - slot.epoch().compute_start_slot_at_epoch()
+
+
+proc on_tick(self: var Checkpoints, dag: ChainDAGRef, time: Slot): FcResult[void] =
+  if self.time > time:
+    return err(ForkChoiceError(kind: fcInconsistentTick))
+
+  let newEpoch = self.time.epoch() != time.epoch()
+  self.time = time
+
+  if newEpoch and
+      self.best_justified.epoch > self.justified.epochRef.epoch:
+    let blck = dag.getRef(self.best_justified.root)
+    if blck.isNil:
+      return err(ForkChoiceError(
+        kind: fcJustifiedNodeUnknown, block_root: self.best_justified.root))
+
+    self.justified = BalanceCheckpoint(
+      blck: blck,
+      epochRef: dag.getEpochRef(blck, self.best_justified.epoch))
+  ok()
+
+proc process_attestation_queue(self: var ForkChoice) {.gcsafe.}
+proc update_time(self: var ForkChoice, dag: ChainDAGRef, time: Slot): FcResult[void] =
+  while time > self.checkpoints.time:
+    ? on_tick(self.checkpoints, dag, self.checkpoints.time + 1)
+
+  self.process_attestation_queue()
+
+  ok()
 
 func process_attestation*(
        self: var ForkChoiceBackend,
@@ -145,13 +147,19 @@ func process_attestation*(
         validator_index = validator_index,
         new_vote = shortLog(vote)
 
-func process_attestation*(
-       self: var ForkChoice,
-       validator_index: ValidatorIndex,
-       block_root: Eth2Digest,
-       target_epoch: Epoch
-     ) =
-  self.backend.process_attestation(validator_index, block_root, target_epoch)
+proc process_attestation_queue(self: var ForkChoice) =
+  var
+    keep: seq[QueuedAttestation]
+  for attestation in self.queuedAttestations:
+    if attestation.slot < self.checkpoints.time:
+      for validator_index in attestation.attesting_indices:
+        self.backend.process_attestation(
+          validator_index, attestation.block_root,
+          attestation.target_epoch)
+    else:
+      keep.add attestation
+
+  self.queuedAttestations = keep
 
 func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## Returns `true` if a block is known to the fork choice
@@ -160,83 +168,104 @@ func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## In particular, before adding a block, its parent must be known to the fork choice
   self.proto_array.indices.contains(block_root)
 
-proc get_balances_for_block(self: var Checkpoints, blck: BlockSlot, dag: ChainDAGRef): seq[Gwei] =
-  dag.withState(dag.balanceState, blck):
-    get_effective_balances(state)
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/fork-choice.md#on_attestation
+proc on_attestation*(
+       self: var ForkChoice,
+       dag: ChainDAGRef,
+       slot: Slot,
+       beacon_block_root: Eth2Digest,
+       attesting_indices: openArray[ValidatorIndex],
+       target: Checkpoint,
+       wallSlot: Slot
+     ): FcResult[void] =
+  ? self.update_time(dag, wallSlot)
+
+  if beacon_block_root == Eth2Digest():
+    return ok()
+
+  if slot < self.checkpoints.time:
+    for validator_index in attesting_indices:
+      self.backend.process_attestation(
+        validator_index, beacon_block_root, target.epoch)
+  else:
+    self.queued_attestations.add(QueuedAttestation(
+      slot: slot,
+      attesting_indices: @attesting_indices,
+      block_root: beacon_block_root,
+      target_epoch: target.epoch))
+  ok()
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/fork-choice.md#should_update_justified_checkpoint
+proc should_update_justified_checkpoint(
+        self: var Checkpoints,
+        dag: ChainDAGRef,
+        epochRef: EpochRef): FcResult[bool] =
+  if compute_slots_since_epoch_start(self.time) < SAFE_SLOTS_TO_UPDATE_JUSTIFIED:
+      return ok(true)
+
+  let
+    justified_slot = compute_start_slot_at_epoch(self.justified.epochRef.epoch)
+
+  let new_justified_checkpoint = epochRef.current_justified_checkpoint;
+
+  let justified_blck = dag.getRef(new_justified_checkpoint.root)
+
+  if justified_blck.isNil:
+    return err(ForkChoiceError(
+      kind: fcJustifiedNodeUnknown, block_root: new_justified_checkpoint.root))
+
+  let justified_ancestor =
+    justified_blck.atSlot(justified_slot)
+
+  if justified_ancestor.blck.root != self.justified.blck.root:
+    return ok(false)
+
+  ok(true)
 
 proc process_state(self: var Checkpoints,
                    dag: ChainDAGRef,
-                   state: BeaconState,
-                   blck: BlockRef) =
-  trace "Processing state",
-    state_slot = state.slot,
-    state_justified = state.current_justified_checkpoint.epoch,
-    current_justified = self.current.justified.epoch,
-    state_finalized = state.finalized_checkpoint.epoch,
-    current_finalized = self.current.finalized
+                   epochRef: EpochRef,
+                   blck: BlockRef): FcResult[void] =
+  let
+    state_justified_epoch = epochRef.current_justified_checkpoint.epoch
+    state_finalized_epoch = epochRef.finalized_checkpoint.epoch
 
-  if (state.current_justified_checkpoint.epoch > self.current.justified.epoch) and
-      (state.finalized_checkpoint.epoch >= self.current.finalized.epoch):
-    let justifiedBlck = blck.atEpochStart(
-      state.current_justified_checkpoint.epoch)
+  trace "Processing epoch",
+    epoch = epochRef.epoch,
+    state_justified_epoch = state_justified_epoch,
+    current_justified = self.justified.epochRef.epoch,
+    state_finalized_epoch = state_finalized_epoch,
+    current_finalized = self.finalized.epoch
 
-    doAssert justifiedBlck.blck.root == state.current_justified_checkpoint.root
+  if state_justified_epoch > self.justified.epochRef.epoch:
+    if state_justified_epoch > self.best_justified.epoch:
+      self.best_justified = epochRef.current_justified_checkpoint
 
-    let candidate = FFGCheckpoints(
-      justified: BalanceCheckpoint(
+    if ? should_update_justified_checkpoint(self, dag, epochRef):
+      let justifiedBlck = blck.atEpochStart(state_justified_epoch)
+
+      self.justified =
+        BalanceCheckpoint(
           blck: justifiedBlck.blck,
-          epoch: state.current_justified_checkpoint.epoch,
-          balances: self.get_balances_for_block(justifiedBlck, dag),
-      ),
-      finalized: state.finalized_checkpoint,
-    )
+          epochRef: dag.getEpochRef(justifiedBlck.blck, state_justified_epoch))
 
-    trace "Applying candidate",
-      justified_block = shortLog(candidate.justified.blck),
-      justified_epoch = shortLog(candidate.justified.epoch),
-      finalized = candidate.finalized,
-      state_finalized = state.finalized_checkpoint.epoch
+  if state_finalized_epoch > self.finalized.epoch:
+    self.finalized = epochRef.finalized_checkpoint
 
-    if self.current.justified.blck.isAncestorOf(justifiedBlck.blck):
-      trace "Updating current",
-        prev = shortLog(self.current.justified.blck)
-      self.current = candidate
-    else:
-      trace "No current update",
-        prev = shortLog(self.current.justified.blck)
+    if self.justified.epochRef.epoch != state_justified_epoch or
+      self.justified.blck.root != epochRef.current_justified_checkpoint.root:
 
-    if candidate.justified.epoch > self.best.justified.epoch:
-      trace "Updating best",
-        prev = shortLog(self.best.justified.blck)
-      self.best = candidate
-    else:
-      trace "No best update",
-        prev = shortLog(self.best.justified.blck)
+      if (state_justified_epoch > self.justified.epochRef.epoch) or
+          (self.justified.blck.atEpochStart(self.finalized.epoch).blck.root !=
+            self.finalized.root):
 
-    # self.balances_cache.process_state(block_root, state)?;
+        let justifiedBlck = blck.atEpochStart(state_justified_epoch)
 
-func compute_slots_since_epoch_start(slot: Slot): uint64 =
-  slot - compute_start_slot_at_epoch(compute_epoch_at_slot(slot))
-
-proc maybe_update(self: var Checkpoints, current_slot: Slot) =
-  trace "Updating checkpoint",
-    current_slot,
-    best = shortLog(self.best.justified.blck),
-    current = shortLog(self.current.justified.blck),
-    updateAt = self.updateAt
-
-  if self.best.justified.epoch > self.current.justified.epoch:
-    let current_epoch = current_slot.compute_epoch_at_slot()
-
-    if self.update_at.isNone():
-      if self.best.justified.epoch > self.current.justified.epoch:
-        if compute_slots_since_epoch_start(current_slot) < SAFE_SLOTS_TO_UPDATE_JUSTIFIED:
-          self.current = self.best
-        else:
-          self.update_at = some(current_epoch + 1)
-    elif self.updateAt.get() <= current_epoch:
-      self.current = self.best
-      self.update_at = none(Epoch)
+        self.justified =
+          BalanceCheckpoint(
+            blck: justifiedBlck.blck,
+            epochRef: dag.getEpochRef(justifiedBlck.blck, state_justified_epoch))
+  ok()
 
 proc process_block*(self: var ForkChoiceBackend,
                     block_root: Eth2Digest,
@@ -244,18 +273,16 @@ proc process_block*(self: var ForkChoiceBackend,
                     justified_epoch: Epoch,
                     finalized_epoch: Epoch): FcResult[void] =
   self.proto_array.on_block(
-    block_root, hasParentInForkChoice = true, parent_root,
-    justified_epoch, finalized_epoch)
+    block_root, parent_root, justified_epoch, finalized_epoch)
 
 proc process_block*(self: var ForkChoice,
                     dag: ChainDAGRef,
-                    state: BeaconState,
+                    epochRef: EpochRef,
                     blckRef: BlockRef,
                     blck: SomeBeaconBlock,
                     wallSlot: Slot): FcResult[void] =
-  process_state(self.checkpoints, dag, state, blckRef)
-
-  maybe_update(self.checkpoints, wallSlot)
+  ? update_time(self, dag, wallSlot)
+  ? process_state(self.checkpoints, dag, epochRef, blckRef)
 
   for attestation in blck.body.attestations:
     let targetBlck = dag.getRef(attestation.data.target.root)
@@ -263,20 +290,19 @@ proc process_block*(self: var ForkChoice,
       continue
     if attestation.data.beacon_block_root in self.backend:
       let
-        epochRef =
-          dag.getEpochRef(targetBlck, attestation.data.target.epoch)
         participants = get_attesting_indices(
           epochRef, attestation.data, attestation.aggregation_bits)
 
       for validator in participants:
-        self.process_attestation(
+        self.backend.process_attestation(
           validator,
           attestation.data.beacon_block_root,
           attestation.data.target.epoch)
 
   ? process_block(
       self.backend, blckRef.root, blck.parent_root,
-      state.current_justified_checkpoint.epoch, state.finalized_checkpoint.epoch
+      epochRef.current_justified_checkpoint.epoch,
+      epochRef.finalized_checkpoint.epoch
     )
 
   trace "Integrating block in fork choice",
@@ -323,21 +349,17 @@ proc find_head*(
 
   return ok(new_head)
 
-proc find_head*(self: var ForkChoice,
-                wallSlot: Slot): FcResult[Eth2Digest] =
-  template remove_alias(blck_root: Eth2Digest): Eth2Digest =
-    if blck_root == Eth2Digest():
-      self.finalizedBlock.root
-    else:
-      blck_root
-
-  self.checkpoints.maybe_update(wallSlot)
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/fork-choice.md#get_head
+proc get_head*(self: var ForkChoice,
+               dag: ChainDAGRef,
+               wallSlot: Slot): FcResult[Eth2Digest] =
+  ? self.update_time(dag, wallSlot)
 
   self.backend.find_head(
-    self.checkpoints.current.justified.epoch,
-    remove_alias(self.checkpoints.current.justified.blck.root),
-    self.checkpoints.current.finalized.epoch,
-    self.checkpoints.current.justified.balances,
+    self.checkpoints.justified.epochRef.epoch,
+    self.checkpoints.justified.blck.root,
+    self.checkpoints.finalized.epoch,
+    self.checkpoints.justified.epochRef.effective_balances,
   )
 
 func maybe_prune*(
@@ -347,8 +369,7 @@ func maybe_prune*(
   self.proto_array.maybe_prune(finalized_root)
 
 func prune*(self: var ForkChoice): FcResult[void] =
-  let finalized_root = self.checkpoints.current.finalized.root
-  self.backend.maybe_prune(finalized_root)
+  self.backend.maybe_prune(self.checkpoints.finalized.root)
 
 func compute_deltas(
        deltas: var openarray[Delta],

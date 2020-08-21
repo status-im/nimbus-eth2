@@ -138,7 +138,7 @@ proc nfuzz_proposer_slashing(input: openArray[byte], xoutput: ptr byte,
 proc nfuzz_voluntary_exit(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(VoluntaryExitInput):
-    process_voluntary_exit(data.state, data.exit, flags).isOk
+    process_voluntary_exit(data.state, data.exit, flags, cache).isOk
 
 # Note: Could also accept raw input pointer and access list_size + seed here.
 # However, list_size needs to be known also outside this proc to allocate xoutput.
@@ -153,12 +153,9 @@ proc nfuzz_shuffle(input_seed: ptr byte, xoutput: var openArray[uint64]): bool
   copyMem(addr(seed.data), input_seed, sizeof(seed.data))
 
   var shuffled_seq: seq[ValidatorIndex]
-  shuffled_seq = get_shuffled_seq(seed, list_size.uint64)
-
-  doAssert(
-    list_size == shuffled_seq.len,
-    "Shuffled list should be of requested size."
-  )
+  for i in 0..<list_size:
+    shuffled_seq.add i.ValidatorIndex
+  shuffle_list(shuffled_seq, seed)
 
   for i in 0..<list_size:
     # ValidatorIndex is currently wrongly uint32 so we copy this 1 by 1,

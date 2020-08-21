@@ -207,10 +207,10 @@ proc process_attester_slashing*(
       attestation_1.data, attestation_2.data):
     return err("Attester slashing: surround or double vote check failed")
 
-  if not is_valid_indexed_attestation(state, attestation_1, flags):
+  if not is_valid_indexed_attestation(state, attestation_1, flags).isOk():
     return err("Attester slashing: invalid attestation 1")
 
-  if not is_valid_indexed_attestation(state, attestation_2, flags):
+  if not is_valid_indexed_attestation(state, attestation_2, flags).isOk():
     return err("Attester slashing: invalid attestation 2")
 
   var slashed_any = false
@@ -230,7 +230,8 @@ proc process_attester_slashing*(
 proc process_voluntary_exit*(
     state: var BeaconState,
     signed_voluntary_exit: SignedVoluntaryExit,
-    flags: UpdateFlags): Result[void, cstring] {.nbench.} =
+    flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] {.nbench.} =
 
   let voluntary_exit = signed_voluntary_exit.message
 
@@ -275,7 +276,6 @@ proc process_voluntary_exit*(
     validator_withdrawable_epoch = validator.withdrawable_epoch,
     validator_exit_epoch = validator.exit_epoch,
     validator_effective_balance = validator.effective_balance
-  var cache = StateCache()
   initiate_validator_exit(
     state, voluntary_exit.validator_index.ValidatorIndex, cache)
 
@@ -286,31 +286,25 @@ proc process_operations(preset: RuntimePreset,
                         state: var BeaconState,
                         body: SomeBeaconBlockBody,
                         flags: UpdateFlags,
-                        stateCache: var StateCache): Result[void, cstring] {.nbench.} =
+                        cache: var StateCache): Result[void, cstring] {.nbench.} =
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
   let
-    num_deposits = uint64 len(body.deposits)
     req_deposits = min(MAX_DEPOSITS,
                        state.eth1_data.deposit_count - state.eth1_deposit_index)
-  if not (num_deposits == req_deposits):
+  if state.eth1_data.deposit_count < state.eth1_deposit_index or
+      body.deposits.lenu64 != req_deposits:
     return err("incorrect number of deposits")
-
-  template for_ops_cached(operations: auto, fn: auto) =
-    for operation in operations:
-      let res = fn(state, operation, flags, stateCache)
-      if res.isErr:
-        return res
 
   template for_ops(operations: auto, fn: auto) =
     for operation in operations:
-      let res = fn(state, operation, flags)
+      let res = fn(state, operation, flags, cache)
       if res.isErr:
         return res
 
-  for_ops_cached(body.proposer_slashings, process_proposer_slashing)
-  for_ops_cached(body.attester_slashings, process_attester_slashing)
-  for_ops_cached(body.attestations, process_attestation)
+  for_ops(body.proposer_slashings, process_proposer_slashing)
+  for_ops(body.attester_slashings, process_attester_slashing)
+  for_ops(body.attestations, process_attestation)
 
   for deposit in body.deposits:
     let res = process_deposit(preset, state, deposit, flags)

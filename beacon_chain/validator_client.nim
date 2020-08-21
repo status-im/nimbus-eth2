@@ -13,7 +13,7 @@ import
   stew/shims/[tables, macros],
   chronos, confutils, metrics, json_rpc/[rpcclient, jsonmarshal],
   chronicles,
-  blscurve, json_serialization/std/[options, sets, net],
+  json_serialization/std/[options, sets, net],
 
   # Local modules
   spec/[datatypes, digest, crypto, helpers, network],
@@ -215,7 +215,7 @@ programMain:
 
     # load all the validators from the data dir into memory
     for curr in vc.config.validatorKeys:
-      vc.attachedValidators.addLocalValidator(curr.toPubKey, curr)
+      vc.attachedValidators.addLocalValidator(curr.toPubKey.initPubKey, curr)
 
     waitFor vc.client.connect($vc.config.rpcAddress, Port(vc.config.rpcPort))
     info "Connected to BN",

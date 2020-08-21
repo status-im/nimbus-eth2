@@ -29,10 +29,12 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
   #      should probably be removed as a dependency of AttestationPool (or some other
   #      smart refactoring)
 
-  chainDag.withState(chainDag.tmpState, chainDag.finalizedHead):
-    var forkChoice = initForkChoice(
-      chainDag.tmpState,
-    ).get()
+  let
+    finalizedEpochRef = chainDag.getEpochRef(
+      chainDag.finalizedHead.blck, chainDag.finalizedHead.slot.epoch())
+
+  var forkChoice = ForkChoice.init(
+    finalizedEpochRef, chainDag.finalizedHead.blck)
 
   # Feed fork choice with unfinalized history - during startup, block pool only
   # keeps track of a single history so we just need to follow it
@@ -44,20 +46,16 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
     blocks.add cur
     cur = cur.parent
 
+  debug "Preloading fork choice with blocks", blocks = blocks.len
+
   for blck in reversed(blocks):
-    chainDag.withState(chainDag.tmpState, blck.atSlot(blck.slot)):
-      debug "Preloading fork choice with block",
-        block_root = shortlog(blck.root),
-        parent_root = shortlog(blck.parent.root),
-        justified_epoch = state.current_justified_checkpoint.epoch,
-        finalized_epoch = state.finalized_checkpoint.epoch,
-        slot = blck.slot
-
-      let status =
+    let
+      epochRef = chainDag.getEpochRef(blck, blck.slot.compute_epoch_at_slot)
+      status =
         forkChoice.process_block(
-          chainDag, state, blck, chainDag.get(blck).data.message, blck.slot)
+          chainDag, epochRef, blck, chainDag.get(blck).data.message, blck.slot)
 
-      doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
+    doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
 
   info "Fork choice initialized",
     justified_epoch = chainDag.headState.data.data.current_justified_checkpoint.epoch,
@@ -71,12 +69,14 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
     forkChoice: forkChoice
   )
 
-func processAttestation(
-    pool: var AttestationPool, participants: HashSet[ValidatorIndex],
-    block_root: Eth2Digest, target_epoch: Epoch) =
+proc processAttestation(
+    pool: var AttestationPool, slot: Slot, participants: HashSet[ValidatorIndex],
+    block_root: Eth2Digest, target: Checkpoint, wallSlot: Slot) =
   # Add attestation votes to fork choice
-  for validator in participants:
-    pool.forkChoice.process_attestation(validator, block_root, target_epoch)
+  if (let v = pool.forkChoice.on_attestation(
+    pool.chainDag, slot, block_root, toSeq(participants), target, wallSlot);
+    v.isErr):
+      warn "Couldn't process attestation", err = v.error()
 
 func addUnresolved*(pool: var AttestationPool, attestation: Attestation) =
   pool.unresolved[attestation.data.beacon_block_root] =
@@ -163,7 +163,8 @@ proc addResolved(
 
         a.validations.add(validation)
         pool.processAttestation(
-          participants, a.blck.root, attestation.data.target.epoch)
+          attestation.data.slot, participants, attestation.data.beacon_block_root,
+          attestation.data.target, wallSlot)
 
         info "Attestation resolved",
           attestation = shortLog(attestation),
@@ -181,7 +182,8 @@ proc addResolved(
       validations: @[validation]
     ))
     pool.processAttestation(
-      participants, blck.root, attestation.data.target.epoch)
+      attestation.data.slot, participants, attestation.data.beacon_block_root,
+      attestation.data.target, wallSlot)
 
     info "Attestation resolved",
       attestation = shortLog(attestation),
@@ -208,13 +210,13 @@ proc addAttestation*(pool: var AttestationPool,
   pool.addResolved(blck, attestation, wallSlot)
 
 proc addForkChoice*(pool: var AttestationPool,
-                    state: BeaconState,
+                    epochRef: EpochRef,
                     blckRef: BlockRef,
                     blck: BeaconBlock,
                     wallSlot: Slot) =
   ## Add a verified block to the fork choice context
   let state = pool.forkChoice.process_block(
-    pool.chainDag, state, blckRef, blck, wallSlot)
+    pool.chainDag, epochRef, blckRef, blck, wallSlot)
 
   if state.isErr:
     # TODO If this happens, it is effectively a bug - the BlockRef structure
@@ -236,7 +238,7 @@ proc getAttestationsForSlot*(pool: AttestationPool, newBlockSlot: Slot):
     candidateIdx = pool.candidateIdx(attestationSlot)
 
   if candidateIdx.isNone:
-    info "No attestations matching the slot range",
+    trace "No attestations matching the slot range",
       attestationSlot = shortLog(attestationSlot),
       startingSlot = shortLog(pool.startingSlot)
     return none(AttestationsSeen)
@@ -254,13 +256,7 @@ proc getAttestationsForBlock*(pool: AttestationPool,
   let newBlockSlot = state.slot
   var attestations: seq[AttestationEntry]
 
-  # This isn't maximally efficient -- iterators or other approaches would
-  # avoid lots of memory allocations -- but this provides a more flexible
-  # base upon which to experiment with, and isn't yet profiling hot-path,
-  # while avoiding penalizing slow attesting too much (as, in the spec it
-  # is supposed to be available two epochs back; it's not meant as). This
-  # isn't a good solution, either -- see the set-packing comment below as
-  # one issue. It also creates problems with lots of repeat attestations,
+  # This potentially creates problems with lots of repeated attestations,
   # as a bunch of synchronized beacon_nodes do almost the opposite of the
   # intended thing -- sure, _blocks_ have to be popular (via attestation)
   # but _attestations_ shouldn't have to be so frequently repeated, as an
@@ -279,12 +275,15 @@ proc getAttestationsForBlock*(pool: AttestationPool,
   var cache = StateCache()
   for a in attestations:
     var
-      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/validator.md#construct-attestation
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#construct-attestation
       attestation = Attestation(
         aggregation_bits: a.validations[0].aggregation_bits,
         data: a.data,
         signature: a.validations[0].aggregate_signature
       )
+
+      agg {.noInit.}: AggregateSignature
+    agg.init(a.validations[0].aggregate_signature)
 
     # TODO what's going on here is that when producing a block, we need to
     #      include only such attestations that will not cause block validation
@@ -311,14 +310,50 @@ proc getAttestationsForBlock*(pool: AttestationPool,
       #      one new attestation in there
       if not attestation.aggregation_bits.overlaps(v.aggregation_bits):
         attestation.aggregation_bits.combine(v.aggregation_bits)
-        attestation.signature.aggregate(v.aggregate_signature)
+        agg.aggregate(v.aggregate_signature)
 
+    attestation.signature = agg.finish()
     result.add(attestation)
 
     if result.lenu64 >= MAX_ATTESTATIONS:
       debug "getAttestationsForBlock: returning early after hitting MAX_ATTESTATIONS",
         attestationSlot = newBlockSlot - 1
       return
+
+proc getAggregatedAttestation*(pool: AttestationPool,
+                               slot: Slot,
+                               index: CommitteeIndex): Option[Attestation] =
+  let attestations = pool.getAttestationsForSlot(
+    slot + MIN_ATTESTATION_INCLUSION_DELAY)
+  if attestations.isNone:
+    return none(Attestation)
+
+  for a in attestations.get.attestations:
+    doAssert a.data.slot == slot
+    if index.uint64 != a.data.index:
+      continue
+
+    var
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#construct-attestation
+      attestation = Attestation(
+        aggregation_bits: a.validations[0].aggregation_bits,
+        data: a.data,
+        signature: a.validations[0].aggregate_signature
+      )
+
+      agg {.noInit.}: AggregateSignature
+
+    agg.init(a.validations[0].aggregate_signature)
+    for v in a.validations[1..^1]:
+      if not attestation.aggregation_bits.overlaps(v.aggregation_bits):
+        attestation.aggregation_bits.combine(v.aggregation_bits)
+        agg.aggregate(v.aggregate_signature)
+
+      attestation.signature = agg.finish()
+
+    return some(attestation)
+
+  none(Attestation)
 
 proc resolve*(pool: var AttestationPool, wallSlot: Slot) =
   ## Check attestations in our unresolved deque
@@ -345,7 +380,7 @@ proc resolve*(pool: var AttestationPool, wallSlot: Slot) =
     pool.addResolved(a.blck, a.attestation, wallSlot)
 
 proc selectHead*(pool: var AttestationPool, wallSlot: Slot): BlockRef =
-  let newHead = pool.forkChoice.find_head(wallSlot)
+  let newHead = pool.forkChoice.get_head(pool.chainDag, wallSlot)
 
   if newHead.isErr:
     error "Couldn't select head", err = newHead.error

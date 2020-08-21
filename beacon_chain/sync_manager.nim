@@ -4,6 +4,7 @@ import stew/results, chronos, chronicles
 import spec/[datatypes, digest], peer_pool, eth2_network
 import eth/async_utils
 
+import ./eth2_processor
 import block_pools/block_pools_types
 export datatypes, digest, chronos, chronicles, results, block_pools_types
 
@@ -39,15 +40,6 @@ type
 
   GetSlotCallback* = proc(): Slot {.gcsafe, raises: [Defect].}
 
-  UpdateLocalBlocksCallback* =
-    proc(list: openarray[SignedBeaconBlock]): Result[void, BlockError] {.
-      gcsafe.}
-
-  SyncUpdateCallback*[T] =
-    proc(req: SyncRequest[T],
-         list: openarray[SignedBeaconBlock]): Result[void, BlockError] {.
-      gcsafe.}
-
   SyncRequest*[T] = object
     index*: uint64
     slot*: Slot
@@ -73,12 +65,12 @@ type
     counter*: uint64
     pending*: Table[uint64, SyncRequest[T]]
     waiters: seq[SyncWaiter[T]]
-    syncUpdate*: SyncUpdateCallback[T]
     getFinalizedSlot*: GetSlotCallback
     debtsQueue: HeapQueue[SyncRequest[T]]
     debtsCount: uint64
     readyQueue: HeapQueue[SyncResult[T]]
     suspects: seq[SyncResult[T]]
+    outQueue: AsyncQueue[BlockEntry]
 
   SyncManager*[A, B] = ref object
     pool: PeerPool[A, B]
@@ -92,10 +84,11 @@ type
     getLocalHeadSlot: GetSlotCallback
     getLocalWallSlot: GetSlotCallback
     getFinalizedSlot: GetSlotCallback
-    syncUpdate: SyncUpdateCallback[A]
     chunkSize: uint64
     queue: SyncQueue[A]
     failures: seq[SyncFailure[A]]
+    syncFut: Future[void]
+    outQueue: AsyncQueue[BlockEntry]
     inProgress*: bool
 
   SyncMoment* = object
@@ -109,6 +102,15 @@ type
 
   SyncManagerError* = object of CatchableError
   BeaconBlocksRes* = NetRes[seq[SignedBeaconBlock]]
+
+proc validate*[T](sq: SyncQueue[T],
+           blk: SignedBeaconBlock): Future[Result[void, BlockError]] {.async.} =
+  let sblock = SyncBlock(
+    blk: blk,
+    resfut: newFuture[Result[void, BlockError]]("sync.manager.validate")
+  )
+  await sq.outQueue.addLast(BlockEntry(v: sblock))
+  return await sblock.resfut
 
 proc getShortMap*[T](req: SyncRequest[T],
                      data: openarray[SignedBeaconBlock]): string =
@@ -207,8 +209,8 @@ proc isEmpty*[T](sr: SyncRequest[T]): bool {.inline.} =
 
 proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
               start, last: Slot, chunkSize: uint64,
-              updateCb: SyncUpdateCallback[T],
               getFinalizedSlotCb: GetSlotCallback,
+              outputQueue: AsyncQueue[BlockEntry],
               queueSize: int = -1): SyncQueue[T] =
   ## Create new synchronization queue with parameters
   ##
@@ -267,14 +269,14 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
     lastSlot: last,
     chunkSize: chunkSize,
     queueSize: queueSize,
-    syncUpdate: updateCb,
     getFinalizedSlot: getFinalizedSlotCb,
     waiters: newSeq[SyncWaiter[T]](),
     counter: 1'u64,
     pending: initTable[uint64, SyncRequest[T]](),
     debtsQueue: initHeapQueue[SyncRequest[T]](),
     inpSlot: start,
-    outSlot: start
+    outSlot: start,
+    outQueue: outputQueue
   )
 
 proc `<`*[T](a, b: SyncRequest[T]): bool {.inline.} =
@@ -430,7 +432,19 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
     if sq.outSlot != minSlot:
       break
     let item = sq.readyQueue.pop()
-    let res = sq.syncUpdate(item.request, item.data)
+
+    # Validating received blocks one by one
+    var res: Result[void, BlockError]
+    if len(item.data) > 0:
+      for blk in item.data:
+        trace "Pushing block", block_root = blk.root,
+                               block_slot = blk.message.slot
+        res = await sq.validate(blk)
+        if not(res.isOk):
+          break
+    else:
+      res = Result[void, BlockError].ok()
+
     if res.isOk:
       sq.outSlot = sq.outSlot + item.request.count
       sq.wakeupWaiters()
@@ -570,7 +584,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            getLocalHeadSlotCb: GetSlotCallback,
                            getLocalWallSlotCb: GetSlotCallback,
                            getFinalizedSlotCb: GetSlotCallback,
-                           updateLocalBlocksCb: UpdateLocalBlocksCallback,
+                           outputQueue: AsyncQueue[BlockEntry],
                            maxWorkers = 10,
                            maxStatusAge = uint64(SLOTS_PER_EPOCH * 4),
                            maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
@@ -581,30 +595,22 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            maxRecurringFailures = 3
                            ): SyncManager[A, B] =
 
-  proc syncUpdate(req: SyncRequest[A],
-      list: openarray[SignedBeaconBlock]): Result[void, BlockError] {.gcsafe.} =
-    let peer = req.item
-    let res = updateLocalBlocksCb(list)
-    if res.isOk:
-      peer.updateScore(PeerScoreGoodBlocks)
-    return res
-
   let queue = SyncQueue.init(A, getFinalizedSlotCb(), getLocalWallSlotCb(),
-                             chunkSize, syncUpdate, getFinalizedSlotCb, 2)
+                             chunkSize, getFinalizedSlotCb, outputQueue, 1)
 
   result = SyncManager[A, B](
     pool: pool,
     maxWorkersCount: maxWorkers,
     maxStatusAge: maxStatusAge,
     getLocalHeadSlot: getLocalHeadSlotCb,
-    syncUpdate: syncUpdate,
     getLocalWallSlot: getLocalWallSlotCb,
     getFinalizedSlot: getFinalizedSlotCb,
     maxHeadAge: maxHeadAge,
     maxRecurringFailures: maxRecurringFailures,
     sleepTime: sleepTime,
     chunkSize: chunkSize,
-    queue: queue
+    queue: queue,
+    outQueue: outputQueue
   )
 
 proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
@@ -646,6 +652,9 @@ template checkPeerScore(peer, body: untyped): untyped =
           penalty = newScore - currentScore, peer_score = newScore,
           topics = "syncman"
     break
+
+func syncQueueLen*[A, B](man: SyncManager[A, B]): uint64 =
+  man.queue.len
 
 proc syncWorker*[A, B](man: SyncManager[A, B],
                        peer: A): Future[A] {.async.} =
@@ -809,7 +818,7 @@ proc syncWorker*[A, B](man: SyncManager[A, B],
   finally:
     man.pool.release(peer)
 
-proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
+proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
   # This procedure manages main loop of SyncManager and in this loop it
   # performs
   # 1. It checks for current sync status, "are we synced?".
@@ -890,8 +899,8 @@ proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
                       wall_head_slot = wallSlot, local_head_slot = headSlot,
                       queue_last_slot = man.queue.lastSlot, topics = "syncman"
                 man.queue = SyncQueue.init(A, man.getFinalizedSlot(), wallSlot,
-                                           man.chunkSize, man.syncUpdate,
-                                           man.getFinalizedSlot, 2)
+                                           man.chunkSize, man.getFinalizedSlot,
+                                           man.outQueue, 1)
 
               debug "Synchronization loop starting new worker", peer = peer,
                     wall_head_slot = wallSlot, local_head_slot = headSlot,
@@ -966,3 +975,7 @@ proc sync*[A, B](man: SyncManager[A, B]) {.async.} =
       # Cleaning up failures.
       man.failures.setLen(0)
       await man.queue.resetWait(none[Slot]())
+
+proc start*[A, B](man: SyncManager[A, B]) =
+  ## Starts SyncManager's main loop.
+  man.syncFut = man.syncLoop()

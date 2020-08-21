@@ -10,7 +10,7 @@ import
   os, strutils, typetraits,
   # Internals
   ../../beacon_chain/ssz,
-  ../../beacon_chain/spec/datatypes,
+  ../../beacon_chain/spec/[datatypes, crypto],
   # Status libs
   stew/byteutils,
   serialization, json_serialization
@@ -20,7 +20,7 @@ export  # Workaround:
   #   - https://github.com/status-im/nim-serialization/issues/5
   #   - https://github.com/nim-lang/Nim/issues/11225
   serialization.readValue,
-  Json, ssz
+  Json, ssz, crypto
 
 # Process current EF test format
 # ---------------------------------------------

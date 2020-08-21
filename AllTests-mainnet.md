@@ -54,10 +54,11 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 OK: 5/5 Fail: 0/5 Skip: 0/5
 ## BlockRef and helpers [Preset: mainnet]
 ```diff
++ epochAncestor sanity [Preset: mainnet]                                                     OK
 + get_ancestor sanity [Preset: mainnet]                                                      OK
 + isAncestorOf sanity [Preset: mainnet]                                                      OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## BlockSlot and helpers [Preset: mainnet]
 ```diff
 + atSlot sanity [Preset: mainnet]                                                            OK
@@ -104,9 +105,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + BASE_REWARD_FACTOR                                64                   [Preset: mainnet]   OK
 + BLS_WITHDRAWAL_PREFIX                             "0x00"               [Preset: mainnet]   OK
 + CHURN_LIMIT_QUOTIENT                              65536                [Preset: mainnet]   OK
-+ DEPOSIT_CHAIN_ID                                  1                    [Preset: mainnet]   OK
+  DEPOSIT_CHAIN_ID                                  1                    [Preset: mainnet]   Skip
   DEPOSIT_CONTRACT_ADDRESS                          "0x1234567890123456789012345678901234567 Skip
-+ DEPOSIT_NETWORK_ID                                1                    [Preset: mainnet]   OK
+  DEPOSIT_NETWORK_ID                                1                    [Preset: mainnet]   Skip
 + DOMAIN_AGGREGATE_AND_PROOF                        "0x06000000"         [Preset: mainnet]   OK
 + DOMAIN_BEACON_ATTESTER                            "0x01000000"         [Preset: mainnet]   OK
 + DOMAIN_BEACON_PROPOSER                            "0x00000000"         [Preset: mainnet]   OK
@@ -161,7 +162,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + VALIDATOR_REGISTRY_LIMIT                          1099511627776        [Preset: mainnet]   OK
 + WHISTLEBLOWER_REWARD_QUOTIENT                     512                  [Preset: mainnet]   OK
 ```
-OK: 54/59 Fail: 0/59 Skip: 5/59
+OK: 52/59 Fail: 0/59 Skip: 7/59
 ## PeerPool testing suite
 ```diff
 + Access peers by key test                                                                   OK
@@ -237,7 +238,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 OK: 8/8 Fail: 0/8 Skip: 0/8
 ## chain DAG finalization tests [Preset: mainnet]
 ```diff
-+ prune heads on finalization [Preset: mainnet]                                              OK
++ init with gaps [Preset: mainnet]                                                           OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## hash
@@ -247,4 +248,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 136/141 Fail: 0/141 Skip: 5/141
+OK: 135/142 Fail: 0/142 Skip: 7/142

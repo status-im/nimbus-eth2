@@ -42,7 +42,6 @@ import # Refactor state transition unit tests
 
 # import # Official fixtures that don't require SSZ parsing of invalid BLS signatures
 #        # https://github.com/status-im/nim-beacon-chain/issues/374
-#   ./official/test_fixture_shuffling,
 #   ./official/test_fixture_bls
 
 summarizeLongTests("AllTests")

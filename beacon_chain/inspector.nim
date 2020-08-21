@@ -9,6 +9,7 @@ import confutils, chronicles, chronos
 import libp2p/[switch, standard_setup, multiaddress, multicodec, peerinfo]
 import libp2p/crypto/crypto as lcrypto
 import libp2p/crypto/secp as lsecp
+import libp2p/protocols/pubsub/[pubsub, gossipsub]
 import eth/p2p/discoveryv5/enr as enr
 import eth/p2p/discoveryv5/[protocol, discovery_db, node]
 import eth/keys as ethkeys, eth/trie/db
@@ -498,7 +499,7 @@ proc pubsubLogger(conf: InspectorConf, switch: Switch,
   if conf.decode:
     if topic.endsWith("_snappy"):
       try:
-        buffer = snappy.decode(data)
+        buffer = snappy.decode(data, GOSSIP_MAX_SIZE)
       except CatchableError as exc:
         warn "Unable to decompress message", errMsg = exc.msg
     else:
@@ -674,9 +675,14 @@ proc run(conf: InspectorConf) {.async.} =
     error "Bind address is incorrect MultiAddress", address = conf.bindAddress
     quit(1)
 
-  var switch = newStandardSwitch(some(seckey), hostAddress.get(),
-                                 triggerSelf = true, gossip = true,
-                                 sign = false, verifySignature = false, rng = rng)
+  let switch = newStandardSwitch(some(seckey), hostAddress.get(), rng = rng)
+
+  let pubsub = GossipSub.init(
+    switch = switch,
+    triggerSelf = true, sign = false,
+    verifySignature = false).PubSub
+
+  switch.mount(pubsub)
 
   if len(conf.topics) > 0:
     for item in conf.topics:
@@ -708,17 +714,18 @@ proc run(conf: InspectorConf) {.async.} =
                         data: seq[byte]): Future[void] {.gcsafe.} =
     result = pubsubLogger(conf, switch, resolveQueue, topic, data)
 
-  discard switch.start()
+  discard await switch.start()
+  await pubsub.start()
 
   var topicFilters = newSeq[string]()
   try:
     for filter in topics:
       for topic in getTopics(forkDigest.get(), filter):
-        await switch.subscribe(topic, pubsubTrampoline)
+        await pubsub.subscribe(topic, pubsubTrampoline)
         topicFilters.add(topic)
         trace "Subscribed to topic", topic = topic
     for filter in conf.customTopics:
-      await switch.subscribe(filter, pubsubTrampoline)
+      await pubsub.subscribe(filter, pubsubTrampoline)
       topicFilters.add(filter)
       trace "Subscribed to custom topic", topic = filter
   except CatchableError as exc:

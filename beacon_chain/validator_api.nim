@@ -15,8 +15,8 @@ import
   chronicles,
 
   # Local modules
-  spec/[datatypes, digest, crypto, validator, beaconstate, helpers],
-  block_pools/chain_dag, ssz/merkleization,
+  spec/[datatypes, digest, crypto, validator, helpers],
+  block_pools/[chain_dag, spec_cache], ssz/merkleization,
   beacon_node_common, beacon_node_types,
   validator_duties, eth2_network,
   spec/eth2_apis/callsigs_types,
@@ -229,8 +229,6 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       stateId: string, epoch: uint64, index: uint64, slot: uint64) ->
       seq[BeaconStatesCommitteesTuple]:
     withStateForStateId(stateId):
-      var cache = StateCache() # TODO is this OK?
-
       proc getCommittee(slot: Slot, index: CommitteeIndex): BeaconStatesCommitteesTuple =
         let vals = get_beacon_committee(state, slot, index, cache).mapIt(it.uint64)
         return (index: index.uint64, slot: slot.uint64, validators: vals)
@@ -265,7 +263,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       blockId: string) -> tuple[canonical: bool, header: SignedBeaconBlockHeader]:
     let bd = node.getBlockDataFromBlockId(blockId)
     let tsbb = bd.data
-    result.header.signature.setBlob(tsbb.signature.data)
+    result.header.signature.blob = tsbb.signature.data
 
     result.header.message.slot = tsbb.message.slot
     result.header.message.proposer_index = tsbb.message.proposer_index
@@ -332,10 +330,10 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("get_v1_validator_attestation") do (
       slot: Slot, committee_index: CommitteeIndex) -> AttestationData:
     debug "get_v1_validator_attestation", slot = slot
-    let head = node.doChecksAndGetCurrentHead(slot)
-
-    node.chainDag.withState(node.chainDag.tmpState, head.atSlot(slot)):
-      return makeAttestationData(state, slot, committee_index.uint64, blck.root)
+    let
+      head = node.doChecksAndGetCurrentHead(slot)
+      epochRef = node.chainDag.getEpochRef(head, slot.epoch)
+    return makeAttestationData(epochRef, head.atSlot(slot), committee_index.uint64)
 
   rpcServer.rpc("get_v1_validator_aggregate_and_proof") do (
       attestation_data: AttestationData)-> Attestation:
@@ -350,32 +348,35 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("post_v1_validator_duties_attester") do (
       epoch: Epoch, public_keys: seq[ValidatorPubKey]) -> seq[AttesterDuties]:
     debug "post_v1_validator_duties_attester", epoch = epoch
-    let head = node.doChecksAndGetCurrentHead(epoch)
-
-    let attestationHead = head.atEpochStart(epoch)
-    node.chainDag.withState(node.chainDag.tmpState, attestationHead):
-      for pubkey in public_keys:
-        let idx = state.validators.asSeq.findIt(it.pubKey == pubkey)
-        if idx == -1:
-          continue
-        let ca = state.get_committee_assignment(epoch, idx.ValidatorIndex)
-        if ca.isSome:
-          result.add((public_key: pubkey,
-                      committee_index: ca.get.b,
-                      committee_length: ca.get.a.lenu64,
-                      validator_committee_index: ca.get.a.find(idx.ValidatorIndex).uint64,
-                      slot: ca.get.c))
+    let
+      head = node.doChecksAndGetCurrentHead(epoch)
+      epochRef = node.chainDag.getEpochRef(head, epoch)
+      committees_per_slot = get_committee_count_per_slot(epochRef)
+    for i in 0 ..< SLOTS_PER_EPOCH:
+      let slot = compute_start_slot_at_epoch(epoch) + i
+      for committee_index in 0'u64..<committees_per_slot:
+        let committee = get_beacon_committee(
+          epochRef, slot, committee_index.CommitteeIndex)
+        for index_in_committee, validatorIdx in committee:
+          if validatorIdx < epochRef.validator_keys.len.ValidatorIndex:
+            let curr_val_pubkey = epochRef.validator_keys[validatorIdx].initPubKey
+            if public_keys.findIt(it == curr_val_pubkey) != -1:
+              result.add((public_key: curr_val_pubkey,
+                          committee_index: committee_index.CommitteeIndex,
+                          committee_length: committee.lenu64,
+                          validator_committee_index: index_in_committee.uint64,
+                          slot: slot))
 
   rpcServer.rpc("get_v1_validator_duties_proposer") do (
       epoch: Epoch) -> seq[ValidatorPubkeySlotPair]:
     debug "get_v1_validator_duties_proposer", epoch = epoch
-    let head = node.doChecksAndGetCurrentHead(epoch)
-
+    let
+      head = node.doChecksAndGetCurrentHead(epoch)
+      epochRef = node.chainDag.getEpochRef(head, epoch)
     for i in 0 ..< SLOTS_PER_EPOCH:
-      let currSlot = compute_start_slot_at_epoch(epoch) + i
-      let proposer = node.chainDag.getProposer(head, currSlot)
-      if proposer.isSome():
-        result.add((public_key: proposer.get()[1], slot: currSlot))
+      if epochRef.beacon_proposers[i].isSome():
+        result.add((public_key: epochRef.beacon_proposers[i].get()[1].initPubKey(),
+                    slot: compute_start_slot_at_epoch(epoch) + i))
 
   rpcServer.rpc("post_v1_validator_beacon_committee_subscriptions") do (
       committee_index: CommitteeIndex, slot: Slot, aggregator: bool,

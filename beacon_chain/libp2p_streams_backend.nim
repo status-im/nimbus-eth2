@@ -50,11 +50,14 @@ proc uncompressFramedStream*(conn: Connection,
       # data is longer than that, snappyUncompress will fail and we will not
       # decompress the chunk at all, instead reporting failure.
       let
-        uncompressedLen = snappyUncompress(
+        # The `int` conversion below is safe, because `uncompressedLen` is
+        # bounded to `chunkLen` (which in turn is bounded by `MAX_CHUNK_SIZE`).
+        # TODO: Use a range type for the parameter.
+        uncompressedLen = int snappyUncompress(
           frameData.toOpenArray(4, dataLen - 1),
           uncompressedData.toOpenArray(0, chunkLen - 1))
 
-      if uncompressedLen <= 0:
+      if uncompressedLen == 0:
         return err "Failed to decompress snappy frame"
       doAssert output.len + uncompressedLen <= expectedSize,
         "enforced by `remains` limit above"
@@ -90,7 +93,7 @@ proc uncompressFramedStream*(conn: Connection,
 
   return ok output
 
-proc readChunkPayload(conn: Connection, noSnappy: bool, peer: Peer,
+proc readChunkPayload(conn: Connection, peer: Peer,
                       MsgType: type): Future[NetRes[MsgType]] {.async.} =
   let sm = now(chronos.Moment)
   let size =
@@ -109,26 +112,19 @@ proc readChunkPayload(conn: Connection, noSnappy: bool, peer: Peer,
   if size == 0:
     return neterr ZeroSizePrefix
 
-  if noSnappy:
-    var bytes = newSeq[byte](size.int)
-    await conn.readExactly(addr bytes[0], bytes.len)
+  # The `size.int` conversion is safe because `size` is bounded to `MAX_CHUNK_SIZE`
+  let data = await conn.uncompressFramedStream(size.int)
+  if data.isOk:
     # `10` is the maximum size of variable integer on wire, so error could
     # not be significant.
-    peer.updateNetThroughput(now(chronos.Moment) - sm, uint64(10 + len(bytes)))
-    return ok SSZ.decode(bytes, MsgType)
+    peer.updateNetThroughput(now(chronos.Moment) - sm,
+                              uint64(10 + size))
+    return ok SSZ.decode(data.get(), MsgType)
   else:
-    let data = await conn.uncompressFramedStream(size.int)
-    if data.isOk:
-      # `10` is the maximum size of variable integer on wire, so error could
-      # not be significant.
-      peer.updateNetThroughput(now(chronos.Moment) - sm,
-                               uint64(10 + size))
-      return ok SSZ.decode(data.get(), MsgType)
-    else:
-      debug "Snappy decompression/read failed", msg = $data.error, conn = $conn
-      return neterr InvalidSnappyBytes
+    debug "Snappy decompression/read failed", msg = $data.error, conn = $conn
+    return neterr InvalidSnappyBytes
 
-proc readResponseChunk(conn: Connection, noSnappy: bool, peer: Peer,
+proc readResponseChunk(conn: Connection, peer: Peer,
                        MsgType: typedesc): Future[NetRes[MsgType]] {.async.} =
   try:
     var responseCodeByte: byte
@@ -144,7 +140,7 @@ proc readResponseChunk(conn: Connection, noSnappy: bool, peer: Peer,
     let responseCode = ResponseCode responseCodeByte
     case responseCode:
     of InvalidRequest, ServerError:
-      let errorMsgChunk = await readChunkPayload(conn, noSnappy, peer, ErrorMsg)
+      let errorMsgChunk = await readChunkPayload(conn, peer, ErrorMsg)
       let errorMsg = if errorMsgChunk.isOk: errorMsgChunk.value
                      else: return err(errorMsgChunk.error)
       return err Eth2NetworkingError(kind: ReceivedErrorResponse,
@@ -153,18 +149,18 @@ proc readResponseChunk(conn: Connection, noSnappy: bool, peer: Peer,
     of Success:
       discard
 
-    return await readChunkPayload(conn, noSnappy, peer, MsgType)
+    return await readChunkPayload(conn, peer, MsgType)
 
   except LPStreamEOFError, LPStreamIncompleteError:
     return neterr UnexpectedEOF
 
-proc readResponse(conn: Connection, noSnappy: bool, peer: Peer,
+proc readResponse(conn: Connection, peer: Peer,
                   MsgType: type): Future[NetRes[MsgType]] {.gcsafe, async.} =
   when MsgType is seq:
     type E = ElemType(MsgType)
     var results: MsgType
     while true:
-      let nextRes = await conn.readResponseChunk(noSnappy, peer, E)
+      let nextRes = await conn.readResponseChunk(peer, E)
       if nextRes.isErr:
         if nextRes.error.kind == PotentiallyExpectedEOF:
           return ok results
@@ -172,4 +168,4 @@ proc readResponse(conn: Connection, noSnappy: bool, peer: Peer,
       else:
         results.add nextRes.value
   else:
-    return await conn.readResponseChunk(noSnappy, peer, MsgType)
+    return await conn.readResponseChunk(peer, MsgType)

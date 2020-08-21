@@ -58,8 +58,13 @@ suiteReport "Beacon chain DB" & preset():
       db.getBlock(root).get() == signedBlock
 
     db.putStateRoot(root, signedBlock.message.slot, root)
+    var root2 = root
+    root2.data[0] = root.data[0] + 1
+    db.putStateRoot(root, signedBlock.message.slot + 1, root2)
+
     check:
       db.getStateRoot(root, signedBlock.message.slot).get() == root
+      db.getStateRoot(root, signedBlock.message.slot + 1).get() == root2
 
   wrappedTimedTest "sanity check states" & preset():
     var

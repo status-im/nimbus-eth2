@@ -29,7 +29,7 @@ func get_slot_signature*(
 
   blsSign(privKey, signing_root.data)
 
-func verify_slot_signature*(
+proc verify_slot_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     pubkey: ValidatorPubKey, signature: SomeSig): bool =
   withTrust(signature):
@@ -51,7 +51,7 @@ func get_epoch_signature*(
 
   blsSign(privKey, signing_root.data)
 
-func verify_epoch_signature*(
+proc verify_epoch_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
     pubkey: ValidatorPubKey, signature: SomeSig): bool =
   withTrust(signature):
@@ -73,7 +73,7 @@ func get_block_signature*(
 
   blsSign(privKey, signing_root.data)
 
-func verify_block_signature*(
+proc verify_block_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     blck: Eth2Digest | SomeBeaconBlock | BeaconBlockHeader,
     pubkey: ValidatorPubKey,
@@ -99,7 +99,7 @@ func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth
 
   blsSign(privKey, signing_root.data)
 
-func verify_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
+proc verify_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
                                            aggregate_and_proof: AggregateAndProof,
                                            pubkey: ValidatorPubKey, signature: SomeSig): bool =
   withTrust(signature):
@@ -124,7 +124,7 @@ func get_attestation_signature*(
 
   blsSign(privKey, signing_root.data)
 
-func verify_attestation_signature*(
+proc verify_attestation_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     attestation_data: AttestationData,
     pubkeys: openArray[ValidatorPubKey],
@@ -150,7 +150,7 @@ func get_deposit_signature*(preset: RuntimePreset,
 
   blsSign(privKey, signing_root.data)
 
-func verify_deposit_signature*(preset: RuntimePreset,
+proc verify_deposit_signature*(preset: RuntimePreset,
                                deposit: DepositData): bool =
   let
     deposit_message = deposit.getDepositMessage()
@@ -160,7 +160,7 @@ func verify_deposit_signature*(preset: RuntimePreset,
 
   blsVerify(deposit.pubkey, signing_root.data, deposit.signature)
 
-func verify_voluntary_exit_signature*(
+proc verify_voluntary_exit_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     voluntary_exit: VoluntaryExit,
     pubkey: ValidatorPubKey, signature: SomeSig): bool =

@@ -442,6 +442,11 @@ type
       Table[Epoch, seq[ValidatorIndex]]
     beacon_proposer_indices*: Table[Slot, Option[ValidatorIndex]]
 
+  AttestationSubnets* = object
+    subscribedSubnets*: array[2, set[uint8]]
+    stabilitySubnet*: uint64
+    stabilitySubnetExpirationEpoch*: Epoch
+
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
     ($state.validators[validatorIdx].pubkey)[0..7]
 

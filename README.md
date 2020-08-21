@@ -44,7 +44,9 @@ Nimbus beacon chain is a research implementation of the beacon chain component o
 
 ## Documentation
 
-You can find complete information about running a beacon node and operating as a validator in [The Book](https://status-im.github.io/nim-beacon-chain/).
+You can find the information you need to run a beacon node and operate as a validator in [The Book](https://status-im.github.io/nim-beacon-chain/).
+
+See [this page](https://status-im.github.io/nim-beacon-chain/medalla.html) for how to become a validator on Medalla.
 
 ## Related projects
 
@@ -148,11 +150,21 @@ make NIMFLAGS="-d:insecure" medalla
 You can now see the raw metrics on http://127.0.0.1:8008/metrics but they're not very useful like this, so let's feed them to a Prometheus instance:
 
 ```bash
-prometheus --config.file=build/data/shared_medalla_0/prometheus.yml
+cd build/data/shared_medalla_0
+prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
 # when starting multiple nodes at the same time, just use the config file from the one with the highest ID
 ```
 
 For some pretty pictures, get [Grafana](https://grafana.com/) up and running, then import the dashboard definition in "grafana/beacon\_nodes\_Grafana\_dashboard.json".
+
+### Stress-testing the client by limiting the CPU power
+
+```bash
+make medalla CPU_LIMIT=20
+```
+
+The limiting is provided by the cpulimit utility, available on Linux and macOS.
+The specified value is a percentage of a single CPU core. Usually 1 - 100, but can be higher on multi-core CPUs.
 
 ## Interop (for other Eth2 clients)
 

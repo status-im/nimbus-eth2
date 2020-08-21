@@ -2,7 +2,7 @@
 
 import unittest
 import chronos
-import ../beacon_chain/sync_manager
+import ../beacon_chain/[eth2_processor, sync_manager]
 
 type
   SomeTPeer = ref object
@@ -26,15 +26,11 @@ suite "SyncManager test suite":
       item.message.slot = curslot
       curslot = curslot + 1'u64
 
-  proc syncUpdate(req: SyncRequest[SomeTPeer],
-                data: openarray[SignedBeaconBlock]): Result[void, BlockError] {.
-    gcsafe.} =
-    discard
-
   test "[SyncQueue] Start and finish slots equal":
     let p1 = SomeTPeer()
-    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(0), 1'u64, syncUpdate,
-                               getFirstSlotAtFinalizedEpoch)
+    let aq = newAsyncQueue[BlockEntry](1)
+    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(0), 1'u64,
+                               getFirstSlotAtFinalizedEpoch, aq)
     check len(queue) == 1
     var r11 = queue.pop(Slot(0), p1)
     check len(queue) == 0
@@ -49,8 +45,9 @@ suite "SyncManager test suite":
       r11.slot == Slot(0) and r11.count == 1'u64 and r11.step == 1'u64
 
   test "[SyncQueue] Two full requests success/fail":
-    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(1), 1'u64, syncUpdate,
-                               getFirstSlotAtFinalizedEpoch)
+    let aq = newAsyncQueue[BlockEntry](1)
+    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(1), 1'u64,
+                               getFirstSlotAtFinalizedEpoch, aq)
     let p1 = SomeTPeer()
     let p2 = SomeTPeer()
     check len(queue) == 2
@@ -77,8 +74,9 @@ suite "SyncManager test suite":
       r22.slot == Slot(1) and r22.count == 1'u64 and r22.step == 1'u64
 
   test "[SyncQueue] Full and incomplete success/fail start from zero":
-    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 2'u64, syncUpdate,
-                               getFirstSlotAtFinalizedEpoch)
+    let aq = newAsyncQueue[BlockEntry](1)
+    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 2'u64,
+                               getFirstSlotAtFinalizedEpoch, aq)
     let p1 = SomeTPeer()
     let p2 = SomeTPeer()
     let p3 = SomeTPeer()
@@ -116,8 +114,9 @@ suite "SyncManager test suite":
       r33.slot == Slot(4) and r33.count == 1'u64 and r33.step == 1'u64
 
   test "[SyncQueue] Full and incomplete success/fail start from non-zero":
-    var queue = SyncQueue.init(SomeTPeer, Slot(1), Slot(5), 3'u64, syncUpdate,
-                               getFirstSlotAtFinalizedEpoch)
+    let aq = newAsyncQueue[BlockEntry](1)
+    var queue = SyncQueue.init(SomeTPeer, Slot(1), Slot(5), 3'u64,
+                               getFirstSlotAtFinalizedEpoch, aq)
     let p1 = SomeTPeer()
     let p2 = SomeTPeer()
     check len(queue) == 5
@@ -144,8 +143,9 @@ suite "SyncManager test suite":
       r42.slot == Slot(4) and r42.count == 2'u64 and r42.step == 1'u64
 
   test "[SyncQueue] Smart and stupid success/fail":
-    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 5'u64, syncUpdate,
-                               getFirstSlotAtFinalizedEpoch)
+    let aq = newAsyncQueue[BlockEntry](1)
+    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 5'u64,
+                               getFirstSlotAtFinalizedEpoch, aq)
     let p1 = SomeTPeer()
     let p2 = SomeTPeer()
     check len(queue) == 5
@@ -172,8 +172,9 @@ suite "SyncManager test suite":
       r52.slot == Slot(4) and r52.count == 1'u64 and r52.step == 1'u64
 
   test "[SyncQueue] One smart and one stupid + debt split + empty":
-    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 5'u64, syncUpdate,
-                               getFirstSlotAtFinalizedEpoch)
+    let aq = newAsyncQueue[BlockEntry](1)
+    var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 5'u64,
+                               getFirstSlotAtFinalizedEpoch, aq)
     let p1 = SomeTPeer()
     let p2 = SomeTPeer()
     let p3 = SomeTPeer()
@@ -207,19 +208,21 @@ suite "SyncManager test suite":
     proc test(): Future[bool] {.async.} =
       var counter = 0
 
-      proc syncReceiver(req: SyncRequest[SomeTPeer],
-                list: openarray[SignedBeaconBlock]): Result[void, BlockError] {.
-        gcsafe.} =
-        for item in list:
-          if item.message.slot == Slot(counter):
+      proc simpleValidator(aq: AsyncQueue[BlockEntry]) {.async.} =
+        while true:
+          let sblock = await aq.popFirst()
+          if sblock.v.blk.message.slot == Slot(counter):
             inc(counter)
           else:
-            return err(Invalid)
-        return ok()
+            sblock.v.fail(BlockError.Invalid)
+          sblock.v.done()
 
+      var aq = newAsyncQueue[BlockEntry](1)
       var chain = createChain(Slot(0), Slot(2))
       var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(2), 1'u64,
-                                 syncReceiver, getFirstSlotAtFinalizedEpoch, 1)
+                                 getFirstSlotAtFinalizedEpoch, aq, 1)
+
+      var validatorFut = simpleValidator(aq)
       let p1 = SomeTPeer()
       let p2 = SomeTPeer()
       let p3 = SomeTPeer()
@@ -227,14 +230,16 @@ suite "SyncManager test suite":
       var r12 = queue.pop(Slot(2), p2)
       var r13 = queue.pop(Slot(2), p3)
       var f13 = queue.push(r13, @[chain[2]])
-      var f12 = queue.push(r12, @[chain[1]])
+      #
       await sleepAsync(100.milliseconds)
-      doAssert(f12.finished == false)
+      # doAssert(f12.finished == false)
       doAssert(f13.finished == false)
       doAssert(counter == 0)
       var f11 = queue.push(r11, @[chain[0]])
+      await sleepAsync(100.milliseconds)
       doAssert(counter == 1)
       doAssert(f11.finished == true and f11.failed == false)
+      var f12 = queue.push(r12, @[chain[1]])
       await sleepAsync(100.milliseconds)
       doAssert(f12.finished == true and f12.failed == false)
       doAssert(f13.finished == true and f13.failed == false)
@@ -242,6 +247,8 @@ suite "SyncManager test suite":
       doAssert(r11.item == p1)
       doAssert(r12.item == p2)
       doAssert(r13.item == p3)
+
+      await validatorFut.cancelAndWait()
       result = true
 
     check waitFor(test())
@@ -250,23 +257,26 @@ suite "SyncManager test suite":
     proc test(): Future[bool] {.async.} =
       var counter = 5
 
-      proc syncReceiver(req: SyncRequest[SomeTPeer],
-                list: openarray[SignedBeaconBlock]): Result[void, BlockError] {.
-        gcsafe.} =
-        for item in list:
-          if item.message.slot == Slot(counter):
+      proc simpleValidator(aq: AsyncQueue[BlockEntry]) {.async.} =
+        while true:
+          let sblock = await aq.popFirst()
+          if sblock.v.blk.message.slot == Slot(counter):
             inc(counter)
           else:
-            return err(Invalid)
-        return ok()
+            sblock.v.fail(BlockError.Invalid)
+          sblock.v.done()
 
+      var aq = newAsyncQueue[BlockEntry](1)
       var chain = createChain(Slot(5), Slot(11))
       var queue = SyncQueue.init(SomeTPeer, Slot(5), Slot(11), 2'u64,
-                                 syncReceiver, getFirstSlotAtFinalizedEpoch, 2)
+                                 getFirstSlotAtFinalizedEpoch, aq, 2)
+
       let p1 = SomeTPeer()
       let p2 = SomeTPeer()
       let p3 = SomeTPeer()
       let p4 = SomeTPeer()
+
+      var validatorFut = simpleValidator(aq)
 
       var r21 = queue.pop(Slot(11), p1)
       var r22 = queue.pop(Slot(11), p2)
@@ -279,19 +289,21 @@ suite "SyncManager test suite":
       doAssert(f22.finished == true and f22.failed == false)
       doAssert(counter == 5)
       var f21 = queue.push(r21, @[chain[0], chain[1]])
-      doAssert(f21.finished == true and f21.failed == false)
       await sleepAsync(100.milliseconds)
+      doAssert(f21.finished == true and f21.failed == false)
       doAssert(f24.finished == true and f24.failed == false)
       doAssert(counter == 9)
       var f23 = queue.push(r23, @[chain[4], chain[5]])
+      await sleepAsync(100.milliseconds)
       doAssert(f23.finished == true and f23.failed == false)
       doAssert(counter == 12)
-      await sleepAsync(100.milliseconds)
       doAssert(counter == 12)
       doAssert(r21.item == p1)
       doAssert(r22.item == p2)
       doAssert(r23.item == p3)
       doAssert(r24.item == p4)
+
+      await validatorFut.cancelAndWait()
       result = true
 
     check waitFor(test())
@@ -300,19 +312,19 @@ suite "SyncManager test suite":
     proc test(): Future[bool] {.async.} =
       var counter = 5
 
-      proc syncReceiver(req: SyncRequest[SomeTPeer],
-                list: openarray[SignedBeaconBlock]): Result[void, BlockError] {.
-        gcsafe.} =
-        for item in list:
-          if item.message.slot == Slot(counter):
+      proc simpleValidator(aq: AsyncQueue[BlockEntry]) {.async.} =
+        while true:
+          let sblock = await aq.popFirst()
+          if sblock.v.blk.message.slot == Slot(counter):
             inc(counter)
           else:
-            return err(Invalid)
-        return ok()
+            sblock.v.fail(BlockError.Invalid)
+          sblock.v.done()
 
+      var aq = newAsyncQueue[BlockEntry](1)
       var chain = createChain(Slot(5), Slot(18))
       var queue = SyncQueue.init(SomeTPeer, Slot(5), Slot(18), 2'u64,
-                                 syncReceiver, getFirstSlotAtFinalizedEpoch, 2)
+                                 getFirstSlotAtFinalizedEpoch, aq, 2)
       let p1 = SomeTPeer()
       let p2 = SomeTPeer()
       let p3 = SomeTPeer()
@@ -320,6 +332,8 @@ suite "SyncManager test suite":
       let p5 = SomeTPeer()
       let p6 = SomeTPeer()
       let p7 = SomeTPeer()
+
+      var validatorFut = simpleValidator(aq)
 
       var r21 = queue.pop(Slot(20), p1)
       var r22 = queue.pop(Slot(20), p2)
@@ -337,11 +351,13 @@ suite "SyncManager test suite":
       var f26 = queue.push(r26, @[chain[10], chain[11]])
       var f27 = queue.push(r27, @[chain[12], chain[13]])
 
+      await sleepAsync(100.milliseconds)
       doAssert(f21.finished == true and f21.failed == false)
       doAssert(e21.finished == true and e21.failed == false)
       doAssert(f26.finished == false)
       doAssert(f27.finished == false)
       await queue.resetWait(none[Slot]())
+      await sleepAsync(100.milliseconds)
       doAssert(f26.finished == true and f26.failed == false)
       doAssert(f27.finished == true and f27.failed == false)
       doAssert(queue.inpSlot == Slot(7) and queue.outSlot == Slot(7))
@@ -355,12 +371,15 @@ suite "SyncManager test suite":
       var o25 = queue.push(r25, @[chain[8], chain[9]])
       var o26 = queue.push(r26, @[chain[10], chain[11]])
       var o27 = queue.push(r27, @[chain[12], chain[13]])
+      await sleepAsync(100.milliseconds)
       doAssert(o21.finished == true and o21.failed == false)
       doAssert(o22.finished == true and o22.failed == false)
       doAssert(o25.finished == true and o25.failed == false)
       doAssert(o26.finished == true and o26.failed == false)
       doAssert(o27.finished == true and o27.failed == false)
       doAssert(len(queue) == 12)
+
+      await validatorFut.cancelAndWait()
       result = true
 
     check waitFor(test())
