@@ -290,10 +290,10 @@ proc process_operations(preset: RuntimePreset,
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
   let
-    num_deposits = uint64 len(body.deposits)
     req_deposits = min(MAX_DEPOSITS,
                        state.eth1_data.deposit_count - state.eth1_deposit_index)
-  if not (num_deposits == req_deposits):
+  if state.eth1_data.deposit_count < state.eth1_deposit_index or
+      body.deposits.lenu64 != req_deposits:
     return err("incorrect number of deposits")
 
   template for_ops(operations: auto, fn: auto) =
