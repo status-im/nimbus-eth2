@@ -187,8 +187,16 @@ proc saveWallet*(wallet: Wallet, outWalletPath: string): Result[void, string] =
   ok()
 
 proc readPasswordInput(prompt: string, password: var TaintedString): bool =
-  try: readPasswordFromStdin(prompt, password)
-  except IOError: false
+  try:
+    when defined(windows):
+      # readPasswordFromStdin() on Windows always returns `false`.
+      # https://github.com/nim-lang/Nim/issues/15207
+      discard readPasswordFromStdin(prompt, password)
+      true
+    else:
+      readPasswordFromStdin(prompt, password)
+  except IOError as exc:
+    false
 
 proc setStyleNoError(styles: set[Style]) =
   when defined(windows):
@@ -340,9 +348,9 @@ proc createWalletInteractively*(
 
       template prompt: string =
         if firstTry:
-          "Please enter a password:"
+          "Please enter a password: "
         else:
-          "Please enter a new password:"
+          "Please enter a new password: "
 
       while true:
         if not readPasswordInput(prompt, password):
