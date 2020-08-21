@@ -388,8 +388,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   return head
 
 proc broadcastAggregatedAttestations(
-    node: BeaconNode, aggregationHead: BlockRef, aggregationSlot: Slot,
-    trailing_distance: uint64) =
+    node: BeaconNode, aggregationHead: BlockRef, aggregationSlot: Slot) =
   # The index is via a
   # locally attested validator. Unlike in handleAttestations(...) there's a
   # single one at most per slot (because that's how aggregation attestation
@@ -419,10 +418,11 @@ proc broadcastAggregatedAttestations(
               committee_index.CommitteeIndex,
               # TODO https://github.com/status-im/nim-beacon-chain/issues/545
               # this assumes in-process private keys
+              validatorIdx,
               validator.privKey,
-              trailing_distance, cache)
+              cache)
 
-          # Don't broadcast when, e.g., this node isn't an aggregator
+          # Don't broadcast when, e.g., this node isn't aggregator
           if aggregateAndProof.isSome:
             var signedAP = SignedAggregateAndProof(
               message: aggregateAndProof.get,
@@ -515,9 +515,12 @@ proc handleValidatorDuties*(
       "Waiting to aggregate attestations")
 
     const TRAILING_DISTANCE = 1
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#configuration
+    static:
+      doAssert TRAILING_DISTANCE <= ATTESTATION_PROPAGATION_SLOT_RANGE
+
     let
       aggregationSlot = slot - TRAILING_DISTANCE
       aggregationHead = get_ancestor(head, aggregationSlot)
 
-    broadcastAggregatedAttestations(
-      node, aggregationHead, aggregationSlot, TRAILING_DISTANCE)
+    broadcastAggregatedAttestations(node, aggregationHead, aggregationSlot)

@@ -238,7 +238,7 @@ proc getAttestationsForSlot*(pool: AttestationPool, newBlockSlot: Slot):
     candidateIdx = pool.candidateIdx(attestationSlot)
 
   if candidateIdx.isNone:
-    info "No attestations matching the slot range",
+    trace "No attestations matching the slot range",
       attestationSlot = shortLog(attestationSlot),
       startingSlot = shortLog(pool.startingSlot)
     return none(AttestationsSeen)
@@ -256,13 +256,7 @@ proc getAttestationsForBlock*(pool: AttestationPool,
   let newBlockSlot = state.slot
   var attestations: seq[AttestationEntry]
 
-  # This isn't maximally efficient -- iterators or other approaches would
-  # avoid lots of memory allocations -- but this provides a more flexible
-  # base upon which to experiment with, and isn't yet profiling hot-path,
-  # while avoiding penalizing slow attesting too much (as, in the spec it
-  # is supposed to be available two epochs back; it's not meant as). This
-  # isn't a good solution, either -- see the set-packing comment below as
-  # one issue. It also creates problems with lots of repeat attestations,
+  # This potentially creates problems with lots of repeated attestations,
   # as a bunch of synchronized beacon_nodes do almost the opposite of the
   # intended thing -- sure, _blocks_ have to be popular (via attestation)
   # but _attestations_ shouldn't have to be so frequently repeated, as an
@@ -325,6 +319,41 @@ proc getAttestationsForBlock*(pool: AttestationPool,
       debug "getAttestationsForBlock: returning early after hitting MAX_ATTESTATIONS",
         attestationSlot = newBlockSlot - 1
       return
+
+proc getAggregatedAttestation*(pool: AttestationPool,
+                               slot: Slot,
+                               index: CommitteeIndex): Option[Attestation] =
+  let attestations = pool.getAttestationsForSlot(
+    slot + MIN_ATTESTATION_INCLUSION_DELAY)
+  if attestations.isNone:
+    return none(Attestation)
+
+  for a in attestations.get.attestations:
+    doAssert a.data.slot == slot
+    if index.uint64 != a.data.index:
+      continue
+
+    var
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#construct-attestation
+      attestation = Attestation(
+        aggregation_bits: a.validations[0].aggregation_bits,
+        data: a.data,
+        signature: a.validations[0].aggregate_signature
+      )
+
+      agg {.noInit.}: AggregateSignature
+
+    agg.init(a.validations[0].aggregate_signature)
+    for v in a.validations[1..^1]:
+      if not attestation.aggregation_bits.overlaps(v.aggregation_bits):
+        attestation.aggregation_bits.combine(v.aggregation_bits)
+        agg.aggregate(v.aggregate_signature)
+
+      attestation.signature = agg.finish()
+
+    return some(attestation)
+
+  none(Attestation)
 
 proc resolve*(pool: var AttestationPool, wallSlot: Slot) =
   ## Check attestations in our unresolved deque
