@@ -14,9 +14,13 @@ const
   keystoreFileName* = "keystore.json"
 
 type
-  WalletDataForDeposits* = object
+  WalletPathPair* = object
+    wallet*: Wallet
+    path*: string
+
+  CreatedWallet* = object
+    walletPath*: WalletPathPair
     mnemonic*: Mnemonic
-    nextAccount*: Natural
 
 proc loadKeystore(conf: BeaconNodeConf|ValidatorClientConf,
                   validatorsDir, keyName: string): Option[ValidatorPrivKey] =
@@ -134,22 +138,22 @@ proc saveKeystore(rng: var BrHmacDrbgContext,
 
 proc generateDeposits*(preset: RuntimePreset,
                        rng: var BrHmacDrbgContext,
-                       walletData: WalletDataForDeposits,
-                       totalValidators: int,
+                       mnemonic: Mnemonic,
+                       firstValidatorIdx, totalNewValidators: int,
                        validatorsDir: string,
                        secretsDir: string): Result[seq[DepositData], KeystoreGenerationError] =
   var deposits: seq[DepositData]
 
-  info "Generating deposits", totalValidators, validatorsDir, secretsDir
+  info "Generating deposits", totalNewValidators, validatorsDir, secretsDir
 
   let withdrawalKeyPath = makeKeyPath(0, withdrawalKeyKind)
   # TODO: Explain why we are using an empty password
-  var withdrawalKey = keyFromPath(walletData.mnemonic, KeystorePass"", withdrawalKeyPath)
+  var withdrawalKey = keyFromPath(mnemonic, KeystorePass"", withdrawalKeyPath)
   defer: burnMem(withdrawalKey)
   let withdrawalPubKey = withdrawalKey.toPubKey
 
-  for i in 0 ..< totalValidators:
-    let keyStoreIdx = walletData.nextAccount + i
+  for i in 0 ..< totalNewValidators:
+    let keyStoreIdx = firstValidatorIdx + i
     let signingKeyPath = withdrawalKeyPath.append keyStoreIdx
     var signingKey = deriveChildKey(withdrawalKey, keyStoreIdx)
     defer: burnMem(signingKey)
@@ -168,7 +172,7 @@ const
   mostCommonPasswords = wordListArray(
     currentSourcePath.parentDir /
       "../vendor/nimbus-security-resources/passwords/10-million-password-list-top-100000.txt",
-    minWordLength = minPasswordLen)
+    minWordLen = minPasswordLen)
 
 proc saveWallet*(wallet: Wallet, outWalletPath: string): Result[void, string] =
   try: createDir splitFile(outWalletPath).dir
@@ -185,6 +189,9 @@ proc saveWallet*(wallet: Wallet, outWalletPath: string): Result[void, string] =
     return err("failure to serialize wallet: " & e.formatMsg("wallet"))
 
   ok()
+
+proc saveWallet*(wallet: WalletPathPair): Result[void, string] =
+  saveWallet(wallet.wallet, wallet.path)
 
 proc readPasswordInput(prompt: string, password: var TaintedString): bool =
   try:
@@ -282,58 +289,19 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
     fatal "Failed to access the imported deposits directory"
     quit 1
 
-proc createWalletInteractively*(
-    rng: var BrHmacDrbgContext,
-    conf: BeaconNodeConf): Result[WalletDataForDeposits, string] =
+template echo80(msg: string) =
+  echo wrapWords(msg, 80)
 
-  if conf.nonInteractive:
-    return err "not running in interactive mode"
-
-  var mnemonic = generateMnemonic(rng)
-  defer: burnMem(mnemonic)
-
-  template ask(prompt: string): string =
-    try:
-      stdout.write prompt, ": "
-      stdin.readLine()
-    except IOError:
-      return err "failure to read data from stdin"
-
-  template echo80(msg: string) =
-    echo wrapWords(msg, 80)
-
-  echo80 "The generated wallet is uniquely identified by a seed phrase " &
-         "consisting of 24 words. In case you lose your wallet and you " &
-         "need to restore it on a different machine, you must use the " &
-         "words displayed below:"
-
+template ask(prompt: string): string =
   try:
-    echo ""
-    setStyleNoError({styleBright})
-    setForegroundColorNoError fgCyan
-    echo80 $mnemonic
-    resetAttributesNoError()
-    echo ""
-  except IOError, ValueError:
-    return err "failure to write to the standard output"
+    stdout.write prompt, ": "
+    stdin.readLine()
+  except IOError:
+    return err "failure to read data from stdin"
 
-  echo80 "Please back up the seed phrase now to a safe location as " &
-         "if you are protecting a sensitive password. The seed phrase " &
-         "can be used to withdrawl funds from your wallet."
-
-  echo ""
-  echo "Did you back up your seed recovery phrase?\p" &
-       "(please type 'yes' to continue or press enter to quit)"
-
-  while true:
-    let answer = ask "Answer"
-    if answer == "":
-      return err "aborted wallet creation"
-    elif answer != "yes":
-      echo "To continue, please type 'yes' (without the quotes) or press enter to quit"
-    else:
-      break
-
+proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
+                               config: BeaconNodeConf,
+                               mnemonic: Mnemonic): Result[WalletPathPair, string] =
   echo ""
   echo80 "When you perform operations with your wallet such as withdrawals " &
          "and additional deposits, you'll be asked to enter a password. " &
@@ -378,7 +346,7 @@ proc createWalletInteractively*(
         continue
 
       var name: WalletName
-      let outWalletName = conf.outWalletName
+      let outWalletName = config.outWalletName
       if outWalletName.isSome:
         name = outWalletName.get
       else:
@@ -396,25 +364,99 @@ proc createWalletInteractively*(
                      continue
           break
 
-      let wallet = createWallet(kdfPbkdf2, rng, mnemonic,
-                                name = name, password = KeystorePass password)
+      let nextAccount = if config.walletsCmd == WalletsCmd.restore:
+        config.restoredDepositsCount
+      else:
+        none Natural
 
-      let outWalletFileFlag = conf.outWalletFile
+      let wallet = createWallet(kdfPbkdf2, rng, mnemonic,
+                                name = name,
+                                nextAccount = nextAccount,
+                                password = KeystorePass password)
+
+      let outWalletFileFlag = config.outWalletFile
       let outWalletFile = if outWalletFileFlag.isSome:
         string outWalletFileFlag.get
       else:
-        conf.walletsDir / addFileExt(string wallet.uuid, "json")
+        config.walletsDir / addFileExt(string wallet.uuid, "json")
 
       let status = saveWallet(wallet, outWalletFile)
       if status.isErr:
         return err("failure to create wallet file due to " & status.error)
 
       info "Wallet file written", path = outWalletFile
-      return ok WalletDataForDeposits(mnemonic: mnemonic, nextAccount: 0)
-
+      return ok WalletPathPair(wallet: wallet, path: outWalletFile)
     finally:
       burnMem(password)
       burnMem(confirmedPassword)
+
+proc createWalletInteractively*(
+    rng: var BrHmacDrbgContext,
+    config: BeaconNodeConf): Result[CreatedWallet, string] =
+
+  if config.nonInteractive:
+    return err "not running in interactive mode"
+
+  var mnemonic = generateMnemonic(rng)
+  defer: burnMem(mnemonic)
+
+  echo80 "The generated wallet is uniquely identified by a seed phrase " &
+         "consisting of 24 words. In case you lose your wallet and you " &
+         "need to restore it on a different machine, you must use the " &
+         "words displayed below:"
+
+  try:
+    echo ""
+    setStyleNoError({styleBright})
+    setForegroundColorNoError fgCyan
+    echo80 $mnemonic
+    resetAttributesNoError()
+    echo ""
+  except IOError, ValueError:
+    return err "failure to write to the standard output"
+
+  echo80 "Please back up the seed phrase now to a safe location as " &
+         "if you are protecting a sensitive password. The seed phrase " &
+         "can be used to withdrawl funds from your wallet."
+
+  echo ""
+  echo "Did you back up your seed recovery phrase?\p" &
+       "(please type 'yes' to continue or press enter to quit)"
+
+  while true:
+    let answer = ask "Answer"
+    if answer == "":
+      return err "aborted wallet creation"
+    elif answer != "yes":
+      echo "To continue, please type 'yes' (without the quotes) or press enter to quit"
+    else:
+      break
+
+  let walletPath = ? pickPasswordAndSaveWallet(rng, config, mnemonic)
+  return ok CreatedWallet(walletPath: walletPath, mnemonic: mnemonic)
+
+proc restoreWalletInteractively*(rng: var BrHmacDrbgContext,
+                                 config: BeaconNodeConf) =
+  var
+    enteredMnemonic: TaintedString
+    validatedMnemonic: Mnemonic
+
+  defer:
+    burnMem enteredMnemonic
+    burnMem validatedMnemonic
+
+  echo "To restore your wallet, please enter your backed-up seed phrase."
+  while true:
+    if not readPasswordInput("Seedphrase:", enteredMnemonic):
+      fatal "failure to read password from stdin"
+      quit 1
+
+    if validateMnemonic(enteredMnemonic, validatedMnemonic):
+      break
+    else:
+      echo "The entered mnemonic was not valid. Please try again."
+
+  discard pickPasswordAndSaveWallet(rng, config, validatedMnemonic)
 
 proc loadWallet*(fileName: string): Result[Wallet, string] =
   try:
@@ -422,7 +464,7 @@ proc loadWallet*(fileName: string): Result[Wallet, string] =
   except CatchableError as e:
     err e.msg
 
-proc unlockWalletInteractively*(wallet: Wallet): Result[WalletDataForDeposits, string] =
+proc unlockWalletInteractively*(wallet: Wallet): Result[Mnemonic, string] =
   echo "Please enter the password for unlocking the wallet"
 
   for i in 1..3:
@@ -434,8 +476,7 @@ proc unlockWalletInteractively*(wallet: Wallet): Result[WalletDataForDeposits, s
       var secret = decryptCryptoField(wallet.crypto, KeystorePass password)
       if secret.len > 0:
         defer: burnMem(secret)
-        return ok WalletDataForDeposits(
-          mnemonic: Mnemonic string.fromBytes(secret))
+        return ok Mnemonic(string.fromBytes(secret))
       else:
         echo "Unlocking of the wallet failed. Please try again."
     finally:
@@ -443,7 +484,7 @@ proc unlockWalletInteractively*(wallet: Wallet): Result[WalletDataForDeposits, s
 
   return err "failure to unlock wallet"
 
-proc findWallet*(config: BeaconNodeConf, name: WalletName): Result[Wallet, string] =
+proc findWallet*(config: BeaconNodeConf, name: WalletName): Result[WalletPathPair, string] =
   var walletFiles = newSeq[string]()
 
   try:
@@ -451,15 +492,16 @@ proc findWallet*(config: BeaconNodeConf, name: WalletName): Result[Wallet, strin
       if kind != pcFile: continue
       let walletId = splitFile(walletFile).name
       if cmpIgnoreCase(walletId, name.string) == 0:
-        return loadWallet(walletFile)
+        let wallet = ? loadWallet(walletFile)
+        return ok WalletPathPair(wallet: wallet, path: walletFile)
       walletFiles.add walletFile
   except OSError:
     return err "failure to list wallet directory"
 
   for walletFile in walletFiles:
-    let wallet = loadWallet(walletFile)
-    if wallet.isOk and cmpIgnoreCase(wallet.get.name.string, name.string) == 0:
-      return wallet
+    let wallet = ? loadWallet(walletFile)
+    if cmpIgnoreCase(wallet.name.string, name.string) == 0:
+      return ok WalletPathPair(wallet: wallet, path: walletFile)
 
   return err "failure to locate wallet file"
 
