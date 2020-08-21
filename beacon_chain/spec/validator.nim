@@ -9,88 +9,129 @@
 {.push raises: [Defect].}
 
 import
-  options, sequtils, math, tables,
+  options, math, tables,
   ./datatypes, ./digest, ./helpers
+
+const
+  SEED_SIZE = sizeof(Eth2Digest)
+  ROUND_SIZE = 1
+  POSITION_WINDOW_SIZE = 4
+  PIVOT_VIEW_SIZE = SEED_SIZE + ROUND_SIZE
+  TOTAL_SIZE = PIVOT_VIEW_SIZE + POSITION_WINDOW_SIZE
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#compute_shuffled_index
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#compute_committee
-func get_shuffled_seq*(seed: Eth2Digest,
-                      list_size: uint64,
-                      ): seq[ValidatorIndex] =
-  ## Via https://github.com/protolambda/eth2-shuffle/blob/master/shuffle.go
-  ## Shuffles ``validators`` into beacon committees, seeded by ``seed`` and
-  ## ``slot``.
-  ## Returns a list of ``SLOTS_PER_EPOCH * committees_per_slot`` committees
-  ## where each committee is itself a list of validator indices.
-  ##
-  ## Invert the inner/outer loops from the spec, essentially. Most useful
-  ## hash result re-use occurs within a round.
+# Port of https://github.com/protolambda/zrnt/blob/master/eth2/beacon/shuffle.go
+# Shuffles or unshuffles, depending on the `dir` (true for shuffling, false for unshuffling
+func shuffle_list*(input: var seq[ValidatorIndex], seed: Eth2Digest) =
+  let list_size = input.lenu64
 
-  # Empty size -> empty list.
-  if list_size == 0:
-    return
+  if list_size <= 1: return
 
-  var
-    # Share these buffers.
-    # TODO: Redo to follow spec.
-    #       We can have an "Impl" private version that takes buffer as parameters
-    #       so that we avoid alloc on repeated calls from compute_committee
-    pivot_buffer: array[(32+1), byte]
-    source_buffer: array[(32+1+4), byte]
-    shuffled_active_validator_indices = mapIt(
-      0 ..< list_size.int, it.ValidatorIndex)
-    sources = repeat(Eth2Digest(), (list_size div 256) + 1)
+  var buf {.noinit.}: array[TOTAL_SIZE, byte]
 
-  ## The pivot's a function of seed and round only.
-  ## This doesn't change across rounds.
-  pivot_buffer[0..31] = seed.data
-  source_buffer[0..31] = seed.data
+  # Seed is always the first 32 bytes of the hash input, we never have to change
+  # this part of the buffer.
+  buf[0..<32] = seed.data
 
-  static: doAssert SHUFFLE_ROUND_COUNT < uint8.high
-  for round in 0'u8 ..< SHUFFLE_ROUND_COUNT.uint8:
-    pivot_buffer[32] = round
-    source_buffer[32] = round
+  # The original code includes a direction flag, but only the reverse direction
+  # is used in eth2, so we simplify it here
+  for r in 0'u8..<SHUFFLE_ROUND_COUNT.uint8:
+    # spec: pivot = bytes_to_int(hash(seed + int_to_bytes1(round))[0:8]) % list_size
+    # This is the "int_to_bytes1(round)", appended to the seed.
+    buf[SEED_SIZE] = (SHUFFLE_ROUND_COUNT.uint8 - r - 1)
 
-    # Only one pivot per round.
-    let pivot =
-      bytes_to_uint64(eth2digest(pivot_buffer).data.toOpenArray(0, 7)) mod
-        list_size
+    # Seed is already in place, now just hash the correct part of the buffer,
+    # and take a uint64 from it, and modulo it to get a pivot within range.
+    let
+      pivotDigest = eth2digest(buf.toOpenArray(0, PIVOT_VIEW_SIZE - 1))
+      pivot = bytes_to_uint64(pivotDigest.data.toOpenArray(0, 7)) mod listSize
 
-    ## Only need to run, per round, position div 256 hashes, so precalculate
-    ## them. This consumes memory, but for low-memory devices, it's possible
-    ## to mitigate by some light LRU caching and similar.
-    for reduced_position in 0 ..< sources.len:
-      source_buffer[33..36] = uint_to_bytes4(reduced_position.uint64)
-      sources[reduced_position] = eth2digest(source_buffer)
+    # Split up the for-loop in two:
+    #  1. Handle the part from 0 (incl) to pivot (incl). This is mirrored around
+    #     (pivot / 2)
+    #  2. Handle the part from pivot (excl) to N (excl). This is mirrored around
+    #     ((pivot / 2) + (size/2))
+    # The pivot defines a split in the array, with each of the splits mirroring
+    # their data within the split.
+    # Print out some example even/odd sized index lists, with some even/odd pivots,
+    # and you can deduce how the mirroring works exactly.
+    # Note that the mirror is strict enough to not consider swapping the index
+    # @mirror with itself.
+    # Since we are iterating through the "positions" in order, we can just
+    # repeat the hash every 256th position.
+    # No need to pre-compute every possible hash for efficiency like in the
+    # example code.
+    # We only need it consecutively (we are going through each in reverse order
+    # however, but same thing)
 
-    ## Iterate over all the indices. This was in get_permuted_index, but large
-    ## efficiency gains exist in caching and re-using data.
-    for index in 0 ..< list_size.int:
-      let
-        cur_idx_permuted = shuffled_active_validator_indices[index]
-        flip = ((list_size + pivot) - cur_idx_permuted.uint64) mod list_size
-        position = max(cur_idx_permuted.int, flip.int)
+    # spec: source = hash(seed + int_to_bytes1(round) + int_to_bytes4(position // 256))
+    # - seed is still in 0:32 (excl., 32 bytes)
+    # - round number is still in 32
+    # - mix in the position for randomness, except the last byte of it,
+    #     which will be used later to select a bit from the resulting hash.
+    # We start from the pivot position, and work back to the mirror position
+    # (of the part left to the pivot).
+    # This makes us process each pear exactly once (instead of unnecessarily
+    # twice, like in the spec)
+    buf[33..<37] = uint_to_bytes4(pivot shr 8)
 
-      let
-        source = sources[position div 256].data
-        byte_value = source[(position mod 256) div 8]
-        bit = (byte_value shr (position mod 8)) mod 2
+    var
+      mirror = (pivot + 1) shr 1
+      source = eth2digest(buf)
+      byteV = source.data[(pivot and 0xff) shr 3]
+      i = 0'u64
+      j = pivot
 
-      if bit != 0:
-        shuffled_active_validator_indices[index] = flip.ValidatorIndex
+    template shuffle =
+      while i < mirror:
+        # The pair is i,j. With j being the bigger of the two, hence the "position" identifier of the pair.
+        # Every 256th bit (aligned to j).
+        if (j and 0xff) == 0xff:
+          # just overwrite the last part of the buffer, reuse the start (seed, round)
+          buf[33..<37] = uint_to_bytes4(j shr 8)
+          source = eth2digest(buf)
 
-  shuffled_active_validator_indices
+        # Same trick with byte retrieval. Only every 8th.
+        if (j and 0x07) == 0x7:
+          byteV = source.data[(j and 0xff'u64) shr 3]
+
+        let
+          bitV = (byteV shr (j and 0x7)) and 0x1
+
+        if bitV == 1:
+          swap(input[i], input[j])
+
+        i.inc
+        j.dec
+
+    shuffle
+
+    # Now repeat, but for the part after the pivot.
+    mirror = (pivot + list_size + 1) shr 1
+    let lend = list_size - 1
+    # Again, seed and round input is in place, just update the position.
+    # We start at the end, and work back to the mirror point.
+    # This makes us process each pear exactly once (instead of unnecessarily twice, like in the spec)
+    buf[33..<37] = uint_to_bytes4(lend shr 8)
+
+    source = eth2digest(buf)
+    byteV = source.data[(lend and 0xff) shr 3]
+    i = pivot + 1'u64
+    j = lend
+
+    shuffle
 
 func get_shuffled_active_validator_indices*(state: BeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
   # Non-spec function, to cache a data structure from which one can cheaply
   # compute both get_active_validator_indexes() and get_beacon_committee().
-  let active_validator_indices = get_active_validator_indices(state, epoch)
-  mapIt(
-    get_shuffled_seq(
-      get_seed(state, epoch, DOMAIN_BEACON_ATTESTER),
-      active_validator_indices.lenu64),
-    active_validator_indices[it])
+  var active_validator_indices = get_active_validator_indices(state, epoch)
+
+  shuffle_list(
+    active_validator_indices, get_seed(state, epoch, DOMAIN_BEACON_ATTESTER))
+
+  active_validator_indices
 
 func get_shuffled_active_validator_indices*(
     cache: var StateCache, state: BeaconState, epoch: Epoch):
