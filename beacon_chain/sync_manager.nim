@@ -653,6 +653,9 @@ template checkPeerScore(peer, body: untyped): untyped =
           topics = "syncman"
     break
 
+func syncQueueLen*[A, B](man: SyncManager[A, B]): uint64 =
+  man.queue.len
+
 proc syncWorker*[A, B](man: SyncManager[A, B],
                        peer: A): Future[A] {.async.} =
   # Sync worker is the lowest level loop which performs syncing with single
