@@ -380,6 +380,17 @@ proc resolve*(pool: var AttestationPool, wallSlot: Slot) =
     pool.addResolved(a.blck, a.attestation, wallSlot)
 
 proc selectHead*(pool: var AttestationPool, wallSlot: Slot): Option[BlockRef] =
+  # TODO: using "Option" here leads to high stack usage and stack overflows
+  #       visible in test_attestation_pool and test_block_pool.
+  #       This is compounded by unittest.check taking a copy
+  #       of everything tested on the stack
+  #
+  #       However an option on a ref type should take the same size
+  #       https://github.com/nim-lang/Nim/blob/v1.2.6/lib/pure/options.nim#L68-L75
+  #
+  #       Do we also need the lent PR?
+  #       https://github.com/nim-lang/Nim/pull/14442
+
   let newHead = pool.forkChoice.get_head(pool.chainDag, wallSlot)
 
   if newHead.isErr:
