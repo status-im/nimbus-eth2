@@ -153,12 +153,9 @@ proc nfuzz_shuffle(input_seed: ptr byte, xoutput: var openArray[uint64]): bool
   copyMem(addr(seed.data), input_seed, sizeof(seed.data))
 
   var shuffled_seq: seq[ValidatorIndex]
-  shuffled_seq = get_shuffled_seq(seed, list_size.uint64)
-
-  doAssert(
-    list_size == shuffled_seq.len,
-    "Shuffled list should be of requested size."
-  )
+  for i in 0..<list_size:
+    shuffled_seq.add i.ValidatorIndex
+  shuffle_list(shuffled_seq, seed)
 
   for i in 0..<list_size:
     # ValidatorIndex is currently wrongly uint32 so we copy this 1 by 1,
