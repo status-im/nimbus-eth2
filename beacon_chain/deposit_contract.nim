@@ -170,7 +170,7 @@ proc main() {.async.} =
 
   if cfg.cmd == StartUpCommand.generateSimulationDeposits:
     let
-      walletData = WalletDataForDeposits(mnemonic: generateMnemonic(rng[]))
+      mnemonic = generateMnemonic(rng[])
       runtimePreset = defaultRuntimePreset
 
     createDir(string cfg.outValidatorsDir)
@@ -179,8 +179,8 @@ proc main() {.async.} =
     let deposits = generateDeposits(
       runtimePreset,
       rng[],
-      walletData,
-      cfg.simulationDepositsCount,
+      mnemonic,
+      0, cfg.simulationDepositsCount,
       string cfg.outValidatorsDir,
       string cfg.outSecretsDir)
 

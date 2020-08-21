@@ -1161,26 +1161,33 @@ programMain:
   of deposits:
     case config.depositsCmd
     of DepositsCmd.create:
-      var walletData = if config.existingWalletId.isSome:
+      var mnemonic: Mnemonic
+      defer: burnMem(mnemonic)
+      var walletPath: WalletPathPair
+
+      if config.existingWalletId.isSome:
         let id = config.existingWalletId.get
         let found = keystore_management.findWallet(config, id)
-        if found.isErr:
+        if found.isOk:
+          walletPath = found.get
+        else:
           fatal "Unable to find wallet with the specified name/uuid",
                 id, err = found.error
           quit 1
-        let unlocked = unlockWalletInteractively(found.get)
+        var unlocked = unlockWalletInteractively(walletPath.wallet)
         if unlocked.isOk:
-          unlocked.get
+          swap(mnemonic, unlocked.get)
         else:
+          # The failure will be reported in `unlockWalletInteractively`.
           quit 1
       else:
-        let walletData = createWalletInteractively(rng[], config)
-        if walletData.isErr:
-          fatal "Unable to create wallet", err = walletData.error
+        var walletRes = createWalletInteractively(rng[], config)
+        if walletRes.isErr:
+          fatal "Unable to create wallet", err = walletRes.error
           quit 1
-        walletData.get
-
-      defer: burnMem(walletData.mnemonic)
+        else:
+          swap(mnemonic, walletRes.get.mnemonic)
+          walletPath = walletRes.get.walletPath
 
       createDir(config.outValidatorsDir)
       createDir(config.outSecretsDir)
@@ -1188,7 +1195,8 @@ programMain:
       let deposits = generateDeposits(
         config.runtimePreset,
         rng[],
-        walletData,
+        mnemonic,
+        walletPath.wallet.nextAccount,
         config.totalDeposits,
         config.outValidatorsDir,
         config.outSecretsDir)
@@ -1208,6 +1216,14 @@ programMain:
 
         Json.saveFile(depositDataPath, launchPadDeposits)
         info "Deposit data written", filename = depositDataPath
+
+        walletPath.wallet.nextAccount += deposits.value.len
+        let status = saveWallet(walletPath)
+        if status.isErr:
+          error "Failed to update wallet file after generating deposits",
+                 wallet = walletPath.path,
+                 error = status.error
+          quit 1
       except CatchableError as err:
         error "Failed to create launchpad deposit data file", err = err.msg
         quit 1
@@ -1225,15 +1241,22 @@ programMain:
   of wallets:
     case config.walletsCmd:
     of WalletsCmd.create:
-      let status = createWalletInteractively(rng[], config)
-      if status.isErr:
-        fatal "Unable to create wallet", err = status.error
+      var walletRes = createWalletInteractively(rng[], config)
+      if walletRes.isErr:
+        fatal "Unable to create wallet", err = walletRes.error
         quit 1
+      burnMem(walletRes.get.mnemonic)
 
     of WalletsCmd.list:
-      # TODO
-      discard
+      for kind, walletFile in walkDir(config.walletsDir):
+        if kind != pcFile: continue
+        let walletRes = loadWallet(walletFile)
+        if walletRes.isOk:
+          echo walletRes.get.longName
+        else:
+          warn "Found corrupt wallet file",
+               wallet = walletFile, error = walletRes.error
 
     of WalletsCmd.restore:
-      # TODO
-      discard
+      restoreWalletInteractively(rng[], config)
+

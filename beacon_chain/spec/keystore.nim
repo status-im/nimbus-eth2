@@ -6,9 +6,9 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  math, strutils, strformat, typetraits, bearssl,
+  math, strutils, strformat, typetraits, algorithm,
   stew/[results, byteutils, bitseqs, bitops2], stew/shims/macros,
-  eth/keyfile/uuid, blscurve, faststreams/textio, json_serialization,
+  bearssl, eth/keyfile/uuid, blscurve, faststreams/textio, json_serialization,
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, utils, scrypt],
   ./datatypes, ./crypto, ./digest, ./signatures
 
@@ -146,6 +146,7 @@ const
 
   # https://github.com/bitcoin/bips/blob/master/bip-0039/bip-0039-wordlists.md
   wordListLen = 2048
+  maxWordLen = 16
 
 UUID.serializesAsBaseIn Json
 KeyPath.serializesAsBaseIn Json
@@ -170,6 +171,12 @@ template burnMem*(m: var (SensitiveData|TaintedString)) =
   #       to make its usage less error-prone.
   utils.burnMem(string m)
 
+func longName*(wallet: Wallet): string =
+  if wallet.name.string == wallet.uuid.string:
+    wallet.name.string
+  else:
+    wallet.name.string & " (" & wallet.uuid.string & ")"
+
 proc getRandomBytes*(rng: var BrHmacDrbgContext, n: Natural): seq[byte]
                     {.raises: [Defect].} =
   result = newSeq[byte](n)
@@ -177,18 +184,23 @@ proc getRandomBytes*(rng: var BrHmacDrbgContext, n: Natural): seq[byte]
 
 macro wordListArray*(filename: static string,
                      maxWords: static int = 0,
-                     minWordLength: static int = 0): untyped =
+                     minWordLen: static int = 0,
+                     maxWordLen: static int = high(int)): untyped =
   result = newTree(nnkBracket)
   var words = slurp(filename).split()
   for word in words:
-    if word.len >= minWordLength:
+    if word.len >= minWordLen and word.len <= maxWordLen:
       result.add newCall("cstring", newLit(word))
       if maxWords > 0 and result.len >= maxWords:
         return
 
 const
   englishWords = wordListArray("english_word_list.txt",
-                                maxWords = wordListLen)
+                                maxWords = wordListLen,
+                                maxWordLen = maxWordLen)
+
+static:
+  doAssert englishWords.len == wordListLen
 
 iterator pathNodesImpl(path: string): Natural
                       {.raises: [ValueError].} =
@@ -228,11 +240,15 @@ func getSeed*(mnemonic: Mnemonic, password: KeystorePass): KeySeed =
   let salt = "mnemonic-" & password.string
   KeySeed sha512.pbkdf2(mnemonic.string, salt, 2048, 64)
 
+template add(m: var Mnemonic, s: cstring) =
+  m.string.add s
+
 proc generateMnemonic*(
     rng: var BrHmacDrbgContext,
     words: openarray[cstring] = englishWords,
     entropyParam: openarray[byte] = @[]): Mnemonic =
-  # https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#generating-the-mnemonic
+  ## Generates a valid BIP-0039 mnenomic:
+  ## https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#generating-the-mnemonic
   doAssert words.len == wordListLen
 
   var entropy: seq[byte]
@@ -252,17 +268,51 @@ proc generateMnemonic*(
 
   entropy.add byte(checksum.data.getBitsBE(0 ..< checksumBits))
 
-  var res = ""
-  res.add words[entropy.getBitsBE(0..10)]
+  # Make sure the string won't be reallocated as this may
+  # leave partial copies of the mnemonic in memory:
+  result = Mnemonic newStringOfCap(mnemonicWordCount * maxWordLen)
+  result.add words[entropy.getBitsBE(0..10)]
 
   for i in 1 ..< mnemonicWordCount:
     let
       firstBit = i*11
       lastBit = firstBit + 10
-    res.add " "
-    res.add words[entropy.getBitsBE(firstBit..lastBit)]
+    result.add " "
+    result.add words[entropy.getBitsBE(firstBit..lastBit)]
 
-  Mnemonic res
+proc cmpIgnoreCase(lhs: cstring, rhs: string): int =
+  # TODO: This is a bit silly.
+  # Nim should have a `cmp` function for C strings.
+  cmpIgnoreCase($lhs, rhs)
+
+proc validateMnemonic*(inputWords: TaintedString,
+                       outputMnemonic: var Mnemonic): bool =
+  ## Accept a case-insensitive input string and returns `true`
+  ## if it represents a valid mnenomic. The `outputMnemonic`
+  ## value will be populated with a normalized lower-case
+  ## version of the mnemonic using a single space separator.
+  ##
+  ## The `outputMnemonic` value may be populated partially
+  ## with sensitive data even in case of validator failure.
+  ## Make sure to burn the received data after usage.
+
+  let words = inputWords.string.strip.split(Whitespace)
+  if words.len < 12 or words.len > 24 or words.len mod 3 != 0:
+    return false
+
+  # Make sure the string won't be re-allocated as this may
+  # leave partial copies of the mnemonic in memory:
+  outputMnemonic = Mnemonic newStringOfCap(words.len * maxWordLen)
+
+  for word in words:
+    let foundIdx = binarySearch(englishWords, word, cmpIgnoreCase)
+    if foundIdx == -1:
+      return false
+    if outputMnemonic.string.len > 0:
+      outputMnemonic.add " "
+    outputMnemonic.add englishWords[foundIdx]
+
+  return true
 
 proc deriveChildKey*(parentKey: ValidatorPrivKey,
                      index: Natural): ValidatorPrivKey =
@@ -549,7 +599,6 @@ proc createWallet*(kdfKind: KdfKind,
     seed = getSeed(mnemonic, KeystorePass"")
     crypto = createCryptoField(kdfKind, rng, distinctBase seed,
                                password, salt, iv)
-
   Wallet(
     uuid: uuid,
     name: if name.string.len > 0: name
