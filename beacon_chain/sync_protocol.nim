@@ -161,6 +161,8 @@ p2pProtocol BeaconSync(version = 1,
 
   proc beaconBlocksByRoot(
       peer: Peer,
+      # Please note that the SSZ list here ensures that the
+      # spec constant MAX_REQUEST_BLOCKS is enforced:
       blockRoots: BlockRootsList,
       response: MultipleChunksResponse[SignedBeaconBlock])
       {.async, libp2pProtocol("beacon_blocks_by_root", 1).} =

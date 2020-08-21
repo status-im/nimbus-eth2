@@ -250,7 +250,9 @@ medalla-deposit: | beacon_node deposit_contract
 		--ask-for-key
 
 clean-medalla:
-	rm -rf build/data/shared_medalla*
+	rm -rf build/data/shared_medalla*/db
+	rm -rf build/data/shared_medalla*/dump
+	rm -rf build/data/shared_medalla*/*.log
 
 altona: | beacon_node
 	build/beacon_node \
