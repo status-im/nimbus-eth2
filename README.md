@@ -157,6 +157,15 @@ prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
 
 For some pretty pictures, get [Grafana](https://grafana.com/) up and running, then import the dashboard definition in "grafana/beacon\_nodes\_Grafana\_dashboard.json".
 
+### Stress-testing the client by limiting the CPU power
+
+```bash
+make medalla CPU_LIMIT=20
+```
+
+The limiting is provided by the cpulimit utility, available on Linux and macOS.
+The specified value is a percentage of a single CPU core. Usually 1 - 100, but can be higher on multi-core CPUs.
+
 ## Interop (for other Eth2 clients)
 
 After installing the [prerequisites](#prerequisites)
