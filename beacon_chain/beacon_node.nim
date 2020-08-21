@@ -537,7 +537,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
       slot < node.chainDag.head.slot + GOSSIP_ACTIVATION_THRESHOLD_SLOTS:
     # When node.cycleAttestationSubnets() is enabled more properly, integrate
     # this into the node.cycleAttestationSubnets() call.
-    debug "Enabling GossipSub",
+    debug "Enabling topic subscriptions",
       wallSlot = slot,
       headSlot = node.chainDag.head.slot
     await node.addMessageHandlers()
