@@ -379,14 +379,15 @@ proc resolve*(pool: var AttestationPool, wallSlot: Slot) =
   for a in resolved:
     pool.addResolved(a.blck, a.attestation, wallSlot)
 
-proc selectHead*(pool: var AttestationPool, wallSlot: Slot): BlockRef =
+proc selectHead*(pool: var AttestationPool, wallSlot: Slot): Option[BlockRef] =
   let newHead = pool.forkChoice.get_head(pool.chainDag, wallSlot)
 
   if newHead.isErr:
     error "Couldn't select head", err = newHead.error
-    nil
+    result = none(BlockRef)
   else:
-    pool.chainDag.getRef(newHead.get())
+    result = some(pool.chainDag.getRef(newHead.get()))
+    doAssert not result.unsafeGet().isNil
 
 proc prune*(pool: var AttestationPool) =
   if (let v = pool.forkChoice.prune(); v.isErr):

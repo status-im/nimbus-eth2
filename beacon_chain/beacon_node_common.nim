@@ -61,7 +61,7 @@ const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
 
 # Metrics
-proc updateHead*(node: BeaconNode, wallSlot: Slot): BlockRef =
+proc updateHead*(node: BeaconNode, wallSlot: Slot): Option[BlockRef] =
   node.processor[].updateHead(wallSlot)
 
 template findIt*(s: openarray, predicate: untyped): int =
