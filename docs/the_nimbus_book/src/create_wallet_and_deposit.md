@@ -46,7 +46,7 @@ path="<WHERE_YOUR_WALLET_IS_SAVED>"
 
 At the end of the process, you should see the above message printed to the terminal. Make sure to keep track of your wallet name, id, and path.
 
-### Help with flags
+### Available options
 
 To see a list of the options/flags available, run:
 ```bash
@@ -93,7 +93,7 @@ In the `validators` directory you should also see a folder with a name that look
 
 > **Note:** If you wish to create a new wallet from which to make a deposit (simply run `deposits create` with no extra flags).
 
-### Help with flags
+### Available options
 
 To see a list of the options/flags available, run:
 ```bash
@@ -123,39 +123,48 @@ The following options are available:
 
 1. Go to [https://medalla.launchpad.ethereum.org](https://medalla.launchpad.ethereum.org/)
 
-![](https://storage.googleapis.com/ethereum-hackmd/upload_431e6a8ec269404e3f89fec7133482b9.png)
-2. Click on 'Get Started'
+<img src="https://storage.googleapis.com/ethereum-hackmd/upload_431e6a8ec269404e3f89fec7133482b9.png" width="700">
 
-![](https://storage.googleapis.com/ethereum-hackmd/upload_cbe2983e3795cfa57b621ae21b6ba165.png)
+2. Click on **Get Started**
 
-3. Read through the overview section -- making sure you understand the risks and responsibilities involved
+<img src="https://storage.googleapis.com/ethereum-hackmd/upload_cbe2983e3795cfa57b621ae21b6ba165.png" width="700">
+
+3. Read through the *Overview section* -- making sure you understand the risks and responsibilities involved
 
 <p>
 <img width="350" src="https://storage.googleapis.com/ethereum-hackmd/upload_86a7b1e968fe5830cac4a06d4597f221.png">
 <img width="350" src="https://storage.googleapis.com/ethereum-hackmd/upload_a630e2ad0e9c5e6c3111dd1fba3c9767.png">
-</p>x
+</p>
 
-4. Choose how many validators you'd like to run
+4. Move on to the *Generate Keys* section to choose how many validators you'd like to run (1 per 32 ETH deposited)
 
-![]()
+<img src="https://storage.googleapis.com/ethereum-hackmd/upload_0fd4e55870b4b6ce57c80644323b45bd.png" width="700">
 
-5. Scroll to the end of the Key Generation page, tick the box and click continue
 
-![]()
+5. Scroll to the end of the Key Generation page, tick the box, and click continue
+
+<img src="https://storage.googleapis.com/ethereum-hackmd/upload_10fcb69be02662e10bc4b62c29d8a074.png" width="700">
+
+
 
 6. Upload the Deposit data file you generated using Nimbus in the previous step
 
 <img src="https://storage.googleapis.com/ethereum-hackmd/upload_6db4e4c3715a0a80db53bd5f26eb1ffc.png" width="500">
 
-> Remember you can find your `deposit_data` JSON file in the `nim-beacon-chain/validators` directory
+*Remember you can find your `deposit_data` JSON file in the `nim-beacon-chain/validators` directory*
 
-The launchpad will then double check you understand the most important things.
+</br>
 
-<img width="500" src="https://storage.googleapis.com/ethereum-hackmd/upload_e2c60ad1c9840d0f2fcf5c4ae8ec284a.png">
+The launchpad will then double check you understand the most important things. And help you send the required transaction(s).
 
-And help you send the required transaction(s).
+<p>
+<img width="350" src="https://storage.googleapis.com/ethereum-hackmd/upload_e2c60ad1c9840d0f2fcf5c4ae8ec284a.png">
+<img width="350" src="https://storage.googleapis.com/ethereum-hackmd/upload_0d3c0a5c8cb421041b6847f0c2d24328.png">
+</p>
 
-<img width="500" src="https://storage.googleapis.com/ethereum-hackmd/upload_0d3c0a5c8cb421041b6847f0c2d24328.png">
+
+
+
 
 
 
