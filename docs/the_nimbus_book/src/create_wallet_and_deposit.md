@@ -1,9 +1,9 @@
-# Create a wallet and make a deposit
+# Generate your keys with Nimbus
 
-In this page we'll take you through how to create a wallet to help you generate your validator keys (keystores) and create a `deposits_data` file compatible with the Ethereum Foundation's [Validator Launchpad](https://medalla.launchpad.ethereum.org/).
+In this chapter, we'll take you through how to create a wallet to help you generate your validator keys (keystores), create a `deposits_data` file compatible with the Ethereum Foundation's [Validator Launchpad](https://medalla.launchpad.ethereum.org/), and use the launchpad to send this data to the eth1 network so that your validator can be registered.
 
 
-> **Note:** this page is primarily aimed at users who wish to run multiple validators on several machines. If you simply wish to get one validator up and running with Nimbus, or run several validators on a single machine, we recommend following [this guide](./medalla.md) instead.
+> **Note:** this page is primarily aimed at users who wish to run multiple validators on several machines. If you simply wish to get one validator up and running with Nimbus, or run several validators on a single machine, we recommend following our [become a Medalla validator](./medalla.md) guide instead.
 
 
 For our purposes, a wallet is the [EIP-2386](https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md) JSON file which contains an encrypted seed, a name, and a counter (`nextaccount`) that allows for generating validator keystores incrementally as outlined in [EIP-2334](https://eips.ethereum.org/EIPS/eip-2334) (Deterministic Account Hierarchy). It's sometimes referred to as a wallestore.
@@ -36,7 +36,6 @@ build/beacon_node wallets create
 Now follow the instructions presented to you in the terminal window to create your wallet.
 
 ```bash
-Wallet name: <YOUR_WALLET_NAME>
 Wallet id: <YOUR_WALLET_ID>
 INF 2020-08-18 11:05:47.126+02:00 Wallet file written
 tid=137382
@@ -44,7 +43,7 @@ file=keystore_management.nim:404
 path="<WHERE_YOUR_WALLET_IS_SAVED>"
 ```
 
-At the end of the process, you should see the above message printed to the terminal. Make sure to keep track of your wallet name, id, and path.
+At the end of the process, you should see the above message printed to the terminal. Make sure to keep track of your wallet id, and path.
 
 ### Available options
 
@@ -115,11 +114,13 @@ The following options are available:
 
 </details>
 
-## Send your deposit using the launchpad
+## Send your deposit transaction(s)
 
- You're now ready to upload your `deposit_data` JSON file along with your signing keystore(s) to the EF's [Validator Launchpad](https://medalla.launchpad.ethereum.org/): it will take you through how to create the necessary transactions to make a deposit and register your validator(s).
+ You're now ready to upload your `deposit_data` JSON file along with your signing keystore(s) to the EF's [Validator Launchpad](https://medalla.launchpad.ethereum.org/): it will take you through how to create the necessary transaction(s) to make your deposit(s) and register your validator(s).
  
 >**Note:** Your `deposit_data` file contains a list of all your signed deposits. So even if you have many keystores, you should only have one `deposit_data` file.
+
+0. Make sure you have enough [Goerli ETH](./#a-note-on-acquiring-goerli-eth)  (32 ETH for each validator you wish to run)
 
 1. Go to [https://medalla.launchpad.ethereum.org](https://medalla.launchpad.ethereum.org/)
 
@@ -162,17 +163,12 @@ The launchpad will then double check you understand the most important things. A
 <img width="350" src="https://storage.googleapis.com/ethereum-hackmd/upload_0d3c0a5c8cb421041b6847f0c2d24328.png">
 </p>
 
-
-
-
-
-
-
 ### A note on acquiring Goerli ETH
+*TO BE FILLED*
 
 ## Connect to Medalla
 
-Now that you've generated your keys and registered your validator, all that's left to do is to [connect to Medalla](medalla.md#connect-to-medalla).
+Now that you've generated your keys and registered your validator, the final step is to [connect to Medalla](medalla.md#connect-to-medalla).
 
 
 ### A note on expected waiting time (the queue)

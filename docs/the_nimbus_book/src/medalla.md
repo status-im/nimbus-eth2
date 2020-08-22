@@ -1,12 +1,11 @@
 # Become a Medalla validator
 
-This page will take you through how to become a validator on the eth2 testnet [Medalla](https://github.com/goerli/medalla).
+This chapter will take you through how to become a validator on the eth2 testnet [Medalla](https://github.com/goerli/medalla).
 
 If you generated your signing key using the [eth2 launchpad](https://medalla.launchpad.ethereum.org/), and wish to import it into the Nimbus client, this page is for you.
 
 > If you haven't created your validator key yet, we recommend you do so using the [launchpad](https://medalla.launchpad.ethereum.org/). If you're not sure what the eth2 launchpad is, we recommend reading this [introductory post](https://blog.ethereum.org/2020/07/27/eth2-validator-launchpad/) first.
 
-[This page](./create_wallet_and_deposit.md) (primarily directed at advanced users)  explains how to use Nimbus to create a validator wallet to generate your keys.
 
 ## Prerequisites
 
@@ -143,3 +142,53 @@ You may need to do this if you are running another client.
 ```
 make medalla-deposit VALIDATORS=2 # default is just 1
 ```
+
+### Upgrading
+
+When you restart the beacon node, the software will resume from where it left off, using your previous deposits.
+
+```
+cd nim-beacon-chain
+git pull
+make update # Update dependencies
+make altona # Restart using same keys as last run
+```
+
+## Key management
+
+Keys are stored in the `build/data/[testnet_name]/` folder, under `secrets` and `validators` - make sure you keep these folders backed up.
+
+The `secrets` folder contains the common secret that gives you access to all your validator keys.
+
+The `validators` folder contains your keystores. Keystores are used by validators as a method for exchanging keys. 
+
+For more on keys in eth2, see [here](https://blog.ethereum.org/2020/05/21/keys/).
+
+
+
+
+## Metrics
+
+Metrics are not included in the binary by default - to enable them, use the following options when starting the client:
+
+```
+make NIMFLAGS="-d:insecure" altona
+```
+
+You can then browse the metrics by connecting to:
+
+http://localhost:8008/metrics
+
+Make sure this port is protected as the http server used is not considered secure (it should not be used by untrusted peers).
+
+## Troubleshooting
+
+1. The directory that stores the blockchain data of the testnet is `build/data/shared_medalla_0` (if you're connecting to another testnet, replace `medalla` with that testnet's name). Delete this folder if you want to start over (for example, if you entered a wrong private key).
+
+2. Currently, you have to switch to the `devel` branch in order to run the validator node successfully.
+
+3. Everytime you want to update your node to the latest version, run `git pull`, `make update`, and then `make medalla`.
+
+4. If `make update` causes the console to hang for too long, try running `make update V=1` or `make update V=2` instead (these will print a more verbose output to the console which may make it easier to diagnose the problem).
+
+5. If you’re experiencing sync problems, or have been running an old version of medalla, we recommend running `make clean-medalla` to restart your sync (make sure you’ve updated to the latest `devel` branch first though).

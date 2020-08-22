@@ -21,10 +21,11 @@ In this book, we will cover:
 1. An introduction to the [beacon chain](./faq.md#1-what-is-beacon-chain) and [Nimbus](./faq.md#4-what-is-nimbus) to equip you with some basic knowledge
 2. [Installation steps](./install.md) outlining the prerequisites to get started
 3. How to [become a Medalla validator](./medalla.md)
-3. How to [run the beacon node](./beacon_node.md) software to sync the beacon chain
-4. How to generate keys, deposit, and [become a validator](./validator.md) in eth2
+4. How to [run the beacon node](./beacon_node.md) software to sync the beacon chain
 5. The [API](./api.md) for monitoring your node through `http`
 6. [Advanced usage](./advanced.md) for developers
+7. How to [setup up a systemd service](./beacon_node_systemd.md
+8. How to [Use Nimbus to generate your validator keys](./create_wallet_and_deposit.md)
 7. Common [questions and answers](./faq.md) to satisfy your curiosity
 8. How to [contribute](./contribute.md) to this book
 

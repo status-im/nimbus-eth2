@@ -2,7 +2,7 @@
 
 The beacon node application connects to the eth2 network, manages the blockchain, and provides API's to interact with the beacon chain.
 
-You can run the beacon node without being a validator - doing so allows you to sync the network and access its latest state.
+You can **run the beacon node without being a validator** - doing so allows you to sync the network and access its latest state.
 
 ## Prerequisites
 
@@ -214,7 +214,3 @@ beacon_node_shared_medalla_0 wallets list
 
 Lists details about all wallets.
 ```
-
-## Next steps
-
-Once you're synced, you can move on to become a [validator](./validator.md).
