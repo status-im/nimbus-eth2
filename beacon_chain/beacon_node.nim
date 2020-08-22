@@ -13,7 +13,7 @@ import
   # Nimble packages
   stew/[objects, byteutils, endians2], stew/shims/macros,
   chronos, confutils, metrics, json_rpc/[rpcserver, jsonmarshal],
-  chronicles, bearssl,
+  chronicles, bearssl, blscurve,
   json_serialization/std/[options, sets, net], serialization/errors,
 
   eth/[keys, async_utils],
@@ -1156,6 +1156,7 @@ programMain:
   of noCommand:
     debug "Launching beacon node",
           version = fullVersionStr,
+          bls_backend = $BLS_BACKEND,
           cmdParams = commandLineParams(),
           config
 
