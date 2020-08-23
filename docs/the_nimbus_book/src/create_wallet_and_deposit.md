@@ -181,6 +181,6 @@ Now that you've generated your keys and registered your validator, the final ste
 
 Once you send off your transaction(s), your validator will be put in a queue based on deposit time, and will getting through the queue may take a few hours or days (assuming the chain is finalising).
 
-More technically: approximately every 3.5 hours the eth2 beacon chain receives an "include until X" eth1 block to vote on: this block must be at least 1024 blocks behind the eth1 head. However, can be made anywhere between the start and the end of a voting period, the time you'll need to wait can fluctuate (within a range of 1 Or 2 voting periods).
+More technically: approximately every 3.5 hours the eth2 beacon chain receives an "include until X" eth1 block to vote on: this block must be at least 1024 blocks behind the eth1 head. However, can be made anywhere between the start and the end of a voting period, the time you'll need to wait can fluctuate (within a range of 1 or 2 voting periods).
 
 
