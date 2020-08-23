@@ -172,7 +172,7 @@ For more on keys in eth2, see [here](https://blog.ethereum.org/2020/05/21/keys/)
 Metrics are not included in the binary by default - to enable them, use the following options when starting the client:
 
 ```
-make NIMFLAGS="-d:insecure" altona
+make NIMFLAGS="-d:insecure" medalla
 ```
 
 You can then browse the metrics by connecting to:

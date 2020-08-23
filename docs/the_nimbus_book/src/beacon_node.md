@@ -72,7 +72,7 @@ Time is shown as `epoch:subslot`, starting from the block chain genesis time - o
 The status bar content may be updated using command line flags.
 
 ### Metrics
-Nimbus includes metrics support using the Prometheus format. To enable it, you need to enable insecure feature when compiling the application. The http server that exports Prometheus metrics should not be exposed to external parties.
+Nimbus includes metrics support using the Prometheus format. To enable it, you need to enable the insecure feature when compiling the application. The http server that exports Prometheus metrics should not be exposed to external parties.
 
 ```
 # Compile with insecure features enabled
