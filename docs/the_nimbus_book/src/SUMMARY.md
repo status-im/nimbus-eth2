@@ -10,5 +10,5 @@
 - [Generate your keys with Nimbus](./create_wallet_and_deposit.md)
 # Misc
 - [Windows users]()
-- [FAQs](./faq.md)
+- [FAQ](./faq.md)
 - [Contribute](./contribute.md)

@@ -2,7 +2,7 @@
 
 ## What's the Beacon Chain?
 
-A complete introduction to the beacon chain can be found in the [Ethereum 2.0 blog series](https://our.status.im/two-point-oh-the-beacon-chain/).
+You can find a complete introduction to the beacon chain in our [Ethereum 2.0 blog series](https://our.status.im/two-point-oh-the-beacon-chain/).
 
 In short, the beacon chain is the brain underpinning eth2 -- the next generation of Ethereum. It contains all of the machinery behind eth2's consensus.
 
@@ -24,9 +24,9 @@ In contrast to being a miner, you don't need any dedicated hardware or a great d
 3. Run the beacon node and wait for the network to sync before your validator is activated.
 4. That's all! Remember to stay connected to the network, or you may lose some of your deposit, as punishment, depending on how long you're offline. :P
 
-## What is Nimbus?
+## Why Nimbus?
 
-In a sentence, Nimbus aims to be an Ethereum 1.0 & 2.0 client for resource-restricted devices.
+In a sentence, Nimbus aims to be an ethereum client for resource-restricted devices. You can use Nimbus to run a validator on eth2.
 
 It is open sourced at [github.com/status-im/nimbus](github.com/status-im/nimbus). Development progress and updates can be viewed on the [Nimbus blog](https://our.status.im/tag/nimbus/).
 
