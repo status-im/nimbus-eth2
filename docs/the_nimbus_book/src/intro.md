@@ -19,7 +19,7 @@ The Nimbus beacon chain is a research implementation of the Beacon Chain – the
 
 In this book, we will cover:
 
-1. An introduction to the [beacon chain](./faq.md#whats-the-beacon-chain) and [Nimbus](./faq.md#what-is-nimbus) to equip you with some basic knowledge
+1. An [introduction](./intro.md#introduction) to the beacon chain, eth2, and Nimbus to equip you with some basic knowledge
 2. [Installation steps](./install.md) outlining the prerequisites to get started
 3. How to [become a Medalla validator](./medalla.md)
 4. How to [run the beacon node](./beacon_node.md) software to sync the beacon chain
@@ -35,9 +35,10 @@ In this book, we will cover:
 
 ### What's the Beacon Chain?
 
+In short, the beacon chain is the brain underpinning eth2 -- the next generation of Ethereum. It contains all of the machinery behind eth2's consensus.
+
 You can find a complete introduction to the beacon chain in our [Ethereum 2.0 blog series](https://our.status.im/two-point-oh-the-beacon-chain/).
 
-In short, the beacon chain is the brain underpinning eth2 -- the next generation of Ethereum. It contains all of the machinery behind eth2's consensus.
 
 
 ### Why eth2?
@@ -50,14 +51,18 @@ In traditional PoW, block proposers are called **_miners_**, whereas in PoS, the
 
 ### Why Nimbus?
 
-In a sentence, Nimbus aims to be an ethereum client for resource-restricted devices. You can use Nimbus to run a validator on eth2.
+In a sentence, Nimbus aims to be an ethereum client for resource-restricted devices. 
 
-It is open sourced at [github.com/status-im/nimbus](github.com/status-im/nimbus). Development progress and updates can be viewed on the [Nimbus blog](https://our.status.im/tag/nimbus/).
+Because we believe that the largest deployment of Ethereum will be on embedded systems, Nimbus is being designed to perform well on IoT and personal mobile devices, including older smartphones with resource-restricted hardware.
+
+Although Nimbus will support full and archival nodes, its main implementation will be as a light client, with a focus on Proof of Stake and sharding.
+
+All our code is open source; we encourage you to keep track of our activity on [github.com/status-im/nimbus](github.com/status-im/nimbus)) and keep up to date with our progress through the [Nimbus blog](https://our.status.im/tag/nimbus/).
 
 
 ## Get in touch
 
-Need help with anything? Join us on [Status](https://join.status.im/nimbus-general) or [Discord](https://discord.gg/9dWwPnG)!
+Need help with anything? Join us on [Status](https://join.status.im/nimbus-general) and [Discord](https://discord.gg/9dWwPnG)!
 
 
 ## Disclaimer
