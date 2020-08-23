@@ -1,6 +1,6 @@
 # Generate your keys with Nimbus
 
-In this chapter, we'll take you through how to create a wallet to help you generate your validator keys (keystores), create a `deposits_data` file compatible with the Ethereum Foundation's [Validator Launchpad](https://medalla.launchpad.ethereum.org/), and use the launchpad to send this data to the eth1 network so that your validator can be registered.
+In this chapter, we'll take you through how to create an [EIP-2386](https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md) wallet to help you generate your validator keys (keystores), create a `deposits_data` file compatible with the Ethereum Foundation's [Validator Launchpad](https://medalla.launchpad.ethereum.org/), and use the launchpad to send this data to the eth1 network so that your validator can be registered.
 
 
 > **Note:** this page is primarily aimed at users who wish to run multiple validators on several machines. If you simply wish to get one validator up and running with Nimbus, or run several validators on a single machine, we recommend following our [become a Medalla validator](./medalla.md) guide instead.
@@ -64,9 +64,9 @@ The following options are available:
 
 ## Create a keystore and signed deposit
 
-To generate a keystore and create a `deposit_data` JSON file using an existing wallet, run:
+To generate 1 keystore and create a `deposit_data` JSON file using an existing wallet, run:
 ```bash
-build/beacon_node deposits create --wallet="<YOUR_WALLET_ID>"
+build/beacon_node deposits create --wallet="<YOUR_WALLET_ID>" --count=1
 ```
 > **Tip:** To find your wallet id, look at your terminal history. You should see it printed right after you created your wallet. It's also saved in the `uuid` field of your wallet (remember your wallet is simply a JSON file).
 
@@ -76,7 +76,7 @@ Enter your password to unlock your wallet, create your signing keystore, and gen
 INF 2020-08-19 13:53:24.271+02:00 Generating deposits
 tid=330637
 file=keystore_management.nim:143 
-totalValidators=1
+totalValidators=2
 validatorsDir=validators 
 secretsDir=secrets
 
@@ -120,7 +120,7 @@ The following options are available:
  
 >**Note:** Your `deposit_data` file contains a list of all your signed deposits. So even if you have many keystores, you should only have one `deposit_data` file.
 
-0. Make sure you have enough [Goerli ETH](./#a-note-on-acquiring-goerli-eth)  (32 ETH for each validator you wish to run)
+0. Make sure you have enough [Goerli ETH](https://faucet.goerli.mudit.blog/)  (32 ETH for each validator you wish to run). See [here](create_wallet_and_deposit.md#a-note-on-acquiring-goerli-eth) for how to request Goerli ETH.
 
 1. Go to [https://medalla.launchpad.ethereum.org](https://medalla.launchpad.ethereum.org/)
 
@@ -164,7 +164,13 @@ The launchpad will then double check you understand the most important things. A
 </p>
 
 ### A note on acquiring Goerli ETH
-*TO BE FILLED*
+The easiest way to acquire testnet ETH is to join [Prysmatic Labs' discord](https://discord.com/invite/YMVYzv6) and send a request for ETH in the **#-request-goerli-eth channel**.
+
+```
+!send <your metamask goerli network ETH address>
+```
+
+You can also use the [Goerli Authenticated Faucet](https://faucet.goerli.mudit.blog/).
 
 ## Connect to Medalla
 
