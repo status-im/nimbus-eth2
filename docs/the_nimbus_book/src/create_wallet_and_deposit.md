@@ -25,7 +25,7 @@ To be clear, the purpose of such a wallet is to help you generate your keystores
 You need to have installed Nimbus' [external dependencies](./install.md#external-dependencies) and [built the beacon node](./beacon_node.md#building-the-node).
 
 
-## Create  a wallet
+## 1. Create  a wallet
 
 Run the following command from the the home directory of the `nim-beacon-chain` repository to launch the command line interface app:
 
@@ -62,7 +62,7 @@ The following options are available:
  --out               Output wallet file.
 ```
 
-## Create a keystore and signed deposit
+## 2. Create a keystore and signed deposit
 
 To generate 1 keystore and create a `deposit_data` JSON file using an existing wallet, run:
 ```bash
@@ -114,7 +114,7 @@ The following options are available:
 
 </details>
 
-## Send your deposit transaction(s)
+## 3. Send your deposit transaction(s)
 
  You're now ready to upload your `deposit_data` JSON file along with your signing keystore(s) to the EF's [Validator Launchpad](https://medalla.launchpad.ethereum.org/): it will take you through how to create the necessary transaction(s) to make your deposit(s) and register your validator(s).
  
@@ -172,7 +172,7 @@ The easiest way to acquire testnet ETH is to join [Prysmatic Labs' discord](http
 
 You can also use the [Goerli Authenticated Faucet](https://faucet.goerli.mudit.blog/).
 
-## Connect to Medalla
+## 4. Connect to Medalla
 
 Now that you've generated your keys and registered your validator, the final step is to [connect to Medalla](medalla.md#connect-to-medalla).
 
