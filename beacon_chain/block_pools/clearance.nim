@@ -65,7 +65,10 @@ proc addResolvedBlock(
     let prevEpochRef = blockRef.findEpochRef(blockEpoch - 1)
 
     epochRef = EpochRef.init(state.data.data, cache, prevEpochRef)
-    blockRef.epochAncestor(blockEpoch).blck.epochRefs.add epochRef
+    let ancestor = blockRef.epochAncestor(blockEpoch)
+    epochRef.updateKeyStores(ancestor.blck.parent, dag.finalizedHead.blck)
+
+    ancestor.blck.epochRefs.add epochRef
 
   dag.blocks[blockRoot] = blockRef
   trace "Populating block dag", key = blockRoot, val = blockRef
