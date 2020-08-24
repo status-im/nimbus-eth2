@@ -204,6 +204,11 @@ type
         desc: "Listening address of the RPC server"
         name: "rpc-address" }: ValidIpAddress
 
+      discv5Enabled* {.
+        defaultValue: true
+        desc: "Enable Discovery v5"
+        name: "discv5" }: bool
+
       dumpEnabled* {.
         defaultValue: false
         desc: "Write SSZ dumps of blocks, attestations and states to data dir"
