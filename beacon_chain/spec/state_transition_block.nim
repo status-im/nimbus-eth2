@@ -357,6 +357,7 @@ proc process_block*(
       deposit_root = shortLog(state.eth1_data.deposit_root)
     return false
 
+  # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
   if state.eth1_data.deposit_count < high(int64).uint64:
     beacon_pending_deposits.set(
       state.eth1_data.deposit_count.int64 - state.eth1_deposit_index.int64)
