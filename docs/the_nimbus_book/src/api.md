@@ -1,7 +1,8 @@
+# APIs
 
-NBC exposes API:s for querying the state of the application at runtime.
+NBC exposes a collection of APIs for querying the state of the application at runtime.
 
-:note: Where applicable, this API mimics https://github.com/ethereum/eth2.0-APIs with the exception that JSON-RPC is used instead of http rest - method names, parameters and results are equivalent except for the encoding / access method.
+> **Note:** Where applicable, these APIs mimic the [eth2 APIs](https://github.com/ethereum/eth2.0-APIs) with the exception that JSON-RPC is used instead of http rest (the method names, parameters and results are all the same except for the encoding / access method).
 
 ## Introduction
 
