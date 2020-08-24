@@ -343,8 +343,8 @@ proc isValidBeaconBlock*(
     # ChainDAGRef.add(...) directly, with no additional validity checks. TODO,
     # not specific to this, but by the pending dag keying on the htr of the
     # BeaconBlock, not SignedBeaconBlock, opens up certain spoofing attacks.
-    debug "parent unknown, putting block in quarantine"
-    quarantine.add(dag, signed_beacon_block)
+    debug "parent unknown, putting block in quarantine",
+      current_slot = shortLog(current_slot)
     return err(MissingParent)
 
   # [REJECT] The current finalized_checkpoint is an ancestor of block -- i.e.
