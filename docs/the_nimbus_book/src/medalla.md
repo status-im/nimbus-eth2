@@ -151,7 +151,7 @@ When you restart the beacon node, the software will resume from where it left of
 cd nim-beacon-chain
 git pull
 make update # Update dependencies
-make altona # Restart using same keys as last run
+make medalla # Restart using same keys as last run
 ```
 
 ## Key management
