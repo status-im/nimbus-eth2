@@ -326,13 +326,6 @@ proc process_block*(
   # TODO when there's a failure, we should reset the state!
   # TODO probably better to do all verification first, then apply state changes
 
-  # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
-  # doesn't seem to specify at what point in block processing this metric is to be read,
-  # and this avoids the early-return issue (could also use defer, etc).
-  beacon_pending_deposits.set(
-    state.eth1_data.deposit_count.int64 - state.eth1_deposit_index.int64)
-  beacon_processed_deposits_total.set(state.eth1_deposit_index.int64)
-
   # Adds nontrivial additional computation, but only does so when metrics
   # enabled.
   beacon_current_live_validators.set(toHashSet(
@@ -363,5 +356,10 @@ proc process_block*(
       eth1_deposit_index = state.eth1_deposit_index,
       deposit_root = shortLog(state.eth1_data.deposit_root)
     return false
+
+  if state.eth1_data.deposit_count < high(int64).uint64:
+    beacon_pending_deposits.set(
+      state.eth1_data.deposit_count.int64 - state.eth1_deposit_index.int64)
+    beacon_processed_deposits_total.set(state.eth1_deposit_index.int64)
 
   true
