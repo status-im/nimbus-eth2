@@ -3,14 +3,21 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Advanced usage for developers - The Nimbus Beacon Chain Book</title>
+        <title>For developers - The Nimbus Beacon Chain Book</title>
         
+        
+
+
+        <!-- Custom HTML head -->
+        
+
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        <link rel="icon" href="favicon.svg">
         <link rel="shortcut icon" href="favicon.png">
         <link rel="stylesheet" href="css/variables.css">
         <link rel="stylesheet" href="css/general.css">
@@ -19,8 +26,9 @@
 
         <!-- Fonts -->
         <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="highlight.css">
@@ -36,7 +44,7 @@
         <!-- Provide site root to javascript -->
         <script type="text/javascript">
             var path_to_root = "";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
 
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
@@ -81,7 +89,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">5.</strong> Wallet and deposit tools</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">6.</strong> Become a validator (custom)</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">7.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html" class="active"><strong aria-hidden="true">8.</strong> Advanced usage for developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">9.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">10.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">11.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">5.</strong> API</a></li><li class="chapter-item expanded affix "><li class="part-title">Advanced</li><li class="chapter-item expanded "><a href="advanced.html" class="active"><strong aria-hidden="true">6.</strong> For developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">7.</strong> Set up a systemd service</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">8.</strong> Generate your keys with Nimbus</a></li><li class="chapter-item expanded affix "><li class="part-title">Misc</li><li class="chapter-item expanded "><strong aria-hidden="true">9.</strong> Windows users</li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">10.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">11.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -164,10 +172,7 @@ Variables -&gt; Path -&gt; Edit -&gt; New -&gt; C:\mingw-w64\mingw64\bin (it's &
 <pre><code class="language-bash">mingw32-make # this first invocation will update the Git submodules
 mingw32-make fetch-dlls # this will place the right DLLs for your architecture in the &quot;build/&quot; directory
 </code></pre>
-<blockquote>
-<p>If you were following the Windows testnet instructions, you can jump back to <a href="#connecting-to-testnets">Connecting to testnets</a> now</p>
-</blockquote>
-<p>You can now follow those instructions in the previous section by replacing <code>make</code> with <code>mingw32-make</code> (regardless of your 32-bit or 64-bit architecture):</p>
+<p>You can now follow the instructions in this this book by replacing <code>make</code> with <code>mingw32-make</code> (you should run <code>mingw32</code> regardless of whether you're running 32-bit or 64-bit architecture):</p>
 <pre><code class="language-bash">mingw32-make test # run the test suite
 </code></pre>
 <h3><a class="header" href="#linux-macos" id="linux-macos">Linux, macOS</a></h3>
@@ -296,10 +301,10 @@ make LOG_LEVEL=TRACE beacon_node # log everything
         
 
         
-        
+
         
         <script type="text/javascript">
-            window.playpen_copyable = true;
+            window.playground_copyable = true;
         </script>
         
 

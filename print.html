@@ -7,12 +7,19 @@
         
         <meta name="robots" content="noindex" />
         
+        
+
+
+        <!-- Custom HTML head -->
+        
+
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        <link rel="icon" href="favicon.svg">
         <link rel="shortcut icon" href="favicon.png">
         <link rel="stylesheet" href="css/variables.css">
         <link rel="stylesheet" href="css/general.css">
@@ -21,8 +28,9 @@
 
         <!-- Fonts -->
         <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="highlight.css">
@@ -38,7 +46,7 @@
         <!-- Provide site root to javascript -->
         <script type="text/javascript">
             var path_to_root = "";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
 
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
@@ -83,7 +91,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">5.</strong> Wallet and deposit tools</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">6.</strong> Become a validator (custom)</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">7.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">8.</strong> Advanced usage for developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">9.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">10.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">11.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">5.</strong> API</a></li><li class="chapter-item expanded affix "><li class="part-title">Advanced</li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> For developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">7.</strong> Set up a systemd service</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">8.</strong> Generate your keys with Nimbus</a></li><li class="chapter-item expanded affix "><li class="part-title">Misc</li><li class="chapter-item expanded "><strong aria-hidden="true">9.</strong> Windows users</li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">10.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">11.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -159,7 +167,7 @@
 <p>Specification described at <a href="https://github.com/ethereum/eth2.0-specs/tree/v0.12.2#phase-0">ethereum/eth2.0-specs</a></p>
 </li>
 </ul>
-<h3><a class="header" href="#further-resources" id="further-resources">Further resources</a></h3>
+<h3><a class="header" href="#helpful-resources" id="helpful-resources">Helpful resources</a></h3>
 <ul>
 <li>
 <p><a href="https://benjaminion.xyz/eth2-annotated-spec/phase0/beacon-chain/">Ben Edgington's annotated spec</a> </p>
@@ -174,18 +182,32 @@
 <h2><a class="header" href="#overview" id="overview">Overview</a></h2>
 <p>In this book, we will cover:</p>
 <ol>
-<li>An introduction to the <a href="./faq.html#1-what-is-beacon-chain">beacon chain</a> and <a href="./faq.html#4-what-is-nimbus">Nimbus</a> to equip you with some basic knowledge</li>
+<li>An <a href="./intro.html#introduction">introduction</a> to the beacon chain, eth2, and Nimbus to equip you with some basic knowledge</li>
 <li><a href="./install.html">Installation steps</a> outlining the prerequisites to get started</li>
 <li>How to <a href="./medalla.html">become a Medalla validator</a></li>
 <li>How to <a href="./beacon_node.html">run the beacon node</a> software to sync the beacon chain</li>
-<li>How to generate keys, deposit, and <a href="./validator.html">become a validator</a> in eth2</li>
-<li>The <a href="./api.html">API</a> for monitoring your node through <code>http</code></li>
+<li>The <a href="./api.html">API</a> for monitoring your node</li>
 <li><a href="./advanced.html">Advanced usage</a> for developers</li>
+<li>How to <a href="./beacon_node_systemd.html">setup up a systemd service</a></li>
+<li>How to <a href="./create_wallet_and_deposit.html">use Nimbus to generate your validator keys</a></li>
 <li>Common <a href="./faq.html">questions and answers</a> to satisfy your curiosity</li>
 <li>How to <a href="./contribute.html">contribute</a> to this book</li>
 </ol>
+<h2><a class="header" href="#introduction" id="introduction">Introduction</a></h2>
+<h3><a class="header" href="#whats-the-beacon-chain" id="whats-the-beacon-chain">What's the Beacon Chain?</a></h3>
+<p>In short, the beacon chain is the brain underpinning eth2 -- the next generation of Ethereum. It contains all of the machinery behind eth2's consensus.</p>
+<p>You can find a complete introduction to the beacon chain in our <a href="https://our.status.im/two-point-oh-the-beacon-chain/">Ethereum 2.0 blog series</a>.</p>
+<h3><a class="header" href="#why-eth2" id="why-eth2">Why eth2?</a></h3>
+<p>Eth2 is a multi-year plan to improve the scalability, security, and programmability of Ethereum, without compromising on decentralisation.</p>
+<p>In contrast to the Ethereum chain, as it currently stands, eth2 uses proof-of-stake (PoS) to secure its network. And while Ethereum as you know and love it will continue to exist as its own independent proof-of-work chain for a little while to come, the transition towards PoS starts now.</p>
+<p>In traditional PoW, block proposers are called <strong><em>miners</em></strong>, whereas in PoS, they are called <strong><em>validators</em></strong>. In essence, <em>miners</em> rely on actual hardware (such as some specifically manufactured mining machines), while <em>validators</em> rely on software (such as Nimbus) and a good network connection.</p>
+<h3><a class="header" href="#why-nimbus" id="why-nimbus">Why Nimbus?</a></h3>
+<p>In a sentence, Nimbus aims to be an ethereum client for resource-restricted devices. </p>
+<p>Because we believe that the largest deployment of Ethereum will be on embedded systems, Nimbus is being designed to perform well on IoT and personal mobile devices, including older smartphones with resource-restricted hardware.</p>
+<p>Although Nimbus will support full and archival nodes, its main implementation will be as a light client, with a focus on Proof of Stake and sharding.</p>
+<p>All our code is open source; we encourage you to keep track of our activity on <a href="github.com/status-im/nimbus">github.com/status-im/nimbus</a>) and keep up to date with our progress through the <a href="https://our.status.im/tag/nimbus/">Nimbus blog</a>.</p>
 <h2><a class="header" href="#get-in-touch" id="get-in-touch">Get in touch</a></h2>
-<p>Need help with anything? Join us on <a href="https://join.status.im/nimbus-general">Status</a> or <a href="https://discord.gg/9dWwPnG">Discord</a>!</p>
+<p>Need help with anything? Join us on <a href="https://join.status.im/nimbus-general">Status</a> and <a href="https://discord.gg/9dWwPnG">Discord</a>!</p>
 <h2><a class="header" href="#disclaimer" id="disclaimer">Disclaimer</a></h2>
 <p>This documentation assumes Nimbus is in its ideal state. The project is still under active development. Please submit a <a href="https://github.com/status-im/nim-beacon-chain/issues">Github issue</a> if you come across a problem.</p>
 <!-- > > > TODO:
@@ -203,7 +225,10 @@
 <li><a href="https://roughtime.googlesource.com/roughtime">Roughtime</a> (google)</li>
 </ul>
 <p>At a minimum, you should run an NTP client on the server.</p>
-<p>If that sounds like latin to you, don't worry. For testnet purposes, you should be fine as long as your computer is set to the correct time.</p>
+<blockquote>
+<p><strong>Note:</strong> Most operating systems (including macOS') automatically sync with NTP by default.</p>
+</blockquote>
+<p>If the above sounds like latin to you, don't worry. You should be fine as long as you haven't messed around with the time and date settings on your computer (they should be set automatically).</p>
 <h2><a class="header" href="#external-dependencies" id="external-dependencies">External Dependencies</a></h2>
 <ul>
 <li>Developer tools (C compiler, Make, Bash, Git)</li>
@@ -240,12 +265,11 @@ Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on 
 <h2><a class="header" href="#next-steps" id="next-steps">Next steps</a></h2>
 <p>You're now ready to move on to <a href="./medalla.html">running a validator on Medalla</a>.</p>
 <h1><a class="header" href="#become-a-medalla-validator" id="become-a-medalla-validator">Become a Medalla validator</a></h1>
-<p>This page will take you through how to become a validator on the eth2 testnet <a href="https://github.com/goerli/medalla">Medalla</a>.</p>
+<p>This chapter will take you through how to become a validator on the eth2 testnet <a href="https://github.com/goerli/medalla">Medalla</a>.</p>
 <p>If you generated your signing key using the <a href="https://medalla.launchpad.ethereum.org/">eth2 launchpad</a>, and wish to import it into the Nimbus client, this page is for you.</p>
 <blockquote>
 <p>If you haven't created your validator key yet, we recommend you do so using the <a href="https://medalla.launchpad.ethereum.org/">launchpad</a>. If you're not sure what the eth2 launchpad is, we recommend reading this <a href="https://blog.ethereum.org/2020/07/27/eth2-validator-launchpad/">introductory post</a> first.</p>
 </blockquote>
-<p>For advanced users, <a href="./create_wallet_and_deposit.html">this page</a>  explains how to use Nimbus to create a walletstore to generate your keys.</p>
 <h2><a class="header" href="#prerequisites" id="prerequisites">Prerequisites</a></h2>
 <p>If this is your first time playing with Nimbus, make sure you <a href="./install.html">install our external dependencies</a> first.</p>
 <p>This tutorial assumes basic knowledge of the <a href="https://www.learnenough.com/command-line-tutorial/basics#:%7E:text=Learn%20Enough%20Command%20Line%20to%20Be%20Dangerous%20is%20an%20introduction,broad%20an%20audience%20as%20possible.">command line</a>.</p>
@@ -327,23 +351,66 @@ make medalla NODE_ID=2
 <h3><a class="header" href="#make-a-deposit-directly-using-nimbus" id="make-a-deposit-directly-using-nimbus">Make a deposit directly using Nimbus</a></h3>
 <pre><code>make medalla-deposit VALIDATORS=2 # default is just 1
 </code></pre>
+<h3><a class="header" href="#upgrading" id="upgrading">Upgrading</a></h3>
+<p>When you restart the beacon node, the software will resume from where it left off, using your previous deposits.</p>
+<pre><code>cd nim-beacon-chain
+git pull
+make update # Update dependencies
+make medalla # Restart using same keys as last run
+</code></pre>
+<h2><a class="header" href="#key-management" id="key-management">Key management</a></h2>
+<p>Keys are stored in the <code>build/data/[testnet_name]/</code> folder, under <code>secrets</code> and <code>validators</code> - make sure you keep these folders backed up.</p>
+<p>The <code>secrets</code> folder contains the common secret that gives you access to all your validator keys.</p>
+<p>The <code>validators</code> folder contains your keystores. Keystores are used by validators as a method for exchanging keys. </p>
+<p>For more on keys in eth2, see <a href="https://blog.ethereum.org/2020/05/21/keys/">here</a>.</p>
+<h2><a class="header" href="#metrics" id="metrics">Metrics</a></h2>
+<p>Metrics are not included in the binary by default - to enable them, use the following options when starting the client:</p>
+<pre><code>make NIMFLAGS=&quot;-d:insecure&quot; medalla
+</code></pre>
+<p>You can then browse the metrics by connecting to:</p>
+<p>http://localhost:8008/metrics</p>
+<p>Make sure this port is protected as the http server used is not considered secure (it should not be used by untrusted peers).</p>
+<h2><a class="header" href="#troubleshooting" id="troubleshooting">Troubleshooting</a></h2>
+<ol>
+<li>
+<p>The directory that stores the blockchain data of the testnet is <code>build/data/shared_medalla_0</code> (if you're connecting to another testnet, replace <code>medalla</code> with that testnet's name). Delete this folder if you want to start over (for example, if you entered a wrong private key).</p>
+</li>
+<li>
+<p>Currently, you have to switch to the <code>devel</code> branch in order to run the validator node successfully.</p>
+</li>
+<li>
+<p>Everytime you want to update your node to the latest version, run <code>git pull</code>, <code>make update</code>, and then <code>make medalla</code>.</p>
+</li>
+<li>
+<p>If <code>make update</code> causes the console to hang for too long, try running <code>make update V=1</code> or <code>make update V=2</code> instead (these will print a more verbose output to the console which may make it easier to diagnose the problem).</p>
+</li>
+<li>
+<p>If you’re experiencing sync problems, or have been running an old version of medalla, we recommend running <code>make clean-medalla</code> to restart your sync (make sure you’ve updated to the latest <code>devel</code> branch first though).</p>
+</li>
+</ol>
 <h1><a class="header" href="#the-beacon-node" id="the-beacon-node">The beacon node</a></h1>
 <p>The beacon node application connects to the eth2 network, manages the blockchain, and provides API's to interact with the beacon chain.</p>
-<p>You can run the beacon node without being a validator - doing so allows you to sync the network and access its latest state.</p>
+<p>You can <strong>run the beacon node without being a validator</strong> - doing so allows you to sync the network and access its latest state.</p>
 <h2><a class="header" href="#prerequisites-1" id="prerequisites-1">Prerequisites</a></h2>
-<p>Before compiling and running the application, make sure you've gone through the <a href="./install.html">installation guidelines</a>.</p>
-<h2><a class="header" href="#running-the-node" id="running-the-node">Running the node</a></h2>
-<p>When running the beacon node, you connect to a specific ethereum 2 network - this may be a private network or a public testnet like <a href="https://github.com/goerli/medalla/">Medalla</a>.</p>
-<p>When running the node for the first time, you need to specify network parameters, boot nodes and genesis information. This information can typically be found in the <a href="https://github.com/eth2-clients/eth2-testnets">eth2 testnets</a> repository. This information is automatically downloaded when using the simplified startup.</p>
-<p>Once the beacon node is running, it will first connect to the boot nodes in the network, look for more peers and start syncing the chain. Once the sync is complete, it will keep following the head of the chain (you can interact with it through the <a href="./api.html">API</a>.</p>
-<p>Before running the beacon node, it's important that your computer is set to the correct time - preferably using a trusted time source (this can be an NTP server you trust, GPS time or another precise source of time) -- however don't worry if you're unsure of how to do this, it isn't essential for testnet purposes.</p>
-<h3><a class="header" href="#syncing" id="syncing">Syncing</a></h3>
-<p>To start syncing the <code>medalla</code> network:</p>
+<p>Before building and running the application, make sure you've gone through the <a href="./install.html">installation guidelines</a>.</p>
+<h2><a class="header" href="#building-the-node" id="building-the-node">Building the node</a></h2>
+<p>To build the beacon run:</p>
 <h4><a class="header" href="#1-clone-the-nim-beacon-chain-repository-1" id="1-clone-the-nim-beacon-chain-repository-1">1. Clone the nim beacon chain repository</a></h4>
 <pre><code>git clone https://github.com/status-im/nim-beacon-chain
 cd nim-beacon-chain
 </code></pre>
-<h4><a class="header" href="#2-run-the-build-process" id="2-run-the-build-process">2. Run the build process</a></h4>
+<h4><a class="header" href="#2-run-the-beacon-node-build-process" id="2-run-the-beacon-node-build-process">2. Run the beacon node build process</a></h4>
+<pre><code>make beacon_node
+</code></pre>
+<h2><a class="header" href="#running-the-node" id="running-the-node">Running the node</a></h2>
+<p>When running the beacon node, you connect to a specific ethereum 2 network - this may be a private network or a public testnet like <a href="https://github.com/goerli/medalla/">Medalla</a>.</p>
+<blockquote>
+<p><strong>Note:</strong> when running the node for the first time, you may need to specify network parameters, boot nodes and genesis information. This information can typically be found in the <a href="https://github.com/eth2-clients/eth2-testnets">eth2 testnets</a> repository.</p>
+</blockquote>
+<p>Once the beacon node is running, it will first connect to the boot nodes in the network, look for more peers and start syncing the chain. Once the sync is complete, it will keep following the head of the chain (you can interact with it through the <a href="./api.html">API</a>.</p>
+<p>Before running the beacon node, it's important that your computer is set to the correct time - preferably using a trusted time source (this can be an NTP server you trust, GPS time or another precise source of time) -- however don't worry if you're unsure of how to do this, it isn't essential for testnet purposes.</p>
+<h3><a class="header" href="#syncing" id="syncing">Syncing</a></h3>
+<p>To start syncing the <code>medalla</code> network:</p>
 <pre><code>make medalla
 
 # Build output...
@@ -367,8 +434,8 @@ You should see that the beacon node has launched and started syncing.</p>
 </ul>
 <p>Time is shown as <code>epoch:subslot</code>, starting from the block chain genesis time - one epoch is typically 32 slots but this may vary between networks.</p>
 <p>The status bar content may be updated using command line flags.</p>
-<h3><a class="header" href="#metrics" id="metrics">Metrics</a></h3>
-<p>Nimbus includes metrics support using the Prometheus format. To enable it, you need to enable insecure feature when compiling the application. The http server that exports Prometheus metrics should not be exposed to external parties.</p>
+<h3><a class="header" href="#metrics-1" id="metrics-1">Metrics</a></h3>
+<p>Nimbus includes metrics support using the Prometheus format. To enable it, you need to enable the insecure feature when compiling the application. The http server that exports Prometheus metrics should not be exposed to external parties.</p>
 <pre><code># Compile with insecure features enabled
 make NIMFLAGS=&quot;-d:insecure&quot; medalla
 </code></pre>
@@ -502,146 +569,12 @@ beacon_node_shared_medalla_0 wallets list
 
 Lists details about all wallets.
 </code></pre>
-<h2><a class="header" href="#next-steps-1" id="next-steps-1">Next steps</a></h2>
-<p>Once you're synced, you can move on to become a <a href="./validator.html">validator</a>.</p>
-<h1><a class="header" href="#create-a-walletstore-and-make-a-deposit" id="create-a-walletstore-and-make-a-deposit">Create a walletstore and make a deposit</a></h1>
-<p>In this page we'll take you through how to create a walletstore and make a deposit (from now on we'll use the terms wallet and walletstore interchangeably)</p>
-<p>First, we'll create a wallet.</p>
+<h1><a class="header" href="#apis" id="apis">APIs</a></h1>
+<p>NBC exposes a collection of APIs for querying the state of the application at runtime.</p>
 <blockquote>
-<p>For our purposes, a wallet is the <a href="https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md">EIP-2386</a> JSON file which contains an encrypted seed, a name, and a counter (<code>nextaccount</code>) that allows for creating validators (generating keystores) incrementally as outlined in <a href="https://eips.ethereum.org/EIPS/eip-2334">EIP-2334</a> (Deterministic Account Hierarchy).</p>
+<p><strong>Note:</strong> Where applicable, these APIs mimic the <a href="https://github.com/ethereum/eth2.0-APIs">eth2 APIs</a> with the exception that JSON-RPC is used instead of http rest (the method names, parameters and results are all the same except for the encoding / access method).</p>
 </blockquote>
-<p>The wallet we'll create will be <a href="https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md">hierarchical deterministic</a>.</p>
-<p>An HD wallet can create keys from a <em>seed</em> and a <em>path</em>. The encrypted seed is stored in the wallet (it needs to be accessible to create new keys). Further, HD wallets also have a mechanism (a <code>nextaccount</code> index) for maintaining state about which keys have been generated (to ensure keys are not duplicated).</p>
-<h2><a class="header" href="#when-do-i-need-to-use-a-walletstore" id="when-do-i-need-to-use-a-walletstore">When do I need to use a walletstore?</a></h2>
-<p>If you're asking yourself this question then you probably don't need to use one :)</p>
-<p>To be clear, the purpose of a walletstore is to generate new validators. But you don't need a walletstore to do this.</p>
-<p>You can use the Ethereum Foundation's <a href="https://medalla.launchpad.ethereum.org/">launchpad</a> or <a href="https://github.com/ethereum/eth2.0-deposit-cli">deposit-cli</a> to do this without a walletstore.</p>
-<h2><a class="header" href="#create--a-wallet" id="create--a-wallet">Create  a wallet</a></h2>
-<pre><code>build/beacon_node wallets create
-</code></pre>
-<p><em>TO BE FILLED</em></p>
-<h2><a class="header" href="#create-a-deposit" id="create-a-deposit">Create a deposit</a></h2>
-<pre><code>build/beacon_node deposits create
-</code></pre>
-<p><em>TO BE FILLED</em></p>
-<p><em>Creates a deposits_data file that should be compatible with the new Ethereum Launchpad.</em></p>
-<ul>
-<li>creates wallet</li>
-<li>generates deposits</li>
-<li>writes to deposit_data file</li>
-</ul>
-<blockquote>
-<p>Note: when you create deposits with <code>deposits create</code>, you can reference an existing wallet or you can create a new one which will guide through the standard wallets create procedure.</p>
-</blockquote>
-<h2><a class="header" href="#which-keys-do-i-pass-to-my-validator-client" id="which-keys-do-i-pass-to-my-validator-client">Which keys do i pass to my validator client?</a></h2>
-<p>Importantly, to run a validator you only need to pass the voting keystore which leaks nothing about the withdrawal key (except perhaps the path that it can be derived with).</p>
-<h1><a class="header" href="#become-a-validator" id="become-a-validator">Become a Validator</a></h1>
-<blockquote>
-<p>Note, the instructions below currently apply to Altona. They will be updated shortly to explain how you can use Nimbus to create your validator keys and interact with the Medalla deposit contract.</p>
-<p>To become a validator on Medalla using the <a href="https://medalla.launchpad.ethereum.org/">eth2 launchpad</a>, see <a href="./medalla.html">here</a>.</p>
-</blockquote>
-<p>To become a validator, you need to install the beacon chain software, acquire 32 ETH, set up your validator account, and register with the deposit contract on ethereum.
-There is currently no eth2 mainnet - all networks are testnets.</p>
-<h2><a class="header" href="#recommended-testnets" id="recommended-testnets">Recommended Testnets</a></h2>
-<p>Though Nimbus can connect to any of the testnets published in the <a href="https://github.com/eth2-clients/eth2-testnets/tree/master/nimbus">eth2-clients/eth2-testnets repo</a>, below are the recommended ones:</p>
-<ul>
-<li>Multi-client Testnet: <a href="https://github.com/goerli/altona">altona</a> (<a href="https://altona.beaconcha.in">explorer</a>)</li>
-<li>Nimbus Testnet: testnet0 (experimental, not always active)</li>
-</ul>
-<h2><a class="header" href="#altona" id="altona">Altona</a></h2>
-<h3><a class="header" href="#initial-setup" id="initial-setup">Initial setup</a></h3>
-<p>Before we start, we have to obtain 32 ETH on the Goerli testnet (later on, we'll need to send this ETH to the deposit contract in order to become a validator).</p>
-<ol>
-<li>Open your <a href="https://metamask.io/">MetaMask</a> wallet, switch to the <code>Goerli Test Network</code> option from the top right corner.</li>
-<li>Copy your account address by clicking on one of your accounts.</li>
-<li>Post your account address on a social media platform (Twitter or Facebook). Copy the url to the post.</li>
-<li>Paste your post url on the <a href="https://faucet.goerli.mudit.blog/">Goerli faucet</a> and select <code>Give me Ether &gt; 37.5 Ethers</code> from the top right corner of the page.</li>
-<li>Wait for a few seconds and return to your MetaMask wallet to check if you have successfully received the ETH.</li>
-<li>Once the <a href="./install.html">prerequisites</a> are installed, you can connect to the altona testnet with the following commands: <br></li>
-</ol>
-<ul>
-<li><strong><em>Remember to replace <code>make</code> with <code>mingw32-make</code> if using Windows.</em></strong></li>
-</ul>
-<pre><code class="language-bash">git clone https://github.com/status-im/nim-beacon-chain
-cd nim-beacon-chain
-git checkout devel
-git pull
-make update
-make altona        # This will build Nimbus and all other dependencies
-                   # and connect you to altona
-</code></pre>
-<p><em>Once Nimbus has finished building, you will be prompted to enter the private key of the account you want to deposit the 32 ETH from.</em></p>
-<img src="./img/connect_testnet.PNG" alt="" style="margin: 0 40 0 40"/>
-<ol start="7">
-<li>Copy your private key from MetaMask (click on the three dots in the top right, followed by <strong>Account Details</strong> and <strong>Export Private Key</strong>).</li>
-</ol>
-<img src="./img/metamask_export_private_1.png" alt="" width="200" style="margin: 0 40 0 40"/>
-<img src="./img/metamask_export_private_2.png" alt="" width="200" style="padding-left: 60px; padding-right: 60px; margin: 0 40 0 40"/>
-<img src="./img/metamask_export_private_3.png" alt="" width="200" style="margin: 0 40 0 40"/>
-<ol start="8">
-<li>Paste your private key into the console.</li>
-</ol>
-<img src="./img/enter_private_key.PNG" alt="" style="margin: 0 40 0 40"/>
-<ol start="9">
-<li>Press enter and wait for a few seconds until you see <em>Deposit sent</em>.</li>
-</ol>
-<pre><code>INF 2020-07-05 12:58:25+02:00 Generating deposits ... validatorsDir=/Users/sssaintleger/nim-beacon-chain/build/data/shared_altona_0/validators ...
-INF 2020-07-05 12:58:25+02:00 Sending deposits ... DepositContract=0x16e82D77882A663454Ef92806b7DeCa1D394810f ...
-INF 2020-07-05 12:58:26+02:00 Deposit sent ... status=0x5455b1faf773a535668bdd4ade6b03f6cfd52f88414a5ad74bbdfdfd89f28b86
-
-Deposit sent, wait for confirmation then press enter to continue
-</code></pre>
-<ol start="10">
-<li>Check the status of your deposit by copying and pasting the transaction hash into <a href="https://goerli.etherscan.io/">https://goerli.etherscan.io/</a> (where the transacton hash is the text displayed after <code>status=</code> in your console). For example, in the output displayed after step 9,  we have <code>status=0x5455...</code> so the transaction hash is  <code>0x5455...</code>. If you see a green <em>Success</em> box (see the image below)  you can go ahead and press enter to continue.</li>
-</ol>
-<img src="./img/deposit-transaction-details.png" alt="" style="margin: 0 40 0 40"/>
-<blockquote>
-<p>Note: it should take approximately 8 hours for your deposit to be processed by the beacon chain. To keep track of the status of your validator you should go to <a href="https://altona.beaconcha.in/validators/eth1deposits">https://altona.beaconcha.in/validators/eth1deposits/[Validator PubKey]</a>, replacing [Validator PubKey] with your actual Validator PubKey -- you can find this in the etherscan transaction details (for example, in the image above the Validator PubKey is  <code>0x95aa...</code>).</p>
-</blockquote>
-<p>And voila! That's all there is to it :)</p>
-<p>The beacon chain client will start syncing the network while your deposit is being processed. As soon as it has synced, and your validator has been confirmed as active, the client will start performing validation duties.</p>
-<p>P.S.  at the bottom of the console, you should see something like:</p>
-<pre><code>peers: 18 &gt; finalized: 710631d5:283 &gt; head: 98204d1:285:10 &gt; time: 1405:2 (44982)
-ETH: 0
-</code></pre>
-<p>You can get a brief estimate of the time remaining until you've synced to the network by comparing <code>head</code> with <code>time</code> (<code>time</code> gives the current epoch, whereas <code>head</code> tells you how many epochs you've synced so far). From the above output, we see that the number of epochs synced so far is <code>285</code>, and the current epoch is <code>1405</code>.</p>
-<h3><a class="header" href="#upgrading" id="upgrading">Upgrading</a></h3>
-<p>When you restart the beacon node, the software will resume from where it left off, using your previous deposits.</p>
-<pre><code>cd nim-beacon-chain
-git pull
-make update # Update dependencies
-make altona # Restart using same keys as last run
-</code></pre>
-<h2><a class="header" href="#key-management" id="key-management">Key management</a></h2>
-<p>Keys are stored in the <code>build/data/[testnet_name]/</code> folder, under <code>secrets</code> and <code>validators</code> - make sure you keep these folders backed up.</p>
-<p>The <code>secrets</code> folder contains the common secret that gives you access to all your validator keys.</p>
-<p>The <code>validators</code> folder contains your keystores. Keystores are used by validators as a method for exchanging keys. </p>
-<p>For more on keys in eth2, see <a href="https://blog.ethereum.org/2020/05/21/keys/">here</a>.</p>
-<h2><a class="header" href="#metrics-1" id="metrics-1">Metrics</a></h2>
-<p>Metrics are not included in the binary by default - to enable them, use the following options when starting the client:</p>
-<pre><code>make NIMFLAGS=&quot;-d:insecure&quot; altona
-</code></pre>
-<p>You can then browse the metrics by connecting to:</p>
-<p>http://localhost:8008/metrics</p>
-<p>Make sure this port is protected as the http server used is not considered secure (it should not be used by untrusted peers).</p>
-<h2><a class="header" href="#troubleshooting" id="troubleshooting">Troubleshooting</a></h2>
-<ol>
-<li>
-<p>The directory that stores the blockchain data of the testnet is <code>build/data/shared_altona_0</code> (if you're connecting to another testnet, replace <code>altona</code> with that testnet's name). Delete this folder if you want to start over (for example, if you entered a wrong private key).</p>
-</li>
-<li>
-<p>Currently, you have to switch to the <code>devel</code> branch in order to run the validator node successfully.</p>
-</li>
-<li>
-<p>Everytime you want to update your node to the latest version, run <code>git pull</code>, <code>make update</code>, and then <code>make altona</code>.</p>
-</li>
-<li>
-<p>If <code>make update</code> causes the console to hang for too long, try running <code>make update V=1</code> or <code>make update V=2</code> instead (these will print a more verbose output to the console which may make it easier to diagnose the problem).</p>
-</li>
-</ol>
-<p>NBC exposes API:s for querying the state of the application at runtime.</p>
-<p>:note: Where applicable, this API mimics https://github.com/ethereum/eth2.0-APIs with the exception that JSON-RPC is used instead of http rest - method names, parameters and results are equivalent except for the encoding / access method.</p>
-<h2><a class="header" href="#introduction" id="introduction">Introduction</a></h2>
+<h2><a class="header" href="#introduction-1" id="introduction-1">Introduction</a></h2>
 <p>The NBC API is implemented using JSON-RPC 2.0. To query it, you can use a JSON-RPC library in the language of your choice, or a tool like <code>curl</code> to access it from the command line. A tool like <a href="https://stedolan.github.io/jq/">jq</a> is helpful to pretty-print the responses.</p>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;peers&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
@@ -746,10 +679,7 @@ Variables -&gt; Path -&gt; Edit -&gt; New -&gt; C:\mingw-w64\mingw64\bin (it's &
 <pre><code class="language-bash">mingw32-make # this first invocation will update the Git submodules
 mingw32-make fetch-dlls # this will place the right DLLs for your architecture in the &quot;build/&quot; directory
 </code></pre>
-<blockquote>
-<p>If you were following the Windows testnet instructions, you can jump back to <a href="advanced.html#connecting-to-testnets">Connecting to testnets</a> now</p>
-</blockquote>
-<p>You can now follow those instructions in the previous section by replacing <code>make</code> with <code>mingw32-make</code> (regardless of your 32-bit or 64-bit architecture):</p>
+<p>You can now follow the instructions in this this book by replacing <code>make</code> with <code>mingw32-make</code> (you should run <code>mingw32</code> regardless of whether you're running 32-bit or 64-bit architecture):</p>
 <pre><code class="language-bash">mingw32-make test # run the test suite
 </code></pre>
 <h3><a class="header" href="#linux-macos" id="linux-macos">Linux, macOS</a></h3>
@@ -923,28 +853,236 @@ WantedBy=default.target
 <h3><a class="header" href="#6-start-the-nim-beacon-chain-service" id="6-start-the-nim-beacon-chain-service">6. Start the nim beacon chain service</a></h3>
 <pre><code class="language-console">sudo systemctl enable nbc --now
 </code></pre>
-<h1><a class="header" href="#frequently-asked-questions" id="frequently-asked-questions">Frequently Asked Questions</a></h1>
-<h2><a class="header" href="#what-is-beacon-chain" id="what-is-beacon-chain">What is Beacon Chain?</a></h2>
-<p>A complete introduction about the beacon chain can be found in the <a href="https://our.status.im/two-point-oh-the-beacon-chain/">Ethereum 2.0 blog series</a>.</p>
-<p>In short, the beacon chain is a <strong>new type of blockchain</strong> to help the Ethereum blockchain to smoothly transfer its consensus algorithm from PoW (Proof of Work) to PoS (Proof of Stake), aka Ethereum 2.0.</p>
-<h2><a class="header" href="#differences-between-beacon-chain-and-ethereum-10" id="differences-between-beacon-chain-and-ethereum-10">Differences Between Beacon Chain and Ethereum 1.0</a></h2>
-<p>In traditional PoW, those that propose new blocks are called <strong><em>miners</em></strong>, whereas in PoS, they are called <strong><em>validators</em></strong>. In essence, <em>miners</em> rely on actual hardware (such as some specifically manufactured mining machines), while <em>validators</em> rely on just software and a good network connection.</p>
-<h2><a class="header" href="#what-it-is-like-to-be-a-validator" id="what-it-is-like-to-be-a-validator">What it is Like to Be a Validator?</a></h2>
-<p>It is obvious that you must have enough computing power or dedicated hardware in order to be a miner, but how about being a validator? Here is a brief overview:</p>
-<ol>
-<li>A special smart contract named <strong><em>deposit contract</em></strong> is deployed on the original Ethereum blockchain. Note that in this case, the new beacon chain and the original blockchain co-exists.</li>
-<li>To &quot;register&quot; as a validator, you have to first deposit <strong><em>32 Ether</em></strong> from your account to this smart contract.</li>
-<li>Run the beacon node and wait for the network to sync before your validator is activated.</li>
-<li>That's all! Remember to stay connected to the network, or you may lose some of your deposit, as punishment, depending on how long you're offline. :P</li>
-</ol>
-<h2><a class="header" href="#what-is-nimbus" id="what-is-nimbus">What is Nimbus?</a></h2>
-<p>In a sentence, Nimbus is an Ethereum 1.0 &amp; 2.0 Client for Resource-Restricted Devices.</p>
-<p>It is open sourced at <a href="github.com/status-im/nimbus">github.com/status-im/nimbus</a>. Development progress and updates can be viewed at the <a href="https://our.status.im/tag/nimbus/">Nimbus blog</a>.</p>
-<h2><a class="header" href="#why-are-metrics-not-working" id="why-are-metrics-not-working">Why are metrics not working?</a></h2>
-<p>Metrics are currently implemented using a HTTP server that hasn't been hardened sufficiently that it can be exposed as a public endpoint - it must thus be enabled specifically during build:</p>
-<pre><code>make NIMFLAGS=&quot;-d:insecure&quot;
-beacon_node --metrics ...
+<h1><a class="header" href="#generate-your-keys-with-nbc" id="generate-your-keys-with-nbc">Generate your keys with NBC</a></h1>
+<p>In this chapter, we'll take you through how to create an <a href="https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md">EIP-2386</a> wallet to help you generate your validator keys (keystores), create a <code>deposits_data</code> file compatible with the Ethereum Foundation's <a href="https://medalla.launchpad.ethereum.org/">Validator Launchpad</a>, and use the launchpad to send this data to the eth1 network so that your validator can be registered.</p>
+<blockquote>
+<p><strong>Note:</strong> this page is primarily aimed at users who wish to run multiple validators on several machines. If you simply wish to get one validator up and running with Nimbus, or run several validators on a single machine, we recommend following our <a href="./medalla.html">become a Medalla validator</a> guide instead.</p>
+</blockquote>
+<p>For our purposes, a wallet is the <a href="https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md">EIP-2386</a> JSON file which contains an encrypted seed, a name, and a counter (<code>nextaccount</code>) that allows for generating validator keystores incrementally as outlined in <a href="https://eips.ethereum.org/EIPS/eip-2334">EIP-2334</a> (Deterministic Account Hierarchy). It's sometimes referred to as a wallestore.</p>
+<p>Such a wallet can create (and restore) keys from a <em>seed</em> and a <em>path</em>. The encrypted seed is stored in the wallet (it needs to be accessible to create new keys). Further, the wallet also has a mechanism (a <code>nextaccount</code> index) for maintaining state about which keys have been generated (to help ensure you don't duplicate a key by accident).</p>
+<h2><a class="header" href="#when-do-i-need-to-use-a--wallet" id="when-do-i-need-to-use-a--wallet">When do I need to use a  wallet?</a></h2>
+<p>If you're asking yourself this question then you probably don't need to use one :)</p>
+<p>To be clear, the purpose of such a wallet is to help you generate your keystores (and keep track of how many you've generated). But you don't need a wallet to do this.</p>
+<blockquote>
+<p><strong>Tip:</strong> You can use tools like the Ethereum Foundation's <a href="https://github.com/ethereum/eth2.0-deposit-cli">deposit-cli</a> to generate keystores without a wallet. In fact, we recommend this approach if you're not sure whether or not you need a wallet.</p>
+</blockquote>
+<h2><a class="header" href="#prerequisites-3" id="prerequisites-3">Prerequisites</a></h2>
+<p>You need to have installed Nimbus' <a href="./install.html#external-dependencies">external dependencies</a> and <a href="./beacon_node.html#building-the-node">built the beacon node</a>.</p>
+<h2><a class="header" href="#1-create--a-wallet" id="1-create--a-wallet">1. Create  a wallet</a></h2>
+<p>Run the following command from the the home directory of the <code>nim-beacon-chain</code> repository to launch the command line interface app:</p>
+<pre><code>build/beacon_node wallets create
 </code></pre>
+<p>Now follow the instructions presented to you in the terminal window to create your wallet.</p>
+<pre><code class="language-bash">Wallet id: &lt;YOUR_WALLET_ID&gt;
+INF 2020-08-18 11:05:47.126+02:00 Wallet file written
+tid=137382
+file=keystore_management.nim:404
+path=&quot;&lt;WHERE_YOUR_WALLET_IS_SAVED&gt;&quot;
+</code></pre>
+<p>At the end of the process, you should see the above message printed to the terminal. Make sure to keep track of your wallet id, and path.</p>
+<h3><a class="header" href="#available-options" id="available-options">Available options</a></h3>
+<p>To see a list of the options/flags available, run:</p>
+<pre><code class="language-bash">build/beacon_node wallets create --help
+</code></pre>
+<p>You should see the following:</p>
+<pre><code>The following options are available:
+
+ --next-account      Initial value for the 'nextaccount' property of the wallet.
+ --name              An easy-to-remember name for the wallet of your choice.
+ --out               Output wallet file.
+</code></pre>
+<h2><a class="header" href="#2-create-a-keystore-and-signed-deposit" id="2-create-a-keystore-and-signed-deposit">2. Create a keystore and signed deposit</a></h2>
+<p>To generate 1 keystore and create a <code>deposit_data</code> JSON file using an existing wallet, run:</p>
+<pre><code class="language-bash">build/beacon_node deposits create --wallet=&quot;&lt;YOUR_WALLET_ID&gt;&quot; --count=1
+</code></pre>
+<blockquote>
+<p><strong>Tip:</strong> To find your wallet id, look at your terminal history. You should see it printed right after you created your wallet. It's also saved in the <code>uuid</code> field of your wallet (remember your wallet is simply a JSON file).</p>
+</blockquote>
+<p>Enter your password to unlock your wallet, create your signing keystore, and generate a <code>deposit_data</code> file.</p>
+<pre><code class="language-bash">INF 2020-08-19 13:53:24.271+02:00 Generating deposits
+tid=330637
+file=keystore_management.nim:143 
+totalValidators=2
+validatorsDir=validators 
+secretsDir=secrets
+
+INF 2020-08-19 13:53:24.286+02:00 Deposit data written
+topics=&quot;beacnde&quot; tid=330637 
+file=beacon_node.nim:1406 
+filename=validators/deposit_data-1597838004.284995.json
+</code></pre>
+<p>The deposit data file you just created contains a signed deposit (signed by the key you just created). You can find it in the newly created <code>validators</code> directory.</p>
+<p>In the <code>validators</code> directory you should also see a folder with a name that looks something like <code>0x8c...3ed3a5052e2d</code>. The name of this folder is your validator's public key. Inside it you'll find your validator's signing keystore -- <code>keystore.json</code>.</p>
+<blockquote>
+<p><strong>Note:</strong> If you wish to create a new wallet from which to make a deposit (simply run <code>deposits create</code> with no extra flags).</p>
+</blockquote>
+<h3><a class="header" href="#available-options-1" id="available-options-1">Available options</a></h3>
+<p>To see a list of the options/flags available, run:</p>
+<pre><code class="language-bash">build/beacon_node deposits create --help
+</code></pre>
+<p>You should see the following:</p>
+<pre><code>The following options are available:
+
+ --count                   Number of deposits to generate.
+ --wallet                  An existing wallet ID. If not specified, a new wallet will be created.
+ --out-validators-dir      Output folder for validator keystores.
+ --out-secrets-dir         Output folder for randomly generated keystore passphrases.
+ --out-deposits-file       The name of generated deposits file.
+ --new-wallet-name         An easy-to-remember name for the wallet of your choice.
+ --new-wallet-file         Output wallet file.
+</code></pre>
+</details>
+<h2><a class="header" href="#3-send-your-deposit-transactions" id="3-send-your-deposit-transactions">3. Send your deposit transaction(s)</a></h2>
+<p>You're now ready to upload your <code>deposit_data</code> JSON file along with your signing keystore(s) to the EF's <a href="https://medalla.launchpad.ethereum.org/">Validator Launchpad</a>: it will take you through how to create the necessary transaction(s) to make your deposit(s) and register your validator(s).</p>
+<blockquote>
+<p><strong>Note:</strong> Your <code>deposit_data</code> file contains a list of all your signed deposits. So even if you have many keystores, you should only have one <code>deposit_data</code> file.</p>
+</blockquote>
+<ol start="0">
+<li>
+<p>Make sure you have enough <a href="https://faucet.goerli.mudit.blog/">Goerli ETH</a>  (32 ETH for each validator you wish to run). See <a href="create_wallet_and_deposit.html#a-note-on-acquiring-goerli-eth">here</a> for how to request Goerli ETH.</p>
+</li>
+<li>
+<p>Go to <a href="https://medalla.launchpad.ethereum.org/">https://medalla.launchpad.ethereum.org</a></p>
+</li>
+</ol>
+<img src="https://storage.googleapis.com/ethereum-hackmd/upload_431e6a8ec269404e3f89fec7133482b9.png" width="700">
+<ol start="2">
+<li>Click on <strong>Get Started</strong></li>
+</ol>
+<img src="https://storage.googleapis.com/ethereum-hackmd/upload_cbe2983e3795cfa57b621ae21b6ba165.png" width="700">
+<ol start="3">
+<li>Read through the <em>Overview section</em> -- making sure you understand the risks and responsibilities involved</li>
+</ol>
+<p>
+<img width="350" src="https://storage.googleapis.com/ethereum-hackmd/upload_86a7b1e968fe5830cac4a06d4597f221.png">
+<img width="350" src="https://storage.googleapis.com/ethereum-hackmd/upload_a630e2ad0e9c5e6c3111dd1fba3c9767.png">
+</p>
+<ol start="4">
+<li>Move on to the <em>Generate Keys</em> section to choose how many validators you'd like to run (1 per 32 ETH deposited)</li>
+</ol>
+<img src="https://storage.googleapis.com/ethereum-hackmd/upload_0fd4e55870b4b6ce57c80644323b45bd.png" width="700">
+<ol start="5">
+<li>Scroll to the end of the Key Generation page, tick the box, and click continue</li>
+</ol>
+<img src="https://storage.googleapis.com/ethereum-hackmd/upload_10fcb69be02662e10bc4b62c29d8a074.png" width="700">
+<ol start="6">
+<li>Upload the Deposit data file you generated using Nimbus in the previous step</li>
+</ol>
+<img src="https://storage.googleapis.com/ethereum-hackmd/upload_6db4e4c3715a0a80db53bd5f26eb1ffc.png" width="500">
+<p><em>Remember you can find your <code>deposit_data</code> JSON file in the <code>nim-beacon-chain/validators</code> directory</em></p>
+</br>
+<p>The launchpad will then double check you understand the most important things. And help you send the required transaction(s).</p>
+<p>
+<img width="350" src="https://storage.googleapis.com/ethereum-hackmd/upload_e2c60ad1c9840d0f2fcf5c4ae8ec284a.png">
+<img width="350" src="https://storage.googleapis.com/ethereum-hackmd/upload_0d3c0a5c8cb421041b6847f0c2d24328.png">
+</p>
+<h3><a class="header" href="#a-note-on-acquiring-goerli-eth" id="a-note-on-acquiring-goerli-eth">A note on acquiring Goerli ETH</a></h3>
+<p>The easiest way to acquire testnet ETH is to join <a href="https://discord.com/invite/YMVYzv6">Prysmatic Labs' discord</a> and send a request for ETH in the <strong>#-request-goerli-eth channel</strong>.</p>
+<pre><code>!send &lt;your metamask goerli network ETH address&gt;
+</code></pre>
+<p>You can also use the <a href="https://faucet.goerli.mudit.blog/">Goerli Authenticated Faucet</a>.</p>
+<h2><a class="header" href="#4-connect-to-medalla-1" id="4-connect-to-medalla-1">4. Connect to Medalla</a></h2>
+<p>Now that you've generated your keys and registered your validator, the final step is to <a href="medalla.html#connect-to-medalla">connect to Medalla</a>.</p>
+<h3><a class="header" href="#a-note-on-expected-waiting-time-the-queue" id="a-note-on-expected-waiting-time-the-queue">A note on expected waiting time (the queue)</a></h3>
+<p>Once you send off your transaction(s), your validator will be put in a queue based on deposit time, and will getting through the queue may take a few hours or days (assuming the chain is finalising).</p>
+<p>More technically: approximately every 3.5 hours the eth2 beacon chain receives an &quot;include until X&quot; eth1 block to vote on: this block must be at least 1024 blocks behind the eth1 head. However, can be made anywhere between the start and the end of a voting period, the time you'll need to wait can fluctuate (within a range of 1 or 2 voting periods).</p>
+<h1><a class="header" href="#frequently-asked-questions" id="frequently-asked-questions">Frequently Asked Questions</a></h1>
+<h2><a class="header" href="#nimbus" id="nimbus">Nimbus</a></h2>
+<h3><a class="header" href="#why-are-metrics-not-working" id="why-are-metrics-not-working">Why are metrics not working?</a></h3>
+<p>Metrics are currently implemented using a HTTP server that hasn't been hardened sufficiently (which means it can't be exposed as a public endpoint). It must therefore be enabled specifically during build:</p>
+<pre><code>make NIMFLAGS=&quot;-d:insecure&quot; beacon_node --metrics ...
+</code></pre>
+<h2><a class="header" href="#validating-1" id="validating-1">Validating</a></h2>
+<h3><a class="header" href="#what-exactly-is-a-validator" id="what-exactly-is-a-validator">What exactly is a validator?</a></h3>
+<p>A validator is an entity that participates in the consensus of the Ethereum 2.0 protocol.</p>
+<p>Or in plain english, a human running a computer process. This process proposes and vouches for new blocks to be added to the blockchain.</p>
+<p>In other words, <strong>you can think of a validator as a voter for new blocks.</strong> The more votes a block gets, the more likely it is to be added to the chain.</p>
+<p>Importantly, a validator's vote is weighted by the amount it has at stake.</p>
+<h3><a class="header" href="#what-is-the-deposit-contract" id="what-is-the-deposit-contract">What is the deposit contract?</a></h3>
+<p>You can think of it as a transfer of funds between Ethereum 1.0 accounts and Ethereum 2.0 validators.</p>
+<p>It specifies who is staking, who is validating, how much is being staked, and who can withdraw the funds.</p>
+<h3><a class="header" href="#why-do-validators-need-to-have-funds-at-stake" id="why-do-validators-need-to-have-funds-at-stake">Why do validators need to have funds at stake?</a></h3>
+<p>Validators need to have funds at stake so they can be penalized for behaving dishonestly.</p>
+<p>In other words, to keep them honest, their actions need to have financial consequences.</p>
+<h3><a class="header" href="#how-much-eth-does-a-validator-need-to-stake" id="how-much-eth-does-a-validator-need-to-stake">How much ETH does a validator need to stake?</a></h3>
+<p>Before a validator can start to secure the network, he or she needs to stake <strong>32 ETH</strong>. This forms the validator's initial balance.</p>
+<h3><a class="header" href="#is-there-any-advantage-to-having-more-than-32-eth-at-stake" id="is-there-any-advantage-to-having-more-than-32-eth-at-stake">Is there any advantage to having more than 32 ETH at stake?</a></h3>
+<p>No. There is no advantage to having more than 32 ETH staked. </p>
+<p>Limiting the maximum stake to 32 ETH encourages decentralization of power as it prevents any single validator from having an excessively large vote on the state of the chain.</p>
+<blockquote>
+<p>Remember that a validator’s vote is weighted by the amount it has at stake.</p>
+</blockquote>
+<h3><a class="header" href="#how-are-validators-incentivized-to-stay-active-and-honest" id="how-are-validators-incentivized-to-stay-active-and-honest">How are validators incentivized to stay active and honest?</a></h3>
+<p>In addition to being penalized for being offline, validators are penalized for behaving maliciously – for example attesting to invalid or contradicting blocks.</p>
+<p>On the other hand, they are rewarded for proposing / attesting to blocks that are included in the chain.</p>
+<p>The key concept is the following:</p>
+<ul>
+<li>Rewards are given for actions that help the network reach consensus</li>
+<li>Minor penalties are given for inadvertant actions (or inactions) that hinder consensus</li>
+<li>And major penalities -- or <strong>slashings</strong> -- are given for malicious actions</li>
+</ul>
+<p>In other words, validators that maximize their rewards also provide the greatest benefit to the network as a whole.</p>
+<h3><a class="header" href="#how-are-rewardspenalties-issued" id="how-are-rewardspenalties-issued">How are rewards/penalties issued?</a></h3>
+<p>Remember that each validator has its own balance -- with the initial balance outlined in the deposit contract.</p>
+<p>This balance is updated periodically by the Ethereum network rules as the validator carries (or fails to carry) out his or her responsibilities.</p>
+<p>Put another way, rewards and penalties are reflected in the validator's balance over time.</p>
+<h3><a class="header" href="#how-often-are-rewardspenalties-issued" id="how-often-are-rewardspenalties-issued">How often are rewards/penalties issued?</a></h3>
+<p>Approximately every six and a half minutes -- a period of time known as an epoch.</p>
+<p>Every epoch, the network measures the actions of each validator and issues rewards or penalties appropriately.</p>
+<h3><a class="header" href="#how-large-are-the-rewardspenalties" id="how-large-are-the-rewardspenalties">How large are the rewards/penalties?</a></h3>
+<p>There is no easy answer to this question as there are many factors that go into this calculation.</p>
+<p>Arguably the most impactful factor on rewards earned for validating transactions is the total amount of stake in the network. In other words, the total amount of validators. Depending on this figure the max annual return rate for a validator can be anywhere between 2 and 20%.</p>
+<p>Given a fixed total number of validators, the rewards/penalties predominantly scale with the balance of the validator -- attesting with a higher balance results in larger rewards/penalties whereas attesting with a lower balance results in lower rewards/penalties.</p>
+<blockquote>
+<p>Note however that this scaling mechanism works in a non-obvious way. To understand the precise details of how it works requires understanding a concept called <strong>effective balance</strong>. If you're not yet familiar with this concept, we recommend you read through this <a href="https://www.attestant.io/posts/understanding-validator-effective-balance/">excellent post</a>.</p>
+</blockquote>
+<h3><a class="header" href="#why-do-rewards-depend-on-the-total-number-of-validators-in-the-network" id="why-do-rewards-depend-on-the-total-number-of-validators-in-the-network">Why do rewards depend on the total number of validators in the network?</a></h3>
+<p>Block rewards are calculated using a sliding scale based on the total amount of ETH staked on the network.</p>
+<p>In plain english: if the total amount of ETH staked is low, the reward (interest rate) is high, but as the total stake rises, the reward (interest) paid out to each validator starts to fall.</p>
+<p>Why a sliding scale? While we won't get into the gory details here, the basic intution is that there needs to be a minimum number of validators (and hence a minimum amount of ETH staked) for the network to function properly. So, to incentivize more validators to join, it's important that the interest rate remains high until this minimum number is reached.</p>
+<p>Afterwards, validators are still encouraged to join (the more validators the more decentralized the network), but it's not absolutely essential that they do so (so the interest rate can fall).</p>
+<h3><a class="header" href="#how-badly-will-a-validator-be-penalized-for-being-offline" id="how-badly-will-a-validator-be-penalized-for-being-offline">How badly will a validator be penalized for being offline?</a></h3>
+<p>It depends. In addition to <a href="https://www.attestant.io/posts/understanding-validator-effective-balance/#the-impact-of-effective-balance-on-validating">the impact of effective balance</a> there are two important scenarios to be aware of:</p>
+<ol>
+<li>
+<p>Being offline while a supermajority (2/3) of validators is still online leads to relatively small penalties as there are still enough validators online for the chain to finalize. <strong>This is the expected scenario.</strong></p>
+</li>
+<li>
+<p>Being offline at the same time as more than 1/3 of the total number of validators leads to harsher penalties, since blocks do not finalize anymore. <strong>This scenario is very extreme and unlikely to happen.</strong></p>
+</li>
+</ol>
+<blockquote>
+<p>Note that in the second (unlikely) scenario, validators stand to progressively lose up to 50% (16 ETH) of their stake over 21 days. After 21 days they are ejected out of the validator pool. This ensures that blocks start finalizing again at some point.</p>
+</blockquote>
+<h3><a class="header" href="#how-great-does-an-honest-validators-uptime-need-to-be-for-it-to-be-net-profitable" id="how-great-does-an-honest-validators-uptime-need-to-be-for-it-to-be-net-profitable">How great does an honest validator's uptime need to be for it to be net profitable?</a></h3>
+<p>Overall, validators are expected to be net profitable as long as their uptime is <a href="https://blog.ethereum.org/2020/01/13/validated-staking-on-eth2-1-incentives/">greater than 50%</a>. </p>
+<p>This means that validators need not go to extreme lengths with backup clients or redundant internet connections as the repercussions of being offline are not so severe.</p>
+<h3><a class="header" href="#how-much-will-a-validator-be-penalized-for-acting-maliciously" id="how-much-will-a-validator-be-penalized-for-acting-maliciously">How much will a validator be penalized for acting maliciously?</a></h3>
+<p>Again, it depends. Behaving maliciously – for example attesting to invalid or contradicting blocks, will lead to a validator's stake being slashed.</p>
+<p>The minimum amount that can be slashed is 1 ETH, but <strong>this number increases if other validators are slashed at the same time.</strong></p>
+<p>The idea behind this is to minimize the losses from honest mistakes, but strongly disincentivize coordinated attacks.</p>
+<h3><a class="header" href="#what-exactly-is-slashing" id="what-exactly-is-slashing">What exactly is slashing?</a></h3>
+<p>Slashing has two purposes: (1) to make it prohibitively expensive to attack eth2, and (2) to stop validators from being lazy by checking that they actually perform their duties. Slashing a validator is to destroy (a portion of) the validator’s stake if they act in a provably destructive manner. </p>
+<p>Validators that are slashed are prevented from participating in the protocol further and are forcibly exited.</p>
+<h3><a class="header" href="#what-happens-i-lose-my-signing-key" id="what-happens-i-lose-my-signing-key">What happens I lose my signing key?</a></h3>
+<p>If the signing key is lost, the validator can no longer propose or attest.</p>
+<p>Over time, the validator's balance will decrease as he or she is punished for not participating in the consensus process. When the validator's balance reaches 16 Eth, he or she will be automatically exited from the validator pool.</p>
+<blockquote>
+<p>However, all is not lost. Assuming validators derive their keys using <a href="https://eips.ethereum.org/EIPS/eip-2334">EIP2334</a> (as per the default onboarding flow)then <strong>validators can always recalculate their signing key from their withdrawal key</strong>.</p>
+</blockquote>
+<p>The 16 Eth can then be withdrawn -- with the withdrawal key -- after a delay of around a day.</p>
+<blockquote>
+<p>Note that this delay can be longer if many others are exiting or being kicked out at the same time.</p>
+</blockquote>
+<h3><a class="header" href="#what-happens-if-i-lose-my-withdrawal-key" id="what-happens-if-i-lose-my-withdrawal-key">What happens if I lose my withdrawal key?</a></h3>
+<p>If the withdrawal key is lost, there is no way to obtain access to the funds held by the validator.</p>
+<p>As such, it's a good idea to create your keys from mnemonics which act as another backup. This will be the default for validators who join via this site's onboarding process.</p>
+<h3><a class="header" href="#what-happens-if-my-withdrawal-key-is-stolen" id="what-happens-if-my-withdrawal-key-is-stolen">What happens if my withdrawal key is stolen?</a></h3>
+<p>If the withdrawal key is stolen, the thief can transfer the validator’s balance, but only once the validator has exited.</p>
+<p>If the signing key is not under the thief’s control, the thief cannot exit the validator. </p>
+<p>The user with the signing key could attempt to quickly exit the validator and then transfer the funds -- with the withdrawal key -- before the thief.</p>
+<h3><a class="header" href="#why-two-keys-instead-of-one" id="why-two-keys-instead-of-one">Why two keys instead of one?</a></h3>
+<p>In a nutshell, security. The signing key must be available at all times. As such, it will need to be held online. Since anything online is vulnerable to being hacked, it's not a good idea to use the same key for withdrawals.</p>
 <h1><a class="header" href="#contribute" id="contribute">Contribute</a></h1>
 <p>Follow these steps to contribute to this book!</p>
 <p>We use an utility tool called mdBook to create online books from Markdown files.</p>
@@ -1007,10 +1145,10 @@ git merge devel
         
 
         
-        
+
         
         <script type="text/javascript">
-            window.playpen_copyable = true;
+            window.playground_copyable = true;
         </script>
         
 

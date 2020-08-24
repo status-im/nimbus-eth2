@@ -3,14 +3,21 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>FAQs - The Nimbus Beacon Chain Book</title>
+        <title>FAQ - The Nimbus Beacon Chain Book</title>
         
+        
+
+
+        <!-- Custom HTML head -->
+        
+
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        <link rel="icon" href="favicon.svg">
         <link rel="shortcut icon" href="favicon.png">
         <link rel="stylesheet" href="css/variables.css">
         <link rel="stylesheet" href="css/general.css">
@@ -19,8 +26,9 @@
 
         <!-- Fonts -->
         <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="highlight.css">
@@ -36,7 +44,7 @@
         <!-- Provide site root to javascript -->
         <script type="text/javascript">
             var path_to_root = "";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
 
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
@@ -81,7 +89,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">5.</strong> Wallet and deposit tools</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">6.</strong> Become a validator (custom)</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">7.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">8.</strong> Advanced usage for developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">9.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="faq.html" class="active"><strong aria-hidden="true">10.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">11.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">5.</strong> API</a></li><li class="chapter-item expanded affix "><li class="part-title">Advanced</li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> For developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">7.</strong> Set up a systemd service</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">8.</strong> Generate your keys with Nimbus</a></li><li class="chapter-item expanded affix "><li class="part-title">Misc</li><li class="chapter-item expanded "><strong aria-hidden="true">9.</strong> Windows users</li><li class="chapter-item expanded "><a href="faq.html" class="active"><strong aria-hidden="true">10.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">11.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -148,34 +156,109 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#frequently-asked-questions" id="frequently-asked-questions">Frequently Asked Questions</a></h1>
-<h2><a class="header" href="#what-is-beacon-chain" id="what-is-beacon-chain">What is Beacon Chain?</a></h2>
-<p>A complete introduction about the beacon chain can be found in the <a href="https://our.status.im/two-point-oh-the-beacon-chain/">Ethereum 2.0 blog series</a>.</p>
-<p>In short, the beacon chain is a <strong>new type of blockchain</strong> to help the Ethereum blockchain to smoothly transfer its consensus algorithm from PoW (Proof of Work) to PoS (Proof of Stake), aka Ethereum 2.0.</p>
-<h2><a class="header" href="#differences-between-beacon-chain-and-ethereum-10" id="differences-between-beacon-chain-and-ethereum-10">Differences Between Beacon Chain and Ethereum 1.0</a></h2>
-<p>In traditional PoW, those that propose new blocks are called <strong><em>miners</em></strong>, whereas in PoS, they are called <strong><em>validators</em></strong>. In essence, <em>miners</em> rely on actual hardware (such as some specifically manufactured mining machines), while <em>validators</em> rely on just software and a good network connection.</p>
-<h2><a class="header" href="#what-it-is-like-to-be-a-validator" id="what-it-is-like-to-be-a-validator">What it is Like to Be a Validator?</a></h2>
-<p>It is obvious that you must have enough computing power or dedicated hardware in order to be a miner, but how about being a validator? Here is a brief overview:</p>
-<ol>
-<li>A special smart contract named <strong><em>deposit contract</em></strong> is deployed on the original Ethereum blockchain. Note that in this case, the new beacon chain and the original blockchain co-exists.</li>
-<li>To &quot;register&quot; as a validator, you have to first deposit <strong><em>32 Ether</em></strong> from your account to this smart contract.</li>
-<li>Run the beacon node and wait for the network to sync before your validator is activated.</li>
-<li>That's all! Remember to stay connected to the network, or you may lose some of your deposit, as punishment, depending on how long you're offline. :P</li>
-</ol>
-<h2><a class="header" href="#what-is-nimbus" id="what-is-nimbus">What is Nimbus?</a></h2>
-<p>In a sentence, Nimbus is an Ethereum 1.0 &amp; 2.0 Client for Resource-Restricted Devices.</p>
-<p>It is open sourced at <a href="github.com/status-im/nimbus">github.com/status-im/nimbus</a>. Development progress and updates can be viewed at the <a href="https://our.status.im/tag/nimbus/">Nimbus blog</a>.</p>
-<h2><a class="header" href="#why-are-metrics-not-working" id="why-are-metrics-not-working">Why are metrics not working?</a></h2>
-<p>Metrics are currently implemented using a HTTP server that hasn't been hardened sufficiently that it can be exposed as a public endpoint - it must thus be enabled specifically during build:</p>
-<pre><code>make NIMFLAGS=&quot;-d:insecure&quot;
-beacon_node --metrics ...
+<h2><a class="header" href="#nimbus" id="nimbus">Nimbus</a></h2>
+<h3><a class="header" href="#why-are-metrics-not-working" id="why-are-metrics-not-working">Why are metrics not working?</a></h3>
+<p>Metrics are currently implemented using a HTTP server that hasn't been hardened sufficiently (which means it can't be exposed as a public endpoint). It must therefore be enabled specifically during build:</p>
+<pre><code>make NIMFLAGS=&quot;-d:insecure&quot; beacon_node --metrics ...
 </code></pre>
+<h2><a class="header" href="#validating" id="validating">Validating</a></h2>
+<h3><a class="header" href="#what-exactly-is-a-validator" id="what-exactly-is-a-validator">What exactly is a validator?</a></h3>
+<p>A validator is an entity that participates in the consensus of the Ethereum 2.0 protocol.</p>
+<p>Or in plain english, a human running a computer process. This process proposes and vouches for new blocks to be added to the blockchain.</p>
+<p>In other words, <strong>you can think of a validator as a voter for new blocks.</strong> The more votes a block gets, the more likely it is to be added to the chain.</p>
+<p>Importantly, a validator's vote is weighted by the amount it has at stake.</p>
+<h3><a class="header" href="#what-is-the-deposit-contract" id="what-is-the-deposit-contract">What is the deposit contract?</a></h3>
+<p>You can think of it as a transfer of funds between Ethereum 1.0 accounts and Ethereum 2.0 validators.</p>
+<p>It specifies who is staking, who is validating, how much is being staked, and who can withdraw the funds.</p>
+<h3><a class="header" href="#why-do-validators-need-to-have-funds-at-stake" id="why-do-validators-need-to-have-funds-at-stake">Why do validators need to have funds at stake?</a></h3>
+<p>Validators need to have funds at stake so they can be penalized for behaving dishonestly.</p>
+<p>In other words, to keep them honest, their actions need to have financial consequences.</p>
+<h3><a class="header" href="#how-much-eth-does-a-validator-need-to-stake" id="how-much-eth-does-a-validator-need-to-stake">How much ETH does a validator need to stake?</a></h3>
+<p>Before a validator can start to secure the network, he or she needs to stake <strong>32 ETH</strong>. This forms the validator's initial balance.</p>
+<h3><a class="header" href="#is-there-any-advantage-to-having-more-than-32-eth-at-stake" id="is-there-any-advantage-to-having-more-than-32-eth-at-stake">Is there any advantage to having more than 32 ETH at stake?</a></h3>
+<p>No. There is no advantage to having more than 32 ETH staked. </p>
+<p>Limiting the maximum stake to 32 ETH encourages decentralization of power as it prevents any single validator from having an excessively large vote on the state of the chain.</p>
+<blockquote>
+<p>Remember that a validator’s vote is weighted by the amount it has at stake.</p>
+</blockquote>
+<h3><a class="header" href="#how-are-validators-incentivized-to-stay-active-and-honest" id="how-are-validators-incentivized-to-stay-active-and-honest">How are validators incentivized to stay active and honest?</a></h3>
+<p>In addition to being penalized for being offline, validators are penalized for behaving maliciously – for example attesting to invalid or contradicting blocks.</p>
+<p>On the other hand, they are rewarded for proposing / attesting to blocks that are included in the chain.</p>
+<p>The key concept is the following:</p>
+<ul>
+<li>Rewards are given for actions that help the network reach consensus</li>
+<li>Minor penalties are given for inadvertant actions (or inactions) that hinder consensus</li>
+<li>And major penalities -- or <strong>slashings</strong> -- are given for malicious actions</li>
+</ul>
+<p>In other words, validators that maximize their rewards also provide the greatest benefit to the network as a whole.</p>
+<h3><a class="header" href="#how-are-rewardspenalties-issued" id="how-are-rewardspenalties-issued">How are rewards/penalties issued?</a></h3>
+<p>Remember that each validator has its own balance -- with the initial balance outlined in the deposit contract.</p>
+<p>This balance is updated periodically by the Ethereum network rules as the validator carries (or fails to carry) out his or her responsibilities.</p>
+<p>Put another way, rewards and penalties are reflected in the validator's balance over time.</p>
+<h3><a class="header" href="#how-often-are-rewardspenalties-issued" id="how-often-are-rewardspenalties-issued">How often are rewards/penalties issued?</a></h3>
+<p>Approximately every six and a half minutes -- a period of time known as an epoch.</p>
+<p>Every epoch, the network measures the actions of each validator and issues rewards or penalties appropriately.</p>
+<h3><a class="header" href="#how-large-are-the-rewardspenalties" id="how-large-are-the-rewardspenalties">How large are the rewards/penalties?</a></h3>
+<p>There is no easy answer to this question as there are many factors that go into this calculation.</p>
+<p>Arguably the most impactful factor on rewards earned for validating transactions is the total amount of stake in the network. In other words, the total amount of validators. Depending on this figure the max annual return rate for a validator can be anywhere between 2 and 20%.</p>
+<p>Given a fixed total number of validators, the rewards/penalties predominantly scale with the balance of the validator -- attesting with a higher balance results in larger rewards/penalties whereas attesting with a lower balance results in lower rewards/penalties.</p>
+<blockquote>
+<p>Note however that this scaling mechanism works in a non-obvious way. To understand the precise details of how it works requires understanding a concept called <strong>effective balance</strong>. If you're not yet familiar with this concept, we recommend you read through this <a href="https://www.attestant.io/posts/understanding-validator-effective-balance/">excellent post</a>.</p>
+</blockquote>
+<h3><a class="header" href="#why-do-rewards-depend-on-the-total-number-of-validators-in-the-network" id="why-do-rewards-depend-on-the-total-number-of-validators-in-the-network">Why do rewards depend on the total number of validators in the network?</a></h3>
+<p>Block rewards are calculated using a sliding scale based on the total amount of ETH staked on the network.</p>
+<p>In plain english: if the total amount of ETH staked is low, the reward (interest rate) is high, but as the total stake rises, the reward (interest) paid out to each validator starts to fall.</p>
+<p>Why a sliding scale? While we won't get into the gory details here, the basic intution is that there needs to be a minimum number of validators (and hence a minimum amount of ETH staked) for the network to function properly. So, to incentivize more validators to join, it's important that the interest rate remains high until this minimum number is reached.</p>
+<p>Afterwards, validators are still encouraged to join (the more validators the more decentralized the network), but it's not absolutely essential that they do so (so the interest rate can fall).</p>
+<h3><a class="header" href="#how-badly-will-a-validator-be-penalized-for-being-offline" id="how-badly-will-a-validator-be-penalized-for-being-offline">How badly will a validator be penalized for being offline?</a></h3>
+<p>It depends. In addition to <a href="https://www.attestant.io/posts/understanding-validator-effective-balance/#the-impact-of-effective-balance-on-validating">the impact of effective balance</a> there are two important scenarios to be aware of:</p>
+<ol>
+<li>
+<p>Being offline while a supermajority (2/3) of validators is still online leads to relatively small penalties as there are still enough validators online for the chain to finalize. <strong>This is the expected scenario.</strong></p>
+</li>
+<li>
+<p>Being offline at the same time as more than 1/3 of the total number of validators leads to harsher penalties, since blocks do not finalize anymore. <strong>This scenario is very extreme and unlikely to happen.</strong></p>
+</li>
+</ol>
+<blockquote>
+<p>Note that in the second (unlikely) scenario, validators stand to progressively lose up to 50% (16 ETH) of their stake over 21 days. After 21 days they are ejected out of the validator pool. This ensures that blocks start finalizing again at some point.</p>
+</blockquote>
+<h3><a class="header" href="#how-great-does-an-honest-validators-uptime-need-to-be-for-it-to-be-net-profitable" id="how-great-does-an-honest-validators-uptime-need-to-be-for-it-to-be-net-profitable">How great does an honest validator's uptime need to be for it to be net profitable?</a></h3>
+<p>Overall, validators are expected to be net profitable as long as their uptime is <a href="https://blog.ethereum.org/2020/01/13/validated-staking-on-eth2-1-incentives/">greater than 50%</a>. </p>
+<p>This means that validators need not go to extreme lengths with backup clients or redundant internet connections as the repercussions of being offline are not so severe.</p>
+<h3><a class="header" href="#how-much-will-a-validator-be-penalized-for-acting-maliciously" id="how-much-will-a-validator-be-penalized-for-acting-maliciously">How much will a validator be penalized for acting maliciously?</a></h3>
+<p>Again, it depends. Behaving maliciously – for example attesting to invalid or contradicting blocks, will lead to a validator's stake being slashed.</p>
+<p>The minimum amount that can be slashed is 1 ETH, but <strong>this number increases if other validators are slashed at the same time.</strong></p>
+<p>The idea behind this is to minimize the losses from honest mistakes, but strongly disincentivize coordinated attacks.</p>
+<h3><a class="header" href="#what-exactly-is-slashing" id="what-exactly-is-slashing">What exactly is slashing?</a></h3>
+<p>Slashing has two purposes: (1) to make it prohibitively expensive to attack eth2, and (2) to stop validators from being lazy by checking that they actually perform their duties. Slashing a validator is to destroy (a portion of) the validator’s stake if they act in a provably destructive manner. </p>
+<p>Validators that are slashed are prevented from participating in the protocol further and are forcibly exited.</p>
+<h3><a class="header" href="#what-happens-i-lose-my-signing-key" id="what-happens-i-lose-my-signing-key">What happens I lose my signing key?</a></h3>
+<p>If the signing key is lost, the validator can no longer propose or attest.</p>
+<p>Over time, the validator's balance will decrease as he or she is punished for not participating in the consensus process. When the validator's balance reaches 16 Eth, he or she will be automatically exited from the validator pool.</p>
+<blockquote>
+<p>However, all is not lost. Assuming validators derive their keys using <a href="https://eips.ethereum.org/EIPS/eip-2334">EIP2334</a> (as per the default onboarding flow)then <strong>validators can always recalculate their signing key from their withdrawal key</strong>.</p>
+</blockquote>
+<p>The 16 Eth can then be withdrawn -- with the withdrawal key -- after a delay of around a day.</p>
+<blockquote>
+<p>Note that this delay can be longer if many others are exiting or being kicked out at the same time.</p>
+</blockquote>
+<h3><a class="header" href="#what-happens-if-i-lose-my-withdrawal-key" id="what-happens-if-i-lose-my-withdrawal-key">What happens if I lose my withdrawal key?</a></h3>
+<p>If the withdrawal key is lost, there is no way to obtain access to the funds held by the validator.</p>
+<p>As such, it's a good idea to create your keys from mnemonics which act as another backup. This will be the default for validators who join via this site's onboarding process.</p>
+<h3><a class="header" href="#what-happens-if-my-withdrawal-key-is-stolen" id="what-happens-if-my-withdrawal-key-is-stolen">What happens if my withdrawal key is stolen?</a></h3>
+<p>If the withdrawal key is stolen, the thief can transfer the validator’s balance, but only once the validator has exited.</p>
+<p>If the signing key is not under the thief’s control, the thief cannot exit the validator. </p>
+<p>The user with the signing key could attempt to quickly exit the validator and then transfer the funds -- with the withdrawal key -- before the thief.</p>
+<h3><a class="header" href="#why-two-keys-instead-of-one" id="why-two-keys-instead-of-one">Why two keys instead of one?</a></h3>
+<p>In a nutshell, security. The signing key must be available at all times. As such, it will need to be held online. Since anything online is vulnerable to being hacked, it's not a good idea to use the same key for withdrawals.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="beacon_node_systemd.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="create_wallet_and_deposit.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
@@ -193,7 +276,7 @@ beacon_node --metrics ...
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="beacon_node_systemd.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="create_wallet_and_deposit.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
@@ -212,10 +295,10 @@ beacon_node --metrics ...
         
 
         
-        
+
         
         <script type="text/javascript">
-            window.playpen_copyable = true;
+            window.playground_copyable = true;
         </script>
         
 

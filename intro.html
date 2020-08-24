@@ -5,12 +5,19 @@
         <meta charset="UTF-8">
         <title>Introduction - The Nimbus Beacon Chain Book</title>
         
+        
+
+
+        <!-- Custom HTML head -->
+        
+
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        <link rel="icon" href="favicon.svg">
         <link rel="shortcut icon" href="favicon.png">
         <link rel="stylesheet" href="css/variables.css">
         <link rel="stylesheet" href="css/general.css">
@@ -19,8 +26,9 @@
 
         <!-- Fonts -->
         <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="highlight.css">
@@ -36,7 +44,7 @@
         <!-- Provide site root to javascript -->
         <script type="text/javascript">
             var path_to_root = "";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
 
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
@@ -81,7 +89,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html" class="active"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">5.</strong> Wallet and deposit tools</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">6.</strong> Become a validator (custom)</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">7.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">8.</strong> Advanced usage for developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">9.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">10.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">11.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html" class="active"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">5.</strong> API</a></li><li class="chapter-item expanded affix "><li class="part-title">Advanced</li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> For developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">7.</strong> Set up a systemd service</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">8.</strong> Generate your keys with Nimbus</a></li><li class="chapter-item expanded affix "><li class="part-title">Misc</li><li class="chapter-item expanded "><strong aria-hidden="true">9.</strong> Windows users</li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">10.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">11.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -157,7 +165,7 @@
 <p>Specification described at <a href="https://github.com/ethereum/eth2.0-specs/tree/v0.12.2#phase-0">ethereum/eth2.0-specs</a></p>
 </li>
 </ul>
-<h3><a class="header" href="#further-resources" id="further-resources">Further resources</a></h3>
+<h3><a class="header" href="#helpful-resources" id="helpful-resources">Helpful resources</a></h3>
 <ul>
 <li>
 <p><a href="https://benjaminion.xyz/eth2-annotated-spec/phase0/beacon-chain/">Ben Edgington's annotated spec</a> </p>
@@ -172,18 +180,32 @@
 <h2><a class="header" href="#overview" id="overview">Overview</a></h2>
 <p>In this book, we will cover:</p>
 <ol>
-<li>An introduction to the <a href="./faq.html#1-what-is-beacon-chain">beacon chain</a> and <a href="./faq.html#4-what-is-nimbus">Nimbus</a> to equip you with some basic knowledge</li>
+<li>An <a href="./intro.html#introduction">introduction</a> to the beacon chain, eth2, and Nimbus to equip you with some basic knowledge</li>
 <li><a href="./install.html">Installation steps</a> outlining the prerequisites to get started</li>
 <li>How to <a href="./medalla.html">become a Medalla validator</a></li>
 <li>How to <a href="./beacon_node.html">run the beacon node</a> software to sync the beacon chain</li>
-<li>How to generate keys, deposit, and <a href="./validator.html">become a validator</a> in eth2</li>
-<li>The <a href="./api.html">API</a> for monitoring your node through <code>http</code></li>
+<li>The <a href="./api.html">API</a> for monitoring your node</li>
 <li><a href="./advanced.html">Advanced usage</a> for developers</li>
+<li>How to <a href="./beacon_node_systemd.html">setup up a systemd service</a></li>
+<li>How to <a href="./create_wallet_and_deposit.html">use Nimbus to generate your validator keys</a></li>
 <li>Common <a href="./faq.html">questions and answers</a> to satisfy your curiosity</li>
 <li>How to <a href="./contribute.html">contribute</a> to this book</li>
 </ol>
+<h2><a class="header" href="#introduction" id="introduction">Introduction</a></h2>
+<h3><a class="header" href="#whats-the-beacon-chain" id="whats-the-beacon-chain">What's the Beacon Chain?</a></h3>
+<p>In short, the beacon chain is the brain underpinning eth2 -- the next generation of Ethereum. It contains all of the machinery behind eth2's consensus.</p>
+<p>You can find a complete introduction to the beacon chain in our <a href="https://our.status.im/two-point-oh-the-beacon-chain/">Ethereum 2.0 blog series</a>.</p>
+<h3><a class="header" href="#why-eth2" id="why-eth2">Why eth2?</a></h3>
+<p>Eth2 is a multi-year plan to improve the scalability, security, and programmability of Ethereum, without compromising on decentralisation.</p>
+<p>In contrast to the Ethereum chain, as it currently stands, eth2 uses proof-of-stake (PoS) to secure its network. And while Ethereum as you know and love it will continue to exist as its own independent proof-of-work chain for a little while to come, the transition towards PoS starts now.</p>
+<p>In traditional PoW, block proposers are called <strong><em>miners</em></strong>, whereas in PoS, they are called <strong><em>validators</em></strong>. In essence, <em>miners</em> rely on actual hardware (such as some specifically manufactured mining machines), while <em>validators</em> rely on software (such as Nimbus) and a good network connection.</p>
+<h3><a class="header" href="#why-nimbus" id="why-nimbus">Why Nimbus?</a></h3>
+<p>In a sentence, Nimbus aims to be an ethereum client for resource-restricted devices. </p>
+<p>Because we believe that the largest deployment of Ethereum will be on embedded systems, Nimbus is being designed to perform well on IoT and personal mobile devices, including older smartphones with resource-restricted hardware.</p>
+<p>Although Nimbus will support full and archival nodes, its main implementation will be as a light client, with a focus on Proof of Stake and sharding.</p>
+<p>All our code is open source; we encourage you to keep track of our activity on <a href="github.com/status-im/nimbus">github.com/status-im/nimbus</a>) and keep up to date with our progress through the <a href="https://our.status.im/tag/nimbus/">Nimbus blog</a>.</p>
 <h2><a class="header" href="#get-in-touch" id="get-in-touch">Get in touch</a></h2>
-<p>Need help with anything? Join us on <a href="https://join.status.im/nimbus-general">Status</a> or <a href="https://discord.gg/9dWwPnG">Discord</a>!</p>
+<p>Need help with anything? Join us on <a href="https://join.status.im/nimbus-general">Status</a> and <a href="https://discord.gg/9dWwPnG">Discord</a>!</p>
 <h2><a class="header" href="#disclaimer" id="disclaimer">Disclaimer</a></h2>
 <p>This documentation assumes Nimbus is in its ideal state. The project is still under active development. Please submit a <a href="https://github.com/status-im/nim-beacon-chain/issues">Github issue</a> if you come across a problem.</p>
 <!-- > > > TODO:
@@ -225,10 +247,10 @@
         
 
         
-        
+
         
         <script type="text/javascript">
-            window.playpen_copyable = true;
+            window.playground_copyable = true;
         </script>
         
 

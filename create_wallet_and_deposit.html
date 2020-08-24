@@ -3,14 +3,21 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Wallet and deposit tools - The Nimbus Beacon Chain Book</title>
+        <title>Generate your keys with Nimbus - The Nimbus Beacon Chain Book</title>
         
+        
+
+
+        <!-- Custom HTML head -->
+        
+
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        <link rel="icon" href="favicon.svg">
         <link rel="shortcut icon" href="favicon.png">
         <link rel="stylesheet" href="css/variables.css">
         <link rel="stylesheet" href="css/general.css">
@@ -19,8 +26,9 @@
 
         <!-- Fonts -->
         <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="highlight.css">
@@ -36,7 +44,7 @@
         <!-- Provide site root to javascript -->
         <script type="text/javascript">
             var path_to_root = "";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
 
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
@@ -81,7 +89,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html" class="active"><strong aria-hidden="true">5.</strong> Wallet and deposit tools</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">6.</strong> Become a validator (custom)</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">7.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">8.</strong> Advanced usage for developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">9.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">10.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">11.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">5.</strong> API</a></li><li class="chapter-item expanded affix "><li class="part-title">Advanced</li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> For developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">7.</strong> Set up a systemd service</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html" class="active"><strong aria-hidden="true">8.</strong> Generate your keys with Nimbus</a></li><li class="chapter-item expanded affix "><li class="part-title">Misc</li><li class="chapter-item expanded "><strong aria-hidden="true">9.</strong> Windows users</li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">10.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">11.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -147,50 +155,152 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#create-a-walletstore-and-make-a-deposit" id="create-a-walletstore-and-make-a-deposit">Create a walletstore and make a deposit</a></h1>
-<p>In this page we'll take you through how to create a walletstore and make a deposit (from now on we'll use the terms wallet and walletstore interchangeably)</p>
-<p>First, we'll create a wallet.</p>
+                        <h1><a class="header" href="#generate-your-keys-with-nbc" id="generate-your-keys-with-nbc">Generate your keys with NBC</a></h1>
+<p>In this chapter, we'll take you through how to create an <a href="https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md">EIP-2386</a> wallet to help you generate your validator keys (keystores), create a <code>deposits_data</code> file compatible with the Ethereum Foundation's <a href="https://medalla.launchpad.ethereum.org/">Validator Launchpad</a>, and use the launchpad to send this data to the eth1 network so that your validator can be registered.</p>
 <blockquote>
-<p>For our purposes, a wallet is the <a href="https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md">EIP-2386</a> JSON file which contains an encrypted seed, a name, and a counter (<code>nextaccount</code>) that allows for creating validators (generating keystores) incrementally as outlined in <a href="https://eips.ethereum.org/EIPS/eip-2334">EIP-2334</a> (Deterministic Account Hierarchy).</p>
+<p><strong>Note:</strong> this page is primarily aimed at users who wish to run multiple validators on several machines. If you simply wish to get one validator up and running with Nimbus, or run several validators on a single machine, we recommend following our <a href="./medalla.html">become a Medalla validator</a> guide instead.</p>
 </blockquote>
-<p>The wallet we'll create will be <a href="https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md">hierarchical deterministic</a>.</p>
-<p>An HD wallet can create keys from a <em>seed</em> and a <em>path</em>. The encrypted seed is stored in the wallet (it needs to be accessible to create new keys). Further, HD wallets also have a mechanism (a <code>nextaccount</code> index) for maintaining state about which keys have been generated (to ensure keys are not duplicated).</p>
-<h2><a class="header" href="#when-do-i-need-to-use-a-walletstore" id="when-do-i-need-to-use-a-walletstore">When do I need to use a walletstore?</a></h2>
+<p>For our purposes, a wallet is the <a href="https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md">EIP-2386</a> JSON file which contains an encrypted seed, a name, and a counter (<code>nextaccount</code>) that allows for generating validator keystores incrementally as outlined in <a href="https://eips.ethereum.org/EIPS/eip-2334">EIP-2334</a> (Deterministic Account Hierarchy). It's sometimes referred to as a wallestore.</p>
+<p>Such a wallet can create (and restore) keys from a <em>seed</em> and a <em>path</em>. The encrypted seed is stored in the wallet (it needs to be accessible to create new keys). Further, the wallet also has a mechanism (a <code>nextaccount</code> index) for maintaining state about which keys have been generated (to help ensure you don't duplicate a key by accident).</p>
+<h2><a class="header" href="#when-do-i-need-to-use-a--wallet" id="when-do-i-need-to-use-a--wallet">When do I need to use a  wallet?</a></h2>
 <p>If you're asking yourself this question then you probably don't need to use one :)</p>
-<p>To be clear, the purpose of a walletstore is to generate new validators. But you don't need a walletstore to do this.</p>
-<p>You can use the Ethereum Foundation's <a href="https://medalla.launchpad.ethereum.org/">launchpad</a> or <a href="https://github.com/ethereum/eth2.0-deposit-cli">deposit-cli</a> to do this without a walletstore.</p>
-<h2><a class="header" href="#create--a-wallet" id="create--a-wallet">Create  a wallet</a></h2>
+<p>To be clear, the purpose of such a wallet is to help you generate your keystores (and keep track of how many you've generated). But you don't need a wallet to do this.</p>
+<blockquote>
+<p><strong>Tip:</strong> You can use tools like the Ethereum Foundation's <a href="https://github.com/ethereum/eth2.0-deposit-cli">deposit-cli</a> to generate keystores without a wallet. In fact, we recommend this approach if you're not sure whether or not you need a wallet.</p>
+</blockquote>
+<h2><a class="header" href="#prerequisites" id="prerequisites">Prerequisites</a></h2>
+<p>You need to have installed Nimbus' <a href="./install.html#external-dependencies">external dependencies</a> and <a href="./beacon_node.html#building-the-node">built the beacon node</a>.</p>
+<h2><a class="header" href="#1-create--a-wallet" id="1-create--a-wallet">1. Create  a wallet</a></h2>
+<p>Run the following command from the the home directory of the <code>nim-beacon-chain</code> repository to launch the command line interface app:</p>
 <pre><code>build/beacon_node wallets create
 </code></pre>
-<p><em>TO BE FILLED</em></p>
-<h2><a class="header" href="#create-a-deposit" id="create-a-deposit">Create a deposit</a></h2>
-<pre><code>build/beacon_node deposits create
+<p>Now follow the instructions presented to you in the terminal window to create your wallet.</p>
+<pre><code class="language-bash">Wallet id: &lt;YOUR_WALLET_ID&gt;
+INF 2020-08-18 11:05:47.126+02:00 Wallet file written
+tid=137382
+file=keystore_management.nim:404
+path=&quot;&lt;WHERE_YOUR_WALLET_IS_SAVED&gt;&quot;
 </code></pre>
-<p><em>TO BE FILLED</em></p>
-<p><em>Creates a deposits_data file that should be compatible with the new Ethereum Launchpad.</em></p>
-<ul>
-<li>creates wallet</li>
-<li>generates deposits</li>
-<li>writes to deposit_data file</li>
-</ul>
+<p>At the end of the process, you should see the above message printed to the terminal. Make sure to keep track of your wallet id, and path.</p>
+<h3><a class="header" href="#available-options" id="available-options">Available options</a></h3>
+<p>To see a list of the options/flags available, run:</p>
+<pre><code class="language-bash">build/beacon_node wallets create --help
+</code></pre>
+<p>You should see the following:</p>
+<pre><code>The following options are available:
+
+ --next-account      Initial value for the 'nextaccount' property of the wallet.
+ --name              An easy-to-remember name for the wallet of your choice.
+ --out               Output wallet file.
+</code></pre>
+<h2><a class="header" href="#2-create-a-keystore-and-signed-deposit" id="2-create-a-keystore-and-signed-deposit">2. Create a keystore and signed deposit</a></h2>
+<p>To generate 1 keystore and create a <code>deposit_data</code> JSON file using an existing wallet, run:</p>
+<pre><code class="language-bash">build/beacon_node deposits create --wallet=&quot;&lt;YOUR_WALLET_ID&gt;&quot; --count=1
+</code></pre>
 <blockquote>
-<p>Note: when you create deposits with <code>deposits create</code>, you can reference an existing wallet or you can create a new one which will guide through the standard wallets create procedure.</p>
+<p><strong>Tip:</strong> To find your wallet id, look at your terminal history. You should see it printed right after you created your wallet. It's also saved in the <code>uuid</code> field of your wallet (remember your wallet is simply a JSON file).</p>
 </blockquote>
-<h2><a class="header" href="#which-keys-do-i-pass-to-my-validator-client" id="which-keys-do-i-pass-to-my-validator-client">Which keys do i pass to my validator client?</a></h2>
-<p>Importantly, to run a validator you only need to pass the voting keystore which leaks nothing about the withdrawal key (except perhaps the path that it can be derived with).</p>
+<p>Enter your password to unlock your wallet, create your signing keystore, and generate a <code>deposit_data</code> file.</p>
+<pre><code class="language-bash">INF 2020-08-19 13:53:24.271+02:00 Generating deposits
+tid=330637
+file=keystore_management.nim:143 
+totalValidators=2
+validatorsDir=validators 
+secretsDir=secrets
+
+INF 2020-08-19 13:53:24.286+02:00 Deposit data written
+topics=&quot;beacnde&quot; tid=330637 
+file=beacon_node.nim:1406 
+filename=validators/deposit_data-1597838004.284995.json
+</code></pre>
+<p>The deposit data file you just created contains a signed deposit (signed by the key you just created). You can find it in the newly created <code>validators</code> directory.</p>
+<p>In the <code>validators</code> directory you should also see a folder with a name that looks something like <code>0x8c...3ed3a5052e2d</code>. The name of this folder is your validator's public key. Inside it you'll find your validator's signing keystore -- <code>keystore.json</code>.</p>
+<blockquote>
+<p><strong>Note:</strong> If you wish to create a new wallet from which to make a deposit (simply run <code>deposits create</code> with no extra flags).</p>
+</blockquote>
+<h3><a class="header" href="#available-options-1" id="available-options-1">Available options</a></h3>
+<p>To see a list of the options/flags available, run:</p>
+<pre><code class="language-bash">build/beacon_node deposits create --help
+</code></pre>
+<p>You should see the following:</p>
+<pre><code>The following options are available:
+
+ --count                   Number of deposits to generate.
+ --wallet                  An existing wallet ID. If not specified, a new wallet will be created.
+ --out-validators-dir      Output folder for validator keystores.
+ --out-secrets-dir         Output folder for randomly generated keystore passphrases.
+ --out-deposits-file       The name of generated deposits file.
+ --new-wallet-name         An easy-to-remember name for the wallet of your choice.
+ --new-wallet-file         Output wallet file.
+</code></pre>
+</details>
+<h2><a class="header" href="#3-send-your-deposit-transactions" id="3-send-your-deposit-transactions">3. Send your deposit transaction(s)</a></h2>
+<p>You're now ready to upload your <code>deposit_data</code> JSON file along with your signing keystore(s) to the EF's <a href="https://medalla.launchpad.ethereum.org/">Validator Launchpad</a>: it will take you through how to create the necessary transaction(s) to make your deposit(s) and register your validator(s).</p>
+<blockquote>
+<p><strong>Note:</strong> Your <code>deposit_data</code> file contains a list of all your signed deposits. So even if you have many keystores, you should only have one <code>deposit_data</code> file.</p>
+</blockquote>
+<ol start="0">
+<li>
+<p>Make sure you have enough <a href="https://faucet.goerli.mudit.blog/">Goerli ETH</a>  (32 ETH for each validator you wish to run). See <a href="create_wallet_and_deposit.html#a-note-on-acquiring-goerli-eth">here</a> for how to request Goerli ETH.</p>
+</li>
+<li>
+<p>Go to <a href="https://medalla.launchpad.ethereum.org/">https://medalla.launchpad.ethereum.org</a></p>
+</li>
+</ol>
+<img src="https://storage.googleapis.com/ethereum-hackmd/upload_431e6a8ec269404e3f89fec7133482b9.png" width="700">
+<ol start="2">
+<li>Click on <strong>Get Started</strong></li>
+</ol>
+<img src="https://storage.googleapis.com/ethereum-hackmd/upload_cbe2983e3795cfa57b621ae21b6ba165.png" width="700">
+<ol start="3">
+<li>Read through the <em>Overview section</em> -- making sure you understand the risks and responsibilities involved</li>
+</ol>
+<p>
+<img width="350" src="https://storage.googleapis.com/ethereum-hackmd/upload_86a7b1e968fe5830cac4a06d4597f221.png">
+<img width="350" src="https://storage.googleapis.com/ethereum-hackmd/upload_a630e2ad0e9c5e6c3111dd1fba3c9767.png">
+</p>
+<ol start="4">
+<li>Move on to the <em>Generate Keys</em> section to choose how many validators you'd like to run (1 per 32 ETH deposited)</li>
+</ol>
+<img src="https://storage.googleapis.com/ethereum-hackmd/upload_0fd4e55870b4b6ce57c80644323b45bd.png" width="700">
+<ol start="5">
+<li>Scroll to the end of the Key Generation page, tick the box, and click continue</li>
+</ol>
+<img src="https://storage.googleapis.com/ethereum-hackmd/upload_10fcb69be02662e10bc4b62c29d8a074.png" width="700">
+<ol start="6">
+<li>Upload the Deposit data file you generated using Nimbus in the previous step</li>
+</ol>
+<img src="https://storage.googleapis.com/ethereum-hackmd/upload_6db4e4c3715a0a80db53bd5f26eb1ffc.png" width="500">
+<p><em>Remember you can find your <code>deposit_data</code> JSON file in the <code>nim-beacon-chain/validators</code> directory</em></p>
+</br>
+<p>The launchpad will then double check you understand the most important things. And help you send the required transaction(s).</p>
+<p>
+<img width="350" src="https://storage.googleapis.com/ethereum-hackmd/upload_e2c60ad1c9840d0f2fcf5c4ae8ec284a.png">
+<img width="350" src="https://storage.googleapis.com/ethereum-hackmd/upload_0d3c0a5c8cb421041b6847f0c2d24328.png">
+</p>
+<h3><a class="header" href="#a-note-on-acquiring-goerli-eth" id="a-note-on-acquiring-goerli-eth">A note on acquiring Goerli ETH</a></h3>
+<p>The easiest way to acquire testnet ETH is to join <a href="https://discord.com/invite/YMVYzv6">Prysmatic Labs' discord</a> and send a request for ETH in the <strong>#-request-goerli-eth channel</strong>.</p>
+<pre><code>!send &lt;your metamask goerli network ETH address&gt;
+</code></pre>
+<p>You can also use the <a href="https://faucet.goerli.mudit.blog/">Goerli Authenticated Faucet</a>.</p>
+<h2><a class="header" href="#4-connect-to-medalla" id="4-connect-to-medalla">4. Connect to Medalla</a></h2>
+<p>Now that you've generated your keys and registered your validator, the final step is to <a href="medalla.html#connect-to-medalla">connect to Medalla</a>.</p>
+<h3><a class="header" href="#a-note-on-expected-waiting-time-the-queue" id="a-note-on-expected-waiting-time-the-queue">A note on expected waiting time (the queue)</a></h3>
+<p>Once you send off your transaction(s), your validator will be put in a queue based on deposit time, and will getting through the queue may take a few hours or days (assuming the chain is finalising).</p>
+<p>More technically: approximately every 3.5 hours the eth2 beacon chain receives an &quot;include until X&quot; eth1 block to vote on: this block must be at least 1024 blocks behind the eth1 head. However, can be made anywhere between the start and the end of a voting period, the time you'll need to wait can fluctuate (within a range of 1 or 2 voting periods).</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="beacon_node.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="beacon_node_systemd.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
                         
-                            <a rel="next" href="validator.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="faq.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -202,13 +312,13 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="beacon_node.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="beacon_node_systemd.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a rel="next" href="validator.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="faq.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
@@ -221,10 +331,10 @@
         
 
         
-        
+
         
         <script type="text/javascript">
-            window.playpen_copyable = true;
+            window.playground_copyable = true;
         </script>
         
 

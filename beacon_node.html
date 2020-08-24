@@ -5,12 +5,19 @@
         <meta charset="UTF-8">
         <title>Run the beacon node - The Nimbus Beacon Chain Book</title>
         
+        
+
+
+        <!-- Custom HTML head -->
+        
+
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        <link rel="icon" href="favicon.svg">
         <link rel="shortcut icon" href="favicon.png">
         <link rel="stylesheet" href="css/variables.css">
         <link rel="stylesheet" href="css/general.css">
@@ -19,8 +26,9 @@
 
         <!-- Fonts -->
         <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="highlight.css">
@@ -36,7 +44,7 @@
         <!-- Provide site root to javascript -->
         <script type="text/javascript">
             var path_to_root = "";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
 
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
@@ -81,7 +89,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html" class="active"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">5.</strong> Wallet and deposit tools</a></li><li class="chapter-item expanded "><a href="validator.html"><strong aria-hidden="true">6.</strong> Become a validator (custom)</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">7.</strong> API</a></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">8.</strong> Advanced usage for developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">9.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">10.</strong> FAQs</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">11.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html" class="active"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">5.</strong> API</a></li><li class="chapter-item expanded affix "><li class="part-title">Advanced</li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> For developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">7.</strong> Set up a systemd service</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">8.</strong> Generate your keys with Nimbus</a></li><li class="chapter-item expanded affix "><li class="part-title">Misc</li><li class="chapter-item expanded "><strong aria-hidden="true">9.</strong> Windows users</li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">10.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">11.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -149,21 +157,27 @@
                     <main>
                         <h1><a class="header" href="#the-beacon-node" id="the-beacon-node">The beacon node</a></h1>
 <p>The beacon node application connects to the eth2 network, manages the blockchain, and provides API's to interact with the beacon chain.</p>
-<p>You can run the beacon node without being a validator - doing so allows you to sync the network and access its latest state.</p>
+<p>You can <strong>run the beacon node without being a validator</strong> - doing so allows you to sync the network and access its latest state.</p>
 <h2><a class="header" href="#prerequisites" id="prerequisites">Prerequisites</a></h2>
-<p>Before compiling and running the application, make sure you've gone through the <a href="./install.html">installation guidelines</a>.</p>
-<h2><a class="header" href="#running-the-node" id="running-the-node">Running the node</a></h2>
-<p>When running the beacon node, you connect to a specific ethereum 2 network - this may be a private network or a public testnet like <a href="https://github.com/goerli/medalla/">Medalla</a>.</p>
-<p>When running the node for the first time, you need to specify network parameters, boot nodes and genesis information. This information can typically be found in the <a href="https://github.com/eth2-clients/eth2-testnets">eth2 testnets</a> repository. This information is automatically downloaded when using the simplified startup.</p>
-<p>Once the beacon node is running, it will first connect to the boot nodes in the network, look for more peers and start syncing the chain. Once the sync is complete, it will keep following the head of the chain (you can interact with it through the <a href="./api.html">API</a>.</p>
-<p>Before running the beacon node, it's important that your computer is set to the correct time - preferably using a trusted time source (this can be an NTP server you trust, GPS time or another precise source of time) -- however don't worry if you're unsure of how to do this, it isn't essential for testnet purposes.</p>
-<h3><a class="header" href="#syncing" id="syncing">Syncing</a></h3>
-<p>To start syncing the <code>medalla</code> network:</p>
+<p>Before building and running the application, make sure you've gone through the <a href="./install.html">installation guidelines</a>.</p>
+<h2><a class="header" href="#building-the-node" id="building-the-node">Building the node</a></h2>
+<p>To build the beacon run:</p>
 <h4><a class="header" href="#1-clone-the-nim-beacon-chain-repository" id="1-clone-the-nim-beacon-chain-repository">1. Clone the nim beacon chain repository</a></h4>
 <pre><code>git clone https://github.com/status-im/nim-beacon-chain
 cd nim-beacon-chain
 </code></pre>
-<h4><a class="header" href="#2-run-the-build-process" id="2-run-the-build-process">2. Run the build process</a></h4>
+<h4><a class="header" href="#2-run-the-beacon-node-build-process" id="2-run-the-beacon-node-build-process">2. Run the beacon node build process</a></h4>
+<pre><code>make beacon_node
+</code></pre>
+<h2><a class="header" href="#running-the-node" id="running-the-node">Running the node</a></h2>
+<p>When running the beacon node, you connect to a specific ethereum 2 network - this may be a private network or a public testnet like <a href="https://github.com/goerli/medalla/">Medalla</a>.</p>
+<blockquote>
+<p><strong>Note:</strong> when running the node for the first time, you may need to specify network parameters, boot nodes and genesis information. This information can typically be found in the <a href="https://github.com/eth2-clients/eth2-testnets">eth2 testnets</a> repository.</p>
+</blockquote>
+<p>Once the beacon node is running, it will first connect to the boot nodes in the network, look for more peers and start syncing the chain. Once the sync is complete, it will keep following the head of the chain (you can interact with it through the <a href="./api.html">API</a>.</p>
+<p>Before running the beacon node, it's important that your computer is set to the correct time - preferably using a trusted time source (this can be an NTP server you trust, GPS time or another precise source of time) -- however don't worry if you're unsure of how to do this, it isn't essential for testnet purposes.</p>
+<h3><a class="header" href="#syncing" id="syncing">Syncing</a></h3>
+<p>To start syncing the <code>medalla</code> network:</p>
 <pre><code>make medalla
 
 # Build output...
@@ -188,7 +202,7 @@ You should see that the beacon node has launched and started syncing.</p>
 <p>Time is shown as <code>epoch:subslot</code>, starting from the block chain genesis time - one epoch is typically 32 slots but this may vary between networks.</p>
 <p>The status bar content may be updated using command line flags.</p>
 <h3><a class="header" href="#metrics" id="metrics">Metrics</a></h3>
-<p>Nimbus includes metrics support using the Prometheus format. To enable it, you need to enable insecure feature when compiling the application. The http server that exports Prometheus metrics should not be exposed to external parties.</p>
+<p>Nimbus includes metrics support using the Prometheus format. To enable it, you need to enable the insecure feature when compiling the application. The http server that exports Prometheus metrics should not be exposed to external parties.</p>
 <pre><code># Compile with insecure features enabled
 make NIMFLAGS=&quot;-d:insecure&quot; medalla
 </code></pre>
@@ -322,8 +336,6 @@ beacon_node_shared_medalla_0 wallets list
 
 Lists details about all wallets.
 </code></pre>
-<h2><a class="header" href="#next-steps" id="next-steps">Next steps</a></h2>
-<p>Once you're synced, you can move on to become a <a href="./validator.html">validator</a>.</p>
 
                     </main>
 
@@ -336,7 +348,7 @@ Lists details about all wallets.
                         
 
                         
-                            <a rel="next" href="create_wallet_and_deposit.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="api.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -354,7 +366,7 @@ Lists details about all wallets.
                 
 
                 
-                    <a rel="next" href="create_wallet_and_deposit.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="api.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
@@ -367,10 +379,10 @@ Lists details about all wallets.
         
 
         
-        
+
         
         <script type="text/javascript">
-            window.playpen_copyable = true;
+            window.playground_copyable = true;
         </script>
         
 
