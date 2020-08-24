@@ -23,7 +23,8 @@ import
   # Beacon node modules
   version, conf, eth2_discovery, libp2p_json_serialization, conf,
   ssz/ssz_serialization,
-  peer_pool, spec/[datatypes, network], ./time
+  peer_pool, spec/[datatypes, network], ./time,
+  keystore_management
 
 when defined(nbc_gossipsub_11):
   import libp2p/protocols/pubsub/gossipsub
@@ -1219,55 +1220,37 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
           conf.dataDir / conf.netKeyFile
 
       if fileAccessible(keyPath, {AccessFlags.Find}):
-        let gmask = {UserRead, UserWrite}
-        let pmask = {UserExec,
-                     GroupRead, GroupWrite, GroupExec,
-                     OtherRead, OtherWrite, OtherExec}
-        let pres = getPermissionsSet(keyPath)
-        if pres.isErr():
-          fatal "Could not check key file permissions",
-                 key_path = keyPath, errorCode = $pres.error,
-                 errorMsg = ioErrorMsg(pres.error)
+        info "Network key storage is present, unlocking", key_path = keyPath
+        let res = loadNetKeystore(keyPath)
+        if res.isNone():
+          fatal "Could not load network key file"
           quit QuitFailure
-
-        let insecurePermissions = pres.get() * pmask
-        if insecurePermissions != {}:
-          fatal "Network key file has insecure permissions",
-                 key_path = keyPath,
-                 insecure_permissions = $insecurePermissions,
-                 current_permissions = pres.get().toString(),
-                 required_permissions = gmask.toString()
-          quit QuitFailure
-
-        let kres = readAllFile(keyPath)
-        if not(kres.isOk()):
-          fatal "Could not read network key file", key_path = keyPath
-          quit QuitFailure
-
-        let keyBytes = kres.get()
-
-        let rres = PrivateKey.init(keyBytes)
-        if not(rres.isOk()):
-          fatal "Incorrect network key file", key_path = keyPath
-          quit QuitFailure
-
-        let privKey = rres.get()
-        return KeyPair(seckey: privKey, pubkey: privKey.getKey().tryGet())
-
+        let privKey = res.get()
+        let pubKey = privKey.getKey().tryGet()
+        info "Network key storage was successfully unlocked",
+             key_path = keyPath,
+             network_public_key = byteutils.toHex(pubKey.getBytes().tryGet())
+        return KeyPair(seckey: privKey, pubkey: pubKey)
       else:
-        let res = PrivateKey.random(Secp256k1, rng)
-        if res.isErr():
+        info "Network key storage is missing, creating a new one",
+             key_path = keyPath
+        let rres = PrivateKey.random(Secp256k1, rng)
+        if rres.isErr():
           fatal "Could not generate random network key file"
           quit QuitFailure
 
-        let privKey = res.get()
+        let privKey = rres.get()
+        let pubKey = privKey.getKey().tryGet()
 
-        let wres = writeFile(keyPath, privKey.getBytes().tryGet(), 0o600)
-        if not(wres.isOk()):
-          fatal "Could not write network key file", key_path = keyPath
+        let sres = saveNetKeystore(rng, keyPath, privKey)
+        if sres.isErr():
+          fatal "Could not create network key file", key_path = keyPath
           quit QuitFailure
 
-        return KeyPair(seckey: privKey, pubkey: privkey.getKey().tryGet())
+        info "New network key storage was created", key_path = keyPath,
+             network_public_key = byteutils.toHex(pubKey.getBytes().tryGet())
+        return KeyPair(seckey: privKey, pubkey: pubKey)
+
   of createTestnet:
     let netKeyFile = string(conf.outputNetkeyFile)
     let keyPath =
@@ -1276,17 +1259,21 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
       else:
         conf.dataDir / netKeyFile
 
-    let res = PrivateKey.random(Secp256k1, rng)
-    if res.isErr():
+    let rres = PrivateKey.random(Secp256k1, rng)
+    if rres.isErr():
       fatal "Could not generate random network key file"
       quit QuitFailure
 
-    let privKey = res.get()
+    let privKey = rres.get()
+    let pubKey = privKey.getKey().tryGet()
 
-    let wres = writeFile(keyPath, privKey.getBytes().tryGet(), 0o600)
-    if not(wres.isOk()):
-      fatal "Could not write network key file", key_path = keyPath
+    let sres = saveNetKeystore(rng, keyPath, privKey)
+    if sres.isErr():
+      fatal "Could not create network key file"
       quit QuitFailure
+
+    info "New network key storage was created", key_path = keyPath,
+         network_public_key = byteutils.toHex(pubKey.getBytes().tryGet())
 
     return KeyPair(seckey: privKey, pubkey: privkey.getKey().tryGet())
   else:
@@ -1314,9 +1301,11 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
     hostAddress = tcpEndPoint(conf.listenAddress, conf.tcpPort)
     announcedAddresses = if extIp.isNone(): @[]
                          else: @[tcpEndPoint(extIp.get(), extTcpPort)]
-
+  let networkPublicKey = byteutils.toHex(netKeys.pubkey.getBytes().tryGet())
   notice "Initializing networking", hostAddress,
+                                  networkPublicKey,
                                   announcedAddresses
+
 
   # TODO nim-libp2p still doesn't have support for announcing addresses
   # that are different from the host address (this is relevant when we

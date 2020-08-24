@@ -1,8 +1,10 @@
 import
   std/[os, strutils, terminal, wordwrap],
-  stew/byteutils, chronicles, chronos, web3, stint, json_serialization,
+  chronicles, chronos, web3, stint, json_serialization, stew/byteutils,
   serialization, blscurve, eth/common/eth_types, eth/keys, confutils, bearssl,
   spec/[datatypes, digest, crypto, keystore],
+  stew/io2, libp2p/crypto/crypto as lcrypto,
+  nimcrypto/utils as ncrutils,
   conf, ssz/merkleization, network_metadata
 
 export
@@ -12,6 +14,7 @@ export
 
 const
   keystoreFileName* = "keystore.json"
+  netKeystoreFileName* = "network_keystore.json"
 
 type
   WalletPathPair* = object
@@ -21,6 +24,17 @@ type
   CreatedWallet* = object
     walletPath*: WalletPathPair
     mnemonic*: Mnemonic
+
+const
+  minPasswordLen = 10
+
+  mostCommonPasswords = wordListArray(
+    currentSourcePath.parentDir /
+      "../vendor/nimbus-security-resources/passwords/10-million-password-list-top-100000.txt",
+    minWordLen = minPasswordLen)
+
+template echo80(msg: string) =
+  echo wrapWords(msg, 80)
 
 proc loadKeystore(validatorsDir, secretsDir, keyName: string,
                   nonInteractive: bool): Option[ValidatorPrivKey] =
@@ -117,6 +131,111 @@ type
     FailedToCreateSecretFile
     FailedToCreateKeystoreFile
 
+proc loadNetKeystore*(keyStorePath: string): Option[lcrypto.PrivateKey] =
+  when defined(windows):
+    # Windows do not support per-user permissions, skiping verification part.
+    discard
+  else:
+    let allowedMask = {UserRead, UserWrite}
+    let mask = {UserExec,
+                GroupRead, GroupWrite, GroupExec,
+                OtherRead, OtherWrite, OtherExec}
+    let pres = getPermissionsSet(keyStorePath)
+    if pres.isErr():
+      error "Could not check key file permissions",
+            key_path = keyStorePath, errorCode = $pres.error,
+            errorMsg = ioErrorMsg(pres.error)
+      return
+
+    let insecurePermissions = pres.get() * mask
+    if insecurePermissions != {}:
+      error "Network key file has insecure permissions",
+            key_path = keyStorePath,
+            insecure_permissions = $insecurePermissions,
+            current_permissions = pres.get().toString(),
+            required_permissions = allowedMask.toString()
+      return
+
+  let keyStore =
+    try:
+      Json.loadFile(keystorePath, NetKeystore)
+    except IOError as err:
+      error "Failed to read network keystore", err = err.msg,
+            path = keystorePath
+      return
+    except SerializationError as err:
+      error "Invalid network keystore", err = err.formatMsg(keystorePath)
+      return
+
+  var remainingAttempts = 3
+  var counter = 0
+  var prompt = "Please enter passphrase to unlock networking key: "
+  while remainingAttempts > 0:
+    let passphrase = KeystorePass:
+      try:
+        readPasswordFromStdin(prompt)
+      except IOError:
+        error "Could not read password from stdin"
+        return
+
+    let decrypted = decryptNetKeystore(keystore, passphrase)
+    if decrypted.isOk:
+      return some(decrypted.get())
+    else:
+      dec remainingAttempts
+      inc counter
+      os.sleep(1000 * counter)
+      error "Network keystore decryption failed", key_store = keyStorePath
+
+proc saveNetKeystore*(rng: var BrHmacDrbgContext, keyStorePath: string,
+            netKey: lcrypto.PrivateKey): Result[void, KeystoreGenerationError] =
+  var password, confirmedPassword: TaintedString
+  while true:
+    let prompt = "Please enter NEW password to lock network key storage: "
+
+    password =
+      try:
+        readPasswordFromStdin(prompt)
+      except IOError:
+        error "Could not read password from stdin"
+        return err(FailedToCreateKeystoreFile)
+
+    if len(password) < minPasswordLen:
+      echo "The entered password should be at least ", minPasswordLen,
+           " characters"
+      continue
+    elif password in mostCommonPasswords:
+      echo80 "The entered password is too commonly used and it would be easy " &
+             "to brute-force with automated tools."
+      continue
+
+    confirmedPassword =
+      try:
+        readPasswordFromStdin("Please confirm, network key storage password: ")
+      except IOError:
+        error "Could not read password from stdin"
+        return err(FailedToCreateKeystoreFile)
+
+    if password != confirmedPassword:
+      echo "Passwords don't match, please try again"
+      continue
+
+    break
+
+  let keyStore = createNetKeystore(kdfScrypt, rng, netKey,
+                                   KeystorePass password)
+  var encodedStorage: string
+  try:
+    encodedStorage = Json.encode(keyStore)
+  except SerializationError:
+    return err(FailedToCreateKeystoreFile)
+
+  let res = writeFile(keyStorePath, encodedStorage, 0o600)
+  if res.isOk():
+    ok()
+  else:
+    err(FailedToCreateKeystoreFile)
+
 proc saveKeystore(rng: var BrHmacDrbgContext,
                   validatorsDir, secretsDir: string,
                   signingKey: ValidatorPrivKey, signingPubKey: ValidatorPubKey,
@@ -126,7 +245,7 @@ proc saveKeystore(rng: var BrHmacDrbgContext,
     validatorDir = validatorsDir / keyName
 
   if not existsDir(validatorDir):
-    var password = KeystorePass getRandomBytes(rng, 32).toHex
+    var password = KeystorePass ncrutils.toHex(getRandomBytes(rng, 32))
     defer: burnMem(password)
 
     let
@@ -178,14 +297,6 @@ proc generateDeposits*(preset: RuntimePreset,
     deposits.add preset.prepareDeposit(withdrawalPubKey, signingKey, signingPubKey)
 
   ok deposits
-
-const
-  minPasswordLen = 10
-
-  mostCommonPasswords = wordListArray(
-    currentSourcePath.parentDir /
-      "../vendor/nimbus-security-resources/passwords/10-million-password-list-top-100000.txt",
-    minWordLen = minPasswordLen)
 
 proc saveWallet*(wallet: Wallet, outWalletPath: string): Result[void, string] =
   try: createDir splitFile(outWalletPath).dir
@@ -301,9 +412,6 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
   except OSError:
     fatal "Failed to access the imported deposits directory"
     quit 1
-
-template echo80(msg: string) =
-  echo wrapWords(msg, 80)
 
 template ask(prompt: string): string =
   try:
