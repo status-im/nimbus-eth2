@@ -345,6 +345,7 @@ proc isValidBeaconBlock*(
     # BeaconBlock, not SignedBeaconBlock, opens up certain spoofing attacks.
     debug "parent unknown, putting block in quarantine",
       current_slot = shortLog(current_slot)
+    quarantine.add(dag, signed_beacon_block)
     return err(MissingParent)
 
   # [REJECT] The current finalized_checkpoint is an ancestor of block -- i.e.
