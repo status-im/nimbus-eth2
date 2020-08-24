@@ -23,9 +23,7 @@ mingw32-make # this first invocation will update the Git submodules
 mingw32-make fetch-dlls # this will place the right DLLs for your architecture in the "build/" directory
 ```
 
-> If you were following the Windows testnet instructions, you can jump back to [Connecting to testnets](#connecting-to-testnets) now
-
-You can now follow those instructions in the previous section by replacing `make` with `mingw32-make` (regardless of your 32-bit or 64-bit architecture):
+You can now follow the instructions in this this book by replacing `make` with `mingw32-make` (you should run `mingw32` regardless of whether you're running 32-bit or 64-bit architecture):
 
 ```bash
 mingw32-make test # run the test suite

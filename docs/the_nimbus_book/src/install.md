@@ -14,7 +14,9 @@ We recommended you run a high quality time service on your computer such as:
 
 At a minimum, you should run an NTP client on the server.
 
-If that sounds like latin to you, don't worry. For testnet purposes, you should be fine as long as your computer is set to the correct time.
+> **Note:** Most operating systems (including macOS') automatically sync with NTP by default.
+
+If the above sounds like latin to you, don't worry. You should be fine as long as you haven't messed around with the time and date settings on your computer (they should be set automatically).
 
 ## External Dependencies
 
