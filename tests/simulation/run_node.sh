@@ -29,6 +29,8 @@ BOOTSTRAP_ADDRESS_FILE="${SIMULATION_DIR}/node-${BOOTSTRAP_NODE_ID}/beacon_node.
 
 if [[ "$NODE_ID" != "$BOOTSTRAP_NODE" ]]; then
   BOOTSTRAP_ARG="--bootstrap-file=$BOOTSTRAP_ADDRESS_FILE"
+else
+  BOOTSTRAP_ARG="--netkey-file=network_key.json --insecure-netkey-password"
 fi
 
 # set up the environment

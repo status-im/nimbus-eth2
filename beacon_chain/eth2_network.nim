@@ -1214,6 +1214,9 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
         fatal "Could not generate random network key file"
         quit QuitFailure
       let privKey = res.get()
+      let pubKey = privKey.getKey().tryGet()
+      info "Using random network key",
+           network_public_key = byteutils.toHex(pubKey.getBytes().tryGet())
       return KeyPair(seckey: privKey, pubkey: privKey.getKey().tryGet())
     else:
       let keyPath =
@@ -1270,12 +1273,15 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
         return KeyPair(seckey: privKey, pubkey: pubKey)
 
   of createTestnet:
-    let netKeyFile = string(conf.outputNetkeyFile)
+    if conf.netKeyFile == "random":
+      fatal "Could not create testnet using `random` network key"
+      quit QuitFailure
+
     let keyPath =
-      if isAbsolute(netKeyFile):
-        netKeyFile
+      if isAbsolute(conf.netKeyFile):
+        conf.netKeyFile
       else:
-        conf.dataDir / netKeyFile
+        conf.dataDir / conf.netKeyFile
 
     let rres = PrivateKey.random(Secp256k1, rng)
     if rres.isErr():
@@ -1287,14 +1293,14 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
 
     # Insecure password used only for automated testing.
     let insecurePassword =
-      if conf.outputNetKeyInsecurePassword:
+      if conf.netKeyInsecurePassword:
         some(NetworkInsecureKeyPassword)
       else:
         none[string]()
 
     let sres = saveNetKeystore(rng, keyPath, privKey, insecurePassword)
     if sres.isErr():
-      fatal "Could not create network key file"
+      fatal "Could not create network key file", key_path = keyPath
       quit QuitFailure
 
     info "New network key storage was created", key_path = keyPath,

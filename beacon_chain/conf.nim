@@ -82,6 +82,18 @@ type
       desc: "Do not display interative prompts. Quit on missing configuration"
       name: "non-interactive" }: bool
 
+    netKeyFile* {.
+      defaultValue: "random",
+      desc: "Source of network (secp256k1) private key file " &
+            "(random|<path>) (default: random)"
+      name: "netkey-file" }: string
+
+    netKeyInsecurePassword* {.
+      defaultValue: false,
+      desc: "Use pre-generated INSECURE password for network private key " &
+            "file (default: false)"
+      name: "insecure-netkey-password" }: bool
+
     case cmd* {.
       command
       defaultValue: noCommand }: BNStartUpCmd
@@ -218,18 +230,6 @@ type
         desc: "Write SSZ dumps of blocks, attestations and states to data dir"
         name: "dump" }: bool
 
-      netKeyFile* {.
-        defaultValue: "random",
-        desc: "Source of network (secp256k1) private key file " &
-              "(random|<path>) (default: random)"
-        name: "netkey-file" }: string
-
-      netKeyInsecurePassword* {.
-        defaultValue: false,
-        desc: "Use pre-generated INSECURE password for network private key " &
-              "file (default: false)"
-        name: "insecure-netkey-password" }: bool
-
     of createTestnet:
       testnetDepositsFile* {.
         desc: "A LaunchPad deposits file for the genesis state validators"
@@ -276,16 +276,6 @@ type
       outputBootstrapFile* {.
         desc: "Output file with list of bootstrap nodes for the network"
         name: "output-bootstrap-file" }: OutFile
-
-      outputNetkeyFile* {.
-        desc: "Output file with network private key for the network"
-        name: "netkey-file" }: OutFile
-
-      outputNetKeyInsecurePassword* {.
-        defaultValue: false,
-        desc: "Use pre-generated INSECURE password for network private key " &
-              "file (default: false)"
-        name: "insecure-netkey-password" }: bool
 
     of wallets:
       case walletsCmd* {.command.}: WalletsCmd

@@ -202,7 +202,8 @@ proc saveNetKeystore*(rng: var BrHmacDrbgContext, keyStorePath: string,
                      ): Result[void, KeystoreGenerationError] =
   var password, confirmedPassword: TaintedString
   if insecurePwd.isSome():
-    warn "Using insecure password to lock networking key"
+    warn "Using insecure password to lock networking key",
+         key_path = keyStorePath
     password = insecurePwd.get()
   else:
     while true:
@@ -244,12 +245,14 @@ proc saveNetKeystore*(rng: var BrHmacDrbgContext, keyStorePath: string,
   try:
     encodedStorage = Json.encode(keyStore)
   except SerializationError:
+    error "Could not serialize network key storage", key_path = keyStorePath
     return err(FailedToCreateKeystoreFile)
 
   let res = writeFile(keyStorePath, encodedStorage, 0o600)
   if res.isOk():
     ok()
   else:
+    error "Could not write to network key storage file", key_path = keyStorePath
     err(FailedToCreateKeystoreFile)
 
 proc saveKeystore(rng: var BrHmacDrbgContext,

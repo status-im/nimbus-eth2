@@ -218,6 +218,8 @@ if [[ $USE_GANACHE == "0" ]]; then
     --output-bootstrap-file="${NETWORK_DIR}/bootstrap_nodes.txt" \
     --bootstrap-address=${BOOTSTRAP_IP} \
     --bootstrap-port=${BASE_PORT} \
+    --netkey-file=network_key.json \
+    --insecure-netkey-password=true \
     --genesis-offset=${GENESIS_OFFSET} # Delay in seconds
 
   STATE_SNAPSHOT_ARG="--state-snapshot=${NETWORK_DIR}/genesis.ssz"
@@ -315,7 +317,7 @@ BOOTSTRAP_ENR="${DATA_DIR}/node${BOOTSTRAP_NODE}/beacon_node.enr"
 
 for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   if [[ ${NUM_NODE} == ${BOOTSTRAP_NODE} ]]; then
-    BOOTSTRAP_ARG=""
+    BOOTSTRAP_ARG="--netkey-file=network_key.json --insecure-netkey-password=true"
   else
     BOOTSTRAP_ARG="--bootstrap-file=${BOOTSTRAP_ENR}"
     # Wait for the master node to write out its address file
