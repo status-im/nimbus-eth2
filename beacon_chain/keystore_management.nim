@@ -131,7 +131,8 @@ type
     FailedToCreateSecretFile
     FailedToCreateKeystoreFile
 
-proc loadNetKeystore*(keyStorePath: string): Option[lcrypto.PrivateKey] =
+proc loadNetKeystore*(keyStorePath: string,
+                      insecurePwd: Option[string]): Option[lcrypto.PrivateKey] =
   when defined(windows):
     # Windows do not support per-user permissions, skiping verification part.
     discard
@@ -167,60 +168,75 @@ proc loadNetKeystore*(keyStorePath: string): Option[lcrypto.PrivateKey] =
       error "Invalid network keystore", err = err.formatMsg(keystorePath)
       return
 
-  var remainingAttempts = 3
-  var counter = 0
-  var prompt = "Please enter passphrase to unlock networking key: "
-  while remainingAttempts > 0:
-    let passphrase = KeystorePass:
-      try:
-        readPasswordFromStdin(prompt)
-      except IOError:
-        error "Could not read password from stdin"
-        return
-
-    let decrypted = decryptNetKeystore(keystore, passphrase)
+  if insecurePwd.isSome():
+    warn "Using insecure password to unlock networking key"
+    let decrypted = decryptNetKeystore(keystore, KeystorePass insecurePwd.get())
     if decrypted.isOk:
       return some(decrypted.get())
     else:
-      dec remainingAttempts
-      inc counter
-      os.sleep(1000 * counter)
       error "Network keystore decryption failed", key_store = keyStorePath
+      return
+  else:
+    var remainingAttempts = 3
+    var counter = 0
+    var prompt = "Please enter passphrase to unlock networking key: "
+    while remainingAttempts > 0:
+      let passphrase = KeystorePass:
+        try:
+          readPasswordFromStdin(prompt)
+        except IOError:
+          error "Could not read password from stdin"
+          return
+
+      let decrypted = decryptNetKeystore(keystore, passphrase)
+      if decrypted.isOk:
+        return some(decrypted.get())
+      else:
+        dec remainingAttempts
+        inc counter
+        os.sleep(1000 * counter)
+        error "Network keystore decryption failed", key_store = keyStorePath
 
 proc saveNetKeystore*(rng: var BrHmacDrbgContext, keyStorePath: string,
-            netKey: lcrypto.PrivateKey): Result[void, KeystoreGenerationError] =
+                      netKey: lcrypto.PrivateKey, insecurePwd: Option[string]
+                     ): Result[void, KeystoreGenerationError] =
   var password, confirmedPassword: TaintedString
-  while true:
-    let prompt = "Please enter NEW password to lock network key storage: "
+  if insecurePwd.isSome():
+    warn "Using insecure password to lock networking key"
+    password = insecurePwd.get()
+  else:
+    while true:
+      let prompt = "Please enter NEW password to lock network key storage: "
 
-    password =
-      try:
-        readPasswordFromStdin(prompt)
-      except IOError:
-        error "Could not read password from stdin"
-        return err(FailedToCreateKeystoreFile)
+      password =
+        try:
+          readPasswordFromStdin(prompt)
+        except IOError:
+          error "Could not read password from stdin"
+          return err(FailedToCreateKeystoreFile)
 
-    if len(password) < minPasswordLen:
-      echo "The entered password should be at least ", minPasswordLen,
-           " characters"
-      continue
-    elif password in mostCommonPasswords:
-      echo80 "The entered password is too commonly used and it would be easy " &
-             "to brute-force with automated tools."
-      continue
+      if len(password) < minPasswordLen:
+        echo "The entered password should be at least ", minPasswordLen,
+             " characters"
+        continue
+      elif password in mostCommonPasswords:
+        echo80 "The entered password is too commonly used and it would be " &
+               "easy to brute-force with automated tools."
+        continue
 
-    confirmedPassword =
-      try:
-        readPasswordFromStdin("Please confirm, network key storage password: ")
-      except IOError:
-        error "Could not read password from stdin"
-        return err(FailedToCreateKeystoreFile)
+      confirmedPassword =
+        try:
+          readPasswordFromStdin("Please confirm, network key storage " &
+                                "password: ")
+        except IOError:
+          error "Could not read password from stdin"
+          return err(FailedToCreateKeystoreFile)
 
-    if password != confirmedPassword:
-      echo "Passwords don't match, please try again"
-      continue
+      if password != confirmedPassword:
+        echo "Passwords don't match, please try again"
+        continue
 
-    break
+      break
 
   let keyStore = createNetKeystore(kdfScrypt, rng, netKey,
                                    KeystorePass password)
