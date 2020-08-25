@@ -26,6 +26,9 @@ declareCounter beacon_state_data_cache_hits, "EpochRef hits"
 declareCounter beacon_state_data_cache_misses, "EpochRef misses"
 declareCounter beacon_state_rewinds, "State database rewinds"
 
+declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
+declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
+
 logScope: topics = "chaindag"
 
 proc putBlock*(
@@ -734,6 +737,14 @@ proc updateHead*(dag: ChainDAGRef, newHead: BlockRef) =
   let
     finalizedHead = newHead.atEpochStart(
       dag.headState.data.data.finalized_checkpoint.epoch)
+
+  # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
+  if dag.headState.data.data.eth1_data.deposit_count < high(int64).uint64:
+    beacon_pending_deposits.set(
+      dag.headState.data.data.eth1_data.deposit_count.int64 -
+      dag.headState.data.data.eth1_deposit_index.int64)
+    beacon_processed_deposits_total.set(
+      dag.headState.data.data.eth1_deposit_index.int64)
 
   doAssert (not finalizedHead.blck.isNil),
     "Block graph should always lead to a finalized block"
