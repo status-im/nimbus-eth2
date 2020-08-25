@@ -161,6 +161,8 @@ if [[ "$REUSE_EXISTING_DATA_DIR" == "0" ]]; then
   rm -rf "${DATA_DIR}"
 fi
 
+mkdir -m 0750 -p "${DATA_DIR}"
+
 DEPOSITS_FILE="${DATA_DIR}/deposits.json"
 
 VALIDATORS_DIR="${DATA_DIR}/validators"
