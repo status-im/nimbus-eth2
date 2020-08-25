@@ -225,7 +225,8 @@ proc addRawBlock*(
   # the pending dag calls this function back later in a loop, so as long
   # as dag.add(...) requires a SignedBeaconBlock, easier to keep them in
   # pending too.
-  quarantine.add(dag, signedBlock)
+  if not quarantine.add(dag, signedBlock):
+    debug "Block quarantine full"
 
   # TODO possibly, it makes sense to check the database - that would allow sync
   #      to simply fill up the database with random blocks the other clients
@@ -345,7 +346,8 @@ proc isValidBeaconBlock*(
     # BeaconBlock, not SignedBeaconBlock, opens up certain spoofing attacks.
     debug "parent unknown, putting block in quarantine",
       current_slot = shortLog(current_slot)
-    quarantine.add(dag, signed_beacon_block)
+    if not quarantine.add(dag, signed_beacon_block):
+      debug "Block quarantine full"
     return err(MissingParent)
 
   # [REJECT] The current finalized_checkpoint is an ancestor of block -- i.e.

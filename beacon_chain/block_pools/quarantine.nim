@@ -46,8 +46,18 @@ func addMissing*(quarantine: var QuarantineRef, root: Eth2Digest) =
     # If the block is in orphans, we no longer need it
     discard quarantine.missing.hasKeyOrPut(root, MissingBlock())
 
+func removeOldBlocks(quarantine: var QuarantineRef, dag: ChainDAGRef) =
+  var oldBlocks: seq[Eth2Digest]
+
+  for k, v in quarantine.orphans.pairs():
+    if v.message.slot <= dag.finalizedHead.slot:
+      oldBlocks.add k
+
+  for k in oldBlocks:
+    quarantine.orphans.del k
+
 func add*(quarantine: var QuarantineRef, dag: ChainDAGRef,
-          signedBlock: SignedBeaconBlock) =
+          signedBlock: SignedBeaconBlock): bool =
   ## Adds block to quarantine's `orphans` and `missing` lists.
 
   # Typically, blocks will arrive in mostly topological order, with some
@@ -63,11 +73,16 @@ func add*(quarantine: var QuarantineRef, dag: ChainDAGRef,
   # for future slots are rejected before reaching quarantine, this usually
   # will be a block for the last couple of slots for which the parent is a
   # likely imminent arrival.
-  const MAX_QUARANTINE_ORPHANS = 16
+  const MAX_QUARANTINE_ORPHANS = 10
+
+  quarantine.removeOldBlocks(dag)
+
   if quarantine.orphans.len >= MAX_QUARANTINE_ORPHANS:
-    return
+    return false
 
   quarantine.orphans[signedBlock.root] = signedBlock
   quarantine.missing.del(signedBlock.root)
 
   quarantine.addMissing(signedBlock.message.parent_root)
+
+  true
