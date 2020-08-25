@@ -273,7 +273,7 @@ type
 
       outputNetkeyFile* {.
         desc: "Output file with network private key for the network"
-        name: "output-netkey-file" }: OutFile
+        name: "netkey-file" }: OutFile
 
     of wallets:
       case walletsCmd* {.command.}: WalletsCmd
