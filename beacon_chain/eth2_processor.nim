@@ -58,21 +58,23 @@ type
     attestationsQueue*: AsyncQueue[AttestationEntry]
     aggregatesQueue*: AsyncQueue[AggregateEntry]
 
-proc updateHead*(self: var Eth2Processor, wallSlot: Slot): Option[BlockRef] =
+proc updateHead*(self: var Eth2Processor, wallSlot: Slot): BlockRef =
+  ## Trigger fork choice and returns the new head block.
+  ## Can return `nil`
   # Check pending attestations - maybe we found some blocks for them
   self.attestationPool[].resolve(wallSlot)
 
   # Grab the new head according to our latest attestation data
   let newHead = self.attestationPool[].selectHead(wallSlot)
-  if newHead.isNone():
-    return none(BlockRef)
+  if newHead.isNil():
+    return nil
 
   # Store the new head in the chain DAG - this may cause epochs to be
   # justified and finalized
   let oldFinalized = self.chainDag.finalizedHead.blck
 
-  self.chainDag.updateHead(newHead.unsafeGet())
-  beacon_head_root.set newHead.unsafeGet().root.toGaugeValue
+  self.chainDag.updateHead(newHead)
+  beacon_head_root.set newHead.root.toGaugeValue
 
   # Cleanup the fork choice v2 if we have a finalized head
   if oldFinalized != self.chainDag.finalizedHead.blck:

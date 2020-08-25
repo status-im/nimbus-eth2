@@ -440,10 +440,10 @@ proc handleValidatorDuties*(
     node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   ## Perform validator duties - create blocks, vote and aggregate existing votes
   let maybeHead = node.updateHead(slot)
-  if maybeHead.isNone():
+  if maybeHead.isNil():
     error "Couldn't update head - cannot proceed with validator duties"
     return
-  var head = maybeHead.unsafeGet()
+  var head = maybeHead
   if node.attachedValidators.count == 0:
     # Nothing to do because we have no validator attached
     return
@@ -501,8 +501,8 @@ proc handleValidatorDuties*(
     if await node.beaconClock.sleepToSlotOffset(extra, slot, msg):
       # Time passed - we might need to select a new head in that case
       let maybeHead = node.updateHead(slot)
-      if maybeHead.isSome():
-        head = maybeHead.unsafeGet()
+      if not maybeHead.isNil():
+        head = maybeHead
       else:
         error "Couldn't update head"
 
