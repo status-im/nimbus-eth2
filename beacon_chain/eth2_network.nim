@@ -272,6 +272,9 @@ const
 when libp2p_pki_schemes != "secp256k1":
   {.fatal: "Incorrect building process, please use -d:\"libp2p_pki_schemes=secp256k1\"".}
 
+const
+  NetworkInsecureKeyPassword = "INSECUREPASSWORD"
+
 template libp2pProtocol*(name: string, version: int) {.pragma.}
 
 func shortLog*(peer: Peer): string = shortLog(peer.info.peerId)
@@ -1221,7 +1224,15 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
 
       if fileAccessible(keyPath, {AccessFlags.Find}):
         info "Network key storage is present, unlocking", key_path = keyPath
-        let res = loadNetKeystore(keyPath)
+
+        # Insecure password used only for automated testing.
+        let insecurePassword =
+          if conf.netKeyInsecurePassword:
+            some(NetworkInsecureKeyPassword)
+          else:
+            none[string]()
+
+        let res = loadNetKeystore(keyPath, insecurePassword)
         if res.isNone():
           fatal "Could not load network key file"
           quit QuitFailure
@@ -1242,7 +1253,14 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
         let privKey = rres.get()
         let pubKey = privKey.getKey().tryGet()
 
-        let sres = saveNetKeystore(rng, keyPath, privKey)
+        # Insecure password used only for automated testing.
+        let insecurePassword =
+          if conf.netKeyInsecurePassword:
+            some(NetworkInsecureKeyPassword)
+          else:
+            none[string]()
+
+        let sres = saveNetKeystore(rng, keyPath, privKey, insecurePassword)
         if sres.isErr():
           fatal "Could not create network key file", key_path = keyPath
           quit QuitFailure
@@ -1267,7 +1285,14 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
     let privKey = rres.get()
     let pubKey = privKey.getKey().tryGet()
 
-    let sres = saveNetKeystore(rng, keyPath, privKey)
+    # Insecure password used only for automated testing.
+    let insecurePassword =
+      if conf.outputNetKeyInsecurePassword:
+        some(NetworkInsecureKeyPassword)
+      else:
+        none[string]()
+
+    let sres = saveNetKeystore(rng, keyPath, privKey, insecurePassword)
     if sres.isErr():
       fatal "Could not create network key file"
       quit QuitFailure

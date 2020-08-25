@@ -900,7 +900,7 @@ proc createPidFile(filename: string) =
 
 proc checkDataDir(conf: BeaconNodeConf) =
   ## Checks `conf.dataDir`.
-  ## If folder exists, prcoedure will check it for access and
+  ## If folder exists, procedure will check it for access and
   ## permissions `0750 (rwxr-x---)`, if folder do not exists it will be created
   ## with permissions `0750 (rwxr-x---)`.
   let dataDir = string(conf.dataDir)
@@ -1136,6 +1136,8 @@ programMain:
     # This is ref so we can mutate it (to erase it) after the initial loading.
     stateSnapshotContents: ref string
 
+  checkDataDir(config)
+
   setupLogging(config.logLevel, config.logFile)
 
   if config.eth2Network.isSome:
@@ -1173,8 +1175,6 @@ programMain:
 
   case config.cmd
   of createTestnet:
-    checkDataDir(config)
-
     let launchPadDeposits = try:
       Json.loadFile(config.testnetDepositsFile.string, seq[LaunchPadDeposit])
     except SerializationError as err:
@@ -1234,8 +1234,6 @@ programMain:
           bls_backend = $BLS_BACKEND,
           cmdParams = commandLineParams(),
           config
-
-    checkDataDir(config)
 
     createPidFile(config.dataDir.string / "beacon_node.pid")
 

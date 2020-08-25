@@ -224,6 +224,12 @@ type
               "(random|<path>) (default: random)"
         name: "netkey-file" }: string
 
+      netKeyInsecurePassword* {.
+        defaultValue: false,
+        desc: "Use pre-generated INSECURE password for network private key " &
+              "file (default: false)"
+        name: "insecure-netkey-password" }: bool
+
     of createTestnet:
       testnetDepositsFile* {.
         desc: "A LaunchPad deposits file for the genesis state validators"
@@ -274,6 +280,12 @@ type
       outputNetkeyFile* {.
         desc: "Output file with network private key for the network"
         name: "netkey-file" }: OutFile
+
+      outputNetKeyInsecurePassword* {.
+        defaultValue: false,
+        desc: "Use pre-generated INSECURE password for network private key " &
+              "file (default: false)"
+        name: "insecure-netkey-password" }: bool
 
     of wallets:
       case walletsCmd* {.command.}: WalletsCmd
