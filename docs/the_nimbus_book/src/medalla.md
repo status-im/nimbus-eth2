@@ -126,6 +126,12 @@ make medalla NODE_ID=1
 make medalla NODE_ID=2
 ```
 
+### Attach multiple validators to the same beacon node
+
+Simply [import as many keystores as you wish](./medalla.md#3-import-keystores) before running `make medalla`. Nimbus will automagically find your keys and attach your validators. See [key management](./medalla.md#key-management) for more information on where we store your keys.
+
+To give you some context, we (the Nimbus team) are currently running 170 validators per beacon node on our AWS instances.
+
 ### Change the TCP and UDP ports
 
 To change the TCP and UDP ports from their default value of 9000 to 9100, say, run:
@@ -143,16 +149,6 @@ You may need to do this if you are running another client.
 make medalla-deposit VALIDATORS=2 # default is just 1
 ```
 
-### Upgrading
-
-When you restart the beacon node, the software will resume from where it left off, using your previous deposits.
-
-```
-cd nim-beacon-chain
-git pull
-make update # Update dependencies
-make medalla # Restart using same keys as last run
-```
 
 ## Key management
 
@@ -183,12 +179,44 @@ Make sure this port is protected as the http server used is not considered secur
 
 ## Troubleshooting
 
-1. The directory that stores the blockchain data of the testnet is `build/data/shared_medalla_0` (if you're connecting to another testnet, replace `medalla` with that testnet's name). Delete this folder if you want to start over (for example, if you entered a wrong private key).
 
-2. Currently, you have to switch to the `devel` branch in order to run the validator node successfully.
+The first thing to say, is that you should make sure to restart and update your node regularly. Everytime you want to update your node to the latest version, run `git pull`, `make update`, followed by `make medalla`:
 
-3. Everytime you want to update your node to the latest version, run `git pull`, `make update`, and then `make medalla`.
+```
+cd nim-beacon-chain
+git pull
+make update # Update dependencies
+make medalla # Restart using same keys as last run
+```
 
-4. If `make update` causes the console to hang for too long, try running `make update V=1` or `make update V=2` instead (these will print a more verbose output to the console which may make it easier to diagnose the problem).
+If you find that `make update` causes the console to hang for too long, try running `make update V=1` or `make update V=2` instead (these will print a more verbose output to the console which may make it easier to diagnose the problem).
 
-5. If you’re experiencing sync problems, or have been running an old version of medalla, we recommend running `make clean-medalla` to restart your sync (make sure you’ve updated to the latest `devel` branch first though).
+>**Note:** rest assured that when you restart the beacon node, the software will resume from where it left off, using the validator keys you have already imported.
+
+
+### Starting over
+
+The directory that stores the blockchain data of the testnet is `build/data/shared_medalla_0` (if you're connecting to another testnet, replace `medalla` with that testnet's name). Delete this folder to start over (for example, if you started building medalla with the wrong private keys).
+
+### Syncing
+If you’re experiencing sync problems, or have been running an old version of medalla, we recommend running `make clean-medalla` to restart your sync (make sure you’ve updated to the latest `devel` branch first though).
+
+### Keeping up with the head of the chain
+
+As it stands, logging seems to be slowing down the client,  and quite a few users are experiencing trouble either catching up or keeping up with the head of the chain. You can use the `LOG_LEVEL=INFO` option to reduce verbosity and speed up the client.
+
+```
+make LOG_LEVEL=INFO medalla
+```
+
+### Low peer counts
+
+If you're experiencing a low peer count, you may be behind a firewall. Try restarting your client and passing `NODE_PARAMS="--nat:\"extip:$EXT_IP_ADDRESS\"` as an option to `make medalla`, where `$EXT_IP_ADDRESS` is your real IP. For example, if your real IP address is `35.124.65.104`, you'd run:
+
+```
+make NODE_PARAMS="--nat:\"extip:35.124.65.104\" medalla
+```
+
+### Resource leaks
+
+If you're experiencing RAM related resource leaks, try restarting your client (we recommend restarting every 6 hours until we've fixed [this issue](https://github.com/status-im/nim-beacon-chain/issues/1518)). If you have a [local Grafana setup](https://github.com/status-im/nim-beacon-chain#getting-metrics-from-a-local-testnet-client), you can try monitoring the severity of these leaks and playing around with the restart interval.
