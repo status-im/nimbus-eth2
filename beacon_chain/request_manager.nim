@@ -74,7 +74,7 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
         if len(ublocks) > 0:
           for b in ublocks:
             res = await rman.validate(b)
-            if not(res.isOk):
+            if res.isErr() and (res.error == BlockError.Invalid):
               break
         else:
           res = Result[void, BlockError].ok()
@@ -82,7 +82,8 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
         if res.isOk():
           peer.updateScore(PeerScoreGoodBlocks)
         else:
-          peer.updateScore(PeerScoreBadBlocks)
+          if res.error == BlockError.Invalid:
+            peer.updateScore(PeerScoreBadBlocks)
       else:
         peer.updateScore(PeerScoreBadResponse)
     else:
