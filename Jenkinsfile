@@ -98,5 +98,6 @@ parallel(
 				runStages()
 			}
 		}
-	}
+	},
 )
+
