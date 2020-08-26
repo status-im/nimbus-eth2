@@ -8,7 +8,7 @@
 {.used.}
 
 import
-  unittest,
+  std/[unittest, options],
   chronicles,
   stew/byteutils,
   ./testutil, ./testblockutil,
@@ -39,6 +39,8 @@ func combine(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
 
 template wrappedTimedTest(name: string, body: untyped) =
   # `check` macro takes a copy of whatever it's checking, on the stack!
+  # This leads to stack overflow
+  # We can mitigate that by wrapping checks in proc
   block: # Symbol namespacing
     proc wrappedTest() =
       timedTest name:
@@ -60,7 +62,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       process_slots(state.data, state.data.data.slot + 1)
 
-  timedTest "Can add and retrieve simple attestation" & preset():
+  wrappedTimedTest "Can add and retrieve simple attestation" & preset():
     var cache = StateCache()
     let
       # Create an attestation for slot 1!
@@ -79,7 +81,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       attestations.len == 1
 
-  timedTest "Attestations may arrive in any order" & preset():
+  wrappedTimedTest "Attestations may arrive in any order" & preset():
     var cache = StateCache()
     let
       # Create an attestation for slot 1!
@@ -108,7 +110,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       attestations.len == 1
 
-  timedTest "Attestations should be combined" & preset():
+  wrappedTimedTest "Attestations should be combined" & preset():
     var cache = StateCache()
     let
       # Create an attestation for slot 1!
@@ -130,7 +132,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       attestations.len == 1
 
-  timedTest "Attestations may overlap, bigger first" & preset():
+  wrappedTimedTest "Attestations may overlap, bigger first" & preset():
     var cache = StateCache()
 
     var
@@ -155,7 +157,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       attestations.len == 1
 
-  timedTest "Attestations may overlap, smaller first" & preset():
+  wrappedTimedTest "Attestations may overlap, smaller first" & preset():
     var cache = StateCache()
     var
       # Create an attestation for slot 1!
@@ -179,7 +181,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       attestations.len == 1
 
-  timedTest "Fork choice returns latest block with no attestations":
+  wrappedTimedTest "Fork choice returns latest block with no attestations":
     var cache = StateCache()
     let
       b1 = addTestBlock(state.data, chainDag.tail.root, cache)
@@ -207,7 +209,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       head2 == b2Add[]
 
-  timedTest "Fork choice returns block with attestation":
+  wrappedTimedTest "Fork choice returns block with attestation":
     var cache = StateCache()
     let
       b10 = makeTestBlock(state.data, chainDag.tail.root, cache)
@@ -264,7 +266,7 @@ suiteReport "Attestation pool processing" & preset():
       # Two votes for b11
       head4 == b11Add[]
 
-  timedTest "Trying to add a block twice tags the second as an error":
+  wrappedTimedTest "Trying to add a block twice tags the second as an error":
     var cache = StateCache()
     let
       b10 = makeTestBlock(state.data, chainDag.tail.root, cache)
@@ -291,12 +293,13 @@ suiteReport "Attestation pool processing" & preset():
     doAssert: b10Add_clone.error == Duplicate
 
   wrappedTimedTest "Trying to add a duplicate block from an old pruned epoch is tagged as an error":
+    # Note: very sensitive to stack usage
+
     chainDag.updateFlags.incl {skipBLSValidation}
-    pool.forkChoice.backend.proto_array.prune_threshold = 1
     var cache = StateCache()
     let
-      b10 = makeTestBlock(state.data, chainDag.tail.root, cache)
-      b10Add = chainDag.addRawBlock(quarantine, b10) do (
+      b10 = newClone(makeTestBlock(state.data, chainDag.tail.root, cache))
+      b10Add = chainDag.addRawBlock(quarantine, b10[]) do (
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
@@ -306,7 +309,7 @@ suiteReport "Attestation pool processing" & preset():
 
     doAssert: head == b10Add[]
 
-    let block_ok = state_transition(defaultRuntimePreset, state.data, b10, {}, noRollback)
+    let block_ok = state_transition(defaultRuntimePreset, state.data, b10[], {}, noRollback)
     doAssert: block_ok
 
     # -------------------------------------------------------------
@@ -323,14 +326,14 @@ suiteReport "Attestation pool processing" & preset():
       let committees_per_slot =
         get_committee_count_per_slot(state.data.data, Epoch epoch, cache)
       for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
-        let new_block = makeTestBlock(
-          state.data, block_root, cache, attestations = attestations)
+        let new_block = newClone(makeTestBlock(
+          state.data, block_root, cache, attestations = attestations))
         let block_ok = state_transition(
-          defaultRuntimePreset, state.data, new_block, {skipBLSValidation}, noRollback)
+          defaultRuntimePreset, state.data, new_block[], {skipBLSValidation}, noRollback)
         doAssert: block_ok
 
         block_root = new_block.root
-        let blockRef = chainDag.addRawBlock(quarantine, new_block) do (
+        let blockRef = chainDag.addRawBlock(quarantine, new_block[]) do (
             blckRef: BlockRef, signedBlock: SignedBeaconBlock,
             epochRef: EpochRef, state: HashedBeaconState):
           # Callback add to fork choice if valid
@@ -368,10 +371,10 @@ suiteReport "Attestation pool processing" & preset():
     doAssert: chainDag.finalizedHead.slot != 0
 
     pool[].prune()
-    doAssert: b10.root notin pool.forkChoice.backend
+    doAssert: b10[].root notin pool.forkChoice.backend
 
     # Add back the old block to ensure we have a duplicate error
-    let b10Add_clone = chainDag.addRawBlock(quarantine, b10_clone) do (
+    let b10Add_clone = chainDag.addRawBlock(quarantine, b10_clone[]) do (
           blckRef: BlockRef, signedBlock: SignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid

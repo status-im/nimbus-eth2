@@ -57,7 +57,6 @@ type
       target_epoch*: Epoch
     of Prune: # ProtoArray specific
       finalized_root*: Eth2Digest
-      prune_threshold*: int
       expected_len*: int
 
 func apply(ctx: var ForkChoiceBackend, id: int, op: Operation) =
@@ -97,8 +96,7 @@ func apply(ctx: var ForkChoiceBackend, id: int, op: Operation) =
     )
     debugEcho "    Processed att target 0x", op.block_root, " from validator ", op.validator_index, " for epoch ", op.target_epoch
   of Prune:
-    ctx.proto_array.prune_threshold = op.prune_threshold
-    let r = ctx.maybe_prune(op.finalized_root)
+    let r = ctx.prune(op.finalized_root)
     doAssert r.isOk(), &"prune (op #{id}) returned an error: {r.error}"
     doAssert ctx.proto_array.nodes.len == op.expected_len,
       &"prune (op #{id}): the resulting length ({ctx.proto_array.nodes.len}) was not expected ({op.expected_len})"

@@ -17,8 +17,18 @@ import
 when isMainModule:
   import chronicles # or some random compile error happens...
 
+template wrappedTimedTest(name: string, body: untyped) =
+  # `check` macro takes a copy of whatever it's checking, on the stack!
+  # This leads to stack overflow
+  # We can mitigate that by wrapping checks in proc
+  block: # Symbol namespacing
+    proc wrappedTest() =
+      timedTest name:
+        body
+    wrappedTest()
+
 suiteReport "BlockRef and helpers" & preset():
-  timedTest "isAncestorOf sanity" & preset():
+  wrappedTimedTest "isAncestorOf sanity" & preset():
     let
       s0 = BlockRef(slot: Slot(0))
       s1 = BlockRef(slot: Slot(1), parent: s0)
@@ -35,7 +45,7 @@ suiteReport "BlockRef and helpers" & preset():
       not s2.isAncestorOf(s1)
       not s1.isAncestorOf(s0)
 
-  timedTest "get_ancestor sanity" & preset():
+  wrappedTimedTest "get_ancestor sanity" & preset():
     let
       s0 = BlockRef(slot: Slot(0))
       s1 = BlockRef(slot: Slot(1), parent: s0)
@@ -55,7 +65,7 @@ suiteReport "BlockRef and helpers" & preset():
       s4.get_ancestor(Slot(3)) == s2
       s4.get_ancestor(Slot(4)) == s4
 
-  timedTest "epochAncestor sanity" & preset():
+  wrappedTimedTest "epochAncestor sanity" & preset():
     let
       s0 = BlockRef(slot: Slot(0))
     var cur = s0
@@ -72,7 +82,7 @@ suiteReport "BlockRef and helpers" & preset():
       ancestor.blck.epochAncestor(ancestor.blck.slot.epoch) != ancestor
 
 suiteReport "BlockSlot and helpers" & preset():
-  timedTest "atSlot sanity" & preset():
+  wrappedTimedTest "atSlot sanity" & preset():
     let
       s0 = BlockRef(slot: Slot(0))
       s1 = BlockRef(slot: Slot(1), parent: s0)
@@ -86,7 +96,7 @@ suiteReport "BlockSlot and helpers" & preset():
 
       s4.atSlot(Slot(0)).blck == s0
 
-  timedTest "parent sanity" & preset():
+  wrappedTimedTest "parent sanity" & preset():
     let
       s0 = BlockRef(slot: Slot(0))
       s00 = BlockSlot(blck: s0, slot: Slot(0))
@@ -114,18 +124,18 @@ suiteReport "Block pool processing" & preset():
       b1Root = hash_tree_root(b1.message)
       b2 = addTestBlock(stateData.data, b1Root, cache)
       b2Root {.used.} = hash_tree_root(b2.message)
-  timedTest "getRef returns nil for missing blocks":
+  wrappedTimedTest "getRef returns nil for missing blocks":
     check:
       dag.getRef(default Eth2Digest) == nil
 
-  timedTest "loadTailState gets genesis block on first load" & preset():
+  wrappedTimedTest "loadTailState gets genesis block on first load" & preset():
     let
       b0 = dag.get(dag.tail.root)
 
     check:
       b0.isSome()
 
-  timedTest "Simple block add&get" & preset():
+  wrappedTimedTest "Simple block add&get" & preset():
     let
       b1Add = dag.addRawBlock(quarantine, b1, nil)
       b1Get = dag.get(b1.root)
@@ -193,7 +203,7 @@ suiteReport "Block pool processing" & preset():
       dag.getBlockRange(Slot(3), 2, blocks.toOpenArray(0, 1)) == 2
       blocks[2..<2].len == 0
 
-  timedTest "Reverse order block add & get" & preset():
+  wrappedTimedTest "Reverse order block add & get" & preset():
     let missing = dag.addRawBlock(quarantine, b2, nil)
     check: missing.error == MissingParent
 
@@ -235,7 +245,7 @@ suiteReport "Block pool processing" & preset():
       dag2.heads.len == 1
       dag2.heads[0].root == b2Root
 
-  timedTest "Adding the same block twice returns a Duplicate error" & preset():
+  wrappedTimedTest "Adding the same block twice returns a Duplicate error" & preset():
     let
       b10 = dag.addRawBlock(quarantine, b1, nil)
       b11 = dag.addRawBlock(quarantine, b1, nil)
@@ -244,7 +254,7 @@ suiteReport "Block pool processing" & preset():
       b11.error == Duplicate
       not b10[].isNil
 
-  timedTest "updateHead updates head and headState" & preset():
+  wrappedTimedTest "updateHead updates head and headState" & preset():
     let
       b1Add = dag.addRawBlock(quarantine, b1, nil)
 
@@ -254,7 +264,7 @@ suiteReport "Block pool processing" & preset():
       dag.head == b1Add[]
       dag.headState.data.data.slot == b1Add[].slot
 
-  timedTest "updateStateData sanity" & preset():
+  wrappedTimedTest "updateStateData sanity" & preset():
     let
       b1Add = dag.addRawBlock(quarantine, b1, nil)
       b2Add = dag.addRawBlock(quarantine, b2, nil)
@@ -311,7 +321,7 @@ suiteReport "chain DAG finalization tests" & preset():
       quarantine = QuarantineRef()
       cache = StateCache()
 
-  timedTest "prune heads on finalization" & preset():
+  wrappedTimedTest "prune heads on finalization" & preset():
     # Create a fork that will not be taken
     var
       blck = makeTestBlock(dag.headState.data, dag.head.root, cache)
@@ -386,7 +396,7 @@ suiteReport "chain DAG finalization tests" & preset():
       hash_tree_root(dag2.headState.data.data) ==
         hash_tree_root(dag.headState.data.data)
 
-  timedTest "orphaned epoch block" & preset():
+  wrappedTimedTest "orphaned epoch block" & preset():
     var prestate = (ref HashedBeaconState)()
     for i in 0 ..< SLOTS_PER_EPOCH:
       if i == SLOTS_PER_EPOCH - 1:
@@ -426,7 +436,7 @@ suiteReport "chain DAG finalization tests" & preset():
       quarantine = QuarantineRef()
       cache = StateCache()
 
-  timedTest "init with gaps" & preset():
+  wrappedTimedTest "init with gaps" & preset():
     for i in 0 ..< (SLOTS_PER_EPOCH * 6 - 2):
       var
         blck = makeTestBlock(

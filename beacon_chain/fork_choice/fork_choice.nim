@@ -19,6 +19,7 @@ import
   ../block_pools/[spec_cache, chain_dag]
 
 export sets, results, fork_choice_types
+export proto_array.len
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
@@ -34,6 +35,7 @@ export sets, results, fork_choice_types
 func compute_deltas(
        deltas: var openarray[Delta],
        indices: Table[Eth2Digest, Index],
+       indices_offset: Index,
        votes: var openArray[VoteTracker],
        old_balances: openarray[Gwei],
        new_balances: openarray[Gwei]
@@ -324,6 +326,7 @@ proc find_head*(
   var deltas = newSeq[Delta](self.proto_array.indices.len)
   ? deltas.compute_deltas(
     indices = self.proto_array.indices,
+    indices_offset = self.proto_array.nodes.offset,
     votes = self.votes,
     old_balances = self.balances,
     new_balances = justified_state_balances
@@ -362,18 +365,19 @@ proc get_head*(self: var ForkChoice,
     self.checkpoints.justified.epochRef.effective_balances,
   )
 
-func maybe_prune*(
+func prune*(
        self: var ForkChoiceBackend, finalized_root: Eth2Digest
      ): FcResult[void] =
   ## Prune blocks preceding the finalized root as they are now unneeded.
-  self.proto_array.maybe_prune(finalized_root)
+  self.proto_array.prune(finalized_root)
 
 func prune*(self: var ForkChoice): FcResult[void] =
-  self.backend.maybe_prune(self.checkpoints.finalized.root)
+  self.backend.prune(self.checkpoints.finalized.root)
 
 func compute_deltas(
        deltas: var openarray[Delta],
        indices: Table[Eth2Digest, Index],
+       indices_offset: Index,
        votes: var openArray[VoteTracker],
        old_balances: openarray[Gwei],
        new_balances: openarray[Gwei]
@@ -414,7 +418,7 @@ func compute_deltas(
       # Ignore the current or next vote if it is not known in `indices`.
       # We assume that it is outside of our tree (i.e., pre-finalization) and therefore not interesting.
       if vote.current_root in indices:
-        let index = indices.unsafeGet(vote.current_root)
+        let index = indices.unsafeGet(vote.current_root) - indices_offset
         if index >= deltas.len:
           return err ForkChoiceError(
             kind: fcInvalidNodeDelta,
@@ -425,7 +429,7 @@ func compute_deltas(
           # TODO: is int64 big enough?
 
       if vote.next_root in indices:
-        let index = indices.unsafeGet(vote.next_root)
+        let index = indices.unsafeGet(vote.next_root) - indices_offset
         if index >= deltas.len:
           return err ForkChoiceError(
             kind: fcInvalidNodeDelta,
@@ -471,7 +475,7 @@ when isMainModule:
       new_balances.add 0
 
     let err = deltas.compute_deltas(
-      indices, votes, old_balances, new_balances
+      indices, indices_offset = 0, votes, old_balances, new_balances
     )
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -506,7 +510,7 @@ when isMainModule:
       new_balances.add Balance
 
     let err = deltas.compute_deltas(
-      indices, votes, old_balances, new_balances
+      indices, indices_offset = 0, votes, old_balances, new_balances
     )
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -545,7 +549,7 @@ when isMainModule:
       new_balances.add Balance
 
     let err = deltas.compute_deltas(
-      indices, votes, old_balances, new_balances
+      indices, indices_offset = 0, votes, old_balances, new_balances
     )
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -583,7 +587,7 @@ when isMainModule:
       new_balances.add Balance
 
     let err = deltas.compute_deltas(
-      indices, votes, old_balances, new_balances
+      indices, indices_offset = 0, votes, old_balances, new_balances
     )
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -631,7 +635,7 @@ when isMainModule:
     )
 
     let err = deltas.compute_deltas(
-      indices, votes, old_balances, new_balances
+      indices, indices_offset = 0, votes, old_balances, new_balances
     )
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -670,7 +674,7 @@ when isMainModule:
       new_balances.add NewBalance
 
     let err = deltas.compute_deltas(
-      indices, votes, old_balances, new_balances
+      indices, indices_offset = 0, votes, old_balances, new_balances
     )
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -714,7 +718,7 @@ when isMainModule:
 
 
     let err = deltas.compute_deltas(
-      indices, votes, old_balances, new_balances
+      indices, indices_offset = 0, votes, old_balances, new_balances
     )
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -753,7 +757,7 @@ when isMainModule:
 
 
     let err = deltas.compute_deltas(
-      indices, votes, old_balances, new_balances
+      indices, indices_offset = 0, votes, old_balances, new_balances
     )
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err

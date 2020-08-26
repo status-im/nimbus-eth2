@@ -695,7 +695,8 @@ proc updateHead*(dag: ChainDAGRef, newHead: BlockRef) =
   ## of operations naturally becomes important here - after updating the head,
   ## blocks that were once considered potential candidates for a tree will
   ## now fall from grace, or no longer be considered resolved.
-  doAssert newHead.parent != nil or newHead.slot == 0
+  doAssert not newHead.isNil()
+  doAssert not newHead.parent.isNil() or newHead.slot == 0
   logScope:
     newHead = shortLog(newHead)
     pcs = "fork_choice"
