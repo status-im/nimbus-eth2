@@ -343,14 +343,30 @@ suiteReport "chain DAG finalization tests" & preset():
     check:
       dag.heads.len() == 1
 
+    let headER = dag.heads[0].findEpochRef(dag.heads[0].slot.epoch)
+    check:
+
       # Epochrefs should share validator key set when the validator set is
       # stable
-      not dag.heads[0].findEpochRef(dag.heads[0].slot.epoch).isNil
+      not headER.isNil
       not dag.heads[0].findEpochRef(dag.heads[0].slot.epoch - 1).isNil
-      dag.heads[0].findEpochRef(dag.heads[0].slot.epoch) !=
+      headER !=
         dag.heads[0].findEpochRef(dag.heads[0].slot.epoch - 1)
-      dag.heads[0].findEpochRef(dag.heads[0].slot.epoch).validator_key_store[1] ==
+      headER.validator_key_store[1] ==
         dag.heads[0].findEpochRef(dag.heads[0].slot.epoch - 1).validator_key_store[1]
+
+    block:
+      var cur = dag.heads[0]
+      while cur != nil:
+        if cur.slot < dag.finalizedHead.blck.slot:
+          # Cache should be cleaned on finalization
+          check: cur.epochRefs.len == 0
+        else:
+          # EpochRef validator keystores should back-propagate to all previous
+          # epochs
+          for e in cur.epochRefs:
+            check (addr headER.validator_keys) == (addr e.validator_keys)
+        cur = cur.parent
 
     block:
       # The late block is a block whose parent was finalized long ago and thus
