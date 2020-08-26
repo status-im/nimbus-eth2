@@ -1,6 +1,6 @@
 # Troubleshooting Medalla
 
-As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the `devel` branch (we recommend doing this at least once a day).
+As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the `devel` branch (we recommend doing this at least once a day). If you can't find a solution to your problem here, feel free to hit us up on our [discord](https://discord.com/invite/XRxWahP)!
 
 > **Note:** While the `master` branch of the `nim-beacon-chain` repository is more stable, the latest updates happen in the `devel` branch which is (usually) merged into master every week on Tuesday.
 
@@ -15,6 +15,8 @@ make medalla # Restart using same keys as last run
 ```
 
 If you find that `make update` causes the console to hang for too long, try running `make update V=1` or `make update V=2` instead (these will print a more verbose output to the console which may make it easier to diagnose the problem).
+
+If, after updating to the latest `devel`, your node is functioning worse than before, we recommend you report the problem on [discord](https://discord.com/invite/XRxWahP), switch to `master`, and rebuild.
 
 >**Note:** rest assured that when you restart the beacon node, the software will resume from where it left off, using the validator keys you have already imported.
 
