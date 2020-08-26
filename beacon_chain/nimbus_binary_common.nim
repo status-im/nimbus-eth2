@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  tables, random, strutils, typetraits,
+  tables, random, strutils, os, typetraits,
 
   # Nimble packages
   chronos, confutils/defs,
