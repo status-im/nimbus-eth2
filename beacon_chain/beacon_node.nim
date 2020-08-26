@@ -1095,7 +1095,7 @@ programMain:
     # This is ref so we can mutate it (to erase it) after the initial loading.
     stateSnapshotContents: ref string
 
-  if not(checkAndCreateDataDir(config)):
+  if not(checkAndCreateDataDir(string(config.dataDir))):
     # We are unable to access/create data folder or data folder's
     # permissions are insecure.
     quit QuitFailure
