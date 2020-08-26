@@ -56,6 +56,10 @@ func removeOldBlocks(quarantine: var QuarantineRef, dag: ChainDAGRef) =
   for k in oldBlocks:
     quarantine.orphans.del k
 
+func clearQuarantine*(quarantine: var QuarantineRef) =
+  quarantine.orphans.clear()
+  quarantine.missing.clear()
+
 func add*(quarantine: var QuarantineRef, dag: ChainDAGRef,
           signedBlock: SignedBeaconBlock): bool =
   ## Adds block to quarantine's `orphans` and `missing` lists.
