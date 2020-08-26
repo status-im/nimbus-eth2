@@ -62,6 +62,8 @@ const
 
 # Metrics
 proc updateHead*(node: BeaconNode, wallSlot: Slot): BlockRef =
+  ## Trigger fork choice and returns the new head block.
+  ## Can return `nil`
   node.processor[].updateHead(wallSlot)
 
 template findIt*(s: openarray, predicate: untyped): int =

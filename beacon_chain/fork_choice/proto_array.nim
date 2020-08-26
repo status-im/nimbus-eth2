@@ -23,8 +23,6 @@ logScope:
 
 export results
 
-const DefaultPruneThreshold* = 256
-
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
 # which is a port of "Proto-Array": https://github.com/protolambda/lmd-ghost
@@ -33,7 +31,7 @@ const DefaultPruneThreshold* = 256
 # - Prysmatic writeup: https://hackmd.io/bABJiht3Q9SyV3Ga4FT9lQ#High-level-concept
 # - Gasper Whitepaper: https://arxiv.org/abs/2003.03052
 
-# Helper
+# Helpers
 # ----------------------------------------------------------------------
 
 func tiebreak(a, b: Eth2Digest): bool =
@@ -57,6 +55,21 @@ template unsafeGet*[K, V](table: Table[K, V], key: K): V =
   except KeyError as exc:
     raiseAssert(exc.msg)
 
+func `[]`(nodes: ProtoNodes, idx: Index): Option[ProtoNode] {.inline.} =
+  ## Retrieve a ProtoNode at "Index"
+  if idx < nodes.offset:
+    return none(ProtoNode)
+  let i = idx - nodes.offset
+  if i >= nodes.buf.len:
+    return none(ProtoNode)
+  return some(nodes.buf[i])
+
+func len*(nodes: ProtoNodes): int {.inline.} =
+  nodes.buf.len
+
+func add(nodes: var ProtoNodes, node: ProtoNode) {.inline.} =
+  nodes.buf.add node
+
 # Forward declarations
 # ----------------------------------------------------------------------
 
@@ -71,8 +84,7 @@ func node_leads_to_viable_head(self: ProtoArray, node: ProtoNode): FcResult[bool
 func init*(T: type ProtoArray,
            justified_epoch: Epoch,
            finalized_root: Eth2Digest,
-           finalized_epoch: Epoch,
-           prune_threshold = DefaultPruneThreshold): T =
+           finalized_epoch: Epoch): T =
   let node = ProtoNode(
     root: finalized_root,
     parent: none(int),
@@ -84,10 +96,9 @@ func init*(T: type ProtoArray,
   )
 
   T(
-    prune_threshold: DefaultPruneThreshold,
     justified_epoch: justified_epoch,
     finalized_epoch: finalized_epoch,
-    nodes: @[node],
+    nodes: ProtoNodes(buf: @[node], offset: 0),
     indices: {node.root: 0}.toTable()
   )
 
@@ -110,6 +121,7 @@ func apply_score_changes*(
   ## 3. Compare the current node with the parent's best-child,
   ##    updating if the current node should become the best-child
   ## 4. If required, update the parent's best-descendant with the current node or its best-descendant
+  doAssert self.indices.len == self.nodes.len # By construction
   if deltas.len != self.indices.len:
     return err ForkChoiceError(
              kind: fcInvalidDeltaLen,
@@ -121,24 +133,15 @@ func apply_score_changes*(
   self.finalized_epoch = finalized_epoch
 
   # Iterate backwards through all the indices in `self.nodes`
-  for node_index in countdown(self.nodes.len - 1, 0):
-    template node: untyped {.dirty.}= self.nodes[node_index]
+  for node_physical_index in countdown(self.nodes.len - 1, 0):
+    template node: untyped {.dirty.}= self.nodes.buf[node_physical_index]
       ## Alias
       # This cannot raise the IndexError exception, how to tell compiler?
 
     if node.root == default(Eth2Digest):
       continue
 
-    if node_index notin {0..deltas.len-1}:
-      # TODO: Here `deltas.len == self.indices.len` from the previous check
-      #       and we can probably assume that
-      #       `self.indices.len == self.nodes.len` by construction
-      #       and avoid this check in a loop or altogether
-      return err ForkChoiceError(
-        kind: fcInvalidNodeDelta,
-        index: node_index
-      )
-    let node_delta = deltas[node_index]
+    let node_delta = deltas[node_physical_index]
 
     # Apply the delta to the node
     # We fail fast if underflow, which shouldn't happen.
@@ -147,26 +150,47 @@ func apply_score_changes*(
     if weight < 0:
       return err ForkChoiceError(
         kind: fcDeltaUnderflow,
-        index: node_index
+        index: node_physical_index
       )
     node.weight = weight
 
     # If the node has a parent, try to update its best-child and best-descendant
     if node.parent.isSome():
-      # TODO: Nim `options` module could use some {.inline.}
-      #       and a mutable overload for unsafeGet
-      #       and a "no exceptions" (only panics) implementation.
-      let parent_index = node.parent.unsafeGet()
-      if parent_index notin {0..deltas.len-1}:
+      let parent_logical_index = node.parent.unsafeGet()
+      let parent_physical_index = parent_logical_index - self.nodes.offset
+      if parent_physical_index < 0:
+        # Orphan, for example
+        #          0
+        #         / \
+        #        2   1
+        #            |
+        #            3
+        #            |
+        #            4
+        # -------pruned here ------
+        #          5   6
+        #          |
+        #          7
+        #          |
+        #          8
+        #         / \
+        #        9  10
+        #
+        # with 5 the canonical chain and 6 a discarded fork
+        # that will be pruned next.
+        break
+
+      if parent_physical_index >= deltas.len:
         return err ForkChoiceError(
           kind: fcInvalidParentDelta,
-          index: parent_index
+          index: parent_physical_index
         )
 
       # Back-propagate the nodes delta to its parent.
-      deltas[parent_index] += node_delta
+      deltas[parent_physical_index] += node_delta
 
-      ? self.maybe_update_best_child_and_descendant(parent_index, node_index)
+      let node_logical_index = node_physical_index + self.nodes.offset
+      ? self.maybe_update_best_child_and_descendant(parent_logical_index, node_logical_index)
 
   return ok()
 
@@ -199,7 +223,7 @@ func on_block*(
       parent_root: parent
     )
 
-  let node_index = self.nodes.len
+  let node_logical_index = self.nodes.offset + self.nodes.buf.len
 
   let node = ProtoNode(
     root: root,
@@ -211,10 +235,10 @@ func on_block*(
     best_descendant: none(int)
   )
 
-  self.indices[node.root] = node_index
+  self.indices[node.root] = node_logical_index
   self.nodes.add node
 
-  ? self.maybe_update_best_child_and_descendant(parent_index, node_index)
+  ? self.maybe_update_best_child_and_descendant(parent_index, node_logical_index)
 
   return ok()
 
@@ -239,52 +263,43 @@ func find_head*(
       block_root: justified_root
     )
 
-  if justified_index notin {0..self.nodes.len-1}:
+  let justified_node = self.nodes[justified_index]
+  if justified_node.isNone():
     return err ForkChoiceError(
       kind: fcInvalidJustifiedIndex,
       index: justified_index
     )
 
-  template justified_node: untyped = self.nodes[justified_index]
-    # Alias, IndexError are defects
-
-  let best_descendant_index = justified_node.best_descendant.get(justified_index)
-
-  if best_descendant_index notin {0..self.nodes.len-1}:
+  let best_descendant_index = justified_node.get().best_descendant.get(justified_index)
+  let best_node = self.nodes[best_descendant_index]
+  if best_node.isNone():
     return err ForkChoiceError(
       kind: fcInvalidBestDescendant,
       index: best_descendant_index
     )
-  template best_node: untyped = self.nodes[best_descendant_index]
-    # Alias, IndexError are defects
 
   # Perform a sanity check to ensure the node can be head
-  if not self.node_is_viable_for_head(best_node):
+  if not self.node_is_viable_for_head(best_node.get()):
     return err ForkChoiceError(
       kind: fcInvalidBestNode,
       start_root: justified_root,
       justified_epoch: self.justified_epoch,
       finalized_epoch: self.finalized_epoch,
-      head_root: justified_node.root,
-      head_justified_epoch: justified_node.justified_epoch,
-      head_finalized_epoch: justified_node.finalized_epoch
+      head_root: justified_node.get().root,
+      head_justified_epoch: justified_node.get().justified_epoch,
+      head_finalized_epoch: justified_node.get().finalized_epoch
     )
 
-  head = best_node.root
+  head = best_node.get().root
   return ok()
 
-# TODO: pruning can be made cheaper by keeping the new offset as a field
-#       in proto_array instead of scanning the table to substract the offset.
-#       In that case pruning can always be done and does not need a threshold for efficiency.
-#       https://github.com/protolambda/eth2-py-hacks/blob/ae286567/proto_array.py
-func maybe_prune*(
+func prune*(
        self: var ProtoArray,
        finalized_root: Eth2Digest
      ): FcResult[void] =
   ## Update the tree with new finalization information.
   ## The tree is pruned if and only if:
   ## - The `finalized_root` and finalized epoch are different from current
-  ## - The number of nodes in `self` is at least `self.prune_threshold`
   ##
   ## Returns error if:
   ## - The finalized epoch is less than the current one
@@ -300,69 +315,34 @@ func maybe_prune*(
       block_root: finalized_root
     )
 
-  if finalized_index < self.prune_threshold:
-    # Pruning small numbers of nodes incurs more overhead than leaving them as is
+  if finalized_index == self.nodes.offset:
+    # Nothing to do
     return ok()
 
-  # Remove the `self.indices` key/values for the nodes slated for deletion
-  if finalized_index notin {0..self.nodes.len-1}:
+  if finalized_index < self.nodes.offset:
     return err ForkChoiceError(
-      kind: fcInvalidNodeIndex,
-      index: finalized_index
+      kind: fcPruningFromOutdatedFinalizedRoot,
+      finalizedRoot: finalized_root
     )
 
   trace "Pruning blocks from fork choice",
     finalizedRoot = shortlog(finalized_root),
     pcs = "prune"
 
-  for node_index in 0 ..< finalized_index:
-    self.indices.del(self.nodes[node_index].root)
+  let final_phys_index = finalized_index-self.nodes.offset
+  for node_index in 0 ..< final_phys_index:
+    self.indices.del(self.nodes.buf[node_index].root)
 
   # Drop all nodes prior to finalization.
   # This is done in-place with `moveMem` to avoid costly reallocations.
   static: doAssert ProtoNode.supportsCopyMem(), "ProtoNode must be a trivial type"
-  let tail = self.nodes.len - finalized_index
+  let tail = self.nodes.len - final_phys_index
   # TODO: can we have an unallocated `self.nodes`? i.e. self.nodes[0] is nil
-  moveMem(self.nodes[0].addr, self.nodes[finalized_index].addr, tail * sizeof(ProtoNode))
-  self.nodes.setLen(tail)
+  moveMem(self.nodes.buf[0].addr, self.nodes.buf[final_phys_index].addr, tail * sizeof(ProtoNode))
+  self.nodes.buf.setLen(tail)
 
-  # Adjust the indices map
-  for index in self.indices.mvalues():
-    index -= finalized_index
-    if index < 0:
-      return err ForkChoiceError(
-        kind: fcIndexUnderflow,
-        underflowKind: fcUnderflowIndices
-      )
-
-  # Iterate through all the existing nodes and adjust their indices to match
-  # the new layout of `self.nodes`
-  for node in self.nodes.mitems():
-    # If `node.parent` is less than `finalized_index`, set it to None
-    if node.parent.isSome():
-      let new_parent = node.parent.unsafeGet() - finalized_index
-      if new_parent < 0:
-        node.parent = none(Index)
-      else:
-        node.parent = some(new_parent)
-
-    if node.best_child.isSome():
-      let new_best_child = node.best_child.unsafeGet() - finalized_index
-      if new_best_child < 0:
-        return err ForkChoiceError(
-          kind: fcIndexUnderflow,
-          underflowKind: fcUnderflowBestChild
-        )
-      node.best_child = some(new_best_child)
-
-    if node.best_descendant.isSome():
-      let new_best_descendant = node.best_descendant.unsafeGet() - finalized_index
-      if new_best_descendant < 0:
-        return err ForkChoiceError(
-          kind: fcIndexUnderflow,
-          underflowKind: fcUnderflowBestDescendant
-        )
-      node.best_descendant = some(new_best_descendant)
+  # update offset
+  self.nodes.offset = finalized_index
 
   return ok()
 
@@ -383,37 +363,36 @@ func maybe_update_best_child_and_descendant(
   ## 3. The child is not the best child but becomes the best child
   ## 4. The child is not the best child and does not become the best child
 
-  if child_index notin {0..self.nodes.len-1}:
+  let child = self.nodes[child_index]
+  if child.isNone():
     return err ForkChoiceError(
       kind: fcInvalidNodeIndex,
       index: child_index
     )
-  if parent_index notin {0..self.nodes.len-1}:
+
+  let parent = self.nodes[parent_index]
+  if parent.isNone():
     return err ForkChoiceError(
       kind: fcInvalidNodeIndex,
       index: parent_index
     )
 
-  # Aliases
-  template child: untyped = self.nodes[child_index]
-  template parent: untyped = self.nodes[parent_index]
-
-  let child_leads_to_viable_head = ? self.node_leads_to_viable_head(child)
+  let child_leads_to_viable_head = ? self.node_leads_to_viable_head(child.get())
 
   let # Aliases to the 3 possible (best_child, best_descendant) tuples
     change_to_none = (none(Index), none(Index))
     change_to_child = (
         some(child_index),
         # Nim `options` module doesn't implement option `or`
-        if child.best_descendant.isSome(): child.best_descendant
+        if child.get().best_descendant.isSome(): child.get().best_descendant
         else: some(child_index)
       )
-    no_change = (parent.best_child, parent.best_descendant)
+    no_change = (parent.get().best_child, parent.get().best_descendant)
 
   # TODO: state-machine? The control-flow is messy
   let (new_best_child, new_best_descendant) = block:
-    if parent.best_child.isSome:
-      let best_child_index = parent.best_child.unsafeGet()
+    if parent.get().best_child.isSome:
+      let best_child_index = parent.get().best_child.unsafeGet()
       if best_child_index == child_index and not child_leads_to_viable_head:
         # The child is already the best-child of the parent
         # but it's not viable to be the head block => remove it
@@ -423,15 +402,15 @@ func maybe_update_best_child_and_descendant(
         # that the best-descendant of the parent is up-to-date.
         change_to_child
       else:
-        if best_child_index notin {0..self.nodes.len-1}:
+        let best_child = self.nodes[best_child_index]
+        if best_child.isNone():
           return err ForkChoiceError(
             kind: fcInvalidBestDescendant,
             index: best_child_index
           )
-        let best_child = self.nodes[best_child_index]
 
         let best_child_leads_to_viable_head =
-          ? self.node_leads_to_viable_head(best_child)
+          ? self.node_leads_to_viable_head(best_child.get())
 
         if child_leads_to_viable_head and not best_child_leads_to_viable_head:
           # The child leads to a viable head, but the current best-child doesn't
@@ -439,14 +418,16 @@ func maybe_update_best_child_and_descendant(
         elif not child_leads_to_viable_head and best_child_leads_to_viable_head:
           # The best child leads to a viable head, but the child doesn't
           no_change
-        elif child.weight == best_child.weight:
+        elif child.get().weight == best_child.get().weight:
           # Tie-breaker of equal weights by root
-          if child.root.tiebreak(best_child.root):
+          if child.get().root.tiebreak(best_child.get().root):
             change_to_child
           else:
             no_change
         else: # Choose winner by weight
-          if child.weight >= best_child.weight:
+          let cw = child.get().weight
+          let bw = best_child.get().weight
+          if cw >= bw:
             change_to_child
           else:
             no_change
@@ -458,8 +439,8 @@ func maybe_update_best_child_and_descendant(
         # There is no current best-child but the child is not viable
         no_change
 
-  self.nodes[parent_index].best_child = new_best_child
-  self.nodes[parent_index].best_descendant = new_best_descendant
+  self.nodes.buf[parent_index - self.nodes.offset].best_child = new_best_child
+  self.nodes.buf[parent_index - self.nodes.offset].best_descendant = new_best_descendant
 
   return ok()
 
@@ -471,13 +452,13 @@ func node_leads_to_viable_head(
   let best_descendant_is_viable_for_head = block:
     if node.best_descendant.isSome():
       let best_descendant_index = node.best_descendant.unsafeGet()
-      if best_descendant_index notin {0..self.nodes.len-1}:
+      let best_descendant = self.nodes[best_descendant_index]
+      if best_descendant.isNone:
         return err ForkChoiceError(
             kind: fcInvalidBestDescendant,
             index: best_descendant_index
           )
-      let best_descendant = self.nodes[best_descendant_index]
-      self.node_is_viable_for_head(best_descendant)
+      self.node_is_viable_for_head(best_descendant.get())
     else:
       false
 

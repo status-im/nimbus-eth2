@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  os, tables, strutils,
+  std/[os, tables, strutils],
 
   # Nimble packages
   stew/[objects], stew/shims/macros,
@@ -439,7 +439,11 @@ proc broadcastAggregatedAttestations(
 proc handleValidatorDuties*(
     node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   ## Perform validator duties - create blocks, vote and aggregate existing votes
-  var head = node.updateHead(slot)
+  let maybeHead = node.updateHead(slot)
+  if maybeHead.isNil():
+    error "Couldn't update head - cannot proceed with validator duties"
+    return
+  var head = maybeHead
   if node.attachedValidators.count == 0:
     # Nothing to do because we have no validator attached
     return
@@ -496,7 +500,11 @@ proc handleValidatorDuties*(
   template sleepToSlotOffsetWithHeadUpdate(extra: chronos.Duration, msg: static string) =
     if await node.beaconClock.sleepToSlotOffset(extra, slot, msg):
       # Time passed - we might need to select a new head in that case
-      head = node.updateHead(slot)
+      let maybeHead = node.updateHead(slot)
+      if not maybeHead.isNil():
+        head = maybeHead
+      else:
+        error "Couldn't update head"
 
   sleepToSlotOffsetWithHeadUpdate(
     seconds(int64(SECONDS_PER_SLOT)) div 3, "Waiting to send attestations")

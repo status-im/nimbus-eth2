@@ -380,6 +380,8 @@ proc resolve*(pool: var AttestationPool, wallSlot: Slot) =
     pool.addResolved(a.blck, a.attestation, wallSlot)
 
 proc selectHead*(pool: var AttestationPool, wallSlot: Slot): BlockRef =
+  ## Trigger fork choice and returns the new head block.
+  ## Can return `nil`
   let newHead = pool.forkChoice.get_head(pool.chainDag, wallSlot)
 
   if newHead.isErr:

@@ -51,6 +51,7 @@ type
     # -------------------------
     # TODO: Extra error modes beyond Proto/Lighthouse to be reviewed
     fcUnknownParent
+    fcPruningFromOutdatedFinalizedRoot
 
   AttErrorKind* = enum
     attFromFuture
@@ -106,14 +107,21 @@ type
     of fcUnknownParent:
       child_root*: Eth2Digest
       parent_root*: Eth2Digest
+    of fcPruningFromOutdatedFinalizedRoot:
+      finalizedRoot*: Eth2Digest
 
   FcResult*[T] = Result[T, ForkChoiceError]
 
+  ProtoNodes* = object
+    buf*: seq[ProtoNode]
+    offset*: int ##\
+    ## Substracted from logical Index
+    ## to get the physical index
+
   ProtoArray* = object
-    prune_threshold*: int
     justified_epoch*: Epoch
     finalized_epoch*: Epoch
-    nodes*: seq[ProtoNode]
+    nodes*: Protonodes
     indices*: Table[Eth2Digest, Index]
 
   ProtoNode* = object
@@ -169,3 +177,4 @@ func shortlog*(vote: VoteTracker): auto =
   )
 
 chronicles.formatIt VoteTracker: it.shortLog
+chronicles.formatIt ForkChoiceError: $it

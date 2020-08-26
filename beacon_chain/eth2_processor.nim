@@ -59,11 +59,15 @@ type
     aggregatesQueue*: AsyncQueue[AggregateEntry]
 
 proc updateHead*(self: var Eth2Processor, wallSlot: Slot): BlockRef =
+  ## Trigger fork choice and returns the new head block.
+  ## Can return `nil`
   # Check pending attestations - maybe we found some blocks for them
   self.attestationPool[].resolve(wallSlot)
 
   # Grab the new head according to our latest attestation data
   let newHead = self.attestationPool[].selectHead(wallSlot)
+  if newHead.isNil():
+    return nil
 
   # Store the new head in the chain DAG - this may cause epochs to be
   # justified and finalized
