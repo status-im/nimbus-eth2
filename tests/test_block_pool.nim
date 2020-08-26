@@ -118,7 +118,7 @@ suiteReport "Block pool processing" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
       quarantine = QuarantineRef()
-      stateData = newClone(dag.loadTailState())
+      stateData = newClone(dag.headState)
       cache = StateCache()
       b1 = addTestBlock(stateData.data, dag.tail.root, cache)
       b1Root = hash_tree_root(b1.message)
@@ -330,10 +330,12 @@ suiteReport "chain DAG finalization tests" & preset():
       process_slots(
         tmpState[], tmpState.data.slot + (5 * SLOTS_PER_EPOCH).uint64)
 
-    let lateBlock = makeTestBlock(tmpState[], dag.head.root, cache)
+    let lateBlock = addTestBlock(tmpState[], dag.head.root, cache)
     block:
       let status = dag.addRawBlock(quarantine, blck, nil)
       check: status.isOk()
+
+    assign(tmpState[], dag.headState.data)
 
     for i in 0 ..< (SLOTS_PER_EPOCH * 6):
       if i == 1:
@@ -341,11 +343,10 @@ suiteReport "chain DAG finalization tests" & preset():
         check:
           dag.heads.len == 2
 
-      blck = makeTestBlock(
-        dag.headState.data, dag.head.root, cache,
+      blck = addTestBlock(
+        tmpState[], dag.head.root, cache,
         attestations = makeFullAttestations(
-          dag.headState.data.data, dag.head.root,
-          dag.headState.data.data.slot, cache, {}))
+          tmpState[].data, dag.head.root, tmpState[].data.slot, cache, {}))
       let added = dag.addRawBlock(quarantine, blck, nil)
       check: added.isOk()
       dag.updateHead(added[])
@@ -436,15 +437,10 @@ suiteReport "chain DAG finalization tests" & preset():
       quarantine = QuarantineRef()
       cache = StateCache()
 
-  wrappedTimedTest "init with gaps" & preset():
-    for i in 0 ..< (SLOTS_PER_EPOCH * 6 - 2):
-      var
-        blck = makeTestBlock(
-          dag.headState.data, dag.head.root, cache,
-          attestations = makeFullAttestations(
-            dag.headState.data.data, dag.head.root,
-            dag.headState.data.data.slot, cache, {}))
-
+  timedTest "init with gaps" & preset():
+    for blck in makeTestBlocks(
+        dag.headState.data, dag.head.root, cache, int(SLOTS_PER_EPOCH * 6 - 2),
+        true):
       let added = dag.addRawBlock(quarantine, blck, nil)
       check: added.isOk()
       dag.updateHead(added[])

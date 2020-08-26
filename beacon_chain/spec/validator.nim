@@ -190,44 +190,38 @@ func get_previous_epoch*(state: BeaconState): Epoch =
   get_previous_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#compute_committee
+func compute_committee_slice*(
+    active_validators, index, count: uint64): Slice[int] =
+  doAssert active_validators <= ValidatorIndex.high.uint64
+
+  let
+    start = (active_validators * index) div count
+    endIdx = (active_validators * (index + 1)) div count
+
+  start.int..(endIdx.int - 1)
+
 func compute_committee*(shuffled_indices: seq[ValidatorIndex],
     index: uint64, count: uint64): seq[ValidatorIndex] =
   ## Return the committee corresponding to ``indices``, ``seed``, ``index``,
   ## and committee ``count``.
   ## In this version, we pass in the shuffled indices meaning we no longer need
   ## the seed.
-
   let
-    active_validators = shuffled_indices.len.uint64
-    start = (active_validators * index) div count
-    endIdx = (active_validators * (index + 1)) div count
-
-  # These assertions from compute_shuffled_index(...)
-  doAssert endIdx <= active_validators
-  doAssert active_validators <= 2'u64^40
+    slice = compute_committee_slice(shuffled_indices.lenu64, index, count)
 
   # In spec, this calls get_shuffled_index() every time, but that's wasteful
   # Here, get_beacon_committee() gets the shuffled version.
-  shuffled_indices[start.int .. (endIdx.int-1)]
+  shuffled_indices[slice]
 
-func compute_committee_len*(active_validators: uint64,
-    index: uint64, count: uint64): uint64 =
+func compute_committee_len*(
+    active_validators, index, count: uint64): uint64 =
   ## Return the committee corresponding to ``indices``, ``seed``, ``index``,
   ## and committee ``count``.
 
-  # indices only used here for its length, or for the shuffled version,
-  # so unlike spec, pass the shuffled version in directly.
   let
-    start = (active_validators * index) div count
-    endIdx = (active_validators * (index + 1)) div count
+    slice = compute_committee_slice(active_validators, index, count)
 
-  # These assertions from compute_shuffled_index(...)
-  doAssert endIdx <= active_validators
-  doAssert active_validators <= 2'u64^40
-
-  # In spec, this calls get_shuffled_index() every time, but that's wasteful
-  # Here, get_beacon_committee() gets the shuffled version.
-  endIdx - start
+  (slice.b - slice.a + 1).uint64
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee*(

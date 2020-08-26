@@ -4,7 +4,7 @@ import
   chronos,
   spec/datatypes
 
-from times import Time, getTime, fromUnix, `<`, `-`
+from times import Time, getTime, fromUnix, `<`, `-`, inNanoseconds
 
 type
   BeaconClock* = object
@@ -25,7 +25,7 @@ type
     #      https://ethresear.ch/t/network-adjusted-timestamps/4187
     genesis: Time
 
-  BeaconTime* = distinct int64 ## Seconds from beacon genesis time
+  BeaconTime* = distinct Duration ## Nanoseconds from beacon genesis time
 
 proc init*(T: type BeaconClock, genesis_time: uint64): T =
   let
@@ -43,13 +43,22 @@ proc init*(T: type BeaconClock, state: BeaconState): T =
   BeaconClock.init(state.genesis_time)
 
 template `<`*(a, b: BeaconTime): bool =
-  int64(a) < int64(b)
+  Duration(a) < Duration(b)
 
 template `<=`*(a, b: BeaconTime): bool =
-  int64(a) <= int64(b)
+  Duration(a) <= Duration(b)
+
+template `+`*(t: BeaconTime, offset: Duration): BeaconTime =
+  BeaconTime(Duration(t) + offset)
+
+template `-`*(t: BeaconTime, offset: Duration): BeaconTime =
+  BeaconTime(Duration(t) - offset)
+
+template `-`*(a, b: BeaconTime): Duration =
+  Duration(a) - Duration(b)
 
 func toSlot*(t: BeaconTime): tuple[afterGenesis: bool, slot: Slot] =
-  let ti = t.int64
+  let ti = seconds(Duration(t))
   if ti >= 0:
     (true, Slot(uint64(ti) div SECONDS_PER_SLOT))
   else:
@@ -61,13 +70,13 @@ func slotOrZero*(time: BeaconTime): Slot =
   else: Slot(0)
 
 func toBeaconTime*(c: BeaconClock, t: Time): BeaconTime =
-  BeaconTime(times.inSeconds(t - c.genesis))
+  BeaconTime(nanoseconds(inNanoseconds(t - c.genesis)))
 
 func toSlot*(c: BeaconClock, t: Time): tuple[afterGenesis: bool, slot: Slot] =
   c.toBeaconTime(t).toSlot()
 
-func toBeaconTime*(s: Slot, offset = chronos.seconds(0)): BeaconTime =
-  BeaconTime(int64(uint64(s) * SECONDS_PER_SLOT) + seconds(offset))
+func toBeaconTime*(s: Slot, offset = Duration()): BeaconTime =
+  BeaconTime(seconds(int64(uint64(s) * SECONDS_PER_SLOT)) + offset)
 
 proc now*(c: BeaconClock): BeaconTime =
   ## Current time, in slots - this may end up being less than GENESIS_SLOT(!)
@@ -76,10 +85,10 @@ proc now*(c: BeaconClock): BeaconTime =
 proc fromNow*(c: BeaconClock, t: BeaconTime): tuple[inFuture: bool, offset: Duration] =
   let now = c.now()
 
-  if int64(t) > int64(now):
-    (true, seconds(int64(t) - int64(now)))
+  if t > now:
+    (true, t - now)
   else:
-    (false, seconds(int64(now) - int64(t)))
+    (false, now - t)
 
 proc fromNow*(c: BeaconClock, slot: Slot): tuple[inFuture: bool, offset: Duration] =
   c.fromNow(slot.toBeaconTime())
@@ -115,8 +124,5 @@ func shortLog*(d: Duration): string =
       tmp &= $frac & "m"
     tmp
 
-func `$`*(v: BeaconTime): string = $(int64(v))
-func shortLog*(v: BeaconTime): int64 = v.int64
-
-func `-`*(a, b: BeaconTime): Duration =
-  seconds(int64(a)) - seconds(int64(b))
+func `$`*(v: BeaconTime): string = $Duration(v)
+func shortLog*(v: BeaconTime): Duration = Duration(v)

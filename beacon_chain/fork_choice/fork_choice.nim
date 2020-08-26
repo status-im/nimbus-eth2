@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[sets, tables, typetraits],
+  std/[sequtils, sets, tables, typetraits],
   # Status libraries
   stew/results, chronicles,
   # Internal
@@ -157,7 +157,7 @@ proc process_attestation_queue(self: var ForkChoice) =
       for validator_index in attestation.attesting_indices:
         self.backend.process_attestation(
           validator_index, attestation.block_root,
-          attestation.target_epoch)
+          attestation.slot.epoch())
     else:
       keep.add attestation
 
@@ -174,10 +174,9 @@ func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
 proc on_attestation*(
        self: var ForkChoice,
        dag: ChainDAGRef,
-       slot: Slot,
+       attestation_slot: Slot,
        beacon_block_root: Eth2Digest,
-       attesting_indices: openArray[ValidatorIndex],
-       target: Checkpoint,
+       attesting_indices: HashSet[ValidatorIndex],
        wallSlot: Slot
      ): FcResult[void] =
   ? self.update_time(dag, wallSlot)
@@ -185,16 +184,16 @@ proc on_attestation*(
   if beacon_block_root == Eth2Digest():
     return ok()
 
-  if slot < self.checkpoints.time:
+  if attestation_slot < self.checkpoints.time:
     for validator_index in attesting_indices:
+      # attestation_slot and target epoch must match, per attestation rules
       self.backend.process_attestation(
-        validator_index, beacon_block_root, target.epoch)
+        validator_index, beacon_block_root, attestation_slot.epoch)
   else:
-    self.queued_attestations.add(QueuedAttestation(
-      slot: slot,
-      attesting_indices: @attesting_indices,
-      block_root: beacon_block_root,
-      target_epoch: target.epoch))
+    self.queuedAttestations.add(QueuedAttestation(
+      slot: attestation_slot,
+      attesting_indices: toSeq(attesting_indices),
+      block_root: beacon_block_root))
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/fork-choice.md#should_update_justified_checkpoint
