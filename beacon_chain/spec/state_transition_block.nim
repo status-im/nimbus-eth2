@@ -37,8 +37,6 @@ import
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
 declareGauge beacon_current_live_validators, "Number of active validators that successfully included attestation on chain for current epoch" # On block
 declareGauge beacon_previous_live_validators, "Number of active validators that successfully included attestation on chain for previous epoch" # On block
-declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
-declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
@@ -325,13 +323,6 @@ proc process_block*(
 
   # TODO when there's a failure, we should reset the state!
   # TODO probably better to do all verification first, then apply state changes
-
-  # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
-  # doesn't seem to specify at what point in block processing this metric is to be read,
-  # and this avoids the early-return issue (could also use defer, etc).
-  beacon_pending_deposits.set(
-    state.eth1_data.deposit_count.int64 - state.eth1_deposit_index.int64)
-  beacon_processed_deposits_total.set(state.eth1_deposit_index.int64)
 
   # Adds nontrivial additional computation, but only does so when metrics
   # enabled.
