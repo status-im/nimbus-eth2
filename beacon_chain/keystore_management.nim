@@ -1,9 +1,9 @@
 import
   std/[os, strutils, terminal, wordwrap],
-  chronicles, chronos, web3, stint, json_serialization, stew/byteutils,
+  chronicles, chronos, web3, stint, json_serialization,
   serialization, blscurve, eth/common/eth_types, eth/keys, confutils, bearssl,
   spec/[datatypes, digest, crypto, keystore],
-  stew/io2, libp2p/crypto/crypto as lcrypto,
+  stew/[byteutils, io2], libp2p/crypto/crypto as lcrypto,
   nimcrypto/utils as ncrutils,
   conf, ssz/merkleization, network_metadata
 
@@ -35,6 +35,47 @@ const
 
 template echo80(msg: string) =
   echo wrapWords(msg, 80)
+
+proc checkAndCreateDataDir*(dataDir: string): bool =
+  ## Checks `conf.dataDir`.
+  ## If folder exists, procedure will check it for access and
+  ## permissions `0750 (rwxr-x---)`, if folder do not exists it will be created
+  ## with permissions `0750 (rwxr-x---)`.
+  when defined(posix):
+    let amask = {AccessFlags.Read, AccessFlags.Write, AccessFlags.Execute}
+    if fileAccessible(dataDir, amask):
+      let gmask = {UserRead, UserWrite, UserExec, GroupRead, GroupExec}
+      let pmask = {OtherRead, OtherWrite, OtherExec, GroupWrite}
+      let pres = getPermissionsSet(dataDir)
+      if pres.isErr():
+        fatal "Could not check data folder permissions",
+               data_dir = dataDir, errorCode = $pres.error,
+               errorMsg = ioErrorMsg(pres.error)
+        return false
+      let insecurePermissions = pres.get() * pmask
+      if insecurePermissions != {}:
+        fatal "Data folder has insecure permissions",
+               data_dir = dataDir,
+               insecure_permissions = $insecurePermissions,
+               current_permissions = pres.get().toString(),
+               required_permissions = gmask.toString()
+        return false
+    else:
+      let res = createPath(dataDir, 0o750)
+      if res.isErr():
+        fatal "Could not create data folder", data_dir = dataDir,
+              errorMsg = ioErrorMsg(res.error), errorCode = $res.error
+        return false
+    return true
+  elif defined(windows):
+    let res = createPath(dataDir, 0o750)
+    if res.isErr():
+      fatal "Could not create data folder", data_dir = dataDir,
+            errorMsg = ioErrorMsg(res.error), errorCode = $res.error
+      return false
+  else:
+    fatal "Unsupported operation system"
+    return false
 
 proc loadKeystore(validatorsDir, secretsDir, keyName: string,
                   nonInteractive: bool): Option[ValidatorPrivKey] =

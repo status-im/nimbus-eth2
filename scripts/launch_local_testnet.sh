@@ -213,6 +213,7 @@ if [[ $USE_GANACHE == "0" ]]; then
   BOOTSTRAP_IP="127.0.0.1"
 
   ./build/beacon_node createTestnet \
+    --data-dir="${DATA_DIR}" \
     --deposits-file="${DEPOSITS_FILE}" \
     --total-validators=${TOTAL_VALIDATORS} \
     --last-user-validator=${USER_VALIDATORS} \
@@ -316,10 +317,11 @@ fi
 VALIDATORS_PER_VALIDATOR=$(( (SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS) / 2 ))
 VALIDATOR_OFFSET=$((SYSTEM_VALIDATORS / 2))
 BOOTSTRAP_ENR="${DATA_DIR}/node${BOOTSTRAP_NODE}/beacon_node.enr"
+NETWORK_KEYFILE="../network_key.json"
 
 for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   if [[ ${NUM_NODE} == ${BOOTSTRAP_NODE} ]]; then
-    BOOTSTRAP_ARG="--netkey-file=network_key.json --insecure-netkey-password=true"
+    BOOTSTRAP_ARG="--netkey-file=${NETWORK_KEYFILE} --insecure-netkey-password=true"
   else
     BOOTSTRAP_ARG="--bootstrap-file=${BOOTSTRAP_ENR}"
     # Wait for the master node to write out its address file
@@ -339,6 +341,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   # The first $NODES_WITH_VALIDATORS nodes split them equally between them, after skipping the first $USER_VALIDATORS.
   NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
   rm -rf "${NODE_DATA_DIR}"
+  mkdir -m 0750 -p "${NODE_DATA_DIR}"
   mkdir -p "${NODE_DATA_DIR}/validators"
   mkdir -p "${NODE_DATA_DIR}/secrets"
 
