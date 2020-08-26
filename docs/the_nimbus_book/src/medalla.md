@@ -104,15 +104,6 @@ Once the update is complete, run `make medalla` to reconnect to the network.
 
 Looking forward to seeing you on Medalla! 💛
 
-### A note on keys
-
-The Nimbus client will only ever import your signing key -- in any case, if you used the deposit launchpad, this is the only key you should have (you can generate the withdrawal key from your mnemonic when you wish to withdraw).
-
-The keys your Nimbus client has access to are stored in the `build/data/shared_medalla_0/` folder, under `secrets` and `validators`.
-
-The `secrets` folder contains the common secret that gives you access to all your validator keys. And the `validators` folder contains your keystores.
-
-For more on keys in eth2, see [here](https://blog.ethereum.org/2020/05/21/keys/).
 
 ## Advanced options
 
@@ -152,14 +143,13 @@ make medalla-deposit VALIDATORS=2 # default is just 1
 
 ## Key management
 
-Keys are stored in the `build/data/[testnet_name]/` folder, under `secrets` and `validators` - make sure you keep these folders backed up.
+Keys are stored in the `build/data/shared_medalla_0/` folder, under `secrets` and `validators` - make sure you keep these folders backed up.
 
 The `secrets` folder contains the common secret that gives you access to all your validator keys.
 
-The `validators` folder contains your keystores. Keystores are used by validators as a method for exchanging keys. 
+The `validators` folder contains your keystores (encrypted keys). Keystores are used by validators as a method for exchanging keys. For more on keys and keystores, see [here](https://blog.ethereum.org/2020/05/21/keys/).
 
-For more on keys in eth2, see [here](https://blog.ethereum.org/2020/05/21/keys/).
-
+>**Note:** The Nimbus client will only ever import your signing key -- in any case, if you used the deposit launchpad, this is the only key you should have (you can generate the withdrawal key from your mnemonic when you wish to withdraw).
 
 
 
@@ -177,46 +167,3 @@ http://localhost:8008/metrics
 
 Make sure this port is protected as the http server used is not considered secure (it should not be used by untrusted peers).
 
-## Troubleshooting
-
-
-The first thing to say, is that you should make sure to restart and update your node regularly. Everytime you want to update your node to the latest version, run `git pull`, `make update`, followed by `make medalla`:
-
-```
-cd nim-beacon-chain
-git pull
-make update # Update dependencies
-make medalla # Restart using same keys as last run
-```
-
-If you find that `make update` causes the console to hang for too long, try running `make update V=1` or `make update V=2` instead (these will print a more verbose output to the console which may make it easier to diagnose the problem).
-
->**Note:** rest assured that when you restart the beacon node, the software will resume from where it left off, using the validator keys you have already imported.
-
-
-### Starting over
-
-The directory that stores the blockchain data of the testnet is `build/data/shared_medalla_0` (if you're connecting to another testnet, replace `medalla` with that testnet's name). Delete this folder to start over (for example, if you started building medalla with the wrong private keys).
-
-### Syncing
-If you’re experiencing sync problems, or have been running an old version of medalla, we recommend running `make clean-medalla` to restart your sync (make sure you’ve updated to the latest `devel` branch first though).
-
-### Keeping up with the head of the chain
-
-As it stands, logging seems to be slowing down the client,  and quite a few users are experiencing trouble either catching up or keeping up with the head of the chain. You can use the `LOG_LEVEL=INFO` option to reduce verbosity and speed up the client.
-
-```
-make LOG_LEVEL=INFO medalla
-```
-
-### Low peer counts
-
-If you're experiencing a low peer count, you may be behind a firewall. Try restarting your client and passing `NODE_PARAMS="--nat:\"extip:$EXT_IP_ADDRESS\"` as an option to `make medalla`, where `$EXT_IP_ADDRESS` is your real IP. For example, if your real IP address is `35.124.65.104`, you'd run:
-
-```
-make NODE_PARAMS="--nat:\"extip:35.124.65.104\" medalla
-```
-
-### Resource leaks
-
-If you're experiencing RAM related resource leaks, try restarting your client (we recommend restarting every 6 hours until we've fixed [this issue](https://github.com/status-im/nim-beacon-chain/issues/1518)). If you have a [local Grafana setup](https://github.com/status-im/nim-beacon-chain#getting-metrics-from-a-local-testnet-client), you can try monitoring the severity of these leaks and playing around with the restart interval.
