@@ -74,7 +74,16 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
         if len(ublocks) > 0:
           for b in ublocks:
             res = await rman.validate(b)
-            if not(res.isOk):
+            # We are ignoring errors:
+            # `BlockError.MissingParent` - because the order of the blocks that
+            # we requested may be different from the order in which we need
+            # these blocks to apply.
+            # `BlockError.Old`, `BlockError.Duplicate` and `BlockError.Unviable`
+            # errors could occur due to the concurrent/parallel requests we are
+            # made.
+            if res.isErr() and (res.error == BlockError.Invalid):
+              # We stop processing blocks further to avoid DoS attack with big
+              # chunk of incorrect blocks.
               break
         else:
           res = Result[void, BlockError].ok()
@@ -82,7 +91,10 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
         if res.isOk():
           peer.updateScore(PeerScoreGoodBlocks)
         else:
-          peer.updateScore(PeerScoreBadBlocks)
+          # We are not penalizing other errors because of the reasons described
+          # above.
+          if res.error == BlockError.Invalid:
+            peer.updateScore(PeerScoreBadBlocks)
       else:
         peer.updateScore(PeerScoreBadResponse)
     else:
