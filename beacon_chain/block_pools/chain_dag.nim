@@ -136,6 +136,16 @@ proc init*(
 
   epochRef
 
+func updateKeyStores*(epochRef: EpochRef, blck: BlockRef, finalized: BlockRef) =
+  # Because key stores are additive lists, we can use a newer list whereever an
+  # older list is expected - all indices in the new list will be valid for the
+  # old list also
+  var blck = blck
+  while blck != nil and blck.slot >= finalized.slot:
+    for e in blck.epochRefs:
+      e.validator_key_store = epochRef.validator_key_store
+    blck = blck.parent
+
 func link*(parent, child: BlockRef) =
   doAssert (not (parent.root == Eth2Digest() or child.root == Eth2Digest())),
     "blocks missing root!"
@@ -400,6 +410,7 @@ proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
 
     # TODO consider constraining the number of epochrefs per state
     ancestor.blck.epochRefs.add newEpochRef
+    newEpochRef.updateKeyStores(blck.parent, dag.finalizedHead.blck)
     newEpochRef
 
 proc getState(
