@@ -1095,6 +1095,8 @@ programMain:
     # This is ref so we can mutate it (to erase it) after the initial loading.
     stateSnapshotContents: ref string
 
+  setupStdoutLogging(config.logLevel)
+
   if not(checkAndCreateDataDir(string(config.dataDir))):
     # We are unable to access/create data folder or data folder's
     # permissions are insecure.
@@ -1321,12 +1323,16 @@ programMain:
     of WalletsCmd.list:
       for kind, walletFile in walkDir(config.walletsDir):
         if kind != pcFile: continue
-        let walletRes = loadWallet(walletFile)
-        if walletRes.isOk:
-          echo walletRes.get.longName
+        if checkFilePermissions(walletFile):
+          let walletRes = loadWallet(walletFile)
+          if walletRes.isOk:
+            echo walletRes.get.longName
+          else:
+            warn "Found corrupt wallet file",
+                 wallet = walletFile, error = walletRes.error
         else:
-          warn "Found corrupt wallet file",
-               wallet = walletFile, error = walletRes.error
+          warn "Found wallet file with insecure permissions",
+               wallet = walletFile
 
     of WalletsCmd.restore:
       restoreWalletInteractively(rng[], config)

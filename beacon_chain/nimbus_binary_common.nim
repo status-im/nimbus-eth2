@@ -18,7 +18,7 @@ import
   # Local modules
   spec/[datatypes, crypto, helpers], eth2_network, time
 
-proc setupLogging*(logLevel: string, logFile: Option[OutFile]) =
+proc setupStdoutLogging*(logLevel: string) =
   when compiles(defaultChroniclesStream.output.writer):
     defaultChroniclesStream.outputs[0].writer =
       proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe, raises: [Defect].} =
@@ -27,6 +27,7 @@ proc setupLogging*(logLevel: string, logFile: Option[OutFile]) =
         except IOError as err:
           logLoggingFailure(cstring(msg), err)
 
+proc setupLogging*(logLevel: string, logFile: Option[OutFile]) =
   randomize()
 
   if logFile.isSome:
