@@ -35,6 +35,8 @@ declareCounter beacon_blocks_proposed,
 
 logScope: topics = "beacval"
 
+# TODO: This procedure follows insecure scheme of creating directory without
+# any permissions and writing file without any permissions.
 proc saveValidatorKey*(keyName, key: string, conf: BeaconNodeConf) =
   let validatorsDir = conf.validatorsDir
   let outputFile = validatorsDir / keyName

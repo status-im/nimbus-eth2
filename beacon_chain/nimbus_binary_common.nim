@@ -14,6 +14,7 @@ import
   # Nimble packages
   chronos, confutils/defs,
   chronicles, chronicles/helpers as chroniclesHelpers,
+  stew/io2,
 
   # Local modules
   spec/[datatypes, crypto, helpers], eth2_network, time
@@ -36,10 +37,10 @@ proc setupLogging*(logLevel: string, logFile: Option[OutFile]) =
         let
           logFile = logFile.get.string
           logFileDir = splitFile(logFile).dir
-        try:
-          createDir logFileDir
-        except CatchableError as err:
-          error "Failed to create directory for log file", path = logFileDir, err = err.msg
+        let lres = createPath(logFileDir, 0o750)
+        if lres.isErr():
+          error "Failed to create directory for log file",
+                path = logFileDir, err = ioErrorMsg(lres.error)
           break openLogFile
 
         if not defaultChroniclesStream.outputs[1].open(logFile):
