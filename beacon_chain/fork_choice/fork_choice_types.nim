@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[tables, options],
+  std/[options, tables],
   # Status
   stew/results,
 

@@ -93,7 +93,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
                 data: data,
                 aggregation_bits: aggregation_bits,
                 signature: sig
-              ), data.slot)
+              ), [validatorIdx].toHashSet(), data.slot)
 
   proc proposeBlock(slot: Slot) =
     if rand(r, 1.0) > blockRatio:

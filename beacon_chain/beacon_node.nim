@@ -867,8 +867,8 @@ proc start(node: BeaconNode) =
     version = fullVersionStr,
     nim = shortNimBanner(),
     timeSinceFinalization =
-      int64(finalizedHead.slot.toBeaconTime()) -
-      int64(node.beaconClock.now()),
+      finalizedHead.slot.toBeaconTime() -
+      node.beaconClock.now(),
     head = shortLog(head),
     finalizedHead = shortLog(finalizedHead),
     SLOTS_PER_EPOCH,

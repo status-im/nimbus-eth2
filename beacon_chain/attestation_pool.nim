@@ -25,9 +25,6 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
   ## Initialize an AttestationPool from the chainDag `headState`
   ## The `finalized_root` works around the finalized_checkpoint of the genesis block
   ## holding a zero_root.
-  # TODO chainDag/quarantine are only used when resolving orphaned attestations - they
-  #      should probably be removed as a dependency of AttestationPool (or some other
-  #      smart refactoring)
 
   let
     finalizedEpochRef = chainDag.getEpochRef(
@@ -65,24 +62,17 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
   T(
     chainDag: chainDag,
     quarantine: quarantine,
-    unresolved: initTable[Eth2Digest, UnresolvedAttestation](),
     forkChoice: forkChoice
   )
 
 proc processAttestation(
     pool: var AttestationPool, slot: Slot, participants: HashSet[ValidatorIndex],
-    block_root: Eth2Digest, target: Checkpoint, wallSlot: Slot) =
+    block_root: Eth2Digest, wallSlot: Slot) =
   # Add attestation votes to fork choice
   if (let v = pool.forkChoice.on_attestation(
-    pool.chainDag, slot, block_root, toSeq(participants), target, wallSlot);
+    pool.chainDag, slot, block_root, participants, wallSlot);
     v.isErr):
       warn "Couldn't process attestation", err = v.error()
-
-func addUnresolved*(pool: var AttestationPool, attestation: Attestation) =
-  pool.unresolved[attestation.data.beacon_block_root] =
-    UnresolvedAttestation(
-      attestation: attestation,
-    )
 
 func candidateIdx(pool: AttestationPool, slot: Slot): Option[uint64] =
   if slot >= pool.startingSlot and
@@ -109,16 +99,15 @@ proc updateCurrent(pool: var AttestationPool, wallSlot: Slot) =
 
   pool.startingSlot = newWallSlot
 
-proc addResolved(
-    pool: var AttestationPool, blck: BlockRef, attestation: Attestation,
-    wallSlot: Slot) =
+proc addAttestation*(pool: var AttestationPool,
+                     attestation: Attestation,
+                     participants: HashSet[ValidatorIndex],
+                     wallSlot: Slot) =
   # Add an attestation whose parent we know
   logScope:
     attestation = shortLog(attestation)
 
   updateCurrent(pool, wallSlot)
-
-  doAssert blck.root == attestation.data.beacon_block_root
 
   let candidateIdx = pool.candidateIdx(attestation.data.slot)
   if candidateIdx.isNone:
@@ -127,13 +116,10 @@ proc addResolved(
     return
 
   let
-    epochRef = pool.chainDag.getEpochRef(blck, attestation.data.target.epoch)
     attestationsSeen = addr pool.candidates[candidateIdx.get]
     validation = Validation(
       aggregation_bits: attestation.aggregation_bits,
       aggregate_signature: attestation.signature)
-    participants = get_attesting_indices(
-      epochRef, attestation.data, validation.aggregation_bits)
 
   var found = false
   for a in attestationsSeen.attestations.mitems():
@@ -164,12 +150,11 @@ proc addResolved(
         a.validations.add(validation)
         pool.processAttestation(
           attestation.data.slot, participants, attestation.data.beacon_block_root,
-          attestation.data.target, wallSlot)
+          wallSlot)
 
         info "Attestation resolved",
           attestation = shortLog(attestation),
-          validations = a.validations.len(),
-          blockSlot = shortLog(blck.slot)
+          validations = a.validations.len()
 
         found = true
 
@@ -178,36 +163,15 @@ proc addResolved(
   if not found:
     attestationsSeen.attestations.add(AttestationEntry(
       data: attestation.data,
-      blck: blck,
       validations: @[validation]
     ))
     pool.processAttestation(
       attestation.data.slot, participants, attestation.data.beacon_block_root,
-      attestation.data.target, wallSlot)
+      wallSlot)
 
     info "Attestation resolved",
       attestation = shortLog(attestation),
-      validations = 1,
-      blockSlot = shortLog(blck.slot)
-
-proc addAttestation*(pool: var AttestationPool,
-                     attestation: Attestation,
-                     wallSlot: Slot) =
-  ## Add a verified attestation to the fork choice context
-  logScope: pcs = "atp_add_attestation"
-
-  # Fetch the target block or notify the block pool that it's needed
-  let blck = pool.chainDag.getOrResolve(
-    pool.quarantine,
-    attestation.data.beacon_block_root)
-
-  # If the block exist, add it to the fork choice context
-  # Otherwise delay until it resolves
-  if blck.isNil:
-    pool.addUnresolved(attestation)
-    return
-
-  pool.addResolved(blck, attestation, wallSlot)
+      validations = 1
 
 proc addForkChoice*(pool: var AttestationPool,
                     epochRef: EpochRef,
@@ -261,7 +225,7 @@ proc getAttestationsForBlock*(pool: AttestationPool,
   # intended thing -- sure, _blocks_ have to be popular (via attestation)
   # but _attestations_ shouldn't have to be so frequently repeated, as an
   # artifact of this state-free, identical-across-clones choice basis. In
-  # addResolved, too, the new attestations get added to the end, while in
+  # addAttestation, too, the new attestations get added to the end, while in
   # these functions, it's reading from the beginning, et cetera. This all
   # needs a single unified strategy.
   for i in max(1, newBlockSlot.int64 - ATTESTATION_LOOKBACK.int64) .. newBlockSlot.int64:
@@ -355,30 +319,6 @@ proc getAggregatedAttestation*(pool: AttestationPool,
     return some(attestation)
 
   none(Attestation)
-
-proc resolve*(pool: var AttestationPool, wallSlot: Slot) =
-  ## Check attestations in our unresolved deque
-  ## if they can be integrated to the fork choice
-  logScope: pcs = "atp_resolve"
-
-  var
-    done: seq[Eth2Digest]
-    resolved: seq[tuple[blck: BlockRef, attestation: Attestation]]
-
-  for k, v in pool.unresolved.mpairs():
-    if (let blck = pool.chainDag.getRef(k); not blck.isNil()):
-      resolved.add((blck, v.attestation))
-      done.add(k)
-    elif v.tries > 8:
-      done.add(k)
-    else:
-      inc v.tries
-
-  for k in done:
-    pool.unresolved.del(k)
-
-  for a in resolved:
-    pool.addResolved(a.blck, a.attestation, wallSlot)
 
 proc selectHead*(pool: var AttestationPool, wallSlot: Slot): BlockRef =
   ## Trigger fork choice and returns the new head block.

@@ -13,6 +13,11 @@ AllTests-mainnet
 + Trying to add a duplicate block from an old pruned epoch is tagged as an error             OK
 ```
 OK: 9/9 Fail: 0/9 Skip: 0/9
+## Attestation validation  [Preset: mainnet]
+```diff
++ Validation sanity                                                                          OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Beacon chain DB [Preset: mainnet]
 ```diff
 + empty database [Preset: mainnet]                                                           OK
@@ -248,4 +253,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 135/142 Fail: 0/142 Skip: 7/142
+OK: 136/143 Fail: 0/143 Skip: 7/143
