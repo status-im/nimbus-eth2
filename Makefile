@@ -217,6 +217,10 @@ medalla-vc: | beacon_node validator_client
 		--data-dir=build/data/shared_medalla_$(NODE_ID) \
 		--rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) ))
 
+ifneq ($(LOG_LEVEL), TRACE)
+medalla-dev:
+	+ $(MAKE) LOG_LEVEL=TRACE $@
+else
 medalla-dev: | beacon_node
 	mkdir -p build/data/shared_medalla_$(NODE_ID)
 
@@ -230,6 +234,7 @@ medalla-dev: | beacon_node
 		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
 		--data-dir=build/data/shared_medalla_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) --dump $(NODE_PARAMS)
+endif
 
 medalla-deposit-data: | beacon_node deposit_contract
 	build/beacon_node deposits create \
