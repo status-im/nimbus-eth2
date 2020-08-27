@@ -3,6 +3,7 @@ import
   stew/byteutils,
   ../beacon_chain/spec/[crypto, datatypes, digest, state_transition],
   ../beacon_chain/extras,
+  ../beacon_chain/network_metadata,
   ../beacon_chain/ssz/[merkleization, ssz_serialization]
 
 type
@@ -51,6 +52,10 @@ type
         desc: "Verify state root (default true)"
         defaultValue: true}: bool
 
+      eth2Network* {.
+        desc: "The Eth2 network to join"
+        name: "network" }: Option[string]
+
 proc doTransition(conf: NcliConf) =
   let
     stateY = (ref HashedBeaconState)(
@@ -61,7 +66,8 @@ proc doTransition(conf: NcliConf) =
 
   stateY.root = hash_tree_root(stateY.data)
 
-  if not state_transition(defaultRuntimePreset, stateY[], blckX, flags, noRollback):
+  if not state_transition(getRuntimePresetForNetwork(conf.eth2Network),
+                          stateY[], blckX, flags, noRollback):
     error "State transition failed"
     quit 1
   else:

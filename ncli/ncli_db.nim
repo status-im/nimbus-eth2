@@ -1,6 +1,7 @@
   import
   confutils, stats, chronicles, strformat, tables,
   stew/byteutils,
+  ../beacon_chain/network_metadata,
   ../beacon_chain/[beacon_chain_db, extras],
   ../beacon_chain/block_pools/[chain_dag],
   ../beacon_chain/spec/[crypto, datatypes, digest, helpers,
@@ -30,6 +31,12 @@ type
         defaultValue: ""
         desc: "Directory where `nbc.sqlite` is stored"
         name: "db" }: InputDir
+
+    eth2Network* {.
+      desc: "The Eth2 network to join"
+      name: "network" }: Option[string]
+
+    runtimePreset* {.hidden.}: RuntimePreset
 
     case cmd* {.
       command
@@ -79,7 +86,7 @@ proc cmdBench(conf: DbConf) =
 
   echo "Initializing block pool..."
   let pool = withTimerRet(timers[tInit]):
-    ChainDAGRef.init(defaultRuntimePreset, db, {})
+    ChainDAGRef.init(conf.runtimePreset, db, {})
 
   echo &"Loaded {pool.blocks.len} blocks, head slot {pool.head.slot}"
 
@@ -111,7 +118,7 @@ proc cmdBench(conf: DbConf) =
       isEpoch = state[].data.get_current_epoch() !=
         b.message.slot.compute_epoch_at_slot
     withTimer(timers[if isEpoch: tApplyEpochBlock else: tApplyBlock]):
-      if not state_transition(defaultRuntimePreset, state[], b, {}, noRollback):
+      if not state_transition(conf.runtimePreset, state[], b, {}, noRollback):
         dump("./", b)
         echo "State transition failed (!)"
         quit 1
@@ -163,7 +170,7 @@ proc cmdRewindState(conf: DbConf) =
     quit 1
 
   echo "Initializing block pool..."
-  let dag = init(ChainDAGRef, defaultRuntimePreset, db)
+  let dag = init(ChainDAGRef, conf.runtimePreset, db)
 
   let blckRef = dag.getRef(fromHex(Eth2Digest, conf.blockRoot))
   if blckRef == nil:
@@ -175,8 +182,10 @@ proc cmdRewindState(conf: DbConf) =
     dump("./", hashedState, blck)
 
 when isMainModule:
-  let
+  var
     conf = DbConf.load()
+  
+  conf.runtimePreset = getRuntimePresetForNetwork(conf.eth2Network)
 
   case conf.cmd
   of bench:

@@ -1,8 +1,12 @@
 import
-  tables, strutils, os, options,
+  tables, strutils, os,
   stew/shims/macros, nimcrypto/hash,
   web3/[ethtypes, conversions],
-  spec/presets
+  chronicles,
+  spec/presets,
+  spec/datatypes,
+  json_serialization,
+  json_serialization/std/[options, sets, net], serialization/errors
 
 # ATTENTION! This file will produce a large C file, because we are inlining
 # genesis states as C literals in the generated code (and blobs in the final
@@ -166,3 +170,45 @@ const
   testnet1Metadata* = loadEth2NetworkMetadata(
     currentSourcePath.parentDir / ".." / "vendor" / "eth2-testnets" / "nimbus" / "testnet1")
 
+{.pop.} # the following pocedures raise more than just `Defect`
+
+proc getMetadataForNetwork*(eth2Network: Option[string]):
+                            Option[Eth2NetworkMetadata] =
+  if eth2Network.isSome:
+    let
+      networkName = eth2Network.get
+      metadata = case toLowerAscii(networkName)
+        of "mainnet":
+          mainnetMetadata
+        of "altona":
+          altonaMetadata
+        of "medalla":
+          medallaMetadata
+        of "testnet0":
+          testnet0Metadata
+        of "testnet1":
+          testnet1Metadata
+        else:
+          if fileExists(networkName):
+            try:
+              Json.loadFile(networkName, Eth2NetworkMetadata)
+            except SerializationError as err:
+              echo err.formatMsg(networkName)
+              quit 1
+          else:
+            fatal "Unrecognized network name", networkName
+            quit 1
+
+    if metadata.incompatible:
+      fatal "The selected network is not compatible with the current build",
+             reason = metadata.incompatibilityDesc
+      quit 1
+    return some metadata
+
+proc getRuntimePresetForNetwork*(eth2Network: Option[string]):
+                                 RuntimePreset =
+  let metadata = getMetadataForNetwork(eth2Network)
+  return if metadata.isSome:
+    metadata.get.runtimePreset
+  else:
+    defaultRuntimePreset
