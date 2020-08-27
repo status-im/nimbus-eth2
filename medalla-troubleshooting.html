@@ -174,8 +174,6 @@ make medalla # Restart using same keys as last run
 </blockquote>
 <h3><a class="header" href="#starting-over" id="starting-over">Starting over</a></h3>
 <p>The directory that stores the blockchain data of the testnet is <code>build/data/shared_medalla_0</code> (if you're connecting to another testnet, replace <code>medalla</code> with that testnet's name). Delete this folder to start over (for example, if you started building medalla with the wrong private keys).</p>
-<h3><a class="header" href="#syncing" id="syncing">Syncing</a></h3>
-<p>If you’re experiencing sync problems, or have been running an old version of medalla, we recommend running <code>make clean-medalla</code> to restart your sync (make sure you’ve updated to the latest <code>devel</code> branch first though).</p>
 <h3><a class="header" href="#keeping-up-with-the-head-of-the-chain" id="keeping-up-with-the-head-of-the-chain">Keeping up with the head of the chain</a></h3>
 <p>As it stands, logging seems to be slowing down the client,  and quite a few users are experiencing trouble either catching up or keeping up with the head of the chain. You can use the <code>LOG_LEVEL=INFO</code> option to reduce verbosity and speed up the client.</p>
 <pre><code>make LOG_LEVEL=INFO medalla
@@ -186,6 +184,11 @@ make medalla # Restart using same keys as last run
 </code></pre>
 <h3><a class="header" href="#resource-leaks" id="resource-leaks">Resource leaks</a></h3>
 <p>If you're experiencing RAM related resource leaks, try restarting your client (<strong>we recommend restarting every 6 hours</strong> until we get to the bottom of this issue). If you have a <a href="https://github.com/status-im/nim-beacon-chain#getting-metrics-from-a-local-testnet-client">local Grafana setup</a>, you can try monitoring the severity of these leaks and playing around with the restart interval.</p>
+<h3><a class="header" href="#syncing" id="syncing">Syncing</a></h3>
+<p>If you’re experiencing sync problems,  we recommend running <code>make clean-medalla</code> to restart your sync (make sure you’ve updated to the latest <code>devel</code> branch first though).</p>
+<blockquote>
+<p><strong>Warning</strong>: <code>make clean-medalla</code> will erase all of your syncing progress so far, so it should only be used as a last resort -- if your client gets stuck for a long time (because it's unable to find the right chain and/or stay with the same head value) and a normal restart doesn't improve things.</p>
+</blockquote>
 
                     </main>
 
