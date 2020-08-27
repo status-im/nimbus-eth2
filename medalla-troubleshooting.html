@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Setting up a systemd service - The Nimbus Beacon Chain Book</title>
+        <title>Troubleshooting Medalla - The Nimbus Beacon Chain Book</title>
         
         
 
@@ -89,7 +89,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="medalla-troubleshooting.html"><strong aria-hidden="true">4.</strong> Troubleshooting Medalla</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">5.</strong> Running the beacon node</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">6.</strong> API</a></li><li class="chapter-item expanded affix "><li class="part-title">Advanced</li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">7.</strong> For developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html" class="active"><strong aria-hidden="true">8.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">9.</strong> Generating your keys with NBC</a></li><li class="chapter-item expanded affix "><li class="part-title">Misc</li><li class="chapter-item expanded "><strong aria-hidden="true">10.</strong> Windows users</li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">11.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">12.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="medalla-troubleshooting.html" class="active"><strong aria-hidden="true">4.</strong> Troubleshooting Medalla</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">5.</strong> Running the beacon node</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">6.</strong> API</a></li><li class="chapter-item expanded affix "><li class="part-title">Advanced</li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">7.</strong> For developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">8.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">9.</strong> Generating your keys with NBC</a></li><li class="chapter-item expanded affix "><li class="part-title">Misc</li><li class="chapter-item expanded "><strong aria-hidden="true">10.</strong> Windows users</li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">11.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">12.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -155,107 +155,50 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#setting-up-a-systemd-service" id="setting-up-a-systemd-service">Setting up a systemd service</a></h1>
-<p>This guide will take you through how to set up a <code>systemd</code> service for your beacon node.</p>
+                        <h1><a class="header" href="#troubleshooting-medalla" id="troubleshooting-medalla">Troubleshooting Medalla</a></h1>
+<p>As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the <code>devel</code> branch (we recommend doing this at least once a day). If you can't find a solution to your problem here, feel free to hit us up on our <a href="https://discord.com/invite/XRxWahP">discord</a>!</p>
 <blockquote>
-<p><a href="https://www.freedesktop.org/wiki/Software/systemd/"><code>systemd</code></a> is a service manager designed specifically for Linux. There is no port to Mac OS.</p>
+<p><strong>Note:</strong> While the <code>master</code> branch of the <code>nim-beacon-chain</code> repository is more stable, the latest updates happen in the <code>devel</code> branch which is (usually) merged into master every week on Tuesday.</p>
 </blockquote>
-<h2><a class="header" href="#prerequisites" id="prerequisites">Prerequisites</a></h2>
-<p>NBC's <a href="./install.html#external-dependencies">external dependencies</a> and a working <a href="https://golang.org/doc/install">Go</a> installation (v1.11 or later).</p>
-<h3><a class="header" href="#1-clone-repositories" id="1-clone-repositories">1. Clone repositories</a></h3>
-<p>Clone the <a href="https://github.com/status-im/nim-beacon-chain">nim-beacon-chain</a> and <a href="https://github.com/Alethio/eth2stats-client">eth2stats</a> repositories in the same directory (so that both repositories are adjacent to each other).</p>
-<pre><code class="language-console">git clone https://github.com/status-im/nim-beacon-chain.git
-git clone https://github.com/Alethio/eth2stats-client.git
+<p>To update and restart, run <code>git pull</code>, <code>make update</code>, followed by <code>make medalla</code>:</p>
+<pre><code>cd nim-beacon-chain
+git checkout devel
+git pull
+make update # Update dependencies
+make medalla # Restart using same keys as last run
 </code></pre>
-<h3><a class="header" href="#2-build-repositories" id="2-build-repositories">2. Build repositories</a></h3>
-<p>Build both repositories by following their respective build instructions. </p>
-<p><em>nim-beacon-chain</em></p>
-<pre><code class="language-console">cd nim-beacon-chain
-make beacon_node
-</code></pre>
-<p><em>eth2stats</em></p>
-<pre><code class="language-console">cd eth2stats-client
-make build
-</code></pre>
-<p>The resulting binaries should appear in <code>nim-beacon-chain/build/beacon_node</code> and <code>eth2stats-client/eth2stats-client</code>, respectively.</p>
-<h3><a class="header" href="#3-create-an-executable-script" id="3-create-an-executable-script">3. Create an executable script</a></h3>
-<p>Create an executable script, <code>run_nimbus_node.sh</code>, and place it adjacent to the repositories you cloned in step 1 (same directory level).</p>
-<pre><code class="language-bash">#!/bin/bash
-
-set +e
-
-trap &quot;trap - SIGTERM &amp;&amp; kill -- -$$&quot; SIGINT SIGTERM EXIT
-
-cd $(dirname &quot;$0&quot;)
-cd nim-beacon-chain
-
-NETWORK=$1
-NODE_NAME=${NODE_NAME:-$(whoami)}
-
-if [[ &quot;$2&quot; == &quot;&quot; ]]; then
-  NODE_ID=0
-else
-  NODE_ID=$2
-  NODE_NAME=$NODE_NAME-$2
-fi
-
-let METRICS_PORT=8008+${NODE_ID}
-let RPC_PORT=9190+${NODE_ID}
-
-# add your node to eth2stats and run a data collector app that connects to your beacon chain client
-mkdir -p /tmp/${NODE_NAME}
-../eth2stats-client/eth2stats-client run \
-  --data.folder=/tmp/${NODE_NAME} \
-  --eth2stats.node-name=&quot;${NODE_NAME}&quot; \
-  --eth2stats.addr=&quot;grpc.${NETWORK}.eth2stats.io:443&quot; --eth2stats.tls=true \
-  --beacon.type=&quot;nimbus&quot; \
-  --beacon.addr=&quot;http://localhost:$RPC_PORT&quot; \
-  --beacon.metrics-addr=&quot;http://localhost:$METRICS_PORT/metrics&quot; &gt; /tmp/ethstats.$NODE_NAME.log 2&gt;&amp;1 &amp;
-
-# build and run the beacon node
-make NIMFLAGS=&quot;-d:insecure&quot; NODE_ID=$NODE_ID ${NETWORK}
-</code></pre>
+<p>If you find that <code>make update</code> causes the console to hang for too long, try running <code>make update V=1</code> or <code>make update V=2</code> instead (these will print a more verbose output to the console which may make it easier to diagnose the problem).</p>
+<p>If, after updating to the latest <code>devel</code>, you feel like your node is functioning significantly worse than before, we recommend you report the problem on <a href="https://discord.com/invite/XRxWahP">discord</a>, switch to <code>master</code>, and rebuild.</p>
 <blockquote>
-<p>Tip: don't forget to mark the script as executable by running <code>chmod +x</code> on it.</p>
+<p><strong>Note:</strong> rest assured that when you restart the beacon node, the software will resume from where it left off, using the validator keys you have already imported.</p>
 </blockquote>
-<h3><a class="header" href="#4-create-a-systemd-service-unit-file" id="4-create-a-systemd-service-unit-file">4. Create a systemd service unit file</a></h3>
-<p>Create a <code>systemd</code> service unit file, <code>nbc.service</code>, and save it in <code>/etc/systemd/system/</code>.</p>
-<pre><code class="language-txt">[Unit]
-Description=Nimbus beacon node
-
-[Service]
-ExecStart=&lt;BASE-DIRECTORY&gt;/run_nimbus_node.sh medalla
-User=&lt;USERNAME&gt;
-Group=&lt;USERNAME&gt;
-Restart=always
-RuntimeMaxSec=10800
-
-[Install]
-WantedBy=default.target
-
+<h3><a class="header" href="#starting-over" id="starting-over">Starting over</a></h3>
+<p>The directory that stores the blockchain data of the testnet is <code>build/data/shared_medalla_0</code> (if you're connecting to another testnet, replace <code>medalla</code> with that testnet's name). Delete this folder to start over (for example, if you started building medalla with the wrong private keys).</p>
+<h3><a class="header" href="#syncing" id="syncing">Syncing</a></h3>
+<p>If you’re experiencing sync problems, or have been running an old version of medalla, we recommend running <code>make clean-medalla</code> to restart your sync (make sure you’ve updated to the latest <code>devel</code> branch first though).</p>
+<h3><a class="header" href="#keeping-up-with-the-head-of-the-chain" id="keeping-up-with-the-head-of-the-chain">Keeping up with the head of the chain</a></h3>
+<p>As it stands, logging seems to be slowing down the client,  and quite a few users are experiencing trouble either catching up or keeping up with the head of the chain. You can use the <code>LOG_LEVEL=INFO</code> option to reduce verbosity and speed up the client.</p>
+<pre><code>make LOG_LEVEL=INFO medalla
 </code></pre>
-<p>Replace:</p>
-<p><code>&lt;BASE-DIRECTORY&gt;</code> with the location of the repository in which you performed the <code>git clone</code> command in step 1.</p>
-<p><code>&lt;USERNAME&gt;</code> with the username of the system user responsible for running the launched processes.</p>
-<h3><a class="header" href="#5-notify-systemd-of-the-newly-added-service" id="5-notify-systemd-of-the-newly-added-service">5. Notify systemd of the newly added service</a></h3>
-<pre><code class="language-console">sudo systemctl daemon-reload
+<h3><a class="header" href="#low-peer-counts" id="low-peer-counts">Low peer counts</a></h3>
+<p>If you're experiencing a low peer count, you may be behind a firewall. Try restarting your client and passing <code>NODE_PARAMS=&quot;--nat:\&quot;extip:$EXT_IP_ADDRESS\&quot;</code> as an option to <code>make medalla</code>, where <code>$EXT_IP_ADDRESS</code> is your real IP. For example, if your real IP address is <code>35.124.65.104</code>, you'd run:</p>
+<pre><code>make NODE_PARAMS=&quot;--nat:\&quot;extip:35.124.65.104\&quot; medalla
 </code></pre>
-<h3><a class="header" href="#6-start-the-nim-beacon-chain-service" id="6-start-the-nim-beacon-chain-service">6. Start the nim beacon chain service</a></h3>
-<pre><code class="language-console">sudo systemctl enable nbc --now
-</code></pre>
+<h3><a class="header" href="#resource-leaks" id="resource-leaks">Resource leaks</a></h3>
+<p>If you're experiencing RAM related resource leaks, try restarting your client (<strong>we recommend restarting every 6 hours</strong> until we get to the bottom of this issue). If you have a <a href="https://github.com/status-im/nim-beacon-chain#getting-metrics-from-a-local-testnet-client">local Grafana setup</a>, you can try monitoring the severity of these leaks and playing around with the restart interval.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="advanced.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="medalla.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
                         
-                            <a rel="next" href="create_wallet_and_deposit.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="beacon_node.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -267,13 +210,13 @@ WantedBy=default.target
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="advanced.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="medalla.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a rel="next" href="create_wallet_and_deposit.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="beacon_node.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 

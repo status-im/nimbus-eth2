@@ -91,7 +91,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">4.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">5.</strong> API</a></li><li class="chapter-item expanded affix "><li class="part-title">Advanced</li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> For developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">7.</strong> Set up a systemd service</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">8.</strong> Generate your keys with Nimbus</a></li><li class="chapter-item expanded affix "><li class="part-title">Misc</li><li class="chapter-item expanded "><strong aria-hidden="true">9.</strong> Windows users</li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">10.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">11.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="medalla-troubleshooting.html"><strong aria-hidden="true">4.</strong> Troubleshooting Medalla</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">5.</strong> Running the beacon node</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">6.</strong> API</a></li><li class="chapter-item expanded affix "><li class="part-title">Advanced</li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">7.</strong> For developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">8.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">9.</strong> Generating your keys with NBC</a></li><li class="chapter-item expanded affix "><li class="part-title">Misc</li><li class="chapter-item expanded "><strong aria-hidden="true">10.</strong> Windows users</li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">11.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">12.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -331,11 +331,6 @@ INF 2020-08-03 16:24:17.958+02:00 Starting beacon node                       top
 </code></pre>
 <p>Once the update is complete, run <code>make medalla</code> to reconnect to the network.</p>
 <p>Looking forward to seeing you on Medalla! 💛</p>
-<h3><a class="header" href="#a-note-on-keys" id="a-note-on-keys">A note on keys</a></h3>
-<p>The Nimbus client will only ever import your signing key -- in any case, if you used the deposit launchpad, this is the only key you should have (you can generate the withdrawal key from your mnemonic when you wish to withdraw).</p>
-<p>The keys your Nimbus client has access to are stored in the <code>build/data/shared_medalla_0/</code> folder, under <code>secrets</code> and <code>validators</code>.</p>
-<p>The <code>secrets</code> folder contains the common secret that gives you access to all your validator keys. And the <code>validators</code> folder contains your keystores.</p>
-<p>For more on keys in eth2, see <a href="https://blog.ethereum.org/2020/05/21/keys/">here</a>.</p>
 <h2><a class="header" href="#advanced-options" id="advanced-options">Advanced options</a></h2>
 <h3><a class="header" href="#start-multiple-nodes" id="start-multiple-nodes">Start multiple nodes</a></h3>
 <p>You can start multiple local nodes, in different terminal windows/tabs, by specifying numeric IDs:</p>
@@ -343,6 +338,9 @@ INF 2020-08-03 16:24:17.958+02:00 Starting beacon node                       top
 make medalla NODE_ID=1
 make medalla NODE_ID=2
 </code></pre>
+<h3><a class="header" href="#attach-multiple-validators-to-the-same-beacon-node" id="attach-multiple-validators-to-the-same-beacon-node">Attach multiple validators to the same beacon node</a></h3>
+<p>Simply <a href="./medalla.html#3-import-keystores">import as many keystores as you wish</a> before running <code>make medalla</code>. Nimbus will automagically find your keys and attach your validators. See <a href="./medalla.html#key-management">key management</a> for more information on where we store your keys.</p>
+<p>To give you some context, we (the Nimbus team) are currently running 170 validators per beacon node on our AWS instances.</p>
 <h3><a class="header" href="#change-the-tcp-and-udp-ports" id="change-the-tcp-and-udp-ports">Change the TCP and UDP ports</a></h3>
 <p>To change the TCP and UDP ports from their default value of 9000 to 9100, say, run:</p>
 <pre><code>make BASE_PORT=9100 medalla
@@ -351,18 +349,13 @@ make medalla NODE_ID=2
 <h3><a class="header" href="#make-a-deposit-directly-using-nimbus" id="make-a-deposit-directly-using-nimbus">Make a deposit directly using Nimbus</a></h3>
 <pre><code>make medalla-deposit VALIDATORS=2 # default is just 1
 </code></pre>
-<h3><a class="header" href="#upgrading" id="upgrading">Upgrading</a></h3>
-<p>When you restart the beacon node, the software will resume from where it left off, using your previous deposits.</p>
-<pre><code>cd nim-beacon-chain
-git pull
-make update # Update dependencies
-make medalla # Restart using same keys as last run
-</code></pre>
 <h2><a class="header" href="#key-management" id="key-management">Key management</a></h2>
-<p>Keys are stored in the <code>build/data/[testnet_name]/</code> folder, under <code>secrets</code> and <code>validators</code> - make sure you keep these folders backed up.</p>
+<p>Keys are stored in the <code>build/data/shared_medalla_0/</code> folder, under <code>secrets</code> and <code>validators</code> - make sure you keep these folders backed up.</p>
 <p>The <code>secrets</code> folder contains the common secret that gives you access to all your validator keys.</p>
-<p>The <code>validators</code> folder contains your keystores. Keystores are used by validators as a method for exchanging keys. </p>
-<p>For more on keys in eth2, see <a href="https://blog.ethereum.org/2020/05/21/keys/">here</a>.</p>
+<p>The <code>validators</code> folder contains your keystores (encrypted keys). Keystores are used by validators as a method for exchanging keys. For more on keys and keystores, see <a href="https://blog.ethereum.org/2020/05/21/keys/">here</a>.</p>
+<blockquote>
+<p><strong>Note:</strong> The Nimbus client will only ever import your signing key -- in any case, if you used the deposit launchpad, this is the only key you should have (you can generate the withdrawal key from your mnemonic when you wish to withdraw).</p>
+</blockquote>
 <h2><a class="header" href="#metrics" id="metrics">Metrics</a></h2>
 <p>Metrics are not included in the binary by default - to enable them, use the following options when starting the client:</p>
 <pre><code>make NIMFLAGS=&quot;-d:insecure&quot; medalla
@@ -370,24 +363,37 @@ make medalla # Restart using same keys as last run
 <p>You can then browse the metrics by connecting to:</p>
 <p>http://localhost:8008/metrics</p>
 <p>Make sure this port is protected as the http server used is not considered secure (it should not be used by untrusted peers).</p>
-<h2><a class="header" href="#troubleshooting" id="troubleshooting">Troubleshooting</a></h2>
-<ol>
-<li>
-<p>The directory that stores the blockchain data of the testnet is <code>build/data/shared_medalla_0</code> (if you're connecting to another testnet, replace <code>medalla</code> with that testnet's name). Delete this folder if you want to start over (for example, if you entered a wrong private key).</p>
-</li>
-<li>
-<p>Currently, you have to switch to the <code>devel</code> branch in order to run the validator node successfully.</p>
-</li>
-<li>
-<p>Everytime you want to update your node to the latest version, run <code>git pull</code>, <code>make update</code>, and then <code>make medalla</code>.</p>
-</li>
-<li>
-<p>If <code>make update</code> causes the console to hang for too long, try running <code>make update V=1</code> or <code>make update V=2</code> instead (these will print a more verbose output to the console which may make it easier to diagnose the problem).</p>
-</li>
-<li>
+<h1><a class="header" href="#troubleshooting-medalla" id="troubleshooting-medalla">Troubleshooting Medalla</a></h1>
+<p>As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the <code>devel</code> branch (we recommend doing this at least once a day). If you can't find a solution to your problem here, feel free to hit us up on our <a href="https://discord.com/invite/XRxWahP">discord</a>!</p>
+<blockquote>
+<p><strong>Note:</strong> While the <code>master</code> branch of the <code>nim-beacon-chain</code> repository is more stable, the latest updates happen in the <code>devel</code> branch which is (usually) merged into master every week on Tuesday.</p>
+</blockquote>
+<p>To update and restart, run <code>git pull</code>, <code>make update</code>, followed by <code>make medalla</code>:</p>
+<pre><code>cd nim-beacon-chain
+git checkout devel
+git pull
+make update # Update dependencies
+make medalla # Restart using same keys as last run
+</code></pre>
+<p>If you find that <code>make update</code> causes the console to hang for too long, try running <code>make update V=1</code> or <code>make update V=2</code> instead (these will print a more verbose output to the console which may make it easier to diagnose the problem).</p>
+<p>If, after updating to the latest <code>devel</code>, you feel like your node is functioning significantly worse than before, we recommend you report the problem on <a href="https://discord.com/invite/XRxWahP">discord</a>, switch to <code>master</code>, and rebuild.</p>
+<blockquote>
+<p><strong>Note:</strong> rest assured that when you restart the beacon node, the software will resume from where it left off, using the validator keys you have already imported.</p>
+</blockquote>
+<h3><a class="header" href="#starting-over" id="starting-over">Starting over</a></h3>
+<p>The directory that stores the blockchain data of the testnet is <code>build/data/shared_medalla_0</code> (if you're connecting to another testnet, replace <code>medalla</code> with that testnet's name). Delete this folder to start over (for example, if you started building medalla with the wrong private keys).</p>
+<h3><a class="header" href="#syncing" id="syncing">Syncing</a></h3>
 <p>If you’re experiencing sync problems, or have been running an old version of medalla, we recommend running <code>make clean-medalla</code> to restart your sync (make sure you’ve updated to the latest <code>devel</code> branch first though).</p>
-</li>
-</ol>
+<h3><a class="header" href="#keeping-up-with-the-head-of-the-chain" id="keeping-up-with-the-head-of-the-chain">Keeping up with the head of the chain</a></h3>
+<p>As it stands, logging seems to be slowing down the client,  and quite a few users are experiencing trouble either catching up or keeping up with the head of the chain. You can use the <code>LOG_LEVEL=INFO</code> option to reduce verbosity and speed up the client.</p>
+<pre><code>make LOG_LEVEL=INFO medalla
+</code></pre>
+<h3><a class="header" href="#low-peer-counts" id="low-peer-counts">Low peer counts</a></h3>
+<p>If you're experiencing a low peer count, you may be behind a firewall. Try restarting your client and passing <code>NODE_PARAMS=&quot;--nat:\&quot;extip:$EXT_IP_ADDRESS\&quot;</code> as an option to <code>make medalla</code>, where <code>$EXT_IP_ADDRESS</code> is your real IP. For example, if your real IP address is <code>35.124.65.104</code>, you'd run:</p>
+<pre><code>make NODE_PARAMS=&quot;--nat:\&quot;extip:35.124.65.104\&quot; medalla
+</code></pre>
+<h3><a class="header" href="#resource-leaks" id="resource-leaks">Resource leaks</a></h3>
+<p>If you're experiencing RAM related resource leaks, try restarting your client (<strong>we recommend restarting every 6 hours</strong> until we get to the bottom of this issue). If you have a <a href="https://github.com/status-im/nim-beacon-chain#getting-metrics-from-a-local-testnet-client">local Grafana setup</a>, you can try monitoring the severity of these leaks and playing around with the restart interval.</p>
 <h1><a class="header" href="#the-beacon-node" id="the-beacon-node">The beacon node</a></h1>
 <p>The beacon node application connects to the eth2 network, manages the blockchain, and provides API's to interact with the beacon chain.</p>
 <p>You can <strong>run the beacon node without being a validator</strong> - doing so allows you to sync the network and access its latest state.</p>
@@ -409,7 +415,7 @@ cd nim-beacon-chain
 </blockquote>
 <p>Once the beacon node is running, it will first connect to the boot nodes in the network, look for more peers and start syncing the chain. Once the sync is complete, it will keep following the head of the chain (you can interact with it through the <a href="./api.html">API</a>.</p>
 <p>Before running the beacon node, it's important that your computer is set to the correct time - preferably using a trusted time source (this can be an NTP server you trust, GPS time or another precise source of time) -- however don't worry if you're unsure of how to do this, it isn't essential for testnet purposes.</p>
-<h3><a class="header" href="#syncing" id="syncing">Syncing</a></h3>
+<h3><a class="header" href="#syncing-1" id="syncing-1">Syncing</a></h3>
 <p>To start syncing the <code>medalla</code> network:</p>
 <pre><code>make medalla
 
@@ -853,7 +859,7 @@ WantedBy=default.target
 <h3><a class="header" href="#6-start-the-nim-beacon-chain-service" id="6-start-the-nim-beacon-chain-service">6. Start the nim beacon chain service</a></h3>
 <pre><code class="language-console">sudo systemctl enable nbc --now
 </code></pre>
-<h1><a class="header" href="#generate-your-keys-with-nbc" id="generate-your-keys-with-nbc">Generate your keys with NBC</a></h1>
+<h1><a class="header" href="#generating-your-keys-with-nbc" id="generating-your-keys-with-nbc">Generating your keys with NBC</a></h1>
 <p>In this chapter, we'll take you through how to create an <a href="https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md">EIP-2386</a> wallet to help you generate your validator keys (keystores), create a <code>deposits_data</code> file compatible with the Ethereum Foundation's <a href="https://medalla.launchpad.ethereum.org/">Validator Launchpad</a>, and use the launchpad to send this data to the eth1 network so that your validator can be registered.</p>
 <blockquote>
 <p><strong>Note:</strong> this page is primarily aimed at users who wish to run multiple validators on several machines. If you simply wish to get one validator up and running with Nimbus, or run several validators on a single machine, we recommend following our <a href="./medalla.html">become a Medalla validator</a> guide instead.</p>
