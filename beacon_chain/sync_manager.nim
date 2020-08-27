@@ -633,7 +633,7 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
       debug "Error, while reading getBlocks response",
             peer = peer, slot = req.slot, count = req.count,
             step = req.step, peer_speed = peer.netKbps(),
-            topics = "syncman"
+            topics = "syncman", error = res.error()
     result = res
 
 template headAge(): uint64 =
