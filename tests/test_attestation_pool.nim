@@ -417,7 +417,7 @@ suiteReport "Attestation validation " & preset():
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
       check: added.isOk()
-      chainDag.updateHead(added[])
+      chainDag.updateHead(added[], quarantine)
 
     var
       # Create an attestation for slot 1!
