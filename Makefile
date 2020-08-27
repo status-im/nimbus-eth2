@@ -10,11 +10,12 @@ SHELL := bash # the shell used internally by "make"
 # used inside the included makefiles
 BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 
+# we set its default value before LOG_LEVEL is used in "variables.mk"
+LOG_LEVEL := DEBUG
+
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
-BUILD_LOG_LEVEL := TRACE
-LOG_LEVEL := DEBUG
 NODE_ID := 0
 BASE_PORT := 9000
 BASE_RPC_PORT := 9190
@@ -102,14 +103,13 @@ ifeq ($(OS), Windows_NT)
   endif
 endif
 
-CHRONICLES_PARAMS := -d:chronicles_log_level=$(BUILD_LOG_LEVEL)
 DEPOSITS_DELAY := 0
 
 # "--define:release" implies "--stacktrace:off" and it cannot be added to config.nims
 ifeq ($(USE_LIBBACKTRACE), 0)
-NIM_PARAMS := $(NIM_PARAMS) $(CHRONICLES_PARAMS) -d:debug -d:disable_libbacktrace
+NIM_PARAMS := $(NIM_PARAMS) -d:debug -d:disable_libbacktrace
 else
-NIM_PARAMS := $(NIM_PARAMS) $(CHRONICLES_PARAMS) -d:release
+NIM_PARAMS := $(NIM_PARAMS) -d:release
 endif
 
 deps: | deps-common nat-libs beacon_chain.nims
