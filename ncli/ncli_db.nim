@@ -14,6 +14,7 @@ type Timers = enum
   tLoadState = "Load state from database"
   tApplyBlock = "Apply block"
   tApplyEpochBlock = "Apply epoch block"
+  tDbStore = "Database block store"
 
 type
   DbCmd* = enum
@@ -39,6 +40,9 @@ type
       slots* {.
         defaultValue: 50000
         desc: "Number of slots to run benchmark for".}: uint64
+      storeBlocks* {.
+        defaultValue: false
+        desc: "Store each read block back into a separate database".}: bool
 
     of dumpState:
       stateRoot* {.
@@ -66,6 +70,8 @@ proc cmdBench(conf: DbConf) =
   let
     db = BeaconChainDB.init(
       kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
+    dbBenchmark = BeaconChainDB.init(
+      kvStore SqStoreRef.init(".", "benchmark").tryGet())
 
   if not ChainDAGRef.isInitialized(db):
     echo "Database not initialized"
@@ -109,6 +115,9 @@ proc cmdBench(conf: DbConf) =
         dump("./", b)
         echo "State transition failed (!)"
         quit 1
+    if conf.storeBlocks:
+      withTimer(timers[tDbStore]):
+        dbBenchmark.putBlock(b)
 
   printTimers(false, timers)
 
