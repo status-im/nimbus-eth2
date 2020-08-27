@@ -82,7 +82,7 @@ func addChunk(merkleizer: var SszChunksMerkleizer, data: openarray[byte]) =
 
     merkleizer.combinedChunks[0].data[0..<data.len] = data
     merkleizer.combinedChunks[0].data[data.len..<bytesPerChunk] =
-      zero64[0..<paddingBytes]
+      zero64.toOpenArray(0, paddingBytes - 1)
 
     trs "WROTE BASE CHUNK ",
       toHex(merkleizer.combinedChunks[0].data), " ", data.len

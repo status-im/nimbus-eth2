@@ -79,7 +79,8 @@ func is_aggregator*(epochRef: EpochRef, slot: Slot, index: CommitteeIndex,
   let
     committee_len = get_beacon_committee_len(epochRef, slot, index)
     modulo = max(1'u64, committee_len div TARGET_AGGREGATORS_PER_COMMITTEE)
-  bytes_to_uint64(eth2digest(slot_signature.toRaw()).data[0..7]) mod modulo == 0
+  bytes_to_uint64(eth2digest(
+    slot_signature.toRaw()).data.toOpenArray(0, 7)) mod modulo == 0
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(

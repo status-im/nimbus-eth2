@@ -300,7 +300,7 @@ proc getAttestationsForBlock*(pool: AttestationPool,
 
       continue
 
-    for v in a.validations[1..^1]:
+    for i in 1..a.validations.high:
       # TODO We need to select a set of attestations that maximise profit by
       #      adding the largest combined attestation set that we can find - this
       #      unfortunately looks an awful lot like
@@ -308,9 +308,10 @@ proc getAttestationsForBlock*(pool: AttestationPool,
       #      and naively add as much as possible in one go, by we could also
       #      add the same attestation data twice, as long as there's at least
       #      one new attestation in there
-      if not attestation.aggregation_bits.overlaps(v.aggregation_bits):
-        attestation.aggregation_bits.combine(v.aggregation_bits)
-        agg.aggregate(v.aggregate_signature)
+      if not attestation.aggregation_bits.overlaps(
+          a.validations[i].aggregation_bits):
+        attestation.aggregation_bits.combine(a.validations[i].aggregation_bits)
+        agg.aggregate(a.validations[i].aggregate_signature)
 
     attestation.signature = agg.finish()
     result.add(attestation)
