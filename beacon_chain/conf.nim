@@ -5,7 +5,8 @@ import
   chronicles, chronicles/options as chroniclesOptions,
   confutils, confutils/defs, confutils/std/net, stew/shims/net as stewNet,
   json_serialization, web3/[ethtypes, confutils_defs],
-  spec/[crypto, keystore, digest, datatypes, network], network_metadata
+  spec/[crypto, keystore, digest, datatypes, network], network_metadata,
+  stew/io2
 
 export
   defaultEth2TcpPort, enabledLogLevel, ValidIpAddress,
@@ -440,13 +441,15 @@ func dumpDirOutgoing*(conf: BeaconNodeConf|ValidatorClientConf): string =
 
 proc createDumpDirs*(conf: BeaconNodeConf) =
   if conf.dumpEnabled:
-    try:
-      createDir(conf.dumpDirInvalid)
-      createDir(conf.dumpDirIncoming)
-      createDir(conf.dumpDirOutgoing)
-    except CatchableError as err:
-      # Dumping is mainly a debugging feature, so ignore these..
-      warn "Cannot create dump directories", msg = err.msg
+    let resInv = createPath(conf.dumpDirInvalid, 0o750)
+    if resInv.isErr():
+      warn "Could not create dump directory", path = conf.dumpDirInvalid
+    let resInc = createPath(conf.dumpDirIncoming, 0o750)
+    if resInc.isErr():
+      warn "Could not create dump directory", path = conf.dumpDirIncoming
+    let resOut = createPath(conf.dumpDirOutgoing, 0o750)
+    if resOut.isErr():
+      warn "Could not create dump directory", path = conf.dumpDirOutgoing
 
 func parseCmdArg*(T: type GraffitiBytes, input: TaintedString): T
                  {.raises: [ValueError, Defect].} =

@@ -1262,8 +1262,15 @@ programMain:
           swap(mnemonic, walletRes.get.mnemonic)
           walletPath = walletRes.get.walletPath
 
-      createDir(config.outValidatorsDir)
-      createDir(config.outSecretsDir)
+      let vres = createPath(config.outValidatorsDir, 0o750)
+      if vres.isErr():
+        fatal "Could not create directory", path = config.outValidatorsDir
+        quit QuitFailure
+
+      let sres = createPath(config.outSecretsDir, 0o750)
+      if sres.isErr():
+        fatal "Could not create directory", path = config.outSecretsDir
+        quit QuitFailure
 
       let deposits = generateDeposits(
         config.runtimePreset,
