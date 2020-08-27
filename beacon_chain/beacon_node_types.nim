@@ -3,7 +3,7 @@
 import
   deques, tables,
   stew/endians2,
-  spec/[datatypes, crypto, digest],
+  spec/[datatypes, crypto],
   block_pools/block_pools_types,
   fork_choice/fork_choice_types
 
@@ -44,10 +44,6 @@ type
     ## TODO this could be a Table[AttestationData, seq[Validation] or something
     ##      less naive
 
-  UnresolvedAttestation* = object
-    attestation*: Attestation
-    tries*: int
-
   AttestationPool* = object
     ## The attestation pool keeps track of all attestations that potentially
     ## could be added to a block during block production.
@@ -65,8 +61,6 @@ type
 
     chainDag*: ChainDAGRef
     quarantine*: QuarantineRef
-
-    unresolved*: Table[Eth2Digest, UnresolvedAttestation]
 
     forkChoice*: ForkChoice
 

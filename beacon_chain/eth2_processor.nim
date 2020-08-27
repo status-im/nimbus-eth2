@@ -36,16 +36,18 @@ declareGauge beacon_head_root,
 type
   GetWallTimeFn* = proc(): BeaconTime {.gcsafe, raises: [Defect].}
 
-  Entry[T] = object
-    v*: T
-
   SyncBlock* = object
     blk*: SignedBeaconBlock
     resfut*: Future[Result[void, BlockError]]
 
-  BlockEntry* = Entry[SyncBlock]
-  AttestationEntry* = Entry[Attestation]
-  AggregateEntry* = Entry[Attestation]
+  BlockEntry* = object
+    v*: SyncBlock
+
+  AttestationEntry* = object
+    v*: Attestation
+    attesting_indices*: HashSet[ValidatorIndex]
+
+  AggregateEntry* = AttestationEntry
 
   Eth2Processor* = object
     config*: BeaconNodeConf
@@ -61,9 +63,6 @@ type
 proc updateHead*(self: var Eth2Processor, wallSlot: Slot): BlockRef =
   ## Trigger fork choice and returns the new head block.
   ## Can return `nil`
-  # Check pending attestations - maybe we found some blocks for them
-  self.attestationPool[].resolve(wallSlot)
-
   # Grab the new head according to our latest attestation data
   let newHead = self.attestationPool[].selectHead(wallSlot)
   if newHead.isNil():
@@ -153,8 +152,9 @@ proc processAttestation(
     error "Processing attestation before genesis, clock turned back?"
     quit 1
 
-  debug "Processing attestation"
-  self.attestationPool[].addAttestation(entry.v, wallSlot)
+  trace "Processing attestation"
+  self.attestationPool[].addAttestation(
+    entry.v, entry.attesting_indices, wallSlot)
 
 proc processAggregate(
     self: var Eth2Processor, entry: AggregateEntry) =
@@ -169,8 +169,9 @@ proc processAggregate(
     error "Processing aggregate before genesis, clock turned back?"
     quit 1
 
-  debug "Processing aggregate"
-  self.attestationPool[].addAttestation(entry.v, wallSlot)
+  trace "Processing aggregate"
+  self.attestationPool[].addAttestation(
+    entry.v, entry.attesting_indices, wallSlot)
 
 proc processBlock(self: var Eth2Processor, entry: BlockEntry) =
   logScope:
@@ -266,16 +267,17 @@ proc blockValidator*(
   if not blck.isOk:
     return false
 
+  beacon_blocks_received.inc()
+  beacon_block_delay.observe(float(milliseconds(delay)) / 1000.0)
+
   # Block passed validation - enqueue it for processing. The block processing
   # queue is effectively unbounded as we use a freestanding task to enqueue
   # the block - this is done so that when blocks arrive concurrently with
   # sync, we don't lose the gossip blocks, but also don't block the gossip
   # propagation of seemingly good blocks
-  debug "Block validated"
+  trace "Block validated"
   traceAsyncErrors self.blocksQueue.addLast(
     BlockEntry(v: SyncBlock(blk: signedBlock)))
-
-  beacon_block_delay.observe(float(milliseconds(delay)) / 1000.0)
 
   true
 
@@ -299,9 +301,11 @@ proc attestationValidator*(
 
   let delay = wallTime - attestation.data.slot.toBeaconTime
   debug "Attestation received", delay
-  if not self.attestationPool[].isValidAttestation(
-      attestation, wallSlot, committeeIndex):
-    return false # logged in validation
+  let v = self.attestationPool[].validateAttestation(
+      attestation, wallTime, committeeIndex)
+  if v.isErr():
+    debug "Dropping attestation", err = v.error()
+    return false
 
   beacon_attestations_received.inc()
   beacon_attestation_delay.observe(float(milliseconds(delay)) / 1000.0)
@@ -312,9 +316,9 @@ proc attestationValidator*(
     notice "Queue full, dropping attestation",
       dropped = shortLog(dropped.read().v)
 
-  debug "Attestation validated"
+  trace "Attestation validated"
   traceAsyncErrors self.attestationsQueue.addLast(
-    AttestationEntry(v: attestation))
+    AttestationEntry(v: attestation, attesting_indices: v.get()))
 
   true
 
@@ -339,8 +343,10 @@ proc aggregateValidator*(
     wallTime - signedAggregateAndProof.message.aggregate.data.slot.toBeaconTime
   debug "Aggregate received", delay
 
-  if not self.attestationPool[].isValidAggregatedAttestation(
-      signedAggregateAndProof, wallSlot):
+  let v = self.attestationPool[].validateAggregate(
+      signedAggregateAndProof, wallTime)
+  if v.isErr:
+    debug "Dropping aggregate", err = v.error
     return false
 
   beacon_aggregates_received.inc()
@@ -352,9 +358,10 @@ proc aggregateValidator*(
     notice "Queue full, dropping aggregate",
       dropped = shortLog(dropped.read().v)
 
-  debug "Aggregate validated"
+  trace "Aggregate validated"
   traceAsyncErrors self.aggregatesQueue.addLast(AggregateEntry(
-    v: signedAggregateAndProof.message.aggregate))
+    v: signedAggregateAndProof.message.aggregate,
+    attesting_indices: v.get()))
 
   true
 

@@ -248,3 +248,27 @@ proc makeFullAttestations*(
 
     attestation.signature = agg.finish()
     result.add attestation
+
+iterator makeTestBlocks*(
+  state: HashedBeaconState,
+  parent_root: Eth2Digest,
+  cache: var StateCache,
+  blocks: int,
+  attested: bool,
+  flags: set[UpdateFlag] = {}
+): SignedBeaconBlock =
+  var
+    state = assignClone(state)
+    parent_root = parent_root
+  for _ in 0..<blocks:
+    let attestations = if attested:
+      makeFullAttestations(
+        state[].data, parent_root,
+        state[].data.slot, cache, flags)
+    else:
+      @[]
+
+    let blck = addTestBlock(
+      state[], parent_root, cache, attestations = attestations, flags = flags)
+    yield blck
+    parent_root = blck.root
