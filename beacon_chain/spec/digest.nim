@@ -36,7 +36,7 @@ type
   Eth2Hash* = sha256            ## Context for hash function
 
 func shortLog*(x: Eth2Digest): string =
-  x.data[0..3].toHex()
+  x.data.toOpenArray(0, 3).toHex()
 
 chronicles.formatIt Eth2Digest:
   shortLog(it)

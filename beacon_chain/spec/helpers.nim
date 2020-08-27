@@ -130,7 +130,7 @@ func compute_domain*(
   let fork_data_root =
     compute_fork_data_root(fork_version, genesis_validators_root)
   result[0..3] = uint_to_bytes4(domain_type.uint64)
-  result[4..31] = fork_data_root.data[0..27]
+  result[4..31] = fork_data_root.data.toOpenArray(0, 27)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_domain
 func get_domain*(

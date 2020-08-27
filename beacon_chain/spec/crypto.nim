@@ -201,7 +201,7 @@ proc toGaugeValue*(hash: Eth2Digest): int64 =
   # Only the last 8 bytes are taken into consideration in accordance
   # to the ETH2 metrics spec:
   # https://github.com/ethereum/eth2.0-metrics/blob/6a79914cb31f7d54858c7dd57eee75b6162ec737/metrics.md#interop-metrics
-  cast[int64](uint64.fromBytesLE(hash.data[24..31]))
+  cast[int64](uint64.fromBytesLE(hash.data.toOpenArray(24, 31)))
 
 # Codecs
 # ----------------------------------------------------------------------
@@ -346,16 +346,16 @@ func shortLog*(x: BlsValue): string =
   # The prefix must be short
   # due to the mechanics of the `shortLog` function.
   if x.kind == Real:
-    x.blsValue.exportRaw()[0..3].toHex()
+    x.blsValue.exportRaw().toOpenArray(0, 3).toHex()
   else:
-    "r:" & x.blob[0..3].toHex()
+    "r:" & x.blob.toOpenArray(0, 3).toHex()
 
 func shortLog*(x: ValidatorPrivKey): string =
   ## Logging for raw unwrapped BLS types
   "<private key>"
 
 func shortLog*(x: TrustedSig): string =
-  x.data[0..3].toHex()
+  x.data.toOpenArray(0, 3).toHex()
 
 # Initialization
 # ----------------------------------------------------------------------

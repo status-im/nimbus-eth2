@@ -210,10 +210,12 @@ proc beaconBlocksByRangeUserHandler(peer: Peer; startSlot: Slot; reqCount: uint6
       endIndex = count - 1
       startIndex = chainDag.getBlockRange(startSlot, reqStep,
                                         blocks.toOpenArray(0, endIndex))
-    for b in blocks[startIndex .. endIndex]:
-      doAssert not b.isNil, "getBlockRange should return non-nil blocks only"
-      trace "wrote response block", slot = b.slot, roor = shortLog(b.root)
-      await response.write(chainDag.get(b).data)
+    for i in startIndex .. endIndex:
+      doAssert not blocks[i].isNil,
+              "getBlockRange should return non-nil blocks only"
+      trace "wrote response block", slot = blocks[i].slot,
+           roor = shortLog(blocks[i].root)
+      await response.write(chainDag.get(blocks[i]).data)
     debug "Block range request done", peer, startSlot, count, reqStep,
          found = count - startIndex
 
@@ -232,8 +234,8 @@ proc beaconBlocksByRootUserHandler(peer: Peer; blockRoots: BlockRootsList; respo
     chainDag = peer.networkState.chainDag
     count = blockRoots.len
   var found = 0
-  for root in blockRoots[0 ..< count]:
-    let blockRef = chainDag.getRef(root)
+  for i in 0 ..< count:
+    let blockRef = chainDag.getRef(blockRoots[i])
     if not isNil(blockRef):
       await response.write(chainDag.get(blockRef).data)
       inc found
