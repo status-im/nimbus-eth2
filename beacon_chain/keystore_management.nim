@@ -41,8 +41,8 @@ proc checkAndCreateDataDir*(dataDir: string): bool =
   ## If folder exists, procedure will check it for access and
   ## permissions `0750 (rwxr-x---)`, if folder do not exists it will be created
   ## with permissions `0750 (rwxr-x---)`.
+  let amask = {AccessFlags.Read, AccessFlags.Write, AccessFlags.Execute}
   when defined(posix):
-    let amask = {AccessFlags.Read, AccessFlags.Write, AccessFlags.Execute}
     if fileAccessible(dataDir, amask):
       let gmask = {UserRead, UserWrite, UserExec, GroupRead, GroupExec}
       let pmask = {OtherRead, OtherWrite, OtherExec, GroupWrite}
@@ -51,31 +51,70 @@ proc checkAndCreateDataDir*(dataDir: string): bool =
         fatal "Could not check data folder permissions",
                data_dir = dataDir, errorCode = $pres.error,
                errorMsg = ioErrorMsg(pres.error)
-        return false
-      let insecurePermissions = pres.get() * pmask
-      if insecurePermissions != {}:
-        fatal "Data folder has insecure permissions",
-               data_dir = dataDir,
-               insecure_permissions = $insecurePermissions,
-               current_permissions = pres.get().toString(),
-               required_permissions = gmask.toString()
-        return false
+        false
+      else:
+        let insecurePermissions = pres.get() * pmask
+        if insecurePermissions != {}:
+          fatal "Data folder has insecure permissions",
+                 data_dir = dataDir,
+                 insecure_permissions = $insecurePermissions,
+                 current_permissions = pres.get().toString(),
+                 required_permissions = gmask.toString()
+          false
+        else:
+          true
     else:
       let res = createPath(dataDir, 0o750)
       if res.isErr():
         fatal "Could not create data folder", data_dir = dataDir,
               errorMsg = ioErrorMsg(res.error), errorCode = $res.error
-        return false
-    return true
+        false
+      else:
+        true
   elif defined(windows):
-    let res = createPath(dataDir, 0o750)
-    if res.isErr():
-      fatal "Could not create data folder", data_dir = dataDir,
-            errorMsg = ioErrorMsg(res.error), errorCode = $res.error
-      return false
+    if fileAccessible(dataDir, amask):
+      let res = createPath(dataDir, 0o750)
+      if res.isErr():
+        fatal "Could not create data folder", data_dir = dataDir,
+              errorMsg = ioErrorMsg(res.error), errorCode = $res.error
+        false
+      else:
+        true
+    else:
+      true
   else:
     fatal "Unsupported operation system"
     return false
+
+proc checkFilePermissions*(filePath: string): bool =
+  ## Check if ``filePath`` has only "(600) rw-------" permissions.
+  ## Procedure returns ``false`` if permissions are different
+  when defined(windows):
+    # Windows do not support per-user/group/other permissions,
+    # skiping verification part.
+    true
+  else:
+    let allowedMask = {UserRead, UserWrite}
+    let mask = {UserExec,
+                GroupRead, GroupWrite, GroupExec,
+                OtherRead, OtherWrite, OtherExec}
+    let pres = getPermissionsSet(filePath)
+    if pres.isErr():
+      error "Could not check file permissions",
+            key_path = filePath, errorCode = $pres.error,
+            errorMsg = ioErrorMsg(pres.error)
+      false
+    else:
+      let insecurePermissions = pres.get() * mask
+      if insecurePermissions != {}:
+        error "File has insecure permissions",
+              key_path = filePath,
+              insecure_permissions = $insecurePermissions,
+              current_permissions = pres.get().toString(),
+              required_permissions = allowedMask.toString()
+        false
+      else:
+        true
 
 proc loadKeystore(validatorsDir, secretsDir, keyName: string,
                   nonInteractive: bool): Option[ValidatorPrivKey] =
@@ -92,12 +131,17 @@ proc loadKeystore(validatorsDir, secretsDir, keyName: string,
 
   let passphrasePath = secretsDir / keyName
   if fileExists(passphrasePath):
-    let
-      passphrase = KeystorePass:
-        try: readFile(passphrasePath)
-        except IOError as err:
-          error "Failed to read passphrase file", err = err.msg, path = passphrasePath
-          return
+    if not(checkFilePermissions(passphrasePath)):
+      error "Password file has insecure permissions", key_path = keyStorePath
+      return
+
+    let passphrase = KeystorePass:
+      try:
+        readFile(passphrasePath)
+      except IOError as err:
+        error "Failed to read passphrase file", err = err.msg,
+              path = passphrasePath
+        return
 
     let res = decryptKeystore(keystore, passphrase)
     if res.isOk:
@@ -174,29 +218,11 @@ type
 
 proc loadNetKeystore*(keyStorePath: string,
                       insecurePwd: Option[string]): Option[lcrypto.PrivateKey] =
-  when defined(windows):
-    # Windows do not support per-user permissions, skiping verification part.
-    discard
-  else:
-    let allowedMask = {UserRead, UserWrite}
-    let mask = {UserExec,
-                GroupRead, GroupWrite, GroupExec,
-                OtherRead, OtherWrite, OtherExec}
-    let pres = getPermissionsSet(keyStorePath)
-    if pres.isErr():
-      error "Could not check key file permissions",
-            key_path = keyStorePath, errorCode = $pres.error,
-            errorMsg = ioErrorMsg(pres.error)
-      return
 
-    let insecurePermissions = pres.get() * mask
-    if insecurePermissions != {}:
-      error "Network key file has insecure permissions",
-            key_path = keyStorePath,
-            insecure_permissions = $insecurePermissions,
-            current_permissions = pres.get().toString(),
-            required_permissions = allowedMask.toString()
-      return
+  if not(checkFilePermissions(keystorePath)):
+    error "Network keystorage file has insecure permissions",
+          key_path = keyStorePath
+    return
 
   let keyStore =
     try:
@@ -313,18 +339,28 @@ proc saveKeystore(rng: var BrHmacDrbgContext,
                                 password, signingKeyPath)
       keystoreFile = validatorDir / keystoreFileName
 
-    try: createDir validatorDir
-    except OSError, IOError: return err FailedToCreateValidatorDir
+    var encodedStorage: string
+    try:
+      encodedStorage = Json.encode(keyStore)
+    except SerializationError:
+      error "Could not serialize keystorage", key_path = keystoreFile
+      return err(FailedToCreateKeystoreFile)
 
-    try: createDir secretsDir
-    except OSError, IOError: return err FailedToCreateSecretsDir
+    let vres = createPath(validatorDir, 0o750)
+    if vres.isErr():
+      return err(FailedToCreateValidatorDir)
 
-    try: writeFile(secretsDir / keyName, password.string)
-    except IOError: return err FailedToCreateSecretFile
+    let sres = createPath(secretsDir, 0o750)
+    if sres.isErr():
+      return err(FailedToCreateSecretsDir)
 
-    try: Json.saveFile(keystoreFile, keyStore)
-    except IOError, SerializationError:
-      return err FailedToCreateKeystoreFile
+    let swres = writeFile(secretsDir / keyName, string(password), 0o600)
+    if swres.isErr():
+      return err(FailedToCreateSecretFile)
+
+    let kwres = writeFile(keystoreFile, encodedStorage, 0o600)
+    if kwres.isErr():
+      return err(FailedToCreateKeystoreFile)
 
   ok()
 
@@ -359,19 +395,18 @@ proc generateDeposits*(preset: RuntimePreset,
   ok deposits
 
 proc saveWallet*(wallet: Wallet, outWalletPath: string): Result[void, string] =
-  try: createDir splitFile(outWalletPath).dir
-  except OSError, IOError:
-    let e = getCurrentException()
-    return err("failure to create wallet directory: " & e.msg)
-
-  try: Json.saveFile(outWalletPath, wallet, pretty = true)
-  except IOError as e:
-    return err("failure to write file: " & e.msg)
-  except SerializationError as e:
-    # TODO: Saving a wallet should not produce SerializationErrors.
-    # Investigate the source of this exception.
-    return err("failure to serialize wallet: " & e.formatMsg("wallet"))
-
+  let walletDir = splitFile(outWalletPath).dir
+  var encodedWallet: string
+  try:
+    encodedWallet = Json.encode(wallet, pretty = true)
+  except SerializationError:
+    return err("Could not serialize wallet")
+  let pres = createPath(walletDir, 0o750)
+  if pres.isErr():
+    return err("Could not create wallet directory [" & walletDir & "]")
+  let wres = writeFile(outWalletPath, encodedWallet, 0o600)
+  if wres.isErr():
+    return err("Could not write wallet to file [" & outWalletPath & "]")
   ok()
 
 proc saveWallet*(wallet: WalletPathPair): Result[void, string] =
@@ -424,14 +459,15 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
       if toLowerAscii(ext) != ".json":
         continue
 
-      let keystore = try:
-        Json.loadFile(file, Keystore)
-      except SerializationError as e:
-        warn "Invalid keystore", err = e.formatMsg(file)
-        continue
-      except IOError as e:
-        warn "Failed to read keystore file", file, err = e.msg
-        continue
+      let keystore =
+        try:
+          Json.loadFile(file, Keystore)
+        except SerializationError as e:
+          warn "Invalid keystore", err = e.formatMsg(file)
+          continue
+        except IOError as e:
+          warn "Failed to read keystore file", file, err = e.msg
+          continue
 
       var firstDecryptionAttempt = true
 
@@ -643,8 +679,10 @@ proc restoreWalletInteractively*(rng: var BrHmacDrbgContext,
 proc loadWallet*(fileName: string): Result[Wallet, string] =
   try:
     ok Json.loadFile(fileName, Wallet)
-  except CatchableError as e:
-    err e.msg
+  except IOError as exc:
+    err exc.msg
+  except SerializationError as exc:
+    err exc.msg
 
 proc unlockWalletInteractively*(wallet: Wallet): Result[Mnemonic, string] =
   echo "Please enter the password for unlocking the wallet"
@@ -666,7 +704,8 @@ proc unlockWalletInteractively*(wallet: Wallet): Result[Mnemonic, string] =
 
   return err "failure to unlock wallet"
 
-proc findWallet*(config: BeaconNodeConf, name: WalletName): Result[WalletPathPair, string] =
+proc findWallet*(config: BeaconNodeConf,
+                 name: WalletName): Result[WalletPathPair, string] =
   var walletFiles = newSeq[string]()
 
   try:
