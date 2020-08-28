@@ -172,43 +172,37 @@ const
 
 {.pop.} # the following pocedures raise more than just `Defect`
 
-proc getMetadataForNetwork*(eth2Network: Option[string]):
-                            Option[Eth2NetworkMetadata] =
-  if eth2Network.isSome:
-    let
-      networkName = eth2Network.get
-      metadata = case toLowerAscii(networkName)
-        of "mainnet":
-          mainnetMetadata
-        of "altona":
-          altonaMetadata
-        of "medalla":
-          medallaMetadata
-        of "testnet0":
-          testnet0Metadata
-        of "testnet1":
-          testnet1Metadata
-        else:
-          if fileExists(networkName):
-            try:
-              Json.loadFile(networkName, Eth2NetworkMetadata)
-            except SerializationError as err:
-              echo err.formatMsg(networkName)
-              quit 1
-          else:
-            fatal "Unrecognized network name", networkName
+proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
+  let
+    metadata = case toLowerAscii(networkName)
+      of "mainnet":
+        mainnetMetadata
+      of "altona":
+        altonaMetadata
+      of "medalla":
+        medallaMetadata
+      of "testnet0":
+        testnet0Metadata
+      of "testnet1":
+        testnet1Metadata
+      else:
+        if fileExists(networkName):
+          try:
+            Json.loadFile(networkName, Eth2NetworkMetadata)
+          except SerializationError as err:
+            echo err.formatMsg(networkName)
             quit 1
+        else:
+          fatal "Unrecognized network name", networkName
+          quit 1
 
-    if metadata.incompatible:
-      fatal "The selected network is not compatible with the current build",
-             reason = metadata.incompatibilityDesc
-      quit 1
-    return some metadata
+  if metadata.incompatible:
+    fatal "The selected network is not compatible with the current build",
+            reason = metadata.incompatibilityDesc
+    quit 1
+  return metadata
 
-proc getRuntimePresetForNetwork*(eth2Network: Option[string]):
-                                 RuntimePreset =
-  let metadata = getMetadataForNetwork(eth2Network)
-  return if metadata.isSome:
-    metadata.get.runtimePreset
-  else:
-    defaultRuntimePreset
+proc getRuntimePresetForNetwork*(eth2Network: Option[string]): RuntimePreset =
+  if eth2Network.isSome:
+    return getMetadataForNetwork(eth2Network.get).runtimePreset
+  return defaultRuntimePreset

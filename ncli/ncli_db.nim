@@ -33,7 +33,7 @@ type
         name: "db" }: InputDir
 
     eth2Network* {.
-      desc: "The Eth2 network to join"
+      desc: "The Eth2 network preset to use"
       name: "network" }: Option[string]
 
     runtimePreset* {.hidden.}: RuntimePreset

@@ -36,7 +36,7 @@ type
       name: "ask-for-key" }: bool
 
     eth2Network* {.
-      desc: "The Eth2 network to join"
+      desc: "The Eth2 network preset to use"
       name: "network" }: Option[string]
 
     case cmd* {.command.}: StartUpCommand

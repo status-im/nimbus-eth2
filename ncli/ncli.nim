@@ -13,6 +13,11 @@ type
     transition = "Run state transition function"
 
   NcliConf* = object
+
+    eth2Network* {.
+      desc: "The Eth2 network preset to use"
+      name: "network" }: Option[string]
+
     # TODO confutils argument pragma doesn't seem to do much; also, the cases
     # are largely equivalent, but this helps create command line usage text
     case cmd* {.command}: Cmd
@@ -51,10 +56,6 @@ type
         argument
         desc: "Verify state root (default true)"
         defaultValue: true}: bool
-
-      eth2Network* {.
-        desc: "The Eth2 network to join"
-        name: "network" }: Option[string]
 
 proc doTransition(conf: NcliConf) =
   let

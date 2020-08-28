@@ -1037,17 +1037,16 @@ programMain:
 
   setupLogging(config.logLevel, config.logFile)
 
-  let metadata = getMetadataForNetwork(config.eth2Network)
-
-  if metadata.isSome:
-    config.runtimePreset = metadata.get.runtimePreset
+  if config.eth2Network.isSome:
+    let metadata = getMetadataForNetwork(config.eth2Network.get)
+    config.runtimePreset = metadata.runtimePreset
 
     if config.cmd == noCommand:
-      for node in metadata.get.bootstrapNodes:
+      for node in metadata.bootstrapNodes:
         config.bootstrapNodes.add node
 
-      if config.stateSnapshot.isNone and metadata.get.genesisData.len > 0:
-        stateSnapshotContents = newClone metadata.get.genesisData
+      if config.stateSnapshot.isNone and metadata.genesisData.len > 0:
+        stateSnapshotContents = newClone metadata.genesisData
 
     template checkForIncompatibleOption(flagName, fieldName) =
       # TODO: This will have to be reworked slightly when we introduce config files.
@@ -1062,8 +1061,8 @@ programMain:
     checkForIncompatibleOption "deposit-contract", depositContractAddress
     checkForIncompatibleOption "deposit-contract-block", depositContractDeployedAt
 
-    config.depositContractAddress = some metadata.get.depositContractAddress
-    config.depositContractDeployedAt = some metadata.get.depositContractDeployedAt
+    config.depositContractAddress = some metadata.depositContractAddress
+    config.depositContractDeployedAt = some metadata.depositContractDeployedAt
   else:
     config.runtimePreset = defaultRuntimePreset
 
