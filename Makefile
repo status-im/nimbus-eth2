@@ -117,6 +117,10 @@ ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
 endif
 
+clean-cross:
+	+ [[ -e vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc ]] && $(MAKE) -C vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc clean $(HANDLE_OUTPUT) || true
+	+ [[ -e vendor/nim-nat-traversal/vendor/libnatpmp ]] && $(MAKE) -C vendor/nim-nat-traversal/vendor/libnatpmp clean $(HANDLE_OUTPUT) || true
+
 #- deletes and recreates "beacon_chain.nims" which on Windows is a copy instead of a proper symlink
 update: | update-common
 	rm -f beacon_chain.nims && \
