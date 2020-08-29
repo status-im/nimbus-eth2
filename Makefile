@@ -77,10 +77,15 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
+#
+# The `git reset ...` will try to fix a `make update` that was interrupted
+# with Ctrl+C after deleting the working copy and before getting a chance to
+# restore it in $(BUILD_SYSTEM_DIR).
 GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 .DEFAULT:
 	+@ echo -e "Git submodules not found. Running '$(GIT_SUBMODULE_UPDATE)'.\n"; \
 		$(GIT_SUBMODULE_UPDATE) && \
+		git submodule foreach --quiet 'git reset --quiet --hard' && \
 		echo
 # Now that the included *.mk files appeared, and are newer than this file, Make will restart itself:
 # https://www.gnu.org/software/make/manual/make.html#Remaking-Makefiles
