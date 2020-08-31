@@ -152,7 +152,7 @@ proc addAttestation*(pool: var AttestationPool,
           attestation.data.slot, participants, attestation.data.beacon_block_root,
           wallSlot)
 
-        info "Attestation resolved",
+        debug "Attestation resolved",
           attestation = shortLog(attestation),
           validations = a.validations.len()
 
@@ -169,7 +169,7 @@ proc addAttestation*(pool: var AttestationPool,
       attestation.data.slot, participants, attestation.data.beacon_block_root,
       wallSlot)
 
-    info "Attestation resolved",
+    debug "Attestation resolved",
       attestation = shortLog(attestation),
       validations = 1
 
