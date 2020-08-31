@@ -263,10 +263,9 @@ proc copyPrunedDatabase*(
       if slot mod SLOTS_PER_EPOCH != 0 or slot.epoch < finalizedEpoch:
         continue
 
-      # Could even only ever copy these states, head and finalized
+      # Could also only copy these states, head and finalized, plus tail state
       let stateRequired = slot.epoch in [finalizedEpoch, headEpoch]
 
-      # only do this for slot or etc of tailblock or on-or-after finalizedRoot of headBlock
       let sr = db.getStateRoot(signedBlock.root, slot)
       if sr.isErr:
         if stateRequired:
