@@ -4,7 +4,7 @@ import
   typetraits, stew/[results, objects, endians2],
   serialization, chronicles, snappy,
   eth/db/kvstore,
-  ./spec/[datatypes, digest, crypto, state_transition],
+  ./spec/[datatypes, digest, crypto, helpers, state_transition],
   ./ssz/[ssz_serialization, merkleization]
 
 type
@@ -224,3 +224,72 @@ iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
     res.root = root
     yield res
     root = res.message.parent_root
+
+proc copyPrunedDatabase*(
+    db: BeaconChainDB, copyDb: BeaconChainDB, dry_run, verbose: bool) =
+  ## Create a pruned copy of the beacon chain database
+
+  let
+    headBlock = db.getHeadBlock()
+    tailBlock = db.getTailBlock()
+
+  doAssert headBlock.isOk and tailBlock.isOk
+  doAssert db.getBlock(headBlock.get).isOk
+  doAssert db.getBlock(tailBlock.get).isOk
+
+  var
+    beaconState: ref BeaconState
+    finalizedEpoch: Epoch  # default value of 0 is conservative/safe
+    prevBlockSlot = db.getBlock(db.getHeadBlock().get).get.message.slot
+
+  beaconState = new BeaconState
+  let headEpoch = db.getBlock(headBlock.get).get.message.slot.epoch
+
+  # Tail states are specially addressed; no stateroot intermediary
+  if not db.getState(
+      db.getBlock(tailBlock.get).get.message.state_root, beaconState[],
+      noRollback):
+    doAssert false, "could not load tail state"
+  if not dry_run:
+    copyDb.putState(beaconState[])
+
+  for signedBlock in getAncestors(db, headBlock.get):
+    if not dry_run:
+      copyDb.putBlock(signedBlock)
+    if verbose:
+      echo "copied block at slot ", signedBlock.message.slot
+
+    for slot in countdown(prevBlockSlot, signedBlock.message.slot + 1):
+      if slot mod SLOTS_PER_EPOCH != 0 or slot.epoch < finalizedEpoch:
+        continue
+
+      # Could even only ever copy these states, head and finalized
+      let stateRequired = slot.epoch in [finalizedEpoch, headEpoch]
+
+      # only do this for slot or etc of tailblock or on-or-after finalizedRoot of headBlock
+      let sr = db.getStateRoot(signedBlock.root, slot)
+      if sr.isErr:
+        if stateRequired:
+          doAssert false, "state root and state required"
+        continue
+
+      if not db.getState(sr.get, beaconState[], noRollback):
+        # Don't copy dangling stateroot pointers
+        if stateRequired:
+          doAssert false, "state root and state required"
+        continue
+
+      finalizedEpoch = max(
+        finalizedEpoch, beaconState.finalized_checkpoint.epoch)
+
+      if not dry_run:
+        copyDb.putStateRoot(signedBlock.root, slot, sr.get)
+        copyDb.putState(beaconState[])
+      if verbose:
+        echo "copied state at slot ", slot, " from block at ", shortLog(signedBlock.message.slot)
+
+    prevBlockSlot = signedBlock.message.slot
+
+  if not dry_run:
+    copyDb.putHeadBlock(headBlock.get)
+    copyDb.putTailBlock(tailBlock.get)

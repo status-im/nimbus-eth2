@@ -22,6 +22,7 @@ type
     bench
     dumpState
     dumpBlock
+    pruneDatabase
     rewindState
 
   # TODO:
@@ -58,6 +59,14 @@ type
       blockRootx* {.
         argument
         desc: "Block roots to save".}: seq[string]
+
+    of pruneDatabase:
+      dryRun* {.
+        defaultValue: false
+        desc: "Don't write to the database copy; only simulate actions; default false".}: bool
+      verbose* {.
+        defaultValue: false
+        desc: "Enables verbose output; default false".}: bool
 
     of rewindState:
       blockRoot* {.
@@ -157,6 +166,15 @@ proc cmdDumpBlock(conf: DbConf) =
     except CatchableError as e:
       echo "Couldn't load ", blockRoot, ": ", e.msg
 
+proc cmdPrune(conf: DbConf) =
+  let
+    db = BeaconChainDB.init(
+      kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
+    copyDb = BeaconChainDB.init(
+      kvStore SqStoreRef.init(conf.databaseDir.string, "nbc_pruned").tryGet())
+
+  db.copyPrunedDatabase(copyDb, conf.dryRun, conf.verbose)
+
 proc cmdRewindState(conf: DbConf, runtimePreset: RuntimePreset) =
   echo "Opening database..."
   let
@@ -191,5 +209,7 @@ when isMainModule:
     cmdDumpState(conf)
   of dumpBlock:
     cmdDumpBlock(conf)
+  of pruneDatabase:
+    cmdPrune(conf)
   of rewindState:
     cmdRewindState(conf, runtimePreset)
