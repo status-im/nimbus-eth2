@@ -17,7 +17,7 @@ import
   ../spec/[
     crypto, datatypes, digest, helpers, validator, state_transition,
     beaconstate],
-  block_pools_types
+  block_pools_types, quarantine
 
 export block_pools_types
 
@@ -691,7 +691,8 @@ proc delState(dag: ChainDAGRef, bs: BlockSlot) =
     dag.db.delState(root.get())
     dag.db.delStateRoot(bs.blck.root, bs.slot)
 
-proc updateHead*(dag: ChainDAGRef, newHead: BlockRef) =
+proc updateHead*(
+    dag: ChainDAGRef, newHead: BlockRef, quarantine: var QuarantineRef) =
   ## Update what we consider to be the current head, as given by the fork
   ## choice.
   ## The choice of head affects the choice of finalization point - the order
@@ -738,6 +739,7 @@ proc updateHead*(dag: ChainDAGRef, newHead: BlockRef) =
       finalized = shortLog(dag.headState.data.data.finalized_checkpoint)
 
     # A reasonable criterion for "reorganizations of the chain"
+    quarantine.clearQuarantine()
     beacon_reorgs_total.inc()
   else:
     info "Updated head block",

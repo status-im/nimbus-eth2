@@ -72,7 +72,7 @@ proc updateHead*(self: var Eth2Processor, wallSlot: Slot): BlockRef =
   # justified and finalized
   let oldFinalized = self.chainDag.finalizedHead.blck
 
-  self.chainDag.updateHead(newHead)
+  self.chainDag.updateHead(newHead, self.quarantine)
   beacon_head_root.set newHead.root.toGaugeValue
 
   # Cleanup the fork choice v2 if we have a finalized head

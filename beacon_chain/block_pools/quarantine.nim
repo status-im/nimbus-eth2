@@ -46,10 +46,47 @@ func addMissing*(quarantine: var QuarantineRef, root: Eth2Digest) =
     # If the block is in orphans, we no longer need it
     discard quarantine.missing.hasKeyOrPut(root, MissingBlock())
 
+func removeOldBlocks(quarantine: var QuarantineRef, dag: ChainDAGRef) =
+  var oldBlocks: seq[Eth2Digest]
+
+  for k, v in quarantine.orphans.pairs():
+    if v.message.slot <= dag.finalizedHead.slot:
+      oldBlocks.add k
+
+  for k in oldBlocks:
+    quarantine.orphans.del k
+
+func clearQuarantine*(quarantine: var QuarantineRef) =
+  quarantine.orphans.clear()
+  quarantine.missing.clear()
+
 func add*(quarantine: var QuarantineRef, dag: ChainDAGRef,
-          signedBlock: SignedBeaconBlock) =
+          signedBlock: SignedBeaconBlock): bool =
   ## Adds block to quarantine's `orphans` and `missing` lists.
+
+  # Typically, blocks will arrive in mostly topological order, with some
+  # out-of-order block pairs. Therefore, it is unhelpful to use either a
+  # FIFO or LIFO discpline, and since by definition each block gets used
+  # either 0 or 1 times it's not a cache either. Instead, stop accepting
+  # new blocks, and rely on syncing to cache up again if necessary. When
+  # using forward sync, blocks only arrive in an order not requiring the
+  # quarantine.
+  #
+  # For typical use cases, this need not be large, as they're two or three
+  # blocks arriving out of order due to variable network delays. As blocks
+  # for future slots are rejected before reaching quarantine, this usually
+  # will be a block for the last couple of slots for which the parent is a
+  # likely imminent arrival.
+  const MAX_QUARANTINE_ORPHANS = 10
+
+  quarantine.removeOldBlocks(dag)
+
+  if quarantine.orphans.len >= MAX_QUARANTINE_ORPHANS:
+    return false
+
   quarantine.orphans[signedBlock.root] = signedBlock
   quarantine.missing.del(signedBlock.root)
 
   quarantine.addMissing(signedBlock.message.parent_root)
+
+  true

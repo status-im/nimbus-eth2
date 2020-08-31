@@ -348,7 +348,7 @@ suiteReport "Attestation pool processing" & preset():
 
         let head = pool[].selectHead(blockRef[].slot)
         doassert: head == blockRef[]
-        chainDag.updateHead(head)
+        chainDag.updateHead(head, quarantine)
 
         attestations.setlen(0)
         for index in 0'u64 ..< committees_per_slot:
@@ -417,7 +417,7 @@ suiteReport "Attestation validation " & preset():
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
       check: added.isOk()
-      chainDag.updateHead(added[])
+      chainDag.updateHead(added[], quarantine)
 
     var
       # Create an attestation for slot 1!
