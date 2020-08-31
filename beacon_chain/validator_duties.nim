@@ -152,7 +152,7 @@ proc createAndSendAttestation(node: BeaconNode,
   if node.config.dumpEnabled:
     dump(node.config.dumpDirOutgoing, attestation.data, validator.pubKey)
 
-  info "Attestation sent",
+  notice "Attestation sent",
     attestation = shortLog(attestation),
     validator = shortLog(validator),
     indexInCommittee = indexInCommittee
@@ -249,7 +249,7 @@ proc proposeSignedBlock*(node: BeaconNode,
 
     return head
 
-  info "Block proposed",
+  notice "Block proposed",
     blck = shortLog(newBlock.message),
     blockRoot = shortLog(newBlockRef[].root),
     validator = shortLog(validator)
