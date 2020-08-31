@@ -60,6 +60,7 @@ func loadLEBytes(WordType: type, bytes: openarray[byte]): WordType =
     shift += 8
 
 func storeLEBytes(value: SomeUnsignedInt, dst: var openarray[byte]) =
+  doAssert dst.len <= sizeof(value)
   when system.cpuEndian == bigEndian:
     var shift = 0
     for i in 0 ..< dst.len:
