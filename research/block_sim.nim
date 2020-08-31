@@ -142,7 +142,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         attPool.addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
       blck() = added[]
-      chainDag.updateHead(added[])
+      chainDag.updateHead(added[], quarantine)
 
   for i in 0..<slots:
     let

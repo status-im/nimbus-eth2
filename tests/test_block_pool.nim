@@ -173,7 +173,7 @@ suiteReport "Block pool processing" & preset():
     check:
       b4Add[].parent == b2Add[]
 
-    dag.updateHead(b4Add[])
+    dag.updateHead(b4Add[], quarantine)
 
     var blocks: array[3, BlockRef]
 
@@ -225,7 +225,7 @@ suiteReport "Block pool processing" & preset():
 
       b2Get.get().refs.parent == b1Get.get().refs
 
-    dag.updateHead(b2Get.get().refs)
+    dag.updateHead(b2Get.get().refs, quarantine)
 
     # The heads structure should have been updated to contain only the new
     # b2 head
@@ -258,7 +258,7 @@ suiteReport "Block pool processing" & preset():
     let
       b1Add = dag.addRawBlock(quarantine, b1, nil)
 
-    dag.updateHead(b1Add[])
+    dag.updateHead(b1Add[], quarantine)
 
     check:
       dag.head == b1Add[]
@@ -349,7 +349,7 @@ suiteReport "chain DAG finalization tests" & preset():
           tmpState[].data, dag.head.root, tmpState[].data.slot, cache, {}))
       let added = dag.addRawBlock(quarantine, blck, nil)
       check: added.isOk()
-      dag.updateHead(added[])
+      dag.updateHead(added[], quarantine)
 
     check:
       dag.heads.len() == 1
@@ -407,7 +407,7 @@ suiteReport "chain DAG finalization tests" & preset():
         dag.headState.data, dag.head.root, cache)
       let added = dag.addRawBlock(quarantine, blck, nil)
       check: added.isOk()
-      dag.updateHead(added[])
+      dag.updateHead(added[], quarantine)
 
     check:
       dag.heads.len() == 1
@@ -443,7 +443,7 @@ suiteReport "chain DAG finalization tests" & preset():
         true):
       let added = dag.addRawBlock(quarantine, blck, nil)
       check: added.isOk()
-      dag.updateHead(added[])
+      dag.updateHead(added[], quarantine)
 
     # Advance past epoch so that the epoch transition is gapped
     check:
@@ -458,7 +458,7 @@ suiteReport "chain DAG finalization tests" & preset():
 
     let added = dag.addRawBlock(quarantine, blck, nil)
     check: added.isOk()
-    dag.updateHead(added[])
+    dag.updateHead(added[], quarantine)
 
     let
       dag2 = init(ChainDAGRef, defaultRuntimePreset, db)
