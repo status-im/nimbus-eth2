@@ -195,6 +195,22 @@ medalla: | beacon_node
 		--data-dir=build/data/shared_medalla_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
+medalla-fast-sync: | beacon_node
+	mkdir -p build/data/shared_medalla_$(NODE_ID)
+
+	scripts/make_prometheus_config.sh \
+		--nodes 1 \
+		--base-metrics-port $$(($(BASE_METRICS_PORT) + $(NODE_ID))) \
+		--config-file "build/data/shared_medalla_$(NODE_ID)/prometheus.yml"
+
+	$(CPU_LIMIT_CMD) build/beacon_node \
+		--network=medalla \
+		--log-level="$(LOG_LEVEL)" \
+		--log-file=build/data/shared_medalla_$(NODE_ID)/nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
+		--data-dir=build/data/shared_medalla_$(NODE_ID) \
+		--state-snapshot=vendor/eth2-testnets/shared/medalla/recent-state.ssz \
+		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
+
 medalla-vc: | beacon_node validator_client
 	# if launching a VC as well - send the BN looking nowhere for validators/secrets
 	mkdir -p build/data/shared_medalla_$(NODE_ID)/empty_dummy_folder
