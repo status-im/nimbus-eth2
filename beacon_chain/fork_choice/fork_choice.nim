@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[sequtils, sets, tables, typetraits],
+  std/[sequtils, sets, tables],
   # Status libraries
   stew/results, chronicles,
   # Internal
