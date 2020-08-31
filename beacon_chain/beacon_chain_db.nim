@@ -226,7 +226,8 @@ iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
     root = res.message.parent_root
 
 proc copyPrunedDatabase*(
-    db: BeaconChainDB, copyDb: BeaconChainDB, dry_run, verbose: bool) =
+    db: BeaconChainDB, copyDb: BeaconChainDB,
+    dryRun, verbose, keepOldStates: bool) =
   ## Create a pruned copy of the beacon chain database
 
   let
@@ -260,7 +261,8 @@ proc copyPrunedDatabase*(
       echo "copied block at slot ", signedBlock.message.slot
 
     for slot in countdown(prevBlockSlot, signedBlock.message.slot + 1):
-      if slot mod SLOTS_PER_EPOCH != 0 or slot.epoch < finalizedEpoch:
+      if slot mod SLOTS_PER_EPOCH != 0 or
+          ((not keepOldStates) and slot.epoch < finalizedEpoch):
         continue
 
       # Could also only copy these states, head and finalized, plus tail state

@@ -64,6 +64,9 @@ type
       dryRun* {.
         defaultValue: false
         desc: "Don't write to the database copy; only simulate actions; default false".}: bool
+      keepOldStates* {.
+        defaultValue: true
+        desc: "Keep pre-finalization states; default true".}: bool
       verbose* {.
         defaultValue: false
         desc: "Enables verbose output; default false".}: bool
@@ -173,7 +176,7 @@ proc cmdPrune(conf: DbConf) =
     copyDb = BeaconChainDB.init(
       kvStore SqStoreRef.init(conf.databaseDir.string, "nbc_pruned").tryGet())
 
-  db.copyPrunedDatabase(copyDb, conf.dryRun, conf.verbose)
+  db.copyPrunedDatabase(copyDb, conf.dryRun, conf.verbose, conf.keepOldStates)
 
 proc cmdRewindState(conf: DbConf, runtimePreset: RuntimePreset) =
   echo "Opening database..."
