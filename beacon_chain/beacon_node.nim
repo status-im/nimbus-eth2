@@ -422,16 +422,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
     finalizedEpoch = shortLog(finalizedEpoch)
 
   # Check before any re-scheduling of onSlotStart()
-  # Offset backwards slightly to allow this epoch's finalization check to occur
-  if scheduledSlot > 3 and node.config.stopAtEpoch > 0'u64 and
-      (scheduledSlot - 3).compute_epoch_at_slot() >= node.config.stopAtEpoch:
-    info "Stopping at pre-chosen epoch",
-      chosenEpoch = node.config.stopAtEpoch,
-      epoch = scheduledSlot.compute_epoch_at_slot(),
-      slot = scheduledSlot
-
-    # Brute-force, but ensure it's reliable enough to run in CI.
-    quit(0)
+  checkIfShouldStopAtEpoch(scheduledSlot, node.config.stopAtEpoch)
 
   if not wallSlot.afterGenesis or (wallSlot.slot < lastSlot):
     let

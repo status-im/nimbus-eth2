@@ -117,6 +117,9 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
     beaconTime = shortLog(beaconTime),
     portBN = vc.config.rpcPort
 
+  # Check before any re-scheduling of onSlotStart()
+  checkIfShouldStopAtEpoch(scheduledSlot, vc.config.stopAtEpoch)
+
   try:
     # at the start of each epoch - request all validator duties
     # TODO perhaps call this not on the first slot of each Epoch but perhaps

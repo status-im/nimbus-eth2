@@ -366,6 +366,11 @@ type
               "You can use a 0x-prefixed hex encoded string to specify raw bytes."
         name: "graffiti" }: Option[GraffitiBytes]
 
+      stopAtEpoch* {.
+        defaultValue: 0
+        desc: "A positive epoch selects the epoch at which to stop"
+        name: "stop-at-epoch" }: uint64
+
       rpcPort* {.
         defaultValue: defaultEth2RpcPort
         desc: "HTTP port of the server to connect to for RPC"
