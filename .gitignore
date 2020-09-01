@@ -40,3 +40,7 @@ build/
 /data
 # Grafana dashboards
 /docker/*.json
+
+# generated during Nim compilation
+beacon_chain/sync_protocol.nim.generated.nim
+
