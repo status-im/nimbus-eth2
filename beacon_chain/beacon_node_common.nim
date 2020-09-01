@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  tables,
+  tables, osproc,
 
   # Nimble packages
   chronos, json_rpc/rpcserver, metrics,
@@ -46,6 +46,7 @@ type
     mainchainMonitor*: MainchainMonitor
     beaconClock*: BeaconClock
     rpcServer*: RpcServer
+    vcProcess*: Process
     forkDigest*: ForkDigest
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerID]

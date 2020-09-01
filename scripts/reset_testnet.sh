@@ -66,7 +66,7 @@ if [ "$ETH1_PRIVATE_KEY" != "" ]; then
 fi
 
 echo "Building a local beacon_node instance for 'deposits create' and 'createTestnet'"
-make -j2 NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node process_dashboard
+make -j2 NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" beacon_node signing_process process_dashboard
 
 echo "Generating Grafana dashboards for remote testnet servers"
 for testnet in 0 1; do

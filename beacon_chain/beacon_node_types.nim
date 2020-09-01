@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  deques, tables,
+  deques, tables, streams,
   stew/endians2,
   spec/[datatypes, crypto],
   block_pools/block_pools_types,
@@ -74,6 +74,9 @@ type
     remote
 
   ValidatorConnection* = object
+    inStream*: Stream
+    outStream*: Stream
+    pubKeyStr*: string
 
   AttachedValidator* = ref object
     pubKey*: ValidatorPubKey

@@ -106,7 +106,7 @@ if [[ "$USE_PROMETHEUS" == "yes" ]]; then
   fi
 fi
 
-$MAKE -j2 --no-print-directory NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node validator_client
+$MAKE -j2 --no-print-directory NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node signing_process validator_client
 
 EXISTING_VALIDATORS=0
 if [[ -f "$DEPOSITS_FILE" ]]; then
