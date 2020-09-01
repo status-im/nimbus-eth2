@@ -16,7 +16,7 @@ import
   chronicles, chronicles/helpers as chroniclesHelpers,
 
   # Local modules
-  spec/[datatypes, crypto], eth2_network, time
+  spec/[datatypes, crypto, helpers], eth2_network, time
 
 proc setupLogging*(logLevel: string, logFile: Option[OutFile]) =
   when compiles(defaultChroniclesStream.output.writer):
@@ -88,3 +88,15 @@ proc sleepToSlotOffset*(clock: BeaconClock, extra: chronos.Duration,
     await sleepAsync(fromNow.offset)
     return true
   return false
+
+proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot, stopAtEpoch: uint64) =
+  # Offset backwards slightly to allow this epoch's finalization check to occur
+  if scheduledSlot > 3 and stopAtEpoch > 0'u64 and
+      (scheduledSlot - 3).compute_epoch_at_slot() >= stopAtEpoch:
+    info "Stopping at pre-chosen epoch",
+      chosenEpoch = stopAtEpoch,
+      epoch = scheduledSlot.compute_epoch_at_slot(),
+      slot = scheduledSlot
+
+    # Brute-force, but ensure it's reliable enough to run in CI.
+    quit(0)

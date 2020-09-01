@@ -32,35 +32,41 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="hgt:n:d:"
-LONGOPTS="help,testnet:,nodes:,data-dir:,disable-htop,enable-logtrace,log-level:,base-port:,base-metrics-port:,with-ganache,reuse-existing-data-dir"
+LONGOPTS="help,testnet:,nodes:,data-dir:,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rpc-port:,base-metrics-port:,with-ganache,reuse-existing-data-dir"
 
 # default values
 TESTNET="1"
 NUM_NODES="10"
 DATA_DIR="local_testnet_data"
 USE_HTOP="1"
+USE_VC="1"
 USE_GANACHE="0"
 LOG_LEVEL="DEBUG"
 BASE_PORT="9000"
 BASE_METRICS_PORT="8008"
+BASE_RPC_PORT="7000"
 REUSE_EXISTING_DATA_DIR="0"
 ENABLE_LOGTRACE="0"
+STOP_AT_EPOCH_FLAG=""
 
 print_help() {
   cat <<EOF
 Usage: $(basename "$0") --testnet <testnet number> [OTHER OPTIONS] -- [BEACON NODE OPTIONS]
-E.g.: $(basename "$0") --testnet ${TESTNET} --nodes ${NUM_NODES} --data-dir "${DATA_DIR}" # defaults
-CI run: $(basename "$0") --disable-htop -- --verify-finalization --stop-at-epoch=5
+E.g.: $(basename "$0") --testnet ${TESTNET} --nodes ${NUM_NODES} --stop-at-epoch 5 --data-dir "${DATA_DIR}" # defaults
+CI run: $(basename "$0") --disable-htop -- --verify-finalization
 
   -h, --help                  this help message
   -t, --testnet               testnet number (default: ${TESTNET})
   -n, --nodes                 number of nodes to launch (default: ${NUM_NODES})
   -g, --with-ganache          simulate a genesis event based on a deposit contract
+  -s, --stop-at-epoch         stop simulation at epoch (default: infinite)
   -d, --data-dir              directory where all the node data and logs will end up
                               (default: "${DATA_DIR}")
   --base-port                 bootstrap node's Eth2 traffic port (default: ${BASE_PORT})
+  --base-rpc-port             bootstrap node's RPC port (default: ${BASE_RPC_PORT})
   --base-metrics-port         bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
   --disable-htop              don't use "htop" to see the beacon_node processes
+  --disable-vc                don't use validator client binaries for validators (by default validators are split 50/50 between beacon nodes and validator clients)
   --enable-logtrace           display logtrace asr analysis
   --log-level                 set the log level (default: ${LOG_LEVEL})
   --reuse-existing-data-dir   instead of deleting and recreating the data dir, keep it and reuse everything we can from it
@@ -85,6 +91,10 @@ while true; do
       TESTNET="$2"
       shift 2
       ;;
+    -n|--stop-at-epoch)
+      STOP_AT_EPOCH_FLAG="--stop-at-epoch=$2"
+      shift 2
+      ;;
     -n|--nodes)
       NUM_NODES="$2"
       shift 2
@@ -97,6 +107,10 @@ while true; do
       USE_HTOP="0"
       shift
       ;;
+    --disable-vc)
+      USE_VC="0"
+      shift
+      ;;
     -g|--with-ganache)
       USE_GANACHE="1"
       shift
@@ -107,6 +121,10 @@ while true; do
       ;;
     --base-port)
       BASE_PORT="$2"
+      shift 2
+      ;;
+    --base-rpc-port)
+      BASE_RPC_PORT="$2"
       shift 2
       ;;
     --base-metrics-port)
@@ -166,7 +184,7 @@ else
 fi
 
 NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh "${NETWORK}")
-$MAKE -j2 LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:insecure -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" beacon_node deposit_contract
+$MAKE -j2 LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:insecure -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" beacon_node validator_client deposit_contract
 if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
   $MAKE LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:insecure -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" logtrace
 fi
@@ -178,6 +196,7 @@ BOOTSTRAP_TIMEOUT=30 # in seconds
 DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
 DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
 NETWORK_METADATA_FILE="${DATA_DIR}/network.json"
+NUM_JOBS=${NUM_NODES}
 
 if [[ "$REUSE_EXISTING_DATA_DIR" == "0" ]]; then
   ./build/deposit_contract generateSimulationDeposits \
@@ -257,8 +276,10 @@ EOF
 # "pkill" command.
 cleanup() {
   pkill -P $$ beacon_node &>/dev/null || true
+  pkill -P $$ validator_client &>/dev/null || true
   sleep 2
   pkill -9 -P $$ beacon_node &>/dev/null || true
+  pkill -9 -P $$ validator_client &>/dev/null || true
 }
 trap 'cleanup' SIGINT SIGTERM EXIT
 
@@ -281,6 +302,15 @@ NODES_WITH_VALIDATORS=${NODES_WITH_VALIDATORS:-4}
 BOOTSTRAP_NODE=0
 SYSTEM_VALIDATORS=$(( TOTAL_VALIDATORS - USER_VALIDATORS ))
 VALIDATORS_PER_NODE=$(( SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS ))
+if [ "${USE_VC:-}" == "1" ]; then
+  # if using validator client binaries in addition to beacon nodes we will
+  # split the keys for this instance in half between the BN and the VC
+  # and the validators for the BNs will be from the first half of all validators
+  VALIDATORS_PER_NODE=$((VALIDATORS_PER_NODE / 2 ))
+  NUM_JOBS=$((NUM_JOBS * 2 ))
+fi
+VALIDATORS_PER_VALIDATOR=$(( (SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS) / 2 ))
+VALIDATOR_OFFSET=$((SYSTEM_VALIDATORS / 2))
 BOOTSTRAP_ENR="${DATA_DIR}/node${BOOTSTRAP_NODE}/beacon_node.enr"
 
 for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
@@ -309,6 +339,18 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   mkdir -p "${NODE_DATA_DIR}/secrets"
 
   if [[ $NUM_NODE -lt $NODES_WITH_VALIDATORS ]]; then
+    if [ "${USE_VC:-}" == "1" ]; then
+      VALIDATOR_DATA_DIR="${DATA_DIR}/validator${NUM_NODE}"
+      rm -rf "${VALIDATOR_DATA_DIR}"
+      mkdir -p "${VALIDATOR_DATA_DIR}/validators"
+      mkdir -p "${VALIDATOR_DATA_DIR}/secrets"
+
+      for VALIDATOR in $(ls "${VALIDATORS_DIR}" | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_VALIDATOR * $NUM_NODE) + 1 + $VALIDATOR_OFFSET )) | head -n $VALIDATORS_PER_VALIDATOR); do
+        cp -a "${VALIDATORS_DIR}/$VALIDATOR" "${VALIDATOR_DATA_DIR}/validators/"
+        cp -a "${SECRETS_DIR}/${VALIDATOR}" "${VALIDATOR_DATA_DIR}/secrets/"
+      done
+    fi
+
     for VALIDATOR in $(ls "${VALIDATORS_DIR}" | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
       cp -a "${VALIDATORS_DIR}/$VALIDATOR" "${NODE_DATA_DIR}/validators/"
       cp -a "${SECRETS_DIR}/${VALIDATOR}" "${NODE_DATA_DIR}/secrets/"
@@ -326,6 +368,10 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     ${BOOTSTRAP_ARG} \
     ${STATE_SNAPSHOT_ARG} \
     ${WEB3_ARG} \
+    ${STOP_AT_EPOCH_FLAG} \
+    --rpc \
+    --rpc-address="127.0.0.1" \
+    --rpc-port="$(( BASE_RPC_PORT + NUM_NODE ))" \
     --metrics \
     --metrics-address="127.0.0.1" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
@@ -337,13 +383,22 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   else
     PIDS="${PIDS},$!"
   fi
+
+  if [ "${USE_VC:-}" == "1" ]; then
+    ./build/validator_client \
+      --log-level="${LOG_LEVEL}" \
+      ${STOP_AT_EPOCH_FLAG} \
+      --data-dir="${VALIDATOR_DATA_DIR}" \
+      --rpc-port="$(( BASE_RPC_PORT + NUM_NODE ))" \
+      > "${DATA_DIR}/log_val${NUM_NODE}.txt" 2>&1 & PIDS="${PIDS},$!"
+  fi
 done
 
 # give the regular nodes time to crash
 sleep 5
 BG_JOBS="$(jobs | wc -l | tr -d ' ')"
-if [[ "$BG_JOBS" != "$NUM_NODES" ]]; then
-  echo "$((NUM_NODES - BG_JOBS)) beacon_node instance(s) exited early. Aborting."
+if [[ "$BG_JOBS" != "$NUM_JOBS" ]]; then
+  echo "$(( NUM_JOBS - BG_JOBS )) beacon_node/validator_client instance(s) exited early. Aborting."
   dump_logs
   dump_logtrace
   exit 1
