@@ -1038,35 +1038,7 @@ programMain:
   setupLogging(config.logLevel, config.logFile)
 
   if config.eth2Network.isSome:
-    let
-      networkName = config.eth2Network.get
-      metadata = case toLowerAscii(networkName)
-        of "mainnet":
-          mainnetMetadata
-        of "altona":
-          altonaMetadata
-        of "medalla":
-          medallaMetadata
-        of "testnet0":
-          testnet0Metadata
-        of "testnet1":
-          testnet1Metadata
-        else:
-          if fileExists(networkName):
-            try:
-              Json.loadFile(networkName, Eth2NetworkMetadata)
-            except SerializationError as err:
-              echo err.formatMsg(networkName)
-              quit 1
-          else:
-            fatal "Unrecognized network name", networkName
-            quit 1
-
-    if metadata.incompatible:
-      fatal "The selected network is not compatible with the current build",
-             reason = metadata.incompatibilityDesc
-      quit 1
-
+    let metadata = getMetadataForNetwork(config.eth2Network.get)
     config.runtimePreset = metadata.runtimePreset
 
     if config.cmd == noCommand:
@@ -1083,7 +1055,7 @@ programMain:
       # regular command-line options (that may conflict).
       if config.fieldName.isSome:
         fatal "Invalid CLI arguments specified. You must not specify '--network' and '" & flagName & "' at the same time",
-            networkParam = networkName, `flagName` = config.fieldName.get
+            networkParam = config.eth2Network.get, `flagName` = config.fieldName.get
         quit 1
 
     checkForIncompatibleOption "deposit-contract", depositContractAddress
@@ -1120,7 +1092,7 @@ programMain:
                  else: (waitFor getEth1BlockHash(config.web3Url, blockId("latest"))).asEth2Digest
     var
       initialState = initialize_beacon_state_from_eth1(
-        defaultRuntimePreset, eth1Hash, startTime, deposits, {skipBlsValidation})
+        config.runtimePreset, eth1Hash, startTime, deposits, {skipBlsValidation})
 
     # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
     initialState.genesis_time = startTime
@@ -1140,7 +1112,7 @@ programMain:
     if bootstrapFile.len > 0:
       let
         networkKeys = getPersistentNetKeys(rng[], config)
-        metadata = getPersistentNetMetadata(config)
+        netMetadata = getPersistentNetMetadata(config)
         bootstrapEnr = enr.Record.init(
           1, # sequence number
           networkKeys.seckey.asEthKey,
@@ -1148,7 +1120,7 @@ programMain:
           config.bootstrapPort,
           config.bootstrapPort,
           [toFieldPair("eth2", SSZ.encode(enrForkIdFromState initialState[])),
-           toFieldPair("attnets", SSZ.encode(metadata.attnets))])
+           toFieldPair("attnets", SSZ.encode(netMetadata.attnets))])
 
       writeFile(bootstrapFile, bootstrapEnr.tryGet().toURI)
       echo "Wrote ", bootstrapFile

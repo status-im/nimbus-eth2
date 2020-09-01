@@ -3,6 +3,7 @@ import
   stew/byteutils,
   ../beacon_chain/spec/[crypto, datatypes, digest, state_transition],
   ../beacon_chain/extras,
+  ../beacon_chain/network_metadata,
   ../beacon_chain/ssz/[merkleization, ssz_serialization]
 
 type
@@ -12,6 +13,11 @@ type
     transition = "Run state transition function"
 
   NcliConf* = object
+
+    eth2Network* {.
+      desc: "The Eth2 network preset to use"
+      name: "network" }: Option[string]
+
     # TODO confutils argument pragma doesn't seem to do much; also, the cases
     # are largely equivalent, but this helps create command line usage text
     case cmd* {.command}: Cmd
@@ -61,7 +67,8 @@ proc doTransition(conf: NcliConf) =
 
   stateY.root = hash_tree_root(stateY.data)
 
-  if not state_transition(defaultRuntimePreset, stateY[], blckX, flags, noRollback):
+  if not state_transition(getRuntimePresetForNetwork(conf.eth2Network),
+                          stateY[], blckX, flags, noRollback):
     error "State transition failed"
     quit 1
   else:

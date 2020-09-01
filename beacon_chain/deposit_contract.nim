@@ -1,6 +1,7 @@
 import
   os, sequtils, strutils, options, json, terminal, random,
   chronos, chronicles, confutils, stint, json_serialization,
+  ../beacon_chain/network_metadata,
   web3, web3/confutils_defs, eth/keys,
   spec/[datatypes, crypto, presets], ssz/merkleization, keystore_management
 
@@ -33,6 +34,10 @@ type
       defaultValue: false
       desc: "Ask for an Eth1 private key interactively"
       name: "ask-for-key" }: bool
+
+    eth2Network* {.
+      desc: "The Eth2 network preset to use"
+      name: "network" }: Option[string]
 
     case cmd* {.command.}: StartUpCommand
     of deploy:
@@ -171,7 +176,7 @@ proc main() {.async.} =
   if cfg.cmd == StartUpCommand.generateSimulationDeposits:
     let
       mnemonic = generateMnemonic(rng[])
-      runtimePreset = defaultRuntimePreset
+      runtimePreset = getRuntimePresetForNetwork(cfg.eth2Network)
 
     createDir(string cfg.outValidatorsDir)
     createDir(string cfg.outSecretsDir)
