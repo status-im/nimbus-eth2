@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  options, chronicles,
+  options, chronos, chronicles,
   ./spec/[
     beaconstate, datatypes, crypto, digest, helpers, network, validator,
     signatures],
@@ -32,13 +32,10 @@ func is_aggregator(state: BeaconState, slot: Slot, index: CommitteeIndex,
 
 proc aggregate_attestations*(
     pool: AttestationPool, state: BeaconState, index: CommitteeIndex,
-    validatorIndex: ValidatorIndex, privkey: ValidatorPrivKey,
-    cache: var StateCache):
-    Option[AggregateAndProof] =
+    validatorIndex: ValidatorIndex, slot_signature: ValidatorSig,
+    cache: var StateCache): Option[AggregateAndProof] =
   let
     slot = state.slot
-    slot_signature = get_slot_signature(
-      state.fork, state.genesis_validators_root, slot, privkey)
 
   doAssert validatorIndex in get_beacon_committee(state, slot, index, cache)
   doAssert index.uint64 < get_committee_count_per_slot(state, slot.epoch, cache)

@@ -204,6 +204,11 @@ type
         desc: "Listening address of the RPC server"
         name: "rpc-address" }: ValidIpAddress
 
+      inProcessValidators* {.
+        defaultValue: true # the use of the signing_process binary by default will be delayed until async I/O over stdin/stdout is developed for the child process.
+        desc: "Disable the push model (the beacon node tells a signing process with the private keys of the validators what to sign and when) and load the validators in the beacon node itself"
+        name: "in-process-validators" }: bool
+
       discv5Enabled* {.
         defaultValue: true
         desc: "Enable Discovery v5"
@@ -356,10 +361,24 @@ type
       desc: "Do not display interative prompts. Quit on missing configuration"
       name: "non-interactive" }: bool
 
+    validators* {.
+      required
+      desc: "Attach a validator by supplying a keystore path"
+      abbr: "v"
+      name: "validator" }: seq[ValidatorKeyPath]
+
+    validatorsDirFlag* {.
+      desc: "A directory containing validator keystores"
+      name: "validators-dir" }: Option[InputDir]
+
+    secretsDirFlag* {.
+      desc: "A directory containing validator keystore passwords"
+      name: "secrets-dir" }: Option[InputDir]
+
     case cmd* {.
       command
       defaultValue: VCNoCommand }: VCStartUpCmd
-
+    
     of VCNoCommand:
       graffiti* {.
         desc: "The graffiti value that will appear in proposed blocks. " &
@@ -373,27 +392,18 @@ type
 
       rpcPort* {.
         defaultValue: defaultEth2RpcPort
-        desc: "HTTP port of the server to connect to for RPC"
+        desc: "HTTP port of the server to connect to for RPC - for the validator duties in the pull model"
         name: "rpc-port" }: Port
 
       rpcAddress* {.
         defaultValue: defaultAdminListenAddress(config)
-        desc: "Address of the server to connect to for RPC"
+        desc: "Address of the server to connect to for RPC - for the validator duties in the pull model"
         name: "rpc-address" }: ValidIpAddress
-
-      validators* {.
-        required
-        desc: "Attach a validator by supplying a keystore path"
-        abbr: "v"
-        name: "validator" }: seq[ValidatorKeyPath]
-
-      validatorsDirFlag* {.
-        desc: "A directory containing validator keystores"
-        name: "validators-dir" }: Option[InputDir]
-
-      secretsDirFlag* {.
-        desc: "A directory containing validator keystore passwords"
-        name: "secrets-dir" }: Option[InputDir]
+      
+      retryDelay* {.
+        defaultValue: 10
+        desc: "Delay in seconds between retries after unsuccessful attempts to connect to a beacon node"
+        name: "retry-delay" }: int
 
 proc defaultDataDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
   let dataDir = when defined(windows):
@@ -451,7 +461,7 @@ func validatorsDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
 func secretsDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
   string conf.secretsDirFlag.get(InputDir(conf.dataDir / "secrets"))
 
-func walletsDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
+func walletsDir*(conf: BeaconNodeConf): string =
   if conf.walletsDirFlag.isSome:
     conf.walletsDirFlag.get.string
   else:

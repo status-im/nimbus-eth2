@@ -108,6 +108,9 @@ proc toRealPubKey(pubkey: ValidatorPubKey): Option[ValidatorPubKey] =
           none ValidatorPubKey
       return validatorKeyCache.mGetOrPut(pubkey.blob, maybeRealKey)
 
+# TODO this needs a massive comment explaining the reasoning along with every
+# seemingly ad-hoc place where it's called - one shouldn't have to git-blame
+# commits and PRs for information which ought to be inplace here in the code
 proc initPubKey*(pubkey: ValidatorPubKey): ValidatorPubKey =
   let key = toRealPubKey(pubkey)
   if key.isNone:

@@ -128,6 +128,9 @@ The following options are available:
      --rpc                     Enable the JSON-RPC server.
      --rpc-port                HTTP port for the JSON-RPC service.
      --rpc-address             Listening address of the RPC server.
+     --in-process-validators   Disable the push model (the beacon node tells a signing process with the private
+                               keys of the validators what to sign and when) and load the validators in the
+                               beacon node itself.
      --dump                    Write SSZ dumps of blocks, attestations and states to data dir.
 
 Available sub-commands:

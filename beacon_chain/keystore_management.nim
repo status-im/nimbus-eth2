@@ -22,8 +22,8 @@ type
     walletPath*: WalletPathPair
     mnemonic*: Mnemonic
 
-proc loadKeystore(conf: BeaconNodeConf|ValidatorClientConf,
-                  validatorsDir, keyName: string): Option[ValidatorPrivKey] =
+proc loadKeystore(validatorsDir, secretsDir, keyName: string,
+                  nonInteractive: bool): Option[ValidatorPrivKey] =
   let
     keystorePath = validatorsDir / keyName / keystoreFileName
     keystore =
@@ -35,7 +35,7 @@ proc loadKeystore(conf: BeaconNodeConf|ValidatorClientConf,
         error "Invalid keystore", err = err.formatMsg(keystorePath)
         return
 
-  let passphrasePath = conf.secretsDir / keyName
+  let passphrasePath = secretsDir / keyName
   if fileExists(passphrasePath):
     let
       passphrase = KeystorePass:
@@ -51,9 +51,9 @@ proc loadKeystore(conf: BeaconNodeConf|ValidatorClientConf,
       error "Failed to decrypt keystore", keystorePath, passphrasePath
       return
 
-  if conf.nonInteractive:
+  if nonInteractive:
     error "Unable to load validator key store. Please ensure matching passphrase exists in the secrets dir",
-      keyName, validatorsDir, secretsDir = conf.secretsDir
+      keyName, validatorsDir, secretsDir = secretsDir
     return
 
   var remainingAttempts = 3
@@ -72,6 +72,19 @@ proc loadKeystore(conf: BeaconNodeConf|ValidatorClientConf,
       prompt = "Keystore decryption failed. Please try again"
       dec remainingAttempts
 
+iterator validatorKeysFromDirs*(validatorsDir, secretsDir: string): ValidatorPrivKey =
+  try:
+    for kind, file in walkDir(validatorsDir):
+      if kind == pcDir:
+        let keyName = splitFile(file).name
+        let key = loadKeystore(validatorsDir, secretsDir, keyName, true)
+        if key.isSome:
+          yield key.get
+        else:
+          quit 1
+  except OSError:
+    quit 1
+
 iterator validatorKeys*(conf: BeaconNodeConf|ValidatorClientConf): ValidatorPrivKey =
   for validatorKeyFile in conf.validators:
     try:
@@ -86,7 +99,7 @@ iterator validatorKeys*(conf: BeaconNodeConf|ValidatorClientConf): ValidatorPriv
     for kind, file in walkDir(validatorsDir):
       if kind == pcDir:
         let keyName = splitFile(file).name
-        let key = loadKeystore(conf, validatorsDir, keyName)
+        let key = loadKeystore(validatorsDir, conf.secretsDir, keyName, conf.nonInteractive)
         if key.isSome:
           yield key.get
         else:

@@ -8,7 +8,7 @@
 import
   # Standard library
   std/[algorithm, os, tables, strutils, sequtils, times, math, terminal],
-  std/random,
+  std/[osproc, random],
 
   # Nimble packages
   stew/[objects, byteutils, endians2], stew/shims/macros,
@@ -277,7 +277,13 @@ proc init*(T: type BeaconNode,
   res.requestManager = RequestManager.init(
     network, res.processor.blocksQueue)
 
-  res.addLocalValidators()
+  if res.config.inProcessValidators:
+    res.addLocalValidators()
+  else:
+    res.vcProcess = startProcess(getAppDir() & "/signing_process".addFileExt(ExeExt),
+                                 getCurrentDir(), [$res.config.validatorsDir,
+                                                   $res.config.secretsDir])
+    res.addRemoteValidators()
 
   # This merely configures the BeaconSync
   # The traffic will be started when we join the network.
@@ -787,6 +793,8 @@ proc removeMessageHandlers(node: BeaconNode) =
 proc stop*(node: BeaconNode) =
   status = BeaconNodeStatus.Stopping
   info "Graceful shutdown"
+  if not node.config.inProcessValidators:
+    node.vcProcess.close()
   waitFor node.network.stop()
 
 proc run*(node: BeaconNode) =
