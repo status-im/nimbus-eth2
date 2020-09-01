@@ -45,7 +45,8 @@ TOOLS := \
 	process_dashboard \
 	stack_sizes \
 	state_sim \
-	validator_client
+	validator_client \
+	signing_process
 
 # bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
 
@@ -173,14 +174,14 @@ clean-testnet0:
 clean-testnet1:
 	rm -rf build/data/testnet1*
 
-testnet0 testnet1: | beacon_node
+testnet0 testnet1: | beacon_node signing_process
 	build/beacon_node \
 		--network=$@ \
 		--log-level="$(LOG_LEVEL)" \
 		--data-dir=build/data/$@_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
-medalla: | beacon_node
+medalla: | beacon_node signing_process
 	mkdir -p build/data/shared_medalla_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
@@ -195,7 +196,7 @@ medalla: | beacon_node
 		--data-dir=build/data/shared_medalla_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
-medalla-vc: | beacon_node validator_client
+medalla-vc: | beacon_node signing_process validator_client
 	# if launching a VC as well - send the BN looking nowhere for validators/secrets
 	mkdir -p build/data/shared_medalla_$(NODE_ID)/empty_dummy_folder
 
@@ -225,7 +226,7 @@ ifneq ($(LOG_LEVEL), TRACE)
 medalla-dev:
 	+ $(MAKE) LOG_LEVEL=TRACE $@
 else
-medalla-dev: | beacon_node
+medalla-dev: | beacon_node signing_process
 	mkdir -p build/data/shared_medalla_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
@@ -240,7 +241,7 @@ medalla-dev: | beacon_node
 		$(GOERLI_TESTNETS_PARAMS) --dump $(NODE_PARAMS)
 endif
 
-medalla-deposit-data: | beacon_node deposit_contract
+medalla-deposit-data: | beacon_node signing_process deposit_contract
 	build/beacon_node deposits create \
 		--network=medalla \
 		--new-wallet-file=build/data/shared_medalla_$(NODE_ID)/wallet.json \
@@ -249,7 +250,7 @@ medalla-deposit-data: | beacon_node deposit_contract
 		--out-deposits-file=medalla-deposits_data-$$(date +"%Y%m%d%H%M%S").json \
 		--count=$(VALIDATORS)
 
-medalla-deposit: | beacon_node deposit_contract
+medalla-deposit: | beacon_node signing_process deposit_contract
 	build/beacon_node deposits create \
 		--network=medalla \
 		--out-deposits-file=nbc-medalla-deposits.json \
@@ -270,7 +271,7 @@ clean-medalla:
 	rm -rf build/data/shared_medalla*/dump
 	rm -rf build/data/shared_medalla*/*.log
 
-altona: | beacon_node
+altona: | beacon_node signing_process
 	$(CPU_LIMIT_CMD) build/beacon_node \
 		--network=altona \
 		--log-level="$(LOG_LEVEL)" \
@@ -278,7 +279,7 @@ altona: | beacon_node
 		--data-dir=build/data/shared_altona_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
-altona-vc: | beacon_node validator_client
+altona-vc: | beacon_node signing_process validator_client
 	# if launching a VC as well - send the BN looking nowhere for validators/secrets
 	mkdir -p build/data/shared_altona_$(NODE_ID)/empty_dummy_folder
 	$(CPU_LIMIT_CMD) build/beacon_node \
@@ -296,14 +297,14 @@ altona-vc: | beacon_node validator_client
 		--data-dir=build/data/shared_altona_$(NODE_ID) \
 		--rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) ))
 
-altona-dev: | beacon_node
+altona-dev: | beacon_node signing_process
 	$(CPU_LIMIT_CMD) build/beacon_node \
 		--network=altona \
 		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
 		--data-dir=build/data/shared_altona_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) --dump $(NODE_PARAMS)
 
-altona-deposit: | beacon_node deposit_contract
+altona-deposit: | beacon_node signing_process deposit_contract
 	build/beacon_node deposits create \
 		--network=altona \
 		--out-deposits-file=nbc-altona-deposits.json \

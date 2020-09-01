@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  os, strutils, json, times,
+  os, strutils, json,
 
   # Nimble packages
   stew/shims/[tables, macros],
@@ -52,7 +52,7 @@ template attemptUntilSuccess(vc: ValidatorClient, body: untyped) =
       break
     except CatchableError as err:
       warn "Caught an unexpected error", err = err.msg
-    waitFor sleepAsync(chronos.seconds(1)) # 1 second before retrying
+    waitFor sleepAsync(chronos.seconds(vc.config.retryDelay))
 
 proc getValidatorDutiesForEpoch(vc: ValidatorClient, epoch: Epoch) {.gcsafe, async.} =
   info "Getting validator duties for epoch", epoch = epoch
@@ -136,7 +136,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
 
       info "Proposing block", slot = slot, public_key = public_key
 
-      let randao_reveal = validator.genRandaoReveal(
+      let randao_reveal = await validator.genRandaoReveal(
         vc.fork, vc.beaconGenesis.genesis_validators_root, slot)
 
       var newBlock = SignedBeaconBlock(
