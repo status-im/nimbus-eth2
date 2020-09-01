@@ -1,6 +1,7 @@
   import
   confutils, stats, chronicles, strformat, tables,
   stew/byteutils,
+  ../beacon_chain/network_metadata,
   ../beacon_chain/[beacon_chain_db, extras],
   ../beacon_chain/block_pools/[chain_dag],
   ../beacon_chain/spec/[crypto, datatypes, digest, helpers,
@@ -30,6 +31,10 @@ type
         defaultValue: ""
         desc: "Directory where `nbc.sqlite` is stored"
         name: "db" }: InputDir
+
+    eth2Network* {.
+      desc: "The Eth2 network preset to use"
+      name: "network" }: Option[string]
 
     case cmd* {.
       command
@@ -63,7 +68,7 @@ type
         argument
         desc: "Slot".}: uint64
 
-proc cmdBench(conf: DbConf) =
+proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
   var timers: array[Timers, RunningStat]
 
   echo "Opening database..."
@@ -79,7 +84,7 @@ proc cmdBench(conf: DbConf) =
 
   echo "Initializing block pool..."
   let pool = withTimerRet(timers[tInit]):
-    ChainDAGRef.init(defaultRuntimePreset, db, {})
+    ChainDAGRef.init(runtimePreset, db, {})
 
   echo &"Loaded {pool.blocks.len} blocks, head slot {pool.head.slot}"
 
@@ -111,7 +116,7 @@ proc cmdBench(conf: DbConf) =
       isEpoch = state[].data.get_current_epoch() !=
         b.message.slot.compute_epoch_at_slot
     withTimer(timers[if isEpoch: tApplyEpochBlock else: tApplyBlock]):
-      if not state_transition(defaultRuntimePreset, state[], b, {}, noRollback):
+      if not state_transition(runtimePreset, state[], b, {}, noRollback):
         dump("./", b)
         echo "State transition failed (!)"
         quit 1
@@ -152,7 +157,7 @@ proc cmdDumpBlock(conf: DbConf) =
     except CatchableError as e:
       echo "Couldn't load ", blockRoot, ": ", e.msg
 
-proc cmdRewindState(conf: DbConf) =
+proc cmdRewindState(conf: DbConf, runtimePreset: RuntimePreset) =
   echo "Opening database..."
   let
     db = BeaconChainDB.init(
@@ -163,7 +168,7 @@ proc cmdRewindState(conf: DbConf) =
     quit 1
 
   echo "Initializing block pool..."
-  let dag = init(ChainDAGRef, defaultRuntimePreset, db)
+  let dag = init(ChainDAGRef, runtimePreset, db)
 
   let blckRef = dag.getRef(fromHex(Eth2Digest, conf.blockRoot))
   if blckRef == nil:
@@ -175,15 +180,16 @@ proc cmdRewindState(conf: DbConf) =
     dump("./", hashedState, blck)
 
 when isMainModule:
-  let
+  var
     conf = DbConf.load()
+    runtimePreset = getRuntimePresetForNetwork(conf.eth2Network)
 
   case conf.cmd
   of bench:
-    cmdBench(conf)
+    cmdBench(conf, runtimePreset)
   of dumpState:
     cmdDumpState(conf)
   of dumpBlock:
     cmdDumpBlock(conf)
   of rewindState:
-    cmdRewindState(conf)
+    cmdRewindState(conf, runtimePreset)
