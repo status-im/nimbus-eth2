@@ -62,6 +62,10 @@ func process_block_header*(
   if not (blck.parent_root == hash_tree_root(state.latest_block_header)):
     return err("process_block_header: previous block root mismatch")
 
+  # Verify proposer is not slashed
+  if state.validators[proposer_index.get].slashed:
+    return err("process_block_header: proposer slashed")
+
   # Cache current block as the new latest block
   state.latest_block_header = BeaconBlockHeader(
     slot: blck.slot,
@@ -70,11 +74,6 @@ func process_block_header*(
     # state_root: zeroed, overwritten in the next `process_slot` call
     body_root: hash_tree_root(blck.body),
   )
-
-  # Verify proposer is not slashed
-  let proposer = state.validators[proposer_index.get]
-  if proposer.slashed:
-    return err("process_block_header: proposer slashed")
 
   ok()
 
