@@ -907,7 +907,8 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
 
     # Update status string
     man.syncStatus = map & ":" & $pending & ":" &
-                       man.syncSpeed.formatBiggestFloat(ffDecimal, 4)
+                       man.syncSpeed.formatBiggestFloat(ffDecimal, 4) &
+                       " (" & $man.queue.outSlot & ")"
 
     if headAge <= man.maxHeadAge:
       man.notInSyncEvent.clear()
