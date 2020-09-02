@@ -322,6 +322,10 @@ func get_block_root_at_slot*(state: BeaconState,
                              slot: Slot): Eth2Digest =
   # Return the block root at a recent ``slot``.
 
+  # Potential overflow/wrap shouldn't occur, as get_block_root_at_slot() called
+  # from internally controlled sources, but flag this explicitly, in case.
+  doAssert slot + SLOTS_PER_HISTORICAL_ROOT > slot
+
   doAssert state.slot <= slot + SLOTS_PER_HISTORICAL_ROOT
   doAssert slot < state.slot
   state.block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT]
@@ -538,6 +542,12 @@ func check_attestation_target_epoch*(
 
 func check_attestation_inclusion*(data: AttestationData,
                                   current_slot: Slot): Result[void, cstring] =
+  # Check for overflow
+  static:
+    doAssert SLOTS_PER_EPOCH >= MIN_ATTESTATION_INCLUSION_DELAY
+  if data.slot + SLOTS_PER_EPOCH <= data.slot:
+    return err("attestation data.slot overflow, malicious?")
+
   if not (data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= current_slot):
     return err("Attestation too new")
 
