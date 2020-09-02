@@ -546,7 +546,7 @@ func check_attestation_inclusion*(data: AttestationData,
   static:
     doAssert SLOTS_PER_EPOCH >= MIN_ATTESTATION_INCLUSION_DELAY
   if data.slot + SLOTS_PER_EPOCH <= data.slot:
-    return err("Potentially malicious attestation data.slot")
+    return err("attestation data.slot overflow, malicious?")
 
   if not (data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= current_slot):
     return err("Attestation too new")
