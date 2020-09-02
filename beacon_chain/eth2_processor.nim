@@ -299,6 +299,7 @@ proc attestationValidator*(
 
   logScope: wallSlot
 
+  # Potential under/overflows are fine; would just create odd metrics and logs
   let delay = wallTime - attestation.data.slot.toBeaconTime
   debug "Attestation received", delay
   let v = self.attestationPool[].validateAttestation(
@@ -339,6 +340,7 @@ proc aggregateValidator*(
 
   logScope: wallSlot
 
+  # Potential under/overflows are fine; would just create odd logs
   let delay =
     wallTime - signedAggregateAndProof.message.aggregate.data.slot.toBeaconTime
   debug "Aggregate received", delay
