@@ -95,6 +95,8 @@ type
     getFinalizedSlot: GetSlotCallback
     workers: array[SyncWorkersCount, SyncWorker[A, B]]
     notInSyncEvent: AsyncEvent
+    rangeAge: uint64
+    inRangeEvent*: AsyncEvent
     chunkSize: uint64
     queue: SyncQueue[A]
     failures: seq[SyncFailure[A]]
@@ -604,7 +606,8 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                                         int(SECONDS_PER_SLOT)).seconds,
                            chunkSize = uint64(SLOTS_PER_EPOCH),
                            toleranceValue = uint64(1),
-                           maxRecurringFailures = 3
+                           maxRecurringFailures = 3,
+                           rangeAge = uint64(SLOTS_PER_EPOCH * 4)
                            ): SyncManager[A, B] =
 
   let queue = SyncQueue.init(A, getFinalizedSlotCb(), getLocalWallSlotCb(),
@@ -622,7 +625,9 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     chunkSize: chunkSize,
     queue: queue,
     outQueue: outputQueue,
-    notInSyncEvent: newAsyncEvent()
+    notInSyncEvent: newAsyncEvent(),
+    inRangeEvent: newAsyncEvent(),
+    rangeAge: rangeAge
   )
 
 proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
@@ -930,6 +935,13 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
     else:
       man.notInSyncEvent.fire()
       man.inProgress = true
+
+    if headAge <= man.rangeAge:
+      # We are in requested range ``man.rangeAge``.
+      man.inRangeEvent.fire()
+    else:
+      # We are not in requested range anymore ``man.rangeAge``.
+      man.inRangeEvent.clear()
 
     if len(man.failures) > man.maxRecurringFailures and pending > 1:
       debug "Number of recurring failures exceeds limit, reseting queue",
