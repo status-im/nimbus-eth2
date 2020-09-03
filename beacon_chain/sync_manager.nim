@@ -610,7 +610,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            rangeAge = uint64(SLOTS_PER_EPOCH * 4)
                            ): SyncManager[A, B] =
 
-  let queue = SyncQueue.init(A, getFinalizedSlotCb(), getLocalWallSlotCb(),
+  let queue = SyncQueue.init(A, getLocalHeadSlotCb(), getLocalWallSlotCb(),
                              chunkSize, getFinalizedSlotCb, outputQueue, 1)
 
   result = SyncManager[A, B](
@@ -658,6 +658,9 @@ template headAge(): uint64 =
 
 template peerAge(): uint64 =
   if peerSlot > wallSlot: 0'u64 else: wallSlot - peerSlot
+
+template queueAge(): uint64 =
+  wallSlot - man.queue.outSlot
 
 template checkPeerScore(peer, body: untyped): untyped =
   mixin getScore
@@ -936,7 +939,7 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
       man.notInSyncEvent.fire()
       man.inProgress = true
 
-    if headAge <= man.rangeAge:
+    if queueAge <= man.rangeAge:
       # We are in requested range ``man.rangeAge``.
       man.inRangeEvent.fire()
     else:
