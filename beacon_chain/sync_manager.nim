@@ -97,6 +97,7 @@ type
     notInSyncEvent: AsyncEvent
     rangeAge: uint64
     inRangeEvent*: AsyncEvent
+    notInRangeEvent*: AsyncEvent
     chunkSize: uint64
     queue: SyncQueue[A]
     failures: seq[SyncFailure[A]]
@@ -627,6 +628,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     outQueue: outputQueue,
     notInSyncEvent: newAsyncEvent(),
     inRangeEvent: newAsyncEvent(),
+    notInRangeEvent: newAsyncEvent(),
     rangeAge: rangeAge
   )
 
@@ -942,9 +944,11 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
     if queueAge <= man.rangeAge:
       # We are in requested range ``man.rangeAge``.
       man.inRangeEvent.fire()
+      man.notInRangeEvent.clear()
     else:
       # We are not in requested range anymore ``man.rangeAge``.
       man.inRangeEvent.clear()
+      man.notInRangeEvent.fire()
 
     if len(man.failures) > man.maxRecurringFailures and pending > 1:
       debug "Number of recurring failures exceeds limit, reseting queue",
