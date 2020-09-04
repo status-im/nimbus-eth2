@@ -19,6 +19,7 @@ export
 type
   SszReader* = object
     stream: InputStream
+    updateRoot: bool
 
   SszWriter* = object
     stream: OutputStream
@@ -41,8 +42,10 @@ template sizePrefixed*[TT](x: TT): untyped =
   type T = TT
   SizePrefixed[T](x)
 
-proc init*(T: type SszReader, stream: InputStream): T {.raises: [Defect].} =
-  T(stream: stream)
+proc init*(T: type SszReader,
+           stream: InputStream,
+           updateRoot: bool = true): T {.raises: [Defect].} =
+  T(stream: stream, updateRoot: updateRoot)
 
 proc writeFixedSized(s: var (OutputStream|WriteCursor), x: auto) {.raises: [Defect, IOError].} =
   mixin toSszType
@@ -226,11 +229,10 @@ proc readValue*[T](r: var SszReader, val: var T) {.raises: [Defect, MalformedSsz
   when isFixedSize(T):
     const minimalSize = fixedPortionSize(T)
     if r.stream.readable(minimalSize):
-      readSszValue(r.stream.read(minimalSize), val)
+      readSszValue(r.stream.read(minimalSize), val, r.updateRoot)
     else:
       raise newException(MalformedSszError, "SSZ input of insufficient size")
   else:
     # TODO Read the fixed portion first and precisely measure the size of
     # the dynamic portion to consume the right number of bytes.
-    readSszValue(r.stream.read(r.stream.len.get), val)
-
+    readSszValue(r.stream.read(r.stream.len.get), val, r.updateRoot)
