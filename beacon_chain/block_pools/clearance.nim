@@ -187,7 +187,7 @@ proc addRawBlock*(
 
     # The block might have been in either of `orphans` or `missing` - we don't
     # want any more work done on its behalf
-    quarantine.orphans.del(blockRoot)
+    quarantine.removeOrphan(signedBlock)
 
     # The block is resolved, now it's time to validate it to ensure that the
     # blocks we add to the database are clean for the given state
@@ -234,7 +234,7 @@ proc addRawBlock*(
   #      junk that's not part of the block graph
 
   if blck.parent_root in quarantine.missing or
-      blck.parent_root in quarantine.orphans:
+      containsOrphan(quarantine, signedBlock):
     debug "Unresolved block (parent missing or orphaned)",
       orphans = quarantine.orphans.len,
       missing = quarantine.missing.len

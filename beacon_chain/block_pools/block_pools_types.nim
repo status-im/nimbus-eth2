@@ -51,7 +51,7 @@ type
     ##
     ## Invalid blocks are dropped immediately.
 
-    orphans*: Table[Eth2Digest, SignedBeaconBlock] ##\
+    orphans*: Table[(Eth2Digest, ValidatorSig), SignedBeaconBlock] ##\
     ## Blocks that have passed validation but that we lack a link back to tail
     ## for - when we receive a "missing link", we can use this data to build
     ## an entire branch
