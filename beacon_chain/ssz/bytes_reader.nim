@@ -84,7 +84,8 @@ template checkForForbiddenBits(ResulType: type,
     if (input[^1] and forbiddenBitsMask) != 0:
       raiseIncorrectSize ResulType
 
-func readSszValue*[T](input: openarray[byte], val: var T) {.raisesssz.} =
+func readSszValue*[T](input: openarray[byte],
+                      val: var T, updateRoot: bool = true) {.raisesssz.} =
   mixin fromSszBytes, toSszType
 
   template readOffsetUnchecked(n: int): uint32 {.used.}=
@@ -268,6 +269,7 @@ func readSszValue*[T](input: openarray[byte], val: var T) {.raisesssz.} =
           input.toOpenArray(int(startOffset), int(endOffset - 1)))
 
     when val is SignedBeaconBlock | TrustedSignedBeaconBlock:
-      val.root = hash_tree_root(val.message)
+      if updateRoot:
+        val.root = hash_tree_root(val.message)
   else:
     unsupported T

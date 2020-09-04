@@ -112,7 +112,7 @@ proc get[T](db: BeaconChainDB, key: openArray[byte], output: var T): GetResult =
     try:
       let decompressed = snappy.decode(data, maxDecompressedDbRecordSize)
       if decompressed.len > 0:
-        outputPtr[] = SSZ.decode(decompressed, T)
+        outputPtr[] = SSZ.decode(decompressed, T, updateRoot = false)
         status = GetResult.found
       else:
         warn "Corrupt snappy record found in database", typ = name(T)
@@ -164,9 +164,12 @@ proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
 
 proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
-  result.ok(TrustedSignedBeaconBlock(root: key))
+  result.ok(TrustedSignedBeaconBlock())
   if db.get(subkey(SignedBeaconBlock, key), result.get) != GetResult.found:
     result.err()
+  else:
+    # set root after deserializing (so it doesn't get zeroed)
+    result.get().root = key
 
 proc getState*(
     db: BeaconChainDB, key: Eth2Digest, output: var BeaconState,
@@ -214,8 +217,10 @@ iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
   ##
   ## The search will go on until the ancestor cannot be found.
 
-  var res: TrustedSignedBeaconBlock
-  res.root = root
-  while db.get(subkey(SignedBeaconBlock, res.root), res) == GetResult.found:
+  var
+    res: TrustedSignedBeaconBlock
+    root = root
+  while db.get(subkey(SignedBeaconBlock, root), res) == GetResult.found:
+    res.root = root
     yield res
-    res.root = res.message.parent_root
+    root = res.message.parent_root
