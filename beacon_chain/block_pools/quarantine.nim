@@ -9,7 +9,7 @@ import
   chronicles, tables, options,
   stew/bitops2,
   metrics,
-  ../spec/[datatypes, digest],
+  ../spec/[crypto, datatypes, digest],
   block_pools_types
 
 export options, block_pools_types
@@ -40,14 +40,33 @@ func checkMissing*(quarantine: var QuarantineRef): seq[FetchRecord] =
     if countOnes(v.tries.uint64) == 1:
       result.add(FetchRecord(root: k))
 
+template anyIt(s, pred: untyped): bool =
+  # https://github.com/nim-lang/Nim/blob/version-1-2/lib/pure/collections/sequtils.nim#L682-L704
+  # without the items(...)
+  var result = false
+  for it {.inject.} in s:
+    if pred:
+      result = true
+      break
+  result
+
+func containsOrphan*(
+    quarantine: QuarantineRef, signedBlock: SignedBeaconBlock): bool =
+  (signedBlock.root, signedBlock.signature) in quarantine.orphans
+
 func addMissing*(quarantine: var QuarantineRef, root: Eth2Digest) =
   ## Schedule the download a the given block
-  if root notin quarantine.orphans:
+  # Can only request by root, not by signature, so partial match suffices
+  if not anyIt(quarantine.orphans.keys, it[0] == root):
     # If the block is in orphans, we no longer need it
     discard quarantine.missing.hasKeyOrPut(root, MissingBlock())
 
+func removeOrphan*(
+    quarantine: var QuarantineRef, signedBlock: SignedBeaconBlock) =
+  quarantine.orphans.del((signedBlock.root, signedBlock.signature))
+
 func removeOldBlocks(quarantine: var QuarantineRef, dag: ChainDAGRef) =
-  var oldBlocks: seq[Eth2Digest]
+  var oldBlocks: seq[(Eth2Digest, ValidatorSig)]
 
   for k, v in quarantine.orphans.pairs():
     if v.message.slot <= dag.finalizedHead.slot:
@@ -84,7 +103,7 @@ func add*(quarantine: var QuarantineRef, dag: ChainDAGRef,
   if quarantine.orphans.len >= MAX_QUARANTINE_ORPHANS:
     return false
 
-  quarantine.orphans[signedBlock.root] = signedBlock
+  quarantine.orphans[(signedBlock.root, signedBlock.signature)] = signedBlock
   quarantine.missing.del(signedBlock.root)
 
   quarantine.addMissing(signedBlock.message.parent_root)
