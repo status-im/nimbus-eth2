@@ -119,13 +119,13 @@ deps: | libbacktrace
 endif
 
 clean-cross:
-	+ [[ -e vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc ]] && $(MAKE) -C vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc clean $(HANDLE_OUTPUT) || true
-	+ [[ -e vendor/nim-nat-traversal/vendor/libnatpmp ]] && $(MAKE) -C vendor/nim-nat-traversal/vendor/libnatpmp clean $(HANDLE_OUTPUT) || true
+	+ [[ -e vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc ]] && "$(MAKE)" -C vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc clean $(HANDLE_OUTPUT) || true
+	+ [[ -e vendor/nim-nat-traversal/vendor/libnatpmp ]] && "$(MAKE)" -C vendor/nim-nat-traversal/vendor/libnatpmp clean $(HANDLE_OUTPUT) || true
 
 #- deletes and recreates "beacon_chain.nims" which on Windows is a copy instead of a proper symlink
 update: | update-common
 	rm -f beacon_chain.nims && \
-		$(MAKE) beacon_chain.nims $(HANDLE_OUTPUT)
+		"$(MAKE)" beacon_chain.nims $(HANDLE_OUTPUT)
 
 # symlink
 beacon_chain.nims:
@@ -133,7 +133,7 @@ beacon_chain.nims:
 
 # nim-libbacktrace
 libbacktrace:
-	+ $(MAKE) -C vendor/nim-libbacktrace --no-print-directory BUILD_CXX_LIB=0
+	+ "$(MAKE)" -C vendor/nim-libbacktrace --no-print-directory BUILD_CXX_LIB=0
 
 # Windows 10 with WSL enabled, but no distro installed, fails if "../../nimble.sh" is executed directly
 # in a Makefile recipe but works when prefixing it with `bash`. No idea how the PATH is overridden.
@@ -224,7 +224,7 @@ medalla-vc: | beacon_node signing_process validator_client
 
 ifneq ($(LOG_LEVEL), TRACE)
 medalla-dev:
-	+ $(MAKE) LOG_LEVEL=TRACE $@
+	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
 medalla-dev: | beacon_node signing_process
 	mkdir -p build/data/shared_medalla_$(NODE_ID)
@@ -334,7 +334,7 @@ ntu: | build deps
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_*,block_sim,state_sim,transition*}
 ifneq ($(USE_LIBBACKTRACE), 0)
-	+ $(MAKE) -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
+	+ "$(MAKE)" -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 endif
 
 libnfuzz.so: | build deps
