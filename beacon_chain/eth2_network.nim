@@ -17,7 +17,7 @@ import
   libp2p/protocols/secure/[secure, secio],
   libp2p/protocols/pubsub/[pubsub, floodsub, gossipsub, rpc/message, rpc/messages],
   libp2p/transports/tcptransport,
-  libp2p/stream/lpstream,
+  libp2p/stream/connection,
   eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
   eth/net/nat, eth/p2p/discoveryv5/[enr, node],
   # Beacon node modules
@@ -26,7 +26,7 @@ import
   peer_pool, spec/[datatypes, network], ./time
 
 export
-  version, multiaddress, peer_pool, peerinfo, p2pProtocol,
+  version, multiaddress, peer_pool, peerinfo, p2pProtocol, connection,
   libp2p_json_serialization, ssz_serialization, results
 
 logScope:
@@ -266,9 +266,8 @@ when libp2p_pki_schemes != "secp256k1":
 
 template libp2pProtocol*(name: string, version: int) {.pragma.}
 
-template `$`*(peer: Peer): string = id(peer.info)
-chronicles.formatIt(Peer): $it
-chronicles.formatIt(PeerID): $it
+func shortLog*(peer: Peer): string = shortLog(peer.info.peerId)
+chronicles.formatIt(Peer): shortLog(it)
 
 template remote*(peer: Peer): untyped =
   peer.info.peerId

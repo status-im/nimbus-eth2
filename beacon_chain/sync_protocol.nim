@@ -45,7 +45,7 @@ type
 
   BlockRootsList* = List[Eth2Digest, Limit MAX_REQUEST_BLOCKS]
 
-proc shortLog*(s: StatusMsg): auto =
+func shortLog*(s: StatusMsg): auto =
   (
     forkDigest: s.forkDigest,
     finalizedRoot: shortLog(s.finalizedRoot),
