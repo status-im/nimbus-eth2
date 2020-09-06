@@ -121,7 +121,7 @@ proc readChunkPayload(conn: Connection, peer: Peer,
                               uint64(10 + size))
     return ok SSZ.decode(data.get(), MsgType)
   else:
-    debug "Snappy decompression/read failed", msg = $data.error, conn = $conn
+    debug "Snappy decompression/read failed", msg = $data.error, conn
     return neterr InvalidSnappyBytes
 
 proc readResponseChunk(conn: Connection, peer: Peer,

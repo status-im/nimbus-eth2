@@ -90,4 +90,4 @@ type
   ValidatorPool* = object
     validators*: Table[ValidatorPubKey, AttachedValidator]
 
-proc shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)
+func shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)

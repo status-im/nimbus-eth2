@@ -197,13 +197,13 @@ type
 
 template validator_keys*(e: EpochRef): untyped = e.validator_key_store[1][]
 
-proc shortLog*(v: BlockSlot): string =
+func shortLog*(v: BlockSlot): string =
   if v.blck.slot == v.slot:
     &"{v.blck.root.data.toOpenArray(0, 3).toHex()}:{v.blck.slot}"
   else: # There was a gap - log it
     &"{v.blck.root.data.toOpenArray(0, 3).toHex()}:{v.blck.slot}@{v.slot}"
 
-proc shortLog*(v: BlockRef): string =
+func shortLog*(v: BlockRef): string =
   if v == nil:
     "BlockRef(nil)"
   else:
