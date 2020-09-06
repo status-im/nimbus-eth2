@@ -125,7 +125,7 @@ func asEth2Digest*(x: BlockHash): Eth2Digest =
 template asBlockHash(x: Eth2Digest): BlockHash =
   BlockHash(x.data)
 
-func shortLog(b: Eth1Block): string =
+func shortLog*(b: Eth1Block): string =
   &"{b.number}:{shortLog b.voteData.block_hash}"
 
 func getDepositsInRange(eth1Chain: Eth1Chain,
