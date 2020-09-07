@@ -12,11 +12,12 @@ import
 
 proc processSlotsUntilEndCurrentEpoch(state: var HashedBeaconState) =
   # Process all slots until the end of the last slot of the current epoch
+  var cache = StateCache()
   let slot =
     state.data.slot + SLOTS_PER_EPOCH - (state.data.slot mod SLOTS_PER_EPOCH)
 
   # Transition to slot before the epoch state transition
-  discard process_slots(state, slot - 1)
+  discard process_slots(state, slot - 1, cache)
 
   # For the last slot of the epoch,
   # only process_slot without process_epoch

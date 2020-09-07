@@ -40,6 +40,7 @@ func checkMissing*(quarantine: var QuarantineRef): seq[FetchRecord] =
     if countOnes(v.tries.uint64) == 1:
       result.add(FetchRecord(root: k))
 
+# TODO stew/sequtils2
 template anyIt(s, pred: untyped): bool =
   # https://github.com/nim-lang/Nim/blob/version-1-2/lib/pure/collections/sequtils.nim#L682-L704
   # without the items(...)
