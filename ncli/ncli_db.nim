@@ -169,6 +169,76 @@ proc cmdDumpBlock(conf: DbConf) =
     except CatchableError as e:
       echo "Couldn't load ", blockRoot, ": ", e.msg
 
+proc copyPrunedDatabase(
+    db: BeaconChainDB, copyDb: BeaconChainDB,
+    dryRun, verbose, keepOldStates: bool) =
+  ## Create a pruned copy of the beacon chain database
+
+  let
+    headBlock = db.getHeadBlock()
+    tailBlock = db.getTailBlock()
+
+  doAssert headBlock.isOk and tailBlock.isOk
+  doAssert db.getBlock(headBlock.get).isOk
+  doAssert db.getBlock(tailBlock.get).isOk
+
+  var
+    beaconState: ref BeaconState
+    finalizedEpoch: Epoch  # default value of 0 is conservative/safe
+    prevBlockSlot = db.getBlock(db.getHeadBlock().get).get.message.slot
+
+  beaconState = new BeaconState
+  let headEpoch = db.getBlock(headBlock.get).get.message.slot.epoch
+
+  # Tail states are specially addressed; no stateroot intermediary
+  if not db.getState(
+      db.getBlock(tailBlock.get).get.message.state_root, beaconState[],
+      noRollback):
+    doAssert false, "could not load tail state"
+  if not dry_run:
+    copyDb.putState(beaconState[])
+
+  for signedBlock in getAncestors(db, headBlock.get):
+    if not dry_run:
+      copyDb.putBlock(signedBlock)
+    if verbose:
+      echo "copied block at slot ", signedBlock.message.slot
+
+    for slot in countdown(prevBlockSlot, signedBlock.message.slot + 1):
+      if slot mod SLOTS_PER_EPOCH != 0 or
+          ((not keepOldStates) and slot.epoch < finalizedEpoch):
+        continue
+
+      # Could also only copy these states, head and finalized, plus tail state
+      let stateRequired = slot.epoch in [finalizedEpoch, headEpoch]
+
+      let sr = db.getStateRoot(signedBlock.root, slot)
+      if sr.isErr:
+        if stateRequired:
+          doAssert false, "state root and state required"
+        continue
+
+      if not db.getState(sr.get, beaconState[], noRollback):
+        # Don't copy dangling stateroot pointers
+        if stateRequired:
+          doAssert false, "state root and state required"
+        continue
+
+      finalizedEpoch = max(
+        finalizedEpoch, beaconState.finalized_checkpoint.epoch)
+
+      if not dry_run:
+        copyDb.putStateRoot(signedBlock.root, slot, sr.get)
+        copyDb.putState(beaconState[])
+      if verbose:
+        echo "copied state at slot ", slot, " from block at ", shortLog(signedBlock.message.slot)
+
+    prevBlockSlot = signedBlock.message.slot
+
+  if not dry_run:
+    copyDb.putHeadBlock(headBlock.get)
+    copyDb.putTailBlock(tailBlock.get)
+
 proc cmdPrune(conf: DbConf) =
   let
     db = BeaconChainDB.init(
