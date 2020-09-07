@@ -163,6 +163,7 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
     echo "State transition status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 
 proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
+  var cache = StateCache()
   let prePath = dir / preState & ".ssz"
 
   echo "Running: ", prePath
@@ -172,7 +173,7 @@ proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
   state.root = hash_tree_root(state.data)
 
   # Shouldn't necessarily assert, because nbench can run test suite
-  discard process_slots(state[], state.data.slot + numSlots)
+  discard process_slots(state[], state.data.slot + numSlots, cache)
 
 template processEpochScenarioImpl(
            dir, preState: string,

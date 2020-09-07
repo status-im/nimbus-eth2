@@ -67,6 +67,7 @@ proc updateHead*(node: BeaconNode, wallSlot: Slot): BlockRef =
   ## Can return `nil`
   node.processor[].updateHead(wallSlot)
 
+# TODO stew/sequtils2
 template findIt*(s: openarray, predicate: untyped): int =
   var res = -1
   for i, it {.inject.} in s:

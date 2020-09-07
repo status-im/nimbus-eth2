@@ -352,7 +352,7 @@ func maybe_update_best_child_and_descendant(
        parent_index: Index,
        child_index: Index): Result[void, ForkChoiceError] =
   ## Observe the parent at `parent_index` with respect to the child at `child_index` and
-  ## potentiatlly modify the `parent.best_child` and `parent.best_descendant` values
+  ## potentially modify the `parent.best_child` and `parent.best_descendant` values
   ##
   ## There are four scenarios:
   ##

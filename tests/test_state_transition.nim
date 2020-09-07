@@ -27,17 +27,18 @@ suiteReport "Block processing" & preset():
     genesisRoot = hash_tree_root(genesisBlock.message)
 
   setup:
-    var state = newClone(genesisState[])
+    var
+      state = newClone(genesisState[])
+      cache = StateCache()
 
   timedTest "Passes from genesis state, no block" & preset():
     check:
-      process_slots(state[], state.data.slot + 1)
+      process_slots(state[], state.data.slot + 1, cache)
       state.data.slot == genesisState.data.slot + 1
 
   timedTest "Passes from genesis state, empty block" & preset():
     var
       previous_block_root = genesisBlock.root
-      cache = StateCache()
       new_block = makeTestBlock(state[], previous_block_root, cache)
 
     let block_ok = state_transition(defaultRuntimePreset, state[], new_block, {}, noRollback)
@@ -49,7 +50,7 @@ suiteReport "Block processing" & preset():
 
   timedTest "Passes through epoch update, no block" & preset():
     check:
-      process_slots(state[], Slot(SLOTS_PER_EPOCH))
+      process_slots(state[], Slot(SLOTS_PER_EPOCH), cache)
       state.data.slot == genesisState.data.slot + SLOTS_PER_EPOCH
 
   timedTest "Passes through epoch update, empty block" & preset():
@@ -77,7 +78,7 @@ suiteReport "Block processing" & preset():
 
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
-      process_slots(state[], state.data.slot + 1)
+      process_slots(state[], state.data.slot + 1, cache)
 
     let
       # Create an attestation for slot 1 signed by the only attester we have!
@@ -90,7 +91,7 @@ suiteReport "Block processing" & preset():
     # to let the attestation propagate properly to interested participants
     check:
       process_slots(
-        state[], GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY + 1)
+        state[], GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY + 1, cache)
 
     let
       new_block = makeTestBlock(state[], previous_block_root, cache,
