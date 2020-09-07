@@ -59,12 +59,12 @@ suiteReport "Attestation pool processing" & preset():
       quarantine = QuarantineRef()
       pool = newClone(AttestationPool.init(chainDag, quarantine))
       state = newClone(chainDag.headState)
+      cache = StateCache()
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
-      process_slots(state.data, state.data.data.slot + 1)
+      process_slots(state.data, state.data.data.slot + 1, cache)
 
   wrappedTimedTest "Can add and retrieve simple attestation" & preset():
-    var cache = StateCache()
     let
       # Create an attestation for slot 1!
       beacon_committee = get_beacon_committee(
@@ -76,7 +76,7 @@ suiteReport "Attestation pool processing" & preset():
       attestation, [beacon_committee[0]].toHashSet(), attestation.data.slot)
 
     check:
-      process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1)
+      process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
 
     let attestations = pool[].getAttestationsForBlock(state.data.data)
 
@@ -93,7 +93,7 @@ suiteReport "Attestation pool processing" & preset():
         state.data.data, state.blck.root, bc0[0], cache)
 
     check:
-      process_slots(state.data, state.data.data.slot + 1)
+      process_slots(state.data, state.data.data.slot + 1, cache)
 
     let
       bc1 = get_beacon_committee(state.data.data,
@@ -107,7 +107,8 @@ suiteReport "Attestation pool processing" & preset():
     pool[].addAttestation(
       attestation0, [bc0[0]].toHashSet, attestation1.data.slot)
 
-    discard process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1)
+    discard process_slots(
+      state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
 
     let attestations = pool[].getAttestationsForBlock(state.data.data)
 
@@ -131,7 +132,7 @@ suiteReport "Attestation pool processing" & preset():
       attestation1, [bc0[1]].toHashSet, attestation1.data.slot)
 
     check:
-      process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1)
+      process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
 
     let attestations = pool[].getAttestationsForBlock(state.data.data)
 
@@ -158,7 +159,7 @@ suiteReport "Attestation pool processing" & preset():
       attestation1, [bc0[1]].toHashSet, attestation1.data.slot)
 
     check:
-      process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1)
+      process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
 
     let attestations = pool[].getAttestationsForBlock(state.data.data)
 
@@ -184,7 +185,7 @@ suiteReport "Attestation pool processing" & preset():
       attestation0, [bc0[0]].toHashSet, attestation0.data.slot)
 
     check:
-      process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1)
+      process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
 
     let attestations = pool[].getAttestationsForBlock(state.data.data)
 
@@ -398,9 +399,10 @@ suiteReport "Attestation validation " & preset():
       quarantine = QuarantineRef()
       pool = newClone(AttestationPool.init(chainDag, quarantine))
       state = newClone(loadTailState(chainDag))
+      cache = StateCache()
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
-      process_slots(state.data, state.data.data.slot + 1)
+      process_slots(state.data, state.data.data.slot + 1, cache)
 
   wrappedTimedTest "Validation sanity":
     chainDag.updateFlags.incl {skipBLSValidation}

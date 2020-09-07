@@ -164,7 +164,7 @@ suiteReport "Block pool processing" & preset():
 
     # Skip one slot to get a gap
     check:
-      process_slots(stateData.data, stateData.data.data.slot + 1)
+      process_slots(stateData.data, stateData.data.data.slot + 1, cache)
 
     let
       b4 = addTestBlock(stateData.data, b2.root, cache)
@@ -328,7 +328,7 @@ suiteReport "chain DAG finalization tests" & preset():
       tmpState = assignClone(dag.headState.data)
     check:
       process_slots(
-        tmpState[], tmpState.data.slot + (5 * SLOTS_PER_EPOCH).uint64)
+        tmpState[], tmpState.data.slot + (5 * SLOTS_PER_EPOCH).uint64, cache)
 
     let lateBlock = addTestBlock(tmpState[], dag.head.root, cache)
     block:
@@ -336,6 +336,9 @@ suiteReport "chain DAG finalization tests" & preset():
       check: status.isOk()
 
     assign(tmpState[], dag.headState.data)
+
+    # StateCache is designed to only hold a single linear history at a time
+    cache = StateCache()
 
     for i in 0 ..< (SLOTS_PER_EPOCH * 6):
       if i == 1:
@@ -412,6 +415,9 @@ suiteReport "chain DAG finalization tests" & preset():
     check:
       dag.heads.len() == 1
 
+    # The loop creates multiple branches, which StateCache isn't suitable for
+    cache = StateCache()
+
     advance_slot(prestate[], {}, cache)
 
     # create another block, orphaning the head
@@ -448,7 +454,7 @@ suiteReport "chain DAG finalization tests" & preset():
     # Advance past epoch so that the epoch transition is gapped
     check:
       process_slots(
-        dag.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2) )
+        dag.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2), cache)
 
     var blck = makeTestBlock(
       dag.headState.data, dag.head.root, cache,

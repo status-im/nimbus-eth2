@@ -437,6 +437,8 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
+  # This doesn't know about forks or branches in the DAG. It's for straight,
+  # linear chunks of the chain.
   StateCache* = object
     shuffled_active_validator_indices*:
       Table[Epoch, seq[ValidatorIndex]]

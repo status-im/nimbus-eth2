@@ -131,10 +131,12 @@ func fillAggregateAttestation*(state: BeaconState, attestation: var Attestation)
     attestation.aggregation_bits[i] = true
 
 proc add*(state: var HashedBeaconState, attestation: Attestation, slot: Slot) =
-  var signedBlock = mockBlockForNextSlot(state.data)
+  var
+    signedBlock = mockBlockForNextSlot(state.data)
+    cache = StateCache()
   signedBlock.message.slot = slot
   signedBlock.message.body.attestations.add attestation
-  doAssert process_slots(state, slot)
+  doAssert process_slots(state, slot, cache)
   signMockBlock(state.data, signedBlock)
 
   let success = state_transition(

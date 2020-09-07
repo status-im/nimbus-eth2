@@ -372,7 +372,7 @@ proc init*(T: type ChainDAGRef,
 
   var cache: StateCache
   res.updateStateData(res.headState, headRef.atSlot(headRef.slot), cache)
-    # We presently save states on the epoch boundary - it means that the latest
+  # We presently save states on the epoch boundary - it means that the latest
   # state we loaded might be older than head block - nonetheless, it will be
   # from the same epoch as the head, thus the finalized and justified slots are
   # the same - these only change on epoch boundaries.
