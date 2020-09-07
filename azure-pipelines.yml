@@ -62,6 +62,12 @@ jobs:
           export PATH="/c/custom/${MINGW_DIR}/bin:$PATH"
           git config --global core.longpaths true
           git config --global core.autocrlf false
+          if [[ $PLATFORM == "x86" ]]; then
+            choco --version
+            choco install --x86 openssl
+            export PATH="/c/Program Files (x86)/OpenSSL-Win32/bin:${PATH}"
+            echo "PATH=${PATH}"
+          fi
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} CI_CACHE=NimBinaries update
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} fetch-dlls
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE
