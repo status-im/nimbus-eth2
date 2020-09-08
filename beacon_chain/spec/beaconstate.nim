@@ -37,14 +37,14 @@ func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openarray[Eth2Digest],
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#increase_balance
 func increase_balance*(
     state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
-  # Increase the validator balance at index ``index`` by ``delta``.
+  ## Increase the validator balance at index ``index`` by ``delta``.
   state.balances[index] += delta
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#decrease_balance
 func decrease_balance*(
     state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
-  # Decrease the validator balance at index ``index`` by ``delta``, with
-  # underflow protection.
+  ## Decrease the validator balance at index ``index`` by ``delta``, with
+  ## underflow protection.
   state.balances[index] =
     if delta > state.balances[index]:
       0'u64
@@ -73,7 +73,7 @@ proc process_deposit*(preset: RuntimePreset,
                       state: var BeaconState,
                       deposit: Deposit,
                       flags: UpdateFlags = {}): Result[void, cstring] {.nbench.}=
-  # Process an Eth1 deposit, registering a validator or increasing its balance.
+  ## Process an Eth1 deposit, registering a validator or increasing its balance.
 
   # Verify the Merkle branch
   if not is_valid_merkle_branch(
@@ -129,7 +129,7 @@ func compute_activation_exit_epoch*(epoch: Epoch): Epoch =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_validator_churn_limit
 func get_validator_churn_limit(state: BeaconState, cache: var StateCache): uint64 =
-  # Return the validator churn limit for the current epoch.
+  ## Return the validator churn limit for the current epoch.
   max(
     MIN_PER_EPOCH_CHURN_LIMIT,
     count_active_validators(
@@ -138,7 +138,7 @@ func get_validator_churn_limit(state: BeaconState, cache: var StateCache): uint6
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(state: var BeaconState,
                               index: ValidatorIndex, cache: var StateCache) =
-  # Initiate the exit of the validator with index ``index``.
+  ## Initiate the exit of the validator with index ``index``.
 
   # Return if validator already initiated exit
   let validator = addr state.validators[index]
@@ -167,7 +167,7 @@ func initiate_validator_exit*(state: var BeaconState,
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#slash_validator
 proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
     cache: var StateCache) =
-  # Slash the validator with index ``index``.
+  ## Slash the validator with index ``index``.
   let epoch = get_current_epoch(state)
   initiate_validator_exit(state, slashed_index, cache)
   let validator = addr state.validators[slashed_index]
@@ -320,7 +320,7 @@ func get_initial_beacon_block*(state: BeaconState): SignedBeaconBlock =
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: BeaconState,
                              slot: Slot): Eth2Digest =
-  # Return the block root at a recent ``slot``.
+  ## Return the block root at a recent ``slot``.
 
   # Potential overflow/wrap shouldn't occur, as get_block_root_at_slot() called
   # from internally controlled sources, but flag this explicitly, in case.
@@ -332,7 +332,7 @@ func get_block_root_at_slot*(state: BeaconState,
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_block_root
 func get_block_root*(state: BeaconState, epoch: Epoch): Eth2Digest =
-  # Return the block root at the start of a recent ``epoch``.
+  ## Return the block root at the start of a recent ``epoch``.
   get_block_root_at_slot(state, compute_start_slot_at_epoch(epoch))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_total_balance
@@ -346,14 +346,14 @@ func get_total_balance*(state: BeaconState, validators: auto): Gwei =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#is_eligible_for_activation_queue
 func is_eligible_for_activation_queue(validator: Validator): bool =
-  # Check if ``validator`` is eligible to be placed into the activation queue.
+  ## Check if ``validator`` is eligible to be placed into the activation queue.
   validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
     validator.effective_balance == MAX_EFFECTIVE_BALANCE
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#is_eligible_for_activation
 func is_eligible_for_activation(state: BeaconState, validator: Validator):
     bool =
-  # Check if ``validator`` is eligible for activation.
+  ## Check if ``validator`` is eligible for activation.
 
   # Placement in queue is finalized
   validator.activation_eligibility_epoch <= state.finalized_checkpoint.epoch and
@@ -423,8 +423,8 @@ proc process_registry_updates*(state: var BeaconState,
 proc is_valid_indexed_attestation*(
     state: BeaconState, indexed_attestation: SomeIndexedAttestation,
     flags: UpdateFlags): Result[void, cstring] =
-  # Check if ``indexed_attestation`` is not empty, has sorted and unique
-  # indices and has a valid aggregate signature.
+  ## Check if ``indexed_attestation`` is not empty, has sorted and unique
+  ## indices and has a valid aggregate signature.
 
   template is_sorted_and_unique(s: untyped): bool =
     var res = true
@@ -491,7 +491,7 @@ func get_attesting_indices*(state: BeaconState,
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_indexed_attestation
 func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
     cache: var StateCache): IndexedAttestation =
-  # Return the indexed attestation corresponding to ``attestation``.
+  ## Return the indexed attestation corresponding to ``attestation``.
   let
     attesting_indices =
       get_attesting_indices(
@@ -507,7 +507,7 @@ func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
 
 func get_indexed_attestation*(state: BeaconState, attestation: TrustedAttestation,
     cache: var StateCache): TrustedIndexedAttestation =
-  # Return the indexed attestation corresponding to ``attestation``.
+  ## Return the indexed attestation corresponding to ``attestation``.
   let
     attesting_indices =
       get_attesting_indices(

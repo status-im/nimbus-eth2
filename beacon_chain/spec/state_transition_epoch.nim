@@ -55,12 +55,11 @@ declareGauge beacon_current_epoch, "Current epoch"
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_total_active_balance
 func get_total_active_balance*(state: BeaconState, cache: var StateCache): Gwei =
-  # Return the combined effective balance of the active validators.
+  ## Return the combined effective balance of the active validators.
   # Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei
   # minimum to avoid divisions by zero.
 
-  let
-    epoch = state.get_current_epoch()
+  let epoch = state.get_current_epoch()
 
   get_total_balance(
     state, cache.get_shuffled_active_validator_indices(state, epoch))
@@ -92,8 +91,8 @@ func get_matching_head_attestations(state: BeaconState, epoch: Epoch):
 func get_attesting_balance(
     state: BeaconState, attestations: seq[PendingAttestation],
     stateCache: var StateCache): Gwei =
-  # Return the combined effective balance of the set of unslashed validators
-  # participating in ``attestations``.
+  ## Return the combined effective balance of the set of unslashed validators
+  ## participating in ``attestations``.
   # Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei
   # minimum to avoid divisions by zero.
   get_total_balance(state, get_unslashed_attesting_indices(
@@ -308,7 +307,7 @@ func get_attestation_component_deltas(state: BeaconState,
 func get_source_deltas*(
     state: BeaconState, total_balance: Gwei, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
-  # Return attester micro-rewards/penalties for source-vote for each validator.
+  ## Return attester micro-rewards/penalties for source-vote for each validator.
 
   get_attestation_component_deltas(
     state,
@@ -318,7 +317,7 @@ func get_source_deltas*(
 func get_target_deltas*(
     state: BeaconState, total_balance: Gwei, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
-  # Return attester micro-rewards/penalties for target-vote for each validator.
+  ## Return attester micro-rewards/penalties for target-vote for each validator.
   let matching_target_attestations =
     get_matching_target_attestations(state, get_previous_epoch(state))
   get_attestation_component_deltas(
@@ -327,7 +326,7 @@ func get_target_deltas*(
 func get_head_deltas*(
     state: BeaconState, total_balance: Gwei, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
-  # Return attester micro-rewards/penalties for head-vote for each validator.
+  ## Return attester micro-rewards/penalties for head-vote for each validator.
   let matching_head_attestations =
     get_matching_head_attestations(state, get_previous_epoch(state))
   get_attestation_component_deltas(
@@ -336,7 +335,7 @@ func get_head_deltas*(
 func get_inclusion_delay_deltas*(
     state: BeaconState, total_balance: Gwei, cache: var StateCache):
     seq[Gwei] =
-  # Return proposer and inclusion delay micro-rewards/penalties for each validator.
+  ## Return proposer and inclusion delay micro-rewards/penalties for each validator.
   var
     rewards = repeat(0'u64, len(state.validators))
     matching_source_attestations =
@@ -380,7 +379,7 @@ func get_inclusion_delay_deltas*(
 func get_inactivity_penalty_deltas*(
     state: BeaconState, total_balance: Gwei, cache: var StateCache):
     seq[Gwei] =
-  # Return inactivity reward/penalty deltas for each validator.
+  ## Return inactivity reward/penalty deltas for each validator.
   var penalties = repeat(0'u64, len(state.validators))
   if is_in_inactivity_leak(state):
     let
@@ -408,7 +407,7 @@ func get_inactivity_penalty_deltas*(
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#get_attestation_deltas
 func get_attestation_deltas(state: BeaconState, cache: var StateCache):
     tuple[a: seq[Gwei], b: seq[Gwei]] =
-  # Return attestation reward/penalty deltas for each validator.
+  ## Return attestation reward/penalty deltas for each validator.
   let
     total_balance = get_total_active_balance(state, cache)
     (source_rewards, source_penalties) =
