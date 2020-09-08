@@ -105,6 +105,7 @@ ifeq ($(OS), Windows_NT)
 endif
 
 DEPOSITS_DELAY := 0
+USE_LIBBACKTRACE := 0
 
 # "--define:release" implies "--stacktrace:off" and it cannot be added to config.nims
 ifeq ($(USE_LIBBACKTRACE), 0)
