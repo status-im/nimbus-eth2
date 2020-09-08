@@ -355,12 +355,6 @@ proc shaChecksum(key, cipher: openarray[byte]): Sha256Digest =
   result = ctx.finish()
   ctx.clear()
 
-template hexToBytes(data, name: string): untyped =
-  try:
-    hexToSeqByte(data)
-  except ValueError:
-    return err "ks: failed to parse " & name
-
 proc writeJsonHexString(s: OutputStream, data: openarray[byte])
                        {.raises: [IOError, Defect].} =
   s.write '"'

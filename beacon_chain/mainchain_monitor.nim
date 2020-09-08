@@ -92,7 +92,6 @@ type
     signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode) {.raises: [Defect], gcsafe.}
 
 const
-  reorgDepthLimit = 1000
   web3Timeouts = 5.seconds
 
 # TODO: Add preset validation

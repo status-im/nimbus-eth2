@@ -215,7 +215,7 @@ proc readPasswordInput(prompt: string, password: var TaintedString): bool =
       true
     else:
       readPasswordFromStdin(prompt, password)
-  except IOError as exc:
+  except IOError:
     false
 
 proc setStyleNoError(styles: set[Style]) =
@@ -341,7 +341,7 @@ proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
           try:
             echo "The entered password should be at least $1 characters." %
                  [$minPasswordLen]
-          except ValueError as err:
+          except ValueError:
             raiseAssert "The format string above is correct"
         elif password in mostCommonPasswords:
           echo80 "The entered password is too commonly used and it would be easy " &
