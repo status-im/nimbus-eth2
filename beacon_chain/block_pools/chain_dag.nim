@@ -560,12 +560,12 @@ proc get*(dag: ChainDAGRef, root: Eth2Digest): Option[BlockData] =
     none(BlockData)
 
 proc advanceSlots(
-    dag: ChainDAGRef, state: var StateData, slot: Slot, save: bool) =
+    dag: ChainDAGRef, state: var StateData, slot: Slot, cache: var StateCache,
+    save: bool) =
   # Given a state, advance it zero or more slots by applying empty slot
   # processing
   doAssert state.data.data.slot <= slot
 
-  var cache = getStateCache(state.blck, state.data.data.slot.epoch)
   while state.data.data.slot < slot:
     # Process slots one at a time in case afterUpdate needs to see empty states
     advance_slot(state.data, dag.updateFlags, cache)
@@ -575,7 +575,8 @@ proc advanceSlots(
 
 proc applyBlock(
     dag: ChainDAGRef,
-    state: var StateData, blck: BlockData, flags: UpdateFlags, save: bool): bool =
+    state: var StateData, blck: BlockData, flags: UpdateFlags,
+    cache: var StateCache, save: bool): bool =
   # Apply a single block to the state - the state must be positioned at the
   # parent of the block with a slot lower than the one of the block being
   # applied
@@ -583,14 +584,13 @@ proc applyBlock(
 
   # `state_transition` can handle empty slots, but we want to potentially save
   # some of the empty slot states
-  dag.advanceSlots(state, blck.data.message.slot, save)
+  dag.advanceSlots(state, blck.data.message.slot, cache, save)
 
   var statePtr = unsafeAddr state # safe because `restore` is locally scoped
   func restore(v: var HashedBeaconState) =
     doAssert (addr(statePtr.data) == addr v)
     statePtr[] = dag.headState
 
-  var cache = getStateCache(state.blck, state.data.data.slot.epoch)
   let ok = state_transition(
     dag.runtimePreset, state.data, blck.data,
     cache, flags + dag.updateFlags + {slotProcessed}, restore)
@@ -616,9 +616,11 @@ proc updateStateData*(
   if state.blck == bs.blck and state.data.data.slot <= bs.slot:
     # The block is the same and we're at an early enough slot - advance the
     # state with empty slot processing until the slot is correct
-    dag.advanceSlots(state, bs.slot, true)
+    dag.advanceSlots(state, bs.slot, cache, true)
 
     return
+
+  warn "UpdateStateData miss", bs, stateBlock = state.blck, stateSlot = state.data.data.slot
 
   # Either the state is too new or was created by applying a different block.
   # We'll now resort to loading the state from the database then reapplying
@@ -658,12 +660,12 @@ proc updateStateData*(
     # database, we can skip certain checks that have already been performed
     # before adding the block to the database.
     let ok =
-      dag.applyBlock(state, dag.get(ancestors[i]), {}, false)
+      dag.applyBlock(state, dag.get(ancestors[i]), {}, cache, false)
     doAssert ok, "Blocks in database should never fail to apply.."
 
   # We save states here - blocks were guaranteed to have passed through the save
   # function once at least, but not so for empty slots!
-  dag.advanceSlots(state, bs.slot, true)
+  dag.advanceSlots(state, bs.slot, cache, true)
 
   beacon_state_rewinds.inc()
 
