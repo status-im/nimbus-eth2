@@ -227,7 +227,7 @@ func compute_committee_len*(
 func get_beacon_committee*(
     state: BeaconState, slot: Slot, index: CommitteeIndex,
     cache: var StateCache): seq[ValidatorIndex] =
-  # Return the beacon committee at ``slot`` for ``index``.
+  ## Return the beacon committee at ``slot`` for ``index``.
   let
     epoch = compute_epoch_at_slot(slot)
     committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
@@ -257,7 +257,7 @@ func get_beacon_committee_len*(
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#compute_shuffled_index
 func compute_shuffled_index(
     index: uint64, index_count: uint64, seed: Eth2Digest): uint64 =
-  # Return the shuffled index corresponding to ``seed`` (and ``index_count``).
+  ## Return the shuffled index corresponding to ``seed`` (and ``index_count``).
   doAssert index < index_count
 
   var
@@ -295,7 +295,7 @@ func compute_shuffled_index(
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#compute_proposer_index
 func compute_proposer_index(state: BeaconState, indices: seq[ValidatorIndex],
     seed: Eth2Digest): Option[ValidatorIndex] =
-  # Return from ``indices`` a random index sampled by effective balance.
+  ## Return from ``indices`` a random index sampled by effective balance.
   const MAX_RANDOM_BYTE = 255
 
   if len(indices) == 0:
@@ -361,12 +361,12 @@ func get_committee_assignment*(
     state: BeaconState, epoch: Epoch,
     validator_index: ValidatorIndex):
     Option[tuple[a: seq[ValidatorIndex], b: CommitteeIndex, c: Slot]] =
-  # Return the committee assignment in the ``epoch`` for ``validator_index``.
-  # ``assignment`` returned is a tuple of the following form:
-  #     * ``assignment[0]`` is the list of validators in the committee
-  #     * ``assignment[1]`` is the index to which the committee is assigned
-  #     * ``assignment[2]`` is the slot at which the committee is assigned
-  # Return None if no assignment.
+  ## Return the committee assignment in the ``epoch`` for ``validator_index``.
+  ## ``assignment`` returned is a tuple of the following form:
+  ##     * ``assignment[0]`` is the list of validators in the committee
+  ##     * ``assignment[1]`` is the index to which the committee is assigned
+  ##     * ``assignment[2]`` is the slot at which the committee is assigned
+  ## Return None if no assignment.
   let next_epoch = get_current_epoch(state) + 1
   doAssert epoch <= next_epoch
 
