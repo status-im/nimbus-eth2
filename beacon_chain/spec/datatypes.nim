@@ -726,7 +726,7 @@ func init*(T: type GraffitiBytes, input: string): GraffitiBytes
     elif input.len mod 2 != 0:
       raise newException(ValueError, "The graffiti hex string should have an even length")
 
-    hexToByteArray(string input, distinctBase(result))
+    hexToByteArray(input, distinctBase(result))
   else:
     if input.len > 32:
       raise newException(ValueError, "The graffiti value should be 32 characters or less")

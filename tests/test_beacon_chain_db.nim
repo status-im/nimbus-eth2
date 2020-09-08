@@ -91,7 +91,6 @@ suiteReport "Beacon chain DB" & preset():
         TrustedBeaconBlock(slot: GENESIS_SLOT + 1, parent_root: a0.root))
       a2 = withDigest(
         TrustedBeaconBlock(slot: GENESIS_SLOT + 2, parent_root: a1.root))
-      a2r = hash_tree_root(a2.message)
 
     doAssert toSeq(db.getAncestors(a0.root)) == []
     doAssert toSeq(db.getAncestors(a2.root)) == []

@@ -1,6 +1,6 @@
 import
   # Std lib
-  std/[typetraits, strutils, os, algorithm, sequtils, math, sets],
+  std/[typetraits, strutils, os, algorithm, math, sets],
   std/options as stdOptions,
 
   # Status libs
@@ -24,6 +24,9 @@ import
   version, conf, eth2_discovery, libp2p_json_serialization, conf,
   ssz/ssz_serialization,
   peer_pool, spec/[datatypes, network], ./time
+
+when chronicles.enabledLogLevel == LogLevel.TRACE:
+  import std/sequtils
 
 export
   version, multiaddress, peer_pool, peerinfo, p2pProtocol, connection,
@@ -744,8 +747,6 @@ proc dialPeer*(node: Eth2Node, peerAddr: PeerAddr) {.async.} =
 
   # TODO connect is called here, but there's no guarantee that the connection
   #      we get when using dialPeer later on is the one we just connected
-  let peer = node.getPeer(peerAddr.peerId)
-
   await node.switch.connect(peerAddr.peerId, peerAddr.addrs)
 
   #let msDial = newMultistream()
