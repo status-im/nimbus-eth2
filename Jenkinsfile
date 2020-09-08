@@ -40,6 +40,9 @@ def runStages() {
 					}
 				},
 				"test suite": {
+					stage("Test suite") {
+						sh "make -j${env.NPROC} DISABLE_TEST_FIXTURES_SCRIPT=1 test"
+					}
 					stage("testnet finalization") {
 						// EXECUTOR_NUMBER will be 0 or 1, since we have 2 executors per Jenkins node
 						sh """#!/bin/bash
