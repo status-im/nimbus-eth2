@@ -339,7 +339,7 @@ proc connectToNetwork(switch: Switch, nodes: seq[PeerInfo],
   var timed, succeed, failed: int
 
   for pinfo in nodes:
-    pending.add(switch.connect(pinfo))
+    pending.add(switch.connect(pinfo.peerId, pinfo.addrs))
 
   debug "Connecting to peers", count = $len(pending), peers = nodes
 
@@ -571,7 +571,7 @@ proc discoveryLoop(conf: InspectorConf,
         if pinfoOpt.isOk():
           let pinfo = pinfoOpt.get()
           if pinfo.hasTCP():
-            if not switch.isConnected(pinfo):
+            if not switch.isConnected(pinfo.peerId):
               debug "Discovered new peer", peer = pinfo,
                                            peers_count = len(peers)
               await connQueue.addLast(pinfo)

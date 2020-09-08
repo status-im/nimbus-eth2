@@ -213,14 +213,14 @@ programMain:
     var vc = ValidatorClient(
       config: config,
       client: newRpcHttpClient(),
-      graffitiBytes: if config.graffiti.isSome: config.graffiti.get.GraffitiBytes
+      graffitiBytes: if config.graffiti.isSome: config.graffiti.get
                      else: defaultGraffitiBytes())
 
     # load all the validators from the data dir into memory
     for curr in vc.config.validatorKeys:
       vc.attachedValidators.addLocalValidator(curr.toPubKey.initPubKey, curr)
 
-    waitFor vc.client.connect($vc.config.rpcAddress, Port(vc.config.rpcPort))
+    waitFor vc.client.connect($vc.config.rpcAddress, vc.config.rpcPort)
     info "Connected to BN",
       port = vc.config.rpcPort,
       address = vc.config.rpcAddress
