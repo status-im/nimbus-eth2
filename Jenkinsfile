@@ -21,8 +21,8 @@ def runStages() {
 			stage("Build") {
 				sh """#!/bin/bash
 				set -e
-				make -j${env.NPROC} update # to allow a newer Nim version to be detected
-				make -j${env.NPROC} deps # to allow the following parallel stages
+				make -j${env.NPROC} V=1 update # to allow a newer Nim version to be detected
+				make -j${env.NPROC} V=1 deps # to allow the following parallel stages
 				V=1 ./scripts/setup_official_tests.sh jsonTestsCache
 				"""
 			}
@@ -34,14 +34,14 @@ def runStages() {
 					stage("Tools") {
 						sh """#!/bin/bash
 						set -e
-						make -j${env.NPROC}
-						make -j${env.NPROC} LOG_LEVEL=TRACE NIMFLAGS='-d:testnet_servers_image' beacon_node
+						make -j${env.NPROC} V=1
+						make -j${env.NPROC} V=1 LOG_LEVEL=TRACE NIMFLAGS='-d:testnet_servers_image' beacon_node
 						"""
 					}
 				},
 				"test suite": {
 					stage("Test suite") {
-						sh "make -j${env.NPROC} DISABLE_TEST_FIXTURES_SCRIPT=1 test"
+						sh "make -j${env.NPROC} V=1 DISABLE_TEST_FIXTURES_SCRIPT=1 test"
 					}
 					stage("testnet finalization") {
 						// EXECUTOR_NUMBER will be 0 or 1, since we have 2 executors per Jenkins node
