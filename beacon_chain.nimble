@@ -80,7 +80,6 @@ task test, "Run all tests":
   # Consensus object SSZ tests
   buildAndRunBinary "test_fixture_ssz_consensus_objects", "tests/official/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]""""
 
-  # 0.12.1
   buildAndRunBinary "all_fixtures_require_ssz", "tests/official/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]""""
 
   # State and block sims; getting to 4th epoch triggers consensus checks
