@@ -250,10 +250,6 @@ declarePublicCounter nbc_timeout_dials,
 declarePublicGauge nbc_peers,
   "Number of active libp2p peers"
 
-proc safeClose(conn: Connection) {.async.} =
-  if not conn.closed:
-    await close(conn)
-
 const
   snappy_implementation {.strdefine.} = "libp2p"
 
@@ -470,7 +466,7 @@ proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.
   try:
     await stream.writeChunk(none ResponseCode, requestBytes)
   finally:
-    await safeClose(stream)
+    await stream.close()
 
 proc sendResponseChunkBytes(response: UntypedResponse, payload: Bytes) {.async.} =
   inc response.writtenChunks
@@ -505,14 +501,16 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
   try:
     # Send the request
     await stream.writeChunk(none ResponseCode, requestBytes)
+    # Half-close the stream to mark the end of the request - if this is not
+    # done, the other peer might never send us the response.
+    await stream.close()
 
     # Read the response
-    return awaitWithTimeout(
-      readResponse(when useNativeSnappy: libp2pInput(stream) else: stream,
-                   peer, ResponseMsg),
-      deadline, neterr(ReadResponseTimeout))
+    return
+      await readResponse(when useNativeSnappy: libp2pInput(stream) else: stream,
+                         peer, ResponseMsg, timeout)
   finally:
-    await safeClose(stream)
+    await stream.close()
 
 proc init*[MsgType](T: type MultipleChunksResponse[MsgType],
                     peer: Peer, conn: Connection): T =
@@ -676,7 +674,7 @@ proc handleIncomingStream(network: Eth2Node,
     debug "Error processing an incoming request", err = err.msg, msgName
 
   finally:
-    await safeClose(conn)
+    await conn.close()
 
 proc handleOutgoingPeer(peer: Peer): Future[bool] {.async.} =
   let network = peer.network
