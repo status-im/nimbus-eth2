@@ -68,6 +68,16 @@ func parent*(bs: BlockSlot): BlockSlot =
       slot: bs.slot - 1
     )
 
+func parentOrSlot*(bs: BlockSlot): BlockSlot =
+  ## Return a blockslot representing the previous slot, using the parent block
+  ## with the current slot if the current had a block
+  if bs.slot == Slot(0):
+    BlockSlot(blck: nil, slot: Slot(0))
+  elif bs.slot == bs.blck.slot:
+    BlockSlot(blck: bs.blck.parent, slot: bs.slot)
+  else:
+    BlockSlot(blck: bs.blck, slot: bs.slot - 1)
+
 func get_effective_balances*(state: BeaconState): seq[Gwei] =
   ## Get the balances from a state as counted for fork choice
   result.newSeq(state.validators.len) # zero-init
@@ -768,17 +778,14 @@ proc updateHead*(
   if finalizedHead != dag.finalizedHead:
     block: # Remove states, walking slot by slot
       discard
-      # TODO this is very aggressive - in theory all our operations start at
-      #      the finalized block so all states before that can be wiped..
-      # TODO this is disabled for now because the logic for initializing the
-      #      block dag and potentially a few other places depend on certain
-      #      states (like the tail state) being present. It's also problematic
-      #      because it is not clear what happens when tail and finalized states
-      #      happen on an empty slot..
-      # var cur = finalizedHead
-      # while cur != dag.finalizedHead:
-      #  cur = cur.parent
-      #  dag.delState(cur)
+      var cur = finalizedHead
+      while cur != dag.finalizedHead:
+        # TODO This is a quick fix to prune some states from the database, but
+        # not all, pending a smarter storage - the downside of pruning these
+        # states is that certain rewinds will take longer
+        if cur.slot.epoch mod 32 != 0 and cur.slot != dag.tail.slot:
+          dag.delState(cur)
+        cur = cur.parentOrSlot
 
     block: # Clean up block refs, walking block by block
       # Finalization means that we choose a single chain as the canonical one -
@@ -805,7 +812,7 @@ proc updateHead*(
 
           if cur.blck.parent.isNil:
             break
-          cur = cur.parent
+          cur = cur.parentOrSlot
 
         dag.heads.del(n)
     block: # Clean up old EpochRef instances
