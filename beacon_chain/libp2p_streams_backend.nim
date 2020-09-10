@@ -155,17 +155,34 @@ proc readResponseChunk(conn: Connection, peer: Peer,
     return neterr UnexpectedEOF
 
 proc readResponse(conn: Connection, peer: Peer,
-                  MsgType: type): Future[NetRes[MsgType]] {.gcsafe, async.} =
+                  MsgType: type, timeout: Duration): Future[NetRes[MsgType]] {.gcsafe, async.} =
   when MsgType is seq:
     type E = ElemType(MsgType)
     var results: MsgType
     while true:
-      let nextRes = await conn.readResponseChunk(peer, E)
+      # Because we interleave networking with response processing, it may
+      # happen that reading all chunks takes longer than a strict dealine
+      # timeout would allow, so we allow each chunk a new timeout instead.
+      # The problem is exacerbated by the large number of round-trips to the
+      # poll loop that each future along the way causes.
+      trace "reading chunk", conn
+      let nextFut = conn.readResponseChunk(peer, E)
+      if not await nextFut.withTimeout(timeout):
+        return neterr(ReadResponseTimeout)
+      let nextRes = nextFut.read()
       if nextRes.isErr:
         if nextRes.error.kind == PotentiallyExpectedEOF:
+          trace "EOF chunk", conn, err = nextRes.error
+
           return ok results
+        trace "Error chunk", conn, err = nextRes.error
+
         return err nextRes.error
       else:
+        trace "Got chunk", conn
         results.add nextRes.value
   else:
-    return await conn.readResponseChunk(peer, MsgType)
+    let nextFut = conn.readResponseChunk(peer, MsgType)
+    if not await nextFut.withTimeout(timeout):
+      return neterr(ReadResponseTimeout)
+    return nextFut.read()
