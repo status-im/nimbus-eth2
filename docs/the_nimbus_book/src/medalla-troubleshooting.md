@@ -35,10 +35,10 @@ make LOG_LEVEL=INFO medalla
 
 ### Low peer counts
 
-If you're experiencing a low peer count, you may be behind a firewall. Try restarting your client and passing `NODE_PARAMS="--nat:\"extip:$EXT_IP_ADDRESS\"` as an option to `make medalla`, where `$EXT_IP_ADDRESS` is your real IP. For example, if your real IP address is `35.124.65.104`, you'd run:
+If you're experiencing a low peer count, you may be behind a firewall. Try restarting your client and passing `NODE_PARAMS="--nat:\"extip:$EXT_IP_ADDRESS\""` as an option to `make medalla`, where `$EXT_IP_ADDRESS` is your real IP. For example, if your real IP address is `35.124.65.104`, you'd run:
 
 ```
-make NODE_PARAMS="--nat:\"extip:35.124.65.104\" medalla
+make NODE_PARAMS="--nat:\"extip:35.124.65.104\"" medalla
 ```
 
 ### Resource leaks
