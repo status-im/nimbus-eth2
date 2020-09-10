@@ -150,9 +150,9 @@ You may need to do this if you are running another client.
 make medalla-deposit VALIDATORS=2 # default is just 1
 ```
 
-### Combine node parameters
+### Node parameters
 
-Node parameters can be strung together using the `NODE_PARAMS` option. For example
+You can customise your beacon node's parameters using the `NODE_PARAMS` option:
 
 ```
 make NODE_PARAMS="--tcp-port=9100 --udp-port=9100" medalla
@@ -160,7 +160,7 @@ make NODE_PARAMS="--tcp-port=9100 --udp-port=9100" medalla
 
 >**Note:** the above command has exactly the same effect as `make BASE_PORT=9100 medalla`
 
-A complete list of the available parameters can be found [here](https://github.com/status-im/nim-beacon-chain/blob/devel/beacon_chain/conf.nim#L92-L210) (use a parameter's `name` field to refer to it).
+A complete list of the available parameters can be found [here](https://github.com/status-im/nim-beacon-chain/blob/devel/beacon_chain/conf.nim#L92-L210) (use a parameter's `name` field to set it).
 
 ### Logs
 
