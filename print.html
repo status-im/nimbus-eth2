@@ -387,8 +387,8 @@ make medalla # Restart using same keys as last run
 <pre><code>make LOG_LEVEL=INFO medalla
 </code></pre>
 <h3><a class="header" href="#low-peer-counts" id="low-peer-counts">Low peer counts</a></h3>
-<p>If you're experiencing a low peer count, you may be behind a firewall. Try restarting your client and passing <code>NODE_PARAMS=&quot;--nat:\&quot;extip:$EXT_IP_ADDRESS\&quot;</code> as an option to <code>make medalla</code>, where <code>$EXT_IP_ADDRESS</code> is your real IP. For example, if your real IP address is <code>35.124.65.104</code>, you'd run:</p>
-<pre><code>make NODE_PARAMS=&quot;--nat:\&quot;extip:35.124.65.104\&quot; medalla
+<p>If you're experiencing a low peer count, you may be behind a firewall. Try restarting your client and passing <code>NODE_PARAMS=&quot;--nat:\&quot;extip:$EXT_IP_ADDRESS\&quot;&quot;</code> as an option to <code>make medalla</code>, where <code>$EXT_IP_ADDRESS</code> is your real IP. For example, if your real IP address is <code>35.124.65.104</code>, you'd run:</p>
+<pre><code>make NODE_PARAMS=&quot;--nat:\&quot;extip:35.124.65.104\&quot;&quot; medalla
 </code></pre>
 <h3><a class="header" href="#resource-leaks" id="resource-leaks">Resource leaks</a></h3>
 <p>If you're experiencing RAM related resource leaks, try restarting your client (<strong>we recommend restarting every 6 hours</strong> until we get to the bottom of this issue). If you have a <a href="https://github.com/status-im/nim-beacon-chain#getting-metrics-from-a-local-testnet-client">local Grafana setup</a>, you can try monitoring the severity of these leaks and playing around with the restart interval.</p>
@@ -492,6 +492,9 @@ The following options are available:
      --rpc                     Enable the JSON-RPC server.
      --rpc-port                HTTP port for the JSON-RPC service.
      --rpc-address             Listening address of the RPC server.
+     --in-process-validators   Disable the push model (the beacon node tells a signing process with the private
+                               keys of the validators what to sign and when) and load the validators in the
+                               beacon node itself.
      --dump                    Write SSZ dumps of blocks, attestations and states to data dir.
 
 Available sub-commands:
