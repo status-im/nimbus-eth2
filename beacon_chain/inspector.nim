@@ -4,15 +4,15 @@
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
-import sequtils, strutils, os, tables, options
+import std/[sequtils, strutils, os, tables, options]
 import confutils, chronicles, chronos
 import libp2p/[switch, standard_setup, multiaddress, multicodec, peerinfo]
 import libp2p/crypto/crypto as lcrypto
 import libp2p/crypto/secp as lsecp
 import libp2p/protocols/pubsub/[pubsub, gossipsub]
 import eth/p2p/discoveryv5/enr as enr
-import eth/p2p/discoveryv5/[protocol, discovery_db, node]
-import eth/keys as ethkeys, eth/trie/db
+import eth/p2p/discoveryv5/[protocol, node]
+import eth/keys as ethkeys
 import stew/[results, objects]
 import stew/byteutils as bu
 import stew/shims/net
@@ -405,16 +405,15 @@ proc bootstrapDiscovery(conf: InspectorConf,
                         bootnodes: seq[enr.Record],
                         enrFields: Option[ENRFieldPair]): DiscoveryProtocol =
   var pk = ethkeys.PrivateKey(privkey.skkey)
-  var db = DiscoveryDB.init(newMemoryDB())
   let udpPort = Port(conf.discoveryPort)
   let tcpPort = Port(conf.ethPort)
   let host = host.toIpAddress()
   if enrFields.isSome():
     let fields = enrFields.get()
     let pairs = {"eth2": fields.eth2, "attnets": fields.attnets}
-    result = newProtocol(pk, db, host, tcpPort, udpPort, pairs, bootnodes)
+    result = newProtocol(pk, host, tcpPort, udpPort, pairs, bootnodes)
   else:
-    result = newProtocol(pk, db, host, tcpPort, udpPort, [], bootnodes)
+    result = newProtocol(pk, host, tcpPort, udpPort, [], bootnodes)
   result.open()
   result.start()
 
