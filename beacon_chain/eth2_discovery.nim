@@ -1,9 +1,9 @@
 {.push raises: [Defect].}
 
 import
-  os, strutils,
-  chronicles, stew/shims/net, stew/results, eth/keys, eth/trie/db, bearssl,
-  eth/p2p/discoveryv5/[enr, protocol, discovery_db, node],
+  std/[os, strutils],
+  chronicles, stew/shims/net, stew/results, bearssl,
+  eth/keys, eth/p2p/discoveryv5/[enr, protocol, node],
   conf
 
 type
@@ -37,8 +37,7 @@ proc parseBootstrapAddress*(address: TaintedString):
       return err "Ignoring unrecognized bootstrap address type"
 
 proc addBootstrapNode*(bootstrapAddr: string,
-                       bootstrapEnrs: var seq[enr.Record],
-                       localPubKey: PublicKey) =
+                       bootstrapEnrs: var seq[enr.Record]) =
   let enrRes = parseBootstrapAddress(bootstrapAddr)
   if enrRes.isOk:
     bootstrapEnrs.add enrRes.value
@@ -47,14 +46,13 @@ proc addBootstrapNode*(bootstrapAddr: string,
           bootstrapAddr, reason = enrRes.error
 
 proc loadBootstrapFile*(bootstrapFile: string,
-                        bootstrapEnrs: var seq[enr.Record],
-                        localPubKey: PublicKey) =
+                        bootstrapEnrs: var seq[enr.Record]) =
   if bootstrapFile.len == 0: return
   let ext = splitFile(bootstrapFile).ext
   if cmpIgnoreCase(ext, ".txt") == 0 or cmpIgnoreCase(ext, ".enr") == 0 :
     try:
       for ln in lines(bootstrapFile):
-        addBootstrapNode(ln, bootstrapEnrs, localPubKey)
+        addBootstrapNode(ln, bootstrapEnrs)
     except IOError as e:
       error "Could not read bootstrap file", msg = e.msg
       quit 1
@@ -64,7 +62,7 @@ proc loadBootstrapFile*(bootstrapFile: string,
     # removal of YAML metadata.
     try:
       for ln in lines(bootstrapFile):
-        addBootstrapNode(string(ln.strip()[3..^2]), bootstrapEnrs, localPubKey)
+        addBootstrapNode(string(ln.strip()[3..^2]), bootstrapEnrs)
     except IOError as e:
       error "Could not read bootstrap file", msg = e.msg
       quit 1
@@ -82,19 +80,14 @@ proc new*(T: type Eth2DiscoveryProtocol,
   # Implement more configuration options:
   # * for setting up a specific key
   # * for using a persistent database
-  let
-    ourPubKey = pk.toPublicKey()
-    # TODO: `newMemoryDB()` causes raises: [Exception]
-    db = DiscoveryDB.init(newMemoryDB())
-
   var bootstrapEnrs: seq[enr.Record]
   for node in conf.bootstrapNodes:
-    addBootstrapNode(node, bootstrapEnrs, ourPubKey)
-  loadBootstrapFile(string conf.bootstrapNodesFile, bootstrapEnrs, ourPubKey)
+    addBootstrapNode(node, bootstrapEnrs)
+  loadBootstrapFile(string conf.bootstrapNodesFile, bootstrapEnrs)
 
   let persistentBootstrapFile = conf.dataDir / "bootstrap_nodes.txt"
   if fileExists(persistentBootstrapFile):
-    loadBootstrapFile(persistentBootstrapFile, bootstrapEnrs, ourPubKey)
+    loadBootstrapFile(persistentBootstrapFile, bootstrapEnrs)
 
   newProtocol(
-    pk, db, ip, tcpPort, udpPort, enrFields, bootstrapEnrs, rng = rng)
+    pk, ip, tcpPort, udpPort, enrFields, bootstrapEnrs, rng = rng)
