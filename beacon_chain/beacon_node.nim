@@ -995,6 +995,14 @@ when hasPrompt:
               balance += b
           formatGwei(balance)
 
+        of "sync_status":
+          if isNil(node.syncManager):
+            "pending"
+          else:
+            if node.syncManager.inProgress:
+              node.syncManager.syncStatus
+            else:
+              "synced"
         else:
           # We ignore typos for now and just render the expression
           # as it was written. TODO: come up with a good way to show
