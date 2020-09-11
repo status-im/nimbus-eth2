@@ -108,7 +108,9 @@ suiteReport "BlockSlot and helpers" & preset():
     check:
       s00.parent == BlockSlot(blck: nil, slot: Slot(0))
       s01.parent == s00
+      s01.parentOrSlot == s00
       s22.parent == s01
+      s22.parentOrSlot == BlockSlot(blck: s0, slot: Slot(2))
       s24.parent == BlockSlot(blck: s2, slot: Slot(3))
       s24.parent.parent == s22
 
