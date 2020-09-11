@@ -239,6 +239,8 @@ proc copyPrunedDatabase(
     copyDb.putHeadBlock(headBlock.get)
     copyDb.putTailBlock(tailBlock.get)
 
+  copyDb.close()
+
 proc cmdPrune(conf: DbConf) =
   let
     db = BeaconChainDB.init(
