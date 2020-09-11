@@ -630,7 +630,8 @@ proc updateStateData*(
 
     return
 
-  warn "UpdateStateData miss", bs, stateBlock = state.blck, stateSlot = state.data.data.slot
+  debug "UpdateStateData miss",
+    bs, stateBlock = state.blck, stateSlot = state.data.data.slot
 
   # Either the state is too new or was created by applying a different block.
   # We'll now resort to loading the state from the database then reapplying
