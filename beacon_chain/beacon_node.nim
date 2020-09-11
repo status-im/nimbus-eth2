@@ -510,7 +510,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, asyn
   beacon_head_slot.set slot.int64
 
   # Time passes in here..
-  asyncCheck node.handleValidatorDuties(lastSlot, slot)
+  await node.handleValidatorDuties(lastSlot, slot)
 
   let
     nextSlotStart = saturate(node.beaconClock.fromNow(nextSlot))
