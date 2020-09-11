@@ -783,6 +783,8 @@ proc updateHead*(
         # TODO This is a quick fix to prune some states from the database, but
         # not all, pending a smarter storage - the downside of pruning these
         # states is that certain rewinds will take longer
+        # After long periods of non-finalization, it can also take some time to
+        # release all these states!
         if cur.slot.epoch mod 32 != 0 and cur.slot != dag.tail.slot:
           dag.delState(cur)
         cur = cur.parentOrSlot
