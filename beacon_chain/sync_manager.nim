@@ -72,7 +72,6 @@ type
     debtsQueue: HeapQueue[SyncRequest[T]]
     debtsCount: uint64
     readyQueue: HeapQueue[SyncResult[T]]
-    suspects: seq[SyncResult[T]]
     outQueue: AsyncQueue[BlockEntry]
 
   SyncWorkerStatus* {.pure.} = enum
