@@ -50,3 +50,6 @@ If you’re experiencing sync problems,  we recommend running `make clean-medall
 
 > **Warning**: `make clean-medalla` will erase all of your syncing progress so far, so it should only be used as a last resort -- if your client gets stuck for a long time (because it's unable to find the right chain and/or stay with the same head value) and a normal restart doesn't improve things.
 
+### Pruning the database
+
+...
