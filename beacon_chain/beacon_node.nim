@@ -796,6 +796,8 @@ proc stop*(node: BeaconNode) =
   if not node.config.inProcessValidators:
     node.vcProcess.close()
   waitFor node.network.stop()
+  node.db.close()
+  info "Database closed"
 
 proc run*(node: BeaconNode) =
   if status == BeaconNodeStatus.Starting:

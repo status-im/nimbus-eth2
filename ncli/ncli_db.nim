@@ -89,6 +89,7 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
       kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
     dbBenchmark = BeaconChainDB.init(
       kvStore SqStoreRef.init(".", "benchmark").tryGet())
+  defer: db.close()
 
   if not ChainDAGRef.isInitialized(db):
     echo "Database not initialized"
@@ -142,6 +143,7 @@ proc cmdDumpState(conf: DbConf) =
   let
     db = BeaconChainDB.init(
       kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
+  defer: db.close()
 
   for stateRoot in conf.stateRoot:
     try:
@@ -158,6 +160,7 @@ proc cmdDumpBlock(conf: DbConf) =
   let
     db = BeaconChainDB.init(
       kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
+  defer: db.close()
 
   for blockRoot in conf.blockRootx:
     try:
@@ -246,6 +249,10 @@ proc cmdPrune(conf: DbConf) =
     copyDb = BeaconChainDB.init(
       kvStore SqStoreRef.init(conf.databaseDir.string, "nbc_pruned").tryGet())
 
+  defer:
+    db.close()
+    copyDb.close()
+
   db.copyPrunedDatabase(copyDb, conf.dryRun, conf.verbose, conf.keepOldStates)
 
 proc cmdRewindState(conf: DbConf, runtimePreset: RuntimePreset) =
@@ -253,6 +260,7 @@ proc cmdRewindState(conf: DbConf, runtimePreset: RuntimePreset) =
   let
     db = BeaconChainDB.init(
       kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
+  defer: db.close()
 
   if not ChainDAGRef.isInitialized(db):
     echo "Database not initialized"
