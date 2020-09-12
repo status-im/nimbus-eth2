@@ -128,6 +128,9 @@ proc get[T](db: BeaconChainDB, key: openArray[byte], output: var T): GetResult =
 
   status
 
+proc close*(db: BeaconChainDB) =
+  discard db.backend.close()
+
 proc putBlock*(db: BeaconChainDB, value: SignedBeaconBlock) =
   db.put(subkey(type value, value.root), value)
 proc putBlock*(db: BeaconChainDB, value: TrustedSignedBeaconBlock) =

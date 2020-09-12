@@ -66,6 +66,8 @@ suiteReport "Beacon chain DB" & preset():
       db.getStateRoot(root, signedBlock.message.slot).get() == root
       db.getStateRoot(root, signedBlock.message.slot + 1).get() == root2
 
+    db.close()
+
   wrappedTimedTest "sanity check states" & preset():
     var
       db = init(BeaconChainDB, kvStore MemStoreRef.init())
@@ -79,6 +81,8 @@ suiteReport "Beacon chain DB" & preset():
     check:
       db.containsState(root)
       hash_tree_root(db.getStateRef(root)[]) == root
+
+    db.close()
 
   wrappedTimedTest "find ancestors" & preset():
     var
@@ -128,6 +132,7 @@ suiteReport "Beacon chain DB" & preset():
 
     check db.containsState(root)
     let state2 = db.getStateRef(root)
+    db.close()
 
     check:
       hash_tree_root(state2[]) == root

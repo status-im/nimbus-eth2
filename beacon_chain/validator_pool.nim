@@ -1,5 +1,5 @@
 import
-  tables, strutils, json, streams,
+  tables, json, streams,
   chronos, chronicles,
   spec/[datatypes, crypto, digest, signatures, helpers],
   beacon_node_types,
