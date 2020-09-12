@@ -1080,7 +1080,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
                                       `MsgStrongRecName`)
 
         mount `networkVar`.switch,
-              LPProtocol(codec: `codecNameLit` & "ssz_snappy",
+              LPProtocol(codecs: @[`codecNameLit` & "ssz_snappy"],
                          handler: snappyThunk)
 
     ##
