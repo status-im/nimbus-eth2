@@ -32,6 +32,7 @@ If you’re experiencing sync problems,  we recommend running `make clean-medall
 If you're running out of storage, you can [prune](https://blog.ethereum.org/2015/06/26/state-tree-pruning/) the database of unnecessary blocks and states by running:
 
 ```
+make ncli_db
 build/ncli_db pruneDatabase --db=build/data/shared_medalla_0/db --verbose=true
 ```
 
