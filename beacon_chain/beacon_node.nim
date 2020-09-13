@@ -397,6 +397,7 @@ proc addMessageHandlers(node: BeaconNode): Future[void] =
   allFutures(
     # As a side-effect, this gets the attestation subnets too.
     node.network.subscribe(node.topicBeaconBlocks),
+    node.network.subscribe(getAttesterSlashingsTopic(node.forkDigest)),
 
     node.getAttestationHandlers()
   )
@@ -772,6 +773,11 @@ proc installMessageValidators(node: BeaconNode) =
     node.topicBeaconBlocks,
     proc (signedBlock: SignedBeaconBlock): bool =
       node.processor[].blockValidator(signedBlock))
+
+  node.network.addValidator(
+    getAttesterSlashingsTopic(node.forkDigest),
+    proc (attesterSlashing: AttesterSlashing): bool =
+      node.processor[].attesterSlashingValidator(attesterSlashing))
 
 proc removeMessageHandlers(node: BeaconNode) =
   var unsubscriptions: seq[Future[void]]

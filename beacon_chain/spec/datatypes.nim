@@ -694,6 +694,19 @@ func shortLog*(v: SomeAttestation): auto =
     signature: shortLog(v.signature)
   )
 
+func shortLog*(v: SomeIndexedAttestation): auto =
+  (
+    attestating_indices: v.attesting_indices,
+    data: shortLog(v.data),
+    signature: shortLog(v.signature)
+  )
+
+func shortLog*(v: AttesterSlashing): auto =
+  (
+    attestation_1: shortLog(v.attestation_1),
+    attestation_2: shortLog(v.attestation_2),
+  )
+
 chronicles.formatIt Slot: it.shortLog
 chronicles.formatIt Epoch: it.shortLog
 chronicles.formatIt BeaconBlock: it.shortLog

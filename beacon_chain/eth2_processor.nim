@@ -4,7 +4,7 @@ import
   chronicles, chronicles/chronos_tools, chronos, metrics,
   ./spec/[crypto, datatypes, digest],
   ./block_pools/[clearance, chain_dag],
-  ./attestation_aggregation,
+  ./attestation_aggregation, ./slashing_pool,
   ./beacon_node_types, ./attestation_pool,
   ./time, ./conf, ./sszdump
 
@@ -15,6 +15,8 @@ declareCounter beacon_aggregates_received,
   "Number of beacon chain aggregate attestations received by this peer"
 declareCounter beacon_blocks_received,
   "Number of beacon chain blocks received by this peer"
+declareCounter beacon_attester_slashings_received,
+  "Number of beacon chain attester slashings received by this peer"
 
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
@@ -54,6 +56,7 @@ type
     getWallTime*: GetWallTimeFn
     chainDag*: ChainDAGRef
     attestationPool*: ref AttestationPool
+    slashingPool: ref SlashingPool
     quarantine*: QuarantineRef
 
     blocksQueue*: AsyncQueue[BlockEntry]
@@ -366,6 +369,18 @@ proc aggregateValidator*(
     attesting_indices: v.get()))
 
   true
+
+proc attesterSlashingValidator*(
+  self: var Eth2Processor, attesterSlashing: AttesterSlashing): bool =
+  logScope:
+    attesterSlashing = shortLog(attesterSlashing)
+
+  let v = self.slashingPool[].validateAttesterSlashing(attesterSlashing)
+  if v.isErr:
+    debug "Dropping attester slashing", err = v.error
+    return false
+
+  beacon_attester_slashings_received.inc()
 
 proc runQueueProcessingLoop*(self: ref Eth2Processor) {.async.} =
   # Blocks in eth2 arrive on a schedule for every slot:
