@@ -193,19 +193,6 @@ INF 2020-08-03 16:24:17.951+02:00 Local validator attached                   tid
 INF 2020-08-03 16:24:17.951+02:00 Local validators attached                  topics=&quot;beacval&quot; tid=11677993 file=validator_duties.nim:61 count=1
 INF 2020-08-03 16:24:17.958+02:00 Starting beacon node                       topics=&quot;beacnde&quot; tid=11677993 file=beacon_node.nim:875 version=&quot;0.5.0 (31b33907)&quot; nim=&quot;Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)&quot; timeSinceFinalization=81350 head=ebe49843:0 finalizedHead=ebe49843:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.2 dataDir=build/data/shared_medalla_0 pcs=start_beacon_node
 </code></pre>
-<details>
-<summary>Tips on how to graffiti and run multiple clients</summary>
-<blockquote>
-<p>To draw on the <a href="https://medalla.beaconcha.in/graffitiwall">graffitwall</a>, pass the graffiti parameter like this:</p>
-<pre><code>make NODE_PARAMS=&quot;--graffiti='&lt;YOUR_GRAFFITI&gt;'&quot; medalla
-</code></pre>
-</blockquote>
-<blockquote>
-<p>If you are running another client, you may need to use a different port. To change port, run:</p>
-<pre><code>make BASE_PORT=&lt;YOUR_PORT_NUMBER&gt; medalla
-</code></pre>
-</blockquote>
-</details>
 <blockquote>
 <p>Tip: to 🎨 on the <a href="https://medalla.beaconcha.in/graffitiwall">graffitwall</a>, pass the graffiti parameter like this:</p>
 <pre><code>make NODE_PARAMS=&quot;--graffiti='&lt;YOUR_GRAFFITI&gt;'&quot; medalla
@@ -222,6 +209,20 @@ INF 2020-08-03 16:24:17.958+02:00 Starting beacon node                       top
 </code></pre>
 <p>Once the update is complete, run <code>make medalla</code> to reconnect to the network.</p>
 <p>Looking forward to seeing you on Medalla! 💛</p>
+<h2><a class="header" href="#key-management" id="key-management">Key management</a></h2>
+<p>Keys are stored in the <code>build/data/shared_medalla_0/</code> folder, under <code>secrets</code> and <code>validators</code> - make sure you keep these folders backed up.</p>
+<p>The <code>secrets</code> folder contains the common secret that gives you access to all your validator keys.</p>
+<p>The <code>validators</code> folder contains your keystores (encrypted keys). Keystores are used by validators as a method for exchanging keys. For more on keys and keystores, see <a href="https://blog.ethereum.org/2020/05/21/keys/">here</a>.</p>
+<blockquote>
+<p><strong>Note:</strong> The Nimbus client will only ever import your signing key -- in any case, if you used the deposit launchpad, this is the only key you should have (you can generate the withdrawal key from your mnemonic when you wish to withdraw).</p>
+</blockquote>
+<h2><a class="header" href="#metrics" id="metrics">Metrics</a></h2>
+<p>Metrics are not included in the binary by default - to enable them, use the following options when starting the client:</p>
+<pre><code>make NIMFLAGS=&quot;-d:insecure&quot; medalla
+</code></pre>
+<p>You can then browse the metrics by connecting to:</p>
+<p>http://localhost:8008/metrics</p>
+<p>Make sure this port is protected as the http server used is not considered secure (it should not be used by untrusted peers).</p>
 <h2><a class="header" href="#advanced-options" id="advanced-options">Advanced options</a></h2>
 <h3><a class="header" href="#start-multiple-nodes" id="start-multiple-nodes">Start multiple nodes</a></h3>
 <p>You can start multiple local nodes, in different terminal windows/tabs, by specifying numeric IDs:</p>
@@ -240,20 +241,20 @@ make medalla NODE_ID=2
 <h3><a class="header" href="#make-a-deposit-directly-using-nimbus" id="make-a-deposit-directly-using-nimbus">Make a deposit directly using Nimbus</a></h3>
 <pre><code>make medalla-deposit VALIDATORS=2 # default is just 1
 </code></pre>
-<h2><a class="header" href="#key-management" id="key-management">Key management</a></h2>
-<p>Keys are stored in the <code>build/data/shared_medalla_0/</code> folder, under <code>secrets</code> and <code>validators</code> - make sure you keep these folders backed up.</p>
-<p>The <code>secrets</code> folder contains the common secret that gives you access to all your validator keys.</p>
-<p>The <code>validators</code> folder contains your keystores (encrypted keys). Keystores are used by validators as a method for exchanging keys. For more on keys and keystores, see <a href="https://blog.ethereum.org/2020/05/21/keys/">here</a>.</p>
-<blockquote>
-<p><strong>Note:</strong> The Nimbus client will only ever import your signing key -- in any case, if you used the deposit launchpad, this is the only key you should have (you can generate the withdrawal key from your mnemonic when you wish to withdraw).</p>
-</blockquote>
-<h2><a class="header" href="#metrics" id="metrics">Metrics</a></h2>
-<p>Metrics are not included in the binary by default - to enable them, use the following options when starting the client:</p>
-<pre><code>make NIMFLAGS=&quot;-d:insecure&quot; medalla
+<h3><a class="header" href="#node-parameters" id="node-parameters">Node parameters</a></h3>
+<p>You can customise your beacon node's parameters using the <code>NODE_PARAMS</code> option:</p>
+<pre><code>make NODE_PARAMS=&quot;--tcp-port=9100 --udp-port=9100&quot; medalla
 </code></pre>
-<p>You can then browse the metrics by connecting to:</p>
-<p>http://localhost:8008/metrics</p>
-<p>Make sure this port is protected as the http server used is not considered secure (it should not be used by untrusted peers).</p>
+<blockquote>
+<p><strong>Note:</strong> the above command has exactly the same effect as <code>make BASE_PORT=9100 medalla</code></p>
+</blockquote>
+<p>A complete list of the available parameters can be found <a href="https://github.com/status-im/nim-beacon-chain/blob/devel/beacon_chain/conf.nim#L92-L210">here</a> (use a parameter's <code>name</code> field to set it).</p>
+<h3><a class="header" href="#logs" id="logs">Logs</a></h3>
+<p>Log files are saved in <code>build/data/shared_medalla_0/</code>.</p>
+<h3><a class="header" href="#makefile" id="makefile">Makefile</a></h3>
+<p>If you are comfortable reading <a href="https://en.wikipedia.org/wiki/Makefile#:%7E:text=A%20makefile%20is%20a%20file,to%20generate%20a%20target%2Fgoal">Makefiles</a>, you can see the commands that <code>make medalla</code>  executes under the hood, <a href="https://github.com/status-im/nim-beacon-chain/blob/devel/Makefile#L184-L197">here</a>.</p>
+<p>Some of the provided options (such as <code>--network=medalla</code>) are essential while others (such as the ones controlling logging, metrics, ports, and the RPC service) are there for convenience.</p>
+<p>The Goerli testnet parameters (<code>$(GOERLI_TESTNETS_PARAMS</code>), are defined higher up in the Makefile, <a href="https://github.com/status-im/nim-beacon-chain/blob/devel/Makefile#L158-L165">here</a>.</p>
 
                     </main>
 
