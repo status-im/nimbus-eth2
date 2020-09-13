@@ -20,18 +20,36 @@ If, after updating to the latest `devel`, you feel like your node is functioning
 
 >**Note:** rest assured that when you restart the beacon node, the software will resume from where it left off, using the validator keys you have already imported.
 
-
 ### Starting over
-
 The directory that stores the blockchain data of the testnet is `build/data/shared_medalla_0` (if you're connecting to another testnet, replace `medalla` with that testnet's name). Delete this folder to start over (for example, if you started building medalla with the wrong private keys).
+
+### Syncing
+If you’re experiencing sync problems,  we recommend running `make clean-medalla` to delete the database and restart your sync (make sure you’ve updated to the latest `devel` branch first though).
+
+> **Warning**: `make clean-medalla` will erase all of your syncing progress so far, so it should only be used as a last resort -- if your client gets stuck for a long time (because it's unable to find the right chain and/or stay with the same head value) and a normal restart doesn't improve things.
+
+### Pruning the database
+If you're running out of storage, you can [prune](https://blog.ethereum.org/2015/06/26/state-tree-pruning/) the database of unnecessary blocks and states by running:
+
+```
+build/ncli_db pruneDatabase --db=build/data/shared_medalla_0/db --verbose=true
+```
+
+This will create `nbc_pruned.sqlite3` files in `build/data/shared_medalla_0/db`, which you can use in place of the orginal `nbc.sqlite3` files. We recommend you hold onto the originals until you've verified that your validator is behaving as expected with the pruned files.
+
+Options:
+- `--keepOldStates` (boolean):  Keep pre-finalisation states; defaults to `true`.
+- `--verbose` (boolean): Print a more verbose output to the console; defaults to `false`.
+  
 
 ### Keeping up with the head of the chain
 
-As it stands, logging seems to be slowing down the client,  and quite a few users are experiencing trouble either catching up or keeping up with the head of the chain. You can use the `LOG_LEVEL=INFO` option to reduce verbosity and speed up the client.
+As it stands, logging seems to be slowing down the client,  and quite a few users are experiencing trouble either catching up or keeping up with the head of the chain. You can use either the `LOG_LEVEL=INFO` or `LOG_LEVEL=NOTICE` options to reduce verbosity and speed up the client (`NOTICE` is even less verbose than `INFO`).
 
 ```
 make LOG_LEVEL=INFO medalla
 ```
+
 
 ### Low peer counts
 
@@ -45,8 +63,4 @@ make NODE_PARAMS="--nat:\"extip:35.124.65.104\"" medalla
 
 If you're experiencing RAM related resource leaks, try restarting your client (**we recommend restarting every 6 hours** until we get to the bottom of this issue). If you have a [local Grafana setup](https://github.com/status-im/nim-beacon-chain#getting-metrics-from-a-local-testnet-client), you can try monitoring the severity of these leaks and playing around with the restart interval.
 
-### Syncing
-If you’re experiencing sync problems,  we recommend running `make clean-medalla` to restart your sync (make sure you’ve updated to the latest `devel` branch first though).
-
-> **Warning**: `make clean-medalla` will erase all of your syncing progress so far, so it should only be used as a last resort -- if your client gets stuck for a long time (because it's unable to find the right chain and/or stay with the same head value) and a normal restart doesn't improve things.
 
