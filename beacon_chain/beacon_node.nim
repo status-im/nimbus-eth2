@@ -1145,8 +1145,6 @@ programMain:
 
     config.createDumpDirs()
 
-    var node = waitFor BeaconNode.init(rng, config, stateSnapshotContents)
-
     ## Ctrl+C handling
     proc controlCHandler() {.noconv.} =
       when defined(windows):
@@ -1156,15 +1154,17 @@ programMain:
       status = BeaconNodeStatus.Stopping
     setControlCHook(controlCHandler)
 
-    when hasPrompt:
-      initPrompt(node)
-
     when useInsecureFeatures:
       if config.metricsEnabled:
         let metricsAddress = config.metricsAddress
         info "Starting metrics HTTP server",
           address = metricsAddress, port = config.metricsPort
         metrics.startHttpServer($metricsAddress, config.metricsPort)
+
+    var node = waitFor BeaconNode.init(rng, config, stateSnapshotContents)
+
+    when hasPrompt:
+      initPrompt(node)
 
     if node.nickname != "":
       dynamicLogScope(node = node.nickname): node.start()
