@@ -3,7 +3,7 @@
 import
   std/[deques, tables, streams],
   stew/endians2,
-  spec/[datatypes, crypto],
+  spec/[datatypes, digest, crypto],
   block_pools/block_pools_types,
   fork_choice/fork_choice_types,
   validator_slashing_protection
@@ -51,6 +51,10 @@ type
     ## These attestations also contribute to the fork choice, which combines
     ## "free" attestations with those found in past blocks - these votes
     ## are tracked separately in the fork choice.
+
+    attestationAggregates*: Table[Slot, Table[Eth2Digest, Attestation]]
+      ## An up-to-date aggregate of each (htr-ed) attestation_data we see for
+      ## each slot. We keep aggregates up to 32 slots back from the current slot.
 
     candidates*: array[ATTESTATION_LOOKBACK, AttestationsSeen] ## \
       ## We keep one item per slot such that indexing matches slot number

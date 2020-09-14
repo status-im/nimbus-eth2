@@ -10,6 +10,7 @@ import
 type
   AttesterDuties* = tuple
     public_key: ValidatorPubKey
+    validator_index: ValidatorIndex
     committee_index: CommitteeIndex
     committee_length: uint64
     validator_committee_index: uint64

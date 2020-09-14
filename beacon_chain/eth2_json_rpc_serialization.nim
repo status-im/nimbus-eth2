@@ -48,6 +48,7 @@ template genFromJsonForIntType(t: untyped) =
 genFromJsonForIntType(Epoch)
 genFromJsonForIntType(Slot)
 genFromJsonForIntType(CommitteeIndex)
+genFromJsonForIntType(ValidatorIndex)
 
 template `%`*(value: GraffitiBytes): JsonNode =
   %($value)
@@ -57,4 +58,7 @@ proc fromJson*(n: JsonNode, argName: string, value: var GraffitiBytes) =
   value = GraffitiBytes.init n.getStr()
 
 proc `%`*(value: CommitteeIndex): JsonNode =
+  result = newJInt(value.int)
+
+proc `%`*(value: ValidatorIndex): JsonNode =
   result = newJInt(value.int)

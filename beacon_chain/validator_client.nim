@@ -19,6 +19,7 @@ import
   spec/[datatypes, digest, crypto, helpers, network, signatures],
   conf, time, version,
   eth2_network, eth2_discovery, validator_pool, beacon_node_types,
+  attestation_aggregation,
   nimbus_binary_common,
   version, ssz/merkleization,
   sync_manager, keystore_management,
@@ -75,7 +76,7 @@ proc getValidatorDutiesForEpoch(vc: ValidatorClient, epoch: Epoch) {.gcsafe, asy
     # make sure there's an entry
     if not vc.attestationsForEpoch.contains epoch:
       vc.attestationsForEpoch.add(epoch, Table[Slot, seq[AttesterDuties]]())
-    let attestations = await vc.client.post_v1_validator_duties_attester(
+    let attestations = await vc.client.get_v1_validator_duties_attester(
       epoch, validatorPubkeys)
     for a in attestations:
       if vc.attestationsForEpoch[epoch].hasKeyOrPut(a.slot, @[a]):
@@ -176,6 +177,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
     # check if we have validators which need to attest on this slot
     if vc.attestationsForEpoch.contains(epoch) and
         vc.attestationsForEpoch[epoch].contains slot:
+      var validatorToAttestationDataRoot: Table[ValidatorPubKey, Eth2Digest]
       for a in vc.attestationsForEpoch[epoch][slot]:
         info "Attesting", slot = slot, public_key = a.public_key
 
@@ -207,6 +209,38 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
           warn "Slashing protection activated for attestation",
             validator = a.public_key,
             badVoteDetails = $notSlashable.error
+
+        validatorToAttestationDataRoot[a.public_key] = attestation.data.hash_tree_root
+
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#broadcast-aggregate
+      # If the validator is selected to aggregate (is_aggregator), then they
+      # broadcast their best aggregate as a SignedAggregateAndProof to the global
+      # aggregate channel (beacon_aggregate_and_proof) two-thirds of the way
+      # through the slot-that is, SECONDS_PER_SLOT * 2 / 3 seconds after the start
+      # of slot.
+      if slot > 2:
+        discard await vc.beaconClock.sleepToSlotOffset(
+          seconds(int64(SECONDS_PER_SLOT * 2)) div 3, slot,
+            "Waiting to aggregate attestations")
+
+      # loop again over all of our validators which need to attest on
+      # this slot and check if we should also aggregate attestations
+      for a in vc.attestationsForEpoch[epoch][slot]:
+        let validator = vc.attachedValidators.validators[a.public_key]
+        let slot_signature = await getSlotSig(validator, vc.fork,
+          vc.beaconGenesis.genesis_validators_root, slot)
+
+        if is_aggregator(a.committee_length, slot_signature):
+          info "Aggregating", slot = slot, public_key = a.public_key
+
+          let aa = await vc.client.get_v1_validator_aggregate_attestation(
+            slot, validatorToAttestationDataRoot[a.public_key])
+          let aap = AggregateAndProof(aggregator_index: a.validator_index.uint64,
+            aggregate: aa, selection_proof: slot_signature)
+          let sig = await signAggregateAndProof(validator, 
+            aap, vc.fork, vc.beaconGenesis.genesis_validators_root)
+          var signedAP = SignedAggregateAndProof(message: aap, signature: sig)
+          discard await vc.client.post_v1_validator_aggregate_and_proofs(signedAP)
 
   except CatchableError as err:
     warn "Caught an unexpected error", err = err.msg, slot = shortLog(slot)

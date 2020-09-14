@@ -17,7 +17,7 @@ import
   # Local modules
   spec/[datatypes, digest, crypto, validator, helpers],
   block_pools/[chain_dag, spec_cache], ssz/merkleization,
-  beacon_node_common, beacon_node_types,
+  beacon_node_common, beacon_node_types, attestation_pool,
   validator_duties, eth2_network,
   spec/eth2_apis/callsigs_types,
   eth2_json_rpc_serialization
@@ -179,6 +179,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   let GENESIS_FORK_VERSION = node.config.runtimePreset.GENESIS_FORK_VERSION
 
   template withStateForStateId(stateId: string, body: untyped): untyped =
+    # TODO this can be optimized for the "head" case since that should be most common
     node.chainDag.withState(node.chainDag.tmpState,
                              node.stateIdToBlockSlot(stateId)):
       body
@@ -335,19 +336,24 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       epochRef = node.chainDag.getEpochRef(head, slot.epoch)
     return makeAttestationData(epochRef, head.atSlot(slot), committee_index.uint64)
 
-  rpcServer.rpc("get_v1_validator_aggregate_and_proof") do (
-      attestation_data: AttestationData)-> Attestation:
-    debug "get_v1_validator_aggregate_and_proof"
-    raise newException(CatchableError, "Not implemented")
+  rpcServer.rpc("get_v1_validator_aggregate_attestation") do (
+      slot: Slot, attestation_data_root: Eth2Digest)-> Attestation:
+    debug "get_v1_validator_aggregate_attestation"
+    let res = node.attestationPool[].getAggregatedAttestation(slot, attestation_data_root)
+    if res.isSome:
+      return res.get
+    raise newException(CatchableError, "Could not retrieve an aggregated attestation")
 
-  rpcServer.rpc("post_v1_validator_aggregate_and_proof") do (
+  rpcServer.rpc("post_v1_validator_aggregate_and_proofs") do (
       payload: SignedAggregateAndProof) -> bool:
-    debug "post_v1_validator_aggregate_and_proof"
-    raise newException(CatchableError, "Not implemented")
+    debug "post_v1_validator_aggregate_and_proofs"
+    node.network.broadcast(node.topicAggregateAndProofs, payload)
+    info "Aggregated attestation sent",
+      attestation = shortLog(payload.message.aggregate)
 
-  rpcServer.rpc("post_v1_validator_duties_attester") do (
+  rpcServer.rpc("get_v1_validator_duties_attester") do (
       epoch: Epoch, public_keys: seq[ValidatorPubKey]) -> seq[AttesterDuties]:
-    debug "post_v1_validator_duties_attester", epoch = epoch
+    debug "get_v1_validator_duties_attester", epoch = epoch
     let
       head = node.doChecksAndGetCurrentHead(epoch)
       epochRef = node.chainDag.getEpochRef(head, epoch)
@@ -362,6 +368,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
             let curr_val_pubkey = epochRef.validator_keys[validatorIdx].initPubKey
             if public_keys.findIt(it == curr_val_pubkey) != -1:
               result.add((public_key: curr_val_pubkey,
+                          validator_index: validatorIdx,
                           committee_index: committee_index.CommitteeIndex,
                           committee_length: committee.lenu64,
                           validator_committee_index: index_in_committee.uint64,
