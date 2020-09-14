@@ -173,12 +173,12 @@ proc process_proposer_slashing*(
           signed_header.message, proposer.pubkey, signed_header.signature):
         return err("process_proposer_slashing: invalid signature")
 
-  slashValidator(state, header_1.proposer_index.ValidatorIndex, stateCache)
+  slash_validator(state, header_1.proposer_index.ValidatorIndex, stateCache)
 
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#is_slashable_attestation_data
-func is_slashable_attestation_data(
+func is_slashable_attestation_data*(
     data_1: AttestationData, data_2: AttestationData): bool =
   ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
   ## rules.

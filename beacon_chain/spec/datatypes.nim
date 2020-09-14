@@ -656,6 +656,20 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
     signature: shortLog(v.signature)
   )
 
+func shortLog*(v: BeaconBlockHeader): auto =
+  (
+    slot: shortLog(v.slot),
+    proposer_index: v.proposer_index,
+    parent_root: shortLog(v.parent_root),
+    state_root: shortLog(v.state_root)
+  )
+
+func shortLog*(v: SignedBeaconBlockHeader): auto =
+  (
+    message: shortLog(v.message),
+    signature: shortLog(v.signature)
+  )
+
 func shortLog*(v: DepositData): auto =
   (
     pubkey: shortLog(v.pubkey),
@@ -692,6 +706,31 @@ func shortLog*(v: SomeAttestation): auto =
     aggregation_bits: v.aggregation_bits,
     data: shortLog(v.data),
     signature: shortLog(v.signature)
+  )
+
+func shortLog*(v: SomeIndexedAttestation): auto =
+  (
+    attestating_indices: v.attesting_indices,
+    data: shortLog(v.data),
+    signature: shortLog(v.signature)
+  )
+
+func shortLog*(v: AttesterSlashing): auto =
+  (
+    attestation_1: shortLog(v.attestation_1),
+    attestation_2: shortLog(v.attestation_2),
+  )
+
+func shortLog*(v: ProposerSlashing): auto =
+  (
+    signed_header_1: shortLog(v.signed_header_1),
+    signed_header_2: shortLog(v.signed_header_2)
+  )
+
+func shortLog*(v: VoluntaryExit): auto =
+  (
+    epoch: shortLog(v.epoch),
+    validator_index: v.validator_index
   )
 
 chronicles.formatIt Slot: it.shortLog
