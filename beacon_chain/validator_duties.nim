@@ -18,13 +18,14 @@ import
   eth/[keys, async_utils], eth/p2p/discoveryv5/[protocol, enr],
 
   # Local modules
-  spec/[datatypes, digest, crypto, helpers, validator, network],
+  spec/[datatypes, digest, crypto, helpers, validator, network, signatures],
   spec/state_transition,
   conf, time, validator_pool,
   attestation_pool, block_pools/[spec_cache, chain_dag, clearance],
   eth2_network, keystore_management, beacon_node_common, beacon_node_types,
   nimbus_binary_common, mainchain_monitor, version, ssz/merkleization, interop,
-  attestation_aggregation, sync_manager, sszdump
+  attestation_aggregation, sync_manager, sszdump,
+  validator_slashing_protection
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_attestations_sent,
@@ -119,6 +120,8 @@ proc isSynced*(node: BeaconNode, head: BlockRef): bool =
     # The slot we should be at, according to the clock
     beaconTime = node.beaconClock.now()
     wallSlot = beaconTime.toSlot()
+
+  # TODO: MaxEmptySlotCount should likely involve the weak subjectivity period.
 
   # TODO if everyone follows this logic, the network will not recover from a
   #      halt: nobody will be producing blocks because everone expects someone
@@ -293,6 +296,17 @@ proc proposeBlock(node: BeaconNode,
       slot = shortLog(slot)
     return head
 
+  when UseSlashingProtection:
+    let notSlashable = node.attachedValidators
+                          .slashingProtection
+                          .notSlashableBlockProposal(validator.pubkey, slot)
+    if notSlashable.isErr:
+      warn "Slashing protection activated",
+        validator = validator.pubkey,
+        slot = slot,
+        existingProposal = notSlashable.error
+      return head
+
   let valInfo = ValidatorInfoForMakeBeaconBlock(kind: viValidator, validator: validator)
   let beaconBlockTuple = await makeBeaconBlockForHeadAndSlot(
     node, valInfo, validator_index, node.graffitiBytes, head, slot)
@@ -304,6 +318,15 @@ proc proposeBlock(node: BeaconNode,
     )
 
   newBlock.root = hash_tree_root(newBlock.message)
+
+  when UseSlashingProtection:
+    # TODO: recomputed in block proposal
+    let signing_root = compute_block_root(
+      beaconBlockTuple.fork, beaconBlockTuple.genesis_validators_root, slot, newBlock.root)
+    node.attachedValidators
+      .slashingProtection
+      .registerBlock(validator.pubkey, slot, signing_root)
+
   newBlock.signature = await validator.signBlockProposal(
     beaconBlockTuple.fork, beaconBlockTuple.genesis_validators_root, slot, newBlock.root)
 
