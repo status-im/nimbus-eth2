@@ -90,6 +90,12 @@ proc validateAttesterSlashing*(
   # each attestation has not yet been seen in any prior attester_slashing (i.e.
   # attester_slashed_indices = set(attestation_1.attesting_indices).intersection(attestation_2.attesting_indices),
   # verify if any(attester_slashed_indices.difference(prior_seen_attester_slashed_indices))).
+  #
+  # This is what the spec states, but even when a validators was slashed using
+  # proposer slashing it's still pointless relaying an attester slashing for a
+  # validator; process_attester_slashing() will note not that validator as not
+  # slashable. Therefore, check whether it's slashed for any reason.
+  # TODO check for upstream spec disposition on this
   let
     attestation_1 = attester_slashing.attestation_1
     attestation_2 = attester_slashing.attestation_2
@@ -100,7 +106,7 @@ proc validateAttesterSlashing*(
     attesting_indices_2 =
       toHashSet(mapIt(attestation_1.attesting_indices.asSeq, it.ValidatorIndex))
     attester_slashed_indices = attesting_indices_1 * attesting_indices_2
-    # TODO this arguably ties in with slashing protection in general
+    # TODO
 
   # [REJECT] All of the conditions within process_attester_slashing pass
   # validation.
@@ -147,10 +153,19 @@ proc validateProposerSlashing*(
   # [IGNORE] The proposer slashing is the first valid proposer slashing
   # received for the proposer with index
   # proposer_slashing.signed_header_1.message.proposer_index.
+  #
+  # This is what the spec states, but even when the validator was slashed from
+  # attester slashing, it's still pointless to relay a proposer slashing for a
+  # validator; process_proposer_slashing() will mark not that validator as not
+  # slashable. Therefore, check whether it's slashed for any reason.
+  # TODO check for upstream spec disposition on this
 
   # [REJECT] All of the conditions within process_proposer_slashing pass validation.
 
   # TODO not called yet, so vacuousness is fine
+
+  pool.proposer_slashings.addExitMessage(
+    proposerSlashing, MAX_PROPOSER_SLASHINGS)
 
   ok(true)
 
@@ -164,5 +179,8 @@ proc validateVoluntaryExit*(
   # validation.
 
   # TODO not called yet, so vacuousness is fine
+
+  pool.voluntary_exits.addExitMessage(
+    voluntaryExit, MAX_VOLUNTARY_EXITS)
 
   ok(true)
