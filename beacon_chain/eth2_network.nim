@@ -288,7 +288,7 @@ proc openStream(node: Eth2Node,
 
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer {.gcsafe.}
 
-proc getPeer*(node: Eth2Node, peerId: PeerID): Peer {.gcsafe.} =
+proc getPeer*(node: Eth2Node, peerId: PeerID): Peer =
   node.peers.withValue(peerId, peer) do:
     return peer[]
   do:
@@ -493,7 +493,7 @@ else:
 proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
                      ResponseMsg: type,
                      timeout: Duration): Future[NetRes[ResponseMsg]]
-                    {.gcsafe, async.} =
+                    {.async.} =
   var deadline = sleepAsync timeout
 
   let stream = awaitWithTimeout(peer.network.openStream(peer, protocolId),
@@ -578,7 +578,7 @@ proc implementSendProcBody(sendProc: SendProc) =
 
 proc handleIncomingStream(network: Eth2Node,
                           conn: Connection,
-                          MsgType: type) {.async, gcsafe.} =
+                          MsgType: type) {.async.} =
   mixin callUserHandler, RecType
 
   type MsgRec = RecType(MsgType)
@@ -679,7 +679,7 @@ proc handleIncomingStream(network: Eth2Node,
 proc handleOutgoingPeer(peer: Peer): Future[bool] {.async.} =
   let network = peer.network
 
-  proc onPeerClosed(udata: pointer) {.gcsafe.} =
+  proc onPeerClosed(udata: pointer) =
     debug "Peer (outgoing) lost", peer
     nbc_peers.set int64(len(network.peerPool))
 
@@ -695,7 +695,7 @@ proc handleOutgoingPeer(peer: Peer): Future[bool] {.async.} =
 proc handleIncomingPeer(peer: Peer): Future[bool] {.async.} =
   let network = peer.network
 
-  proc onPeerClosed(udata: pointer) {.gcsafe.} =
+  proc onPeerClosed(udata: pointer) =
     debug "Peer (incoming) lost", peer
     nbc_peers.set int64(len(network.peerPool))
 
@@ -1104,7 +1104,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 
 proc setupNat(conf: BeaconNodeConf): tuple[ip: Option[ValidIpAddress],
                                            tcpPort: Port,
-                                           udpPort: Port] {.gcsafe.} =
+                                           udpPort: Port] =
   # defaults
   result.tcpPort = conf.tcpPort
   result.udpPort = conf.udpPort
@@ -1185,7 +1185,9 @@ func gossipId(data: openArray[byte]): string =
 func msgIdProvider(m: messages.Message): string =
   gossipId(m.data)
 
-proc createEth2Node*(rng: ref BrHmacDrbgContext, conf: BeaconNodeConf, enrForkId: ENRForkID): Eth2Node {.gcsafe.} =
+proc createEth2Node*(
+    rng: ref BrHmacDrbgContext, conf: BeaconNodeConf,
+    enrForkId: ENRForkID): Eth2Node =
   var
     (extIp, extTcpPort, extUdpPort) = setupNat(conf)
     hostAddress = tcpEndPoint(conf.libp2pAddress, conf.tcpPort)
@@ -1252,8 +1254,8 @@ func peersCount*(node: Eth2Node): int =
 
 proc subscribe*[MsgType](node: Eth2Node,
                          topic: string,
-                         msgHandler: proc(msg: MsgType) {.gcsafe.} ) {.async, gcsafe.} =
-  proc execMsgHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+                         msgHandler: proc(msg: MsgType) {.gcsafe.} ) {.async.} =
+  proc execMsgHandler(topic: string, data: seq[byte]) {.async.} =
     inc nbc_gossip_messages_received
     trace "Incoming pubsub message received",
       len = data.len, topic, msgId = gossipId(data)
@@ -1270,8 +1272,8 @@ proc subscribe*[MsgType](node: Eth2Node,
 
   await node.pubsub.subscribe(topic & "_snappy", execMsgHandler)
 
-proc subscribe*(node: Eth2Node, topic: string) {.async, gcsafe.} =
-  proc dummyMsgHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
+proc subscribe*(node: Eth2Node, topic: string) {.async.} =
+  proc dummyMsgHandler(topic: string, data: seq[byte]) {.async.} =
     discard
 
   await node.pubsub.subscribe(topic & "_snappy", dummyMsgHandler)
@@ -1281,7 +1283,7 @@ proc addValidator*[MsgType](node: Eth2Node,
                             msgValidator: proc(msg: MsgType): bool {.gcsafe.} ) =
   # Validate messages as soon as subscribed
   proc execValidator(
-      topic: string, message: GossipMsg): Future[bool] {.async, gcsafe.} =
+      topic: string, message: GossipMsg): Future[bool] {.async.} =
     trace "Validating incoming gossip message",
       len = message.data.len, topic, msgId = gossipId(message.data)
     try:

@@ -65,14 +65,17 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
     forkChoice: forkChoice
   )
 
-proc processAttestation(
+proc addForkChoiceVotes(
     pool: var AttestationPool, slot: Slot, participants: HashSet[ValidatorIndex],
     block_root: Eth2Digest, wallSlot: Slot) =
   # Add attestation votes to fork choice
   if (let v = pool.forkChoice.on_attestation(
     pool.chainDag, slot, block_root, participants, wallSlot);
     v.isErr):
-      warn "Couldn't process attestation", err = v.error()
+      # This indicates that the fork choice and the chain dag are out of sync -
+      # this is most likely the result of a bug, but we'll try to keep going -
+      # hopefully the fork choice will heal itself over time.
+      error "Couldn't add attestation to fork choice, bug?", err = v.error()
 
 func candidateIdx(pool: AttestationPool, slot: Slot): Option[uint64] =
   if slot >= pool.startingSlot and
@@ -103,7 +106,15 @@ proc addAttestation*(pool: var AttestationPool,
                      attestation: Attestation,
                      participants: HashSet[ValidatorIndex],
                      wallSlot: Slot) =
-  # Add an attestation whose parent we know
+  ## Add an attestation to the pool, assuming it's been validated already.
+  ## Attestations may be either agggregated or not - we're pursuing an eager
+  ## strategy where we'll drop validations we already knew about and combine
+  ## the new attestation with an existing one if possible.
+  ##
+  ## This strategy is not optimal in the sense that it would be possible to find
+  ## a better packing of attestations by delaying the aggregation, but because
+  ## it's possible to include more than one aggregate in a block we can be
+  ## somewhat lazy instead of looking for a perfect packing.
   logScope:
     attestation = shortLog(attestation)
 
@@ -111,7 +122,7 @@ proc addAttestation*(pool: var AttestationPool,
 
   let candidateIdx = pool.candidateIdx(attestation.data.slot)
   if candidateIdx.isNone:
-    debug "Attestation slot out of range",
+    debug "Skipping old attestation for block production",
       startingSlot = pool.startingSlot
     return
 
@@ -129,11 +140,7 @@ proc addAttestation*(pool: var AttestationPool,
           # The validations in the new attestation are a subset of one of the
           # attestations that we already have on file - no need to add this
           # attestation to the database
-          # TODO what if the new attestation is useful for creating bigger
-          #      sets by virtue of not overlapping with some other attestation
-          #      and therefore being useful after all?
-          trace "Ignoring subset attestation",
-            newParticipants = participants
+          trace "Ignoring subset attestation", newParticipants = participants
           found = true
           break
 
@@ -141,14 +148,13 @@ proc addAttestation*(pool: var AttestationPool,
         # Attestations in the pool that are a subset of the new attestation
         # can now be removed per same logic as above
 
-        trace "Removing subset attestations",
-          newParticipants = participants
+        trace "Removing subset attestations", newParticipants = participants
 
         a.validations.keepItIf(
           not it.aggregation_bits.isSubsetOf(validation.aggregation_bits))
 
         a.validations.add(validation)
-        pool.processAttestation(
+        pool.addForkChoiceVotes(
           attestation.data.slot, participants, attestation.data.beacon_block_root,
           wallSlot)
 
@@ -165,7 +171,7 @@ proc addAttestation*(pool: var AttestationPool,
       data: attestation.data,
       validations: @[validation]
     ))
-    pool.processAttestation(
+    pool.addForkChoiceVotes(
       attestation.data.slot, participants, attestation.data.beacon_block_root,
       wallSlot)
 
@@ -183,18 +189,16 @@ proc addForkChoice*(pool: var AttestationPool,
     pool.chainDag, epochRef, blckRef, blck, wallSlot)
 
   if state.isErr:
-    # TODO If this happens, it is effectively a bug - the BlockRef structure
-    #      guarantees that the DAG is valid and the state transition should
-    #      guarantee that the justified and finalized epochs are ok! However,
-    #      we'll log it for now to avoid crashes
-    error "Unexpected error when applying block",
+    # This indicates that the fork choice and the chain dag are out of sync -
+    # this is most likely the result of a bug, but we'll try to keep going -
+    # hopefully the fork choice will heal itself over time.
+    error "Couldn't add block to fork choice, bug?",
       blck = shortLog(blck), err = state.error
 
 proc getAttestationsForSlot*(pool: AttestationPool, newBlockSlot: Slot):
     Option[AttestationsSeen] =
   if newBlockSlot < (GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY):
-    debug "Too early for attestations",
-      newBlockSlot = shortLog(newBlockSlot)
+    debug "Too early for attestations", newBlockSlot = shortLog(newBlockSlot)
     return none(AttestationsSeen)
 
   let
@@ -210,13 +214,10 @@ proc getAttestationsForSlot*(pool: AttestationPool, newBlockSlot: Slot):
   some(pool.candidates[candidateIdx.get()])
 
 proc getAttestationsForBlock*(pool: AttestationPool,
-                              state: BeaconState): seq[Attestation] =
+                              state: BeaconState,
+                              cache: var StateCache): seq[Attestation] =
   ## Retrieve attestations that may be added to a new block at the slot of the
   ## given state
-  logScope: pcs = "retrieve_attestation"
-
-  # TODO this shouldn't really need state -- it's to recheck/validate, but that
-  # should be refactored
   let newBlockSlot = state.slot
   var attestations: seq[AttestationEntry]
 
@@ -236,7 +237,6 @@ proc getAttestationsForBlock*(pool: AttestationPool,
   if attestations.len == 0:
     return
 
-  var cache = StateCache()
   for a in attestations:
     var
       # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#construct-attestation
@@ -249,14 +249,10 @@ proc getAttestationsForBlock*(pool: AttestationPool,
       agg {.noInit.}: AggregateSignature
     agg.init(a.validations[0].aggregate_signature)
 
-    # TODO what's going on here is that when producing a block, we need to
-    #      include only such attestations that will not cause block validation
-    #      to fail. How this interacts with voting and the acceptance of
-    #      attestations into the pool in general is an open question that needs
-    #      revisiting - for example, when attestations are added, against which
-    #      state should they be validated, if at all?
-    # TODO we're checking signatures here every time which is very slow and we don't want
-    #      to include a broken attestation
+    # Signature verification here is more of a sanity check - it could
+    # be optimized away, though for now it's easier to reuse the logic from
+    # the state transition function to ensure that the new block will not
+    # fail application.
     if (let v = check_attestation(state, attestation, {}, cache); v.isErr):
       warn "Attestation no longer validates...",
         attestation = shortLog(attestation),
@@ -265,13 +261,6 @@ proc getAttestationsForBlock*(pool: AttestationPool,
       continue
 
     for i in 1..a.validations.high:
-      # TODO We need to select a set of attestations that maximise profit by
-      #      adding the largest combined attestation set that we can find - this
-      #      unfortunately looks an awful lot like
-      #      https://en.wikipedia.org/wiki/Set_packing - here we just iterate
-      #      and naively add as much as possible in one go, by we could also
-      #      add the same attestation data twice, as long as there's at least
-      #      one new attestation in there
       if not attestation.aggregation_bits.overlaps(
           a.validations[i].aggregation_bits):
         attestation.aggregation_bits.combine(a.validations[i].aggregation_bits)
@@ -333,4 +322,6 @@ proc selectHead*(pool: var AttestationPool, wallSlot: Slot): BlockRef =
 
 proc prune*(pool: var AttestationPool) =
   if (let v = pool.forkChoice.prune(); v.isErr):
-    error "Pruning failed", err = v.error() # TODO should never happen
+    # If pruning fails, it's likely the result of a bug - this shouldn't happen
+    # but we'll keep running hoping that the fork chocie will recover eventually
+    error "Couldn't prune fork choice, bug?", err = v.error()

@@ -116,7 +116,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           privKey.genRandaoReveal(state.fork, state.genesis_validators_root, slot),
           eth1data,
           default(GraffitiBytes),
-          attPool.getAttestationsForBlock(state),
+          attPool.getAttestationsForBlock(state, cache),
           @[],
           noRollback,
           cache)

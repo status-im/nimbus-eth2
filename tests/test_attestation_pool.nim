@@ -78,7 +78,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
 
-    let attestations = pool[].getAttestationsForBlock(state.data.data)
+    let attestations = pool[].getAttestationsForBlock(state.data.data, cache)
 
     check:
       attestations.len == 1
@@ -110,7 +110,7 @@ suiteReport "Attestation pool processing" & preset():
     discard process_slots(
       state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
 
-    let attestations = pool[].getAttestationsForBlock(state.data.data)
+    let attestations = pool[].getAttestationsForBlock(state.data.data, cache)
 
     check:
       attestations.len == 1
@@ -134,7 +134,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
 
-    let attestations = pool[].getAttestationsForBlock(state.data.data)
+    let attestations = pool[].getAttestationsForBlock(state.data.data, cache)
 
     check:
       attestations.len == 1
@@ -161,7 +161,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
 
-    let attestations = pool[].getAttestationsForBlock(state.data.data)
+    let attestations = pool[].getAttestationsForBlock(state.data.data, cache)
 
     check:
       attestations.len == 1
@@ -187,7 +187,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
 
-    let attestations = pool[].getAttestationsForBlock(state.data.data)
+    let attestations = pool[].getAttestationsForBlock(state.data.data, cache)
 
     check:
       attestations.len == 1
@@ -398,7 +398,7 @@ suiteReport "Attestation validation " & preset():
       chainDag = init(ChainDAGRef, defaultRuntimePreset, makeTestDB(SLOTS_PER_EPOCH * 3))
       quarantine = QuarantineRef()
       pool = newClone(AttestationPool.init(chainDag, quarantine))
-      state = newClone(loadTailState(chainDag))
+      state = newClone(chainDag.headState)
       cache = StateCache()
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:

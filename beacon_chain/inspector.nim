@@ -490,7 +490,7 @@ func init*(p: typedesc[PeerInfo],
 
 proc pubsubLogger(conf: InspectorConf, switch: Switch,
                   resolveQueue: AsyncQueue[PeerID], topic: string,
-                  data: seq[byte]): Future[void] {.async, gcsafe.} =
+                  data: seq[byte]): Future[void] {.async.} =
   info "Received pubsub message", size = len(data),
                                   topic = topic,
                                   message = bu.toHex(data)
