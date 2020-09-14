@@ -9,7 +9,7 @@
 
 import
   # Standard libraries
-  std/[deques, options, sequtils, sets, tables],
+  std/[deques, options, sequtils, sets],
   # Status libraries
   chronicles, json_serialization/std/sets as jsonSets,
   # Internal
@@ -22,24 +22,28 @@ export beacon_node_types, sets
 logScope: topics = "slashpool"
 
 proc init*(
-    T: type SlashingPool, chainDag: ChainDAGRef, quarantine: QuarantineRef): T =
-  ## Initialize an SlashingPool from the chainDag `headState`
+    T: type ExitPool, chainDag: ChainDAGRef, quarantine: QuarantineRef): T =
+  ## Initialize an ExitPool from the chainDag `headState`
   T(
-    attester_slashings: initDeque(initialSize = MAX_ATTESTER_SLASHINGS),
+    attester_slashings:
+      initDeque[AttesterSlashing](initialSize = MAX_ATTESTER_SLASHINGS.int),
+    proposer_slashings:
+      initDeque[ProposerSlashing](initialSize = MAX_PROPOSER_SLASHINGS.int),
+    voluntary_exits:
+      initDeque[VoluntaryExit](initialSize = MAX_VOLUNTARY_EXITS.int),
     chainDag: chainDag,
     quarantine: quarantine
    )
 
-func addAttesterSlashing(pool: var SlashingPool,
-                         attestationSlashing: AttesterSlashing) =
-  # Prefer newer to older attestater slashings
-  while pool.attester_slashings.lenu64 >= MAX_ATTESTER_SLASHINGS:
-    discard pool.attester_slashings.popFirst()
+func addExitMessage(subpool: var auto, exitMessage, bound: auto) =
+  # Prefer newer to older exit message
+  while subpool.lenu64 >= bound:
+    discard subpool.popFirst()
 
-  pool.attester_slashings.addLast(attestationSlashing)
+  subpool.addLast(exitMessage)
+  doAssert subpool.lenu64 <= bound
 
-proc getAttesterSlashingsForBlock*(pool: var SlashingPool,
-                                   state: BeaconState):
+proc getAttesterSlashingsForBlock*(pool: var ExitPool):
                                    seq[AttesterSlashing] =
   ## Retrieve attester slashings that may be added to a new block at the slot
   ## of the given state
@@ -50,9 +54,38 @@ proc getAttesterSlashingsForBlock*(pool: var SlashingPool,
       break
     result.add pool.attester_slashings.popFirst()
 
+  doAssert result.lenu64 <= MAX_ATTESTER_SLASHINGS
+
+proc getProposerSlashingsForBlock*(pool: var ExitPool):
+                                   seq[ProposerSlashing] =
+  ## Retrieve proposer slashings that may be added to a new block at the slot
+  ## of the given state
+  logScope: pcs = "retrieve_proposer_slashing"
+
+  for i in 0 ..< MAX_PROPOSER_SLASHINGS:
+    if pool.proposer_slashings.len == 0:
+      break
+    result.add pool.proposer_slashings.popFirst()
+
+  doAssert result.lenu64 <= MAX_PROPOSER_SLASHINGS
+
+proc getVoluntaryExitsForBlock*(pool: var ExitPool):
+                                seq[VoluntaryExit] =
+  ## Retrieve voluntary exits that may be added to a new block at the slot
+  ## of the given state
+  logScope: pcs = "retrieve_voluntary_exit"
+
+  for i in 0 ..< MAX_VOLUNTARY_EXITS:
+    if pool.voluntary_exits.len == 0:
+      break
+    result.add pool.voluntary_exits.popFirst()
+
+  doAssert result.lenu64 <= MAX_VOLUNTARY_EXITS
+
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
-    pool: var SlashingPool, attesterSlashing: AttesterSlashing): Result[bool, cstring] =
+    pool: var ExitPool, attesterSlashing: AttesterSlashing):
+    Result[bool, cstring] =
   # [IGNORE] At least one index in the intersection of the attesting indices of
   # each attestation has not yet been seen in any prior attester_slashing (i.e.
   # attester_slashed_indices = set(attestation_1.attesting_indices).intersection(attestation_2.attesting_indices),
@@ -102,6 +135,34 @@ proc validateAttesterSlashing*(
     ? is_valid_indexed_attestation(
         fork, genesis_validators_root, epochRef_2, attestation_2, {})
 
-  pool.addAttesterSlashing(attesterSlashing)
+  pool.attester_slashings.addExitMessage(
+    attesterSlashing, MAX_ATTESTER_SLASHINGS)
+
+  ok(true)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#proposer_slashing
+proc validateProposerSlashing*(
+    pool: var ExitPool, proposerSlashing: ProposerSlashing):
+    Result[bool, cstring] =
+  # [IGNORE] The proposer slashing is the first valid proposer slashing
+  # received for the proposer with index
+  # proposer_slashing.signed_header_1.message.proposer_index.
+
+  # [REJECT] All of the conditions within process_proposer_slashing pass validation.
+
+  # TODO not called yet, so vacuousness is fine
+
+  ok(true)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#voluntary_exit
+proc validateVoluntaryExit*(
+    pool: var ExitPool, voluntaryExit: VoluntaryExit): Result[bool, cstring] =
+  # [IGNORE] The voluntary exit is the first valid voluntary exit received for
+  # the validator with index signed_voluntary_exit.message.validator_index.
+
+  # [REJECT] All of the conditions within process_voluntary_exit pass
+  # validation.
+
+  # TODO not called yet, so vacuousness is fine
 
   ok(true)

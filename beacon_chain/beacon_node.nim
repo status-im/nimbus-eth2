@@ -25,7 +25,7 @@ import
   spec/[datatypes, digest, crypto, beaconstate, helpers, network, presets],
   spec/state_transition,
   conf, time, beacon_chain_db, validator_pool, extras,
-  attestation_pool, eth2_network, eth2_discovery,
+  attestation_pool, exit_pool, eth2_network, eth2_discovery,
   beacon_node_common, beacon_node_types,
   block_pools/[spec_cache, chain_dag, quarantine, clearance, block_pools_types],
   nimbus_binary_common, network_metadata,
@@ -249,6 +249,7 @@ proc init*(T: type BeaconNode,
     topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.forkDigest)
     network = createEth2Node(rng, conf, enrForkId)
     attestationPool = newClone(AttestationPool.init(chainDag, quarantine))
+    exitPool = newClone(ExitPool.init(chainDag, quarantine))
   var res = BeaconNode(
     nickname: nickname,
     graffitiBytes: if conf.graffiti.isSome: conf.graffiti.get.GraffitiBytes
@@ -261,6 +262,7 @@ proc init*(T: type BeaconNode,
     chainDag: chainDag,
     quarantine: quarantine,
     attestationPool: attestationPool,
+    exitPool: exitPool,
     mainchainMonitor: mainchainMonitor,
     beaconClock: BeaconClock.init(chainDag.headState.data.data),
     rpcServer: rpcServer,
@@ -272,7 +274,7 @@ proc init*(T: type BeaconNode,
   proc getWallTime(): BeaconTime = res.beaconClock.now()
 
   res.processor = Eth2Processor.new(
-    conf, chainDag, attestationPool, quarantine, getWallTime)
+    conf, chainDag, attestationPool, exitPool, quarantine, getWallTime)
 
   res.requestManager = RequestManager.init(
     network, res.processor.blocksQueue)
@@ -778,6 +780,16 @@ proc installMessageValidators(node: BeaconNode) =
     getAttesterSlashingsTopic(node.forkDigest),
     proc (attesterSlashing: AttesterSlashing): bool =
       node.processor[].attesterSlashingValidator(attesterSlashing))
+
+  node.network.addValidator(
+    getProposerSlashingsTopic(node.forkDigest),
+    proc (proposerSlashing: ProposerSlashing): bool =
+      node.processor[].proposerSlashingValidator(proposerSlashing))
+
+  node.network.addValidator(
+    getVoluntaryExitsTopic(node.forkDigest),
+    proc (voluntaryExit: VoluntaryExit): bool =
+      node.processor[].voluntaryExitValidator(voluntaryExit))
 
 proc removeMessageHandlers(node: BeaconNode) =
   var unsubscriptions: seq[Future[void]]

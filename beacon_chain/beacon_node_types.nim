@@ -64,14 +64,17 @@ type
 
     forkChoice*: ForkChoice
 
-  SlashingPool* = object
-    ## The slashing pool tracks attester and proposer slashings that could be
-    ## added to a proposed block.
+  ExitPool* = object
+    ## The exit pool tracks attester slashings, proposer slashings, and
+    ## voluntary exits that could be added to a proposed block.
 
     attester_slashings*: Deque[AttesterSlashing]  ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
 
     proposer_slashings*: Deque[ProposerSlashing]  ## \
+    ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
+
+    voluntary_exits*: Deque[VoluntaryExit]  ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
 
     chainDag*: ChainDAGRef
