@@ -33,8 +33,6 @@ type
   VCStartUpCmd* = enum
     VCNoCommand
 
-  Web3Url* = distinct string
-
   BeaconNodeConf* = object
     logLevel* {.
       defaultValue: "DEBUG"

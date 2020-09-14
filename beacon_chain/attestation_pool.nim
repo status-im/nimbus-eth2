@@ -14,6 +14,7 @@ import
   chronicles, stew/[byteutils], json_serialization/std/sets as jsonSets,
   # Internal
   ./spec/[beaconstate, datatypes, crypto, digest, helpers],
+  ssz/merkleization,
   ./block_pools/[spec_cache, chain_dag, clearance], ./beacon_node_types,
   ./fork_choice/fork_choice
 
@@ -102,6 +103,29 @@ proc updateCurrent(pool: var AttestationPool, wallSlot: Slot) =
 
   pool.startingSlot = newWallSlot
 
+  # now also clear old aggregated attestations
+  var keysToRemove: seq[Slot] = @[]
+  for k, v in pool.attestationAggregates.pairs:
+    if k < pool.startingSlot:
+      keysToRemove.add k
+  for k in keysToRemove:
+    pool.attestationAggregates.del k
+
+proc addToAggregates(pool: var AttestationPool, attestation: Attestation) =
+  # do a lookup for the current slot and get it's associated htrs/attestations
+  var aggreated_attestation = pool.attestationAggregates.mgetOrPut(
+    attestation.data.slot, Table[Eth2Digest, Attestation]()).
+    # do a lookup for the same attestation data htr and get the attestation
+    mgetOrPut(attestation.data.hash_tree_root, attestation)
+  # if the aggregation bits differ (we didn't just insert it into the table)
+  # and only if there is no overlap of the signatures ==> aggregate!
+  if not aggreated_attestation.aggregation_bits.overlaps(attestation.aggregation_bits):
+    var agg {.noInit.}: AggregateSignature
+    agg.init(aggreated_attestation.signature)
+    aggreated_attestation.aggregation_bits.combine(attestation.aggregation_bits)
+    agg.aggregate(attestation.signature)
+    aggreated_attestation.signature = agg.finish()
+
 proc addAttestation*(pool: var AttestationPool,
                      attestation: Attestation,
                      participants: HashSet[ValidatorIndex],
@@ -125,6 +149,8 @@ proc addAttestation*(pool: var AttestationPool,
     debug "Skipping old attestation for block production",
       startingSlot = pool.startingSlot
     return
+
+  pool.addToAggregates(attestation)
 
   let
     attestationsSeen = addr pool.candidates[candidateIdx.get]
@@ -273,6 +299,17 @@ proc getAttestationsForBlock*(pool: AttestationPool,
       debug "getAttestationsForBlock: returning early after hitting MAX_ATTESTATIONS",
         attestationSlot = newBlockSlot - 1
       return
+
+proc getAggregatedAttestation*(pool: AttestationPool,
+                               slot: Slot,
+                               ad_htr: Eth2Digest): Option[Attestation] =
+  try:
+    if pool.attestationAggregates.contains(slot) and
+        pool.attestationAggregates[slot].contains(ad_htr):
+      return some pool.attestationAggregates[slot][ad_htr]
+  except KeyError:
+    doAssert(false) # shouldn't be possible because we check with `contains`
+  return none(Attestation)
 
 proc getAggregatedAttestation*(pool: AttestationPool,
                                slot: Slot,

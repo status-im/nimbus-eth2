@@ -22,13 +22,17 @@ const
   MAXIMUM_GOSSIP_CLOCK_DISPARITY = 500.millis
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#aggregation-selection
+func is_aggregator*(committee_len: uint64, slot_signature: ValidatorSig): bool =
+  let
+    modulo = max(1'u64, committee_len div TARGET_AGGREGATORS_PER_COMMITTEE)
+  bytes_to_uint64(eth2digest(
+    slot_signature.toRaw()).data.toOpenArray(0, 7)) mod modulo == 0
+
 func is_aggregator(state: BeaconState, slot: Slot, index: CommitteeIndex,
     slot_signature: ValidatorSig, cache: var StateCache): bool =
   let
     committee_len = get_beacon_committee_len(state, slot, index, cache)
-    modulo = max(1'u64, committee_len div TARGET_AGGREGATORS_PER_COMMITTEE)
-  bytes_to_uint64(eth2digest(
-    slot_signature.toRaw()).data.toOpenArray(0, 7)) mod modulo == 0
+  return is_aggregator(committee_len, slot_signature)
 
 proc aggregate_attestations*(
     pool: AttestationPool, state: BeaconState, index: CommitteeIndex,

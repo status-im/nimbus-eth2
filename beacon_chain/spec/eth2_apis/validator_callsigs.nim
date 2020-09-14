@@ -16,16 +16,12 @@ proc post_v1_validator_block(body: SignedBeaconBlock): bool
 
 proc get_v1_validator_attestation(slot: Slot, committee_index: CommitteeIndex): AttestationData
 
-# TODO at the time of writing (10.06.2020) the API specifies this call to have a hash of
-# the attestation data instead of the object itself but we also need the slot.. see here:
-# https://docs.google.com/spreadsheets/d/1kVIx6GvzVLwNYbcd-Fj8YUlPf4qGrWUlS35uaTnIAVg/edit?disco=AAAAGh7r_fQ
-proc get_v1_validator_aggregate_and_proof(attestation_data: AttestationData): Attestation
+proc get_v1_validator_aggregate_attestation(slot: Slot, attestation_data_root: Eth2Digest): Attestation
 
-proc post_v1_validator_aggregate_and_proof(payload: SignedAggregateAndProof): bool
+proc post_v1_validator_aggregate_and_proofs(payload: SignedAggregateAndProof): bool
 
-# this is a POST instead of a GET because of this: https://docs.google.com/spreadsheets/d/1kVIx6GvzVLwNYbcd-Fj8YUlPf4qGrWUlS35uaTnIAVg/edit?disco=AAAAJk5rbKA
 # TODO epoch is part of the REST path
-proc post_v1_validator_duties_attester(epoch: Epoch, public_keys: seq[ValidatorPubKey]): seq[AttesterDuties]
+proc get_v1_validator_duties_attester(epoch: Epoch, public_keys: seq[ValidatorPubKey]): seq[AttesterDuties]
 
 # TODO epoch is part of the REST path
 proc get_v1_validator_duties_proposer(epoch: Epoch): seq[ValidatorPubkeySlotPair]
