@@ -249,7 +249,7 @@ proc main() {.async.} =
       quit 1
 
     if cfg.maxDelay > 0.0:
-      delayGenerator = proc (): chronos.Duration {.gcsafe.} =
+      delayGenerator = proc (): chronos.Duration =
         chronos.milliseconds (rand(cfg.minDelay..cfg.maxDelay)*1000).int
 
     await sendDeposits(deposits, cfg.web3Url, cfg.privateKey,

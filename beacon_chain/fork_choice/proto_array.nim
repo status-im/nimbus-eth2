@@ -326,8 +326,7 @@ func prune*(
     )
 
   trace "Pruning blocks from fork choice",
-    finalizedRoot = shortlog(finalized_root),
-    pcs = "prune"
+    finalizedRoot = shortlog(finalized_root)
 
   let final_phys_index = finalized_index-self.nodes.offset
   for node_index in 0 ..< final_phys_index:

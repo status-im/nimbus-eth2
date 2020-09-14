@@ -155,7 +155,7 @@ proc readResponseChunk(conn: Connection, peer: Peer,
     return neterr UnexpectedEOF
 
 proc readResponse(conn: Connection, peer: Peer,
-                  MsgType: type, timeout: Duration): Future[NetRes[MsgType]] {.gcsafe, async.} =
+                  MsgType: type, timeout: Duration): Future[NetRes[MsgType]] {.async.} =
   when MsgType is seq:
     type E = ElemType(MsgType)
     var results: MsgType
