@@ -130,7 +130,7 @@ suiteReport "Block pool processing" & preset():
     check:
       dag.getRef(default Eth2Digest) == nil
 
-  wrappedTimedTest "loadTailState gets genesis block on first load" & preset():
+  wrappedTimedTest "loading tail block works" & preset():
     let
       b0 = dag.get(dag.tail.root)
 

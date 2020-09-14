@@ -101,9 +101,6 @@ func get_attesting_balance(
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#justification-and-finalization
 proc process_justification_and_finalization*(state: var BeaconState,
     cache: var StateCache, updateFlags: UpdateFlags = {}) {.nbench.} =
-
-  logScope: pcs = "process_justification_and_finalization"
-
   if get_current_epoch(state) <= GENESIS_EPOCH + 1:
     return
 

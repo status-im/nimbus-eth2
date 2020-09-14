@@ -129,9 +129,7 @@ proc isSynced*(node: BeaconNode, head: BlockRef): bool =
     true
 
 proc sendAttestation*(
-  node: BeaconNode, attestation: Attestation, num_active_validators: uint64) =
-  logScope: pcs = "send_attestation"
-
+    node: BeaconNode, attestation: Attestation, num_active_validators: uint64) =
   node.network.broadcast(
     getAttestationTopic(node.forkDigest, attestation, num_active_validators),
     attestation)
@@ -159,8 +157,6 @@ proc createAndSendAttestation(node: BeaconNode,
                               committeeLen: int,
                               indexInCommittee: int,
                               num_active_validators: uint64) {.async.} =
-  logScope: pcs = "send_attestation"
-
   var attestation = await validator.produceAndSignAttestation(
     attestationData, committeeLen, indexInCommittee, fork,
     genesis_validators_root)
@@ -234,7 +230,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       await getRandaoReveal(val_info),
       eth1data,
       graffiti,
-      node.attestationPool[].getAttestationsForBlock(state),
+      node.attestationPool[].getAttestationsForBlock(state, cache),
       deposits,
       restore,
       cache)
@@ -253,15 +249,14 @@ proc proposeSignedBlock*(node: BeaconNode,
                          validator: AttachedValidator,
                          newBlock: SignedBeaconBlock): Future[BlockRef] {.async.} =
 
-  {.gcsafe.}: # TODO: fork choice and quarantine should sync via messages instead of callbacks
-    let newBlockRef = node.chainDag.addRawBlock(node.quarantine,
-                                                     newBlock) do (
-        blckRef: BlockRef, signedBlock: SignedBeaconBlock,
-        epochRef: EpochRef, state: HashedBeaconState):
-      # Callback add to fork choice if valid
-      node.attestationPool[].addForkChoice(
-        epochRef, blckRef, signedBlock.message,
-        node.beaconClock.now().slotOrZero())
+  let newBlockRef = node.chainDag.addRawBlock(node.quarantine,
+                                                    newBlock) do (
+      blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+      epochRef: EpochRef, state: HashedBeaconState):
+    # Callback add to fork choice if valid
+    node.attestationPool[].addForkChoice(
+      epochRef, blckRef, signedBlock.message,
+      node.beaconClock.now().slotOrZero())
 
   if newBlockRef.isErr:
     warn "Unable to add proposed block to block pool",
@@ -289,8 +284,6 @@ proc proposeBlock(node: BeaconNode,
                   validator_index: ValidatorIndex,
                   head: BlockRef,
                   slot: Slot): Future[BlockRef] {.async.} =
-  logScope: pcs = "block_proposal"
-
   if head.slot >= slot:
     # We should normally not have a head newer than the slot we're proposing for
     # but this can happen if block proposal is delayed
@@ -319,8 +312,6 @@ proc proposeBlock(node: BeaconNode,
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   ## Perform all attestations that the validators attached to this node should
   ## perform during the given slot
-  logScope: pcs = "handleAttestations"
-
   if slot + SLOTS_PER_EPOCH < head.slot:
     # The latest block we know about is a lot newer than the slot we're being
     # asked to attest to - this makes it unlikely that it will be included
@@ -404,8 +395,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     headRoot = shortLog(head.root),
     slot = shortLog(slot),
     proposer_index = proposer.get()[0],
-    proposer = shortLog(proposer.get()[1].initPubKey()),
-    pcs = "wait_for_proposal"
+    proposer = shortLog(proposer.get()[1].initPubKey())
 
   return head
 
@@ -424,13 +414,13 @@ proc broadcastAggregatedAttestations(
     let
       committees_per_slot =
         get_committee_count_per_slot(state, aggregationSlot.epoch, cache)
-    
+
     var
       slotSigs: seq[Future[ValidatorSig]] = @[]
       slotSigsData: seq[tuple[committee_index: uint64,
                               validator_idx: ValidatorIndex,
                               v: AttachedValidator]] = @[]
-      
+
     for committee_index in 0'u64..<committees_per_slot:
       let committee = get_beacon_committee(
         state, aggregationSlot, committee_index.CommitteeIndex, cache)
@@ -455,7 +445,7 @@ proc broadcastAggregatedAttestations(
       # Don't broadcast when, e.g., this node isn't aggregator
       # TODO verify there is only one isSome() with test.
       if aggregateAndProof.isSome:
-        let sig = await signAggregateAndProof(curr[0].v, 
+        let sig = await signAggregateAndProof(curr[0].v,
           aggregateAndProof.get, state.fork,
           state.genesis_validators_root)
         var signedAP = SignedAggregateAndProof(

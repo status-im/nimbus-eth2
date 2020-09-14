@@ -38,7 +38,7 @@ func getOrResolve*(dag: ChainDAGRef, quarantine: var QuarantineRef, root: Eth2Di
 proc addRawBlock*(
       dag: var ChainDAGRef, quarantine: var QuarantineRef,
       signedBlock: SignedBeaconBlock, onBlockAdded: OnBlockAdded
-     ): Result[BlockRef, BlockError]
+     ): Result[BlockRef, BlockError] {.gcsafe.}
 
 proc addResolvedBlock(
        dag: var ChainDAGRef, quarantine: var QuarantineRef,
@@ -47,7 +47,6 @@ proc addResolvedBlock(
        onBlockAdded: OnBlockAdded
      ) =
   # TODO move quarantine processing out of here
-  logScope: pcs = "block_resolution"
   doAssert state.data.data.slot == signedBlock.message.slot,
     "state must match block"
   doAssert state.blck.root == signedBlock.message.parent_root,

@@ -401,15 +401,12 @@ proc addMessageHandlers(node: BeaconNode): Future[void] =
     node.getAttestationHandlers()
   )
 
-proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.gcsafe, async.} =
+proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
   ## skip a few in case we're running late.
   ## lastSlot: the last slot that we successfully processed, so we know where to
   ##           start work from
   ## scheduledSlot: the slot that we were aiming for, in terms of timing
-
-  logScope: pcs = "slot_start"
-
   let
     # The slot we should be at, according to the clock
     beaconTime = node.beaconClock.now()
@@ -595,12 +592,12 @@ proc startSyncManager(node: BeaconNode) =
   func getLocalHeadSlot(): Slot =
     node.chainDag.head.slot
 
-  proc getLocalWallSlot(): Slot {.gcsafe.} =
+  proc getLocalWallSlot(): Slot =
     let epoch = node.beaconClock.now().slotOrZero.compute_epoch_at_slot() +
                 1'u64
     epoch.compute_start_slot_at_epoch()
 
-  func getFirstSlotAtFinalizedEpoch(): Slot {.gcsafe.} =
+  func getFirstSlotAtFinalizedEpoch(): Slot =
     let fepoch = node.chainDag.headState.data.data.finalized_checkpoint.epoch
     compute_start_slot_at_epoch(fepoch)
 
@@ -628,7 +625,7 @@ proc currentSlot(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
 
 proc connectedPeersCount(node: BeaconNode): int =
-  nbc_peers.value.int
+  len(node.network.peerPool)
 
 proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("getBeaconHead") do () -> Slot:
@@ -875,8 +872,7 @@ proc start(node: BeaconNode) =
     SLOTS_PER_EPOCH,
     SECONDS_PER_SLOT,
     SPEC_VERSION,
-    dataDir = node.config.dataDir.string,
-    pcs = "start_beacon_node"
+    dataDir = node.config.dataDir.string
 
   if genesisTime.inFuture:
     notice "Waiting for genesis", genesisIn = genesisTime.offset
@@ -1017,7 +1013,7 @@ when hasPrompt:
 
       when compiles(defaultChroniclesStream.output.writer):
         defaultChroniclesStream.output.writer =
-          proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe, raises: [Defect].} =
+          proc (logLevel: LogLevel, msg: LogOutputStr) {.raises: [Defect].} =
             try:
               # p.hidePrompt
               erase statusBar

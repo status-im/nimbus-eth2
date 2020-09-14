@@ -120,13 +120,12 @@ proc storeBlock(
     start = Moment.now()
     attestationPool = self.attestationPool
 
-  {.gcsafe.}: # TODO: fork choice and quarantine should sync via messages instead of callbacks
-    let blck = self.chainDag.addRawBlock(self.quarantine, signedBlock) do (
-        blckRef: BlockRef, signedBlock: SignedBeaconBlock,
-        epochRef: EpochRef, state: HashedBeaconState):
-      # Callback add to fork choice if valid
-      attestationPool[].addForkChoice(
-        epochRef, blckRef, signedBlock.message, wallSlot)
+  let blck = self.chainDag.addRawBlock(self.quarantine, signedBlock) do (
+      blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+      epochRef: EpochRef, state: HashedBeaconState):
+    # Callback add to fork choice if valid
+    attestationPool[].addForkChoice(
+      epochRef, blckRef, signedBlock.message, wallSlot)
 
   self.dumpBlock(signedBlock, blck)
 
@@ -247,12 +246,6 @@ proc blockValidator*(
     # already-seen data, but it is fairly aggressive about forgetting about
     # what it has seen already
     debug "Dropping already-seen gossip block", delay
-    # TODO:
-    # Potentially use a fast exit here. We only need to check that
-    # the contents of the incoming message match our previously seen
-    # version of the block. We don't need to use HTR for this - for
-    # better efficiency we can use vanilla SHA256 or direct comparison
-    # if we still have the previous block in memory.
     return false
 
   # Start of block processing - in reality, we have already gone through SSZ

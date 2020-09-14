@@ -338,9 +338,6 @@ proc init*(T: type ChainDAGRef,
   while cur.blck != nil:
     let root = db.getStateRoot(cur.blck.root, cur.slot)
     if root.isSome():
-      # TODO load StateData from BeaconChainDB
-      # We save state root separately for empty slots which means we might
-      # sometimes not find a state even though we saved its state root
       if db.getState(root.get(), tmpState.data.data, noRollback):
         tmpState.data.root = root.get()
         tmpState.blck = cur.blck
@@ -422,24 +419,25 @@ proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
       newEpochRef = EpochRef.init(state, cache, prevEpochRef)
 
     # TODO consider constraining the number of epochrefs per state
-    ancestor.blck.epochRefs.add newEpochRef
-    newEpochRef.updateKeyStores(blck.parent, dag.finalizedHead.blck)
+    if ancestor.blck.slot >= dag.finalizedHead.blck.slot:
+      # Only cache epoch information for unfinalized blocks - earlier states
+      # are seldomly used (ie RPC), so no need to cache
+      ancestor.blck.epochRefs.add newEpochRef
+      newEpochRef.updateKeyStores(blck.parent, dag.finalizedHead.blck)
     newEpochRef
 
 proc getState(
     dag: ChainDAGRef, state: var StateData, stateRoot: Eth2Digest,
     blck: BlockRef): bool =
-  let stateAddr = unsafeAddr state # local scope
-  func restore(v: var BeaconState) =
-    if stateAddr == (unsafeAddr dag.headState):
-      # TODO seeing the headState in the restore shouldn't happen - we load
-      #      head states only when updating the head position, and by that time
-      #      the database will have gone through enough sanity checks that
-      #      SSZ exceptions shouldn't happen, which is when restore happens.
-      #      Nonetheless, this is an ugly workaround that needs to go away
-      doAssert false, "Cannot alias headState"
+  let restoreAddr =
+    # Any restore point will do as long as it's not the object being updated
+    if unsafeAddr(state) == unsafeAddr(dag.headState):
+      unsafeAddr dag.tmpState
+    else:
+      unsafeAddr dag.headState
 
-    assign(stateAddr[], dag.headState)
+  func restore(v: var BeaconState) =
+    assign(v, restoreAddr[].data.data)
 
   if not dag.db.getState(stateRoot, state.data.data, restore):
     return false
@@ -471,7 +469,6 @@ proc putState*(dag: ChainDAGRef, state: StateData) =
   # TODO we save state at every epoch start but never remove them - we also
   #      potentially save multiple states per slot if reorgs happen, meaning
   #      we could easily see a state explosion
-  logScope: pcs = "save_state_at_epoch_start"
 
   # As a policy, we only store epoch boundary states without the epoch block
   # (if it exists) applied - the rest can be reconstructed by loading an epoch
@@ -689,13 +686,6 @@ proc updateStateData*(
     startSlot,
     blck = shortLog(bs)
 
-proc loadTailState*(dag: ChainDAGRef): StateData =
-  ## Load the state associated with the current tail in the dag
-  let stateRoot = dag.db.getBlock(dag.tail.root).get().message.state_root
-  let found = dag.getState(result, stateRoot, dag.tail)
-  # TODO turn into regular error, this can happen
-  doAssert found, "Failed to load tail state, database corrupt?"
-
 proc delState(dag: ChainDAGRef, bs: BlockSlot) =
   # Delete state state and mapping for a particular block+slot
   if not bs.slot.isEpoch:
@@ -716,7 +706,6 @@ proc updateHead*(
   doAssert not newHead.parent.isNil() or newHead.slot == 0
   logScope:
     newHead = shortLog(newHead)
-    pcs = "fork_choice"
 
   if dag.head == newHead:
     debug "No head block update"
