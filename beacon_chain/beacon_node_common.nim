@@ -43,6 +43,7 @@ type
     chainDag*: ChainDAGRef
     quarantine*: QuarantineRef
     attestationPool*: ref AttestationPool
+    exitPool*: ref ExitPool
     mainchainMonitor*: MainchainMonitor
     beaconClock*: BeaconClock
     rpcServer*: RpcServer
