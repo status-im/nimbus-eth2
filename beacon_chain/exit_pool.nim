@@ -45,8 +45,7 @@ func addExitMessage(subpool: var auto, exitMessage, bound: auto) =
 
 proc getAttesterSlashingsForBlock*(pool: var ExitPool):
                                    seq[AttesterSlashing] =
-  ## Retrieve attester slashings that may be added to a new block at the slot
-  ## of the given state
+  ## Retrieve attester slashings that may be added to a new block
   logScope: pcs = "retrieve_attester_slashing"
 
   for i in 0 ..< MAX_ATTESTER_SLASHINGS:
@@ -58,8 +57,7 @@ proc getAttesterSlashingsForBlock*(pool: var ExitPool):
 
 proc getProposerSlashingsForBlock*(pool: var ExitPool):
                                    seq[ProposerSlashing] =
-  ## Retrieve proposer slashings that may be added to a new block at the slot
-  ## of the given state
+  ## Retrieve proposer slashings that may be added to a new block
   logScope: pcs = "retrieve_proposer_slashing"
 
   for i in 0 ..< MAX_PROPOSER_SLASHINGS:
@@ -71,8 +69,7 @@ proc getProposerSlashingsForBlock*(pool: var ExitPool):
 
 proc getVoluntaryExitsForBlock*(pool: var ExitPool):
                                 seq[VoluntaryExit] =
-  ## Retrieve voluntary exits that may be added to a new block at the slot
-  ## of the given state
+  ## Retrieve voluntary exits that may be added to a new block
   logScope: pcs = "retrieve_voluntary_exit"
 
   for i in 0 ..< MAX_VOLUNTARY_EXITS:
