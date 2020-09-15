@@ -639,3 +639,37 @@ suiteReport "PeerPool testing suite":
       lenAvailable(pool) == 0
       lenAcquired(pool) == 0
       len(pool) == 0
+
+  timedTest "Delete peer on release text":
+    proc testDeleteOnRelease(): Future[bool] {.async.} =
+      proc scoreCheck(peer: PeerTest): bool =
+        if peer.weight >= 0:
+          result = true
+        else:
+          result = false
+
+      var pool = newPeerPool[PeerTest, PeerTestID](maxPeers = 1,
+                                                   maxIncomingPeers = 1,
+                                                   maxOutgoingPeers = 0)
+      pool.setScoreCheck(scoreCheck)
+
+      var peer0 = PeerTest.init("idInc0", 100)
+      var peer1 = PeerTest.init("idOut0", 100)
+      var peer2 = PeerTest.init("idInc1", 100)
+      var fut0 = pool.addIncomingPeer(peer0)
+      var fut1 = pool.addOutgoingPeer(peer1)
+      var fut2 = pool.addIncomingPeer(peer2)
+      doAssert(fut0.finished == true and fut0.failed == false)
+      doAssert(fut1.finished == false)
+      doAssert(fut2.finished == false)
+      var p = await pool.acquire()
+      doAssert(p.id == "idInc0")
+      p.weight = -200
+      pool.release(p)
+      await sleepAsync(100.milliseconds)
+      doAssert(fut1.finished == false)
+      doAssert(fut2.finished == true and fut2.failed == false)
+      doAssert(len(pool) == 1)
+      result = true
+
+    check waitFor(testDeleteOnRelease()) == true
