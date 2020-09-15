@@ -17,6 +17,8 @@ import
   # Test utilies
   ../testutil
 
+static: doAssert UseSlashingProtection, "The test was compiled without slashing protection, pass -d:UseSlashingProtection=true"
+
 template wrappedTimedTest(name: string, body: untyped) =
   # `check` macro takes a copy of whatever it's checking, on the stack!
   block: # Symbol namespacing
