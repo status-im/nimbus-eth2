@@ -43,44 +43,31 @@ func addExitMessage(subpool: var auto, exitMessage, bound: auto) =
   subpool.addLast(exitMessage)
   doAssert subpool.lenu64 <= bound
 
-proc getAttesterSlashingsForBlock*(pool: var ExitPool):
+func getExitMessagesForBlock[T](subpool: var Deque[T], bound: uint64): seq[T] =
+  for i in 0 ..< bound:
+    if subpool.len == 0:
+      break
+    result.add subpool.popFirst()
+
+  doAssert result.lenu64 <= bound
+
+func getAttesterSlashingsForBlock*(pool: var ExitPool):
                                    seq[AttesterSlashing] =
-  ## Retrieve attester slashings that may be added to a new block at the slot
-  ## of the given state
-  logScope: pcs = "retrieve_attester_slashing"
+  ## Retrieve attester slashings that may be added to a new block
+  getExitMessagesForBlock[AttesterSlashing](
+    pool.attester_slashings, MAX_ATTESTER_SLASHINGS)
 
-  for i in 0 ..< MAX_ATTESTER_SLASHINGS:
-    if pool.attester_slashings.len == 0:
-      break
-    result.add pool.attester_slashings.popFirst()
-
-  doAssert result.lenu64 <= MAX_ATTESTER_SLASHINGS
-
-proc getProposerSlashingsForBlock*(pool: var ExitPool):
+func getProposerSlashingsForBlock*(pool: var ExitPool):
                                    seq[ProposerSlashing] =
-  ## Retrieve proposer slashings that may be added to a new block at the slot
-  ## of the given state
-  logScope: pcs = "retrieve_proposer_slashing"
+  ## Retrieve proposer slashings that may be added to a new block
+  getExitMessagesForBlock[ProposerSlashing](
+    pool.proposer_slashings, MAX_PROPOSER_SLASHINGS)
 
-  for i in 0 ..< MAX_PROPOSER_SLASHINGS:
-    if pool.proposer_slashings.len == 0:
-      break
-    result.add pool.proposer_slashings.popFirst()
-
-  doAssert result.lenu64 <= MAX_PROPOSER_SLASHINGS
-
-proc getVoluntaryExitsForBlock*(pool: var ExitPool):
+func getVoluntaryExitsForBlock*(pool: var ExitPool):
                                 seq[VoluntaryExit] =
-  ## Retrieve voluntary exits that may be added to a new block at the slot
-  ## of the given state
-  logScope: pcs = "retrieve_voluntary_exit"
-
-  for i in 0 ..< MAX_VOLUNTARY_EXITS:
-    if pool.voluntary_exits.len == 0:
-      break
-    result.add pool.voluntary_exits.popFirst()
-
-  doAssert result.lenu64 <= MAX_VOLUNTARY_EXITS
+  ## Retrieve voluntary exits that may be added to a new block
+  getExitMessagesForBlock[VoluntaryExit](
+    pool.voluntary_exits, MAX_VOLUNTARY_EXITS)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
@@ -90,6 +77,12 @@ proc validateAttesterSlashing*(
   # each attestation has not yet been seen in any prior attester_slashing (i.e.
   # attester_slashed_indices = set(attestation_1.attesting_indices).intersection(attestation_2.attesting_indices),
   # verify if any(attester_slashed_indices.difference(prior_seen_attester_slashed_indices))).
+  #
+  # This is what the spec states, but even when a validators was slashed using
+  # proposer slashing it's still pointless relaying an attester slashing for a
+  # validator; process_attester_slashing() will note not that validator as not
+  # slashable. Therefore, check whether it's slashed for any reason.
+  # TODO check for upstream spec disposition on this
   let
     attestation_1 = attester_slashing.attestation_1
     attestation_2 = attester_slashing.attestation_2
@@ -100,7 +93,7 @@ proc validateAttesterSlashing*(
     attesting_indices_2 =
       toHashSet(mapIt(attestation_1.attesting_indices.asSeq, it.ValidatorIndex))
     attester_slashed_indices = attesting_indices_1 * attesting_indices_2
-    # TODO this arguably ties in with slashing protection in general
+    # TODO
 
   # [REJECT] All of the conditions within process_attester_slashing pass
   # validation.
@@ -147,10 +140,19 @@ proc validateProposerSlashing*(
   # [IGNORE] The proposer slashing is the first valid proposer slashing
   # received for the proposer with index
   # proposer_slashing.signed_header_1.message.proposer_index.
+  #
+  # This is what the spec states, but even when the validator was slashed from
+  # attester slashing, it's still pointless to relay a proposer slashing for a
+  # validator; process_proposer_slashing() will mark not that validator as not
+  # slashable. Therefore, check whether it's slashed for any reason.
+  # TODO check for upstream spec disposition on this
 
   # [REJECT] All of the conditions within process_proposer_slashing pass validation.
 
   # TODO not called yet, so vacuousness is fine
+
+  pool.proposer_slashings.addExitMessage(
+    proposerSlashing, MAX_PROPOSER_SLASHINGS)
 
   ok(true)
 
@@ -164,5 +166,8 @@ proc validateVoluntaryExit*(
   # validation.
 
   # TODO not called yet, so vacuousness is fine
+
+  pool.voluntary_exits.addExitMessage(
+    voluntaryExit, MAX_VOLUNTARY_EXITS)
 
   ok(true)
