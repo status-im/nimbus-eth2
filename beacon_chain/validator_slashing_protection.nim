@@ -218,6 +218,11 @@ logScope:
 
 const UseSlashingProtection* {.booldefine.} = false
 
+when UseSlashingProtection:
+  static: echo "  Built with slashing protection"
+else:
+  static: echo "  Built without slashing protection"
+
 func subkey(
        kind: static SlashingKeyKind,
        validator: ValID,
