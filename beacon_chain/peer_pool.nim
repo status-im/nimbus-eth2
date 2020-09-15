@@ -1,7 +1,5 @@
 import std/[tables, heapqueue]
-import chronos, chronicles
-
-export chronicles
+import chronos
 
 type
   PeerType* = enum
