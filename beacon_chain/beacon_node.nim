@@ -413,26 +413,24 @@ func getTopicSubscriptionEnabled(node: BeaconNode): bool =
   node.attestationSubnets.subscribedSubnets[0].len +
   node.attestationSubnets.subscribedSubnets[1].len > 0
 
-proc removeMessageHandlers(node: BeaconNode) =
-  var unsubscriptions: seq[Future[void]]
+proc removeMessageHandlers(node: BeaconNode): Future[void] =
+  node.attestationSubnets.subscribedSubnets[0] = {}
+  node.attestationSubnets.subscribedSubnets[1] = {}
+  doAssert not node.getTopicSubscriptionEnabled()
 
-  for topic in [
-      getBeaconBlocksTopic(node.forkDigest),
-      getVoluntaryExitsTopic(node.forkDigest),
-      getProposerSlashingsTopic(node.forkDigest),
-      getAttesterSlashingsTopic(node.forkDigest),
-      getAggregateAndProofsTopic(node.forkDigest)]:
-    unsubscriptions.add node.network.unsubscribe(topic)
+  var unsubscriptions = mapIt(
+    [getBeaconBlocksTopic(node.forkDigest),
+     getVoluntaryExitsTopic(node.forkDigest),
+     getProposerSlashingsTopic(node.forkDigest),
+     getAttesterSlashingsTopic(node.forkDigest),
+     getAggregateAndProofsTopic(node.forkDigest)],
+    node.network.unsubscribe(it))
 
   for subnet in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
     unsubscriptions.add node.network.unsubscribe(
       getAttestationTopic(node.forkDigest, subnet))
 
-  waitFor allFutures(unsubscriptions)
-
-  node.attestationSubnets.subscribedSubnets[0] = {}
-  node.attestationSubnets.subscribedSubnets[1] = {}
-  doAssert not node.getTopicSubscriptionEnabled()
+  allFutures(unsubscriptions)
 
 proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
@@ -592,7 +590,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
       wallSlot = slot,
       headSlot = node.chainDag.head.slot,
       syncQueueLen
-    node.removeMessageHandlers()
+    await node.removeMessageHandlers()
 
   # Subscription or unsubscription might have occurred; recheck
   if slot.isEpoch and node.getTopicSubscriptionEnabled:

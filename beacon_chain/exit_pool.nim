@@ -43,41 +43,31 @@ func addExitMessage(subpool: var auto, exitMessage, bound: auto) =
   subpool.addLast(exitMessage)
   doAssert subpool.lenu64 <= bound
 
-proc getAttesterSlashingsForBlock*(pool: var ExitPool):
+func getExitMessagesForBlock[T](subpool: var Deque[T], bound: uint64): seq[T] =
+  for i in 0 ..< bound:
+    if subpool.len == 0:
+      break
+    result.add subpool.popFirst()
+
+  doAssert result.lenu64 <= bound
+
+func getAttesterSlashingsForBlock*(pool: var ExitPool):
                                    seq[AttesterSlashing] =
   ## Retrieve attester slashings that may be added to a new block
-  logScope: pcs = "retrieve_attester_slashing"
+  getExitMessagesForBlock[AttesterSlashing](
+    pool.attester_slashings, MAX_ATTESTER_SLASHINGS)
 
-  for i in 0 ..< MAX_ATTESTER_SLASHINGS:
-    if pool.attester_slashings.len == 0:
-      break
-    result.add pool.attester_slashings.popFirst()
-
-  doAssert result.lenu64 <= MAX_ATTESTER_SLASHINGS
-
-proc getProposerSlashingsForBlock*(pool: var ExitPool):
+func getProposerSlashingsForBlock*(pool: var ExitPool):
                                    seq[ProposerSlashing] =
   ## Retrieve proposer slashings that may be added to a new block
-  logScope: pcs = "retrieve_proposer_slashing"
+  getExitMessagesForBlock[ProposerSlashing](
+    pool.proposer_slashings, MAX_PROPOSER_SLASHINGS)
 
-  for i in 0 ..< MAX_PROPOSER_SLASHINGS:
-    if pool.proposer_slashings.len == 0:
-      break
-    result.add pool.proposer_slashings.popFirst()
-
-  doAssert result.lenu64 <= MAX_PROPOSER_SLASHINGS
-
-proc getVoluntaryExitsForBlock*(pool: var ExitPool):
+func getVoluntaryExitsForBlock*(pool: var ExitPool):
                                 seq[VoluntaryExit] =
   ## Retrieve voluntary exits that may be added to a new block
-  logScope: pcs = "retrieve_voluntary_exit"
-
-  for i in 0 ..< MAX_VOLUNTARY_EXITS:
-    if pool.voluntary_exits.len == 0:
-      break
-    result.add pool.voluntary_exits.popFirst()
-
-  doAssert result.lenu64 <= MAX_VOLUNTARY_EXITS
+  getExitMessagesForBlock[VoluntaryExit](
+    pool.voluntary_exits, MAX_VOLUNTARY_EXITS)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
