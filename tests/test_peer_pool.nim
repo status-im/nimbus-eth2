@@ -7,11 +7,10 @@
 
 {.used.}
 
-import
-  unittest, random, heapqueue, tables, strutils,
-  ./testutil,
-  chronos,
-  ../beacon_chain/peer_pool
+import std/[unittest, random, heapqueue, tables]
+import chronos
+import ../beacon_chain/peer_pool
+import testutil
 
 type
   PeerTestID* = string

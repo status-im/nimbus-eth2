@@ -681,7 +681,6 @@ proc handleOutgoingPeer(peer: Peer): Future[bool] {.async.} =
 
   proc onPeerClosed(udata: pointer) =
     debug "Peer (outgoing) lost", peer
-    nbc_peers.set int64(len(network.peerPool))
 
   let res = await network.peerPool.addOutgoingPeer(peer)
   if res:
@@ -690,14 +689,11 @@ proc handleOutgoingPeer(peer: Peer): Future[bool] {.async.} =
     peer.getFuture().addCallback(onPeerClosed)
     result = true
 
-  nbc_peers.set int64(len(network.peerPool))
-
 proc handleIncomingPeer(peer: Peer): Future[bool] {.async.} =
   let network = peer.network
 
   proc onPeerClosed(udata: pointer) =
     debug "Peer (incoming) lost", peer
-    nbc_peers.set int64(len(network.peerPool))
 
   let res = await network.peerPool.addIncomingPeer(peer)
   if res:
@@ -705,8 +701,6 @@ proc handleIncomingPeer(peer: Peer): Future[bool] {.async.} =
     debug "Peer (incoming) has been added to PeerPool", peer
     peer.getFuture().addCallback(onPeerClosed)
     result = true
-
-  nbc_peers.set int64(len(network.peerPool))
 
 proc toPeerAddr*(r: enr.TypedRecord):
     Result[PeerAddr, cstring] {.raises: [Defect].} =
@@ -935,6 +929,12 @@ proc startListening*(node: Eth2Node) {.async.} =
   await node.pubsub.start()
 
 proc start*(node: Eth2Node) {.async.} =
+
+  proc onPeerCountChanged() =
+    nbc_peers.set int64(len(node.peerPool))
+
+  node.peerPool.setPeerCounter(onPeerCountChanged)
+
   for i in 0 ..< ConcurrentConnections:
     node.connWorkers.add connectWorker(node)
 
