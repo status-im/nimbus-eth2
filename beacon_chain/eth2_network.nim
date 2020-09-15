@@ -1228,7 +1228,7 @@ proc createEth2Node*(
     enrForkId: ENRForkID): Eth2Node =
   var
     (extIp, extTcpPort, extUdpPort) = setupNat(conf)
-    hostAddress = tcpEndPoint(conf.libp2pAddress, conf.tcpPort)
+    hostAddress = tcpEndPoint(conf.listenAddress, conf.tcpPort)
     announcedAddresses = if extIp.isNone(): @[]
                          else: @[tcpEndPoint(extIp.get(), extTcpPort)]
 
