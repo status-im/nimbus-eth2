@@ -346,11 +346,13 @@ proc init*(
        T: type SlashingProtectionDB,
        genesis_validator_root: Eth2Digest,
        backend: KVStoreRef): SlashingProtectionDB =
-  result = T(backend: backend)
-  result.setGenesis(genesis_validator_root)
+  when UseSlashingProtection:
+    result = T(backend: backend)
+    result.setGenesis(genesis_validator_root)
 
 proc close*(db: SlashingProtectionDB) =
-  discard db.backend.close()
+  when UseSlashingProtection:
+    discard db.backend.close()
 
 # DB Queries
 # --------------------------------------------
