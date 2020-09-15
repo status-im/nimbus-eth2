@@ -148,7 +148,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
           )
         newBlock.root = hash_tree_root(newBlock.message)
 
-        # TODO: recomputed in block proposal
+        # TODO: signing_root is recomputed in signBlockProposal just after
         let signing_root = compute_block_root(vc.fork, vc.beaconGenesis.genesis_validators_root, slot, newBlock.root)
         vc.attachedValidators
           .slashingProtection
@@ -159,7 +159,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
 
         discard await vc.client.post_v1_validator_block(newBlock)
       else:
-        warn "Slashing protection activated",
+        warn "Slashing protection activated for block proposal",
           validator = public_key,
           slot = slot,
           existingProposal = notSlashable.error
@@ -182,12 +182,31 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
         let validator = vc.attachedValidators.validators[a.public_key]
         let ad = await vc.client.get_v1_validator_attestation(slot, a.committee_index)
 
-        # TODO I don't like these (u)int64-to-int conversions...
-        let attestation = await validator.produceAndSignAttestation(
-          ad, a.committee_length.int, a.validator_committee_index.int,
-          vc.fork, vc.beaconGenesis.genesis_validators_root)
+        let notSlashable = vc.attachedValidators
+                             .slashingProtection
+                             .notSlashableAttestation(
+                               a.public_key,
+                               ad.source.epoch,
+                               ad.target.epoch)
+        if notSlashable.isOk():
+          # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
+          let signing_root = compute_attestation_root(
+            vc.fork, vc.beaconGenesis.genesis_validators_root, ad)
+          vc.attachedValidators
+            .slashingProtection
+            .registerAttestation(
+              a.public_key, ad.source.epoch, ad.target.epoch, signing_root)
 
-        discard await vc.client.post_v1_beacon_pool_attestations(attestation)
+          # TODO I don't like these (u)int64-to-int conversions...
+          let attestation = await validator.produceAndSignAttestation(
+            ad, a.committee_length.int, a.validator_committee_index.int,
+            vc.fork, vc.beaconGenesis.genesis_validators_root)
+
+          discard await vc.client.post_v1_beacon_pool_attestations(attestation)
+        else:
+          warn "Slashing protection activated for attestation",
+            validator = a.public_key,
+            badVoteDetails = $notSlashable.error
 
   except CatchableError as err:
     warn "Caught an unexpected error", err = err.msg, slot = shortLog(slot)

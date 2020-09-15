@@ -271,16 +271,15 @@ proc init*(T: type BeaconNode,
     topicAggregateAndProofs: topicAggregateAndProofs,
   )
 
-
-    res.attachedValidators = ValidatorPool.init(
-      SlashingProtectionDB.init(
-        chainDag.headState.data.data.genesis_validators_root,
-        when UseSlashingProtection:
-          kvStore SqStoreRef.init(conf.validatorsDir(), "slashing_protection").tryGet()
-        else:
-          KvStoreRef()
-      )
+  res.attachedValidators = ValidatorPool.init(
+    SlashingProtectionDB.init(
+      chainDag.headState.data.data.genesis_validators_root,
+      when UseSlashingProtection:
+        kvStore SqStoreRef.init(conf.validatorsDir(), "slashing_protection").tryGet()
+      else:
+        KvStoreRef()
     )
+  )
 
   proc getWallTime(): BeaconTime = res.beaconClock.now()
 

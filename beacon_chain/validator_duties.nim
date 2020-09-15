@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  std/[os, tables, strutils, sequtils, osproc, streams],
+  std/[os, tables, sequtils, osproc, streams],
 
   # Nimble packages
   stew/[objects], stew/shims/macros,
@@ -389,9 +389,21 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
         attestations.add((ad, committee.len, index_in_committee, validator))
 
   for a in attestations:
-    traceAsyncErrors createAndSendAttestation(
-      node, fork, genesis_validators_root, a.validator, a.data,
-      a.committeeLen, a.indexInCommittee, num_active_validators)
+    let notSlashable = node.attachedValidators
+                           .slashingProtection
+                           .notSlashableAttestation(
+                             a.validator.pubkey,
+                             a.data.source.epoch,
+                             a.data.target.epoch)
+
+    if notSlashable.isOk():
+      traceAsyncErrors createAndSendAttestation(
+        node, fork, genesis_validators_root, a.validator, a.data,
+        a.committeeLen, a.indexInCommittee, num_active_validators)
+    else:
+      warn "Slashing protection activated for attestation",
+        validator = a.validator.pubkey,
+        badVoteDetails = $notSlashable.error
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async.} =

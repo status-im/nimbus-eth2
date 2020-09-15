@@ -160,10 +160,11 @@ type
   BadVote* = object
     case kind*: BadVoteKind
     of DoubleVote:
-      existingAttRoot*: Eth2Digest
+      existingAttestation*: Eth2Digest
     of SurroundedVote, SurroundingVote:
-      exampleAttRoot*: Eth2Digest # Many roots might be in conflict
-      source*, target*: Epoch
+      existingAttestationRoot*: Eth2Digest # Many roots might be in conflict
+      sourceExisting*, targetExisting*: Epoch
+      sourceSlashable*, targetSlashable*: Epoch
     of TargetPrecedesSource:
       discard
 
@@ -421,7 +422,7 @@ proc notSlashableAttestationImpl(
     # Logged by caller
     return err(BadVote(
       kind: DoubleVote,
-      existingAttRoot: foundAttestation.unsafeGet().attestation_root
+      existingAttestation: foundAttestation.unsafeGet().attestation_root
     ))
 
   # TODO: we hack KV-store range queries
@@ -494,9 +495,11 @@ proc notSlashableAttestationImpl(
       # Logged by caller
       return err(BadVote(
         kind: SurroundingVote,
-        exampleAttRoot: ar1,
-        source: s1,
-        target: t2
+        existingAttestationRoot: ar1,
+        sourceExisting: s1,
+        targetExisting: t1,
+        sourceSlashable: s2,
+        targetSlashable: t2
       ))
 
     # Next iteration
@@ -523,9 +526,11 @@ proc notSlashableAttestationImpl(
       # Logged by caller
       return err(BadVote(
         kind: SurroundedVote,
-        exampleAttRoot: ar1,
-        source: s1,
-        target: t2
+        existingAttestationRoot: ar1,
+        sourceExisting: s1,
+        targetExisting: t1,
+        sourceSlashable: s2,
+        targetSlashable: t2
       ))
 
     # Next iteration
