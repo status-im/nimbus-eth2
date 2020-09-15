@@ -7,19 +7,14 @@ import
   validator_slashing_protection,
   eth/db/[kvstore, kvstore_sqlite3]
 
-when UseSlashingProtection:
-  func init*(T: type ValidatorPool,
-             slashingProtectionDB: SlashingProtectionDB): T =
-    ## Initialize the validator pool and the slashing protection service
-    ## `genesis_validator_root` is used as an unique ID for the
-    ## blockchain
-    ## `backend` is the KeyValue Store backend
-    result.validators = initTable[ValidatorPubKey, AttachedValidator]()
-    result.slashingProtection = slashingProtectionDB
-else:
-  func init*(T: type ValidatorPool): T =
-    ## Initialize the validator pool
-    result.validators = initTable[ValidatorPubKey, AttachedValidator]()
+func init*(T: type ValidatorPool,
+            slashingProtectionDB: SlashingProtectionDB): T =
+  ## Initialize the validator pool and the slashing protection service
+  ## `genesis_validator_root` is used as an unique ID for the
+  ## blockchain
+  ## `backend` is the KeyValue Store backend
+  result.validators = initTable[ValidatorPubKey, AttachedValidator]()
+  result.slashingProtection = slashingProtectionDB
 
 template count*(pool: ValidatorPool): int =
   pool.validators.len

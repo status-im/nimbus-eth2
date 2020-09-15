@@ -296,16 +296,15 @@ proc proposeBlock(node: BeaconNode,
       slot = shortLog(slot)
     return head
 
-  when UseSlashingProtection:
-    let notSlashable = node.attachedValidators
-                          .slashingProtection
-                          .notSlashableBlockProposal(validator.pubkey, slot)
-    if notSlashable.isErr:
-      warn "Slashing protection activated",
-        validator = validator.pubkey,
-        slot = slot,
-        existingProposal = notSlashable.error
-      return head
+  let notSlashable = node.attachedValidators
+                        .slashingProtection
+                        .notSlashableBlockProposal(validator.pubkey, slot)
+  if notSlashable.isErr:
+    warn "Slashing protection activated",
+      validator = validator.pubkey,
+      slot = slot,
+      existingProposal = notSlashable.error
+    return head
 
   let valInfo = ValidatorInfoForMakeBeaconBlock(kind: viValidator, validator: validator)
   let beaconBlockTuple = await makeBeaconBlockForHeadAndSlot(
@@ -319,13 +318,12 @@ proc proposeBlock(node: BeaconNode,
 
   newBlock.root = hash_tree_root(newBlock.message)
 
-  when UseSlashingProtection:
-    # TODO: recomputed in block proposal
-    let signing_root = compute_block_root(
-      beaconBlockTuple.fork, beaconBlockTuple.genesis_validators_root, slot, newBlock.root)
-    node.attachedValidators
-      .slashingProtection
-      .registerBlock(validator.pubkey, slot, signing_root)
+  # TODO: recomputed in block proposal
+  let signing_root = compute_block_root(
+    beaconBlockTuple.fork, beaconBlockTuple.genesis_validators_root, slot, newBlock.root)
+  node.attachedValidators
+    .slashingProtection
+    .registerBlock(validator.pubkey, slot, signing_root)
 
   newBlock.signature = await validator.signBlockProposal(
     beaconBlockTuple.fork, beaconBlockTuple.genesis_validators_root, slot, newBlock.root)

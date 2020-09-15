@@ -349,7 +349,7 @@ proc close*(db: SlashingProtectionDB) =
 # DB Queries
 # --------------------------------------------
 
-proc notSlashableBlockProposal*(
+proc notSlashableBlockProposalImpl(
        db: SlashingProtectionDB,
        validator: ValidatorPubKey,
        slot: Slot
@@ -370,7 +370,26 @@ proc notSlashableBlockProposal*(
     return ok()
   return err(foundBlock.unsafeGet().block_root)
 
-proc notSlashableAttestation*(
+proc notSlashableBlockProposal*(
+       db: SlashingProtectionDB,
+       validator: ValidatorPubKey,
+       slot: Slot
+     ): Result[void, Eth2Digest] =
+  ## Returns an error if the specified validator
+  ## already proposed a block for the specified slot.
+  ## This would lead to slashing.
+  ## The error contains the blockroot that was already proposed
+  ##
+  ## Returns success otherwise
+  # TODO distinct type for the result block root
+  when UseSlashingProtection:
+    notSlashableBlockProposalImpl(
+      db, validator, slot
+    )
+  else:
+    ok()
+
+proc notSlashableAttestationImpl(
        db: SlashingProtectionDB,
        validator: ValidatorPubKey,
        source: Epoch,
@@ -524,6 +543,26 @@ proc notSlashableAttestation*(
 
   doAssert false, "Unreachable"
 
+proc notSlashableAttestation*(
+       db: SlashingProtectionDB,
+       validator: ValidatorPubKey,
+       source: Epoch,
+       target: Epoch
+     ): Result[void, BadVote] =
+  ## Returns an error if the specified validator
+  ## already proposed a block for the specified slot.
+  ## This would lead to slashing.
+  ## The error contains the blockroot that was already proposed
+  ##
+  ## Returns success otherwise
+  # TODO distinct type for the result attestation root
+  when UseSlashingProtection:
+    notSlashableAttestationImpl(
+      db, validator, source, target
+    )
+  else:
+    ok()
+
 # DB update
 # --------------------------------------------
 
@@ -543,7 +582,7 @@ proc registerValidator(db: SlashingProtectionDB, validator: ValidatorPubKey) =
 
   db.put(subkey(kValidator, valIndex), validator)
 
-proc registerBlock*(
+proc registerBlockImpl(
        db: SlashingProtectionDB,
        validator: ValidatorPubKey,
        slot: Slot, block_root: Eth2Digest) =
@@ -679,7 +718,21 @@ proc registerBlock*(
       # ).expect("Consistent linked-list in DB")
     ).unsafeGet()
 
-proc registerAttestation*(
+proc registerBlock*(
+       db: SlashingProtectionDB,
+       validator: ValidatorPubKey,
+       slot: Slot, block_root: Eth2Digest) =
+  ## Add a block to the slashing protection DB
+  ## `notSlashableBlockProposal` MUST be run
+  ## before to ensure no overwrite.
+  when UseSlashingProtection:
+    registerBlockImpl(
+      db, validator, slot, block_root
+    )
+  else:
+    discard
+
+proc registerAttestationImpl(
        db: SlashingProtectionDB,
        validator: ValidatorPubKey,
        source, target: Epoch,
@@ -828,6 +881,20 @@ proc registerAttestation*(
       # ).expect("Consistent linked-list in DB")
     ).unsafeGet()
 
+proc registerAttestation*(
+       db: SlashingProtectionDB,
+       validator: ValidatorPubKey,
+       source, target: Epoch,
+       attestation_root: Eth2Digest) =
+  ## Add an attestation to the slashing protection DB
+  ## `notSlashableAttestation` MUST be run
+  ## before to ensure no overwrite.
+  when UseSlashingProtection:
+    registerAttestationImpl(
+      db, validator, source, target, attestation_root
+    )
+  else:
+    discard
 
 # DB maintenance
 # --------------------------------------------

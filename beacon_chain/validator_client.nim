@@ -135,36 +135,10 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
     if vc.proposalsForCurrentEpoch.contains slot:
       let public_key = vc.proposalsForCurrentEpoch[slot]
 
-      when UseSlashingProtection:
-        let notSlashable = vc.attachedValidators
-                            .slashingProtection
-                            .notSlashableBlockProposal(public_key, slot)
-        if notSlashable.isOk:
-          let validator = vc.attachedValidators.validators[public_key]
-          info "Proposing block", slot = slot, public_key = public_key
-          let randao_reveal = await validator.genRandaoReveal(
-            vc.fork, vc.beaconGenesis.genesis_validators_root, slot)
-          var newBlock = SignedBeaconBlock(
-              message: await vc.client.get_v1_validator_block(slot, vc.graffitiBytes, randao_reveal)
-            )
-          newBlock.root = hash_tree_root(newBlock.message)
-
-          # TODO: recomputed in block proposal
-          let signing_root = compute_block_root(vc.fork, vc.beaconGenesis.genesis_validators_root, slot, newBlock.root)
-          vc.attachedValidators
-            .slashingProtection
-            .registerBlock(public_key, slot, signing_root)
-
-          newBlock.signature = await validator.signBlockProposal(
-            vc.fork, vc.beaconGenesis.genesis_validators_root, slot, newBlock.root)
-
-          discard await vc.client.post_v1_validator_block(newBlock)
-        else:
-          warn "Slashing protection activated",
-            validator = public_key,
-            slot = slot,
-            existingProposal = notSlashable.error
-      else:
+      let notSlashable = vc.attachedValidators
+                          .slashingProtection
+                          .notSlashableBlockProposal(public_key, slot)
+      if notSlashable.isOk:
         let validator = vc.attachedValidators.validators[public_key]
         info "Proposing block", slot = slot, public_key = public_key
         let randao_reveal = await validator.genRandaoReveal(
@@ -173,10 +147,22 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
             message: await vc.client.get_v1_validator_block(slot, vc.graffitiBytes, randao_reveal)
           )
         newBlock.root = hash_tree_root(newBlock.message)
+
+        # TODO: recomputed in block proposal
+        let signing_root = compute_block_root(vc.fork, vc.beaconGenesis.genesis_validators_root, slot, newBlock.root)
+        vc.attachedValidators
+          .slashingProtection
+          .registerBlock(public_key, slot, signing_root)
+
         newBlock.signature = await validator.signBlockProposal(
           vc.fork, vc.beaconGenesis.genesis_validators_root, slot, newBlock.root)
 
         discard await vc.client.post_v1_validator_block(newBlock)
+      else:
+        warn "Slashing protection activated",
+          validator = public_key,
+          slot = slot,
+          existingProposal = notSlashable.error
 
     # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#attesting
     # A validator should create and broadcast the attestation to the associated

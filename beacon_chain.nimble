@@ -84,8 +84,8 @@ task test, "Run all tests":
   buildAndRunBinary "all_fixtures_require_ssz", "tests/official/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]""""
 
   # Slashing protection
-  buildAndRunBinary "test_slashing_protection_db", "tests/slashing_protection/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]""""
-  buildAndRunBinary "test_slashing_interchange", "tests/slashing_protection/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]""""
+  buildAndRunBinary "test_slashing_protection_db", "tests/slashing_protection/", """-d:UseSlashingProtection=true -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]""""
+  buildAndRunBinary "test_slashing_interchange", "tests/slashing_protection/", """-d:UseSlashingProtection=true -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]""""
 
   # State and block sims; getting to 4th epoch triggers consensus checks
   buildAndRunBinary "state_sim", "research/", "-d:const_preset=mainnet -d:chronicles_log_level=INFO", "--validators=3000 --slots=128"

@@ -271,16 +271,16 @@ proc init*(T: type BeaconNode,
     topicAggregateAndProofs: topicAggregateAndProofs,
   )
 
-  when UseSlashingProtection:
+
     res.attachedValidators = ValidatorPool.init(
       SlashingProtectionDB.init(
         chainDag.headState.data.data.genesis_validators_root,
-        # Validator dir?
-        kvStore SqStoreRef.init(conf.validatorsDir(), "slashing_protection").tryGet()
+        when UseSlashingProtection:
+          kvStore SqStoreRef.init(conf.validatorsDir(), "slashing_protection").tryGet()
+        else:
+          KvStoreRef()
       )
     )
-  else:
-    res.attachedValidators = ValidatorPool.init()
 
   proc getWallTime(): BeaconTime = res.beaconClock.now()
 
@@ -1323,4 +1323,3 @@ programMain:
 
     of WalletsCmd.restore:
       restoreWalletInteractively(rng[], config)
-
