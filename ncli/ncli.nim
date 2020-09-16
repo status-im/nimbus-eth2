@@ -1,7 +1,9 @@
 import
-  confutils, chronicles, os, strutils, json_serialization,
+  std/[os, strutils, stats],
+  confutils, chronicles, json_serialization,
   stew/byteutils,
-  ../beacon_chain/spec/[crypto, datatypes, digest, state_transition],
+  ../research/simutils,
+  ../beacon_chain/spec/[crypto, datatypes, digest, helpers, state_transition],
   ../beacon_chain/extras,
   ../beacon_chain/network_metadata,
   ../beacon_chain/ssz/[merkleization, ssz_serialization]
@@ -11,6 +13,7 @@ type
     hashTreeRoot = "Compute hash tree root of SSZ object"
     pretty = "Pretty-print SSZ object"
     transition = "Run state transition function"
+    slots = "Apply empty slots"
 
   NcliConf* = object
 
@@ -57,6 +60,19 @@ type
         desc: "Verify state root (default true)"
         defaultValue: true}: bool
 
+    of slots:
+      preState2* {.
+        argument
+        desc: "State to which to apply specified block"}: string
+
+      slot* {.
+        argument
+        desc: "Block to apply to preState"}: uint64
+
+      postState2* {.
+        argument
+        desc: "Filename of state resulting from applying blck to preState"}: string
+
 proc doTransition(conf: NcliConf) =
   let
     stateY = (ref HashedBeaconState)(
@@ -74,12 +90,39 @@ proc doTransition(conf: NcliConf) =
   else:
     SSZ.saveFile(conf.postState, stateY.data)
 
+proc doSlots(conf: NcliConf) =
+  type
+    Timers = enum
+      tLoadState = "Load state from file"
+      tApplySlot = "Apply slot"
+      tApplyEpochSlot = "Apply epoch slot"
+      tSaveState = "Save state to file"
+
+  var timers: array[Timers, RunningStat]
+  let
+    stateY = withTimerRet(timers[tLoadState]): (ref HashedBeaconState)(
+      data: SSZ.loadFile(conf.preState2, BeaconState),
+    )
+
+  stateY.root = hash_tree_root(stateY.data)
+
+  var cache: StateCache
+  for i in 0'u64..<conf.slot:
+    let isEpoch = (stateY[].data.slot + 1).isEpoch
+    withTimer(timers[if isEpoch: tApplyEpochSlot else: tApplySlot]):
+      advance_slot(stateY[], {}, cache)
+
+  withTimer(timers[tSaveState]):
+    SSZ.saveFile(conf.postState, stateY.data)
+
+  printTimers(false, timers)
+
 proc doSSZ(conf: NcliConf) =
   let (kind, file) =
     case conf.cmd:
     of hashTreeRoot: (conf.htrKind, conf.htrFile)
     of pretty: (conf.prettyKind, conf.prettyFile)
-    of transition:
+    else:
       raiseAssert "doSSZ() only implements hashTreeRoot and pretty commands"
 
   template printit(t: untyped) {.dirty.} =
@@ -101,7 +144,7 @@ proc doSSZ(conf: NcliConf) =
         echo hash_tree_root(v[]).data.toHex()
     of pretty:
       echo JSON.encode(v[], pretty = true)
-    of transition:
+    else:
       raiseAssert "doSSZ() only implements hashTreeRoot and pretty commands"
 
   let ext = splitFile(file).ext
@@ -127,3 +170,4 @@ when isMainModule:
   of hashTreeRoot: doSSZ(conf)
   of pretty: doSSZ(conf)
   of transition: doTransition(conf)
+  of slots: doSlots(conf)

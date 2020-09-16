@@ -147,9 +147,13 @@ template isCached*(v: Eth2Digest): bool =
   ## An entry is "in the cache" if the first 8 bytes are zero - conveniently,
   ## Nim initializes values this way, and while there may be false positives,
   ## that's fine.
-  v.data.toOpenArray(0, 7) != [byte 0, 0, 0, 0, 0, 0, 0, 0]
+
+  # Checking and resetting the cache status are hotspots - profile before
+  # touching!
+  cast[ptr uint64](unsafeAddr v.data[0])[] != 0 # endian safe
+
 template clearCache*(v: var Eth2Digest) =
-  v.data[0..<8] = [byte 0, 0, 0, 0, 0, 0, 0, 0]
+  cast[ptr uint64](addr v.data[0])[] = 0 # endian safe
 
 template maxChunks*(a: HashList|HashArray): int64 =
   ## Layer where data is
@@ -164,10 +168,10 @@ template chunkIdx(a: HashList|HashArray, dataIdx: int64): int64 =
 
 proc clearCaches*(a: var HashArray, dataIdx: auto) =
   ## Clear all cache entries after data at dataIdx has been modified
-  var idx = 1 shl (a.maxDepth - 1) + (chunkIdx(a, dataIdx) div 2)
+  var idx = 1 shl (a.maxDepth - 1) + (chunkIdx(a, dataIdx) shr 1)
   while idx != 0:
     clearCache(a.hashes[idx])
-    idx = idx div 2
+    idx = idx shr 1
 
 func nodesAtLayer*(layer, depth, leaves: int): int =
   ## Given a number of leaves, how many nodes do you need at a given layer
@@ -188,7 +192,7 @@ proc clearCaches*(a: var HashList, dataIdx: int64) =
     return
 
   var
-    idx = 1'i64 shl (a.maxDepth - 1) + (chunkIdx(a, dataIdx) div 2)
+    idx = 1'i64 shl (a.maxDepth - 1) + (chunkIdx(a, dataIdx) shr 1)
     layer = a.maxDepth - 1
   while idx > 0:
     let
@@ -197,7 +201,7 @@ proc clearCaches*(a: var HashList, dataIdx: int64) =
     if layerIdx < a.indices[layer + 1]:
       clearCache(a.hashes[layerIdx])
 
-    idx = idx div 2
+    idx = idx shr 1
     layer = layer - 1
 
   clearCache(a.hashes[0])
