@@ -32,6 +32,7 @@ import
   mainchain_monitor, version, ssz/[merkleization], merkle_minimal,
   sync_protocol, request_manager, keystore_management, interop, statusbar,
   sync_manager, validator_duties, validator_api,
+  validator_slashing_protection,
   ./eth2_processor
 
 const
@@ -258,7 +259,6 @@ proc init*(T: type BeaconNode,
     netKeys: netKeys,
     db: db,
     config: conf,
-    attachedValidators: ValidatorPool.init(),
     chainDag: chainDag,
     quarantine: quarantine,
     attestationPool: attestationPool,
@@ -269,6 +269,16 @@ proc init*(T: type BeaconNode,
     forkDigest: enrForkId.forkDigest,
     topicBeaconBlocks: topicBeaconBlocks,
     topicAggregateAndProofs: topicAggregateAndProofs,
+  )
+
+  res.attachedValidators = ValidatorPool.init(
+    SlashingProtectionDB.init(
+      chainDag.headState.data.data.genesis_validators_root,
+      when UseSlashingProtection:
+        kvStore SqStoreRef.init(conf.validatorsDir(), "slashing_protection").tryGet()
+      else:
+        KvStoreRef()
+    )
   )
 
   proc getWallTime(): BeaconTime = res.beaconClock.now()
@@ -1312,4 +1322,3 @@ programMain:
 
     of WalletsCmd.restore:
       restoreWalletInteractively(rng[], config)
-

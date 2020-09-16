@@ -16,14 +16,16 @@ import
   json_serialization/std/[options, sets, net],
 
   # Local modules
-  spec/[datatypes, digest, crypto, helpers, network],
+  spec/[datatypes, digest, crypto, helpers, network, signatures],
   conf, time, version,
   eth2_network, eth2_discovery, validator_pool, beacon_node_types,
   nimbus_binary_common,
   version, ssz/merkleization,
   sync_manager, keystore_management,
   spec/eth2_apis/callsigs_types,
-  eth2_json_rpc_serialization
+  eth2_json_rpc_serialization,
+  validator_slashing_protection,
+  eth/db/[kvstore, kvstore_sqlite3]
 
 logScope: topics = "vc"
 
@@ -132,22 +134,35 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
     # check if we have a validator which needs to propose on this slot
     if vc.proposalsForCurrentEpoch.contains slot:
       let public_key = vc.proposalsForCurrentEpoch[slot]
-      let validator = vc.attachedValidators.validators[public_key]
 
-      info "Proposing block", slot = slot, public_key = public_key
+      let notSlashable = vc.attachedValidators
+                          .slashingProtection
+                          .checkSlashableBlockProposal(public_key, slot)
+      if notSlashable.isOk:
+        let validator = vc.attachedValidators.validators[public_key]
+        info "Proposing block", slot = slot, public_key = public_key
+        let randao_reveal = await validator.genRandaoReveal(
+          vc.fork, vc.beaconGenesis.genesis_validators_root, slot)
+        var newBlock = SignedBeaconBlock(
+            message: await vc.client.get_v1_validator_block(slot, vc.graffitiBytes, randao_reveal)
+          )
+        newBlock.root = hash_tree_root(newBlock.message)
 
-      let randao_reveal = await validator.genRandaoReveal(
-        vc.fork, vc.beaconGenesis.genesis_validators_root, slot)
+        # TODO: signing_root is recomputed in signBlockProposal just after
+        let signing_root = compute_block_root(vc.fork, vc.beaconGenesis.genesis_validators_root, slot, newBlock.root)
+        vc.attachedValidators
+          .slashingProtection
+          .registerBlock(public_key, slot, signing_root)
 
-      var newBlock = SignedBeaconBlock(
-          message: await vc.client.get_v1_validator_block(slot, vc.graffitiBytes, randao_reveal)
-        )
+        newBlock.signature = await validator.signBlockProposal(
+          vc.fork, vc.beaconGenesis.genesis_validators_root, slot, newBlock.root)
 
-      newBlock.root = hash_tree_root(newBlock.message)
-      newBlock.signature = await validator.signBlockProposal(
-        vc.fork, vc.beaconGenesis.genesis_validators_root, slot, newBlock.root)
-
-      discard await vc.client.post_v1_validator_block(newBlock)
+        discard await vc.client.post_v1_validator_block(newBlock)
+      else:
+        warn "Slashing protection activated for block proposal",
+          validator = public_key,
+          slot = slot,
+          existingProposal = notSlashable.error
 
     # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#attesting
     # A validator should create and broadcast the attestation to the associated
@@ -167,12 +182,31 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
         let validator = vc.attachedValidators.validators[a.public_key]
         let ad = await vc.client.get_v1_validator_attestation(slot, a.committee_index)
 
-        # TODO I don't like these (u)int64-to-int conversions...
-        let attestation = await validator.produceAndSignAttestation(
-          ad, a.committee_length.int, a.validator_committee_index.int,
-          vc.fork, vc.beaconGenesis.genesis_validators_root)
+        let notSlashable = vc.attachedValidators
+                             .slashingProtection
+                             .checkSlashableAttestation(
+                               a.public_key,
+                               ad.source.epoch,
+                               ad.target.epoch)
+        if notSlashable.isOk():
+          # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
+          let signing_root = compute_attestation_root(
+            vc.fork, vc.beaconGenesis.genesis_validators_root, ad)
+          vc.attachedValidators
+            .slashingProtection
+            .registerAttestation(
+              a.public_key, ad.source.epoch, ad.target.epoch, signing_root)
 
-        discard await vc.client.post_v1_beacon_pool_attestations(attestation)
+          # TODO I don't like these (u)int64-to-int conversions...
+          let attestation = await validator.produceAndSignAttestation(
+            ad, a.committee_length.int, a.validator_committee_index.int,
+            vc.fork, vc.beaconGenesis.genesis_validators_root)
+
+          discard await vc.client.post_v1_beacon_pool_attestations(attestation)
+        else:
+          warn "Slashing protection activated for attestation",
+            validator = a.public_key,
+            badVoteDetails = $notSlashable.error
 
   except CatchableError as err:
     warn "Caught an unexpected error", err = err.msg, slot = shortLog(slot)
@@ -229,6 +263,13 @@ programMain:
       # init the beacon clock
       vc.beaconGenesis = waitFor vc.client.get_v1_beacon_genesis()
       vc.beaconClock = BeaconClock.init(vc.beaconGenesis.genesis_time)
+
+    when UseSlashingProtection:
+      vc.attachedValidators.slashingProtection =
+        SlashingProtectionDB.init(
+          vc.beaconGenesis.genesis_validators_root,
+          kvStore SqStoreRef.init(config.validatorsDir(), "slashing_protection").tryGet()
+        )
 
     let
       curSlot = vc.beaconClock.now().slotOrZero()

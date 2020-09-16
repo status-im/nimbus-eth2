@@ -5,7 +5,8 @@ import
   stew/endians2,
   spec/[datatypes, crypto],
   block_pools/block_pools_types,
-  fork_choice/fork_choice_types
+  fork_choice/fork_choice_types,
+  validator_slashing_protection
 
 export block_pools_types
 
@@ -105,5 +106,6 @@ type
 
   ValidatorPool* = object
     validators*: Table[ValidatorPubKey, AttachedValidator]
+    slashingProtection*: SlashingProtectionDB
 
 func shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)
