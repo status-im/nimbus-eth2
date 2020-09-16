@@ -46,19 +46,19 @@ suiteReport "PeerPool testing suite":
       var pool = newPeerPool[PeerTest, PeerTestID](item[0], item[1], item[2])
       for i in 0 ..< item[4]:
         var peer = PeerTest.init("idInc" & $i)
-        check pool.addIncomingPeerNoWait(peer) == true
+        check pool.addIncomingPeerNoWait(peer) == PeerStatus.Success
 
       for i in 0 ..< item[5]:
         var peer = PeerTest.init("idOut" & $i)
-        check pool.addOutgoingPeerNoWait(peer) == true
+        check pool.addOutgoingPeerNoWait(peer) == PeerStatus.Success
 
       var peer = PeerTest.init("idCheck")
       if item[1] != -1:
         for i in 0 ..< item[3]:
-          check pool.addIncomingPeerNoWait(peer) == false
+          check pool.addIncomingPeerNoWait(peer) == PeerStatus.NoSpaceError
       if item[2] != -1:
         for i in 0 ..< item[3]:
-          check pool.addOutgoingPeerNoWait(peer) == false
+          check pool.addOutgoingPeerNoWait(peer) == PeerStatus.NoSpaceError
       check:
         pool.lenAvailable == item[3]
         pool.lenAvailable({PeerType.Incoming}) == item[4]
@@ -211,10 +211,10 @@ suiteReport "PeerPool testing suite":
     var peer21 = PeerTest.init("peer21")
     var peer22 = PeerTest.init("peer22")
     check:
-      pool1.addPeerNoWait(peer11, PeerType.Incoming) == true
-      pool1.addPeerNoWait(peer12, PeerType.Incoming) == true
-      pool2.addPeerNoWait(peer21, PeerType.Outgoing) == true
-      pool2.addPeerNoWait(peer22, PeerType.Outgoing) == true
+      pool1.addPeerNoWait(peer11, PeerType.Incoming) == PeerStatus.Success
+      pool1.addPeerNoWait(peer12, PeerType.Incoming) == PeerStatus.Success
+      pool2.addPeerNoWait(peer21, PeerType.Outgoing) == PeerStatus.Success
+      pool2.addPeerNoWait(peer22, PeerType.Outgoing) == PeerStatus.Success
 
     var itemFut11 = pool1.acquire({PeerType.Outgoing})
     var itemFut12 = pool1.acquire(10, {PeerType.Outgoing})
@@ -298,9 +298,9 @@ suiteReport "PeerPool testing suite":
       var peer = PeerTest.init("peer" & $i, rand(MaxNumber))
       # echo repr peer
       if rand(100) mod 2 == 0:
-        check pool.addPeerNoWait(peer, PeerType.Incoming) == true
+        check pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success
       else:
-        check pool.addPeerNoWait(peer, PeerType.Outgoing) == true
+        check pool.addPeerNoWait(peer, PeerType.Outgoing) == PeerStatus.Success
 
     check waitFor(testAcquireRelease()) == TestsCount
 
@@ -310,7 +310,7 @@ suiteReport "PeerPool testing suite":
       var peer = PeerTest.init("deletePeer")
 
       ## Delete available peer
-      doAssert(pool.addIncomingPeerNoWait(peer) == true)
+      doAssert(pool.addIncomingPeerNoWait(peer) == PeerStatus.Success)
       doAssert(pool.len == 1)
       doAssert(pool.lenAvailable == 1)
       doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
@@ -323,7 +323,7 @@ suiteReport "PeerPool testing suite":
 
       ## Delete acquired peer
       peer = PeerTest.init("closingPeer")
-      doAssert(pool.addIncomingPeerNoWait(peer) == true)
+      doAssert(pool.addIncomingPeerNoWait(peer) == PeerStatus.Success)
       doAssert(pool.len == 1)
       doAssert(pool.lenAvailable == 1)
       doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
@@ -342,7 +342,7 @@ suiteReport "PeerPool testing suite":
 
       ## Force delete acquired peer
       peer = PeerTest.init("closingPeer")
-      doAssert(pool.addIncomingPeerNoWait(peer) == true)
+      doAssert(pool.addIncomingPeerNoWait(peer) == PeerStatus.Success)
       doAssert(pool.len == 1)
       doAssert(pool.lenAvailable == 1)
       doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
@@ -363,7 +363,7 @@ suiteReport "PeerPool testing suite":
       var peer = PeerTest.init("closingPeer")
 
       ## Close available peer
-      doAssert(pool.addIncomingPeerNoWait(peer) == true)
+      doAssert(pool.addIncomingPeerNoWait(peer) == PeerStatus.Success)
       doAssert(pool.len == 1)
       doAssert(pool.lenAvailable == 1)
       doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
@@ -378,7 +378,7 @@ suiteReport "PeerPool testing suite":
 
       ## Close acquired peer
       peer = PeerTest.init("closingPeer")
-      doAssert(pool.addIncomingPeerNoWait(peer) == true)
+      doAssert(pool.addIncomingPeerNoWait(peer) == PeerStatus.Success)
       doAssert(pool.len == 1)
       doAssert(pool.lenAvailable == 1)
       doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
@@ -411,9 +411,9 @@ suiteReport "PeerPool testing suite":
     var peer3 = PeerTest.init("peer3", 8)
 
     check:
-      pool.addPeerNoWait(peer1, PeerType.Incoming) == true
-      pool.addPeerNoWait(peer2, PeerType.Incoming) == true
-      pool.addPeerNoWait(peer3, PeerType.Outgoing) == true
+      pool.addPeerNoWait(peer1, PeerType.Incoming) == PeerStatus.Success
+      pool.addPeerNoWait(peer2, PeerType.Incoming) == PeerStatus.Success
+      pool.addPeerNoWait(peer3, PeerType.Outgoing) == PeerStatus.Success
       pool.lenAvailable == 3
       pool.lenAvailable({PeerType.Outgoing}) == 1
       pool.lenAvailable({PeerType.Incoming}) == 2
@@ -430,9 +430,9 @@ suiteReport "PeerPool testing suite":
       pool.len == 0
 
     check:
-      pool.addPeerNoWait(peer1, PeerType.Incoming) == true
-      pool.addPeerNoWait(peer2, PeerType.Incoming) == true
-      pool.addPeerNoWait(peer3, PeerType.Outgoing) == true
+      pool.addPeerNoWait(peer1, PeerType.Incoming) == PeerStatus.Success
+      pool.addPeerNoWait(peer2, PeerType.Incoming) == PeerStatus.Success
+      pool.addPeerNoWait(peer3, PeerType.Outgoing) == PeerStatus.Success
       pool.lenAvailable == 3
       pool.lenAvailable({PeerType.Outgoing}) == 1
       pool.lenAvailable({PeerType.Incoming}) == 2
@@ -458,9 +458,9 @@ suiteReport "PeerPool testing suite":
     var peer3 = PeerTest.init("peer3", 8)
 
     check:
-      pool.addPeerNoWait(peer1, PeerType.Incoming) == true
-      pool.addPeerNoWait(peer2, PeerType.Incoming) == true
-      pool.addPeerNoWait(peer3, PeerType.Outgoing) == true
+      pool.addPeerNoWait(peer1, PeerType.Incoming) == PeerStatus.Success
+      pool.addPeerNoWait(peer2, PeerType.Incoming) == PeerStatus.Success
+      pool.addPeerNoWait(peer3, PeerType.Outgoing) == PeerStatus.Success
       pool.hasPeer("peer4") == false
       pool.hasPeer("peer1") == true
       pool.hasPeer("peer2") == true
@@ -493,16 +493,16 @@ suiteReport "PeerPool testing suite":
     var peer9 = PeerTest.init("peer9", 2)
 
     check:
-      pool.addPeerNoWait(peer2, PeerType.Incoming) == true
-      pool.addPeerNoWait(peer3, PeerType.Incoming) == true
-      pool.addPeerNoWait(peer1, PeerType.Incoming) == true
-      pool.addPeerNoWait(peer4, PeerType.Incoming) == true
+      pool.addPeerNoWait(peer2, PeerType.Incoming) == PeerStatus.Success
+      pool.addPeerNoWait(peer3, PeerType.Incoming) == PeerStatus.Success
+      pool.addPeerNoWait(peer1, PeerType.Incoming) == PeerStatus.Success
+      pool.addPeerNoWait(peer4, PeerType.Incoming) == PeerStatus.Success
 
-      pool.addPeerNoWait(peer5, PeerType.Outgoing) == true
-      pool.addPeerNoWait(peer8, PeerType.Outgoing) == true
-      pool.addPeerNoWait(peer7, PeerType.Outgoing) == true
-      pool.addPeerNoWait(peer6, PeerType.Outgoing) == true
-      pool.addPeerNoWait(peer9, PeerType.Outgoing) == true
+      pool.addPeerNoWait(peer5, PeerType.Outgoing) == PeerStatus.Success
+      pool.addPeerNoWait(peer8, PeerType.Outgoing) == PeerStatus.Success
+      pool.addPeerNoWait(peer7, PeerType.Outgoing) == PeerStatus.Success
+      pool.addPeerNoWait(peer6, PeerType.Outgoing) == PeerStatus.Success
+      pool.addPeerNoWait(peer9, PeerType.Outgoing) == PeerStatus.Success
 
     var total1, total2, total3: seq[PeerTest]
     var avail1, avail2, avail3: seq[PeerTest]
@@ -596,17 +596,19 @@ suiteReport "PeerPool testing suite":
     pool.setScoreCheck(scoreCheck)
 
     check:
-      pool.addPeerNoWait(peer1, PeerType.Incoming) == true
-      pool.addPeerNoWait(peer2, PeerType.Incoming) == true
-      pool.addPeerNoWait(peer3, PeerType.Outgoing) == true
-      pool.addPeerNoWait(peer4, PeerType.Incoming) == false
-      pool.addPeerNoWait(peer5, PeerType.Outgoing) == false
+      pool.addPeerNoWait(peer1, PeerType.Incoming) == PeerStatus.Success
+      pool.addPeerNoWait(peer2, PeerType.Incoming) == PeerStatus.Success
+      pool.addPeerNoWait(peer3, PeerType.Outgoing) == PeerStatus.Success
+      pool.addPeerNoWait(peer4, PeerType.Incoming) == PeerStatus.LowScoreError
+      pool.addPeerNoWait(peer5, PeerType.Outgoing) == PeerStatus.LowScoreError
       len(pool) == 3
       lenAvailable(pool) == 3
 
     check:
-      waitFor(pool.addPeer(peer4, PeerType.Incoming)) == false
-      waitFor(pool.addPeer(peer5, PeerType.Outgoing)) == false
+      waitFor(pool.addPeer(peer4, PeerType.Incoming)) ==
+        PeerStatus.LowScoreError
+      waitFor(pool.addPeer(peer5, PeerType.Outgoing)) ==
+        PeerStatus.LowScoreError
       len(pool) == 3
       lenAvailable(pool) == 3
 
