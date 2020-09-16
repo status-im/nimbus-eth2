@@ -43,7 +43,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Reverse order block add & get [Preset: mainnet]                                            OK
 + Simple block add&get [Preset: mainnet]                                                     OK
 + getRef returns nil for missing blocks                                                      OK
-+ loadTailState gets genesis block on first load [Preset: mainnet]                           OK
++ loading tail block works [Preset: mainnet]                                                 OK
 + updateHead updates head and headState [Preset: mainnet]                                    OK
 + updateStateData sanity [Preset: mainnet]                                                   OK
 ```
@@ -173,6 +173,7 @@ OK: 52/59 Fail: 0/59 Skip: 7/59
 + Access peers by key test                                                                   OK
 + Acquire from empty pool                                                                    OK
 + Acquire/Sorting and consistency test                                                       OK
++ Delete peer on release text                                                                OK
 + Iterators test                                                                             OK
 + Peer lifetime test                                                                         OK
 + Safe/Clear test                                                                            OK
@@ -181,7 +182,7 @@ OK: 52/59 Fail: 0/59 Skip: 7/59
 + addPeerNoWait() test                                                                       OK
 + deletePeer() test                                                                          OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## SSZ dynamic navigator
 ```diff
 + navigating fields                                                                          OK
@@ -253,4 +254,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 136/143 Fail: 0/143 Skip: 7/143
+OK: 137/144 Fail: 0/144 Skip: 7/144

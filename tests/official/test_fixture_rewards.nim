@@ -54,14 +54,24 @@ proc runTest(identifier: string) =
         inactivityPenaltyDeltas =
           parseTest(testDir/"inactivity_penalty_deltas.ssz", SSZ, Deltas)
 
+      template get_deltas(body: untyped): untyped =
+        var
+          rewards {.inject.} = newSeq[Gwei](state[].validators.len)
+          penalties {.inject.} = newSeq[Gwei](state[].validators.len)
+        body
+        (rewards, penalties)
+
       check:
-        compareDeltas(sourceDeltas, get_source_deltas(state[], total_balance, cache))
-        compareDeltas(targetDeltas, get_target_deltas(state[], total_balance, cache))
-        compareDeltas(headDeltas, get_head_deltas(state[], total_balance, cache))
-        inclusionDelayDeltas.rewards.asSeq ==
-          get_inclusion_delay_deltas(state[], total_balance, cache)
-        inactivityPenaltyDeltas.penalties.asSeq ==
-          get_inactivity_penalty_deltas(state[], total_balance, cache)
+        compareDeltas(sourceDeltas, get_deltas(
+          get_source_deltas(state[], total_balance, rewards, penalties, cache)))
+        compareDeltas(targetDeltas, get_deltas(
+          get_target_deltas(state[], total_balance, rewards, penalties, cache)))
+        compareDeltas(headDeltas, get_deltas(
+          get_head_deltas(state[], total_balance, rewards, penalties, cache)))
+        compareDeltas(inclusionDelayDeltas, get_deltas(
+          get_inclusion_delay_deltas(state[], total_balance, rewards, cache)))
+        compareDeltas(inactivityPenaltyDeltas, get_deltas(
+          get_inactivity_penalty_deltas(state[], total_balance, penalties, cache)))
 
   `testImpl _ rewards _ identifier`()
 
