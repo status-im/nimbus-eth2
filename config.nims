@@ -70,6 +70,11 @@ if not defined(macosx):
 # `switch("warning[CaseTransition]", "off")` fails with "Error: invalid command line option: '--warning[CaseTransition]'"
 switch("warning", "CaseTransition:off")
 
+# `-flto` gives a significant improvement in processing speed, specially hash tree and state transition (basically any CPU-bound code implemented in nim)
+if defined(release):
+  switch("passC", "-flto")
+  switch("passL", "-flto")
+
 # The compiler doth protest too much, methinks, about all these cases where it can't
 # do its (N)RVO pass: https://github.com/nim-lang/RFCs/issues/230
 switch("warning", "ObservableStores:off")
