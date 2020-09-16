@@ -23,7 +23,6 @@ To start validating on the `medalla` network:
 ```
 git clone https://github.com/status-im/nim-beacon-chain
 cd nim-beacon-chain
-git checkout devel
 ```
 
 #### 2. Build the beacon node
