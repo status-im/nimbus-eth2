@@ -72,7 +72,7 @@ func getVoluntaryExitsForBlock*(pool: var ExitPool):
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
     pool: var ExitPool, attesterSlashing: AttesterSlashing):
-    Result[bool, cstring] =
+    Result[bool, (ValidationResult, cstring)] =
   # [IGNORE] At least one index in the intersection of the attesting indices of
   # each attestation has not yet been seen in any prior attester_slashing (i.e.
   # attester_slashed_indices = set(attestation_1.attesting_indices).intersection(attestation_2.attesting_indices),
@@ -104,12 +104,14 @@ proc validateAttesterSlashing*(
     let tgtBlck_1 = pool.chainDag.getRef(attestation_1.data.target.root)
     if tgtBlck_1.isNil:
       pool.quarantine.addMissing(attestation_1.data.target.root)
-      return err("Attestation 1 target block unknown")
+      const err_str: cstring = "Attestation 1 target block unknown"
+      return err((EVRESULT_IGNORE, err_str))
 
     let tgtBlck_2 = pool.chainDag.getRef(attestation_2.data.target.root)
     if tgtBlck_2.isNil:
       pool.quarantine.addMissing(attestation_2.data.target.root)
-      return err("Attestation 2 target block unknown")
+      const err_str: cstring = "Attestation 2 target block unknown"
+      return err((EVRESULT_IGNORE, err_str))
 
     let
       epochRef_1 = pool.chainDag.getEpochRef(
@@ -122,11 +124,18 @@ proc validateAttesterSlashing*(
 
     if not is_slashable_attestation_data(
         attestation_1.data, attestation_2.data):
-      return err("Attestation data not slashable")
-    ? is_valid_indexed_attestation(
+      const err_str: cstring = "Attestation data not slashable"
+      return err((EVRESULT_REJECT, err_str))
+    block:
+      let v = is_valid_indexed_attestation(
         fork, genesis_validators_root, epochRef_1, attestation_1, {})
-    ? is_valid_indexed_attestation(
+      if v.isErr():
+        return err((EVRESULT_REJECT, v.error))
+    block:
+      let v = is_valid_indexed_attestation(
         fork, genesis_validators_root, epochRef_2, attestation_2, {})
+      if v.isErr():
+        return err((EVRESULT_REJECT, v.error))
 
   pool.attester_slashings.addExitMessage(
     attesterSlashing, MAX_ATTESTER_SLASHINGS)
@@ -136,7 +145,7 @@ proc validateAttesterSlashing*(
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#proposer_slashing
 proc validateProposerSlashing*(
     pool: var ExitPool, proposerSlashing: ProposerSlashing):
-    Result[bool, cstring] =
+    Result[bool, (ValidationResult, cstring)] =
   # [IGNORE] The proposer slashing is the first valid proposer slashing
   # received for the proposer with index
   # proposer_slashing.signed_header_1.message.proposer_index.
@@ -158,7 +167,8 @@ proc validateProposerSlashing*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#voluntary_exit
 proc validateVoluntaryExit*(
-    pool: var ExitPool, voluntaryExit: VoluntaryExit): Result[bool, cstring] =
+    pool: var ExitPool, voluntaryExit: VoluntaryExit):
+    Result[bool, (ValidationResult, cstring)] =
   # [IGNORE] The voluntary exit is the first valid voluntary exit received for
   # the validator with index signed_voluntary_exit.message.validator_index.
 

@@ -449,6 +449,12 @@ type
     stabilitySubnet*: uint64
     stabilitySubnetExpirationEpoch*: Epoch
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#topics-and-messages
+  ValidationResult* = enum
+    EVRESULT_ACCEPT = 0
+    EVRESULT_REJECT = 1
+    EVRESULT_IGNORE = 2
+
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
     ($state.validators[validatorIdx].pubkey)[0..7]
 
