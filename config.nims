@@ -27,10 +27,14 @@ if defined(disableMarchNative):
   switch("passC", "-msse3")
 else:
   switch("passC", "-march=native")
-  if defined(windows):
-    # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
-    # ("-fno-asynchronous-unwind-tables" breaks Nim's exception raising, sometimes)
-    switch("passC", "-mno-avx512vl")
+
+  # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
+  # ("-fno-asynchronous-unwind-tables" breaks Nim's exception raising, sometimes)
+  #
+  # https://github.com/status-im/nim-beacon-chain/issues/843#issuecomment-693249379
+  # Avoid instruction sets multinet docker builds would use otherwise, but
+  # which don't provide much benefit and which aren't widely supported.
+  switch("passC", "-mno-avx512f -mno-avx512dq -mno-avx512bw -mno-avx512vl -mno-avx512ifma -mno-avx512vbmi")
 
 --threads:on
 --opt:speed
