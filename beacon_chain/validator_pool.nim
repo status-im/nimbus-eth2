@@ -3,10 +3,18 @@ import
   chronos, chronicles,
   spec/[datatypes, crypto, digest, signatures, helpers],
   beacon_node_types,
-  json_serialization/std/[sets, net]
+  json_serialization/std/[sets, net],
+  validator_slashing_protection,
+  eth/db/[kvstore, kvstore_sqlite3]
 
-func init*(T: type ValidatorPool): T =
+func init*(T: type ValidatorPool,
+            slashingProtectionDB: SlashingProtectionDB): T =
+  ## Initialize the validator pool and the slashing protection service
+  ## `genesis_validator_root` is used as an unique ID for the
+  ## blockchain
+  ## `backend` is the KeyValue Store backend
   result.validators = initTable[ValidatorPubKey, AttachedValidator]()
+  result.slashingProtection = slashingProtectionDB
 
 template count*(pool: ValidatorPool): int =
   pool.validators.len
