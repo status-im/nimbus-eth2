@@ -976,7 +976,7 @@ proc readValue*(r: var JsonReader, a: var Eth2Digest0x)
 proc toSPDIF*(db: SlashingProtectionDB, path: string)
              {.raises: [IOError, Defect].} =
   ## Export the full slashing protection database
-  ## to a json the Slashing Protection Database Interchange Format
+  ## to a json the Slashing Protection Database Interchange (Complete) Format
   var extract: SPDIF
   extract.metadata.interchange_format = "complete"
   extract.metadata.interchange_format_version = "3"
@@ -1054,3 +1054,49 @@ proc toSPDIF*(db: SlashingProtectionDB, path: string)
 
   Json.saveFile(path, extract, pretty = true)
   echo "Exported slashing protection DB to '", path, "'"
+
+proc fromSPDIF*(db: SlashingProtectionDB, path: string): bool
+             {.raises: [SerializationError, IOError, Defect].} =
+  ## Import a (Complete) Slashing Protection Database Interchange Format
+  ## file into the specified slahsing protection DB
+  ##
+  ## The database must be initialized.
+  ## The genesis_validator_root must match or
+  ## the DB must have a zero root
+
+  let extract = Json.loadFile(path, SPDIF)
+
+  doAssert not db.isNil, "The Slashing Protection DB must be initialized."
+  doAssert not db.backend.isNil, "The Slashing Protection DB must be initialized."
+
+  let dbGenValRoot = db.get(
+    subkey(kGenesisValidatorRoot), ETH2Digest
+  ).unsafeGet()
+
+  if dbGenValRoot != default(Eth2Digest) and
+     dbGenValRoot != extract.metadata.genesis_validator_root.Eth2Digest:
+    echo "The slashing protection database and imported file refer to different blockchains."
+    return false
+
+  if dbGenValRoot == default(Eth2Digest):
+    db.put(
+      subkey(kGenesisValidatorRoot),
+      extract.metadata.genesis_validator_root.Eth2Digest
+    )
+
+  for v in 0 ..< extract.data.len:
+    for b in 0 ..< extract.data[v].signed_blocks.len:
+      db.registerBlock(
+        extract.data[v].pubkey.ValidatorPubKey,
+        extract.data[v].signed_blocks[b].slot,
+        extract.data[v].signed_blocks[b].signing_root.Eth2Digest
+      )
+    for a in 0 ..< extract.data[v].signed_attestations.len:
+      db.registerAttestation(
+        extract.data[v].pubkey.ValidatorPubKey,
+        extract.data[v].signed_attestations[a].source_epoch,
+        extract.data[v].signed_attestations[a].target_epoch,
+        extract.data[v].signed_attestations[a].signing_root.Eth2Digest
+      )
+
+  return true

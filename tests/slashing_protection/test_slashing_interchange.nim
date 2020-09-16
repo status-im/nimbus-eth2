@@ -46,33 +46,52 @@ suiteReport "Slashing Protection DB - Interchange" & preset():
   # https://hackmd.io/@sproul/Bk0Y0qdGD#Format-1-Complete
   wrappedTimedTest "Smoke test - Complete format" & preset():
     let genesis_validators_root = hexToDigest"0x04700007fabc8282644aed6d1c7c9e21d38a03a0c4ba193f3afe428824b3a673"
-    let db = SlashingProtectionDB.init(genesis_validators_root, kvStore MemStoreRef.init())
+    block: # export
+      let db = SlashingProtectionDB.init(genesis_validators_root, kvStore MemStoreRef.init())
 
-    let pubkey = ValidatorPubKey
-                   .fromHex"0xb845089a1457f811bfc000588fbb4e713669be8ce060ea6be3c6ece09afc3794106c91ca73acda5e5457122d58723bed"
-                   .get()
-    db.registerBlock(
-      pubkey,
-      Slot 81952,
-      hexToDigest"0x4ff6f743a43f3b4f95350831aeaf0a122a1a392922c45d804280284a69eb850b"
-    )
-    # db.registerBlock(
-    #   pubkey,
-    #   Slot 81951,
-    #   fakeRoot(65535)
-    # )
+      let pubkey = ValidatorPubKey
+                    .fromHex"0xb845089a1457f811bfc000588fbb4e713669be8ce060ea6be3c6ece09afc3794106c91ca73acda5e5457122d58723bed"
+                    .get()
+      db.registerBlock(
+        pubkey,
+        Slot 81952,
+        hexToDigest"0x4ff6f743a43f3b4f95350831aeaf0a122a1a392922c45d804280284a69eb850b"
+      )
+      # db.registerBlock(
+      #   pubkey,
+      #   Slot 81951,
+      #   fakeRoot(65535)
+      # )
 
-    db.registerAttestation(
-      pubkey,
-      source = Epoch 2290,
-      target = Epoch 3007,
-      hexToDigest"0x587d6a4f59a58fe24f406e0502413e77fe1babddee641fda30034ed37ecc884d"
-    )
-    db.registerAttestation(
-      pubkey,
-      source = Epoch 2290,
-      target = Epoch 3008,
-      fakeRoot(65535)
-    )
+      db.registerAttestation(
+        pubkey,
+        source = Epoch 2290,
+        target = Epoch 3007,
+        hexToDigest"0x587d6a4f59a58fe24f406e0502413e77fe1babddee641fda30034ed37ecc884d"
+      )
+      db.registerAttestation(
+        pubkey,
+        source = Epoch 2290,
+        target = Epoch 3008,
+        fakeRoot(65535)
+      )
 
-    db.toSPDIF(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
+      db.toSPDIF(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
+
+    block: # import - zero root db
+      let db2 = SlashingProtectionDB.init(Eth2Digest(), kvStore MemStoreRef.init())
+
+      doAssert db2.fromSPDIF(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
+      db2.toSPDIF(currentSourcePath.parentDir/"test_complete_export_slashing_protection_roundtrip1.json")
+
+    block: # import - same root db
+      let db3 = SlashingProtectionDB.init(genesis_validators_root, kvStore MemStoreRef.init())
+
+      doAssert db3.fromSPDIF(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
+      db3.toSPDIF(currentSourcePath.parentDir/"test_complete_export_slashing_protection_roundtrip2.json")
+
+    block: # import - invalid root db
+      let invalid_genvalroot = hexToDigest"0x1234"
+      let db3 = SlashingProtectionDB.init(invalid_genvalroot, kvStore MemStoreRef.init())
+
+      doAssert not db3.fromSPDIF(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
