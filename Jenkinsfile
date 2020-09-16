@@ -49,6 +49,7 @@ def runStages() {
 						// EXECUTOR_NUMBER will be 0 or 1, since we have 2 executors per Jenkins node
 						sh """#!/bin/bash
 						set -e
+            export NIMFLAGS='-d:UseSlashingProtection=true'
 						./scripts/launch_local_testnet.sh --testnet 0 --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --enable-logtrace --data-dir local_testnet0_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rpc-port \$(( 7000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) -- --verify-finalization --discv5:no
 						./scripts/launch_local_testnet.sh --testnet 1 --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --enable-logtrace --data-dir local_testnet1_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rpc-port \$(( 7000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) -- --verify-finalization --discv5:no
 						"""
