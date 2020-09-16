@@ -462,6 +462,8 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
 
     if res.isOk:
       sq.outSlot = sq.outSlot + item.request.count
+      # If there no error we should reward peer with some bonus score.
+      item.request.item.updateScore(PeerScoreGoodBlocks)
       sq.wakeupWaiters()
     else:
       debug "Block pool rejected peer's response", peer = item.request.item,
