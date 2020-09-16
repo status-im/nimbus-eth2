@@ -986,13 +986,10 @@ proc toSPDIF*(db: SlashingProtectionDB, path: string)
     # ).expect("Slashing Protection requires genesis_validator_root at init")
   ).unsafeGet()
 
-  let maybeNumVals = db.get(
+  let numValidators = db.get(
     subkey(kNumValidators),
     uint32
-  )
-  var numValidators = 0'u32
-  if maybeNumVals.isSome():
-    numValidators = maybeNumVals.unsafeGet()
+  ).get(otherwise = 0'u32)
 
   for i in 0'u32 ..< numValidators:
     var validator: SPDIF_Validator
