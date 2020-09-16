@@ -3,6 +3,16 @@ if defined(release):
 else:
   switch("nimcache", "nimcache/debug/$projectName")
 
+# `-flto` gives a significant improvement in processing speed, specially hash tree and state transition (basically any CPU-bound code implemented in nim)
+# With LTO enabled, optimization flags should be passed to both compiler and linker!
+if defined(release):
+  if defined(macosx): # Clang
+    switch("passC", "-flto=thin")
+    switch("passL", "-flto=thin")
+  else:
+    switch("passC", "-flto=auto")
+    switch("passL", "-flto=auto")
+
 if defined(windows):
   # disable timestamps in Windows PE headers - https://wiki.debian.org/ReproducibleBuilds/TimestampsInPEBinaries
   switch("passL", "-Wl,--no-insert-timestamp")
@@ -25,12 +35,15 @@ if defined(windows):
 # use at least -msse2 or -msse3.
 if defined(disableMarchNative):
   switch("passC", "-msse3")
+  switch("passL", "-msse3")
 else:
   switch("passC", "-march=native")
+  switch("passL", "-march=native")
   if defined(windows):
     # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
     # ("-fno-asynchronous-unwind-tables" breaks Nim's exception raising, sometimes)
     switch("passC", "-mno-avx512f")
+    switch("passL", "-mno-avx512f")
 
 --threads:on
 --opt:speed
@@ -69,11 +82,6 @@ if not defined(macosx):
 
 # `switch("warning[CaseTransition]", "off")` fails with "Error: invalid command line option: '--warning[CaseTransition]'"
 switch("warning", "CaseTransition:off")
-
-# `-flto` gives a significant improvement in processing speed, specially hash tree and state transition (basically any CPU-bound code implemented in nim)
-if defined(release):
-  switch("passC", "-flto")
-  switch("passL", "-flto")
 
 # The compiler doth protest too much, methinks, about all these cases where it can't
 # do its (N)RVO pass: https://github.com/nim-lang/RFCs/issues/230
