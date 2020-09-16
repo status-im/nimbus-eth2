@@ -1,14 +1,13 @@
 # Troubleshooting Medalla
 
-As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the `devel` branch (we recommend doing this at least once a day). If you can't find a solution to your problem here, feel free to hit us up on our [discord](https://discord.com/invite/XRxWahP)!
+As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the `master` branch. If you can't find a solution to your problem here, feel free to hit us up on our [discord](https://discord.com/invite/XRxWahP)!
 
-> **Note:** While the `master` branch of the `nim-beacon-chain` repository is more stable, the latest updates happen in the `devel` branch which is (usually) merged into master every week on Tuesday.
+> **Note:** While the `master` branch of the `nim-beacon-chain` repository is more stable, the latest updates happen in the `devel` branch which is (usually) merged into master every week on Tuesday. If you choose to run Nimbus directly from the `devel` branch, be prepared for instabilities!
 
 To update and restart, run `git pull`, `make update`, followed by `make medalla`:
 
 ```
 cd nim-beacon-chain
-git checkout devel
 git pull
 make update # Update dependencies
 make medalla # Restart using same keys as last run
@@ -16,15 +15,13 @@ make medalla # Restart using same keys as last run
 
 If you find that `make update` causes the console to hang for too long, try running `make update V=1` or `make update V=2` instead (these will print a more verbose output to the console which may make it easier to diagnose the problem).
 
-If, after updating to the latest `devel`, you feel like your node is functioning significantly worse than before, we recommend you report the problem on [discord](https://discord.com/invite/XRxWahP), switch to `master`, and rebuild.
-
 >**Note:** rest assured that when you restart the beacon node, the software will resume from where it left off, using the validator keys you have already imported.
 
 ### Starting over
 The directory that stores the blockchain data of the testnet is `build/data/shared_medalla_0` (if you're connecting to another testnet, replace `medalla` with that testnet's name). Delete this folder to start over (for example, if you started building medalla with the wrong private keys).
 
 ### Syncing
-If you’re experiencing sync problems,  we recommend running `make clean-medalla` to delete the database and restart your sync (make sure you’ve updated to the latest `devel` branch first though).
+If you’re experiencing sync problems,  we recommend running `make clean-medalla` to delete the database and restart your sync (make sure you’ve updated to the latest `master` first though).
 
 > **Warning**: `make clean-medalla` will erase all of your syncing progress so far, so it should only be used as a last resort -- if your client gets stuck for a long time (because it's unable to find the right chain and/or stay with the same head value) and a normal restart doesn't improve things.
 
