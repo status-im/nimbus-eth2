@@ -137,7 +137,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
 
       let notSlashable = vc.attachedValidators
                           .slashingProtection
-                          .notSlashableBlockProposal(public_key, slot)
+                          .checkSlashableBlockProposal(public_key, slot)
       if notSlashable.isOk:
         let validator = vc.attachedValidators.validators[public_key]
         info "Proposing block", slot = slot, public_key = public_key
@@ -184,7 +184,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
 
         let notSlashable = vc.attachedValidators
                              .slashingProtection
-                             .notSlashableAttestation(
+                             .checkSlashableAttestation(
                                a.public_key,
                                ad.source.epoch,
                                ad.target.epoch)

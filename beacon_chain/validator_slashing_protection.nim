@@ -357,7 +357,7 @@ proc close*(db: SlashingProtectionDB) =
 # DB Queries
 # --------------------------------------------
 
-proc notSlashableBlockProposalImpl(
+proc checkSlashableBlockProposalImpl(
        db: SlashingProtectionDB,
        validator: ValidatorPubKey,
        slot: Slot
@@ -378,7 +378,7 @@ proc notSlashableBlockProposalImpl(
     return ok()
   return err(foundBlock.unsafeGet().block_root)
 
-proc notSlashableBlockProposal*(
+proc checkSlashableBlockProposal*(
        db: SlashingProtectionDB,
        validator: ValidatorPubKey,
        slot: Slot
@@ -391,13 +391,13 @@ proc notSlashableBlockProposal*(
   ## Returns success otherwise
   # TODO distinct type for the result block root
   when UseSlashingProtection:
-    notSlashableBlockProposalImpl(
+    checkSlashableBlockProposalImpl(
       db, validator, slot
     )
   else:
     ok()
 
-proc notSlashableAttestationImpl(
+proc checkSlashableAttestationImpl(
        db: SlashingProtectionDB,
        validator: ValidatorPubKey,
        source: Epoch,
@@ -555,7 +555,7 @@ proc notSlashableAttestationImpl(
 
   doAssert false, "Unreachable"
 
-proc notSlashableAttestation*(
+proc checkSlashableAttestation*(
        db: SlashingProtectionDB,
        validator: ValidatorPubKey,
        source: Epoch,
@@ -569,7 +569,7 @@ proc notSlashableAttestation*(
   ## Returns success otherwise
   # TODO distinct type for the result attestation root
   when UseSlashingProtection:
-    notSlashableAttestationImpl(
+    checkSlashableAttestationImpl(
       db, validator, source, target
     )
   else:
@@ -599,7 +599,7 @@ proc registerBlockImpl(
        validator: ValidatorPubKey,
        slot: Slot, block_root: Eth2Digest) =
   ## Add a block to the slashing protection DB
-  ## `notSlashableBlockProposal` MUST be run
+  ## `checkSlashableBlockProposal` MUST be run
   ## before to ensure no overwrite.
 
   let valID = validator.toRaw()
@@ -735,7 +735,7 @@ proc registerBlock*(
        validator: ValidatorPubKey,
        slot: Slot, block_root: Eth2Digest) =
   ## Add a block to the slashing protection DB
-  ## `notSlashableBlockProposal` MUST be run
+  ## `checkSlashableBlockProposal` MUST be run
   ## before to ensure no overwrite.
   when UseSlashingProtection:
     registerBlockImpl(
@@ -750,7 +750,7 @@ proc registerAttestationImpl(
        source, target: Epoch,
        attestation_root: Eth2Digest) =
   ## Add an attestation to the slashing protection DB
-  ## `notSlashableAttestation` MUST be run
+  ## `checkSlashableAttestation` MUST be run
   ## before to ensure no overwrite.
 
   let valID = validator.toRaw()
@@ -899,7 +899,7 @@ proc registerAttestation*(
        source, target: Epoch,
        attestation_root: Eth2Digest) =
   ## Add an attestation to the slashing protection DB
-  ## `notSlashableAttestation` MUST be run
+  ## `checkSlashableAttestation` MUST be run
   ## before to ensure no overwrite.
   when UseSlashingProtection:
     registerAttestationImpl(

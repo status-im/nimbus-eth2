@@ -298,7 +298,7 @@ proc proposeBlock(node: BeaconNode,
 
   let notSlashable = node.attachedValidators
                         .slashingProtection
-                        .notSlashableBlockProposal(validator.pubkey, slot)
+                        .checkSlashableBlockProposal(validator.pubkey, slot)
   if notSlashable.isErr:
     warn "Slashing protection activated",
       validator = validator.pubkey,
@@ -391,7 +391,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   for a in attestations:
     let notSlashable = node.attachedValidators
                            .slashingProtection
-                           .notSlashableAttestation(
+                           .checkSlashableAttestation(
                              a.validator.pubkey,
                              a.data.source.epoch,
                              a.data.target.epoch)

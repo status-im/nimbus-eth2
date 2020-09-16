@@ -43,16 +43,16 @@ suiteReport "Slashing Protection DB" & preset():
     let db = SlashingProtectionDB.init(default(Eth2Digest), kvStore MemStoreRef.init())
 
     check:
-      db.notSlashableBlockProposal(
+      db.checkSlashableBlockProposal(
         fakeValidator(1234),
         slot = Slot 1
       ).isOk()
-      db.notSlashableAttestation(
+      db.checkSlashableAttestation(
         fakeValidator(1234),
         source = Epoch 1,
         target = Epoch 2
       ).isOk()
-      db.notSlashableAttestation(
+      db.checkSlashableAttestation(
         fakeValidator(1234),
         source = Epoch 2,
         target = Epoch 1
@@ -75,28 +75,28 @@ suiteReport "Slashing Protection DB" & preset():
     )
     check:
       # Slot occupied by same validator
-      db.notSlashableBlockProposal(
+      db.checkSlashableBlockProposal(
         fakeValidator(100),
         slot = Slot 10
       ).isErr()
       # Slot occupied by another validator
-      db.notSlashableBlockProposal(
+      db.checkSlashableBlockProposal(
         fakeValidator(111),
         slot = Slot 10
       ).isOk()
       # Slot occupied by another validator
-      db.notSlashableBlockProposal(
+      db.checkSlashableBlockProposal(
         fakeValidator(100),
         slot = Slot 15
       ).isOk()
       # Slot occupied by same validator
-      db.notSlashableBlockProposal(
+      db.checkSlashableBlockProposal(
         fakeValidator(111),
         slot = Slot 15
       ).isErr()
 
       # Slot inoccupied
-      db.notSlashableBlockProposal(
+      db.checkSlashableBlockProposal(
         fakeValidator(255),
         slot = Slot 20
       ).isOk()
@@ -109,7 +109,7 @@ suiteReport "Slashing Protection DB" & preset():
 
     check:
       # Slot now occupied
-      db.notSlashableBlockProposal(
+      db.checkSlashableBlockProposal(
         fakeValidator(255),
         slot = Slot 20
       ).isErr()
@@ -137,13 +137,13 @@ suiteReport "Slashing Protection DB" & preset():
     for i in 0 ..< 30:
       if i notin {10, 20}:
         check:
-          db.notSlashableBlockProposal(
+          db.checkSlashableBlockProposal(
             fakeValidator(100),
             Slot i
           ).isOk()
       else:
          check:
-          db.notSlashableBlockProposal(
+          db.checkSlashableBlockProposal(
             fakeValidator(100),
             Slot i
           ).isErr()
@@ -155,17 +155,17 @@ suiteReport "Slashing Protection DB" & preset():
     for i in 0 ..< 30:
       if i notin {10, 15, 20}:
         check:
-          db.notSlashableBlockProposal(
+          db.checkSlashableBlockProposal(
             fakeValidator(100),
             Slot i
           ).isOk()
       else:
          check:
-          db.notSlashableBlockProposal(
+          db.checkSlashableBlockProposal(
             fakeValidator(100),
             Slot i
           ).isErr()
-          db.notSlashableBlockProposal(
+          db.checkSlashableBlockProposal(
             fakeValidator(0xDEADBEEF),
             Slot i
           ).isOk()
@@ -182,17 +182,17 @@ suiteReport "Slashing Protection DB" & preset():
     for i in 0 ..< 30:
       if i notin {10, 12, 15, 17, 20}:
         check:
-          db.notSlashableBlockProposal(
+          db.checkSlashableBlockProposal(
             fakeValidator(100),
             Slot i
           ).isOk()
       else:
          check:
-          db.notSlashableBlockProposal(
+          db.checkSlashableBlockProposal(
             fakeValidator(100),
             Slot i
           ).isErr()
-          db.notSlashableBlockProposal(
+          db.checkSlashableBlockProposal(
             fakeValidator(0xDEADBEEF),
             Slot i
           ).isOk()
@@ -214,17 +214,17 @@ suiteReport "Slashing Protection DB" & preset():
     for i in 0 ..< 30:
       if i notin {1, 3, 9, 10, 12, 15, 17, 20}:
         check:
-          db.notSlashableBlockProposal(
+          db.checkSlashableBlockProposal(
             fakeValidator(100),
             Slot i
           ).isOk()
       else:
          check:
-          db.notSlashableBlockProposal(
+          db.checkSlashableBlockProposal(
             fakeValidator(100),
             Slot i
           ).isErr()
-          db.notSlashableBlockProposal(
+          db.checkSlashableBlockProposal(
             fakeValidator(0xDEADBEEF),
             Slot i
           ).isOk()
@@ -241,17 +241,17 @@ suiteReport "Slashing Protection DB" & preset():
     for i in 0 ..< 30:
       if i notin {1, 2, 3, 9, 10, 12, 15, 17, 20, 29}:
         check:
-          db.notSlashableBlockProposal(
+          db.checkSlashableBlockProposal(
             fakeValidator(100),
             Slot i
           ).isOk()
       else:
          check:
-          db.notSlashableBlockProposal(
+          db.checkSlashableBlockProposal(
             fakeValidator(100),
             Slot i
           ).isErr()
-          db.notSlashableBlockProposal(
+          db.checkSlashableBlockProposal(
             fakeValidator(0xDEADBEEF),
             Slot i
           ).isOk()
@@ -271,28 +271,28 @@ suiteReport "Slashing Protection DB" & preset():
     )
     check:
       # Epoch occupied by same validator
-      db.notSlashableAttestation(
+      db.checkSlashableAttestation(
         fakeValidator(100),
         Epoch 0, Epoch 10,
       ).error.kind == DoubleVote
       # Epoch occupied by another validator
-      db.notSlashableAttestation(
+      db.checkSlashableAttestation(
         fakeValidator(111),
         Epoch 0, Epoch 10
       ).isOk()
       # Epoch occupied by another validator
-      db.notSlashableAttestation(
+      db.checkSlashableAttestation(
         fakeValidator(100),
         Epoch 0, Epoch 15
       ).isOk()
       # Epoch occupied by same validator
-      db.notSlashableAttestation(
+      db.checkSlashableAttestation(
         fakeValidator(111),
         Epoch 0, Epoch 15
       ).error.kind == DoubleVote
 
       # Epoch inoccupied
-      db.notSlashableAttestation(
+      db.checkSlashableAttestation(
         fakeValidator(255),
         Epoch 0, Epoch 20
       ).isOk()
@@ -305,7 +305,7 @@ suiteReport "Slashing Protection DB" & preset():
 
     check:
       # Epoch now occupied
-      db.notSlashableAttestation(
+      db.checkSlashableAttestation(
         fakeValidator(255),
         Epoch 0, Epoch 20
       ).error.kind == DoubleVote
@@ -333,17 +333,17 @@ suiteReport "Slashing Protection DB" & preset():
     for i in 0 ..< 30:
       if i notin {10, 20}:
         check:
-          db.notSlashableAttestation(
+          db.checkSlashableAttestation(
             fakeValidator(100),
             Epoch 0, Epoch i
           ).isOk()
       else:
          check:
-          db.notSlashableAttestation(
+          db.checkSlashableAttestation(
             fakeValidator(100),
             Epoch 0, Epoch i
           ).error.kind == DoubleVote
-          db.notSlashableAttestation(
+          db.checkSlashableAttestation(
             fakeValidator(0xDEADBEEF),
             Epoch 0, Epoch i
           ).isOk()
@@ -355,17 +355,17 @@ suiteReport "Slashing Protection DB" & preset():
     for i in 0 ..< 30:
       if i notin {10, 15, 20}:
         check:
-          db.notSlashableAttestation(
+          db.checkSlashableAttestation(
             fakeValidator(100),
             Epoch 0, Epoch i
           ).isOk()
       else:
          check:
-          db.notSlashableAttestation(
+          db.checkSlashableAttestation(
             fakeValidator(100),
             Epoch 0, Epoch i
           ).error.kind == DoubleVote
-          db.notSlashableAttestation(
+          db.checkSlashableAttestation(
             fakeValidator(0xDEADBEEF),
             Epoch 0, Epoch i
           ).isOk()
@@ -382,17 +382,17 @@ suiteReport "Slashing Protection DB" & preset():
     for i in 0 ..< 30:
       if i notin {10, 12, 15, 17, 20}:
         check:
-          db.notSlashableAttestation(
+          db.checkSlashableAttestation(
             fakeValidator(100),
             Epoch 0, Epoch i
           ).isOk()
       else:
          check:
-          db.notSlashableAttestation(
+          db.checkSlashableAttestation(
             fakeValidator(100),
             Epoch 0, Epoch i
           ).error.kind == DoubleVote
-          db.notSlashableAttestation(
+          db.checkSlashableAttestation(
             fakeValidator(0xDEADBEEF),
             Epoch 0, Epoch i
           ).isOk()
@@ -414,17 +414,17 @@ suiteReport "Slashing Protection DB" & preset():
     for i in 0 ..< 30:
       if i notin {1, 3, 9, 10, 12, 15, 17, 20}:
         check:
-          db.notSlashableAttestation(
+          db.checkSlashableAttestation(
             fakeValidator(100),
             Epoch 0, Epoch i
           ).isOk()
       else:
          check:
-          db.notSlashableAttestation(
+          db.checkSlashableAttestation(
             fakeValidator(100),
             Epoch 0, Epoch i
           ).error.kind == DoubleVote
-          db.notSlashableAttestation(
+          db.checkSlashableAttestation(
             fakeValidator(0xDEADBEEF),
             Epoch 0, Epoch i
           ).isOk()
@@ -441,17 +441,17 @@ suiteReport "Slashing Protection DB" & preset():
     for i in 0 ..< 30:
       if i notin {1, 2, 3, 9, 10, 12, 15, 17, 20, 29}:
         check:
-          db.notSlashableAttestation(
+          db.checkSlashableAttestation(
             fakeValidator(100),
             Epoch 0, Epoch i
           ).isOk()
       else:
         check:
-          db.notSlashableAttestation(
+          db.checkSlashableAttestation(
             fakeValidator(100),
             Epoch 0, Epoch i
           ).error.kind == DoubleVote
-          db.notSlashableAttestation(
+          db.checkSlashableAttestation(
             fakeValidator(0xDEADBEEF),
             Epoch 0, Epoch i
           ).isOk()
@@ -467,20 +467,20 @@ suiteReport "Slashing Protection DB" & preset():
       )
 
       check:
-        db.notSlashableAttestation(
+        db.checkSlashableAttestation(
           fakeValidator(100),
           Epoch 11, Epoch 19
         ).error.kind == SurroundedVote
-        db.notSlashableAttestation(
+        db.checkSlashableAttestation(
           fakeValidator(200),
           Epoch 11, Epoch 19
         ).isOk
-        db.notSlashableAttestation(
+        db.checkSlashableAttestation(
           fakeValidator(100),
           Epoch 11, Epoch 21
         ).isOk
         # TODO: is that possible?
-        db.notSlashableAttestation(
+        db.checkSlashableAttestation(
           fakeValidator(100),
           Epoch 9, Epoch 19
         ).isOk
@@ -501,20 +501,20 @@ suiteReport "Slashing Protection DB" & preset():
       )
 
       check:
-        db.notSlashableAttestation(
+        db.checkSlashableAttestation(
           fakeValidator(100),
           Epoch 11, Epoch 19
         ).error.kind == SurroundedVote
-        db.notSlashableAttestation(
+        db.checkSlashableAttestation(
           fakeValidator(200),
           Epoch 11, Epoch 19
         ).isOk
-        db.notSlashableAttestation(
+        db.checkSlashableAttestation(
           fakeValidator(100),
           Epoch 11, Epoch 21
         ).isOk
         # TODO: is that possible?
-        db.notSlashableAttestation(
+        db.checkSlashableAttestation(
           fakeValidator(100),
           Epoch 9, Epoch 19
         ).isOk
@@ -531,11 +531,11 @@ suiteReport "Slashing Protection DB" & preset():
       )
 
       check:
-        db.notSlashableAttestation(
+        db.checkSlashableAttestation(
           fakeValidator(100),
           Epoch 9, Epoch 21
         ).error.kind == SurroundingVote
-        db.notSlashableAttestation(
+        db.checkSlashableAttestation(
           fakeValidator(100),
           Epoch 0, Epoch 21
         ).error.kind == SurroundingVote
@@ -556,11 +556,11 @@ suiteReport "Slashing Protection DB" & preset():
       )
 
       check:
-        db.notSlashableAttestation(
+        db.checkSlashableAttestation(
           fakeValidator(100),
           Epoch 9, Epoch 21
         ).error.kind == SurroundingVote
-        db.notSlashableAttestation(
+        db.checkSlashableAttestation(
           fakeValidator(100),
           Epoch 0, Epoch 21
         ).error.kind == SurroundingVote
