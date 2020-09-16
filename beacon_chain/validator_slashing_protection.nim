@@ -216,7 +216,7 @@ type
 logScope:
   topics = "antislash"
 
-const UseSlashingProtection* {.booldefine.} = false
+const UseSlashingProtection* {.booldefine.} = true
 
 when UseSlashingProtection:
   static: echo "  Built with slashing protection"
