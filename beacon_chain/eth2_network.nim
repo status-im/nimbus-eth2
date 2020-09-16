@@ -378,7 +378,7 @@ proc disconnect*(peer: Peer, reason: DisconnectionReason,
     peer.connectionState = Disconnecting
     await peer.network.switch.disconnect(peer.info.peerId)
     peer.connectionState = Disconnected
-    peer.network.peerPool.release(peer)
+    discard peer.network.peerPool.deletePeer(peer)
     let seenTime = case reason
       of ClientShutDown:
         SeenTableTimeClientShutDown
