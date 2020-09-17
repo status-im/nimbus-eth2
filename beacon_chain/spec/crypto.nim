@@ -36,6 +36,9 @@ import
   # Standard library
   hashes
 
+# Test https://github.com/supranational/blst/issues/22
+{.passC: "-Drestrict=".}
+
 export results, json_serialization
 
 # Type definitions
