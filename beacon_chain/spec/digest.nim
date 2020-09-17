@@ -22,18 +22,26 @@
 {.push raises: [Defect].}
 
 import
+  # Standard library
+  std/hashes,
+  #Status libraries
   chronicles,
   nimcrypto/[sha2, hash],
   stew/byteutils,
   hashes,
-  eth/common/eth_types_json_serialization
+  eth/common/eth_types_json_serialization,
+  blscurve
 
 export
-  hash.`$`, sha2, readValue, writeValue
+  hash.`$`, sha2, readValue, writeValue, blscurve.update
 
 type
   Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec
-  Eth2Hash* = sha256            ## Context for hash function
+
+when BLS_BACKEND == BLST:
+  type Eth2DigestCtx* = BLST_SHA256_CTX
+else:
+  type Eth2DigestCtx* = nimcrypto.sha256
 
 func shortLog*(x: Eth2Digest): string =
   x.data.toOpenArray(0, 3).toHex()
@@ -44,26 +52,50 @@ chronicles.formatIt Eth2Digest:
 # TODO: expose an in-place digest function
 #       when hashing in loop or into a buffer
 #       See: https://github.com/cheatfate/nimcrypto/blob/b90ba3abd/nimcrypto/sha2.nim#L570
-func eth2digest*(v: openArray[byte]): Eth2Digest {.inline.} =
+func eth2digest*(v: openArray[byte]): Eth2Digest =
+  ## Apply the Eth2 Hash function
+  ## Do NOT use for secret data.
   # We use the init-update-finish interface to avoid
   # the expensive burning/clearing memory (20~30% perf)
-  # TODO: security implication?
-  var ctx: sha256
-  ctx.init()
-  ctx.update(v)
-  ctx.finish()
+  when BLS_BACKEND == BLST:
+    # BLST has a fast assembly optimized SHA256
+    result.data.bls_sha256_digest(v)
+  else:
+    var ctx: Eth2DigestCtx
+    ctx.init()
+    ctx.update(v)
+    ctx.finish()
 
-func update*(ctx: var Sha2Context; digest: Eth2Digest) =
+func update*(ctx: var BLST_SHA256_CTX; digest: Eth2Digest) =
   ctx.update digest.data
-
+func update*(ctx: var sha256; digest: Eth2Digest) =
+  ctx.update digest.data
 template withEth2Hash*(body: untyped): Eth2Digest =
   ## This little helper will init the hash function and return the sliced
   ## hash:
   ## let hashOfData = withHash: h.update(data)
-  var h  {.inject.}: sha256
-  init(h)
-  body
-  finish(h)
+  when nimvm:
+    # In SSZ, computeZeroHashes require compile-time SHA256
+    block:
+      var h {.inject.}: sha256
+      init(h)
+      body
+      finish(h)
+  else:
+    when BLS_BACKEND == BLST:
+      block:
+        var h  {.inject.}: Eth2DigestCtx
+        init(h)
+        body
+        var res {.noInit.}: Eth2Digest
+        finalize(res.data, h)
+        res
+    else:
+      block:
+        var h  {.inject.}: Eth2DigestCtx
+        init(h)
+        body
+        finish(h)
 
 func hash*(x: Eth2Digest): Hash =
   ## Hash for digests for Nim hash tables
