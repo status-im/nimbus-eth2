@@ -29,16 +29,17 @@ import
   nimcrypto/[sha2, hash],
   stew/byteutils,
   hashes,
-  eth/common/eth_types_json_serialization,
-  blscurve
+  eth/common/eth_types_json_serialization
 
 export
-  hash.`$`, sha2, readValue, writeValue, blscurve.update
+  hash.`$`, sha2, readValue, writeValue
 
 type
   Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec
 
 when BLS_BACKEND == BLST:
+  import blscurve
+  export blscurve.update
   type Eth2DigestCtx* = BLST_SHA256_CTX
 else:
   type Eth2DigestCtx* = nimcrypto.sha256
@@ -66,10 +67,12 @@ func eth2digest*(v: openArray[byte]): Eth2Digest =
     ctx.update(v)
     ctx.finish()
 
-func update*(ctx: var BLST_SHA256_CTX; digest: Eth2Digest) =
-  ctx.update digest.data
+when BLS_BACKEND == BLST:
+  func update*(ctx: var BLST_SHA256_CTX; digest: Eth2Digest) =
+    ctx.update digest.data
 func update*(ctx: var sha256; digest: Eth2Digest) =
   ctx.update digest.data
+
 template withEth2Hash*(body: untyped): Eth2Digest =
   ## This little helper will init the hash function and return the sliced
   ## hash:
