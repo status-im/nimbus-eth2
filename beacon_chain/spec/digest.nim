@@ -42,7 +42,7 @@ when BLS_BACKEND == BLST:
   export blscurve.update
   type Eth2DigestCtx* = BLST_SHA256_CTX
 else:
-  type Eth2DigestCtx* = nimcrypto.sha256
+  type Eth2DigestCtx* = sha2.sha256
 
 func shortLog*(x: Eth2Digest): string =
   x.data.toOpenArray(0, 3).toHex()
