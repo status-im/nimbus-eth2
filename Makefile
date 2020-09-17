@@ -111,9 +111,9 @@ endif
 
 DEPOSITS_DELAY := 0
 
-# "--define:release" implies "--stacktrace:off" and it cannot be added to config.nims
+# "--define:release" cannot be added to config.nims
 ifeq ($(USE_LIBBACKTRACE), 0)
-NIM_PARAMS := $(NIM_PARAMS) -d:debug -d:disable_libbacktrace
+NIM_PARAMS := $(NIM_PARAMS) -d:release --stacktrace:on --excessiveStackTrace:on --linetrace:on -d:disable_libbacktrace
 else
 NIM_PARAMS := $(NIM_PARAMS) -d:release
 endif
