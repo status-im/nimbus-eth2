@@ -848,7 +848,6 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
       # * Protocol handshakes are wonky: we'll not necessarily use the newly
       #   connected transport - instead we'll just pick a random one!
 
-      node.pubsub.subscribePeer(peerId)
       await performProtocolHandshakes(peer, event.incoming)
 
       # While performing the handshake, the peer might have been disconnected -
@@ -871,7 +870,6 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
     dec peer.connections
     debug "Peer disconnected", peer = $peerId, connections = peer.connections
     if peer.connections == 0:
-      node.pubsub.unsubscribePeer(peerId)
       let fut = peer.disconnectedFut
       if fut != nil:
         peer.disconnectedFut = nil
