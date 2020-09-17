@@ -29,7 +29,8 @@ import
   nimcrypto/[sha2, hash],
   stew/byteutils,
   hashes,
-  eth/common/eth_types_json_serialization
+  eth/common/eth_types_json_serialization,
+  blscurve
 
 export
   hash.`$`, sha2, readValue, writeValue
@@ -38,7 +39,6 @@ type
   Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec
 
 when BLS_BACKEND == BLST:
-  import blscurve
   export blscurve.update
   type Eth2DigestCtx* = BLST_SHA256_CTX
 else:
