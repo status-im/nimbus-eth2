@@ -87,22 +87,22 @@ Where:
 - `finalized` tells you the most recent finalized epoch you've synced to so far (the 8765th epoch)
 - `head` tells you the most recent slot you've synced to so far (the 2nd slot of the 8767th epoch)
 - `time` tells you the current time since Genesis (the 7th slot of the 9900th epoch -- or equivalently, the 316,807th slot)
-- `sync` tells you how fast you're syncing (4.0627 blocks per second), how many blocks you've synced so far (280,512), along with information about the 20 syncing workers linked to the 20 most performant peers you are currently connected to (represented by a string of letters and a number).
+- `sync` tells you how fast you're syncing (4.0627 blocks per second), how many blocks you've synced so far (280,512), along with information about 20 sync workers linked to the 20 most performant peers you are currently connected to (represented by a string of letters and a number).
 
 To dig into `sync` a little:
 ```
 sync: <sync worker map>:<number of active workers>:<current syncing speed in blocks/second>
 ```
 
-The string of letters -- what we call the `sync worker map` (in the above case represented by `wPwwwwwDwwDPwPPPwwww`) represents the status of these workers, where:
+The string of letters -- what we call the `sync worker map` (in the above case represented by `wPwwwwwDwwDPwPPPwwww`) represents the status of the sync workers mentioned above, where:
 
 ```
     s - sleeping (idle),
     w - waiting for a peer from PeerPool,
     R - requesting blocks from peer
     D - downloading blocks from peer
-    P processing/verifying blocks
-    U updating peer's status information
+    P - processing/verifying blocks
+    U - updating peer's status information
 ```
 
 The number following it (in the above case represented by `7`) represents the number of workers that are currently active (i.e not sleeping or waiting for a peer).
