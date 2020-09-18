@@ -24,21 +24,21 @@ jobs:
             cpu: i386
             TEST_KIND: unit-tests
 
-          # - os: linux
-          #   cpu: amd64
-          #   TEST_KIND: finalization
-          # - os: linux
-          #   cpu: i386
-          #   TEST_KIND: finalization
-          # - os: macos
-          #   cpu: amd64
-          #   TEST_KIND: finalization
-          # - os: windows
-          #   cpu: amd64
-          #   TEST_KIND: finalization
-          # - os: windows
-          #   cpu: i386
-          #   TEST_KIND: finalization
+          - os: linux
+            cpu: amd64
+            TEST_KIND: finalization
+          - os: linux
+            cpu: i386
+            TEST_KIND: finalization
+          - os: macos
+            cpu: amd64
+            TEST_KIND: finalization
+          - os: windows
+            cpu: amd64
+            TEST_KIND: finalization
+          - os: windows
+            cpu: i386
+            TEST_KIND: finalization
         include:
           - target:
               os: linux
@@ -178,6 +178,7 @@ jobs:
         uses: technote-space/auto-cancel-redundant-job@v1
 
       - name: Get latest fixtures commit hash
+        if: matrix.target.TEST_KIND == 'unit-tests'
         id: fixtures_version
         shell: bash
         run: |
@@ -188,6 +189,7 @@ jobs:
           echo "::set-output name=fixtures::$fixturesHash"
 
       - name: Restore Ethereum Foundation fixtures from cache
+        if: matrix.target.TEST_KIND == 'unit-tests'
         id: fixtures-cache
         uses: actions/cache@v1
         with:
@@ -195,14 +197,27 @@ jobs:
           key: 'scenarios-${{ steps.fixtures_version.outputs.fixtures }}'
 
       - name: Get the Ethereum Foundation fixtures
-        if: steps.fixtures-cache.outputs.cache-hit != 'true'
+        if: >
+          matrix.target.TEST_KIND == 'unit-tests' &&
+          steps.fixtures-cache.outputs.cache-hit != 'true'
         shell: bash
         working-directory: nim-beacon-chain
         run: |
           scripts/setup_official_tests.sh fixturesCache
 
       - name: Run nim-beacon-chain tests
+        if: matrix.target.TEST_KIND == 'unit-tests'
         shell: bash
         working-directory: nim-beacon-chain
         run: |
           make -j$ncpu ARCH_OVERRIDE='$PLATFORM' DISABLE_TEST_FIXTURES_SCRIPT=1 test
+
+      - name: Run nim-beacon-chain testnet1 (mainnet)
+        if: matrix.target.TEST_KIND == 'finalization'
+        shell: bash
+        working-directory: nim-beacon-chain
+        run: |
+          sh """#!/bin/bash
+          set -e
+          ./scripts/launch_local_testnet.sh --testnet 1 --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --enable-logtrace --data-dir local_testnet0_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rpc-port \$(( 7000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) -- --verify-finalization --discv5:no
+          """
