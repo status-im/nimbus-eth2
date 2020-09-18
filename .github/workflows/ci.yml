@@ -10,44 +10,34 @@ jobs:
         target:
           - os: linux
             cpu: amd64
-            PLATFORM: x64
             TEST_KIND: unit-tests
           - os: linux
             cpu: i386
-            PLATFORM: x86
             TEST_KIND: unit-tests
           - os: macos
             cpu: amd64
-            PLATFORM: x64
             TEST_KIND: unit-tests
           - os: windows
             cpu: amd64
-            PLATFORM: x64
             TEST_KIND: unit-tests
           - os: windows
             cpu: i386
-            PLATFORM: x86
             TEST_KIND: unit-tests
 
           # - os: linux
           #   cpu: amd64
-          #   PLATFORM: x64
           #   TEST_KIND: finalization
           # - os: linux
           #   cpu: i386
-          #   PLATFORM: x86
           #   TEST_KIND: finalization
           # - os: macos
           #   cpu: amd64
-          #   PLATFORM: x64
           #   TEST_KIND: finalization
           # - os: windows
           #   cpu: amd64
-          #   PLATFORM: x64
           #   TEST_KIND: finalization
           # - os: windows
           #   cpu: i386
-          #   PLATFORM: x86
           #   TEST_KIND: finalization
         include:
           - target:
@@ -66,6 +56,22 @@ jobs:
         uses: actions/checkout@v2
         with:
           path: nim-beacon-chain
+      - name: Derive environment variables
+        id: derive-env
+        run: |
+          if [[ '${{ matrix.target.cpu }}' == 'amd64' ]]; then
+            ARCH=64
+            PLATFORM=x64
+          else
+            ARCH=32
+            PLATFORM=x86
+          fi
+          echo "::set-env name=ARCH::$ARCH"
+          echo "::set-env name=PLATFORM::$PLATFORM"
+        env:
+          ARCH: ${{ derive-env.ARCH }}
+          PLATFORM: ${{ derive-env.PLATFORM }}
+
       - name: Install build dependencies (Linux i386)
         if: runner.os == 'Linux' && matrix.target.cpu == 'i386'
         run: |
@@ -73,7 +79,7 @@ jobs:
           sudo apt-fast update -qq
           sudo DEBIAN_FRONTEND='noninteractive' apt-fast install \
             --no-install-recommends -yq gcc-multilib g++-multilib \
-            libssl-dev:i386
+            libssl-dev:i386 libpcre3-dev:i386
           mkdir -p external/bin
           cat << EOF > external/bin/gcc
           #!/bin/bash
@@ -86,22 +92,26 @@ jobs:
           chmod 755 external/bin/gcc external/bin/g++
           echo '::add-path::${{ github.workspace }}/external/bin'
 
-      - name: Install build dependencies (Windows)
+      - name: Restore build dependencies (Windows) from cache
         if: runner.os == 'Windows'
+        id: windows-tools-cache
+        uses: actions/cache@v1
+        with:
+          path: /external/mingw$ARCH
+          key: 'mingw-x86-$ARCH'
+
+      - name: Install build dependencies (Windows)
+        if: >
+          steps.windows-tools-cache.outputs.cache-hit != 'true' &&
+          runner.os == 'Windows'
         shell: bash
         run: |
-          mkdir external
-          if [[ '${{ matrix.target.cpu }}' == 'amd64' ]]; then
-            arch=64
-          else
-            arch=32
-          fi
-          # TODO Cache mingw to not drain nim-lang.org bandwidth
           curl -L "https://nim-lang.org/download/mingw$arch-6.3.0.7z" -o "external/mingw$arch.7z"
-          # curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
           7z x "external/mingw$arch.7z" -oexternal/
-          # 7z x external/windeps.zip -oexternal/dlls
           echo '::add-path::${{ github.workspace }}'"/external/mingw$arch/bin"
+
+          # curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
+          # 7z x external/windeps.zip -oexternal/dlls
           # echo '::add-path::${{ github.workspace }}'"/external/dlls"
 
       - name: Get latest nimbus-build-system commit hash
@@ -147,17 +157,17 @@ jobs:
           [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
           echo "::set-output name=ncpu::$ncpu"
 
-          make -j$ncpu ARCH_OVERRIDE='${{ matrix.target.PLATFORM }}' CI_CACHE=NimBinaries V=1 update
+          make -j$ncpu ARCH_OVERRIDE='$PLATFORM' CI_CACHE=NimBinaries V=1 update
           if [[ '${{ runner.os }}' == 'Windows' ]]; then
-            make -j$ncpu ARCH_OVERRIDE='${{ matrix.target.PLATFORM }}' fetch-dlls
+            make -j$ncpu ARCH_OVERRIDE='$PLATFORM' fetch-dlls
           fi
 
       - name: Smoke test the Beacon Node and Validator Client with all tracing enabled
         shell: bash
         working-directory: nim-beacon-chain
         run: |
-          make -j$ncpu ARCH_OVERRIDE='${{ matrix.target.PLATFORM }}' LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" beacon_node
-          make -j$ncpu ARCH_OVERRIDE='${{ matrix.target.PLATFORM }}' LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" validator_client
+          make -j$ncpu ARCH_OVERRIDE='$PLATFORM' LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" beacon_node
+          make -j$ncpu ARCH_OVERRIDE='$PLATFORM' LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" validator_client
 
       - name: Get latest fixtures commit hash
         id: fixtures_version
@@ -187,4 +197,4 @@ jobs:
         shell: bash
         working-directory: nim-beacon-chain
         run: |
-          make -j$ncpu ARCH_OVERRIDE='${{ matrix.target.PLATFORM }}' DISABLE_TEST_FIXTURES_SCRIPT=1 test
+          make -j$ncpu ARCH_OVERRIDE='$PLATFORM' DISABLE_TEST_FIXTURES_SCRIPT=1 test
