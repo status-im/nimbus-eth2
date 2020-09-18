@@ -105,9 +105,9 @@ jobs:
           runner.os == 'Windows'
         shell: bash
         run: |
-          curl -L "https://nim-lang.org/download/mingw$arch-6.3.0.7z" -o "external/mingw$arch.7z"
-          7z x "external/mingw$arch.7z" -oexternal/
-          echo '::add-path::${{ github.workspace }}'"/external/mingw$arch/bin"
+          curl -L "https://nim-lang.org/download/mingw$ARCH-6.3.0.7z" -o "external/mingw$ARCH.7z"
+          7z x "external/mingw$ARCH.7z" -oexternal/
+          echo '::add-path::${{ github.workspace }}'"/external/mingw$ARCH/bin"
 
           # curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
           # 7z x external/windeps.zip -oexternal/dlls
