@@ -52,12 +52,16 @@ jobs:
     name: '${{ matrix.target.os }}-${{ matrix.target.cpu }} (${{ matrix.target.TEST_KIND }})'
     runs-on: ${{ matrix.builder }}
     steps:
-      - name: Cancel if outdated commit
-        uses: technote-space/auto-cancel-redundant-job@v1
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.5.0
+        with:
+          access_token: ${{ github.token }}
+
       - name: Checkout nim-beacon-chain
         uses: actions/checkout@v2
         with:
           path: nim-beacon-chain
+
       - name: Derive environment variables
         shell: bash
         run: |
@@ -105,6 +109,8 @@ jobs:
           runner.os == 'Windows'
         shell: bash
         run: |
+          mkdir -p external
+
           curl -L "https://nim-lang.org/download/mingw$ARCH-6.3.0.7z" -o "external/mingw$ARCH.7z"
           7z x "external/mingw$ARCH.7z" -oexternal/
           echo '::add-path::${{ github.workspace }}'"/external/mingw$ARCH/bin"
@@ -126,9 +132,6 @@ jobs:
           # echo "::set-output name=csources::$csourcesHash"
           nbsHash=$(getHash status-im/nimbus-build-system)
           echo "::set-output name=nimbus_build_system::$nbsHash"
-
-      - name: Cancel if outdated commit
-        uses: technote-space/auto-cancel-redundant-job@v1
 
       - name: Restore prebuilt Nim binaries from cache
         id: nim-cache
@@ -164,18 +167,12 @@ jobs:
             make -j$ncpu ARCH_OVERRIDE='$PLATFORM' fetch-dlls
           fi
 
-      - name: Cancel if outdated commit
-        uses: technote-space/auto-cancel-redundant-job@v1
-
       - name: Smoke test the Beacon Node and Validator Client with all tracing enabled
         shell: bash
         working-directory: nim-beacon-chain
         run: |
           make -j$ncpu ARCH_OVERRIDE='$PLATFORM' LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" beacon_node
           make -j$ncpu ARCH_OVERRIDE='$PLATFORM' LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" validator_client
-
-      - name: Cancel if outdated commit
-        uses: technote-space/auto-cancel-redundant-job@v1
 
       - name: Get latest fixtures commit hash
         if: matrix.target.TEST_KIND == 'unit-tests'
@@ -217,7 +214,4 @@ jobs:
         shell: bash
         working-directory: nim-beacon-chain
         run: |
-          sh """#!/bin/bash
-          set -e
-          ./scripts/launch_local_testnet.sh --testnet 1 --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --enable-logtrace --data-dir local_testnet0_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rpc-port \$(( 7000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) -- --verify-finalization --discv5:no
-          """
+          ./scripts/launch_local_testnet.sh --testnet 1 --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --enable-logtrace --data-dir local_testnet0_data --base-port $(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rpc-port $(( 7000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port $(( 8008 + EXECUTOR_NUMBER * 100 )) -- --verify-finalization --discv5:no
