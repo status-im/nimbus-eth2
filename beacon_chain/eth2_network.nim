@@ -419,7 +419,7 @@ proc disconnectAndRaise(peer: Peer,
 
 proc writeChunk*(conn: Connection,
                  responseCode: Option[ResponseCode],
-                 payload: Bytes) {.async.} =
+                 payload: Bytes): Future[void] =
   var output = memoryOutput()
 
   if responseCode.isSome:
@@ -428,7 +428,7 @@ proc writeChunk*(conn: Connection,
   output.write varintBytes(payload.lenu64)
   output.write(framingFormatCompress payload)
 
-  await conn.write(output.getOutput)
+  conn.write(output.getOutput)
 
 template errorMsgLit(x: static string): ErrorMsg =
   const val = ErrorMsg toBytes(x)
@@ -446,10 +446,10 @@ proc formatErrorMsg(msg: ErrorMSg): string =
 proc sendErrorResponse(peer: Peer,
                        conn: Connection,
                        responseCode: ResponseCode,
-                       errMsg: ErrorMsg) {.async.} =
+                       errMsg: ErrorMsg): Future[void] =
   debug "Error processing request",
     peer, responseCode, errMsg = formatErrorMsg(errMsg)
-  await conn.writeChunk(some responseCode, SSZ.encode(errMsg))
+  conn.writeChunk(some responseCode, SSZ.encode(errMsg))
 
 proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async} =
   var
@@ -468,13 +468,13 @@ proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.
   finally:
     await stream.close()
 
-proc sendResponseChunkBytes(response: UntypedResponse, payload: Bytes) {.async.} =
+proc sendResponseChunkBytes(response: UntypedResponse, payload: Bytes): Future[void] =
   inc response.writtenChunks
-  await response.stream.writeChunk(some Success, payload)
+  response.stream.writeChunk(some Success, payload)
 
-proc sendResponseChunkObj(response: UntypedResponse, val: auto) {.async.} =
+proc sendResponseChunkObj(response: UntypedResponse, val: auto): Future[void] =
   inc response.writtenChunks
-  await response.stream.writeChunk(some Success, SSZ.encode(val))
+  response.stream.writeChunk(some Success, SSZ.encode(val))
 
 template sendUserHandlerResultAsChunkImpl*(stream: Connection,
                                            handlerResultFut: Future): untyped =
@@ -669,6 +669,12 @@ proc handleIncomingStream(network: Eth2Node,
     except CatchableError as err:
       await sendErrorResponse(peer, conn, ServerError,
                               ErrorMsg err.msg.toBytes)
+
+    var buf: array[1, byte]
+    # Check that there is no extra data on the socket
+    if (await conn.readOnce(addr buf[0], buf.len)) != 0:
+      await sendErrorResponse(peer, conn, ServerError,
+                              ErrorMsg "Extra data".toBytes)
 
   except CatchableError as err:
     debug "Error processing an incoming request", err = err.msg, msgName
