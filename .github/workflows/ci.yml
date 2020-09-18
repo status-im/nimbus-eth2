@@ -52,6 +52,8 @@ jobs:
     name: '${{ matrix.target.os }}-${{ matrix.target.cpu }} (${{ matrix.target.TEST_KIND }})'
     runs-on: ${{ matrix.builder }}
     steps:
+      - name: Cancel if outdated commit
+        uses: technote-space/auto-cancel-redundant-job@v1
       - name: Checkout nim-beacon-chain
         uses: actions/checkout@v2
         with:
