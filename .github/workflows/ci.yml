@@ -59,6 +59,7 @@ jobs:
         with:
           path: nim-beacon-chain
       - name: Derive environment variables
+        shell: bash
         run: |
           if [[ '${{ matrix.target.cpu }}' == 'amd64' ]]; then
             ARCH=64
