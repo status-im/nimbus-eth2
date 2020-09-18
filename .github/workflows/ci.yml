@@ -100,8 +100,8 @@ jobs:
         id: windows-tools-cache
         uses: actions/cache@v1
         with:
-          path: /external/mingw$ARCH
-          key: 'mingw-x86-$ARCH'
+          path: /external/mingw-${{ matrix.target.cpu }}
+          key: 'mingw-${{ matrix.target.cpu }}'
 
       - name: Install build dependencies (Windows)
         if: >
@@ -111,9 +111,10 @@ jobs:
         run: |
           mkdir -p external
 
-          curl -L "https://nim-lang.org/download/mingw$ARCH-6.3.0.7z" -o "external/mingw$ARCH.7z"
-          7z x "external/mingw$ARCH.7z" -oexternal/
-          echo '::add-path::${{ github.workspace }}'"/external/mingw$ARCH/bin"
+          curl -L "https://nim-lang.org/download/mingw$ARCH-6.3.0.7z" -o "external/mingw-${{ matrix.target.cpu }}.7z"
+          7z x "external/mingw-${{ matrix.target.cpu }}.7z" -oexternal/
+          mv external/mingw$ARCH external/mingw-${{ matrix.target.cpu }}
+          echo '::add-path::${{ github.workspace }}'"/external/mingw-${{ matrix.target.cpu }}/bin"
 
           # curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
           # 7z x external/windeps.zip -oexternal/dlls
@@ -168,6 +169,7 @@ jobs:
           fi
 
       - name: Smoke test the Beacon Node and Validator Client with all tracing enabled
+        if: matrix.target.TEST_KIND == 'unit-tests'
         shell: bash
         working-directory: nim-beacon-chain
         run: |
