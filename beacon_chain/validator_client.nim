@@ -205,12 +205,12 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
             vc.fork, vc.beaconGenesis.genesis_validators_root)
 
           discard await vc.client.post_v1_beacon_pool_attestations(attestation)
+
+          validatorToAttestationDataRoot[a.public_key] = attestation.data.hash_tree_root
         else:
           warn "Slashing protection activated for attestation",
             validator = a.public_key,
             badVoteDetails = $notSlashable.error
-
-        validatorToAttestationDataRoot[a.public_key] = attestation.data.hash_tree_root
 
       # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#broadcast-aggregate
       # If the validator is selected to aggregate (is_aggregator), then they
@@ -230,7 +230,8 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
         let slot_signature = await getSlotSig(validator, vc.fork,
           vc.beaconGenesis.genesis_validators_root, slot)
 
-        if is_aggregator(a.committee_length, slot_signature):
+        if is_aggregator(a.committee_length, slot_signature) and
+            validatorToAttestationDataRoot.contains(a.public_key):
           info "Aggregating", slot = slot, public_key = a.public_key
 
           let aa = await vc.client.get_v1_validator_aggregate_attestation(
