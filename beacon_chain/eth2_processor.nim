@@ -90,9 +90,9 @@ proc updateHead*(self: var Eth2Processor, wallSlot: Slot): BlockRef =
 
 proc dumpBlock[T](
     self: Eth2Processor, signedBlock: SignedBeaconBlock,
-    res: Result[T, BlockError]) =
+    res: Result[T, (ValidationResult, BlockError)]) =
   if self.config.dumpEnabled and res.isErr:
-    case res.error
+    case res.error[1]
     of Invalid:
       dump(
         self.config.dumpDirInvalid, signedBlock)
@@ -140,7 +140,7 @@ proc storeBlock(
   # However this block was before the last finalized epoch and so its parent
   # was pruned from the ForkChoice.
   if blck.isErr:
-    return err(blck.error)
+    return err(blck.error[1])
 
   beacon_store_block_duration_seconds.observe((Moment.now() - start).milliseconds.float64 / 1000)
   return ok()
@@ -232,7 +232,7 @@ proc processBlock(self: var Eth2Processor, entry: BlockEntry) =
 
 proc blockValidator*(
     self: var Eth2Processor,
-    signedBlock: SignedBeaconBlock): bool =
+    signedBlock: SignedBeaconBlock): ValidationResult =
   logScope:
     signedBlock = shortLog(signedBlock.message)
     blockRoot = shortLog(signedBlock.root)
@@ -242,7 +242,7 @@ proc blockValidator*(
     (afterGenesis, wallSlot) = wallTime.toSlot()
 
   if not afterGenesis:
-    return false
+    return EVRESULT_IGNORE  # not an issue with block, so don't penalize
 
   logScope: wallSlot
 
@@ -253,7 +253,7 @@ proc blockValidator*(
     # already-seen data, but it is fairly aggressive about forgetting about
     # what it has seen already
     debug "Dropping already-seen gossip block", delay
-    return false
+    return EVRESULT_IGNORE  # "[IGNORE] The block is the first block with ..."
 
   # Start of block processing - in reality, we have already gone through SSZ
   # decoding at this stage, which may be significant
@@ -265,7 +265,7 @@ proc blockValidator*(
   self.dumpBlock(signedBlock, blck)
 
   if not blck.isOk:
-    return false
+    return blck.error[0]
 
   beacon_blocks_received.inc()
   beacon_block_delay.observe(float(milliseconds(delay)) / 1000.0)
@@ -279,12 +279,12 @@ proc blockValidator*(
   traceAsyncErrors self.blocksQueue.addLast(
     BlockEntry(v: SyncBlock(blk: signedBlock)))
 
-  true
+  EVRESULT_ACCEPT
 
 proc attestationValidator*(
     self: var Eth2Processor,
     attestation: Attestation,
-    committeeIndex: uint64): bool =
+    committeeIndex: uint64): ValidationResult =
   logScope:
     attestation = shortLog(attestation)
     committeeIndex
@@ -295,7 +295,7 @@ proc attestationValidator*(
 
   if not afterGenesis:
     notice "Attestation before genesis"
-    return false
+    return EVRESULT_IGNORE
 
   logScope: wallSlot
 
@@ -306,7 +306,7 @@ proc attestationValidator*(
       attestation, wallTime, committeeIndex)
   if v.isErr():
     debug "Dropping attestation", err = v.error()
-    return false
+    return v.error[0]
 
   beacon_attestations_received.inc()
   beacon_attestation_delay.observe(float(milliseconds(delay)) / 1000.0)
@@ -321,11 +321,11 @@ proc attestationValidator*(
   traceAsyncErrors self.attestationsQueue.addLast(
     AttestationEntry(v: attestation, attesting_indices: v.get()))
 
-  true
+  EVRESULT_ACCEPT
 
 proc aggregateValidator*(
-  self: var Eth2Processor,
-  signedAggregateAndProof: SignedAggregateAndProof): bool =
+    self: var Eth2Processor,
+    signedAggregateAndProof: SignedAggregateAndProof): ValidationResult =
   logScope:
     aggregate = shortLog(signedAggregateAndProof.message.aggregate)
     signature = shortLog(signedAggregateAndProof.signature)
@@ -336,7 +336,7 @@ proc aggregateValidator*(
 
   if not afterGenesis:
     notice "Aggregate before genesis"
-    return false
+    return EVRESULT_IGNORE
 
   logScope: wallSlot
 
@@ -349,7 +349,7 @@ proc aggregateValidator*(
       signedAggregateAndProof, wallTime)
   if v.isErr:
     debug "Dropping aggregate", err = v.error
-    return false
+    return v.error[0]
 
   beacon_aggregates_received.inc()
   beacon_aggregate_delay.observe(float(milliseconds(delay)) / 1000.0)
@@ -365,43 +365,51 @@ proc aggregateValidator*(
     v: signedAggregateAndProof.message.aggregate,
     attesting_indices: v.get()))
 
-  true
+  EVRESULT_ACCEPT
 
 proc attesterSlashingValidator*(
-  self: var Eth2Processor, attesterSlashing: AttesterSlashing): bool =
+    self: var Eth2Processor, attesterSlashing: AttesterSlashing):
+    ValidationResult =
   logScope:
     attesterSlashing = shortLog(attesterSlashing)
 
   let v = self.exitPool[].validateAttesterSlashing(attesterSlashing)
   if v.isErr:
     debug "Dropping attester slashing", err = v.error
-    return false
+    return v.error[0]
 
   beacon_attester_slashings_received.inc()
 
+  EVRESULT_ACCEPT
+
 proc proposerSlashingValidator*(
-  self: var Eth2Processor, proposerSlashing: ProposerSlashing): bool =
+    self: var Eth2Processor, proposerSlashing: ProposerSlashing):
+    ValidationResult =
   logScope:
     proposerSlashing = shortLog(proposerSlashing)
 
   let v = self.exitPool[].validateProposerSlashing(proposerSlashing)
   if v.isErr:
     debug "Dropping proposer slashing", err = v.error
-    return false
+    return v.error[0]
 
   beacon_proposer_slashings_received.inc()
 
+  EVRESULT_ACCEPT
+
 proc voluntaryExitValidator*(
-  self: var Eth2Processor, voluntaryExit: VoluntaryExit): bool =
+    self: var Eth2Processor, voluntaryExit: VoluntaryExit): ValidationResult =
   logScope:
     voluntaryExit = shortLog(voluntaryExit)
 
   let v = self.exitPool[].validateVoluntaryExit(voluntaryExit)
   if v.isErr:
     debug "Dropping voluntary exit", err = v.error
-    return false
+    return v.error[0]
 
   beacon_voluntary_exits_received.inc()
+
+  EVRESULT_ACCEPT
 
 proc runQueueProcessingLoop*(self: ref Eth2Processor) {.async.} =
   # Blocks in eth2 arrive on a schedule for every slot:

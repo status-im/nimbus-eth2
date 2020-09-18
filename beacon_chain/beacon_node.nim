@@ -813,32 +813,32 @@ proc installMessageValidators(node: BeaconNode) =
       node.network.addValidator(
         getAttestationTopic(node.forkDigest, ci),
         # This proc needs to be within closureScope; don't lift out of loop.
-        proc(attestation: Attestation): bool =
+        proc(attestation: Attestation): ValidationResult =
           node.processor[].attestationValidator(attestation, ci))
 
   node.network.addValidator(
     getAggregateAndProofsTopic(node.forkDigest),
-    proc(signedAggregateAndProof: SignedAggregateAndProof): bool =
+    proc(signedAggregateAndProof: SignedAggregateAndProof): ValidationResult =
       node.processor[].aggregateValidator(signedAggregateAndProof))
 
   node.network.addValidator(
     node.topicBeaconBlocks,
-    proc (signedBlock: SignedBeaconBlock): bool =
+    proc (signedBlock: SignedBeaconBlock): ValidationResult =
       node.processor[].blockValidator(signedBlock))
 
   node.network.addValidator(
     getAttesterSlashingsTopic(node.forkDigest),
-    proc (attesterSlashing: AttesterSlashing): bool =
+    proc (attesterSlashing: AttesterSlashing): ValidationResult =
       node.processor[].attesterSlashingValidator(attesterSlashing))
 
   node.network.addValidator(
     getProposerSlashingsTopic(node.forkDigest),
-    proc (proposerSlashing: ProposerSlashing): bool =
+    proc (proposerSlashing: ProposerSlashing): ValidationResult =
       node.processor[].proposerSlashingValidator(proposerSlashing))
 
   node.network.addValidator(
     getVoluntaryExitsTopic(node.forkDigest),
-    proc (voluntaryExit: VoluntaryExit): bool =
+    proc (voluntaryExit: VoluntaryExit): ValidationResult =
       node.processor[].voluntaryExitValidator(voluntaryExit))
 
 proc stop*(node: BeaconNode) =

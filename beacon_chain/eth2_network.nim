@@ -1278,7 +1278,8 @@ proc subscribe*(node: Eth2Node, topic: string) {.async.} =
 
 proc addValidator*[MsgType](node: Eth2Node,
                             topic: string,
-                            msgValidator: proc(msg: MsgType): bool {.gcsafe.} ) =
+                            msgValidator: proc(msg: MsgType):
+                            ValidationResult {.gcsafe.} ) =
   # Validate messages as soon as subscribed
   proc execValidator(
       topic: string, message: GossipMsg): Future[bool] {.async.} =
@@ -1287,7 +1288,7 @@ proc addValidator*[MsgType](node: Eth2Node,
     try:
       let decompressed = snappy.decode(message.data, GOSSIP_MAX_SIZE)
       if decompressed.len > 0:
-        return msgValidator SSZ.decode(decompressed, MsgType)
+        return msgValidator(SSZ.decode(decompressed, MsgType)) == EVRESULT_ACCEPT
       else:
         # TODO penalize peer?
         debug "Failed to decompress gossip payload"

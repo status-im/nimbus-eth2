@@ -207,7 +207,7 @@ suiteReport "Block pool processing" & preset():
 
   wrappedTimedTest "Reverse order block add & get" & preset():
     let missing = dag.addRawBlock(quarantine, b2, nil)
-    check: missing.error == MissingParent
+    check: missing.error == (EVRESULT_IGNORE, MissingParent)
 
     check:
       dag.get(b2.root).isNone() # Unresolved, shouldn't show up
@@ -253,7 +253,7 @@ suiteReport "Block pool processing" & preset():
       b11 = dag.addRawBlock(quarantine, b1, nil)
 
     check:
-      b11.error == Duplicate
+      b11.error == (EVRESULT_IGNORE, Duplicate)
       not b10[].isNil
 
   wrappedTimedTest "updateHead updates head and headState" & preset():
@@ -388,7 +388,7 @@ suiteReport "chain DAG finalization tests" & preset():
       # The late block is a block whose parent was finalized long ago and thus
       # is no longer a viable head candidate
       let status = dag.addRawBlock(quarantine, lateBlock, nil)
-      check: status.error == Unviable
+      check: status.error == (EVRESULT_IGNORE, Unviable)
 
     let
       dag2 = init(ChainDAGRef, defaultRuntimePreset, db)
