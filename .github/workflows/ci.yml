@@ -127,6 +127,9 @@ jobs:
           nbsHash=$(getHash status-im/nimbus-build-system)
           echo "::set-output name=nimbus_build_system::$nbsHash"
 
+      - name: Cancel if outdated commit
+        uses: technote-space/auto-cancel-redundant-job@v1
+
       - name: Restore prebuilt Nim binaries from cache
         id: nim-cache
         uses: actions/cache@v1
@@ -161,12 +164,18 @@ jobs:
             make -j$ncpu ARCH_OVERRIDE='$PLATFORM' fetch-dlls
           fi
 
+      - name: Cancel if outdated commit
+        uses: technote-space/auto-cancel-redundant-job@v1
+
       - name: Smoke test the Beacon Node and Validator Client with all tracing enabled
         shell: bash
         working-directory: nim-beacon-chain
         run: |
           make -j$ncpu ARCH_OVERRIDE='$PLATFORM' LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" beacon_node
           make -j$ncpu ARCH_OVERRIDE='$PLATFORM' LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" validator_client
+
+      - name: Cancel if outdated commit
+        uses: technote-space/auto-cancel-redundant-job@v1
 
       - name: Get latest fixtures commit hash
         id: fixtures_version
