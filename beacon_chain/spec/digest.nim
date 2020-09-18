@@ -56,12 +56,12 @@ chronicles.formatIt Eth2Digest:
 func eth2digest*(v: openArray[byte]): Eth2Digest =
   ## Apply the Eth2 Hash function
   ## Do NOT use for secret data.
-  # We use the init-update-finish interface to avoid
-  # the expensive burning/clearing memory (20~30% perf)
   when BLS_BACKEND == BLST:
     # BLST has a fast assembly optimized SHA256
     result.data.bls_sha256_digest(v)
   else:
+    # We use the init-update-finish interface to avoid
+    # the expensive burning/clearing memory (20~30% perf)
     var ctx: Eth2DigestCtx
     ctx.init()
     ctx.update(v)
