@@ -1,0 +1,190 @@
+name: Nimbus nim-beacon-chain CI
+on: [push, pull_request]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        target:
+          - os: linux
+            cpu: amd64
+            PLATFORM: x64
+            TEST_KIND: unit-tests
+          - os: linux
+            cpu: i386
+            PLATFORM: x86
+            TEST_KIND: unit-tests
+          - os: macos
+            cpu: amd64
+            PLATFORM: x64
+            TEST_KIND: unit-tests
+          - os: windows
+            cpu: amd64
+            PLATFORM: x64
+            TEST_KIND: unit-tests
+          - os: windows
+            cpu: i386
+            PLATFORM: x86
+            TEST_KIND: unit-tests
+
+          # - os: linux
+          #   cpu: amd64
+          #   PLATFORM: x64
+          #   TEST_KIND: finalization
+          # - os: linux
+          #   cpu: i386
+          #   PLATFORM: x86
+          #   TEST_KIND: finalization
+          # - os: macos
+          #   cpu: amd64
+          #   PLATFORM: x64
+          #   TEST_KIND: finalization
+          # - os: windows
+          #   cpu: amd64
+          #   PLATFORM: x64
+          #   TEST_KIND: finalization
+          # - os: windows
+          #   cpu: i386
+          #   PLATFORM: x86
+          #   TEST_KIND: finalization
+        include:
+          - target:
+              os: linux
+            builder: ubuntu-18.04
+          - target:
+              os: macos
+            builder: macos-10.15
+          - target:
+              os: windows
+            builder: windows-2019
+    name: '${{ matrix.target.os }}-${{ matrix.target.cpu }} (${{ matrix.target.TEST_KIND }})'
+    runs-on: ${{ matrix.builder }}
+    steps:
+      - name: Checkout nim-beacon-chain
+        uses: actions/checkout@v2
+        with:
+          path: nim-beacon-chain
+      - name: Install build dependencies (Linux i386)
+        if: runner.os == 'Linux' && matrix.target.cpu == 'i386'
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-fast update -qq
+          sudo DEBIAN_FRONTEND='noninteractive' apt-fast install \
+            --no-install-recommends -yq gcc-multilib g++-multilib \
+            libssl-dev:i386
+          mkdir -p external/bin
+          cat << EOF > external/bin/gcc
+          #!/bin/bash
+          exec $(which gcc) -m32 "\$@"
+          EOF
+          cat << EOF > external/bin/g++
+          #!/bin/bash
+          exec $(which g++) -m32 "\$@"
+          EOF
+          chmod 755 external/bin/gcc external/bin/g++
+          echo '::add-path::${{ github.workspace }}/external/bin'
+
+      - name: Install build dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir external
+          if [[ '${{ matrix.target.cpu }}' == 'amd64' ]]; then
+            arch=64
+          else
+            arch=32
+          fi
+          # TODO Cache mingw to not drain nim-lang.org bandwidth
+          curl -L "https://nim-lang.org/download/mingw$arch-6.3.0.7z" -o "external/mingw$arch.7z"
+          # curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
+          7z x "external/mingw$arch.7z" -oexternal/
+          # 7z x external/windeps.zip -oexternal/dlls
+          echo '::add-path::${{ github.workspace }}'"/external/mingw$arch/bin"
+          # echo '::add-path::${{ github.workspace }}'"/external/dlls"
+
+      - name: Get latest nimbus-build-system commit hash
+        id: versions
+        shell: bash
+        run: |
+          getHash() {
+            git ls-remote "https://github.com/$1" "${2:-HEAD}" | cut -f 1
+          }
+          # nimHash=$(getHash nim-lang/Nim '${{ matrix.branch }}')
+          # csourcesHash=$(getHash nim-lang/csources)
+          # echo "::set-output name=nim::$nimHash"
+          # echo "::set-output name=csources::$csourcesHash"
+          nbsHash=$(getHash status-im/nimbus-build-system)
+          echo "::set-output name=nimbus_build_system::$nbsHash"
+
+      - name: Restore prebuilt Nim binaries from cache
+        id: nim-cache
+        uses: actions/cache@v1
+        with:
+          path: nim-beacon-chain/NimBinaries
+          key: 'nim-${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ steps.versions.outputs.nimbus_build_system }}'
+
+      - name: Build Nim and associated tools
+        if: steps.nim-cache.outputs.cache-hit != 'true'
+        shell: bash
+        working-directory: nim-beacon-chain
+        run: |
+          ncpu=
+          ext=
+          case '${{ runner.os }}' in
+          'Linux')
+            ncpu=$(nproc)
+            ;;
+          'macOS')
+            ncpu=$(sysctl -n hw.ncpu)
+            ;;
+          'Windows')
+            ncpu=$NUMBER_OF_PROCESSORS
+            ext=.exe
+            ;;
+          esac
+          [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
+          echo "::set-output name=ncpu::$ncpu"
+
+          make -j$ncpu ARCH_OVERRIDE='${{ matrix.target.PLATFORM }}' CI_CACHE=NimBinaries V=1 update
+          if [[ '${{ runner.os }}' == 'Windows' ]]; then
+            make -j$ncpu ARCH_OVERRIDE='${{ matrix.target.PLATFORM }}' fetch-dlls
+          fi
+
+      - name: Smoke test the Beacon Node and Validator Client with all tracing enabled
+        shell: bash
+        working-directory: nim-beacon-chain
+        run: |
+          make -j$ncpu ARCH_OVERRIDE='${{ matrix.target.PLATFORM }}' LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" beacon_node
+          make -j$ncpu ARCH_OVERRIDE='${{ matrix.target.PLATFORM }}' LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" validator_client
+
+      - name: Get latest fixtures commit hash
+        id: fixtures_version
+        shell: bash
+        run: |
+          getHash() {
+            git ls-remote "https://github.com/$1" "${2:-HEAD}" | cut -f 1
+          }
+          fixturesHash=$(getHash status-im/nim-eth2-scenarios)
+          echo "::set-output name=fixtures::$fixturesHash"
+
+      - name: Restore Ethereum Foundation fixtures from cache
+        id: fixtures-cache
+        uses: actions/cache@v1
+        with:
+          path: fixturesCache
+          key: 'scenarios-${{ steps.fixtures_version.outputs.fixtures }}'
+
+      - name: Get the Ethereum Foundation fixtures
+        if: steps.fixtures-cache.outputs.cache-hit != 'true'
+        shell: bash
+        working-directory: nim-beacon-chain
+        run: |
+          scripts/setup_official_tests.sh fixturesCache
+
+      - name: Run nim-beacon-chain tests
+        shell: bash
+        working-directory: nim-beacon-chain
+        run: |
+          make -j$ncpu ARCH_OVERRIDE='${{ matrix.target.PLATFORM }}' DISABLE_TEST_FIXTURES_SCRIPT=1 test
