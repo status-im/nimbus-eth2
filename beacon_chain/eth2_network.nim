@@ -211,19 +211,14 @@ const
   ConcurrentConnections* = 10
     ## Maximum number of active concurrent connection requests.
 
-  SeenTableTimeTimeout* =
-    when not defined(local_testnet): 5.minutes else: 10.seconds
-
-    ## Seen period of time for timeout connections
   SeenTableTimeDeadPeer* =
     when not defined(local_testnet): 5.minutes else: 10.seconds
-
     ## Period of time for dead peers.
   SeenTableTimeIrrelevantNetwork* = 24.hours
     ## Period of time for `IrrelevantNetwork` error reason.
   SeenTableTimeClientShutDown* = 10.minutes
     ## Period of time for `ClientShutDown` error reason.
-  SeemTableTimeFaultOrError* = 10.minutes
+  SeenTableTimeFaultOrError* = 10.minutes
     ## Period of time for `FaultOnError` error reason.
 
 var successfullyDialledAPeer = false # used to show a warning
@@ -356,10 +351,10 @@ proc `<`*(a, b: Peer): bool =
     false
 
 proc isSeen*(network: ETh2Node, peerId: PeerID): bool =
-  let currentTime = now(chronos.Moment)
   if peerId notin network.seenTable:
     return false
   let item = network.seenTable[peerId]
+  let currentTime = now(chronos.Moment)
   if currentTime >= item.stamp:
     # Peer is in SeenTable, but the time period has expired.
     network.seenTable.del(peerId)
@@ -376,16 +371,17 @@ proc disconnect*(peer: Peer, reason: DisconnectionReason,
   # TODO: How should we notify the other peer?
   if peer.connectionState notin {Disconnecting, Disconnected}:
     peer.connectionState = Disconnecting
+    trace "Disconnecting", peer
     await peer.network.switch.disconnect(peer.info.peerId)
+    trace "Disconnected", peer
     peer.connectionState = Disconnected
-    discard peer.network.peerPool.deletePeer(peer)
     let seenTime = case reason
       of ClientShutDown:
         SeenTableTimeClientShutDown
       of IrrelevantNetwork:
         SeenTableTimeIrrelevantNetwork
       of FaultOrError:
-        SeemTableTimeFaultOrError
+        SeenTableTimeFaultOrError
     peer.network.addSeen(peer.info.peerId, seenTime)
 
 include eth/p2p/p2p_backends_helpers
@@ -624,7 +620,6 @@ proc handleIncomingStream(network: Eth2Node,
       try:
         awaitWithTimeout(readChunkPayload(s, peer, MsgRec), deadline):
           returnInvalidRequest(errorMsgLit "Request full data not sent in time")
-
       except SerializationError as err:
         returnInvalidRequest err.formatMsg("msg")
 
@@ -739,22 +734,21 @@ proc toPeerAddr*(r: enr.TypedRecord):
   ok(PeerAddr(peerId: peerId, addrs: addrs))
 
 proc dialPeer*(node: Eth2Node, peerAddr: PeerAddr) {.async.} =
-  logScope: peer = peerAddr.peerId
+  let peerId = peerAddr.peerId
+  if peerId in node.connTable:
+    trace "Already connecting to peer", peerId
+    return
 
-  debug "Connecting to discovered peer"
+  debug "Connecting to discovered peer", peerId, addrs = peerAddr.addrs
 
-  # TODO connect is called here, but there's no guarantee that the connection
-  #      we get when using dialPeer later on is the one we just connected
-  await node.switch.connect(peerAddr.peerId, peerAddr.addrs)
-
-  #let msDial = newMultistream()
-  #let conn = node.switch.connections.getOrDefault(peerInfo.id)
-  #let ls = await msDial.list(conn)
-  #debug "Supported protocols", ls
-
-  inc nbc_successful_dials
-  successfullyDialledAPeer = true
-  debug "Network handshakes completed"
+  node.connTable.incl(peerId)
+  try:
+    await node.switch.connect(peerId, peerAddr.addrs)
+    inc nbc_successful_dials
+    successfullyDialledAPeer = true
+  except CatchableError as exc:
+    debug "Connection failed", peerId, msg = exc.msg
+    node.addSeen(peerId, SeenTableTimeDeadPeer)
 
 proc connectWorker(network: Eth2Node) {.async.} =
   debug "Connection worker started"
@@ -762,40 +756,15 @@ proc connectWorker(network: Eth2Node) {.async.} =
   while true:
     let
       remotePeerAddr = await network.connQueue.popFirst()
-      peerPoolHasRemotePeer = network.peerPool.hasPeer(remotePeerAddr.peerId)
-      seenTableHasRemotePeer = network.isSeen(remotePeerAddr.peerId)
-      remotePeerAlreadyConnected = remotePeerAddr.peerId in network.connTable
+    if network.peerPool.hasPeer(remotePeerAddr.peerId):
+      trace "Already connected", peerId = remotePeerAddr.peerId
+      continue
 
-    if not(peerPoolHasRemotePeer) and not(seenTableHasRemotePeer) and not(remotePeerAlreadyConnected):
-      network.connTable.incl(remotePeerAddr.peerId)
-      try:
-        # We trying to connect to peers which are not in PeerPool, SeenTable and
-        # ConnTable.
-        var fut = network.dialPeer(remotePeerAddr)
-        # We discarding here just because we going to check future state, to avoid
-        # condition where connection happens and timeout reached.
-        discard await withTimeout(fut, network.connectTimeout)
-        # We handling only timeout and errors, because successfull connections
-        # will be stored in PeerPool.
-        if fut.finished():
-          if fut.failed() and not(fut.cancelled()):
-            debug "Unable to establish connection with peer", peer = remotePeerAddr.peerId,
-                  errMsg = fut.readError().msg
-            inc nbc_failed_dials
-            network.addSeen(remotePeerAddr.peerId, SeenTableTimeDeadPeer)
-          continue
-        debug "Connection to remote peer timed out", peer = remotePeerAddr.peerId
-        inc nbc_timeout_dials
-        network.addSeen(remotePeerAddr.peerId, SeenTableTimeTimeout)
-      finally:
-        network.connTable.excl(remotePeerAddr.peerId)
-    else:
-      trace "Peer is already connected, connecting or already seen",
-            peer = remotePeerAddr.peerId, peer_pool_has_peer = $peerPoolHasRemotePeer, seen_table_has_peer = $seenTableHasRemotePeer,
-            connecting_peer = $remotePeerAlreadyConnected, seen_table_size = len(network.seenTable)
+    if  network.isSeen(remotePeerAddr.peerId):
+      trace "Recently connected", peerId = remotePeerAddr.peerId
+      continue
 
-    # Prevent (a purely theoretical) high CPU usage when losing connectivity.
-    await sleepAsync(1.seconds)
+    await dialPeer(network, remotePeerAddr)
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
