@@ -6,6 +6,8 @@ If you generated your signing key using the [eth2 launchpad](https://medalla.lau
 
 > If you haven't created your validator key yet, we recommend you do so using the [launchpad](https://medalla.launchpad.ethereum.org/). If you're not sure what the eth2 launchpad is, we recommend reading this [introductory post](https://blog.ethereum.org/2020/07/27/eth2-validator-launchpad/) first.
 
+> If you're an advanced user running Ubuntu, we recommend you check out this [excellent and complementary guide](https://medium.com/@SomerEsat/guide-to-staking-on-ethereum-2-0-ubuntu-medalla-nimbus-5f4b2b0f2d7c).
+
 
 ## Prerequisites
 

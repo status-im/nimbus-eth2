@@ -1,7 +1,19 @@
 # Advanced Usage for Developers
 
-Latest updates happen in the `devel` branch which is merged into `master` every week on Tuesday before deploying a new testnets
-The following sections explain how to setup your build environment on your platform.
+Latest updates happen in the `devel` branch which is merged into `master` every week on Tuesday.
+
+This page contains tips and tricks for developers, further resources, along with information on how to set up your build environment on your platform.
+
+### Ubuntu guide
+
+See [this excellent resource](https://medium.com/@SomerEsat/guide-to-staking-on-ethereum-2-0-ubuntu-medalla-nimbus-5f4b2b0f2d7c) for detailed step-by-step guide on how to stake on eth2 with Ubuntu.
+
+It contains instructions on how to:
+
+- Configure a newly running Ubuntu server instance
+- Configure and run an eth1 node as a service
+- Compile and configure the Nimbus client for eth 2, phase 0 (Medalla testnet)
+- Install and configure [Prometheus](https://prometheus.io/) metrics and set up a [Grafana](https://grafana.com/) dashboard
 
 ### Windows dev environment
 
