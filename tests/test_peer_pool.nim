@@ -675,3 +675,251 @@ suiteReport "PeerPool testing suite":
       result = true
 
     check waitFor(testDeleteOnRelease()) == true
+
+  timedTest "Space tests":
+    var pool1 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79)
+    var pool2 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
+                                                  maxIncomingPeers = 39)
+    var pool3 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
+                                                  maxOutgoingPeers = 40)
+    var pool4 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
+                                                  maxOutgoingPeers = 40,
+                                                  maxIncomingPeers = 0)
+    var pool5 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
+                                                  maxIncomingPeers = 39,
+                                                  maxOutgoingPeers = 0)
+    var pool6 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
+                                                  maxIncomingPeers = 39,
+                                                  maxOutgoingPeers = 40)
+    var pool7 = newPeerPool[PeerTest, PeerTestID](maxIncomingPeers = 39)
+    var pool8 = newPeerPool[PeerTest, PeerTestID](maxOutgoingPeers = 40)
+    var pool9 = newPeerPool[PeerTest, PeerTestID]()
+
+    check:
+      pool1.lenSpace() == 79
+      pool1.lenSpace({PeerType.Incoming}) == 79
+      pool1.lenSpace({PeerType.Outgoing}) == 79
+      pool2.lenSpace() == 79
+      pool2.lenSpace({PeerType.Incoming}) == 39
+      pool2.lenSpace({PeerType.Outgoing}) == 79
+      pool3.lenSpace() == 79
+      pool3.lenSpace({PeerType.Incoming}) == 79
+      pool3.lenSpace({PeerType.Outgoing}) == 40
+      pool4.lenSpace() == 40
+      pool4.lenSpace({PeerType.Incoming}) == 0
+      pool4.lenSpace({PeerType.Outgoing}) == 40
+      pool5.lenSpace() == 39
+      pool5.lenSpace({PeerType.Incoming}) == 39
+      pool5.lenSpace({PeerType.Outgoing}) == 0
+      pool6.lenSpace() == 79
+      pool6.lenSpace({PeerType.Incoming}) == 39
+      pool6.lenSpace({PeerType.Outgoing}) == 40
+      pool7.lenSpace() == high(int)
+      pool7.lenSpace({PeerType.Incoming}) == 39
+      pool7.lenSpace({PeerType.Outgoing}) == high(int)
+      pool8.lenSpace() == high(int)
+      pool8.lenSpace({PeerType.Incoming}) == high(int)
+      pool8.lenSpace({PeerType.Outgoing}) == 40
+      pool9.lenSpace() == high(int)
+      pool9.lenSpace({PeerType.Incoming}) == high(int)
+      pool9.lenSpace({PeerType.Outgoing}) == high(int)
+
+    # POOL 1
+    for i in 0 ..< 79:
+      if i mod 2 == 0:
+        check pool1.addIncomingPeerNoWait(PeerTest.init("idInc" & $i)) ==
+          PeerStatus.Success
+      else:
+        check pool1.addOutgoingPeerNoWait(PeerTest.init("idOut" & $i)) ==
+          PeerStatus.Success
+      check pool1.lenSpace() == 79 - (i + 1)
+
+    # POOL 2
+    for i in 0 ..< 39:
+      check:
+        pool2.addIncomingPeerNoWait(PeerTest.init("idInc" & $i)) ==
+          PeerStatus.Success
+        pool2.lenSpace() == 79 - (i + 1)
+        pool2.lenSpace({PeerType.Incoming}) == 39 - (i + 1)
+        pool2.lenSpace({PeerType.Outgoing}) == 79 - (i + 1)
+
+    check:
+      pool2.addIncomingPeerNoWait(PeerTest.init("idInc39")) ==
+        PeerStatus.NoSpaceError
+      pool2.lenSpace({PeerType.Incoming}) == 0
+
+    for i in 39 ..< 79:
+      check:
+        pool2.addOutgoingPeerNoWait(PeerTest.init("idOut" & $i)) ==
+          PeerStatus.Success
+        pool2.addIncomingPeerNoWait(PeerTest.init("idIncSome")) ==
+          PeerStatus.NoSpaceError
+        pool2.lenSpace() == 79 - (i + 1)
+        pool2.lenSpace({PeerType.Incoming}) == 0
+        pool2.lenSpace({PeerType.Outgoing}) == 79 - (i + 1)
+
+    check:
+      pool2.addOutgoingPeerNoWait(PeerTest.init("idOut79")) ==
+        PeerStatus.NoSpaceError
+      pool2.addIncomingPeerNoWait(PeerTest.init("idInc79")) ==
+        PeerStatus.NoSpaceError
+      pool2.lenSpace() == 0
+      pool2.lenSpace({PeerType.Incoming}) == 0
+      pool2.lenSpace({PeerType.Outgoing}) == 0
+
+    # POOL 3
+    for i in 0 ..< 40:
+      check:
+        pool3.addOutgoingPeerNoWait(PeerTest.init("idOut" & $i)) ==
+          PeerStatus.Success
+        pool3.lenSpace() == 79 - (i + 1)
+        pool3.lenSpace({PeerType.Outgoing}) == 40 - (i + 1)
+        pool3.lenSpace({PeerType.Incoming}) == 79 - (i + 1)
+
+    check:
+      pool3.addOutgoingPeerNoWait(PeerTest.init("idInc40")) ==
+        PeerStatus.NoSpaceError
+      pool3.lenSpace({PeerType.Outgoing}) == 0
+
+    for i in 40 ..< 79:
+      check:
+        pool3.addIncomingPeerNoWait(PeerTest.init("idInc" & $i)) ==
+          PeerStatus.Success
+        pool3.addOutgoingPeerNoWait(PeerTest.init("idOutSome")) ==
+          PeerStatus.NoSpaceError
+        pool3.lenSpace() == 79 - (i + 1)
+        pool3.lenSpace({PeerType.Outgoing}) == 0
+        pool3.lenSpace({PeerType.Incoming}) == 79 - (i + 1)
+
+    check:
+      pool3.addIncomingPeerNoWait(PeerTest.init("idInc79")) ==
+        PeerStatus.NoSpaceError
+      pool3.addOutgoingPeerNoWait(PeerTest.init("idOut79")) ==
+        PeerStatus.NoSpaceError
+      pool3.lenSpace() == 0
+      pool3.lenSpace({PeerType.Incoming}) == 0
+      pool3.lenSpace({PeerType.Outgoing}) == 0
+
+    # POOL 4
+    for i in 0 ..< 40:
+      check:
+        pool4.addOutgoingPeerNoWait(PeerTest.init("idOut" & $i)) ==
+          PeerStatus.Success
+        pool4.addIncomingPeerNoWait(PeerTest.init("idIncSome")) ==
+          PeerStatus.NoSpaceError
+        pool4.lenSpace() == 40 - (i + 1)
+        pool4.lenSpace({PeerType.Incoming}) == 0
+        pool4.lenSpace({PeerType.Outgoing}) == 40 - (i + 1)
+
+    check:
+      pool4.addOutgoingPeerNoWait(PeerTest.init("idOut40")) ==
+        PeerStatus.NoSpaceError
+      pool4.addIncomingPeerNoWait(PeerTest.init("idInc40")) ==
+        PeerStatus.NoSpaceError
+      pool4.lenSpace() == 0
+      pool4.lenSpace({PeerType.Incoming}) == 0
+      pool4.lenSpace({PeerType.Outgoing}) == 0
+
+    # POOL 5
+    for i in 0 ..< 39:
+      check:
+        pool5.addIncomingPeerNoWait(PeerTest.init("idInc" & $i)) ==
+          PeerStatus.Success
+        pool5.addOutgoingPeerNoWait(PeerTest.init("idOutSome")) ==
+          PeerStatus.NoSpaceError
+        pool5.lenSpace() == 39 - (i + 1)
+        pool5.lenSpace({PeerType.Incoming}) == 39 - (i + 1)
+        pool5.lenSpace({PeerType.Outgoing}) == 0
+
+    check:
+      pool5.addOutgoingPeerNoWait(PeerTest.init("idOut39")) ==
+        PeerStatus.NoSpaceError
+      pool5.addIncomingPeerNoWait(PeerTest.init("idInc39")) ==
+        PeerStatus.NoSpaceError
+      pool5.lenSpace() == 0
+      pool5.lenSpace({PeerType.Incoming}) == 0
+      pool5.lenSpace({PeerType.Outgoing}) == 0
+
+    # POOL 6
+    for i in 0 ..< 39:
+      check:
+        pool6.addIncomingPeerNoWait(PeerTest.init("idInc" & $i)) ==
+          PeerStatus.Success
+        pool6.addOutgoingPeerNoWait(PeerTest.init("idOut" & $(i + 39))) ==
+          PeerStatus.Success
+        pool6.lenSpace() == 79 - (i + 1) * 2
+        pool6.lenSpace({PeerType.Incoming}) == 39 - (i + 1)
+        pool6.lenSpace({PeerType.Outgoing}) == 40 - (i + 1)
+
+    check:
+      pool6.addIncomingPeerNoWait(PeerTest.init("idInc39")) ==
+        PeerStatus.NoSpaceError
+      pool6.addOutgoingPeerNoWait(PeerTest.init("idOut79")) ==
+        PeerStatus.Success
+      pool6.addOutgoingPeerNoWait(PeerTest.init("idOut80")) ==
+        PeerStatus.NoSpaceError
+      pool6.lenSpace() == 0
+      pool6.lenSpace({PeerType.Incoming}) == 0
+      pool6.lenSpace({PeerType.Outgoing}) == 0
+
+    # POOL 7
+    for i in 0 ..< 39:
+      check:
+        pool7.addIncomingPeerNoWait(PeerTest.init("idInc" & $i)) ==
+          PeerStatus.Success
+        pool7.lenSpace() == high(int) - (i + 1)
+        pool7.lenSpace({PeerType.Incoming}) == 39 - (i + 1)
+        pool7.lenSpace({PeerType.Outgoing}) == high(int) - (i + 1)
+
+    check:
+      pool7.addIncomingPeerNoWait(PeerTest.init("idInc39")) ==
+        PeerStatus.NoSpaceError
+      pool7.lenSpace() == high(int) - 39
+      pool7.lenSpace({PeerType.Incoming}) == 0
+      pool7.lenSpace({PeerType.Outgoing}) == high(int) - 39
+
+    # We could not check whole high(int), so we check 10_000 items
+    for i in 0 ..< 10_000:
+      check:
+        pool7.addOutgoingPeerNoWait(PeerTest.init("idOut" & $i)) ==
+          PeerStatus.Success
+        pool7.lenSpace() == high(int) - 39 - (i + 1)
+        pool7.lenSpace({PeerType.Incoming}) == 0
+        pool7.lenSpace({PeerType.Outgoing}) == high(int) - 39 - (i + 1)
+
+    # POOL 8
+    for i in 0 ..< 40:
+      check:
+        pool8.addOutgoingPeerNoWait(PeerTest.init("idOut" & $i)) ==
+          PeerStatus.Success
+        pool8.lenSpace() == high(int) - (i + 1)
+        pool8.lenSpace({PeerType.Outgoing}) == 40 - (i + 1)
+        pool8.lenSpace({PeerType.Incoming}) == high(int) - (i + 1)
+
+    check:
+      pool8.addOutgoingPeerNoWait(PeerTest.init("idOut40")) ==
+        PeerStatus.NoSpaceError
+      pool8.lenSpace() == high(int) - 40
+      pool8.lenSpace({PeerType.Outgoing}) == 0
+      pool8.lenSpace({PeerType.Incoming}) == high(int) - 40
+
+    # We could not check whole high(int), so we check 10_000 items
+    for i in 0 ..< 10_000:
+      check:
+        pool8.addIncomingPeerNoWait(PeerTest.init("idInc" & $i)) ==
+          PeerStatus.Success
+        pool8.lenSpace() == high(int) - 40 - (i + 1)
+        pool8.lenSpace({PeerType.Outgoing}) == 0
+        pool8.lenSpace({PeerType.Incoming}) == high(int) - 40 - (i + 1)
+
+    # POOL 9
+    # We could not check whole high(int), so we check 10_000 items
+    for i in 0 ..< 10_000:
+      check:
+        pool9.addIncomingPeerNoWait(PeerTest.init("idInc" & $i)) ==
+          PeerStatus.Success
+        pool9.addOutgoingPeerNoWait(PeerTest.init("idOut" & $i)) ==
+          PeerStatus.Success
+        pool9.lenSpace() == high(int) - (i + 1) * 2
+        pool9.lenSpace({PeerType.Outgoing}) == high(int) - (i + 1) * 2
+        pool9.lenSpace({PeerType.Incoming}) == high(int) - (i + 1) * 2

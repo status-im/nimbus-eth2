@@ -459,7 +459,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
     lastSlot = shortLog(lastSlot),
     scheduledSlot = shortLog(scheduledSlot),
     beaconTime = shortLog(beaconTime),
-    peers = node.network.peersCount,
+    peers = len(node.network.peerPool),
     head = shortLog(node.chainDag.head),
     headEpoch = shortLog(node.chainDag.head.slot.compute_epoch_at_slot()),
     finalized = shortLog(node.chainDag.finalizedHead.blck),
@@ -903,7 +903,7 @@ proc initializeNetworking(node: BeaconNode) {.async.} =
   let addressFile = node.config.dataDir / "beacon_node.enr"
   writeFile(addressFile, node.network.announcedENR.toURI)
 
-  await node.network.startLookingForPeers()
+  await node.network.start()
 
   info "Networking initialized",
     enr = node.network.announcedENR.toURI,

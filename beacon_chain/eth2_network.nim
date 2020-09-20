@@ -223,10 +223,8 @@ const
     ## Period of time for `IrrelevantNetwork` error reason.
   SeenTableTimeClientShutDown* = 10.minutes
     ## Period of time for `ClientShutDown` error reason.
-  SeemTableTimeFaultOrError* = 10.minutes
+  SeenTableTimeFaultOrError* = 10.minutes
     ## Period of time for `FaultOnError` error reason.
-
-var successfullyDialledAPeer = false # used to show a warning
 
 template neterr(kindParam: Eth2NetworkingErrorKind): auto =
   err(type(result), Eth2NetworkingError(kind: kindParam))
@@ -356,6 +354,8 @@ proc `<`*(a, b: Peer): bool =
     false
 
 proc isSeen*(network: ETh2Node, peerId: PeerID): bool =
+  ## Returns ``true`` if ``peerId`` present in SeenTable and time period is not
+  ## yet expired.
   let currentTime = now(chronos.Moment)
   if peerId notin network.seenTable:
     return false
@@ -368,6 +368,7 @@ proc isSeen*(network: ETh2Node, peerId: PeerID): bool =
 
 proc addSeen*(network: ETh2Node, peerId: PeerID,
               period: chronos.Duration) =
+  ## Adds peer with PeerID ``peerId`` to SeenTable and timeout ``period``.
   let item = SeenItem(peerId: peerId, stamp: now(chronos.Moment) + period)
   network.seenTable[peerId] = item
 
@@ -385,7 +386,7 @@ proc disconnect*(peer: Peer, reason: DisconnectionReason,
       of IrrelevantNetwork:
         SeenTableTimeIrrelevantNetwork
       of FaultOrError:
-        SeemTableTimeFaultOrError
+        SeenTableTimeFaultOrError
     peer.network.addSeen(peer.info.peerId, seenTime)
 
 include eth/p2p/p2p_backends_helpers
@@ -682,32 +683,6 @@ proc handleIncomingStream(network: Eth2Node,
   finally:
     await conn.close()
 
-proc handleOutgoingPeer(peer: Peer): Future[bool] {.async.} =
-  let network = peer.network
-
-  proc onPeerClosed(udata: pointer) =
-    debug "Peer (outgoing) lost", peer
-
-  let res = await network.peerPool.addOutgoingPeer(peer)
-  if res:
-    peer.updateScore(NewPeerScore)
-    debug "Peer (outgoing) has been added to PeerPool", peer
-    peer.getFuture().addCallback(onPeerClosed)
-    result = true
-
-proc handleIncomingPeer(peer: Peer): Future[bool] {.async.} =
-  let network = peer.network
-
-  proc onPeerClosed(udata: pointer) =
-    debug "Peer (incoming) lost", peer
-
-  let res = await network.peerPool.addIncomingPeer(peer)
-  if res:
-    peer.updateScore(NewPeerScore)
-    debug "Peer (incoming) has been added to PeerPool", peer
-    peer.getFuture().addCallback(onPeerClosed)
-    result = true
-
 proc toPeerAddr*(r: enr.TypedRecord):
     Result[PeerAddr, cstring] {.raises: [Defect].} =
   if not r.secp256k1.isSome:
@@ -738,92 +713,109 @@ proc toPeerAddr*(r: enr.TypedRecord):
 
   ok(PeerAddr(peerId: peerId, addrs: addrs))
 
-proc dialPeer*(node: Eth2Node, peerAddr: PeerAddr) {.async.} =
-  logScope: peer = peerAddr.peerId
+proc dialPeer*(node: Eth2Node, peerAddr: PeerAddr, index = 0) {.async.} =
+  ## Establish connection with remote peer identified by address ``peerAddr``.
+  logScope:
+    peer = peerAddr.peerId
+    index = index
 
   debug "Connecting to discovered peer"
+  let peerId = peerAddr.peerId
+  if node.peerPool.hasPeer(peerId):
+    trace "Already connected"
+    return
+  if node.isSeen(peerId):
+    trace "Recently connected"
+    return
+  if peerId in node.connTable:
+    trace "Already connecting to peer"
+    return
 
-  # TODO connect is called here, but there's no guarantee that the connection
-  #      we get when using dialPeer later on is the one we just connected
-  await node.switch.connect(peerAddr.peerId, peerAddr.addrs)
+  node.connTable.incl(peerId)
 
-  #let msDial = newMultistream()
-  #let conn = node.switch.connections.getOrDefault(peerInfo.id)
-  #let ls = await msDial.list(conn)
-  #debug "Supported protocols", ls
+  var deadline = sleepAsync(node.connectTimeout)
+  var workfut = node.switch.connect(peerAddr.peerId, peerAddr.addrs)
 
-  inc nbc_successful_dials
-  successfullyDialledAPeer = true
-  debug "Network handshakes completed"
-
-proc connectWorker(network: Eth2Node) {.async.} =
-  debug "Connection worker started"
-
-  while true:
-    let
-      remotePeerAddr = await network.connQueue.popFirst()
-      peerPoolHasRemotePeer = network.peerPool.hasPeer(remotePeerAddr.peerId)
-      seenTableHasRemotePeer = network.isSeen(remotePeerAddr.peerId)
-      remotePeerAlreadyConnected = remotePeerAddr.peerId in network.connTable
-
-    if not(peerPoolHasRemotePeer) and not(seenTableHasRemotePeer) and not(remotePeerAlreadyConnected):
-      network.connTable.incl(remotePeerAddr.peerId)
-      try:
-        # We trying to connect to peers which are not in PeerPool, SeenTable and
-        # ConnTable.
-        var fut = network.dialPeer(remotePeerAddr)
-        # We discarding here just because we going to check future state, to avoid
-        # condition where connection happens and timeout reached.
-        discard await withTimeout(fut, network.connectTimeout)
-        # We handling only timeout and errors, because successfull connections
-        # will be stored in PeerPool.
-        if fut.finished():
-          if fut.failed() and not(fut.cancelled()):
-            debug "Unable to establish connection with peer", peer = remotePeerAddr.peerId,
-                  errMsg = fut.readError().msg
-            inc nbc_failed_dials
-            network.addSeen(remotePeerAddr.peerId, SeenTableTimeDeadPeer)
-          continue
-        debug "Connection to remote peer timed out", peer = remotePeerAddr.peerId
-        inc nbc_timeout_dials
-        network.addSeen(remotePeerAddr.peerId, SeenTableTimeTimeout)
-      finally:
-        network.connTable.excl(remotePeerAddr.peerId)
+  try:
+    # `or` operation will only raise exception of `workfut`, because `deadline`
+    # could not raise exception.
+    await workfut or deadline
+    if workfut.finished():
+      if not deadline.finished():
+        deadline.cancel()
+      inc nbc_successful_dials
     else:
-      trace "Peer is already connected, connecting or already seen",
-            peer = remotePeerAddr.peerId, peer_pool_has_peer = $peerPoolHasRemotePeer, seen_table_has_peer = $seenTableHasRemotePeer,
-            connecting_peer = $remotePeerAlreadyConnected, seen_table_size = len(network.seenTable)
+      # TODO: As soon as `nim-libp2p` will be able to handle cancellation
+      # properly and will have cancellation tests, we need add here cancellation
+      # of `workfut`.
+      # workfut.cancel()
+      debug "Connection to remote peer timed out"
+      inc nbc_timeout_dials
+      node.addSeen(peerAddr.peerId, SeenTableTimeTimeout)
+  except CatchableError as exc:
+    debug "Connection to remote peer failed", msg = exc.msg
+    inc nbc_failed_dials
+    node.addSeen(peerId, SeenTableTimeDeadPeer)
 
-    # Prevent (a purely theoretical) high CPU usage when losing connectivity.
-    await sleepAsync(1.seconds)
+  node.connTable.excl(peerId)
+
+proc connectWorker(network: Eth2Node, index: int) {.async.} =
+  debug "Connection worker started", index = index
+  while true:
+    # This loop will never produce HIGH CPU usage because it will wait
+    # and block until it not obtains new peer from the queue ``connQueue``.
+    let remotePeerAddr = await network.connQueue.popFirst()
+    await network.dialPeer(remotePeerAddr, index)
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
 
   let enrField = ("eth2", SSZ.encode(node.forkId))
-  while true:
-    let currentPeerCount = node.peerPool.len
-    if currentPeerCount < node.wantedPeers:
-      try:
-        let discoveredPeers =
-          node.discovery.randomNodes(node.wantedPeers - currentPeerCount,
-            enrField)
-        for peer in discoveredPeers:
-          try:
-            let peerRecord = peer.record.toTypedRecord
-            if peerRecord.isOk:
-              let peerAddr = peerRecord.value.toPeerAddr
-              if peerAddr.isOk:
-                if not node.switch.isConnected(peerAddr.get().peerId):
-                  await node.connQueue.addLast(peerAddr.get())
-                else:
-                  discard # peerInfo.close()
-          except CatchableError as err:
-            debug "Failed to connect to peer", peer = $peer, err = err.msg
-      except CatchableError as err:
-        debug "Failure in discovery", err = err.msg
+  var
+    index = 0
+    discoveredNodes = newSeq[Node]()
 
-    await sleepAsync seconds(1)
+  while true:
+    # Important: this loop "can" produce HIGH CPU usage if ``connQueue`` will
+    # not have maximum size.
+    let wantedPeers = node.peerPool.lenSpace({PeerType.Outgoing})
+    debug "Discovery iteration", wanted_peers = wantedPeers,
+                                 index = index,
+                                 discovered_length = len(discoveredNodes),
+                                 space = node.peerPool.shortLogSpace(),
+                                 acquired = node.peerPool.shortLogAcquired(),
+                                 available = node.peerPool.shortLogAvailable(),
+                                 current = node.peerPool.shortLogCurrent(),
+                                 length = len(node.peerPool)
+
+    if wantedPeers == 0:
+      # Wait for PeerPool's event which will be fired only when there will be
+      # empty space for ``PeerType.Outgoing`` peer.
+      await node.peerPool.outNotFullEvent.wait()
+    else:
+      try:
+        if index == len(discoveredNodes):
+          discoveredNodes = node.discovery.randomNodes(wantedPeers, enrField)
+          index = 0
+        if len(discoveredNodes) > 0:
+          let discnode = discoveredNodes[index]
+          try:
+            let nodeRecord = discnode.record.toTypedRecord
+            if nodeRecord.isOk:
+              let peerAddr = nodeRecord.value.toPeerAddr
+              if peerAddr.isOk:
+                await node.connQueue.addLast(peerAddr.get())
+          except CatchableError as exc:
+            debug "Failed to decode discovery's node address",
+                  node = $discnode, errMsg = exc.msg
+          # Increase index to process next node in `discoveryNodes` list.
+          inc(index)
+        else:
+          warn "Could not discover any nodes in network, waiting"
+          # We are waiting until discovery will not populate random nodes list.
+          await sleepAsync(1.seconds)
+      except CatchableError as exc:
+        debug "Unexpected failure in discovery loop", errMsg = exc.msg
 
 proc getPersistentNetMetadata*(conf: BeaconNodeConf): Eth2Metadata =
   let metadataPath = conf.dataDir / nodeMetadataFilename
@@ -860,17 +852,29 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
       # there's still a slim chance of a race condition here if a reconnect
       # happens quickly
       if peer.connections == 1:
+        let res =
+          if event.incoming:
+            node.peerPool.addIncomingPeerNoWait(peer)
+          else:
+            node.peerPool.addOutgoingPeerNoWait(peer)
 
-        # TODO when the pool is full, adding it will block - this means peers
-        #      will be left in limbo until some other peer makes room for it
-        let added = if event.incoming:
-          await handleIncomingPeer(peer)
-        else:
-          await handleOutgoingPeer(peer)
-
-        if not added:
-          # We must have hit a limit!
+        case res:
+        of PeerStatus.LowScoreError, PeerStatus.NoSpaceError:
+          # Peer has low score or we do not have enough space in PeerPool,
+          # we are going to disconnect it gracefully.
           await peer.disconnect(FaultOrError)
+        of PeerStatus.DeadPeerError:
+          # Peer's lifetime future is finished, so its already dead,
+          # we do not need to perform gracefull disconect.
+          discard
+        of PeerStatus.DuplicateError:
+          # Peer is already present in PeerPool, we can't perform disconnect,
+          # because in such case we could kill both connections (connection
+          # which is present in PeerPool and new one).
+          discard
+        of PeerStatus.Success:
+          # Peer was added to PeerPool.
+          discard
 
   of ConnEventKind.Disconnected:
     dec peer.connections
@@ -898,6 +902,8 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
     result.seenThreshold = 10.seconds
   result.seenTable = initTable[PeerID, SeenItem]()
   result.connTable = initHashSet[PeerID]()
+  # Its important here to create AsyncQueue with limited size, otherwise
+  # it could produce HIGH cpu usage.
   result.connQueue = newAsyncQueue[PeerAddr](ConcurrentConnections)
   result.metadata = getPersistentNetMetadata(conf)
   result.forkId = enrForkId
@@ -935,12 +941,18 @@ proc startListening*(node: Eth2Node) {.async.} =
 proc start*(node: Eth2Node) {.async.} =
 
   proc onPeerCountChanged() =
+    trace "Number of peers has been changed",
+          space = node.peerPool.shortLogSpace(),
+          acquired = node.peerPool.shortLogAcquired(),
+          available = node.peerPool.shortLogAvailable(),
+          current = node.peerPool.shortLogCurrent(),
+          length = len(node.peerPool)
     nbc_peers.set int64(len(node.peerPool))
 
   node.peerPool.setPeerCounter(onPeerCountChanged)
 
   for i in 0 ..< ConcurrentConnections:
-    node.connWorkers.add connectWorker(node)
+    node.connWorkers.add connectWorker(node, i)
 
   if node.discoveryEnabled:
     node.discovery.start()
@@ -1238,23 +1250,6 @@ proc announcedENR*(node: Eth2Node): enr.Record =
 
 proc shortForm*(id: KeyPair): string =
   $PeerID.init(id.pubkey)
-
-let BOOTSTRAP_NODE_CHECK_INTERVAL = 30.seconds
-proc checkIfConnectedToBootstrapNode(p: pointer) {.gcsafe.} =
-  # Keep showing warnings until we connect to at least one bootstrap node
-  # successfully, in order to allow detection of an invalid configuration.
-  let node = cast[Eth2Node](p)
-  if node.discovery.bootstrapRecords.len > 0 and not successfullyDialledAPeer:
-    warn "Failed to connect to any bootstrap node",
-      bootstrapEnrs = node.discovery.bootstrapRecords
-    addTimer(BOOTSTRAP_NODE_CHECK_INTERVAL, checkIfConnectedToBootstrapNode, p)
-
-proc startLookingForPeers*(node: Eth2Node) {.async.} =
-  await node.start()
-  addTimer(BOOTSTRAP_NODE_CHECK_INTERVAL, checkIfConnectedToBootstrapNode, node[].addr)
-
-func peersCount*(node: Eth2Node): int =
-  len(node.peerPool)
 
 proc subscribe*[MsgType](node: Eth2Node,
                          topic: string,
