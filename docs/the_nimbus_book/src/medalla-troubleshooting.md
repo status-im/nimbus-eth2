@@ -48,7 +48,6 @@ As it stands, logging seems to be slowing down the client,  and quite a few user
 make LOG_LEVEL=INFO medalla
 ```
 
-
 ### Low peer counts
 
 If you're experiencing a low peer count, you may be behind a firewall. Try restarting your client and passing `NODE_PARAMS="--nat:\"extip:$EXT_IP_ADDRESS\""` as an option to `make medalla`, where `$EXT_IP_ADDRESS` is your real IP. For example, if your real IP address is `35.124.65.104`, you'd run:
@@ -62,3 +61,20 @@ make NODE_PARAMS="--nat:\"extip:35.124.65.104\"" medalla
 If you're experiencing RAM related resource leaks, try restarting your client (**we recommend restarting every 6 hours** until we get to the bottom of this issue). If you have a [local Grafana setup](https://github.com/status-im/nim-beacon-chain#getting-metrics-from-a-local-testnet-client), you can try monitoring the severity of these leaks and playing around with the restart interval.
 
 
+### Address already in use error
+
+If you're seeing an error that looks like:
+
+```
+Error: unhandled exception: (98) Address already in use [TransportOsError]
+```
+
+It's probably because you're running multiple validators -- and the default base port `9000` is already in use.
+
+To change the base port, run:
+
+```
+make BASE_PORT=9100 medalla
+```
+
+(You can replace `9100` with a port of your choosing)
