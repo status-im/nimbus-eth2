@@ -713,26 +713,29 @@ proc toPeerAddr*(r: enr.TypedRecord):
 
   ok(PeerAddr(peerId: peerId, addrs: addrs))
 
+proc checkPeer(node: Eth2Node, peerAddr: PeerAddr): bool =
+  logScope: peer = peerAddr.peerId
+  let peerId = peerAddr.peerId
+  if node.peerPool.hasPeer(peerId):
+    trace "Already connected"
+    false
+  else:
+    if node.isSeen(peerId):
+      trace "Recently connected"
+      false
+    else:
+      true
+
 proc dialPeer*(node: Eth2Node, peerAddr: PeerAddr, index = 0) {.async.} =
   ## Establish connection with remote peer identified by address ``peerAddr``.
   logScope:
     peer = peerAddr.peerId
     index = index
 
+  if not(node.checkPeer(peerAddr)):
+    return
+
   debug "Connecting to discovered peer"
-  let peerId = peerAddr.peerId
-  if node.peerPool.hasPeer(peerId):
-    trace "Already connected"
-    return
-  if node.isSeen(peerId):
-    trace "Recently connected"
-    return
-  if peerId in node.connTable:
-    trace "Already connecting to peer"
-    return
-
-  node.connTable.incl(peerId)
-
   var deadline = sleepAsync(node.connectTimeout)
   var workfut = node.switch.connect(peerAddr.peerId, peerAddr.addrs)
 
@@ -757,8 +760,6 @@ proc dialPeer*(node: Eth2Node, peerAddr: PeerAddr, index = 0) {.async.} =
     inc nbc_failed_dials
     node.addSeen(peerId, SeenTableTimeDeadPeer)
 
-  node.connTable.excl(peerId)
-
 proc connectWorker(network: Eth2Node, index: int) {.async.} =
   debug "Connection worker started", index = index
   while true:
@@ -766,6 +767,9 @@ proc connectWorker(network: Eth2Node, index: int) {.async.} =
     # and block until it not obtains new peer from the queue ``connQueue``.
     let remotePeerAddr = await network.connQueue.popFirst()
     await network.dialPeer(remotePeerAddr, index)
+    # Peer was added to `connTable` before adding it to `connQueue`, so we
+    # excluding peer here after processing.
+    node.connTable.excl(remotePeerAddr.peerId)
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
@@ -773,6 +777,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   let enrField = ("eth2", SSZ.encode(node.forkId))
   var
     index = 0
+    attempts = 0
     discoveredNodes = newSeq[Node]()
 
   while true:
@@ -794,26 +799,33 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
       await node.peerPool.outNotFullEvent.wait()
     else:
       try:
-        if index == len(discoveredNodes):
-          discoveredNodes = node.discovery.randomNodes(wantedPeers, enrField)
-          index = 0
-        if len(discoveredNodes) > 0:
-          let discnode = discoveredNodes[index]
+        let discoveredNodes = node.discovery.randomNodes(wantedPeers, enrField)
+        var newPeers = len(discoveryNodes)
+        for discnode in discoveredNodes:
           try:
             let nodeRecord = discnode.record.toTypedRecord
             if nodeRecord.isOk:
               let peerAddr = nodeRecord.value.toPeerAddr
               if peerAddr.isOk:
-                await node.connQueue.addLast(peerAddr.get())
-          except CatchableError as exc:
+                if node.checkPeer():
+                  if peerAddr.peerId notin node.connTable:
+                    # We adding to pending connections table here, but going
+                    # to remove only in `dialPeer`.
+                    node.connTable.incl(peerId.peerId)
+                    await node.connQueue.addLast(peerAddr.get())
+                    dec(newPeers)
+          except:
             debug "Failed to decode discovery's node address",
                   node = $discnode, errMsg = exc.msg
-          # Increase index to process next node in `discoveryNodes` list.
-          inc(index)
-        else:
-          warn "Could not discover any nodes in network, waiting"
-          # We are waiting until discovery will not populate random nodes list.
+
+        if len(discovernewPeers) == 0 or newPeers == 0:
+          # We can fall here if:
+          # 1. Discovery5 returns zero nodes.
+          # 2. Discovery5 returns nodes which are already connected, dead or
+          #    we connecting to this nodes right now.
+          warn "Could not discover any new nodes in network, waiting",
           await sleepAsync(1.seconds)
+
       except CatchableError as exc:
         debug "Unexpected failure in discovery loop", errMsg = exc.msg
 
