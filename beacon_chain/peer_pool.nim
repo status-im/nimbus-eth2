@@ -600,6 +600,8 @@ proc hasPeer*[A, B](pool: PeerPool[A, B], key: B): bool {.inline.} =
   ## Returns ``true`` if peer with ``key`` present in PeerPool ``pool``.
   pool.registry.hasKey(key)
 
+template contains*[A, B](pool: PeerPool[A, B], key: B): bool = pool.hasPeer(key)
+
 proc getOrDefault*[A, B](pool: PeerPool[A, B], key: B): A {.inline.} =
   ## Retrieves the peer from PeerPool ``pool`` using key ``key``. If peer is
   ## not present, default initialization value for type ``A`` is returned

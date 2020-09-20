@@ -735,13 +735,12 @@ proc toPeerAddr*(r: enr.TypedRecord):
 
 proc dialPeer*(node: Eth2Node, peerAddr: PeerAddr) {.async.} =
   let peerId = peerAddr.peerId
-  if peerId in node.connTable:
+  if node.connTable.containsOrIncl(peerId):
     trace "Already connecting to peer", peerId
     return
 
   debug "Connecting to discovered peer", peerId, addrs = peerAddr.addrs
 
-  node.connTable.incl(peerId)
   try:
     await node.switch.connect(peerId, peerAddr.addrs)
     inc nbc_successful_dials
@@ -749,6 +748,8 @@ proc dialPeer*(node: Eth2Node, peerAddr: PeerAddr) {.async.} =
   except CatchableError as exc:
     debug "Connection failed", peerId, msg = exc.msg
     node.addSeen(peerId, SeenTableTimeDeadPeer)
+  finally:
+    node.connTable.excl(peerId)
 
 proc connectWorker(network: Eth2Node) {.async.} =
   debug "Connection worker started"
@@ -760,7 +761,7 @@ proc connectWorker(network: Eth2Node) {.async.} =
       trace "Already connected", peerId = remotePeerAddr.peerId
       continue
 
-    if  network.isSeen(remotePeerAddr.peerId):
+    if network.isSeen(remotePeerAddr.peerId):
       trace "Recently connected", peerId = remotePeerAddr.peerId
       continue
 
@@ -783,10 +784,11 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
             if peerRecord.isOk:
               let peerAddr = peerRecord.value.toPeerAddr
               if peerAddr.isOk:
-                if not node.switch.isConnected(peerAddr.get().peerId):
+                if peerAddr.get().peerId notin node.peerPool:
+                  trace "Adding to connQueue", peerId = peerAddr.get().peerId
                   await node.connQueue.addLast(peerAddr.get())
                 else:
-                  discard # peerInfo.close()
+                  trace "Peer already connected", peerId = peerAddr.get().peerId
           except CatchableError as err:
             debug "Failed to connect to peer", peer = $peer, err = err.msg
       except CatchableError as err:
