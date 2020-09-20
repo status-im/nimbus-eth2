@@ -270,6 +270,9 @@ Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on 
 <blockquote>
 <p>If you haven't created your validator key yet, we recommend you do so using the <a href="https://medalla.launchpad.ethereum.org/">launchpad</a>. If you're not sure what the eth2 launchpad is, we recommend reading this <a href="https://blog.ethereum.org/2020/07/27/eth2-validator-launchpad/">introductory post</a> first.</p>
 </blockquote>
+<blockquote>
+<p>If you're an advanced user running Ubuntu, we recommend you check out this <a href="https://medium.com/@SomerEsat/guide-to-staking-on-ethereum-2-0-ubuntu-medalla-nimbus-5f4b2b0f2d7c">excellent and complementary guide</a>.</p>
+</blockquote>
 <h2><a class="header" href="#prerequisites" id="prerequisites">Prerequisites</a></h2>
 <p>If this is your first time playing with Nimbus, make sure you <a href="./install.html">install our external dependencies</a> first.</p>
 <p>This tutorial assumes basic knowledge of the <a href="https://www.learnenough.com/command-line-tutorial/basics#:%7E:text=Learn%20Enough%20Command%20Line%20to%20Be%20Dangerous%20is%20an%20introduction,broad%20an%20audience%20as%20possible.">command line</a>.</p>
@@ -707,8 +710,17 @@ Lists details about all wallets.
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;peers&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
 <h1><a class="header" href="#advanced-usage-for-developers" id="advanced-usage-for-developers">Advanced Usage for Developers</a></h1>
-<p>Latest updates happen in the <code>devel</code> branch which is merged into <code>master</code> every week on Tuesday before deploying a new testnets
-The following sections explain how to setup your build environment on your platform.</p>
+<p>Latest updates happen in the <code>devel</code> branch which is merged into <code>master</code> every week on Tuesday.</p>
+<p>This page contains tips and tricks for developers, further resources, along with information on how to set up your build environment on your platform.</p>
+<h3><a class="header" href="#ubuntu-guide" id="ubuntu-guide">Ubuntu guide</a></h3>
+<p>See <a href="https://medium.com/@SomerEsat/guide-to-staking-on-ethereum-2-0-ubuntu-medalla-nimbus-5f4b2b0f2d7c">this excellent resource</a> for detailed step-by-step guide on how to stake on eth2 with Ubuntu.</p>
+<p>It contains instructions on how to:</p>
+<ul>
+<li>Configure a newly running Ubuntu server instance</li>
+<li>Configure and run an eth1 node as a service</li>
+<li>Compile and configure the Nimbus client for eth 2, phase 0 (Medalla testnet)</li>
+<li>Install and configure <a href="https://prometheus.io/">Prometheus</a> metrics and set up a <a href="https://grafana.com/">Grafana</a> dashboard</li>
+</ul>
 <h3><a class="header" href="#windows-dev-environment" id="windows-dev-environment">Windows dev environment</a></h3>
 <p>Install Mingw-w64 for your architecture using the &quot;<a href="https://sourceforge.net/projects/mingw-w64/files/">MinGW-W64 Online
 Installer</a>&quot; (first link
