@@ -758,15 +758,15 @@ proc dialPeer*(node: Eth2Node, peerAddr: PeerAddr, index = 0) {.async.} =
   except CatchableError as exc:
     debug "Connection to remote peer failed", msg = exc.msg
     inc nbc_failed_dials
-    node.addSeen(peerId, SeenTableTimeDeadPeer)
+    node.addSeen(peerAddr.peerId, SeenTableTimeDeadPeer)
 
-proc connectWorker(network: Eth2Node, index: int) {.async.} =
+proc connectWorker(node: Eth2Node, index: int) {.async.} =
   debug "Connection worker started", index = index
   while true:
     # This loop will never produce HIGH CPU usage because it will wait
     # and block until it not obtains new peer from the queue ``connQueue``.
-    let remotePeerAddr = await network.connQueue.popFirst()
-    await network.dialPeer(remotePeerAddr, index)
+    let remotePeerAddr = await node.connQueue.popFirst()
+    await node.dialPeer(remotePeerAddr, index)
     # Peer was added to `connTable` before adding it to `connQueue`, so we
     # excluding peer here after processing.
     node.connTable.excl(remotePeerAddr.peerId)
@@ -800,30 +800,33 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
     else:
       try:
         let discoveredNodes = node.discovery.randomNodes(wantedPeers, enrField)
-        var newPeers = len(discoveryNodes)
+        var newPeers = 0
         for discnode in discoveredNodes:
           try:
             let nodeRecord = discnode.record.toTypedRecord
             if nodeRecord.isOk:
               let peerAddr = nodeRecord.value.toPeerAddr
               if peerAddr.isOk:
-                if node.checkPeer():
-                  if peerAddr.peerId notin node.connTable:
+                let paddr = peerAddr.get()
+                if node.checkPeer(paddr):
+                  if paddr.peerId notin node.connTable:
                     # We adding to pending connections table here, but going
                     # to remove only in `dialPeer`.
-                    node.connTable.incl(peerId.peerId)
-                    await node.connQueue.addLast(peerAddr.get())
-                    dec(newPeers)
-          except:
+                    node.connTable.incl(paddr.peerId)
+                    await node.connQueue.addLast(paddr)
+                    inc(newPeers)
+          except CatchableError as exc:
             debug "Failed to decode discovery's node address",
                   node = $discnode, errMsg = exc.msg
 
-        if len(discovernewPeers) == 0 or newPeers == 0:
+        if len(discoveredNodes) == 0 or newPeers == 0:
           # We can fall here if:
           # 1. Discovery5 returns zero nodes.
           # 2. Discovery5 returns nodes which are already connected, dead or
           #    we connecting to this nodes right now.
           warn "Could not discover any new nodes in network, waiting",
+               discovered = len(discoveredNodes), new_peers = newPeers,
+               wanted_peers = wantedPeers
           await sleepAsync(1.seconds)
 
       except CatchableError as exc:
