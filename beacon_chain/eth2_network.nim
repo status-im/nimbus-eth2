@@ -775,24 +775,11 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
 
   let enrField = ("eth2", SSZ.encode(node.forkId))
-  var
-    index = 0
-    attempts = 0
-    discoveredNodes = newSeq[Node]()
 
   while true:
     # Important: this loop "can" produce HIGH CPU usage if ``connQueue`` will
     # not have maximum size.
     let wantedPeers = node.peerPool.lenSpace({PeerType.Outgoing})
-    debug "Discovery iteration", wanted_peers = wantedPeers,
-                                 index = index,
-                                 discovered_length = len(discoveredNodes),
-                                 space = node.peerPool.shortLogSpace(),
-                                 acquired = node.peerPool.shortLogAcquired(),
-                                 available = node.peerPool.shortLogAvailable(),
-                                 current = node.peerPool.shortLogCurrent(),
-                                 length = len(node.peerPool)
-
     if wantedPeers == 0:
       # Wait for PeerPool's event which will be fired only when there will be
       # empty space for ``PeerType.Outgoing`` peer.
@@ -800,6 +787,14 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
     else:
       try:
         let discoveredNodes = node.discovery.randomNodes(wantedPeers, enrField)
+        debug "Discovery tick", wanted_peers = wantedPeers,
+              space = node.peerPool.shortLogSpace(),
+              acquired = node.peerPool.shortLogAcquired(),
+              available = node.peerPool.shortLogAvailable(),
+              current = node.peerPool.shortLogCurrent(),
+              length = len(node.peerPool),
+              discovered_nodes = len(discoveredNodes)
+
         var newPeers = 0
         for discnode in discoveredNodes:
           try:
