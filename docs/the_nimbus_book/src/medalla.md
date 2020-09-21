@@ -74,17 +74,17 @@ INF 2020-08-03 16:24:17.958+02:00 Starting beacon node                       top
 
 If you deposited after the [genesis](https://hackmd.io/@benjaminion/genesis) state was decided (August 2nd 1300 UTC), your validators will have been put in a queue based on deposit time, and will slowly be inducted into the validator set after genesis. Getting through the queue may take a few hours or days.
 
-The best way to keep track of your validator's status is [medalla.beaconcha.in](https://medalla.beaconcha.in) (click on the orange magnifying glass at the very top and paste in its public key). 
+The best way to keep track of your validator's status is [medalla.beaconcha.in](https://medalla.beaconcha.in) (click on the orange magnifying glass at the very top and paste in its public key).
 
 You can even [create an account](https://medalla.beaconcha.in/register) to add alerts and keep track of your validator's [performance](https://medalla.beaconcha.in/dashboard).
 
 To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running. You should see something like:
 
 ```
-peers: 35 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:7 (316807) ❯ sync: wPwwwwwDwwDPwPPPwwww:7:4.0627 (280512) 
+peers: 35 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:7 (316807) ❯ sync: wPwwwwwDwwDPwPPPwwww:7:4.0627 (280512)
 ```
 
-Where: 
+Where:
 - `peers` tells you how many peers you're currently connected to (in the above case, 35 peers)
 - `finalized` tells you the most recent finalized epoch you've synced to so far (the 8765th epoch)
 - `head` tells you the most recent slot you've synced to so far (the 2nd slot of the 8767th epoch)
@@ -207,4 +207,3 @@ If you are comfortable reading [Makefiles](https://en.wikipedia.org/wiki/Makefil
 Some of the provided options (such as `--network=medalla`) are essential while others (such as the ones controlling logging, metrics, ports, and the RPC service) are there for convenience.
 
 The Goerli testnet parameters (`$(GOERLI_TESTNETS_PARAMS`), are defined higher up in the Makefile, [here](https://github.com/status-im/nim-beacon-chain/blob/devel/Makefile#L158-L165).
-

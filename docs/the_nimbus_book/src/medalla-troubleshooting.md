@@ -38,7 +38,7 @@ This will create `nbc_pruned.sqlite3` files in `build/data/shared_medalla_0/db`,
 Options:
 - `--keepOldStates` (boolean):  Keep pre-finalisation states; defaults to `true`.
 - `--verbose` (boolean): Print a more verbose output to the console; defaults to `false`.
-  
+
 
 ### Keeping up with the head of the chain
 
@@ -60,5 +60,3 @@ make NODE_PARAMS="--nat:\"extip:35.124.65.104\"" medalla
 ### Resource leaks
 
 If you're experiencing RAM related resource leaks, try restarting your client (**we recommend restarting every 6 hours** until we get to the bottom of this issue). If you have a [local Grafana setup](https://github.com/status-im/nim-beacon-chain#getting-metrics-from-a-local-testnet-client), you can try monitoring the severity of these leaks and playing around with the restart interval.
-
-
