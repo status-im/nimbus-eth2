@@ -465,34 +465,6 @@ proc addPeer*[A, B](pool: PeerPool[A, B],
           res2
   return res
 
-proc addIncomingPeerNoWait*[A, B](pool: PeerPool[A, B],
-                                  peer: A): PeerStatus {.inline.} =
-  ## Add incoming peer ``peer`` to PeerPool ``pool``.
-  ##
-  ## Returns ``true`` on success.
-  pool.addPeerNoWait(peer, PeerType.Incoming)
-
-proc addOutgoingPeerNoWait*[A, B](pool: PeerPool[A, B],
-                                  peer: A): PeerStatus {.inline.} =
-  ## Add outgoing peer ``peer`` to PeerPool ``pool``.
-  ##
-  ## Returns ``true`` on success.
-  pool.addPeerNoWait(peer, PeerType.Outgoing)
-
-proc addIncomingPeer*[A, B](pool: PeerPool[A, B],
-                                  peer: A): Future[PeerStatus] {.inline.} =
-  ## Add incoming peer ``peer`` to PeerPool ``pool``.
-  ##
-  ## Returns ``true`` on success.
-  pool.addPeer(peer, PeerType.Incoming)
-
-proc addOutgoingPeer*[A, B](pool: PeerPool[A, B],
-                                  peer: A): Future[PeerStatus] {.inline.} =
-  ## Add outgoing peer ``peer`` to PeerPool ``pool``.
-  ##
-  ## Returns ``true`` on success.
-  pool.addPeer(peer, PeerType.Outgoing)
-
 proc acquireItemImpl[A, B](pool: PeerPool[A, B],
                            filter: set[PeerType]): A {.inline.} =
   doAssert((len(pool.outQueue) > 0) or (len(pool.incQueue) > 0))

@@ -862,9 +862,9 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
       if peer.connections == 1:
         let res =
           if event.incoming:
-            node.peerPool.addIncomingPeerNoWait(peer)
+            node.peerPool.addPeerNoWait(peer, PeerType.Incoming)
           else:
-            node.peerPool.addOutgoingPeerNoWait(peer)
+            node.peerPool.addPeerNoWait(peer, PeerType.Outgoing)
 
         case res:
         of PeerStatus.LowScoreError, PeerStatus.NoSpaceError:
