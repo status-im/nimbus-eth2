@@ -157,18 +157,14 @@ const
       incompatibilityDesc: "This build is compiled with the " & const_preset & " const preset. " &
                            "It's not compatible with mainnet")
 
+template eth2testnet(path: string): Eth2NetworkMetadata =
+  loadEth2NetworkMetadata(currentSourcePath.parentDir / ".." / "vendor" / "eth2-testnets" / path)
+
 const
-  altonaMetadata* = loadEth2NetworkMetadata(
-    currentSourcePath.parentDir / ".." / "vendor" / "eth2-testnets" / "shared" / "altona")
-
-  medallaMetadata* = loadEth2NetworkMetadata(
-    currentSourcePath.parentDir / ".." / "vendor" / "eth2-testnets" / "shared" / "medalla")
-
-  testnet0Metadata* = loadEth2NetworkMetadata(
-    currentSourcePath.parentDir / ".." / "vendor" / "eth2-testnets" / "nimbus" / "testnet0")
-
-  testnet1Metadata* = loadEth2NetworkMetadata(
-    currentSourcePath.parentDir / ".." / "vendor" / "eth2-testnets" / "nimbus" / "testnet1")
+  medallaMetadata* = eth2testnet "shared/medalla"
+  spadinaMetadata* = eth2testnet "shared/spadina"
+  testnet0Metadata* = eth2testnet "nimbus/testnet0"
+  testnet1Metadata* = eth2testnet "nimbus/testnet1"
 
 {.pop.} # the following pocedures raise more than just `Defect`
 
@@ -177,10 +173,10 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
     metadata = case toLowerAscii(networkName)
       of "mainnet":
         mainnetMetadata
-      of "altona":
-        altonaMetadata
       of "medalla":
         medallaMetadata
+      of "spadina":
+        spadinaMetadata
       of "testnet0":
         testnet0Metadata
       of "testnet1":

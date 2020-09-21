@@ -12,10 +12,10 @@ There is currently no eth2 mainnet - all networks are testnets.
 
 Though Nimbus can connect to any of the testnets published in the [eth2-clients/eth2-testnets repo](https://github.com/eth2-clients/eth2-testnets/tree/master/nimbus), below are the recommended ones:
 
-- Multi-client Testnet: [altona](https://github.com/goerli/altona) ([explorer](https://altona.beaconcha.in))
+- Multi-client Testnet: [medalla](https://github.com/goerli/medalla) ([explorer](https://medalla.beaconcha.in))
 - Nimbus Testnet: testnet0 (experimental, not always active)
 
-## Altona
+## Medalla
 
 ### Initial setup
 
@@ -26,7 +26,7 @@ Before we start, we have to obtain 32 ETH on the Goerli testnet (later on, we'll
 3. Post your account address on a social media platform (Twitter or Facebook). Copy the url to the post.
 4. Paste your post url on the [Goerli faucet](https://faucet.goerli.mudit.blog/) and select `Give me Ether > 37.5 Ethers` from the top right corner of the page.
 5. Wait for a few seconds and return to your MetaMask wallet to check if you have successfully received the ETH.
-6. Once the [prerequisites](./install.md) are installed, you can connect to the altona testnet with the following commands: <br>
+6. Once the [prerequisites](./install.md) are installed, you can connect to the medalla testnet with the following commands: <br>
 
 - **_Remember to replace `make` with `mingw32-make` if using Windows._**
 
@@ -36,8 +36,8 @@ cd nim-beacon-chain
 git checkout devel
 git pull
 make update
-make altona        # This will build Nimbus and all other dependencies
-                   # and connect you to altona
+make medalla       # This will build Nimbus and all other dependencies
+                   # and connect you to medalla
 ```
 
 _Once Nimbus has finished building, you will be prompted to enter the private key of the account you want to deposit the 32 ETH from._
@@ -65,8 +65,8 @@ _Once Nimbus has finished building, you will be prompted to enter the private ke
 9. Press enter and wait for a few seconds until you see *Deposit sent*.
 
 ```
-INF 2020-07-05 12:58:25+02:00 Generating deposits ... validatorsDir=/Users/sssaintleger/nim-beacon-chain/build/data/shared_altona_0/validators ...
-INF 2020-07-05 12:58:25+02:00 Sending deposits ... DepositContract=0x16e82D77882A663454Ef92806b7DeCa1D394810f ...
+INF 2020-07-05 12:58:25+02:00 Generating deposits ... validatorsDir=/Users/sssaintleger/nim-beacon-chain/build/data/shared_medalla_0/validators ...
+INF 2020-07-05 12:58:25+02:00 Sending deposits ... DepositContract=0x07b39F4fDE4A38bACe212b546dAc87C58DfE3fDC ...
 INF 2020-07-05 12:58:26+02:00 Deposit sent ... status=0x5455b1faf773a535668bdd4ade6b03f6cfd52f88414a5ad74bbdfdfd89f28b86
 
 Deposit sent, wait for confirmation then press enter to continue
@@ -78,7 +78,7 @@ Deposit sent, wait for confirmation then press enter to continue
 
 <img src="./img/deposit-transaction-details.png" alt="" style="margin: 0 40 0 40"/>
 
-> Note: it should take approximately 8 hours for your deposit to be processed by the beacon chain. To keep track of the status of your validator you should go to [https://altona.beaconcha.in/validators/eth1deposits/[Validator PubKey]](https://altona.beaconcha.in/validators/eth1deposits), replacing [Validator PubKey] with your actual Validator PubKey -- you can find this in the etherscan transaction details (for example, in the image above the Validator PubKey is  `0x95aa...`).
+> Note: it should take approximately 8 hours for your deposit to be processed by the beacon chain. To keep track of the status of your validator you should go to [https://medalla.beaconcha.in/validators/eth1deposits/[Validator PubKey]](https://medalla.beaconcha.in/validators/eth1deposits), replacing [Validator PubKey] with your actual Validator PubKey -- you can find this in the etherscan transaction details (for example, in the image above the Validator PubKey is  `0x95aa...`).
 
 And voila! That's all there is to it :)
 
