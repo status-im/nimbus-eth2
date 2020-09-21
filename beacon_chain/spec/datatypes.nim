@@ -47,7 +47,7 @@ export
 # internal state that's gone through sanity checks already.
 
 const
-  SPEC_VERSION* = "0.12.2" ## \
+  SPEC_VERSION* = "0.12.3" ## \
   ## Spec version we're aiming to be compatible with, right now
 
   GENESIS_SLOT* = Slot(0)

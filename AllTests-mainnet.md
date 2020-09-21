@@ -110,6 +110,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + BASE_REWARD_FACTOR                                64                   [Preset: mainnet]   OK
 + BLS_WITHDRAWAL_PREFIX                             "0x00"               [Preset: mainnet]   OK
 + CHURN_LIMIT_QUOTIENT                              65536                [Preset: mainnet]   OK
+  CONFIG_NAME                                       "mainnet"            [Preset: mainnet]   Skip
   DEPOSIT_CHAIN_ID                                  1                    [Preset: mainnet]   Skip
   DEPOSIT_CONTRACT_ADDRESS                          "0x1234567890123456789012345678901234567 Skip
   DEPOSIT_NETWORK_ID                                1                    [Preset: mainnet]   Skip
@@ -139,7 +140,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + MAX_COMMITTEES_PER_SLOT                           64                   [Preset: mainnet]   OK
 + MAX_DEPOSITS                                      16                   [Preset: mainnet]   OK
 + MAX_EFFECTIVE_BALANCE                             32000000000          [Preset: mainnet]   OK
-+ MAX_EPOCHS_PER_CROSSLINK                          64                   [Preset: mainnet]   OK
 + MAX_PROPOSER_SLASHINGS                            16                   [Preset: mainnet]   OK
 + MAX_SEED_LOOKAHEAD                                4                    [Preset: mainnet]   OK
 + MAX_VALIDATORS_PER_COMMITTEE                      2048                 [Preset: mainnet]   OK
@@ -153,6 +153,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + MIN_SEED_LOOKAHEAD                                1                    [Preset: mainnet]   OK
 + MIN_SLASHING_PENALTY_QUOTIENT                     32                   [Preset: mainnet]   OK
 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY               256                  [Preset: mainnet]   OK
++ PROPORTIONAL_SLASHING_MULTIPLIER                  3                    [Preset: mainnet]   OK
 + PROPOSER_REWARD_QUOTIENT                          8                    [Preset: mainnet]   OK
 + RANDOM_SUBNETS_PER_VALIDATOR                      1                    [Preset: mainnet]   OK
 + SAFE_SLOTS_TO_UPDATE_JUSTIFIED                    8                    [Preset: mainnet]   OK
@@ -167,7 +168,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + VALIDATOR_REGISTRY_LIMIT                          1099511627776        [Preset: mainnet]   OK
 + WHISTLEBLOWER_REWARD_QUOTIENT                     512                  [Preset: mainnet]   OK
 ```
-OK: 52/59 Fail: 0/59 Skip: 7/59
+OK: 52/60 Fail: 0/60 Skip: 8/60
 ## PeerPool testing suite
 ```diff
 + Access peers by key test                                                                   OK
@@ -195,6 +196,22 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + simple object fields                                                                       OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Slashing Protection DB - Interchange [Preset: mainnet]
+```diff
++ Smoke test - Complete format [Preset: mainnet]                                             OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## Slashing Protection DB [Preset: mainnet]
+```diff
++ Empty database [Preset: mainnet]                                                           OK
++ SP for block proposal - backtracking append                                                OK
++ SP for block proposal - linear append                                                      OK
++ SP for same epoch attestation target - backtracking append                                 OK
++ SP for same epoch attestation target - linear append                                       OK
++ SP for surrounded attestations                                                             OK
++ SP for surrounding attestations                                                            OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Spec datatypes
 ```diff
 + Graffiti bytes                                                                             OK
@@ -254,4 +271,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 137/144 Fail: 0/144 Skip: 7/144
+OK: 145/153 Fail: 0/153 Skip: 8/153

@@ -63,8 +63,10 @@ task test, "Run all tests":
 
   # Generic SSZ test, doesn't use consensus objects minimal/mainnet presets
   buildAndRunBinary "test_fixture_ssz_generic_types", "tests/official/", """-d:chronicles_log_level=TRACE -d:chronicles_sinks="json[file]""""
-  # Consensus object SSZ tests
-  buildAndRunBinary "test_fixture_ssz_consensus_objects", "tests/official/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]""""
+
+  # Consensus object SSZ tests; TODO switch back to mainnet when vectors exist
+  buildAndRunBinary "test_fixture_ssz_consensus_objects", "tests/official/", """-d:chronicles_log_level=TRACE -d:const_preset=minimal -d:chronicles_sinks="json[file]""""
+
   # EF tests
   buildAndRunBinary "all_fixtures_require_ssz", "tests/official/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]""""
 

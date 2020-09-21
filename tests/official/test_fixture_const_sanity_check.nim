@@ -91,6 +91,7 @@ else:
 
 const IgnoreKeys = [
   # Ignore all non-numeric types
+  "CONFIG_NAME",
   "DEPOSIT_CONTRACT_ADDRESS",
   "GENESIS_FORK_VERSION",
   "SHARD_BLOCK_OFFSETS",
