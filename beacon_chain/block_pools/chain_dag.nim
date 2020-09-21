@@ -466,29 +466,28 @@ proc getState(dag: ChainDAGRef, state: var StateData, bs: BlockSlot): bool =
 
 proc putState*(dag: ChainDAGRef, state: StateData) =
   # Store a state and its root
-  # TODO we save state at every epoch start but never remove them - we also
-  #      potentially save multiple states per slot if reorgs happen, meaning
-  #      we could easily see a state explosion
+  logScope:
+    blck = shortLog(state.blck)
+    stateSlot = shortLog(state.data.data.slot)
+    stateRoot = shortLog(state.data.root)
 
   # As a policy, we only store epoch boundary states without the epoch block
   # (if it exists) applied - the rest can be reconstructed by loading an epoch
-  # boundary state and applying the missing blocks
+  # boundary state and applying the missing blocks.
+  # We also avoid states that were produced with empty slots only, except the
+  # first such state as replaying to such states should be quick.
   if not state.data.data.slot.isEpoch:
     trace "Not storing non-epoch state"
     return
 
-  if state.data.data.slot <= state.blck.slot:
-    trace "Not storing epoch state with block already applied"
+  if state.data.data.slot.epoch != (state.blck.slot.epoch + 1):
+    trace "Not storing state that isn't an immediate epoch successor to its block"
     return
 
   if dag.db.containsState(state.data.root):
     return
 
-  info "Storing state",
-    blck = shortLog(state.blck),
-    stateSlot = shortLog(state.data.data.slot),
-    stateRoot = shortLog(state.data.root)
-
+  info "Storing state"
   # Ideally we would save the state and the root lookup cache in a single
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
