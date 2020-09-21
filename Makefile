@@ -278,6 +278,9 @@ define clean-network
 	rm -rf build/data/shared_$(1)*/*.log
 endef
 
+###
+### medalla
+###
 medalla: | beacon_node signing_process
 	$(call connect_to_network,medalla)
 
@@ -301,6 +304,9 @@ medalla-deposit: | beacon_node signing_process deposit_contract
 clean-medalla:
 	$(call clean_network,medalla)
 
+###
+### spadina
+###
 spadina: | beacon_node signing_process
 	$(call connect_to_network,spadina)
 
@@ -323,6 +329,32 @@ spadina-deposit: | beacon_node signing_process deposit_contract
 
 clean-spadina:
 	$(call clean_network,spadina)
+
+###
+### attacknet-beta1-mc-0
+###
+attacknet-beta1-mc-0: | beacon_node signing_process
+	$(call connect_to_network,attacknet-beta1-mc-0)
+
+attacknet-beta1-mc-0-vc: | beacon_node signing_process validator_client
+	$(call connect_to_network_with_validator_client,attacknet-beta1-mc-0)
+
+ifneq ($(LOG_LEVEL), TRACE)
+attacknet-beta1-mc-0-dev:
+	+ "$(MAKE)" LOG_LEVEL=TRACE $@
+else
+attacknet-beta1-mc-0-dev: | beacon_node signing_process
+	$(call connect_to_network_in_dev_mode,attacknet-beta1-mc-0)
+endif
+
+attacknet-beta1-mc-0-deposit-data: | beacon_node signing_process deposit_contract
+	$(call made_deposit_data,attacknet-beta1-mc-0)
+
+attacknet-beta1-mc-0-deposit: | beacon_node signing_process deposit_contract
+	$(call made_deposit,attacknet-beta1-mc-0)
+
+clean-attacknet-beta1-mc-0:
+	$(call clean_network,attacknet-beta1-mc-0)
 
 ctail: | build deps
 	mkdir -p vendor/.nimble/bin/
