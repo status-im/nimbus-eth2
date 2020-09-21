@@ -54,7 +54,7 @@ Yes but, under normal conditions, you will lose an amount of ETH roughly equival
 
 The answer to this question very much depends on how much ETH you have at your disposal.
 
-You should certainly top up if your balance is close to 16 ETH: this is to ensure you don't get kicked out of the validator set (which automatically happens if your balance falls below 16 ETH).
+You should certainly top up if your balance is close to 16 ETH: this is to ensure you don't get removed from the validator set (which automatically happens if your balance falls below 16 ETH).
 
 At the other end of the spectrum, if your balance is closer to 31 ETH, it's probably not worth your while adding the extra ETH required to get back to 32.
 
@@ -177,5 +177,4 @@ The user with the signing key could attempt to quickly exit the validator and th
 ### Why two keys instead of one?
 
 In a nutshell, security. The signing key must be available at all times. As such, it will need to be held online. Since anything online is vulnerable to being hacked, it's not a good idea to use the same key for withdrawals.
-
 
