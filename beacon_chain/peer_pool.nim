@@ -397,6 +397,39 @@ proc addPeerNoWait*[A, B](pool: PeerPool[A, B],
       else:
         PeerStatus.NoSpaceError
 
+proc getPeerSpaceMask[A, B](pool: PeerPool[A, B],
+                            peerType: PeerType): set[PeerType] {.inline.} =
+  ## This procedure returns set of events which you need to wait to get empty
+  ## space for peer type ``peerType``. This set can be used for call to
+  ## ``waitNotFullEvent()``.
+  case peerType:
+  of PeerType.Incoming:
+    if pool.maxIncPeersCount >= pool.maxPeersCount:
+      # If maximum number of `incoming` peers is only limited by
+      # maximum number of peers, then we could wait for both events.
+      # It means that we do not care about what peer will left pool.
+      {PeerType.Incoming, PeerType.Outgoing}
+    else:
+      # Otherwise we could wait only for `incoming` event
+      {PeerType.Incoming}
+  of PeerType.Outgoing:
+    if pool.maxOutPeersCount >= pool.maxPeersCount:
+      # If maximum number of `outgoing` peers is only limited by
+      # maximum number of peers, then we could wait for both events.
+      # It means that we do not care about what peer will left pool.
+      {PeerType.Incoming, PeerType.Outgoing}
+    else:
+      # Otherwise we could wait only for `outgoing` event
+      {PeerType.Outgoing}
+
+proc waitForEmptySpace*[A, B](pool: PeerPool[A, B],
+                              peerType: PeerType) {.async.} =
+  ## This procedure will block until ``pool`` will have an empty space for peer
+  ## of type ``peerType``.
+  let mask = pool.getPeerSpaceMask(peerType)
+  while pool.lenSpace({peerType}) == 0:
+    await pool.waitNotFullEvent(mask)
+
 proc addPeer*[A, B](pool: PeerPool[A, B],
                     peer: A, peerType: PeerType): Future[PeerStatus] {.async.} =
   ## Add peer ``peer`` of type ``peerType`` to PeerPool ``pool``.
@@ -416,26 +449,7 @@ proc addPeer*[A, B](pool: PeerPool[A, B],
       if res1 != PeerStatus.Success:
         res1
       else:
-        let mask =
-          case peerType:
-          of PeerType.Incoming:
-            if pool.maxIncPeersCount >= pool.maxPeersCount:
-              # If maximum number of `incoming` peers is only limited by
-              # maximum number of peers, then we could wait for both events.
-              # It means that we do not care about what peer will left pool.
-              {PeerType.Incoming, PeerType.Outgoing}
-            else:
-              # Otherwise we could wait only for `incoming` event
-              {PeerType.Incoming}
-          of PeerType.Outgoing:
-            if pool.maxOutPeersCount >= pool.maxPeersCount:
-              # If maximum number of `outgoing` peers is only limited by
-              # maximum number of peers, then we could wait for both events.
-              # It means that we do not care about what peer will left pool.
-              {PeerType.Incoming, PeerType.Outgoing}
-            else:
-              # Otherwise we could wait only for `outgoing` event
-              {PeerType.Outgoing}
+        let mask = pool.getPeerSpaceMask(peerType)
         # We going to block here until ``pool`` will not have free space,
         # for our type of peer.
         while pool.lenSpace({peerType}) == 0:
