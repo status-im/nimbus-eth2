@@ -778,56 +778,52 @@ proc toPeerAddr(node: Node): Result[PeerAddr, cstring] {.raises: [Defect].} =
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
-
   let enrField = ("eth2", SSZ.encode(node.forkId))
 
   while true:
-    # Important: this loop "can" produce HIGH CPU usage if ``connQueue`` will
-    # not have maximum size.
-    let wantedPeers = node.peerPool.lenSpace({PeerType.Outgoing})
-    if wantedPeers == 0:
-      # Wait for PeerPool's event which will be fired only when there will be
-      # empty space for ``PeerType.Outgoing`` peer.
-      await node.peerPool.waitForEmptySpace(PeerType.Outgoing)
-    else:
-      try:
-        let discoveredNodes = node.discovery.randomNodes(wantedPeers, enrField)
-        debug "Discovery tick", wanted_peers = wantedPeers,
-              space = node.peerPool.shortLogSpace(),
-              acquired = node.peerPool.shortLogAcquired(),
-              available = node.peerPool.shortLogAvailable(),
-              current = node.peerPool.shortLogCurrent(),
-              length = len(node.peerPool),
-              discovered_nodes = len(discoveredNodes)
+    # We always request constant number of peers to avoid problem with
+    # low amount of returned peers.
+    let discoveredNodes = node.discovery.randomNodes(node.wantedPeers, enrField)
 
-        var newPeers = 0
-        for discnode in discoveredNodes:
-          let res = discnode.toPeerAddr()
-          if res.isOk():
-            let peerAddr = res.get()
-            if node.checkPeer(peerAddr):
-              if peerAddr.peerId notin node.connTable:
-                # We adding to pending connections table here, but going
-                # to remove it only in `connectWorker`.
-                node.connTable.incl(peerAddr.peerId)
-                await node.connQueue.addLast(peerAddr)
-                inc(newPeers)
+    var newPeers = 0
+    for discNode in discoveredNodes:
+      let res = discNode.toPeerAddr()
+      if res.isOk():
+        let peerAddr = res.get()
+        # Waiting for an empty space in PeerPool.
+        while true:
+          if node.peerPool.lenSpace({PeerType.Outgoing}) == 0:
+            await node.peerPool.waitForEmptySpace(PeerType.Outgoing)
           else:
-            debug "Failed to decode discovery's node address",
-                  node = $discnode, errMsg = res.error
+            break
+        # Check if peer present in SeenTable or PeerPool.
+        if node.checkPeer(peerAddr):
+          if peerAddr.peerId notin node.connTable:
+            # We adding to pending connections table here, but going
+            # to remove it only in `connectWorker`.
+            node.connTable.incl(peerAddr.peerId)
+            await node.connQueue.addLast(peerAddr)
+            inc(newPeers)
+      else:
+        debug "Failed to decode discovery's node address",
+              node = $discnode, errMsg = res.error
 
-        if len(discoveredNodes) == 0 or newPeers == 0:
-          # We can fall here if:
-          # 1. Discovery5 returns zero nodes.
-          # 2. Discovery5 returns nodes which are already connected, dead or
-          #    we connecting to this nodes right now.
-          debug "Could not discover any new nodes in network, waiting",
-                discovered = len(discoveredNodes), new_peers = newPeers,
-                wanted_peers = wantedPeers
-          await sleepAsync(1.seconds)
+    debug "Discovery tick", wanted_peers = node.wantedPeers,
+          space = node.peerPool.shortLogSpace(),
+          acquired = node.peerPool.shortLogAcquired(),
+          available = node.peerPool.shortLogAvailable(),
+          current = node.peerPool.shortLogCurrent(),
+          length = len(node.peerPool),
+          discovered_nodes = len(discoveredNodes),
+          new_peers = newPeers
 
-      except CatchableError as exc:
-        debug "Unexpected failure in discovery loop", errMsg = exc.msg
+    if newPeers == 0:
+      warn "Could not discover any new nodes in network, waiting",
+            discovered = len(discoveredNodes), new_peers = newPeers,
+            wanted_peers = node.wantedPeers
+      await sleepAsync(5.seconds)
+    else:
+      await sleepAsync(1.seconds)
 
 proc getPersistentNetMetadata*(conf: BeaconNodeConf): Eth2Metadata =
   let metadataPath = conf.dataDir / nodeMetadataFilename
