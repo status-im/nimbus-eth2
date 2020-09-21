@@ -46,6 +46,26 @@ Limiting the maximum stake to 32 ETH encourages decentralization of power as it 
 
 > Remember that a validator’s vote is weighted by the amount it has at stake.
 
+## Can I stop my validator for a few days and then start it back up again?
+
+Yes but, under normal conditions, you will lose an amount of ETH roughly equivalent to the amount of ETH you would have gained in that period. In other words, if you stood to earn ≈0.01 ETH, you would instead be penalised ≈0.01 ETH.
+
+## When should I top up my validator's balance?
+
+The answer to this question very much depends on how much ETH you have at your disposal.
+
+You should certainly top up if your balance is close to 16 ETH: this is to ensure you don't get removed from the validator set (which automatically happens if your balance falls below 16 ETH).
+
+At the other end of the spectrum, if your balance is closer to 31 ETH, it's probably not worth your while adding the extra ETH required to get back to 32.
+
+## When can I withdraw my funds, and what's the difference between exiting and withdrawing?
+
+You can signal your intent to stop validating by signing a voluntary exit message with your validator. 
+
+However, bear in mind that in Phase 0, once you've exited, there's no going back.
+
+There's no way for you to activate your validator again, and you won't be able to transfer or withdraw your funds until at least Phase 1.5 (which means your funds will remain inaccessible until then).
+
 ### How are validators incentivized to stay active and honest?
 
 In addition to being penalized for being offline, validators are penalized for behaving maliciously – for example attesting to invalid or contradicting blocks.
@@ -157,5 +177,4 @@ The user with the signing key could attempt to quickly exit the validator and th
 ### Why two keys instead of one?
 
 In a nutshell, security. The signing key must be available at all times. As such, it will need to be held online. Since anything online is vulnerable to being hacked, it's not a good idea to use the same key for withdrawals.
-
 
