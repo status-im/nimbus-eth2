@@ -17,7 +17,7 @@ OPTS="h"
 LONGOPTS="help,network:,build,run"
 
 # default values
-NETWORK="altona"
+NETWORK="medalla"
 BUILD=0
 RUN=0
 

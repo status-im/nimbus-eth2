@@ -16,7 +16,8 @@ import
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/mainnet/phase0.yaml#L6
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/configs/mainnet/phase0.yaml#L6
+  CONFIG_NAME* = "mainnet"
 
   MAX_COMMITTEES_PER_SLOT* {.intdefine.}: uint64 = 64
 
@@ -42,11 +43,11 @@ const
   HYSTERESIS_DOWNWARD_MULTIPLIER*: uint64 = 1
   HYSTERESIS_UPWARD_MULTIPLIER*: uint64 = 5
 
-  PROPORTIONAL_SLASHING_MULTIPLIER* = 3
+  PROPORTIONAL_SLASHING_MULTIPLIER*: uint64 = 3
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/mainnet/phase0.yaml#L61
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/configs/mainnet/phase0.yaml#L61
 
   MIN_DEPOSIT_AMOUNT*: uint64 = 2'u64^0 * 10'u64^9 ##\
   ## Minimum amounth of ETH that can be deposited in one call - deposits can
@@ -63,12 +64,12 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/mainnet/phase0.yaml#L73
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/configs/mainnet/phase0.yaml#L73
   BLS_WITHDRAWAL_PREFIX*: byte = 0
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/mainnet/phase0.yaml#L80
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/configs/mainnet/phase0.yaml#L80
   SECONDS_PER_SLOT* {.intdefine.}: uint64 = 12'u64 # Compile with -d:SECONDS_PER_SLOT=1 for 12x faster slots
   ## TODO consistent time unit across projects, similar to C++ chrono?
 
@@ -107,15 +108,12 @@ const
 
   SHARD_COMMITTEE_PERIOD*: uint64 = 256 # epochs (~27 hours)
 
-  MAX_EPOCHS_PER_CROSSLINK*: uint64 = 2'u64^6 ##\
-  ## epochs (~7 hours)
-
   MIN_EPOCHS_TO_INACTIVITY_PENALTY*: uint64 = 2'u64^2 ##\
   ## epochs (25.6 minutes)
 
   # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/mainnet/phase0.yaml#L108
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/configs/mainnet/phase0.yaml#L108
 
   EPOCHS_PER_HISTORICAL_VECTOR*: uint64 = 65536 ##\
   ## epochs (~0.8 years)
@@ -130,7 +128,7 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/mainnet/phase0.yaml#L120
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/configs/mainnet/phase0.yaml#L120
   BASE_REWARD_FACTOR*: uint64 = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT*: uint64 = 2'u64^9
   PROPOSER_REWARD_QUOTIENT*: uint64 = 2'u64^3
@@ -139,7 +137,7 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/mainnet/phase0.yaml#L134
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/configs/mainnet/phase0.yaml#L134
   MAX_PROPOSER_SLASHINGS*: uint64 = 2'u64 ^ 4
   MAX_ATTESTER_SLASHINGS*: uint64 = 2'u64 ^ 1
   MAX_ATTESTATIONS*: uint64 = 2'u64 ^ 7
@@ -148,12 +146,12 @@ const
 
   # Fork choice
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/mainnet/phase0.yaml#L32
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/configs/mainnet/phase0.yaml#L32
   SAFE_SLOTS_TO_UPDATE_JUSTIFIED*: uint64 = 8 # 96 seconds
 
   # Validators
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/mainnet/phase0.yaml#L38
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/configs/mainnet/phase0.yaml#L38
   ETH1_FOLLOW_DISTANCE* {.intdefine.}: uint64 = 1024 # blocks ~ 4 hours
   TARGET_AGGREGATORS_PER_COMMITTEE*: uint64 = 16 # validators
   RANDOM_SUBNETS_PER_VALIDATOR*: uint64 = 1 # subnet
@@ -162,7 +160,7 @@ const
 
   # Deposit contract
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/configs/mainnet/phase0.yaml#L52
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/configs/mainnet/phase0.yaml#L52
 
   # Ethereum PoW Mainnet
   # TODO These violate the spec (this is a temporary change to allow `make medalla` to work)
