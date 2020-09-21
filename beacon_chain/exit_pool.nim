@@ -110,16 +110,8 @@ proc validateAttesterSlashing*(
     let tgtBlck_2 = pool.chainDag.getRef(attestation_2.data.target.root)
     if tgtBlck_2.isNil:
       pool.quarantine.addMissing(attestation_2.data.target.root)
-      const err_str: cstring = "Attestation 2 target block unknown"
       return err((EVRESULT_IGNORE, err_str))
-
-    let
-      epochRef_1 = pool.chainDag.getEpochRef(
-        tgtBlck_1, attestation_1.data.target.epoch)
       epochRef_2 = pool.chainDag.getEpochRef(
-        tgtBlck_2, attestation_2.data.target.epoch)
-      fork = pool.chainDag.headState.data.data.fork
-      genesis_validators_root =
         pool.chainDag.headState.data.data.genesis_validators_root
 
     if not is_slashable_attestation_data(
@@ -170,9 +162,6 @@ proc validateVoluntaryExit*(
     pool: var ExitPool, voluntaryExit: VoluntaryExit):
     Result[bool, (ValidationResult, cstring)] =
   # [IGNORE] The voluntary exit is the first valid voluntary exit received for
-  # the validator with index signed_voluntary_exit.message.validator_index.
-
-  # [REJECT] All of the conditions within process_voluntary_exit pass
   # validation.
 
   # TODO not called yet, so vacuousness is fine

@@ -270,6 +270,9 @@ proc blockValidator*(
   beacon_blocks_received.inc()
   beacon_block_delay.observe(float(milliseconds(delay)) / 1000.0)
 
+  beacon_blocks_received.inc()
+  beacon_block_delay.observe(float(milliseconds(delay)) / 1000.0)
+
   # Block passed validation - enqueue it for processing. The block processing
   # queue is effectively unbounded as we use a freestanding task to enqueue
   # the block - this is done so that when blocks arrive concurrently with
@@ -410,6 +413,42 @@ proc voluntaryExitValidator*(
   beacon_voluntary_exits_received.inc()
 
   EVRESULT_ACCEPT
+
+proc attesterSlashingValidator*(
+  self: var Eth2Processor, attesterSlashing: AttesterSlashing): bool =
+  logScope:
+    attesterSlashing = shortLog(attesterSlashing)
+
+  let v = self.exitPool[].validateAttesterSlashing(attesterSlashing)
+  if v.isErr:
+    debug "Dropping attester slashing", err = v.error
+    return false
+
+  beacon_attester_slashings_received.inc()
+
+proc proposerSlashingValidator*(
+  self: var Eth2Processor, proposerSlashing: ProposerSlashing): bool =
+  logScope:
+    proposerSlashing = shortLog(proposerSlashing)
+
+  let v = self.exitPool[].validateProposerSlashing(proposerSlashing)
+  if v.isErr:
+    debug "Dropping proposer slashing", err = v.error
+    return false
+
+  beacon_proposer_slashings_received.inc()
+
+proc voluntaryExitValidator*(
+  self: var Eth2Processor, voluntaryExit: VoluntaryExit): bool =
+  logScope:
+    voluntaryExit = shortLog(voluntaryExit)
+
+  let v = self.exitPool[].validateVoluntaryExit(voluntaryExit)
+  if v.isErr:
+    debug "Dropping voluntary exit", err = v.error
+    return false
+
+  beacon_voluntary_exits_received.inc()
 
 proc runQueueProcessingLoop*(self: ref Eth2Processor) {.async.} =
   # Blocks in eth2 arrive on a schedule for every slot:
