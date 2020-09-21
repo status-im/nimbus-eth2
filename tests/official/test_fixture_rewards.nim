@@ -19,7 +19,11 @@ import
   ../testutil,
   ./fixtures_utils
 
-const RewardsDir = SszTestsDir/const_preset/"phase0"/"rewards"/"core"/"pyspec_tests"
+const
+  RewardsDirBase = SszTestsDir/const_preset/"phase0"/"rewards"
+  RewardsDirBasic = RewardsDirBase/"basic"/"pyspec_tests"
+  RewardsDirLeak = RewardsDirBase/"leak"/"pyspec_tests"
+  RewardsDirRandom = RewardsDirBase/"random"/"pyspec_tests"
 
 # https://github.com/ethereum/eth2.0-specs/tree/v0.12.2/tests/formats/rewards#rewards-tests
 type Deltas = object
@@ -32,12 +36,12 @@ func compareDeltas(
   deltas.rewards.asSeq == rewardsPenalties[0] and
     deltas.penalties.asSeq == rewardsPenalties[1]
 
-proc runTest(identifier: string) =
+proc runTest(rewardsDir, identifier: string) =
   # We wrap the tests in a proc to avoid running out of globals
   # in the future: Nim supports up to 3500 globals
   # but unittest with the macro/templates put everything as globals
   # https://github.com/nim-lang/Nim/issues/12084#issue-486866402
-  let testDir = RewardsDir / identifier
+  let testDir = rewardsDir / identifier
 
   proc `testImpl _ rewards _ identifier`() =
     timedTest "Rewards" & " - " & identifier & preset():
@@ -76,5 +80,6 @@ proc runTest(identifier: string) =
   `testImpl _ rewards _ identifier`()
 
 suiteReport "Official - Rewards " & preset():
-  for kind, path in walkDir(RewardsDir, true):
-    runTest(path)
+  for rewardsDir in [RewardsDirBasic, RewardsDirLeak, RewardsDirRandom]:
+    for kind, path in walkDir(rewardsDir, true):
+      runTest(rewardsDir, path)
