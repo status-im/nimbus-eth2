@@ -142,7 +142,7 @@ proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData =
     of "head":
       node.chainDag.get(node.chainDag.head)
     of "genesis":
-      node.chainDag.get(node.chainDag.tail)
+      node.chainDag.getGenesisBlockData()
     of "finalized":
       node.chainDag.get(node.chainDag.finalizedHead.blck)
     else:
@@ -163,7 +163,7 @@ proc stateIdToBlockSlot(node: BeaconNode, stateId: string): BlockSlot =
     of "head":
       node.chainDag.head.toBlockSlot()
     of "genesis":
-      node.chainDag.tail.toBlockSlot()
+      node.chainDag.getGenesisBlockSlot()
     of "finalized":
       node.chainDag.finalizedHead
     of "justified":
@@ -188,7 +188,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   template withStateForStateId(stateId: string, body: untyped): untyped =
     # TODO this can be optimized for the "head" case since that should be most common
     node.chainDag.withState(node.chainDag.tmpState,
-                             node.stateIdToBlockSlot(stateId)):
+                            node.stateIdToBlockSlot(stateId)):
       body
 
   rpcServer.rpc("get_v1_beacon_genesis") do () -> BeaconGenesisTuple:

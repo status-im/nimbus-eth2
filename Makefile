@@ -199,12 +199,14 @@ define CONNECT_TO_NETWORK =
 		--base-metrics-port $$(($(BASE_METRICS_PORT) + $(NODE_ID))) \
 		--config-file "build/data/shared_$(1)_$(NODE_ID)/prometheus.yml"
 
+	[ "$(2)" == "FastSync" ] && { export CHECKPOINT_PARAMS="--finalized-checkpoint-state=vendor/eth2-testnets/shared/$(1)/recent-finalized-state.ssz \
+																													--finalized-checkpoint-block=vendor/eth2-testnets/shared/$(1)/recent-finalized-block.ssz" ; }; \
 	$(CPU_LIMIT_CMD) build/beacon_node \
 		--network=$(1) \
 		--log-level="$(LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
-		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
+		$$CHECKPOINT_PARAMS $(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 endef
 
 define CONNECT_TO_NETWORK_IN_DEV_MODE =
@@ -291,6 +293,9 @@ medalla: | beacon_node signing_process
 
 medalla-vc: | beacon_node signing_process validator_client
 	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,medalla)
+
+medalla-fast-sync: | beacon_node
+	$(call connect_to_network,medalla,FastSync)
 
 ifneq ($(LOG_LEVEL), TRACE)
 medalla-dev:

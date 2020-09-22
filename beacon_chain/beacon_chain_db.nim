@@ -26,14 +26,19 @@ type
   DbKeyKind = enum
     kHashToState
     kHashToBlock
-    kHeadBlock # Pointer to the most recent block selected by the fork choice
-    kTailBlock ##\
-    ## Pointer to the earliest finalized block - this is the genesis block when
-    ## the chain starts, but might advance as the database gets pruned
-    ## TODO: determine how aggressively the database should be pruned. For a
-    ##       healthy network sync, we probably need to store blocks at least
-    ##       past the weak subjectivity period.
-    kBlockSlotStateRoot ## BlockSlot -> state_root mapping
+    kHeadBlock
+      ## Pointer to the most recent block selected by the fork choice
+    kTailBlock
+      ## Pointer to the earliest finalized block - this is the genesis block when
+      ## the chain starts, but might advance as the database gets pruned
+      ## TODO: determine how aggressively the database should be pruned. For a
+      ##       healthy network sync, we probably need to store blocks at least
+      ##       past the weak subjectivity period.
+    kBlockSlotStateRoot
+      ## BlockSlot -> state_root mapping
+    kGenesisBlockRoot
+      ## Immutable reference to the network genesis state
+      ## (needed for satisfying requests to the beacon node API).
 
 const
   maxDecompressedDbRecordSize = 16*1024*1024
@@ -165,6 +170,9 @@ proc putHeadBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.put(subkey(kTailBlock), key)
 
+proc putGenesisBlockRoot*(db: BeaconChainDB, key: Eth2Digest) =
+  db.put(subkey(kGenesisBlockRoot), key)
+
 proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
   result.ok(TrustedSignedBeaconBlock())
@@ -206,6 +214,9 @@ proc getHeadBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
 
 proc getTailBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
   db.get(subkey(kTailBlock), Eth2Digest)
+
+proc getGenesisBlockRoot*(db: BeaconChainDB): Eth2Digest =
+  db.get(subkey(kGenesisBlockRoot), Eth2Digest).expect("The database must be seeded with the genesis state")
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(SignedBeaconBlock, key)).expect("working database")

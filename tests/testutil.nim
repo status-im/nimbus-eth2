@@ -99,7 +99,7 @@ template timedTest*(name, body) =
 
 proc makeTestDB*(tailState: BeaconState, tailBlock: SignedBeaconBlock): BeaconChainDB =
   result = init(BeaconChainDB, kvStore MemStoreRef.init())
-  ChainDAGRef.preInit(result, tailState, tailBlock)
+  ChainDAGRef.preInit(result, tailState, tailState, tailBlock)
 
 proc makeTestDB*(validators: Natural): BeaconChainDB =
   let

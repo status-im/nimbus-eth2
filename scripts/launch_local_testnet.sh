@@ -225,7 +225,7 @@ if [[ $USE_GANACHE == "0" ]]; then
     --insecure-netkey-password=true \
     --genesis-offset=${GENESIS_OFFSET} # Delay in seconds
 
-  STATE_SNAPSHOT_ARG="--state-snapshot=${NETWORK_DIR}/genesis.ssz"
+  STATE_SNAPSHOT_ARG="--finalized-checkpoint-state=${NETWORK_DIR}/genesis.ssz"
 else
   echo "Launching ganache"
   ganache-cli --blockTime 17 --gasLimit 100000000 -e 100000 --verbose > "${DATA_DIR}/log_ganache.txt" 2>&1 &
