@@ -142,7 +142,7 @@ jobs:
           key: 'nim-${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ steps.versions.outputs.nimbus_build_system }}'
 
       - name: Build Nim and associated tools
-        if: steps.nim-cache.outputs.cache-hit != 'true'
+        # if: steps.nim-cache.outputs.cache-hit != 'true'
         shell: bash
         working-directory: nim-beacon-chain
         run: |
@@ -163,9 +163,9 @@ jobs:
           [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
           echo "::set-output name=ncpu::$ncpu"
 
-          make -j$ncpu ARCH_OVERRIDE='$PLATFORM' CI_CACHE=NimBinaries V=1 update
+          make -j$ncpu ARCH_OVERRIDE=$PLATFORM CI_CACHE=NimBinaries V=1 update
           if [[ '${{ runner.os }}' == 'Windows' ]]; then
-            make -j$ncpu ARCH_OVERRIDE='$PLATFORM' fetch-dlls
+            make -j$ncpu ARCH_OVERRIDE=$PLATFORM fetch-dlls
           fi
 
       - name: Smoke test the Beacon Node and Validator Client with all tracing enabled
@@ -173,8 +173,8 @@ jobs:
         shell: bash
         working-directory: nim-beacon-chain
         run: |
-          make -j$ncpu ARCH_OVERRIDE='$PLATFORM' LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" beacon_node
-          make -j$ncpu ARCH_OVERRIDE='$PLATFORM' LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" validator_client
+          make -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" beacon_node
+          make -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" validator_client
 
       - name: Get latest fixtures commit hash
         if: matrix.target.TEST_KIND == 'unit-tests'
@@ -209,7 +209,7 @@ jobs:
         shell: bash
         working-directory: nim-beacon-chain
         run: |
-          make -j$ncpu ARCH_OVERRIDE='$PLATFORM' DISABLE_TEST_FIXTURES_SCRIPT=1 test
+          make -j$ncpu ARCH_OVERRIDE=$PLATFORM DISABLE_TEST_FIXTURES_SCRIPT=1 test
 
       - name: Run nim-beacon-chain testnet1 (mainnet)
         if: matrix.target.TEST_KIND == 'finalization'
