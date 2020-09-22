@@ -6,10 +6,13 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  math, strutils, strformat, typetraits, algorithm,
+  # Standard library
+  std/[math, strutils, parseutils, strformat, typetraits, algorithm],
+  # Status libraries
   stew/[results, byteutils, bitseqs, bitops2], stew/shims/macros,
   bearssl, eth/keyfile/uuid, blscurve, faststreams/textio, json_serialization,
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, utils, scrypt],
+  # Internal
   ./datatypes, ./crypto, ./digest, ./signatures
 
 export
@@ -202,24 +205,34 @@ const
 static:
   doAssert englishWords.len == wordListLen
 
-iterator pathNodesImpl(path: string): Natural
-                      {.raises: [ValueError].} =
-  for elem in path.split("/"):
-    if elem == "m": continue
-    yield parseInt(elem)
-
 func append*(path: KeyPath, pathNode: Natural): KeyPath =
   KeyPath(path.string & "/" & $pathNode)
 
-func validateKeyPath*(path: TaintedString): KeyPath
-                     {.raises: [ValueError].} =
-  for elem in pathNodesImpl(path.string): discard elem
-  KeyPath path
+func validateKeyPath*(path: TaintedString): Result[KeyPath, cstring] =
+  var digitCount: int
+  var number: BiggestUint
+  try:
+    for elem in path.string.split("/"):
+      # TODO: doesn't "m" have to be the first character and is it the only place where it is valid?
+      if elem == "m":
+        continue
+      # parseBiggestUInt can raise if overflow
+      digitCount = elem.parseBiggestUInt(number)
+      if digitCount == 0:
+        return err("Invalid derivation path")
+  except ValueError:
+    return err("KeyPath contains invalid number(s)")
+
+  return ok(KeyPath path)
 
 iterator pathNodes(path: KeyPath): Natural =
+  # TODO: we have exceptions there
+  # and this iterator is used to derive secret keys
+  # if we fail we want to scrub secrets from memory
   try:
-    for elem in pathNodesImpl(path.string):
-      yield elem
+    for elem in path.string.split("/"):
+      if elem == "m": continue
+      yield parseBiggestUInt(elem)
   except ValueError:
     doAssert false, "Make sure you've validated the key path with `validateKeyPath`"
 
@@ -340,6 +353,10 @@ proc deriveChildKey*(masterKey: ValidatorPrivKey,
                      path: KeyPath): ValidatorPrivKey =
   result = masterKey
   for idx in pathNodes(path):
+    # TODO: we have exceptions in pathNodes unless `validateKeyPath`
+    # was called,
+    # and this iterator is used to derive secret keys
+    # if we fail we want to scrub secrets from memory
     result = deriveChildKey(result, idx)
 
 proc keyFromPath*(mnemonic: Mnemonic,
@@ -619,4 +636,3 @@ proc prepareDeposit*(preset: RuntimePreset,
 
   res.signature = preset.get_deposit_signature(res, signingKey)
   return res
-

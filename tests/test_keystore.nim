@@ -123,7 +123,7 @@ suiteReport "Keystore":
                                   KeystorePass password,
                                   salt=salt, iv=iv,
                                   description = "This is a test keystore that uses PBKDF2 to secure the secret.",
-                                  path = validateKeyPath "m/12381/60/0/0")
+                                  path = validateKeyPath("m/12381/60/0/0").expect("Valid Keypath"))
     var
       encryptJson = parseJson Json.encode(keystore)
       pbkdf2Json = parseJson(pbkdf2Vector)
@@ -137,7 +137,7 @@ suiteReport "Keystore":
                                   KeystorePass password,
                                   salt=salt, iv=iv,
                                   description = "This is a test keystore that uses scrypt to secure the secret.",
-                                  path = validateKeyPath "m/12381/60/3141592653/589793238")
+                                  path = validateKeyPath("m/12381/60/3141592653/589793238").expect("Valid keypath"))
     var
       encryptJson = parseJson Json.encode(keystore)
       scryptJson = parseJson(scryptVector)
