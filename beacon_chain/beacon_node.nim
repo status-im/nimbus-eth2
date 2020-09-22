@@ -287,9 +287,10 @@ proc init*(T: type BeaconNode,
   if res.config.inProcessValidators:
     res.addLocalValidators()
   else:
-    res.vcProcess = startProcess(getAppDir() & "/signing_process".addFileExt(ExeExt),
-                                 getCurrentDir(), [$res.config.validatorsDir,
-                                                   $res.config.secretsDir])
+    let cmd = getAppDir() / "signing_process".addFileExt(ExeExt)
+    let args = [$res.config.validatorsDir, $res.config.secretsDir]
+    let workdir = io2.getCurrentDir().tryGet()
+    res.vcProcess = startProcess(cmd, workdir, args)
     res.addRemoteValidators()
 
   # This merely configures the BeaconSync
