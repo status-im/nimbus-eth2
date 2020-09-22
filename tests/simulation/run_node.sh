@@ -78,7 +78,7 @@ mkdir -p "$NODE_DATA_DIR/dump"
 
 SNAPSHOT_ARG=""
 if [ -f "${SNAPSHOT_FILE}" ]; then
-  SNAPSHOT_ARG="--state-snapshot=${SNAPSHOT_FILE}"
+  SNAPSHOT_ARG="--finalized-checkpoint-state=${SNAPSHOT_FILE}"
 fi
 
 cd "$NODE_DATA_DIR"

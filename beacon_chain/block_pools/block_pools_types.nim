@@ -207,6 +207,12 @@ func shortLog*(v: BlockRef): string =
   else:
    &"{v.root.data.toOpenArray(0, 3).toHex()}:{v.slot}"
 
+func shortLog*(v: EpochRef): string =
+  if v == nil:
+    "EpochRef(nil)"
+  else:
+    &"(epoch ref: {v.epoch})"
+
 chronicles.formatIt BlockSlot: shortLog(it)
 chronicles.formatIt BlockRef: shortLog(it)
 

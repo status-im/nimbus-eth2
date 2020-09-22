@@ -54,7 +54,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     db = BeaconChainDB.init(kvStore SqStoreRef.init(".", "block_sim").tryGet())
   defer: db.close()
 
-  ChainDAGRef.preInit(db, state[].data, genesisBlock)
+  ChainDAGRef.preInit(db, state[].data, state[].data, genesisBlock)
 
   var
     chainDag = init(ChainDAGRef, defaultRuntimePreset, db)
