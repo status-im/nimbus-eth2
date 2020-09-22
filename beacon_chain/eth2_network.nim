@@ -15,7 +15,7 @@ import
           multiaddress, multicodec, crypto/crypto, crypto/secp,
           protocols/identify, protocols/protocol],
   libp2p/protocols/secure/[secure, secio],
-  libp2p/protocols/pubsub/[pubsub, floodsub, gossipsub, rpc/message, rpc/messages],
+  libp2p/protocols/pubsub/[pubsub, rpc/message, rpc/messages],
   libp2p/transports/tcptransport,
   libp2p/stream/connection,
   eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
@@ -24,6 +24,11 @@ import
   version, conf, eth2_discovery, libp2p_json_serialization, conf,
   ssz/ssz_serialization,
   peer_pool, spec/[datatypes, network], ./time
+
+when defined(nbc_gossipsub_11):
+  import libp2p/protocols/pubsub/gossipsub
+else:
+  import libp2p/protocols/pubsub/gossipsub10
 
 when chronicles.enabledLogLevel == LogLevel.TRACE:
   import std/sequtils
@@ -1104,7 +1109,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
                                       `MsgStrongRecName`)
 
         mount `networkVar`.switch,
-              LPProtocol(codec: `codecNameLit` & "ssz_snappy",
+              LPProtocol(codecs: @[`codecNameLit` & "ssz_snappy"],
                          handler: snappyThunk)
 
     ##
