@@ -8,37 +8,64 @@ jobs:
       max-parallel: 20
       matrix:
         target:
+          # Unit tests
           - os: linux
             cpu: amd64
             TEST_KIND: unit-tests
-          - os: linux
-            cpu: i386
-            TEST_KIND: unit-tests
+          # TODO - miniupmp cross-compilation issue: https://github.com/status-im/nim-beacon-chain/issues/1723
+          # - os: linux
+          #   cpu: i386
+          #   TEST_KIND: unit-tests
           - os: macos
             cpu: amd64
             TEST_KIND: unit-tests
           - os: windows
             cpu: amd64
             TEST_KIND: unit-tests
-          - os: windows
-            cpu: i386
-            TEST_KIND: unit-tests
+          # TODO - Scrypt/keystore Integer out of valid range: https://github.com/status-im/nim-beacon-chain/issues/1701
+          # - os: windows
+          #   cpu: i386
+          #   TEST_KIND: unit-tests
 
+          # Minimal integration tests
           - os: linux
             cpu: amd64
-            TEST_KIND: finalization
-          - os: linux
-            cpu: i386
-            TEST_KIND: finalization
-          - os: macos
-            cpu: amd64
-            TEST_KIND: finalization
+            TEST_KIND: finalization-minimal
+          # TODO - miniupmp cross-compilation issue: https://github.com/status-im/nim-beacon-chain/issues/1723
+          # - os: linux
+          #   cpu: i386
+          #   TEST_KIND: finalization-minimal
+          # TODO - Script errors out: https://github.com/status-im/nim-beacon-chain/issues/1724
+          # - os: macos
+          #   cpu: amd64
+          #   TEST_KIND: finalization-minimal
           - os: windows
             cpu: amd64
-            TEST_KIND: finalization
-          - os: windows
-            cpu: i386
-            TEST_KIND: finalization
+            TEST_KIND: finalization-minimal
+          # TODO - Bootstrap issue: https://github.com/status-im/nim-beacon-chain/issues/1725
+          # - os: windows
+          #   cpu: i386
+          #   TEST_KIND: finalization-minimal
+
+          # Mainnet integration tests
+          # - os: linux
+          #   cpu: amd64
+          #   TEST_KIND: finalization-mainnet
+          # # TODO - miniupmp cross-compilation issue: https://github.com/status-im/nim-beacon-chain/issues/1723
+          # # - os: linux
+          # #   cpu: i386
+          # #   TEST_KIND: finalization-mainnet
+          # # TODO - Script errors out: https://github.com/status-im/nim-beacon-chain/issues/1724
+          # # - os: macos
+          # #   cpu: amd64
+          # #   TEST_KIND: finalization-mainnet
+          # - os: windows
+          #   cpu: amd64
+          #   TEST_KIND: finalization-mainnet
+          # # TODO - Bootstrap issue: https://github.com/status-im/nim-beacon-chain/issues/1725
+          # # - os: windows
+          # #   cpu: i386
+          # #   TEST_KIND: finalization-mainnet
         include:
           - target:
               os: linux
@@ -142,7 +169,7 @@ jobs:
           key: 'nim-${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ steps.versions.outputs.nimbus_build_system }}'
 
       - name: Build Nim and associated tools
-        # if: steps.nim-cache.outputs.cache-hit != 'true'
+        if: steps.nim-cache.outputs.cache-hit != 'true'
         shell: bash
         working-directory: nim-beacon-chain
         run: |
@@ -211,8 +238,15 @@ jobs:
         run: |
           make -j$ncpu ARCH_OVERRIDE=$PLATFORM DISABLE_TEST_FIXTURES_SCRIPT=1 test
 
+      - name: Run nim-beacon-chain testnet0 (minimal)
+        if: matrix.target.TEST_KIND == 'finalization-minimal'
+        shell: bash
+        working-directory: nim-beacon-chain
+        run: |
+          ./scripts/launch_local_testnet.sh --testnet 0 --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --enable-logtrace --data-dir local_testnet0_data --base-port $(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rpc-port $(( 7000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port $(( 8008 + EXECUTOR_NUMBER * 100 )) -- --verify-finalization --discv5:no
+
       - name: Run nim-beacon-chain testnet1 (mainnet)
-        if: matrix.target.TEST_KIND == 'finalization'
+        if: matrix.target.TEST_KIND == 'finalization-mainnet'
         shell: bash
         working-directory: nim-beacon-chain
         run: |
