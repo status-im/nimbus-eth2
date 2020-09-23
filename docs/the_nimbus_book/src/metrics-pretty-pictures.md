@@ -14,7 +14,7 @@ The easiest way to see metrics concerning your validator / node is to run the be
 make NIMFLAGS="-d:insecure" medalla
 ```
 
-> **Note:** this flag is needed because Nim considers the HTTP server that needs to start to serve the metrics to be insecure (without this flag it won't launch properly).
+> **Note:** this flag is needed because we consider the HTTP server that needs to start to serve the metrics to be insecure (without this flag it won't launch properly). As such, we recommend you make sure port 8008 is protected.
 
 
 Now visit [http://127.0.0.1:8008/metrics](http://127.0.0.1:8008/metrics) to see the raw metrics. You should see a plaintext page that looks something like this:
@@ -40,7 +40,7 @@ nim_gc_heap_instance_occupied_bytes{type_name="seq[TrustedAttestation]"} 29728.0
 
 Unfortunately, this simple method only offers one snapshot in time (you'll need to keep refreshing to see the data update) which means it's impossible to see a useful history of the metrics. In short, it's far from optimal from an information design point of view.
 
-In order to settle on a better solution, we'll need the help of two external libraries -- Prometheus and Grafana.
+In order to settle on a better solution, we'll need the help of two external projects -- Prometheus and Grafana.
 
 ## Prometheus and Grafana
 
@@ -56,6 +56,8 @@ Download and extract the [latest release](https://prometheus.io/download/) of Pr
 tar xvfz prometheus-*.tar.gz
 cd prometheus-*
 ```
+
+>**Note:** If you use a package manager, you can also download Prometheus that way: for example `apt-get install prometheus` on Ubuntu, or `brew install prometheus` on MacOS, should do the trick.
 
 #### 2. Copy the binary
 
@@ -81,8 +83,9 @@ prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
 
 #### 4. Download Grafana
 
-[Download the latest release]((https://grafana.com/grafana/download?platform=linux)) of Grafana for your platform here.
+[Download the latest release]((https://grafana.com/grafana/download?platform=linux)) of Grafana for your platform.
 
+>**Note:** If you use a package manager, you can also download Grafana that way: for example `apt-get install grafana` on Ubuntu, or `brew install grafana` on MacOS, should do the trick.
 
 #### 5. Install and start Grafana
 
