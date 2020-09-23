@@ -57,7 +57,7 @@ tar xvfz prometheus-*.tar.gz
 cd prometheus-*
 ```
 
->**Note:** If you use a package manager, you can also download Prometheus that way: for example `apt-get install prometheus` on Ubuntu, or `brew install prometheus` on MacOS, should do the trick.
+>**Note:** If you use a package manager, you can also download Prometheus that way -- for example `apt-get install prometheus` on Ubuntu, or `brew install prometheus` on MacOS, should do the trick.
 
 #### 2. Copy the binary
 
@@ -85,7 +85,7 @@ prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
 
 [Download the latest release]((https://grafana.com/grafana/download?platform=linux)) of Grafana for your platform.
 
->**Note:** If you use a package manager, you can also download Grafana that way: for example `apt-get install grafana` on Ubuntu, or `brew install grafana` on MacOS, should do the trick.
+>**Note:** If you use a package manager, you can also download Grafana that way -- for example `apt-get install grafana` on Ubuntu, or `brew install grafana` on MacOS, should do the trick.
 
 #### 5. Install and start Grafana
 
