@@ -12,10 +12,9 @@ jobs:
           - os: linux
             cpu: amd64
             TEST_KIND: unit-tests
-          # TODO - miniupmp cross-compilation issue: https://github.com/status-im/nim-beacon-chain/issues/1723
-          # - os: linux
-          #   cpu: i386
-          #   TEST_KIND: unit-tests
+          - os: linux
+            cpu: i386
+            TEST_KIND: unit-tests
           - os: macos
             cpu: amd64
             TEST_KIND: unit-tests
@@ -31,10 +30,9 @@ jobs:
           - os: linux
             cpu: amd64
             TEST_KIND: finalization-minimal
-          # TODO - miniupmp cross-compilation issue: https://github.com/status-im/nim-beacon-chain/issues/1723
-          # - os: linux
-          #   cpu: i386
-          #   TEST_KIND: finalization-minimal
+          - os: linux
+            cpu: i386
+            TEST_KIND: finalization-minimal
           # Requires GNU getopt
           - os: macos
             cpu: amd64
@@ -51,11 +49,9 @@ jobs:
           # - os: linux
           #   cpu: amd64
           #   TEST_KIND: finalization-mainnet
-          # # TODO - miniupmp cross-compilation issue: https://github.com/status-im/nim-beacon-chain/issues/1723
           # # - os: linux
           # #   cpu: i386
           # #   TEST_KIND: finalization-mainnet
-          # # TODO - Script errors out: https://github.com/status-im/nim-beacon-chain/issues/1724
           # # - os: macos
           # #   cpu: amd64
           # #   TEST_KIND: finalization-mainnet
