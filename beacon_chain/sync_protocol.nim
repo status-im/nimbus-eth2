@@ -37,6 +37,7 @@ type
     forkDigest*: ForkDigest
 
   BeaconSyncPeerState* = ref object
+    statusLastTime*: chronos.Moment
     statusMsg*: StatusMsg
 
   BlockRootSlot* = object
@@ -190,6 +191,7 @@ p2pProtocol BeaconSync(version = 1,
 proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) =
   debug "Peer status", peer, statusMsg
   peer.state(BeaconSync).statusMsg = statusMsg
+  peer.state(BeaconSync).statusLastTime = Moment.now()
 
 proc updateStatus*(peer: Peer): Future[bool] {.async.} =
   ## Request `status` of remote peer ``peer``.
@@ -200,12 +202,14 @@ proc updateStatus*(peer: Peer): Future[bool] {.async.} =
   let theirFut = awaitne peer.status(ourStatus,
                                      timeout = chronos.seconds(60))
   if theirFut.failed():
-    result = false
+    return false
   else:
     let theirStatus = theirFut.read()
     if theirStatus.isOk:
       peer.setStatusMsg(theirStatus.get)
-      result = true
+      return true
+    else:
+      return false
 
 proc getHeadSlot*(peer: Peer): Slot {.inline.} =
   ## Returns head slot for specific peer ``peer``.
