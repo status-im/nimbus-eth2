@@ -91,7 +91,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="medalla-troubleshooting.html"><strong aria-hidden="true">4.</strong> Troubleshooting Medalla</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">5.</strong> Running the beacon node</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">6.</strong> API</a></li><li class="chapter-item expanded affix "><li class="part-title">Advanced</li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">7.</strong> For developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">8.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">9.</strong> Generating your keys with NBC</a></li><li class="chapter-item expanded affix "><li class="part-title">Misc</li><li class="chapter-item expanded "><strong aria-hidden="true">10.</strong> Windows users</li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">11.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">12.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="medalla-troubleshooting.html"><strong aria-hidden="true">4.</strong> Troubleshooting Medalla</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">5.</strong> Running the beacon node</a></li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">6.</strong> Metrics and pretty pictures</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">7.</strong> API</a></li><li class="chapter-item expanded affix "><li class="part-title">Advanced</li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">8.</strong> For developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">9.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">10.</strong> Generating your keys with NBC</a></li><li class="chapter-item expanded affix "><li class="part-title">Misc</li><li class="chapter-item expanded "><strong aria-hidden="true">11.</strong> Windows users</li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">13.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -355,8 +355,9 @@ INF 2020-08-03 16:24:17.958+02:00 Starting beacon node                       top
 <pre><code>make NIMFLAGS=&quot;-d:insecure&quot; medalla
 </code></pre>
 <p>You can then browse the metrics by connecting to:</p>
-<p>http://localhost:8008/metrics</p>
+<p><a href="http://localhost:8008/metrics">http://localhost:8008/metrics</a></p>
 <p>Make sure this port is protected as the http server used is not considered secure (it should not be used by untrusted peers).</p>
+<p>For instructions on how to spin up a beautiful and useful monitoring dashboard for your validator and beacon node, see <a href="./metrics-pretty-pictures.html">this page</a>.</p>
 <h2><a class="header" href="#advanced-options" id="advanced-options">Advanced options</a></h2>
 <h3><a class="header" href="#start-multiple-nodes" id="start-multiple-nodes">Start multiple nodes</a></h3>
 <p>You can start multiple local nodes, in different terminal windows/tabs, by specifying numeric IDs:</p>
@@ -625,6 +626,107 @@ beacon_node_shared_medalla_0 wallets list
 
 Lists details about all wallets.
 </code></pre>
+<h1><a class="header" href="#metrics-and-pretty-pictures" id="metrics-and-pretty-pictures">Metrics and pretty pictures</a></h1>
+<p>In this page we'll cover how to use  Grafana and Prometheus to help you visualise important real-time metrics concerning your validator and/or beacon node.</p>
+<p>Prometheus is an open-source systems monitoring and alerting toolkit. It runs as a service on your computer and its job is to capture metrics. You can find more information about Prometheus <a href="https://prometheus.io/docs/introduction/overview/">here</a>.</p>
+<p>Grafana is a tool for beautiful dashboard monitoring that works well with Prometheus. You can learn more about Grafana <a href="https://github.com/grafana/grafana">here</a>.</p>
+<h2><a class="header" href="#simple-metrics" id="simple-metrics">Simple metrics</a></h2>
+<p>The easiest way to see metrics concerning your validator / node is to run the beacon node with the <code>NIMFLAGS=&quot;-d:insecure&quot;</code> flag. For example, to enable metrics for a <code>medalla</code> validator, run:</p>
+<pre><code>make NIMFLAGS=&quot;-d:insecure&quot; medalla
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> this flag is needed because we consider the HTTP server that needs to start to serve the metrics to be insecure (without this flag it won't launch properly). As such, we recommend you make sure port 8008 is protected.</p>
+</blockquote>
+<p>Now visit <a href="http://127.0.0.1:8008/metrics">http://127.0.0.1:8008/metrics</a> to see the raw metrics. You should see a plaintext page that looks something like this:</p>
+<pre><code># HELP nim_runtime_info Nim runtime info
+# TYPE nim_runtime_info gauge
+nim_gc_mem_bytes 6275072.0
+nim_gc_mem_occupied_bytes 1881384.0
+nim_gc_heap_instance_occupied_bytes{type_name=&quot;KeyValuePairSeq[digest.Eth2Digest, block_pools_types.BlockRef]&quot;} 25165856.0
+nim_gc_heap_instance_occupied_bytes{type_name=&quot;BlockRef&quot;} 17284608.0
+nim_gc_heap_instance_occupied_bytes{type_name=&quot;string&quot;} 6264507.0
+nim_gc_heap_instance_occupied_bytes{type_name=&quot;seq[SelectorKey[asyncdispatch.AsyncData]]&quot;} 409632.0
+nim_gc_heap_instance_occupied_bytes{type_name=&quot;OrderedKeyValuePairSeq[Labels, seq[Metric]]&quot;} 122720.0
+nim_gc_heap_instance_occupied_bytes{type_name=&quot;Future[system.void]&quot;} 79848.0
+nim_gc_heap_instance_occupied_bytes{type_name=&quot;anon ref object from /Users/hackingresearch/nimbus/clone/nim-beacon-chain/vendor/nimbus-build-system/vendor/Nim/lib/pure/asyncmacro.nim(319, 33)&quot;} 65664.0
+nim_gc_heap_instance_occupied_bytes{type_name=&quot;anon ref object from /Users/hackingresearch/nimbus/clone/nim-beacon-chain/vendor/nimbus-build-system/vendor/Nim/lib/pure/asyncnet.nim(506, 11)&quot;} 43776.0
+nim_gc_heap_instance_occupied_bytes{type_name=&quot;seq[byte]&quot;} 37236.0
+nim_gc_heap_instance_occupied_bytes{type_name=&quot;seq[TrustedAttestation]&quot;} 29728.0
+
+...
+</code></pre>
+<p>Unfortunately, this simple method only offers one snapshot in time (you'll need to keep refreshing to see the data update) which means it's impossible to see a useful history of the metrics. In short, it's far from optimal from an information design point of view.</p>
+<p>In order to settle on a better solution, we'll need the help of two external projects -- Prometheus and Grafana.</p>
+<h2><a class="header" href="#prometheus-and-grafana" id="prometheus-and-grafana">Prometheus and Grafana</a></h2>
+<p>The following steps will take you through how to use Prometheus and Grafana to spin up a beautiful and useful monitoring dashboard for your validator and beacon node.</p>
+<h3><a class="header" href="#steps" id="steps">Steps</a></h3>
+<h4><a class="header" href="#1-download-prometheus" id="1-download-prometheus">1. Download Prometheus</a></h4>
+<p>Download and extract the <a href="https://prometheus.io/download/">latest release</a> of Prometheus for your platform:</p>
+<pre><code>tar xvfz prometheus-*.tar.gz
+cd prometheus-*
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> If you use a package manager, you can also download Prometheus that way -- for example <code>apt-get install prometheus</code> on Ubuntu, or <code>brew install prometheus</code> on MacOS, should do the trick.</p>
+</blockquote>
+<h4><a class="header" href="#2-copy-the-binary" id="2-copy-the-binary">2. Copy the binary</a></h4>
+<p>The Prometheus server is a single binary called prometheus (or prometheus.exe on Microsoft Windows). Copy it over to <a href="https://unix.stackexchange.com/questions/4186/what-is-usr-local-bin"><code>/usr/local/bin</code></a></p>
+<pre><code>cp prometheus-2.20.1.linux-amd64/prometheus /usr/local/bin/
+</code></pre>
+<h4><a class="header" href="#3-run-prometheus-with-the-default-configuration-file" id="3-run-prometheus-with-the-default-configuration-file">3. Run Prometheus with the default configuration file</a></h4>
+<p>Prometheus relies on a YAML configuration file to let it know where, and how often, to scrape data.</p>
+<p><code>nim-beacon-chain</code> generates an appropriate configuration file (<code>prometheseus.yml</code>) when you build the beacon node. If you're running the <code>medalla</code> testnet you'll find this in <code>build/data/shared_medalla_0</code>.</p>
+<p>To run Prometheus with the default config file:</p>
+<pre><code>cd build/data/shared_medalla_0
+prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
+# when starting multiple nodes at the same time, just use the config file from the one with the highest ID
+</code></pre>
+<h4><a class="header" href="#4-download-grafana" id="4-download-grafana">4. Download Grafana</a></h4>
+<p><a href="(https://grafana.com/grafana/download?platform=linux)">Download the latest release</a> of Grafana for your platform.</p>
+<blockquote>
+<p><strong>Note:</strong> If you use a package manager, you can also download Grafana that way -- for example <code>apt-get install grafana</code> on Ubuntu, or <code>brew install grafana</code> on MacOS, should do the trick.</p>
+</blockquote>
+<h4><a class="header" href="#5-install-and-start-grafana" id="5-install-and-start-grafana">5. Install and start Grafana</a></h4>
+<p>Follow <a href="https://grafana.com/docs/grafana/latest/installation/">the instructions for your platform</a> to install and start Grafana.</p>
+<h4><a class="header" href="#6-configure-login" id="6-configure-login">6. Configure login</a></h4>
+<p>Go to <a href="http://localhost:3000/">http://localhost:3000/</a>, you should see a Grafana login screen that looks like this</p>
+<p><img src="https://i.imgur.com/jcP1qWl.png" alt="" /></p>
+<p>Type in <code>admin</code> for both the username and password. You'll be asked to change the password (we recommend you do so).</p>
+<h4><a class="header" href="#7-add-a-data-source" id="7-add-a-data-source">7. Add a data source</a></h4>
+<p>Hover your mouse over the gear icon in the left menu bar, and click on the <code>Data Sources</code> option in the sub-menu that pops up.</p>
+<p><img src="https://i.imgur.com/0Xsgx61.png" alt="" /></p>
+<p>Now click on the <code>Add Data Source</code> button in the center of the screen</p>
+<p><img src="https://i.imgur.com/YRVJjdD.png" alt="" /></p>
+<p>Select <code>Prometheus</code></p>
+<p><img src="https://i.imgur.com/YpwThOr.png" alt="" /></p>
+<p>Enter <code>http://localhost:9090</code> in the URL field</p>
+<p><img src="https://i.imgur.com/PtVOnur.png" alt="" /></p>
+<p>Scroll to the bottom and click on <code>Save and Test</code></p>
+<p><img src="https://i.imgur.com/GJVdwaK.png" alt="" /></p>
+<p>If everything is working correctly you should see a green <code>Data source is working</code> box pop up</p>
+<p><img src="https://i.imgur.com/vf5ahNA.png" alt="" /></p>
+<h4><a class="header" href="#8-import-a-dashboard" id="8-import-a-dashboard">8. Import a dashboard</a></h4>
+<p>Now, let's import a dashboard; hover your mouse over the <code>+</code> icon in the left menu bar and select <code>import</code> from the pop-up menu</p>
+<p><img src="https://i.imgur.com/WnnAcUR.png" alt="" /></p>
+<p>Click on <code>Upload JSON file</code></p>
+<p><img src="https://i.imgur.com/l65ICZ2.png" alt="" /></p>
+<p>Select the <code>beacon_nodes_Grafana_dashboard.json</code>  from the <code>nim-beacon-chain/grafana/</code> folder and click on <code>Import</code></p>
+<p><img src="https://i.imgur.com/SoU5Isz.png" alt="" /></p>
+<p>You'll be directed to the dashboard where you'll be able to gain insights into the performance of <code>nim-beacon-chain</code> and your validators</p>
+<p><img src="https://i.imgur.com/aIfJ1iT.png" alt="" /></p>
+<blockquote>
+<p><strong>Note:</strong> the dashboard is very much a work in progress. Some of the highlights right now include received and proposed blocks, received and sent attestations, peers, memory and cpu usage stats. But keep an eye out for additional metrics in the near future.</p>
+</blockquote>
+<p>And voila! That's all there is to it :)</p>
+<h2><a class="header" href="#enabling-mobile-alerts" id="enabling-mobile-alerts">Enabling mobile alerts</a></h2>
+<h3><a class="header" href="#telegram" id="telegram">Telegram</a></h3>
+<p>TODO</p>
+<h3><a class="header" href="#discord" id="discord">Discord</a></h3>
+<p>TODO</p>
+<h2><a class="header" href="#additional-resources" id="additional-resources">Additional resources</a></h2>
+<ul>
+<li><a href="https://medium.com/@SomerEsat/guide-to-staking-on-ethereum-2-0-ubuntu-medalla-nimbus-5f4b2b0f2d7c">Guide to Staking on Ethereum 2.0 (Ubuntu/Medalla/Nimbus)</a>: a guide by an outside contributer that contains some very informative sections on both Prometheus and Grafana. We strongly recommend reading through the relevant sections if you're using a linux device and/or using <code>systemd</code>.</li>
+<li><a href="https://metrics.status.im/d/pgeNfj2Wz23/nimbus-testnet3?orgId=1&amp;from=now-6h&amp;to=now&amp;var-container=beacon-node-testnet3&amp;var-instance=node-03.aws-eu-central-1a.nimbus.test">Our dashboard</a> (AWS Medalla nodes)</li>
+</ul>
 <h1><a class="header" href="#apis" id="apis">APIs</a></h1>
 <p>NBC exposes a collection of APIs for querying the state of the application at runtime.</p>
 <blockquote>
@@ -1077,6 +1179,16 @@ filename=validators/deposit_data-1597838004.284995.json
 <blockquote>
 <p>Remember that a validator’s vote is weighted by the amount it has at stake.</p>
 </blockquote>
+<h2><a class="header" href="#can-i-stop-my-validator-for-a-few-days-and-then-start-it-back-up-again" id="can-i-stop-my-validator-for-a-few-days-and-then-start-it-back-up-again">Can I stop my validator for a few days and then start it back up again?</a></h2>
+<p>Yes but, under normal conditions, you will lose an amount of ETH roughly equivalent to the amount of ETH you would have gained in that period. In other words, if you stood to earn ≈0.01 ETH, you would instead be penalised ≈0.01 ETH.</p>
+<h2><a class="header" href="#when-should-i-top-up-my-validators-balance" id="when-should-i-top-up-my-validators-balance">When should I top up my validator's balance?</a></h2>
+<p>The answer to this question very much depends on how much ETH you have at your disposal.</p>
+<p>You should certainly top up if your balance is close to 16 ETH: this is to ensure you don't get removed from the validator set (which automatically happens if your balance falls below 16 ETH).</p>
+<p>At the other end of the spectrum, if your balance is closer to 31 ETH, it's probably not worth your while adding the extra ETH required to get back to 32.</p>
+<h2><a class="header" href="#when-can-i-withdraw-my-funds-and-whats-the-difference-between-exiting-and-withdrawing" id="when-can-i-withdraw-my-funds-and-whats-the-difference-between-exiting-and-withdrawing">When can I withdraw my funds, and what's the difference between exiting and withdrawing?</a></h2>
+<p>You can signal your intent to stop validating by signing a voluntary exit message with your validator. </p>
+<p>However, bear in mind that in Phase 0, once you've exited, there's no going back.</p>
+<p>There's no way for you to activate your validator again, and you won't be able to transfer or withdraw your funds until at least Phase 1.5 (which means your funds will remain inaccessible until then).</p>
 <h3><a class="header" href="#how-are-validators-incentivized-to-stay-active-and-honest" id="how-are-validators-incentivized-to-stay-active-and-honest">How are validators incentivized to stay active and honest?</a></h3>
 <p>In addition to being penalized for being offline, validators are penalized for behaving maliciously – for example attesting to invalid or contradicting blocks.</p>
 <p>On the other hand, they are rewarded for proposing / attesting to blocks that are included in the chain.</p>
