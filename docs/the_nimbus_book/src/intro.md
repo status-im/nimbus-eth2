@@ -12,6 +12,7 @@ The Nimbus beacon chain is a research implementation of the Beacon Chain – the
 - [Ben Edgington's annotated spec](https://benjaminion.xyz/eth2-annotated-spec/phase0/beacon-chain/) 
 
 - [Vitalik's annotated spec](https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md)
+
 - [Danny Ryan's annotated spec](https://notes.ethereum.org/@djrtwo/Bkn3zpwxB)
 
 
@@ -22,13 +23,16 @@ In this book, we will cover:
 1. An [introduction](./intro.md#introduction) to the beacon chain, eth2, and Nimbus to equip you with some basic knowledge
 2. [Installation steps](./install.md) outlining the prerequisites to get started
 3. How to [become a Medalla validator](./medalla.md)
-4. How to [run the beacon node](./beacon_node.md) software to sync the beacon chain
-5. The [API](./api.md) for monitoring your node
-6. [Advanced usage](./advanced.md) for developers
-7. How to [setup up a systemd service](./beacon_node_systemd.md)
-8. How to [use Nimbus to generate your validator keys](./create_wallet_and_deposit.md)
-7. Common [questions and answers](./faq.md) to satisfy your curiosity
-8. How to [contribute](./contribute.md) to this book
+4. [Troubleshooting Medalla](./medalla-troubleshooting.md)
+5. How to [run the beacon node](./beacon_node.md) software to sync the beacon chain
+6. How to spin up a [beautiful monitoring dashboard](./metrics-pretty-pictures.md) for your validator
+7. The [API](./api.md) for monitoring your node
+8. [Advanced usage](./advanced.md) for developers
+9. How to [setup up a systemd service](./beacon_node_systemd.md)
+10. How to [use Nimbus to generate your validator keys](./create_wallet_and_deposit.md)
+11. Tips and tricks for windows users (WIP)
+12. Common [questions and answers](./faq.md) to satisfy your curiosity
+13. How to [contribute](./contribute.md) to this book
 
 
 ## Introduction
