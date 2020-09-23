@@ -98,8 +98,8 @@ jobs:
           echo "::set-env name=ARCH::$ARCH"
           echo "::set-env name=PLATFORM::$PLATFORM"
 
-          if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'i386']]; then
-            # libminiupnp / natpmp
+          # libminiupnp / natpmp
+          if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'i386' ]]; then
             export CFLAGS="${CFLAGS} -m32"
             echo "::set-env name=CFLAGS::$CFLAGS"
           fi
