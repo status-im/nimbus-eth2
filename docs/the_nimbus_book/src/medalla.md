@@ -144,9 +144,11 @@ make NIMFLAGS="-d:insecure" medalla
 
 You can then browse the metrics by connecting to:
 
-http://localhost:8008/metrics
+[http://localhost:8008/metrics](http://localhost:8008/metrics)
 
 Make sure this port is protected as the http server used is not considered secure (it should not be used by untrusted peers).
+
+For instructions on how to spin up a beautiful and useful monitoring dashboard for your validator and beacon node, see [this page](./metrics-pretty-pictures.md).
 
 ## Advanced options
 

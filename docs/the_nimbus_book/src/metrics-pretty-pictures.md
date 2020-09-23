@@ -1,0 +1,165 @@
+# Metrics and pretty pictures
+
+In this page we'll cover how to use  Grafana and Prometheus to help you visualise important real-time metrics concerning your validator and/or beacon node.
+
+Prometheus is an open-source systems monitoring and alerting toolkit. It runs as a service on your computer and its job is to capture metrics. You can find more information about Prometheus [here](https://prometheus.io/docs/introduction/overview/).
+
+Grafana is a tool for beautiful dashboard monitoring that works well with Prometheus. You can learn more about Grafana [here](https://github.com/grafana/grafana).
+
+## Simple metrics
+
+The easiest way to see metrics concerning your validator / node is to run the beacon node with the `NIMFLAGS="-d:insecure"` flag. For example, to enable metrics for a `medalla` validator, run:
+
+```
+make NIMFLAGS="-d:insecure" medalla
+```
+
+> **Note:** this flag is needed because Nim considers the HTTP server that needs to start to serve the metrics to be insecure (without this flag it won't launch properly).
+
+
+Now visit [http://127.0.0.1:8008/metrics](http://127.0.0.1:8008/metrics) to see the raw metrics. You should see a plaintext page that looks something like this:
+
+```
+# HELP nim_runtime_info Nim runtime info
+# TYPE nim_runtime_info gauge
+nim_gc_mem_bytes 6275072.0
+nim_gc_mem_occupied_bytes 1881384.0
+nim_gc_heap_instance_occupied_bytes{type_name="KeyValuePairSeq[digest.Eth2Digest, block_pools_types.BlockRef]"} 25165856.0
+nim_gc_heap_instance_occupied_bytes{type_name="BlockRef"} 17284608.0
+nim_gc_heap_instance_occupied_bytes{type_name="string"} 6264507.0
+nim_gc_heap_instance_occupied_bytes{type_name="seq[SelectorKey[asyncdispatch.AsyncData]]"} 409632.0
+nim_gc_heap_instance_occupied_bytes{type_name="OrderedKeyValuePairSeq[Labels, seq[Metric]]"} 122720.0
+nim_gc_heap_instance_occupied_bytes{type_name="Future[system.void]"} 79848.0
+nim_gc_heap_instance_occupied_bytes{type_name="anon ref object from /Users/hackingresearch/nimbus/clone/nim-beacon-chain/vendor/nimbus-build-system/vendor/Nim/lib/pure/asyncmacro.nim(319, 33)"} 65664.0
+nim_gc_heap_instance_occupied_bytes{type_name="anon ref object from /Users/hackingresearch/nimbus/clone/nim-beacon-chain/vendor/nimbus-build-system/vendor/Nim/lib/pure/asyncnet.nim(506, 11)"} 43776.0
+nim_gc_heap_instance_occupied_bytes{type_name="seq[byte]"} 37236.0
+nim_gc_heap_instance_occupied_bytes{type_name="seq[TrustedAttestation]"} 29728.0
+
+...
+```
+
+Unfortunately, this simple method only offers one snapshot in time (you'll need to keep refreshing to see the data update) which means it's impossible to see a useful history of the metrics. In short, it's far from optimal from an information design point of view.
+
+In order to settle on a better solution, we'll need the help of two external libraries -- Prometheus and Grafana.
+
+## Prometheus and Grafana
+
+The following steps will take you through how to use Prometheus and Grafana to spin up a beautiful and useful monitoring dashboard for your validator and beacon node.
+
+### Steps
+
+#### 1. Download Prometheus
+
+Download and extract the [latest release](https://prometheus.io/download/) of Prometheus for your platform:
+
+```
+tar xvfz prometheus-*.tar.gz
+cd prometheus-*
+```
+
+#### 2. Copy the binary
+
+The Prometheus server is a single binary called prometheus (or prometheus.exe on Microsoft Windows). Copy it over to [`/usr/local/bin`](https://unix.stackexchange.com/questions/4186/what-is-usr-local-bin)
+
+```
+cp prometheus-2.20.1.linux-amd64/prometheus /usr/local/bin/
+```
+
+#### 3. Run Prometheus with the default configuration file
+
+Prometheus relies on a YAML configuration file to let it know where, and how often, to scrape data.
+
+`nim-beacon-chain` generates an appropriate configuration file (`prometheseus.yml`) when you build the beacon node. If you're running the `medalla` testnet you'll find this in `build/data/shared_medalla_0`.
+
+To run Prometheus with the default config file:
+
+```
+cd build/data/shared_medalla_0
+prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
+# when starting multiple nodes at the same time, just use the config file from the one with the highest ID
+```
+
+#### 4. Download Grafana
+
+[Download the latest release]((https://grafana.com/grafana/download?platform=linux)) of Grafana for your platform here.
+
+
+#### 5. Install and start Grafana
+
+Follow [the instructions for your platform](https://grafana.com/docs/grafana/latest/installation/) to install and start Grafana.
+
+#### 6. Configure login
+
+Go to [http://localhost:3000/](http://localhost:3000/), you should see a Grafana login screen that looks like this
+
+
+![](https://i.imgur.com/jcP1qWl.png)
+
+Type in `admin` for both the username and password. You'll be asked to change the password (we recommend you do so).
+
+
+#### 7. Add a data source
+
+Hover your mouse over the gear icon in the left menu bar, and click on the `Data Sources` option in the sub-menu that pops up.
+
+![](https://i.imgur.com/0Xsgx61.png)
+
+Now click on the `Add Data Source` button in the center of the screen
+
+![](https://i.imgur.com/YRVJjdD.png)
+
+Select `Prometheus`
+
+![](https://i.imgur.com/YpwThOr.png)
+
+Enter `http://localhost:9090` in the URL field
+
+![](https://i.imgur.com/PtVOnur.png)
+
+Scroll to the bottom and click on `Save and Test`
+
+![](https://i.imgur.com/GJVdwaK.png)
+
+If everything is working correctly you should see a green `Data source is working` box pop up
+
+![](https://i.imgur.com/vf5ahNA.png)
+
+
+#### 8. Import a dashboard
+
+Now, let's import a dashboard; hover your mouse over the `+` icon in the left menu bar and select `import` from the pop-up menu
+
+![](https://i.imgur.com/WnnAcUR.png)
+
+Click on `Upload JSON file`
+
+![](https://i.imgur.com/l65ICZ2.png)
+
+Select the `beacon_nodes_Grafana_dashboard.json`  from the `nim-beacon-chain/grafana/` folder and click on `Import`
+
+![](https://i.imgur.com/SoU5Isz.png)
+
+You'll be directed to the dashboard where you'll be able to gain insights into the performance of `nim-beacon-chain` and your validators
+
+![](https://i.imgur.com/aIfJ1iT.png)
+
+> **Note:** the dashboard is very much a work in progress. Some of the highlights right now include received and proposed blocks, received and sent attestations, peers, memory and cpu usage stats. But keep an eye out for additional metrics in the near future.
+
+
+And voila! That's all there is to it :)
+
+
+## Enabling mobile alerts
+
+### Telegram
+
+TODO
+
+### Discord
+
+TODO
+
+## Additional resources
+
+- [Guide to Staking on Ethereum 2.0 (Ubuntu/Medalla/Nimbus)](https://medium.com/@SomerEsat/guide-to-staking-on-ethereum-2-0-ubuntu-medalla-nimbus-5f4b2b0f2d7c): a guide by an outside contributer that contains some very informative sections on both Prometheus and Grafana. We strongly recommend reading through the relevant sections if you're using a linux device and/or using `systemd`.
+- [Our dashboard](https://metrics.status.im/d/pgeNfj2Wz23/nimbus-testnet3?orgId=1&from=now-6h&to=now&var-container=beacon-node-testnet3&var-instance=node-03.aws-eu-central-1a.nimbus.test) (AWS Medalla nodes)

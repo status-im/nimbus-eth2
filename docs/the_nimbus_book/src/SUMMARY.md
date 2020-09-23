@@ -4,6 +4,7 @@
 - [Become a Medalla validator](./medalla.md)
 - [Troubleshooting Medalla](./medalla-troubleshooting.md)
 - [Running the beacon node](./beacon_node.md)
+- [Metrics and pretty pictures](./metrics-pretty-pictures.md)
 - [API](./api.md)
 # Advanced
 - [For developers](./advanced.md)
