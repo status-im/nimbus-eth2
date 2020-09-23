@@ -98,6 +98,12 @@ jobs:
           echo "::set-env name=ARCH::$ARCH"
           echo "::set-env name=PLATFORM::$PLATFORM"
 
+Linux32          if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'i386']]; then
+            # libminiupnp / natpmp
+            export CFLAGS="${CFLAGS} -m32"
+            echo "::set-env name=CFLAGS::$CFLAGS"
+          fi
+
       - name: Install build dependencies (Linux i386)
         if: runner.os == 'Linux' && matrix.target.cpu == 'i386'
         run: |
@@ -143,13 +149,9 @@ jobs:
           mkdir -p external
 
           curl -L "https://nim-lang.org/download/mingw$ARCH-6.3.0.7z" -o "external/mingw-${{ matrix.target.cpu }}.7z"
-          7z x "external/mingw-${{ matrix.target.cpu }}.7z" -oexternal/
+          7z x -y "external/mingw-${{ matrix.target.cpu }}.7z" -oexternal/
           mv external/mingw$ARCH external/mingw-${{ matrix.target.cpu }}
           echo '::add-path::${{ github.workspace }}'"/external/mingw-${{ matrix.target.cpu }}/bin"
-
-          curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
-          7z x external/windeps.zip -oexternal/dlls-${{ matrix.target.cpu }}
-          echo '::add-path::${{ github.workspace }}'"/external/dlls-${{ matrix.target.cpu }}"
 
       - name: Install DLLs dependencies (Windows)
         if: >
@@ -160,7 +162,7 @@ jobs:
           mkdir -p external
 
           curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
-          7z x external/windeps.zip -oexternal/dlls-${{ matrix.target.cpu }}
+          7z x -y external/windeps.zip -oexternal/dlls-${{ matrix.target.cpu }}
           echo '::add-path::${{ github.workspace }}'"/external/dlls-${{ matrix.target.cpu }}"
 
       - name: Install build dependencies (MacOS)
