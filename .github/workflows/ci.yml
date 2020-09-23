@@ -118,17 +118,25 @@ jobs:
           chmod 755 external/bin/gcc external/bin/g++
           echo '::add-path::${{ github.workspace }}/external/bin'
 
-      - name: Restore build dependencies (Windows) from cache
+      - name: Restore MinGW-W64 (Windows) from cache
         if: runner.os == 'Windows'
-        id: windows-tools-cache
+        id: windows-mingw-cache
         uses: actions/cache@v1
         with:
           path: /external/mingw-${{ matrix.target.cpu }}
           key: 'mingw-${{ matrix.target.cpu }}'
 
-      - name: Install build dependencies (Windows)
+      - name: Restore Nim DLLs dependencies (Windows) from cache
+        if: runner.os == 'Windows'
+        id: windows-dlls-cache
+        uses: actions/cache@v1
+        with:
+          path: /external/dlls-${{ matrix.target.cpu }}
+          key: 'dlls-${{ matrix.target.cpu }}'
+
+      - name: Install MinGW64 dependency (Windows)
         if: >
-          steps.windows-tools-cache.outputs.cache-hit != 'true' &&
+          steps.windows-mingw-cache.outputs.cache-hit != 'true' &&
           runner.os == 'Windows'
         shell: bash
         run: |
@@ -139,9 +147,21 @@ jobs:
           mv external/mingw$ARCH external/mingw-${{ matrix.target.cpu }}
           echo '::add-path::${{ github.workspace }}'"/external/mingw-${{ matrix.target.cpu }}/bin"
 
-          # curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
-          # 7z x external/windeps.zip -oexternal/dlls
-          # echo '::add-path::${{ github.workspace }}'"/external/dlls"
+          curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
+          7z x external/windeps.zip -oexternal/dlls-${{ matrix.target.cpu }}
+          echo '::add-path::${{ github.workspace }}'"/external/dlls-${{ matrix.target.cpu }}"
+
+      - name: Install DLLs dependencies (Windows)
+        if: >
+          steps.windows-dlls-cache.outputs.cache-hit != 'true' &&
+          runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir -p external
+
+          curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
+          7z x external/windeps.zip -oexternal/dlls-${{ matrix.target.cpu }}
+          echo '::add-path::${{ github.workspace }}'"/external/dlls-${{ matrix.target.cpu }}"
 
       - name: Install build dependencies (MacOS)
         if: runner.os == 'macOS'
@@ -194,9 +214,11 @@ jobs:
           echo "::set-output name=ncpu::$ncpu"
 
           make -j$ncpu ARCH_OVERRIDE=$PLATFORM CI_CACHE=NimBinaries V=1 update
-          if [[ '${{ runner.os }}' == 'Windows' ]]; then
-            make -j$ncpu ARCH_OVERRIDE=$PLATFORM fetch-dlls
-          fi
+
+          # Cached in "windows-dlls-cache" and exported globally
+          # if [[ '${{ runner.os }}' == 'Windows' ]]; then
+          #   make -j$ncpu ARCH_OVERRIDE=$PLATFORM fetch-dlls
+          # fi
 
       - name: Smoke test the Beacon Node and Validator Client with all tracing enabled
         if: matrix.target.TEST_KIND == 'unit-tests'
