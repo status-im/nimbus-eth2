@@ -81,7 +81,7 @@ export AggregateSignature
 
 # API
 # ----------------------------------------------------------------------
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/beacon-chain.md#bls-signatures
 
 func toPubKey*(privkey: ValidatorPrivKey): ValidatorPubKey =
   ## Create a private key from a public key
@@ -132,7 +132,7 @@ func finish*(agg: AggregateSignature): ValidatorSig {.inline.}=
   result.kind = Real
   result.blsValue.finish(agg)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/beacon-chain.md#bls-signatures
 proc blsVerify*(
     pubkey: ValidatorPubKey, message: openArray[byte],
     signature: ValidatorSig): bool =
