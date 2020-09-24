@@ -166,7 +166,7 @@ proc check_proposer_slashing*(
 
   # Verify signatures
   if skipBlsValidation notin flags:
-    for i, signed_header in [proposer_slashing.signed_header_1,
+    for signed_header in [proposer_slashing.signed_header_1,
         proposer_slashing.signed_header_2]:
       if not verify_block_signature(
           state.fork, state.genesis_validators_root, signed_header.message.slot,
