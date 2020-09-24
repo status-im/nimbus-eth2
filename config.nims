@@ -3,6 +3,20 @@ if defined(release):
 else:
   switch("nimcache", "nimcache/debug/$projectName")
 
+# `-flto` gives a significant improvement in processing speed, specially hash tree and state transition (basically any CPU-bound code implemented in nim)
+# With LTO enabled, optimization flags should be passed to both compiler and linker!
+if defined(release):
+  if defined(macosx): # Clang
+    switch("passC", "-flto=thin")
+    switch("passL", "-flto=thin")
+  elif defined(linux):
+    switch("passC", "-flto=auto")
+    switch("passL", "-flto=auto")
+  else:
+    # On windows, LTO needs more love and attention so the right linkers
+    # are used
+    discard
+
 if defined(windows):
   # disable timestamps in Windows PE headers - https://wiki.debian.org/ReproducibleBuilds/TimestampsInPEBinaries
   switch("passL", "-Wl,--no-insert-timestamp")
@@ -25,12 +39,15 @@ if defined(windows):
 # use at least -msse2 or -msse3.
 if defined(disableMarchNative):
   switch("passC", "-msse3")
+  switch("passL", "-msse3")
 else:
   switch("passC", "-march=native")
+  switch("passL", "-march=native")
   if defined(windows):
     # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
     # ("-fno-asynchronous-unwind-tables" breaks Nim's exception raising, sometimes)
     switch("passC", "-mno-avx512f")
+    switch("passL", "-mno-avx512f")
 
 --threads:on
 --opt:speed
