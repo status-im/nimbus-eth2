@@ -415,6 +415,8 @@ proc addMessageHandlers(node: BeaconNode): Future[void] =
     # As a side-effect, this gets the attestation subnets too.
     node.network.subscribe(node.topicBeaconBlocks),
     node.network.subscribe(getAttesterSlashingsTopic(node.forkDigest)),
+    node.network.subscribe(getProposerSlashingsTopic(node.forkDigest)),
+    node.network.subscribe(getVoluntaryExitsTopic(node.forkDigest)),
 
     node.getAttestationHandlers()
   )
@@ -838,8 +840,8 @@ proc installMessageValidators(node: BeaconNode) =
 
   node.network.addValidator(
     getVoluntaryExitsTopic(node.forkDigest),
-    proc (voluntaryExit: VoluntaryExit): ValidationResult =
-      node.processor[].voluntaryExitValidator(voluntaryExit))
+    proc (signedVoluntaryExit: SignedVoluntaryExit): ValidationResult =
+      node.processor[].voluntaryExitValidator(signedVoluntaryExit))
 
 proc stop*(node: BeaconNode) =
   status = BeaconNodeStatus.Stopping

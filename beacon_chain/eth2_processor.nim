@@ -398,11 +398,12 @@ proc proposerSlashingValidator*(
   EVRESULT_ACCEPT
 
 proc voluntaryExitValidator*(
-    self: var Eth2Processor, voluntaryExit: VoluntaryExit): ValidationResult =
+    self: var Eth2Processor, signedVoluntaryExit: SignedVoluntaryExit):
+    ValidationResult =
   logScope:
-    voluntaryExit = shortLog(voluntaryExit)
+    signedVoluntaryExit = shortLog(signedVoluntaryExit)
 
-  let v = self.exitPool[].validateVoluntaryExit(voluntaryExit)
+  let v = self.exitPool[].validateVoluntaryExit(signedVoluntaryExit)
   if v.isErr:
     debug "Dropping voluntary exit", err = v.error
     return v.error[0]

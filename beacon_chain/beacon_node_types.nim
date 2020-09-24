@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[deques, tables, streams],
+  std/[deques, sets, streams, tables],
   stew/endians2,
   spec/[datatypes, digest, crypto],
   block_pools/block_pools_types,
@@ -79,8 +79,17 @@ type
     proposer_slashings*: Deque[ProposerSlashing]  ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
 
-    voluntary_exits*: Deque[VoluntaryExit]  ## \
+    voluntary_exits*: Deque[SignedVoluntaryExit]  ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
+
+    prior_seen_attester_slashed_indices*: HashSet[ValidatorIndex] ##\
+    ## Records attester-slashed indices seen.
+
+    prior_seen_proposer_slashed_indices*: HashSet[ValidatorIndex] ##\
+    ## Records proposer-slashed indices seen.
+
+    prior_seen_voluntary_exit_indices*: HashSet[ValidatorIndex] ##\
+    ## Records voluntary exit indices seen.
 
     chainDag*: ChainDAGRef
     quarantine*: QuarantineRef
