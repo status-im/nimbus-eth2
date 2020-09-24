@@ -9,9 +9,13 @@ if defined(release):
   if defined(macosx): # Clang
     switch("passC", "-flto=thin")
     switch("passL", "-flto=thin")
-  else:
+  elif defined(linux):
     switch("passC", "-flto=auto")
     switch("passL", "-flto=auto")
+  else:
+    # On windows, LTO needs more love and attention so the right linkers
+    # are used
+    discard
 
 if defined(windows):
   # disable timestamps in Windows PE headers - https://wiki.debian.org/ReproducibleBuilds/TimestampsInPEBinaries
