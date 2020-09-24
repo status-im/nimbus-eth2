@@ -751,16 +751,17 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
     man.notInSyncEvent.clear()
     return
 
-  if peerAge <= man.maxHeadAge:
+  if headSlot >= peerSlot - man.maxHeadAge:
     debug "We are in sync with peer, refreshing peer's status information",
           wall_clock_slot = wallSlot, remote_head_slot = peerSlot,
           local_head_slot = headSlot, peer = peer, peer_score = peer.getScore(),
           index = index, peer_speed = peer.netKbps(), topics = "syncman"
 
+    man.workers[index].status = SyncWorkerStatus.UpdatingStatus
+
     if peerStatusAge <= StatusUpdateInterval:
       await sleepAsync(StatusUpdateInterval - peerStatusAge)
 
-    man.workers[index].status = SyncWorkerStatus.UpdatingStatus
     try:
       let res = await peer.updateStatus()
       if not(res):
