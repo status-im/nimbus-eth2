@@ -516,7 +516,7 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
       await readResponse(when useNativeSnappy: libp2pInput(stream) else: stream,
                          peer, ResponseMsg, timeout)
   finally:
-    await stream.close()
+    await stream.closeWithEOF()
 
 proc init*[MsgType](T: type MultipleChunksResponse[MsgType],
                     peer: Peer, conn: Connection): T =
@@ -676,17 +676,11 @@ proc handleIncomingStream(network: Eth2Node,
       await sendErrorResponse(peer, conn, ServerError,
                               ErrorMsg err.msg.toBytes)
 
-    var buf: array[1, byte]
-    # Check that there is no extra data on the socket
-    if (await conn.readOnce(addr buf[0], buf.len)) != 0:
-      await sendErrorResponse(peer, conn, ServerError,
-                              ErrorMsg "Extra data".toBytes)
-
   except CatchableError as err:
     debug "Error processing an incoming request", err = err.msg, msgName
 
   finally:
-    await conn.close()
+    await conn.closeWithEOF()
 
 proc toPeerAddr*(r: enr.TypedRecord):
     Result[PeerAddr, cstring] {.raises: [Defect].} =
