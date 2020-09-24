@@ -344,9 +344,7 @@ proc isValidBeaconBlock*(
   if parent_ref.isNil:
     # Pending dag gets checked via `ChainDAGRef.add(...)` later, and relevant
     # checks are performed there. In usual paths beacon_node adds blocks via
-    # ChainDAGRef.add(...) directly, with no additional validity checks. TODO,
-    # not specific to this, but by the pending dag keying on the htr of the
-    # BeaconBlock, not SignedBeaconBlock, opens up certain spoofing attacks.
+    # ChainDAGRef.add(...) directly, with no additional validity checks.
     debug "parent unknown, putting block in quarantine",
       current_slot = shortLog(current_slot)
     if not quarantine.add(dag, signed_beacon_block):
