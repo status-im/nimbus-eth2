@@ -134,9 +134,9 @@ func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
     (epoch < validator.withdrawable_epoch)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#proposer-slashings
-proc process_proposer_slashing*(
+proc check_proposer_slashing*(
     state: var BeaconState, proposer_slashing: ProposerSlashing,
-    flags: UpdateFlags, stateCache: var StateCache):
+    flags: UpdateFlags, cache: var StateCache):
     Result[void, cstring] {.nbench.} =
 
   let
@@ -145,24 +145,24 @@ proc process_proposer_slashing*(
 
   # Not from spec
   if header_1.proposer_index >= state.validators.lenu64:
-    return err("process_proposer_slashing: invalid proposer index")
+    return err("check_proposer_slashing: invalid proposer index")
 
   # Verify header slots match
   if not (header_1.slot == header_2.slot):
-    return err("process_proposer_slashing: slot mismatch")
+    return err("check_proposer_slashing: slot mismatch")
 
   # Verify header proposer indices match
   if not (header_1.proposer_index == header_2.proposer_index):
-    return err("process_proposer_slashing: proposer indices mismatch")
+    return err("check_proposer_slashing: proposer indices mismatch")
 
   # Verify the headers are different
   if not (header_1 != header_2):
-    return err("process_proposer_slashing: headers not different")
+    return err("check_proposer_slashing: headers not different")
 
   # Verify the proposer is slashable
   let proposer = state.validators[header_1.proposer_index]
   if not is_slashable_validator(proposer, get_current_epoch(state)):
-    return err("process_proposer_slashing: slashed proposer")
+    return err("check_proposer_slashing: slashed proposer")
 
   # Verify signatures
   if skipBlsValidation notin flags:
@@ -171,10 +171,20 @@ proc process_proposer_slashing*(
       if not verify_block_signature(
           state.fork, state.genesis_validators_root, signed_header.message.slot,
           signed_header.message, proposer.pubkey, signed_header.signature):
-        return err("process_proposer_slashing: invalid signature")
+        return err("check_proposer_slashing: invalid signature")
 
-  slash_validator(state, header_1.proposer_index.ValidatorIndex, stateCache)
+  ok()
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#proposer-slashings
+proc process_proposer_slashing*(
+    state: var BeaconState, proposer_slashing: ProposerSlashing,
+    flags: UpdateFlags, cache: var StateCache):
+    Result[void, cstring] {.nbench.} =
+  ? check_proposer_slashing(state, proposer_slashing, flags, cache)
+  slash_validator(
+    state,
+    proposer_slashing.signed_header_1.message.proposer_index.ValidatorIndex,
+    cache)
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#is_slashable_attestation_data
@@ -190,12 +200,12 @@ func is_slashable_attestation_data*(
      data_2.target.epoch < data_1.target.epoch)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#attester-slashings
-proc process_attester_slashing*(
+proc check_attester_slashing*(
        state: var BeaconState,
        attester_slashing: AttesterSlashing,
        flags: UpdateFlags,
-       stateCache: var StateCache
-     ): Result[void, cstring] {.nbench.}=
+       cache: var StateCache
+     ): Result[seq[ValidatorIndex], cstring] {.nbench.} =
   let
     attestation_1 = attester_slashing.attestation_1
     attestation_2 = attester_slashing.attestation_2
@@ -210,21 +220,39 @@ proc process_attester_slashing*(
   if not is_valid_indexed_attestation(state, attestation_2, flags).isOk():
     return err("Attester slashing: invalid attestation 2")
 
-  var slashed_any = false
+  var slashed_indices: seq[ValidatorIndex]
 
   for index in sorted(toSeq(intersection(
       toHashSet(attestation_1.attesting_indices.asSeq),
       toHashSet(attestation_2.attesting_indices.asSeq)).items), system.cmp):
     if is_slashable_validator(
         state.validators[index], get_current_epoch(state)):
-      slash_validator(state, index.ValidatorIndex, stateCache)
-      slashed_any = true
-  if not slashed_any:
+      slashed_indices.add index.ValidatorIndex
+  if slashed_indices.len == 0:
     return err("Attester slashing: Trying to slash participant(s) twice")
+
+  ok slashed_indices
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#attester-slashings
+proc process_attester_slashing*(
+       state: var BeaconState,
+       attester_slashing: AttesterSlashing,
+       flags: UpdateFlags,
+       cache: var StateCache
+     ): Result[void, cstring] {.nbench.} =
+  let attester_slashing_validity =
+    check_attester_slashing(state, attester_slashing, flags, cache)
+
+  if attester_slashing_validity.isErr:
+    return err(attester_slashing_validity.error)
+
+  for index in attester_slashing_validity.value:
+    slash_validator(state, index, cache)
+
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#voluntary-exits
-proc process_voluntary_exit*(
+proc check_voluntary_exit*(
     state: var BeaconState,
     signed_voluntary_exit: SignedVoluntaryExit,
     flags: UpdateFlags,
@@ -264,7 +292,7 @@ proc process_voluntary_exit*(
       return err("Exit: invalid signature")
 
   # Initiate exit
-  debug "Exit: processing voluntary exit (validator_leaving)",
+  debug "Exit: checking voluntary exit (validator_leaving)",
     index = voluntary_exit.validator_index,
     num_validators = state.validators.len,
     epoch = voluntary_exit.epoch,
@@ -273,9 +301,18 @@ proc process_voluntary_exit*(
     validator_withdrawable_epoch = validator.withdrawable_epoch,
     validator_exit_epoch = validator.exit_epoch,
     validator_effective_balance = validator.effective_balance
-  initiate_validator_exit(
-    state, voluntary_exit.validator_index.ValidatorIndex, cache)
 
+  ok()
+
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/beacon-chain.md#voluntary-exits
+proc process_voluntary_exit*(
+    state: var BeaconState,
+    signed_voluntary_exit: SignedVoluntaryExit,
+    flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] {.nbench.} =
+  ? check_voluntary_exit(state, signed_voluntary_exit, flags, cache)
+  initiate_validator_exit(
+    state, signed_voluntary_exit.message.validator_index.ValidatorIndex, cache)
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/beacon-chain.md#operations

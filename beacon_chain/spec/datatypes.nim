@@ -739,6 +739,12 @@ func shortLog*(v: VoluntaryExit): auto =
     validator_index: v.validator_index
   )
 
+func shortLog*(v: SignedVoluntaryExit): auto =
+  (
+    message: shortLog(v.message),
+    signature: shortLog(v.signature)
+  )
+
 chronicles.formatIt Slot: it.shortLog
 chronicles.formatIt Epoch: it.shortLog
 chronicles.formatIt BeaconBlock: it.shortLog

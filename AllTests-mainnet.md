@@ -70,6 +70,13 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + parent sanity [Preset: mainnet]                                                            OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Exit pool testing suite
+```diff
++ addExitMessage/getAttesterSlashingMessage                                                  OK
++ addExitMessage/getProposerSlashingMessage                                                  OK
++ addExitMessage/getVoluntaryExitMessage                                                     OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Fork Choice + Finality  [Preset: mainnet]
 ```diff
 + fork_choice - testing finality #01                                                         OK
@@ -179,11 +186,12 @@ OK: 52/60 Fail: 0/60 Skip: 8/60
 + Peer lifetime test                                                                         OK
 + Safe/Clear test                                                                            OK
 + Score check test                                                                           OK
++ Space tests                                                                                OK
 + addPeer() test                                                                             OK
 + addPeerNoWait() test                                                                       OK
 + deletePeer() test                                                                          OK
 ```
-OK: 11/11 Fail: 0/11 Skip: 0/11
+OK: 12/12 Fail: 0/12 Skip: 0/12
 ## SSZ dynamic navigator
 ```diff
 + navigating fields                                                                          OK
@@ -271,4 +279,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 145/153 Fail: 0/153 Skip: 8/153
+OK: 149/157 Fail: 0/157 Skip: 8/157
