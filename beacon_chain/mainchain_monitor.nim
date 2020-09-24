@@ -414,9 +414,8 @@ method onBlockHeaders*(p: Web3DataProviderRef,
 
   info "Waiting for new Eth1 block headers"
 
-  let options = newJObject()
   p.blockHeadersSubscription = await p.web3.subscribeForBlockHeaders(
-    options, blockHeaderHandler, errorHandler)
+    blockHeaderHandler, errorHandler)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#get_eth1_data
 func getBlockProposalData*(preset: RuntimePreset, eth1Chain: Eth1Chain,
