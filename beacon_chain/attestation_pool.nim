@@ -265,7 +265,7 @@ proc getAttestationsForBlock*(pool: AttestationPool,
 
   for a in attestations:
     var
-      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#construct-attestation
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/validator.md#construct-attestation
       attestation = Attestation(
         aggregation_bits: a.validations[0].aggregation_bits,
         data: a.data,
@@ -325,7 +325,7 @@ proc getAggregatedAttestation*(pool: AttestationPool,
       continue
 
     var
-      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/validator.md#construct-attestation
+      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/validator.md#construct-attestation
       attestation = Attestation(
         aggregation_bits: a.validations[0].aggregation_bits,
         data: a.data,
