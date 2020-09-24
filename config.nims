@@ -30,7 +30,7 @@ else:
   if defined(windows):
     # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
     # ("-fno-asynchronous-unwind-tables" breaks Nim's exception raising, sometimes)
-    switch("passC", "-mno-avx512vl")
+    switch("passC", "-mno-avx512f")
 
 --threads:on
 --opt:speed
