@@ -25,24 +25,24 @@ jobs:
             cpu: i386
             TEST_KIND: unit-tests
 
-          # Minimal integration tests
-          - os: linux
-            cpu: amd64
-            TEST_KIND: finalization-minimal
-          - os: linux
-            cpu: i386
-            TEST_KIND: finalization-minimal
-          # Requires GNU getopt
-          - os: macos
-            cpu: amd64
-            TEST_KIND: finalization-minimal
-          - os: windows
-            cpu: amd64
-            TEST_KIND: finalization-minimal
-          # TODO - Bootstrap issue: https://github.com/status-im/nim-beacon-chain/issues/1725
-          # - os: windows
+          # # Minimal integration tests
+          # - os: linux
+          #   cpu: amd64
+          #   TEST_KIND: finalization-minimal
+          # - os: linux
           #   cpu: i386
           #   TEST_KIND: finalization-minimal
+          # # Requires GNU getopt
+          # - os: macos
+          #   cpu: amd64
+          #   TEST_KIND: finalization-minimal
+          # - os: windows
+          #   cpu: amd64
+          #   TEST_KIND: finalization-minimal
+          # # TODO - Bootstrap issue: https://github.com/status-im/nim-beacon-chain/issues/1725
+          # # - os: windows
+          # #   cpu: i386
+          # #   TEST_KIND: finalization-minimal
 
           # Mainnet integration tests
           # - os: linux
