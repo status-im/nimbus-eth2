@@ -21,10 +21,9 @@ jobs:
           - os: windows
             cpu: amd64
             TEST_KIND: unit-tests
-          # TODO - Scrypt/keystore Integer out of valid range: https://github.com/status-im/nim-beacon-chain/issues/1701
-          # - os: windows
-          #   cpu: i386
-          #   TEST_KIND: unit-tests
+          - os: windows
+            cpu: i386
+            TEST_KIND: unit-tests
 
           # Minimal integration tests
           - os: linux
