@@ -163,11 +163,15 @@ type
   MounterProc* = proc(network: Eth2Node) {.gcsafe.}
   MessageContentPrinter* = proc(msg: pointer): string {.gcsafe.}
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#goodbye
   DisconnectionReason* = enum
     # might see other values on the wire!
     ClientShutDown = 1
     IrrelevantNetwork = 2
     FaultOrError = 3
+    # Clients MAY use reason codes above 128 to indicate alternative,
+    # erroneous request-specific responses.
+    PeerScoreLow = 237 # 79 * 3
 
   PeerDisconnected* = object of CatchableError
     reason*: DisconnectionReason
@@ -230,6 +234,8 @@ const
     ## Period of time for `ClientShutDown` error reason.
   SeenTableTimeFaultOrError* = 10.minutes
     ## Period of time for `FaultOnError` error reason.
+  SeenTablePenaltyError* = 60.minutes
+    ## Period of time for peers which score below or equal to zero.
 
 template neterr(kindParam: Eth2NetworkingErrorKind): auto =
   err(type(result), Eth2NetworkingError(kind: kindParam))
@@ -303,16 +309,16 @@ proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
   return network.getPeer(conn.peerInfo.peerId)
 
 proc getKey*(peer: Peer): PeerID {.inline.} =
-  result = peer.info.peerId
+  peer.info.peerId
 
 proc getFuture*(peer: Peer): Future[void] {.inline.} =
   if peer.disconnectedFut.isNil:
     peer.disconnectedFut = newFuture[void]()
-  result = peer.disconnectedFut
+  peer.disconnectedFut
 
 proc getScore*(a: Peer): int =
   ## Returns current score value for peer ``peer``.
-  result = a.score
+  a.score
 
 proc updateScore*(peer: Peer, score: int) {.inline.} =
   ## Update peer's ``peer`` score with value ``score``.
@@ -363,13 +369,15 @@ proc isSeen*(network: ETh2Node, peerId: PeerID): bool =
   ## yet expired.
   let currentTime = now(chronos.Moment)
   if peerId notin network.seenTable:
-    return false
-  let item = network.seenTable[peerId]
-  if currentTime >= item.stamp:
-    # Peer is in SeenTable, but the time period has expired.
-    network.seenTable.del(peerId)
-    return false
-  return true
+    false
+  else:
+    let item = network.seenTable[peerId]
+    if currentTime >= item.stamp:
+      # Peer is in SeenTable, but the time period has expired.
+      network.seenTable.del(peerId)
+      false
+    else:
+      true
 
 proc addSeen*(network: ETh2Node, peerId: PeerID,
               period: chronos.Duration) =
@@ -380,19 +388,26 @@ proc addSeen*(network: ETh2Node, peerId: PeerID,
 proc disconnect*(peer: Peer, reason: DisconnectionReason,
                  notifyOtherPeer = false) {.async.} =
   # TODO: How should we notify the other peer?
-  if peer.connectionState notin {Disconnecting, Disconnected}:
-    peer.connectionState = Disconnecting
-    await peer.network.switch.disconnect(peer.info.peerId)
-    peer.connectionState = Disconnected
-    discard peer.network.peerPool.deletePeer(peer)
-    let seenTime = case reason
-      of ClientShutDown:
-        SeenTableTimeClientShutDown
-      of IrrelevantNetwork:
-        SeenTableTimeIrrelevantNetwork
-      of FaultOrError:
-        SeenTableTimeFaultOrError
-    peer.network.addSeen(peer.info.peerId, seenTime)
+  try:
+    if peer.connectionState notin {Disconnecting, Disconnected}:
+      peer.connectionState = Disconnecting
+      # We adding peer in SeenTable before actual disconnect to avoid races.
+      let seenTime = case reason
+        of ClientShutDown:
+          SeenTableTimeClientShutDown
+        of IrrelevantNetwork:
+          SeenTableTimeIrrelevantNetwork
+        of FaultOrError:
+          SeenTableTimeFaultOrError
+        of PeerScoreLow:
+          SeenTablePenaltyError
+      peer.network.addSeen(peer.info.peerId, seenTime)
+      await peer.network.switch.disconnect(peer.info.peerId)
+      peer.connectionState = Disconnected
+  except CatchableError as exc:
+    # We do not care about exceptions in disconnection procedure.
+    trace "Exception while disconnecting peer", peer = peer.info.peerId,
+                                                reason = reason
 
 include eth/p2p/p2p_backends_helpers
 include eth/p2p/p2p_tracing
