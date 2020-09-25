@@ -74,7 +74,15 @@ jobs:
     name: '${{ matrix.target.os }}-${{ matrix.target.cpu }} (${{ matrix.target.TEST_KIND }})'
     runs-on: ${{ matrix.builder }}
     steps:
-      - name: Cancel Previous Runs
+      - name: Get branch name
+        shell: bash
+        run: echo "##[set-output name=branch_name;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: get_branch
+
+      - name: Cancel Previous Runs (except master/devel)
+        if: >
+          steps.get_branch.outputs.branch_name != 'master' &&
+          steps.get_branch.outputs.branch_name != 'devel'
         uses: styfle/cancel-workflow-action@0.5.0
         with:
           access_token: ${{ github.token }}
