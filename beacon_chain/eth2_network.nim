@@ -168,7 +168,9 @@ type
     ClientShutDown = 1
     IrrelevantNetwork = 2
     FaultOrError = 3
-    PeerScoreLow = 4
+    # Clients MAY use reason codes above 128 to indicate alternative,
+    # erroneous request-specific responses.
+    PeerScoreLow = 237 # 79 * 3
 
   PeerDisconnected* = object of CatchableError
     reason*: DisconnectionReason
