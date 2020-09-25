@@ -1250,7 +1250,7 @@ proc createEth2Node*(
     switch = switch,
     msgIdProvider = msgIdProvider,
     triggerSelf = true, sign = false,
-    verifySignature = false).PubSub
+    verifySignature = false, anonymize = true).PubSub
 
   switch.mount(pubsub)
 
