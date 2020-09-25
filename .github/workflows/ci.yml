@@ -136,7 +136,7 @@ jobs:
         id: windows-mingw-cache
         uses: actions/cache@v2
         with:
-          path: /external/mingw-${{ matrix.target.cpu }}
+          path: external/mingw-${{ matrix.target.cpu }}
           key: 'mingw-${{ matrix.target.cpu }}'
 
       - name: Restore Nim DLLs dependencies (Windows) from cache
@@ -144,7 +144,7 @@ jobs:
         id: windows-dlls-cache
         uses: actions/cache@v2
         with:
-          path: /external/dlls-${{ matrix.target.cpu }}
+          path: external/dlls-${{ matrix.target.cpu }}
           key: 'dlls-${{ matrix.target.cpu }}'
 
       - name: Install MinGW64 dependency (Windows)
@@ -154,11 +154,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p external
-
           curl -L "https://nim-lang.org/download/mingw$ARCH-6.3.0.7z" -o "external/mingw-${{ matrix.target.cpu }}.7z"
           7z x -y "external/mingw-${{ matrix.target.cpu }}.7z" -oexternal/
           mv external/mingw$ARCH external/mingw-${{ matrix.target.cpu }}
-          echo '::add-path::${{ github.workspace }}'"/external/mingw-${{ matrix.target.cpu }}/bin"
 
       - name: Install DLLs dependencies (Windows)
         if: >
@@ -167,9 +165,15 @@ jobs:
         shell: bash
         run: |
           mkdir -p external
-
           curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
           7z x -y external/windeps.zip -oexternal/dlls-${{ matrix.target.cpu }}
+
+      - name: Path to cached dependencies (Windows)
+        if: >
+          runner.os == 'Windows'
+        shell: bash
+        run: |
+          echo '::add-path::${{ github.workspace }}'"/external/mingw-${{ matrix.target.cpu }}/bin"
           echo '::add-path::${{ github.workspace }}'"/external/dlls-${{ matrix.target.cpu }}"
 
       - name: Install build dependencies (MacOS)
