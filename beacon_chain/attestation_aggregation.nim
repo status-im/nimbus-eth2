@@ -8,7 +8,8 @@
 {.push raises: [Defect].}
 
 import
-  options, chronos, chronicles,
+  std/[options, sequtils, sets],
+  chronos, chronicles,
   ./spec/[
     beaconstate, datatypes, crypto, digest, helpers, network, validator,
     signatures],
@@ -192,19 +193,6 @@ proc validateAttestation*(
   # validation.
   ? check_attestation_beacon_block(pool, attestation) # [IGNORE/REJECT]
 
-  # The attestation is the first valid attestation received for the
-  # participating validator for the slot, attestation.data.slot.
-  let maybeAttestationsSeen = getAttestationsForSlot(pool, attestation.data.slot)
-  if maybeAttestationsSeen.isSome:
-    for attestationEntry in maybeAttestationsSeen.get.attestations:
-      if attestation.data != attestationEntry.data:
-        continue
-      # Attestations might be aggregated eagerly or lazily; allow for both.
-      for validation in attestationEntry.validations:
-        if attestation.aggregation_bits.isSubsetOf(validation.aggregation_bits):
-          const err_str: cstring = "Attestation already exists at slot"
-          return err((EVRESULT_IGNORE, err_str))
-
   let tgtBlck = pool.chainDag.getRef(attestation.data.target.root)
   if tgtBlck.isNil:
     pool.quarantine.addMissing(attestation.data.target.root)
@@ -238,6 +226,21 @@ proc validateAttestation*(
     attesting_indices = get_attesting_indices(
       epochRef, attestation.data, attestation.aggregation_bits)
 
+  doAssert attesting_indices.len == 1, "Per bits check above"
+  let validator_index = toSeq(attesting_indices)[0]
+
+  # There has been no other valid attestation seen on an attestation subnet
+  # that has an identical `attestation.data.target.epoch` and participating
+  # validator index.
+  # Slightly modified to allow only newer attestations than were previously
+  # seen (no point in propagating older votes)
+  if (pool.lastVotedEpoch.len > validator_index.int) and
+      pool.lastVotedEpoch[validator_index.int].isSome() and
+      (pool.lastVotedEpoch[validator_index.int].get() >=
+        attestation.data.target.epoch):
+    const err_str: cstring = "Validator has already voted in epoch"
+    return err((EVRESULT_IGNORE, err_str))
+
   # The signature of attestation is valid.
   block:
     let v = is_valid_indexed_attestation(
@@ -245,6 +248,11 @@ proc validateAttestation*(
         attestation, {})
     if v.isErr():
       return err((EVRESULT_REJECT, v.error))
+
+  # Only valid attestations go in the list
+  if pool.lastVotedEpoch.len <= validator_index.int:
+    pool.lastVotedEpoch.setLen(validator_index.int + 1)
+  pool.lastVotedEpoch[validator_index] = some(attestation.data.target.epoch)
 
   ok(attesting_indices)
 
