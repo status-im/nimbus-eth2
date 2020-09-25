@@ -566,3 +566,41 @@ suiteReport "Slashing Protection DB" & preset():
           fakeValidator(100),
           Epoch 0, Epoch 21
         ).error.kind == SurroundingVote
+
+  wrappedTimedTest "Attestation ordering #1698":
+    block:
+      let db = SlashingProtectionDB.init(default(Eth2Digest), kvStore MemStoreRef.init())
+
+      db.registerAttestation(
+        fakeValidator(100),
+        Epoch 1, Epoch 2,
+        fakeRoot(20)
+      )
+
+      db.registerAttestation(
+        fakeValidator(100),
+        Epoch 8, Epoch 10,
+        fakeRoot(20)
+      )
+
+      db.registerAttestation(
+        fakeValidator(100),
+        Epoch 14, Epoch 15,
+        fakeRoot(20)
+      )
+
+      # The current list is, 2 -> 10 -> 15
+
+      db.registerAttestation(
+        fakeValidator(100),
+        Epoch 3, Epoch 6,
+        fakeRoot(20)
+      )
+
+      # The current list is 2 -> 6 -> 10 -> 15
+
+      check:
+        db.checkSlashableAttestation(
+          fakeValidator(100),
+          Epoch 7, Epoch 11
+        ).error.kind == SurroundingVote
