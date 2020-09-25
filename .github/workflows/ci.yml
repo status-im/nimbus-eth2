@@ -247,10 +247,10 @@ jobs:
           path: nim-beacon-chain/fixturesCache
           key: 'eth2-scenarios-${{ steps.fixtures_version.outputs.fixtures }}'
 
+      # Important: even with a cache hit, this should be run
+      # as it symlinks the cached items in their proper place
       - name: Get the Ethereum Foundation fixtures
-        if: >
-          matrix.target.TEST_KIND == 'unit-tests' &&
-          steps.fixtures-cache.outputs.cache-hit != 'true'
+        if: matrix.target.TEST_KIND == 'unit-tests'
         shell: bash
         working-directory: nim-beacon-chain
         run: |
