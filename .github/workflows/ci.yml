@@ -220,14 +220,6 @@ jobs:
           #   make -j$ncpu ARCH_OVERRIDE=$PLATFORM fetch-dlls
           # fi
 
-      - name: Smoke test the Beacon Node and Validator Client with all tracing enabled
-        if: matrix.target.TEST_KIND == 'unit-tests'
-        shell: bash
-        working-directory: nim-beacon-chain
-        run: |
-          make -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" beacon_node
-          make -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" validator_client
-
       - name: Get latest fixtures commit hash
         if: matrix.target.TEST_KIND == 'unit-tests'
         id: fixtures_version
@@ -255,6 +247,14 @@ jobs:
         working-directory: nim-beacon-chain
         run: |
           scripts/setup_official_tests.sh fixturesCache
+
+      - name: Smoke test the Beacon Node and Validator Client with all tracing enabled
+        if: matrix.target.TEST_KIND == 'unit-tests'
+        shell: bash
+        working-directory: nim-beacon-chain
+        run: |
+          make -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" beacon_node
+          make -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" validator_client
 
       - name: Run nim-beacon-chain tests
         if: matrix.target.TEST_KIND == 'unit-tests'
