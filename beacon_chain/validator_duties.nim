@@ -576,7 +576,7 @@ proc handleValidatorDuties*(
       "Waiting to aggregate attestations")
 
     const TRAILING_DISTANCE = 1
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#configuration
+    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#configuration
     static:
       doAssert TRAILING_DISTANCE <= ATTESTATION_PROPAGATION_SLOT_RANGE
 

@@ -248,7 +248,7 @@ proc validateAttestation*(
 
   ok(attesting_indices)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAggregate*(
     pool: var AttestationPool,
     signedAggregateAndProof: SignedAggregateAndProof, wallTime: BeaconTime):
