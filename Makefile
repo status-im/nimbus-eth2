@@ -272,7 +272,7 @@ define make_deposit
 		--ask-for-key
 endef
 
-define clean-network
+define clean_network
 	rm -rf build/data/shared_$(1)*/db
 	rm -rf build/data/shared_$(1)*/dump
 	rm -rf build/data/shared_$(1)*/*.log
