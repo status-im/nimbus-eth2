@@ -221,6 +221,12 @@ jobs:
           #   make -j$ncpu ARCH_OVERRIDE=$PLATFORM fetch-dlls
           # fi
 
+      - name: Prepare submodules & dependencies
+        shell: bash
+        working-directory: nim-beacon-chain
+        run: |
+          make -j$ncpu deps
+
       - name: Smoke test the Beacon Node and Validator Client with all tracing enabled
         if: matrix.target.TEST_KIND == 'unit-tests'
         shell: bash
@@ -245,7 +251,7 @@ jobs:
         id: fixtures-cache
         uses: actions/cache@v1
         with:
-          path: fixturesCache
+          path: nim-beacon-chain/fixturesCache
           key: 'scenarios-${{ steps.fixtures_version.outputs.fixtures }}'
 
       - name: Get the Ethereum Foundation fixtures
