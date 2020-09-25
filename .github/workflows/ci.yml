@@ -192,8 +192,7 @@ jobs:
           path: nim-beacon-chain/NimBinaries
           key: 'nim-${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ steps.versions.outputs.nimbus_build_system }}'
 
-      - name: Build Nim and associated tools
-        if: steps.nim-cache.outputs.cache-hit != 'true'
+      - name: Build Nim and NBC dependencies
         shell: bash
         working-directory: nim-beacon-chain
         run: |
@@ -245,7 +244,7 @@ jobs:
         id: fixtures-cache
         uses: actions/cache@v1
         with:
-          path: fixturesCache
+          path: nim-beacon-chain/fixturesCache
           key: 'scenarios-${{ steps.fixtures_version.outputs.fixtures }}'
 
       - name: Get the Ethereum Foundation fixtures
