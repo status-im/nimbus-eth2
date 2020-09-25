@@ -377,7 +377,8 @@ proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
                      continue
           break
 
-      let nextAccount = if config.walletsCmd == WalletsCmd.restore:
+      let nextAccount = if config.cmd == wallets and
+                           config.walletsCmd == WalletsCmd.restore:
         config.restoredDepositsCount
       else:
         none Natural
