@@ -150,7 +150,37 @@ make medalla-deposit VALIDATORS=2 # The default is just 1 deposit
 make NIMFLAGS="-d:insecure" medalla
 ```
 
-You can now see the raw metrics on http://127.0.0.1:8008/metrics but they're not very useful like this, so let's feed them to a Prometheus instance:
+Now visit http://127.0.0.1:8008/metrics to see the raw metrics. You should see a plaintext page that looks something like this:
+
+```
+# HELP nim_runtime_info Nim runtime info
+# TYPE nim_runtime_info gauge
+nim_gc_mem_bytes 6275072.0
+nim_gc_mem_occupied_bytes 1881384.0
+nim_gc_heap_instance_occupied_bytes{type_name="KeyValuePairSeq[digest.Eth2Digest, block_pools_types.BlockRef]"} 25165856.0
+nim_gc_heap_instance_occupied_bytes{type_name="BlockRef"} 17284608.0
+nim_gc_heap_instance_occupied_bytes{type_name="string"} 6264507.0
+nim_gc_heap_instance_occupied_bytes{type_name="seq[SelectorKey[asyncdispatch.AsyncData]]"} 409632.0
+nim_gc_heap_instance_occupied_bytes{type_name="OrderedKeyValuePairSeq[Labels, seq[Metric]]"} 122720.0
+nim_gc_heap_instance_occupied_bytes{type_name="Future[system.void]"} 79848.0
+nim_gc_heap_instance_occupied_bytes{type_name="anon ref object from /Users/hackingresearch/nimbus/clone/nim-beacon-chain/vendor/nimbus-build-system/vendor/Nim/lib/pure/asyncmacro.nim(319, 33)"} 65664.0
+nim_gc_heap_instance_occupied_bytes{type_name="anon ref object from /Users/hackingresearch/nimbus/clone/nim-beacon-chain/vendor/nimbus-build-system/vendor/Nim/lib/pure/asyncnet.nim(506, 11)"} 43776.0
+nim_gc_heap_instance_occupied_bytes{type_name="seq[byte]"} 37236.0
+nim_gc_heap_instance_occupied_bytes{type_name="seq[TrustedAttestation]"} 29728.0
+
+...
+```
+
+Unfortunately, this simple method only offers one snapshot in time (you'll need to keep refreshing to see the data update) which means it's impossible to see a useful history of the metrics. In short, it's far from optimal from an information design point of view.
+
+In order to settle on a better solution, we'll need the help of two external projects -- [Prometheus](https://prometheus.io/) and [Grafana](https://grafana.com/).
+
+See [this page](https://status-im.github.io/nim-beacon-chain/metrics-pretty-pictures.html#prometheus-and-grafana) from our Nimbus book for a step-by-step guide on how to use Prometheus and Grafana to spin up a beautiful and useful monitoring dashboard for your validator.
+
+------------------
+*For those of you who are already familiar with Prometheus and Grafana*
+
+To feed the data into a Prometheus instance, run:
 
 ```bash
 cd build/data/shared_medalla_0
@@ -158,7 +188,8 @@ prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
 # when starting multiple nodes at the same time, just use the config file from the one with the highest ID
 ```
 
-For some pretty pictures, get [Grafana](https://grafana.com/) up and running, then import the dashboard definition in "grafana/beacon\_nodes\_Grafana\_dashboard.json".
+You can then visualise the data by getting Grafana up and running with the dashboard definition found in `grafana/beacon\_nodes\_Grafana\_dashboard.json`.
+
 
 ### Stress-testing the client by limiting the CPU power
 
