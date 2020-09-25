@@ -107,6 +107,9 @@ ifeq ($(OS), Windows_NT)
     # 32-bit Windows is not supported by libbacktrace/libunwind
     USE_LIBBACKTRACE := 0
   endif
+  MKDIR_COMMAND := mkdir -p
+else
+  MKDIR_COMMAND := mkdir -m 0750 -p
 endif
 
 DEPOSITS_DELAY := 0
