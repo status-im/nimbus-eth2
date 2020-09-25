@@ -126,7 +126,7 @@ jobs:
       - name: Restore MinGW-W64 (Windows) from cache
         if: runner.os == 'Windows'
         id: windows-mingw-cache
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /external/mingw-${{ matrix.target.cpu }}
           key: 'mingw-${{ matrix.target.cpu }}'
@@ -134,7 +134,7 @@ jobs:
       - name: Restore Nim DLLs dependencies (Windows) from cache
         if: runner.os == 'Windows'
         id: windows-dlls-cache
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /external/dlls-${{ matrix.target.cpu }}
           key: 'dlls-${{ matrix.target.cpu }}'
@@ -187,7 +187,7 @@ jobs:
 
       - name: Restore prebuilt Nim binaries from cache
         id: nim-cache
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: nim-beacon-chain/NimBinaries
           key: 'nim-${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ steps.versions.outputs.nimbus_build_system }}'
@@ -242,10 +242,10 @@ jobs:
       - name: Restore Ethereum Foundation fixtures from cache
         if: matrix.target.TEST_KIND == 'unit-tests'
         id: fixtures-cache
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: nim-beacon-chain/fixturesCache
-          key: 'scenarios-${{ steps.fixtures_version.outputs.fixtures }}'
+          key: 'eth2-scenarios-${{ steps.fixtures_version.outputs.fixtures }}'
 
       - name: Get the Ethereum Foundation fixtures
         if: >
