@@ -492,12 +492,9 @@ proc checkSlashableAttestationImpl(
   template s1: untyped = t1Node.source
   template ar1: untyped = t1Node.attestation_root
 
-  # Surrounding vote
+  # TODO: optimize so we don't scan the whole linked list
   while true:
-    if not(t1 < t2):
-      # s1|s2 < t2 < t1 -> surrounded vote case
-      break
-    if s2 < s1:
+    if s2 < s1 and s1 < t1 and t1 < t2:
       # s2 < s1 < t1 < t2
       # Logged by caller
       return err(BadVote(
@@ -508,27 +505,7 @@ proc checkSlashableAttestationImpl(
         sourceSlashable: s2,
         targetSlashable: t2
       ))
-
-    # Next iteration
-    if t1Node.prev == default(Epoch) or
-        t1Node.prev == ll.targetEpochs.stop:
-      return ok()
-    else:
-      t1 = t1Node.prev
-      t1Node = db.get(
-        subkey(kTargetEpoch, valID, t1Node.prev),
-        TargetEpochNode
-        # bug in Nim results, ".e" field inaccessible
-        # ).expect("Consistent linked-list in DB")
-      ).unsafeGet()
-
-  # Surrounded vote
-  doAssert t2 < t1, "Checking surrounded vote"
-  while true:
-    if t1 < s2:
-      # s1 < t1 < s2 < t2
-      return ok()
-    if s1 < s2:
+    elif s1 < s2 and s2 < t2 and t2 < t1:
       # s1 < s2 < t2 < t1
       # Logged by caller
       return err(BadVote(
@@ -698,7 +675,7 @@ proc registerBlockImpl(
       db.put(subkey(kBlock, valID, cur), curNode)
       db.put(subkey(kLinkedListMeta, valID), ll)
       return
-    elif slot < curNode.prev:
+    elif slot > curNode.prev:
       # Reached: prev < slot < cur
       # Change: prev <-> cur
       # to: prev <-> new <-> cur
@@ -860,7 +837,7 @@ proc registerAttestationImpl(
       db.put(subkey(kTargetEpoch, valID, cur), curNode)
       db.put(subkey(kLinkedListMeta, valID), ll)
       return
-    elif target < curNode.prev:
+    elif target > curNode.prev:
       # Reached: prev < target < cur
       # Change: prev <-> cur
       # to: prev <-> new <-> cur
@@ -907,6 +884,79 @@ proc registerAttestation*(
     )
   else:
     discard
+
+# Debug tools
+# --------------------------------------------
+
+proc dumpBlocks*(
+       db: SlashingProtectionDB,
+       validator: ValidatorPubKey
+     ): string =
+  ## Dump the linked list of blocks proposd by a validator in a string
+  var blocks: seq[BlockNode]
+
+  let valID = validator.toRaw
+  let maybeLL = db.get(
+    subkey(kLinkedListMeta, valID),
+    KeysEpochs
+  )
+  if maybeLL.isNone:
+    return "No blocks in slashing protection DB for validator " & $validator
+
+  let ll = maybeLL.unsafeGet()
+  doAssert ll.blockSlots.isInit
+
+  var cur = ll.blockSlots.stop
+
+  while cur != ll.blockSlots.start:
+    blocks.add db.get(
+      subkey(kBlock, valID, cur),
+      BlockNode
+    ).unsafeGet()
+
+    cur = blocks[^1].prev
+
+  blocks.add db.get(
+    subkey(kBlock, valID, ll.blockSlots.start),
+    BlockNode
+  ).unsafeGet()
+
+  return $blocks
+
+proc dumpAttestations*(
+       db: SlashingProtectionDB,
+       validator: ValidatorPubKey
+     ): string =
+  ## Dump the linked list of blocks proposd by a validator in a string
+  var attestations: seq[TargetEpochNode]
+
+  let valID = validator.toRaw
+  let maybeLL = db.get(
+    subkey(kLinkedListMeta, valID),
+    KeysEpochs
+  )
+  if maybeLL.isNone:
+    return "No blocks in slashing protection DB for validator " & $validator
+
+  let ll = maybeLL.unsafeGet()
+  doAssert ll.targetEpochs.isInit
+
+  var cur = ll.targetEpochs.stop
+
+  while cur != ll.targetEpochs.start:
+    attestations.add db.get(
+      subkey(kTargetEpoch, valID, cur),
+      TargetEpochNode
+    ).unsafeGet()
+
+    cur = attestations[^1].prev
+
+  attestations.add db.get(
+    subkey(kTargetEpoch, valID, ll.targetEpochs.start),
+    TargetEpochNode
+  ).unsafeGet()
+
+  return $attestations
 
 # DB maintenance
 # --------------------------------------------
