@@ -14,7 +14,7 @@ else:
 
 # `-flto` gives a significant improvement in processing speed, specially hash tree and state transition (basically any CPU-bound code implemented in nim)
 # With LTO enabled, optimization flags should be passed to both compiler and linker!
-if defined(release):
+if defined(release) and not defined(disableLTO):
   if defined(macosx): # Clang
     switch("passC", "-flto=thin")
     switch("passL", "-flto=thin")

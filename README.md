@@ -465,6 +465,18 @@ make -j$(nproc) NIMFLAGS="-d:release" USE_MULTITAIL=yes eth2_network_simulation
 make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
 ```
 
+- disable `-march=native` because you want to run the binary on a different machine than the one you're building it on:
+
+```bash
+make NIMFLAGS="-d:disableMarchNative" beacon_node
+```
+
+- disable link-time optimisation (LTO):
+
+```bash
+make NIMFLAGS="-d:disableLTO" beacon_node
+```
+
 - publish a book using [mdBook](https://github.com/rust-lang/mdBook) from sources in "docs/" to GitHub pages:
 
 ```bash
