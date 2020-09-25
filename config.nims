@@ -1,3 +1,12 @@
+# Emergency fixes
+# ---------------------------------------------------
+if defined(arm64):
+  # https://twitter.com/EthereumOnARM/status/1309477357938499585?s=20
+  # https://github.com/supranational/blst/issues/31
+  switch("defined", "BLS_FORCE_BACKEND=miracl")
+
+# ---------------------------------------------------
+
 if defined(release):
   switch("nimcache", "nimcache/release/$projectName")
 else:
