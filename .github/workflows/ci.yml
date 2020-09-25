@@ -134,7 +134,7 @@ jobs:
       - name: Restore MinGW-W64 (Windows) from cache
         if: runner.os == 'Windows'
         id: windows-mingw-cache
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /external/mingw-${{ matrix.target.cpu }}
           key: 'mingw-${{ matrix.target.cpu }}'
@@ -142,7 +142,7 @@ jobs:
       - name: Restore Nim DLLs dependencies (Windows) from cache
         if: runner.os == 'Windows'
         id: windows-dlls-cache
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /external/dlls-${{ matrix.target.cpu }}
           key: 'dlls-${{ matrix.target.cpu }}'
@@ -195,7 +195,7 @@ jobs:
 
       - name: Restore prebuilt Nim binaries from cache
         id: nim-cache
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: nim-beacon-chain/NimBinaries
           key: 'nim-${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ steps.versions.outputs.nimbus_build_system }}'
@@ -228,14 +228,6 @@ jobs:
           #   make -j$ncpu ARCH_OVERRIDE=$PLATFORM fetch-dlls
           # fi
 
-      - name: Smoke test the Beacon Node and Validator Client with all tracing enabled
-        if: matrix.target.TEST_KIND == 'unit-tests'
-        shell: bash
-        working-directory: nim-beacon-chain
-        run: |
-          make -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" beacon_node
-          make -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" validator_client
-
       - name: Get latest fixtures commit hash
         if: matrix.target.TEST_KIND == 'unit-tests'
         id: fixtures_version
@@ -250,10 +242,10 @@ jobs:
       - name: Restore Ethereum Foundation fixtures from cache
         if: matrix.target.TEST_KIND == 'unit-tests'
         id: fixtures-cache
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: nim-beacon-chain/fixturesCache
-          key: 'scenarios-${{ steps.fixtures_version.outputs.fixtures }}'
+          key: 'eth2-scenarios-${{ steps.fixtures_version.outputs.fixtures }}'
 
       - name: Get the Ethereum Foundation fixtures
         if: >
@@ -263,6 +255,14 @@ jobs:
         working-directory: nim-beacon-chain
         run: |
           scripts/setup_official_tests.sh fixturesCache
+
+      - name: Smoke test the Beacon Node and Validator Client with all tracing enabled
+        if: matrix.target.TEST_KIND == 'unit-tests'
+        shell: bash
+        working-directory: nim-beacon-chain
+        run: |
+          make -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" beacon_node
+          make -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" validator_client
 
       - name: Run nim-beacon-chain tests
         if: matrix.target.TEST_KIND == 'unit-tests'
