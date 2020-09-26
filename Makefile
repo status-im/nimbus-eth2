@@ -296,10 +296,10 @@ medalla-dev: | beacon_node signing_process
 endif
 
 medalla-deposit-data: | beacon_node signing_process deposit_contract
-	$(call made_deposit_data,medalla)
+	$(call make_deposit_data,medalla)
 
 medalla-deposit: | beacon_node signing_process deposit_contract
-	$(call made_deposit,medalla)
+	$(call make_deposit,medalla)
 
 clean-medalla:
 	$(call clean_network,medalla)
@@ -325,7 +325,7 @@ spadina-deposit-data: | beacon_node signing_process deposit_contract
 	$(call make_deposit_data,spadina)
 
 spadina-deposit: | beacon_node signing_process deposit_contract
-	$(call made_deposit,spadina)
+	$(call make_deposit,spadina)
 
 clean-spadina:
 	$(call clean_network,spadina)
@@ -348,10 +348,10 @@ attacknet-beta1-mc-0-dev: | beacon_node signing_process
 endif
 
 attacknet-beta1-mc-0-deposit-data: | beacon_node signing_process deposit_contract
-	$(call made_deposit_data,attacknet-beta1-mc-0)
+	$(call make_deposit_data,attacknet-beta1-mc-0)
 
 attacknet-beta1-mc-0-deposit: | beacon_node signing_process deposit_contract
-	$(call made_deposit,attacknet-beta1-mc-0)
+	$(call make_deposit,attacknet-beta1-mc-0)
 
 clean-attacknet-beta1-mc-0:
 	$(call clean_network,attacknet-beta1-mc-0)
