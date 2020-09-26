@@ -187,7 +187,8 @@ testnet0 testnet1: | beacon_node signing_process
 		--data-dir=build/data/$@_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
-define connect_to_network
+# https://www.gnu.org/software/make/manual/html_node/Multi_002dLine.html
+define CONNECT_TO_NETWORK =
 	mkdir -p build/data/shared_$(1)_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
@@ -203,7 +204,7 @@ define connect_to_network
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 endef
 
-define connect_to_network_in_dev_mode
+define CONNECT_TO_NETWORK_IN_DEV_MODE =
 	mkdir -p build/data/shared_$(1)_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
@@ -218,7 +219,7 @@ define connect_to_network_in_dev_mode
 		$(GOERLI_TESTNETS_PARAMS) --dump $(NODE_PARAMS)
 endef
 
-define connect_to_network_with_validator_client
+define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT =
 	# if launching a VC as well - send the BN looking nowhere for validators/secrets
 	mkdir -p build/data/shared_$(1)_$(NODE_ID)/empty_dummy_folder
 
@@ -245,7 +246,7 @@ define connect_to_network_with_validator_client
 		--rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) ))
 endef
 
-define make_deposit_data
+define MAKE_DEPOSIT_DATA =
 	build/beacon_node deposits create \
 		--network=$(1) \
 		--new-wallet-file=build/data/shared_$(1)_$(NODE_ID)/wallet.json \
@@ -255,7 +256,7 @@ define make_deposit_data
 		--count=$(VALIDATORS)
 endef
 
-define make_deposit
+define MAKE_DEPOSIT =
 	build/beacon_node deposits create \
 		--network=$(1) \
 		--out-deposits-file=nbc-$(1)-deposits.json \
@@ -272,7 +273,7 @@ define make_deposit
 		--ask-for-key
 endef
 
-define clean_network
+define CLEAN_NETWORK =
 	rm -rf build/data/shared_$(1)*/db
 	rm -rf build/data/shared_$(1)*/dump
 	rm -rf build/data/shared_$(1)*/*.log
@@ -281,80 +282,81 @@ endef
 ###
 ### medalla
 ###
+# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
 medalla: | beacon_node signing_process
-	$(call connect_to_network,medalla)
+	$(call CONNECT_TO_NETWORK,medalla)
 
 medalla-vc: | beacon_node signing_process validator_client
-	$(call connect_to_network_with_validator_client,medalla)
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,medalla)
 
 ifneq ($(LOG_LEVEL), TRACE)
 medalla-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
 medalla-dev: | beacon_node signing_process
-	$(call connect_to_network_in_dev_mode,medalla)
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,medalla)
 endif
 
 medalla-deposit-data: | beacon_node signing_process deposit_contract
-	$(call make_deposit_data,medalla)
+	$(call MAKE_DEPOSIT_DATA,medalla)
 
 medalla-deposit: | beacon_node signing_process deposit_contract
-	$(call make_deposit,medalla)
+	$(call MAKE_DEPOSIT,medalla)
 
 clean-medalla:
-	$(call clean_network,medalla)
+	$(call CLEAN_NETWORK,medalla)
 
 ###
 ### spadina
 ###
 spadina: | beacon_node signing_process
-	$(call connect_to_network,spadina)
+	$(call CONNECT_TO_NETWORK,spadina)
 
 spadina-vc: | beacon_node signing_process validator_client
-	$(call connect_to_network_with_validator_client,spadina)
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,spadina)
 
 ifneq ($(LOG_LEVEL), TRACE)
 spadina-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
 spadina-dev: | beacon_node signing_process
-	$(call connect_to_network_in_dev_mode,spadina)
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,spadina)
 endif
 
 spadina-deposit-data: | beacon_node signing_process deposit_contract
-	$(call make_deposit_data,spadina)
+	$(call MAKE_DEPOSIT_DATA,spadina)
 
 spadina-deposit: | beacon_node signing_process deposit_contract
-	$(call make_deposit,spadina)
+	$(call MAKE_DEPOSIT,spadina)
 
 clean-spadina:
-	$(call clean_network,spadina)
+	$(call CLEAN_NETWORK,spadina)
 
 ###
 ### attacknet-beta1-mc-0
 ###
 attacknet-beta1-mc-0: | beacon_node signing_process
-	$(call connect_to_network,attacknet-beta1-mc-0)
+	$(call CONNECT_TO_NETWORK,attacknet-beta1-mc-0)
 
 attacknet-beta1-mc-0-vc: | beacon_node signing_process validator_client
-	$(call connect_to_network_with_validator_client,attacknet-beta1-mc-0)
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,attacknet-beta1-mc-0)
 
 ifneq ($(LOG_LEVEL), TRACE)
 attacknet-beta1-mc-0-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
 attacknet-beta1-mc-0-dev: | beacon_node signing_process
-	$(call connect_to_network_in_dev_mode,attacknet-beta1-mc-0)
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,attacknet-beta1-mc-0)
 endif
 
 attacknet-beta1-mc-0-deposit-data: | beacon_node signing_process deposit_contract
-	$(call make_deposit_data,attacknet-beta1-mc-0)
+	$(call MAKE_DEPOSIT_DATA,attacknet-beta1-mc-0)
 
 attacknet-beta1-mc-0-deposit: | beacon_node signing_process deposit_contract
-	$(call make_deposit,attacknet-beta1-mc-0)
+	$(call MAKE_DEPOSIT,attacknet-beta1-mc-0)
 
 clean-attacknet-beta1-mc-0:
-	$(call clean_network,attacknet-beta1-mc-0)
+	$(call CLEAN_NETWORK,attacknet-beta1-mc-0)
 
 ctail: | build deps
 	mkdir -p vendor/.nimble/bin/
