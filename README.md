@@ -477,6 +477,12 @@ make NIMFLAGS="-d:disableMarchNative" beacon_node
 make NIMFLAGS="-d:disableLTO" beacon_node
 ```
 
+- build a static binary
+
+```bash
+make NIMFLAGS="--passL:-static" beacon_node
+```
+
 - publish a book using [mdBook](https://github.com/rust-lang/mdBook) from sources in "docs/" to GitHub pages:
 
 ```bash
