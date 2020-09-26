@@ -211,6 +211,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Slashing Protection DB [Preset: mainnet]
 ```diff
++ Attestation ordering #1698                                                                 OK
 + Empty database [Preset: mainnet]                                                           OK
 + SP for block proposal - backtracking append                                                OK
 + SP for block proposal - linear append                                                      OK
@@ -218,8 +219,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + SP for same epoch attestation target - linear append                                       OK
 + SP for surrounded attestations                                                             OK
 + SP for surrounding attestations                                                            OK
++ Test valid attestation #1699                                                               OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
+OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Spec datatypes
 ```diff
 + Graffiti bytes                                                                             OK
@@ -279,4 +281,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 149/157 Fail: 0/157 Skip: 8/157
+OK: 151/159 Fail: 0/159 Skip: 8/159
