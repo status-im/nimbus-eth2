@@ -89,5 +89,5 @@ proc new*(T: type Eth2DiscoveryProtocol,
   if fileExists(persistentBootstrapFile):
     loadBootstrapFile(persistentBootstrapFile, bootstrapEnrs)
 
-  newProtocol(
-    pk, ip, tcpPort, udpPort, enrFields, bootstrapEnrs, rng = rng)
+  newProtocol(pk, ip, tcpPort, udpPort, enrFields, bootstrapEnrs,
+    bindIp = conf.listenAddress, rng = rng)

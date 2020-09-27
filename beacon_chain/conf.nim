@@ -97,9 +97,9 @@ type
         desc: "Specifies a line-delimited file of bootstrap Ethereum network addresses"
         name: "bootstrap-file" }: InputFile
 
-      libp2pAddress* {.
+      listenAddress* {.
         defaultValue: defaultListenAddress(config)
-        desc: "Listening address for the Ethereum LibP2P traffic"
+        desc: "Listening address for the Ethereum LibP2P and Discovery v5 traffic"
         name: "listen-address" }: ValidIpAddress
 
       tcpPort* {.
