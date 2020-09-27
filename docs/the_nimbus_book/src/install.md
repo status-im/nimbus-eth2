@@ -67,4 +67,4 @@ apt install build-essential git libpcre3-dev
 
 ## Next steps
 
-You're now ready to move on to [running a validator on Medalla](./medalla.md).
+You're now ready to move on to running a validator.
