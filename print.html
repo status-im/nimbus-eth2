@@ -91,7 +91,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">3.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="medalla-troubleshooting.html"><strong aria-hidden="true">4.</strong> Troubleshooting Medalla</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">5.</strong> Running the beacon node</a></li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">6.</strong> Metrics and pretty pictures</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">7.</strong> API</a></li><li class="chapter-item expanded affix "><li class="part-title">Advanced</li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">8.</strong> For developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">9.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">10.</strong> Generating your keys with NBC</a></li><li class="chapter-item expanded affix "><li class="part-title">Misc</li><li class="chapter-item expanded "><strong aria-hidden="true">11.</strong> Windows users</li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">13.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="spadina.html"><strong aria-hidden="true">3.</strong> Become a Spadina validator</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">4.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="medalla-troubleshooting.html"><strong aria-hidden="true">5.</strong> Troubleshooting Medalla</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">6.</strong> Running the beacon node</a></li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">7.</strong> Metrics and pretty pictures</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">8.</strong> API</a></li><li class="chapter-item expanded affix "><li class="part-title">Advanced</li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">9.</strong> For developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">10.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">11.</strong> Generating your keys with NBC</a></li><li class="chapter-item expanded affix "><li class="part-title">Misc</li><li class="chapter-item expanded "><strong aria-hidden="true">12.</strong> Windows users</li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">13.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">14.</strong> Contribute</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -184,6 +184,7 @@
 <ol>
 <li>An <a href="./intro.html#introduction">introduction</a> to the beacon chain, eth2, and Nimbus to equip you with some basic knowledge</li>
 <li><a href="./install.html">Installation steps</a> outlining the prerequisites to get started</li>
+<li>How to <a href="./spadina.html">become a Spadina validator</a></li>
 <li>How to <a href="./medalla.html">become a Medalla validator</a></li>
 <li><a href="./medalla-troubleshooting.html">Troubleshooting Medalla</a></li>
 <li>How to <a href="./beacon_node.html">run the beacon node</a> software to sync the beacon chain</li>
@@ -266,21 +267,29 @@ Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on 
 <pre><code class="language-sh">apt install build-essential git libpcre3-dev
 </code></pre>
 <h2><a class="header" href="#next-steps" id="next-steps">Next steps</a></h2>
-<p>You're now ready to move on to <a href="./medalla.html">running a validator on Medalla</a>.</p>
-<h1><a class="header" href="#become-a-medalla-validator" id="become-a-medalla-validator">Become a Medalla validator</a></h1>
-<p>This chapter will take you through how to become a validator on the eth2 testnet <a href="https://github.com/goerli/medalla">Medalla</a>.</p>
-<p>If you generated your signing key using the <a href="https://medalla.launchpad.ethereum.org/">eth2 launchpad</a>, and wish to import it into the Nimbus client, this page is for you.</p>
-<blockquote>
-<p>If you haven't created your validator key yet, we recommend you do so using the <a href="https://medalla.launchpad.ethereum.org/">launchpad</a>. If you're not sure what the eth2 launchpad is, we recommend reading this <a href="https://blog.ethereum.org/2020/07/27/eth2-validator-launchpad/">introductory post</a> first.</p>
-</blockquote>
-<blockquote>
-<p>If you're an advanced user running Ubuntu, we recommend you check out this <a href="https://medium.com/@SomerEsat/guide-to-staking-on-ethereum-2-0-ubuntu-medalla-nimbus-5f4b2b0f2d7c">excellent and complementary guide</a>.</p>
-</blockquote>
+<p>You're now ready to move on to running a validator.</p>
+<h1><a class="header" href="#become-a-spadina-validator" id="become-a-spadina-validator">Become a Spadina validator</a></h1>
+<p>This page will take you through how to import your key(s) and get your validator(s) ready for <a href="https://blog.ethereum.org/2020/09/22/eth2-quick-update-no-17/">Spadina genesis</a>.</p>
+<p>For those of you who are unfamiliar, <a href="https://github.com/goerli/medalla/blob/master/spadina/README.md">Spadina</a> is a short-lived eth2 testnet that will begin on tuesday and last for three days or so. Its main objective is to allow us to test the deposit/<a href="https://hackmd.io/@benjaminion/genesis">genesis</a> flow one more time before mainnet launch.</p>
+<p>Although it will mainly be client teams taking part, it's also a chance for you to practice sending a deposit and launching a node under mainnet launch conditions (in order to avoid clogging up the validator queue, we recommend practicing with one, or at most a handful of validators).</p>
 <h2><a class="header" href="#prerequisites" id="prerequisites">Prerequisites</a></h2>
 <p>If this is your first time playing with Nimbus, make sure you <a href="./install.html">install our external dependencies</a> first.</p>
 <p>This tutorial assumes basic knowledge of the <a href="https://www.learnenough.com/command-line-tutorial/basics#:%7E:text=Learn%20Enough%20Command%20Line%20to%20Be%20Dangerous%20is%20an%20introduction,broad%20an%20audience%20as%20possible.">command line</a>.</p>
-<h2><a class="header" href="#validating" id="validating">Validating</a></h2>
-<p>To start validating on the <code>medalla</code> network:</p>
+<h2><a class="header" href="#1-make-a-deposit" id="1-make-a-deposit">1. Make a deposit</a></h2>
+<p>The easiest way to get your deposit in is to follow the Launchpad instructions here:</p>
+<p><a href="https://spadina.launchpad.ethereum.org/">https://spadina.launchpad.ethereum.org/</a></p>
+<p>You should notice that there have been considerable improvements to the launchpad process since Medalla.</p>
+<p>In particular, the Key Generation section is now much clearer, and you no longer have to install dependencies to get the command line app working. As such, it should now be much easier for non-technical folks to generate their key(s).</p>
+<p><img src="https://i.imgur.com/SYHgtK2.png" alt="" /></p>
+<p>Once you've sent off your transaction, you should see the following screen.</p>
+<p><img src="https://i.imgur.com/A4IMlhK.png" alt="" /></p>
+<p>Click on <code>Beaconchain</code> to open up a window that will allow you to track of your validator's status.</p>
+<p><img src="https://i.imgur.com/JHQblna.png" alt="" /></p>
+<h2><a class="header" href="#2-import-your-keys" id="2-import-your-keys">2. Import your key(s)</a></h2>
+<p>To import your <code>spadina</code> key(s) into Nimbus:</p>
+<blockquote>
+<p><strong>Note:</strong> You can skip steps 1 and 2 if you've already cloned <code>nim-beacon-chain</code> and built the beacon node for <code>medalla</code>: just make sure you run <code>git pull &amp;&amp; make update</code> from the <code>master</code> branch before continuing with step 3.</p>
+</blockquote>
 <h4><a class="header" href="#1-clone-the-nim-beacon-chain-repository" id="1-clone-the-nim-beacon-chain-repository">1. Clone the nim beacon chain repository</a></h4>
 <pre><code>git clone https://github.com/status-im/nim-beacon-chain
 cd nim-beacon-chain
@@ -290,6 +299,113 @@ cd nim-beacon-chain
 </code></pre>
 <p><em>Patience... this may take a few minutes.</em></p>
 <h4><a class="header" href="#3-import-keystores" id="3-import-keystores">3. Import keystore(s)</a></h4>
+<pre><code>build/beacon_node deposits import  --data-dir=build/data/shared_spadina_0 &lt;YOUR VALIDATOR KEYS DIRECTORY&gt;
+</code></pre>
+<p>Replacing <code>&lt;YOUR VALIDATOR KEYS DIRECTORY&gt;</code> with the full pathname of the <code>validator_keys</code> directory that was created when you generated your keys using the <a href="https://spadina.launchpad.ethereum.org/">Spadina Launchpad</a> <a href="https://github.com/ethereum/eth2.0-deposit-cli/releases/">command line app</a>.</p>
+<blockquote>
+<p><strong>Tip:</strong> run <code>pwd</code> in your <code>validator_keys</code> directory to print the full pathname to the console.</p>
+</blockquote>
+<p>You'll be asked to enter the password you created to encrypt your keystore(s).</p>
+<p>Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your <a href="https://blog.ethereum.org/2020/05/21/keys/">key</a> (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).</p>
+<h2><a class="header" href="#3-connect-to-spadina" id="3-connect-to-spadina">3. Connect to Spadina</a></h2>
+<p>To build Nimbus and its dependencies, and connect to Spadina, run:</p>
+<pre><code>make spadina
+</code></pre>
+<p>You should see that your beacon node has launched, and that you are processing eth1 blocks (using <a href="https://infura.io/">infura</a>) and obtaining information about other depositers (<code>deposit log events</code>) in the run-up to genesis:</p>
+<pre><code>DBG 2020-09-27 17:33:28.500+02:00 Launching beacon node                      topics=&quot;beacnde&quot; tid=8490483 file=beacon_node.nim:1190 version=&quot;0.5.0 (6cf7e837)&quot; bls_backend=BLST cmdParams=&quot;@[\&quot;--network=spadina\&quot;, \&quot;--log-level=DEBUG\&quot;, \&quot;--log-file=build/data/shared_spadina_0/nbc_bn_20200927173328.log\&quot;, \&quot;--data-dir=build/data/shared_spadina_0\&quot;, \&quot;--web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a\&quot;, \&quot;--tcp-port=9000\&quot;, \&quot;--udp-port=9000\&quot;, \&quot;--metrics\&quot;, \&quot;--metrics-port=8008\&quot;, \&quot;--rpc\&quot;, \&quot;--rpc-port=9190\&quot;]&quot; config=&quot;(logLevel: \&quot;DEBUG\&quot;, logFile: Some(build/data/shared_spadina_0/nbc_bn_20200927173328.log), eth2Network: Some(\&quot;spadina\&quot;), dataDir: build/data/shared_spadina_0, validatorsDirFlag: None[InputDir], secretsDirFlag: None[InputDir], walletsDirFlag: None[InputDir], web3Url: \&quot;wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a\&quot;, depositContractAddress: Some(0x48b597f4b53c21b48ad95c7256b49d1779bd5890), depositContractDeployedAt: Some(\&quot;3384340\&quot;), nonInteractive: false, cmd: noCommand, bootstrapNodes: @[\&quot;# teku (@rolfyone)\&quot;, \&quot;enr:-KG4QA-EcFfXQsL2dcneG8vp8HTWLrpwHQ5HhfyIytfpeKOISzROy2kYSsf_v-BZKnIx5XHDjqJ-ttz0hoz6qJA7tasEhGV0aDKQxKgkDQAAAAL__________4JpZIJ2NIJpcIQDFt-UiXNlY3AyNTZrMaECkR4C5DVO_9rB48eHTY4kdyOHsguTEDlvb7Ce0_mvghSDdGNwgiMog3VkcIIjKA\&quot;, \&quot;\&quot;], bootstrapNodesFile: , libp2pAddress: 0.0.0.0, tcpPort: 9000, udpPort: 9000, maxPeers: 79, nat: \&quot;any\&quot;, validators: ..., stateSnapshot: None[InputFile], stateSnapshotContents: ..., runtimePreset: (GENESIS_FORK_VERSION: 00000002, GENESIS_DELAY: 172800, MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: 1024, MIN_GENESIS_TIME: 1601380800, ETH1_FOLLOW_DISTANCE: 1024), nodeName: \&quot;\&quot;, graffiti: None[GraffitiBytes], verifyFinalization: false, stopAtEpoch: 0, metricsEnabled: true, metricsAddress: 127.0.0.1, metricsPort: 8008, statusBarEnabled: true, statusBarContents: \&quot;peers: $connected_peers;finalized: $finalized_root:$finalized_epoch;head: $head_root:$head_epoch:$head_epoch_slot;time: $epoch:$epoch_slot ($slot);sync: $sync_status|\&quot;, rpcEnabled: true, rpcPort: 9190, rpcAddress: 127.0.0.1, inProcessValidators: true, discv5Enabled: true, dumpEnabled: false)&quot;
+INF 2020-09-27 17:33:31.018+02:00 Starting Eth1 deposit contract monitoring  tid=8490483 file=mainchain_monitor.nim:758 contract=0x48b597f4b53c21b48ad95c7256b49d1779bd5890 url=web3(wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a)
+INF 2020-09-27 17:33:31.018+02:00 Waiting for new Eth1 block headers         tid=8490483 file=mainchain_monitor.nim:415
+INF 2020-09-27 17:33:46.213+02:00 Obtaining deposit log events               tid=8490483 file=mainchain_monitor.nim:376 fromBlock=3384341 toBlock=3476604
+INF 2020-09-27 17:33:56.912+02:00 Eth1 block processed                       tid=8490483 file=mainchain_monitor.nim:717 block=3423176:0ac7969b totalDeposits=1
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> as it stands, Nimbus defaults to using Infura to keep track of eth1 deposits. However we are well aware that Infura is less than ideal from a decentralisation perspective. As such we are in the process of changing the default to <a href="https://geth.ethereum.org/docs/install-and-build/installing-geth">Geth</a> (with Infura as a fallback). For some rough notes on how to use Geth with Nimbus, see <a href="">here</a> (we will be adding more complete instructions to this book very soon).</p>
+</blockquote>
+<h2><a class="header" href="#4-keep-an-eye-on-your-validator" id="4-keep-an-eye-on-your-validator">4. Keep an eye on your validator</a></h2>
+<p>If you deposited after the <a href="https://hackmd.io/@benjaminion/genesis">genesis</a> state was decided (September 27th 1400 UTC), your validators will have been put in a queue based on deposit time, and will slowly be inducted into the validator set after genesis. Getting through the queue may take a few hours or a day or so.</p>
+<p>The best way to keep track of your validator's status is <a href="https://medalla.beaconcha.in">spadina.beaconcha.in</a> (click on the orange magnifying glass at the very top and paste in your validator's public key).</p>
+<p>You can even <a href="https://spadina.beaconcha.in/register">create an account</a> to add alerts and keep track of your validator's <a href="https://spadina.beaconcha.in/dashboard">performance</a>.</p>
+<p>Finally, makes sure you stay on the lookout for any critical updates to Nimbus. This best way to do so is through the <strong>announcements</strong> channel on our <a href="https://discord.com/invite/XRxWahP">discord</a>.</p>
+<p>To update to the latest version, disconnect from <code>spadina</code> and run:</p>
+<pre><code>git pull &amp;&amp; make update
+</code></pre>
+<p>Once the update is complete, run <code>make spadina</code> again to reconnect to the network.</p>
+<p>Looking forward to seeing you on Spadina! 💛</p>
+<hr />
+<h2><a class="header" href="#key-management" id="key-management">Key management</a></h2>
+<p>Keys are stored in the <code>build/data/shared_spadina_0/</code> folder, under <code>secrets</code> and <code>validators</code> - make sure you keep these folders backed up.</p>
+<p>The <code>secrets</code> folder contains the common secret that gives you access to all your validator keys.</p>
+<p>The <code>validators</code> folder contains your signing keystore(s) (encrypted keys). Keystores are used by validators as a method for exchanging keys. For more on keys and keystores, see <a href="https://blog.ethereum.org/2020/05/21/keys/">here</a>.</p>
+<blockquote>
+<p><strong>Note:</strong> The Nimbus client will only ever import your signing key -- in any case, if you used the deposit launchpad, this is the only key you should have (thanks to the way these keys are derived, you can generate the withdrawal key from your mnemonic whenever you wish to withdraw).</p>
+</blockquote>
+<h2><a class="header" href="#metrics" id="metrics">Metrics</a></h2>
+<p>Metrics are not included in the binary by default - to enable them, use the following options when starting the client:</p>
+<pre><code>make NIMFLAGS=&quot;-d:insecure&quot; spadina
+</code></pre>
+<p>You can then browse the metrics by connecting to:</p>
+<p><a href="http://localhost:8008/metrics">http://localhost:8008/metrics</a></p>
+<p>Make sure this port is protected as the http server used is not considered secure (it should not be used by untrusted peers).</p>
+<p>For instructions on how to spin up a beautiful and useful monitoring dashboard for your validator and beacon node, see <a href="./metrics-pretty-pictures.html">this page</a> (note you'll need to replace all mention of <code>medalla</code> with <code>spadina</code>).</p>
+<h2><a class="header" href="#advanced-options" id="advanced-options">Advanced options</a></h2>
+<p>N.B. All the options you're used to running with <code>medalla</code> should work as expected with <code>spadina</code>.</p>
+<h3><a class="header" href="#change-the-tcp-and-udp-ports" id="change-the-tcp-and-udp-ports">Change the TCP and UDP ports</a></h3>
+<p>To change the TCP and UDP ports from their default value of 9000 to 9100, say, run:</p>
+<pre><code>make BASE_PORT=9100 spadina
+</code></pre>
+<p>You may need to do this if you are running another client.</p>
+<h3><a class="header" href="#node-parameters" id="node-parameters">Node parameters</a></h3>
+<p>You can customise your beacon node's parameters using the <code>NODE_PARAMS</code> option:</p>
+<pre><code>make NODE_PARAMS=&quot;--tcp-port=9100 --udp-port=9100&quot; spadina
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> the above command has exactly the same effect as <code>make BASE_PORT=9100 spadina</code></p>
+</blockquote>
+<p>A complete list of the available parameters can be found <a href="https://github.com/status-im/nim-beacon-chain/blob/devel/beacon_chain/conf.nim#L92-L210">here</a> (use a parameter's <code>name</code> field to set it).</p>
+<h3><a class="header" href="#logs" id="logs">Logs</a></h3>
+<p>Log files are saved in <code>build/data/shared_spadina_0/</code>.</p>
+<h3><a class="header" href="#makefile" id="makefile">Makefile</a></h3>
+<p>If you are comfortable reading <a href="https://en.wikipedia.org/wiki/Makefile#:%7E:text=A%20makefile%20is%20a%20file,to%20generate%20a%20target%2Fgoal">Makefiles</a>, you can see the commands that <code>make spadina</code>  executes under the hood, <a href="https://github.com/status-im/nim-beacon-chain/blob/master/Makefile#L184-L197">here</a>.</p>
+<p>Some of the provided options (such as <code>--network</code>) are essential while others (such as the ones controlling logging, metrics, ports, and the RPC service) are optional and included for the sake convenience.</p>
+<p>The Goerli testnet parameters (<code>$(GOERLI_TESTNETS_PARAMS</code>), are defined higher up in the Makefile, <a href="https://github.com/status-im/nim-beacon-chain/blob/master/Makefile#L164-L171">here</a>.</p>
+<h2><a class="header" href="#useful-resources" id="useful-resources">Useful Resources</a></h2>
+<ul>
+<li>
+<p><a href="https://discord.com/invite/e84CFep">ethstaker discord</a>: great place for tips and discussions</p>
+</li>
+<li>
+<p><a href="https://spadina.launchpad.ethereum.org">Validator launchpad</a>: to send Spadina deposits </p>
+</li>
+<li>
+<p><a href="https://spadina.beaconcha.in/">Beacon chain explorer</a> : to monitor testnet health </p>
+</li>
+<li>
+<p><a href="https://www.reddit.com/r/ethstaker/comments/iy3c6t/announcing_the_spadina_testnet_launch_viewing/">Reddit /r/ethstaker community</a> : to attend the launch viewing party (rumour has it that there will be a POAP for viewing the live stream of this call)</p>
+</li>
+</ul>
+<h1><a class="header" href="#become-a-medalla-validator" id="become-a-medalla-validator">Become a Medalla validator</a></h1>
+<p>This chapter will take you through how to become a validator on the eth2 testnet <a href="https://github.com/goerli/medalla">Medalla</a>.</p>
+<p>If you generated your signing key using the <a href="https://medalla.launchpad.ethereum.org/">eth2 launchpad</a>, and wish to import it into the Nimbus client, this page is for you.</p>
+<blockquote>
+<p>If you haven't created your validator key yet, we recommend you do so using the <a href="https://medalla.launchpad.ethereum.org/">launchpad</a>. If you're not sure what the eth2 launchpad is, we recommend reading this <a href="https://blog.ethereum.org/2020/07/27/eth2-validator-launchpad/">introductory post</a> first.</p>
+</blockquote>
+<blockquote>
+<p>If you're an advanced user running Ubuntu, we recommend you check out this <a href="https://medium.com/@SomerEsat/guide-to-staking-on-ethereum-2-0-ubuntu-medalla-nimbus-5f4b2b0f2d7c">excellent and complementary guide</a>.</p>
+</blockquote>
+<h2><a class="header" href="#prerequisites-1" id="prerequisites-1">Prerequisites</a></h2>
+<p>If this is your first time playing with Nimbus, make sure you <a href="./install.html">install our external dependencies</a> first.</p>
+<p>This tutorial assumes basic knowledge of the <a href="https://www.learnenough.com/command-line-tutorial/basics#:%7E:text=Learn%20Enough%20Command%20Line%20to%20Be%20Dangerous%20is%20an%20introduction,broad%20an%20audience%20as%20possible.">command line</a>.</p>
+<h2><a class="header" href="#validating" id="validating">Validating</a></h2>
+<p>To start validating on the <code>medalla</code> network:</p>
+<h4><a class="header" href="#1-clone-the-nim-beacon-chain-repository-1" id="1-clone-the-nim-beacon-chain-repository-1">1. Clone the nim beacon chain repository</a></h4>
+<pre><code>git clone https://github.com/status-im/nim-beacon-chain
+cd nim-beacon-chain
+</code></pre>
+<h4><a class="header" href="#2-build-the-beacon-node-1" id="2-build-the-beacon-node-1">2. Build the beacon node</a></h4>
+<pre><code>make beacon_node
+</code></pre>
+<p><em>Patience... this may take a few minutes.</em></p>
+<h4><a class="header" href="#3-import-keystores-1" id="3-import-keystores-1">3. Import keystore(s)</a></h4>
 <pre><code>build/beacon_node deposits import  --data-dir=build/data/shared_medalla_0 &lt;YOUR VALIDATOR KEYS DIRECTORY&gt;
 </code></pre>
 <p>Replacing <code>&lt;YOUR VALIDATOR KEYS DIRECTORY&gt;</code> with the full pathname of your <code>validator_keys</code> directory.</p>
@@ -340,20 +456,20 @@ INF 2020-08-03 16:24:17.958+02:00 Starting beacon node                       top
 </code></pre>
 <p>The number following it (in the above case represented by <code>7</code>) represents the number of workers that are currently active (i.e not sleeping or waiting for a peer).</p>
 <h4><a class="header" href="#6-keep-your-validator-updated" id="6-keep-your-validator-updated">6. Keep your validator updated</a></h4>
-<p>Finally, makes sure you stay on the lookout for any critical updates to Nimbus. This best way to do so is through the <strong>medalla-announcements</strong> channel on our <a href="https://discord.com/invite/XRxWahP">discord</a>.</p>
+<p>Finally, makes sure you stay on the lookout for any critical updates to Nimbus. This best way to do so is through the <strong>announcements</strong> channel on our <a href="https://discord.com/invite/XRxWahP">discord</a>.</p>
 <p>To update to the latest version, disconnect from medalla and run:</p>
 <pre><code>git pull &amp;&amp; make update
 </code></pre>
 <p>Once the update is complete, run <code>make medalla</code> to reconnect to the network.</p>
 <p>Looking forward to seeing you on Medalla! 💛</p>
-<h2><a class="header" href="#key-management" id="key-management">Key management</a></h2>
+<h2><a class="header" href="#key-management-1" id="key-management-1">Key management</a></h2>
 <p>Keys are stored in the <code>build/data/shared_medalla_0/</code> folder, under <code>secrets</code> and <code>validators</code> - make sure you keep these folders backed up.</p>
 <p>The <code>secrets</code> folder contains the common secret that gives you access to all your validator keys.</p>
 <p>The <code>validators</code> folder contains your keystores (encrypted keys). Keystores are used by validators as a method for exchanging keys. For more on keys and keystores, see <a href="https://blog.ethereum.org/2020/05/21/keys/">here</a>.</p>
 <blockquote>
 <p><strong>Note:</strong> The Nimbus client will only ever import your signing key -- in any case, if you used the deposit launchpad, this is the only key you should have (you can generate the withdrawal key from your mnemonic when you wish to withdraw).</p>
 </blockquote>
-<h2><a class="header" href="#metrics" id="metrics">Metrics</a></h2>
+<h2><a class="header" href="#metrics-1" id="metrics-1">Metrics</a></h2>
 <p>Metrics are not included in the binary by default - to enable them, use the following options when starting the client:</p>
 <pre><code>make NIMFLAGS=&quot;-d:insecure&quot; medalla
 </code></pre>
@@ -361,7 +477,7 @@ INF 2020-08-03 16:24:17.958+02:00 Starting beacon node                       top
 <p><a href="http://localhost:8008/metrics">http://localhost:8008/metrics</a></p>
 <p>Make sure this port is protected as the http server used is not considered secure (it should not be used by untrusted peers).</p>
 <p>For instructions on how to spin up a beautiful and useful monitoring dashboard for your validator and beacon node, see <a href="./metrics-pretty-pictures.html">this page</a>.</p>
-<h2><a class="header" href="#advanced-options" id="advanced-options">Advanced options</a></h2>
+<h2><a class="header" href="#advanced-options-1" id="advanced-options-1">Advanced options</a></h2>
 <h3><a class="header" href="#start-multiple-nodes" id="start-multiple-nodes">Start multiple nodes</a></h3>
 <p>You can start multiple local nodes, in different terminal windows/tabs, by specifying numeric IDs:</p>
 <pre><code>make medalla NODE_ID=0 # the default
@@ -371,7 +487,7 @@ make medalla NODE_ID=2
 <h3><a class="header" href="#attach-multiple-validators-to-the-same-beacon-node" id="attach-multiple-validators-to-the-same-beacon-node">Attach multiple validators to the same beacon node</a></h3>
 <p>Simply <a href="./medalla.html#3-import-keystores">import as many keystores as you wish</a> before running <code>make medalla</code>. Nimbus will automagically find your keys and attach your validators. See <a href="./medalla.html#key-management">key management</a> for more information on where we store your keys.</p>
 <p>To give you some context, we (the Nimbus team) are currently running 170 validators per beacon node on our AWS instances.</p>
-<h3><a class="header" href="#change-the-tcp-and-udp-ports" id="change-the-tcp-and-udp-ports">Change the TCP and UDP ports</a></h3>
+<h3><a class="header" href="#change-the-tcp-and-udp-ports-1" id="change-the-tcp-and-udp-ports-1">Change the TCP and UDP ports</a></h3>
 <p>To change the TCP and UDP ports from their default value of 9000 to 9100, say, run:</p>
 <pre><code>make BASE_PORT=9100 medalla
 </code></pre>
@@ -379,7 +495,7 @@ make medalla NODE_ID=2
 <h3><a class="header" href="#make-a-deposit-directly-using-nimbus" id="make-a-deposit-directly-using-nimbus">Make a deposit directly using Nimbus</a></h3>
 <pre><code>make medalla-deposit VALIDATORS=2 # default is just 1
 </code></pre>
-<h3><a class="header" href="#node-parameters" id="node-parameters">Node parameters</a></h3>
+<h3><a class="header" href="#node-parameters-1" id="node-parameters-1">Node parameters</a></h3>
 <p>You can customise your beacon node's parameters using the <code>NODE_PARAMS</code> option:</p>
 <pre><code>make NODE_PARAMS=&quot;--tcp-port=9100 --udp-port=9100&quot; medalla
 </code></pre>
@@ -387,9 +503,9 @@ make medalla NODE_ID=2
 <p><strong>Note:</strong> the above command has exactly the same effect as <code>make BASE_PORT=9100 medalla</code></p>
 </blockquote>
 <p>A complete list of the available parameters can be found <a href="https://github.com/status-im/nim-beacon-chain/blob/devel/beacon_chain/conf.nim#L92-L210">here</a> (use a parameter's <code>name</code> field to set it).</p>
-<h3><a class="header" href="#logs" id="logs">Logs</a></h3>
+<h3><a class="header" href="#logs-1" id="logs-1">Logs</a></h3>
 <p>Log files are saved in <code>build/data/shared_medalla_0/</code>.</p>
-<h3><a class="header" href="#makefile" id="makefile">Makefile</a></h3>
+<h3><a class="header" href="#makefile-1" id="makefile-1">Makefile</a></h3>
 <p>If you are comfortable reading <a href="https://en.wikipedia.org/wiki/Makefile#:%7E:text=A%20makefile%20is%20a%20file,to%20generate%20a%20target%2Fgoal">Makefiles</a>, you can see the commands that <code>make medalla</code>  executes under the hood, <a href="https://github.com/status-im/nim-beacon-chain/blob/devel/Makefile#L184-L197">here</a>.</p>
 <p>Some of the provided options (such as <code>--network=medalla</code>) are essential while others (such as the ones controlling logging, metrics, ports, and the RPC service) are there for convenience.</p>
 <p>The Goerli testnet parameters (<code>$(GOERLI_TESTNETS_PARAMS</code>), are defined higher up in the Makefile, <a href="https://github.com/status-im/nim-beacon-chain/blob/devel/Makefile#L158-L165">here</a>.</p>
@@ -448,11 +564,11 @@ build/ncli_db pruneDatabase --db=build/data/shared_medalla_0/db --verbose=true
 <h1><a class="header" href="#the-beacon-node" id="the-beacon-node">The beacon node</a></h1>
 <p>The beacon node application connects to the eth2 network, manages the blockchain, and provides API's to interact with the beacon chain.</p>
 <p>You can <strong>run the beacon node without being a validator</strong> - doing so allows you to sync the network and access its latest state.</p>
-<h2><a class="header" href="#prerequisites-1" id="prerequisites-1">Prerequisites</a></h2>
+<h2><a class="header" href="#prerequisites-2" id="prerequisites-2">Prerequisites</a></h2>
 <p>Before building and running the application, make sure you've gone through the <a href="./install.html">installation guidelines</a>.</p>
 <h2><a class="header" href="#building-the-node" id="building-the-node">Building the node</a></h2>
 <p>To build the beacon run:</p>
-<h4><a class="header" href="#1-clone-the-nim-beacon-chain-repository-1" id="1-clone-the-nim-beacon-chain-repository-1">1. Clone the nim beacon chain repository</a></h4>
+<h4><a class="header" href="#1-clone-the-nim-beacon-chain-repository-2" id="1-clone-the-nim-beacon-chain-repository-2">1. Clone the nim beacon chain repository</a></h4>
 <pre><code>git clone https://github.com/status-im/nim-beacon-chain
 cd nim-beacon-chain
 </code></pre>
@@ -491,7 +607,7 @@ You should see that the beacon node has launched and started syncing.</p>
 </ul>
 <p>Time is shown as <code>epoch:subslot</code>, starting from the block chain genesis time - one epoch is typically 32 slots but this may vary between networks.</p>
 <p>The status bar content may be updated using command line flags.</p>
-<h3><a class="header" href="#metrics-1" id="metrics-1">Metrics</a></h3>
+<h3><a class="header" href="#metrics-2" id="metrics-2">Metrics</a></h3>
 <p>Nimbus includes metrics support using the Prometheus format. To enable it, you need to enable the insecure feature when compiling the application. The http server that exports Prometheus metrics should not be exposed to external parties.</p>
 <pre><code># Compile with insecure features enabled
 make NIMFLAGS=&quot;-d:insecure&quot; medalla
@@ -940,7 +1056,7 @@ make LOG_LEVEL=TRACE beacon_node # log everything
 <blockquote>
 <p><a href="https://www.freedesktop.org/wiki/Software/systemd/"><code>systemd</code></a> is a service manager designed specifically for Linux. There is no port to Mac OS.</p>
 </blockquote>
-<h2><a class="header" href="#prerequisites-2" id="prerequisites-2">Prerequisites</a></h2>
+<h2><a class="header" href="#prerequisites-3" id="prerequisites-3">Prerequisites</a></h2>
 <p>NBC's <a href="./install.html#external-dependencies">external dependencies</a> and a working <a href="https://golang.org/doc/install">Go</a> installation (v1.11 or later).</p>
 <h3><a class="header" href="#1-clone-repositories" id="1-clone-repositories">1. Clone repositories</a></h3>
 <p>Clone the <a href="https://github.com/status-im/nim-beacon-chain">nim-beacon-chain</a> and <a href="https://github.com/Alethio/eth2stats-client">eth2stats</a> repositories in the same directory (so that both repositories are adjacent to each other).</p>
@@ -1036,7 +1152,7 @@ WantedBy=default.target
 <blockquote>
 <p><strong>Tip:</strong> You can use tools like the Ethereum Foundation's <a href="https://github.com/ethereum/eth2.0-deposit-cli">deposit-cli</a> to generate keystores without a wallet. In fact, we recommend this approach if you're not sure whether or not you need a wallet.</p>
 </blockquote>
-<h2><a class="header" href="#prerequisites-3" id="prerequisites-3">Prerequisites</a></h2>
+<h2><a class="header" href="#prerequisites-4" id="prerequisites-4">Prerequisites</a></h2>
 <p>You need to have installed Nimbus' <a href="./install.html#external-dependencies">external dependencies</a> and <a href="./beacon_node.html#building-the-node">built the beacon node</a>.</p>
 <h2><a class="header" href="#1-create--a-wallet" id="1-create--a-wallet">1. Create  a wallet</a></h2>
 <p>Run the following command from the the home directory of the <code>nim-beacon-chain</code> repository to launch the command line interface app:</p>
