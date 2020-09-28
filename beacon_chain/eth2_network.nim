@@ -1218,7 +1218,7 @@ proc getPersistentNetKeys*(
 
 func gossipId(data: openArray[byte]): string =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#topics-and-messages
-  base64.encode(Base64Url, sha256.digest(data).data)
+  string.fromBytes(sha256.digest(data).data.toOpenArray(0, 7))
 
 func msgIdProvider(m: messages.Message): string =
   gossipId(m.data)
