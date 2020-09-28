@@ -7,9 +7,9 @@ if defined(arm64):
 # ---------------------------------------------------
 
 when defined(release):
-  let nimCachePath = "nimcache/release/$projectName"
+  let nimCachePath = "nimcache/release/" & projectName()
 else:
-  let nimCachePath = "nimcache/debug/$projectName"
+  let nimCachePath = "nimcache/debug/" & projectName()
 switch("nimcache", nimCachePath)
 
 # `-flto` gives a significant improvement in processing speed, specially hash tree and state transition (basically any CPU-bound code implemented in nim)
