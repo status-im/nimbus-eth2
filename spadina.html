@@ -160,7 +160,9 @@
 <p>For those of you who are unfamiliar, <a href="https://github.com/goerli/medalla/blob/master/spadina/README.md">Spadina</a> is a short-lived eth2 testnet that will begin on tuesday and last for three days or so. Its main objective is to allow us to test the deposit/<a href="https://hackmd.io/@benjaminion/genesis">genesis</a> flow one more time before mainnet launch.</p>
 <p>Although it will mainly be client teams taking part, it's also a chance for you to practice sending a deposit and launching a node under mainnet launch conditions (in order to avoid clogging up the validator queue, we recommend practicing with one, or at most a handful of validators).</p>
 <h2><a class="header" href="#prerequisites" id="prerequisites">Prerequisites</a></h2>
-<p>If this is your first time playing with Nimbus, make sure you <a href="./install.html">install our external dependencies</a> first.</p>
+<blockquote>
+<p>⚠️ If this is your first time playing with Nimbus, please make sure you <a href="./install.html">install our external dependencies</a> first.</p>
+</blockquote>
 <p>This tutorial assumes basic knowledge of the <a href="https://www.learnenough.com/command-line-tutorial/basics#:%7E:text=Learn%20Enough%20Command%20Line%20to%20Be%20Dangerous%20is%20an%20introduction,broad%20an%20audience%20as%20possible.">command line</a>.</p>
 <h2><a class="header" href="#1-make-a-deposit" id="1-make-a-deposit">1. Make a deposit</a></h2>
 <p>The easiest way to get your deposit in is to follow the Launchpad instructions here:</p>
@@ -206,7 +208,7 @@ INF 2020-09-27 17:33:46.213+02:00 Obtaining deposit log events               tid
 INF 2020-09-27 17:33:56.912+02:00 Eth1 block processed                       tid=8490483 file=mainchain_monitor.nim:717 block=3423176:0ac7969b totalDeposits=1
 </code></pre>
 <blockquote>
-<p><strong>Note:</strong> as it stands, Nimbus defaults to using Infura to keep track of eth1 deposits. However we are well aware that Infura is less than ideal from a decentralisation perspective. As such we are in the process of changing the default to <a href="https://geth.ethereum.org/docs/install-and-build/installing-geth">Geth</a> (with Infura as a fallback). For some rough notes on how to use Geth with Nimbus, see <a href="">here</a> (we will be adding more complete instructions to this book very soon).</p>
+<p><strong>Note:</strong> as it stands, Nimbus defaults to using Infura to keep track of eth1 deposits. However we are well aware that Infura is less than ideal from a decentralisation perspective. As such we are in the process of changing the default to <a href="https://geth.ethereum.org/docs/install-and-build/installing-geth">Geth</a> (with Infura as a fallback). For some rough notes on how to use Geth with Nimbus, see <a href="https://gist.github.com/onqtam/aaf883d46f4dab1311ca9c160df12fe4">here</a> (we will be adding more complete instructions to this book very soon).</p>
 </blockquote>
 <h2><a class="header" href="#4-keep-an-eye-on-your-validator" id="4-keep-an-eye-on-your-validator">4. Keep an eye on your validator</a></h2>
 <p>If you deposited after the <a href="https://hackmd.io/@benjaminion/genesis">genesis</a> state was decided (September 27th 1400 UTC), your validators will have been put in a queue based on deposit time, and will slowly be inducted into the validator set after genesis. Getting through the queue may take a few hours or a day or so.</p>
@@ -268,6 +270,9 @@ INF 2020-09-27 17:33:56.912+02:00 Eth1 block processed                       tid
 </li>
 <li>
 <p><a href="https://www.reddit.com/r/ethstaker/comments/iy3c6t/announcing_the_spadina_testnet_launch_viewing/">Reddit /r/ethstaker community</a> : to attend the launch viewing party (rumour has it that there will be a POAP for viewing the live stream of this call)</p>
+</li>
+<li>
+<p><a href="https://discord.com/invite/XRxWahP">Nimbus discord</a> : best place to ask questions and to stay up-to-date with critical updates</p>
 </li>
 </ul>
 
