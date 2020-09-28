@@ -224,7 +224,7 @@ suiteReport "KeyStorage testing suite":
                                       KeystorePass password,
                                       salt = salt, iv = iv,
                                       description = "PBKDF2 Network private key storage",
-                                      path = validateKeyPath "m/12381/60/0/0")
+                                      path = validateKeyPath("m/12381/60/0/0").expect("Valid keypath"))
     var
       encryptJson = parseJson Json.encode(nkeystore)
       pbkdf2Json = parseJson(pbkdf2NetVector)
@@ -251,7 +251,7 @@ suiteReport "KeyStorage testing suite":
                                       KeystorePass password,
                                       salt = salt, iv = iv,
                                       description = "SCRYPT Network private key storage",
-                                      path = validateKeyPath "m/12382/60/0/0")
+                                      path = validateKeyPath("m/12382/60/0/0").expect("Valid keypath"))
     var
       encryptJson = parseJson Json.encode(nkeystore)
       pbkdf2Json = parseJson(scryptNetVector)
