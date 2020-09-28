@@ -431,7 +431,7 @@ proc createWalletInteractively*(
 
   echo80 "Please back up the seed phrase now to a safe location as " &
          "if you are protecting a sensitive password. The seed phrase " &
-         "can be used to withdrawl funds from your wallet."
+         "can be used to withdraw funds from your wallet."
 
   echo ""
   echo "Did you back up your seed recovery phrase?\p" &
