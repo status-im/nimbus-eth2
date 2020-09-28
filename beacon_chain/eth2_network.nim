@@ -4,7 +4,7 @@ import
   std/options as stdOptions,
 
   # Status libs
-  stew/[varints, base58, base64, endians2, results, byteutils], bearssl,
+  stew/[varints, base58, endians2, results, byteutils], bearssl,
   stew/shims/net as stewNet,
   stew/shims/[macros, tables],
   faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
