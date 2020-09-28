@@ -188,7 +188,7 @@ testnet0 testnet1: | beacon_node signing_process
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
 # https://www.gnu.org/software/make/manual/html_node/Multi_002dLine.html
-define CONNECT_TO_NETWORK =
+define CONNECT_TO_NETWORK
 	mkdir -p build/data/shared_$(1)_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
@@ -204,7 +204,7 @@ define CONNECT_TO_NETWORK =
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 endef
 
-define CONNECT_TO_NETWORK_IN_DEV_MODE =
+define CONNECT_TO_NETWORK_IN_DEV_MODE
 	mkdir -p build/data/shared_$(1)_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
@@ -219,7 +219,7 @@ define CONNECT_TO_NETWORK_IN_DEV_MODE =
 		$(GOERLI_TESTNETS_PARAMS) --dump $(NODE_PARAMS)
 endef
 
-define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT =
+define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 	# if launching a VC as well - send the BN looking nowhere for validators/secrets
 	mkdir -p build/data/shared_$(1)_$(NODE_ID)/empty_dummy_folder
 
@@ -246,7 +246,7 @@ define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT =
 		--rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) ))
 endef
 
-define MAKE_DEPOSIT_DATA =
+define MAKE_DEPOSIT_DATA
 	build/beacon_node deposits create \
 		--network=$(1) \
 		--new-wallet-file=build/data/shared_$(1)_$(NODE_ID)/wallet.json \
@@ -256,7 +256,7 @@ define MAKE_DEPOSIT_DATA =
 		--count=$(VALIDATORS)
 endef
 
-define MAKE_DEPOSIT =
+define MAKE_DEPOSIT
 	build/beacon_node deposits create \
 		--network=$(1) \
 		--out-deposits-file=nbc-$(1)-deposits.json \
@@ -273,7 +273,7 @@ define MAKE_DEPOSIT =
 		--ask-for-key
 endef
 
-define CLEAN_NETWORK =
+define CLEAN_NETWORK
 	rm -rf build/data/shared_$(1)*/db
 	rm -rf build/data/shared_$(1)*/dump
 	rm -rf build/data/shared_$(1)*/*.log
