@@ -176,11 +176,11 @@ This tutorial assumes basic knowledge of the [command line](https://www.learneno
  
  ### Makefile
  
- If you are comfortable reading [Makefiles](https://en.wikipedia.org/wiki/Makefile#:~:text=A%20makefile%20is%20a%20file,to%20generate%20a%20target%2Fgoal), you can see the commands that `make spadina`  executes under the hood, [here](https://github.com/status-im/nim-beacon-chain/blob/master/Makefile#L184-L197).
+ If you are comfortable reading [Makefiles](https://en.wikipedia.org/wiki/Makefile#:~:text=A%20makefile%20is%20a%20file,to%20generate%20a%20target%2Fgoal), you can see the commands that `make spadina`  executes under the hood, [here](https://github.com/status-im/nim-beacon-chain/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L184-L197).
  
  Some of the provided options (such as `--network`) are essential while others (such as the ones controlling logging, metrics, ports, and the RPC service) are optional and included for the sake convenience.
  
- The Goerli testnet parameters (`$(GOERLI_TESTNETS_PARAMS`), are defined higher up in the Makefile, [here](https://github.com/status-im/nim-beacon-chain/blob/master/Makefile#L164-L171).
+ The Goerli testnet parameters (`$(GOERLI_TESTNETS_PARAMS`), are defined higher up in the Makefile, [here](https://github.com/status-im/nim-beacon-chain/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L164-L171).
  
  ## Useful Resources
  

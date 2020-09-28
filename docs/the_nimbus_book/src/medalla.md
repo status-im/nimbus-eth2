@@ -204,8 +204,8 @@ Log files are saved in `build/data/shared_medalla_0/`.
 
 ### Makefile
 
-If you are comfortable reading [Makefiles](https://en.wikipedia.org/wiki/Makefile#:~:text=A%20makefile%20is%20a%20file,to%20generate%20a%20target%2Fgoal), you can see the commands that `make medalla`  executes under the hood, [here](https://github.com/status-im/nim-beacon-chain/blob/devel/Makefile#L184-L197).
+If you are comfortable reading [Makefiles](https://en.wikipedia.org/wiki/Makefile#:~:text=A%20makefile%20is%20a%20file,to%20generate%20a%20target%2Fgoal), you can see the commands that `make medalla`  executes under the hood, [here](https://github.com/status-im/nim-beacon-chain/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L184-L197).
 
 Some of the provided options (such as `--network=medalla`) are essential while others (such as the ones controlling logging, metrics, ports, and the RPC service) are there for convenience.
 
-The Goerli testnet parameters (`$(GOERLI_TESTNETS_PARAMS`), are defined higher up in the Makefile, [here](https://github.com/status-im/nim-beacon-chain/blob/devel/Makefile#L158-L165).
+The Goerli testnet parameters (`$(GOERLI_TESTNETS_PARAMS`), are defined higher up in the Makefile, [here](https://github.com/status-im/nim-beacon-chain/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L164-L171).
