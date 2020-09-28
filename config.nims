@@ -4,26 +4,26 @@ if defined(arm64):
   # https://twitter.com/EthereumOnARM/status/1309477357938499585?s=20
   # https://github.com/supranational/blst/issues/31
   switch("define", "BLS_FORCE_BACKEND=miracl")
+
 # ---------------------------------------------------
 
-when defined(release):
-  let nimCachePath = "nimcache/release/" & projectName()
+if defined(release):
+  switch("nimcache", "nimcache/release/$projectName")
 else:
-  let nimCachePath = "nimcache/debug/" & projectName()
-switch("nimcache", nimCachePath)
+  switch("nimcache", "nimcache/debug/$projectName")
 
 # `-flto` gives a significant improvement in processing speed, specially hash tree and state transition (basically any CPU-bound code implemented in nim)
 # With LTO enabled, optimization flags should be passed to both compiler and linker!
 if defined(release) and not defined(disableLTO):
   if defined(macosx): # Clang
     switch("passC", "-flto=thin")
-    switch("passL", "-flto=thin -Wl,-object_path_lto," & nimCachePath & "/lto")
+    switch("passL", "-flto=thin")
   elif defined(linux):
     switch("passC", "-flto=auto")
     switch("passL", "-flto=auto")
   else:
-    # On windows, LTO needs more love and attention so "gcc-ar" and "gcc-ranlib" are
-    # used for static libraries.
+    # On windows, LTO needs more love and attention so the right linkers
+    # are used
     discard
 
 if defined(windows):
