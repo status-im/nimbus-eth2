@@ -183,6 +183,8 @@ proc init*(T: type BeaconNode,
       mainchainMonitor.start()
 
       genesisState = await mainchainMonitor.waitGenesis()
+      if bnStatus == BeaconNodeStatus.Stopping:
+        return nil
 
       info "Eth2 genesis state detected",
         genesisTime = genesisState.genesisTime,
@@ -1212,6 +1214,8 @@ programMain:
         metrics.startHttpServer($metricsAddress, config.metricsPort)
 
     var node = waitFor BeaconNode.init(rng, config, stateSnapshotContents)
+    if bnStatus == BeaconNodeStatus.Stopping:
+      return
 
     when hasPrompt:
       initPrompt(node)

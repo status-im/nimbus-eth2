@@ -565,8 +565,21 @@ proc findGenesisBlockInRange(m: MainchainMonitor,
 
   return endBlock
 
+proc safeCancel(fut: var Future[void]) =
+  if not fut.isNil and not fut.finished:
+    fut.cancel()
+    fut = nil
+
+proc stop*(m: MainchainMonitor) =
+  safeCancel m.runFut
+  safeCancel m.genesisMonitoringFut
+
 template checkIfShouldStopMainchainMonitor(m: MainchainMonitor) =
   if bnStatus == BeaconNodeStatus.Stopping:
+    if not m.genesisStateFut.isNil:
+      m.genesisStateFut.complete()
+      m.genesisStateFut = nil
+    m.stop
     return
 
 proc checkForGenesisLoop(m: MainchainMonitor) {.async.} =
@@ -642,6 +655,9 @@ proc waitGenesis*(m: MainchainMonitor): Future[BeaconStateRef] {.async.} =
     m.genesisMonitoringFut = m.checkForGenesisLoop()
     await m.genesisStateFut
     m.genesisStateFut = nil
+
+    if bnStatus == BeaconNodeStatus.Stopping:
+      return new BeaconStateRef # cannot return nil...
 
   if m.genesisState != nil:
     return m.genesisState
@@ -784,15 +800,6 @@ proc run(m: MainchainMonitor, delayBeforeStart: Duration) {.async.} =
 
   finally:
     await close(dataProvider)
-
-proc safeCancel(fut: var Future[void]) =
-  if not fut.isNil and not fut.finished:
-    fut.cancel()
-    fut = nil
-
-proc stop*(m: MainchainMonitor) =
-  safeCancel m.runFut
-  safeCancel m.genesisMonitoringFut
 
 proc start(m: MainchainMonitor, delayBeforeStart: Duration) =
   if m.runFut.isNil:
