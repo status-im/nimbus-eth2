@@ -3,7 +3,8 @@ import
   chronos, web3, web3/ethtypes as web3Types, json, chronicles,
   eth/common/eth_types, eth/async_utils,
   spec/[datatypes, digest, crypto, beaconstate, helpers, validator],
-  network_metadata, merkle_minimal
+  network_metadata, merkle_minimal,
+  beacon_node_status
 
 from times import epochTime
 
@@ -564,8 +565,14 @@ proc findGenesisBlockInRange(m: MainchainMonitor,
 
   return endBlock
 
+template checkIfShouldStopMainchainMonitor(m: MainchainMonitor) =
+  if bnStatus == BeaconNodeStatus.Stopping:
+    return
+
 proc checkForGenesisLoop(m: MainchainMonitor) {.async.} =
   while true:
+    m.checkIfShouldStopMainchainMonitor()
+
     if not m.genesisState.isNil:
       return
 
@@ -677,6 +684,8 @@ proc processDeposits(m: MainchainMonitor,
   # it could easily re-order the steps due to the intruptable
   # interleaved execution of async code.
   while true:
+    m.checkIfShouldStopMainchainMonitor()
+
     let blk = await m.depositQueue.popFirst()
     m.eth1Chain.trimHeight(Eth1BlockNumber(blk.number) - 1)
 
