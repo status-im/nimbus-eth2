@@ -26,7 +26,7 @@ import
   spec/state_transition,
   conf, time, beacon_chain_db, validator_pool, extras,
   attestation_pool, exit_pool, eth2_network, eth2_discovery,
-  beacon_node_common, beacon_node_types,
+  beacon_node_common, beacon_node_types, beacon_node_status,
   block_pools/[spec_cache, chain_dag, quarantine, clearance, block_pools_types],
   nimbus_binary_common, network_metadata,
   mainchain_monitor, version, ssz/[merkleization], merkle_minimal,
@@ -41,13 +41,6 @@ const
 
 type
   RpcServer* = RpcHttpServer
-
-  # "state" is already taken by BeaconState
-  BeaconNodeStatus* = enum
-    Starting, Running, Stopping
-
-# this needs to be global, so it can be set in the Ctrl+C signal handler
-var status = BeaconNodeStatus.Starting
 
 template init(T: type RpcHttpServer, ip: ValidIpAddress, port: Port): T =
   newRpcHttpServer([initTAddress(ip, port)])
@@ -190,6 +183,8 @@ proc init*(T: type BeaconNode,
       mainchainMonitor.start()
 
       genesisState = await mainchainMonitor.waitGenesis()
+      if bnStatus == BeaconNodeStatus.Stopping:
+        return nil
 
       info "Eth2 genesis state detected",
         genesisTime = genesisState.genesisTime,
@@ -849,7 +844,7 @@ proc installMessageValidators(node: BeaconNode) =
       node.processor[].voluntaryExitValidator(signedVoluntaryExit))
 
 proc stop*(node: BeaconNode) =
-  status = BeaconNodeStatus.Stopping
+  bnStatus = BeaconNodeStatus.Stopping
   info "Graceful shutdown"
   if not node.config.inProcessValidators:
     node.vcProcess.close()
@@ -858,9 +853,9 @@ proc stop*(node: BeaconNode) =
   info "Database closed"
 
 proc run*(node: BeaconNode) =
-  if status == BeaconNodeStatus.Starting:
+  if bnStatus == BeaconNodeStatus.Starting:
     # it might have been set to "Stopping" with Ctrl+C
-    status = BeaconNodeStatus.Running
+    bnStatus = BeaconNodeStatus.Running
 
     if node.rpcServer != nil:
       node.rpcServer.installRpcHandlers(node)
@@ -888,7 +883,7 @@ proc run*(node: BeaconNode) =
     node.startSyncManager()
 
   # main event loop
-  while status == BeaconNodeStatus.Running:
+  while bnStatus == BeaconNodeStatus.Running:
     try:
       poll()
     except CatchableError as e:
@@ -1208,7 +1203,7 @@ programMain:
         # workaround for https://github.com/nim-lang/Nim/issues/4057
         setupForeignThreadGc()
       info "Shutting down after having received SIGINT"
-      status = BeaconNodeStatus.Stopping
+      bnStatus = BeaconNodeStatus.Stopping
     setControlCHook(controlCHandler)
 
     when useInsecureFeatures:
@@ -1219,6 +1214,8 @@ programMain:
         metrics.startHttpServer($metricsAddress, config.metricsPort)
 
     var node = waitFor BeaconNode.init(rng, config, stateSnapshotContents)
+    if bnStatus == BeaconNodeStatus.Stopping:
+      return
 
     when hasPrompt:
       initPrompt(node)
