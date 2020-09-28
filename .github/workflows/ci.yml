@@ -1,6 +1,6 @@
 name: Nimbus nim-beacon-chain CI
 on: [push, pull_request]
-
+#test
 jobs:
   build:
     strategy:
