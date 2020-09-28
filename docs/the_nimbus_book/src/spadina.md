@@ -9,7 +9,7 @@ Although it will mainly be client teams taking part, it's also a chance for you 
 
 ## Prerequisites
 
-If this is your first time playing with Nimbus, make sure you [install our external dependencies](./install.md) first.
+> ⚠️ If this is your first time playing with Nimbus, please make sure you [install our external dependencies](./install.md) first.
 
 This tutorial assumes basic knowledge of the [command line](https://www.learnenough.com/command-line-tutorial/basics#:~:text=Learn%20Enough%20Command%20Line%20to%20Be%20Dangerous%20is%20an%20introduction,broad%20an%20audience%20as%20possible.).
  
@@ -191,3 +191,5 @@ This tutorial assumes basic knowledge of the [command line](https://www.learneno
  - [Beacon chain explorer](https://spadina.beaconcha.in/) : to monitor testnet health 
  
  - [Reddit /r/ethstaker community](https://www.reddit.com/r/ethstaker/comments/iy3c6t/announcing_the_spadina_testnet_launch_viewing/) : to attend the launch viewing party (rumour has it that there will be a POAP for viewing the live stream of this call)
+ 
+ - [Nimbus discord](https://discord.com/invite/XRxWahP) : best place to ask questions and to stay up-to-date with critical updates
