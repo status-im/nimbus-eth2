@@ -88,7 +88,7 @@ This tutorial assumes basic knowledge of the [command line](https://www.learneno
  INF 2020-09-27 17:33:56.912+02:00 Eth1 block processed                       tid=8490483 file=mainchain_monitor.nim:717 block=3423176:0ac7969b totalDeposits=1
  ```
  
- > **Note:** as it stands, Nimbus defaults to using Infura to keep track of eth1 deposits. However we are well aware that Infura is less than ideal from a decentralisation perspective. As such we are in the process of changing the default to [Geth](https://geth.ethereum.org/docs/install-and-build/installing-geth) (with Infura as a fallback). For some rough notes on how to use Geth with Nimbus, see [here]() (we will be adding more complete instructions to this book very soon).
+ > **Note:** as it stands, Nimbus defaults to using Infura to keep track of eth1 deposits. However we are well aware that Infura is less than ideal from a decentralisation perspective. As such we are in the process of changing the default to [Geth](https://geth.ethereum.org/docs/install-and-build/installing-geth) (with Infura as a fallback). For some rough notes on how to use Geth with Nimbus, see [here](https://gist.github.com/onqtam/aaf883d46f4dab1311ca9c160df12fe4) (we will be adding more complete instructions to this book very soon).
  
  ## 4. Keep an eye on your validator
  
