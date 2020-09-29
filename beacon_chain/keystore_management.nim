@@ -1,5 +1,5 @@
 import
-  std/[os, strutils, terminal, wordwrap],
+  std/[os, strutils, terminal, wordwrap, unicode],
   chronicles, chronos, web3, stint, json_serialization,
   serialization, blscurve, eth/common/eth_types, eth/keys, confutils, bearssl,
   spec/[datatypes, digest, crypto, keystore],
@@ -116,6 +116,64 @@ proc checkFilePermissions*(filePath: string): bool =
       else:
         true
 
+proc keyboardCreatePassword(prompt: string, confirm: string): KsResult[string] =
+  while true:
+    let password =
+      try:
+        readPasswordFromStdin(prompt)
+      except IOError:
+        error "Could not read password from stdin"
+        return err("Could not read password from stdin")
+
+    # We treat `password` as UTF-8 encoded string.
+    if validateUtf8(password) == -1:
+      if runeLen(password) < minPasswordLen:
+        echo80 "The entered password should be at least " & $minPasswordLen &
+               " characters."
+        continue
+      elif password in mostCommonPasswords:
+        echo80 "The entered password is too commonly used and it would be " &
+               "easy to brute-force with automated tools."
+        continue
+    else:
+      echo80 "Entered password is not valid UTF-8 string"
+      continue
+
+    let confirmedPassword =
+      try:
+        readPasswordFromStdin(confirm)
+      except IOError:
+        error "Could not read password from stdin"
+        return err("Could not read password from stdin")
+
+    if password != confirmedPassword:
+      echo "Passwords don't match, please try again"
+      continue
+
+    return ok(password)
+
+proc keyboardGetPassword[T](prompt: string, attempts: int,
+                  pred: proc(p: string): KsResult[T] {.closure.}): KsResult[T] =
+  var
+    remainingAttempts = attempts
+    counter = 1
+
+  while remainingAttempts > 0:
+    let passphrase =
+      try:
+        readPasswordFromStdin(prompt)
+      except IOError as exc:
+        error "Could not read password from stdin"
+        return
+    os.sleep(1000 * counter)
+    let res = pred(passphrase)
+    if res.isOk():
+      return res
+    else:
+      inc(counter)
+      dec(remainingAttempts)
+  err("Failed to decrypt keystore")
+
 proc loadKeystore(validatorsDir, secretsDir, keyName: string,
                   nonInteractive: bool): Option[ValidatorPrivKey] =
   let
@@ -155,21 +213,19 @@ proc loadKeystore(validatorsDir, secretsDir, keyName: string,
       keyName, validatorsDir, secretsDir = secretsDir
     return
 
-  var remainingAttempts = 3
-  var prompt = "Please enter passphrase for key \"" & validatorsDir/keyName & "\"\n"
-  while remainingAttempts > 0:
-    let passphrase = KeystorePass:
-      try: readPasswordFromStdin(prompt)
-      except IOError:
-        error "STDIN not readable. Cannot obtain Keystore password"
-        return
-
-    let decrypted = decryptKeystore(keystore, passphrase)
-    if decrypted.isOk:
-      return decrypted.get.some
-    else:
-      prompt = "Keystore decryption failed. Please try again"
-      dec remainingAttempts
+  let prompt = "Please enter passphrase for key \"" &
+               (validatorsDir / keyName) & "\": "
+  let res = keyboardGetPassword[ValidatorPrivKey](prompt, 3,
+    proc (password: string): KsResult[ValidatorPrivKey] =
+      let decrypted = decryptKeystore(keystore, KeystorePass password)
+      if decrypted.isErr():
+        error "Keystore decryption failed. Please try again", keystorePath
+      decrypted
+  )
+  if res.isOk():
+    some(res.get())
+  else:
+    return
 
 iterator validatorKeysFromDirs*(validatorsDir, secretsDir: string): ValidatorPrivKey =
   try:
@@ -244,67 +300,34 @@ proc loadNetKeystore*(keyStorePath: string,
       error "Network keystore decryption failed", key_store = keyStorePath
       return
   else:
-    var remainingAttempts = 3
-    var counter = 0
-    var prompt = "Please enter passphrase to unlock networking key: "
-    while remainingAttempts > 0:
-      let passphrase = KeystorePass:
-        try:
-          readPasswordFromStdin(prompt)
-        except IOError:
-          error "Could not read password from stdin"
-          return
-
-      let decrypted = decryptNetKeystore(keystore, passphrase)
-      if decrypted.isOk:
-        return some(decrypted.get())
-      else:
-        dec remainingAttempts
-        inc counter
-        os.sleep(1000 * counter)
-        error "Network keystore decryption failed", key_store = keyStorePath
+    let prompt = "Please enter passphrase to unlock networking key: "
+    let res = keyboardGetPassword[lcrypto.PrivateKey](prompt, 3,
+      proc (password: string): KsResult[lcrypto.PrivateKey] =
+        let decrypted = decryptNetKeystore(keystore, KeystorePass password)
+        if decrypted.isErr():
+          error "Keystore decryption failed. Please try again", keystorePath
+        decrypted
+    )
+    if res.isOk():
+      some(res.get())
+    else:
+      return
 
 proc saveNetKeystore*(rng: var BrHmacDrbgContext, keyStorePath: string,
                       netKey: lcrypto.PrivateKey, insecurePwd: Option[string]
                      ): Result[void, KeystoreGenerationError] =
-  var password, confirmedPassword: TaintedString
-  if insecurePwd.isSome():
-    warn "Using insecure password to lock networking key",
-         key_path = keyStorePath
-    password = insecurePwd.get()
-  else:
-    while true:
+  let password =
+    if insecurePwd.isSome():
+      warn "Using insecure password to lock networking key",
+           key_path = keyStorePath
+      insecurePwd.get()
+    else:
       let prompt = "Please enter NEW password to lock network key storage: "
-
-      password =
-        try:
-          readPasswordFromStdin(prompt)
-        except IOError:
-          error "Could not read password from stdin"
-          return err(FailedToCreateKeystoreFile)
-
-      if len(password) < minPasswordLen:
-        echo "The entered password should be at least ", minPasswordLen,
-             " characters"
-        continue
-      elif password in mostCommonPasswords:
-        echo80 "The entered password is too commonly used and it would be " &
-               "easy to brute-force with automated tools."
-        continue
-
-      confirmedPassword =
-        try:
-          readPasswordFromStdin("Please confirm, network key storage " &
-                                "password: ")
-        except IOError:
-          error "Could not read password from stdin"
-          return err(FailedToCreateKeystoreFile)
-
-      if password != confirmedPassword:
-        echo "Passwords don't match, please try again"
-        continue
-
-      break
+      let confirm = "Please confirm, network key storage password: "
+      let res = keyboardCreatePassword(prompt, confirm)
+      if res.isErr():
+        return err(FailedToCreateKeystoreFile)
+      res.get()
 
   let keyStore = createNetKeystore(kdfScrypt, rng, netKey,
                                    KeystorePass password)
@@ -526,87 +549,64 @@ proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
          "installation and can be changed at any time."
   echo ""
 
-  while true:
-    var password, confirmedPassword: TaintedString
-    try:
-      var firstTry = true
+  let password =
+    block:
+      let prompt = "Please enter a password: "
+      let confirm = "Please repeat the password: "
+      let res = keyboardCreatePassword(prompt, confirm)
+      if res.isErr():
+        return err($res.error)
+      res.get()
 
-      template prompt: string =
-        if firstTry:
-          "Please enter a password: "
-        else:
-          "Please enter a new password: "
+  var name: WalletName
+  let outWalletName = config.outWalletName
+  if outWalletName.isSome:
+    name = outWalletName.get
+  else:
+    echo ""
+    echo80 "For your convenience, the wallet can be identified with a name " &
+           "of your choice. Please enter a wallet name below or press ENTER " &
+           "to continue with a machine-generated name."
 
-      while true:
-        if not readPasswordInput(prompt, password):
-          return err "failure to read a password from stdin"
-
-        if password.len < minPasswordLen:
+    while true:
+      var enteredName = ask "Wallet name"
+      if enteredName.len > 0:
+        name =
           try:
-            echo "The entered password should be at least $1 characters." %
-                 [$minPasswordLen]
-          except ValueError:
-            raiseAssert "The format string above is correct"
-        elif password in mostCommonPasswords:
-          echo80 "The entered password is too commonly used and it would be easy " &
-                 "to brute-force with automated tools."
-        else:
-          break
+            WalletName.parseCmdArg(enteredName)
+          except CatchableError as err:
+            echo err.msg & ". Please try again."
+            continue
+      break
 
-        firstTry = false
-
-      if not readPasswordInput("Please repeat the password:", confirmedPassword):
-        return err "failure to read a password from stdin"
-
-      if password != confirmedPassword:
-        echo "Passwords don't match, please try again"
-        continue
-
-      var name: WalletName
-      let outWalletName = config.outWalletName
-      if outWalletName.isSome:
-        name = outWalletName.get
-      else:
-        echo ""
-        echo80 "For your convenience, the wallet can be identified with a name " &
-               "of your choice. Please enter a wallet name below or press ENTER " &
-               "to continue with a machine-generated name."
-
-        while true:
-          var enteredName = ask "Wallet name"
-          if enteredName.len > 0:
-            name = try: WalletName.parseCmdArg(enteredName)
-                   except CatchableError as err:
-                     echo err.msg & ". Please try again."
-                     continue
-          break
-
-      let nextAccount = if config.cmd == wallets and
-                           config.walletsCmd == WalletsCmd.restore:
+    let nextAccount =
+      if config.cmd == wallets and config.walletsCmd == WalletsCmd.restore:
         config.restoredDepositsCount
       else:
         none Natural
 
-      let wallet = createWallet(kdfPbkdf2, rng, mnemonic,
-                                name = name,
-                                nextAccount = nextAccount,
-                                password = KeystorePass password)
+    let wallet = createWallet(kdfPbkdf2, rng, mnemonic,
+                              name = name,
+                              nextAccount = nextAccount,
+                              password = KeystorePass password)
 
-      let outWalletFileFlag = config.outWalletFile
-      let outWalletFile = if outWalletFileFlag.isSome:
+    let outWalletFileFlag = config.outWalletFile
+    let outWalletFile =
+      if outWalletFileFlag.isSome:
         string outWalletFileFlag.get
       else:
         config.walletsDir / addFileExt(string wallet.uuid, "json")
 
-      let status = saveWallet(wallet, outWalletFile)
-      if status.isErr:
-        return err("failure to create wallet file due to " & status.error)
-
-      notice "Wallet file written", path = outWalletFile
-      return ok WalletPathPair(wallet: wallet, path: outWalletFile)
-    finally:
+    let status = saveWallet(wallet, outWalletFile)
+    if status.isErr:
       burnMem(password)
       burnMem(confirmedPassword)
+      return err("failure to create wallet file due to " & status.error)
+
+    info "Wallet file written", path = outWalletFile
+    burnMem(password)
+    burnMem(confirmedPassword)
+    return ok WalletPathPair(wallet: wallet, path: outWalletFile)
 
 proc createWalletInteractively*(
     rng: var BrHmacDrbgContext,
@@ -665,7 +665,7 @@ proc restoreWalletInteractively*(rng: var BrHmacDrbgContext,
 
   echo "To restore your wallet, please enter your backed-up seed phrase."
   while true:
-    if not readPasswordInput("Seedphrase:", enteredMnemonic):
+    if not readPasswordInput("Seedphrase: ", enteredMnemonic):
       fatal "failure to read password from stdin"
       quit 1
 
@@ -685,24 +685,26 @@ proc loadWallet*(fileName: string): Result[Wallet, string] =
     err exc.msg
 
 proc unlockWalletInteractively*(wallet: Wallet): Result[Mnemonic, string] =
+  let prompt = "Please enter the password for unlocking the wallet: "
   echo "Please enter the password for unlocking the wallet"
 
-  for i in 1..3:
-    var password: TaintedString
-    try:
-      if not readPasswordInput("Password: ", password):
-        return err "failure to read password from stdin"
-
+  let res = keyboardGetPassword[Mnemonic](prompt, 3,
+    proc (password: string): KsResult[Mnemonic] =
       var secret = decryptCryptoField(wallet.crypto, KeystorePass password)
-      if secret.len > 0:
-        defer: burnMem(secret)
-        return ok Mnemonic(string.fromBytes(secret))
+      if len(secret) > 0:
+        let mnemonic = Mnemonic(string.fromBytes(secret))
+        burnMem(secret)
+        ok(mnemonic)
       else:
-        echo "Unlocking of the wallet failed. Please try again."
-    finally:
-      burnMem(password)
+        let failed = "Unlocking of the wallet failed. Please try again"
+        echo failed
+        err(failed)
+  )
 
-  return err "failure to unlock wallet"
+  if res.isOk():
+    ok(res.get())
+  else:
+    err "Unlocking of the wallet failed."
 
 proc findWallet*(config: BeaconNodeConf,
                  name: WalletName): Result[WalletPathPair, string] =

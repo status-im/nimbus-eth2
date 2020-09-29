@@ -202,7 +202,7 @@ macro wordListArray*(filename: static string,
                      minWordLen: static int = 0,
                      maxWordLen: static int = high(int)): untyped =
   result = newTree(nnkBracket)
-  var words = slurp(filename).split()
+  var words = slurp(filename).splitLines()
   for word in words:
     if word.len >= minWordLen and word.len <= maxWordLen:
       result.add newCall("cstring", newLit(word))
@@ -213,9 +213,21 @@ const
   englishWords = wordListArray("english_word_list.txt",
                                 maxWords = wordListLen,
                                 maxWordLen = maxWordLen)
+  englishWordsDigest =
+    "AD90BF3BEB7B0EB7E5ACD74727DC0DA96E0A280A258354E7293FB7E211AC03DB".toDigest
+
+proc checkEnglishWords(): bool =
+  if len(englishWords) != wordListLen:
+    false
+  else:
+    var ctx: sha256
+    ctx.init()
+    for item in englishWords:
+      ctx.update($item)
+    ctx.finish() == englishWordsDigest
 
 static:
-  doAssert englishWords.len == wordListLen
+  doAssert(checkEnglishWords(), "English words array is corrupted!")
 
 func append*(path: KeyPath, pathNode: Natural): KeyPath =
   KeyPath(path.string & "/" & $pathNode)
@@ -225,7 +237,8 @@ func validateKeyPath*(path: TaintedString): Result[KeyPath, cstring] =
   var number: BiggestUint
   try:
     for elem in path.string.split("/"):
-      # TODO: doesn't "m" have to be the first character and is it the only place where it is valid?
+      # TODO: doesn't "m" have to be the first character and is it the only
+      # place where it is valid?
       if elem == "m":
         continue
       # parseBiggestUInt can raise if overflow
@@ -274,8 +287,6 @@ proc generateMnemonic*(
     entropyParam: openarray[byte] = @[]): Mnemonic =
   ## Generates a valid BIP-0039 mnenomic:
   ## https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#generating-the-mnemonic
-  doAssert words.len == wordListLen
-
   var entropy: seq[byte]
   if entropyParam.len == 0:
     setLen(entropy, 32)
