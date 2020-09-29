@@ -11,7 +11,7 @@ SHELL := bash # the shell used internally by "make"
 BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 
 # we set its default value before LOG_LEVEL is used in "variables.mk"
-LOG_LEVEL := DEBUG
+LOG_LEVEL := INFO
 
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
