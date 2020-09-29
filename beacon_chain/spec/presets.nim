@@ -53,6 +53,7 @@ const
     DOMAIN_VOLUNTARY_EXIT,
     DOMAIN_SELECTION_PROOF,
     DOMAIN_AGGREGATE_AND_PROOF,
+    CONFIG_NAME
   }
 
   presetValueTypes* = {
@@ -158,7 +159,7 @@ else:
     for name, value in preset.values:
       let
         typ = getType(name)
-        value = if typ in ["int64", "uint64", "byte", "string"]: typ & "(" & value & ")"
+        value = if typ in ["int64", "uint64", "byte"]: typ & "(" & value & ")"
                 else: "parse(" & typ & ", \"" & value & "\")"
       try:
         result.add parseStmt("const $1* {.intdefine.} = $2" % [$name, value])
