@@ -25,7 +25,7 @@ const
   RewardsDirLeak = RewardsDirBase/"leak"/"pyspec_tests"
   RewardsDirRandom = RewardsDirBase/"random"/"pyspec_tests"
 
-# https://github.com/ethereum/eth2.0-specs/tree/v0.12.2/tests/formats/rewards#rewards-tests
+# https://github.com/ethereum/eth2.0-specs/tree/v0.12.3/tests/formats/rewards#rewards-tests
 type Deltas = object
   rewards: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
   penalties: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
