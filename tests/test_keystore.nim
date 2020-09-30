@@ -120,9 +120,8 @@ const
     },
     "description":"PBKDF2 Network private key storage",
     "pubkey":"08021221031873e6f4e1bf837b93493d570653cb219743d4fab0ff468d4e005e1679730b0b",
-    "path":"m/12381/60/0/0",
     "uuid":"7a053160-1cdf-4faf-a2bb-331e1bc2eb5f",
-    "version":4
+    "version":1
 }"""
 
   scryptNetVector = """{
@@ -155,9 +154,8 @@ const
     },
     "description":"SCRYPT Network private key storage",
     "pubkey":"08021221031873e6f4e1bf837b93493d570653cb219743d4fab0ff468d4e005e1679730b0b",
-    "path":"m/12382/60/0/0",
     "uuid":"83d77fa3-86cb-466a-af11-eeb338b0e258",
-    "version":4
+    "version":1
 }"""
   password = string.fromBytes hexToSeqByte("7465737470617373776f7264f09f9491")
   secretBytes = hexToSeqByte "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
@@ -223,8 +221,8 @@ suiteReport "KeyStorage testing suite":
     let nkeystore = createNetKeystore(kdfPbkdf2, rng[], nsecret,
                                       KeystorePass password,
                                       salt = salt, iv = iv,
-                                      description = "PBKDF2 Network private key storage",
-                                      path = validateKeyPath("m/12381/60/0/0").expect("Valid keypath"))
+                                      description =
+                                        "PBKDF2 Network private key storage")
     var
       encryptJson = parseJson Json.encode(nkeystore)
       pbkdf2Json = parseJson(pbkdf2NetVector)
@@ -250,8 +248,8 @@ suiteReport "KeyStorage testing suite":
     let nkeystore = createNetKeystore(kdfScrypt, rng[], nsecret,
                                       KeystorePass password,
                                       salt = salt, iv = iv,
-                                      description = "SCRYPT Network private key storage",
-                                      path = validateKeyPath("m/12382/60/0/0").expect("Valid keypath"))
+                                      description =
+                                        "SCRYPT Network private key storage")
     var
       encryptJson = parseJson Json.encode(nkeystore)
       pbkdf2Json = parseJson(scryptNetVector)

@@ -113,7 +113,6 @@ type
     crypto*: Crypto
     description*: ref string
     pubkey*: lcrypto.PublicKey
-    path*: KeyPath
     uuid*: string
     version*: int
 
@@ -630,7 +629,6 @@ proc createNetKeystore*(kdfKind: KdfKind,
                         rng: var BrHmacDrbgContext,
                         privKey: lcrypto.PrivateKey,
                         password = KeystorePass "",
-                        path = KeyPath "",
                         description = "",
                         salt: openarray[byte] = @[],
                         iv: openarray[byte] = @[]): NetKeystore =
@@ -643,10 +641,9 @@ proc createNetKeystore*(kdfKind: KdfKind,
   NetKeystore(
     crypto: cryptoField,
     pubkey: pubKey,
-    path: path,
     description: newClone(description),
     uuid: $uuid,
-    version: 4
+    version: 1
   )
 
 proc createKeystore*(kdfKind: KdfKind,
