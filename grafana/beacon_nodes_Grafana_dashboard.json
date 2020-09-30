@@ -44,8 +44,8 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 23,
-  "iteration": 1598198513471,
+  "id": 25,
+  "iteration": 1601473231111,
   "links": [],
   "panels": [
     {
@@ -54,6 +54,13 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "links": []
+        },
+        "overrides": []
+      },
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
@@ -76,10 +83,8 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
       "percentage": false,
+      "pluginVersion": "7.1.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -174,6 +179,13 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "links": []
+        },
+        "overrides": []
+      },
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
@@ -198,10 +210,8 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
       "percentage": false,
+      "pluginVersion": "7.1.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -264,6 +274,13 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "links": []
+        },
+        "overrides": []
+      },
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
@@ -288,10 +305,8 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
       "percentage": false,
+      "pluginVersion": "7.1.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -360,6 +375,13 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "links": []
+        },
+        "overrides": []
+      },
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
@@ -384,10 +406,8 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
       "percentage": false,
+      "pluginVersion": "7.1.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -455,6 +475,13 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "links": []
+        },
+        "overrides": []
+      },
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
@@ -477,10 +504,8 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
       "percentage": false,
+      "pluginVersion": "7.1.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -539,189 +564,6 @@
       }
     },
     {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 6,
-        "w": 14,
-        "x": 0,
-        "y": 12
-      },
-      "hiddenSeries": false,
-      "id": 22,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [
-        {
-          "alias": "/.*/",
-          "yaxis": 2
-        }
-      ],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sqlite3_memory_used_bytes{node=\"${node}\"}",
-          "interval": "",
-          "legendFormat": "Memory used",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "SQLite3 #${node}",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": false
-        },
-        {
-          "format": "bytes",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": "0",
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 5,
-        "w": 10,
-        "x": 14,
-        "y": 15
-      },
-      "hiddenSeries": false,
-      "id": 51,
-      "legend": {
-        "alignAsTable": false,
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "rightSide": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "libp2p_peers{node=\"${node}\"}",
-          "interval": "",
-          "legendFormat": "libp2p peers",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "peers #${node}",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": "0",
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
       "aliasColors": {
         "proposed": "dark-yellow",
         "received": "light-green"
@@ -730,13 +572,20 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "links": []
+        },
+        "overrides": []
+      },
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
         "h": 6,
         "w": 14,
         "x": 0,
-        "y": 18
+        "y": 12
       },
       "hiddenSeries": false,
       "id": 38,
@@ -752,10 +601,8 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
       "percentage": false,
+      "pluginVersion": "7.1.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -819,6 +666,200 @@
       }
     },
     {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "links": []
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 5,
+        "w": 10,
+        "x": 14,
+        "y": 15
+      },
+      "hiddenSeries": false,
+      "id": 51,
+      "legend": {
+        "alignAsTable": false,
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "rightSide": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "percentage": false,
+      "pluginVersion": "7.1.3",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "libp2p_peers{node=\"${node}\"}",
+          "interval": "",
+          "legendFormat": "libp2p peers",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "peers #${node}",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "links": []
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 5,
+        "w": 14,
+        "x": 0,
+        "y": 18
+      },
+      "hiddenSeries": false,
+      "id": 30,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "percentage": false,
+      "pluginVersion": "7.1.3",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "rate(beacon_attestations_received_total{node=\"${node}\"}[4s]) * 3",
+          "interval": "",
+          "legendFormat": "received",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(beacon_attestations_sent_total{node=\"${node}\"}[4s]) * 3",
+          "interval": "",
+          "legendFormat": "sent",
+          "refId": "B"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "attestations #${node}",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
       "cacheTimeout": null,
       "colorBackground": false,
       "colorValue": false,
@@ -828,6 +869,12 @@
         "#d44a3a"
       ],
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
       "format": "bytes",
       "gauge": {
         "maxValue": 100,
@@ -879,7 +926,7 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "",
+      "tableColumn": "process_resident_memory_bytes{instance=\"127.0.0.1:8008\", job=\"nimbus\", node=\"0\"}",
       "targets": [
         {
           "expr": "process_resident_memory_bytes{node=\"${node}\"}",
@@ -911,6 +958,12 @@
         "#d44a3a"
       ],
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
       "format": "percent",
       "gauge": {
         "maxValue": 100,
@@ -962,7 +1015,7 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "",
+      "tableColumn": "{instance=\"127.0.0.1:8008\", job=\"nimbus\", node=\"0\"}",
       "targets": [
         {
           "expr": "rate(process_cpu_seconds_total{node=\"${node}\"}[2s]) * 100",
@@ -994,6 +1047,12 @@
         "#d44a3a"
       ],
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
       "format": "none",
       "gauge": {
         "maxValue": 100,
@@ -1045,7 +1104,7 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "",
+      "tableColumn": "beacon_slot{instance=\"127.0.0.1:8008\", job=\"nimbus\", node=\"0\"}",
       "targets": [
         {
           "expr": "beacon_slot{node=\"${node}\"}",
@@ -1080,6 +1139,12 @@
         "#d44a3a"
       ],
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
       "format": "none",
       "gauge": {
         "maxValue": 100,
@@ -1165,6 +1230,12 @@
         "#d44a3a"
       ],
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
       "format": "none",
       "gauge": {
         "maxValue": 100,
@@ -1215,7 +1286,7 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "",
+      "tableColumn": "beacon_attestations_received_total{instance=\"127.0.0.1:8008\", job=\"nimbus\", node=\"0\"}",
       "targets": [
         {
           "expr": "beacon_attestations_received_total{node=\"${node}\"}",
@@ -1238,98 +1309,78 @@
       "valueName": "current"
     },
     {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
+      "cards": {
+        "cardPadding": null,
+        "cardRound": null
+      },
+      "color": {
+        "cardColor": "#b4ff00",
+        "colorScale": "sqrt",
+        "colorScheme": "interpolateSpectral",
+        "exponent": 0.5,
+        "max": null,
+        "min": 0,
+        "mode": "opacity"
+      },
+      "dataFormat": "tsbuckets",
       "datasource": null,
-      "fill": 1,
-      "fillGradient": 0,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
       "gridPos": {
-        "h": 5,
+        "h": 6,
         "w": 14,
         "x": 0,
-        "y": 24
+        "y": 23
       },
-      "hiddenSeries": false,
-      "id": 30,
+      "heatmap": {},
+      "hideZeroBuckets": false,
+      "highlightCards": true,
+      "id": 26,
+      "interval": "",
       "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
+        "show": false
       },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
+      "reverseYBuckets": false,
       "targets": [
         {
-          "expr": "rate(beacon_attestations_received_total{node=\"${node}\"}[4s]) * 3",
+          "expr": "rate(beacon_attestation_delay_bucket{node=\"${node}\"}[4s]) * 3",
+          "format": "heatmap",
+          "instant": false,
           "interval": "",
-          "legendFormat": "received",
+          "intervalFactor": 1,
+          "legendFormat": "{{le}}",
           "refId": "A"
-        },
-        {
-          "expr": "rate(beacon_attestations_sent_total{node=\"${node}\"}[4s]) * 3",
-          "interval": "",
-          "legendFormat": "sent",
-          "refId": "B"
         }
       ],
-      "thresholds": [],
       "timeFrom": null,
-      "timeRegions": [],
       "timeShift": null,
-      "title": "attestations #${node}",
+      "title": "received attestation delay (s) #${node}",
       "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
         "show": true,
-        "values": []
+        "showHistogram": false
       },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": "0",
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
+      "type": "heatmap",
+      "xAxis": {
+        "show": true
+      },
+      "xBucketNumber": null,
+      "xBucketSize": null,
+      "yAxis": {
+        "decimals": null,
+        "format": "short",
+        "logBase": 1,
+        "max": null,
+        "min": null,
+        "show": true,
+        "splitFactor": null
+      },
+      "yBucketBound": "auto",
+      "yBucketNumber": null,
+      "yBucketSize": null
     },
     {
       "cacheTimeout": null,
@@ -1341,6 +1392,12 @@
         "#d44a3a"
       ],
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
       "format": "none",
       "gauge": {
         "maxValue": 100,
@@ -1391,7 +1448,7 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "",
+      "tableColumn": "beacon_current_epoch{instance=\"127.0.0.1:8008\", job=\"nimbus\", node=\"0\"}",
       "targets": [
         {
           "expr": "beacon_current_epoch{node=\"${node}\"}",
@@ -1425,6 +1482,12 @@
         "#d44a3a"
       ],
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
       "format": "none",
       "gauge": {
         "maxValue": 100,
@@ -1475,7 +1538,7 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "",
+      "tableColumn": "beacon_current_justified_epoch{instance=\"127.0.0.1:8008\", job=\"nimbus\", node=\"0\"}",
       "targets": [
         {
           "expr": "beacon_current_justified_epoch{node=\"${node}\"}",
@@ -1510,6 +1573,12 @@
       ],
       "datasource": null,
       "decimals": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
       "format": "dthms",
       "gauge": {
         "maxValue": 100,
@@ -1560,7 +1629,7 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "",
+      "tableColumn": "{instance=\"127.0.0.1:8008\", job=\"nimbus\", node=\"0\"}",
       "targets": [
         {
           "expr": "time() - process_start_time_seconds{node=\"${node}\"}",
@@ -1595,6 +1664,12 @@
         "#d44a3a"
       ],
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
       "format": "none",
       "gauge": {
         "maxValue": 100,
@@ -1645,7 +1720,7 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "",
+      "tableColumn": "libp2p_peers{instance=\"127.0.0.1:8008\", job=\"nimbus\", node=\"0\"}",
       "targets": [
         {
           "expr": "libp2p_peers{node=\"${node}\"}",
@@ -1677,6 +1752,12 @@
         "#d44a3a"
       ],
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
       "format": "none",
       "gauge": {
         "maxValue": 100,
@@ -1727,7 +1808,7 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "",
+      "tableColumn": "beacon_finalized_epoch{instance=\"127.0.0.1:8008\", job=\"nimbus\", node=\"0\"}",
       "targets": [
         {
           "expr": "beacon_finalized_epoch{node=\"${node}\"}",
@@ -1767,6 +1848,13 @@
       },
       "dataFormat": "tsbuckets",
       "datasource": null,
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
       "gridPos": {
         "h": 6,
         "w": 14,
@@ -1776,7 +1864,7 @@
       "heatmap": {},
       "hideZeroBuckets": false,
       "highlightCards": true,
-      "id": 26,
+      "id": 52,
       "interval": "",
       "legend": {
         "show": false
@@ -1784,7 +1872,7 @@
       "reverseYBuckets": false,
       "targets": [
         {
-          "expr": "rate(beacon_attestation_delay_bucket{node=\"${node}\"}[4s]) * 3",
+          "expr": "rate(beacon_aggregate_delay_bucket{node=\"${node}\"}[4s]) * 3",
           "format": "heatmap",
           "instant": false,
           "interval": "",
@@ -1795,7 +1883,7 @@
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "received attestation delay (s) #${node}",
+      "title": "received aggregate delay (s) #${node}",
       "tooltip": {
         "show": true,
         "showHistogram": false
@@ -1820,223 +1908,38 @@
       "yBucketSize": null
     },
     {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
+      "cards": {
+        "cardPadding": null,
+        "cardRound": null
+      },
+      "color": {
+        "cardColor": "#b4ff00",
+        "colorScale": "sqrt",
+        "colorScheme": "interpolateSpectral",
+        "exponent": 0.5,
+        "max": null,
+        "min": 0,
+        "mode": "opacity"
+      },
+      "dataFormat": "tsbuckets",
       "datasource": null,
-      "fill": 1,
-      "fillGradient": 0,
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
       "gridPos": {
         "h": 6,
         "w": 14,
         "x": 0,
         "y": 35
       },
-      "hiddenSeries": false,
-      "id": 43,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [
-        {
-          "alias": "timers in queue",
-          "yaxis": 2
-        }
-      ],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "rate(chronos_loop_timers_total{node=\"${node}\"}[4s]) * 3",
-          "interval": "",
-          "legendFormat": "new timers/s",
-          "refId": "A"
-        },
-        {
-          "expr": "chronos_loop_timers_queue{node=\"${node}\"}",
-          "interval": "",
-          "legendFormat": "timers in queue",
-          "refId": "B"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Chronos: timers #${node}",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": "0",
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": "0",
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 6,
-        "w": 14,
-        "x": 0,
-        "y": 41
-      },
-      "hiddenSeries": false,
-      "id": 44,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [
-        {
-          "alias": "timers in queue",
-          "yaxis": 2
-        }
-      ],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "rate(chronos_poll_ticks_total{node=\"${node}\"}[4s]) * 3",
-          "interval": "",
-          "legendFormat": "poll() calls/s",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Chronos: poll()/s #${node}",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": "0",
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "cards": {
-        "cardPadding": null,
-        "cardRound": null
-      },
-      "color": {
-        "cardColor": "#b4ff00",
-        "colorScale": "sqrt",
-        "colorScheme": "interpolateSpectral",
-        "exponent": 0.1,
-        "max": null,
-        "min": 0,
-        "mode": "opacity"
-      },
-      "dataFormat": "tsbuckets",
-      "datasource": null,
-      "gridPos": {
-        "h": 6,
-        "w": 14,
-        "x": 0,
-        "y": 47
-      },
       "heatmap": {},
       "hideZeroBuckets": false,
       "highlightCards": true,
-      "id": 41,
+      "id": 53,
       "interval": "",
       "legend": {
         "show": false
@@ -2044,7 +1947,7 @@
       "reverseYBuckets": false,
       "targets": [
         {
-          "expr": "rate(chronos_poll_duration_seconds_bucket{node=\"${node}\"}[4s]) * 3",
+          "expr": "rate(beacon_block_delay_bucket{node=\"${node}\"}[4s]) * 3",
           "format": "heatmap",
           "instant": false,
           "interval": "",
@@ -2055,7 +1958,7 @@
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Chronos: poll() duration (s) #${node}",
+      "title": "received beacon block delay (s) #${node}",
       "tooltip": {
         "show": true,
         "showHistogram": false
@@ -2095,11 +1998,17 @@
       },
       "dataFormat": "tsbuckets",
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
       "gridPos": {
         "h": 6,
         "w": 14,
         "x": 0,
-        "y": 53
+        "y": 41
       },
       "heatmap": {},
       "hideZeroBuckets": false,
@@ -2153,16 +2062,23 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "links": []
+        },
+        "overrides": []
+      },
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
         "h": 6,
         "w": 14,
         "x": 0,
-        "y": 59
+        "y": 47
       },
       "hiddenSeries": false,
-      "id": 45,
+      "id": 22,
       "legend": {
         "avg": false,
         "current": false,
@@ -2175,16 +2091,14 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
       "percentage": false,
+      "pluginVersion": "7.1.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
       "seriesOverrides": [
         {
-          "alias": "timers in queue",
+          "alias": "/.*/",
           "yaxis": 2
         }
       ],
@@ -2193,9 +2107,9 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(chronos_poll_events_total{node=\"${node}\"}[4s]) * 3",
+          "expr": "sqlite3_memory_used_bytes{node=\"${node}\"}",
           "interval": "",
-          "legendFormat": "{{event}}",
+          "legendFormat": "Memory used",
           "refId": "A"
         }
       ],
@@ -2203,7 +2117,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Chronos: events/s #${node}",
+      "title": "SQLite3 #${node}",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -2223,387 +2137,15 @@
           "label": null,
           "logBase": 1,
           "max": null,
-          "min": "0",
-          "show": true
+          "min": null,
+          "show": false
         },
         {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 15,
-        "w": 14,
-        "x": 0,
-        "y": 65
-      },
-      "hiddenSeries": false,
-      "id": 46,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [
-        {
-          "alias": "timers in queue",
-          "yaxis": 2
-        }
-      ],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "rate(chronos_future_callbacks_total{node=\"${node}\"}[4s]) * 3",
-          "interval": "",
-          "legendFormat": "{{location}}",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Chronos: new callbacks/s #${node}",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
+          "format": "bytes",
           "label": null,
           "logBase": 1,
           "max": null,
           "min": "0",
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 6,
-        "w": 14,
-        "x": 0,
-        "y": 80
-      },
-      "hiddenSeries": false,
-      "id": 47,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [
-        {
-          "alias": "timers in queue",
-          "yaxis": 2
-        }
-      ],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "rate(chronos_processed_callbacks_total{node=\"${node}\"}[4s]) * 3",
-          "interval": "",
-          "legendFormat": "processed cb/s",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Chronos: processed callbacks/s #${node}",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": "0",
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 6,
-        "w": 14,
-        "x": 0,
-        "y": 86
-      },
-      "hiddenSeries": false,
-      "id": 48,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [
-        {
-          "alias": "timers in queue",
-          "yaxis": 2
-        }
-      ],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "rate(chronos_new_future_total{node=\"${node}\"}[4s]) * 3",
-          "interval": "",
-          "legendFormat": "new futures/s",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Chronos: new futures/s #${node}",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": "0",
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 11,
-        "w": 14,
-        "x": 0,
-        "y": 92
-      },
-      "hiddenSeries": false,
-      "id": 49,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [
-        {
-          "alias": "timers in queue",
-          "yaxis": 2
-        }
-      ],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "chronos_pending_futures{node=\"${node}\"}",
-          "interval": "",
-          "legendFormat": "{{location}}",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Chronos: pending futures #${node}",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": "0",
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
           "show": true
         }
       ],
@@ -2613,8 +2155,8 @@
       }
     }
   ],
-  "refresh": "",
-  "schemaVersion": 22,
+  "refresh": false,
+  "schemaVersion": 26,
   "style": "dark",
   "tags": [],
   "templating": {
@@ -2622,6 +2164,7 @@
       {
         "allValue": null,
         "current": {
+          "selected": false,
           "text": "0",
           "value": "0"
         },
@@ -2629,7 +2172,6 @@
         "definition": "label_values(process_virtual_memory_bytes,node)",
         "hide": 0,
         "includeAll": false,
-        "index": -1,
         "label": null,
         "multi": false,
         "name": "node",
@@ -2648,7 +2190,7 @@
     ]
   },
   "time": {
-    "from": "now-30m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {
@@ -2668,8 +2210,5 @@
   "timezone": "",
   "title": "NBC local testnet/sim (all nodes)",
   "uid": "pgeNfj2Wz2a",
-  "variables": {
-    "list": []
-  },
-  "version": 19
+  "version": 4
 }
