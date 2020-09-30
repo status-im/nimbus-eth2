@@ -1331,7 +1331,7 @@ programMain:
     of WalletsCmd.list:
       for kind, walletFile in walkDir(config.walletsDir):
         if kind != pcFile: continue
-        if checkFilePermissions(walletFile):
+        if checkSensitiveFilePermissions(walletFile):
           let walletRes = loadWallet(walletFile)
           if walletRes.isOk:
             echo walletRes.get.longName

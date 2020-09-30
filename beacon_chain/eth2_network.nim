@@ -279,6 +279,7 @@ template libp2pProtocol*(name: string, version: int) {.pragma.}
 
 func shortLog*(peer: Peer): string = shortLog(peer.info.peerId)
 chronicles.formatIt(Peer): shortLog(it)
+chronicles.formatIt(PublicKey): byteutils.toHex(it.getBytes().tryGet())
 
 template remote*(peer: Peer): untyped =
   peer.info.peerId
@@ -1215,8 +1216,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
         quit QuitFailure
       let privKey = res.get()
       let pubKey = privKey.getKey().tryGet()
-      info "Using random network key",
-           network_public_key = byteutils.toHex(pubKey.getBytes().tryGet())
+      info "Using random network key", network_public_key = pubKey
       return KeyPair(seckey: privKey, pubkey: privKey.getKey().tryGet())
     else:
       let keyPath =
@@ -1242,8 +1242,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
         let privKey = res.get()
         let pubKey = privKey.getKey().tryGet()
         info "Network key storage was successfully unlocked",
-             key_path = keyPath,
-             network_public_key = byteutils.toHex(pubKey.getBytes().tryGet())
+             key_path = keyPath, network_public_key = pubKey
         return KeyPair(seckey: privKey, pubkey: pubKey)
       else:
         info "Network key storage is missing, creating a new one",
@@ -1269,7 +1268,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
           quit QuitFailure
 
         info "New network key storage was created", key_path = keyPath,
-             network_public_key = byteutils.toHex(pubKey.getBytes().tryGet())
+             network_public_key = pubKey
         return KeyPair(seckey: privKey, pubkey: pubKey)
 
   of createTestnet:
@@ -1304,7 +1303,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
       quit QuitFailure
 
     info "New network key storage was created", key_path = keyPath,
-         network_public_key = byteutils.toHex(pubKey.getBytes().tryGet())
+         network_public_key = pubKey
 
     return KeyPair(seckey: privKey, pubkey: privkey.getKey().tryGet())
   else:
@@ -1332,11 +1331,10 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
     hostAddress = tcpEndPoint(conf.listenAddress, conf.tcpPort)
     announcedAddresses = if extIp.isNone(): @[]
                          else: @[tcpEndPoint(extIp.get(), extTcpPort)]
-  let networkPublicKey = byteutils.toHex(netKeys.pubkey.getBytes().tryGet())
-  notice "Initializing networking", hostAddress,
-                                  networkPublicKey,
-                                  announcedAddresses
 
+  info "Initializing networking", hostAddress,
+                                  network_public_key = netKeys.pubkey,
+                                  announcedAddresses
 
   # TODO nim-libp2p still doesn't have support for announcing addresses
   # that are different from the host address (this is relevant when we

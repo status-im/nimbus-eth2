@@ -86,7 +86,7 @@ proc checkAndCreateDataDir*(dataDir: string): bool =
     fatal "Unsupported operation system"
     return false
 
-proc checkFilePermissions*(filePath: string): bool =
+proc checkSensitiveFilePermissions*(filePath: string): bool =
   ## Check if ``filePath`` has only "(600) rw-------" permissions.
   ## Procedure returns ``false`` if permissions are different
   when defined(windows):
@@ -189,7 +189,7 @@ proc loadKeystore(validatorsDir, secretsDir, keyName: string,
 
   let passphrasePath = secretsDir / keyName
   if fileExists(passphrasePath):
-    if not(checkFilePermissions(passphrasePath)):
+    if not(checkSensitiveFilePermissions(passphrasePath)):
       error "Password file has insecure permissions", key_path = keyStorePath
       return
 
@@ -275,7 +275,7 @@ type
 proc loadNetKeystore*(keyStorePath: string,
                       insecurePwd: Option[string]): Option[lcrypto.PrivateKey] =
 
-  if not(checkFilePermissions(keystorePath)):
+  if not(checkSensitiveFilePermissions(keystorePath)):
     error "Network keystorage file has insecure permissions",
           key_path = keyStorePath
     return
