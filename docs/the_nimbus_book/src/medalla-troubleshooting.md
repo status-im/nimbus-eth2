@@ -78,3 +78,29 @@ make BASE_PORT=9100 medalla
 
 (You can replace `9100` with a port of your choosing)
 
+### Mainchain monitor failure
+
+If you're seeing one or more error messages that look like the following:
+
+```
+ERR 2020-09-29 14:04:33.313+02:00 Mainchain monitor failure, restarting      tid=8941404 
+file=mainchain_monitor.nim:812 err="{\"code\":-32005,
+\"data\":{\"rate\":{\"allowed_rps\":1,
+\"backoff_seconds\":24,
+\"current_rps\":22.5},
+\"see\":\"https://infura.io/dashboard\"},
+\"message\":\"daily request count exceeded, request rate limited\"}"
+```
+
+This means that our Infura endpoint is overloaded (in other words, the requests on a given day have reached the 100k free tier limit). 
+
+You can fix this by passing in your own Infura endpoint.
+
+To do so, run: 
+
+```
+make NODE_PARAMS="--web3-url=<YOUR_WEBSOCKET_ENDPOINT>" medalla
+```
+
+Importantly, make sure you pass in a websocket (`wss`) endpoint, not `https`. If you're not familiar with Infura, we recommend reading through our [Infura guide](./infura-guide) first.
+

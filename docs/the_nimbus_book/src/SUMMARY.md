@@ -12,6 +12,7 @@
 - [Setting up a systemd service](./beacon_node_systemd.md)
 - [Generating your keys with NBC](./create_wallet_and_deposit.md)
 # Misc
+- [Infura guide](infura-guide.md)
 - [Windows users]()
 - [FAQ](./faq.md)
 - [Contribute](./contribute.md)
