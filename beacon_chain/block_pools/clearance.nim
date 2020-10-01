@@ -211,7 +211,7 @@ proc addRawBlock*(
 
     if not state_transition(dag.runtimePreset, dag.clearanceState.data, signedBlock,
                             cache, dag.updateFlags + {slotProcessed}, restore):
-      debug "Invalid block"
+      info "Invalid block"
 
       return err((EVRESULT_REJECT, Invalid))
 
@@ -228,7 +228,7 @@ proc addRawBlock*(
   # as dag.add(...) requires a SignedBeaconBlock, easier to keep them in
   # pending too.
   if not quarantine.add(dag, signedBlock):
-    warn "Block quarantine full"
+    debug "Block quarantine full"
 
   # TODO possibly, it makes sense to check the database - that would allow sync
   #      to simply fill up the database with random blocks the other clients

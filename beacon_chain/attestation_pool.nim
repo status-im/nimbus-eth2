@@ -296,7 +296,7 @@ proc getAttestationsForBlock*(pool: AttestationPool,
     result.add(attestation)
 
     if result.lenu64 >= MAX_ATTESTATIONS:
-      info "getAttestationsForBlock: returning early after hitting MAX_ATTESTATIONS",
+      debug "getAttestationsForBlock: returning early after hitting MAX_ATTESTATIONS",
         attestationSlot = newBlockSlot - 1
       return
 

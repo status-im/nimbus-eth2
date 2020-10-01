@@ -626,7 +626,7 @@ proc updateStateData*(
 
     return
 
-  trace "UpdateStateData cache miss",
+  debug "UpdateStateData cache miss",
     bs, stateBlock = state.blck, stateSlot = state.data.data.slot
 
   # Either the state is too new or was created by applying a different block.

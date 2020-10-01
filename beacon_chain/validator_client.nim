@@ -114,7 +114,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
     nextSlot = slot + 1
     epoch = slot.compute_epoch_at_slot
 
-  debug "Slot start",
+  info "Slot start",
     lastSlot = shortLog(lastSlot),
     scheduledSlot = shortLog(scheduledSlot),
     beaconTime = shortLog(beaconTime),
@@ -249,7 +249,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
   let
     nextSlotStart = saturate(vc.beaconClock.fromNow(nextSlot))
 
-  debug "Slot end",
+  info "Slot end",
     slot = shortLog(slot),
     nextSlot = shortLog(nextSlot),
     portBN = vc.config.rpcPort
@@ -314,7 +314,7 @@ programMain:
     vc.attemptUntilSuccess:
       waitFor vc.getValidatorDutiesForEpoch(curSlot.compute_epoch_at_slot)
 
-    debug "Scheduling first slot action",
+    info "Scheduling first slot action",
       beaconTime = shortLog(vc.beaconClock.now()),
       nextSlot = shortLog(nextSlot),
       fromNow = shortLog(fromNow)

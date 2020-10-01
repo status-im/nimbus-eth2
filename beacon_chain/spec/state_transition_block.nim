@@ -292,7 +292,7 @@ proc check_voluntary_exit*(
       return err("Exit: invalid signature")
 
   # Initiate exit
-  info "Exit: checking voluntary exit (validator_leaving)",
+  debug "Exit: checking voluntary exit (validator_leaving)",
     index = voluntary_exit.validator_index,
     num_validators = state.validators.len,
     epoch = voluntary_exit.epoch,

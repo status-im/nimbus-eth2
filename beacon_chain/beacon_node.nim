@@ -868,7 +868,7 @@ proc run*(node: BeaconNode) =
       nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
       fromNow = saturate(node.beaconClock.fromNow(nextSlot))
 
-    debug "Scheduling first slot action",
+    info "Scheduling first slot action",
       beaconTime = shortLog(node.beaconClock.now()),
       nextSlot = shortLog(nextSlot),
       fromNow = shortLog(fromNow)

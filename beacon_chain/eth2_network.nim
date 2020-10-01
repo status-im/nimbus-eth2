@@ -981,7 +981,7 @@ proc start*(node: Eth2Node) {.async.} =
     node.discovery.start()
     traceAsyncErrors node.runDiscoveryLoop()
   else:
-    notice "Discovery disabled, trying bootstrap nodes",
+    notice "Discovery disabled; trying bootstrap nodes",
       nodes = node.discovery.bootstrapRecords.len
     for enr in node.discovery.bootstrapRecords:
       let tr = enr.toTypedRecord()

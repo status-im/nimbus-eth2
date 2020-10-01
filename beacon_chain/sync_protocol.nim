@@ -186,7 +186,7 @@ p2pProtocol BeaconSync(version = 1,
   proc goodbye(peer: Peer,
                reason: uint64)
     {.async, libp2pProtocol("goodbye", 1).} =
-    trace "Received Goodbye message", reason = disconnectReasonName(reason), peer
+    debug "Received Goodbye message", reason = disconnectReasonName(reason), peer
 
 proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) =
   trace "Peer status", peer, statusMsg

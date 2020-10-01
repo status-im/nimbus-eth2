@@ -752,7 +752,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
     return
 
   if headSlot >= peerSlot - man.maxHeadAge:
-    info "We are in sync with peer, refreshing peer's status information",
+    debug "We are in sync with peer; refreshing peer's status information",
           wall_clock_slot = wallSlot, remote_head_slot = peerSlot,
           local_head_slot = headSlot, peer = peer, peer_score = peer.getScore(),
           index = index, peer_speed = peer.netKbps(), topics = "syncman"
