@@ -3,13 +3,13 @@
 import
   os, options,
   chronicles, chronicles/options as chroniclesOptions,
-  confutils, confutils/defs, confutils/std/net,
+  confutils, confutils/defs, confutils/std/net, stew/shims/net as stewNet,
   json_serialization, web3/[ethtypes, confutils_defs],
-  network_metadata, spec/[crypto, keystore, digest, datatypes]
+  spec/[crypto, keystore, digest, datatypes, network], network_metadata
 
 export
-  defs, enabledLogLevel, parseCmdArg, completeCmdArg,
-  network_metadata
+  defaultEth2TcpPort, enabledLogLevel, ValidIpAddress,
+  defs, parseCmdArg, completeCmdArg, network_metadata
 
 type
   ValidatorKeyPath* = TypedInputFile[ValidatorPrivKey, Txt, "privkey"]
@@ -238,7 +238,7 @@ type
         name: "last-user-validator" }: uint64
 
       bootstrapAddress* {.
-        defaultValue: ValidIpAddress.init("127.0.0.1")
+        defaultValue: init(ValidIpAddress, "127.0.0.1")
         desc: "The public IP address that will be advertised as a bootstrap node for the testnet"
         name: "bootstrap-address" }: ValidIpAddress
 
