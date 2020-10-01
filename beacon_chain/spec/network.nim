@@ -126,8 +126,8 @@ proc get_attestation_subnet_changes*(
     state: BeaconState, attachedValidators: openarray[ValidatorIndex],
     prevAttestationSubnets: AttestationSubnets, epoch: Epoch):
     tuple[a: AttestationSubnets, b: set[uint8], c: set[uint8]] =
-  static:
-    doAssert ATTESTATION_SUBNET_COUNT == 64
+  static: doAssert ATTESTATION_SUBNET_COUNT == 64  # Fits in a set[uint8]
+  doAssert attachedValidators.len > 0
 
   var attestationSubnets = prevAttestationSubnets
 
@@ -144,8 +144,7 @@ proc get_attestation_subnet_changes*(
       state, state.slot.epoch + 1, attachedValidators.toHashSet):
     nextEpochSubnets.incl it.subnetIndex.uint8
 
-  doAssert nextEpochSubnets.len > 0 and
-    nextEpochSubnets.len <= attachedValidators.len
+  doAssert nextEpochSubnets.len <= attachedValidators.len
 
   let
     epochParity = epoch mod 2
