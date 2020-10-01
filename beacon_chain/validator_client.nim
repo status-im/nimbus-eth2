@@ -114,7 +114,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
     nextSlot = slot + 1
     epoch = slot.compute_epoch_at_slot
 
-  info "Slot start",
+  debug "Slot start",
     lastSlot = shortLog(lastSlot),
     scheduledSlot = shortLog(scheduledSlot),
     beaconTime = shortLog(beaconTime),
@@ -141,7 +141,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
                           .checkSlashableBlockProposal(public_key, slot)
       if notSlashable.isOk:
         let validator = vc.attachedValidators.validators[public_key]
-        info "Proposing block", slot = slot, public_key = public_key
+        notice "Proposing block", slot = slot, public_key = public_key
         let randao_reveal = await validator.genRandaoReveal(
           vc.fork, vc.beaconGenesis.genesis_validators_root, slot)
         var newBlock = SignedBeaconBlock(
@@ -179,7 +179,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
         vc.attestationsForEpoch[epoch].contains slot:
       var validatorToAttestationDataRoot: Table[ValidatorPubKey, Eth2Digest]
       for a in vc.attestationsForEpoch[epoch][slot]:
-        info "Attesting", slot = slot, public_key = a.public_key
+        notice "Attesting", slot = slot, public_key = a.public_key
 
         let validator = vc.attachedValidators.validators[a.public_key]
         let ad = await vc.client.get_v1_validator_attestation(slot, a.committee_index)
@@ -232,13 +232,13 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
 
         if is_aggregator(a.committee_length, slot_signature) and
             validatorToAttestationDataRoot.contains(a.public_key):
-          info "Aggregating", slot = slot, public_key = a.public_key
+          notice "Aggregating", slot = slot, public_key = a.public_key
 
           let aa = await vc.client.get_v1_validator_aggregate_attestation(
             slot, validatorToAttestationDataRoot[a.public_key])
           let aap = AggregateAndProof(aggregator_index: a.validator_index.uint64,
             aggregate: aa, selection_proof: slot_signature)
-          let sig = await signAggregateAndProof(validator, 
+          let sig = await signAggregateAndProof(validator,
             aap, vc.fork, vc.beaconGenesis.genesis_validators_root)
           var signedAP = SignedAggregateAndProof(message: aap, signature: sig)
           discard await vc.client.post_v1_validator_aggregate_and_proofs(signedAP)
@@ -249,7 +249,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
   let
     nextSlotStart = saturate(vc.beaconClock.fromNow(nextSlot))
 
-  info "Slot end",
+  debug "Slot end",
     slot = shortLog(slot),
     nextSlot = shortLog(nextSlot),
     portBN = vc.config.rpcPort
@@ -314,7 +314,7 @@ programMain:
     vc.attemptUntilSuccess:
       waitFor vc.getValidatorDutiesForEpoch(curSlot.compute_epoch_at_slot)
 
-    info "Scheduling first slot action",
+    debug "Scheduling first slot action",
       beaconTime = shortLog(vc.beaconClock.now()),
       nextSlot = shortLog(nextSlot),
       fromNow = shortLog(fromNow)

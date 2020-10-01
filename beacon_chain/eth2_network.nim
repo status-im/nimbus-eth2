@@ -822,7 +822,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
         debug "Failed to decode discovery's node address",
               node = $discnode, errMsg = res.error
 
-    debug "Discovery tick", wanted_peers = node.wantedPeers,
+    trace "Discovery tick", wanted_peers = node.wantedPeers,
           space = node.peerPool.shortLogSpace(),
           acquired = node.peerPool.shortLogAcquired(),
           available = node.peerPool.shortLogAvailable(),
@@ -832,9 +832,10 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
           new_peers = newPeers
 
     if newPeers == 0:
-      warn "Could not discover any new nodes in network, waiting",
-            discovered = len(discoveredNodes), new_peers = newPeers,
-            wanted_peers = node.wantedPeers
+      if node.peerPool.lenSpace() <= node.wantedPeers shr 2:
+        warn "Less than 25% wanted peers and could not discover new nodes",
+              discovered = len(discoveredNodes), new_peers = newPeers,
+              wanted_peers = node.wantedPeers
       await sleepAsync(5.seconds)
     else:
       await sleepAsync(1.seconds)
@@ -980,7 +981,7 @@ proc start*(node: Eth2Node) {.async.} =
     node.discovery.start()
     traceAsyncErrors node.runDiscoveryLoop()
   else:
-    debug "Discovery disabled, trying bootstrap nodes",
+    notice "Discovery disabled, trying bootstrap nodes",
       nodes = node.discovery.bootstrapRecords.len
     for enr in node.discovery.bootstrapRecords:
       let tr = enr.toTypedRecord()
@@ -1232,7 +1233,7 @@ proc createEth2Node*(
     announcedAddresses = if extIp.isNone(): @[]
                          else: @[tcpEndPoint(extIp.get(), extTcpPort)]
 
-  info "Initializing networking", hostAddress,
+  notice "Initializing networking", hostAddress,
                                   announcedAddresses
 
   let keys = getPersistentNetKeys(rng[], conf)

@@ -172,7 +172,7 @@ proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
   initiate_validator_exit(state, slashed_index, cache)
   let validator = addr state.validators[slashed_index]
 
-  debug "slash_validator: ejecting validator via slashing (validator_leaving)",
+  notice "slash_validator: ejecting validator via slashing (validator_leaving)",
     index = slashed_index,
     num_validators = state.validators.len,
     current_epoch = get_current_epoch(state),
@@ -388,7 +388,7 @@ proc process_registry_updates*(state: var BeaconState,
 
     if is_active_validator(validator, get_current_epoch(state)) and
         validator.effective_balance <= EJECTION_BALANCE:
-      debug "Registry updating: ejecting validator due to low balance (validator_leaving)",
+      notice "Registry updating: ejecting validator due to low balance (validator_leaving)",
         index = index,
         num_validators = state.validators.len,
         current_epoch = get_current_epoch(state),

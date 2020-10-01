@@ -102,7 +102,7 @@ proc process_randao(
     if not verify_epoch_signature(
         state.fork, state.genesis_validators_root, epoch, proposer_pubkey,
         body.randao_reveal):
-      notice "Randao mismatch", proposer_pubkey = shortLog(proposer_pubkey),
+      debug "Randao mismatch", proposer_pubkey = shortLog(proposer_pubkey),
                                 epoch,
                                 signature = shortLog(body.randao_reveal),
                                 slot = state.slot
@@ -292,7 +292,7 @@ proc check_voluntary_exit*(
       return err("Exit: invalid signature")
 
   # Initiate exit
-  debug "Exit: checking voluntary exit (validator_leaving)",
+  info "Exit: checking voluntary exit (validator_leaving)",
     index = voluntary_exit.validator_index,
     num_validators = state.validators.len,
     epoch = voluntary_exit.epoch,

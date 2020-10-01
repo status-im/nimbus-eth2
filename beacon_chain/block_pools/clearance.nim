@@ -88,7 +88,7 @@ proc addResolvedBlock(
     foundHead = blockRef
     dag.heads.add(foundHead)
 
-  info "Block resolved",
+  debug "Block resolved",
     blck = shortLog(signedBlock.message),
     blockRoot = shortLog(blockRoot),
     heads = dag.heads.len()
@@ -165,7 +165,7 @@ proc addRawBlock*(
     if parent.slot >= blck.slot:
       # A block whose parent is newer than the block itself is clearly invalid -
       # discard it immediately
-      notice "Invalid block slot",
+      debug "Invalid block slot",
         parentBlock = shortLog(parent)
 
       return err((EVRESULT_REJECT, Invalid))
@@ -211,7 +211,7 @@ proc addRawBlock*(
 
     if not state_transition(dag.runtimePreset, dag.clearanceState.data, signedBlock,
                             cache, dag.updateFlags + {slotProcessed}, restore):
-      notice "Invalid block"
+      debug "Invalid block"
 
       return err((EVRESULT_REJECT, Invalid))
 
@@ -228,7 +228,7 @@ proc addRawBlock*(
   # as dag.add(...) requires a SignedBeaconBlock, easier to keep them in
   # pending too.
   if not quarantine.add(dag, signedBlock):
-    debug "Block quarantine full"
+    warn "Block quarantine full"
 
   # TODO possibly, it makes sense to check the database - that would allow sync
   #      to simply fill up the database with random blocks the other clients
@@ -329,7 +329,7 @@ proc isValidBeaconBlock*(
           signed_beacon_block.message.proposer_index and
         blck.message.slot == signed_beacon_block.message.slot and
         blck.signature.toRaw() != signed_beacon_block.signature.toRaw():
-      debug "block isn't first block with valid signature received for the proposer",
+      notice "block isn't first block with valid signature received for the proposer",
         blckRef = slotBlockRef,
         existing_block = shortLog(blck.message)
       return err((EVRESULT_IGNORE, Invalid))
@@ -348,7 +348,7 @@ proc isValidBeaconBlock*(
     debug "parent unknown, putting block in quarantine",
       current_slot = shortLog(current_slot)
     if not quarantine.add(dag, signed_beacon_block):
-      debug "Block quarantine full"
+      warn "Block quarantine full"
     return err((EVRESULT_IGNORE, MissingParent))
 
   # [REJECT] The current finalized_checkpoint is an ancestor of block -- i.e.
@@ -378,12 +378,12 @@ proc isValidBeaconBlock*(
     proposer = getProposer(dag, parent_ref, signed_beacon_block.message.slot)
 
   if proposer.isNone:
-    notice "cannot compute proposer for message"
+    warn "cannot compute proposer for message"
     return err((EVRESULT_IGNORE, Invalid)) # basically an internal issue
 
   if proposer.get()[0] !=
       ValidatorIndex(signed_beacon_block.message.proposer_index):
-    debug "block had unexpected proposer",
+    notice "block had unexpected proposer",
       expected_proposer = proposer.get()[0]
     return err((EVRESULT_REJECT, Invalid))
 

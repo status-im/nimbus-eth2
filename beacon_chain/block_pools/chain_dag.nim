@@ -487,7 +487,7 @@ proc putState*(dag: ChainDAGRef, state: StateData) =
   if dag.db.containsState(state.data.root):
     return
 
-  info "Storing state"
+  debug "Storing state"
   # Ideally we would save the state and the root lookup cache in a single
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
@@ -626,7 +626,7 @@ proc updateStateData*(
 
     return
 
-  debug "UpdateStateData miss",
+  trace "UpdateStateData cache miss",
     bs, stateBlock = state.blck, stateSlot = state.data.data.slot
 
   # Either the state is too new or was created by applying a different block.
@@ -676,7 +676,7 @@ proc updateStateData*(
 
   beacon_state_rewinds.inc()
 
-  debug "State reloaded from database",
+  trace "State reloaded from database",
     blocks = ancestors.len,
     slots = state.data.data.slot - startSlot,
     stateRoot = shortLog(state.data.root),
@@ -707,7 +707,7 @@ proc updateHead*(
     newHead = shortLog(newHead)
 
   if dag.head == newHead:
-    debug "No head block update"
+    trace "No head block update"
 
     return
 
@@ -730,7 +730,7 @@ proc updateHead*(
   dag.head = newHead
 
   if not lastHead.isAncestorOf(newHead):
-    info "Updated head block with reorg",
+    notice "Updated head block with chain reorg",
       lastHead = shortLog(lastHead),
       headParent = shortLog(newHead.parent),
       stateRoot = shortLog(dag.headState.data.root),
@@ -743,7 +743,7 @@ proc updateHead*(
     quarantine.clearQuarantine()
     beacon_reorgs_total.inc()
   else:
-    info "Updated head block",
+    debug "Updated head block",
       stateRoot = shortLog(dag.headState.data.root),
       headBlock = shortLog(dag.headState.blck),
       stateSlot = shortLog(dag.headState.data.data.slot),
@@ -818,7 +818,7 @@ proc updateHead*(
 
     dag.finalizedHead = finalizedHead
 
-    info "Reached new finalization checkpoint",
+    notice "Reached new finalization checkpoint",
       finalizedHead = shortLog(finalizedHead),
       heads = dag.heads.len
 

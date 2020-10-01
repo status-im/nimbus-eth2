@@ -702,7 +702,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
   if peerAge >= man.maxStatusAge:
     # Peer's status information is very old, its time to update it
     man.workers[index].status = SyncWorkerStatus.UpdatingStatus
-    debug "Updating peer's status information", wall_clock_slot = wallSlot,
+    trace "Updating peer's status information", wall_clock_slot = wallSlot,
           remote_head_slot = peerSlot, local_head_slot = headSlot,
           peer = peer, peer_score = peer.getScore(), index = index,
           peer_speed = peer.netKbps(), topics = "syncman"
@@ -742,7 +742,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
       peerSlot = newPeerSlot
 
   if headAge <= man.maxHeadAge:
-    debug "We are in sync with network, exiting", wall_clock_slot = wallSlot,
+    info "We are in sync with network", wall_clock_slot = wallSlot,
           remote_head_slot = peerSlot, local_head_slot = headSlot,
           peer = peer, peer_score = peer.getScore(), index = index,
           peer_speed = peer.netKbps(), topics = "syncman"
@@ -752,7 +752,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
     return
 
   if headSlot >= peerSlot - man.maxHeadAge:
-    debug "We are in sync with peer, refreshing peer's status information",
+    info "We are in sync with peer, refreshing peer's status information",
           wall_clock_slot = wallSlot, remote_head_slot = peerSlot,
           local_head_slot = headSlot, peer = peer, peer_score = peer.getScore(),
           index = index, peer_speed = peer.netKbps(), topics = "syncman"
@@ -942,7 +942,7 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
         man.syncSpeed = 0.0
       else:
         if (lsm2.slot - lsm1.slot == 0'u64) and (pending > 1):
-          debug "Syncing process is not progressing, reset the queue",
+          info "Syncing process is not progressing, reset the queue",
                 pending_workers_count = pending,
                 to_slot = man.queue.outSlot,
                 local_head_slot = lsm1.slot, topics = "syncman"
@@ -950,7 +950,7 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
         else:
           man.syncSpeed = speed(lsm1, lsm2)
 
-      debug "Synchronization loop tick", wall_head_slot = wallSlot,
+      trace "Synchronization loop tick", wall_head_slot = wallSlot,
           local_head_slot = headSlot, queue_start_slot = man.queue.startSlot,
           queue_last_slot = man.queue.lastSlot,
           sync_speed = man.syncSpeed, pending_workers_count = pending,
@@ -964,7 +964,7 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
 
     let (map, sleeping, waiting, pending) = man.getWorkersStats()
 
-    debug "Current syncing state", workers_map = map,
+    trace "Current syncing state", workers_map = map,
           sleeping_workers_count = sleeping,
           waiting_workers_count = waiting,
           pending_workers_count = pending,
