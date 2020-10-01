@@ -558,6 +558,7 @@ proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
       if res.isErr():
         return err($res.error)
       res.get()
+  defer: burnMem(password)
 
   var name: WalletName
   let outWalletName = config.outWalletName
@@ -596,15 +597,13 @@ proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
       if outWalletFileFlag.isSome:
         string outWalletFileFlag.get
       else:
-        config.walletsDir / addFileExt(string wallet.uuid, "json")
+        config.walletsDir / addFileExt(string wallet.name, "json")
 
     let status = saveWallet(wallet, outWalletFile)
     if status.isErr:
-      burnMem(password)
       return err("failure to create wallet file due to " & status.error)
 
-    info "Wallet file written", path = outWalletFile
-    burnMem(password)
+    echo "\nWallet file successfully written to \"", outWalletFile, "\""
     return ok WalletPathPair(wallet: wallet, path: outWalletFile)
 
 proc createWalletInteractively*(
@@ -722,7 +721,8 @@ proc findWallet*(config: BeaconNodeConf,
 
   for walletFile in walletFiles:
     let wallet = ? loadWallet(walletFile)
-    if cmpIgnoreCase(wallet.name.string, name.string) == 0:
+    if cmpIgnoreCase(wallet.name.string, name.string) == 0 or
+       cmpIgnoreCase(wallet.uuid.string, name.string) == 0:
       return ok WalletPathPair(wallet: wallet, path: walletFile)
 
   return err "failure to locate wallet file"
