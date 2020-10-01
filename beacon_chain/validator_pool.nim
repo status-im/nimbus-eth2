@@ -26,13 +26,13 @@ proc addLocalValidator*(pool: var ValidatorPool,
                             kind: inProcess,
                             privKey: privKey)
   pool.validators[pubKey] = v
-  info "Local validator attached", pubKey, validator = shortLog(v)
+  notice "Local validator attached", pubKey, validator = shortLog(v)
 
 proc addRemoteValidator*(pool: var ValidatorPool,
                          pubKey: ValidatorPubKey,
                          v: AttachedValidator) =
   pool.validators[pubKey] = v
-  info "Remote validator attached", pubKey, validator = shortLog(v)
+  notice "Remote validator attached", pubKey, validator = shortLog(v)
 
 proc getValidator*(pool: ValidatorPool,
                    validatorKey: ValidatorPubKey): AttachedValidator =

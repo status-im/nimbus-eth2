@@ -110,7 +110,7 @@ p2pProtocol BeaconSync(version = 1,
       await peer.handleStatus(peer.networkState,
                               ourStatus, theirStatus.get())
     else:
-      warn "Status response not received in time",
+      debug "Status response not received in time",
         peer, error = theirStatus.error
 
   proc status(peer: Peer,
@@ -189,7 +189,7 @@ p2pProtocol BeaconSync(version = 1,
     debug "Received Goodbye message", reason = disconnectReasonName(reason), peer
 
 proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) =
-  debug "Peer status", peer, statusMsg
+  trace "Peer status", peer, statusMsg
   peer.state(BeaconSync).statusMsg = statusMsg
   peer.state(BeaconSync).statusLastTime = Moment.now()
 
@@ -220,7 +220,7 @@ proc handleStatus(peer: Peer,
                   ourStatus: StatusMsg,
                   theirStatus: StatusMsg) {.async, gcsafe.} =
   if theirStatus.forkDigest != state.forkDigest:
-    notice "Irrelevant peer", peer, theirStatus, ourStatus
+    debug "Irrelevant peer", peer, theirStatus, ourStatus
     await peer.disconnect(IrrelevantNetwork)
   else:
     peer.setStatusMsg(theirStatus)

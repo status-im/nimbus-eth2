@@ -139,7 +139,7 @@ proc sendDeposits*(deposits: seq[LaunchPadDeposit],
                    web3Url, privateKey: string,
                    depositContractAddress: Eth1Address,
                    delayGenerator: DelayGenerator = nil) {.async.} =
-  info "Sending deposits",
+  notice "Sending deposits",
     web3 = web3Url,
     depositContract = depositContractAddress
 
@@ -197,7 +197,7 @@ proc main() {.async.} =
       mapIt(deposits.value, LaunchPadDeposit.init(runtimePreset, it))
 
     Json.saveFile(string cfg.outDepositsFile, launchPadDeposits)
-    info "Deposit data written", filename = cfg.outDepositsFile
+    notice "Deposit data written", filename = cfg.outDepositsFile
     quit 0
 
   var deposits: seq[LaunchPadDeposit]

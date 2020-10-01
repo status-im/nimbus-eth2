@@ -186,7 +186,7 @@ proc init*(T: type BeaconNode,
       if bnStatus == BeaconNodeStatus.Stopping:
         return nil
 
-      info "Eth2 genesis state detected",
+      notice "Eth2 genesis state detected",
         genesisTime = genesisState.genesisTime,
         eth1Block = genesisState.eth1_data.block_hash,
         totalDeposits = genesisState.eth1_data.deposit_count
@@ -619,7 +619,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
 proc handleMissingBlocks(node: BeaconNode) =
   let missingBlocks = node.quarantine.checkMissing()
   if missingBlocks.len > 0:
-    info "Requesting detected missing blocks", blocks = shortLog(missingBlocks)
+    debug "Requesting detected missing blocks", blocks = shortLog(missingBlocks)
     node.requestManager.fetchAncestorBlocks(missingBlocks)
 
 proc onSecond(node: BeaconNode) =
@@ -639,7 +639,7 @@ proc runOnSecondLoop(node: BeaconNode) {.async.} =
     let finished = chronos.now(chronos.Moment)
     let processingTime = finished - afterSleep
     ticks_delay.set(sleepTime.nanoseconds.float / nanosecondsIn1s)
-    debug "onSecond task completed", sleepTime, processingTime
+    trace "onSecond task completed", sleepTime, processingTime
 
 proc startSyncManager(node: BeaconNode) =
   func getLocalHeadSlot(): Slot =
@@ -845,12 +845,12 @@ proc installMessageValidators(node: BeaconNode) =
 
 proc stop*(node: BeaconNode) =
   bnStatus = BeaconNodeStatus.Stopping
-  info "Graceful shutdown"
+  notice "Graceful shutdown"
   if not node.config.inProcessValidators:
     node.vcProcess.close()
   waitFor node.network.stop()
   node.db.close()
-  info "Database closed"
+  notice "Database closed"
 
 proc run*(node: BeaconNode) =
   if bnStatus == BeaconNodeStatus.Starting:
@@ -907,7 +907,7 @@ proc initializeNetworking(node: BeaconNode) {.async.} =
 
   await node.network.start()
 
-  info "Networking initialized",
+  notice "Networking initialized",
     enr = node.network.announcedENR.toURI,
     libp2p = shortLog(node.network.switch.peerInfo)
 
@@ -917,7 +917,7 @@ proc start(node: BeaconNode) =
     finalizedHead = node.chainDag.finalizedHead
     genesisTime = node.beaconClock.fromNow(toBeaconTime(Slot 0))
 
-  info "Starting beacon node",
+  notice "Starting beacon node",
     version = fullVersionStr,
     nim = shortNimBanner(),
     timeSinceFinalization =
@@ -1202,14 +1202,14 @@ programMain:
       when defined(windows):
         # workaround for https://github.com/nim-lang/Nim/issues/4057
         setupForeignThreadGc()
-      info "Shutting down after having received SIGINT"
+      notice "Shutting down after having received SIGINT"
       bnStatus = BeaconNodeStatus.Stopping
     setControlCHook(controlCHandler)
 
     when useInsecureFeatures:
       if config.metricsEnabled:
         let metricsAddress = config.metricsAddress
-        info "Starting metrics HTTP server",
+        notice "Starting metrics HTTP server",
           address = metricsAddress, port = config.metricsPort
         metrics.startHttpServer($metricsAddress, config.metricsPort)
 
@@ -1282,7 +1282,7 @@ programMain:
           mapIt(deposits.value, LaunchPadDeposit.init(config.runtimePreset, it))
 
         Json.saveFile(depositDataPath, launchPadDeposits)
-        info "Deposit data written", filename = depositDataPath
+        notice "Deposit data written", filename = depositDataPath
 
         walletPath.wallet.nextAccount += deposits.value.len
         let status = saveWallet(walletPath)
