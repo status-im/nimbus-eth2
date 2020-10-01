@@ -17,6 +17,7 @@ If you find that `make update` causes the console to hang for too long, try runn
 
 >**Note:** rest assured that when you restart the beacon node, the software will resume from where it left off, using the validator keys you have already imported.
 
+
 ### Starting over
 The directory that stores the blockchain data of the testnet is `build/data/shared_medalla_0` (if you're connecting to another testnet, replace `medalla` with that testnet's name). Delete this folder to start over (for example, if you started building medalla with the wrong private keys).
 
@@ -104,3 +105,13 @@ make NODE_PARAMS="--web3-url=<YOUR_WEBSOCKET_ENDPOINT>" medalla
 
 Importantly, make sure you pass in a websocket (`wss`) endpoint, not `https`. If you're not familiar with Infura, we recommend reading through our [Infura guide](./infura-guide) first.
 
+### Running multiple nodes on the same computer
+
+If you're running different testnets on the same computer, you'll need to specify a different `NODE_ID` to avoid port conflicts (the default is `NODE_ID=0`).
+
+For example, to run `medalla` and `spadina` at the same time:
+
+```
+make medalla NODE_ID=0 # the default
+make spadina NODE_ID=1
+```
