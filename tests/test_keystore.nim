@@ -174,7 +174,7 @@ suiteReport "KeyStorage testing suite":
   timedTest "[PBKDF2] Keystore decryption":
     let
       keystore = Json.decode(pbkdf2Vector, Keystore)
-      decrypt = decryptKeystore(keystore, KeystorePass password)
+      decrypt = decryptKeystore(keystore, KeystorePass.init password)
 
     check decrypt.isOk
     check secret.isEqual(decrypt.get())
@@ -182,7 +182,7 @@ suiteReport "KeyStorage testing suite":
   timedTest "[SCRYPT] Keystore decryption":
     let
       keystore = Json.decode(scryptVector, Keystore)
-      decrypt = decryptKeystore(keystore, KeystorePass password)
+      decrypt = decryptKeystore(keystore, KeystorePass.init password)
 
     check decrypt.isOk
     check secret.isEqual(decrypt.get())
@@ -190,7 +190,7 @@ suiteReport "KeyStorage testing suite":
   timedTest "[PBKDF2] Network Keystore decryption":
     let
       keystore = Json.decode(pbkdf2NetVector, NetKeystore)
-      decrypt = decryptNetKeystore(keystore, KeystorePass password)
+      decrypt = decryptNetKeystore(keystore, KeystorePass.init password)
 
     check decrypt.isOk
     check nsecret == decrypt.get()
@@ -198,14 +198,14 @@ suiteReport "KeyStorage testing suite":
   timedTest "[SCRYPT] Network Keystore decryption":
     let
       keystore = Json.decode(scryptNetVector, NetKeystore)
-      decrypt = decryptNetKeystore(keystore, KeystorePass password)
+      decrypt = decryptNetKeystore(keystore, KeystorePass.init password)
 
     check decrypt.isOk
     check nsecret == decrypt.get()
 
   timedTest "[PBKDF2] Keystore encryption":
     let keystore = createKeystore(kdfPbkdf2, rng[], secret,
-                                  KeystorePass password,
+                                  KeystorePass.init password,
                                   salt=salt, iv=iv,
                                   description = "This is a test keystore that uses PBKDF2 to secure the secret.",
                                   path = validateKeyPath("m/12381/60/0/0").expect("Valid Keypath"))
@@ -219,7 +219,7 @@ suiteReport "KeyStorage testing suite":
 
   timedTest "[PBKDF2] Network Keystore encryption":
     let nkeystore = createNetKeystore(kdfPbkdf2, rng[], nsecret,
-                                      KeystorePass password,
+                                      KeystorePass.init password,
                                       salt = salt, iv = iv,
                                       description =
                                         "PBKDF2 Network private key storage")
@@ -232,7 +232,7 @@ suiteReport "KeyStorage testing suite":
 
   timedTest "[SCRYPT] Keystore encryption":
     let keystore = createKeystore(kdfScrypt, rng[], secret,
-                                  KeystorePass password,
+                                  KeystorePass.init password,
                                   salt=salt, iv=iv,
                                   description = "This is a test keystore that uses scrypt to secure the secret.",
                                   path = validateKeyPath("m/12381/60/3141592653/589793238").expect("Valid keypath"))
@@ -246,7 +246,7 @@ suiteReport "KeyStorage testing suite":
 
   timedTest "[SCRYPT] Network Keystore encryption":
     let nkeystore = createNetKeystore(kdfScrypt, rng[], nsecret,
-                                      KeystorePass password,
+                                      KeystorePass.init password,
                                       salt = salt, iv = iv,
                                       description =
                                         "SCRYPT Network private key storage")
@@ -265,20 +265,20 @@ suiteReport "KeyStorage testing suite":
       echo createKeystore(kdfPbkdf2, rng[], secret, iv = [byte 1])
 
     check decryptKeystore(JsonString pbkdf2Vector,
-                          KeystorePass "wrong pass").isErr
+                          KeystorePass.init "wrong pass").isErr
 
     check decryptKeystore(JsonString pbkdf2Vector,
-                          KeystorePass "").isErr
+                          KeystorePass.init "").isErr
 
     check decryptKeystore(JsonString "{\"a\": 0}",
-                          KeystorePass "").isErr
+                          KeystorePass.init "").isErr
 
     check decryptKeystore(JsonString "",
-                          KeystorePass "").isErr
+                          KeystorePass.init "").isErr
 
     template checkVariant(remove): untyped =
       check decryptKeystore(JsonString pbkdf2Vector.replace(remove, "1234"),
-                            KeystorePass password).isErr
+                            KeystorePass.init password).isErr
 
     checkVariant "f876" # salt
     checkVariant "75ea" # checksum
@@ -288,4 +288,4 @@ suiteReport "KeyStorage testing suite":
     badKdf{"crypto", "kdf", "function"} = %"invalid"
 
     check decryptKeystore(JsonString $badKdf,
-                          KeystorePass password).iserr
+                          KeystorePass.init password).iserr

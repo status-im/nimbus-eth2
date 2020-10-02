@@ -194,7 +194,7 @@ proc loadKeystore(validatorsDir, secretsDir, keyName: string,
       error "Password file has insecure permissions", key_path = keyStorePath
       return
 
-    let passphrase = KeystorePass:
+    let passphrase = KeystorePass.init:
       try:
         readFile(passphrasePath)
       except IOError as err:
@@ -218,11 +218,12 @@ proc loadKeystore(validatorsDir, secretsDir, keyName: string,
                (validatorsDir / keyName) & "\": "
   let res = keyboardGetPassword[ValidatorPrivKey](prompt, 3,
     proc (password: string): KsResult[ValidatorPrivKey] =
-      let decrypted = decryptKeystore(keystore, KeystorePass password)
+      let decrypted = decryptKeystore(keystore, KeystorePass.init password)
       if decrypted.isErr():
         error "Keystore decryption failed. Please try again", keystorePath
       decrypted
   )
+
   if res.isOk():
     some(res.get())
   else:
@@ -294,7 +295,7 @@ proc loadNetKeystore*(keyStorePath: string,
 
   if insecurePwd.isSome():
     warn "Using insecure password to unlock networking key"
-    let decrypted = decryptNetKeystore(keystore, KeystorePass insecurePwd.get())
+    let decrypted = decryptNetKeystore(keystore, KeystorePass.init insecurePwd.get)
     if decrypted.isOk:
       return some(decrypted.get())
     else:
@@ -304,7 +305,7 @@ proc loadNetKeystore*(keyStorePath: string,
     let prompt = "Please enter passphrase to unlock networking key: "
     let res = keyboardGetPassword[lcrypto.PrivateKey](prompt, 3,
       proc (password: string): KsResult[lcrypto.PrivateKey] =
-        let decrypted = decryptNetKeystore(keystore, KeystorePass password)
+        let decrypted = decryptNetKeystore(keystore, KeystorePass.init password)
         if decrypted.isErr():
           error "Keystore decryption failed. Please try again", keystorePath
         decrypted
@@ -331,7 +332,7 @@ proc saveNetKeystore*(rng: var BrHmacDrbgContext, keyStorePath: string,
       res.get()
 
   let keyStore = createNetKeystore(kdfScrypt, rng, netKey,
-                                   KeystorePass password)
+                                   KeystorePass.init password)
   var encodedStorage: string
   try:
     encodedStorage = Json.encode(keyStore)
@@ -355,7 +356,7 @@ proc saveKeystore(rng: var BrHmacDrbgContext,
     validatorDir = validatorsDir / keyName
 
   if not existsDir(validatorDir):
-    var password = KeystorePass ncrutils.toHex(getRandomBytes(rng, 32))
+    var password = KeystorePass.init ncrutils.toHex(getRandomBytes(rng, 32))
     defer: burnMem(password)
 
     let
@@ -378,7 +379,7 @@ proc saveKeystore(rng: var BrHmacDrbgContext,
     if sres.isErr():
       return err(FailedToCreateSecretsDir)
 
-    let swres = writeFile(secretsDir / keyName, string(password), 0o600)
+    let swres = writeFile(secretsDir / keyName, password.str, 0o600)
     if swres.isErr():
       return err(FailedToCreateSecretFile)
 
@@ -400,7 +401,7 @@ proc generateDeposits*(preset: RuntimePreset,
 
   let withdrawalKeyPath = makeKeyPath(0, withdrawalKeyKind)
   # TODO: Explain why we are using an empty password
-  var withdrawalKey = keyFromPath(mnemonic, KeystorePass"", withdrawalKeyPath)
+  var withdrawalKey = keyFromPath(mnemonic, KeystorePass.init "", withdrawalKeyPath)
   defer: burnMem(withdrawalKey)
   let withdrawalPubKey = withdrawalKey.toPubKey
 
@@ -496,7 +497,7 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
       var firstDecryptionAttempt = true
 
       while true:
-        var secret = decryptCryptoField(keystore.crypto, KeystorePass password)
+        var secret = decryptCryptoField(keystore.crypto, KeystorePass.init password)
 
         if secret.len == 0:
           if firstDecryptionAttempt:
@@ -590,7 +591,7 @@ proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
     let wallet = createWallet(kdfPbkdf2, rng, mnemonic,
                               name = name,
                               nextAccount = nextAccount,
-                              password = KeystorePass password)
+                              password = KeystorePass.init password)
 
     let outWalletFileFlag = config.outWalletFile
     let outWalletFile =
@@ -680,7 +681,7 @@ proc unlockWalletInteractively*(wallet: Wallet): Result[Mnemonic, string] =
 
   let res = keyboardGetPassword[Mnemonic](prompt, 3,
     proc (password: string): KsResult[Mnemonic] =
-      var secret = decryptCryptoField(wallet.crypto, KeystorePass password)
+      var secret = decryptCryptoField(wallet.crypto, KeystorePass.init password)
       if len(secret) > 0:
         let mnemonic = Mnemonic(string.fromBytes(secret))
         burnMem(secret)
