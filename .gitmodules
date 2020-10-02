@@ -188,3 +188,8 @@
 	url = https://github.com/status-im/nimbus-security-resources.git
 	ignore = dirty
 	branch = master
+[submodule "vendor/nim-normalize"]
+	path = vendor/nim-normalize
+	url = https://github.com/nitely/nim-normalize.git
+	ignore = dirty
+	branch = master
