@@ -27,7 +27,7 @@ type
     mnemonic*: Mnemonic
 
 const
-  minPasswordLen = 10
+  minPasswordLen = 12
 
   mostCommonPasswords = wordListArray(
     currentSourcePath.parentDir /
