@@ -673,14 +673,6 @@ proc restoreWalletInteractively*(rng: var BrHmacDrbgContext,
 
   discard pickPasswordAndSaveWallet(rng, config, validatedMnemonic)
 
-proc loadWallet*(fileName: string): Result[Wallet, string] =
-  try:
-    ok Json.loadFile(fileName, Wallet)
-  except IOError as exc:
-    err exc.msg
-  except SerializationError as exc:
-    err exc.msg
-
 proc unlockWalletInteractively*(wallet: Wallet): Result[Mnemonic, string] =
   let prompt = "Please enter the password for unlocking the wallet: "
   echo "Please enter the password for unlocking the wallet"
@@ -703,28 +695,36 @@ proc unlockWalletInteractively*(wallet: Wallet): Result[Mnemonic, string] =
   else:
     err "Unlocking of the wallet failed."
 
-proc findWallet*(config: BeaconNodeConf,
-                 name: WalletName): Result[WalletPathPair, string] =
-  var walletFiles = newSeq[string]()
+proc loadWallet*(fileName: string): Result[Wallet, string] =
+  try:
+    ok Json.loadFile(fileName, Wallet)
+  except SerializationError as err:
+    err "Invalid wallet syntax: " & err.formatMsg(fileName)
+  except IOError as err:
+    err "Error accessing wallet file \"" & fileName & "\": " & err.msg
 
+proc findWallet*(config: BeaconNodeConf,
+                 name: WalletName): Result[Option[WalletPathPair], string] =
+  var walletFiles = newSeq[string]()
   try:
     for kind, walletFile in walkDir(config.walletsDir):
       if kind != pcFile: continue
       let walletId = splitFile(walletFile).name
       if cmpIgnoreCase(walletId, name.string) == 0:
         let wallet = ? loadWallet(walletFile)
-        return ok WalletPathPair(wallet: wallet, path: walletFile)
+        return ok some WalletPathPair(wallet: wallet, path: walletFile)
       walletFiles.add walletFile
-  except OSError:
-    return err "failure to list wallet directory"
+  except OSError as err:
+    return err("Error accessing the wallets directory \"" &
+                config.walletsDir & "\": " & err.msg)
 
   for walletFile in walletFiles:
     let wallet = ? loadWallet(walletFile)
     if cmpIgnoreCase(wallet.name.string, name.string) == 0 or
        cmpIgnoreCase(wallet.uuid.string, name.string) == 0:
-      return ok WalletPathPair(wallet: wallet, path: walletFile)
+      return ok some WalletPathPair(wallet: wallet, path: walletFile)
 
-  return err "failure to locate wallet file"
+  return ok none(WalletPathPair)
 
 type
   # This is not particularly well-standardized yet.
