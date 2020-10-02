@@ -832,7 +832,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
           new_peers = newPeers
 
     if newPeers == 0:
-      if node.peerPool.lenSpace() <= node.wantedPeers shr 2:
+      if node.peerPool.lenCurrent() <= node.wantedPeers shr 2:
         warn "Less than 25% wanted peers and could not discover new nodes",
               discovered = len(discoveredNodes), new_peers = newPeers,
               wanted_peers = node.wantedPeers
