@@ -64,7 +64,7 @@ func storeLEBytes(value: SomeUnsignedInt, dst: var openarray[byte]) =
   when system.cpuEndian == bigEndian:
     var shift = 0
     for i in 0 ..< dst.len:
-      result[i] = byte((v shr shift) and 0xff)
+      dst[i] = byte((value shr shift) and 0xff)
       shift += 8
   else:
     copyMem(addr dst[0], unsafeAddr value, dst.len)
