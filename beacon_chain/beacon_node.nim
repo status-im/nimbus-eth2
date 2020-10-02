@@ -1135,6 +1135,13 @@ programMain:
   # and avoid using system resources (such as urandom) after that
   let rng = keys.newRng()
 
+  template findWalletWithoutErrors(name: WalletName): auto =
+    let res = keystore_management.findWallet(config, name)
+    if res.isErr:
+      fatal "Failed to locate wallet", error = res.error
+      quit 1
+    res.get
+
   case config.cmd
   of createTestnet:
     let launchPadDeposits = try:
@@ -1237,14 +1244,16 @@ programMain:
       var walletPath: WalletPathPair
 
       if config.existingWalletId.isSome:
-        let id = config.existingWalletId.get
-        let found = keystore_management.findWallet(config, id)
-        if found.isOk:
+        let
+          id = config.existingWalletId.get
+          found = findWalletWithoutErrors(id)
+
+        if found.isSome:
           walletPath = found.get
         else:
-          fatal "Unable to find wallet with the specified name/uuid",
-                id, err = found.error
+          fatal "Unable to find wallet with the specified name/uuid", id
           quit 1
+
         var unlocked = unlockWalletInteractively(walletPath.wallet)
         if unlocked.isOk:
           swap(mnemonic, unlocked.get)
@@ -1293,17 +1302,17 @@ programMain:
           mapIt(deposits.value, LaunchPadDeposit.init(config.runtimePreset, it))
 
         Json.saveFile(depositDataPath, launchPadDeposits)
-        notice "Deposit data written", filename = depositDataPath
+        echo "Deposit data written to \"", depositDataPath, "\""
 
         walletPath.wallet.nextAccount += deposits.value.len
         let status = saveWallet(walletPath)
         if status.isErr:
-          error "Failed to update wallet file after generating deposits",
+          fatal "Failed to update wallet file after generating deposits",
                  wallet = walletPath.path,
                  error = status.error
           quit 1
       except CatchableError as err:
-        error "Failed to create launchpad deposit data file", err = err.msg
+        fatal "Failed to create launchpad deposit data file", err = err.msg
         quit 1
 
     of DepositsCmd.`import`:
@@ -1319,6 +1328,14 @@ programMain:
   of wallets:
     case config.walletsCmd:
     of WalletsCmd.create:
+      if config.createdWalletNameFlag.isSome:
+        let
+          name = config.createdWalletNameFlag.get
+          existingWallet = findWalletWithoutErrors(name)
+        if existingWallet.isSome:
+          echo "The Wallet '" & name.string & "' already exists."
+          quit 1
+
       var walletRes = createWalletInteractively(rng[], config)
       if walletRes.isErr:
         fatal "Unable to create wallet", err = walletRes.error
