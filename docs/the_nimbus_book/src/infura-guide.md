@@ -2,10 +2,9 @@
 
 In a nutshell, Infura is a hosted ethereum node cluster that lets you make requests to the eth1 blockchain without requiring you to set up your own eth1 node.
 
-At Nimbus, we use Infura to process incoming validator deposits.
+While we do support Infura to process incoming validator deposits, we recommend running your own eth1 node to avoid relying on a third-party-service.
 
-> **Note:** Nimbus currently supports remote Infura nodes and [local Geth nodes](https://gist.github.com/onqtam/aaf883d46f4dab1311ca9c160df12fe4) in order to stay up-to-date with the eth1 chain. In the future, we plan on using our own eth1 client -- [Nimbus 1](https://github.com/status-im/nimbus) -- as our default.
-
+> **Note:** Nimbus currently supports remote Infura nodes and [local Geth archive nodes](https://gist.github.com/onqtam/aaf883d46f4dab1311ca9c160df12fe4). However we are working on relaxing that assumption (an archive node certainly won't be required for mainnet). In the future, we plan on having our own eth1 client -- [Nimbus 1](https://github.com/status-im/nimbus) -- be the recommended default.
 
 ## How it works
 
