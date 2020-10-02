@@ -292,7 +292,7 @@ proc init*(T: type KeystorePass, input: string): T =
 
 func getSeed*(mnemonic: Mnemonic, password: KeystorePass): KeySeed =
   # https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed
-  let salt = "mnemonic-" & password.str
+  let salt = toNFKD("mnemonic" & password.str)
   KeySeed sha512.pbkdf2(mnemonic.string, salt, 2048, 64)
 
 template add(m: var Mnemonic, s: cstring) =
