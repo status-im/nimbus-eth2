@@ -31,9 +31,10 @@ In this book, we will cover:
 9. [Advanced usage](./advanced.md) for developers
 10. How to [setup up a systemd service](./beacon_node_systemd.md)
 11. How to [use Nimbus to generate your validator keys](./create_wallet_and_deposit.md)
-12. Tips and tricks for windows users (WIP)
-13. Common [questions and answers](./faq.md) to satisfy your curiosity
-14. How to [contribute](./contribute.md) to this book
+12. How to [supply your own Infura endpoint](./infura-guide)
+13. Tips and tricks for windows users (WIP)
+14. Common [questions and answers](./faq.md) to satisfy your curiosity
+15. How to [contribute](./contribute.md) to this book
 
 
 ## Introduction
