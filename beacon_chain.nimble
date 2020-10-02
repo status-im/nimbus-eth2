@@ -29,10 +29,12 @@ requires "nim >= 0.19.0",
   "libp2p",
   "metrics",
   "nimcrypto",
+  "normalize",
   "serialization",
   "stew",
   "testutils",
   "prompt",
+  "unicodedb",
   "web3",
   "yaml"
 

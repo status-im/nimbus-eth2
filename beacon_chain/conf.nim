@@ -1,9 +1,10 @@
 {.push raises: [Defect].}
 
 import
-  os, options,
+  os, options, unicode,
   chronicles, chronicles/options as chroniclesOptions,
   confutils, confutils/defs, confutils/std/net, stew/shims/net as stewNet,
+  unicodedb/properties, normalize,
   json_serialization, web3/[ethtypes, confutils_defs],
   spec/[crypto, keystore, digest, datatypes, network], network_metadata,
   stew/io2
@@ -458,13 +459,27 @@ func parseCmdArg*(T: type GraffitiBytes, input: TaintedString): T
 func completeCmdArg*(T: type GraffitiBytes, input: TaintedString): seq[string] =
   return @[]
 
+proc isPrintable(rune: Rune): bool =
+  # This can be eventually replaced by the `unicodeplus` package, but a single
+  # proc does not justify the extra dependencies at the moment:
+  # https://github.com/nitely/nim-unicodeplus
+  # https://github.com/nitely/nim-segmentation
+  rune == Rune(0x20) or unicodeCategory(rune) notin ctgC+ctgZ
+
 func parseCmdArg*(T: type WalletName, input: TaintedString): T
                  {.raises: [ValueError, Defect].} =
   if input.len == 0:
     raise newException(ValueError, "The wallet name should not be empty")
   if input[0] == '_':
     raise newException(ValueError, "The wallet name should not start with an underscore")
-  return T(input)
+  for rune in runes(input.string):
+    if not rune.isPrintable:
+      raise newException(ValueError, "The wallet name should consist only of printable characters")
+
+  # From the Unicode Normalization FAQ (https://unicode.org/faq/normalization.html):
+  # NFKC is the preferred form for identifiers, especially where there are security concerns
+  # (see UTR #36 http://www.unicode.org/reports/tr36/)
+  return T(toNFKC(input))
 
 func completeCmdArg*(T: type WalletName, input: TaintedString): seq[string] =
   return @[]
