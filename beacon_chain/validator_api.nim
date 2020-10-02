@@ -48,6 +48,11 @@ proc doChecksAndGetCurrentHead(node: BeaconNode, slot: Slot): BlockRef =
     raise newException(CatchableError, "Requesting way ahead of the current head")
 
 proc doChecksAndGetCurrentHead(node: BeaconNode, epoch: Epoch): BlockRef =
+  const maxEpoch = compute_epoch_at_slot(not 0'u64)
+  if epoch >= maxEpoch:
+    raise newException(
+      CatchableError, "Requesting epoch for which slot would overflow")
+
   node.doChecksAndGetCurrentHead(epoch.compute_start_slot_at_epoch)
 
 # TODO currently this function throws if the validator isn't found - is this OK?
