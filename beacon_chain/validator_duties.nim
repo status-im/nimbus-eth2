@@ -40,7 +40,7 @@ proc saveValidatorKey*(keyName, key: string, conf: BeaconNodeConf) =
   let outputFile = validatorsDir / keyName
   createDir validatorsDir
   writeFile(outputFile, key)
-  info "Imported validator key", file = outputFile
+  notice "Imported validator key", file = outputFile
 
 proc checkValidatorInRegistry(state: BeaconState,
                               pubKey: ValidatorPubKey) =
@@ -60,7 +60,7 @@ proc addLocalValidator*(node: BeaconNode,
 proc addLocalValidators*(node: BeaconNode) =
   for validatorKey in node.config.validatorKeys:
     node.addLocalValidator node.chainDag.headState.data.data, validatorKey
-  info "Local validators attached ", count = node.attachedValidators.count
+  notice "Local validators attached ", count = node.attachedValidators.count
 
 proc addRemoteValidators*(node: BeaconNode) =
   # load all the validators from the child process - loop until `end`
@@ -77,7 +77,7 @@ proc addRemoteValidators*(node: BeaconNode) =
                                   outStream: node.vcProcess.outputStream,
                                   pubKeyStr: $key))
       node.attachedValidators.addRemoteValidator(key, v)
-  info "Remote validators attached ", count = node.attachedValidators.count
+  notice "Remote validators attached ", count = node.attachedValidators.count
 
 proc getAttachedValidator*(node: BeaconNode,
                            pubkey: ValidatorPubKey): AttachedValidator =
@@ -340,7 +340,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     # TODO the oldest attestations allowed are those that are older than the
     #      finalized epoch.. also, it seems that posting very old attestations
     #      is risky from a slashing perspective. More work is needed here.
-    notice "Skipping attestation, head is too recent",
+    warn "Skipping attestation, head is too recent",
       headSlot = shortLog(head.slot),
       slot = shortLog(slot)
     return
@@ -485,7 +485,7 @@ proc broadcastAggregatedAttestations(
           message: aggregateAndProof.get,
           signature: sig)
         node.network.broadcast(node.topicAggregateAndProofs, signedAP)
-        info "Aggregated attestation sent",
+        notice "Aggregated attestation sent",
           attestation = shortLog(signedAP.message.aggregate),
           validator = shortLog(curr[0].v)
 
@@ -514,7 +514,7 @@ proc handleValidatorDuties*(
     # TODO maybe even collect all work synchronously to avoid unnecessary
     #      state rewinds while waiting for async operations like validator
     #      signature..
-    notice "Catching up",
+    notice "Catching up on validator duties",
       curSlot = shortLog(curSlot),
       lastSlot = shortLog(lastSlot),
       slot = shortLog(slot)

@@ -55,7 +55,7 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
 
     doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
 
-  info "Fork choice initialized",
+  debug "Fork choice initialized",
     justified_epoch = chainDag.headState.data.data.current_justified_checkpoint.epoch,
     finalized_epoch = chainDag.headState.data.data.finalized_checkpoint.epoch,
     finalized_root = shortlog(chainDag.finalizedHead.blck.root)
@@ -184,7 +184,7 @@ proc addAttestation*(pool: var AttestationPool,
           attestation.data.slot, participants, attestation.data.beacon_block_root,
           wallSlot)
 
-        info "Attestation resolved",
+        debug "Attestation resolved",
           attestation = shortLog(attestation),
           validations = a.validations.len()
 
@@ -201,7 +201,7 @@ proc addAttestation*(pool: var AttestationPool,
       attestation.data.slot, participants, attestation.data.beacon_block_root,
       wallSlot)
 
-    info "Attestation resolved",
+    debug "Attestation resolved",
       attestation = shortLog(attestation),
       validations = 1
 

@@ -319,7 +319,7 @@ proc getBlockNumber(p: DataProviderRef, hash: BlockHash): Future[Eth1BlockNumber
                                return 0
     return Eth1BlockNumber(blk.number)
   except CatchableError as exc:
-    notice "Failed to get Eth1 block number from hash",
+    debug "Failed to get Eth1 block number from hash",
       hash = $hash, err = exc.msg
     raise exc
 
@@ -374,7 +374,7 @@ proc readJsonDeposits(depositsList: JsonNode): seq[Eth1Block] =
 method fetchDepositData*(p: Web3DataProviderRef,
                          fromBlock, toBlock: Eth1BlockNumber): Future[seq[Eth1Block]]
                         {.async, locks: 0.} =
-  info "Obtaining deposit log events", fromBlock, toBlock
+  debug "Obtaining deposit log events", fromBlock, toBlock
   return readJsonDeposits(await p.ns.getJsonLogs(DepositEvent,
                                                  fromBlock = some blockId(fromBlock),
                                                  toBlock = some blockId(toBlock)))
@@ -413,7 +413,7 @@ method onBlockHeaders*(p: Web3DataProviderRef,
   if p.blockHeadersSubscription != nil:
     await p.blockHeadersSubscription.unsubscribe()
 
-  info "Waiting for new Eth1 block headers"
+  debug "Waiting for new Eth1 block headers"
 
   p.blockHeadersSubscription = await p.web3.subscribeForBlockHeaders(
     blockHeaderHandler, errorHandler)
@@ -554,7 +554,7 @@ proc findGenesisBlockInRange(m: MainchainMonitor,
     let candidateGenesisTime = genesis_time_from_eth1_timestamp(
       m.preset, candidateBlock.timestamp.uint64)
 
-    info "Probing possible genesis block",
+    notice "Probing possible genesis block",
       `block` = candidateBlock.number.uint64,
       candidateGenesisTime
 
@@ -596,7 +596,7 @@ proc checkForGenesisLoop(m: MainchainMonitor) {.async.} =
           genesisCandidateIdx = genesisCandidateIdx.get
           genesisCandidate =  m.eth1Chain.blocks[genesisCandidateIdx]
 
-        info "Generating state for candidate block for genesis",
+        notice "Generating state for candidate block for genesis",
              blockNum = genesisCandidate.number,
              blockHash = genesisCandidate.voteData.block_hash,
              potentialDeposits = genesisCandidate.voteData.deposit_count
@@ -635,7 +635,7 @@ proc checkForGenesisLoop(m: MainchainMonitor) {.async.} =
           m.signalGenesis candidateState
           return
         else:
-          info "Eth2 genesis candidate block rejected",
+          notice "Eth2 genesis candidate block rejected",
                `block` = shortLog(genesisCandidate),
                validDeposits = genesisCandidate.knownGoodDepositsCount.get,
                needed = m.preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT
@@ -734,7 +734,7 @@ proc processDeposits(m: MainchainMonitor,
           voteData: latestEth1Data)
     else:
       template logBlockProcessed(blk) =
-        info "Eth1 block processed",
+        debug "Eth1 block processed",
              `block` = shortLog(blk), totalDeposits = blk.voteData.deposit_count
 
       await dataProvider.fetchBlockDetails(eth1Blocks[0])
@@ -828,4 +828,3 @@ proc getEth1BlockHash*(url: string, blockId: RtBlockIdentifier): Future[BlockHas
     await web3.close()
 
 {.pop.}
-

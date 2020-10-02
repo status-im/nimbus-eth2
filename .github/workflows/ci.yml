@@ -82,7 +82,7 @@ jobs:
 
       - name: Cancel Previous Runs (except master/devel)
         if: >
-          steps.get_branch.outputs.branch_name != 'master' ||
+          steps.get_branch.outputs.branch_name != 'master' &&
           steps.get_branch.outputs.branch_name != 'devel'
         uses: styfle/cancel-workflow-action@0.5.0
         with:

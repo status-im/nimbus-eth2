@@ -53,6 +53,7 @@ const
     DOMAIN_VOLUNTARY_EXIT,
     DOMAIN_SELECTION_PROOF,
     DOMAIN_AGGREGATE_AND_PROOF,
+    CONFIG_NAME
   }
 
   presetValueTypes* = {

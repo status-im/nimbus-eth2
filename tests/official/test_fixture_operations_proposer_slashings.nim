@@ -38,7 +38,7 @@ proc runTest(identifier: string) =
     else:
       prefix = "[Invalid] "
 
-    timedTest prefix & astToStr(identifier):
+    timedTest prefix & identifier:
       let proposerSlashing = parseTest(testDir/"proposer_slashing.ssz", SSZ, ProposerSlashing)
       var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
 

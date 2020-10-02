@@ -343,7 +343,7 @@ proc find_head*(
   ? self.proto_array.find_head(new_head, justified_root)
 
   {.noSideEffect.}:
-    debug "Fork choice requested",
+    trace "Fork choice requested",
       justified_epoch = justified_epoch,
       justified_root = shortLog(justified_root),
       finalized_epoch = finalized_epoch,

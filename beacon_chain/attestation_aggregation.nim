@@ -226,6 +226,11 @@ proc validateAttestation*(
     attesting_indices = get_attesting_indices(
       epochRef, attestation.data, attestation.aggregation_bits)
 
+  if attesting_indices.len == 0:
+    # an extension of the check_aggregation_count() check
+    const err_str: cstring =
+      "validateAttestation: inconsistent aggregation and committee length"
+    return err((EVRESULT_REJECT, err_str))
   doAssert attesting_indices.len == 1, "Per bits check above"
   let validator_index = toSeq(attesting_indices)[0]
 

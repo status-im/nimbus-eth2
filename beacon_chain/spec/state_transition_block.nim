@@ -102,7 +102,7 @@ proc process_randao(
     if not verify_epoch_signature(
         state.fork, state.genesis_validators_root, epoch, proposer_pubkey,
         body.randao_reveal):
-      notice "Randao mismatch", proposer_pubkey = shortLog(proposer_pubkey),
+      debug "Randao mismatch", proposer_pubkey = shortLog(proposer_pubkey),
                                 epoch,
                                 signature = shortLog(body.randao_reveal),
                                 slot = state.slot

@@ -218,7 +218,8 @@ proc copyPrunedDatabase(
       let sr = db.getStateRoot(signedBlock.root, slot)
       if sr.isErr:
         if stateRequired:
-          doAssert false, "state root and state required"
+          echo "skipping state root required for slot ",
+            slot, " with root ", signedBlock.root
         continue
 
       if not db.getState(sr.get, beaconState[], noRollback):

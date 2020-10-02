@@ -130,10 +130,22 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 OK: 11/11 Fail: 0/11 Skip: 0/11
 ## Official - Operations - Proposer slashing  [Preset: mainnet]
 ```diff
-+ [Invalid] identifier                                                                       OK
-+ [Valid]   identifier                                                                       OK
++ [Invalid] epochs_are_different                                                             OK
++ [Invalid] headers_are_same_sigs_are_different                                              OK
++ [Invalid] headers_are_same_sigs_are_same                                                   OK
++ [Invalid] invalid_different_proposer_indices                                               OK
++ [Invalid] invalid_proposer_index                                                           OK
++ [Invalid] invalid_sig_1                                                                    OK
++ [Invalid] invalid_sig_1_and_2                                                              OK
++ [Invalid] invalid_sig_1_and_2_swap                                                         OK
++ [Invalid] invalid_sig_2                                                                    OK
++ [Invalid] proposer_is_not_activated                                                        OK
++ [Invalid] proposer_is_slashed                                                              OK
++ [Invalid] proposer_is_withdrawn                                                            OK
++ [Valid]   success                                                                          OK
++ [Valid]   success_slashed_and_proposer_index_the_same                                      OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 14/14 Fail: 0/14 Skip: 0/14
 ## Official - Operations - Voluntary exit  [Preset: mainnet]
 ```diff
 + [Invalid] invalid_signature                                                                OK
@@ -242,4 +254,4 @@ OK: 32/32 Fail: 0/32 Skip: 0/32
 OK: 5/5 Fail: 0/5 Skip: 0/5
 
 ---TOTAL---
-OK: 184/184 Fail: 0/184 Skip: 0/184
+OK: 196/196 Fail: 0/196 Skip: 0/196

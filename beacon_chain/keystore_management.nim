@@ -157,7 +157,7 @@ proc generateDeposits*(preset: RuntimePreset,
                        secretsDir: string): Result[seq[DepositData], KeystoreGenerationError] =
   var deposits: seq[DepositData]
 
-  info "Generating deposits", totalNewValidators, validatorsDir, secretsDir
+  notice "Generating deposits", totalNewValidators, validatorsDir, secretsDir
 
   let withdrawalKeyPath = makeKeyPath(0, withdrawalKeyKind)
   # TODO: Explain why we are using an empty password
@@ -256,7 +256,7 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
       let keystore = try:
         Json.loadFile(file, Keystore)
       except SerializationError as e:
-        trace "Invalid keystore", err = e.formatMsg(file)
+        warn "Invalid keystore", err = e.formatMsg(file)
         continue
       except IOError as e:
         warn "Failed to read keystore file", file, err = e.msg
@@ -292,7 +292,7 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
                                       privKey.value, pubKey,
                                       keystore.path)
             if status.isOk:
-              info "Keystore imported", file
+              notice "Keystore imported", file
             else:
               error "Failed to import keystore", file, err = status.error
           else:
@@ -398,7 +398,7 @@ proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
       if status.isErr:
         return err("failure to create wallet file due to " & status.error)
 
-      info "Wallet file written", path = outWalletFile
+      notice "Wallet file written", path = outWalletFile
       return ok WalletPathPair(wallet: wallet, path: outWalletFile)
     finally:
       burnMem(password)
