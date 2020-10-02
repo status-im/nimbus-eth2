@@ -7,12 +7,14 @@
 
 import
   # Standard library
-  std/[math, strutils, parseutils, strformat, typetraits, algorithm],
+  std/[algorithm, math, parseutils, strformat, strutils, typetraits, unicode],
+  # Third-party libraries
+  normalize,
   # Status libraries
-  stew/[results, byteutils, bitseqs, bitops2], stew/shims/macros,
-  bearssl, eth/keyfile/uuid, blscurve, faststreams/textio, json_serialization,
+  stew/[results, bitseqs, bitops2], stew/shims/macros,
+  bearssl, eth/keyfile/uuid, blscurve, json_serialization,
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, scrypt],
-  # Internal
+  # Local modules
   libp2p/crypto/crypto as lcrypto,
   ./datatypes, ./crypto, ./digest, ./signatures
 
@@ -126,8 +128,9 @@ type
   WalletName* = distinct string
   Mnemonic* = distinct string
   KeyPath* = distinct string
-  KeystorePass* = distinct string
   KeySeed* = distinct seq[byte]
+  KeystorePass* = object
+    str*: string
 
   Credentials* = object
     mnemonic*: Mnemonic
@@ -135,7 +138,7 @@ type
     signingKey*: ValidatorPrivKey
     withdrawalKey*: ValidatorPrivKey
 
-  SensitiveData = Mnemonic|KeystorePass|KeySeed
+  SensitiveStrings = Mnemonic|KeySeed
   SimpleHexEncodedTypes = ScryptSalt|ChecksumBytes|CipherBytes
 
 const
@@ -180,10 +183,15 @@ template `==`*(lhs, rhs: WalletName): bool =
 template `$`*(x: WalletName): string =
   string(x)
 
-template burnMem*(m: var (SensitiveData|TaintedString)) =
+template burnMem*(m: var (SensitiveStrings|TaintedString)) =
   # TODO: `burnMem` in nimcrypto could use distinctBase
   #       to make its usage less error-prone.
   ncrutils.burnMem(string m)
+
+template burnMem*(m: var KeystorePass) =
+  # TODO: `burnMem` in nimcrypto could use distinctBase
+  #       to make its usage less error-prone.
+  ncrutils.burnMem(m.str)
 
 func longName*(wallet: Wallet): string =
   if wallet.name.string == wallet.uuid.string:
@@ -272,9 +280,18 @@ func makeKeyPath*(validatorIdx: Natural,
   except ValueError:
     raiseAssert "All values above can be converted successfully to strings"
 
+func isControlRune(r: Rune): bool =
+  let r = int r
+  (r >= 0 and r < 0x20) or (r >= 0x7F and r < 0xA0)
+
+proc init*(T: type KeystorePass, input: string): T =
+  for rune in toNFKD(input):
+    if not isControlRune(rune):
+      result.str.add rune
+
 func getSeed*(mnemonic: Mnemonic, password: KeystorePass): KeySeed =
   # https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed
-  let salt = "mnemonic-" & password.string
+  let salt = "mnemonic-" & password.str
   KeySeed sha512.pbkdf2(mnemonic.string, salt, 2048, 64)
 
 template add(m: var Mnemonic, s: cstring) =
@@ -331,7 +348,7 @@ proc validateMnemonic*(inputWords: TaintedString,
   ## with sensitive data even in case of validator failure.
   ## Make sure to burn the received data after usage.
 
-  let words = inputWords.string.strip.split(Whitespace)
+  let words = strutils.strip(inputWords.string.toNFKD).split(Whitespace)
   if words.len < 12 or words.len > 24 or words.len mod 3 != 0:
     return false
 
@@ -487,7 +504,7 @@ proc decryptCryptoField*(crypto: Crypto, password: KeystorePass): seq[byte] =
   let decKey = case crypto.kdf.function
     of kdfPbkdf2:
       template params: auto = crypto.kdf.pbkdf2Params
-      sha256.pbkdf2(password.string, params.salt.bytes, params.c, params.dklen)
+      sha256.pbkdf2(password.str, params.salt.bytes, params.c, params.dklen)
     of kdfScrypt:
       template params: auto = crypto.kdf.scryptParams
       if params.dklen != scryptParams.dklen or
@@ -496,7 +513,7 @@ proc decryptCryptoField*(crypto: Crypto, password: KeystorePass): seq[byte] =
          params.p != scryptParams.p:
         # TODO This should be reported in a better way
         return
-      @(scrypt(password.string,
+      @(scrypt(password.str,
                params.salt.bytes,
                scryptParams.n,
                scryptParams.r,
@@ -570,7 +587,7 @@ proc decryptNetKeystore*(nkeystore: JsonString,
 proc createCryptoField(kdfKind: KdfKind,
                        rng: var BrHmacDrbgContext,
                        secret: openarray[byte],
-                       password = KeystorePass "",
+                       password = KeystorePass.init "",
                        salt: openarray[byte] = @[],
                        iv: openarray[byte] = @[]): Crypto =
   type AES = aes128
@@ -591,7 +608,7 @@ proc createCryptoField(kdfKind: KdfKind,
   var decKey: seq[byte]
   let kdf = case kdfKind
     of kdfPbkdf2:
-      decKey = sha256.pbkdf2(password.string,
+      decKey = sha256.pbkdf2(password.str,
                              kdfSalt,
                              pbkdf2Params.c,
                              pbkdf2Params.dklen)
@@ -599,7 +616,7 @@ proc createCryptoField(kdfKind: KdfKind,
       params.salt = Pbkdf2Salt kdfSalt
       Kdf(function: kdfPbkdf2, pbkdf2Params: params, message: "")
     of kdfScrypt:
-      decKey = @(scrypt(password.string, kdfSalt,
+      decKey = @(scrypt(password.str, kdfSalt,
                         scryptParams.n, scryptParams.r, scryptParams.p, keyLen))
       var params = scryptParams
       params.salt = ScryptSalt kdfSalt
@@ -628,7 +645,7 @@ proc createCryptoField(kdfKind: KdfKind,
 proc createNetKeystore*(kdfKind: KdfKind,
                         rng: var BrHmacDrbgContext,
                         privKey: lcrypto.PrivateKey,
-                        password = KeystorePass "",
+                        password = KeystorePass.init "",
                         description = "",
                         salt: openarray[byte] = @[],
                         iv: openarray[byte] = @[]): NetKeystore =
@@ -649,7 +666,7 @@ proc createNetKeystore*(kdfKind: KdfKind,
 proc createKeystore*(kdfKind: KdfKind,
                      rng: var BrHmacDrbgContext,
                      privKey: ValidatorPrivkey,
-                     password = KeystorePass "",
+                     password = KeystorePass.init "",
                      path = KeyPath "",
                      description = "",
                      salt: openarray[byte] = @[],
@@ -674,7 +691,7 @@ proc createWallet*(kdfKind: KdfKind,
                    name = WalletName "",
                    salt: openarray[byte] = @[],
                    iv: openarray[byte] = @[],
-                   password = KeystorePass "",
+                   password = KeystorePass.init "",
                    nextAccount = none(Natural),
                    pretty = true): Wallet =
   let
@@ -682,7 +699,7 @@ proc createWallet*(kdfKind: KdfKind,
     # Please note that we are passing an empty password here because
     # we want the wallet restoration procedure to depend only on the
     # mnemonic (the user is asked to treat the mnemonic as a password).
-    seed = getSeed(mnemonic, KeystorePass"")
+    seed = getSeed(mnemonic, KeystorePass.init "")
     crypto = createCryptoField(kdfKind, rng, distinctBase seed,
                                password, salt, iv)
   Wallet(
