@@ -1,0 +1,314 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Infura guide - The Nimbus Beacon Chain Book</title>
+        
+        
+
+
+        <!-- Custom HTML head -->
+        
+
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="spadina.html"><strong aria-hidden="true">3.</strong> Become a Spadina validator</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">4.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="medalla-troubleshooting.html"><strong aria-hidden="true">5.</strong> Troubleshooting Medalla</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">6.</strong> Running the beacon node</a></li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">7.</strong> Metrics and pretty pictures</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">8.</strong> API</a></li><li class="chapter-item expanded affix "><li class="part-title">Advanced</li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">9.</strong> For developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">10.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">11.</strong> Generating your keys with NBC</a></li><li class="chapter-item expanded affix "><li class="part-title">Misc</li><li class="chapter-item expanded "><a href="infura-guide.html" class="active"><strong aria-hidden="true">12.</strong> Infura guide</a></li><li class="chapter-item expanded "><strong aria-hidden="true">13.</strong> Windows users</li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">14.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">15.</strong> Contribute</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">The Nimbus Beacon Chain Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#supplying-your-own-infura-endpoint" id="supplying-your-own-infura-endpoint">Supplying your own Infura endpoint</a></h1>
+<p>In a nutshell, Infura is a hosted ethereum node cluster that lets you make requests to the eth1 blockchain without requiring you to set up your own eth1 node.</p>
+<p>While we do support Infura to process incoming validator deposits, we recommend running your own eth1 node to avoid relying on a third-party-service.</p>
+<blockquote>
+<p><strong>Note:</strong> Nimbus currently supports remote Infura nodes and <a href="https://gist.github.com/onqtam/aaf883d46f4dab1311ca9c160df12fe4">local Geth archive nodes</a>. However we are working on relaxing that assumption (an archive node certainly won't be required for mainnet). In the future, we plan on having our own eth1 client -- <a href="https://github.com/status-im/nimbus">Nimbus 1</a> -- be the recommended default.</p>
+</blockquote>
+<h2><a class="header" href="#how-it-works" id="how-it-works">How it works</a></h2>
+<p>When you join an eth2 testnet by running <code>make spadina</code> or <code>make medalla</code>, the beacon node actually launches with an Infura endpoint supplied by us. </p>
+<p>This endpoint is passed through the <code>web3-url</code> option (which takes as input the url of the web3 server from which you'd like to observe the eth1 chain).</p>
+<p>If you look at the initial logs you should see something similar to the following:</p>
+<pre><code>DBG 2020-09-29 12:15:41.969+02:00 Launching beacon node
+topics=&quot;beacnde&quot; tid=8941404 file=beacon_node.nim:1190 version=&quot;0.5.0 (78ceeed8)&quot; bls_backend=BLST 
+cmdParams=&quot;@[
+\&quot;--network=spadina\&quot;,
+\&quot;--log-level=DEBUG\&quot;,
+\&quot;--log-file=build/data/shared_spadina_0/nbc_bn_20200929121541.log\&quot;,
+\&quot;--data-dir=build/data/shared_spadina_0\&quot;,
+\&quot;--web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a\&quot;,
+\&quot;--tcp-port=9000\&quot;,
+\&quot;--udp-port=9000\&quot;,
+\&quot;--metrics\&quot;,
+\&quot;--metrics-port=8008\&quot;,
+\&quot;--rpc\&quot;,
+\&quot;--rpc-port=9190\&quot;
+]&quot;
+...
+</code></pre>
+<p>This allows us to deduce that the default endpoint is given by: </p>
+<pre><code>--web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a\&quot;
+</code></pre>
+<h2><a class="header" href="#potential-problems" id="potential-problems">Potential problems</a></h2>
+<p>Because Infura caps the requests per endpoint per day to 100k, and all Nimbus nodes use the same Infura endpoint by default, it can happen that our Infura endpoint is overloaded (i.e the requests on a given day reach the 100k limit). If this happens, all requests to Infura using the default endpoint will fail, which means your node will stop processing new deposits.</p>
+<p>To know if our endpoint has reached its limit for the day, keep your eye out for error messages that look like the following:</p>
+<pre><code>ERR 2020-09-29 14:04:33.313+02:00 Mainchain monitor failure, restarting      tid=8941404 
+file=mainchain_monitor.nim:812 err=&quot;{\&quot;code\&quot;:-32005,
+\&quot;data\&quot;:{\&quot;rate\&quot;:{\&quot;allowed_rps\&quot;:1,
+\&quot;backoff_seconds\&quot;:24,
+\&quot;current_rps\&quot;:22.5},
+\&quot;see\&quot;:\&quot;https://infura.io/dashboard\&quot;},
+\&quot;message\&quot;:\&quot;daily request count exceeded, request rate limited\&quot;}&quot;
+</code></pre>
+<p>To get around this problem, we recommend launching the beacon node with your own endpoint.</p>
+<h2><a class="header" href="#supplying-your-own-endpoint" id="supplying-your-own-endpoint">Supplying your own endpoint</a></h2>
+<blockquote>
+<p><strong>Note:</strong> In a previous version of the software it wasn't possible to manually override the web3 endpoint when running <code>make spadina</code> or <code>make medalla</code>. For the instructions below to work, make sure you've updated to the latest version of the software (run <code>git pull &amp;&amp; make update</code> from the <code>master</code> branch of the <code>nim-beacon-chain</code> repository).</p>
+</blockquote>
+<h3><a class="header" href="#1-visit-infuraio" id="1-visit-infuraio">1. Visit Infura.io</a></h3>
+<p>Go to:</p>
+<p><a href="https://infura.io/">https://infura.io/</a> </p>
+<p>and click on <code>Get Started For Free</code></p>
+<p><img src="https://i.imgur.com/BtStgup.png" alt="" /></p>
+<h3><a class="header" href="#2-sign-up" id="2-sign-up">2. Sign up</a></h3>
+<p>Enter your email address and create a password</p>
+<p><img src="https://i.imgur.com/al1OsdR.png" alt="" /></p>
+<h3><a class="header" href="#3-verify-email-address" id="3-verify-email-address">3. Verify email address</a></h3>
+<p>You should have received an email from Infura in your inbox. Open up it up and click on <code>Confirm Email Address</code></p>
+<p><img src="https://i.imgur.com/EAD8ZhV.png" alt="" /></p>
+<h3><a class="header" href="#4-go-to-dashboard" id="4-go-to-dashboard">4. Go to dashboard</a></h3>
+<p>This will take you to your Infura dashboard (https://infura.io/dashboard/)</p>
+<p><img src="https://i.imgur.com/LuNcoYr.png" alt="" /></p>
+<h3><a class="header" href="#5-create-your-first-project" id="5-create-your-first-project">5. Create your first project</a></h3>
+<p>Click on the first option (<code>create your first project</code>) under <code>Let's Get Started</code></p>
+<p><img src="https://i.imgur.com/wBAGhcs.png" alt="" /></p>
+<p>Choose a name for your project</p>
+<p><img src="https://i.imgur.com/yr5vnSo.png" alt="" /></p>
+<p>You'll be directed to the settings page of your newly created project</p>
+<p><img src="https://i.imgur.com/kx3R8XS.png" alt="" /></p>
+<h3><a class="header" href="#6-view-görli-endpoints" id="6-view-görli-endpoints">6. View Görli endpoints</a></h3>
+<p>In the <code>KEYS</code> section, click on the dropdown menu to the right of <code>ENDPOINTS</code>, and select <code>GÖRLI</code></p>
+<p><img src="https://i.imgur.com/D9186kv.png" alt="" /></p>
+<h3><a class="header" href="#7-copy-the-websocket-endpoint" id="7-copy-the-websocket-endpoint">7. Copy the websocket endpoint</a></h3>
+<p>Copy the address that starts with <code>wss://</code></p>
+<p><img src="https://i.imgur.com/fZ6Bcjy.png" alt="" /></p>
+<blockquote>
+<p>⚠️ <strong>Warning:</strong> make sure you've copied the endpoint that starts with<code>wss</code> (websocket), and not the <code>https</code> endpoint.</p>
+</blockquote>
+<h3><a class="header" href="#8-run-the-beacon-node" id="8-run-the-beacon-node">8. Run the beacon node</a></h3>
+<p>Run the beacon node on your favourite testnet, pasting in your websocket endpoint as the input to the <code>web3-url</code> option.</p>
+<pre><code>make NODE_PARAMS=&quot;--web3-url=wss://goerli.infura.io/ws/v3/83b9d67f81ca401b8f9651441b43f29e&quot;
+&lt;TESTNET_NAME&gt;
+</code></pre>
+<blockquote>
+<p>Remember to replace &lt;TESTNET_NAME&gt; with either <code>medalla</code> or <code>spadina</code>.</p>
+</blockquote>
+<h3><a class="header" href="#9-check-stats" id="9-check-stats">9. Check stats</a></h3>
+<p>Visit your project's stats page to see a summary of your eth1 related activity and method calls </p>
+<p><img src="https://i.imgur.com/MZVTHHV.png" alt="" /></p>
+<p>That's all there is to it :)</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="create_wallet_and_deposit.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="faq.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="create_wallet_and_deposit.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="faq.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>
