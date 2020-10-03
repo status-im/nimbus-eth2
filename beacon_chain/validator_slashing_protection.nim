@@ -440,14 +440,14 @@ proc checkSlashableAttestationImpl(
   )
 
   if maybeLL.isNone:
-    info "No slashing protection data - first attestation?",
+    info "No slashing protection data - first block proposal?",
       validator = validator,
       attSource = source,
       attTarget = target
     return ok()
   let ll = maybeLL.unsafeGet()
   if not ll.targetEpochs.isInit:
-    info "No attestation slashing protection data - first attestation?",
+    info "No block slashing protection data - first block proposal?",
       validator = validator,
       attSource = source,
       attTarget = target
