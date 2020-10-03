@@ -216,13 +216,6 @@ type
 logScope:
   topics = "antislash"
 
-const UseSlashingProtection* {.booldefine.} = true
-
-when UseSlashingProtection:
-  static: echo "  Built with slashing protection"
-else:
-  static: echo "  Built without slashing protection"
-
 func subkey(
        kind: static SlashingKeyKind,
        validator: ValID,
@@ -346,13 +339,11 @@ proc init*(
        T: type SlashingProtectionDB,
        genesis_validator_root: Eth2Digest,
        backend: KVStoreRef): SlashingProtectionDB =
-  when UseSlashingProtection:
-    result = T(backend: backend)
-    result.setGenesis(genesis_validator_root)
+  result = T(backend: backend)
+  result.setGenesis(genesis_validator_root)
 
 proc close*(db: SlashingProtectionDB) =
-  when UseSlashingProtection:
-    discard db.backend.close()
+  discard db.backend.close()
 
 # DB Queries
 # --------------------------------------------
@@ -390,12 +381,9 @@ proc checkSlashableBlockProposal*(
   ##
   ## Returns success otherwise
   # TODO distinct type for the result block root
-  when UseSlashingProtection:
-    checkSlashableBlockProposalImpl(
-      db, validator, slot
-    )
-  else:
-    ok()
+  checkSlashableBlockProposalImpl(
+    db, validator, slot
+  )
 
 proc checkSlashableAttestationImpl(
        db: SlashingProtectionDB,
@@ -545,12 +533,9 @@ proc checkSlashableAttestation*(
   ##
   ## Returns success otherwise
   # TODO distinct type for the result attestation root
-  when UseSlashingProtection:
-    checkSlashableAttestationImpl(
-      db, validator, source, target
-    )
-  else:
-    ok()
+  checkSlashableAttestationImpl(
+    db, validator, source, target
+  )
 
 # DB update
 # --------------------------------------------
@@ -714,12 +699,9 @@ proc registerBlock*(
   ## Add a block to the slashing protection DB
   ## `checkSlashableBlockProposal` MUST be run
   ## before to ensure no overwrite.
-  when UseSlashingProtection:
-    registerBlockImpl(
-      db, validator, slot, block_root
-    )
-  else:
-    discard
+  registerBlockImpl(
+    db, validator, slot, block_root
+  )
 
 proc registerAttestationImpl(
        db: SlashingProtectionDB,
@@ -878,12 +860,9 @@ proc registerAttestation*(
   ## Add an attestation to the slashing protection DB
   ## `checkSlashableAttestation` MUST be run
   ## before to ensure no overwrite.
-  when UseSlashingProtection:
-    registerAttestationImpl(
-      db, validator, source, target, attestation_root
-    )
-  else:
-    discard
+  registerAttestationImpl(
+    db, validator, source, target, attestation_root
+  )
 
 # Debug tools
 # --------------------------------------------

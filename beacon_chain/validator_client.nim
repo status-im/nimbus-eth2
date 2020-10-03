@@ -299,12 +299,11 @@ programMain:
       vc.beaconGenesis = waitFor vc.client.get_v1_beacon_genesis()
       vc.beaconClock = BeaconClock.init(vc.beaconGenesis.genesis_time)
 
-    when UseSlashingProtection:
-      vc.attachedValidators.slashingProtection =
-        SlashingProtectionDB.init(
-          vc.beaconGenesis.genesis_validators_root,
-          kvStore SqStoreRef.init(config.validatorsDir(), "slashing_protection").tryGet()
-        )
+    vc.attachedValidators.slashingProtection =
+      SlashingProtectionDB.init(
+        vc.beaconGenesis.genesis_validators_root,
+        kvStore SqStoreRef.init(config.validatorsDir(), "slashing_protection").tryGet()
+      )
 
     let
       curSlot = vc.beaconClock.now().slotOrZero()
