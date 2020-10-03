@@ -403,7 +403,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
       node.attachedValidators
           .slashingProtection
           .registerAttestation(
-            a.validator.public_key,
+            a.validator.pubkey,
             a.data.source.epoch,
             a.data.target.epoch,
             signing_root
