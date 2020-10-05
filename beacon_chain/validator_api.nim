@@ -27,7 +27,7 @@ type
 
 logScope: topics = "valapi"
 
-proc  toBlockSlot(blckRef: BlockRef): BlockSlot =
+proc toBlockSlot(blckRef: BlockRef): BlockSlot =
   blckRef.atSlot(blckRef.slot)
 
 proc parseRoot(str: string): Eth2Digest =
@@ -39,6 +39,10 @@ proc parsePubkey(str: string): ValidatorPubKey =
     raise newException(CatchableError, "Not a valid public key")
   return pubkeyRes[]
 
+func checkEpochToSlotOverflow(e: Epoch) =
+  if e.compute_start_slot_at_epoch.epoch != e:
+    raise newException(CatchableError, "epoch too big - will trigger overflow when converting to slot!")
+
 proc doChecksAndGetCurrentHead(node: BeaconNode, slot: Slot): BlockRef =
   result = node.chainDag.head
   if not node.isSynced(result):
@@ -48,6 +52,7 @@ proc doChecksAndGetCurrentHead(node: BeaconNode, slot: Slot): BlockRef =
     raise newException(CatchableError, "Requesting way ahead of the current head")
 
 proc doChecksAndGetCurrentHead(node: BeaconNode, epoch: Epoch): BlockRef =
+  checkEpochToSlotOverflow(epoch)
   node.doChecksAndGetCurrentHead(epoch.compute_start_slot_at_epoch)
 
 # TODO currently this function throws if the validator isn't found - is this OK?
@@ -229,6 +234,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("get_v1_beacon_states_stateId_committees_epoch") do (
       stateId: string, epoch: uint64, index: uint64, slot: uint64) ->
       seq[BeaconStatesCommitteesTuple]:
+    checkEpochToSlotOverflow(epoch.Epoch)
     withStateForStateId(stateId):
       proc getCommittee(slot: Slot, index: CommitteeIndex): BeaconStatesCommitteesTuple =
         let vals = get_beacon_committee(state, slot, index, cache).mapIt(it.uint64)
