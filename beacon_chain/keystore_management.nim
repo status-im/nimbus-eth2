@@ -549,7 +549,7 @@ proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
          "installation and can be changed at any time."
   echo ""
 
-  let password =
+  var password =
     block:
       let prompt = "Please enter a password: "
       let confirm = "Please repeat the password: "
@@ -600,12 +600,10 @@ proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
     let status = saveWallet(wallet, outWalletFile)
     if status.isErr:
       burnMem(password)
-      burnMem(confirmedPassword)
       return err("failure to create wallet file due to " & status.error)
 
     info "Wallet file written", path = outWalletFile
     burnMem(password)
-    burnMem(confirmedPassword)
     return ok WalletPathPair(wallet: wallet, path: outWalletFile)
 
 proc createWalletInteractively*(
