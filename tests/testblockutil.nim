@@ -122,6 +122,9 @@ proc addTestBlock*(
       graffiti,
       attestations,
       deposits,
+      @[],
+      @[],
+      @[],
       noRollback,
       cache)
 

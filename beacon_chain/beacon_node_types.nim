@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[deques, sets, streams, tables],
+  std/[sets, streams, tables],
   stew/endians2,
   spec/[datatypes, digest, crypto],
   block_pools/block_pools_types,
@@ -75,13 +75,14 @@ type
     ## The exit pool tracks attester slashings, proposer slashings, and
     ## voluntary exits that could be added to a proposed block.
 
-    attester_slashings*: Deque[AttesterSlashing]  ## \
+    attester_slashings*:
+      OrderedTable[(seq[uint64], seq[uint64]), AttesterSlashing]  ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
 
-    proposer_slashings*: Deque[ProposerSlashing]  ## \
+    proposer_slashings*: OrderedTable[uint64, ProposerSlashing]  ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
 
-    voluntary_exits*: Deque[SignedVoluntaryExit]  ## \
+    voluntary_exits*: OrderedTable[uint64, SignedVoluntaryExit]  ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
 
     prior_seen_attester_slashed_indices*: HashSet[ValidatorIndex] ##\

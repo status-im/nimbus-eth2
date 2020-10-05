@@ -75,8 +75,11 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + addExitMessage/getAttesterSlashingMessage                                                  OK
 + addExitMessage/getProposerSlashingMessage                                                  OK
 + addExitMessage/getVoluntaryExitMessage                                                     OK
++ addExitMessage/removeExitMessage/getAttesterSlashingMessages                               OK
++ addExitMessage/removeExitMessage/getProposerSlashingMessages                               OK
++ addExitMessage/removeExitMessage/getVoluntaryExitMessages                                  OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Fork Choice + Finality  [Preset: mainnet]
 ```diff
 + fork_choice - testing finality #01                                                         OK
@@ -281,4 +284,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 151/159 Fail: 0/159 Skip: 8/159
+OK: 154/162 Fail: 0/162 Skip: 8/162

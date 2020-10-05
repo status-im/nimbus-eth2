@@ -126,6 +126,7 @@ proc storeBlock(
   let
     start = Moment.now()
     attestationPool = self.attestationPool
+    exitPool = self.exitPool
 
   let blck = self.chainDag.addRawBlock(self.quarantine, signedBlock) do (
       blckRef: BlockRef, signedBlock: SignedBeaconBlock,
@@ -133,6 +134,8 @@ proc storeBlock(
     # Callback add to fork choice if valid
     attestationPool[].addForkChoice(
       epochRef, blckRef, signedBlock.message, wallSlot)
+    # Don't broadcast duplicates of any exit messages
+    exitPool[].removeBeaconBlockIncludedMessages(signedBlock.message.body)
 
   self.dumpBlock(signedBlock, blck)
 

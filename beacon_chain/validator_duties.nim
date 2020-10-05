@@ -21,7 +21,7 @@ import
   spec/[datatypes, digest, crypto, helpers, validator, network, signatures],
   spec/state_transition,
   conf, time, validator_pool,
-  attestation_pool, block_pools/[spec_cache, chain_dag, clearance],
+  attestation_pool, exit_pool, block_pools/[spec_cache, chain_dag, clearance],
   eth2_network, keystore_management, beacon_node_common, beacon_node_types,
   nimbus_binary_common, mainchain_monitor, version, ssz/merkleization, interop,
   attestation_aggregation, sync_manager, sszdump,
@@ -237,6 +237,9 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       graffiti,
       node.attestationPool[].getAttestationsForBlock(state, cache),
       deposits,
+      node.exitPool[].getProposerSlashingsForBlock(),
+      node.exitPool[].getAttesterSlashingsForBlock(),
+      node.exitPool[].getVoluntaryExitsForBlock(),
       restore,
       cache)
 
@@ -262,6 +265,8 @@ proc proposeSignedBlock*(node: BeaconNode,
     node.attestationPool[].addForkChoice(
       epochRef, blckRef, signedBlock.message,
       node.beaconClock.now().slotOrZero())
+    # Don't broadcast duplicates of any exit messages
+    node.exitPool[].removeBeaconBlockIncludedMessages(signedBlock.message.body)
 
   if newBlockRef.isErr:
     warn "Unable to add proposed block to block pool",
