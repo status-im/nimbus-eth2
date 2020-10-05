@@ -89,7 +89,11 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
           res = Result[void, BlockError].ok()
 
         if res.isOk():
-          peer.updateScore(PeerScoreGoodBlocks)
+          if len(ublocks) > 0:
+            peer.updateScore(PeerScoreGoodBlocks)
+          else:
+            # Peer returned empty response
+            peer.updateScore(PeerScoreNoBlocks)
         else:
           # We are not penalizing other errors because of the reasons described
           # above.
