@@ -39,9 +39,11 @@ proc parsePubkey(str: string): ValidatorPubKey =
     raise newException(CatchableError, "Not a valid public key")
   return pubkeyRes[]
 
-func checkEpochToSlotOverflow(e: Epoch) =
-  if e.compute_start_slot_at_epoch.epoch != e:
-    raise newException(CatchableError, "epoch too big - will trigger overflow when converting to slot!")
+func checkEpochToSlotOverflow(epoch: Epoch) =
+  const maxEpoch = compute_epoch_at_slot(not 0'u64)
+  if epoch >= maxEpoch:
+    raise newException(
+      CatchableError, "Requesting epoch for which slot would overflow")
 
 proc doChecksAndGetCurrentHead(node: BeaconNode, slot: Slot): BlockRef =
   result = node.chainDag.head
