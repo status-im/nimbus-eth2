@@ -79,7 +79,7 @@ jobs:
         shell: bash
         run: |
           echo "##[set-output name=branch_name;]$(echo ${GITHUB_REF#refs/heads/})"
-          echo "Branch found: ${{ steps.get_branch.outputs.branch_name }}"
+          echo "Branch found: ${GITHUB_REF#refs/heads/}"
         id: get_branch
 
       - name: Cancel Previous Runs (except master/devel)
