@@ -19,6 +19,7 @@ export
   results, burnMem, writeValue, readValue
 
 {.push raises: [Defect].}
+{.localPassC: "-fno-lto".} # no LTO for crypto
 
 type
   ChecksumFunctionKind* = enum
