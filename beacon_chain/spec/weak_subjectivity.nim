@@ -1,25 +1,10 @@
 import
-  strutils,
   datatypes, digest, helpers
 
 {.push raises: [Defect].}
 
 const
   SAFETY_DECAY* = 10'u64
-
-type
-  WeakSubjectivityCheckpoint* = object
-    root*: Eth2Digest
-    epoch*: Epoch
-
-func init*(T: type WeakSubjectivityCheckpoint, str: TaintedString): T
-          {.raises: [ValueError, Defect].} =
-  let sepIdx = find(str.string, ':')
-  if sepIdx == -1:
-    raise newException(ValueError,
-      "The weak subjectivity checkpoint must be provided in the `block_root:epoch_number` format")
-  T(root: Eth2Digest.fromHex(str[0 ..< sepIdx]),
-    epoch: parseBiggestUInt(str[sepIdx .. ^1]).Epoch)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/weak-subjectivity.md#calculating-the-weak-subjectivity-period
 func compute_weak_subjectivity_period*(state: BeaconState): uint64 =
@@ -34,7 +19,7 @@ func compute_weak_subjectivity_period*(state: BeaconState): uint64 =
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/weak-subjectivity.md#checking-for-stale-weak-subjectivity-checkpoint
 func is_within_weak_subjectivity_period*(current_slot: Slot,
                                          ws_state: BeaconState,
-                                         ws_checkpoint: WeakSubjectivityCheckpoint): bool =
+                                         ws_checkpoint: Checkpoint): bool =
   # Clients may choose to validate the input state against the input Weak Subjectivity Checkpoint
   doAssert ws_state.latest_block_header.state_root == ws_checkpoint.root
   doAssert compute_epoch_at_slot(ws_state.slot) == ws_checkpoint.epoch

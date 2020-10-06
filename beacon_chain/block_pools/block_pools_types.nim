@@ -98,6 +98,9 @@ type
     ## Directed acyclic graph of blocks pointing back to a finalized block on the chain we're
     ## interested in - we call that block the tail
 
+    genesis*: BlockRef ##\
+    ## The genesis block of the network
+
     tail*: BlockRef ##\
     ## The earliest finalized block we know about
 

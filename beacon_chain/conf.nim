@@ -1,12 +1,12 @@
 {.push raises: [Defect].}
 
 import
-  os, options, unicode,
+  strutils, os, options, unicode,
   chronicles, chronicles/options as chroniclesOptions,
   confutils, confutils/defs, confutils/std/net, stew/shims/net as stewNet,
   stew/io2, unicodedb/properties, normalize,
   json_serialization, web3/[ethtypes, confutils_defs],
-  spec/[crypto, keystore, digest, datatypes, network, weak_subjectivity],
+  spec/[crypto, keystore, digest, datatypes, network],
   network_metadata
 
 export
@@ -144,7 +144,7 @@ type
 
       weakSubjectivityCheckpoint* {.
         desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
-        name: "weak-subjectivity-checkpoint" }: Option[WeakSubjectivityCheckpoint]
+        name: "weak-subjectivity-checkpoint" }: Option[Checkpoint]
 
       finalizedCheckpointState* {.
         desc: "SSZ file specifying a recent finalized state"
@@ -463,11 +463,16 @@ func parseCmdArg*(T: type GraffitiBytes, input: TaintedString): T
 func completeCmdArg*(T: type GraffitiBytes, input: TaintedString): seq[string] =
   return @[]
 
-func parseCmdArg*(T: type WeakSubjectivityCheckpoint, input: TaintedString): T
+func parseCmdArg*(T: type Checkpoint, input: TaintedString): T
                  {.raises: [ValueError, Defect].} =
-  init(T, input)
+  let sepIdx = find(input.string, ':')
+  if sepIdx == -1:
+    raise newException(ValueError,
+      "The weak subjectivity checkpoint must be provided in the `block_root:epoch_number` format")
+  T(root: Eth2Digest.fromHex(input[0 ..< sepIdx]),
+    epoch: parseBiggestUInt(input[sepIdx .. ^1]).Epoch)
 
-func completeCmdArg*(T: type WeakSubjectivityCheckpoint, input: TaintedString): seq[string] =
+func completeCmdArg*(T: type Checkpoint, input: TaintedString): seq[string] =
   return @[]
 
 proc isPrintable(rune: Rune): bool =
