@@ -21,17 +21,22 @@ export beacon_node_types, sets
 
 logScope: topics = "exitpool"
 
+const
+  ATTESTER_SLASHINGS_BOUND = MAX_ATTESTER_SLASHINGS * 2
+  PROPOSER_SLASHINGS_BOUND = MAX_PROPOSER_SLASHINGS * 2
+  VOLUNTARY_EXITS_BOUND = MAX_VOLUNTARY_EXITS * 2
+
 proc init*(
     T: type ExitPool, chainDag: ChainDAGRef, quarantine: QuarantineRef): T =
   ## Initialize an ExitPool from the chainDag `headState`
   T(
     # Allow for filtering out some exit messages during block production
     attester_slashings:
-      initDeque[AttesterSlashing](initialSize = MAX_ATTESTER_SLASHINGS.int*2),
+      initDeque[AttesterSlashing](initialSize = ATTESTER_SLASHINGS_BOUND.int),
     proposer_slashings:
-      initDeque[ProposerSlashing](initialSize = MAX_PROPOSER_SLASHINGS.int*2),
+      initDeque[ProposerSlashing](initialSize = PROPOSER_SLASHINGS_BOUND.int),
     voluntary_exits:
-      initDeque[SignedVoluntaryExit](initialSize = MAX_VOLUNTARY_EXITS.int*2),
+      initDeque[SignedVoluntaryExit](initialSize = VOLUNTARY_EXITS_BOUND.int),
     chainDag: chainDag,
     quarantine: quarantine
    )
@@ -151,7 +156,7 @@ proc validateAttesterSlashing*(
 
   pool.prior_seen_attester_slashed_indices.incl attester_slashed_indices
   pool.attester_slashings.addExitMessage(
-    attester_slashing, MAX_ATTESTER_SLASHINGS)
+    attester_slashing, ATTESTER_SLASHINGS_BOUND)
 
   ok(true)
 
@@ -181,7 +186,7 @@ proc validateProposerSlashing*(
   pool.prior_seen_proposer_slashed_indices.incl(
     proposer_slashing.signed_header_1.message.proposer_index)
   pool.proposer_slashings.addExitMessage(
-    proposer_slashing, MAX_PROPOSER_SLASHINGS)
+    proposer_slashing, PROPOSER_SLASHINGS_BOUND)
 
   ok(true)
 
@@ -214,6 +219,6 @@ proc validateVoluntaryExit*(
   pool.prior_seen_voluntary_exit_indices.incl(
     signed_voluntary_exit.message.validator_index)
   pool.voluntary_exits.addExitMessage(
-    signed_voluntary_exit, MAX_VOLUNTARY_EXITS)
+    signed_voluntary_exit, VOLUNTARY_EXITS_BOUND)
 
   ok(true)
