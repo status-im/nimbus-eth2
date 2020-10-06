@@ -234,7 +234,7 @@ proc init*(T: type BeaconNode,
     #      monitor
     mainchainMonitor.start()
 
-  let rpcServer = if conf.rpcEnabled:
+  let rpcServer = if conf.rpcEnabled and useInsecureFeatures:
     RpcServer.init(conf.rpcAddress, conf.rpcPort)
   else:
     nil
