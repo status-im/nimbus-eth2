@@ -1,6 +1,6 @@
 import
   std/[os, strutils, terminal, wordwrap, unicode],
-  chronicles, chronos, web3, stint, json_serialization,
+  chronicles, chronos, web3, stint, json_serialization, zxcvbn,
   serialization, blscurve, eth/common/eth_types, eth/keys, confutils, bearssl,
   spec/[datatypes, digest, crypto, keystore],
   stew/[byteutils, io2], libp2p/crypto/crypto as lcrypto,
@@ -31,6 +31,7 @@ type
 
 const
   minPasswordLen = 12
+  minPasswordEntropy = 60.0
 
   mostCommonPasswords = wordListArray(
     currentSourcePath.parentDir /
@@ -164,6 +165,11 @@ proc keyboardCreatePassword(prompt: string, confirm: string): KsResult[string] =
         echoP "The entered password should be at least " & $minPasswordLen &
               " characters."
         echo ""
+        continue
+      elif passwordEntropy(password) < minPasswordEntropy:
+        echoP "The entered password has low entropy and may be easy to " &
+              "brute-force with automated tools. Please increase the " &
+              "variety of the user characters."
         continue
       elif password in mostCommonPasswords:
         echoP "The entered password is too commonly used and it would be " &

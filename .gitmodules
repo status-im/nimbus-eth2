@@ -193,3 +193,8 @@
 	url = https://github.com/nitely/nim-normalize.git
 	ignore = dirty
 	branch = master
+[submodule "vendor/nim-zxcvbn"]
+	path = vendor/nim-zxcvbn
+	url = https://github.com/status-im/nim-zxcvbn.git
+	ignore = dirty
+	branch = master
