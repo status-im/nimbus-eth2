@@ -294,8 +294,8 @@ medalla: | beacon_node signing_process
 medalla-vc: | beacon_node signing_process validator_client
 	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,medalla)
 
-medalla-fast-sync: | beacon_node
-	$(call connect_to_network,medalla,FastSync)
+medalla-fast-sync: | beacon_node signing_process
+	$(call CONNECT_TO_NETWORK,medalla,FastSync)
 
 ifneq ($(LOG_LEVEL), TRACE)
 medalla-dev:
