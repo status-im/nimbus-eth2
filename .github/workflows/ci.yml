@@ -77,7 +77,9 @@ jobs:
     steps:
       - name: Get branch name
         shell: bash
-        run: echo "##[set-output name=branch_name;]$(echo ${GITHUB_REF#refs/heads/})"
+        run: |
+          echo "##[set-output name=branch_name;]$(echo ${GITHUB_REF#refs/heads/})"
+          echo "Branch found: ${{ steps.get_branch.outputs.branch_name }}"
         id: get_branch
 
       - name: Cancel Previous Runs (except master/devel)
