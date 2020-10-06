@@ -36,7 +36,8 @@ requires "nim >= 0.19.0",
   "prompt",
   "unicodedb",
   "web3",
-  "yaml"
+  "yaml",
+  "zxcvbn"
 
 ### Helper functions
 proc buildAndRunBinary(name: string, srcDir = "./", params = "", cmdParams = "", lang = "c") =
