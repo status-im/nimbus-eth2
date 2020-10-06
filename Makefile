@@ -190,8 +190,9 @@ testnet0 testnet1: | beacon_node signing_process
 		--data-dir=build/data/$@_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
-# https://www.gnu.org/software/make/manual/html_node/Multi_002dLine.html
-define CONNECT_TO_NETWORK =
+#- https://www.gnu.org/software/make/manual/html_node/Multi_002dLine.html
+#- macOS doesn't support "=" at the end of "define FOO": https://stackoverflow.com/questions/13260396/gnu-make-3-81-eval-function-not-working
+define CONNECT_TO_NETWORK
 	$(MKDIR_COMMAND) build/data/shared_$(1)_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
@@ -207,7 +208,7 @@ define CONNECT_TO_NETWORK =
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 endef
 
-define CONNECT_TO_NETWORK_IN_DEV_MODE =
+define CONNECT_TO_NETWORK_IN_DEV_MODE
 	$(MKDIR_COMMAND) build/data/shared_$(1)_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
