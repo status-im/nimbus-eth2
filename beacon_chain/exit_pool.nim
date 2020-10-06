@@ -9,7 +9,7 @@
 
 import
   # Standard libraries
-  std/[options, sequtils, sets, tables],
+  std/[deques, options, sequtils, sets, tables],
   # Status libraries
   chronicles, json_serialization/std/sets as jsonSets,
   # Internal
@@ -25,69 +25,94 @@ proc init*(
     T: type ExitPool, chainDag: ChainDAGRef, quarantine: QuarantineRef): T =
   ## Initialize an ExitPool from the chainDag `headState`
   T(
+    # Allow for filtering out some exit messages during block production
     attester_slashings:
-      initOrderedTable[(seq[uint64], seq[uint64]), AttesterSlashing](
-        initialSize = tables.rightSize(MAX_ATTESTER_SLASHINGS.int + 1)),
+      initDeque[AttesterSlashing](initialSize = MAX_ATTESTER_SLASHINGS.int*2),
     proposer_slashings:
-      initOrderedTable[uint64, ProposerSlashing](
-        initialSize = tables.rightSize(MAX_PROPOSER_SLASHINGS.int + 1)),
+      initDeque[ProposerSlashing](initialSize = MAX_PROPOSER_SLASHINGS.int*2),
     voluntary_exits:
-      initOrderedTable[uint64, SignedVoluntaryExit](
-        initialSize = tables.rightSize(MAX_VOLUNTARY_EXITS.int + 1)),
+      initDeque[SignedVoluntaryExit](initialSize = MAX_VOLUNTARY_EXITS.int*2),
     chainDag: chainDag,
     quarantine: quarantine
    )
 
-func addExitMessage*[T, U](
-    subpool: var OrderedTable[T, U], exitMessageKey: T, exitMessage: U,
-    bound: uint64) =
-  subpool[exitMessageKey] = exitMessage
-
+func addExitMessage*(subpool: var auto, exitMessage, bound: auto) =
   # Prefer newer to older exit messages
-  if subpool.lenu64 > bound:
-    let excess = subpool.lenu64 - bound
-    var delKeys: seq[T]
-    for k in subpool.keys():
-      delKeys.add k
-      if delKeys.lenu64 >= excess:
-        break
-    for k in delKeys:
-      subpool.del k
+  while subpool.lenu64 >= bound:
+    discard subpool.popFirst()
 
+  subpool.addLast(exitMessage)
   doAssert subpool.lenu64 <= bound
 
-func getExitMessagesForBlock[T, U](
-    subpool: var OrderedTable[T, U], bound: uint64): seq[U] =
-  var resultKeys: seq[T]
+iterator getValidatorIndices(attester_slashing: AttesterSlashing): uint64 =
+  # TODO rely on sortedness and do this sans memory allocations, but it's only
+  # when producing a beacon block, which is rare bottlenecked elsewhere.
+  let
+    attestation_1_indices =
+      attester_slashing.attestation_1.attesting_indices.asSeq
+    attestation_2_indices =
+      attester_slashing.attestation_2.attesting_indices.asSeq
+    attester_slashed_indices =
+      toHashSet(attestation_1_indices) * toHashSet(attestation_2_indices)
 
-  for (k, msg) in subpool.pairs():
-    resultKeys.add k
-    result.add msg
-    if result.lenu64 >= bound:
+  for validator_index in attester_slashed_indices:
+    yield validator_index
+
+iterator getValidatorIndices(proposer_slashing: ProposerSlashing): uint64 =
+  yield proposer_slashing.signed_header_1.message.proposer_index
+
+iterator getValidatorIndices(voluntary_exit: SignedVoluntaryExit): uint64 =
+  yield voluntary_exit.message.validator_index
+
+# TODO stew/sequtils2
+template allIt(s, pred: untyped): bool =
+  # https://github.com/nim-lang/Nim/blob/version-1-2/lib/pure/collections/sequtils.nim#L640-L662
+  # without the items(...)
+  var result = true
+  for it {.inject.} in s:
+    if not pred:
+      result = false
+      break
+  result
+
+func getExitMessagesForBlock[T](
+    subpool: var Deque[T], pool: var ExitPool, bound: uint64): seq[T] =
+  while true:
+    if subpool.len == 0 or result.lenu64 >= bound:
       break
 
-  for k in resultKeys:
-    subpool.del k
+    # Prefer recent messages
+    let exit_message = subpool.popLast()
 
+    if allIt(
+        getValidatorIndices(exit_message),
+        pool.chainDag.headState.data.data.validators[it].exit_epoch !=
+          FAR_FUTURE_EPOCH):
+      # A beacon block exit message already targeted all these validators
+      continue
+
+    result.add exit_message
+
+  subpool.clear()
   doAssert result.lenu64 <= bound
 
 func getAttesterSlashingsForBlock*(pool: var ExitPool):
                                    seq[AttesterSlashing] =
   ## Retrieve attester slashings that may be added to a new block
-  getExitMessagesForBlock[(seq[uint64], seq[uint64]), AttesterSlashing](
-    pool.attester_slashings, MAX_ATTESTER_SLASHINGS)
+  getExitMessagesForBlock[AttesterSlashing](
+    pool.attester_slashings, pool, MAX_ATTESTER_SLASHINGS)
 
 func getProposerSlashingsForBlock*(pool: var ExitPool):
                                    seq[ProposerSlashing] =
   ## Retrieve proposer slashings that may be added to a new block
-  getExitMessagesForBlock[uint64, ProposerSlashing](
-    pool.proposer_slashings, MAX_PROPOSER_SLASHINGS)
+  getExitMessagesForBlock[ProposerSlashing](
+    pool.proposer_slashings, pool, MAX_PROPOSER_SLASHINGS)
 
 func getVoluntaryExitsForBlock*(pool: var ExitPool):
                                 seq[SignedVoluntaryExit] =
   ## Retrieve voluntary exits that may be added to a new block
-  getExitMessagesForBlock[uint64, SignedVoluntaryExit](
-    pool.voluntary_exits, MAX_VOLUNTARY_EXITS)
+  getExitMessagesForBlock[SignedVoluntaryExit](
+    pool.voluntary_exits, pool, MAX_VOLUNTARY_EXITS)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
@@ -98,15 +123,14 @@ proc validateAttesterSlashing*(
   # attester_slashed_indices = set(attestation_1.attesting_indices).intersection(attestation_2.attesting_indices),
   # verify if any(attester_slashed_indices.difference(prior_seen_attester_slashed_indices))).
   # TODO sequtils2 should be able to make this more reasonable, from asSeq on
-  # down
+  # down, and can sort and just find intersection that way
   let
     attestation_1_indices =
       attester_slashing.attestation_1.attesting_indices.asSeq
     attestation_2_indices =
       attester_slashing.attestation_2.attesting_indices.asSeq
     attester_slashed_indices =
-      toHashSet(mapIt(attestation_1_indices, it.ValidatorIndex)) *
-      toHashSet(mapIt(attestation_2_indices, it.ValidatorIndex))
+      toHashSet(attestation_1_indices) * toHashSet(attestation_2_indices)
 
   if not disjoint(
       attester_slashed_indices, pool.prior_seen_attester_slashed_indices):
@@ -126,8 +150,7 @@ proc validateAttesterSlashing*(
     return err((EVRESULT_REJECT, attester_slashing_validity.error))
 
   pool.prior_seen_attester_slashed_indices.incl attester_slashed_indices
-  addExitMessage[(seq[uint64], seq[uint64]), AttesterSlashing](
-    pool.attester_slashings, (attestation_1_indices, attestation_2_indices),
+  pool.attester_slashings.addExitMessage(
     attester_slashing, MAX_ATTESTER_SLASHINGS)
 
   ok(true)
@@ -139,7 +162,7 @@ proc validateProposerSlashing*(
   # [IGNORE] The proposer slashing is the first valid proposer slashing
   # received for the proposer with index
   # proposer_slashing.signed_header_1.message.proposer_index.
-  if proposer_slashing.signed_header_1.message.proposer_index.ValidatorIndex in
+  if proposer_slashing.signed_header_1.message.proposer_index in
       pool.prior_seen_proposer_slashed_indices:
     const err_str: cstring =
       "validateProposerSlashing: proposer-slashed index already proposer-slashed"
@@ -156,10 +179,8 @@ proc validateProposerSlashing*(
     return err((EVRESULT_REJECT, proposer_slashing_validity.error))
 
   pool.prior_seen_proposer_slashed_indices.incl(
-    proposer_slashing.signed_header_1.message.proposer_index.ValidatorIndex)
-  addExitMessage[uint64, ProposerSlashing](
-    pool.proposer_slashings,
-    proposer_slashing.signed_header_1.message.proposer_index,
+    proposer_slashing.signed_header_1.message.proposer_index)
+  pool.proposer_slashings.addExitMessage(
     proposer_slashing, MAX_PROPOSER_SLASHINGS)
 
   ok(true)
@@ -174,7 +195,7 @@ proc validateVoluntaryExit*(
       pool.chainDag.headState.data.data.validators.lenu64:
     const err_str: cstring = "validateVoluntaryExit: validator index too high"
     return err((EVRESULT_IGNORE, err_str))
-  if signed_voluntary_exit.message.validator_index.ValidatorIndex in
+  if signed_voluntary_exit.message.validator_index in
       pool.prior_seen_voluntary_exit_indices:
     const err_str: cstring = "validateVoluntaryExit: validator index already voluntarily exited"
     return err((EVRESULT_IGNORE, err_str))
@@ -191,28 +212,8 @@ proc validateVoluntaryExit*(
     return err((EVRESULT_REJECT, voluntary_exit_validity.error))
 
   pool.prior_seen_voluntary_exit_indices.incl(
-    signed_voluntary_exit.message.validator_index.ValidatorIndex)
-  addExitMessage[uint64, SignedVoluntaryExit](
-    pool.voluntary_exits, signed_voluntary_exit.message.validator_index,
+    signed_voluntary_exit.message.validator_index)
+  pool.voluntary_exits.addExitMessage(
     signed_voluntary_exit, MAX_VOLUNTARY_EXITS)
 
   ok(true)
-
-func removeBeaconBlockIncludedMessages*(
-    pool: var ExitPool, blockBody: BeaconBlockBody) =
-  # Once validated the REJECT conditions can't ever become true by other
-  # network actions. However, the IGNORE conditions can, so check. These
-  # are only run after a block is (effectively) resolved, so we keep the
-  # exit messages which might only have been picked up by nodes on other
-  # DAG branches.
-  for proposer_slashing in blockBody.proposer_slashings:
-    pool.proposer_slashings.del(
-      proposer_slashing.signed_header_1.message.proposer_index)
-
-  for attester_slashing in blockBody.attester_slashings:
-    pool.attester_slashings.del((
-      attester_slashing.attestation_1.attesting_indices.asSeq,
-      attester_slashing.attestation_2.attesting_indices.asSeq))
-
-  for signed_voluntary_exit in blockBody.voluntary_exits:
-    pool.voluntary_exits.del(signed_voluntary_exit.message.validator_index)

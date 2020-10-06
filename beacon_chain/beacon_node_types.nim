@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[sets, streams, tables],
+  std/[deques, sets, streams, tables],
   stew/endians2,
   spec/[datatypes, digest, crypto],
   block_pools/block_pools_types,
@@ -75,23 +75,22 @@ type
     ## The exit pool tracks attester slashings, proposer slashings, and
     ## voluntary exits that could be added to a proposed block.
 
-    attester_slashings*:
-      OrderedTable[(seq[uint64], seq[uint64]), AttesterSlashing]  ## \
+    attester_slashings*: Deque[AttesterSlashing]  ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
 
-    proposer_slashings*: OrderedTable[uint64, ProposerSlashing]  ## \
+    proposer_slashings*: Deque[ProposerSlashing]  ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
 
-    voluntary_exits*: OrderedTable[uint64, SignedVoluntaryExit]  ## \
+    voluntary_exits*: Deque[SignedVoluntaryExit]  ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
 
-    prior_seen_attester_slashed_indices*: HashSet[ValidatorIndex] ##\
+    prior_seen_attester_slashed_indices*: HashSet[uint64] ##\
     ## Records attester-slashed indices seen.
 
-    prior_seen_proposer_slashed_indices*: HashSet[ValidatorIndex] ##\
+    prior_seen_proposer_slashed_indices*: HashSet[uint64] ##\
     ## Records proposer-slashed indices seen.
 
-    prior_seen_voluntary_exit_indices*: HashSet[ValidatorIndex] ##\
+    prior_seen_voluntary_exit_indices*: HashSet[uint64] ##\
     ## Records voluntary exit indices seen.
 
     chainDag*: ChainDAGRef

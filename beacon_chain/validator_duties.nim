@@ -265,8 +265,6 @@ proc proposeSignedBlock*(node: BeaconNode,
     node.attestationPool[].addForkChoice(
       epochRef, blckRef, signedBlock.message,
       node.beaconClock.now().slotOrZero())
-    # Don't broadcast duplicates of any exit messages
-    node.exitPool[].removeBeaconBlockIncludedMessages(signedBlock.message.body)
 
   if newBlockRef.isErr:
     warn "Unable to add proposed block to block pool",
