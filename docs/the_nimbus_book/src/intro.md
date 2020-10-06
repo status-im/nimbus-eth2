@@ -22,7 +22,7 @@ In this book, we will cover:
 
 1. An [introduction](./intro.md#introduction) to the beacon chain, eth2, and Nimbus to equip you with some basic knowledge
 2. [Installation steps](./install.md) outlining the prerequisites to get started
-3. How to [become a Spadina validator](./spadina.md)
+3. How to [become a Zinken validator](./zinken.md)
 4. How to [become a Medalla validator](./medalla.md)
 5. [Troubleshooting Medalla](./medalla-troubleshooting.md)
 6. How to [run the beacon node](./beacon_node.md) software to sync the beacon chain
