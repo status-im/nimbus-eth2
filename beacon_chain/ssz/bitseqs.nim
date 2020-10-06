@@ -52,6 +52,17 @@ func add*(s: var BitSeq, value: bool) =
     s.Bytes[lastBytePos].changeBit 7, value
     s.Bytes.add byte(1)
 
+func toBytesLE(x: uint): array[sizeof(x), byte] =
+  # stew/endians2 supports explicitly sized uints only
+  when sizeof(uint) == 4:
+    static: doAssert sizeof(uint) == sizeof(uint32)
+    toBytesLE(x.uint32)
+  elif sizeof(uint) == 8:
+    static: doAssert sizeof(uint) == sizeof(uint64)
+    toBytesLE(x.uint64)
+  else:
+    static: doAssert false, "requires a 32-bit or 64-bit platform"
+
 func loadLEBytes(WordType: type, bytes: openarray[byte]): WordType =
   # TODO: this is a temporary proc until the endians API is improved
   var shift = 0
