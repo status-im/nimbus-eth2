@@ -78,7 +78,7 @@ jobs:
       - name: Get branch name
         shell: bash
         run: |
-          if [[ '${{  github.event_name }}' == 'pull_request']]; then
+          if [[ '${{  github.event_name }}' == 'pull_request' ]]; then
             echo "##[set-output name=branch_name;]$(echo ${GITHUB_HEAD_REF})"
             echo "Branch found (PR): ${GITHUB_HEAD_REF}"
           else
