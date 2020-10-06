@@ -300,9 +300,21 @@ proc init*(T: type ChainDAGRef,
     tailRef = BlockRef.init(tailRoot, tailBlock.message)
     headRoot = headBlockRoot.get()
 
+  let genesisRef = if tailBlock.message.slot == GENESIS_SLOT:
+    tailRef
+  else:
+    let
+      genesisBlockRoot = db.getGenesisBlockRoot()
+      genesisBlock = db.getBlock(genesisBlockRoot).expect(
+        "preInit should have initialized the database with a genesis block")
+    BlockRef.init(genesisBlockRoot, genesisBlock.message)
+
   var
     blocks = {tailRef.root: tailRef}.toTable()
     headRef: BlockRef
+
+  if genesisRef != tailRef:
+    blocks[genesisRef.root] = genesisRef
 
   if headRoot != tailRoot:
     var curRef: BlockRef
@@ -363,6 +375,7 @@ proc init*(T: type ChainDAGRef,
     blocks: blocks,
     tail: tailRef,
     head: headRef,
+    genesis: genesisRef,
     db: db,
     heads: @[headRef],
     headState: tmpState[],
@@ -892,13 +905,7 @@ proc setTailState*(dag: ChainDAGRef,
   discard
 
 proc getGenesisBlockData*(dag: ChainDAGRef): BlockData =
-  let
-    genesisBlockRoot = dag.db.getGenesisBlockRoot()
-    # The database should be seeded with the genesis block root by `preInit`:
-    genesisBlock = dag.db.getBlock(genesisBlockRoot).get()
-
-  BlockData(data: genesisBlock,
-            refs: BlockRef(root: genesisBlockRoot, slot: GENESIS_SLOT))
+  dag.get(dag.genesis)
 
 proc getGenesisBlockSlot*(dag: ChainDAGRef): BlockSlot =
   let blockData = dag.getGenesisBlockData()
