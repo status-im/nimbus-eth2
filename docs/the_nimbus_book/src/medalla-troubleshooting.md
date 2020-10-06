@@ -109,9 +109,9 @@ Importantly, make sure you pass in a websocket (`wss`) endpoint, not `https`. If
 
 If you're running different testnets on the same computer, you'll need to specify a different `NODE_ID` to avoid port conflicts (the default is `NODE_ID=0`).
 
-For example, to run `medalla` and `spadina` at the same time:
+For example, to run `medalla` and `zinken` at the same time:
 
 ```
 make medalla NODE_ID=0 # the default
-make spadina NODE_ID=1
+make zinken NODE_ID=1
 ```

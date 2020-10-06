@@ -8,7 +8,7 @@ While we do support Infura to process incoming validator deposits, we recommend 
 
 ## How it works
 
-When you join an eth2 testnet by running `make spadina` or `make medalla`, the beacon node actually launches with an Infura endpoint supplied by us. 
+When you join an eth2 testnet by running `make zinken` or `make medalla`, the beacon node actually launches with an Infura endpoint supplied by us. 
 
 This endpoint is passed through the `web3-url` option (which takes as input the url of the web3 server from which you'd like to observe the eth1 chain).
 
@@ -19,10 +19,10 @@ If you look at the initial logs you should see something similar to the followin
 DBG 2020-09-29 12:15:41.969+02:00 Launching beacon node
 topics="beacnde" tid=8941404 file=beacon_node.nim:1190 version="0.5.0 (78ceeed8)" bls_backend=BLST 
 cmdParams="@[
-\"--network=spadina\",
+\"--network=zinken\",
 \"--log-level=DEBUG\",
-\"--log-file=build/data/shared_spadina_0/nbc_bn_20200929121541.log\",
-\"--data-dir=build/data/shared_spadina_0\",
+\"--log-file=build/data/shared_zinken_0/nbc_bn_20200929121541.log\",
+\"--data-dir=build/data/shared_zinken_0\",
 \"--web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a\",
 \"--tcp-port=9000\",
 \"--udp-port=9000\",
@@ -62,7 +62,7 @@ To get around this problem, we recommend launching the beacon node with your own
 
 
 
-> **Note:** In a previous version of the software it wasn't possible to manually override the web3 endpoint when running `make spadina` or `make medalla`. For the instructions below to work, make sure you've updated to the latest version of the software (run `git pull && make update` from the `master` branch of the `nim-beacon-chain` repository).
+> **Note:** In a previous version of the software it wasn't possible to manually override the web3 endpoint when running `make zinken` or `make medalla`. For the instructions below to work, make sure you've updated to the latest version of the software (run `git pull && make update` from the `master` branch of the `nim-beacon-chain` repository).
 
 ### 1. Visit Infura.io
 
@@ -127,7 +127,7 @@ Run the beacon node on your favourite testnet, pasting in your websocket endpoin
 make NODE_PARAMS="--web3-url=wss://goerli.infura.io/ws/v3/83b9d67f81ca401b8f9651441b43f29e"
 <TESTNET_NAME>
 ```
-> Remember to replace <TESTNET_NAME> with either `medalla` or `spadina`.
+> Remember to replace <TESTNET_NAME> with either `medalla` or `zinken`.
 
 ### 9. Check stats
 

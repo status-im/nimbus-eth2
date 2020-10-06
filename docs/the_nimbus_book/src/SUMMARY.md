@@ -1,7 +1,7 @@
 # Summary
 - [Introduction](./intro.md)
 - [Installation](./install.md)
-- [Become a Spadina validator](./spadina.md)
+- [Become a Zinken validator](./zinken.md)
 - [Become a Medalla validator](./medalla.md)
 - [Troubleshooting Medalla](./medalla-troubleshooting.md)
 - [Running the beacon node](./beacon_node.md)

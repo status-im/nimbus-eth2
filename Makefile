@@ -312,27 +312,34 @@ clean-medalla:
 	$(call CLEAN_NETWORK,medalla)
 
 ###
-### spadina
+### zinken
 ###
-spadina: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK,spadina)
+zinken: | beacon_node signing_process
+	$(call CONNECT_TO_NETWORK,zinken)
 
-spadina-vc: | beacon_node signing_process validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,spadina)
+zinken-vc: | beacon_node signing_process validator_client
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,zinken)
 
 ifneq ($(LOG_LEVEL), TRACE)
-spadina-dev:
+zinken-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
-spadina-dev: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,spadina)
+zinken-dev: | beacon_node signing_process
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,zinken)
 endif
 
-spadina-deposit-data: | beacon_node signing_process deposit_contract
-	$(call MAKE_DEPOSIT_DATA,spadina)
+zinken-deposit-data: | beacon_node signing_process deposit_contract
+	$(call MAKE_DEPOSIT_DATA,zinken)
 
-spadina-deposit: | beacon_node signing_process deposit_contract
-	$(call MAKE_DEPOSIT,spadina)
+zinken-deposit: | beacon_node signing_process deposit_contract
+	$(call MAKE_DEPOSIT,zinken)
+
+clean-zinken:
+	$(call CLEAN_NETWORK,zinken)
+
+###
+### spadina
+###
 
 clean-spadina:
 	$(call CLEAN_NETWORK,spadina)
