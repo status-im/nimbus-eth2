@@ -399,6 +399,18 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
                              a.data.target.epoch)
 
     if notSlashable.isOk():
+      # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
+      let signing_root = compute_attestation_root(
+            fork, genesis_validators_root, a.data)
+      node.attachedValidators
+          .slashingProtection
+          .registerAttestation(
+            a.validator.pubkey,
+            a.data.source.epoch,
+            a.data.target.epoch,
+            signing_root
+          )
+
       traceAsyncErrors createAndSendAttestation(
         node, fork, genesis_validators_root, a.validator, a.data,
         a.committeeLen, a.indexInCommittee, num_active_validators)
