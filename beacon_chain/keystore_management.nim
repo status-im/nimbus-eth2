@@ -11,6 +11,7 @@ export
   keystore
 
 {.push raises: [Defect].}
+{.localPassC: "-fno-lto".} # no LTO for crypto
 
 const
   keystoreFileName* = "keystore.json"
