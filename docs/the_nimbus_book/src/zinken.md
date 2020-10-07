@@ -3,7 +3,7 @@
 
 This page will take you through how to import your key(s) and get your validator(s) ready for [Zinken genesis](https://blog.ethereum.org/2020/09/22/eth2-quick-update-no-17/).
 
-For those of you who are unfamiliar, [Zinken](https://github.com/goerli/medalla/blob/master/zinken/README.md) is a short-lived eth2 testnet that will begin on tuesday and last for three days or so. Its main objective is to allow us to test the deposit/[genesis](https://hackmd.io/@benjaminion/genesis) flow one more time before mainnet launch.
+For those of you who are unfamiliar, [Zinken](https://github.com/goerli/medalla/blob/master/zinken/README.md) is a short-lived eth2 testnet that will begin on **Monday, October 12th at 12 UTC** and last for three days or so. Its main objective is to allow us to test the deposit/[genesis](https://hackmd.io/@benjaminion/genesis) flow one more time before mainnet launch.
 
 Although it will mainly be client teams taking part, it's also a chance for you to practice sending a deposit and launching a node under mainnet launch conditions (in order to avoid clogging up the validator queue, we recommend practicing with one, or at most a handful of validators).
 
@@ -23,9 +23,8 @@ This tutorial assumes basic knowledge of the [command line](https://www.learneno
  
  In particular, the Key Generation section is now much clearer, and you no longer have to install dependencies to get the command line app working. As such, it should now be much easier for non-technical folks to generate their key(s).
  
- ![](https://i.imgur.com/SYHgtK2.png)
- 
- 
+ ![](https://i.imgur.com/slELPmk.png)
+  
  Once you've sent off your transaction, you should see the following screen.
  
  ![](https://i.imgur.com/A4IMlhK.png)
@@ -39,7 +38,7 @@ This tutorial assumes basic knowledge of the [command line](https://www.learneno
  
  To import your `zinken` key(s) into Nimbus:
  
- > **Note:** You can skip steps 1 and 2 if you've already cloned `nim-beacon-chain` and built the beacon node for `medalla`: just make sure you run `git pull && make update` from the `master` branch before continuing with step 3.
+ > **Note:** You can skip steps 1 and 2 below if you've already cloned `nim-beacon-chain` and built the beacon node for `medalla`: just make sure you run `git pull && make update` from the `master` branch before continuing with step 3.
  
  
  #### 1. Clone the nim beacon chain repository
@@ -78,14 +77,14 @@ This tutorial assumes basic knowledge of the [command line](https://www.learneno
  make zinken
  ```
  
- You should see that your beacon node has launched, and that you are processing eth1 blocks (using [infura](https://infura.io/)) and obtaining information about other depositers (`deposit log events`) in the run-up to genesis:
+ If you look near the top of the logs printed to your console, you should see that your beacon node has started, with your local validator attached:
  
  ```
- DBG 2020-09-27 17:33:28.500+02:00 Launching beacon node                      topics="beacnde" tid=8490483 file=beacon_node.nim:1190 version="0.5.0 (6cf7e837)" bls_backend=BLST cmdParams="@[\"--network=zinken\", \"--log-level=DEBUG\", \"--log-file=build/data/shared_zinken_0/nbc_bn_20200927173328.log\", \"--data-dir=build/data/shared_zinken_0\", \"--web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a\", \"--tcp-port=9000\", \"--udp-port=9000\", \"--metrics\", \"--metrics-port=8008\", \"--rpc\", \"--rpc-port=9190\"]" config="(logLevel: \"DEBUG\", logFile: Some(build/data/shared_zinken_0/nbc_bn_20200927173328.log), eth2Network: Some(\"zinken\"), dataDir: build/data/shared_zinken_0, validatorsDirFlag: None[InputDir], secretsDirFlag: None[InputDir], walletsDirFlag: None[InputDir], web3Url: \"wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a\", depositContractAddress: Some(0x48b597f4b53c21b48ad95c7256b49d1779bd5890), depositContractDeployedAt: Some(\"3384340\"), nonInteractive: false, cmd: noCommand, bootstrapNodes: @[\"# teku (@rolfyone)\", \"enr:-KG4QA-EcFfXQsL2dcneG8vp8HTWLrpwHQ5HhfyIytfpeKOISzROy2kYSsf_v-BZKnIx5XHDjqJ-ttz0hoz6qJA7tasEhGV0aDKQxKgkDQAAAAL__________4JpZIJ2NIJpcIQDFt-UiXNlY3AyNTZrMaECkR4C5DVO_9rB48eHTY4kdyOHsguTEDlvb7Ce0_mvghSDdGNwgiMog3VkcIIjKA\", \"\"], bootstrapNodesFile: , libp2pAddress: 0.0.0.0, tcpPort: 9000, udpPort: 9000, maxPeers: 79, nat: \"any\", validators: ..., stateSnapshot: None[InputFile], stateSnapshotContents: ..., runtimePreset: (GENESIS_FORK_VERSION: 00000002, GENESIS_DELAY: 172800, MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: 1024, MIN_GENESIS_TIME: 1601380800, ETH1_FOLLOW_DISTANCE: 1024), nodeName: \"\", graffiti: None[GraffitiBytes], verifyFinalization: false, stopAtEpoch: 0, metricsEnabled: true, metricsAddress: 127.0.0.1, metricsPort: 8008, statusBarEnabled: true, statusBarContents: \"peers: $connected_peers;finalized: $finalized_root:$finalized_epoch;head: $head_root:$head_epoch:$head_epoch_slot;time: $epoch:$epoch_slot ($slot);sync: $sync_status|\", rpcEnabled: true, rpcPort: 9190, rpcAddress: 127.0.0.1, inProcessValidators: true, discv5Enabled: true, dumpEnabled: false)"
- INF 2020-09-27 17:33:31.018+02:00 Starting Eth1 deposit contract monitoring  tid=8490483 file=mainchain_monitor.nim:758 contract=0x48b597f4b53c21b48ad95c7256b49d1779bd5890 url=web3(wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a)
- INF 2020-09-27 17:33:31.018+02:00 Waiting for new Eth1 block headers         tid=8490483 file=mainchain_monitor.nim:415
- INF 2020-09-27 17:33:46.213+02:00 Obtaining deposit log events               tid=8490483 file=mainchain_monitor.nim:376 fromBlock=3384341 toBlock=3476604
- INF 2020-09-27 17:33:56.912+02:00 Eth1 block processed                       tid=8490483 file=mainchain_monitor.nim:717 block=3423176:0ac7969b totalDeposits=1
+ INF 2020-10-07 17:04:09.213+02:00 Initializing networking                    topics="networking" tid=11688398 file=eth2_network.nim:1335 hostAddress=/ip4/0.0.0.0/tcp/9000 network_public_key=0802122102defb020c8e47dd8f5da89f51ed6c3998aaa0dd59eeb2784e29d47fdbdab69235 announcedAddresses=@[/ip4/192.168.11.83/tcp/9000]
+WRN 2020-10-07 17:04:09.215+02:00 Ignoring invalid bootstrap address         tid=11688398 file=eth2_discovery.nim:45 bootstrapAddr= reason="an empty string is not a valid bootstrap node"
+NOT 2020-10-07 17:04:09.231+02:00 Local validators attached                  topics="beacval" tid=11688398 file=validator_duties.nim:65 count=0
+NOT 2020-10-07 17:04:09.231+02:00 Starting beacon node                       topics="beacnde" tid=11688398 file=beacon_node.nim:923 version="0.5.0 (1dec860b)" nim="Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)" timeSinceFinalization=0ns head=0814b036:0 finalizedHead=0814b036:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.3 dataDir=build/data/shared_zinken_0
+ peers: 0 ❯ finalized: 0814b036:0 ❯ head: 0814b036:0:0 ❯ time: 387:2 (12386) INF 2020-10-07 17:04:09.232+02:00 Starting discovery node                    topics="discv5" tid=11688398 file=protocol.nim:799 node=Node[192.168.11.83:9000] uri=enr:-LK4QCje1Tb8tPIjuIWcAjVRprALNr-fGSmX0ijk2nt4-BgTRSG_q2oekHW9IxbdRi-bcT9RsppI7JtjIxjkm-dG9ZwBh2F0dG5ldHOI__________-EZXRoMpCEe0P1AAAAA___________gmlkgnY0gmlwhMCoC1OJc2VjcDI1NmsxoQLe-wIMjkfdj12on1HtbDmYqqDdWe6yeE4p1H_b2raSNYN0Y3CCIyiDdWRwgiMo bindAddress=0.0.0.0:9000 
  ```
  
  > **Note:** when you run `make zinken`, the beacon node launches with an Infura endpoint supplied by us. This endpoint is passed through the `web3-url` option (which takes as input the url of the web3 server from which you'd like to observe the eth1 chain). 
@@ -103,9 +102,9 @@ This tutorial assumes basic knowledge of the [command line](https://www.learneno
  
  ## 4. Keep an eye on your validator
  
- If you deposited after the [genesis](https://hackmd.io/@benjaminion/genesis) state was decided (September 27th 1400 UTC), your validators will have been put in a queue based on deposit time, and will slowly be inducted into the validator set after genesis. Getting through the queue may take a few hours or a day or so.
+ If you deposit after the [genesis](https://hackmd.io/@benjaminion/genesis) state was decided (October 8th, 12pm UTC), your validators will be put in a queue based on deposit time, and will slowly be inducted into the validator set after genesis. Getting through the queue may take a few hours or a day or so.
  
- The best way to keep track of your validator's status is [zinken.beaconcha.in](https://medalla.beaconcha.in) (click on the orange magnifying glass at the very top and paste in your validator's public key).
+ The best way to keep track of your validator's status is [zinken.beaconcha.in](https:/zinken.beaconcha.in) (click on the orange magnifying glass at the very top and paste in your validator's public key).
  
  You can even [create an account](https://zinken.beaconcha.in/register) to add alerts and keep track of your validator's [performance](https://zinken.beaconcha.in/dashboard).
  
