@@ -98,6 +98,9 @@ type
     ## Directed acyclic graph of blocks pointing back to a finalized block on the chain we're
     ## interested in - we call that block the tail
 
+    genesis*: BlockRef ##\
+    ## The genesis block of the network
+
     tail*: BlockRef ##\
     ## The earliest finalized block we know about
 
@@ -206,6 +209,12 @@ func shortLog*(v: BlockRef): string =
     "BlockRef(nil)"
   else:
    &"{v.root.data.toOpenArray(0, 3).toHex()}:{v.slot}"
+
+func shortLog*(v: EpochRef): string =
+  if v == nil:
+    "EpochRef(nil)"
+  else:
+    &"(epoch ref: {v.epoch})"
 
 chronicles.formatIt BlockSlot: shortLog(it)
 chronicles.formatIt BlockRef: shortLog(it)

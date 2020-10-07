@@ -107,6 +107,9 @@ ifeq ($(OS), Windows_NT)
     # 32-bit Windows is not supported by libbacktrace/libunwind
     USE_LIBBACKTRACE := 0
   endif
+  MKDIR_COMMAND := mkdir -p
+else
+  MKDIR_COMMAND := mkdir -m 0750 -p
 endif
 
 DEPOSITS_DELAY := 0
@@ -123,10 +126,6 @@ deps: | deps-common nat-libs beacon_chain.nims
 ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
 endif
-
-clean-cross:
-	+ [[ -e vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc ]] && "$(MAKE)" -C vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc clean $(HANDLE_OUTPUT) || true
-	+ [[ -e vendor/nim-nat-traversal/vendor/libnatpmp ]] && "$(MAKE)" -C vendor/nim-nat-traversal/vendor/libnatpmp clean $(HANDLE_OUTPUT) || true
 
 #- deletes and recreates "beacon_chain.nims" which on Windows is a copy instead of a proper symlink
 update: | update-common
@@ -187,25 +186,28 @@ testnet0 testnet1: | beacon_node signing_process
 		--data-dir=build/data/$@_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
-# https://www.gnu.org/software/make/manual/html_node/Multi_002dLine.html
+#- https://www.gnu.org/software/make/manual/html_node/Multi_002dLine.html
+#- macOS doesn't support "=" at the end of "define FOO": https://stackoverflow.com/questions/13260396/gnu-make-3-81-eval-function-not-working
 define CONNECT_TO_NETWORK
-	mkdir -p build/data/shared_$(1)_$(NODE_ID)
+	$(MKDIR_COMMAND) build/data/shared_$(1)_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \
 		--base-metrics-port $$(($(BASE_METRICS_PORT) + $(NODE_ID))) \
 		--config-file "build/data/shared_$(1)_$(NODE_ID)/prometheus.yml"
 
+	[ "$(2)" == "FastSync" ] && { export CHECKPOINT_PARAMS="--finalized-checkpoint-state=vendor/eth2-testnets/shared/$(1)/recent-finalized-state.ssz \
+																													--finalized-checkpoint-block=vendor/eth2-testnets/shared/$(1)/recent-finalized-block.ssz" ; }; \
 	$(CPU_LIMIT_CMD) build/beacon_node \
 		--network=$(1) \
 		--log-level="$(LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
-		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
+		$$CHECKPOINT_PARAMS $(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 endef
 
 define CONNECT_TO_NETWORK_IN_DEV_MODE
-	mkdir -p build/data/shared_$(1)_$(NODE_ID)
+	$(MKDIR_COMMAND) build/data/shared_$(1)_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \
@@ -221,7 +223,7 @@ endef
 
 define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 	# if launching a VC as well - send the BN looking nowhere for validators/secrets
-	mkdir -p build/data/shared_$(1)_$(NODE_ID)/empty_dummy_folder
+	$(MKDIR_COMMAND) build/data/shared_$(1)_$(NODE_ID)/empty_dummy_folder
 
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \
@@ -289,6 +291,9 @@ medalla: | beacon_node signing_process
 medalla-vc: | beacon_node signing_process validator_client
 	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,medalla)
 
+medalla-fast-sync: | beacon_node signing_process
+	$(call CONNECT_TO_NETWORK,medalla,FastSync)
+
 ifneq ($(LOG_LEVEL), TRACE)
 medalla-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
@@ -307,27 +312,34 @@ clean-medalla:
 	$(call CLEAN_NETWORK,medalla)
 
 ###
-### spadina
+### zinken
 ###
-spadina: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK,spadina)
+zinken: | beacon_node signing_process
+	$(call CONNECT_TO_NETWORK,zinken)
 
-spadina-vc: | beacon_node signing_process validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,spadina)
+zinken-vc: | beacon_node signing_process validator_client
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,zinken)
 
 ifneq ($(LOG_LEVEL), TRACE)
-spadina-dev:
+zinken-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
-spadina-dev: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,spadina)
+zinken-dev: | beacon_node signing_process
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,zinken)
 endif
 
-spadina-deposit-data: | beacon_node signing_process deposit_contract
-	$(call MAKE_DEPOSIT_DATA,spadina)
+zinken-deposit-data: | beacon_node signing_process deposit_contract
+	$(call MAKE_DEPOSIT_DATA,zinken)
 
-spadina-deposit: | beacon_node signing_process deposit_contract
-	$(call MAKE_DEPOSIT,spadina)
+zinken-deposit: | beacon_node signing_process deposit_contract
+	$(call MAKE_DEPOSIT,zinken)
+
+clean-zinken:
+	$(call CLEAN_NETWORK,zinken)
+
+###
+### spadina
+###
 
 clean-spadina:
 	$(call CLEAN_NETWORK,spadina)

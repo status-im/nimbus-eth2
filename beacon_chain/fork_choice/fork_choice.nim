@@ -117,10 +117,11 @@ proc on_tick(self: var Checkpoints, dag: ChainDAGRef, time: Slot): FcResult[void
 
 proc process_attestation_queue(self: var ForkChoice) {.gcsafe.}
 proc update_time(self: var ForkChoice, dag: ChainDAGRef, time: Slot): FcResult[void] =
-  while time > self.checkpoints.time:
-    ? on_tick(self.checkpoints, dag, self.checkpoints.time + 1)
+  if time > self.checkpoints.time:
+    while time > self.checkpoints.time:
+      ? on_tick(self.checkpoints, dag, self.checkpoints.time + 1)
 
-  self.process_attestation_queue()
+    self.process_attestation_queue() # Only run if time changed!
 
   ok()
 
@@ -150,18 +151,14 @@ func process_attestation*(
         new_vote = shortLog(vote)
 
 proc process_attestation_queue(self: var ForkChoice) =
-  var
-    keep: seq[QueuedAttestation]
-  for attestation in self.queuedAttestations:
-    if attestation.slot < self.checkpoints.time:
-      for validator_index in attestation.attesting_indices:
+  self.queuedAttestations.keepItIf:
+    if it.slot < self.checkpoints.time:
+      for validator_index in it.attesting_indices:
         self.backend.process_attestation(
-          validator_index, attestation.block_root,
-          attestation.slot.epoch())
+          validator_index, it.block_root, it.slot.epoch())
+      false
     else:
-      keep.add attestation
-
-  self.queuedAttestations = keep
+      true
 
 func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## Returns `true` if a block is known to the fork choice

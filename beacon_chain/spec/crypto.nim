@@ -25,7 +25,7 @@
 
 import
   # Standard library
-  options, tables,
+  std/[options, tables],
   # Internal
   ./digest,
   # Status
@@ -33,6 +33,7 @@ import
   blscurve,
   chronicles,
   json_serialization,
+  nimcrypto/utils as ncrutils,
   # Standard library
   hashes
 
@@ -349,16 +350,16 @@ func shortLog*(x: BlsValue): string =
   # The prefix must be short
   # due to the mechanics of the `shortLog` function.
   if x.kind == Real:
-    x.blsValue.exportRaw().toOpenArray(0, 3).toHex()
+    byteutils.toHex(x.blsValue.exportRaw().toOpenArray(0, 3))
   else:
-    "r:" & x.blob.toOpenArray(0, 3).toHex()
+    "r:" & byteutils.toHex(x.blob.toOpenArray(0, 3))
 
 func shortLog*(x: ValidatorPrivKey): string =
   ## Logging for raw unwrapped BLS types
   "<private key>"
 
 func shortLog*(x: TrustedSig): string =
-  x.data.toOpenArray(0, 3).toHex()
+  byteutils.toHex(x.data.toOpenArray(0, 3))
 
 # Initialization
 # ----------------------------------------------------------------------
@@ -387,4 +388,4 @@ func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noInit
   v[]
 
 proc burnMem*(key: var ValidatorPrivKey) =
-  key = default(ValidatorPrivKey)
+  ncrutils.burnMem(addr key, sizeof(ValidatorPrivKey))

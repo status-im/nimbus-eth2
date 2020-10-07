@@ -4,7 +4,7 @@ import
   std/options as stdOptions,
 
   # Status libs
-  stew/[varints, base58, endians2, results, byteutils], bearssl,
+  stew/[varints, base58, base64, endians2, results, byteutils, io2], bearssl,
   stew/shims/net as stewNet,
   stew/shims/[macros, tables],
   faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
@@ -23,7 +23,8 @@ import
   # Beacon node modules
   version, conf, eth2_discovery, libp2p_json_serialization, conf,
   ssz/ssz_serialization,
-  peer_pool, spec/[datatypes, network], ./time
+  peer_pool, spec/[datatypes, network], ./time,
+  keystore_management
 
 when defined(nbc_gossipsub_11):
   import libp2p/protocols/pubsub/gossipsub
@@ -204,7 +205,6 @@ type
 
 const
   clientId* = "Nimbus beacon node v" & fullVersionStr
-  networkKeyFilename = "privkey.protobuf"
   nodeMetadataFilename = "node-metadata.json"
 
   TCP = net.Protocol.IPPROTO_TCP
@@ -272,10 +272,14 @@ const
 when libp2p_pki_schemes != "secp256k1":
   {.fatal: "Incorrect building process, please use -d:\"libp2p_pki_schemes=secp256k1\"".}
 
+const
+  NetworkInsecureKeyPassword = "INSECUREPASSWORD"
+
 template libp2pProtocol*(name: string, version: int) {.pragma.}
 
 func shortLog*(peer: Peer): string = shortLog(peer.info.peerId)
 chronicles.formatIt(Peer): shortLog(it)
+chronicles.formatIt(PublicKey): byteutils.toHex(it.getBytes().tryGet())
 
 template remote*(peer: Peer): untyped =
   peer.info.peerId
@@ -832,7 +836,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
           new_peers = newPeers
 
     if newPeers == 0:
-      if node.peerPool.lenSpace() <= node.wantedPeers shr 2:
+      if node.peerPool.lenCurrent() <= node.wantedPeers shr 2:
         warn "Less than 25% wanted peers and could not discover new nodes",
               discovered = len(discoveredNodes), new_peers = newPeers,
               wanted_peers = node.wantedPeers
@@ -1201,46 +1205,141 @@ proc initAddress*(T: type MultiAddress, str: string): T =
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
-proc getPersistentNetKeys*(
-    rng: var BrHmacDrbgContext, conf: BeaconNodeConf): KeyPair =
-  let
-    privKeyPath = conf.dataDir / networkKeyFilename
-    privKey =
-      if not fileExists(privKeyPath):
-        createDir conf.dataDir.string
-        let key = PrivateKey.random(Secp256k1, rng).tryGet()
-        writeFile(privKeyPath, key.getBytes().tryGet())
-        key
-      else:
-        let keyBytes = readFile(privKeyPath)
-        PrivateKey.init(keyBytes.toOpenArrayByte(0, keyBytes.high)).tryGet()
+proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
+                           conf: BeaconNodeConf): KeyPair =
+  case conf.cmd
+  of noCommand:
+    if conf.netKeyFile == "random":
+      let res = PrivateKey.random(Secp256k1, rng)
+      if res.isErr():
+        fatal "Could not generate random network key file"
+        quit QuitFailure
+      let privKey = res.get()
+      let pubKey = privKey.getKey().tryGet()
+      info "Using random network key", network_public_key = pubKey
+      return KeyPair(seckey: privKey, pubkey: privKey.getKey().tryGet())
+    else:
+      let keyPath =
+        if isAbsolute(conf.netKeyFile):
+          conf.netKeyFile
+        else:
+          conf.dataDir / conf.netKeyFile
 
-  KeyPair(seckey: privKey, pubkey: privKey.getKey().tryGet())
+      if fileAccessible(keyPath, {AccessFlags.Find}):
+        info "Network key storage is present, unlocking", key_path = keyPath
+
+        # Insecure password used only for automated testing.
+        let insecurePassword =
+          if conf.netKeyInsecurePassword:
+            some(NetworkInsecureKeyPassword)
+          else:
+            none[string]()
+
+        let res = loadNetKeystore(keyPath, insecurePassword)
+        if res.isNone():
+          fatal "Could not load network key file"
+          quit QuitFailure
+        let privKey = res.get()
+        let pubKey = privKey.getKey().tryGet()
+        info "Network key storage was successfully unlocked",
+             key_path = keyPath, network_public_key = pubKey
+        return KeyPair(seckey: privKey, pubkey: pubKey)
+      else:
+        info "Network key storage is missing, creating a new one",
+             key_path = keyPath
+        let rres = PrivateKey.random(Secp256k1, rng)
+        if rres.isErr():
+          fatal "Could not generate random network key file"
+          quit QuitFailure
+
+        let privKey = rres.get()
+        let pubKey = privKey.getKey().tryGet()
+
+        # Insecure password used only for automated testing.
+        let insecurePassword =
+          if conf.netKeyInsecurePassword:
+            some(NetworkInsecureKeyPassword)
+          else:
+            none[string]()
+
+        let sres = saveNetKeystore(rng, keyPath, privKey, insecurePassword)
+        if sres.isErr():
+          fatal "Could not create network key file", key_path = keyPath
+          quit QuitFailure
+
+        info "New network key storage was created", key_path = keyPath,
+             network_public_key = pubKey
+        return KeyPair(seckey: privKey, pubkey: pubKey)
+
+  of createTestnet:
+    if conf.netKeyFile == "random":
+      fatal "Could not create testnet using `random` network key"
+      quit QuitFailure
+
+    let keyPath =
+      if isAbsolute(conf.netKeyFile):
+        conf.netKeyFile
+      else:
+        conf.dataDir / conf.netKeyFile
+
+    let rres = PrivateKey.random(Secp256k1, rng)
+    if rres.isErr():
+      fatal "Could not generate random network key file"
+      quit QuitFailure
+
+    let privKey = rres.get()
+    let pubKey = privKey.getKey().tryGet()
+
+    # Insecure password used only for automated testing.
+    let insecurePassword =
+      if conf.netKeyInsecurePassword:
+        some(NetworkInsecureKeyPassword)
+      else:
+        none[string]()
+
+    let sres = saveNetKeystore(rng, keyPath, privKey, insecurePassword)
+    if sres.isErr():
+      fatal "Could not create network key file", key_path = keyPath
+      quit QuitFailure
+
+    info "New network key storage was created", key_path = keyPath,
+         network_public_key = pubKey
+
+    return KeyPair(seckey: privKey, pubkey: privkey.getKey().tryGet())
+  else:
+    let res = PrivateKey.random(Secp256k1, rng)
+    if res.isErr():
+      fatal "Could not generate random network key file"
+      quit QuitFailure
+
+    let privKey = res.get()
+    return KeyPair(seckey: privKey, pubkey: privkey.getKey().tryGet())
 
 func gossipId(data: openArray[byte]): string =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#topics-and-messages
-  string.fromBytes(sha256.digest(data).data.toOpenArray(0, 7))
+  base64.encode(Base64Url, sha256.digest(data).data)
 
 func msgIdProvider(m: messages.Message): string =
   gossipId(m.data)
 
-proc createEth2Node*(
-    rng: ref BrHmacDrbgContext, conf: BeaconNodeConf,
-    enrForkId: ENRForkID): Eth2Node =
+proc createEth2Node*(rng: ref BrHmacDrbgContext,
+                     conf: BeaconNodeConf,
+                     netKeys: KeyPair,
+                     enrForkId: ENRForkID): Eth2Node =
   var
     (extIp, extTcpPort, extUdpPort) = setupNat(conf)
     hostAddress = tcpEndPoint(conf.listenAddress, conf.tcpPort)
     announcedAddresses = if extIp.isNone(): @[]
                          else: @[tcpEndPoint(extIp.get(), extTcpPort)]
 
-  notice "Initializing networking", hostAddress,
+  info "Initializing networking", hostAddress,
+                                  network_public_key = netKeys.pubkey,
                                   announcedAddresses
 
-  let keys = getPersistentNetKeys(rng[], conf)
   # TODO nim-libp2p still doesn't have support for announcing addresses
   # that are different from the host address (this is relevant when we
   # are running behind a NAT).
-  var switch = newStandardSwitch(some keys.seckey, hostAddress,
+  var switch = newStandardSwitch(some netKeys.seckey, hostAddress,
                                  transportFlags = {ServerFlags.ReuseAddr},
                                  secureManagers = [
                                    SecureProtocol.Noise, # Only noise in ETH2!
@@ -1257,15 +1356,9 @@ proc createEth2Node*(
 
   result = Eth2Node.init(conf, enrForkId, switch, pubsub,
                          extIp, extTcpPort, extUdpPort,
-                         keys.seckey.asEthKey, discovery = conf.discv5Enabled,
+                         netKeys.seckey.asEthKey,
+                         discovery = conf.discv5Enabled,
                          rng = rng)
-
-proc getPersistenBootstrapAddr*(rng: var BrHmacDrbgContext, conf: BeaconNodeConf,
-                                ip: ValidIpAddress, port: Port): EnrResult[enr.Record] =
-  let pair = getPersistentNetKeys(rng, conf)
-  return enr.Record.init(1'u64, # sequence number
-                         pair.seckey.asEthKey,
-                         some(ip), port, port, @[])
 
 proc announcedENR*(node: Eth2Node): enr.Record =
   doAssert node.discovery != nil, "The Eth2Node must be initialized"

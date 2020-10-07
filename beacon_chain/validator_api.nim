@@ -27,7 +27,7 @@ type
 
 logScope: topics = "valapi"
 
-proc  toBlockSlot(blckRef: BlockRef): BlockSlot =
+proc toBlockSlot(blckRef: BlockRef): BlockSlot =
   blckRef.atSlot(blckRef.slot)
 
 proc parseRoot(str: string): Eth2Digest =
@@ -39,6 +39,12 @@ proc parsePubkey(str: string): ValidatorPubKey =
     raise newException(CatchableError, "Not a valid public key")
   return pubkeyRes[]
 
+func checkEpochToSlotOverflow(epoch: Epoch) =
+  const maxEpoch = compute_epoch_at_slot(not 0'u64)
+  if epoch >= maxEpoch:
+    raise newException(
+      ValueError, "Requesting epoch for which slot would overflow")
+
 proc doChecksAndGetCurrentHead(node: BeaconNode, slot: Slot): BlockRef =
   result = node.chainDag.head
   if not node.isSynced(result):
@@ -48,6 +54,7 @@ proc doChecksAndGetCurrentHead(node: BeaconNode, slot: Slot): BlockRef =
     raise newException(CatchableError, "Requesting way ahead of the current head")
 
 proc doChecksAndGetCurrentHead(node: BeaconNode, epoch: Epoch): BlockRef =
+  checkEpochToSlotOverflow(epoch)
   node.doChecksAndGetCurrentHead(epoch.compute_start_slot_at_epoch)
 
 # TODO currently this function throws if the validator isn't found - is this OK?
@@ -135,7 +142,7 @@ proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData =
     of "head":
       node.chainDag.get(node.chainDag.head)
     of "genesis":
-      node.chainDag.get(node.chainDag.tail)
+      node.chainDag.getGenesisBlockData()
     of "finalized":
       node.chainDag.get(node.chainDag.finalizedHead.blck)
     else:
@@ -156,7 +163,7 @@ proc stateIdToBlockSlot(node: BeaconNode, stateId: string): BlockSlot =
     of "head":
       node.chainDag.head.toBlockSlot()
     of "genesis":
-      node.chainDag.tail.toBlockSlot()
+      node.chainDag.getGenesisBlockSlot()
     of "finalized":
       node.chainDag.finalizedHead
     of "justified":
@@ -181,7 +188,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   template withStateForStateId(stateId: string, body: untyped): untyped =
     # TODO this can be optimized for the "head" case since that should be most common
     node.chainDag.withState(node.chainDag.tmpState,
-                             node.stateIdToBlockSlot(stateId)):
+                            node.stateIdToBlockSlot(stateId)):
       body
 
   rpcServer.rpc("get_v1_beacon_genesis") do () -> BeaconGenesisTuple:
@@ -229,6 +236,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("get_v1_beacon_states_stateId_committees_epoch") do (
       stateId: string, epoch: uint64, index: uint64, slot: uint64) ->
       seq[BeaconStatesCommitteesTuple]:
+    checkEpochToSlotOverflow(epoch.Epoch)
     withStateForStateId(stateId):
       proc getCommittee(slot: Slot, index: CommitteeIndex): BeaconStatesCommitteesTuple =
         let vals = get_beacon_committee(state, slot, index, cache).mapIt(it.uint64)

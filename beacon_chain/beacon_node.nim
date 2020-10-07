@@ -11,7 +11,7 @@ import
   std/[osproc, random],
 
   # Nimble packages
-  stew/[objects, byteutils, endians2], stew/shims/macros,
+  stew/[objects, byteutils, endians2, io2], stew/shims/macros,
   chronos, confutils, metrics, json_rpc/[rpcserver, jsonmarshal],
   chronicles, bearssl, blscurve,
   json_serialization/std/[options, sets, net], serialization/errors,
@@ -23,7 +23,7 @@ import
 
   # Local modules
   spec/[datatypes, digest, crypto, beaconstate, helpers, network, presets],
-  spec/state_transition,
+  spec/[state_transition, weak_subjectivity],
   conf, time, beacon_chain_db, validator_pool, extras,
   attestation_pool, exit_pool, eth2_network, eth2_discovery,
   beacon_node_common, beacon_node_types, beacon_node_status,
@@ -36,7 +36,6 @@ import
   ./eth2_processor
 
 const
-  genesisFile* = "genesis.ssz"
   hasPrompt = not defined(withoutPrompt)
 
 type
@@ -60,62 +59,6 @@ declareGauge ticks_delay,
 
 logScope: topics = "beacnde"
 
-proc getStateFromSnapshot(conf: BeaconNodeConf, stateSnapshotContents: ref string): NilableBeaconStateRef =
-  var
-    genesisPath = conf.dataDir/genesisFile
-    snapshotContents: TaintedString
-    writeGenesisFile = false
-
-  if conf.stateSnapshot.isSome:
-    let
-      snapshotPath = conf.stateSnapshot.get.string
-      snapshotExt = splitFile(snapshotPath).ext
-
-    if cmpIgnoreCase(snapshotExt, ".ssz") != 0:
-      error "The supplied state snapshot must be a SSZ file",
-            suppliedPath = snapshotPath
-      quit 1
-
-    snapshotContents = readFile(snapshotPath)
-    if fileExists(genesisPath):
-      let genesisContents = readFile(genesisPath)
-      if snapshotContents != genesisContents:
-        error "Data directory not empty. Existing genesis state differs from supplied snapshot",
-              dataDir = conf.dataDir.string, snapshot = snapshotPath
-        quit 1
-    else:
-      debug "No previous genesis state. Importing snapshot",
-            genesisPath, dataDir = conf.dataDir.string
-      writeGenesisFile = true
-      genesisPath = snapshotPath
-  elif fileExists(genesisPath):
-    try: snapshotContents = readFile(genesisPath)
-    except CatchableError as err:
-      error "Failed to read genesis file", err = err.msg
-      quit 1
-  elif stateSnapshotContents != nil:
-    swap(snapshotContents, TaintedString stateSnapshotContents[])
-  else:
-    # No snapshot was provided. We should wait for genesis.
-    return nil
-
-  result = try:
-    newClone(SSZ.decode(snapshotContents, BeaconState))
-  except SerializationError:
-    error "Failed to import genesis file", path = genesisPath
-    quit 1
-
-  info "Loaded genesis state", path = genesisPath
-
-  if writeGenesisFile:
-    try:
-      notice "Writing genesis to data directory", path = conf.dataDir/genesisFile
-      writeFile(conf.dataDir/genesisFile, snapshotContents.string)
-    except CatchableError as err:
-      error "Failed to persist genesis file to data dir",
-        err = err.msg, genesisFile = conf.dataDir/genesisFile
-      quit 1
-
 func enrForkIdFromState(state: BeaconState): ENRForkID =
   let
     forkVer = state.fork.current_version
@@ -129,21 +72,59 @@ func enrForkIdFromState(state: BeaconState): ENRForkID =
 proc init*(T: type BeaconNode,
            rng: ref BrHmacDrbgContext,
            conf: BeaconNodeConf,
-           stateSnapshotContents: ref string): Future[BeaconNode] {.async.} =
+           genesisStateContents: ref string): Future[BeaconNode] {.async.} =
   let
     netKeys = getPersistentNetKeys(rng[], conf)
     nickname = if conf.nodeName == "auto": shortForm(netKeys)
                else: conf.nodeName
     db = BeaconChainDB.init(kvStore SqStoreRef.init(conf.databaseDir, "nbc").tryGet())
 
-  var mainchainMonitor: MainchainMonitor
+  var
+    mainchainMonitor: MainchainMonitor
+    genesisState, checkpointState: ref BeaconState
+    checkpointBlock: SignedBeaconBlock
+
+  if conf.finalizedCheckpointState.isSome:
+    let checkpointStatePath = conf.finalizedCheckpointState.get.string
+    checkpointState = try:
+      newClone(SSZ.loadFile(checkpointStatePath, BeaconState))
+    except SerializationError as err:
+      fatal "Checkpoint state deserialization failed",
+            err = formatMsg(err, checkpointStatePath)
+      quit 1
+    except CatchableError as err:
+      fatal "Failed to read checkpoint state file", err = err.msg
+      quit 1
+
+    if conf.finalizedCheckpointBlock.isNone:
+      if checkpointState.slot > 0:
+        fatal "Specifying a non-genesis --finalized-checkpoint-state requires specifying --finalized-checkpoint-block as well"
+        quit 1
+    else:
+      let checkpointBlockPath = conf.finalizedCheckpointBlock.get.string
+      try:
+        checkpointBlock = SSZ.loadFile(checkpointBlockPath, SignedBeaconBlock)
+      except SerializationError as err:
+        fatal "Invalid checkpoint block", err = err.formatMsg(checkpointBlockPath)
+        quit 1
+      except IOError as err:
+        fatal "Failed to load the checkpoint block", err = err.msg
+        quit 1
+  elif conf.finalizedCheckpointBlock.isSome:
+    # TODO We can download the state from somewhere in the future relying
+    #      on the trusted `state_root` appearing in the checkpoint block.
+    fatal "--finalized-checkpoint-block cannot be specified without --finalized-checkpoint-state"
+    quit 1
 
   if not ChainDAGRef.isInitialized(db):
-    # Fresh start - need to load a genesis state from somewhere
-    var genesisState = conf.getStateFromSnapshot(stateSnapshotContents)
+    var
+      tailState: ref BeaconState
+      tailBlock: SignedBeaconBlock
 
-    # Try file from command line first
-    if genesisState.isNil:
+    if genesisStateContents == nil and checkpointState == nil:
+      # This is a fresh start without a known genesis state
+      # (most likely, it hasn't arrived yet). We'll try to
+      # obtain a genesis through the Eth1 deposits monitor:
       if conf.web3Url.len == 0:
         fatal "Web3 URL not specified"
         quit 1
@@ -186,41 +167,67 @@ proc init*(T: type BeaconNode,
       if bnStatus == BeaconNodeStatus.Stopping:
         return nil
 
+      tailState = genesisState
+      tailBlock = get_initial_beacon_block(genesisState[])
+
       notice "Eth2 genesis state detected",
         genesisTime = genesisState.genesisTime,
         eth1Block = genesisState.eth1_data.block_hash,
         totalDeposits = genesisState.eth1_data.deposit_count
 
-    # This is needed to prove the not nil property from here on
-    if genesisState == nil:
-      doAssert false
+    elif genesisStateContents == nil:
+      if checkpointState.slot == GENESIS_SLOT:
+        genesisState = checkpointState
+        tailState = checkpointState
+        tailBlock = get_initial_beacon_block(genesisState[])
+      else:
+        fatal "State checkpoints cannot be provided for a network without a known genesis state"
+        quit 1
     else:
-      if genesisState.slot != GENESIS_SLOT:
-        # TODO how to get a block from a non-genesis state?
-        error "Starting from non-genesis state not supported",
-          stateSlot = genesisState.slot,
-          stateRoot = hash_tree_root(genesisState[])
-        quit 1
-
-      let tailBlock = get_initial_beacon_block(genesisState[])
-
       try:
-        ChainDAGRef.preInit(db, genesisState[], tailBlock)
-        doAssert ChainDAGRef.isInitialized(db), "preInit should have initialized db"
-      except CatchableError as e:
-        error "Failed to initialize database", err = e.msg
-        quit 1
+        genesisState = newClone(SSZ.decode(genesisStateContents[], BeaconState))
+      except CatchableError as err:
+        raiseAssert "The baked-in state must be valid"
 
-  if stateSnapshotContents != nil:
-    # The memory for the initial snapshot won't be needed anymore
-    stateSnapshotContents[] = ""
+      if checkpointState != nil:
+        tailState = checkpointState
+        tailBlock = checkpointBlock
+      else:
+        tailState = genesisState
+        tailBlock = get_initial_beacon_block(genesisState[])
+
+    try:
+      ChainDAGRef.preInit(db, genesisState[], tailState[], tailBlock)
+      doAssert ChainDAGRef.isInitialized(db), "preInit should have initialized db"
+    except CatchableError as e:
+      error "Failed to initialize database", err = e.msg
+      quit 1
 
   # TODO check that genesis given on command line (if any) matches database
   let
     chainDagFlags = if conf.verifyFinalization: {verifyFinalization}
                      else: {}
     chainDag = init(ChainDAGRef, conf.runtimePreset, db, chainDagFlags)
+    beaconClock = BeaconClock.init(chainDag.headState.data.data)
     quarantine = QuarantineRef()
+
+  if conf.weakSubjectivityCheckpoint.isSome:
+    let
+      currentSlot = beaconClock.now.slotOrZero
+      isCheckpointStale = not is_within_weak_subjectivity_period(
+        currentSlot,
+        chainDag.headState.data.data,
+        conf.weakSubjectivityCheckpoint.get)
+
+    if isCheckpointStale:
+      error "Weak subjectivity checkpoint is stale",
+            currentSlot,
+            checkpoint = conf.weakSubjectivityCheckpoint.get,
+            headStateSlot = chainDag.headState.data.data.slot
+      quit 1
+
+  if checkpointState != nil:
+    chainDag.setTailState(checkpointState[], checkpointBlock)
 
   if mainchainMonitor.isNil and
      conf.web3Url.len > 0 and
@@ -243,7 +250,7 @@ proc init*(T: type BeaconNode,
     enrForkId = enrForkIdFromState(chainDag.headState.data.data)
     topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.forkDigest)
     topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.forkDigest)
-    network = createEth2Node(rng, conf, enrForkId)
+    network = createEth2Node(rng, conf, netKeys, enrForkId)
     attestationPool = newClone(AttestationPool.init(chainDag, quarantine))
     exitPool = newClone(ExitPool.init(chainDag, quarantine))
   var res = BeaconNode(
@@ -259,7 +266,7 @@ proc init*(T: type BeaconNode,
     attestationPool: attestationPool,
     exitPool: exitPool,
     mainchainMonitor: mainchainMonitor,
-    beaconClock: BeaconClock.init(chainDag.headState.data.data),
+    beaconClock: beaconClock,
     rpcServer: rpcServer,
     forkDigest: enrForkId.forkDigest,
     topicBeaconBlocks: topicBeaconBlocks,
@@ -269,10 +276,7 @@ proc init*(T: type BeaconNode,
   res.attachedValidators = ValidatorPool.init(
     SlashingProtectionDB.init(
       chainDag.headState.data.data.genesis_validators_root,
-      when UseSlashingProtection:
-        kvStore SqStoreRef.init(conf.validatorsDir(), "slashing_protection").tryGet()
-      else:
-        KvStoreRef()
+      kvStore SqStoreRef.init(conf.validatorsDir(), "slashing_protection").tryGet()
     )
   )
 
@@ -287,9 +291,10 @@ proc init*(T: type BeaconNode,
   if res.config.inProcessValidators:
     res.addLocalValidators()
   else:
-    res.vcProcess = startProcess(getAppDir() & "/signing_process".addFileExt(ExeExt),
-                                 getCurrentDir(), [$res.config.validatorsDir,
-                                                   $res.config.secretsDir])
+    let cmd = getAppDir() / "signing_process".addFileExt(ExeExt)
+    let args = [$res.config.validatorsDir, $res.config.secretsDir]
+    let workdir = io2.getCurrentDir().tryGet()
+    res.vcProcess = startProcess(cmd, workdir, args)
     res.addRemoteValidators()
 
   # This merely configures the BeaconSync
@@ -651,8 +656,7 @@ proc startSyncManager(node: BeaconNode) =
     epoch.compute_start_slot_at_epoch()
 
   func getFirstSlotAtFinalizedEpoch(): Slot =
-    let fepoch = node.chainDag.headState.data.data.finalized_checkpoint.epoch
-    compute_start_slot_at_epoch(fepoch)
+    node.chainDag.finalizedHead.slot
 
   proc scoreCheck(peer: Peer): bool =
     if peer.score < PeerScoreLowLimit:
@@ -894,10 +898,9 @@ proc run*(node: BeaconNode) =
 
 var gPidFile: string
 proc createPidFile(filename: string) =
-  createDir splitFile(filename).dir
   writeFile filename, $os.getCurrentProcessId()
   gPidFile = filename
-  addQuitProc proc {.noconv.} = removeFile gPidFile
+  addQuitProc proc {.noconv.} = discard io2.removeFile(gPidFile)
 
 proc initializeNetworking(node: BeaconNode) {.async.} =
   await node.network.startListening()
@@ -1094,7 +1097,14 @@ programMain:
   var
     config = makeBannerAndConfig(clientId, BeaconNodeConf)
     # This is ref so we can mutate it (to erase it) after the initial loading.
-    stateSnapshotContents: ref string
+    genesisStateContents: ref string
+
+  setupStdoutLogging(config.logLevel)
+
+  if not(checkAndCreateDataDir(string(config.dataDir))):
+    # We are unable to access/create data folder or data folder's
+    # permissions are insecure.
+    quit QuitFailure
 
   setupLogging(config.logLevel, config.logFile)
 
@@ -1106,8 +1116,8 @@ programMain:
       for node in metadata.bootstrapNodes:
         config.bootstrapNodes.add node
 
-      if config.stateSnapshot.isNone and metadata.genesisData.len > 0:
-        stateSnapshotContents = newClone metadata.genesisData
+      if metadata.genesisData.len > 0:
+        genesisStateContents = newClone metadata.genesisData
 
     template checkForIncompatibleOption(flagName, fieldName) =
       # TODO: This will have to be reworked slightly when we introduce config files.
@@ -1130,6 +1140,13 @@ programMain:
   # Single RNG instance for the application - will be seeded on construction
   # and avoid using system resources (such as urandom) after that
   let rng = keys.newRng()
+
+  template findWalletWithoutErrors(name: WalletName): auto =
+    let res = keystore_management.findWallet(config, name)
+    if res.isErr:
+      fatal "Failed to locate wallet", error = res.error
+      quit 1
+    res.get
 
   case config.cmd
   of createTestnet:
@@ -1213,9 +1230,11 @@ programMain:
           address = metricsAddress, port = config.metricsPort
         metrics.startHttpServer($metricsAddress, config.metricsPort)
 
-    var node = waitFor BeaconNode.init(rng, config, stateSnapshotContents)
+    var node = waitFor BeaconNode.init(rng, config, genesisStateContents)
     if bnStatus == BeaconNodeStatus.Stopping:
       return
+    # The memory for the initial snapshot won't be needed anymore
+    if genesisStateContents != nil: genesisStateContents[] = ""
 
     when hasPrompt:
       initPrompt(node)
@@ -1233,14 +1252,16 @@ programMain:
       var walletPath: WalletPathPair
 
       if config.existingWalletId.isSome:
-        let id = config.existingWalletId.get
-        let found = keystore_management.findWallet(config, id)
-        if found.isOk:
+        let
+          id = config.existingWalletId.get
+          found = findWalletWithoutErrors(id)
+
+        if found.isSome:
           walletPath = found.get
         else:
-          fatal "Unable to find wallet with the specified name/uuid",
-                id, err = found.error
+          fatal "Unable to find wallet with the specified name/uuid", id
           quit 1
+
         var unlocked = unlockWalletInteractively(walletPath.wallet)
         if unlocked.isOk:
           swap(mnemonic, unlocked.get)
@@ -1256,8 +1277,15 @@ programMain:
           swap(mnemonic, walletRes.get.mnemonic)
           walletPath = walletRes.get.walletPath
 
-      createDir(config.outValidatorsDir)
-      createDir(config.outSecretsDir)
+      let vres = createPath(config.outValidatorsDir, 0o750)
+      if vres.isErr():
+        fatal "Could not create directory", path = config.outValidatorsDir
+        quit QuitFailure
+
+      let sres = createPath(config.outSecretsDir, 0o750)
+      if sres.isErr():
+        fatal "Could not create directory", path = config.outSecretsDir
+        quit QuitFailure
 
       let deposits = generateDeposits(
         config.runtimePreset,
@@ -1282,17 +1310,17 @@ programMain:
           mapIt(deposits.value, LaunchPadDeposit.init(config.runtimePreset, it))
 
         Json.saveFile(depositDataPath, launchPadDeposits)
-        notice "Deposit data written", filename = depositDataPath
+        echo "Deposit data written to \"", depositDataPath, "\""
 
         walletPath.wallet.nextAccount += deposits.value.len
         let status = saveWallet(walletPath)
         if status.isErr:
-          error "Failed to update wallet file after generating deposits",
+          fatal "Failed to update wallet file after generating deposits",
                  wallet = walletPath.path,
                  error = status.error
           quit 1
       except CatchableError as err:
-        error "Failed to create launchpad deposit data file", err = err.msg
+        fatal "Failed to create launchpad deposit data file", err = err.msg
         quit 1
 
     of DepositsCmd.`import`:
@@ -1308,6 +1336,14 @@ programMain:
   of wallets:
     case config.walletsCmd:
     of WalletsCmd.create:
+      if config.createdWalletNameFlag.isSome:
+        let
+          name = config.createdWalletNameFlag.get
+          existingWallet = findWalletWithoutErrors(name)
+        if existingWallet.isSome:
+          echo "The Wallet '" & name.string & "' already exists."
+          quit 1
+
       var walletRes = createWalletInteractively(rng[], config)
       if walletRes.isErr:
         fatal "Unable to create wallet", err = walletRes.error
@@ -1317,12 +1353,16 @@ programMain:
     of WalletsCmd.list:
       for kind, walletFile in walkDir(config.walletsDir):
         if kind != pcFile: continue
-        let walletRes = loadWallet(walletFile)
-        if walletRes.isOk:
-          echo walletRes.get.longName
+        if checkSensitiveFilePermissions(walletFile):
+          let walletRes = loadWallet(walletFile)
+          if walletRes.isOk:
+            echo walletRes.get.longName
+          else:
+            warn "Found corrupt wallet file",
+                 wallet = walletFile, error = walletRes.error
         else:
-          warn "Found corrupt wallet file",
-               wallet = walletFile, error = walletRes.error
+          warn "Found wallet file with insecure permissions",
+               wallet = walletFile
 
     of WalletsCmd.restore:
       restoreWalletInteractively(rng[], config)

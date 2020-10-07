@@ -304,17 +304,19 @@ func is_valid_genesis_state*(preset: RuntimePreset,
     return false
   true
 
+func emptyBeaconBlockBody*(): BeaconBlockBody =
+  # TODO: This shouldn't be necessary if OpaqueBlob is the default
+  BeaconBlockBody(randao_reveal: ValidatorSig(kind: OpaqueBlob))
+
 # TODO this is now a non-spec helper function, and it's not really accurate
 # so only usable/used in research/ and tests/
 func get_initial_beacon_block*(state: BeaconState): SignedBeaconBlock =
   let message = BeaconBlock(
-      slot: GENESIS_SLOT,
-      state_root: hash_tree_root(state),
-      body: BeaconBlockBody(
-        # TODO: This shouldn't be necessary if OpaqueBlob is the default
-        randao_reveal: ValidatorSig(kind: OpaqueBlob)))
-      # parent_root, randao_reveal, eth1_data, signature, and body automatically
-      # initialized to default values.
+    slot: state.slot,
+    state_root: hash_tree_root(state),
+    body: emptyBeaconBlockBody())
+    # parent_root, randao_reveal, eth1_data, signature, and body automatically
+    # initialized to default values.
   SignedBeaconBlock(message: message, root: hash_tree_root(message))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/beacon-chain.md#get_block_root_at_slot

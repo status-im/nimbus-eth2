@@ -9,8 +9,6 @@ const
   fuzzingTestsDir = gitRoot / "tests" / "fuzzing"
   fuzzingCorpusesDir = fuzzingTestsDir / "corpus"
 
-  fuzzNims = gitRoot / "vendor" / "nim-testutils" / "testutils" / "fuzzing" / "fuzz.nims"
-
 cli do (testname {.argument.}: string,
         fuzzer = defaultFuzzingEngine):
 

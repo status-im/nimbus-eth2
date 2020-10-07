@@ -300,9 +300,21 @@ proc init*(T: type ChainDAGRef,
     tailRef = BlockRef.init(tailRoot, tailBlock.message)
     headRoot = headBlockRoot.get()
 
+  let genesisRef = if tailBlock.message.slot == GENESIS_SLOT:
+    tailRef
+  else:
+    let
+      genesisBlockRoot = db.getGenesisBlockRoot()
+      genesisBlock = db.getBlock(genesisBlockRoot).expect(
+        "preInit should have initialized the database with a genesis block")
+    BlockRef.init(genesisBlockRoot, genesisBlock.message)
+
   var
     blocks = {tailRef.root: tailRef}.toTable()
     headRef: BlockRef
+
+  if genesisRef != tailRef:
+    blocks[genesisRef.root] = genesisRef
 
   if headRoot != tailRoot:
     var curRef: BlockRef
@@ -363,6 +375,7 @@ proc init*(T: type ChainDAGRef,
     blocks: blocks,
     tail: tailRef,
     head: headRef,
+    genesis: genesisRef,
     db: db,
     heads: @[headRef],
     headState: tmpState[],
@@ -383,8 +396,12 @@ proc init*(T: type ChainDAGRef,
   # state we loaded might be older than head block - nonetheless, it will be
   # from the same epoch as the head, thus the finalized and justified slots are
   # the same - these only change on epoch boundaries.
-  res.finalizedHead = headRef.atEpochStart(
-      res.headState.data.data.finalized_checkpoint.epoch)
+  # When we start from a snapshot state, the `finalized_checkpoint` in the
+  # snapshot will point to an even older state, but we trust the tail state
+  # (the snapshot) to be finalized, hence the `max` expression below.
+  let finalizedEpoch = max(res.headState.data.data.finalized_checkpoint.epoch,
+                           tailRef.slot.epoch)
+  res.finalizedHead = headRef.atEpochStart(finalizedEpoch)
 
   res.clearanceState = res.headState
 
@@ -398,6 +415,7 @@ proc init*(T: type ChainDAGRef,
 
 proc findEpochRef*(blck: BlockRef, epoch: Epoch): EpochRef = # may return nil!
   let ancestor = blck.epochAncestor(epoch)
+  doAssert ancestor.blck != nil
   for epochRef in ancestor.blck.epochRefs:
     if epochRef.epoch == epoch:
       return epochRef
@@ -405,8 +423,8 @@ proc findEpochRef*(blck: BlockRef, epoch: Epoch): EpochRef = # may return nil!
 proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
   let epochRef = blck.findEpochRef(epoch)
   if epochRef != nil:
-      beacon_state_data_cache_hits.inc
-      return epochRef
+    beacon_state_data_cache_hits.inc
+    return epochRef
 
   beacon_state_data_cache_misses.inc
 
@@ -415,7 +433,8 @@ proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
 
   dag.withState(dag.tmpState, ancestor):
     let
-      prevEpochRef = blck.findEpochRef(epoch - 1)
+      prevEpochRef = if dag.tail.slot.epoch >= epoch: nil
+                     else: blck.findEpochRef(epoch - 1)
       newEpochRef = EpochRef.init(state, cache, prevEpochRef)
 
     # TODO consider constraining the number of epochrefs per state
@@ -512,14 +531,18 @@ func getBlockRange*(
   ## at this index.
   ##
   ## If there were no blocks in the range, `output.len` will be returned.
-  let requestedCount = output.lenu64
+  let
+    requestedCount = output.lenu64
+    headSlot = dag.head.slot
+
   trace "getBlockRange entered",
-    head = shortLog(dag.head.root), requestedCount, startSlot, skipStep
+    head = shortLog(dag.head.root), requestedCount, startSlot, skipStep, headSlot
+
+  if startSlot < dag.tail.slot or headSlot <= startSlot:
+    return output.len # Identical to returning an empty set of block as indicated above
 
   let
-    headSlot = dag.head.slot
-    runway = if headSlot > startSlot: uint64(headSlot - startSlot)
-             else: return output.len # Identical to returning an empty set of block as indicated above
+    runway = uint64(headSlot - startSlot)
     skipStep = max(skipStep, 1) # Treat 0 step as 1
     count = min(1'u64 + (runway div skipStep), requestedCount)
     endSlot = startSlot + count * skipStep
@@ -702,7 +725,7 @@ proc updateHead*(
   ## blocks that were once considered potential candidates for a tree will
   ## now fall from grace, or no longer be considered resolved.
   doAssert not newHead.isNil()
-  doAssert not newHead.parent.isNil() or newHead.slot == 0
+  doAssert not newHead.parent.isNil() or newHead.slot <= dag.tail.slot
   logScope:
     newHead = shortLog(newHead)
 
@@ -843,25 +866,50 @@ proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): bool =
   true
 
 proc preInit*(
-    T: type ChainDAGRef, db: BeaconChainDB, state: BeaconState,
-    signedBlock: SignedBeaconBlock) =
+    T: type ChainDAGRef, db: BeaconChainDB,
+    genesisState, tailState: BeaconState, tailBlock: SignedBeaconBlock) =
   # write a genesis state, the way the ChainDAGRef expects it to be stored in
   # database
   # TODO probably should just init a block pool with the freshly written
   #      state - but there's more refactoring needed to make it nice - doing
   #      a minimal patch for now..
-  doAssert signedBlock.message.state_root == hash_tree_root(state)
+  doAssert tailBlock.message.state_root == hash_tree_root(tailState)
   notice "New database from snapshot",
-    blockRoot = shortLog(signedBlock.root),
-    stateRoot = shortLog(signedBlock.message.state_root),
-    fork = state.fork,
-    validators = state.validators.len()
+    blockRoot = shortLog(tailBlock.root),
+    stateRoot = shortLog(tailBlock.message.state_root),
+    fork = tailState.fork,
+    validators = tailState.validators.len()
 
-  db.putState(state)
-  db.putBlock(signedBlock)
-  db.putTailBlock(signedBlock.root)
-  db.putHeadBlock(signedBlock.root)
-  db.putStateRoot(signedBlock.root, state.slot, signedBlock.message.state_root)
+  db.putState(tailState)
+  db.putBlock(tailBlock)
+  db.putTailBlock(tailBlock.root)
+  db.putHeadBlock(tailBlock.root)
+  db.putStateRoot(tailBlock.root, tailState.slot, tailBlock.message.state_root)
+
+  if tailState.slot == GENESIS_SLOT:
+    db.putGenesisBlockRoot(tailBlock.root)
+  else:
+    doAssert genesisState.slot == GENESIS_SLOT
+    db.putState(genesisState)
+    let genesisBlock = get_initial_beacon_block(genesisState)
+    db.putBlock(genesisBlock)
+    db.putStateRoot(genesisBlock.root, GENESIS_SLOT, genesisBlock.message.state_root)
+    db.putGenesisBlockRoot(genesisBlock.root)
+
+proc setTailState*(dag: ChainDAGRef,
+                   checkpointState: BeaconState,
+                   checkpointBlock: SignedBeaconBlock) =
+  # TODO
+  # Delete all records up to the tail node. If the tail node is not
+  # in the database, init the dabase in a way similar to `preInit`.
+  discard
+
+proc getGenesisBlockData*(dag: ChainDAGRef): BlockData =
+  dag.get(dag.genesis)
+
+proc getGenesisBlockSlot*(dag: ChainDAGRef): BlockSlot =
+  let blockData = dag.getGenesisBlockData()
+  BlockSlot(blck: blockData.refs, slot: GENESIS_SLOT)
 
 proc getProposer*(
     dag: ChainDAGRef, head: BlockRef, slot: Slot):

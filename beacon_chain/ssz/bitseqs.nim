@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  stew/[bitops2, ptrops]
+  stew/[bitops2, endians2, ptrops]
 
 type
   Bytes = seq[byte]
@@ -52,6 +52,17 @@ func add*(s: var BitSeq, value: bool) =
     s.Bytes[lastBytePos].changeBit 7, value
     s.Bytes.add byte(1)
 
+func toBytesLE(x: uint): array[sizeof(x), byte] =
+  # stew/endians2 supports explicitly sized uints only
+  when sizeof(uint) == 4:
+    static: doAssert sizeof(uint) == sizeof(uint32)
+    toBytesLE(x.uint32)
+  elif sizeof(uint) == 8:
+    static: doAssert sizeof(uint) == sizeof(uint64)
+    toBytesLE(x.uint64)
+  else:
+    static: doAssert false, "requires a 32-bit or 64-bit platform"
+
 func loadLEBytes(WordType: type, bytes: openarray[byte]): WordType =
   # TODO: this is a temporary proc until the endians API is improved
   var shift = 0
@@ -61,13 +72,8 @@ func loadLEBytes(WordType: type, bytes: openarray[byte]): WordType =
 
 func storeLEBytes(value: SomeUnsignedInt, dst: var openarray[byte]) =
   doAssert dst.len <= sizeof(value)
-  when system.cpuEndian == bigEndian:
-    var shift = 0
-    for i in 0 ..< dst.len:
-      result[i] = byte((v shr shift) and 0xff)
-      shift += 8
-  else:
-    copyMem(addr dst[0], unsafeAddr value, dst.len)
+  let bytesLE = toBytesLE(value)
+  copyMem(addr dst[0], unsafeAddr bytesLE[0], dst.len)
 
 template loopOverWords(lhs, rhs: BitSeq,
                        lhsIsVar, rhsIsVar: static bool,

@@ -40,10 +40,16 @@ proc fromJson*(n: JsonNode, argName: string, result: var Version) =
 proc `%`*(value: Version): JsonNode =
   result = newJString($value)
 
-template genFromJsonForIntType(t: untyped) =
-  proc fromJson*(n: JsonNode, argName: string, result: var t) =
+template genFromJsonForIntType(T: untyped) =
+  proc fromJson*(n: JsonNode, argName: string, result: var T) =
     n.kind.expect(JInt, argName)
-    result = n.getInt().t
+    let asInt = n.getInt()
+    # signed -> unsigned conversions are unchecked
+    # https://github.com/nim-lang/RFCs/issues/175
+    if asInt < 0:
+      raise newException(
+        ValueError, "JSON-RPC input is an unexpected negative value")
+    result = T(asInt)
 
 genFromJsonForIntType(Epoch)
 genFromJsonForIntType(Slot)

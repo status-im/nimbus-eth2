@@ -77,7 +77,14 @@ jobs:
     steps:
       - name: Get branch name
         shell: bash
-        run: echo "##[set-output name=branch_name;]$(echo ${GITHUB_REF#refs/heads/})"
+        run: |
+          if [[ '${{  github.event_name }}' == 'pull_request' ]]; then
+            echo "##[set-output name=branch_name;]$(echo ${GITHUB_HEAD_REF})"
+            echo "Branch found (PR): ${GITHUB_HEAD_REF}"
+          else
+            echo "##[set-output name=branch_name;]$(echo ${GITHUB_REF#refs/heads/})"
+            echo "Branch found (not PR): ${GITHUB_REF#refs/heads/}"
+          fi
         id: get_branch
 
       - name: Cancel Previous Runs (except master/devel)

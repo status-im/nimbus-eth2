@@ -29,6 +29,8 @@ BOOTSTRAP_ADDRESS_FILE="${SIMULATION_DIR}/node-${BOOTSTRAP_NODE_ID}/beacon_node.
 
 if [[ "$NODE_ID" != "$BOOTSTRAP_NODE" ]]; then
   BOOTSTRAP_ARG="--bootstrap-file=$BOOTSTRAP_ADDRESS_FILE"
+else
+  BOOTSTRAP_ARG="--netkey-file=network_key.json --insecure-netkey-password"
 fi
 
 # set up the environment
@@ -48,11 +50,13 @@ if [ "${NAT:-}" == "1" ]; then
   NAT_ARG="--nat:any"
 fi
 
+mkdir -m 0700 -p "$NODE_DATA_DIR"
+
 rm -rf "$NODE_VALIDATORS_DIR"
-mkdir -p "$NODE_VALIDATORS_DIR"
+mkdir -m 0700 "$NODE_VALIDATORS_DIR"
 
 rm -rf "$NODE_SECRETS_DIR"
-mkdir -p "$NODE_SECRETS_DIR"
+mkdir -m 0700 "$NODE_SECRETS_DIR"
 
 VALIDATORS_PER_NODE=$(( NUM_VALIDATORS / (TOTAL_NODES - 1) ))
 if [ "${USE_BN_VC_VALIDATOR_SPLIT:-}" == "yes" ]; then
@@ -72,11 +76,11 @@ if [[ $NODE_ID -lt $BOOTSTRAP_NODE ]]; then
 fi
 
 rm -rf "$NODE_DATA_DIR/dump"
-mkdir -p "$NODE_DATA_DIR/dump"
+mkdir -m 0700 "$NODE_DATA_DIR/dump"
 
 SNAPSHOT_ARG=""
 if [ -f "${SNAPSHOT_FILE}" ]; then
-  SNAPSHOT_ARG="--state-snapshot=${SNAPSHOT_FILE}"
+  SNAPSHOT_ARG="--finalized-checkpoint-state=${SNAPSHOT_FILE}"
 fi
 
 cd "$NODE_DATA_DIR"

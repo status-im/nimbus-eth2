@@ -1,15 +1,17 @@
 {.push raises: [Defect].}
 
 import
-  os, options,
+  strutils, os, options, unicode,
   chronicles, chronicles/options as chroniclesOptions,
-  confutils, confutils/defs, confutils/std/net,
+  confutils, confutils/defs, confutils/std/net, stew/shims/net as stewNet,
+  stew/io2, unicodedb/properties, normalize,
   json_serialization, web3/[ethtypes, confutils_defs],
-  network_metadata, spec/[crypto, keystore, digest, datatypes]
+  spec/[crypto, keystore, digest, datatypes, network],
+  network_metadata
 
 export
-  defs, enabledLogLevel, parseCmdArg, completeCmdArg,
-  network_metadata
+  defaultEth2TcpPort, enabledLogLevel, ValidIpAddress,
+  defs, parseCmdArg, completeCmdArg, network_metadata
 
 type
   ValidatorKeyPath* = TypedInputFile[ValidatorPrivKey, Txt, "privkey"]
@@ -82,6 +84,18 @@ type
       desc: "Do not display interative prompts. Quit on missing configuration"
       name: "non-interactive" }: bool
 
+    netKeyFile* {.
+      defaultValue: "random",
+      desc: "Source of network (secp256k1) private key file " &
+            "(random|<path>) (default: random)"
+      name: "netkey-file" }: string
+
+    netKeyInsecurePassword* {.
+      defaultValue: false,
+      desc: "Use pre-generated INSECURE password for network private key " &
+            "file (default: false)"
+      name: "insecure-netkey-password" }: bool
+
     case cmd* {.
       command
       defaultValue: noCommand }: BNStartUpCmd
@@ -128,13 +142,17 @@ type
         abbr: "v"
         name: "validator" }: seq[ValidatorKeyPath]
 
-      stateSnapshot* {.
-        desc: "SSZ file specifying a recent state snapshot"
-        abbr: "s"
-        name: "state-snapshot" }: Option[InputFile]
+      weakSubjectivityCheckpoint* {.
+        desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
+        name: "weak-subjectivity-checkpoint" }: Option[Checkpoint]
 
-      stateSnapshotContents* {.hidden.}: ref string
-        # This is ref so we can mutate it (to erase it) after the initial loading.
+      finalizedCheckpointState* {.
+        desc: "SSZ file specifying a recent finalized state"
+        name: "finalized-checkpoint-state" }: Option[InputFile]
+
+      finalizedCheckpointBlock* {.
+        desc: "SSZ file specifying a recent finalized block"
+        name: "finalized-checkpoint-block" }: Option[InputFile]
 
       runtimePreset* {.hidden.}: RuntimePreset
 
@@ -238,7 +256,7 @@ type
         name: "last-user-validator" }: uint64
 
       bootstrapAddress* {.
-        defaultValue: ValidIpAddress.init("127.0.0.1")
+        defaultValue: init(ValidIpAddress, "127.0.0.1")
         desc: "The public IP address that will be advertised as a bootstrap node for the testnet"
         name: "bootstrap-address" }: ValidIpAddress
 
@@ -428,13 +446,15 @@ func dumpDirOutgoing*(conf: BeaconNodeConf|ValidatorClientConf): string =
 
 proc createDumpDirs*(conf: BeaconNodeConf) =
   if conf.dumpEnabled:
-    try:
-      createDir(conf.dumpDirInvalid)
-      createDir(conf.dumpDirIncoming)
-      createDir(conf.dumpDirOutgoing)
-    except CatchableError as err:
-      # Dumping is mainly a debugging feature, so ignore these..
-      warn "Cannot create dump directories", msg = err.msg
+    let resInv = createPath(conf.dumpDirInvalid, 0o750)
+    if resInv.isErr():
+      warn "Could not create dump directory", path = conf.dumpDirInvalid
+    let resInc = createPath(conf.dumpDirIncoming, 0o750)
+    if resInc.isErr():
+      warn "Could not create dump directory", path = conf.dumpDirIncoming
+    let resOut = createPath(conf.dumpDirOutgoing, 0o750)
+    if resOut.isErr():
+      warn "Could not create dump directory", path = conf.dumpDirOutgoing
 
 func parseCmdArg*(T: type GraffitiBytes, input: TaintedString): T
                  {.raises: [ValueError, Defect].} =
@@ -443,13 +463,39 @@ func parseCmdArg*(T: type GraffitiBytes, input: TaintedString): T
 func completeCmdArg*(T: type GraffitiBytes, input: TaintedString): seq[string] =
   return @[]
 
+func parseCmdArg*(T: type Checkpoint, input: TaintedString): T
+                 {.raises: [ValueError, Defect].} =
+  let sepIdx = find(input.string, ':')
+  if sepIdx == -1:
+    raise newException(ValueError,
+      "The weak subjectivity checkpoint must be provided in the `block_root:epoch_number` format")
+  T(root: Eth2Digest.fromHex(input[0 ..< sepIdx]),
+    epoch: parseBiggestUInt(input[sepIdx .. ^1]).Epoch)
+
+func completeCmdArg*(T: type Checkpoint, input: TaintedString): seq[string] =
+  return @[]
+
+proc isPrintable(rune: Rune): bool =
+  # This can be eventually replaced by the `unicodeplus` package, but a single
+  # proc does not justify the extra dependencies at the moment:
+  # https://github.com/nitely/nim-unicodeplus
+  # https://github.com/nitely/nim-segmentation
+  rune == Rune(0x20) or unicodeCategory(rune) notin ctgC+ctgZ
+
 func parseCmdArg*(T: type WalletName, input: TaintedString): T
                  {.raises: [ValueError, Defect].} =
   if input.len == 0:
     raise newException(ValueError, "The wallet name should not be empty")
   if input[0] == '_':
     raise newException(ValueError, "The wallet name should not start with an underscore")
-  return T(input)
+  for rune in runes(input.string):
+    if not rune.isPrintable:
+      raise newException(ValueError, "The wallet name should consist only of printable characters")
+
+  # From the Unicode Normalization FAQ (https://unicode.org/faq/normalization.html):
+  # NFKC is the preferred form for identifiers, especially where there are security concerns
+  # (see UTR #36 http://www.unicode.org/reports/tr36/)
+  return T(toNFKC(input))
 
 func completeCmdArg*(T: type WalletName, input: TaintedString): seq[string] =
   return @[]
