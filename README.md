@@ -47,9 +47,9 @@ Nimbus beacon chain is a research implementation of the beacon chain component o
 
 ## Documentation
 
-You can find the information you need to run a beacon node and operate as a validator in [The Book](https://status-im.github.io/nim-beacon-chain/).
+You can find the information you need to run a beacon node and operate as a validator in [The Book](https://status-im.github.io/nimbus-eth2/).
 
-See [this page](https://status-im.github.io/nim-beacon-chain/medalla.html) for how to become a validator on Medalla.
+See [this page](https://status-im.github.io/nimbus-eth2/medalla.html) for how to become a validator on Medalla.
 
 ## Related projects
 
@@ -175,7 +175,7 @@ Unfortunately, this simple method only offers one snapshot in time (you'll need 
 
 In order to settle on a better solution, we'll need the help of two external projects -- [Prometheus](https://prometheus.io/) and [Grafana](https://grafana.com/).
 
-See [this page](https://status-im.github.io/nim-beacon-chain/metrics-pretty-pictures.html#prometheus-and-grafana) from our Nimbus book for a step-by-step guide on how to use Prometheus and Grafana to spin up a beautiful and useful monitoring dashboard for your validator.
+See [this page](https://status-im.github.io/nimbus-eth2/metrics-pretty-pictures.html#prometheus-and-grafana) from our Nimbus book for a step-by-step guide on how to use Prometheus and Grafana to spin up a beautiful and useful monitoring dashboard for your validator.
 
 ------------------
 *For those of you who are already familiar with Prometheus and Grafana*
