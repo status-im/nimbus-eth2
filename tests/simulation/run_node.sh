@@ -50,11 +50,13 @@ if [ "${NAT:-}" == "1" ]; then
   NAT_ARG="--nat:any"
 fi
 
+mkdir -m 0700 -p "$NODE_DATA_DIR"
+
 rm -rf "$NODE_VALIDATORS_DIR"
-mkdir -p "$NODE_VALIDATORS_DIR"
+mkdir -m 0700 "$NODE_VALIDATORS_DIR"
 
 rm -rf "$NODE_SECRETS_DIR"
-mkdir -p "$NODE_SECRETS_DIR"
+mkdir -m 0700 "$NODE_SECRETS_DIR"
 
 VALIDATORS_PER_NODE=$(( NUM_VALIDATORS / (TOTAL_NODES - 1) ))
 if [ "${USE_BN_VC_VALIDATOR_SPLIT:-}" == "yes" ]; then
@@ -74,7 +76,7 @@ if [[ $NODE_ID -lt $BOOTSTRAP_NODE ]]; then
 fi
 
 rm -rf "$NODE_DATA_DIR/dump"
-mkdir -p "$NODE_DATA_DIR/dump"
+mkdir -m 0700 "$NODE_DATA_DIR/dump"
 
 SNAPSHOT_ARG=""
 if [ -f "${SNAPSHOT_FILE}" ]; then
