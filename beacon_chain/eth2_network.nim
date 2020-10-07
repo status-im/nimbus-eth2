@@ -4,7 +4,7 @@ import
   std/options as stdOptions,
 
   # Status libs
-  stew/[varints, base58, base64, endians2, results, byteutils, io2], bearssl,
+  stew/[varints, base58, endians2, results, byteutils, io2], bearssl,
   stew/shims/net as stewNet,
   stew/shims/[macros, tables],
   faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
@@ -1317,7 +1317,13 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
 
 func gossipId(data: openArray[byte]): string =
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#topics-and-messages
-  base64.encode(Base64Url, sha256.digest(data).data)
+  # https://github.com/ethereum/eth2.0-specs/pull/2089
+  var msgDigest = sha256.digest(data).data
+
+  # We only use snappy-compressed messages.
+  msgDigest[0] = msgDigest[0] and 127
+
+  string.fromBytes(msgDigest.toOpenArray(0, 19))
 
 func msgIdProvider(m: messages.Message): string =
   gossipId(m.data)
