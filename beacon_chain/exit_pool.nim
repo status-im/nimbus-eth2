@@ -82,6 +82,26 @@ template allIt(s, pred: untyped): bool =
 
 func getExitMessagesForBlock[T](
     subpool: var Deque[T], pool: var ExitPool, bound: uint64): seq[T] =
+  # Approach taken here is to simply collect messages, effectively, a circular
+  # buffer and only re-validate that they haven't already found themselves out
+  # of the network eventually via some exit message at block construction time
+  # at which point we use exit_epoch. It doesn't matter which of these message
+  # types has triggered that exit, as the validation on incoming messages will
+  # find it to either be IGNORE (if it's the same type of exit message) or, if
+  # it's a different type, REJECT. Neither is worth packaging into BeaconBlock
+  # messages we broadcast.
+  #
+  # Beyond that, no other criterion of the exit messages' validity changes from
+  # when they were created, so given that we validated them to start with, they
+  # otherwise remain as valid as when we received them. There's no need to thus
+  # re-validate them on their way out.
+  #
+  # This overall approach handles a scenario wherein we receive an exit message
+  # over gossip and put it in the pool; receive a block X, with that message in
+  # it, and select it as head; then orphan block X and build instead on X-1. If
+  # this occurs, only validating after the fact ensures that we still broadcast
+  # out those exit messages that were in orphaned block X by not having eagerly
+  # removed them, if we have the chance.
   while true:
     if subpool.len == 0 or result.lenu64 >= bound:
       break
