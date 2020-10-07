@@ -35,7 +35,12 @@ suiteReport "Exit pool testing suite":
     for i in 0'u64 .. MAX_ATTESTER_SLASHINGS + 5:
       for j in 0'u64 .. i:
         pool.attester_slashings.addExitMessage(
-          AttesterSlashing(), MAX_ATTESTER_SLASHINGS)
+          AttesterSlashing(
+            attestation_1: IndexedAttestation(attesting_indices:
+              List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE](@[0'u64])),
+            attestation_2: IndexedAttestation(attesting_indices:
+              List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE](@[0'u64]))),
+          MAX_ATTESTER_SLASHINGS)
       check:
         pool[].getAttesterSlashingsForBlock().lenu64 ==
           min(i + 1, MAX_ATTESTER_SLASHINGS)

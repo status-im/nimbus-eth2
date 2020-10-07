@@ -84,13 +84,13 @@ type
     voluntary_exits*: Deque[SignedVoluntaryExit]  ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
 
-    prior_seen_attester_slashed_indices*: HashSet[ValidatorIndex] ##\
+    prior_seen_attester_slashed_indices*: HashSet[uint64] ##\
     ## Records attester-slashed indices seen.
 
-    prior_seen_proposer_slashed_indices*: HashSet[ValidatorIndex] ##\
+    prior_seen_proposer_slashed_indices*: HashSet[uint64] ##\
     ## Records proposer-slashed indices seen.
 
-    prior_seen_voluntary_exit_indices*: HashSet[ValidatorIndex] ##\
+    prior_seen_voluntary_exit_indices*: HashSet[uint64] ##\
     ## Records voluntary exit indices seen.
 
     chainDag*: ChainDAGRef

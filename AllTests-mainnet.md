@@ -98,15 +98,19 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Mocked start private key                                                                   OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
-## Keystore
+## KeyStorage testing suite
 ```diff
-+ Pbkdf2 decryption                                                                          OK
-+ Pbkdf2 encryption                                                                          OK
 + Pbkdf2 errors                                                                              OK
-+ Scrypt decryption                                                                          OK
-+ Scrypt encryption                                                                          OK
++ [PBKDF2] Keystore decryption                                                               OK
++ [PBKDF2] Keystore encryption                                                               OK
++ [PBKDF2] Network Keystore decryption                                                       OK
++ [PBKDF2] Network Keystore encryption                                                       OK
++ [SCRYPT] Keystore decryption                                                               OK
++ [SCRYPT] Keystore encryption                                                               OK
++ [SCRYPT] Network Keystore decryption                                                       OK
++ [SCRYPT] Network Keystore encryption                                                       OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
+OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Mocking utilities
 ```diff
 + merkle_minimal                                                                             OK
@@ -281,4 +285,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 151/159 Fail: 0/159 Skip: 8/159
+OK: 155/163 Fail: 0/163 Skip: 8/163
