@@ -655,7 +655,9 @@ will lead to non nul-terminated string in C FFI and buffer overflows.</p>
 <p>A pointer object is manually managed, it can be on the heap (malloc) or on the stack (alloca)</p>
 <h1><a class="header" href="#casting-and-low-level-memory-representation" id="casting-and-low-level-memory-representation">Casting and low-level memory representation</a></h1>
 <h2><a class="header" href="#conversions" id="conversions">Conversions</a></h2>
-<p>Casting to or from a signed integer will lead to a range check</p>
+<p>Casting to a signed integer will lead to a range check.
+Conversion to an unsigned integer even from a negative signed integer will NOT lead to a range check (https://github.com/nim-lang/RFCs/issues/175)
+https://nim-lang.org/docs/manual.html#statements-and-expressions-type-conversions</p>
 <h2><a class="header" href="#casting-integers" id="casting-integers">Casting integers</a></h2>
 <p>Unsigned integer casts behave like C.</p>
 <p>Upcasting will lead to zero extension
