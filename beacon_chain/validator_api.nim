@@ -43,7 +43,7 @@ func checkEpochToSlotOverflow(epoch: Epoch) =
   const maxEpoch = compute_epoch_at_slot(not 0'u64)
   if epoch >= maxEpoch:
     raise newException(
-      CatchableError, "Requesting epoch for which slot would overflow")
+      ValueError, "Requesting epoch for which slot would overflow")
 
 proc doChecksAndGetCurrentHead(node: BeaconNode, slot: Slot): BlockRef =
   result = node.chainDag.head
