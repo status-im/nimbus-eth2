@@ -1321,7 +1321,7 @@ func gossipId(data: openArray[byte]): string =
   var msgDigest = sha256.digest(data).data
 
   # We only use snappy-compressed messages.
-  msgDigest[0] = msgDigest[0] and 127
+  msgDigest[0] = msgDigest[0] or 128
 
   string.fromBytes(msgDigest.toOpenArray(0, 19))
 
