@@ -366,7 +366,6 @@ func is_eligible_for_activation(state: BeaconState, validator: Validator):
 proc process_registry_updates*(state: var BeaconState,
     cache: var StateCache) {.nbench.}=
   ## Process activation eligibility and ejections
-  ## Try to avoid caching here, since this could easily become undefined
 
   # Make visible, e.g.,
   # https://github.com/status-im/nim-beacon-chain/pull/608

@@ -435,6 +435,8 @@ func process_slashings*(state: var BeaconState, cache: var StateCache) {.nbench.
   let
     epoch = get_current_epoch(state)
     total_balance = get_total_active_balance(state, cache)
+    adjusted_total_slashing_balance =
+      min(sum(state.slashings) * PROPORTIONAL_SLASHING_MULTIPLIER, total_balance)
 
   for index, validator in state.validators:
     if validator.slashed and epoch + EPOCHS_PER_SLASHINGS_VECTOR div 2 ==
@@ -443,7 +445,7 @@ func process_slashings*(state: var BeaconState, cache: var StateCache) {.nbench.
                                                   # numerator to avoid uint64 overflow
       let penalty_numerator =
         validator.effective_balance div increment *
-          min(sum(state.slashings) * 3, total_balance)
+        adjusted_total_slashing_balance
       let penalty = penalty_numerator div total_balance * increment
       decrease_balance(state, index.ValidatorIndex, penalty)
 
