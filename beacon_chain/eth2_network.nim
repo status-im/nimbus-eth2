@@ -622,7 +622,7 @@ proc handleIncomingStream(network: Eth2Node,
 
     # TODO peer connection setup is broken, update info in some better place
     #      whenever race is fix:
-    #      https://github.com/status-im/nim-beacon-chain/issues/1157
+    #      https://github.com/status-im/nimbus-eth2/issues/1157
     peer.info = conn.peerInfo
 
     template returnInvalidRequest(msg: ErrorMsg) =

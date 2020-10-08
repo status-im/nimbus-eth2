@@ -13,13 +13,13 @@ import
   ../beacon_chain/ssz
 
 # Sanity checks to make sure all the workarounds introduced
-# to deal with https://github.com/status-im/nim-beacon-chain/issues/374
+# to deal with https://github.com/status-im/nimbus-eth2/issues/374
 # and https://github.com/ethereum/eth2.0-specs/issues/1396
 # don't blow up.
 
 suiteReport "Zero signature sanity checks":
   # Using signature directly triggers a bug
-  # in object_serialization/stew: https://github.com/status-im/nim-beacon-chain/issues/396
+  # in object_serialization/stew: https://github.com/status-im/nimbus-eth2/issues/396
 
   # test "SSZ serialization round-trip doesn't un-zero the signature":
 

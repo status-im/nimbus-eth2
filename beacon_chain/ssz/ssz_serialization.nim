@@ -1,5 +1,5 @@
 # TODO Cannot override push, even though the function is annotated
-# nim-beacon-chain/beacon_chain/ssz.nim(212, 18) Error: can raise an unlisted exception: IOError
+# nimbus-eth2/beacon_chain/ssz.nim(212, 18) Error: can raise an unlisted exception: IOError
 # {.push raises: [Defect].}
 {.pragma: raisesssz, raises: [Defect, MalformedSszError, SszSizeMismatchError].}
 

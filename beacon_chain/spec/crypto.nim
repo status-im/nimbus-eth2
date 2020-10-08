@@ -310,7 +310,7 @@ proc readValue*(reader: var JsonReader, value: var ValidatorPubKey)
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorSig) {.
     inline, raises: [IOError, Defect].} =
-  # Workaround: https://github.com/status-im/nim-beacon-chain/issues/374
+  # Workaround: https://github.com/status-im/nimbus-eth2/issues/374
   writer.writeValue(value.toHex())
 
 proc readValue*(reader: var JsonReader, value: var ValidatorSig)
