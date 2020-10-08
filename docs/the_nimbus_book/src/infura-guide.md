@@ -62,7 +62,7 @@ To get around this problem, we recommend launching the beacon node with your own
 
 
 
-> **Note:** In a previous version of the software it wasn't possible to manually override the web3 endpoint when running `make zinken` or `make medalla`. For the instructions below to work, make sure you've updated to the latest version of the software (run `git pull && make update` from the `master` branch of the `nim-beacon-chain` repository).
+> **Note:** In a previous version of the software it wasn't possible to manually override the web3 endpoint when running `make zinken` or `make medalla`. For the instructions below to work, make sure you've updated to the latest version of the software (run `git pull && make update` from the `master` branch of the `nimbus-eth2` repository).
 
 ### 1. Visit Infura.io
 

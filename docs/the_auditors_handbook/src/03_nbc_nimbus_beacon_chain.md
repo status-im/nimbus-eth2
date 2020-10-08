@@ -1,6 +1,6 @@
 # Nimbus Beacon Chain
 
-[https://github.com/status-im/nim-beacon-chain](https://github.com/status-im/nim-beacon-chain)
+[https://github.com/status-im/nimbus-eth2](https://github.com/status-im/nimbus-eth2)
 
 Nimbus Beacon Chain (NBC) is an implementation of an Ethereum 2 client.
 

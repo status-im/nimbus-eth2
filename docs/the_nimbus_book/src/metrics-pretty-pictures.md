@@ -71,7 +71,7 @@ cp prometheus-2.20.1.linux-amd64/prometheus /usr/local/bin/
 
 Prometheus relies on a YAML configuration file to let it know where, and how often, to scrape data.
 
-`nim-beacon-chain` generates an appropriate configuration file (`prometheseus.yml`) when you build the beacon node. If you're running the `medalla` testnet you'll find this in `build/data/shared_medalla_0`.
+`nimbus-eth2` generates an appropriate configuration file (`prometheseus.yml`) when you build the beacon node. If you're running the `medalla` testnet you'll find this in `build/data/shared_medalla_0`.
 
 To run Prometheus with the default config file:
 
@@ -138,11 +138,11 @@ Click on `Upload JSON file`
 
 ![](https://i.imgur.com/l65ICZ2.png)
 
-Select the `beacon_nodes_Grafana_dashboard.json`  from the `nim-beacon-chain/grafana/` folder and click on `Import`
+Select the `beacon_nodes_Grafana_dashboard.json`  from the `nimbus-eth2/grafana/` folder and click on `Import`
 
 ![](https://i.imgur.com/SoU5Isz.png)
 
-You'll be directed to the dashboard where you'll be able to gain insights into the performance of `nim-beacon-chain` and your validators
+You'll be directed to the dashboard where you'll be able to gain insights into the performance of `nimbus-eth2` and your validators
 
 ![](https://i.imgur.com/aIfJ1iT.png)
 
