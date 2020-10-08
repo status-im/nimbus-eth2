@@ -6,7 +6,7 @@ cd /home/user/nimbus-eth2
 
 PREFIX="nimbus-eth2_Linux_amd64_"
 GIT_COMMIT="$(git rev-parse --short HEAD)"
-DIR="${PREFIX}${GIT_COMMIT}_$(date +'%Y%m%d%H%M%S')"
+DIR="${PREFIX}${GIT_COMMIT}_$(date --utc +'%Y%m%d%H%M%S')"
 DIST_PATH="dist/${DIR}"
 BINARIES="beacon_node"
 

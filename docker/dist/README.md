@@ -2,7 +2,7 @@
 
 This binary distribution was created from https://github.com/status-im/nimbus-eth2
 
-Tarball naming scheme: "nimbus-eth2\_Linux\_amd64\_<GIT COMMIT>\_<YYYYMMDDHHMMSS>.tar.gz"
+Tarball naming scheme: "nimbus-eth2\_Linux\_amd64\_<GIT COMMIT>\_<YYYYMMDDHHMMSS>.tar.gz" (the date is in UTC).
 
 ## Reproducing the build
 
