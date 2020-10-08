@@ -74,7 +74,8 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	clean \
 	libbacktrace \
 	book \
-	publish-book
+	publish-book \
+	dist
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
@@ -419,5 +420,14 @@ publish-book: | book auditors-book
 	cd .. && \
 	git worktree remove -f tmp-book && \
 	rm -rf tmp-book
+
+#- we rebuild everything inside the container, so we need to clean up afterwards
+dist:
+	docker rm nimbus-eth2-dist $(HANDLE_OUTPUT) || true
+	cd docker/dist && \
+		DOCKER_BUILDKIT=1 docker build -t nimbus-eth2-dist --progress=plain --build-arg USER_ID=$$(id -u) --build-arg GROUP_ID=$$(id -g) . && \
+		docker run --rm --name nimbus-eth2-dist -v $(CURDIR):/home/user/nimbus-eth2 nimbus-eth2-dist
+	ls -l dist
+	$(MAKE) clean
 
 endif # "variables.mk" was not included
