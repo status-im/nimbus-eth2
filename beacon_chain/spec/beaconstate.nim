@@ -368,7 +368,7 @@ proc process_registry_updates*(state: var BeaconState,
   ## Process activation eligibility and ejections
 
   # Make visible, e.g.,
-  # https://github.com/status-im/nim-beacon-chain/pull/608
+  # https://github.com/status-im/nimbus-eth2/pull/608
   # https://github.com/sigp/lighthouse/pull/657
   let epoch {.used.} = get_current_epoch(state)
   trace "process_registry_updates validator balances",
@@ -468,8 +468,8 @@ func get_attesting_indices*(bits: CommitteeValidatorsBits,
   # do anything here since the PendingAttestation wouldn't have made it past
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/beacon-chain.md#attestations
   # which checks len(attestation.aggregation_bits) == len(committee) that in
-  # nim-beacon-chain lives in check_attestation(...).
-  # Addresses https://github.com/status-im/nim-beacon-chain/issues/922
+  # nimbus-eth2 lives in check_attestation(...).
+  # Addresses https://github.com/status-im/nimbus-eth2/issues/922
   if bits.len != committee.len:
     trace "get_attesting_indices: inconsistent aggregation and committee length"
     return

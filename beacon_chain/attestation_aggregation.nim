@@ -128,7 +128,7 @@ func check_aggregation_count(
   var onesCount = 0
   # TODO a cleverer algorithm, along the lines of countOnes() in nim-stew
   # But that belongs in nim-stew, since it'd break abstraction layers, to
-  # use details of its representation from nim-beacon-chain.
+  # use details of its representation from nimbus-eth2.
 
   for aggregation_bit in attestation.aggregation_bits:
     if not aggregation_bit:

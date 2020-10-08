@@ -41,7 +41,7 @@ func compute_deltas(
        new_balances: openarray[Gwei]
      ): FcResult[void]
 # TODO: raises [Defect] - once https://github.com/nim-lang/Nim/issues/12862 is fixed
-#       https://github.com/status-im/nim-beacon-chain/pull/865#pullrequestreview-389117232
+#       https://github.com/status-im/nimbus-eth2/pull/865#pullrequestreview-389117232
 
 # Fork choice routines
 # ----------------------------------------------------------------------

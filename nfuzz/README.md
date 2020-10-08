@@ -1,17 +1,17 @@
 # Introduction
 
 `libnfuzz` is a wrapper library that exports to C, a set of fuzzing test cases
-written in Nim and making use of nim-beacon-chain.
+written in Nim and making use of nimbus-eth2.
 
 
 # Building
 
 To build the wrapper library (for more details follow first the instructions from
-[nim-beacon-chain](../README.md)):
+[nimbus-eth2](../README.md)):
 
 ```bash
-git clone https://github.com/status-im/nim-beacon-chain.git
-cd nim-beacon-chain
+git clone https://github.com/status-im/nimbus-eth2.git
+cd nimbus-eth2
 make
 # static library
 make libnfuzz.a

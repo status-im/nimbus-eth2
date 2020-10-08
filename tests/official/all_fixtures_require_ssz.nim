@@ -7,7 +7,7 @@
 
 # All non-pure SSZ tests that require the -d:ssz_testing
 # to ignore invalid BLS signature in EF test vectors
-# https://github.com/status-im/nim-beacon-chain/issues/374
+# https://github.com/status-im/nimbus-eth2/issues/374
 
 import ../testutil
 

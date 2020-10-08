@@ -4,7 +4,7 @@ Simple runners for in-browser running of WASM versions of applications - based
 on emscripten-generated code.
 
 ```
-# Make sure you have built nim-beacon-chain with make first!
+# Make sure you have built nimbus-eth2 with make first!
 ./build.sh
 
 # Run a http server here (wasm + file:/// apparently don't mix)

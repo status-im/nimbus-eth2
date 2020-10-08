@@ -44,7 +44,7 @@ import # Refactor state transition unit tests
 # TODO: json tests were removed
 
 # import # Official fixtures that don't require SSZ parsing of invalid BLS signatures
-#        # https://github.com/status-im/nim-beacon-chain/issues/374
+#        # https://github.com/status-im/nimbus-eth2/issues/374
 #   ./official/test_fixture_bls
 
 summarizeLongTests("AllTests")
