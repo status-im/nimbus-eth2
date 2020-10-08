@@ -35,6 +35,9 @@ const
   StatusUpdateInterval* = chronos.minutes(1)
     ## Minimum time between two subsequent calls to update peer's status
 
+  StatusExpirationTime* = chronos.minutes(2)
+    ## Time time it takes for the peer's status information to expire.
+
 type
   SyncFailureKind* = enum
     StatusInvalid,
@@ -465,8 +468,10 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
 
     if res.isOk:
       sq.outSlot = sq.outSlot + item.request.count
-      # If there no error we should reward peer with some bonus score.
-      item.request.item.updateScore(PeerScoreGoodBlocks)
+      if len(item.data) > 0:
+        # If there no error and response was not empty we should reward peer
+        # with some bonus score.
+        item.request.item.updateScore(PeerScoreGoodBlocks)
       sq.wakeupWaiters()
     else:
       debug "Block pool rejected peer's response", peer = item.request.item,
@@ -699,7 +704,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
     return
 
   # Check if we need to update peer's status information
-  if peerAge >= man.maxStatusAge:
+  if peerStatusAge >= StatusExpirationTime:
     # Peer's status information is very old, its time to update it
     man.workers[index].status = SyncWorkerStatus.UpdatingStatus
     trace "Updating peer's status information", wall_clock_slot = wallSlot,
