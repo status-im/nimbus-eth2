@@ -22,8 +22,8 @@ To start validating on the `medalla` network:
 #### 1. Clone the nim beacon chain repository
 
 ```
-git clone https://github.com/status-im/nim-beacon-chain
-cd nim-beacon-chain
+git clone https://github.com/status-im/nimbus-eth2
+cd nimbus-eth2
 ```
 
 #### 2. Build the beacon node
@@ -205,7 +205,7 @@ make NODE_PARAMS="--tcp-port=9100 --udp-port=9100" medalla
 
 >**Note:** the above command has exactly the same effect as `make BASE_PORT=9100 medalla`
 
-A complete list of the available parameters can be found [here](https://github.com/status-im/nim-beacon-chain/blob/devel/beacon_chain/conf.nim#L92-L210) (use a parameter's `name` field to set it).
+A complete list of the available parameters can be found [here](https://github.com/status-im/nimbus-eth2/blob/devel/beacon_chain/conf.nim#L92-L210) (use a parameter's `name` field to set it).
 
 ### Logs
 
@@ -214,8 +214,8 @@ Log files are saved in `build/data/shared_medalla_0/`.
 
 ### Makefile
 
-If you are comfortable reading [Makefiles](https://en.wikipedia.org/wiki/Makefile#:~:text=A%20makefile%20is%20a%20file,to%20generate%20a%20target%2Fgoal), you can see the commands that `make medalla`  executes under the hood, [here](https://github.com/status-im/nim-beacon-chain/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L184-L197).
+If you are comfortable reading [Makefiles](https://en.wikipedia.org/wiki/Makefile#:~:text=A%20makefile%20is%20a%20file,to%20generate%20a%20target%2Fgoal), you can see the commands that `make medalla`  executes under the hood, [here](https://github.com/status-im/nimbus-eth2/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L184-L197).
 
 Some of the provided options (such as `--network=medalla`) are essential while others (such as the ones controlling logging, metrics, ports, and the RPC service) are there for convenience.
 
-The Goerli testnet parameters (`$(GOERLI_TESTNETS_PARAMS`), are defined higher up in the Makefile, [here](https://github.com/status-im/nim-beacon-chain/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L164-L171).
+The Goerli testnet parameters (`$(GOERLI_TESTNETS_PARAMS`), are defined higher up in the Makefile, [here](https://github.com/status-im/nimbus-eth2/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L164-L171).

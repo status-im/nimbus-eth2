@@ -26,7 +26,7 @@ installation directory to "C:\mingw-w64" and add it to your system PATH in "My
 Computer"/"This PC" -> Properties -> Advanced system settings -> Environment
 Variables -> Path -> Edit -> New -> C:\mingw-w64\mingw64\bin (it's "C:\mingw-w64\mingw32\bin" on 32-bit)
 
-Install [Git for Windows](https://gitforwindows.org/) and use a "Git Bash" shell to clone and build nim-beacon-chain.
+Install [Git for Windows](https://gitforwindows.org/) and use a "Git Bash" shell to clone and build nimbus-eth2.
 
 If you don't want to compile PCRE separately, you can fetch pre-compiled DLLs with:
 
@@ -135,7 +135,7 @@ make NIMFLAGS="-d:release"
 make -j$(nproc) NIMFLAGS="-d:release" USE_MULTITAIL=yes eth2_network_simulation
 ```
 
-- don't use the [lightweight stack tracing implementation from nim-libbacktrace](https://github.com/status-im/nim-beacon-chain/pull/745):
+- don't use the [lightweight stack tracing implementation from nim-libbacktrace](https://github.com/status-im/nimbus-eth2/pull/745):
 
 ```bash
 make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower

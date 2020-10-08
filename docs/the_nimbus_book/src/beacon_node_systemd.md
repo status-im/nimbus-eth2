@@ -9,10 +9,10 @@ NBC's [external dependencies](./install.md#external-dependencies) and a working 
 
 ### 1. Clone repositories
 
-Clone the [nim-beacon-chain](https://github.com/status-im/nim-beacon-chain) and [eth2stats](https://github.com/Alethio/eth2stats-client) repositories in the same directory (so that both repositories are adjacent to each other).
+Clone the [nimbus-eth2](https://github.com/status-im/nimbus-eth2) and [eth2stats](https://github.com/Alethio/eth2stats-client) repositories in the same directory (so that both repositories are adjacent to each other).
 
 ```console
-git clone https://github.com/status-im/nim-beacon-chain.git
+git clone https://github.com/status-im/nimbus-eth2.git
 git clone https://github.com/Alethio/eth2stats-client.git
 ```
 
@@ -20,9 +20,9 @@ git clone https://github.com/Alethio/eth2stats-client.git
 
 Build both repositories by following their respective build instructions. 
 
-*nim-beacon-chain*
+*nimbus-eth2*
 ```console
-cd nim-beacon-chain
+cd nimbus-eth2
 make beacon_node
 ```
 
@@ -33,7 +33,7 @@ cd eth2stats-client
 make build
 ```
 
-The resulting binaries should appear in `nim-beacon-chain/build/beacon_node` and `eth2stats-client/eth2stats-client`, respectively.
+The resulting binaries should appear in `nimbus-eth2/build/beacon_node` and `eth2stats-client/eth2stats-client`, respectively.
 
 ### 3. Create an executable script
 
@@ -47,7 +47,7 @@ set +e
 trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 
 cd $(dirname "$0")
-cd nim-beacon-chain
+cd nimbus-eth2
 
 NETWORK=$1
 NODE_NAME=${NODE_NAME:-$(whoami)}

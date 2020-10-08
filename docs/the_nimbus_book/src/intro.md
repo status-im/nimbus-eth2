@@ -3,7 +3,7 @@
 The Nimbus beacon chain is a research implementation of the Beacon Chain – the core system level chain at the heart of Ethereum 2.0.
 
 
-- Open sourced at [github.com/status-im/nim-beacon-chain](https://github.com/status-im/nim-beacon-chain/tree/master)
+- Open sourced at [github.com/status-im/nimbus-eth2](https://github.com/status-im/nimbus-eth2/tree/master)
 
 - Specification described at [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v0.12.3#phase-0)
 
@@ -73,7 +73,7 @@ Need help with anything? Join us on [Status](https://join.status.im/nimbus-gener
 
 ## Disclaimer
 
-This documentation assumes Nimbus is in its ideal state. The project is still under active development. Please submit a [Github issue](https://github.com/status-im/nim-beacon-chain/issues) if you come across a problem.
+This documentation assumes Nimbus is in its ideal state. The project is still under active development. Please submit a [Github issue](https://github.com/status-im/nimbus-eth2/issues) if you come across a problem.
 
 <!-- > > > TODO:
 
