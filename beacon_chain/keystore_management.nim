@@ -243,14 +243,6 @@ iterator validatorKeysFromDirs*(validatorsDir, secretsDir: string): ValidatorPri
     quit 1
 
 iterator validatorKeys*(conf: BeaconNodeConf|ValidatorClientConf): ValidatorPrivKey =
-  for validatorKeyFile in conf.validators:
-    try:
-      yield validatorKeyFile.load
-    except CatchableError as err:
-      error "Failed to load validator private key",
-            file = validatorKeyFile.string, err = err.msg
-      quit 1
-
   let validatorsDir = conf.validatorsDir
   try:
     for kind, file in walkDir(validatorsDir):
