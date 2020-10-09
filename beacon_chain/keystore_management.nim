@@ -34,7 +34,9 @@ const
       "../vendor/nimbus-security-resources/passwords/10-million-password-list-top-100000.txt",
     minWordLen = minPasswordLen)
 
-template echo80(msg: string) =
+proc echoP(msg: string) =
+  ## Prints a paragraph aligned to 80 columns
+  echo ""
   echo wrapWords(msg, 80)
 
 proc checkAndCreateDataDir*(dataDir: string): bool =
@@ -129,15 +131,18 @@ proc keyboardCreatePassword(prompt: string, confirm: string): KsResult[string] =
     # We treat `password` as UTF-8 encoded string.
     if validateUtf8(password) == -1:
       if runeLen(password) < minPasswordLen:
-        echo80 "The entered password should be at least " & $minPasswordLen &
-               " characters."
+        echoP "The entered password should be at least " & $minPasswordLen &
+              " characters."
+        echo ""
         continue
       elif password in mostCommonPasswords:
-        echo80 "The entered password is too commonly used and it would be " &
-               "easy to brute-force with automated tools."
+        echoP "The entered password is too commonly used and it would be " &
+              "easy to brute-force with automated tools."
+        echo ""
         continue
     else:
-      echo80 "Entered password is not valid UTF-8 string"
+      echoP "Entered password is not valid UTF-8 string"
+      echo ""
       continue
 
     let confirmedPassword =
@@ -148,7 +153,7 @@ proc keyboardCreatePassword(prompt: string, confirm: string): KsResult[string] =
         return err("Could not read password from stdin")
 
     if password != confirmedPassword:
-      echo "Passwords don't match, please try again"
+      echo "Passwords don't match, please try again\n"
       continue
 
     return ok(password)
@@ -539,11 +544,10 @@ template ask(prompt: string): string =
 proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
                                config: BeaconNodeConf,
                                mnemonic: Mnemonic): Result[WalletPathPair, string] =
-  echo ""
-  echo80 "When you perform operations with your wallet such as withdrawals " &
-         "and additional deposits, you'll be asked to enter a password. " &
-         "Please note that this password is local to the current Nimbus " &
-         "installation and can be changed at any time."
+  echoP "When you perform operations with your wallet such as withdrawals " &
+        "and additional deposits, you'll be asked to enter a password. " &
+        "Please note that this password is local to the current machine " &
+        "and you can change it at any time."
   echo ""
 
   var password =
@@ -561,10 +565,9 @@ proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
   if outWalletName.isSome:
     name = outWalletName.get
   else:
-    echo ""
-    echo80 "For your convenience, the wallet can be identified with a name " &
-           "of your choice. Please enter a wallet name below or press ENTER " &
-           "to continue with a machine-generated name."
+    echoP "For your convenience, the wallet can be identified with a name " &
+          "of your choice. Please enter a wallet name below or press ENTER " &
+          "to continue with a machine-generated name."
 
     while true:
       var enteredName = ask "Wallet name"
@@ -577,30 +580,38 @@ proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
             continue
       break
 
-    let nextAccount =
-      if config.cmd == wallets and config.walletsCmd == WalletsCmd.restore:
-        config.restoredDepositsCount
-      else:
-        none Natural
+  let nextAccount =
+    if config.cmd == wallets and config.walletsCmd == WalletsCmd.restore:
+      config.restoredDepositsCount
+    else:
+      none Natural
 
-    let wallet = createWallet(kdfPbkdf2, rng, mnemonic,
-                              name = name,
-                              nextAccount = nextAccount,
-                              password = KeystorePass.init password)
+  let wallet = createWallet(kdfPbkdf2, rng, mnemonic,
+                            name = name,
+                            nextAccount = nextAccount,
+                            password = KeystorePass.init password)
 
-    let outWalletFileFlag = config.outWalletFile
-    let outWalletFile =
-      if outWalletFileFlag.isSome:
-        string outWalletFileFlag.get
-      else:
-        config.walletsDir / addFileExt(string wallet.name, "json")
+  let outWalletFileFlag = config.outWalletFile
+  let outWalletFile =
+    if outWalletFileFlag.isSome:
+      string outWalletFileFlag.get
+    else:
+      config.walletsDir / addFileExt(string wallet.name, "json")
 
-    let status = saveWallet(wallet, outWalletFile)
-    if status.isErr:
-      return err("failure to create wallet file due to " & status.error)
+  let status = saveWallet(wallet, outWalletFile)
+  if status.isErr:
+    return err("failure to create wallet file due to " & status.error)
 
-    echo "\nWallet file successfully written to \"", outWalletFile, "\""
-    return ok WalletPathPair(wallet: wallet, path: outWalletFile)
+  echo "\nWallet file successfully written to \"", outWalletFile, "\""
+  return ok WalletPathPair(wallet: wallet, path: outWalletFile)
+
+proc safeEraseScreen() =
+  try:
+    stdout.eraseScreen
+  except IOError:
+    discard
+
+  discard execShellCmd(when defined(windows): "cls" else: "clear")
 
 proc createWalletInteractively*(
     rng: var BrHmacDrbgContext,
@@ -609,40 +620,74 @@ proc createWalletInteractively*(
   if config.nonInteractive:
     return err "not running in interactive mode"
 
+  echoP "The generated wallet is uniquely identified by a seed phrase " &
+        "consisting of 24 words. In case you lose your wallet and you " &
+        "need to restore it on a different machine, you can use the " &
+        "seed phrase to re-generate your signing and withdrawal keys."
+  echoP "The seed phrase should be kept secretly in a safe location as if " &
+        "you are protecting a sensitive password. It can be used to withdraw " &
+        "funds from your wallet."
+  echoP "We will display the seed phrase on the next screen. Please make sure " &
+        "you are in a safe environment and there are no cameras or potentially " &
+        "unwanted eye witnesses around you. Please prepare everything necessary " &
+        "to copy the seed phrase to a safe location and type 'continue' in " &
+        "the prompt below to proceed to the next screen or 'q' to exit now."
+  echo ""
+
+  while true:
+    let answer = ask "Action"
+    if answer.len > 0 and answer[0] == 'q': quit 1
+    if answer == "continue": break
+    echoP "To proceed to your seed phrase, please type 'continue' (without the quotes). " &
+          "Type 'q' to exit now."
+    echo ""
+
   var mnemonic = generateMnemonic(rng)
   defer: burnMem(mnemonic)
 
-  echo80 "The generated wallet is uniquely identified by a seed phrase " &
-         "consisting of 24 words. In case you lose your wallet and you " &
-         "need to restore it on a different machine, you must use the " &
-         "words displayed below:"
-
   try:
-    echo ""
+    echoP "Your seed phrase is:"
     setStyleNoError({styleBright})
     setForegroundColorNoError fgCyan
-    echo80 $mnemonic
+    echoP $mnemonic
     resetAttributesNoError()
-    echo ""
   except IOError, ValueError:
     return err "failure to write to the standard output"
 
-  echo80 "Please back up the seed phrase now to a safe location as " &
-         "if you are protecting a sensitive password. The seed phrase " &
-         "can be used to withdraw funds from your wallet."
+  echoP "Press any key to continue."
+  try:
+    discard stdin.readChar()
+  except IOError as err:
+    fatal "Failed to read a key from stdin", err = err.msg
+    quit 1
 
+  safeEraseScreen()
+
+  echoP "To confirm that you've saved the seed phrase, please enter the first and the " &
+        "last three words of it. In case you've saved the seek phrase in your clipboard, " &
+        "we strongly advice clearing the clipboard now."
   echo ""
-  echo "Did you back up your seed recovery phrase?\p" &
-       "(please type 'yes' to continue or press enter to quit)"
 
-  while true:
+  for i in countdown(2, 0):
     let answer = ask "Answer"
-    if answer == "":
-      return err "aborted wallet creation"
-    elif answer != "yes":
-      echo "To continue, please type 'yes' (without the quotes) or press enter to quit"
+    let parts = answer.split(' ', maxsplit = 1)
+    if parts.len == 2:
+      if count(parts[1], ' ') == 2 and
+         mnemonic.string.startsWith(parts[0]) and
+         mnemonic.string.endsWith(parts[1]):
+        break
     else:
-      break
+      doAssert parts.len == 1
+
+    if i > 0:
+      echo "\nYour answer was not correct. You have ", i, " more attempts"
+      echoP "Please enter 4 words separated with a single space " &
+            "(the first word from the seed phrase, followed by the last 3)"
+      echo ""
+    else:
+      quit 1
+
+  safeEraseScreen()
 
   let walletPath = ? pickPasswordAndSaveWallet(rng, config, mnemonic)
   return ok CreatedWallet(walletPath: walletPath, mnemonic: mnemonic)
