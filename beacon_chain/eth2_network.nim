@@ -102,6 +102,8 @@ type
     maxInactivityAllowed*: Duration
     netThroughput: AverageThroughput
     score*: int
+    requestQuota*: float
+    lastReqTime*: Moment
     connections*: int
     disconnectedFut: Future[void]
 
@@ -200,6 +202,8 @@ type
     else:
       discard
 
+  InvalidInputsError* = object of CatchableError
+
   NetRes*[T] = Result[T, Eth2NetworkingError]
     ## This is type returned from all network requests
 
@@ -216,6 +220,10 @@ const
     ## Score after which peer will be kicked
   PeerScoreHighLimit* = 1000
     ## Max value of peer's score
+  PeerScoreInvalidRequest* = -500
+    ## This peer is sending malformed or nonsensical data
+  PeerScoreFlooder* = -250
+    ## This peer is sending too many expensive requests
 
   ConcurrentConnections* = 10
     ## Maximum number of active concurrent connection requests.
@@ -367,6 +375,28 @@ proc `<`*(a, b: Peer): bool =
     (a.netThroughput.average < b.netThroughput.average)
   else:
     false
+
+const
+  maxRequestQuota = 1000000.0
+  fullReplenishTime = 5.seconds
+  replenishRate = (maxRequestQuota / fullReplenishTime.nanoseconds.float)
+  requestFloodingThreshold = -500000.0
+
+proc updateRequestQuota*(peer: Peer, reqCost: float) =
+  let
+    currentTime = now(chronos.Moment)
+    nanosSinceLastReq = nanoseconds(currentTime - peer.lastReqTime)
+    replenishedQuota = peer.requestQuota + nanosSinceLastReq.float * replenishRate
+
+  peer.lastReqTime = currentTime
+  peer.requestQuota = min(replenishedQuota, maxRequestQuota) - reqCost
+
+  if peer.requestQuota < requestFloodingThreshold:
+    peer.updateScore(PeerScoreFlooder)
+    peer.requestQuota = 0.0
+
+func allowedOpsPerSecondCost*(n: int): float =
+  (replenishRate * 1000000000'f / n.float)
 
 proc isSeen*(network: ETh2Node, peerId: PeerID): bool =
   ## Returns ``true`` if ``peerId`` present in SeenTable and time period is not
@@ -617,15 +647,15 @@ proc handleIncomingStream(network: Eth2Node,
   #   defer: setLogLevel(LogLevel.DEBUG)
   #   trace "incoming " & `msgNameLit` & " conn"
 
+  let peer = peerFromStream(network, conn)
   try:
-    let peer = peerFromStream(network, conn)
-
     # TODO peer connection setup is broken, update info in some better place
     #      whenever race is fix:
     #      https://github.com/status-im/nimbus-eth2/issues/1157
     peer.info = conn.peerInfo
 
     template returnInvalidRequest(msg: ErrorMsg) =
+      peer.updateScore(PeerScoreInvalidRequest)
       await sendErrorResponse(peer, conn, InvalidRequest, msg)
       return
 
@@ -691,6 +721,10 @@ proc handleIncomingStream(network: Eth2Node,
     try:
       logReceivedMsg(peer, MsgType(msg.get))
       await callUserHandler(MsgType, peer, conn, msg.get)
+    except InvalidInputsError as err:
+      returnInvalidRequest err.msg
+      await sendErrorResponse(peer, conn, ServerError,
+                              ErrorMsg err.msg.toBytes)
     except CatchableError as err:
       await sendErrorResponse(peer, conn, ServerError,
                               ErrorMsg err.msg.toBytes)
@@ -700,6 +734,7 @@ proc handleIncomingStream(network: Eth2Node,
 
   finally:
     await conn.closeWithEOF()
+    discard network.peerPool.checkPeerScore(peer)
 
 proc toPeerAddr*(r: enr.TypedRecord):
     Result[PeerAddr, cstring] {.raises: [Defect].} =
@@ -1024,6 +1059,7 @@ proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =
   result.network = network
   result.connectionState = Connected
   result.maxInactivityAllowed = 15.minutes # TODO: Read this from the config
+  result.lastReqTime = now(chronos.Moment)
   newSeq result.protocolStates, allProtocols.len
   for i in 0 ..< allProtocols.len:
     let proto = allProtocols[i]
