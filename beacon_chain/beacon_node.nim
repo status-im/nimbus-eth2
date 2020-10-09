@@ -1108,6 +1108,21 @@ programMain:
 
   setupLogging(config.logLevel, config.logFile)
 
+  ## This Ctrl+C handler exits the program in non-graceful way.
+  ## It's responsible for handling Ctrl+C in sub-commands such
+  ## as `wallets *` and `deposits *`. In a regular beacon node
+  ## run, it will be overwritten later with a different handler
+  ## performing a graceful exit.
+  proc exitImmediatelyOnCtrlC() {.noconv.} =
+    when defined(windows):
+      # workaround for https://github.com/nim-lang/Nim/issues/4057
+      setupForeignThreadGc()
+    echo "" # If we interrupt during an interactive prompt, this
+            # will move the cursor to the next line
+    notice "Shutting down after having received SIGINT"
+    quit 0
+  setControlCHook(exitImmediatelyOnCtrlC)
+
   if config.eth2Network.isSome:
     let metadata = getMetadataForNetwork(config.eth2Network.get)
     config.runtimePreset = metadata.runtimePreset
