@@ -154,7 +154,7 @@ proc keyboardCreatePassword(prompt: string, confirm: string): KsResult[string] =
     return ok(password)
 
 proc keyboardGetPassword[T](prompt: string, attempts: int,
-                  pred: proc(p: string): KsResult[T] {.closure.}): KsResult[T] =
+                            pred: proc(p: string): KsResult[T] {.closure.}): KsResult[T] =
   var
     remainingAttempts = attempts
     counter = 1
@@ -497,9 +497,26 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
       var firstDecryptionAttempt = true
 
       while true:
-        var secret = decryptCryptoField(keystore.crypto, KeystorePass.init password)
-
-        if secret.len == 0:
+        var secret: seq[byte]
+        let status = decryptCryptoField(keystore.crypto,
+                                        KeystorePass.init password,
+                                        secret)
+        case status
+        of Success:
+          let privKey = ValidatorPrivKey.fromRaw(secret)
+          if privKey.isOk:
+            let pubKey = privKey.value.toPubKey
+            let status = saveKeystore(rng, validatorsDir, secretsDir,
+                                      privKey.value, pubKey,
+                                      keystore.path)
+            if status.isOk:
+              notice "Keystore imported", file
+            else:
+              error "Failed to import keystore", file, err = status.error
+          else:
+            error "Imported keystore holds invalid key", file, err = privKey.error
+          break
+        of InvalidKeystore, InvalidPassword:
           if firstDecryptionAttempt:
             try:
               const msg = "Please enter the password for decrypting '$1' " &
@@ -516,20 +533,6 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
 
           if password.len == 0:
             break
-        else:
-          let privKey = ValidatorPrivKey.fromRaw(secret)
-          if privKey.isOk:
-            let pubKey = privKey.value.toPubKey
-            let status = saveKeystore(rng, validatorsDir, secretsDir,
-                                      privKey.value, pubKey,
-                                      keystore.path)
-            if status.isOk:
-              notice "Keystore imported", file
-            else:
-              error "Failed to import keystore", file, err = status.error
-          else:
-            error "Imported keystore holds invalid key", file, err = privKey.error
-          break
   except OSError:
     fatal "Failed to access the imported deposits directory"
     quit 1
@@ -681,12 +684,15 @@ proc unlockWalletInteractively*(wallet: Wallet): Result[Mnemonic, string] =
 
   let res = keyboardGetPassword[Mnemonic](prompt, 3,
     proc (password: string): KsResult[Mnemonic] =
-      var secret = decryptCryptoField(wallet.crypto, KeystorePass.init password)
-      if len(secret) > 0:
+      var secret: seq[byte]
+      defer: burnMem(secret)
+      let status = decryptCryptoField(wallet.crypto, KeystorePass.init password, secret)
+      case status
+      of Success:
         let mnemonic = Mnemonic(string.fromBytes(secret))
-        burnMem(secret)
         ok(mnemonic)
       else:
+        # TODO Handle InvalidKeystore in a special way here
         let failed = "Unlocking of the wallet failed. Please try again"
         echo failed
         err(failed)
