@@ -11,6 +11,10 @@ logScope:
 const
   MAX_REQUEST_BLOCKS = 1024
 
+  blockByRootLookupCost = allowedOpsPerSecondCost(50)
+  blockResponseCost = allowedOpsPerSecondCost(100)
+  blockByRangeLookupCost = allowedOpsPerSecondCost(20)
+
 type
   StatusMsg* = object
     forkDigest*: ForkDigest
@@ -139,7 +143,7 @@ p2pProtocol BeaconSync(version = 1,
       {.async, libp2pProtocol("beacon_blocks_by_range", 1).} =
     trace "got range request", peer, startSlot,
                                count = reqCount, step = reqStep
-    if reqCount > 0'u64:
+    if reqCount > 0'u64 and reqStep > 0'u64:
       var blocks: array[MAX_REQUEST_BLOCKS, BlockRef]
       let
         chainDag = peer.networkState.chainDag
@@ -151,6 +155,9 @@ p2pProtocol BeaconSync(version = 1,
         startIndex =
           chainDag.getBlockRange(startSlot, reqStep,
                                  blocks.toOpenArray(0, endIndex))
+      peer.updateRequestQuota(
+        blockByRangeLookupCost +
+        max(0, endIndex - startIndex + 1).float * blockResponseCost)
 
       for i in startIndex..endIndex:
         doAssert not blocks[i].isNil, "getBlockRange should return non-nil blocks only"
@@ -160,6 +167,8 @@ p2pProtocol BeaconSync(version = 1,
 
       debug "Block range request done",
         peer, startSlot, count, reqStep, found = count - startIndex
+    else:
+      raise newException(InvalidInputsError, "Potential DoS attack: empty blocksByRange")
 
   proc beaconBlocksByRoot(
       peer: Peer,
@@ -168,17 +177,23 @@ p2pProtocol BeaconSync(version = 1,
       blockRoots: BlockRootsList,
       response: MultipleChunksResponse[SignedBeaconBlock])
       {.async, libp2pProtocol("beacon_blocks_by_root", 1).} =
+    if blockRoots.len == 0:
+      raise newException(InvalidInputsError, "Potential DoS attack: empty blocksByRoot")
+
     let
       chainDag = peer.networkState.chainDag
       count = blockRoots.len
 
-    var found = 0
+    peer.updateRequestQuota(count.float * blockByRootLookupCost)
 
+    var found = 0
     for i in 0..<count:
       let blockRef = chainDag.getRef(blockRoots[i])
       if not isNil(blockRef):
         await response.write(chainDag.get(blockRef).data)
         inc found
+
+    peer.updateRequestQuota(found.float * blockResponseCost)
 
     debug "Block root request done",
       peer, roots = blockRoots.len, count, found

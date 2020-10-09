@@ -131,8 +131,8 @@ proc waitNotFullEvent[A, B](pool: PeerPool[A, B],
 
 proc newPeerPool*[A, B](maxPeers = -1, maxIncomingPeers = -1,
                         maxOutgoingPeers = -1,
-                scoreCheckCb: PeerScoreCheckCallback[A] = nil,
-                peerCounterCb: PeerCounterCallback = nil): PeerPool[A, B] =
+                        scoreCheckCb: PeerScoreCheckCallback[A] = nil,
+                        peerCounterCb: PeerCounterCallback = nil): PeerPool[A, B] =
   ## Create new PeerPool.
   ##
   ## ``maxPeers`` - maximum number of peers allowed. All the peers which
@@ -253,7 +253,7 @@ proc shortLogSpace*[A, B](pool: PeerPool[A, B]): string =
 proc shortLogCurrent*[A, B](pool: PeerPool[A, B]): string =
   $pool.curIncPeersCount & "/" & $pool.curOutPeersCount
 
-proc checkPeerScore[A, B](pool: PeerPool[A, B], peer: A): bool {.inline.} =
+proc checkPeerScore*[A, B](pool: PeerPool[A, B], peer: A): bool {.inline.} =
   ## Returns ``true`` if peer passing score check.
   if not(isNil(pool.scoreCheck)):
     pool.scoreCheck(peer)
