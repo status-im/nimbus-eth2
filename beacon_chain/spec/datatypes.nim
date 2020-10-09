@@ -460,7 +460,7 @@ type
     EVRESULT_IGNORE = 2
 
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
-    ($state.validators[validatorIdx].pubkey)[0..7]
+  ($state.validators[validatorIdx].pubkey)[0..7]
 
 func getDepositMessage*(depositData: DepositData): DepositMessage =
   result.pubkey = depositData.pubkey
