@@ -276,6 +276,12 @@ suiteReport "KeyStorage testing suite":
     check decryptKeystore(JsonString "",
                           KeystorePass.init "").isErr
 
+    check decryptKeystore(JsonString "{}",
+                          KeystorePass.init "").isErr
+
+    check decryptKeystore(JsonString "{}",
+                          KeystorePass.init "").isErr
+
     template checkVariant(remove): untyped =
       check decryptKeystore(JsonString pbkdf2Vector.replace(remove, "1234"),
                             KeystorePass.init password).isErr
