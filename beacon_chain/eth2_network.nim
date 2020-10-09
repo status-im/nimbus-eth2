@@ -961,8 +961,18 @@ template publicKey*(node: Eth2Node): keys.PublicKey =
 
 proc startListening*(node: Eth2Node) {.async.} =
   if node.discoveryEnabled:
-    node.discovery.open()
-  node.libp2pTransportLoops = await node.switch.start()
+    try:
+       node.discovery.open()
+    except CatchableError as err:
+      fatal "Failed to start discovery service. UDP port may be already in use"
+      quit 1
+
+  try:
+    node.libp2pTransportLoops = await node.switch.start()
+  except CatchableError:
+    fatal "Failed to start LibP2P transport. TCP port may be already in use"
+    quit 1
+
   await node.pubsub.start()
 
 proc start*(node: Eth2Node) {.async.} =
