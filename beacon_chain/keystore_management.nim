@@ -605,13 +605,11 @@ proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
   echo "\nWallet file successfully written to \"", outWalletFile, "\""
   return ok WalletPathPair(wallet: wallet, path: outWalletFile)
 
-proc safeEraseScreen() =
-  try:
-    stdout.eraseScreen
-  except IOError:
-    discard
-
-  discard execShellCmd(when defined(windows): "cls" else: "clear")
+when defined(windows):
+  proc clearScreen() {.importc("clrscr"), header: "conio.h".}
+else:
+  template clearScreen =
+    echo "\e[1;1H\e[2J\e[3J"
 
 proc createWalletInteractively*(
     rng: var BrHmacDrbgContext,
@@ -661,7 +659,7 @@ proc createWalletInteractively*(
     fatal "Failed to read a key from stdin", err = err.msg
     quit 1
 
-  safeEraseScreen()
+  clearScreen()
 
   echoP "To confirm that you've saved the seed phrase, please enter the first and the " &
         "last three words of it. In case you've saved the seek phrase in your clipboard, " &
@@ -687,7 +685,7 @@ proc createWalletInteractively*(
     else:
       quit 1
 
-  safeEraseScreen()
+  clearScreen()
 
   let walletPath = ? pickPasswordAndSaveWallet(rng, config, mnemonic)
   return ok CreatedWallet(walletPath: walletPath, mnemonic: mnemonic)
