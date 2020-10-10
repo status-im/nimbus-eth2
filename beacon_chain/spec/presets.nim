@@ -138,7 +138,7 @@ else:
     MIN_GENESIS_TIME: 1578009600,
     GENESIS_FORK_VERSION: Version [byte 0, 0, 0, 0],
     GENESIS_DELAY: 604800,
-    ETH1_FOLLOW_DISTANCE: 1024)
+    ETH1_FOLLOW_DISTANCE: 2048)
 
 const
   minimalRuntimePreset* = RuntimePreset(
