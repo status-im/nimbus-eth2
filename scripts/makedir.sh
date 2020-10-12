@@ -19,5 +19,5 @@ then
   fi
 else
   # Create full path with 0750 permissions.
-  mkdir -m 0750 -p $(1)
+  mkdir -m 0750 -p $1
 fi
