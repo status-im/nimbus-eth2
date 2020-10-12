@@ -606,7 +606,8 @@ proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
   return ok WalletPathPair(wallet: wallet, path: outWalletFile)
 
 when defined(windows):
-  proc clearScreen() {.importc("clrscr"), header: "conio.h".}
+  proc clearScreen =
+    discard execShellCmd("cls")
 else:
   template clearScreen =
     echo "\e[1;1H\e[2J\e[3J"
@@ -654,7 +655,7 @@ proc createWalletInteractively*(
 
   echoP "Press any key to continue."
   try:
-    discard stdin.readChar()
+    discard getch()
   except IOError as err:
     fatal "Failed to read a key from stdin", err = err.msg
     quit 1
