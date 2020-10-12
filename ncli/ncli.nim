@@ -110,7 +110,7 @@ proc doSlots(conf: NcliConf) =
   for i in 0'u64..<conf.slot:
     let isEpoch = (stateY[].data.slot + 1).isEpoch
     withTimer(timers[if isEpoch: tApplyEpochSlot else: tApplySlot]):
-      advance_slot(stateY[], {}, cache)
+      doAssert process_slots(stateY[], stateY[].data.slot + 1, cache)
 
   withTimer(timers[tSaveState]):
     SSZ.saveFile(conf.postState, stateY.data)

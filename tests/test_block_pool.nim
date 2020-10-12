@@ -420,7 +420,7 @@ suiteReport "chain DAG finalization tests" & preset():
     # The loop creates multiple branches, which StateCache isn't suitable for
     cache = StateCache()
 
-    advance_slot(prestate[], {}, cache)
+    doAssert process_slots(prestate[], prestate[].data.slot + 1, cache)
 
     # create another block, orphaning the head
     let blck = makeTestBlock(
