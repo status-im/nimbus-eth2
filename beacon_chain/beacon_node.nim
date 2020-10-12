@@ -397,7 +397,7 @@ proc getAttestationHandlers(node: BeaconNode): Future[void] =
     initialSubnets.incl i
   node.installAttestationSubnetHandlers(initialSubnets)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   let wallEpoch =  node.beaconClock.now().slotOrZero().epoch
   node.attestationSubnets.stabilitySubnet = rand(ATTESTATION_SUBNET_COUNT - 1).uint64
   node.attestationSubnets.stabilitySubnetExpirationEpoch =

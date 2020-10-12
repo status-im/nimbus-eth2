@@ -165,7 +165,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
           slot = slot,
           existingProposal = notSlashable.error
 
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/validator.md#attesting
+    # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#attesting
     # A validator should create and broadcast the attestation to the associated
     # attestation subnet when either (a) the validator has received a valid
     # block from the expected block proposer for the assigned slot or
@@ -212,7 +212,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
             validator = a.public_key,
             badVoteDetails = $notSlashable.error
 
-      # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/validator.md#broadcast-aggregate
+      # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#broadcast-aggregate
       # If the validator is selected to aggregate (is_aggregator), then they
       # broadcast their best aggregate as a SignedAggregateAndProof to the global
       # aggregate channel (beacon_aggregate_and_proof) two-thirds of the way

@@ -19,7 +19,7 @@ const
   topicAttesterSlashingsSuffix* = "attester_slashing/ssz"
   topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz"
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/validator.md#misc
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#misc
   ATTESTATION_SUBNET_COUNT* = 64
 
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#eth2-network-interaction-domains
@@ -63,7 +63,7 @@ func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
   except ValueError as e:
     raiseAssert e.msg
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#broadcast-attestation
 func compute_subnet_for_attestation*(
     committees_per_slot: uint64, slot: Slot, committee_index: CommitteeIndex):
     uint64 =
@@ -78,7 +78,7 @@ func compute_subnet_for_attestation*(
   (committees_since_epoch_start + committee_index.uint64) mod
     ATTESTATION_SUBNET_COUNT
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#broadcast-attestation
 func getAttestationTopic*(forkDigest: ForkDigest, subnetIndex: uint64):
     string =
   ## For subscribing and unsubscribing to/from a subnet.
@@ -117,7 +117,7 @@ func get_committee_assignments(
           (compute_subnet_for_attestation(committees_per_slot, slot, idx),
             slot))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 proc getStabilitySubnetLength*(): uint64 =
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION +
     rand(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION.int).uint64
@@ -131,7 +131,7 @@ proc get_attestation_subnet_changes*(
 
   var attestationSubnets = prevAttestationSubnets
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   let prevStabilitySubnet = {attestationSubnets.stabilitySubnet.uint8}
   if epoch >= attestationSubnets.stabilitySubnetExpirationEpoch:
     attestationSubnets.stabilitySubnet =
