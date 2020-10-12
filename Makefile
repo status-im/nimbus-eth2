@@ -184,7 +184,7 @@ testnet0 testnet1: | beacon_node signing_process
 #- https://www.gnu.org/software/make/manual/html_node/Multi_002dLine.html
 #- macOS doesn't support "=" at the end of "define FOO": https://stackoverflow.com/questions/13260396/gnu-make-3-81-eval-function-not-working
 define CONNECT_TO_NETWORK
-  scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID))
+  scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \
