@@ -167,18 +167,21 @@ proc insert*[K, V](m: DbMap[K, V], key: K, value: V) =
 proc contains*[K, V](m: DbMap[K, V], key: K): bool =
   contains(m.db, SSZ.encode key).expect("working database")
 
-proc init*(T: type BeaconChainDB, dir: string): BeaconChainDB =
+proc init*(T: type BeaconChainDB, dir: string, inMemory = false): BeaconChainDB =
   let s = createPath(dir, 0o750)
   doAssert s.isOk # TODO Handle this in a better way
 
   let sqliteStore = SqStoreRef.init(dir, "nbc", Keyspaces).expect(
     "working database")
 
-  T(backend: kvStore sqliteStore,
-    deposits: createSeq(sqliteStore, dir, "deposits", DepositData),
-    validators: createSeq(sqliteStore, dir, "validators", ImmutableValidatorData),
-    validatorsByKey: createMap(sqliteStore, int validatorIndexFromPubKey,
-                               ValidatorPubKey, ValidatorIndex))
+  if inMemory:
+    T(backend: kvStore MemStoreRef.init())
+  else:
+    T(backend: kvStore sqliteStore,
+      deposits: createSeq(sqliteStore, dir, "deposits", DepositData),
+      validators: createSeq(sqliteStore, dir, "validators", ImmutableValidatorData),
+      validatorsByKey: createMap(sqliteStore, int validatorIndexFromPubKey,
+                                 ValidatorPubKey, ValidatorIndex))
 
 proc snappyEncode(inp: openArray[byte]): seq[byte] =
   try:

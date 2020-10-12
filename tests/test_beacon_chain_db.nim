@@ -38,14 +38,14 @@ func withDigest(blck: TrustedBeaconBlock): TrustedSignedBeaconBlock =
 suiteReport "Beacon chain DB" & preset():
   wrappedTimedTest "empty database" & preset():
     var
-      db = init(BeaconChainDB, kvStore MemStoreRef.init())
+      db = init(BeaconChainDB, "", inMemory = true)
     check:
       db.getStateRef(Eth2Digest()).isNil
       db.getBlock(Eth2Digest()).isNone
 
   wrappedTimedTest "sanity check blocks" & preset():
     var
-      db = init(BeaconChainDB, kvStore MemStoreRef.init())
+      db = init(BeaconChainDB, "", inMemory = true)
 
     let
       signedBlock = withDigest(TrustedBeaconBlock())
@@ -70,7 +70,7 @@ suiteReport "Beacon chain DB" & preset():
 
   wrappedTimedTest "sanity check states" & preset():
     var
-      db = init(BeaconChainDB, kvStore MemStoreRef.init())
+      db = init(BeaconChainDB, "", inMemory = true)
 
     let
       state = BeaconStateRef()
@@ -86,7 +86,7 @@ suiteReport "Beacon chain DB" & preset():
 
   wrappedTimedTest "find ancestors" & preset():
     var
-      db = init(BeaconChainDB, kvStore MemStoreRef.init())
+      db = init(BeaconChainDB, "", inMemory = true)
 
     let
       a0 = withDigest(
@@ -120,7 +120,7 @@ suiteReport "Beacon chain DB" & preset():
     # serialization where an all-zero default-initialized bls signature could
     # not be deserialized because the deserialization was too strict.
     var
-      db = init(BeaconChainDB, kvStore MemStoreRef.init())
+      db = init(BeaconChainDB, "", inMemory = true)
 
     let
       state = initialize_beacon_state_from_eth1(
