@@ -15,9 +15,9 @@
 # a database, as if a real node was running.
 
 import
-  confutils, chronicles, stats, times,
-  strformat,
-  options, random, tables,
+  confutils, chronicles, stats, times, strformat,
+  options, random, tables, os,
+  eth/db/kvstore_sqlite3,
   ../tests/[testblockutil],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, presets,
                         helpers, validator, signatures, state_transition],
@@ -26,7 +26,6 @@ import
     interop, validator_pool],
   ../beacon_chain/block_pools/[
     spec_cache, chain_dag, quarantine, clearance],
-  eth/db/[kvstore, kvstore_sqlite3],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
 
@@ -50,8 +49,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
   echo "Starting simulation..."
 
-  let
-    db = BeaconChainDB.init(kvStore SqStoreRef.init(".", "block_sim").tryGet())
+  let db = BeaconChainDB.init("block_sim_db")
   defer: db.close()
 
   ChainDAGRef.preInit(db, state[].data, state[].data, genesisBlock)

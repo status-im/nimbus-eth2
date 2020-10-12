@@ -342,6 +342,11 @@ type
   BeaconStateRef* = ref BeaconState not nil
   NilableBeaconStateRef* = ref BeaconState
 
+  # Please note that this type is not part of the spec
+  ImmutableValidatorData* = object
+    pubkey*: ValidatorPubKey
+    withdrawal_credentials*: Eth2Digest
+
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#validator
   Validator* = object
     pubkey*: ValidatorPubKey

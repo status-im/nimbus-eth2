@@ -1,13 +1,12 @@
-  import
-  confutils, stats, chronicles, strformat, tables,
-  stew/byteutils,
+import
+  os, stats, strformat, tables,
+  chronicles, confutils, stew/byteutils, eth/db/kvstore_sqlite3,
   ../beacon_chain/network_metadata,
   ../beacon_chain/[beacon_chain_db, extras],
   ../beacon_chain/block_pools/[chain_dag],
   ../beacon_chain/spec/[crypto, datatypes, digest, helpers,
                         state_transition, presets],
-  ../beacon_chain/sszdump, ../research/simutils,
-  eth/db/[kvstore, kvstore_sqlite3]
+  ../beacon_chain/sszdump, ../research/simutils
 
 type Timers = enum
   tInit = "Initialize DB"
@@ -85,10 +84,8 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
 
   echo "Opening database..."
   let
-    db = BeaconChainDB.init(
-      kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
-    dbBenchmark = BeaconChainDB.init(
-      kvStore SqStoreRef.init(".", "benchmark").tryGet())
+    db = BeaconChainDB.init(conf.databaseDir.string)
+    dbBenchmark = BeaconChainDB.init("benchmark")
   defer: db.close()
 
   if not ChainDAGRef.isInitialized(db):
@@ -140,9 +137,7 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
   printTimers(false, timers)
 
 proc cmdDumpState(conf: DbConf) =
-  let
-    db = BeaconChainDB.init(
-      kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
+  let db = BeaconChainDB.init(conf.databaseDir.string)
   defer: db.close()
 
   for stateRoot in conf.stateRoot:
@@ -157,9 +152,7 @@ proc cmdDumpState(conf: DbConf) =
       echo "Couldn't load ", stateRoot, ": ", e.msg
 
 proc cmdDumpBlock(conf: DbConf) =
-  let
-    db = BeaconChainDB.init(
-      kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
+  let db = BeaconChainDB.init(conf.databaseDir.string)
   defer: db.close()
 
   for blockRoot in conf.blockRootx:
@@ -245,10 +238,9 @@ proc copyPrunedDatabase(
 
 proc cmdPrune(conf: DbConf) =
   let
-    db = BeaconChainDB.init(
-      kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
-    copyDb = BeaconChainDB.init(
-      kvStore SqStoreRef.init(conf.databaseDir.string, "nbc_pruned").tryGet())
+    db = BeaconChainDB.init(conf.databaseDir.string)
+    # TODO: add the destination as CLI paramter
+    copyDb = BeaconChainDB.init("pruned_db")
 
   defer:
     db.close()
@@ -258,9 +250,7 @@ proc cmdPrune(conf: DbConf) =
 
 proc cmdRewindState(conf: DbConf, runtimePreset: RuntimePreset) =
   echo "Opening database..."
-  let
-    db = BeaconChainDB.init(
-      kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
+  let db = BeaconChainDB.init(conf.databaseDir.string)
   defer: db.close()
 
   if not ChainDAGRef.isInitialized(db):
