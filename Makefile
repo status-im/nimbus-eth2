@@ -104,13 +104,8 @@ all: | $(TOOLS) libnfuzz.so libnfuzz.a
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
 
 ifeq ($(OS), Windows_NT)
-  ifeq ($(ARCH), x86)
-    # 32-bit Windows is not supported by libbacktrace/libunwind
-    USE_LIBBACKTRACE := 0
-  endif
-  MKDIR_COMMAND := mkdir -p
-else
-  MKDIR_COMMAND := mkdir -m 0750 -p
+	# libbacktrace/libunwind is disabled on Windows.
+  USE_LIBBACKTRACE := 0
 endif
 
 DEPOSITS_DELAY := 0
@@ -190,7 +185,7 @@ testnet0 testnet1: | beacon_node signing_process
 #- https://www.gnu.org/software/make/manual/html_node/Multi_002dLine.html
 #- macOS doesn't support "=" at the end of "define FOO": https://stackoverflow.com/questions/13260396/gnu-make-3-81-eval-function-not-working
 define CONNECT_TO_NETWORK
-	$(MKDIR_COMMAND) build/data/shared_$(1)_$(NODE_ID)
+  scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID))
 
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \
@@ -208,7 +203,7 @@ define CONNECT_TO_NETWORK
 endef
 
 define CONNECT_TO_NETWORK_IN_DEV_MODE
-	$(MKDIR_COMMAND) build/data/shared_$(1)_$(NODE_ID)
+  scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \
@@ -224,7 +219,8 @@ endef
 
 define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 	# if launching a VC as well - send the BN looking nowhere for validators/secrets
-	$(MKDIR_COMMAND) build/data/shared_$(1)_$(NODE_ID)/empty_dummy_folder
+	scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
+	scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)/empty_dummy_folder
 
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \

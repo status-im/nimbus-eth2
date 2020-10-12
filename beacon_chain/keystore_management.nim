@@ -76,6 +76,19 @@ proc checkAndCreateDataDir*(dataDir: string): bool =
         true
   elif defined(windows):
     if fileAccessible(dataDir, amask):
+      let cres = checkCurrentUserOnlyACL(dataDir)
+      if cres.isErr():
+        fatal "Could not check data folder's ACL",
+               data_dir = dataDir, errorCode = $cres.error,
+               errorMsg = ioErrorMsg(cres.error)
+        false
+      else:
+        if cres.get() == false:
+          fatal "Data folder has insecure ACL", data_dir = dataDir
+          false
+        else:
+          true
+    else:
       let res = createPath(dataDir, 0o750)
       if res.isErr():
         fatal "Could not create data folder", data_dir = dataDir,
@@ -83,8 +96,6 @@ proc checkAndCreateDataDir*(dataDir: string): bool =
         false
       else:
         true
-    else:
-      true
   else:
     fatal "Unsupported operation system"
     return false
@@ -93,9 +104,18 @@ proc checkSensitiveFilePermissions*(filePath: string): bool =
   ## Check if ``filePath`` has only "(600) rw-------" permissions.
   ## Procedure returns ``false`` if permissions are different
   when defined(windows):
-    # Windows do not support per-user/group/other permissions,
-    # skiping verification part.
-    true
+    let cres = checkCurrentUserOnlyACL(filePath)
+    if cres.isErr():
+      fatal "Could not check file's ACL",
+             key_path = filePath, errorCode = $cres.error,
+             errorMsg = ioErrorMsg(cres.error)
+      false
+    else:
+      if cres.get() == false:
+        fatal "File has insecure permissions", key_path = filePath
+        false
+      else:
+        true
   else:
     let allowedMask = {UserRead, UserWrite}
     let mask = {UserExec,
