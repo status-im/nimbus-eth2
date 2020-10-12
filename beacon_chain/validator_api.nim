@@ -34,6 +34,8 @@ proc parseRoot(str: string): Eth2Digest =
   return Eth2Digest(data: hexToByteArray[32](str))
 
 proc parsePubkey(str: string): ValidatorPubKey =
+  if str.len != RawPubKeySize + 2: # +2 because of the `0x` prefix
+    raise newException(CatchableError, "Not a valid public key (too short)")
   let pubkeyRes = fromHex(ValidatorPubKey, str)
   if pubkeyRes.isErr:
     raise newException(CatchableError, "Not a valid public key")
@@ -81,7 +83,7 @@ proc getValidatorInfoFromValidatorId(
     var valIdx: BiggestUInt
     if parseBiggestUInt(validatorId, valIdx) != validatorId.len:
       raise newException(CatchableError, "Not a valid index")
-    if state.validators.lenu64 >= valIdx:
+    if valIdx > state.validators.lenu64:
       raise newException(CatchableError, "Index out of bounds")
     state.validators[valIdx]
 
@@ -131,9 +133,11 @@ proc getValidatorInfoFromValidatorId(
                 balance: validator.effective_balance))
 
 proc getBlockSlotFromString(node: BeaconNode, slot: string): BlockSlot =
+  if slot.len == 0:
+    raise newException(ValueError, "Empty slot number not allowed")
   var parsed: BiggestUInt
   if parseBiggestUInt(slot, parsed) != slot.len:
-    raise newException(CatchableError, "Not a valid slot number")
+    raise newException(ValueError, "Not a valid slot number")
   let head = node.doChecksAndGetCurrentHead(parsed.Slot)
   return head.atSlot(parsed.Slot)
 
@@ -243,12 +247,14 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
         return (index: index.uint64, slot: slot.uint64, validators: vals)
 
       proc forSlot(slot: Slot, res: var seq[BeaconStatesCommitteesTuple]) =
+        let committees_per_slot =
+          get_committee_count_per_slot(state, slot.epoch, cache)
         if index == 0: # TODO this means if the parameter is missing (its optional)
-          let committees_per_slot =
-            get_committee_count_per_slot(state, slot.epoch, cache)
           for committee_index in 0'u64..<committees_per_slot:
             res.add(getCommittee(slot, committee_index.CommitteeIndex))
         else:
+          if index >= committees_per_slot:
+            raise newException(ValueError, "Committee index out of bounds")
           res.add(getCommittee(slot, index.CommitteeIndex))
 
       if slot == 0: # TODO this means if the parameter is missing (its optional)
@@ -272,7 +278,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       blockId: string) -> tuple[canonical: bool, header: SignedBeaconBlockHeader]:
     let bd = node.getBlockDataFromBlockId(blockId)
     let tsbb = bd.data
-    result.header.signature.blob = tsbb.signature.data
+    result.header.signature = ValidatorSig.init tsbb.signature.data
 
     result.header.message.slot = tsbb.message.slot
     result.header.message.proposer_index = tsbb.message.proposer_index
