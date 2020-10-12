@@ -89,13 +89,20 @@ proc checkAndCreateDataDir*(dataDir: string): bool =
         else:
           true
     else:
-      let res = createPath(dataDir, 0o750)
-      if res.isErr():
-        fatal "Could not create data folder", data_dir = dataDir,
-              errorMsg = ioErrorMsg(res.error), errorCode = $res.error
+      let sres = createCurrentUserOnlySecurityDescriptor()
+      if sres.isErr():
+        fatal "Could not allocate security descriptor", data_dir = dataDir,
+              errorMsg = ioErrorMsg(sres.error), errorCode = $sres.error
         false
       else:
-        true
+        var sd = sres.get()
+        let res = createPath(dataDir, 0o750, secDescriptor = sd.getDescriptor())
+        if res.isErr():
+          fatal "Could not create data folder", data_dir = dataDir,
+                errorMsg = ioErrorMsg(res.error), errorCode = $res.error
+          false
+        else:
+          true
   else:
     fatal "Unsupported operation system"
     return false
@@ -357,11 +364,23 @@ proc saveNetKeystore*(rng: var BrHmacDrbgContext, keyStorePath: string,
     error "Could not serialize network key storage", key_path = keyStorePath
     return err(FailedToCreateKeystoreFile)
 
-  let res = writeFile(keyStorePath, encodedStorage, 0o600)
+  let res =
+    when defined(windows):
+      let sres = createCurrentUserOnlySecurityDescriptor()
+      if sres.isErr():
+        error "Could not allocate security descriptor", key_path = keyStorePath
+        return err(FailedToCreateKeystoreFile)
+      var sd = sres.get()
+      writeFile(keyStorePath, encodedStorage, 0o600,
+                secDescriptor = sd.getDescriptor())
+    else:
+      writeFile(keyStorePath, encodedStorage, 0o600)
+
   if res.isOk():
     ok()
   else:
-    error "Could not write to network key storage file", key_path = keyStorePath
+    error "Could not write to network key storage file",
+          key_path = keyStorePath
     err(FailedToCreateKeystoreFile)
 
 proc saveKeystore(rng: var BrHmacDrbgContext,
@@ -388,22 +407,48 @@ proc saveKeystore(rng: var BrHmacDrbgContext,
       error "Could not serialize keystorage", key_path = keystoreFile
       return err(FailedToCreateKeystoreFile)
 
-    let vres = createPath(validatorDir, 0o750)
-    if vres.isErr():
-      return err(FailedToCreateValidatorDir)
+    when defined(windows):
+      let csres = createCurrentUserOnlySecurityDescriptor()
+      if csres.isErr():
+        error "Could not allocate security descriptor", key_path = keystoreFile
+        return err(FailedToCreateKeystoreFile)
+      var sd = csres.get()
 
-    let sres = createPath(secretsDir, 0o750)
-    if sres.isErr():
-      return err(FailedToCreateSecretsDir)
+      let vres = createPath(validatorDir, 0o750,
+                            secDescriptor = sd.getDescriptor())
+      if vres.isErr():
+        return err(FailedToCreateValidatorDir)
 
-    let swres = writeFile(secretsDir / keyName, password.str, 0o600)
-    if swres.isErr():
-      return err(FailedToCreateSecretFile)
+      let sres = createPath(secretsDir, 0o750,
+                            secDescriptor = sd.getDescriptor())
+      if sres.isErr():
+        return err(FailedToCreateSecretsDir)
 
-    let kwres = writeFile(keystoreFile, encodedStorage, 0o600)
-    if kwres.isErr():
-      return err(FailedToCreateKeystoreFile)
+      let swres = writeFile(secretsDir / keyName, password.str, 0o600,
+                            secDescriptor = sd.getDescriptor())
+      if swres.isErr():
+        return err(FailedToCreateSecretFile)
 
+      let kwres = writeFile(keystoreFile, encodedStorage, 0o600,
+                            secDescriptor = sd.getDescriptor())
+      if kwres.isErr():
+        return err(FailedToCreateKeystoreFile)
+    else:
+      let vres = createPath(validatorDir, 0o750)
+      if vres.isErr():
+        return err(FailedToCreateValidatorDir)
+
+      let sres = createPath(secretsDir, 0o750)
+      if sres.isErr():
+        return err(FailedToCreateSecretsDir)
+
+      let swres = writeFile(secretsDir / keyName, password.str, 0o600)
+      if swres.isErr():
+        return err(FailedToCreateSecretFile)
+
+      let kwres = writeFile(keystoreFile, encodedStorage, 0o600)
+      if kwres.isErr():
+        return err(FailedToCreateKeystoreFile)
   ok()
 
 proc generateDeposits*(preset: RuntimePreset,
@@ -443,12 +488,27 @@ proc saveWallet*(wallet: Wallet, outWalletPath: string): Result[void, string] =
     encodedWallet = Json.encode(wallet, pretty = true)
   except SerializationError:
     return err("Could not serialize wallet")
-  let pres = createPath(walletDir, 0o750)
-  if pres.isErr():
-    return err("Could not create wallet directory [" & walletDir & "]")
-  let wres = writeFile(outWalletPath, encodedWallet, 0o600)
-  if wres.isErr():
-    return err("Could not write wallet to file [" & outWalletPath & "]")
+
+  when defined(windows):
+    let sres = createCurrentUserOnlySecurityDescriptor()
+    if sres.isErr():
+      error "Could not allocate security descriptor"
+      return err("Could not create security descriptor")
+    var sd = sres.get()
+    let pres = createPath(walletDir, 0o750, secDescriptor = sd.getDescriptor())
+    if pres.isErr():
+      return err("Could not create wallet directory [" & walletDir & "]")
+    let wres = writeFile(outWalletPath, encodedWallet, 0o600,
+                         secDescriptor = sd.getDescriptor())
+    if wres.isErr():
+      return err("Could not write wallet to file [" & outWalletPath & "]")
+  else:
+    let pres = createPath(walletDir, 0o750)
+    if pres.isErr():
+      return err("Could not create wallet directory [" & walletDir & "]")
+    let wres = writeFile(outWalletPath, encodedWallet, 0o600)
+    if wres.isErr():
+      return err("Could not write wallet to file [" & outWalletPath & "]")
   ok()
 
 proc saveWallet*(wallet: WalletPathPair): Result[void, string] =
