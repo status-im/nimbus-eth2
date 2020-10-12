@@ -262,7 +262,7 @@ proc addRawBlock*(
 
   return err((EVRESULT_IGNORE, MissingParent))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#beacon_block
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#beacon_block
 proc isValidBeaconBlock*(
        dag: ChainDAGRef, quarantine: var QuarantineRef,
        signed_beacon_block: SignedBeaconBlock, current_slot: Slot,

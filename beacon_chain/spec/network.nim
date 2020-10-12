@@ -12,7 +12,7 @@ import
   ./datatypes, ./helpers, ./validator
 
 const
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#topics-and-messages
   topicBeaconBlocksSuffix* = "beacon_block/ssz"
   topicVoluntaryExitsSuffix* = "voluntary_exit/ssz"
   topicProposerSlashingsSuffix* = "proposer_slashing/ssz"
@@ -22,7 +22,7 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#misc
   ATTESTATION_SUBNET_COUNT* = 64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#eth2-network-interaction-domains
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#eth2-network-interaction-domains
   MAX_CHUNK_SIZE* = 1 * 1024 * 1024 # bytes
   GOSSIP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
   TTFB_TIMEOUT* = 5.seconds
