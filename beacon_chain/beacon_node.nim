@@ -77,7 +77,7 @@ proc init*(T: type BeaconNode,
     netKeys = getPersistentNetKeys(rng[], conf)
     nickname = if conf.nodeName == "auto": shortForm(netKeys)
                else: conf.nodeName
-    db = BeaconChainDB.init(kvStore SqStoreRef.init(conf.databaseDir, "nbc").tryGet())
+    db = BeaconChainDB.init(conf.databaseDir)
 
   var
     mainchainMonitor: MainchainMonitor
@@ -156,6 +156,7 @@ proc init*(T: type BeaconNode,
       # TODO Could move this to a separate "GenesisMonitor" process or task
       #      that would do only this - see Paul's proposal for this.
       mainchainMonitor = MainchainMonitor.init(
+        db,
         conf.runtimePreset,
         web3,
         conf.depositContractAddress.get,
@@ -233,6 +234,7 @@ proc init*(T: type BeaconNode,
      conf.web3Url.len > 0 and
      conf.depositContractAddress.isSome:
     mainchainMonitor = MainchainMonitor.init(
+      db,
       conf.runtimePreset,
       web3Provider(conf.web3Url),
       conf.depositContractAddress.get,

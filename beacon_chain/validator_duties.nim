@@ -23,7 +23,7 @@ import
   conf, time, validator_pool,
   attestation_pool, exit_pool, block_pools/[spec_cache, chain_dag, clearance],
   eth2_network, keystore_management, beacon_node_common, beacon_node_types,
-  nimbus_binary_common, mainchain_monitor, version, ssz/merkleization, interop,
+  nimbus_binary_common, mainchain_monitor, version, ssz/merkleization,
   attestation_aggregation, sync_manager, sszdump,
   validator_slashing_protection
 
@@ -199,8 +199,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       node.chainDag.tmpState, head.atSlot(slot)):
     let (eth1data, deposits) =
       if node.mainchainMonitor.isNil:
-        (get_eth1data_stub(state.eth1_deposit_index, slot.compute_epoch_at_slot()),
-         newSeq[Deposit]())
+        (state.eth1_data, newSeq[Deposit]())
       else:
         node.mainchainMonitor.getBlockProposalData(state)
 

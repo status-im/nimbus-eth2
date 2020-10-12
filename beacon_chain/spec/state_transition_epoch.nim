@@ -406,7 +406,6 @@ func get_attestation_deltas(
   let
     total_balance = get_total_active_balance(state, cache)
 
-
   get_source_deltas(state, total_balance, rewards, penalties, cache)
   get_target_deltas(state, total_balance, rewards, penalties, cache)
   get_head_deltas(state, total_balance, rewards, penalties, cache)

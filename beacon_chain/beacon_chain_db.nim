@@ -1,13 +1,24 @@
 {.push raises: [Defect].}
 
 import
-  typetraits, stew/[results, objects, endians2],
+  typetraits,
+  stew/[results, objects, endians2, io2],
   serialization, chronicles, snappy,
-  eth/db/kvstore,
+  eth/db/[kvstore, kvstore_sqlite3],
   ./spec/[datatypes, digest, crypto, state_transition],
   ./ssz/[ssz_serialization, merkleization]
 
 type
+  DbSeq*[T] = object
+    db: SqStoreRef
+    name: string
+    file: File
+    endPos: uint64
+
+  DbMap*[K, V] = object
+    db: SqStoreRef
+    keyspace: int
+
   BeaconChainDB* = ref object
     ## Database storing resolved blocks and states - resolved blocks are such
     ## blocks that form a chain back to the tail block.
@@ -22,6 +33,15 @@ type
     ## between different versions of the client and accidentally using an old
     ## database.
     backend: KvStoreRef
+
+    deposits*: DbSeq[DepositData]
+    validators*: DbSeq[ImmutableValidatorData]
+    validatorsByKey*: DbMap[ValidatorPubKey, ValidatorIndex]
+
+  Keyspaces* = enum
+    defaultKeyspace = "kvstore"
+    seqMetadata
+    validatorIndexFromPubKey
 
   DbKeyKind = enum
     kHashToState
@@ -39,6 +59,9 @@ type
     kGenesisBlockRoot
       ## Immutable reference to the network genesis state
       ## (needed for satisfying requests to the beacon node API).
+    kEth1PersistedTo
+      ## The latest ETH1 block hash which satisfied the follow distance and
+      ## had its deposits persisted to disk.
 
 const
   maxDecompressedDbRecordSize = 16*1024*1024
@@ -71,8 +94,91 @@ func subkey(root: Eth2Digest, slot: Slot): array[40, byte] =
 
   ret
 
-proc init*(T: type BeaconChainDB, backend: KVStoreRef): BeaconChainDB =
-  T(backend: backend)
+template panic =
+  # TODO: Could we recover from a corrupted database?
+  #       Review all usages.
+  raiseAssert "The database should not be corrupted"
+
+proc createSeq*(db: SqStoreRef, baseDir, seqFile: string, T: type): DbSeq[T] =
+  var endPos: uint64 = 0
+  proc onData(data: openArray[byte]) =
+    endPos = uint64.fromBytesBE(data)
+
+  discard db.get(
+    ord seqMetadata,
+    seqFile.toOpenArrayByte(0, seqFile.len - 1),
+    onData).expect("working database")
+
+  let f = try: open(baseDir / seqFile, fmWrite)
+          except IOError: panic()
+
+  let fileSize = try: getFileSize(f).uint64
+                 except IOError: panic()
+  if endPos > fileSize: panic()
+
+  DbSeq[T](db: db, name: seqFile, file: f, endPos: endPos)
+
+proc add*[T](s: var DbSeq[T], val: T) =
+  var bytes = SSZ.encode(val)
+  try:
+    setFilePos(s.file, s.endPos.int64)
+    write(s.file, bytes)
+  except IOError:
+    panic()
+  s.endPos += bytes.len.uint64
+
+proc len*[T](s: DbSeq[T]): uint64 =
+  const elemSize = fixedPortionSize(T).uint64
+  s.endPos div elemSize
+
+proc get*[T](s: DbSeq[T], idx: uint64): T =
+  const size = uint64 fixedPortionSize(T)
+  var recordBytes: array[size, byte]
+
+  try:
+    # TODO: check for invalid coercion here
+    let pos = size * idx
+    setFilePos(s.file, pos.int64)
+    let bytesRead = readBytes(s.file, recordBytes, 0, size)
+    # TODO Can we recover from a corrupted database?
+    if bytesRead.uint64 != size: panic()
+  except IOError:
+    panic()
+
+  try:
+    decode(SSZ, recordBytes, T)
+  except SerializationError:
+    panic()
+
+proc flush*(s: DbSeq) =
+  s.file.flushFile()
+  s.db.put(
+    ord seqMetadata,
+    s.name.toOpenArrayByte(0, s.name.len - 1),
+    s.endPos.toBytesBE()).expect("working database")
+
+proc createMap*(db: SqStoreRef, keyspace: int;
+                K, V: distinct type): DbMap[K, V] =
+  DbMap[K, V](db: db, keyspace: keyspace)
+
+proc insert*[K, V](m: DbMap[K, V], key: K, value: V) =
+  m.db.put(m.keyspace, SSZ.encode key, SSZ.encode value).expect("working database")
+
+proc contains*[K, V](m: DbMap[K, V], key: K): bool =
+  contains(m.db, SSZ.encode key).expect("working database")
+
+proc init*(T: type BeaconChainDB, dir: string): BeaconChainDB =
+  let s = createPath(dir, 0o750)
+  doAssert s.isOk # TODO Handle this in a better way
+
+  let sqliteStore = SqStoreRef.init(dir, "nbc", Keyspaces).expect(
+    "working database")
+
+  T(backend: kvStore sqliteStore,
+    deposits: createSeq(sqliteStore, dir, "deposits", DepositData),
+    validators: createSeq(sqliteStore, dir, "validators", ImmutableValidatorData),
+    validatorsByKey: createMap(sqliteStore, int validatorIndexFromPubKey,
+                               ValidatorPubKey, ValidatorIndex))
 
 proc snappyEncode(inp: openArray[byte]): seq[byte] =
   try:
@@ -173,6 +279,9 @@ proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc putGenesisBlockRoot*(db: BeaconChainDB, key: Eth2Digest) =
   db.put(subkey(kGenesisBlockRoot), key)
 
+proc putEth1PersistedTo*(db: BeaconChainDB, key: Eth2Digest) =
+  db.put(subkey(kEth1PersistedTo), key)
+
 proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
   result.ok(TrustedSignedBeaconBlock())
@@ -216,7 +325,12 @@ proc getTailBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
   db.get(subkey(kTailBlock), Eth2Digest)
 
 proc getGenesisBlockRoot*(db: BeaconChainDB): Eth2Digest =
-  db.get(subkey(kGenesisBlockRoot), Eth2Digest).expect("The database must be seeded with the genesis state")
+  db.get(subkey(kGenesisBlockRoot), Eth2Digest).expect(
+    "The database must be seeded with the genesis state")
+
+proc getEth1PersistedTo*(db: BeaconChainDB): Eth2Digest =
+  db.get(subkey(kGenesisBlockRoot), Eth2Digest).expect(
+    "The database must be seeded with genesis eth1 data")
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(SignedBeaconBlock, key)).expect("working database")
