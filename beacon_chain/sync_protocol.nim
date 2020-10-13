@@ -158,6 +158,7 @@ p2pProtocol BeaconSync(version = 1,
       peer.updateRequestQuota(
         blockByRangeLookupCost +
         max(0, endIndex - startIndex + 1).float * blockResponseCost)
+      peer.awaitNonNegativeRequestQuota()
 
       for i in startIndex..endIndex:
         doAssert not blocks[i].isNil, "getBlockRange should return non-nil blocks only"
@@ -168,7 +169,7 @@ p2pProtocol BeaconSync(version = 1,
       debug "Block range request done",
         peer, startSlot, count, reqStep, found = count - startIndex
     else:
-      raise newException(InvalidInputsError, "Potential DoS attack: empty blocksByRange")
+      raise newException(InvalidInputsError, "Empty range requested")
 
   proc beaconBlocksByRoot(
       peer: Peer,
@@ -178,13 +179,14 @@ p2pProtocol BeaconSync(version = 1,
       response: MultipleChunksResponse[SignedBeaconBlock])
       {.async, libp2pProtocol("beacon_blocks_by_root", 1).} =
     if blockRoots.len == 0:
-      raise newException(InvalidInputsError, "Potential DoS attack: empty blocksByRoot")
+      raise newException(InvalidInputsError, "No blocks requested")
 
     let
       chainDag = peer.networkState.chainDag
       count = blockRoots.len
 
     peer.updateRequestQuota(count.float * blockByRootLookupCost)
+    peer.awaitNonNegativeRequestQuota()
 
     var found = 0
     for i in 0..<count:

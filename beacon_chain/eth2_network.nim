@@ -380,7 +380,6 @@ const
   maxRequestQuota = 1000000.0
   fullReplenishTime = 5.seconds
   replenishRate = (maxRequestQuota / fullReplenishTime.nanoseconds.float)
-  requestFloodingThreshold = -500000.0
 
 proc updateRequestQuota*(peer: Peer, reqCost: float) =
   let
@@ -391,9 +390,10 @@ proc updateRequestQuota*(peer: Peer, reqCost: float) =
   peer.lastReqTime = currentTime
   peer.requestQuota = min(replenishedQuota, maxRequestQuota) - reqCost
 
-  if peer.requestQuota < requestFloodingThreshold:
-    peer.updateScore(PeerScoreFlooder)
-    peer.requestQuota = 0.0
+template awaitNonNegativeRequestQuota*(peer: Peer) =
+  let quota = peer.requestQuota
+  if quota < 0:
+    await sleepAsync(nanoseconds(int((-quota) / replenishRate)))
 
 func allowedOpsPerSecondCost*(n: int): float =
   (replenishRate * 1000000000'f / n.float)
