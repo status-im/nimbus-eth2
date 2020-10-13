@@ -511,8 +511,6 @@ proc persistFinalizedBlocks(m: MainchainMonitor, timeNow: float): tuple[
 
     if prevBlock != nil:
       # TODO commit transaction
-      m.db.validators.flush()
-      m.db.deposits.flush()
       m.db.putEth1PersistedTo prevBlock.voteData.block_hash
 
     # TODO Commit
