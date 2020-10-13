@@ -46,10 +46,13 @@ export
 # Eventually, we could also differentiate between user/tainted data and
 # internal state that's gone through sanity checks already.
 
-const
-  SPEC_VERSION* = "0.12.3" ## \
+when ETH2_SPEC == "v0.12.3":
+  const SPEC_VERSION* = "0.12.3"
+else:
+  const SPEC_VERSION* = "1.0.0-rc.0"
   ## Spec version we're aiming to be compatible with, right now
 
+const
   GENESIS_SLOT* = Slot(0)
   GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
   ## compute_epoch_at_slot(GENESIS_SLOT)
@@ -68,7 +71,8 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#configuration
   ATTESTATION_PROPAGATION_SLOT_RANGE* = 32
 
-  SLOTS_PER_ETH1_VOTING_PERIOD* = EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH
+  SLOTS_PER_ETH1_VOTING_PERIOD* =
+    EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH
 
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
   BASE_REWARDS_PER_EPOCH* = 4

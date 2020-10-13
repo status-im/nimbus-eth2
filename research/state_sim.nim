@@ -38,7 +38,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
        json_interval = SLOTS_PER_EPOCH,
        write_last_json = false,
        prefix: int = 0,
-       attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.73,
+       attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.82,
        validate = true):
   let
     flags = if validate: {} else: {skipBlsValidation}

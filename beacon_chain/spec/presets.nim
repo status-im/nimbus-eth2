@@ -122,14 +122,25 @@ proc readPresetFile*(path: string): PresetFile
 
   result.missingValues = PresetValue.entireSet - presetValues
 
-const
-  mainnetRuntimePreset* = RuntimePreset(
+const ETH2_SPEC* {.strdefine.} = "v0.12.3"
+static: doAssert: ETH2_SPEC == "v0.12.3" or ETH2_SPEC == "v1.0.0"
+
+when ETH2_SPEC == "v0.12.3":
+  const mainnetRuntimePreset* = RuntimePreset(
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: 16384,
     MIN_GENESIS_TIME: 1578009600,
     GENESIS_FORK_VERSION: Version [byte 0, 0, 0, 0],
     GENESIS_DELAY: 172800,
     ETH1_FOLLOW_DISTANCE: 1024)
+else:
+ const mainnetRuntimePreset* = RuntimePreset(
+    MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: 16384,
+    MIN_GENESIS_TIME: 1578009600,
+    GENESIS_FORK_VERSION: Version [byte 0, 0, 0, 0],
+    GENESIS_DELAY: 604800,
+    ETH1_FOLLOW_DISTANCE: 2048)
 
+const
   minimalRuntimePreset* = RuntimePreset(
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: 64,
     MIN_GENESIS_TIME: 1578009600,
@@ -139,12 +150,18 @@ const
 
 when const_preset == "mainnet":
   template defaultRuntimePreset*: auto = mainnetRuntimePreset
-  import ./presets/v0_12_3/mainnet
+  when ETH2_SPEC == "v0.12.3":
+    import ./presets/v0_12_3/mainnet
+  else:
+    import ./presets/v1_0_0-rc_0/mainnet
   export mainnet
 
 elif const_preset == "minimal":
   template defaultRuntimePreset*: auto = minimalRuntimePreset
-  import ./presets/v0_12_3/minimal
+  when ETH2_SPEC == "v0.12.3":
+    import ./presets/v0_12_3/minimal
+  else:
+    import ./presets/v1_0_0-rc_0/minimal
   export minimal
 
 else:
