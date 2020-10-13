@@ -568,6 +568,7 @@ proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
     echoP "For your convenience, the wallet can be identified with a name " &
           "of your choice. Please enter a wallet name below or press ENTER " &
           "to continue with a machine-generated name."
+    echo ""
 
     while true:
       var enteredName = ask "Wallet name"
