@@ -69,6 +69,27 @@ func enrForkIdFromState(state: BeaconState): ENRForkID =
     next_fork_version: forkVer,
     next_fork_epoch: FAR_FUTURE_EPOCH)
 
+proc startMainchainMonitor(db: BeaconChainDB,
+                           conf: BeaconNodeConf): Future[MainchainMonitor] {.async.} =
+  let mainchainMonitorRes = await MainchainMonitor.init(
+    db,
+    conf.runtimePreset,
+    conf.web3Url,
+    conf.depositContractAddress.get,
+    conf.depositContractDeployedAt.get)
+
+  result = if mainchainMonitorRes.isOk:
+    mainchainMonitorRes.get
+  else:
+    fatal "Failed to start Eth1 monitor",
+          reason = mainchainMonitorRes.error,
+          web3Url = conf.web3Url,
+          depositContractAddress = conf.depositContractAddress.get,
+          depositContractDeployedAt = conf.depositContractDeployedAt.get
+    quit 1
+
+  result.start()
+
 proc init*(T: type BeaconNode,
            rng: ref BrHmacDrbgContext,
            conf: BeaconNodeConf,
@@ -139,30 +160,9 @@ proc init*(T: type BeaconNode,
         fatal "Deposit contract deployment block not specified"
         quit 1
 
-      let web3 = web3Provider(conf.web3Url)
-      let deployedAtAsHash =
-        if conf.depositContractDeployedAt.get.startsWith "0x":
-          try: BlockHash.fromHex conf.depositContractDeployedAt.get
-          except ValueError:
-            fatal "Invalid hex value specified for deposit-contract-block"
-            quit 1
-        else:
-          let blockNum = try: parseBiggestUInt conf.depositContractDeployedAt.get
-                         except ValueError:
-                           fatal "Invalid nummeric value for deposit-contract-block"
-                           quit 1
-          await getEth1BlockHash(conf.web3Url, blockId blockNum)
-
       # TODO Could move this to a separate "GenesisMonitor" process or task
       #      that would do only this - see Paul's proposal for this.
-      mainchainMonitor = MainchainMonitor.init(
-        db,
-        conf.runtimePreset,
-        web3,
-        conf.depositContractAddress.get,
-        Eth1Data(block_hash: deployedAtAsHash.asEth2Digest, deposit_count: 0))
-
-      mainchainMonitor.start()
+      mainchainMonitor = await startMainchainMonitor(db, conf)
 
       genesisState = await mainchainMonitor.waitGenesis()
       if bnStatus == BeaconNodeStatus.Stopping:
@@ -232,16 +232,11 @@ proc init*(T: type BeaconNode,
 
   if mainchainMonitor.isNil and
      conf.web3Url.len > 0 and
-     conf.depositContractAddress.isSome:
-    mainchainMonitor = MainchainMonitor.init(
-      db,
-      conf.runtimePreset,
-      web3Provider(conf.web3Url),
-      conf.depositContractAddress.get,
-      chainDag.headState.data.data.eth1_data)
-    # TODO if we don't have any validators attached, we don't need a mainchain
-    #      monitor
-    mainchainMonitor.start()
+     conf.depositContractAddress.isSome and
+     conf.depositContractDeployedAt.isSome:
+    # TODO if we don't have any validators attached,
+    #      we don't need a mainchain monitor
+    mainchainMonitor = await startMainchainMonitor(db, conf)
 
   let rpcServer = if conf.rpcEnabled:
     RpcServer.init(conf.rpcAddress, conf.rpcPort)

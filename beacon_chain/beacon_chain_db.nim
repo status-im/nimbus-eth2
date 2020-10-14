@@ -132,6 +132,7 @@ proc createSeq*(db: SqStoreRef, baseDir, name: string, T: type): DbSeq[T] =
 proc add*[T](s: var DbSeq[T], val: T) =
   var bytes = SSZ.encode(val)
   s.insertStmt.exec(bytes).expect "working database"
+  inc s.recordCount
 
 template len*[T](s: DbSeq[T]): uint64 =
   s.recordCount.uint64
@@ -274,7 +275,7 @@ proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc putGenesisBlockRoot*(db: BeaconChainDB, key: Eth2Digest) =
   db.put(subkey(kGenesisBlockRoot), key)
 
-proc putEth1PersistedTo*(db: BeaconChainDB, key: Eth2Digest) =
+proc putEth1PersistedTo*(db: BeaconChainDB, key: Eth1Data) =
   db.put(subkey(kEth1PersistedTo), key)
 
 proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[TrustedSignedBeaconBlock] =
@@ -323,9 +324,10 @@ proc getGenesisBlockRoot*(db: BeaconChainDB): Eth2Digest =
   db.get(subkey(kGenesisBlockRoot), Eth2Digest).expect(
     "The database must be seeded with the genesis state")
 
-proc getEth1PersistedTo*(db: BeaconChainDB): Eth2Digest =
-  db.get(subkey(kGenesisBlockRoot), Eth2Digest).expect(
-    "The database must be seeded with genesis eth1 data")
+proc getEth1PersistedTo*(db: BeaconChainDB): Opt[Eth1Data] =
+  result.ok(Eth1Data())
+  if db.get(subkey(kEth1PersistedTo), result.get) != GetResult.found:
+    result.err()
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(SignedBeaconBlock, key)).expect("working database")
