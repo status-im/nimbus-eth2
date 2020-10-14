@@ -17,6 +17,9 @@ import
 when isMainModule:
   import chronicles # or some random compile error happens...
 
+proc `$`(x: BlockRef): string =
+  $x.root
+
 template wrappedTimedTest(name: string, body: untyped) =
   # `check` macro takes a copy of whatever it's checking, on the stack!
   # This leads to stack overflow
@@ -195,11 +198,22 @@ suiteReport "Block pool processing" & preset():
       dag.getBlockRange(Slot(2), 2, blocks.toOpenArray(0, 1)) == 0
       blocks[0..<2] == [b2Add[], b4Add[]] # block 3 is missing!
 
+      # large skip step
+      dag.getBlockRange(Slot(0), uint64.high, blocks.toOpenArray(0, 2)) == 2
+      blocks[2..2] == [dag.tail]
+
+      # large skip step
+      dag.getBlockRange(Slot(2), uint64.high, blocks.toOpenArray(0, 1)) == 1
+      blocks[1..1] == [b2Add[]]
+
       # empty length
       dag.getBlockRange(Slot(2), 2, blocks.toOpenArray(0, -1)) == 0
 
       # No blocks in sight
       dag.getBlockRange(Slot(5), 1, blocks.toOpenArray(0, 1)) == 2
+
+      # No blocks in sight
+      dag.getBlockRange(Slot(uint64.high), 1, blocks.toOpenArray(0, 1)) == 2
 
       # No blocks in sight either due to gaps
       dag.getBlockRange(Slot(3), 2, blocks.toOpenArray(0, 1)) == 2

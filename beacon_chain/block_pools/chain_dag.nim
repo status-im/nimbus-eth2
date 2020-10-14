@@ -538,7 +538,7 @@ func getBlockRange*(
   trace "getBlockRange entered",
     head = shortLog(dag.head.root), requestedCount, startSlot, skipStep, headSlot
 
-  if startSlot < dag.tail.slot or headSlot <= startSlot:
+  if startSlot < dag.tail.slot or headSlot <= startSlot or requestedCount == 0:
     return output.len # Identical to returning an empty set of block as indicated above
 
   let
