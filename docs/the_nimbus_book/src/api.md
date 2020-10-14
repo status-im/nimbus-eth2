@@ -42,10 +42,6 @@ curl -d '{"jsonrpc":"2.0","id":"id","method":"getChainHead","params":[] }' -H 'C
 
 ### getSyncing
 
-### getBeaconBlock
-
-### getBeaconState
-
 ### getNetworkPeerId
 
 ### getNetworkPeers
