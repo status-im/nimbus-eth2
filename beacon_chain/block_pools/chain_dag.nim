@@ -543,19 +543,31 @@ func getBlockRange*(
 
   let
     runway = uint64(headSlot - startSlot)
-    skipStep = max(skipStep, 1) # Treat 0 step as 1
-    count = min(1'u64 + (runway div skipStep), requestedCount)
-    endSlot = startSlot + count * skipStep
+
+    # This is the number of blocks that will follow the start block
+    extraBlocks = min(runway div skipStep, requestedCount - 1)
+
+    # If `skipStep` is very large, `extraBlocks` should be 0 from
+    # the previous line, so `endSlot` will be equal to `startSlot`:
+    endSlot = startSlot + extraBlocks * skipStep
 
   var
     b = dag.head.atSlot(endSlot)
     o = output.len
-  for i in 0..<count:
-    for j in 0..<skipStep:
-      b = b.parent
+
+  # Process all blocks that follow the start block (may be zero blocks)
+  for i in 1..extraBlocks:
     if b.blck.slot == b.slot:
       dec o
       output[o] = b.blck
+    for j in 1..skipStep:
+      b = b.parent
+
+  # We should now be at the start block.
+  # Like any "block slot", it may be a missing/skipped block:
+  if b.blck.slot == b.slot:
+    dec o
+    output[o] = b.blck
 
   o # Return the index of the first non-nil item in the output
 
