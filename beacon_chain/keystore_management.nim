@@ -10,6 +10,9 @@ import
 export
   keystore
 
+when defined(windows):
+  import stew/[windows/acl]
+
 {.push raises: [Defect].}
 {.localPassC: "-fno-lto".} # no LTO for crypto
 
