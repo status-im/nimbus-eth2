@@ -120,25 +120,6 @@ template asBlockHash(x: Eth2Digest): BlockHash =
 func shortLog*(b: Eth1Block): string =
   &"{b.number}:{shortLog b.voteData.block_hash}"
 
-func getDepositsInRange(eth1Chain: Eth1Chain,
-                        sinceBlock, latestBlock: Eth1BlockNumber): seq[Deposit] =
-  ## Returns all deposits that happened AFTER the block `sinceBlock` (not inclusive).
-  ## The deposits in `latestBlock` will be included.
-  if latestBlock <= sinceBlock: return
-
-  let firstBlockInCache = eth1Chain.blocks[0].number
-
-  # This function should be used with indices obtained with `eth1Chain.findBlock`.
-  # This guarantess that both of these indices will be valid:
-  doAssert sinceBlock >= firstBlockInCache and
-           (latestBlock - firstBlockInCache) < eth1Chain.blocks.lenu64
-  let
-    sinceBlockIdx = sinceBlock - firstBlockInCache
-    latestBlockIdx = latestBlock - firstBlockInCache
-
-  for i in (sinceBlockIdx + 1) ..< latestBlockIdx:
-    result.add eth1Chain.blocks[i].deposits
-
 template findBlock*(eth1Chain: Eth1Chain, hash: BlockHash): Eth1Block =
   eth1Chain.blocksByHash.getOrDefault(hash, nil)
 
@@ -316,49 +297,45 @@ proc onBlockHeaders*(p: Web3DataProviderRef,
   p.blockHeadersSubscription = await p.web3.subscribeForBlockHeaders(
     blockHeaderHandler, errorHandler)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#get_eth1_data
 proc getBlockProposalData*(m: MainchainMonitor,
                            state: BeaconState): (Eth1Data, seq[Deposit]) =
-  template voteForNoChange() =
-    result[0] = state.eth1_data
-    return
-
-  let prevBlock = m.eth1Chain.findBlock(state.eth1_data)
-  if prevBlock == nil:
-    # The Eth1 block currently referenced in the BeaconState is unknown to us.
-    # This situation is not specifically covered in the honest validator spec,
-    # but there is a similar condition where none of the eth1_data_votes is
-    # present in our worldview. The suggestion there is to vote for "no change"
-    # and we'll do the same here:
-    voteForNoChange()
-
   let periodStart = voting_period_start_time(state)
 
   var otherVotesCountTable = initCountTable[Eth1Block]()
   for vote in state.eth1_data_votes:
     let eth1Block = m.eth1Chain.findBlock(vote)
-    if eth1Block != nil and is_candidate_block(m.preset, eth1Block, periodStart):
+    if eth1Block != nil and
+       is_candidate_block(m.preset, eth1Block, periodStart) and
+       eth1Block.voteData.deposit_count > state.eth1_data.deposit_count:
       otherVotesCountTable.inc eth1Block
 
+  var pendingDeposits = state.eth1_data.deposit_count - state.eth1_deposit_index
   if otherVotesCountTable.len > 0:
     let (winningBlock, votes) = otherVotesCountTable.largest
     result[0] = winningBlock.voteData
     if uint64((votes + 1) * 2) > SLOTS_PER_ETH1_VOTING_PERIOD:
-      result[1] = m.eth1Chain.getDepositsInRange(prevBlock.number,
-                                                 winningBlock.number)
-      # TODO This can be significantly more optimal
-      var newAllDeposits = m.allDepositsUpTo(winningBlock.voteData.deposit_count)
-      newAllDeposits.add result[1]
-      attachMerkleProofs(newAllDeposits)
-      for i in 0 ..< result[1].len:
-        result[1][i].proof = newAllDeposits[newAllDeposits.len - result[1].len + i].proof
+      pendingDeposits = winningBlock.voteData.deposit_count -
+                        state.eth1_deposit_index
   else:
     let latestBlock = m.eth1Chain.latestCandidateBlock(m.preset, periodStart)
     if latestBlock == nil:
-      voteForNoChange()
+      result[0] = state.eth1_data
     else:
       result[0] = latestBlock.voteData
-      return
+
+  if pendingDeposits > 0:
+    # TODO This can be significantly more optimal
+    let targetDepositCount = result[0].deposit_count
+
+    var newAllDeposits = m.allDepositsUpTo(targetDepositCount)
+    attachMerkleProofs(newAllDeposits.toOpenArray(0, targetDepositCount.int - 1))
+
+    let
+      totalDepositsInNewBlock = min(MAX_DEPOSITS, pendingDeposits)
+      newDepositIndex = state.eth1_deposit_index + totalDepositsInNewBlock
+
+    result[1] = newAllDeposits[state.eth1_deposit_index ..< newDepositIndex]
 
 proc init*(T: type MainchainMonitor,
            db: BeaconChainDB,
