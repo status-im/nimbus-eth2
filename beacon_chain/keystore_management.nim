@@ -596,7 +596,10 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
           else:
             error "Imported keystore holds invalid key", file, err = privKey.error
           break
-        of InvalidKeystore, InvalidPassword:
+        of InvalidKeystore:
+          warn "Invalid keystore", file
+          break
+        of InvalidPassword:
           if firstDecryptionAttempt:
             try:
               const msg = "Please enter the password for decrypting '$1' " &
