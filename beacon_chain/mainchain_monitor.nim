@@ -2,7 +2,7 @@ import
   std/[deques, tables, hashes, options, strformat, strutils],
   chronos, web3, web3/ethtypes as web3Types, json, chronicles,
   eth/common/eth_types, eth/async_utils,
-  spec/[datatypes, digest, crypto, beaconstate, helpers, signatures],
+  spec/[datatypes, digest, crypto, beaconstate, helpers],
   ssz, beacon_chain_db, network_metadata, merkle_minimal, beacon_node_status
 
 from times import epochTime
@@ -272,7 +272,7 @@ proc readJsonDeposits(depositsList: JsonNode): seq[Eth1Block] =
 proc fetchDepositData*(p: Web3DataProviderRef,
                        fromBlock, toBlock: Eth1BlockNumber): Future[seq[Eth1Block]]
                        {.async, locks: 0.} =
-  info "Obtaining deposit log events", fromBlock, toBlock
+  debug "Obtaining deposit log events", fromBlock, toBlock
   return readJsonDeposits(await p.ns.getJsonLogs(DepositEvent,
                                                  fromBlock = some blockId(fromBlock),
                                                  toBlock = some blockId(toBlock)))
@@ -415,20 +415,12 @@ proc persistFinalizedBlocks(m: MainchainMonitor, timeNow: float): tuple[
         break
 
       for deposit in blk.deposits:
-        m.db.deposits.add deposit.data
-
-        if verify_deposit_signature(m.preset, deposit.data):
-          let pubkey = deposit.data.pubkey
-          if pubkey notin m.db.validatorsByKey:
-            let idx = m.db.validators.len
-            m.db.validators.add ImmutableValidatorData(
-              pubkey: pubkey,
-              withdrawal_credentials: deposit.data.withdrawal_credentials)
-            m.db.validatorsByKey.insert(pubkey, ValidatorIndex idx)
+        m.db.processDeposit(deposit.data)
 
       # TODO The len property is currently stored in memory which
       #      makes it unsafe in the face of failed transactions
-      blk.knownValidatorsCount = some m.db.validators.len
+      let activeValidatorsCount = m.db.immutableValidatorData.lenu64
+      blk.knownValidatorsCount = some activeValidatorsCount
 
       discard m.eth1Chain.blocks.popFirst()
       m.eth1Chain.blocksByHash.del blk.voteData.block_hash.asBlockHash
@@ -436,7 +428,7 @@ proc persistFinalizedBlocks(m: MainchainMonitor, timeNow: float): tuple[
       let blockGenesisTime = genesis_time_from_eth1_timestamp(m.preset,
                                                               blk.timestamp)
       if blockGenesisTime >= m.preset.MIN_GENESIS_TIME and
-         m.db.validators.len >= m.preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
+         activeValidatorsCount >= m.preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
         result = (blk, prevBlock)
 
       prevBlock = blk

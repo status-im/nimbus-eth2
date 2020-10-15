@@ -98,7 +98,7 @@ proc init*(T: type BeaconNode,
     netKeys = getPersistentNetKeys(rng[], conf)
     nickname = if conf.nodeName == "auto": shortForm(netKeys)
                else: conf.nodeName
-    db = BeaconChainDB.init(conf.databaseDir)
+    db = BeaconChainDB.init(conf.runtimePreset, conf.databaseDir)
 
   var
     mainchainMonitor: MainchainMonitor

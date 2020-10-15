@@ -46,16 +46,17 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   let
     state = loadGenesis(validators, true)
     genesisBlock = get_initial_beacon_block(state[].data)
+    runtimePreset = defaultRuntimePreset
 
   echo "Starting simulation..."
 
-  let db = BeaconChainDB.init("block_sim_db")
+  let db = BeaconChainDB.init(runtimePreset, "block_sim_db")
   defer: db.close()
 
   ChainDAGRef.preInit(db, state[].data, state[].data, genesisBlock)
 
   var
-    chainDag = init(ChainDAGRef, defaultRuntimePreset, db)
+    chainDag = init(ChainDAGRef, runtimePreset, db)
     quarantine = QuarantineRef()
     attPool = AttestationPool.init(chainDag, quarantine)
     timers: array[Timers, RunningStat]
@@ -108,7 +109,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         eth1data = get_eth1data_stub(
           state.eth1_deposit_index, slot.compute_epoch_at_slot())
         message = makeBeaconBlock(
-          defaultRuntimePreset,
+          runtimePreset,
           hashedState,
           proposerIdx,
           head.root,
