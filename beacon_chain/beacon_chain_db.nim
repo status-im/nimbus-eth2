@@ -1,11 +1,11 @@
 {.push raises: [Defect].}
 
 import
-  typetraits,
+  typetraits, tables,
   stew/[results, objects, endians2, io2],
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
-  ./spec/[datatypes, digest, crypto, state_transition],
+  ./spec/[datatypes, digest, crypto, state_transition, signatures],
   ./ssz/[ssz_serialization, merkleization]
 
 type
@@ -17,6 +17,10 @@ type
   DbMap*[K, V] = object
     db: SqStoreRef
     keyspace: int
+
+  DepositsSeq = DbSeq[DepositData]
+  ImmutableValidatorDataSeq = seq[ImmutableValidatorData]
+  ValidatorKeyToIndexMap = Table[ValidatorPubKey, ValidatorIndex]
 
   BeaconChainDB* = ref object
     ## Database storing resolved blocks and states - resolved blocks are such
@@ -32,10 +36,11 @@ type
     ## between different versions of the client and accidentally using an old
     ## database.
     backend: KvStoreRef
+    preset: RuntimePreset
 
-    deposits*: DbSeq[DepositData]
-    validators*: DbSeq[ImmutableValidatorData]
-    validatorsByKey*: DbMap[ValidatorPubKey, ValidatorIndex]
+    deposits*: DepositsSeq
+    immutableValidatorData*: ImmutableValidatorDataSeq
+    validatorKeyToIndex*: ValidatorKeyToIndexMap
 
   Keyspaces* = enum
     defaultKeyspace = "kvstore"
@@ -97,7 +102,7 @@ template panic =
   #       Review all usages.
   raiseAssert "The database should not be corrupted"
 
-proc createSeq*(db: SqStoreRef, baseDir, name: string, T: type): DbSeq[T] =
+proc init*[T](Seq: type DbSeq[T], db: SqStoreRef, name: string): Seq =
   db.exec("""
     CREATE TABLE IF NOT EXISTS """ & name & """(
        id INTEGER PRIMARY KEY,
@@ -125,9 +130,9 @@ proc createSeq*(db: SqStoreRef, baseDir, name: string, T: type): DbSeq[T] =
   let found = countQueryRes.expect("working database")
   if not found: panic()
 
-  DbSeq[T](insertStmt: insertStmt,
-           selectStmt: selectStmt,
-           recordCount: recordCount)
+  Seq(insertStmt: insertStmt,
+      selectStmt: selectStmt,
+      recordCount: recordCount)
 
 proc add*[T](s: var DbSeq[T], val: T) =
   var bytes = SSZ.encode(val)
@@ -154,27 +159,73 @@ proc createMap*(db: SqStoreRef, keyspace: int;
                 K, V: distinct type): DbMap[K, V] =
   DbMap[K, V](db: db, keyspace: keyspace)
 
-proc insert*[K, V](m: DbMap[K, V], key: K, value: V) =
+proc insert*[K, V](m: var DbMap[K, V], key: K, value: V) =
   m.db.put(m.keyspace, SSZ.encode key, SSZ.encode value).expect("working database")
 
 proc contains*[K, V](m: DbMap[K, V], key: K): bool =
   contains(m.db, SSZ.encode key).expect("working database")
 
-proc init*(T: type BeaconChainDB, dir: string, inMemory = false): BeaconChainDB =
-  let s = createPath(dir, 0o750)
-  doAssert s.isOk # TODO Handle this in a better way
+template insert*[K, V](t: var Table[K, V], key: K, value: V) =
+  add(t, key, value)
 
-  let sqliteStore = SqStoreRef.init(dir, "nbc", Keyspaces).expect(
-    "working database")
+proc produceDerivedData(deposit: DepositData,
+                        preset: RuntimePreset,
+                        deposits: var DepositsSeq,
+                        validators: var ImmutableValidatorDataSeq,
+                        validatorKeyToIndex: var ValidatorKeyToIndexMap) =
+  if verify_deposit_signature(preset, deposit):
+    let pubkey = deposit.pubkey
+    if pubkey notin validatorKeyToIndex:
+      let idx = ValidatorIndex validators.len
+      validators.add ImmutableValidatorData(
+        pubkey: pubkey,
+        withdrawal_credentials: deposit.withdrawal_credentials)
+      validatorKeyToIndex.insert(pubkey, idx)
 
+proc processDeposit*(db: BeaconChainDB, newDeposit: DepositData) =
+  db.deposits.add newDeposit
+
+  produceDerivedData(
+    newDeposit,
+    db.preset,
+    db.deposits,
+    db.immutableValidatorData,
+    db.validatorKeyToIndex)
+
+proc init*(T: type BeaconChainDB,
+           preset: RuntimePreset,
+           dir: string,
+           inMemory = false): BeaconChainDB =
   if inMemory:
-    T(backend: kvStore MemStoreRef.init())
+    # TODO
+    # The inMemory store shuold offer the complete functionality
+    # of the database-backed one (i.e. tracking of deposits and validators)
+    T(backend: kvStore MemStoreRef.init(), preset: preset)
   else:
+    let s = createPath(dir, 0o750)
+    doAssert s.isOk # TODO Handle this in a better way
+
+    let sqliteStore = SqStoreRef.init(dir, "nbc", Keyspaces).expect(
+      "working database")
+
+    var
+      immutableValidatorData = newSeq[ImmutableValidatorData]()
+      validatorKeyToIndex = initTable[ValidatorPubKey, ValidatorIndex]()
+      depositsSeq = DbSeq[DepositData].init(sqliteStore, "deposits")
+
+    for i in 0 ..< depositsSeq.len:
+      produceDerivedData(
+        depositsSeq.get(i),
+        preset,
+        depositsSeq,
+        immutableValidatorData,
+        validatorKeyToIndex)
+
     T(backend: kvStore sqliteStore,
-      deposits: createSeq(sqliteStore, dir, "deposits", DepositData),
-      validators: createSeq(sqliteStore, dir, "immutableValidatorData", ImmutableValidatorData),
-      validatorsByKey: createMap(sqliteStore, int validatorIndexFromPubKey,
-                                 ValidatorPubKey, ValidatorIndex))
+      preset: preset,
+      deposits: depositsSeq,
+      immutableValidatorData: immutableValidatorData,
+      validatorKeyToIndex: validatorKeyToIndex)
 
 proc snappyEncode(inp: openArray[byte]): seq[byte] =
   try:

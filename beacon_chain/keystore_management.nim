@@ -624,7 +624,7 @@ proc createWalletInteractively*(
         "consisting of 24 words. In case you lose your wallet and you " &
         "need to restore it on a different machine, you can use the " &
         "seed phrase to re-generate your signing and withdrawal keys."
-  echoP "The seed phrase should be kept secretly in a safe location as if " &
+  echoP "The seed phrase should be kept secret in a safe location as if " &
         "you are protecting a sensitive password. It can be used to withdraw " &
         "funds from your wallet."
   echoP "We will display the seed phrase on the next screen. Please make sure " &
@@ -663,9 +663,10 @@ proc createWalletInteractively*(
 
   clearScreen()
 
-  echoP "To confirm that you've saved the seed phrase, please enter the first and the " &
-        "last three words of it. In case you've saved the seek phrase in your clipboard, " &
-        "we strongly advice clearing the clipboard now."
+  echoP "To confirm that you've saved the seed phrase, please enter the " &
+        "first and the last three words of it. In case you've saved the " &
+        "seek phrase in your clipboard, we strongly advice clearing the " &
+        "clipboard now."
   echo ""
 
   for i in countdown(2, 0):
