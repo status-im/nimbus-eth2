@@ -1,0 +1,17 @@
+# This Docker image can change from one build to another, because the upstream
+# Debian package index is continuously updated and we have to run `apt-get
+# update` in here.
+#
+# The only way to make this a part of our reproducible build system is to build
+# it once, upload it to Docker Hub and make sure it's being pulled regularly so
+# it's not deleted after 6 months of inactivity.
+
+FROM debian:bullseye-slim
+
+SHELL ["/bin/bash", "-c"]
+
+RUN apt-get -qq update \
+ && apt-get -qq -y install build-essential libpcre3-dev git &>/dev/null \
+ && apt-get -qq clean \
+ && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+

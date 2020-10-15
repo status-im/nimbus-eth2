@@ -489,6 +489,12 @@ make NIMFLAGS="--passL:-static" beacon_node
 make publish-book
 ```
 
+- create a binary distribution
+
+```bash
+make dist
+```
+
 ### CI setup
 
 Local testnets run for 4 epochs each, to test finalization. That happens only on Jenkins Linux hosts, and their logs are available for download as artifacts, from the job's page. Don't expect these artifacts to be kept more than a day after the corresponding branch is deleted.
