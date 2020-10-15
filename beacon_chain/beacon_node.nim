@@ -719,44 +719,6 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
       raise newException(CatchableError,
        "Please specify one of " & astToStr(x) & " or " & astToStr(y))
 
-  template jsonResult(x: auto): auto =
-    StringOfJson(Json.encode(x))
-
-  rpcServer.rpc("getBeaconBlock") do (slot: Option[Slot],
-                                      root: Option[Eth2Digest]) -> StringOfJson:
-    requireOneOf(slot, root)
-    var blockHash: Eth2Digest
-    if root.isSome:
-      blockHash = root.get
-    else:
-      let foundRef = node.chainDag.getBlockByPreciseSlot(slot.get)
-      if foundRef != nil:
-        blockHash = foundRef.root
-      else:
-        return StringOfJson("null")
-
-    let dbBlock = node.db.getBlock(blockHash)
-    if dbBlock.isSome:
-      return jsonResult(dbBlock.get)
-    else:
-      return StringOfJson("null")
-
-  rpcServer.rpc("getBeaconState") do (slot: Option[Slot],
-                                      root: Option[Eth2Digest]) -> StringOfJson:
-    requireOneOf(slot, root)
-    if slot.isSome:
-      # TODO sanity check slot so that it doesn't cause excessive rewinding
-      let blk = node.chainDag.head.atSlot(slot.get)
-      node.chainDag.withState(node.chainDag.tmpState, blk):
-        return jsonResult(state)
-    else:
-      let tmp = BeaconStateRef() # TODO use tmpState - but load the entire StateData!
-      let state = node.db.getState(root.get, tmp[], noRollback)
-      if state:
-        return jsonResult(tmp[])
-      else:
-        return StringOfJson("null")
-
   rpcServer.rpc("getNetworkPeerId") do () -> string:
     return $publicKey(node.network)
 
