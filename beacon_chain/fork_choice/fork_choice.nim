@@ -282,11 +282,16 @@ proc process_block*(self: var ForkChoice,
   ? update_time(self, dag, wallSlot)
   ? process_state(self.checkpoints, dag, epochRef, blckRef)
 
+  let committees_per_slot = get_committee_count_per_slot(epochRef)
+
   for attestation in blck.body.attestations:
     let targetBlck = dag.getRef(attestation.data.target.root)
     if targetBlck.isNil:
       continue
-    if attestation.data.beacon_block_root in self.backend:
+    if attestation.data.beacon_block_root in self.backend and
+        # TODO not-actually-correct hotfix for crash
+        # https://github.com/status-im/nimbus-eth2/issues/1879
+        attestation.data.index < committees_per_slot:
       let
         participants = get_attesting_indices(
           epochRef, attestation.data, attestation.aggregation_bits)
