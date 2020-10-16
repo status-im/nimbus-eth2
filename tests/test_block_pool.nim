@@ -292,39 +292,39 @@ suiteReport "Block pool processing" & preset():
 
     # move to specific block
     var cache = StateCache()
-    dag.updateStateData(tmpState[], bs1, cache)
+    dag.updateStateData(tmpState[], bs1, false, cache)
 
     check:
       tmpState.blck == b1Add[]
       tmpState.data.data.slot == bs1.slot
 
     # Skip slots
-    dag.updateStateData(tmpState[], bs1_3, cache) # skip slots
+    dag.updateStateData(tmpState[], bs1_3, false, cache) # skip slots
 
     check:
       tmpState.blck == b1Add[]
       tmpState.data.data.slot == bs1_3.slot
 
     # Move back slots, but not blocks
-    dag.updateStateData(tmpState[], bs1_3.parent(), cache)
+    dag.updateStateData(tmpState[], bs1_3.parent(), false, cache)
     check:
       tmpState.blck == b1Add[]
       tmpState.data.data.slot == bs1_3.parent().slot
 
     # Move to different block and slot
-    dag.updateStateData(tmpState[], bs2_3, cache)
+    dag.updateStateData(tmpState[], bs2_3, false, cache)
     check:
       tmpState.blck == b2Add[]
       tmpState.data.data.slot == bs2_3.slot
 
     # Move back slot and block
-    dag.updateStateData(tmpState[], bs1, cache)
+    dag.updateStateData(tmpState[], bs1, false, cache)
     check:
       tmpState.blck == b1Add[]
       tmpState.data.data.slot == bs1.slot
 
     # Move back to genesis
-    dag.updateStateData(tmpState[], bs1.parent(), cache)
+    dag.updateStateData(tmpState[], bs1.parent(), false, cache)
     check:
       tmpState.blck == b1Add[].parent
       tmpState.data.data.slot == bs1.parent.slot

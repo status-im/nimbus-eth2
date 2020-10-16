@@ -176,7 +176,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     withTimer(timers[tReplay]):
       var cache = StateCache()
       chainDag.updateStateData(
-        replayState[], chainDag.head.atSlot(Slot(slots)), cache)
+        replayState[], chainDag.head.atSlot(Slot(slots)), false, cache)
 
   echo "Done!"
 
