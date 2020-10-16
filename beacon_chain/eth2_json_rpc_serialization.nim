@@ -1,6 +1,6 @@
 import
   # Standard library
-  tables, json,
+  tables, json, parseutils,
 
   # Nimble packages
   stew/byteutils, ssz/types,
@@ -43,7 +43,7 @@ proc `%`*(value: Version): JsonNode =
 template genFromJsonForIntType(T: untyped) =
   proc fromJson*(n: JsonNode, argName: string, result: var T) =
     n.kind.expect(JInt, argName)
-    let asInt = n.getInt()
+    let asInt = n.getBiggestInt()
     # signed -> unsigned conversions are unchecked
     # https://github.com/nim-lang/RFCs/issues/175
     if asInt < 0:
@@ -51,10 +51,20 @@ template genFromJsonForIntType(T: untyped) =
         ValueError, "JSON-RPC input is an unexpected negative value")
     result = T(asInt)
 
-genFromJsonForIntType(Epoch)
 genFromJsonForIntType(Slot)
 genFromJsonForIntType(CommitteeIndex)
 genFromJsonForIntType(ValidatorIndex)
+
+proc `%`*(value: Epoch): JsonNode =
+  result = newJString($value)
+
+proc fromJson*(n: JsonNode, argName: string, result: var Epoch) =
+  n.kind.expect(JString, argName)
+  let str = n.getStr()
+  var parsed: BiggestUInt
+  if parseBiggestUInt(str, parsed) != str.len:
+    raise newException(CatchableError, "Not a valid epoch number")
+  result = parsed.Epoch
 
 template `%`*(value: GraffitiBytes): JsonNode =
   %($value)

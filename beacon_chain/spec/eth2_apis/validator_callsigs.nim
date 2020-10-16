@@ -21,7 +21,7 @@ proc get_v1_validator_aggregate_attestation(slot: Slot, attestation_data_root: E
 proc post_v1_validator_aggregate_and_proofs(payload: SignedAggregateAndProof): bool
 
 # TODO epoch is part of the REST path
-proc get_v1_validator_duties_attester(epoch: Epoch, public_keys: seq[ValidatorPubKey]): seq[AttesterDuties]
+proc post_v1_validator_duties_attester(epoch: Epoch, validatorIds: seq[uint64]): seq[AttesterDuties]
 
 # TODO epoch is part of the REST path
 proc get_v1_validator_duties_proposer(epoch: Epoch): seq[ValidatorPubkeySlotPair]

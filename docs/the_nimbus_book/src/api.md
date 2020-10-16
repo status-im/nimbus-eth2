@@ -129,7 +129,7 @@ curl -d '{"jsonrpc":"2.0","method":"get_v1_validator_attestation_data","params":
 ### [`post_v1_validator_duties_attester`](https://ethereum.github.io/eth2.0-APIs/#/ValidatorRequiredApi/getAttesterDuties)
 
 ```
-curl -d '{"jsonrpc":"2.0","method":"post_v1_validator_duties_attester","params":[1,["a7a0502eae26043d1ac39a39457a6cdf68fae2055d89c7dc59092c25911e4ee55c4e7a31ade61c39480110a393be28e8","a1826dd94cd96c48a81102d316a2af4960d19ca0b574ae5695f2d39a88685a43997cef9a5c26ad911847674d20c46b75"]],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+curl -d '{"jsonrpc":"2.0","method":"post_v1_validator_duties_attester","params":[1,[1,2]],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 ```
 
 ### [`get_v1_validator_duties_proposer`](https://ethereum.github.io/eth2.0-APIs/#/ValidatorRequiredApi/getProposerDuties)

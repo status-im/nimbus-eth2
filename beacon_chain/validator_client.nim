@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  os, strutils, json,
+  os, strutils, json, sequtils,
 
   # Nimble packages
   stew/shims/[tables, macros],
@@ -45,6 +45,7 @@ type
     attachedValidators: ValidatorPool
     fork: Fork
     proposalsForCurrentEpoch: Table[Slot, ValidatorPubKey]
+    activeValidators: seq[BeaconStatesValidatorsTuple]
     attestationsForEpoch: Table[Epoch, Table[Slot, seq[AttesterDuties]]]
     beaconGenesis: BeaconGenesisTuple
 
@@ -60,6 +61,14 @@ template attemptUntilSuccess(vc: ValidatorClient, body: untyped) =
 proc getValidatorDutiesForEpoch(vc: ValidatorClient, epoch: Epoch) {.gcsafe, async.} =
   info "Getting validator duties for epoch", epoch = epoch
 
+  var validatorPubkeys: seq[string]
+  for key in vc.attachedValidators.validators.keys:
+    validatorPubkeys.add "0x" & $key
+
+  vc.activeValidators = await vc.client.get_v1_beacon_states_stateId_validators(
+      "head", validatorPubkeys, "active")  
+  let validatorIndexes = vc.activeValidators.mapIt(it.index)
+
   let proposals = await vc.client.get_v1_validator_duties_proposer(epoch)
   # update the block proposal duties this VC should do during this epoch
   vc.proposalsForCurrentEpoch.clear()
@@ -67,17 +76,12 @@ proc getValidatorDutiesForEpoch(vc: ValidatorClient, epoch: Epoch) {.gcsafe, asy
     if vc.attachedValidators.validators.contains curr.public_key:
       vc.proposalsForCurrentEpoch.add(curr.slot, curr.public_key)
 
-  # couldn't use mapIt in ANY shape or form so reverting to raw loops - sorry Sean Parent :|
-  var validatorPubkeys: seq[ValidatorPubKey]
-  for key in vc.attachedValidators.validators.keys:
-    validatorPubkeys.add key
-
   proc getAttesterDutiesForEpoch(epoch: Epoch) {.gcsafe, async.} =
     # make sure there's an entry
     if not vc.attestationsForEpoch.contains epoch:
       vc.attestationsForEpoch.add(epoch, Table[Slot, seq[AttesterDuties]]())
-    let attestations = await vc.client.get_v1_validator_duties_attester(
-      epoch, validatorPubkeys)
+    let attestations = await vc.client.post_v1_validator_duties_attester(
+      epoch, validatorIndexes)
     for a in attestations:
       if vc.attestationsForEpoch[epoch].hasKeyOrPut(a.slot, @[a]):
         vc.attestationsForEpoch[epoch][a.slot].add(a)

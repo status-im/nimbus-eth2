@@ -29,9 +29,10 @@ type
     finalized: Checkpoint
 
   BeaconStatesValidatorsTuple* = tuple
-    validator: Validator
-    status: string
+    index: uint64
     balance: uint64
+    status: string
+    validator: Validator
 
   BeaconStatesCommitteesTuple* = tuple
     index: uint64

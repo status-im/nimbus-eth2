@@ -73,14 +73,16 @@ proc getValidatorInfoFromValidatorId(
   if status notin allowedStatuses:
     raise newException(CatchableError, "Invalid status requested")
 
-  let validator = if validatorId.startsWith("0x"):
+  var valIdx: uint64
+
+  var validator = if validatorId.startsWith("0x"):
     let pubkey = parsePubkey(validatorId)
     let idx = state.validators.asSeq.findIt(it.pubKey == pubkey)
     if idx == -1:
       raise newException(CatchableError, "Could not find validator")
-    state.validators[idx]
+    valIdx = idx.uint64
+    state.validators[valIdx]
   else:
-    var valIdx: BiggestUInt
     if parseBiggestUInt(validatorId, valIdx) != validatorId.len:
       raise newException(CatchableError, "Not a valid index")
     if valIdx > state.validators.lenu64:
@@ -129,8 +131,8 @@ proc getValidatorInfoFromValidatorId(
   if status != "" and status notin actual_status:
     return none(BeaconStatesValidatorsTuple)
 
-  return some((validator: validator, status: actual_status,
-                balance: validator.effective_balance))
+  return some((index: valIdx, balance: validator.effective_balance,
+               status: actual_status, validator: validator))
 
 proc getBlockSlotFromString(node: BeaconNode, slot: string): BlockSlot =
   if slot.len == 0:
@@ -365,9 +367,9 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     notice "Aggregated attestation sent",
       attestation = shortLog(payload.message.aggregate)
 
-  rpcServer.rpc("get_v1_validator_duties_attester") do (
-      epoch: Epoch, public_keys: seq[ValidatorPubKey]) -> seq[AttesterDuties]:
-    debug "get_v1_validator_duties_attester", epoch = epoch
+  rpcServer.rpc("post_v1_validator_duties_attester") do (
+      epoch: Epoch, validatorIds: seq[uint64]) -> seq[AttesterDuties]:
+    debug "post_v1_validator_duties_attester", epoch = epoch
     let
       head = node.doChecksAndGetCurrentHead(epoch)
       epochRef = node.chainDag.getEpochRef(head, epoch)
@@ -379,9 +381,8 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
           epochRef, slot, committee_index.CommitteeIndex)
         for index_in_committee, validatorIdx in committee:
           if validatorIdx < epochRef.validator_keys.len.ValidatorIndex:
-            let curr_val_pubkey = epochRef.validator_keys[validatorIdx].initPubKey
-            if public_keys.findIt(it == curr_val_pubkey) != -1:
-              result.add((public_key: curr_val_pubkey,
+            if validatorIds.findIt(it == validatorIdx.uint64) != -1:
+              result.add((public_key: epochRef.validator_keys[validatorIdx].initPubKey,
                           validator_index: validatorIdx,
                           committee_index: committee_index.CommitteeIndex,
                           committee_length: committee.lenu64,
