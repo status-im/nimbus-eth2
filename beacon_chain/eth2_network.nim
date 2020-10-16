@@ -23,7 +23,7 @@ import
   # Beacon node modules
   version, conf, eth2_discovery, libp2p_json_serialization, conf,
   ssz/ssz_serialization,
-  peer_pool, spec/[datatypes, network], ./time,
+  peer_pool, spec/[datatypes, digest, helpers, network], ./time,
   keystore_management
 
 when defined(nbc_gossipsub_11):
@@ -1362,8 +1362,15 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
     return KeyPair(seckey: privKey, pubkey: privkey.getKey().tryGet())
 
 func gossipId(data: openArray[byte]): string =
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#topics-and-messages
-  base64.encode(Base64Url, sha256.digest(data).data)
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#topics-and-messages
+  # We don't use non-Snappy-compressed messages, so don't define
+  # MESSAGE_DOMAIN_INVALID_SNAPPY.
+  const MESSAGE_DOMAIN_VALID_SNAPPY = 0x01000000'u64
+  var messageDigest = withEth2Hash:
+    h.update uint_to_bytes4(MESSAGE_DOMAIN_VALID_SNAPPY)
+    h.update data
+
+  string.fromBytes(messageDigest.data.toOpenArray(0, 19))
 
 func msgIdProvider(m: messages.Message): string =
   gossipId(m.data)
@@ -1413,26 +1420,6 @@ proc announcedENR*(node: Eth2Node): enr.Record =
 proc shortForm*(id: KeyPair): string =
   $PeerID.init(id.pubkey)
 
-proc subscribe*[MsgType](node: Eth2Node,
-                         topic: string,
-                         msgHandler: proc(msg: MsgType) {.gcsafe.} ) {.async.} =
-  proc execMsgHandler(topic: string, data: seq[byte]) {.async.} =
-    inc nbc_gossip_messages_received
-    trace "Incoming pubsub message received",
-      len = data.len, topic, msgId = gossipId(data)
-    try:
-      let decompressed = snappy.decode(data, GOSSIP_MAX_SIZE)
-      if decompressed.len > 0:
-        msgHandler SSZ.decode(decompressed, MsgType)
-      else:
-        # TODO penalize peer?
-        debug "Failed to decompress gossip payload"
-    except CatchableError as err:
-      debug "Gossip msg handler error",
-        msg = err.msg, len = data.len, topic, msgId = gossipId(data)
-
-  await node.pubsub.subscribe(topic & "_snappy", execMsgHandler)
-
 proc subscribe*(node: Eth2Node, topic: string) {.async.} =
   proc dummyMsgHandler(topic: string, data: seq[byte]) {.async.} =
     discard
@@ -1446,6 +1433,7 @@ proc addValidator*[MsgType](node: Eth2Node,
   # Validate messages as soon as subscribed
   proc execValidator(
       topic: string, message: GossipMsg): Future[bool] {.async.} =
+    inc nbc_gossip_messages_received
     trace "Validating incoming gossip message",
       len = message.data.len, topic, msgId = gossipId(message.data)
     try:
