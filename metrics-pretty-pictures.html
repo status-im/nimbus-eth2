@@ -203,7 +203,7 @@ cd prometheus-*
 </code></pre>
 <h4><a class="header" href="#3-run-prometheus-with-the-default-configuration-file" id="3-run-prometheus-with-the-default-configuration-file">3. Run Prometheus with the default configuration file</a></h4>
 <p>Prometheus relies on a YAML configuration file to let it know where, and how often, to scrape data.</p>
-<p><code>nim-beacon-chain</code> generates an appropriate configuration file (<code>prometheseus.yml</code>) when you build the beacon node. If you're running the <code>medalla</code> testnet you'll find this in <code>build/data/shared_medalla_0</code>.</p>
+<p><code>nimbus-eth2</code> generates an appropriate configuration file (<code>prometheseus.yml</code>) when you build the beacon node. If you're running the <code>medalla</code> testnet you'll find this in <code>build/data/shared_medalla_0</code>.</p>
 <p>To run Prometheus with the default config file:</p>
 <pre><code>cd build/data/shared_medalla_0
 prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
@@ -238,9 +238,9 @@ prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
 <p><img src="https://i.imgur.com/WnnAcUR.png" alt="" /></p>
 <p>Click on <code>Upload JSON file</code></p>
 <p><img src="https://i.imgur.com/l65ICZ2.png" alt="" /></p>
-<p>Select the <code>beacon_nodes_Grafana_dashboard.json</code>  from the <code>nim-beacon-chain/grafana/</code> folder and click on <code>Import</code></p>
+<p>Select the <code>beacon_nodes_Grafana_dashboard.json</code>  from the <code>nimbus-eth2/grafana/</code> folder and click on <code>Import</code></p>
 <p><img src="https://i.imgur.com/SoU5Isz.png" alt="" /></p>
-<p>You'll be directed to the dashboard where you'll be able to gain insights into the performance of <code>nim-beacon-chain</code> and your validators</p>
+<p>You'll be directed to the dashboard where you'll be able to gain insights into the performance of <code>nimbus-eth2</code> and your validators</p>
 <p><img src="https://i.imgur.com/aIfJ1iT.png" alt="" /></p>
 <blockquote>
 <p><strong>Note:</strong> the dashboard is very much a work in progress. Some of the highlights right now include received and proposed blocks, received and sent attestations, peers, memory and cpu usage stats. But keep an eye out for additional metrics in the near future.</p>

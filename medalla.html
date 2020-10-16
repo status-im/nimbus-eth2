@@ -172,8 +172,8 @@
 <h2><a class="header" href="#validating" id="validating">Validating</a></h2>
 <p>To start validating on the <code>medalla</code> network:</p>
 <h4><a class="header" href="#1-clone-the-nim-beacon-chain-repository" id="1-clone-the-nim-beacon-chain-repository">1. Clone the nim beacon chain repository</a></h4>
-<pre><code>git clone https://github.com/status-im/nim-beacon-chain
-cd nim-beacon-chain
+<pre><code>git clone https://github.com/status-im/nimbus-eth2
+cd nimbus-eth2
 </code></pre>
 <h4><a class="header" href="#2-build-the-beacon-node" id="2-build-the-beacon-node">2. Build the beacon node</a></h4>
 <pre><code>make beacon_node
@@ -285,13 +285,13 @@ make medalla NODE_ID=2
 <blockquote>
 <p><strong>Note:</strong> the above command has exactly the same effect as <code>make BASE_PORT=9100 medalla</code></p>
 </blockquote>
-<p>A complete list of the available parameters can be found <a href="https://github.com/status-im/nim-beacon-chain/blob/devel/beacon_chain/conf.nim#L92-L210">here</a> (use a parameter's <code>name</code> field to set it).</p>
+<p>A complete list of the available parameters can be found <a href="https://github.com/status-im/nimbus-eth2/blob/devel/beacon_chain/conf.nim#L92-L210">here</a> (use a parameter's <code>name</code> field to set it).</p>
 <h3><a class="header" href="#logs" id="logs">Logs</a></h3>
 <p>Log files are saved in <code>build/data/shared_medalla_0/</code>.</p>
 <h3><a class="header" href="#makefile" id="makefile">Makefile</a></h3>
-<p>If you are comfortable reading <a href="https://en.wikipedia.org/wiki/Makefile#:%7E:text=A%20makefile%20is%20a%20file,to%20generate%20a%20target%2Fgoal">Makefiles</a>, you can see the commands that <code>make medalla</code>  executes under the hood, <a href="https://github.com/status-im/nim-beacon-chain/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L184-L197">here</a>.</p>
+<p>If you are comfortable reading <a href="https://en.wikipedia.org/wiki/Makefile#:%7E:text=A%20makefile%20is%20a%20file,to%20generate%20a%20target%2Fgoal">Makefiles</a>, you can see the commands that <code>make medalla</code>  executes under the hood, <a href="https://github.com/status-im/nimbus-eth2/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L184-L197">here</a>.</p>
 <p>Some of the provided options (such as <code>--network=medalla</code>) are essential while others (such as the ones controlling logging, metrics, ports, and the RPC service) are there for convenience.</p>
-<p>The Goerli testnet parameters (<code>$(GOERLI_TESTNETS_PARAMS</code>), are defined higher up in the Makefile, <a href="https://github.com/status-im/nim-beacon-chain/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L164-L171">here</a>.</p>
+<p>The Goerli testnet parameters (<code>$(GOERLI_TESTNETS_PARAMS</code>), are defined higher up in the Makefile, <a href="https://github.com/status-im/nimbus-eth2/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L164-L171">here</a>.</p>
 
                     </main>
 

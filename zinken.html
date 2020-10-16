@@ -177,11 +177,11 @@
 <h2><a class="header" href="#2-import-your-keys" id="2-import-your-keys">2. Import your key(s)</a></h2>
 <p>To import your <code>zinken</code> key(s) into Nimbus:</p>
 <blockquote>
-<p><strong>Note:</strong> You can skip steps 1 and 2 below if you've already cloned <code>nim-beacon-chain</code> and built the beacon node for <code>medalla</code>: just make sure you run <code>git pull &amp;&amp; make update</code> from the <code>master</code> branch before continuing with step 3.</p>
+<p><strong>Note:</strong> You can skip steps 1 and 2 below if you've already cloned <code>nimbus-eth2</code> and built the beacon node for <code>medalla</code>: just make sure you run <code>git pull &amp;&amp; make update</code> from the <code>master</code> branch before continuing with step 3.</p>
 </blockquote>
 <h4><a class="header" href="#1-clone-the-nim-beacon-chain-repository" id="1-clone-the-nim-beacon-chain-repository">1. Clone the nim beacon chain repository</a></h4>
-<pre><code>git clone https://github.com/status-im/nim-beacon-chain
-cd nim-beacon-chain
+<pre><code>git clone https://github.com/status-im/nimbus-eth2
+cd nimbus-eth2
 </code></pre>
 <h4><a class="header" href="#2-build-the-beacon-node" id="2-build-the-beacon-node">2. Build the beacon node</a></h4>
 <pre><code>make beacon_node
@@ -256,13 +256,13 @@ peers: 0 ❯ finalized: 0814b036:0 ❯ head: 0814b036:0:0 ❯ time: 387:2 (12386
 <blockquote>
 <p><strong>Note:</strong> the above command has exactly the same effect as <code>make BASE_PORT=9100 zinken</code></p>
 </blockquote>
-<p>A complete list of the available parameters can be found <a href="https://github.com/status-im/nim-beacon-chain/blob/devel/beacon_chain/conf.nim#L92-L210">here</a> (use a parameter's <code>name</code> field to set it).</p>
+<p>A complete list of the available parameters can be found <a href="https://github.com/status-im/nimbus-eth2/blob/devel/beacon_chain/conf.nim#L92-L210">here</a> (use a parameter's <code>name</code> field to set it).</p>
 <h3><a class="header" href="#logs" id="logs">Logs</a></h3>
 <p>Log files are saved in <code>build/data/shared_zinken_0/</code>.</p>
 <h3><a class="header" href="#makefile" id="makefile">Makefile</a></h3>
-<p>If you are comfortable reading <a href="https://en.wikipedia.org/wiki/Makefile#:%7E:text=A%20makefile%20is%20a%20file,to%20generate%20a%20target%2Fgoal">Makefiles</a>, you can see the commands that <code>make zinken</code>  executes under the hood, <a href="https://github.com/status-im/nim-beacon-chain/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L184-L197">here</a>.</p>
+<p>If you are comfortable reading <a href="https://en.wikipedia.org/wiki/Makefile#:%7E:text=A%20makefile%20is%20a%20file,to%20generate%20a%20target%2Fgoal">Makefiles</a>, you can see the commands that <code>make zinken</code>  executes under the hood, <a href="https://github.com/status-im/nimbus-eth2/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L184-L197">here</a>.</p>
 <p>Some of the provided options (such as <code>--network</code>) are essential while others (such as the ones controlling logging, metrics, ports, and the RPC service) are optional and included for the sake convenience.</p>
-<p>The Goerli testnet parameters (<code>$(GOERLI_TESTNETS_PARAMS</code>), are defined higher up in the Makefile, <a href="https://github.com/status-im/nim-beacon-chain/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L164-L171">here</a>.</p>
+<p>The Goerli testnet parameters (<code>$(GOERLI_TESTNETS_PARAMS</code>), are defined higher up in the Makefile, <a href="https://github.com/status-im/nimbus-eth2/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L164-L171">here</a>.</p>
 <h2><a class="header" href="#useful-resources" id="useful-resources">Useful Resources</a></h2>
 <ul>
 <li>

@@ -176,7 +176,7 @@ the exceptions to &quot;dwarf&quot; on 32-bit and &quot;seh&quot; on 64-bit. Cha
 installation directory to &quot;C:\mingw-w64&quot; and add it to your system PATH in &quot;My
 Computer&quot;/&quot;This PC&quot; -&gt; Properties -&gt; Advanced system settings -&gt; Environment
 Variables -&gt; Path -&gt; Edit -&gt; New -&gt; C:\mingw-w64\mingw64\bin (it's &quot;C:\mingw-w64\mingw32\bin&quot; on 32-bit)</p>
-<p>Install <a href="https://gitforwindows.org/">Git for Windows</a> and use a &quot;Git Bash&quot; shell to clone and build nim-beacon-chain.</p>
+<p>Install <a href="https://gitforwindows.org/">Git for Windows</a> and use a &quot;Git Bash&quot; shell to clone and build nimbus-eth2.</p>
 <p>If you don't want to compile PCRE separately, you can fetch pre-compiled DLLs with:</p>
 <pre><code class="language-bash">mingw32-make # this first invocation will update the Git submodules
 mingw32-make fetch-dlls # this will place the right DLLs for your architecture in the &quot;build/&quot; directory
@@ -261,7 +261,7 @@ make LOG_LEVEL=TRACE beacon_node # log everything
 <pre><code class="language-bash">make -j$(nproc) NIMFLAGS=&quot;-d:release&quot; USE_MULTITAIL=yes eth2_network_simulation
 </code></pre>
 <ul>
-<li>don't use the <a href="https://github.com/status-im/nim-beacon-chain/pull/745">lightweight stack tracing implementation from nim-libbacktrace</a>:</li>
+<li>don't use the <a href="https://github.com/status-im/nimbus-eth2/pull/745">lightweight stack tracing implementation from nim-libbacktrace</a>:</li>
 </ul>
 <pre><code class="language-bash">make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
 </code></pre>

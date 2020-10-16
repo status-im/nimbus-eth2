@@ -158,10 +158,10 @@
                         <h1><a class="header" href="#troubleshooting-medalla" id="troubleshooting-medalla">Troubleshooting Medalla</a></h1>
 <p>As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the <code>master</code> branch. If you can't find a solution to your problem here, feel free to hit us up on our <a href="https://discord.com/invite/XRxWahP">discord</a>!</p>
 <blockquote>
-<p><strong>Note:</strong> While the <code>master</code> branch of the <code>nim-beacon-chain</code> repository is more stable, the latest updates happen in the <code>devel</code> branch which is (usually) merged into master every week on Tuesday. If you choose to run Nimbus directly from the <code>devel</code> branch, be prepared for instabilities!</p>
+<p><strong>Note:</strong> While the <code>master</code> branch of the <code>nimbus-eth2</code> repository is more stable, the latest updates happen in the <code>devel</code> branch which is (usually) merged into master every week on Tuesday. If you choose to run Nimbus directly from the <code>devel</code> branch, be prepared for instabilities!</p>
 </blockquote>
 <p>To update and restart, run <code>git pull</code>, <code>make update</code>, followed by <code>make medalla</code>:</p>
-<pre><code>cd nim-beacon-chain
+<pre><code>cd nimbus-eth2
 git pull
 make update # Update dependencies
 make medalla # Restart using same keys as last run
@@ -197,7 +197,7 @@ build/ncli_db pruneDatabase --db=build/data/shared_medalla_0/db --verbose=true
 <pre><code>make NODE_PARAMS=&quot;--nat:\&quot;extip:35.124.65.104\&quot;&quot; medalla
 </code></pre>
 <h3><a class="header" href="#resource-leaks" id="resource-leaks">Resource leaks</a></h3>
-<p>If you're experiencing RAM related resource leaks, try restarting your client (<strong>we recommend restarting every 6 hours</strong> until we get to the bottom of this issue). If you have a <a href="https://github.com/status-im/nim-beacon-chain#getting-metrics-from-a-local-testnet-client">local Grafana setup</a>, you can try monitoring the severity of these leaks and playing around with the restart interval.</p>
+<p>If you're experiencing RAM related resource leaks, try restarting your client (<strong>we recommend restarting every 6 hours</strong> until we get to the bottom of this issue). If you have a <a href="https://github.com/status-im/nimbus-eth2#getting-metrics-from-a-local-testnet-client">local Grafana setup</a>, you can try monitoring the severity of these leaks and playing around with the restart interval.</p>
 <h3><a class="header" href="#address-already-in-use-error" id="address-already-in-use-error">Address already in use error</a></h3>
 <p>If you're seeing an error that looks like:</p>
 <pre><code>Error: unhandled exception: (98) Address already in use [TransportOsError]

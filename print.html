@@ -161,7 +161,7 @@
 <p>The Nimbus beacon chain is a research implementation of the Beacon Chain – the core system level chain at the heart of Ethereum 2.0.</p>
 <ul>
 <li>
-<p>Open sourced at <a href="https://github.com/status-im/nim-beacon-chain/tree/master">github.com/status-im/nim-beacon-chain</a></p>
+<p>Open sourced at <a href="https://github.com/status-im/nimbus-eth2/tree/master">github.com/status-im/nimbus-eth2</a></p>
 </li>
 <li>
 <p>Specification described at <a href="https://github.com/ethereum/eth2.0-specs/tree/v0.12.3#phase-0">ethereum/eth2.0-specs</a></p>
@@ -214,7 +214,7 @@
 <h2><a class="header" href="#get-in-touch" id="get-in-touch">Get in touch</a></h2>
 <p>Need help with anything? Join us on <a href="https://join.status.im/nimbus-general">Status</a> and <a href="https://discord.gg/9dWwPnG">Discord</a>!</p>
 <h2><a class="header" href="#disclaimer" id="disclaimer">Disclaimer</a></h2>
-<p>This documentation assumes Nimbus is in its ideal state. The project is still under active development. Please submit a <a href="https://github.com/status-im/nim-beacon-chain/issues">Github issue</a> if you come across a problem.</p>
+<p>This documentation assumes Nimbus is in its ideal state. The project is still under active development. Please submit a <a href="https://github.com/status-im/nimbus-eth2/issues">Github issue</a> if you come across a problem.</p>
 <!-- > > > TODO:
 
 1. fill up the gitbook content
@@ -291,11 +291,11 @@ Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on 
 <h2><a class="header" href="#2-import-your-keys" id="2-import-your-keys">2. Import your key(s)</a></h2>
 <p>To import your <code>zinken</code> key(s) into Nimbus:</p>
 <blockquote>
-<p><strong>Note:</strong> You can skip steps 1 and 2 below if you've already cloned <code>nim-beacon-chain</code> and built the beacon node for <code>medalla</code>: just make sure you run <code>git pull &amp;&amp; make update</code> from the <code>master</code> branch before continuing with step 3.</p>
+<p><strong>Note:</strong> You can skip steps 1 and 2 below if you've already cloned <code>nimbus-eth2</code> and built the beacon node for <code>medalla</code>: just make sure you run <code>git pull &amp;&amp; make update</code> from the <code>master</code> branch before continuing with step 3.</p>
 </blockquote>
 <h4><a class="header" href="#1-clone-the-nim-beacon-chain-repository" id="1-clone-the-nim-beacon-chain-repository">1. Clone the nim beacon chain repository</a></h4>
-<pre><code>git clone https://github.com/status-im/nim-beacon-chain
-cd nim-beacon-chain
+<pre><code>git clone https://github.com/status-im/nimbus-eth2
+cd nimbus-eth2
 </code></pre>
 <h4><a class="header" href="#2-build-the-beacon-node" id="2-build-the-beacon-node">2. Build the beacon node</a></h4>
 <pre><code>make beacon_node
@@ -370,13 +370,13 @@ peers: 0 ❯ finalized: 0814b036:0 ❯ head: 0814b036:0:0 ❯ time: 387:2 (12386
 <blockquote>
 <p><strong>Note:</strong> the above command has exactly the same effect as <code>make BASE_PORT=9100 zinken</code></p>
 </blockquote>
-<p>A complete list of the available parameters can be found <a href="https://github.com/status-im/nim-beacon-chain/blob/devel/beacon_chain/conf.nim#L92-L210">here</a> (use a parameter's <code>name</code> field to set it).</p>
+<p>A complete list of the available parameters can be found <a href="https://github.com/status-im/nimbus-eth2/blob/devel/beacon_chain/conf.nim#L92-L210">here</a> (use a parameter's <code>name</code> field to set it).</p>
 <h3><a class="header" href="#logs" id="logs">Logs</a></h3>
 <p>Log files are saved in <code>build/data/shared_zinken_0/</code>.</p>
 <h3><a class="header" href="#makefile" id="makefile">Makefile</a></h3>
-<p>If you are comfortable reading <a href="https://en.wikipedia.org/wiki/Makefile#:%7E:text=A%20makefile%20is%20a%20file,to%20generate%20a%20target%2Fgoal">Makefiles</a>, you can see the commands that <code>make zinken</code>  executes under the hood, <a href="https://github.com/status-im/nim-beacon-chain/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L184-L197">here</a>.</p>
+<p>If you are comfortable reading <a href="https://en.wikipedia.org/wiki/Makefile#:%7E:text=A%20makefile%20is%20a%20file,to%20generate%20a%20target%2Fgoal">Makefiles</a>, you can see the commands that <code>make zinken</code>  executes under the hood, <a href="https://github.com/status-im/nimbus-eth2/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L184-L197">here</a>.</p>
 <p>Some of the provided options (such as <code>--network</code>) are essential while others (such as the ones controlling logging, metrics, ports, and the RPC service) are optional and included for the sake convenience.</p>
-<p>The Goerli testnet parameters (<code>$(GOERLI_TESTNETS_PARAMS</code>), are defined higher up in the Makefile, <a href="https://github.com/status-im/nim-beacon-chain/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L164-L171">here</a>.</p>
+<p>The Goerli testnet parameters (<code>$(GOERLI_TESTNETS_PARAMS</code>), are defined higher up in the Makefile, <a href="https://github.com/status-im/nimbus-eth2/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L164-L171">here</a>.</p>
 <h2><a class="header" href="#useful-resources" id="useful-resources">Useful Resources</a></h2>
 <ul>
 <li>
@@ -409,8 +409,8 @@ peers: 0 ❯ finalized: 0814b036:0 ❯ head: 0814b036:0:0 ❯ time: 387:2 (12386
 <h2><a class="header" href="#validating" id="validating">Validating</a></h2>
 <p>To start validating on the <code>medalla</code> network:</p>
 <h4><a class="header" href="#1-clone-the-nim-beacon-chain-repository-1" id="1-clone-the-nim-beacon-chain-repository-1">1. Clone the nim beacon chain repository</a></h4>
-<pre><code>git clone https://github.com/status-im/nim-beacon-chain
-cd nim-beacon-chain
+<pre><code>git clone https://github.com/status-im/nimbus-eth2
+cd nimbus-eth2
 </code></pre>
 <h4><a class="header" href="#2-build-the-beacon-node-1" id="2-build-the-beacon-node-1">2. Build the beacon node</a></h4>
 <pre><code>make beacon_node
@@ -522,20 +522,20 @@ make medalla NODE_ID=2
 <blockquote>
 <p><strong>Note:</strong> the above command has exactly the same effect as <code>make BASE_PORT=9100 medalla</code></p>
 </blockquote>
-<p>A complete list of the available parameters can be found <a href="https://github.com/status-im/nim-beacon-chain/blob/devel/beacon_chain/conf.nim#L92-L210">here</a> (use a parameter's <code>name</code> field to set it).</p>
+<p>A complete list of the available parameters can be found <a href="https://github.com/status-im/nimbus-eth2/blob/devel/beacon_chain/conf.nim#L92-L210">here</a> (use a parameter's <code>name</code> field to set it).</p>
 <h3><a class="header" href="#logs-1" id="logs-1">Logs</a></h3>
 <p>Log files are saved in <code>build/data/shared_medalla_0/</code>.</p>
 <h3><a class="header" href="#makefile-1" id="makefile-1">Makefile</a></h3>
-<p>If you are comfortable reading <a href="https://en.wikipedia.org/wiki/Makefile#:%7E:text=A%20makefile%20is%20a%20file,to%20generate%20a%20target%2Fgoal">Makefiles</a>, you can see the commands that <code>make medalla</code>  executes under the hood, <a href="https://github.com/status-im/nim-beacon-chain/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L184-L197">here</a>.</p>
+<p>If you are comfortable reading <a href="https://en.wikipedia.org/wiki/Makefile#:%7E:text=A%20makefile%20is%20a%20file,to%20generate%20a%20target%2Fgoal">Makefiles</a>, you can see the commands that <code>make medalla</code>  executes under the hood, <a href="https://github.com/status-im/nimbus-eth2/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L184-L197">here</a>.</p>
 <p>Some of the provided options (such as <code>--network=medalla</code>) are essential while others (such as the ones controlling logging, metrics, ports, and the RPC service) are there for convenience.</p>
-<p>The Goerli testnet parameters (<code>$(GOERLI_TESTNETS_PARAMS</code>), are defined higher up in the Makefile, <a href="https://github.com/status-im/nim-beacon-chain/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L164-L171">here</a>.</p>
+<p>The Goerli testnet parameters (<code>$(GOERLI_TESTNETS_PARAMS</code>), are defined higher up in the Makefile, <a href="https://github.com/status-im/nimbus-eth2/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L164-L171">here</a>.</p>
 <h1><a class="header" href="#troubleshooting-medalla" id="troubleshooting-medalla">Troubleshooting Medalla</a></h1>
 <p>As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the <code>master</code> branch. If you can't find a solution to your problem here, feel free to hit us up on our <a href="https://discord.com/invite/XRxWahP">discord</a>!</p>
 <blockquote>
-<p><strong>Note:</strong> While the <code>master</code> branch of the <code>nim-beacon-chain</code> repository is more stable, the latest updates happen in the <code>devel</code> branch which is (usually) merged into master every week on Tuesday. If you choose to run Nimbus directly from the <code>devel</code> branch, be prepared for instabilities!</p>
+<p><strong>Note:</strong> While the <code>master</code> branch of the <code>nimbus-eth2</code> repository is more stable, the latest updates happen in the <code>devel</code> branch which is (usually) merged into master every week on Tuesday. If you choose to run Nimbus directly from the <code>devel</code> branch, be prepared for instabilities!</p>
 </blockquote>
 <p>To update and restart, run <code>git pull</code>, <code>make update</code>, followed by <code>make medalla</code>:</p>
-<pre><code>cd nim-beacon-chain
+<pre><code>cd nimbus-eth2
 git pull
 make update # Update dependencies
 make medalla # Restart using same keys as last run
@@ -571,7 +571,7 @@ build/ncli_db pruneDatabase --db=build/data/shared_medalla_0/db --verbose=true
 <pre><code>make NODE_PARAMS=&quot;--nat:\&quot;extip:35.124.65.104\&quot;&quot; medalla
 </code></pre>
 <h3><a class="header" href="#resource-leaks" id="resource-leaks">Resource leaks</a></h3>
-<p>If you're experiencing RAM related resource leaks, try restarting your client (<strong>we recommend restarting every 6 hours</strong> until we get to the bottom of this issue). If you have a <a href="https://github.com/status-im/nim-beacon-chain#getting-metrics-from-a-local-testnet-client">local Grafana setup</a>, you can try monitoring the severity of these leaks and playing around with the restart interval.</p>
+<p>If you're experiencing RAM related resource leaks, try restarting your client (<strong>we recommend restarting every 6 hours</strong> until we get to the bottom of this issue). If you have a <a href="https://github.com/status-im/nimbus-eth2#getting-metrics-from-a-local-testnet-client">local Grafana setup</a>, you can try monitoring the severity of these leaks and playing around with the restart interval.</p>
 <h3><a class="header" href="#address-already-in-use-error" id="address-already-in-use-error">Address already in use error</a></h3>
 <p>If you're seeing an error that looks like:</p>
 <pre><code>Error: unhandled exception: (98) Address already in use [TransportOsError]
@@ -611,8 +611,8 @@ make zinken NODE_ID=1
 <h2><a class="header" href="#building-the-node" id="building-the-node">Building the node</a></h2>
 <p>To build the beacon run:</p>
 <h4><a class="header" href="#1-clone-the-nim-beacon-chain-repository-2" id="1-clone-the-nim-beacon-chain-repository-2">1. Clone the nim beacon chain repository</a></h4>
-<pre><code>git clone https://github.com/status-im/nim-beacon-chain
-cd nim-beacon-chain
+<pre><code>git clone https://github.com/status-im/nimbus-eth2
+cd nimbus-eth2
 </code></pre>
 <h4><a class="header" href="#2-run-the-beacon-node-build-process" id="2-run-the-beacon-node-build-process">2. Run the beacon node build process</a></h4>
 <pre><code>make beacon_node
@@ -835,7 +835,7 @@ cd prometheus-*
 </code></pre>
 <h4><a class="header" href="#3-run-prometheus-with-the-default-configuration-file" id="3-run-prometheus-with-the-default-configuration-file">3. Run Prometheus with the default configuration file</a></h4>
 <p>Prometheus relies on a YAML configuration file to let it know where, and how often, to scrape data.</p>
-<p><code>nim-beacon-chain</code> generates an appropriate configuration file (<code>prometheseus.yml</code>) when you build the beacon node. If you're running the <code>medalla</code> testnet you'll find this in <code>build/data/shared_medalla_0</code>.</p>
+<p><code>nimbus-eth2</code> generates an appropriate configuration file (<code>prometheseus.yml</code>) when you build the beacon node. If you're running the <code>medalla</code> testnet you'll find this in <code>build/data/shared_medalla_0</code>.</p>
 <p>To run Prometheus with the default config file:</p>
 <pre><code>cd build/data/shared_medalla_0
 prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
@@ -870,9 +870,9 @@ prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
 <p><img src="https://i.imgur.com/WnnAcUR.png" alt="" /></p>
 <p>Click on <code>Upload JSON file</code></p>
 <p><img src="https://i.imgur.com/l65ICZ2.png" alt="" /></p>
-<p>Select the <code>beacon_nodes_Grafana_dashboard.json</code>  from the <code>nim-beacon-chain/grafana/</code> folder and click on <code>Import</code></p>
+<p>Select the <code>beacon_nodes_Grafana_dashboard.json</code>  from the <code>nimbus-eth2/grafana/</code> folder and click on <code>Import</code></p>
 <p><img src="https://i.imgur.com/SoU5Isz.png" alt="" /></p>
-<p>You'll be directed to the dashboard where you'll be able to gain insights into the performance of <code>nim-beacon-chain</code> and your validators</p>
+<p>You'll be directed to the dashboard where you'll be able to gain insights into the performance of <code>nimbus-eth2</code> and your validators</p>
 <p><img src="https://i.imgur.com/aIfJ1iT.png" alt="" /></p>
 <blockquote>
 <p><strong>Note:</strong> the dashboard is very much a work in progress. Some of the highlights right now include received and proposed blocks, received and sent attestations, peers, memory and cpu usage stats. But keep an eye out for additional metrics in the near future.</p>
@@ -913,8 +913,6 @@ prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getChainHead&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
 <h3><a class="header" href="#getsyncing" id="getsyncing">getSyncing</a></h3>
-<h3><a class="header" href="#getbeaconblock" id="getbeaconblock">getBeaconBlock</a></h3>
-<h3><a class="header" href="#getbeaconstate" id="getbeaconstate">getBeaconState</a></h3>
 <h3><a class="header" href="#getnetworkpeerid" id="getnetworkpeerid">getNetworkPeerId</a></h3>
 <h3><a class="header" href="#getnetworkpeers" id="getnetworkpeers">getNetworkPeers</a></h3>
 <h3><a class="header" href="#getnetworkenr" id="getnetworkenr">getNetworkEnr</a></h3>
@@ -1002,7 +1000,7 @@ the exceptions to &quot;dwarf&quot; on 32-bit and &quot;seh&quot; on 64-bit. Cha
 installation directory to &quot;C:\mingw-w64&quot; and add it to your system PATH in &quot;My
 Computer&quot;/&quot;This PC&quot; -&gt; Properties -&gt; Advanced system settings -&gt; Environment
 Variables -&gt; Path -&gt; Edit -&gt; New -&gt; C:\mingw-w64\mingw64\bin (it's &quot;C:\mingw-w64\mingw32\bin&quot; on 32-bit)</p>
-<p>Install <a href="https://gitforwindows.org/">Git for Windows</a> and use a &quot;Git Bash&quot; shell to clone and build nim-beacon-chain.</p>
+<p>Install <a href="https://gitforwindows.org/">Git for Windows</a> and use a &quot;Git Bash&quot; shell to clone and build nimbus-eth2.</p>
 <p>If you don't want to compile PCRE separately, you can fetch pre-compiled DLLs with:</p>
 <pre><code class="language-bash">mingw32-make # this first invocation will update the Git submodules
 mingw32-make fetch-dlls # this will place the right DLLs for your architecture in the &quot;build/&quot; directory
@@ -1087,7 +1085,7 @@ make LOG_LEVEL=TRACE beacon_node # log everything
 <pre><code class="language-bash">make -j$(nproc) NIMFLAGS=&quot;-d:release&quot; USE_MULTITAIL=yes eth2_network_simulation
 </code></pre>
 <ul>
-<li>don't use the <a href="https://github.com/status-im/nim-beacon-chain/pull/745">lightweight stack tracing implementation from nim-libbacktrace</a>:</li>
+<li>don't use the <a href="https://github.com/status-im/nimbus-eth2/pull/745">lightweight stack tracing implementation from nim-libbacktrace</a>:</li>
 </ul>
 <pre><code class="language-bash">make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
 </code></pre>
@@ -1101,21 +1099,21 @@ make LOG_LEVEL=TRACE beacon_node # log everything
 <h2><a class="header" href="#prerequisites-3" id="prerequisites-3">Prerequisites</a></h2>
 <p>NBC's <a href="./install.html#external-dependencies">external dependencies</a> and a working <a href="https://golang.org/doc/install">Go</a> installation (v1.11 or later).</p>
 <h3><a class="header" href="#1-clone-repositories" id="1-clone-repositories">1. Clone repositories</a></h3>
-<p>Clone the <a href="https://github.com/status-im/nim-beacon-chain">nim-beacon-chain</a> and <a href="https://github.com/Alethio/eth2stats-client">eth2stats</a> repositories in the same directory (so that both repositories are adjacent to each other).</p>
-<pre><code class="language-console">git clone https://github.com/status-im/nim-beacon-chain.git
+<p>Clone the <a href="https://github.com/status-im/nimbus-eth2">nimbus-eth2</a> and <a href="https://github.com/Alethio/eth2stats-client">eth2stats</a> repositories in the same directory (so that both repositories are adjacent to each other).</p>
+<pre><code class="language-console">git clone https://github.com/status-im/nimbus-eth2.git
 git clone https://github.com/Alethio/eth2stats-client.git
 </code></pre>
 <h3><a class="header" href="#2-build-repositories" id="2-build-repositories">2. Build repositories</a></h3>
 <p>Build both repositories by following their respective build instructions. </p>
-<p><em>nim-beacon-chain</em></p>
-<pre><code class="language-console">cd nim-beacon-chain
+<p><em>nimbus-eth2</em></p>
+<pre><code class="language-console">cd nimbus-eth2
 make beacon_node
 </code></pre>
 <p><em>eth2stats</em></p>
 <pre><code class="language-console">cd eth2stats-client
 make build
 </code></pre>
-<p>The resulting binaries should appear in <code>nim-beacon-chain/build/beacon_node</code> and <code>eth2stats-client/eth2stats-client</code>, respectively.</p>
+<p>The resulting binaries should appear in <code>nimbus-eth2/build/beacon_node</code> and <code>eth2stats-client/eth2stats-client</code>, respectively.</p>
 <h3><a class="header" href="#3-create-an-executable-script" id="3-create-an-executable-script">3. Create an executable script</a></h3>
 <p>Create an executable script, <code>run_nimbus_node.sh</code>, and place it adjacent to the repositories you cloned in step 1 (same directory level).</p>
 <pre><code class="language-bash">#!/bin/bash
@@ -1125,7 +1123,7 @@ set +e
 trap &quot;trap - SIGTERM &amp;&amp; kill -- -$$&quot; SIGINT SIGTERM EXIT
 
 cd $(dirname &quot;$0&quot;)
-cd nim-beacon-chain
+cd nimbus-eth2
 
 NETWORK=$1
 NODE_NAME=${NODE_NAME:-$(whoami)}
@@ -1197,7 +1195,7 @@ WantedBy=default.target
 <h2><a class="header" href="#prerequisites-4" id="prerequisites-4">Prerequisites</a></h2>
 <p>You need to have installed Nimbus' <a href="./install.html#external-dependencies">external dependencies</a> and <a href="./beacon_node.html#building-the-node">built the beacon node</a>.</p>
 <h2><a class="header" href="#1-create--a-wallet" id="1-create--a-wallet">1. Create  a wallet</a></h2>
-<p>Run the following command from the the home directory of the <code>nim-beacon-chain</code> repository to launch the command line interface app:</p>
+<p>Run the following command from the the home directory of the <code>nimbus-eth2</code> repository to launch the command line interface app:</p>
 <pre><code>build/beacon_node wallets create
 </code></pre>
 <p>Now follow the instructions presented to you in the terminal window to create your wallet.</p>
@@ -1297,7 +1295,7 @@ filename=validators/deposit_data-1597838004.284995.json
 <li>Upload the Deposit data file you generated using Nimbus in the previous step</li>
 </ol>
 <img src="https://storage.googleapis.com/ethereum-hackmd/upload_6db4e4c3715a0a80db53bd5f26eb1ffc.png" width="500">
-<p><em>Remember you can find your <code>deposit_data</code> JSON file in the <code>nim-beacon-chain/validators</code> directory</em></p>
+<p><em>Remember you can find your <code>deposit_data</code> JSON file in the <code>nimbus-eth2/validators</code> directory</em></p>
 </br>
 <p>The launchpad will then double check you understand the most important things. And help you send the required transaction(s).</p>
 <p>
@@ -1358,7 +1356,7 @@ file=mainchain_monitor.nim:812 err=&quot;{\&quot;code\&quot;:-32005,
 <p>To get around this problem, we recommend launching the beacon node with your own endpoint.</p>
 <h2><a class="header" href="#supplying-your-own-endpoint" id="supplying-your-own-endpoint">Supplying your own endpoint</a></h2>
 <blockquote>
-<p><strong>Note:</strong> In a previous version of the software it wasn't possible to manually override the web3 endpoint when running <code>make zinken</code> or <code>make medalla</code>. For the instructions below to work, make sure you've updated to the latest version of the software (run <code>git pull &amp;&amp; make update</code> from the <code>master</code> branch of the <code>nim-beacon-chain</code> repository).</p>
+<p><strong>Note:</strong> In a previous version of the software it wasn't possible to manually override the web3 endpoint when running <code>make zinken</code> or <code>make medalla</code>. For the instructions below to work, make sure you've updated to the latest version of the software (run <code>git pull &amp;&amp; make update</code> from the <code>master</code> branch of the <code>nimbus-eth2</code> repository).</p>
 </blockquote>
 <h3><a class="header" href="#1-visit-infuraio" id="1-visit-infuraio">1. Visit Infura.io</a></h3>
 <p>Go to:</p>
@@ -1515,7 +1513,7 @@ file=mainchain_monitor.nim:812 err=&quot;{\&quot;code\&quot;:-32005,
 <h2><a class="header" href="#before-you-start" id="before-you-start">Before You Start</a></h2>
 <ol>
 <li>Install mdBook from <a href="https://github.com/rust-lang/mdBook">here</a>.</li>
-<li>Clone the repository by <code>git clone https://github.com/status-im/nim-beacon-chain.git</code>.</li>
+<li>Clone the repository by <code>git clone https://github.com/status-im/nimbus-eth2.git</code>.</li>
 <li>Go to where the Markdown files are located by <code>cd docs</code>.</li>
 </ol>
 <h2><a class="header" href="#real-time-update-and-preview-changes" id="real-time-update-and-preview-changes">Real-Time Update and Preview Changes</a></h2>
@@ -1524,10 +1522,10 @@ file=mainchain_monitor.nim:812 err=&quot;{\&quot;code\&quot;:-32005,
 <li>Preview the book at <a href="http://localhost:3000">http://localhost:3000</a>.</li>
 </ol>
 <h2><a class="header" href="#build-and-deploy" id="build-and-deploy">Build and Deploy</a></h2>
-<p>The first step is to submit a pull request to the <a href="https://github.com/status-im/nim-beacon-chain/tree/devel">devel branch</a>.
+<p>The first step is to submit a pull request to the <a href="https://github.com/status-im/nimbus-eth2/tree/devel">devel branch</a>.
 Then, after it is merged, do the following under our main repository:</p>
 <ol>
-<li><code>cd nim-beacon-chain</code></li>
+<li><code>cd nimbus-eth2</code></li>
 <li><code>git checkout devel</code></li>
 <li><code>git pull</code></li>
 <li><code>make update</code> (This is to update the submodules to the latest version)</li>

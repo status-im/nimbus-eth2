@@ -163,21 +163,21 @@
 <h2><a class="header" href="#prerequisites" id="prerequisites">Prerequisites</a></h2>
 <p>NBC's <a href="./install.html#external-dependencies">external dependencies</a> and a working <a href="https://golang.org/doc/install">Go</a> installation (v1.11 or later).</p>
 <h3><a class="header" href="#1-clone-repositories" id="1-clone-repositories">1. Clone repositories</a></h3>
-<p>Clone the <a href="https://github.com/status-im/nim-beacon-chain">nim-beacon-chain</a> and <a href="https://github.com/Alethio/eth2stats-client">eth2stats</a> repositories in the same directory (so that both repositories are adjacent to each other).</p>
-<pre><code class="language-console">git clone https://github.com/status-im/nim-beacon-chain.git
+<p>Clone the <a href="https://github.com/status-im/nimbus-eth2">nimbus-eth2</a> and <a href="https://github.com/Alethio/eth2stats-client">eth2stats</a> repositories in the same directory (so that both repositories are adjacent to each other).</p>
+<pre><code class="language-console">git clone https://github.com/status-im/nimbus-eth2.git
 git clone https://github.com/Alethio/eth2stats-client.git
 </code></pre>
 <h3><a class="header" href="#2-build-repositories" id="2-build-repositories">2. Build repositories</a></h3>
 <p>Build both repositories by following their respective build instructions. </p>
-<p><em>nim-beacon-chain</em></p>
-<pre><code class="language-console">cd nim-beacon-chain
+<p><em>nimbus-eth2</em></p>
+<pre><code class="language-console">cd nimbus-eth2
 make beacon_node
 </code></pre>
 <p><em>eth2stats</em></p>
 <pre><code class="language-console">cd eth2stats-client
 make build
 </code></pre>
-<p>The resulting binaries should appear in <code>nim-beacon-chain/build/beacon_node</code> and <code>eth2stats-client/eth2stats-client</code>, respectively.</p>
+<p>The resulting binaries should appear in <code>nimbus-eth2/build/beacon_node</code> and <code>eth2stats-client/eth2stats-client</code>, respectively.</p>
 <h3><a class="header" href="#3-create-an-executable-script" id="3-create-an-executable-script">3. Create an executable script</a></h3>
 <p>Create an executable script, <code>run_nimbus_node.sh</code>, and place it adjacent to the repositories you cloned in step 1 (same directory level).</p>
 <pre><code class="language-bash">#!/bin/bash
@@ -187,7 +187,7 @@ set +e
 trap &quot;trap - SIGTERM &amp;&amp; kill -- -$$&quot; SIGINT SIGTERM EXIT
 
 cd $(dirname &quot;$0&quot;)
-cd nim-beacon-chain
+cd nimbus-eth2
 
 NETWORK=$1
 NODE_NAME=${NODE_NAME:-$(whoami)}

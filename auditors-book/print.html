@@ -834,11 +834,11 @@ You can always mutate through a pointer.</p>
 <p>Sigma Prima is fuzzing all Ethereum 2 clients on the spec (Eth2 core/Validator core)</p>
 <p>We provide them with a simple C API</p>
 <ul>
-<li><a href="https://github.com/status-im/nim-beacon-chain/blob/4a2e1806/nfuzz/libnfuzz.h">https://github.com/status-im/nim-beacon-chain/blob/4a2e1806/nfuzz/libnfuzz.h</a></li>
+<li><a href="https://github.com/status-im/nimbus-eth2/blob/4a2e1806/nfuzz/libnfuzz.h">https://github.com/status-im/nimbus-eth2/blob/4a2e1806/nfuzz/libnfuzz.h</a></li>
 </ul>
 <p>That we implement:</p>
 <ul>
-<li><a href="https://github.com/status-im/nim-beacon-chain/blob/4a2e1806/nfuzz/libnfuzz.nim">https://github.com/status-im/nim-beacon-chain/blob/4a2e1806/nfuzz/libnfuzz.nim</a></li>
+<li><a href="https://github.com/status-im/nimbus-eth2/blob/4a2e1806/nfuzz/libnfuzz.nim">https://github.com/status-im/nimbus-eth2/blob/4a2e1806/nfuzz/libnfuzz.nim</a></li>
 </ul>
 <p>And compile the nim code as a shared or static library.</p>
 <p>On usage, the only extra limitation compared to a C library is the need to call <code>NimMain()</code> before calling any Nim function to initialize the Nim runtime.</p>
@@ -899,7 +899,7 @@ we use <code>stew</code> most of the time: <a href="https://github.com/status-im
 <p>We target Nim v1.2.2</p>
 <h1><a class="header" href="#nim-faq" id="nim-faq">Nim FAQ</a></h1>
 <h1><a class="header" href="#nimbus-beacon-chain" id="nimbus-beacon-chain">Nimbus Beacon Chain</a></h1>
-<p><a href="https://github.com/status-im/nim-beacon-chain">https://github.com/status-im/nim-beacon-chain</a></p>
+<p><a href="https://github.com/status-im/nimbus-eth2">https://github.com/status-im/nimbus-eth2</a></p>
 <p>Nimbus Beacon Chain (NBC) is an implementation of an Ethereum 2 client.</p>
 <h2><a class="header" href="#audit-scope" id="audit-scope">Audit scope</a></h2>
 <h3><a class="header" href="#network-core-leveraging-the-libp2p-framework" id="network-core-leveraging-the-libp2p-framework">Network Core (leveraging the libp2p framework)</a></h3>
@@ -950,7 +950,7 @@ are used to implement Ethereum 2</p>
 <h1><a class="header" href="#nimbus-build-system--dependencies" id="nimbus-build-system--dependencies">Nimbus build system &amp; dependencies</a></h1>
 <h2><a class="header" href="#build-system" id="build-system">Build system</a></h2>
 <h3><a class="header" href="#nbc-repo" id="nbc-repo">NBC repo</a></h3>
-<p><code>nim-beacon-chain</code> uses a build system based on makefiles.
+<p><code>nimbus-eth2</code> uses a build system based on makefiles.
 Usage is described in the README.</p>
 <p>In particular a <code>env.sh</code> scripts is provided that setups the environment variable
 expected.</p>
@@ -965,7 +965,7 @@ for building and testing.</p>
 are also setting up a Nim environment from scratch.</p>
 <h2><a class="header" href="#package-dependencies" id="package-dependencies">Package dependencies</a></h2>
 <h3><a class="header" href="#nbc-repo-1" id="nbc-repo-1">NBC repo</a></h3>
-<p>For the <code>nim-beacon-chain</code> application, all dependencies are vendored
+<p>For the <code>nimbus-eth2</code> application, all dependencies are vendored
 in the <code>vendor</code> folder.</p>
 <p>With regards to the audit scope we have the following dependencies:</p>
 <h4><a class="header" href="#all" id="all">All</a></h4>
