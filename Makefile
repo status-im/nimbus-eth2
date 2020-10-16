@@ -33,6 +33,7 @@ endif
 # unconditionally built by the default Make target
 # TODO re-enable ncli_query if/when it works again
 TOOLS := \
+	medalla_beacon_node \
 	beacon_node \
 	block_sim \
 	deposit_contract \
@@ -192,9 +193,9 @@ define CONNECT_TO_NETWORK
 		--base-metrics-port $$(($(BASE_METRICS_PORT) + $(NODE_ID))) \
 		--config-file "build/data/shared_$(1)_$(NODE_ID)/prometheus.yml"
 
-	[ "$(2)" == "FastSync" ] && { export CHECKPOINT_PARAMS="--finalized-checkpoint-state=vendor/eth2-testnets/shared/$(1)/recent-finalized-state.ssz \
+	[ "$(3)" == "FastSync" ] && { export CHECKPOINT_PARAMS="--finalized-checkpoint-state=vendor/eth2-testnets/shared/$(1)/recent-finalized-state.ssz \
 																													--finalized-checkpoint-block=vendor/eth2-testnets/shared/$(1)/recent-finalized-block.ssz" ; }; \
-	$(CPU_LIMIT_CMD) build/beacon_node \
+	$(CPU_LIMIT_CMD) build/$(2) \
 		--network=$(1) \
 		--log-level="$(LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
@@ -210,7 +211,7 @@ define CONNECT_TO_NETWORK_IN_DEV_MODE
 		--base-metrics-port $$(($(BASE_METRICS_PORT) + $(NODE_ID))) \
 		--config-file "build/data/shared_$(1)_$(NODE_ID)/prometheus.yml"
 
-	$(CPU_LIMIT_CMD) build/beacon_node \
+	$(CPU_LIMIT_CMD) build/$(2) \
 		--network=$(1) \
 		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
@@ -227,7 +228,7 @@ define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 		--base-metrics-port $$(($(BASE_METRICS_PORT) + $(NODE_ID))) \
 		--config-file "build/data/shared_$(1)_$(NODE_ID)/prometheus.yml"
 
-	$(CPU_LIMIT_CMD) build/beacon_node \
+	$(CPU_LIMIT_CMD) build/$(2) \
 		--network=$(1) \
 		--log-level="$(LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
@@ -282,27 +283,27 @@ endef
 ### medalla
 ###
 # https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
-medalla: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK,medalla)
+medalla: | medalla_beacon_node signing_process
+	$(call CONNECT_TO_NETWORK,medalla,medalla_beacon_node)
 
-medalla-vc: | beacon_node signing_process validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,medalla)
+medalla-vc: | medalla_beacon_node signing_process validator_client
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,medalla,medalla_beacon_node)
 
-medalla-fast-sync: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK,medalla,FastSync)
+medalla-fast-sync: | medalla_beacon_node signing_process
+	$(call CONNECT_TO_NETWORK,medalla,medalla_beacon_node,FastSync)
 
 ifneq ($(LOG_LEVEL), TRACE)
 medalla-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
-medalla-dev: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,medalla)
+medalla-dev: | medalla_beacon_node signing_process
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,medalla,medalla_beacon_node)
 endif
 
-medalla-deposit-data: | beacon_node signing_process deposit_contract
+medalla-deposit-data: | medalla_beacon_node signing_process deposit_contract
 	$(call MAKE_DEPOSIT_DATA,medalla)
 
-medalla-deposit: | beacon_node signing_process deposit_contract
+medalla-deposit: | medalla_beacon_node signing_process deposit_contract
 	$(call MAKE_DEPOSIT,medalla)
 
 clean-medalla:
@@ -312,17 +313,17 @@ clean-medalla:
 ### zinken
 ###
 zinken: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK,zinken)
+	$(call CONNECT_TO_NETWORK,zinken,beacon_node)
 
 zinken-vc: | beacon_node signing_process validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,zinken)
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,zinken,beacon_node)
 
 ifneq ($(LOG_LEVEL), TRACE)
 zinken-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
 zinken-dev: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,zinken)
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,zinken,beacon_node)
 endif
 
 zinken-deposit-data: | beacon_node signing_process deposit_contract
@@ -345,17 +346,17 @@ clean-spadina:
 ### attacknet-beta1-mc-0
 ###
 attacknet-beta1-mc-0: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK,attacknet-beta1-mc-0)
+	$(call CONNECT_TO_NETWORK,attacknet-beta1-mc-0,beacon_node)
 
 attacknet-beta1-mc-0-vc: | beacon_node signing_process validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,attacknet-beta1-mc-0)
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,attacknet-beta1-mc-0,beacon_node)
 
 ifneq ($(LOG_LEVEL), TRACE)
 attacknet-beta1-mc-0-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
 attacknet-beta1-mc-0-dev: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,attacknet-beta1-mc-0)
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,attacknet-beta1-mc-0,beacon_node)
 endif
 
 attacknet-beta1-mc-0-deposit-data: | beacon_node signing_process deposit_contract
