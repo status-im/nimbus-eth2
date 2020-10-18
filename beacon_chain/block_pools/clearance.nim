@@ -198,7 +198,7 @@ proc addRawBlock*(
     #      but maybe we should use it as a hint that our clock is wrong?
     var cache = getStateCache(parent, blck.slot.epoch)
     updateStateData(
-      dag, dag.clearanceState, parent.atSlot(blck.slot), cache)
+      dag, dag.clearanceState, parent.atSlot(blck.slot), true, cache)
 
     let
       poolPtr = unsafeAddr dag # safe because restore is short-lived
