@@ -566,8 +566,15 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
 
   try:
     for file in walkDirRec(importedDir):
-      let ext = splitFile(file).ext
-      if toLowerAscii(ext) != ".json":
+      let filenameParts = splitFile(file)
+      if toLowerAscii(filenameParts.ext) != ".json":
+        continue
+
+      # In case we are importing from eth2.0-deposits-cli, the imported
+      # validator_keys directory will also include a "deposit_data" file
+      # intended for uploading to the launchpad. We'll skip it to avoid
+      # the "Invalid keystore" warning that it will trigger.
+      if filenameParts.name.startsWith("deposit_data"):
         continue
 
       let keystore =
