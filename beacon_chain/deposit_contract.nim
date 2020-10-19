@@ -176,6 +176,7 @@ proc main() {.async.} =
   if cfg.cmd == StartUpCommand.generateSimulationDeposits:
     let
       mnemonic = generateMnemonic(rng[])
+      seed = getSeed(mnemonic, KeyStorePass.init "")
       runtimePreset = getRuntimePresetForNetwork(cfg.eth2Network)
 
     let vres = secureCreatePath(string cfg.outValidatorsDir)
@@ -191,7 +192,7 @@ proc main() {.async.} =
     let deposits = generateDeposits(
       runtimePreset,
       rng[],
-      mnemonic,
+      seed,
       0, cfg.simulationDepositsCount,
       string cfg.outValidatorsDir,
       string cfg.outSecretsDir)

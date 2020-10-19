@@ -144,7 +144,6 @@ type
     signingKey*: ValidatorPrivKey
     withdrawalKey*: ValidatorPrivKey
 
-  SensitiveStrings = Mnemonic|KeySeed
   SimpleHexEncodedTypes = ScryptSalt|ChecksumBytes|CipherBytes
 
 const
@@ -166,6 +165,7 @@ const
   # https://eips.ethereum.org/EIPS/eip-2334
   eth2KeyPurpose = 12381
   eth2CoinType* = 3600
+  baseKeyPath* = [Natural eth2KeyPurpose, eth2CoinType]
 
   # https://github.com/bitcoin/bips/blob/master/bip-0039/bip-0039-wordlists.md
   wordListLen = 2048
@@ -189,14 +189,15 @@ template `==`*(lhs, rhs: WalletName): bool =
 template `$`*(x: WalletName): string =
   string(x)
 
-template burnMem*(m: var (SensitiveStrings|TaintedString)) =
-  # TODO: `burnMem` in nimcrypto could use distinctBase
-  #       to make its usage less error-prone.
+# TODO: `burnMem` in nimcrypto could use distinctBase
+#       to make its usage less error-prone.
+template burnMem*(m: var (Mnemonic|TaintedString)) =
   ncrutils.burnMem(string m)
 
+template burnMem*(m: var KeySeed) =
+  ncrutils.burnMem(distinctBase m)
+
 template burnMem*(m: var KeystorePass) =
-  # TODO: `burnMem` in nimcrypto could use distinctBase
-  #       to make its usage less error-prone.
   ncrutils.burnMem(m.str)
 
 func longName*(wallet: Wallet): string =
@@ -241,9 +242,6 @@ proc checkEnglishWords(): bool =
 
 static:
   doAssert(checkEnglishWords(), "English words array is corrupted!")
-
-func append*(path: KeyPath, pathNode: Natural): KeyPath =
-  KeyPath(path.string & "/" & $pathNode)
 
 func validateKeyPath*(path: TaintedString): Result[KeyPath, cstring] =
   var digitCount: int
@@ -398,6 +396,12 @@ proc deriveChildKey*(masterKey: ValidatorPrivKey,
                      path: KeyPath): ValidatorPrivKey =
   result = masterKey
   for idx in pathNodes(path):
+    result = deriveChildKey(result, idx)
+
+proc deriveChildKey*(masterKey: ValidatorPrivKey,
+                     path: openArray[Natural]): ValidatorPrivKey =
+  result = masterKey
+  for idx in path:
     # TODO: we have exceptions in pathNodes unless `validateKeyPath`
     # was called,
     # and this iterator is used to derive secret keys
@@ -721,7 +725,7 @@ proc createKeystore*(kdfKind: KdfKind,
 
 proc createWallet*(kdfKind: KdfKind,
                    rng: var BrHmacDrbgContext,
-                   mnemonic: Mnemonic,
+                   seed: KeySeed,
                    name = WalletName "",
                    salt: openarray[byte] = @[],
                    iv: openarray[byte] = @[],
@@ -730,10 +734,6 @@ proc createWallet*(kdfKind: KdfKind,
                    pretty = true): Wallet =
   let
     uuid = UUID $(uuidGenerate().expect("Random bytes should be available"))
-    # Please note that we are passing an empty password here because
-    # we want the wallet restoration procedure to depend only on the
-    # mnemonic (the user is asked to treat the mnemonic as a password).
-    seed = getSeed(mnemonic, KeystorePass.init "")
     crypto = createCryptoField(kdfKind, rng, distinctBase seed,
                                password, salt, iv)
   Wallet(

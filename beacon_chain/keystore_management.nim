@@ -3,7 +3,7 @@ import
   chronicles, chronos, web3, stint, json_serialization, zxcvbn,
   serialization, blscurve, eth/common/eth_types, eth/keys, confutils, bearssl,
   spec/[datatypes, digest, crypto, keystore],
-  stew/[byteutils, io2], libp2p/crypto/crypto as lcrypto,
+  stew/io2, libp2p/crypto/crypto as lcrypto,
   nimcrypto/utils as ncrutils,
   conf, ssz/merkleization, network_metadata, filepath
 
@@ -27,7 +27,7 @@ type
 
   CreatedWallet* = object
     walletPath*: WalletPathPair
-    mnemonic*: Mnemonic
+    seed*: KeySeed
 
 const
   minPasswordLen = 12
@@ -143,7 +143,9 @@ proc checkSensitiveFilePermissions*(filePath: string): bool =
       else:
         true
 
-proc keyboardCreatePassword(prompt: string, confirm: string): KsResult[string] =
+proc keyboardCreatePassword(prompt: string,
+                            confirm: string,
+                            allowEmpty = false): KsResult[string] =
   while true:
     let password =
       try:
@@ -151,6 +153,9 @@ proc keyboardCreatePassword(prompt: string, confirm: string): KsResult[string] =
       except IOError:
         error "Could not read password from stdin"
         return err("Could not read password from stdin")
+
+    if password.len == 0 and allowEmpty:
+      return ok("")
 
     # We treat `password` as UTF-8 encoded string.
     if validateUtf8(password) == -1:
@@ -418,7 +423,7 @@ proc saveKeystore(rng: var BrHmacDrbgContext,
 
 proc generateDeposits*(preset: RuntimePreset,
                        rng: var BrHmacDrbgContext,
-                       mnemonic: Mnemonic,
+                       seed: KeySeed,
                        firstValidatorIdx, totalNewValidators: int,
                        validatorsDir: string,
                        secretsDir: string): Result[seq[DepositData], KeystoreGenerationError] =
@@ -426,23 +431,30 @@ proc generateDeposits*(preset: RuntimePreset,
 
   notice "Generating deposits", totalNewValidators, validatorsDir, secretsDir
 
-  let withdrawalKeyPath = makeKeyPath(0, withdrawalKeyKind)
-  # TODO: Explain why we are using an empty password
-  var withdrawalKey = keyFromPath(mnemonic, KeystorePass.init "", withdrawalKeyPath)
-  defer: burnMem(withdrawalKey)
-  let withdrawalPubKey = withdrawalKey.toPubKey
+  # We'll reuse a single variable here to make the secret
+  # scrubbing (burnMem) easier to handle:
+  var baseKey = deriveMasterKey(seed)
+  defer: burnMem(baseKey)
+  baseKey = deriveChildKey(baseKey, baseKeyPath)
 
   for i in 0 ..< totalNewValidators:
-    let keyStoreIdx = firstValidatorIdx + i
-    let signingKeyPath = withdrawalKeyPath.append keyStoreIdx
-    var signingKey = deriveChildKey(withdrawalKey, keyStoreIdx)
-    defer: burnMem(signingKey)
-    let signingPubKey = signingKey.toPubKey
+    let validatorIdx = firstValidatorIdx + i
+
+    # We'll reuse a single variable here to make the secret
+    # scrubbing (burnMem) easier to handle:
+    var derivedKey = baseKey
+    defer: burnMem(derivedKey)
+    derivedKey = deriveChildKey(derivedKey, validatorIdx)
+    derivedKey = deriveChildKey(derivedKey, 0) # This is witdrawal key
+    let withdrawalPubKey = derivedKey.toPubKey
+    derivedKey = deriveChildKey(derivedKey, 0) # This is the signing key
+    let signingPubKey = derivedKey.toPubKey
 
     ? saveKeystore(rng, validatorsDir, secretsDir,
-                   signingKey, signingPubKey, signingKeyPath)
+                   derivedKey, signingPubKey,
+                   makeKeyPath(validatorIdx, signingKeyKind))
 
-    deposits.add preset.prepareDeposit(withdrawalPubKey, signingKey, signingPubKey)
+    deposits.add preset.prepareDeposit(withdrawalPubKey, derivedKey, signingPubKey)
 
   ok deposits
 
@@ -585,11 +597,11 @@ template ask(prompt: string): string =
 
 proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
                                config: BeaconNodeConf,
-                               mnemonic: Mnemonic): Result[WalletPathPair, string] =
+                               seed: KeySeed): Result[WalletPathPair, string] =
   echoP "When you perform operations with your wallet such as withdrawals " &
-        "and additional deposits, you'll be asked to enter a password. " &
-        "Please note that this password is local to the current machine " &
-        "and you can change it at any time."
+        "and additional deposits, you'll be asked to enter a signing " &
+        "password. Please note that this password is local to the current " &
+        "machine and you can change it at any time."
   echo ""
 
   var password =
@@ -629,7 +641,7 @@ proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
     else:
       none Natural
 
-  let wallet = createWallet(kdfPbkdf2, rng, mnemonic,
+  let wallet = createWallet(kdfPbkdf2, rng, seed,
                             name = name,
                             nextAccount = nextAccount,
                             password = KeystorePass.init password)
@@ -732,8 +744,34 @@ proc createWalletInteractively*(
 
   clearScreen()
 
-  let walletPath = ? pickPasswordAndSaveWallet(rng, config, mnemonic)
-  return ok CreatedWallet(walletPath: walletPath, mnemonic: mnemonic)
+  var mnenomicPassword = KeystorePass.init ""
+  defer: burnMem(mnenomicPassword)
+
+  echoP "The recovery of your wallet can be additionally protected by a" &
+        "recovery password. Since the seed phrase itself can be considered " &
+        "a password, setting such an additional password is optional. " &
+        "To ensure the strongest possible security, we recommend writing " &
+        "down your seed phrase and remembering your recovery password. " &
+        "If you don'n want to set a recovery password, just press ENTER."
+
+  var recoveryPassword = keyboardCreatePassword(
+    "Recovery password: ", "Confirm password: ", allowEmpty = true)
+  defer:
+    if recoveryPassword.isOk:
+      burnMem(recoveryPassword.get)
+
+  if recoveryPassword.isErr:
+    fatal "Failed to read password from stdin"
+    quit 1
+
+  var keystorePass = KeystorePass.init recoveryPassword.get
+  defer: burnMem(keystorePass)
+
+  var seed = getSeed(mnemonic, keystorePass)
+  defer: burnMem(seed)
+
+  let walletPath = ? pickPasswordAndSaveWallet(rng, config, seed)
+  return ok CreatedWallet(walletPath: walletPath, seed: seed)
 
 proc restoreWalletInteractively*(rng: var BrHmacDrbgContext,
                                  config: BeaconNodeConf) =
@@ -756,21 +794,39 @@ proc restoreWalletInteractively*(rng: var BrHmacDrbgContext,
     else:
       echo "The entered mnemonic was not valid. Please try again."
 
-  discard pickPasswordAndSaveWallet(rng, config, validatedMnemonic)
+  echoP "If your seed phrase was protected with a recovery password, " &
+        "please enter it below. Please ENTER to attempt to restore " &
+        "the wallet without a recovery password."
 
-proc unlockWalletInteractively*(wallet: Wallet): Result[Mnemonic, string] =
-  let prompt = "Please enter the password for unlocking the wallet: "
+  var recoveryPassword = keyboardCreatePassword(
+    "Recovery password: ", "Confirm password: ", allowEmpty = true)
+  defer:
+    if recoveryPassword.isOk:
+      burnMem(recoveryPassword.get)
+
+  if recoveryPassword.isErr:
+    fatal "Failed to read password from stdin"
+    quit 1
+
+  var keystorePass = KeystorePass.init recoveryPassword.get
+  defer: burnMem(keystorePass)
+
+  var seed = getSeed(validatedMnemonic, keystorePass)
+  defer: burnMem(seed)
+
+  discard pickPasswordAndSaveWallet(rng, config, seed)
+
+proc unlockWalletInteractively*(wallet: Wallet): Result[KeySeed, string] =
   echo "Please enter the password for unlocking the wallet"
 
-  let res = keyboardGetPassword[Mnemonic](prompt, 3,
-    proc (password: string): KsResult[Mnemonic] =
+  let res = keyboardGetPassword[KeySeed]("Password: ", 3,
+    proc (password: string): KsResult[KeySeed] =
       var secret: seq[byte]
       defer: burnMem(secret)
       let status = decryptCryptoField(wallet.crypto, KeystorePass.init password, secret)
       case status
       of Success:
-        let mnemonic = Mnemonic(string.fromBytes(secret))
-        ok(mnemonic)
+        ok(KeySeed secret)
       else:
         # TODO Handle InvalidKeystore in a special way here
         let failed = "Unlocking of the wallet failed. Please try again"
