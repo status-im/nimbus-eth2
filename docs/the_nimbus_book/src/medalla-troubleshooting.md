@@ -2,12 +2,12 @@
 
 As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the `master` branch. If you can't find a solution to your problem here, feel free to hit us up on our [discord](https://discord.com/invite/XRxWahP)!
 
-> **Note:** While the `master` branch of the `nim-beacon-chain` repository is more stable, the latest updates happen in the `devel` branch which is (usually) merged into master every week on Tuesday. If you choose to run Nimbus directly from the `devel` branch, be prepared for instabilities!
+> **Note:** While the `master` branch of the `nimbus-eth2` repository is more stable, the latest updates happen in the `devel` branch which is (usually) merged into master every week on Tuesday. If you choose to run Nimbus directly from the `devel` branch, be prepared for instabilities!
 
 To update and restart, run `git pull`, `make update`, followed by `make medalla`:
 
 ```
-cd nim-beacon-chain
+cd nimbus-eth2
 git pull
 make update # Update dependencies
 make medalla # Restart using same keys as last run
@@ -59,7 +59,7 @@ make NODE_PARAMS="--nat:\"extip:35.124.65.104\"" medalla
 
 ### Resource leaks
 
-If you're experiencing RAM related resource leaks, try restarting your client (**we recommend restarting every 6 hours** until we get to the bottom of this issue). If you have a [local Grafana setup](https://github.com/status-im/nim-beacon-chain#getting-metrics-from-a-local-testnet-client), you can try monitoring the severity of these leaks and playing around with the restart interval.
+If you're experiencing RAM related resource leaks, try restarting your client (**we recommend restarting every 6 hours** until we get to the bottom of this issue). If you have a [local Grafana setup](https://github.com/status-im/nimbus-eth2#getting-metrics-from-a-local-testnet-client), you can try monitoring the severity of these leaks and playing around with the restart interval.
 
 ### Address already in use error
 

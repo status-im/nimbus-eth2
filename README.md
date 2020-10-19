@@ -1,8 +1,8 @@
 # Nimbus Eth2 (Beacon Chain)
 
-[![Build Status (Travis)](https://img.shields.io/travis/status-im/nim-beacon-chain/master.svg?label=Linux%20/%20macOS "Linux/macOS build status (Travis)")](https://travis-ci.org/status-im/nim-beacon-chain)
-[![Build Status (Azure)](https://dev.azure.com/nimbus-dev/nim-beacon-chain/_apis/build/status/status-im.nim-beacon-chain?branchName=master)](https://dev.azure.com/nimbus-dev/nim-beacon-chain/_build/latest?definitionId=3&branchName=master)
-[![Github Actions CI](https://github.com/status-im/nim-beacon-chain/workflows/Nimbus%20nim-beacon-chain%20CI/badge.svg)](https://github.com/status-im/nim-blscurve/actions?query=workflow%3A%22BLSCurve+CI%22)
+[![Build Status (Travis)](https://img.shields.io/travis/status-im/nimbus-eth2/master.svg?label=Linux%20/%20macOS "Linux/macOS build status (Travis)")](https://travis-ci.org/status-im/nimbus-eth2)
+[![Build Status (Azure)](https://dev.azure.com/nimbus-dev/nimbus-eth2/_apis/build/status/status-im.nimbus-eth2?branchName=master)](https://dev.azure.com/nimbus-dev/nimbus-eth2/_build/latest?definitionId=3&branchName=master)
+[![Github Actions CI](https://github.com/status-im/nimbus-eth2/workflows/Nimbus%20nimbus-eth2%20CI/badge.svg)](https://github.com/status-im/nim-blscurve/actions?query=workflow%3A%22BLSCurve+CI%22)
 [![License: Apache](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 ![Stability: experimental](https://img.shields.io/badge/stability-experimental-orange.svg)
@@ -53,8 +53,8 @@ See [this page](https://status-im.github.io/nimbus-eth2/medalla.html) for how to
 
 ## Related projects
 
-* [status-im/nimbus](https://github.com/status-im/nimbus/): Nimbus for Ethereum 1
-* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v0.12.3#phase-0): Serenity specification that this project implements
+* [status-im/nimbus-eth1](https://github.com/status-im/nimbus-eth1/): Nimbus for Ethereum 1
+* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v1.0.0-rc.0#phase-0): Serenity specification that this project implements
 
 You can check where the beacon chain fits in the Ethereum ecosystem our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
 
@@ -117,8 +117,8 @@ apt install build-essential git libpcre3-dev
 Once the [prerequisites](#prerequisites) are installed you can connect to the [Medalla testnet](https://github.com/goerli/medalla) with the following commands:
 
 ```bash
-git clone https://github.com/status-im/nim-beacon-chain
-cd nim-beacon-chain
+git clone https://github.com/status-im/nimbus-eth2
+cd nimbus-eth2
 make medalla           # This will build Nimbus and all other dependencies
                       # and connect you to Medalla
 ```
@@ -210,8 +210,8 @@ To run the Nimbus state transition, we provide the `ncli` tool:
 
 The interop scripts have been moved in a common repo, the interop relied on 0.8.3 specs which had seen significant changes. The interop branch still exist but is unmaintained.
 
-* [multinet](https://github.com/status-im/nim-beacon-chain/tree/master/multinet) - a set of scripts to build and run several Eth2 clients locally
-* [interop branch](https://github.com/status-im/nim-beacon-chain/tree/interop) (unmaintained)
+* [multinet](https://github.com/status-im/nimbus-eth2/tree/master/multinet) - a set of scripts to build and run several Eth2 clients locally
+* [interop branch](https://github.com/status-im/nimbus-eth2/tree/interop) (unmaintained)
 
 ## For researchers
 
@@ -334,7 +334,7 @@ installation directory to "C:\mingw-w64" and add it to your system PATH in "My
 Computer"/"This PC" -> Properties -> Advanced system settings -> Environment
 Variables -> Path -> Edit -> New -> C:\mingw-w64\mingw64\bin (it's "C:\mingw-w64\mingw32\bin" on 32-bit)
 
-Install [Git for Windows](https://gitforwindows.org/) and use a "Git Bash" shell to clone and build nim-beacon-chain.
+Install [Git for Windows](https://gitforwindows.org/) and use a "Git Bash" shell to clone and build nimbus-eth2.
 
 Install [CMake](https://cmake.org/) to be able to build libunwind (used for [lightweight stack traces](https://github.com/status-im/nim-libbacktrace)).
 
@@ -459,7 +459,7 @@ make NIMFLAGS="-d:release"
 make -j$(nproc) NIMFLAGS="-d:release" USE_MULTITAIL=yes eth2_network_simulation
 ```
 
-- don't use the [lightweight stack tracing implementation from nim-libbacktrace](https://github.com/status-im/nim-beacon-chain/pull/745):
+- don't use the [lightweight stack tracing implementation from nim-libbacktrace](https://github.com/status-im/nimbus-eth2/pull/745):
 
 ```bash
 make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
@@ -487,6 +487,12 @@ make NIMFLAGS="--passL:-static" beacon_node
 
 ```bash
 make publish-book
+```
+
+- create a binary distribution
+
+```bash
+make dist
 ```
 
 ### CI setup

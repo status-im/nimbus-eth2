@@ -44,3 +44,5 @@ build/
 # generated during Nim compilation
 beacon_chain/sync_protocol.nim.generated.nim
 
+/dist
+

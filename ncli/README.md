@@ -10,11 +10,11 @@
 
 # Building
 
-Follow the instructions from [nim-beacon-chain](../README.md)
+Follow the instructions from [nimbus-eth2](../README.md)
 
 ```bash
-git clone https://github.com/status-im/nim-beacon-chain.git
-cd nim-beacon-chain
+git clone https://github.com/status-im/nimbus-eth2.git
+cd nimbus-eth2
 make
 ```
 

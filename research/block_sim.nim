@@ -15,9 +15,9 @@
 # a database, as if a real node was running.
 
 import
-  confutils, chronicles, stats, times,
-  strformat,
-  options, random, tables,
+  confutils, chronicles, stats, times, strformat,
+  options, random, tables, os,
+  eth/db/kvstore_sqlite3,
   ../tests/[testblockutil],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, presets,
                         helpers, validator, signatures, state_transition],
@@ -26,7 +26,6 @@ import
     interop, validator_pool],
   ../beacon_chain/block_pools/[
     spec_cache, chain_dag, quarantine, clearance],
-  eth/db/[kvstore, kvstore_sqlite3],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
 
@@ -41,23 +40,23 @@ type Timers = enum
 # TODO confutils is an impenetrable black box. how can a help text be added here?
 cli do(slots = SLOTS_PER_EPOCH * 6,
        validators = SLOTS_PER_EPOCH * 200, # One per shard is minimum
-       attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.73,
+       attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.82,
        blockRatio {.desc: "ratio of slots with blocks"} = 1.0,
        replay = true):
   let
     state = loadGenesis(validators, true)
     genesisBlock = get_initial_beacon_block(state[].data)
+    runtimePreset = defaultRuntimePreset
 
   echo "Starting simulation..."
 
-  let
-    db = BeaconChainDB.init(kvStore SqStoreRef.init(".", "block_sim").tryGet())
+  let db = BeaconChainDB.init(runtimePreset, "block_sim_db")
   defer: db.close()
 
   ChainDAGRef.preInit(db, state[].data, state[].data, genesisBlock)
 
   var
-    chainDag = init(ChainDAGRef, defaultRuntimePreset, db)
+    chainDag = init(ChainDAGRef, runtimePreset, db)
     quarantine = QuarantineRef()
     attPool = AttestationPool.init(chainDag, quarantine)
     timers: array[Timers, RunningStat]
@@ -110,7 +109,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         eth1data = get_eth1data_stub(
           state.eth1_deposit_index, slot.compute_epoch_at_slot())
         message = makeBeaconBlock(
-          defaultRuntimePreset,
+          runtimePreset,
           hashedState,
           proposerIdx,
           head.root,
@@ -177,7 +176,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     withTimer(timers[tReplay]):
       var cache = StateCache()
       chainDag.updateStateData(
-        replayState[], chainDag.head.atSlot(Slot(slots)), cache)
+        replayState[], chainDag.head.atSlot(Slot(slots)), false, cache)
 
   echo "Done!"
 

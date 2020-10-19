@@ -41,7 +41,7 @@ func compute_deltas(
        new_balances: openarray[Gwei]
      ): FcResult[void]
 # TODO: raises [Defect] - once https://github.com/nim-lang/Nim/issues/12862 is fixed
-#       https://github.com/status-im/nim-beacon-chain/pull/865#pullrequestreview-389117232
+#       https://github.com/status-im/nimbus-eth2/pull/865#pullrequestreview-389117232
 
 # Fork choice routines
 # ----------------------------------------------------------------------
@@ -282,11 +282,16 @@ proc process_block*(self: var ForkChoice,
   ? update_time(self, dag, wallSlot)
   ? process_state(self.checkpoints, dag, epochRef, blckRef)
 
+  let committees_per_slot = get_committee_count_per_slot(epochRef)
+
   for attestation in blck.body.attestations:
     let targetBlck = dag.getRef(attestation.data.target.root)
     if targetBlck.isNil:
       continue
-    if attestation.data.beacon_block_root in self.backend:
+    if attestation.data.beacon_block_root in self.backend and
+        # TODO not-actually-correct hotfix for crash
+        # https://github.com/status-im/nimbus-eth2/issues/1879
+        attestation.data.index < committees_per_slot:
       let
         participants = get_attesting_indices(
           epochRef, attestation.data, attestation.aggregation_bits)

@@ -23,7 +23,7 @@ import
   conf, time, validator_pool,
   attestation_pool, exit_pool, block_pools/[spec_cache, chain_dag, clearance],
   eth2_network, keystore_management, beacon_node_common, beacon_node_types,
-  nimbus_binary_common, mainchain_monitor, version, ssz/merkleization, interop,
+  nimbus_binary_common, mainchain_monitor, version, ssz/merkleization,
   attestation_aggregation, sync_manager, sszdump,
   validator_slashing_protection
 
@@ -35,14 +35,14 @@ declareCounter beacon_blocks_proposed,
 
 logScope: topics = "beacval"
 
-# TODO: This procedure follows insecure scheme of creating directory without
-# any permissions and writing file without any permissions.
-proc saveValidatorKey*(keyName, key: string, conf: BeaconNodeConf) =
-  let validatorsDir = conf.validatorsDir
-  let outputFile = validatorsDir / keyName
-  createDir validatorsDir
-  writeFile(outputFile, key)
-  notice "Imported validator key", file = outputFile
+# # TODO: This procedure follows insecure scheme of creating directory without
+# # any permissions and writing file without any permissions.
+# proc saveValidatorKey*(keyName, key: string, conf: BeaconNodeConf) =
+#   let validatorsDir = conf.validatorsDir
+#   let outputFile = validatorsDir / keyName
+#   createDir validatorsDir
+#   writeFile(outputFile, key)
+#   notice "Imported validator key", file = outputFile
 
 proc checkValidatorInRegistry(state: BeaconState,
                               pubKey: ValidatorPubKey) =
@@ -199,8 +199,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       node.chainDag.tmpState, head.atSlot(slot)):
     let (eth1data, deposits) =
       if node.mainchainMonitor.isNil:
-        (get_eth1data_stub(state.eth1_deposit_index, slot.compute_epoch_at_slot()),
-         newSeq[Deposit]())
+        (state.eth1_data, newSeq[Deposit]())
       else:
         node.mainchainMonitor.getBlockProposalData(state)
 
@@ -372,7 +371,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # We need to run attestations exactly for the slot that we're attesting to.
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/validator.md#validator-assignments
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#validator-assignments
   let
     epochRef = node.chainDag.getEpochRef(
       attestationHead.blck, slot.compute_epoch_at_slot())
@@ -561,7 +560,7 @@ proc handleValidatorDuties*(
   #      with any clock discrepancies once only, at the start of slot timer
   #      processing..
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/validator.md#attesting
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#attesting
   # A validator should create and broadcast the attestation to the associated
   # attestation subnet when either (a) the validator has received a valid
   # block from the expected block proposer for the assigned slot or
@@ -581,7 +580,7 @@ proc handleValidatorDuties*(
 
   handleAttestations(node, head, slot)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#broadcast-aggregate
   # If the validator is selected to aggregate (is_aggregator), then they
   # broadcast their best aggregate as a SignedAggregateAndProof to the global
   # aggregate channel (beacon_aggregate_and_proof) two-thirds of the way
@@ -593,7 +592,7 @@ proc handleValidatorDuties*(
       "Waiting to aggregate attestations")
 
     const TRAILING_DISTANCE = 1
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#configuration
+    # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#configuration
     static:
       doAssert TRAILING_DISTANCE <= ATTESTATION_PROPAGATION_SLOT_RANGE
 

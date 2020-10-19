@@ -136,12 +136,6 @@ type
               "Must be one of: any, none, upnp, pmp, extip:<IP>"
         defaultValue: "any" }: string
 
-      validators* {.
-        required
-        desc: "Path to a validator keystore"
-        abbr: "v"
-        name: "validator" }: seq[ValidatorKeyPath]
-
       weakSubjectivityCheckpoint* {.
         desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
         name: "weak-subjectivity-checkpoint" }: Option[Checkpoint]
@@ -377,12 +371,6 @@ type
     nonInteractive* {.
       desc: "Do not display interative prompts. Quit on missing configuration"
       name: "non-interactive" }: bool
-
-    validators* {.
-      required
-      desc: "Attach a validator by supplying a keystore path"
-      abbr: "v"
-      name: "validator" }: seq[ValidatorKeyPath]
 
     validatorsDirFlag* {.
       desc: "A directory containing validator keystores"

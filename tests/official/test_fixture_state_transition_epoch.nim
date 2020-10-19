@@ -23,7 +23,7 @@ from ../../beacon_chain/spec/beaconstate import process_registry_updates
 
 # TODO: parsing SSZ
 #       can overwrite the calling function stack
-#       https://github.com/status-im/nim-beacon-chain/issues/369
+#       https://github.com/status-im/nimbus-eth2/issues/369
 #
 # We store the state on the heap to avoid that
 

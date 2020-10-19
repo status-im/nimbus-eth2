@@ -1,13 +1,27 @@
 {.push raises: [Defect].}
 
 import
-  typetraits, stew/[results, objects, endians2],
+  typetraits, tables,
+  stew/[results, objects, endians2, io2],
   serialization, chronicles, snappy,
-  eth/db/kvstore,
-  ./spec/[datatypes, digest, crypto, state_transition],
+  eth/db/[kvstore, kvstore_sqlite3],
+  ./spec/[datatypes, digest, crypto, state_transition, signatures],
   ./ssz/[ssz_serialization, merkleization]
 
 type
+  DbSeq*[T] = object
+    insertStmt: SqliteStmt[openarray[byte], void]
+    selectStmt: SqliteStmt[int64, seq[byte]]
+    recordCount: int64
+
+  DbMap*[K, V] = object
+    db: SqStoreRef
+    keyspace: int
+
+  DepositsSeq = DbSeq[DepositData]
+  ImmutableValidatorDataSeq = seq[ImmutableValidatorData]
+  ValidatorKeyToIndexMap = Table[ValidatorPubKey, ValidatorIndex]
+
   BeaconChainDB* = ref object
     ## Database storing resolved blocks and states - resolved blocks are such
     ## blocks that form a chain back to the tail block.
@@ -22,6 +36,15 @@ type
     ## between different versions of the client and accidentally using an old
     ## database.
     backend: KvStoreRef
+    preset: RuntimePreset
+
+    deposits*: DepositsSeq
+    immutableValidatorData*: ImmutableValidatorDataSeq
+    validatorKeyToIndex*: ValidatorKeyToIndexMap
+
+  Keyspaces* = enum
+    defaultKeyspace = "kvstore"
+    validatorIndexFromPubKey
 
   DbKeyKind = enum
     kHashToState
@@ -39,6 +62,9 @@ type
     kGenesisBlockRoot
       ## Immutable reference to the network genesis state
       ## (needed for satisfying requests to the beacon node API).
+    kEth1PersistedTo
+      ## The latest ETH1 block hash which satisfied the follow distance and
+      ## had its deposits persisted to disk.
 
 const
   maxDecompressedDbRecordSize = 16*1024*1024
@@ -71,8 +97,135 @@ func subkey(root: Eth2Digest, slot: Slot): array[40, byte] =
 
   ret
 
-proc init*(T: type BeaconChainDB, backend: KVStoreRef): BeaconChainDB =
-  T(backend: backend)
+template panic =
+  # TODO: Could we recover from a corrupted database?
+  #       Review all usages.
+  raiseAssert "The database should not be corrupted"
+
+proc init*[T](Seq: type DbSeq[T], db: SqStoreRef, name: string): Seq =
+  db.exec("""
+    CREATE TABLE IF NOT EXISTS """ & name & """(
+       id INTEGER PRIMARY KEY,
+       value BLOB
+    );
+  """).expect "working database"
+
+  let
+    insertStmt = db.prepareStmt(
+      "INSERT INTO " & name & "(value) VALUES (?);",
+      openarray[byte], void).expect("this is a valid statement")
+
+    selectStmt = db.prepareStmt(
+      "SELECT value FROM " & name & " WHERE id = ?;",
+      int64, seq[byte]).expect("this is a valid statement")
+
+    countStmt = db.prepareStmt(
+      "SELECT COUNT(*) FROM " & name & ";",
+      NoParams, int64).expect("this is a valid statement")
+
+  var recordCount = int64 0
+  let countQueryRes = countStmt.exec do (res: int64):
+    recordCount = res
+
+  let found = countQueryRes.expect("working database")
+  if not found: panic()
+
+  Seq(insertStmt: insertStmt,
+      selectStmt: selectStmt,
+      recordCount: recordCount)
+
+proc add*[T](s: var DbSeq[T], val: T) =
+  var bytes = SSZ.encode(val)
+  s.insertStmt.exec(bytes).expect "working database"
+  inc s.recordCount
+
+template len*[T](s: DbSeq[T]): uint64 =
+  s.recordCount.uint64
+
+proc get*[T](s: DbSeq[T], idx: uint64): T =
+  # This is used only locally
+  let resultAddr = addr result
+
+  let queryRes = s.selectStmt.exec(int64(idx) + 1) do (recordBytes: seq[byte]):
+    try:
+      resultAddr[] = decode(SSZ, recordBytes, T)
+    except SerializationError:
+      panic()
+
+  let found = queryRes.expect("working database")
+  if not found: panic()
+
+proc createMap*(db: SqStoreRef, keyspace: int;
+                K, V: distinct type): DbMap[K, V] =
+  DbMap[K, V](db: db, keyspace: keyspace)
+
+proc insert*[K, V](m: var DbMap[K, V], key: K, value: V) =
+  m.db.put(m.keyspace, SSZ.encode key, SSZ.encode value).expect("working database")
+
+proc contains*[K, V](m: DbMap[K, V], key: K): bool =
+  contains(m.db, SSZ.encode key).expect("working database")
+
+template insert*[K, V](t: var Table[K, V], key: K, value: V) =
+  add(t, key, value)
+
+proc produceDerivedData(deposit: DepositData,
+                        preset: RuntimePreset,
+                        deposits: var DepositsSeq,
+                        validators: var ImmutableValidatorDataSeq,
+                        validatorKeyToIndex: var ValidatorKeyToIndexMap) =
+  if verify_deposit_signature(preset, deposit):
+    let pubkey = deposit.pubkey
+    if pubkey notin validatorKeyToIndex:
+      let idx = ValidatorIndex validators.len
+      validators.add ImmutableValidatorData(
+        pubkey: pubkey,
+        withdrawal_credentials: deposit.withdrawal_credentials)
+      validatorKeyToIndex.insert(pubkey, idx)
+
+proc processDeposit*(db: BeaconChainDB, newDeposit: DepositData) =
+  db.deposits.add newDeposit
+
+  produceDerivedData(
+    newDeposit,
+    db.preset,
+    db.deposits,
+    db.immutableValidatorData,
+    db.validatorKeyToIndex)
+
+proc init*(T: type BeaconChainDB,
+           preset: RuntimePreset,
+           dir: string,
+           inMemory = false): BeaconChainDB =
+  if inMemory:
+    # TODO
+    # The inMemory store shuold offer the complete functionality
+    # of the database-backed one (i.e. tracking of deposits and validators)
+    T(backend: kvStore MemStoreRef.init(), preset: preset)
+  else:
+    let s = createPath(dir, 0o750)
+    doAssert s.isOk # TODO Handle this in a better way
+
+    let sqliteStore = SqStoreRef.init(dir, "nbc", Keyspaces).expect(
+      "working database")
+
+    var
+      immutableValidatorData = newSeq[ImmutableValidatorData]()
+      validatorKeyToIndex = initTable[ValidatorPubKey, ValidatorIndex]()
+      depositsSeq = DbSeq[DepositData].init(sqliteStore, "deposits")
+
+    for i in 0 ..< depositsSeq.len:
+      produceDerivedData(
+        depositsSeq.get(i),
+        preset,
+        depositsSeq,
+        immutableValidatorData,
+        validatorKeyToIndex)
+
+    T(backend: kvStore sqliteStore,
+      preset: preset,
+      deposits: depositsSeq,
+      immutableValidatorData: immutableValidatorData,
+      validatorKeyToIndex: validatorKeyToIndex)
 
 proc snappyEncode(inp: openArray[byte]): seq[byte] =
   try:
@@ -173,6 +326,9 @@ proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc putGenesisBlockRoot*(db: BeaconChainDB, key: Eth2Digest) =
   db.put(subkey(kGenesisBlockRoot), key)
 
+proc putEth1PersistedTo*(db: BeaconChainDB, key: Eth1Data) =
+  db.put(subkey(kEth1PersistedTo), key)
+
 proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
   result.ok(TrustedSignedBeaconBlock())
@@ -216,7 +372,13 @@ proc getTailBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
   db.get(subkey(kTailBlock), Eth2Digest)
 
 proc getGenesisBlockRoot*(db: BeaconChainDB): Eth2Digest =
-  db.get(subkey(kGenesisBlockRoot), Eth2Digest).expect("The database must be seeded with the genesis state")
+  db.get(subkey(kGenesisBlockRoot), Eth2Digest).expect(
+    "The database must be seeded with the genesis state")
+
+proc getEth1PersistedTo*(db: BeaconChainDB): Opt[Eth1Data] =
+  result.ok(Eth1Data())
+  if db.get(subkey(kEth1PersistedTo), result.get) != GetResult.found:
+    result.err()
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(SignedBeaconBlock, key)).expect("working database")

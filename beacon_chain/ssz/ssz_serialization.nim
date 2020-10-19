@@ -1,10 +1,10 @@
 # TODO Cannot override push, even though the function is annotated
-# nim-beacon-chain/beacon_chain/ssz.nim(212, 18) Error: can raise an unlisted exception: IOError
+# nimbus-eth2/beacon_chain/ssz.nim(212, 18) Error: can raise an unlisted exception: IOError
 # {.push raises: [Defect].}
 {.pragma: raisesssz, raises: [Defect, MalformedSszError, SszSizeMismatchError].}
 
 ## SSZ serialization for core SSZ types, as specified in:
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/ssz/simple-serialize.md#serialization
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/ssz/simple-serialize.md#serialization
 
 import
   typetraits, options,

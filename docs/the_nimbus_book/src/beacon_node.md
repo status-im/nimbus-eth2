@@ -15,8 +15,8 @@ To build the beacon run:
 #### 1. Clone the nim beacon chain repository
 
 ```
-git clone https://github.com/status-im/nim-beacon-chain
-cd nim-beacon-chain
+git clone https://github.com/status-im/nimbus-eth2
+cd nimbus-eth2
 ```
 
 #### 2. Run the beacon node build process

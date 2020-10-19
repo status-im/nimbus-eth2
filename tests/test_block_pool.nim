@@ -17,6 +17,9 @@ import
 when isMainModule:
   import chronicles # or some random compile error happens...
 
+proc `$`(x: BlockRef): string =
+  $x.root
+
 template wrappedTimedTest(name: string, body: untyped) =
   # `check` macro takes a copy of whatever it's checking, on the stack!
   # This leads to stack overflow
@@ -195,11 +198,22 @@ suiteReport "Block pool processing" & preset():
       dag.getBlockRange(Slot(2), 2, blocks.toOpenArray(0, 1)) == 0
       blocks[0..<2] == [b2Add[], b4Add[]] # block 3 is missing!
 
+      # large skip step
+      dag.getBlockRange(Slot(0), uint64.high, blocks.toOpenArray(0, 2)) == 2
+      blocks[2..2] == [dag.tail]
+
+      # large skip step
+      dag.getBlockRange(Slot(2), uint64.high, blocks.toOpenArray(0, 1)) == 1
+      blocks[1..1] == [b2Add[]]
+
       # empty length
       dag.getBlockRange(Slot(2), 2, blocks.toOpenArray(0, -1)) == 0
 
       # No blocks in sight
       dag.getBlockRange(Slot(5), 1, blocks.toOpenArray(0, 1)) == 2
+
+      # No blocks in sight
+      dag.getBlockRange(Slot(uint64.high), 1, blocks.toOpenArray(0, 1)) == 2
 
       # No blocks in sight either due to gaps
       dag.getBlockRange(Slot(3), 2, blocks.toOpenArray(0, 1)) == 2
@@ -278,39 +292,39 @@ suiteReport "Block pool processing" & preset():
 
     # move to specific block
     var cache = StateCache()
-    dag.updateStateData(tmpState[], bs1, cache)
+    dag.updateStateData(tmpState[], bs1, false, cache)
 
     check:
       tmpState.blck == b1Add[]
       tmpState.data.data.slot == bs1.slot
 
     # Skip slots
-    dag.updateStateData(tmpState[], bs1_3, cache) # skip slots
+    dag.updateStateData(tmpState[], bs1_3, false, cache) # skip slots
 
     check:
       tmpState.blck == b1Add[]
       tmpState.data.data.slot == bs1_3.slot
 
     # Move back slots, but not blocks
-    dag.updateStateData(tmpState[], bs1_3.parent(), cache)
+    dag.updateStateData(tmpState[], bs1_3.parent(), false, cache)
     check:
       tmpState.blck == b1Add[]
       tmpState.data.data.slot == bs1_3.parent().slot
 
     # Move to different block and slot
-    dag.updateStateData(tmpState[], bs2_3, cache)
+    dag.updateStateData(tmpState[], bs2_3, false, cache)
     check:
       tmpState.blck == b2Add[]
       tmpState.data.data.slot == bs2_3.slot
 
     # Move back slot and block
-    dag.updateStateData(tmpState[], bs1, cache)
+    dag.updateStateData(tmpState[], bs1, false, cache)
     check:
       tmpState.blck == b1Add[]
       tmpState.data.data.slot == bs1.slot
 
     # Move back to genesis
-    dag.updateStateData(tmpState[], bs1.parent(), cache)
+    dag.updateStateData(tmpState[], bs1.parent(), false, cache)
     check:
       tmpState.blck == b1Add[].parent
       tmpState.data.data.slot == bs1.parent.slot
@@ -420,7 +434,7 @@ suiteReport "chain DAG finalization tests" & preset():
     # The loop creates multiple branches, which StateCache isn't suitable for
     cache = StateCache()
 
-    advance_slot(prestate[], {}, cache)
+    doAssert process_slots(prestate[], prestate[].data.slot + 1, cache)
 
     # create another block, orphaning the head
     let blck = makeTestBlock(

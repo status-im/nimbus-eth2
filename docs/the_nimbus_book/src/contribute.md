@@ -7,7 +7,7 @@ We use an utility tool called mdBook to create online books from Markdown files.
 ## Before You Start
 
 1. Install mdBook from [here](https://github.com/rust-lang/mdBook).
-2. Clone the repository by `git clone https://github.com/status-im/nim-beacon-chain.git`.
+2. Clone the repository by `git clone https://github.com/status-im/nimbus-eth2.git`.
 3. Go to where the Markdown files are located by `cd docs`.
 
 ## Real-Time Update and Preview Changes
@@ -17,10 +17,10 @@ We use an utility tool called mdBook to create online books from Markdown files.
 
 ## Build and Deploy
 
-The first step is to submit a pull request to the [devel branch](https://github.com/status-im/nim-beacon-chain/tree/devel).
+The first step is to submit a pull request to the [devel branch](https://github.com/status-im/nimbus-eth2/tree/devel).
 Then, after it is merged, do the following under our main repository:
 
-1. `cd nim-beacon-chain`
+1. `cd nimbus-eth2`
 2. `git checkout devel`
 3. `git pull`
 4. `make update` (This is to update the submodules to the latest version)

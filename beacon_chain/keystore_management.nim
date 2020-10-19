@@ -1,6 +1,6 @@
 import
   std/[os, strutils, terminal, wordwrap, unicode],
-  chronicles, chronos, web3, stint, json_serialization,
+  chronicles, chronos, web3, stint, json_serialization, zxcvbn,
   serialization, blscurve, eth/common/eth_types, eth/keys, confutils, bearssl,
   spec/[datatypes, digest, crypto, keystore],
   stew/[byteutils, io2], libp2p/crypto/crypto as lcrypto,
@@ -9,6 +9,9 @@ import
 
 export
   keystore
+
+when defined(windows):
+  import stew/[windows/acl]
 
 {.push raises: [Defect].}
 {.localPassC: "-fno-lto".} # no LTO for crypto
@@ -28,13 +31,16 @@ type
 
 const
   minPasswordLen = 12
+  minPasswordEntropy = 60.0
 
   mostCommonPasswords = wordListArray(
     currentSourcePath.parentDir /
       "../vendor/nimbus-security-resources/passwords/10-million-password-list-top-100000.txt",
     minWordLen = minPasswordLen)
 
-template echo80(msg: string) =
+proc echoP(msg: string) =
+  ## Prints a paragraph aligned to 80 columns
+  echo ""
   echo wrapWords(msg, 80)
 
 proc checkAndCreateDataDir*(dataDir: string): bool =
@@ -74,15 +80,33 @@ proc checkAndCreateDataDir*(dataDir: string): bool =
         true
   elif defined(windows):
     if fileAccessible(dataDir, amask):
-      let res = createPath(dataDir, 0o750)
-      if res.isErr():
-        fatal "Could not create data folder", data_dir = dataDir,
-              errorMsg = ioErrorMsg(res.error), errorCode = $res.error
+      let cres = checkCurrentUserOnlyACL(dataDir)
+      if cres.isErr():
+        fatal "Could not check data folder's ACL",
+               data_dir = dataDir, errorCode = $cres.error,
+               errorMsg = ioErrorMsg(cres.error)
         false
       else:
-        true
+        if cres.get() == false:
+          fatal "Data folder has insecure ACL", data_dir = dataDir
+          false
+        else:
+          true
     else:
-      true
+      let sres = createCurrentUserOnlySecurityDescriptor()
+      if sres.isErr():
+        fatal "Could not allocate security descriptor", data_dir = dataDir,
+              errorMsg = ioErrorMsg(sres.error), errorCode = $sres.error
+        false
+      else:
+        var sd = sres.get()
+        let res = createPath(dataDir, 0o750, secDescriptor = sd.getDescriptor())
+        if res.isErr():
+          fatal "Could not create data folder", data_dir = dataDir,
+                errorMsg = ioErrorMsg(res.error), errorCode = $res.error
+          false
+        else:
+          true
   else:
     fatal "Unsupported operation system"
     return false
@@ -91,9 +115,18 @@ proc checkSensitiveFilePermissions*(filePath: string): bool =
   ## Check if ``filePath`` has only "(600) rw-------" permissions.
   ## Procedure returns ``false`` if permissions are different
   when defined(windows):
-    # Windows do not support per-user/group/other permissions,
-    # skiping verification part.
-    true
+    let cres = checkCurrentUserOnlyACL(filePath)
+    if cres.isErr():
+      fatal "Could not check file's ACL",
+             key_path = filePath, errorCode = $cres.error,
+             errorMsg = ioErrorMsg(cres.error)
+      false
+    else:
+      if cres.get() == false:
+        fatal "File has insecure permissions", key_path = filePath
+        false
+      else:
+        true
   else:
     let allowedMask = {UserRead, UserWrite}
     let mask = {UserExec,
@@ -129,15 +162,23 @@ proc keyboardCreatePassword(prompt: string, confirm: string): KsResult[string] =
     # We treat `password` as UTF-8 encoded string.
     if validateUtf8(password) == -1:
       if runeLen(password) < minPasswordLen:
-        echo80 "The entered password should be at least " & $minPasswordLen &
-               " characters."
+        echoP "The entered password should be at least " & $minPasswordLen &
+              " characters."
+        echo ""
+        continue
+      elif passwordEntropy(password) < minPasswordEntropy:
+        echoP "The entered password has low entropy and may be easy to " &
+              "brute-force with automated tools. Please increase the " &
+              "variety of the user characters."
         continue
       elif password in mostCommonPasswords:
-        echo80 "The entered password is too commonly used and it would be " &
-               "easy to brute-force with automated tools."
+        echoP "The entered password is too commonly used and it would be " &
+              "easy to brute-force with automated tools."
+        echo ""
         continue
     else:
-      echo80 "Entered password is not valid UTF-8 string"
+      echoP "Entered password is not valid UTF-8 string"
+      echo ""
       continue
 
     let confirmedPassword =
@@ -148,13 +189,13 @@ proc keyboardCreatePassword(prompt: string, confirm: string): KsResult[string] =
         return err("Could not read password from stdin")
 
     if password != confirmedPassword:
-      echo "Passwords don't match, please try again"
+      echo "Passwords don't match, please try again\n"
       continue
 
     return ok(password)
 
 proc keyboardGetPassword[T](prompt: string, attempts: int,
-                  pred: proc(p: string): KsResult[T] {.closure.}): KsResult[T] =
+                            pred: proc(p: string): KsResult[T] {.closure.}): KsResult[T] =
   var
     remainingAttempts = attempts
     counter = 1
@@ -243,14 +284,6 @@ iterator validatorKeysFromDirs*(validatorsDir, secretsDir: string): ValidatorPri
     quit 1
 
 iterator validatorKeys*(conf: BeaconNodeConf|ValidatorClientConf): ValidatorPrivKey =
-  for validatorKeyFile in conf.validators:
-    try:
-      yield validatorKeyFile.load
-    except CatchableError as err:
-      error "Failed to load validator private key",
-            file = validatorKeyFile.string, err = err.msg
-      quit 1
-
   let validatorsDir = conf.validatorsDir
   try:
     for kind, file in walkDir(validatorsDir):
@@ -340,11 +373,23 @@ proc saveNetKeystore*(rng: var BrHmacDrbgContext, keyStorePath: string,
     error "Could not serialize network key storage", key_path = keyStorePath
     return err(FailedToCreateKeystoreFile)
 
-  let res = writeFile(keyStorePath, encodedStorage, 0o600)
+  let res =
+    when defined(windows):
+      let sres = createCurrentUserOnlySecurityDescriptor()
+      if sres.isErr():
+        error "Could not allocate security descriptor", key_path = keyStorePath
+        return err(FailedToCreateKeystoreFile)
+      var sd = sres.get()
+      writeFile(keyStorePath, encodedStorage, 0o600,
+                secDescriptor = sd.getDescriptor())
+    else:
+      writeFile(keyStorePath, encodedStorage, 0o600)
+
   if res.isOk():
     ok()
   else:
-    error "Could not write to network key storage file", key_path = keyStorePath
+    error "Could not write to network key storage file",
+          key_path = keyStorePath
     err(FailedToCreateKeystoreFile)
 
 proc saveKeystore(rng: var BrHmacDrbgContext,
@@ -371,22 +416,48 @@ proc saveKeystore(rng: var BrHmacDrbgContext,
       error "Could not serialize keystorage", key_path = keystoreFile
       return err(FailedToCreateKeystoreFile)
 
-    let vres = createPath(validatorDir, 0o750)
-    if vres.isErr():
-      return err(FailedToCreateValidatorDir)
+    when defined(windows):
+      let csres = createCurrentUserOnlySecurityDescriptor()
+      if csres.isErr():
+        error "Could not allocate security descriptor", key_path = keystoreFile
+        return err(FailedToCreateKeystoreFile)
+      var sd = csres.get()
 
-    let sres = createPath(secretsDir, 0o750)
-    if sres.isErr():
-      return err(FailedToCreateSecretsDir)
+      let vres = createPath(validatorDir, 0o750,
+                            secDescriptor = sd.getDescriptor())
+      if vres.isErr():
+        return err(FailedToCreateValidatorDir)
 
-    let swres = writeFile(secretsDir / keyName, password.str, 0o600)
-    if swres.isErr():
-      return err(FailedToCreateSecretFile)
+      let sres = createPath(secretsDir, 0o750,
+                            secDescriptor = sd.getDescriptor())
+      if sres.isErr():
+        return err(FailedToCreateSecretsDir)
 
-    let kwres = writeFile(keystoreFile, encodedStorage, 0o600)
-    if kwres.isErr():
-      return err(FailedToCreateKeystoreFile)
+      let swres = writeFile(secretsDir / keyName, password.str, 0o600,
+                            secDescriptor = sd.getDescriptor())
+      if swres.isErr():
+        return err(FailedToCreateSecretFile)
 
+      let kwres = writeFile(keystoreFile, encodedStorage, 0o600,
+                            secDescriptor = sd.getDescriptor())
+      if kwres.isErr():
+        return err(FailedToCreateKeystoreFile)
+    else:
+      let vres = createPath(validatorDir, 0o750)
+      if vres.isErr():
+        return err(FailedToCreateValidatorDir)
+
+      let sres = createPath(secretsDir, 0o750)
+      if sres.isErr():
+        return err(FailedToCreateSecretsDir)
+
+      let swres = writeFile(secretsDir / keyName, password.str, 0o600)
+      if swres.isErr():
+        return err(FailedToCreateSecretFile)
+
+      let kwres = writeFile(keystoreFile, encodedStorage, 0o600)
+      if kwres.isErr():
+        return err(FailedToCreateKeystoreFile)
   ok()
 
 proc generateDeposits*(preset: RuntimePreset,
@@ -426,12 +497,27 @@ proc saveWallet*(wallet: Wallet, outWalletPath: string): Result[void, string] =
     encodedWallet = Json.encode(wallet, pretty = true)
   except SerializationError:
     return err("Could not serialize wallet")
-  let pres = createPath(walletDir, 0o750)
-  if pres.isErr():
-    return err("Could not create wallet directory [" & walletDir & "]")
-  let wres = writeFile(outWalletPath, encodedWallet, 0o600)
-  if wres.isErr():
-    return err("Could not write wallet to file [" & outWalletPath & "]")
+
+  when defined(windows):
+    let sres = createCurrentUserOnlySecurityDescriptor()
+    if sres.isErr():
+      error "Could not allocate security descriptor"
+      return err("Could not create security descriptor")
+    var sd = sres.get()
+    let pres = createPath(walletDir, 0o750, secDescriptor = sd.getDescriptor())
+    if pres.isErr():
+      return err("Could not create wallet directory [" & walletDir & "]")
+    let wres = writeFile(outWalletPath, encodedWallet, 0o600,
+                         secDescriptor = sd.getDescriptor())
+    if wres.isErr():
+      return err("Could not write wallet to file [" & outWalletPath & "]")
+  else:
+    let pres = createPath(walletDir, 0o750)
+    if pres.isErr():
+      return err("Could not create wallet directory [" & walletDir & "]")
+    let wres = writeFile(outWalletPath, encodedWallet, 0o600)
+    if wres.isErr():
+      return err("Could not write wallet to file [" & outWalletPath & "]")
   ok()
 
 proc saveWallet*(wallet: WalletPathPair): Result[void, string] =
@@ -497,9 +583,29 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
       var firstDecryptionAttempt = true
 
       while true:
-        var secret = decryptCryptoField(keystore.crypto, KeystorePass.init password)
-
-        if secret.len == 0:
+        var secret: seq[byte]
+        let status = decryptCryptoField(keystore.crypto,
+                                        KeystorePass.init password,
+                                        secret)
+        case status
+        of Success:
+          let privKey = ValidatorPrivKey.fromRaw(secret)
+          if privKey.isOk:
+            let pubKey = privKey.value.toPubKey
+            let status = saveKeystore(rng, validatorsDir, secretsDir,
+                                      privKey.value, pubKey,
+                                      keystore.path)
+            if status.isOk:
+              notice "Keystore imported", file
+            else:
+              error "Failed to import keystore", file, err = status.error
+          else:
+            error "Imported keystore holds invalid key", file, err = privKey.error
+          break
+        of InvalidKeystore:
+          warn "Invalid keystore", file
+          break
+        of InvalidPassword:
           if firstDecryptionAttempt:
             try:
               const msg = "Please enter the password for decrypting '$1' " &
@@ -516,20 +622,6 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
 
           if password.len == 0:
             break
-        else:
-          let privKey = ValidatorPrivKey.fromRaw(secret)
-          if privKey.isOk:
-            let pubKey = privKey.value.toPubKey
-            let status = saveKeystore(rng, validatorsDir, secretsDir,
-                                      privKey.value, pubKey,
-                                      keystore.path)
-            if status.isOk:
-              notice "Keystore imported", file
-            else:
-              error "Failed to import keystore", file, err = status.error
-          else:
-            error "Imported keystore holds invalid key", file, err = privKey.error
-          break
   except OSError:
     fatal "Failed to access the imported deposits directory"
     quit 1
@@ -544,11 +636,10 @@ template ask(prompt: string): string =
 proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
                                config: BeaconNodeConf,
                                mnemonic: Mnemonic): Result[WalletPathPair, string] =
-  echo ""
-  echo80 "When you perform operations with your wallet such as withdrawals " &
-         "and additional deposits, you'll be asked to enter a password. " &
-         "Please note that this password is local to the current Nimbus " &
-         "installation and can be changed at any time."
+  echoP "When you perform operations with your wallet such as withdrawals " &
+        "and additional deposits, you'll be asked to enter a password. " &
+        "Please note that this password is local to the current machine " &
+        "and you can change it at any time."
   echo ""
 
   var password =
@@ -566,10 +657,10 @@ proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
   if outWalletName.isSome:
     name = outWalletName.get
   else:
+    echoP "For your convenience, the wallet can be identified with a name " &
+          "of your choice. Please enter a wallet name below or press ENTER " &
+          "to continue with a machine-generated name."
     echo ""
-    echo80 "For your convenience, the wallet can be identified with a name " &
-           "of your choice. Please enter a wallet name below or press ENTER " &
-           "to continue with a machine-generated name."
 
     while true:
       var enteredName = ask "Wallet name"
@@ -582,30 +673,37 @@ proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
             continue
       break
 
-    let nextAccount =
-      if config.cmd == wallets and config.walletsCmd == WalletsCmd.restore:
-        config.restoredDepositsCount
-      else:
-        none Natural
+  let nextAccount =
+    if config.cmd == wallets and config.walletsCmd == WalletsCmd.restore:
+      config.restoredDepositsCount
+    else:
+      none Natural
 
-    let wallet = createWallet(kdfPbkdf2, rng, mnemonic,
-                              name = name,
-                              nextAccount = nextAccount,
-                              password = KeystorePass.init password)
+  let wallet = createWallet(kdfPbkdf2, rng, mnemonic,
+                            name = name,
+                            nextAccount = nextAccount,
+                            password = KeystorePass.init password)
 
-    let outWalletFileFlag = config.outWalletFile
-    let outWalletFile =
-      if outWalletFileFlag.isSome:
-        string outWalletFileFlag.get
-      else:
-        config.walletsDir / addFileExt(string wallet.name, "json")
+  let outWalletFileFlag = config.outWalletFile
+  let outWalletFile =
+    if outWalletFileFlag.isSome:
+      string outWalletFileFlag.get
+    else:
+      config.walletsDir / addFileExt(string wallet.name, "json")
 
-    let status = saveWallet(wallet, outWalletFile)
-    if status.isErr:
-      return err("failure to create wallet file due to " & status.error)
+  let status = saveWallet(wallet, outWalletFile)
+  if status.isErr:
+    return err("failure to create wallet file due to " & status.error)
 
-    echo "\nWallet file successfully written to \"", outWalletFile, "\""
-    return ok WalletPathPair(wallet: wallet, path: outWalletFile)
+  echo "\nWallet file successfully written to \"", outWalletFile, "\""
+  return ok WalletPathPair(wallet: wallet, path: outWalletFile)
+
+when defined(windows):
+  proc clearScreen =
+    discard execShellCmd("cls")
+else:
+  template clearScreen =
+    echo "\e[1;1H\e[2J\e[3J"
 
 proc createWalletInteractively*(
     rng: var BrHmacDrbgContext,
@@ -614,40 +712,75 @@ proc createWalletInteractively*(
   if config.nonInteractive:
     return err "not running in interactive mode"
 
+  echoP "The generated wallet is uniquely identified by a seed phrase " &
+        "consisting of 24 words. In case you lose your wallet and you " &
+        "need to restore it on a different machine, you can use the " &
+        "seed phrase to re-generate your signing and withdrawal keys."
+  echoP "The seed phrase should be kept secret in a safe location as if " &
+        "you are protecting a sensitive password. It can be used to withdraw " &
+        "funds from your wallet."
+  echoP "We will display the seed phrase on the next screen. Please make sure " &
+        "you are in a safe environment and there are no cameras or potentially " &
+        "unwanted eye witnesses around you. Please prepare everything necessary " &
+        "to copy the seed phrase to a safe location and type 'continue' in " &
+        "the prompt below to proceed to the next screen or 'q' to exit now."
+  echo ""
+
+  while true:
+    let answer = ask "Action"
+    if answer.len > 0 and answer[0] == 'q': quit 1
+    if answer == "continue": break
+    echoP "To proceed to your seed phrase, please type 'continue' (without the quotes). " &
+          "Type 'q' to exit now."
+    echo ""
+
   var mnemonic = generateMnemonic(rng)
   defer: burnMem(mnemonic)
 
-  echo80 "The generated wallet is uniquely identified by a seed phrase " &
-         "consisting of 24 words. In case you lose your wallet and you " &
-         "need to restore it on a different machine, you must use the " &
-         "words displayed below:"
-
   try:
-    echo ""
+    echoP "Your seed phrase is:"
     setStyleNoError({styleBright})
     setForegroundColorNoError fgCyan
-    echo80 $mnemonic
+    echoP $mnemonic
     resetAttributesNoError()
-    echo ""
   except IOError, ValueError:
     return err "failure to write to the standard output"
 
-  echo80 "Please back up the seed phrase now to a safe location as " &
-         "if you are protecting a sensitive password. The seed phrase " &
-         "can be used to withdraw funds from your wallet."
+  echoP "Press any key to continue."
+  try:
+    discard getch()
+  except IOError as err:
+    fatal "Failed to read a key from stdin", err = err.msg
+    quit 1
 
+  clearScreen()
+
+  echoP "To confirm that you've saved the seed phrase, please enter the " &
+        "first and the last three words of it. In case you've saved the " &
+        "seek phrase in your clipboard, we strongly advice clearing the " &
+        "clipboard now."
   echo ""
-  echo "Did you back up your seed recovery phrase?\p" &
-       "(please type 'yes' to continue or press enter to quit)"
 
-  while true:
+  for i in countdown(2, 0):
     let answer = ask "Answer"
-    if answer == "":
-      return err "aborted wallet creation"
-    elif answer != "yes":
-      echo "To continue, please type 'yes' (without the quotes) or press enter to quit"
+    let parts = answer.split(' ', maxsplit = 1)
+    if parts.len == 2:
+      if count(parts[1], ' ') == 2 and
+         mnemonic.string.startsWith(parts[0]) and
+         mnemonic.string.endsWith(parts[1]):
+        break
     else:
-      break
+      doAssert parts.len == 1
+
+    if i > 0:
+      echo "\nYour answer was not correct. You have ", i, " more attempts"
+      echoP "Please enter 4 words separated with a single space " &
+            "(the first word from the seed phrase, followed by the last 3)"
+      echo ""
+    else:
+      quit 1
+
+  clearScreen()
 
   let walletPath = ? pickPasswordAndSaveWallet(rng, config, mnemonic)
   return ok CreatedWallet(walletPath: walletPath, mnemonic: mnemonic)
@@ -681,12 +814,15 @@ proc unlockWalletInteractively*(wallet: Wallet): Result[Mnemonic, string] =
 
   let res = keyboardGetPassword[Mnemonic](prompt, 3,
     proc (password: string): KsResult[Mnemonic] =
-      var secret = decryptCryptoField(wallet.crypto, KeystorePass.init password)
-      if len(secret) > 0:
+      var secret: seq[byte]
+      defer: burnMem(secret)
+      let status = decryptCryptoField(wallet.crypto, KeystorePass.init password, secret)
+      case status
+      of Success:
         let mnemonic = Mnemonic(string.fromBytes(secret))
-        burnMem(secret)
         ok(mnemonic)
       else:
+        # TODO Handle InvalidKeystore in a special way here
         let failed = "Unlocking of the wallet failed. Please try again"
         echo failed
         err(failed)

@@ -33,6 +33,7 @@ endif
 # unconditionally built by the default Make target
 # TODO re-enable ncli_query if/when it works again
 TOOLS := \
+	medalla_beacon_node \
 	beacon_node \
 	block_sim \
 	deposit_contract \
@@ -74,7 +75,8 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	clean \
 	libbacktrace \
 	book \
-	publish-book
+	publish-book \
+	dist
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
@@ -103,13 +105,8 @@ all: | $(TOOLS) libnfuzz.so libnfuzz.a
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
 
 ifeq ($(OS), Windows_NT)
-  ifeq ($(ARCH), x86)
-    # 32-bit Windows is not supported by libbacktrace/libunwind
-    USE_LIBBACKTRACE := 0
-  endif
-  MKDIR_COMMAND := mkdir -p
-else
-  MKDIR_COMMAND := mkdir -m 0750 -p
+	# libbacktrace/libunwind is disabled on Windows.
+  USE_LIBBACKTRACE := 0
 endif
 
 DEPOSITS_DELAY := 0
@@ -189,16 +186,16 @@ testnet0 testnet1: | beacon_node signing_process
 #- https://www.gnu.org/software/make/manual/html_node/Multi_002dLine.html
 #- macOS doesn't support "=" at the end of "define FOO": https://stackoverflow.com/questions/13260396/gnu-make-3-81-eval-function-not-working
 define CONNECT_TO_NETWORK
-	$(MKDIR_COMMAND) build/data/shared_$(1)_$(NODE_ID)
+  scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \
 		--base-metrics-port $$(($(BASE_METRICS_PORT) + $(NODE_ID))) \
 		--config-file "build/data/shared_$(1)_$(NODE_ID)/prometheus.yml"
 
-	[ "$(2)" == "FastSync" ] && { export CHECKPOINT_PARAMS="--finalized-checkpoint-state=vendor/eth2-testnets/shared/$(1)/recent-finalized-state.ssz \
+	[ "$(3)" == "FastSync" ] && { export CHECKPOINT_PARAMS="--finalized-checkpoint-state=vendor/eth2-testnets/shared/$(1)/recent-finalized-state.ssz \
 																													--finalized-checkpoint-block=vendor/eth2-testnets/shared/$(1)/recent-finalized-block.ssz" ; }; \
-	$(CPU_LIMIT_CMD) build/beacon_node \
+	$(CPU_LIMIT_CMD) build/$(2) \
 		--network=$(1) \
 		--log-level="$(LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
@@ -207,14 +204,14 @@ define CONNECT_TO_NETWORK
 endef
 
 define CONNECT_TO_NETWORK_IN_DEV_MODE
-	$(MKDIR_COMMAND) build/data/shared_$(1)_$(NODE_ID)
+  scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \
 		--base-metrics-port $$(($(BASE_METRICS_PORT) + $(NODE_ID))) \
 		--config-file "build/data/shared_$(1)_$(NODE_ID)/prometheus.yml"
 
-	$(CPU_LIMIT_CMD) build/beacon_node \
+	$(CPU_LIMIT_CMD) build/$(2) \
 		--network=$(1) \
 		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
@@ -223,14 +220,15 @@ endef
 
 define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 	# if launching a VC as well - send the BN looking nowhere for validators/secrets
-	$(MKDIR_COMMAND) build/data/shared_$(1)_$(NODE_ID)/empty_dummy_folder
+	scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
+	scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)/empty_dummy_folder
 
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \
 		--base-metrics-port $$(($(BASE_METRICS_PORT) + $(NODE_ID))) \
 		--config-file "build/data/shared_$(1)_$(NODE_ID)/prometheus.yml"
 
-	$(CPU_LIMIT_CMD) build/beacon_node \
+	$(CPU_LIMIT_CMD) build/$(2) \
 		--network=$(1) \
 		--log-level="$(LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
@@ -285,27 +283,27 @@ endef
 ### medalla
 ###
 # https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
-medalla: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK,medalla)
+medalla: | medalla_beacon_node signing_process
+	$(call CONNECT_TO_NETWORK,medalla,medalla_beacon_node)
 
-medalla-vc: | beacon_node signing_process validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,medalla)
+medalla-vc: | medalla_beacon_node signing_process validator_client
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,medalla,medalla_beacon_node)
 
-medalla-fast-sync: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK,medalla,FastSync)
+medalla-fast-sync: | medalla_beacon_node signing_process
+	$(call CONNECT_TO_NETWORK,medalla,medalla_beacon_node,FastSync)
 
 ifneq ($(LOG_LEVEL), TRACE)
 medalla-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
-medalla-dev: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,medalla)
+medalla-dev: | medalla_beacon_node signing_process
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,medalla,medalla_beacon_node)
 endif
 
-medalla-deposit-data: | beacon_node signing_process deposit_contract
+medalla-deposit-data: | medalla_beacon_node signing_process deposit_contract
 	$(call MAKE_DEPOSIT_DATA,medalla)
 
-medalla-deposit: | beacon_node signing_process deposit_contract
+medalla-deposit: | medalla_beacon_node signing_process deposit_contract
 	$(call MAKE_DEPOSIT,medalla)
 
 clean-medalla:
@@ -315,17 +313,17 @@ clean-medalla:
 ### zinken
 ###
 zinken: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK,zinken)
+	$(call CONNECT_TO_NETWORK,zinken,beacon_node)
 
 zinken-vc: | beacon_node signing_process validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,zinken)
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,zinken,beacon_node)
 
 ifneq ($(LOG_LEVEL), TRACE)
 zinken-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
 zinken-dev: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,zinken)
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,zinken,beacon_node)
 endif
 
 zinken-deposit-data: | beacon_node signing_process deposit_contract
@@ -348,17 +346,17 @@ clean-spadina:
 ### attacknet-beta1-mc-0
 ###
 attacknet-beta1-mc-0: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK,attacknet-beta1-mc-0)
+	$(call CONNECT_TO_NETWORK,attacknet-beta1-mc-0,beacon_node)
 
 attacknet-beta1-mc-0-vc: | beacon_node signing_process validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,attacknet-beta1-mc-0)
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,attacknet-beta1-mc-0,beacon_node)
 
 ifneq ($(LOG_LEVEL), TRACE)
 attacknet-beta1-mc-0-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
 attacknet-beta1-mc-0-dev: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,attacknet-beta1-mc-0)
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,attacknet-beta1-mc-0,beacon_node)
 endif
 
 attacknet-beta1-mc-0-deposit-data: | beacon_node signing_process deposit_contract
@@ -419,5 +417,14 @@ publish-book: | book auditors-book
 	cd .. && \
 	git worktree remove -f tmp-book && \
 	rm -rf tmp-book
+
+#- we rebuild everything inside the container, so we need to clean up afterwards
+dist:
+	docker rm nimbus-eth2-dist $(HANDLE_OUTPUT) || true
+	cd docker/dist && \
+		DOCKER_BUILDKIT=1 docker build -t nimbus-eth2-dist --progress=plain --build-arg USER_ID=$$(id -u) --build-arg GROUP_ID=$$(id -g) . && \
+		docker run --rm --name nimbus-eth2-dist -v $(CURDIR):/home/user/nimbus-eth2 nimbus-eth2-dist
+	ls -l dist
+	$(MAKE) clean
 
 endif # "variables.mk" was not included

@@ -62,7 +62,7 @@ func get_epoch_validator_count(state: BeaconState): int64 {.nbench.} =
        validator.withdrawable_epoch > get_current_epoch(state):
       result += 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature*(
     state: BeaconState, signed_block: SomeSignedBeaconBlock): bool {.nbench.} =
   let
@@ -82,7 +82,7 @@ proc verify_block_signature*(
 
   true
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   let state_root = hash_tree_root(state)
@@ -109,7 +109,7 @@ type
 # Hashed-state transition functions
 # ---------------------------------------------------------------
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func process_slot*(state: var HashedBeaconState) {.nbench.} =
   # Cache state root
   let previous_slot_state_root = state.root
@@ -133,14 +133,12 @@ func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
   for i in start_slot ..< end_slot:
     cache.beacon_proposer_indices.del i
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-proc advance_slot*(
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+proc advance_slot(
     state: var HashedBeaconState, updateFlags: UpdateFlags,
     epochCache: var StateCache) {.nbench.} =
-  # Special case version of process_slots that moves one slot at a time - can
-  # run faster if the state root is known already (for example when replaying
-  # existing slots)
   process_slot(state)
+
   let is_epoch_transition = (state.data.slot + 1).isEpoch
   if is_epoch_transition:
     # Note: Genesis epoch = 0, no need to test if before Genesis
@@ -153,16 +151,13 @@ proc advance_slot*(
   if is_epoch_transition:
     beacon_current_validators.set(get_epoch_validator_count(state.data))
 
+  # The root must be updated on every slot update, or the next `process_slot`
+  # will be incorrect
   state.root = hash_tree_root(state.data)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc process_slots*(state: var HashedBeaconState, slot: Slot,
     cache: var StateCache, updateFlags: UpdateFlags = {}): bool {.nbench.} =
-  # TODO this function is not _really_ necessary: when replaying states, we
-  #      advance slots one by one before calling `state_transition` - this way,
-  #      we avoid the state root calculation - as such, instead of advancing
-  #      slots "automatically" in `state_transition`, perhaps it would be better
-  #      to keep a pre-condition that state must be at the right slot already?
   if not (state.data.slot < slot):
     if slotProcessed notin updateFlags or state.data.slot != slot:
       notice(
@@ -250,7 +245,7 @@ proc state_transition*(
   var cache = StateCache()
   state_transition(preset, state, signedBlock, cache, flags, rollback)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/validator.md#preparing-for-a-beaconblock
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#preparing-for-a-beaconblock
 # TODO There's more to do here - the spec has helpers that deal set up some of
 #      the fields in here!
 proc makeBeaconBlock*(

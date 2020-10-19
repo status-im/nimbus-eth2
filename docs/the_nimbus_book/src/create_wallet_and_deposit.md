@@ -27,7 +27,7 @@ You need to have installed Nimbus' [external dependencies](./install.md#external
 
 ## 1. Create  a wallet
 
-Run the following command from the the home directory of the `nim-beacon-chain` repository to launch the command line interface app:
+Run the following command from the the home directory of the `nimbus-eth2` repository to launch the command line interface app:
 
 ```
 build/beacon_node wallets create
@@ -152,7 +152,7 @@ The following options are available:
 
 <img src="https://storage.googleapis.com/ethereum-hackmd/upload_6db4e4c3715a0a80db53bd5f26eb1ffc.png" width="500">
 
-*Remember you can find your `deposit_data` JSON file in the `nim-beacon-chain/validators` directory*
+*Remember you can find your `deposit_data` JSON file in the `nimbus-eth2/validators` directory*
 
 </br>
 

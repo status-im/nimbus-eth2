@@ -6,12 +6,12 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  algorithm, strformat, stats, times, tables, std/monotimes, stew/endians2,
+  os, algorithm, strformat, stats, times, tables, std/monotimes, stew/endians2,
   testutils/markdown_reports, chronicles,
   ../beacon_chain/[beacon_chain_db, extras, ssz],
   ../beacon_chain/spec/[digest, beaconstate, datatypes, presets],
   ../beacon_chain/block_pools/chain_dag,
-  eth/db/kvstore,
+  eth/db/[kvstore, kvstore_sqlite3],
   testblockutil
 
 type
@@ -98,7 +98,7 @@ template timedTest*(name, body) =
   testTimes.add (f, name)
 
 proc makeTestDB*(tailState: BeaconState, tailBlock: SignedBeaconBlock): BeaconChainDB =
-  result = init(BeaconChainDB, kvStore MemStoreRef.init())
+  result = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)
   ChainDAGRef.preInit(result, tailState, tailState, tailBlock)
 
 proc makeTestDB*(validators: Natural): BeaconChainDB =

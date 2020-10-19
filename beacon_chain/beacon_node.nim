@@ -69,6 +69,27 @@ func enrForkIdFromState(state: BeaconState): ENRForkID =
     next_fork_version: forkVer,
     next_fork_epoch: FAR_FUTURE_EPOCH)
 
+proc startMainchainMonitor(db: BeaconChainDB,
+                           conf: BeaconNodeConf): Future[MainchainMonitor] {.async.} =
+  let mainchainMonitorRes = await MainchainMonitor.init(
+    db,
+    conf.runtimePreset,
+    conf.web3Url,
+    conf.depositContractAddress.get,
+    conf.depositContractDeployedAt.get)
+
+  result = if mainchainMonitorRes.isOk:
+    mainchainMonitorRes.get
+  else:
+    fatal "Failed to start Eth1 monitor",
+          reason = mainchainMonitorRes.error,
+          web3Url = conf.web3Url,
+          depositContractAddress = conf.depositContractAddress.get,
+          depositContractDeployedAt = conf.depositContractDeployedAt.get
+    quit 1
+
+  result.start()
+
 proc init*(T: type BeaconNode,
            rng: ref BrHmacDrbgContext,
            conf: BeaconNodeConf,
@@ -77,7 +98,7 @@ proc init*(T: type BeaconNode,
     netKeys = getPersistentNetKeys(rng[], conf)
     nickname = if conf.nodeName == "auto": shortForm(netKeys)
                else: conf.nodeName
-    db = BeaconChainDB.init(kvStore SqStoreRef.init(conf.databaseDir, "nbc").tryGet())
+    db = BeaconChainDB.init(conf.runtimePreset, conf.databaseDir)
 
   var
     mainchainMonitor: MainchainMonitor
@@ -139,29 +160,9 @@ proc init*(T: type BeaconNode,
         fatal "Deposit contract deployment block not specified"
         quit 1
 
-      let web3 = web3Provider(conf.web3Url)
-      let deployedAtAsHash =
-        if conf.depositContractDeployedAt.get.startsWith "0x":
-          try: BlockHash.fromHex conf.depositContractDeployedAt.get
-          except ValueError:
-            fatal "Invalid hex value specified for deposit-contract-block"
-            quit 1
-        else:
-          let blockNum = try: parseBiggestUInt conf.depositContractDeployedAt.get
-                         except ValueError:
-                           fatal "Invalid nummeric value for deposit-contract-block"
-                           quit 1
-          await getEth1BlockHash(conf.web3Url, blockId blockNum)
-
       # TODO Could move this to a separate "GenesisMonitor" process or task
       #      that would do only this - see Paul's proposal for this.
-      mainchainMonitor = MainchainMonitor.init(
-        conf.runtimePreset,
-        web3,
-        conf.depositContractAddress.get,
-        Eth1Data(block_hash: deployedAtAsHash.asEth2Digest, deposit_count: 0))
-
-      mainchainMonitor.start()
+      mainchainMonitor = await startMainchainMonitor(db, conf)
 
       genesisState = await mainchainMonitor.waitGenesis()
       if bnStatus == BeaconNodeStatus.Stopping:
@@ -231,15 +232,11 @@ proc init*(T: type BeaconNode,
 
   if mainchainMonitor.isNil and
      conf.web3Url.len > 0 and
-     conf.depositContractAddress.isSome:
-    mainchainMonitor = MainchainMonitor.init(
-      conf.runtimePreset,
-      web3Provider(conf.web3Url),
-      conf.depositContractAddress.get,
-      chainDag.headState.data.data.eth1_data)
-    # TODO if we don't have any validators attached, we don't need a mainchain
-    #      monitor
-    mainchainMonitor.start()
+     conf.depositContractAddress.isSome and
+     conf.depositContractDeployedAt.isSome:
+    # TODO if we don't have any validators attached,
+    #      we don't need a mainchain monitor
+    mainchainMonitor = await startMainchainMonitor(db, conf)
 
   let rpcServer = if conf.rpcEnabled:
     RpcServer.init(conf.rpcAddress, conf.rpcPort)
@@ -324,14 +321,14 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
 proc installAttestationSubnetHandlers(node: BeaconNode, subnets: set[uint8]) =
   var attestationSubscriptions: seq[Future[void]] = @[]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
   for subnet in subnets:
     attestationSubscriptions.add(node.network.subscribe(
       getAttestationTopic(node.forkDigest, subnet)))
 
   waitFor allFutures(attestationSubscriptions)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#metadata
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#metadata
   node.network.metadata.seq_number += 1
   for subnet in subnets:
     node.network.metadata.attnets[subnet] = true
@@ -373,7 +370,7 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) =
 
     waitFor allFutures(unsubscriptions)
 
-    # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#metadata
+    # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#metadata
     # The race condition window is smaller by placing the fast, local, and
     # synchronous operation after a variable-latency, asynchronous action.
     node.network.metadata.seq_number += 1
@@ -397,7 +394,7 @@ proc getAttestationHandlers(node: BeaconNode): Future[void] =
     initialSubnets.incl i
   node.installAttestationSubnetHandlers(initialSubnets)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   let wallEpoch =  node.beaconClock.now().slotOrZero().epoch
   node.attestationSubnets.stabilitySubnet = rand(ATTESTATION_SUBNET_COUNT - 1).uint64
   node.attestationSubnets.stabilitySubnetExpirationEpoch =
@@ -719,44 +716,6 @@ proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
       raise newException(CatchableError,
        "Please specify one of " & astToStr(x) & " or " & astToStr(y))
 
-  template jsonResult(x: auto): auto =
-    StringOfJson(Json.encode(x))
-
-  rpcServer.rpc("getBeaconBlock") do (slot: Option[Slot],
-                                      root: Option[Eth2Digest]) -> StringOfJson:
-    requireOneOf(slot, root)
-    var blockHash: Eth2Digest
-    if root.isSome:
-      blockHash = root.get
-    else:
-      let foundRef = node.chainDag.getBlockByPreciseSlot(slot.get)
-      if foundRef != nil:
-        blockHash = foundRef.root
-      else:
-        return StringOfJson("null")
-
-    let dbBlock = node.db.getBlock(blockHash)
-    if dbBlock.isSome:
-      return jsonResult(dbBlock.get)
-    else:
-      return StringOfJson("null")
-
-  rpcServer.rpc("getBeaconState") do (slot: Option[Slot],
-                                      root: Option[Eth2Digest]) -> StringOfJson:
-    requireOneOf(slot, root)
-    if slot.isSome:
-      # TODO sanity check slot so that it doesn't cause excessive rewinding
-      let blk = node.chainDag.head.atSlot(slot.get)
-      node.chainDag.withState(node.chainDag.tmpState, blk):
-        return jsonResult(state)
-    else:
-      let tmp = BeaconStateRef() # TODO use tmpState - but load the entire StateData!
-      let state = node.db.getState(root.get, tmp[], noRollback)
-      if state:
-        return jsonResult(tmp[])
-      else:
-        return StringOfJson("null")
-
   rpcServer.rpc("getNetworkPeerId") do () -> string:
     return $publicKey(node.network)
 
@@ -810,7 +769,7 @@ proc installRpcHandlers(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.installDebugApiHandlers(node)
 
 proc installMessageValidators(node: BeaconNode) =
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # These validators stay around the whole time, regardless of which specific
   # subnets are subscribed to during any given epoch.
   for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
@@ -1107,6 +1066,21 @@ programMain:
     quit QuitFailure
 
   setupLogging(config.logLevel, config.logFile)
+
+  ## This Ctrl+C handler exits the program in non-graceful way.
+  ## It's responsible for handling Ctrl+C in sub-commands such
+  ## as `wallets *` and `deposits *`. In a regular beacon node
+  ## run, it will be overwritten later with a different handler
+  ## performing a graceful exit.
+  proc exitImmediatelyOnCtrlC() {.noconv.} =
+    when defined(windows):
+      # workaround for https://github.com/nim-lang/Nim/issues/4057
+      setupForeignThreadGc()
+    echo "" # If we interrupt during an interactive prompt, this
+            # will move the cursor to the next line
+    notice "Shutting down after having received SIGINT"
+    quit 0
+  setControlCHook(exitImmediatelyOnCtrlC)
 
   if config.eth2Network.isSome:
     let metadata = getMetadataForNetwork(config.eth2Network.get)

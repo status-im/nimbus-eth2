@@ -63,13 +63,8 @@ proc get_v1_config_fork_schedule(): seq[tuple[epoch: uint64, version: Version]]
 proc get_v1_debug_beacon_states_stateId(stateId: string): BeaconState
 
 
-# TODO: delete old stuff
 
-# https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/basic.md
-#
 proc getBeaconHead(): Slot
-proc getBeaconBlock(slot = none(Slot), root = none(Eth2Digest)): BeaconBlock
-proc getBeaconState(slot = none(Slot), root = none(Eth2Digest)): BeaconState
 proc getNetworkPeerId()
 proc getNetworkPeers()
 proc getNetworkEnr()

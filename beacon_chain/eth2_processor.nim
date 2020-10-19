@@ -301,7 +301,7 @@ proc attestationValidator*(
 
   # Potential under/overflows are fine; would just create odd metrics and logs
   let delay = wallTime - attestation.data.slot.toBeaconTime
-  trace "Attestation received", delay
+  debug "Attestation received", delay
   let v = self.attestationPool[].validateAttestation(
       attestation, wallTime, committeeIndex)
   if v.isErr():

@@ -31,8 +31,8 @@ Before we start, we have to obtain 32 ETH on the Goerli testnet (later on, we'll
 - **_Remember to replace `make` with `mingw32-make` if using Windows._**
 
 ```bash
-git clone https://github.com/status-im/nim-beacon-chain
-cd nim-beacon-chain
+git clone https://github.com/status-im/nimbus-eth2
+cd nimbus-eth2
 git checkout devel
 git pull
 make update

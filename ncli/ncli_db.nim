@@ -1,13 +1,13 @@
-  import
-  confutils, stats, chronicles, strformat, tables,
-  stew/byteutils,
+import
+  os, stats, strformat, tables,
+  chronicles, confutils, stew/byteutils, eth/db/kvstore_sqlite3,
   ../beacon_chain/network_metadata,
   ../beacon_chain/[beacon_chain_db, extras],
   ../beacon_chain/block_pools/[chain_dag],
   ../beacon_chain/spec/[crypto, datatypes, digest, helpers,
                         state_transition, presets],
-  ../beacon_chain/sszdump, ../research/simutils,
-  eth/db/[kvstore, kvstore_sqlite3]
+  ../beacon_chain/[ssz, sszdump],
+  ../research/simutils
 
 type Timers = enum
   tInit = "Initialize DB"
@@ -85,10 +85,8 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
 
   echo "Opening database..."
   let
-    db = BeaconChainDB.init(
-      kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
-    dbBenchmark = BeaconChainDB.init(
-      kvStore SqStoreRef.init(".", "benchmark").tryGet())
+    db = BeaconChainDB.init(runtimePreset, conf.databaseDir.string)
+    dbBenchmark = BeaconChainDB.init(runtimePreset, "benchmark")
   defer: db.close()
 
   if not ChainDAGRef.isInitialized(db):
@@ -139,10 +137,8 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
 
   printTimers(false, timers)
 
-proc cmdDumpState(conf: DbConf) =
-  let
-    db = BeaconChainDB.init(
-      kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
+proc cmdDumpState(conf: DbConf, preset: RuntimePreset) =
+  let db = BeaconChainDB.init(preset, conf.databaseDir.string)
   defer: db.close()
 
   for stateRoot in conf.stateRoot:
@@ -156,10 +152,8 @@ proc cmdDumpState(conf: DbConf) =
     except CatchableError as e:
       echo "Couldn't load ", stateRoot, ": ", e.msg
 
-proc cmdDumpBlock(conf: DbConf) =
-  let
-    db = BeaconChainDB.init(
-      kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
+proc cmdDumpBlock(conf: DbConf, preset: RuntimePreset) =
+  let db = BeaconChainDB.init(preset, conf.databaseDir.string)
   defer: db.close()
 
   for blockRoot in conf.blockRootx:
@@ -243,12 +237,11 @@ proc copyPrunedDatabase(
     copyDb.putHeadBlock(headBlock.get)
     copyDb.putTailBlock(tailBlock.get)
 
-proc cmdPrune(conf: DbConf) =
+proc cmdPrune(conf: DbConf, preset: RuntimePreset) =
   let
-    db = BeaconChainDB.init(
-      kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
-    copyDb = BeaconChainDB.init(
-      kvStore SqStoreRef.init(conf.databaseDir.string, "nbc_pruned").tryGet())
+    db = BeaconChainDB.init(preset, conf.databaseDir.string)
+    # TODO: add the destination as CLI paramter
+    copyDb = BeaconChainDB.init(preset, "pruned_db")
 
   defer:
     db.close()
@@ -256,11 +249,9 @@ proc cmdPrune(conf: DbConf) =
 
   db.copyPrunedDatabase(copyDb, conf.dryRun, conf.verbose, conf.keepOldStates)
 
-proc cmdRewindState(conf: DbConf, runtimePreset: RuntimePreset) =
+proc cmdRewindState(conf: DbConf, preset: RuntimePreset) =
   echo "Opening database..."
-  let
-    db = BeaconChainDB.init(
-      kvStore SqStoreRef.init(conf.databaseDir.string, "nbc").tryGet())
+  let db = BeaconChainDB.init(preset, conf.databaseDir.string)
   defer: db.close()
 
   if not ChainDAGRef.isInitialized(db):
@@ -268,7 +259,7 @@ proc cmdRewindState(conf: DbConf, runtimePreset: RuntimePreset) =
     quit 1
 
   echo "Initializing block pool..."
-  let dag = init(ChainDAGRef, runtimePreset, db)
+  let dag = init(ChainDAGRef, preset, db)
 
   let blckRef = dag.getRef(fromHex(Eth2Digest, conf.blockRoot))
   if blckRef == nil:
@@ -288,10 +279,10 @@ when isMainModule:
   of bench:
     cmdBench(conf, runtimePreset)
   of dumpState:
-    cmdDumpState(conf)
+    cmdDumpState(conf, runtimePreset)
   of dumpBlock:
-    cmdDumpBlock(conf)
+    cmdDumpBlock(conf, runtimePreset)
   of pruneDatabase:
-    cmdPrune(conf)
+    cmdPrune(conf, runtimePreset)
   of rewindState:
     cmdRewindState(conf, runtimePreset)

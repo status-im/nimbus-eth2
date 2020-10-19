@@ -22,7 +22,7 @@ logScope:
 const
   MAXIMUM_GOSSIP_CLOCK_DISPARITY = 500.millis
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#aggregation-selection
 func is_aggregator*(committee_len: uint64, slot_signature: ValidatorSig): bool =
   let
     modulo = max(1'u64, committee_len div TARGET_AGGREGATORS_PER_COMMITTEE)
@@ -47,7 +47,7 @@ proc aggregate_attestations*(
 
   # TODO for testing purposes, refactor this into the condition check
   # and just calculation
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/validator.md#aggregation-selection
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#aggregation-selection
   if not is_aggregator(state, slot, index, slot_signature, cache):
     return none(AggregateAndProof)
 
@@ -55,8 +55,8 @@ proc aggregate_attestations*(
   if maybe_slot_attestation.isNone:
     return none(AggregateAndProof)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/validator.md#construct-aggregate
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/validator.md#aggregateandproof
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#construct-aggregate
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#aggregateandproof
   some(AggregateAndProof(
     aggregator_index: validatorIndex.uint64,
     aggregate: maybe_slot_attestation.get,
@@ -128,7 +128,7 @@ func check_aggregation_count(
   var onesCount = 0
   # TODO a cleverer algorithm, along the lines of countOnes() in nim-stew
   # But that belongs in nim-stew, since it'd break abstraction layers, to
-  # use details of its representation from nim-beacon-chain.
+  # use details of its representation from nimbus-eth2.
 
   for aggregation_bit in attestation.aggregation_bits:
     if not aggregation_bit:
@@ -261,7 +261,7 @@ proc validateAttestation*(
 
   ok(attesting_indices)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAggregate*(
     pool: var AttestationPool,
     signedAggregateAndProof: SignedAggregateAndProof, wallTime: BeaconTime):

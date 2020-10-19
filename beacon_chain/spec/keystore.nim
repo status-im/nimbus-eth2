@@ -65,7 +65,7 @@ type
   ScryptSalt* = distinct seq[byte]
 
   ScryptParams* = object
-    dklen: int
+    dklen: uint64
     n, p, r: int
     salt: ScryptSalt
 
@@ -75,10 +75,15 @@ type
     HmacSha256 = "hmac-sha256"
 
   Pbkdf2Params* = object
-    dklen*: int
-    c*: int
+    dklen*: uint64
+    c*: uint64
     prf*: PrfKind
     salt*: Pbkdf2Salt
+
+  DecryptionStatus* = enum
+    Success = "Success"
+    InvalidPassword = "Invalid password"
+    InvalidKeystore = "Invalid keystore"
 
   # https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md#specification
   Wallet* = object
@@ -146,15 +151,15 @@ const
   keyLen = 32
 
   scryptParams = ScryptParams(
-    dklen: keyLen,
+    dklen: uint64 keyLen,
     n: 2^18,
     p: 1,
     r: 8
   )
 
   pbkdf2Params = Pbkdf2Params(
-    dklen: keyLen,
-    c: 2^18,
+    dklen: uint64 keyLen,
+    c: uint64(2^18),
     prf: HmacSha256
   )
 
@@ -499,50 +504,75 @@ func scrypt(password: openArray[char], salt: openArray[byte],
   var b = newSeq[byte](bLen)
   discard scrypt(password, salt, N, r, p, xyv, b, result)
 
-proc decryptCryptoField*(crypto: Crypto, password: KeystorePass): seq[byte] =
-  ## Returns 0 bytes if the supplied password is incorrect
+func areValid(params: Pbkdf2Params): bool =
+  # https://www.ietf.org/rfc/rfc2898.txt
+  if params.c == 0 or params.dkLen == 0 or params.salt.bytes.len == 0:
+    return false
+
+  let hLen = case params.prf
+    of HmacSha256: 256 / 8
+
+  params.dklen <= high(uint32).uint64 * hLen.uint64
+
+func areValid(params: ScryptParams): bool =
+  params.dklen == scryptParams.dklen and
+  params.n == scryptParams.n and
+  params.r == scryptParams.r and
+  params.p == scryptParams.p and
+  params.salt.bytes.len > 0
+
+proc decryptCryptoField*(crypto: Crypto,
+                         password: KeystorePass,
+                         outSecret: var seq[byte]): DecryptionStatus =
+  if crypto.cipher.message.bytes.len == 0:
+    return InvalidKeystore
 
   let decKey = case crypto.kdf.function
     of kdfPbkdf2:
       template params: auto = crypto.kdf.pbkdf2Params
-      sha256.pbkdf2(password.str, params.salt.bytes, params.c, params.dklen)
+      if not params.areValid or params.c > high(int).uint64:
+        return InvalidKeystore
+      sha256.pbkdf2(password.str,
+                    params.salt.bytes,
+                    int params.c,
+                    int params.dklen)
     of kdfScrypt:
       template params: auto = crypto.kdf.scryptParams
-      if params.dklen != scryptParams.dklen or
-         params.n != scryptParams.n or
-         params.r != scryptParams.r or
-         params.p != scryptParams.p:
-        # TODO This should be reported in a better way
-        return
+      if not params.areValid:
+        return InvalidKeystore
       @(scrypt(password.str,
                params.salt.bytes,
                scryptParams.n,
                scryptParams.r,
                scryptParams.p,
-               scryptParams.dklen))
+               int scryptParams.dklen))
 
   let derivedChecksum = shaChecksum(decKey.toOpenArray(16, 31),
                                     crypto.cipher.message.bytes)
   if derivedChecksum != crypto.checksum.message:
-    return
+    return InvalidPassword
 
-  var
-    aesCipher: CTR[aes128]
-    secret = newSeq[byte](crypto.cipher.message.bytes.len)
+  var aesCipher: CTR[aes128]
+  outSecret.setLen(crypto.cipher.message.bytes.len)
 
   aesCipher.init(decKey.toOpenArray(0, 15), crypto.cipher.params.iv.bytes)
-  aesCipher.decrypt(crypto.cipher.message.bytes, secret)
+  aesCipher.decrypt(crypto.cipher.message.bytes, outSecret)
   aesCipher.clear()
 
-  return secret
+  return Success
 
 func cstringToStr(v: cstring): string = $v
 
 proc decryptKeystore*(keystore: Keystore,
                       password: KeystorePass): KsResult[ValidatorPrivKey] =
-  let decryptedBytes = decryptCryptoField(keystore.crypto, password)
-  if decryptedBytes.len > 0:
-    return ValidatorPrivKey.fromRaw(decryptedBytes).mapErr(cstringToStr)
+  var secret: seq[byte]
+  defer: burnMem(secret)
+  let status = decryptCryptoField(keystore.crypto, password, secret)
+  case status
+  of Success:
+    ValidatorPrivKey.fromRaw(secret).mapErr(cstringToStr)
+  else:
+    err $status
 
 proc decryptKeystore*(keystore: JsonString,
                       password: KeystorePass): KsResult[ValidatorPrivKey] =
@@ -567,15 +597,18 @@ proc readValue*(reader: var JsonReader, value: var lcrypto.PublicKey) {.
 
 proc decryptNetKeystore*(nkeystore: NetKeystore,
                          password: KeystorePass): KsResult[lcrypto.PrivateKey] =
-  let decryptedBytes = decryptCryptoField(nkeystore.crypto, password)
-  if len(decryptedBytes) > 0:
-    let res = init(lcrypto.PrivateKey, decryptedBytes)
-    if res.isOk():
-      ok(res.get())
+  var secret: seq[byte]
+  defer: burnMem(secret)
+  let status = decryptCryptoField(nkeystore.crypto, password, secret)
+  case status
+  of Success:
+    let res = lcrypto.PrivateKey.init(secret)
+    if res.isOk:
+      ok res.get
     else:
-      err("Incorrect network private key")
+      err "Invalid key"
   else:
-    err("Empty network private key")
+    err $status
 
 proc decryptNetKeystore*(nkeystore: JsonString,
                          password: KeystorePass): KsResult[lcrypto.PrivateKey] =
@@ -611,8 +644,8 @@ proc createCryptoField(kdfKind: KdfKind,
     of kdfPbkdf2:
       decKey = sha256.pbkdf2(password.str,
                              kdfSalt,
-                             pbkdf2Params.c,
-                             pbkdf2Params.dklen)
+                             int pbkdf2Params.c,
+                             int pbkdf2Params.dklen)
       var params = pbkdf2Params
       params.salt = Pbkdf2Salt kdfSalt
       Kdf(function: kdfPbkdf2, pbkdf2Params: params, message: "")

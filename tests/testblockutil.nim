@@ -95,7 +95,7 @@ proc addTestBlock*(
     graffiti = default(GraffitiBytes),
     flags: set[UpdateFlag] = {}): SignedBeaconBlock =
   # Create and add a block to state - state will advance by one slot!
-  advance_slot(state, flags, cache)
+  doAssert process_slots(state, state.data.slot + 1, cache, flags)
 
   let
     proposer_index = get_beacon_proposer_index(state.data, cache)

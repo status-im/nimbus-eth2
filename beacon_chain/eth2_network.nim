@@ -102,6 +102,8 @@ type
     maxInactivityAllowed*: Duration
     netThroughput: AverageThroughput
     score*: int
+    requestQuota*: float
+    lastReqTime*: Moment
     connections*: int
     disconnectedFut: Future[void]
 
@@ -164,7 +166,7 @@ type
   MounterProc* = proc(network: Eth2Node) {.gcsafe.}
   MessageContentPrinter* = proc(msg: pointer): string {.gcsafe.}
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#goodbye
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#goodbye
   DisconnectionReason* = enum
     # might see other values on the wire!
     ClientShutDown = 1
@@ -200,6 +202,8 @@ type
     else:
       discard
 
+  InvalidInputsError* = object of CatchableError
+
   NetRes*[T] = Result[T, Eth2NetworkingError]
     ## This is type returned from all network requests
 
@@ -216,6 +220,10 @@ const
     ## Score after which peer will be kicked
   PeerScoreHighLimit* = 1000
     ## Max value of peer's score
+  PeerScoreInvalidRequest* = -500
+    ## This peer is sending malformed or nonsensical data
+  PeerScoreFlooder* = -250
+    ## This peer is sending too many expensive requests
 
   ConcurrentConnections* = 10
     ## Maximum number of active concurrent connection requests.
@@ -367,6 +375,28 @@ proc `<`*(a, b: Peer): bool =
     (a.netThroughput.average < b.netThroughput.average)
   else:
     false
+
+const
+  maxRequestQuota = 1000000.0
+  fullReplenishTime = 5.seconds
+  replenishRate = (maxRequestQuota / fullReplenishTime.nanoseconds.float)
+
+proc updateRequestQuota*(peer: Peer, reqCost: float) =
+  let
+    currentTime = now(chronos.Moment)
+    nanosSinceLastReq = nanoseconds(currentTime - peer.lastReqTime)
+    replenishedQuota = peer.requestQuota + nanosSinceLastReq.float * replenishRate
+
+  peer.lastReqTime = currentTime
+  peer.requestQuota = min(replenishedQuota, maxRequestQuota) - reqCost
+
+template awaitNonNegativeRequestQuota*(peer: Peer) =
+  let quota = peer.requestQuota
+  if quota < 0:
+    await sleepAsync(nanoseconds(int((-quota) / replenishRate)))
+
+func allowedOpsPerSecondCost*(n: int): float =
+  (replenishRate * 1000000000'f / n.float)
 
 proc isSeen*(network: ETh2Node, peerId: PeerID): bool =
   ## Returns ``true`` if ``peerId`` present in SeenTable and time period is not
@@ -617,15 +647,15 @@ proc handleIncomingStream(network: Eth2Node,
   #   defer: setLogLevel(LogLevel.DEBUG)
   #   trace "incoming " & `msgNameLit` & " conn"
 
+  let peer = peerFromStream(network, conn)
   try:
-    let peer = peerFromStream(network, conn)
-
     # TODO peer connection setup is broken, update info in some better place
     #      whenever race is fix:
-    #      https://github.com/status-im/nim-beacon-chain/issues/1157
+    #      https://github.com/status-im/nimbus-eth2/issues/1157
     peer.info = conn.peerInfo
 
     template returnInvalidRequest(msg: ErrorMsg) =
+      peer.updateScore(PeerScoreInvalidRequest)
       await sendErrorResponse(peer, conn, InvalidRequest, msg)
       return
 
@@ -691,6 +721,10 @@ proc handleIncomingStream(network: Eth2Node,
     try:
       logReceivedMsg(peer, MsgType(msg.get))
       await callUserHandler(MsgType, peer, conn, msg.get)
+    except InvalidInputsError as err:
+      returnInvalidRequest err.msg
+      await sendErrorResponse(peer, conn, ServerError,
+                              ErrorMsg err.msg.toBytes)
     except CatchableError as err:
       await sendErrorResponse(peer, conn, ServerError,
                               ErrorMsg err.msg.toBytes)
@@ -700,6 +734,7 @@ proc handleIncomingStream(network: Eth2Node,
 
   finally:
     await conn.closeWithEOF()
+    discard network.peerPool.checkPeerScore(peer)
 
 proc toPeerAddr*(r: enr.TypedRecord):
     Result[PeerAddr, cstring] {.raises: [Defect].} =
@@ -961,8 +996,18 @@ template publicKey*(node: Eth2Node): keys.PublicKey =
 
 proc startListening*(node: Eth2Node) {.async.} =
   if node.discoveryEnabled:
-    node.discovery.open()
-  node.libp2pTransportLoops = await node.switch.start()
+    try:
+       node.discovery.open()
+    except CatchableError as err:
+      fatal "Failed to start discovery service. UDP port may be already in use"
+      quit 1
+
+  try:
+    node.libp2pTransportLoops = await node.switch.start()
+  except CatchableError:
+    fatal "Failed to start LibP2P transport. TCP port may be already in use"
+    quit 1
+
   await node.pubsub.start()
 
 proc start*(node: Eth2Node) {.async.} =
@@ -1014,6 +1059,7 @@ proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =
   result.network = network
   result.connectionState = Connected
   result.maxInactivityAllowed = 15.minutes # TODO: Read this from the config
+  result.lastReqTime = now(chronos.Moment)
   newSeq result.protocolStates, allProtocols.len
   for i in 0 ..< allProtocols.len:
     let proto = allProtocols[i]
