@@ -86,6 +86,12 @@ proc handleStatus(peer: Peer,
 
 proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) {.gcsafe.}
 
+template checkRateLimits(peer: Peer, request: Eth2NetworkRequest) =
+  if not peer.rateLimits[int(Eth2NetworkRequest.AnyRequest)].checkRate():
+    raise newException(TooManyRequestsError, "Too many requests to node")
+  if not peer.rateLimits[int(request)].checkRate():
+    raise newException(TooManyRequestsError, "Too many requests")
+
 p2pProtocol BeaconSync(version = 1,
                        networkState = BeaconSyncNetworkState,
                        peerState = BeaconSyncPeerState):
@@ -121,6 +127,7 @@ p2pProtocol BeaconSync(version = 1,
               theirStatus: StatusMsg,
               response: SingleChunkResponse[StatusMsg])
     {.async, libp2pProtocol("status", 1).} =
+    peer.checkRateLimits(Eth2NetworkRequest.StatusRequest)
     let ourStatus = peer.networkState.getCurrentStatus()
     trace "Sending status message", peer = peer, status = ourStatus
     await response.send(ourStatus)
@@ -128,10 +135,12 @@ p2pProtocol BeaconSync(version = 1,
 
   proc ping(peer: Peer, value: uint64): uint64
     {.libp2pProtocol("ping", 1).} =
+    peer.checkRateLimits(Eth2NetworkRequest.PingRequest)
     return peer.network.metadata.seq_number
 
   proc getMetadata(peer: Peer): Eth2Metadata
     {.libp2pProtocol("metadata", 1).} =
+    peer.checkRateLimits(Eth2NetworkRequest.GetMetaDataRequest)
     return peer.network.metadata
 
   proc beaconBlocksByRange(
@@ -143,6 +152,7 @@ p2pProtocol BeaconSync(version = 1,
       {.async, libp2pProtocol("beacon_blocks_by_range", 1).} =
     trace "got range request", peer, startSlot,
                                count = reqCount, step = reqStep
+    peer.checkRateLimits(Eth2NetworkRequest.BeaconBlocksByRangeRequest)
     if reqCount > 0'u64 and reqStep > 0'u64:
       var blocks: array[MAX_REQUEST_BLOCKS, BlockRef]
       let
@@ -178,6 +188,7 @@ p2pProtocol BeaconSync(version = 1,
       blockRoots: BlockRootsList,
       response: MultipleChunksResponse[SignedBeaconBlock])
       {.async, libp2pProtocol("beacon_blocks_by_root", 1).} =
+    peer.checkRateLimits(Eth2NetworkRequest.BeaconBlocksByRootRequest)
     if blockRoots.len == 0:
       raise newException(InvalidInputsError, "No blocks requested")
 
@@ -203,6 +214,7 @@ p2pProtocol BeaconSync(version = 1,
   proc goodbye(peer: Peer,
                reason: uint64)
     {.async, libp2pProtocol("goodbye", 1).} =
+    peer.checkRateLimits(Eth2NetworkRequest.GoodbyeRequest)
     debug "Received Goodbye message", reason = disconnectReasonName(reason), peer
 
 proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) =

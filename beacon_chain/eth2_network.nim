@@ -9,7 +9,7 @@ import
   stew/shims/[macros, tables],
   faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
   json_serialization, json_serialization/std/[net, options],
-  chronos, chronicles, metrics,
+  chronos, chronos/ratelimit, chronicles, metrics,
   # TODO: create simpler to use libp2p modules that use re-exports
   libp2p/[switch, standard_setup, peerinfo,
           multiaddress, multicodec, crypto/crypto, crypto/secp,
@@ -105,6 +105,9 @@ type
     requestQuota*: float
     lastReqTime*: Moment
     connections*: int
+    rateLimits*: array[7, RateCounter] # array size should be equal to
+                                       # number of items in `Eth2NetworkRequest`
+                                       # enum type.
     disconnectedFut: Future[void]
 
   PeerAddr* = object
@@ -194,6 +197,15 @@ type
     ZeroSizePrefix
     SizePrefixOverflow
 
+  Eth2NetworkRequest* = enum
+    StatusRequest,
+    GoodbyeRequest,
+    BeaconBlocksByRangeRequest,
+    BeaconBlocksByRootRequest,
+    PingRequest,
+    GetMetaDataRequest,
+    AnyRequest
+
   Eth2NetworkingError = object
     case kind*: Eth2NetworkingErrorKind
     of ReceivedErrorResponse:
@@ -203,6 +215,7 @@ type
       discard
 
   InvalidInputsError* = object of CatchableError
+  TooManyRequestsError* = object of CatchableError
 
   NetRes*[T] = Result[T, Eth2NetworkingError]
     ## This is type returned from all network requests
@@ -244,6 +257,17 @@ const
     ## Period of time for `FaultOnError` error reason.
   SeenTablePenaltyError* = 60.minutes
     ## Period of time for peers which score below or equal to zero.
+
+  RateLimitsTable = [
+    (StatusRequest, 1.seconds, 2'u64),
+    (GoodbyeRequest, 1.seconds, 2'u64),
+    (BeaconBlocksByRangeRequest, 1.seconds, 1'u64),
+    (BeaconBlocksByRootRequest, 1.seconds, 1'u64),
+    (PingRequest, 1.seconds, 5'u64),
+    (GetMetaDataRequest, 1.seconds, 2'u64),
+    (AnyRequest, 1.seconds, 10'u64)
+  ]
+    ## Rate limits for different RPC requests.
 
 template neterr(kindParam: Eth2NetworkingErrorKind): auto =
   err(type(result), Eth2NetworkingError(kind: kindParam))
@@ -725,6 +749,10 @@ proc handleIncomingStream(network: Eth2Node,
       returnInvalidRequest err.msg
       await sendErrorResponse(peer, conn, ServerError,
                               ErrorMsg err.msg.toBytes)
+    except TooManyRequestsError as err:
+      returnInvalidRequest err.msg
+      await sendErrorResponse(peer, conn, ServerError,
+                              ErrorMsg err.msg.toBytes)
     except CatchableError as err:
       await sendErrorResponse(peer, conn, ServerError,
                               ErrorMsg err.msg.toBytes)
@@ -1054,17 +1082,25 @@ proc stop*(node: Eth2Node) {.async.} =
       futureErrors = waitedFutures.filterIt(it.error != nil).mapIt(it.error.msg)
 
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =
-  new result
-  result.info = info
-  result.network = network
-  result.connectionState = Connected
-  result.maxInactivityAllowed = 15.minutes # TODO: Read this from the config
-  result.lastReqTime = now(chronos.Moment)
-  newSeq result.protocolStates, allProtocols.len
-  for i in 0 ..< allProtocols.len:
+  var res = Peer(
+    info: info,
+    network: network,
+    connectionState: Connected,
+    maxInactivityAllowed: 15.minutes, # TODO: Read this from the config
+    lastReqTime: now(chronos.Moment)
+  )
+
+  newSeq res.protocolStates, allProtocols.len
+  for i in 0 ..< len(allProtocols):
     let proto = allProtocols[i]
-    if proto.peerStateInitializer != nil:
-      result.protocolStates[i] = proto.peerStateInitializer(result)
+    if not isNil(proto.peerStateInitializer):
+      res.protocolStates[i] = proto.peerStateInitializer(res)
+
+  for i in 0 ..< len(RateLimitsTable):
+    let counter = RateCounter.init(RateLimitsTable[i][1], RateLimitsTable[i][2])
+    res.rateLimits[int(RateLimitsTable[i][0])] = counter
+
+  res
 
 proc registerMsg(protocol: ProtocolInfo,
                  name: string,
