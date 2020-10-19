@@ -138,7 +138,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + EPOCHS_PER_HISTORICAL_VECTOR                      65536                [Preset: mainnet]   OK
 + EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION             256                  [Preset: mainnet]   OK
 + EPOCHS_PER_SLASHINGS_VECTOR                       8192                 [Preset: mainnet]   OK
-+ ETH1_FOLLOW_DISTANCE                              1024                 [Preset: mainnet]   OK
+  ETH1_FOLLOW_DISTANCE                              1024                 [Preset: mainnet]   Skip
   GENESIS_DELAY                                     172800               [Preset: mainnet]   Skip
   GENESIS_FORK_VERSION                              "0x00000000"         [Preset: mainnet]   Skip
 + HISTORICAL_ROOTS_LIMIT                            16777216             [Preset: mainnet]   OK
@@ -179,7 +179,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + VALIDATOR_REGISTRY_LIMIT                          1099511627776        [Preset: mainnet]   OK
 + WHISTLEBLOWER_REWARD_QUOTIENT                     512                  [Preset: mainnet]   OK
 ```
-OK: 52/60 Fail: 0/60 Skip: 8/60
+OK: 51/60 Fail: 0/60 Skip: 9/60
 ## PeerPool testing suite
 ```diff
 + Access peers by key test                                                                   OK
@@ -285,4 +285,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 155/163 Fail: 0/163 Skip: 8/163
+OK: 154/163 Fail: 0/163 Skip: 9/163

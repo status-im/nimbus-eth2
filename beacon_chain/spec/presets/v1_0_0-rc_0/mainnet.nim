@@ -158,7 +158,9 @@ const
   # Validators
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/configs/mainnet/phase0.yaml#L37
-  ETH1_FOLLOW_DISTANCE* {.intdefine.}: uint64 = 2048 # blocks ~ 8 hours
+
+  # ETH1_FOLLOW_DISTANCE is a runtime preset
+
   TARGET_AGGREGATORS_PER_COMMITTEE*: uint64 = 16 # validators
   RANDOM_SUBNETS_PER_VALIDATOR*: uint64 = 1 # subnet
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64 = 256 # epochs ~ 27 hours

@@ -104,6 +104,7 @@ const IgnoreKeys = [
   "MIN_GENESIS_TIME",
   "GENESIS_FORK_VERSION",
   "GENESIS_DELAY",
+  "ETH1_FOLLOW_DISTANCE",
 
   # TODO remove when possible
   "DEPOSIT_CHAIN_ID",
