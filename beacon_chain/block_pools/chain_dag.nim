@@ -184,8 +184,10 @@ func isAncestorOf*(a, b: BlockRef): bool =
     doAssert b.slot > b.parent.slot
     b = b.parent
 
-func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef =
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/fork-choice.md#get_ancestor
+func get_ancestor*(blck: BlockRef, slot: Slot,
+    maxDepth = 100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int):
+    BlockRef =
+  ## https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/fork-choice.md#get_ancestor
   ## Return the most recent block as of the time at `slot` that not more recent
   ## than `blck` itself
   doAssert not blck.isNil
@@ -193,7 +195,6 @@ func get_ancestor*(blck: BlockRef, slot: Slot): BlockRef =
   var blck = blck
 
   var depth = 0
-  const maxDepth = (100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int)
 
   while true:
     if blck.slot <= slot:

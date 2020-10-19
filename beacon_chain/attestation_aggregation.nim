@@ -291,7 +291,8 @@ proc validateAttestation*(
   doAssert not attestationBlck.isNil
 
   if not (get_ancestor(attestationBlck,
-      compute_start_slot_at_epoch(attestation.data.target.epoch)).root ==
+      compute_start_slot_at_epoch(attestation.data.target.epoch),
+      SLOTS_PER_EPOCH.int).root ==
       attestation.data.target.root):
     const err_str: cstring =
       "validateAttestation: attestation's target block not an ancestor of LMD vote block"
