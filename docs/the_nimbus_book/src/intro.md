@@ -5,7 +5,7 @@ The Nimbus beacon chain is a research implementation of the Beacon Chain – the
 
 - Open sourced at [github.com/status-im/nimbus-eth2](https://github.com/status-im/nimbus-eth2/tree/master)
 
-- Specification described at [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v0.12.3#phase-0)
+- Specification described at [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v1.0.0-rc.0#phase-0)
 
 
 ### Helpful resources

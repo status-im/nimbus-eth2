@@ -61,19 +61,16 @@ task test, "Run all tests":
   # pieces of code get tested regularly. Increased test output verbosity is the
   # price we pay for that.
 
-  # Just the part of minimal config which explicitly differs from mainnet
-  buildAndRunBinary "test_fixture_const_sanity_check", "tests/official/", """-d:const_preset=minimal -d:ETH2_SPEC="v0.12.3" -d:chronicles_sinks="json[file]""""
-
+  # TODO re-add minimal const sanity check for 1.0.0
   buildAndRunBinary "test_fixture_const_sanity_check", "tests/official/", """-d:const_preset=mainnet -d:ETH2_SPEC="v1.0.0" -d:chronicles_sinks="json[file]""""
 
   # Generic SSZ test, doesn't use consensus objects minimal/mainnet presets
   buildAndRunBinary "test_fixture_ssz_generic_types", "tests/official/", """-d:chronicles_log_level=TRACE -d:chronicles_sinks="json[file]""""
 
   # Consensus object SSZ tests
+  # v0.12.3 is reasonably covered by rest of SSZ fixture tests and lack of
+  # non-numeric-constant changes in SSZ types between v0.12.3 and v1.0.0.
   buildAndRunBinary "test_fixture_ssz_consensus_objects", "tests/official/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC="v1.0.0" -d:chronicles_sinks="json[file]""""
-
-  # Consensus object SSZ tests
-  buildAndRunBinary "test_fixture_ssz_consensus_objects", "tests/official/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC="v0.12.3" -d:chronicles_sinks="json[file]""""
 
   # EF tests
   buildAndRunBinary "all_fixtures_require_ssz", "tests/official/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC="v0.12.3" -d:chronicles_sinks="json[file]""""
@@ -92,7 +89,7 @@ task test, "Run all tests":
   buildAndRunBinary "test_block_pool", "tests/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC="v0.12.3" -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
 
   # State and block sims; getting to 4th epoch triggers consensus checks
-  buildAndRunBinary "state_sim", "research/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.3\" -d:chronicles_log_level=INFO", "--validators=3000 --slots=128"
-  # buildAndRunBinary "state_sim", "research/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.3\" -d:BLS_FORCE_BACKEND=miracl -d:chronicles_log_level=INFO", "--validators=3000 --slots=128"
-  buildAndRunBinary "block_sim", "research/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.3\"", "--validators=3000 --slots=128"
-  # buildAndRunBinary "block_sim", "research/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v0.12.3\" -d:BLS_FORCE_BACKEND=miracl", "--validators=3000 --slots=128"
+  buildAndRunBinary "state_sim", "research/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v1.0.0\" -d:chronicles_log_level=INFO", "--validators=3000 --slots=128"
+  # buildAndRunBinary "state_sim", "research/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v1.0.0\" -d:BLS_FORCE_BACKEND=miracl -d:chronicles_log_level=INFO", "--validators=3000 --slots=128"
+  buildAndRunBinary "block_sim", "research/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v1.0.0\"", "--validators=3000 --slots=128"
+  # buildAndRunBinary "block_sim", "research/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v1.0.0\" -d:BLS_FORCE_BACKEND=miracl", "--validators=3000 --slots=128"
