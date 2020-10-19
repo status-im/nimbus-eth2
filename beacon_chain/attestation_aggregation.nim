@@ -173,7 +173,7 @@ proc validateAttestation*(
   # attestation.data.target.epoch ==
   # compute_epoch_at_slot(attestation.data.slot)
   block:
-    let v = check_attestation_slot_target(attestation.data) # Not in spec
+    let v = check_attestation_slot_target(attestation.data)
     if v.isErr():
       return err((EVRESULT_REJECT, v.error))
 
