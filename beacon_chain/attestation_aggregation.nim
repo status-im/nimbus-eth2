@@ -169,10 +169,13 @@ proc validateAttestation*(
     attestation: Attestation, wallTime: BeaconTime,
     topicCommitteeIndex: uint64):
     Result[HashSet[ValidatorIndex], (ValidationResult, cstring)] =
+  # [REJECT] The attestation's epoch matches its target -- i.e.
+  # attestation.data.target.epoch ==
+  # compute_epoch_at_slot(attestation.data.slot)
   block:
     let v = check_attestation_slot_target(attestation.data) # Not in spec
     if v.isErr():
-      return err((EVRESULT_IGNORE, v.error))
+      return err((EVRESULT_REJECT, v.error))
 
   # attestation.data.slot is within the last ATTESTATION_PROPAGATION_SLOT_RANGE
   # slots (within a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e.
@@ -218,15 +221,6 @@ proc validateAttestation*(
   # attestation.data.target.epoch), which may be pre-computed along with the
   # committee information for the signature check.
   ? check_attestation_subnet(epochRef, attestation, topicCommitteeIndex)
-
-  # [REJECT] The attestation's epoch matches its target -- i.e.
-  # attestation.data.target.epoch ==
-  # compute_epoch_at_slot(attestation.data.slot)
-  if not (attestation.data.target.epoch ==
-      compute_epoch_at_slot(attestation.data.slot)):
-    const err_str: cstring =
-      "validateAttestation: attestation's epoch and its target mismatch"
-    return err((EVRESULT_REJECT, err_str))
 
   # [REJECT] The number of aggregation bits matches the committee size -- i.e.
   # len(attestation.aggregation_bits) == len(get_beacon_committee(state,
