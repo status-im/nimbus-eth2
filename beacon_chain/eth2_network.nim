@@ -4,7 +4,7 @@ import
   std/options as stdOptions,
 
   # Status libs
-  stew/[varints, base58, base64, endians2, results, byteutils, io2], bearssl,
+  stew/[varints, base58, endians2, results, byteutils, io2], bearssl,
   stew/shims/net as stewNet,
   stew/shims/[macros, tables],
   faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
@@ -1366,7 +1366,7 @@ func gossipId(data: openArray[byte]): string =
   # We don't use non-Snappy-compressed messages, so don't define
   # MESSAGE_DOMAIN_INVALID_SNAPPY.
   const MESSAGE_DOMAIN_VALID_SNAPPY = 0x01000000'u64
-  var messageDigest = withEth2Hash:
+  let messageDigest = withEth2Hash:
     h.update uint_to_bytes4(MESSAGE_DOMAIN_VALID_SNAPPY)
     h.update data
 
@@ -1432,21 +1432,21 @@ proc addValidator*[MsgType](node: Eth2Node,
                             ValidationResult {.gcsafe.} ) =
   # Validate messages as soon as subscribed
   proc execValidator(
-      topic: string, message: GossipMsg): Future[bool] {.async.} =
+      topic: string, message: GossipMsg): Future[ValidationResult] {.async.} =
     inc nbc_gossip_messages_received
     trace "Validating incoming gossip message",
       len = message.data.len, topic, msgId = gossipId(message.data)
     try:
       let decompressed = snappy.decode(message.data, GOSSIP_MAX_SIZE)
       if decompressed.len > 0:
-        return msgValidator(SSZ.decode(decompressed, MsgType)) == EVRESULT_ACCEPT
+        return msgValidator(SSZ.decode(decompressed, MsgType))
       else:
         # TODO penalize peer?
         debug "Failed to decompress gossip payload"
     except CatchableError as err:
       debug "Gossip validation error",
         msg = err.msg, msgId = gossipId(message.data)
-      return false
+      return ValidationResult.Ignore
 
   node.pubsub.addValidator(topic & "_snappy", execValidator)
 

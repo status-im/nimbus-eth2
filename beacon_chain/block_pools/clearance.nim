@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[tables],
+  std/tables,
   chronicles,
   metrics, stew/results,
   ../extras,
@@ -142,7 +142,7 @@ proc addRawBlock*(
     # existed in the pool, as that may confuse consumers such as the fork
     # choice. While the validation result won't be accessed, it's IGNORE,
     # according to the spec.
-    return err((EVRESULT_IGNORE, Duplicate))
+    return err((ValidationResult.Ignore, Duplicate))
 
   quarantine.missing.del(blockRoot)
 
@@ -157,7 +157,7 @@ proc addRawBlock*(
 
     # Doesn't correspond to any specific validation condition, and still won't
     # be used, but certainly would be IGNORE.
-    return err((EVRESULT_IGNORE, Unviable))
+    return err((ValidationResult.Ignore, Unviable))
 
   let parent = dag.blocks.getOrDefault(blck.parent_root)
 
@@ -168,7 +168,7 @@ proc addRawBlock*(
       debug "Invalid block slot",
         parentBlock = shortLog(parent)
 
-      return err((EVRESULT_REJECT, Invalid))
+      return err((ValidationResult.Reject, Invalid))
 
     if (parent.slot < dag.finalizedHead.slot) or
         (parent.slot == dag.finalizedHead.slot and
@@ -185,7 +185,7 @@ proc addRawBlock*(
         finalizedHead = shortLog(dag.finalizedHead),
         tail = shortLog(dag.tail)
 
-      return err((EVRESULT_IGNORE, Unviable))
+      return err((ValidationResult.Ignore, Unviable))
 
     # The block might have been in either of `orphans` or `missing` - we don't
     # want any more work done on its behalf
@@ -213,7 +213,7 @@ proc addRawBlock*(
                             cache, dag.updateFlags + {slotProcessed}, restore):
       info "Invalid block"
 
-      return err((EVRESULT_REJECT, Invalid))
+      return err((ValidationResult.Reject, Invalid))
 
     # Careful, clearanceState.data has been updated but not blck - we need to
     # create the BlockRef first!
@@ -241,7 +241,7 @@ proc addRawBlock*(
       orphans = quarantine.orphans.len,
       missing = quarantine.missing.len
 
-    return err((EVRESULT_IGNORE, MissingParent))
+    return err((ValidationResult.Ignore, MissingParent))
 
   # This is an unresolved block - put its parent on the missing list for now...
   # TODO if we receive spam blocks, one heurestic to implement might be to wait
@@ -260,7 +260,7 @@ proc addRawBlock*(
     orphans = quarantine.orphans.len,
     missing = quarantine.missing.len
 
-  return err((EVRESULT_IGNORE, MissingParent))
+  return err((ValidationResult.Ignore, MissingParent))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#beacon_block
 proc isValidBeaconBlock*(
@@ -285,14 +285,14 @@ proc isValidBeaconBlock*(
   if not (signed_beacon_block.message.slot <= current_slot + 1):
     debug "block is from a future slot",
       current_slot
-    return err((EVRESULT_IGNORE, Invalid))
+    return err((ValidationResult.Ignore, Invalid))
 
   # [IGNORE] The block is from a slot greater than the latest finalized slot --
   # i.e. validate that signed_beacon_block.message.slot >
   # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)
   if not (signed_beacon_block.message.slot > dag.finalizedHead.slot):
     debug "block is not from a slot greater than the latest finalized slot"
-    return err((EVRESULT_IGNORE, Invalid))
+    return err((ValidationResult.Ignore, Invalid))
 
   # [IGNORE] The block is the first block with valid signature received for the
   # proposer for the slot, signed_beacon_block.message.slot.
@@ -332,7 +332,7 @@ proc isValidBeaconBlock*(
       notice "block isn't first block with valid signature received for the proposer",
         blckRef = slotBlockRef,
         existing_block = shortLog(blck.message)
-      return err((EVRESULT_IGNORE, Invalid))
+      return err((ValidationResult.Ignore, Invalid))
 
   # [IGNORE] The block's parent (defined by block.parent_root) has been seen
   # (via both gossip and non-gossip sources) (a client MAY queue blocks for
@@ -349,7 +349,7 @@ proc isValidBeaconBlock*(
       current_slot = shortLog(current_slot)
     if not quarantine.add(dag, signed_beacon_block):
       warn "Block quarantine full"
-    return err((EVRESULT_IGNORE, MissingParent))
+    return err((ValidationResult.Ignore, MissingParent))
 
   # [REJECT] The current finalized_checkpoint is an ancestor of block -- i.e.
   # get_ancestor(store, block.parent_root,
@@ -362,11 +362,11 @@ proc isValidBeaconBlock*(
 
   if ancestor.isNil:
     debug "couldn't find ancestor block"
-    return err((EVRESULT_IGNORE, Invalid)) # might just not have received block
+    return err((ValidationResult.Ignore, Invalid)) # might not've received block
 
   if not (finalized_checkpoint.root in [ancestor.root, Eth2Digest()]):
     debug "block not descendent of finalized block"
-    return err((EVRESULT_REJECT, Invalid))
+    return err((ValidationResult.Reject, Invalid))
 
   # [REJECT] The block is proposed by the expected proposer_index for the
   # block's slot in the context of the current shuffling (defined by
@@ -379,13 +379,13 @@ proc isValidBeaconBlock*(
 
   if proposer.isNone:
     warn "cannot compute proposer for message"
-    return err((EVRESULT_IGNORE, Invalid)) # basically an internal issue
+    return err((ValidationResult.Ignore, Invalid)) # internal issue
 
   if proposer.get()[0] !=
       ValidatorIndex(signed_beacon_block.message.proposer_index):
     notice "block had unexpected proposer",
       expected_proposer = proposer.get()[0]
-    return err((EVRESULT_REJECT, Invalid))
+    return err((ValidationResult.Reject, Invalid))
 
   # [REJECT] The proposer signature, signed_beacon_block.signature, is valid
   # with respect to the proposer_index pubkey.
@@ -399,6 +399,6 @@ proc isValidBeaconBlock*(
     debug "block failed signature verification",
       signature = shortLog(signed_beacon_block.signature)
 
-    return err((EVRESULT_REJECT, Invalid))
+    return err((ValidationResult.Reject, Invalid))
 
   ok()

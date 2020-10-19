@@ -8,7 +8,9 @@ import
   fork_choice/fork_choice_types,
   validator_slashing_protection
 
-export block_pools_types
+from libp2p/protocols/pubsub/pubsub import ValidationResult
+
+export block_pools_types, ValidationResult
 
 const
   ATTESTATION_LOOKBACK* =

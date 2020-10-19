@@ -304,7 +304,7 @@ suiteReport "Attestation pool processing" & preset():
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
-    doAssert: b10Add_clone.error == (EVRESULT_IGNORE, Duplicate)
+    doAssert: b10Add_clone.error == (ValidationResult.Ignore, Duplicate)
 
   wrappedTimedTest "Trying to add a duplicate block from an old pruned epoch is tagged as an error":
     # Note: very sensitive to stack usage
@@ -388,7 +388,7 @@ suiteReport "Attestation pool processing" & preset():
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
-    doAssert: b10Add_clone.error == (EVRESULT_IGNORE, Duplicate)
+    doAssert: b10Add_clone.error == (ValidationResult.Ignore, Duplicate)
 
 
 suiteReport "Attestation validation " & preset():
@@ -443,7 +443,7 @@ suiteReport "Attestation validation " & preset():
 
       # Same validator again
       validateAttestation(pool[], attestation, beaconTime, subnet).error()[0] ==
-        EVRESULT_IGNORE
+        ValidationResult.Ignore
 
     pool[].lastVotedEpoch.setLen(0) # reset for test
     check:

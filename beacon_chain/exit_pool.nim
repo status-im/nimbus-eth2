@@ -161,7 +161,7 @@ proc validateAttesterSlashing*(
       attester_slashed_indices, pool.prior_seen_attester_slashed_indices):
     const err_str: cstring =
       "validateAttesterSlashing: attester-slashed index already attester-slashed"
-    return err((EVRESULT_IGNORE, err_str))
+    return err((ValidationResult.Ignore, err_str))
 
   # [REJECT] All of the conditions within process_attester_slashing pass
   # validation.
@@ -172,7 +172,7 @@ proc validateAttesterSlashing*(
     check_attester_slashing(
       pool.chainDag.headState.data.data, attester_slashing, {}, cache)
   if attester_slashing_validity.isErr:
-    return err((EVRESULT_REJECT, attester_slashing_validity.error))
+    return err((ValidationResult.Reject, attester_slashing_validity.error))
 
   pool.prior_seen_attester_slashed_indices.incl attester_slashed_indices
   pool.attester_slashings.addExitMessage(
@@ -191,7 +191,7 @@ proc validateProposerSlashing*(
       pool.prior_seen_proposer_slashed_indices:
     const err_str: cstring =
       "validateProposerSlashing: proposer-slashed index already proposer-slashed"
-    return err((EVRESULT_IGNORE, err_str))
+    return err((ValidationResult.Ignore, err_str))
 
   # [REJECT] All of the conditions within process_proposer_slashing pass validation.
   var cache =
@@ -201,7 +201,7 @@ proc validateProposerSlashing*(
     check_proposer_slashing(
       pool.chainDag.headState.data.data, proposer_slashing, {}, cache)
   if proposer_slashing_validity.isErr:
-    return err((EVRESULT_REJECT, proposer_slashing_validity.error))
+    return err((ValidationResult.Reject, proposer_slashing_validity.error))
 
   pool.prior_seen_proposer_slashed_indices.incl(
     proposer_slashing.signed_header_1.message.proposer_index)
@@ -219,11 +219,11 @@ proc validateVoluntaryExit*(
   if signed_voluntary_exit.message.validator_index >=
       pool.chainDag.headState.data.data.validators.lenu64:
     const err_str: cstring = "validateVoluntaryExit: validator index too high"
-    return err((EVRESULT_IGNORE, err_str))
+    return err((ValidationResult.Ignore, err_str))
   if signed_voluntary_exit.message.validator_index in
       pool.prior_seen_voluntary_exit_indices:
     const err_str: cstring = "validateVoluntaryExit: validator index already voluntarily exited"
-    return err((EVRESULT_IGNORE, err_str))
+    return err((ValidationResult.Ignore, err_str))
 
   # [REJECT] All of the conditions within process_voluntary_exit pass
   # validation.
@@ -234,7 +234,7 @@ proc validateVoluntaryExit*(
     check_voluntary_exit(
       pool.chainDag.headState.data.data, signed_voluntary_exit, {}, cache)
   if voluntary_exit_validity.isErr:
-    return err((EVRESULT_REJECT, voluntary_exit_validity.error))
+    return err((ValidationResult.Reject, voluntary_exit_validity.error))
 
   pool.prior_seen_voluntary_exit_indices.incl(
     signed_voluntary_exit.message.validator_index)

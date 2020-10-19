@@ -14,6 +14,9 @@ import
   ../spec/[datatypes, crypto, digest],
   ../beacon_chain_db, ../extras
 
+from libp2p/protocols/pubsub/pubsub import ValidationResult
+export ValidationResult
+
 # #############################################
 #
 #            Quarantine & DAG
