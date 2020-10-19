@@ -163,7 +163,7 @@ func check_attestation_subnet(
 
   ok()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 proc validateAttestation*(
     pool: var AttestationPool,
     attestation: Attestation, wallTime: BeaconTime,
@@ -177,7 +177,7 @@ proc validateAttestation*(
   # attestation.data.slot is within the last ATTESTATION_PROPAGATION_SLOT_RANGE
   # slots (within a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e.
   # attestation.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot
-  # >= attestation.data.slot (a client MAY queue future attestations for\
+  # >= attestation.data.slot (a client MAY queue future attestations for
   # processing at the appropriate slot).
   ? check_propagation_slot_range(attestation.data, wallTime) # [IGNORE]
 
@@ -185,13 +185,6 @@ proc validateAttestation*(
   # participating validator (len([bit for bit in attestation.aggregation_bits
   # if bit == 0b1]) == 1).
   ? check_aggregation_count(attestation, singular = true) # [REJECT]
-
-  # The block being voted for (attestation.data.beacon_block_root) has been seen
-  # (via both gossip and non-gossip sources) (a client MAY queue aggregates for
-  # processing once block is retrieved).
-  # The block being voted for (attestation.data.beacon_block_root) passes
-  # validation.
-  ? check_attestation_beacon_block(pool, attestation) # [IGNORE/REJECT]
 
   let tgtBlck = pool.chainDag.getRef(attestation.data.target.root)
   if tgtBlck.isNil:
@@ -211,6 +204,13 @@ proc validateAttestation*(
   let epochRef = pool.chainDag.getEpochRef(
     tgtBlck, attestation.data.target.epoch)
 
+  # [REJECT] The committee index is within the expected range -- i.e.
+  # data.index < get_committee_count_per_slot(state, data.target.epoch).
+  if not (attestation.data.index < get_committee_count_per_slot(epochRef)):
+    const err_str: cstring =
+      "validateAttestation: committee index not within expected range"
+    return err((EVRESULT_REJECT, err_str))
+
   # [REJECT] The attestation is for the correct subnet -- i.e.
   # compute_subnet_for_attestation(committees_per_slot,
   # attestation.data.slot, attestation.data.index) == subnet_id, where
@@ -219,6 +219,35 @@ proc validateAttestation*(
   # committee information for the signature check.
   ? check_attestation_subnet(epochRef, attestation, topicCommitteeIndex)
 
+  # [REJECT] The attestation's epoch matches its target -- i.e.
+  # attestation.data.target.epoch ==
+  # compute_epoch_at_slot(attestation.data.slot)
+  if not (attestation.data.target.epoch ==
+      compute_epoch_at_slot(attestation.data.slot)):
+    const err_str: cstring =
+      "validateAttestation: attestation's epoch and its target mismatch"
+    return err((EVRESULT_REJECT, err_str))
+
+  # [REJECT] The number of aggregation bits matches the committee size -- i.e.
+  # len(attestation.aggregation_bits) == len(get_beacon_committee(state,
+  # data.slot, data.index)).
+  #
+  # This uses the same epochRef as data.target.epoch, because the attestation's
+  # epoch matches its target and attestation.data.target.root is an ancestor of
+  # attestation.data.beacon_block_root.
+  if not (attestation.aggregation_bits.lenu64 == get_beacon_committee_len(
+      epochRef, attestation.data.slot, attestation.data.index.CommitteeIndex)):
+    const err_str: cstring =
+      "validateAttestation: number of aggregation bits and committee size mismatch"
+    return err((EVRESULT_REJECT, err_str))
+
+  # The block being voted for (attestation.data.beacon_block_root) has been seen
+  # (via both gossip and non-gossip sources) (a client MAY queue aggregates for
+  # processing once block is retrieved).
+  # The block being voted for (attestation.data.beacon_block_root) passes
+  # validation.
+  ? check_attestation_beacon_block(pool, attestation) # [IGNORE/REJECT]
+
   let
     fork = pool.chainDag.headState.data.data.fork
     genesis_validators_root =
@@ -226,11 +255,8 @@ proc validateAttestation*(
     attesting_indices = get_attesting_indices(
       epochRef, attestation.data, attestation.aggregation_bits)
 
-  if attesting_indices.len == 0:
-    # an extension of the check_aggregation_count() check
-    const err_str: cstring =
-      "validateAttestation: inconsistent aggregation and committee length"
-    return err((EVRESULT_REJECT, err_str))
+  # The number of aggregation bits matches the committee size, which ensures
+  # this condition holds.
   doAssert attesting_indices.len == 1, "Per bits check above"
   let validator_index = toSeq(attesting_indices)[0]
 
@@ -253,6 +279,23 @@ proc validateAttestation*(
         attestation, {})
     if v.isErr():
       return err((EVRESULT_REJECT, v.error))
+
+  # [REJECT] The attestation's target block is an ancestor of the block named
+  # in the LMD vote -- i.e. get_ancestor(store,
+  # attestation.data.beacon_block_root,
+  # compute_start_slot_at_epoch(attestation.data.target.epoch)) ==
+  # attestation.data.target.root
+  let attestationBlck = pool.chainDag.getRef(attestation.data.beacon_block_root)
+
+  # already checked in check_attestation_beacon_block()
+  doAssert not attestationBlck.isNil
+
+  if not (get_ancestor(attestationBlck,
+      compute_start_slot_at_epoch(attestation.data.target.epoch)).root ==
+      attestation.data.target.root):
+    const err_str: cstring =
+      "validateAttestation: attestation's target block not an ancestor of LMD vote block"
+    return err((EVRESULT_REJECT, err_str))
 
   # Only valid attestations go in the list
   if pool.lastVotedEpoch.len <= validator_index.int:
