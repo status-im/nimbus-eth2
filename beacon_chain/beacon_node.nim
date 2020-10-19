@@ -1137,8 +1137,8 @@ programMain:
   of deposits:
     case config.depositsCmd
     of DepositsCmd.create:
-      var mnemonic: Mnemonic
-      defer: burnMem(mnemonic)
+      var seed: KeySeed
+      defer: burnMem(seed)
       var walletPath: WalletPathPair
 
       if config.existingWalletId.isSome:
@@ -1154,7 +1154,7 @@ programMain:
 
         var unlocked = unlockWalletInteractively(walletPath.wallet)
         if unlocked.isOk:
-          swap(mnemonic, unlocked.get)
+          swap(seed, unlocked.get)
         else:
           # The failure will be reported in `unlockWalletInteractively`.
           quit 1
@@ -1164,7 +1164,7 @@ programMain:
           fatal "Unable to create wallet", err = walletRes.error
           quit 1
         else:
-          swap(mnemonic, walletRes.get.mnemonic)
+          swap(seed, walletRes.get.seed)
           walletPath = walletRes.get.walletPath
 
       let vres = secureCreatePath(config.outValidatorsDir)
@@ -1180,7 +1180,7 @@ programMain:
       let deposits = generateDeposits(
         config.runtimePreset,
         rng[],
-        mnemonic,
+        seed,
         walletPath.wallet.nextAccount,
         config.totalDeposits,
         config.outValidatorsDir,
@@ -1238,7 +1238,7 @@ programMain:
       if walletRes.isErr:
         fatal "Unable to create wallet", err = walletRes.error
         quit 1
-      burnMem(walletRes.get.mnemonic)
+      burnMem(walletRes.get.seed)
 
     of WalletsCmd.list:
       for kind, walletFile in walkDir(config.walletsDir):

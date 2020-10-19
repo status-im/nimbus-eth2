@@ -8,7 +8,7 @@
 {.used.}
 
 import
-  json, unittest,
+  json, unittest, typetraits,
   stew/byteutils, blscurve, eth/keys, json_serialization,
   libp2p/crypto/crypto as lcrypto,
   nimcrypto/utils as ncrutils,
@@ -292,3 +292,60 @@ suiteReport "KeyStorage testing suite":
 
     check decryptKeystore(JsonString $badKdf,
                           KeystorePass.init password).iserr
+
+suite "eth2.0-deposits-cli compatibility":
+  test "restoring mnemonic without password":
+    var mnemonic = Mnemonic "camera dad smile sail injury warfare grid kiwi report minute fold slot before stem firm wet vague shove version medal one alley vibrant mushroom"
+    let seed = getSeed(mnemonic, KeystorePass.init "")
+    check byteutils.toHex(distinctBase seed) == "60043d6e1efe0eea2ef1c8e7d4bb2d79cb27d3403e992b6058998c27c373cfb6fe047b11405360bb224803726fd6b0ee9e3335ae7d9032e6cb49baf08697cf2a"
+
+    let masterKey = deriveMasterKey(seed)
+    check masterKey.toHex == "54aea900840c22ee821ca4f67ba57392d7c3e3d4fc54a6343940c12404226eb7"
+
+    let
+      v1SK = deriveChildKey(masterKey, makeKeyPath(0, signingKeyKind))
+      v1WK = deriveChildKey(masterKey, makeKeyPath(0, withdrawalKeyKind))
+
+      v2SK = deriveChildKey(masterKey, makeKeyPath(1, signingKeyKind))
+      v2WK = deriveChildKey(masterKey, makeKeyPath(1, withdrawalKeyKind))
+
+      v3SK = deriveChildKey(masterKey, makeKeyPath(2, signingKeyKind))
+      v3WK = deriveChildKey(masterKey, makeKeyPath(2, withdrawalKeyKind))
+
+    check:
+      v1SK.toHex == "261610f7cb44fd17da74b1d0018db0bf311cfb0d30fd6bc7879d3db022a1ac7d"
+      v1WK.toHex == "0924b5928633a6712a392a8172bd0b3ce6b591491ed4b448d51b460d293258e1"
+
+      v2SK.toHex == "3ee523f969f9e0eed10ec62a4b816d94e28947fc1c55ba791555b83baef23b43"
+      v2WK.toHex == "4925c51f41cd275c70ec878a35a6640e69d1d9360f3dcf6400692a670bda27c2"
+
+      v3SK.toHex == "05935491479f8ad8887c4bf64e69fddf9c2d42848bb8a98170a5fe41e94c4122"
+      v3WK.toHex == "56b158b3b170e9c339b94b895afc28964a0b6d7a0809a39b558ca8b6688487cd"
+
+  test "restoring mnemonic with password":
+    var mnemonic = Mnemonic "swear umbrella lesson couch void gentle rocket valley distance match floor rocket flag solve muscle common modify target city youth pottery predict flip ghost"
+    let seed = getSeed(mnemonic, KeystorePass.init "abracadabra!@#$%^7890")
+    check byteutils.toHex(distinctBase seed) == "f129c3ac003a07e54974d8dbeb08d20c2343fc516e0e3704570c500a4b6ed98bad2e6fec6a3b9a88076c17feaa0d01163855578cb08bae53860d0ae2558cf03e"
+
+    let
+      masterKey = deriveMasterKey(seed)
+
+      v1SK = deriveChildKey(masterKey, makeKeyPath(0, signingKeyKind))
+      v1WK = deriveChildKey(masterKey, makeKeyPath(0, withdrawalKeyKind))
+
+      v2SK = deriveChildKey(masterKey, makeKeyPath(1, signingKeyKind))
+      v2WK = deriveChildKey(masterKey, makeKeyPath(1, withdrawalKeyKind))
+
+      v3SK = deriveChildKey(masterKey, makeKeyPath(2, signingKeyKind))
+      v3WK = deriveChildKey(masterKey, makeKeyPath(2, withdrawalKeyKind))
+
+    check:
+      v1SK.toHex == "16059302897bc6ecdb9cdac9bb27f34cc996e04b75143c73742aa5975bfaeae7"
+      v1WK.toHex == "1c28b8e41e5cb2f983780eabb77c927e804d1f7aaffcaaf5593538885a658e8a"
+
+      v2SK.toHex == "49a5fa9536ebb96253d420a4a9e9f054dc872d2a49884d46995b39b8147fd5e3"
+      v2WK.toHex == "70068f12a854370d18284884df62d3911af2f85d0be29cb071ec78c6ec564695"
+
+      v3SK.toHex == "1445cec3861d7cbf80e409d79aeee131622dcb0c815ff97ceab2515e14c41a1a"
+      v3WK.toHex == "1ccd5dce4c842bd3f65bbd59a382662e689fcf01ddc39aaaf2dcc7d073f11a93"
+
