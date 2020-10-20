@@ -122,7 +122,7 @@ proc process_deposit*(preset: RuntimePreset,
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
-func compute_activation_exit_epoch*(epoch: Epoch): Epoch =
+func compute_activation_exit_epoch(epoch: Epoch): Epoch =
   ## Return the epoch during which validator activations and exits initiated in
   ## ``epoch`` take effect.
   epoch + 1 + MAX_SEED_LOOKAHEAD
@@ -294,7 +294,7 @@ proc initialize_hashed_beacon_state_from_eth1*(
     preset, eth1_block_hash, eth1_timestamp, deposits, flags)
   HashedBeaconState(data: genesisState[], root: hash_tree_root(genesisState[]))
 
-func is_valid_genesis_state*(preset: RuntimePreset,
+func is_valid_genesis_state(preset: RuntimePreset,
                              state: BeaconState,
                              active_validator_indices: seq[ValidatorIndex]): bool =
   if state.genesis_time < preset.MIN_GENESIS_TIME:
@@ -304,7 +304,7 @@ func is_valid_genesis_state*(preset: RuntimePreset,
     return false
   true
 
-func emptyBeaconBlockBody*(): BeaconBlockBody =
+func emptyBeaconBlockBody(): BeaconBlockBody =
   # TODO: This shouldn't be necessary if OpaqueBlob is the default
   BeaconBlockBody(randao_reveal: ValidatorSig(kind: OpaqueBlob))
 
@@ -490,7 +490,7 @@ func get_attesting_indices*(state: BeaconState,
     get_beacon_committee(state, data.slot, data.index.CommitteeIndex, cache))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_indexed_attestation
-func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
+func get_indexed_attestation(state: BeaconState, attestation: Attestation,
     cache: var StateCache): IndexedAttestation =
   ## Return the indexed attestation corresponding to ``attestation``.
   let
@@ -506,7 +506,7 @@ func get_indexed_attestation*(state: BeaconState, attestation: Attestation,
     signature: attestation.signature
   )
 
-func get_indexed_attestation*(state: BeaconState, attestation: TrustedAttestation,
+func get_indexed_attestation(state: BeaconState, attestation: TrustedAttestation,
     cache: var StateCache): TrustedIndexedAttestation =
   ## Return the indexed attestation corresponding to ``attestation``.
   let
@@ -533,7 +533,7 @@ func check_attestation_slot_target*(data: AttestationData): Result[void, cstring
 
   ok()
 
-func check_attestation_target_epoch*(
+func check_attestation_target_epoch(
     data: AttestationData, current_epoch: Epoch): Result[void, cstring] =
   if not (data.target.epoch == get_previous_epoch(current_epoch) or
       data.target.epoch == current_epoch):
@@ -541,8 +541,8 @@ func check_attestation_target_epoch*(
 
   ok()
 
-func check_attestation_inclusion*(data: AttestationData,
-                                  current_slot: Slot): Result[void, cstring] =
+func check_attestation_inclusion(data: AttestationData,
+                                 current_slot: Slot): Result[void, cstring] =
   # Check for overflow
   static:
     doAssert SLOTS_PER_EPOCH >= MIN_ATTESTATION_INCLUSION_DELAY
@@ -557,7 +557,7 @@ func check_attestation_inclusion*(data: AttestationData,
 
   ok()
 
-func check_attestation_index*(
+func check_attestation_index(
     data: AttestationData, committees_per_slot: uint64): Result[void, cstring] =
   if not (data.index < committees_per_slot):
     return err("Data index exceeds committee count")

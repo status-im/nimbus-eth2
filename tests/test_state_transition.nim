@@ -104,10 +104,8 @@ suiteReport "Block processing" & preset():
       # enable exact 1-check again and keep finalization.
       state.data.current_epoch_attestations.len >= 1
 
-    when const_preset=="minimal":
-      # Can take several minutes with mainnet settings
-      check:
-        process_slots(state[], Slot(191), cache)
+    check:
+      process_slots(state[], Slot(191), cache)
 
     # Would need to process more epochs for the attestation to be removed from
     # the state! (per above bug)
