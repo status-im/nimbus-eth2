@@ -242,7 +242,7 @@ proc blockValidator*(
     (afterGenesis, wallSlot) = wallTime.toSlot()
 
   if not afterGenesis:
-    return EVRESULT_IGNORE  # not an issue with block, so don't penalize
+    return ValidationResult.Ignore  # not an issue with block, so don't penalize
 
   logScope: wallSlot
 
@@ -253,7 +253,7 @@ proc blockValidator*(
     # already-seen data, but it is fairly aggressive about forgetting about
     # what it has seen already
     debug "Dropping already-seen gossip block", delay
-    return EVRESULT_IGNORE  # "[IGNORE] The block is the first block with ..."
+    return ValidationResult.Ignore  # "[IGNORE] The block is the first block ..."
 
   # Start of block processing - in reality, we have already gone through SSZ
   # decoding at this stage, which may be significant
@@ -279,7 +279,7 @@ proc blockValidator*(
   traceAsyncErrors self.blocksQueue.addLast(
     BlockEntry(v: SyncBlock(blk: signedBlock)))
 
-  EVRESULT_ACCEPT
+  ValidationResult.Accept
 
 proc attestationValidator*(
     self: var Eth2Processor,
@@ -295,7 +295,7 @@ proc attestationValidator*(
 
   if not afterGenesis:
     notice "Attestation before genesis"
-    return EVRESULT_IGNORE
+    return ValidationResult.Ignore
 
   logScope: wallSlot
 
@@ -321,7 +321,7 @@ proc attestationValidator*(
   traceAsyncErrors self.attestationsQueue.addLast(
     AttestationEntry(v: attestation, attesting_indices: v.get()))
 
-  EVRESULT_ACCEPT
+  ValidationResult.Accept
 
 proc aggregateValidator*(
     self: var Eth2Processor,
@@ -336,7 +336,7 @@ proc aggregateValidator*(
 
   if not afterGenesis:
     notice "Aggregate before genesis"
-    return EVRESULT_IGNORE
+    return ValidationResult.Ignore
 
   logScope: wallSlot
 
@@ -365,7 +365,7 @@ proc aggregateValidator*(
     v: signedAggregateAndProof.message.aggregate,
     attesting_indices: v.get()))
 
-  EVRESULT_ACCEPT
+  ValidationResult.Accept
 
 proc attesterSlashingValidator*(
     self: var Eth2Processor, attesterSlashing: AttesterSlashing):
@@ -380,7 +380,7 @@ proc attesterSlashingValidator*(
 
   beacon_attester_slashings_received.inc()
 
-  EVRESULT_ACCEPT
+  ValidationResult.Accept
 
 proc proposerSlashingValidator*(
     self: var Eth2Processor, proposerSlashing: ProposerSlashing):
@@ -395,7 +395,7 @@ proc proposerSlashingValidator*(
 
   beacon_proposer_slashings_received.inc()
 
-  EVRESULT_ACCEPT
+  ValidationResult.Accept
 
 proc voluntaryExitValidator*(
     self: var Eth2Processor, signedVoluntaryExit: SignedVoluntaryExit):
@@ -410,7 +410,7 @@ proc voluntaryExitValidator*(
 
   beacon_voluntary_exits_received.inc()
 
-  EVRESULT_ACCEPT
+  ValidationResult.Accept
 
 proc runQueueProcessingLoop*(self: ref Eth2Processor) {.async.} =
   # Blocks in eth2 arrive on a schedule for every slot:
