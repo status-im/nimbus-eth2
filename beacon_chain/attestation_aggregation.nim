@@ -11,8 +11,7 @@ import
   std/[options, sequtils, sets],
   chronos, chronicles,
   ./spec/[
-    beaconstate, datatypes, crypto, digest, helpers, network, validator,
-    signatures],
+    beaconstate, datatypes, crypto, digest, helpers, network, signatures],
   ./block_pools/[spec_cache, chain_dag, quarantine, spec_cache],
   ./attestation_pool, ./beacon_node_types, ./ssz, ./time
 
@@ -29,26 +28,22 @@ func is_aggregator*(committee_len: uint64, slot_signature: ValidatorSig): bool =
   bytes_to_uint64(eth2digest(
     slot_signature.toRaw()).data.toOpenArray(0, 7)) mod modulo == 0
 
-func is_aggregator(state: BeaconState, slot: Slot, index: CommitteeIndex,
-    slot_signature: ValidatorSig, cache: var StateCache): bool =
+func is_aggregator(epochRef: EpochRef, slot: Slot, index: CommitteeIndex,
+    slot_signature: ValidatorSig): bool =
   let
-    committee_len = get_beacon_committee_len(state, slot, index, cache)
+    committee_len = get_beacon_committee_len(epochRef, slot, index)
   return is_aggregator(committee_len, slot_signature)
 
 proc aggregate_attestations*(
-    pool: AttestationPool, state: BeaconState, index: CommitteeIndex,
-    validatorIndex: ValidatorIndex, slot_signature: ValidatorSig,
-    cache: var StateCache): Option[AggregateAndProof] =
-  let
-    slot = state.slot
-
-  doAssert validatorIndex in get_beacon_committee(state, slot, index, cache)
-  doAssert index.uint64 < get_committee_count_per_slot(state, slot.epoch, cache)
+    pool: AttestationPool, epochRef: EpochRef, slot: Slot, index: CommitteeIndex,
+    validatorIndex: ValidatorIndex, slot_signature: ValidatorSig): Option[AggregateAndProof] =
+  doAssert validatorIndex in get_beacon_committee(epochRef, slot, index)
+  doAssert index.uint64 < get_committee_count_per_slot(epochRef)
 
   # TODO for testing purposes, refactor this into the condition check
   # and just calculation
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#aggregation-selection
-  if not is_aggregator(state, slot, index, slot_signature, cache):
+  if not is_aggregator(epochRef, slot, index, slot_signature):
     return none(AggregateAndProof)
 
   let maybe_slot_attestation = getAggregatedAttestation(pool, slot, index)

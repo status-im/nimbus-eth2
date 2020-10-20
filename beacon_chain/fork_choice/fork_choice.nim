@@ -71,10 +71,10 @@ proc init*(T: type ForkChoice,
     epoch = epochRef.epoch, blck = shortLog(blck)
 
   let
-    justified = BalanceCheckpoint(blck: blck, epochRef: epochRef)
+    justified = BalanceCheckpoint(blck: blck, epoch: epochRef.epoch, balances: epochRef.effective_balances)
     finalized = Checkpoint(root: blck.root, epoch: epochRef.epoch)
     best_justified = Checkpoint(
-      root: justified.blck.root, epoch: justified.epochRef.epoch)
+      root: justified.blck.root, epoch: justified.epoch)
 
   ForkChoice(
     backend: ForkChoiceBackend.init(
@@ -95,7 +95,6 @@ func extend[T](s: var seq[T], minLen: int) =
 proc compute_slots_since_epoch_start(slot: Slot): uint64 =
     slot - slot.epoch().compute_start_slot_at_epoch()
 
-
 proc on_tick(self: var Checkpoints, dag: ChainDAGRef, time: Slot): FcResult[void] =
   if self.time > time:
     return err(ForkChoiceError(kind: fcInconsistentTick))
@@ -104,15 +103,17 @@ proc on_tick(self: var Checkpoints, dag: ChainDAGRef, time: Slot): FcResult[void
   self.time = time
 
   if newEpoch and
-      self.best_justified.epoch > self.justified.epochRef.epoch:
+      self.best_justified.epoch > self.justified.epoch:
     let blck = dag.getRef(self.best_justified.root)
     if blck.isNil:
       return err(ForkChoiceError(
         kind: fcJustifiedNodeUnknown, block_root: self.best_justified.root))
 
+    let epochRef = dag.getEpochRef(blck, self.best_justified.epoch)
     self.justified = BalanceCheckpoint(
       blck: blck,
-      epochRef: dag.getEpochRef(blck, self.best_justified.epoch))
+      epoch: epochRef.epoch,
+      balances: epochRef.effective_balances)
   ok()
 
 proc process_attestation_queue(self: var ForkChoice) {.gcsafe.}
@@ -199,21 +200,18 @@ proc should_update_justified_checkpoint(
         dag: ChainDAGRef,
         epochRef: EpochRef): FcResult[bool] =
   if compute_slots_since_epoch_start(self.time) < SAFE_SLOTS_TO_UPDATE_JUSTIFIED:
-      return ok(true)
+    return ok(true)
 
   let
-    justified_slot = compute_start_slot_at_epoch(self.justified.epochRef.epoch)
-
-  let new_justified_checkpoint = epochRef.current_justified_checkpoint;
-
-  let justified_blck = dag.getRef(new_justified_checkpoint.root)
+    justified_slot = compute_start_slot_at_epoch(self.justified.epoch)
+    new_justified_checkpoint = epochRef.current_justified_checkpoint
+    justified_blck = dag.getRef(new_justified_checkpoint.root)
 
   if justified_blck.isNil:
     return err(ForkChoiceError(
       kind: fcJustifiedNodeUnknown, block_root: new_justified_checkpoint.root))
 
-  let justified_ancestor =
-    justified_blck.atSlot(justified_slot)
+  let justified_ancestor = justified_blck.atSlot(justified_slot)
 
   if justified_ancestor.blck.root != self.justified.blck.root:
     return ok(false)
@@ -231,38 +229,44 @@ proc process_state(self: var Checkpoints,
   trace "Processing epoch",
     epoch = epochRef.epoch,
     state_justified_epoch = state_justified_epoch,
-    current_justified = self.justified.epochRef.epoch,
+    current_justified = self.justified.epoch,
     state_finalized_epoch = state_finalized_epoch,
     current_finalized = self.finalized.epoch
 
-  if state_justified_epoch > self.justified.epochRef.epoch:
+  if state_justified_epoch > self.justified.epoch:
     if state_justified_epoch > self.best_justified.epoch:
       self.best_justified = epochRef.current_justified_checkpoint
 
     if ? should_update_justified_checkpoint(self, dag, epochRef):
-      let justifiedBlck = blck.atEpochStart(state_justified_epoch)
+      let
+        justifiedBlck = blck.atEpochStart(state_justified_epoch)
+        justifiedEpoch = dag.getEpochRef(justifiedBlck.blck, state_justified_epoch)
 
       self.justified =
         BalanceCheckpoint(
           blck: justifiedBlck.blck,
-          epochRef: dag.getEpochRef(justifiedBlck.blck, state_justified_epoch))
+          epoch: justifiedEpoch.epoch,
+          balances: justifiedEpoch.effective_balances)
 
   if state_finalized_epoch > self.finalized.epoch:
     self.finalized = epochRef.finalized_checkpoint
 
-    if self.justified.epochRef.epoch != state_justified_epoch or
+    if self.justified.epoch != state_justified_epoch or
       self.justified.blck.root != epochRef.current_justified_checkpoint.root:
 
-      if (state_justified_epoch > self.justified.epochRef.epoch) or
+      if (state_justified_epoch > self.justified.epoch) or
           (self.justified.blck.atEpochStart(self.finalized.epoch).blck.root !=
             self.finalized.root):
 
-        let justifiedBlck = blck.atEpochStart(state_justified_epoch)
+        let
+          justifiedBlck = blck.atEpochStart(state_justified_epoch)
+          justifiedEpoch = dag.getEpochRef(justifiedBlck.blck, state_justified_epoch)
 
         self.justified =
           BalanceCheckpoint(
             blck: justifiedBlck.blck,
-            epochRef: dag.getEpochRef(justifiedBlck.blck, state_justified_epoch))
+            epoch: justifiedEpoch.epoch,
+            balances: justifiedEpoch.effective_balances)
   ok()
 
 proc process_block*(self: var ForkChoiceBackend,
@@ -360,10 +364,10 @@ proc get_head*(self: var ForkChoice,
   ? self.update_time(dag, wallSlot)
 
   self.backend.find_head(
-    self.checkpoints.justified.epochRef.epoch,
+    self.checkpoints.justified.epoch,
     self.checkpoints.justified.blck.root,
     self.checkpoints.finalized.epoch,
-    self.checkpoints.justified.epochRef.effective_balances,
+    self.checkpoints.justified.balances,
   )
 
 func prune*(

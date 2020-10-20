@@ -18,7 +18,7 @@ import
   eth/[keys, async_utils], eth/p2p/discoveryv5/[protocol, enr],
 
   # Local modules
-  spec/[datatypes, digest, crypto, helpers, validator, network, signatures],
+  spec/[datatypes, digest, crypto, helpers, network, signatures],
   spec/state_transition,
   conf, time, validator_pool,
   attestation_pool, exit_pool, block_pools/[spec_cache, chain_dag, clearance],
@@ -176,45 +176,19 @@ proc createAndSendAttestation(node: BeaconNode,
     validator = shortLog(validator),
     indexInCommittee = indexInCommittee
 
-type
-  ValidatorInfoForMakeBeaconBlockKind* = enum
-    viValidator
-    viRandao_reveal
-  ValidatorInfoForMakeBeaconBlock* = object
-    case kind*: ValidatorInfoForMakeBeaconBlockKind
-    of viValidator: validator*: AttachedValidator
-    of viRandao_reveal: randao_reveal*: ValidatorSig
-
 proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
-                                    val_info: ValidatorInfoForMakeBeaconBlock,
+                                    randao_reveal: ValidatorSig,
                                     validator_index: ValidatorIndex,
                                     graffiti: GraffitiBytes,
                                     head: BlockRef,
-                                    slot: Slot):
-    Future[tuple[message: Option[BeaconBlock], fork: Fork,
-                 genesis_validators_root: Eth2Digest]] {.async.} =
-  # Advance state to the slot that we're proposing for - this is the equivalent
-  # of running `process_slots` up to the slot of the new block.
-  node.chainDag.withState(
-      node.chainDag.tmpState, head.atSlot(slot)):
+                                    slot: Slot): Option[BeaconBlock] =
+  # Advance state to the slot that we're proposing for
+  node.chainDag.withState(node.chainDag.tmpState, head.atSlot(slot)):
     let (eth1data, deposits) =
       if node.mainchainMonitor.isNil:
         (state.eth1_data, newSeq[Deposit]())
       else:
         node.mainchainMonitor.getBlockProposalData(state)
-
-    # TODO perhaps just making the enclosing function accept 2 different types at the
-    # same time and doing some compile-time branching logic is cleaner (without the
-    # need for the discriminated union)... but we need the `state` from `withState`
-    # in order to get the fork/root for the specific head/slot for the randao_reveal
-    # and it's causing problems when the function becomes a generic for 2 types...
-    proc getRandaoReveal(val_info: ValidatorInfoForMakeBeaconBlock):
-        Future[ValidatorSig] {.async.} =
-      if val_info.kind == viValidator:
-        return await val_info.validator.genRandaoReveal(
-          state.fork, state.genesis_validators_root, slot)
-      elif val_info.kind == viRandao_reveal:
-        return val_info.randao_reveal
 
     let
       poolPtr = unsafeAddr node.chainDag # safe because restore is short-lived
@@ -226,12 +200,12 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       doAssert v.addr == addr poolPtr.tmpState.data
       assign(poolPtr.tmpState, poolPtr.headState)
 
-    let message = makeBeaconBlock(
+    makeBeaconBlock(
       node.config.runtimePreset,
       hashedState,
       validator_index,
       head.root,
-      await getRandaoReveal(val_info),
+      randao_reveal,
       eth1data,
       graffiti,
       node.attestationPool[].getAttestationsForBlock(state, cache),
@@ -241,15 +215,6 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       node.exitPool[].getVoluntaryExitsForBlock(),
       restore,
       cache)
-
-    if message.isSome():
-      # TODO this restore is needed because otherwise tmpState will be internally
-      #      inconsistent - it's blck will not be pointing to the block that
-      #      created this state - we have to reset it here before `await` to avoid
-      #      races.
-      restore(poolPtr.tmpState.data)
-
-    return (message, state.fork, state.genesis_validators_root)
 
 proc proposeSignedBlock*(node: BeaconNode,
                          head: BlockRef,
@@ -310,27 +275,33 @@ proc proposeBlock(node: BeaconNode,
       existingProposal = notSlashable.error
     return head
 
-  let valInfo = ValidatorInfoForMakeBeaconBlock(kind: viValidator, validator: validator)
-  let beaconBlockTuple = await makeBeaconBlockForHeadAndSlot(
-    node, valInfo, validator_index, node.graffitiBytes, head, slot)
-  if not beaconBlockTuple.message.isSome():
+  let
+    fork = node.chainDag.headState.data.data.fork
+    genesis_validators_root =
+      node.chainDag.headState.data.data.genesis_validators_root
+  let
+    randao = await validator.genRandaoReveal(
+      fork, genesis_validators_root, slot)
+    message = makeBeaconBlockForHeadAndSlot(
+      node, randao, validator_index, node.graffitiBytes, head, slot)
+  if not message.isSome():
     return head # already logged elsewhere!
   var
     newBlock = SignedBeaconBlock(
-      message: beaconBlockTuple.message.get()
+      message: message.get()
     )
 
   newBlock.root = hash_tree_root(newBlock.message)
 
   # TODO: recomputed in block proposal
   let signing_root = compute_block_root(
-    beaconBlockTuple.fork, beaconBlockTuple.genesis_validators_root, slot, newBlock.root)
+    fork, genesis_validators_root, slot, newBlock.root)
   node.attachedValidators
     .slashingProtection
     .registerBlock(validator.pubkey, slot, signing_root)
 
   newBlock.signature = await validator.signBlockProposal(
-    beaconBlockTuple.fork, beaconBlockTuple.genesis_validators_root, slot, newBlock.root)
+    fork, genesis_validators_root, slot, newBlock.root)
 
   return await node.proposeSignedBlock(head, validator, newBlock)
 
@@ -458,52 +429,53 @@ proc broadcastAggregatedAttestations(
   # way to organize this. Then the private key for that validator should be
   # the corresponding one -- whatver they are, they match.
 
-  let bs = BlockSlot(blck: aggregationHead, slot: aggregationSlot)
-  node.chainDag.withState(node.chainDag.tmpState, bs):
-    let
-      committees_per_slot =
-        get_committee_count_per_slot(state, aggregationSlot.epoch, cache)
+  let
+    bs = BlockSlot(blck: aggregationHead, slot: aggregationSlot)
+    epochRef = node.chainDag.getEpochRef(aggregationHead, aggregationSlot.epoch)
+    fork = node.chainDag.headState.data.data.fork
+    genesis_validators_root =
+      node.chainDag.headState.data.data.genesis_validators_root
+    committees_per_slot = get_committee_count_per_slot(epochRef)
 
-    var
-      slotSigs: seq[Future[ValidatorSig]] = @[]
-      slotSigsData: seq[tuple[committee_index: uint64,
-                              validator_idx: ValidatorIndex,
-                              v: AttachedValidator]] = @[]
+  var
+    slotSigs: seq[Future[ValidatorSig]] = @[]
+    slotSigsData: seq[tuple[committee_index: uint64,
+                            validator_idx: ValidatorIndex,
+                            v: AttachedValidator]] = @[]
 
-    for committee_index in 0'u64..<committees_per_slot:
-      let committee = get_beacon_committee(
-        state, aggregationSlot, committee_index.CommitteeIndex, cache)
+  for committee_index in 0'u64..<committees_per_slot:
+    let committee = get_beacon_committee(
+      epochRef, aggregationSlot, committee_index.CommitteeIndex)
 
-      for index_in_committee, validatorIdx in committee:
-        let validator = node.getAttachedValidator(state, validatorIdx)
-        if validator != nil:
-          # the validator index and private key pair.
-          slotSigs.add getSlotSig(validator, state.fork,
-            state.genesis_validators_root, state.slot)
-          slotSigsData.add (committee_index, validatorIdx, validator)
+    for index_in_committee, validatorIdx in committee:
+      let validator = node.getAttachedValidator(epochRef, validatorIdx)
+      if validator != nil:
+        # the validator index and private key pair.
+        slotSigs.add getSlotSig(validator, fork,
+          genesis_validators_root, aggregationSlot)
+        slotSigsData.add (committee_index, validatorIdx, validator)
 
-    await allFutures(slotSigs)
+  await allFutures(slotSigs)
 
-    for curr in zip(slotSigsData, slotSigs):
-      let aggregateAndProof =
-        aggregate_attestations(node.attestationPool[], state,
-                               curr[0].committee_index.CommitteeIndex,
-                               curr[0].validator_idx,
-                               curr[1].read, cache)
+  for curr in zip(slotSigsData, slotSigs):
+    let aggregateAndProof =
+      aggregate_attestations(node.attestationPool[], epochRef, aggregationSlot,
+                             curr[0].committee_index.CommitteeIndex,
+                             curr[0].validator_idx,
+                             curr[1].read)
 
-      # Don't broadcast when, e.g., this node isn't aggregator
-      # TODO verify there is only one isSome() with test.
-      if aggregateAndProof.isSome:
-        let sig = await signAggregateAndProof(curr[0].v,
-          aggregateAndProof.get, state.fork,
-          state.genesis_validators_root)
-        var signedAP = SignedAggregateAndProof(
-          message: aggregateAndProof.get,
-          signature: sig)
-        node.network.broadcast(node.topicAggregateAndProofs, signedAP)
-        notice "Aggregated attestation sent",
-          attestation = shortLog(signedAP.message.aggregate),
-          validator = shortLog(curr[0].v)
+    # Don't broadcast when, e.g., this node isn't aggregator
+    # TODO verify there is only one isSome() with test.
+    if aggregateAndProof.isSome:
+      let sig = await signAggregateAndProof(curr[0].v,
+        aggregateAndProof.get, fork, genesis_validators_root)
+      var signedAP = SignedAggregateAndProof(
+        message: aggregateAndProof.get,
+        signature: sig)
+      node.network.broadcast(node.topicAggregateAndProofs, signedAP)
+      notice "Aggregated attestation sent",
+        attestation = shortLog(signedAP.message.aggregate),
+        validator = shortLog(curr[0].v)
 
 proc handleValidatorDuties*(
     node: BeaconNode, lastSlot, slot: Slot) {.async.} =

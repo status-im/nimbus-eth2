@@ -321,13 +321,11 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     let proposer = node.chainDag.getProposer(head, slot)
     if proposer.isNone():
       raise newException(CatchableError, "could not retrieve block for slot: " & $slot)
-    let valInfo = ValidatorInfoForMakeBeaconBlock(kind: viRandao_reveal,
-                                                  randao_reveal: randao_reveal)
-    let res = await makeBeaconBlockForHeadAndSlot(
-      node, valInfo, proposer.get()[0], graffiti, head, slot)
-    if res.message.isNone():
+    let message = makeBeaconBlockForHeadAndSlot(
+      node, randao_reveal, proposer.get()[0], graffiti, head, slot)
+    if message.isNone():
       raise newException(CatchableError, "could not retrieve block for slot: " & $slot)
-    return res.message.get()
+    return message.get()
 
   rpcServer.rpc("post_v1_validator_block") do (body: SignedBeaconBlock) -> bool:
     debug "post_v1_validator_block",
