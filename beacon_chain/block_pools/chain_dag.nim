@@ -682,7 +682,8 @@ proc updateStateData*(
   # first guess.
   # This happens in particular during startup where we replay blocks
   # sequentially to grab their votes.
-  while ancestors.len < 64:
+  const RewindBlockThreshold = 64
+  while ancestors.len < RewindBlockThreshold:
     if canAdvance(state, cur):
       found = true
       break
