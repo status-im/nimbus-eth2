@@ -1361,7 +1361,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
     let privKey = res.get()
     return KeyPair(seckey: privKey, pubkey: privkey.getKey().tryGet())
 
-func gossipId(data: openArray[byte]): string =
+func gossipId(data: openArray[byte]): seq[byte] =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#topics-and-messages
   # We don't use non-Snappy-compressed messages, so don't define
   # MESSAGE_DOMAIN_INVALID_SNAPPY.
@@ -1370,9 +1370,10 @@ func gossipId(data: openArray[byte]): string =
     h.update uint_to_bytes4(MESSAGE_DOMAIN_VALID_SNAPPY)
     h.update data
 
-  string.fromBytes(messageDigest.data.toOpenArray(0, 19))
+  result = newSeq[byte](20)
+  result[0..19] = messageDigest.data.toOpenArray(0, 19)
 
-func msgIdProvider(m: messages.Message): string =
+func msgIdProvider(m: messages.Message): seq[byte] =
   gossipId(m.data)
 
 proc createEth2Node*(rng: ref BrHmacDrbgContext,
@@ -1467,4 +1468,4 @@ proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
   let
     data = snappy.encode(SSZ.encode(msg))
   var futSnappy = node.pubsub.publish(topic & "_snappy", data)
-  traceMessage(futSnappy, gossipId(data))
+  traceMessage(futSnappy, string.fromBytes(gossipId(data)))
