@@ -29,10 +29,13 @@ const
   bitsPerChunk = bytesPerChunk * 8
 
 type
-  SszChunksMerkleizer = object
+  SszChunksMerkleizer* = object
     combinedChunks: ptr UncheckedArray[Eth2Digest]
     totalChunks: uint64
     topIndex: int
+
+template chunks*(m: SszChunksMerkleizer): openarray[Eth2Digest] =
+  m.combinedChunks.toOpenArray(0, m.topIndex)
 
 func digest(a, b: openArray[byte]): Eth2Digest =
   result = withEth2Hash:
@@ -74,19 +77,10 @@ func computeZeroHashes: array[sizeof(Limit) * 8, Eth2Digest] =
 
 const zeroHashes* = computeZeroHashes()
 
-func addChunk(merkleizer: var SszChunksMerkleizer, data: openarray[byte]) =
+func addChunk*(merkleizer: var SszChunksMerkleizer, data: openarray[byte]) =
   doAssert data.len > 0 and data.len <= bytesPerChunk
 
-  if not getBitLE(merkleizer.totalChunks, 0):
-    let paddingBytes = bytesPerChunk - data.len
-
-    merkleizer.combinedChunks[0].data[0..<data.len] = data
-    merkleizer.combinedChunks[0].data[data.len..<bytesPerChunk] =
-      zero64.toOpenArray(0, paddingBytes - 1)
-
-    trs "WROTE BASE CHUNK ",
-      toHex(merkleizer.combinedChunks[0].data), " ", data.len
-  else:
+  if getBitLE(merkleizer.totalChunks, 0):
     var hash = mergeBranches(merkleizer.combinedChunks[0], data)
 
     for i in 1 .. merkleizer.topIndex:
@@ -98,13 +92,214 @@ func addChunk(merkleizer: var SszChunksMerkleizer, data: openarray[byte]) =
         trs "WRITING FRESH CHUNK AT ", i, " = ", hash
         merkleizer.combinedChunks[i] = hash
         break
+  else:
+    let paddingBytes = bytesPerChunk - data.len
+
+    merkleizer.combinedChunks[0].data[0..<data.len] = data
+    merkleizer.combinedChunks[0].data[data.len..<bytesPerChunk] =
+      zero64.toOpenArray(0, paddingBytes - 1)
+
+    trs "WROTE BASE CHUNK ",
+      toHex(merkleizer.combinedChunks[0].data), " ", data.len
 
   inc merkleizer.totalChunks
 
-template createMerkleizer(totalElements: static Limit): SszChunksMerkleizer =
+template isOdd(x: SomeNumber): bool =
+  (x and 1) != 0
+
+func addChunkAndGenMerkleProof*(merkleizer: var SszChunksMerkleizer,
+                                hash: Eth2Digest,
+                                outProof: var openarray[Eth2Digest]) =
+  var
+    hashWrittenToMerkleizer = false
+    hash = hash
+
+  doAssert merkleizer.topIndex < outProof.len
+
+  for level in 0 .. merkleizer.topIndex:
+    if getBitLE(merkleizer.totalChunks, level):
+      outProof[level] = merkleizer.combinedChunks[level]
+      hash = mergeBranches(merkleizer.combinedChunks[level], hash)
+    else:
+      if not hashWrittenToMerkleizer:
+        merkleizer.combinedChunks[level] = hash
+        hashWrittenToMerkleizer = true
+      outProof[level] = zeroHashes[level]
+      hash = mergeBranches(hash, zeroHashes[level])
+
+  merkleizer.totalChunks += 1
+
+func completeStartedChunk(merkleizer: var SszChunksMerkleizer,
+                          hash: Eth2Digest, atLevel: int) =
+  when false:
+    let
+      insertedChunksCount = 1'u64 shl (atLevel - 1)
+      chunksStateMask = (insertedChunksCount shl 1) - 1
+    doAssert (merkleizer.totalChunks and chunksStateMask) == insertedChunksCount
+
+  var hash = hash
+  for i in atLevel .. merkleizer.topIndex:
+    if getBitLE(merkleizer.totalChunks, i):
+      hash = mergeBranches(merkleizer.combinedChunks[i], hash)
+    else:
+      merkleizer.combinedChunks[i] = hash
+      break
+
+func addChunksAndGenMerkleProofs*(merkleizer: var SszChunksMerkleizer,
+                                  chunks: openarray[Eth2Digest]): seq[Eth2Digest] =
+  doAssert chunks.len > 0 and merkleizer.topIndex > 0
+
+  let proofHeight = merkleizer.topIndex + 1
+  result = newSeq[Eth2Digest](chunks.len * proofHeight)
+
+  if chunks.len == 1:
+    merkleizer.addChunkAndGenMerkleProof(chunks[0], result)
+    return
+
+  let newTotalChunks = merkleizer.totalChunks + chunks.len.uint64
+
+  var
+    # A perfect binary tree will take either `chunks.len * 2` values if the
+    # number of elements in the base layer is odd and `chunks.len * 2 - 1`
+    # otherwise. Each row may also need a single extra element at most if
+    # it must be combined with the existing values in the Merkleizer:
+    merkleTree = newSeqOfCap[Eth2Digest](chunks.len + merkleizer.topIndex)
+    inRowIdx = merkleizer.totalChunks
+    postUpdateInRowIdx = newTotalChunks
+    zeroMixed = false
+
+  template writeResult(chunkIdx, level: int, chunk: Eth2Digest) =
+    result[chunkIdx * proofHeight + level] = chunk
+
+  # We'll start by generating the first row of the merkle tree.
+  var currPairEnd = if inRowIdx.isOdd:
+    # an odd chunk number means that we must combine the
+    # hash with the existing pending sibling hash in the
+    # merkleizer.
+    writeResult(0, 0, merkleizer.combinedChunks[0])
+    merkleTree.add mergeBranches(merkleizer.combinedChunks[0], chunks[0])
+
+    # TODO: can we immediately write this out?
+    merkleizer.completeStartedChunk(merkleTree[^1], 1)
+    2
+  else:
+    1
+
+  if postUpdateInRowIdx.isOdd:
+    merkleizer.combinedChunks[0] = chunks[^1]
+
+  while currPairEnd < chunks.len:
+    writeResult(currPairEnd - 1, 0, chunks[currPairEnd])
+    writeResult(currPairEnd, 0, chunks[currPairEnd - 1])
+    merkleTree.add mergeBranches(chunks[currPairEnd - 1],
+                                 chunks[currPairEnd])
+    currPairEnd += 2
+
+  if currPairEnd - 1 < chunks.len:
+    zeroMixed = true
+    writeResult(currPairEnd - 1, 0, zeroHashes[0])
+    merkleTree.add mergeBranches(chunks[currPairEnd - 1],
+                                 zeroHashes[0])
+  var
+    level = 0
+    baseChunksPerElement = 1
+    treeRowStart = 0
+    rowLen = merkleTree.len
+
+  template writeProofs(rowChunkIdx: int, hash: Eth2Digest) =
+    let
+      startAbsIdx = (inRowIdx.int + rowChunkIdx) * baseChunksPerElement
+      endAbsIdx = startAbsIdx + baseChunksPerElement
+      startResIdx = max(startAbsIdx - merkleizer.totalChunks.int, 0)
+      endResIdx = min(endAbsIdx - merkleizer.totalChunks.int, chunks.len)
+
+    for resultPos in startResIdx ..< endResIdx:
+      writeResult(resultPos, level, hash)
+
+  if rowLen > 1:
+    while level < merkleizer.topIndex:
+      inc level
+      baseChunksPerElement *= 2
+      inRowIdx = inRowIdx div 2
+      postUpdateInRowIdx = postUpdateInRowIdx div 2
+
+      var currPairEnd = if inRowIdx.isOdd:
+        # an odd chunk number means that we must combine the
+        # hash with the existing pending sibling hash in the
+        # merkleizer.
+        writeProofs(0, merkleizer.combinedChunks[level])
+        merkleTree.add mergeBranches(merkleizer.combinedChunks[level],
+                                     merkleTree[treeRowStart])
+
+        # TODO: can we immediately write this out?
+        merkleizer.completeStartedChunk(merkleTree[^1], level + 1)
+        2
+      else:
+        1
+
+      if postUpdateInRowIdx.isOdd:
+        merkleizer.combinedChunks[level] = merkleTree[treeRowStart + rowLen -
+                                                      ord(zeroMixed) - 1]
+      while currPairEnd < rowLen:
+        writeProofs(currPairEnd - 1, merkleTree[treeRowStart + currPairEnd])
+        writeProofs(currPairEnd, merkleTree[treeRowStart + currPairEnd - 1])
+        merkleTree.add mergeBranches(merkleTree[treeRowStart + currPairEnd - 1],
+                                     merkleTree[treeRowStart + currPairEnd])
+        currPairEnd += 2
+
+      if currPairEnd - 1 < rowLen:
+        zeroMixed = true
+        writeProofs(currPairEnd - 1, zeroHashes[level])
+        merkleTree.add mergeBranches(merkleTree[treeRowStart + currPairEnd - 1],
+                                     zeroHashes[level])
+
+      treeRowStart += rowLen
+      rowLen = merkleTree.len - treeRowStart
+
+      if rowLen == 1:
+        break
+
+  doAssert rowLen == 1
+
+  if (inRowIdx and 2) != 0:
+    merkleizer.completeStartedChunk(
+      mergeBranches(merkleizer.combinedChunks[level + 1], merkleTree[^1]),
+      level + 2)
+
+  if (not zeroMixed) and (postUpdateInRowIdx and 2) != 0:
+    merkleizer.combinedChunks[level + 1] = merkleTree[^1]
+
+  while level < merkleizer.topIndex:
+    inc level
+    baseChunksPerElement *= 2
+    inRowIdx = inRowIdx div 2
+
+    let hash = if getBitLE(merkleizer.totalChunks, level):
+      merkleizer.combinedChunks[level]
+    else:
+      zeroHashes[level]
+
+    writeProofs(0, hash)
+
+  merkleizer.totalChunks = newTotalChunks
+
+func binaryTreeHeight*(totalElements: Limit): int =
+  bitWidth nextPow2(uint64 totalElements)
+
+type
+  SszHeapMerkleizer[limit: static[Limit]] = object
+    chunks: array[binaryTreeHeight limit, Eth2Digest]
+    m: SszChunksMerkleizer
+
+proc init*(S: type SszHeapMerkleizer): S =
+  result.m.combinedChunks = cast[ptr UncheckedArray[Eth2Digest]](addr result.chunks)
+  result.m.topIndex = result.limit - 1
+  result.m.totalChunks = 0
+
+template createMerkleizer*(totalElements: static Limit): SszChunksMerkleizer =
   trs "CREATING A MERKLEIZER FOR ", totalElements
 
-  const treeHeight = bitWidth nextPow2(uint64 totalElements)
+  const treeHeight = binaryTreeHeight totalElements
   var combinedChunks {.noInit.}: array[treeHeight, Eth2Digest]
 
   SszChunksMerkleizer(
@@ -112,7 +307,7 @@ template createMerkleizer(totalElements: static Limit): SszChunksMerkleizer =
     topIndex: treeHeight - 1,
     totalChunks: 0)
 
-func getFinalHash(merkleizer: var SszChunksMerkleizer): Eth2Digest =
+func getFinalHash*(merkleizer: SszChunksMerkleizer): Eth2Digest =
   if merkleizer.totalChunks == 0:
     return zeroHashes[merkleizer.topIndex]
 
