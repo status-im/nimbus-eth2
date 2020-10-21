@@ -253,10 +253,31 @@ proc readJsonDeposits(depositsList: JsonNode): seq[Eth1Block] =
 proc fetchDepositData*(p: Web3DataProviderRef,
                        fromBlock, toBlock: Eth1BlockNumber): Future[seq[Eth1Block]]
                        {.async, locks: 0.} =
-  debug "Obtaining deposit log events", fromBlock, toBlock
-  return readJsonDeposits(await p.ns.getJsonLogs(DepositEvent,
-                                                 fromBlock = some blockId(fromBlock),
-                                                 toBlock = some blockId(toBlock)))
+  var currentBlock = fromBlock
+  while currentBlock <= toBlock:
+    var blocksPerRequest = 128'u64
+    while true:
+      let requestToBlock = min(toBlock, currentBlock + blocksPerRequest - 1)
+
+      debug "Obtaining deposit log events",
+            fromBlock = currentBlock,
+            toBlock = requestToBlock
+
+      let depositLogs = try:
+        await p.ns.getJsonLogs(
+          DepositEvent,
+          fromBlock = some blockId(currentBlock),
+          toBlock = some blockId(requestToBlock))
+      except CatchableError as err:
+        blocksPerRequest = blocksPerRequest div 2
+        if blocksPerRequest > 0:
+          continue
+        raise err
+
+      currentBlock = requestToBlock + 1
+      result.add readJsonDeposits(depositLogs)
+      break # breaks the inner "retry" loop and continues
+            # to the next range of blocks to request
 
 proc fetchBlockDetails(p: Web3DataProviderRef, blk: Eth1Block) {.async.} =
   let
