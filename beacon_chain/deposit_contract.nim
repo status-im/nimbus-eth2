@@ -2,7 +2,7 @@ import
   os, sequtils, strutils, options, json, terminal, random,
   chronos, chronicles, confutils, stint, json_serialization,
   ../beacon_chain/network_metadata,
-  web3, web3/confutils_defs, eth/keys, stew/io2,
+  web3, web3/confutils_defs, eth/keys, stew/io2, filepath,
   spec/[datatypes, crypto, presets], ssz/merkleization, keystore_management
 
 # Compiled version of /scripts/depositContract.v.py in this repo
@@ -178,12 +178,12 @@ proc main() {.async.} =
       mnemonic = generateMnemonic(rng[])
       runtimePreset = getRuntimePresetForNetwork(cfg.eth2Network)
 
-    let vres = createPath(string cfg.outValidatorsDir, 0o750)
+    let vres = secureCreatePath(string cfg.outValidatorsDir)
     if vres.isErr():
       warn "Could not create validators folder",
            path = string cfg.outValidatorsDir, err = ioErrorMsg(vres.error)
 
-    let sres = createPath(string cfg.outSecretsDir, 0o750)
+    let sres = secureCreatePath(string cfg.outSecretsDir)
     if sres.isErr():
       warn "Could not create secrets folder",
            path = string cfg.outSecretsDir, err = ioErrorMsg(sres.error)

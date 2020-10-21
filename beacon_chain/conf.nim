@@ -7,7 +7,7 @@ import
   stew/io2, unicodedb/properties, normalize,
   json_serialization, web3/[ethtypes, confutils_defs],
   spec/[crypto, keystore, digest, datatypes, network],
-  network_metadata
+  network_metadata, filepath
 
 export
   defaultEth2TcpPort, enabledLogLevel, ValidIpAddress,
@@ -383,7 +383,7 @@ type
     case cmd* {.
       command
       defaultValue: VCNoCommand }: VCStartUpCmd
-    
+
     of VCNoCommand:
       graffiti* {.
         desc: "The graffiti value that will appear in proposed blocks. " &
@@ -404,7 +404,7 @@ type
         defaultValue: defaultAdminListenAddress(config)
         desc: "Address of the server to connect to for RPC - for the validator duties in the pull model"
         name: "rpc-address" }: ValidIpAddress
-      
+
       retryDelay* {.
         defaultValue: 10
         desc: "Delay in seconds between retries after unsuccessful attempts to connect to a beacon node"
@@ -434,13 +434,13 @@ func dumpDirOutgoing*(conf: BeaconNodeConf|ValidatorClientConf): string =
 
 proc createDumpDirs*(conf: BeaconNodeConf) =
   if conf.dumpEnabled:
-    let resInv = createPath(conf.dumpDirInvalid, 0o750)
+    let resInv = secureCreatePath(conf.dumpDirInvalid)
     if resInv.isErr():
       warn "Could not create dump directory", path = conf.dumpDirInvalid
-    let resInc = createPath(conf.dumpDirIncoming, 0o750)
+    let resInc = secureCreatePath(conf.dumpDirIncoming)
     if resInc.isErr():
       warn "Could not create dump directory", path = conf.dumpDirIncoming
-    let resOut = createPath(conf.dumpDirOutgoing, 0o750)
+    let resOut = secureCreatePath(conf.dumpDirOutgoing)
     if resOut.isErr():
       warn "Could not create dump directory", path = conf.dumpDirOutgoing
 

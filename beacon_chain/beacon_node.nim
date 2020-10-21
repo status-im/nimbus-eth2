@@ -32,7 +32,7 @@ import
   mainchain_monitor, version, ssz/[merkleization], merkle_minimal,
   sync_protocol, request_manager, keystore_management, interop, statusbar,
   sync_manager, validator_duties, validator_api,
-  validator_slashing_protection,
+  validator_slashing_protection, filepath,
   ./eth2_processor
 
 const
@@ -1251,12 +1251,12 @@ programMain:
           swap(mnemonic, walletRes.get.mnemonic)
           walletPath = walletRes.get.walletPath
 
-      let vres = createPath(config.outValidatorsDir, 0o750)
+      let vres = secureCreatePath(config.outValidatorsDir)
       if vres.isErr():
         fatal "Could not create directory", path = config.outValidatorsDir
         quit QuitFailure
 
-      let sres = createPath(config.outSecretsDir, 0o750)
+      let sres = secureCreatePath(config.outSecretsDir)
       if sres.isErr():
         fatal "Could not create directory", path = config.outSecretsDir
         quit QuitFailure

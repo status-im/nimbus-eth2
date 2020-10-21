@@ -18,12 +18,14 @@ cd "$GIT_ROOT"
 NODE_DATA_DIR="${SIMULATION_DIR}/validator-$NODE_ID"
 NODE_VALIDATORS_DIR=$NODE_DATA_DIR/validators/
 NODE_SECRETS_DIR=$NODE_DATA_DIR/secrets/
+MAKEDIR=$GIT_ROOT/scripts/makedir.sh
+COPYFILE=$GIT_ROOT/scripts/copyfile.sh
 
 rm -rf "$NODE_VALIDATORS_DIR"
-mkdir -p "$NODE_VALIDATORS_DIR"
+"$MAKEDIR" "$NODE_VALIDATORS_DIR"
 
 rm -rf "$NODE_SECRETS_DIR"
-mkdir -p "$NODE_SECRETS_DIR"
+"$MAKEDIR" "$NODE_SECRETS_DIR"
 
 # we will split the keys for this instance in half between the BN and the VC
 # and the validators for the VCs will be from the second half of all validators
@@ -34,8 +36,8 @@ if [[ $NODE_ID -lt $TOTAL_NODES ]]; then
 
   pushd "$VALIDATORS_DIR" >/dev/null
   for VALIDATOR in $(ls | tail -n +$(( $VALIDATOR_OFFSET + ($VALIDATORS_PER_NODE * $NODE_ID) + 1 )) | head -n $VALIDATORS_PER_NODE); do
-      cp -a "$VALIDATOR" "$NODE_VALIDATORS_DIR"
-      cp -a "$SECRETS_DIR/$VALIDATOR" "$NODE_SECRETS_DIR"
+      "$COPYFILE" "$VALIDATOR" "$NODE_VALIDATORS_DIR"
+      "$COPYFILE" "$SECRETS_DIR/$VALIDATOR" "$NODE_SECRETS_DIR"
     done
   popd >/dev/null
 fi
