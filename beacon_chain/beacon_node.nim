@@ -1178,7 +1178,7 @@ programMain:
       echo "Wrote ", bootstrapFile
 
   of noCommand:
-    debug "Launching beacon node",
+    info "Launching beacon node",
           version = fullVersionStr,
           bls_backend = $BLS_BACKEND,
           cmdParams = commandLineParams(),
