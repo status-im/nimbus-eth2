@@ -40,22 +40,46 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
 
   var blocks: seq[BlockRef]
   var cur = chainDag.head
+
+  # When the chain is finalizing, the votes between the head block and the
+  # finalized checkpoint should be enough for a stable fork choice - when the
+  # chain is not finalizing, we want to seed it with as many votes as possible
+  # since the whole history of each branch might be significant. It is however
+  # a game of diminishing returns, and we have to weigh it against the time
+  # it takes to replay that many blocks during startup and thus miss _new_
+  # votes.
+  const ForkChoiceHorizon = 256
   while cur != chainDag.finalizedHead.blck:
     blocks.add cur
     cur = cur.parent
 
-  debug "Preloading fork choice with blocks", blocks = blocks.len
+  info "Initializing fork choice from block database",
+    unfinalized_blocks = blocks.len
 
-  for blck in reversed(blocks):
+  var epochRef = finalizedEpochRef
+  for i in 0..<blocks.len:
     let
-      epochRef = chainDag.getEpochRef(blck, blck.slot.compute_epoch_at_slot)
+      blck = blocks[blocks.len - i - 1]
       status =
-        forkChoice.process_block(
-          chainDag, epochRef, blck, chainDag.get(blck).data.message, blck.slot)
+        if i > (blocks.len - ForkChoiceHorizon) or (i mod 1024 != 0):
+          # Fork choice needs to know about the full block tree up to the
+          # finalization point, but doesn't really need to have overly accurate
+          # justification and finalization points until we get close to head -
+          # nonetheless, we'll make sure to pass a fresh finalization point now
+          # and then to make sure the fork choice data structure doesn't grow
+          # too big - getting an EpochRef can be expensive.
+          forkChoice.backend.process_block(
+            blck.root, blck.parent.root,
+            epochRef.current_justified_checkpoint.epoch,
+            epochRef.finalized_checkpoint.epoch)
+        else:
+          epochRef = chainDag.getEpochRef(blck, blck.slot.epoch)
+          forkChoice.process_block(
+            chainDag, epochRef, blck, chainDag.get(blck).data.message, blck.slot)
 
     doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
 
-  debug "Fork choice initialized",
+  info "Fork choice initialized",
     justified_epoch = chainDag.headState.data.data.current_justified_checkpoint.epoch,
     finalized_epoch = chainDag.headState.data.data.finalized_checkpoint.epoch,
     finalized_root = shortlog(chainDag.finalizedHead.blck.root)
