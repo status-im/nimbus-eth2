@@ -22,16 +22,15 @@ func get_attesting_indices*(
     cache: var StateCache): HashSet[ValidatorIndex] =
   # This is part of get_unslashed_attesting_indices(...) in spec.
   # Exported bceause of external trace-level chronicles logging.
-  result = initHashSet[ValidatorIndex]()
   for a in attestations:
-    result.incl get_attesting_indices(
-      state, a.data, a.aggregation_bits, cache)
+    for idx in get_attesting_indices(
+        state, a.data, a.aggregation_bits, cache):
+      result.incl idx
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#helper-functions-1
 func get_unslashed_attesting_indices*(
     state: BeaconState, attestations: openArray[PendingAttestation],
     cache: var StateCache): HashSet[ValidatorIndex] =
-  result = initHashSet[ValidatorIndex]()
   for a in attestations:
     for idx in get_attesting_indices(
         state, a.data, a.aggregation_bits, cache):

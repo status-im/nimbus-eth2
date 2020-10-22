@@ -7,8 +7,9 @@
 
 import
   std/[algorithm, sequtils, sets],
+  chronicles,
   ../spec/[
-    beaconstate, crypto, datatypes, digest, helpers, presets, signatures,
+    crypto, datatypes, digest, helpers, presets, signatures,
     validator],
   ../extras,
   ./block_pools_types, ./chain_dag
@@ -20,6 +21,19 @@ func count_active_validators*(epochInfo: EpochRef): uint64 =
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_committee_count_per_slot
 func get_committee_count_per_slot*(epochInfo: EpochRef): uint64 =
   get_committee_count_per_slot(count_active_validators(epochInfo))
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_beacon_committee
+iterator get_beacon_committee*(
+    epochRef: EpochRef, slot: Slot, index: CommitteeIndex): ValidatorIndex =
+  # Return the beacon committee at ``slot`` for ``index``.
+  let
+    committees_per_slot = get_committee_count_per_slot(epochRef)
+  for idx in compute_committee(
+    epochRef.shuffled_active_validator_indices,
+    (slot mod SLOTS_PER_EPOCH) * committees_per_slot +
+      index.uint64,
+    committees_per_slot * SLOTS_PER_EPOCH
+  ): yield idx
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee*(
@@ -34,14 +48,41 @@ func get_beacon_committee*(
     committees_per_slot * SLOTS_PER_EPOCH
   )
 
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_beacon_committee
+func get_beacon_committee_len*(
+    epochRef: EpochRef, slot: Slot, index: CommitteeIndex): uint64 =
+  # Return the number of members in the beacon committee at ``slot`` for ``index``.
+  let
+    committees_per_slot = get_committee_count_per_slot(epochRef)
+
+  compute_committee_len(
+    count_active_validators(epochRef),
+    (slot mod SLOTS_PER_EPOCH) * committees_per_slot +
+      index.uint64,
+    committees_per_slot * SLOTS_PER_EPOCH
+  )
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_attesting_indices
+iterator get_attesting_indices*(epochRef: EpochRef,
+                                data: AttestationData,
+                                bits: CommitteeValidatorsBits):
+                                  ValidatorIndex =
+  if bits.lenu64 != get_beacon_committee_len(epochRef, data.slot, data.index.CommitteeIndex):
+    trace "get_attesting_indices: inconsistent aggregation and committee length"
+  else:
+    var i = 0
+    for index in get_beacon_committee(epochRef, data.slot, data.index.CommitteeIndex):
+      if bits[i]:
+        yield index
+      inc i
+
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(epochRef: EpochRef,
                             data: AttestationData,
                             bits: CommitteeValidatorsBits):
-                            HashSet[ValidatorIndex] =
-  get_attesting_indices(
-    bits,
-    get_beacon_committee(epochRef, data.slot, data.index.CommitteeIndex))
+                              HashSet[ValidatorIndex] =
+  for idx in get_attesting_indices(epochRef, data, bits):
+    result.incl(idx)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_indexed_attestation
 func get_indexed_attestation*(epochRef: EpochRef, attestation: Attestation): IndexedAttestation =
@@ -57,20 +98,6 @@ func get_indexed_attestation*(epochRef: EpochRef, attestation: Attestation): Ind
         sorted(mapIt(attesting_indices, it.uint64), system.cmp)),
     data: attestation.data,
     signature: attestation.signature
-  )
-
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_beacon_committee
-func get_beacon_committee_len*(
-    epochRef: EpochRef, slot: Slot, index: CommitteeIndex): uint64 =
-  # Return the number of members in the beacon committee at ``slot`` for ``index``.
-  let
-    committees_per_slot = get_committee_count_per_slot(epochRef)
-
-  compute_committee_len(
-    count_active_validators(epochRef),
-    (slot mod SLOTS_PER_EPOCH) * committees_per_slot +
-      index.uint64,
-    committees_per_slot * SLOTS_PER_EPOCH
   )
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#aggregation-selection

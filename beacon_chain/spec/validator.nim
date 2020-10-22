@@ -200,6 +200,13 @@ func compute_committee_slice*(
 
   start.int..(endIdx.int - 1)
 
+iterator compute_committee*(shuffled_indices: seq[ValidatorIndex],
+    index: uint64, count: uint64): ValidatorIndex =
+  let
+    slice = compute_committee_slice(shuffled_indices.lenu64, index, count)
+  for i in slice:
+    yield shuffled_indices[i]
+
 func compute_committee*(shuffled_indices: seq[ValidatorIndex],
     index: uint64, count: uint64): seq[ValidatorIndex] =
   ## Return the committee corresponding to ``indices``, ``seed``, ``index``,
@@ -224,6 +231,20 @@ func compute_committee_len*(
   (slice.b - slice.a + 1).uint64
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_beacon_committee
+iterator get_beacon_committee*(
+    state: BeaconState, slot: Slot, index: CommitteeIndex,
+    cache: var StateCache): ValidatorIndex =
+  ## Return the beacon committee at ``slot`` for ``index``.
+  let
+    epoch = compute_epoch_at_slot(slot)
+    committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
+  for idx in compute_committee(
+    cache.get_shuffled_active_validator_indices(state, epoch),
+    (slot mod SLOTS_PER_EPOCH) * committees_per_slot +
+      index.uint64,
+    committees_per_slot * SLOTS_PER_EPOCH
+  ): yield idx
+
 func get_beacon_committee*(
     state: BeaconState, slot: Slot, index: CommitteeIndex,
     cache: var StateCache): seq[ValidatorIndex] =

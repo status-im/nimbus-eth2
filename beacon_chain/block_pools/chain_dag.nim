@@ -8,12 +8,9 @@
 {.push raises: [Defect].}
 
 import
-  # Standard libraries
-  chronicles, options, sequtils, tables, sets,
-  # Status libraries
-  metrics,
-  # Internals
-  ../ssz/merkleization, ../beacon_chain_db, ../extras,
+  std/[options, sequtils, tables, sets],
+  metrics, snappy, chronicles,
+  ../ssz/[ssz_serialization, merkleization], ../beacon_chain_db, ../extras,
   ../spec/[
     crypto, datatypes, digest, helpers, validator, state_transition,
     beaconstate],
@@ -143,11 +140,27 @@ proc init*(
       newClone(mapIt(state.validators.toSeq, it.pubkey)))
 
   # When fork choice runs, it will need the effective balance of the justified
-  # epoch - we pre-load the balances here to avoid rewinding the justified
-  # state later
-  epochRef.effective_balances = get_effective_balances(state)
+  # checkpoint - we pre-load the balances here to avoid rewinding the justified
+  # state later and compress them because not all checkpoints end up being used
+  # for fork choice - specially during long periods of non-finalization
+  proc snappyEncode(inp: openArray[byte]): seq[byte] =
+    try:
+      snappy.encode(inp)
+    except CatchableError as err:
+      raiseAssert err.msg
+
+  epochRef.effective_balances_bytes =
+    snappyEncode(SSZ.encode(
+      List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT](get_effective_balances(state))))
 
   epochRef
+
+func effective_balances*(epochRef: EpochRef): seq[Gwei] =
+  try:
+    SSZ.decode(snappy.decode(epochRef.effective_balances_bytes, uint32.high),
+      List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]).toSeq()
+  except CatchableError as exc:
+    raiseAssert exc.msg
 
 func updateKeyStores*(epochRef: EpochRef, blck: BlockRef, finalized: BlockRef) =
   # Because key stores are additive lists, we can use a newer list whereever an
@@ -651,43 +664,87 @@ proc updateStateData*(
   # that the state has not been advanced past the desired block - if it has,
   # an earlier state must be loaded since there's no way to undo the slot
   # transitions
-  if state.blck == bs.blck and state.data.data.slot <= bs.slot:
-    # The block is the same and we're at an early enough slot - advance the
-    # state with empty slot processing until the slot is correct
-    dag.advanceSlots(state, bs.slot, save, cache)
-
-    return
-
-  debug "UpdateStateData cache miss",
-    bs, stateBlock = state.blck, stateSlot = state.data.data.slot
-
-  # Either the state is too new or was created by applying a different block.
-  # We'll now resort to loading the state from the database then reapplying
-  # blocks until we reach the desired point in time.
 
   var
     ancestors: seq[BlockRef]
     cur = bs
-  # Look for a state in the database and load it - as long as it cannot be
-  # found, keep track of the blocks that are needed to reach it from the
-  # state that eventually will be found
-  while not dag.getState(state, cur):
-    # There's no state saved for this particular BlockSlot combination, keep
-    # looking...
-    if cur.blck.parent != nil and
-        cur.blck.slot.epoch != epoch(cur.blck.parent.slot):
-      # We store the state of the parent block with the epoch processing applied
-      # in the database - we'll need to apply the block however!
-      ancestors.add(cur.blck)
-      cur = cur.blck.parent.atEpochStart(cur.blck.slot.epoch)
-    else:
-      if cur.slot == cur.blck.slot:
-        # This is not an empty slot, so the block will need to be applied to
-        # eventually reach bs
-        ancestors.add(cur.blck)
+    found = false
 
-      # Moves back slot by slot, in case a state for an empty slot was saved
-      cur = cur.parent
+  template canAdvance(state: StateData, bs: BlockSlot): bool =
+    # The block is the same and we're at an early enough slot - the state can
+    # be used to arrive at the desired blockslot
+    state.blck == bs.blck and state.data.data.slot <= bs.slot
+
+  # First, run a quick check if we can simply apply a few blocks to an in-memory
+  # state - any in-memory state will be faster than loading from database.
+  # The limit here how many blocks we apply is somewhat arbitrary but two full
+  # epochs (might be more slots if there are skips) seems like a good enough
+  # first guess.
+  # This happens in particular during startup where we replay blocks
+  # sequentially to grab their votes.
+  const RewindBlockThreshold = 64
+  while ancestors.len < RewindBlockThreshold:
+    if canAdvance(state, cur):
+      found = true
+      break
+
+    if canAdvance(dag.headState, cur):
+      assign(state, dag.headState)
+      found = true
+      break
+
+    if canAdvance(dag.clearanceState, cur):
+      assign(state, dag.clearanceState)
+      found = true
+      break
+
+    if cur.slot == cur.blck.slot:
+      # This is not an empty slot, so the block will need to be applied to
+      # eventually reach bs
+      ancestors.add(cur.blck)
+
+    if cur.blck.parent == nil:
+      break
+
+    # Moving slot by slot helps find states that were advanced with empty slots
+    cur = cur.parentOrSlot
+
+  # Let's see if we're within a few epochs of the state block - then we can
+  # simply replay blocks without loading the whole state
+
+  if not found:
+    debug "UpdateStateData cache miss",
+      bs, stateBlock = state.blck, stateSlot = state.data.data.slot
+
+    # Either the state is too new or was created by applying a different block.
+    # We'll now resort to loading the state from the database then reapplying
+    # blocks until we reach the desired point in time.
+
+    cur = bs
+    ancestors.setLen(0)
+
+    # Look for a state in the database and load it - as long as it cannot be
+    # found, keep track of the blocks that are needed to reach it from the
+    # state that eventually will be found
+    while not dag.getState(state, cur):
+      # There's no state saved for this particular BlockSlot combination, keep
+      # looking...
+      if cur.blck.parent != nil and
+          cur.blck.slot.epoch != epoch(cur.blck.parent.slot):
+        # We store the state of the parent block with the epoch processing applied
+        # in the database - we'll need to apply the block however!
+        ancestors.add(cur.blck)
+        cur = cur.blck.parent.atEpochStart(cur.blck.slot.epoch)
+      else:
+        if cur.slot == cur.blck.slot:
+          # This is not an empty slot, so the block will need to be applied to
+          # eventually reach bs
+          ancestors.add(cur.blck)
+
+        # Moves back slot by slot, in case a state for an empty slot was saved
+        cur = cur.parent
+
+    beacon_state_rewinds.inc()
 
   let
     startSlot {.used.} = state.data.data.slot # used in logs below
@@ -705,16 +762,15 @@ proc updateStateData*(
   # ...and make sure to process empty slots as requested
   dag.advanceSlots(state, bs.slot, save, cache)
 
-  beacon_state_rewinds.inc()
-
-  trace "State reloaded from database",
+  trace "State updated",
     blocks = ancestors.len,
     slots = state.data.data.slot - startSlot,
     stateRoot = shortLog(state.data.root),
     stateSlot = state.data.data.slot,
     startRoot = shortLog(startRoot),
     startSlot,
-    blck = shortLog(bs)
+    blck = shortLog(bs),
+    found
 
 proc delState(dag: ChainDAGRef, bs: BlockSlot) =
   # Delete state state and mapping for a particular block+slot

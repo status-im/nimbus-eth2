@@ -135,7 +135,8 @@ type
 
   BalanceCheckpoint* = object
     blck*: BlockRef
-    epochRef*: EpochRef
+    epoch*: Epoch
+    balances*: seq[Gwei]
 
   Checkpoints* = object
     time*: Slot

@@ -148,7 +148,7 @@ type
     validator_key_store*: (Eth2Digest, ref seq[ValidatorPubKey])
 
     # balances, as used in fork choice
-    effective_balances*: seq[Gwei]
+    effective_balances_bytes*: seq[byte]
 
   BlockRef* = ref object
     ## Node in object graph guaranteed to lead back to tail block, and to have
