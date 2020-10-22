@@ -27,19 +27,6 @@ from ../../beacon_chain/spec/beaconstate import process_registry_updates
 #
 # We store the state on the heap to avoid that
 
-proc process_justification_and_finalization(state: var BeaconState) =
-  var cache = StateCache()
-
-  var validator_statuses = ValidatorStatuses.init(state)
-  validator_statuses.process_attestations(state, cache)
-  process_justification_and_finalization(state, validator_statuses.total_balances)
-
-proc process_slashings(state: var BeaconState) =
-  var cache = StateCache()
-  var validator_statuses = ValidatorStatuses.init(state)
-  validator_statuses.process_attestations(state, cache)
-  process_slashings(state, validator_statuses.total_balances.current_epoch)
-
 template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, useCache: static bool): untyped =
   # We wrap the tests in a proc to avoid running out of globals
   # in the future: Nim supports up to 3500 globals
