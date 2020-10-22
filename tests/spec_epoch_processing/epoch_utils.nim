@@ -28,7 +28,9 @@ proc transitionEpochUntilJustificationFinalization*(state: var HashedBeaconState
   # Process slots and do the epoch transition until crosslinks
   processSlotsUntilEndCurrentEpoch(state)
 
-  # From process_epoch()
-  var per_epoch_cache = StateCache()
+  var cache = StateCache()
 
-  process_justification_and_finalization(state.data, per_epoch_cache, {})
+  var validator_statuses = ValidatorStatuses.init(state.data)
+  validator_statuses.process_attestations(state.data, cache)
+  process_justification_and_finalization(
+    state.data, validator_statuses.total_balances)

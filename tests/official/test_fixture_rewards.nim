@@ -13,7 +13,7 @@ import
   # Utilities
   stew/results,
   # Beacon chain internals
-  ../../beacon_chain/spec/[datatypes, state_transition_epoch],
+  ../../beacon_chain/spec/[validator, datatypes, helpers, state_transition_epoch],
   ../../beacon_chain/ssz,
   # Test utilities
   ../testutil,
@@ -30,11 +30,13 @@ type Deltas = object
   rewards: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
   penalties: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
-func compareDeltas(
-    deltas: Deltas, rewardsPenalties: tuple[a: seq[Gwei], b: seq[Gwei]]):
-    bool =
-  deltas.rewards.asSeq == rewardsPenalties[0] and
-    deltas.penalties.asSeq == rewardsPenalties[1]
+func add(v: var Deltas, idx: int, delta: Delta) =
+  v.rewards[idx] += delta.rewards
+  v.penalties[idx] += delta.penalties
+
+func init(T: type Deltas, len: int): T =
+  result.rewards.setLen(len)
+  result.penalties.setLen(len)
 
 proc runTest(rewardsDir, identifier: string) =
   # We wrap the tests in a proc to avoid running out of globals
@@ -49,7 +51,6 @@ proc runTest(rewardsDir, identifier: string) =
         state = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
         cache = StateCache()
       let
-        total_balance = get_total_active_balance(state[], cache)
         sourceDeltas = parseTest(testDir/"source_deltas.ssz", SSZ, Deltas)
         targetDeltas = parseTest(testDir/"target_deltas.ssz", SSZ, Deltas)
         headDeltas = parseTest(testDir/"head_deltas.ssz", SSZ, Deltas)
@@ -58,24 +59,65 @@ proc runTest(rewardsDir, identifier: string) =
         inactivityPenaltyDeltas =
           parseTest(testDir/"inactivity_penalty_deltas.ssz", SSZ, Deltas)
 
-      template get_deltas(body: untyped): untyped =
-        var
-          rewards {.inject.} = newSeq[Gwei](state[].validators.len)
-          penalties {.inject.} = newSeq[Gwei](state[].validators.len)
-        body
-        (rewards, penalties)
+      var
+        validator_statuses = ValidatorStatuses.init(state[])
+        finality_delay = (state[].get_previous_epoch() - state[].finalized_checkpoint.epoch)
+
+      validator_statuses.process_attestations(state[], cache)
+      let
+        total_balance = validator_statuses.total_balances.current_epoch
+        total_balance_sqrt = integer_squareroot(total_balance)
+
+      var
+        sourceDeltas2 = Deltas.init(state[].validators.len)
+        targetDeltas2 = Deltas.init(state[].validators.len)
+        headDeltas2 = Deltas.init(state[].validators.len)
+        inclusionDelayDeltas2 = Deltas.init(state[].validators.len)
+        inactivityPenaltyDeltas2 = Deltas.init(state[].validators.len)
+
+      for index, validator in validator_statuses.statuses.mpairs():
+        if not is_eligible_validator(validator):
+          continue
+
+        let
+          base_reward = get_base_reward_sqrt(
+            state[], index.ValidatorIndex, total_balance_sqrt)
+
+        sourceDeltas2.add(index, get_source_delta(
+          validator, base_reward, validator_statuses.total_balances, finality_delay))
+        targetDeltas2.add(index, get_target_delta(
+          validator, base_reward, validator_statuses.total_balances, finality_delay))
+        headDeltas2.add(index, get_head_delta(
+          validator, base_reward, validator_statuses.total_balances, finality_delay))
+
+        let
+          (inclusion_delay_delta, proposer_delta) =
+            get_inclusion_delay_delta(validator, base_reward)
+        inclusionDelayDeltas2.add(index, inclusion_delay_delta)
+
+        inactivityPenaltyDeltas2.add(index, get_inactivity_penalty_delta(
+          validator, base_reward, finality_delay))
+
+        if proposer_delta.isSome:
+          let proposer_index = proposer_delta.get()[0]
+          inclusionDelayDeltas2.add(proposer_index.int, proposer_delta.get()[1])
 
       check:
-        compareDeltas(sourceDeltas, get_deltas(
-          get_source_deltas(state[], total_balance, rewards, penalties, cache)))
-        compareDeltas(targetDeltas, get_deltas(
-          get_target_deltas(state[], total_balance, rewards, penalties, cache)))
-        compareDeltas(headDeltas, get_deltas(
-          get_head_deltas(state[], total_balance, rewards, penalties, cache)))
-        compareDeltas(inclusionDelayDeltas, get_deltas(
-          get_inclusion_delay_deltas(state[], total_balance, rewards, cache)))
-        compareDeltas(inactivityPenaltyDeltas, get_deltas(
-          get_inactivity_penalty_deltas(state[], total_balance, penalties, cache)))
+        sourceDeltas.rewards.asSeq == sourceDeltas2.rewards.asSeq
+        sourceDeltas.penalties.asSeq == sourceDeltas2.penalties.asSeq
+
+        targetDeltas.rewards.asSeq == targetDeltas2.rewards.asSeq
+        targetDeltas.penalties.asSeq == targetDeltas2.penalties.asSeq
+
+        headDeltas.rewards.asSeq == headDeltas2.rewards.asSeq
+        headDeltas.penalties.asSeq == headDeltas2.penalties.asSeq
+
+        inclusionDelayDeltas.rewards.asSeq == inclusionDelayDeltas2.rewards.asSeq
+        inclusionDelayDeltas.penalties.asSeq == inclusionDelayDeltas2.penalties.asSeq
+
+        inactivityPenaltyDeltas.rewards.asSeq == inactivityPenaltyDeltas2.rewards.asSeq
+        inactivityPenaltyDeltas.penalties.asSeq == inactivityPenaltyDeltas2.penalties.asSeq
+
 
   `testImpl _ rewards _ identifier`()
 

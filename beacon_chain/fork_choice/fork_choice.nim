@@ -296,11 +296,8 @@ proc process_block*(self: var ForkChoice,
         # TODO not-actually-correct hotfix for crash
         # https://github.com/status-im/nimbus-eth2/issues/1879
         attestation.data.index < committees_per_slot:
-      let
-        participants = get_attesting_indices(
-          epochRef, attestation.data, attestation.aggregation_bits)
-
-      for validator in participants:
+      for validator in get_attesting_indices(
+          epochRef, attestation.data, attestation.aggregation_bits):
         self.backend.process_attestation(
           validator,
           attestation.data.beacon_block_root,

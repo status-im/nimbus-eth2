@@ -27,6 +27,19 @@ from ../../beacon_chain/spec/beaconstate import process_registry_updates
 #
 # We store the state on the heap to avoid that
 
+proc process_justification_and_finalization(state: var BeaconState) =
+  var cache = StateCache()
+
+  var validator_statuses = ValidatorStatuses.init(state)
+  validator_statuses.process_attestations(state, cache)
+  process_justification_and_finalization(state, validator_statuses.total_balances)
+
+proc process_slashings(state: var BeaconState) =
+  var cache = StateCache()
+  var validator_statuses = ValidatorStatuses.init(state)
+  validator_statuses.process_attestations(state, cache)
+  process_slashings(state, validator_statuses.total_balances.current_epoch)
+
 template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, useCache: static bool): untyped =
   # We wrap the tests in a proc to avoid running out of globals
   # in the future: Nim supports up to 3500 globals
@@ -56,7 +69,7 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
 # ---------------------------------------------------------------
 
 const JustificationFinalizationDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"justification_and_finalization"/"pyspec_tests"
-runSuite(JustificationFinalizationDir, "Justification & Finalization",  process_justification_and_finalization, useCache = true)
+runSuite(JustificationFinalizationDir, "Justification & Finalization",  process_justification_and_finalization, useCache = false)
 
 # Rewards & Penalties
 # ---------------------------------------------------------------
@@ -73,7 +86,7 @@ runSuite(RegistryUpdatesDir, "Registry updates",  process_registry_updates, useC
 # ---------------------------------------------------------------
 
 const SlashingsDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"slashings"/"pyspec_tests"
-runSuite(SlashingsDir, "Slashings",  process_slashings, useCache = true)
+runSuite(SlashingsDir, "Slashings",  process_slashings, useCache = false)
 
 # Final updates
 # ---------------------------------------------------------------
