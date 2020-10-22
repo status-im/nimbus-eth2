@@ -40,11 +40,21 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
 
   var blocks: seq[BlockRef]
   var cur = chainDag.head
-  while cur != chainDag.finalizedHead.blck:
+
+  # When the chain is finalizing, the votes between the head block and the
+  # finalized checkpoint should be enough for a stable fork choice - when the
+  # chain is not finalizing, we want to seed it with as many votes as possible
+  # since the whole history of each branch might be significant. It is however
+  # a game of diminishing returns, and we have to weigh it against the time
+  # it takes to replay that many blocks during startup and thus miss _new_
+  # votes.
+  const ForkChoiceHorizon = 256
+  while cur != chainDag.finalizedHead.blck and blocks.len < ForkChoiceHorizon:
     blocks.add cur
     cur = cur.parent
 
-  debug "Preloading fork choice with blocks", blocks = blocks.len
+  info "Initializing fork choice from block database",
+    unfinalized_blocks = blocks.len
 
   for blck in reversed(blocks):
     let
@@ -55,7 +65,7 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
 
     doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
 
-  debug "Fork choice initialized",
+  info "Fork choice initialized",
     justified_epoch = chainDag.headState.data.data.current_justified_checkpoint.epoch,
     finalized_epoch = chainDag.headState.data.data.finalized_checkpoint.epoch,
     finalized_root = shortlog(chainDag.finalizedHead.blck.root)

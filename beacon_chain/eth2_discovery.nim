@@ -36,6 +36,15 @@ proc parseBootstrapAddress*(address: TaintedString):
     else:
       return err "Ignoring unrecognized bootstrap address type"
 
+iterator strippedLines(filename: string): string {.raises: [ref IOError].} =
+  for line in lines(filename):
+    let stripped = strip(line)
+    if stripped.startsWith('#'): # Comments
+      continue
+
+    if stripped.len > 0:
+      yield stripped
+
 proc addBootstrapNode*(bootstrapAddr: string,
                        bootstrapEnrs: var seq[enr.Record]) =
   let enrRes = parseBootstrapAddress(bootstrapAddr)
@@ -51,7 +60,7 @@ proc loadBootstrapFile*(bootstrapFile: string,
   let ext = splitFile(bootstrapFile).ext
   if cmpIgnoreCase(ext, ".txt") == 0 or cmpIgnoreCase(ext, ".enr") == 0 :
     try:
-      for ln in lines(bootstrapFile):
+      for ln in strippedLines(bootstrapFile):
         addBootstrapNode(ln, bootstrapEnrs)
     except IOError as e:
       error "Could not read bootstrap file", msg = e.msg
@@ -61,7 +70,7 @@ proc loadBootstrapFile*(bootstrapFile: string,
     # TODO. This is very ugly, but let's try to negotiate the
     # removal of YAML metadata.
     try:
-      for ln in lines(bootstrapFile):
+      for ln in strippedLines(bootstrapFile):
         addBootstrapNode(string(ln.strip()[3..^2]), bootstrapEnrs)
     except IOError as e:
       error "Could not read bootstrap file", msg = e.msg
