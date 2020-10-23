@@ -859,7 +859,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
             inc(newPeers)
       else:
         debug "Failed to decode discovery's node address",
-              node = $discnode, errMsg = res.error
+              node = discnode, errMsg = res.error
 
     trace "Discovery tick", wanted_peers = node.wantedPeers,
           space = node.peerPool.shortLogSpace(),
