@@ -6,6 +6,8 @@ import
   eth/keys, eth/p2p/discoveryv5/[enr, protocol, node],
   conf
 
+export protocol, keys
+
 type
   Eth2DiscoveryProtocol* = protocol.Protocol
   Eth2DiscoveryId* = NodeId

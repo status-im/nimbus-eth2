@@ -5,7 +5,9 @@ import
   # TODO for some reason "../[datatypes, digest, crypto]" results in "Error: cannot open file"
   ../datatypes,
   ../digest,
-  ../crypto
+  ../crypto,
+  libp2p/[peerid, multiaddress],
+  eth/p2p/discoveryv5/enr
 
 type
   AttesterDuties* = tuple
@@ -42,3 +44,10 @@ type
     root: Eth2Digest
     canonical: bool
     header: SignedBeaconBlockHeader
+
+  NodeIdentityTuple* = tuple
+    peer_id: PeerID
+    enr: Record
+    p2p_addresses: seq[MultiAddress]
+    discovery_addresses: seq[MultiAddress]
+    metadata: tuple[seq_number: uint64, attnets: string]
