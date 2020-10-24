@@ -1,4 +1,4 @@
-# The beacon node
+# Run just the beacon node
 
 The beacon node application connects to the eth2 network, manages the blockchain, and provides API's to interact with the beacon chain.
 

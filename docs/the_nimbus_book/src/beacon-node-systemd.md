@@ -1,6 +1,6 @@
-# Setting up a systemd service
+# Set up a systemd service
 
-This guide will take you through how to set up a `systemd` service for your beacon node.
+This page will take you through how to set up a `systemd` service for your beacon node.
 > [`systemd`](https://www.freedesktop.org/wiki/Software/systemd/) is a service manager designed specifically for Linux. There is no port to Mac OS.
 
 ## Prerequisites
