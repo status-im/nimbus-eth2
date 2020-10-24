@@ -1,6 +1,7 @@
 # Summary
 - [Introduction](./intro.md)
 - [Installation](./install.md)
+- [Pi Guide](./pi-guide.md)
 - [Become a Zinken validator](./zinken.md)
 - [Become a Medalla validator](./medalla.md)
 - [Troubleshooting Medalla](./medalla-troubleshooting.md)

@@ -1,6 +1,5 @@
  # Become a Zinken validator
 
-
 This page will take you through how to import your key(s) and get your validator(s) ready for [Zinken genesis](https://blog.ethereum.org/2020/09/22/eth2-quick-update-no-17/).
 
 For those of you who are unfamiliar, [Zinken](https://github.com/goerli/medalla/blob/master/zinken/README.md) is a short-lived eth2 testnet that will begin on **Monday, October 12th at 12 UTC** and last for three days or so. Its main objective is to allow us to test the deposit/[genesis](https://hackmd.io/@benjaminion/genesis) flow one more time before mainnet launch.
@@ -134,7 +133,7 @@ NOT 2020-10-07 17:04:09.231+02:00 Starting beacon node                       top
  
  >**Note:** The Nimbus client will only ever import your signing key -- in any case, if you used the deposit launchpad, this is the only key you should have (thanks to the way these keys are derived, you can generate the withdrawal key from your mnemonic whenever you wish to withdraw).
  
- ## Metrics
+## Metrics
  
  Metrics are not included in the binary by default - to enable them, use the following options when starting the client:
  
