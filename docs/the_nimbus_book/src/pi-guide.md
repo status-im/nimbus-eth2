@@ -94,7 +94,7 @@ You can [access the command line](https://www.raspberrypi.org/documentation/remo
 
 While SSH is not enabled by default, you can enable it by placing a file named `ssh`, without any extension, onto the boot partition of the SD card. 
 
-When the Pi boots, it looks for the `ssh` file. If it is found, SSH is enabled and the file is deleted. The content of the file does not matter; it can contain text, or nothing at all.
+When the Pi boots, it will look for the `ssh` file. If it is found, SSH is enabled and the file is deleted. The content of the file does not matter; it can contain text, or nothing at all.
 
 To create an empty `ssh` file, from the home directory of the `boot` partition file, run:
 
@@ -218,7 +218,7 @@ sudo apt-get install git libgflags-dev libsnappy-dev libpcre3-dev
 ```
 ### 12. Install Screen
 
-`screen` is a tool that lets you to safely detach from the SSH session without exiting the remote job. In other words `screen` allows the commands you run on your Pi from your laptop to keep running after you've logged out.
+`screen` is a tool that lets you safely detach from the SSH session without exiting the remote job. In other words `screen` allows the commands you run on your Pi from your laptop to keep running after you've logged out.
 
 Run the following command to install `screen`:
 ```
@@ -253,6 +253,8 @@ make beacon_node
 
 >**Note:** If you haven't generated your validator key(s) and/or made your deposit yet, follow the instructions on [this page]() before carrying on.
 
+**TODO**: ^ link
+
 We'll use the `scp` command to send files over SSH. It allows you to copy files between computers, say from your Raspberry Pi to your desktop/laptop, or vice-versa.
 
 Copy the folder containing your validator key(s) from your computer to your `pi`'s homefolder by opening up a new terminal window and running the following command:
@@ -263,7 +265,7 @@ scp -r <VALIDATOR_KEYS_DIRECTORY> pi@195.177.101.93:
 
 > **Note:** Don't forget the colon (:) at the end of the command!
 
-Replace `195.177.101.93` with your Pi's IP address, and `<VALIDATOR_KEYS_DIRECTORY>` with the full pathname of your `validator_keys` directory (if you used the Launchpad [command line app](https://github.com/ethereum/eth2.0-deposit-cli/releases/) it would have been created for you when you generated your keys).
+As usual, replace `195.177.101.93` with your Pi's IP address, and `<VALIDATOR_KEYS_DIRECTORY>` with the full pathname of your `validator_keys` directory (if you used the Launchpad [command line app](https://github.com/ethereum/eth2.0-deposit-cli/releases/) this would have been created for you when you generated your keys).
 
 
  > **Tip:** run `pwd` in your `validator_keys` directory to print the full pathname to the console.
@@ -323,19 +325,21 @@ Press `Enter` or `Space`.
 
 ### 18. Connect to medalla
 
->**Note:** If you haven't already, we recommend registering for, and running, your own Infura endpoint to connect to eth1. For instruction on how to do so, see [this page](https://status-im.github.io/nimbus-eth2/infura-guide.html).
+We're finally ready to connect to medalla!
 
-To connect to medalla run:
+>**Note:** If you haven't already, we recommend registering for, and running, your own Infura endpoint to connect to eth1. For instruction on how to do so, see [this page](./infura-guide.html).
+
+To connect to medalla, run:
 ```
 make NODE_PARAMS="--web3-url=wss://goerli.infura.io/ws/v3/ae1e57122a1e49af8e835e82a5e35e60"
 NIMFLAGS="-d:insecure"  V=1  medalla
 ```
 
-Replacing the `web3-url` above with your own websocket (`wss`) Infura endpoint.
+Be sure to replace the `web3-url` above with your own websocket (`wss`) Infura endpoint.
 
 ### 19. Check for successful connection
 
-If you look near the top of the logs printed to your console, you should see that your beacon node has started, with your local validator attached:
+If you look near the top of the logs printed to your console, you should see confirmation that your beacon node has started, with your local validator attached:
 
 ```
 INF 2020-10-07 17:04:09.213+02:00 Initializing networking                    topics="networking" tid=11688398 file=eth2_network.nim:1335 hostAddress=/ip4/0.0.0.0/tcp/9000 network_public_key=0802122102defb020c8e47dd8f5da89f51ed6c3998aaa0dd59eeb2784e29d47fdbdab69235 announcedAddresses=@[/ip4/195.177.101.93/tcp/9000]
@@ -351,8 +355,10 @@ peers: 35 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:
 ```
 
 Keep an eye on the number of peers your currently connected to (in the above case that's `35`), as well as your [sync progress]().
+
+**TODO:** ^ link
 ### 20. End ssh session and logout
 
 To detach your `screen` session but leave your processes running, press `Ctrl-A` followed by `Ctrl-D`. You can now exit your `ssh` session (`Ctrl-C`) and switch off your laptop.
 
-Verifying your progress is as simple as `ssh`ing back into your Pi and typing `screen -r` This will resume your screen session (and you will be able to see the entire output of your process since you left).
+Verifying your progress is as simple as `ssh`ing back into your Pi and typing `screen -r`. This will resume your screen session (and you will be able to see your node's entire output since you logged out).
