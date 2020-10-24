@@ -331,11 +331,10 @@ We're finally ready to connect to medalla!
 
 To connect to medalla, run:
 ```
-make NODE_PARAMS="--web3-url=wss://goerli.infura.io/ws/v3/ae1e57122a1e49af8e835e82a5e35e60"
-NIMFLAGS="-d:insecure"  V=1  medalla
+make NODE_PARAMS="--web3-url=wss://goerli.infura.io/ws/v3/ae1e57122a1e49af8e835e82a5e35e60" medalla
 ```
 
-Be sure to replace the `web3-url` above with your own websocket (`wss`) Infura endpoint.
+Be sure to replace the `web3-url` above with your own websocket (`wss`) Infura endpoint.[^1]
 
 ### 19. Check for successful connection
 
@@ -362,3 +361,12 @@ Keep an eye on the number of peers your currently connected to (in the above cas
 To detach your `screen` session but leave your processes running, press `Ctrl-A` followed by `Ctrl-D`. You can now exit your `ssh` session (`Ctrl-C`) and switch off your laptop.
 
 Verifying your progress is as simple as `ssh`ing back into your Pi and typing `screen -r`. This will resume your screen session (and you will be able to see your node's entire output since you logged out).
+
+-------
+
+[^1]: If you were to just run `make medalla`, the beacon node would launch with an Infura endpoint supplied by us. This endpoint is passed through the `web3-url` option (which takes as input the url of the web3 server from which you'd like to observe the eth1 chain). Because Infura caps the requests per endpoint per day to 100k, and all Nimbus nodes use the same Infura endpoint by default, it can happen that our Infura endpoint is overloaded (i.e the requests on a given day reach the 100k limit). If this happens, all requests to Infura using the default endpoint will fail, which means your node will stop processing new deposits.
+  To pass in your own Infura endpoint, you'll need to run:
+	```
+	make NODE_PARAMS="--web3-url=<YOUR_WEBSOCKET_ENDPOINT>" medalla
+	```
+	Importantly, the endpoint must be a websocket (`wss`) endpoint, not `https`. If you're not familiar with Infura, we recommend reading through our [Infura guide](./infura-guide), first. **P.S.** We are well aware that Infura is less than ideal from a decentralisation perspective. As such we are in the process of changing our default to [Geth](https://geth.ethereum.org/docs/install-and-build/installing-geth) (with Infura as a fallback). For some rough notes on how to use Geth with Nimbus, see [here](https://gist.github.com/onqtam/aaf883d46f4dab1311ca9c160df12fe4) (we will be adding more complete instructions very soon).
