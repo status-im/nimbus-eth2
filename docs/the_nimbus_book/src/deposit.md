@@ -15,11 +15,11 @@ We won't elaborate on each individual step here, since they are well explained o
 ## 1. Eth1 connection
 ![](https://i.imgur.com/81BgR14.png)
 
-In the `Select Client` section...
+In the `Select Client` section you'll first be asked to choose an eth1 client. You need to run an eth1 client in order to process incoming validator deposits from the eth1 chain.
 
 ![](https://i.imgur.com/l5WSGqZ.png)
 
-Scroll to the bottom and click `Continue`.
+We recommend you choose `Go Ethereum` (or `Geth`).
 
 ## 2. Block explorer
 Once you've sent off your transaction, you should see the following screen.
@@ -31,6 +31,8 @@ Once you've sent off your transaction, you should see the following screen.
 We recommend you click on `Beaconchain`. This will open up a window that allows you to keep track of your validator's status.
  
 ![](https://i.imgur.com/JHQblna.png)
+
+It's a good idea to bookmark this page.
 
 ## A note on expected waiting time (the queue)
 Once you send off your transaction(s), your validator will be put in a queue based on deposit time, and will getting through the queue may take a few hours or days (assuming the chain is finalising).
