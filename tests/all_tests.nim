@@ -19,7 +19,6 @@ import # Unit test
   ./test_block_pool,
   ./test_datatypes,
   ./test_helpers,
-  ./test_mocking,
   ./test_mainchain_monitor,
   ./test_ssz,
   ./test_state_transition,
