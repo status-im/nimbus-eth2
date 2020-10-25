@@ -251,9 +251,7 @@ make beacon_node
 
 ### 15. Copy signing key over to Pi
 
->**Note:** If you haven't generated your validator key(s) and/or made your deposit yet, follow the instructions on [this page]() before carrying on.
-
-**TODO**: ^ link
+>**Note:** If you haven't generated your validator key(s) and/or made your deposit yet, follow the instructions on [this page](./deposit.md) before carrying on.
 
 We'll use the `scp` command to send files over SSH. It allows you to copy files between computers, say from your Raspberry Pi to your desktop/laptop, or vice-versa.
 
@@ -353,9 +351,8 @@ To keep track of your syncing progress, have a look at the output at the very bo
 peers: 35 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:7 (316807) ❯ sync: wPwwwwwDwwDPwPPPwwww:7:4.0627 (280512)
 ```
 
-Keep an eye on the number of peers your currently connected to (in the above case that's `35`), as well as your [sync progress]().
+Keep an eye on the number of peers your currently connected to (in the above case that's `35`), as well as your [sync progress](./keep-an-eye.md#syncing-progress).
 
-**TODO:** ^ link
 ### 20. End ssh session and logout
 
 To detach your `screen` session but leave your processes running, press `Ctrl-A` followed by `Ctrl-D`. You can now exit your `ssh` session (`Ctrl-C`) and switch off your laptop.

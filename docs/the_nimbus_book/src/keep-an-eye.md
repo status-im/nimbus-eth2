@@ -1,16 +1,12 @@
 # Keep an eye on your validator
  
- If you deposit after the [genesis](https://hackmd.io/@benjaminion/genesis) state was decided (October 8th, 12pm UTC), your validators will be put in a queue based on deposit time, and will slowly be inducted into the validator set after genesis. Getting through the queue may take a few hours or a day or so.
+ If you deposit after the [genesis](https://hackmd.io/@benjaminion/genesis) state was decided, your validator(s) will be put in a queue based on deposit time, and will slowly be inducted into the validator set after genesis. Getting through the queue may take a few hours or a day or so.
  
  The best way to keep track of your validator's status is [medalla.beaconcha.in](https:/medalla.beaconcha.in) (click on the orange magnifying glass at the very top and paste in your validator's public key).
  
- You can even [create an account](https://zinken.beaconcha.in/register) to add alerts and keep track of your validator's [performance](https://zinken.beaconcha.in/dashboard).
- 
- 
- The best way to keep track of your validator's status is [medalla.beaconcha.in](https://medalla.beaconcha.in) (click on the orange magnifying glass at the very top and paste in its public key).
-
 You can even [create an account](https://medalla.beaconcha.in/register) to add alerts and keep track of your validator's [performance](https://medalla.beaconcha.in/dashboard).
 
+## Syncing progress
 To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running. You should see something like:
 
 ```
