@@ -5,6 +5,76 @@ import
   ../beacon_chain/[ssz, merkle_minimal],
   mocking/mock_deposits
 
+func round_step_down(x: Natural, step: static Natural): int {.inline.} =
+  ## Round the input to the previous multiple of "step"
+  when (step and (step - 1)) == 0:
+    # Step is a power of 2. (If compiler cannot prove that x>0 it does not make the optim)
+    x and not(step - 1)
+  else:
+    x - x mod step
+
+type SparseMerkleTree[Depth: static int] = object
+  ## Sparse Merkle tree
+  # There is an extra "depth" layer to store leaf nodes
+  # This stores leaves at depth = 0
+  # and the root hash at the last depth
+  nnznodes*: array[Depth+1, seq[Eth2Digest]]  # nodes that leads to non-zero leaves
+
+func merkleTreeFromLeaves(
+        values: openarray[Eth2Digest],
+        Depth: static[int] = DEPOSIT_CONTRACT_TREE_DEPTH
+      ): SparseMerkleTree[Depth] =
+  ## Depth should be the same as is_valid_merkle_branch
+
+  result.nnznodes[0] = @values
+
+  for depth in 1 .. Depth: # Inclusive range
+    let prev_depth_len = result.nnznodes[depth-1].len
+    let stop = round_step_down(prev_depth_len, 2)
+    for i in countup(0, stop-1, 2):
+      # hash by pair of previous nodes
+      let nodeHash = withEth2Hash:
+        h.update result.nnznodes[depth-1][i]
+        h.update result.nnznodes[depth-1][i+1]
+      result.nnznodes[depth].add nodeHash
+
+    if prev_depth_len != stop:
+      # If length is odd, the last one was skipped,
+      # we need to combine it
+      # with the zeroHash corresponding to the current depth
+      let nodeHash = withEth2Hash:
+        h.update result.nnznodes[depth-1][^1]
+        h.update zeroHashes[depth-1]
+      result.nnznodes[depth].add nodeHash
+
+func getMerkleProof[Depth: static int](tree: SparseMerkleTree[Depth],
+                                       index: int,
+                                       depositMode = false): array[Depth, Eth2Digest] =
+  # Descend down the tree according to the bit representation
+  # of the index:
+  #   - 0 --> go left
+  #   - 1 --> go right
+  let path = uint32(index)
+
+  # This is what the nnznodes[depth].len would be if `index` had been the last
+  # deposit on the Merkle tree
+  var depthLen = index + 1
+
+  for depth in 0 ..< Depth:
+    let nodeIdx = int((path shr depth) xor 1)
+
+    # depositMode simulates only having constructed SparseMerkleTree[Depth]
+    # through exactly deposit specified.
+    if nodeIdx < tree.nnznodes[depth].len and
+        (nodeIdx < depthLen or not depositMode):
+      result[depth] = tree.nnznodes[depth][nodeIdx]
+    else:
+      result[depth] = zeroHashes[depth]
+
+    # Round up, i.e. a half-pair of Merkle nodes/leaves still requires a node
+    # in the next Merkle tree layer calculated
+    depthLen = (depthLen + 1) div 2
+
 proc testMerkleMinimal*(): bool =
   proc toDigest[N: static int](x: array[N, byte]): Eth2Digest =
     result.data[0 .. N-1] = x
@@ -97,9 +167,6 @@ proc testMerkleMinimal*(): bool =
 
 doAssert testMerkleMinimal()
 
-let
-  digests = mapIt(1..65, eth2digest toBytesLE(uint64 it))
-
 proc compareTreeVsMerkleizer(hashes: openarray[Eth2Digest], limit: static Limit) =
   const treeHeight = binaryTreeHeight(limit)
   let tree = merkleTreeFromLeaves(hashes, treeHeight)
@@ -179,6 +246,9 @@ func attachMerkleProofsReferenceImpl(deposits: var openarray[Deposit]) =
       deposit_data_roots[val_idx], deposits[val_idx].proof,
       DEPOSIT_CONTRACT_TREE_DEPTH + 1, val_idx.uint64,
       deposit_data_sums[val_idx])
+
+let
+  digests = mapIt(1..65, eth2digest toBytesLE(uint64 it))
 
 proc testMerkleizer =
   for i in 0 ..< digests.len:
