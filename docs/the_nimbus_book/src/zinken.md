@@ -1,6 +1,5 @@
  # Become a Zinken validator
 
-
 This page will take you through how to import your key(s) and get your validator(s) ready for [Zinken genesis](https://blog.ethereum.org/2020/09/22/eth2-quick-update-no-17/).
 
 For those of you who are unfamiliar, [Zinken](https://github.com/goerli/medalla/blob/master/zinken/README.md) is a short-lived eth2 testnet that will begin on **Monday, October 12th at 12 UTC** and last for three days or so. Its main objective is to allow us to test the deposit/[genesis](https://hackmd.io/@benjaminion/genesis) flow one more time before mainnet launch.
@@ -13,7 +12,7 @@ Although it will mainly be client teams taking part, it's also a chance for you 
 
 This tutorial assumes basic knowledge of the [command line](https://www.learnenough.com/command-line-tutorial/basics#:~:text=Learn%20Enough%20Command%20Line%20to%20Be%20Dangerous%20is%20an%20introduction,broad%20an%20audience%20as%20possible.).
  
- ## 1. Make a deposit
+## 1. Make a deposit
  
  The easiest way to get your deposit in is to follow the Launchpad instructions here:
  
@@ -80,11 +79,11 @@ This tutorial assumes basic knowledge of the [command line](https://www.learneno
  If you look near the top of the logs printed to your console, you should see that your beacon node has started, with your local validator attached:
  
  ```
- INF 2020-10-07 17:04:09.213+02:00 Initializing networking                    topics="networking" tid=11688398 file=eth2_network.nim:1335 hostAddress=/ip4/0.0.0.0/tcp/9000 network_public_key=0802122102defb020c8e47dd8f5da89f51ed6c3998aaa0dd59eeb2784e29d47fdbdab69235 announcedAddresses=@[/ip4/192.168.11.83/tcp/9000]
+ INF 2020-10-07 17:04:09.213+02:00 Initializing networking                    topics="networking" tid=11688398 file=eth2_network.nim:1335 hostAddress=/ip4/0.0.0.0/tcp/9000 network_public_key=0802122102defb020c8e47dd8f5da89f51ed6c3998aaa0dd59eeb2784e29d47fdbdab69235 announcedAddresses=@[/ip4/195.177.101.93/tcp/9000]
 WRN 2020-10-07 17:04:09.215+02:00 Ignoring invalid bootstrap address         tid=11688398 file=eth2_discovery.nim:45 bootstrapAddr= reason="an empty string is not a valid bootstrap node"
 NOT 2020-10-07 17:04:09.231+02:00 Local validators attached                  topics="beacval" tid=11688398 file=validator_duties.nim:65 count=0
 NOT 2020-10-07 17:04:09.231+02:00 Starting beacon node                       topics="beacnde" tid=11688398 file=beacon_node.nim:923 version="0.5.0 (1dec860b)" nim="Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)" timeSinceFinalization=0ns head=0814b036:0 finalizedHead=0814b036:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.3 dataDir=build/data/shared_zinken_0
- peers: 0 ❯ finalized: 0814b036:0 ❯ head: 0814b036:0:0 ❯ time: 387:2 (12386) INF 2020-10-07 17:04:09.232+02:00 Starting discovery node                    topics="discv5" tid=11688398 file=protocol.nim:799 node=Node[192.168.11.83:9000] uri=enr:-LK4QCje1Tb8tPIjuIWcAjVRprALNr-fGSmX0ijk2nt4-BgTRSG_q2oekHW9IxbdRi-bcT9RsppI7JtjIxjkm-dG9ZwBh2F0dG5ldHOI__________-EZXRoMpCEe0P1AAAAA___________gmlkgnY0gmlwhMCoC1OJc2VjcDI1NmsxoQLe-wIMjkfdj12on1HtbDmYqqDdWe6yeE4p1H_b2raSNYN0Y3CCIyiDdWRwgiMo bindAddress=0.0.0.0:9000 
+ peers: 0 ❯ finalized: 0814b036:0 ❯ head: 0814b036:0:0 ❯ time: 387:2 (12386) INF 2020-10-07 17:04:09.232+02:00 Starting discovery node                    topics="discv5" tid=11688398 file=protocol.nim:799 node=Node[195.177.101.93:9000] uri=enr:-LK4QCje1Tb8tPIjuIWcAjVRprALNr-fGSmX0ijk2nt4-BgTRSG_q2oekHW9IxbdRi-bcT9RsppI7JtjIxjkm-dG9ZwBh2F0dG5ldHOI__________-EZXRoMpCEe0P1AAAAA___________gmlkgnY0gmlwhMCoC1OJc2VjcDI1NmsxoQLe-wIMjkfdj12on1HtbDmYqqDdWe6yeE4p1H_b2raSNYN0Y3CCIyiDdWRwgiMo bindAddress=0.0.0.0:9000 
  ```
  
  > **Note:** when you run `make zinken`, the beacon node launches with an Infura endpoint supplied by us. This endpoint is passed through the `web3-url` option (which takes as input the url of the web3 server from which you'd like to observe the eth1 chain). 
@@ -100,7 +99,7 @@ NOT 2020-10-07 17:04:09.231+02:00 Starting beacon node                       top
 > P.S. We are well aware that Infura is less than ideal from a decentralisation perspective. As such we are in the process of changing our default to [Geth](https://geth.ethereum.org/docs/install-and-build/installing-geth) (with Infura as a fallback). For some rough notes on how to use Geth with Nimbus, see [here](https://gist.github.com/onqtam/aaf883d46f4dab1311ca9c160df12fe4) (we will be adding more complete instructions very soon).
  
  
- ## 4. Keep an eye on your validator
+## 4. Keep an eye on your validator
  
  If you deposit after the [genesis](https://hackmd.io/@benjaminion/genesis) state was decided (October 8th, 12pm UTC), your validators will be put in a queue based on deposit time, and will slowly be inducted into the validator set after genesis. Getting through the queue may take a few hours or a day or so.
  
@@ -134,7 +133,7 @@ NOT 2020-10-07 17:04:09.231+02:00 Starting beacon node                       top
  
  >**Note:** The Nimbus client will only ever import your signing key -- in any case, if you used the deposit launchpad, this is the only key you should have (thanks to the way these keys are derived, you can generate the withdrawal key from your mnemonic whenever you wish to withdraw).
  
- ## Metrics
+## Metrics
  
  Metrics are not included in the binary by default - to enable them, use the following options when starting the client:
  

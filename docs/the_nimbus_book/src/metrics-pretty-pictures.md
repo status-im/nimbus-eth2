@@ -14,7 +14,7 @@ The easiest way to see metrics concerning your validator / node is to run the be
 make NIMFLAGS="-d:insecure" medalla
 ```
 
-> **Note:** this flag is needed because we consider the HTTP server that needs to start to serve the metrics to be insecure (without this flag it won't launch properly). As such, we recommend you make sure port 8008 is protected.
+> **Note:** Metrics are not included in the binary by default. The `NIMFLAGS="-d:insecure"` is needed because we consider the HTTP server that needs to start to serve the metrics to be insecure (without this flag it won't launch properly). As such, we recommend you make sure port 8008 is protected.
 
 
 Now visit [http://127.0.0.1:8008/metrics](http://127.0.0.1:8008/metrics) to see the raw metrics. You should see a plaintext page that looks something like this:
