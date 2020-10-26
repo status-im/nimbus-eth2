@@ -2,18 +2,19 @@
 
 The Nimbus beacon chain is a research implementation of the Beacon Chain – the core system level chain at the heart of Ethereum 2.0.
 
-
-- Open sourced at [github.com/status-im/nimbus-eth2](https://github.com/status-im/nimbus-eth2/tree/master)
-
-- Specification described at [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v1.0.0-rc.0#phase-0)
-
+This book strives to achieve two purposes: 1) to attempt to provide a more or less complete documentation of the Nimbus beacon chain, and 2) to explain the various ways in which you can use Nimbus to become a validator on eth2.
 
 ### Helpful resources
+
+- [nimbus-eth2 repository](github.com/status-im/nimbus-eth2)
+- [eth2 specification](https://github.com/ethereum/eth2.0-specs/tree/v1.0.0-rc.0#phase-0)
 - [Ben Edgington's annotated spec](https://benjaminion.xyz/eth2-annotated-spec/phase0/beacon-chain/) 
 
 - [Vitalik's annotated spec](https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md)
 
 - [Danny Ryan's annotated spec](https://notes.ethereum.org/@djrtwo/Bkn3zpwxB)
+
+
 
 
 ## Introduction
