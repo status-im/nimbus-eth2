@@ -657,22 +657,20 @@ proc startSyncManager(node: BeaconNode) =
 
   proc scoreCheck(peer: Peer): bool =
     if peer.score < PeerScoreLowLimit:
-      try:
-        debug "Peer score is too low, disconnecting", peer = peer,
-              peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
-              score_high_limit = PeerScoreHighLimit
-        # We do not care about result of this operation, because even if
-        # disconnect operation fails, peer will still be added to SeenTable
-        # and removed from PeerPool. So it will be not reused for syncing for
-        # `SeenTablePenaltyError` time.
-        asyncSpawn peer.disconnect(PeerScoreLow)
-      except:
-        discard
+      debug "Peer score is too low", peer = peer,
+            peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
+            score_high_limit = PeerScoreHighLimit
       false
     else:
       true
 
+  proc onDeletePeer(peer: Peer) =
+    debug "Peer is got removed from PeerPool, disconnecting", peer = peer,
+          peer_score = peer.score
+    asyncSpawn peer.disconnect(PeerScoreLow)
+
   node.network.peerPool.setScoreCheck(scoreCheck)
+  node.network.peerPool.setOnDeletePeer(onDeletePeer)
 
   node.syncManager = newSyncManager[Peer, PeerID](
     node.network.peerPool, getLocalHeadSlot, getLocalWallSlot,

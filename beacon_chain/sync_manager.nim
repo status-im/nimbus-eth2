@@ -935,29 +935,54 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
   debug "Synchronization loop started", topics = "syncman"
 
   proc watchAndSpeedTask() {.async.} =
+    const
+      MaxPauseTime = int(SECONDS_PER_SLOT) * int(SLOTS_PER_EPOCH)
+      MinPauseTime = int(SECONDS_PER_SLOT)
+
+    var pauseTime = MinPauseTime
+
     while true:
       let wallSlot = man.getLocalWallSlot()
       let headSlot = man.getLocalHeadSlot()
+
       let lsm1 = SyncMoment.now(man.getLocalHeadSlot())
-      await sleepAsync(chronos.seconds(int(SECONDS_PER_SLOT)))
+      await sleepAsync(chronos.seconds(pauseTime))
       let lsm2 = SyncMoment.now(man.getLocalHeadSlot())
 
       let (map, sleeping, waiting, pending) = man.getWorkersStats()
       if pending == 0:
+        pauseTime = MinPauseTime
         man.syncSpeed = 0.0
       else:
         if (lsm2.slot - lsm1.slot == 0'u64) and (pending > 1):
+          # Syncing is NOT progressing, we double `pauseTime` value, but value
+          # could not be bigger then `MaxPauseTime`.
+          if (pauseTime shl 1) > MaxPauseTime:
+            pauseTime = MaxPauseTime
+          else:
+            pauseTime = pauseTime shl 1
           info "Syncing process is not progressing, reset the queue",
                 pending_workers_count = pending,
                 to_slot = man.queue.outSlot,
+                pause_time = chronos.seconds(pauseTime),
                 local_head_slot = lsm1.slot, topics = "syncman"
           await man.queue.resetWait(none[Slot]())
+          # Store current syncing performance.
+          man.syncSpeed = 0.0
         else:
+          # Syncing progressing, so reduce `pauseTime` value in half, but value
+          # could not be less then `MinPauseTime`.
+          if (pauseTime shr 1) < MinPauseTime:
+            pauseTime = MinPauseTime
+          else:
+            pauseTime = pauseTime shr 1
+          # Store current syncing performance.
           man.syncSpeed = speed(lsm1, lsm2)
 
-      trace "Synchronization loop tick", wall_head_slot = wallSlot,
+      debug "Synchronization loop tick", wall_head_slot = wallSlot,
           local_head_slot = headSlot, queue_start_slot = man.queue.startSlot,
           queue_last_slot = man.queue.lastSlot,
+          pause_time = chronos.seconds(pauseTime),
           sync_speed = man.syncSpeed, pending_workers_count = pending,
           topics = "syncman"
 
