@@ -7,7 +7,7 @@ import
   eth/db/[kvstore, kvstore_sqlite3],
   ./spec/[datatypes, digest, crypto, state_transition, signatures],
   ./ssz/[ssz_serialization, merkleization],
-  filepath
+  merkle_minimal, filepath
 
 type
   DbSeq*[T] = object
@@ -22,6 +22,8 @@ type
   DepositsSeq = DbSeq[DepositData]
   ImmutableValidatorDataSeq = seq[ImmutableValidatorData]
   ValidatorKeyToIndexMap = Table[ValidatorPubKey, ValidatorIndex]
+
+  DepositsMerkleizer* = SszMerkleizer[depositContractLimit]
 
   BeaconChainDB* = ref object
     ## Database storing resolved blocks and states - resolved blocks are such
@@ -42,6 +44,16 @@ type
     deposits*: DepositsSeq
     immutableValidatorData*: ImmutableValidatorDataSeq
     validatorKeyToIndex*: ValidatorKeyToIndexMap
+
+    finalizedEth1DepositsMerkleizer*: DepositsMerkleizer
+      ## A merkleizer keeping track of the `deposit_root` value obtained from
+      ## Eth1 after finalizing blocks with ETH1_FOLLOW_DISTANCE confirmations.
+      ## The value is used when voting for Eth1 heads.
+
+    finalizedEth2DepositsMerkleizer*: DepositsMerkleizer
+      ## A separate merkleizer which is advanced when the Eth2 chain finalizes.
+      ## It will lag behind the "eth1 merkleizer". We use to produce merkle
+      ## proofs for deposits when they are added to Eth2 blocks.
 
   Keyspaces* = enum
     defaultKeyspace = "kvstore"
@@ -66,6 +78,12 @@ type
     kEth1PersistedTo
       ## The latest ETH1 block hash which satisfied the follow distance and
       ## had its deposits persisted to disk.
+    kFinalizedEth1DepositsMarkleizer
+      ## A merkleizer used to compute the `deposit_root` of all finalized
+      ## deposits (i.e. deposits confirmed by ETH1_FOLLOW_DISTANCE blocks)
+    kFinalizedEth2DepositsMarkleizer
+      ## A merkleizer used for computing merkle proofs of deposits added
+      ## to Eth2 blocks (it may lag behind the finalized deposits merkleizer).
 
 const
   maxDecompressedDbRecordSize = 16*1024*1024
@@ -171,9 +189,12 @@ template insert*[K, V](t: var Table[K, V], key: K, value: V) =
 
 proc produceDerivedData(deposit: DepositData,
                         preset: RuntimePreset,
-                        deposits: var DepositsSeq,
                         validators: var ImmutableValidatorDataSeq,
-                        validatorKeyToIndex: var ValidatorKeyToIndexMap) =
+                        validatorKeyToIndex: var ValidatorKeyToIndexMap,
+                        finalizedEth1DepositsMerkleizer: var DepositsMerkleizer) =
+  let htr = hash_tree_root(deposit)
+  finalizedEth1DepositsMerkleizer.addChunk htr.data
+
   if verify_deposit_signature(preset, deposit):
     let pubkey = deposit.pubkey
     if pubkey notin validatorKeyToIndex:
@@ -189,9 +210,9 @@ proc processDeposit*(db: BeaconChainDB, newDeposit: DepositData) =
   produceDerivedData(
     newDeposit,
     db.preset,
-    db.deposits,
     db.immutableValidatorData,
-    db.validatorKeyToIndex)
+    db.validatorKeyToIndex,
+    db.finalizedEth1DepositsMerkleizer)
 
 proc init*(T: type BeaconChainDB,
            preset: RuntimePreset,
@@ -201,7 +222,10 @@ proc init*(T: type BeaconChainDB,
     # TODO
     # The inMemory store shuold offer the complete functionality
     # of the database-backed one (i.e. tracking of deposits and validators)
-    T(backend: kvStore MemStoreRef.init(), preset: preset)
+    T(backend: kvStore MemStoreRef.init(),
+      preset: preset,
+      finalizedEth1DepositsMerkleizer: init DepositsMerkleizer,
+      finalizedEth2DepositsMerkleizer: init DepositsMerkleizer)
   else:
     let s = secureCreatePath(dir)
     doAssert s.isOk # TODO Handle this in a better way
@@ -213,20 +237,30 @@ proc init*(T: type BeaconChainDB,
       immutableValidatorData = newSeq[ImmutableValidatorData]()
       validatorKeyToIndex = initTable[ValidatorPubKey, ValidatorIndex]()
       depositsSeq = DbSeq[DepositData].init(sqliteStore, "deposits")
+      finalizedEth1DepositsMerkleizer = init DepositsMerkleizer
+      finalizedEth2DepositsMerkleizer = init DepositsMerkleizer
 
     for i in 0 ..< depositsSeq.len:
       produceDerivedData(
         depositsSeq.get(i),
         preset,
-        depositsSeq,
         immutableValidatorData,
-        validatorKeyToIndex)
+        validatorKeyToIndex,
+        finalizedEth1DepositsMerkleizer)
 
     T(backend: kvStore sqliteStore,
       preset: preset,
       deposits: depositsSeq,
       immutableValidatorData: immutableValidatorData,
-      validatorKeyToIndex: validatorKeyToIndex)
+      validatorKeyToIndex: validatorKeyToIndex,
+      finalizedEth1DepositsMerkleizer: finalizedEth1DepositsMerkleizer,
+      finalizedEth2DepositsMerkleizer: finalizedEth2DepositsMerkleizer)
+
+proc advanceTo*(merkleizer: var DepositsMerkleizer,
+                db: BeaconChainDB,
+                deposit_index: uint64) =
+  for i in merkleizer.totalChunks ..< depositIndex:
+    merkleizer.addChunk hash_tree_root(db.deposits.get(i)).data
 
 proc snappyEncode(inp: openArray[byte]): seq[byte] =
   try:

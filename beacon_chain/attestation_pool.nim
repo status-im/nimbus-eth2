@@ -28,12 +28,9 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
   ## The `finalized_root` works around the finalized_checkpoint of the genesis block
   ## holding a zero_root.
 
-  let
-    finalizedEpochRef = chainDag.getEpochRef(
-      chainDag.finalizedHead.blck, chainDag.finalizedHead.slot.epoch())
-
   var forkChoice = ForkChoice.init(
-    finalizedEpochRef, chainDag.finalizedHead.blck)
+    chainDag.getFinalizedEpochRef(),
+    chainDag.finalizedHead.blck)
 
   # Feed fork choice with unfinalized history - during startup, block pool only
   # keeps track of a single history so we just need to follow it

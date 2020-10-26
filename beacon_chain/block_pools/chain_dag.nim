@@ -94,6 +94,7 @@ proc init*(
     epoch = state.get_current_epoch()
     epochRef = EpochRef(
       epoch: epoch,
+      eth1_data: state.eth1_data,
       current_justified_checkpoint: state.current_justified_checkpoint,
       finalized_checkpoint: state.finalized_checkpoint,
       shuffled_active_validator_indices:
@@ -458,6 +459,9 @@ proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
       ancestor.blck.epochRefs.add newEpochRef
       newEpochRef.updateKeyStores(blck.parent, dag.finalizedHead.blck)
     newEpochRef
+
+proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
+  dag.getEpochRef(dag.finalizedHead.blck, dag.finalizedHead.slot.epoch)
 
 proc getState(
     dag: ChainDAGRef, state: var StateData, stateRoot: Eth2Digest,

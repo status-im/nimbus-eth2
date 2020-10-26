@@ -188,7 +188,8 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       if node.mainchainMonitor.isNil:
         (state.eth1_data, newSeq[Deposit]())
       else:
-        node.mainchainMonitor.getBlockProposalData(state)
+        let finalizedEth1Data = node.chainDag.getFinalizedEpochRef().eth1_data
+        node.mainchainMonitor.getBlockProposalData(state, finalizedEth1Data)
 
     let
       poolPtr = unsafeAddr node.chainDag # safe because restore is short-lived
