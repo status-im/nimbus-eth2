@@ -15,6 +15,7 @@
 - [Run a local eth1 node]()
 - [Run just the beacon node]()
 - [Switch between clients]()
+- [Permissions]()
 - [Advanced options](./advanced.md)
 - [Troubleshooting](./troubleshooting.md)
 - [API](./api.md)
