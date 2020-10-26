@@ -10,4 +10,3 @@ git pull && make update
 
 Once the update is complete, run `make medalla` to reconnect to the network.
 
-Looking forward to seeing you on Medalla! 💛

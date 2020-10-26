@@ -1,12 +1,12 @@
 # APIs
 
-NBC exposes a collection of APIs for querying the state of the application at runtime.
+`nimbus-eth2`  exposes a collection of APIs for querying the state of the application at runtime.
 
 > **Note:** Where applicable, these APIs mimic the [eth2 APIs](https://github.com/ethereum/eth2.0-APIs) with the exception that JSON-RPC is used instead of http rest (the method names, parameters and results are all the same except for the encoding / access method).
 
 ## Introduction
 
-The NBC API is implemented using JSON-RPC 2.0. To query it, you can use a JSON-RPC library in the language of your choice, or a tool like `curl` to access it from the command line. A tool like [jq](https://stedolan.github.io/jq/) is helpful to pretty-print the responses.
+The `nimbus-eth2` API is implemented using JSON-RPC 2.0. To query it, you can use a JSON-RPC library in the language of your choice, or a tool like `curl` to access it from the command line. A tool like [jq](https://stedolan.github.io/jq/) is helpful to pretty-print the responses.
 
 ```
 curl -d '{"jsonrpc":"2.0","id":"id","method":"peers","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq

@@ -1,25 +1,30 @@
 # Summary
 # Volume 1
 - [Introduction](./intro.md)
-- [Installation](./install.md)
+- [Install dependencies](./install.md)
+- [Build the beacon node](./build.md)
 - [Make a deposit](./deposit.md)
 - [Manage your keys](./keys.md)
-- [Raspberry Pi Guide](./pi-guide.md)
+- [Connect to eth2](./connect-eth2.md)
+- [Run your node on a Raspberry Pi](./pi-guide.md)
 - [Keep an eye on your validator](./keep-an-eye.md)
 - [Keep your validator updated](./keep-updated.md)
-- [Graffiti](./graffiti.md)
+- [Useful pre-genesis checks]()
+- [Switching between clients]()
+# Volume 2
 - [Metrics and pretty pictures](./metrics-pretty-pictures.md)
-- [Run just the beacon node](./beacon-node.md)
-- [Advanced Options](./advanced.md)
+- [Graffiti the blockchain](./graffiti.md)
+- [Run just the beacon node]()
+- [Advanced options](./advanced.md)
 - [Troubleshooting](./troubleshooting.md)
 - [API](./api.md)
-# Volume 2
 - [Infura guide](infura-guide.md)
+- [eth2stats guide]()
 - [Windows users]()
 - [FAQ](./faq.md)
 - [Contribute](./contribute.md)
 - [Resources](./resources.md)
-# Advanced
+# Volume 3
 - [For developers](./developers.md)
 - [Set up a systemd service](./beacon-node-systemd.md)
 - [Generate your keys with Nimbus](./create-wallet-and-deposit.md)

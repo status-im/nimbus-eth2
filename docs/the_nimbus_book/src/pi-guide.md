@@ -3,7 +3,7 @@
 <blockquote class="twitter-tweet"><p lang="en" dir="ltr">I expect the new Raspberry Pi 4 (4GB RAM option, external SSD) to handle an Eth2 validator node without breaking a sweat. That&#39;s $100 of hardware running at 10 Watts to support a 32 ETH node (currently ~$10K stake).</p>&mdash; Justin Ðrake (@drakefjustin) <a href="https://twitter.com/drakefjustin/status/1143091047058366465?ref_src=twsrc%5Etfw">June 24, 2019</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
 ## Introduction
-This page will take you through how to use your laptop to program your Raspberry Pi, get Nimbus running, and connect to the Medalla testnet.
+This page will take you through how to use your laptop to program your Raspberry Pi, get Nimbus running, and connect to the Medalla testnet (if this is not something you plan on doing, feel free to [skip ahead](./keep-an-eye.md)).
 
 One of the most important aspects of the Raspberry Pi experience is trying to make it as easy as possible to get started. As such, we try our best to explain things from first-principles.
 
@@ -325,7 +325,7 @@ Press `Enter` or `Space`.
 
 We're finally ready to connect to medalla!
 
->**Note:** If you haven't already, we recommend registering for, and running, your own Infura endpoint to connect to eth1. For instruction on how to do so, see [this page](./infura-guide.html).
+>**Note:** If you haven't already, we recommend registering for, and running, your own Infura endpoint to connect to eth1. For instruction on how to do so, see [this page](./infura-guide.md).
 
 To connect to medalla, run:
 ```

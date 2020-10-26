@@ -26,13 +26,6 @@ make BASE_PORT=9100 medalla
 
 You may need to do this if you are running another client.
 
-
-### Make a deposit directly using Nimbus
-
-```
-make medalla-deposit VALIDATORS=2 # default is just 1
-```
-
 ### Node parameters
 
 You can customise your beacon node's parameters using the `NODE_PARAMS` option:
@@ -58,3 +51,8 @@ Some of the provided options (such as `--network=medalla`) are essential while o
 
 The Goerli testnet parameters (`$(GOERLI_TESTNETS_PARAMS`), are defined higher up in the Makefile, [here](https://github.com/status-im/nimbus-eth2/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L164-L171).
 
+### Make a deposit directly using Nimbus
+
+```
+make medalla-deposit VALIDATORS=2 # default is just 1
+```
