@@ -15,7 +15,8 @@ import
   # Internal
   ./spec/[beaconstate, datatypes, crypto, digest, helpers],
   ssz/merkleization,
-  ./block_pools/[spec_cache, chain_dag, clearance], ./beacon_node_types,
+  ./block_pools/[spec_cache, chain_dag, clearance, quarantine],
+  ./beacon_node_types,
   ./fork_choice/fork_choice
 
 export beacon_node_types, sets
@@ -355,7 +356,15 @@ proc selectHead*(pool: var AttestationPool, wallSlot: Slot): BlockRef =
     error "Couldn't select head", err = newHead.error
     nil
   else:
-    pool.chainDag.getRef(newHead.get())
+    let ret = pool.chainDag.getRef(newHead.get())
+    if ret.isNil:
+      # This should normally not happen, but if the chain dag and fork choice
+      # get out of sync, we'll need to try to download the selected head - in
+      # the meantime, return nil to indicate that no new head was chosen
+      warn "Fork choice selected unknown head, trying to sync", root = newHead.get()
+      pool.quarantine.addMissing(newHead.get())
+
+    ret
 
 proc prune*(pool: var AttestationPool) =
   if (let v = pool.forkChoice.prune(); v.isErr):

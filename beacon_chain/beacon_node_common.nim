@@ -8,25 +8,23 @@
 # Common routines for a BeaconNode and a BeaconValidator node
 
 import
-  # Standard library
-  tables, osproc,
+  std/osproc,
 
   # Nimble packages
-  chronos, json_rpc/rpcserver, metrics,
-  chronicles,
+  chronos, json_rpc/rpcserver,
 
   # Local modules
-  spec/[datatypes, crypto, digest],
-  conf, time, beacon_chain_db,
-  attestation_pool, eth2_network,
-  block_pools/[chain_dag, quarantine],
-  beacon_node_types, mainchain_monitor, request_manager,
-  sync_manager,
-  ./eth2_processor
+  ./conf, ./time, ./beacon_chain_db, ./attestation_pool, ./eth2_network,
+  ./beacon_node_types, ./mainchain_monitor, ./request_manager,
+  ./sync_manager, ./eth2_processor,
+  ./block_pools/[chain_dag, quarantine],
+  ./spec/datatypes
 
-# This removes an invalid Nim warning that the digest module is unused here
-# It's currently used for `shortLog(head.blck.root)`
-type Eth2Digest = digest.Eth2Digest
+export
+  osproc, chronos, rpcserver, conf, time, beacon_chain_db,
+  attestation_pool, eth2_network, beacon_node_types, mainchain_monitor,
+  request_manager, sync_manager, eth2_processor, chain_Dag, quarantine,
+  datatypes
 
 type
   RpcServer* = RpcHttpServer
@@ -61,12 +59,6 @@ type
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
-
-# Metrics
-proc updateHead*(node: BeaconNode, wallSlot: Slot): BlockRef =
-  ## Trigger fork choice and returns the new head block.
-  ## Can return `nil`
-  node.processor[].updateHead(wallSlot)
 
 # TODO stew/sequtils2
 template findIt*(s: openarray, predicate: untyped): int =

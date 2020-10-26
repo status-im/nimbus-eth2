@@ -47,8 +47,6 @@ template init(T: type RpcHttpServer, ip: ValidIpAddress, port: Port): T =
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_slot,
   "Latest slot of the beacon chain state"
-declareGauge beacon_head_slot,
-  "Slot of the head block of the beacon chain"
 
 # Finalization tracking
 declareGauge finalization_delay,
@@ -517,9 +515,6 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
 
   # Whatever we do during the slot, we need to know the head, because this will
   # give us a state to work with and thus a shuffling.
-  # TODO typically, what consitutes correct actions stays constant between slot
-  #      updates and is stable across some epoch transitions as well - see how
-  #      we can avoid recalculating everything here
   # TODO if the head is very old, that is indicative of something being very
   #      wrong - us being out of sync or disconnected from the network - need
   #      to consider what to do in that case:
@@ -535,11 +530,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
   #                     disappear naturally - risky because user is not aware,
   #                     and might lose stake on canonical chain but "just works"
   #                     when reconnected..
-  discard node.updateHead(slot)
-
-  # TODO is the slot of the clock or the head block more interesting? provide
-  #      rationale in comment
-  beacon_head_slot.set slot.int64
+  node.processor[].updateHead(slot)
 
   # Time passes in here..
   await node.handleValidatorDuties(lastSlot, slot)

@@ -477,18 +477,15 @@ proc broadcastAggregatedAttestations(
         attestation = shortLog(signedAP.message.aggregate),
         validator = shortLog(curr[0].v)
 
-proc handleValidatorDuties*(
-    node: BeaconNode, lastSlot, slot: Slot) {.async.} =
+proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   ## Perform validator duties - create blocks, vote and aggregate existing votes
-  let maybeHead = node.updateHead(slot)
-  if maybeHead.isNil():
-    error "Couldn't update head - cannot proceed with validator duties"
-    return
-  var head = maybeHead
   if node.attachedValidators.count == 0:
     # Nothing to do because we have no validator attached
     return
 
+  # The chainDag head might be updated by sync while we're working due to the
+  # await calls, thus we use a local variable to keep the logic straight here
+  var head = node.chainDag.head
   if not node.isSynced(head):
     notice "Node out of sync, skipping validator duties",
       slot, headSlot = head.slot
@@ -499,9 +496,6 @@ proc handleValidatorDuties*(
   # Start by checking if there's work we should have done in the past that we
   # can still meaningfully do
   while curSlot < slot:
-    # TODO maybe even collect all work synchronously to avoid unnecessary
-    #      state rewinds while waiting for async operations like validator
-    #      signature..
     notice "Catching up on validator duties",
       curSlot = shortLog(curSlot),
       lastSlot = shortLog(lastSlot),
@@ -510,14 +504,12 @@ proc handleValidatorDuties*(
     # For every slot we're catching up, we'll propose then send
     # attestations - head should normally be advancing along the same branch
     # in this case
-    # TODO what if we receive blocks / attestations while doing this work?
     head = await handleProposal(node, head, curSlot)
 
     # For each slot we missed, we need to send out attestations - if we were
     # proposing during this time, we'll use the newly proposed head, else just
     # keep reusing the same - the attestation that goes out will actually
     # rewind the state to what it looked like at the time of that slot
-    # TODO smells like there's an optimization opportunity here
     handleAttestations(node, head, curSlot)
 
     curSlot += 1
@@ -541,11 +533,8 @@ proc handleValidatorDuties*(
   template sleepToSlotOffsetWithHeadUpdate(extra: chronos.Duration, msg: static string) =
     if await node.beaconClock.sleepToSlotOffset(extra, slot, msg):
       # Time passed - we might need to select a new head in that case
-      let maybeHead = node.updateHead(slot)
-      if not maybeHead.isNil():
-        head = maybeHead
-      else:
-        error "Couldn't update head"
+      node.processor[].updateHead(slot)
+      head = node.chainDag.head
 
   sleepToSlotOffsetWithHeadUpdate(
     seconds(int64(SECONDS_PER_SLOT)) div 3, "Waiting to send attestations")
