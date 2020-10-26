@@ -88,7 +88,9 @@ func toPubKey*(privkey: ValidatorPrivKey): ValidatorPubKey =
   ## Create a private key from a public key
   # Un-specced in either hash-to-curve or Eth2
   # TODO: Test suite should use `keyGen` instead
-  ValidatorPubKey(kind: Real, blsValue: SecretKey(privkey).privToPub())
+  result.kind = Real
+  let ok = result.blsValue.publicFromSecret(SecretKey privkey)
+  doAssert ok, "The validator private key was a zero key. This should never happen."
 
 proc toRealPubKey(pubkey: ValidatorPubKey): Option[ValidatorPubKey] =
   var validatorKeyCache {.threadvar.}:
