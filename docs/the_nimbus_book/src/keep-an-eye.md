@@ -6,7 +6,17 @@
  
 You can even [create an account](https://medalla.beaconcha.in/register) to add alerts and keep track of your validator's [performance](https://medalla.beaconcha.in/dashboard).
 
-## Syncing progress
+## Make sure your validator is attached
+
+On startup, you should see a log message that reads `Local validators attached`. This has a `count` field which should correctly reflect the number of validators you wish to run.
+
+```
+{"lvl":"NOT","ts":"2020-10-26 10:16:51.365+00:00","msg":"Local validators attached ","topics":"beacval","tid":12291,"file":"validator_duties.nim:65","count":1}
+```
+*In the above case, the `count` field reads `1`, which means 1 validator has successfully attached to the beacon node.*
+
+## Keep track of your syncing progress
+
 To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running. You should see something like:
 
 ```
