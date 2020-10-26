@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>For developers - The Nimbus Beacon Chain Book</title>
+        <title>Advanced options - The Nimbus Beacon Chain Book</title>
         
         
 
@@ -89,7 +89,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="zinken.html"><strong aria-hidden="true">3.</strong> Become a Zinken validator</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">4.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="medalla-troubleshooting.html"><strong aria-hidden="true">5.</strong> Troubleshooting Medalla</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">6.</strong> Running the beacon node</a></li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">7.</strong> Metrics and pretty pictures</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">8.</strong> API</a></li><li class="chapter-item expanded affix "><li class="part-title">Advanced</li><li class="chapter-item expanded "><a href="advanced.html" class="active"><strong aria-hidden="true">9.</strong> For developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">10.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">11.</strong> Generating your keys with NBC</a></li><li class="chapter-item expanded affix "><li class="part-title">Misc</li><li class="chapter-item expanded "><a href="infura-guide.html"><strong aria-hidden="true">12.</strong> Infura guide</a></li><li class="chapter-item expanded "><strong aria-hidden="true">13.</strong> Windows users</li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">14.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">15.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Install dependencies</a></li><li class="chapter-item expanded "><a href="build.html"><strong aria-hidden="true">3.</strong> Build the beacon node</a></li><li class="chapter-item expanded "><a href="deposit.html"><strong aria-hidden="true">4.</strong> Make a deposit</a></li><li class="chapter-item expanded "><a href="keys.html"><strong aria-hidden="true">5.</strong> Manage your keys</a></li><li class="chapter-item expanded "><a href="connect-eth2.html"><strong aria-hidden="true">6.</strong> Connect to eth2</a></li><li class="chapter-item expanded "><a href="pi-guide.html"><strong aria-hidden="true">7.</strong> Run your node on a Raspberry Pi</a></li><li class="chapter-item expanded "><a href="keep-an-eye.html"><strong aria-hidden="true">8.</strong> Keep an eye on your validator</a></li><li class="chapter-item expanded "><a href="keep-updated.html"><strong aria-hidden="true">9.</strong> Keep your validator updated</a></li><li class="chapter-item expanded "><strong aria-hidden="true">10.</strong> Useful pre-genesis checks</li><li class="chapter-item expanded affix "><li class="part-title">Volume 2</li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">11.</strong> Metrics and pretty pictures</a></li><li class="chapter-item expanded "><a href="graffiti.html"><strong aria-hidden="true">12.</strong> Graffiti the blockchain</a></li><li class="chapter-item expanded "><strong aria-hidden="true">13.</strong> Run a local eth1 node</li><li class="chapter-item expanded "><strong aria-hidden="true">14.</strong> Run just the beacon node</li><li class="chapter-item expanded "><strong aria-hidden="true">15.</strong> Switch between clients</li><li class="chapter-item expanded "><strong aria-hidden="true">16.</strong> Permissions</li><li class="chapter-item expanded "><a href="advanced.html" class="active"><strong aria-hidden="true">17.</strong> Advanced options</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">18.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">19.</strong> API</a></li><li class="chapter-item expanded "><a href="infura-guide.html"><strong aria-hidden="true">20.</strong> Infura guide</a></li><li class="chapter-item expanded "><strong aria-hidden="true">21.</strong> eth2stats guide</li><li class="chapter-item expanded affix "><li class="part-title">Volume 3</li><li class="chapter-item expanded "><a href="developers.html"><strong aria-hidden="true">22.</strong> For developers</a></li><li class="chapter-item expanded "><a href="beacon-node-systemd.html"><strong aria-hidden="true">23.</strong> Set up a systemd service</a></li><li class="chapter-item expanded "><a href="create-wallet-and-deposit.html"><strong aria-hidden="true">24.</strong> Generate your keys with Nimbus</a></li><li class="chapter-item expanded "><strong aria-hidden="true">25.</strong> Windows users</li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">26.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">27.</strong> Contribute</a></li><li class="chapter-item expanded "><a href="resources.html"><strong aria-hidden="true">28.</strong> Resources</a></li><li class="chapter-item expanded affix "><li class="part-title">Archived</li><li class="chapter-item expanded "><a href="zinken.html"><strong aria-hidden="true">29.</strong> Become a Zinken validator</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">30.</strong> Become a Medalla validator</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -155,131 +155,51 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#advanced-usage-for-developers" id="advanced-usage-for-developers">Advanced Usage for Developers</a></h1>
-<p>Latest updates happen in the <code>devel</code> branch which is merged into <code>master</code> every week on Tuesday.</p>
-<p>This page contains tips and tricks for developers, further resources, along with information on how to set up your build environment on your platform.</p>
-<h3><a class="header" href="#ubuntu-guide" id="ubuntu-guide">Ubuntu guide</a></h3>
-<p>See <a href="https://medium.com/@SomerEsat/guide-to-staking-on-ethereum-2-0-ubuntu-medalla-nimbus-5f4b2b0f2d7c">this excellent resource</a> for detailed step-by-step guide on how to stake on eth2 with Ubuntu.</p>
-<p>It contains instructions on how to:</p>
-<ul>
-<li>Configure a newly running Ubuntu server instance</li>
-<li>Configure and run an eth1 node as a service</li>
-<li>Compile and configure the Nimbus client for eth 2, phase 0 (Medalla testnet)</li>
-<li>Install and configure <a href="https://prometheus.io/">Prometheus</a> metrics and set up a <a href="https://grafana.com/">Grafana</a> dashboard</li>
-</ul>
-<h3><a class="header" href="#windows-dev-environment" id="windows-dev-environment">Windows dev environment</a></h3>
-<p>Install Mingw-w64 for your architecture using the &quot;<a href="https://sourceforge.net/projects/mingw-w64/files/">MinGW-W64 Online
-Installer</a>&quot; (first link
-under the directory listing). Run it and select your architecture in the setup
-menu (<code>i686</code> on 32-bit, <code>x86_64</code> on 64-bit), set the threads to <code>win32</code> and
-the exceptions to &quot;dwarf&quot; on 32-bit and &quot;seh&quot; on 64-bit. Change the
-installation directory to &quot;C:\mingw-w64&quot; and add it to your system PATH in &quot;My
-Computer&quot;/&quot;This PC&quot; -&gt; Properties -&gt; Advanced system settings -&gt; Environment
-Variables -&gt; Path -&gt; Edit -&gt; New -&gt; C:\mingw-w64\mingw64\bin (it's &quot;C:\mingw-w64\mingw32\bin&quot; on 32-bit)</p>
-<p>Install <a href="https://gitforwindows.org/">Git for Windows</a> and use a &quot;Git Bash&quot; shell to clone and build nimbus-eth2.</p>
-<p>If you don't want to compile PCRE separately, you can fetch pre-compiled DLLs with:</p>
-<pre><code class="language-bash">mingw32-make # this first invocation will update the Git submodules
-mingw32-make fetch-dlls # this will place the right DLLs for your architecture in the &quot;build/&quot; directory
+                        <h1><a class="header" href="#advanced-options" id="advanced-options">Advanced options</a></h1>
+<h3><a class="header" href="#start-multiple-nodes" id="start-multiple-nodes">Start multiple nodes</a></h3>
+<p>You can start multiple local nodes, in different terminal windows/tabs, by specifying numeric IDs:</p>
+<pre><code>make medalla NODE_ID=0 # the default
+make medalla NODE_ID=1
+make medalla NODE_ID=2
 </code></pre>
-<p>You can now follow the instructions in this this book by replacing <code>make</code> with <code>mingw32-make</code> (you should run <code>mingw32</code> regardless of whether you're running 32-bit or 64-bit architecture):</p>
-<pre><code class="language-bash">mingw32-make test # run the test suite
+<h3><a class="header" href="#attach-multiple-validators-to-the-same-beacon-node" id="attach-multiple-validators-to-the-same-beacon-node">Attach multiple validators to the same beacon node</a></h3>
+<p>Simply <a href="./medalla.html#3-import-keystores">import as many keystores as you wish</a> before running <code>make medalla</code>. Nimbus will automagically find your keys and attach your validators. See <a href="./medalla.html#key-management">key management</a> for more information on where we store your keys.</p>
+<p>To give you some context, we (the Nimbus team) are currently running 170 validators per beacon node on our AWS instances.</p>
+<h3><a class="header" href="#change-the-tcp-and-udp-ports" id="change-the-tcp-and-udp-ports">Change the TCP and UDP ports</a></h3>
+<p>To change the TCP and UDP ports from their default value of 9000 to 9100, say, run:</p>
+<pre><code>make BASE_PORT=9100 medalla
 </code></pre>
-<h3><a class="header" href="#linux-macos" id="linux-macos">Linux, macOS</a></h3>
-<p>After cloning the repo:</p>
-<pre><code class="language-bash"># Build beacon_node and all the tools, using 4 parallel Make jobs
-make -j4
-
-# Run tests
-make test
-
-# Update to latest version
-git pull
-make update
+<p>You may need to do this if you are running another client.</p>
+<h3><a class="header" href="#node-parameters" id="node-parameters">Node parameters</a></h3>
+<p>You can customise your beacon node's parameters using the <code>NODE_PARAMS</code> option:</p>
+<pre><code>make NODE_PARAMS=&quot;--tcp-port=9100 --udp-port=9100&quot; medalla
 </code></pre>
-<p>To run a command that might use binaries from the Status Nim fork:</p>
-<pre><code class="language-bash">./env.sh bash # start a new interactive shell with the right env vars set
-which nim
-nim --version # Nimbus is tested and supported on 1.0.2 at the moment
-
-# or without starting a new interactive shell:
-./env.sh which nim
-./env.sh nim --version
+<blockquote>
+<p><strong>Note:</strong> the above command has exactly the same effect as <code>make BASE_PORT=9100 medalla</code></p>
+</blockquote>
+<p>A complete list of the available parameters can be found <a href="https://github.com/status-im/nimbus-eth2/blob/devel/beacon_chain/conf.nim#L92-L210">here</a> (use a parameter's <code>name</code> field to set it).</p>
+<h3><a class="header" href="#logs" id="logs">Logs</a></h3>
+<p>Log files are saved in <code>build/data/shared_medalla_0/</code>.</p>
+<h3><a class="header" href="#makefile" id="makefile">Makefile</a></h3>
+<p>If you are comfortable reading <a href="https://en.wikipedia.org/wiki/Makefile#:%7E:text=A%20makefile%20is%20a%20file,to%20generate%20a%20target%2Fgoal">Makefiles</a>, you can see the commands that <code>make medalla</code>  executes under the hood, <a href="https://github.com/status-im/nimbus-eth2/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L184-L197">here</a>.</p>
+<p>Some of the provided options (such as <code>--network=medalla</code>) are essential while others (such as the ones controlling logging, metrics, ports, and the RPC service) are there for convenience.</p>
+<p>The Goerli testnet parameters (<code>$(GOERLI_TESTNETS_PARAMS</code>), are defined higher up in the Makefile, <a href="https://github.com/status-im/nimbus-eth2/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L164-L171">here</a>.</p>
+<h3><a class="header" href="#make-a-deposit-directly-using-nimbus" id="make-a-deposit-directly-using-nimbus">Make a deposit directly using Nimbus</a></h3>
+<pre><code>make medalla-deposit VALIDATORS=2 # default is just 1
 </code></pre>
-<h3><a class="header" href="#raspberry-pi" id="raspberry-pi">Raspberry Pi</a></h3>
-<p>We recommend you remove any cover or use a fan; the Raspberry Pi will get hot (85°C) and throttle.</p>
-<ul>
-<li>Raspberry PI 3b+ or Raspberry Pi 4b.</li>
-<li>64gb SD Card (less might work too, but the default recommended 4-8GB will probably be too small)</li>
-<li><a href="https://www.raspberrypi.org/downloads/raspbian/">Raspbian Buster Lite</a> - Lite version is enough to get going and will save some disk space!</li>
-</ul>
-<p>Assuming you're working with a freshly written image:</p>
-<pre><code class="language-bash">
-# Start by increasing swap size to 2gb:
-sudo vi /etc/dphys-swapfile
-# Set CONF_SWAPSIZE=2048
-# :wq
-sudo reboot
-
-# Install prerequisites
-sudo apt-get install git libgflags-dev libsnappy-dev libpcre3-dev
-
-# Then you can follow instructions for Linux.
-
-</code></pre>
-<h3><a class="header" href="#makefile-tips-and-tricks-for-developers" id="makefile-tips-and-tricks-for-developers">Makefile tips and tricks for developers</a></h3>
-<ul>
-<li>build all those tools known to the Makefile:</li>
-</ul>
-<pre><code class="language-bash"># $(nproc) corresponds to the number of cores you have
-make -j$(nproc)
-</code></pre>
-<ul>
-<li>build a specific tool:</li>
-</ul>
-<pre><code class="language-bash">make state_sim
-</code></pre>
-<ul>
-<li>you can control the Makefile's verbosity with the V variable (defaults to 0):</li>
-</ul>
-<pre><code class="language-bash">make V=1 # verbose
-make V=2 test # even more verbose
-</code></pre>
-<ul>
-<li>same for the <a href="https://github.com/status-im/nim-chronicles#chronicles_log_level">Chronicles log level</a>:</li>
-</ul>
-<pre><code class="language-bash">make LOG_LEVEL=DEBUG bench_bls_sig_agggregation # this is the default
-make LOG_LEVEL=TRACE beacon_node # log everything
-</code></pre>
-<ul>
-<li>pass arbitrary parameters to the Nim compiler:</li>
-</ul>
-<pre><code class="language-bash">make NIMFLAGS=&quot;-d:release&quot;
-</code></pre>
-<ul>
-<li>you can freely combine those variables on the <code>make</code> command line:</li>
-</ul>
-<pre><code class="language-bash">make -j$(nproc) NIMFLAGS=&quot;-d:release&quot; USE_MULTITAIL=yes eth2_network_simulation
-</code></pre>
-<ul>
-<li>don't use the <a href="https://github.com/status-im/nimbus-eth2/pull/745">lightweight stack tracing implementation from nim-libbacktrace</a>:</li>
-</ul>
-<pre><code class="language-bash">make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
-</code></pre>
-<h3><a class="header" href="#multi-client-interop-scripts" id="multi-client-interop-scripts">Multi-client interop scripts</a></h3>
-<p><a href="https://github.com/eth2-clients/multinet">This repository</a> contains a set of scripts used by the client implementation teams to test interop between the clients (in certain simplified scenarios). It mostly helps us find and debug issues.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="api.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="graffiti.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
                         
-                            <a rel="next" href="beacon_node_systemd.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="troubleshooting.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -291,13 +211,13 @@ make LOG_LEVEL=TRACE beacon_node # log everything
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="api.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="graffiti.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a rel="next" href="beacon_node_systemd.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="troubleshooting.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 

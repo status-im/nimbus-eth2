@@ -1,0 +1,457 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Run your node on a Raspberry Pi - The Nimbus Beacon Chain Book</title>
+        
+        
+
+
+        <!-- Custom HTML head -->
+        
+
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Install dependencies</a></li><li class="chapter-item expanded "><a href="build.html"><strong aria-hidden="true">3.</strong> Build the beacon node</a></li><li class="chapter-item expanded "><a href="deposit.html"><strong aria-hidden="true">4.</strong> Make a deposit</a></li><li class="chapter-item expanded "><a href="keys.html"><strong aria-hidden="true">5.</strong> Manage your keys</a></li><li class="chapter-item expanded "><a href="connect-eth2.html"><strong aria-hidden="true">6.</strong> Connect to eth2</a></li><li class="chapter-item expanded "><a href="pi-guide.html" class="active"><strong aria-hidden="true">7.</strong> Run your node on a Raspberry Pi</a></li><li class="chapter-item expanded "><a href="keep-an-eye.html"><strong aria-hidden="true">8.</strong> Keep an eye on your validator</a></li><li class="chapter-item expanded "><a href="keep-updated.html"><strong aria-hidden="true">9.</strong> Keep your validator updated</a></li><li class="chapter-item expanded "><strong aria-hidden="true">10.</strong> Useful pre-genesis checks</li><li class="chapter-item expanded affix "><li class="part-title">Volume 2</li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">11.</strong> Metrics and pretty pictures</a></li><li class="chapter-item expanded "><a href="graffiti.html"><strong aria-hidden="true">12.</strong> Graffiti the blockchain</a></li><li class="chapter-item expanded "><strong aria-hidden="true">13.</strong> Run a local eth1 node</li><li class="chapter-item expanded "><strong aria-hidden="true">14.</strong> Run just the beacon node</li><li class="chapter-item expanded "><strong aria-hidden="true">15.</strong> Switch between clients</li><li class="chapter-item expanded "><strong aria-hidden="true">16.</strong> Permissions</li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">17.</strong> Advanced options</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">18.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">19.</strong> API</a></li><li class="chapter-item expanded "><a href="infura-guide.html"><strong aria-hidden="true">20.</strong> Infura guide</a></li><li class="chapter-item expanded "><strong aria-hidden="true">21.</strong> eth2stats guide</li><li class="chapter-item expanded affix "><li class="part-title">Volume 3</li><li class="chapter-item expanded "><a href="developers.html"><strong aria-hidden="true">22.</strong> For developers</a></li><li class="chapter-item expanded "><a href="beacon-node-systemd.html"><strong aria-hidden="true">23.</strong> Set up a systemd service</a></li><li class="chapter-item expanded "><a href="create-wallet-and-deposit.html"><strong aria-hidden="true">24.</strong> Generate your keys with Nimbus</a></li><li class="chapter-item expanded "><strong aria-hidden="true">25.</strong> Windows users</li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">26.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">27.</strong> Contribute</a></li><li class="chapter-item expanded "><a href="resources.html"><strong aria-hidden="true">28.</strong> Resources</a></li><li class="chapter-item expanded affix "><li class="part-title">Archived</li><li class="chapter-item expanded "><a href="zinken.html"><strong aria-hidden="true">29.</strong> Become a Zinken validator</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">30.</strong> Become a Medalla validator</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">The Nimbus Beacon Chain Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#validating-with-a-raspberry-pi" id="validating-with-a-raspberry-pi">Validating with a Raspberry Pi</a></h1>
+<blockquote class="twitter-tweet"><p lang="en" dir="ltr">I expect the new Raspberry Pi 4 (4GB RAM option, external SSD) to handle an Eth2 validator node without breaking a sweat. That&#39;s $100 of hardware running at 10 Watts to support a 32 ETH node (currently ~$10K stake).</p>&mdash; Justin Ðrake (@drakefjustin) <a href="https://twitter.com/drakefjustin/status/1143091047058366465?ref_src=twsrc%5Etfw">June 24, 2019</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+<h2><a class="header" href="#introduction" id="introduction">Introduction</a></h2>
+<p>This page will take you through how to use your laptop to program your Raspberry Pi, get Nimbus running, and connect to the Medalla testnet (if this is not something you plan on doing, feel free to <a href="./keep-an-eye.html">skip ahead</a>).</p>
+<p>One of the most important aspects of the Raspberry Pi experience is trying to make it as easy as possible to get started. As such, we try our best to explain things from first-principles.</p>
+<h2><a class="header" href="#prerequisites" id="prerequisites">Prerequisites</a></h2>
+<ul>
+<li>Raspberry Pi 4 (4GB RAM option)</li>
+<li>64GB microSD Card</li>
+<li>microSD USB adapter</li>
+<li>5V 3A USB-C charger</li>
+<li>Reliable Wifi connection</li>
+<li>Laptop</li>
+<li>Basic understanding of the <a href="https://www.learnenough.com/command-line-tutorial/basics">command line</a></li>
+</ul>
+<h3><a class="header" href="#1-download-raspberry-pi-imager" id="1-download-raspberry-pi-imager">1. Download Raspberry Pi Imager</a></h3>
+<p><a href="https://www.raspberrypi.org/blog/raspberry-pi-imager-imaging-utility/">Raspberry Pi Imager</a> is a new imaging utility that makes it simple to manage your microSD card with Raspbian (the free Pi operating system based on Debian).</p>
+<p>You can find the <a href="https://www.learnenough.com/command-line-tutorial/basics">download</a> link for your operating system here: <a href="https://downloads.raspberrypi.org/imager/imager_1.4.exe">Windows</a>, <a href="https://downloads.raspberrypi.org/imager/imager_1.4.dmg">macOS</a>, <a href="https://downloads.raspberrypi.org/imager/imager_1.4_amd64.deb">Ubuntu</a>.</p>
+<h3><a class="header" href="#2-plug-in-sd-card" id="2-plug-in-sd-card">2. Plug in SD card</a></h3>
+<p>Use your microSD to USB adapter to plug the SD card into your computer.</p>
+<h3><a class="header" href="#3-download-raspberry-pi-os" id="3-download-raspberry-pi-os">3. Download Raspberry Pi OS</a></h3>
+<p>Open Raspberry Pi Imager and click on <strong>CHOOSE OS</strong></p>
+<p><img src="https://storage.googleapis.com/ethereum-hackmd/upload_7b8cfa54f877218b6d971f09fa8d62ff.png" alt="" /></p>
+<p>Select <strong>Raspberry Pi OS (other)</strong></p>
+<p><img src="https://storage.googleapis.com/ethereum-hackmd/upload_543445a689fac6407a573da9fde9d224.png" alt="" /></p>
+<p>Select <strong>Raspberry Pi OS Lite (32-bit)</strong></p>
+<p><img src="https://storage.googleapis.com/ethereum-hackmd/upload_1a3cb9c5b4d7dedc8f31a9c4bf56d175.png" alt="" /></p>
+<h3><a class="header" href="#4-write-to-sd-card" id="4-write-to-sd-card">4. Write to SD card</a></h3>
+<p>Click on <strong>CHOOSE SD CARD</strong></p>
+<p><img src="https://storage.googleapis.com/ethereum-hackmd/upload_99a150d6055c2139b3c468d405e5c731.png" alt="" /></p>
+<p>You should see a menu pop-up with your SD card listed -- Select it</p>
+<p><img src="https://storage.googleapis.com/ethereum-hackmd/upload_f90713c1ef782a94b5fce9eb8249c206.png" alt="" /></p>
+<p>Click on <strong>WRITE</strong></p>
+<p><img src="https://storage.googleapis.com/ethereum-hackmd/upload_0e02be31057745c6b9834a925c54b9d3.png" alt="" /></p>
+<p>Click <strong>YES</strong></p>
+<p><img src="https://storage.googleapis.com/ethereum-hackmd/upload_160208a5bc983165c2a1eb9bffed01c2.png" alt="" /></p>
+<p>Make a cup of coffee :)</p>
+<h3><a class="header" href="#5-set-up-wireless-lan" id="5-set-up-wireless-lan">5. Set up wireless LAN</a></h3>
+<p>Since you have loaded Raspberry Pi OS onto a blank SD card, you will have two partitions. The first one, which is the smaller one, is the <code>boot</code> partition. </p>
+<p>Create a <code>wpa_supplicant</code> configuration file in the <code>boot</code> partition with the following content:</p>
+<pre><code># wpa_supplicant.conf
+
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+country=&lt;Insert 2 letter ISO 3166-1 country code here&gt;
+
+network={
+    ssid=&quot;&lt;Insert your Wifi network's name here&gt;&quot;
+    psk=&quot;&lt;Insert your Wifi network's password here&gt;&quot;
+}
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> Don't forget to replace the placeholder <code>country</code>, <code>ssid</code>, and <code>psk</code> values. See <a href="https://en.wikipedia.org/wiki/ISO_3166-1">Wikipedia</a> for a list of 2 letter <code>ISO 3166-1</code> country codes.</p>
+</blockquote>
+<h3><a class="header" href="#6-enable-ssh-using-linux-or-macos" id="6-enable-ssh-using-linux-or-macos">6. Enable SSH (using Linux or macOS)</a></h3>
+<p>You can <a href="https://www.raspberrypi.org/documentation/remote-access/ssh/">access the command line</a> of a Raspberry Pi remotely from another computer or device on the same network using <a href="https://en.wikipedia.org/wiki/Ssh_(Secure_Shell)">SSH</a>.</p>
+<p>While SSH is not enabled by default, you can enable it by placing a file named <code>ssh</code>, without any extension, onto the boot partition of the SD card. </p>
+<p>When the Pi boots, it will look for the <code>ssh</code> file. If it is found, SSH is enabled and the file is deleted. The content of the file does not matter; it can contain text, or nothing at all.</p>
+<p>To create an empty <code>ssh</code> file, from the home directory of the <code>boot</code> partition file, run:</p>
+<pre><code>touch ssh
+</code></pre>
+<h3><a class="header" href="#7-find-your-pis-ip-address" id="7-find-your-pis-ip-address">7. Find your Pi's IP address</a></h3>
+<p>Since Raspberry Pi OS supports <a href="https://en.wikipedia.org/wiki/Multicast_DNS">Multicast_DNS</a> out of the box, you can reach your Raspberry Pi by using its hostname and the <code>.local</code> suffix.</p>
+<p>The default hostname on a fresh Raspberry Pi OS install is <code>raspberrypi</code>, so any Raspberry Pi running Raspberry Pi OS should respond to:</p>
+<pre><code>ping raspberrypi.local
+</code></pre>
+<p>The output should look more or less as follows:</p>
+<pre><code>PING raspberrypi.local (195.177.101.93): 56 data bytes
+64 bytes from 195.177.101.93: icmp_seq=0 ttl=64 time=13.272 ms
+64 bytes from 195.177.101.93: icmp_seq=1 ttl=64 time=16.773 ms
+64 bytes from 195.177.101.93: icmp_seq=2 ttl=64 time=10.828 ms
+...
+</code></pre>
+<p>Keep note of your Pi's IP address. In the above case, that's <code>195.177.101.93</code></p>
+<h3><a class="header" href="#8-ssh-using-linux-or-macos" id="8-ssh-using-linux-or-macos">8. SSH (using Linux or macOS)</a></h3>
+<p>Connect to your Pi by running:</p>
+<pre><code>ssh pi@195.177.101.93
+</code></pre>
+<p>You'll be prompted to enter a password:</p>
+<pre><code>pi@195.177.101.93's password:
+</code></pre>
+<p>Enter the Pi's default password: <code>raspberry</code></p>
+<p>You should see a message that looks like the following:</p>
+<pre><code>Linux raspberrypi 5.4.51-v7l+ #1333 SMP Mon Aug 10 16:51:40 BST 2020 armv7l
+
+The programs included with the Debian GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+
+SSH is enabled and the default password for the 'pi' user has not been changed.
+This is a security risk - please login as the 'pi' user and type 'passwd' to set a new password.
+</code></pre>
+<p>Followed by a command-line prompt indicating a successful connection:</p>
+<pre><code>pi@raspberrypi:~ $ 
+</code></pre>
+<h3><a class="header" href="#9-increase-swap-size-to-2gb" id="9-increase-swap-size-to-2gb">9. Increase swap size to 2GB</a></h3>
+<p>The first step is to increase the <a href="https://itsfoss.com/swap-size/">swap size</a> to 2GB (2048MB). </p>
+<blockquote>
+<p><strong>Note:</strong> Swap acts as a breather to your system when the RAM is exhausted. When the RAM is exhausted, your Linux system uses part of the hard disk memory and allocates it to the running application.</p>
+</blockquote>
+<p>Use the Pi's built-in text editor <a href="https://www.nano-editor.org/dist/latest/cheatsheet.html">nano</a> to open up the swap file:</p>
+<pre><code>sudo nano /etc/dphys-swapfile
+</code></pre>
+<p>Change the value assigned to <code>CONF_SWAPSIZE</code> from <code>100</code> to <code>2048</code>:</p>
+<pre><code>...
+
+# set size to absolute value, leaving empty (default) then uses computed value
+#   you most likely don't want this, unless you have an special disk situation
+CONF_SWAPSIZE=2048
+
+...
+
+</code></pre>
+<p>Save (<code>Ctrl+S</code>) and exit (<code>Ctrl+X</code>).</p>
+<h3><a class="header" href="#10-reboot" id="10-reboot">10. Reboot</a></h3>
+<p>Reboot your Pi to have the above changes take effect:</p>
+<pre><code>sudo reboot
+</code></pre>
+<p>This will cause your connection to close. So you'll need to <code>ssh</code> into your Pi again:</p>
+<pre><code>ssh pi@195.177.101.93
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> Remember to replace <code>195.177.101.93</code> with the IP address of your Pi.</p>
+</blockquote>
+<h3><a class="header" href="#11-install-nimbus-dependencies" id="11-install-nimbus-dependencies">11. Install Nimbus dependencies</a></h3>
+<p>You'll need to install some packages (<code>git</code>, <code>libgflags-dev</code>, <code>libsnappy-dev</code>, and <code>libpcre3-dev</code>) in order for Nimbus to run correctly.</p>
+<p>To do so, run:</p>
+<pre><code>sudo apt-get install git libgflags-dev libsnappy-dev libpcre3-dev
+
+</code></pre>
+<h3><a class="header" href="#12-install-screen" id="12-install-screen">12. Install Screen</a></h3>
+<p><code>screen</code> is a tool that lets you safely detach from the SSH session without exiting the remote job. In other words <code>screen</code> allows the commands you run on your Pi from your laptop to keep running after you've logged out.</p>
+<p>Run the following command to install <code>screen</code>:</p>
+<pre><code>sudo apt-get install screen
+</code></pre>
+<h3><a class="header" href="#13-clone-the-nimbus-repository" id="13-clone-the-nimbus-repository">13. Clone the Nimbus repository</a></h3>
+<p>Run the following command to clone the <a href="https://github.com/status-im/nimbus-eth2">nimbus-eth2 repository</a>:</p>
+<pre><code>git clone https://github.com/status-im/nimbus-eth2
+</code></pre>
+<h3><a class="header" href="#14-build-the-beacon-node" id="14-build-the-beacon-node">14. Build the beacon node</a></h3>
+<p>Change into the directory and build the beacon node.</p>
+<pre><code>cd nimbus-eth2
+make beacon_node
+</code></pre>
+<p><em>Patience... this may take a few minutes.</em></p>
+<h3><a class="header" href="#15-copy-signing-key-over-to-pi" id="15-copy-signing-key-over-to-pi">15. Copy signing key over to Pi</a></h3>
+<blockquote>
+<p><strong>Note:</strong> If you haven't generated your validator key(s) and/or made your deposit yet, follow the instructions on <a href="./deposit.html">this page</a> before carrying on.</p>
+</blockquote>
+<p>We'll use the <code>scp</code> command to send files over SSH. It allows you to copy files between computers, say from your Raspberry Pi to your desktop/laptop, or vice-versa.</p>
+<p>Copy the folder containing your validator key(s) from your computer to your <code>pi</code>'s homefolder by opening up a new terminal window and running the following command:</p>
+<pre><code>scp -r &lt;VALIDATOR_KEYS_DIRECTORY&gt; pi@195.177.101.93:
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> Don't forget the colon (:) at the end of the command!</p>
+</blockquote>
+<p>As usual, replace <code>195.177.101.93</code> with your Pi's IP address, and <code>&lt;VALIDATOR_KEYS_DIRECTORY&gt;</code> with the full pathname of your <code>validator_keys</code> directory (if you used the Launchpad <a href="https://github.com/ethereum/eth2.0-deposit-cli/releases/">command line app</a> this would have been created for you when you generated your keys).</p>
+<blockquote>
+<p><strong>Tip:</strong> run <code>pwd</code> in your <code>validator_keys</code> directory to print the full pathname to the console.</p>
+</blockquote>
+<h3><a class="header" href="#16-import-signing-key-into-nimbus" id="16-import-signing-key-into-nimbus">16. Import signing key into Nimbus</a></h3>
+<p>To import your signing key into Nimbus, from the <code>nimbus-eth2</code> directory run:</p>
+<pre><code>build/beacon_node deposits import  --data-dir=build/data/shared_medalla_0 ../validator_keys 
+</code></pre>
+<p>You'll be asked to enter the password you created to encrypt your keystore(s). Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your <a href="https://blog.ethereum.org/2020/05/21/keys/">key</a> (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).</p>
+<h3><a class="header" href="#17-run-screen" id="17-run-screen">17. Run Screen</a></h3>
+<p>From the <code>nimbus-eth2</code> directory, run: </p>
+<pre><code>screen
+</code></pre>
+<p>You should see output that looks like the following: </p>
+<pre><code>GNU Screen version 4.06.02 (GNU) 23-Oct-17
+
+Copyright (c) 2015-2017 Juergen Weigert, Alexander Naumov, Amadeusz Slawinski
+Copyright (c) 2010-2014 Juergen Weigert, Sadrul Habib Chowdhury
+Copyright (c) 2008-2009 Juergen Weigert, Michael Schroeder, Micah Cowan, Sadrul Habib Chowdhury
+Copyright (c) 1993-2007 Juergen Weigert, Michael Schroeder
+Copyright (c) 1987 Oliver Laumann
+
+This program is free software; you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation; either version 3, or (at your
+option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even
+the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+License for more details.
+
+You should have received a copy of the GNU General Public License along with this program (see the file
+COPYING); if not, see http://www.gnu.org/licenses/, or contact Free Software Foundation, Inc., 51
+Franklin Street, Fifth Floor, Boston, MA  02111-1301  USA.
+
+Send bugreports, fixes, enhancements, t-shirts, money, beer &amp; pizza to screen-devel@gnu.org
+
+
+Capabilities:
++copy +remote-detach +power-detach +multi-attach +multi-user +font +color-256 +utf8 +rxvt
++builtin-telnet
+</code></pre>
+<p>Press <code>Enter</code> or <code>Space</code>.</p>
+<h3><a class="header" href="#18-connect-to-medalla" id="18-connect-to-medalla">18. Connect to medalla</a></h3>
+<p>We're finally ready to connect to medalla!</p>
+<blockquote>
+<p><strong>Note:</strong> If you haven't already, we recommend registering for, and running, your own Infura endpoint to connect to eth1. For instruction on how to do so, see <a href="./infura-guide.html">this page</a>.</p>
+</blockquote>
+<p>To connect to medalla, run:</p>
+<pre><code>make NODE_PARAMS=&quot;--web3-url=wss://goerli.infura.io/ws/v3/ae1e57122a1e49af8e835e82a5e35e60&quot; medalla
+</code></pre>
+<p>Be sure to replace the <code>web3-url</code> above with your own websocket (<code>wss</code>) Infura endpoint.<sup class="footnote-reference"><a href="#1">1</a></sup></p>
+<h3><a class="header" href="#19-check-for-successful-connection" id="19-check-for-successful-connection">19. Check for successful connection</a></h3>
+<p>If you look near the top of the logs printed to your console, you should see confirmation that your beacon node has started, with your local validator attached:</p>
+<pre><code>INF 2020-10-07 17:04:09.213+02:00 Initializing networking                    topics=&quot;networking&quot; tid=11688398 file=eth2_network.nim:1335 hostAddress=/ip4/0.0.0.0/tcp/9000 network_public_key=0802122102defb020c8e47dd8f5da89f51ed6c3998aaa0dd59eeb2784e29d47fdbdab69235 announcedAddresses=@[/ip4/195.177.101.93/tcp/9000]
+WRN 2020-10-07 17:04:09.215+02:00 Ignoring invalid bootstrap address         tid=11688398 file=eth2_discovery.nim:45 bootstrapAddr= reason=&quot;an empty string is not a valid bootstrap node&quot;
+NOT 2020-10-07 17:04:09.231+02:00 Local validators attached                  topics=&quot;beacval&quot; tid=11688398 file=validator_duties.nim:65 count=0
+NOT 2020-10-07 17:04:09.231+02:00 Starting beacon node                       topics=&quot;beacnde&quot; tid=11688398 file=beacon_node.nim:923 version=&quot;0.5.0 (1dec860b)&quot; nim=&quot;Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)&quot; timeSinceFinalization=0ns head=0814b036:0 finalizedHead=0814b036:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.3 dataDir=build/data/shared_zinken_0
+</code></pre>
+<p>To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running. You should see something like:</p>
+<pre><code>peers: 35 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:7 (316807) ❯ sync: wPwwwwwDwwDPwPPPwwww:7:4.0627 (280512)
+</code></pre>
+<p>Keep an eye on the number of peers your currently connected to (in the above case that's <code>35</code>), as well as your <a href="./keep-an-eye.html#syncing-progress">sync progress</a>.</p>
+<h3><a class="header" href="#20-end-ssh-session-and-logout" id="20-end-ssh-session-and-logout">20. End ssh session and logout</a></h3>
+<p>To detach your <code>screen</code> session but leave your processes running, press <code>Ctrl-A</code> followed by <code>Ctrl-D</code>. You can now exit your <code>ssh</code> session (<code>Ctrl-C</code>) and switch off your laptop.</p>
+<p>Verifying your progress is as simple as <code>ssh</code>ing back into your Pi and typing <code>screen -r</code>. This will resume your screen session (and you will be able to see your node's entire output since you logged out).</p>
+<hr />
+<div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
+<p>If you were to just run <code>make medalla</code>, the beacon node would launch with an Infura endpoint supplied by us. This endpoint is passed through the <code>web3-url</code> option (which takes as input the url of the web3 server from which you'd like to observe the eth1 chain). Because Infura caps the requests per endpoint per day to 100k, and all Nimbus nodes use the same Infura endpoint by default, it can happen that our Infura endpoint is overloaded (i.e the requests on a given day reach the 100k limit). If this happens, all requests to Infura using the default endpoint will fail, which means your node will stop processing new deposits.
+To pass in your own Infura endpoint, you'll need to run:
+<code> make NODE_PARAMS=&quot;--web3-url=&lt;YOUR_WEBSOCKET_ENDPOINT&gt;&quot; medalla </code>
+Importantly, the endpoint must be a websocket (<code>wss</code>) endpoint, not <code>https</code>. If you're not familiar with Infura, we recommend reading through our <a href="./infura-guide">Infura guide</a>, first. <strong>P.S.</strong> We are well aware that Infura is less than ideal from a decentralisation perspective. As such we are in the process of changing our default to <a href="https://geth.ethereum.org/docs/install-and-build/installing-geth">Geth</a> (with Infura as a fallback). For some rough notes on how to use Geth with Nimbus, see <a href="https://gist.github.com/onqtam/aaf883d46f4dab1311ca9c160df12fe4">here</a> (we will be adding more complete instructions very soon).</p>
+</div>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="connect-eth2.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="keep-an-eye.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="connect-eth2.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="keep-an-eye.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>

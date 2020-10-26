@@ -89,7 +89,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="zinken.html"><strong aria-hidden="true">3.</strong> Become a Zinken validator</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">4.</strong> Become a Medalla validator</a></li><li class="chapter-item expanded "><a href="medalla-troubleshooting.html"><strong aria-hidden="true">5.</strong> Troubleshooting Medalla</a></li><li class="chapter-item expanded "><a href="beacon_node.html"><strong aria-hidden="true">6.</strong> Running the beacon node</a></li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">7.</strong> Metrics and pretty pictures</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">8.</strong> API</a></li><li class="chapter-item expanded affix "><li class="part-title">Advanced</li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">9.</strong> For developers</a></li><li class="chapter-item expanded "><a href="beacon_node_systemd.html"><strong aria-hidden="true">10.</strong> Setting up a systemd service</a></li><li class="chapter-item expanded "><a href="create_wallet_and_deposit.html"><strong aria-hidden="true">11.</strong> Generating your keys with NBC</a></li><li class="chapter-item expanded affix "><li class="part-title">Misc</li><li class="chapter-item expanded "><a href="infura-guide.html"><strong aria-hidden="true">12.</strong> Infura guide</a></li><li class="chapter-item expanded "><strong aria-hidden="true">13.</strong> Windows users</li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">14.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">15.</strong> Contribute</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">2.</strong> Install dependencies</a></li><li class="chapter-item expanded "><a href="build.html"><strong aria-hidden="true">3.</strong> Build the beacon node</a></li><li class="chapter-item expanded "><a href="deposit.html"><strong aria-hidden="true">4.</strong> Make a deposit</a></li><li class="chapter-item expanded "><a href="keys.html"><strong aria-hidden="true">5.</strong> Manage your keys</a></li><li class="chapter-item expanded "><a href="connect-eth2.html"><strong aria-hidden="true">6.</strong> Connect to eth2</a></li><li class="chapter-item expanded "><a href="pi-guide.html"><strong aria-hidden="true">7.</strong> Run your node on a Raspberry Pi</a></li><li class="chapter-item expanded "><a href="keep-an-eye.html"><strong aria-hidden="true">8.</strong> Keep an eye on your validator</a></li><li class="chapter-item expanded "><a href="keep-updated.html"><strong aria-hidden="true">9.</strong> Keep your validator updated</a></li><li class="chapter-item expanded "><strong aria-hidden="true">10.</strong> Useful pre-genesis checks</li><li class="chapter-item expanded affix "><li class="part-title">Volume 2</li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">11.</strong> Metrics and pretty pictures</a></li><li class="chapter-item expanded "><a href="graffiti.html"><strong aria-hidden="true">12.</strong> Graffiti the blockchain</a></li><li class="chapter-item expanded "><strong aria-hidden="true">13.</strong> Run a local eth1 node</li><li class="chapter-item expanded "><strong aria-hidden="true">14.</strong> Run just the beacon node</li><li class="chapter-item expanded "><strong aria-hidden="true">15.</strong> Switch between clients</li><li class="chapter-item expanded "><strong aria-hidden="true">16.</strong> Permissions</li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">17.</strong> Advanced options</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">18.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">19.</strong> API</a></li><li class="chapter-item expanded "><a href="infura-guide.html"><strong aria-hidden="true">20.</strong> Infura guide</a></li><li class="chapter-item expanded "><strong aria-hidden="true">21.</strong> eth2stats guide</li><li class="chapter-item expanded affix "><li class="part-title">Volume 3</li><li class="chapter-item expanded "><a href="developers.html"><strong aria-hidden="true">22.</strong> For developers</a></li><li class="chapter-item expanded "><a href="beacon-node-systemd.html"><strong aria-hidden="true">23.</strong> Set up a systemd service</a></li><li class="chapter-item expanded "><a href="create-wallet-and-deposit.html"><strong aria-hidden="true">24.</strong> Generate your keys with Nimbus</a></li><li class="chapter-item expanded "><strong aria-hidden="true">25.</strong> Windows users</li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">26.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">27.</strong> Contribute</a></li><li class="chapter-item expanded "><a href="resources.html"><strong aria-hidden="true">28.</strong> Resources</a></li><li class="chapter-item expanded affix "><li class="part-title">Archived</li><li class="chapter-item expanded "><a href="zinken.html"><strong aria-hidden="true">29.</strong> Become a Zinken validator</a></li><li class="chapter-item expanded "><a href="medalla.html"><strong aria-hidden="true">30.</strong> Become a Medalla validator</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -157,16 +157,15 @@
                     <main>
                         <h1><a class="header" href="#the-nimbus-beacon-chain-book" id="the-nimbus-beacon-chain-book">The Nimbus beacon chain book</a></h1>
 <p>The Nimbus beacon chain is a research implementation of the Beacon Chain – the core system level chain at the heart of Ethereum 2.0.</p>
-<ul>
-<li>
-<p>Open sourced at <a href="https://github.com/status-im/nimbus-eth2/tree/master">github.com/status-im/nimbus-eth2</a></p>
-</li>
-<li>
-<p>Specification described at <a href="https://github.com/ethereum/eth2.0-specs/tree/v0.12.3#phase-0">ethereum/eth2.0-specs</a></p>
-</li>
-</ul>
+<p>This book strives to achieve two purposes: 1) to attempt to provide a more or less complete documentation of the Nimbus beacon chain, and 2) to explain the various ways in which you can use Nimbus to become a validator on eth2.</p>
 <h3><a class="header" href="#helpful-resources" id="helpful-resources">Helpful resources</a></h3>
 <ul>
+<li>
+<p><a href="github.com/status-im/nimbus-eth2">nimbus-eth2 repository</a></p>
+</li>
+<li>
+<p><a href="https://github.com/ethereum/eth2.0-specs/tree/v1.0.0-rc.0#phase-0">eth2 specification</a></p>
+</li>
 <li>
 <p><a href="https://benjaminion.xyz/eth2-annotated-spec/phase0/beacon-chain/">Ben Edgington's annotated spec</a> </p>
 </li>
@@ -177,28 +176,9 @@
 <p><a href="https://notes.ethereum.org/@djrtwo/Bkn3zpwxB">Danny Ryan's annotated spec</a></p>
 </li>
 </ul>
-<h2><a class="header" href="#overview" id="overview">Overview</a></h2>
-<p>In this book, we will cover:</p>
-<ol>
-<li>An <a href="./intro.html#introduction">introduction</a> to the beacon chain, eth2, and Nimbus to equip you with some basic knowledge</li>
-<li><a href="./install.html">Installation steps</a> outlining the prerequisites to get started</li>
-<li>How to <a href="./zinken.html">become a Zinken validator</a></li>
-<li>How to <a href="./medalla.html">become a Medalla validator</a></li>
-<li><a href="./medalla-troubleshooting.html">Troubleshooting Medalla</a></li>
-<li>How to <a href="./beacon_node.html">run the beacon node</a> software to sync the beacon chain</li>
-<li>How to spin up a <a href="./metrics-pretty-pictures.html">beautiful monitoring dashboard</a> for your validator</li>
-<li>The <a href="./api.html">API</a> for monitoring your node</li>
-<li><a href="./advanced.html">Advanced usage</a> for developers</li>
-<li>How to <a href="./beacon_node_systemd.html">setup up a systemd service</a></li>
-<li>How to <a href="./create_wallet_and_deposit.html">use Nimbus to generate your validator keys</a></li>
-<li>How to <a href="./infura-guide">supply your own Infura endpoint</a></li>
-<li>Tips and tricks for windows users (WIP)</li>
-<li>Common <a href="./faq.html">questions and answers</a> to satisfy your curiosity</li>
-<li>How to <a href="./contribute.html">contribute</a> to this book</li>
-</ol>
 <h2><a class="header" href="#introduction" id="introduction">Introduction</a></h2>
 <h3><a class="header" href="#whats-the-beacon-chain" id="whats-the-beacon-chain">What's the Beacon Chain?</a></h3>
-<p>In short, the beacon chain is the brain underpinning eth2 -- the next generation of Ethereum. It contains all of the machinery behind eth2's consensus.</p>
+<p>The beacon chain is the brain underpinning eth2 -- the next generation of Ethereum. It contains all of the machinery behind eth2's consensus.</p>
 <p>You can find a complete introduction to the beacon chain in our <a href="https://our.status.im/two-point-oh-the-beacon-chain/">Ethereum 2.0 blog series</a>.</p>
 <h3><a class="header" href="#why-eth2" id="why-eth2">Why eth2?</a></h3>
 <p>Eth2 is a multi-year plan to improve the scalability, security, and programmability of Ethereum, without compromising on decentralisation.</p>
