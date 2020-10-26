@@ -29,7 +29,7 @@ const
   bitsPerChunk = bytesPerChunk * 8
 
 type
-  SszChunksMerkleizer* = object
+  SszChunksMerkleizer* {.requiresInit.} = object
     combinedChunks: ptr UncheckedArray[Eth2Digest]
     totalChunks: uint64
     topIndex: int
@@ -287,14 +287,51 @@ func binaryTreeHeight*(totalElements: Limit): int =
   bitWidth nextPow2(uint64 totalElements)
 
 type
-  SszHeapMerkleizer[limit: static[Limit]] = object
-    chunks: array[binaryTreeHeight limit, Eth2Digest]
+  SszMerkleizer*[limit: static[Limit]] = object
+    combinedChunks: ref array[binaryTreeHeight limit, Eth2Digest]
     m: SszChunksMerkleizer
 
-proc init*(S: type SszHeapMerkleizer): S =
-  result.m.combinedChunks = cast[ptr UncheckedArray[Eth2Digest]](addr result.chunks)
-  result.m.topIndex = result.limit - 1
-  result.m.totalChunks = 0
+proc init*(S: type SszMerkleizer): S =
+  new result.combinedChunks
+  result.m = SszChunksMerkleizer(
+    combinedChunks: cast[ptr UncheckedArray[Eth2Digest]](
+      addr result.combinedChunks[][0]),
+    topIndex: binaryTreeHeight(result.limit) - 1,
+    totalChunks: 0)
+
+proc init*(S: type SszMerkleizer,
+           combinedChunks: openarray[Eth2Digest],
+           totalChunks: uint64): S =
+  new result.combinedChunks
+  result.combinedChunks[][0 ..< combinedChunks.len] = combinedChunks
+  result.m = SszChunksMerkleizer(
+    combinedChunks: cast[ptr UncheckedArray[Eth2Digest]](
+      addr result.combinedChunks[][0]),
+    topIndex: binaryTreeHeight(result.limit) - 1,
+    totalChunks: totalChunks)
+
+proc clone*[L: static[Limit]](cloned: SszMerkleizer[L]): SszMerkleizer[L] =
+  new result.combinedChunks
+  result.combinedChunks[] = cloned.combinedChunks[]
+  result.m = SszChunksMerkleizer(
+    combinedChunks: cast[ptr UncheckedArray[Eth2Digest]](
+      addr result.combinedChunks[][0]),
+    topIndex: binaryTreeHeight(L) - 1,
+    totalChunks: cloned.totalChunks)
+
+template addChunksAndGenMerkleProofs*(
+    merkleizer: var SszMerkleizer,
+    chunks: openarray[Eth2Digest]): seq[Eth2Digest] =
+  addChunksAndGenMerkleProofs(merkleizer.m, chunks)
+
+template addChunk*(merkleizer: var SszMerkleizer, data: openarray[byte]) =
+  addChunk(merkleizer.m, data)
+
+template totalChunks*(merkleizer: SszMerkleizer): uint64 =
+  merkleizer.m.totalChunks
+
+template getFinalHash*(merkleizer: SszMerkleizer): Eth2Digest =
+  merkleizer.m.getFinalHash
 
 template createMerkleizer*(totalElements: static Limit): SszChunksMerkleizer =
   trs "CREATING A MERKLEIZER FOR ", totalElements
