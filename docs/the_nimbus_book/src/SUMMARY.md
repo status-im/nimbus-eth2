@@ -1,5 +1,4 @@
 # Summary
-# Volume 1
 - [Introduction](./intro.md)
 - [Install dependencies](./install.md)
 - [Build the beacon node](./build.md)
