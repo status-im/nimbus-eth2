@@ -1,20 +1,24 @@
 import
   # Standard library
-  tables, json,
+  std/[tables, json, typetraits],
 
   # Nimble packages
   stew/byteutils, ssz/types,
   json_rpc/jsonmarshal,
 
   # Local modules
-  spec/[datatypes, crypto]
+  spec/[datatypes, crypto, digest]
+
+proc toJsonHex(data: openArray[byte]): string =
+  # Per the eth2 API spec, hex arrays are printed with leading 0x
+  "0x" & toHex(data)
 
 proc fromJson*(n: JsonNode, argName: string, result: var ValidatorPubKey) =
   n.kind.expect(JString, argName)
-  result = ValidatorPubKey.fromHex(n.getStr()).tryGet().initPubKey()
+  result = initPubKey(ValidatorPubKey.fromHex(n.getStr()).tryGet().initPubKey())
 
 proc `%`*(pubkey: ValidatorPubKey): JsonNode =
-  result = newJString($initPubKey(pubkey))
+  newJString(toJsonHex(toRaw(pubkey)))
 
 proc fromJson*(n: JsonNode, argName: string, result: var List) =
   fromJson(n, argName, asSeq result)
@@ -31,19 +35,19 @@ proc fromJson*(n: JsonNode, argName: string, result: var ValidatorSig) =
   result = ValidatorSig.fromHex(n.getStr()).tryGet()
 
 proc `%`*(value: ValidatorSig): JsonNode =
-  result = newJString($value)
+  newJString(toJsonHex(toRaw(value)))
 
 proc fromJson*(n: JsonNode, argName: string, result: var Version) =
   n.kind.expect(JString, argName)
   hexToByteArray(n.getStr(), array[4, byte](result))
 
 proc `%`*(value: Version): JsonNode =
-  result = newJString($value)
+  newJString(toJsonHex(distinctBase(value)))
 
 template genFromJsonForIntType(T: untyped) =
   proc fromJson*(n: JsonNode, argName: string, result: var T) =
     n.kind.expect(JInt, argName)
-    let asInt = n.getInt()
+    let asInt = n.getBiggestInt()
     # signed -> unsigned conversions are unchecked
     # https://github.com/nim-lang/RFCs/issues/175
     if asInt < 0:
@@ -56,15 +60,22 @@ genFromJsonForIntType(Slot)
 genFromJsonForIntType(CommitteeIndex)
 genFromJsonForIntType(ValidatorIndex)
 
-template `%`*(value: GraffitiBytes): JsonNode =
-  %($value)
+proc `%`*(value: GraffitiBytes): JsonNode =
+  newJString(toJsonHex(distinctBase(value)))
 
 proc fromJson*(n: JsonNode, argName: string, value: var GraffitiBytes) =
   n.kind.expect(JString, argName)
   value = GraffitiBytes.init n.getStr()
 
 proc `%`*(value: CommitteeIndex): JsonNode =
-  result = newJInt(value.int)
+  newJInt(value.BiggestInt)
 
 proc `%`*(value: ValidatorIndex): JsonNode =
-  result = newJInt(value.int)
+  newJInt(value.BiggestInt)
+
+proc `%`*(value: Eth2Digest): JsonNode =
+  newJString(toJsonHex(value.data))
+
+proc fromJson*(n: JsonNode, argName: string, result: var Eth2Digest) =
+  n.kind.expect(JString, argName)
+  hexToByteArray(n.getStr(), result.data)

@@ -7,7 +7,9 @@
 import
   json_rpc/[rpcserver, jsonmarshal],
   chronicles,
-  ../beacon_node_common
+  ../beacon_node_common,
+
+  ../spec/datatypes, ../eth2_json_rpc_serialization
 
 logScope: topics = "configapi"
 
@@ -18,8 +20,8 @@ template unimplemented() =
   raise (ref CatchableError)(msg: "Unimplemented")
 
 proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
-  rpcServer.rpc("get_v1_config_fork_schedule") do () -> JsonNode:
-    unimplemented()
+  rpcServer.rpc("get_v1_config_fork_schedule") do () -> seq[Fork]:
+    return @[node.chainDag.headState.data.data.fork]
 
   rpcServer.rpc("get_v1_config_spec") do () -> JsonNode:
     unimplemented()
