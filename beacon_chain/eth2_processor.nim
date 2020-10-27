@@ -4,7 +4,7 @@ import
   chronicles, chronicles/chronos_tools, chronos, metrics,
   ./spec/[crypto, datatypes, digest],
   ./block_pools/[clearance, chain_dag],
-  ./attestation_aggregation, ./exit_pool,
+  ./attestation_aggregation, ./exit_pool, ./validator_pool,
   ./beacon_node_types, ./attestation_pool,
   ./time, ./conf, ./sszdump
 
@@ -58,12 +58,15 @@ type
     chainDag*: ChainDAGRef
     attestationPool*: ref AttestationPool
     exitPool: ref ExitPool
+    validatorPool: ref ValidatorPool
     quarantine*: QuarantineRef
     blockReceivedDuringSlot*: Future[void]
 
     blocksQueue*: AsyncQueue[BlockEntry]
     attestationsQueue*: AsyncQueue[AttestationEntry]
     aggregatesQueue*: AsyncQueue[AggregateEntry]
+
+    selfSlashingDetection*: SelfSlashingDetection
 
 proc updateHead*(self: var Eth2Processor, wallSlot: Slot) =
   ## Trigger fork choice and returns the new head block.
@@ -285,6 +288,34 @@ proc blockValidator*(
 
   ValidationResult.Accept
 
+proc checkForPotentialSelfSlashing(
+    self: var Eth2Processor, attestationData: AttestationData,
+    attesterIndices: HashSet[ValidatorIndex], wallSlot: Slot) =
+  # Attestations remain valid for 32 slots, so avoid confusing with one's own
+  # reflections, for a ATTESTATION_PROPAGATION_SLOT_RANGE div SLOTS_PER_EPOCH
+  # period after the attestation slot. For mainnet this can be one additional
+  # epoch, and for minimal, four epochs.
+  const GUARD_EPOCHS = ATTESTATION_PROPAGATION_SLOT_RANGE div SLOTS_PER_EPOCH
+
+  let epoch = wallSlot.epoch
+  # Can skip this whole conditional by setting relevant config value to 0
+  if epoch < self.selfSlashingDetection.broadcastStartEpoch and
+      epoch >= self.selfSlashingDetection.probeEpoch and
+      epoch <= self.selfSlashingDetection.probeEpoch + GUARD_EPOCHS:
+    let tgtBlck = self.chainDag.getRef(attestationData.target.root)
+    doAssert not tgtBlck.isNil  # because attestation is valid above
+
+    let epochRef = self.chainDag.getEpochRef(
+      tgtBlck, attestationData.target.epoch)
+    for validatorIndex in attesterIndices:
+      let validatorPubkey = epochRef.validator_keys[validatorIndex]
+      if self.validatorPool[].getValidator(validatorPubkey) !=
+          default(AttachedValidator):
+        notice "Found another validator using same public key; would be slashed",
+          validatorIndex,
+          validatorPubkey
+        quit 1
+
 proc attestationValidator*(
     self: var Eth2Processor,
     attestation: Attestation,
@@ -315,6 +346,8 @@ proc attestationValidator*(
 
   beacon_attestations_received.inc()
   beacon_attestation_delay.observe(delay.toFloatSeconds())
+
+  self.checkForPotentialSelfSlashing(attestation.data, v.value, wallSlot)
 
   while self.attestationsQueue.full():
     try:
@@ -367,6 +400,9 @@ proc aggregateValidator*(
 
   beacon_aggregates_received.inc()
   beacon_aggregate_delay.observe(delay.toFloatSeconds())
+
+  self.checkForPotentialSelfSlashing(
+    signedAggregateAndProof.message.aggregate.data, v.value, wallSlot)
 
   while self.aggregatesQueue.full():
     try:
@@ -472,6 +508,7 @@ proc new*(T: type Eth2Processor,
           chainDag: ChainDAGRef,
           attestationPool: ref AttestationPool,
           exitPool: ref ExitPool,
+          validatorPool: ref ValidatorPool,
           quarantine: QuarantineRef,
           getWallTime: GetWallTimeFn): ref Eth2Processor =
   (ref Eth2Processor)(
@@ -480,6 +517,7 @@ proc new*(T: type Eth2Processor,
     chainDag: chainDag,
     attestationPool: attestationPool,
     exitPool: exitPool,
+    validatorPool: validatorPool,
     quarantine: quarantine,
     blockReceivedDuringSlot: newFuture[void](),
     blocksQueue: newAsyncQueue[BlockEntry](1),

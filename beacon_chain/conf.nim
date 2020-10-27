@@ -250,6 +250,11 @@ type
         desc: "Write SSZ dumps of blocks, attestations and states to data dir"
         name: "dump" }: bool
 
+      selfSlashingDetectionEpochs* {.
+        defaultValue: 2
+        desc: "Number of epochs of gossip to which to listen before broadcasting"
+        name: "self-slashing-detection-epochs" }: uint64
+
     of createTestnet:
       testnetDepositsFile* {.
         desc: "A LaunchPad deposits file for the genesis state validators"

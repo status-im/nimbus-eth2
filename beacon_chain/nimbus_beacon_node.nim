@@ -307,7 +307,8 @@ proc init*(T: type BeaconNode,
   proc getWallTime(): BeaconTime = res.beaconClock.now()
 
   res.processor = Eth2Processor.new(
-    conf, chainDag, attestationPool, exitPool, quarantine, getWallTime)
+    conf, chainDag, attestationPool, exitPool, newClone(res.attachedValidators),
+    quarantine, getWallTime)
 
   res.requestManager = RequestManager.init(
     network, res.processor.blocksQueue)
@@ -501,6 +502,33 @@ proc removeMessageHandlers(node: BeaconNode) =
   for subnet in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
     node.network.unsubscribe(getAttestationTopic(node.forkDigest, subnet))
 
+proc setupSelfSlashingProtection(node: BeaconNode, slot: Slot) =
+  # When another client's already running, this is very likely to detect
+  # potential duplicate validators, which can trigger slashing. Assuming
+  # the most pessimal case of two validators started simultaneously, the
+  # probability of triggering a slashable condition is up to 1/n, with n
+  # being the number of epochs one waits before proposing or attesting.
+  #
+  # Every missed attestation costs approximately 3*get_base_reward(), which
+  # can be up to around 10,000 Wei. Thus, skipping attestations isn't cheap
+  # and one should gauge the likelihood of this simultaneous launch to tune
+  # the epoch delay to one's perceived risk.
+  #
+  # This approach catches both startup and network outage conditions.
+
+  node.processor.selfSlashingDetection.broadcastStartEpoch =
+    slot.epoch + node.config.selfSlashingDetectionEpochs
+  # randomize() already called
+  node.processor.selfSlashingDetection.probeEpoch =
+    slot.epoch + rand(node.config.selfSlashingDetectionEpochs.int - 1).uint64
+  doAssert node.processor.selfSlashingDetection.probeEpoch <
+    node.processor.selfSlashingDetection.broadcastStartEpoch
+
+  debug "Setting up self-slashing protection",
+    epoch = slot.epoch,
+    probeEpoch = node.processor.selfSlashingDetection.probeEpoch,
+    broadcastStartEpoch = node.processor.selfSlashingDetection.broadcastStartEpoch
+
 proc updateGossipStatus(node: BeaconNode, slot: Slot) =
   # Syncing tends to be ~1 block/s, and allow for an epoch of time for libp2p
   # subscribing to spin up. The faster the sync, the more wallSlot - headSlot
@@ -534,6 +562,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) =
       headSlot = node.chainDag.head.slot,
       syncQueueLen
 
+    node.setupSelfSlashingProtection(slot)
     node.addMessageHandlers()
     doAssert node.getTopicSubscriptionEnabled()
   elif
@@ -849,6 +878,7 @@ proc run*(node: BeaconNode) =
     node.requestManager.start()
     node.startSyncManager()
 
+    node.setupSelfSlashingProtection(slot)
     node.addMessageHandlers()
     doAssert node.getTopicSubscriptionEnabled()
 
