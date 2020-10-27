@@ -1,7 +1,7 @@
 import chronicles
 import options, deques, heapqueue, tables, strutils, sequtils, math, algorithm
 import stew/results, chronos, chronicles
-import spec/[datatypes, digest], peer_pool, eth2_network
+import spec/[datatypes, digest, helpers], peer_pool, eth2_network
 
 import ./eth2_processor
 import block_pools/block_pools_types
@@ -63,6 +63,10 @@ type
     future: Future[bool]
     request: SyncRequest[T]
 
+  RewindPoint = object
+    failSlot: Slot
+    epochCount: uint64
+
   SyncQueue*[T] = ref object
     inpSlot*: Slot
     outSlot*: Slot
@@ -77,6 +81,7 @@ type
     debtsQueue: HeapQueue[SyncRequest[T]]
     debtsCount: uint64
     readyQueue: HeapQueue[SyncResult[T]]
+    rewind: Option[RewindPoint]
     outQueue: AsyncQueue[BlockEntry]
 
   SyncWorkerStatus* {.pure.} = enum
@@ -413,6 +418,43 @@ proc toDebtsQueue[T](sq: SyncQueue[T], sr: SyncRequest[T]) {.inline.} =
   sq.debtsQueue.push(sr)
   sq.debtsCount = sq.debtsCount + sr.count
 
+proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
+                        finalizedSlot: Slot): Slot =
+  # Calculate exponential rewind point in number of epochs.
+  let epochCount =
+    if sq.rewind.isSome():
+      let rewind = sq.rewind.get()
+      if failSlot == rewind.failSlot:
+        # `MissingParent` happened at same slot so we increase rewind point by
+        # factor of 2.
+        let epochs = rewind.epochCount * 2
+        sq.rewind = some(RewindPoint(failSlot: failSlot, epochCount: epochs))
+        epochs
+      else:
+        # `MissingParent` happened at different slot so we going to rewind for
+        # 1 epoch only.
+        sq.rewind = some(RewindPoint(failSlot: failSlot, epochCount: 1'u64))
+        1'u64
+    else:
+      # `MissingParent` happened first time.
+      sq.rewind = some(RewindPoint(failSlot: failSlot, epochCount: 1'u64))
+      1'u64
+
+  # Calculate the latest finalized epoch.
+  let finalizedEpoch = compute_epoch_at_slot(finalizedSlot)
+
+  # Calculate the rewind epoch, which should not be less than the latest
+  # finalized epoch.
+  let rewindEpoch =
+    block:
+      let failEpoch = compute_epoch_at_slot(failSlot)
+      if failEpoch < finalizedEpoch + epochCount:
+        finalizedEpoch
+      else:
+        failEpoch - epochCount
+
+  compute_start_slot_at_epoch(rewindEpoch)
+
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
               data: seq[SignedBeaconBlock]) {.async, gcsafe.} =
   ## Push successfull result to queue ``sq``.
@@ -457,12 +499,14 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
 
     # Validating received blocks one by one
     var res: Result[void, BlockError]
+    var failSlot: Option[Slot]
     if len(item.data) > 0:
       for blk in item.data:
         trace "Pushing block", block_root = blk.root,
                                block_slot = blk.message.slot
         res = await sq.validate(blk)
         if not(res.isOk):
+          failSlot = some(blk.message.slot)
           break
     else:
       res = Result[void, BlockError].ok()
@@ -497,7 +541,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
                request_slot = req.slot, request_count = req.count,
                request_step = req.step, blocks_count = len(item.data),
                blocks_map = getShortMap(req, item.data), topics = "syncman"
-          resetSlot = some(finalizedSlot)
+          resetSlot = some(sq.getRewindPoint(failSlot.get(), finalizedSlot))
           req.item.updateScore(PeerScoreMissingBlocks)
         else:
           error "Unexpected missing parent at finalized epoch slot",
