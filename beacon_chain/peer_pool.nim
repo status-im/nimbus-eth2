@@ -34,6 +34,8 @@ type
 
   PeerCounterCallback* = proc() {.gcsafe, raises: [Defect].}
 
+  PeerOnDeleteCallback*[T] = proc(peer: T) {.gcsafe.}
+
   PeerPool*[A, B] = ref object
     incNotEmptyEvent*: AsyncEvent
     outNotEmptyEvent*: AsyncEvent
@@ -45,6 +47,7 @@ type
     storage: seq[PeerItem[A]]
     cmp: proc(a, b: PeerIndex): bool {.closure, gcsafe.}
     scoreCheck: PeerScoreCheckCallback[A]
+    onDeletePeer: PeerOnDeleteCallback[A]
     peerCounter: PeerCounterCallback
     maxPeersCount: int
     maxIncPeersCount: int
@@ -134,7 +137,8 @@ proc waitNotFullEvent[A, B](pool: PeerPool[A, B],
 proc newPeerPool*[A, B](maxPeers = -1, maxIncomingPeers = -1,
                         maxOutgoingPeers = -1,
                         scoreCheckCb: PeerScoreCheckCallback[A] = nil,
-                        peerCounterCb: PeerCounterCallback = nil): PeerPool[A, B] =
+                        peerCounterCb: PeerCounterCallback = nil,
+                    onDeleteCb: PeerOnDeleteCallback[A] = nil): PeerPool[A, B] =
   ## Create new PeerPool.
   ##
   ## ``maxPeers`` - maximum number of peers allowed. All the peers which
@@ -155,6 +159,8 @@ proc newPeerPool*[A, B](maxPeers = -1, maxIncomingPeers = -1,
   ##
   ## ``peerCountCb`` - callback to be called when number of peers in PeerPool
   ## has been changed.
+  ##
+  ## ``onDeleteCb`` - callback to be called when peer is leaving PeerPool.
   ##
   ## Please note, that if ``maxPeers`` is positive non-zero value, then equation
   ## ``maxPeers >= maxIncomingPeers + maxOutgoingPeers`` must be ``true``.
@@ -183,6 +189,7 @@ proc newPeerPool*[A, B](maxPeers = -1, maxIncomingPeers = -1,
   res.registry = initTable[B, PeerIndex]()
   res.scoreCheck = scoreCheckCb
   res.peerCounter = peerCounterCb
+  res.onDeletePeer = onDeleteCb
   res.storage = newSeq[PeerItem[A]]()
 
   proc peerCmp(a, b: PeerIndex): bool {.closure, gcsafe.} =
@@ -267,6 +274,11 @@ proc peerCountChanged[A, B](pool: PeerPool[A, B]) {.inline.} =
   if not(isNil(pool.peerCounter)):
     pool.peerCounter()
 
+proc peerDeleted[A, B](pool: PeerPool[A, B], peer: A) {.inline.} =
+  ## Call callback when peer is leaving PeerPool.
+  if not(isNil(pool.onDeletePeer)):
+    pool.onDeletePeer(peer)
+
 proc deletePeer*[A, B](pool: PeerPool[A, B], peer: A, force = false): bool =
   ## Remove ``peer`` from PeerPool ``pool``.
   ##
@@ -294,6 +306,7 @@ proc deletePeer*[A, B](pool: PeerPool[A, B], peer: A, force = false): bool =
         # Cleanup storage with default item, and removing key from hashtable.
         pool.storage[pindex] = PeerItem[A]()
         pool.registry.del(key)
+        pool.peerDeleted(peer)
         pool.peerCountChanged()
     else:
       if item[].peerType == PeerType.Incoming:
@@ -318,6 +331,7 @@ proc deletePeer*[A, B](pool: PeerPool[A, B], peer: A, force = false): bool =
       # Cleanup storage with default item, and removing key from hashtable.
       pool.storage[pindex] = PeerItem[A]()
       pool.registry.del(key)
+      pool.peerDeleted(peer)
       pool.peerCountChanged()
     true
   else:
@@ -720,10 +734,15 @@ proc clearSafe*[A, B](pool: PeerPool[A, B]) {.async.} =
 
 proc setScoreCheck*[A, B](pool: PeerPool[A, B],
                           scoreCheckCb: PeerScoreCheckCallback[A]) =
-  ## Add ScoreCheck callback.
+  ## Sets ScoreCheck callback.
   pool.scoreCheck = scoreCheckCb
+
+proc setOnDeletePeer*[A, B](pool: PeerPool[A, B],
+                            deletePeerCb: PeerOnDeleteCallback[A]) =
+  ## Sets DeletePeer callback.
+  pool.onDeletePeer = deletePeerCb
 
 proc setPeerCounter*[A, B](pool: PeerPool[A, B],
                            peerCounterCb: PeerCounterCallback) =
-  ## Add PeerCounter callback.
+  ## Sets PeerCounter callback.
   pool.peerCounter = peerCounterCb

@@ -2,7 +2,6 @@ import chronicles
 import options, deques, heapqueue, tables, strutils, sequtils, math, algorithm
 import stew/results, chronos, chronicles
 import spec/[datatypes, digest], peer_pool, eth2_network
-import eth/async_utils
 
 import ./eth2_processor
 import block_pools/block_pools_types
@@ -109,7 +108,9 @@ type
     syncFut: Future[void]
     outQueue: AsyncQueue[BlockEntry]
     inProgress*: bool
-    syncSpeed*: float
+    insSyncSpeed*: float
+    avgSyncSpeed*: float
+    syncCount*: uint64
     syncStatus*: string
 
   SyncMoment* = object
@@ -927,6 +928,7 @@ proc getWorkersStats[A, B](man: SyncManager[A, B]): tuple[map: string,
 
 proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
   mixin getKey, getScore
+  var pauseTime = 0
 
   # Starting all sync workers
   for i in 0 ..< len(man.workers):
@@ -934,34 +936,73 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
 
   debug "Synchronization loop started", topics = "syncman"
 
-  proc watchAndSpeedTask() {.async.} =
+  proc watchTask() {.async.} =
+    const
+      MaxPauseTime = int(SECONDS_PER_SLOT) * int(SLOTS_PER_EPOCH)
+      MinPauseTime = int(SECONDS_PER_SLOT)
+
+    pauseTime = MinPauseTime
+
+    while true:
+      let wallSlot = man.getLocalWallSlot()
+      let headSlot = man.getLocalHeadSlot()
+
+      let lsm1 = SyncMoment.now(man.getLocalHeadSlot())
+      await sleepAsync(chronos.seconds(pauseTime))
+      let lsm2 = SyncMoment.now(man.getLocalHeadSlot())
+
+      let (map, sleeping, waiting, pending) = man.getWorkersStats()
+      if pending == 0:
+        pauseTime = MinPauseTime
+      else:
+        if (lsm2.slot - lsm1.slot == 0'u64) and (pending > 1):
+          # Syncing is NOT progressing, we double `pauseTime` value, but value
+          # could not be bigger then `MaxPauseTime`.
+          if (pauseTime shl 1) > MaxPauseTime:
+            pauseTime = MaxPauseTime
+          else:
+            pauseTime = pauseTime shl 1
+          info "Syncing process is not progressing, reset the queue",
+                pending_workers_count = pending,
+                to_slot = man.queue.outSlot,
+                pause_time = $(chronos.seconds(pauseTime)),
+                local_head_slot = lsm1.slot, topics = "syncman"
+          await man.queue.resetWait(none[Slot]())
+        else:
+          # Syncing progressing, so reduce `pauseTime` value in half, but value
+          # could not be less then `MinPauseTime`.
+          if (pauseTime shr 1) < MinPauseTime:
+            pauseTime = MinPauseTime
+          else:
+            pauseTime = pauseTime shr 1
+
+      debug "Synchronization watch loop tick", wall_head_slot = wallSlot,
+          local_head_slot = headSlot, queue_start_slot = man.queue.startSlot,
+          queue_last_slot = man.queue.lastSlot,
+          pause_time = $(chronos.seconds(pauseTime)),
+          avg_sync_speed = man.avgSyncSpeed, ins_sync_speed = man.insSyncSpeed,
+          pending_workers_count = pending,
+          topics = "syncman"
+
+  proc averageSpeedTask() {.async.} =
     while true:
       let wallSlot = man.getLocalWallSlot()
       let headSlot = man.getLocalHeadSlot()
       let lsm1 = SyncMoment.now(man.getLocalHeadSlot())
       await sleepAsync(chronos.seconds(int(SECONDS_PER_SLOT)))
       let lsm2 = SyncMoment.now(man.getLocalHeadSlot())
-
-      let (map, sleeping, waiting, pending) = man.getWorkersStats()
-      if pending == 0:
-        man.syncSpeed = 0.0
-      else:
-        if (lsm2.slot - lsm1.slot == 0'u64) and (pending > 1):
-          info "Syncing process is not progressing, reset the queue",
-                pending_workers_count = pending,
-                to_slot = man.queue.outSlot,
-                local_head_slot = lsm1.slot, topics = "syncman"
-          await man.queue.resetWait(none[Slot]())
+      let bps =
+        if lsm2.slot - lsm1.slot == 0'u64:
+          0.0
         else:
-          man.syncSpeed = speed(lsm1, lsm2)
+          speed(lsm1, lsm2)
+      inc(man.syncCount)
+      man.insSyncSpeed = bps
+      man.avgSyncSpeed = man.avgSyncSpeed +
+                         (bps - man.avgSyncSpeed) / float(man.syncCount)
 
-      trace "Synchronization loop tick", wall_head_slot = wallSlot,
-          local_head_slot = headSlot, queue_start_slot = man.queue.startSlot,
-          queue_last_slot = man.queue.lastSlot,
-          sync_speed = man.syncSpeed, pending_workers_count = pending,
-          topics = "syncman"
-
-  traceAsyncErrors watchAndSpeedTask()
+  asyncSpawn watchTask()
+  asyncSpawn averageSpeedTask()
 
   while true:
     let wallSlot = man.getLocalWallSlot()
@@ -969,17 +1010,20 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
 
     let (map, sleeping, waiting, pending) = man.getWorkersStats()
 
-    trace "Current syncing state", workers_map = map,
+    debug "Current syncing state", workers_map = map,
           sleeping_workers_count = sleeping,
           waiting_workers_count = waiting,
           pending_workers_count = pending,
           wall_head_slot = wallSlot, local_head_slot = headSlot,
+          pause_time = $chronos.seconds(pauseTime),
+          avg_sync_speed = man.avgSyncSpeed, ins_sync_speed = man.insSyncSpeed,
           topics = "syncman"
 
     # Update status string
     man.syncStatus = map & ":" & $pending & ":" &
-                       man.syncSpeed.formatBiggestFloat(ffDecimal, 4) &
-                       " (" & $man.queue.outSlot & ")"
+                     man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4) & ":" &
+                     man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4) &
+                     " (" & $man.queue.outSlot & ")"
 
     if headAge <= man.maxHeadAge:
       man.notInSyncEvent.clear()
