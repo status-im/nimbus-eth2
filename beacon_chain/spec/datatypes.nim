@@ -17,6 +17,9 @@
 # `ref` - this can be achieved by wrapping them in higher-level
 # types / composition
 
+# TODO Careful, not nil analysis is broken / incomplete and the semantics will
+#      likely change in future versions of the language:
+#      https://github.com/nim-lang/RFCs/issues/250
 {.experimental: "notnil".}
 
 {.push raises: [Defect].}
@@ -339,6 +342,9 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
+  # TODO Careful, not nil analysis is broken / incomplete and the semantics will
+  #      likely change in future versions of the language:
+  #      https://github.com/nim-lang/RFCs/issues/250
   BeaconStateRef* = ref BeaconState not nil
   NilableBeaconStateRef* = ref BeaconState
 
@@ -623,6 +629,9 @@ template assignClone*[T: not ref](x: T): ref T =
   assign(res[], x)
   res
 
+# TODO Careful, not nil analysis is broken / incomplete and the semantics will
+#      likely change in future versions of the language:
+#      https://github.com/nim-lang/RFCs/issues/250
 template newClone*[T](x: ref T not nil): ref T =
   newClone(x[])
 
