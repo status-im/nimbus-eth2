@@ -322,7 +322,8 @@ proc init*(T: type BeaconNode,
   proc getWallTime(): BeaconTime = res.beaconClock.now()
 
   res.processor = Eth2Processor.new(
-    conf, chainDag, attestationPool, exitPool, quarantine, getWallTime)
+    conf, chainDag, attestationPool, exitPool, newClone(res.attachedValidators),
+    quarantine, getWallTime)
 
   res.requestManager = RequestManager.init(
     network, res.processor.blocksQueue)
@@ -556,6 +557,45 @@ proc removeMessageHandlers(node: BeaconNode) =
   for subnet in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
     node.network.unsubscribe(getAttestationTopic(node.forkDigest, subnet))
 
+proc setupSelfSlashingProtection(node: BeaconNode, slot: Slot) =
+  # When another client's already running, this is very likely to detect
+  # potential duplicate validators, which can trigger slashing. Assuming
+  # the most pessimal case of two validators started simultaneously, the
+  # probability of triggering a slashable condition is up to 1/n, with n
+  # being the number of epochs one waits before proposing or attesting.
+  #
+  # Every missed attestation costs approximately 3*get_base_reward(), which
+  # can be up to around 10,000 Wei. Thus, skipping attestations isn't cheap
+  # and one should gauge the likelihood of this simultaneous launch to tune
+  # the epoch delay to one's perceived risk.
+  #
+  # This approach catches both startup and network outage conditions.
+
+  const duplicateValidatorEpochs = 2
+
+  node.processor.gossipSlashingProtection.broadcastStartEpoch =
+    slot.epoch + duplicateValidatorEpochs
+  # randomize() already called; also, never probe on first epoch in guard
+  # period, so that existing, running validators can be picked up. Whilst
+  # this reduces entropy for overlapping-start cases, and increases their
+  # collision likelihood, that can be compensated for by increasing guard
+  # epoch periods by 1. As a corollary, 1 guard epoch won't detect when a
+  # duplicate pair overlaps exactly, only the running/starting case. Even
+  # 2 epochs is dangerous because it'll guarantee colliding probes in the
+  # overlapping case.
+
+  # So dPE == 2 -> epoch + 1, always; dPE == 3 -> epoch + (1 or 2), etc.
+  node.processor.gossipSlashingProtection.probeEpoch =
+    slot.epoch + 1 + rand(duplicateValidatorEpochs.int - 2).uint64
+  doAssert node.processor.gossipSlashingProtection.probeEpoch <
+    node.processor.gossipSlashingProtection.broadcastStartEpoch
+
+  debug "Setting up self-slashing protection",
+    epoch = slot.epoch,
+    probeEpoch = node.processor.gossipSlashingProtection.probeEpoch,
+    broadcastStartEpoch =
+      node.processor.gossipSlashingProtection.broadcastStartEpoch
+
 proc updateGossipStatus(node: BeaconNode, slot: Slot) =
   # Syncing tends to be ~1 block/s, and allow for an epoch of time for libp2p
   # subscribing to spin up. The faster the sync, the more wallSlot - headSlot
@@ -589,6 +629,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) =
       headSlot = node.chainDag.head.slot,
       syncQueueLen
 
+    node.setupSelfSlashingProtection(slot)
     node.addMessageHandlers()
     doAssert node.getTopicSubscriptionEnabled()
   elif
@@ -907,6 +948,7 @@ proc run*(node: BeaconNode) =
     node.startSyncManager()
 
     if not node.beaconClock.now().toSlot().afterGenesis:
+      node.setupSelfSlashingProtection(curSlot)
       node.addMessageHandlers()
       doAssert node.getTopicSubscriptionEnabled()
 

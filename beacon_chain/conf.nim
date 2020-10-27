@@ -51,6 +51,11 @@ type
     enabled = "Always enabled"
     disabled = "Always disabled"
 
+  GossipSlashingProtectionMode* {.pure.} = enum
+    dontcheck
+    warn
+    stop
+
   BeaconNodeConf* = object
     logLevel* {.
       defaultValue: "INFO"
@@ -254,6 +259,12 @@ type
         defaultValue: false
         desc: "Write SSZ dumps of blocks, attestations and states to data dir"
         name: "dump" }: bool
+
+      gossipSlashingProtection* {.
+        defaultValue: GossipSlashingProtectionMode.warn
+        desc: "[=warn*|stop] What to do when another validator is detected to be running the same validator keys (default `warn`, will become `stop` in the future)"
+        name: "gossip-slashing-protection"
+      }: GossipSlashingProtectionMode
 
     of createTestnet:
       testnetDepositsFile* {.

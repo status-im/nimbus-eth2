@@ -615,6 +615,21 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   var curSlot = lastSlot + 1
 
+  # The dontcheck option's a deliberately undocumented escape hatch for the
+  # local testnets and similar development and testing use cases.
+  doAssert node.config.gossipSlashingProtection == GossipSlashingProtectionMode.dontcheck or (
+    node.processor[].gossipSlashingProtection.probeEpoch <
+    node.processor[].gossipSlashingProtection.broadcastStartEpoch)
+  if curSlot.epoch <
+        node.processor[].gossipSlashingProtection.broadcastStartEpoch and
+      curSlot.epoch != node.processor[].gossipSlashingProtection.probeEpoch and
+      node.config.gossipSlashingProtection == GossipSlashingProtectionMode.stop:
+    notice "Waiting to gossip out to detect potential duplicate validators",
+      broadcastStartEpoch =
+        node.processor[].gossipSlashingProtection.broadcastStartEpoch,
+      probeEpoch = node.processor[].gossipSlashingProtection.probeEpoch
+    return
+
   # Start by checking if there's work we should have done in the past that we
   # can still meaningfully do
   while curSlot < slot:
