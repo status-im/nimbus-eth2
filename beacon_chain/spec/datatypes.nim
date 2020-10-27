@@ -534,6 +534,10 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
+  DupProtection* = object
+    broadcastStartEpoch*: Epoch
+    probeEpoch*: Epoch
+
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
   ($state.validators[validatorIdx].pubkey)[0..7]
 
