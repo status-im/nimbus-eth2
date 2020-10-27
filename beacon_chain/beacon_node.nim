@@ -657,17 +657,22 @@ proc startSyncManager(node: BeaconNode) =
 
   proc scoreCheck(peer: Peer): bool =
     if peer.score < PeerScoreLowLimit:
-      debug "Peer score is too low", peer = peer,
-            peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
-            score_high_limit = PeerScoreHighLimit
       false
     else:
       true
 
   proc onDeletePeer(peer: Peer) =
-    debug "Peer is got removed from PeerPool, disconnecting", peer = peer,
-          peer_score = peer.score
-    asyncSpawn peer.disconnect(PeerScoreLow)
+    if peer.connectionState notin {Disconnecting, Disconnected}:
+      if peer.score < PeerScoreLowLimit:
+        debug "Peer was removed from PeerPool due to low score", peer = peer,
+              peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
+              score_high_limit = PeerScoreHighLimit
+        asyncSpawn peer.disconnect(PeerScoreLow)
+      else:
+        debug "Peer was removed from PeerPool", peer = peer,
+              peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
+              score_high_limit = PeerScoreHighLimit
+        asyncSpawn peer.disconnect(FaultOrError)
 
   node.network.peerPool.setScoreCheck(scoreCheck)
   node.network.peerPool.setOnDeletePeer(onDeletePeer)

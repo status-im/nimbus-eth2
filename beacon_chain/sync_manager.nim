@@ -108,7 +108,8 @@ type
     syncFut: Future[void]
     outQueue: AsyncQueue[BlockEntry]
     inProgress*: bool
-    syncSpeed*: float
+    insSyncSpeed*: float
+    avgSyncSpeed*: float
     syncCount*: uint64
     syncStatus*: string
 
@@ -979,7 +980,8 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
           local_head_slot = headSlot, queue_start_slot = man.queue.startSlot,
           queue_last_slot = man.queue.lastSlot,
           pause_time = $(chronos.seconds(pauseTime)),
-          sync_speed = man.syncSpeed, pending_workers_count = pending,
+          avg_sync_speed = man.avgSyncSpeed, ins_sync_speed = man.insSyncSpeed,
+          pending_workers_count = pending,
           topics = "syncman"
 
   proc averageSpeedTask() {.async.} =
@@ -995,8 +997,9 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
         else:
           speed(lsm1, lsm2)
       inc(man.syncCount)
-      man.syncSpeed = man.syncSpeed +
-                      (bps - man.syncSpeed) / float(man.syncCount)
+      man.insSyncSpeed = bps
+      man.avgSyncSpeed = man.avgSyncSpeed +
+                         (bps - man.avgSyncSpeed) / float(man.syncCount)
 
   asyncSpawn watchTask()
   asyncSpawn averageSpeedTask()
@@ -1013,12 +1016,14 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
           pending_workers_count = pending,
           wall_head_slot = wallSlot, local_head_slot = headSlot,
           pause_time = $chronos.seconds(pauseTime),
-          sync_speed = man.syncSpeed, topics = "syncman"
+          avg_sync_speed = man.avgSyncSpeed, ins_sync_speed = man.insSyncSpeed,
+          topics = "syncman"
 
     # Update status string
     man.syncStatus = map & ":" & $pending & ":" &
-                       man.syncSpeed.formatBiggestFloat(ffDecimal, 4) &
-                       " (" & $man.queue.outSlot & ")"
+                     man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4) & ":" &
+                     man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4) &
+                     " (" & $man.queue.outSlot & ")"
 
     if headAge <= man.maxHeadAge:
       man.notInSyncEvent.clear()
