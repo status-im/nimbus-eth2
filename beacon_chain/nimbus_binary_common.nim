@@ -17,7 +17,7 @@ import
   stew/io2,
 
   # Local modules
-  spec/[datatypes, crypto, helpers], eth2_network, time
+  spec/[datatypes, crypto, helpers], eth2_network, time, filepath
 
 proc setupStdoutLogging*(logLevel: string) =
   when compiles(defaultChroniclesStream.output.writer):
@@ -37,7 +37,7 @@ proc setupLogging*(logLevel: string, logFile: Option[OutFile]) =
         let
           logFile = logFile.get.string
           logFileDir = splitFile(logFile).dir
-        let lres = createPath(logFileDir, 0o750)
+        let lres = secureCreatePath(logFileDir)
         if lres.isErr():
           error "Failed to create directory for log file",
                 path = logFileDir, err = ioErrorMsg(lres.error)

@@ -12,10 +12,9 @@ then
   if [ ! -d "$1" ]; then
     # Create full path.
     mkdir -p $1;
-    # Remove all inherited aces from path $1 ACL.
-    icacls $1 /inheritance:r &> /dev/null;
-    # Grant full access rights to current user only in $1 ACL.
-    icacls $1 /grant:r $USERDOMAIN\\$USERNAME:\(OI\)\(CI\)F &> /dev/null;
+    # Remove all inherited aces from path $1 ACL and grant full access rights
+    # to current user only in $1 ACL.
+    icacls $1 /inheritance:r /grant:r $USERDOMAIN\\$USERNAME:\(OI\)\(CI\)\(F\)&>/dev/null;
   fi
 else
   # Create full path with 0750 permissions.

@@ -6,7 +6,8 @@ import
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
   ./spec/[datatypes, digest, crypto, state_transition, signatures],
-  ./ssz/[ssz_serialization, merkleization]
+  ./ssz/[ssz_serialization, merkleization],
+  filepath
 
 type
   DbSeq*[T] = object
@@ -202,7 +203,7 @@ proc init*(T: type BeaconChainDB,
     # of the database-backed one (i.e. tracking of deposits and validators)
     T(backend: kvStore MemStoreRef.init(), preset: preset)
   else:
-    let s = createPath(dir, 0o750)
+    let s = secureCreatePath(dir)
     doAssert s.isOk # TODO Handle this in a better way
 
     let sqliteStore = SqStoreRef.init(dir, "nbc", Keyspaces).expect(

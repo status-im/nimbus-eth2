@@ -5,7 +5,7 @@ import
   spec/[datatypes, digest, crypto, keystore],
   stew/[byteutils, io2], libp2p/crypto/crypto as lcrypto,
   nimcrypto/utils as ncrutils,
-  conf, ssz/merkleization, network_metadata
+  conf, ssz/merkleization, network_metadata, filepath
 
 export
   keystore
@@ -71,7 +71,7 @@ proc checkAndCreateDataDir*(dataDir: string): bool =
         else:
           true
     else:
-      let res = createPath(dataDir, 0o750)
+      let res = secureCreatePath(dataDir)
       if res.isErr():
         fatal "Could not create data folder", data_dir = dataDir,
               errorMsg = ioErrorMsg(res.error), errorCode = $res.error
@@ -93,20 +93,13 @@ proc checkAndCreateDataDir*(dataDir: string): bool =
         else:
           true
     else:
-      let sres = createCurrentUserOnlySecurityDescriptor()
-      if sres.isErr():
-        fatal "Could not allocate security descriptor", data_dir = dataDir,
-              errorMsg = ioErrorMsg(sres.error), errorCode = $sres.error
+      let res = secureCreatePath(dataDir)
+      if res.isErr():
+        fatal "Could not create data folder", data_dir = dataDir,
+                errorMsg = ioErrorMsg(res.error), errorCode = $res.error
         false
       else:
-        var sd = sres.get()
-        let res = createPath(dataDir, 0o750, secDescriptor = sd.getDescriptor())
-        if res.isErr():
-          fatal "Could not create data folder", data_dir = dataDir,
-                errorMsg = ioErrorMsg(res.error), errorCode = $res.error
-          false
-        else:
-          true
+        true
   else:
     fatal "Unsupported operation system"
     return false
@@ -373,18 +366,7 @@ proc saveNetKeystore*(rng: var BrHmacDrbgContext, keyStorePath: string,
     error "Could not serialize network key storage", key_path = keyStorePath
     return err(FailedToCreateKeystoreFile)
 
-  let res =
-    when defined(windows):
-      let sres = createCurrentUserOnlySecurityDescriptor()
-      if sres.isErr():
-        error "Could not allocate security descriptor", key_path = keyStorePath
-        return err(FailedToCreateKeystoreFile)
-      var sd = sres.get()
-      writeFile(keyStorePath, encodedStorage, 0o600,
-                secDescriptor = sd.getDescriptor())
-    else:
-      writeFile(keyStorePath, encodedStorage, 0o600)
-
+  let res = secureWriteFile(keyStorePath, encodedStorage)
   if res.isOk():
     ok()
   else:
@@ -416,48 +398,22 @@ proc saveKeystore(rng: var BrHmacDrbgContext,
       error "Could not serialize keystorage", key_path = keystoreFile
       return err(FailedToCreateKeystoreFile)
 
-    when defined(windows):
-      let csres = createCurrentUserOnlySecurityDescriptor()
-      if csres.isErr():
-        error "Could not allocate security descriptor", key_path = keystoreFile
-        return err(FailedToCreateKeystoreFile)
-      var sd = csres.get()
+    let vres = secureCreatePath(validatorDir)
+    if vres.isErr():
+      return err(FailedToCreateValidatorDir)
 
-      let vres = createPath(validatorDir, 0o750,
-                            secDescriptor = sd.getDescriptor())
-      if vres.isErr():
-        return err(FailedToCreateValidatorDir)
+    let sres = secureCreatePath(secretsDir)
+    if sres.isErr():
+      return err(FailedToCreateSecretsDir)
 
-      let sres = createPath(secretsDir, 0o750,
-                            secDescriptor = sd.getDescriptor())
-      if sres.isErr():
-        return err(FailedToCreateSecretsDir)
+    let swres = secureWriteFile(secretsDir / keyName, password.str)
+    if swres.isErr():
+      return err(FailedToCreateSecretFile)
 
-      let swres = writeFile(secretsDir / keyName, password.str, 0o600,
-                            secDescriptor = sd.getDescriptor())
-      if swres.isErr():
-        return err(FailedToCreateSecretFile)
+    let kwres = secureWriteFile(keystoreFile, encodedStorage)
+    if kwres.isErr():
+      return err(FailedToCreateKeystoreFile)
 
-      let kwres = writeFile(keystoreFile, encodedStorage, 0o600,
-                            secDescriptor = sd.getDescriptor())
-      if kwres.isErr():
-        return err(FailedToCreateKeystoreFile)
-    else:
-      let vres = createPath(validatorDir, 0o750)
-      if vres.isErr():
-        return err(FailedToCreateValidatorDir)
-
-      let sres = createPath(secretsDir, 0o750)
-      if sres.isErr():
-        return err(FailedToCreateSecretsDir)
-
-      let swres = writeFile(secretsDir / keyName, password.str, 0o600)
-      if swres.isErr():
-        return err(FailedToCreateSecretFile)
-
-      let kwres = writeFile(keystoreFile, encodedStorage, 0o600)
-      if kwres.isErr():
-        return err(FailedToCreateKeystoreFile)
   ok()
 
 proc generateDeposits*(preset: RuntimePreset,
@@ -498,26 +454,13 @@ proc saveWallet*(wallet: Wallet, outWalletPath: string): Result[void, string] =
   except SerializationError:
     return err("Could not serialize wallet")
 
-  when defined(windows):
-    let sres = createCurrentUserOnlySecurityDescriptor()
-    if sres.isErr():
-      error "Could not allocate security descriptor"
-      return err("Could not create security descriptor")
-    var sd = sres.get()
-    let pres = createPath(walletDir, 0o750, secDescriptor = sd.getDescriptor())
-    if pres.isErr():
-      return err("Could not create wallet directory [" & walletDir & "]")
-    let wres = writeFile(outWalletPath, encodedWallet, 0o600,
-                         secDescriptor = sd.getDescriptor())
-    if wres.isErr():
-      return err("Could not write wallet to file [" & outWalletPath & "]")
-  else:
-    let pres = createPath(walletDir, 0o750)
-    if pres.isErr():
-      return err("Could not create wallet directory [" & walletDir & "]")
-    let wres = writeFile(outWalletPath, encodedWallet, 0o600)
-    if wres.isErr():
-      return err("Could not write wallet to file [" & outWalletPath & "]")
+  let pres = secureCreatePath(walletDir)
+  if pres.isErr():
+    return err("Could not create wallet directory [" & walletDir & "]")
+  let wres = secureWriteFile(outWalletPath, encodedWallet)
+  if wres.isErr():
+    return err("Could not write wallet to file [" & outWalletPath & "]")
+
   ok()
 
 proc saveWallet*(wallet: WalletPathPair): Result[void, string] =

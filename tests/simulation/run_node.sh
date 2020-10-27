@@ -42,6 +42,8 @@ cd "$GIT_ROOT"
 NODE_DATA_DIR="${SIMULATION_DIR}/node-$NODE_ID"
 NODE_VALIDATORS_DIR=$NODE_DATA_DIR/validators/
 NODE_SECRETS_DIR=$NODE_DATA_DIR/secrets/
+MAKEDIR=$GIT_ROOT/scripts/makedir.sh
+COPYFILE=$GIT_ROOT/scripts/copyfile.sh
 
 PORT=$(( BASE_P2P_PORT + NODE_ID ))
 
@@ -50,13 +52,13 @@ if [ "${NAT:-}" == "1" ]; then
   NAT_ARG="--nat:any"
 fi
 
-mkdir -m 0700 -p "$NODE_DATA_DIR"
+"$MAKEDIR" "$NODE_DATA_DIR"
 
 rm -rf "$NODE_VALIDATORS_DIR"
-mkdir -m 0700 "$NODE_VALIDATORS_DIR"
+"$MAKEDIR" "$NODE_VALIDATORS_DIR"
 
 rm -rf "$NODE_SECRETS_DIR"
-mkdir -m 0700 "$NODE_SECRETS_DIR"
+"$MAKEDIR" "$NODE_SECRETS_DIR"
 
 VALIDATORS_PER_NODE=$(( NUM_VALIDATORS / (TOTAL_NODES - 1) ))
 if [ "${USE_BN_VC_VALIDATOR_SPLIT:-}" == "yes" ]; then
@@ -69,14 +71,14 @@ fi
 if [[ $NODE_ID -lt $BOOTSTRAP_NODE ]]; then
   pushd "$VALIDATORS_DIR" >/dev/null
   for VALIDATOR in $(ls | tail -n +$(( ($VALIDATORS_PER_NODE * $NODE_ID) + 1 )) | head -n $VALIDATORS_PER_NODE); do
-      cp -a "$VALIDATOR" "$NODE_VALIDATORS_DIR"
-      cp -a "$SECRETS_DIR/$VALIDATOR" "$NODE_SECRETS_DIR"
+      "$COPYFILE" "$VALIDATOR" "$NODE_VALIDATORS_DIR"
+      "$COPYFILE" "$SECRETS_DIR/$VALIDATOR" "$NODE_SECRETS_DIR"
     done
   popd >/dev/null
 fi
 
 rm -rf "$NODE_DATA_DIR/dump"
-mkdir -m 0700 "$NODE_DATA_DIR/dump"
+"$MAKEDIR" "$NODE_DATA_DIR/dump"
 
 SNAPSHOT_ARG=""
 if [ -f "${SNAPSHOT_FILE}" ]; then
