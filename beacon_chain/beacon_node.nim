@@ -32,8 +32,7 @@ import
   nimbus_binary_common, network_metadata,
   mainchain_monitor, version, ssz/[merkleization], merkle_minimal,
   sync_protocol, request_manager, keystore_management, interop, statusbar,
-  sync_manager, validator_duties, validator_api,
-  validator_slashing_protection, filepath,
+  sync_manager, validator_duties, filepath,
   validator_slashing_protection, ./eth2_processor
 
 const
