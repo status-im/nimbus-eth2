@@ -16,9 +16,6 @@ export
 
 proc parseBootstrapAddress*(address: TaintedString):
     Result[enr.Record, cstring] =
-  if address.len == 0:
-    return err "an empty string is not a valid bootstrap node"
-
   logScope:
     address = string(address)
 
@@ -38,6 +35,10 @@ proc parseBootstrapAddress*(address: TaintedString):
 
 proc addBootstrapNode*(bootstrapAddr: string,
                        bootstrapEnrs: var seq[enr.Record]) =
+  # Ignore empty lines or lines starting with #
+  if bootstrapAddr.len == 0 or bootstrapAddr[0] == '#':
+    return
+
   let enrRes = parseBootstrapAddress(bootstrapAddr)
   if enrRes.isOk:
     bootstrapEnrs.add enrRes.value
