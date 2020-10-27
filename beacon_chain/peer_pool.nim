@@ -1,6 +1,8 @@
 import std/[tables, heapqueue]
 import chronos
 
+export tables
+
 type
   PeerType* = enum
     Incoming, Outgoing

@@ -36,7 +36,7 @@ when chronicles.enabledLogLevel == LogLevel.TRACE:
 
 export
   version, multiaddress, peer_pool, peerinfo, p2pProtocol, connection,
-  libp2p_json_serialization, ssz_serialization, results
+  libp2p_json_serialization, ssz_serialization, results, eth2_discovery
 
 logScope:
   topics = "networking"
@@ -308,6 +308,12 @@ proc openStream(node: Eth2Node,
   return conn
 
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer {.gcsafe.}
+
+func peerId*(node: Eth2Node): PeerID =
+  node.switch.peerInfo.peerId
+
+func enrRecord*(node: Eth2Node): Record =
+  node.discovery.localNode.record
 
 proc getPeer*(node: Eth2Node, peerId: PeerID): Peer =
   node.peers.withValue(peerId, peer) do:

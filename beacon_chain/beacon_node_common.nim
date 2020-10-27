@@ -76,3 +76,6 @@ template findIt*(s: openarray, predicate: untyped): int =
       res = i
       break
   res
+
+proc currentSlot*(node: BeaconNode): Slot =
+  node.beaconClock.now.slotOrZero

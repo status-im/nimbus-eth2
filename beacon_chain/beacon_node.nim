@@ -17,21 +17,22 @@ import
   json_serialization/std/[options, sets, net], serialization/errors,
 
   eth/[keys, async_utils],
-  eth/common/eth_types_json_serialization,
   eth/db/[kvstore, kvstore_sqlite3],
   eth/p2p/enode, eth/p2p/discoveryv5/[protocol, enr],
 
   # Local modules
+  ./rpc/[beacon_api, config_api, debug_api, event_api, nimbus_api, node_api,
+    validator_api],
   spec/[datatypes, digest, crypto, beaconstate, helpers, network, presets],
-  spec/[state_transition, weak_subjectivity],
+  spec/[weak_subjectivity],
   conf, time, beacon_chain_db, validator_pool, extras,
   attestation_pool, exit_pool, eth2_network, eth2_discovery,
   beacon_node_common, beacon_node_types, beacon_node_status,
-  block_pools/[spec_cache, chain_dag, quarantine, clearance, block_pools_types],
+  block_pools/[chain_dag, quarantine, clearance, block_pools_types],
   nimbus_binary_common, network_metadata,
   mainchain_monitor, version, ssz/[merkleization], merkle_minimal,
   sync_protocol, request_manager, keystore_management, interop, statusbar,
-  sync_manager, validator_duties, validator_api,
+  sync_manager, validator_duties,
   validator_slashing_protection,
   ./eth2_processor
 
@@ -680,93 +681,17 @@ proc startSyncManager(node: BeaconNode) =
   )
   node.syncManager.start()
 
-proc currentSlot(node: BeaconNode): Slot =
-  node.beaconClock.now.slotOrZero
-
 proc connectedPeersCount(node: BeaconNode): int =
   len(node.network.peerPool)
 
-proc installBeaconApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
-  rpcServer.rpc("getBeaconHead") do () -> Slot:
-    return node.chainDag.head.slot
-
-  rpcServer.rpc("getChainHead") do () -> JsonNode:
-    let
-      head = node.chainDag.head
-      finalized = node.chainDag.headState.data.data.finalized_checkpoint
-      justified = node.chainDag.headState.data.data.current_justified_checkpoint
-    return %* {
-      "head_slot": head.slot,
-      "head_block_root": head.root.data.toHex(),
-      "finalized_slot": finalized.epoch * SLOTS_PER_EPOCH,
-      "finalized_block_root": finalized.root.data.toHex(),
-      "justified_slot": justified.epoch * SLOTS_PER_EPOCH,
-      "justified_block_root": justified.root.data.toHex(),
-    }
-
-  rpcServer.rpc("getSyncing") do () -> bool:
-    let
-      wallSlot = currentSlot(node)
-      headSlot = node.chainDag.head.slot
-    # FIXME: temporary hack: If more than 1 block away from expected head, then we are "syncing"
-    return (headSlot + 1) < wallSlot
-
-  template requireOneOf(x, y: distinct Option) =
-    if x.isNone xor y.isNone:
-      raise newException(CatchableError,
-       "Please specify one of " & astToStr(x) & " or " & astToStr(y))
-
-  rpcServer.rpc("getNetworkPeerId") do () -> string:
-    return $publicKey(node.network)
-
-  rpcServer.rpc("getNetworkPeers") do () -> seq[string]:
-    for peerId, peer in node.network.peerPool:
-      result.add $peerId
-
-  rpcServer.rpc("getNetworkEnr") do () -> string:
-    return $node.network.discovery.localNode.record
-
-proc installDebugApiHandlers(rpcServer: RpcServer, node: BeaconNode) =
-  rpcServer.rpc("getNodeVersion") do () -> string:
-    return "Nimbus/" & fullVersionStr
-
-  rpcServer.rpc("getSpecPreset") do () -> JsonNode:
-    var res = newJObject()
-    genStmtList:
-      for presetValue in PresetValue:
-        if presetValue notin ignoredValues + runtimeValues:
-          let
-            settingSym = ident($presetValue)
-            settingKey = newLit(toLowerAscii($presetValue))
-          let f = quote do:
-            res[`settingKey`] = %(presets.`settingSym`)
-          yield f
-
-    for field, value in fieldPairs(node.config.runtimePreset):
-      res[field] = when value isnot Version: %value
-                   else: %value.toUInt64
-
-    return res
-
-  rpcServer.rpc("peers") do () -> JsonNode:
-    var res = newJObject()
-    var peers = newJArray()
-    for id, peer in node.network.peerPool:
-      peers.add(
-        %(
-          info: shortLog(peer.info),
-          connectionState: $peer.connectionState,
-          score: peer.score,
-        )
-      )
-    res.add("peers", peers)
-
-    return res
-
 proc installRpcHandlers(rpcServer: RpcServer, node: BeaconNode) =
-  rpcServer.installValidatorApiHandlers(node)
   rpcServer.installBeaconApiHandlers(node)
+  rpcServer.installConfigApiHandlers(node)
   rpcServer.installDebugApiHandlers(node)
+  rpcServer.installEventApiHandlers(node)
+  rpcServer.installNimbusApiHandlers(node)
+  rpcServer.installNodeApiHandlers(node)
+  rpcServer.installValidatorApiHandlers(node)
 
 proc installMessageValidators(node: BeaconNode) =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
