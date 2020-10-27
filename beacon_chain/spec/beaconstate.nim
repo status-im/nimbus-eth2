@@ -364,7 +364,7 @@ func is_eligible_for_activation(state: BeaconState, validator: Validator):
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#registry-updates
 proc process_registry_updates*(state: var BeaconState,
-    cache: var StateCache) {.nbench.}=
+    cache: var StateCache) {.nbench.} =
   ## Process activation eligibility and ejections
 
   # Make visible, e.g.,

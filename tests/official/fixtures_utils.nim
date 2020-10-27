@@ -10,7 +10,7 @@ import
   os, strutils, typetraits,
   # Internals
   ../../beacon_chain/ssz,
-  ../../beacon_chain/spec/[datatypes, crypto],
+  ../../beacon_chain/spec/[datatypes, crypto, state_transition_epoch],
   # Status libs
   stew/byteutils,
   serialization, json_serialization
@@ -64,3 +64,16 @@ proc sszDecodeEntireInput*(input: openarray[byte], Decoded: type): Decoded =
 
   if stream.readable:
     raise newException(UnconsumedInput, "Remaining bytes in the input")
+
+proc process_justification_and_finalization*(state: var BeaconState) =
+  var cache = StateCache()
+
+  var validator_statuses = ValidatorStatuses.init(state)
+  validator_statuses.process_attestations(state, cache)
+  process_justification_and_finalization(state, validator_statuses.total_balances)
+
+proc process_slashings*(state: var BeaconState) =
+  var cache = StateCache()
+  var validator_statuses = ValidatorStatuses.init(state)
+  validator_statuses.process_attestations(state, cache)
+  process_slashings(state, validator_statuses.total_balances.current_epoch)

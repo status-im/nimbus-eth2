@@ -13,7 +13,7 @@ import
 
   # Nimble packages
   chronos, confutils/defs,
-  chronicles, chronicles/helpers as chroniclesHelpers,
+  chronicles, chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
   stew/io2,
 
   # Local modules

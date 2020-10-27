@@ -2,13 +2,12 @@
 
 The Nimbus beacon chain is a research implementation of the Beacon Chain – the core system level chain at the heart of Ethereum 2.0.
 
-
-- Open sourced at [github.com/status-im/nimbus-eth2](https://github.com/status-im/nimbus-eth2/tree/master)
-
-- Specification described at [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v1.0.0-rc.0#phase-0)
-
+This book strives to achieve two purposes: 1) to attempt to provide a more or less complete documentation of the Nimbus beacon chain, and 2) to explain the various ways in which you can use Nimbus to become a validator on eth2.
 
 ### Helpful resources
+
+- [nimbus-eth2 repository](github.com/status-im/nimbus-eth2)
+- [eth2 specification](https://github.com/ethereum/eth2.0-specs/tree/v1.0.0-rc.0#phase-0)
 - [Ben Edgington's annotated spec](https://benjaminion.xyz/eth2-annotated-spec/phase0/beacon-chain/) 
 
 - [Vitalik's annotated spec](https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md)
@@ -16,32 +15,13 @@ The Nimbus beacon chain is a research implementation of the Beacon Chain – the
 - [Danny Ryan's annotated spec](https://notes.ethereum.org/@djrtwo/Bkn3zpwxB)
 
 
-## Overview
-
-In this book, we will cover:
-
-1. An [introduction](./intro.md#introduction) to the beacon chain, eth2, and Nimbus to equip you with some basic knowledge
-2. [Installation steps](./install.md) outlining the prerequisites to get started
-3. How to [become a Zinken validator](./zinken.md)
-4. How to [become a Medalla validator](./medalla.md)
-5. [Troubleshooting Medalla](./medalla-troubleshooting.md)
-6. How to [run the beacon node](./beacon_node.md) software to sync the beacon chain
-7. How to spin up a [beautiful monitoring dashboard](./metrics-pretty-pictures.md) for your validator
-8. The [API](./api.md) for monitoring your node
-9. [Advanced usage](./advanced.md) for developers
-10. How to [setup up a systemd service](./beacon_node_systemd.md)
-11. How to [use Nimbus to generate your validator keys](./create_wallet_and_deposit.md)
-12. How to [supply your own Infura endpoint](./infura-guide)
-13. Tips and tricks for windows users (WIP)
-14. Common [questions and answers](./faq.md) to satisfy your curiosity
-15. How to [contribute](./contribute.md) to this book
 
 
 ## Introduction
 
 ### What's the Beacon Chain?
 
-In short, the beacon chain is the brain underpinning eth2 -- the next generation of Ethereum. It contains all of the machinery behind eth2's consensus.
+The beacon chain is the brain underpinning eth2 -- the next generation of Ethereum. It contains all of the machinery behind eth2's consensus.
 
 You can find a complete introduction to the beacon chain in our [Ethereum 2.0 blog series](https://our.status.im/two-point-oh-the-beacon-chain/).
 

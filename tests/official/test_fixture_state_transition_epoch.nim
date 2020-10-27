@@ -56,7 +56,7 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
 # ---------------------------------------------------------------
 
 const JustificationFinalizationDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"justification_and_finalization"/"pyspec_tests"
-runSuite(JustificationFinalizationDir, "Justification & Finalization",  process_justification_and_finalization, useCache = true)
+runSuite(JustificationFinalizationDir, "Justification & Finalization",  process_justification_and_finalization, useCache = false)
 
 # Rewards & Penalties
 # ---------------------------------------------------------------
@@ -73,7 +73,7 @@ runSuite(RegistryUpdatesDir, "Registry updates",  process_registry_updates, useC
 # ---------------------------------------------------------------
 
 const SlashingsDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"slashings"/"pyspec_tests"
-runSuite(SlashingsDir, "Slashings",  process_slashings, useCache = true)
+runSuite(SlashingsDir, "Slashings",  process_slashings, useCache = false)
 
 # Final updates
 # ---------------------------------------------------------------

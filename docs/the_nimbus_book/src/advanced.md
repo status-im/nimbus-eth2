@@ -1,146 +1,58 @@
-# Advanced Usage for Developers
+# Advanced options
 
-Latest updates happen in the `devel` branch which is merged into `master` every week on Tuesday.
+### Start multiple nodes
 
-This page contains tips and tricks for developers, further resources, along with information on how to set up your build environment on your platform.
-
-### Ubuntu guide
-
-See [this excellent resource](https://medium.com/@SomerEsat/guide-to-staking-on-ethereum-2-0-ubuntu-medalla-nimbus-5f4b2b0f2d7c) for detailed step-by-step guide on how to stake on eth2 with Ubuntu.
-
-It contains instructions on how to:
-
-- Configure a newly running Ubuntu server instance
-- Configure and run an eth1 node as a service
-- Compile and configure the Nimbus client for eth 2, phase 0 (Medalla testnet)
-- Install and configure [Prometheus](https://prometheus.io/) metrics and set up a [Grafana](https://grafana.com/) dashboard
-
-### Windows dev environment
-
-Install Mingw-w64 for your architecture using the "[MinGW-W64 Online
-Installer](https://sourceforge.net/projects/mingw-w64/files/)" (first link
-under the directory listing). Run it and select your architecture in the setup
-menu (`i686` on 32-bit, `x86_64` on 64-bit), set the threads to `win32` and
-the exceptions to "dwarf" on 32-bit and "seh" on 64-bit. Change the
-installation directory to "C:\mingw-w64" and add it to your system PATH in "My
-Computer"/"This PC" -> Properties -> Advanced system settings -> Environment
-Variables -> Path -> Edit -> New -> C:\mingw-w64\mingw64\bin (it's "C:\mingw-w64\mingw32\bin" on 32-bit)
-
-Install [Git for Windows](https://gitforwindows.org/) and use a "Git Bash" shell to clone and build nimbus-eth2.
-
-If you don't want to compile PCRE separately, you can fetch pre-compiled DLLs with:
-
-```bash
-mingw32-make # this first invocation will update the Git submodules
-mingw32-make fetch-dlls # this will place the right DLLs for your architecture in the "build/" directory
-```
-
-You can now follow the instructions in this this book by replacing `make` with `mingw32-make` (you should run `mingw32` regardless of whether you're running 32-bit or 64-bit architecture):
-
-```bash
-mingw32-make test # run the test suite
-```
-
-### Linux, macOS
-
-After cloning the repo:
-
-```bash
-# Build beacon_node and all the tools, using 4 parallel Make jobs
-make -j4
-
-# Run tests
-make test
-
-# Update to latest version
-git pull
-make update
-```
-
-To run a command that might use binaries from the Status Nim fork:
-
-```bash
-./env.sh bash # start a new interactive shell with the right env vars set
-which nim
-nim --version # Nimbus is tested and supported on 1.0.2 at the moment
-
-# or without starting a new interactive shell:
-./env.sh which nim
-./env.sh nim --version
-```
-
-### Raspberry Pi
-
-We recommend you remove any cover or use a fan; the Raspberry Pi will get hot (85°C) and throttle.
-
-- Raspberry PI 3b+ or Raspberry Pi 4b.
-- 64gb SD Card (less might work too, but the default recommended 4-8GB will probably be too small)
-- [Raspbian Buster Lite](https://www.raspberrypi.org/downloads/raspbian/) - Lite version is enough to get going and will save some disk space!
-
-Assuming you're working with a freshly written image:
-
-```bash
-
-# Start by increasing swap size to 2gb:
-sudo vi /etc/dphys-swapfile
-# Set CONF_SWAPSIZE=2048
-# :wq
-sudo reboot
-
-# Install prerequisites
-sudo apt-get install git libgflags-dev libsnappy-dev libpcre3-dev
-
-# Then you can follow instructions for Linux.
+You can start multiple local nodes, in different terminal windows/tabs, by specifying numeric IDs:
 
 ```
-
-### Makefile tips and tricks for developers
-
-- build all those tools known to the Makefile:
-
-```bash
-# $(nproc) corresponds to the number of cores you have
-make -j$(nproc)
+make medalla NODE_ID=0 # the default
+make medalla NODE_ID=1
+make medalla NODE_ID=2
 ```
 
-- build a specific tool:
+### Attach multiple validators to the same beacon node
 
-```bash
-make state_sim
+Simply [import as many keystores as you wish](./medalla.md#3-import-keystores) before running `make medalla`. Nimbus will automagically find your keys and attach your validators. See [key management](./medalla.md#key-management) for more information on where we store your keys.
+
+To give you some context, we (the Nimbus team) are currently running 170 validators per beacon node on our AWS instances.
+
+### Change the TCP and UDP ports
+
+To change the TCP and UDP ports from their default value of 9000 to 9100, say, run:
+
+```
+make BASE_PORT=9100 medalla
 ```
 
-- you can control the Makefile's verbosity with the V variable (defaults to 0):
+You may need to do this if you are running another client.
 
-```bash
-make V=1 # verbose
-make V=2 test # even more verbose
+### Node parameters
+
+You can customise your beacon node's parameters using the `NODE_PARAMS` option:
+
+```
+make NODE_PARAMS="--tcp-port=9100 --udp-port=9100" medalla
 ```
 
-- same for the [Chronicles log level](https://github.com/status-im/nim-chronicles#chronicles_log_level):
+>**Note:** the above command has exactly the same effect as `make BASE_PORT=9100 medalla`
 
-```bash
-make LOG_LEVEL=DEBUG bench_bls_sig_agggregation # this is the default
-make LOG_LEVEL=TRACE beacon_node # log everything
+A complete list of the available parameters can be found [here](https://github.com/status-im/nimbus-eth2/blob/devel/beacon_chain/conf.nim#L92-L210) (use a parameter's `name` field to set it).
+
+### Logs
+
+Log files are saved in `build/data/shared_medalla_0/`.
+
+
+### Makefile
+
+If you are comfortable reading [Makefiles](https://en.wikipedia.org/wiki/Makefile#:~:text=A%20makefile%20is%20a%20file,to%20generate%20a%20target%2Fgoal), you can see the commands that `make medalla`  executes under the hood, [here](https://github.com/status-im/nimbus-eth2/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L184-L197).
+
+Some of the provided options (such as `--network=medalla`) are essential while others (such as the ones controlling logging, metrics, ports, and the RPC service) are there for convenience.
+
+The Goerli testnet parameters (`$(GOERLI_TESTNETS_PARAMS`), are defined higher up in the Makefile, [here](https://github.com/status-im/nimbus-eth2/blob/23bec993414df904e9d7ea9d26e65005b981aee0/Makefile#L164-L171).
+
+### Make a deposit directly using Nimbus
+
 ```
-
-- pass arbitrary parameters to the Nim compiler:
-
-```bash
-make NIMFLAGS="-d:release"
+make medalla-deposit VALIDATORS=2 # default is just 1
 ```
-
-- you can freely combine those variables on the `make` command line:
-
-```bash
-make -j$(nproc) NIMFLAGS="-d:release" USE_MULTITAIL=yes eth2_network_simulation
-```
-
-- don't use the [lightweight stack tracing implementation from nim-libbacktrace](https://github.com/status-im/nimbus-eth2/pull/745):
-
-```bash
-make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
-```
-
-### Multi-client interop scripts
-
-[This repository](https://github.com/eth2-clients/multinet) contains a set of scripts used by the client implementation teams to test interop between the clients (in certain simplified scenarios). It mostly helps us find and debug issues.

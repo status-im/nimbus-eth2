@@ -1,6 +1,6 @@
-# Installation
+# Install dependencies
 
-The Nimbus beacon chain can run on Linux, macOS, Windows, and Android. At the moment, Nimbus has to be built from source.
+The Nimbus beacon chain can run on Linux, macOS, Windows, and Android. At the moment, Nimbus has to be built from source, which means you'll need to install some dependencies.
 
 ## Time
 
@@ -65,6 +65,3 @@ Assuming you  use Ubuntu PRoot
 apt install build-essential git libpcre3-dev
 ```
 
-## Next steps
-
-You're now ready to move on to running a validator.

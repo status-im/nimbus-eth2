@@ -1,6 +1,6 @@
-# Generating your keys with NBC
+# Generate your keys with Nimbus
 
-In this chapter, we'll take you through how to create an [EIP-2386](https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md) wallet to help you generate your validator keys (keystores), create a `deposits_data` file compatible with the Ethereum Foundation's [Validator Launchpad](https://medalla.launchpad.ethereum.org/), and use the launchpad to send this data to the eth1 network so that your validator can be registered.
+On this page, we'll take you through how to create an [EIP-2386](https://github.com/ethereum/EIPs/blob/4494da0966afa7318ec0157948821b19c4248805/EIPS/eip-2386.md) wallet to help you generate your validator keys (keystores), create a `deposits_data` file compatible with the Ethereum Foundation's [Validator Launchpad](https://medalla.launchpad.ethereum.org/), and use the launchpad to send this data to the eth1 network so that your validator can be registered.
 
 
 > **Note:** this page is primarily aimed at users who wish to run multiple validators on several machines. If you simply wish to get one validator up and running with Nimbus, or run several validators on a single machine, we recommend following our [become a Medalla validator](./medalla.md) guide instead.

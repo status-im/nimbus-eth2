@@ -15,7 +15,8 @@ import
       datatypes, crypto, helpers, beaconstate, helpers,
       state_transition_block, state_transition_epoch, state_transition],
   ../beacon_chain/extras,
-  ../beacon_chain/ssz/[merkleization, ssz_serialization]
+  ../beacon_chain/ssz/[merkleization, ssz_serialization],
+  ../tests/official/fixtures_utils
 
 # Nimbus Bench - Scenario configuration
 # --------------------------------------------------
@@ -253,7 +254,7 @@ template genProcessBlockScenario(name, transitionFn,
 
 genProcessEpochScenario(runProcessJustificationFinalization,
                         process_justification_and_finalization,
-                        needCache = true)
+                        needCache = false)
 
 genProcessEpochScenario(runProcessRegistryUpdates,
                         process_registry_updates,
@@ -261,7 +262,7 @@ genProcessEpochScenario(runProcessRegistryUpdates,
 
 genProcessEpochScenario(runProcessSlashings,
                         process_slashings,
-                        needCache = true)
+                        needCache = false)
 
 genProcessEpochScenario(runProcessFinalUpdates,
                         process_final_updates,

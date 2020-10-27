@@ -16,7 +16,7 @@ import
     beaconstate],
   block_pools_types, quarantine
 
-export block_pools_types
+export block_pools_types, helpers
 
 declareCounter beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # On fork choice
 declareCounter beacon_state_data_cache_hits, "EpochRef hits"

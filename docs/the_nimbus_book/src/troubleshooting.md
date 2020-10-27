@@ -1,4 +1,4 @@
-# Troubleshooting Medalla
+# Troubleshooting (Medalla)
 
 As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the `master` branch. If you can't find a solution to your problem here, feel free to hit us up on our [discord](https://discord.com/invite/XRxWahP)!
 
