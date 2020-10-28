@@ -15,6 +15,8 @@ const
     ## Peer did not answer `status` request.
   PeerScoreStaleStatus* = -50
     ## Peer's `status` answer do not progress in time.
+  PeerScoreUseless* = -10
+    ## Peer's latest head is lower then ours.
   PeerScoreGoodStatus* = 50
     ## Peer's `status` answer is fine.
   PeerScoreNoBlocks* = -100
@@ -571,9 +573,10 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       if resetSlot.isSome():
         await sq.resetWait(resetSlot)
         debug "Rewind to slot was happened", reset_slot = reset_slot.get(),
-                                             queue_input_slot = sq.inpSlot,
-                                             queue_output_slot = sq.outSlot,
-                                             topics = "syncman"
+              queue_input_slot = sq.inpSlot, queue_output_slot = sq.outSlot,
+              rewind_epoch_count = sq.rewind.get().epochCount,
+              rewind_fail_slot = sq.rewind.get().failSlot,
+              reset_slot = resetSlot, topics = "syncman"
       break
 
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T]) =
@@ -838,13 +841,30 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
             peer = peer, peer_score = peer.getScore(), index = index,
             peer_speed = peer.netKbps(), topics = "syncman"
     else:
-      debug "Peer's status information updated", wall_clock_slot = wallSlot,
-            remote_old_head_slot = peerSlot, local_head_slot = headSlot,
-            remote_new_head_slot = newPeerSlot, peer = peer,
-            peer_score = peer.getScore(), peer_speed = peer.netKbps(),
-            index = index, topics = "syncman"
-      peer.updateScore(PeerScoreGoodStatus)
-      peerSlot = newPeerSlot
+      # This is not very good solution because we should not discriminate and/or
+      # penalize peers which are in sync process too, but their latest head is
+      # lower then our latest head. We should keep connections with such peers
+      # (so this peers are able to get in sync using our data), but we should
+      # not use this peers for syncing because this peers are useless for us.
+      # Right now we decreasing peer's score a bit, so it will not be
+      # disconnected due to low peer's score, but new fresh peers could replace
+      # peers with low latest head.
+      if headSlot >= newPeerSlot - man.maxHeadAge:
+        # Peer's head slot is still lower then ours.
+        debug "Peer's head slot is lower then local head slot",
+              wall_clock_slot = wallSlot, remote_old_head_slot = peerSlot,
+              local_head_slot = headSlot, remote_new_head_slot = newPeerSlot,
+              peer = peer, peer_score = peer.getScore(),
+              peer_speed = peer.netKbps(), index = index, topics = "syncman"
+        peer.updateScore(PeerScoreUseless)
+      else:
+        debug "Peer's status information updated", wall_clock_slot = wallSlot,
+              remote_old_head_slot = peerSlot, local_head_slot = headSlot,
+              remote_new_head_slot = newPeerSlot, peer = peer,
+              peer_score = peer.getScore(), peer_speed = peer.netKbps(),
+              index = index, topics = "syncman"
+        peer.updateScore(PeerScoreGoodStatus)
+        peerSlot = newPeerSlot
 
     return
 
@@ -1087,8 +1107,18 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
               max_head_age = man.maxHeadAge, topics = "syncman"
         man.inProgress = false
     else:
-      man.notInSyncEvent.fire()
-      man.inProgress = true
+      if not(man.notInSyncEvent.isSet()):
+        # We get here only if we lost sync for more then `maxHeadAge` period.
+        if pending == 0:
+          man.queue = SyncQueue.init(A, man.getLocalHeadSlot(),
+                                     man.getLocalWallSlot(),
+                                     man.chunkSize, man.getFinalizedSlot,
+                                     man.outQueue, 1)
+          man.notInSyncEvent.fire()
+          man.inProgress = true
+      else:
+        man.notInSyncEvent.fire()
+        man.inProgress = true
 
     if queueAge <= man.rangeAge:
       # We are in requested range ``man.rangeAge``.
