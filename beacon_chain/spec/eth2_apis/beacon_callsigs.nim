@@ -57,15 +57,12 @@ proc get_v1_beacon_blocks_blockId_attestations(blockId: string): seq[Attestation
 
 proc post_v1_beacon_pool_attestations(attestation: Attestation): bool
 
-proc get_v1_config_fork_schedule(): seq[tuple[epoch: uint64, version: Version]]
+proc get_v1_config_fork_schedule(): seq[Fork]
 
 # TODO stateId is part of the REST path
 proc get_v1_debug_beacon_states_stateId(stateId: string): BeaconState
-
-
 
 proc getBeaconHead(): Slot
 proc getNetworkPeerId()
 proc getNetworkPeers()
 proc getNetworkEnr()
-
