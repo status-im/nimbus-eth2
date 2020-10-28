@@ -34,7 +34,7 @@ type
     totalChunks: uint64
     topIndex: int
 
-template chunks*(m: SszChunksMerkleizer): openarray[Eth2Digest] =
+template chunks*(m: SszChunksMerkleizer): openArray[Eth2Digest] =
   m.combinedChunks.toOpenArray(0, m.topIndex)
 
 func digest(a, b: openArray[byte]): Eth2Digest =
@@ -56,7 +56,7 @@ func digest(a, b, c: openArray[byte]): Eth2Digest =
     h.update c
   trs "HASH RESULT ", result
 
-func mergeBranches(existing: Eth2Digest, newData: openarray[byte]): Eth2Digest =
+func mergeBranches(existing: Eth2Digest, newData: openArray[byte]): Eth2Digest =
   trs "MERGING BRANCHES OPEN ARRAY"
 
   let paddingBytes = bytesPerChunk - newData.len
@@ -77,7 +77,7 @@ func computeZeroHashes: array[sizeof(Limit) * 8, Eth2Digest] =
 
 const zeroHashes* = computeZeroHashes()
 
-func addChunk*(merkleizer: var SszChunksMerkleizer, data: openarray[byte]) =
+func addChunk*(merkleizer: var SszChunksMerkleizer, data: openArray[byte]) =
   doAssert data.len > 0 and data.len <= bytesPerChunk
 
   if getBitLE(merkleizer.totalChunks, 0):
@@ -109,7 +109,7 @@ template isOdd(x: SomeNumber): bool =
 
 func addChunkAndGenMerkleProof*(merkleizer: var SszChunksMerkleizer,
                                 hash: Eth2Digest,
-                                outProof: var openarray[Eth2Digest]) =
+                                outProof: var openArray[Eth2Digest]) =
   var
     hashWrittenToMerkleizer = false
     hash = hash
@@ -146,7 +146,7 @@ func completeStartedChunk(merkleizer: var SszChunksMerkleizer,
       break
 
 func addChunksAndGenMerkleProofs*(merkleizer: var SszChunksMerkleizer,
-                                  chunks: openarray[Eth2Digest]): seq[Eth2Digest] =
+                                  chunks: openArray[Eth2Digest]): seq[Eth2Digest] =
   doAssert chunks.len > 0 and merkleizer.topIndex > 0
 
   let proofHeight = merkleizer.topIndex + 1
@@ -300,7 +300,7 @@ proc init*(S: type SszMerkleizer): S =
     totalChunks: 0)
 
 proc init*(S: type SszMerkleizer,
-           combinedChunks: openarray[Eth2Digest],
+           combinedChunks: openArray[Eth2Digest],
            totalChunks: uint64): S =
   new result.combinedChunks
   result.combinedChunks[][0 ..< combinedChunks.len] = combinedChunks
@@ -321,10 +321,10 @@ proc clone*[L: static[Limit]](cloned: SszMerkleizer[L]): SszMerkleizer[L] =
 
 template addChunksAndGenMerkleProofs*(
     merkleizer: var SszMerkleizer,
-    chunks: openarray[Eth2Digest]): seq[Eth2Digest] =
+    chunks: openArray[Eth2Digest]): seq[Eth2Digest] =
   addChunksAndGenMerkleProofs(merkleizer.m, chunks)
 
-template addChunk*(merkleizer: var SszMerkleizer, data: openarray[byte]) =
+template addChunk*(merkleizer: var SszMerkleizer, data: openArray[byte]) =
   addChunk(merkleizer.m, data)
 
 template totalChunks*(merkleizer: SszMerkleizer): uint64 =
@@ -409,7 +409,7 @@ template writeBytesLE(chunk: var array[bytesPerChunk, byte], atParam: int,
   chunk[at ..< at + sizeof(val)] = toBytesLE(val)
 
 func chunkedHashTreeRootForBasicTypes[T](merkleizer: var SszChunksMerkleizer,
-                                         arr: openarray[T]): Eth2Digest =
+                                         arr: openArray[T]): Eth2Digest =
   static:
     doAssert T is BasicType
 
@@ -687,7 +687,7 @@ func hash_tree_root*(x: auto): Eth2Digest {.raises: [Defect].} =
 
   trs "HASH TREE ROOT FOR ", name(type x), " = ", "0x", $result
 
-iterator hash_tree_roots_prefix*[T](lst: openarray[T], limit: static Limit): Eth2Digest =
+iterator hash_tree_roots_prefix*[T](lst: openArray[T], limit: static Limit): Eth2Digest =
   # This is a particular type's instantiation of a general fold, reduce,
   # accumulation, prefix sums, etc family of operations. As long as that
   # Eth1 deposit case is the only notable example -- the usual uses of a

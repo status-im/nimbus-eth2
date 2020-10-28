@@ -23,7 +23,7 @@ type
   BitArray*[bits: static int] = object
     bytes*: array[(bits + 7) div 8, byte]
 
-func bitsLen*(bytes: openarray[byte]): int =
+func bitsLen*(bytes: openArray[byte]): int =
   let
     bytesCount = bytes.len
     lastByte = bytes[bytesCount - 1]
@@ -63,14 +63,14 @@ func toBytesLE(x: uint): array[sizeof(x), byte] =
   else:
     static: doAssert false, "requires a 32-bit or 64-bit platform"
 
-func loadLEBytes(WordType: type, bytes: openarray[byte]): WordType =
+func loadLEBytes(WordType: type, bytes: openArray[byte]): WordType =
   # TODO: this is a temporary proc until the endians API is improved
   var shift = 0
   for b in bytes:
     result = result or (WordType(b) shl shift)
     shift += 8
 
-func storeLEBytes(value: SomeUnsignedInt, dst: var openarray[byte]) =
+func storeLEBytes(value: SomeUnsignedInt, dst: var openArray[byte]) =
   doAssert dst.len <= sizeof(value)
   let bytesLE = toBytesLE(value)
   copyMem(addr dst[0], unsafeAddr bytesLE[0], dst.len)
@@ -213,8 +213,8 @@ template clearBit*(a: var BitArray, pos: Natural) =
 # TODO: Submit this to the standard library as `cmp`
 # At the moment, it doesn't work quite well because Nim selects
 # the generic cmp[T] from the system module instead of choosing
-# the openarray overload
-func compareArrays[T](a, b: openarray[T]): int =
+# the openArray overload
+func compareArrays[T](a, b: openArray[T]): int =
   result = cmp(a.len, b.len)
   if result != 0: return
 

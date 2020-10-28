@@ -44,7 +44,7 @@ var
 
 sort(validators)
 
-proc findOrDefault[K, V](tupleList: openarray[(K, V)], key: K, default: V): V =
+proc findOrDefault[K, V](tupleList: openArray[(K, V)], key: K, default: V): V =
   for t in tupleList:
     if t[0] == key:
       return t[1]

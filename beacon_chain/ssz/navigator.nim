@@ -15,7 +15,7 @@ type
   SszNavigator*[T] = object
     m: MemRange
 
-func sszMount*(data: openarray[byte], T: type): SszNavigator[T] =
+func sszMount*(data: openArray[byte], T: type): SszNavigator[T] =
   let startAddr = unsafeAddr data[0]
   SszNavigator[T](m: MemRange(startAddr: startAddr, length: data.len))
 

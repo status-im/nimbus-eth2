@@ -81,7 +81,7 @@ func get_randao_mix*(state: BeaconState,
   ## Returns the randao mix at a recent ``epoch``.
   state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR]
 
-func bytes_to_uint64*(data: openarray[byte]): uint64 =
+func bytes_to_uint64*(data: openArray[byte]): uint64 =
   doAssert data.len == 8
 
   # Little-endian data representation

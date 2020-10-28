@@ -23,7 +23,7 @@ import
 
 const depositContractLimit* = Limit(1'u64 shl (DEPOSIT_CONTRACT_TREE_DEPTH - 1'u64))
 
-func attachMerkleProofs*(deposits: var openarray[Deposit]) =
+func attachMerkleProofs*(deposits: var openArray[Deposit]) =
   let depositsRoots = mapIt(deposits, hash_tree_root(it.data))
 
   var incrementalMerkleProofs = createMerkleizer(depositContractLimit)
@@ -32,7 +32,7 @@ func attachMerkleProofs*(deposits: var openarray[Deposit]) =
     incrementalMerkleProofs.addChunkAndGenMerkleProof(depositsRoots[i], deposits[i].proof)
     deposits[i].proof[32].data[0..7] = toBytesLE uint64(i + 1)
 
-template getProof*(proofs: seq[Eth2Digest], idxParam: int): openarray[Eth2Digest] =
+template getProof*(proofs: seq[Eth2Digest], idxParam: int): openArray[Eth2Digest] =
   let
     idx = idxParam
     startIdx = idx * DEPOSIT_CONTRACT_TREE_DEPTH

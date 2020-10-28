@@ -86,7 +86,7 @@ proc getCheckpoints*(epoch: Epoch): tuple[c1, c2, c3, c4, c5: Checkpoint] =
 
 proc putCheckpointsInBlockRoots*(
        state: var BeaconState,
-       checkpoints: openarray[Checkpoint]) =
+       checkpoints: openArray[Checkpoint]) =
   for c in checkpoints:
     let idx = c.epoch.compute_start_slot_at_epoch() mod SLOTS_PER_HISTORICAL_ROOT
     state.block_roots[idx] = c.root

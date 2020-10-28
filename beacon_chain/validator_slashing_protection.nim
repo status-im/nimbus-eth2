@@ -263,14 +263,14 @@ func subkey(kind: static SlashingKeyKind, valIndex: uint32): array[5, byte] =
   result[1..<5] = toBytesBE(valIndex)
   result[0] = byte ord(kind)
 
-proc put(db: SlashingProtectionDB, key: openarray[byte], v: auto) =
+proc put(db: SlashingProtectionDB, key: openArray[byte], v: auto) =
   db.backend.put(
     key,
     SSZ.encode(v)
   ).expect("working database")
 
 proc get(db: SlashingProtectionDB,
-         key: openarray[byte],
+         key: openArray[byte],
          T: typedesc): Opt[T] =
 
   const ExpectedNodeSszSize = block:

@@ -175,7 +175,7 @@ proc writeValue*(w: var SszWriter, x: auto) {.gcsafe, raises: [Defect, IOError].
 
 func sszSize*(value: auto): int {.gcsafe, raises: [Defect].}
 
-func sszSizeForVarSizeList[T](value: openarray[T]): int =
+func sszSizeForVarSizeList[T](value: openArray[T]): int =
   result = len(value) * offsetSize
   for elem in value:
     result += sszSize(toSszType elem)

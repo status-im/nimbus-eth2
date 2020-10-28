@@ -104,7 +104,7 @@ func init*(T: type ProtoArray,
 
 func apply_score_changes*(
        self: var ProtoArray,
-       deltas: var openarray[Delta],
+       deltas: var openArray[Delta],
        justified_epoch: Epoch,
        finalized_epoch: Epoch
      ): FcResult[void] =

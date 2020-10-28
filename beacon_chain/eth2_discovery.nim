@@ -86,7 +86,7 @@ proc new*(T: type Eth2DiscoveryProtocol,
           conf: BeaconNodeConf,
           ip: Option[ValidIpAddress], tcpPort, udpPort: Port,
           pk: PrivateKey,
-          enrFields: openarray[(string, seq[byte])], rng: ref BrHmacDrbgContext):
+          enrFields: openArray[(string, seq[byte])], rng: ref BrHmacDrbgContext):
           T {.raises: [Exception, Defect].} =
   # TODO
   # Implement more configuration options:
