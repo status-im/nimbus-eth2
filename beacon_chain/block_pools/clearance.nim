@@ -11,7 +11,7 @@ import
   std/tables,
   chronicles,
   metrics, stew/results,
-  ../extras,
+  ../extras, ../time,
   ../spec/[crypto, datatypes, digest, helpers, signatures, state_transition],
   ./block_pools_types, ./chain_dag, ./quarantine
 
@@ -265,7 +265,7 @@ proc addRawBlock*(
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#beacon_block
 proc isValidBeaconBlock*(
        dag: ChainDAGRef, quarantine: var QuarantineRef,
-       signed_beacon_block: SignedBeaconBlock, current_slot: Slot,
+       signed_beacon_block: SignedBeaconBlock, wallTime: BeaconTime,
        flags: UpdateFlags):
        Result[void, (ValidationResult, BlockError)] =
   logScope:
@@ -277,14 +277,14 @@ proc isValidBeaconBlock*(
   # verification could be quite a bit more expensive than the rest. This is an
   # externally easy-to-invoke function by tossing network packets at the node.
 
-  # The block is not from a future slot
-  # TODO allow `MAXIMUM_GOSSIP_CLOCK_DISPARITY` leniency, especially towards
-  # seemingly future slots.
-  # TODO using +1 here while this is being sorted - should queue these until
-  #      they're within the DISPARITY limit
-  if not (signed_beacon_block.message.slot <= current_slot + 1):
+  # [IGNORE] The block is not from a future slot (with a
+  # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
+  # signed_beacon_block.message.slot <= current_slot (a client MAY queue future
+  # blocks for processing at the appropriate slot).
+  if not (signed_beacon_block.message.slot <=
+      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero):
     debug "block is from a future slot",
-      current_slot
+      wallSlot = wallTime.toSlot()
     return err((ValidationResult.Ignore, Invalid))
 
   # [IGNORE] The block is from a slot greater than the latest finalized slot --
@@ -346,7 +346,7 @@ proc isValidBeaconBlock*(
     # checks are performed there. In usual paths beacon_node adds blocks via
     # ChainDAGRef.add(...) directly, with no additional validity checks.
     debug "parent unknown, putting block in quarantine",
-      current_slot = shortLog(current_slot)
+      current_slot = wallTime.toSlot()
     if not quarantine.add(dag, signed_beacon_block):
       warn "Block quarantine full"
     return err((ValidationResult.Ignore, MissingParent))
