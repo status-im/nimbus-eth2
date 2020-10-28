@@ -538,12 +538,14 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         let req = item.request
         let finalizedSlot = sq.getFinalizedSlot()
         if finalizedSlot < req.slot:
+          let rewindSlot = sq.getRewindPoint(failSlot.get(), finalizedSlot)
           warn "Unexpected missing parent, rewind happens",
-               peer = req.item, rewind_to_slot = finalizedSlot,
+               peer = req.item, rewind_to_slot = rewindSlot,
+               fail_slot = failSlot.get(), finalized_slot = finalized_slot,
                request_slot = req.slot, request_count = req.count,
                request_step = req.step, blocks_count = len(item.data),
                blocks_map = getShortMap(req, item.data), topics = "syncman"
-          resetSlot = some(sq.getRewindPoint(failSlot.get(), finalizedSlot))
+          resetSlot = some(rewindSlot)
           req.item.updateScore(PeerScoreMissingBlocks)
         else:
           error "Unexpected missing parent at finalized epoch slot",
