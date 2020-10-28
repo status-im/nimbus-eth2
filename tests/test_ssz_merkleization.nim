@@ -21,7 +21,7 @@ type SparseMerkleTree[Depth: static int] = object
   nnznodes*: array[Depth+1, seq[Eth2Digest]]  # nodes that leads to non-zero leaves
 
 func merkleTreeFromLeaves(
-        values: openarray[Eth2Digest],
+        values: openArray[Eth2Digest],
         Depth: static[int] = DEPOSIT_CONTRACT_TREE_DEPTH
       ): SparseMerkleTree[Depth] =
   ## Depth should be the same as is_valid_merkle_branch
@@ -167,7 +167,7 @@ proc testMerkleMinimal*(): bool =
 
 doAssert testMerkleMinimal()
 
-proc compareTreeVsMerkleizer(hashes: openarray[Eth2Digest], limit: static Limit) =
+proc compareTreeVsMerkleizer(hashes: openArray[Eth2Digest], limit: static Limit) =
   const treeHeight = binaryTreeHeight(limit)
   let tree = merkleTreeFromLeaves(hashes, treeHeight)
 
@@ -228,7 +228,7 @@ for prelude in [0, 1, 2, 5, 6, 12, 13, 16]:
       testMultiProofsGeneration(prelude, proofs, followUpHashes, 128)
       testMultiProofsGeneration(prelude, proofs, followUpHashes, 5000)
 
-func attachMerkleProofsReferenceImpl(deposits: var openarray[Deposit]) =
+func attachMerkleProofsReferenceImpl(deposits: var openArray[Deposit]) =
   let
     deposit_data_roots = mapIt(deposits, it.data.hash_tree_root)
     merkle_tree = merkleTreeFromLeaves(deposit_data_roots)

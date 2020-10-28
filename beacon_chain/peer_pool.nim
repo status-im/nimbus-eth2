@@ -565,7 +565,7 @@ proc release*[A, B](pool: PeerPool[A, B], peer: A) =
           dec(pool.acqOutPeersCount)
         pool.fireNotEmptyEvent(item[])
 
-proc release*[A, B](pool: PeerPool[A, B], peers: openarray[A]) {.inline.} =
+proc release*[A, B](pool: PeerPool[A, B], peers: openArray[A]) {.inline.} =
   ## Release array of peers ``peers`` back to PeerPool ``pool``.
   for item in peers:
     pool.release(item)

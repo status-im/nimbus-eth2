@@ -303,8 +303,8 @@ template add(m: var Mnemonic, s: cstring) =
 
 proc generateMnemonic*(
     rng: var BrHmacDrbgContext,
-    words: openarray[cstring] = englishWords,
-    entropyParam: openarray[byte] = @[]): Mnemonic =
+    words: openArray[cstring] = englishWords,
+    entropyParam: openArray[byte] = @[]): Mnemonic =
   ## Generates a valid BIP-0039 mnenomic:
   ## https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#generating-the-mnemonic
   var entropy: seq[byte]
@@ -413,7 +413,7 @@ proc keyFromPath*(mnemonic: Mnemonic,
                   path: KeyPath): ValidatorPrivKey =
   deriveChildKey(deriveMasterKey(mnemonic, password), path)
 
-proc shaChecksum(key, cipher: openarray[byte]): Sha256Digest =
+proc shaChecksum(key, cipher: openArray[byte]): Sha256Digest =
   var ctx: sha256
   ctx.init()
   ctx.update(key)
@@ -421,7 +421,7 @@ proc shaChecksum(key, cipher: openarray[byte]): Sha256Digest =
   result = ctx.finish()
   ctx.clear()
 
-proc writeJsonHexString(s: OutputStream, data: openarray[byte])
+proc writeJsonHexString(s: OutputStream, data: openArray[byte])
                        {.raises: [IOError, Defect].} =
   s.write '"'
   s.write ncrutils.toHex(data, {HexFlags.LowerCase})
@@ -624,10 +624,10 @@ proc decryptNetKeystore*(nkeystore: JsonString,
 
 proc createCryptoField(kdfKind: KdfKind,
                        rng: var BrHmacDrbgContext,
-                       secret: openarray[byte],
+                       secret: openArray[byte],
                        password = KeystorePass.init "",
-                       salt: openarray[byte] = @[],
-                       iv: openarray[byte] = @[]): Crypto =
+                       salt: openArray[byte] = @[],
+                       iv: openArray[byte] = @[]): Crypto =
   type AES = aes128
 
   let kdfSalt =
@@ -685,8 +685,8 @@ proc createNetKeystore*(kdfKind: KdfKind,
                         privKey: lcrypto.PrivateKey,
                         password = KeystorePass.init "",
                         description = "",
-                        salt: openarray[byte] = @[],
-                        iv: openarray[byte] = @[]): NetKeystore =
+                        salt: openArray[byte] = @[],
+                        iv: openArray[byte] = @[]): NetKeystore =
   let
     secret = privKey.getBytes().get()
     cryptoField = createCryptoField(kdfKind, rng, secret, password, salt, iv)
@@ -707,8 +707,8 @@ proc createKeystore*(kdfKind: KdfKind,
                      password = KeystorePass.init "",
                      path = KeyPath "",
                      description = "",
-                     salt: openarray[byte] = @[],
-                     iv: openarray[byte] = @[]): Keystore =
+                     salt: openArray[byte] = @[],
+                     iv: openArray[byte] = @[]): Keystore =
   let
     secret = privKey.toRaw[^32..^1]
     cryptoField = createCryptoField(kdfKind, rng, secret, password, salt, iv)
@@ -727,8 +727,8 @@ proc createWallet*(kdfKind: KdfKind,
                    rng: var BrHmacDrbgContext,
                    seed: KeySeed,
                    name = WalletName "",
-                   salt: openarray[byte] = @[],
-                   iv: openarray[byte] = @[],
+                   salt: openArray[byte] = @[],
+                   iv: openArray[byte] = @[],
                    password = KeystorePass.init "",
                    nextAccount = none(Natural),
                    pretty = true): Wallet =

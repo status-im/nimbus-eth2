@@ -61,7 +61,7 @@ const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
 
 # TODO stew/sequtils2
-template findIt*(s: openarray, predicate: untyped): int =
+template findIt*(s: openArray, predicate: untyped): int =
   var res = -1
   for i, it {.inject.} in s:
     if predicate:

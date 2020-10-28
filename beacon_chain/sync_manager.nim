@@ -141,7 +141,7 @@ proc validate*[T](sq: SyncQueue[T],
   return await sblock.resfut
 
 proc getShortMap*[T](req: SyncRequest[T],
-                     data: openarray[SignedBeaconBlock]): string =
+                     data: openArray[SignedBeaconBlock]): string =
   ## Returns all slot numbers in ``data`` as placement map.
   var res = newStringOfCap(req.count)
   var slider = req.slot
@@ -169,7 +169,7 @@ proc cmp*[T](a, b: SyncRequest[T]): int =
   result = cmp(uint64(a.slot), uint64(b.slot))
 
 proc checkResponse*[T](req: SyncRequest[T],
-                       data: openarray[SignedBeaconBlock]): bool =
+                       data: openArray[SignedBeaconBlock]): bool =
   if len(data) == 0:
     # Impossible to verify empty response.
     return true
@@ -199,7 +199,7 @@ proc checkResponse*[T](req: SyncRequest[T],
     return false
 
 proc getFullMap*[T](req: SyncRequest[T],
-                    data: openarray[SignedBeaconBlock]): string =
+                    data: openArray[SignedBeaconBlock]): string =
   # Returns all slot numbers in ``data`` as comma-delimeted string.
   result = mapIt(data, $it.message.slot).join(", ")
 

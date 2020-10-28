@@ -33,14 +33,14 @@ proc newKeyPair(rng: var BrHmacDrbgContext): BlsResult[tuple[pub: ValidatorPubKe
 
 # this is being indexed inside "mock_deposits.nim" by a value up to `validatorCount`
 # which is `num_validators` which is `MIN_GENESIS_ACTIVE_VALIDATOR_COUNT`
-proc genMockPrivKeys(privkeys: var openarray[ValidatorPrivKey]) =
+proc genMockPrivKeys(privkeys: var openArray[ValidatorPrivKey]) =
   let rng = newRng()
   for i in 0 ..< privkeys.len:
     let pair = newKeyPair(rng[])[]
     privkeys[i] = pair.priv
 
-func genMockPubKeys(pubkeys: var openarray[ValidatorPubKey],
-                    privkeys: openarray[ValidatorPrivKey]) =
+func genMockPubKeys(pubkeys: var openArray[ValidatorPubKey],
+                    privkeys: openArray[ValidatorPrivKey]) =
   for i in 0 ..< privkeys.len:
     pubkeys[i] = toPubKey(privkeys[i])
 

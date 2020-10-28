@@ -133,12 +133,12 @@ func navigatePath*(n: DynamicSszNavigator, path: string): DynamicSszNavigator {.
                    raises: [Defect, IOError, ValueError, MalformedSszError, SszSizeMismatchError] .} =
   navigatePathImpl n, split(path, '/')
 
-func navigatePath*(n: DynamicSszNavigator, path: openarray[string]): DynamicSszNavigator {.
+func navigatePath*(n: DynamicSszNavigator, path: openArray[string]): DynamicSszNavigator {.
                    raises: [Defect, IOError, ValueError, MalformedSszError, SszSizeMismatchError] .} =
   navigatePathImpl n, path
 
 func init*(T: type DynamicSszNavigator,
-           bytes: openarray[byte], Navigated: type): T =
+           bytes: openArray[byte], Navigated: type): T =
   T(m: MemRange(startAddr: unsafeAddr bytes[0], length: bytes.len),
     typ: typeInfo(Navigated))
 

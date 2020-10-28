@@ -22,7 +22,7 @@ proc setOutputSize(list: var List, length: int) {.raisesssz.} =
 
 # fromSszBytes copies the wire representation to a Nim variable,
 # assuming there's enough data in the buffer
-func fromSszBytes*(T: type UintN, data: openarray[byte]): T {.raisesssz.} =
+func fromSszBytes*(T: type UintN, data: openArray[byte]): T {.raisesssz.} =
   ## Convert directly to bytes the size of the int. (e.g. ``uint16 = 2 bytes``)
   ## All integers are serialized as **little endian**.
   if data.len != sizeof(result):
@@ -30,46 +30,46 @@ func fromSszBytes*(T: type UintN, data: openarray[byte]): T {.raisesssz.} =
 
   T.fromBytesLE(data)
 
-func fromSszBytes*(T: type bool, data: openarray[byte]): T {.raisesssz.} =
+func fromSszBytes*(T: type bool, data: openArray[byte]): T {.raisesssz.} =
   # Strict: only allow 0 or 1
   if data.len != 1 or byte(data[0]) > byte(1):
     raise newException(MalformedSszError, "invalid boolean value")
   data[0] == 1
 
-func fromSszBytes*(T: type Eth2Digest, data: openarray[byte]): T {.raisesssz.} =
+func fromSszBytes*(T: type Eth2Digest, data: openArray[byte]): T {.raisesssz.} =
   if data.len != sizeof(result.data):
     raiseIncorrectSize T
   copyMem(result.data.addr, unsafeAddr data[0], sizeof(result.data))
 
-func fromSszBytes*(T: type GraffitiBytes, data: openarray[byte]): T {.raisesssz.} =
+func fromSszBytes*(T: type GraffitiBytes, data: openArray[byte]): T {.raisesssz.} =
   if data.len != sizeof(result):
     raiseIncorrectSize T
   copyMem(result.addr, unsafeAddr data[0], sizeof(result))
 
-template fromSszBytes*(T: type Slot, bytes: openarray[byte]): Slot =
+template fromSszBytes*(T: type Slot, bytes: openArray[byte]): Slot =
   Slot fromSszBytes(uint64, bytes)
 
-template fromSszBytes*(T: type Epoch, bytes: openarray[byte]): Epoch =
+template fromSszBytes*(T: type Epoch, bytes: openArray[byte]): Epoch =
   Epoch fromSszBytes(uint64, bytes)
 
-func fromSszBytes*(T: type ForkDigest, bytes: openarray[byte]): T {.raisesssz.} =
+func fromSszBytes*(T: type ForkDigest, bytes: openArray[byte]): T {.raisesssz.} =
   if bytes.len != sizeof(result):
     raiseIncorrectSize T
   copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))
 
-func fromSszBytes*(T: type Version, bytes: openarray[byte]): T {.raisesssz.} =
+func fromSszBytes*(T: type Version, bytes: openArray[byte]): T {.raisesssz.} =
   if bytes.len != sizeof(result):
     raiseIncorrectSize T
   copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))
 
-template fromSszBytes*(T: type BitSeq, bytes: openarray[byte]): auto =
+template fromSszBytes*(T: type BitSeq, bytes: openArray[byte]): auto =
   BitSeq @bytes
 
 proc `[]`[T, U, V](s: openArray[T], x: HSlice[U, V]) {.error:
-  "Please don't use openarray's [] as it allocates a result sequence".}
+  "Please don't use openArray's [] as it allocates a result sequence".}
 
 template checkForForbiddenBits(ResulType: type,
-                               input: openarray[byte],
+                               input: openArray[byte],
                                expectedBits: static int64) =
   ## This checks if the input contains any bits set above the maximum
   ## sized allowed. We only need to check the last byte to verify this:
@@ -84,7 +84,7 @@ template checkForForbiddenBits(ResulType: type,
     if (input[^1] and forbiddenBitsMask) != 0:
       raiseIncorrectSize ResulType
 
-func readSszValue*[T](input: openarray[byte],
+func readSszValue*[T](input: openArray[byte],
                       val: var T, updateRoot: bool = true) {.raisesssz.} =
   mixin fromSszBytes, toSszType
 

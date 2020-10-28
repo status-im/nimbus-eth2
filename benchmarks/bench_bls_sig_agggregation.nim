@@ -140,8 +140,8 @@ proc main(nb_samples: Natural) =
 
   # TODO: update with IETF API (Eth2 v0.11.1)
   # func fastAggregateVerify*[T: byte|char](
-  #       publicKeys: openarray[PublicKey],
-  #       message: openarray[T],
+  #       publicKeys: openArray[PublicKey],
+  #       message: openArray[T],
   #       signature: Signature   # Aggregated signature
   #     ): bool
 

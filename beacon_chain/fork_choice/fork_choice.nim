@@ -33,12 +33,12 @@ export proto_array.len
 # ----------------------------------------------------------------------
 
 func compute_deltas(
-       deltas: var openarray[Delta],
+       deltas: var openArray[Delta],
        indices: Table[Eth2Digest, Index],
        indices_offset: Index,
        votes: var openArray[VoteTracker],
-       old_balances: openarray[Gwei],
-       new_balances: openarray[Gwei]
+       old_balances: openArray[Gwei],
+       new_balances: openArray[Gwei]
      ): FcResult[void]
 # TODO: raises [Defect] - once https://github.com/nim-lang/Nim/issues/12862 is fixed
 #       https://github.com/status-im/nimbus-eth2/pull/865#pullrequestreview-389117232
@@ -377,12 +377,12 @@ func prune*(self: var ForkChoice): FcResult[void] =
   self.backend.prune(self.checkpoints.finalized.root)
 
 func compute_deltas(
-       deltas: var openarray[Delta],
+       deltas: var openArray[Delta],
        indices: Table[Eth2Digest, Index],
        indices_offset: Index,
        votes: var openArray[VoteTracker],
-       old_balances: openarray[Gwei],
-       new_balances: openarray[Gwei]
+       old_balances: openArray[Gwei],
+       new_balances: openArray[Gwei]
      ): FcResult[void] =
   ## Update `deltas`
   ##   between old and new balances

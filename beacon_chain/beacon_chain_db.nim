@@ -11,7 +11,7 @@ import
 
 type
   DbSeq*[T] = object
-    insertStmt: SqliteStmt[openarray[byte], void]
+    insertStmt: SqliteStmt[openArray[byte], void]
     selectStmt: SqliteStmt[int64, seq[byte]]
     recordCount: int64
 
@@ -132,7 +132,7 @@ proc init*[T](Seq: type DbSeq[T], db: SqStoreRef, name: string): Seq =
   let
     insertStmt = db.prepareStmt(
       "INSERT INTO " & name & "(value) VALUES (?);",
-      openarray[byte], void).expect("this is a valid statement")
+      openArray[byte], void).expect("this is a valid statement")
 
     selectStmt = db.prepareStmt(
       "SELECT value FROM " & name & " WHERE id = ?;",

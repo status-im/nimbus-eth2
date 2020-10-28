@@ -57,7 +57,7 @@ proc parseTest*(path: string, Format: typedesc[Json or SSZ], T: typedesc): T =
 template readFileBytes*(path: string): seq[byte] =
   cast[seq[byte]](readFile(path))
 
-proc sszDecodeEntireInput*(input: openarray[byte], Decoded: type): Decoded =
+proc sszDecodeEntireInput*(input: openArray[byte], Decoded: type): Decoded =
   var stream = unsafeMemoryInput(input)
   var reader = init(SszReader, stream)
   reader.readValue(result)
