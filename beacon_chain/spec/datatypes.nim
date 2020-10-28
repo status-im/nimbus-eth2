@@ -71,8 +71,9 @@ const
     # TODO: This needs revisiting.
     # Why was the validator WITHDRAWAL_PERIOD altered in the spec?
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v0.12.3/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#configuration
   ATTESTATION_PROPAGATION_SLOT_RANGE* = 32
+  MAXIMUM_GOSSIP_CLOCK_DISPARITY* = 500.millis
 
   SLOTS_PER_ETH1_VOTING_PERIOD* =
     EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH

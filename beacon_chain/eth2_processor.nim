@@ -263,7 +263,7 @@ proc blockValidator*(
   debug "Block received", delay
 
   let blck = self.chainDag.isValidBeaconBlock(
-    self.quarantine, signedBlock, wallSlot, {})
+    self.quarantine, signedBlock, wallTime, {})
 
   self.dumpBlock(signedBlock, blck)
 

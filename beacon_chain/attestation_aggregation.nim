@@ -18,9 +18,6 @@ import
 logScope:
   topics = "att_aggr"
 
-const
-  MAXIMUM_GOSSIP_CLOCK_DISPARITY = 500.millis
-
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#aggregation-selection
 func is_aggregator*(committee_len: uint64, slot_signature: ValidatorSig): bool =
   let
