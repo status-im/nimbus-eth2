@@ -541,7 +541,9 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
           let rewindSlot = sq.getRewindPoint(failSlot.get(), finalizedSlot)
           warn "Unexpected missing parent, rewind happens",
                peer = req.item, rewind_to_slot = rewindSlot,
-               fail_slot = failSlot.get(), finalized_slot = finalized_slot,
+               rewind_epoch_count = sq.rewind.get().epochCount,
+               rewind_fail_slot = failSlot.get(),
+               finalized_slot = finalized_slot,
                request_slot = req.slot, request_count = req.count,
                request_step = req.step, blocks_count = len(item.data),
                blocks_map = getShortMap(req, item.data), topics = "syncman"
