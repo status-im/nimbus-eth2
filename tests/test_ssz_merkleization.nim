@@ -99,20 +99,7 @@ proc testMerkleMinimal*(): bool =
       let root = hash_tree_root(leaves)
       doAssert $root == "9fb7d518368dc14e8cc588fb3fd2749beef9f493fef70ae34af5721543c67173".toUpperAscii
 
-  block: # Round-trips
-    # TODO: there is an issue (also in EF specs?)
-    #       using hash_tree_root([a, b, c])
-    #       doesn't give the same hash as
-    #         - hash_tree_root(@[a, b, c])
-    #         - sszList(@[a, b, c], int64(nleaves))
-    #       which both have the same hash.
-    #
-    #       hash_tree_root([a, b, c]) gives the same hash as
-    #       the last hash of merkleTreeFromLeaves
-    #
-    #       Running tests with hash_tree_root([a, b, c])
-    #       works for depth 2 (3 or 4 leaves)
-
+  block:
     macro roundTrips(): untyped =
       result = newStmtList()
 
