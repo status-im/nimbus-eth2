@@ -100,7 +100,6 @@ type
     sleepTime: chronos.Duration
     maxStatusAge: uint64
     maxHeadAge: uint64
-    maxRecurringFailures: int
     toleranceValue: uint64
     getLocalHeadSlot: GetSlotCallback
     getLocalWallSlot: GetSlotCallback
@@ -112,7 +111,6 @@ type
     notInRangeEvent*: AsyncEvent
     chunkSize: uint64
     queue: SyncQueue[A]
-    failures: seq[SyncFailure[A]]
     syncFut: Future[void]
     outQueue: AsyncQueue[BlockEntry]
     inProgress*: bool
@@ -673,7 +671,6 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                                         int(SECONDS_PER_SLOT)).seconds,
                            chunkSize = uint64(SLOTS_PER_EPOCH),
                            toleranceValue = uint64(1),
-                           maxRecurringFailures = 3,
                            rangeAge = uint64(SLOTS_PER_EPOCH * 4)
                            ): SyncManager[A, B] =
 
@@ -687,7 +684,6 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     getLocalWallSlot: getLocalWallSlotCb,
     getFinalizedSlot: getFinalizedSlotCb,
     maxHeadAge: maxHeadAge,
-    maxRecurringFailures: maxRecurringFailures,
     sleepTime: sleepTime,
     chunkSize: chunkSize,
     queue: queue,
@@ -757,7 +753,6 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
           tolerance_value = man.toleranceValue, peer_speed = peer.netKbps(),
           peer_score = peer.getScore(), topics = "syncman"
     let failure = SyncFailure.init(SyncFailureKind.StatusInvalid, peer)
-    man.failures.add(failure)
     return
 
   # Check if we need to update peer's status information
@@ -777,7 +772,6 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
               peer_score = peer.getScore(), peer_head_slot = peerSlot,
               peer_speed = peer.netKbps(), index = index, topics = "syncman"
         let failure = SyncFailure.init(SyncFailureKind.StatusDownload, peer)
-        man.failures.add(failure)
         return
     except CatchableError as exc:
       debug "Unexpected exception while updating peer's status",
@@ -832,7 +826,6 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
               peer_score = peer.getScore(), peer_head_slot = peerSlot,
               peer_speed = peer.netKbps(), index = index, topics = "syncman"
         let failure = SyncFailure.init(SyncFailureKind.StatusDownload, peer)
-        man.failures.add(failure)
         return
     except CatchableError as exc:
       debug "Unexpected exception while updating peer's status",
@@ -926,15 +919,11 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
              peer_score = peer.getScore(), peer_speed = peer.netKbps(),
              index = index, topics = "syncman"
         let failure = SyncFailure.init(SyncFailureKind.BadResponse, peer)
-        man.failures.add(failure)
         return
 
       # Scoring will happen in `syncUpdate`.
       man.workers[index].status = SyncWorkerStatus.Processing
       await man.queue.push(req, data)
-
-      # Cleaning up failures.
-      man.failures.setLen(0)
     else:
       peer.updateScore(PeerScoreNoBlocks)
       man.queue.push(req)
@@ -944,7 +933,6 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
             peer_score = peer.getScore(), peer_speed = peer.netKbps(),
             topics = "syncman"
       let failure = SyncFailure.init(SyncFailureKind.BlockDownload, peer)
-      man.failures.add(failure)
       return
 
   except CatchableError as exc:
@@ -1032,6 +1020,7 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
           else:
             pauseTime = pauseTime shl 1
           info "Syncing process is not progressing, reset the queue",
+                start_op = op1, end_op = op2,
                 pending_workers_count = pending,
                 reset_to_slot = man.queue.outSlot,
                 pause_time = $(chronos.seconds(pauseTime)),
@@ -1135,15 +1124,6 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
       # We are not in requested range anymore ``man.rangeAge``.
       man.inRangeEvent.clear()
       man.notInRangeEvent.fire()
-
-    if len(man.failures) > man.maxRecurringFailures and pending > 1:
-      debug "Number of recurring failures exceeds limit, reseting queue",
-            pending_workers_count = pending, sleeping_workers_count = sleeping,
-            waiting_workers_count = waiting, rec_failures = len(man.failures),
-            topics = "syncman"
-      # Cleaning up failures.
-      man.failures.setLen(0)
-      await man.queue.resetWait(none[Slot]())
 
     await sleepAsync(chronos.seconds(2))
 
