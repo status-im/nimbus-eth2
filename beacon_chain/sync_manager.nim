@@ -77,6 +77,7 @@ type
     chunkSize*: uint64
     queueSize*: int
     counter*: uint64
+    opcounter*: uint64
     pending*: Table[uint64, SyncRequest[T]]
     waiters: seq[SyncWaiter[T]]
     getFinalizedSlot*: GetSlotCallback
@@ -512,6 +513,10 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
           break
     else:
       res = Result[void, BlockError].ok()
+
+    # Increase progress counter, so watch task will be able to know that we are
+    # not stuck.
+    inc(sq.opcounter)
 
     if res.isOk:
       sq.outSlot = sq.outSlot + item.request.count
@@ -1012,18 +1017,14 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
     pauseTime = MinPauseTime
 
     while true:
-      let wallSlot = man.getLocalWallSlot()
-      let headSlot = man.getLocalHeadSlot()
-
-      let lsm1 = SyncMoment.now(man.getLocalHeadSlot())
+      let op1 = man.queue.opcounter
       await sleepAsync(chronos.seconds(pauseTime))
-      let lsm2 = SyncMoment.now(man.getLocalHeadSlot())
-
+      let op2 = man.queue.opcounter
       let (map, sleeping, waiting, pending) = man.getWorkersStats()
       if pending == 0:
         pauseTime = MinPauseTime
       else:
-        if (lsm2.slot - lsm1.slot == 0'u64) and (pending > 1):
+        if (op2 - op1 == 0'u64) and (pending > 1):
           # Syncing is NOT progressing, we double `pauseTime` value, but value
           # could not be bigger then `MaxPauseTime`.
           if (pauseTime shl 1) > MaxPauseTime:
@@ -1032,9 +1033,9 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
             pauseTime = pauseTime shl 1
           info "Syncing process is not progressing, reset the queue",
                 pending_workers_count = pending,
-                to_slot = man.queue.outSlot,
+                reset_to_slot = man.queue.outSlot,
                 pause_time = $(chronos.seconds(pauseTime)),
-                local_head_slot = lsm1.slot, topics = "syncman"
+                local_head_slot = man.getLocalHeadSlot(), topics = "syncman"
           await man.queue.resetWait(none[Slot]())
         else:
           # Syncing progressing, so reduce `pauseTime` value in half, but value
@@ -1044,13 +1045,15 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
           else:
             pauseTime = pauseTime shr 1
 
-      debug "Synchronization watch loop tick", wall_head_slot = wallSlot,
-          local_head_slot = headSlot, queue_start_slot = man.queue.startSlot,
-          queue_last_slot = man.queue.lastSlot,
-          pause_time = $(chronos.seconds(pauseTime)),
-          avg_sync_speed = man.avgSyncSpeed, ins_sync_speed = man.insSyncSpeed,
-          pending_workers_count = pending,
-          topics = "syncman"
+      debug "Synchronization watch loop tick",
+            wall_head_slot = man.getLocalWallSlot(),
+            local_head_slot = man.getLocalHeadSlot(),
+            queue_start_slot = man.queue.startSlot,
+            queue_last_slot = man.queue.lastSlot,
+            pause_time = $(chronos.seconds(pauseTime)),
+            avg_sync_speed = man.avgSyncSpeed,
+            ins_sync_speed = man.insSyncSpeed,
+            pending_workers_count = pending, topics = "syncman"
 
   proc averageSpeedTask() {.async.} =
     while true:
