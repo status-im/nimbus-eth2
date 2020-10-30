@@ -44,104 +44,103 @@ proc echoP(msg: string) =
   echo wrapWords(msg, 80)
 
 proc checkAndCreateDataDir*(dataDir: string): bool =
-  ## Checks `conf.dataDir`.
-  ## If folder exists, procedure will check it for access and
-  ## permissions `0750 (rwxr-x---)`, if folder do not exists it will be created
-  ## with permissions `0750 (rwxr-x---)`.
-  let amask = {AccessFlags.Read, AccessFlags.Write, AccessFlags.Execute}
   when defined(posix):
-    if fileAccessible(dataDir, amask):
-      let gmask = {UserRead, UserWrite, UserExec, GroupRead, GroupExec}
-      let pmask = {OtherRead, OtherWrite, OtherExec, GroupWrite}
-      let pres = getPermissionsSet(dataDir)
-      if pres.isErr():
-        fatal "Could not check data folder permissions",
-               data_dir = dataDir, errorCode = $pres.error,
-               errorMsg = ioErrorMsg(pres.error)
-        false
+    let requiredPerms = 0o700
+    if isDir(dataDir):
+      let currPermsRes = getPermissions(dataDir)
+      if currPermsRes.isErr():
+        fatal "Could not check data directory permissions",
+               data_dir = dataDir, errorCode = $currPermsRes.error,
+               errorMsg = ioErrorMsg(currPermsRes.error)
+        return false
       else:
-        let insecurePermissions = pres.get() * pmask
-        if insecurePermissions != {}:
-          fatal "Data folder has insecure permissions",
-                 data_dir = dataDir,
-                 insecure_permissions = $insecurePermissions,
-                 current_permissions = pres.get().toString(),
-                 required_permissions = gmask.toString()
-          false
-        else:
-          true
+        let currPerms = currPermsRes.get()
+        if currPerms != requiredPerms:
+          warn "Data directory has insecure permissions. Correcting them.",
+                data_dir = dataDir,
+                current_permissions = currPerms.toOct(4),
+                required_permissions = requiredPerms.toOct(4)
+          let newPermsRes = setPermissions(dataDir, requiredPerms)
+          if newPermsRes.isErr():
+            fatal "Could not set data directory permissions",
+                   data_dir = dataDir,
+                   errorCode = $newPermsRes.error,
+                   errorMsg = ioErrorMsg(newPermsRes.error),
+                   old_permissions = currPerms.toOct(4),
+                   new_permissions = requiredPerms.toOct(4)
+            return false
     else:
       let res = secureCreatePath(dataDir)
       if res.isErr():
-        fatal "Could not create data folder", data_dir = dataDir,
+        fatal "Could not create data directory", data_dir = dataDir,
               errorMsg = ioErrorMsg(res.error), errorCode = $res.error
-        false
-      else:
-        true
+        return false
   elif defined(windows):
+    let amask = {AccessFlags.Read, AccessFlags.Write, AccessFlags.Execute}
     if fileAccessible(dataDir, amask):
       let cres = checkCurrentUserOnlyACL(dataDir)
       if cres.isErr():
         fatal "Could not check data folder's ACL",
                data_dir = dataDir, errorCode = $cres.error,
                errorMsg = ioErrorMsg(cres.error)
-        false
+        return false
       else:
         if cres.get() == false:
           fatal "Data folder has insecure ACL", data_dir = dataDir
-          false
-        else:
-          true
+          return false
     else:
       let res = secureCreatePath(dataDir)
       if res.isErr():
         fatal "Could not create data folder", data_dir = dataDir,
                 errorMsg = ioErrorMsg(res.error), errorCode = $res.error
-        false
-      else:
-        true
+        return false
   else:
     fatal "Unsupported operation system"
     return false
 
+  return true
+
 proc checkSensitiveFilePermissions*(filePath: string): bool =
   ## Check if ``filePath`` has only "(600) rw-------" permissions.
-  ## Procedure returns ``false`` if permissions are different
+  ## Procedure returns ``false`` if permissions are different and we can't
+  ## correct them.
   when defined(windows):
     let cres = checkCurrentUserOnlyACL(filePath)
     if cres.isErr():
       fatal "Could not check file's ACL",
              key_path = filePath, errorCode = $cres.error,
              errorMsg = ioErrorMsg(cres.error)
-      false
+      return false
     else:
       if cres.get() == false:
         fatal "File has insecure permissions", key_path = filePath
-        false
-      else:
-        true
+        return false
   else:
-    let allowedMask = {UserRead, UserWrite}
-    let mask = {UserExec,
-                GroupRead, GroupWrite, GroupExec,
-                OtherRead, OtherWrite, OtherExec}
-    let pres = getPermissionsSet(filePath)
-    if pres.isErr():
+    let requiredPerms = 0o600
+    let currPermsRes = getPermissions(filePath)
+    if currPermsRes.isErr():
       error "Could not check file permissions",
-            key_path = filePath, errorCode = $pres.error,
-            errorMsg = ioErrorMsg(pres.error)
-      false
+            key_path = filePath, errorCode = $currPermsRes.error,
+            errorMsg = ioErrorMsg(currPermsRes.error)
+      return false
     else:
-      let insecurePermissions = pres.get() * mask
-      if insecurePermissions != {}:
-        error "File has insecure permissions",
+      let currPerms = currPermsRes.get()
+      if currPerms != requiredPerms:
+        warn "File has insecure permissions. Correcting them.",
               key_path = filePath,
-              insecure_permissions = $insecurePermissions,
-              current_permissions = pres.get().toString(),
-              required_permissions = allowedMask.toString()
-        false
-      else:
-        true
+              current_permissions = currPerms.toOct(4),
+              required_permissions = requiredPerms.toOct(4)
+        let newPermsRes = setPermissions(filePath, requiredPerms)
+        if newPermsRes.isErr():
+          fatal "Could not set data directory permissions",
+                 key_path = filePath,
+                 errorCode = $newPermsRes.error,
+                 errorMsg = ioErrorMsg(newPermsRes.error),
+                 old_permissions = currPerms.toOct(4),
+                 new_permissions = requiredPerms.toOct(4)
+          return false
+
+  return true
 
 proc keyboardCreatePassword(prompt: string,
                             confirm: string,
