@@ -79,6 +79,8 @@ task test, "Run all tests":
   buildAndRunBinary "proto_array", "beacon_chain/fork_choice/", """-d:const_preset=mainnet -d:ETH2_SPEC="v0.12.3" -d:chronicles_sinks="json[file]""""
   buildAndRunBinary "fork_choice", "beacon_chain/fork_choice/", """-d:const_preset=mainnet -d:ETH2_SPEC="v0.12.3" -d:chronicles_sinks="json[file]""""
   buildAndRunBinary "all_tests", "tests/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC="v0.12.3" -d:chronicles_sinks="json[file]""""
+  # TODO `test_keystore` is extracted from the rest of the tests because it uses conflicting BLST headers
+  buildAndRunBinary "test_keystore", "tests/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC="v0.12.3" -d:chronicles_sinks="json[file]""""
 
   # Check Miracl/Milagro fallback on select tests
   buildAndRunBinary "test_interop", "tests/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC="v0.12.3" -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
