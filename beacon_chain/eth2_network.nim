@@ -756,14 +756,14 @@ proc toPeerAddr*(r: enr.TypedRecord):
 
   if r.ip.isSome and r.tcp.isSome:
     let ip = ipv4(r.ip.get)
-    addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp.get)
+    addrs.add(? MultiAddress.init(ip, tcpProtocol, Port r.tcp.get))
 
   if r.ip6.isSome:
     let ip = ipv6(r.ip6.get)
     if r.tcp6.isSome:
-      addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp6.get)
+      addrs.add(? MultiAddress.init(ip, tcpProtocol, Port r.tcp6.get))
     elif r.tcp.isSome:
-      addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp.get)
+      addrs.add(? MultiAddress.init(ip, tcpProtocol, Port r.tcp.get))
     else:
       discard
 
@@ -1388,9 +1388,9 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      enrForkId: ENRForkID): Eth2Node =
   var
     (extIp, extTcpPort, extUdpPort) = setupNat(conf)
-    hostAddress = tcpEndPoint(conf.listenAddress, conf.tcpPort)
+    hostAddress = tcpEndPoint(conf.listenAddress, conf.tcpPort).get()
     announcedAddresses = if extIp.isNone(): @[]
-                         else: @[tcpEndPoint(extIp.get(), extTcpPort)]
+                         else: @[tcpEndPoint(extIp.get(), extTcpPort).get()]
 
   info "Initializing networking", hostAddress,
                                   network_public_key = netKeys.pubkey,
