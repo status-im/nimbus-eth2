@@ -639,9 +639,7 @@ proc startSyncManager(node: BeaconNode) =
     node.chainDag.head.slot
 
   proc getLocalWallSlot(): Slot =
-    let epoch = node.beaconClock.now().slotOrZero.compute_epoch_at_slot() +
-                1'u64
-    epoch.compute_start_slot_at_epoch()
+    node.beaconClock.now().slotOrZero
 
   func getFirstSlotAtFinalizedEpoch(): Slot =
     node.chainDag.finalizedHead.slot

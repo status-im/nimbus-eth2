@@ -206,7 +206,7 @@ p2pProtocol BeaconSync(version = 1,
     debug "Received Goodbye message", reason = disconnectReasonName(reason), peer
 
 proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) =
-  trace "Peer status", peer, statusMsg
+  debug "Peer status", peer, statusMsg
   peer.state(BeaconSync).statusMsg = statusMsg
   peer.state(BeaconSync).statusLastTime = Moment.now()
 
