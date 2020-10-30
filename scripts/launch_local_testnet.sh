@@ -161,7 +161,7 @@ if [[ "$REUSE_EXISTING_DATA_DIR" == "0" ]]; then
   rm -rf "${DATA_DIR}"
 fi
 
-mkdir -m 0750 -p "${DATA_DIR}"
+mkdir -m 0700 -p "${DATA_DIR}"
 
 DEPOSITS_FILE="${DATA_DIR}/deposits.json"
 
@@ -341,7 +341,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   # The first $NODES_WITH_VALIDATORS nodes split them equally between them, after skipping the first $USER_VALIDATORS.
   NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
   rm -rf "${NODE_DATA_DIR}"
-  mkdir -m 0750 -p "${NODE_DATA_DIR}"
+  mkdir -m 0700 -p "${NODE_DATA_DIR}"
   mkdir -p "${NODE_DATA_DIR}/validators"
   mkdir -p "${NODE_DATA_DIR}/secrets"
 
