@@ -808,7 +808,7 @@ proc dialPeer*(node: Eth2Node, peerAddr: PeerAddr, index = 0) {.async.} =
       # TODO: As soon as `nim-libp2p` will be able to handle cancellation
       # properly and will have cancellation tests, we need add here cancellation
       # of `workfut`.
-      # workfut.cancel()
+      workfut.cancel()
       debug "Connection to remote peer timed out"
       inc nbc_timeout_dials
       node.addSeen(peerAddr.peerId, SeenTableTimeTimeout)
