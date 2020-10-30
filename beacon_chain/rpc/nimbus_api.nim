@@ -19,6 +19,8 @@ type
   RpcServer = RpcHttpServer
 
 proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
+  ## Install non-standard api handlers - some of these are used by 3rd-parties
+  ## such as eth2stats, pending a full REST api
   rpcServer.rpc("getBeaconHead") do () -> Slot:
     return node.chainDag.head.slot
 
@@ -37,18 +39,17 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     }
 
   rpcServer.rpc("getSyncing") do () -> bool:
-    let
-      wallSlot = currentSlot(node)
-      headSlot = node.chainDag.head.slot
-    # FIXME: temporary hack: If more than 1 block away from expected head, then we are "syncing"
-    return (headSlot + 1) < wallSlot
+    return node.syncManager.inProgress
 
   rpcServer.rpc("getNetworkPeerId") do () -> string:
-    return $publicKey(node.network)
+    return $node.network.peerId()
 
   rpcServer.rpc("getNetworkPeers") do () -> seq[string]:
     for peerId, peer in node.network.peerPool:
       result.add $peerId
+
+  rpcServer.rpc("getNodeVersion") do () -> string:
+    return "Nimbus/" & fullVersionStr
 
   rpcServer.rpc("getSpecPreset") do () -> JsonNode:
     var res = newJObject()

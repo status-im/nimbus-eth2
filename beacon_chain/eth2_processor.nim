@@ -36,8 +36,9 @@ declareHistogram beacon_block_delay,
 declareHistogram beacon_store_block_duration_seconds,
   "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
 
-declareGauge beacon_head_root,
-  "Root of the head block of the beacon chain"
+# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
+declareGauge beacon_head_root, "Root of the head block of the beacon chain"
+declareGauge beacon_head_slot, "Slot of the head block of the beacon chain"
 
 type
   GetWallTimeFn* = proc(): BeaconTime {.gcsafe, raises: [Defect].}
@@ -67,13 +68,15 @@ type
     attestationsQueue*: AsyncQueue[AttestationEntry]
     aggregatesQueue*: AsyncQueue[AggregateEntry]
 
-proc updateHead*(self: var Eth2Processor, wallSlot: Slot): BlockRef =
+proc updateHead*(self: var Eth2Processor, wallSlot: Slot) =
   ## Trigger fork choice and returns the new head block.
   ## Can return `nil`
   # Grab the new head according to our latest attestation data
   let newHead = self.attestationPool[].selectHead(wallSlot)
   if newHead.isNil():
-    return nil
+    warn "Head selection failed, using previous head",
+      head = shortLog(self.chainDag.head), wallSlot
+    return
 
   # Store the new head in the chain DAG - this may cause epochs to be
   # justified and finalized
@@ -81,12 +84,11 @@ proc updateHead*(self: var Eth2Processor, wallSlot: Slot): BlockRef =
 
   self.chainDag.updateHead(newHead, self.quarantine)
   beacon_head_root.set newHead.root.toGaugeValue
+  beacon_head_slot.set newHead.slot.int64
 
   # Cleanup the fork choice v2 if we have a finalized head
   if oldFinalized != self.chainDag.finalizedHead.blck:
     self.attestationPool[].prune()
-
-  newHead
 
 proc dumpBlock[T](
     self: Eth2Processor, signedBlock: SignedBeaconBlock,
@@ -198,7 +200,8 @@ proc processBlock(self: var Eth2Processor, entry: BlockEntry) =
 
   if res.isOk():
     # Eagerly update head in case the new block gets selected
-    discard self.updateHead(wallSlot)
+    self.updateHead(wallSlot)
+
     let updateDone = now(chronos.Moment)
     let storeBlockDuration = storeDone - start
     let updateHeadDuration = updateDone - storeDone
@@ -260,7 +263,7 @@ proc blockValidator*(
   debug "Block received", delay
 
   let blck = self.chainDag.isValidBeaconBlock(
-    self.quarantine, signedBlock, wallSlot, {})
+    self.quarantine, signedBlock, wallTime, {})
 
   self.dumpBlock(signedBlock, blck)
 
