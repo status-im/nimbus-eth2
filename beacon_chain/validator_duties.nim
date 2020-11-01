@@ -487,7 +487,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   # await calls, thus we use a local variable to keep the logic straight here
   var head = node.chainDag.head
   if not node.isSynced(head):
-    notice "Node out of sync, skipping validator duties",
+    notice "Syncing in progress, skipping validator duties (for now)",
       slot, headSlot = head.slot
     return
 
