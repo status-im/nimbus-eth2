@@ -7,8 +7,7 @@
 
 import
   # Standard library
-  std/[algorithm, os, tables, strutils, sequtils, times, math, terminal],
-  std/[osproc, random],
+  std/[os, tables, strutils, sequtils, times, math, terminal, osproc, random],
 
   # Nimble packages
   stew/[objects, byteutils, endians2, io2], stew/shims/macros,

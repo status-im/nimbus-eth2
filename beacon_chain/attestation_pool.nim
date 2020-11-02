@@ -62,7 +62,7 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
     let
       blck = blocks[blocks.len - i - 1]
       status =
-        if i > (blocks.len - ForkChoiceHorizon) or (i mod 1024 != 0):
+        if i < (blocks.len - ForkChoiceHorizon) and (i mod 1024 != 0):
           # Fork choice needs to know about the full block tree up to the
           # finalization point, but doesn't really need to have overly accurate
           # justification and finalization points until we get close to head -
