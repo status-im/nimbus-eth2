@@ -1,12 +1,14 @@
 # Connect to eth2
 
-From the `nimbus-eth2` repository, run:
+To connect to the Medalla testnet, from the `nimbus-eth2` repository run:
 
 ```
 make medalla
 ```
 
-This will build Nimbus and its dependencies, and connect you to the Medalla testnet.
+> **Note:** If your beacon node is already running, you'll need to shut it down gracefully (`Ctrl+c`) and re-run the above command.
+
+This will build Nimbus and its dependencies, and connect you to the eth2 network.
 You should see that the beacon node has launched with your validator attached:
 
 ```
