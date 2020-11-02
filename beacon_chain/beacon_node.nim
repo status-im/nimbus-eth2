@@ -760,6 +760,15 @@ proc run*(node: BeaconNode) =
     node.requestManager.start()
     node.startSyncManager()
 
+  ## Ctrl+C handling
+  proc controlCHandler() {.noconv.} =
+    when defined(windows):
+      # workaround for https://github.com/nim-lang/Nim/issues/4057
+      setupForeignThreadGc()
+    notice "Shutting down after having received SIGINT"
+    bnStatus = BeaconNodeStatus.Stopping
+  setControlCHook(controlCHandler)
+
   # main event loop
   while bnStatus == BeaconNodeStatus.Running:
     try:
@@ -1103,15 +1112,6 @@ programMain:
 
     config.createDumpDirs()
 
-    ## Ctrl+C handling
-    proc controlCHandler() {.noconv.} =
-      when defined(windows):
-        # workaround for https://github.com/nim-lang/Nim/issues/4057
-        setupForeignThreadGc()
-      notice "Shutting down after having received SIGINT"
-      bnStatus = BeaconNodeStatus.Stopping
-    setControlCHook(controlCHandler)
-
     when useInsecureFeatures:
       if config.metricsEnabled:
         let metricsAddress = config.metricsAddress
@@ -1119,7 +1119,11 @@ programMain:
           address = metricsAddress, port = config.metricsPort
         metrics.startHttpServer($metricsAddress, config.metricsPort)
 
+    # There are no managed event loops in here, to do a graceful shutdown, but
+    # letting the default Ctrl+C handler exit is safe, since we only read from
+    # the db.
     var node = waitFor BeaconNode.init(rng, config, genesisStateContents)
+
     if bnStatus == BeaconNodeStatus.Stopping:
       return
     # The memory for the initial snapshot won't be needed anymore
