@@ -34,10 +34,6 @@ import
   ./signatures, ./presets,
   ../../nbench/bench_lab
 
-# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
-declareGauge beacon_current_live_validators, "Number of active validators that successfully included attestation on chain for current epoch" # On block
-declareGauge beacon_previous_live_validators, "Number of active validators that successfully included attestation on chain for previous epoch" # On block
-
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
     state: var BeaconState, blck: SomeBeaconBlock, flags: UpdateFlags,
@@ -355,17 +351,8 @@ proc process_block*(
     state: var BeaconState, blck: SomeBeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.}=
   ## When there's a new block, we need to verify that the block is sane and
-  ## update the state accordingly
-
-  # TODO when there's a failure, we should reset the state!
-  # TODO probably better to do all verification first, then apply state changes
-
-  # Adds nontrivial additional computation, but only does so when metrics
-  # enabled.
-  beacon_current_live_validators.set(toHashSet(
-    mapIt(state.current_epoch_attestations, it.proposerIndex)).len.int64)
-  beacon_previous_live_validators.set(toHashSet(
-    mapIt(state.previous_epoch_attestations, it.proposerIndex)).len.int64)
+  ## update the state accordingly - the state is left in an unknown state when
+  ## block application fails (!)
 
   logScope:
     blck = shortLog(blck)
