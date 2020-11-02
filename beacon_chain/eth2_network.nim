@@ -1268,7 +1268,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
         quit QuitFailure
       let privKey = res.get()
       let pubKey = privKey.getKey().tryGet()
-      info "Using random network key", network_public_key = pubKey
+      info "Generating a random Peer ID to protect your privacy", network_public_key = pubKey
       return KeyPair(seckey: privKey, pubkey: privKey.getKey().tryGet())
     else:
       let keyPath =
