@@ -694,7 +694,7 @@ proc start(m: MainchainMonitor, delayBeforeStart: Duration) =
       if runFut.failed:
         if runFut.error[] of CatchableError:
           if runFut == m.runFut:
-            error "Mainchain monitor failure, restarting", err = runFut.error.msg
+            error "Eth1 chain monitoring failure, restarting", err = runFut.error.msg
             m.stop()
             m.start(5.seconds)
         else:
