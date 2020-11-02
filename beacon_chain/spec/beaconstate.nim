@@ -145,18 +145,26 @@ func initiate_validator_exit*(state: var BeaconState,
   if validator.exit_epoch != FAR_FUTURE_EPOCH:
     return
 
-  # Compute exit queue epoch
-  var exit_epochs = mapIt(
-    filterIt(state.validators, it.exit_epoch != FAR_FUTURE_EPOCH),
-    it.exit_epoch)
-  exit_epochs.add compute_activation_exit_epoch(get_current_epoch(state))
-  var exit_queue_epoch = max(exit_epochs)
-  let exit_queue_churn = foldl(
-    state.validators,
-    a + (if b.exit_epoch == exit_queue_epoch: 1'u64 else: 0'u64),
-    0'u64)
+  trace "Validator exiting",
+    index = index,
+    num_validators = state.validators.len,
+    current_epoch = get_current_epoch(state),
+    validator_slashed = validator.slashed,
+    validator_withdrawable_epoch = validator.withdrawable_epoch,
+    validator_exit_epoch = validator.exit_epoch,
+    validator_effective_balance = validator.effective_balance
 
-  if exit_queue_churn >= get_validator_churn_limit(state, cache):
+  var exit_queue_epoch = compute_activation_exit_epoch(get_current_epoch(state))
+  # Compute max exit epoch
+  for v in state.validators:
+    if v.exit_epoch != FAR_FUTURE_EPOCH and v.exit_epoch > exit_queue_epoch:
+      exit_queue_epoch = v.exit_epoch
+
+  let
+    exit_queue_churn = countIt(
+      state.validators, it.exit_epoch == exit_queue_epoch)
+
+  if exit_queue_churn.uint64 >= get_validator_churn_limit(state, cache):
     exit_queue_epoch += 1
 
   # Set validator exit epoch and withdrawable epoch
@@ -172,7 +180,7 @@ proc slash_validator*(state: var BeaconState, slashed_index: ValidatorIndex,
   initiate_validator_exit(state, slashed_index, cache)
   let validator = addr state.validators[slashed_index]
 
-  notice "slash_validator: ejecting validator via slashing (validator_leaving)",
+  trace "slash_validator: ejecting validator via slashing (validator_leaving)",
     index = slashed_index,
     num_validators = state.validators.len,
     current_epoch = get_current_epoch(state),
@@ -389,14 +397,6 @@ proc process_registry_updates*(state: var BeaconState,
 
     if is_active_validator(validator, get_current_epoch(state)) and
         validator.effective_balance <= EJECTION_BALANCE:
-      notice "Registry updating: ejecting validator due to low balance (validator_leaving)",
-        index = index,
-        num_validators = state.validators.len,
-        current_epoch = get_current_epoch(state),
-        validator_slashed = validator.slashed,
-        validator_withdrawable_epoch = validator.withdrawable_epoch,
-        validator_exit_epoch = validator.exit_epoch,
-        validator_effective_balance = validator.effective_balance
       initiate_validator_exit(state, index.ValidatorIndex, cache)
 
   ## Queue validators eligible for activation and not dequeued for activation

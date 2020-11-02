@@ -802,17 +802,11 @@ proc updateHead*(
     lastHead = dag.head
   dag.db.putHeadBlock(newHead.root)
 
-  # Start off by making sure we have the right state - as a special case, we'll
-  # check the last block that was cleared by clearance - it might be just the
-  # thing we're looking for
-
-  if dag.clearanceState.blck == newHead and
-      dag.clearanceState.data.data.slot == newHead.slot:
-    assign(dag.headState, dag.clearanceState)
-  else:
-    var cache = getStateCache(newHead, newHead.slot.epoch())
-    updateStateData(
-      dag, dag.headState, newHead.atSlot(newHead.slot), false, cache)
+  # Start off by making sure we have the right state - updateStateData will try
+  # to use existing in-memory states to make this smooth
+  var cache: StateCache
+  updateStateData(
+    dag, dag.headState, newHead.atSlot(newHead.slot), false, cache)
 
   dag.head = newHead
 
