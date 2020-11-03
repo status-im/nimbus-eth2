@@ -23,7 +23,7 @@ import
   conf, time, validator_pool,
   attestation_pool, exit_pool, block_pools/[spec_cache, chain_dag, clearance],
   eth2_network, keystore_management, beacon_node_common, beacon_node_types,
-  nimbus_binary_common, mainchain_monitor, version, ssz/merkleization,
+  nimbus_binary_common, eth1_monitor, version, ssz/merkleization,
   attestation_aggregation, sync_manager, sszdump,
   validator_slashing_protection
 

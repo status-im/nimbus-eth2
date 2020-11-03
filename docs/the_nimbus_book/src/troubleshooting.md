@@ -85,7 +85,7 @@ If you're seeing one or more error messages that look like the following:
 
 ```
 ERR 2020-09-29 14:04:33.313+02:00 Mainchain monitor failure, restarting      tid=8941404 
-file=mainchain_monitor.nim:812 err="{\"code\":-32005,
+file=eth1_monitor.nim:812 err="{\"code\":-32005,
 \"data\":{\"rate\":{\"allowed_rps\":1,
 \"backoff_seconds\":24,
 \"current_rps\":22.5},
