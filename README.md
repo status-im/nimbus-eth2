@@ -495,6 +495,12 @@ make publish-book
 make dist
 ```
 
+- test the binaries
+
+```bash
+make dist-test
+```
+
 ### CI setup
 
 Local testnets run for 4 epochs each, to test finalization. That happens only on Jenkins Linux hosts, and their logs are available for download as artifacts, from the job's page. Don't expect these artifacts to be kept more than a day after the corresponding branch is deleted.

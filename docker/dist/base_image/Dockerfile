@@ -1,12 +1,12 @@
 # This Docker image can change from one build to another, because the upstream
-# Debian package index is continuously updated and we have to run `apt-get
-# update` in here.
+# Debian/Ubuntu package index is continuously updated and we have to run
+# `apt-get update` in here.
 #
 # The only way to make this a part of our reproducible build system is to build
 # it once, upload it to Docker Hub and make sure it's being pulled regularly so
 # it's not deleted after 6 months of inactivity.
 
-FROM debian:bullseye-slim
+FROM ubuntu:20.04
 
 SHELL ["/bin/bash", "-c"]
 
