@@ -427,4 +427,13 @@ dist:
 	ls -l dist
 	$(MAKE) clean
 
+#- this simple test will show any missing dynamically-linked Glibc symbols in the target distro
+dist-test:
+	docker rm nimbus-eth2-dist-test $(HANDLE_OUTPUT) || true
+	cd docker/dist && \
+		for DISTRO in debian-bullseye; do \
+			DOCKER_BUILDKIT=1 docker build -f Dockerfile.$${DISTRO} -t nimbus-eth2-dist-test --progress=plain --build-arg USER_ID=$$(id -u) --build-arg GROUP_ID=$$(id -g) . && \
+			docker run --rm --name nimbus-eth2-dist-test -v $(CURDIR):/home/user/nimbus-eth2 nimbus-eth2-dist-test; \
+		done
+
 endif # "variables.mk" was not included

@@ -1,0 +1,17 @@
+FROM debian:bullseye-slim
+
+SHELL ["/bin/bash", "-c"]
+
+ARG USER_ID
+ARG GROUP_ID
+
+RUN addgroup --gid ${GROUP_ID} user; \
+	adduser --disabled-password --gecos '' --uid ${USER_ID} --gid ${GROUP_ID} user;
+
+USER user
+
+STOPSIGNAL SIGINT
+
+COPY "entry_point_test.sh" "/home/user/"
+ENTRYPOINT ["/home/user/entry_point_test.sh"]
+
