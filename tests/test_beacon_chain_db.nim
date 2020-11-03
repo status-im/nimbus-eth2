@@ -99,20 +99,32 @@ suiteReport "Beacon chain DB" & preset():
     doAssert toSeq(db.getAncestors(a0.root)) == []
     doAssert toSeq(db.getAncestors(a2.root)) == []
 
+    doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 0
+    doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 0
+
     db.putBlock(a2)
 
     doAssert toSeq(db.getAncestors(a0.root)) == []
     doAssert toSeq(db.getAncestors(a2.root)) == [a2]
+
+    doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 0
+    doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 1
 
     db.putBlock(a1)
 
     doAssert toSeq(db.getAncestors(a0.root)) == []
     doAssert toSeq(db.getAncestors(a2.root)) == [a2, a1]
 
+    doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 0
+    doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 2
+
     db.putBlock(a0)
 
     doAssert toSeq(db.getAncestors(a0.root)) == [a0]
     doAssert toSeq(db.getAncestors(a2.root)) == [a2, a1, a0]
+
+    doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 1
+    doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 3
 
   wrappedTimedTest "sanity check genesis roundtrip" & preset():
     # This is a really dumb way of checking that we can roundtrip a genesis

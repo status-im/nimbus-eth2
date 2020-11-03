@@ -334,14 +334,14 @@ proc init*(T: type ChainDAGRef,
   if headRoot != tailRoot:
     var curRef: BlockRef
 
-    for blck in db.getAncestors(headRoot):
+    for blck in db.getAncestorSummaries(headRoot):
       if blck.root == tailRef.root:
         doAssert(not curRef.isNil)
         link(tailRef, curRef)
         curRef = curRef.parent
         break
 
-      let newRef = BlockRef.init(blck.root, blck.message)
+      let newRef = BlockRef.init(blck.root, blck.summary.slot)
       if curRef == nil:
         curRef = newRef
         headRef = newRef
