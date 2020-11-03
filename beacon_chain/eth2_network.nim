@@ -26,8 +26,10 @@ import
   peer_pool, spec/[datatypes, digest, helpers, network], ./time,
   keystore_management
 
-# gossipsub 1.1
-import libp2p/protocols/pubsub/gossipsub
+when defined(nbc_gossipsub_11):
+  import libp2p/protocols/pubsub/gossipsub
+else:
+  import libp2p/protocols/pubsub/gossipsub10
 
 when chronicles.enabledLogLevel == LogLevel.TRACE:
   import std/sequtils
