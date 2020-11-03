@@ -66,20 +66,20 @@ func enrForkIdFromState(state: BeaconState): ENRForkID =
     next_fork_version: forkVer,
     next_fork_epoch: FAR_FUTURE_EPOCH)
 
-proc startMainchainMonitor(db: BeaconChainDB,
-                           conf: BeaconNodeConf): Future[MainchainMonitor] {.async.} =
-  let mainchainMonitorRes = await MainchainMonitor.init(
+proc startEth1Monitor(db: BeaconChainDB,
+                      conf: BeaconNodeConf): Future[Eth1Monitor] {.async.} =
+  let eth1MonitorRes = await Eth1Monitor.init(
     db,
     conf.runtimePreset,
     conf.web3Url,
     conf.depositContractAddress.get,
     conf.depositContractDeployedAt.get)
 
-  result = if mainchainMonitorRes.isOk:
-    mainchainMonitorRes.get
+  result = if eth1MonitorRes.isOk:
+    eth1MonitorRes.get
   else:
     fatal "Failed to start Eth1 monitor",
-          reason = mainchainMonitorRes.error,
+          reason = eth1MonitorRes.error,
           web3Url = conf.web3Url,
           depositContractAddress = conf.depositContractAddress.get,
           depositContractDeployedAt = conf.depositContractDeployedAt.get
@@ -98,7 +98,7 @@ proc init*(T: type BeaconNode,
     db = BeaconChainDB.init(conf.runtimePreset, conf.databaseDir)
 
   var
-    mainchainMonitor: MainchainMonitor
+    eth1Monitor: Eth1Monitor
     genesisState, checkpointState: ref BeaconState
     checkpointBlock: SignedBeaconBlock
 
@@ -159,9 +159,9 @@ proc init*(T: type BeaconNode,
 
       # TODO Could move this to a separate "GenesisMonitor" process or task
       #      that would do only this - see Paul's proposal for this.
-      mainchainMonitor = await startMainchainMonitor(db, conf)
+      eth1Monitor = await startEth1Monitor(db, conf)
 
-      genesisState = await mainchainMonitor.waitGenesis()
+      genesisState = await eth1Monitor.waitGenesis()
       if bnStatus == BeaconNodeStatus.Stopping:
         return nil
 
@@ -227,13 +227,13 @@ proc init*(T: type BeaconNode,
   if checkpointState != nil:
     chainDag.setTailState(checkpointState[], checkpointBlock)
 
-  if mainchainMonitor.isNil and
+  if eth1Monitor.isNil and
      conf.web3Url.len > 0 and
      conf.depositContractAddress.isSome and
      conf.depositContractDeployedAt.isSome:
     # TODO if we don't have any validators attached,
     #      we don't need a mainchain monitor
-    mainchainMonitor = await startMainchainMonitor(db, conf)
+    eth1Monitor = await startEth1Monitor(db, conf)
 
   let rpcServer = if conf.rpcEnabled:
     RpcServer.init(conf.rpcAddress, conf.rpcPort)
@@ -259,7 +259,7 @@ proc init*(T: type BeaconNode,
     quarantine: quarantine,
     attestationPool: attestationPool,
     exitPool: exitPool,
-    mainchainMonitor: mainchainMonitor,
+    eth1Monitor: eth1Monitor,
     beaconClock: beaconClock,
     rpcServer: rpcServer,
     forkDigest: enrForkId.forkDigest,

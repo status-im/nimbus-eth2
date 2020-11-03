@@ -21,7 +21,7 @@ import
 
 # TODO All tests need to be moved to the test suite.
 
-const depositContractLimit* = Limit(1'u64 shl (DEPOSIT_CONTRACT_TREE_DEPTH - 1'u64))
+const depositContractLimit* = Limit(1'u64 shl DEPOSIT_CONTRACT_TREE_DEPTH)
 
 func attachMerkleProofs*(deposits: var openArray[Deposit]) =
   let depositsRoots = mapIt(deposits, hash_tree_root(it.data))
@@ -30,6 +30,7 @@ func attachMerkleProofs*(deposits: var openArray[Deposit]) =
 
   for i in 0 ..< depositsRoots.len:
     incrementalMerkleProofs.addChunkAndGenMerkleProof(depositsRoots[i], deposits[i].proof)
+    deposits[i].proof[32] = default(Eth2Digest)
     deposits[i].proof[32].data[0..7] = toBytesLE uint64(i + 1)
 
 template getProof*(proofs: seq[Eth2Digest], idxParam: int): openArray[Eth2Digest] =

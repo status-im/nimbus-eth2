@@ -9,7 +9,7 @@
 
 import
   # Standard libraries
-  std/[algorithm, deques, sequtils, sets, tables, options],
+  std/[deques, sequtils, sets, tables, options],
   # Status libraries
   chronicles, stew/[byteutils], json_serialization/std/sets as jsonSets,
   # Internal
@@ -27,9 +27,10 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
   ## Initialize an AttestationPool from the chainDag `headState`
   ## The `finalized_root` works around the finalized_checkpoint of the genesis block
   ## holding a zero_root.
+  let finalizedEpochRef = chainDag.getFinalizedEpochRef()
 
   var forkChoice = ForkChoice.init(
-    chainDag.getFinalizedEpochRef(),
+    finalizedEpochRef,
     chainDag.finalizedHead.blck)
 
   # Feed fork choice with unfinalized history - during startup, block pool only

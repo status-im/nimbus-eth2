@@ -28,13 +28,20 @@ const
   zero64 = default array[64, byte]
   bitsPerChunk = bytesPerChunk * 8
 
+func binaryTreeHeight*(totalElements: Limit): int =
+  bitWidth nextPow2(uint64 totalElements)
+
 type
-  SszChunksMerkleizer* {.requiresInit.} = object
+  SszMerkleizerImpl = object
     combinedChunks: ptr UncheckedArray[Eth2Digest]
     totalChunks: uint64
     topIndex: int
 
-template chunks*(m: SszChunksMerkleizer): openArray[Eth2Digest] =
+  SszMerkleizer*[limit: static[Limit]] = object
+    combinedChunks: ref array[binaryTreeHeight limit, Eth2Digest]
+    impl: SszMerkleizerImpl
+
+template chunks*(m: SszMerkleizerImpl): openArray[Eth2Digest] =
   m.combinedChunks.toOpenArray(0, m.topIndex)
 
 func digest(a, b: openArray[byte]): Eth2Digest =
@@ -77,7 +84,7 @@ func computeZeroHashes: array[sizeof(Limit) * 8, Eth2Digest] =
 
 const zeroHashes* = computeZeroHashes()
 
-func addChunk*(merkleizer: var SszChunksMerkleizer, data: openArray[byte]) =
+func addChunk*(merkleizer: var SszMerkleizerImpl, data: openArray[byte]) =
   doAssert data.len > 0 and data.len <= bytesPerChunk
 
   if getBitLE(merkleizer.totalChunks, 0):
@@ -107,7 +114,7 @@ func addChunk*(merkleizer: var SszChunksMerkleizer, data: openArray[byte]) =
 template isOdd(x: SomeNumber): bool =
   (x and 1) != 0
 
-func addChunkAndGenMerkleProof*(merkleizer: var SszChunksMerkleizer,
+func addChunkAndGenMerkleProof*(merkleizer: var SszMerkleizerImpl,
                                 hash: Eth2Digest,
                                 outProof: var openArray[Eth2Digest]) =
   var
@@ -129,7 +136,7 @@ func addChunkAndGenMerkleProof*(merkleizer: var SszChunksMerkleizer,
 
   merkleizer.totalChunks += 1
 
-func completeStartedChunk(merkleizer: var SszChunksMerkleizer,
+func completeStartedChunk(merkleizer: var SszMerkleizerImpl,
                           hash: Eth2Digest, atLevel: int) =
   when false:
     let
@@ -145,7 +152,7 @@ func completeStartedChunk(merkleizer: var SszChunksMerkleizer,
       merkleizer.combinedChunks[i] = hash
       break
 
-func addChunksAndGenMerkleProofs*(merkleizer: var SszChunksMerkleizer,
+func addChunksAndGenMerkleProofs*(merkleizer: var SszMerkleizerImpl,
                                   chunks: openArray[Eth2Digest]): seq[Eth2Digest] =
   doAssert chunks.len > 0 and merkleizer.topIndex > 0
 
@@ -283,17 +290,9 @@ func addChunksAndGenMerkleProofs*(merkleizer: var SszChunksMerkleizer,
 
   merkleizer.totalChunks = newTotalChunks
 
-func binaryTreeHeight*(totalElements: Limit): int =
-  bitWidth nextPow2(uint64 totalElements)
-
-type
-  SszMerkleizer*[limit: static[Limit]] = object
-    combinedChunks: ref array[binaryTreeHeight limit, Eth2Digest]
-    m: SszChunksMerkleizer
-
 proc init*(S: type SszMerkleizer): S =
   new result.combinedChunks
-  result.m = SszChunksMerkleizer(
+  result.impl = SszMerkleizerImpl(
     combinedChunks: cast[ptr UncheckedArray[Eth2Digest]](
       addr result.combinedChunks[][0]),
     topIndex: binaryTreeHeight(result.limit) - 1,
@@ -304,7 +303,7 @@ proc init*(S: type SszMerkleizer,
            totalChunks: uint64): S =
   new result.combinedChunks
   result.combinedChunks[][0 ..< combinedChunks.len] = combinedChunks
-  result.m = SszChunksMerkleizer(
+  result.impl = SszMerkleizerImpl(
     combinedChunks: cast[ptr UncheckedArray[Eth2Digest]](
       addr result.combinedChunks[][0]),
     topIndex: binaryTreeHeight(result.limit) - 1,
@@ -313,7 +312,7 @@ proc init*(S: type SszMerkleizer,
 proc clone*[L: static[Limit]](cloned: SszMerkleizer[L]): SszMerkleizer[L] =
   new result.combinedChunks
   result.combinedChunks[] = cloned.combinedChunks[]
-  result.m = SszChunksMerkleizer(
+  result.impl = SszMerkleizerImpl(
     combinedChunks: cast[ptr UncheckedArray[Eth2Digest]](
       addr result.combinedChunks[][0]),
     topIndex: binaryTreeHeight(L) - 1,
@@ -322,29 +321,29 @@ proc clone*[L: static[Limit]](cloned: SszMerkleizer[L]): SszMerkleizer[L] =
 template addChunksAndGenMerkleProofs*(
     merkleizer: var SszMerkleizer,
     chunks: openArray[Eth2Digest]): seq[Eth2Digest] =
-  addChunksAndGenMerkleProofs(merkleizer.m, chunks)
+  addChunksAndGenMerkleProofs(merkleizer.impl, chunks)
 
 template addChunk*(merkleizer: var SszMerkleizer, data: openArray[byte]) =
-  addChunk(merkleizer.m, data)
+  addChunk(merkleizer.impl, data)
 
 template totalChunks*(merkleizer: SszMerkleizer): uint64 =
-  merkleizer.m.totalChunks
+  merkleizer.impl.totalChunks
 
 template getFinalHash*(merkleizer: SszMerkleizer): Eth2Digest =
-  merkleizer.m.getFinalHash
+  merkleizer.impl.getFinalHash
 
-template createMerkleizer*(totalElements: static Limit): SszChunksMerkleizer =
+template createMerkleizer*(totalElements: static Limit): SszMerkleizerImpl =
   trs "CREATING A MERKLEIZER FOR ", totalElements
 
   const treeHeight = binaryTreeHeight totalElements
   var combinedChunks {.noInit.}: array[treeHeight, Eth2Digest]
 
-  SszChunksMerkleizer(
+  SszMerkleizerImpl(
     combinedChunks: cast[ptr UncheckedArray[Eth2Digest]](addr combinedChunks),
     topIndex: treeHeight - 1,
     totalChunks: 0)
 
-func getFinalHash*(merkleizer: SszChunksMerkleizer): Eth2Digest =
+func getFinalHash*(merkleizer: SszMerkleizerImpl): Eth2Digest =
   if merkleizer.totalChunks == 0:
     return zeroHashes[merkleizer.topIndex]
 
@@ -383,7 +382,7 @@ func getFinalHash*(merkleizer: SszChunksMerkleizer): Eth2Digest =
     for i in bottomHashIdx + 1 ..< topHashIdx:
       result = mergeBranches(result, zeroHashes[i])
 
-func mixInLength(root: Eth2Digest, length: int): Eth2Digest =
+func mixInLength*(root: Eth2Digest, length: int): Eth2Digest =
   var dataLen: array[32, byte]
   dataLen[0..<8] = uint64(length).toBytesLE()
   mergeBranches(root, dataLen)
@@ -408,7 +407,7 @@ template writeBytesLE(chunk: var array[bytesPerChunk, byte], atParam: int,
   let at = atParam
   chunk[at ..< at + sizeof(val)] = toBytesLE(val)
 
-func chunkedHashTreeRootForBasicTypes[T](merkleizer: var SszChunksMerkleizer,
+func chunkedHashTreeRootForBasicTypes[T](merkleizer: var SszMerkleizerImpl,
                                          arr: openArray[T]): Eth2Digest =
   static:
     doAssert T is BasicType
@@ -460,7 +459,7 @@ func chunkedHashTreeRootForBasicTypes[T](merkleizer: var SszChunksMerkleizer,
 
   getFinalHash(merkleizer)
 
-func bitListHashTreeRoot(merkleizer: var SszChunksMerkleizer, x: BitSeq): Eth2Digest =
+func bitListHashTreeRoot(merkleizer: var SszMerkleizerImpl, x: BitSeq): Eth2Digest =
   # TODO: Switch to a simpler BitList representation and
   #       replace this with `chunkedHashTreeRoot`
   trs "CHUNKIFYING BIT SEQ WITH TOP INDEX ", merkleizer.topIndex

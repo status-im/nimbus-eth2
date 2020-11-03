@@ -98,11 +98,6 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Mocked start private key                                                                   OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
-## Mocking utilities
-```diff
-+ merkle_minimal                                                                             OK
-```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Official - constants & config  [Preset: mainnet]
 ```diff
 + BASE_REWARD_FACTOR                                64                   [Preset: mainnet]   OK
@@ -272,5 +267,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 145/154 Fail: 0/154 Skip: 9/154
-
+OK: 144/153 Fail: 0/153 Skip: 9/153
