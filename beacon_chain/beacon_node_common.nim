@@ -15,14 +15,14 @@ import
 
   # Local modules
   ./conf, ./time, ./beacon_chain_db, ./attestation_pool, ./eth2_network,
-  ./beacon_node_types, ./mainchain_monitor, ./request_manager,
+  ./beacon_node_types, ./eth1_monitor, ./request_manager,
   ./sync_manager, ./eth2_processor,
   ./block_pools/[chain_dag, quarantine],
   ./spec/datatypes
 
 export
   osproc, chronos, rpcserver, conf, time, beacon_chain_db,
-  attestation_pool, eth2_network, beacon_node_types, mainchain_monitor,
+  attestation_pool, eth2_network, beacon_node_types, eth1_monitor,
   request_manager, sync_manager, eth2_processor, chain_Dag, quarantine,
   datatypes
 

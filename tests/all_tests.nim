@@ -19,7 +19,7 @@ import # Unit test
   ./test_block_pool,
   ./test_datatypes,
   ./test_helpers,
-  ./test_mainchain_monitor,
+  ./test_eth1_monitor,
   ./test_ssz,
   ./test_state_transition,
   ./test_sync_protocol,
