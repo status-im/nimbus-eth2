@@ -84,6 +84,15 @@ type
     kFinalizedEth2DepositsMarkleizer
       ## A merkleizer used for computing merkle proofs of deposits added
       ## to Eth2 blocks (it may lag behind the finalized deposits merkleizer).
+    kHashToBlockSummary
+      ## Cache of beacon block summaries - during startup when we construct the
+      ## chain dag, loading full blocks takes a lot of time - the block
+      ## summary contains a minimal snapshot of what's needed to instanciate
+      ## the BlockRef tree.
+
+  BeaconBlockSummary* = object
+    slot*: Slot
+    parent_root*: Eth2Digest
 
 const
   maxDecompressedDbRecordSize = 16*1024*1024
@@ -104,6 +113,9 @@ func subkey(kind: type BeaconState, key: Eth2Digest): auto =
 
 func subkey(kind: type SignedBeaconBlock, key: Eth2Digest): auto =
   subkey(kHashToBlock, key.data)
+
+func subkey(kind: type BeaconBlockSummary, key: Eth2Digest): auto =
+  subkey(kHashToBlockSummary, key.data)
 
 func subkey(root: Eth2Digest, slot: Slot): array[40, byte] =
   var ret: array[40, byte]
@@ -324,10 +336,18 @@ proc get[T](db: BeaconChainDB, key: openArray[byte], output: var T): GetResult =
 proc close*(db: BeaconChainDB) =
   discard db.backend.close()
 
+func toBeaconBlockSummary(v: SomeBeaconBlock): BeaconBlockSummary =
+  BeaconBlockSummary(
+    slot: v.slot,
+    parent_root: v.parent_root,
+  )
+
 proc putBlock*(db: BeaconChainDB, value: SignedBeaconBlock) =
   db.put(subkey(type value, value.root), value)
+  db.put(subkey(BeaconBlockSummary, value.root), value.message.toBeaconBlockSummary())
 proc putBlock*(db: BeaconChainDB, value: TrustedSignedBeaconBlock) =
   db.put(subkey(SignedBeaconBlock, value.root), value)
+  db.put(subkey(BeaconBlockSummary, value.root), value.message.toBeaconBlockSummary())
 
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   # TODO prune old states - this is less easy than it seems as we never know
@@ -343,8 +363,8 @@ proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
   db.put(subkey(root, slot), value)
 
 proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
-  db.backend.del(subkey(SignedBeaconBlock, key)).expect(
-    "working database")
+  db.backend.del(subkey(SignedBeaconBlock, key)).expect("working database")
+  db.backend.del(subkey(BeaconBlockSummary, key)).expect("working database")
 
 proc delState*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.del(subkey(BeaconState, key)).expect("working database")
@@ -372,6 +392,12 @@ proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[TrustedSignedBeaconBlock
   else:
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
+
+proc getBlockSummary*(db: BeaconChainDB, key: Eth2Digest): Opt[BeaconBlockSummary] =
+  # We only store blocks that we trust in the database
+  result.ok(BeaconBlockSummary())
+  if db.get(subkey(BeaconBlockSummary, key), result.get) != GetResult.found:
+    result.err()
 
 proc getState*(
     db: BeaconChainDB, key: Eth2Digest, output: var BeaconState,
@@ -435,3 +461,29 @@ iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
     res.root = root
     yield res
     root = res.message.parent_root
+
+iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
+    tuple[root: Eth2Digest, summary: BeaconBlockSummary] =
+  ## Load a chain of ancestors for blck - returns a list of blocks with the
+  ## oldest block last (blck will be at result[0]).
+  ##
+  ## The search will go on until the ancestor cannot be found.
+
+  var
+    res: tuple[root: Eth2Digest, summary: BeaconBlockSummary]
+    tmp: TrustedSignedBeaconBlock
+    root = root
+
+  while true:
+    if db.get(subkey(BeaconBlockSummary, root), res.summary) == GetResult.found:
+      res.root = root
+      yield res
+    elif db.get(subkey(SignedBeaconBlock, root), tmp) == GetResult.found:
+      res.summary = tmp.message.toBeaconBlockSummary()
+      db.put(subkey(BeaconBlockSummary, root), res.summary)
+      res.root = root
+      yield res
+    else:
+      break
+
+    root = res.summary.parent_root
