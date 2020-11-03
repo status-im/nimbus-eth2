@@ -42,7 +42,7 @@ type
     quarantine*: QuarantineRef
     attestationPool*: ref AttestationPool
     exitPool*: ref ExitPool
-    mainchainMonitor*: MainchainMonitor
+    eth1Monitor*: Eth1Monitor
     beaconClock*: BeaconClock
     rpcServer*: RpcServer
     vcProcess*: Process

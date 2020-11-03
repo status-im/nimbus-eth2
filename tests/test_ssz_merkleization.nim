@@ -227,6 +227,7 @@ func attachMerkleProofsReferenceImpl(deposits: var openArray[Deposit]) =
 
   for val_idx in 0 ..< deposits.len:
     deposits[val_idx].proof[0..31] = merkle_tree.getMerkleProof(val_idx, true)
+    deposits[val_idx].proof[32] = default(Eth2Digest)
     deposits[val_idx].proof[32].data[0..7] = uint_to_bytes8((val_idx + 1).uint64)
 
     doAssert is_valid_merkle_branch(
