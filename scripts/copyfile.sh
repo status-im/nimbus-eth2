@@ -22,11 +22,11 @@ if [[ $OS = "Windows_NT" ]]; then
     if [ -d "$1" ]; then
       SRC_NAME="$(basename -- $1)"
       if [ -d "$2" ]; then
-        DST_DIR=$(realpath ${2})/$SRC_NAME
+        DST_DIR=${2}/$SRC_NAME
       else
-        DST_DIR=$(realpath ${2})
+        DST_DIR=${2}
       fi
-      DST_FILES=$(realpath ${DST_DIR})
+      DST_FILES=${DST_DIR}
       # Copy directory
       cp -a "${1}" "${2}"
       # Directory was copied, so we update destination directory permissions.
