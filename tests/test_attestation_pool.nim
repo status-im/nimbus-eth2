@@ -366,8 +366,7 @@ suiteReport "Attestation pool processing" & preset():
             aggregation_bits: aggregation_bits,
             data: makeAttestationData(
               state.data.data, state.data.data.slot,
-              index, blockroot
-            )
+              index.CommitteeIndex, blockroot)
             # signature: ValidatorSig()
           )
 
