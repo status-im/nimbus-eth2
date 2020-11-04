@@ -451,6 +451,10 @@ type
       desc: "A directory containing validator keystores"
       name: "validators-dir" }: Option[InputDir]
 
+    secretsDirFlag* {.
+      desc: "A directory containing validator keystore passwords"
+      name: "secrets-dir" }: Option[InputDir]
+
     case cmd* {.
       command
       defaultValue: VCNoCommand }: VCStartUpCmd
