@@ -130,13 +130,13 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
               if first:
                 attestation =
                   makeAttestation(state[].data, latest_block_root, scas, target_slot,
-                    i.uint64, v, cache, flags)
+                    i.CommitteeIndex, v, cache, flags)
                 agg.init(attestation.signature)
                 first = false
               else:
                 let att2 =
                   makeAttestation(state[].data, latest_block_root, scas, target_slot,
-                    i.uint64, v, cache, flags)
+                    i.CommitteeIndex, v, cache, flags)
                 if not att2.aggregation_bits.overlaps(attestation.aggregation_bits):
                   attestation.aggregation_bits.combine(att2.aggregation_bits)
                   if skipBlsValidation notin flags:

@@ -33,7 +33,6 @@ import
 export
   sszTypes, presets
 
-# TODO Data types:
 # Presently, we're reusing the data types from the serialization (uint64) in the
 # objects we pass around to the beacon chain logic, thus keeping the two
 # similar. This is convenient for keeping up with the specification, but
@@ -65,12 +64,6 @@ const
   # Not part of spec. Still useful, pending removing usage if appropriate.
   ZERO_HASH* = Eth2Digest()
 
-  # Not part of spec
-  WEAK_SUBJECTVITY_PERIOD* =
-    Slot(uint64(4 * 30 * 24 * 60 * 60) div SECONDS_PER_SLOT)
-    # TODO: This needs revisiting.
-    # Why was the validator WITHDRAWAL_PERIOD altered in the spec?
-
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#configuration
   ATTESTATION_PROPAGATION_SLOT_RANGE* = 32
   MAXIMUM_GOSSIP_CLOCK_DISPARITY* = 500.millis
@@ -101,14 +94,24 @@ type
 
   # https://github.com/nim-lang/Nim/issues/574 and be consistent across
   # 32-bit and 64-bit word platforms.
-  # TODO VALIDATOR_REGISTRY_LIMIT is 1 shl 40 in 0.12.1, and
-  # proc newSeq(typ: PNimType, len: int): pointer {.compilerRtl.}
-  # in Nim/lib/system/gc.nim quite tightly ties seq addressibility
-  # to the system wordsize. This lifts smaller, and now incorrect,
-  # range-limit.
+  # The distinct types here should only be used when data has been de-tainted
+  # following overflow checks - they cannot be used in SSZ objects as SSZ
+  # instances are not invalid _per se_ when they hold an out-of-bounds index -
+  # that is part of consensus.
+  # VALIDATOR_REGISTRY_LIMIT is 1^40 in spec 1.0, but if the number of
+  # validators ever grows near 1^32 that we support here, we'll have bigger
+  # issues than the size of this type to take care of. Until then, we'll use
+  # uint32 as it halves memory requirements for active validator sets,
+  # improves consistency on 32-vs-64-bit platforms and works better with
+  # Nim seq constraints.
   ValidatorIndex* = distinct uint32
-  Gwei* = uint64
+
+  # Though in theory the committee index would fit in a uint8, it is not used
+  # in a way that would significantly benefit from the smaller type, thus we
+  # leave it at spec size
   CommitteeIndex* = distinct uint64
+
+  Gwei* = uint64
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#proposerslashing
   ProposerSlashing* = object
@@ -122,13 +125,11 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#indexedattestation
   IndexedAttestation* = object
-    # TODO ValidatorIndex, but that doesn't serialize properly
     attesting_indices*: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]
     data*: AttestationData
     signature*: ValidatorSig
 
   TrustedIndexedAttestation* = object
-    # TODO ValidatorIndex, but that doesn't serialize properly
     attesting_indices*: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]
     data*: AttestationData
     signature*: TrustedSig
@@ -162,8 +163,6 @@ type
   AttestationData* = object
     slot*: Slot
 
-    # TODO this is actually a CommitteeIndex; remove some conversions by
-    # allowing SSZ to directly handle this
     index*: uint64
 
     # LMD GHOST vote
@@ -381,7 +380,6 @@ type
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
 
-    # TODO this is a Slot
     inclusion_delay*: uint64
 
     proposer_index*: uint64
@@ -393,8 +391,6 @@ type
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#fork
   Fork* = object
-    # TODO: Spec introduced an alias for Version = array[4, byte]
-    #       and a default parameter to compute_domain
     previous_version*: Version
     current_version*: Version
 
@@ -524,11 +520,19 @@ template ethTimeUnit(typ: type) {.dirty.} =
 
 proc writeValue*(writer: var JsonWriter, value: ValidatorIndex)
                 {.raises: [IOError, Defect].} =
-  writeValue(writer, uint32 value)
+  writeValue(writer, distinctBase value)
 
 proc readValue*(reader: var JsonReader, value: var ValidatorIndex)
                {.raises: [IOError, SerializationError, Defect].} =
-  value = ValidatorIndex reader.readValue(uint32)
+  value = ValidatorIndex reader.readValue(distinctBase ValidatorIndex)
+
+proc writeValue*(writer: var JsonWriter, value: CommitteeIndex)
+                {.raises: [IOError, Defect].} =
+  writeValue(writer, distinctBase value)
+
+proc readValue*(reader: var JsonReader, value: var CommitteeIndex)
+               {.raises: [IOError, SerializationError, Defect].} =
+  value = CommitteeIndex reader.readValue(distinctBase CommitteeIndex)
 
 template writeValue*(writer: var JsonWriter, value: Version | ForkDigest) =
   writeValue(writer, $value)
@@ -550,10 +554,6 @@ proc readValue*(reader: var JsonReader, value: var ForkDigest)
     raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
 
 # `ValidatorIndex` seq handling.
-# TODO harden these against uint32/uint64 to int type conversion risks
-func max*(a: ValidatorIndex, b: int) : auto =
-  max(a.int, b)
-
 func `[]`*[T](a: var seq[T], b: ValidatorIndex): var T =
   a[b.int]
 
@@ -567,7 +567,12 @@ func `[]=`*[T](a: var seq[T], b: ValidatorIndex, c: T) =
 proc `==`*(x, y: ValidatorIndex) : bool {.borrow, noSideEffect.}
 proc `<`*(x, y: ValidatorIndex) : bool {.borrow, noSideEffect.}
 proc hash*(x: ValidatorIndex): Hash {.borrow, noSideEffect.}
-func `$`*(x: ValidatorIndex): auto = $(x.int64)
+func `$`*(x: ValidatorIndex): auto = $(distinctBase(x))
+
+proc `==`*(x, y: CommitteeIndex) : bool {.borrow, noSideEffect.}
+proc `<`*(x, y: CommitteeIndex) : bool {.borrow, noSideEffect.}
+proc hash*(x: CommitteeIndex): Hash {.borrow, noSideEffect.}
+func `$`*(x: CommitteeIndex): auto = $(distinctBase(x))
 
 func `as`*(d: DepositData, T: type DepositMessage): T =
   T(pubkey: d.pubkey,

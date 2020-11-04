@@ -46,11 +46,11 @@ func fromSszBytes*(T: type GraffitiBytes, data: openArray[byte]): T {.raisesssz.
     raiseIncorrectSize T
   copyMem(result.addr, unsafeAddr data[0], sizeof(result))
 
-template fromSszBytes*(T: type Slot, bytes: openArray[byte]): Slot =
-  Slot fromSszBytes(uint64, bytes)
+template fromSszBytes*(T: type Slot, bytes: openArray[byte]): T =
+  T fromSszBytes(uint64, bytes)
 
-template fromSszBytes*(T: type Epoch, bytes: openArray[byte]): Epoch =
-  Epoch fromSszBytes(uint64, bytes)
+template fromSszBytes*(T: type Epoch, bytes: openArray[byte]): T =
+  T fromSszBytes(uint64, bytes)
 
 func fromSszBytes*(T: type ForkDigest, bytes: openArray[byte]): T {.raisesssz.} =
   if bytes.len != sizeof(result):

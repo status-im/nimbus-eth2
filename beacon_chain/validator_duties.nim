@@ -361,7 +361,8 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     for index_in_committee, validatorIdx in committee:
       let validator = node.getAttachedValidator(epochRef, validatorIdx)
       if validator != nil:
-        let ad = makeAttestationData(epochRef, attestationHead, committee_index)
+        let ad = makeAttestationData(
+          epochRef, attestationHead, committee_index.CommitteeIndex)
         attestations.add((ad, committee.len, index_in_committee, validator))
 
   for a in attestations:

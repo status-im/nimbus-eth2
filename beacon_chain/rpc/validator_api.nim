@@ -61,7 +61,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     let
       head = node.doChecksAndGetCurrentHead(slot)
       epochRef = node.chainDag.getEpochRef(head, slot.epoch)
-    return makeAttestationData(epochRef, head.atSlot(slot), committee_index.uint64)
+    return makeAttestationData(epochRef, head.atSlot(slot), committee_index)
 
   rpcServer.rpc("get_v1_validator_aggregate_attestation") do (
       slot: Slot, attestation_data_root: Eth2Digest)-> Attestation:

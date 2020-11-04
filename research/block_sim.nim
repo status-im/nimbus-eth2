@@ -80,7 +80,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         for index_in_committee, validatorIdx in committee:
           if rand(r, 1.0) <= attesterRatio:
             let
-              data = makeAttestationData(state, slot, committee_index, blck.root)
+              data = makeAttestationData(
+                state, slot, committee_index.CommitteeIndex, blck.root)
               sig =
                 get_attestation_signature(state.fork,
                   state.genesis_validators_root,

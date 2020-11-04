@@ -8,22 +8,14 @@
 # State transition - block processing, as described in
 # https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 #
-# The purpose of this code right is primarily educational, to help piece
-# together the mechanics of the beacon state and to discover potential problem
-# areas.
-#
 # The entry point is `process_block` which is at the bottom of this file.
 #
-# General notes about the code (TODO):
+# General notes about the code:
 # * Weird styling - the sections taken from the spec use python styling while
 #   the others use NEP-1 - helps grepping identifiers in spec
-# * We mix procedural and functional styles for no good reason, except that the
-#   spec does so also.
-# * For indices, we get a mix of uint64, ValidatorIndex and int - this is currently
-#   swept under the rug with casts
-# When updating the code, add TODO sections to mark where there are clear
-# improvements to be made - other than that, keep things similar to spec for
-# now.
+# * When updating the code, add TODO sections to mark where there are clear
+#   improvements to be made - other than that, keep things similar to spec unless
+#   motivated by security or performance considerations
 
 {.push raises: [Defect].}
 
