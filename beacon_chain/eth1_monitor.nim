@@ -273,18 +273,37 @@ proc onBlockHeaders*(p: Web3DataProviderRef,
   p.blockHeadersSubscription = await p.web3.subscribeForBlockHeaders(
     blockHeaderHandler, errorHandler)
 
+func getDepositsRoot(m: DepositsMerkleizer): Eth2Digest =
+  mixInLength(m.getFinalHash, int m.totalChunks)
+
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#get_eth1_data
 proc getBlockProposalData*(m: Eth1Monitor,
                            state: BeaconState,
                            finalizedEth1Data: Eth1Data): (Eth1Data, seq[Deposit]) =
+  var pendingDepositsCount = state.eth1_data.deposit_count -
+                             state.eth1_deposit_index
+
   # TODO To make block proposal cheaper, we can perform this action more regularly
   #      (e.g. in BeaconNode.onSlot). But keep in mind that this action needs to be
   #      performed only when there are validators attached to the node.
-  m.db.finalizedEth2DepositsMerkleizer.advanceTo(
-    m.db, finalizedEth1Data.deposit_count)
+  let ourDepositsCount = m.db.deposits.len
+  let targetDepositsCount = finalizedEth1Data.deposit_count
+  let hasLatestDeposits = if ourDepositsCount >= targetDepositsCount:
+    m.db.finalizedEth2DepositsMerkleizer.advanceTo(m.db, targetDepositsCount)
+    let ourDepositsRoot = m.db.finalizedEth2DepositsMerkleizer.getDepositsRoot
 
-  doAssert(m.db.finalizedEth2DepositsMerkleizer.getFinalHash ==
-           finalizedEth1Data.deposit_root)
+    if (ourDepositsRoot != finalizedEth1Data.deposit_root):
+      error "Corrupted deposits history. Producing block without deposits",
+            ourDepositsRoot,
+            targetDepositsRoot = finalizedEth1Data.deposit_root,
+            depositsCount = ourDepositsCount
+      false
+    else:
+      true
+  else:
+    warn "ETH1 deposits not fully synced. Producing block without deposits",
+         targetDepositsCount, ourDepositsCount
+    false
 
   let periodStart = voting_period_start_time(state)
 
@@ -296,13 +315,12 @@ proc getBlockProposalData*(m: Eth1Monitor,
        eth1Block.voteData.deposit_count > state.eth1_data.deposit_count:
       otherVotesCountTable.inc eth1Block
 
-  var pendingDeposits = state.eth1_data.deposit_count - state.eth1_deposit_index
   if otherVotesCountTable.len > 0:
     let (winningBlock, votes) = otherVotesCountTable.largest
     result[0] = winningBlock.voteData
     if uint64((votes + 1) * 2) > SLOTS_PER_ETH1_VOTING_PERIOD:
-      pendingDeposits = winningBlock.voteData.deposit_count -
-                        state.eth1_deposit_index
+      pendingDepositsCount = winningBlock.voteData.deposit_count -
+                             state.eth1_deposit_index
   else:
     let latestBlock = m.eth1Chain.latestCandidateBlock(m.preset, periodStart)
     if latestBlock == nil:
@@ -310,12 +328,12 @@ proc getBlockProposalData*(m: Eth1Monitor,
     else:
       result[0] = latestBlock.voteData
 
-  if pendingDeposits > 0:
-    let totalDepositsInNewBlock = min(MAX_DEPOSITS, pendingDeposits)
+  if pendingDepositsCount > 0 and hasLatestDeposits:
+    let totalDepositsInNewBlock = min(MAX_DEPOSITS, pendingDepositsCount)
 
     var
-      deposits = newSeq[Deposit](pendingDeposits)
-      depositRoots = newSeq[Eth2Digest](pendingDeposits)
+      deposits = newSeq[Deposit](pendingDepositsCount)
+      depositRoots = newSeq[Eth2Digest](pendingDepositsCount)
       depositsMerkleizerClone = clone m.db.finalizedEth2DepositsMerkleizer
 
     depositsMerkleizerClone.advanceTo(m.db, state.eth1_deposit_index)
@@ -517,9 +535,8 @@ proc syncBlockRange(m: Eth1Monitor, fromBlock, toBlock: Eth1BlockNumber) {.async
       blk.voteData.deposit_count =
         m.db.finalizedEth1DepositsMerkleizer.totalChunks
 
-      blk.voteData.deposit_root = mixInLength(
-        m.db.finalizedEth1DepositsMerkleizer.getFinalHash,
-        int blk.voteData.deposit_count)
+      blk.voteData.deposit_root =
+        m.db.finalizedEth1DepositsMerkleizer.getDepositsRoot
 
       blk.activeValidatorsCount = m.db.immutableValidatorData.lenu64
 
