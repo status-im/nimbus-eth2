@@ -46,11 +46,11 @@ func fromSszBytes*(T: type GraffitiBytes, data: openArray[byte]): T {.raisesssz.
     raiseIncorrectSize T
   copyMem(result.addr, unsafeAddr data[0], sizeof(result))
 
-template fromSszBytes*(T: type Slot, bytes: openArray[byte]): Slot =
-  Slot fromSszBytes(uint64, bytes)
+template fromSszBytes*(T: type Slot, bytes: openArray[byte]): T =
+  T fromSszBytes(uint64, bytes)
 
-template fromSszBytes*(T: type Epoch, bytes: openArray[byte]): Epoch =
-  Epoch fromSszBytes(uint64, bytes)
+template fromSszBytes*(T: type Epoch, bytes: openArray[byte]): T =
+  T fromSszBytes(uint64, bytes)
 
 func fromSszBytes*(T: type ForkDigest, bytes: openArray[byte]): T {.raisesssz.} =
   if bytes.len != sizeof(result):
@@ -198,7 +198,7 @@ func readSszValue*[T](input: openArray[byte],
       readSszValue(input.toOpenArray(offset, input.len - 1), val[resultLen - 1])
 
   # TODO: Should be possible to remove BitArray from here
-  elif val is UintN|bool:
+  elif toSszType(val) is UintN|bool:
     trs "READING BASIC TYPE ", typetraits.name(T), "  input=", input.len
     val = fromSszBytes(T, input)
     trs "RESULT WAS ", repr(val)

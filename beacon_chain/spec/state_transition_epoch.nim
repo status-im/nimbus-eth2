@@ -10,14 +10,12 @@
 #
 # The entry point is `process_epoch`, which is at the bottom of this file.
 #
-# General notes about the code (TODO):
+# General notes about the code:
 # * Weird styling - the sections taken from the spec use python styling while
 #   the others use NEP-1 - helps grepping identifiers in spec
-# * For indices, we get a mix of uint64, ValidatorIndex and int - this is currently
-#   swept under the rug with casts
-# When updating the code, add TODO sections to mark where there are clear
-# improvements to be made - other than that, keep things similar to spec for
-# now.
+# * When updating the code, add TODO sections to mark where there are clear
+#   improvements to be made - other than that, keep things similar to spec unless
+#   motivated by security or performance considerations
 
 {.push raises: [Defect].}
 

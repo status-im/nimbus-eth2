@@ -176,7 +176,7 @@ proc is_valid_indexed_attestation*(
 
 func makeAttestationData*(
     epochRef: EpochRef, bs: BlockSlot,
-    committee_index: uint64): AttestationData =
+    committee_index: CommitteeIndex): AttestationData =
   ## Create an attestation / vote for the block `bs` using the
   ## data in `epochRef` to fill in the rest of the fields.
   ## `epochRef` is the epoch information corresponding to the `bs` advanced to
@@ -193,7 +193,7 @@ func makeAttestationData*(
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
-    index: committee_index,
+    index: committee_index.uint64,
     beacon_block_root: bs.blck.root,
     source: epochRef.current_justified_checkpoint,
     target: Checkpoint(

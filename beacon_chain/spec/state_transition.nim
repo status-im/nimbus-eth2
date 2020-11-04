@@ -8,22 +8,14 @@
 # State transition, as described in
 # https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
 #
-# The purpose of this code right is primarily educational, to help piece
-# together the mechanics of the beacon state and to discover potential problem
-# areas. The entry point is `state_transition` which is at the bottom of the file!
+# The entry point is `state_transition` which is at the bottom of the file!
 #
-# General notes about the code (TODO):
+# General notes about the code:
 # * Weird styling - the sections taken from the spec use python styling while
 #   the others use NEP-1 - helps grepping identifiers in spec
-# * We mix procedural and functional styles for no good reason, except that the
-#   spec does so also.
-# * For indices, we get a mix of uint64, ValidatorIndex and int - this is currently
-#   swept under the rug with casts
-# * Sane error handling is missing in most cases (yay, we'll get the chance to
-#   debate exceptions again!)
-# When updating the code, add TODO sections to mark where there are clear
-# improvements to be made - other than that, keep things similar to spec for
-# now.
+# * When updating the code, add TODO sections to mark where there are clear
+#   improvements to be made - other than that, keep things similar to spec unless
+#   motivated by security or performance considerations
 
 {.push raises: [Defect].}
 
@@ -180,7 +172,6 @@ proc noRollback*(state: var HashedBeaconState) =
 proc state_transition*(
     preset: RuntimePreset,
     state: var HashedBeaconState, signedBlock: SomeSignedBeaconBlock,
-    # TODO this is ... okay, but not perfect; align with EpochRef
     stateCache: var StateCache,
     flags: UpdateFlags, rollback: RollbackHashedProc): bool {.nbench.} =
   ## Time in the beacon chain moves by slots. Every time (haha.) that happens,
@@ -212,7 +203,6 @@ proc state_transition*(
   if skipBLSValidation in flags or
       verify_block_signature(state.data, signedBlock):
 
-    # TODO after checking scaffolding, remove this
     trace "state_transition: processing block, signature passed",
       signature = shortLog(signedBlock.signature),
       blockRoot = shortLog(signedBlock.root)
@@ -246,8 +236,6 @@ proc state_transition*(
   state_transition(preset, state, signedBlock, cache, flags, rollback)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#preparing-for-a-beaconblock
-# TODO There's more to do here - the spec has helpers that deal set up some of
-#      the fields in here!
 proc makeBeaconBlock*(
     preset: RuntimePreset,
     state: var HashedBeaconState,

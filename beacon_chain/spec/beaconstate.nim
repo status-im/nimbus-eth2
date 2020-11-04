@@ -105,9 +105,6 @@ proc process_deposit*(preset: RuntimePreset,
     if skipBLSValidation notin flags:
       if not verify_deposit_signature(preset, deposit.data):
         # It's ok that deposits fail - they get included in blocks regardless
-        # TODO spec test?
-        # TODO: This is temporary set to trace level in order to deal with the
-        #       large number of invalid deposits on Altona
         trace "Skipping deposit with invalid signature",
           deposit = shortLog(deposit.data)
         return ok()
@@ -316,8 +313,7 @@ func emptyBeaconBlockBody(): BeaconBlockBody =
   # TODO: This shouldn't be necessary if OpaqueBlob is the default
   BeaconBlockBody(randao_reveal: ValidatorSig(kind: OpaqueBlob))
 
-# TODO this is now a non-spec helper function, and it's not really accurate
-# so only usable/used in research/ and tests/
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#genesis-block
 func get_initial_beacon_block*(state: BeaconState): SignedBeaconBlock =
   let message = BeaconBlock(
     slot: state.slot,
@@ -659,7 +655,7 @@ proc process_attestation*(
   ok()
 
 func makeAttestationData*(
-    state: BeaconState, slot: Slot, committee_index: uint64,
+    state: BeaconState, slot: Slot, committee_index: CommitteeIndex,
     beacon_block_root: Eth2Digest): AttestationData =
   ## Create an attestation / vote for the block `beacon_block_root` using the
   ## data in `state` to fill in the rest of the fields.
@@ -680,7 +676,7 @@ func makeAttestationData*(
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
-    index: committee_index,
+    index: committee_index.uint64,
     beacon_block_root: beacon_block_root,
     source: state.current_justified_checkpoint,
     target: Checkpoint(

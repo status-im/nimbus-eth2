@@ -161,10 +161,6 @@ func get_committee_count_per_slot*(state: BeaconState,
                                    cache: var StateCache): uint64 =
   # Return the number of committees at ``slot``.
 
-  # TODO this is mostly used in for loops which have indexes which then need to
-  # be converted to CommitteeIndex types for get_beacon_committee(...); replace
-  # with better and more type-safe use pattern, probably beginning with using a
-  # CommitteeIndex return type here.
   let
     active_validator_count = count_active_validators(state, epoch, cache)
   result = get_committee_count_per_slot(active_validator_count)

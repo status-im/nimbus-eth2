@@ -9,7 +9,7 @@ import
   chronicles,
   ../beacon_node_common,
 
-  ../spec/datatypes, ../eth2_json_rpc_serialization
+  ../spec/datatypes
 
 logScope: topics = "configapi"
 

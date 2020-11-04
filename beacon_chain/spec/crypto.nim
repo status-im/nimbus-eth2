@@ -53,8 +53,8 @@ type
     OpaqueBlob
 
   BlsValue*[N: static int, T: blscurve.PublicKey or blscurve.Signature] = object
-    # TODO This is a temporary type needed until we sort out the
-    # issues with invalid BLS values appearing in the SSZ test suites.
+    # Invalid BLS values may appear in SSZ blobs, their validity being checked
+    # in consensus rather than SSZ decoding, thus we use a variant to hold either
     case kind*: BlsValueType
     of Real:
       blsValue*: T
@@ -86,9 +86,7 @@ export AggregateSignature
 
 func toPubKey*(privkey: ValidatorPrivKey): ValidatorPubKey =
   ## Create a private key from a public key
-  # Un-specced in either hash-to-curve or Eth2
-  # TODO: Test suite should use `keyGen` instead
-  result.kind = Real
+  # Un-specced in either hash-to-curve or Eth2  result.kind = Real
   let ok = result.blsValue.publicFromSecret(SecretKey privkey)
   doAssert ok, "The validator private key was a zero key. This should never happen."
 
@@ -111,10 +109,9 @@ proc toRealPubKey(pubkey: ValidatorPubKey): Option[ValidatorPubKey] =
           none ValidatorPubKey
       return validatorKeyCache.mGetOrPut(pubkey.blob, maybeRealKey)
 
-# TODO this needs a massive comment explaining the reasoning along with every
-# seemingly ad-hoc place where it's called - one shouldn't have to git-blame
-# commits and PRs for information which ought to be inplace here in the code
 proc initPubKey*(pubkey: ValidatorPubKey): ValidatorPubKey =
+  # Public keys are lazy-initialized, so this needs to be called before any
+  # other function using the public key is tried
   let key = toRealPubKey(pubkey)
   if key.isNone:
     return ValidatorPubKey()

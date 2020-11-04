@@ -7,9 +7,7 @@
 
 import
   options, stew/endians2,
-  chronicles, eth/trie/[db],
-  ../beacon_chain/[beacon_chain_db, extras,
-                   merkle_minimal, validator_pool],
+  ../beacon_chain/[extras, merkle_minimal, validator_pool],
   ../beacon_chain/ssz/merkleization,
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, presets,
                         helpers, validator, signatures, state_transition]
@@ -157,8 +155,8 @@ proc makeTestBlock*(
 
 proc makeAttestation*(
     state: BeaconState, beacon_block_root: Eth2Digest,
-    committee: seq[ValidatorIndex], slot: Slot, index: uint64,
-    validator_index: auto, cache: var StateCache,
+    committee: seq[ValidatorIndex], slot: Slot, index: CommitteeIndex,
+    validator_index: ValidatorIndex, cache: var StateCache,
     flags: UpdateFlags = {}): Attestation =
   # Avoids state_sim silliness; as it's responsible for all validators,
   # transforming, from monotonic enumerable index -> committee index ->
@@ -197,8 +195,8 @@ proc find_beacon_committee(
     let
       slot = ((epoch_committee_index mod SLOTS_PER_EPOCH) +
         epoch.compute_start_slot_at_epoch.uint64).Slot
-      index = epoch_committee_index div SLOTS_PER_EPOCH
-      committee = get_beacon_committee(state, slot, index.CommitteeIndex, cache)
+      index = CommitteeIndex(epoch_committee_index div SLOTS_PER_EPOCH)
+      committee = get_beacon_committee(state, slot, index, cache)
     if validator_index in committee:
       return (committee, slot, index)
   doAssert false
@@ -225,7 +223,7 @@ proc makeFullAttestations*(
     let
       committee = get_beacon_committee(
         state, slot, index.CommitteeIndex, cache)
-      data = makeAttestationData(state, slot, index, beacon_block_root)
+      data = makeAttestationData(state, slot, index.CommitteeIndex, beacon_block_root)
 
     doAssert committee.len() >= 1
     # Initial attestation

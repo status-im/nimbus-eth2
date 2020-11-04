@@ -12,7 +12,7 @@ template toSszType*(x: auto): auto =
 
   # enum should not be added here as nim will raise Defect when value is out
   # of range
-  when x is Slot|Epoch|ValidatorIndex: uint64(x)
+  when x is Slot|Epoch: uint64(x)
   elif x is Eth2Digest: x.data
   elif x is BlsCurveType: toRaw(x)
   elif x is ForkDigest|Version|GraffitiBytes: distinctBase(x)
