@@ -1442,11 +1442,6 @@ programMain:
         fatal "Could not create directory", path = config.outValidatorsDir
         quit QuitFailure
 
-      let sres = secureCreatePath(config.outSecretsDir)
-      if sres.isErr():
-        fatal "Could not create directory", path = config.outSecretsDir
-        quit QuitFailure
-
       let deposits = generateDeposits(
         config.runtimePreset,
         rng[],
@@ -1454,7 +1449,7 @@ programMain:
         walletPath.wallet.nextAccount,
         config.totalDeposits,
         config.outValidatorsDir,
-        config.outSecretsDir)
+        config.getKeystoreFlags())
 
       if deposits.isErr:
         fatal "Failed to generate deposits", err = deposits.error
@@ -1504,8 +1499,8 @@ programMain:
 
       importKeystoresFromDir(
         rng[],
-        validatorKeysDir.string,
-        config.validatorsDir, config.secretsDir)
+        config.importedDepositsDir.string,
+        config.validatorsDir, config.getKeystoreFlags())
 
     of DepositsCmd.exit:
       waitFor handleValidatorExitCommand(config)
