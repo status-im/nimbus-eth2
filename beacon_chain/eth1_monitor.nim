@@ -90,6 +90,38 @@ template depositContractAddress(m: Eth1Monitor): Eth1Address =
 template web3Url(m: Eth1Monitor): string =
   m.dataProvider.url
 
+proc fixupInfuraUrls*(web3Url: var string) =
+  ## Converts HTTP and HTTPS Infura URLs to their WebSocket equivalents
+  ## because we are missing a functional HTTPS client.
+  let normalizedUrl = toLowerAscii(web3Url)
+  var pos = 0
+
+  template skip(x: string): bool =
+    if normalizedUrl.len - pos >= x.len and
+       normalizedUrl.toOpenArray(pos, pos + x.len - 1) == x:
+      pos += x.len
+      true
+    else:
+      false
+
+  if not (skip("https://") or skip("http://")):
+    return
+
+  let
+    isMainnet = skip("mainnet")
+    isGoerli = skip("goerli")
+
+  if not (isMainnet or isGoerli):
+    return
+
+  if not skip(".infura.io/v3/"):
+    return
+
+  template infuraKey: string = normalizedUrl.substr(pos)
+
+  web3Url = "wss://" & (if isMainnet: "mainnet" else: "goerli") &
+            ".infura.io/ws/v3/" & infuraKey
+
 # TODO: Add preset validation
 # MIN_GENESIS_ACTIVE_VALIDATOR_COUNT should be larger than SLOTS_PER_EPOCH
 #  doAssert SECONDS_PER_ETH1_BLOCK * preset.ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
@@ -357,6 +389,9 @@ proc init*(T: type Eth1Monitor,
            web3Url: string,
            depositContractAddress: Eth1Address,
            depositContractDeployedAt: string): Future[Result[T, string]] {.async.} =
+  var web3Url = web3Url
+  fixupInfuraUrls web3Url
+
   let web3 = try: await newWeb3(web3Url)
              except CatchableError as err:
                debugEcho err.msg
