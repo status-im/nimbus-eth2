@@ -128,10 +128,10 @@ static: doAssert: ETH2_SPEC == "v0.12.3" or ETH2_SPEC == "v1.0.0"
 when ETH2_SPEC == "v0.12.3":
   const mainnetRuntimePreset* = RuntimePreset(
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: 16384,
-    MIN_GENESIS_TIME: 1578009600,
+    MIN_GENESIS_TIME: 1606824000, # Dec 1, 2020, 12pm UTC
     GENESIS_FORK_VERSION: Version [byte 0, 0, 0, 0],
-    GENESIS_DELAY: 172800,
-    ETH1_FOLLOW_DISTANCE: 1024)
+    GENESIS_DELAY: 604800,
+    ETH1_FOLLOW_DISTANCE: 2048)
 else:
  const mainnetRuntimePreset* = RuntimePreset(
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: 16384,

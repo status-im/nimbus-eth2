@@ -359,6 +359,7 @@ proc init*(T: type Eth1Monitor,
            depositContractDeployedAt: string): Future[Result[T, string]] {.async.} =
   let web3 = try: await newWeb3(web3Url)
              except CatchableError as err:
+               debugEcho err.msg
                return err "Failed to setup web3 connection"
   let
     ns = web3.contractSender(DepositContract, depositContractAddress)
@@ -489,7 +490,7 @@ proc waitGenesis*(m: Eth1Monitor): Future[BeaconStateRef] {.async.} =
     if m.genesisStateFut.isNil:
       m.genesisStateFut = newFuture[void]("waitGenesis")
 
-    info "Waiting genesis state"
+    info "Awaiting genesis event"
     await m.genesisStateFut
     m.genesisStateFut = nil
 
