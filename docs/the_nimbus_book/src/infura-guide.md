@@ -1,5 +1,7 @@
 # Supplying your own Infura endpoint
 
+> ⚠️  This page concerns the Medalla testnet. If you have made a mainnet deposit, you do not need to connect to eth2 quite yet. Mainnet [Genesis](https://hackmd.io/@benjaminion/genesis) date has been set to [December 1st](https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/). This page will be updated nearer the time.
+
 In a nutshell, Infura is a hosted ethereum node cluster that lets you make requests to the eth1 blockchain without requiring you to set up your own eth1 node.
 
 While we do support Infura to process incoming validator deposits, we recommend running your own eth1 node to avoid relying on a third-party-service.

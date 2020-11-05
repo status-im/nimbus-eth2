@@ -1,9 +1,15 @@
 # Make a deposit
- 
 The easiest way to get your deposit in is to follow the Ethereum Foundation's launchpad instructions here:
- 
-[https://medalla.launchpad.ethereum.org/](https://zinken.launchpad.ethereum.org/)
- 
+
+**Testnet**:
+[https://medalla.launchpad.ethereum.org/](https://medalla.launchpad.ethereum.org/)
+
+**Mainnet**: [https://launchpad.ethereum.org/](https://launchpad.ethereum.org/)
+
+> ⚠️ : If you are making a mainnet deposit make sure you verify that the deposit contract you are interacting with is the correct one. 
+>
+> You should verify that the address is indeed: [0x00000000219ab540356cBB839Cbe05303d7705Fa](https://etherscan.io/address/0x00000000219ab540356cBB839Cbe05303d7705Fa)
+
 You may notice that there have been considerable improvements to the launchpad process since the summer.
  
 In particular, the Key Generation section is now much clearer, and you no longer have to install dependencies to get the command line app working.
@@ -34,6 +40,7 @@ We recommend you click on `Beaconchain`. This will open up a window that allows 
 
 It's a good idea to bookmark this page.
 
-## A note on expected waiting time (the queue)
-Once you send off your transaction(s), your validator will be put in a queue based on deposit time, and will getting through the queue may take a few hours or days (assuming the chain is finalising).
+## Expected waiting time (the queue)
+Once you send off your transaction(s), your validator will be put in a queue based on deposit time. Getting through the queue may take a few hours or days (assuming the chain is finalising). No validators are accepted into the validator set while the chain isn't finalising.
 
+> **Note:** If you are making a mainnet deposit this is all you need to do at this stage. If you haven't done so already, we recommend you make a testnet deposit too, and continue with the rest of the book. This will give you a chance to play around with Nimbus in a risk-free environment.

@@ -2,7 +2,10 @@
 
 The Nimbus beacon chain is a research implementation of the Beacon Chain – the core system level chain at the heart of Ethereum 2.0.
 
-This book strives to achieve two purposes: 1) to attempt to provide a more or less complete documentation of the Nimbus beacon chain, and 2) to explain the various ways in which you can use Nimbus to become a validator on eth2.
+This book strives to achieve two purposes:
+1. To attempt to provide a more or less complete **documentation of the Nimbus beacon chain**
+
+2. To explain the various ways in which you can **use Nimbus to become a validator on eth2**
 
 ### Helpful resources
 
@@ -16,10 +19,7 @@ This book strives to achieve two purposes: 1) to attempt to provide a more or le
 
 
 
-
 ## Introduction
-
-### What's the Beacon Chain?
 
 The beacon chain is the brain underpinning eth2 -- the next generation of Ethereum. It contains all of the machinery behind eth2's consensus.
 
