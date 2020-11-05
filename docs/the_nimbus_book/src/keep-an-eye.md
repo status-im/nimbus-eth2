@@ -1,10 +1,19 @@
 # Keep an eye on your validator
  
- If you deposit after the [genesis](https://hackmd.io/@benjaminion/genesis) state was decided, your validator(s) will be put in a queue based on deposit time, and will slowly be inducted into the validator set after genesis. Getting through the queue may take a few hours or a day or so.
  
- The best way to keep track of your validator's status is [medalla.beaconcha.in](https:/medalla.beaconcha.in) (click on the orange magnifying glass at the very top and paste in your validator's public key).
+The best way to keep track of your validator's status is using the `beaconcha.in` explorer (click on the orange magnifying glass at the very top and paste in your validator's public key):
  
-You can even [create an account](https://medalla.beaconcha.in/register) to add alerts and keep track of your validator's [performance](https://medalla.beaconcha.in/dashboard).
+ - **Testnet:** [medalla.beaconcha.in](https:/medalla.beaconcha.in) 
+ - **Mainnet:** [beaconcha.in](https://beaconcha.in/)
+ 
+If you deposit after the [genesis](https://hackmd.io/@benjaminion/genesis) state was decided, your validator(s) will be put in a queue based on deposit time, and will slowly be inducted into the validator set after genesis. Getting through the queue may take a few hours or a day or so.
+
+ 
+You can even create an account ([testnet link](https://medalla.beaconcha.in/register), [mainnet link](https://beaconcha.in/register)) to add alerts and keep track of your validator's performance ([testnet link](https://medalla.beaconcha.in/dashboard), [mainnet link](https://beaconcha.in/dashboard)).
+
+-------------------------------
+
+> ⚠️  The rest of this page concerns the Medalla testnet only. If you have made a mainnet deposit, you do not need to run Nimbus quite yet. Mainnet [Genesis](https://hackmd.io/@benjaminion/genesis) date has been set to [December 1st](https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/). This page will be updated nearer the time.
 
 ## Make sure your validator is attached
 

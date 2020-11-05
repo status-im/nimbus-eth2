@@ -1,5 +1,6 @@
 # Summary
 - [Introduction](./intro.md)
+- [Hardware requirements]()
 - [Install dependencies](./install.md)
 - [Build the beacon node](./build.md)
 - [Start syncing](./start-syncing.md)
@@ -7,7 +8,7 @@
 - [Manage your keys](./keys.md)
 - [Connect to eth2](./connect-eth2.md)
 - [Keep an eye on your validator](./keep-an-eye.md)
-- [Keep your validator updated](./keep-updated.md)
+- [Keep Nimbus updated](./keep-updated.md)
 - [Useful pre-genesis checks]()
 # Volume 2
 - [Troubleshooting](./troubleshooting.md)

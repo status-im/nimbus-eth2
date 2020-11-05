@@ -1,5 +1,7 @@
 # Network stats and monitoring
 
+> ⚠️  This page concerns the Medalla testnet. If you have made a mainnet deposit, you do not need to connect to eth2 quite yet. Mainnet [Genesis](https://hackmd.io/@benjaminion/genesis) date has been set to [December 1st](https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/). This page will be updated nearer the time.
+
 eth2stats is a network monitoring suite for your beacon node + validator client.
 
 It consists of a [command-line-interface](https://github.com/Alethio/eth2stats-client) (to help you query your node's API), and an [associated website](https://eth2stats.io/medalla-testnet)(which allows you to monitor your node from anywhere).

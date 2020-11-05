@@ -1,4 +1,7 @@
-# Troubleshooting (Medalla)
+# Troubleshooting
+
+> ⚠️  This page concerns the Medalla testnet. If you have made a mainnet deposit, you do not need to connect to eth2 quite yet. Mainnet [Genesis](https://hackmd.io/@benjaminion/genesis) date has been set to [December 1st](https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/). This page will be updated nearer the time.
+
 
 As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the `master` branch. If you can't find a solution to your problem here, feel free to hit us up on our [discord](https://discord.com/invite/XRxWahP)!
 
@@ -57,10 +60,6 @@ If you're experiencing a low peer count, you may be behind a firewall. Try resta
 make NODE_PARAMS="--nat:\"extip:35.124.65.104\"" medalla
 ```
 
-### Resource leaks
-
-If you're experiencing RAM related resource leaks, try restarting your client (**we recommend restarting every 6 hours** until we get to the bottom of this issue). If you have a [local Grafana setup](https://github.com/status-im/nimbus-eth2#getting-metrics-from-a-local-testnet-client), you can try monitoring the severity of these leaks and playing around with the restart interval.
-
 ### Address already in use error
 
 If you're seeing an error that looks like:
@@ -79,12 +78,12 @@ make BASE_PORT=9100 medalla
 
 (You can replace `9100` with a port of your choosing)
 
-### Mainchain monitor failure
+### Eth1 chain monitor failure
 
 If you're seeing one or more error messages that look like the following:
 
 ```
-ERR 2020-09-29 14:04:33.313+02:00 Mainchain monitor failure, restarting      tid=8941404 
+ERR 2020-09-29 14:04:33.313+02:00 Eth1 chain monitor failure, restarting      tid=8941404 
 file=eth1_monitor.nim:812 err="{\"code\":-32005,
 \"data\":{\"rate\":{\"allowed_rps\":1,
 \"backoff_seconds\":24,
@@ -95,7 +94,7 @@ file=eth1_monitor.nim:812 err="{\"code\":-32005,
 
 This means that our Infura endpoint is overloaded (in other words, the requests on a given day have reached the 100k free tier limit). 
 
-You can fix this by passing in your own Infura endpoint.
+You can fix this by passing in [your own Infura endpoint](./infura-guide.md).
 
 To do so, run: 
 
