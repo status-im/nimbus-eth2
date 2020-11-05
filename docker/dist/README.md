@@ -20,3 +20,23 @@ make dist
 
 No `-march=native` and no metrics support.
 
+## Running a Medalla node
+
+With default options:
+
+```bash
+./run_medalla_node.sh
+```
+
+Change options implemented as shell variables inside the script:
+
+```bash
+LOG_LEVEL=DEBUG BASE_PORT=9100 ./run_medalla_node.sh
+```
+
+Add arbitrary `beacon_node` parameters (yes, you can combine this with env vars):
+
+```bash
+./run_medalla_node.sh --log-level=DEBUG --rpc-port=9290
+```
+
