@@ -162,7 +162,7 @@
 a pointer + an environment that stores the captured state necessary
 to execute the function.</p>
 <p>The Nim compiler has a limited form of borrow checking and prevents
-capturing mutable variable or openarray (pointer+length pair).</p>
+capturing mutable variable or openArray (pointer+length pair).</p>
 <p>It otherwise copies the capture variables in case of objects with value semantics
 or increment the reference count in case of ref object.</p>
 <p>The Chronos library needs to generate a closure iterator for all async proc instantiated
