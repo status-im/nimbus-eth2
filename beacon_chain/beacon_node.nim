@@ -1034,6 +1034,13 @@ programMain:
     config.depositContractDeployedAt = some metadata.depositContractDeployedAt
   else:
     config.runtimePreset = defaultRuntimePreset
+    when const_preset == "mainnet":
+      if config.depositContractAddress.isNone:
+        config.depositContractAddress =
+          some mainnetMetadata.depositContractAddress
+      if config.depositContractDeployedAt.isNone:
+        config.depositContractDeployedAt =
+          some mainnetMetadata.depositContractDeployedAt
 
   # Single RNG instance for the application - will be seeded on construction
   # and avoid using system resources (such as urandom) after that

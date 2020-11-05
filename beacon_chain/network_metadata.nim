@@ -146,10 +146,10 @@ const
                            # that there are no constant overrides
       eth1Network: some mainnet,
       runtimePreset: mainnetRuntimePreset,
-      # TODO The values below are just placeholders for now
+      # TODO Add bootstrap nodes for mainnet
       bootstrapNodes: @[],
-      depositContractAddress: Eth1Address.fromHex "0x1234567890123456789012345678901234567890",
-      depositContractDeployedAt: "0",
+      depositContractAddress: Eth1Address.fromHex "0x00000000219ab540356cBB839Cbe05303d7705Fa",
+      depositContractDeployedAt: "11052984",
       genesisData: "")
   else:
     Eth2NetworkMetadata(
