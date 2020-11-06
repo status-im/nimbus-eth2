@@ -4,6 +4,10 @@ set -e
 
 cd /home/user/nimbus-eth2
 
+# debugging info
+env
+git config -l
+
 BINARIES="beacon_node medalla_beacon_node"
 
 # we need to build everything against libraries available inside this container, including the Nim compiler
