@@ -1109,6 +1109,8 @@ programMain:
       echo "Wrote ", bootstrapFile
 
   of noCommand:
+    warn "You are running an alpha version of Nimbus - it is not suitable for mainnet!",
+      version = fullVersionStr
     info "Launching beacon node",
           version = fullVersionStr,
           bls_backend = $BLS_BACKEND,
