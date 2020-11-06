@@ -394,7 +394,6 @@ proc init*(T: type Eth1Monitor,
 
   let web3 = try: await newWeb3(web3Url)
              except CatchableError as err:
-               debugEcho err.msg
                return err "Failed to setup web3 connection"
   let
     ns = web3.contractSender(DepositContract, depositContractAddress)
