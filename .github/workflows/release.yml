@@ -15,7 +15,8 @@ jobs:
       - name: Build project
         id: build_linux
         run: |
-          curl -sSOL https://github.com/status-im/nimbus-eth2/archive/${{ github.ref }}.tar.gz
+          echo "::set-output name=tag::"$(echo ${{ github.ref }} | sed 's%refs/tags/%%')
+          curl -sSOL https://github.com/status-im/nimbus-eth2/archive/${{ steps.build_linux.outputs.tag }}.tar.gz
           make dist
           cd dist
           echo "::set-output name=linux_amd64_archive::"$(echo nimbus-eth2_Linux_amd64_*.tar.gz)
@@ -35,8 +36,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.ref }}.tar.gz
-          asset_name: nimbus-eth2-${{ github.ref }}.tar.gz
+          asset_path: ${{ steps.build_linux.outputs.tag }}.tar.gz
+          asset_name: nimbus-eth2-${{ steps.build_linux.outputs.tag }}.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
