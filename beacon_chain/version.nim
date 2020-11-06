@@ -10,6 +10,7 @@ const
   versionMajor* = 0
   versionMinor* = 6
   versionBuild* = 0
+  versionBlob* = "hope" # This ends up in the default graffitti
 
   useInsecureFeatures* = defined(insecure)
 
@@ -20,8 +21,7 @@ const
   versionAsStr* =
     $versionMajor & "." & $versionMinor & "." & $versionBuild
 
-  fullVersionStr* =
-    versionAsStr & " (" & gitRevision & ")"
+  fullVersionStr* = "v" & versionAsStr & "-" & gitRevision
 
 func shortNimBanner*(): string =
   const gitPrefix = "git hash: "
