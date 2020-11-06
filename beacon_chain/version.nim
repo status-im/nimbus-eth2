@@ -8,7 +8,7 @@ when not defined(nimscript):
 
 const
   versionMajor* = 0
-  versionMinor* = 5
+  versionMinor* = 6
   versionBuild* = 0
 
   useInsecureFeatures* = defined(insecure)
