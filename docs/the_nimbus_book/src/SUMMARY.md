@@ -30,6 +30,5 @@
 - [Contribute](./contribute.md)
 - [Resources](./resources.md)
 # Archived
-- [Become a Zinken validator](./zinken.md)
 - [Become a Medalla validator](./medalla.md)
 

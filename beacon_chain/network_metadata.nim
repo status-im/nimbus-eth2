@@ -162,10 +162,8 @@ template eth2testnet(path: string): Eth2NetworkMetadata =
 
 const
   medallaMetadata* = eth2testnet "shared/medalla"
-  zinkenMetadata* = eth2testnet "shared/zinken"
   testnet0Metadata* = eth2testnet "nimbus/testnet0"
   testnet1Metadata* = eth2testnet "nimbus/testnet1"
-  attacknetMc0Metadata* = eth2testnet "shared/attacknet-beta1-mc-0"
 
 {.pop.} # the following pocedures raise more than just `Defect`
 
@@ -176,10 +174,6 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
         mainnetMetadata
       of "medalla":
         medallaMetadata
-      of "zinken":
-        zinkenMetadata
-      of "attacknet-beta1-mc-0":
-        attacknetMc0Metadata
       of "testnet0":
         testnet0Metadata
       of "testnet1":

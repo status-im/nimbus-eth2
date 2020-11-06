@@ -66,7 +66,7 @@ Make a cup of coffee :)
 
 ### 5. Set up wireless LAN
 
-Since you have loaded Raspberry Pi OS onto a blank SD card, you will have two partitions. The first one, which is the smaller one, is the `boot` partition. 
+Since you have loaded Raspberry Pi OS onto a blank SD card, you will have two partitions. The first one, which is the smaller one, is the `boot` partition.
 
 Create a `wpa_supplicant` configuration file in the `boot` partition with the following content:
 
@@ -85,14 +85,14 @@ network={
 
 
  > **Note:** Don't forget to replace the placeholder `country`, `ssid`, and `psk` values. See [Wikipedia](https://en.wikipedia.org/wiki/ISO_3166-1) for a list of 2 letter `ISO 3166-1` country codes.
- 
+
 
 
 ### 6. Enable SSH (using Linux or macOS)
 
 You can [access the command line](https://www.raspberrypi.org/documentation/remote-access/ssh/) of a Raspberry Pi remotely from another computer or device on the same network using [SSH](https://en.wikipedia.org/wiki/Ssh_(Secure_Shell)).
 
-While SSH is not enabled by default, you can enable it by placing a file named `ssh`, without any extension, onto the boot partition of the SD card. 
+While SSH is not enabled by default, you can enable it by placing a file named `ssh`, without any extension, onto the boot partition of the SD card.
 
 When the Pi boots, it will look for the `ssh` file. If it is found, SSH is enabled and the file is deleted. The content of the file does not matter; it can contain text, or nothing at all.
 
@@ -159,12 +159,12 @@ This is a security risk - please login as the 'pi' user and type 'passwd' to set
 Followed by a command-line prompt indicating a successful connection:
 
 ```
-pi@raspberrypi:~ $ 
+pi@raspberrypi:~ $
 ```
 
 ### 9. Increase swap size to 2GB
 
-The first step is to increase the [swap size](https://itsfoss.com/swap-size/) to 2GB (2048MB). 
+The first step is to increase the [swap size](https://itsfoss.com/swap-size/) to 2GB (2048MB).
 
 > **Note:** Swap acts as a breather to your system when the RAM is exhausted. When the RAM is exhausted, your Linux system uses part of the hard disk memory and allocates it to the running application.
 
@@ -275,21 +275,21 @@ As usual, replace `195.177.101.93` with your Pi's IP address, and `<VALIDATOR_KE
 To import your signing key into Nimbus, from the `nimbus-eth2` directory run:
 
 ```
-build/beacon_node deposits import  --data-dir=build/data/shared_medalla_0 ../validator_keys 
+build/beacon_node deposits import  --data-dir=build/data/shared_medalla_0 ../validator_keys
 ```
 
 
- 
+
  You'll be asked to enter the password you created to encrypt your keystore(s). Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your [key](https://blog.ethereum.org/2020/05/21/keys/) (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).
 
 ### 17. Run Screen
 
-From the `nimbus-eth2` directory, run: 
+From the `nimbus-eth2` directory, run:
 ```
 screen
 ```
 
-You should see output that looks like the following: 
+You should see output that looks like the following:
 ```
 GNU Screen version 4.06.02 (GNU) 23-Oct-17
 
@@ -342,7 +342,7 @@ If you look near the top of the logs printed to your console, you should see con
 INF 2020-10-07 17:04:09.213+02:00 Initializing networking                    topics="networking" tid=11688398 file=eth2_network.nim:1335 hostAddress=/ip4/0.0.0.0/tcp/9000 network_public_key=0802122102defb020c8e47dd8f5da89f51ed6c3998aaa0dd59eeb2784e29d47fdbdab69235 announcedAddresses=@[/ip4/195.177.101.93/tcp/9000]
 WRN 2020-10-07 17:04:09.215+02:00 Ignoring invalid bootstrap address         tid=11688398 file=eth2_discovery.nim:45 bootstrapAddr= reason="an empty string is not a valid bootstrap node"
 NOT 2020-10-07 17:04:09.231+02:00 Local validators attached                  topics="beacval" tid=11688398 file=validator_duties.nim:65 count=0
-NOT 2020-10-07 17:04:09.231+02:00 Starting beacon node                       topics="beacnde" tid=11688398 file=beacon_node.nim:923 version="0.5.0 (1dec860b)" nim="Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)" timeSinceFinalization=0ns head=0814b036:0 finalizedHead=0814b036:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.3 dataDir=build/data/shared_zinken_0
+NOT 2020-10-07 17:04:09.231+02:00 Starting beacon node                       topics="beacnde" tid=11688398 file=beacon_node.nim:923 version="0.5.0 (1dec860b)" nim="Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)" timeSinceFinalization=0ns head=0814b036:0 finalizedHead=0814b036:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.3 dataDir=build/data/shared_medalla_0
 ```
 
 To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running. You should see something like:
