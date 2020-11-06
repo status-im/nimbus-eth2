@@ -15,7 +15,7 @@ const
 
   gitRevision* = staticExec("git rev-parse --short HEAD")
 
-  nimBanner* = staticExec("nim --version")
+  nimBanner* = staticExec("nim --version | grep -v Compiled")
 
   versionAsStr* =
     $versionMajor & "." & $versionMinor & "." & $versionBuild
