@@ -4,7 +4,7 @@ set -e
 
 cd /home/user/nimbus-eth2
 
-BINARIES="beacon_node medalla_beacon_node"
+BINARIES="beacon_node beacon_node_spec_0_12_3"
 
 # we need to build everything against libraries available inside this container, including the Nim compiler
 make clean

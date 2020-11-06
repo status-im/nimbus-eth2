@@ -33,7 +33,7 @@ endif
 # unconditionally built by the default Make target
 # TODO re-enable ncli_query if/when it works again
 TOOLS := \
-	medalla_beacon_node \
+	beacon_node_spec_0_12_3 \
 	beacon_node \
 	block_sim \
 	deposit_contract \
@@ -283,27 +283,27 @@ endef
 ### medalla
 ###
 # https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
-medalla: | medalla_beacon_node signing_process
-	$(call CONNECT_TO_NETWORK,medalla,medalla_beacon_node)
+medalla: | beacon_node_0_12_3 signing_process
+	$(call CONNECT_TO_NETWORK,medalla,beacon_node_spec_0_12_3)
 
-medalla-vc: | medalla_beacon_node signing_process validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,medalla,medalla_beacon_node)
+medalla-vc: | beacon_node_spec_0_12_3 signing_process validator_client
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,medalla,beacon_node_spec_0_12_3)
 
-medalla-fast-sync: | medalla_beacon_node signing_process
-	$(call CONNECT_TO_NETWORK,medalla,medalla_beacon_node,FastSync)
+medalla-fast-sync: | beacon_node_spec_0_12_3 signing_process
+	$(call CONNECT_TO_NETWORK,medalla,beacon_node_spec_0_12_3,FastSync)
 
 ifneq ($(LOG_LEVEL), TRACE)
 medalla-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
-medalla-dev: | medalla_beacon_node signing_process
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,medalla,medalla_beacon_node)
+medalla-dev: | beacon_node_spec_0_12_3 signing_process
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,medalla,beacon_node_spec_0_12_3)
 endif
 
-medalla-deposit-data: | medalla_beacon_node signing_process deposit_contract
+medalla-deposit-data: | beacon_node_spec_0_12_3 signing_process deposit_contract
 	$(call MAKE_DEPOSIT_DATA,medalla)
 
-medalla-deposit: | medalla_beacon_node signing_process deposit_contract
+medalla-deposit: | beacon_node_spec_0_12_3 signing_process deposit_contract
 	$(call MAKE_DEPOSIT,medalla)
 
 clean-medalla:
