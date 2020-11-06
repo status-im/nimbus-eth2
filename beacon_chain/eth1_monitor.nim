@@ -388,7 +388,8 @@ proc init*(T: type Eth1Monitor,
            preset: RuntimePreset,
            web3Url: string,
            depositContractAddress: Eth1Address,
-           depositContractDeployedAt: string): Future[Result[T, string]] {.async.} =
+           depositContractDeployedAt: string,
+           eth1Network: Option[Eth1Network]): Future[Result[T, string]] {.async.} =
   var web3Url = web3Url
   fixupInfuraUrls web3Url
 
@@ -398,6 +399,17 @@ proc init*(T: type Eth1Monitor,
   let
     ns = web3.contractSender(DepositContract, depositContractAddress)
     dataProvider = Web3DataProviderRef(url: web3Url, web3: web3, ns: ns)
+
+  if eth1Network.isSome:
+    let
+      providerNetwork = await web3.provider.net_version()
+      expectedNetwork = case eth1Network.get
+        of mainnet: "1"
+        of rinkeby: "4"
+        of goerli:  "5"
+    if expectedNetwork != providerNetwork:
+      return err("The specified we3 provider is not attached to the " &
+                  $eth1Network.get & " network")
 
   let
     previouslyPersistedTo = db.getEth1PersistedTo()

@@ -67,13 +67,15 @@ func enrForkIdFromState(state: BeaconState): ENRForkID =
     next_fork_epoch: FAR_FUTURE_EPOCH)
 
 proc startEth1Monitor(db: BeaconChainDB,
+                      eth1Network: Option[Eth1Network],
                       conf: BeaconNodeConf): Future[Eth1Monitor] {.async.} =
   let eth1MonitorRes = await Eth1Monitor.init(
     db,
     conf.runtimePreset,
     conf.web3Url,
     conf.depositContractAddress.get,
-    conf.depositContractDeployedAt.get)
+    conf.depositContractDeployedAt.get,
+    eth1Network)
 
   result = if eth1MonitorRes.isOk:
     eth1MonitorRes.get
@@ -90,7 +92,8 @@ proc startEth1Monitor(db: BeaconChainDB,
 proc init*(T: type BeaconNode,
            rng: ref BrHmacDrbgContext,
            conf: BeaconNodeConf,
-           genesisStateContents: ref string): Future[BeaconNode] {.async.} =
+           genesisStateContents: ref string,
+           eth1Network: Option[Eth1Network]): Future[BeaconNode] {.async.} =
   let
     netKeys = getPersistentNetKeys(rng[], conf)
     nickname = if conf.nodeName == "auto": shortForm(netKeys)
@@ -159,7 +162,7 @@ proc init*(T: type BeaconNode,
 
       # TODO Could move this to a separate "GenesisMonitor" process or task
       #      that would do only this - see Paul's proposal for this.
-      eth1Monitor = await startEth1Monitor(db, conf)
+      eth1Monitor = await startEth1Monitor(db, eth1Network, conf)
 
       genesisState = await eth1Monitor.waitGenesis()
       if bnStatus == BeaconNodeStatus.Stopping:
@@ -233,7 +236,7 @@ proc init*(T: type BeaconNode,
      conf.depositContractDeployedAt.isSome:
     # TODO if we don't have any validators attached,
     #      we don't need a mainchain monitor
-    eth1Monitor = await startEth1Monitor(db, conf)
+    eth1Monitor = await startEth1Monitor(db, eth1Network, conf)
 
   let rpcServer = if conf.rpcEnabled:
     RpcServer.init(conf.rpcAddress, conf.rpcPort)
@@ -981,6 +984,7 @@ programMain:
     config = makeBannerAndConfig(clientId, BeaconNodeConf)
     # This is ref so we can mutate it (to erase it) after the initial loading.
     genesisStateContents: ref string
+    eth1Network: Option[Eth1Network]
 
   setupStdoutLogging(config.logLevel)
 
@@ -1029,9 +1033,10 @@ programMain:
 
     checkForIncompatibleOption "deposit-contract", depositContractAddress
     checkForIncompatibleOption "deposit-contract-block", depositContractDeployedAt
-
     config.depositContractAddress = some metadata.depositContractAddress
     config.depositContractDeployedAt = some metadata.depositContractDeployedAt
+
+    eth1Network = metadata.eth1Network
   else:
     config.runtimePreset = defaultRuntimePreset
     when const_preset == "mainnet":
@@ -1041,6 +1046,7 @@ programMain:
       if config.depositContractDeployedAt.isNone:
         config.depositContractDeployedAt =
           some mainnetMetadata.depositContractDeployedAt
+      eth1Network = some mainnet
 
   # Single RNG instance for the application - will be seeded on construction
   # and avoid using system resources (such as urandom) after that
@@ -1129,7 +1135,8 @@ programMain:
     # There are no managed event loops in here, to do a graceful shutdown, but
     # letting the default Ctrl+C handler exit is safe, since we only read from
     # the db.
-    var node = waitFor BeaconNode.init(rng, config, genesisStateContents)
+    var node = waitFor BeaconNode.init(
+      rng, config, genesisStateContents, eth1Network)
 
     if bnStatus == BeaconNodeStatus.Stopping:
       return
