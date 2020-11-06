@@ -1,5 +1,9 @@
 # The Nimbus beacon chain book
 
+>**Note:** This book is very much a living entity. You'll always be able to find the latest version here: [https://status-im.github.io/nimbus-eth2/](https://status-im.github.io/nimbus-eth2/)
+>
+>
+
 The Nimbus beacon chain is a research implementation of the Beacon Chain – the core system level chain at the heart of Ethereum 2.0.
 
 This book strives to achieve two purposes:
