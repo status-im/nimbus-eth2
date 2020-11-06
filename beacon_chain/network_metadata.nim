@@ -35,6 +35,11 @@ type
   Eth2NetworkMetadata* = object
     case incompatible*: bool
     of false:
+      # TODO work-around a Nim codegen issue where upon constant assignment
+      #      the compiler will copy `incompatibilityDesc` even when the case
+      #      branch is not active and thus it will override the first variable
+      #      in this branch.
+      dummy: string
       eth1Network*: Option[Eth1Network]
       runtimePreset*: RuntimePreset
 
