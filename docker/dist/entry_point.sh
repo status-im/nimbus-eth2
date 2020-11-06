@@ -3,6 +3,7 @@
 set -e
 
 cd /home/user/nimbus-eth2
+git config --global core.abbrev 8
 
 # debugging info
 env
