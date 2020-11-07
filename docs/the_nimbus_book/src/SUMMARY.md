@@ -6,7 +6,7 @@
 - [Run an eth1 node](./eth1.md)
 - [Sync the beacon node](./start-syncing.md)
 - [Make a deposit](./deposit.md)
-- [Manage your keys](./keys.md)
+- [Import your keys](./keys.md)
 - [Connect your validator to eth2](./connect-eth2.md)
 - [Keep an eye on your validator](./keep-an-eye.md)
 - [Keep Nimbus updated](./keep-updated.md)

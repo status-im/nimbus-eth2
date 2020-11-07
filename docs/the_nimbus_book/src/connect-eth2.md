@@ -5,8 +5,10 @@
 To connect your validator to the Medalla testnet, from the `nimbus-eth2` repository run:
 
 ```
- ./run-mainnet-beacon-node.sh
+ ./run-medalla-beacon-node.sh
 ```
+
+You'll be asked to enter your [Web3 provider URL](./start-syncing.md#web3-provider-url) again.
 
 > **Note:** If your beacon node is already running, you'll need to shut it down gracefully (`Ctrl+c`) and re-run the above command.
 

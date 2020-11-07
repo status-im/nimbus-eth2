@@ -1,11 +1,8 @@
-# Manage your keys
+# Import your keys
 
 
 > ⚠️  This page concerns the Medalla testnet only. If you have made a mainnet deposit, you do not need to import your keys into Nimbus quite yet. 
 
-
-
-## Import
 
 To import your signing key(s) into Nimbus, from the `nimbus-eth2` directory run:
 
