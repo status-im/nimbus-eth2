@@ -25,7 +25,9 @@ In the `Select Client` section you'll first be asked to choose an eth1 client. Y
 
 ![](https://i.imgur.com/l5WSGqZ.png)
 
-We recommend you choose `Go Ethereum` (or `Geth`).
+We recommend you choose `Go Ethereum` (or `Geth`). 
+
+*If you've followed the book up to this point, you should already have geth up and running.*
 
 ## 2. Block explorer
 Once you've sent off your transaction, you should see the following screen.
@@ -43,4 +45,5 @@ It's a good idea to bookmark this page.
 ## Expected waiting time (the queue)
 Once you send off your transaction(s), your validator will be put in a queue based on deposit time. Getting through the queue may take a few hours or days (assuming the chain is finalising). No validators are accepted into the validator set while the chain isn't finalising.
 
-> **Note:** If you are making a mainnet deposit this is all you need to do at this stage. If you haven't done so already, we recommend you make a testnet deposit too, and continue with the rest of the book. This will give you a chance to play around with Nimbus in a risk-free environment.
+*If you've made a mainnet deposit, your validator will be activated when mainnet launches, regardless of how many deposits are made before then: this will in all likelihood be **Dec 1st 2020, 12pm UTC***
+

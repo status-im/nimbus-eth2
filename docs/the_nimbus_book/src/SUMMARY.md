@@ -3,7 +3,7 @@
 - [Hardware requirements]()
 - [Install dependencies](./install.md)
 - [Build the beacon node](./build.md)
-- [Sync an eth1 node]()
+- [Run an eth1 node](./eth1.md)
 - [Sync the beacon node](./start-syncing.md)
 - [Make a deposit](./deposit.md)
 - [Manage your keys](./keys.md)
