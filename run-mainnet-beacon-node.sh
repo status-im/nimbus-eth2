@@ -1,4 +1,5 @@
 #!/bin/bash
 
-scripts/run-beacon-node.sh beacon_node mainnet
+cd "$(dirname $0)"
+scripts/run-beacon-node.sh beacon_node mainnet $@
 
