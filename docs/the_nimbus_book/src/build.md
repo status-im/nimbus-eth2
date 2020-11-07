@@ -12,17 +12,23 @@ Before building and running the application, make sure you've gone through the [
 
 ## Building the node
 
-#### 1. Clone the nim beacon chain repository
+### 1. Clone the nim beacon chain repository
 
 ```
 git clone https://github.com/status-im/nimbus-eth2
 cd nimbus-eth2
 ```
 
-#### 2. Run the beacon node build process
+### 2. Run the beacon node build process
 
 To build the Nimbus beacon node and it's dependencies, run:
 
+*Medalla testnet*
+```
+make beacon_node_spec_0_12_3
+```
+
+*Mainnet*
 ```
 make beacon_node
 ```

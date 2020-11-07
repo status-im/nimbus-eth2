@@ -58,6 +58,7 @@ The string of letters -- what we call the `sync worker map` (in the above case r
 The number following it (in the above case represented by `7`) represents the number of workers that are currently active (i.e not sleeping or waiting for a peer).
 
 ## eth2stats
-<blockquote class="twitter-tweet"><p lang="en" dir="ltr">Zinken eth2stats is up!<a href="https://t.co/3LsvmN3NXN">https://t.co/3LsvmN3NXN</a><br><br>One good pre-genesis check is to query your local node&#39;s API to see if you have peers (you should!)<br><br>If you hook up to eth2stats, you can easily monitor this metric from anywhere 👀</p>&mdash; dannyryan (@dannyryan) <a href="https://twitter.com/dannyryan/status/1314280942651858945?ref_src=twsrc%5Etfw">October 8, 2020</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
-*Todo*
+
+eth2stats is a network monitoring suite for your beacon node + validator client. One good pre-genesis check is to query your local node's API to see if you have peers. See our guide [here](./eth2-stats.md) for more.
+

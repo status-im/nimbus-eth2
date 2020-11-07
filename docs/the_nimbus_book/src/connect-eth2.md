@@ -1,40 +1,26 @@
-# Connect to eth2
+# Connect your validator to eth2
 
-> ⚠️  This page concerns the Medalla testnet only. If you have made a mainnet deposit, you do not need to connect to eth2 quite yet. Mainnet [Genesis](https://hackmd.io/@benjaminion/genesis) date has been set to [December 1st](https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/). This page will be updated nearer the time.
+> ⚠️  This page concerns the Medalla testnet only. If you have made a mainnet deposit, you do not need to connect your validator to eth2 quite yet. Mainnet [Genesis](https://hackmd.io/@benjaminion/genesis) date has been set to [December 1st](https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/). This page will be updated nearer the time.
 
-To connect to the Medalla testnet, from the `nimbus-eth2` repository run:
+To connect your validator to the Medalla testnet, from the `nimbus-eth2` repository run:
 
 ```
-make medalla
+ ./run-mainnet-beacon-node.sh
 ```
 
 > **Note:** If your beacon node is already running, you'll need to shut it down gracefully (`Ctrl+c`) and re-run the above command.
 
-This will build Nimbus and its dependencies, and connect you to the eth2 network.
+This will build Nimbus and its dependencies, and connect your validator the eth2 network.
 You should see that the beacon node has launched with your validator attached:
 
 ```
-WRN 2020-08-03 16:24:17.950+02:00 Validator not in registry (yet?)           topics="beacval" tid=11677993 file=validator_duties.nim:53 pubKey=a9c4df36
-INF 2020-08-03 16:24:17.951+02:00 Local validator attached                   tid=11677993 file=validator_pool.nim:21 pubKey=a9c4df36 validator=a9c4df36
-INF 2020-08-03 16:24:17.951+02:00 Local validators attached                  topics="beacval" tid=11677993 file=validator_duties.nim:61 count=1
-INF 2020-08-03 16:24:17.958+02:00 Starting beacon node                       topics="beacnde" tid=11677993 file=beacon_node.nim:875 version="0.5.0 (31b33907)" nim="Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)" timeSinceFinalization=81350 head=ebe49843:0 finalizedHead=ebe49843:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.2 dataDir=build/data/shared_medalla_0 pcs=start_beacon_node
+INF 2020-11-07 16:36:44.968+01:00 Generating a random Peer ID to protect your privacy topics="networking" tid=18434834 file=eth2_network.nim:1271 network_public_key=08021221024de664bd393499b1e852ea82c22068b95ffbf1b64dc40f31cafb5b0eac87c730
+INF 2020-11-07 16:36:45.797+01:00 Block dag initialized                      topics="beacnde" tid=18434834 file=chain_dag.nim:423 head=ebe49843:0 finalizedHead=ebe49843:0 tail=ebe49843:0 totalBlocks=1
+INF 2020-11-07 16:36:47.248+01:00 Starting Eth1 deposit contract monitoring  tid=18434834 file=eth1_monitor.nim:690 contract=0x07b39f4fde4a38bace212b546dac87c58dfe3fdc url=wss://goerli.infura.io/ws/v3/ae0e57122a1e49af8e835e82a5e35e60
+INF 2020-11-07 16:36:47.248+01:00 Waiting for new Eth1 block headers         tid=18434834 file=eth1_monitor.nim:303
+INF 2020-11-07 16:36:48.940+01:00 Initializing networking                    topics="networking" tid=18434834 file=eth2_network.nim:1395 hostAddress=/ip4/0.0.0.0/tcp/9000 network_public_key=38131421024de776bd393503b1e852ea82c22068b95ffbf1b64dc40f31cafb5b0eac87d669 announcedAddresses=@[/ip4/192.175.15.54/tcp/9000]
+INF 2020-11-07 16:36:49.084+01:00 Initializing fork choice from block database topics="beacnde" tid=18434834 file=attestation_pool.nim:55 unfinalized_blocks=0
+INF 2020-11-07 16:36:49.085+01:00 Fork choice initialized                    topics="beacnde" tid=18434834 file=attestation_pool.nim:81 justified_epoch=0 finalized_epoch=0 finalized_root=ebe49843
+NOT 2020-11-07 16:36:49.091+01:00 Local validators attached                  topics="beacval" tid=18434834 file=validator_duties.nim:65 count=0
 ```
 
- > **Note:** when you run `make medalla`, the beacon node launches with an Infura endpoint supplied by us. This endpoint is passed through the `web3-url` option (which takes as input the url of the web3 server from which you'd like to observe the eth1 chain). 
-> 
-> Because Infura caps the requests per endpoint per day to 100k, and all Nimbus nodes use the same Infura endpoint by default, it can happen that our Infura endpoint is overloaded (i.e the requests on a given day reach the 100k limit). If this happens, all requests to Infura using the default endpoint will fail, which means your node will stop processing new deposits.
->
-> To pass in your own Infura endpoint, you'll need to run:
->```
-> make NODE_PARAMS="--web3-url=<YOUR_WEBSOCKET_ENDPOINT>" medalla
->```
-> Importantly, the endpoint must be a websocket (`wss`) endpoint, not `https`. If you're not familiar with Infura, we recommend reading through our [Infura guide](./infura-guide), first.
->
-> P.S. We are well aware that Infura is less than ideal from a decentralisation perspective. As such we are in the process of changing our default to [Geth](https://geth.ethereum.org/docs/install-and-build/installing-geth) (with Infura as a fallback). For some rough notes on how to use Geth with Nimbus, see [here](https://gist.github.com/onqtam/aaf883d46f4dab1311ca9c160df12fe4) (we will be adding more complete instructions very soon).
- 
-
-> **Tip:** to 🎨 on the [graffitwall](https://medalla.beaconcha.in/graffitiwall), pass the graffiti parameter like this:
->```
->make NODE_PARAMS="--graffiti='<YOUR_GRAFFITI>'" medalla
-
-For a more complete list of the options available, see [here](./advanced.md).

@@ -7,7 +7,7 @@
 - [Sync the beacon node](./start-syncing.md)
 - [Make a deposit](./deposit.md)
 - [Manage your keys](./keys.md)
-- [Connect to eth2](./connect-eth2.md)
+- [Connect your validator to eth2](./connect-eth2.md)
 - [Keep an eye on your validator](./keep-an-eye.md)
 - [Keep Nimbus updated](./keep-updated.md)
 # Volume 2

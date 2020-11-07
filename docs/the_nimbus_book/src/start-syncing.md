@@ -10,7 +10,7 @@ This is particularly important if you are joining a network that's been running 
 To start syncing the `medalla` testnet , from the `nimbus-eth2` repository, run:
 
 ```
-make medalla
+ ./run-medalla-beacon-node.sh
 ```
 
 ### Mainnet
@@ -24,6 +24,7 @@ To start monitoring the eth1 mainnet chain for deposits, from the `nimbus-eth2` 
  ./run-mainnet-beacon-node.sh
 ```
 
+### Web3 provider URL
 You should see the following prompt:
 
 ```
@@ -47,5 +48,6 @@ Enter it, you should see the following output:
 ```
 INF 2020-11-07 13:59:31.199+01:00 Generating a random Peer ID to protect your privacy                   topics="networking" tid=18382613 file=eth2_network.nim:1229 network_public_key=08021221020ee5c1cfbf731405d14f2f382bc4037fbbee2b6ac5511dd51f1d9e28abb1aa62
 INF 2020-11-07 13:59:31.336+01:00 Starting Eth1 deposit contract monitoring  tid=18382613 file=mainchain_monitor.nim:783 contract=0x1234567890123456789012345678901234567890 url=web3(ws://127.0.0.1:8546)
+...
 ```
 

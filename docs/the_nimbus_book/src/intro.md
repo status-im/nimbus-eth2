@@ -1,15 +1,12 @@
-# The Nimbus beacon chain book
+# The Nimbus book
 
 >**Note:** This book is very much a living entity. You'll always be able to find the latest version here: [https://status-im.github.io/nimbus-eth2/](https://status-im.github.io/nimbus-eth2/)
 >
 >
 
-The Nimbus beacon chain is a research implementation of the Beacon Chain – the core system level chain at the heart of Ethereum 2.0.
+Nimbus is an Ethereum 2.0 client focused on offering the best user experience possible for resource-restricted devices.
 
-This book strives to achieve two purposes:
-1. To attempt to provide a more or less complete **documentation of the Nimbus beacon chain**
-
-2. To explain the various ways in which you can **use Nimbus to become a validator on eth2**
+This book explains all the ways in which you can use Nimbus to either monitor the eth2 chain or become a fully-fledged validator.
 
 ### Helpful resources
 
@@ -20,15 +17,6 @@ This book strives to achieve two purposes:
 - [Vitalik's annotated spec](https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md)
 
 - [Danny Ryan's annotated spec](https://notes.ethereum.org/@djrtwo/Bkn3zpwxB)
-
-
-
-## Introduction
-
-The beacon chain is the brain underpinning eth2 -- the next generation of Ethereum. It contains all of the machinery behind eth2's consensus.
-
-You can find a complete introduction to the beacon chain in our [Ethereum 2.0 blog series](https://our.status.im/two-point-oh-the-beacon-chain/).
-
 
 
 ### Why eth2?
