@@ -57,7 +57,7 @@ proc loadGenesis*(validators: Natural, validate: bool): ref HashedBeaconState =
     # TODO check that the private keys are interop keys
     res
   else:
-    echo "Genesis file not found, making one up (use beacon_node createTestnet to make one)"
+    echo "Genesis file not found, making one up (use nimbus_beacon_node createTestnet to make one)"
 
     echo "Preparing validators..."
     let

@@ -371,7 +371,7 @@ After cloning the repo:
 # The first `make` invocation will update all Git submodules.
 # You'll run `make update` after each `git pull`, in the future, to keep those submodules up to date.
 
-# Build beacon_node and all the tools, using 4 parallel Make jobs
+# Build nimbus_beacon_node and all the tools, using 4 parallel Make jobs
 make -j4
 
 # Run tests
@@ -444,7 +444,7 @@ make V=2 test # even more verbose
 
 ```bash
 make LOG_LEVEL=DEBUG bench_bls_sig_agggregation # this is the default
-make LOG_LEVEL=TRACE beacon_node # log everything
+make LOG_LEVEL=TRACE nimbus_beacon_node # log everything
 ```
 
 - pass arbitrary parameters to the Nim compiler:
@@ -468,19 +468,19 @@ make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
 - disable `-march=native` because you want to run the binary on a different machine than the one you're building it on:
 
 ```bash
-make NIMFLAGS="-d:disableMarchNative" beacon_node
+make NIMFLAGS="-d:disableMarchNative" nimbus_beacon_node
 ```
 
 - disable link-time optimisation (LTO):
 
 ```bash
-make NIMFLAGS="-d:disableLTO" beacon_node
+make NIMFLAGS="-d:disableLTO" nimbus_beacon_node
 ```
 
 - build a static binary
 
 ```bash
-make NIMFLAGS="--passL:-static" beacon_node
+make NIMFLAGS="--passL:-static" nimbus_beacon_node
 ```
 
 - publish a book using [mdBook](https://github.com/rust-lang/mdBook) from sources in "docs/" to GitHub pages:

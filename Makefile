@@ -33,8 +33,8 @@ endif
 # unconditionally built by the default Make target
 # TODO re-enable ncli_query if/when it works again
 TOOLS := \
-	beacon_node_spec_0_12_3 \
-	beacon_node \
+	nimbus_beacon_node_spec_0_12_3 \
+	nimbus_beacon_node \
 	block_sim \
 	deposit_contract \
 	inspector \
@@ -46,8 +46,8 @@ TOOLS := \
 	process_dashboard \
 	stack_sizes \
 	state_sim \
-	validator_client \
-	signing_process
+	nimbus_validator_client \
+	nimbus_signing_process
 
 # bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
 
@@ -176,8 +176,8 @@ clean-testnet0:
 clean-testnet1:
 	rm -rf build/data/testnet1*
 
-testnet0 testnet1: | beacon_node signing_process
-	build/beacon_node \
+testnet0 testnet1: | nimbus_beacon_node nimbus_signing_process
+	build/nimbus_beacon_node \
 		--network=$@ \
 		--log-level="$(LOG_LEVEL)" \
 		--data-dir=build/data/$@_$(NODE_ID) \
@@ -239,7 +239,7 @@ define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 
 	sleep 4
 
-	build/validator_client \
+	build/nimbus_validator_client \
 		--log-level="$(LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_vc_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
@@ -247,7 +247,7 @@ define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 endef
 
 define MAKE_DEPOSIT_DATA
-	build/beacon_node deposits create \
+	build/nimbus_beacon_node deposits create \
 		--network=$(1) \
 		--new-wallet-file=build/data/shared_$(1)_$(NODE_ID)/wallet.json \
 		--out-validators-dir=build/data/shared_$(1)_$(NODE_ID)/validators \
@@ -257,7 +257,7 @@ define MAKE_DEPOSIT_DATA
 endef
 
 define MAKE_DEPOSIT
-	build/beacon_node deposits create \
+	build/nimbus_beacon_node deposits create \
 		--network=$(1) \
 		--out-deposits-file=nbc-$(1)-deposits.json \
 		--new-wallet-file=build/data/shared_$(1)_$(NODE_ID)/wallet.json \
@@ -283,27 +283,27 @@ endef
 ### medalla
 ###
 # https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
-medalla: | beacon_node_spec_0_12_3 signing_process
-	$(call CONNECT_TO_NETWORK,medalla,beacon_node_spec_0_12_3)
+medalla: | nimbus_beacon_node_spec_0_12_3 nimbus_signing_process
+	$(call CONNECT_TO_NETWORK,medalla,nimbus_beacon_node_spec_0_12_3)
 
-medalla-vc: | beacon_node_spec_0_12_3 signing_process validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,medalla,beacon_node_spec_0_12_3)
+medalla-vc: | nimbus_beacon_node_spec_0_12_3 nimbus_signing_process nimbus_validator_client
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,medalla,nimbus_beacon_node_spec_0_12_3)
 
-medalla-fast-sync: | beacon_node_spec_0_12_3 signing_process
-	$(call CONNECT_TO_NETWORK,medalla,beacon_node_spec_0_12_3,FastSync)
+medalla-fast-sync: | nimbus_beacon_node_spec_0_12_3 nimbus_signing_process
+	$(call CONNECT_TO_NETWORK,medalla,nimbus_beacon_node_spec_0_12_3,FastSync)
 
 ifneq ($(LOG_LEVEL), TRACE)
 medalla-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
-medalla-dev: | beacon_node_spec_0_12_3 signing_process
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,medalla,beacon_node_spec_0_12_3)
+medalla-dev: | nimbus_beacon_node_spec_0_12_3 nimbus_signing_process
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,medalla,nimbus_beacon_node_spec_0_12_3)
 endif
 
-medalla-deposit-data: | beacon_node_spec_0_12_3 signing_process deposit_contract
+medalla-deposit-data: | nimbus_beacon_node_spec_0_12_3 nimbus_signing_process deposit_contract
 	$(call MAKE_DEPOSIT_DATA,medalla)
 
-medalla-deposit: | beacon_node_spec_0_12_3 signing_process deposit_contract
+medalla-deposit: | nimbus_beacon_node_spec_0_12_3 nimbus_signing_process deposit_contract
 	$(call MAKE_DEPOSIT,medalla)
 
 clean-medalla:
@@ -318,7 +318,7 @@ ntu: | build deps
 	$(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ntu c vendor/nim-testutils/ntu.nim
 
 clean: | clean-common
-	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,beacon_node_*,block_sim,state_sim,transition*}
+	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,nimbus_beacon_node*,beacon_node_*,block_sim,state_sim,transition*}
 ifneq ($(USE_LIBBACKTRACE), 0)
 	+ "$(MAKE)" -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 endif

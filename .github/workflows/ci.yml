@@ -273,8 +273,8 @@ jobs:
         shell: bash
         working-directory: nim-beacon-chain
         run: |
-          make -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" beacon_node
-          make -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" validator_client
+          make -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" nimbus_beacon_node
+          make -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" nimbus_validator_client
 
       - name: Run nim-beacon-chain tests
         if: matrix.target.TEST_KIND == 'unit-tests'

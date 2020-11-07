@@ -23,7 +23,7 @@ Build both repositories by following their respective build instructions.
 *nimbus-eth2*
 ```console
 cd nimbus-eth2
-make beacon_node
+make nimbus_beacon_node
 ```
 
 
@@ -33,7 +33,7 @@ cd eth2stats-client
 make build
 ```
 
-The resulting binaries should appear in `nimbus-eth2/build/beacon_node` and `eth2stats-client/eth2stats-client`, respectively.
+The resulting binaries should appear in `nimbus-eth2/build/nimbus_beacon_node` and `eth2stats-client/eth2stats-client`, respectively.
 
 ### 3. Create an executable script
 

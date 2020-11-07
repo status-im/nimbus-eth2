@@ -23,12 +23,12 @@ RUN=0
 
 print_help() {
 	cat <<EOF
-Usage: $(basename $0) <options> -- <beacon_node options>
+Usage: $(basename $0) <options> -- <nimbus_beacon_node options>
 
   -h, --help			this help message
       --network   default: ${NETWORK}
-      --build     build the beacon_node
-      --run       run the beacon_node
+      --build     build the nimbus_beacon_node binary
+      --run       run the nimbus_beacon_node binary
 EOF
 }
 
@@ -91,7 +91,7 @@ if [[ "$BUILD" == "1" ]]; then
   git pull
   # don't use too much RAM
   make update
-  make LOG_LEVEL="TRACE" NIMFLAGS="-d:insecure -d:testnet_servers_image --parallelBuild:1" beacon_node signing_process
+  make LOG_LEVEL="TRACE" NIMFLAGS="-d:insecure -d:testnet_servers_image --parallelBuild:1" nimbus_beacon_node nimbus_signing_process
 fi
 
 #######
@@ -100,7 +100,7 @@ fi
 
 if [[ "$RUN" == "1" ]]; then
   cd /root/.cache/nimbus/nim-beacon-chain
-  # make sure Docker's SIGINT reaches the beacon_node binary
-  exec build/beacon_node --network="${NETWORK}" --data-dir="build/data/shared_${NETWORK}_0" --web3-url="wss://goerli.infura.io/ws/v3/6224f3c792cc443fafb64e70a98f871e" ${EXTRA_ARGS}
+  # make sure Docker's SIGINT reaches the nimbus_beacon_node binary
+  exec build/nimbus_beacon_node --network="${NETWORK}" --data-dir="build/data/shared_${NETWORK}_0" --web3-url="wss://goerli.infura.io/ws/v3/6224f3c792cc443fafb64e70a98f871e" ${EXTRA_ARGS}
 fi
 

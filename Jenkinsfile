@@ -38,9 +38,9 @@ def runStages() {
 						sh """#!/bin/bash
 						set -e
 						make -j${env.NPROC} V=1
-						make -j${env.NPROC} V=1 LOG_LEVEL=TRACE NIMFLAGS='-d:testnet_servers_image' beacon_node
+						make -j${env.NPROC} V=1 LOG_LEVEL=TRACE NIMFLAGS='-d:testnet_servers_image' nimbus_beacon_node
             # Miracl fallback
-            # make -j${env.NPROC} V=1 LOG_LEVEL=TRACE NIMFLAGS='-d:BLS_FORCE_BACKEND=miracl -d:testnet_servers_image' beacon_node
+            # make -j${env.NPROC} V=1 LOG_LEVEL=TRACE NIMFLAGS='-d:BLS_FORCE_BACKEND=miracl -d:testnet_servers_image' nimbus_beacon_node
 						"""
 					}
 				},

@@ -22,7 +22,7 @@ cd nimbus-eth2
 #### 2. Run the beacon node build process
 
 ```
-make beacon_node
+make nimbus_beacon_node
 ```
 
 ## Running the node
@@ -51,7 +51,7 @@ This will build Nimbus and its dependencies, and connect you to Medalla.
 You should see that the beacon node has launched and started syncing.
 
 ```
-INF 2020-07-03 15:28:15+02:00 Starting beacon node                       topics="beacnde" tid=176865 file=beacon_node.nim:866 SECONDS_PER_SLOT=12 SLOTS_PER_EPOCH=32 SPEC_VERSION=0.12.1 cat=init dataDir=/home/arnetheduck/status/nim-beacon-chain/build/data/shared_medalla_0 finalizedRoot=72e7b21c finalizedSlot=20064 headRoot=f92bf720 headSlot=20142 nim="Nim Compiler Version 1.2.2 [Linux: amd64] (be34b5ab)" pcs=start_beacon_node timeSinceFinalization=-108322 version="0.5.0 (c64737e)"
+INF 2020-07-03 15:28:15+02:00 Starting beacon node                       topics="beacnde" tid=176865 file=nimbus_beacon_node.nim:866 SECONDS_PER_SLOT=12 SLOTS_PER_EPOCH=32 SPEC_VERSION=0.12.1 cat=init dataDir=/home/arnetheduck/status/nim-beacon-chain/build/data/shared_medalla_0 finalizedRoot=72e7b21c finalizedSlot=20064 headRoot=f92bf720 headSlot=20142 nim="Nim Compiler Version 1.2.2 [Linux: amd64] (be34b5ab)" pcs=start_beacon_node timeSinceFinalization=-108322 version="0.5.0 (c64737e)"
 
 
  peers: 7 ❯ finalized: 3a806c9f:634 ❯ head: b364f8e9:636:29 ❯ time: 909:7 (29095)              ETH: 0.0
@@ -83,7 +83,7 @@ make NIMFLAGS="-d:insecure" medalla
 To see a list of command line options with descriptions, navigate to the `build` directory and run:
 
 ```
-./beacon_node --help
+./nimbus_beacon_node --help
 ```
 
 You should see the following output:
@@ -91,7 +91,7 @@ You should see the following output:
 ```
 Usage:
 
-beacon_node [OPTIONS]... command
+nimbus_beacon_node [OPTIONS]... command
 
 The following options are available:
 
@@ -135,7 +135,7 @@ The following options are available:
 
 Available sub-commands:
 
-beacon_node_shared_medalla_0 createTestnet [OPTIONS]...
+nimbus_beacon_node createTestnet [OPTIONS]...
 
 The following options are available:
 
@@ -151,7 +151,7 @@ The following options are available:
      --with-genesis-root       Include a genesis root in 'network.json'.
      --output-bootstrap-file   Output file with list of bootstrap nodes for the network.
 
-beacon_node_shared_medalla_0 deposits [OPTIONS]... command
+nimbus_beacon_node deposits [OPTIONS]... command
 
 The following options are available:
 
@@ -159,7 +159,7 @@ The following options are available:
 
 Available sub-commands:
 
-beacon_node_shared_medalla_0 deposits create [OPTIONS]...
+nimbus_beacon_node deposits create [OPTIONS]...
 
 Creates validator keystores and deposits.
 
@@ -174,7 +174,7 @@ The following options are available:
                                `deposits send` command to send the deposit transactions at your convenience
                                later.
 
-beacon_node_shared_medalla_0 deposits send [OPTIONS]...
+nimbus_beacon_node deposits send [OPTIONS]...
 
 Sends prepared deposits to the validator deposit contract.
 
@@ -184,15 +184,15 @@ The following options are available:
      --min-delay               Minimum possible delay between making two deposits (in seconds).
      --max-delay               Maximum possible delay between making two deposits (in seconds).
 
-beacon_node_shared_medalla_0 deposits status
+nimbus_beacon_node deposits status
 
 Displays status information about all deposits.
 
-beacon_node_shared_medalla_0 wallets command
+nimbus_beacon_node wallets command
 
 Available sub-commands:
 
-beacon_node_shared_medalla_0 wallets create [OPTIONS]...
+nimbus_beacon_node wallets create [OPTIONS]...
 
 Creates a new EIP-2386 wallet.
 
@@ -202,7 +202,7 @@ The following options are available:
      --next-account            Initial value for the 'nextaccount' property of the wallet.
      --out                     Output wallet file.
 
-beacon_node_shared_medalla_0 wallets restore [OPTIONS]...
+nimbus_beacon_node wallets restore [OPTIONS]...
 
 Restores a wallet from cold storage.
 
@@ -213,7 +213,7 @@ The following options are available:
                                guess the number by inspecting the latest beacon state.
      --out                     Output wallet file.
 
-beacon_node_shared_medalla_0 wallets list
+nimbus_beacon_node wallets list
 
 Lists details about all wallets.
 ```

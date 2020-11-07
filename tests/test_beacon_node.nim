@@ -10,7 +10,7 @@
 import unittest, ./testutil
 
 when false:
-  import ../beacon_chain/beacon_node
+  import ../beacon_chain/nimbus_beacon_node
 
 suiteReport "Beacon node":
   # Compile test

@@ -1,4 +1,4 @@
-# Binary Nimbus beacon_node distribution
+# Binary Nimbus beacon node distribution
 
 This binary distribution was created from https://github.com/status-im/nimbus-eth2
 
@@ -34,7 +34,7 @@ Change options implemented as shell variables inside the script:
 LOG_LEVEL=DEBUG BASE_PORT=9100 ./run_medalla_node.sh
 ```
 
-Add arbitrary `beacon_node` parameters (yes, you can combine this with env vars):
+Add arbitrary `nimbus_beacon_node` parameters (yes, you can combine this with env vars):
 
 ```bash
 ./run_medalla_node.sh --log-level=DEBUG --rpc-port=9290

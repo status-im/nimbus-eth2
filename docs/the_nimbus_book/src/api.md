@@ -12,7 +12,7 @@ The `nimbus-eth2` API is implemented using JSON-RPC 2.0. To query it, you can us
 curl -d '{"jsonrpc":"2.0","id":"id","method":"peers","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 ```
 
-Before you can access the API, make sure it's enabled using the RPC flag (`beacon_node --rpc`):
+Before you can access the API, make sure it's enabled using the RPC flag (`nimbus_beacon_node --rpc`):
 
 ```
      --rpc                     Enable the JSON-RPC server.

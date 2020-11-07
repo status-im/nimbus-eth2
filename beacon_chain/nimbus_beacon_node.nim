@@ -288,7 +288,7 @@ proc init*(T: type BeaconNode,
   if res.config.inProcessValidators:
     res.addLocalValidators()
   else:
-    let cmd = getAppDir() / "signing_process".addFileExt(ExeExt)
+    let cmd = getAppDir() / "nimbus_signing_process".addFileExt(ExeExt)
     let args = [$res.config.validatorsDir, $res.config.secretsDir]
     let workdir = io2.getCurrentDir().tryGet()
     res.vcProcess = startProcess(cmd, workdir, args)

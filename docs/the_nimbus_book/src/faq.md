@@ -7,7 +7,7 @@
 Metrics are currently implemented using a HTTP server that hasn't been hardened sufficiently (which means it can't be exposed as a public endpoint). It must therefore be enabled specifically during build:
 
 ```
-make NIMFLAGS="-d:insecure" beacon_node --metrics ...
+make NIMFLAGS="-d:insecure" nimbus_beacon_node --metrics ...
 ```
 
 ## Validating
