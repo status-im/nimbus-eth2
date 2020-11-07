@@ -12,10 +12,10 @@ cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 echo -ne "About to delete \"build/data/shared_medalla_0\".\nMake a backup, if you need to, then press Enter. >"
 read TMP
 make clean-medalla
-make beacon_node
+make nimbus_beacon_node
 
 for N in $(seq 6 9); do
-  build/beacon_node deposits create --deposit-private-key=$1 --dont-send && \
+  build/nimbus_beacon_node deposits create --deposit-private-key=$1 --dont-send && \
     ssh node-0${N}.aws-eu-central-1a.nimbus.test.statusim.net "sudo rm -rf /docker/beacon-node-testnet2-1/data/nim-beacon-chain/build/data/shared_medalla_0/secrets" && \
     ssh node-0${N}.aws-eu-central-1a.nimbus.test.statusim.net "sudo rm -rf /docker/beacon-node-testnet2-1/data/nim-beacon-chain/build/data/shared_medalla_0/validators" && \
     rsync -a -zz --rsync-path="sudo rsync" build/data/shared_medalla_0/{secrets,validators} node-0${N}.aws-eu-central-1a.nimbus.test.statusim.net:/docker/beacon-node-testnet2-1/data/nim-beacon-chain/build/data/shared_medalla_0/ && \

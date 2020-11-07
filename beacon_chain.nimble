@@ -11,7 +11,7 @@ license       = "MIT or Apache License 2.0"
 installDirs   = @["beacon_chain", "research"]
 skipDirs      = @["nfuzz"]
 bin           = @[
-  "beacon_chain/beacon_node",
+  "beacon_chain/nimbus_beacon_node",
   "research/serialized_sizes",
   "nbench/nbench",
   ]
@@ -50,10 +50,10 @@ proc buildAndRunBinary(name: string, srcDir = "./", params = "", cmdParams = "",
   exec "nim " & lang & " --out:./build/" & name & " -r " & extra_params & " " & srcDir & name & ".nim" & " " & cmdParams
 
 task moduleTests, "Run all module tests":
-  buildAndRunBinary "beacon_node", "beacon_chain/",
-              "-d:chronicles_log_level=TRACE " &
-              "-d:const_preset=minimal -d:ETH2_SPEC=\"v0.12.3\" " &
-              "-d:testutils_test_build"
+  buildAndRunBinary "nimbus_beacon_node", "beacon_chain/",
+                    "-d:chronicles_log_level=TRACE " &
+                    "-d:const_preset=minimal -d:ETH2_SPEC=\"v0.12.3\" " &
+                    "-d:testutils_test_build"
 
 ### tasks
 task test, "Run all tests":

@@ -32,7 +32,7 @@ You need to have installed Nimbus' [external dependencies](./install.md#external
 Run the following command from the the home directory of the `nimbus-eth2` repository to launch the command line interface app:
 
 ```
-build/beacon_node wallets create
+build/nimbus_beacon_node wallets create
 ```
 
 Now follow the instructions presented to you in the terminal window to create your wallet.
@@ -51,7 +51,7 @@ At the end of the process, you should see the above message printed to the termi
 
 To see a list of the options/flags available, run:
 ```bash
-build/beacon_node wallets create --help
+build/nimbus_beacon_node wallets create --help
 ```
 
 You should see the following:
@@ -68,7 +68,7 @@ The following options are available:
 
 To generate 1 keystore and create a `deposit_data` JSON file using an existing wallet, run:
 ```bash
-build/beacon_node deposits create --wallet="<YOUR_WALLET_ID>" --count=1
+build/nimbus_beacon_node deposits create --wallet="<YOUR_WALLET_ID>" --count=1
 ```
 > **Tip:** To find your wallet id, look at your terminal history. You should see it printed right after you created your wallet. It's also saved in the `uuid` field of your wallet (remember your wallet is simply a JSON file).
 
@@ -84,7 +84,7 @@ secretsDir=secrets
 
 INF 2020-08-19 13:53:24.286+02:00 Deposit data written
 topics="beacnde" tid=330637 
-file=beacon_node.nim:1406 
+file=nimbus_beacon_node.nim:1406 
 filename=validators/deposit_data-1597838004.284995.json
 ```
 
@@ -98,7 +98,7 @@ In the `validators` directory you should also see a folder with a name that look
 
 To see a list of the options/flags available, run:
 ```bash
-build/beacon_node deposits create --help
+build/nimbus_beacon_node deposits create --help
 ```
 
 You should see the following:

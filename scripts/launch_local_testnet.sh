@@ -65,7 +65,7 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
   --base-port                 bootstrap node's Eth2 traffic port (default: ${BASE_PORT})
   --base-rpc-port             bootstrap node's RPC port (default: ${BASE_RPC_PORT})
   --base-metrics-port         bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
-  --disable-htop              don't use "htop" to see the beacon_node processes
+  --disable-htop              don't use "htop" to see the nimbus_beacon_node processes
   --disable-vc                don't use validator client binaries for validators (by default validators are split 50/50 between beacon nodes and validator clients)
   --enable-logtrace           display logtrace asr analysis
   --log-level                 set the log level (default: ${LOG_LEVEL})
@@ -186,7 +186,7 @@ else
 fi
 
 NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh "${NETWORK}")
-$MAKE -j2 LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:insecure -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" beacon_node signing_process validator_client deposit_contract
+$MAKE -j2 LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:insecure -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" nimbus_beacon_node nimbus_signing_process nimbus_validator_client deposit_contract
 if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
   $MAKE LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:insecure -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" logtrace
 fi
@@ -212,7 +212,7 @@ if [[ $USE_GANACHE == "0" ]]; then
   GENESIS_OFFSET=30
   BOOTSTRAP_IP="127.0.0.1"
 
-  ./build/beacon_node createTestnet \
+  ./build/nimbus_beacon_node createTestnet \
     --data-dir="${DATA_DIR}" \
     --deposits-file="${DEPOSITS_FILE}" \
     --total-validators=${TOTAL_VALIDATORS} \
@@ -280,11 +280,11 @@ EOF
 # instance as the parent and the target process name as a pattern to the
 # "pkill" command.
 cleanup() {
-  pkill -P $$ beacon_node &>/dev/null || true
-  pkill -P $$ validator_client &>/dev/null || true
+  pkill -P $$ nimbus_beacon_node &>/dev/null || true
+  pkill -P $$ nimbus_validator_client &>/dev/null || true
   sleep 2
-  pkill -9 -P $$ beacon_node &>/dev/null || true
-  pkill -9 -P $$ validator_client &>/dev/null || true
+  pkill -9 -P $$ nimbus_beacon_node &>/dev/null || true
+  pkill -9 -P $$ nimbus_validator_client &>/dev/null || true
 }
 trap 'cleanup' SIGINT SIGTERM EXIT
 
@@ -364,7 +364,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     done
   fi
 
-  ./build/beacon_node \
+  ./build/nimbus_beacon_node \
     --non-interactive \
     --nat:extip:127.0.0.1 \
     --network="${NETWORK_METADATA_FILE}" \
@@ -392,7 +392,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   fi
 
   if [ "${USE_VC:-}" == "1" ]; then
-    ./build/validator_client \
+    ./build/nimbus_validator_client \
       --log-level="${LOG_LEVEL}" \
       ${STOP_AT_EPOCH_FLAG} \
       --data-dir="${VALIDATOR_DATA_DIR}" \
@@ -405,7 +405,7 @@ done
 sleep 5
 BG_JOBS="$(jobs | wc -l | tr -d ' ')"
 if [[ "$BG_JOBS" != "$NUM_JOBS" ]]; then
-  echo "$(( NUM_JOBS - BG_JOBS )) beacon_node/validator_client instance(s) exited early. Aborting."
+  echo "$(( NUM_JOBS - BG_JOBS )) nimbus_beacon_node/nimbus_validator_client instance(s) exited early. Aborting."
   dump_logs
   dump_logtrace
   exit 1

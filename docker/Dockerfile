@@ -26,7 +26,7 @@ RUN cd /root/nim-beacon-chain \
  && git fetch \
  && git reset --hard ${GIT_REVISION} \
  && make -j$(nproc) update \
- && make LOG_LEVEL=TRACE NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS} ${MARCH_NIM_FLAGS}" beacon_node
+ && make LOG_LEVEL=TRACE NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS} ${MARCH_NIM_FLAGS}" nimbus_beacon_node
 
 # --------------------------------- #
 # Starting new image to reduce size #
@@ -41,12 +41,12 @@ RUN apt-get -qq update \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # "COPY" creates new image layers, so we cram all we can into one command
-COPY --from=build /root/nim-beacon-chain/build/beacon_node /usr/bin/
+COPY --from=build /root/nim-beacon-chain/build/nimbus_beacon_node /usr/bin/
 
 MAINTAINER Zahary Karadjov <zahary@status.im>
 LABEL description="Nimbus installation that can act as an ETH2 network bootstrap node."
 
 STOPSIGNAL SIGINT
 
-ENTRYPOINT ["/usr/bin/beacon_node"]
+ENTRYPOINT ["/usr/bin/nimbus_beacon_node"]
 

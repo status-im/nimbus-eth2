@@ -46,7 +46,7 @@ mingw32-make test # run the test suite
 After cloning the repo:
 
 ```bash
-# Build beacon_node and all the tools, using 4 parallel Make jobs
+# Build nimbus_beacon_node and all the tools, using 4 parallel Make jobs
 make -j4
 
 # Run tests
@@ -120,7 +120,7 @@ make V=2 test # even more verbose
 
 ```bash
 make LOG_LEVEL=DEBUG bench_bls_sig_agggregation # this is the default
-make LOG_LEVEL=TRACE beacon_node # log everything
+make LOG_LEVEL=TRACE nimbus_beacon_node # log everything
 ```
 
 - pass arbitrary parameters to the Nim compiler:

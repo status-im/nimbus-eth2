@@ -1,2 +1,0 @@
-import beacon_node
-

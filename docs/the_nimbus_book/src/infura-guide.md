@@ -19,7 +19,7 @@ If you look at the initial logs you should see something similar to the followin
 
 ```
 DBG 2020-09-29 12:15:41.969+02:00 Launching beacon node
-topics="beacnde" tid=8941404 file=beacon_node.nim:1190 version="0.5.0 (78ceeed8)" bls_backend=BLST
+topics="beacnde" tid=8941404 file=nimbus_beacon_node.nim:1190 version="0.5.0 (78ceeed8)" bls_backend=BLST
 cmdParams="@[
 \"--network=medalla\",
 \"--log-level=DEBUG\",

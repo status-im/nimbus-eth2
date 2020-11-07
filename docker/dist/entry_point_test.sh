@@ -21,7 +21,7 @@ ARCHIVE_DIR="${ARCHIVE%.tar.gz}"
 rm -rf ${ARCHIVE_DIR}
 tar xzf "${ARCHIVE}"
 cd "${ARCHIVE_DIR}"
-./beacon_node --help
+./nimbus_beacon_node --help
 cd ..
 rm -rf ${ARCHIVE_DIR}
 

@@ -5,7 +5,7 @@ set -e
 cd /home/user/nimbus-eth2
 git config --global core.abbrev 8
 
-BINARIES="beacon_node beacon_node_spec_0_12_3"
+BINARIES="nimbus_beacon_node nimbus_beacon_node_spec_0_12_3 nimbus_signing_process"
 
 # we need to build everything against libraries available inside this container, including the Nim compiler
 make clean
@@ -24,17 +24,20 @@ if [[ -d "${DIST_PATH}" ]]; then
   rm -rf "${DIST_PATH}"
 fi
 mkdir -p "${DIST_PATH}"
+mkdir "${DIST_PATH}/scripts"
+mkdir "${DIST_PATH}/build"
 
 # copy and checksum binaries, copy scripts and docs
 for BINARY in ${BINARIES}; do
-  cp -a ./build/${BINARY} "${DIST_PATH}/"
-  cd "${DIST_PATH}"
+  cp -a ./build/${BINARY} "${DIST_PATH}/build/"
+  cd "${DIST_PATH}/build"
   md5sum ${BINARY} > ${BINARY}.md5sum
   sha512sum ${BINARY} > ${BINARY}.sha512sum
   cd - >/dev/null
 done
 sed -e "s/GIT_COMMIT/${GIT_COMMIT}/" docker/dist/README.md > "${DIST_PATH}/README.md"
-cp -a scripts/makedir.sh docker/dist/run_*_node.sh "${DIST_PATH}/"
+cp -a scripts/makedir.sh scripts/run-beacon-node.sh "${DIST_PATH}/scripts"
+cp -a ./run-*-beacon-node.sh "${DIST_PATH}/"
 #cp -a docs/the_nimbus_book "${DIST_PATH}/"
 
 # create the tarball

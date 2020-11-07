@@ -106,7 +106,7 @@ if [[ "$USE_PROMETHEUS" == "yes" ]]; then
   fi
 fi
 
-$MAKE -j2 --no-print-directory NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" beacon_node signing_process validator_client
+$MAKE -j2 --no-print-directory NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" nimbus_beacon_node nimbus_signing_process nimbus_validator_client
 
 EXISTING_VALIDATORS=0
 if [[ -f "$DEPOSITS_FILE" ]]; then
@@ -223,7 +223,7 @@ fi
 # instance as the parent and the target process name as a pattern to the
 # "pkill" command.
 if [[ "$USE_MULTITAIL" == "no" && "$USE_TMUX" != "yes" ]]; then
-  trap 'pkill -P $$ beacon_node' SIGINT EXIT
+  trap 'pkill -P $$ nimbus_beacon_node' SIGINT EXIT
 fi
 
 LAST_WAITING_NODE=0

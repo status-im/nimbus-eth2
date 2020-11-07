@@ -244,7 +244,7 @@ git clone https://github.com/status-im/nimbus-eth2
 Change into the directory and build the beacon node.
 ```
 cd nimbus-eth2
-make beacon_node
+make nimbus_beacon_node
 ```
 
 *Patience... this may take a few minutes.*
@@ -275,7 +275,7 @@ As usual, replace `195.177.101.93` with your Pi's IP address, and `<VALIDATOR_KE
 To import your signing key into Nimbus, from the `nimbus-eth2` directory run:
 
 ```
-build/beacon_node deposits import  --data-dir=build/data/shared_medalla_0 ../validator_keys
+build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_medalla_0 ../validator_keys
 ```
 
 
@@ -342,7 +342,7 @@ If you look near the top of the logs printed to your console, you should see con
 INF 2020-10-07 17:04:09.213+02:00 Initializing networking                    topics="networking" tid=11688398 file=eth2_network.nim:1335 hostAddress=/ip4/0.0.0.0/tcp/9000 network_public_key=0802122102defb020c8e47dd8f5da89f51ed6c3998aaa0dd59eeb2784e29d47fdbdab69235 announcedAddresses=@[/ip4/195.177.101.93/tcp/9000]
 WRN 2020-10-07 17:04:09.215+02:00 Ignoring invalid bootstrap address         tid=11688398 file=eth2_discovery.nim:45 bootstrapAddr= reason="an empty string is not a valid bootstrap node"
 NOT 2020-10-07 17:04:09.231+02:00 Local validators attached                  topics="beacval" tid=11688398 file=validator_duties.nim:65 count=0
-NOT 2020-10-07 17:04:09.231+02:00 Starting beacon node                       topics="beacnde" tid=11688398 file=beacon_node.nim:923 version="0.5.0 (1dec860b)" nim="Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)" timeSinceFinalization=0ns head=0814b036:0 finalizedHead=0814b036:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.3 dataDir=build/data/shared_medalla_0
+NOT 2020-10-07 17:04:09.231+02:00 Starting beacon node                       topics="beacnde" tid=11688398 file=nimbus_beacon_node.nim:923 version="0.5.0 (1dec860b)" nim="Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)" timeSinceFinalization=0ns head=0814b036:0 finalizedHead=0814b036:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.3 dataDir=build/data/shared_medalla_0
 ```
 
 To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running. You should see something like:
