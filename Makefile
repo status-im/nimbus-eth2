@@ -283,7 +283,7 @@ endef
 ### medalla
 ###
 # https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
-medalla: | beacon_node_0_12_3 signing_process
+medalla: | beacon_node_spec_0_12_3 signing_process
 	$(call CONNECT_TO_NETWORK,medalla,beacon_node_spec_0_12_3)
 
 medalla-vc: | beacon_node_spec_0_12_3 signing_process validator_client
