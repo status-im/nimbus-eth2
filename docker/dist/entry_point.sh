@@ -3,6 +3,7 @@
 set -e
 
 cd /home/user/nimbus-eth2
+git config --global core.abbrev 8
 
 BINARIES="beacon_node beacon_node_spec_0_12_3"
 
@@ -14,11 +15,14 @@ make -j$(nproc) LOG_LEVEL="TRACE" NIMFLAGS="-d:disableMarchNative" PARTIAL_STATI
 PREFIX="nimbus-eth2_Linux_amd64_"
 GIT_COMMIT="$(git rev-parse --short HEAD)"
 VERSION="$(./env.sh nim --verbosity:0 --hints:off --warnings:off scripts/print_version.nims)"
-TIMESTAMP="$(date --utc +'%Y%m%d%H%M%S')"
-DIR="${PREFIX}${VERSION}_${GIT_COMMIT}_${TIMESTAMP}"
+#TIMESTAMP="$(date --utc +'%Y%m%d%H%M%S')"
+DIR="${PREFIX}${VERSION}_${GIT_COMMIT}"
 DIST_PATH="dist/${DIR}"
 # delete old artefacts
 rm -rf "dist/${PREFIX}"*.tar.gz
+if [[ -d "${DIST_PATH}" ]]; then
+  rm -rf "${DIST_PATH}"
+fi
 mkdir -p "${DIST_PATH}"
 
 # copy and checksum binaries, copy scripts and docs
@@ -30,8 +34,8 @@ for BINARY in ${BINARIES}; do
   cd - >/dev/null
 done
 sed -e "s/GIT_COMMIT/${GIT_COMMIT}/" docker/dist/README.md > "${DIST_PATH}/README.md"
-cp -a scripts/makedir.sh docker/dist/run_medalla_node.sh "${DIST_PATH}/"
-cp -a docs/the_nimbus_book "${DIST_PATH}/"
+cp -a scripts/makedir.sh docker/dist/run_*_node.sh "${DIST_PATH}/"
+#cp -a docs/the_nimbus_book "${DIST_PATH}/"
 
 # create the tarball
 cd dist
