@@ -802,7 +802,8 @@ func init*(T: type GraffitiBytes, input: string): GraffitiBytes
     distinctBase(result)[0 ..< input.len] = toBytes(input)
 
 func defaultGraffitiBytes*(): GraffitiBytes =
-  let graffitiBytes = toBytes("Nimbus " & fullVersionStr)
+  let graffitiBytes =
+    toBytes("Nimbus/" & fullVersionStr & " \"" & versionBlob & "\"")
   distinctBase(result)[0 ..< graffitiBytes.len] = graffitiBytes
 
 proc writeValue*(w: var JsonWriter, value: GraffitiBytes)

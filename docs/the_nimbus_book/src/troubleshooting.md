@@ -83,7 +83,7 @@ make BASE_PORT=9100 medalla
 If you're seeing one or more error messages that look like the following:
 
 ```
-ERR 2020-09-29 14:04:33.313+02:00 Eth1 chain monitor failure, restarting      tid=8941404 
+ERR 2020-09-29 14:04:33.313+02:00 Eth1 chain monitor failure, restarting      tid=8941404
 file=eth1_monitor.nim:812 err="{\"code\":-32005,
 \"data\":{\"rate\":{\"allowed_rps\":1,
 \"backoff_seconds\":24,
@@ -92,11 +92,11 @@ file=eth1_monitor.nim:812 err="{\"code\":-32005,
 \"message\":\"daily request count exceeded, request rate limited\"}"
 ```
 
-This means that our Infura endpoint is overloaded (in other words, the requests on a given day have reached the 100k free tier limit). 
+This means that our Infura endpoint is overloaded (in other words, the requests on a given day have reached the 100k free tier limit).
 
 You can fix this by passing in [your own Infura endpoint](./infura-guide.md).
 
-To do so, run: 
+To do so, run:
 
 ```
 make NODE_PARAMS="--web3-url=<YOUR_WEBSOCKET_ENDPOINT>" medalla
@@ -108,9 +108,9 @@ Importantly, make sure you pass in a websocket (`wss`) endpoint, not `https`. If
 
 If you're running different testnets on the same computer, you'll need to specify a different `NODE_ID` to avoid port conflicts (the default is `NODE_ID=0`).
 
-For example, to run `medalla` and `zinken` at the same time:
+For example, to run two `medalla` nodes at the same time:
 
 ```
 make medalla NODE_ID=0 # the default
-make zinken NODE_ID=1
+make medalla NODE_ID=1
 ```

@@ -309,65 +309,6 @@ medalla-deposit: | beacon_node_spec_0_12_3 signing_process deposit_contract
 clean-medalla:
 	$(call CLEAN_NETWORK,medalla)
 
-###
-### zinken
-###
-zinken: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK,zinken,beacon_node)
-
-zinken-vc: | beacon_node signing_process validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,zinken,beacon_node)
-
-ifneq ($(LOG_LEVEL), TRACE)
-zinken-dev:
-	+ "$(MAKE)" LOG_LEVEL=TRACE $@
-else
-zinken-dev: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,zinken,beacon_node)
-endif
-
-zinken-deposit-data: | beacon_node signing_process deposit_contract
-	$(call MAKE_DEPOSIT_DATA,zinken)
-
-zinken-deposit: | beacon_node signing_process deposit_contract
-	$(call MAKE_DEPOSIT,zinken)
-
-clean-zinken:
-	$(call CLEAN_NETWORK,zinken)
-
-###
-### spadina
-###
-
-clean-spadina:
-	$(call CLEAN_NETWORK,spadina)
-
-###
-### attacknet-beta1-mc-0
-###
-attacknet-beta1-mc-0: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK,attacknet-beta1-mc-0,beacon_node)
-
-attacknet-beta1-mc-0-vc: | beacon_node signing_process validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,attacknet-beta1-mc-0,beacon_node)
-
-ifneq ($(LOG_LEVEL), TRACE)
-attacknet-beta1-mc-0-dev:
-	+ "$(MAKE)" LOG_LEVEL=TRACE $@
-else
-attacknet-beta1-mc-0-dev: | beacon_node signing_process
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,attacknet-beta1-mc-0,beacon_node)
-endif
-
-attacknet-beta1-mc-0-deposit-data: | beacon_node signing_process deposit_contract
-	$(call MAKE_DEPOSIT_DATA,attacknet-beta1-mc-0)
-
-attacknet-beta1-mc-0-deposit: | beacon_node signing_process deposit_contract
-	$(call MAKE_DEPOSIT,attacknet-beta1-mc-0)
-
-clean-attacknet-beta1-mc-0:
-	$(call CLEAN_NETWORK,attacknet-beta1-mc-0)
-
 ctail: | build deps
 	mkdir -p vendor/.nimble/bin/
 	$(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ctail c vendor/nim-chronicles-tail/ctail.nim
