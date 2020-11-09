@@ -10,6 +10,20 @@ shift
 NETWORK=$1
 shift
 
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  cat <<HELP
+
+  All supplied options will be forwarded to the beacon node executable.
+  Please execute build/$NBC_BINARY --help to get more information.
+
+  To suppress the interactive input required by this script, you can
+  specify WEB3_URL as an environment variable.
+
+HELP
+  exit 0
+fi
+
+
 # Windows detection
 if uname | grep -qiE "mingw|msys"; then
   MAKE="mingw32-make"
