@@ -153,7 +153,7 @@ when const_preset == "mainnet":
   when ETH2_SPEC == "v0.12.3":
     import ./presets/v0_12_3/mainnet
   else:
-    import ./presets/v1_0_0-rc_0/mainnet
+    import ./presets/v1_0_0/mainnet
   export mainnet
 
 elif const_preset == "minimal":
@@ -161,7 +161,7 @@ elif const_preset == "minimal":
   when ETH2_SPEC == "v0.12.3":
     import ./presets/v0_12_3/minimal
   else:
-    import ./presets/v1_0_0-rc_0/minimal
+    import ./presets/v1_0_0/minimal
   export minimal
 
 else:
