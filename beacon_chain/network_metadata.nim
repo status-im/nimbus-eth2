@@ -167,6 +167,7 @@ template eth2testnet(path: string): Eth2NetworkMetadata =
 
 const
   medallaMetadata* = eth2testnet "shared/medalla"
+  toledoMetadata* = eth2testnet "shared/toledo"
   testnet0Metadata* = eth2testnet "nimbus/testnet0"
   testnet1Metadata* = eth2testnet "nimbus/testnet1"
 
@@ -179,6 +180,8 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
         mainnetMetadata
       of "medalla":
         medallaMetadata
+      of "toledo":
+        toledoMetadata
       of "testnet0":
         testnet0Metadata
       of "testnet1":

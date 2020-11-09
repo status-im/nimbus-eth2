@@ -122,7 +122,7 @@ proc readPresetFile*(path: string): PresetFile
 
   result.missingValues = PresetValue.entireSet - presetValues
 
-const ETH2_SPEC* {.strdefine.} = "v0.12.3"
+const ETH2_SPEC* {.strdefine.} = "v1.0.0"
 static: doAssert: ETH2_SPEC == "v0.12.3" or ETH2_SPEC == "v1.0.0"
 
 when ETH2_SPEC == "v0.12.3":
