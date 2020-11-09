@@ -149,7 +149,8 @@ endif
 $(TOOLS): | build deps
 	for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
 		echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim c -o:build/$@ $(NIM_PARAMS) "$${TOOL_DIR}/$@.nim"
+		$(ENV_SCRIPT) nim c -o:build/$@ $(NIM_PARAMS) "$${TOOL_DIR}/$@.nim" && \
+		echo -e "Build completed successfully"
 
 clean_eth2_network_simulation_data:
 	rm -rf tests/simulation/data
@@ -189,6 +190,9 @@ beacon_node: | nimbus_beacon_node
 
 validator_client: | nimbus_validator_client
 	cp build/nimbus_validator_client build/validator_client
+
+signing_process: | nimbus_signing_process
+	cp build/nimbus_signing_process build/signing_process
 
 #- https://www.gnu.org/software/make/manual/html_node/Multi_002dLine.html
 #- macOS doesn't support "=" at the end of "define FOO": https://stackoverflow.com/questions/13260396/gnu-make-3-81-eval-function-not-working

@@ -116,7 +116,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + DOMAIN_VOLUNTARY_EXIT                             "0x04000000"         [Preset: mainnet]   OK
 + EFFECTIVE_BALANCE_INCREMENT                       1000000000           [Preset: mainnet]   OK
 + EJECTION_BALANCE                                  16000000000          [Preset: mainnet]   OK
-+ EPOCHS_PER_ETH1_VOTING_PERIOD                     64                   [Preset: mainnet]   OK
++ EPOCHS_PER_ETH1_VOTING_PERIOD                     32                   [Preset: mainnet]   OK
 + EPOCHS_PER_HISTORICAL_VECTOR                      65536                [Preset: mainnet]   OK
 + EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION             256                  [Preset: mainnet]   OK
 + EPOCHS_PER_SLASHINGS_VECTOR                       8192                 [Preset: mainnet]   OK
