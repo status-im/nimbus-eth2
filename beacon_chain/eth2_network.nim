@@ -1470,8 +1470,12 @@ proc traceMessage(fut: FutureBase, msgId: string) =
       debug "Unexpected future state for gossip", msgId, state = fut.state
 
 proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
+  let data = snappy.encode(SSZ.encode(msg))
+
+  # This is only for messages we create. A message this large amounts to an
+  # internal logic error.
+  doAssert data.len <= GOSSIP_MAX_SIZE
   inc nbc_gossip_messages_sent
-  let
-    data = snappy.encode(SSZ.encode(msg))
+
   var futSnappy = node.pubsub.publish(topic & "_snappy", data)
   traceMessage(futSnappy, string.fromBytes(gossipId(data)))
