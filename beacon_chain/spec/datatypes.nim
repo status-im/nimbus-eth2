@@ -51,7 +51,7 @@ export
 when ETH2_SPEC == "v0.12.3":
   const SPEC_VERSION* = "0.12.3"
 else:
-  const SPEC_VERSION* = "1.0.0-rc.0"
+  const SPEC_VERSION* = "1.0.0"
   ## Spec version we're aiming to be compatible with, right now
 
 const

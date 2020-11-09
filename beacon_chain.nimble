@@ -65,7 +65,7 @@ task test, "Run all tests":
   buildAndRunBinary "test_fixture_const_sanity_check", "tests/official/", """-d:const_preset=mainnet -d:ETH2_SPEC="v1.0.0" -d:chronicles_sinks="json[file]""""
 
   # Generic SSZ test, doesn't use consensus objects minimal/mainnet presets
-  buildAndRunBinary "test_fixture_ssz_generic_types", "tests/official/", """-d:chronicles_log_level=TRACE -d:chronicles_sinks="json[file]""""
+  buildAndRunBinary "test_fixture_ssz_generic_types", "tests/official/", """-d:ETH2_SPEC="v1.0.0" -d:chronicles_log_level=TRACE -d:chronicles_sinks="json[file]""""
 
   # Consensus object SSZ tests
   # v0.12.3 is reasonably covered by rest of SSZ fixture tests and lack of
@@ -73,7 +73,7 @@ task test, "Run all tests":
   buildAndRunBinary "test_fixture_ssz_consensus_objects", "tests/official/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC="v1.0.0" -d:chronicles_sinks="json[file]""""
 
   # EF tests
-  buildAndRunBinary "all_fixtures_require_ssz", "tests/official/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC="v0.12.3" -d:chronicles_sinks="json[file]""""
+  buildAndRunBinary "all_fixtures_require_ssz", "tests/official/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC="v1.0.0" -d:chronicles_sinks="json[file]""""
 
   # Mainnet config
   buildAndRunBinary "proto_array", "beacon_chain/fork_choice/", """-d:const_preset=mainnet -d:ETH2_SPEC="v0.12.3" -d:chronicles_sinks="json[file]""""
