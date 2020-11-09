@@ -18,11 +18,11 @@ import
 func count_active_validators*(epochInfo: EpochRef): uint64 =
   epochInfo.shuffled_active_validator_indices.lenu64
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_committee_count_per_slot
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_committee_count_per_slot
 func get_committee_count_per_slot*(epochInfo: EpochRef): uint64 =
   get_committee_count_per_slot(count_active_validators(epochInfo))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_beacon_committee
 iterator get_beacon_committee*(
     epochRef: EpochRef, slot: Slot, index: CommitteeIndex): ValidatorIndex =
   # Return the beacon committee at ``slot`` for ``index``.
@@ -35,7 +35,7 @@ iterator get_beacon_committee*(
     committees_per_slot * SLOTS_PER_EPOCH
   ): yield idx
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee*(
     epochRef: EpochRef, slot: Slot, index: CommitteeIndex): seq[ValidatorIndex] =
   # Return the beacon committee at ``slot`` for ``index``.
@@ -48,7 +48,7 @@ func get_beacon_committee*(
     committees_per_slot * SLOTS_PER_EPOCH
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee_len*(
     epochRef: EpochRef, slot: Slot, index: CommitteeIndex): uint64 =
   # Return the number of members in the beacon committee at ``slot`` for ``index``.
@@ -62,7 +62,7 @@ func get_beacon_committee_len*(
     committees_per_slot * SLOTS_PER_EPOCH
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_attesting_indices
 iterator get_attesting_indices*(epochRef: EpochRef,
                                 data: AttestationData,
                                 bits: CommitteeValidatorsBits):
@@ -76,7 +76,7 @@ iterator get_attesting_indices*(epochRef: EpochRef,
         yield index
       inc i
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(epochRef: EpochRef,
                             data: AttestationData,
                             bits: CommitteeValidatorsBits):
@@ -84,7 +84,7 @@ func get_attesting_indices*(epochRef: EpochRef,
   for idx in get_attesting_indices(epochRef, data, bits):
     result.incl(idx)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_indexed_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_indexed_attestation
 func get_indexed_attestation*(epochRef: EpochRef, attestation: Attestation): IndexedAttestation =
   # Return the indexed attestation corresponding to ``attestation``.
   let
@@ -100,7 +100,7 @@ func get_indexed_attestation*(epochRef: EpochRef, attestation: Attestation): Ind
     signature: attestation.signature
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#aggregation-selection
 func is_aggregator*(epochRef: EpochRef, slot: Slot, index: CommitteeIndex,
     slot_signature: ValidatorSig): bool =
   let
@@ -109,7 +109,7 @@ func is_aggregator*(epochRef: EpochRef, slot: Slot, index: CommitteeIndex,
   bytes_to_uint64(eth2digest(
     slot_signature.toRaw()).data.toOpenArray(0, 7)) mod modulo == 0
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     epochRef: EpochRef, indexed_attestation: SomeIndexedAttestation,
@@ -149,7 +149,7 @@ proc is_valid_indexed_attestation*(
 
   ok()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     epochRef: EpochRef, attesting_indices: HashSet[ValidatorIndex],
@@ -190,7 +190,7 @@ func makeAttestationData*(
 
   doAssert current_epoch == epochRef.epoch
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index.uint64,

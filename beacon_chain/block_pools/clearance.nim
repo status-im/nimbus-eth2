@@ -262,7 +262,7 @@ proc addRawBlock*(
 
   return err((ValidationResult.Ignore, MissingParent))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#beacon_block
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#beacon_block
 proc isValidBeaconBlock*(
        dag: ChainDAGRef, quarantine: var QuarantineRef,
        signed_beacon_block: SignedBeaconBlock, wallTime: BeaconTime,
@@ -298,7 +298,7 @@ proc isValidBeaconBlock*(
   # proposer for the slot, signed_beacon_block.message.slot.
   #
   # While this condition is similar to the proposer slashing condition at
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#proposer-slashing
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#proposer-slashing
   # it's not identical, and this check does not address slashing:
   #
   # (1) The beacon blocks must be conflicting, i.e. different, for the same

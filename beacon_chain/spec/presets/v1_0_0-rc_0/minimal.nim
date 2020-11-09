@@ -16,7 +16,7 @@ import
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/configs/minimal/phase0.yaml#L5
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/configs/minimal/phase0.yaml#L5
   CONFIG_NAME* = "minimal"
 
   # Changed
@@ -40,7 +40,7 @@ const
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/configs/minimal/phase0.yaml#L61
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/configs/minimal/phase0.yaml#L61
 
   # Unchanged
   MIN_DEPOSIT_AMOUNT*: uint64 = 2'u64^0 * 10'u64^9
@@ -50,7 +50,7 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/configs/minimal/phase0.yaml#L73
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/configs/minimal/phase0.yaml#L73
 
   # GENESIS_FORK_VERSION is a runtime preset
 
@@ -58,7 +58,7 @@ const
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/configs/minimal/phase0.yaml#L80
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/configs/minimal/phase0.yaml#L80
   # Changed: Faster to spin up testnets, but does not give validator
   # reasonable warning time for genesis
 
@@ -91,7 +91,7 @@ const
 
   # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/configs/minimal/phase0.yaml#L106
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/configs/minimal/phase0.yaml#L106
 
   # Changed
   EPOCHS_PER_HISTORICAL_VECTOR*: uint64 = 64
@@ -103,7 +103,7 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/configs/minimal/phase0.yaml#L118
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/configs/minimal/phase0.yaml#L118
 
   BASE_REWARD_FACTOR*: uint64 = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT*: uint64 = 2'u64^9
@@ -114,7 +114,7 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/configs/minimal/phase0.yaml#L134
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/configs/minimal/phase0.yaml#L134
 
   MAX_PROPOSER_SLASHINGS*: uint64 = 2'u64 ^ 4
   MAX_ATTESTER_SLASHINGS*: uint64 = 2'u64 ^ 1
@@ -124,7 +124,7 @@ const
 
   # Deposit contract
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/configs/minimal/phase0.yaml#L52
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/configs/minimal/phase0.yaml#L52
 
   # Ethereum Goerli testnet
   DEPOSIT_CHAIN_ID* = 5
@@ -132,14 +132,14 @@ const
 
   # Fork choice
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/configs/minimal/phase0.yaml#L32
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/configs/minimal/phase0.yaml#L32
 
   # Changed
   SAFE_SLOTS_TO_UPDATE_JUSTIFIED*: uint64 = 2
 
   # Validators
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/configs/minimal/phase0.yaml#L38
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/configs/minimal/phase0.yaml#L38
 
   # ETH1_FOLLOW_DISTANCE is a runtime preset
 
