@@ -309,6 +309,27 @@ medalla-deposit: | nimbus_beacon_node_spec_0_12_3 nimbus_signing_process deposit
 clean-medalla:
 	$(call CLEAN_NETWORK,medalla)
 
+###
+### toledo
+###
+# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
+toledo: | nimbus_beacon_node nimbus_signing_process
+	$(call CONNECT_TO_NETWORK,toledo,nimbus_beacon_node)
+
+toledo-vc: | nimbus_beacon_node nimbus_signing_process nimbus_validator_client
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,toledo,nimbus_beacon_node)
+
+ifneq ($(LOG_LEVEL), TRACE)
+toledo-dev:
+	+ "$(MAKE)" LOG_LEVEL=TRACE $@
+else
+toledo-dev: | nimbus_beacon_node nimbus_signing_process
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,toledo,nimbus_beacon_node)
+endif
+
+clean-toledo:
+	$(call CLEAN_NETWORK,toledo)
+
 ctail: | build deps
 	mkdir -p vendor/.nimble/bin/
 	$(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ctail c vendor/nim-chronicles-tail/ctail.nim
