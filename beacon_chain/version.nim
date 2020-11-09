@@ -10,7 +10,7 @@ const
   versionMajor* = 0
   versionMinor* = 6
   versionBuild* = 0
-  versionBlob* = "hope" # This ends up in the default graffitti
+  versionBlob* = "hope" # Single word - ends up in the default graffitti
 
   useInsecureFeatures* = defined(insecure)
 
