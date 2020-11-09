@@ -87,8 +87,8 @@ task test, "Run all tests":
   buildAndRunBinary "test_process_attestation", "tests/spec_block_processing/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC="v0.12.3" -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
   buildAndRunBinary "test_process_deposits", "tests/spec_block_processing/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC="v0.12.3" -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
   buildAndRunBinary "all_fixtures_require_ssz", "tests/official/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC="v0.12.3" -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
-  buildAndRunBinary "test_attestation_pool", "tests/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC="v0.12.3" -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
-  buildAndRunBinary "test_block_pool", "tests/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC="v0.12.3" -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
+  buildAndRunBinary "test_attestation_pool", "tests/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC="v1.0.0" -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
+  buildAndRunBinary "test_block_pool", "tests/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:ETH2_SPEC="v1.0.0" -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
 
   # State and block sims; getting to 4th epoch triggers consensus checks
   buildAndRunBinary "state_sim", "research/", "-d:const_preset=mainnet -d:ETH2_SPEC=\"v1.0.0\" -d:chronicles_log_level=INFO", "--validators=3000 --slots=128"
