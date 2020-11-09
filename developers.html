@@ -186,7 +186,7 @@ mingw32-make fetch-dlls # this will place the right DLLs for your architecture i
 </code></pre>
 <h3><a class="header" href="#linux-macos" id="linux-macos">Linux, macOS</a></h3>
 <p>After cloning the repo:</p>
-<pre><code class="language-bash"># Build beacon_node and all the tools, using 4 parallel Make jobs
+<pre><code class="language-bash"># Build nimbus_beacon_node and all the tools, using 4 parallel Make jobs
 make -j4
 
 # Run tests
@@ -248,7 +248,7 @@ make V=2 test # even more verbose
 <li>same for the <a href="https://github.com/status-im/nim-chronicles#chronicles_log_level">Chronicles log level</a>:</li>
 </ul>
 <pre><code class="language-bash">make LOG_LEVEL=DEBUG bench_bls_sig_agggregation # this is the default
-make LOG_LEVEL=TRACE beacon_node # log everything
+make LOG_LEVEL=TRACE nimbus_beacon_node # log everything
 </code></pre>
 <ul>
 <li>pass arbitrary parameters to the Nim compiler:</li>

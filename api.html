@@ -164,7 +164,7 @@
 <p>The <code>nimbus-eth2</code> API is implemented using JSON-RPC 2.0. To query it, you can use a JSON-RPC library in the language of your choice, or a tool like <code>curl</code> to access it from the command line. A tool like <a href="https://stedolan.github.io/jq/">jq</a> is helpful to pretty-print the responses.</p>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;peers&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<p>Before you can access the API, make sure it's enabled using the RPC flag (<code>beacon_node --rpc</code>):</p>
+<p>Before you can access the API, make sure it's enabled using the RPC flag (<code>nimbus_beacon_node --rpc</code>):</p>
 <pre><code>     --rpc                     Enable the JSON-RPC server.
      --rpc-port                HTTP port for the JSON-RPC service.
      --rpc-address             Listening address of the RPC server.

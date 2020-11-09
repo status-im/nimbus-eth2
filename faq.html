@@ -159,7 +159,7 @@
 <h2><a class="header" href="#nimbus" id="nimbus">Nimbus</a></h2>
 <h3><a class="header" href="#why-are-metrics-not-working" id="why-are-metrics-not-working">Why are metrics not working?</a></h3>
 <p>Metrics are currently implemented using a HTTP server that hasn't been hardened sufficiently (which means it can't be exposed as a public endpoint). It must therefore be enabled specifically during build:</p>
-<pre><code>make NIMFLAGS=&quot;-d:insecure&quot; beacon_node --metrics ...
+<pre><code>make NIMFLAGS=&quot;-d:insecure&quot; nimbus_beacon_node --metrics ...
 </code></pre>
 <h2><a class="header" href="#validating" id="validating">Validating</a></h2>
 <h3><a class="header" href="#what-exactly-is-a-validator" id="what-exactly-is-a-validator">What exactly is a validator?</a></h3>

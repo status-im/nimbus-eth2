@@ -176,11 +176,11 @@
 cd nimbus-eth2
 </code></pre>
 <h4><a class="header" href="#2-build-the-beacon-node" id="2-build-the-beacon-node">2. Build the beacon node</a></h4>
-<pre><code>make beacon_node
+<pre><code>make nimbus_beacon_node
 </code></pre>
 <p><em>Patience... this may take a few minutes.</em></p>
 <h4><a class="header" href="#3-import-keystores" id="3-import-keystores">3. Import keystore(s)</a></h4>
-<pre><code>build/beacon_node deposits import  --data-dir=build/data/shared_medalla_0 &lt;YOUR VALIDATOR KEYS DIRECTORY&gt;
+<pre><code>build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_medalla_0 &lt;YOUR VALIDATOR KEYS DIRECTORY&gt;
 </code></pre>
 <p>Replacing <code>&lt;YOUR VALIDATOR KEYS DIRECTORY&gt;</code> with the full pathname of your <code>validator_keys</code> directory.</p>
 <blockquote>
@@ -195,7 +195,7 @@ You should see that the beacon node has launched with your validator attached:</
 <pre><code>WRN 2020-08-03 16:24:17.950+02:00 Validator not in registry (yet?)           topics=&quot;beacval&quot; tid=11677993 file=validator_duties.nim:53 pubKey=a9c4df36
 INF 2020-08-03 16:24:17.951+02:00 Local validator attached                   tid=11677993 file=validator_pool.nim:21 pubKey=a9c4df36 validator=a9c4df36
 INF 2020-08-03 16:24:17.951+02:00 Local validators attached                  topics=&quot;beacval&quot; tid=11677993 file=validator_duties.nim:61 count=1
-INF 2020-08-03 16:24:17.958+02:00 Starting beacon node                       topics=&quot;beacnde&quot; tid=11677993 file=beacon_node.nim:875 version=&quot;0.5.0 (31b33907)&quot; nim=&quot;Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)&quot; timeSinceFinalization=81350 head=ebe49843:0 finalizedHead=ebe49843:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.2 dataDir=build/data/shared_medalla_0 pcs=start_beacon_node
+INF 2020-08-03 16:24:17.958+02:00 Starting beacon node                       topics=&quot;beacnde&quot; tid=11677993 file=nimbus_beacon_node.nim:875 version=&quot;0.5.0 (31b33907)&quot; nim=&quot;Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)&quot; timeSinceFinalization=81350 head=ebe49843:0 finalizedHead=ebe49843:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.2 dataDir=build/data/shared_medalla_0 pcs=start_beacon_node
 </code></pre>
 <blockquote>
 <p><strong>Note:</strong> when you run <code>make medalla</code>, the beacon node launches with an Infura endpoint supplied by us. This endpoint is passed through the <code>web3-url</code> option (which takes as input the url of the web3 server from which you'd like to observe the eth1 chain). </p>

@@ -300,7 +300,7 @@ CONF_SWAPSIZE=2048
 <h3><a class="header" href="#14-build-the-beacon-node" id="14-build-the-beacon-node">14. Build the beacon node</a></h3>
 <p>Change into the directory and build the beacon node.</p>
 <pre><code>cd nimbus-eth2
-make beacon_node
+make nimbus_beacon_node
 </code></pre>
 <p><em>Patience... this may take a few minutes.</em></p>
 <h3><a class="header" href="#15-copy-signing-key-over-to-pi" id="15-copy-signing-key-over-to-pi">15. Copy signing key over to Pi</a></h3>
@@ -320,7 +320,7 @@ make beacon_node
 </blockquote>
 <h3><a class="header" href="#16-import-signing-key-into-nimbus" id="16-import-signing-key-into-nimbus">16. Import signing key into Nimbus</a></h3>
 <p>To import your signing key into Nimbus, from the <code>nimbus-eth2</code> directory run:</p>
-<pre><code>build/beacon_node deposits import  --data-dir=build/data/shared_medalla_0 ../validator_keys
+<pre><code>build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_medalla_0 ../validator_keys
 </code></pre>
 <p>You'll be asked to enter the password you created to encrypt your keystore(s). Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your <a href="https://blog.ethereum.org/2020/05/21/keys/">key</a> (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).</p>
 <h3><a class="header" href="#17-run-screen" id="17-run-screen">17. Run Screen</a></h3>
@@ -370,7 +370,7 @@ Capabilities:
 <pre><code>INF 2020-10-07 17:04:09.213+02:00 Initializing networking                    topics=&quot;networking&quot; tid=11688398 file=eth2_network.nim:1335 hostAddress=/ip4/0.0.0.0/tcp/9000 network_public_key=0802122102defb020c8e47dd8f5da89f51ed6c3998aaa0dd59eeb2784e29d47fdbdab69235 announcedAddresses=@[/ip4/195.177.101.93/tcp/9000]
 WRN 2020-10-07 17:04:09.215+02:00 Ignoring invalid bootstrap address         tid=11688398 file=eth2_discovery.nim:45 bootstrapAddr= reason=&quot;an empty string is not a valid bootstrap node&quot;
 NOT 2020-10-07 17:04:09.231+02:00 Local validators attached                  topics=&quot;beacval&quot; tid=11688398 file=validator_duties.nim:65 count=0
-NOT 2020-10-07 17:04:09.231+02:00 Starting beacon node                       topics=&quot;beacnde&quot; tid=11688398 file=beacon_node.nim:923 version=&quot;0.5.0 (1dec860b)&quot; nim=&quot;Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)&quot; timeSinceFinalization=0ns head=0814b036:0 finalizedHead=0814b036:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.3 dataDir=build/data/shared_medalla_0
+NOT 2020-10-07 17:04:09.231+02:00 Starting beacon node                       topics=&quot;beacnde&quot; tid=11688398 file=nimbus_beacon_node.nim:923 version=&quot;0.5.0 (1dec860b)&quot; nim=&quot;Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)&quot; timeSinceFinalization=0ns head=0814b036:0 finalizedHead=0814b036:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.3 dataDir=build/data/shared_medalla_0
 </code></pre>
 <p>To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running. You should see something like:</p>
 <pre><code>peers: 35 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:7 (316807) ❯ sync: wPwwwwwDwwDPwPPPwwww:7:4.0627 (280512)

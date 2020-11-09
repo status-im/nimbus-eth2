@@ -260,10 +260,10 @@ cd nimbus-eth2
 <h3><a class="header" href="#2-run-the-beacon-node-build-process" id="2-run-the-beacon-node-build-process">2. Run the beacon node build process</a></h3>
 <p>To build the Nimbus beacon node and it's dependencies, run:</p>
 <p><em>Medalla testnet</em></p>
-<pre><code>make beacon_node_spec_0_12_3
+<pre><code>make nimbus_beacon_node_spec_0_12_3
 </code></pre>
 <p><em>Mainnet</em></p>
-<pre><code>make beacon_node
+<pre><code>make nimbus_beacon_node
 </code></pre>
 <h2><a class="header" href="#run-an-eth1-node" id="run-an-eth1-node">Run an eth1 node</a></h2>
 <p>In order to process incoming validator deposits from the eth1 chain, you'll need to run an eth1 client in parallel to your eth2 client. While it is possible to use a third-party service like <a href="./infura-guide.html">Infura</a>, we recommend running your own client in order to ensure the network stays as decentralised as possible.</p>
@@ -355,7 +355,7 @@ INF 2020-11-07 18:56:48.558+01:00 Awaiting genesis event                     tid
 <p>⚠️  This page concerns the Medalla testnet only. If you have made a mainnet deposit, you do not need to import your keys into Nimbus quite yet. </p>
 </blockquote>
 <p>To import your signing key(s) into Nimbus, from the <code>nimbus-eth2</code> directory run:</p>
-<pre><code> build/beacon_node deposits import  --data-dir=build/data/shared_medalla_0 &lt;YOUR VALIDATOR KEYS DIRECTORY&gt;
+<pre><code> build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_medalla_0 &lt;YOUR VALIDATOR KEYS DIRECTORY&gt;
 </code></pre>
 <p>Replacing <code>&lt;YOUR VALIDATOR KEYS DIRECTORY&gt;</code> with the full pathname of the <code>validator_keys</code> directory that was created when you generated your keys using the <a href="https://medalla.launchpad.ethereum.org/">Medalla Launchpad</a> <a href="https://github.com/ethereum/eth2.0-deposit-cli/releases/">command line app</a>.</p>
 <blockquote>
@@ -805,7 +805,7 @@ CONF_SWAPSIZE=2048
 <h3><a class="header" href="#14-build-the-beacon-node" id="14-build-the-beacon-node">14. Build the beacon node</a></h3>
 <p>Change into the directory and build the beacon node.</p>
 <pre><code>cd nimbus-eth2
-make beacon_node
+make nimbus_beacon_node
 </code></pre>
 <p><em>Patience... this may take a few minutes.</em></p>
 <h3><a class="header" href="#15-copy-signing-key-over-to-pi" id="15-copy-signing-key-over-to-pi">15. Copy signing key over to Pi</a></h3>
@@ -825,7 +825,7 @@ make beacon_node
 </blockquote>
 <h3><a class="header" href="#16-import-signing-key-into-nimbus" id="16-import-signing-key-into-nimbus">16. Import signing key into Nimbus</a></h3>
 <p>To import your signing key into Nimbus, from the <code>nimbus-eth2</code> directory run:</p>
-<pre><code>build/beacon_node deposits import  --data-dir=build/data/shared_medalla_0 ../validator_keys
+<pre><code>build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_medalla_0 ../validator_keys
 </code></pre>
 <p>You'll be asked to enter the password you created to encrypt your keystore(s). Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your <a href="https://blog.ethereum.org/2020/05/21/keys/">key</a> (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).</p>
 <h3><a class="header" href="#17-run-screen" id="17-run-screen">17. Run Screen</a></h3>
@@ -875,7 +875,7 @@ Capabilities:
 <pre><code>INF 2020-10-07 17:04:09.213+02:00 Initializing networking                    topics=&quot;networking&quot; tid=11688398 file=eth2_network.nim:1335 hostAddress=/ip4/0.0.0.0/tcp/9000 network_public_key=0802122102defb020c8e47dd8f5da89f51ed6c3998aaa0dd59eeb2784e29d47fdbdab69235 announcedAddresses=@[/ip4/195.177.101.93/tcp/9000]
 WRN 2020-10-07 17:04:09.215+02:00 Ignoring invalid bootstrap address         tid=11688398 file=eth2_discovery.nim:45 bootstrapAddr= reason=&quot;an empty string is not a valid bootstrap node&quot;
 NOT 2020-10-07 17:04:09.231+02:00 Local validators attached                  topics=&quot;beacval&quot; tid=11688398 file=validator_duties.nim:65 count=0
-NOT 2020-10-07 17:04:09.231+02:00 Starting beacon node                       topics=&quot;beacnde&quot; tid=11688398 file=beacon_node.nim:923 version=&quot;0.5.0 (1dec860b)&quot; nim=&quot;Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)&quot; timeSinceFinalization=0ns head=0814b036:0 finalizedHead=0814b036:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.3 dataDir=build/data/shared_medalla_0
+NOT 2020-10-07 17:04:09.231+02:00 Starting beacon node                       topics=&quot;beacnde&quot; tid=11688398 file=nimbus_beacon_node.nim:923 version=&quot;0.5.0 (1dec860b)&quot; nim=&quot;Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)&quot; timeSinceFinalization=0ns head=0814b036:0 finalizedHead=0814b036:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.3 dataDir=build/data/shared_medalla_0
 </code></pre>
 <p>To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running. You should see something like:</p>
 <pre><code>peers: 35 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:7 (316807) ❯ sync: wPwwwwwDwwDPwPPPwwww:7:4.0627 (280512)
@@ -909,7 +909,7 @@ Importantly, the endpoint must be a websocket (<code>wss</code>) endpoint, not <
 <p>This endpoint is passed through the <code>web3-url</code> option (which takes as input the url of the web3 server from which you'd like to observe the eth1 chain).</p>
 <p>If you look at the initial logs you should see something similar to the following:</p>
 <pre><code>DBG 2020-09-29 12:15:41.969+02:00 Launching beacon node
-topics=&quot;beacnde&quot; tid=8941404 file=beacon_node.nim:1190 version=&quot;0.5.0 (78ceeed8)&quot; bls_backend=BLST
+topics=&quot;beacnde&quot; tid=8941404 file=nimbus_beacon_node.nim:1190 version=&quot;0.5.0 (78ceeed8)&quot; bls_backend=BLST
 cmdParams=&quot;@[
 \&quot;--network=medalla\&quot;,
 \&quot;--log-level=DEBUG\&quot;,
@@ -1027,7 +1027,7 @@ make medalla NODE_ID=2
 <p>The <code>nimbus-eth2</code> API is implemented using JSON-RPC 2.0. To query it, you can use a JSON-RPC library in the language of your choice, or a tool like <code>curl</code> to access it from the command line. A tool like <a href="https://stedolan.github.io/jq/">jq</a> is helpful to pretty-print the responses.</p>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;peers&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<p>Before you can access the API, make sure it's enabled using the RPC flag (<code>beacon_node --rpc</code>):</p>
+<p>Before you can access the API, make sure it's enabled using the RPC flag (<code>nimbus_beacon_node --rpc</code>):</p>
 <pre><code>     --rpc                     Enable the JSON-RPC server.
      --rpc-port                HTTP port for the JSON-RPC service.
      --rpc-address             Listening address of the RPC server.
@@ -1140,7 +1140,7 @@ mingw32-make fetch-dlls # this will place the right DLLs for your architecture i
 </code></pre>
 <h3><a class="header" href="#linux-macos" id="linux-macos">Linux, macOS</a></h3>
 <p>After cloning the repo:</p>
-<pre><code class="language-bash"># Build beacon_node and all the tools, using 4 parallel Make jobs
+<pre><code class="language-bash"># Build nimbus_beacon_node and all the tools, using 4 parallel Make jobs
 make -j4
 
 # Run tests
@@ -1202,7 +1202,7 @@ make V=2 test # even more verbose
 <li>same for the <a href="https://github.com/status-im/nim-chronicles#chronicles_log_level">Chronicles log level</a>:</li>
 </ul>
 <pre><code class="language-bash">make LOG_LEVEL=DEBUG bench_bls_sig_agggregation # this is the default
-make LOG_LEVEL=TRACE beacon_node # log everything
+make LOG_LEVEL=TRACE nimbus_beacon_node # log everything
 </code></pre>
 <ul>
 <li>pass arbitrary parameters to the Nim compiler:</li>
@@ -1237,13 +1237,13 @@ git clone https://github.com/Alethio/eth2stats-client.git
 <p>Build both repositories by following their respective build instructions. </p>
 <p><em>nimbus-eth2</em></p>
 <pre><code class="language-console">cd nimbus-eth2
-make beacon_node
+make nimbus_beacon_node
 </code></pre>
 <p><em>eth2stats</em></p>
 <pre><code class="language-console">cd eth2stats-client
 make build
 </code></pre>
-<p>The resulting binaries should appear in <code>nimbus-eth2/build/beacon_node</code> and <code>eth2stats-client/eth2stats-client</code>, respectively.</p>
+<p>The resulting binaries should appear in <code>nimbus-eth2/build/nimbus_beacon_node</code> and <code>eth2stats-client/eth2stats-client</code>, respectively.</p>
 <h3><a class="header" href="#3-create-an-executable-script" id="3-create-an-executable-script">3. Create an executable script</a></h3>
 <p>Create an executable script, <code>run_nimbus_node.sh</code>, and place it adjacent to the repositories you cloned in step 1 (same directory level).</p>
 <pre><code class="language-bash">#!/bin/bash
@@ -1313,7 +1313,7 @@ WantedBy=default.target
 <h2><a class="header" href="#nimbus" id="nimbus">Nimbus</a></h2>
 <h3><a class="header" href="#why-are-metrics-not-working" id="why-are-metrics-not-working">Why are metrics not working?</a></h3>
 <p>Metrics are currently implemented using a HTTP server that hasn't been hardened sufficiently (which means it can't be exposed as a public endpoint). It must therefore be enabled specifically during build:</p>
-<pre><code>make NIMFLAGS=&quot;-d:insecure&quot; beacon_node --metrics ...
+<pre><code>make NIMFLAGS=&quot;-d:insecure&quot; nimbus_beacon_node --metrics ...
 </code></pre>
 <h2><a class="header" href="#validating" id="validating">Validating</a></h2>
 <h3><a class="header" href="#what-exactly-is-a-validator" id="what-exactly-is-a-validator">What exactly is a validator?</a></h3>
@@ -1490,11 +1490,11 @@ git merge devel
 cd nimbus-eth2
 </code></pre>
 <h4><a class="header" href="#2-build-the-beacon-node" id="2-build-the-beacon-node">2. Build the beacon node</a></h4>
-<pre><code>make beacon_node
+<pre><code>make nimbus_beacon_node
 </code></pre>
 <p><em>Patience... this may take a few minutes.</em></p>
 <h4><a class="header" href="#3-import-keystores" id="3-import-keystores">3. Import keystore(s)</a></h4>
-<pre><code>build/beacon_node deposits import  --data-dir=build/data/shared_medalla_0 &lt;YOUR VALIDATOR KEYS DIRECTORY&gt;
+<pre><code>build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_medalla_0 &lt;YOUR VALIDATOR KEYS DIRECTORY&gt;
 </code></pre>
 <p>Replacing <code>&lt;YOUR VALIDATOR KEYS DIRECTORY&gt;</code> with the full pathname of your <code>validator_keys</code> directory.</p>
 <blockquote>
@@ -1509,7 +1509,7 @@ You should see that the beacon node has launched with your validator attached:</
 <pre><code>WRN 2020-08-03 16:24:17.950+02:00 Validator not in registry (yet?)           topics=&quot;beacval&quot; tid=11677993 file=validator_duties.nim:53 pubKey=a9c4df36
 INF 2020-08-03 16:24:17.951+02:00 Local validator attached                   tid=11677993 file=validator_pool.nim:21 pubKey=a9c4df36 validator=a9c4df36
 INF 2020-08-03 16:24:17.951+02:00 Local validators attached                  topics=&quot;beacval&quot; tid=11677993 file=validator_duties.nim:61 count=1
-INF 2020-08-03 16:24:17.958+02:00 Starting beacon node                       topics=&quot;beacnde&quot; tid=11677993 file=beacon_node.nim:875 version=&quot;0.5.0 (31b33907)&quot; nim=&quot;Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)&quot; timeSinceFinalization=81350 head=ebe49843:0 finalizedHead=ebe49843:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.2 dataDir=build/data/shared_medalla_0 pcs=start_beacon_node
+INF 2020-08-03 16:24:17.958+02:00 Starting beacon node                       topics=&quot;beacnde&quot; tid=11677993 file=nimbus_beacon_node.nim:875 version=&quot;0.5.0 (31b33907)&quot; nim=&quot;Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)&quot; timeSinceFinalization=81350 head=ebe49843:0 finalizedHead=ebe49843:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.2 dataDir=build/data/shared_medalla_0 pcs=start_beacon_node
 </code></pre>
 <blockquote>
 <p><strong>Note:</strong> when you run <code>make medalla</code>, the beacon node launches with an Infura endpoint supplied by us. This endpoint is passed through the <code>web3-url</code> option (which takes as input the url of the web3 server from which you'd like to observe the eth1 chain). </p>
