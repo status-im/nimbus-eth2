@@ -55,3 +55,17 @@ INF 2020-11-07 18:56:48.558+01:00 Awaiting genesis event                     tid
 ...
 ```
 
+
+### Command line options
+
+You can pass any `nimbus_beacon_node` options to the `medalla` and `mainnet` scripts. For example, if you wanted to launch Nimbus on mainnet with a different base port, say `9100`, you would run:
+
+```
+./run-mainnet-beacon-node.sh --tcp-port=9100 --udp-port=9100
+```
+
+To see a list of the command line options availabe to you, with descriptions, navigate to the `build` directory and run:
+
+```
+./nimbus_beacon_node --help
+```

@@ -11,6 +11,7 @@
 - [Keep an eye on your validator](./keep-an-eye.md)
 - [Keep Nimbus updated](./keep-updated.md)
 # Volume 2
+- [Command line options](./options.md)
 - [Useful pre-genesis checks]()
 - [Troubleshooting](./troubleshooting.md)
 - [Metrics and pretty pictures](./metrics-pretty-pictures.md)
