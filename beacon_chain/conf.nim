@@ -37,7 +37,7 @@ type
 
   BeaconNodeConf* = object
     logLevel* {.
-      defaultValue: "DEBUG"
+      defaultValue: "INFO"
       desc: "Sets the log level"
       name: "log-level" }: string
 
@@ -158,7 +158,7 @@ type
 
       graffiti* {.
         desc: "The graffiti value that will appear in proposed blocks. " &
-              "You can use a 0x-prefixed hex encoded string to specify raw bytes."
+              "You can use a 0x-prefixed hex encoded string to specify raw bytes"
         name: "graffiti" }: Option[GraffitiBytes]
 
       verifyFinalization* {.
@@ -354,8 +354,8 @@ type
 
   ValidatorClientConf* = object
     logLevel* {.
-      defaultValue: "DEBUG"
-      desc: "Sets the log level."
+      defaultValue: "INFO"
+      desc: "Sets the log level"
       name: "log-level" }: string
 
     logFile* {.
@@ -387,7 +387,7 @@ type
     of VCNoCommand:
       graffiti* {.
         desc: "The graffiti value that will appear in proposed blocks. " &
-              "You can use a 0x-prefixed hex encoded string to specify raw bytes."
+              "You can use a 0x-prefixed hex encoded string to specify raw bytes"
         name: "graffiti" }: Option[GraffitiBytes]
 
       stopAtEpoch* {.

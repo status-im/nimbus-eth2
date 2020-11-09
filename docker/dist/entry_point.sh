@@ -23,6 +23,7 @@ rm -rf "dist/${PREFIX}"*.tar.gz
 if [[ -d "${DIST_PATH}" ]]; then
   rm -rf "${DIST_PATH}"
 fi
+
 mkdir -p "${DIST_PATH}"
 mkdir "${DIST_PATH}/scripts"
 mkdir "${DIST_PATH}/build"
@@ -36,7 +37,7 @@ for BINARY in ${BINARIES}; do
   cd - >/dev/null
 done
 sed -e "s/GIT_COMMIT/${GIT_COMMIT}/" docker/dist/README.md > "${DIST_PATH}/README.md"
-cp -a scripts/makedir.sh scripts/run-beacon-node.sh "${DIST_PATH}/scripts"
+cp -a scripts/run-beacon-node.sh "${DIST_PATH}/scripts"
 cp -a ./run-*-beacon-node.sh "${DIST_PATH}/"
 #cp -a docs/the_nimbus_book "${DIST_PATH}/"
 
