@@ -35,7 +35,7 @@ Because we believe that the largest deployment of Ethereum will be on embedded s
 
 Although Nimbus will support full and archival nodes, its main implementation will be as a light client, with a focus on Proof of Stake and sharding.
 
-All our code is open source; we encourage you to keep track of our activity on [github.com/status-im/nimbus](github.com/status-im/nimbus)) and keep up to date with our progress through the [Nimbus blog](https://our.status.im/tag/nimbus/).
+All our code is open source; we encourage you to keep track of our activity at [github.com/status-im/nimbus](https://github.com/status-im/nimbus)). You can also keep up to date with our progress through the [Nimbus blog](https://our.status.im/tag/nimbus/).
 
 
 ## Get in touch
