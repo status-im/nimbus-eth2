@@ -268,7 +268,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
     asyncCheck vc.onSlotStart(slot, nextSlot)
 
 programMain:
-  let config = makeBannerAndConfig("Nimbus validator client v" & fullVersionStr, ValidatorClientConf)
+  let config = makeBannerAndConfig("Nimbus validator client " & fullVersionStr, ValidatorClientConf)
 
   setupStdoutLogging(config.logLevel)
 

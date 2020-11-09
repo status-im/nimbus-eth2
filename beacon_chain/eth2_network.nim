@@ -208,7 +208,7 @@ type
     ## This is type returned from all network requests
 
 const
-  clientId* = "Nimbus beacon node v" & fullVersionStr
+  clientId* = "Nimbus beacon node " & fullVersionStr
   nodeMetadataFilename = "node-metadata.json"
 
   TCP = net.Protocol.IPPROTO_TCP
