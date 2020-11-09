@@ -27,7 +27,7 @@ import
 # - https://notes.ethereum.org/@djrtwo/Bkn3zpwxB#Validator-responsibilities
 #
 # Phase 0 spec - Honest Validator - how to avoid slashing
-# - https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#how-to-avoid-slashing
+# - https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#how-to-avoid-slashing
 #
 # In-depth reading on slashing conditions
 #
@@ -49,7 +49,7 @@ import
 #   2. An attester can get slashed for signing
 #      two attestations that together violate
 #      the Casper FFG slashing conditions.
-# - https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#ffg-vote
+# - https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#ffg-vote
 #   The "source" is the current_justified_epoch
 #   The "target" is the current_epoch
 #

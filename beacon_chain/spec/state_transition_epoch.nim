@@ -97,7 +97,7 @@ type
     # Total rewards and penalties for this validator
     delta: Delta
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_total_balance
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_total_balance
   TotalBalances = object
     # The total effective balance of all active validators during the _current_
     # epoch.
@@ -129,7 +129,7 @@ type
     total_balances*: TotalBalances
 
 # Accessors that implement the max condition in `get_total_balance`:
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_total_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_total_balance
 template current_epoch*(v: TotalBalances): Gwei =
   max(EFFECTIVE_BALANCE_INCREMENT, v.current_epoch_raw)
 template previous_epoch*(v: TotalBalances): Gwei =
@@ -253,7 +253,7 @@ func is_eligible_validator*(validator: ValidatorStatus): bool =
 # Spec
 # --------------------------------------------------------
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_total_active_balance
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_total_active_balance
 func get_total_active_balance*(state: BeaconState, cache: var StateCache): Gwei =
   ## Return the combined effective balance of the active validators.
   # Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei
@@ -264,7 +264,7 @@ func get_total_active_balance*(state: BeaconState, cache: var StateCache): Gwei 
   get_total_balance(
     state, cache.get_shuffled_active_validator_indices(state, epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#justification-and-finalization
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#justification-and-finalization
 proc process_justification_and_finalization*(state: var BeaconState,
     total_balances: TotalBalances, updateFlags: UpdateFlags = {}) {.nbench.} =
   # Initial FFG checkpoint values have a `0x00` stub for `root`.
@@ -360,7 +360,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
       current_epoch = current_epoch,
       checkpoint = shortLog(state.finalized_checkpoint)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#helpers
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#helpers
 func get_base_reward_sqrt*(state: BeaconState, index: ValidatorIndex,
     total_balance_sqrt: auto): Gwei =
   # Spec function recalculates total_balance every time, which creates an
@@ -399,7 +399,7 @@ func get_attestation_component_delta(is_unslashed_attester: bool,
   else:
     Delta(penalties: base_reward)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#components-of-attestation-deltas
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#components-of-attestation-deltas
 func get_source_delta*(validator: ValidatorStatus,
                        base_reward: uint64,
                        total_balances: TotalBalances,
@@ -473,7 +473,7 @@ func get_inactivity_penalty_delta*(validator: ValidatorStatus,
 
   delta
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#get_attestation_deltas
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_attestation_deltas
 func get_attestation_deltas(
     state: BeaconState, validator_statuses: var ValidatorStatuses) =
   ## Update validator_statuses with attestation reward/penalty deltas for each validator.
@@ -518,7 +518,7 @@ func get_attestation_deltas(
         validator_statuses.statuses[proposer_index].delta.add(
           proposer_delta.get()[1])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#process_rewards_and_penalties
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#process_rewards_and_penalties
 func process_rewards_and_penalties(
     state: var BeaconState, validator_statuses: var ValidatorStatuses) {.nbench.} =
   # No rewards are applied at the end of `GENESIS_EPOCH` because rewards are
@@ -534,7 +534,7 @@ func process_rewards_and_penalties(
     increase_balance(state, idx.ValidatorIndex, v.delta.rewards)
     decrease_balance(state, idx.ValidatorIndex, v.delta.penalties)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#slashings
 func process_slashings*(state: var BeaconState, total_balance: Gwei) {.nbench.}=
   let
     epoch = get_current_epoch(state)
@@ -552,7 +552,7 @@ func process_slashings*(state: var BeaconState, total_balance: Gwei) {.nbench.}=
       let penalty = penalty_numerator div total_balance * increment
       decrease_balance(state, index.ValidatorIndex, penalty)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#final-updates
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#final-updates
 func process_final_updates*(state: var BeaconState) {.nbench.}=
   let
     current_epoch = get_current_epoch(state)
@@ -589,7 +589,7 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
   if next_epoch mod (SLOTS_PER_HISTORICAL_ROOT div SLOTS_PER_EPOCH) == 0:
     # Equivalent to hash_tree_root(foo: HistoricalBatch), but without using
     # significant additional stack or heap.
-    # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#historicalbatch
+    # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#historicalbatch
     # In response to https://github.com/status-im/nimbus-eth2/issues/921
     state.historical_roots.add hash_tree_root(
       [hash_tree_root(state.block_roots), hash_tree_root(state.state_roots)])
@@ -598,7 +598,7 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
   state.previous_epoch_attestations = state.current_epoch_attestations
   state.current_epoch_attestations = default(type state.current_epoch_attestations)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#epoch-processing
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(state: var BeaconState, updateFlags: UpdateFlags,
     cache: var StateCache) {.nbench.} =
   let currentEpoch = get_current_epoch(state)
@@ -607,7 +607,7 @@ proc process_epoch*(state: var BeaconState, updateFlags: UpdateFlags,
   var validator_statuses = ValidatorStatuses.init(state)
   validator_statuses.process_attestations(state, cache)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#justification-and-finalization
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(
     state, validator_statuses.total_balances, updateFlags)
 
@@ -621,16 +621,16 @@ proc process_epoch*(state: var BeaconState, updateFlags: UpdateFlags,
     # the finalization rules triggered.
     doAssert state.finalized_checkpoint.epoch + 3 >= currentEpoch
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#rewards-and-penalties-1
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#rewards-and-penalties-1
   process_rewards_and_penalties(state, validator_statuses)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#registry-updates
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#registry-updates
   process_registry_updates(state, cache)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#slashings
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#slashings
   process_slashings(state, validator_statuses.total_balances.current_epoch)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/beacon-chain.md#final-updates
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#final-updates
   process_final_updates(state)
 
   # Once per epoch metrics

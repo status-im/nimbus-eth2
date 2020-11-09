@@ -321,14 +321,14 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
 proc installAttestationSubnetHandlers(node: BeaconNode, subnets: set[uint8]) =
   var attestationSubscriptions: seq[Future[void]] = @[]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
   for subnet in subnets:
     attestationSubscriptions.add(node.network.subscribe(
       getAttestationTopic(node.forkDigest, subnet)))
 
   waitFor allFutures(attestationSubscriptions)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#metadata
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#metadata
   node.network.metadata.seq_number += 1
   for subnet in subnets:
     node.network.metadata.attnets[subnet] = true
@@ -370,7 +370,7 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) =
 
     waitFor allFutures(unsubscriptions)
 
-    # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#metadata
+    # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#metadata
     # The race condition window is smaller by placing the fast, local, and
     # synchronous operation after a variable-latency, asynchronous action.
     node.network.metadata.seq_number += 1
@@ -394,7 +394,7 @@ proc getAttestationHandlers(node: BeaconNode): Future[void] =
     initialSubnets.incl i
   node.installAttestationSubnetHandlers(initialSubnets)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   let wallEpoch =  node.beaconClock.now().slotOrZero().epoch
   node.attestationSubnets.stabilitySubnet = rand(ATTESTATION_SUBNET_COUNT - 1).uint64
   node.attestationSubnets.stabilitySubnetExpirationEpoch =
@@ -687,7 +687,7 @@ proc installRpcHandlers(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.installValidatorApiHandlers(node)
 
 proc installMessageValidators(node: BeaconNode) =
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # These validators stay around the whole time, regardless of which specific
   # subnets are subscribed to during any given epoch.
   for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
