@@ -1,8 +1,16 @@
 # Binary Nimbus beacon node distribution
 
-This binary distribution was created from https://github.com/status-im/nimbus-eth2
+This binary distribution of the Nimbus eth2 package is compiled
+in [reproducible way](https://reproducible-builds.org/) from source files
+hosted at https://github.com/status-im/nimbus-eth2.
 
-Tarball naming scheme: "nimbus-eth2\_Linux\_amd64\_<VERSION>\_<GIT COMMIT>.tar.gz".
+The tarball containing this README uses the following naming scheme:
+
+```bash
+nimbus-eth2_<TARGET OS>_<TARGET CPU>_<VERSION>_<GIT COMMIT>.tar.gz
+```
+
+For a more complete and up-to-date documentation, please refer to the [Nimbus book](https://status-im.github.io/nimbus-eth2/).
 
 ## Reproducing the build
 
@@ -25,35 +33,39 @@ No `-march=native` and no metrics support.
 With default options:
 
 ```bash
-./run_medalla_node.sh
+./run-medalla-beacon-node.sh
 ```
 
-Change options implemented as shell variables inside the script:
+The script will forward all supplied options to the beacon node executable:
 
 ```bash
-LOG_LEVEL=DEBUG BASE_PORT=9100 ./run_medalla_node.sh
+./run-medalla-beacon-node.sh --log-level=DEBUG --tcp-port=9050
 ```
 
-Add arbitrary `nimbus_beacon_node` parameters (yes, you can combine this with env vars):
+To monitor the Eth1 validator deposit contract, you'll need to pair
+the Nimbus beacon node with a Web3 provider capable of serving Eth1
+event logs. This could be a locally running Eth1 client such as Geth
+or a cloud service such as Infura. For more information please see
+our setup guides:
+
+https://status-im.github.io/nimbus-eth2/eth1.html
+
+By default, the script will ask you to enter a web3 provider URL interactively,
+but this can be supressed by specifying a `WEB3_URL` environment variable:
 
 ```bash
-./run_medalla_node.sh --log-level=DEBUG --rpc-port=9290
-```
-
-Use your own Infura endpoint, because the default one is probably throttled:
-
-```bash
-GOERLI_WEB3_URL="wss://goerli.infura.io/ws/v3/<YOUR PROJECT ID>" ./run_medalla_node.sh
+WEB3_URL="wss://goerli.infura.io/ws/v3/<YOUR PROJECT ID>" ./run-medalla-beacon-node.sh
 ```
 
 ## Running a mainnet node
 
-Same conventions as the Medalla script described above, plus the requirement of specifying a Web3 URL:
+`run-mainnet-beacon-node.sh` is a similar script intended for connecting to mainnet.
+All the same conventions apply:
 
 ```bash
 # using a local Geth instance
-WEB3_URL="ws://localhost:8545" ./run_mainnet_node.sh
+WEB3_URL="ws://localhost:8545" ./run-mainnet-node.sh --max-peers=150
 # using Infura
-WEB3_URL="wss://mainnet.infura.io/ws/v3/<YOUR PROJECT ID>" ./run_mainnet_node.sh
+WEB3_URL="wss://mainnet.infura.io/ws/v3/<YOUR PROJECT ID>" ./run-mainnet-beacon-node.sh
 ```
 

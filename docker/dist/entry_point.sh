@@ -32,7 +32,6 @@ mkdir "${DIST_PATH}/build"
 for BINARY in ${BINARIES}; do
   cp -a ./build/${BINARY} "${DIST_PATH}/build/"
   cd "${DIST_PATH}/build"
-  md5sum ${BINARY} > ${BINARY}.md5sum
   sha512sum ${BINARY} > ${BINARY}.sha512sum
   cd - >/dev/null
 done
