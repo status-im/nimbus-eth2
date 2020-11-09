@@ -987,13 +987,35 @@ proc getWorkersStats[A, B](man: SyncManager[A, B]): tuple[map: string,
     map[i] = ch
   (map, sleeping, waiting, pending)
 
+proc guardTask[A, B](man: SyncManager[A, B]) {.async.} =
+  var pending: array[SyncWorkersCount, Future[void]]
+
+  # Starting all the synchronization workers.
+  for i in 0 ..< len(man.workers):
+    let future = syncWorker[A, B](man, i)
+    man.workers[i].future = future
+    pending[i] = future
+
+  # Wait for synchronization worker's failure and replace it with new one.
+  while true:
+    let failFuture = await one(pending)
+    let index = pending.find(failFuture)
+    if failFuture.failed():
+      debug "Synchronization worker stopped working unexpectedly with an error",
+            index = index, errMsg = failFuture.error.msg
+    else:
+      debug "Synchronization worker stopped working unexpectedly without error",
+            index = index
+
+    let future = syncWorker[A, B](man, index)
+    man.workers[index].future = future
+    pending[index] = future
+
 proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
   mixin getKey, getScore
   var pauseTime = 0
 
-  # Starting all sync workers
-  for i in 0 ..< len(man.workers):
-    man.workers[i].future = syncWorker[A, B](man, i)
+  asyncSpawn man.guardTask()
 
   debug "Synchronization loop started", topics = "syncman"
 
