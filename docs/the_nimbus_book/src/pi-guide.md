@@ -275,7 +275,7 @@ As usual, replace `195.177.101.93` with your Pi's IP address, and `<VALIDATOR_KE
 To import your signing key into Nimbus, from the `nimbus-eth2` directory run:
 
 ```
-build/nimbus_beacon_node deposits import  --data-dir=build/data/medalla ../validator_keys
+build/nimbus_beacon_node_spec_0_3 deposits import  --data-dir=build/data/medalla ../validator_keys
 ```
 
 

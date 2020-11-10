@@ -7,7 +7,7 @@
 To import your signing key(s) into Nimbus, from the `nimbus-eth2` directory run:
 
 ```
- build/nimbus_beacon_node deposits import  --data-dir=build/data/medalla <YOUR VALIDATOR KEYS DIRECTORY>
+build/nimbus_beacon_node_spec_0_12_3 deposits import  --data-dir=build/data/medalla <YOUR VALIDATOR KEYS DIRECTORY>
  ```
  
  
