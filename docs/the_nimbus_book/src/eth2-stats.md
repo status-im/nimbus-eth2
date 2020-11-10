@@ -4,7 +4,7 @@
 
 eth2stats is a network monitoring suite for your beacon node + validator client.
 
-It consists of a [command-line-interface](https://github.com/Alethio/eth2stats-client) (to help you query your node's API), and an [associated website](https://eth2stats.io/medalla-testnet)(which allows you to monitor your node from anywhere).
+It consists of a [command-line-interface](https://github.com/Alethio/eth2stats-client) (to help you query your node's API), and an [associated website](https://eth2stats.io/medalla-testnet) (which allows you to monitor your node from anywhere).
 
 In this guide we'll take you through how to get eth2stats running on your local machine, and how to hook your node up to the website.
 
