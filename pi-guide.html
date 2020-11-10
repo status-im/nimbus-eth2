@@ -320,7 +320,7 @@ make nimbus_beacon_node_spec_0_12_3
 </blockquote>
 <h3><a class="header" href="#16-import-signing-key-into-nimbus" id="16-import-signing-key-into-nimbus">16. Import signing key into Nimbus</a></h3>
 <p>To import your signing key into Nimbus, from the <code>nimbus-eth2</code> directory run:</p>
-<pre><code>build/nimbus_beacon_node_spec_0_3 deposits import  --data-dir=build/data/medalla ../validator_keys
+<pre><code>build/nimbus_beacon_node_spec_0_3 deposits import  --data-dir=build/data/shared_medalla_0 ../validator_keys
 </code></pre>
 <p>You'll be asked to enter the password you created to encrypt your keystore(s). Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your <a href="https://blog.ethereum.org/2020/05/21/keys/">key</a> (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).</p>
 <h3><a class="header" href="#17-run-screen" id="17-run-screen">17. Run Screen</a></h3>
