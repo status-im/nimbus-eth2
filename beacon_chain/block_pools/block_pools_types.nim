@@ -110,10 +110,6 @@ type
     heads*: seq[BlockRef] ##\
     ## Candidate heads of candidate chains
 
-    head*: BlockRef ##\
-    ## The latest block we know about, that's been chosen as a head by the fork
-    ## choice rule
-
     finalizedHead*: BlockSlot ##\
     ## The latest block that was finalized according to the block in head
     ## Ancestors of this block are guaranteed to have 1 child only.
@@ -122,14 +118,18 @@ type
     # Rewinder - Mutable state processing
 
     headState*: StateData ##\
-    ## State given by the head block; only update in `updateHead`, not anywhere
-    ## else via `withState`
+    ## State given by the head block - must only be updated in `updateHead` -
+    ## always matches dag.head
 
-    tmpState*: StateData ## Scratchpad - may be any state
+    epochRefState*: StateData ##\
+      ## State used to produce epochRef instances - must only be used in
+      ## `getEpochRef`
 
     clearanceState*: StateData ##\
-      ## Cached state used during block clearance - should only be used in the
-      ## clearance module to avoid the risk of modifying it in a callback
+      ## Cached state used during block clearance - must only be used in
+      ## clearance module
+
+    tmpState*: StateData ## Scratchpad - may be any state
 
     updateFlags*: UpdateFlags
 
@@ -201,6 +201,8 @@ type
     epochRef: EpochRef, state: HashedBeaconState) {.raises: [Defect], gcsafe.}
 
 template validator_keys*(e: EpochRef): untyped = e.validator_key_store[1][]
+
+template head*(v: ChainDagRef): BlockRef = v.headState.blck
 
 func shortLog*(v: BlockSlot): string =
   if v.blck.slot == v.slot:
