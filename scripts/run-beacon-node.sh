@@ -23,6 +23,11 @@ HELP
   exit 0
 fi
 
+: ${NODE_ID:=0}
+: ${DATA_DIR_NAME:="shared_${NETWORK}_${NODE_ID}"}
+: ${DATA_DIR:="build/data/${DATA_DIR_NAME}"}
+: ${BASE_P2P_PORT:=9000}
+: ${BASE_RPC_PORT:=9190}
 
 # Windows detection
 if uname | grep -qiE "mingw|msys"; then
@@ -62,7 +67,12 @@ fi
 
 build/${NBC_BINARY} \
   --network=${NETWORK} \
-  --data-dir=build/data/${NETWORK} \
+  --data-dir="${DATA_DIR}" \
+  --log-file="${DATA_DIR}/nbc_bn_$(date +"%Y%m%d%H%M%S").log" \
   --web3-url="${WEB3_URL}" \
+  --tcp-port=$(( ${BASE_P2P_PORT} + ${NODE_ID} )) \
+  --udp-port=$(( ${BASE_P2P_PORT} + ${NODE_ID} )) \
+  --rpc \
+  --rpc-port=$(( ${BASE_RPC_PORT} +${NODE_ID} )) \
   $@
 
