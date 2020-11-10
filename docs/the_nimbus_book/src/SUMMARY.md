@@ -22,7 +22,7 @@
 - [Switch between clients]()
 - [Your own Infura endpoint](infura-guide.md)
 # Volume 3
-- [Advanced options](./advanced.md)
+- [Advanced options]()
 - [API](./api.md)
 - [For developers](./developers.md)
 - [Set up a systemd service](./beacon-node-systemd.md)

@@ -46,11 +46,17 @@ Click on `Compile from source` and copy the command at the bottom.
 
 ![](https://i.imgur.com/ZcqMkOX.png)
 
-### 5. Run your node with metrics enabled
+### 5. Build and run your node with metrics enabled
 
 From your `nimbus-eth2` repository, run:
 ```
-make NIMFLAGS="-d:insecure" medalla
+make NIMFLAGS="-d:insecure" nimbus_beacon_node_spec_0_12_3
+```
+
+Followed by:
+
+```
+./run-medalla-beacon-node.sh
 ```
 
 ### 6. Run eth2stats

@@ -8,6 +8,8 @@ To update to the latest version, run:
 git pull && make update
 ```
 
+Then [rebuild the beacon node.](./build.md)
+
 > **Note:** If your beacon node is already running, you'll need to disconnect and reconnect for the changes to take effect.
 
 
