@@ -19,8 +19,6 @@ import
   ../../beacon_chain/spec/[datatypes, digest],
   ../../beacon_chain/ssz/merkleization
 
-# TODO All tests need to be moved to the test suite.
-
 const depositContractLimit* = Limit(1'u64 shl DEPOSIT_CONTRACT_TREE_DEPTH)
 
 func attachMerkleProofs*(deposits: var openArray[Deposit]) =

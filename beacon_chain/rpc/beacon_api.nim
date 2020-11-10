@@ -33,7 +33,6 @@ proc parsePubkey(str: string): ValidatorPubKey =
     raise newException(CatchableError, "Not a valid public key")
   return pubkeyRes[]
 
-# TODO currently this function throws if the validator isn't found - is this OK?
 proc getValidatorInfoFromValidatorId(
     state: BeaconState,
     current_epoch: Epoch,

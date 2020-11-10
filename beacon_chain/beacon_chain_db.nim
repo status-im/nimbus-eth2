@@ -129,8 +129,8 @@ func subkey(root: Eth2Digest, slot: Slot): array[40, byte] =
   ret
 
 template panic =
-  # TODO: Could we recover from a corrupted database?
-  #       Review all usages.
+  # TODO(zah): Could we recover from a corrupted database?
+  #            Review all usages.
   raiseAssert "The database should not be corrupted"
 
 proc init*[T](Seq: type DbSeq[T], db: SqStoreRef, name: string): Seq =
@@ -232,15 +232,16 @@ proc init*(T: type BeaconChainDB,
            inMemory = false): BeaconChainDB =
   if inMemory:
     # TODO
-    # The inMemory store shuold offer the complete functionality
-    # of the database-backed one (i.e. tracking of deposits and validators)
+    # To support testing, the inMemory store should offer the complete
+    # functionalityof the database-backed one (i.e. tracking of deposits
+    # and validators)
     T(backend: kvStore MemStoreRef.init(),
       preset: preset,
       finalizedEth1DepositsMerkleizer: init DepositsMerkleizer,
       finalizedEth2DepositsMerkleizer: init DepositsMerkleizer)
   else:
     let s = secureCreatePath(dir)
-    doAssert s.isOk # TODO Handle this in a better way
+    doAssert s.isOk # TODO(zah) Handle this in a better way
 
     let sqliteStore = SqStoreRef.init(dir, "nbc", Keyspaces).expect(
       "working database")

@@ -964,7 +964,7 @@ proc preInit*(
 proc setTailState*(dag: ChainDAGRef,
                    checkpointState: BeaconState,
                    checkpointBlock: SignedBeaconBlock) =
-  # TODO
+  # TODO(zah)
   # Delete all records up to the tail node. If the tail node is not
   # in the database, init the dabase in a way similar to `preInit`.
   discard

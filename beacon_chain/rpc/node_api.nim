@@ -17,10 +17,10 @@ template unimplemented() =
 
 proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("get_v1_node_identity") do () -> NodeIdentityTuple:
-    # TODO rest of fields
     return (
       peer_id: node.network.peerId(),
       enr: node.network.enrRecord(),
+      # TODO rest of fields
       p2p_addresses: newSeq[MultiAddress](0),
       discovery_addresses: newSeq[MultiAddress](0),
       metadata: (0'u64, "")

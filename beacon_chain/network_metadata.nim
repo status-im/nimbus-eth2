@@ -13,7 +13,7 @@ import
 # binary). It makes sense to keep the file small and separated from the rest
 # of the module in order go gain maximum efficiency in incremental compilation.
 #
-# TODO:
+# TODO(zah):
 # We can compress the embedded states with snappy before embedding them here.
 
 {.push raises: [Defect].}
@@ -151,7 +151,7 @@ const
                            # that there are no constant overrides
       eth1Network: some mainnet,
       runtimePreset: mainnetRuntimePreset,
-      # TODO Add bootstrap nodes for mainnet
+      # TODO(zah) Add bootstrap nodes for mainnet
       bootstrapNodes: @[],
       depositContractAddress: Eth1Address.fromHex "0x00000000219ab540356cBB839Cbe05303d7705Fa",
       depositContractDeployedAt: "11052984",
