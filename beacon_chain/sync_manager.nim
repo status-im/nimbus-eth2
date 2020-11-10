@@ -1001,10 +1001,10 @@ proc guardTask[A, B](man: SyncManager[A, B]) {.async.} =
     let failFuture = await one(pending)
     let index = pending.find(failFuture)
     if failFuture.failed():
-      debug "Synchronization worker stopped working unexpectedly with an error",
+      warn "Synchronization worker stopped working unexpectedly with an error",
             index = index, errMsg = failFuture.error.msg
     else:
-      debug "Synchronization worker stopped working unexpectedly without error",
+      warn "Synchronization worker stopped working unexpectedly without error",
             index = index
 
     let future = syncWorker[A, B](man, index)
