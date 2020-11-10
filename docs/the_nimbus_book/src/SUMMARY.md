@@ -12,8 +12,8 @@
 - [Keep Nimbus updated](./keep-updated.md)
 # Volume 2
 - [Command line options](./options.md)
-- [Useful pre-genesis checks]()
 - [Troubleshooting](./troubleshooting.md)
+- [Useful pre-genesis checks]()
 - [Metrics and pretty pictures](./metrics-pretty-pictures.md)
 - [Network stats + monitoring](./eth2-stats.md)
 - [Run your node on a Raspberry Pi](./pi-guide.md)
@@ -22,7 +22,7 @@
 - [Switch between clients]()
 - [Your own Infura endpoint](infura-guide.md)
 # Volume 3
-- [Advanced options](./advanced.md)
+- [Advanced options]()
 - [API](./api.md)
 - [For developers](./developers.md)
 - [Set up a systemd service](./beacon-node-systemd.md)
@@ -30,6 +30,4 @@
 - [FAQ](./faq.md)
 - [Contribute](./contribute.md)
 - [Resources](./resources.md)
-# Archived
-- [Become a Medalla validator](./medalla.md)
 

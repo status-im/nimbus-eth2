@@ -10,10 +10,10 @@ Grafana is a tool for beautiful dashboard monitoring that works well with Promet
 
 ## Simple metrics
 
-The easiest way to see metrics concerning your validator / node is to run the beacon node with the `NIMFLAGS="-d:insecure"` flag. For example, to enable metrics for a `medalla` validator, run:
+The easiest way to see metrics concerning your validator / node is to build the beacon node with the `NIMFLAGS="-d:insecure"` flag. For example, to enable metrics for a `medalla` validator, run:
 
 ```
-make NIMFLAGS="-d:insecure" medalla
+make NIMFLAGS="-d:insecure" nimbus_beacon_node_spec_0_12_3
 ```
 
 > **Note:** Metrics are not included in the binary by default. The `NIMFLAGS="-d:insecure"` is needed because we consider the HTTP server that needs to start to serve the metrics to be insecure (without this flag it won't launch properly). As such, we recommend you make sure port 8008 is protected.
@@ -73,12 +73,12 @@ cp prometheus-2.20.1.linux-amd64/prometheus /usr/local/bin/
 
 Prometheus relies on a YAML configuration file to let it know where, and how often, to scrape data.
 
-`nimbus-eth2` generates an appropriate configuration file (`prometheseus.yml`) when you build the beacon node. If you're running the `medalla` testnet you'll find this in `build/data/shared_medalla_0`.
+`nimbus-eth2` generates an appropriate configuration file (`prometheseus.yml`) when you build the beacon node. If you're running the `medalla` testnet you'll find this in `build/data/medalla`.
 
 To run Prometheus with the default config file:
 
 ```
-cd build/data/shared_medalla_0
+cd build/data/medalla
 prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
 # when starting multiple nodes at the same time, just use the config file from the one with the highest ID
 ```

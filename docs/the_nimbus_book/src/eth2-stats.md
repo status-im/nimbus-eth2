@@ -4,7 +4,7 @@
 
 eth2stats is a network monitoring suite for your beacon node + validator client.
 
-It consists of a [command-line-interface](https://github.com/Alethio/eth2stats-client) (to help you query your node's API), and an [associated website](https://eth2stats.io/medalla-testnet)(which allows you to monitor your node from anywhere).
+It consists of a [command-line-interface](https://github.com/Alethio/eth2stats-client) (to help you query your node's API), and an [associated website](https://eth2stats.io/medalla-testnet) (which allows you to monitor your node from anywhere).
 
 In this guide we'll take you through how to get eth2stats running on your local machine, and how to hook your node up to the website.
 
@@ -46,11 +46,17 @@ Click on `Compile from source` and copy the command at the bottom.
 
 ![](https://i.imgur.com/ZcqMkOX.png)
 
-### 5. Run your node with metrics enabled
+### 5. Build and run your node with metrics enabled
 
 From your `nimbus-eth2` repository, run:
 ```
-make NIMFLAGS="-d:insecure" medalla
+make NIMFLAGS="-d:insecure" nimbus_beacon_node_spec_0_12_3
+```
+
+Followed by:
+
+```
+./run-medalla-beacon-node.sh
 ```
 
 ### 6. Run eth2stats

@@ -244,7 +244,7 @@ git clone https://github.com/status-im/nimbus-eth2
 Change into the directory and build the beacon node.
 ```
 cd nimbus-eth2
-make nimbus_beacon_node
+make nimbus_beacon_node_spec_0_12_3
 ```
 
 *Patience... this may take a few minutes.*
@@ -275,7 +275,7 @@ As usual, replace `195.177.101.93` with your Pi's IP address, and `<VALIDATOR_KE
 To import your signing key into Nimbus, from the `nimbus-eth2` directory run:
 
 ```
-build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_medalla_0 ../validator_keys
+build/nimbus_beacon_node deposits import  --data-dir=build/data/medalla ../validator_keys
 ```
 
 
@@ -329,10 +329,24 @@ We're finally ready to connect to medalla!
 
 To connect to medalla, run:
 ```
-make NODE_PARAMS="--web3-url=wss://goerli.infura.io/ws/v3/ae1e57122a1e49af8e835e82a5e35e60" medalla
+./run-medalla-beacon-node.sh
 ```
 
-Be sure to replace the `web3-url` above with your own websocket (`wss`) Infura endpoint.[^1]
+You'll be prompted to enter a web3-provider url:
+
+```
+To monitor the Eth1 validator deposit contract, you'll need to pair
+the Nimbus beacon node with a Web3 provider capable of serving Eth1
+event logs. This could be a locally running Eth1 client such as Geth
+or a cloud service such as Infura. For more information please see
+our setup guide:
+
+https://status-im.github.io/nimbus-eth2/eth1.html
+
+Please enter a Web3 provider URL:
+```
+
+Enter your own secure websocket (`wss`) [Infura endpoint](./infura-guide.md).
 
 ### 19. Check for successful connection
 
@@ -359,11 +373,3 @@ To detach your `screen` session but leave your processes running, press `Ctrl-A`
 
 Verifying your progress is as simple as `ssh`ing back into your Pi and typing `screen -r`. This will resume your screen session (and you will be able to see your node's entire output since you logged out).
 
--------
-
-[^1]: If you were to just run `make medalla`, the beacon node would launch with an Infura endpoint supplied by us. This endpoint is passed through the `web3-url` option (which takes as input the url of the web3 server from which you'd like to observe the eth1 chain). Because Infura caps the requests per endpoint per day to 100k, and all Nimbus nodes use the same Infura endpoint by default, it can happen that our Infura endpoint is overloaded (i.e the requests on a given day reach the 100k limit). If this happens, all requests to Infura using the default endpoint will fail, which means your node will stop processing new deposits.
-  To pass in your own Infura endpoint, you'll need to run:
-	```
-	make NODE_PARAMS="--web3-url=<YOUR_WEBSOCKET_ENDPOINT>" medalla
-	```
-	Importantly, the endpoint must be a websocket (`wss`) endpoint, not `https`. If you're not familiar with Infura, we recommend reading through our [Infura guide](./infura-guide), first. **P.S.** We are well aware that Infura is less than ideal from a decentralisation perspective. As such we are in the process of changing our default to [Geth](https://geth.ethereum.org/docs/install-and-build/installing-geth) (with Infura as a fallback). For some rough notes on how to use Geth with Nimbus, see [here](https://gist.github.com/onqtam/aaf883d46f4dab1311ca9c160df12fe4) (we will be adding more complete instructions very soon).
