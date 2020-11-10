@@ -30,6 +30,4 @@
 - [FAQ](./faq.md)
 - [Contribute](./contribute.md)
 - [Resources](./resources.md)
-# Archived
-- [Become a Medalla validator](./medalla.md)
 
