@@ -2,8 +2,7 @@
 
 Nimbus binaries exist for Nimbus -- initially `x86 64-bit`, but Windows, MacOS and additional Linux binaries will be added shortly.
 
-You can find the latest release --`hope`-- here:
-https://github.com/status-im/nimbus-eth2/releases/tag/v0.6.0
+You can find the latest release --`hope`-- here: [https://github.com/status-im/nimbus-eth2/releases/tag/v0.6.0](https://github.com/status-im/nimbus-eth2/releases/tag/v0.6.0)
 
 Scroll to the bottom and click on `Assets`. You should see the following assets appear.
 
