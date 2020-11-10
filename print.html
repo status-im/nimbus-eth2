@@ -362,7 +362,7 @@ INF 2020-11-07 18:56:48.558+01:00 Awaiting genesis event                     tid
 <p>⚠️  This page concerns the Medalla testnet only. If you have made a mainnet deposit, you do not need to import your keys into Nimbus quite yet. </p>
 </blockquote>
 <p>To import your signing key(s) into Nimbus, from the <code>nimbus-eth2</code> directory run:</p>
-<pre><code> build/nimbus_beacon_node deposits import  --data-dir=build/data/medalla &lt;YOUR VALIDATOR KEYS DIRECTORY&gt;
+<pre><code>build/nimbus_beacon_node_spec_0_12_3 deposits import  --data-dir=build/data/medalla &lt;YOUR VALIDATOR KEYS DIRECTORY&gt;
 </code></pre>
 <p>Replacing <code>&lt;YOUR VALIDATOR KEYS DIRECTORY&gt;</code> with the full pathname of the <code>validator_keys</code> directory that was created when you generated your keys using the <a href="https://medalla.launchpad.ethereum.org/">Medalla Launchpad</a> <a href="https://github.com/ethereum/eth2.0-deposit-cli/releases/">command line app</a>.</p>
 <blockquote>
@@ -885,7 +885,7 @@ make nimbus_beacon_node_spec_0_12_3
 </blockquote>
 <h3><a class="header" href="#16-import-signing-key-into-nimbus" id="16-import-signing-key-into-nimbus">16. Import signing key into Nimbus</a></h3>
 <p>To import your signing key into Nimbus, from the <code>nimbus-eth2</code> directory run:</p>
-<pre><code>build/nimbus_beacon_node deposits import  --data-dir=build/data/medalla ../validator_keys
+<pre><code>build/nimbus_beacon_node_spec_0_3 deposits import  --data-dir=build/data/medalla ../validator_keys
 </code></pre>
 <p>You'll be asked to enter the password you created to encrypt your keystore(s). Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your <a href="https://blog.ethereum.org/2020/05/21/keys/">key</a> (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).</p>
 <h3><a class="header" href="#17-run-screen" id="17-run-screen">17. Run Screen</a></h3>
