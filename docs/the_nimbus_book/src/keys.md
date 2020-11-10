@@ -21,7 +21,7 @@ To import your signing key(s) into Nimbus, from the `nimbus-eth2` directory run:
 
 ## Storage 
 
-When you import your keys into Nimbus, your validator signing key(s) are stored in the `build/data/medalla/` folder, under `secrets` and `validators` - **make sure you keep these folders backed up somewhere sage.**
+When you import your keys into Nimbus, your validator signing key(s) are stored in the `build/data/medalla/` folder, under `secrets` and `validators` - **make sure you keep these folders backed up somewhere safe.**
  
  The `secrets` folder contains the common secret that gives you access to all your validator keys.
  
