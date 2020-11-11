@@ -2,7 +2,7 @@
 
 *Todo*
 ```
-make NODE_PARAMS="--graffiti='<YOUR_GRAFFITI>'" medalla
+./run-medalla-beacon-node.sh --graffiti="<YOUR_GRAFFITI>"
 ```
 
 

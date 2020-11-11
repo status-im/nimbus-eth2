@@ -99,7 +99,8 @@ p2pProtocol BeaconSync(version = 1,
     # makes the incoming flag unreliable / obsolete by the time we get to
     # this point - instead of making assumptions, we'll just send a status
     # message redundantly.
-    # TODO the spec does not prohibit sending the extra status message on
+    # TODO(zah)
+    #      the spec does not prohibit sending the extra status message on
     #      incoming connections, but it should not be necessary - this would
     #      need a dedicated flow in libp2p that resolves the race conditions -
     #      this needs more thinking around the ordering of events and the

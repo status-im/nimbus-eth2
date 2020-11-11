@@ -159,12 +159,9 @@ func readSszValue*[T](input: openArray[byte],
         ex.elementSize = elemSize
         raise ex
       val.setOutputSize input.len div elemSize
-      trs "READING LIST WITH LEN ", val.len
       for i in 0 ..< val.len:
-        trs "TRYING TO READ LIST ELEM ", i
         let offset = i * elemSize
         readSszValue(input.toOpenArray(offset, offset + elemSize - 1), val[i])
-      trs "LIST READING COMPLETE"
 
     else:
       if input.len == 0:
@@ -175,10 +172,7 @@ func readSszValue*[T](input: openArray[byte],
         raise newException(MalformedSszError, "SSZ input of insufficient size")
 
       var offset = readOffset 0
-      trs "GOT OFFSET ", offset
-
       let resultLen = offset div offsetSize
-      trs "LEN ", resultLen
 
       if resultLen == 0:
         # If there are too many elements, other constraints detect problems
@@ -197,11 +191,8 @@ func readSszValue*[T](input: openArray[byte],
 
       readSszValue(input.toOpenArray(offset, input.len - 1), val[resultLen - 1])
 
-  # TODO: Should be possible to remove BitArray from here
   elif val is UintN|bool:
-    trs "READING BASIC TYPE ", typetraits.name(T), "  input=", input.len
     val = fromSszBytes(T, input)
-    trs "RESULT WAS ", repr(val)
 
   elif val is BitArray:
     if sizeof(val) != input.len:
@@ -218,7 +209,6 @@ func readSszValue*[T](input: openArray[byte],
 
     enumInstanceSerializedFields(val, fieldName, field):
       const boundingOffsets = getFieldBoundingOffsets(T, fieldName)
-      trs "BOUNDING OFFSET FOR FIELD ", fieldName, " = ", boundingOffsets
 
       # type FieldType = type field # buggy
       # For some reason, Nim gets confused about the alias here. This could be a
@@ -233,7 +223,6 @@ func readSszValue*[T](input: openArray[byte],
         const
           startOffset = boundingOffsets[0]
           endOffset = boundingOffsets[1]
-        trs "FIXED FIELD ", startOffset, "-", endOffset
       else:
         let
           startOffset = readOffsetUnchecked(boundingOffsets[0])
@@ -244,7 +233,6 @@ func readSszValue*[T](input: openArray[byte],
           if startOffset != minimallyExpectedSize:
             raise newException(MalformedSszError, "SSZ object dynamic portion starts at invalid offset")
 
-        trs "VAR FIELD ", startOffset, "-", endOffset
         if startOffset > endOffset:
           raise newException(MalformedSszError, "SSZ field offsets are not monotonically increasing")
         elif endOffset > inputLen:
@@ -254,16 +242,10 @@ func readSszValue*[T](input: openArray[byte],
 
       # TODO The extra type escaping here is a work-around for a Nim issue:
       when type(field) is type(SszType):
-        trs "READING NATIVE ", fieldName, ": ", name(SszType)
-
-        # TODO passing in `FieldType` instead of `type(field)` triggers a
-        #      bug in the compiler
         readSszValue(
           input.toOpenArray(int(startOffset), int(endOffset - 1)),
           field)
-        trs "READING COMPLETE ", fieldName
       else:
-        trs "READING FOREIGN ", fieldName, ": ", name(SszType)
         field = fromSszBytes(
           type(field),
           input.toOpenArray(int(startOffset), int(endOffset - 1)))

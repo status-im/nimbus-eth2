@@ -293,28 +293,30 @@ endef
 ###
 ### medalla
 ###
+medalla-build: | nimbus_beacon_node_spec_0_12_3 nimbus_signing_process
+
 # https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
-medalla: | nimbus_beacon_node_spec_0_12_3 nimbus_signing_process
+medalla: | medalla-build
 	$(call CONNECT_TO_NETWORK,medalla,nimbus_beacon_node_spec_0_12_3)
 
-medalla-vc: | nimbus_beacon_node_spec_0_12_3 nimbus_signing_process nimbus_validator_client
+medalla-vc: | medalla-build nimbus_validator_client
 	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,medalla,nimbus_beacon_node_spec_0_12_3)
 
-medalla-fast-sync: | nimbus_beacon_node_spec_0_12_3 nimbus_signing_process
+medalla-fast-sync: | medalla-build
 	$(call CONNECT_TO_NETWORK,medalla,nimbus_beacon_node_spec_0_12_3,FastSync)
 
 ifneq ($(LOG_LEVEL), TRACE)
 medalla-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
-medalla-dev: | nimbus_beacon_node_spec_0_12_3 nimbus_signing_process
+medalla-dev: | medalla-build
 	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,medalla,nimbus_beacon_node_spec_0_12_3)
 endif
 
-medalla-deposit-data: | nimbus_beacon_node_spec_0_12_3 nimbus_signing_process deposit_contract
+medalla-deposit-data: | medalla-build deposit_contract
 	$(call MAKE_DEPOSIT_DATA,medalla)
 
-medalla-deposit: | nimbus_beacon_node_spec_0_12_3 nimbus_signing_process deposit_contract
+medalla-deposit: | medalla-build deposit_contract
 	$(call MAKE_DEPOSIT,medalla)
 
 clean-medalla:
@@ -323,18 +325,20 @@ clean-medalla:
 ###
 ### toledo
 ###
+toledo-build: | nimbus_beacon_node nimbus_signing_process
+
 # https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
-toledo: | nimbus_beacon_node nimbus_signing_process
+toledo: | toledo-build
 	$(call CONNECT_TO_NETWORK,toledo,nimbus_beacon_node)
 
-toledo-vc: | nimbus_beacon_node nimbus_signing_process nimbus_validator_client
+toledo-vc: | toledo-build nimbus_validator_client
 	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,toledo,nimbus_beacon_node)
 
 ifneq ($(LOG_LEVEL), TRACE)
 toledo-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
-toledo-dev: | nimbus_beacon_node nimbus_signing_process
+toledo-dev: | toledo-build
 	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,toledo,nimbus_beacon_node)
 endif
 

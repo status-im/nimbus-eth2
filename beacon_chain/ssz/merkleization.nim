@@ -462,8 +462,6 @@ func chunkedHashTreeRootForBasicTypes[T](merkleizer: var SszMerkleizerImpl,
 func bitListHashTreeRoot(merkleizer: var SszMerkleizerImpl, x: BitSeq): Eth2Digest =
   # TODO: Switch to a simpler BitList representation and
   #       replace this with `chunkedHashTreeRoot`
-  trs "CHUNKIFYING BIT SEQ WITH TOP INDEX ", merkleizer.topIndex
-
   var
     totalBytes = bytes(x).len
     lastCorrectedByte = bytes(x)[^1]

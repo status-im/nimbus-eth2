@@ -204,7 +204,7 @@ proc init*(T: type BeaconNode,
       error "Failed to initialize database", err = e.msg
       quit 1
 
-  # TODO check that genesis given on command line (if any) matches database
+  # TODO(zah) check that genesis given on command line (if any) matches database
   let
     chainDagFlags = if conf.verifyFinalization: {verifyFinalization}
                      else: {}
@@ -234,8 +234,8 @@ proc init*(T: type BeaconNode,
      conf.web3Url.len > 0 and
      conf.depositContractAddress.isSome and
      conf.depositContractDeployedAt.isSome:
-    # TODO if we don't have any validators attached,
-    #      we don't need a mainchain monitor
+    # TODO(zah) if we don't have any validators attached,
+    #           we don't need a mainchain monitor
     eth1Monitor = await startEth1Monitor(db, eth1Network, conf)
 
   let rpcServer = if conf.rpcEnabled:

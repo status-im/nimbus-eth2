@@ -57,7 +57,6 @@ type
     peerId*: PeerID
     stamp*: chronos.Moment
 
-  # TODO Is this really needed?
   Eth2Node* = ref object of RootObj
     switch*: Switch
     pubsub*: PubSub
@@ -323,8 +322,8 @@ proc getPeer*(node: Eth2Node, peerId: PeerID): Peer =
     return node.peers.mGetOrPut(peerId, peer)
 
 proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
-  # TODO: Can this be `nil`?
-  return network.getPeer(conn.peerInfo.peerId)
+  result = network.getPeer(conn.peerInfo.peerId)
+  result.info = conn.peerInfo
 
 proc getKey*(peer: Peer): PeerID {.inline.} =
   peer.info.peerId
@@ -427,7 +426,7 @@ proc addSeen*(network: ETh2Node, peerId: PeerID,
 
 proc disconnect*(peer: Peer, reason: DisconnectionReason,
                  notifyOtherPeer = false) {.async.} =
-  # TODO: How should we notify the other peer?
+  # TODO(zah): How should we notify the other peer?
   try:
     if peer.connectionState notin {Disconnecting, Disconnected}:
       peer.connectionState = Disconnecting
@@ -655,11 +654,6 @@ proc handleIncomingStream(network: Eth2Node,
 
   let peer = peerFromStream(network, conn)
   try:
-    # TODO peer connection setup is broken, update info in some better place
-    #      whenever race is fix:
-    #      https://github.com/status-im/nimbus-eth2/issues/1157
-    peer.info = conn.peerInfo
-
     template returnInvalidRequest(msg: ErrorMsg) =
       peer.updateScore(PeerScoreInvalidRequest)
       await sendErrorResponse(peer, conn, InvalidRequest, msg)
@@ -676,7 +670,7 @@ proc handleIncomingStream(network: Eth2Node,
 
       fs
     else:
-      # TODO The TTFB timeout is not implemented in LibP2P streams back-end
+      # TODO(zah) The TTFB timeout is not implemented in LibP2P streams back-end
       conn
 
     let deadline = sleepAsync RESP_TIMEOUT
@@ -807,7 +801,7 @@ proc dialPeer*(node: Eth2Node, peerAddr: PeerAddr, index = 0) {.async.} =
         deadline.cancel()
       inc nbc_successful_dials
     else:
-      # TODO: As soon as `nim-libp2p` will be able to handle cancellation
+      # TODO(cheatfate): As soon as `nim-libp2p` will be able to handle cancellation
       # properly and will have cancellation tests, we need add here cancellation
       # of `workfut`.
       # workfut.cancel()
@@ -1448,7 +1442,7 @@ proc addValidator*[MsgType](node: Eth2Node,
       if decompressed.len > 0:
         return msgValidator(SSZ.decode(decompressed, MsgType))
       else:
-        # TODO penalize peer?
+        # TODO(zah) penalize peer?
         debug "Failed to decompress gossip payload"
     except CatchableError as err:
       debug "Gossip validation error",

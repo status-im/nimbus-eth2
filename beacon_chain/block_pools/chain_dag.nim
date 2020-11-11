@@ -389,13 +389,13 @@ proc init*(T: type ChainDAGRef,
   let res = ChainDAGRef(
     blocks: blocks,
     tail: tailRef,
-    head: headRef,
     genesis: genesisRef,
     db: db,
     heads: @[headRef],
     headState: tmpState[],
-    tmpState: tmpState[],
+    epochRefState: tmpState[],
     clearanceState: tmpState[],
+    tmpState: tmpState[],
 
     # The only allowed flag right now is verifyFinalization, as the others all
     # allow skipping some validation.
@@ -446,7 +446,7 @@ proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
   let
     ancestor = blck.epochAncestor(epoch)
 
-  dag.withState(dag.tmpState, ancestor):
+  dag.withState(dag.epochRefState, ancestor):
     let
       prevEpochRef = if dag.tail.slot.epoch >= epoch: nil
                      else: blck.findEpochRef(epoch - 1)
@@ -702,6 +702,11 @@ proc updateStateData*(
       found = true
       break
 
+    if canAdvance(dag.epochRefState, cur):
+      assign(state, dag.epochRefState)
+      found = true
+      break
+
     if cur.slot == cur.blck.slot:
       # This is not an empty slot, so the block will need to be applied to
       # eventually reach bs
@@ -811,8 +816,6 @@ proc updateHead*(
   var cache: StateCache
   updateStateData(
     dag, dag.headState, newHead.atSlot(newHead.slot), false, cache)
-
-  dag.head = newHead
 
   if not lastHead.isAncestorOf(newHead):
     notice "Updated head block with chain reorg",
@@ -961,7 +964,7 @@ proc preInit*(
 proc setTailState*(dag: ChainDAGRef,
                    checkpointState: BeaconState,
                    checkpointBlock: SignedBeaconBlock) =
-  # TODO
+  # TODO(zah)
   # Delete all records up to the tail node. If the tail node is not
   # in the database, init the dabase in a way similar to `preInit`.
   discard

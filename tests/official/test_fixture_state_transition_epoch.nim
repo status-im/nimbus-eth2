@@ -21,12 +21,6 @@ import
 from ../../beacon_chain/spec/beaconstate import process_registry_updates
   # XXX: move to state_transition_epoch?
 
-# TODO: parsing SSZ
-#       can overwrite the calling function stack
-#       https://github.com/status-im/nimbus-eth2/issues/369
-#
-# We store the state on the heap to avoid that
-
 template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, useCache: static bool): untyped =
   # We wrap the tests in a proc to avoid running out of globals
   # in the future: Nim supports up to 3500 globals
@@ -39,6 +33,7 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
 
         let unitTestName = testDir.rsplit(DirSep, 1)[1]
         timedTest testName & " - " & unitTestName & preset():
+          # BeaconState objects are stored on the heap to avoid stack overflow
           var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
           let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
 

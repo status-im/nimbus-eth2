@@ -68,16 +68,6 @@ proc loadBootstrapFile*(bootstrapFile: string,
     except IOError as e:
       error "Could not read bootstrap file", msg = e.msg
       quit 1
-
-  elif cmpIgnoreCase(ext, ".yaml") == 0:
-    # TODO. This is very ugly, but let's try to negotiate the
-    # removal of YAML metadata.
-    try:
-      for ln in strippedLines(bootstrapFile):
-        addBootstrapNode(string(ln.strip()[3..^2]), bootstrapEnrs)
-    except IOError as e:
-      error "Could not read bootstrap file", msg = e.msg
-      quit 1
   else:
     error "Unknown bootstrap file format", ext
     quit 1

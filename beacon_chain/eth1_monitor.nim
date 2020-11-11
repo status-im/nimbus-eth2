@@ -315,7 +315,8 @@ proc getBlockProposalData*(m: Eth1Monitor,
   var pendingDepositsCount = state.eth1_data.deposit_count -
                              state.eth1_deposit_index
 
-  # TODO To make block proposal cheaper, we can perform this action more regularly
+  # TODO(zah)
+  #      To make block proposal cheaper, we can perform this action more regularly
   #      (e.g. in BeaconNode.onSlot). But keep in mind that this action needs to be
   #      performed only when there are validators attached to the node.
   let ourDepositsCount = m.db.deposits.len
@@ -573,7 +574,7 @@ proc syncBlockRange(m: Eth1Monitor, fromBlock, toBlock: Eth1BlockNumber) {.async
     let eth1Blocks = depositEventsToBlocks(depositLogs)
 
     for i in 0 ..< eth1Blocks.len:
-      # TODO: The DB operations should be executed as a transaction here
+      # TODO(zah): The DB operations should be executed as a transaction here
       let blk = eth1Blocks[i]
 
       for deposit in blk.deposits:
