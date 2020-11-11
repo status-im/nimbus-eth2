@@ -28,7 +28,7 @@ import
   validator_slashing_protection
 
 # Metrics for tracking attestation and beacon block loss
-const delayBuckets = [-Inf, -8.0, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
+const delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
                       0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
 
 declareCounter beacon_attestations_sent,
@@ -174,11 +174,9 @@ proc createAndSendAttestation(node: BeaconNode,
 
   let (delayStr, delayMillis) =
     if wallTime < deadline:
-      ("-" & $(deadline - wallTime),
-       -float(milliseconds(deadline - wallTime)) / 1000.0)
+      ("-" & $(deadline - wallTime), -toFloatSeconds(deadline - wallTime))
     else:
-      ($(wallTime - deadline),
-       float(milliseconds(wallTime - deadline)) / 1000.0)
+      ($(wallTime - deadline), toFloatSeconds(wallTime - deadline))
 
   notice "Attestation sent", attestation = shortLog(attestation),
                              validator = shortLog(validator), delay = delayStr,
