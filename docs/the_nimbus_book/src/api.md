@@ -181,5 +181,5 @@ curl -d '{"jsonrpc":"2.0","id":"id","method":"peers","params":[] }' -H 'Content-
 Set the current logging level dynamically: TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL
 
 ```
-curl -d '{"jsonrpc":"2.0","id":"id","method":"setLogLevel","params":["DEBUG"] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
+curl -d '{"jsonrpc":"2.0","id":"id","method":"setLogLevel","params":["DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none"] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 ```
