@@ -28,8 +28,14 @@ import
   validator_slashing_protection
 
 # Metrics for tracking attestation and beacon block loss
+const delayBuckets = [-Inf, -8.0, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
+                      0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
+
 declareCounter beacon_attestations_sent,
   "Number of beacon chain attestations sent by this peer"
+declareHistogram beacon_attestation_sent_delay,
+  "Time(s) between slot start and attestation sent moment",
+  buckets = delayBuckets
 declareCounter beacon_blocks_proposed,
   "Number of beacon chain blocks sent by this peer"
 
@@ -162,10 +168,23 @@ proc createAndSendAttestation(node: BeaconNode,
   if node.config.dumpEnabled:
     dump(node.config.dumpDirOutgoing, attestation.data, validator.pubKey)
 
-  notice "Attestation sent",
-    attestation = shortLog(attestation),
-    validator = shortLog(validator),
-    indexInCommittee = indexInCommittee
+  let wallTime = node.beaconClock.now()
+  let deadline = attestationData.slot.toBeaconTime() +
+                 seconds(int(SECONDS_PER_SLOT div 3))
+
+  let (delayStr, delayMillis) =
+    if wallTime < deadline:
+      ("-" & $(deadline - wallTime),
+       -float(milliseconds(deadline - wallTime)) / 1000.0)
+    else:
+      ($(wallTime - deadline),
+       float(milliseconds(wallTime - deadline)) / 1000.0)
+
+  notice "Attestation sent", attestation = shortLog(attestation),
+                             validator = shortLog(validator), delay = delayStr,
+                             indexInCommittee = indexInCommittee
+
+  beacon_attestation_sent_delay.observe(delayMillis)
 
 proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     randao_reveal: ValidatorSig,
