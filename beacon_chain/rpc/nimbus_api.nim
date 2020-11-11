@@ -83,3 +83,7 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     res.add("peers", peers)
 
     return res
+
+  rpcServer.rpc("setLogLevel") do (level: string) -> bool:
+    setLogLevel(parseEnum[LogLevel](level))
+    return true

@@ -173,3 +173,13 @@ Show a list of peers that the beacon node is connected to.
 ```
 curl -d '{"jsonrpc":"2.0","id":"id","method":"peers","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 ```
+
+## Nimbus extensions
+
+### setLogLevel
+
+Set the current logging level dynamically: TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL
+
+```
+curl -d '{"jsonrpc":"2.0","id":"id","method":"setLogLevel","params":["DEBUG"] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
+```
