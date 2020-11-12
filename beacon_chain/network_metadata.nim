@@ -1,6 +1,7 @@
 import
   tables, strutils, os,
   stew/shims/macros, nimcrypto/hash,
+  eth/common/eth_types as commonEthTypes,
   web3/[ethtypes, conversions],
   chronicles,
   spec/presets,
@@ -47,7 +48,7 @@ type
       bootstrapNodes*: seq[string]
 
       depositContractAddress*: Eth1Address
-      depositContractDeployedAt*: string
+      depositContractDeployedAt*: BlockHashOrNumber
 
       # Please note that we are using `string` here because SSZ.decode
       # is not currently usable at compile time and we want to load the
@@ -123,6 +124,11 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
       else:
         ""
 
+      depositContractDeployedAt = if depositContractBlock.len > 0:
+        BlockHashOrNumber.init(depositContractBlock)
+      else:
+        BlockHashOrNumber(isHash: false, number: 1)
+
       bootstrapNodes = if fileExists(bootstrapNodesPath):
         readFile(bootstrapNodesPath).splitLines()
       else:
@@ -137,7 +143,7 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
       runtimePreset: runtimePreset,
       bootstrapNodes: bootstrapNodes,
       depositContractAddress: depositContractAddress,
-      depositContractDeployedAt: depositContractBlock,
+      depositContractDeployedAt: depositContractDeployedAt,
       genesisData: genesisData)
 
   except PresetIncompatible as err:
@@ -154,7 +160,7 @@ const
       # TODO(zah) Add bootstrap nodes for mainnet
       bootstrapNodes: @[],
       depositContractAddress: Eth1Address.fromHex "0x00000000219ab540356cBB839Cbe05303d7705Fa",
-      depositContractDeployedAt: "11052984",
+      depositContractDeployedAt: BlockHashOrNumber.init "11052984",
       genesisData: "")
   else:
     Eth2NetworkMetadata(
