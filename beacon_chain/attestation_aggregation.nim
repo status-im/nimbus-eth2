@@ -291,7 +291,7 @@ proc validateAttestation*(
 
   ok(attesting_indices)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAggregate*(
     pool: var AttestationPool,
     signedAggregateAndProof: SignedAggregateAndProof, wallTime: BeaconTime):
@@ -300,16 +300,18 @@ proc validateAggregate*(
     aggregate_and_proof = signedAggregateAndProof.message
     aggregate = aggregate_and_proof.aggregate
 
-  block:
-    let v = check_attestation_slot_target(aggregate.data) # Not in spec
-    if v.isErr():
-      return err((ValidationResult.Ignore, v.error))
-
   # [IGNORE] aggregate.data.slot is within the last
   # ATTESTATION_PROPAGATION_SLOT_RANGE slots (with a
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. aggregate.data.slot +
   # ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= aggregate.data.slot
   ? check_propagation_slot_range(aggregate.data, wallTime) # [IGNORE]
+
+  # [REJECT] The aggregate attestation's epoch matches its target -- i.e.
+  # `aggregate.data.target.epoch == compute_epoch_at_slot(aggregate.data.slot)`
+  block:
+    let v = check_attestation_slot_target(aggregate.data)
+    if v.isErr():
+      return err((ValidationResult.Reject, v.error))
 
   # [IGNORE] The valid aggregate attestation defined by
   # hash_tree_root(aggregate) has not already been seen (via aggregate gossip,
