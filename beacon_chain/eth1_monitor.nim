@@ -90,13 +90,13 @@ template depositContractAddress(m: Eth1Monitor): Eth1Address =
 template web3Url(m: Eth1Monitor): string =
   m.dataProvider.url
 
-proc fixupInfuraUrls*(web3Url: var string) =
+proc fixupWeb3Urls*(web3Url: var string) =
   ## Converts HTTP and HTTPS Infura URLs to their WebSocket equivalents
   ## because we are missing a functional HTTPS client.
   let normalizedUrl = toLowerAscii(web3Url)
   var pos = 0
 
-  template skip(x: string): bool =
+  template skip(x: string): bool {.dirty.} =
     if normalizedUrl.len - pos >= x.len and
        normalizedUrl.toOpenArray(pos, pos + x.len - 1) == x:
       pos += x.len
@@ -105,22 +105,28 @@ proc fixupInfuraUrls*(web3Url: var string) =
       false
 
   if not (skip("https://") or skip("http://")):
+    if not (skip("ws://") or skip("wss://")):
+      web3Url = "ws://" & web3Url
+      warn "The Web3 URL does not specify a protocol. Assuming a WebSocket server", web3Url
     return
 
-  let
-    isMainnet = skip("mainnet")
-    isGoerli = skip("goerli")
+  block infuraRewrite:
+    var pos = pos
+    let network = if skip("mainnet"): mainnet
+                  elif skip("goerli"): goerli
+                  else: break
 
-  if not (isMainnet or isGoerli):
+    if not skip(".infura.io/v3/"):
+      break
+
+    template infuraKey: string = normalizedUrl.substr(pos)
+
+    web3Url = "wss://" & $network & ".infura.io/ws/v3/" & infuraKey
     return
 
-  if not skip(".infura.io/v3/"):
-    return
-
-  template infuraKey: string = normalizedUrl.substr(pos)
-
-  web3Url = "wss://" & (if isMainnet: "mainnet" else: "goerli") &
-            ".infura.io/ws/v3/" & infuraKey
+  block gethRewrite:
+    web3Url = "ws://" & normalizedUrl.substr(pos)
+    warn "Only WebSocket web3 providers are supported. Rewriting URL", web3Url
 
 # TODO: Add preset validation
 # MIN_GENESIS_ACTIVE_VALIDATOR_COUNT should be larger than SLOTS_PER_EPOCH
@@ -392,7 +398,7 @@ proc init*(T: type Eth1Monitor,
            depositContractDeployedAt: string,
            eth1Network: Option[Eth1Network]): Future[Result[T, string]] {.async.} =
   var web3Url = web3Url
-  fixupInfuraUrls web3Url
+  fixupWeb3Urls web3Url
 
   let web3 = try: await newWeb3(web3Url)
              except CatchableError as err:
