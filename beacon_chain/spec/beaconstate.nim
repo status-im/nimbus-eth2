@@ -90,7 +90,7 @@ proc process_deposit*(preset: RuntimePreset,
 
   let
     pubkey = deposit.data.pubkey
-    pubkey_inited = pubkey.initPubKey # TODO replicate previous PR semantics, check later
+    pubkey_inited = pubkey.initPubKey
     amount = deposit.data.amount
   var index = -1
 
@@ -445,7 +445,6 @@ proc is_valid_indexed_attestation*(
 
   # Verify aggregate signature
   if skipBLSValidation notin flags:
-     # TODO: fuse loops with blsFastAggregateVerify
     let pubkeys = mapIt(
       indexed_attestation.attesting_indices, state.validators[it].pubkey)
     if not verify_attestation_signature(

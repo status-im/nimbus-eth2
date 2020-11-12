@@ -41,7 +41,8 @@ suiteReport "Block processing" & preset():
       previous_block_root = genesisBlock.root
       new_block = makeTestBlock(state[], previous_block_root, cache)
 
-    let block_ok = state_transition(defaultRuntimePreset, state[], new_block, {}, noRollback)
+    let block_ok = state_transition(
+      defaultRuntimePreset, state[], new_block, cache, {}, noRollback)
 
     check:
       block_ok
@@ -61,7 +62,8 @@ suiteReport "Block processing" & preset():
     for i in 1..SLOTS_PER_EPOCH:
       let new_block = makeTestBlock(state[], previous_block_root, cache)
 
-      let block_ok = state_transition(defaultRuntimePreset, state[], new_block, {}, noRollback)
+      let block_ok = state_transition(
+        defaultRuntimePreset, state[], new_block, cache, {}, noRollback)
 
       check:
         block_ok
@@ -97,7 +99,8 @@ suiteReport "Block processing" & preset():
       new_block = makeTestBlock(state[], previous_block_root, cache,
         attestations = @[attestation]
       )
-    check state_transition(defaultRuntimePreset, state[], new_block, {}, noRollback)
+    check state_transition(
+      defaultRuntimePreset, state[], new_block, cache, {}, noRollback)
 
     check:
       # TODO epoch attestations can get multiplied now; clean up paths to
