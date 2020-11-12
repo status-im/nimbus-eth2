@@ -165,7 +165,7 @@ type
   MounterProc* = proc(network: Eth2Node) {.gcsafe.}
   MessageContentPrinter* = proc(msg: pointer): string {.gcsafe.}
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0-rc.0/specs/phase0/p2p-interface.md#goodbye
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#goodbye
   DisconnectionReason* = enum
     # might see other values on the wire!
     ClientShutDown = 1
