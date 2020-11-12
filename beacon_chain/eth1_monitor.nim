@@ -48,6 +48,7 @@ type
   Eth1Monitor* = ref object
     db: BeaconChainDB
     preset: RuntimePreset
+    depositContractDeployedAt: BlockHashOrNumber
 
     dataProvider: Web3DataProviderRef
 
@@ -395,7 +396,7 @@ proc init*(T: type Eth1Monitor,
            preset: RuntimePreset,
            web3Url: string,
            depositContractAddress: Eth1Address,
-           depositContractDeployedAt: string,
+           depositContractDeployedAt: BlockHashOrNumber,
            eth1Network: Option[Eth1Network]): Future[Result[T, string]] {.async.} =
   var web3Url = web3Url
   fixupWeb3Urls web3Url
@@ -422,31 +423,12 @@ proc init*(T: type Eth1Monitor,
       return err("The specified web3 provider is not attached to the " &
                   $eth1Network.get & " network")
 
-  let
-    previouslyPersistedTo = db.getEth1PersistedTo()
-    knownStart = previouslyPersistedTo.get:
-      # `previouslyPersistedTo` wall null, we start from scratch
-      let deployedAtHash = if depositContractDeployedAt.startsWith "0x":
-        try: BlockHash.fromHex depositContractDeployedAt
-        except ValueError:
-          return err "Invalid hex value specified for deposit-contract-block"
-      else:
-        let blockNum = try: parseBiggestUInt depositContractDeployedAt
-                       except ValueError:
-                         return err "Invalid nummeric value for deposit-contract-block"
-        try:
-          let blk = await dataProvider.getBlockByNumber(blockNum)
-          blk.hash
-        except CatchableError:
-          return err("Failed to obtain block hash for block number " & $blockNum)
-      Eth1Data(block_hash: deployedAtHash.asEth2Digest, deposit_count: 0)
-
   return ok T(
     db: db,
     preset: preset,
+    depositContractDeployedAt: depositContractDeployedAt,
     dataProvider: dataProvider,
-    eth1Progress: newAsyncEvent(),
-    eth1Chain: Eth1Chain(knownStart: knownStart))
+    eth1Progress: newAsyncEvent())
 
 proc allDepositsUpTo(m: Eth1Monitor, totalDeposits: uint64): seq[Deposit] =
   for i in 0'u64 ..< totalDeposits:
@@ -643,6 +625,7 @@ proc handleEth1Progress(m: Eth1Monitor) {.async.} =
   # If we had the same code embedded in the new block headers event,
   # it could easily re-order the steps due to the interruptible
   # interleaved execution of async code.
+
   var eth1SyncedTo = await m.dataProvider.getBlockNumber(
     m.eth1Chain.knownStart.block_hash.asBlockHash)
 
@@ -685,6 +668,24 @@ proc run(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
 
   info "Starting Eth1 deposit contract monitoring",
     contract = $m.depositContractAddress, url = m.web3Url
+
+  let previouslyPersistedTo = m.db.getEth1PersistedTo()
+  m.eth1Chain.knownStart = previouslyPersistedTo.get:
+    # `previouslyPersistedTo` wall null, we start from scratch
+    let deployedAtHash = if m.depositContractDeployedAt.isHash:
+      m.depositContractDeployedAt.hash
+    else:
+      var blk: BlockObject
+      while true:
+        try:
+          blk = await m.dataProvider.getBlockByNumber(m.depositContractDeployedAt.number)
+          break
+        except CatchableError as err:
+          error "Failed to obtain details for the starting block of the deposit contract sync. " &
+                "The Web3 provider may still be not fully synced", error = err.msg
+        await sleepAsync(chronos.seconds(10))
+      blk.hash.asEth2Digest
+    Eth1Data(block_hash: deployedAtHash, deposit_count: 0)
 
   await m.dataProvider.onBlockHeaders do (blk: Eth1BlockHeader)
                                          {.raises: [Defect], gcsafe.}:
