@@ -1,7 +1,7 @@
 import
   options, tables, sets, macros,
   chronicles, chronos, stew/ranges/bitranges, libp2p/switch,
-  spec/[datatypes, crypto, digest],
+  spec/[datatypes, network, crypto, digest],
   beacon_node_types, eth2_network,
   block_pools/chain_dag
 
@@ -107,9 +107,7 @@ p2pProtocol BeaconSync(version = 1,
     #      given incoming flag
     let
       ourStatus = peer.networkState.getCurrentStatus()
-      # TODO: The timeout here is so high only because we fail to
-      # respond in time due to high CPU load in our single thread.
-      theirStatus = await peer.status(ourStatus, timeout = 60.seconds)
+      theirStatus = await peer.status(ourStatus, timeout = RESP_TIMEOUT)
 
     if theirStatus.isOk:
       await peer.handleStatus(peer.networkState,
@@ -217,8 +215,7 @@ proc updateStatus*(peer: Peer): Future[bool] {.async.} =
     nstate = peer.networkState(BeaconSync)
     ourStatus = getCurrentStatus(nstate)
 
-  let theirFut = awaitne peer.status(ourStatus,
-                                     timeout = chronos.seconds(60))
+  let theirFut = awaitne peer.status(ourStatus, timeout = RESP_TIMEOUT)
   if theirFut.failed():
     return false
   else:
