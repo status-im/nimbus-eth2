@@ -95,7 +95,11 @@ type
     parent_root*: Eth2Digest
 
 const
-  maxDecompressedDbRecordSize = 16*1024*1024
+  # The largest object we're saving is the BeaconState, and by far, the largest
+  # part of it is the validator - each validator takes up at least 129 bytes
+  # in phase0,  which means 100k validators is >12mb - in addition to this,
+  # there are several MB of hashes.
+  maxDecompressedDbRecordSize = 64*1024*1024
 
 # Subkeys essentially create "tables" within the key-value store by prefixing
 # each entry with a table id
