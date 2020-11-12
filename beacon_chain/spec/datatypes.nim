@@ -444,7 +444,6 @@ type
     message*: AggregateAndProof
     signature*: ValidatorSig
 
-  # TODO to be replaced with some magic hash caching
   HashedBeaconState* = object
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)

@@ -285,9 +285,10 @@ proc process_justification_and_finalization*(state: var BeaconState,
   ## Spec:
   ## state.justification_bits[1:] = state.justification_bits[:-1]
   ## state.justification_bits[0] = 0b0
-  # TODO JUSTIFICATION_BITS_LENGTH is a constant in spec, move there or fix
-  # BitVector serialization in SSZ layer
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#constants
   const JUSTIFICATION_BITS_LENGTH = 4
+
   state.justification_bits = (state.justification_bits shl 1) and
     cast[uint8]((2^JUSTIFICATION_BITS_LENGTH) - 1)
 
