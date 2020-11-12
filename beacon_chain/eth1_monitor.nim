@@ -400,10 +400,14 @@ proc init*(T: type Eth1Monitor,
   var web3Url = web3Url
   fixupWeb3Urls web3Url
 
-  let web3 = try: await newWeb3(web3Url)
-             except CatchableError as err:
-               return err "Failed to setup web3 connection"
+  let web3Fut = newWeb3(web3Url)
+  yield web3Fut or sleepAsync(chronos.seconds(5))
+  if (not web3Fut.finished) or web3Fut.failed:
+    web3Fut.cancel()
+    return err "Failed to setup web3 connection"
+
   let
+    web3 = web3Fut.read
     ns = web3.contractSender(DepositContract, depositContractAddress)
     dataProvider = Web3DataProviderRef(url: web3Url, web3: web3, ns: ns)
 
@@ -415,7 +419,7 @@ proc init*(T: type Eth1Monitor,
         of rinkeby: "4"
         of goerli:  "5"
     if expectedNetwork != providerNetwork:
-      return err("The specified we3 provider is not attached to the " &
+      return err("The specified web3 provider is not attached to the " &
                   $eth1Network.get & " network")
 
   let
@@ -537,21 +541,6 @@ proc safeCancel(fut: var Future[void]) =
 
 proc stop*(m: Eth1Monitor) =
   safeCancel m.runFut
-
-proc waitGenesis*(m: Eth1Monitor): Future[BeaconStateRef] {.async.} =
-  if m.genesisState.isNil:
-    if m.genesisStateFut.isNil:
-      m.genesisStateFut = newFuture[void]("waitGenesis")
-
-    info "Awaiting genesis event"
-    await m.genesisStateFut
-    m.genesisStateFut = nil
-
-  if m.genesisState != nil:
-    return m.genesisState
-  else:
-    doAssert bnStatus == BeaconNodeStatus.Stopping
-    return new BeaconStateRef # cannot return nil...
 
 proc syncBlockRange(m: Eth1Monitor, fromBlock, toBlock: Eth1BlockNumber) {.async.} =
   var currentBlock = fromBlock
@@ -728,6 +717,23 @@ proc start(m: Eth1Monitor, delayBeforeStart: Duration) =
 
 proc start*(m: Eth1Monitor) {.inline.} =
   m.start(0.seconds)
+
+proc waitGenesis*(m: Eth1Monitor): Future[BeaconStateRef] {.async.} =
+  if m.genesisState.isNil:
+    m.start()
+
+    if m.genesisStateFut.isNil:
+      m.genesisStateFut = newFuture[void]("waitGenesis")
+
+    info "Awaiting genesis event"
+    await m.genesisStateFut
+    m.genesisStateFut = nil
+
+  if m.genesisState != nil:
+    return m.genesisState
+  else:
+    doAssert bnStatus == BeaconNodeStatus.Stopping
+    return new BeaconStateRef # cannot return nil...
 
 proc getEth1BlockHash*(url: string, blockId: RtBlockIdentifier): Future[BlockHash] {.async.} =
   let web3 = await newWeb3(url)
