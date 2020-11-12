@@ -116,6 +116,7 @@ type
     inProgress*: bool
     insSyncSpeed*: float
     avgSyncSpeed*: float
+    timeLeft*: Duration
     syncCount*: uint64
     syncStatus*: string
 
@@ -1011,6 +1012,29 @@ proc guardTask[A, B](man: SyncManager[A, B]) {.async.} =
     man.workers[index].future = future
     pending[index] = future
 
+proc toTimeLeftString(d: Duration): string =
+  var v = d
+  var res = ""
+  let ndays = chronos.days(v)
+  if ndays > 0:
+    res = res & (if ndays < 10: "0" & $ndays else: $ndays) & "d"
+    v = v - chronos.days(ndays)
+
+  let nhours = chronos.hours(v)
+  if nhours > 0:
+    res = res & (if nhours < 10: "0" & $nhours else: $nhours) & "h"
+    v = v - chronos.hours(nhours)
+  else:
+    res =  res & "00h"
+
+  let nmins = chronos.minutes(v)
+  if nmins > 0:
+    res = res & (if nmins < 10: "0" & $nmins else: $nmins) & "m"
+    v = v - chronos.minutes(nmins)
+  else:
+    res = res & "00m"
+  res
+
 proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
   mixin getKey, getScore
   var pauseTime = 0
@@ -1082,6 +1106,9 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
       man.insSyncSpeed = bps
       man.avgSyncSpeed = man.avgSyncSpeed +
                          (bps - man.avgSyncSpeed) / float(man.syncCount)
+      let nsec = (float(wallSlot - headSlot) / man.avgSyncSpeed) *
+                 1_000_000_000.0
+      man.timeLeft = chronos.nanoseconds(int64(nsec))
 
   asyncSpawn watchTask()
   asyncSpawn averageSpeedTask()
@@ -1104,7 +1131,8 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
     # Update status string
     man.syncStatus = map & ":" & $pending & ":" &
                      man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4) & ":" &
-                     man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4) &
+                     man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4) & ":" &
+                     man.timeLeft.toTimeLeftString() &
                      " (" & $man.queue.outSlot & ")"
 
     if headAge <= man.maxHeadAge:
