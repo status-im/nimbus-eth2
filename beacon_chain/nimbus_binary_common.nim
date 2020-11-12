@@ -28,6 +28,19 @@ proc setupStdoutLogging*(logLevel: string) =
         except IOError as err:
           logLoggingFailure(cstring(msg), err)
 
+proc updateLogLevel*(logLevel: string) =
+  # Updates log levels (without clearing old ones)
+  let directives = logLevel.split(";")
+  try:
+    setLogLevel(parseEnum[LogLevel](directives[0]))
+  except ValueError:
+    raise (ref ValueError)(msg: "Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL")
+
+  if directives.len > 1:
+    for topicName, settings in parseTopicDirectives(directives[1..^1]):
+      if not setTopicState(topicName, settings.state, settings.logLevel):
+        warn "Unrecognized logging topic", topic = topicName
+
 proc setupLogging*(logLevel: string, logFile: Option[OutFile]) =
   randomize()
 
@@ -49,16 +62,7 @@ proc setupLogging*(logLevel: string, logFile: Option[OutFile]) =
       warn "The --log-file option is not active in the current build"
 
   try:
-    let directives = logLevel.split(";")
-    try:
-      setLogLevel(parseEnum[LogLevel](directives[0]))
-    except ValueError:
-      raise (ref ValueError)(msg: "Please specify one of TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL")
-
-    if directives.len > 1:
-      for topicName, settings in parseTopicDirectives(directives[1..^1]):
-        if not setTopicState(topicName, settings.state, settings.logLevel):
-          warn "Unrecognized logging topic", topic = topicName
+    updateLogLevel(logLevel)
   except ValueError as err:
     stderr.write "Invalid value for --log-level. " & err.msg
     quit 1

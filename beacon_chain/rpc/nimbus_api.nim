@@ -10,7 +10,7 @@ import
   stew/byteutils,
   json_rpc/[rpcserver, jsonmarshal],
 
-  ../beacon_node_common, ../eth2_network,
+  ../beacon_node_common, ../nimbus_binary_common, ../eth2_network,
   ../spec/[digest, datatypes, presets]
 
 logScope: topics = "nimbusapi"
@@ -83,3 +83,8 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     res.add("peers", peers)
 
     return res
+
+  rpcServer.rpc("setLogLevel") do (level: string) -> bool:
+    {.gcsafe.}: # It's probably not, actually. Hopefully we don't log from threads...
+      updateLogLevel(level)
+    return true

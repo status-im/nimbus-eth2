@@ -30,8 +30,8 @@ const
 
   defaultEth2TcpPort* = 9000
 
-  # This is not part of the spec yet!
-  defaultEth2RpcPort* = 9090
+  # This is not part of the spec yet! Keep in sync with BASE_RPC_PORT
+  defaultEth2RpcPort* = 9190
 
 func getBeaconBlocksTopic*(forkDigest: ForkDigest): string =
   try:
