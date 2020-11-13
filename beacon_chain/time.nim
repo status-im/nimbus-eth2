@@ -124,5 +124,8 @@ func shortLog*(d: Duration): string =
       tmp &= $frac & "m"
     tmp
 
+func toFloatSeconds*(d: Duration): float =
+  float(milliseconds(d)) / 1000.0
+
 func `$`*(v: BeaconTime): string = $Duration(v)
 func shortLog*(v: BeaconTime): Duration = Duration(v)

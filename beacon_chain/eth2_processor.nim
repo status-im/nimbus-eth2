@@ -144,7 +144,8 @@ proc storeBlock(
   if blck.isErr:
     return err(blck.error[1])
 
-  beacon_store_block_duration_seconds.observe((Moment.now() - start).milliseconds.float64 / 1000)
+  let duration = (Moment.now() - start).toFloatSeconds()
+  beacon_store_block_duration_seconds.observe(duration)
   return ok()
 
 proc processAttestation(
@@ -271,7 +272,7 @@ proc blockValidator*(
     return blck.error[0]
 
   beacon_blocks_received.inc()
-  beacon_block_delay.observe(float(milliseconds(delay)) / 1000.0)
+  beacon_block_delay.observe(delay.toFloatSeconds())
 
   # Block passed validation - enqueue it for processing. The block processing
   # queue is effectively unbounded as we use a freestanding task to enqueue
@@ -312,7 +313,7 @@ proc attestationValidator*(
     return v.error[0]
 
   beacon_attestations_received.inc()
-  beacon_attestation_delay.observe(float(milliseconds(delay)) / 1000.0)
+  beacon_attestation_delay.observe(delay.toFloatSeconds())
 
   while self.attestationsQueue.full():
     let dropped = self.attestationsQueue.popFirst()
@@ -355,7 +356,7 @@ proc aggregateValidator*(
     return v.error[0]
 
   beacon_aggregates_received.inc()
-  beacon_aggregate_delay.observe(float(milliseconds(delay)) / 1000.0)
+  beacon_aggregate_delay.observe(delay.toFloatSeconds())
 
   while self.aggregatesQueue.full():
     let dropped = self.aggregatesQueue.popFirst()

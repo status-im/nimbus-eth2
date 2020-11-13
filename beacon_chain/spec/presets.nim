@@ -135,7 +135,7 @@ when ETH2_SPEC == "v0.12.3":
 else:
  const mainnetRuntimePreset* = RuntimePreset(
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: 16384,
-    MIN_GENESIS_TIME: 1578009600,
+    MIN_GENESIS_TIME: 1606824000, # Dec 1, 2020, 12pm UTC
     GENESIS_FORK_VERSION: Version [byte 0, 0, 0, 0],
     GENESIS_DELAY: 604800,
     ETH1_FOLLOW_DISTANCE: 2048)
@@ -143,7 +143,7 @@ else:
 const
   minimalRuntimePreset* = RuntimePreset(
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: 64,
-    MIN_GENESIS_TIME: 1578009600,
+    MIN_GENESIS_TIME: 1606824000, # Dec 1, 2020, 12pm UTC
     GENESIS_FORK_VERSION: Version [byte 0, 0, 0, 1],
     GENESIS_DELAY: 300,
     ETH1_FOLLOW_DISTANCE: 16)

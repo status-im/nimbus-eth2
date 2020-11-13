@@ -140,7 +140,7 @@ proc add*(state: var HashedBeaconState, attestation: Attestation, slot: Slot) =
   signMockBlock(state.data, signedBlock)
 
   let success = state_transition(
-    defaultRuntimePreset, state, signedBlock,
+    defaultRuntimePreset, state, signedBlock, cache,
     flags = {skipStateRootValidation}, noRollback)
 
   doAssert success

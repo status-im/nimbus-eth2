@@ -5,6 +5,7 @@ import
   chronicles, chronicles/options as chroniclesOptions,
   confutils, confutils/defs, confutils/std/net, stew/shims/net as stewNet,
   stew/io2, unicodedb/properties, normalize,
+  eth/common/eth_types as commonEthTypes,
   json_serialization, web3/[ethtypes, confutils_defs],
   spec/[crypto, keystore, digest, datatypes, network],
   network_metadata, filepath
@@ -38,7 +39,7 @@ type
   BeaconNodeConf* = object
     logLevel* {.
       defaultValue: "INFO"
-      desc: "Sets the log level"
+      desc: "Sets the log level for process and topics (e.g. \"DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none\")"
       name: "log-level" }: string
 
     logFile* {.
@@ -78,7 +79,7 @@ type
 
     depositContractDeployedAt* {.
       desc: "The Eth1 block number or hash where the deposit contract has been deployed"
-      name: "deposit-contract-block" }: Option[string]
+      name: "deposit-contract-block" }: Option[BlockHashOrNumber]
 
     nonInteractive* {.
       desc: "Do not display interative prompts. Quit on missing configuration"
@@ -449,6 +450,13 @@ func parseCmdArg*(T: type GraffitiBytes, input: TaintedString): T
   GraffitiBytes.init(string input)
 
 func completeCmdArg*(T: type GraffitiBytes, input: TaintedString): seq[string] =
+  return @[]
+
+func parseCmdArg*(T: type BlockHashOrNumber, input: TaintedString): T
+                 {.raises: [ValueError, Defect].} =
+  init(BlockHashOrNumber, string input)
+
+func completeCmdArg*(T: type BlockHashOrNumber, input: TaintedString): seq[string] =
   return @[]
 
 func parseCmdArg*(T: type Checkpoint, input: TaintedString): T

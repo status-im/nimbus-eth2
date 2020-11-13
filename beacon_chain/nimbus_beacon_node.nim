@@ -66,29 +66,6 @@ func enrForkIdFromState(state: BeaconState): ENRForkID =
     next_fork_version: forkVer,
     next_fork_epoch: FAR_FUTURE_EPOCH)
 
-proc startEth1Monitor(db: BeaconChainDB,
-                      eth1Network: Option[Eth1Network],
-                      conf: BeaconNodeConf): Future[Eth1Monitor] {.async.} =
-  let eth1MonitorRes = await Eth1Monitor.init(
-    db,
-    conf.runtimePreset,
-    conf.web3Url,
-    conf.depositContractAddress.get,
-    conf.depositContractDeployedAt.get,
-    eth1Network)
-
-  result = if eth1MonitorRes.isOk:
-    eth1MonitorRes.get
-  else:
-    fatal "Failed to start Eth1 monitor",
-          reason = eth1MonitorRes.error,
-          web3Url = conf.web3Url,
-          depositContractAddress = conf.depositContractAddress.get,
-          depositContractDeployedAt = conf.depositContractDeployedAt.get
-    quit 1
-
-  result.start()
-
 proc init*(T: type BeaconNode,
            rng: ref BrHmacDrbgContext,
            conf: BeaconNodeConf,
@@ -162,7 +139,23 @@ proc init*(T: type BeaconNode,
 
       # TODO Could move this to a separate "GenesisMonitor" process or task
       #      that would do only this - see Paul's proposal for this.
-      eth1Monitor = await startEth1Monitor(db, eth1Network, conf)
+      let eth1MonitorRes = await Eth1Monitor.init(
+        db,
+        conf.runtimePreset,
+        conf.web3Url,
+        conf.depositContractAddress.get,
+        conf.depositContractDeployedAt.get,
+        eth1Network)
+
+      if eth1MonitorRes.isErr:
+        fatal "Failed to start Eth1 monitor",
+              reason = eth1MonitorRes.error,
+              web3Url = conf.web3Url,
+              depositContractAddress = conf.depositContractAddress.get,
+              depositContractDeployedAt = conf.depositContractDeployedAt.get
+        quit 1
+      else:
+        eth1Monitor = eth1MonitorRes.get
 
       genesisState = await eth1Monitor.waitGenesis()
       if bnStatus == BeaconNodeStatus.Stopping:
@@ -236,7 +229,22 @@ proc init*(T: type BeaconNode,
      conf.depositContractDeployedAt.isSome:
     # TODO(zah) if we don't have any validators attached,
     #           we don't need a mainchain monitor
-    eth1Monitor = await startEth1Monitor(db, eth1Network, conf)
+    let eth1MonitorRes = await Eth1Monitor.init(
+      db,
+      conf.runtimePreset,
+      conf.web3Url,
+      conf.depositContractAddress.get,
+      conf.depositContractDeployedAt.get,
+      eth1Network)
+
+    if eth1MonitorRes.isErr:
+      error "Failed to start Eth1 monitor",
+            reason = eth1MonitorRes.error,
+            web3Url = conf.web3Url,
+            depositContractAddress = conf.depositContractAddress.get,
+            depositContractDeployedAt = conf.depositContractDeployedAt.get
+    else:
+      eth1Monitor = eth1MonitorRes.get
 
   let rpcServer = if conf.rpcEnabled:
     RpcServer.init(conf.rpcAddress, conf.rpcPort)
@@ -823,6 +831,10 @@ proc start(node: BeaconNode) =
     notice "Waiting for genesis", genesisIn = genesisTime.offset
 
   waitFor node.initializeNetworking()
+
+  if node.eth1Monitor != nil:
+    node.eth1Monitor.start()
+
   node.run()
 
 func formatGwei(amount: uint64): string =

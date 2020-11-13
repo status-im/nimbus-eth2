@@ -225,16 +225,6 @@ proc state_transition*(
 
   false
 
-proc state_transition*(
-    preset: RuntimePreset,
-    state: var HashedBeaconState, signedBlock: SomeSignedBeaconBlock,
-    flags: UpdateFlags, rollback: RollbackHashedProc): bool {.nbench.} =
-  # TODO consider moving this to testutils or similar, since non-testing
-  # and fuzzing code should always be coming from block pool which should
-  # always be providing cache or equivalent
-  var cache = StateCache()
-  state_transition(preset, state, signedBlock, cache, flags, rollback)
-
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#preparing-for-a-beaconblock
 proc makeBeaconBlock*(
     preset: RuntimePreset,

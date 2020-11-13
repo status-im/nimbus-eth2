@@ -151,15 +151,6 @@ proc blsVerify*(
     # TODO: chronicles warning
     return false
 
-  # TODO: remove fully if the comment below is not true anymore and
-  #       and we don't need this workaround
-  # # TODO bls_verify_multiple(...) used to have this workaround, and now it
-  # # lives here. No matter the signature, there's also no meaningful way to
-  # # verify it -- it's a kind of vacuous truth. No pubkey/sig pairs. Sans a
-  # # getBytes() or similar mechanism, pubKey == default(ValidatorPubKey) is
-  # # a way to create many false positive matches. This seems odd.
-  # if pubkey.getBytes() == default(ValidatorPubKey).getBytes():
-  #   return true
   realkey.get.blsValue.verify(message, signature.blsValue)
 
 func blsSign*(privkey: ValidatorPrivKey, message: openArray[byte]): ValidatorSig =

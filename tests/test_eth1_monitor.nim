@@ -17,15 +17,21 @@ suite "Eth1 monitor":
       goerliWssUrl = "wss://goerli.infura.io/ws/v3/6224f3c792cc443fafb64e70a98f871e"
       goerliHttpUrl = "http://goerli.infura.io/v3/6224f3c792cc443fafb64e70a98f871e"
       goerliHttpsUrl = "https://goerli.infura.io/v3/6224f3c792cc443fafb64e70a98f871e"
-      gethUrl = "ws://localhost:8545"
+      gethHttpUrl = "http://localhost:8545"
+      gethHttpsUrl = "https://localhost:8545"
+      gethWsUrl = "ws://localhost:8545"
+      unspecifiedProtocolUrl = "localhost:8545"
 
-    fixupInfuraUrls mainnetWssUrl
-    fixupInfuraUrls mainnetHttpUrl
-    fixupInfuraUrls mainnetHttpsUrl
-    fixupInfuraUrls goerliWssUrl
-    fixupInfuraUrls goerliHttpUrl
-    fixupInfuraUrls goerliHttpsUrl
-    fixupInfuraUrls gethUrl
+    fixupWeb3Urls mainnetWssUrl
+    fixupWeb3Urls mainnetHttpUrl
+    fixupWeb3Urls mainnetHttpsUrl
+    fixupWeb3Urls goerliWssUrl
+    fixupWeb3Urls goerliHttpUrl
+    fixupWeb3Urls goerliHttpsUrl
+    fixupWeb3Urls gethHttpUrl
+    fixupWeb3Urls gethHttpsUrl
+    fixupWeb3Urls gethWsUrl
+    fixupWeb3Urls unspecifiedProtocolUrl
 
     check:
       mainnetWssUrl == "wss://mainnet.infura.io/ws/v3/6224f3c792cc443fafb64e70a98f871e"
@@ -36,5 +42,9 @@ suite "Eth1 monitor":
       goerliHttpUrl == goerliWssUrl
       goerliHttpsUrl == goerliWssUrl
 
-      gethUrl == "ws://localhost:8545"
+      gethHttpUrl == gethWsUrl
+      gethHttpsUrl == gethWsUrl
+      unspecifiedProtocolUrl == gethWsUrl
+
+      gethWsUrl == "ws://localhost:8545"
 

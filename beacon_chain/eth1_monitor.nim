@@ -48,6 +48,7 @@ type
   Eth1Monitor* = ref object
     db: BeaconChainDB
     preset: RuntimePreset
+    depositContractDeployedAt: BlockHashOrNumber
 
     dataProvider: Web3DataProviderRef
 
@@ -90,13 +91,13 @@ template depositContractAddress(m: Eth1Monitor): Eth1Address =
 template web3Url(m: Eth1Monitor): string =
   m.dataProvider.url
 
-proc fixupInfuraUrls*(web3Url: var string) =
+proc fixupWeb3Urls*(web3Url: var string) =
   ## Converts HTTP and HTTPS Infura URLs to their WebSocket equivalents
   ## because we are missing a functional HTTPS client.
   let normalizedUrl = toLowerAscii(web3Url)
   var pos = 0
 
-  template skip(x: string): bool =
+  template skip(x: string): bool {.dirty.} =
     if normalizedUrl.len - pos >= x.len and
        normalizedUrl.toOpenArray(pos, pos + x.len - 1) == x:
       pos += x.len
@@ -105,22 +106,28 @@ proc fixupInfuraUrls*(web3Url: var string) =
       false
 
   if not (skip("https://") or skip("http://")):
+    if not (skip("ws://") or skip("wss://")):
+      web3Url = "ws://" & web3Url
+      warn "The Web3 URL does not specify a protocol. Assuming a WebSocket server", web3Url
     return
 
-  let
-    isMainnet = skip("mainnet")
-    isGoerli = skip("goerli")
+  block infuraRewrite:
+    var pos = pos
+    let network = if skip("mainnet"): mainnet
+                  elif skip("goerli"): goerli
+                  else: break
 
-  if not (isMainnet or isGoerli):
+    if not skip(".infura.io/v3/"):
+      break
+
+    template infuraKey: string = normalizedUrl.substr(pos)
+
+    web3Url = "wss://" & $network & ".infura.io/ws/v3/" & infuraKey
     return
 
-  if not skip(".infura.io/v3/"):
-    return
-
-  template infuraKey: string = normalizedUrl.substr(pos)
-
-  web3Url = "wss://" & (if isMainnet: "mainnet" else: "goerli") &
-            ".infura.io/ws/v3/" & infuraKey
+  block gethRewrite:
+    web3Url = "ws://" & normalizedUrl.substr(pos)
+    warn "Only WebSocket web3 providers are supported. Rewriting URL", web3Url
 
 # TODO: Add preset validation
 # MIN_GENESIS_ACTIVE_VALIDATOR_COUNT should be larger than SLOTS_PER_EPOCH
@@ -389,15 +396,19 @@ proc init*(T: type Eth1Monitor,
            preset: RuntimePreset,
            web3Url: string,
            depositContractAddress: Eth1Address,
-           depositContractDeployedAt: string,
+           depositContractDeployedAt: BlockHashOrNumber,
            eth1Network: Option[Eth1Network]): Future[Result[T, string]] {.async.} =
   var web3Url = web3Url
-  fixupInfuraUrls web3Url
+  fixupWeb3Urls web3Url
 
-  let web3 = try: await newWeb3(web3Url)
-             except CatchableError as err:
-               return err "Failed to setup web3 connection"
+  let web3Fut = newWeb3(web3Url)
+  yield web3Fut or sleepAsync(chronos.seconds(5))
+  if (not web3Fut.finished) or web3Fut.failed:
+    web3Fut.cancel()
+    return err "Failed to setup web3 connection"
+
   let
+    web3 = web3Fut.read
     ns = web3.contractSender(DepositContract, depositContractAddress)
     dataProvider = Web3DataProviderRef(url: web3Url, web3: web3, ns: ns)
 
@@ -409,34 +420,15 @@ proc init*(T: type Eth1Monitor,
         of rinkeby: "4"
         of goerli:  "5"
     if expectedNetwork != providerNetwork:
-      return err("The specified we3 provider is not attached to the " &
+      return err("The specified web3 provider is not attached to the " &
                   $eth1Network.get & " network")
-
-  let
-    previouslyPersistedTo = db.getEth1PersistedTo()
-    knownStart = previouslyPersistedTo.get:
-      # `previouslyPersistedTo` wall null, we start from scratch
-      let deployedAtHash = if depositContractDeployedAt.startsWith "0x":
-        try: BlockHash.fromHex depositContractDeployedAt
-        except ValueError:
-          return err "Invalid hex value specified for deposit-contract-block"
-      else:
-        let blockNum = try: parseBiggestUInt depositContractDeployedAt
-                       except ValueError:
-                         return err "Invalid nummeric value for deposit-contract-block"
-        try:
-          let blk = await dataProvider.getBlockByNumber(blockNum)
-          blk.hash
-        except CatchableError:
-          return err("Failed to obtain block hash for block number " & $blockNum)
-      Eth1Data(block_hash: deployedAtHash.asEth2Digest, deposit_count: 0)
 
   return ok T(
     db: db,
     preset: preset,
+    depositContractDeployedAt: depositContractDeployedAt,
     dataProvider: dataProvider,
-    eth1Progress: newAsyncEvent(),
-    eth1Chain: Eth1Chain(knownStart: knownStart))
+    eth1Progress: newAsyncEvent())
 
 proc allDepositsUpTo(m: Eth1Monitor, totalDeposits: uint64): seq[Deposit] =
   for i in 0'u64 ..< totalDeposits:
@@ -531,21 +523,6 @@ proc safeCancel(fut: var Future[void]) =
 
 proc stop*(m: Eth1Monitor) =
   safeCancel m.runFut
-
-proc waitGenesis*(m: Eth1Monitor): Future[BeaconStateRef] {.async.} =
-  if m.genesisState.isNil:
-    if m.genesisStateFut.isNil:
-      m.genesisStateFut = newFuture[void]("waitGenesis")
-
-    info "Awaiting genesis event"
-    await m.genesisStateFut
-    m.genesisStateFut = nil
-
-  if m.genesisState != nil:
-    return m.genesisState
-  else:
-    doAssert bnStatus == BeaconNodeStatus.Stopping
-    return new BeaconStateRef # cannot return nil...
 
 proc syncBlockRange(m: Eth1Monitor, fromBlock, toBlock: Eth1BlockNumber) {.async.} =
   var currentBlock = fromBlock
@@ -648,6 +625,7 @@ proc handleEth1Progress(m: Eth1Monitor) {.async.} =
   # If we had the same code embedded in the new block headers event,
   # it could easily re-order the steps due to the interruptible
   # interleaved execution of async code.
+
   var eth1SyncedTo = await m.dataProvider.getBlockNumber(
     m.eth1Chain.knownStart.block_hash.asBlockHash)
 
@@ -691,6 +669,24 @@ proc run(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
   info "Starting Eth1 deposit contract monitoring",
     contract = $m.depositContractAddress, url = m.web3Url
 
+  let previouslyPersistedTo = m.db.getEth1PersistedTo()
+  m.eth1Chain.knownStart = previouslyPersistedTo.get:
+    # `previouslyPersistedTo` wall null, we start from scratch
+    let deployedAtHash = if m.depositContractDeployedAt.isHash:
+      m.depositContractDeployedAt.hash
+    else:
+      var blk: BlockObject
+      while true:
+        try:
+          blk = await m.dataProvider.getBlockByNumber(m.depositContractDeployedAt.number)
+          break
+        except CatchableError as err:
+          error "Failed to obtain details for the starting block of the deposit contract sync. " &
+                "The Web3 provider may still be not fully synced", error = err.msg
+        await sleepAsync(chronos.seconds(10))
+      blk.hash.asEth2Digest
+    Eth1Data(block_hash: deployedAtHash, deposit_count: 0)
+
   await m.dataProvider.onBlockHeaders do (blk: Eth1BlockHeader)
                                          {.raises: [Defect], gcsafe.}:
     try:
@@ -722,6 +718,23 @@ proc start(m: Eth1Monitor, delayBeforeStart: Duration) =
 
 proc start*(m: Eth1Monitor) {.inline.} =
   m.start(0.seconds)
+
+proc waitGenesis*(m: Eth1Monitor): Future[BeaconStateRef] {.async.} =
+  if m.genesisState.isNil:
+    m.start()
+
+    if m.genesisStateFut.isNil:
+      m.genesisStateFut = newFuture[void]("waitGenesis")
+
+    info "Awaiting genesis event"
+    await m.genesisStateFut
+    m.genesisStateFut = nil
+
+  if m.genesisState != nil:
+    return m.genesisState
+  else:
+    doAssert bnStatus == BeaconNodeStatus.Stopping
+    return new BeaconStateRef # cannot return nil...
 
 proc getEth1BlockHash*(url: string, blockId: RtBlockIdentifier): Future[BlockHash] {.async.} =
   let web3 = await newWeb3(url)
