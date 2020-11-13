@@ -29,6 +29,7 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
 
   proc `suiteImpl _ transitionProc`() =
     suiteReport "Official - Epoch Processing - " & testName & preset():
+      doAssert dirExists(suiteDir)
       for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}):
 
         let unitTestName = testDir.rsplit(DirSep, 1)[1]

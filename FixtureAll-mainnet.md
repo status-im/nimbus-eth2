@@ -68,12 +68,13 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + [Invalid] too_few_aggregation_bits                                                         OK
 + [Invalid] too_many_aggregation_bits                                                        OK
 + [Invalid] wrong_index_for_committee_signature                                              OK
-+ [Invalid] wrong_index_for_slot                                                             OK
++ [Invalid] wrong_index_for_slot_0                                                           OK
++ [Invalid] wrong_index_for_slot_1                                                           OK
 + [Valid]   success                                                                          OK
 + [Valid]   success_multi_proposer_index_iterations                                          OK
 + [Valid]   success_previous_epoch                                                           OK
 ```
-OK: 21/21 Fail: 0/21 Skip: 0/21
+OK: 22/22 Fail: 0/22 Skip: 0/22
 ## Official - Operations - Attester slashing  [Preset: mainnet]
 ```diff
 + [Invalid] all_empty_indices                                                                OK
@@ -222,6 +223,7 @@ OK: 44/44 Fail: 0/44 Skip: 0/44
 + [Invalid] Official - Sanity - Blocks - prev_slot_block_transition [Preset: mainnet]        OK
 + [Invalid] Official - Sanity - Blocks - proposal_for_genesis_slot [Preset: mainnet]         OK
 + [Invalid] Official - Sanity - Blocks - same_slot_block_transition [Preset: mainnet]        OK
++ [Invalid] Official - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]         OK
 + [Invalid] Official - Sanity - Blocks - zero_block_sig [Preset: mainnet]                    OK
 + [Valid]   Official - Sanity - Blocks - attestation [Preset: mainnet]                       OK
 + [Valid]   Official - Sanity - Blocks - attester_slashing [Preset: mainnet]                 OK
@@ -230,6 +232,10 @@ OK: 44/44 Fail: 0/44 Skip: 0/44
 + [Valid]   Official - Sanity - Blocks - deposit_top_up [Preset: mainnet]                    OK
 + [Valid]   Official - Sanity - Blocks - empty_block_transition [Preset: mainnet]            OK
 + [Valid]   Official - Sanity - Blocks - empty_epoch_transition [Preset: mainnet]            OK
++ [Valid]   Official - Sanity - Blocks - full_random_operations_0 [Preset: mainnet]          OK
++ [Valid]   Official - Sanity - Blocks - full_random_operations_1 [Preset: mainnet]          OK
++ [Valid]   Official - Sanity - Blocks - full_random_operations_2 [Preset: mainnet]          OK
++ [Valid]   Official - Sanity - Blocks - full_random_operations_3 [Preset: mainnet]          OK
 + [Valid]   Official - Sanity - Blocks - high_proposer_index [Preset: mainnet]               OK
 + [Valid]   Official - Sanity - Blocks - historical_batch [Preset: mainnet]                  OK
 + [Valid]   Official - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: mai OK
@@ -240,9 +246,10 @@ OK: 44/44 Fail: 0/44 Skip: 0/44
 + [Valid]   Official - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]            OK
 + [Valid]   Official - Sanity - Blocks - proposer_slashing [Preset: mainnet]                 OK
 + [Valid]   Official - Sanity - Blocks - skipped_slots [Preset: mainnet]                     OK
++ [Valid]   Official - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]         OK
 + [Valid]   Official - Sanity - Blocks - voluntary_exit [Preset: mainnet]                    OK
 ```
-OK: 32/32 Fail: 0/32 Skip: 0/32
+OK: 38/38 Fail: 0/38 Skip: 0/38
 ## Official - Sanity - Slots  [Preset: mainnet]
 ```diff
 + Slots - double_empty_epoch                                                                 OK
@@ -254,4 +261,4 @@ OK: 32/32 Fail: 0/32 Skip: 0/32
 OK: 5/5 Fail: 0/5 Skip: 0/5
 
 ---TOTAL---
-OK: 196/196 Fail: 0/196 Skip: 0/196
+OK: 203/203 Fail: 0/203 Skip: 0/203
