@@ -105,7 +105,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + CHURN_LIMIT_QUOTIENT                              65536                [Preset: mainnet]   OK
   CONFIG_NAME                                       "mainnet"            [Preset: mainnet]   Skip
   DEPOSIT_CHAIN_ID                                  1                    [Preset: mainnet]   Skip
-  DEPOSIT_CONTRACT_ADDRESS                          "0x1234567890123456789012345678901234567 Skip
+  DEPOSIT_CONTRACT_ADDRESS                          "0x00000000219ab540356cBB839Cbe05303d770 Skip
   DEPOSIT_NETWORK_ID                                1                    [Preset: mainnet]   Skip
 + DOMAIN_AGGREGATE_AND_PROOF                        "0x06000000"         [Preset: mainnet]   OK
 + DOMAIN_BEACON_ATTESTER                            "0x01000000"         [Preset: mainnet]   OK
@@ -116,18 +116,18 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + DOMAIN_VOLUNTARY_EXIT                             "0x04000000"         [Preset: mainnet]   OK
 + EFFECTIVE_BALANCE_INCREMENT                       1000000000           [Preset: mainnet]   OK
 + EJECTION_BALANCE                                  16000000000          [Preset: mainnet]   OK
-+ EPOCHS_PER_ETH1_VOTING_PERIOD                     32                   [Preset: mainnet]   OK
++ EPOCHS_PER_ETH1_VOTING_PERIOD                     64                   [Preset: mainnet]   OK
 + EPOCHS_PER_HISTORICAL_VECTOR                      65536                [Preset: mainnet]   OK
 + EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION             256                  [Preset: mainnet]   OK
 + EPOCHS_PER_SLASHINGS_VECTOR                       8192                 [Preset: mainnet]   OK
-  ETH1_FOLLOW_DISTANCE                              1024                 [Preset: mainnet]   Skip
-  GENESIS_DELAY                                     172800               [Preset: mainnet]   Skip
+  ETH1_FOLLOW_DISTANCE                              2048                 [Preset: mainnet]   Skip
+  GENESIS_DELAY                                     604800               [Preset: mainnet]   Skip
   GENESIS_FORK_VERSION                              "0x00000000"         [Preset: mainnet]   Skip
 + HISTORICAL_ROOTS_LIMIT                            16777216             [Preset: mainnet]   OK
 + HYSTERESIS_DOWNWARD_MULTIPLIER                    1                    [Preset: mainnet]   OK
 + HYSTERESIS_QUOTIENT                               4                    [Preset: mainnet]   OK
 + HYSTERESIS_UPWARD_MULTIPLIER                      5                    [Preset: mainnet]   OK
-+ INACTIVITY_PENALTY_QUOTIENT                       16777216             [Preset: mainnet]   OK
++ INACTIVITY_PENALTY_QUOTIENT                       67108864             [Preset: mainnet]   OK
 + MAX_ATTESTATIONS                                  128                  [Preset: mainnet]   OK
 + MAX_ATTESTER_SLASHINGS                            2                    [Preset: mainnet]   OK
 + MAX_COMMITTEES_PER_SLOT                           64                   [Preset: mainnet]   OK
@@ -141,12 +141,12 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + MIN_DEPOSIT_AMOUNT                                1000000000           [Preset: mainnet]   OK
 + MIN_EPOCHS_TO_INACTIVITY_PENALTY                  4                    [Preset: mainnet]   OK
   MIN_GENESIS_ACTIVE_VALIDATOR_COUNT                16384                [Preset: mainnet]   Skip
-  MIN_GENESIS_TIME                                  1578009600           [Preset: mainnet]   Skip
+  MIN_GENESIS_TIME                                  1606824000           [Preset: mainnet]   Skip
 + MIN_PER_EPOCH_CHURN_LIMIT                         4                    [Preset: mainnet]   OK
 + MIN_SEED_LOOKAHEAD                                1                    [Preset: mainnet]   OK
-+ MIN_SLASHING_PENALTY_QUOTIENT                     32                   [Preset: mainnet]   OK
++ MIN_SLASHING_PENALTY_QUOTIENT                     128                  [Preset: mainnet]   OK
 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY               256                  [Preset: mainnet]   OK
-+ PROPORTIONAL_SLASHING_MULTIPLIER                  3                    [Preset: mainnet]   OK
++ PROPORTIONAL_SLASHING_MULTIPLIER                  1                    [Preset: mainnet]   OK
 + PROPOSER_REWARD_QUOTIENT                          8                    [Preset: mainnet]   OK
 + RANDOM_SUBNETS_PER_VALIDATOR                      1                    [Preset: mainnet]   OK
 + SAFE_SLOTS_TO_UPDATE_JUSTIFIED                    8                    [Preset: mainnet]   OK
