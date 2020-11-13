@@ -112,9 +112,12 @@ proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
   proc state_transition(
       preset: RuntimePreset, data: auto, blck: auto, flags: auto, rollback: RollbackHashedProc):
       auto =
-    var hashedState =
-      HashedBeaconState(data: data.state, root: hash_tree_root(data.state))
-    result = state_transition(preset, hashedState, blck, flags, rollback)
+    var
+      hashedState =
+        HashedBeaconState(data: data.state, root: hash_tree_root(data.state))
+      cache = StateCache()
+    result =
+      state_transition(preset, hashedState, blck, cache, flags, rollback)
     data.state = hashedState.data
 
   decodeAndProcess(BlockInput):

@@ -83,8 +83,9 @@ proc doTransition(conf: NcliConf) =
 
   stateY.root = hash_tree_root(stateY.data)
 
+  var cache = StateCache()
   if not state_transition(getRuntimePresetForNetwork(conf.eth2Network),
-                          stateY[], blckX, flags, noRollback):
+                          stateY[], blckX, cache, flags, noRollback):
     error "State transition failed"
     quit 1
   else:

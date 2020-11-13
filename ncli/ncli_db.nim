@@ -127,7 +127,8 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
       isEpoch = state[].data.get_current_epoch() !=
         b.message.slot.compute_epoch_at_slot
     withTimer(timers[if isEpoch: tApplyEpochBlock else: tApplyBlock]):
-      if not state_transition(runtimePreset, state[], b, {}, noRollback):
+      var cache = StateCache()
+      if not state_transition(runtimePreset, state[], b, cache, {}, noRollback):
         dump("./", b)
         echo "State transition failed (!)"
         quit 1
