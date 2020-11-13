@@ -21,9 +21,8 @@ If the above sounds like latin to you, don't worry. You should be fine as long a
 ## External Dependencies
 
 - Developer tools (C compiler, Make, Bash, Git)
-- [PCRE](https://www.pcre.org/)
 
-Nimbus will build its own local copy of Nim, so Nim is not an external dependency, 
+Nimbus will build its own local copy of Nim, so Nim is not an external dependency,
 
 ## Linux
 
@@ -31,13 +30,13 @@ On common Linux distributions the dependencies can be installed with
 
 ```sh
 # Debian and Ubuntu
-sudo apt-get install build-essential git libpcre3-dev
+sudo apt-get install build-essential git
 
 # Fedora
-dnf install @development-tools pcre
+dnf install @development-tools
 
-# Archlinux, using an AUR manager for pcre-static
-yourAURmanager -S base-devel pcre-static
+# Archlinux, using an AUR manager
+yourAURmanager -S base-devel
 ```
 
 ### macOS
@@ -45,13 +44,12 @@ yourAURmanager -S base-devel pcre-static
 Assuming you use [Homebrew](https://brew.sh/) to manage packages
 
 ```sh
-brew install pcre cmake
+brew install cmake
 ```
 
 ### Windows
 
 You can install the developer tools by following the instruction in our [Windows dev environment section](./advanced.md#windows-dev-environment).
-We also provide a downloading script for prebuilt PCRE.
 
 ### Android
 
@@ -62,6 +60,6 @@ We also provide a downloading script for prebuilt PCRE.
 Assuming you  use Ubuntu PRoot
 
 ```sh
-apt install build-essential git libpcre3-dev
+apt install build-essential git
 ```
 

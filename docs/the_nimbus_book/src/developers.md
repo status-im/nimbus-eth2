@@ -28,11 +28,8 @@ Variables -> Path -> Edit -> New -> C:\mingw-w64\mingw64\bin (it's "C:\mingw-w64
 
 Install [Git for Windows](https://gitforwindows.org/) and use a "Git Bash" shell to clone and build nimbus-eth2.
 
-If you don't want to compile PCRE separately, you can fetch pre-compiled DLLs with:
-
 ```bash
 mingw32-make # this first invocation will update the Git submodules
-mingw32-make fetch-dlls # this will place the right DLLs for your architecture in the "build/" directory
 ```
 
 You can now follow the instructions in this this book by replacing `make` with `mingw32-make` (you should run `mingw32` regardless of whether you're running 32-bit or 64-bit architecture):
@@ -88,7 +85,7 @@ sudo vi /etc/dphys-swapfile
 sudo reboot
 
 # Install prerequisites
-sudo apt-get install git libgflags-dev libsnappy-dev libpcre3-dev
+sudo apt-get install git
 
 # Then you can follow instructions for Linux.
 
