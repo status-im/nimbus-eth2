@@ -65,7 +65,6 @@ At the moment, Nimbus has to be built from source.
 Nimbus has the following external dependencies:
 
 * Developer tools (C compiler, Make, Bash, Git)
-* PCRE
 
 Nim is not an external dependency, Nimbus will build its own local copy.
 
@@ -74,13 +73,13 @@ Nim is not an external dependency, Nimbus will build its own local copy.
 On common Linux distributions the dependencies can be installed with:
 ```sh
 # Debian and Ubuntu
-sudo apt-get install build-essential git libpcre3-dev
+sudo apt-get install build-essential git
 
 # Fedora
-dnf install @development-tools pcre
+dnf install @development-tools
 
-# Archlinux, using an AUR manager for pcre-static
-yourAURmanager -S base-devel pcre-static
+# Archlinux, using an AUR manager
+yourAURmanager -S base-devel
 ```
 
 ### MacOS
@@ -88,7 +87,7 @@ yourAURmanager -S base-devel pcre-static
 Assuming you use [Homebrew](https://brew.sh/) to manage packages:
 
 ```sh
-brew install pcre cmake
+brew install cmake
 ```
 
 Make sure you have [CMake](https://cmake.org/) installed, to be able to build libunwind (used for [lightweight stack traces](https://github.com/status-im/nim-libbacktrace)).
@@ -96,7 +95,6 @@ Make sure you have [CMake](https://cmake.org/) installed, to be able to build li
 ### Windows
 
 You can install the developer tools by following the instruction in our [Windows dev environment section](#windows-dev-environment).
-It also provides a downloading script for prebuilt PCRE.
 
 ### Android
 
@@ -107,7 +105,7 @@ Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on 
 *Assuming Ubuntu PRoot is used*
 
 ```sh
-apt install build-essential git libpcre3-dev
+apt install build-essential git
 ```
 
 ## For users
@@ -350,11 +348,6 @@ and run this in a "Git Bash" terminal:
 git config --global core.longpaths true
 ```
 
-If you don't want to compile PCRE separately, you can fetch pre-compiled DLLs with:
-```bash
-mingw32-make fetch-dlls # this will place the right DLLs for your architecture in the "build/" directory
-```
-
 > If you were following the Windows testnet instructions, you can jump back to [Connecting to testnets](#connecting-to-testnets) now
 
 You can now follow those instructions in the previous section by replacing `make` with `mingw32-make` (regardless of your 32-bit or 64-bit architecture):
@@ -412,7 +405,7 @@ sudo vi /etc/dphys-swapfile
 sudo reboot
 
 # Install prerequisites
-sudo apt-get install git libgflags-dev libsnappy-dev libpcre3-dev
+sudo apt-get install git
 
 # Then you can follow instructions for Linux.
 

@@ -30,7 +30,6 @@ install:
 build_script:
   # the 32-bit build is done on a 64-bit image, so we need to override the architecture
   - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% CI_CACHE=NimBinaries update
-  - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% fetch-dlls
 
 test_script:
   - mingw32-make -j2 ARCH_OVERRIDE=%PLATFORM% LOG_LEVEL=TRACE

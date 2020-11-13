@@ -63,7 +63,6 @@ jobs:
           git config --global core.longpaths true
           git config --global core.autocrlf false
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} CI_CACHE=NimBinaries update
-          mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} fetch-dlls
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE
           if [[ $PLATFORM == "x64" ]]; then
             # everything builds more slowly on 32-bit, since there's no libbacktrace support
