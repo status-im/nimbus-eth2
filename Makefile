@@ -367,6 +367,9 @@ pyrmont-dev: | pyrmont-build
 	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,pyrmont,nimbus_beacon_node)
 endif
 
+pyrmont-dev-deposit: | pyrmont-build deposit_contract
+	$(call MAKE_DEPOSIT,pyrmont)
+
 clean-pyrmont:
 	$(call CLEAN_NETWORK,pyrmont)
 
