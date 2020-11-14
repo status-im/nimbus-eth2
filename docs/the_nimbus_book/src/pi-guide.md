@@ -235,7 +235,7 @@ As a quick check, if you run `uname -a` again you should see something like this
 Linux raspberrypi 5.4.51-v8+ #1333 SMP PREEMPT Mon Aug 10 16:58:35 BST 2020 aarch64 GNU/Linux
 ```
 
-Notice how `armv7l` has been replaced with `aarch64`. This tells you that you are on a 64-bit kernel.
+Notice how `armv7l` has been replaced with `aarch64`. This tells you that you are now on a 64-bit kernel.
 
 
 ### 12. Install Nimbus dependencies
