@@ -240,11 +240,11 @@ Notice how `armv7l` has been replaced with `aarch64`. This tells you that you ar
 
 ### 12. Install Nimbus dependencies
 
-You'll need to install some packages (`git`, `libgflags-dev`, `libsnappy-dev`, and `libpcre3-dev`) in order for Nimbus to run correctly.
+You'll need to install some packages (`git`) in order for Nimbus to run correctly.
 
 To do so, run:
 ```
-sudo apt-get install git libgflags-dev libsnappy-dev libpcre3-dev
+sudo apt-get install git
 
 ```
 ### 13. Install Screen

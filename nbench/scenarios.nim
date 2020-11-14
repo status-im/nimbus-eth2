@@ -145,6 +145,7 @@ proc parseSSZ(path: string, T: typedesc): T =
 
 proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, skipBLS: bool) =
   let prePath = dir / preState & ".ssz"
+  var cache = StateCache()
 
   echo "Running: ", prePath
   let state = (ref HashedBeaconState)(
@@ -160,7 +161,7 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
     let flags = if skipBLS: {skipBlsValidation}
                 else: {}
     let success = state_transition(
-      defaultRuntimePreset, state[], signedBlock, flags, noRollback)
+      defaultRuntimePreset, state[], signedBlock, cache, flags, noRollback)
     echo "State transition status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 
 proc runProcessSlots*(dir, preState: string, numSlots: uint64) =

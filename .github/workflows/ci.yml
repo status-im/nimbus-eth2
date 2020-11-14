@@ -125,8 +125,7 @@ jobs:
           sudo dpkg --add-architecture i386
           sudo apt-fast update -qq
           sudo DEBIAN_FRONTEND='noninteractive' apt-fast install \
-            --no-install-recommends -yq gcc-multilib g++-multilib \
-            libssl-dev:i386 libpcre3-dev:i386
+            --no-install-recommends -yq gcc-multilib g++-multilib
           mkdir -p external/bin
           cat << EOF > external/bin/gcc
           #!/bin/bash
@@ -234,11 +233,6 @@ jobs:
           echo "::set-output name=ncpu::$ncpu"
 
           make -j$ncpu ARCH_OVERRIDE=$PLATFORM CI_CACHE=NimBinaries V=1 update
-
-          # Cached in "windows-dlls-cache" and exported globally
-          # if [[ '${{ runner.os }}' == 'Windows' ]]; then
-          #   make -j$ncpu ARCH_OVERRIDE=$PLATFORM fetch-dlls
-          # fi
 
       - name: Get latest fixtures commit hash
         if: matrix.target.TEST_KIND == 'unit-tests'

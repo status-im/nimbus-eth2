@@ -63,6 +63,7 @@ else:
 
 const currentDir = currentSourcePath()[0 .. ^(len("config.nims") + 1)]
 switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
+switch("define", "withoutPCRE")
 
 switch("import", "testutils/moduletests")
 
