@@ -141,12 +141,11 @@ suiteReport "Interop":
     # Check against https://github.com/protolambda/zcli:
     # zcli keys generate --to 64 | zcli genesis mock --genesis-time 1570500000 > /tmp/state.ssz
     # zcli hash-tree-root state /tmp/state.ssz
-    var deposits: seq[Deposit]
+    var deposits: seq[DepositData]
 
     for i in 0..<64:
       let privKey = makeInteropPrivKey(i)
       deposits.add makeDeposit(defaultRuntimePreset, privKey.toPubKey(), privKey)
-    attachMerkleProofs(deposits)
 
     const genesis_time = 1570500000
     var

@@ -46,7 +46,7 @@ func mockDepositData(
   ret
 
 template mockGenesisDepositsImpl(
-        result: seq[Deposit],
+        result: seq[DepositData],
         validatorCount: uint64,
         amount: untyped,
         flags: UpdateFlags = {},
@@ -65,7 +65,7 @@ template mockGenesisDepositsImpl(
       updateAmount
 
       # DepositData
-      result[valIdx].data = mockDepositData(MockPubKeys[valIdx], amount)
+      result[valIdx] = mockDepositData(MockPubKeys[valIdx], amount)
   else: # With signing
     var depositsDataHash: seq[Eth2Digest]
     var depositsData: seq[DepositData]
@@ -78,17 +78,17 @@ template mockGenesisDepositsImpl(
       updateAmount
 
       # DepositData
-      result[valIdx].data = mockDepositData(
+      result[valIdx] = mockDepositData(
         MockPubKeys[valIdx], MockPrivKeys[valIdx], amount, flags)
 
-      depositsData.add result[valIdx].data
-      depositsDataHash.add hash_tree_root(result[valIdx].data)
+      depositsData.add result[valIdx]
+      depositsDataHash.add hash_tree_root(result[valIdx])
 
 proc mockGenesisBalancedDeposits*(
         validatorCount: uint64,
         amountInEth: Positive,
         flags: UpdateFlags = {}
-      ): seq[Deposit] =
+      ): seq[DepositData] =
   ## The amount should be strictly positive
   ## - 1 is the minimum deposit amount (MIN_DEPOSIT_AMOUNT)
   ## - 16 is the ejection balance (EJECTION_BALANCE)
@@ -100,28 +100,6 @@ proc mockGenesisBalancedDeposits*(
   let amount = amountInEth.uint64 * 10'u64^9
   mockGenesisDepositsImpl(result, validatorCount,amount,flags):
     discard
-  attachMerkleProofs(result)
-
-proc mockGenesisUnBalancedDeposits*(
-        validatorCount: uint64,
-        amountRangeInEth: Slice[int], # TODO: use "Positive", Nim range bug
-        flags: UpdateFlags = {}
-      ): seq[Deposit] =
-
-  ## The range of deposit amount should be strictly positive
-  ## - 1 is the minimum deposit amount (MIN_DEPOSIT_AMOUNT)
-  ## - 16 is the ejection balance (EJECTION_BALANCE)
-  ## - 32 is the max effective balance (MAX_EFFECTIVE_BALANCE)
-  ##   ETH beyond do not contribute more for staking.
-  ##
-  ## Only validators with 32 ETH will be active at genesis
-
-  var rng {.global.} = initRand(0x42) # Fixed seed for reproducibility
-  var amount: uint64
-
-  mockGenesisDepositsImpl(result, validatorCount, amount, flags):
-    amount = rng.rand(amountRangeInEth).uint64 * 10'u64^9
-  attachMerkleProofs(result)
 
 proc mockUpdateStateForNewDeposit*(
        state: var BeaconState,

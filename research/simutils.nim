@@ -66,8 +66,13 @@ proc loadGenesis*(validators: Natural, validate: bool): ref HashedBeaconState =
 
     echo "Generating Genesis..."
 
-    res.data =
-      initialize_beacon_state_from_eth1(defaultRuntimePreset, Eth2Digest(), 0, deposits, flags)[]
+    res.data = initialize_beacon_state_from_eth1(
+      defaultRuntimePreset,
+      Eth2Digest(),
+      0,
+      deposits,
+      flags)[]
+
     res.root = hash_tree_root(res.data)
 
     echo &"Saving to {fn}..."

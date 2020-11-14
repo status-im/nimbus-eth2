@@ -34,7 +34,7 @@ func hackPrivKey*(v: Validator): ValidatorPrivKey =
   let i = int(uint64.fromBytesLE(bytes))
   makeFakeValidatorPrivKey(i)
 
-func makeDeposit(i: int, flags: UpdateFlags): Deposit =
+func makeDeposit(i: int, flags: UpdateFlags): DepositData =
   ## Ugly hack for now: we stick the private key in withdrawal_credentials
   ## which means we can repro private key and randao reveal from this data,
   ## for testing :)
@@ -43,30 +43,19 @@ func makeDeposit(i: int, flags: UpdateFlags): Deposit =
     pubkey = privkey.toPubKey()
     withdrawal_credentials = makeFakeHash(i)
 
-  result = Deposit(
-    data: DepositData(
-      pubkey: pubkey,
-      withdrawal_credentials: withdrawal_credentials,
-      amount: MAX_EFFECTIVE_BALANCE,
-    )
-  )
+  result = DepositData(
+    pubkey: pubkey,
+    withdrawal_credentials: withdrawal_credentials,
+    amount: MAX_EFFECTIVE_BALANCE)
 
   if skipBLSValidation notin flags:
-    result.data.signature = get_deposit_signature(
-      defaultRuntimePreset, result.data, privkey)
+    result.signature = get_deposit_signature(
+      defaultRuntimePreset, result, privkey)
 
 proc makeInitialDeposits*(
-    n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}): seq[Deposit] =
+    n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}): seq[DepositData] =
   for i in 0..<n.int:
     result.add makeDeposit(i, flags)
-
-  # This needs to be done as a batch, since the Merkle proof of the i'th
-  # deposit depends on the deposit (data) of the 0th through (i-1)st, of
-  # deposits. Computing partial hash_tree_root sequences of DepositData,
-  # and ideally (but not yet) efficiently only once calculating a Merkle
-  # tree utilizing as much of the shared substructure as feasible, means
-  # attaching proofs all together, as a separate step.
-  attachMerkleProofs(result)
 
 func signBlock*(
     fork: Fork, genesis_validators_root: Eth2Digest, blck: BeaconBlock,
