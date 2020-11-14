@@ -6,6 +6,8 @@ This page contains tips and tricks for developers, further resources, along with
 
 ### Ubuntu guide
 
+> ⚠️  Parts of this guide may now be out-of-date.
+
 See [this excellent resource](https://medium.com/@SomerEsat/guide-to-staking-on-ethereum-2-0-ubuntu-medalla-nimbus-5f4b2b0f2d7c) for detailed step-by-step guide on how to stake on eth2 with Ubuntu.
 
 It contains instructions on how to:
@@ -64,31 +66,6 @@ nim --version # Nimbus is tested and supported on 1.0.2 at the moment
 # or without starting a new interactive shell:
 ./env.sh which nim
 ./env.sh nim --version
-```
-
-### Raspberry Pi
-
-We recommend you remove any cover or use a fan; the Raspberry Pi will get hot (85°C) and throttle.
-
-- Raspberry PI 3b+ or Raspberry Pi 4b.
-- 64gb SD Card (less might work too, but the default recommended 4-8GB will probably be too small)
-- [Raspbian Buster Lite](https://www.raspberrypi.org/downloads/raspbian/) - Lite version is enough to get going and will save some disk space!
-
-Assuming you're working with a freshly written image:
-
-```bash
-
-# Start by increasing swap size to 2gb:
-sudo vi /etc/dphys-swapfile
-# Set CONF_SWAPSIZE=2048
-# :wq
-sudo reboot
-
-# Install prerequisites
-sudo apt-get install git
-
-# Then you can follow instructions for Linux.
-
 ```
 
 ### Makefile tips and tricks for developers

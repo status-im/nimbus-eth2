@@ -189,10 +189,32 @@ CONF_SWAPSIZE=2048
 
 ```
 
-
 Save (`Ctrl+S`) and exit (`Ctrl+X`).
 
-### 10. Reboot
+### 10. 64-bit kernel
+
+To increase performance, we're going to tell the Pi to use a 64-bit kernel. All the supporting software will still be 32 bit, but the code that manages memory and multitasking will be able to use the more powerful 64-bit mode.
+
+As it stands, if you run `uname -a` you should see something like this:
+
+```
+Linux raspberrypi 5.4.51-v7l+ #1333 SMP Mon Aug 10 16:51:40 BST 2020 armv7l GNU/Linux
+```
+
+The key is `armv7l`. This tells you that you are on a 32-bit kernel. To change this, open up the config file:
+
+```
+sudo nano /boot/config.txt
+```
+
+And add the following two lines:
+
+```
+# enable 64-bit kernel
+arm_64bit=1
+```
+
+### 11. Reboot
 Reboot your Pi to have the above changes take effect:
 
 ```
@@ -207,7 +229,16 @@ ssh pi@195.177.101.93
 
 > **Note:** Remember to replace `195.177.101.93` with the IP address of your Pi.
 
-### 11. Install Nimbus dependencies
+As a quick check, if you run `uname -a` again you should see something like this:
+
+```
+Linux raspberrypi 5.4.51-v8+ #1333 SMP PREEMPT Mon Aug 10 16:58:35 BST 2020 aarch64 GNU/Linux
+```
+
+Notice how `armv7l` has been replaced with `aarch64`. This tells you that you are now on a 64-bit kernel.
+
+
+### 12. Install Nimbus dependencies
 
 You'll need to install some packages (`git`) in order for Nimbus to run correctly.
 
@@ -216,7 +247,7 @@ To do so, run:
 sudo apt-get install git
 
 ```
-### 12. Install Screen
+### 13. Install Screen
 
 `screen` is a tool that lets you safely detach from the SSH session without exiting the remote job. In other words `screen` allows the commands you run on your Pi from your laptop to keep running after you've logged out.
 
@@ -225,11 +256,7 @@ Run the following command to install `screen`:
 sudo apt-get install screen
 ```
 
-
-
-
-
-### 13. Clone the Nimbus repository
+### 14. Clone the Nimbus repository
 
 Run the following command to clone the [nimbus-eth2 repository](https://github.com/status-im/nimbus-eth2):
 
@@ -237,9 +264,7 @@ Run the following command to clone the [nimbus-eth2 repository](https://github.c
 git clone https://github.com/status-im/nimbus-eth2
 ```
 
-
-
-### 14. Build the beacon node
+### 15. Build the beacon node
 
 Change into the directory and build the beacon node.
 ```
@@ -249,7 +274,7 @@ make nimbus_beacon_node_spec_0_12_3
 
 *Patience... this may take a few minutes.*
 
-### 15. Copy signing key over to Pi
+### 16. Copy signing key over to Pi
 
 >**Note:** If you haven't generated your validator key(s) and/or made your deposit yet, follow the instructions on [this page](./deposit.md) before carrying on.
 
@@ -269,8 +294,7 @@ As usual, replace `195.177.101.93` with your Pi's IP address, and `<VALIDATOR_KE
  > **Tip:** run `pwd` in your `validator_keys` directory to print the full pathname to the console.
 
 
-
-### 16. Import signing key into Nimbus
+### 17. Import signing key into Nimbus
 
 To import your signing key into Nimbus, from the `nimbus-eth2` directory run:
 
@@ -278,11 +302,9 @@ To import your signing key into Nimbus, from the `nimbus-eth2` directory run:
 build/nimbus_beacon_node_spec_0_3 deposits import  --data-dir=build/data/shared_medalla_0 ../validator_keys
 ```
 
-
-
  You'll be asked to enter the password you created to encrypt your keystore(s). Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your [key](https://blog.ethereum.org/2020/05/21/keys/) (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).
 
-### 17. Run Screen
+### 18. Run Screen
 
 From the `nimbus-eth2` directory, run:
 ```
@@ -321,7 +343,7 @@ Capabilities:
 
 Press `Enter` or `Space`.
 
-### 18. Connect to medalla
+### 19. Connect to medalla
 
 We're finally ready to connect to medalla!
 
@@ -348,7 +370,7 @@ Please enter a Web3 provider URL:
 
 Enter your own secure websocket (`wss`) [Infura endpoint](./infura-guide.md).
 
-### 19. Check for successful connection
+### 20. Check for successful connection
 
 If you look near the top of the logs printed to your console, you should see confirmation that your beacon node has started, with your local validator attached:
 
@@ -367,7 +389,7 @@ peers: 35 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:
 
 Keep an eye on the number of peers your currently connected to (in the above case that's `35`), as well as your [sync progress](./keep-an-eye.md#syncing-progress).
 
-### 20. End ssh session and logout
+### 21. End ssh session and logout
 
 To detach your `screen` session but leave your processes running, press `Ctrl-A` followed by `Ctrl-D`. You can now exit your `ssh` session (`Ctrl-C`) and switch off your laptop.
 
