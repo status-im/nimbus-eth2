@@ -52,16 +52,16 @@ func decrease_balance*(
       state.balances[index] - delta
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#deposits
-func get_validator_from_deposit(state: BeaconState, deposit: Deposit):
+func get_validator_from_deposit(state: BeaconState, deposit: DepositData):
     Validator =
   let
-    amount = deposit.data.amount
+    amount = deposit.amount
     effective_balance = min(
       amount - amount mod EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE)
 
   Validator(
-    pubkey: deposit.data.pubkey,
-    withdrawal_credentials: deposit.data.withdrawal_credentials,
+    pubkey: deposit.pubkey,
+    withdrawal_credentials: deposit.withdrawal_credentials,
     activation_eligibility_epoch: FAR_FUTURE_EPOCH,
     activation_epoch: FAR_FUTURE_EPOCH,
     exit_epoch: FAR_FUTURE_EPOCH,
@@ -110,7 +110,7 @@ proc process_deposit*(preset: RuntimePreset,
         return ok()
 
     # Add validator and balance entries
-    state.validators.add(get_validator_from_deposit(state, deposit))
+    state.validators.add(get_validator_from_deposit(state, deposit.data))
     state.balances.add(amount)
   else:
      # Increase balance by deposit amount
@@ -221,7 +221,7 @@ proc initialize_beacon_state_from_eth1*(
     preset: RuntimePreset,
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
-    deposits: openArray[Deposit],
+    deposits: openArray[DepositData],
     flags: UpdateFlags = {}): BeaconStateRef {.nbench.} =
   ## Get the genesis ``BeaconState``.
   ##
@@ -261,15 +261,36 @@ proc initialize_beacon_state_from_eth1*(
   # Seed RANDAO with Eth1 entropy
   state.randao_mixes.fill(eth1_block_hash)
 
-  # Process deposits
-  let
-    leaves = deposits.mapIt(it.data)
-  var i = 0
-  for prefix_root in hash_tree_roots_prefix(
-      leaves, 2'i64^DEPOSIT_CONTRACT_TREE_DEPTH):
-    state.eth1_data.deposit_root = prefix_root
-    discard process_deposit(preset, state[], deposits[i], flags)
-    i += 1
+  var merkleizer = createMerkleizer(2'i64^DEPOSIT_CONTRACT_TREE_DEPTH)
+  for i, deposit in deposits:
+    let htr = hash_tree_root(deposit)
+    merkleizer.addChunk(htr.data)
+
+  # This is already known in the Eth1 monitor, but it would be too
+  # much work to refactor all the existing call sites in the test suite
+  state.eth1_data.deposit_root = mixInLength(merkleizer.getFinalHash(),
+                                             deposits.len)
+  state.eth1_deposit_index = deposits.lenu64
+
+  var pubkeyToIndex = initTable[ValidatorPubKey, int]()
+  for idx, deposit in deposits:
+    let
+      pubkey = deposit.pubkey
+      amount = deposit.amount
+
+    pubkeyToIndex.withValue(pubkey, foundIdx) do:
+      # Increase balance by deposit amount
+      increase_balance(state[], ValidatorIndex foundIdx[], amount)
+    do:
+      if skipBlsValidation in flags or
+         verify_deposit_signature(preset, deposit):
+        state.validators.add(get_validator_from_deposit(state[], deposit))
+        state.balances.add(amount)
+        pubkeyToIndex[pubkey] = idx
+      else:
+        # Invalid deposits are perfectly possible
+        trace "Skipping deposit with invalid signature",
+          deposit = shortLog(deposit)
 
   # Process activations
   for validator_index in 0 ..< state.validators.len:
@@ -293,7 +314,7 @@ proc initialize_hashed_beacon_state_from_eth1*(
     preset: RuntimePreset,
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
-    deposits: openArray[Deposit],
+    deposits: openArray[DepositData],
     flags: UpdateFlags = {}): HashedBeaconState =
   let genesisState = initialize_beacon_state_from_eth1(
     preset, eth1_block_hash, eth1_timestamp, deposits, flags)

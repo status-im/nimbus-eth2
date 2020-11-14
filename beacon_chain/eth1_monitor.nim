@@ -430,9 +430,9 @@ proc init*(T: type Eth1Monitor,
     dataProvider: dataProvider,
     eth1Progress: newAsyncEvent())
 
-proc allDepositsUpTo(m: Eth1Monitor, totalDeposits: uint64): seq[Deposit] =
+proc allDepositsUpTo(m: Eth1Monitor, totalDeposits: uint64): seq[DepositData] =
   for i in 0'u64 ..< totalDeposits:
-    result.add Deposit(data: m.db.deposits.get(i))
+    result.add m.db.deposits.get(i)
 
 proc createGenesisState(m: Eth1Monitor, eth1Block: Eth1Block): BeaconStateRef =
   notice "Generating genesis state",
@@ -443,7 +443,6 @@ proc createGenesisState(m: Eth1Monitor, eth1Block: Eth1Block): BeaconStateRef =
     activeValidators = eth1Block.activeValidatorsCount
 
   var deposits = m.allDepositsUpTo(eth1Block.voteData.deposit_count)
-  attachMerkleProofs deposits
 
   result = initialize_beacon_state_from_eth1(
     m.preset,

@@ -1080,11 +1080,9 @@ programMain:
              err = formatMsg(err, config.testnetDepositsFile.string)
       quit 1
 
-    var deposits: seq[Deposit]
+    var deposits: seq[DepositData]
     for i in config.firstValidator.int ..< launchPadDeposits.len:
-      deposits.add Deposit(data: launchPadDeposits[i] as DepositData)
-
-    attachMerkleProofs(deposits)
+      deposits.add(launchPadDeposits[i] as DepositData)
 
     let
       startTime = uint64(times.toUnix(times.getTime()) + config.genesisOffset)

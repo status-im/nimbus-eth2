@@ -104,9 +104,11 @@ proc makeTestDB*(tailState: BeaconState, tailBlock: SignedBeaconBlock): BeaconCh
 proc makeTestDB*(validators: Natural): BeaconChainDB =
   let
     genState = initialize_beacon_state_from_eth1(
-      defaultRuntimePreset, Eth2Digest(), 0,
+      defaultRuntimePreset,
+      Eth2Digest(),
+      0,
       makeInitialDeposits(validators.uint64, flags = {skipBlsValidation}),
-        {skipBlsValidation})
+      {skipBlsValidation})
     genBlock = get_initial_beacon_block(genState[])
   makeTestDB(genState[], genBlock)
 

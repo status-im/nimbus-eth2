@@ -215,6 +215,18 @@ for prelude in [0, 1, 2, 5, 6, 12, 13, 16]:
       testMultiProofsGeneration(prelude, proofs, followUpHashes, 128)
       testMultiProofsGeneration(prelude, proofs, followUpHashes, 5000)
 
+iterator hash_tree_roots_prefix[T](lst: openArray[T],
+                                   limit: static Limit): Eth2Digest =
+  # This is a particular type's instantiation of a general fold, reduce,
+  # accumulation, prefix sums, etc family of operations. As long as that
+  # Eth1 deposit case is the only notable example -- the usual uses of a
+  # list involve, at some point, tree-hashing it -- finalized hashes are
+  # the only abstraction that escapes from this module this way.
+  var merkleizer = createMerkleizer(limit)
+  for i, elem in lst:
+    merkleizer.addChunk(hash_tree_root(elem).data)
+    yield mixInLength(merkleizer.getFinalHash(), i + 1)
+
 func attachMerkleProofsReferenceImpl(deposits: var openArray[Deposit]) =
   let
     deposit_data_roots = mapIt(deposits, it.data.hash_tree_root)

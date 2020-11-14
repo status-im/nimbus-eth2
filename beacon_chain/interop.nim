@@ -39,15 +39,12 @@ func makeDeposit*(
     preset: RuntimePreset,
     pubkey: ValidatorPubKey, privkey: ValidatorPrivKey, epoch = 0.Epoch,
     amount: Gwei = MAX_EFFECTIVE_BALANCE.Gwei,
-    flags: UpdateFlags = {}): Deposit =
-  var
-    ret = Deposit(
-      data: DepositData(
-        amount: amount,
-        pubkey: pubkey,
-        withdrawal_credentials: makeWithdrawalCredentials(pubkey)))
+    flags: UpdateFlags = {}): DepositData =
+  result = DepositData(
+    amount: amount,
+    pubkey: pubkey,
+    withdrawal_credentials: makeWithdrawalCredentials(pubkey))
 
   if skipBLSValidation notin flags:
-    ret.data.signature = preset.get_deposit_signature(ret.data, privkey)
+    result.signature = preset.get_deposit_signature(result, privkey)
 
-  ret
