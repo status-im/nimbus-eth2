@@ -229,6 +229,15 @@ ssh pi@195.177.101.93
 
 > **Note:** Remember to replace `195.177.101.93` with the IP address of your Pi.
 
+As a quick check, if you run `uname -a` again you should see something like this:
+
+```
+Linux raspberrypi 5.4.51-v8+ #1333 SMP PREEMPT Mon Aug 10 16:58:35 BST 2020 aarch64 GNU/Linux
+```
+
+Notice how `armv7l` has been replaced with `aarch64`. This tells you that you are on a 64-bit kernel.
+
+
 ### 12. Install Nimbus dependencies
 
 You'll need to install some packages (`git`, `libgflags-dev`, `libsnappy-dev`, and `libpcre3-dev`) in order for Nimbus to run correctly.
