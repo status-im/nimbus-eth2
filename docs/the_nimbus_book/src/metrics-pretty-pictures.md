@@ -13,7 +13,7 @@ Grafana is a tool for beautiful dashboard monitoring that works well with Promet
 The easiest way to see metrics concerning your validator / node is to build the beacon node with the `NIMFLAGS="-d:insecure"` flag. For example, to enable metrics for a `medalla` validator, run:
 
 ```
-make NIMFLAGS="-d:insecure" nimbus_beacon_node_spec_0_12_3
+make NIMFLAGS="-d:insecure" medalla-build
 ```
 
 > **Note:** Metrics are not included in the binary by default. The `NIMFLAGS="-d:insecure"` is needed because we consider the HTTP server that needs to start to serve the metrics to be insecure (without this flag it won't launch properly). As such, we recommend you make sure port 8008 is protected.

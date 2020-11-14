@@ -7,13 +7,13 @@ As it stands, we are continuously making improvements to both stability and memo
 
 > **Note:** While the `master` branch of the `nimbus-eth2` repository is more stable, the latest updates happen in the `devel` branch which is (usually) merged into master every week on Tuesday. If you choose to run Nimbus directly from the `devel` branch, be prepared for instabilities!
 
-To update and restart, run `git pull`, `make update`, followed by `make nimbus_beacon_node_spec_0_12_3`:
+To update and restart, run `git pull`, `make update`, followed by `make medalla-build`:
 
 ```
 cd nimbus-eth2
 git pull
 make update # Update dependencies
-make nimbus_beacon_node_spec_0_12_3 # Rebuild beacon node
+make medalla-build # Rebuild beacon node
 ./run-medalla-beacon-node.sh # Restart using same keys as last run
 ```
 

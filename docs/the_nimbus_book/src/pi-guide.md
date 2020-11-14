@@ -269,7 +269,7 @@ git clone https://github.com/status-im/nimbus-eth2
 Change into the directory and build the beacon node.
 ```
 cd nimbus-eth2
-make nimbus_beacon_node_spec_0_12_3
+make medalla-build
 ```
 
 *Patience... this may take a few minutes.*

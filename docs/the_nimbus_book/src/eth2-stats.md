@@ -50,7 +50,7 @@ Click on `Compile from source` and copy the command at the bottom.
 
 From your `nimbus-eth2` repository, run:
 ```
-make NIMFLAGS="-d:insecure" nimbus_beacon_node_spec_0_12_3
+make NIMFLAGS="-d:insecure" medalla-build
 ```
 
 Followed by:
