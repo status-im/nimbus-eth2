@@ -463,6 +463,13 @@ proc signalGenesis(m: Eth1Monitor, genesisState: BeaconStateRef) =
 template hasEnoughValidators(m: Eth1Monitor, blk: Eth1Block): bool =
   blk.activeValidatorsCount >= m.preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT
 
+func chainHasEnoughValidators(m: Eth1Monitor): bool =
+  if m.eth1Chain.blocks.len > 0:
+    m.hasEnoughValidators(m.eth1Chain.blocks[^1])
+  else:
+    m.eth1Chain.knownStart.deposit_count >=
+      m.preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT
+
 func isAfterMinGenesisTime(m: Eth1Monitor, blk: Eth1Block): bool =
   doAssert blk.timestamp != 0
   let t = genesis_time_from_eth1_timestamp(m.preset, uint64 blk.timestamp)
@@ -527,21 +534,23 @@ proc stop*(m: Eth1Monitor) =
 proc syncBlockRange(m: Eth1Monitor, fromBlock, toBlock: Eth1BlockNumber) {.async.} =
   var currentBlock = fromBlock
   while currentBlock <= toBlock:
-    var depositLogs: JsonNode = nil
+    var
+      depositLogs: JsonNode = nil
+      blocksPerRequest = 5000'u64 # This is roughly a day of Eth1 blocks
+      maxBlockNumberRequested: Eth1BlockNumber
 
-    var blocksPerRequest = 5000'u64 # This is roughly a day of Eth1 blocks
     while true:
-      let requestToBlock = min(toBlock, currentBlock + blocksPerRequest - 1)
+      maxBlockNumberRequested = min(toBlock, currentBlock + blocksPerRequest - 1)
 
       debug "Obtaining deposit log events",
             fromBlock = currentBlock,
-            toBlock = requestToBlock
+            toBlock = maxBlockNumberRequested
       try:
         depositLogs = await m.dataProvider.ns.getJsonLogs(
           DepositEvent,
           fromBlock = some blockId(currentBlock),
-          toBlock = some blockId(requestToBlock))
-        currentBlock = requestToBlock + 1
+          toBlock = some blockId(maxBlockNumberRequested))
+        currentBlock = maxBlockNumberRequested + 1
         break
       except CatchableError as err:
         blocksPerRequest = blocksPerRequest div 2
@@ -568,7 +577,8 @@ proc syncBlockRange(m: Eth1Monitor, fromBlock, toBlock: Eth1BlockNumber) {.async
       m.eth1Chain.addBlock blk
 
     if eth1Blocks.len > 0:
-      let lastBlock = eth1Blocks[^1]
+      let lastIdx = eth1Blocks.len - 1
+      template lastBlock: auto = eth1Blocks[lastIdx]
 
       when hasDepositRootChecks:
         let status = await m.dataProvider.fetchDepositContractData(lastBlock)
@@ -581,42 +591,63 @@ proc syncBlockRange(m: Eth1Monitor, fromBlock, toBlock: Eth1BlockNumber) {.async
       notice "Eth1 sync progress",
              blockNumber = lastBlock.number,
              depositsProcessed = lastBlock.voteData.deposit_count
+ 
+    if m.genesisStateFut != nil and m.chainHasEnoughValidators:
+      let lastIdx = m.eth1Chain.blocks.len - 1
+      template lastBlock: auto = m.eth1Chain.blocks[lastIdx]
+      
+      if maxBlockNumberRequested == toBlock and
+         (m.eth1Chain.blocks.len == 0 or lastBlock.number != toBlock):
+        let web3Block = await m.dataProvider.getBlockByNumber(toBlock)
 
-      if m.genesisStateFut != nil and m.hasEnoughValidators(lastBlock):
+        debug "Latest block doesn't hold deposits. Obtaining it",
+               ts = web3Block.timestamp.uint64,
+               number = web3Block.number.uint64
+
+        m.eth1Chain.addBlock Eth1Block(
+          number: Eth1BlockNumber web3Block.number,
+          timestamp: Eth1BlockTimestamp web3Block.timestamp,
+          voteData: Eth1Data(
+            block_hash: web3Block.hash.asEth2Digest,
+            deposit_count: lastBlock.voteData.deposit_count,
+            deposit_root: lastBlock.voteData.deposit_root),
+          activeValidatorsCount: lastBlock.activeValidatorsCount)
+      else:
         await m.dataProvider.fetchTimestamp(lastBlock)
-        if m.isAfterMinGenesisTime(lastBlock):
-          var genesisBlockIdx = m.eth1Chain.blocks.len - 1
-          for i in 1 ..< eth1Blocks.len:
-            let idx = (m.eth1Chain.blocks.len - 1) - i
-            let blk = m.eth1Chain.blocks[idx]
-            await m.dataProvider.fetchTimestamp(blk)
-            if m.isGenesisCandidate(blk):
-              genesisBlockIdx = idx
-            else:
-              break
-          # We have a candidate state on our hands, but our current Eth1Chain
-          # may consist only of blocks that have deposits attached to them
-          # while the real genesis may have happened in a block without any
-          # deposits (triggered by MIN_GENESIS_TIME).
-          #
-          # This can happen when the beacon node is launched after the genesis
-          # event. We take a short cut when constructing the initial Eth1Chain
-          # by downloading only deposit log entries. Thus, we'll see all the
-          # blocks with deposits, but not the regular blocks in between.
-          #
-          # We'll handle this special case below by examing whether we are in
-          # this potential scenario and we'll use a fast guessing algorith to
-          # discover the ETh1 block with minimal valid genesis time.
-          var genesisBlock = m.eth1Chain.blocks[genesisBlockIdx]
-          if genesisBlockIdx > 0:
-            let genesisParent = m.eth1Chain.blocks[genesisBlockIdx - 1]
-            if genesisParent.timestamp == 0:
-              await m.dataProvider.fetchTimestamp(genesisParent)
-            if m.hasEnoughValidators(genesisParent) and
-               genesisBlock.number - genesisParent.number > 1:
-              genesisBlock = await m.findGenesisBlockInRange(genesisParent,
-                                                             genesisBlock)
-          m.signalGenesis m.createGenesisState(genesisBlock)
+
+      var genesisBlockIdx = m.eth1Chain.blocks.len - 1
+      if m.isAfterMinGenesisTime(m.eth1Chain.blocks[genesisBlockIdx]):
+        for i in 1 ..< eth1Blocks.len:
+          let idx = (m.eth1Chain.blocks.len - 1) - i
+          let blk = m.eth1Chain.blocks[idx]
+          await m.dataProvider.fetchTimestamp(blk)
+          if m.isGenesisCandidate(blk):
+            genesisBlockIdx = idx
+          else:
+            break
+        # We have a candidate state on our hands, but our current Eth1Chain
+        # may consist only of blocks that have deposits attached to them
+        # while the real genesis may have happened in a block without any
+        # deposits (triggered by MIN_GENESIS_TIME).
+        #
+        # This can happen when the beacon node is launched after the genesis
+        # event. We take a short cut when constructing the initial Eth1Chain
+        # by downloading only deposit log entries. Thus, we'll see all the
+        # blocks with deposits, but not the regular blocks in between.
+        #
+        # We'll handle this special case below by examing whether we are in
+        # this potential scenario and we'll use a fast guessing algorith to
+        # discover the ETh1 block with minimal valid genesis time.
+        var genesisBlock = m.eth1Chain.blocks[genesisBlockIdx]
+        if genesisBlockIdx > 0:
+          let genesisParent = m.eth1Chain.blocks[genesisBlockIdx - 1]
+          if genesisParent.timestamp == 0:
+            await m.dataProvider.fetchTimestamp(genesisParent)
+          if m.hasEnoughValidators(genesisParent) and
+             genesisBlock.number - genesisParent.number > 1:
+            genesisBlock = await m.findGenesisBlockInRange(genesisParent,
+                                                           genesisBlock)
+        m.signalGenesis m.createGenesisState(genesisBlock)
 
 proc handleEth1Progress(m: Eth1Monitor) {.async.} =
   # ATTENTION!
@@ -650,7 +681,7 @@ proc handleEth1Progress(m: Eth1Monitor) {.async.} =
     await m.syncBlockRange(eth1SyncedTo + 1, targetBlock)
     eth1SyncedTo = targetBlock
 
-    while m.eth1Chain.blocks.len > 0:
+    while m.eth1Chain.blocks.len > 1:
       # We'll clean old blocks that can no longer be voting candidates.
       # Technically, we should check that the block is outside of the current
       # voting period as determined by its timestamp, but we'll approximate
