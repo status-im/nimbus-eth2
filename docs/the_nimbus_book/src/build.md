@@ -25,7 +25,7 @@ To build the Nimbus beacon node and it's dependencies, run:
 
 *Medalla testnet*
 ```
-make nimbus_beacon_node_spec_0_12_3
+make medalla-build
 ```
 
 *Mainnet*
