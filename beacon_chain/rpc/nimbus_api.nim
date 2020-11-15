@@ -6,6 +6,7 @@
 
 import
   std/strutils,
+  chronos,
   stew/shims/macros,
   stew/byteutils,
   json_rpc/[rpcserver, jsonmarshal],
@@ -17,6 +18,15 @@ logScope: topics = "nimbusapi"
 
 type
   RpcServer = RpcHttpServer
+
+when defined(chronosFutureTracking):
+  type
+    FutureInfo* = object
+      id*: int
+      procname*: string
+      filename*: string
+      line*: int
+      state: string
 
 proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   ## Install non-standard api handlers - some of these are used by 3rd-parties
@@ -88,3 +98,19 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     {.gcsafe.}: # It's probably not, actually. Hopefully we don't log from threads...
       updateLogLevel(level)
     return true
+
+  when defined(chronosFutureTracking):
+    rpcServer.rpc("getChronosFutures") do () -> seq[FutureInfo]:
+      var res: seq[FutureInfo]
+
+      for item in pendingFutures():
+        let loc = item.location[LocCreateIndex][]
+        res.add FutureInfo(
+          id: item.id,
+          procname: $loc.procedure,
+          filename: $loc.file,
+          line: loc.line,
+          state: $item.state
+        )
+
+      return res

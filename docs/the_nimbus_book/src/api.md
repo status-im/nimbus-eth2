@@ -183,3 +183,11 @@ Set the current logging level dynamically: TRACE, DEBUG, INFO, NOTICE, WARN, ERR
 ```
 curl -d '{"jsonrpc":"2.0","id":"id","method":"setLogLevel","params":["DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none"] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 ```
+
+### getChronosFutures
+
+Get the current list of live async futures in the process - compile with `-d:chronosFutureTracking` to enable.
+
+```
+curl -d '{"jsonrpc":"2.0","id":"id","method":"getChronosFutures","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result | (.[0] | keys_unsorted) as $keys | $keys, map([.[ $keys[] ]])[] | @csv'
+```
