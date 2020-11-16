@@ -1,4 +1,4 @@
-# System Requirements
+# System requirements (recommended)
 
 
 -----------------
