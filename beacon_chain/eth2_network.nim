@@ -470,13 +470,6 @@ template raisePeerDisconnected(msg: string, r: DisconnectionReason) =
   e.reason = r
   raise e
 
-proc disconnectAndRaise(peer: Peer,
-                        reason: DisconnectionReason,
-                        msg: string) {.async.} =
-  let r = reason
-  await peer.disconnect(r)
-  raisePeerDisconnected(msg, r)
-
 proc writeChunk*(conn: Connection,
                  responseCode: Option[ResponseCode],
                  payload: Bytes): Future[void] =
@@ -1391,7 +1384,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
     announcedAddresses = if extIp.isNone(): @[]
                          else: @[tcpEndPoint(extIp.get(), extTcpPort)]
 
-  info "Initializing networking", hostAddress,
+  debug "Initializing networking", hostAddress,
                                   network_public_key = netKeys.pubkey,
                                   announcedAddresses
 
