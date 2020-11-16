@@ -10,7 +10,7 @@
 
 import
   # Standard library
-  math, random,
+  math,
 
   # Specs
   ../../beacon_chain/spec/[datatypes, crypto, digest,

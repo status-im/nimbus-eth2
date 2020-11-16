@@ -7,7 +7,7 @@
 
 import
   options, stew/endians2,
-  ../beacon_chain/[extras, merkle_minimal, validator_pool],
+  ../beacon_chain/[extras, validator_pool],
   ../beacon_chain/ssz/merkleization,
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, presets,
                         helpers, validator, signatures, state_transition]

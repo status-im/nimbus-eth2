@@ -139,7 +139,6 @@ proc is_valid_indexed_attestation*(
 
   # Verify aggregate signature
   if skipBLSValidation notin flags:
-     # TODO: fuse loops with blsFastAggregateVerify
     let pubkeys = mapIt(
       indexed_attestation.attesting_indices, epochRef.validator_keys[it])
     if not verify_attestation_signature(
@@ -164,7 +163,6 @@ proc is_valid_indexed_attestation*(
 
   # Verify aggregate signature
   if skipBLSValidation notin flags:
-     # TODO: fuse loops with blsFastAggregateVerify
     let pubkeys = mapIt(
       attesting_indices, epochRef.validator_keys[it])
     if not verify_attestation_signature(

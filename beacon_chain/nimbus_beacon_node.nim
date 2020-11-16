@@ -29,7 +29,7 @@ import
   beacon_node_common, beacon_node_types, beacon_node_status,
   block_pools/[chain_dag, quarantine, clearance, block_pools_types],
   nimbus_binary_common, network_metadata,
-  eth1_monitor, version, ssz/[merkleization], merkle_minimal,
+  eth1_monitor, version, ssz/merkleization,
   sync_protocol, request_manager, keystore_management, interop, statusbar,
   sync_manager, validator_duties, filepath,
   validator_slashing_protection, ./eth2_processor

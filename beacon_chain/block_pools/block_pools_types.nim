@@ -162,7 +162,7 @@ type
     parent*: BlockRef ##\
     ## Not nil, except for the tail
 
-    slot*: Slot # TODO could calculate this by walking to root, but..
+    slot*: Slot # could calculate this by walking to root, but..
 
     epochRefs*: seq[EpochRef] ##\
     ## Cached information about the epochs starting at this block.

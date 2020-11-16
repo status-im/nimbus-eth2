@@ -93,7 +93,7 @@ template loopOverWords(lhs, rhs: BitSeq,
       var rhsWord: WordType
     var firstByteOfLastWord, lastByteOfLastWord: int
 
-    # TODO: Returing a `var` value from an iterator is always safe due to
+    # TODO: Returning a `var` value from an iterator is always safe due to
     # the way inlining works, but currently the compiler reports an error
     # when a local variable escapes. We have to cheat it with this location
     # obfuscation through pointers:
