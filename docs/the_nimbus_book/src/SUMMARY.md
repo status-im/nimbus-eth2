@@ -1,6 +1,6 @@
 # Summary
 - [Introduction](./intro.md)
-- [Hardware requirements]()
+- [System requirements](./hardware.md)
 - [Install dependencies](./install.md)
 - [Build the beacon node](./build.md)
 - [Run an eth1 node](./eth1.md)
