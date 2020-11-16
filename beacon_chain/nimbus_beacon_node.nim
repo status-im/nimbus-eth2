@@ -7,7 +7,8 @@
 
 import
   # Standard library
-  std/[os, tables, strutils, sequtils, times, math, terminal, osproc, random],
+  std/[os, tables, strutils, strformat, sequtils, times, math, terminal, osproc,
+    random],
 
   # Nimble packages
   stew/[objects, byteutils, endians2, io2], stew/shims/macros,
@@ -72,13 +73,9 @@ proc init*(T: type BeaconNode,
            genesisStateContents: ref string,
            eth1Network: Option[Eth1Network]): Future[BeaconNode] {.async.} =
   let
-    netKeys = getPersistentNetKeys(rng[], conf)
-    nickname = if conf.nodeName == "auto": shortForm(netKeys)
-               else: conf.nodeName
     db = BeaconChainDB.init(conf.runtimePreset, conf.databaseDir)
 
   var
-    eth1Monitor: Eth1Monitor
     genesisState, checkpointState: ref BeaconState
     checkpointBlock: SignedBeaconBlock
 
@@ -114,6 +111,7 @@ proc init*(T: type BeaconNode,
     fatal "--finalized-checkpoint-block cannot be specified without --finalized-checkpoint-state"
     quit 1
 
+  var eth1Monitor: Eth1Monitor
   if not ChainDAGRef.isInitialized(db):
     var
       tailState: ref BeaconState
@@ -181,7 +179,7 @@ proc init*(T: type BeaconNode,
       try:
         genesisState = newClone(SSZ.decode(genesisStateContents[], BeaconState))
       except CatchableError as err:
-        raiseAssert "The baked-in state must be valid"
+        raiseAssert "Invalid baked-in state: " & err.msg
 
       if checkpointState != nil:
         tailState = checkpointState
@@ -197,11 +195,13 @@ proc init*(T: type BeaconNode,
       error "Failed to initialize database", err = e.msg
       quit 1
 
+  info "Loading block dag from database", path = conf.databaseDir
+
   # TODO(zah) check that genesis given on command line (if any) matches database
   let
     chainDagFlags = if conf.verifyFinalization: {verifyFinalization}
                      else: {}
-    chainDag = init(ChainDAGRef, conf.runtimePreset, db, chainDagFlags)
+    chainDag = ChainDAGRef.init(conf.runtimePreset, db, chainDagFlags)
     beaconClock = BeaconClock.init(chainDag.headState.data.data)
     quarantine = QuarantineRef()
 
@@ -252,6 +252,9 @@ proc init*(T: type BeaconNode,
     nil
 
   let
+    netKeys = getPersistentNetKeys(rng[], conf)
+    nickname = if conf.nodeName == "auto": shortForm(netKeys)
+               else: conf.nodeName
     enrForkId = enrForkIdFromState(chainDag.headState.data.data)
     topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.forkDigest)
     topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.forkDigest)
@@ -278,6 +281,7 @@ proc init*(T: type BeaconNode,
     topicAggregateAndProofs: topicAggregateAndProofs,
   )
 
+  info "Loading slashing protection database", path = conf.validatorsDir()
   res.attachedValidators = ValidatorPool.init(
     SlashingProtectionDB.init(
       chainDag.headState.data.data.genesis_validators_root,
@@ -801,16 +805,13 @@ proc createPidFile(filename: string) =
   addQuitProc proc {.noconv.} = discard io2.removeFile(gPidFile)
 
 proc initializeNetworking(node: BeaconNode) {.async.} =
+  info "Listening to incoming network requests"
   await node.network.startListening()
 
   let addressFile = node.config.dataDir / "beacon_node.enr"
   writeFile(addressFile, node.network.announcedENR.toURI)
 
   await node.network.start()
-
-  notice "Networking initialized",
-    enr = node.network.announcedENR.toURI,
-    libp2p = shortLog(node.network.switch.peerInfo)
 
 proc start(node: BeaconNode) =
   let
@@ -820,16 +821,17 @@ proc start(node: BeaconNode) =
 
   notice "Starting beacon node",
     version = fullVersionStr,
-    nim = shortNimBanner(),
+    enr = node.network.announcedENR.toURI,
+    peerId = $node.network.switch.peerInfo.peerId,
     timeSinceFinalization =
-      finalizedHead.slot.toBeaconTime() -
-      node.beaconClock.now(),
+      node.beaconClock.now() - finalizedHead.slot.toBeaconTime(),
     head = shortLog(head),
     finalizedHead = shortLog(finalizedHead),
     SLOTS_PER_EPOCH,
     SECONDS_PER_SLOT,
     SPEC_VERSION,
-    dataDir = node.config.dataDir.string
+    dataDir = node.config.dataDir.string,
+    validators = node.attachedValidators.count
 
   if genesisTime.inFuture:
     notice "Waiting for genesis", genesisIn = genesisTime.offset
@@ -1145,7 +1147,7 @@ programMain:
       if config.metricsEnabled:
         let metricsAddress = config.metricsAddress
         notice "Starting metrics HTTP server",
-          address = metricsAddress, port = config.metricsPort
+          url = "http://" & $metricsAddress & ":" & $config.metricsPort & "/metrics"
         metrics.startHttpServer($metricsAddress, config.metricsPort)
 
     # There are no managed event loops in here, to do a graceful shutdown, but

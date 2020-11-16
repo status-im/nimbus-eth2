@@ -52,8 +52,7 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
     blocks.add cur
     cur = cur.parent
 
-  info "Initializing fork choice from block database",
-    unfinalized_blocks = blocks.len
+  info "Initializing fork choice", unfinalized_blocks = blocks.len
 
   var epochRef = finalizedEpochRef
   for i in 0..<blocks.len:

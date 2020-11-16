@@ -59,7 +59,6 @@ proc addLocalValidator*(node: BeaconNode,
 proc addLocalValidators*(node: BeaconNode) =
   for validatorKey in node.config.validatorKeys:
     node.addLocalValidator node.chainDag.headState.data.data, validatorKey
-  notice "Local validators attached ", count = node.attachedValidators.count
 
 proc addRemoteValidators*(node: BeaconNode) =
   # load all the validators from the child process - loop until `end`
@@ -76,7 +75,6 @@ proc addRemoteValidators*(node: BeaconNode) =
                                   outStream: node.vcProcess.outputStream,
                                   pubKeyStr: $key))
       node.attachedValidators.addRemoteValidator(key, v)
-  notice "Remote validators attached ", count = node.attachedValidators.count
 
 proc getAttachedValidator*(node: BeaconNode,
                            pubkey: ValidatorPubKey): AttachedValidator =
