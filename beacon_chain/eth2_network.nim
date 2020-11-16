@@ -1262,7 +1262,12 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
         quit QuitFailure
       let privKey = res.get()
       let pubKey = privKey.getKey().tryGet()
-      info "Generating a random Peer ID to protect your privacy", network_public_key = pubKey
+      let pres =  PeerID.init(pubKey)
+      if pres.isErr():
+        fatal "Could not obtain PeerID from network key"
+        quit QuitFailure
+      info "Generating new networking key", network_public_key = pubKey,
+                                            network_peer_id = $pres.get()
       return KeyPair(seckey: privKey, pubkey: privKey.getKey().tryGet())
     else:
       let keyPath =
