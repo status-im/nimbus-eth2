@@ -1,6 +1,9 @@
 # Graffiti
 
-*Todo*
+You can use your validator client's graffiti flag to add a personal touch to your proposed blocks (some text of your choice). You will be able to see it using the block explorer.
+
+To do so on Medalla, run:
+
 ```
 ./run-medalla-beacon-node.sh --graffiti="<YOUR_GRAFFITI>"
 ```
