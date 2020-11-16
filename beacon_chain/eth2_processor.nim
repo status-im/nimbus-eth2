@@ -63,6 +63,7 @@ type
     attestationPool*: ref AttestationPool
     exitPool: ref ExitPool
     quarantine*: QuarantineRef
+    blockReceivedDuringSlot*: Future[void]
 
     blocksQueue*: AsyncQueue[BlockEntry]
     attestationsQueue*: AsyncQueue[AttestationEntry]
@@ -136,6 +137,10 @@ proc storeBlock(
     attestationPool[].addForkChoice(
       epochRef, blckRef, signedBlock.message, wallSlot)
 
+  # Trigger attestation sending
+  if blck.isOk and not self.blockReceivedDuringSlot.finished:
+    self.blockReceivedDuringSlot.complete()
+
   self.dumpBlock(signedBlock, blck)
 
   # There can be a scenario where we receive a block we already received.
@@ -146,7 +151,7 @@ proc storeBlock(
 
   let duration = (Moment.now() - start).toFloatSeconds()
   beacon_store_block_duration_seconds.observe(duration)
-  return ok()
+  ok()
 
 proc processAttestation(
     self: var Eth2Processor, entry: AttestationEntry) =
@@ -462,6 +467,7 @@ proc new*(T: type Eth2Processor,
     attestationPool: attestationPool,
     exitPool: exitPool,
     quarantine: quarantine,
+    blockReceivedDuringSlot: newFuture[void](),
     blocksQueue: newAsyncQueue[BlockEntry](1),
     aggregatesQueue: newAsyncQueue[AggregateEntry](MAX_ATTESTATIONS.int),
     attestationsQueue: newAsyncQueue[AttestationEntry](TARGET_COMMITTEE_SIZE.int * 4),

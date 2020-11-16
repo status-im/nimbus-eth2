@@ -462,6 +462,10 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
     finalizedEpoch =
       node.chainDag.finalizedHead.blck.slot.compute_epoch_at_slot()
 
+  if not node.processor[].blockReceivedDuringSlot.finished:
+    node.processor[].blockReceivedDuringSlot.complete()
+  node.processor[].blockReceivedDuringSlot = newFuture[void]()
+
   info "Slot start",
     lastSlot = shortLog(lastSlot),
     scheduledSlot = shortLog(scheduledSlot),
