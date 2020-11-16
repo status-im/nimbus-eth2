@@ -1,15 +1,18 @@
-# Hardware
+# System requirements (recommended)
 
-In order to process incoming validator deposits from the eth1 chain, you will need to run an eth1 client in parallel to your eth2 client. While it is possible to use a third-party service like Infura, we recommend running your own client in order to ensure the network stays as decentralised as possible.
-For example, you need at least 140 GB SSD to run geth fast sync on mainnet...
+-----------------
+**Operating System:** Linux [64-bit](initialising random network public id), macOS X 10.14+, Windows 64-bit
 
-Is there a recommend AWS machine to run Nimbus on? Struggling to find the right balance between expense and ease of running. Have crashed due to memory a few times, and now due to a full / Any direction would be appreciated for a genuine newbie...
+**Memory:** 4GB RAM
 
-> Stefan: I'm comfortable with 4 GiB of RAM, on another VPS provider. 2 GiB would be a theoretical minimum for building the software, but if you're trying to build a new version while running a beacon node, you're pushing the limits.
-So look at "t3.medium".
+**Storage:** 160GB SSD
 
-What about storage requirements?
+**Internet:** Reliable broadband connection
 
-> Stefan: I'm starting with 160 GiB of block storage for the beacon node alone. If you're also running Geth on that server, you'll want more.
+----------------
 
-> Tersec: there's a tool to prune the database, which keeps it smaller, but for the moment that's active maintenance which requires a bit of downtime. So it's a tradeoff.
+Note that in order to process incoming validator deposits from the eth1 chain, you will need to run an eth1 client in parallel to your eth2 client. While it is possible to use a third-party service like [Infura](/infura-guide.md), if you choose to run your own eth1 client locally, you'll need more memory and storage.
+
+For example, you'll need at least another **140GB SSD** to run [geth fast sync](/eth1.md) on mainnet.
+
+> **Tip:** It's possible to [tell a Raspberry Pi 4 to use a 64-bit kernel](/pi-guide.md#10-64-bit-kernel).
