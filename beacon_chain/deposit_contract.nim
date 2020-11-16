@@ -165,7 +165,7 @@ proc sendDeposits*(deposits: seq[LaunchPadDeposit],
           await sleepAsync(delayGenerator())
 
         break
-      except CatchableError as err:
+      except CatchableError:
         await sleepAsync(60.seconds)
         web3 = await initWeb3(web3Url, privateKey)
 
