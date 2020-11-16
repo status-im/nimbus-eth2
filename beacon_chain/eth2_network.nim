@@ -494,7 +494,7 @@ template errorMsgLit(x: static string): ErrorMsg =
   const val = ErrorMsg toBytes(x)
   val
 
-proc formatErrorMsg(msg: ErrorMSg): string =
+func formatErrorMsg(msg: ErrorMSg): string =
   let candidate = string.fromBytes(asSeq(msg))
   for c in candidate:
     # TODO UTF-8 - but let's start with ASCII

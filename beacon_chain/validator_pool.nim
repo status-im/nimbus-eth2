@@ -74,7 +74,7 @@ proc signAttestation*(v: AttachedValidator,
 
 proc produceAndSignAttestation*(validator: AttachedValidator,
                                 attestationData: AttestationData,
-                                committeeLen: int, indexInCommittee: int,
+                                committeeLen: int, indexInCommittee: Natural,
                                 fork: Fork, genesis_validators_root: Eth2Digest):
                                 Future[Attestation] {.async.} =
   let validatorSignature = await validator.signAttestation(attestationData,

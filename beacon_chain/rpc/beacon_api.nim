@@ -187,7 +187,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       proc forSlot(slot: Slot, res: var seq[BeaconStatesCommitteesTuple]) =
         let committees_per_slot =
           get_committee_count_per_slot(state, slot.epoch, cache)
-        if index == 0: # TODO this means if the parameter is missing (its optional)
+        if index == 0: # parameter is missing (it's optional)
           for committee_index in 0'u64..<committees_per_slot:
             res.add(getCommittee(slot, committee_index.CommitteeIndex))
         else:
@@ -195,7 +195,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
             raise newException(ValueError, "Committee index out of bounds")
           res.add(getCommittee(slot, index.CommitteeIndex))
 
-      if slot == 0: # TODO this means if the parameter is missing (its optional)
+      if slot == 0: # parameter is missing (it's optional)
         for i in 0 ..< SLOTS_PER_EPOCH:
           forSlot(compute_start_slot_at_epoch(epoch.Epoch) + i, result)
       else:
