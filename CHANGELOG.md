@@ -1,39 +1,54 @@
-Next
+2020-11-17 v0.6.4
 =================
 
-* Avoid pcre dependency
-* Increase quarantine size to 32 and fix parents not being downloaded
-  consistently
+New additions:
+
+* Support for the Pyrmont testnet.
+
+* The PCRE library is no longer necessary for building Nimbus.
+
+* Sensitive files such as keystores are now accessible only to the
+  user of the beacon node on POSIX systems (the group rights have
+  been dropped).
+
+We've fixed:
+
+* An issue preventing blocks to be downloaded when the client goes
+  out of sync.
+
+* Resource leaks that may lead to reduction of network activity due
+  to a build-up of malfunctioning peer connections.
+
 
 2020-11-12 v0.6.2
 =================
 
 A bugfix release addressing issues discovered in the Toledo network.
 
-New additions:
+New features include:
 
-* Added an estimated syncing time to the beacon node status bar.
+* GossipSub 1.1
 
-* Added metadata for the upcoming Pyrmont network. This will be a
-  short-lived network with parameters very closely resembling mainnet.
+* The beacon node status bar (footer) now contains a
+  time-left-until-synced estimate.
 
-* Switched to version 1.1 of the GossipSub protocol.
-
-* Added an JSON-RPC method `setLogLevel` for dynamically changing the
+* A JSON-RPC method `setLogLevel` for dynamically changing the
   log level of selected components at run-time.
 
-Bug fixes:
+* The ability to launch Nimbus with a partially-synced Geth node.
 
-* Fixed a bug preventing the node from proposing blocks when connected
+We've fixed:
+
+* A bug preventing the node from proposing blocks when connected
   to a web3 provider
 
-* Fixed an invalid "corrupted database" error message appearing on start-up
+* An invalid "corrupted database" error message appearing on start-up
 
-* Fixed incorrectly set message-ids in gossip message causing other clients
+* Incorrectly set message-ids in gossip message causing other clients
   to penalise and potentially disconnect our nodes from the network.
 
-* Improved the behaviour of Nimbus when paired with a Geth node which is not
-  fully synced.
+* An issue occuring when Nimbus is paired with a Geth node
+  that is not fully synced.
 
 
 2020-11-09 Hope (v0.6.0)

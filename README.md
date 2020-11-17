@@ -112,40 +112,34 @@ apt install build-essential git
 
 ### Connecting to testnets
 
-Once the [prerequisites](#prerequisites) are installed you can connect to the [Medalla testnet](https://github.com/goerli/medalla) with the following commands:
+Once the [prerequisites](#prerequisites) are installed you can connect to the [Pyrmont testnet](https://github.com/protolambda/pyrmont) with the following commands:
 
 ```bash
 git clone https://github.com/status-im/nimbus-eth2
 cd nimbus-eth2
-make medalla           # This will build Nimbus and all other dependencies
-                      # and connect you to Medalla
+make pyrmont           # This will build Nimbus and all other dependencies
+                       # and connect you to Pyrmont
 ```
 
 You can also start multiple local nodes, in different terminal windows/tabs, by specifying their numeric IDs:
 
 ```bash
-make medalla NODE_ID=0 # the default
-make medalla NODE_ID=1
-make medalla NODE_ID=2
+make pyrmont NODE_ID=0 # the default
+make pyrmont NODE_ID=1
+make pyrmont NODE_ID=2
 ```
 
 To change the TCP and UDP ports from the default value of 9000:
 
 ```bash
-make BASE_PORT=9100 medalla
-```
-
-If you wish to make a deposit, execute the following command:
-
-```
-make medalla-deposit VALIDATORS=2 # The default is just 1 deposit
+make BASE_PORT=9100 pyrmont
 ```
 
 ### Getting metrics from a local testnet client
 
 ```bash
 # the primitive HTTP server started to serve the metrics is considered insecure
-make NIMFLAGS="-d:insecure" medalla
+make NIMFLAGS="-d:insecure" pyrmont
 ```
 
 Now visit http://127.0.0.1:8008/metrics to see the raw metrics. You should see a plaintext page that looks something like this:
@@ -181,7 +175,7 @@ See [this page](https://status-im.github.io/nimbus-eth2/metrics-pretty-pictures.
 To feed the data into a Prometheus instance, run:
 
 ```bash
-cd build/data/shared_medalla_0
+cd build/data/shared_pyrmont_0
 prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
 # when starting multiple nodes at the same time, just use the config file from the one with the highest ID
 ```
@@ -192,7 +186,7 @@ You can then visualise the data by getting Grafana up and running with the dashb
 ### Stress-testing the client by limiting the CPU power
 
 ```bash
-make medalla CPU_LIMIT=20
+make pyrmont CPU_LIMIT=20
 ```
 
 The limiting is provided by the cpulimit utility, available on Linux and macOS.

@@ -28,18 +28,18 @@ make dist
 
 No `-march=native` and no metrics support.
 
-## Running a Medalla node
+## Running a Pyrmont node
 
 With default options:
 
 ```bash
-./run-medalla-beacon-node.sh
+./run-pyrmont-beacon-node.sh
 ```
 
 The script will forward all supplied options to the beacon node executable:
 
 ```bash
-./run-medalla-beacon-node.sh --log-level=DEBUG --tcp-port=9050
+./run-pyrmont-beacon-node.sh --log-level=DEBUG --tcp-port=9050
 ```
 
 To monitor the Eth1 validator deposit contract, you'll need to pair
@@ -54,7 +54,7 @@ By default, the script will ask you to enter a web3 provider URL interactively,
 but this can be bypassed by specifying a websocket `WEB3_URL` environment variable:
 
 ```bash
-WEB3_URL="<YOUR_WEB3_URL>" ./run-medalla-beacon-node.sh
+WEB3_URL="<YOUR_WEB3_URL>" ./run-pyrmont-beacon-node.sh
 ```
 
 ## Running a mainnet node
