@@ -174,19 +174,19 @@ iterator words*(a, b: var BitSeq): (var uint, var uint) =
   loopOverWords(a, b, true, true, uint, wordA, wordB):
     yield (wordA, wordB)
 
-func `[]`*(s: BitSeq, pos: Natural): bool =
+func `[]`*(s: BitSeq, pos: Natural): bool {.inline.} =
   doAssert pos < s.len
   s.Bytes.getBit pos
 
-func `[]=`*(s: var BitSeq, pos: Natural, value: bool) =
+func `[]=`*(s: var BitSeq, pos: Natural, value: bool) {.inline.} =
   doAssert pos < s.len
   s.Bytes.changeBit pos, value
 
-func setBit*(s: var BitSeq, pos: Natural) =
+func setBit*(s: var BitSeq, pos: Natural) {.inline.} =
   doAssert pos < s.len
   setBit s.Bytes, pos
 
-func clearBit*(s: var BitSeq, pos: Natural) =
+func clearBit*(s: var BitSeq, pos: Natural) {.inline.} =
   doAssert pos < s.len
   clearBit s.Bytes, pos
 
