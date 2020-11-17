@@ -139,6 +139,8 @@ jobs:
           EOF
           chmod 755 external/bin/gcc external/bin/g++
           echo '::add-path::${{ github.workspace }}/external/bin'
+        env:
+          ACTIONS_ALLOW_UNSECURE_COMMANDS: true
 
       - name: Restore MinGW-W64 (Windows) from cache
         if: runner.os == 'Windows'
@@ -184,6 +186,8 @@ jobs:
         run: |
           echo '::add-path::${{ github.workspace }}'"/external/mingw-${{ matrix.target.cpu }}/bin"
           echo '::add-path::${{ github.workspace }}'"/external/dlls-${{ matrix.target.cpu }}"
+        env:
+          ACTIONS_ALLOW_UNSECURE_COMMANDS: true
 
       - name: Install build dependencies (MacOS)
         if: runner.os == 'macOS'
