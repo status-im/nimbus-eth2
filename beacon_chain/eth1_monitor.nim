@@ -391,6 +391,21 @@ proc getBlockProposalData*(m: Eth1Monitor,
 
     swap(result[1], deposits)
 
+proc new(T: type Web3DataProvider,
+         depositContractAddress: Eth1Address,
+         web3Url: string): Future[Result[Web3DataProviderRef, string]] {.async.} =
+  let web3Fut = newWeb3(web3Url)
+  yield web3Fut or sleepAsync(chronos.seconds(5))
+  if (not web3Fut.finished) or web3Fut.failed:
+    await cancelAndWait(web3Fut)
+    return err "Failed to setup web3 connection"
+
+  let
+    web3 = web3Fut.read
+    ns = web3.contractSender(DepositContract, depositContractAddress)
+
+  return ok Web3DataProviderRef(url: web3Url, web3: web3, ns: ns)
+
 proc init*(T: type Eth1Monitor,
            db: BeaconChainDB,
            preset: RuntimePreset,
@@ -401,16 +416,13 @@ proc init*(T: type Eth1Monitor,
   var web3Url = web3Url
   fixupWeb3Urls web3Url
 
-  let web3Fut = newWeb3(web3Url)
-  yield web3Fut or sleepAsync(chronos.seconds(5))
-  if (not web3Fut.finished) or web3Fut.failed:
-    await cancelAndWait(web3Fut)
-    return err "Failed to setup web3 connection"
+  let dataProviderRes = await Web3DataProvider.new(depositContractAddress, web3Url)
+  if dataProviderRes.isErr:
+    return err(dataProviderRes.error)
 
   let
-    web3 = web3Fut.read
-    ns = web3.contractSender(DepositContract, depositContractAddress)
-    dataProvider = Web3DataProviderRef(url: web3Url, web3: web3, ns: ns)
+    dataProvider = dataProviderRes.get
+    web3 = dataProvider.web3
 
   if eth1Network.isSome:
     let
@@ -590,11 +602,11 @@ proc syncBlockRange(m: Eth1Monitor, fromBlock, toBlock: Eth1BlockNumber) {.async
       notice "Eth1 sync progress",
              blockNumber = lastBlock.number,
              depositsProcessed = lastBlock.voteData.deposit_count
- 
+
     if m.genesisStateFut != nil and m.chainHasEnoughValidators:
       let lastIdx = m.eth1Chain.blocks.len - 1
       template lastBlock: auto = m.eth1Chain.blocks[lastIdx]
-      
+
       if maxBlockNumberRequested == toBlock and
          (m.eth1Chain.blocks.len == 0 or lastBlock.number != toBlock):
         let web3Block = await m.dataProvider.getBlockByNumber(toBlock)
@@ -711,9 +723,18 @@ proc run(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
           blk = await m.dataProvider.getBlockByNumber(m.depositContractDeployedAt.number)
           break
         except CatchableError as err:
-          error "Failed to obtain details for the starting block of the deposit contract sync. " &
-                "The Web3 provider may still be not fully synced", error = err.msg
+          error "Failed to obtain details for the starting block " &
+                "of the deposit contract sync. The Web3 provider " &
+                "may still be not fully synced", error = err.msg
         await sleepAsync(chronos.seconds(10))
+        # TODO: After a single failure, the web3 object may enter a state
+        #       where it's no longer possible to make additional requests.
+        #       Until this is fixed upstream, we'll just try to recreate
+        #       the web3 provider before retrying. In case this fails,
+        #       the Eth1Monitor will be restarted.
+        m.dataProvider = tryGet(await Web3DataProvider.new(
+          m.depositContractAddress,
+          m.web3Url))
       blk.hash.asEth2Digest
     Eth1Data(block_hash: deployedAtHash, deposit_count: 0)
 
