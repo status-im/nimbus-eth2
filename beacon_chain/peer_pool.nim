@@ -207,7 +207,7 @@ proc len*[A, B](pool: PeerPool[A, B]): int =
 
 proc lenCurrent*[A, B](pool: PeerPool[A, B],
                        filter = {PeerType.Incoming,
-                                 PeerType.Outgoing}): int =
+                                 PeerType.Outgoing}): int {.inline.} =
   ## Returns number of registered peers in PeerPool ``pool`` which satisfies
   ## filter ``filter``.
   (if PeerType.Incoming in filter: pool.curIncPeersCount else: 0) +
@@ -215,7 +215,7 @@ proc lenCurrent*[A, B](pool: PeerPool[A, B],
 
 proc lenAvailable*[A, B](pool: PeerPool[A, B],
                          filter = {PeerType.Incoming,
-                                   PeerType.Outgoing}): int =
+                                   PeerType.Outgoing}): int {.inline.} =
   ## Returns number of available peers in PeerPool ``pool`` which satisfies
   ## filter ``filter``.
   (if PeerType.Incoming in filter: len(pool.incQueue) else: 0) +
@@ -223,7 +223,7 @@ proc lenAvailable*[A, B](pool: PeerPool[A, B],
 
 proc lenAcquired*[A, B](pool: PeerPool[A, B],
                         filter = {PeerType.Incoming,
-                                  PeerType.Outgoing}): int =
+                                  PeerType.Outgoing}): int {.inline.} =
   ## Returns number of acquired peers in PeerPool ``pool`` which satisifies
   ## filter ``filter``.
   (if PeerType.Incoming in filter: pool.acqIncPeersCount else: 0) +
@@ -231,7 +231,7 @@ proc lenAcquired*[A, B](pool: PeerPool[A, B],
 
 proc lenSpace*[A, B](pool: PeerPool[A, B],
                      filter = {PeerType.Incoming,
-                               PeerType.Outgoing}): int =
+                               PeerType.Outgoing}): int {.inline.} =
   ## Returns number of available space for peers in PeerPool ``pool`` which
   ## satisfies filter ``filter``.
   let curPeersCount = pool.curIncPeersCount + pool.curOutPeersCount
@@ -262,7 +262,7 @@ proc shortLogSpace*[A, B](pool: PeerPool[A, B]): string =
 proc shortLogCurrent*[A, B](pool: PeerPool[A, B]): string =
   $pool.curIncPeersCount & "/" & $pool.curOutPeersCount
 
-proc checkPeerScore*[A, B](pool: PeerPool[A, B], peer: A): bool =
+proc checkPeerScore*[A, B](pool: PeerPool[A, B], peer: A): bool {.inline.} =
   ## Returns ``true`` if peer passing score check.
   if not(isNil(pool.scoreCheck)):
     pool.scoreCheck(peer)
@@ -359,7 +359,7 @@ proc addPeerImpl[A, B](pool: PeerPool[A, B], peer: A, peerKey: B,
     pool.outNotEmptyEvent.fire()
   pool.peerCountChanged()
 
-proc checkPeer*[A, B](pool: PeerPool[A, B], peer: A): PeerStatus =
+proc checkPeer*[A, B](pool: PeerPool[A, B], peer: A): PeerStatus {.inline.} =
   ## Checks if peer could be added to PeerPool, e.g. it has:
   ##
   ## * Positive value of peer's score - (PeerStatus.LowScoreError)
@@ -414,7 +414,7 @@ proc addPeerNoWait*[A, B](pool: PeerPool[A, B],
         PeerStatus.NoSpaceError
 
 proc getPeerSpaceMask[A, B](pool: PeerPool[A, B],
-                            peerType: PeerType): set[PeerType] =
+                            peerType: PeerType): set[PeerType] {.inline.} =
   ## This procedure returns set of events which you need to wait to get empty
   ## space for peer type ``peerType``. This set can be used for call to
   ## ``waitNotFullEvent()``.
@@ -482,7 +482,7 @@ proc addPeer*[A, B](pool: PeerPool[A, B],
   return res
 
 proc acquireItemImpl[A, B](pool: PeerPool[A, B],
-                           filter: set[PeerType]): A =
+                           filter: set[PeerType]): A {.inline.} =
   doAssert((len(pool.outQueue) > 0) or (len(pool.incQueue) > 0))
   let pindex =
     if filter == {PeerType.Incoming, PeerType.Outgoing}:
@@ -565,7 +565,7 @@ proc release*[A, B](pool: PeerPool[A, B], peer: A) =
           dec(pool.acqOutPeersCount)
         pool.fireNotEmptyEvent(item[])
 
-proc release*[A, B](pool: PeerPool[A, B], peers: openArray[A]) =
+proc release*[A, B](pool: PeerPool[A, B], peers: openArray[A]) {.inline.} =
   ## Release array of peers ``peers`` back to PeerPool ``pool``.
   for item in peers:
     pool.release(item)
@@ -610,21 +610,21 @@ proc acquireNoWait*[A, B](pool: PeerPool[A, B],
     peers.add(pool.acquireItemImpl(filter))
   return peers
 
-proc acquireIncomingPeer*[A, B](pool: PeerPool[A, B]): Future[A] =
+proc acquireIncomingPeer*[A, B](pool: PeerPool[A, B]): Future[A] {.inline.} =
   ## Acquire single incoming peer from PeerPool ``pool``.
   pool.acquire({PeerType.Incoming})
 
-proc acquireOutgoingPeer*[A, B](pool: PeerPool[A, B]): Future[A] =
+proc acquireOutgoingPeer*[A, B](pool: PeerPool[A, B]): Future[A] {.inline.} =
   ## Acquire single outgoing peer from PeerPool ``pool``.
   pool.acquire({PeerType.Outgoing})
 
 proc acquireIncomingPeers*[A, B](pool: PeerPool[A, B],
-                                 number: int): Future[seq[A]] =
+                                 number: int): Future[seq[A]] {.inline.} =
   ## Acquire ``number`` number of incoming peers from PeerPool ``pool``.
   pool.acquire(number, {PeerType.Incoming})
 
 proc acquireOutgoingPeers*[A, B](pool: PeerPool[A, B],
-                                 number: int): Future[seq[A]] =
+                                 number: int): Future[seq[A]] {.inline.} =
   ## Acquire ``number`` number of outgoing peers from PeerPool ``pool``.
   pool.acquire(number, {PeerType.Outgoing})
 
@@ -675,21 +675,21 @@ iterator acquiredPeers*[A, B](pool: PeerPool[A, B],
     let pindex = sorted.pop().data
     yield pool.storage[pindex].data
 
-proc `[]`*[A, B](pool: PeerPool[A, B], key: B): A =
+proc `[]`*[A, B](pool: PeerPool[A, B], key: B): A {.inline.} =
   ## Retrieve peer with key ``key`` from PeerPool ``pool``.
   let pindex = pool.registry[key]
   pool.storage[pindex.data]
 
-proc `[]`*[A, B](pool: var PeerPool[A, B], key: B): var A =
+proc `[]`*[A, B](pool: var PeerPool[A, B], key: B): var A {.inline.} =
   ## Retrieve peer with key ``key`` from PeerPool ``pool``.
   let pindex = pool.registry[key]
   pool.storage[pindex.data].data
 
-proc hasPeer*[A, B](pool: PeerPool[A, B], key: B): bool =
+proc hasPeer*[A, B](pool: PeerPool[A, B], key: B): bool {.inline.} =
   ## Returns ``true`` if peer with ``key`` present in PeerPool ``pool``.
   pool.registry.hasKey(key)
 
-proc getOrDefault*[A, B](pool: PeerPool[A, B], key: B): A =
+proc getOrDefault*[A, B](pool: PeerPool[A, B], key: B): A {.inline.} =
   ## Retrieves the peer from PeerPool ``pool`` using key ``key``. If peer is
   ## not present, default initialization value for type ``A`` is returned
   ## (e.g. 0 for any integer type).
@@ -700,7 +700,7 @@ proc getOrDefault*[A, B](pool: PeerPool[A, B], key: B): A =
     A()
 
 proc getOrDefault*[A, B](pool: PeerPool[A, B], key: B,
-                         default: A): A =
+                         default: A): A {.inline.} =
   ## Retrieves the peer from PeerPool ``pool`` using key ``key``. If peer is
   ## not present, default value ``default`` is returned.
   let pindex = pool.registry.getOrDefault(key, PeerIndex(data: -1))

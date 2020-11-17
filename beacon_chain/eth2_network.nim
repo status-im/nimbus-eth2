@@ -325,10 +325,10 @@ proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
   result = network.getPeer(conn.peerInfo.peerId)
   result.info = conn.peerInfo
 
-proc getKey*(peer: Peer): PeerID =
+proc getKey*(peer: Peer): PeerID {.inline.} =
   peer.info.peerId
 
-proc getFuture*(peer: Peer): Future[void] =
+proc getFuture*(peer: Peer): Future[void] {.inline.} =
   if peer.disconnectedFut.isNil:
     peer.disconnectedFut = newFuture[void]()
   peer.disconnectedFut
@@ -337,7 +337,7 @@ proc getScore*(a: Peer): int =
   ## Returns current score value for peer ``peer``.
   a.score
 
-proc updateScore*(peer: Peer, score: int) =
+proc updateScore*(peer: Peer, score: int) {.inline.} =
   ## Update peer's ``peer`` score with value ``score``.
   peer.score = peer.score + score
   if peer.score > PeerScoreHighLimit:
@@ -351,7 +351,7 @@ proc calcThroughput(dur: Duration, value: uint64): float =
     float(value) * (secs / float(dur.nanoseconds))
 
 proc updateNetThroughput*(peer: Peer, dur: Duration,
-                          bytesCount: uint64) =
+                          bytesCount: uint64) {.inline.} =
   ## Update peer's ``peer`` network throughput.
   let bytesPerSecond = calcThroughput(dur, bytesCount)
   let a = peer.netThroughput.average
@@ -359,15 +359,15 @@ proc updateNetThroughput*(peer: Peer, dur: Duration,
   peer.netThroughput.average = a + (bytesPerSecond - a) / float(n + 1)
   inc(peer.netThroughput.count)
 
-proc netBps*(peer: Peer): float =
+proc netBps*(peer: Peer): float {.inline.} =
   ## Returns current network throughput average value in Bps for peer ``peer``.
   round((peer.netThroughput.average * 10_000) / 10_000)
 
-proc netKbps*(peer: Peer): float =
+proc netKbps*(peer: Peer): float {.inline.} =
   ## Returns current network throughput average value in Kbps for peer ``peer``.
   round(((peer.netThroughput.average / 1024) * 10_000) / 10_000)
 
-proc netMbps*(peer: Peer): float =
+proc netMbps*(peer: Peer): float {.inline.} =
   ## Returns current network throughput average value in Mbps for peer ``peer``.
   round(((peer.netThroughput.average / (1024 * 1024)) * 10_000) / 10_000)
 

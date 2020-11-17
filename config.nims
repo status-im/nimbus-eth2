@@ -10,8 +10,6 @@ if defined(release) and not defined(disableLTO):
   if defined(macosx): # Clang
     switch("passC", "-flto=thin")
     switch("passL", "-flto=thin -Wl,-object_path_lto," & nimCachePath & "/lto")
-    switch("passC", "-mllvm -inline-threshold=100000")
-    switch("passL", "-mllvm -inline-threshold=100000")
   elif defined(linux):
     switch("passC", "-flto=auto")
     switch("passL", "-flto=auto")
