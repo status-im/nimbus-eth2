@@ -201,7 +201,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
 
           # TODO I don't like these (u)int64-to-int conversions...
           let attestation = await validator.produceAndSignAttestation(
-            ad, a.committee_length.int, a.validator_committee_index.int,
+            ad, a.committee_length.int, a.validator_committee_index,
             vc.fork, vc.beaconGenesis.genesis_validators_root)
 
           discard await vc.client.post_v1_beacon_pool_attestations(attestation)

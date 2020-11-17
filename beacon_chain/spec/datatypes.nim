@@ -74,6 +74,10 @@ const
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
   BASE_REWARDS_PER_EPOCH* = 4
 
+  # https://github.com/ethereum/eth2.0-specs/pull/2101
+  ATTESTATION_PRODUCTION_DIVISOR* = 3
+  ATTESTATION_ENTROPY_DIVISOR* = 12
+
 template maxSize*(n: int) {.pragma.}
 
 type

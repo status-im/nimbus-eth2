@@ -721,9 +721,6 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
 template headAge(): uint64 =
   wallSlot - headSlot
 
-template peerAge(): uint64 =
-  if peerSlot > wallSlot: 0'u64 else: wallSlot - peerSlot
-
 template queueAge(): uint64 =
   wallSlot - man.queue.outSlot
 
@@ -753,7 +750,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
           local_head_slot = headSlot, peer = peer, index = index,
           tolerance_value = man.toleranceValue, peer_speed = peer.netKbps(),
           peer_score = peer.getScore(), topics = "syncman"
-    let failure = SyncFailure.init(SyncFailureKind.StatusInvalid, peer)
+    discard SyncFailure.init(SyncFailureKind.StatusInvalid, peer)
     return
 
   # Check if we need to update peer's status information
@@ -772,7 +769,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
         debug "Failed to get remote peer's status, exiting", peer = peer,
               peer_score = peer.getScore(), peer_head_slot = peerSlot,
               peer_speed = peer.netKbps(), index = index, topics = "syncman"
-        let failure = SyncFailure.init(SyncFailureKind.StatusDownload, peer)
+        discard SyncFailure.init(SyncFailureKind.StatusDownload, peer)
         return
     except CatchableError as exc:
       debug "Unexpected exception while updating peer's status",
@@ -826,7 +823,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
         debug "Failed to get remote peer's status, exiting", peer = peer,
               peer_score = peer.getScore(), peer_head_slot = peerSlot,
               peer_speed = peer.netKbps(), index = index, topics = "syncman"
-        let failure = SyncFailure.init(SyncFailureKind.StatusDownload, peer)
+        discard SyncFailure.init(SyncFailureKind.StatusDownload, peer)
         return
     except CatchableError as exc:
       debug "Unexpected exception while updating peer's status",
@@ -919,7 +916,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
              request_step = req.step, peer = peer,
              peer_score = peer.getScore(), peer_speed = peer.netKbps(),
              index = index, topics = "syncman"
-        let failure = SyncFailure.init(SyncFailureKind.BadResponse, peer)
+        discard SyncFailure.init(SyncFailureKind.BadResponse, peer)
         return
 
       # Scoring will happen in `syncUpdate`.
@@ -933,7 +930,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
             request_step = req.step, peer = peer, index = index,
             peer_score = peer.getScore(), peer_speed = peer.netKbps(),
             topics = "syncman"
-      let failure = SyncFailure.init(SyncFailureKind.BlockDownload, peer)
+      discard SyncFailure.init(SyncFailureKind.BlockDownload, peer)
       return
 
   except CatchableError as exc:
@@ -1054,7 +1051,7 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
       let op1 = man.queue.opcounter
       await sleepAsync(chronos.seconds(pauseTime))
       let op2 = man.queue.opcounter
-      let (map, sleeping, waiting, pending) = man.getWorkersStats()
+      let (_, _, _, pending) = man.getWorkersStats()
       if pending == 0:
         pauseTime = MinPauseTime
       else:

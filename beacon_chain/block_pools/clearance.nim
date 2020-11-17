@@ -33,7 +33,7 @@ func getOrResolve*(dag: ChainDAGRef, quarantine: var QuarantineRef, root: Eth2Di
   result = dag.getRef(root)
 
   if result.isNil:
-    quarantine.missing[root] = MissingBlock()
+    quarantine.addMissing(root)
 
 proc addRawBlock*(
       dag: var ChainDAGRef, quarantine: var QuarantineRef,
@@ -223,17 +223,10 @@ proc addRawBlock*(
 
     return ok dag.clearanceState.blck
 
-  # TODO already checked hash though? main reason to keep this is because
-  # the pending dag calls this function back later in a loop, so as long
-  # as dag.add(...) requires a SignedBeaconBlock, easier to keep them in
-  # pending too.
+  # This is an unresolved block - add it to the quarantine, which will cause its
+  # parent to be scheduled for downloading
   if not quarantine.add(dag, signedBlock):
     debug "Block quarantine full"
-
-  # TODO possibly, it makes sense to check the database - that would allow sync
-  #      to simply fill up the database with random blocks the other clients
-  #      think are useful - but, it would also risk filling the database with
-  #      junk that's not part of the block graph
 
   if blck.parent_root in quarantine.missing or
       containsOrphan(quarantine, signedBlock):
@@ -243,7 +236,6 @@ proc addRawBlock*(
 
     return err((ValidationResult.Ignore, MissingParent))
 
-  # This is an unresolved block - put its parent on the missing list for now...
   # TODO if we receive spam blocks, one heurestic to implement might be to wait
   #      for a couple of attestations to appear before fetching parents - this
   #      would help prevent using up network resources for spam - this serves
@@ -253,9 +245,6 @@ proc addRawBlock*(
   #      them out without penalty - but signing invalid attestations carries
   #      a risk of being slashed, making attestations a more valuable spam
   #      filter.
-  # TODO when we receive the block, we don't know how many others we're missing
-  #      from that branch, so right now, we'll just do a blind guess
-
   debug "Unresolved block (parent missing)",
     orphans = quarantine.orphans.len,
     missing = quarantine.missing.len
@@ -348,7 +337,7 @@ proc isValidBeaconBlock*(
     debug "parent unknown, putting block in quarantine",
       current_slot = wallTime.toSlot()
     if not quarantine.add(dag, signed_beacon_block):
-      warn "Block quarantine full"
+      debug "Block quarantine full"
     return err((ValidationResult.Ignore, MissingParent))
 
   # [REJECT] The current finalized_checkpoint is an ancestor of block -- i.e.

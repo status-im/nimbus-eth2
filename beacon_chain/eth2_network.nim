@@ -443,7 +443,7 @@ proc disconnect*(peer: Peer, reason: DisconnectionReason,
       peer.network.addSeen(peer.info.peerId, seenTime)
       await peer.network.switch.disconnect(peer.info.peerId)
       peer.connectionState = Disconnected
-  except CatchableError as exc:
+  except CatchableError:
     # We do not care about exceptions in disconnection procedure.
     trace "Exception while disconnecting peer", peer = peer.info.peerId,
                                                 reason = reason
@@ -465,18 +465,6 @@ proc getRequestProtoName(fn: NimNode): NimNode =
 
   return newLit("")
 
-template raisePeerDisconnected(msg: string, r: DisconnectionReason) =
-  var e = newException(PeerDisconnected, msg)
-  e.reason = r
-  raise e
-
-proc disconnectAndRaise(peer: Peer,
-                        reason: DisconnectionReason,
-                        msg: string) {.async.} =
-  let r = reason
-  await peer.disconnect(r)
-  raisePeerDisconnected(msg, r)
-
 proc writeChunk*(conn: Connection,
                  responseCode: Option[ResponseCode],
                  payload: Bytes): Future[void] =
@@ -494,7 +482,7 @@ template errorMsgLit(x: static string): ErrorMsg =
   const val = ErrorMsg toBytes(x)
   val
 
-proc formatErrorMsg(msg: ErrorMSg): string =
+func formatErrorMsg(msg: ErrorMSg): string =
   let candidate = string.fromBytes(asSeq(msg))
   for c in candidate:
     # TODO UTF-8 - but let's start with ASCII
@@ -998,7 +986,7 @@ proc startListening*(node: Eth2Node) {.async.} =
   if node.discoveryEnabled:
     try:
        node.discovery.open()
-    except CatchableError as err:
+    except CatchableError:
       fatal "Failed to start discovery service. UDP port may be already in use"
       quit 1
 
@@ -1262,7 +1250,12 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
         quit QuitFailure
       let privKey = res.get()
       let pubKey = privKey.getKey().tryGet()
-      info "Generating a random Peer ID to protect your privacy", network_public_key = pubKey
+      let pres =  PeerID.init(pubKey)
+      if pres.isErr():
+        fatal "Could not obtain PeerID from network key"
+        quit QuitFailure
+      info "Generating new networking key", network_public_key = pubKey,
+                                            network_peer_id = $pres.get()
       return KeyPair(seckey: privKey, pubkey: privKey.getKey().tryGet())
     else:
       let keyPath =
@@ -1391,7 +1384,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
     announcedAddresses = if extIp.isNone(): @[]
                          else: @[tcpEndPoint(extIp.get(), extTcpPort)]
 
-  info "Initializing networking", hostAddress,
+  debug "Initializing networking", hostAddress,
                                   network_public_key = netKeys.pubkey,
                                   announcedAddresses
 

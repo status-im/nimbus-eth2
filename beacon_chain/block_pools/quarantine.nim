@@ -31,8 +31,6 @@ func checkMissing*(quarantine: var QuarantineRef): seq[FetchRecord] =
       inc v.tries
 
   for k in done:
-    # TODO Need to potentially remove from quarantine.pending - this is currently a
-    #      memory leak here!
     quarantine.missing.del(k)
 
   # simple (simplistic?) exponential backoff for retries..
@@ -66,11 +64,16 @@ func removeOrphan*(
     quarantine: var QuarantineRef, signedBlock: SignedBeaconBlock) =
   quarantine.orphans.del((signedBlock.root, signedBlock.signature))
 
+func isViableOrphan(dag: ChainDAGRef, signedBlock: SignedBeaconBlock): bool =
+  # The orphan must be newer than the finalization point so that its parent
+  # either is the finalized block or more recent
+  signedBlock.message.slot > dag.finalizedHead.slot
+
 func removeOldBlocks(quarantine: var QuarantineRef, dag: ChainDAGRef) =
   var oldBlocks: seq[(Eth2Digest, ValidatorSig)]
 
   for k, v in quarantine.orphans.pairs():
-    if v.message.slot <= dag.finalizedHead.slot:
+    if not isViableOrphan(dag, v):
       oldBlocks.add k
 
   for k in oldBlocks:
@@ -97,16 +100,24 @@ func add*(quarantine: var QuarantineRef, dag: ChainDAGRef,
   # for future slots are rejected before reaching quarantine, this usually
   # will be a block for the last couple of slots for which the parent is a
   # likely imminent arrival.
-  const MAX_QUARANTINE_ORPHANS = 10
+
+  # Since we start forward sync when about one epoch is missing, that's as
+  # good a number as any.
+  const MAX_QUARANTINE_ORPHANS = SLOTS_PER_EPOCH
+
+  if not isViableOrphan(dag, signedBlock):
+    return false
 
   quarantine.removeOldBlocks(dag)
 
-  if quarantine.orphans.len >= MAX_QUARANTINE_ORPHANS:
+  # Even if the quarantine is full, we need to schedule its parent for
+  # downloading or we'll never get to the bottom of things
+  quarantine.addMissing(signedBlock.message.parent_root)
+
+  if quarantine.orphans.lenu64 >= MAX_QUARANTINE_ORPHANS:
     return false
 
   quarantine.orphans[(signedBlock.root, signedBlock.signature)] = signedBlock
   quarantine.missing.del(signedBlock.root)
-
-  quarantine.addMissing(signedBlock.message.parent_root)
 
   true

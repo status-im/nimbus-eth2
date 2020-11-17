@@ -202,7 +202,7 @@ proc keyboardGetPassword[T](prompt: string, attempts: int,
     let passphrase =
       try:
         readPasswordFromStdin(prompt)
-      except IOError as exc:
+      except IOError:
         error "Could not read password from stdin"
         return
     os.sleep(1000 * counter)

@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  std/[os, tables, sequtils, osproc, streams],
+  std/[os, osproc, random, sequtils, streams, tables],
 
   # Nimble packages
   stew/[objects], stew/shims/macros,
@@ -23,7 +23,7 @@ import
   conf, time, validator_pool,
   attestation_pool, exit_pool, block_pools/[spec_cache, chain_dag, clearance],
   eth2_network, keystore_management, beacon_node_common, beacon_node_types,
-  nimbus_binary_common, eth1_monitor, version, ssz/merkleization,
+  eth1_monitor, version, ssz/merkleization,
   attestation_aggregation, sync_manager, sszdump,
   validator_slashing_protection
 
@@ -59,7 +59,6 @@ proc addLocalValidator*(node: BeaconNode,
 proc addLocalValidators*(node: BeaconNode) =
   for validatorKey in node.config.validatorKeys:
     node.addLocalValidator node.chainDag.headState.data.data, validatorKey
-  notice "Local validators attached ", count = node.attachedValidators.count
 
 proc addRemoteValidators*(node: BeaconNode) =
   # load all the validators from the child process - loop until `end`
@@ -76,7 +75,6 @@ proc addRemoteValidators*(node: BeaconNode) =
                                   outStream: node.vcProcess.outputStream,
                                   pubKeyStr: $key))
       node.attachedValidators.addRemoteValidator(key, v)
-  notice "Remote validators attached ", count = node.attachedValidators.count
 
 proc getAttachedValidator*(node: BeaconNode,
                            pubkey: ValidatorPubKey): AttachedValidator =
@@ -440,7 +438,6 @@ proc broadcastAggregatedAttestations(
   # the corresponding one -- whatver they are, they match.
 
   let
-    bs = BlockSlot(blck: aggregationHead, slot: aggregationSlot)
     epochRef = node.chainDag.getEpochRef(aggregationHead, aggregationSlot.epoch)
     fork = node.chainDag.headState.data.data.fork
     genesis_validators_root =
@@ -487,6 +484,28 @@ proc broadcastAggregatedAttestations(
         attestation = shortLog(signedAP.message.aggregate),
         validator = shortLog(curr[0].v)
 
+proc getSlotTimingEntropy(): int64 =
+  # Ensure SECONDS_PER_SLOT / ATTESTATION_PRODUCTION_DIVISOR >
+  # SECONDS_PER_SLOT / ATTESTATION_ENTROPY_DIVISOR, which will
+  # enure that the second condition can't go negative.
+  static: doAssert ATTESTATION_ENTROPY_DIVISOR > ATTESTATION_PRODUCTION_DIVISOR
+
+  # For each `slot`, a validator must generate a uniform random variable
+  # `slot_timing_entropy` between `(-SECONDS_PER_SLOT /
+  # ATTESTATION_ENTROPY_DIVISOR, SECONDS_PER_SLOT /
+  # ATTESTATION_ENTROPY_DIVISOR)` with millisecond resolution and using local
+  # entropy.
+  #
+  # Per issue discussion "validators served by the same beacon node can have
+  # the same attestation production time, i.e., they can share the source of
+  # the entropy and the actual slot_timing_entropy value."
+  const
+    slot_timing_entropy_upper_bound =
+      SECONDS_PER_SLOT.int64 * 1000 div ATTESTATION_ENTROPY_DIVISOR
+    slot_timing_entropy_lower_bound = 0-slot_timing_entropy_upper_bound
+  rand(range[(slot_timing_entropy_lower_bound + 1) ..
+    (slot_timing_entropy_upper_bound - 1)])
+
 proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   ## Perform validator duties - create blocks, vote and aggregate existing votes
   if node.attachedValidators.count == 0:
@@ -526,6 +545,19 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   head = await handleProposal(node, head, slot)
 
+  # Fix timing attack: https://github.com/ethereum/eth2.0-specs/pull/2101
+  # A validator must create and broadcast the `attestation` to the associated
+  # attestation subnet when the earlier one of the following two events occurs:
+  #
+  #   - The validator has received a valid block from the expected block
+  #   proposer for the assigned `slot`. In this case, the validator must set a
+  #   timer for `abs(slot_timing_entropy)`. The end of this timer will be the
+  #   trigger for attestation production.
+  #
+  #   - `SECONDS_PER_SLOT / ATTESTATION_PRODUCTION_DIVISOR +
+  #   slot_timing_entropy` seconds have elapsed since the start of the `slot`
+  #   (using the `slot_timing_entropy` generated for this slot)
+
   # We've been doing lots of work up until now which took time. Normally, we
   # send out attestations at the slot thirds-point, so we go back to the clock
   # to see how much time we need to wait.
@@ -533,21 +565,28 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   #      the work for the whole slot using a monotonic clock instead, then deal
   #      with any clock discrepancies once only, at the start of slot timer
   #      processing..
+  let slotTimingEntropy = getSlotTimingEntropy()
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#attesting
-  # A validator should create and broadcast the attestation to the associated
-  # attestation subnet when either (a) the validator has received a valid
-  # block from the expected block proposer for the assigned slot or
-  # (b) one-third of the slot has transpired (`SECONDS_PER_SLOT / 3` seconds
-  # after the start of slot) -- whichever comes first.
   template sleepToSlotOffsetWithHeadUpdate(extra: chronos.Duration, msg: static string) =
-    if await node.beaconClock.sleepToSlotOffset(extra, slot, msg):
+    let waitTime = node.beaconClock.fromNow(slot.toBeaconTime(extra))
+    if waitTime.inFuture:
+      discard await withTimeout(
+        node.processor[].blockReceivedDuringSlot, waitTime.offset)
+
+      # Might have gotten a valid beacon block this slot, which triggers the
+      # first case, in which we wait for another abs(slotTimingEntropy).
+      if node.processor[].blockReceivedDuringSlot.finished:
+        await sleepAsync(
+          milliseconds(max(slotTimingEntropy, 0 - slotTimingEntropy)))
+
       # Time passed - we might need to select a new head in that case
       node.processor[].updateHead(slot)
       head = node.chainDag.head
 
   sleepToSlotOffsetWithHeadUpdate(
-    seconds(int64(SECONDS_PER_SLOT)) div 3, "Waiting to send attestations")
+    milliseconds(SECONDS_PER_SLOT.int64 * 1000 div ATTESTATION_PRODUCTION_DIVISOR +
+       slotTimingEntropy),
+    "Waiting to send attestations")
 
   handleAttestations(node, head, slot)
 

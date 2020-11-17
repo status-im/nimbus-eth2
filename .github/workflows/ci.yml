@@ -118,6 +118,8 @@ jobs:
             export CFLAGS="${CFLAGS} -m32"
             echo "::set-env name=CFLAGS::$CFLAGS"
           fi
+        env:
+          ACTIONS_ALLOW_UNSECURE_COMMANDS: true
 
       - name: Install build dependencies (Linux i386)
         if: runner.os == 'Linux' && matrix.target.cpu == 'i386'
@@ -137,6 +139,8 @@ jobs:
           EOF
           chmod 755 external/bin/gcc external/bin/g++
           echo '::add-path::${{ github.workspace }}/external/bin'
+        env:
+          ACTIONS_ALLOW_UNSECURE_COMMANDS: true
 
       - name: Restore MinGW-W64 (Windows) from cache
         if: runner.os == 'Windows'
@@ -182,6 +186,8 @@ jobs:
         run: |
           echo '::add-path::${{ github.workspace }}'"/external/mingw-${{ matrix.target.cpu }}/bin"
           echo '::add-path::${{ github.workspace }}'"/external/dlls-${{ matrix.target.cpu }}"
+        env:
+          ACTIONS_ALLOW_UNSECURE_COMMANDS: true
 
       - name: Install build dependencies (MacOS)
         if: runner.os == 'macOS'

@@ -2,6 +2,8 @@ Next
 =================
 
 * Avoid pcre dependency
+* Increase quarantine size to 32 and fix parents not being downloaded
+  consistently
 
 2020-11-12 v0.6.2
 =================

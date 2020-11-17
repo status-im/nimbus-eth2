@@ -7,13 +7,13 @@
 To import your signing key(s) into Nimbus, from the `nimbus-eth2` directory run:
 
 ```
-build/nimbus_beacon_node_spec_0_12_3 deposits import  --data-dir=build/data/shared_medalla_0 <YOUR VALIDATOR KEYS DIRECTORY>
+build/nimbus_beacon_node_spec_0_12_3 deposits import  --data-dir=build/data/shared_medalla_0 "<YOUR VALIDATOR KEYS DIRECTORY>"
  ```
  
  
  Replacing `<YOUR VALIDATOR KEYS DIRECTORY>` with the full pathname of the `validator_keys` directory that was created when you generated your keys using the [Medalla Launchpad](https://medalla.launchpad.ethereum.org/) [command line app](https://github.com/ethereum/eth2.0-deposit-cli/releases/).
  
- > **Tip:** run `pwd` in your `validator_keys` directory to print the full pathname to the console.
+ > **Tip:** run `pwd` in your `validator_keys` directory to print the full pathname to the console (if you're on Windows, run `cd` instead).
  
  You'll be asked to enter the password you created to encrypt your keystore(s).
  
