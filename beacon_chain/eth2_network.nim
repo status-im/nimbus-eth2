@@ -443,7 +443,7 @@ proc disconnect*(peer: Peer, reason: DisconnectionReason,
       peer.network.addSeen(peer.info.peerId, seenTime)
       await peer.network.switch.disconnect(peer.info.peerId)
       peer.connectionState = Disconnected
-  except CatchableError as exc:
+  except CatchableError:
     # We do not care about exceptions in disconnection procedure.
     trace "Exception while disconnecting peer", peer = peer.info.peerId,
                                                 reason = reason
@@ -464,11 +464,6 @@ proc getRequestProtoName(fn: NimNode): NimNode =
         return newLit("/eth2/beacon_chain/req/" & protoName & "/" & protoVer & "/")
 
   return newLit("")
-
-template raisePeerDisconnected(msg: string, r: DisconnectionReason) =
-  var e = newException(PeerDisconnected, msg)
-  e.reason = r
-  raise e
 
 proc writeChunk*(conn: Connection,
                  responseCode: Option[ResponseCode],
@@ -991,7 +986,7 @@ proc startListening*(node: Eth2Node) {.async.} =
   if node.discoveryEnabled:
     try:
        node.discovery.open()
-    except CatchableError as err:
+    except CatchableError:
       fatal "Failed to start discovery service. UDP port may be already in use"
       quit 1
 

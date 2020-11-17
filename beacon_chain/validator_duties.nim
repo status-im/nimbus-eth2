@@ -438,7 +438,6 @@ proc broadcastAggregatedAttestations(
   # the corresponding one -- whatver they are, they match.
 
   let
-    bs = BlockSlot(blck: aggregationHead, slot: aggregationSlot)
     epochRef = node.chainDag.getEpochRef(aggregationHead, aggregationSlot.epoch)
     fork = node.chainDag.headState.data.data.fork
     genesis_validators_root =

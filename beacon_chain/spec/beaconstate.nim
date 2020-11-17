@@ -320,16 +320,6 @@ proc initialize_hashed_beacon_state_from_eth1*(
     preset, eth1_block_hash, eth1_timestamp, deposits, flags)
   HashedBeaconState(data: genesisState[], root: hash_tree_root(genesisState[]))
 
-func is_valid_genesis_state(preset: RuntimePreset,
-                             state: BeaconState,
-                             active_validator_indices: seq[ValidatorIndex]): bool =
-  if state.genesis_time < preset.MIN_GENESIS_TIME:
-    return false
-  # This is an okay get_active_validator_indices(...) for the time being.
-  if active_validator_indices.lenu64 < preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
-    return false
-  true
-
 func emptyBeaconBlockBody(): BeaconBlockBody =
   # TODO: This shouldn't be necessary if OpaqueBlob is the default
   BeaconBlockBody(randao_reveal: ValidatorSig(kind: OpaqueBlob))
