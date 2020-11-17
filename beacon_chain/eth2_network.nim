@@ -504,7 +504,7 @@ proc sendErrorResponse(peer: Peer,
     peer, responseCode, errMsg = formatErrorMsg(errMsg)
   conn.writeChunk(some responseCode, SSZ.encode(errMsg))
 
-proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async} =
+proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.async.} =
   var
     deadline = sleepAsync RESP_TIMEOUT
     streamFut = peer.network.openStream(peer, protocolId)
@@ -512,7 +512,7 @@ proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.
   await streamFut or deadline
 
   if not streamFut.finished:
-    streamFut.cancel()
+    await streamFut.cancelAndWait()
     raise newException(TransmissionError, "Failed to open LibP2P stream")
 
   let stream = streamFut.read
