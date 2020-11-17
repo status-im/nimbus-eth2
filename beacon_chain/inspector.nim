@@ -156,7 +156,7 @@ type
 
   StrRes[T] = Result[T, string]
 
-func `==`*(a, b: ENRFieldPair): bool {.inline.} =
+func `==`*(a, b: ENRFieldPair): bool =
   result = (a.eth2 == b.eth2)
 
 func hasTCP(a: PeerInfo): bool =
@@ -181,7 +181,7 @@ chronicles.formatIt seq[PeerInfo]:
   "[" & res.join(", ") & "]"
 
 func getTopics(forkDigest: ForkDigest,
-               filter: TopicFilter): seq[string] {.inline.} =
+               filter: TopicFilter): seq[string] =
   case filter
   of TopicFilter.Blocks:
     let topic = getBeaconBlocksTopic(forkDigest)
@@ -290,7 +290,7 @@ proc loadBootstrapNodes(conf: InspectorConf): seq[BootstrapAddress] =
       result.add(res.get())
 
 proc init*(p: typedesc[PeerInfo],
-           maddr: MultiAddress): StrRes[PeerInfo] {.inline.} =
+           maddr: MultiAddress): StrRes[PeerInfo] =
   ## Initialize PeerInfo using address which includes PeerID.
   if IPFS.match(maddr):
     let peerid = ? protoAddress(? maddr[2])
@@ -482,7 +482,7 @@ proc logEnrAddress(address: string) =
     info "ENR bootstrap address is wrong or incomplete", enr_uri = address
 
 func init*(p: typedesc[PeerInfo],
-           enruri: EnrUri): Option[PeerInfo] {.inline.} =
+           enruri: EnrUri): Option[PeerInfo] =
   var rec: enr.Record
   if fromURI(rec, enruri):
     logEnrAddress(rec.toUri())

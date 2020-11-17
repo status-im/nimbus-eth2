@@ -325,10 +325,10 @@ proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
   result = network.getPeer(conn.peerInfo.peerId)
   result.info = conn.peerInfo
 
-proc getKey*(peer: Peer): PeerID {.inline.} =
+proc getKey*(peer: Peer): PeerID =
   peer.info.peerId
 
-proc getFuture*(peer: Peer): Future[void] {.inline.} =
+proc getFuture*(peer: Peer): Future[void] =
   if peer.disconnectedFut.isNil:
     peer.disconnectedFut = newFuture[void]()
   peer.disconnectedFut
@@ -337,13 +337,13 @@ proc getScore*(a: Peer): int =
   ## Returns current score value for peer ``peer``.
   a.score
 
-proc updateScore*(peer: Peer, score: int) {.inline.} =
+proc updateScore*(peer: Peer, score: int) =
   ## Update peer's ``peer`` score with value ``score``.
   peer.score = peer.score + score
   if peer.score > PeerScoreHighLimit:
     peer.score = PeerScoreHighLimit
 
-proc calcThroughput(dur: Duration, value: uint64): float {.inline.} =
+proc calcThroughput(dur: Duration, value: uint64): float =
   let secs = float(chronos.seconds(1).nanoseconds)
   if isZero(dur):
     0.0
@@ -351,7 +351,7 @@ proc calcThroughput(dur: Duration, value: uint64): float {.inline.} =
     float(value) * (secs / float(dur.nanoseconds))
 
 proc updateNetThroughput*(peer: Peer, dur: Duration,
-                          bytesCount: uint64) {.inline.} =
+                          bytesCount: uint64) =
   ## Update peer's ``peer`` network throughput.
   let bytesPerSecond = calcThroughput(dur, bytesCount)
   let a = peer.netThroughput.average
@@ -359,15 +359,15 @@ proc updateNetThroughput*(peer: Peer, dur: Duration,
   peer.netThroughput.average = a + (bytesPerSecond - a) / float(n + 1)
   inc(peer.netThroughput.count)
 
-proc netBps*(peer: Peer): float {.inline.} =
+proc netBps*(peer: Peer): float =
   ## Returns current network throughput average value in Bps for peer ``peer``.
   round((peer.netThroughput.average * 10_000) / 10_000)
 
-proc netKbps*(peer: Peer): float {.inline.} =
+proc netKbps*(peer: Peer): float =
   ## Returns current network throughput average value in Kbps for peer ``peer``.
   round(((peer.netThroughput.average / 1024) * 10_000) / 10_000)
 
-proc netMbps*(peer: Peer): float {.inline.} =
+proc netMbps*(peer: Peer): float =
   ## Returns current network throughput average value in Mbps for peer ``peer``.
   round(((peer.netThroughput.average / (1024 * 1024)) * 10_000) / 10_000)
 

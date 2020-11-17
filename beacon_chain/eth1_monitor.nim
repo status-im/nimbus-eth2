@@ -746,7 +746,7 @@ proc start(m: Eth1Monitor, delayBeforeStart: Duration) =
           fatal "Fatal exception reached", err = runFut.error.msg
           quit 1
 
-proc start*(m: Eth1Monitor) {.inline.} =
+proc start*(m: Eth1Monitor) =
   m.start(0.seconds)
 
 proc waitGenesis*(m: Eth1Monitor): Future[BeaconStateRef] {.async.} =

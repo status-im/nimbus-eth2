@@ -162,7 +162,7 @@ proc getShortMap*[T](req: SyncRequest[T],
     slider = slider + req.step
   result = res
 
-proc contains*[T](req: SyncRequest[T], slot: Slot): bool {.inline.} =
+proc contains*[T](req: SyncRequest[T], slot: Slot): bool =
   slot >= req.slot and slot < req.slot + req.count * req.step and
     ((slot - req.slot) mod req.step == 0)
 
@@ -205,35 +205,35 @@ proc getFullMap*[T](req: SyncRequest[T],
   result = mapIt(data, $it.message.slot).join(", ")
 
 proc init*[T](t1: typedesc[SyncRequest], t2: typedesc[T], slot: Slot,
-              count: uint64): SyncRequest[T] {.inline.} =
+              count: uint64): SyncRequest[T] =
   result = SyncRequest[T](slot: slot, count: count, step: 1'u64)
 
 proc init*[T](t1: typedesc[SyncRequest], t2: typedesc[T], start: Slot,
-              finish: Slot): SyncRequest[T] {.inline.} =
+              finish: Slot): SyncRequest[T] =
   let count = finish - start + 1'u64
   result = SyncRequest[T](slot: start, count: count, step: 1'u64)
 
 proc init*[T](t1: typedesc[SyncRequest], t2: typedesc[T], slot: Slot,
-              count: uint64, item: T): SyncRequest[T] {.inline.} =
+              count: uint64, item: T): SyncRequest[T] =
   result = SyncRequest[T](slot: slot, count: count, item: item, step: 1'u64)
 
 proc init*[T](t1: typedesc[SyncRequest], t2: typedesc[T], start: Slot,
-              finish: Slot, item: T): SyncRequest[T] {.inline.} =
+              finish: Slot, item: T): SyncRequest[T] =
   let count = finish - start + 1'u64
   result = SyncRequest[T](slot: start, count: count, step: 1'u64, item: item)
 
 proc init*[T](t1: typedesc[SyncFailure], kind: SyncFailureKind,
-              peer: T): SyncFailure[T] {.inline.} =
+              peer: T): SyncFailure[T] =
   result = SyncFailure[T](kind: kind, peer: peer, stamp: now(chronos.Moment))
 
 proc empty*[T](t: typedesc[SyncRequest],
-               t2: typedesc[T]): SyncRequest[T] {.inline.} =
+               t2: typedesc[T]): SyncRequest[T] =
   result = SyncRequest[T](step: 0'u64, count: 0'u64)
 
 proc setItem*[T](sr: var SyncRequest[T], item: T) =
   sr.item = item
 
-proc isEmpty*[T](sr: SyncRequest[T]): bool {.inline.} =
+proc isEmpty*[T](sr: SyncRequest[T]): bool =
   result = (sr.step == 0'u64) and (sr.count == 0'u64)
 
 proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
@@ -308,17 +308,17 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
     outQueue: outputQueue
   )
 
-proc `<`*[T](a, b: SyncRequest[T]): bool {.inline.} =
+proc `<`*[T](a, b: SyncRequest[T]): bool =
   result = (a.slot < b.slot)
 
-proc `<`*[T](a, b: SyncResult[T]): bool {.inline.} =
+proc `<`*[T](a, b: SyncResult[T]): bool =
   result = (a.request.slot < b.request.slot)
 
-proc `==`*[T](a, b: SyncRequest[T]): bool {.inline.} =
+proc `==`*[T](a, b: SyncRequest[T]): bool =
   result = ((a.slot == b.slot) and (a.count == b.count) and
             (a.step == b.step))
 
-proc lastSlot*[T](req: SyncRequest[T]): Slot {.inline.} =
+proc lastSlot*[T](req: SyncRequest[T]): Slot =
   ## Returns last slot for request ``req``.
   result = req.slot + req.count - 1'u64
 
@@ -327,14 +327,14 @@ proc makePending*[T](sq: SyncQueue[T], req: var SyncRequest[T]) =
   sq.counter = sq.counter + 1'u64
   sq.pending[req.index] = req
 
-proc updateLastSlot*[T](sq: SyncQueue[T], last: Slot) {.inline.} =
+proc updateLastSlot*[T](sq: SyncQueue[T], last: Slot) =
   ## Update last slot stored in queue ``sq`` with value ``last``.
   doAssert(sq.lastSlot <= last,
            "Last slot could not be lower then stored one " &
            $sq.lastSlot & " <= " & $last)
   sq.lastSlot = last
 
-proc wakeupWaiters[T](sq: SyncQueue[T], flag = true) {.inline.} =
+proc wakeupWaiters[T](sq: SyncQueue[T], flag = true) =
   ## Wakeup one or all blocked waiters.
   for item in sq.waiters:
     if not(item.future.finished()):
@@ -393,12 +393,12 @@ proc resetWait*[T](sq: SyncQueue[T], toSlot: Option[Slot]) {.async.} =
   # We are going to wakeup all the waiters and wait for last one.
   await sq.wakeupAndWaitWaiters()
 
-proc isEmpty*[T](sr: SyncResult[T]): bool {.inline.} =
+proc isEmpty*[T](sr: SyncResult[T]): bool =
   ## Returns ``true`` if response chain of blocks is empty (has only empty
   ## slots).
   len(sr.data) == 0
 
-proc hasEndGap*[T](sr: SyncResult[T]): bool {.inline.} =
+proc hasEndGap*[T](sr: SyncResult[T]): bool =
   ## Returns ``true`` if response chain of blocks has gap at the end.
   let lastslot = sr.request.slot + sr.request.count - 1'u64
   if len(sr.data) == 0:
@@ -407,7 +407,7 @@ proc hasEndGap*[T](sr: SyncResult[T]): bool {.inline.} =
     return true
   return false
 
-proc getLastNonEmptySlot*[T](sr: SyncResult[T]): Slot {.inline.} =
+proc getLastNonEmptySlot*[T](sr: SyncResult[T]): Slot =
   ## Returns last non-empty slot from result ``sr``. If response has only
   ## empty slots, original request slot will be returned.
   if len(sr.data) == 0:
@@ -416,7 +416,7 @@ proc getLastNonEmptySlot*[T](sr: SyncResult[T]): Slot {.inline.} =
   else:
     sr.data[^1].message.slot
 
-proc toDebtsQueue[T](sq: SyncQueue[T], sr: SyncRequest[T]) {.inline.} =
+proc toDebtsQueue[T](sq: SyncQueue[T], sr: SyncRequest[T]) =
   sq.debtsQueue.push(sr)
   sq.debtsCount = sq.debtsCount + sr.count
 
@@ -630,14 +630,14 @@ proc pop*[T](sq: SyncQueue[T], maxslot: Slot, item: T): SyncRequest[T] =
     sq.makePending(sr)
     return sr
 
-proc len*[T](sq: SyncQueue[T]): uint64 {.inline.} =
+proc len*[T](sq: SyncQueue[T]): uint64 =
   ## Returns number of slots left in queue ``sq``.
   if sq.inpSlot > sq.lastSlot:
     result = sq.debtsCount
   else:
     result = sq.lastSlot - sq.inpSlot + 1'u64 - sq.debtsCount
 
-proc total*[T](sq: SyncQueue[T]): uint64 {.inline.} =
+proc total*[T](sq: SyncQueue[T]): uint64 =
   ## Returns total number of slots in queue ``sq``.
   result = sq.lastSlot - sq.startSlot + 1'u64
 
@@ -646,10 +646,10 @@ proc progress*[T](sq: SyncQueue[T]): uint64 =
   let curSlot = sq.outSlot - sq.startSlot
   result = (curSlot * 100'u64) div sq.total()
 
-proc now*(sm: typedesc[SyncMoment], slot: Slot): SyncMoment {.inline.} =
+proc now*(sm: typedesc[SyncMoment], slot: Slot): SyncMoment =
   result = SyncMoment(stamp: now(chronos.Moment), slot: slot)
 
-proc speed*(start, finish: SyncMoment): float {.inline.} =
+proc speed*(start, finish: SyncMoment): float =
   ## Returns number of slots per second.
   let slots = finish.slot - start.slot
   let dur = finish.stamp - start.stamp

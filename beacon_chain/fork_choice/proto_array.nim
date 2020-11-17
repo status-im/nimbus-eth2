@@ -55,7 +55,7 @@ template unsafeGet*[K, V](table: Table[K, V], key: K): V =
   except KeyError as exc:
     raiseAssert(exc.msg)
 
-func `[]`(nodes: ProtoNodes, idx: Index): Option[ProtoNode] {.inline.} =
+func `[]`(nodes: ProtoNodes, idx: Index): Option[ProtoNode] =
   ## Retrieve a ProtoNode at "Index"
   if idx < nodes.offset:
     return none(ProtoNode)
@@ -64,10 +64,10 @@ func `[]`(nodes: ProtoNodes, idx: Index): Option[ProtoNode] {.inline.} =
     return none(ProtoNode)
   return some(nodes.buf[i])
 
-func len*(nodes: ProtoNodes): int {.inline.} =
+func len*(nodes: ProtoNodes): int =
   nodes.buf.len
 
-func add(nodes: var ProtoNodes, node: ProtoNode) {.inline.} =
+func add(nodes: var ProtoNodes, node: ProtoNode) =
   nodes.buf.add node
 
 # Forward declarations
