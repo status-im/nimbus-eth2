@@ -404,7 +404,7 @@ proc init*(T: type Eth1Monitor,
   let web3Fut = newWeb3(web3Url)
   yield web3Fut or sleepAsync(chronos.seconds(5))
   if (not web3Fut.finished) or web3Fut.failed:
-    web3Fut.cancel()
+    await cancelAndWait(web3Fut)
     return err "Failed to setup web3 connection"
 
   let

@@ -789,13 +789,10 @@ proc dialPeer*(node: Eth2Node, peerAddr: PeerAddr, index = 0) {.async.} =
         deadline.cancel()
       inc nbc_successful_dials
     else:
-      # TODO(cheatfate): As soon as `nim-libp2p` will be able to handle cancellation
-      # properly and will have cancellation tests, we need add here cancellation
-      # of `workfut`.
-      # workfut.cancel()
       debug "Connection to remote peer timed out"
       inc nbc_timeout_dials
       node.addSeen(peerAddr.peerId, SeenTableTimeTimeout)
+      await cancelAndWait(workfut)
   except CatchableError as exc:
     debug "Connection to remote peer failed", msg = exc.msg
     inc nbc_failed_dials
