@@ -1,17 +1,17 @@
 # Import your keys
 
 
-> ⚠️  This page concerns the Medalla testnet only. If you have made a mainnet deposit, you do not need to import your keys into Nimbus quite yet. 
+> ⚠️  This page concerns the **Pyrmont** testnet only. If you have made a mainnet deposit, you do not need to import your keys into Nimbus quite yet. 
 
 
 To import your signing key(s) into Nimbus, from the `nimbus-eth2` directory run:
 
 ```
-build/nimbus_beacon_node_spec_0_12_3 deposits import  --data-dir=build/data/shared_medalla_0 "<YOUR VALIDATOR KEYS DIRECTORY>"
+build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_pyrmont_0 "<YOUR VALIDATOR KEYS DIRECTORY>"
  ```
  
  
- Replacing `<YOUR VALIDATOR KEYS DIRECTORY>` with the full pathname of the `validator_keys` directory that was created when you generated your keys using the [Medalla Launchpad](https://medalla.launchpad.ethereum.org/) [command line app](https://github.com/ethereum/eth2.0-deposit-cli/releases/).
+ Replacing `<YOUR VALIDATOR KEYS DIRECTORY>` with the full pathname of the `validator_keys` directory that was created when you generated your keys using the [Pyrmont Launchpad](https://pyrmont.launchpad.ethereum.org/) [command line app](https://github.com/ethereum/eth2.0-deposit-cli/releases/).
  
  > **Tip:** run `pwd` in your `validator_keys` directory to print the full pathname to the console (if you're on Windows, run `cd` instead).
  
@@ -21,7 +21,7 @@ build/nimbus_beacon_node_spec_0_12_3 deposits import  --data-dir=build/data/shar
 
 ## Storage 
 
-When you import your keys into Nimbus, your validator signing key(s) are stored in the `build/data/shared_medalla_0/` folder, under `secrets` and `validators` - **make sure you keep these folders backed up somewhere safe.**
+When you import your keys into Nimbus, your validator signing key(s) are stored in the `build/data/shared_pyrmont_0/` folder, under `secrets` and `validators` - **make sure you keep these folders backed up somewhere safe.**
  
  The `secrets` folder contains the common secret that gives you access to all your validator keys.
  

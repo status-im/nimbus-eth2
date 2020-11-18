@@ -2,7 +2,7 @@
 The easiest way to get your deposit in is to follow the Ethereum Foundation's launchpad instructions here:
 
 **Testnet**:
-[https://medalla.launchpad.ethereum.org/](https://medalla.launchpad.ethereum.org/)
+[https://pyrmont.launchpad.ethereum.org/](https://pyrmont.launchpad.ethereum.org/)
 
 **Mainnet**: [https://launchpad.ethereum.org/](https://launchpad.ethereum.org/)
 
