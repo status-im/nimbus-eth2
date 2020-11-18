@@ -1,8 +1,8 @@
 # Connect your validator to eth2
 
-> ⚠️  This page concerns the Medalla testnet only. If you have made a mainnet deposit, you do not need to connect your validator to eth2 quite yet. Mainnet [Genesis](https://hackmd.io/@benjaminion/genesis) date has been set to [December 1st](https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/). This page will be updated nearer the time.
+> ⚠️  This page concerns the **Pyrmont** testnet only. If you have made a mainnet deposit, you do not need to connect your validator to eth2 quite yet. Mainnet [Genesis](https://hackmd.io/@benjaminion/genesis) date has been set to [December 1st](https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/). This page will be updated nearer the time.
 
-To connect your validator to the Medalla testnet, from the `nimbus-eth2` repository run:
+To connect your validator to the Pyrmont testnet, from the `nimbus-eth2` repository run:
 
 ```
  ./run-pyrmont-beacon-node.sh

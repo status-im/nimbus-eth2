@@ -1,13 +1,13 @@
 # Import your keys
 
 
-> ⚠️  This page concerns the Pyrmont testnet only. If you have made a mainnet deposit, you do not need to import your keys into Nimbus quite yet. 
+> ⚠️  This page concerns the **Pyrmont** testnet only. If you have made a mainnet deposit, you do not need to import your keys into Nimbus quite yet. 
 
 
 To import your signing key(s) into Nimbus, from the `nimbus-eth2` directory run:
 
 ```
-build/nimbus_beacon_node_spec_0_12_3 deposits import  --data-dir=build/data/shared_pyrmont_0 "<YOUR VALIDATOR KEYS DIRECTORY>"
+build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_pyrmont_0 "<YOUR VALIDATOR KEYS DIRECTORY>"
  ```
  
  
