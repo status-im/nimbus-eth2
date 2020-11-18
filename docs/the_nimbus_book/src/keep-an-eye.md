@@ -3,26 +3,21 @@
  
 The best way to keep track of your validator's status is using the `beaconcha.in` explorer (click on the orange magnifying glass at the very top and paste in your validator's public key):
  
- - **Testnet:** [medalla.beaconcha.in](https:/medalla.beaconcha.in) 
+ - **Testnet:** [pyrmont.beaconcha.in](https:/pyrmont.beaconcha.in) 
  - **Mainnet:** [beaconcha.in](https://beaconcha.in/)
  
 If you deposit after the [genesis](https://hackmd.io/@benjaminion/genesis) state was decided, your validator(s) will be put in a queue based on deposit time, and will slowly be inducted into the validator set after genesis. Getting through the queue may take a few hours or a day or so.
 
  
-You can even create an account ([testnet link](https://medalla.beaconcha.in/register), [mainnet link](https://beaconcha.in/register)) to add alerts and keep track of your validator's performance ([testnet link](https://medalla.beaconcha.in/dashboard), [mainnet link](https://beaconcha.in/dashboard)).
+You can even create an account ([testnet link](https://pyrmont.beaconcha.in/register), [mainnet link](https://beaconcha.in/register)) to add alerts and keep track of your validator's performance ([testnet link](https://pyrmont.beaconcha.in/dashboard), [mainnet link](https://beaconcha.in/dashboard)).
 
 -------------------------------
 
-> ⚠️  The rest of this page concerns the Medalla testnet only. If you have made a mainnet deposit, you do not need to run Nimbus quite yet. Mainnet [Genesis](https://hackmd.io/@benjaminion/genesis) date has been set to [December 1st](https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/). This page will be updated nearer the time.
+> ⚠️  The rest of this page concerns the Pyrmont testnet only. If you have made a mainnet deposit, you do not need to run Nimbus quite yet. Mainnet [Genesis](https://hackmd.io/@benjaminion/genesis) date has been set to [December 1st](https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/). This page will be updated nearer the time.
 
 ## Make sure your validator is attached
 
-On startup, you should see a log message that reads `Local validators attached`. This has a `count` field which should correctly reflect the number of validators you wish to run.
-
-```
-{"lvl":"NOT","ts":"2020-10-26 10:16:51.365+00:00","msg":"Local validators attached ","topics":"beacval","tid":12291,"file":"validator_duties.nim:65","count":1}
-```
-*In the above case, the `count` field reads `1`, which means 1 validator has successfully attached to the beacon node.*
+On startup, you should see a log message that reads `Local validator attached`. This has a `pubKey` field which should the public key of your validator.
 
 ## Keep track of your syncing progress
 
