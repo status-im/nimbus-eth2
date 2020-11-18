@@ -87,7 +87,7 @@ Create a `systemd` service unit file, `nbc.service`, and save it in `/etc/system
 Description=Nimbus beacon node
 
 [Service]
-ExecStart=<BASE-DIRECTORY>/run_nimbus_node.sh medalla
+ExecStart=<BASE-DIRECTORY>/run_nimbus_node.sh pyrmont
 User=<USERNAME>
 Group=<USERNAME>
 Restart=always
