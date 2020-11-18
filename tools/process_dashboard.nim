@@ -1,6 +1,6 @@
 import json, parseopt, strutils
 
-# Usage: process_dashboard --in=local_dashboard.json --out=remote_dashboard.json --testnet=0
+# Usage: process_dashboard --in=local_dashboard.json --out=remote_dashboard.json --testnet=3 --title="Nimbus Fleet Testnets"
 
 # Import the result on metrics.status.im
 
@@ -8,6 +8,7 @@ var
   p = initOptParser()
   inputFileName, outputFilename: string
   testnet = 0
+  title = ""
 
 while true:
   p.next()
@@ -21,6 +22,8 @@ while true:
         outputFileName = p.val
       elif p.key == "testnet":
         testnet = p.val.parseInt()
+      elif p.key == "title":
+        title = p.val
       else:
         echo "unsupported argument: ", p.key
     of cmdArgument:
@@ -30,6 +33,9 @@ var
   inputData = parseFile(inputFileName)
   panels = inputData["panels"].copy()
   outputData = inputData
+
+if title == "":
+  title = "Nimbus testnet" & $testnet
 
 #############
 # variables #
@@ -118,7 +124,7 @@ for panel in panels.mitems:
 # misc #
 ########
 
-outputData["title"] = %* ("Nimbus testnet" & $testnet)
+outputData["title"] = %* $title
 outputData["uid"] = %* (outputData["uid"].getStr()[0..^2] & $testnet)
 # our annotations only work with a 1s resolution
 var annotation = outputData["annotations"]["list"][0].copy()

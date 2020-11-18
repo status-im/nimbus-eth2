@@ -45,7 +45,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 25,
-  "iteration": 1601473231111,
+  "iteration": 1605135683098,
   "links": [],
   "panels": [
     {
@@ -717,6 +717,12 @@
           "interval": "",
           "legendFormat": "libp2p peers",
           "refId": "A"
+        },
+        {
+          "expr": "nbc_peers{node=\"${node}\"}",
+          "interval": "",
+          "legendFormat": "beacon_node peers",
+          "refId": "B"
         }
       ],
       "thresholds": [],
@@ -2190,7 +2196,7 @@
     ]
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-24h",
     "to": "now"
   },
   "timepicker": {
@@ -2210,5 +2216,5 @@
   "timezone": "",
   "title": "NBC local testnet/sim (all nodes)",
   "uid": "pgeNfj2Wz2a",
-  "version": 4
+  "version": 9
 }

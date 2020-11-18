@@ -14,9 +14,9 @@ proc secureCreatePath*(path: string): IoResult[void] =
       err(sres.error)
     else:
       var sd = sres.get()
-      createPath(path, 0o750, secDescriptor = sd.getDescriptor())
+      createPath(path, 0o700, secDescriptor = sd.getDescriptor())
   else:
-    createPath(path, 0o750)
+    createPath(path, 0o700)
 
 proc secureWriteFile*[T: byte|char](path: string,
                                     data: openArray[T]): IoResult[void] =

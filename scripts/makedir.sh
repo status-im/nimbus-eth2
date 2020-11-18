@@ -24,7 +24,7 @@ if [[ "${ON_WINDOWS}" == "1" ]]; then
     icacls "$1" /inheritance:r /grant:r $USERDOMAIN\\$USERNAME:\(OI\)\(CI\)\(F\)&>/dev/null;
   fi
 else
-  # Create full path with 0750 permissions.
-  mkdir -m 0750 -p "$1"
+  # Create full path with proper permissions.
+  mkdir -m 0700 -p $1
 fi
 
