@@ -5,7 +5,7 @@ set -e
 cd /home/user/nimbus-eth2
 git config --global core.abbrev 8
 
-BINARIES="nimbus_beacon_node nimbus_beacon_node_spec_0_12_3 nimbus_signing_process"
+BINARIES="nimbus_beacon_node nimbus_signing_process"
 
 # we need to build everything against libraries available inside this container, including the Nim compiler
 make clean
