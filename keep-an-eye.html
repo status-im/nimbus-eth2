@@ -158,20 +158,17 @@
                         <h1><a class="header" href="#keep-an-eye-on-your-validator" id="keep-an-eye-on-your-validator">Keep an eye on your validator</a></h1>
 <p>The best way to keep track of your validator's status is using the <code>beaconcha.in</code> explorer (click on the orange magnifying glass at the very top and paste in your validator's public key):</p>
 <ul>
-<li><strong>Testnet:</strong> <a href="https:/medalla.beaconcha.in">medalla.beaconcha.in</a> </li>
+<li><strong>Testnet:</strong> <a href="https:/pyrmont.beaconcha.in">pyrmont.beaconcha.in</a> </li>
 <li><strong>Mainnet:</strong> <a href="https://beaconcha.in/">beaconcha.in</a></li>
 </ul>
 <p>If you deposit after the <a href="https://hackmd.io/@benjaminion/genesis">genesis</a> state was decided, your validator(s) will be put in a queue based on deposit time, and will slowly be inducted into the validator set after genesis. Getting through the queue may take a few hours or a day or so.</p>
-<p>You can even create an account (<a href="https://medalla.beaconcha.in/register">testnet link</a>, <a href="https://beaconcha.in/register">mainnet link</a>) to add alerts and keep track of your validator's performance (<a href="https://medalla.beaconcha.in/dashboard">testnet link</a>, <a href="https://beaconcha.in/dashboard">mainnet link</a>).</p>
+<p>You can even create an account (<a href="https://pyrmont.beaconcha.in/register">testnet link</a>, <a href="https://beaconcha.in/register">mainnet link</a>) to add alerts and keep track of your validator's performance (<a href="https://pyrmont.beaconcha.in/dashboard">testnet link</a>, <a href="https://beaconcha.in/dashboard">mainnet link</a>).</p>
 <hr />
 <blockquote>
-<p>⚠️  The rest of this page concerns the Medalla testnet only. If you have made a mainnet deposit, you do not need to run Nimbus quite yet. Mainnet <a href="https://hackmd.io/@benjaminion/genesis">Genesis</a> date has been set to <a href="https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/">December 1st</a>. This page will be updated nearer the time.</p>
+<p>⚠️  The rest of this page concerns the Pyrmont testnet only. If you have made a mainnet deposit, you do not need to run Nimbus quite yet. Mainnet <a href="https://hackmd.io/@benjaminion/genesis">Genesis</a> date has been set to <a href="https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/">December 1st</a>. This page will be updated nearer the time.</p>
 </blockquote>
 <h2><a class="header" href="#make-sure-your-validator-is-attached" id="make-sure-your-validator-is-attached">Make sure your validator is attached</a></h2>
-<p>On startup, you should see a log message that reads <code>Local validators attached</code>. This has a <code>count</code> field which should correctly reflect the number of validators you wish to run.</p>
-<pre><code>{&quot;lvl&quot;:&quot;NOT&quot;,&quot;ts&quot;:&quot;2020-10-26 10:16:51.365+00:00&quot;,&quot;msg&quot;:&quot;Local validators attached &quot;,&quot;topics&quot;:&quot;beacval&quot;,&quot;tid&quot;:12291,&quot;file&quot;:&quot;validator_duties.nim:65&quot;,&quot;count&quot;:1}
-</code></pre>
-<p><em>In the above case, the <code>count</code> field reads <code>1</code>, which means 1 validator has successfully attached to the beacon node.</em></p>
+<p>On startup, you should see a log message that reads <code>Local validator attached</code>. This has a <code>pubKey</code> field which should the public key of your validator.</p>
 <h2><a class="header" href="#keep-track-of-your-syncing-progress" id="keep-track-of-your-syncing-progress">Keep track of your syncing progress</a></h2>
 <p>To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running. You should see something like:</p>
 <pre><code>peers: 35 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:7 (316807) ❯ sync: wPwwwwwDwwDPwPPPwwww:7:4.0627 (280512)

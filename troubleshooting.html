@@ -157,44 +157,44 @@
                     <main>
                         <h1><a class="header" href="#troubleshooting" id="troubleshooting">Troubleshooting</a></h1>
 <blockquote>
-<p>⚠️  This page concerns the Medalla testnet. If you have made a mainnet deposit, you do not need to connect to eth2 quite yet. Mainnet <a href="https://hackmd.io/@benjaminion/genesis">Genesis</a> date has been set to <a href="https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/">December 1st</a>. This page will be updated nearer the time.</p>
+<p>⚠️  This page concerns the Pyrmont testnet. If you have made a mainnet deposit, you do not need to connect to eth2 quite yet. Mainnet <a href="https://hackmd.io/@benjaminion/genesis">Genesis</a> date has been set to <a href="https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/">December 1st</a>. This page will be updated nearer the time.</p>
 </blockquote>
 <p>As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the <code>master</code> branch. If you can't find a solution to your problem here, feel free to hit us up on our <a href="https://discord.com/invite/XRxWahP">discord</a>!</p>
 <blockquote>
 <p><strong>Note:</strong> While the <code>master</code> branch of the <code>nimbus-eth2</code> repository is more stable, the latest updates happen in the <code>devel</code> branch which is (usually) merged into master every week on Tuesday. If you choose to run Nimbus directly from the <code>devel</code> branch, be prepared for instabilities!</p>
 </blockquote>
-<p>To update and restart, run <code>git pull</code>, <code>make update</code>, followed by <code>make medalla-build</code>:</p>
+<p>To update and restart, run <code>git pull</code>, <code>make update</code>, followed by <code>make nimbus_beacon_node</code>:</p>
 <pre><code>cd nimbus-eth2
 git pull
 make update # Update dependencies
-make medalla-build # Rebuild beacon node
-./run-medalla-beacon-node.sh # Restart using same keys as last run
+make nimbus_beacon_node # Rebuild beacon node
+./run-pyrmont-beacon-node.sh # Restart using same keys as last run
 </code></pre>
 <p>If you find that <code>make update</code> causes the console to hang for too long, try running <code>make update V=1</code> or <code>make update V=2</code> instead (these will print a more verbose output to the console which may make it easier to diagnose the problem).</p>
 <blockquote>
 <p><strong>Note:</strong> rest assured that when you restart the beacon node, the software will resume from where it left off, using the validator keys you have already imported.</p>
 </blockquote>
 <h3><a class="header" href="#starting-over" id="starting-over">Starting over</a></h3>
-<p>The directory that stores the blockchain data of the testnet is <code>build/data/medalla</code> (if you're connecting to another testnet, replace <code>medalla</code> with that testnet's name). If you've imported the wrong keys, and wish to start over, delete this repository.</p>
+<p>The directory that stores the blockchain data of the testnet is <code>build/data/pyrmont_shared_0</code> (if you're connecting to another testnet, replace <code>pyrmont</code> with that testnet's name). If you've imported the wrong keys, and wish to start over, delete this repository.</p>
 <h3><a class="header" href="#syncing" id="syncing">Syncing</a></h3>
-<p>If you’re experiencing sync problems,  we recommend running <code>make clean-medalla</code> to delete the database and restart your sync (make sure you’ve updated to the latest <code>master</code> first though).</p>
+<p>If you’re experiencing sync problems,  we recommend running <code>make clean-pyrmont</code> to delete the database and restart your sync (make sure you’ve updated to the latest <code>master</code> first though).</p>
 <blockquote>
-<p><strong>Warning</strong>: <code>make clean-medalla</code> will erase all of your syncing progress so far, so it should only be used as a last resort -- if your client gets stuck for a long time (because it's unable to find the right chain and/or stay with the same head value) and a normal restart doesn't improve things.</p>
+<p><strong>Warning</strong>: <code>make clean-pyrmont</code> will erase all of your syncing progress so far, so it should only be used as a last resort -- if your client gets stuck for a long time (because it's unable to find the right chain and/or stay with the same head value) and a normal restart doesn't improve things.</p>
 </blockquote>
 <h3><a class="header" href="#pruning-the-database" id="pruning-the-database">Pruning the database</a></h3>
 <p>If you're running out of storage, you can <a href="https://blog.ethereum.org/2015/06/26/state-tree-pruning/">prune</a> the database of unnecessary blocks and states by running:</p>
 <pre><code>make ncli_db
-build/ncli_db pruneDatabase --db=build/data/shared_medalla_0/db --verbose=true
+build/ncli_db pruneDatabase --db=build/data/shared_pyrmont_0/db --verbose=true
 </code></pre>
-<p>This will create <code>nbc_pruned.sqlite3</code> files in <code>build/data/shared_medalla_0/db</code>, which you can use in place of the orginal <code>nbc.sqlite3</code> files. We recommend you hold onto the originals until you've verified that your validator is behaving as expected with the pruned files.</p>
+<p>This will create <code>nbc_pruned.sqlite3</code> files in <code>build/data/shared_pyrmont_0/db</code>, which you can use in place of the orginal <code>nbc.sqlite3</code> files. We recommend you hold onto the originals until you've verified that your validator is behaving as expected with the pruned files.</p>
 <p>Options:</p>
 <ul>
 <li><code>--keepOldStates</code> (boolean):  Keep pre-finalisation states; defaults to <code>true</code>.</li>
 <li><code>--verbose</code> (boolean): Print a more verbose output to the console; defaults to <code>false</code>.</li>
 </ul>
 <h3><a class="header" href="#low-peer-counts" id="low-peer-counts">Low peer counts</a></h3>
-<p>If you're experiencing a low peer count, you may be behind a firewall. Try restarting your client and passing <code>--nat:extip:$EXT_IP_ADDRESS</code> as an option to <code>./run-medalla-beacon-node.sh</code>, where <code>$EXT_IP_ADDRESS</code> is your real IP. For example, if your real IP address is <code>35.124.65.104</code>, you'd run:</p>
-<pre><code>./run-medalla-beacon-node.sh --nat:extip:35.124.65.104
+<p>If you're experiencing a low peer count, you may be behind a firewall. Try restarting your client and passing <code>--nat:extip:$EXT_IP_ADDRESS</code> as an option to <code>./run-pyrmont-beacon-node.sh</code>, where <code>$EXT_IP_ADDRESS</code> is your real IP. For example, if your real IP address is <code>35.124.65.104</code>, you'd run:</p>
+<pre><code>./run-pyrmont-beacon-node.sh --nat:extip:35.124.65.104
 </code></pre>
 <h3><a class="header" href="#address-already-in-use-error" id="address-already-in-use-error">Address already in use error</a></h3>
 <p>If you're seeing an error that looks like:</p>
@@ -202,7 +202,7 @@ build/ncli_db pruneDatabase --db=build/data/shared_medalla_0/db --verbose=true
 </code></pre>
 <p>It's probably because you're running multiple validators -- and the default base port <code>9000</code> is already in use.</p>
 <p>To change the base port, run:</p>
-<pre><code>./run-medalla-beacon-node.sh --tcp-port=9100 --udp-port=9100
+<pre><code>./run-pyrmont-beacon-node.sh --tcp-port=9100 --udp-port=9100
 </code></pre>
 <p>(You can replace <code>9100</code> with a port of your choosing)</p>
 <h3><a class="header" href="#eth1-chain-monitor-failure" id="eth1-chain-monitor-failure">Eth1 chain monitor failure</a></h3>

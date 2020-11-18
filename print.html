@@ -200,13 +200,13 @@
 2. write questions in the faq.md page -->
 <h1><a class="header" href="#system-requirements-recommended" id="system-requirements-recommended">System requirements (recommended)</a></h1>
 <hr />
-<p><strong>Operating System:</strong> Linux [64-bit](initialising random network public id), macOS X 10.14+, Windows 64-bit</p>
+<p><strong>Operating System:</strong> Linux <a href="https://en.wikipedia.org/wiki/64-bit_computing">64-bit</a>, Windows 64-bit, macOS X 10.14+,</p>
 <p><strong>Memory:</strong> 4GB RAM</p>
 <p><strong>Storage:</strong> 160GB SSD</p>
 <p><strong>Internet:</strong> Reliable broadband connection</p>
 <hr />
 <p>Note that in order to process incoming validator deposits from the eth1 chain, you will need to run an eth1 client in parallel to your eth2 client. While it is possible to use a third-party service like <a href="/infura-guide.html">Infura</a>, if you choose to run your own eth1 client locally, you'll need more memory and storage.</p>
-<p>For example, you'll need at least another <strong>140GB SSD</strong> to run <a href="/eth1.html">geth fast sync</a> on mainnet.</p>
+<p>For example, you'll need at least another <strong>290GB SSD</strong> to run <a href="/eth1.html">geth fast sync</a> on mainnet.</p>
 <blockquote>
 <p><strong>Tip:</strong> It's possible to <a href="/pi-guide.html#10-64-bit-kernel">tell a Raspberry Pi 4 to use a 64-bit kernel</a>.</p>
 </blockquote>
@@ -269,10 +269,6 @@ cd nimbus-eth2
 </code></pre>
 <h3><a class="header" href="#2-run-the-beacon-node-build-process" id="2-run-the-beacon-node-build-process">2. Run the beacon node build process</a></h3>
 <p>To build the Nimbus beacon node and it's dependencies, run:</p>
-<p><em>Medalla testnet</em></p>
-<pre><code>make medalla-build
-</code></pre>
-<p><em>Mainnet</em></p>
 <pre><code>make nimbus_beacon_node
 </code></pre>
 <h2><a class="header" href="#run-an-eth1-node-geth-fast-sync" id="run-an-eth1-node-geth-fast-sync">Run an eth1 node (Geth fast sync)</a></h2>
@@ -298,8 +294,8 @@ cd nimbus-eth2
 <p>If you're joining a network that has already launched, you need to ensure that your beacon node is <a href="./keep-an-eye.html#keep-track-of-your-syncing-progress">completely synced</a> before submitting your deposit.</p>
 <p>This is particularly important if you are joining a network that's been running for a while.</p>
 <h3><a class="header" href="#testnet" id="testnet">Testnet</a></h3>
-<p>To start syncing the <code>medalla</code> testnet , from the <code>nimbus-eth2</code> repository, run:</p>
-<pre><code> ./run-medalla-beacon-node.sh
+<p>To start syncing the <code>pyrmont</code> testnet , from the <code>nimbus-eth2</code> repository, run:</p>
+<pre><code> ./run-pyrmont-beacon-node.sh
 </code></pre>
 <h3><a class="header" href="#mainnet" id="mainnet">Mainnet</a></h3>
 <blockquote>
@@ -324,17 +320,16 @@ Please enter a Web3 provider URL:
 <pre><code>ws://127.0.0.1:8546
 </code></pre>
 <p>Enter it, you should see the following output:</p>
-<pre><code>INF 2020-11-07 18:53:35.487+01:00 Launching beacon node                      topics=&quot;beacnde&quot; tid=18451932 file=beacon_node.nim:1120 version=v0.6.0-f5397f2f bls_backend=BLST cmdParams=...
-INF 2020-11-07 13:59:31.199+01:00 Generating a random Peer ID to protect your privacy                   topics=&quot;networking&quot; tid=18382613 file=eth2_network.nim:1229 network_public_key=08021221020ee5c1cfbf731405d14f2f382bc4037fbbee2b6ac5511dd51f1d9e28abb1aa62
-INF 2020-11-07 13:59:31.336+01:00 Starting Eth1 deposit contract monitoring  tid=18382613 file=mainchain_monitor.nim:783 contract=0x1234567890123456789012345678901234567890 url=web3(ws://127.0.0.1:8546)
-INF 2020-11-07 18:56:48.557+01:00 Waiting for new Eth1 block headers         tid=18452770 file=eth1_monitor.nim:303
-INF 2020-11-07 18:56:48.558+01:00 Awaiting genesis event                     tid=18452770 file=eth1_monitor.nim:539
-
+<pre><code>INF 2020-11-18 11:25:33.487+01:00 Launching beacon node
+...
+INF 2020-11-18 11:25:34.556+01:00 Loading block dag from database            topics=&quot;beacnde&quot; tid=19985314 file=nimbus_beacon_node.nim:198 path=build/data/shared_pyrmont_0/db
+INF 2020-11-18 11:25:35.921+01:00 Block dag initialized
+INF 2020-11-18 11:25:37.073+01:00 Generating new networking key
 ...
 </code></pre>
 <h3><a class="header" href="#command-line-options" id="command-line-options">Command line options</a></h3>
-<p>You can pass any <code>nimbus_beacon_node</code> options to the <code>medalla</code> and <code>mainnet</code> scripts. For example, if you wanted to launch Nimbus on mainnet with a different base port, say <code>9100</code>, you would run:</p>
-<pre><code>./run-mainnet-beacon-node.sh --tcp-port=9100 --udp-port=9100
+<p>You can pass any <code>nimbus_beacon_node</code> options to the <code>pyrmont</code> and <code>mainnet</code> scripts. For example, if you wanted to launch Nimbus on <code>pyrmont</code> with a different base port, say <code>9100</code>, you would run:</p>
+<pre><code>./run-pyrmont-beacon-node.sh --tcp-port=9100 --udp-port=9100
 </code></pre>
 <p>To see a list of the command line options availabe to you, with descriptions, navigate to the <code>build</code> directory and run:</p>
 <pre><code>./nimbus_beacon_node --help
@@ -342,7 +337,7 @@ INF 2020-11-07 18:56:48.558+01:00 Awaiting genesis event                     tid
 <h1><a class="header" href="#make-a-deposit" id="make-a-deposit">Make a deposit</a></h1>
 <p>The easiest way to get your deposit in is to follow the Ethereum Foundation's launchpad instructions here:</p>
 <p><strong>Testnet</strong>:
-<a href="https://medalla.launchpad.ethereum.org/">https://medalla.launchpad.ethereum.org/</a></p>
+<a href="https://pyrmont.launchpad.ethereum.org/">https://pyrmont.launchpad.ethereum.org/</a></p>
 <p><strong>Mainnet</strong>: <a href="https://launchpad.ethereum.org/">https://launchpad.ethereum.org/</a></p>
 <blockquote>
 <p>⚠️ : If you are making a mainnet deposit make sure you verify that the deposit contract you are interacting with is the correct one. </p>
@@ -369,19 +364,19 @@ INF 2020-11-07 18:56:48.558+01:00 Awaiting genesis event                     tid
 <p><em>If you've made a mainnet deposit, your validator will be activated when mainnet launches, regardless of how many deposits are made before then: this will in all likelihood be <strong>Dec 1st 2020, 12pm UTC</strong></em></p>
 <h1><a class="header" href="#import-your-keys" id="import-your-keys">Import your keys</a></h1>
 <blockquote>
-<p>⚠️  This page concerns the Medalla testnet only. If you have made a mainnet deposit, you do not need to import your keys into Nimbus quite yet. </p>
+<p>⚠️  This page concerns the <strong>Pyrmont</strong> testnet only. If you have made a mainnet deposit, you do not need to import your keys into Nimbus quite yet. </p>
 </blockquote>
 <p>To import your signing key(s) into Nimbus, from the <code>nimbus-eth2</code> directory run:</p>
-<pre><code>build/nimbus_beacon_node_spec_0_12_3 deposits import  --data-dir=build/data/shared_medalla_0 &quot;&lt;YOUR VALIDATOR KEYS DIRECTORY&gt;&quot;
+<pre><code>build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_pyrmont_0 &quot;&lt;YOUR VALIDATOR KEYS DIRECTORY&gt;&quot;
 </code></pre>
-<p>Replacing <code>&lt;YOUR VALIDATOR KEYS DIRECTORY&gt;</code> with the full pathname of the <code>validator_keys</code> directory that was created when you generated your keys using the <a href="https://medalla.launchpad.ethereum.org/">Medalla Launchpad</a> <a href="https://github.com/ethereum/eth2.0-deposit-cli/releases/">command line app</a>.</p>
+<p>Replacing <code>&lt;YOUR VALIDATOR KEYS DIRECTORY&gt;</code> with the full pathname of the <code>validator_keys</code> directory that was created when you generated your keys using the <a href="https://pyrmont.launchpad.ethereum.org/">Pyrmont Launchpad</a> <a href="https://github.com/ethereum/eth2.0-deposit-cli/releases/">command line app</a>.</p>
 <blockquote>
 <p><strong>Tip:</strong> run <code>pwd</code> in your <code>validator_keys</code> directory to print the full pathname to the console (if you're on Windows, run <code>cd</code> instead).</p>
 </blockquote>
 <p>You'll be asked to enter the password you created to encrypt your keystore(s).</p>
 <p>Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your <a href="https://blog.ethereum.org/2020/05/21/keys/">key</a> (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).</p>
 <h2><a class="header" href="#storage" id="storage">Storage</a></h2>
-<p>When you import your keys into Nimbus, your validator signing key(s) are stored in the <code>build/data/shared_medalla_0/</code> folder, under <code>secrets</code> and <code>validators</code> - <strong>make sure you keep these folders backed up somewhere safe.</strong></p>
+<p>When you import your keys into Nimbus, your validator signing key(s) are stored in the <code>build/data/shared_pyrmont_0/</code> folder, under <code>secrets</code> and <code>validators</code> - <strong>make sure you keep these folders backed up somewhere safe.</strong></p>
 <p>The <code>secrets</code> folder contains the common secret that gives you access to all your validator keys.</p>
 <p>The <code>validators</code> folder contains your signing keystore(s) (encrypted keys). Keystores are used by validators as a method for exchanging keys. For more on keys and keystores, see <a href="https://blog.ethereum.org/2020/05/21/keys/">here</a>.</p>
 <blockquote>
@@ -391,10 +386,10 @@ INF 2020-11-07 18:56:48.558+01:00 Awaiting genesis event                     tid
 <p><em>Todo</em></p>
 <h1><a class="header" href="#connect-your-validator-to-eth2" id="connect-your-validator-to-eth2">Connect your validator to eth2</a></h1>
 <blockquote>
-<p>⚠️  This page concerns the Medalla testnet only. If you have made a mainnet deposit, you do not need to connect your validator to eth2 quite yet. Mainnet <a href="https://hackmd.io/@benjaminion/genesis">Genesis</a> date has been set to <a href="https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/">December 1st</a>. This page will be updated nearer the time.</p>
+<p>⚠️  This page concerns the <strong>Pyrmont</strong> testnet only. If you have made a mainnet deposit, you do not need to connect your validator to eth2 quite yet. Mainnet <a href="https://hackmd.io/@benjaminion/genesis">Genesis</a> date has been set to <a href="https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/">December 1st</a>. This page will be updated nearer the time.</p>
 </blockquote>
-<p>To connect your validator to the Medalla testnet, from the <code>nimbus-eth2</code> repository run:</p>
-<pre><code> ./run-medalla-beacon-node.sh
+<p>To connect your validator to the Pyrmont testnet, from the <code>nimbus-eth2</code> repository run:</p>
+<pre><code> ./run-pyrmont-beacon-node.sh
 </code></pre>
 <p>You'll be asked to enter your <a href="./start-syncing.html#web3-provider-url">Web3 provider URL</a> again.</p>
 <blockquote>
@@ -402,32 +397,24 @@ INF 2020-11-07 18:56:48.558+01:00 Awaiting genesis event                     tid
 </blockquote>
 <p>This will build Nimbus and its dependencies, and connect your validator the eth2 network.
 You should see that the beacon node has launched with your validator attached:</p>
-<pre><code>INF 2020-11-07 16:36:44.968+01:00 Generating a random Peer ID to protect your privacy topics=&quot;networking&quot; tid=18434834 file=eth2_network.nim:1271 network_public_key=08021221024de664bd393499b1e852ea82c22068b95ffbf1b64dc40f31cafb5b0eac87c730
-INF 2020-11-07 16:36:45.797+01:00 Block dag initialized                      topics=&quot;beacnde&quot; tid=18434834 file=chain_dag.nim:423 head=ebe49843:0 finalizedHead=ebe49843:0 tail=ebe49843:0 totalBlocks=1
-INF 2020-11-07 16:36:47.248+01:00 Starting Eth1 deposit contract monitoring  tid=18434834 file=eth1_monitor.nim:690 contract=0x07b39f4fde4a38bace212b546dac87c58dfe3fdc url=wss://goerli.infura.io/ws/v3/ae0e57122a1e49af8e835e82a5e35e60
-INF 2020-11-07 16:36:47.248+01:00 Waiting for new Eth1 block headers         tid=18434834 file=eth1_monitor.nim:303
-INF 2020-11-07 16:36:48.940+01:00 Initializing networking                    topics=&quot;networking&quot; tid=18434834 file=eth2_network.nim:1395 hostAddress=/ip4/0.0.0.0/tcp/9000 network_public_key=38131421024de776bd393503b1e852ea82c22068b95ffbf1b64dc40f31cafb5b0eac87d669 announcedAddresses=@[/ip4/192.175.15.54/tcp/9000]
-INF 2020-11-07 16:36:49.084+01:00 Initializing fork choice from block database topics=&quot;beacnde&quot; tid=18434834 file=attestation_pool.nim:55 unfinalized_blocks=0
-INF 2020-11-07 16:36:49.085+01:00 Fork choice initialized                    topics=&quot;beacnde&quot; tid=18434834 file=attestation_pool.nim:81 justified_epoch=0 finalized_epoch=0 finalized_root=ebe49843
-NOT 2020-11-07 16:36:49.091+01:00 Local validators attached                  topics=&quot;beacval&quot; tid=18434834 file=validator_duties.nim:65 count=0
+<pre><code>INF 2020-11-18 11:20:00.181+01:00 Launching beacon node 
+...
+NOT 2020-11-18 11:20:02.091+01:00 Local validator attached
 </code></pre>
 <h1><a class="header" href="#keep-an-eye-on-your-validator" id="keep-an-eye-on-your-validator">Keep an eye on your validator</a></h1>
 <p>The best way to keep track of your validator's status is using the <code>beaconcha.in</code> explorer (click on the orange magnifying glass at the very top and paste in your validator's public key):</p>
 <ul>
-<li><strong>Testnet:</strong> <a href="https:/medalla.beaconcha.in">medalla.beaconcha.in</a> </li>
+<li><strong>Testnet:</strong> <a href="https:/pyrmont.beaconcha.in">pyrmont.beaconcha.in</a> </li>
 <li><strong>Mainnet:</strong> <a href="https://beaconcha.in/">beaconcha.in</a></li>
 </ul>
 <p>If you deposit after the <a href="https://hackmd.io/@benjaminion/genesis">genesis</a> state was decided, your validator(s) will be put in a queue based on deposit time, and will slowly be inducted into the validator set after genesis. Getting through the queue may take a few hours or a day or so.</p>
-<p>You can even create an account (<a href="https://medalla.beaconcha.in/register">testnet link</a>, <a href="https://beaconcha.in/register">mainnet link</a>) to add alerts and keep track of your validator's performance (<a href="https://medalla.beaconcha.in/dashboard">testnet link</a>, <a href="https://beaconcha.in/dashboard">mainnet link</a>).</p>
+<p>You can even create an account (<a href="https://pyrmont.beaconcha.in/register">testnet link</a>, <a href="https://beaconcha.in/register">mainnet link</a>) to add alerts and keep track of your validator's performance (<a href="https://pyrmont.beaconcha.in/dashboard">testnet link</a>, <a href="https://beaconcha.in/dashboard">mainnet link</a>).</p>
 <hr />
 <blockquote>
-<p>⚠️  The rest of this page concerns the Medalla testnet only. If you have made a mainnet deposit, you do not need to run Nimbus quite yet. Mainnet <a href="https://hackmd.io/@benjaminion/genesis">Genesis</a> date has been set to <a href="https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/">December 1st</a>. This page will be updated nearer the time.</p>
+<p>⚠️  The rest of this page concerns the Pyrmont testnet only. If you have made a mainnet deposit, you do not need to run Nimbus quite yet. Mainnet <a href="https://hackmd.io/@benjaminion/genesis">Genesis</a> date has been set to <a href="https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/">December 1st</a>. This page will be updated nearer the time.</p>
 </blockquote>
 <h2><a class="header" href="#make-sure-your-validator-is-attached" id="make-sure-your-validator-is-attached">Make sure your validator is attached</a></h2>
-<p>On startup, you should see a log message that reads <code>Local validators attached</code>. This has a <code>count</code> field which should correctly reflect the number of validators you wish to run.</p>
-<pre><code>{&quot;lvl&quot;:&quot;NOT&quot;,&quot;ts&quot;:&quot;2020-10-26 10:16:51.365+00:00&quot;,&quot;msg&quot;:&quot;Local validators attached &quot;,&quot;topics&quot;:&quot;beacval&quot;,&quot;tid&quot;:12291,&quot;file&quot;:&quot;validator_duties.nim:65&quot;,&quot;count&quot;:1}
-</code></pre>
-<p><em>In the above case, the <code>count</code> field reads <code>1</code>, which means 1 validator has successfully attached to the beacon node.</em></p>
+<p>On startup, you should see a log message that reads <code>Local validator attached</code>. This has a <code>pubKey</code> field which should the public key of your validator.</p>
 <h2><a class="header" href="#keep-track-of-your-syncing-progress" id="keep-track-of-your-syncing-progress">Keep track of your syncing progress</a></h2>
 <p>To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running. You should see something like:</p>
 <pre><code>peers: 35 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:7 (316807) ❯ sync: wPwwwwwDwwDPwPPPwwww:7:4.0627 (280512)
@@ -485,7 +472,7 @@ NOT 2020-11-07 16:36:49.091+01:00 Local validators attached                  top
 <h2><a class="header" href="#ethereum-foundations-checklist" id="ethereum-foundations-checklist">Ethereum Foundation's Checklist</a></h2>
 <p>Ad a final check, we recommend you also go through the EF'S <a href="https://launchpad.ethereum.org/checklist">staker checklist</a>.</p>
 <h1><a class="header" href="#command-line-options-1" id="command-line-options-1">Command line options</a></h1>
-<p>You can pass any <code>nimbus_beacon_node</code> options to the <code>medalla</code> and <code>mainnet</code> scripts. For example, if you wanted to launch Nimbus on mainnet with a different base port, say <code>9100</code>, you would run:</p>
+<p>You can pass any <code>nimbus_beacon_node</code> options to the <code>pyrmont</code> and <code>mainnet</code> scripts. For example, if you wanted to launch Nimbus on mainnet with a different base port, say <code>9100</code>, you would run:</p>
 <pre><code>./run-mainnet-beacon-node.sh --tcp-port=9100 --udp-port=9100
 </code></pre>
 <p>To see a list of the command line options availabe to you, with descriptions, navigate to the <code>build</code> directory and run:</p>
@@ -558,44 +545,44 @@ The following options are available:
 </code></pre>
 <h1><a class="header" href="#troubleshooting" id="troubleshooting">Troubleshooting</a></h1>
 <blockquote>
-<p>⚠️  This page concerns the Medalla testnet. If you have made a mainnet deposit, you do not need to connect to eth2 quite yet. Mainnet <a href="https://hackmd.io/@benjaminion/genesis">Genesis</a> date has been set to <a href="https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/">December 1st</a>. This page will be updated nearer the time.</p>
+<p>⚠️  This page concerns the Pyrmont testnet. If you have made a mainnet deposit, you do not need to connect to eth2 quite yet. Mainnet <a href="https://hackmd.io/@benjaminion/genesis">Genesis</a> date has been set to <a href="https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/">December 1st</a>. This page will be updated nearer the time.</p>
 </blockquote>
 <p>As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the <code>master</code> branch. If you can't find a solution to your problem here, feel free to hit us up on our <a href="https://discord.com/invite/XRxWahP">discord</a>!</p>
 <blockquote>
 <p><strong>Note:</strong> While the <code>master</code> branch of the <code>nimbus-eth2</code> repository is more stable, the latest updates happen in the <code>devel</code> branch which is (usually) merged into master every week on Tuesday. If you choose to run Nimbus directly from the <code>devel</code> branch, be prepared for instabilities!</p>
 </blockquote>
-<p>To update and restart, run <code>git pull</code>, <code>make update</code>, followed by <code>make medalla-build</code>:</p>
+<p>To update and restart, run <code>git pull</code>, <code>make update</code>, followed by <code>make nimbus_beacon_node</code>:</p>
 <pre><code>cd nimbus-eth2
 git pull
 make update # Update dependencies
-make medalla-build # Rebuild beacon node
-./run-medalla-beacon-node.sh # Restart using same keys as last run
+make nimbus_beacon_node # Rebuild beacon node
+./run-pyrmont-beacon-node.sh # Restart using same keys as last run
 </code></pre>
 <p>If you find that <code>make update</code> causes the console to hang for too long, try running <code>make update V=1</code> or <code>make update V=2</code> instead (these will print a more verbose output to the console which may make it easier to diagnose the problem).</p>
 <blockquote>
 <p><strong>Note:</strong> rest assured that when you restart the beacon node, the software will resume from where it left off, using the validator keys you have already imported.</p>
 </blockquote>
 <h3><a class="header" href="#starting-over" id="starting-over">Starting over</a></h3>
-<p>The directory that stores the blockchain data of the testnet is <code>build/data/medalla</code> (if you're connecting to another testnet, replace <code>medalla</code> with that testnet's name). If you've imported the wrong keys, and wish to start over, delete this repository.</p>
+<p>The directory that stores the blockchain data of the testnet is <code>build/data/pyrmont_shared_0</code> (if you're connecting to another testnet, replace <code>pyrmont</code> with that testnet's name). If you've imported the wrong keys, and wish to start over, delete this repository.</p>
 <h3><a class="header" href="#syncing" id="syncing">Syncing</a></h3>
-<p>If you’re experiencing sync problems,  we recommend running <code>make clean-medalla</code> to delete the database and restart your sync (make sure you’ve updated to the latest <code>master</code> first though).</p>
+<p>If you’re experiencing sync problems,  we recommend running <code>make clean-pyrmont</code> to delete the database and restart your sync (make sure you’ve updated to the latest <code>master</code> first though).</p>
 <blockquote>
-<p><strong>Warning</strong>: <code>make clean-medalla</code> will erase all of your syncing progress so far, so it should only be used as a last resort -- if your client gets stuck for a long time (because it's unable to find the right chain and/or stay with the same head value) and a normal restart doesn't improve things.</p>
+<p><strong>Warning</strong>: <code>make clean-pyrmont</code> will erase all of your syncing progress so far, so it should only be used as a last resort -- if your client gets stuck for a long time (because it's unable to find the right chain and/or stay with the same head value) and a normal restart doesn't improve things.</p>
 </blockquote>
 <h3><a class="header" href="#pruning-the-database" id="pruning-the-database">Pruning the database</a></h3>
 <p>If you're running out of storage, you can <a href="https://blog.ethereum.org/2015/06/26/state-tree-pruning/">prune</a> the database of unnecessary blocks and states by running:</p>
 <pre><code>make ncli_db
-build/ncli_db pruneDatabase --db=build/data/shared_medalla_0/db --verbose=true
+build/ncli_db pruneDatabase --db=build/data/shared_pyrmont_0/db --verbose=true
 </code></pre>
-<p>This will create <code>nbc_pruned.sqlite3</code> files in <code>build/data/shared_medalla_0/db</code>, which you can use in place of the orginal <code>nbc.sqlite3</code> files. We recommend you hold onto the originals until you've verified that your validator is behaving as expected with the pruned files.</p>
+<p>This will create <code>nbc_pruned.sqlite3</code> files in <code>build/data/shared_pyrmont_0/db</code>, which you can use in place of the orginal <code>nbc.sqlite3</code> files. We recommend you hold onto the originals until you've verified that your validator is behaving as expected with the pruned files.</p>
 <p>Options:</p>
 <ul>
 <li><code>--keepOldStates</code> (boolean):  Keep pre-finalisation states; defaults to <code>true</code>.</li>
 <li><code>--verbose</code> (boolean): Print a more verbose output to the console; defaults to <code>false</code>.</li>
 </ul>
 <h3><a class="header" href="#low-peer-counts" id="low-peer-counts">Low peer counts</a></h3>
-<p>If you're experiencing a low peer count, you may be behind a firewall. Try restarting your client and passing <code>--nat:extip:$EXT_IP_ADDRESS</code> as an option to <code>./run-medalla-beacon-node.sh</code>, where <code>$EXT_IP_ADDRESS</code> is your real IP. For example, if your real IP address is <code>35.124.65.104</code>, you'd run:</p>
-<pre><code>./run-medalla-beacon-node.sh --nat:extip:35.124.65.104
+<p>If you're experiencing a low peer count, you may be behind a firewall. Try restarting your client and passing <code>--nat:extip:$EXT_IP_ADDRESS</code> as an option to <code>./run-pyrmont-beacon-node.sh</code>, where <code>$EXT_IP_ADDRESS</code> is your real IP. For example, if your real IP address is <code>35.124.65.104</code>, you'd run:</p>
+<pre><code>./run-pyrmont-beacon-node.sh --nat:extip:35.124.65.104
 </code></pre>
 <h3><a class="header" href="#address-already-in-use-error" id="address-already-in-use-error">Address already in use error</a></h3>
 <p>If you're seeing an error that looks like:</p>
@@ -603,7 +590,7 @@ build/ncli_db pruneDatabase --db=build/data/shared_medalla_0/db --verbose=true
 </code></pre>
 <p>It's probably because you're running multiple validators -- and the default base port <code>9000</code> is already in use.</p>
 <p>To change the base port, run:</p>
-<pre><code>./run-medalla-beacon-node.sh --tcp-port=9100 --udp-port=9100
+<pre><code>./run-pyrmont-beacon-node.sh --tcp-port=9100 --udp-port=9100
 </code></pre>
 <p>(You can replace <code>9100</code> with a port of your choosing)</p>
 <h3><a class="header" href="#eth1-chain-monitor-failure" id="eth1-chain-monitor-failure">Eth1 chain monitor failure</a></h3>
@@ -763,7 +750,7 @@ prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
 <h1><a class="header" href="#validating-with-a-raspberry-pi" id="validating-with-a-raspberry-pi">Validating with a Raspberry Pi</a></h1>
 <blockquote class="twitter-tweet"><p lang="en" dir="ltr">I expect the new Raspberry Pi 4 (4GB RAM option, external SSD) to handle an Eth2 validator node without breaking a sweat. That&#39;s $100 of hardware running at 10 Watts to support a 32 ETH node (currently ~$10K stake).</p>&mdash; Justin Ðrake (@drakefjustin) <a href="https://twitter.com/drakefjustin/status/1143091047058366465?ref_src=twsrc%5Etfw">June 24, 2019</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 <h2><a class="header" href="#introduction" id="introduction">Introduction</a></h2>
-<p>This page will take you through how to use your laptop to program your Raspberry Pi, get Nimbus running, and connect to the <strong>Medalla testnet</strong> (if this is not something you plan on doing, feel free to <a href="./keep-an-eye.html">skip ahead</a>).</p>
+<p>This page will take you through how to use your laptop to program your Raspberry Pi, get Nimbus running, and connect to the <strong>Pyrmont testnet</strong> (if this is not something you plan on doing, feel free to <a href="./keep-an-eye.html">skip ahead</a>).</p>
 <p>One of the most important aspects of the Raspberry Pi experience is trying to make it as easy as possible to get started. As such, we try our best to explain things from first-principles.</p>
 <h2><a class="header" href="#prerequisites-2" id="prerequisites-2">Prerequisites</a></h2>
 <ul>
@@ -921,7 +908,7 @@ arm_64bit=1
 <h3><a class="header" href="#15-build-the-beacon-node" id="15-build-the-beacon-node">15. Build the beacon node</a></h3>
 <p>Change into the directory and build the beacon node.</p>
 <pre><code>cd nimbus-eth2
-make medalla-build
+make nimbus_beacon_node
 </code></pre>
 <p><em>Patience... this may take a few minutes.</em></p>
 <h3><a class="header" href="#16-copy-signing-key-over-to-pi" id="16-copy-signing-key-over-to-pi">16. Copy signing key over to Pi</a></h3>
@@ -941,7 +928,7 @@ make medalla-build
 </blockquote>
 <h3><a class="header" href="#17-import-signing-key-into-nimbus" id="17-import-signing-key-into-nimbus">17. Import signing key into Nimbus</a></h3>
 <p>To import your signing key into Nimbus, from the <code>nimbus-eth2</code> directory run:</p>
-<pre><code>build/nimbus_beacon_node_spec_0_3 deposits import  --data-dir=build/data/shared_medalla_0 ../validator_keys
+<pre><code>build/nimbus_beacon_node_spec_0_3 deposits import  --data-dir=build/data/shared_pyrmont_0 ../validator_keys
 </code></pre>
 <p>You'll be asked to enter the password you created to encrypt your keystore(s). Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your <a href="https://blog.ethereum.org/2020/05/21/keys/">key</a> (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).</p>
 <h3><a class="header" href="#18-run-screen" id="18-run-screen">18. Run Screen</a></h3>
@@ -977,13 +964,13 @@ Capabilities:
 +builtin-telnet
 </code></pre>
 <p>Press <code>Enter</code> or <code>Space</code>.</p>
-<h3><a class="header" href="#19-connect-to-medalla" id="19-connect-to-medalla">19. Connect to medalla</a></h3>
-<p>We're finally ready to connect to medalla!</p>
+<h3><a class="header" href="#19-connect-to-pyrmont" id="19-connect-to-pyrmont">19. Connect to Pyrmont</a></h3>
+<p>We're finally ready to connect to Pyrmont!</p>
 <blockquote>
 <p><strong>Note:</strong> If you haven't already, we recommend registering for, and running, your own Infura endpoint to connect to eth1. For instruction on how to do so, see <a href="./infura-guide.html">this page</a>.</p>
 </blockquote>
-<p>To connect to medalla, run:</p>
-<pre><code>./run-medalla-beacon-node.sh
+<p>To connect to pyrmont, run:</p>
+<pre><code>./run-pyrmont-beacon-node.sh
 </code></pre>
 <p>You'll be prompted to enter a web3-provider url:</p>
 <pre><code>To monitor the Eth1 validator deposit contract, you'll need to pair
@@ -1002,7 +989,7 @@ Please enter a Web3 provider URL:
 <pre><code>INF 2020-10-07 17:04:09.213+02:00 Initializing networking                    topics=&quot;networking&quot; tid=11688398 file=eth2_network.nim:1335 hostAddress=/ip4/0.0.0.0/tcp/9000 network_public_key=0802122102defb020c8e47dd8f5da89f51ed6c3998aaa0dd59eeb2784e29d47fdbdab69235 announcedAddresses=@[/ip4/195.177.101.93/tcp/9000]
 WRN 2020-10-07 17:04:09.215+02:00 Ignoring invalid bootstrap address         tid=11688398 file=eth2_discovery.nim:45 bootstrapAddr= reason=&quot;an empty string is not a valid bootstrap node&quot;
 NOT 2020-10-07 17:04:09.231+02:00 Local validators attached                  topics=&quot;beacval&quot; tid=11688398 file=validator_duties.nim:65 count=0
-NOT 2020-10-07 17:04:09.231+02:00 Starting beacon node                       topics=&quot;beacnde&quot; tid=11688398 file=nimbus_beacon_node.nim:923 version=&quot;0.5.0 (1dec860b)&quot; nim=&quot;Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)&quot; timeSinceFinalization=0ns head=0814b036:0 finalizedHead=0814b036:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.3 dataDir=build/data/shared_medalla_0
+NOT 2020-10-07 17:04:09.231+02:00 Starting beacon node                       topics=&quot;beacnde&quot; tid=11688398 file=nimbus_beacon_node.nim:923 version=&quot;0.5.0 (1dec860b)&quot; nim=&quot;Nim Compiler Version 1.2.6 [MacOSX: amd64] (bf320ed1)&quot; timeSinceFinalization=0ns head=0814b036:0 finalizedHead=0814b036:0 SLOTS_PER_EPOCH=32 SECONDS_PER_SLOT=12 SPEC_VERSION=0.12.3 dataDir=build/data/shared_pyrmont_0
 </code></pre>
 <p>To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running. You should see something like:</p>
 <pre><code>peers: 35 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:7 (316807) ❯ sync: wPwwwwwDwwDPwPPPwwww:7:4.0627 (280512)
@@ -1013,57 +1000,14 @@ NOT 2020-10-07 17:04:09.231+02:00 Starting beacon node                       top
 <p>Verifying your progress is as simple as <code>ssh</code>ing back into your Pi and typing <code>screen -r</code>. This will resume your screen session (and you will be able to see your node's entire output since you logged out).</p>
 <h1><a class="header" href="#graffiti" id="graffiti">Graffiti</a></h1>
 <p>You can use your validator client's graffiti flag to add a personal touch to your proposed blocks (some text of your choice). You will be able to see it using the block explorer.</p>
-<p>To do so on Medalla, run:</p>
-<pre><code>./run-medalla-beacon-node.sh --graffiti=&quot;&lt;YOUR_GRAFFITI&gt;&quot;
+<p>To do so on Pyrmont, run:</p>
+<pre><code>./run-pyrmont-beacon-node.sh --graffiti=&quot;&lt;YOUR_GRAFFITI&gt;&quot;
 </code></pre>
 <h1><a class="header" href="#supplying-your-own-infura-endpoint" id="supplying-your-own-infura-endpoint">Supplying your own Infura endpoint</a></h1>
-<blockquote>
-<p>⚠️  This page concerns the Medalla testnet. If you have made a mainnet deposit, you do not need to connect to eth2 quite yet. Mainnet <a href="https://hackmd.io/@benjaminion/genesis">Genesis</a> date has been set to <a href="https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/">December 1st</a>. This page will be updated nearer the time.</p>
-</blockquote>
 <p>In a nutshell, Infura is a hosted ethereum node cluster that lets you make requests to the eth1 blockchain without requiring you to set up your own eth1 node.</p>
 <p>While we do support Infura to process incoming validator deposits, we recommend running your own eth1 node to avoid relying on a third-party-service.</p>
 <blockquote>
-<p><strong>Note:</strong> Nimbus currently supports remote Infura nodes and <a href="https://gist.github.com/onqtam/aaf883d46f4dab1311ca9c160df12fe4">local Geth archive nodes</a>. However we are working on relaxing that assumption (an archive node certainly won't be required for mainnet). In the future, we plan on having our own eth1 client -- <a href="https://github.com/status-im/nimbus">Nimbus 1</a> -- be the recommended default.</p>
-</blockquote>
-<h2><a class="header" href="#how-it-works" id="how-it-works">How it works</a></h2>
-<p>When you join an eth2 testnet by running <code>make medalla</code>, the beacon node actually launches with an Infura endpoint supplied by us.</p>
-<p>This endpoint is passed through the <code>web3-url</code> option (which takes as input the url of the web3 server from which you'd like to observe the eth1 chain).</p>
-<p>If you look at the initial logs you should see something similar to the following:</p>
-<pre><code>DBG 2020-09-29 12:15:41.969+02:00 Launching beacon node
-topics=&quot;beacnde&quot; tid=8941404 file=nimbus_beacon_node.nim:1190 version=&quot;0.5.0 (78ceeed8)&quot; bls_backend=BLST
-cmdParams=&quot;@[
-\&quot;--network=medalla\&quot;,
-\&quot;--log-level=DEBUG\&quot;,
-\&quot;--log-file=build/data/shared_medalla_0/nbc_bn_20200929121541.log\&quot;,
-\&quot;--data-dir=build/data/shared_medalla_0\&quot;,
-\&quot;--web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a\&quot;,
-\&quot;--tcp-port=9000\&quot;,
-\&quot;--udp-port=9000\&quot;,
-\&quot;--metrics\&quot;,
-\&quot;--metrics-port=8008\&quot;,
-\&quot;--rpc\&quot;,
-\&quot;--rpc-port=9190\&quot;
-]&quot;
-...
-</code></pre>
-<p>This allows us to deduce that the default endpoint is given by:</p>
-<pre><code>--web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a\&quot;
-</code></pre>
-<h2><a class="header" href="#potential-problems" id="potential-problems">Potential problems</a></h2>
-<p>Because Infura caps the requests per endpoint per day to 100k, and all Nimbus nodes use the same Infura endpoint by default, it can happen that our Infura endpoint is overloaded (i.e the requests on a given day reach the 100k limit). If this happens, all requests to Infura using the default endpoint will fail, which means your node will stop processing new deposits.</p>
-<p>To know if our endpoint has reached its limit for the day, keep your eye out for error messages that look like the following:</p>
-<pre><code>ERR 2020-09-29 14:04:33.313+02:00 Mainchain monitor failure, restarting      tid=8941404
-file=eth1_monitor.nim:812 err=&quot;{\&quot;code\&quot;:-32005,
-\&quot;data\&quot;:{\&quot;rate\&quot;:{\&quot;allowed_rps\&quot;:1,
-\&quot;backoff_seconds\&quot;:24,
-\&quot;current_rps\&quot;:22.5},
-\&quot;see\&quot;:\&quot;https://infura.io/dashboard\&quot;},
-\&quot;message\&quot;:\&quot;daily request count exceeded, request rate limited\&quot;}&quot;
-</code></pre>
-<p>To get around this problem, we recommend launching the beacon node with your own endpoint.</p>
-<h2><a class="header" href="#supplying-your-own-endpoint" id="supplying-your-own-endpoint">Supplying your own endpoint</a></h2>
-<blockquote>
-<p><strong>Note:</strong> In a previous version of the software it wasn't possible to manually override the web3 endpoint when running <code>make medalla</code>. For the instructions below to work, make sure you've updated to the latest version of the software (run <code>git pull &amp;&amp; make update</code> from the <code>master</code> branch of the <code>nimbus-eth2</code> repository).</p>
+<p><strong>Note:</strong> Nimbus currently supports remote Infura nodes and <a href="./eth1.html">local Geth nodes</a>. In the future, we plan on having our own eth1 client -- <a href="https://github.com/status-im/nimbus">Nimbus 1</a> -- be the recommended default.</p>
 </blockquote>
 <h3><a class="header" href="#1-visit-infuraio" id="1-visit-infuraio">1. Visit Infura.io</a></h3>
 <p>Go to:</p>
@@ -1096,13 +1040,7 @@ file=eth1_monitor.nim:812 err=&quot;{\&quot;code\&quot;:-32005,
 <p>⚠️ <strong>Warning:</strong> make sure you've copied the endpoint that starts with<code>wss</code> (websocket), and not the <code>https</code> endpoint.</p>
 </blockquote>
 <h3><a class="header" href="#8-run-the-beacon-node" id="8-run-the-beacon-node">8. Run the beacon node</a></h3>
-<p>Run the beacon node on your favourite testnet, pasting in your websocket endpoint as the input to the <code>web3-url</code> option.</p>
-<pre><code>make NODE_PARAMS=&quot;--web3-url=wss://goerli.infura.io/ws/v3/83b9d67f81ca401b8f9651441b43f29e&quot;
-&lt;TESTNET_NAME&gt;
-</code></pre>
-<blockquote>
-<p>Remember to replace &lt;TESTNET_NAME&gt; with either <code>medalla</code>.</p>
-</blockquote>
+<p><a href="./start-syncing.html">Launch the beacon node</a> on your favourite testnet, pasaing in your websocket endpoint as the <a href="./start-syncing.html#web3-provider-url">Web3 provider URL</a>.</p>
 <h3><a class="header" href="#9-check-stats" id="9-check-stats">9. Check stats</a></h3>
 <p>Visit your project's stats page to see a summary of your eth1 related activity and method calls</p>
 <p><img src="https://i.imgur.com/MZVTHHV.png" alt="" /></p>
@@ -1368,7 +1306,7 @@ make NIMFLAGS=&quot;-d:insecure&quot; NODE_ID=$NODE_ID ${NETWORK}
 Description=Nimbus beacon node
 
 [Service]
-ExecStart=&lt;BASE-DIRECTORY&gt;/run_nimbus_node.sh medalla
+ExecStart=&lt;BASE-DIRECTORY&gt;/run_nimbus_node.sh pyrmont
 User=&lt;USERNAME&gt;
 Group=&lt;USERNAME&gt;
 Restart=always
@@ -1535,10 +1473,10 @@ git merge devel
 <p><a href="https://discord.com/invite/e84CFep">ethstaker discord</a>: great place for tips and discussions</p>
 </li>
 <li>
-<p><a href="https://medalla.launchpad.ethereum.org">Validator launchpad</a>: to send Medalla deposits</p>
+<p><a href="https://pyrmont.launchpad.ethereum.org">Validator launchpad</a>: to send Pyrmont deposits</p>
 </li>
 <li>
-<p><a href="https://medalla.beaconcha.in/">Beacon chain explorer</a> : to monitor testnet health</p>
+<p><a href="https://pyrmont.beaconcha.in/">Beacon chain explorer</a> : to monitor testnet health</p>
 </li>
 <li>
 <p><a href="https://discord.com/invite/XRxWahP">Nimbus discord</a> : best place to ask questions and to stay up-to-date with critical updates</p>

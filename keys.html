@@ -157,19 +157,19 @@
                     <main>
                         <h1><a class="header" href="#import-your-keys" id="import-your-keys">Import your keys</a></h1>
 <blockquote>
-<p>⚠️  This page concerns the Medalla testnet only. If you have made a mainnet deposit, you do not need to import your keys into Nimbus quite yet. </p>
+<p>⚠️  This page concerns the <strong>Pyrmont</strong> testnet only. If you have made a mainnet deposit, you do not need to import your keys into Nimbus quite yet. </p>
 </blockquote>
 <p>To import your signing key(s) into Nimbus, from the <code>nimbus-eth2</code> directory run:</p>
-<pre><code>build/nimbus_beacon_node_spec_0_12_3 deposits import  --data-dir=build/data/shared_medalla_0 &quot;&lt;YOUR VALIDATOR KEYS DIRECTORY&gt;&quot;
+<pre><code>build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_pyrmont_0 &quot;&lt;YOUR VALIDATOR KEYS DIRECTORY&gt;&quot;
 </code></pre>
-<p>Replacing <code>&lt;YOUR VALIDATOR KEYS DIRECTORY&gt;</code> with the full pathname of the <code>validator_keys</code> directory that was created when you generated your keys using the <a href="https://medalla.launchpad.ethereum.org/">Medalla Launchpad</a> <a href="https://github.com/ethereum/eth2.0-deposit-cli/releases/">command line app</a>.</p>
+<p>Replacing <code>&lt;YOUR VALIDATOR KEYS DIRECTORY&gt;</code> with the full pathname of the <code>validator_keys</code> directory that was created when you generated your keys using the <a href="https://pyrmont.launchpad.ethereum.org/">Pyrmont Launchpad</a> <a href="https://github.com/ethereum/eth2.0-deposit-cli/releases/">command line app</a>.</p>
 <blockquote>
 <p><strong>Tip:</strong> run <code>pwd</code> in your <code>validator_keys</code> directory to print the full pathname to the console (if you're on Windows, run <code>cd</code> instead).</p>
 </blockquote>
 <p>You'll be asked to enter the password you created to encrypt your keystore(s).</p>
 <p>Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your <a href="https://blog.ethereum.org/2020/05/21/keys/">key</a> (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).</p>
 <h2><a class="header" href="#storage" id="storage">Storage</a></h2>
-<p>When you import your keys into Nimbus, your validator signing key(s) are stored in the <code>build/data/shared_medalla_0/</code> folder, under <code>secrets</code> and <code>validators</code> - <strong>make sure you keep these folders backed up somewhere safe.</strong></p>
+<p>When you import your keys into Nimbus, your validator signing key(s) are stored in the <code>build/data/shared_pyrmont_0/</code> folder, under <code>secrets</code> and <code>validators</code> - <strong>make sure you keep these folders backed up somewhere safe.</strong></p>
 <p>The <code>secrets</code> folder contains the common secret that gives you access to all your validator keys.</p>
 <p>The <code>validators</code> folder contains your signing keystore(s) (encrypted keys). Keystores are used by validators as a method for exchanging keys. For more on keys and keystores, see <a href="https://blog.ethereum.org/2020/05/21/keys/">here</a>.</p>
 <blockquote>
