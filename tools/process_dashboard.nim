@@ -47,33 +47,6 @@ outputData["templating"]["list"] = parseJson("""
       "allValue": null,
       "current": {
         "tags": [],
-        "text": "beacon-node-testnet""" & $testnet & """-1",
-        "value": "beacon-node-testnet""" & $testnet & """-1"
-      },
-      "datasource": "node-01.do-ams3.public.hq",
-      "definition": "label_values(process_virtual_memory_bytes{job=\"beacon-node-metrics\"},container)",
-      "hide": 0,
-      "includeAll": false,
-      "index": -1,
-      "label": null,
-      "multi": false,
-      "name": "container",
-      "options": [],
-      "query": "label_values(process_virtual_memory_bytes{job=\"beacon-node-metrics\"},container)",
-      "refresh": 1,
-      "regex": "/.*testnet""" & $testnet & """.*/",
-      "skipUrlSync": false,
-      "sort": 1,
-      "tagValuesQuery": "",
-      "tags": [],
-      "tagsQuery": "",
-      "type": "query",
-      "useTags": false
-    },
-    {
-      "allValue": null,
-      "current": {
-        "tags": [],
         "text": "master-01.aws-eu-central-1a.nimbus.test",
         "value": "master-01.aws-eu-central-1a.nimbus.test"
       },
@@ -106,7 +79,7 @@ outputData["templating"]["list"] = parseJson("""
 
 outputData["panels"] = %* []
 for panel in panels.mitems:
-  panel["title"] = %* replace(panel["title"].getStr(), "${node}", "${container}@${instance}")
+  panel["title"] = %* replace(panel["title"].getStr(), "${node}", "${instance}")
   panel["datasource"] = newJNull()
   if panel.hasKey("targets"):
     var targets = panel["targets"]
@@ -114,8 +87,8 @@ for panel in panels.mitems:
       # The remote Prometheus instance polls once per minute, so the
       # minimum rate() interval is 2 minutes.
       target["expr"] = %* multiReplace(target["expr"].getStr(),
-                            ("{node=\"${node}\"}", "{job=\"beacon-node-metrics\",container=\"${container}\",instance=\"${instance}\"}"),
-                            ("sum(beacon_attestations_sent_total)", "sum(beacon_attestations_sent_total{job=\"beacon-node-metrics\",container=~\"beacon-node-testnet" & $testnet & "-.\"})"),
+                            ("{node=\"${node}\"}", "{job=\"beacon-node-metrics\",instance=\"${instance}\"}"),
+                            ("sum(beacon_attestations_sent_total)", "sum(beacon_attestations_sent_total{job=\"beacon-node-metrics\"})"),
                             ("[2s]", "[2m]"),
                             ("[4s]) * 3", "[2m]) * 120"))
   outputData["panels"].add(panel)
