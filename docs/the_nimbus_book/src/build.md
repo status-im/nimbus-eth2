@@ -23,12 +23,6 @@ cd nimbus-eth2
 
 To build the Nimbus beacon node and it's dependencies, run:
 
-*Medalla testnet*
-```
-make medalla-build
-```
-
-*Mainnet*
 ```
 make nimbus_beacon_node
 ```

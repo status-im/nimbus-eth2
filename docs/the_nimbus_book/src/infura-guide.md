@@ -1,70 +1,11 @@
 # Supplying your own Infura endpoint
 
-> ⚠️  This page concerns the Medalla testnet. If you have made a mainnet deposit, you do not need to connect to eth2 quite yet. Mainnet [Genesis](https://hackmd.io/@benjaminion/genesis) date has been set to [December 1st](https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/). This page will be updated nearer the time.
 
 In a nutshell, Infura is a hosted ethereum node cluster that lets you make requests to the eth1 blockchain without requiring you to set up your own eth1 node.
 
 While we do support Infura to process incoming validator deposits, we recommend running your own eth1 node to avoid relying on a third-party-service.
 
-> **Note:** Nimbus currently supports remote Infura nodes and [local Geth archive nodes](https://gist.github.com/onqtam/aaf883d46f4dab1311ca9c160df12fe4). However we are working on relaxing that assumption (an archive node certainly won't be required for mainnet). In the future, we plan on having our own eth1 client -- [Nimbus 1](https://github.com/status-im/nimbus) -- be the recommended default.
-
-## How it works
-
-When you join an eth2 testnet by running `make medalla`, the beacon node actually launches with an Infura endpoint supplied by us.
-
-This endpoint is passed through the `web3-url` option (which takes as input the url of the web3 server from which you'd like to observe the eth1 chain).
-
-If you look at the initial logs you should see something similar to the following:
-
-
-```
-DBG 2020-09-29 12:15:41.969+02:00 Launching beacon node
-topics="beacnde" tid=8941404 file=nimbus_beacon_node.nim:1190 version="0.5.0 (78ceeed8)" bls_backend=BLST
-cmdParams="@[
-\"--network=medalla\",
-\"--log-level=DEBUG\",
-\"--log-file=build/data/shared_medalla_0/nbc_bn_20200929121541.log\",
-\"--data-dir=build/data/shared_medalla_0\",
-\"--web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a\",
-\"--tcp-port=9000\",
-\"--udp-port=9000\",
-\"--metrics\",
-\"--metrics-port=8008\",
-\"--rpc\",
-\"--rpc-port=9190\"
-]"
-...
-```
-
-This allows us to deduce that the default endpoint is given by:
-
-```
---web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a\"
-```
-
-## Potential problems
-
-Because Infura caps the requests per endpoint per day to 100k, and all Nimbus nodes use the same Infura endpoint by default, it can happen that our Infura endpoint is overloaded (i.e the requests on a given day reach the 100k limit). If this happens, all requests to Infura using the default endpoint will fail, which means your node will stop processing new deposits.
-
-To know if our endpoint has reached its limit for the day, keep your eye out for error messages that look like the following:
-
-```
-ERR 2020-09-29 14:04:33.313+02:00 Mainchain monitor failure, restarting      tid=8941404
-file=eth1_monitor.nim:812 err="{\"code\":-32005,
-\"data\":{\"rate\":{\"allowed_rps\":1,
-\"backoff_seconds\":24,
-\"current_rps\":22.5},
-\"see\":\"https://infura.io/dashboard\"},
-\"message\":\"daily request count exceeded, request rate limited\"}"
-```
-
-To get around this problem, we recommend launching the beacon node with your own endpoint.
-
-## Supplying your own endpoint
-
-
-
-> **Note:** In a previous version of the software it wasn't possible to manually override the web3 endpoint when running `make medalla`. For the instructions below to work, make sure you've updated to the latest version of the software (run `git pull && make update` from the `master` branch of the `nimbus-eth2` repository).
+> **Note:** Nimbus currently supports remote Infura nodes and [local Geth nodes](./eth1.md). In the future, we plan on having our own eth1 client -- [Nimbus 1](https://github.com/status-im/nimbus) -- be the recommended default.
 
 ### 1. Visit Infura.io
 
@@ -123,13 +64,9 @@ Copy the address that starts with `wss://`
 
 ### 8. Run the beacon node
 
-Run the beacon node on your favourite testnet, pasting in your websocket endpoint as the input to the `web3-url` option.
+[Launch the beacon node](./start-syncing.md) on your favourite testnet, pasaing in your websocket endpoint as the [Web3 provider URL](./start-syncing.md#web3-provider-url).
 
-```
-make NODE_PARAMS="--web3-url=wss://goerli.infura.io/ws/v3/83b9d67f81ca401b8f9651441b43f29e"
-<TESTNET_NAME>
-```
-> Remember to replace <TESTNET_NAME> with either `medalla`.
+
 
 ### 9. Check stats
 

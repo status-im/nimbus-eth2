@@ -7,10 +7,10 @@ This is particularly important if you are joining a network that's been running 
 
 ### Testnet
 
-To start syncing the `medalla` testnet , from the `nimbus-eth2` repository, run:
+To start syncing the `pyrmont` testnet , from the `nimbus-eth2` repository, run:
 
 ```
- ./run-medalla-beacon-node.sh
+ ./run-pyrmont-beacon-node.sh
 ```
 
 ### Mainnet
@@ -46,22 +46,21 @@ ws://127.0.0.1:8546
 Enter it, you should see the following output:
 
 ```
-INF 2020-11-07 18:53:35.487+01:00 Launching beacon node                      topics="beacnde" tid=18451932 file=beacon_node.nim:1120 version=v0.6.0-f5397f2f bls_backend=BLST cmdParams=...
-INF 2020-11-07 13:59:31.199+01:00 Generating a random Peer ID to protect your privacy                   topics="networking" tid=18382613 file=eth2_network.nim:1229 network_public_key=08021221020ee5c1cfbf731405d14f2f382bc4037fbbee2b6ac5511dd51f1d9e28abb1aa62
-INF 2020-11-07 13:59:31.336+01:00 Starting Eth1 deposit contract monitoring  tid=18382613 file=mainchain_monitor.nim:783 contract=0x1234567890123456789012345678901234567890 url=web3(ws://127.0.0.1:8546)
-INF 2020-11-07 18:56:48.557+01:00 Waiting for new Eth1 block headers         tid=18452770 file=eth1_monitor.nim:303
-INF 2020-11-07 18:56:48.558+01:00 Awaiting genesis event                     tid=18452770 file=eth1_monitor.nim:539
-
+INF 2020-11-18 11:25:33.487+01:00 Launching beacon node
+...
+INF 2020-11-18 11:25:34.556+01:00 Loading block dag from database            topics="beacnde" tid=19985314 file=nimbus_beacon_node.nim:198 path=build/data/shared_pyrmont_0/db
+INF 2020-11-18 11:25:35.921+01:00 Block dag initialized
+INF 2020-11-18 11:25:37.073+01:00 Generating new networking key
 ...
 ```
 
 
 ### Command line options
 
-You can pass any `nimbus_beacon_node` options to the `medalla` and `mainnet` scripts. For example, if you wanted to launch Nimbus on mainnet with a different base port, say `9100`, you would run:
+You can pass any `nimbus_beacon_node` options to the `pyrmont` and `mainnet` scripts. For example, if you wanted to launch Nimbus on `pyrmont` with a different base port, say `9100`, you would run:
 
 ```
-./run-mainnet-beacon-node.sh --tcp-port=9100 --udp-port=9100
+./run-pyrmont-beacon-node.sh --tcp-port=9100 --udp-port=9100
 ```
 
 To see a list of the command line options availabe to you, with descriptions, navigate to the `build` directory and run:
