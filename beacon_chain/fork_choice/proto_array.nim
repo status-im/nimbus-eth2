@@ -178,7 +178,7 @@ func apply_score_changes*(
         #
         # with 5 the canonical chain and 6 a discarded fork
         # that will be pruned next.
-        break
+        continue
 
       if parent_physical_index >= deltas.len:
         return err ForkChoiceError(

@@ -9,7 +9,7 @@ when not defined(nimscript):
 const
   versionMajor* = 0
   versionMinor* = 6
-  versionBuild* = 4
+  versionBuild* = 5
   versionBlob* = "hope" # Single word - ends up in the default graffitti
 
   useInsecureFeatures* = defined(insecure)
