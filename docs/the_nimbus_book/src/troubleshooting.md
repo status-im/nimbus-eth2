@@ -69,6 +69,10 @@ To change the base port, run:
 
 (You can replace `9100` with a port of your choosing)
 
+###  Catching up on validator duties
+
+If you're being flooded with `Catching up on validator duties` messages, then your CPU is probably too slow to run Nimbus. Please check that your setup matches our [system requirements](./hardware.md).
+
 ### Eth1 chain monitor failure
 
 *todo*
