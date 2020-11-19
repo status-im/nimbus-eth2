@@ -43,7 +43,10 @@ If you're running a local geth instance, geth accepts connections from the loopb
 ```
 ws://127.0.0.1:8546
 ```
-Enter it, you should see the following output:
+
+>**Note:** If you're using [your own Infura endpoint](./infura-guide), you should enter that instead.
+
+Once you've entered your Web3 provider URL, you should see the following output:
 
 ```
 INF 2020-11-18 11:25:33.487+01:00 Launching beacon node

@@ -299,7 +299,7 @@ As usual, replace `195.177.101.93` with your Pi's IP address, and `<VALIDATOR_KE
 To import your signing key into Nimbus, from the `nimbus-eth2` directory run:
 
 ```
-build/nimbus_beacon_node_spec_0_3 deposits import  --data-dir=build/data/shared_pyrmont_0 ../validator_keys
+build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_pyrmont_0 ../validator_keys
 ```
 
  You'll be asked to enter the password you created to encrypt your keystore(s). Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your [key](https://blog.ethereum.org/2020/05/21/keys/) (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).
