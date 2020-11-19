@@ -50,7 +50,7 @@ outputData["templating"]["list"] = parseJson("""
         "text": "master-01.aws-eu-central-1a.nimbus.test",
         "value": "master-01.aws-eu-central-1a.nimbus.test"
       },
-      "datasource": "node-01.do-ams3.public.hq",
+      "datasource": "legacy-01.do-ams3.public.hq",
       "definition": "label_values(process_virtual_memory_bytes{job=\"beacon-node-metrics\"},instance)",
       "hide": 0,
       "includeAll": false,

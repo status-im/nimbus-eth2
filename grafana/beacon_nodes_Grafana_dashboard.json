@@ -719,6 +719,12 @@
           "refId": "A"
         },
         {
+          "expr": "libp2p_pubsub_peers{node=\"${node}\"}",
+          "interval": "",
+          "legendFormat": "libp2p pubsub peers",
+          "refId": "C"
+        },
+        {
           "expr": "nbc_peers{node=\"${node}\"}",
           "interval": "",
           "legendFormat": "beacon_node peers",
@@ -2216,5 +2222,5 @@
   "timezone": "",
   "title": "NBC local testnet/sim (all nodes)",
   "uid": "pgeNfj2Wz2a",
-  "version": 9
+  "version": 10
 }
