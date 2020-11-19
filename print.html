@@ -163,6 +163,9 @@
 </blockquote>
 <p>Nimbus is an Ethereum 2.0 client focused on offering the best user experience possible for resource-restricted devices.</p>
 <p>This book explains all the ways in which you can use Nimbus to either monitor the eth2 chain or become a fully-fledged validator.</p>
+<blockquote>
+<p>⚠️ The reality is that we are very early in the eth2 validating life cycle. Validating is not for everyone yet, and it comes with both risks and responsibilities. It isn't a particularly easy way to make money. You'll need to put effort into updating your software, researching hard-forks, having a robust setup... etc. As such, you should only stake if you are actually interested in securing the protocol.</p>
+</blockquote>
 <h3><a class="header" href="#helpful-resources" id="helpful-resources">Helpful resources</a></h3>
 <ul>
 <li>
@@ -271,13 +274,19 @@ cd nimbus-eth2
 <p>To build the Nimbus beacon node and it's dependencies, run:</p>
 <pre><code>make nimbus_beacon_node
 </code></pre>
-<h2><a class="header" href="#run-an-eth1-node-geth-fast-sync" id="run-an-eth1-node-geth-fast-sync">Run an eth1 node (Geth fast sync)</a></h2>
-<p>In order to process incoming validator deposits from the eth1 chain, you'll need to run an eth1 client in parallel to your eth2 client. While it is possible to use a third-party service like <a href="./infura-guide.html">Infura</a>, we recommend running your own client in order to ensure the network stays as decentralised as possible.</p>
-<p>In a sentence, validators are responsible for including new deposits when they propose blocks. An eth1 client is needed to ensure your validator performs this task correctly.</p>
+<h2><a class="header" href="#run-an-eth1-node" id="run-an-eth1-node">Run an eth1 node</a></h2>
+<p>In order to process incoming validator deposits from the eth1 chain, you'll need to run an eth1 client in parallel to your eth2 client. </p>
+<p>Validators are responsible for including new deposits when they propose blocks. And an eth1 client is needed to ensure your validator performs this task correctly.</p>
 <p>On this page we provide instructions for using Geth (however, any reputable eth1 client should do the trick).</p>
-<h3><a class="header" href="#install-geth" id="install-geth">Install Geth</a></h3>
+<blockquote>
+<p><strong>Note:</strong> If you're running on a resource-restricted device like a <a href="./pi-guide.html">Raspberry Pi</a>, we recommend <a href="./infura-guide.html">setting up a personal Infura endpoint</a> instead as a stop-gap solution.
+As it stands it may be a little complicated to run a full Geth node on a Pi (and light mode doesn't give you the deposit data you need).</p>
+<p>In the medium term (3-6 months), we expect someone (perhaps us) will build a thin layer on top of plain Eth1 header-syncing light clients to address this issue. Specifically, what's missing is a gossip network broadcasting deposit proofs (i.e. deposits and corresponding Merkle proofs rooted in Eth1 headers). When that happens, you should be able to swap out Infura.</p>
+<p>However, if you have a &gt; 500GB SSD, and your hardware can handle it, we strongly recommend running your own eth1 client. This will help ensure the network stays as decentralised as possible.</p>
+</blockquote>
+<h3><a class="header" href="#1-install-geth" id="1-install-geth">1. Install Geth</a></h3>
 <p>If you're running MacOS, follow the instructions <a href="https://github.com/ethereum/go-ethereum/wiki/Installation-Instructions-for-Mac">listed here</a> to install geth. Otherwise <a href="https://github.com/ethereum/go-ethereum/wiki/Installing-Geth">see here</a>.</p>
-<h3><a class="header" href="#start-geth" id="start-geth">Start Geth</a></h3>
+<h3><a class="header" href="#2-start-geth" id="2-start-geth">2. Start Geth</a></h3>
 <p>Once you have geth installed, use the following command to start your eth1 node:</p>
 <p><strong>Testnet</strong></p>
 <pre><code>geth --goerli --ws
@@ -288,8 +297,22 @@ cd nimbus-eth2
 <blockquote>
 <p><strong>Note:</strong> The <code>--ws</code> flag is needed to enable the websocket RPC API. This allows Nimbus to query the eth1 chain using Web3 API calls.</p>
 </blockquote>
-<h3><a class="header" href="#leave-geth-running" id="leave-geth-running">Leave Geth running</a></h3>
-<p>Let it sync - Geth uses a fast sync mode by default. It shouldn't take longer than a few hours.</p>
+<h3><a class="header" href="#3-leave-geth-running" id="3-leave-geth-running">3. Leave Geth running</a></h3>
+<p>Let it sync - Geth uses a fast sync mode by default. It may take anywhere between a few hours and a couple of days.</p>
+<blockquote>
+<p><strong>N.B. It is safe to run Nimbus and start validating even if Geth hasn't fully synced yet.</strong></p>
+</blockquote>
+<p>You'll know Geth has finished syncing, when you start seeing logs that look like the following:</p>
+<pre><code>INFO [05-29|01:14:53] Imported new chain segment               blocks=1 txs=2   mgas=0.043  elapsed=6.573ms   mgasps=6.606   number=3785437 hash=f72595…c13f23
+INFO [05-29|01:15:08] Imported new chain segment               blocks=1 txs=3   mgas=0.067  elapsed=7.639ms   mgasps=8.731   number=3785441 hash=be7e55…a8c1c7
+INFO [05-29|01:15:25] Imported new chain segment               blocks=1 txs=21  mgas=1.084  elapsed=33.610ms  mgasps=32.264  number=3785442 hash=fd54be…79b047
+INFO [05-29|01:15:42] Imported new chain segment               blocks=1 txs=26  mgas=0.900  elapsed=26.209ms  mgasps=34.335  number=3785443 hash=2504ff…119622
+INFO [05-29|01:15:59] Imported new chain segment               blocks=1 txs=12  mgas=1.228  elapsed=22.693ms  mgasps=54.122  number=3785444 hash=951dfe…a2a083
+INFO [05-29|01:16:05] Imported new chain segment               blocks=1 txs=3   mgas=0.065  elapsed=5.885ms   mgasps=11.038  number=3785445 hash=553d9e…fc4547
+INFO [05-29|01:16:10] Imported new chain segment               blocks=1 txs=0   mgas=0.000  elapsed=5.447ms   mgasps=0.000   number=3785446 hash=5e3e7d…bd4afd
+INFO [05-29|01:16:10] Imported new chain segment               blocks=1 txs=1   mgas=0.021  elapsed=7.382ms   mgasps=2.845   number=3785447 hash=39986c…dd2a01
+INFO [05-29|01:16:14] Imported new chain segment               blocks=1 txs=11  mgas=1.135  elapsed=22.281ms  mgasps=50.943  number=3785444 hash=277bb9…623d8c
+</code></pre>
 <h1><a class="header" href="#start-syncing" id="start-syncing">Start syncing</a></h1>
 <p>If you're joining a network that has already launched, you need to ensure that your beacon node is <a href="./keep-an-eye.html#keep-track-of-your-syncing-progress">completely synced</a> before submitting your deposit.</p>
 <p>This is particularly important if you are joining a network that's been running for a while.</p>
@@ -319,7 +342,10 @@ Please enter a Web3 provider URL:
 <p>If you're running a local geth instance, geth accepts connections from the loopback interface (<code>127.0.0.1</code>), with default WebSocket port <code>8546</code>. This means that your default Web3 provider URL should be: </p>
 <pre><code>ws://127.0.0.1:8546
 </code></pre>
-<p>Enter it, you should see the following output:</p>
+<blockquote>
+<p><strong>Note:</strong> If you're using <a href="./infura-guide">your own Infura endpoint</a>, you should enter that instead.</p>
+</blockquote>
+<p>Once you've entered your Web3 provider URL, you should see the following output:</p>
 <pre><code>INF 2020-11-18 11:25:33.487+01:00 Launching beacon node
 ...
 INF 2020-11-18 11:25:34.556+01:00 Loading block dag from database            topics=&quot;beacnde&quot; tid=19985314 file=nimbus_beacon_node.nim:198 path=build/data/shared_pyrmont_0/db
@@ -593,6 +619,8 @@ build/ncli_db pruneDatabase --db=build/data/shared_pyrmont_0/db --verbose=true
 <pre><code>./run-pyrmont-beacon-node.sh --tcp-port=9100 --udp-port=9100
 </code></pre>
 <p>(You can replace <code>9100</code> with a port of your choosing)</p>
+<h3><a class="header" href="#catching-up-on-validator-duties" id="catching-up-on-validator-duties">Catching up on validator duties</a></h3>
+<p>If you're being flooded with <code>Catching up on validator duties</code> messages, then your CPU is probably too slow to run Nimbus. Please check that your setup matches our <a href="./hardware.html">system requirements</a>.</p>
 <h3><a class="header" href="#eth1-chain-monitor-failure" id="eth1-chain-monitor-failure">Eth1 chain monitor failure</a></h3>
 <p><em>todo</em></p>
 <h1><a class="header" href="#nimbus-binaries" id="nimbus-binaries">Nimbus binaries</a></h1>
@@ -606,14 +634,14 @@ And follow the instructions <a href="https://github.com/status-im/nimbus-eth2/bl
 <p>For instructions on how to reproduce the build, <a href="https://reproducible-builds.org/">see here</a>.</p>
 <h1><a class="header" href="#metrics-and-pretty-pictures" id="metrics-and-pretty-pictures">Metrics and pretty pictures</a></h1>
 <blockquote>
-<p>⚠️  This page concerns the Medalla testnet. If you have made a mainnet deposit, you do not need to connect to eth2 quite yet. Mainnet <a href="https://hackmd.io/@benjaminion/genesis">Genesis</a> date has been set to <a href="https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/">December 1st</a>. This page will be updated nearer the time.</p>
+<p>⚠️  This page concerns the Pyrmont testnet. If you have made a mainnet deposit, you do not need to connect to eth2 quite yet. Mainnet <a href="https://hackmd.io/@benjaminion/genesis">Genesis</a> date has been set to <a href="https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/">December 1st</a>. This page will be updated nearer the time.</p>
 </blockquote>
 <p>In this page we'll cover how to use  Grafana and Prometheus to help you visualise important real-time metrics concerning your validator and/or beacon node.</p>
 <p>Prometheus is an open-source systems monitoring and alerting toolkit. It runs as a service on your computer and its job is to capture metrics. You can find more information about Prometheus <a href="https://prometheus.io/docs/introduction/overview/">here</a>.</p>
 <p>Grafana is a tool for beautiful dashboard monitoring that works well with Prometheus. You can learn more about Grafana <a href="https://github.com/grafana/grafana">here</a>.</p>
 <h2><a class="header" href="#simple-metrics" id="simple-metrics">Simple metrics</a></h2>
 <p>The easiest way to see metrics concerning your validator / node is to build the beacon node with the <code>NIMFLAGS=&quot;-d:insecure&quot;</code> flag. For example, to enable metrics for a <code>medalla</code> validator, run:</p>
-<pre><code>make NIMFLAGS=&quot;-d:insecure&quot; medalla-build
+<pre><code>make NIMFLAGS=&quot;-d:insecure&quot; nimbus_beacon_node
 </code></pre>
 <blockquote>
 <p><strong>Note:</strong> Metrics are not included in the binary by default. The <code>NIMFLAGS=&quot;-d:insecure&quot;</code> is needed because we consider the HTTP server that needs to start to serve the metrics to be insecure (without this flag it won't launch properly). As such, we recommend you make sure port 8008 is protected.</p>
@@ -928,7 +956,7 @@ make nimbus_beacon_node
 </blockquote>
 <h3><a class="header" href="#17-import-signing-key-into-nimbus" id="17-import-signing-key-into-nimbus">17. Import signing key into Nimbus</a></h3>
 <p>To import your signing key into Nimbus, from the <code>nimbus-eth2</code> directory run:</p>
-<pre><code>build/nimbus_beacon_node_spec_0_3 deposits import  --data-dir=build/data/shared_pyrmont_0 ../validator_keys
+<pre><code>build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_pyrmont_0 ../validator_keys
 </code></pre>
 <p>You'll be asked to enter the password you created to encrypt your keystore(s). Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your <a href="https://blog.ethereum.org/2020/05/21/keys/">key</a> (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).</p>
 <h3><a class="header" href="#18-run-screen" id="18-run-screen">18. Run Screen</a></h3>

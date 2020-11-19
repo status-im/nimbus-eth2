@@ -157,14 +157,14 @@
                     <main>
                         <h1><a class="header" href="#metrics-and-pretty-pictures" id="metrics-and-pretty-pictures">Metrics and pretty pictures</a></h1>
 <blockquote>
-<p>⚠️  This page concerns the Medalla testnet. If you have made a mainnet deposit, you do not need to connect to eth2 quite yet. Mainnet <a href="https://hackmd.io/@benjaminion/genesis">Genesis</a> date has been set to <a href="https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/">December 1st</a>. This page will be updated nearer the time.</p>
+<p>⚠️  This page concerns the Pyrmont testnet. If you have made a mainnet deposit, you do not need to connect to eth2 quite yet. Mainnet <a href="https://hackmd.io/@benjaminion/genesis">Genesis</a> date has been set to <a href="https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/">December 1st</a>. This page will be updated nearer the time.</p>
 </blockquote>
 <p>In this page we'll cover how to use  Grafana and Prometheus to help you visualise important real-time metrics concerning your validator and/or beacon node.</p>
 <p>Prometheus is an open-source systems monitoring and alerting toolkit. It runs as a service on your computer and its job is to capture metrics. You can find more information about Prometheus <a href="https://prometheus.io/docs/introduction/overview/">here</a>.</p>
 <p>Grafana is a tool for beautiful dashboard monitoring that works well with Prometheus. You can learn more about Grafana <a href="https://github.com/grafana/grafana">here</a>.</p>
 <h2><a class="header" href="#simple-metrics" id="simple-metrics">Simple metrics</a></h2>
 <p>The easiest way to see metrics concerning your validator / node is to build the beacon node with the <code>NIMFLAGS=&quot;-d:insecure&quot;</code> flag. For example, to enable metrics for a <code>medalla</code> validator, run:</p>
-<pre><code>make NIMFLAGS=&quot;-d:insecure&quot; medalla-build
+<pre><code>make NIMFLAGS=&quot;-d:insecure&quot; nimbus_beacon_node
 </code></pre>
 <blockquote>
 <p><strong>Note:</strong> Metrics are not included in the binary by default. The <code>NIMFLAGS=&quot;-d:insecure&quot;</code> is needed because we consider the HTTP server that needs to start to serve the metrics to be insecure (without this flag it won't launch properly). As such, we recommend you make sure port 8008 is protected.</p>
