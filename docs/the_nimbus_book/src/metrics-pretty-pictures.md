@@ -1,6 +1,6 @@
 # Metrics and pretty pictures
 
-> ⚠️  This page concerns the Medalla testnet. If you have made a mainnet deposit, you do not need to connect to eth2 quite yet. Mainnet [Genesis](https://hackmd.io/@benjaminion/genesis) date has been set to [December 1st](https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/). This page will be updated nearer the time.
+> ⚠️  This page concerns the Pyrmont testnet. If you have made a mainnet deposit, you do not need to connect to eth2 quite yet. Mainnet [Genesis](https://hackmd.io/@benjaminion/genesis) date has been set to [December 1st](https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/). This page will be updated nearer the time.
 
 In this page we'll cover how to use  Grafana and Prometheus to help you visualise important real-time metrics concerning your validator and/or beacon node.
 
@@ -13,7 +13,7 @@ Grafana is a tool for beautiful dashboard monitoring that works well with Promet
 The easiest way to see metrics concerning your validator / node is to build the beacon node with the `NIMFLAGS="-d:insecure"` flag. For example, to enable metrics for a `medalla` validator, run:
 
 ```
-make NIMFLAGS="-d:insecure" medalla-build
+make NIMFLAGS="-d:insecure" nimbus_beacon_node
 ```
 
 > **Note:** Metrics are not included in the binary by default. The `NIMFLAGS="-d:insecure"` is needed because we consider the HTTP server that needs to start to serve the metrics to be insecure (without this flag it won't launch properly). As such, we recommend you make sure port 8008 is protected.
