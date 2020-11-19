@@ -15,7 +15,6 @@
 - [Command line options](./options.md)
 - [Troubleshooting](./troubleshooting.md)
 - [Nimbus binaries](./binaries.md)
-- [Metrics and pretty pictures](./metrics-pretty-pictures.md)
 - [Network stats + monitoring](./eth2-stats.md)
 - [Run your node on a Raspberry Pi](./pi-guide.md)
 - [Graffiti the blockchain](./graffiti.md)
