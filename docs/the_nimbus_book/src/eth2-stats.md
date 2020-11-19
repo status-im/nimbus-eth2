@@ -1,6 +1,6 @@
 # Network stats and monitoring
 
-> ⚠️  This page concerns the Medalla testnet. If you have made a mainnet deposit, you do not need to connect to eth2 quite yet. Mainnet [Genesis](https://hackmd.io/@benjaminion/genesis) date has been set to [December 1st](https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/). This page will be updated nearer the time.
+> ⚠️  This page concerns the [Pyrmont](https://pyrmont.launchpad.ethereum.org/) testnet. If you have made a mainnet deposit, you do not need to connect to eth2 quite yet. Mainnet [Genesis](https://hackmd.io/@benjaminion/genesis) date has been set to [December 1st](https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/). This page will be updated nearer the time.
 
 eth2stats is a network monitoring suite for your beacon node + validator client.
 
@@ -36,37 +36,42 @@ make build
 
 
 #### 1. Click on add node
-![](https://i.imgur.com/zPkMahy.png)
+![](https://i.imgur.com/1ofuj4E.png)
 
 #### 2. Configure name and client type
-![](https://i.imgur.com/nA3AVnT.png)
+![](https://i.imgur.com/iQfwAit.png)
 
 #### 3. Copy the command
 Click on `Compile from source` and copy the command at the bottom.
-
-![](https://i.imgur.com/ZcqMkOX.png)
+![](https://i.imgur.com/biT5HkJ.png)
 
 ### 5. Build and run your node with metrics enabled
 
 From your `nimbus-eth2` repository, run:
 ```
-make NIMFLAGS="-d:insecure" medalla-build
+make NIMFLAGS="-d:insecure" nimbus_beacon_node
 ```
 
 Followed by:
 
 ```
-./run-medalla-beacon-node.sh
+./run-pyrmont-beacon-node.sh
 ```
 
 ### 6. Run eth2stats
 
 From your `eth2stats-client` repository, **run the command you copied in step 4.3:**
 ```
-./eth2stats-client run --eth2stats.node-name="roger" --data.folder ~/.eth2stats/data --eth2stats.addr="grpc.medalla.eth2stats.io:443" --eth2stats.tls=true --beacon.type="nimbus" --beacon.addr="http://localhost:9190" --beacon.metrics-addr="http://localhost:8008/metrics"
+./eth2stats-client run \
+--eth2stats.node-name="roger" \
+--data.folder ~/.eth2stats/data \
+--eth2stats.addr="grpc.pyrmont.eth2.wtf:8080" --eth2stats.tls=false \
+--beacon.type="nimbus" \
+--beacon.addr="http://localhost:9190" \
+--beacon.metrics-addr="http://localhost:8008/metrics"
 ```
 
-Your node should now be displayed on eth2stats.io :)
+Your node should now be displayed on [https://pyrmont.eth2.wtf/](https://pyrmont.eth2.wtf/) :)
 
 
 
