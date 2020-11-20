@@ -902,7 +902,8 @@ proc updateHead*(
       while tmp != dag.finalizedHead.blck:
         # leave the epoch cache in the last block of the epoch..
         tmp = tmp.parent
-        tmp.epochRefs = @[]
+        if tmp.parent != nil:
+          tmp.parent.epochRefs = @[]
 
     dag.finalizedHead = finalizedHead
 
