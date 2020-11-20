@@ -39,7 +39,7 @@ type
   Eth1Block* = ref object
     number*: Eth1BlockNumber
     timestamp*: Eth1BlockTimestamp
-    deposits*: seq[Deposit]
+    deposits*: seq[DepositData]
     voteData*: Eth1Data
     activeValidatorsCount*: uint64
 
@@ -74,6 +74,7 @@ type
   Web3DataProviderRef* = ref Web3DataProvider
 
   CorruptDataProvider = object of CatchableError
+  DataProviderTimeout = object of CatchableError
 
   DisconnectHandler* = proc () {.gcsafe, raises: [Defect].}
 
@@ -259,12 +260,11 @@ proc depositEventsToBlocks(depositsList: JsonNode): seq[Eth1Block] =
     offset += decode(logData, offset, signature)
     offset += decode(logData, offset, index)
 
-    lastEth1Block.deposits.add Deposit(
-      data: DepositData(
-        pubkey: ValidatorPubKey.init(array[48, byte](pubkey)),
-        withdrawal_credentials: Eth2Digest(data: array[32, byte](withdrawalCredentials)),
-        amount: bytes_to_uint64(array[8, byte](amount)),
-        signature: ValidatorSig.init(array[96, byte](signature))))
+    lastEth1Block.deposits.add DepositData(
+      pubkey: ValidatorPubKey.init(array[48, byte](pubkey)),
+      withdrawal_credentials: Eth2Digest(data: array[32, byte](withdrawalCredentials)),
+      amount: bytes_to_uint64(array[8, byte](amount)),
+      signature: ValidatorSig.init(array[96, byte](signature)))
 
 proc fetchTimestamp(p: Web3DataProviderRef, blk: Eth1Block) {.async.} =
   let web3block = await p.getBlockByHash(blk.voteData.block_hash.asBlockHash)
@@ -280,6 +280,14 @@ when hasDepositRootChecks:
       DepositCountIncorrect
       DepositCountUnavailable
 
+  const
+    contractCallTimeout = seconds(10)
+
+  template awaitOrRaiseOnTimeout[T](fut: Future[T],
+                                    timeout: Duration): T =
+    awaitWithTimeout(fut, timeout):
+      raise newException(DataProviderTimeout, "Timeout")
+
   proc fetchDepositContractData(p: Web3DataProviderRef, blk: Eth1Block):
                                 Future[DepositContractDataStatus] {.async.} =
     let
@@ -287,7 +295,8 @@ when hasDepositRootChecks:
       rawCount = p.ns.get_deposit_count.call(blockNumber = blk.number)
 
     try:
-      let fetchedRoot = asEth2Digest(await depositRoot)
+      let fetchedRoot = asEth2Digest(
+        awaitOrRaiseOnTimeout(depositRoot, contractCallTimeout))
       if blk.voteData.deposit_root == default(Eth2Digest):
         blk.voteData.deposit_root = fetchedRoot
         result = Fetched
@@ -302,7 +311,8 @@ when hasDepositRootChecks:
       result = DepositRootUnavailable
 
     try:
-      let fetchedCount = bytes_to_uint64(array[8, byte](await rawCount))
+      let fetchedCount = bytes_to_uint64(array[8, byte](
+        awaitOrRaiseOnTimeout(rawCount, contractCallTimeout)))
       if blk.voteData.deposit_count == 0:
         blk.voteData.deposit_count = fetchedCount
       elif blk.voteData.deposit_count != fetchedCount:
@@ -345,9 +355,8 @@ proc getBlockProposalData*(m: Eth1Monitor,
 
     if (ourDepositsRoot != finalizedEth1Data.deposit_root):
       error "Corrupted deposits history. Producing block without deposits",
-            ourDepositsRoot,
             targetDepositsRoot = finalizedEth1Data.deposit_root,
-            depositsCount = ourDepositsCount
+            targetDepositsCount, ourDepositsRoot, ourDepositsCount
       false
     else:
       true
@@ -588,21 +597,32 @@ proc syncBlockRange(m: Eth1Monitor,
     while true:
       maxBlockNumberRequested = min(toBlock, currentBlock + blocksPerRequest - 1)
 
-      debug "Obtaining deposit log events",
-            fromBlock = currentBlock,
-            toBlock = maxBlockNumberRequested
-      try:
-        debug.logTime "Deposit logs obtained":
-          depositLogs = await m.dataProvider.ns.getJsonLogs(
-            DepositEvent,
-            fromBlock = some blockId(currentBlock),
-            toBlock = some blockId(maxBlockNumberRequested))
-        currentBlock = maxBlockNumberRequested + 1
-        break
-      except CatchableError as err:
+      template retryOrRaise(err: ref CatchableError) =
         blocksPerRequest = blocksPerRequest div 2
         if blocksPerRequest == 0:
           raise err
+        continue
+
+      debug "Obtaining deposit log events",
+            fromBlock = currentBlock,
+            toBlock = maxBlockNumberRequested
+
+      debug.logTime "Deposit logs obtained":
+        let jsonLogsFut = m.dataProvider.ns.getJsonLogs(
+          DepositEvent,
+          fromBlock = some blockId(currentBlock),
+          toBlock = some blockId(maxBlockNumberRequested))
+
+        depositLogs = try:
+          # Downloading large amounts of deposits can be quite slow
+          awaitWithTimeout(jsonLogsFut, seconds(600)):
+            retryOrRaise newException(DataProviderTimeout,
+              "Request time out while obtaining json logs")
+        except CatchableError as err:
+          retryOrRaise err
+
+      currentBlock = maxBlockNumberRequested + 1
+      break
 
     debug.logTime "Deposits grouped in blocks":
       let eth1Blocks = depositEventsToBlocks(depositLogs)
@@ -613,7 +633,7 @@ proc syncBlockRange(m: Eth1Monitor,
 
       debug.logTime "Deposits persisted":
         for deposit in blk.deposits:
-          m.db.processDeposit(deposit.data)
+          m.db.processDeposit(deposit)
 
       blk.voteData.deposit_count =
         m.db.finalizedEth1DepositsMerkleizer.totalChunks
