@@ -37,7 +37,7 @@ The resulting binaries should appear in `nimbus-eth2/build/nimbus_beacon_node` a
 
 ### 3. Create a systemd service unit file for the Nimbus beacon node service
 
-Create a `systemd` service unit file, `nbc.service`, and save it in `/etc/systemd/system/`.
+Create a `systemd` service unit file -- `nbc.service` -- and save it in `/etc/systemd/system/`.
 
 ```txt
 [Unit]
@@ -66,11 +66,11 @@ Replace:
 
 `<USERNAME>` with the username of the system user responsible for running the launched processes.
 
-`<WEB3-URL>` with a WebSocket JSON-RPC URL that you are planning to use.
+`<WEB3-URL>` with the WebSocket JSON-RPC URL that you are planning to use.
 
 ### 4. Create a systemd service unit file for the Eth2Stats client
 
-Create a `systemd` service unit file, `eth2stata.service`, and save it in `/etc/systemd/system/`.
+Create a `systemd` service unit file -- `eth2stata.service` -- and save it in `/etc/systemd/system/`.
 
 ```txt
 [Unit]
@@ -98,12 +98,17 @@ Replace:
 
 `<USERNAME>` with the username of the system user responsible for running the launched processes.
 
-`<NODE-NAME>` with the name of your node that will appear on the `https://pyrmont.eth2.wtf/`` web-site.
+`<NODE-NAME>` with the name of your node on [https://pyrmont.eth2.wtf/](https://pyrmont.eth2.wtf/).
 
-### 5. Notify systemd of the newly added services and start them
+### 5. Notify systemd of the newly added services
 
 ```console
 sudo systemctl daemon-reload
+```
+
+### 6. Start the services
+
+```console
 sudo systemctl enable nbc --now
 sudo systemctl enable eth2stats --now
 ```
