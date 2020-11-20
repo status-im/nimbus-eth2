@@ -1,6 +1,6 @@
 import
   std/[deques, tables, hashes, options, strformat, strutils],
-  chronos, web3, web3/ethtypes as web3Types, json, chronicles,
+  chronos, web3, web3/ethtypes as web3Types, json, chronicles/timings,
   eth/common/eth_types, eth/async_utils,
   spec/[datatypes, digest, crypto, beaconstate, helpers],
   ssz, beacon_chain_db, network_metadata, merkle_minimal, beacon_node_status
@@ -154,9 +154,11 @@ func voting_period_start_time*(state: BeaconState): uint64 =
   compute_time_at_slot(state, eth1_voting_period_start_slot)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#get_eth1_data
-func is_candidate_block(preset: RuntimePreset, blk: Eth1Block, period_start: uint64): bool =
-  (blk.timestamp + SECONDS_PER_ETH1_BLOCK.uint64 * preset.ETH1_FOLLOW_DISTANCE <= period_start) and
-  (blk.timestamp + SECONDS_PER_ETH1_BLOCK.uint64 * preset.ETH1_FOLLOW_DISTANCE * 2 >= period_start)
+func is_candidate_block(preset: RuntimePreset,
+                        blk: Eth1Block,
+                        period_start: uint64): bool =
+  (blk.timestamp + SECONDS_PER_ETH1_BLOCK * preset.ETH1_FOLLOW_DISTANCE <= period_start) and
+  (blk.timestamp + SECONDS_PER_ETH1_BLOCK * preset.ETH1_FOLLOW_DISTANCE * 2 >= period_start)
 
 func asEth2Digest*(x: BlockHash): Eth2Digest =
   Eth2Digest(data: array[32, byte](x))
@@ -184,12 +186,10 @@ func makeSuccessorWithoutDeposits(existingBlock: Eth1Block,
       deposit_root: existingBlock.voteData.deposit_root),
     activeValidatorsCount: existingBlock.activeValidatorsCount)
 
-func latestCandidateBlock(eth1Chain: Eth1Chain,
-                          preset: RuntimePreset,
-                          periodStart: uint64): Eth1Block =
-  for i in countdown(eth1Chain.blocks.len - 1, 0):
-    let blk = eth1Chain.blocks[i]
-    if is_candidate_block(preset, blk, periodStart):
+func latestCandidateBlock(m: Eth1Monitor, periodStart: uint64): Eth1Block =
+  for i in countdown(m.eth1Chain.blocks.len - 1, 0):
+    let blk = m.eth1Chain.blocks[i]
+    if is_candidate_block(m.preset, blk, periodStart):
       return blk
 
 func popFirst(eth1Chain: var Eth1Chain) =
@@ -333,7 +333,6 @@ proc getBlockProposalData*(m: Eth1Monitor,
                            finalizedEth1Data: Eth1Data): BlockProposalEth1Data =
   var pendingDepositsCount = state.eth1_data.deposit_count -
                              state.eth1_deposit_index
-
   # TODO(zah)
   #      To make block proposal cheaper, we can perform this action more regularly
   #      (e.g. in BeaconNode.onSlot). But keep in mind that this action needs to be
@@ -361,27 +360,34 @@ proc getBlockProposalData*(m: Eth1Monitor,
 
   var otherVotesCountTable = initCountTable[Eth1Data]()
   for vote in state.eth1_data_votes:
-    # TODO(zah)
-    # There is a slight deviation from the spec here to deal with the following
-    # problem: the in-memory database of eth1 blocks for a restarted node will
-    # be empty which will lead a "no change" vote. To fix this, we'll need to
-    # add rolling persistance for all potentially voted on blocks.
-    let eth1Block = m.eth1Chain.findBlock(vote)
-    if (eth1Block == nil or is_candidate_block(m.preset, eth1Block, periodStart)) and
-       vote.deposit_count > state.eth1_data.deposit_count:
+    let
+      eth1Block = m.eth1Chain.findBlock(vote)
+      isSuccessor = vote.deposit_count >= state.eth1_data.deposit_count
+      # TODO(zah)
+      # There is a slight deviation from the spec here to deal with the following
+      # problem: the in-memory database of eth1 blocks for a restarted node will
+      # be empty which will lead a "no change" vote. To fix this, we'll need to
+      # add rolling persistance for all potentially voted on blocks.
+      isCandidate = (eth1Block == nil or is_candidate_block(m.preset, eth1Block, periodStart))
+
+    if isSuccessor and isCandidate:
       otherVotesCountTable.inc vote
+    else:
+      debug "Ignoring eth1 vote", root = vote.block_hash, isSuccessor, isCandidate
 
   if otherVotesCountTable.len > 0:
     let (winningVote, votes) = otherVotesCountTable.largest
+    debug "Voting on eth1 head with majority", votes
     result.vote = winningVote
     if uint64((votes + 1) * 2) > SLOTS_PER_ETH1_VOTING_PERIOD:
-      pendingDepositsCount = winningVote.deposit_count -
-                             state.eth1_deposit_index
+      pendingDepositsCount = winningVote.deposit_count - state.eth1_deposit_index
   else:
-    let latestBlock = m.eth1Chain.latestCandidateBlock(m.preset, periodStart)
+    let latestBlock = m.latestCandidateBlock(periodStart)
     if latestBlock == nil:
+      debug "No acceptable eth1 votes and no recent candidates. Voting no change"
       result.vote = state.eth1_data
     else:
+      debug "No acceptable eth1 votes. Voting for latest candidate"
       result.vote = latestBlock.voteData
 
   if pendingDepositsCount > 0 and hasLatestDeposits:
@@ -586,10 +592,11 @@ proc syncBlockRange(m: Eth1Monitor,
             fromBlock = currentBlock,
             toBlock = maxBlockNumberRequested
       try:
-        depositLogs = await m.dataProvider.ns.getJsonLogs(
-          DepositEvent,
-          fromBlock = some blockId(currentBlock),
-          toBlock = some blockId(maxBlockNumberRequested))
+        debug.logTime "Deposit logs obtained":
+          depositLogs = await m.dataProvider.ns.getJsonLogs(
+            DepositEvent,
+            fromBlock = some blockId(currentBlock),
+            toBlock = some blockId(maxBlockNumberRequested))
         currentBlock = maxBlockNumberRequested + 1
         break
       except CatchableError as err:
@@ -597,14 +604,16 @@ proc syncBlockRange(m: Eth1Monitor,
         if blocksPerRequest == 0:
           raise err
 
-    let eth1Blocks = depositEventsToBlocks(depositLogs)
+    debug.logTime "Deposits grouped in blocks":
+      let eth1Blocks = depositEventsToBlocks(depositLogs)
 
     for i in 0 ..< eth1Blocks.len:
       # TODO(zah): The DB operations should be executed as a transaction here
       let blk = eth1Blocks[i]
 
-      for deposit in blk.deposits:
-        m.db.processDeposit(deposit.data)
+      debug.logTime "Deposits persisted":
+        for deposit in blk.deposits:
+          m.db.processDeposit(deposit.data)
 
       blk.voteData.deposit_count =
         m.db.finalizedEth1DepositsMerkleizer.totalChunks
