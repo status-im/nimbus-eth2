@@ -184,6 +184,22 @@ Set the current logging level dynamically: TRACE, DEBUG, INFO, NOTICE, WARN, ERR
 curl -d '{"jsonrpc":"2.0","id":"id","method":"setLogLevel","params":["DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none"] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 ```
 
+### getEth1Chain
+
+Get the list of Eth1 blocks that the beacon node is currently storing in memory.
+
+```
+curl -d '{"jsonrpc":"2.0","id":"id","method":"getEth1Chain","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result'
+```
+
+### getEth1ProposalData
+
+Inspect the eth1 data that the beacon node would produce if it was tasked to produce a block for the current slot.
+
+```
+curl -d '{"jsonrpc":"2.0","id":"id","method":"getEth1ProposalData","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result'
+```
+
 ### getChronosFutures
 
 Get the current list of live async futures in the process - compile with `-d:chronosFutureTracking` to enable.

@@ -5,19 +5,22 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/strutils,
+  std/[deques, sequtils, strutils],
   chronos,
   stew/shims/macros,
   stew/byteutils,
   json_rpc/[rpcserver, jsonmarshal],
 
+  rpc_utils,
   ../beacon_node_common, ../nimbus_binary_common, ../eth2_network,
+  ../eth1_monitor, ../validator_duties,
   ../spec/[digest, datatypes, presets]
 
 logScope: topics = "nimbusapi"
 
 type
   RpcServer = RpcHttpServer
+  Eth1Block = eth1_monitor.Eth1Block
 
 when defined(chronosFutureTracking):
   type
@@ -98,6 +101,20 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     {.gcsafe.}: # It's probably not, actually. Hopefully we don't log from threads...
       updateLogLevel(level)
     return true
+
+  rpcServer.rpc("getEth1Chain") do () -> seq[Eth1Block]:
+    result = if node.eth1Monitor != nil:
+      mapIt(node.eth1Monitor.blocks, it)
+    else:
+      @[]
+
+  rpcServer.rpc("getEth1ProposalData") do () -> BlockProposalEth1Data:
+    let
+      wallSlot = node.beaconClock.now.slotOrZero
+      head = node.doChecksAndGetCurrentHead(wallSlot)
+
+    node.chainDag.withState(node.chainDag.tmpState, head.atSlot(wallSlot)):
+      return node.getBlockProposalEth1Data(state)
 
   when defined(chronosFutureTracking):
     rpcServer.rpc("getChronosFutures") do () -> seq[FutureInfo]:
