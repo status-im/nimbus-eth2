@@ -200,8 +200,8 @@ func addBlock(eth1Chain: var Eth1Chain, newBlock: Eth1Block) =
   eth1Chain.blocks.addLast newBlock
   eth1Chain.blocksByHash[newBlock.voteData.block_hash.asBlockHash] = newBlock
 
-template hash*(x: Eth1Data): Hash =
-  hash(x.block_hash.data)
+func hash*(x: Eth1Data): Hash =
+  hashData(unsafeAddr x, sizeof(x))
 
 template hash*(x: Eth1Block): Hash =
   hash(x.voteData)
