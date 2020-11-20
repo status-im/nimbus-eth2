@@ -1395,11 +1395,29 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
                                  ],
                                  rng = rng)
 
-  let pubsub = GossipSub.init(
-    switch = switch,
-    msgIdProvider = msgIdProvider,
-    triggerSelf = true, sign = false,
-    verifySignature = false, anonymize = true).PubSub
+  let 
+    params = 
+      block:
+        var p = GossipSubParams.init()
+        # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/phase0/p2p-interface.md#the-gossip-domain-gossipsub
+        p.d = 8
+        p.dLow = 6
+        p.dHigh = 12
+        p.dLazy = 6
+        p.heartbeatInterval = 700.milliseconds
+        p.fanoutTTL = 60.seconds
+        p.historyLength = 6
+        p.historyGossip = 3
+        p.validateParameters().tryGet()
+        p
+    pubsub = GossipSub.init(
+      switch = switch,
+      msgIdProvider = msgIdProvider,
+      triggerSelf = true, 
+      sign = false,
+      verifySignature = false, 
+      anonymize = true,
+      parameters = params).PubSub
 
   switch.mount(pubsub)
 
