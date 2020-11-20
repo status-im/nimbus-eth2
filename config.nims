@@ -13,6 +13,8 @@ if defined(release) and not defined(disableLTO):
   elif defined(linux):
     switch("passC", "-flto=auto")
     switch("passL", "-flto=auto")
+    switch("passC", "-finline-limit=100000")
+    switch("passL", "-finline-limit=100000")
   else:
     # On windows, LTO needs more love and attention so "gcc-ar" and "gcc-ranlib" are
     # used for static libraries.
