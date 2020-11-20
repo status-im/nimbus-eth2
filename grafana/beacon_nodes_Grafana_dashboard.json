@@ -223,7 +223,7 @@
         {
           "expr": "libp2p_open_streams{node=\"${node}\"}",
           "interval": "",
-          "legendFormat": "{{type}}",
+          "legendFormat": "{{type}} ({{dir}})",
           "refId": "A"
         }
       ],
@@ -2222,5 +2222,5 @@
   "timezone": "",
   "title": "NBC local testnet/sim (all nodes)",
   "uid": "pgeNfj2Wz2a",
-  "version": 10
+  "version": 11
 }
