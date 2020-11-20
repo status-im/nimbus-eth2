@@ -101,6 +101,7 @@ type
     requestQuota*: float
     lastReqTime*: Moment
     connections*: int
+    enr*: Option[enr.TypedRecord]
     disconnectedFut: Future[void]
 
   PeerAddr* = object
@@ -241,6 +242,9 @@ const
   SeenTablePenaltyError* = 60.minutes
     ## Period of time for peers which score below or equal to zero.
 
+  ResolvePeerTimeout* = 1.minutes
+    ## Maximum time allowed for peer resolve process.
+
 template neterr(kindParam: Eth2NetworkingErrorKind): auto =
   err(type(result), Eth2NetworkingError(kind: kindParam))
 
@@ -262,6 +266,18 @@ declarePublicCounter nbc_timeout_dials,
 
 declarePublicGauge nbc_peers,
   "Number of active libp2p peers"
+
+declarePublicCounter nbc_successful_discoveries,
+  "Number of successfull discoveries"
+
+declarePublicCounter nbc_failed_discoveries,
+  "Number of failed discoveries"
+
+const delayBuckets = [1.0, 5.0, 10.0, 20.0, 40.0, 60.0]
+
+declareHistogram nbc_resolve_time,
+  "Time(s) used while resolving peer information",
+   buckets = delayBuckets
 
 const
   snappy_implementation {.strdefine.} = "libp2p"
@@ -326,9 +342,10 @@ proc getKey*(peer: Peer): PeerID {.inline.} =
   peer.info.peerId
 
 proc getFuture*(peer: Peer): Future[void] {.inline.} =
-  if peer.disconnectedFut.isNil:
-    peer.disconnectedFut = newFuture[void]()
   peer.disconnectedFut
+
+template createLifetimeFuture(): Future[void] =
+  newFuture[void]("peer.lifetime")
 
 proc getScore*(a: Peer): int =
   ## Returns current score value for peer ``peer``.
@@ -439,7 +456,6 @@ proc disconnect*(peer: Peer, reason: DisconnectionReason,
           SeenTablePenaltyError
       peer.network.addSeen(peer.info.peerId, seenTime)
       await peer.network.switch.disconnect(peer.info.peerId)
-      peer.connectionState = Disconnected
   except CatchableError:
     # We do not care about exceptions in disconnection procedure.
     trace "Exception while disconnecting peer", peer = peer.info.peerId,
@@ -639,6 +655,22 @@ proc handleIncomingStream(network: Eth2Node,
 
   let peer = peerFromStream(network, conn)
   try:
+    case peer.connectionState
+    of Disconnecting, Disconnected:
+      # We got incoming stream request while disconnected or disconnecting.
+      warn "Got incoming request from disconnected peer", peer = peer
+      await conn.closeWithEOF()
+      return
+    of Connecting, None:
+      # We got incoming stream request while handshake is not yet finished.
+      warn "Got incoming request from peer, which is not passed handshake yet",
+           peer = peer
+      await conn.closeWithEOF()
+      return
+    of Connected:
+      # We got incoming stream from peer with proper connection state.
+      discard
+
     template returnInvalidRequest(msg: ErrorMsg) =
       peer.updateScore(PeerScoreInvalidRequest)
       await sendErrorResponse(peer, conn, InvalidRequest, msg)
@@ -872,6 +904,85 @@ proc getPersistentNetMetadata*(conf: BeaconNodeConf): Eth2Metadata =
   else:
     result = Json.loadFile(metadataPath, Eth2Metadata)
 
+proc resolveTask(node: Eth2Node, peer: Peer) {.async.} =
+  logScope: peer = peer.info.peerId
+  let startTime = now(chronos.Moment)
+  let nodeId =
+    block:
+      var key: PublicKey
+      # `secp256k1` keys are always stored inside PeerID.
+      discard peer.info.peerId.extractPublicKey(key)
+      keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
+
+  # This is "fast-path" for peers which was dialed. In this case discovery
+  # already has most recent ENR information about this peer.
+  let gnode = node.discovery.getNode(nodeId)
+  if gnode.isSome():
+    let res = gnode.get().record.toTypedRecord()
+    if res.isOk():
+      peer.enr = some(res.get())
+      inc(nbc_successful_discoveries)
+      let delay = now(chronos.Moment) - startTime
+      nbc_resolve_time.observe(delay.toFloatSeconds())
+      debug "Peer's ENR record discovered", delay = $delay
+    else:
+      inc(nbc_failed_discoveries)
+      debug "Discovery resolve returned incorrect ENR record",
+            error_msg = $res.error
+      return
+  else:
+    let resolveFut = node.discovery.resolve(nodeId)
+    let timeFut = sleepAsync(ResolvePeerTimeout)
+
+    discard await race(peer.disconnectedFut, resolveFut, timeFut)
+
+    if peer.disconnectedFut.finished():
+      # Peer is already disconnected
+      if not(timeFut.finished()):
+        timeFut.cancel()
+      if not(resolveFut.finished()):
+        await resolveFut.cancelAndWait()
+      # allFutures() will perform check for futures which are already finished,
+      # and we do not care about results anymore.
+      await allFutures(timeFut)
+      return
+
+    if resolveFut.finished():
+      if resolveFut.done():
+        let rnode = resolveFut.read()
+        if rnode.isSome():
+          let res = rnode.get().record.toTypedRecord()
+          if res.isOk():
+            peer.enr = some(res.get())
+            inc(nbc_successful_discoveries)
+            let delay = now(chronos.Moment) - startTime
+            nbc_resolve_time.observe(delay.toFloatSeconds())
+            debug "Peer's ENR record discovered", delay = $delay
+          else:
+            inc(nbc_failed_discoveries)
+            debug "Discovery resolve returned incorrect ENR record",
+                  error_msg = $res.error
+        else:
+          inc(nbc_failed_discoveries)
+          debug "Discovery resolve operation returns empty answer"
+        return
+      else:
+        inc(nbc_failed_discoveries)
+        debug "Discovery resolve operation failed with an error",
+              error_name = resolveFut.error.name,
+              error_msg = resolveFut.erro.msg
+        if not(timeFut.finished()):
+          await timeFut.cancelAndWait()
+        return
+
+    if timeFut.finished():
+      inc(nbc_failed_discoveries)
+      debug "Discovery resolve operation exceeds timeout",
+            timeout = $ResolvePeerTimeout
+      if not(resolveFut.finished()):
+        await resolveFut.cancelAndWait()
+      return
+
 proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
   let peer = node.getPeer(peerId)
   case event.kind
@@ -890,44 +1001,79 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
       # * Protocol handshakes are wonky: we'll not necessarily use the newly
       #   connected transport - instead we'll just pick a random one!
 
+      case peer.connectionState
+      of Disconnecting:
+        # We got connection with peer which we currently disconnecting. This
+        # situation should not be happened, because when we disconnecting
+        # we adding peer to `SeenTable`.
+        warn "Got connection attempt from peer that we are disconnecting",
+             peer = $peerId
+        await peer.disconnect(FaultOrError)
+        return
+      of None, Disconnected:
+        # We got connection with new peer or peer which was already seen.
+        discard
+      of Connecting, Connected:
+        # This means that we got notification event from peer which we already
+        # connected or connecting right now. If this situation will happened,
+        # it means bug on `nim-libp2p` side.
+        warn "Got connection attempt from peer which we already connected",
+             peer = $peerId
+        await peer.disconnect(FaultOrError)
+        return
+
+      peer.connectionState = Connecting
       await performProtocolHandshakes(peer, event.incoming)
 
       # While performing the handshake, the peer might have been disconnected -
       # there's still a slim chance of a race condition here if a reconnect
       # happens quickly
-      if peer.connections == 1:
-        let res =
-          if event.incoming:
-            node.peerPool.addPeerNoWait(peer, PeerType.Incoming)
-          else:
-            node.peerPool.addPeerNoWait(peer, PeerType.Outgoing)
+      if peer.connectionState == Connecting:
+        if peer.connections == 1:
+          let res =
+            if event.incoming:
+              node.peerPool.addPeerNoWait(peer, PeerType.Incoming)
+            else:
+              node.peerPool.addPeerNoWait(peer, PeerType.Outgoing)
 
-        case res:
-        of PeerStatus.LowScoreError, PeerStatus.NoSpaceError:
-          # Peer has low score or we do not have enough space in PeerPool,
-          # we are going to disconnect it gracefully.
-          await peer.disconnect(FaultOrError)
-        of PeerStatus.DeadPeerError:
-          # Peer's lifetime future is finished, so its already dead,
-          # we do not need to perform gracefull disconect.
-          discard
-        of PeerStatus.DuplicateError:
-          # Peer is already present in PeerPool, we can't perform disconnect,
-          # because in such case we could kill both connections (connection
-          # which is present in PeerPool and new one).
-          discard
-        of PeerStatus.Success:
-          # Peer was added to PeerPool.
-          discard
+          case res:
+          of PeerStatus.LowScoreError, PeerStatus.NoSpaceError:
+            # Peer has low score or we do not have enough space in PeerPool,
+            # we are going to disconnect it gracefully.
+            # Peer' state will be updated in connection event.
+            debug "Peer has low score or there no space in PeerPool",
+                  peer = $peerId, reason = res
+            await peer.disconnect(FaultOrError)
+          of PeerStatus.DeadPeerError:
+            # Peer's lifetime future is finished, so its already dead,
+            # we do not need to perform gracefull disconect.
+            # Peer's state will be updated in connection event.
+            discard
+          of PeerStatus.DuplicateError:
+            # Peer is already present in PeerPool, we can't perform disconnect,
+            # because in such case we could kill both connections (connection
+            # which is present in PeerPool and new one).
+            # This is possible bug, because we could enter here only if number
+            # of `peer.connections == 1`, it means that Peer's lifetime is not
+            # tracked properly and we still not received `Disconnected` event.
+            warn "Peer is already present in PeerPool", peer = $peerId
+          of PeerStatus.Success:
+            # Peer was added to PeerPool.
+            peer.connectionState = Connected
+            # We spawn task which will obtain ENR address for this peer.
+            asyncSpawn resolveTask(node, peer)
 
   of ConnEventKind.Disconnected:
     dec peer.connections
-    debug "Peer disconnected", peer = $peerId, connections = peer.connections
+    debug "Lost connection to peer", peer = $peerId,
+                                     connections = peer.connections
     if peer.connections == 0:
+      debug "Peer disconnected", peer = $peerId, connections = peer.connections
       let fut = peer.disconnectedFut
-      if fut != nil:
-        peer.disconnectedFut = nil
+      if not(fut.finished()):
         fut.complete()
+        peer.disconnectedFut = createLifetimeFuture()
+      peer.connectionState = Disconnected
 
 proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
            switch: Switch, pubsub: PubSub, ip: Option[ValidIpAddress],
@@ -1036,17 +1182,20 @@ proc stop*(node: Eth2Node) {.async.} =
       futureErrors = waitedFutures.filterIt(it.error != nil).mapIt(it.error.msg)
 
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =
-  new result
-  result.info = info
-  result.network = network
-  result.connectionState = Connected
-  result.maxInactivityAllowed = 15.minutes # TODO: Read this from the config
-  result.lastReqTime = now(chronos.Moment)
-  newSeq result.protocolStates, allProtocols.len
-  for i in 0 ..< allProtocols.len:
+  let res = Peer(
+    info: info,
+    network: network,
+    connectionState: ConnectionState.None,
+    maxInactivityAllowed: 15.minutes, # TODO: Read this from the config
+    lastReqTime: now(chronos.Moment),
+    disconnectedFut: newFuture[void]("peer.lifetime"),
+    protocolStates: newSeq[RootRef](len(allProtocols))
+  )
+  for i in 0 ..< len(allProtocols):
     let proto = allProtocols[i]
-    if proto.peerStateInitializer != nil:
-      result.protocolStates[i] = proto.peerStateInitializer(result)
+    if not(isNil(proto.peerStateInitializer)):
+      res.protocolStates[i] = proto.peerStateInitializer(res)
+  res
 
 proc registerMsg(protocol: ProtocolInfo,
                  name: string,
