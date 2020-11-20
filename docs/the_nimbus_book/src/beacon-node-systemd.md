@@ -35,50 +35,7 @@ make build
 
 The resulting binaries should appear in `nimbus-eth2/build/nimbus_beacon_node` and `eth2stats-client/eth2stats-client`, respectively.
 
-### 3. Create an executable script
-
-Create an executable script, `run_nimbus_node.sh`, and place it adjacent to the repositories you cloned in step 1 (same directory level).
-
-```bash
-#!/bin/bash
-
-set +e
-
-trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
-
-cd $(dirname "$0")
-cd nimbus-eth2
-
-NETWORK=$1
-NODE_NAME=${NODE_NAME:-$(whoami)}
-
-if [[ "$2" == "" ]]; then
-  NODE_ID=0
-else
-  NODE_ID=$2
-  NODE_NAME=$NODE_NAME-$2
-fi
-
-let METRICS_PORT=8008+${NODE_ID}
-let RPC_PORT=9190+${NODE_ID}
-
-# add your node to eth2stats and run a data collector app that connects to your beacon chain client
-mkdir -p /tmp/${NODE_NAME}
-../eth2stats-client/eth2stats-client run \
-  --data.folder=/tmp/${NODE_NAME} \
-  --eth2stats.node-name="${NODE_NAME}" \
-  --eth2stats.addr="grpc.${NETWORK}.eth2stats.io:443" --eth2stats.tls=true \
-  --beacon.type="nimbus" \
-  --beacon.addr="http://localhost:$RPC_PORT" \
-  --beacon.metrics-addr="http://localhost:$METRICS_PORT/metrics" > /tmp/ethstats.$NODE_NAME.log 2>&1 &
-
-# build and run the beacon node
-make NIMFLAGS="-d:insecure" NODE_ID=$NODE_ID ${NETWORK}
-```
-
-> Tip: don't forget to mark the script as executable by running `chmod +x` on it.
-
-### 4. Create a systemd service unit file
+### 3. Create a systemd service unit file for the Nimbus beacon node service
 
 Create a `systemd` service unit file, `nbc.service`, and save it in `/etc/systemd/system/`.
 
@@ -87,15 +44,20 @@ Create a `systemd` service unit file, `nbc.service`, and save it in `/etc/system
 Description=Nimbus beacon node
 
 [Service]
-ExecStart=<BASE-DIRECTORY>/run_nimbus_node.sh pyrmont
+WorkingDirectory=<BASE-DIRECTORY>
+ExecStart==<BASE-DIRECTORY>/build/nimbus_beacon_node \
+  --non-interactive \
+  --network=pyrmont \
+  --data-dir=build/data/shared_pyrmont_0 \
+  --web3-url=<WEB3-URL> \
+  --rpc:on \
+  --metrics:on
 User=<USERNAME>
 Group=<USERNAME>
 Restart=always
-RuntimeMaxSec=10800
 
 [Install]
 WantedBy=default.target
-
 ```
 
 Replace:
@@ -104,14 +66,45 @@ Replace:
 
 `<USERNAME>` with the username of the system user responsible for running the launched processes.
 
-### 5. Notify systemd of the newly added service
+`<WEB3-URL>` with a WebSocket JSON-RPC URL that you are planning to use.
+
+### 4. Create a systemd service unit file for the Eth2Stats client
+
+Create a `systemd` service unit file, `eth2stata.service`, and save it in `/etc/systemd/system/`.
+
+```txt
+[Unit]
+Description=Eth2Stats Client
+
+[Service]
+ExecStart=<BASE-DIRECTORY>/eth2stats-client run \
+  --data.folder=<BASE-DIRECTORY>/data \
+  --eth2stats.node-name="<NODE-NAME>" \
+  --eth2stats.addr="grpc.pyrmont.eth2.wtf:8080" --eth2stats.tls=false \
+  --beacon.type="nimbus" \
+  --beacon.addr="http://localhost:9190" \
+  --beacon.metrics-addr="http://localhost:8008/metrics"
+User=<USERNAME>
+Group=<USERNAME>
+Restart=always
+
+[Install]
+WantedBy=default.target
+```
+
+Replace:
+
+`<BASE-DIRECTORY>` with the location of the repository in which you performed the `git clone` command in step 1.
+
+`<USERNAME>` with the username of the system user responsible for running the launched processes.
+
+`<NODE-NAME>` with the name of your node that will appear on the `https://pyrmont.eth2.wtf/`` web-site.
+
+### 5. Notify systemd of the newly added services and start them
 
 ```console
 sudo systemctl daemon-reload
-```
-
-### 6. Start the nim beacon chain service
-
-```console
 sudo systemctl enable nbc --now
+sudo systemctl enable eth2stats --now
 ```
+
