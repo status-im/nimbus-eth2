@@ -914,6 +914,8 @@ proc resolveTask(node: Eth2Node, peer: Peer) {.async.} =
       discard peer.info.peerId.extractPublicKey(key)
       keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
 
+  debug "Peer's ENR recovery task started", node_id = $nodeId
+
   # This is "fast-path" for peers which was dialed. In this case discovery
   # already has most recent ENR information about this peer.
   let gnode = node.discovery.getNode(nodeId)
@@ -924,10 +926,10 @@ proc resolveTask(node: Eth2Node, peer: Peer) {.async.} =
       inc(nbc_successful_discoveries)
       let delay = now(chronos.Moment) - startTime
       nbc_resolve_time.observe(delay.toFloatSeconds())
-      debug "Peer's ENR record discovered", delay = $delay
+      debug "Peer's ENR recovered", delay = $delay
     else:
       inc(nbc_failed_discoveries)
-      debug "Discovery resolve returned incorrect ENR record",
+      debug "Discovery returned incorrect ENR",
             error_msg = $res.error
       return
   else:
@@ -957,27 +959,27 @@ proc resolveTask(node: Eth2Node, peer: Peer) {.async.} =
             inc(nbc_successful_discoveries)
             let delay = now(chronos.Moment) - startTime
             nbc_resolve_time.observe(delay.toFloatSeconds())
-            debug "Peer's ENR record discovered", delay = $delay
+            debug "Peer's ENR recovered", delay = $delay
           else:
             inc(nbc_failed_discoveries)
-            debug "Discovery resolve returned incorrect ENR record",
+            debug "Discovery returned incorrect ENR",
                   error_msg = $res.error
         else:
           inc(nbc_failed_discoveries)
-          debug "Discovery resolve operation returns empty answer"
+          debug "Discovery operation returns empty answer"
         return
       else:
         inc(nbc_failed_discoveries)
-        debug "Discovery resolve operation failed with an error",
+        debug "Discovery operation failed with an error",
               error_name = resolveFut.error.name,
-              error_msg = resolveFut.erro.msg
+              error_msg = resolveFut.error.msg
         if not(timeFut.finished()):
           await timeFut.cancelAndWait()
         return
 
     if timeFut.finished():
       inc(nbc_failed_discoveries)
-      debug "Discovery resolve operation exceeds timeout",
+      debug "Discovery operation exceeds timeout",
             timeout = $ResolvePeerTimeout
       if not(resolveFut.finished()):
         await resolveFut.cancelAndWait()
@@ -985,11 +987,10 @@ proc resolveTask(node: Eth2Node, peer: Peer) {.async.} =
 
 proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
   let peer = node.getPeer(peerId)
+  debug "Peer upgraded", peer = $peerId, connections = peer.connections
   case event.kind
   of ConnEventKind.Connected:
     inc peer.connections
-    debug "Peer upgraded", peer = $peerId, connections = peer.connections
-
     if peer.connections == 1:
       # Libp2p may connect multiple times to the same peer - using different
       # transports for both incoming and outgoing. For now, we'll count our
@@ -1060,15 +1061,17 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
           of PeerStatus.Success:
             # Peer was added to PeerPool.
             peer.connectionState = Connected
-            # We spawn task which will obtain ENR address for this peer.
+            # We spawn task which will obtain ENR for this peer.
             asyncSpawn resolveTask(node, peer)
+            debug "Peer connected", peer = $peerId,
+                                    connections = peer.connections
 
   of ConnEventKind.Disconnected:
     dec peer.connections
-    debug "Lost connection to peer", peer = $peerId,
+    debug "Lost connection to peer", peer = peerId,
                                      connections = peer.connections
     if peer.connections == 0:
-      debug "Peer disconnected", peer = $peerId, connections = peer.connections
+      debug "Peer disconnected", peer = peerId, connections = peer.connections
       let fut = peer.disconnectedFut
       if not(fut.finished()):
         fut.complete()
