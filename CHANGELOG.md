@@ -1,3 +1,20 @@
+2020-11-20 v0.6.6
+=================
+
+New additions:
+
+* New RPC APIs for inspecting the internal state of the Eth1 monitor.
+
+We've fixed:
+
+* A fork-choice issue causing Nimbus to get stuck on a particular slot.
+
+* A logic error causing Nimbus to vote for an incorrect Eth1 block.
+
+* A crash during initialization when the web3 provider is refusing
+  to serve data (e.g. due to exceeded request quota).
+
+
 2020-11-17 v0.6.4
 =================
 
