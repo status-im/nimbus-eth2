@@ -15,6 +15,15 @@ One of the most important aspects of the Raspberry Pi experience is trying to ma
 - Reliable Wifi connection
 - Laptop
 - Basic understanding of the [command line](https://www.learnenough.com/command-line-tutorial/basics)
+- 160GB SSD
+
+> ⚠️  You will need an SSD to run the Nimbus (without an SSD drive you have absolutely no chance of syncing the Ethereum blockchain). You have two options:
+>
+> 1. Use an USB portable SSD disk such as the Samsung T5 Portable SSD.
+>
+> 2. Use an USB 3.0 External Hard Drive Case with a SSD Disk. For example, [Ethereum on Arm](https://twitter.com/EthereumOnARM) use an Inateck 2.5 Hard Drive Enclosure FE2011. Make sure to buy a case with an UASP compliant chip, particularly, one of these: JMicron (JMS567 or JMS578) or ASMedia (ASM1153E).
+>
+> In both cases, avoid low quality SSD disks (the SSD is a key component of your node and can drastically affect both the performance and sync time). Keep in mind that you need to plug the disk to an USB 3.0 port (the blue port).
 
 ### 1. Download Raspberry Pi Imager
 
