@@ -373,7 +373,9 @@ suiteReport "chain DAG finalization tests" & preset():
     check:
       dag.heads.len() == 1
 
-    let headER = dag.heads[0].findEpochRef(dag.heads[0].slot.epoch)
+    let
+      headER = dag.heads[0].findEpochRef(dag.heads[0].slot.epoch)
+      finalER = dag.finalizedHead.blck.findEpochRef(dag.finalizedHead.slot.epoch)
     check:
 
       # Epochrefs should share validator key set when the validator set is
@@ -385,10 +387,14 @@ suiteReport "chain DAG finalization tests" & preset():
       headER.validator_key_store[1] ==
         dag.heads[0].findEpochRef(dag.heads[0].slot.epoch - 1).validator_key_store[1]
 
+      # The EpochRef for the finalized block is needed for eth1 voting, so we
+      # should never drop it!
+      not finalER.isNil
+
     block:
       var cur = dag.heads[0]
       while cur != nil:
-        if cur.slot < dag.finalizedHead.blck.slot:
+        if cur.slot < dag.finalizedHead.blck.parent.slot:
           # Cache should be cleaned on finalization
           check: cur.epochRefs.len == 0
         else:

@@ -405,11 +405,9 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async.} =
   ## Perform the proposal for the given slot, iff we have a validator attached
-  ## that is supposed to do so, given the shuffling in head
-
-  # TODO here we advance the state to the new slot, but later we'll be
-  #      proposing for it - basically, we're selecting proposer based on an
-  #      empty slot
+  ## that is supposed to do so, given the shuffling at that slot for the given
+  ## head - to compute the proposer, we need to advance a state to the given
+  ## slot
 
   let proposer = node.chainDag.getProposer(head, slot)
   if proposer.isNone():
