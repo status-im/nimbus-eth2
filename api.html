@@ -251,6 +251,14 @@
 <p>Set the current logging level dynamically: TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL</p>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;setLogLevel&quot;,&quot;params&quot;:[&quot;DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none&quot;] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
+<h3><a class="header" href="#geteth1chain" id="geteth1chain">getEth1Chain</a></h3>
+<p>Get the list of Eth1 blocks that the beacon node is currently storing in memory.</p>
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getEth1Chain&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result'
+</code></pre>
+<h3><a class="header" href="#geteth1proposaldata" id="geteth1proposaldata">getEth1ProposalData</a></h3>
+<p>Inspect the eth1 data that the beacon node would produce if it was tasked to produce a block for the current slot.</p>
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getEth1ProposalData&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result'
+</code></pre>
 <h3><a class="header" href="#getchronosfutures" id="getchronosfutures">getChronosFutures</a></h3>
 <p>Get the current list of live async futures in the process - compile with <code>-d:chronosFutureTracking</code> to enable.</p>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getChronosFutures&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result | (.[0] | keys_unsorted) as $keys | $keys, map([.[ $keys[] ]])[] | @csv'
