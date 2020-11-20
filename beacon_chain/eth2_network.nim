@@ -72,7 +72,7 @@ type
     connTable: HashSet[PeerID]
     forkId: ENRForkID
     rng*: ref BrHmacDrbgContext
-    peers: Table[PeerID, Peer]
+    peers*: Table[PeerID, Peer]
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
@@ -101,7 +101,8 @@ type
     requestQuota*: float
     lastReqTime*: Moment
     connections*: int
-    enr*: Option[enr.TypedRecord]
+    enr*: Option[enr.Record]
+    direction*: PeerType
     disconnectedFut: Future[void]
 
   PeerAddr* = object
@@ -905,6 +906,13 @@ proc getPersistentNetMetadata*(conf: BeaconNodeConf): Eth2Metadata =
     result = Json.loadFile(metadataPath, Eth2Metadata)
 
 proc resolveTask(node: Eth2Node, peer: Peer) {.async.} =
+  # Resolve task which performs searching of peer's public key and recovery of
+  # ENR using discovery5.
+  # This process could be stopped if one of the conditions is met:
+  # 1. ENR was successfully recovered.
+  # 2. Discovery5 failed to recover ENR.
+  # 3. Timeout ``ResolvePeerTimeout`` has exceeded .
+  # 4. Connection with the peer is lost.
   logScope: peer = peer.info.peerId
   let startTime = now(chronos.Moment)
   let nodeId =
@@ -920,18 +928,11 @@ proc resolveTask(node: Eth2Node, peer: Peer) {.async.} =
   # already has most recent ENR information about this peer.
   let gnode = node.discovery.getNode(nodeId)
   if gnode.isSome():
-    let res = gnode.get().record.toTypedRecord()
-    if res.isOk():
-      peer.enr = some(res.get())
-      inc(nbc_successful_discoveries)
-      let delay = now(chronos.Moment) - startTime
-      nbc_resolve_time.observe(delay.toFloatSeconds())
-      debug "Peer's ENR recovered", delay = $delay
-    else:
-      inc(nbc_failed_discoveries)
-      debug "Discovery returned incorrect ENR",
-            error_msg = $res.error
-      return
+    peer.enr = some(gnode.get().record)
+    inc(nbc_successful_discoveries)
+    let delay = now(chronos.Moment) - startTime
+    nbc_resolve_time.observe(delay.toFloatSeconds())
+    debug "Peer's ENR recovered", delay = $delay
   else:
     let resolveFut = node.discovery.resolve(nodeId)
     let timeFut = sleepAsync(ResolvePeerTimeout)
@@ -953,17 +954,11 @@ proc resolveTask(node: Eth2Node, peer: Peer) {.async.} =
       if resolveFut.done():
         let rnode = resolveFut.read()
         if rnode.isSome():
-          let res = rnode.get().record.toTypedRecord()
-          if res.isOk():
-            peer.enr = some(res.get())
-            inc(nbc_successful_discoveries)
-            let delay = now(chronos.Moment) - startTime
-            nbc_resolve_time.observe(delay.toFloatSeconds())
-            debug "Peer's ENR recovered", delay = $delay
-          else:
-            inc(nbc_failed_discoveries)
-            debug "Discovery returned incorrect ENR",
-                  error_msg = $res.error
+          peer.enr = some(rnode.get().record)
+          inc(nbc_successful_discoveries)
+          let delay = now(chronos.Moment) - startTime
+          nbc_resolve_time.observe(delay.toFloatSeconds())
+          debug "Peer's ENR recovered", delay = $delay
         else:
           inc(nbc_failed_discoveries)
           debug "Discovery operation returns empty answer"
@@ -1012,7 +1007,7 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
         await peer.disconnect(FaultOrError)
         return
       of None, Disconnected:
-        # We got connection with new peer or peer which was already seen.
+        # We got connection with new peer or with peer which was already seen.
         discard
       of Connecting, Connected:
         # This means that we got notification event from peer which we already
@@ -1061,6 +1056,10 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
           of PeerStatus.Success:
             # Peer was added to PeerPool.
             peer.connectionState = Connected
+            if event.incoming:
+              peer.direction = PeerType.Incoming
+            else:
+              peer.direction = PeerType.Outgoing
             # We spawn task which will obtain ENR for this peer.
             asyncSpawn resolveTask(node, peer)
             debug "Peer connected", peer = $peerId,
