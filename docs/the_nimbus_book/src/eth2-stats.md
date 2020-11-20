@@ -32,7 +32,9 @@ cd eth2stats-client
 make build
 ```
 
-### 4. Add your node to eth2stats.io
+### 4. Add your node
+
+Go to [https://pyrmont.eth2.wtf/](https://pyrmont.eth2.wtf/)
 
 
 #### 1. Click on add node
