@@ -416,31 +416,34 @@ proc init*(T: type Eth1Monitor,
   var web3Url = web3Url
   fixupWeb3Urls web3Url
 
-  let dataProviderRes = await Web3DataProvider.new(depositContractAddress, web3Url)
-  if dataProviderRes.isErr:
-    return err(dataProviderRes.error)
+  try:
+    let dataProviderRes = await Web3DataProvider.new(depositContractAddress, web3Url)
+    if dataProviderRes.isErr:
+      return err(dataProviderRes.error)
 
-  let
-    dataProvider = dataProviderRes.get
-    web3 = dataProvider.web3
-
-  if eth1Network.isSome:
     let
-      providerNetwork = await web3.provider.net_version()
-      expectedNetwork = case eth1Network.get
-        of mainnet: "1"
-        of rinkeby: "4"
-        of goerli:  "5"
-    if expectedNetwork != providerNetwork:
-      return err("The specified web3 provider is not attached to the " &
-                  $eth1Network.get & " network")
+      dataProvider = dataProviderRes.get
+      web3 = dataProvider.web3
 
-  return ok T(
-    db: db,
-    preset: preset,
-    depositContractDeployedAt: depositContractDeployedAt,
-    dataProvider: dataProvider,
-    eth1Progress: newAsyncEvent())
+    if eth1Network.isSome:
+      let
+        providerNetwork = await web3.provider.net_version()
+        expectedNetwork = case eth1Network.get
+          of mainnet: "1"
+          of rinkeby: "4"
+          of goerli:  "5"
+      if expectedNetwork != providerNetwork:
+        return err("The specified web3 provider is not attached to the " &
+                    $eth1Network.get & " network")
+
+    return ok T(
+      db: db,
+      preset: preset,
+      depositContractDeployedAt: depositContractDeployedAt,
+      dataProvider: dataProvider,
+      eth1Progress: newAsyncEvent())
+  except CatchableError as err:
+    return err("Failed to initialize the Eth1 monitor")
 
 proc allDepositsUpTo(m: Eth1Monitor, totalDeposits: uint64): seq[DepositData] =
   for i in 0'u64 ..< totalDeposits:
