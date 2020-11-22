@@ -26,10 +26,7 @@ import
   peer_pool, spec/[datatypes, digest, helpers, network], ./time,
   keystore_management
 
-when defined(nbc_gossipsub_10):
-  import libp2p/protocols/pubsub/gossipsub10
-else:
-  import libp2p/protocols/pubsub/gossipsub
+import libp2p/protocols/pubsub/gossipsub
 
 when chronicles.enabledLogLevel == LogLevel.TRACE:
   import std/sequtils
@@ -1395,11 +1392,11 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
                                  ],
                                  rng = rng)
 
-  let 
+  let
     params = 
       block:
         var p = GossipSubParams.init()
-        # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/phase0/p2p-interface.md#the-gossip-domain-gossipsub
+        # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#the-gossip-domain-gossipsub
         p.d = 8
         p.dLow = 6
         p.dHigh = 12
