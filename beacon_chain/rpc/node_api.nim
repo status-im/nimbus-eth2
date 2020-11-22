@@ -134,7 +134,7 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       if (item.connectionState in states) and (item.direction in dirs):
         let address =
           if len(item.info.addrs) > 0:
-            $item.info.addrs[0]
+            $item.info.addrs[len(item.info.addres) - 1]
           else:
             ""
         let rpeer = RpcPeer(
