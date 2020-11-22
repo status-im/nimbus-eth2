@@ -335,6 +335,10 @@ proc getPeer*(node: Eth2Node, peerId: PeerID): Peer =
     let peer = Peer.init(node, PeerInfo.init(peerId))
     return node.peers.mGetOrPut(peerId, peer)
 
+proc resetPeer*(node: Eth2Node, peerId: PeerID) =
+  let peer = Peer.init(node, PeerInfo.init(peerId))
+  node.peers[peerId] = peer
+
 proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
   result = network.getPeer(conn.peerInfo.peerId)
   result.info = conn.peerInfo
@@ -657,20 +661,20 @@ proc handleIncomingStream(network: Eth2Node,
   let peer = peerFromStream(network, conn)
   try:
     case peer.connectionState
-    of Disconnecting, Disconnected:
+    of Disconnecting, Disconnected, None:
       # We got incoming stream request while disconnected or disconnecting.
-      warn "Got incoming request from disconnected peer", peer = peer
+      warn "Got incoming request from disconnected peer", peer = peer,
+           message = msgName
       await conn.closeWithEOF()
       return
-    of Connecting, None:
-      # We got incoming stream request while handshake is not yet finished.
-      warn "Got incoming request from peer, which is not passed handshake yet",
-           peer = peer
-      await conn.closeWithEOF()
-      return
+    of Connecting:
+      # We got incoming stream request while handshake is not yet finished,
+      # TODO: We could check it here.
+      debug "Got incoming request from peer while in handshake", peer = peer,
+            msgName
     of Connected:
       # We got incoming stream from peer with proper connection state.
-      discard
+      debug "Got incoming request from peer", peer = peer, msgName
 
     template returnInvalidRequest(msg: ErrorMsg) =
       peer.updateScore(PeerScoreInvalidRequest)
@@ -905,7 +909,7 @@ proc getPersistentNetMetadata*(conf: BeaconNodeConf): Eth2Metadata =
   else:
     result = Json.loadFile(metadataPath, Eth2Metadata)
 
-proc resolveTask(node: Eth2Node, peer: Peer) {.async.} =
+proc resolvePeer(peer: Peer) {.async.} =
   # Resolve task which performs searching of peer's public key and recovery of
   # ENR using discovery5.
   # This process could be stopped if one of the conditions is met:
@@ -926,7 +930,7 @@ proc resolveTask(node: Eth2Node, peer: Peer) {.async.} =
 
   # This is "fast-path" for peers which was dialed. In this case discovery
   # already has most recent ENR information about this peer.
-  let gnode = node.discovery.getNode(nodeId)
+  let gnode = peer.network.discovery.getNode(nodeId)
   if gnode.isSome():
     peer.enr = some(gnode.get().record)
     inc(nbc_successful_discoveries)
@@ -934,7 +938,7 @@ proc resolveTask(node: Eth2Node, peer: Peer) {.async.} =
     nbc_resolve_time.observe(delay.toFloatSeconds())
     debug "Peer's ENR recovered", delay = $delay
   else:
-    let resolveFut = node.discovery.resolve(nodeId)
+    let resolveFut = peer.network.discovery.resolve(nodeId)
     let timeFut = sleepAsync(ResolvePeerTimeout)
 
     discard await race(peer.disconnectedFut, resolveFut, timeFut)
@@ -980,6 +984,37 @@ proc resolveTask(node: Eth2Node, peer: Peer) {.async.} =
         await resolveFut.cancelAndWait()
       return
 
+proc handlePeer*(peer: Peer) {.async.} =
+  let res = peer.network.peerPool.addPeerNoWait(peer, peer.direction)
+  case res:
+  of PeerStatus.LowScoreError, PeerStatus.NoSpaceError:
+    # Peer has low score or we do not have enough space in PeerPool,
+    # we are going to disconnect it gracefully.
+    # Peer' state will be updated in connection event.
+    debug "Peer has low score or there no space in PeerPool",
+          peer = peer, reason = res
+    await peer.disconnect(FaultOrError)
+  of PeerStatus.DeadPeerError:
+    # Peer's lifetime future is finished, so its already dead,
+    # we do not need to perform gracefull disconect.
+    # Peer's state will be updated in connection event.
+    discard
+  of PeerStatus.DuplicateError:
+    # Peer is already present in PeerPool, we can't perform disconnect,
+    # because in such case we could kill both connections (connection
+    # which is present in PeerPool and new one).
+    # This is possible bug, because we could enter here only if number
+    # of `peer.connections == 1`, it means that Peer's lifetime is not
+    # tracked properly and we still not received `Disconnected` event.
+    warn "Peer is already present in PeerPool", peer = peer
+  of PeerStatus.Success:
+    # Peer was added to PeerPool.
+    peer.connectionState = Connected
+    # We spawn task which will obtain ENR for this peer.
+    asyncSpawn resolvePeer(peer)
+    debug "Peer successfully connected", peer = peer,
+                                         connections = peer.connections
+
 proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
   let peer = node.getPeer(peerId)
   debug "Peer upgraded", peer = $peerId, connections = peer.connections
@@ -996,81 +1031,48 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
       # * For peer limits, we might miscount the incoming vs outgoing quota
       # * Protocol handshakes are wonky: we'll not necessarily use the newly
       #   connected transport - instead we'll just pick a random one!
-
       case peer.connectionState
       of Disconnecting:
         # We got connection with peer which we currently disconnecting. This
         # situation should not be happened, because when we disconnecting
         # we adding peer to `SeenTable`.
         warn "Got connection attempt from peer that we are disconnecting",
-             peer = $peerId
-        await peer.disconnect(FaultOrError)
+             peer = peerId
         return
-      of None, Disconnected:
-        # We got connection with new peer or with peer which was already seen.
-        discard
+      of None:
+        # We have established a connection with the new peer.
+        peer.connectionState = Connecting
+      of Disconnected:
+        # We have established a connection with the peer that we have seen
+        # before, so we perform reset peer in node.peers table.
+        node.resetPeer(peerId)
+        peer.connectionState = Connecting
       of Connecting, Connected:
         # This means that we got notification event from peer which we already
         # connected or connecting right now. If this situation will happened,
         # it means bug on `nim-libp2p` side.
         warn "Got connection attempt from peer which we already connected",
-             peer = $peerId
+             peer = peerId
         await peer.disconnect(FaultOrError)
         return
 
-      peer.connectionState = Connecting
-      await performProtocolHandshakes(peer, event.incoming)
+      # Store connection direction inside Peer object.
+      if event.incoming:
+        peer.direction = PeerType.Incoming
+      else:
+        peer.direction = PeerType.Outgoing
 
-      # While performing the handshake, the peer might have been disconnected -
-      # there's still a slim chance of a race condition here if a reconnect
-      # happens quickly
-      if peer.connectionState == Connecting:
-        if peer.connections == 1:
-          let res =
-            if event.incoming:
-              node.peerPool.addPeerNoWait(peer, PeerType.Incoming)
-            else:
-              node.peerPool.addPeerNoWait(peer, PeerType.Outgoing)
-
-          case res:
-          of PeerStatus.LowScoreError, PeerStatus.NoSpaceError:
-            # Peer has low score or we do not have enough space in PeerPool,
-            # we are going to disconnect it gracefully.
-            # Peer' state will be updated in connection event.
-            debug "Peer has low score or there no space in PeerPool",
-                  peer = $peerId, reason = res
-            await peer.disconnect(FaultOrError)
-          of PeerStatus.DeadPeerError:
-            # Peer's lifetime future is finished, so its already dead,
-            # we do not need to perform gracefull disconect.
-            # Peer's state will be updated in connection event.
-            discard
-          of PeerStatus.DuplicateError:
-            # Peer is already present in PeerPool, we can't perform disconnect,
-            # because in such case we could kill both connections (connection
-            # which is present in PeerPool and new one).
-            # This is possible bug, because we could enter here only if number
-            # of `peer.connections == 1`, it means that Peer's lifetime is not
-            # tracked properly and we still not received `Disconnected` event.
-            warn "Peer is already present in PeerPool", peer = $peerId
-          of PeerStatus.Success:
-            # Peer was added to PeerPool.
-            peer.connectionState = Connected
-            if event.incoming:
-              peer.direction = PeerType.Incoming
-            else:
-              peer.direction = PeerType.Outgoing
-            # We spawn task which will obtain ENR for this peer.
-            asyncSpawn resolveTask(node, peer)
-            debug "Peer connected", peer = $peerId,
-                                    connections = peer.connections
+      if peer.direction == PeerType.Outgoing:
+        # We only perform handshake with outgoing peers, incoming peers should
+        # start handshake first, so it will be handled in handleIncomingStream.
+        await performProtocolHandshakes(peer, event.incoming)
 
   of ConnEventKind.Disconnected:
     dec peer.connections
     debug "Lost connection to peer", peer = peerId,
                                      connections = peer.connections
     if peer.connections == 0:
-      debug "Peer disconnected", peer = peerId, connections = peer.connections
+      debug "Peer disconnected", peer = $peerId, connections = peer.connections
       let fut = peer.disconnectedFut
       if not(fut.finished()):
         fut.complete()
