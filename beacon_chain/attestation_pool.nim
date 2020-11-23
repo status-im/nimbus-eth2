@@ -307,16 +307,6 @@ func populateAttestationCache(pool: var AttestationPool, state: BeaconState) =
   for pendingAttestation in state.current_epoch_attestations:
     pool.incorporateCacheAttestation(pendingAttestation)
 
-func removeOldCacheAttestations(pool: var AttestationPool, stateSlot: Slot) =
-  var keysForRemoval: seq[AttestationDataKey]
-  for key in pool.attestedValidators.keys():
-    if stateSlot > key[0] and
-        stateSlot - key[0] >= ATTESTATION_PROPAGATION_SLOT_RANGE:
-      keysForRemoval.add key
-
-  for key in keysForRemoval:
-    pool.attestedValidators.del key
-
 func updateAttestationsCache(pool: var AttestationPool,
                              state: BeaconState) =
   # There have likely been additional attestations integrated into BeaconState
@@ -334,11 +324,8 @@ func updateAttestationsCache(pool: var AttestationPool,
             state.current_epoch_attestations[pool.lastCurrentEpochAttestationsLen - 1]))
      ):
     # There are multiple validators attached to this node proposing in the
-    # same epoch. As such, incorporate the new attestations and remove now
-    # invalid attestations. Previous and current attestations lists might,
-    # both separately, have been appended to.
-    pool.removeOldCacheAttestations(state.slot)
-
+    # same epoch. As such, incorporate that new attestation. Both previous
+    # and current attestations lists might have been appended to.
     for i in pool.lastPreviousEpochAttestationsLen ..<
         state.previous_epoch_attestations.len:
       pool.incorporateCacheAttestation(state.previous_epoch_attestations[i])
@@ -346,7 +333,8 @@ func updateAttestationsCache(pool: var AttestationPool,
         state.current_epoch_attestations.len:
       pool.incorporateCacheAttestation(state.current_epoch_attestations[i])
   else:
-    # Tree restructuring or other cache flushing event.
+    # Tree restructuring or other cache flushing event. This must trigger
+    # sometimes to clear old attestations.
     pool.populateAttestationCache(state)
 
   pool.lastPreviousEpochAttestationsLen = state.previous_epoch_attestations.len
