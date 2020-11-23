@@ -2,10 +2,11 @@ import std/options,
   chronicles,
   json_rpc/[rpcserver, jsonmarshal],
   eth/p2p/discoveryv5/enr,
-  ../beacon_node_common, ../eth2_network,
+  nimcrypto/utils as ncrutils,
+  ../beacon_node_common, ../eth2_network, ../sync_manager,
   ../peer_pool, ../version,
   ../spec/[datatypes, digest, presets],
-  ../spec/eth2_apis/callsigs_types
+  ../spec/eth2_apis/callsigs_types,
 
 logScope: topics = "nodeapi"
 
@@ -22,6 +23,12 @@ type
     last_seen_p2p_address*: string
     state*: string
     direction*: string
+
+  RpcPeerCount* = object
+    disconnected*: int
+    connecting*: int
+    connected*: int
+    disconnecting*: int
 
 proc validatePeerState(state: Option[seq[string]]): Option[set[ConnectionState]] =
   var res: set[ConnectionState]
@@ -108,6 +115,15 @@ proc toString(direction: PeerType): string =
   of PeerType.Outgoing:
     "outbound"
 
+proc getLastSeenAddress(info: PeerInfo): string =
+  # TODO (cheatfate): We need to provide filter here, which will be able to
+  # filter such multiaddresses like `/ip4/0.0.0.0` or local addresses or
+  # addresses with peer ids.
+  if len(info.addrs) > 0:
+    $info.addrs[len(info.addrs) - 1]
+  else:
+    ""
+
 proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("get_v1_node_identity") do () -> NodeIdentityTuple:
     return (
@@ -116,7 +132,8 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       # TODO rest of fields
       p2p_addresses: newSeq[MultiAddress](0),
       discovery_addresses: newSeq[MultiAddress](0),
-      metadata: (0'u64, "")
+      metadata: (node.metadata.seq_number,
+                 "0x" & ncrutils.toHex(node.metadata.attnets.bytes))
     )
 
   rpcServer.rpc("get_v1_node_peers") do (state: Option[seq[string]],
@@ -132,31 +149,65 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     let dirs = rdirs.get()
     for item in node.network.peers.values():
       if (item.connectionState in states) and (item.direction in dirs):
-        let address =
-          if len(item.info.addrs) > 0:
-            $item.info.addrs[len(item.info.addrs) - 1]
-          else:
-            ""
         let rpeer = RpcPeer(
           peer_id: $item.info.peerId,
           enr: if item.enr.isSome(): item.enr.get().toUri() else: "",
-          last_seen_p2p_address: address,
+          last_seen_p2p_address: item.info.getLastSeenAddress(),
           state: item.connectionState.toString(),
-          direction: item.direction.toString()
+          direction: item.direction.toString(),
+          agent: item.info.agentVersion # Fields `agent` and `proto` are not
+          proto: item.info.protoVersion # part of specification.
         )
         res.add(rpeer)
     return res
 
-  rpcServer.rpc("get_v1_node_peers_peerId") do () -> JsonNode:
-    unimplemented()
+  rpcServer.rpc("get_v1_node_peer_count") do () -> RpcPeerCount:
+    var res: RpcPeerCount
+    for item in node.network.peers.values():
+      case item.connectionState
+      of Connecting:
+        inc(res.connecting)
+      of Connected:
+        inc(res.connected)
+      of Disconnecting:
+        inc(res.disconnecting)
+      of Disconnected:
+        inc(res.disconnected)
+      of None:
+        discard
+    return res
+
+  rpcServer.rpc("get_v1_node_peers_peerId") do (peer_id: string) -> RpcPeer:
+    let pres = PeerID.init(peer_id)
+    if pres.isErr():
+      raise newException(CatchableError,
+                         "The peer ID supplied could not be parsed")
+    let pid = pres.get()
+    let peer = node.network.peers.getOrDefault(pid)
+    if isNil(peer):
+      raise newException(CatchableError, "Peer not found")
+
+    return RpcPeer(
+      peer_id: $peer.info.peerId,
+      enr: if peer.enr.isSome(): peer.enr.get().toUri() else: "",
+      last_seen_p2p_address: peer.info.getLastSeenAddress(),
+      state: peer.connectionState.toString(),
+      direction: peer.direction.toString(),
+      agent: peer.info.agentVersion, # Fields `agent` and `proto` are not part
+      proto: peer.info.protoVersion  # of specification
+    )
 
   rpcServer.rpc("get_v1_node_version") do () -> JsonNode:
-    return %{
-      "version": "Nimbus/" & fullVersionStr
-    }
+    return %{"version": "Nimbus/" & fullVersionStr}
 
-  rpcServer.rpc("get_v1_node_syncing") do () -> JsonNode:
-    unimplemented()
+  rpcServer.rpc("get_v1_node_syncing") do () -> SyncInfo:
+    return node.syncManager.getInfo()
 
   rpcServer.rpc("get_v1_node_health") do () -> JsonNode:
-    unimplemented()
+    # TODO: There currently no way to situation when we node has issues, so
+    # its impossible to return HTTP ERROR 503 according to specification.
+    if node.syncManager.inProgress:
+      # We need to return HTTP ERROR 206 according to specification
+      return %{"health": 206}
+    else:
+      return %{"health": 200}

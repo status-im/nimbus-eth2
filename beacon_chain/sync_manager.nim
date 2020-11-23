@@ -129,6 +129,10 @@ type
     peer*: T
     stamp*: chronos.Moment
 
+  SyncInfo* = object
+    head_slot*: Slot
+    sync_distance*: int64
+
   SyncManagerError* = object of CatchableError
   BeaconBlocksRes* = NetRes[seq[SignedBeaconBlock]]
 
@@ -1177,3 +1181,9 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
 proc start*[A, B](man: SyncManager[A, B]) =
   ## Starts SyncManager's main loop.
   man.syncFut = man.syncLoop()
+
+proc getInfo*[A, B](man: SyncManager[A, B]): SyncInfo =
+  ## Returns current synchronization information for RPC call.
+  let wallSlot = man.getLocalWallSlot()
+  let headSlot = man.getLocalHeadSlot()
+  SyncInfo(head_slot: headSlot, sync_distance: int64(wallSlot - headSlot))
