@@ -133,7 +133,7 @@ proc updateCurrent(pool: var AttestationPool, wallSlot: Slot) =
   for k in keysToRemove:
     pool.attestationAggregates.del k
 
-proc addToAggregates(pool: var AttestationPool, attestation: Attestation) =
+func addToAggregates(pool: var AttestationPool, attestation: Attestation) =
   # do a lookup for the current slot and get it's associated htrs/attestations
   var aggreated_attestation = pool.attestationAggregates.mgetOrPut(
     attestation.data.slot, Table[Eth2Digest, Attestation]()).
@@ -217,7 +217,8 @@ proc addAttestation*(pool: var AttestationPool,
   if not found:
     attestationsSeen.attestations.add(AttestationEntry(
       data: attestation.data,
-      validations: @[validation]
+      validations: @[validation],
+      aggregation_bits: attestation.aggregation_bits
     ))
     pool.addForkChoiceVotes(
       attestation.data.slot, participants, attestation.data.beacon_block_root,
@@ -243,7 +244,7 @@ proc addForkChoice*(pool: var AttestationPool,
     error "Couldn't add block to fork choice, bug?",
       blck = shortLog(blck), err = state.error
 
-proc getAttestationsForSlot*(pool: AttestationPool, newBlockSlot: Slot):
+proc getAttestationsForSlot(pool: AttestationPool, newBlockSlot: Slot):
     Option[AttestationsSeen] =
   if newBlockSlot < (GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY):
     debug "Too early for attestations", newBlockSlot = shortLog(newBlockSlot)
@@ -283,7 +284,81 @@ iterator attestations*(pool: AttestationPool, slot: Option[Slot],
             signature: validation.aggregate_signature
           )
 
-proc getAttestationsForBlock*(pool: AttestationPool,
+func getAttestationDataKey(ad: AttestationData): AttestationDataKey =
+  # This determines the rest of the AttestationData
+  (ad.slot, ad.index, ad.source.epoch, ad.target.epoch)
+
+func incorporateCacheAttestation(
+    pool: var AttestationPool, attestation: PendingAttestation) =
+  let key = attestation.data.getAttestationDataKey
+  try:
+    var validatorBits = pool.attestedValidators[key]
+    validatorBits.combine(attestation.aggregation_bits)
+    pool.attestedValidators[key] = validatorBits
+  except KeyError:
+    pool.attestedValidators[key] = attestation.aggregation_bits
+
+func populateAttestationCache(pool: var AttestationPool, state: BeaconState) =
+  pool.attestedValidators.clear()
+
+  for pendingAttestation in state.previous_epoch_attestations:
+    pool.incorporateCacheAttestation(pendingAttestation)
+
+  for pendingAttestation in state.current_epoch_attestations:
+    pool.incorporateCacheAttestation(pendingAttestation)
+
+func removeOldCacheAttestations(pool: var AttestationPool, stateSlot: Slot) =
+  var keysForRemoval: seq[AttestationDataKey]
+  for key in pool.attestedValidators.keys():
+    if stateSlot > key[0] and
+        stateSlot - key[0] >= ATTESTATION_PROPAGATION_SLOT_RANGE:
+      keysForRemoval.add key
+
+  for key in keysForRemoval:
+    pool.attestedValidators.del key
+
+func updateAttestationsCache(pool: var AttestationPool,
+                             state: BeaconState) =
+  # There have likely been additional attestations integrated into BeaconState
+  # since last block production, an epoch change, or even a tree restructuring
+  # so that there's nothing in common in the BeaconState altogether, since the
+  # last time requested.
+  if (
+      (pool.lastPreviousEpochAttestationsLen == 0 or
+        (pool.lastPreviousEpochAttestationsLen <= state.previous_epoch_attestations.len and
+          pool.lastPreviousEpochAttestation ==
+            state.previous_epoch_attestations[pool.lastPreviousEpochAttestationsLen - 1])) and
+      (pool.lastCurrentEpochAttestationsLen == 0 or
+        (pool.lastCurrentEpochAttestationsLen <= state.current_epoch_attestations.len and
+          pool.lastCurrentEpochAttestation ==
+            state.current_epoch_attestations[pool.lastCurrentEpochAttestationsLen - 1]))
+     ):
+    # There are multiple validators attached to this node proposing in the
+    # same epoch. As such, incorporate the new attestations and remove now
+    # invalid attestations. Previous and current attestations lists might,
+    # both separately, have been appended to.
+    pool.removeOldCacheAttestations(state.slot)
+
+    for i in pool.lastPreviousEpochAttestationsLen ..<
+        state.previous_epoch_attestations.len:
+      pool.incorporateCacheAttestation(state.previous_epoch_attestations[i])
+    for i in pool.lastCurrentEpochAttestationsLen ..<
+        state.current_epoch_attestations.len:
+      pool.incorporateCacheAttestation(state.current_epoch_attestations[i])
+  else:
+    # Tree restructuring or other cache flushing event.
+    pool.populateAttestationCache(state)
+
+  pool.lastPreviousEpochAttestationsLen = state.previous_epoch_attestations.len
+  pool.lastCurrentEpochAttestationsLen = state.current_epoch_attestations.len
+  if pool.lastPreviousEpochAttestationsLen > 0:
+    pool.lastPreviousEpochAttestation =
+      state.previous_epoch_attestations[pool.lastPreviousEpochAttestationsLen - 1]
+  if pool.lastCurrentEpochAttestationsLen > 0:
+    pool.lastCurrentEpochAttestation =
+      state.current_epoch_attestations[pool.lastCurrentEpochAttestationsLen - 1]
+
+proc getAttestationsForBlock*(pool: var AttestationPool,
                               state: BeaconState,
                               cache: var StateCache): seq[Attestation] =
   ## Retrieve attestations that may be added to a new block at the slot of the
@@ -291,15 +366,10 @@ proc getAttestationsForBlock*(pool: AttestationPool,
   let newBlockSlot = state.slot
   var attestations: seq[AttestationEntry]
 
-  # This potentially creates problems with lots of repeated attestations,
-  # as a bunch of synchronized beacon_nodes do almost the opposite of the
-  # intended thing -- sure, _blocks_ have to be popular (via attestation)
-  # but _attestations_ shouldn't have to be so frequently repeated, as an
-  # artifact of this state-free, identical-across-clones choice basis. In
-  # addAttestation, too, the new attestations get added to the end, while in
-  # these functions, it's reading from the beginning, et cetera. This all
-  # needs a single unified strategy.
-  for i in max(1, newBlockSlot.int64 - ATTESTATION_LOOKBACK.int64) .. newBlockSlot.int64:
+  pool.updateAttestationsCache(state)
+
+  for i in max(1, newBlockSlot.int64 - ATTESTATION_LOOKBACK.int64) ..
+      newBlockSlot.int64:
     let maybeSlotData = getAttestationsForSlot(pool, i.Slot)
     if maybeSlotData.isSome:
       insert(attestations, maybeSlotData.get.attestations)
@@ -336,6 +406,21 @@ proc getAttestationsForBlock*(pool: AttestationPool,
         attestation.aggregation_bits.combine(a.validations[i].aggregation_bits)
         agg.aggregate(a.validations[i].aggregate_signature)
 
+    # TODO combining is the expensive thing here. Split loops for early exits
+    # and put attestation.aggregation_bits.combine(a.validations[i].aggregation_bits)
+    # part of loop before check_attestation()
+
+    # Since each validator attests exactly once per epoch and its attestation
+    # has been validated to have been included in the attestation pool, there
+    # only exists one possible slot/committee combination to check.
+    try:
+      if a.aggregation_bits.isSubsetOf(
+          pool.attestedValidators[a.data.getAttestationDataKey]):
+        continue
+    except KeyError:
+      # No record of inclusion, so go ahead and include attestation.
+      discard
+
     attestation.signature = agg.finish()
     result.add(attestation)
 
@@ -344,7 +429,7 @@ proc getAttestationsForBlock*(pool: AttestationPool,
         attestationSlot = newBlockSlot - 1
       return
 
-proc getAggregatedAttestation*(pool: AttestationPool,
+func getAggregatedAttestation*(pool: AttestationPool,
                                slot: Slot,
                                ad_htr: Eth2Digest): Option[Attestation] =
   try:
@@ -353,7 +438,7 @@ proc getAggregatedAttestation*(pool: AttestationPool,
       return some pool.attestationAggregates[slot][ad_htr]
   except KeyError:
     doAssert(false) # shouldn't be possible because we check with `contains`
-  return none(Attestation)
+  none(Attestation)
 
 proc getAggregatedAttestation*(pool: AttestationPool,
                                slot: Slot,

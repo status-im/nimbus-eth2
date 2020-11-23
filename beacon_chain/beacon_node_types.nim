@@ -36,6 +36,7 @@ type
     ## Each entry holds the known signatures for a particular, distinct vote
     data*: AttestationData
     blck*: BlockRef
+    aggregation_bits*: CommitteeValidatorsBits
     validations*: seq[Validation]
 
   AttestationsSeen* = object
@@ -46,6 +47,9 @@ type
     ## count how popular each world view is (fork choice)
     ## TODO this could be a Table[AttestationData, seq[Validation] or something
     ##      less naive
+
+  # These provide types for attestation pool's cache attestations.
+  AttestationDataKey* = (Slot, uint64, Epoch, Epoch)
 
   AttestationPool* = object
     ## The attestation pool keeps track of all attestations that potentially
@@ -72,6 +76,21 @@ type
     forkChoice*: ForkChoice
 
     lastVotedEpoch*: seq[Option[Epoch]] # Sequence based on validator indices
+
+    attestedValidators*:
+      Table[AttestationDataKey, CommitteeValidatorsBits] ## \
+    ## Cache for quick lookup during beacon block construction of attestations
+    ## which have already been included, and therefore should be skipped. This
+    ## isn't that useful for a couple validators per node, but pays off when a
+    ## larger number of local validators is attached.
+
+    lastPreviousEpochAttestationsLen*: int
+    lastCurrentEpochAttestationsLen*: int ## \
+    lastPreviousEpochAttestation*: PendingAttestation
+    lastCurrentEpochAttestation*: PendingAttestation
+    ## Used to detect and incorporate new attestations since the last block
+    ## created. Defaults are fine as initial values and don't need explicit
+    ## initialization.
 
   ExitPool* = object
     ## The exit pool tracks attester slashings, proposer slashings, and
