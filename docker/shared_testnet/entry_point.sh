@@ -17,7 +17,7 @@ OPTS="h"
 LONGOPTS="help,network:,build,run"
 
 # default values
-NETWORK="medalla"
+NETWORK="pyrmont"
 BUILD=0
 RUN=0
 
