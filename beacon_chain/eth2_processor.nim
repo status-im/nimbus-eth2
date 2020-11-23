@@ -117,7 +117,7 @@ proc fail*(blk: SyncBlock, error: BlockError) =
   if blk.resfut != nil:
     blk.resfut.complete(Result[void, BlockError].err(error))
 
-proc complete*(blk: SyncBlock, res: Result[void, BlockError]) {.inline.} =
+proc complete*(blk: SyncBlock, res: Result[void, BlockError]) =
   ## Send signal to [Sync/Request]Manager about result ``res`` of block ``blk``
   ## verification.
   if blk.resfut != nil:

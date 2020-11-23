@@ -48,11 +48,8 @@ export
 # Eventually, we could also differentiate between user/tainted data and
 # internal state that's gone through sanity checks already.
 
-when ETH2_SPEC == "v0.12.3":
-  const SPEC_VERSION* = "0.12.3"
-else:
-  const SPEC_VERSION* = "1.0.0"
-  ## Spec version we're aiming to be compatible with, right now
+const SPEC_VERSION* = "1.0.0"
+## Spec version we're aiming to be compatible with, right now
 
 const
   GENESIS_SLOT* = Slot(0)
@@ -670,6 +667,8 @@ func shortLog*(v: SomeBeaconBlock): auto =
     proposer_index: v.proposer_index,
     parent_root: shortLog(v.parent_root),
     state_root: shortLog(v.state_root),
+    eth1data: v.body.eth1_data,
+    graffiti: $v.body.graffiti,
     proposer_slashings_len: v.body.proposer_slashings.len(),
     attester_slashings_len: v.body.attester_slashings.len(),
     attestations_len: v.body.attestations.len(),

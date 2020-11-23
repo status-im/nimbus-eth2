@@ -110,13 +110,13 @@ proc mockAttestationImpl(
 
 proc mockAttestation*(
        state: BeaconState,
-       flags: UpdateFlags = {}): Attestation {.inline.}=
+       flags: UpdateFlags = {}): Attestation =
   mockAttestationImpl(state, state.slot, flags)
 
 proc mockAttestation*(
        state: BeaconState,
        slot: Slot,
-       flags: UpdateFlags = {}): Attestation {.inline.}=
+       flags: UpdateFlags = {}): Attestation =
   mockAttestationImpl(state, slot, flags)
 
 func fillAggregateAttestation*(state: BeaconState, attestation: var Attestation) =

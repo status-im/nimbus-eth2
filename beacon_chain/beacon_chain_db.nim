@@ -5,6 +5,7 @@ import
   stew/[results, objects, endians2, io2],
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
+  ./network_metadata,
   ./spec/[datatypes, digest, crypto, state_transition, signatures],
   ./ssz/[ssz_serialization, merkleization],
   merkle_minimal, filepath
@@ -12,7 +13,7 @@ import
 type
   DbSeq*[T] = object
     insertStmt: SqliteStmt[openArray[byte], void]
-    selectStmt: SqliteStmt[int64, seq[byte]]
+    selectStmt: SqliteStmt[int64, openArray[byte]]
     recordCount: int64
 
   DbMap*[K, V] = object
@@ -152,7 +153,7 @@ proc init*[T](Seq: type DbSeq[T], db: SqStoreRef, name: string): Seq =
 
     selectStmt = db.prepareStmt(
       "SELECT value FROM " & name & " WHERE id = ?;",
-      int64, seq[byte]).expect("this is a valid statement")
+      int64, openArray[byte]).expect("this is a valid statement")
 
     countStmt = db.prepareStmt(
       "SELECT COUNT(*) FROM " & name & ";",
@@ -181,7 +182,7 @@ proc get*[T](s: DbSeq[T], idx: uint64): T =
   # This is used only locally
   let resultAddr = addr result
 
-  let queryRes = s.selectStmt.exec(int64(idx) + 1) do (recordBytes: seq[byte]):
+  let queryRes = s.selectStmt.exec(int64(idx) + 1) do (recordBytes: openArray[byte]):
     try:
       resultAddr[] = decode(SSZ, recordBytes, T)
     except SerializationError:
@@ -207,11 +208,12 @@ proc produceDerivedData(deposit: DepositData,
                         preset: RuntimePreset,
                         validators: var ImmutableValidatorDataSeq,
                         validatorKeyToIndex: var ValidatorKeyToIndexMap,
-                        finalizedEth1DepositsMerkleizer: var DepositsMerkleizer) =
+                        finalizedEth1DepositsMerkleizer: var DepositsMerkleizer,
+                        skipBlsCheck = false) =
   let htr = hash_tree_root(deposit)
   finalizedEth1DepositsMerkleizer.addChunk htr.data
 
-  if verify_deposit_signature(preset, deposit):
+  if skipBlsCheck or verify_deposit_signature(preset, deposit):
     let pubkey = deposit.pubkey
     if pubkey notin validatorKeyToIndex:
       let idx = ValidatorIndex validators.len
@@ -257,13 +259,22 @@ proc init*(T: type BeaconChainDB,
       finalizedEth1DepositsMerkleizer = init DepositsMerkleizer
       finalizedEth2DepositsMerkleizer = init DepositsMerkleizer
 
+    let isPyrmont =
+      not pyrmontMetadata.incompatible and preset == pyrmontMetadata.runtimePreset
+
     for i in 0 ..< depositsSeq.len:
+      # TODO this is a hack to avoid long startup times on pyrmont - it should
+      #      be removed when the storage of deposits is fixed. It works because
+      #      we know that he first 100k deposits on pyrmont have a valid
+      #      signature
+      let skipBlsCheck = isPyrmont and i < 100010
+
       produceDerivedData(
         depositsSeq.get(i),
         preset,
         immutableValidatorData,
         validatorKeyToIndex,
-        finalizedEth1DepositsMerkleizer)
+        finalizedEth1DepositsMerkleizer, skipBlsCheck)
 
     T(backend: kvStore sqliteStore,
       preset: preset,

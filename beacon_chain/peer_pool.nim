@@ -65,7 +65,7 @@ proc `<`*(a, b: PeerIndex): bool =
   a.cmp(b, a)
 
 proc fireNotEmptyEvent[A, B](pool: PeerPool[A, B],
-                             item: PeerItem[A]) {.inline.} =
+                             item: PeerItem[A]) =
   case item.peerType:
   of PeerType.Incoming:
     pool.incNotEmptyEvent.fire()
@@ -73,7 +73,7 @@ proc fireNotEmptyEvent[A, B](pool: PeerPool[A, B],
     pool.outNotEmptyEvent.fire()
 
 proc fireNotFullEvent[A, B](pool: PeerPool[A, B],
-                            item: PeerItem[A]) {.inline.} =
+                            item: PeerItem[A]) =
   case item.peerType:
   of PeerType.Incoming:
     pool.incNotFullEvent.fire()
@@ -269,12 +269,12 @@ proc checkPeerScore*[A, B](pool: PeerPool[A, B], peer: A): bool {.inline.} =
   else:
     true
 
-proc peerCountChanged[A, B](pool: PeerPool[A, B]) {.inline.} =
+proc peerCountChanged[A, B](pool: PeerPool[A, B]) =
   ## Call callback when number of peers changed.
   if not(isNil(pool.peerCounter)):
     pool.peerCounter()
 
-proc peerDeleted[A, B](pool: PeerPool[A, B], peer: A) {.inline.} =
+proc peerDeleted[A, B](pool: PeerPool[A, B], peer: A) =
   ## Call callback when peer is leaving PeerPool.
   if not(isNil(pool.onDeletePeer)):
     pool.onDeletePeer(peer)

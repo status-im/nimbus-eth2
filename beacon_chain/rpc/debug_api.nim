@@ -2,7 +2,8 @@ import
   std/sequtils,
   json_rpc/[rpcserver, jsonmarshal],
   chronicles,
-  ../beacon_node_common, ../eth2_json_rpc_serialization, ../eth2_network, ../peer_pool, ../version,
+  ../version, ../beacon_node_common, ../eth2_json_rpc_serialization,
+  ../eth2_network, ../peer_pool,
   ../spec/[datatypes, digest, presets],
   ./rpc_utils
 
@@ -20,3 +21,4 @@ proc installDebugApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("get_v1_debug_beacon_heads") do (
       stateId: string) -> seq[tuple[root: Eth2Digest, slot: Slot]]:
     return node.chainDag.heads.mapIt((it.root, it.slot))
+

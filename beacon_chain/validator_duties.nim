@@ -182,6 +182,14 @@ proc createAndSendAttestation(node: BeaconNode,
 
   beacon_attestation_sent_delay.observe(delayMillis)
 
+proc getBlockProposalEth1Data*(node: BeaconNode,
+                               state: BeaconState): BlockProposalEth1Data =
+  if node.eth1Monitor.isNil:
+    BlockProposalEth1Data(vote: state.eth1_data)
+  else:
+    let finalizedEth1Data = node.chainDag.getFinalizedEpochRef().eth1_data
+    node.eth1Monitor.getBlockProposalData(state, finalizedEth1Data)
+
 proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     randao_reveal: ValidatorSig,
                                     validator_index: ValidatorIndex,
@@ -190,14 +198,8 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     slot: Slot): Option[BeaconBlock] =
   # Advance state to the slot that we're proposing for
   node.chainDag.withState(node.chainDag.tmpState, head.atSlot(slot)):
-    let (eth1data, deposits) =
-      if node.eth1Monitor.isNil:
-        (state.eth1_data, newSeq[Deposit]())
-      else:
-        let finalizedEth1Data = node.chainDag.getFinalizedEpochRef().eth1_data
-        node.eth1Monitor.getBlockProposalData(state, finalizedEth1Data)
-
     let
+      eth1Proposal = node.getBlockProposalEth1Data(state)
       poolPtr = unsafeAddr node.chainDag # safe because restore is short-lived
 
     func restore(v: var HashedBeaconState) =
@@ -213,10 +215,10 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       validator_index,
       head.root,
       randao_reveal,
-      eth1data,
+      eth1Proposal.vote,
       graffiti,
       node.attestationPool[].getAttestationsForBlock(state, cache),
-      deposits,
+      eth1Proposal.deposits,
       node.exitPool[].getProposerSlashingsForBlock(),
       node.exitPool[].getAttesterSlashingsForBlock(),
       node.exitPool[].getVoluntaryExitsForBlock(),
@@ -403,11 +405,9 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async.} =
   ## Perform the proposal for the given slot, iff we have a validator attached
-  ## that is supposed to do so, given the shuffling in head
-
-  # TODO here we advance the state to the new slot, but later we'll be
-  #      proposing for it - basically, we're selecting proposer based on an
-  #      empty slot
+  ## that is supposed to do so, given the shuffling at that slot for the given
+  ## head - to compute the proposer, we need to advance a state to the given
+  ## slot
 
   let proposer = node.chainDag.getProposer(head, slot)
   if proposer.isNone():

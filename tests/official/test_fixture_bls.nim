@@ -39,7 +39,7 @@ type
     input*: seq[ValidatorPubKey]
     output*: ValidatorPubKey
 
-proc readValue*(r: var JsonReader, a: var Domain) {.inline.} =
+proc readValue*(r: var JsonReader, a: var Domain) =
   ## Custom deserializer for Domain
   # Furthermore Nim parseHex doesn't support uint
   # until https://github.com/nim-lang/Nim/pull/11067

@@ -159,10 +159,7 @@ suiteReport "Interop":
       when const_preset == "minimal":
         "051d1a9c0fb61fce627e3990b930791fd17cb9fa7fb84a9a0051e55bf1759ec8"
       elif const_preset == "mainnet":
-        when ETH2_SPEC == "v0.12.3":
-          "ffe85e9b0e3af1b86a177e5b9dc28d5e1237ff5a046482cb45cbd036e918c676"
-        else:
-          "07358d9660c0534e0055201084f6ddd13d418193ec48a451b572cfe2ee6a35c6"
+        "07358d9660c0534e0055201084f6ddd13d418193ec48a451b572cfe2ee6a35c6"
       else:
         "unimplemented"
     check:

@@ -340,7 +340,7 @@ proc updateScore*(peer: Peer, score: int) {.inline.} =
   if peer.score > PeerScoreHighLimit:
     peer.score = PeerScoreHighLimit
 
-proc calcThroughput(dur: Duration, value: uint64): float {.inline.} =
+proc calcThroughput(dur: Duration, value: uint64): float =
   let secs = float(chronos.seconds(1).nanoseconds)
   if isZero(dur):
     0.0
