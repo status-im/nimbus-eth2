@@ -21,5 +21,12 @@ EOF
   fi
 fi
 
+# The user env file allows you to specify personal overrides for some
+# settings such as WEB3_URL, CPU_LIMIT, etc:
+USER_ENV_FILE="${ABS_PATH}/.env"
+if [ -f "${USER_ENV_FILE}" ]; then
+  source "${USER_ENV_FILE}"
+fi
+
 source ${ABS_PATH}/vendor/nimbus-build-system/scripts/env.sh
 
