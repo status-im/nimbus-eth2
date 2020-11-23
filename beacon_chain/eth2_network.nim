@@ -1009,6 +1009,7 @@ proc handlePeer*(peer: Peer) {.async.} =
     warn "Peer is already present in PeerPool", peer = peer
   of PeerStatus.Success:
     # Peer was added to PeerPool.
+    peer.score = NewPeerScore
     peer.connectionState = Connected
     # We spawn task which will obtain ENR for this peer.
     asyncSpawn resolvePeer(peer)
@@ -1017,10 +1018,11 @@ proc handlePeer*(peer: Peer) {.async.} =
 
 proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
   let peer = node.getPeer(peerId)
-  debug "Peer upgraded", peer = $peerId, connections = peer.connections
   case event.kind
   of ConnEventKind.Connected:
     inc peer.connections
+    debug "Peer connection upgraded", peer = $peerId,
+                                      connections = peer.connections
     if peer.connections == 1:
       # Libp2p may connect multiple times to the same peer - using different
       # transports for both incoming and outgoing. For now, we'll count our
