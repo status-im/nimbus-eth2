@@ -6,7 +6,7 @@ import std/options,
   ../beacon_node_common, ../eth2_network, ../sync_manager,
   ../peer_pool, ../version,
   ../spec/[datatypes, digest, presets],
-  ../spec/eth2_apis/callsigs_types,
+  ../spec/eth2_apis/callsigs_types
 
 logScope: topics = "nodeapi"
 
@@ -23,6 +23,8 @@ type
     last_seen_p2p_address*: string
     state*: string
     direction*: string
+    agent*: string
+    proto*: string
 
   RpcPeerCount* = object
     disconnected*: int
@@ -132,8 +134,8 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       # TODO rest of fields
       p2p_addresses: newSeq[MultiAddress](0),
       discovery_addresses: newSeq[MultiAddress](0),
-      metadata: (node.metadata.seq_number,
-                 "0x" & ncrutils.toHex(node.metadata.attnets.bytes))
+      metadata: (node.network.metadata.seq_number,
+                 "0x" & ncrutils.toHex(node.network.metadata.attnets.bytes))
     )
 
   rpcServer.rpc("get_v1_node_peers") do (state: Option[seq[string]],
@@ -155,8 +157,8 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
           last_seen_p2p_address: item.info.getLastSeenAddress(),
           state: item.connectionState.toString(),
           direction: item.direction.toString(),
-          agent: item.info.agentVersion # Fields `agent` and `proto` are not
-          proto: item.info.protoVersion # part of specification.
+          agent: item.info.agentVersion, # Fields `agent` and `proto` are not
+          proto: item.info.protoVersion  # part of specification.
         )
         res.add(rpeer)
     return res
@@ -173,7 +175,7 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
         inc(res.disconnecting)
       of Disconnected:
         inc(res.disconnected)
-      of None:
+      of ConnectionState.None:
         discard
     return res
 
