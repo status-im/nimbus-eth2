@@ -57,7 +57,7 @@ make NIMFLAGS="-d:insecure" nimbus_beacon_node
 Followed by:
 
 ```
-./run-pyrmont-beacon-node.sh
+./run-pyrmont-beacon-node.sh --metrics
 ```
 
 ### 6. Run eth2stats
