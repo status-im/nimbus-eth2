@@ -44,6 +44,12 @@ type
 template chunks*(m: SszMerkleizerImpl): openArray[Eth2Digest] =
   m.combinedChunks.toOpenArray(0, m.topIndex)
 
+template getChunkCount*(m: SszMerkleizer): uint64 =
+  m.impl.totalChunks
+
+template getCombinedChunks*(m: SszMerkleizer): openArray[Eth2Digest] =
+  toOpenArray(m.impl.combinedChunks, 0, m.impl.topIndex)
+
 func digest(a, b: openArray[byte]): Eth2Digest =
   result = withEth2Hash:
     trs "DIGESTING ARRAYS ", toHex(a), " ", toHex(b)
@@ -309,7 +315,7 @@ proc init*(S: type SszMerkleizer,
     topIndex: binaryTreeHeight(result.limit) - 1,
     totalChunks: totalChunks)
 
-proc clone*[L: static[Limit]](cloned: SszMerkleizer[L]): SszMerkleizer[L] =
+proc copy*[L: static[Limit]](cloned: SszMerkleizer[L]): SszMerkleizer[L] =
   new result.combinedChunks
   result.combinedChunks[] = cloned.combinedChunks[]
   result.impl = SszMerkleizerImpl(

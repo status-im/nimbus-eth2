@@ -6,7 +6,7 @@ import
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
   ./network_metadata,
-  ./spec/[datatypes, digest, crypto, state_transition, signatures],
+  ./spec/[datatypes, digest, crypto, state_transition],
   ./ssz/[ssz_serialization, merkleization],
   merkle_minimal, filepath
 
@@ -26,6 +26,10 @@ type
 
   DepositsMerkleizer* = SszMerkleizer[depositContractLimit]
 
+  DepositContractSnapshot* = object
+    eth1Block*: Eth2Digest
+    depositContractState*: DepositContractState
+
   BeaconChainDB* = ref object
     ## Database storing resolved blocks and states - resolved blocks are such
     ## blocks that form a chain back to the tail block.
@@ -41,20 +45,7 @@ type
     ## database.
     backend: KvStoreRef
     preset: RuntimePreset
-
-    deposits*: DepositsSeq
-    immutableValidatorData*: ImmutableValidatorDataSeq
-    validatorKeyToIndex*: ValidatorKeyToIndexMap
-
-    finalizedEth1DepositsMerkleizer*: DepositsMerkleizer
-      ## A merkleizer keeping track of the `deposit_root` value obtained from
-      ## Eth1 after finalizing blocks with ETH1_FOLLOW_DISTANCE confirmations.
-      ## The value is used when voting for Eth1 heads.
-
-    finalizedEth2DepositsMerkleizer*: DepositsMerkleizer
-      ## A separate merkleizer which is advanced when the Eth2 chain finalizes.
-      ## It will lag behind the "eth1 merkleizer". We use to produce merkle
-      ## proofs for deposits when they are added to Eth2 blocks.
+    genesisDeposits*: DepositsSeq
 
   Keyspaces* = enum
     defaultKeyspace = "kvstore"
@@ -77,19 +68,27 @@ type
       ## Immutable reference to the network genesis state
       ## (needed for satisfying requests to the beacon node API).
     kEth1PersistedTo
-      ## The latest ETH1 block hash which satisfied the follow distance and
-      ## had its deposits persisted to disk.
-    kFinalizedEth1DepositsMarkleizer
-      ## A merkleizer used to compute the `deposit_root` of all finalized
-      ## deposits (i.e. deposits confirmed by ETH1_FOLLOW_DISTANCE blocks)
-    kFinalizedEth2DepositsMarkleizer
-      ## A merkleizer used for computing merkle proofs of deposits added
-      ## to Eth2 blocks (it may lag behind the finalized deposits merkleizer).
+      ## (Obsolete) Used to point to the the latest ETH1 block hash which
+      ## satisfied the follow distance and had its deposits persisted to disk.
+    kDepositsFinalizedByEth1
+      ## A merkleizer checkpoint which can be used for computing the
+      ## `deposit_root` of all eth1 finalized deposits (i.e. deposits
+      ## confirmed by ETH1_FOLLOW_DISTANCE blocks). The `deposit_root`
+      ## is acknowledged and confirmed by the attached web3 provider.
+    kDepositsFinalizedByEth2
+      ## A merkleizer checkpoint used for computing merkle proofs of
+      ## deposits added to Eth2 blocks (it may lag behind the finalized
+      ## eth1 deposits checkpoint).
     kHashToBlockSummary
       ## Cache of beacon block summaries - during startup when we construct the
       ## chain dag, loading full blocks takes a lot of time - the block
       ## summary contains a minimal snapshot of what's needed to instanciate
       ## the BlockRef tree.
+    kSpeculativeDeposits
+      ## A merkelizer checkpoint created on the basis of deposit events
+      ## that we were not able to verify against a `deposit_root` served
+      ## by the web3 provider. This may happen on Geth nodes that serve
+      ## only recent contract state data (i.e. only recent `deposit_roots`).
 
   BeaconBlockSummary* = object
     slot*: Slot
@@ -156,7 +155,7 @@ proc init*[T](Seq: type DbSeq[T], db: SqStoreRef, name: string): Seq =
       int64, openArray[byte]).expect("this is a valid statement")
 
     countStmt = db.prepareStmt(
-      "SELECT COUNT(*) FROM " & name & ";",
+      "SELECT COUNT(1) FROM " & name & ";",
       NoParams, int64).expect("this is a valid statement")
 
   var recordCount = int64 0
@@ -204,34 +203,6 @@ proc contains*[K, V](m: DbMap[K, V], key: K): bool =
 template insert*[K, V](t: var Table[K, V], key: K, value: V) =
   add(t, key, value)
 
-proc produceDerivedData(deposit: DepositData,
-                        preset: RuntimePreset,
-                        validators: var ImmutableValidatorDataSeq,
-                        validatorKeyToIndex: var ValidatorKeyToIndexMap,
-                        finalizedEth1DepositsMerkleizer: var DepositsMerkleizer,
-                        skipBlsCheck = false) =
-  let htr = hash_tree_root(deposit)
-  finalizedEth1DepositsMerkleizer.addChunk htr.data
-
-  if skipBlsCheck or verify_deposit_signature(preset, deposit):
-    let pubkey = deposit.pubkey
-    if pubkey notin validatorKeyToIndex:
-      let idx = ValidatorIndex validators.len
-      validators.add ImmutableValidatorData(
-        pubkey: pubkey,
-        withdrawal_credentials: deposit.withdrawal_credentials)
-      validatorKeyToIndex.insert(pubkey, idx)
-
-proc processDeposit*(db: BeaconChainDB, newDeposit: DepositData) =
-  db.deposits.add newDeposit
-
-  produceDerivedData(
-    newDeposit,
-    db.preset,
-    db.immutableValidatorData,
-    db.validatorKeyToIndex,
-    db.finalizedEth1DepositsMerkleizer)
-
 proc init*(T: type BeaconChainDB,
            preset: RuntimePreset,
            dir: string,
@@ -242,9 +213,7 @@ proc init*(T: type BeaconChainDB,
     # functionalityof the database-backed one (i.e. tracking of deposits
     # and validators)
     T(backend: kvStore MemStoreRef.init(),
-      preset: preset,
-      finalizedEth1DepositsMerkleizer: init DepositsMerkleizer,
-      finalizedEth2DepositsMerkleizer: init DepositsMerkleizer)
+      preset: preset)
   else:
     let s = secureCreatePath(dir)
     doAssert s.isOk # TODO(zah) Handle this in a better way
@@ -252,43 +221,21 @@ proc init*(T: type BeaconChainDB,
     let sqliteStore = SqStoreRef.init(dir, "nbc", Keyspaces).expect(
       "working database")
 
+    # Remove the deposits table we used before we switched
+    # to storing only deposit contract checkpoints
+    if sqliteStore.exec("DROP TABLE IF EXISTS deposits;").isErr:
+      debug "Failed to drop the deposits table"
+
     var
-      immutableValidatorData = newSeq[ImmutableValidatorData]()
       validatorKeyToIndex = initTable[ValidatorPubKey, ValidatorIndex]()
-      depositsSeq = DbSeq[DepositData].init(sqliteStore, "deposits")
-      finalizedEth1DepositsMerkleizer = init DepositsMerkleizer
-      finalizedEth2DepositsMerkleizer = init DepositsMerkleizer
+      genesisDepositsSeq = DbSeq[DepositData].init(sqliteStore, "genesis_deposits")
 
     let isPyrmont =
       not pyrmontMetadata.incompatible and preset == pyrmontMetadata.runtimePreset
 
-    for i in 0 ..< depositsSeq.len:
-      # TODO this is a hack to avoid long startup times on pyrmont - it should
-      #      be removed when the storage of deposits is fixed. It works because
-      #      we know that he first 100k deposits on pyrmont have a valid
-      #      signature
-      let skipBlsCheck = isPyrmont and i < 100010
-
-      produceDerivedData(
-        depositsSeq.get(i),
-        preset,
-        immutableValidatorData,
-        validatorKeyToIndex,
-        finalizedEth1DepositsMerkleizer, skipBlsCheck)
-
     T(backend: kvStore sqliteStore,
       preset: preset,
-      deposits: depositsSeq,
-      immutableValidatorData: immutableValidatorData,
-      validatorKeyToIndex: validatorKeyToIndex,
-      finalizedEth1DepositsMerkleizer: finalizedEth1DepositsMerkleizer,
-      finalizedEth2DepositsMerkleizer: finalizedEth2DepositsMerkleizer)
-
-proc advanceTo*(merkleizer: var DepositsMerkleizer,
-                db: BeaconChainDB,
-                deposit_index: uint64) =
-  for i in merkleizer.totalChunks ..< depositIndex:
-    merkleizer.addChunk hash_tree_root(db.deposits.get(i)).data
+      genesisDeposits: genesisDepositsSeq)
 
 proc snappyEncode(inp: openArray[byte]): seq[byte] =
   try:
@@ -319,9 +266,9 @@ proc get(db: BeaconChainDB, key: openArray[byte], T: type Eth2Digest): Opt[T] =
   res
 
 type GetResult = enum
-  found
-  notFound
-  corrupted
+  found = "Found"
+  notFound = "Not found"
+  corrupted = "Corrupted"
 
 proc get[T](db: BeaconChainDB, key: openArray[byte], output: var T): GetResult =
   var status = GetResult.notFound
@@ -397,8 +344,17 @@ proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc putGenesisBlockRoot*(db: BeaconChainDB, key: Eth2Digest) =
   db.put(subkey(kGenesisBlockRoot), key)
 
-proc putEth1PersistedTo*(db: BeaconChainDB, key: Eth1Data) =
-  db.put(subkey(kEth1PersistedTo), key)
+proc putEth1FinalizedTo*(db: BeaconChainDB,
+                         eth1Checkpoint: DepositContractSnapshot) =
+  db.put(subkey(kDepositsFinalizedByEth1), eth1Checkpoint)
+
+proc putEth2FinalizedTo*(db: BeaconChainDB,
+                         eth1Checkpoint: DepositContractSnapshot) =
+  db.put(subkey(kDepositsFinalizedByEth2), eth1Checkpoint)
+
+proc putSpeculativeDeposits*(db: BeaconChainDB,
+                             eth1Checkpoint: DepositContractSnapshot) =
+  db.put(subkey(kSpeculativeDeposits), eth1Checkpoint)
 
 proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
@@ -452,10 +408,23 @@ proc getGenesisBlockRoot*(db: BeaconChainDB): Eth2Digest =
   db.get(subkey(kGenesisBlockRoot), Eth2Digest).expect(
     "The database must be seeded with the genesis state")
 
-proc getEth1PersistedTo*(db: BeaconChainDB): Opt[Eth1Data] =
-  result.ok(Eth1Data())
-  if db.get(subkey(kEth1PersistedTo), result.get) != GetResult.found:
-    result.err()
+proc getEth1FinalizedTo*(db: BeaconChainDB): Opt[DepositContractSnapshot] =
+  result.ok(DepositContractSnapshot())
+  let r = db.get(subkey(kDepositsFinalizedByEth1), result.get)
+  if r != found: result.err()
+
+proc getEth2FinalizedTo*(db: BeaconChainDB): Opt[DepositContractSnapshot] =
+  result.ok(DepositContractSnapshot())
+  let r = db.get(subkey(kDepositsFinalizedByEth2), result.get)
+  if r != found: result.err()
+
+proc getSpeculativeDeposits*(db: BeaconChainDB): Opt[DepositContractSnapshot] =
+  result.ok(DepositContractSnapshot())
+  let r = db.get(subkey(kSpeculativeDeposits), result.get)
+  if r != found: result.err()
+
+proc delSpeculativeDeposits*(db: BeaconChainDB) =
+  db.backend.del(subkey(kSpeculativeDeposits)).expect("working database")
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(SignedBeaconBlock, key)).expect("working database")

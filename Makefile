@@ -292,29 +292,6 @@ define CLEAN_NETWORK
 endef
 
 ###
-### toledo
-###
-toledo-build: | nimbus_beacon_node nimbus_signing_process
-
-# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
-toledo: | toledo-build
-	$(call CONNECT_TO_NETWORK,toledo,nimbus_beacon_node)
-
-toledo-vc: | toledo-build nimbus_validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,toledo,nimbus_beacon_node)
-
-ifneq ($(LOG_LEVEL), TRACE)
-toledo-dev:
-	+ "$(MAKE)" LOG_LEVEL=TRACE $@
-else
-toledo-dev: | toledo-build
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,toledo,nimbus_beacon_node)
-endif
-
-clean-toledo:
-	$(call CLEAN_NETWORK,toledo)
-
-###
 ### pyrmont
 ###
 pyrmont-build: | nimbus_beacon_node nimbus_signing_process

@@ -95,6 +95,7 @@ proc init*(
     epochRef = EpochRef(
       epoch: epoch,
       eth1_data: state.eth1_data,
+      eth1_deposit_index: state.eth1_deposit_index,
       current_justified_checkpoint: state.current_justified_checkpoint,
       finalized_checkpoint: state.finalized_checkpoint,
       shuffled_active_validator_indices:

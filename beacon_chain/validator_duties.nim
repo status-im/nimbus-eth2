@@ -185,10 +185,16 @@ proc createAndSendAttestation(node: BeaconNode,
 proc getBlockProposalEth1Data*(node: BeaconNode,
                                state: BeaconState): BlockProposalEth1Data =
   if node.eth1Monitor.isNil:
-    BlockProposalEth1Data(vote: state.eth1_data)
+    var pendingDepositsCount = state.eth1_data.deposit_count -
+                               state.eth1_deposit_index
+    if pendingDepositsCount > 0:
+      result.hasMissingDeposits = true
+    else:
+      result.vote = state.eth1_data
   else:
-    let finalizedEth1Data = node.chainDag.getFinalizedEpochRef().eth1_data
-    node.eth1Monitor.getBlockProposalData(state, finalizedEth1Data)
+    let finalizedEpochRef = node.chainDag.getFinalizedEpochRef()
+    result = node.eth1Monitor.getBlockProposalData(
+      state, finalizedEpochRef.eth1_data, finalizedEpochRef.eth1_deposit_index)
 
 proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     randao_reveal: ValidatorSig,
@@ -201,6 +207,10 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
     let
       eth1Proposal = node.getBlockProposalEth1Data(state)
       poolPtr = unsafeAddr node.chainDag # safe because restore is short-lived
+
+    if eth1Proposal.hasMissingDeposits:
+      error "Eth1 deposits not available. Skipping block proposal", slot
+      return none(BeaconBlock)
 
     func restore(v: var HashedBeaconState) =
       # TODO address this ugly workaround - there should probably be a
