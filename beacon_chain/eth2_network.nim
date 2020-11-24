@@ -1236,7 +1236,7 @@ template tcpEndPoint(address, port): auto =
 proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
                            conf: BeaconNodeConf): KeyPair =
   case conf.cmd
-  of noCommand:
+  of noCommand, record:
     if conf.netKeyFile == "random":
       let res = PrivateKey.random(Secp256k1, rng)
       if res.isErr():
