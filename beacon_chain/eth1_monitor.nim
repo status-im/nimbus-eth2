@@ -30,7 +30,7 @@ contract(DepositContract):
 # Exceptions being reported from Chronos's asyncfutures2.
 
 const
-  web3Timeouts = 5.seconds
+  web3Timeouts = 60.seconds
   hasDepositRootChecks = true # defined(has_deposit_root_checks)
   hasGenesisDetection* = defined(has_genesis_detection)
 
@@ -290,7 +290,7 @@ when hasDepositRootChecks:
       DepositCountUnavailable
 
   const
-    contractCallTimeout = seconds(10)
+    contractCallTimeout = seconds(60)
 
   template awaitOrRaiseOnTimeout[T](fut: Future[T],
                                     timeout: Duration): T =
