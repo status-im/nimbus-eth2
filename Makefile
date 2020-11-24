@@ -145,10 +145,14 @@ test: | build deps
 ifeq ($(DISABLE_TEST_FIXTURES_SCRIPT), 0)
 	V=$(V) scripts/setup_official_tests.sh
 endif
-	$(ENV_SCRIPT) nim test $(NIM_PARAMS) beacon_chain.nims && rm -f 0000-*.json
+	+ $(ENV_SCRIPT) nim test $(NIM_PARAMS) beacon_chain.nims && rm -f 0000-*.json
 
+#- GCC's LTO parallelisation is able to detect a GNU Make jobserver and get its
+#  maximum number of processes from there, but only if we use the "+" prefix.
+#  Without it, it will default to the number of CPU cores, which can be a
+#  problem on low-memory systems.
 $(TOOLS): | build deps
-	for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
+	+ for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
 		echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim c -o:build/$@ $(NIM_PARAMS) "$${TOOL_DIR}/$@.nim" && \
 		echo -e "Build completed successfully"
@@ -342,11 +346,11 @@ clean-pyrmont:
 
 ctail: | build deps
 	mkdir -p vendor/.nimble/bin/
-	$(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ctail c vendor/nim-chronicles-tail/ctail.nim
+	+ $(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ctail c vendor/nim-chronicles-tail/ctail.nim
 
 ntu: | build deps
 	mkdir -p vendor/.nimble/bin/
-	$(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ntu c vendor/nim-testutils/ntu.nim
+	+ $(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ntu c vendor/nim-testutils/ntu.nim
 
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,nimbus_beacon_node*,beacon_node_*,block_sim,state_sim,transition*}
@@ -355,13 +359,13 @@ ifneq ($(USE_LIBBACKTRACE), 0)
 endif
 
 libnfuzz.so: | build deps
-	echo -e $(BUILD_MSG) "build/$@" && \
+	+ echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim c -d:release --app:lib --noMain --nimcache:nimcache/libnfuzz -o:build/$@.0 $(NIM_PARAMS) nfuzz/libnfuzz.nim && \
 		rm -f build/$@ && \
 		ln -s $@.0 build/$@
 
 libnfuzz.a: | build deps
-	echo -e $(BUILD_MSG) "build/$@" && \
+	+ echo -e $(BUILD_MSG) "build/$@" && \
 		rm -f build/$@ && \
 		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim && \
 		[[ -e "$@" ]] && mv "$@" build/ || true # workaround for https://github.com/nim-lang/Nim/issues/12745
