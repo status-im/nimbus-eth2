@@ -5,11 +5,11 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/strutils,
+  stew/endians2,
   json_rpc/[rpcserver, jsonmarshal],
   chronicles,
   nimcrypto/utils as ncrutils,
-  ../beacon_node_common,
+  ../beacon_node_common, ../eth1_monitor,
   ../spec/[datatypes, digest, presets]
 
 logScope: topics = "configapi"
@@ -25,6 +25,15 @@ proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     return @[node.chainDag.headState.data.data.fork]
 
   rpcServer.rpc("get_v1_config_spec") do () -> JsonNode:
+    let depositAddress =
+      if isNil(node.eth1Monitor):
+        ""
+      else:
+        "0x" & $node.eth1Monitor.depositContractAddress()
+
+    if len(depositAddress) == 0:
+      raise newException(CatchableError, "Internal server error")
+
     return %{
       "MAX_COMMITTEES_PER_SLOT": $MAX_COMMITTEES_PER_SLOT,
       "TARGET_COMMITTEE_SIZE": $TARGET_COMMITTEE_SIZE,
@@ -47,13 +56,13 @@ proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       "SECONDS_PER_ETH1_BLOCK": $SECONDS_PER_ETH1_BLOCK,
       "DEPOSIT_CHAIN_ID": $DEPOSIT_CHAIN_ID,
       "DEPOSIT_NETWORK_ID": $DEPOSIT_NETWORK_ID,
-      "DEPOSIT_CONTRACT_ADDRESS": $node.config.depositContractAddress,
+      "DEPOSIT_CONTRACT_ADDRESS": depositAddress,
       "MIN_DEPOSIT_AMOUNT": $MIN_DEPOSIT_AMOUNT,
       "MAX_EFFECTIVE_BALANCE": $MAX_EFFECTIVE_BALANCE,
       "EJECTION_BALANCE": $EJECTION_BALANCE,
       "EFFECTIVE_BALANCE_INCREMENT": $EFFECTIVE_BALANCE_INCREMENT,
       "GENESIS_FORK_VERSION":
-        $node.config.runtimePreset.GENESIS_FORK_VERSION,
+        "0x" & $node.config.runtimePreset.GENESIS_FORK_VERSION,
       "BLS_WITHDRAWAL_PREFIX": "0x" & ncrutils.toHex([BLS_WITHDRAWAL_PREFIX]),
       "GENESIS_DELAY": $node.config.runtimePreset.GENESIS_DELAY,
       "SECONDS_PER_SLOT": $SECONDS_PER_SLOT,
@@ -83,20 +92,32 @@ proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       "MAX_DEPOSITS": $MAX_DEPOSITS,
       "MAX_VOLUNTARY_EXITS": $MAX_VOLUNTARY_EXITS,
       "DOMAIN_BEACON_PROPOSER":
-        "0x" & strutils.toHex(cast[uint64](DOMAIN_BEACON_PROPOSER)),
+        "0x" & ncrutils.toHex(uint32(DOMAIN_BEACON_PROPOSER).toBytesLE()),
       "DOMAIN_BEACON_ATTESTER":
-        "0x" & strutils.toHex(cast[uint64](DOMAIN_BEACON_ATTESTER)),
+        "0x" & ncrutils.toHex(uint32(DOMAIN_BEACON_ATTESTER).toBytesLE()),
       "DOMAIN_RANDAO":
-        "0x" & strutils.toHex(cast[uint64](DOMAIN_RANDAO)),
+        "0x" & ncrutils.toHex(uint32(DOMAIN_RANDAO).toBytesLE()),
       "DOMAIN_DEPOSIT":
-        "0x" & strutils.toHex(cast[uint64](DOMAIN_DEPOSIT)),
+        "0x" & ncrutils.toHex(uint32(DOMAIN_DEPOSIT).toBytesLE()),
       "DOMAIN_VOLUNTARY_EXIT":
-        "0x" & strutils.toHex(cast[uint64](DOMAIN_VOLUNTARY_EXIT)),
+        "0x" & ncrutils.toHex(uint32(DOMAIN_VOLUNTARY_EXIT).toBytesLE()),
       "DOMAIN_SELECTION_PROOF":
-        "0x" & strutils.toHex(cast[uint64](DOMAIN_SELECTION_PROOF)),
+        "0x" & ncrutils.toHex(uint32(DOMAIN_SELECTION_PROOF).toBytesLE()),
       "DOMAIN_AGGREGATE_AND_PROOF":
-        "0x" & strutils.toHex(cast[uint64](DOMAIN_AGGREGATE_AND_PROOF))
+        "0x" & ncrutils.toHex(uint32(DOMAIN_AGGREGATE_AND_PROOF).toBytesLE())
     }
 
   rpcServer.rpc("get_v1_config_deposit_contract") do () -> JsonNode:
-    unimplemented()
+    let depositAddress =
+      if isNil(node.eth1Monitor):
+        ""
+      else:
+        "0x" & $node.eth1Monitor.depositContractAddress()
+
+    if len(depositAddress) == 0:
+      raise newException(CatchableError, "Internal server error")
+
+    return %{
+      "chain_id": $DEPOSIT_CHAIN_ID,
+      "address": depositAddress
+    }
