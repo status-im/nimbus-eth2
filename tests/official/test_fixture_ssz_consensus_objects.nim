@@ -31,7 +31,7 @@ type
     # so we **must** use "root" as a field name
     root: string
     # Some have a signing_root field
-    signing_root: string
+    signing_root {.defaultVal: "".}: string
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#eth1block
   Eth1Block* = object
@@ -39,9 +39,6 @@ type
     deposit_root*: Eth2Digest
     deposit_count*: uint64
     # All other eth1 block fields
-
-# Make signing root optional
-setDefaultValue(SSZHashTreeRoot, signing_root, "")
 
 # Note this only tracks HashTreeRoot
 # Checking the values against the yaml file is TODO (require more flexible Yaml parser)
