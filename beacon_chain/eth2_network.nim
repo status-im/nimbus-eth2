@@ -349,9 +349,6 @@ proc getKey*(peer: Peer): PeerID {.inline.} =
 proc getFuture*(peer: Peer): Future[void] {.inline.} =
   peer.disconnectedFut
 
-template createLifetimeFuture(): Future[void] =
-  newFuture[void]("peer.lifetime")
-
 proc getScore*(a: Peer): int =
   ## Returns current score value for peer ``peer``.
   a.score
@@ -1094,9 +1091,14 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
     if peer.connections == 0:
       debug "Peer disconnected", peer = $peerId, connections = peer.connections
       let fut = peer.disconnectedFut
-      if not(fut.finished()):
+      if not(isNil(fut)):
         fut.complete()
-        peer.disconnectedFut = createLifetimeFuture()
+        peer.disconnectedFut = nil
+      else:
+        # TODO (cheatfate): This could be removed when bug will be fixed inside
+        # `nim-libp2p`.
+        debug "Got new event while peer is already disconnected",
+              peer = peerId, peer_state = peer.connectionState
       peer.connectionState = Disconnected
 
 proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
