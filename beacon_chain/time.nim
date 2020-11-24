@@ -52,10 +52,10 @@ template `+`*(t: BeaconTime, offset: Duration): BeaconTime =
   BeaconTime(Duration(t) + offset)
 
 template `-`*(t: BeaconTime, offset: Duration): BeaconTime =
-  BeaconTime(Duration(t) - offset)
+  BeaconTime(nanoseconds(nanoseconds(Duration(t)) - nanoseconds(offset)))
 
 template `-`*(a, b: BeaconTime): Duration =
-  Duration(a) - Duration(b)
+  nanoseconds(nanoseconds(Duration(a)) - nanoseconds(Duration(b)))
 
 func toSlot*(t: BeaconTime): tuple[afterGenesis: bool, slot: Slot] =
   let ti = seconds(Duration(t))
@@ -84,7 +84,6 @@ proc now*(c: BeaconClock): BeaconTime =
 
 proc fromNow*(c: BeaconClock, t: BeaconTime): tuple[inFuture: bool, offset: Duration] =
   let now = c.now()
-
   if t > now:
     (true, t - now)
   else:
@@ -106,23 +105,7 @@ proc addTimer*(fromNow: Duration, cb: CallbackFunc, udata: pointer = nil) =
     raiseAssert e.msg
 
 func shortLog*(d: Duration): string =
-  let dd = int64(d.milliseconds())
-  if dd < 1000:
-    $dd & "ms"
-  elif dd < 60 * 1000:
-    $(dd div 1000) & "s"
-  elif dd < 60 * 60 * 1000:
-    let secs = dd div 1000
-    var tmp = $(secs div 60) & "m"
-    if (let frac = secs mod 60; frac > 0):
-      tmp &= $frac & "s"
-    tmp
-  else:
-    let mins = dd div 60 * 1000
-    var tmp = $(mins div 60) & "h"
-    if (let frac = mins mod 60; frac > 0):
-      tmp &= $frac & "m"
-    tmp
+  $d
 
 func toFloatSeconds*(d: Duration): float =
   float(milliseconds(d)) / 1000.0
