@@ -27,11 +27,14 @@ proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("get_v1_config_spec") do () -> JsonNode:
     let depositAddress =
       if isNil(node.eth1Monitor):
-        ""
+        if node.config.depositContractAddress.isSome():
+          $node.config.depositContractAddress.get()
+        else:
+          ""
       else:
-        "0x" & $node.eth1Monitor.depositContractAddress()
+        $node.eth1Monitor.depositContractAddress()
 
-    return %{
+    return %*{
       "MAX_COMMITTEES_PER_SLOT": $MAX_COMMITTEES_PER_SLOT,
       "TARGET_COMMITTEE_SIZE": $TARGET_COMMITTEE_SIZE,
       "MAX_VALIDATORS_PER_COMMITTEE": $MAX_VALIDATORS_PER_COMMITTEE,
@@ -107,11 +110,14 @@ proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("get_v1_config_deposit_contract") do () -> JsonNode:
     let depositAddress =
       if isNil(node.eth1Monitor):
-        ""
+        if node.config.depositContractAddress.isSome():
+          $node.config.depositContractAddress.get()
+        else:
+          ""
       else:
-        "0x" & $node.eth1Monitor.depositContractAddress()
+        $node.eth1Monitor.depositContractAddress()
 
-    return %{
+    return %*{
       "chain_id": $DEPOSIT_CHAIN_ID,
       "address": depositAddress
     }
