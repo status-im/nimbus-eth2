@@ -758,8 +758,10 @@ proc handleIncomingStream(network: Eth2Node,
     await conn.closeWithEOF()
     discard network.peerPool.checkPeerScore(peer)
 
-proc toPeerAddr*(r: enr.TypedRecord):
-    Result[PeerAddr, cstring] {.raises: [Defect].} =
+proc toPeerAddr*(r: enr.TypedRecord,
+                 proto: IpTransportProtocol): Result[PeerAddr, cstring] {.
+     raises: [Defect].} =
+
   if not r.secp256k1.isSome:
     return err("enr: no secp256k1 key in record")
 
@@ -770,18 +772,34 @@ proc toPeerAddr*(r: enr.TypedRecord):
 
   var addrs = newSeq[MultiAddress]()
 
-  if r.ip.isSome and r.tcp.isSome:
-    let ip = ipv4(r.ip.get)
-    addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp.get)
-
-  if r.ip6.isSome:
-    let ip = ipv6(r.ip6.get)
-    if r.tcp6.isSome:
-      addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp6.get)
-    elif r.tcp.isSome:
+  case proto
+  of tcpProtocol:
+    if r.ip.isSome and r.tcp.isSome:
+      let ip = ipv4(r.ip.get)
       addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp.get)
-    else:
-      discard
+
+    if r.ip6.isSome:
+      let ip = ipv6(r.ip6.get)
+      if r.tcp6.isSome:
+        addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp6.get)
+      elif r.tcp.isSome:
+        addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp.get)
+      else:
+        discard
+
+  of udpProtocol:
+    if r.ip.isSome and r.udp.isSome:
+      let ip = ipv4(r.ip.get)
+      addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp.get)
+
+    if r.ip6.isSome:
+      let ip = ipv6(r.ip6.get)
+      if r.udp6.isSome:
+        addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp6.get)
+      elif r.udp.isSome:
+        addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp.get)
+      else:
+        discard
 
   if addrs.len == 0:
     return err("enr: no addresses in record")
@@ -845,7 +863,7 @@ proc connectWorker(node: Eth2Node, index: int) {.async.} =
 
 proc toPeerAddr(node: Node): Result[PeerAddr, cstring] {.raises: [Defect].} =
   let nodeRecord = ? node.record.toTypedRecord()
-  let peerAddr = ? nodeRecord.toPeerAddr()
+  let peerAddr = ? nodeRecord.toPeerAddr(tcpProtocol)
   ok(peerAddr)
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
@@ -1169,7 +1187,7 @@ proc start*(node: Eth2Node) {.async.} =
     for enr in node.discovery.bootstrapRecords:
       let tr = enr.toTypedRecord()
       if tr.isOk():
-        let pa = tr.get().toPeerAddr()
+        let pa = tr.get().toPeerAddr(tcpProtocol)
         if pa.isOk():
           await node.connQueue.addLast(pa.get())
 
@@ -1548,7 +1566,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
                                  rng = rng)
 
   let
-    params = 
+    params =
       block:
         var p = GossipSubParams.init()
         # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#the-gossip-domain-gossipsub
@@ -1565,9 +1583,9 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
     pubsub = GossipSub.init(
       switch = switch,
       msgIdProvider = msgIdProvider,
-      triggerSelf = true, 
+      triggerSelf = true,
       sign = false,
-      verifySignature = false, 
+      verifySignature = false,
       anonymize = true,
       parameters = params).PubSub
 

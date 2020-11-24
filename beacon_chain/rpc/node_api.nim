@@ -2,6 +2,7 @@ import std/options,
   chronicles,
   json_rpc/[rpcserver, jsonmarshal],
   eth/p2p/discoveryv5/enr,
+  libp2p/[multiaddress, multicodec],
   nimcrypto/utils as ncrutils,
   ../beacon_node_common, ../eth2_network, ../sync_manager,
   ../peer_pool, ../version,
@@ -126,21 +127,66 @@ proc getLastSeenAddress(info: PeerInfo): string =
   else:
     ""
 
+proc getDiscoveryAddresses(node: BeaconNode): Option[seq[string]] =
+  let restr = node.network.enrRecord().toTypedRecord()
+  if restr.isErr():
+    return none[seq[string]]()
+  let respa = restr.get().toPeerAddr(udpProtocol)
+  if respa.isErr():
+    return none[seq[string]]()
+  let pa = respa.get()
+  let mpa = MultiAddress.init(multicodec("p2p"), pa.peerId)
+  if mpa.isErr():
+    return none[seq[string]]()
+  var addresses = newSeqOfCap[string](len(pa.addrs))
+  for item in pa.addrs:
+    let resa = concat(item, mpa.get())
+    if resa.isOk():
+      addresses.add($(resa.get()))
+  return some(addresses)
+
+proc getP2PAddresses(node: BeaconNode): Option[seq[string]] =
+  let pinfo = node.network.switch.peerInfo
+  let mpa = MultiAddress.init(multicodec("p2p"), pinfo.peerId)
+  if mpa.isErr():
+    return none[seq[string]]()
+  var addresses = newSeqOfCap[string](len(pinfo.addrs))
+  for item in pinfo.addrs:
+    let resa = concat(item, mpa.get())
+    if resa.isOk():
+      addresses.add($(resa.get()))
+  return some(addresses)
+
 proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("get_v1_node_identity") do () -> NodeIdentityTuple:
+    let discoveryAddresses =
+      block:
+        let res = node.getDiscoveryAddresses()
+        if res.isSome():
+          res.get()
+        else:
+          newSeq[string](0)
+
+    let p2pAddresses =
+      block:
+        let res = node.getP2PAddresses()
+        if res.isSome():
+          res.get()
+        else:
+          newSeq[string]()
+
     return (
-      peer_id: node.network.peerId(),
-      enr: node.network.enrRecord(),
-      # TODO rest of fields
-      p2p_addresses: newSeq[MultiAddress](0),
-      discovery_addresses: newSeq[MultiAddress](0),
+      peer_id: $node.network.peerId(),
+      enr: node.network.enrRecord().toUri(),
+      p2p_addresses: p2pAddresses,
+      discovery_addresses: discoveryAddresses,
       metadata: (node.network.metadata.seq_number,
                  "0x" & ncrutils.toHex(node.network.metadata.attnets.bytes))
     )
 
   rpcServer.rpc("get_v1_node_peers") do (state: Option[seq[string]],
-                                direction: Option[seq[string]]) -> seq[RpcPeer]:
-    var res = newSeq[RpcPeer]()
+                                direction: Option[seq[string]]) -> seq[NodePeerTuple]:
+    var res = newSeq[NodePeerTuple]()
     let rstates = validatePeerState(state)
     if rstates.isNone():
       raise newException(CatchableError, "Incorrect state parameter")
@@ -151,7 +197,7 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     let dirs = rdirs.get()
     for item in node.network.peers.values():
       if (item.connectionState in states) and (item.direction in dirs):
-        let rpeer = RpcPeer(
+        let rpeer = (
           peer_id: $item.info.peerId,
           enr: if item.enr.isSome(): item.enr.get().toUri() else: "",
           last_seen_p2p_address: item.info.getLastSeenAddress(),
@@ -163,8 +209,8 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
         res.add(rpeer)
     return res
 
-  rpcServer.rpc("get_v1_node_peer_count") do () -> RpcPeerCount:
-    var res: RpcPeerCount
+  rpcServer.rpc("get_v1_node_peer_count") do () -> NodePeerCountTuple:
+    var res: NodePeerCountTuple
     for item in node.network.peers.values():
       case item.connectionState
       of Connecting:
@@ -179,7 +225,7 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
         discard
     return res
 
-  rpcServer.rpc("get_v1_node_peers_peerId") do (peer_id: string) -> RpcPeer:
+  rpcServer.rpc("get_v1_node_peers_peerId") do (peer_id: string) -> NodePeerTuple:
     let pres = PeerID.init(peer_id)
     if pres.isErr():
       raise newException(CatchableError,
@@ -189,7 +235,7 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     if isNil(peer):
       raise newException(CatchableError, "Peer not found")
 
-    return RpcPeer(
+    return (
       peer_id: $peer.info.peerId,
       enr: if peer.enr.isSome(): peer.enr.get().toUri() else: "",
       last_seen_p2p_address: peer.info.getLastSeenAddress(),
