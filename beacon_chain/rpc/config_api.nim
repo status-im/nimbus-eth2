@@ -31,9 +31,6 @@ proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       else:
         "0x" & $node.eth1Monitor.depositContractAddress()
 
-    if len(depositAddress) == 0:
-      raise newException(CatchableError, "Internal server error")
-
     return %{
       "MAX_COMMITTEES_PER_SLOT": $MAX_COMMITTEES_PER_SLOT,
       "TARGET_COMMITTEE_SIZE": $TARGET_COMMITTEE_SIZE,
@@ -113,9 +110,6 @@ proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
         ""
       else:
         "0x" & $node.eth1Monitor.depositContractAddress()
-
-    if len(depositAddress) == 0:
-      raise newException(CatchableError, "Internal server error")
 
     return %{
       "chain_id": $DEPOSIT_CHAIN_ID,
