@@ -182,14 +182,17 @@
 <p><img src="https://i.imgur.com/yr5vnSo.png" alt="" /></p>
 <p>You'll be directed to the settings page of your newly created project</p>
 <p><img src="https://i.imgur.com/kx3R8XS.png" alt="" /></p>
-<h3><a class="header" href="#6-view-görli-endpoints" id="6-view-görli-endpoints">6. View Görli endpoints</a></h3>
-<p>In the <code>KEYS</code> section, click on the dropdown menu to the right of <code>ENDPOINTS</code>, and select <code>GÖRLI</code></p>
+<h3><a class="header" href="#6-select-endpoint" id="6-select-endpoint">6. Select endpoint</a></h3>
+<blockquote>
+<p>⚠️  <strong>Warning:</strong> if you're connecting to mainnet, you should skip this step</p>
+</blockquote>
+<p>If you're connecting to a testnet, in the <code>KEYS</code> section, click on the dropdown menu to the right of <code>ENDPOINTS</code>, and select <code>GÖRLI</code></p>
 <p><img src="https://i.imgur.com/D9186kv.png" alt="" /></p>
 <h3><a class="header" href="#7-copy-the-websocket-endpoint" id="7-copy-the-websocket-endpoint">7. Copy the websocket endpoint</a></h3>
 <p>Copy the address that starts with <code>wss://</code></p>
 <p><img src="https://i.imgur.com/fZ6Bcjy.png" alt="" /></p>
 <blockquote>
-<p>⚠️ <strong>Warning:</strong> make sure you've copied the endpoint that starts with<code>wss</code> (websocket), and not the <code>https</code> endpoint.</p>
+<p>⚠️  <strong>Warning:</strong> make sure you've copied the endpoint that starts with<code>wss</code> (websocket), and not the <code>https</code> endpoint. If you're connecting  to mainnet this will read <code>wss://mainnet.infura.io/ws/...</code></p>
 </blockquote>
 <h3><a class="header" href="#8-run-the-beacon-node" id="8-run-the-beacon-node">8. Run the beacon node</a></h3>
 <p><a href="./start-syncing.html">Launch the beacon node</a> on your favourite testnet, pasaing in your websocket endpoint as the <a href="./start-syncing.html#web3-provider-url">Web3 provider URL</a>.</p>

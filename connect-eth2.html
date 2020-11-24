@@ -156,18 +156,19 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#connect-your-validator-to-eth2" id="connect-your-validator-to-eth2">Connect your validator to eth2</a></h1>
-<blockquote>
-<p>⚠️  This page concerns the <strong>Pyrmont</strong> testnet only. If you have made a mainnet deposit, you do not need to connect your validator to eth2 quite yet. Mainnet <a href="https://hackmd.io/@benjaminion/genesis">Genesis</a> date has been set to <a href="https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/">December 1st</a>. This page will be updated nearer the time.</p>
-</blockquote>
+<p><strong>Pyrmont</strong></p>
 <p>To connect your validator to the Pyrmont testnet, from the <code>nimbus-eth2</code> repository run:</p>
 <pre><code> ./run-pyrmont-beacon-node.sh
 </code></pre>
-<p>You'll be asked to enter your <a href="./start-syncing.html#web3-provider-url">Web3 provider URL</a> again.</p>
+<p><strong>Mainnet</strong></p>
+<p>To connect your validator to mainnet, from the <code>nimbus-eth2</code> repository run:</p>
+<pre><code>./run-mainnet-beacon-node.sh
+</code></pre>
+<p>In both cases, you'll be asked to enter your <a href="./start-syncing.html#web3-provider-url">Web3 provider URL</a> again.</p>
 <blockquote>
 <p><strong>Note:</strong> If your beacon node is already running, you'll need to shut it down gracefully (<code>Ctrl+c</code>) and re-run the above command.</p>
 </blockquote>
-<p>This will build Nimbus and its dependencies, and connect your validator the eth2 network.
-You should see that the beacon node has launched with your validator attached:</p>
+<p>Your beacon node will launch and connect your validator the eth2 network. To check that this has happened correctly, check your logs for the following:</p>
 <pre><code>INF 2020-11-18 11:20:00.181+01:00 Launching beacon node 
 ...
 NOT 2020-11-18 11:20:02.091+01:00 Local validator attached
