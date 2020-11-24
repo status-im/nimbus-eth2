@@ -177,9 +177,6 @@ template asBlockHash(x: Eth2Digest): BlockHash =
 func shortLog*(b: Eth1Block): string =
   &"{b.number}:{shortLog b.voteData.block_hash}(deposits = {b.voteData.deposit_count})"
 
-template findBlock*(eth1Chain: Eth1Chain, hash: BlockHash): Eth1Block =
-  eth1Chain.blocksByHash.getOrDefault(hash, nil)
-
 template findBlock*(eth1Chain: Eth1Chain, eth1Data: Eth1Data): Eth1Block =
   getOrDefault(eth1Chain.blocksByHash, asBlockHash(eth1Data.block_hash), nil)
 
@@ -343,6 +340,8 @@ proc onBlockHeaders*(p: Web3DataProviderRef,
   p.blockHeadersSubscription = await p.web3.subscribeForBlockHeaders(
     blockHeaderHandler, errorHandler)
 
+{.push raises: [Defect].}
+
 func getDepositsRoot(m: DepositsMerkleizer): Eth2Digest =
   mixInLength(m.getFinalHash, int m.totalChunks)
 
@@ -371,13 +370,13 @@ func eth1DataFromMerkleizer(eth1Block: Eth2Digest,
     deposit_count: merkleizer.getChunkCount,
     deposit_root: merkleizer.getDepositsRoot)
 
-proc pruneOldBlocks(m: Eth1Monitor, depositIndex: uint64) {.raises: [Defect].} =
+proc pruneOldBlocks(m: Eth1Monitor, depositIndex: uint64) =
   let initialChunks = m.eth2FinalizedDepositsMerkleizer.getChunkCount
   var lastBlock: Eth1Block
 
   while m.eth1Chain.blocks.len > 0:
     let blk = m.eth1Chain.blocks.peekFirst
-    if blk.voteData.deposit_count > depositIndex:
+    if blk.voteData.deposit_count >= depositIndex:
       break
     else:
       for deposit in blk.deposits:
@@ -443,6 +442,7 @@ proc getBlockProposalData*(m: Eth1Monitor,
   let finalizedEth1Block = m.eth1Chain.findBlock(finalizedEth1Data)
   let hasLatestDeposits = if finalizedEth1Block != nil:
     if finalizedEth1Block.voteData.deposit_root == finalizedEth1Data.deposit_root:
+      finalizedEth1Block.voteDataVerified = true
       true
     else:
       error "Corrupted deposits history detected",
@@ -523,6 +523,8 @@ proc getBlockProposalData*(m: Eth1Monitor,
         result.hasMissingDeposits = true
     else:
       result.hasMissingDeposits = true
+
+{.pop.}
 
 proc new(T: type Web3DataProvider,
          depositContractAddress: Eth1Address,
