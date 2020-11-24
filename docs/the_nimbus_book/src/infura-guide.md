@@ -47,11 +47,14 @@ You'll be directed to the settings page of your newly created project
 
 ![](https://i.imgur.com/kx3R8XS.png)
 
-### 6. View Görli endpoints
+### 6. Select endpoint
 
-In the `KEYS` section, click on the dropdown menu to the right of `ENDPOINTS`, and select `GÖRLI`
+> ⚠️  **Warning:** if you're connecting to mainnet, you should skip this step
+
+If you're connecting to a testnet, in the `KEYS` section, click on the dropdown menu to the right of `ENDPOINTS`, and select `GÖRLI`
 
 ![](https://i.imgur.com/D9186kv.png)
+
 
 ### 7. Copy the websocket endpoint
 
@@ -59,7 +62,7 @@ Copy the address that starts with `wss://`
 
 ![](https://i.imgur.com/fZ6Bcjy.png)
 
-> ⚠️ **Warning:** make sure you've copied the endpoint that starts with`wss` (websocket), and not the `https` endpoint.
+> ⚠️  **Warning:** make sure you've copied the endpoint that starts with`wss` (websocket), and not the `https` endpoint. If you're connecting  to mainnet this will read `wss://mainnet.infura.io/ws/...`
 
 
 ### 8. Run the beacon node

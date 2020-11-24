@@ -13,8 +13,6 @@ You can even create an account ([testnet link](https://pyrmont.beaconcha.in/regi
 
 -------------------------------
 
-> ⚠️  The rest of this page concerns the Pyrmont testnet only. If you have made a mainnet deposit, you do not need to run Nimbus quite yet. Mainnet [Genesis](https://hackmd.io/@benjaminion/genesis) date has been set to [December 1st](https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/). This page will be updated nearer the time.
-
 ## Make sure your validator is attached
 
 On startup, you should see a log message that reads `Local validator attached`. This has a `pubKey` field which should the public key of your validator.
