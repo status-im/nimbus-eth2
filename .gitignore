@@ -12,6 +12,10 @@ build/
 # vscode
 .vscode
 
+# Each developer can create a personal .env file with
+# local settings overrides (e.g. WEB3_URL)
+.env
+
 # Ignore dynamic, static libs and libtool archive files
 *.so
 *.dylib

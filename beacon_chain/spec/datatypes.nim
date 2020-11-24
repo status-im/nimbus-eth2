@@ -461,6 +461,12 @@ type
     stabilitySubnet*: uint64
     stabilitySubnetExpirationEpoch*: Epoch
 
+  # This matches the mutable state of the Solidity deposit contract
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/solidity_deposit_contract/deposit_contract.sol
+  DepositContractState* = object
+    branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
+    deposit_count*: array[32, byte] # Uint256
+
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
   ($state.validators[validatorIdx].pubkey)[0..7]
 

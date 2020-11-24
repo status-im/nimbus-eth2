@@ -140,6 +140,7 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
     eth1_data*: Eth1Data
+    eth1_deposit_index*: uint64
     beacon_proposers*: array[
       SLOTS_PER_EPOCH, Option[(ValidatorIndex, ValidatorPubKey)]]
     shuffled_active_validator_indices*: seq[ValidatorIndex]

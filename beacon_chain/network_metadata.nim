@@ -63,8 +63,12 @@ type
       # `genesisData` will have `len == 0` for networks with a still
       # unknown genesis state.
       genesisData*: string
+      genesisDepositsSnapshot*: string
     else:
       incompatibilityDesc*: string
+
+const
+  eth2testnetsDir = currentSourcePath.parentDir / ".." / "vendor" / "eth2-testnets"
 
 const presetValueLoaders = genExpr(nnkBracket):
   for constName in PresetValue:
@@ -104,6 +108,7 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
   try:
     let
       genesisPath = path / "genesis.ssz"
+      genesisDepositsSnapshotPath = path / "genesis_deposit_contract_snapshot.ssz"
       configPath = path / "config.yaml"
       depositContractPath = path / "deposit_contract.txt"
       depositContractBlockPath = path / "deposit_contract_block.txt"
@@ -134,8 +139,15 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
       else:
         @[]
 
-      genesisData = if fileExists(genesisPath): readFile(genesisPath)
-                    else: ""
+      genesisData = if fileExists(genesisPath):
+        readFile(genesisPath)
+      else:
+        ""
+
+      genesisDepositsSnapshot = if fileExists(genesisDepositsSnapshotPath):
+        readFile(genesisDepositsSnapshotPath)
+      else:
+        ""
 
     Eth2NetworkMetadata(
       incompatible: false,
@@ -144,24 +156,27 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
       bootstrapNodes: bootstrapNodes,
       depositContractAddress: depositContractAddress,
       depositContractDeployedAt: depositContractDeployedAt,
-      genesisData: genesisData)
+      genesisData: genesisData,
+      genesisDepositsSnapshot: genesisDepositsSnapshot)
 
   except PresetIncompatible as err:
     Eth2NetworkMetadata(incompatible: true,
                         incompatibilityDesc: err.msg)
 
 const
+  mainnetMetadataDir = eth2testnetsDir / "shared" / "mainnet"
+
   mainnetMetadata* = when const_preset == "mainnet":
     Eth2NetworkMetadata(
       incompatible: false, # TODO: This can be more accurate if we verify
                            # that there are no constant overrides
       eth1Network: some mainnet,
       runtimePreset: mainnetRuntimePreset,
-      # TODO(zah) Add bootstrap nodes for mainnet
-      bootstrapNodes: @[],
+      bootstrapNodes: readFile(mainnetMetadataDir / "bootstrap_nodes.txt").splitLines,
       depositContractAddress: Eth1Address.fromHex "0x00000000219ab540356cBB839Cbe05303d7705Fa",
       depositContractDeployedAt: BlockHashOrNumber.init "11052984",
-      genesisData: "")
+      genesisData: readFile(mainnetMetadataDir / "genesis.ssz"),
+      genesisDepositsSnapshot: readFile(mainnetMetadataDir / "genesis_deposit_contract_snapshot.ssz"))
   else:
     Eth2NetworkMetadata(
       incompatible: true,
@@ -169,14 +184,10 @@ const
                            "It's not compatible with mainnet")
 
 template eth2testnet(path: string): Eth2NetworkMetadata =
-  loadEth2NetworkMetadata(currentSourcePath.parentDir / ".." / "vendor" / "eth2-testnets" / path)
+  loadEth2NetworkMetadata(eth2testnetsDir / path)
 
 const
-  medallaMetadata* = eth2testnet "shared/medalla"
-  toledoMetadata* = eth2testnet "shared/toledo"
   pyrmontMetadata* = eth2testnet "shared/pyrmont"
-  testnet0Metadata* = eth2testnet "nimbus/testnet0"
-  testnet1Metadata* = eth2testnet "nimbus/testnet1"
 
 {.pop.} # the following pocedures raise more than just `Defect`
 
@@ -185,16 +196,8 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
     metadata = case toLowerAscii(networkName)
       of "mainnet":
         mainnetMetadata
-      of "medalla":
-        medallaMetadata
-      of "toledo":
-        toledoMetadata
       of "pyrmont":
         pyrmontMetadata
-      of "testnet0":
-        testnet0Metadata
-      of "testnet1":
-        testnet1Metadata
       else:
         if fileExists(networkName):
           try:
