@@ -394,10 +394,6 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
         attestation.aggregation_bits.combine(a.validations[i].aggregation_bits)
         agg.aggregate(a.validations[i].aggregate_signature)
 
-    # TODO combining is the expensive thing here. Split loops for early exits
-    # and put attestation.aggregation_bits.combine(a.validations[i].aggregation_bits)
-    # part of loop before check_attestation()
-
     # Since each validator attests exactly once per epoch and its attestation
     # has been validated to have been included in the attestation pool, there
     # only exists one possible slot/committee combination to check.
