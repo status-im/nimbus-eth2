@@ -31,10 +31,7 @@ type
     # so we **must** use "root" as a field name
     root: string
     # Containers have a root (thankfully) and signing_root field
-    signing_root: string
-
-# Make signing root optional
-setDefaultValue(SSZHashTreeRoot, signing_root, "")
+    signing_root {.defaultVal: "".}: string
 
 type
   # Heterogeneous containers
