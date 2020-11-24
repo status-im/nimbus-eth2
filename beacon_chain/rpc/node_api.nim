@@ -231,7 +231,7 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     )
 
   rpcServer.rpc("get_v1_node_version") do () -> JsonNode:
-    return %{"version": "Nimbus/" & fullVersionStr}
+    return %*{"version": "Nimbus/" & fullVersionStr}
 
   rpcServer.rpc("get_v1_node_syncing") do () -> SyncInfo:
     return node.syncManager.getInfo()
@@ -241,6 +241,6 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     # its impossible to return HTTP ERROR 503 according to specification.
     if node.syncManager.inProgress:
       # We need to return HTTP ERROR 206 according to specification
-      return %{"health": 206}
+      return %*{"health": 206}
     else:
-      return %{"health": 200}
+      return %*{"health": 200}
