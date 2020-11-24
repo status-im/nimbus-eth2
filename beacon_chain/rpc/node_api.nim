@@ -17,23 +17,7 @@ type
 template unimplemented() =
   raise (ref CatchableError)(msg: "Unimplemented")
 
-type
-  RpcPeer* = object
-    peer_id*: string
-    enr*: string
-    last_seen_p2p_address*: string
-    state*: string
-    direction*: string
-    agent*: string
-    proto*: string
-
-  RpcPeerCount* = object
-    disconnected*: int
-    connecting*: int
-    connected*: int
-    disconnecting*: int
-
-proc validatePeerState(state: Option[seq[string]]): Option[set[ConnectionState]] =
+proc validateState(state: Option[seq[string]]): Option[set[ConnectionState]] =
   var res: set[ConnectionState]
   if state.isSome():
     let states = state.get()
@@ -185,9 +169,9 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     )
 
   rpcServer.rpc("get_v1_node_peers") do (state: Option[seq[string]],
-                                direction: Option[seq[string]]) -> seq[NodePeerTuple]:
+                          direction: Option[seq[string]]) -> seq[NodePeerTuple]:
     var res = newSeq[NodePeerTuple]()
-    let rstates = validatePeerState(state)
+    let rstates = validateState(state)
     if rstates.isNone():
       raise newException(CatchableError, "Incorrect state parameter")
     let rdirs = validateDirection(direction)
@@ -197,7 +181,7 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     let dirs = rdirs.get()
     for item in node.network.peers.values():
       if (item.connectionState in states) and (item.direction in dirs):
-        let rpeer = (
+        let peer = (
           peer_id: $item.info.peerId,
           enr: if item.enr.isSome(): item.enr.get().toUri() else: "",
           last_seen_p2p_address: item.info.getLastSeenAddress(),
@@ -206,7 +190,7 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
           agent: item.info.agentVersion, # Fields `agent` and `proto` are not
           proto: item.info.protoVersion  # part of specification.
         )
-        res.add(rpeer)
+        res.add(peer)
     return res
 
   rpcServer.rpc("get_v1_node_peer_count") do () -> NodePeerCountTuple:
@@ -225,7 +209,8 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
         discard
     return res
 
-  rpcServer.rpc("get_v1_node_peers_peerId") do (peer_id: string) -> NodePeerTuple:
+  rpcServer.rpc("get_v1_node_peers_peerId") do (
+    peer_id: string) -> NodePeerTuple:
     let pres = PeerID.init(peer_id)
     if pres.isErr():
       raise newException(CatchableError,
