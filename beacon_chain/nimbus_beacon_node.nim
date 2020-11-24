@@ -1335,3 +1335,30 @@ programMain:
 
     of WalletsCmd.restore:
       restoreWalletInteractively(rng[], config)
+
+  of record:
+    case config.recordCmd:
+    of RecordCmd.create:
+      let netKeys = getPersistentNetKeys(rng[], config)
+
+      var fieldPairs: seq[FieldPair]
+      for field in config.fields:
+        let fieldPair = field.split(":")
+        if fieldPair.len > 1:
+          fieldPairs.add(toFieldPair(fieldPair[0], hexToSeqByte(fieldPair[1])))
+        else:
+          fatal "Invalid field pair"
+          quit QuitFailure
+
+      let record = enr.Record.init(
+        config.seqNumber,
+        netKeys.seckey.asEthKey,
+        some(config.ipExt),
+        config.tcpPortExt,
+        config.udpPortExt,
+        fieldPairs).expect("Record within size limits")
+
+      echo record.toURI()
+
+    of RecordCmd.print:
+      echo $config.recordPrint
