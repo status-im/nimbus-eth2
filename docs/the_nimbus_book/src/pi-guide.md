@@ -69,6 +69,10 @@ Click **YES**
 
 Make a cup of coffee :)
 
+### 4c. Boot from external SSD
+
+Follow [this guide](https://www.tomshardware.com/how-to/boot-raspberry-pi-4-usb) to boot your Pi from your SSD. The USB 3 port is the blue port.
+
 
 ### 5. Set up wireless LAN
 
