@@ -7,11 +7,11 @@ when not defined(nimscript):
   let copyrights* = "Copyright (c) 2019-" & $(now().utc.year) & " Status Research & Development GmbH"
 
 const
-  versionMajor* = 0
-  versionMinor* = 6
-  versionBuild* = 6
+  versionMajor* = 1
+  versionMinor* = 0
+  versionBuild* = 0
 
-  versionBlob* = "hope" # Single word - ends up in the default graffitti
+  versionBlob* = "rc1" # Single word - ends up in the default graffitti
 
   useInsecureFeatures* = defined(insecure)
 
@@ -22,7 +22,7 @@ const
   versionAsStr* =
     $versionMajor & "." & $versionMinor & "." & $versionBuild
 
-  fullVersionStr* = "v" & versionAsStr & "-" & gitRevision
+  fullVersionStr* = "v" & versionAsStr & "-" & gitRevision & "-" & versionBlob
 
 func shortNimBanner*(): string =
   const gitPrefix = "git hash: "
