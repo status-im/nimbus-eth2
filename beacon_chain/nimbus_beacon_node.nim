@@ -30,7 +30,7 @@ import
   beacon_node_common, beacon_node_types, beacon_node_status,
   block_pools/[chain_dag, quarantine, clearance, block_pools_types],
   nimbus_binary_common, network_metadata,
-  eth1_monitor, version, ssz/merkleization,
+  eth1_monitor, version, ssz/[navigator, merkleization],
   sync_protocol, request_manager, keystore_management, interop, statusbar,
   sync_manager, validator_duties, filepath,
   validator_slashing_protection, ./eth2_processor
@@ -208,13 +208,25 @@ proc init*(T: type BeaconNode,
 
   info "Loading block dag from database", path = conf.databaseDir
 
-  # TODO(zah) check that genesis given on command line (if any) matches database
   let
     chainDagFlags = if conf.verifyFinalization: {verifyFinalization}
                      else: {}
     chainDag = ChainDAGRef.init(conf.runtimePreset, db, chainDagFlags)
     beaconClock = BeaconClock.init(chainDag.headState.data.data)
     quarantine = QuarantineRef()
+    databaseGenesisValidatorsRoot =
+      chainDag.headState.data.data.genesis_validators_root
+
+  if genesisStateContents != nil:
+    let
+      networkGenesisValidatorsRoot =
+        sszMount(genesisStateContents[], BeaconState).genesis_validators_root[]
+
+    if networkGenesisValidatorsRoot != databaseGenesisValidatorsRoot:
+      fatal "The specified --data-dir contains data for a different network",
+            networkGenesisValidatorsRoot, databaseGenesisValidatorsRoot,
+            dataDir = conf.dataDir
+      quit 1
 
   if conf.weakSubjectivityCheckpoint.isSome:
     let
@@ -232,6 +244,13 @@ proc init*(T: type BeaconNode,
       quit 1
 
   if checkpointState != nil:
+    let checkpointGenesisValidatorsRoot = checkpointState[].genesis_validators_root
+    if checkpointGenesisValidatorsRoot != databaseGenesisValidatorsRoot:
+      fatal "The specified checkpoint state is intended for a different network",
+            checkpointGenesisValidatorsRoot, databaseGenesisValidatorsRoot,
+            dataDir = conf.dataDir
+      quit 1
+
     chainDag.setTailState(checkpointState[], checkpointBlock)
 
   if eth1Monitor.isNil and
@@ -1082,6 +1101,9 @@ programMain:
       if config.depositContractDeployedAt.isNone:
         config.depositContractDeployedAt =
           some mainnetMetadata.depositContractDeployedAt
+
+      genesisStateContents = newClone mainnetMetadata.genesisData
+      genesisDepositsSnapshotContents = newClone mainnetMetadata.genesisDepositsSnapshot
       eth1Network = some mainnet
 
   # Single RNG instance for the application - will be seeded on construction

@@ -19,6 +19,10 @@ func sszMount*(data: openArray[byte], T: type): SszNavigator[T] =
   let startAddr = unsafeAddr data[0]
   SszNavigator[T](m: MemRange(startAddr: startAddr, length: data.len))
 
+func sszMount*(data: openArray[char], T: type): SszNavigator[T] =
+  let startAddr = cast[ptr byte](unsafeAddr data[0])
+  SszNavigator[T](m: MemRange(startAddr: startAddr, length: data.len))
+
 template sszMount*(data: MemRange, T: type): SszNavigator[T] =
   SszNavigator[T](m: data)
 
