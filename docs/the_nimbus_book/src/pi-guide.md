@@ -52,7 +52,7 @@ Find the OS you downloaded in step 2
 
 ![](https://i.imgur.com/NeOT8pf.png)
 
-### 4. Write to SD card
+### 4b. Write to SD card
 
 
 Click on **CHOOSE SD CARD**. You should see a menu pop-up with your SD card listed -- Select it
