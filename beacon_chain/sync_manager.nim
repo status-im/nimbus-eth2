@@ -205,25 +205,25 @@ proc getFullMap*[T](req: SyncRequest[T],
   result = mapIt(data, $it.message.slot).join(", ")
 
 proc init*[T](t1: typedesc[SyncRequest], t2: typedesc[T], slot: Slot,
-              count: uint64): SyncRequest[T] {.inline.} =
+              count: uint64): SyncRequest[T] =
   result = SyncRequest[T](slot: slot, count: count, step: 1'u64)
 
 proc init*[T](t1: typedesc[SyncRequest], t2: typedesc[T], start: Slot,
-              finish: Slot): SyncRequest[T] {.inline.} =
+              finish: Slot): SyncRequest[T] =
   let count = finish - start + 1'u64
   result = SyncRequest[T](slot: start, count: count, step: 1'u64)
 
 proc init*[T](t1: typedesc[SyncRequest], t2: typedesc[T], slot: Slot,
-              count: uint64, item: T): SyncRequest[T] {.inline.} =
+              count: uint64, item: T): SyncRequest[T] =
   result = SyncRequest[T](slot: slot, count: count, item: item, step: 1'u64)
 
 proc init*[T](t1: typedesc[SyncRequest], t2: typedesc[T], start: Slot,
-              finish: Slot, item: T): SyncRequest[T] {.inline.} =
+              finish: Slot, item: T): SyncRequest[T] =
   let count = finish - start + 1'u64
   result = SyncRequest[T](slot: start, count: count, step: 1'u64, item: item)
 
 proc init*[T](t1: typedesc[SyncFailure], kind: SyncFailureKind,
-              peer: T): SyncFailure[T] {.inline.} =
+              peer: T): SyncFailure[T] =
   result = SyncFailure[T](kind: kind, peer: peer, stamp: now(chronos.Moment))
 
 proc empty*[T](t: typedesc[SyncRequest],
@@ -334,7 +334,7 @@ proc updateLastSlot*[T](sq: SyncQueue[T], last: Slot) {.inline.} =
            $sq.lastSlot & " <= " & $last)
   sq.lastSlot = last
 
-proc wakeupWaiters[T](sq: SyncQueue[T], flag = true) {.inline.} =
+proc wakeupWaiters[T](sq: SyncQueue[T], flag = true) =
   ## Wakeup one or all blocked waiters.
   for item in sq.waiters:
     if not(item.future.finished()):
@@ -416,7 +416,7 @@ proc getLastNonEmptySlot*[T](sr: SyncResult[T]): Slot {.inline.} =
   else:
     sr.data[^1].message.slot
 
-proc toDebtsQueue[T](sq: SyncQueue[T], sr: SyncRequest[T]) {.inline.} =
+proc toDebtsQueue[T](sq: SyncQueue[T], sr: SyncRequest[T]) =
   sq.debtsQueue.push(sr)
   sq.debtsCount = sq.debtsCount + sr.count
 

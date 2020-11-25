@@ -1,3 +1,63 @@
+2020-11-20 v1.0.0-rc1
+=====================
+
+We're happy to join the other client teams in announcing our `v1.0.0` release
+candidate with support for Mainnet ✨
+
+You can use this release/binary to set up your rig and monitoring for Eth2
+genesis next Tuesday (*December 1 12:00:23 UTC*).
+
+> **N.B.** There will be at least one more release, before December 1st.
+> In particular, **we are planning a more polished release for Sunday** which
+> will act as a drop-in replacement for this release candidate.
+
+Don't worry if your peer count appears low at first -- It should increase as
+more validators connect to Mainnet.
+
+-----------------
+
+**Highlights include:**
+
+* The addition of a deposit contract "state snapshot"  to network metadata.
+  This allows the client to skip syncing deposits made prior to the snapshot.
+
+* A much faster startup time. We've removed the deposits table from the database,
+  which means the client no longer needs to process all deposits on start-up.
+
+* The Eth1 monitor no longer starts if the beacon node has zero validators attached to it.
+
+* The genesis detection code is now optional and disabled by default.
+
+* An RPC call to get Chronos futures at runtime.
+
+* Eth2 spec gossip parameters.
+
+**We've fixed:**
+
+* A database corruption issue affecting Pyrmont nodes.
+
+* Unnecessary copy/memory alloc when loading DbSeq entries.
+
+* A block production issue affecting clients that hadn't finished downloading the latest deposits. 
+
+
+2020-11-20 v0.6.6
+=================
+
+New additions:
+
+* New RPC APIs for inspecting the internal state of the Eth1 monitor.
+
+We've fixed:
+
+* A fork-choice issue causing Nimbus to get stuck on a particular slot.
+
+* A logic error causing Nimbus to vote for an incorrect Eth1 block.
+
+* A crash during initialization when the web3 provider is refusing
+  to serve data (e.g. due to exceeded request quota).
+
+
 2020-11-17 v0.6.4
 =================
 

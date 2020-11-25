@@ -30,7 +30,7 @@ import
   beacon_node_common, beacon_node_types, beacon_node_status,
   block_pools/[chain_dag, quarantine, clearance, block_pools_types],
   nimbus_binary_common, network_metadata,
-  eth1_monitor, version, ssz/merkleization,
+  eth1_monitor, version, ssz/[navigator, merkleization],
   sync_protocol, request_manager, keystore_management, interop, statusbar,
   sync_manager, validator_duties, filepath,
   validator_slashing_protection, ./eth2_processor
@@ -70,13 +70,15 @@ func enrForkIdFromState(state: BeaconState): ENRForkID =
 proc init*(T: type BeaconNode,
            rng: ref BrHmacDrbgContext,
            conf: BeaconNodeConf,
+           eth1Network: Option[Eth1Network],
            genesisStateContents: ref string,
-           eth1Network: Option[Eth1Network]): Future[BeaconNode] {.async.} =
+           genesisDepositsSnapshotContents: ref string): Future[BeaconNode] {.async.} =
   let
     db = BeaconChainDB.init(conf.runtimePreset, conf.databaseDir)
 
   var
     genesisState, checkpointState: ref BeaconState
+    genesisDepositsSnapshot: DepositContractSnapshot
     checkpointBlock: SignedBeaconBlock
 
   if conf.finalizedCheckpointState.isSome:
@@ -118,54 +120,63 @@ proc init*(T: type BeaconNode,
       tailBlock: SignedBeaconBlock
 
     if genesisStateContents == nil and checkpointState == nil:
-      # This is a fresh start without a known genesis state
-      # (most likely, it hasn't arrived yet). We'll try to
-      # obtain a genesis through the Eth1 deposits monitor:
-      if conf.web3Url.len == 0:
-        fatal "Web3 URL not specified"
-        quit 1
+      when hasGenesisDetection:
+        if genesisDepositsSnapshotContents != nil:
+          fatal "A deposits snapshot cannot be provided without also providing a matching beacon state snapshot"
+          quit 1
 
-      if conf.depositContractAddress.isNone:
-        fatal "Deposit contract address not specified"
-        quit 1
+        # This is a fresh start without a known genesis state
+        # (most likely, it hasn't arrived yet). We'll try to
+        # obtain a genesis through the Eth1 deposits monitor:
+        if conf.web3Url.len == 0:
+          fatal "Web3 URL not specified"
+          quit 1
 
-      if conf.depositContractDeployedAt.isNone:
-        # When we don't have a known genesis state, the network metadata
-        # must specify the deployment block of the contract.
-        fatal "Deposit contract deployment block not specified"
-        quit 1
+        if conf.depositContractAddress.isNone:
+          fatal "Deposit contract address not specified"
+          quit 1
 
-      # TODO Could move this to a separate "GenesisMonitor" process or task
-      #      that would do only this - see Paul's proposal for this.
-      let eth1MonitorRes = await Eth1Monitor.init(
-        db,
-        conf.runtimePreset,
-        conf.web3Url,
-        conf.depositContractAddress.get,
-        conf.depositContractDeployedAt.get,
-        eth1Network)
+        if conf.depositContractDeployedAt.isNone:
+          # When we don't have a known genesis state, the network metadata
+          # must specify the deployment block of the contract.
+          fatal "Deposit contract deployment block not specified"
+          quit 1
 
-      if eth1MonitorRes.isErr:
-        fatal "Failed to start Eth1 monitor",
-              reason = eth1MonitorRes.error,
-              web3Url = conf.web3Url,
-              depositContractAddress = conf.depositContractAddress.get,
-              depositContractDeployedAt = conf.depositContractDeployedAt.get
-        quit 1
+        # TODO Could move this to a separate "GenesisMonitor" process or task
+        #      that would do only this - see Paul's proposal for this.
+        let eth1MonitorRes = await Eth1Monitor.init(
+          db,
+          conf.runtimePreset,
+          conf.web3Url,
+          conf.depositContractAddress.get,
+          conf.depositContractDeployedAt.get,
+          eth1Network)
+
+        if eth1MonitorRes.isErr:
+          fatal "Failed to start Eth1 monitor",
+                reason = eth1MonitorRes.error,
+                web3Url = conf.web3Url,
+                depositContractAddress = conf.depositContractAddress.get,
+                depositContractDeployedAt = conf.depositContractDeployedAt.get
+          quit 1
+        else:
+          eth1Monitor = eth1MonitorRes.get
+
+        genesisState = await eth1Monitor.waitGenesis()
+        if bnStatus == BeaconNodeStatus.Stopping:
+          return nil
+
+        tailState = genesisState
+        tailBlock = get_initial_beacon_block(genesisState[])
+
+        notice "Eth2 genesis state detected",
+          genesisTime = genesisState.genesisTime,
+          eth1Block = genesisState.eth1_data.block_hash,
+          totalDeposits = genesisState.eth1_data.deposit_count
       else:
-        eth1Monitor = eth1MonitorRes.get
-
-      genesisState = await eth1Monitor.waitGenesis()
-      if bnStatus == BeaconNodeStatus.Stopping:
-        return nil
-
-      tailState = genesisState
-      tailBlock = get_initial_beacon_block(genesisState[])
-
-      notice "Eth2 genesis state detected",
-        genesisTime = genesisState.genesisTime,
-        eth1Block = genesisState.eth1_data.block_hash,
-        totalDeposits = genesisState.eth1_data.deposit_count
+        fatal "The beacon node must be compiled with -d:has_genesis_detection " &
+              "in order to support monitoring for genesis events"
+        quit 1
 
     elif genesisStateContents == nil:
       if checkpointState.slot == GENESIS_SLOT:
@@ -197,13 +208,25 @@ proc init*(T: type BeaconNode,
 
   info "Loading block dag from database", path = conf.databaseDir
 
-  # TODO(zah) check that genesis given on command line (if any) matches database
   let
     chainDagFlags = if conf.verifyFinalization: {verifyFinalization}
                      else: {}
     chainDag = ChainDAGRef.init(conf.runtimePreset, db, chainDagFlags)
     beaconClock = BeaconClock.init(chainDag.headState.data.data)
     quarantine = QuarantineRef()
+    databaseGenesisValidatorsRoot =
+      chainDag.headState.data.data.genesis_validators_root
+
+  if genesisStateContents != nil:
+    let
+      networkGenesisValidatorsRoot =
+        sszMount(genesisStateContents[], BeaconState).genesis_validators_root[]
+
+    if networkGenesisValidatorsRoot != databaseGenesisValidatorsRoot:
+      fatal "The specified --data-dir contains data for a different network",
+            networkGenesisValidatorsRoot, databaseGenesisValidatorsRoot,
+            dataDir = conf.dataDir
+      quit 1
 
   if conf.weakSubjectivityCheckpoint.isSome:
     let
@@ -221,12 +244,21 @@ proc init*(T: type BeaconNode,
       quit 1
 
   if checkpointState != nil:
+    let checkpointGenesisValidatorsRoot = checkpointState[].genesis_validators_root
+    if checkpointGenesisValidatorsRoot != databaseGenesisValidatorsRoot:
+      fatal "The specified checkpoint state is intended for a different network",
+            checkpointGenesisValidatorsRoot, databaseGenesisValidatorsRoot,
+            dataDir = conf.dataDir
+      quit 1
+
     chainDag.setTailState(checkpointState[], checkpointBlock)
 
   if eth1Monitor.isNil and
      conf.web3Url.len > 0 and
      conf.depositContractAddress.isSome and
-     conf.depositContractDeployedAt.isSome:
+     genesisDepositsSnapshotContents != nil:
+    let genesisDepositsSnapshot = SSZ.decode(genesisDepositsSnapshotContents[],
+                                             DepositContractSnapshot)
     # TODO(zah) if we don't have any validators attached,
     #           we don't need a mainchain monitor
     let eth1MonitorRes = await Eth1Monitor.init(
@@ -234,7 +266,7 @@ proc init*(T: type BeaconNode,
       conf.runtimePreset,
       conf.web3Url,
       conf.depositContractAddress.get,
-      conf.depositContractDeployedAt.get,
+      genesisDepositsSnapshot,
       eth1Network)
 
     if eth1MonitorRes.isErr:
@@ -746,8 +778,9 @@ proc stop*(node: BeaconNode) =
   if not node.config.inProcessValidators:
     node.vcProcess.close()
   waitFor node.network.stop()
+  node.attachedValidators.slashingProtection.close()
   node.db.close()
-  notice "Database closed"
+  notice "Databases closed"
 
 proc run*(node: BeaconNode) =
   if bnStatus == BeaconNodeStatus.Starting:
@@ -838,7 +871,7 @@ proc start(node: BeaconNode) =
 
   waitFor node.initializeNetworking()
 
-  if node.eth1Monitor != nil:
+  if node.eth1Monitor != nil and node.attachedValidators.count > 0:
     node.eth1Monitor.start()
 
   node.run()
@@ -1002,6 +1035,7 @@ programMain:
     config = makeBannerAndConfig(clientId, BeaconNodeConf)
     # This is ref so we can mutate it (to erase it) after the initial loading.
     genesisStateContents: ref string
+    genesisDepositsSnapshotContents: ref string
     eth1Network: Option[Eth1Network]
 
   setupStdoutLogging(config.logLevel)
@@ -1039,6 +1073,9 @@ programMain:
       if metadata.genesisData.len > 0:
         genesisStateContents = newClone metadata.genesisData
 
+      if metadata.genesisDepositsSnapshot.len > 0:
+        genesisDepositsSnapshotContents = newClone metadata.genesisDepositsSnapshot
+
     template checkForIncompatibleOption(flagName, fieldName) =
       # TODO: This will have to be reworked slightly when we introduce config files.
       # We'll need to keep track of the "origin" of the config value, so we can
@@ -1064,6 +1101,9 @@ programMain:
       if config.depositContractDeployedAt.isNone:
         config.depositContractDeployedAt =
           some mainnetMetadata.depositContractDeployedAt
+
+      genesisStateContents = newClone mainnetMetadata.genesisData
+      genesisDepositsSnapshotContents = newClone mainnetMetadata.genesisDepositsSnapshot
       eth1Network = some mainnet
 
   # Single RNG instance for the application - will be seeded on construction
@@ -1131,8 +1171,6 @@ programMain:
       echo "Wrote ", bootstrapFile
 
   of noCommand:
-    warn "You are running an alpha version of Nimbus - it is not suitable for mainnet!",
-      version = fullVersionStr
     info "Launching beacon node",
           version = fullVersionStr,
           bls_backend = $BLS_BACKEND,
@@ -1154,12 +1192,18 @@ programMain:
     # letting the default Ctrl+C handler exit is safe, since we only read from
     # the db.
     var node = waitFor BeaconNode.init(
-      rng, config, genesisStateContents, eth1Network)
+      rng, config, eth1Network,
+      genesisStateContents,
+      genesisDepositsSnapshotContents)
 
     if bnStatus == BeaconNodeStatus.Stopping:
       return
+
     # The memory for the initial snapshot won't be needed anymore
-    if genesisStateContents != nil: genesisStateContents[] = ""
+    if genesisStateContents != nil:
+      genesisStateContents[] = ""
+    if genesisDepositsSnapshotContents != nil:
+      genesisDepositsSnapshotContents[] = ""
 
     when hasPrompt:
       initPrompt(node)

@@ -15,6 +15,15 @@ One of the most important aspects of the Raspberry Pi experience is trying to ma
 - Reliable Wifi connection
 - Laptop
 - Basic understanding of the [command line](https://www.learnenough.com/command-line-tutorial/basics)
+- 160GB SSD
+
+> ⚠️  You will need an SSD to run the Nimbus (without an SSD drive you have absolutely no chance of syncing the Ethereum blockchain). You have two options:
+>
+> 1. Use an USB portable SSD disk such as the Samsung T5 Portable SSD.
+>
+> 2. Use an USB 3.0 External Hard Drive Case with a SSD Disk. For example, [Ethereum on Arm](https://twitter.com/EthereumOnARM) use an Inateck 2.5 Hard Drive Enclosure FE2011. Make sure to buy a case with an UASP compliant chip, particularly, one of these: JMicron (JMS567 or JMS578) or ASMedia (ASM1153E).
+>
+> In both cases, avoid low quality SSD disks (the SSD is a key component of your node and can drastically affect both the performance and sync time). Keep in mind that you need to plug the disk to an USB 3.0 port (the blue port).
 
 ### 1. Download Raspberry Pi Imager
 
@@ -22,34 +31,31 @@ One of the most important aspects of the Raspberry Pi experience is trying to ma
 
 You can find the [download](https://www.learnenough.com/command-line-tutorial/basics) link for your operating system here: [Windows](https://downloads.raspberrypi.org/imager/imager_1.4.exe), [macOS](https://downloads.raspberrypi.org/imager/imager_1.4.dmg), [Ubuntu](https://downloads.raspberrypi.org/imager/imager_1.4_amd64.deb).
 
+### 2. Download Raspian 64-bit OS (Beta)
+You can find the latest version, [here](https://downloads.raspberrypi.org/raspios_arm64/images/).
 
-### 2. Plug in SD card
+### 3. Plug in SD card
 Use your microSD to USB adapter to plug the SD card into your computer.
 
 
-### 3. Download Raspberry Pi OS
+### 4. Download Raspberry Pi OS
 
 Open Raspberry Pi Imager and click on **CHOOSE OS**
 
 ![](https://storage.googleapis.com/ethereum-hackmd/upload_7b8cfa54f877218b6d971f09fa8d62ff.png)
 
-Select **Raspberry Pi OS (other)**
+Scroll down and click on **Use custom**
 
-![](https://storage.googleapis.com/ethereum-hackmd/upload_543445a689fac6407a573da9fde9d224.png)
+![](https://i.imgur.com/ar88MTt.png)
 
-Select **Raspberry Pi OS Lite (32-bit)**
+Find the OS you downloaded in step 2
 
-![](https://storage.googleapis.com/ethereum-hackmd/upload_1a3cb9c5b4d7dedc8f31a9c4bf56d175.png)
+![](https://i.imgur.com/NeOT8pf.png)
+
+### 4b. Write to SD card
 
 
-### 4. Write to SD card
-
-
-Click on **CHOOSE SD CARD**
-
-![](https://storage.googleapis.com/ethereum-hackmd/upload_99a150d6055c2139b3c468d405e5c731.png)
-
-You should see a menu pop-up with your SD card listed -- Select it
+Click on **CHOOSE SD CARD**. You should see a menu pop-up with your SD card listed -- Select it
 
 ![](https://storage.googleapis.com/ethereum-hackmd/upload_f90713c1ef782a94b5fce9eb8249c206.png)
 
@@ -62,6 +68,10 @@ Click **YES**
 ![](https://storage.googleapis.com/ethereum-hackmd/upload_160208a5bc983165c2a1eb9bffed01c2.png)
 
 Make a cup of coffee :)
+
+### 4c. Boot from external SSD
+
+Follow [this guide](https://www.tomshardware.com/how-to/boot-raspberry-pi-4-usb) to boot your Pi from your SSD. The USB 3 port is the blue port.
 
 
 ### 5. Set up wireless LAN
@@ -143,7 +153,7 @@ Enter the Pi's default password: `raspberry`
 
 You should see a message that looks like the following:
 ```
-Linux raspberrypi 5.4.51-v7l+ #1333 SMP Mon Aug 10 16:51:40 BST 2020 armv7l
+Linux raspberrypi 5.4.51-v8+ #1333 SMP PREEMPT Mon Aug 10 16:58:35 BST 2020 aarch64
 
 The programs included with the Debian GNU/Linux system are free software;
 the exact distribution terms for each program are described in the
@@ -151,6 +161,7 @@ individual files in /usr/share/doc/*/copyright.
 
 Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
 permitted by applicable law.
+Last login: Thu Aug 20 12:59:01 2020
 
 SSH is enabled and the default password for the 'pi' user has not been changed.
 This is a security risk - please login as the 'pi' user and type 'passwd' to set a new password.
@@ -191,30 +202,8 @@ CONF_SWAPSIZE=2048
 
 Save (`Ctrl+S`) and exit (`Ctrl+X`).
 
-### 10. 64-bit kernel
 
-To increase performance, we're going to tell the Pi to use a 64-bit kernel. All the supporting software will still be 32 bit, but the code that manages memory and multitasking will be able to use the more powerful 64-bit mode.
-
-As it stands, if you run `uname -a` you should see something like this:
-
-```
-Linux raspberrypi 5.4.51-v7l+ #1333 SMP Mon Aug 10 16:51:40 BST 2020 armv7l GNU/Linux
-```
-
-The key is `armv7l`. This tells you that you are on a 32-bit kernel. To change this, open up the config file:
-
-```
-sudo nano /boot/config.txt
-```
-
-And add the following two lines:
-
-```
-# enable 64-bit kernel
-arm_64bit=1
-```
-
-### 11. Reboot
+### 10. Reboot
 Reboot your Pi to have the above changes take effect:
 
 ```
@@ -229,16 +218,8 @@ ssh pi@195.177.101.93
 
 > **Note:** Remember to replace `195.177.101.93` with the IP address of your Pi.
 
-As a quick check, if you run `uname -a` again you should see something like this:
 
-```
-Linux raspberrypi 5.4.51-v8+ #1333 SMP PREEMPT Mon Aug 10 16:58:35 BST 2020 aarch64 GNU/Linux
-```
-
-Notice how `armv7l` has been replaced with `aarch64`. This tells you that you are now on a 64-bit kernel.
-
-
-### 12. Install Nimbus dependencies
+### 11. Install Nimbus dependencies
 
 You'll need to install some packages (`git`) in order for Nimbus to run correctly.
 
@@ -247,7 +228,7 @@ To do so, run:
 sudo apt-get install git
 
 ```
-### 13. Install Screen
+### 12. Install Screen
 
 `screen` is a tool that lets you safely detach from the SSH session without exiting the remote job. In other words `screen` allows the commands you run on your Pi from your laptop to keep running after you've logged out.
 
@@ -256,7 +237,7 @@ Run the following command to install `screen`:
 sudo apt-get install screen
 ```
 
-### 14. Clone the Nimbus repository
+### 13. Clone the Nimbus repository
 
 Run the following command to clone the [nimbus-eth2 repository](https://github.com/status-im/nimbus-eth2):
 
@@ -264,7 +245,7 @@ Run the following command to clone the [nimbus-eth2 repository](https://github.c
 git clone https://github.com/status-im/nimbus-eth2
 ```
 
-### 15. Build the beacon node
+### 14. Build the beacon node
 
 Change into the directory and build the beacon node.
 ```
@@ -274,7 +255,7 @@ make nimbus_beacon_node
 
 *Patience... this may take a few minutes.*
 
-### 16. Copy signing key over to Pi
+### 15. Copy signing key over to Pi
 
 >**Note:** If you haven't generated your validator key(s) and/or made your deposit yet, follow the instructions on [this page](./deposit.md) before carrying on.
 
@@ -294,7 +275,7 @@ As usual, replace `195.177.101.93` with your Pi's IP address, and `<VALIDATOR_KE
  > **Tip:** run `pwd` in your `validator_keys` directory to print the full pathname to the console.
 
 
-### 17. Import signing key into Nimbus
+### 16. Import signing key into Nimbus
 
 To import your signing key into Nimbus, from the `nimbus-eth2` directory run:
 
@@ -304,7 +285,7 @@ build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_pyrmont_0
 
  You'll be asked to enter the password you created to encrypt your keystore(s). Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your [key](https://blog.ethereum.org/2020/05/21/keys/) (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).
 
-### 18. Run Screen
+### 17. Run Screen
 
 From the `nimbus-eth2` directory, run:
 ```
@@ -343,7 +324,7 @@ Capabilities:
 
 Press `Enter` or `Space`.
 
-### 19. Connect to Pyrmont
+### 18. Connect to Pyrmont
 
 We're finally ready to connect to Pyrmont!
 
@@ -370,7 +351,7 @@ Please enter a Web3 provider URL:
 
 Enter your own secure websocket (`wss`) [Infura endpoint](./infura-guide.md).
 
-### 20. Check for successful connection
+### 19. Check for successful connection
 
 If you look near the top of the logs printed to your console, you should see confirmation that your beacon node has started, with your local validator attached:
 
@@ -389,7 +370,7 @@ peers: 35 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:
 
 Keep an eye on the number of peers your currently connected to (in the above case that's `35`), as well as your [sync progress](./keep-an-eye.md#syncing-progress).
 
-### 21. End ssh session and logout
+### 20. End ssh session and logout
 
 To detach your `screen` session but leave your processes running, press `Ctrl-A` followed by `Ctrl-D`. You can now exit your `ssh` session (`Ctrl-C`) and switch off your laptop.
 

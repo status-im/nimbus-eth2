@@ -35,7 +35,6 @@ endif
 # unconditionally built by the default Make target
 # TODO re-enable ncli_query if/when it works again
 TOOLS := \
-	nimbus_beacon_node_spec_0_12_3 \
 	nimbus_beacon_node \
 	block_sim \
 	deposit_contract \
@@ -293,61 +292,6 @@ define CLEAN_NETWORK
 endef
 
 ###
-### medalla
-###
-medalla-build: | nimbus_beacon_node_spec_0_12_3 nimbus_signing_process
-
-# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
-medalla: | medalla-build
-	$(call CONNECT_TO_NETWORK,medalla,nimbus_beacon_node_spec_0_12_3)
-
-medalla-vc: | medalla-build nimbus_validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,medalla,nimbus_beacon_node_spec_0_12_3)
-
-medalla-fast-sync: | medalla-build
-	$(call CONNECT_TO_NETWORK,medalla,nimbus_beacon_node_spec_0_12_3,FastSync)
-
-ifneq ($(LOG_LEVEL), TRACE)
-medalla-dev:
-	+ "$(MAKE)" LOG_LEVEL=TRACE $@
-else
-medalla-dev: | medalla-build
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,medalla,nimbus_beacon_node_spec_0_12_3)
-endif
-
-medalla-deposit-data: | medalla-build deposit_contract
-	$(call MAKE_DEPOSIT_DATA,medalla)
-
-medalla-deposit: | medalla-build deposit_contract
-	$(call MAKE_DEPOSIT,medalla)
-
-clean-medalla:
-	$(call CLEAN_NETWORK,medalla)
-
-###
-### toledo
-###
-toledo-build: | nimbus_beacon_node nimbus_signing_process
-
-# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
-toledo: | toledo-build
-	$(call CONNECT_TO_NETWORK,toledo,nimbus_beacon_node)
-
-toledo-vc: | toledo-build nimbus_validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,toledo,nimbus_beacon_node)
-
-ifneq ($(LOG_LEVEL), TRACE)
-toledo-dev:
-	+ "$(MAKE)" LOG_LEVEL=TRACE $@
-else
-toledo-dev: | toledo-build
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,toledo,nimbus_beacon_node)
-endif
-
-clean-toledo:
-	$(call CLEAN_NETWORK,toledo)
-
-###
 ### pyrmont
 ###
 pyrmont-build: | nimbus_beacon_node nimbus_signing_process
@@ -397,7 +341,7 @@ libnfuzz.a: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		rm -f build/$@ && \
 		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim && \
-		[[ -e "$@" ]] && mv "$@" build/ # workaround for https://github.com/nim-lang/Nim/issues/12745
+		[[ -e "$@" ]] && mv "$@" build/ || true # workaround for https://github.com/nim-lang/Nim/issues/12745
 
 book:
 	cd docs/the_nimbus_book && \

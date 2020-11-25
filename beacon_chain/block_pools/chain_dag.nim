@@ -95,6 +95,7 @@ proc init*(
     epochRef = EpochRef(
       epoch: epoch,
       eth1_data: state.eth1_data,
+      eth1_deposit_index: state.eth1_deposit_index,
       current_justified_checkpoint: state.current_justified_checkpoint,
       finalized_checkpoint: state.finalized_checkpoint,
       shuffled_active_validator_indices:
@@ -902,7 +903,8 @@ proc updateHead*(
       while tmp != dag.finalizedHead.blck:
         # leave the epoch cache in the last block of the epoch..
         tmp = tmp.parent
-        tmp.epochRefs = @[]
+        if tmp.parent != nil:
+          tmp.parent.epochRefs = @[]
 
     dag.finalizedHead = finalizedHead
 

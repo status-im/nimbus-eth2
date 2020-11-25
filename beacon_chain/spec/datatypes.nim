@@ -48,11 +48,8 @@ export
 # Eventually, we could also differentiate between user/tainted data and
 # internal state that's gone through sanity checks already.
 
-when ETH2_SPEC == "v0.12.3":
-  const SPEC_VERSION* = "0.12.3"
-else:
-  const SPEC_VERSION* = "1.0.0"
-  ## Spec version we're aiming to be compatible with, right now
+const SPEC_VERSION* = "1.0.0"
+## Spec version we're aiming to be compatible with, right now
 
 const
   GENESIS_SLOT* = Slot(0)
@@ -464,6 +461,12 @@ type
     stabilitySubnet*: uint64
     stabilitySubnetExpirationEpoch*: Epoch
 
+  # This matches the mutable state of the Solidity deposit contract
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/solidity_deposit_contract/deposit_contract.sol
+  DepositContractState* = object
+    branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
+    deposit_count*: array[32, byte] # Uint256
+
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
   ($state.validators[validatorIdx].pubkey)[0..7]
 
@@ -670,6 +673,8 @@ func shortLog*(v: SomeBeaconBlock): auto =
     proposer_index: v.proposer_index,
     parent_root: shortLog(v.parent_root),
     state_root: shortLog(v.state_root),
+    eth1data: v.body.eth1_data,
+    graffiti: $v.body.graffiti,
     proposer_slashings_len: v.body.proposer_slashings.len(),
     attester_slashings_len: v.body.attester_slashings.len(),
     attestations_len: v.body.attestations.len(),
@@ -806,7 +811,7 @@ func init*(T: type GraffitiBytes, input: string): GraffitiBytes
 
 func defaultGraffitiBytes*(): GraffitiBytes =
   let graffitiBytes =
-    toBytes("Nimbus/" & fullVersionStr & "-" & versionBlob)
+    toBytes("Nimbus/" & fullVersionStr)
   distinctBase(result)[0 ..< graffitiBytes.len] = graffitiBytes
 
 proc writeValue*(w: var JsonWriter, value: GraffitiBytes)

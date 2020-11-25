@@ -5,7 +5,7 @@ import
   ../beacon_chain/[ssz, merkle_minimal],
   mocking/mock_deposits
 
-func round_step_down(x: Natural, step: static Natural): int {.inline.} =
+func round_step_down(x: Natural, step: static Natural): int =
   ## Round the input to the previous multiple of "step"
   when (step and (step - 1)) == 0:
     # Step is a power of 2. (If compiler cannot prove that x>0 it does not make the optim)

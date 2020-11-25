@@ -28,7 +28,7 @@ export  # Workaround:
 # #######################
 # JSON deserialization
 
-proc readValue*(r: var JsonReader, a: var seq[byte]) {.inline.} =
+proc readValue*(r: var JsonReader, a: var seq[byte]) =
   ## Custom deserializer for seq[byte]
   a = hexToSeqByte(r.readValue(string))
 

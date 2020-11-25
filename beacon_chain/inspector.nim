@@ -156,7 +156,7 @@ type
 
   StrRes[T] = Result[T, string]
 
-func `==`*(a, b: ENRFieldPair): bool {.inline.} =
+func `==`(a, b: ENRFieldPair): bool =
   result = (a.eth2 == b.eth2)
 
 func hasTCP(a: PeerInfo): bool =
@@ -181,7 +181,7 @@ chronicles.formatIt seq[PeerInfo]:
   "[" & res.join(", ") & "]"
 
 func getTopics(forkDigest: ForkDigest,
-               filter: TopicFilter): seq[string] {.inline.} =
+               filter: TopicFilter): seq[string] =
   case filter
   of TopicFilter.Blocks:
     let topic = getBeaconBlocksTopic(forkDigest)
@@ -289,8 +289,8 @@ proc loadBootstrapNodes(conf: InspectorConf): seq[BootstrapAddress] =
     if res.isSome():
       result.add(res.get())
 
-proc init*(p: typedesc[PeerInfo],
-           maddr: MultiAddress): StrRes[PeerInfo] {.inline.} =
+proc init(p: typedesc[PeerInfo],
+          maddr: MultiAddress): StrRes[PeerInfo] =
   ## Initialize PeerInfo using address which includes PeerID.
   if IPFS.match(maddr):
     let peerid = ? protoAddress(? maddr[2])
@@ -298,7 +298,7 @@ proc init*(p: typedesc[PeerInfo],
       ? (PeerID.init(peerid).mapErr(proc (v: cstring): string = $v)),
       [(? maddr[0]) & (? maddr[1])]))
 
-proc init*(p: typedesc[PeerInfo],
+proc init(p: typedesc[PeerInfo],
            enraddr: enr.Record): StrRes[PeerInfo] =
   var trec: enr.TypedRecord
   try:
@@ -367,10 +367,10 @@ proc connectToNetwork(switch: Switch, nodes: seq[PeerInfo],
 
   result = res
 
-proc connectLoop*(switch: Switch,
-                  peerQueue: AsyncQueue[PeerInfo],
-                  peerTable: TableRef[PeerID, PeerInfo],
-                  timeout: Duration): Future[void] {.async.} =
+proc connectLoop(switch: Switch,
+                 peerQueue: AsyncQueue[PeerInfo],
+                 peerTable: TableRef[PeerID, PeerInfo],
+                 timeout: Duration): Future[void] {.async.} =
   var addresses = newSeq[PeerInfo]()
   trace "Starting connection loop", queue_size = len(peerQueue),
                                     table_size = len(peerTable),
@@ -387,7 +387,7 @@ proc connectLoop*(switch: Switch,
     for item in infos:
       peerTable[item.peerId] = item
 
-func toIpAddress*(ma: MultiAddress): Option[ValidIpAddress] =
+func toIpAddress(ma: MultiAddress): Option[ValidIpAddress] =
   if IP4.match(ma):
     let addressRes = ma.protoAddress()
     let address = if addressRes.isOk: addressRes.get
@@ -481,8 +481,8 @@ proc logEnrAddress(address: string) =
   else:
     info "ENR bootstrap address is wrong or incomplete", enr_uri = address
 
-func init*(p: typedesc[PeerInfo],
-           enruri: EnrUri): Option[PeerInfo] {.inline.} =
+func init(p: typedesc[PeerInfo],
+          enruri: EnrUri): Option[PeerInfo] =
   var rec: enr.Record
   if fromURI(rec, enruri):
     logEnrAddress(rec.toUri())

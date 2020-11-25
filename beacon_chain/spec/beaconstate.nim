@@ -284,9 +284,9 @@ proc initialize_beacon_state_from_eth1*(
     do:
       if skipBlsValidation in flags or
          verify_deposit_signature(preset, deposit):
+        pubkeyToIndex[pubkey] = state.validators.len
         state.validators.add(get_validator_from_deposit(state[], deposit))
         state.balances.add(amount)
-        pubkeyToIndex[pubkey] = idx
       else:
         # Invalid deposits are perfectly possible
         trace "Skipping deposit with invalid signature",

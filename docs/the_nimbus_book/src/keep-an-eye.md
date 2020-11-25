@@ -13,8 +13,6 @@ You can even create an account ([testnet link](https://pyrmont.beaconcha.in/regi
 
 -------------------------------
 
-> ⚠️  The rest of this page concerns the Pyrmont testnet only. If you have made a mainnet deposit, you do not need to run Nimbus quite yet. Mainnet [Genesis](https://hackmd.io/@benjaminion/genesis) date has been set to [December 1st](https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/). This page will be updated nearer the time.
-
 ## Make sure your validator is attached
 
 On startup, you should see a log message that reads `Local validator attached`. This has a `pubKey` field which should the public key of your validator.
@@ -24,7 +22,7 @@ On startup, you should see a log message that reads `Local validator attached`. 
 To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running. You should see something like:
 
 ```
-peers: 35 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:7 (316807) ❯ sync: wPwwwwwDwwDPwPPPwwww:7:4.0627 (280512)
+peers: 35 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:7 (316807) ❯ sync: wPwwwwwDwwDPwPPPwwww:7:4.2313:4.0627:03h01m(280512)
 ```
 
 Where:
@@ -32,12 +30,7 @@ Where:
 - `finalized` tells you the most recent finalized epoch you've synced to so far (the 8765th epoch)
 - `head` tells you the most recent slot you've synced to so far (the 2nd slot of the 8767th epoch)
 - `time` tells you the current time since Genesis (the 7th slot of the 9900th epoch -- or equivalently, the 316,807th slot)
-- `sync` tells you how fast you're syncing (4.0627 blocks per second), how many blocks you've synced so far (280,512), along with information about 20 sync workers linked to the 20 most performant peers you are currently connected to (represented by a string of letters and a number).
-
-To dig into `sync` a little:
-```
-sync: <sync worker map>:<number of active workers>:<current syncing speed in blocks/second>
-```
+- `sync` tells you how fast you're syncing right now (4.2313 blocks per second), your average sync speed since you stared (4.0627 blocks per second), the time left until you're fully synced (3 hours and 1 min) how many blocks you've synced so far (280,512), along with information about 20 sync workers linked to the 20 most performant peers you are currently connected to (represented by a string of letters and a number).
 
 The string of letters -- what we call the `sync worker map` (in the above case represented by `wPwwwwwDwwDPwPPPwwww`) represents the status of the sync workers mentioned above, where:
 

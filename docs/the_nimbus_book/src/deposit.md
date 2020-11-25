@@ -45,5 +45,5 @@ It's a good idea to bookmark this page.
 ## Expected waiting time (the queue)
 Once you send off your transaction(s), your validator will be put in a queue based on deposit time. Getting through the queue may take a few hours or days (assuming the chain is finalising). No validators are accepted into the validator set while the chain isn't finalising.
 
-*If you've made a mainnet deposit, your validator will be activated when mainnet launches, regardless of how many deposits are made before then: this will in all likelihood be **Dec 1st 2020, 12pm UTC***
+*If you've made a mainnet deposit, your validator will be activated when mainnet launches, regardless of how many deposits are made before then: this will be **Dec 1st 2020, 12pm UTC***
 
