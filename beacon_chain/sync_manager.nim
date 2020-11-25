@@ -30,7 +30,7 @@ const
   PeerScoreMissingBlocks* = -200
     ## Peer response contains too many empty blocks.
 
-  SyncWorkersCount* = 20
+  SyncWorkersCount* = 10
     ## Number of sync workers to spawn
 
   StatusUpdateInterval* = chronos.minutes(1)
@@ -1042,8 +1042,8 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
 
   proc watchTask() {.async.} =
     const
-      MaxPauseTime = int(SECONDS_PER_SLOT) * int(SLOTS_PER_EPOCH)
-      MinPauseTime = int(SECONDS_PER_SLOT)
+      MaxPauseTime = int(SECONDS_PER_SLOT) * int(SLOTS_PER_EPOCH) # 06:24
+      MinPauseTime = int(SECONDS_PER_SLOT) * 5 # 01:00
 
     pauseTime = MinPauseTime
 
@@ -1058,10 +1058,13 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
         if (op2 - op1 == 0'u64) and (pending > 1):
           # Syncing is NOT progressing, we double `pauseTime` value, but value
           # could not be bigger then `MaxPauseTime`.
-          if (pauseTime shl 1) > MaxPauseTime:
-            pauseTime = MaxPauseTime
-          else:
-            pauseTime = pauseTime shl 1
+          pauseTime =
+            block:
+              let newPauseTime = pauseTime * 2
+              if newPauseTime > MaxPauseTime:
+                MaxPauseTime
+              else:
+                newPauseTime
           info "Syncing process is not progressing, reset the queue",
                 start_op = op1, end_op = op2,
                 pending_workers_count = pending,
@@ -1072,10 +1075,13 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
         else:
           # Syncing progressing, so reduce `pauseTime` value in half, but value
           # could not be less then `MinPauseTime`.
-          if (pauseTime shr 1) < MinPauseTime:
-            pauseTime = MinPauseTime
-          else:
-            pauseTime = pauseTime shr 1
+          pauseTime =
+            block:
+              let newPauseTime = (pauseTime * 3) div 4
+              if newPauseTime < MinPauseTime:
+                MinPauseTime
+              else:
+                newPauseTime
 
       debug "Synchronization watch loop tick",
             wall_head_slot = man.getLocalWallSlot(),
