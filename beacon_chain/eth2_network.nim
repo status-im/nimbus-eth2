@@ -11,10 +11,12 @@ import
   json_serialization, json_serialization/std/[net, options],
   chronos, chronicles, metrics,
   # TODO: create simpler to use libp2p modules that use re-exports
-  libp2p/[switch, standard_setup, peerinfo,
+  libp2p/[switch, peerinfo,
           multiaddress, multicodec, crypto/crypto, crypto/secp,
           protocols/identify, protocols/protocol],
-  libp2p/protocols/secure/[secure, secio],
+  libp2p/muxers/muxer, libp2p/muxers/mplex/mplex,
+  libp2p/transports/[transport, tcptransport],
+  libp2p/protocols/secure/[secure, noise],
   libp2p/protocols/pubsub/[pubsub, rpc/message, rpc/messages],
   libp2p/transports/tcptransport,
   libp2p/stream/connection,
@@ -1499,6 +1501,29 @@ func msgIdProvider(m: messages.Message): seq[byte] =
   except CatchableError:
     gossipId(m.data, false)
 
+proc newBeaconSwitch*(conf: BeaconNodeConf, seckey: PrivateKey,
+                      address: MultiAddress,
+                      rng: ref BrHmacDrbgContext): Switch =
+  proc createMplex(conn: Connection): Muxer =
+    Mplex.init(conn, inTimeout = 5.minutes, outTimeout = 5.minutes)
+
+  if rng == nil: # newRng could fail
+    raise (ref CatchableError)(msg: "Cannot initialize RNG")
+
+  let
+    peerInfo = PeerInfo.init(seckey, [address])
+    mplexProvider = newMuxerProvider(createMplex, MplexCodec)
+    transports = @[Transport(TcpTransport.init({ServerFlags.ReuseAddr}))]
+    muxers = {MplexCodec: mplexProvider}.toTable
+    secureManagers = [Secure(newNoise(rng, seckey))]
+
+  peerInfo.agentVersion = conf.agentString
+  peerInfo.protoVersion = conf.protoString
+
+  let identify = newIdentify(peerInfo)
+
+  newSwitch(peerInfo, transports, identify, muxers, secureManagers)
+
 proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      conf: BeaconNodeConf,
                      netKeys: KeyPair,
@@ -1510,18 +1535,13 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
                          else: @[tcpEndPoint(extIp.get(), extTcpPort)]
 
   debug "Initializing networking", hostAddress,
-                                  network_public_key = netKeys.pubkey,
-                                  announcedAddresses
+                                   network_public_key = netKeys.pubkey,
+                                   announcedAddresses
 
   # TODO nim-libp2p still doesn't have support for announcing addresses
   # that are different from the host address (this is relevant when we
   # are running behind a NAT).
-  var switch = newStandardSwitch(some netKeys.seckey, hostAddress,
-                                 transportFlags = {ServerFlags.ReuseAddr},
-                                 secureManagers = [
-                                   SecureProtocol.Noise, # Only noise in ETH2!
-                                 ],
-                                 rng = rng)
+  var switch = newBeaconSwitch(conf, netKeys.seckey, hostAddress, rng)
 
   let
     params =
