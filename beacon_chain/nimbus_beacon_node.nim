@@ -1023,6 +1023,8 @@ when hasPrompt:
       proc statusBarUpdatesPollingLoop() {.async.} =
         while true:
           update statusBar
+          erase statusBar
+          render statusBar
           await sleepAsync(chronos.seconds(1))
 
       traceAsyncErrors statusBarUpdatesPollingLoop()
