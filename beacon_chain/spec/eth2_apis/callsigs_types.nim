@@ -5,7 +5,9 @@ import
   # TODO for some reason "../[datatypes, digest, crypto]" results in "Error: cannot open file"
   ../datatypes,
   ../digest,
-  ../crypto
+  ../crypto,
+  libp2p/[peerid, multiaddress],
+  eth/p2p/discoveryv5/enr
 
 type
   AttesterDuties* = tuple
@@ -44,23 +46,8 @@ type
     header: SignedBeaconBlockHeader
 
   NodeIdentityTuple* = tuple
-    peer_id: string
-    enr: string
-    p2p_addresses: seq[string]
-    discovery_addresses: seq[string]
+    peer_id: PeerID
+    enr: Record
+    p2p_addresses: seq[MultiAddress]
+    discovery_addresses: seq[MultiAddress]
     metadata: tuple[seq_number: uint64, attnets: string]
-
-  NodePeerTuple* = tuple
-    peer_id: string
-    enr: string
-    last_seen_p2p_address: string
-    state: string
-    direction: string
-    agent: string # This is not part of specification
-    proto: string # This is not part of specification
-
-  NodePeerCountTuple* = tuple
-    disconnected: int
-    connecting: int
-    connected: int
-    disconnecting: int
