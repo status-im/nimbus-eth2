@@ -1503,7 +1503,7 @@ func msgIdProvider(m: messages.Message): seq[byte] =
 
 proc newBeaconSwitch*(conf: BeaconNodeConf, seckey: PrivateKey,
                       address: MultiAddress,
-                      rng: var BrHmacDrbgContext): Switch =
+                      rng: ref BrHmacDrbgContext): Switch =
   proc createMplex(conn: Connection): Muxer =
     Mplex.init(conn, inTimeout = 5.minutes, outTimeout = 5.minutes)
 
