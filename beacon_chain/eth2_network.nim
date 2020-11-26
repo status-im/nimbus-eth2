@@ -241,6 +241,8 @@ const
     ## Period of time for `FaultOnError` error reason.
   SeenTablePenaltyError* = 60.minutes
     ## Period of time for peers which score below or equal to zero.
+  SeenTableTimeReconnect* = 1.minutes
+    ## Minimal time between disconnection and reconnection attempt
 
   ResolvePeerTimeout* = 1.minutes
     ## Maximum time allowed for peer resolve process.
@@ -333,10 +335,6 @@ proc getPeer*(node: Eth2Node, peerId: PeerID): Peer =
   do:
     let peer = Peer.init(node, PeerInfo.init(peerId))
     return node.peers.mGetOrPut(peerId, peer)
-
-proc resetPeer*(node: Eth2Node, peerId: PeerID) =
-  let peer = Peer.init(node, PeerInfo.init(peerId))
-  node.peers[peerId] = peer
 
 proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
   result = network.getPeer(conn.peerInfo.peerId)
@@ -439,7 +437,11 @@ proc addSeen*(network: ETh2Node, peerId: PeerID,
               period: chronos.Duration) =
   ## Adds peer with PeerID ``peerId`` to SeenTable and timeout ``period``.
   let item = SeenItem(peerId: peerId, stamp: now(chronos.Moment) + period)
-  network.seenTable[peerId] = item
+  withValue(network.seenTable, peerId, entry) do:
+    if entry.stamp < item.stamp:
+      entry.stamp = item.stamp
+  do:
+    network.seenTable[peerId] = item
 
 proc disconnect*(peer: Peer, reason: DisconnectionReason,
                  notifyOtherPeer = false) {.async.} =
@@ -925,14 +927,11 @@ proc getPersistentNetMetadata*(conf: BeaconNodeConf): Eth2Metadata =
   else:
     result = Json.loadFile(metadataPath, Eth2Metadata)
 
-proc resolvePeer(peer: Peer) {.async.} =
+proc resolvePeer(peer: Peer) =
   # Resolve task which performs searching of peer's public key and recovery of
-  # ENR using discovery5.
-  # This process could be stopped if one of the conditions is met:
-  # 1. ENR was successfully recovered.
-  # 2. Discovery5 failed to recover ENR.
-  # 3. Timeout ``ResolvePeerTimeout`` has exceeded .
-  # 4. Connection with the peer is lost.
+  # ENR using discovery5. We only resolve ENR for peers we know about to avoid
+  # querying the network - as of now, the ENR is not needed, except for
+  # debuggging
   logScope: peer = peer.info.peerId
   let startTime = now(chronos.Moment)
   let nodeId =
@@ -953,54 +952,6 @@ proc resolvePeer(peer: Peer) {.async.} =
     let delay = now(chronos.Moment) - startTime
     nbc_resolve_time.observe(delay.toFloatSeconds())
     debug "Peer's ENR recovered", delay = $delay
-  else:
-    let
-      resolveFut = peer.network.discovery.resolve(nodeId)
-      timeFut = sleepAsync(ResolvePeerTimeout)
-      disconnectedFut = peer.getFuture()
-
-    discard await race(disconnectedFut, resolveFut, timeFut)
-
-    if disconnectedFut.finished():
-      # Peer is already disconnected
-      if not(timeFut.finished()):
-        timeFut.cancel()
-      if not(resolveFut.finished()):
-        await resolveFut.cancelAndWait()
-      # allFutures() will perform check for futures which are already finished,
-      # and we do not care about results anymore.
-      await allFutures(timeFut)
-      return
-
-    if resolveFut.finished():
-      if resolveFut.done():
-        let rnode = resolveFut.read()
-        if rnode.isSome():
-          peer.enr = some(rnode.get().record)
-          inc(nbc_successful_discoveries)
-          let delay = now(chronos.Moment) - startTime
-          nbc_resolve_time.observe(delay.toFloatSeconds())
-          debug "Peer's ENR recovered", delay = $delay
-        else:
-          inc(nbc_failed_discoveries)
-          debug "Discovery operation returns empty answer"
-        return
-      else:
-        inc(nbc_failed_discoveries)
-        debug "Discovery operation failed with an error",
-              error_name = resolveFut.error.name,
-              error_msg = resolveFut.error.msg
-        if not(timeFut.finished()):
-          await timeFut.cancelAndWait()
-        return
-
-    if timeFut.finished():
-      inc(nbc_failed_discoveries)
-      debug "Discovery operation exceeds timeout",
-            timeout = $ResolvePeerTimeout
-      if not(resolveFut.finished()):
-        await resolveFut.cancelAndWait()
-      return
 
 proc handlePeer*(peer: Peer) {.async.} =
   let res = peer.network.peerPool.addPeerNoWait(peer, peer.direction)
@@ -1030,7 +981,7 @@ proc handlePeer*(peer: Peer) {.async.} =
     peer.score = NewPeerScore
     peer.connectionState = Connected
     # We spawn task which will obtain ENR for this peer.
-    asyncSpawn resolvePeer(peer)
+    resolvePeer(peer)
     debug "Peer successfully connected", peer = peer,
                                          connections = peer.connections
 
@@ -1090,6 +1041,10 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
     dec peer.connections
     debug "Lost connection to peer", peer = peerId,
                                      connections = peer.connections
+
+    # Whatever caused disconnection, avoid connection spamming
+    node.addSeen(peerId, SeenTableTimeReconnect)
+
     if peer.connections == 0:
       debug "Peer disconnected", peer = $peerId, connections = peer.connections
       let fut = peer.disconnectedFut
