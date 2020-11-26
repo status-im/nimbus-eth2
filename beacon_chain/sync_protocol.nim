@@ -239,6 +239,10 @@ proc handleStatus(peer: Peer,
     await peer.disconnect(IrrelevantNetwork)
   else:
     peer.setStatusMsg(theirStatus)
+    if peer.connectionState == Connecting:
+      # As soon as we get here it means that we passed handshake succesfully. So
+      # we can add this peer to PeerPool.
+      await peer.handlePeer()
 
 proc initBeaconSync*(network: Eth2Node, chainDag: ChainDAGRef,
                      forkDigest: ForkDigest) =
