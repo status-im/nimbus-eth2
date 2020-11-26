@@ -269,9 +269,9 @@ proc put(db: SlashingProtectionDB, key: openArray[byte], v: auto) =
     SSZ.encode(v)
   ).expect("working database")
 
-proc get(db: SlashingProtectionDB,
-         key: openArray[byte],
-         T: typedesc): Opt[T] =
+proc rawGet(rawdb: KvStoreRef,
+            key: openArray[byte],
+            T: typedesc): Opt[T] =
 
   const ExpectedNodeSszSize = block:
     when T is BlockNode:
@@ -322,9 +322,14 @@ proc get(db: SlashingProtectionDB,
         expectedSize = ExpectedNodeSszSize
       discard
 
-  discard db.backend.get(key, decode).expect("working database")
+  discard rawdb.get(key, decode).expect("working database")
 
   res
+
+proc get(db: SlashingProtectionDB,
+         key: openArray[byte],
+         T: typedesc): Opt[T] =
+  db.backend.rawGet(key, T)
 
 proc setGenesis(db: SlashingProtectionDB, genesis_validator_root: Eth2Digest) =
   # Workaround SSZ / nim-serialization visibility issue
@@ -341,6 +346,22 @@ proc init*(
        backend: KVStoreRef): SlashingProtectionDB =
   result = T(backend: backend)
   result.setGenesis(genesis_validator_root)
+
+proc load*(
+       T: type SlashingProtectionDB,
+       backend: KVStoreRef): SlashingProtectionDB =
+  ## Load a slashing protection DB
+  ## Note: This is for conversion usage
+  ##       this doesn't check the genesis validator root
+  let genesis = backend.rawGet(
+      subkey(kGenesisValidatorRoot), Eth2Digest
+    )
+
+  doAssert backend.contains(
+    subkey(kGenesisValidatorRoot)
+  ).get(), "The Slashing DB is missing genesis information"
+
+  result = T(backend: backend)
 
 proc close*(db: SlashingProtectionDB) =
   discard db.backend.close()
@@ -997,7 +1018,6 @@ proc toSPDIF*(db: SlashingProtectionDB, path: string)
 
     if ll.targetEpochs.isInit:
       var curEpoch = ll.targetEpochs.start
-      var count = 0
       while true:
         let node = db.get(
           subkey(kTargetEpoch, valID, curEpoch),
@@ -1013,9 +1033,6 @@ proc toSPDIF*(db: SlashingProtectionDB, path: string)
           break
         else:
           curEpoch = node.next
-
-        inc count
-        doAssert count < 5
 
     # Update extract without reallocating seqs
     # by manually transferring ownership
