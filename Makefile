@@ -25,6 +25,7 @@ BASE_METRICS_PORT := 8008
 GOERLI_WEB3_URL := "wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
 VALIDATORS := 1
 CPU_LIMIT := 0
+BUILD_END_MSG := "\\e[92mBuild completed successfully:\\e[39m"
 
 ifeq ($(CPU_LIMIT), 0)
 	CPU_LIMIT_CMD :=
@@ -155,7 +156,7 @@ $(TOOLS): | build deps
 	+ for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
 		echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim c -o:build/$@ $(NIM_PARAMS) "$${TOOL_DIR}/$@.nim" && \
-		echo -e "Build completed successfully"
+		echo -e $(BUILD_END_MSG) "build/$@"
 
 clean_eth2_network_simulation_data:
 	rm -rf tests/simulation/data
@@ -338,6 +339,7 @@ endif
 libnfuzz.so: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim c -d:release --app:lib --noMain --nimcache:nimcache/libnfuzz -o:build/$@.0 $(NIM_PARAMS) nfuzz/libnfuzz.nim && \
+		echo -e $(BUILD_END_MSG) "build/$@" && \
 		rm -f build/$@ && \
 		ln -s $@.0 build/$@
 
@@ -345,6 +347,7 @@ libnfuzz.a: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		rm -f build/$@ && \
 		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim && \
+		echo -e $(BUILD_END_MSG) "build/$@" && \
 		[[ -e "$@" ]] && mv "$@" build/ || true # workaround for https://github.com/nim-lang/Nim/issues/12745
 
 book:
