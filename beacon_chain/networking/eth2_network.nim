@@ -356,6 +356,9 @@ proc getFuture*(peer: Peer): Future[void] {.inline.} =
     peer.disconnectedFut = newFuture[void]("Peer.disconnectedFut")
   peer.disconnectedFut
 
+proc isAlive*(peer: Peer): bool =
+  peer.connectionState notin {Disconnecting, Disconnected}
+
 proc getScore*(a: Peer): int =
   ## Returns current score value for peer ``peer``.
   a.score
@@ -365,6 +368,41 @@ proc updateScore*(peer: Peer, score: int) {.inline.} =
   peer.score = peer.score + score
   if peer.score > PeerScoreHighLimit:
     peer.score = PeerScoreHighLimit
+
+proc join*(peer: Peer): Future[void] =
+  var retFuture = newFuture[void]("peer.lifetime.join")
+  let peerFut = peer.getFuture()
+  let alreadyFinished = peerFut.finished()
+
+  proc continuation(udata: pointer) {.gcsafe.} =
+    if not(retFuture.finished()):
+      retFuture.complete()
+
+  proc cancellation(udata: pointer) {.gcsafe.} =
+    if not(alreadyFinished):
+      peerFut.removeCallback(continuation)
+
+  if alreadyFinished:
+    # All the `peer.disconnectedFut` callbacks are already scheduled in current
+    # `poll()` call, to avoid race we going to finish only in next `poll()`
+    # call.
+    callSoon(continuation, cast[pointer](retFuture))
+  else:
+    # `peer.disconnectedFut` is not yet finished, but we want to be scheduled
+    # after all callbacks.
+    peerFut.addCallback(continuation)
+
+  return retFuture
+
+proc notifyAndWait*(peer: Peer): Future[void] =
+  ## Notify all the waiters that peer life is finished and wait until all
+  ## callbacks will be processed.
+  let joinFut = peer.join()
+  let fut = peer.disconnectedFut
+  peer.connectionState = Disconnecting
+  fut.complete()
+  peer.disconnectedFut = nil
+  joinFut
 
 proc calcThroughput(dur: Duration, value: uint64): float =
   let secs = float(chronos.seconds(1).nanoseconds)
@@ -1183,8 +1221,6 @@ proc resolvePeer(peer: Peer) =
       discard peer.peerId.extractPublicKey(key)
       keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
 
-  debug "Peer's ENR recovery task started", node_id = $nodeId
-
   # This is "fast-path" for peers which was dialed. In this case discovery
   # already has most recent ENR information about this peer.
   let gnode = peer.network.discovery.getNode(nodeId)
@@ -1194,6 +1230,9 @@ proc resolvePeer(peer: Peer) =
     let delay = now(chronos.Moment) - startTime
     nbc_resolve_time.observe(delay.toFloatSeconds())
     debug "Peer's ENR recovered", delay
+  else:
+    inc(nbc_failed_discoveries)
+    debug "Peer's ENR could not be recovered"
 
 proc handlePeer*(peer: Peer) {.async.} =
   let res = peer.network.peerPool.addPeerNoWait(peer, peer.direction)
@@ -1222,8 +1261,7 @@ proc handlePeer*(peer: Peer) {.async.} =
     # Peer was added to PeerPool.
     peer.score = NewPeerScore
     peer.connectionState = Connected
-    # We spawn task which will obtain ENR for this peer.
-    resolvePeer(peer)
+    peer.resolvePeer()
     debug "Peer successfully connected", peer = peer,
                                          connections = peer.connections
 
@@ -1290,10 +1328,8 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
       # Whatever caused disconnection, avoid connection spamming
       node.addSeen(peerId, SeenTableTimeReconnect)
 
-      let fut = peer.disconnectedFut
-      if not(isNil(fut)):
-        fut.complete()
-        peer.disconnectedFut = nil
+      if not(isNil(peer.disconnectedFut)):
+        await peer.notifyAndWait()
       else:
         # TODO (cheatfate): This could be removed when bug will be fixed inside
         # `nim-libp2p`.

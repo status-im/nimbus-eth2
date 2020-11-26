@@ -349,6 +349,7 @@ proc deletePeer*[A, B](pool: PeerPool[A, B], peer: A, force = false): bool =
 
 proc addPeerImpl[A, B](pool: PeerPool[A, B], peer: A, peerKey: B,
                        peerType: PeerType) =
+  mixin getFuture
   proc onPeerClosed(udata: pointer) {.gcsafe, raises: [Defect].} =
     discard pool.deletePeer(peer)
 
@@ -377,13 +378,13 @@ proc checkPeer*[A, B](pool: PeerPool[A, B], peer: A): PeerStatus {.inline.} =
   ## * Peer's lifetime future is not finished yet - (PeerStatus.DeadPeerError)
   ##
   ## If peer could be added to PeerPool procedure returns (PeerStatus.Success)
-  mixin getKey, getFuture
+  mixin getKey, isAlive
   if not(pool.checkPeerScore(peer)):
     PeerStatus.LowScoreError
   else:
     let peerKey = getKey(peer)
     if not(pool.registry.hasKey(peerKey)):
-      if not(peer.getFuture().finished):
+      if peer.isAlive():
         PeerStatus.Success
       else:
         PeerStatus.DeadPeerError
@@ -403,7 +404,7 @@ proc addPeerNoWait*[A, B](pool: PeerPool[A, B],
   ##     (PeerStatus.NoSpaceError)
   ##
   ## Procedure returns (PeerStatus.Success) on success.
-  mixin getKey, getFuture
+  mixin getKey
   let res = pool.checkPeer(peer)
   if res != PeerStatus.Success:
     res
