@@ -1024,7 +1024,7 @@ proc handlePeer*(peer: Peer) {.async.} =
     # This is possible bug, because we could enter here only if number
     # of `peer.connections == 1`, it means that Peer's lifetime is not
     # tracked properly and we still not received `Disconnected` event.
-    warn "Peer is already present in PeerPool", peer = peer
+    debug "Peer is already present in PeerPool", peer = peer
   of PeerStatus.Success:
     # Peer was added to PeerPool.
     peer.score = NewPeerScore
@@ -1053,11 +1053,13 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
       #   connected transport - instead we'll just pick a random one!
       case peer.connectionState
       of Disconnecting:
-        # We got connection with peer which we currently disconnecting. This
-        # situation should not be happened, because when we disconnecting
-        # we adding peer to `SeenTable`.
-        warn "Got connection attempt from peer that we are disconnecting",
+        # We got connection with peer which we currently disconnecting.
+        # Normally this does not happen, but if a peer is being disconnected
+        # while a concurrent (incoming for example) connection attempt happens,
+        # we might end up here
+        debug "Got connection attempt from peer that we are disconnecting",
              peer = peerId
+        await node.switch.disconnect(peerId)
         return
       of None:
         # We have established a connection with the new peer.
@@ -1066,6 +1068,7 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
         # We have established a connection with the peer that we have seen
         # before - reusing the existing peer object is fine
         peer.connectionState = Connecting
+        peer.score = 0 # Will be set to NewPeerScore after handshake
       of Connecting, Connected:
         # This means that we got notification event from peer which we already
         # connected or connecting right now. If this situation will happened,
