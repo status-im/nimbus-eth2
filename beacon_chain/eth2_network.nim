@@ -1042,11 +1042,12 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
     debug "Lost connection to peer", peer = peerId,
                                      connections = peer.connections
 
-    # Whatever caused disconnection, avoid connection spamming
-    node.addSeen(peerId, SeenTableTimeReconnect)
-
     if peer.connections == 0:
       debug "Peer disconnected", peer = $peerId, connections = peer.connections
+
+      # Whatever caused disconnection, avoid connection spamming
+      node.addSeen(peerId, SeenTableTimeReconnect)
+
       let fut = peer.disconnectedFut
       if not(isNil(fut)):
         fut.complete()
