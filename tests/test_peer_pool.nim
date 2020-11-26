@@ -28,6 +28,9 @@ func getFuture(peer: PeerTest): Future[void] =
 func `<`(a, b: PeerTest): bool =
   `<`(a.weight, b.weight)
 
+proc isAlive*(peer: PeerTest): bool =
+  not(peer.future.finished())
+
 proc init*(t: typedesc[PeerTest], id: string = "",
            weight: int = 0): PeerTest =
   PeerTest(id: id, weight: weight, future: newFuture[void]())
