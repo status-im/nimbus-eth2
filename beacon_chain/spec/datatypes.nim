@@ -461,6 +461,79 @@ type
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#validator
+  ValidatorStatus* = object
+    # This is a validator without the expensive, immutable, append-only parts
+
+    effective_balance*: uint64 ##\
+    ## Balance at stake
+
+    slashed*: bool
+
+    # Status epochs
+    activation_eligibility_epoch*: Epoch ##\
+    ## When criteria for activation were met
+
+    activation_epoch*: Epoch
+    exit_epoch*: Epoch
+
+    withdrawable_epoch*: Epoch ##\
+    ## When validator can withdraw or transfer funds
+
+  BeaconStateDiff* = object
+    # Small and/or static; always include
+    genesis_time*: uint64
+    genesis_validators_root*: Eth2Digest
+    slot*: Slot
+    fork*: Fork
+    latest_block_header*: BeaconBlockHeader
+
+    # Mod-increment/circular
+    block_roots*:
+      HashList[Eth2Digest, Limit SLOTS_PER_HISTORICAL_ROOT]
+    state_roots*:
+      HashList[Eth2Digest, Limit SLOTS_PER_HISTORICAL_ROOT]
+
+    # Append only
+    historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
+
+    # Replace
+    eth1_data*: Eth1Data
+
+    # Append-or-clear, but initially just replace. It's up to 2048 Eth1Data
+    # objects, which is generally worth delta-encoding.
+    eth1_data_votes*:
+      HashList[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
+
+    # Replace
+    eth1_deposit_index*: uint64
+
+    # Validators come in two parts, the immutable public key and mutable
+    # entrance/exit/slashed information about that validator. Only store
+    # diffs for former, but latter, store completely.
+    validator_identities*:
+      HashList[ImmutableValidatorData, Limit VALIDATOR_REGISTRY_LIMIT]
+    validator_statuses*:
+      HashList[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Represent in full
+    balances*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Mod-increment
+    randao_mixes*: HashList[Eth2Digest, Limit EPOCHS_PER_HISTORICAL_VECTOR]
+    slashings*: HashList[uint64, Limit EPOCHS_PER_SLASHINGS_VECTOR]
+
+    # To start with, always overwrite, not append
+    previous_epoch_attestations*:
+      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
+    current_epoch_attestations*:
+      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
+
+    justification_bits*: uint8
+    previous_justified_checkpoint*: Checkpoint
+    current_justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
   ($state.validators[validatorIdx].pubkey)[0..7]
 
