@@ -95,7 +95,6 @@ type
     discoveryId*: Eth2DiscoveryId
     connectionState*: ConnectionState
     protocolStates*: seq[RootRef]
-    maxInactivityAllowed*: Duration
     netThroughput: AverageThroughput
     score*: int
     requestQuota*: float
@@ -1065,8 +1064,7 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
         peer.connectionState = Connecting
       of Disconnected:
         # We have established a connection with the peer that we have seen
-        # before, so we perform reset peer in node.peers table.
-        node.resetPeer(peerId)
+        # before - reusing the existing peer object is fine
         peer.connectionState = Connecting
       of Connecting, Connected:
         # This means that we got notification event from peer which we already
@@ -1083,10 +1081,7 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
       else:
         peer.direction = PeerType.Outgoing
 
-      if peer.direction == PeerType.Outgoing:
-        # We only perform handshake with outgoing peers, incoming peers should
-        # start handshake first, so it will be handled in handleIncomingStream.
-        await performProtocolHandshakes(peer, event.incoming)
+      await performProtocolHandshakes(peer, event.incoming)
 
   of ConnEventKind.Disconnected:
     dec peer.connections
@@ -1216,7 +1211,6 @@ proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =
     info: info,
     network: network,
     connectionState: ConnectionState.None,
-    maxInactivityAllowed: 15.minutes, # TODO: Read this from the config
     lastReqTime: now(chronos.Moment),
     protocolStates: newSeq[RootRef](len(allProtocols))
   )
