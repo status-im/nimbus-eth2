@@ -1405,6 +1405,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
         p.fanoutTTL = 60.seconds
         p.historyLength = 6
         p.historyGossip = 3
+        p.seenTTL = 385.seconds
         p.validateParameters().tryGet()
         p
     pubsub = GossipSub.init(
