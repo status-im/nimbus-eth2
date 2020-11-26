@@ -347,6 +347,8 @@ proc getKey*(peer: Peer): PeerID {.inline.} =
   peer.info.peerId
 
 proc getFuture*(peer: Peer): Future[void] {.inline.} =
+  if isNil(peer.disconnectedFut):
+    peer.disconnectedFut = newFuture[void]("Peer.disconnectedFut")
   peer.disconnectedFut
 
 proc getScore*(a: Peer): int =
@@ -953,12 +955,14 @@ proc resolvePeer(peer: Peer) {.async.} =
     nbc_resolve_time.observe(delay.toFloatSeconds())
     debug "Peer's ENR recovered", delay = $delay
   else:
-    let resolveFut = peer.network.discovery.resolve(nodeId)
-    let timeFut = sleepAsync(ResolvePeerTimeout)
+    let
+      resolveFut = peer.network.discovery.resolve(nodeId)
+      timeFut = sleepAsync(ResolvePeerTimeout)
+      disconnectedFut = peer.getFuture()
 
-    discard await race(peer.disconnectedFut, resolveFut, timeFut)
+    discard await race(disconnectedFut, resolveFut, timeFut)
 
-    if peer.disconnectedFut.finished():
+    if disconnectedFut.finished():
       # Peer is already disconnected
       if not(timeFut.finished()):
         timeFut.cancel()
@@ -1214,7 +1218,6 @@ proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =
     connectionState: ConnectionState.None,
     maxInactivityAllowed: 15.minutes, # TODO: Read this from the config
     lastReqTime: now(chronos.Moment),
-    disconnectedFut: newFuture[void]("peer.lifetime"),
     protocolStates: newSeq[RootRef](len(allProtocols))
   )
   for i in 0 ..< len(allProtocols):
