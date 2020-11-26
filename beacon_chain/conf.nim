@@ -108,12 +108,6 @@ type
       desc: "Node agent string which is used as identifier in network"
       name: "agent-string" }: string
 
-    protoString* {.
-      defaultValue: "ipfs/0.1.0",
-      desc: "Node protocol implementation string which is used as " &
-            "identifier in network"
-      name: "proto-string" }: string
-
     case cmd* {.
       command
       defaultValue: noCommand }: BNStartUpCmd

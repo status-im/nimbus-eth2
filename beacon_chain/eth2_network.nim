@@ -1503,12 +1503,9 @@ func msgIdProvider(m: messages.Message): seq[byte] =
 
 proc newBeaconSwitch*(conf: BeaconNodeConf, seckey: PrivateKey,
                       address: MultiAddress,
-                      rng: ref BrHmacDrbgContext): Switch =
+                      rng: var BrHmacDrbgContext): Switch =
   proc createMplex(conn: Connection): Muxer =
     Mplex.init(conn, inTimeout = 5.minutes, outTimeout = 5.minutes)
-
-  if rng == nil: # newRng could fail
-    raise (ref CatchableError)(msg: "Cannot initialize RNG")
 
   let
     peerInfo = PeerInfo.init(seckey, [address])
@@ -1518,7 +1515,6 @@ proc newBeaconSwitch*(conf: BeaconNodeConf, seckey: PrivateKey,
     secureManagers = [Secure(newNoise(rng, seckey))]
 
   peerInfo.agentVersion = conf.agentString
-  peerInfo.protoVersion = conf.protoString
 
   let identify = newIdentify(peerInfo)
 
