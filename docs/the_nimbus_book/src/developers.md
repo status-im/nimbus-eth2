@@ -6,16 +6,14 @@ This page contains tips and tricks for developers, further resources, along with
 
 ### Ubuntu guide
 
-> ⚠️  Parts of this guide may now be out-of-date.
 
-See [this excellent resource](https://medium.com/@SomerEsat/guide-to-staking-on-ethereum-2-0-ubuntu-medalla-nimbus-5f4b2b0f2d7c) for detailed step-by-step guide on how to stake on eth2 with Ubuntu.
+See [this excellent resource](https://someresat.medium.com/guide-to-staking-on-ethereum-2-0-ubuntu-nimbus-e86bdee8c550) for detailed step-by-step guide on how to stake on eth2 with Ubuntu.
 
 It contains instructions on how to:
 
 - Configure a newly running Ubuntu server instance
 - Configure and run an eth1 node as a service
-- Compile and configure the Nimbus client for eth 2, phase 0 (Medalla testnet)
-- Install and configure [Prometheus](https://prometheus.io/) metrics and set up a [Grafana](https://grafana.com/) dashboard
+- Compile and configure the Nimbus client for eth 2, phase 0
 
 ### Windows dev environment
 
