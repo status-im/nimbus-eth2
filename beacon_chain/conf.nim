@@ -6,6 +6,7 @@ import
   confutils, confutils/defs, confutils/std/net, stew/shims/net as stewNet,
   stew/io2, unicodedb/properties, normalize,
   eth/common/eth_types as commonEthTypes,
+  eth/p2p/discoveryv5/enr,
   json_serialization, web3/[ethtypes, confutils_defs],
   spec/[crypto, keystore, digest, datatypes, network],
   network_metadata, filepath
@@ -22,6 +23,7 @@ type
     createTestnet
     deposits
     wallets
+    record
 
   WalletsCmd* {.pure.} = enum
     create  = "Creates a new EIP-2386 wallet"
@@ -35,6 +37,10 @@ type
 
   VCStartUpCmd* = enum
     VCNoCommand
+
+  RecordCmd* {.pure.} = enum
+    create  = "Create a new ENR"
+    print = "Print the content of a given ENR"
 
   BeaconNodeConf* = object
     logLevel* {.
@@ -353,6 +359,36 @@ type
       of DepositsCmd.status:
         discard
 
+    of record:
+      case recordCmd* {.command.}: RecordCmd
+      of RecordCmd.create:
+        ipExt* {.
+          desc: "External IP address"
+          name: "ip" .}: ValidIpAddress
+
+        tcpPortExt* {.
+          desc: "External TCP port"
+          name: "tcp-port" .}: Port
+
+        udpPortExt* {.
+          desc: "External UDP port"
+          name: "udp-port" .}: Port
+
+        seqNumber* {.
+          defaultValue: 1,
+          desc: "Record sequence number"
+          name: "seq-number" .}: uint
+
+        fields* {.
+          desc: "Additional record key pairs, provide as <string>:<bytes in hex>"
+          name: "field" .}: seq[(string)]
+
+      of RecordCmd.print:
+        recordPrint* {.
+          argument
+          desc: "ENR URI of the record to print"
+          name: "enr" .}: Record
+
   ValidatorClientConf* = object
     logLevel* {.
       defaultValue: "INFO"
@@ -494,6 +530,14 @@ func parseCmdArg*(T: type WalletName, input: TaintedString): T
   return T(toNFKC(input))
 
 func completeCmdArg*(T: type WalletName, input: TaintedString): seq[string] =
+  return @[]
+
+proc parseCmdArg*(T: type enr.Record, p: TaintedString): T
+    {.raises: [ConfigurationError, Defect].} =
+  if not fromURI(result, p):
+    raise newException(ConfigurationError, "Invalid ENR")
+
+proc completeCmdArg*(T: type enr.Record, val: TaintedString): seq[string] =
   return @[]
 
 func validatorsDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
