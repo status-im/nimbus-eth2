@@ -429,8 +429,7 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) =
       node.attestationSubnets.subscribedSubnets[1] +
       {node.attestationSubnets.stabilitySubnet.uint8}
     for subnet in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
-      doAssert node.network.metadata.attnets[subnet] ==
-        (subnet in subscribed_subnets)
+      node.network.metadata.attnets[subnet] = subnet in subscribed_subnets
 
 proc getAttestationHandlers(node: BeaconNode): Future[void] =
   var initialSubnets: set[uint8]
