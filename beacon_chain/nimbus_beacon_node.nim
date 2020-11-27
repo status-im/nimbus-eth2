@@ -45,8 +45,8 @@ template init(T: type RpcHttpServer, ip: ValidIpAddress, port: Port): T =
   newRpcHttpServer([initTAddress(ip, port)])
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
-declareGauge beacon_slot,
-  "Latest slot of the beacon chain state"
+declareGauge beacon_slot, "Latest slot of the beacon chain state"
+declareGauge beacon_current_epoch, "Current epoch"
 
 # Finalization tracking
 declareGauge finalization_delay,
@@ -541,6 +541,8 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
     nextSlot = slot + 1
 
   beacon_slot.set slot.int64
+  beacon_current_epoch.set slot.epoch.int64
+
   finalization_delay.set scheduledSlot.epoch.int64 - finalizedEpoch.int64
 
   if node.config.verifyFinalization:

@@ -1,7 +1,14 @@
-import
-  datatypes, digest, helpers
+# beacon_chain
+# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 {.push raises: [Defect].}
+
+import
+  ./datatypes, ./digest, ./helpers
 
 const
   SAFETY_DECAY* = 10'u64
@@ -28,6 +35,6 @@ func is_within_weak_subjectivity_period*(current_slot: Slot,
     ws_period = compute_weak_subjectivity_period(ws_state)
     ws_state_epoch = compute_epoch_at_slot(ws_state.slot)
     current_epoch = compute_epoch_at_slot(current_slot)
-  
+
   current_epoch <= ws_state_epoch + ws_period
 

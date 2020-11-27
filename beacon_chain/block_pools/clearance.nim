@@ -10,7 +10,7 @@
 import
   std/tables,
   chronicles,
-  metrics, stew/results,
+  stew/results,
   ../extras, ../time,
   ../spec/[crypto, datatypes, digest, helpers, signatures, state_transition],
   ./block_pools_types, ./chain_dag, ./quarantine

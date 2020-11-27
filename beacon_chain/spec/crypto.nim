@@ -25,7 +25,7 @@
 
 import
   # Standard library
-  std/[options, tables],
+  std/[options, hashes, tables],
   # Internal
   ./digest,
   # Status
@@ -33,9 +33,7 @@ import
   blscurve,
   chronicles,
   json_serialization,
-  nimcrypto/utils as ncrutils,
-  # Standard library
-  hashes
+  nimcrypto/utils as ncrutils
 
 export results, json_serialization
 

@@ -8,8 +8,9 @@
 {.push raises: [Defect].}
 
 import
-  tables, algorithm, math, sequtils, options,
-  json_serialization/std/sets, chronicles,
+  std/[tables, algorithm, math, sequtils, options],
+  json_serialization/std/sets,
+  chronicles,
   ../extras, ../ssz/merkleization,
   ./crypto, ./datatypes, ./digest, ./helpers, ./signatures, ./validator,
   ../../nbench/bench_lab

@@ -21,7 +21,7 @@
 
 import
   std/[math, sequtils, tables, algorithm],
-  stew/[bitops2], chronicles, metrics,
+  stew/[bitops2], chronicles,
   ../extras,
   ../ssz/merkleization,
   ./beaconstate, ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
@@ -31,22 +31,6 @@ import
 # --------------------------------------------------------
 
 logScope: topics = "consens"
-
-# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
-declareGauge beacon_finalized_epoch, "Current finalized epoch" # On epoch transition
-declareGauge beacon_finalized_root, "Current finalized root" # On epoch transition
-declareGauge beacon_current_justified_epoch, "Current justified epoch" # On epoch transition
-declareGauge beacon_current_justified_root, "Current justified root" # On epoch transition
-declareGauge beacon_previous_justified_epoch, "Current previously justified epoch" # On epoch transition
-declareGauge beacon_previous_justified_root, "Current previously justified root" # On epoch transition
-
-# Non-spec
-declareGauge epoch_transition_justification_and_finalization, "Epoch transition justification and finalization time"
-declareGauge epoch_transition_times_rewards_and_penalties, "Epoch transition reward and penalty time"
-declareGauge epoch_transition_registry_updates, "Epoch transition registry updates time"
-declareGauge epoch_transition_slashings, "Epoch transition slashings time"
-declareGauge epoch_transition_final_updates, "Epoch transition final updates time"
-declareGauge beacon_current_epoch, "Current epoch"
 
 type
   # Caches for computing justificiation, rewards and penalties - based on
@@ -633,16 +617,3 @@ proc process_epoch*(state: var BeaconState, updateFlags: UpdateFlags,
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#final-updates
   process_final_updates(state)
-
-  # Once per epoch metrics
-  beacon_current_epoch.set(currentEpoch.int64)
-  beacon_finalized_epoch.set(state.finalized_checkpoint.epoch.int64)
-  beacon_finalized_root.set(state.finalized_checkpoint.root.toGaugeValue)
-  beacon_current_justified_epoch.set(
-    state.current_justified_checkpoint.epoch.int64)
-  beacon_current_justified_root.set(
-    state.current_justified_checkpoint.root.toGaugeValue)
-  beacon_previous_justified_epoch.set(
-    state.previous_justified_checkpoint.epoch.int64)
-  beacon_previous_justified_root.set(
-    state.previous_justified_checkpoint.root.toGaugeValue)

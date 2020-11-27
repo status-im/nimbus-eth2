@@ -25,7 +25,7 @@
 {.push raises: [Defect].}
 
 import
-  macros, hashes, json, strutils, tables, typetraits,
+  std/[macros, hashes, json, strutils, tables, typetraits],
   stew/[byteutils], chronicles,
   json_serialization/types as jsonTypes,
   ../version, ../ssz/types as sszTypes, ./crypto, ./digest, ./presets

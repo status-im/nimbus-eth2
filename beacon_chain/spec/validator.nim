@@ -9,7 +9,7 @@
 {.push raises: [Defect].}
 
 import
-  options, math, tables,
+  std/[options, math, tables],
   ./datatypes, ./digest, ./helpers
 
 const
