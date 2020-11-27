@@ -372,17 +372,16 @@ proc updateScore*(peer: Peer, score: int) {.inline.} =
 proc join*(peer: Peer): Future[void] =
   var retFuture = newFuture[void]("peer.lifetime.join")
   let peerFut = peer.getFuture()
-  let alreadyFinished = peerFut.finished()
 
   proc continuation(udata: pointer) {.gcsafe.} =
     if not(retFuture.finished()):
       retFuture.complete()
 
   proc cancellation(udata: pointer) {.gcsafe.} =
-    if not(alreadyFinished):
+    if not(isNil(peerFut)):
       peerFut.removeCallback(continuation)
 
-  if alreadyFinished:
+  if peerFut.finished():
     # All the `peer.disconnectedFut` callbacks are already scheduled in current
     # `poll()` call, to avoid race we going to finish only in next `poll()`
     # call.
@@ -391,18 +390,21 @@ proc join*(peer: Peer): Future[void] =
     # `peer.disconnectedFut` is not yet finished, but we want to be scheduled
     # after all callbacks.
     peerFut.addCallback(continuation)
+    retFuture.cancelCallback = cancellation
 
-  return retFuture
+  retFuture
 
-proc notifyAndWait*(peer: Peer): Future[void] =
+proc notifyAndWait*(network: ETh2Node, peer: Peer): Future[void] =
   ## Notify all the waiters that peer life is finished and wait until all
   ## callbacks will be processed.
-  let joinFut = peer.join()
-  let fut = peer.disconnectedFut
+  let
+    joinFut = peer.join()
+    poolFut = network.peerPool.joinPeer(peer)
+    discFut = peer.disconnectedFut
   peer.connectionState = Disconnecting
-  fut.complete()
+  discFut.complete()
   peer.disconnectedFut = nil
-  joinFut
+  allFutures(joinFut, poolFut)
 
 proc calcThroughput(dur: Duration, value: uint64): float =
   let secs = float(chronos.seconds(1).nanoseconds)
@@ -1329,7 +1331,7 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
       node.addSeen(peerId, SeenTableTimeReconnect)
 
       if not(isNil(peer.disconnectedFut)):
-        await peer.notifyAndWait()
+        await node.notifyAndWait(peer)
       else:
         # TODO (cheatfate): This could be removed when bug will be fixed inside
         # `nim-libp2p`.
