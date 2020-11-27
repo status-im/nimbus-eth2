@@ -113,23 +113,26 @@ endif
 
 DEPOSITS_DELAY := 0
 
-# "--define:release" cannot be added to config.nims
+#- "--define:release" cannot be added to "config.nims"
+#- disable Nim's default parallelisation because it starts too many processes for too little gain
+NIM_PARAMS := $(NIM_PARAMS) -d:release --parallelBuild:1
+
 ifeq ($(USE_LIBBACKTRACE), 0)
 # Blame Jacek for the lack of line numbers in your stack traces ;-)
-NIM_PARAMS := $(NIM_PARAMS) -d:release --stacktrace:on --excessiveStackTrace:on --linetrace:off -d:disable_libbacktrace
-else
-NIM_PARAMS := $(NIM_PARAMS) -d:release
+NIM_PARAMS := $(NIM_PARAMS) --stacktrace:on --excessiveStackTrace:on --linetrace:off -d:disable_libbacktrace
 endif
 
-deps: | deps-common nat-libs beacon_chain.nims
+deps: | deps-common nat-libs beacon_chain.nims build/generate_makefile
 ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
 endif
 
 #- deletes and recreates "beacon_chain.nims" which on Windows is a copy instead of a proper symlink
+#- deletes binaries that might need to be rebuilt after a Git pull
 update: | update-common
 	rm -f beacon_chain.nims && \
 		"$(MAKE)" beacon_chain.nims $(HANDLE_OUTPUT)
+	rm -f build/generate_makefile
 
 # symlink
 beacon_chain.nims:
@@ -148,14 +151,26 @@ ifeq ($(DISABLE_TEST_FIXTURES_SCRIPT), 0)
 endif
 	+ $(ENV_SCRIPT) nim test $(NIM_PARAMS) beacon_chain.nims && rm -f 0000-*.json
 
-#- GCC's LTO parallelisation is able to detect a GNU Make jobserver and get its
-#  maximum number of processes from there, but only if we use the "+" prefix.
-#  Without it, it will default to the number of CPU cores, which can be a
-#  problem on low-memory systems.
+# It's OK to only build this once. `make update` deletes the binary, forcing a rebuild.
+ifneq ($(USE_LIBBACKTRACE), 0)
+build/generate_makefile: | libbacktrace
+endif
+build/generate_makefile: tools/generate_makefile.nim | deps-common
+	$(ENV_SCRIPT) nim c -o:$@ $(NIM_PARAMS) tools/generate_makefile.nim
+
+# GCC's LTO parallelisation is able to detect a GNU Make jobserver and get its
+# maximum number of processes from there, but only if we use the "+" prefix.
+# Without it, it will default to the number of CPU cores, which can be a
+# problem on low-memory systems.
+# It also requires Make to pass open file descriptors to the GCC process,
+# which is not possible if we let Nim handle this, so we generate and use a
+# makefile instead.
 $(TOOLS): | build deps
 	+ for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
 		echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim c -o:build/$@ $(NIM_PARAMS) "$${TOOL_DIR}/$@.nim" && \
+		$(ENV_SCRIPT) nim c --compileOnly -o:build/$@ $(NIM_PARAMS) "$${TOOL_DIR}/$@.nim" && \
+		build/generate_makefile "nimcache/release/$@/$@.json" "nimcache/release/$@/$@.makefile" && \
+		"$(MAKE)" -f "nimcache/release/$@/$@.makefile" --no-print-directory build $(HANDLE_OUTPUT) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 clean_eth2_network_simulation_data:
@@ -331,7 +346,7 @@ ntu: | build deps
 	+ $(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ntu c vendor/nim-testutils/ntu.nim
 
 clean: | clean-common
-	rm -rf build/{$(TOOLS_CSV),all_tests,*_node,*ssz*,nimbus_beacon_node*,beacon_node_*,block_sim,state_sim,transition*}
+	rm -rf build/{$(TOOLS_CSV),all_tests,test_*,proto_array,fork_choice,*.a,*.so,*_node,*ssz*,nimbus_*,beacon_node*,block_sim,state_sim,transition*,generate_makefile}
 ifneq ($(USE_LIBBACKTRACE), 0)
 	+ "$(MAKE)" -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 endif

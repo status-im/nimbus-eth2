@@ -347,7 +347,7 @@ git config --global core.longpaths true
 You can now follow those instructions in the previous section by replacing `make` with `mingw32-make` (regardless of your 32-bit or 64-bit architecture):
 
 ```bash
-mingw32-make test # run the test suite
+mingw32-make -j $(nproc) test # run the test suite
 ```
 
 ### Linux, MacOS
@@ -358,15 +358,15 @@ After cloning the repo:
 # The first `make` invocation will update all Git submodules.
 # You'll run `make update` after each `git pull`, in the future, to keep those submodules up to date.
 
-# Build nimbus_beacon_node and all the tools, using 4 parallel Make jobs
-make -j4
+# Build nimbus_beacon_node and all the tools, using as many parallel jobs as you have CPU cores
+make -j $(nproc)
 
 # Run tests
-make test
+make -j $(nproc) test
 
 # Update to latest version
 git pull
-make update
+make -j $(nproc) update
 ```
 
 To run a command that might use binaries from the Status Nim fork:
@@ -411,7 +411,7 @@ sudo apt-get install git
 
 ```bash
 # $(nproc) corresponds to the number of cores you have
-make -j$(nproc)
+make -j $(nproc)
 ```
 
 - build a specific tool:

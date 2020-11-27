@@ -185,11 +185,13 @@ else
   MAKE="make"
 fi
 
-NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh "${NETWORK}")
-$MAKE -j2 LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:insecure -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" nimbus_beacon_node nimbus_signing_process nimbus_validator_client deposit_contract
+# Build the binaries
+BINARIES="nimbus_beacon_node nimbus_signing_process nimbus_validator_client deposit_contract"
 if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
-  $MAKE LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:insecure -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" logtrace
+  BINARIES="${BINARIES} logtrace"
 fi
+NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh "${NETWORK}")
+$MAKE -j $(nproc) LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:insecure -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" ${BINARIES}
 
 PIDS=""
 WEB3_ARG=""
