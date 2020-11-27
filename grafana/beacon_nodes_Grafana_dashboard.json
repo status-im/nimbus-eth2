@@ -9,35 +9,6 @@
         "iconColor": "rgba(0, 211, 255, 1)",
         "name": "Annotations & Alerts",
         "type": "dashboard"
-      },
-      {
-        "datasource": "Prometheus",
-        "enable": false,
-        "expr": "changes(beacon_current_epoch{node=\"0\"}[2s])",
-        "hide": false,
-        "iconColor": "#FFA6B0",
-        "limit": 100,
-        "name": "epoch",
-        "showIn": 0,
-        "step": "1s",
-        "tags": [],
-        "titleFormat": "epoch",
-        "type": "tags",
-        "useValueForTime": false
-      },
-      {
-        "datasource": "Prometheus",
-        "enable": false,
-        "expr": "changes(beacon_slot{node=\"0\"}[2s])",
-        "hide": false,
-        "iconColor": "#FFF899",
-        "limit": 100,
-        "name": "slot",
-        "showIn": 0,
-        "step": "1s",
-        "tags": [],
-        "titleFormat": "slot",
-        "type": "tags"
       }
     ]
   },
@@ -45,7 +16,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 25,
-  "iteration": 1605135683098,
+  "iteration": 1606849921193,
   "links": [],
   "panels": [
     {
@@ -83,8 +54,11 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.3",
+      "pluginVersion": "7.3.1",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -107,27 +81,27 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(process_cpu_seconds_total{node=\"${node}\"}[2s]) * 100",
+          "expr": "min without (node) (rate(process_cpu_seconds_total{instance=\"${instance}\"}[$__rate_interval])) * 100",
           "legendFormat": "CPU usage %",
           "refId": "A"
         },
         {
-          "expr": "process_open_fds{node=\"${node}\"}",
+          "expr": "min without (node) (process_open_fds{instance=\"${instance}\"})",
           "legendFormat": "open file descriptors",
           "refId": "C"
         },
         {
-          "expr": "process_resident_memory_bytes{node=\"${node}\"}",
+          "expr": "min without (node) (process_resident_memory_bytes{instance=\"${instance}\"})",
           "legendFormat": "RSS",
           "refId": "D"
         },
         {
-          "expr": "nim_gc_mem_bytes{node=\"${node}\"}",
+          "expr": "min without (node) (nim_gc_mem_bytes{instance=\"${instance}\"})",
           "legendFormat": "Nim GC mem total",
           "refId": "F"
         },
         {
-          "expr": "nim_gc_mem_occupied_bytes{node=\"${node}\"}",
+          "expr": "min without (node) (nim_gc_mem_occupied_bytes{instance=\"${instance}\"})",
           "legendFormat": "Nim GC mem used",
           "refId": "G"
         }
@@ -136,7 +110,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "resources #${node}",
+      "title": "resources (${instance})",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -210,8 +184,11 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.3",
+      "pluginVersion": "7.3.1",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -221,7 +198,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "libp2p_open_streams{node=\"${node}\"}",
+          "expr": "min without (node) (libp2p_open_streams{instance=\"${instance}\"})",
           "interval": "",
           "legendFormat": "{{type}} ({{dir}})",
           "refId": "A"
@@ -231,7 +208,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "open streams #${node}",
+      "title": "open streams (${instance})",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -290,7 +267,7 @@
         "y": 5
       },
       "hiddenSeries": false,
-      "id": 20,
+      "id": 51,
       "legend": {
         "alignAsTable": false,
         "avg": false,
@@ -305,8 +282,11 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.3",
+      "pluginVersion": "7.3.1",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -316,17 +296,29 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "beacon_active_validators{node=\"${node}\"}",
+          "expr": "min without (node) (libp2p_peers{instance=\"${instance}\"})",
           "interval": "",
-          "legendFormat": "current validators",
+          "legendFormat": "libp2p peers",
           "refId": "A"
+        },
+        {
+          "expr": "min without (node) (libp2p_pubsub_peers{instance=\"${instance}\"})",
+          "interval": "",
+          "legendFormat": "libp2p pubsub peers",
+          "refId": "C"
+        },
+        {
+          "expr": "min without (node) (nbc_peers{instance=\"${instance}\"})",
+          "interval": "",
+          "legendFormat": "beacon_node peers",
+          "refId": "B"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "validators #${node}",
+      "title": "peers (${instance})",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -400,8 +392,11 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.3",
+      "pluginVersion": "7.3.1",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -416,7 +411,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "nim_gc_heap_instance_occupied_bytes{node=\"${node}\"}",
+          "expr": "min without (node) (nim_gc_heap_instance_occupied_bytes{instance=\"${instance}\"})",
           "interval": "",
           "legendFormat": "{{type_name}}",
           "refId": "A"
@@ -426,7 +421,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "GC heap objects #${node}",
+      "title": "GC heap objects (${instance})",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -485,12 +480,14 @@
         "y": 10
       },
       "hiddenSeries": false,
-      "id": 24,
+      "id": 20,
       "legend": {
+        "alignAsTable": false,
         "avg": false,
         "current": false,
         "max": false,
         "min": false,
+        "rightSide": false,
         "show": true,
         "total": false,
         "values": false
@@ -498,8 +495,11 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.3",
+      "pluginVersion": "7.3.1",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -509,9 +509,9 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "beacon_state_data_cache_hits_total{node=\"${node}\"} * 100 / (beacon_state_data_cache_hits_total{node=\"${node}\"} + beacon_state_data_cache_misses_total{node=\"${node}\"})",
+          "expr": "min without (node) (beacon_active_validators{instance=\"${instance}\"})",
           "interval": "",
-          "legendFormat": "cache hit rate",
+          "legendFormat": "current validators",
           "refId": "A"
         }
       ],
@@ -519,7 +519,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "pool.cachedStates #${node}",
+      "title": "validators (${instance})",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -535,11 +535,10 @@
       },
       "yaxes": [
         {
-          "decimals": null,
-          "format": "percent",
+          "format": "short",
           "label": null,
           "logBase": 1,
-          "max": "100",
+          "max": null,
           "min": "0",
           "show": true
         },
@@ -595,24 +594,32 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.3",
+      "pluginVersion": "7.3.1",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
-      "seriesOverrides": [],
+      "seriesOverrides": [
+        {
+          "alias": "proposed",
+          "yaxis": 2
+        }
+      ],
       "spaceLength": 10,
       "stack": false,
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(beacon_blocks_received_total{node=\"${node}\"}[4s]) * 3",
+          "expr": "min without (node) (rate(beacon_blocks_received_total{instance=\"${instance}\"}[$__rate_interval])) * 12",
           "interval": "",
           "legendFormat": "received",
           "refId": "B"
         },
         {
-          "expr": "rate(beacon_blocks_proposed_total{node=\"${node}\"}[4s]) * 3",
+          "expr": "min without (node) (rate(beacon_blocks_proposed_total{instance=\"${instance}\"}[$__rate_interval])) * 12",
           "interval": "",
           "legendFormat": "proposed",
           "refId": "A"
@@ -622,7 +629,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "blocks #${node}",
+      "title": "blocks/slot (${instance})",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -650,7 +657,7 @@
           "label": null,
           "logBase": 1,
           "max": null,
-          "min": null,
+          "min": "0",
           "show": true
         }
       ],
@@ -681,14 +688,12 @@
         "y": 15
       },
       "hiddenSeries": false,
-      "id": 51,
+      "id": 24,
       "legend": {
-        "alignAsTable": false,
         "avg": false,
         "current": false,
         "max": false,
         "min": false,
-        "rightSide": false,
         "show": true,
         "total": false,
         "values": false
@@ -696,8 +701,11 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.3",
+      "pluginVersion": "7.3.1",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -707,29 +715,17 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "libp2p_peers{node=\"${node}\"}",
+          "expr": "min without (node) (beacon_state_data_cache_hits_total{instance=\"${instance}\"}) * 100 / (min without (node) (beacon_state_data_cache_hits_total{instance=\"${instance}\"}) + min without (node) (beacon_state_data_cache_misses_total{instance=\"${instance}\"}))",
           "interval": "",
-          "legendFormat": "libp2p peers",
+          "legendFormat": "cache hit rate",
           "refId": "A"
-        },
-        {
-          "expr": "libp2p_pubsub_peers{node=\"${node}\"}",
-          "interval": "",
-          "legendFormat": "libp2p pubsub peers",
-          "refId": "C"
-        },
-        {
-          "expr": "nbc_peers{node=\"${node}\"}",
-          "interval": "",
-          "legendFormat": "beacon_node peers",
-          "refId": "B"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "peers #${node}",
+      "title": "pool.cachedStates (${instance})",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -745,10 +741,11 @@
       },
       "yaxes": [
         {
-          "format": "short",
+          "decimals": null,
+          "format": "percent",
           "label": null,
           "logBase": 1,
-          "max": null,
+          "max": "100",
           "min": "0",
           "show": true
         },
@@ -801,24 +798,32 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.3",
+      "pluginVersion": "7.3.1",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
-      "seriesOverrides": [],
+      "seriesOverrides": [
+        {
+          "alias": "sent",
+          "yaxis": 2
+        }
+      ],
       "spaceLength": 10,
       "stack": false,
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(beacon_attestations_received_total{node=\"${node}\"}[4s]) * 3",
+          "expr": "min without (node) (rate(beacon_attestations_received_total{instance=\"${instance}\"}[$__rate_interval])) * 12",
           "interval": "",
           "legendFormat": "received",
           "refId": "A"
         },
         {
-          "expr": "rate(beacon_attestations_sent_total{node=\"${node}\"}[4s]) * 3",
+          "expr": "min without (node) (rate(beacon_attestations_sent_total{instance=\"${instance}\"}[$__rate_interval])) * 12",
           "interval": "",
           "legendFormat": "sent",
           "refId": "B"
@@ -828,7 +833,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "attestations #${node}",
+      "title": "attestations/slot (${instance})",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -856,7 +861,7 @@
           "label": null,
           "logBase": 1,
           "max": null,
-          "min": null,
+          "min": "0",
           "show": true
         }
       ],
@@ -875,6 +880,7 @@
         "#d44a3a"
       ],
       "datasource": null,
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -932,17 +938,17 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "process_resident_memory_bytes{instance=\"127.0.0.1:8008\", job=\"nimbus\", node=\"0\"}",
+      "tableColumn": "",
       "targets": [
         {
-          "expr": "process_resident_memory_bytes{node=\"${node}\"}",
+          "expr": "min without (node) (process_resident_memory_bytes{instance=\"${instance}\"})",
           "refId": "A"
         }
       ],
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "RSS mem #${node}",
+      "title": "RSS mem",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -964,6 +970,7 @@
         "#d44a3a"
       ],
       "datasource": null,
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -1021,17 +1028,17 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "{instance=\"127.0.0.1:8008\", job=\"nimbus\", node=\"0\"}",
+      "tableColumn": "",
       "targets": [
         {
-          "expr": "rate(process_cpu_seconds_total{node=\"${node}\"}[2s]) * 100",
+          "expr": "min without (node) (rate(process_cpu_seconds_total{instance=\"${instance}\"}[$__rate_interval])) * 100",
           "refId": "A"
         }
       ],
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "CPU usage #${node}",
+      "title": "CPU usage",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -1053,6 +1060,7 @@
         "#d44a3a"
       ],
       "datasource": null,
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -1110,10 +1118,10 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "beacon_slot{instance=\"127.0.0.1:8008\", job=\"nimbus\", node=\"0\"}",
+      "tableColumn": "",
       "targets": [
         {
-          "expr": "beacon_slot{node=\"${node}\"}",
+          "expr": "min without (node) (beacon_slot{instance=\"${instance}\"})",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1122,7 +1130,7 @@
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "current slot #${node}",
+      "title": "current slot",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -1204,7 +1212,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(beacon_attestations_sent_total)",
+          "expr": "sum(min without (node) (beacon_attestations_sent_total))",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1236,6 +1244,7 @@
         "#d44a3a"
       ],
       "datasource": null,
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -1292,17 +1301,17 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "beacon_attestations_received_total{instance=\"127.0.0.1:8008\", job=\"nimbus\", node=\"0\"}",
+      "tableColumn": "",
       "targets": [
         {
-          "expr": "beacon_attestations_received_total{node=\"${node}\"}",
+          "expr": "min without (node) (beacon_attestations_received_total{instance=\"${instance}\"})",
           "refId": "A"
         }
       ],
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "att'ns recv'd #${node}",
+      "title": "att'ns recv'd",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -1353,7 +1362,7 @@
       "reverseYBuckets": false,
       "targets": [
         {
-          "expr": "rate(beacon_attestation_delay_bucket{node=\"${node}\"}[4s]) * 3",
+          "expr": "min without (node) (rate(beacon_attestation_delay_bucket{instance=\"${instance}\"}[$__rate_interval]))",
           "format": "heatmap",
           "instant": false,
           "interval": "",
@@ -1364,7 +1373,7 @@
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "received attestation delay (s) #${node}",
+      "title": "received attestation delay (s) (${instance})",
       "tooltip": {
         "show": true,
         "showHistogram": false
@@ -1398,6 +1407,7 @@
         "#d44a3a"
       ],
       "datasource": null,
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -1454,10 +1464,10 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "beacon_current_epoch{instance=\"127.0.0.1:8008\", job=\"nimbus\", node=\"0\"}",
+      "tableColumn": "",
       "targets": [
         {
-          "expr": "beacon_current_epoch{node=\"${node}\"}",
+          "expr": "min without (node) (beacon_current_epoch{instance=\"${instance}\"})",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1466,7 +1476,7 @@
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "current epoch #${node}",
+      "title": "current epoch",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -1488,6 +1498,7 @@
         "#d44a3a"
       ],
       "datasource": null,
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -1544,10 +1555,10 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "beacon_current_justified_epoch{instance=\"127.0.0.1:8008\", job=\"nimbus\", node=\"0\"}",
+      "tableColumn": "",
       "targets": [
         {
-          "expr": "beacon_current_justified_epoch{node=\"${node}\"}",
+          "expr": "min without (node) (beacon_current_justified_epoch{instance=\"${instance}\"})",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1556,7 +1567,7 @@
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "current justified epoch #${node}",
+      "title": "current justified epoch",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -1579,6 +1590,7 @@
       ],
       "datasource": null,
       "decimals": null,
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -1635,10 +1647,10 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "{instance=\"127.0.0.1:8008\", job=\"nimbus\", node=\"0\"}",
+      "tableColumn": "",
       "targets": [
         {
-          "expr": "time() - process_start_time_seconds{node=\"${node}\"}",
+          "expr": "time() - min without (node) (process_start_time_seconds{instance=\"${instance}\"})",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1647,7 +1659,7 @@
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "runtime #${node}",
+      "title": "runtime",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -1670,6 +1682,7 @@
         "#d44a3a"
       ],
       "datasource": null,
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -1726,17 +1739,19 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "libp2p_peers{instance=\"127.0.0.1:8008\", job=\"nimbus\", node=\"0\"}",
+      "tableColumn": "",
       "targets": [
         {
-          "expr": "libp2p_peers{node=\"${node}\"}",
+          "expr": "min without (node) (nbc_peers{instance=\"${instance}\"})",
+          "interval": "",
+          "legendFormat": "",
           "refId": "A"
         }
       ],
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "libp2p peers #${node}",
+      "title": "peers",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -1758,6 +1773,7 @@
         "#d44a3a"
       ],
       "datasource": null,
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -1814,10 +1830,10 @@
         "ymax": null,
         "ymin": null
       },
-      "tableColumn": "beacon_finalized_epoch{instance=\"127.0.0.1:8008\", job=\"nimbus\", node=\"0\"}",
+      "tableColumn": "",
       "targets": [
         {
-          "expr": "beacon_finalized_epoch{node=\"${node}\"}",
+          "expr": "min without (node) (beacon_finalized_epoch{instance=\"${instance}\"})",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1826,7 +1842,7 @@
       "thresholds": "",
       "timeFrom": null,
       "timeShift": null,
-      "title": "last finalized epoch #${node}",
+      "title": "last finalized epoch",
       "type": "singlestat",
       "valueFontSize": "80%",
       "valueMaps": [
@@ -1878,7 +1894,7 @@
       "reverseYBuckets": false,
       "targets": [
         {
-          "expr": "rate(beacon_aggregate_delay_bucket{node=\"${node}\"}[4s]) * 3",
+          "expr": "min without (node) (rate(beacon_aggregate_delay_bucket{instance=\"${instance}\"}[$__rate_interval]))",
           "format": "heatmap",
           "instant": false,
           "interval": "",
@@ -1889,7 +1905,7 @@
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "received aggregate delay (s) #${node}",
+      "title": "received aggregate delay (s) (${instance})",
       "tooltip": {
         "show": true,
         "showHistogram": false
@@ -1953,7 +1969,7 @@
       "reverseYBuckets": false,
       "targets": [
         {
-          "expr": "rate(beacon_block_delay_bucket{node=\"${node}\"}[4s]) * 3",
+          "expr": "min without (node) (rate(beacon_block_delay_bucket{instance=\"${instance}\"}[$__rate_interval]))",
           "format": "heatmap",
           "instant": false,
           "interval": "",
@@ -1964,7 +1980,7 @@
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "received beacon block delay (s) #${node}",
+      "title": "received beacon block delay (s) (${instance})",
       "tooltip": {
         "show": true,
         "showHistogram": false
@@ -2027,7 +2043,7 @@
       "reverseYBuckets": false,
       "targets": [
         {
-          "expr": "rate(beacon_store_block_duration_seconds_bucket{node=\"${node}\"}[4s]) * 3",
+          "expr": "min without (node) (rate(beacon_store_block_duration_seconds_bucket{instance=\"${instance}\"}[$__rate_interval]))",
           "format": "heatmap",
           "instant": false,
           "interval": "",
@@ -2038,7 +2054,7 @@
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "storeBlock() duration (s) #${node}",
+      "title": "storeBlock() duration (s) (${instance})",
       "tooltip": {
         "show": true,
         "showHistogram": false
@@ -2097,8 +2113,111 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.3",
+      "pluginVersion": "7.3.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [
+        {
+          "alias": "/.*/"
+        }
+      ],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "min without (node) (rate(attached_validator_balance_total{instance=\"${instance}\"}[$__rate_interval]) * 384 / 1000000000)",
+          "interval": "",
+          "legendFormat": "GWei",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "validator rewards / epoch (${instance})",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": true
+        },
+        {
+          "format": "bytes",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "links": []
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 6,
+        "w": 14,
+        "x": 0,
+        "y": 53
+      },
+      "hiddenSeries": false,
+      "id": 54,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.3.1",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -2113,7 +2232,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sqlite3_memory_used_bytes{node=\"${node}\"}",
+          "expr": "min without (node) (sqlite3_memory_used_bytes{instance=\"${instance}\"})",
           "interval": "",
           "legendFormat": "Memory used",
           "refId": "A"
@@ -2123,7 +2242,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "SQLite3 #${node}",
+      "title": "SQLite3 (${instance})",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -2171,18 +2290,19 @@
         "allValue": null,
         "current": {
           "selected": false,
-          "text": "0",
-          "value": "0"
+          "text": "127.0.0.1:8008",
+          "value": "127.0.0.1:8008"
         },
         "datasource": "Prometheus",
-        "definition": "label_values(process_virtual_memory_bytes,node)",
+        "definition": "label_values(process_virtual_memory_bytes,instance)",
+        "error": null,
         "hide": 0,
         "includeAll": false,
         "label": null,
         "multi": false,
-        "name": "node",
+        "name": "instance",
         "options": [],
-        "query": "label_values(process_virtual_memory_bytes,node)",
+        "query": "label_values(process_virtual_memory_bytes,instance)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -2216,5 +2336,5 @@
   "timezone": "",
   "title": "NBC local testnet/sim (all nodes)",
   "uid": "pgeNfj2Wz2a",
-  "version": 11
+  "version": 29
 }

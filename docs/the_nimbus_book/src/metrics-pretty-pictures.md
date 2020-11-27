@@ -76,14 +76,12 @@ Example config file:
 
 ```
 global:
-  scrape_interval: 6s
+  scrape_interval: 12s
 
 scrape_configs:
   - job_name: "nimbus"
     static_configs:
       - targets: ['127.0.0.1:8008']
-        labels:
-          node: '0'
 
 ```
 
@@ -97,7 +95,7 @@ prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
 
 #### 4. Download Grafana
 
-[Download the latest release]((https://grafana.com/grafana/download?platform=linux)) of Grafana for your platform.
+[Download the latest release]((https://grafana.com/grafana/download?platform=linux)) of Grafana for your platform. You need version 7.2 or newer.
 
 >**Note:** If you use a package manager, you can also download Grafana that way -- for example `apt-get install grafana` on Ubuntu, or `brew install grafana` on MacOS, should do the trick.
 
@@ -132,6 +130,8 @@ Select `Prometheus`
 Enter `http://localhost:9090` in the URL field
 
 ![](https://i.imgur.com/PtVOnur.png)
+
+Set the "Scrape interval" field to the same value you used in the Prometheus config ("12" in our example above).
 
 Scroll to the bottom and click on `Save and Test`
 

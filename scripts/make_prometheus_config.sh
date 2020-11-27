@@ -84,7 +84,7 @@ done
 
 cat > "${CONFIG_FILE}" <<EOF
 global:
-  scrape_interval: 1s
+  scrape_interval: 12s
 
 scrape_configs:
   - job_name: "nimbus"
@@ -93,8 +93,6 @@ EOF
 for NUM_NODE in $(seq 0 $(( ${NUM_NODES} - 1 ))); do
 	cat >> "${CONFIG_FILE}" <<EOF
       - targets: ['127.0.0.1:$(( BASE_METRICS_PORT + NUM_NODE ))']
-        labels:
-          node: '$NUM_NODE'
 EOF
 done
 

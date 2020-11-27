@@ -79,18 +79,7 @@ outputData["templating"]["list"] = parseJson("""
 
 outputData["panels"] = %* []
 for panel in panels.mitems:
-  panel["title"] = %* replace(panel["title"].getStr(), "${node}", "${instance}")
   panel["datasource"] = newJNull()
-  if panel.hasKey("targets"):
-    var targets = panel["targets"]
-    for target in targets.mitems:
-      # The remote Prometheus instance polls once per minute, so the
-      # minimum rate() interval is 2 minutes.
-      target["expr"] = %* multiReplace(target["expr"].getStr(),
-                            ("{node=\"${node}\"}", "{job=\"beacon-node-metrics\",instance=\"${instance}\"}"),
-                            ("sum(beacon_attestations_sent_total)", "sum(beacon_attestations_sent_total{job=\"beacon-node-metrics\"})"),
-                            ("[2s]", "[2m]"),
-                            ("[4s]) * 3", "[2m]) * 120"))
   outputData["panels"].add(panel)
 
 ########
@@ -99,10 +88,6 @@ for panel in panels.mitems:
 
 outputData["title"] = %* $title
 outputData["uid"] = %* (outputData["uid"].getStr()[0..^2] & $testnet)
-# our annotations only work with a 1s resolution
-var annotation = outputData["annotations"]["list"][0].copy()
-annotation["datasource"] = %* "-- Grafana --"
-outputData["annotations"]["list"] = %* [annotation]
 
 writeFile(outputFilename, pretty(outputData))
 
