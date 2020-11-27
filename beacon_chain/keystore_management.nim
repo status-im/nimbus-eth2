@@ -38,7 +38,7 @@ const
       "../vendor/nimbus-security-resources/passwords/10-million-password-list-top-100000.txt",
     minWordLen = minPasswordLen)
 
-proc echoP(msg: string) =
+proc echoP*(msg: string) =
   ## Prints a paragraph aligned to 80 columns
   echo ""
   echo wrapWords(msg, 80)
@@ -213,8 +213,8 @@ proc keyboardGetPassword[T](prompt: string, attempts: int,
       dec(remainingAttempts)
   err("Failed to decrypt keystore")
 
-proc loadKeystore(validatorsDir, secretsDir, keyName: string,
-                  nonInteractive: bool): Option[ValidatorPrivKey] =
+proc loadKeystore*(validatorsDir, secretsDir, keyName: string,
+                   nonInteractive: bool): Option[ValidatorPrivKey] =
   let
     keystorePath = validatorsDir / keyName / keystoreFileName
     keystore =

@@ -178,10 +178,24 @@ proc verify_deposit_signature*(preset: RuntimePreset,
 
   blsVerify(deposit.pubkey, signing_root.data, deposit.signature)
 
-proc verify_voluntary_exit_signature*(
-    fork: Fork, genesis_validators_root: Eth2Digest,
+func get_voluntary_exit_signature*(
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
     voluntary_exit: VoluntaryExit,
-    pubkey: ValidatorPubKey, signature: SomeSig): bool =
+    privkey: ValidatorPrivKey): ValidatorSig =
+  let
+    domain = get_domain(
+      fork, DOMAIN_VOLUNTARY_EXIT, voluntary_exit.epoch, genesis_validators_root)
+    signing_root = compute_signing_root(voluntary_exit, domain)
+
+  blsSign(privKey, signing_root.data)
+
+proc verify_voluntary_exit_signature*(
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    voluntary_exit: VoluntaryExit,
+    pubkey: ValidatorPubKey,
+    signature: SomeSig): bool =
   withTrust(signature):
     let
       domain = get_domain(

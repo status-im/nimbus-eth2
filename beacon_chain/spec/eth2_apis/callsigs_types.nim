@@ -30,6 +30,7 @@ type
 
   BeaconStatesValidatorsTuple* = tuple
     validator: Validator
+    index: uint64
     status: string
     balance: uint64
 

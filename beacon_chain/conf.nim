@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  strutils, os, options, unicode,
+  strutils, os, options, unicode, uri,
   chronicles, chronicles/options as chroniclesOptions,
   confutils, confutils/defs, confutils/std/net, stew/shims/net as stewNet,
   stew/io2, unicodedb/properties, normalize,
@@ -12,12 +12,11 @@ import
   network_metadata, filepath
 
 export
+  uri,
   defaultEth2TcpPort, enabledLogLevel, ValidIpAddress,
   defs, parseCmdArg, completeCmdArg, network_metadata
 
 type
-  ValidatorKeyPath* = TypedInputFile[ValidatorPrivKey, Txt, "privkey"]
-
   BNStartUpCmd* = enum
     noCommand
     createTestnet
@@ -31,9 +30,10 @@ type
     list    = "Lists details about all wallets"
 
   DepositsCmd* {.pure.} = enum
-    create   = "Creates validator keystores and deposits"
+    # create   = "Creates validator keystores and deposits"
     `import` = "Imports password-protected keystores interactively"
-    status   = "Displays status information about all deposits"
+    # status   = "Displays status information about all deposits"
+    exit     = "Submits a validator voluntary exit"
 
   VCStartUpCmd* = enum
     VCNoCommand
@@ -325,6 +325,7 @@ type
 
     of deposits:
       case depositsCmd* {.command.}: DepositsCmd
+      #[
       of DepositsCmd.create:
         totalDeposits* {.
           defaultValue: 1
@@ -357,13 +358,28 @@ type
           desc: "Output wallet file"
           name: "new-wallet-file" }: Option[OutFile]
 
+      of DepositsCmd.status:
+        discard
+      #]#
+
       of DepositsCmd.`import`:
         importedDepositsDir* {.
           argument
           desc: "A directory with keystores to import" }: Option[InputDir]
 
-      of DepositsCmd.status:
-        discard
+      of DepositsCmd.exit:
+        exitedValidator* {.
+          name: "validator"
+          desc: "Validator index or a public key of the exited validator" }: string
+
+        rpcUrlForExit* {.
+          name: "rpc-url"
+          defaultValue: parseUri("wss://localhost:" & $defaultEth2RpcPort)
+          desc: "URL of the beacon node JSON-RPC service" }: Uri
+
+        exitAtEpoch* {.
+          name: "epoch"
+          desc: "The desired exit epoch" }: Option[uint64]
 
     of record:
       case recordCmd* {.command.}: RecordCmd
@@ -501,6 +517,13 @@ func parseCmdArg*(T: type BlockHashOrNumber, input: TaintedString): T
 func completeCmdArg*(T: type BlockHashOrNumber, input: TaintedString): seq[string] =
   return @[]
 
+func parseCmdArg*(T: type Uri, input: TaintedString): T
+                 {.raises: [ValueError, Defect].} =
+  parseUri(input.string)
+
+func completeCmdArg*(T: type Uri, input: TaintedString): seq[string] =
+  return @[]
+
 func parseCmdArg*(T: type Checkpoint, input: TaintedString): T
                  {.raises: [ValueError, Defect].} =
   let sepIdx = find(input.string, ':')
@@ -569,9 +592,11 @@ func outWalletName*(conf: BeaconNodeConf): Option[WalletName] =
     of WalletsCmd.restore: conf.restoredWalletNameFlag
     of WalletsCmd.list: fail()
   of deposits:
-    case conf.depositsCmd
-    of DepositsCmd.create: conf.newWalletNameFlag
-    else: fail()
+    # TODO: Uncomment when the deposits create command is restored
+    #case conf.depositsCmd
+    #of DepositsCmd.create: conf.newWalletNameFlag
+    #else: fail()
+    fail()
   else:
     fail()
 
@@ -586,9 +611,11 @@ func outWalletFile*(conf: BeaconNodeConf): Option[OutFile] =
     of WalletsCmd.restore: conf.restoredWalletFileFlag
     of WalletsCmd.list: fail()
   of deposits:
-    case conf.depositsCmd
-    of DepositsCmd.create: conf.newWalletFileFlag
-    else: fail()
+    # TODO: Uncomment when the deposits create command is restored
+    #case conf.depositsCmd
+    #of DepositsCmd.create: conf.newWalletFileFlag
+    #else: fail()
+    fail()
   else:
     fail()
 
