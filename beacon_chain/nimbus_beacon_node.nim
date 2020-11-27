@@ -7,12 +7,12 @@
 
 import
   # Standard library
-  std/[os, tables, strutils, strformat, sequtils, times, math, terminal, osproc,
-    random],
+  std/[os, tables, strutils, strformat, sequtils, times, math,
+       terminal, osproc, random],
 
   # Nimble packages
   stew/[objects, byteutils, endians2, io2], stew/shims/macros,
-  chronos, confutils, metrics, json_rpc/[rpcserver, jsonmarshal],
+  chronos, confutils, metrics, json_rpc/[rpcclient, rpcserver, jsonmarshal],
   chronicles, bearssl, blscurve,
   json_serialization/std/[options, sets, net], serialization/errors,
 
@@ -24,13 +24,14 @@ import
   ./rpc/[beacon_api, config_api, debug_api, event_api, nimbus_api, node_api,
     validator_api],
   spec/[datatypes, digest, crypto, beaconstate, helpers, network, presets],
-  spec/[weak_subjectivity],
+  spec/[weak_subjectivity, signatures],
+  spec/eth2_apis/beacon_rpc_client,
   conf, time, beacon_chain_db, validator_pool, extras,
   attestation_pool, exit_pool, eth2_network, eth2_discovery,
   beacon_node_common, beacon_node_types, beacon_node_status,
   block_pools/[chain_dag, quarantine, clearance, block_pools_types],
   nimbus_binary_common, network_metadata,
-  eth1_monitor, version, ssz/[navigator, merkleization],
+  eth1_monitor, version, ssz/merkleization,
   sync_protocol, request_manager, keystore_management, interop, statusbar,
   sync_manager, validator_duties, filepath,
   validator_slashing_protection, ./eth2_processor
@@ -220,7 +221,7 @@ proc init*(T: type BeaconNode,
   if genesisStateContents != nil:
     let
       networkGenesisValidatorsRoot =
-        sszMount(genesisStateContents[], BeaconState).genesis_validators_root[]
+        extractGenesisValidatorRootFromSnapshop(genesisStateContents[])
 
     if networkGenesisValidatorsRoot != databaseGenesisValidatorsRoot:
       fatal "The specified --data-dir contains data for a different network",
@@ -1025,6 +1026,143 @@ when hasPrompt:
       # var t: Thread[ptr Prompt]
       # createThread(t, processPromptCommands, addr p)
 
+proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
+  let port = try:
+    let value = parseInt(config.rpcUrlForExit.port)
+    if value < Port.low.int or value > Port.high.int:
+      raise newException(ValueError,
+        "The port number must be between " & $Port.low & " and " & $Port.high)
+    Port value
+  except CatchableError as err:
+    fatal "Invalid port number", err = err.msg
+    quit 1
+
+  let rpcClient = newRpcHttpClient()
+
+  try:
+    await connect(rpcClient, config.rpcUrlForExit.hostname, port)
+  except CatchableError as err:
+    fatal "Failed to connect to the beacon node RPC service", err = err.msg
+    quit 1
+
+  let (validator, validatorIdx, status, balance) = try:
+    await rpcClient.get_v1_beacon_states_stateId_validators_validatorId(
+      "head", config.exitedValidator)
+  except CatchableError as err:
+    fatal "Failed to obtain information for validator", err = err.msg
+    quit 1
+
+  let exitAtEpoch = if config.exitAtEpoch.isSome:
+    Epoch config.exitAtEpoch.get
+  else:
+    let headSlot = try:
+      await rpcClient.getBeaconHead()
+    except CatchableError as err:
+      fatal "Failed to obtain the current head slot", err = err.msg
+      quit 1
+    headSlot.epoch
+
+  let
+    validatorsDir = config.validatorsDir
+    validatorKeyAsStr = "0x" & $validator.pubkey
+    keystoreDir = validatorsDir / validatorKeyAsStr
+
+  if not dirExists(keystoreDir):
+    echo "The validator keystores directory '" & config.validatorsDir.string &
+         "' does not contain a keystore for the selected validator with public " &
+         "key '" & validatorKeyAsStr & "'."
+    quit 1
+
+  let signingKey = loadKeystore(
+    validatorsDir,
+    config.secretsDir,
+    validatorKeyAsStr,
+    config.nonInteractive)
+
+  if signingKey.isNone:
+    fatal "Unable to continue without decrypted signing key"
+    quit 1
+
+  let fork = try:
+    await rpcClient.get_v1_beacon_states_fork("head")
+  except CatchableError as err:
+    fatal "Failed to obtain the fork id of the head state", err = err.msg
+    quit 1
+
+  let genesisValidatorsRoot = try:
+    (await rpcClient.get_v1_beacon_genesis()).genesis_validators_root
+  except CatchableError as err:
+    fatal "Failed to obtain the genesis validators root of the network",
+           err = err.msg
+    quit 1
+
+  var signedExit = SignedVoluntaryExit(
+    message: VoluntaryExit(
+      epoch: exitAtEpoch,
+      validator_index: validatorIdx))
+
+  signedExit.signature = get_voluntary_exit_signature(
+    fork, genesisValidatorsRoot, signedExit.message, signingKey.get)
+
+  template ask(prompt: string): string =
+    try:
+      stdout.write prompt, ": "
+      stdin.readLine()
+    except IOError as err:
+      fatal "Failed to read user input from stdin"
+      quit 1
+
+  try:
+    echoP "PLEASE BEWARE!"
+
+    echoP "Publishing a voluntary exit is an irreversible operation! " &
+          "You won't be able to restart again with the same validator."
+
+    echoP "By requesting an exit now, you'll be exempt from penalties " &
+          "stemming from not performing your validator duties, but you " &
+          "won't be able to withdraw your deposited funds at the time " &
+          "being. This means that your funds will be effectively frozen " &
+          "until withdrawals are enabled in a future phase of the Eth2 " &
+          "rollout."
+
+    echoP "To understand more about the Eth2 roadmap, we recommend you " &
+          "have a look at\n" &
+          "https://ethereum.org/en/eth2/#roadmap"
+
+    echoP "You must not shut down your validator for at least 5 epochs " &
+          "(32 minutes) after requesting a validator exit, as you will " &
+          "still be required to perform validator duties until your exit " &
+          "has been processed. The number of epochs could be significantly " &
+          "higher depending on how many other validators are queued to exit."
+
+    echoP "As such, we recommend you keep track of your validator's status " &
+          "using an Eth2 block explorer before shutting down your beacon node."
+
+    const
+      confirmation = "I understand the implications of submitting a voluntary exit"
+
+    while true:
+      echoP "To proceed to submitting your voluntary exit, please type '" &
+            confirmation & "' (without the quotes) in the prompt below and " &
+            "press ENTER or type 'q' to quit."
+      echo ""
+
+      let choice = ask "Your choice"
+      if choice == "q":
+        quit 0
+      elif choice == confirmation:
+        let success = await rpcClient.post_v1_beacon_pool_voluntary_exits(signedExit)
+        if success:
+          echo "Successfully published voluntary exit for validator " &
+                $validatorIdx & "(" & validatorKeyAsStr[0..9] & ")."
+          quit 0
+        else:
+          echo "The voluntary exit was not submitted successfully. Please try again."
+          quit 1
+  except CatchableError as err:
+    fatal "Failed to send the signed exit message to the beacon node RPC"
+    quit 1
+
 programMain:
   var
     config = makeBannerAndConfig(clientId, BeaconNodeConf)
@@ -1210,6 +1348,7 @@ programMain:
 
   of deposits:
     case config.depositsCmd
+    #[
     of DepositsCmd.create:
       var seed: KeySeed
       defer: burnMem(seed)
@@ -1287,6 +1426,11 @@ programMain:
         fatal "Failed to create launchpad deposit data file", err = err.msg
         quit 1
 
+    of DepositsCmd.status:
+      echo "The status command is not implemented yet"
+      quit 1
+
+    #]#
     of DepositsCmd.`import`:
       let validatorKeysDir = config.importedDepositsDir.get:
         let cwd = os.getCurrentDir()
@@ -1304,9 +1448,8 @@ programMain:
         validatorKeysDir.string,
         config.validatorsDir, config.secretsDir)
 
-    of DepositsCmd.status:
-      echo "The status command is not implemented yet"
-      quit 1
+    of DepositsCmd.exit:
+      waitFor handleValidatorExitCommand(config)
 
   of wallets:
     case config.walletsCmd:

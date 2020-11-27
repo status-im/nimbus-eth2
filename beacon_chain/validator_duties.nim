@@ -157,6 +157,11 @@ proc sendAttestation*(
 
   beacon_attestations_sent.inc()
 
+proc sendVoluntaryExit*(node: BeaconNode, exit: SignedVoluntaryExit) =
+  node.network.broadcast(
+    getVoluntaryExitsTopic(node.forkDIgest),
+    exit)
+
 proc sendAttestation*(node: BeaconNode, attestation: Attestation) =
   # For the validator API, which doesn't supply num_active_validators.
   let attestationBlck =

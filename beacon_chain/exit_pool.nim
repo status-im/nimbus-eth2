@@ -213,7 +213,7 @@ proc validateProposerSlashing*(
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#voluntary_exit
 proc validateVoluntaryExit*(
     pool: var ExitPool, signed_voluntary_exit: SignedVoluntaryExit):
-    Result[bool, (ValidationResult, cstring)] =
+    Result[void, (ValidationResult, cstring)] =
   # [IGNORE] The voluntary exit is the first valid voluntary exit received for
   # the validator with index signed_voluntary_exit.message.validator_index.
   if signed_voluntary_exit.message.validator_index >=
@@ -241,4 +241,4 @@ proc validateVoluntaryExit*(
   pool.voluntary_exits.addExitMessage(
     signed_voluntary_exit, VOLUNTARY_EXITS_BOUND)
 
-  ok(true)
+  ok()

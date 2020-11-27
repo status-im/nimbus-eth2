@@ -4,10 +4,10 @@ import
   eth/common/eth_types as commonEthTypes,
   web3/[ethtypes, conversions],
   chronicles,
-  spec/presets,
-  spec/datatypes,
   json_serialization,
-  json_serialization/std/[options, sets, net], serialization/errors
+  json_serialization/std/[options, sets, net], serialization/errors,
+  ssz/navigator,
+  spec/[presets, datatypes, digest]
 
 # ATTENTION! This file will produce a large C file, because we are inlining
 # genesis states as C literals in the generated code (and blobs in the final
@@ -219,3 +219,7 @@ proc getRuntimePresetForNetwork*(eth2Network: Option[string]): RuntimePreset =
   if eth2Network.isSome:
     return getMetadataForNetwork(eth2Network.get).runtimePreset
   return defaultRuntimePreset
+
+proc extractGenesisValidatorRootFromSnapshop*(snapshot: string): Eth2Digest =
+  sszMount(snapshot, BeaconState).genesis_validators_root[]
+

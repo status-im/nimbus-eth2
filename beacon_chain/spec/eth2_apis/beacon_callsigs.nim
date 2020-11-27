@@ -54,8 +54,8 @@ proc get_v1_beacon_blocks_blockId_attestations(blockId: string): seq[Attestation
 # TODO GET  /v1/beacon/pool/attestations
 
 
-
 proc post_v1_beacon_pool_attestations(attestation: Attestation): bool
+proc post_v1_beacon_pool_voluntary_exits(exit: SignedVoluntaryExit): bool
 
 proc get_v1_config_fork_schedule(): seq[Fork]
 

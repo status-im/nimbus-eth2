@@ -11,7 +11,7 @@ import
   chronicles,
   ../beacon_node_common, ../eth2_json_rpc_serialization, ../eth2_network,
   ../validator_duties,
-  ../block_pools/chain_dag,
+  ../block_pools/chain_dag, ../exit_pool,
   ../spec/[crypto, digest, datatypes, validator],
   ../spec/eth2_apis/callsigs_types,
   ../ssz/merkleization,
@@ -26,8 +26,11 @@ template unimplemented() =
   raise (ref CatchableError)(msg: "Unimplemented")
 
 proc parsePubkey(str: string): ValidatorPubKey =
-  if str.len != RawPubKeySize + 2: # +2 because of the `0x` prefix
-    raise newException(CatchableError, "Not a valid public key (too short)")
+  const expectedLen = RawPubKeySize * 2 + 2
+  if str.len != expectedLen: # +2 because of the `0x` prefix
+    raise newException(ValueError,
+      "A hex public key should be exactly " & $expectedLen & " characters. " &
+      $str.len & " provided")
   let pubkeyRes = fromHex(ValidatorPubKey, str)
   if pubkeyRes.isErr:
     raise newException(CatchableError, "Not a valid public key")
@@ -46,19 +49,20 @@ proc getValidatorInfoFromValidatorId(
   if status notin allowedStatuses:
     raise newException(CatchableError, "Invalid status requested")
 
+  var validatorIdx: uint64
   let validator = if validatorId.startsWith("0x"):
     let pubkey = parsePubkey(validatorId)
     let idx = state.validators.asSeq.findIt(it.pubKey == pubkey)
     if idx == -1:
       raise newException(CatchableError, "Could not find validator")
+    validatorIdx = idx.uint64
     state.validators[idx]
   else:
-    var valIdx: BiggestUInt
-    if parseBiggestUInt(validatorId, valIdx) != validatorId.len:
+    if parseBiggestUInt(validatorId, validatorIdx) != validatorId.len:
       raise newException(CatchableError, "Not a valid index")
-    if valIdx > state.validators.lenu64:
+    if validatorIdx > state.validators.lenu64:
       raise newException(CatchableError, "Index out of bounds")
-    state.validators[valIdx]
+    state.validators[validatorIdx]
 
   # time to determine the status of the validator - the code mimics
   # whatever is detailed here: https://hackmd.io/ofFJ5gOmQpu1jjHilHbdQQ
@@ -102,8 +106,10 @@ proc getValidatorInfoFromValidatorId(
   if status != "" and status notin actual_status:
     return none(BeaconStatesValidatorsTuple)
 
-  return some((validator: validator, status: actual_status,
-                balance: validator.effective_balance))
+  return some((validator: validator,
+               index: validatorIdx,
+               status: actual_status,
+               balance: validator.effective_balance))
 
 proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData =
   result = case blockId:
@@ -254,5 +260,13 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("get_v1_beacon_pool_voluntary_exits") do () -> JsonNode:
     unimplemented()
 
-  rpcServer.rpc("post_v1_beacon_pool_voluntary_exits") do () -> JsonNode:
-    unimplemented()
+  rpcServer.rpc("post_v1_beacon_pool_voluntary_exits") do (
+      exit: SignedVoluntaryExit) -> bool:
+    doAssert node.exitPool != nil
+    let validity = node.exitPool[].validateVoluntaryExit(exit)
+    if validity.isOk:
+      node.sendVoluntaryExit(exit)
+    else:
+      raise newException(ValueError, $(validity.error[1]))
+    return true
+
