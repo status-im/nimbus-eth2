@@ -69,11 +69,6 @@ Click **YES**
 
 Make a cup of coffee :)
 
-### 4c. Boot from external SSD
-
-Follow [this guide](https://www.tomshardware.com/how-to/boot-raspberry-pi-4-usb) to boot your Pi from your SSD. The USB 3 port is the blue port.
-
-
 ### 5. Set up wireless LAN
 
 Since you have loaded Raspberry Pi OS onto a blank SD card, you will have two partitions. The first one, which is the smaller one, is the `boot` partition.
@@ -217,6 +212,14 @@ ssh pi@195.177.101.93
 ```
 
 > **Note:** Remember to replace `195.177.101.93` with the IP address of your Pi.
+
+### 10b. Boot from external SSD
+
+Follow [this guide](https://www.tomshardware.com/how-to/boot-raspberry-pi-4-usb) to copy the contents of your SD card over to your SSD, and boot your Pi from your SSD.
+
+> **Tip:** the USB 3 port is the blue port.
+
+Once you're done, `ssh` back into your Pi.
 
 
 ### 11. Install Nimbus dependencies
