@@ -23,8 +23,10 @@ template count*(pool: ValidatorPool): int =
 
 proc addLocalValidator*(pool: var ValidatorPool,
                         pubKey: ValidatorPubKey,
-                        privKey: ValidatorPrivKey) =
+                        privKey: ValidatorPrivKey,
+                        index: Option[ValidatorIndex]) =
   let v = AttachedValidator(pubKey: pubKey,
+                            index: index,
                             kind: inProcess,
                             privKey: privKey)
   pool.validators[pubKey] = v

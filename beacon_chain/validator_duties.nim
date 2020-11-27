@@ -39,22 +39,31 @@ declareHistogram beacon_attestation_sent_delay,
 declareCounter beacon_blocks_proposed,
   "Number of beacon chain blocks sent by this peer"
 
+declareGauge(attached_validator_balance,
+  "Validator balance at slot end of the first 64 validators, in Gwei",
+  labels = ["pubkey"])
+declareGauge(attached_validator_balance_total,
+  "Validator balance of all attached validators, in Gwei")
+
 logScope: topics = "beacval"
 
-proc checkValidatorInRegistry(state: BeaconState,
-                              pubKey: ValidatorPubKey) =
+proc findValidator(state: BeaconState, pubKey: ValidatorPubKey):
+    Option[ValidatorIndex] =
   let idx = state.validators.asSeq.findIt(it.pubKey == pubKey)
   if idx == -1:
     # We allow adding a validator even if its key is not in the state registry:
     # it might be that the deposit for this validator has not yet been processed
-    warn "Validator not in registry (yet?)", pubKey
+    notice "Validator deposit not yet processed, monitoring", pubKey
+    none(ValidatorIndex)
+  else:
+    some(idx.ValidatorIndex)
 
 proc addLocalValidator*(node: BeaconNode,
                         state: BeaconState,
                         privKey: ValidatorPrivKey) =
   let pubKey = privKey.toPubKey()
-  state.checkValidatorInRegistry(pubKey)
-  node.attachedValidators.addLocalValidator(pubKey, privKey)
+  node.attachedValidators.addLocalValidator(
+    pubKey, privKey, findValidator(state, pubKey))
 
 proc addLocalValidators*(node: BeaconNode) =
   for validatorKey in node.config.validatorKeys:
@@ -65,10 +74,12 @@ proc addRemoteValidators*(node: BeaconNode) =
   var line = newStringOfCap(120).TaintedString
   while line != "end" and running(node.vcProcess):
     if node.vcProcess.outputStream.readLine(line) and line != "end":
-      let key = ValidatorPubKey.fromHex(line).get().initPubKey()
-      node.chainDag.headState.data.data.checkValidatorInRegistry(key)
+      let
+        key = ValidatorPubKey.fromHex(line).get().initPubKey()
+        index = findValidator(node.chainDag.headState.data.data, key)
 
       let v = AttachedValidator(pubKey: key,
+                                index: index,
                                 kind: ValidatorKind.remote,
                                 connection: ValidatorConnection(
                                   inStream: node.vcProcess.inputStream,
@@ -84,7 +95,12 @@ proc getAttachedValidator*(node: BeaconNode,
                            state: BeaconState,
                            idx: ValidatorIndex): AttachedValidator =
   if idx < state.validators.len.ValidatorIndex:
-    node.getAttachedValidator(state.validators[idx].pubkey)
+    let validator = node.getAttachedValidator(state.validators[idx].pubkey)
+    if validator != nil and validator.index != some(idx.ValidatorIndex):
+      # Update index, in case the validator was activated!
+      notice "Validator activated", pubkey = validator.pubkey, index = idx
+      validator.index  = some(idx.ValidatorIndex)
+    validator
   else:
     warn "Validator index out of bounds",
       idx, stateSlot = state.slot, validators = state.validators.len
@@ -94,7 +110,12 @@ proc getAttachedValidator*(node: BeaconNode,
                            epochRef: EpochRef,
                            idx: ValidatorIndex): AttachedValidator =
   if idx < epochRef.validator_keys.len.ValidatorIndex:
-    node.getAttachedValidator(epochRef.validator_keys[idx])
+    let validator = node.getAttachedValidator(epochRef.validator_keys[idx])
+    if validator != nil and validator.index != some(idx.ValidatorIndex):
+      # Update index, in case the validator was activated!
+      notice "Validator activated", pubkey = validator.pubkey, index = idx
+      validator.index  = some(idx.ValidatorIndex)
+    validator
   else:
     warn "Validator index out of bounds",
       idx, epoch = epochRef.epoch, validators = epochRef.validator_keys.len
@@ -516,6 +537,44 @@ proc getSlotTimingEntropy(): int64 =
   rand(range[(slot_timing_entropy_lower_bound + 1) ..
     (slot_timing_entropy_upper_bound - 1)])
 
+proc updateMetrics(node: BeaconNode) =
+  when defined(metrics):
+    # Technically, this only needs to be done on epoch transitions and if there's
+    # a reorg that spans an epoch transition, but it's easier to implement this
+    # way for now..
+
+    # We'll limit labelled metrics to the first 64, so that we don't overload
+    # prom
+
+    template state: untyped = node.chainDag.headState.data.data
+
+    var total: Gwei
+    var i = 0
+    for _, v in node.attachedValidators.validators:
+      let balance =
+        if v.index.isNone():
+          0.Gwei
+        elif v.index.get().uint64 >= state.balances.lenu64:
+          debug "Cannot get validator balance, index out of bounds",
+            pubkey = shortLog(v.pubkey), index = v.index.get(),
+            balances = state.balances.len,
+            stateRoot = node.chainDag.headState.data.root
+          0.Gwei
+        else:
+          state.balances[v.index.get()]
+
+      if i < 64:
+        attached_validator_balance.set(
+          min(balance, int64.high.uint64).int64,
+          labelValues = [shortLog(v.pubkey)])
+      else:
+        inc i
+      total += balance
+
+    attached_validator_balance_total.set(min(total, int64.high.uint64).int64)
+  else:
+    discard
+
 proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   ## Perform validator duties - create blocks, vote and aggregate existing votes
   if node.attachedValidators.count == 0:
@@ -599,6 +658,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     "Waiting to send attestations")
 
   handleAttestations(node, head, slot)
+
+  updateMetrics(node) # the important stuff is done, update the vanity numbers
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#broadcast-aggregate
   # If the validator is selected to aggregate (is_aggregator), then they
