@@ -11,8 +11,8 @@ if defined(release) and not defined(disableLTO):
     switch("passC", "-flto=thin")
     switch("passL", "-flto=thin -Wl,-object_path_lto," & nimCachePath & "/lto")
   elif defined(linux):
-    switch("passC", "-flto=auto")
-    switch("passL", "-flto=auto")
+    switch("passC", "-flto=jobserver")
+    switch("passL", "-flto=jobserver")
     switch("passC", "-finline-limit=100000")
     switch("passL", "-finline-limit=100000")
   else:
