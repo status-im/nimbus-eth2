@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [Defect].}
+
 import
   # Standard library
   std/[deques, strformat, tables, hashes],
@@ -206,22 +208,31 @@ template validator_keys*(e: EpochRef): untyped = e.validator_key_store[1][]
 template head*(v: ChainDagRef): BlockRef = v.headState.blck
 
 func shortLog*(v: BlockSlot): string =
-  if v.blck.slot == v.slot:
-    &"{v.blck.root.data.toOpenArray(0, 3).toHex()}:{v.blck.slot}"
-  else: # There was a gap - log it
-    &"{v.blck.root.data.toOpenArray(0, 3).toHex()}:{v.blck.slot}@{v.slot}"
+  try:
+    if v.blck.slot == v.slot:
+      &"{v.blck.root.data.toOpenArray(0, 3).toHex()}:{v.blck.slot}"
+    else: # There was a gap - log it
+      &"{v.blck.root.data.toOpenArray(0, 3).toHex()}:{v.blck.slot}@{v.slot}"
+  except ValueError as err:
+    err.msg # Shouldn't happen - but also shouldn't crash!
 
 func shortLog*(v: BlockRef): string =
-  if v == nil:
-    "BlockRef(nil)"
-  else:
-   &"{v.root.data.toOpenArray(0, 3).toHex()}:{v.slot}"
+  try:
+    if v == nil:
+      "BlockRef(nil)"
+    else:
+      &"{v.root.data.toOpenArray(0, 3).toHex()}:{v.slot}"
+  except ValueError as err:
+    err.msg # Shouldn't happen - but also shouldn't crash!
 
 func shortLog*(v: EpochRef): string =
-  if v == nil:
-    "EpochRef(nil)"
-  else:
-    &"(epoch ref: {v.epoch})"
+  try:
+    if v == nil:
+      "EpochRef(nil)"
+    else:
+      &"(epoch ref: {v.epoch})"
+  except ValueError as err:
+    err.msg # Shouldn't happen - but also shouldn't crash!
 
 chronicles.formatIt BlockSlot: shortLog(it)
 chronicles.formatIt BlockRef: shortLog(it)

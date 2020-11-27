@@ -36,10 +36,6 @@ declareHistogram beacon_block_delay,
 declareHistogram beacon_store_block_duration_seconds,
   "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
 
-# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
-declareGauge beacon_head_root, "Root of the head block of the beacon chain"
-declareGauge beacon_head_slot, "Slot of the head block of the beacon chain"
-
 type
   GetWallTimeFn* = proc(): BeaconTime {.gcsafe, raises: [Defect].}
 
@@ -81,14 +77,15 @@ proc updateHead*(self: var Eth2Processor, wallSlot: Slot) =
 
   # Store the new head in the chain DAG - this may cause epochs to be
   # justified and finalized
-  let oldFinalized = self.chainDag.finalizedHead.blck
+  let
+    oldFinalized = self.chainDag.finalizedHead.blck
+    oldHead = self.chainDag.head
 
   self.chainDag.updateHead(newHead, self.quarantine)
-  beacon_head_root.set newHead.root.toGaugeValue
-  beacon_head_slot.set newHead.slot.int64
 
   # Cleanup the fork choice v2 if we have a finalized head
   if oldFinalized != self.chainDag.finalizedHead.blck:
+
     self.attestationPool[].prune()
 
 proc dumpBlock[T](

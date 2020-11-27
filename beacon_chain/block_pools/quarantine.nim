@@ -5,19 +5,19 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [Defect].}
+
 import
-  chronicles, tables, options,
+  std/[tables, options],
+  chronicles,
   stew/bitops2,
-  metrics,
   ../spec/[crypto, datatypes, digest],
-  block_pools_types
+  ./block_pools_types
 
 export options, block_pools_types
 
 logScope:
   topics = "quarant"
-
-{.push raises: [Defect].}
 
 func checkMissing*(quarantine: var QuarantineRef): seq[FetchRecord] =
   ## Return a list of blocks that we should try to resolve from other client -

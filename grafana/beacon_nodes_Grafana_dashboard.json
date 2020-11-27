@@ -316,16 +316,10 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "beacon_current_validators{node=\"${node}\"}",
+          "expr": "beacon_active_validators{node=\"${node}\"}",
           "interval": "",
           "legendFormat": "current validators",
           "refId": "A"
-        },
-        {
-          "expr": "beacon_current_live_validators{node=\"${node}\"}",
-          "interval": "",
-          "legendFormat": "current live validators",
-          "refId": "B"
         }
       ],
       "thresholds": [],

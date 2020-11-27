@@ -20,39 +20,13 @@
 {.push raises: [Defect].}
 
 import
-  tables,
+  std/tables,
   chronicles,
   stew/results,
   ../extras, ../ssz/merkleization, metrics,
-  datatypes, crypto, digest, helpers, signatures, validator,
-  state_transition_block, state_transition_epoch,
+  ./datatypes, ./crypto, ./digest, ./helpers, ./signatures, ./validator,
+  ./state_transition_block, ./state_transition_epoch,
   ../../nbench/bench_lab
-
-# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
-declareGauge beacon_current_validators, """Number of status="pending|active|exited|withdrawable" validators in current epoch""" # On epoch transition
-declareGauge beacon_previous_validators, """Number of status="pending|active|exited|withdrawable" validators in previous epoch""" # On epoch transition
-
-func get_epoch_validator_count(state: BeaconState): int64 {.nbench.} =
-  # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
-  #
-  # This O(n) loop doesn't add to the algorithmic complexity of the epoch
-  # transition -- registry update already does this. It is not great, but
-  # isn't new, either. If profiling shows issues some of this can be loop
-  # fusion'ed.
-  for index, validator in state.validators:
-    # These work primarily for the `beacon_current_validators` metric defined
-    # as 'Number of status="pending|active|exited|withdrawable" validators in
-    # current epoch'. This is, in principle, equivalent to checking whether a
-    # validator's either at less than MAX_EFFECTIVE_BALANCE, or has withdrawn
-    # already because withdrawable_epoch has passed, which more precisely has
-    # intuitive meaning of all-the-current-relevant-validators. So, check for
-    # not-(either (not-even-pending) or withdrawn). That is validators change
-    # from not-even-pending to pending to active to exited to withdrawable to
-    # withdrawn, and this avoids bugs on potential edge cases and off-by-1's.
-    if (validator.activation_epoch != FAR_FUTURE_EPOCH or
-          validator.effective_balance > MAX_EFFECTIVE_BALANCE) and
-       validator.withdrawable_epoch > get_current_epoch(state):
-      result += 1
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature*(
@@ -134,14 +108,11 @@ proc advance_slot(
   let is_epoch_transition = (state.data.slot + 1).isEpoch
   if is_epoch_transition:
     # Note: Genesis epoch = 0, no need to test if before Genesis
-    beacon_previous_validators.set(get_epoch_validator_count(state.data))
     process_epoch(state.data, updateFlags, epochCache)
     clear_epoch_from_cache(
       epochCache, (state.data.slot + 1).compute_epoch_at_slot)
 
   state.data.slot += 1
-  if is_epoch_transition:
-    beacon_current_validators.set(get_epoch_validator_count(state.data))
 
   # The root must be updated on every slot update, or the next `process_slot`
   # will be incorrect

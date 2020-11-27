@@ -20,7 +20,8 @@
 {.push raises: [Defect].}
 
 import
-  algorithm, collections/sets, chronicles, options, sequtils, sets,
+  std/[algorithm, collections/sets, options, sequtils, sets],
+  chronicles,
   ../extras, ../ssz/merkleization, metrics,
   ./beaconstate, ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
   ./signatures, ./presets,

@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [Defect].}
+
 import
   # Standard library
   std/[algorithm, math, parseutils, strformat, strutils, typetraits, unicode],
@@ -24,7 +26,6 @@ import nimcrypto/utils as ncrutils
 export
   results, burnMem, writeValue, readValue
 
-{.push raises: [Defect].}
 {.localPassC: "-fno-lto".} # no LTO for crypto
 
 type

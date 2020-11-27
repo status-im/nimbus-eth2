@@ -28,7 +28,6 @@ import
   chronicles,
   nimcrypto/[sha2, hash],
   stew/byteutils,
-  hashes,
   eth/common/eth_types_json_serialization,
   blscurve
 
