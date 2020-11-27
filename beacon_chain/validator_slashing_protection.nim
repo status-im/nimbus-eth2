@@ -7,13 +7,14 @@
 
 import
   # Standard library
-  std/tables,
+  std/[tables, os, options],
   # Status
-  eth/db/kvstore,
+  eth/db/[kvstore, kvstore_sqlite3],
   chronicles,
   nimcrypto/[hash, utils],
   serialization,
   json_serialization,
+  sqlite3_abi,
   # Internal
   ./spec/[datatypes, digest, crypto],
   ./ssz
@@ -22,6 +23,10 @@ import
 # --------------------------------------------
 #
 # Overview of slashing and how it ties in with the rest of Eth2.0
+#
+# EIP 3076:
+# https://eips.ethereum.org/EIPS/eip-3076
+# https://ethereum-magicians.org/t/eip-3076-validator-client-interchange-format-slashing-protection/
 #
 # Phase 0 for humans - Validator responsibilities:
 # - https://notes.ethereum.org/@djrtwo/Bkn3zpwxB#Validator-responsibilities
@@ -82,7 +87,8 @@ import
 # Queries
 # 1. db.signedBlockExistsFor(validator, slot) -> bool
 # 2. db.attestationExistsFor(validator, target_epoch) -> bool
-# 3. db.attestationSurrounds(validator, source_epoch, target_epoch)
+# 3. db.attestationSurrounding(validator, source_epoch, target_epoch)
+# 4. db.attestationSurrounded(validator, source_epoch, target_epoch)
 #
 # Update
 # 1. db.registerBlock(validator, slot, block_root)
@@ -96,6 +102,15 @@ import
 # 2. db.export(json)
 # 3. db.export(json, validator)
 # 4. db.export(json, seq[validator])
+#
+# Additionally after EIP3067 slashing protection requires
+# a "low watermark" protection that can be used
+# instead of keeping track of the whole history (and allows pruning)
+# In that case we need the following queries
+#
+# 1. db.signedBlockMinimalSlot (EIP3067 condition 1)
+# 2. db.signedAttMinimalSourceEpoch (EIP3067 condition 4)
+# 3. db.signedAttMinimalTargetEpoch (EIP3067 condition 5)
 
 # Technical Discussion
 # --------------------------------------------
@@ -121,26 +136,99 @@ import
 #
 # TODO: if we enshrine the split we likely want to use
 #       a relational DB instead of KV-Store,
-#       for efficient pruning and range queries support
+#       for efficient pruning, range queries support
+#       and filtering on validators
 
-# DB primitives
+# SQLite primitives
 # --------------------------------------------
-# Implementation
+# For now we choose to enforce the SQLite backend as a DB (and not a KV-Store)
 #
-# As mentioned in the technical discussion
-# we currently use a simple KV-store abstraction
-# with no range queries or iterators.
+# Cons
+# 1. Harder to switch away from a DB than from a KV-Store
 #
-# To support our requirements
-# we store block proposals and attestations
-# as per-validator linked lists
+# Pros
+# 1. No need for adhoc per-validator range queries implementation using LinkedList
+#    with high potential of bug (as found in audit)
+# 2. uses robust and fuzzed SQLite codepath
+# 3. Straightforward pruning
+# 4. Can be maintained and inspected with standard tooling
+#
+# In particular the following query leads to complex code with a KV store
+#
+# Select 1 from attestations
+# where validator = '0x1234ABCDEF'
+# AND (
+#   -- Don't publish distinct vote for the same target
+#   (target_epoch = candidate_target_epoch)
+#   -- surrounded vote
+#   OR
+#   (source_epoch < candidate_source_epoch and candidate_target_epoch < target_epoch)
+#   -- surrounding vote
+#   OR
+#   (candidate_source_epoch < source_epoch and target_epoch < candidate_target_epoch)
+# )
+#
+# Note, with SQLite splitting into multiple small queries is also efficient
+# as it is embedded in the application: https://www.sqlite.org/np1queryprob.html
+
+# Future optimizations
+# --------------------------------------------
+# To limit disk IO we might want to keep a data-structure in memory.
+# Surround voting detection is very similar to:
+# - Collision detection in games
+# - point of interest localisation in geographical DBs or maps
+#
+# A reasonable acceleration structure would be:
+# - O(log n) for adding new attestations
+# - O(log n) to check for surround voting.
+# - O(n) space usage
+#
+# Suitable inspirations may be:
+# - Bounding Volume Hierarchy and Axis-ligned Bounding Boxes from collision detection
+# - R-Trees from geospatial data processing and maps
+# - Kd-Trees from both
+# - less common structures like quadtrees and octrees
+#
+# See also optimizing a slashing detector for the whole chain
+# - https://github.com/protolambda/eth2-surround
+# - Detecting slashing conditions https://hackmd.io/@n0ble/By897a5sH
+# - Open issue on writing a slashing detector https://github.com/ethereum/eth2.0-pm/issues/63
 
 type
   SlashingProtectionDB* = ref object
     ## Database storing the blocks attested
     ## by validators attached to a beacon node
     ## or validator client.
-    backend: KvStoreRef
+    # For now we commit to using SqLite
+    # Splitting attestations queries
+    # into small queries is fine with SqLite
+    # https://www.sqlite.org/np1queryprob.html
+    backend: SqStoreRef
+    # Cached queries - write
+    sqlInsertValidator: SqliteStmt[PubKeyBytes, void]
+    sqlInsertAtt: SqliteStmt[(ValidatorInternalID, int64, int64, Hash32), void]
+    sqlInsertBlock: SqliteStmt[(ValidatorInternalID, int64, Hash32), void]
+    # Cached queries - read
+    sqlGetValidatorInternalID: SqliteStmt[PubKeyBytes, ValidatorInternalID]
+    sqlAttForSameTargetEpoch: SqliteStmt[(ValidatorInternalID, int64), Hash32]
+    sqlAttSurrounded: SqliteStmt[(ValidatorInternalID, int64, int64), (int64, int64, Hash32)]
+    sqlAttSurrounding: SqliteStmt[(ValidatorInternalID, int64, int64), (int64, int64, Hash32)]
+    sqlAttMinSourceEpoch: SqliteStmt[ValidatorInternalID, int64]
+    sqlAttMinTargetEpoch: SqliteStmt[ValidatorInternalID, int64]
+    sqlBlockForSameSlot: SqliteStmt[(ValidatorInternalID, int64), Hash32]
+    sqlBlockMinSlot: SqliteStmt[ValidatorInternalID, int64]
+
+  ValidatorInternalID = int32
+    ## Validator internal ID in the DB
+    ## This is cached to cost querying cost
+
+  PubKeyBytes = array[RawPubKeySize, byte]
+    ## This is the serialized byte representation
+    ## of a Validator Public Key.
+    ## Portable between Miracl/BLST
+    ## and limits serialization/deserialization call
+
+  Hash32 = array[32, byte]
 
   BadVoteKind* = enum
     ## Attestation bad vote kind
@@ -206,146 +294,242 @@ type
     attestation_root: Eth2Digest
     source: Epoch
 
-  ValID = array[RawPubKeySize, byte]
-    ## This is the serialized byte representation
-    ## of a Validator Public Key.
-    ## Portable between Miracl/BLST
-    ## and limits serialization/deserialization call
-
 {.push raises: [Defect].}
 logScope:
   topics = "antislash"
 
-func subkey(
-       kind: static SlashingKeyKind,
-       validator: ValID,
-       slot: Slot
-     ): array[RawPubKeySize+8, byte] =
-  static: doAssert kind == kBlock
+# version history:
+# 0 -> https://github.com/status-im/nimbus-eth2/pull/1643, based on KV-store
+const SlashingDB_version = 1
 
-  # Big endian to get a naturally ascending order on slots in sorted indices
-  result[0..<8] = toBytesBE(slot.uint64)
-  # .. but 7 bytes should be enough for slots - in return, we get a nicely
-  # rounded key length
-  result[0] = byte ord(kBlock)
-  result[8..<56] = validator
+proc setupDB(db: SlashingProtectionDB, genesis_validator_root: Eth2Digest) =
+  ## Initial setup of the DB
+  block: # Metadata
+    db.backend.exec("""
+      CREATE TABLE metadata(
+          slashing_db_version INTEGER,
+          genesis_validator_root BLOB NOT NULL
+      );
+    """).expect("DB should be working and \"metadata\" should not exist")
 
-func subkey(
-       kind: static SlashingKeyKind,
-       validator: ValID,
-       epoch: Epoch
-     ): array[RawPubKeySize+8, byte] =
-  static: doAssert kind == kTargetEpoch, "Got invalid kind " & $kind
+    # TODO: db.backend.exec does not take parameters
+    var rootTuple: tuple[bytes: Hash32]
+    rootTuple[0] = genesis_validator_root.data
+    db.backend.exec("""
+      INSERT INTO
+        metadata(slashing_db_version, genesis_validator_root)
+      VALUES
+        (""" & $SlashingDB_version & """, ?);
+    """, rootTuple
+    ).expect("Metadata initialized in the DB")
 
-  # Big endian to get a naturally ascending order on slots in sorted indices
-  result[0..<8] = toBytesBE(epoch.uint64)
-  # .. but 7 bytes should be enough for slots - in return, we get a nicely
-  # rounded key length
-  result[0] = byte ord(kind)
-  result[8..<56] = validator
+  block: # Tables
+    db.backend.exec("""
+      CREATE TABLE validators(
+          id INTEGER PRIMARY KEY,
+          pubkey BLOB NOT NULL UNIQUE
+      );
+    """).expect("DB should be working and \"validators\" should not exist")
 
-func subkey(
-       kind: static SlashingKeyKind,
-       validator: ValID
-     ): array[RawPubKeySize+1, byte] =
-  static: doAssert kind == kLinkedListMeta
+    db.backend.exec("""
+      CREATE TABLE attestations(
+          validator_id INTEGER NOT NULL,
+          source_epoch INTEGER NOT NULL,
+          target_epoch INTEGER NOT NULL,
+          attestation_root BLOB NOT NULL UNIQUE,
+          FOREIGN KEY(validator_id) REFERENCES validators(id)
+          UNIQUE (validator_id, target_epoch)
+      );
+    """).expect("DB should be working and \"attestations\" should not exist")
 
-  result[0] = byte ord(kLinkedListMeta)
-  result[1 .. ^1] = validator
+    db.backend.exec("""
+      CREATE TABLE blocks(
+          validator_id INTEGER NOT NULL,
+          slot INTEGER NOT NULL,
+          block_root BLOB NOT NULL UNIQUE,
+          FOREIGN KEY(validator_id) REFERENCES validators(id)
+          UNIQUE (validator_id, slot)
+      );
+    """).expect("DB should be working and \"blocks\" should not exist")
 
-func subkey(kind: static SlashingKeyKind): array[1, byte] =
-  static: doAssert kind in {kNumValidators, kGenesisValidatorRoot}
-  result[0] = byte ord(kind)
+proc checkDB(db: SlashingProtectionDB, genesis_validator_root: Eth2Digest) =
+  ## Check the metadata of the DB
+  let selectStmt = db.backend.prepareStmt(
+    "SELECT * FROM metadata;",
+    NoParams, (int32, Hash32),
+    managed = false # manual memory management
+  ).get()
 
-func subkey(kind: static SlashingKeyKind, valIndex: uint32): array[5, byte] =
-  static: doAssert kind == kValidator
-  # Big endian to get a naturally ascending order on slots in sorted indices
-  result[1..<5] = toBytesBE(valIndex)
-  result[0] = byte ord(kind)
+  var version: int32
+  var root: Eth2Digest
+  let status = selectStmt.exec do (res: (int32, Hash32)):
+    version = res[0]
+    root.data = res[1]
 
-proc put(db: SlashingProtectionDB, key: openArray[byte], v: auto) =
-  db.backend.put(
-    key,
-    SSZ.encode(v)
-  ).expect("working database")
+  template dispose(sqlStmt: SqliteStmt) =
+    discard sqlite3_finalize((ptr sqlite3_stmt) sqlStmt)
 
-proc rawGet(rawdb: KvStoreRef,
-            key: openArray[byte],
-            T: typedesc): Opt[T] =
+  selectStmt.dispose()
 
-  const ExpectedNodeSszSize = block:
-    when T is BlockNode:
-      2*sizeof(Epoch) + sizeof(Eth2Digest)
-    elif T is TargetEpochNode:
-      2*sizeof(Epoch) + sizeof(Eth2Digest) + sizeof(Epoch)
-    elif T is KeysEpochs:
-      2*sizeof(Slot) + 4*sizeof(Epoch) + 3*sizeof(bool)
-    elif T is Eth2Digest:
-      sizeof(Eth2Digest)
-    elif T is uint32:
-      sizeof(uint32)
-    elif T is ValidatorPubKey:
-      RawPubKeySize
-    else:
-      {.error: "Invalid database node type: " & $T.}
-  ## SSZ serialization is packed
-  ## However in-memory, BlockNode, TargetEpochNode
-  ## might be bigger due to alignment/compiler padding
+  doAssert status.isOk()
+  doAssert version == SlashingDB_version,
+    "Incorrect database version: " & $version & "\n" &
+    "but expected: " & $SlashingDB_version
+  doAssert root == genesis_validator_root,
+    "Invalid database genesis validator root: " & root.data.toHex(lowercase = true) & "\n" &
+    "but expected: " & genesis_validator_root.data.toHex(lowercase = true)
 
-  var res: Opt[T]
-  proc decode(data: openArray[byte]) =
-    # We are capturing "result" and "T" from outer scope
-    # And allocating on the heap which are not ideal
-    # from a safety and performance point of view.
-    try:
-      if data.len == ExpectedNodeSszSize:
-        when T is ValidatorPubKey:
-          # symbol resolution bug
-          # SSZ.decode doesn't see "fromSSZBytes"
-          res.ok ValidatorPubKey.fromSszBytes(data)
-        else:
-          res.ok SSZ.decode(data, T) # captures from `get` scope
-      else:
-        # If the data can't be deserialized, it could be because it's from a
-        # version of the software that uses a different SSZ encoding
-        warn "Unable to deserialize data, old database?",
-          typ = $T,
-          dataLen = data.len,
-          expectedSize = ExpectedNodeSszSize
-        discard
-    except SerializationError:
-      # If the data can't be deserialized, it could be because it's from a
-      # version of the software that uses a different SSZ encoding
-      warn "Unable to deserialize data, old database?",
-        typ = $T,
-        dataLen = data.len,
-        expectedSize = ExpectedNodeSszSize
-      discard
+proc setupCachedQueries(db: SlashingProtectionDB) =
+  ## Create prepared queries for reuse
+  # Insertions
+  # --------------------------------------------------------
+  db.sqlInsertValidator = db.backend.prepareStmt("""
+    INSERT INTO
+      validators(pubkey)
+    VALUES
+      (?);
+  """, PubKeyBytes, void).get()
 
-  discard rawdb.get(key, decode).expect("working database")
+  db.sqlInsertAtt = db.backend.prepareStmt("""
+    INSERT INTO attestations(
+      validator_id,
+      source_epoch,
+      target_epoch,
+      attestation_root)
+    VALUES
+      (?,?,?,?);
+  """, (ValidatorInternalID, int64, int64, Hash32), void).get()
 
-  res
+  db.sqlInsertBlock = db.backend.prepareStmt("""
+    INSERT INTO blocks(
+      validator_id,
+      slot,
+      block_root)
+    VALUES
+      (?,?,?);
+    """, (ValidatorInternalID, int64, Hash32), void
+  ).get()
 
-proc get(db: SlashingProtectionDB,
-         key: openArray[byte],
-         T: typedesc): Opt[T] =
-  db.backend.rawGet(key, T)
+  # Read internal validator ID
+  # --------------------------------------------------------
+  db.sqlGetValidatorInternalID = db.backend.prepareStmt(
+    "SELECT id from validators WHERE pubkey = ?;",
+    PubKeyBytes, ValidatorInternalID
+  ).get()
 
-proc setGenesis(db: SlashingProtectionDB, genesis_validator_root: Eth2Digest) =
-  # Workaround SSZ / nim-serialization visibility issue
-  # "template WriterType(T: type SSZ): type"
-  # by having a non-generic proc
-  db.put(
-    subkey(kGenesisValidatorRoot),
-    genesis_validator_root
-  )
+  # Inspect attestations
+  # --------------------------------------------------------
+  # TODO: we use seq[byte] here which requires extra heap allocation
+  #       We can use openarray[byte] however
+  #       this requires only having attestation_root or block_root
+  #       as the unique returned column
+  #       For best logging we can't do that for attestations but can for blocks.
+  #
+  #       Alternatively we could add support for ETH2Digest or array[32, byte]
+  #       to the DB backend.
+  #       Or supporting tuple returns like (int64, var openarray[byte])
+  #       would require Nim 1.4 and views borrow-checking
+  db.sqlAttForSameTargetEpoch = db.backend.prepareStmt("""
+    SELECT
+      attestation_root
+    FROM
+      attestations
+    WHERE
+      validator_id = ?
+      AND
+      target_epoch = ?
+    """, (ValidatorInternalID, int64), Hash32
+  ).get()
 
-proc init*(
-       T: type SlashingProtectionDB,
-       genesis_validator_root: Eth2Digest,
-       backend: KVStoreRef): SlashingProtectionDB =
-  result = T(backend: backend)
-  result.setGenesis(genesis_validator_root)
+  db.sqlAttSurrounded = db.backend.prepareStmt("""
+    SELECT
+      source_epoch, target_epoch, attestation_root
+    FROM
+      attestations
+    WHERE
+      validator_id = ?
+      AND
+      source_epoch < ? AND ? < target_epoch
+    LIMIT 1
+    """, (ValidatorInternalID, int64, int64), (int64, int64, Hash32)
+  ).get()
+
+  db.sqlAttSurrounding = db.backend.prepareStmt("""
+    SELECT
+      source_epoch, target_epoch, attestation_root
+    FROM
+      attestations
+    WHERE
+      validator_id = ?
+      AND
+      ? < source_epoch AND target_epoch < ?
+    LIMIT 1
+    """, (ValidatorInternalID, int64, int64), (int64, int64, Hash32)
+  ).get()
+
+  db.sqlAttMinSourceEpoch = db.backend.prepareStmt("""
+    SELECT
+      MIN(source_epoch)
+    FROM
+      attestations
+    WHERE
+      validator_id = ?
+    """, ValidatorInternalID, int64
+  ).get()
+
+  db.sqlAttMinTargetEpoch = db.backend.prepareStmt("""
+    SELECT
+      MIN(source_epoch)
+    FROM
+      attestations
+    WHERE
+      validator_id = ?
+    """, ValidatorInternalID, int64
+  ).get()
+
+  # Inspect blocks
+  # --------------------------------------------------------
+
+  db.sqlBlockForSameSlot = db.backend.prepareStmt("""
+    SELECT
+      block_root
+    FROM
+      blocks
+    WHERE
+      validator_id = ?
+      AND
+      slot = ?;
+    """, (ValidatorInternalID, int64), Hash32
+  ).get()
+
+  db.sqlBlockMinSlot = db.backend.prepareStmt("""
+    SELECT
+      MIN(slot)
+    FROM
+      blocks
+    WHERE
+      validator_id = ?;
+    """, ValidatorInternalID, int64
+  ).get()
+
+proc init*(T: type SlashingProtectionDB,
+           genesis_validator_root: Eth2Digest,
+           basePath: string,
+           dbname: string): T =
+  ## Initialize a new slashing protection database
+  ## or load an existing one with matching genesis root
+  ## `dbname` MUST not be ending with .sqlite3
+
+  let alreadyExists = fileExists(basepath/ dbname&".sqlite3")
+
+  result = T(backend: SqStoreRef.init(basePath, dbname, keyspaces = []).get())
+  if alreadyExists:
+    result.checkDB(genesis_validator_root)
+  else:
+    result.setupDB(genesis_validator_root)
+
+  # Cached queries
+  result.setupCachedQueries()
 
 proc load*(
        T: type SlashingProtectionDB,
@@ -353,21 +537,38 @@ proc load*(
   ## Load a slashing protection DB
   ## Note: This is for conversion usage
   ##       this doesn't check the genesis validator root
-  let genesis = backend.rawGet(
-      subkey(kGenesisValidatorRoot), Eth2Digest
-    )
-
-  doAssert backend.contains(
-    subkey(kGenesisValidatorRoot)
-  ).get(), "The Slashing DB is missing genesis information"
-
   result = T(backend: backend)
 
 proc close*(db: SlashingProtectionDB) =
-  discard db.backend.close()
+  ## Close a slashing protection database
+  db.backend.close()
 
 # DB Queries
 # --------------------------------------------
+proc foundAnyResult(status: KVResult[bool]): bool {.inline.}=
+  ## Checks a DB query status for errors
+  ## Then returns true if any result was found
+  ## and false otherwise.
+  ## There are 2 layers to a DB result
+  ## 1. Did the query result in error.
+  ##    This is a logic bug and crashes NBC in this proc.
+  ## 2. Did the query return any line.
+  status.expect("DB is not corrupted and query is working")
+
+proc getValidatorInternalID(
+       db: SlashingProtectionDB,
+       validator: ValidatorPubKey): Option[ValidatorInternalID] =
+  ## Retrieve a validator internal ID
+  let serializedPubkey = validator.toRaw() # Miracl/BLST to bytes
+  var valID: ValidatorInternalID
+  let status = db.sqlGetValidatorInternalID.exec(serializedPubkey) do (res: ValidatorInternalID):
+    valID = res
+
+  # Note: we enforce at the DB level that if the pubkey exists it is unique.
+  if status.foundAnyResult():
+    some(valID)
+  else:
+    none(ValidatorInternalID)
 
 proc checkSlashableBlockProposal*(
        db: SlashingProtectionDB,
@@ -381,14 +582,31 @@ proc checkSlashableBlockProposal*(
   ##
   ## Returns success otherwise
   # TODO distinct type for the result block root
-  let valID = validator.toRaw()
-  let foundBlock = db.get(
-    subkey(kBlock, valID, slot),
-    BlockNode
-  )
-  if foundBlock.isNone():
-    return ok()
-  return err(foundBlock.unsafeGet().block_root)
+
+  let valID = block:
+    let id = db.getValidatorInternalID(validator)
+    if id.isNone():
+      notice "No slashing protection data - first block proposal?",
+        validator = validator,
+        slot = slot
+      return ok()
+    else:
+      id.unsafeGet()
+
+  var root: ETH2Digest
+  let status = db.sqlBlockForSameSlot.exec(
+        (valID, int64 slot)
+      ) do (res: Hash32):
+    root.data = res
+
+  # Note: we enforce at the DB level that if (pubkey, slot) exists it maps to a unique block root.
+  if status.foundAnyResult():
+    # Conflicting block exist
+    err(root)
+  else:
+    ok()
+
+  # TODO: low-watermark check for EIP3067
 
 proc checkSlashableAttestation*(
        db: SlashingProtectionDB,
@@ -404,145 +622,126 @@ proc checkSlashableAttestation*(
   ## Returns success otherwise
   # TODO distinct type for the result attestation root
 
-  let valID = validator.toRaw()
-
   # Sanity
   # ---------------------------------
   if source > target:
     return err(BadVote(kind: TargetPrecedesSource))
 
+  # Internal metadata
+  # ---------------------------------
+  let valID = block:
+    let id = db.getValidatorInternalID(validator)
+    if id.isNone():
+      notice "No slashing protection data - first attestation?",
+        validator = validator,
+        attSource = source,
+        attTarget = target
+      return ok()
+    else:
+      id.unsafeGet()
+
   # Casper FFG 1st slashing condition
   # Detect h(t1) = h(t2)
   # ---------------------------------
-  let foundAttestation = db.get(
-    subkey(kTargetEpoch, valID, target),
-    TargetEpochNode
-  )
-  if foundAttestation.isSome():
-    # Logged by caller
-    return err(BadVote(
-      kind: DoubleVote,
-      existingAttestation: foundAttestation.unsafeGet().attestation_root
-    ))
+  block:
+    var root: ETH2Digest
+    let status = db.sqlAttForSameTargetEpoch.exec(
+          (valID, int64 target)
+        ) do (res: Hash32):
+      root.data = res
 
-  # TODO: we hack KV-store range queries
-  # ---------------------------------
-  let maybeLL = db.get(
-    subkey(kLinkedListMeta, valID),
-    KeysEpochs
-  )
-
-  if maybeLL.isNone:
-    info "No slashing protection data - first attestation?",
-      validator = validator,
-      attSource = source,
-      attTarget = target
-    return ok()
-  let ll = maybeLL.unsafeGet()
-  if not ll.targetEpochs.isInit:
-    info "No attestation slashing protection data - first attestation?",
-      validator = validator,
-      attSource = source,
-      attTarget = target
-    return ok()
-
-  # Chain reorg
-  # Detect h(s2) < h(s1)
-  # If the candidate attestation source precedes
-  # source(s) we have in the SlashingProtectionDB
-  # we have a chain reorg
-  # ---------------------------------
-  if source < ll.sourceEpochs.stop:
-    warn "Detected a chain reorg",
-      earliestJustifiedEpoch = ll.sourceEpochs.start,
-      oldestJustifiedEpoch = ll.sourceEpochs.stop,
-      reorgJustifiedEpoch = source,
-      monitoredValidator = validator
+    # Note: we enforce at the DB level that if (pubkey, target) exists it maps to a unique block root.
+    if status.foundAnyResult():
+      # Conflicting attestation exist, log by caller
+      return err(BadVote(
+        kind: DoubleVote,
+        existingAttestation: root
+      ))
 
   # Casper FFG 2nd slashing condition
   # -> Surrounded vote
   # Detect h(s1) < h(s2) < h(t2) < h(t1)
   # ---------------------------------
+  block:
+    var root: ETH2Digest
+    var db_source, db_target: Epoch
+    let status = db.sqlAttSurrounded.exec(
+          (valID, int64 source, int64 target)
+        ) do (res: tuple[source, target: int64, root: Hash32]):
+      db_source = Epoch res.source
+      db_target = Epoch res.target
+      root.data = res.root
+
+    # Note: we enforce at the DB level that if (pubkey, target) exists it maps to a unique block root.
+    if status.foundAnyResult():
+      # Conflicting attestation exist, log by caller
+      # s1 < s2 < t2 < t1
+      return err(BadVote(
+        kind: SurroundedVote,
+        existingAttestationRoot: root,
+        sourceExisting: db_source,
+        targetExisting: db_target,
+        sourceSlashable: source,
+        targetSlashable: target
+      ))
+
   # Casper FFG 2nd slashing condition
   # -> Surrounding vote
   # Detect h(s2) < h(s1) < h(t1) < h(t2)
   # ---------------------------------
+  block:
+    var root: ETH2Digest
+    var db_source, db_target: Epoch
+    let status = db.sqlAttSurrounding.exec(
+          (valID, int64 source, int64 target)
+        ) do (res: tuple[source, target: int64, root: Hash32]):
+      db_source = Epoch res.source
+      db_target = Epoch res.target
+      root.data = res.root
 
-  template s2: untyped = source
-  template t2: untyped = target
-
-  # We start from the final target epoch
-  var t1: Epoch
-  var t1Node: TargetEpochNode
-
-  t1 = ll.targetEpochs.stop
-  t1Node = db.get(
-    subkey(kTargetEpoch, valID, t1),
-    TargetEpochNode
-    # bug in Nim results, ".e" field inaccessible
-    # ).expect("Consistent linked-list in DB")
-  ).unsafeGet()
-  template s1: untyped = t1Node.source
-  template ar1: untyped = t1Node.attestation_root
-
-  # TODO: optimize so we don't scan the whole linked list
-  while true:
-    if s2 < s1 and s1 < t1 and t1 < t2:
-      # s2 < s1 < t1 < t2
-      # Logged by caller
+    # Note: we enforce at the DB level that if (pubkey, target) exists it maps to a unique block root.
+    if status.foundAnyResult():
+      # Conflicting attestation exist, log by caller
+      # s1 < s2 < t2 < t1
       return err(BadVote(
         kind: SurroundingVote,
-        existingAttestationRoot: ar1,
-        sourceExisting: s1,
-        targetExisting: t1,
-        sourceSlashable: s2,
-        targetSlashable: t2
-      ))
-    elif s1 < s2 and s2 < t2 and t2 < t1:
-      # s1 < s2 < t2 < t1
-      # Logged by caller
-      return err(BadVote(
-        kind: SurroundedVote,
-        existingAttestationRoot: ar1,
-        sourceExisting: s1,
-        targetExisting: t1,
-        sourceSlashable: s2,
-        targetSlashable: t2
+        existingAttestationRoot: root,
+        sourceExisting: db_source,
+        targetExisting: db_target,
+        sourceSlashable: source,
+        targetSlashable: target
       ))
 
-    # Next iteration
-    if t1Node.prev == default(Epoch) or
-        t1Node.prev == ll.targetEpochs.stop:
-      return ok()
-    else:
-      t1 = t1Node.prev
-      t1Node = db.get(
-        subkey(kTargetEpoch, valID, t1Node.prev),
-        TargetEpochNode
-        # bug in Nim results, ".e" field inaccessible
-        # ).expect("Consistent linked-list in DB")
-      ).unsafeGet()
-
-  doAssert false, "Unreachable"
+  # TODO: low-watermark check for EIP3067
+  return ok()
 
 # DB update
 # --------------------------------------------
 
 proc registerValidator(db: SlashingProtectionDB, validator: ValidatorPubKey) =
-  ## Add a new validator to the database
+  ## Get validator from the database
+  ## or register it
   ## Assumes the validator does not exist
-  let maybeNumVals = db.get(
-    subkey(kNumValidators),
-    uint32
-  )
-  var valIndex = 0'u32
-  if maybeNumVals.isNone():
-    db.put(subkey(kNumValidators), 1'u32)
-  else:
-    valIndex = maybeNumVals.unsafeGet()
-    db.put(subkey(kNumValidators), valIndex + 1)
+  let serializedPubkey = validator.toRaw() # Miracl/BLST to bytes
+  let status = db.sqlInsertValidator.exec(serializedPubkey)
+  doAssert status.isOk()
 
-  db.put(subkey(kValidator, valIndex), validator)
+proc getOrRegisterValidator(
+       db: SlashingProtectionDB,
+       validator: ValidatorPubKey): ValidatorInternalID =
+  ## Get validator from the database
+  ## or register it and then return it
+  let id = db.getValidatorInternalID(validator)
+  if id.isNone():
+    info "No slashing protection data for validator - initiating",
+      validator = validator
+
+    db.registerValidator(validator)
+    let id = db.getValidatorInternalID(validator)
+    doAssert id.isSome()
+    id.unsafeGet()
+  else:
+    id.unsafeGet()
 
 proc registerBlock*(
        db: SlashingProtectionDB,
@@ -551,134 +750,13 @@ proc registerBlock*(
   ## Add a block to the slashing protection DB
   ## `checkSlashableBlockProposal` MUST be run
   ## before to ensure no overwrite.
-
-  let valID = validator.toRaw()
-
-  # We want to keep the linked-list ordered
-  # to ease pruning.
-  # TODO: DB instead of KV-store,
-  # at the very least we should isolate that logic
-  let maybeLL = db.get(
-    subkey(kLinkedListMeta, valID),
-    KeysEpochs
-  )
-
-  if maybeLL.isNone:
-    info "No slashing protection data - initiating block tracking for validator",
-      validator = validator
-
-    db.registerValidator(validator)
-
-    let node = BlockNode(
-      block_root: block_root
-    )
-    db.put(subkey(kBlock, valID, slot), node)
-    db.put(
-      subkey(kLinkedListMeta, valID),
-      KeysEpochs(
-        blockSlots: SlotDesc(start: slot, stop: slot, isInit: true),
-        # targetEpochs.isInit will be false
-      )
-    )
-    return
-
-  var ll = maybeLL.unsafeGet()
-  var cur = ll.blockSlots.stop
-  if not ll.blockSlots.isInit:
-    let node = BlockNode(
-      block_root: block_root
-    )
-    ll.blockSlots = SlotDesc(start: slot, stop: slot, isInit: true)
-    db.put(subkey(kBlock, valID, slot), node)
-    # TODO: what if crash here?
-    db.put(subkey(kLinkedListMeta, valID), ll)
-    return
-
-  if cur < slot:
-    # Adding a block later than all known blocks
-    let node = BlockNode(
-      prev: cur,
-      block_root: block_root
-    )
-    var prevNode = db.get(
-      subkey(kBlock, valID, cur),
-      BlockNode
-      # bug in Nim results, ".e" field inaccessible
-      # ).expect("Consistent linked-list in DB")
-    ).unsafeGet()
-    prevNode.next = slot
-    ll.blockSlots.stop = slot
-    db.put(subkey(kBlock, valID, slot), node)
-    db.put(subkey(kBlock, valID, cur), prevNode)
-    # TODO: what if crash here?
-    db.put(subkey(kLinkedListMeta, valID), ll)
-    return
-
-  # TODO: we likely want a proper DB or better KV-store high-level API
-  #       in the future.
-  while true:
-    var curNode = db.get(
-      subkey(kBlock, valID, cur),
-      BlockNode
-      # bug in Nim results, ".e" field inaccessible
-      # ).expect("Consistent linked-list in DB")
-    ).unsafeGet()
-
-    if curNode.prev == ll.blockSlots.start:
-      # Reached the beginning
-      # Change: Metadata.start <-> cur
-      # to: Metadata.start <-> new <-> cur
-      # This should happen only if registerBlock
-      # is called out-of-order
-      warn "Validator proposal in the past - out-of-order antislash registration?",
-        validator = validator,
-        slot = slot,
-        blockroot = blockroot,
-        earliestBlockProposalSlotInDB = ll.blockSlots.start,
-        latestBlockProposalSlotInDB = ll.blockSlots.stop
-      var node = BlockNode(
-        prev: ll.blockSlots.start,
-        next: cur,
-        block_root: block_root
-      )
-      ll.blockSlots.start = slot
-      curNode.prev = slot
-      db.put(subkey(kBlock, valID, slot), node)
-      # TODO: what if crash here?
-      db.put(subkey(kBlock, valID, cur), curNode)
-      db.put(subkey(kLinkedListMeta, valID), ll)
-      return
-    elif slot > curNode.prev:
-      # Reached: prev < slot < cur
-      # Change: prev <-> cur
-      # to: prev <-> new <-> cur
-      let prev = curNode.prev
-      var node = BlockNode(
-        prev: prev, next: cur,
-        block_root: block_root
-      )
-      var prevNode = db.get(
-        subkey(kBlock, valID, prev),
-        BlockNode
-        # bug in Nim results, ".e" field inaccessible
-        # ).expect("Consistent linked-list in DB")
-      ).unsafeGet()
-      prevNode.next = slot
-      curNode.prev = slot
-      db.put(subkey(kBlock, valID, slot), node)
-      # TODO: what if crash here?
-      db.put(subkey(kBlock, valID, cur), curNode)
-      db.put(subkey(kBlock, valID, prev), prevNode)
-      return
-
-    # Previous
-    cur = curNode.prev
-    curNode = db.get(
-      subkey(kBlock, valID, cur),
-      BlockNode
-      # bug in Nim results, ".e" field inaccessible
-      # ).expect("Consistent linked-list in DB")
-    ).unsafeGet()
+  let valID = db.getOrRegisterValidator(validator)
+  let status = db.sqlInsertBlock.exec(
+    (valID, int64 slot,
+    block_root.data))
+  doAssert status.isOk(),
+    "SQLite error when registering block: " & $status.error & "\n" &
+    "for validator: 0x" & validator.toHex() & ", slot: " & $slot
 
 proc registerAttestation*(
        db: SlashingProtectionDB,
@@ -688,225 +766,17 @@ proc registerAttestation*(
   ## Add an attestation to the slashing protection DB
   ## `checkSlashableAttestation` MUST be run
   ## before to ensure no overwrite.
-
-  let valID = validator.toRaw()
-
-  # We want to keep the linked-list ordered
-  # to ease pruning.
-  # TODO: DB instead of KV-store,
-  # at the very least we should isolate that logic
-  let maybeLL = db.get(
-    subkey(kLinkedListMeta, valID),
-    KeysEpochs
-  )
-
-  if maybeLL.isNone:
-    info "No slashing protection data - initiating attestation tracking for validator",
-      validator = validator
-
-    db.registerValidator(validator)
-
-    let node = TargetEpochNode(
-      source: source,
-      attestation_root: attestation_root
-    )
-    db.put(subkey(kTargetEpoch, valID, target), node)
-    db.put(
-      subkey(kLinkedListMeta, valID),
-      KeysEpochs(
-        # blockSlots.isInit will be false
-        sourceEpochs: EpochDesc(start: source, stop: source, isInit: true),
-        targetEpochs: EpochDesc(start: target, stop: target, isInit: true)
-      )
-    )
-    return
-
-  var ll = maybeLL.unsafeGet()
-  var cur = ll.targetEpochs.stop
-  if not ll.targetEpochs.isInit:
-    let node = TargetEpochNode(
-      attestation_root: attestation_root,
-      source: source
-    )
-    ll.targetEpochs = EpochDesc(start: target, stop: target, isInit: true)
-    ll.sourceEpochs = EpochDesc(start: source, stop: source, isInit: true)
-    db.put(subkey(kTargetEpoch, valID, target), node)
-    # TODO: what if crash here?
-    db.put(subkey(kLinkedListMeta, valID), ll)
-    return
-
-  block: # Update source epoch
-    if ll.sourceEpochs.stop < source:
-      ll.sourceEpochs.stop = source
-    if source < ll.sourceEpochs.start:
-      ll.sourceEpochs.start = source
-
-  if cur < target:
-    # Adding an attestation later than all known blocks
-    let node = TargetEpochNode(
-      prev: cur,
-      source: source,
-      attestation_root: attestation_root
-    )
-    var prevNode = db.get(
-      subkey(kTargetEpoch, valID, cur),
-      TargetEpochNode
-      # bug in Nim results, ".e" field inaccessible
-      # ).expect("Consistent linked-list in DB")
-    ).unsafeGet()
-    prevNode.next = target
-    ll.targetEpochs.stop = target
-    db.put(subkey(kTargetEpoch, valID, target), node)
-    db.put(subkey(kTargetEpoch, valID, cur), prevNode)
-    # TODO: what if crash here?
-    db.put(subkey(kLinkedListMeta, valID), ll)
-    return
-
-  # TODO: we likely want a proper DB or better KV-store high-level API
-  #       in the future.
-  while true:
-    var curNode = db.get(
-      subkey(kTargetEpoch, valID, cur),
-      TargetEpochNode
-      # bug in Nim results, ".e" field inaccessible
-      # ).expect("Consistent linked-list in DB")
-    ).unsafeGet()
-    if curNode.prev == ll.targetEpochs.start:
-      # Reached the beginning
-      # Change: Metadata.start <-> cur
-      # to: Metadata.start <-> new <-> cur
-      # This should happen only if registerAttestation
-      # is called out-of-order or if the validator
-      # changes its vote for an earlier fork than its latest vote
-      warn "Validator vote targeting the past - out-of-order antislash registration or chain reorg?",
-        validator = validator,
-        source_epoch = source,
-        target_epoch = target,
-        attestation_root = attestation_root
-      var node = TargetEpochNode(
-        prev: ll.targetEpochs.start,
-        next: cur,
-        source: source,
-        attestation_root: attestation_root
-      )
-      ll.targetEpochs.start = target
-      curNode.prev = target
-      db.put(subkey(kTargetEpoch, valID, target), node)
-      # TODO: what if crash here?
-      db.put(subkey(kTargetEpoch, valID, cur), curNode)
-      db.put(subkey(kLinkedListMeta, valID), ll)
-      return
-    elif target > curNode.prev:
-      # Reached: prev < target < cur
-      # Change: prev <-> cur
-      # to: prev <-> new <-> cur
-      let prev = curNode.prev
-      var node = TargetEpochNode(
-        prev: prev, next: cur,
-        source: source,
-        attestation_root: attestation_root
-      )
-      var prevNode = db.get(
-        subkey(kTargetEpoch, valID, prev),
-        TargetEpochNode
-        # bug in Nim results, ".e" field inaccessible
-        # ).expect("Consistent linked-list in DB")
-      ).unsafeGet()
-      prevNode.next = target
-      curNode.prev = target
-      db.put(subkey(kTargetEpoch, valID, target), node)
-      # TODO: what if crash here?
-      db.put(subkey(kTargetEpoch, valID, cur), curNode)
-      db.put(subkey(kTargetEpoch, valID, prev), prevNode)
-      return
-
-    # Previous
-    cur = curNode.prev
-    curNode = db.get(
-      subkey(kTargetEpoch, valID, cur),
-      TargetEpochNode
-      # bug in Nim results, ".e" field inaccessible
-      # ).expect("Consistent linked-list in DB")
-    ).unsafeGet()
-
-# Debug tools
-# --------------------------------------------
-
-proc dumpBlocks*(
-       db: SlashingProtectionDB,
-       validator: ValidatorPubKey
-     ): string =
-  ## Dump the linked list of blocks proposd by a validator in a string
-  var blocks: seq[BlockNode]
-
-  let valID = validator.toRaw
-  let maybeLL = db.get(
-    subkey(kLinkedListMeta, valID),
-    KeysEpochs
-  )
-  if maybeLL.isNone:
-    return "No blocks in slashing protection DB for validator " & $validator
-
-  let ll = maybeLL.unsafeGet()
-  doAssert ll.blockSlots.isInit
-
-  var cur = ll.blockSlots.stop
-
-  while cur != ll.blockSlots.start:
-    blocks.add db.get(
-      subkey(kBlock, valID, cur),
-      BlockNode
-    ).unsafeGet()
-
-    cur = blocks[^1].prev
-
-  blocks.add db.get(
-    subkey(kBlock, valID, ll.blockSlots.start),
-    BlockNode
-  ).unsafeGet()
-
-  return $blocks
-
-proc dumpAttestations*(
-       db: SlashingProtectionDB,
-       validator: ValidatorPubKey
-     ): string =
-  ## Dump the linked list of blocks proposd by a validator in a string
-  var attestations: seq[TargetEpochNode]
-
-  let valID = validator.toRaw
-  let maybeLL = db.get(
-    subkey(kLinkedListMeta, valID),
-    KeysEpochs
-  )
-  if maybeLL.isNone:
-    return "No blocks in slashing protection DB for validator " & $validator
-
-  let ll = maybeLL.unsafeGet()
-  doAssert ll.targetEpochs.isInit
-
-  var cur = ll.targetEpochs.stop
-
-  while cur != ll.targetEpochs.start:
-    attestations.add db.get(
-      subkey(kTargetEpoch, valID, cur),
-      TargetEpochNode
-    ).unsafeGet()
-
-    cur = attestations[^1].prev
-
-  attestations.add db.get(
-    subkey(kTargetEpoch, valID, ll.targetEpochs.start),
-    TargetEpochNode
-  ).unsafeGet()
-
-  return $attestations
+  let valID = db.getOrRegisterValidator(validator)
+  let status = db.sqlInsertAtt.exec(
+    (valID, int64 source, int64 target,
+    attestation_root.data))
+  doAssert status.isOk(),
+    "SQLite error when registering attestation: " & $status.error & "\n" &
+    "for validator: 0x" & validator.toHex() & ", target_epoch: " & $target
 
 # DB maintenance
 # --------------------------------------------
 # TODO: pruning
-# Note that the complete interchange format
-# requires all proposals/attestations ever and so prevent pruning.
 
 # Interchange
 # --------------------------------------------
@@ -971,76 +841,76 @@ proc toSPDIF*(db: SlashingProtectionDB, path: string)
              {.raises: [IOError, Defect].} =
   ## Export the full slashing protection database
   ## to a json the Slashing Protection Database Interchange (Complete) Format
-  var extract: SPDIF
-  extract.metadata.interchange_format = "complete"
-  extract.metadata.interchange_format_version = "3"
-  extract.metadata.genesis_validator_root = Eth2Digest0x db.get(
-    subkey(kGenesisValidatorRoot), ETH2Digest
-    # Bug in results.nim
-    # ).expect("Slashing Protection requires genesis_validator_root at init")
-  ).unsafeGet()
+  # var extract: SPDIF
+  # extract.metadata.interchange_format = "complete"
+  # extract.metadata.interchange_format_version = "3"
+  # extract.metadata.genesis_validator_root = Eth2Digest0x db.get(
+  #   subkey(kGenesisValidatorRoot), ETH2Digest
+  #   # Bug in results.nim
+  #   # ).expect("Slashing Protection requires genesis_validator_root at init")
+  # ).unsafeGet()
 
-  let numValidators = db.get(
-    subkey(kNumValidators),
-    uint32
-  ).get(otherwise = 0'u32)
+  # let numValidators = db.get(
+  #   subkey(kNumValidators),
+  #   uint32
+  # ).get(otherwise = 0'u32)
 
-  for i in 0'u32 ..< numValidators:
-    var validator: SPDIF_Validator
-    validator.pubkey = PubKey0x db.get(
-      subkey(kValidator, i),
-      ValidatorPubKey
-    ).unsafeGet()
+  # for i in 0'u32 ..< numValidators:
+  #   var validator: SPDIF_Validator
+  #   validator.pubkey = PubKey0x db.get(
+  #     subkey(kValidator, i),
+  #     ValidatorPubKey
+  #   ).unsafeGet()
 
-    let valID = validator.pubkey.ValidatorPubKey.toRaw()
-    let ll = db.get(
-      subkey(kLinkedListMeta, valID),
-      KeysEpochs
-    ).unsafeGet()
+  #   let valID = validator.pubkey.ValidatorPubKey.toRaw()
+  #   let ll = db.get(
+  #     subkey(kLinkedListMeta, valID),
+  #     KeysEpochs
+  #   ).unsafeGet()
 
-    if ll.blockSlots.isInit:
-      var curSlot = ll.blockSlots.start
-      while true:
-        let node = db.get(
-          subkey(kBlock, valID, curSlot),
-          BlockNode
-        ).unsafeGet()
+  #   if ll.blockSlots.isInit:
+  #     var curSlot = ll.blockSlots.start
+  #     while true:
+  #       let node = db.get(
+  #         subkey(kBlock, valID, curSlot),
+  #         BlockNode
+  #       ).unsafeGet()
 
-        validator.signed_blocks.add SPDIF_SignedBlock(
-          slot: curSlot,
-          signing_root: Eth2Digest0x node.block_root
-        )
+  #       validator.signed_blocks.add SPDIF_SignedBlock(
+  #         slot: curSlot,
+  #         signing_root: Eth2Digest0x node.block_root
+  #       )
 
-        if curSlot == ll.blockSlots.stop:
-          break
-        else:
-          curSlot = node.next
+  #       if curSlot == ll.blockSlots.stop:
+  #         break
+  #       else:
+  #         curSlot = node.next
 
-    if ll.targetEpochs.isInit:
-      var curEpoch = ll.targetEpochs.start
-      while true:
-        let node = db.get(
-          subkey(kTargetEpoch, valID, curEpoch),
-          TargetEpochNode
-        ).unsafeGet()
+  #   if ll.targetEpochs.isInit:
+  #     var curEpoch = ll.targetEpochs.start
+  #     while true:
+  #       let node = db.get(
+  #         subkey(kTargetEpoch, valID, curEpoch),
+  #         TargetEpochNode
+  #       ).unsafeGet()
 
-        validator.signed_attestations.add SPDIF_SignedAttestation(
-          source_epoch: node.source, target_epoch: curEpoch,
-          signing_root: Eth2Digest0x node.attestation_root
-        )
+  #       validator.signed_attestations.add SPDIF_SignedAttestation(
+  #         source_epoch: node.source, target_epoch: curEpoch,
+  #         signing_root: Eth2Digest0x node.attestation_root
+  #       )
 
-        if curEpoch == ll.targetEpochs.stop:
-          break
-        else:
-          curEpoch = node.next
+  #       if curEpoch == ll.targetEpochs.stop:
+  #         break
+  #       else:
+  #         curEpoch = node.next
 
-    # Update extract without reallocating seqs
-    # by manually transferring ownership
-    extract.data.setLen(extract.data.len + 1)
-    shallowCopy(extract.data[^1], validator)
+  #   # Update extract without reallocating seqs
+  #   # by manually transferring ownership
+  #   extract.data.setLen(extract.data.len + 1)
+  #   shallowCopy(extract.data[^1], validator)
 
-  Json.saveFile(path, extract, pretty = true)
-  echo "Exported slashing protection DB to '", path, "'"
+  # Json.saveFile(path, extract, pretty = true)
+  # echo "Exported slashing protection DB to '", path, "'"
 
 proc fromSPDIF*(db: SlashingProtectionDB, path: string): bool
              {.raises: [SerializationError, IOError, Defect].} =
@@ -1051,39 +921,39 @@ proc fromSPDIF*(db: SlashingProtectionDB, path: string): bool
   ## The genesis_validator_root must match or
   ## the DB must have a zero root
 
-  let extract = Json.loadFile(path, SPDIF)
+  # let extract = Json.loadFile(path, SPDIF)
 
-  doAssert not db.isNil, "The Slashing Protection DB must be initialized."
-  doAssert not db.backend.isNil, "The Slashing Protection DB must be initialized."
+  # doAssert not db.isNil, "The Slashing Protection DB must be initialized."
+  # doAssert not db.backend.isNil, "The Slashing Protection DB must be initialized."
 
-  let dbGenValRoot = db.get(
-    subkey(kGenesisValidatorRoot), ETH2Digest
-  ).unsafeGet()
+  # let dbGenValRoot = db.get(
+  #   subkey(kGenesisValidatorRoot), ETH2Digest
+  # ).unsafeGet()
 
-  if dbGenValRoot != default(Eth2Digest) and
-     dbGenValRoot != extract.metadata.genesis_validator_root.Eth2Digest:
-    echo "The slashing protection database and imported file refer to different blockchains."
-    return false
+  # if dbGenValRoot != default(Eth2Digest) and
+  #    dbGenValRoot != extract.metadata.genesis_validator_root.Eth2Digest:
+  #   echo "The slashing protection database and imported file refer to different blockchains."
+  #   return false
 
-  if dbGenValRoot == default(Eth2Digest):
-    db.put(
-      subkey(kGenesisValidatorRoot),
-      extract.metadata.genesis_validator_root.Eth2Digest
-    )
+  # if dbGenValRoot == default(Eth2Digest):
+  #   db.put(
+  #     subkey(kGenesisValidatorRoot),
+  #     extract.metadata.genesis_validator_root.Eth2Digest
+  #   )
 
-  for v in 0 ..< extract.data.len:
-    for b in 0 ..< extract.data[v].signed_blocks.len:
-      db.registerBlock(
-        extract.data[v].pubkey.ValidatorPubKey,
-        extract.data[v].signed_blocks[b].slot,
-        extract.data[v].signed_blocks[b].signing_root.Eth2Digest
-      )
-    for a in 0 ..< extract.data[v].signed_attestations.len:
-      db.registerAttestation(
-        extract.data[v].pubkey.ValidatorPubKey,
-        extract.data[v].signed_attestations[a].source_epoch,
-        extract.data[v].signed_attestations[a].target_epoch,
-        extract.data[v].signed_attestations[a].signing_root.Eth2Digest
-      )
+  # for v in 0 ..< extract.data.len:
+  #   for b in 0 ..< extract.data[v].signed_blocks.len:
+  #     db.registerBlock(
+  #       extract.data[v].pubkey.ValidatorPubKey,
+  #       extract.data[v].signed_blocks[b].slot,
+  #       extract.data[v].signed_blocks[b].signing_root.Eth2Digest
+  #     )
+  #   for a in 0 ..< extract.data[v].signed_attestations.len:
+  #     db.registerAttestation(
+  #       extract.data[v].pubkey.ValidatorPubKey,
+  #       extract.data[v].signed_attestations[a].source_epoch,
+  #       extract.data[v].signed_attestations[a].target_epoch,
+  #       extract.data[v].signed_attestations[a].signing_root.Eth2Digest
+  #     )
 
-  return true
+  # return true
