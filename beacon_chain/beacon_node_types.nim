@@ -121,6 +121,12 @@ type
     else:
       connection*: ValidatorConnection
 
+    # The index at which this validator has been observed in the chain -
+    # it does not change as long as there are no reorgs on eth1 - however, the
+    # index might not be valid in all eth2 histories, so it should not be
+    # assumed that a valid index is stored here!
+    index*: Option[ValidatorIndex]
+
   ValidatorPool* = object
     validators*: Table[ValidatorPubKey, AttachedValidator]
     slashingProtection*: SlashingProtectionDB
