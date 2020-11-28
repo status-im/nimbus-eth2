@@ -12,5 +12,5 @@ Click on the first option, the `tar.gz` file, and follow the instructions [here]
 
 We've designed this binary to be reproducible: in practice, this means that anyone who wishes to can verify that no vulnerabilities or backdoors have been introduced during the compilation process. For more on the philosophy and importance of reproducible builds [see here](https://reproducible-builds.org/).
 
-For instructions on how to reproduce the build, [see here](https://reproducible-builds.org/).
+For instructions on how to reproduce the build, [see here](https://github.com/status-im/nimbus-eth2/blob/master/docker/dist/README.md#reproducing-the-build).
 
