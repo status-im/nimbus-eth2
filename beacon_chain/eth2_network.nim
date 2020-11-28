@@ -259,22 +259,22 @@ declareCounter nbc_gossip_messages_sent,
 declareCounter nbc_gossip_messages_received,
   "Number of gossip messages received by this peer"
 
-declarePublicCounter nbc_successful_dials,
+declareCounter nbc_successful_dials,
   "Number of successfully dialed peers"
 
-declarePublicCounter nbc_failed_dials,
+declareCounter nbc_failed_dials,
   "Number of dialing attempts that failed"
 
-declarePublicCounter nbc_timeout_dials,
+declareCounter nbc_timeout_dials,
   "Number of dialing attempts that exceeded timeout"
 
-declarePublicGauge nbc_peers,
+declareGauge nbc_peers,
   "Number of active libp2p peers"
 
-declarePublicCounter nbc_successful_discoveries,
+declareCounter nbc_successful_discoveries,
   "Number of successfull discoveries"
 
-declarePublicCounter nbc_failed_discoveries,
+declareCounter nbc_failed_discoveries,
   "Number of failed discoveries"
 
 const delayBuckets = [1.0, 5.0, 10.0, 20.0, 40.0, 60.0]

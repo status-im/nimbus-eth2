@@ -42,7 +42,7 @@ declareCounter beacon_blocks_proposed,
 declareGauge(attached_validator_balance,
   "Validator balance at slot end of the first 64 validators, in Gwei",
   labels = ["pubkey"])
-declareGauge(attached_validator_balance_total,
+declarePublicGauge(attached_validator_balance_total,
   "Validator balance of all attached validators, in Gwei")
 
 logScope: topics = "beacval"

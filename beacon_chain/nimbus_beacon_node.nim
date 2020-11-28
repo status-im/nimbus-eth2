@@ -982,13 +982,7 @@ when hasPrompt:
           slotStr
 
         of "attached_validators_balance":
-          var balance = uint64(0)
-          # TODO slow linear scan!
-          for idx, b in node.chainDag.headState.data.data.balances:
-            if node.getAttachedValidator(
-                node.chainDag.headState.data.data, ValidatorIndex(idx)) != nil:
-              balance += b
-          formatGwei(balance)
+          formatGwei(attached_validator_balance_total.value.uint64)
 
         of "sync_status":
           if isNil(node.syncManager):

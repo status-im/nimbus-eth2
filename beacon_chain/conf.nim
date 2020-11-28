@@ -208,7 +208,8 @@ type
                       "finalized: $finalized_root:$finalized_epoch;" &
                       "head: $head_root:$head_epoch:$head_epoch_slot;" &
                       "time: $epoch:$epoch_slot ($slot);" &
-                      "sync: $sync_status|"
+                      "sync: $sync_status|" &
+                      "ETH: $attached_validators_balance"
         desc: "Textual template for the contents of the status bar"
         name: "status-bar-contents" }: string
 
