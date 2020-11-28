@@ -42,12 +42,30 @@ func fakeValidator(index: SomeInteger): ValidatorPubKey =
 func hexToDigest(hex: string): Eth2Digest =
   result = Eth2Digest.fromHex(hex)
 
+proc sqlite3db_delete(basepath, dbname: string) =
+  removeFile(basepath/ dbname&".sqlite3-shm")
+  removeFile(basepath/ dbname&".sqlite3-wal")
+  removeFile(basepath/ dbname&".sqlite3")
+
+const TestDir = ""
+const TestDbName = "test_slashprot"
+
 suiteReport "Slashing Protection DB - Interchange" & preset():
   # https://hackmd.io/@sproul/Bk0Y0qdGD#Format-1-Complete
+  # https://eips.ethereum.org/EIPS/eip-3076
+  sqlite3db_delete(TestDir, TestDbName)
+
   wrappedTimedTest "Smoke test - Complete format" & preset():
     let genesis_validators_root = hexToDigest"0x04700007fabc8282644aed6d1c7c9e21d38a03a0c4ba193f3afe428824b3a673"
     block: # export
-      let db = SlashingProtectionDB.init(genesis_validators_root, kvStore MemStoreRef.init())
+      let db = SlashingProtectionDB.init(
+                genesis_validators_root,
+                TestDir,
+                TestDbName
+              )
+      defer:
+        db.close()
+        sqlite3db_delete(TestDir, TestDbName)
 
       let pubkey = ValidatorPubKey
                     .fromHex"0xb845089a1457f811bfc000588fbb4e713669be8ce060ea6be3c6ece09afc3794106c91ca73acda5e5457122d58723bed"
@@ -79,19 +97,40 @@ suiteReport "Slashing Protection DB - Interchange" & preset():
       db.toSPDIF(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
 
     block: # import - zero root db
-      let db2 = SlashingProtectionDB.init(Eth2Digest(), kvStore MemStoreRef.init())
+      let db2 = SlashingProtectionDB.init(
+                Eth2Digest(),
+                TestDir,
+                TestDbName
+              )
+      defer:
+        db2.close()
+        sqlite3db_delete(TestDir, TestDbName)
 
       doAssert db2.fromSPDIF(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
       db2.toSPDIF(currentSourcePath.parentDir/"test_complete_export_slashing_protection_roundtrip1.json")
 
     block: # import - same root db
-      let db3 = SlashingProtectionDB.init(genesis_validators_root, kvStore MemStoreRef.init())
+      let db3 = SlashingProtectionDB.init(
+                genesis_validators_root,
+                TestDir,
+                TestDbName
+              )
+      defer:
+        db3.close()
+        sqlite3db_delete(TestDir, TestDbName)
 
       doAssert db3.fromSPDIF(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
       db3.toSPDIF(currentSourcePath.parentDir/"test_complete_export_slashing_protection_roundtrip2.json")
 
     block: # import - invalid root db
       let invalid_genvalroot = hexToDigest"0x1234"
-      let db3 = SlashingProtectionDB.init(invalid_genvalroot, kvStore MemStoreRef.init())
+      let db4 = SlashingProtectionDB.init(
+                invalid_genvalroot,
+                TestDir,
+                TestDbName
+              )
+      defer:
+        db4.close()
+        sqlite3db_delete(TestDir, TestDbName)
 
-      doAssert not db3.fromSPDIF(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
+      doAssert not db4.fromSPDIF(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")

@@ -7,11 +7,12 @@
 
 import
   # Standard library
-  std/[tables, os, options],
+  std/[tables, os, options, strutils, typetraits],
   # Status
+  stew/byteutils,
   eth/db/[kvstore, kvstore_sqlite3],
   chronicles,
-  nimcrypto/[hash, utils],
+  nimcrypto/hash,
   serialization,
   json_serialization,
   sqlite3_abi,
@@ -256,44 +257,6 @@ type
     of TargetPrecedesSource:
       discard
 
-  SlotDesc = object
-    # Using tuple instead of objects, crashes the Nim compiler
-    # with SSZ serialization
-    # Making this generic as well
-    start, stop: Slot
-    isInit: bool
-  EpochDesc = object
-    start, stop: Epoch
-    isInit: bool
-
-  KeysEpochs = object
-    ## Per-validator linked lists start/stop
-    blockSlots: SlotDesc
-    sourceEpochs: EpochDesc
-    targetEpochs: EpochDesc
-
-  SlashingKeyKind = enum
-    # Note: source epochs are not unique
-    # and so cannot be used to build a key
-    kBlock
-    kTargetEpoch
-    kLinkedListMeta
-    # Interchange format
-    kGenesisValidatorRoot
-    kNumValidators
-    kValidator
-
-  BlockNode = object
-    prev, next: Slot
-    # TODO distinct type for block root vs all other ETH2Digest
-    block_root: Eth2Digest
-
-  TargetEpochNode = object
-    prev, next: Epoch
-    # TODO distinct type for attestation root vs all other ETH2Digest
-    attestation_root: Eth2Digest
-    source: Epoch
-
 {.push raises: [Defect].}
 logScope:
   topics = "antislash"
@@ -301,6 +264,9 @@ logScope:
 # version history:
 # 0 -> https://github.com/status-im/nimbus-eth2/pull/1643, based on KV-store
 const SlashingDB_version = 1
+
+template dispose(sqlStmt: SqliteStmt) =
+  discard sqlite3_finalize((ptr sqlite3_stmt) sqlStmt)
 
 proc setupDB(db: SlashingProtectionDB, genesis_validator_root: Eth2Digest) =
   ## Initial setup of the DB
@@ -366,9 +332,6 @@ proc checkDB(db: SlashingProtectionDB, genesis_validator_root: Eth2Digest) =
     version = res[0]
     root.data = res[1]
 
-  template dispose(sqlStmt: SqliteStmt) =
-    discard sqlite3_finalize((ptr sqlite3_stmt) sqlStmt)
-
   selectStmt.dispose()
 
   doAssert status.isOk()
@@ -376,8 +339,8 @@ proc checkDB(db: SlashingProtectionDB, genesis_validator_root: Eth2Digest) =
     "Incorrect database version: " & $version & "\n" &
     "but expected: " & $SlashingDB_version
   doAssert root == genesis_validator_root,
-    "Invalid database genesis validator root: " & root.data.toHex(lowercase = true) & "\n" &
-    "but expected: " & genesis_validator_root.data.toHex(lowercase = true)
+    "Invalid database genesis validator root: " & root.data.toHex() & "\n" &
+    "but expected: " & genesis_validator_root.data.toHex()
 
 proc setupCachedQueries(db: SlashingProtectionDB) =
   ## Create prepared queries for reuse
@@ -419,16 +382,6 @@ proc setupCachedQueries(db: SlashingProtectionDB) =
 
   # Inspect attestations
   # --------------------------------------------------------
-  # TODO: we use seq[byte] here which requires extra heap allocation
-  #       We can use openarray[byte] however
-  #       this requires only having attestation_root or block_root
-  #       as the unique returned column
-  #       For best logging we can't do that for attestations but can for blocks.
-  #
-  #       Alternatively we could add support for ETH2Digest or array[32, byte]
-  #       to the DB backend.
-  #       Or supporting tuple returns like (int64, var openarray[byte])
-  #       would require Nim 1.4 and views borrow-checking
   db.sqlAttForSameTargetEpoch = db.backend.prepareStmt("""
     SELECT
       attestation_root
@@ -489,7 +442,6 @@ proc setupCachedQueries(db: SlashingProtectionDB) =
 
   # Inspect blocks
   # --------------------------------------------------------
-
   db.sqlBlockForSameSlot = db.backend.prepareStmt("""
     SELECT
       block_root
@@ -790,12 +742,19 @@ type
   Eth2Digest0x = distinct Eth2Digest
     ## The spec mandates "0x" prefix on serialization
     ## So we need to set custom read/write
-  PubKey0x = distinct ValidatorPubKey
+  PubKey0x = distinct PubKeyBytes
     ## The spec mandates "0x" prefix on serialization
     ## So we need to set custom read/write
+    ## We also assume that pubkeys in the database
+    ## are valid points on the BLS12-381 G1 curve
+    ## (so we skip fromRaw/serialization checks)
+
+  SlotString = distinct Slot
+    ## The spec mandates string serialization for wide compatibility (javascript)
+  EpochString = distinct Epoch
+    ## The spec mandates string serialization for wide compatibility (javascript)
 
   SPDIF_Meta = object
-    interchange_format: string
     interchange_format_version: string
     genesis_validator_root: Eth2Digest0x
 
@@ -805,30 +764,25 @@ type
     signed_attestations: seq[SPDIF_SignedAttestation]
 
   SPDIF_SignedBlock = object
-    slot: Slot
+    slot: SlotString
     signing_root: Eth2Digest0x # compute_signing_root(block, domain)
 
   SPDIF_SignedAttestation = object
-    source_epoch: Epoch
-    target_epoch: Epoch
+    source_epoch: EpochString
+    target_epoch: EpochString
     signing_root: Eth2Digest0x # compute_signing_root(attestation, domain)
 
 proc writeValue*(writer: var JsonWriter, value: PubKey0x)
                 {.inline, raises: [IOError, Defect].} =
-  writer.writeValue("0x" & value.ValidatorPubKey.toHex())
+  writer.writeValue("0x" & value.PubKeyBytes.toHex())
 
 proc readValue*(reader: var JsonReader, value: var PubKey0x)
-               {.raises: [SerializationError, IOError, Defect].} =
-  let key = ValidatorPubKey.fromHex(reader.readValue(string))
-  if key.isOk:
-    value = PubKey0x key.get
-  else:
-    # TODO: Can we provide better diagnostic?
-    raiseUnexpectedValue(reader, "Valid hex-encoded public key expected")
+               {.raises: [SerializationError, IOError, ValueError, Defect].} =
+  value = PubKey0x reader.readValue(string).hexToByteArray[:RawPubKeySize]()
 
 proc writeValue*(w: var JsonWriter, a: Eth2Digest0x)
                 {.inline, raises: [IOError, Defect].} =
-  w.writeValue "0x" & a.Eth2Digest.data.toHex(lowercase = true)
+  w.writeValue "0x" & a.Eth2Digest.data.toHex()
 
 proc readValue*(r: var JsonReader, a: var Eth2Digest0x)
                {.raises: [SerializationError, IOError, Defect].} =
@@ -837,80 +791,108 @@ proc readValue*(r: var JsonReader, a: var Eth2Digest0x)
   except ValueError:
     raiseUnexpectedValue(r, "Hex string expected")
 
+proc writeValue*(w: var JsonWriter, a: SlotString or EpochString)
+                {.inline, raises: [IOError, Defect].} =
+  w.writeValue $distinctBase(a)
+
+proc readValue*(r: var JsonReader, a: var (SlotString or EpochString))
+               {.raises: [SerializationError, IOError, ValueError, Defect].} =
+  a = (typeof a)(r.readValue(string).parseBiggestUint())
+
 proc toSPDIF*(db: SlashingProtectionDB, path: string)
              {.raises: [IOError, Defect].} =
   ## Export the full slashing protection database
   ## to a json the Slashing Protection Database Interchange (Complete) Format
-  # var extract: SPDIF
-  # extract.metadata.interchange_format = "complete"
-  # extract.metadata.interchange_format_version = "3"
-  # extract.metadata.genesis_validator_root = Eth2Digest0x db.get(
-  #   subkey(kGenesisValidatorRoot), ETH2Digest
-  #   # Bug in results.nim
-  #   # ).expect("Slashing Protection requires genesis_validator_root at init")
-  # ).unsafeGet()
+  var extract: SPDIF
+  extract.metadata.interchange_format_version = "5"
 
-  # let numValidators = db.get(
-  #   subkey(kNumValidators),
-  #   uint32
-  # ).get(otherwise = 0'u32)
+  # genesis_validator_root
+  # -----------------------------------------------------
+  block:
+    let selectRootStmt = db.backend.prepareStmt(
+      "SELECT genesis_validator_root FROM metadata;",
+      NoParams, Hash32,
+      managed = false # manual memory management
+    ).get()
 
-  # for i in 0'u32 ..< numValidators:
-  #   var validator: SPDIF_Validator
-  #   validator.pubkey = PubKey0x db.get(
-  #     subkey(kValidator, i),
-  #     ValidatorPubKey
-  #   ).unsafeGet()
+    let status = selectRootStmt.exec do (res: Hash32):
+      extract.metadata.genesis_validator_root = Eth2Digest0x(ETH2Digest(data: res))
+    doAssert status.isOk()
 
-  #   let valID = validator.pubkey.ValidatorPubKey.toRaw()
-  #   let ll = db.get(
-  #     subkey(kLinkedListMeta, valID),
-  #     KeysEpochs
-  #   ).unsafeGet()
+    selectRootStmt.dispose()
 
-  #   if ll.blockSlots.isInit:
-  #     var curSlot = ll.blockSlots.start
-  #     while true:
-  #       let node = db.get(
-  #         subkey(kBlock, valID, curSlot),
-  #         BlockNode
-  #       ).unsafeGet()
+  # Validators
+  # -----------------------------------------------------
+  block:
+    let selectValStmt = db.backend.prepareStmt(
+      "SELECT pubkey FROM validators;",
+      NoParams, PubKeyBytes,
+      managed = false # manual memory management
+    ).get()
 
-  #       validator.signed_blocks.add SPDIF_SignedBlock(
-  #         slot: curSlot,
-  #         signing_root: Eth2Digest0x node.block_root
-  #       )
+    let status = selectValStmt.exec do (res: PubKeyBytes):
+      extract.data.add SPDIF_Validator(pubkey: PubKey0x res)
+    doAssert status.isOk()
 
-  #       if curSlot == ll.blockSlots.stop:
-  #         break
-  #       else:
-  #         curSlot = node.next
+    selectValStmt.dispose()
 
-  #   if ll.targetEpochs.isInit:
-  #     var curEpoch = ll.targetEpochs.start
-  #     while true:
-  #       let node = db.get(
-  #         subkey(kTargetEpoch, valID, curEpoch),
-  #         TargetEpochNode
-  #       ).unsafeGet()
+  # For each validator found, collect their signatures
+  # -----------------------------------------------------
+  block:
+    let selectBlkStmt = db.backend.prepareStmt("""
+      SELECT
+        slot, block_root
+      FROM
+        blocks b
+      INNER JOIN
+        validators v on b.validator_id = v.id
+      WHERE
+        v.pubkey = ?
+      ORDER BY
+        slot ASC
+      """, PubKeyBytes, (int64, Hash32),
+      managed = false # manual memory management
+    ).get()
 
-  #       validator.signed_attestations.add SPDIF_SignedAttestation(
-  #         source_epoch: node.source, target_epoch: curEpoch,
-  #         signing_root: Eth2Digest0x node.attestation_root
-  #       )
+    let selectAttStmt = db.backend.prepareStmt("""
+      SELECT
+        source_epoch, target_epoch, attestation_root
+      FROM
+        attestations a
+      INNER JOIN
+        validators v on a.validator_id = v.id
+      WHERE
+        v.pubkey = ?
+      ORDER BY
+        target_epoch ASC
+      """, PubKeyBytes, (int64, int64, Hash32),
+      managed = false # manual memory management
+    ).get()
 
-  #       if curEpoch == ll.targetEpochs.stop:
-  #         break
-  #       else:
-  #         curEpoch = node.next
+    defer:
+      selectBlkStmt.dispose()
+      selectAttStmt.dispose()
 
-  #   # Update extract without reallocating seqs
-  #   # by manually transferring ownership
-  #   extract.data.setLen(extract.data.len + 1)
-  #   shallowCopy(extract.data[^1], validator)
+    for i in 0 ..< extract.data.len:
+      template validator: untyped = extract.data[i] # alias
+      block: # Blocks
+        let status = selectBlkStmt.exec(validator.pubkey.PubKeyBytes) do (res: tuple[slot: int64, root: Hash32]):
+          validator.signed_blocks.add SPDIF_SignedBlock(
+            slot: SlotString res.slot,
+            signing_root: Eth2Digest0x(Eth2Digest(data: res.root))
+          )
+        doAssert status.isOk()
+      block: # Attestations
+        let status = selectAttStmt.exec(validator.pubkey.PubKeyBytes) do (res: tuple[source, target: int64, root: Hash32]):
+          validator.signed_attestations.add SPDIF_SignedAttestation(
+            source_epoch: EpochString res.source,
+            target_epoch: EpochString res.target,
+            signing_root: Eth2Digest0x(Eth2Digest(data: res.root))
+          )
+        doAssert status.isOk()
 
-  # Json.saveFile(path, extract, pretty = true)
-  # echo "Exported slashing protection DB to '", path, "'"
+  Json.saveFile(path, extract, pretty = true)
+  echo "Exported slashing protection DB to '", path, "'"
 
 proc fromSPDIF*(db: SlashingProtectionDB, path: string): bool
              {.raises: [SerializationError, IOError, Defect].} =
@@ -921,39 +903,65 @@ proc fromSPDIF*(db: SlashingProtectionDB, path: string): bool
   ## The genesis_validator_root must match or
   ## the DB must have a zero root
 
-  # let extract = Json.loadFile(path, SPDIF)
+  let extract = Json.loadFile(path, SPDIF)
 
-  # doAssert not db.isNil, "The Slashing Protection DB must be initialized."
-  # doAssert not db.backend.isNil, "The Slashing Protection DB must be initialized."
+  doAssert not db.isNil, "The Slashing Protection DB must be initialized."
+  doAssert not db.backend.isNil, "The Slashing Protection DB must be initialized."
 
-  # let dbGenValRoot = db.get(
-  #   subkey(kGenesisValidatorRoot), ETH2Digest
-  # ).unsafeGet()
+  # genesis_validator_root
+  # -----------------------------------------------------
+  block:
+    var dbGenValRoot: ETH2Digest
 
-  # if dbGenValRoot != default(Eth2Digest) and
-  #    dbGenValRoot != extract.metadata.genesis_validator_root.Eth2Digest:
-  #   echo "The slashing protection database and imported file refer to different blockchains."
-  #   return false
+    let selectRootStmt = db.backend.prepareStmt(
+      "SELECT genesis_validator_root FROM metadata;",
+      NoParams, Hash32,
+      managed = false # manual memory management
+    ).get()
 
-  # if dbGenValRoot == default(Eth2Digest):
-  #   db.put(
-  #     subkey(kGenesisValidatorRoot),
-  #     extract.metadata.genesis_validator_root.Eth2Digest
-  #   )
+    let status = selectRootStmt.exec do (res: Hash32):
+      dbGenValRoot.data = res
+    doAssert status.isOk()
 
-  # for v in 0 ..< extract.data.len:
-  #   for b in 0 ..< extract.data[v].signed_blocks.len:
-  #     db.registerBlock(
-  #       extract.data[v].pubkey.ValidatorPubKey,
-  #       extract.data[v].signed_blocks[b].slot,
-  #       extract.data[v].signed_blocks[b].signing_root.Eth2Digest
-  #     )
-  #   for a in 0 ..< extract.data[v].signed_attestations.len:
-  #     db.registerAttestation(
-  #       extract.data[v].pubkey.ValidatorPubKey,
-  #       extract.data[v].signed_attestations[a].source_epoch,
-  #       extract.data[v].signed_attestations[a].target_epoch,
-  #       extract.data[v].signed_attestations[a].signing_root.Eth2Digest
-  #     )
+    selectRootStmt.dispose()
 
-  # return true
+    if dbGenValRoot != default(Eth2Digest) and
+      dbGenValRoot != extract.metadata.genesis_validator_root.Eth2Digest:
+      echo "The slashing protection database and imported file refer to different blockchains."
+      return false
+
+    if not status.get():
+      # Query worked but returned no result
+      # We assume that the DB wasn't setup or
+      # is in an earlier version that used the kvstore table
+      db.setupDB(extract.metadata.genesis_validator_root.Eth2Digest)
+
+    # TODO: dbGenValRoot == default(Eth2Digest)
+
+  db.setupCachedQueries()
+
+  for v in 0 ..< extract.data.len:
+    let parsedKey = block:
+      let key = ValidatorPubKey.fromRaw(extract.data[v].pubkey.PubKeyBytes).get()
+      if key.kind == OpaqueBlob:
+        # The bytes does not describe a point on the BLS12-381 G1 curve
+        echo "Warning! Invalid public key: 0x" & extract.data[v].pubkey.PubKeyBytes.toHex()
+        continue
+      key
+    # TODO: this is a bit wasteful to convert parsedKey back to PubKeyBytes
+    #       in the register* proc but this is something done very rarely and offline.
+    for b in 0 ..< extract.data[v].signed_blocks.len:
+      db.registerBlock(
+        parsedKey,
+        extract.data[v].signed_blocks[b].slot.Slot,
+        extract.data[v].signed_blocks[b].signing_root.Eth2Digest
+      )
+    for a in 0 ..< extract.data[v].signed_attestations.len:
+      db.registerAttestation(
+        parsedKey,
+        extract.data[v].signed_attestations[a].source_epoch.Epoch,
+        extract.data[v].signed_attestations[a].target_epoch.Epoch,
+        extract.data[v].signed_attestations[a].signing_root.Eth2Digest
+      )
+
+  return true
