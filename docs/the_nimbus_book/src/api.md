@@ -22,35 +22,8 @@ Before you can access the API, make sure it's enabled using the RPC flag (`nimbu
 
 One difference is that currently endpoints that correspond to specific ones from the [spec](https://ethereum.github.io/eth2.0-APIs/) are named weirdly - for example an endpoint such as [`getGenesis`](https://ethereum.github.io/eth2.0-APIs/#/Beacon/getGenesis) is currently named `get_v1_beacon_genesis` which would map 1:1 to the actual REST path in the future - verbose but unambiguous.
 
-## Beacon Node API
 
-### getBeaconHead
-
-The latest head slot, as chosen by the latest fork choice.
-
-```
-curl -d '{"jsonrpc":"2.0","id":"id","method":"getBeaconHead","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
-```
-
-### getChainHead
-
-Show chain head information, including head, justified and finalized checkpoints.
-
-```
-curl -d '{"jsonrpc":"2.0","id":"id","method":"getChainHead","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
-```
-
-### getSyncing
-
-### getNetworkPeerId
-
-### getNetworkPeers
-
-### getNetworkEnr
-
-```
-curl -d '{"jsonrpc":"2.0","id":"id","method":"getNetworkEnr","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
-```
+## Beacon chain API
 
 ### [`get_v1_beacon_genesis`](https://ethereum.github.io/eth2.0-APIs/#/Beacon/getGenesis)
 
@@ -110,6 +83,50 @@ curl -d '{"jsonrpc":"2.0","method":"get_v1_beacon_blocks_blockId_attestations","
 
 ### [`post_v1_beacon_pool_attestations`](https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolAttestations)
 
+## Beacon Node API
+
+### [`get_v1_node_identity`](https://ethereum.github.io/eth2.0-APIs/#/Node/getNetworkIdentity)
+
+```
+curl -d '{"jsonrpc":"2.0","method":"get_v1_node_identity","params":[],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+```
+
+### [`get_v1_node_peers`](https://ethereum.github.io/eth2.0-APIs/#/Node/getPeers)
+
+```
+curl -d '{"jsonrpc":"2.0","method":"get_v1_node_peers","params":[],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+```
+
+### [`get_v1_node_peers_peerId`](https://ethereum.github.io/eth2.0-APIs/#/Node/getPeer)
+
+```
+curl -d '{"jsonrpc":"2.0","method":"get_v1_node_peers_peerId","params":[],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+```
+
+### [`get_v1_node_peer_count`](https://ethereum.github.io/eth2.0-APIs/#/Node/getPeerCount)
+
+```
+curl -d '{"jsonrpc":"2.0","method":"get_v1_node_peer_count","params":[],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+```
+
+### [`get_v1_node_version`](https://ethereum.github.io/eth2.0-APIs/#/Node/getNodeVersion)
+
+```
+curl -d '{"jsonrpc":"2.0","method":"get_v1_node_version","params":[],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+```
+
+### [`get_v1_node_syncing`](https://ethereum.github.io/eth2.0-APIs/#/Node/getSyncingStatus)
+
+```
+curl -d '{"jsonrpc":"2.0","method":"get_v1_node_syncing","params":[],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+```
+
+### [`get_v1_node_health`](https://ethereum.github.io/eth2.0-APIs/#/Node/getHealth)
+
+```
+curl -d '{"jsonrpc":"2.0","method":"get_v1_node_health","params":[],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+```
+
 ## Valdiator API
 
 ### [`get_v1_validator_block`](https://ethereum.github.io/eth2.0-APIs/#/ValidatorRequiredApi/produceBlock)
@@ -138,9 +155,25 @@ curl -d '{"jsonrpc":"2.0","method":"post_v1_validator_duties_attester","params":
 curl -d '{"jsonrpc":"2.0","id":"id","method":"get_v1_validator_duties_proposer","params":[1] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 ```
 
-## Config
+## Config API
 
 ### [`get_v1_config_fork_schedule`](https://ethereum.github.io/eth2.0-APIs/#/Config/getForkSchedule)
+
+```
+curl -d '{"jsonrpc":"2.0","method":"get_v1_config_fork_schedule","params":[],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+```
+
+### [`get_v1_config_spec`](https://ethereum.github.io/eth2.0-APIs/#/Config/getSpec)
+
+```
+curl -d '{"jsonrpc":"2.0","method":"get_v1_config_spec","params":[],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+```
+
+### [`get_v1_config_deposit_contract`](https://ethereum.github.io/eth2.0-APIs/#/Config/getDepositContract)
+
+```
+curl -d '{"jsonrpc":"2.0","method":"get_v1_config_deposit_contract","params":[],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+```
 
 ## Administrative / Debug API
 
@@ -148,30 +181,6 @@ curl -d '{"jsonrpc":"2.0","id":"id","method":"get_v1_validator_duties_proposer",
 
 ```
 curl -d '{"jsonrpc":"2.0","method":"get_v1_debug_beacon_states_stateId","params":["head"],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
-```
-
-### getNodeVersion
-
-Show version of the software
-
-```
-curl -d '{"jsonrpc":"2.0","id":"id","method":"getNodeVersion","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
-```
-
-### getSpecPreset
-
-Show spec constants in use.
-
-```
-curl -d '{"jsonrpc":"2.0","id":"id","method":"getSpecPreset","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
-```
-
-### peers
-
-Show a list of peers that the beacon node is connected to.
-
-```
-curl -d '{"jsonrpc":"2.0","id":"id","method":"peers","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 ```
 
 ## Nimbus extensions
