@@ -1294,9 +1294,20 @@ programMain:
         quit 1
 
     of DepositsCmd.`import`:
+      let validatorKeysDir = config.importedDepositsDir.get:
+        let cwd = os.getCurrentDir()
+        if dirExists(cwd / "validator_keys"):
+          InputDir(cwd / "validator_keys")
+        else:
+          echo "The default search path for validator keys is a sub-directory " &
+               "named 'validator_keys' in the current working directory. Since " &
+               "no such directory exists, please either provide the correct path" &
+               "as an argument or copy the imported keys in the expected location."
+          quit 1
+
       importKeystoresFromDir(
         rng[],
-        config.importedDepositsDir.string,
+        validatorKeysDir.string,
         config.validatorsDir, config.secretsDir)
 
     of DepositsCmd.status:

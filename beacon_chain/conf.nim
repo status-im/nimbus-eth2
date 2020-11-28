@@ -359,7 +359,7 @@ type
       of DepositsCmd.`import`:
         importedDepositsDir* {.
           argument
-          desc: "A directory with keystores to import" }: InputDir
+          desc: "A directory with keystores to import" }: Option[InputDir]
 
       of DepositsCmd.status:
         discard
