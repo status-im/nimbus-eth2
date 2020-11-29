@@ -139,7 +139,7 @@ type
         name: "udp-port" }: Port
 
       maxPeers* {.
-        defaultValue: 192 # 32 subnets, fanout of 6 for a healthy mesh
+        defaultValue: 160 # 5 (fanout) * 64 (subnets) / 2 (subs) for a heathy mesh
         desc: "The maximum number of peers to connect to"
         name: "max-peers" }: int
 
