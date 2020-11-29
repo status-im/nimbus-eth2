@@ -11,7 +11,7 @@ const
   versionMinor* = 0
   versionBuild* = 0
 
-  versionBlob* = "rc1" # Single word - ends up in the default graffitti
+  versionBlob* = "stateofus" # Single word - ends up in the default graffitti
 
   useInsecureFeatures* = defined(insecure)
 

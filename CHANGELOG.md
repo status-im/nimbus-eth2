@@ -1,24 +1,48 @@
-2020-11-20 v1.0.0-final
-=======================
+2020-11-29 v1.0.0-stateofus
+===========================
 
-** Highlights include:**
+As promised, a slightly more polished release before Mainnet launch ✨
 
-* Validator balances now exported through metrics, enabling Grafana dashboards and alerts
-* Mainnet bootstrap nodes updated
-* New RPC calls to track node and config status
-* New tool to generate ENR records
+Please make sure you update to this release before Eth2 genesis this
+Tuesday (December 1 12:00:23 UTC), as it contains some important improvements.
 
-** We've fixed:**
+New additions:
 
-* Peer counts were sometimes off - this has been fixed now and the default peer limit has
-  been increased to maintain a healthy gossip mesh
-* Fixed high bandwdith usage with larger gossipsub cache and updated ETH2 spec gossipsub parameters
-* Limit on IHave size to further constrain bandwidth usage
-* Lower parallel sync requests to 10 to lower memory footprint
-* Nimbus inow identifies itself as nimbus in libp2p (and not nim-libp2p)
+* Updated list of bootstrap nodes for Mainnet.
+
+* Prometheus metrics for validator balances. The beacon node will also
+  display the total balance of all attached validators in the status
+  footer by default.
+
+* `deposits import` now automagically finds the `validator_keys` directory
+  produced by the `eth2.0-deposit-cli` if it is located in the same working
+  directory.
+
+* A `deposits exit` command for submitting a voluntary validator exit.
+
+* A `record` CLI command for inspecting and creating ENR records.
+
+* An `--agent-string` option for specifying how Nimbus will present itself
+  in LibP2P messages. The default value is now `nimbus`.
+
+* New RPC calls to track node and config status. Specifically, a JSON-RCP
+  call for inspecting the active config preset (`get_v1_config_spec`).
+
+We've fixed:
+
+* Inaccurate peer counts (an occasional mismatch between the number of
+  syncing peers and GossipSub peers) -- the default peer limit has been
+  increased to maintain a healthy gossip mesh.
+
+* High bandwidth usage of GossipSub (due to sub-optimal caching and lack
+  of limits in the IWANT/IHAVE exchange messages) -- we're now using the
+  latest spec GossipSub parameters.
+
+* High sync memory footprint -- we've reduced the number of sync workers
+  from 20 to 10 (note, this should not affect sync speed).
 
 
-2020-11-20 v1.0.0-rc1
+2020-11-25 v1.0.0-rc1
 =====================
 
 We're happy to join the other client teams in announcing our `v1.0.0` release
@@ -58,7 +82,7 @@ more validators connect to Mainnet.
 
 * Unnecessary copy/memory alloc when loading DbSeq entries.
 
-* A block production issue affecting clients that hadn't finished downloading the latest deposits. 
+* A block production issue affecting clients that hadn't finished downloading the latest deposits.
 
 
 2020-11-20 v0.6.6
