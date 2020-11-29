@@ -49,8 +49,6 @@ Nimbus beacon chain is a research implementation of the beacon chain component o
 
 You can find the information you need to run a beacon node and operate as a validator in [The Book](https://status-im.github.io/nimbus-eth2/).
 
-See [this page](https://status-im.github.io/nimbus-eth2/medalla.html) for how to become a validator on Medalla.
-
 ## Related projects
 
 * [status-im/nimbus-eth1](https://github.com/status-im/nimbus-eth1/): Nimbus for Ethereum 1
