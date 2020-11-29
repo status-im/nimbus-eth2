@@ -311,10 +311,13 @@ template remote*(peer: Peer): untyped =
 proc openStream(node: Eth2Node,
                 peer: Peer,
                 protocolId: string): Future[Connection] {.async.} =
+  # When dialling here, we do not provide addresses - all new connection
+  # attempts are handled via `connect` which also takes into account
+  # reconnection timeouts
   let
     protocolId = protocolId & "ssz_snappy"
     conn = await dial(
-      node.switch, peer.info.peerId, peer.info.addrs, protocolId)
+      node.switch, peer.info.peerId, protocolId)
 
   # libp2p may replace peerinfo ref sometimes, so make sure we have a recent
   # one
@@ -665,7 +668,7 @@ proc handleIncomingStream(network: Eth2Node,
     case peer.connectionState
     of Disconnecting, Disconnected, None:
       # We got incoming stream request while disconnected or disconnecting.
-      warn "Got incoming request from disconnected peer", peer = peer,
+      debug "Got incoming request from disconnected peer", peer = peer,
            message = msgName
       await conn.closeWithEOF()
       return
