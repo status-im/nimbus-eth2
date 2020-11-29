@@ -64,24 +64,6 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("getNodeVersion") do () -> string:
     return "Nimbus/" & fullVersionStr
 
-  rpcServer.rpc("getSpecPreset") do () -> JsonNode:
-    var res = newJObject()
-    genStmtList:
-      for presetValue in PresetValue:
-        if presetValue notin ignoredValues + runtimeValues:
-          let
-            settingSym = ident($presetValue)
-            settingKey = newLit(toLowerAscii($presetValue))
-          let f = quote do:
-            res[`settingKey`] = %(presets.`settingSym`)
-          yield f
-
-    for field, value in fieldPairs(node.config.runtimePreset):
-      res[field] = when value isnot Version: %value
-                   else: %value.toUInt64
-
-    return res
-
   rpcServer.rpc("peers") do () -> JsonNode:
     var res = newJObject()
     var peers = newJArray()
