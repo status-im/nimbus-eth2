@@ -185,6 +185,68 @@ curl -d '{"jsonrpc":"2.0","method":"get_v1_debug_beacon_states_stateId","params"
 
 ## Nimbus extensions
 
+### getBeaconHead
+
+The latest head slot, as chosen by the latest fork choice.
+
+```
+curl -d '{"jsonrpc":"2.0","id":"id","method":"getBeaconHead","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
+```
+
+### getChainHead
+
+Show chain head information, including head, justified and finalized checkpoints.
+
+```
+curl -d '{"jsonrpc":"2.0","id":"id","method":"getChainHead","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
+```
+
+### getNodeVersion
+
+```
+ curl -d '{"jsonrpc":"2.0","method":"getNodeVersion","params":[],"id":1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+```
+
+### getSpecPreset
+
+```
+ curl -d '{"jsonrpc":"2.0","method":"getSpecPreset","params":[],"id":1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+```
+
+### peers
+
+Show a list of peers in PeerPool.
+
+```
+ curl -d '{"jsonrpc":"2.0","method":"peers","params":[],"id":1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+```
+
+### getSyncing
+
+Shows current state of forward syncing manager.
+
+```
+ curl -d '{"jsonrpc":"2.0","method":"getSyncing","params":[],"id":1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+```
+
+### getNetworkPeerId
+
+Shows current node's libp2p peer identifier (PeerID).
+
+```
+ curl -d '{"jsonrpc":"2.0","method":"getNetworkPeerId","params":[],"id":1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+```
+
+### getNetworkPeers
+
+Shows list of available PeerIDs in PeerPool.
+
+```
+ curl -d '{"jsonrpc":"2.0","method":"getNetworkPeers","params":[],"id":1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+```
+
+### getNetworkEnr
+
 ### setLogLevel
 
 Set the current logging level dynamically: TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL
