@@ -1,3 +1,23 @@
+2020-11-20 v1.0.0-final
+=======================
+
+** Highlights include:**
+
+* Validator balances now exported through metrics, enabling Grafana dashboards and alerts
+* Mainnet bootstrap nodes updated
+* New RPC calls to track node and config status
+* New tool to generate ENR records
+
+** We've fixed:**
+
+* Peer counts were sometimes off - this has been fixed now and the default peer limit has
+  been increased to maintain a healthy gossip mesh
+* Fixed high bandwdith usage with larger gossipsub cache and updated ETH2 spec gossipsub parameters
+* Limit on IHave size to further constrain bandwidth usage
+* Lower parallel sync requests to 10 to lower memory footprint
+* Nimbus inow identifies itself as nimbus in libp2p (and not nim-libp2p)
+
+
 2020-11-20 v1.0.0-rc1
 =====================
 
