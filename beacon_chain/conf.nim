@@ -139,7 +139,7 @@ type
         name: "udp-port" }: Port
 
       maxPeers* {.
-        defaultValue: 79 # The Wall gets released
+        defaultValue: 192 # 32 subnets, fanout of 6 for a healthy mesh
         desc: "The maximum number of peers to connect to"
         name: "max-peers" }: int
 
