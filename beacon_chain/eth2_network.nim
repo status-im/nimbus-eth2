@@ -317,7 +317,7 @@ proc openStream(node: Eth2Node,
   let
     protocolId = protocolId & "ssz_snappy"
     conn = await dial(
-      node.switch, peer.info.peerId, @[], protocolId)
+      node.switch, peer.info.peerId, protocolId)
 
   # libp2p may replace peerinfo ref sometimes, so make sure we have a recent
   # one
