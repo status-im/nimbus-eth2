@@ -1120,16 +1120,16 @@ proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
 
     echoP "By requesting an exit now, you'll be exempt from penalties " &
           "stemming from not performing your validator duties, but you " &
-          "won't be able to withdraw your deposited funds at the time " &
+          "won't be able to withdraw your deposited funds for the time " &
           "being. This means that your funds will be effectively frozen " &
-          "until withdrawals are enabled in a future phase of the Eth2 " &
-          "rollout."
+          "until withdrawals are enabled in a future phase of Eth2."
+          
 
     echoP "To understand more about the Eth2 roadmap, we recommend you " &
           "have a look at\n" &
           "https://ethereum.org/en/eth2/#roadmap"
 
-    echoP "You must not shut down your validator for at least 5 epochs " &
+    echoP "You must keep your validator running for at least 5 epochs " &
           "(32 minutes) after requesting a validator exit, as you will " &
           "still be required to perform validator duties until your exit " &
           "has been processed. The number of epochs could be significantly " &
