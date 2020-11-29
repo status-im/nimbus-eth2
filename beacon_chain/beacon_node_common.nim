@@ -56,6 +56,7 @@ type
     genesisSnapshotContent*: string
     attestationSubnets*: AttestationSubnets
     processor*: ref Eth2Processor
+    attachedValidatorBalanceTotal*: uint64
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT

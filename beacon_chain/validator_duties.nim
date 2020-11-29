@@ -576,6 +576,7 @@ proc updateMetrics(node: BeaconNode) =
         inc i
       total += balance
 
+    node.attachedValidatorBalanceTotal = total
     attached_validator_balance_total.set(min(total, int64.high.uint64).int64)
   else:
     discard

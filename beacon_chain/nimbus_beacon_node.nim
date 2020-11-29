@@ -983,7 +983,7 @@ when hasPrompt:
           slotStr
 
         of "attached_validators_balance":
-          formatGwei(attached_validator_balance_total.value.uint64)
+          formatGwei(node.attachedValidatorBalanceTotal)
 
         of "sync_status":
           if isNil(node.syncManager):
