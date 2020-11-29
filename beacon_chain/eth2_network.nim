@@ -58,7 +58,7 @@ type
 
   Eth2Node* = ref object of RootObj
     switch*: Switch
-    pubsub*: PubSub
+    pubsub*: GossipSub
     discovery*: Eth2DiscoveryProtocol
     discoveryEnabled*: bool
     wantedPeers*: int
@@ -1065,7 +1065,7 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
       peer.connectionState = Disconnected
 
 proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
-           switch: Switch, pubsub: PubSub, ip: Option[ValidIpAddress],
+           switch: Switch, pubsub: GossipSub, ip: Option[ValidIpAddress],
            tcpPort, udpPort: Port, privKey: keys.PrivateKey, discovery: bool,
            rng: ref BrHmacDrbgContext): T =
   new result
@@ -1565,7 +1565,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
       sign = false,
       verifySignature = false,
       anonymize = true,
-      parameters = params).PubSub
+      parameters = params)
 
   switch.mount(pubsub)
 
