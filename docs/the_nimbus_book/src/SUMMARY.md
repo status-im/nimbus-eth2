@@ -17,6 +17,7 @@
 - [Nimbus binaries](./binaries.md)
 - [Network stats + monitoring](./eth2-stats.md)
 - [Run your node on a Raspberry Pi](./pi-guide.md)
+- [Raspberry Pi: Mainnet advice](./pi-guide-mainnet.md)
 - [Graffiti the blockchain](./graffiti.md)
 - [Your own Infura endpoint](infura-guide.md)
 - [Run just the beacon node]()
