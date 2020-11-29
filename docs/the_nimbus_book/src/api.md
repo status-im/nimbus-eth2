@@ -278,3 +278,11 @@ Get the current list of live async futures in the process - compile with `-d:chr
 ```
 curl -d '{"jsonrpc":"2.0","id":"id","method":"getChronosFutures","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result | (.[0] | keys_unsorted) as $keys | $keys, map([.[ $keys[] ]])[] | @csv'
 ```
+
+### getGossipSubPeers
+
+Get the current list of live async futures in the process - compile with `-d:chronosFutureTracking` to enable.
+
+```
+curl -d '{"jsonrpc":"2.0","id":"id","method":"getGossipSubPeers","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result'
+```
