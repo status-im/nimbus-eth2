@@ -1432,7 +1432,9 @@ programMain:
 
     #]#
     of DepositsCmd.`import`:
-      let validatorKeysDir = config.importedDepositsDir.get:
+      let validatorKeysDir = if config.importedDepositsDir.isSome:
+        config.importedDepositsDir.get
+      else:
         let cwd = os.getCurrentDir()
         if dirExists(cwd / "validator_keys"):
           InputDir(cwd / "validator_keys")
