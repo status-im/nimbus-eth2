@@ -576,6 +576,8 @@ proc hash*(x: ValidatorIndex): Hash {.borrow, noSideEffect.}
 func `$`*(x: ValidatorIndex): auto = $(distinctBase(x))
 
 proc `==`*(x, y: CommitteeIndex) : bool {.borrow, noSideEffect.}
+proc `==`*(x: uint64, y: CommitteeIndex) : bool {.borrow, noSideEffect.}
+proc `==`*(x: CommitteeIndex, y: uint64) : bool {.borrow, noSideEffect.}
 proc `<`*(x, y: CommitteeIndex) : bool {.borrow, noSideEffect.}
 proc hash*(x: CommitteeIndex): Hash {.borrow, noSideEffect.}
 func `$`*(x: CommitteeIndex): auto = $(distinctBase(x))
