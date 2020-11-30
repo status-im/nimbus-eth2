@@ -158,9 +158,15 @@ proc sendAttestation*(
   beacon_attestations_sent.inc()
 
 proc sendVoluntaryExit*(node: BeaconNode, exit: SignedVoluntaryExit) =
-  node.network.broadcast(
-    getVoluntaryExitsTopic(node.forkDIgest),
-    exit)
+  node.network.broadcast(getVoluntaryExitsTopic(node.forkDigest), exit)
+
+proc sendAttesterSlashing*(node: BeaconNode, slashing: AttesterSlashing) =
+  node.network.broadcast(getAttesterSlashingsTopic(node.forkDigest),
+                         slashing)
+
+proc sendProposerSlashing*(node: BeaconNode, slashing: ProposerSlashing) =
+  node.network.broadcast(getProposerSlashingsTopic(node.forkDigest),
+                         slashing)
 
 proc sendAttestation*(node: BeaconNode, attestation: Attestation) =
   # For the validator API, which doesn't supply num_active_validators.
