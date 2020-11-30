@@ -13,7 +13,7 @@ import
   ../beacon_node_common, ../eth2_json_rpc_serialization, ../eth2_network,
   ../validator_duties,
   ../block_pools/chain_dag, ../exit_pool,
-  ../spec/[crypto, digest, datatypes, validator],
+  ../spec/[crypto, digest, datatypes, validator, network],
   ../spec/eth2_apis/callsigs_types,
   ../ssz/merkleization,
   ./rpc_utils
@@ -209,11 +209,13 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
         forSlot(slot.Slot, result)
 
   rpcServer.rpc("get_v1_beacon_headers") do (
-      slot: uint64, parent_root: Eth2Digest) -> seq[BeaconHeadersTuple]:
+      slot: Option[string], parent_root: Option[string]) ->
+      seq[BeaconHeadersTuple]:
     unimplemented()
 
   rpcServer.rpc("get_v1_beacon_headers_blockId") do (
-      blockId: string) -> tuple[canonical: bool, header: SignedBeaconBlockHeader]:
+      blockId: string) ->
+      tuple[canonical: bool, header: SignedBeaconBlockHeader]:
     let bd = node.getBlockDataFromBlockId(blockId)
     let tsbb = bd.data
     result.header.signature = ValidatorSig.init tsbb.signature.data
@@ -225,6 +227,28 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     result.header.message.body_root = tsbb.message.body.hash_tree_root()
 
     result.canonical = bd.refs.isAncestorOf(node.chainDag.head)
+
+  rpcServer.rpc("post_v1_beacon_blocks") do (blck: SignedBeaconBlock) -> int:
+    if not(node.syncManager.inProgress):
+      raise newException(CatchableError,
+                         "Beacon node is currently syncing, try again later.")
+    let head = node.chainDag.head
+    if head.slot >= blck.message.slot:
+      node.network.broadcast(getBeaconBlocksTopic(node.forkDigest), blck)
+      # The block failed validation, but was successfully broadcast anyway.
+      # It was not integrated into the beacon node''s database.
+      return 202
+    else:
+      let res = await proposeSignedBlock(node, head, AttachedValidator(), blck)
+      if res == head:
+        node.network.broadcast(getBeaconBlocksTopic(node.forkDigest), blck)
+        # The block failed validation, but was successfully broadcast anyway.
+        # It was not integrated into the beacon node''s database.
+        return 202
+      else:
+        # The block was validated successfully and has been broadcast.
+        # It has also been integrated into the beacon node's database.
+        return 200
 
   rpcServer.rpc("get_v1_beacon_blocks_blockId") do (
       blockId: string) -> TrustedSignedBeaconBlock:
@@ -239,8 +263,8 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     return node.getBlockDataFromBlockId(blockId).data.message.body.attestations.asSeq
 
   rpcServer.rpc("get_v1_beacon_pool_attestations") do (
-    slot: Option[string], committee_index: Option[string]) ->
-    seq[AttestationTuple]:
+      slot: Option[string], committee_index: Option[string]) ->
+      seq[AttestationTuple]:
 
     var res: seq[AttestationTuple]
 
