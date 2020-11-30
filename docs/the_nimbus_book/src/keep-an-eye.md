@@ -57,6 +57,8 @@ The string of letters -- what we call the `sync worker map` (in the above case r
 
 The number following it (in the above case represented by `7`) represents the number of workers that are currently active (i.e not sleeping or waiting for a peer).
 
+> **Note:** If you're running Nimbus as a service, the above status bar won't be visible to you. You can use you the RPC calls outlined in the [API page](./api.md) to retrieve similar information.
+
 ## eth2stats
 
 
