@@ -15,6 +15,7 @@
 - [Command line options](./options.md)
 - [Troubleshooting](./troubleshooting.md)
 - [Nimbus binaries](./binaries.md)
+- [Grafana and Prometheus](metrics-pretty-pictures.md)
 - [Network stats + monitoring](./eth2-stats.md)
 - [Run your node on a Raspberry Pi](./pi-guide.md)
 - [Raspberry Pi: Mainnet advice](./pi-guide-mainnet.md)
