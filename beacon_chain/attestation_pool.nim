@@ -261,6 +261,33 @@ proc getAttestationsForSlot*(pool: AttestationPool, newBlockSlot: Slot):
 
   some(pool.candidates[candidateIdx.get()])
 
+proc getAttestations*(pool: AttestationPool, slot: Option[Slot],
+                      index: Option[CommitteeIndex]): seq[Attestation] =
+  var res: seq[Attestation]
+  for seenAttestations in pool.candidates.items():
+    for entry in seenAttestations.attestations.items():
+      let slotInclude =
+        if slot.isSome():
+          entry.data.slot == slot.get()
+        else:
+          true
+
+      let committeeInclude =
+        if index.isSome():
+          CommitteeIndex(entry.data.index) == index.get()
+        else:
+          true
+
+      if slotInclude or committeeInclude:
+        for validation in entry.validations.items():
+          let attestation = Attestation(
+            aggregation_bits: validation.aggregation_bits,
+            signature: validation.aggregate_signature,
+            data: entry.data
+          )
+          res.add(attestation)
+  res
+
 proc getAttestationsForBlock*(pool: AttestationPool,
                               state: BeaconState,
                               cache: var StateCache): seq[Attestation] =
