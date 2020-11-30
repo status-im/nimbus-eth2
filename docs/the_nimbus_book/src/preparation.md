@@ -18,7 +18,7 @@ Please check that you are running the latest stable [Nimbus software release](ht
 
 ## More than 20 peers
 
-Please check that your node has at least 20 peers. See [the footer](keep-an-eye.md#keep-track-of-your-syncing-progress) at the bottom of the terminal window for your peer count.
+Please check that your node has at least 15 peers. See [the footer](keep-an-eye.md#keep-track-of-your-syncing-progress) at the bottom of the terminal window for your peer count.
 
 ## Validator attached
 
