@@ -311,10 +311,12 @@ proc checkForPotentialSelfSlashing(
       let validatorPubkey = epochRef.validator_keys[validatorIndex]
       if self.validatorPool[].getValidator(validatorPubkey) !=
           default(AttachedValidator):
+        self.validatorPool[].disableValidator(validatorPubkey)
         notice "Found another validator using same public key; would be slashed",
           validatorIndex,
           validatorPubkey
-        quit 1
+        if self.config.selfSlashingDetectionQuit:
+          quit QuitFailure
 
 proc attestationValidator*(
     self: var Eth2Processor,

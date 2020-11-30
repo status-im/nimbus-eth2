@@ -135,18 +135,18 @@ proc updateCurrent(pool: var AttestationPool, wallSlot: Slot) =
 
 func addToAggregates(pool: var AttestationPool, attestation: Attestation) =
   # do a lookup for the current slot and get it's associated htrs/attestations
-  var aggreated_attestation = pool.attestationAggregates.mgetOrPut(
+  var aggregated_attestation = pool.attestationAggregates.mgetOrPut(
     attestation.data.slot, Table[Eth2Digest, Attestation]()).
     # do a lookup for the same attestation data htr and get the attestation
     mgetOrPut(attestation.data.hash_tree_root, attestation)
   # if the aggregation bits differ (we didn't just insert it into the table)
   # and only if there is no overlap of the signatures ==> aggregate!
-  if not aggreated_attestation.aggregation_bits.overlaps(attestation.aggregation_bits):
+  if not aggregated_attestation.aggregation_bits.overlaps(attestation.aggregation_bits):
     var agg {.noInit.}: AggregateSignature
-    agg.init(aggreated_attestation.signature)
-    aggreated_attestation.aggregation_bits.combine(attestation.aggregation_bits)
+    agg.init(aggregated_attestation.signature)
+    aggregated_attestation.aggregation_bits.combine(attestation.aggregation_bits)
     agg.aggregate(attestation.signature)
-    aggreated_attestation.signature = agg.finish()
+    aggregated_attestation.signature = agg.finish()
 
 proc addAttestation*(pool: var AttestationPool,
                      attestation: Attestation,

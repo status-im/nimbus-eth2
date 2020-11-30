@@ -19,7 +19,7 @@ import
   ../spec/eth2_apis/callsigs_types,
   ../block_pools/[chain_dag, spec_cache], ../ssz/merkleization,
   ../beacon_node_common, ../beacon_node_types, ../attestation_pool,
-  ../validator_duties, ../eth2_network,
+  ../validator_duties, ../validator_pool, ../eth2_network,
   ../eth2_json_rpc_serialization,
   ./rpc_utils
 
@@ -74,6 +74,21 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("post_v1_validator_aggregate_and_proofs") do (
       payload: SignedAggregateAndProof) -> bool:
     debug "post_v1_validator_aggregate_and_proofs"
+
+    let
+      epoch = payload.message.aggregate.data.slot.compute_epoch_at_slot
+      head = node.doChecksAndGetCurrentHead(epoch)
+      epochRef = node.chainDag.getEpochRef(head, epoch)
+
+    try:
+      if node.attachedValidators.isValidatorDisabled(
+          epochRef.validator_keys[payload.message.aggregator_index]):
+        debug "post_v1_validator_aggregate_and_proofs: validator disabled"
+        return
+    except KeyError:
+      debug "post_v1_validator_aggregate_and_proofs: validator not found"
+      return
+
     node.network.broadcast(node.topicAggregateAndProofs, payload)
     notice "Aggregated attestation sent",
       attestation = shortLog(payload.message.aggregate)
@@ -93,7 +108,8 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
         for index_in_committee, validatorIdx in committee:
           if validatorIdx < epochRef.validator_keys.len.ValidatorIndex:
             let curr_val_pubkey = epochRef.validator_keys[validatorIdx].initPubKey
-            if public_keys.findIt(it == curr_val_pubkey) != -1:
+            if public_keys.findIt(it == curr_val_pubkey) != -1 and
+                not node.attachedValidators.isValidatorDisabled(curr_val_pubkey):
               result.add((public_key: curr_val_pubkey,
                           validator_index: validatorIdx,
                           committee_index: committee_index.CommitteeIndex,
@@ -108,7 +124,9 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       head = node.doChecksAndGetCurrentHead(epoch)
       epochRef = node.chainDag.getEpochRef(head, epoch)
     for i in 0 ..< SLOTS_PER_EPOCH:
-      if epochRef.beacon_proposers[i].isSome():
+      if epochRef.beacon_proposers[i].isSome() and
+          not node.attachedValidators.isValidatorDisabled(
+            epochRef.beacon_proposers[i].get()[1]):
         result.add((public_key: epochRef.beacon_proposers[i].get()[1].initPubKey(),
                     slot: compute_start_slot_at_epoch(epoch) + i))
 

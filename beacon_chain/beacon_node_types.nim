@@ -147,6 +147,9 @@ type
     # assumed that a valid index is stored here!
     index*: Option[ValidatorIndex]
 
+    # When a validator is detected elsewhere on the network
+    disabled*: bool
+
   ValidatorPool* = object
     validators*: Table[ValidatorPubKey, AttachedValidator]
     slashingProtection*: SlashingProtectionDB

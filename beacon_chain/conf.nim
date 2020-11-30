@@ -255,6 +255,11 @@ type
         desc: "Number of epochs of gossip to which to listen before broadcasting"
         name: "self-slashing-detection-epochs" }: uint64
 
+      selfSlashingDetectionQuit* {.
+        defaultValue: true
+        desc: "Whether to quit, rather than just disabling validators, if self-slashing is detected"
+        name: "self-slashing-detection-quit" }: bool
+
     of createTestnet:
       testnetDepositsFile* {.
         desc: "A LaunchPad deposits file for the genesis state validators"

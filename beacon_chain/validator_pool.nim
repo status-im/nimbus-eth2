@@ -46,6 +46,21 @@ proc getValidator*(pool: ValidatorPool,
                    validatorKey: ValidatorPubKey): AttachedValidator =
   pool.validators.getOrDefault(validatorKey.initPubKey)
 
+proc disableValidator*(pool: var ValidatorPool,
+                       validatorKey: ValidatorPubKey) =
+  try:
+    pool.validators[validatorKey.initPubKey].disabled = true
+  except KeyError:
+    discard
+
+proc isValidatorDisabled*(pool: ValidatorPool,
+                          validatorKey: ValidatorPubKey): bool =
+  try:
+    pool.validators[validatorKey.initPubKey].disabled
+  except KeyError:
+    # Vacuously
+    false
+
 proc signWithRemoteValidator(v: AttachedValidator, data: Eth2Digest):
     Future[ValidatorSig] {.async.} =
   v.connection.inStream.writeLine(v.connection.pubKeyStr, " ", $data)
