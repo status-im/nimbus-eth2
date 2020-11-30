@@ -237,8 +237,30 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       blockId: string) -> seq[TrustedAttestation]:
     return node.getBlockDataFromBlockId(blockId).data.message.body.attestations.asSeq
 
-  rpcServer.rpc("get_v1_beacon_pool_attestations") do () -> JsonNode:
-    unimplemented()
+  rpcServer.rpc("get_v1_beacon_pool_attestations") do (
+    slot: Option[string], committee_index: Option[string]) -> seq[Attestation]:
+
+    let qslot =
+      if slot.isSome():
+        var tmp: uint64
+        let sslot = slot.get()
+        if parseBiggestUInt(sslot, tmp) != len(sslot):
+          raise newException(CatchableError, "Incorrect slot number")
+        some(Slot(tmp))
+      else:
+        none[Slot]()
+
+    let qindex =
+      if committee_index.isSome():
+        var tmp: uint64
+        let scommittee_index = committee_index.get()
+        if parseBiggestUInt(scommittee_index, tmp) != len(scommittee_index):
+          raise newException(CatchableError, "Incorrect committee_index number")
+        some(CommitteeIndex(tmp))
+      else:
+        none[CommitteeIndex]()
+
+    return node.attestationPool[].getAttestations(qslot, qindex)
 
   rpcServer.rpc("post_v1_beacon_pool_attestations") do (
       attestation: Attestation) -> bool:
