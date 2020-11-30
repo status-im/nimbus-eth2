@@ -266,6 +266,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + HashArray                                                                                  OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## state diff tests [Preset: mainnet]
+```diff
++ from genesis [Preset: mainnet]                                                             OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
 OK: 145/154 Fail: 0/154 Skip: 9/154

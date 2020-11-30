@@ -13,19 +13,22 @@ import
 
 func diffModIncrement[T, U](hl: HashArray[U, T], end0, end1: uint64):
     HashList[T, U] =
-  doAssert end1 > end0
-  for i in (end0 + 1) .. end1:
+  doAssert end1 >= end0
+  # because RANDAO mixes update within epochs, include overlap with current
+  # slot/epoch/time unit.
+  for i in end0 ..< end1:
     result.add hl[i mod U.uint64]
 
 func applyModIncrement[T, U](
-    ha: var HashArray[U, T], hl: HashList[T, U], slot: Slot) =
-  var indexSlot = slot + 1
+    ha: var HashArray[U, T], hl: HashList[T, U], slot: uint64) =
+  var indexSlot = slot
+
   for item in hl:
     ha[indexSlot mod U.uint64] = item
     indexSlot += 1
 
 func diffAppend[T, U](hl: HashList[T, U], end0: int): HashList[T, U] =
-  doAssert hl.len > end0
+  doAssert hl.len >= end0
   for i in (end0 + 1) .. hl.len:
     result.add hl[i]
 
@@ -64,7 +67,6 @@ func getValidatorStatus(validator: Validator): ValidatorStatus =
 
 func getValidatorStatuses(state: BeaconState):
     HashList[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT] =
-  # These change in ways that aren't generally worth encoding incrementally.
   for validator in state.validators:
     result.add getValidatorStatus(validator)
 
@@ -77,16 +79,15 @@ func setValidatorStatuses(
     validators[i].effective_balance = hl[i].effective_balance
     validators[i].slashed = hl[i].slashed
 
-    # These could be optimized more, but it's low-ROI initially
     validators[i].activation_eligibility_epoch =
       hl[i].activation_eligibility_epoch
     validators[i].activation_epoch = hl[i].activation_epoch
     validators[i].exit_epoch = hl[i].exit_epoch
     validators[i].withdrawable_epoch = hl[i].withdrawable_epoch
 
-func diffState(state0, state1: BeaconState): BeaconStateDiff =
-  # TODO assert ancestry within close range
+func diffState*(state0, state1: BeaconState): BeaconStateDiff =
   doAssert state1.slot > state0.slot
+  doAssert state0.slot + SLOTS_PER_EPOCH * 3 > state1.slot
 
   BeaconStateDiff(
     genesis_time: state1.genesis_time,
@@ -106,13 +107,16 @@ func diffState(state0, state1: BeaconState): BeaconStateDiff =
     eth1_data_votes: state1.eth1_data_votes,
     eth1_deposit_index: state1.eth1_deposit_index,
 
+    # TODO validatorIdentities/validatorStatuses not tested
     validatorIdentities: diffValidatorIdentities(state1, state0.validators.len),
     validatorStatuses: getValidatorStatuses(state1),
     balances: state1.balances,
 
+    # RANDAO mixes gets updated every block, in place, so ensure there's always
+    # >=1 value from it
     randao_mixes: diffModIncrement[Eth2Digest, EPOCHS_PER_HISTORICAL_VECTOR.int64](
       state1.randao_mixes, state0.slot.compute_epoch_at_slot.uint64,
-      state1.slot.compute_epoch_at_slot.uint64),
+      state1.slot.compute_epoch_at_slot.uint64 + 1),
     slashings: diffModIncrement[uint64, EPOCHS_PER_SLASHINGS_VECTOR.int64](
       state1.slashings, state0.slot.compute_epoch_at_slot.uint64,
       state1.slot.compute_epoch_at_slot.uint64),
@@ -126,17 +130,16 @@ func diffState(state0, state1: BeaconState): BeaconStateDiff =
     finalized_checkpoint: state1.finalized_checkpoint
   )
 
-func applyDiff(state: var BeaconState, stateDiff: BeaconStateDiff) =
+func applyDiff*(state: var BeaconState, stateDiff: BeaconStateDiff) =
   state.genesis_time = stateDiff.genesis_time
   state.genesis_validators_root = stateDiff.genesis_validators_root
-  state.slot = stateDiff.slot
   state.fork = stateDiff.fork
   state.latest_block_header = stateDiff.latest_block_header
 
   applyModIncrement[Eth2Digest, SLOTS_PER_HISTORICAL_ROOT.int64](
-    state.block_roots, stateDiff.block_roots, state.slot)
+    state.block_roots, stateDiff.block_roots, state.slot.uint64)
   applyModIncrement[Eth2Digest, SLOTS_PER_HISTORICAL_ROOT.int64](
-    state.state_roots, stateDiff.state_roots, state.slot)
+    state.state_roots, stateDiff.state_roots, state.slot.uint64)
   applyAppend[Eth2Digest, HISTORICAL_ROOTS_LIMIT.int64](
     state.historical_roots, stateDiff.historical_roots)
 
@@ -148,10 +151,12 @@ func applyDiff(state: var BeaconState, stateDiff: BeaconStateDiff) =
   setValidatorStatuses(state.validators, stateDiff.validator_statuses)
   state.balances = stateDiff.balances
 
+  # RANDAO mixes gets updated every block, in place, so ensure there's always
+  # >=1 value from it
   applyModIncrement[Eth2Digest, EPOCHS_PER_HISTORICAL_VECTOR.int64](
-    state.randao_mixes, stateDiff.randao_mixes, state.slot)
+    state.randao_mixes, stateDiff.randao_mixes, state.slot.epoch.uint64 + 1)
   applyModIncrement[uint64, EPOCHS_PER_SLASHINGS_VECTOR.int64](
-    state.slashings, stateDiff.slashings, state.slot)
+    state.slashings, stateDiff.slashings, state.slot.epoch.uint64)
 
   state.previous_epoch_attestations = stateDiff.previous_epoch_attestations
   state.current_epoch_attestations = stateDiff.current_epoch_attestations
@@ -161,4 +166,6 @@ func applyDiff(state: var BeaconState, stateDiff: BeaconStateDiff) =
   state.current_justified_checkpoint = stateDiff.current_justified_checkpoint
   state.finalized_checkpoint = stateDiff.finalized_checkpoint
 
-# TODO test round-trip and hook into storage
+  # Don't update slot until the end, because various other updates depend on it
+  state.slot = stateDiff.slot
+# TODO: hook into storage
