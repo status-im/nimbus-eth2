@@ -389,6 +389,10 @@ proc pruneOldBlocks(m: Eth1Monitor, depositIndex: uint64) =
       eth1Block: lastBlock.voteData.block_hash,
       depositContractState: m.eth2FinalizedDepositsMerkleizer.toDepositContractState)
 
+    debug "Eth1 blocks pruned",
+           newTailBlock = lastBlock.voteData.block_hash,
+           depositsCount = lastBlock.voteData.deposit_count
+
 proc advanceMerkleizer(eth1Chain: Eth1Chain,
                        merkleizer: var DepositsMerkleizer,
                        depositIndex: uint64): bool =
@@ -434,39 +438,61 @@ proc getDepositsRange(eth1Chain: Eth1Chain, first, last: uint64): seq[Deposit] =
       if globalIdx >= first and globalIdx < last:
         result.add Deposit(data: blk.deposits[i])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#get_eth1_data
-proc getBlockProposalData*(m: Eth1Monitor,
-                           state: BeaconState,
-                           finalizedEth1Data: Eth1Data,
-                           finalizedStateDepositIndex: uint64): BlockProposalEth1Data =
-  let finalizedEth1Block = m.eth1Chain.findBlock(finalizedEth1Data)
-  let hasLatestDeposits = if finalizedEth1Block != nil:
-    if finalizedEth1Block.voteData.deposit_root == finalizedEth1Data.deposit_root:
-      finalizedEth1Block.voteDataVerified = true
+proc lowerBound(chain: Eth1Chain, depositCount: uint64): Eth1Block =
+  # TODO: This can be replaced with a proper binary search in the
+  #       future, but the `algorithm` module currently requires an
+  #       `openArray`, which the `deques` module can't provide yet.
+  for eth1Block in chain.blocks:
+    if eth1Block.voteData.deposit_count > depositCount:
+      return
+    result = eth1Block
+
+proc trackFinalizedState*(m: Eth1Monitor,
+                          finalizedEth1Data: Eth1Data,
+                          finalizedStateDepositIndex: uint64): bool =
+  # Returns true if the Eth1Monitor is synced to the finalization point
+  if m.eth1Chain.blocks.len == 0:
+    debug "Eth1 chain not initialized"
+    return false
+
+  let latest = m.eth1Chain.blocks.peekLast
+  if latest.voteData.deposit_count < finalizedEth1Data.deposit_count:
+    debug "Eth1 chain not synced",
+          ourDepositsCount = latest.voteData.deposit_count,
+          targetDepositsCount = finalizedEth1Data.deposit_count
+    return false
+
+  let matchingBlock = m.eth1Chain.lowerBound(finalizedEth1Data.deposit_count)
+  result = if matchingBlock != nil:
+    if matchingBlock.voteData.deposit_root == finalizedEth1Data.deposit_root:
+      matchingBlock.voteDataVerified = true
       true
     else:
       error "Corrupted deposits history detected",
+            depositsCount = finalizedEth1Data.deposit_count,
             targetDepositsRoot = finalizedEth1Data.deposit_root,
-            targetDepositsCount = finalizedEth1Data.deposit_count,
-            ourDepositsCount = finalizedEth1Block.voteData.deposit_count,
-            ourDepositsRoot = finalizedEth1Block.voteData.deposit_root
+            ourDepositsRoot = matchingBlock.voteData.deposit_root
       false
   else:
-    debug "Finalized Eth1 checkpoint not present in local chain",
+    error "The Eth1 chain is in inconsistent state",
           checkpointHash = finalizedEth1Data.block_hash,
           checkpointDeposits = finalizedEth1Data.deposit_count,
           localChainStart = shortLog(m.eth1Chain.blocks.peekFirst),
           localChainEnd = shortLog(m.eth1Chain.blocks.peekLast)
     false
 
-  if hasLatestDeposits:
-    # TODO(zah)
-    # To make block proposal cheaper, we can perform this action more regularly
-    # (e.g. in BeaconNode.onSlot). But keep in mind that this action needs to be
-    # performed only when there are validators attached to the node.
+  if result:
     m.pruneOldBlocks(finalizedStateDepositIndex)
 
-  let periodStart = voting_period_start_time(state)
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#get_eth1_data
+proc getBlockProposalData*(m: Eth1Monitor,
+                           state: BeaconState,
+                           finalizedEth1Data: Eth1Data,
+                           finalizedStateDepositIndex: uint64): BlockProposalEth1Data =
+  let
+    periodStart = voting_period_start_time(state)
+    hasLatestDeposits = m.trackFinalizedState(finalizedEth1Data,
+                                              finalizedStateDepositIndex)
 
   var otherVotesCountTable = initCountTable[Eth1Data]()
   for vote in state.eth1_data_votes:
@@ -648,11 +674,6 @@ proc syncBlockRange(m: Eth1Monitor,
     debug.logTime "Deposits grouped in blocks":
       let blocksWithDeposits = depositEventsToBlocks(depositLogs)
 
-    var
-      # A temporary sequence for stroing all new blocks aiming to make the
-      # updates to m.eth1Chain more atomic/transactional.
-      blocksToAddToChain = newSeq[Eth1Block]()
-
     for i in 0 ..< blocksWithDeposits.len:
       let blk = blocksWithDeposits[i]
 
@@ -664,14 +685,13 @@ proc syncBlockRange(m: Eth1Monitor,
         blk.voteData.deposit_root = merkleizer[].getDepositsRoot
 
       if blk.number > fullSyncFromBlock:
-        let lastBlock = if blocksToAddToChain.len > 0: blocksToAddToChain[^1]
-                        else: m.eth1Chain.blocks.peekLast
+        let lastBlock = m.eth1Chain.blocks.peekLast
         for n in max(lastBlock.number + 1, fullSyncFromBlock) ..< blk.number:
           let blockWithoutDeposits = await m.dataProvider.getBlockByNumber(n)
-          blocksToAddToChain.add(
+          m.eth1Chain.addBlock(
             lastBlock.makeSuccessorWithoutDeposits(blockWithoutDeposits))
 
-      blocksToAddToChain.add blk
+      m.eth1Chain.addBlock blk
 
     if blocksWithDeposits.len > 0:
       let lastIdx = blocksWithDeposits.len - 1
@@ -697,17 +717,13 @@ proc syncBlockRange(m: Eth1Monitor,
         raise newException(CorruptDataProvider,
           "The deposit log events disagree with the deposit contract state")
       of VerifiedCorrect:
-        for blk in blocksToAddToChain:
-          blk.voteDataVerified = true
+        lastBlock.voteDataVerified = true
       else:
         discard
 
       notice "Eth1 sync progress",
         blockNumber = lastBlock.number,
         depositsProcessed = lastBlock.voteData.deposit_count
-
-    for blk in blocksToAddToChain:
-      m.eth1Chain.addBlock blk
 
     when hasGenesisDetection:
       if m.genesisStateFut != nil:
@@ -797,6 +813,8 @@ proc startEth1Syncing(m: Eth1Monitor) {.async.} =
 
   var eth1SyncedTo = Eth1BlockNumber startBlock.number
   var scratchMerkleizer = newClone(copy m.eth2FinalizedDepositsMerkleizer)
+
+  debug "Starting Eth1 syncing", `from` = shortLog(m.eth1Chain.blocks[0])
 
   while true:
     if bnStatus == BeaconNodeStatus.Stopping:
