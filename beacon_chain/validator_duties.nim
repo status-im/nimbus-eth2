@@ -264,10 +264,9 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
 proc proposeSignedBlock*(node: BeaconNode,
                          head: BlockRef,
                          validator: AttachedValidator,
-                         newBlock: SignedBeaconBlock): Future[BlockRef] {.async.} =
+                         newBlock: SignedBeaconBlock): BlockRef =
 
-  let newBlockRef = node.chainDag.addRawBlock(node.quarantine,
-                                                    newBlock) do (
+  let newBlockRef = node.chainDag.addRawBlock(node.quarantine, newBlock) do (
       blckRef: BlockRef, signedBlock: SignedBeaconBlock,
       epochRef: EpochRef, state: HashedBeaconState):
     # Callback add to fork choice if valid
@@ -348,7 +347,7 @@ proc proposeBlock(node: BeaconNode,
   newBlock.signature = await validator.signBlockProposal(
     fork, genesis_validators_root, slot, newBlock.root)
 
-  return await node.proposeSignedBlock(head, validator, newBlock)
+  return node.proposeSignedBlock(head, validator, newBlock)
 
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   ## Perform all attestations that the validators attached to this node should
@@ -688,3 +687,9 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
       aggregationHead = get_ancestor(head, aggregationSlot)
 
     await broadcastAggregatedAttestations(node, aggregationHead, aggregationSlot)
+
+  if node.eth1Monitor != nil and (slot mod SLOTS_PER_EPOCH) == 0:
+    let finalizedEpochRef = node.chainDag.getFinalizedEpochRef()
+    discard node.eth1Monitor.trackFinalizedState(
+      finalizedEpochRef.eth1_data, finalizedEpochRef.eth1_deposit_index)
+
