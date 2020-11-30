@@ -190,12 +190,12 @@ nim_gc_heap_instance_occupied_bytes{type_name=&quot;seq[TrustedAttestation]&quot
 <p>The following steps will take you through how to use Prometheus and Grafana to spin up a beautiful and useful monitoring dashboard for your validator and beacon node.</p>
 <h3><a class="header" href="#steps" id="steps">Steps</a></h3>
 <h4><a class="header" href="#1-download-prometheus" id="1-download-prometheus">1. Download Prometheus</a></h4>
-<p>Download and extract the <a href="https://prometheus.io/download/">latest release</a> of Prometheus for your platform:</p>
+<p>Use your favourite package manager to download Prometheus -- for example <code>apt-get install prometheus</code> on Ubuntu, or <code>brew install prometheus</code> on MacOS, should do the trick.</p>
+<blockquote>
+<p>If you don't use a package manager, you can download the <a href="https://prometheus.io/download/">latest release</a> of directly from Prometheus website. To extract it, run:</p>
 <pre><code>tar xvfz prometheus-*.tar.gz
 cd prometheus-*
 </code></pre>
-<blockquote>
-<p><strong>Note:</strong> If you use a package manager, you can also download Prometheus that way -- for example <code>apt-get install prometheus</code> on Ubuntu, or <code>brew install prometheus</code> on MacOS, should do the trick.</p>
 </blockquote>
 <h4><a class="header" href="#2-copy-the-binary" id="2-copy-the-binary">2. Copy the binary</a></h4>
 <p>The Prometheus server is a single binary called prometheus (or prometheus.exe on Microsoft Windows). Copy it over to <a href="https://unix.stackexchange.com/questions/4186/what-is-usr-local-bin"><code>/usr/local/bin</code></a></p>
@@ -205,7 +205,7 @@ cd prometheus-*
 <p>Prometheus relies on a YAML configuration file to let it know where, and how often, to scrape data.</p>
 <p>Example config file:</p>
 <pre><code>global:
-  scrape_interval: 1s
+  scrape_interval: 6s
 
 scrape_configs:
   - job_name: &quot;nimbus&quot;
@@ -218,7 +218,6 @@ scrape_configs:
 <p>Save the above as <code>prometheus.yml</code> in the <code>nimbus-eth2</code> repo.</p>
 <p>Then run Prometheus:</p>
 <pre><code>prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
-# when starting multiple nodes at the same time, just use the config file from the one with the highest ID
 </code></pre>
 <h4><a class="header" href="#4-download-grafana" id="4-download-grafana">4. Download Grafana</a></h4>
 <p><a href="(https://grafana.com/grafana/download?platform=linux)">Download the latest release</a> of Grafana for your platform.</p>
