@@ -17,6 +17,18 @@ You can even create an account ([testnet link](https://pyrmont.beaconcha.in/regi
 
 On startup, you should see a log message that reads `Local validator attached`. This has a `pubKey` field which should the public key of your validator.
 
+## Check your IP address
+
+Check that Nimbus has recognised your external IP properly. To do this, look at the end of the first log line:
+
+```
+Starting discovery node","topics":"discv5","tid":2665484,"file":"protocol.nim:802","node":"b9*ee2235:<IP address>:9000"
+```
+
+`<IP address>` should match your external IP (the IP by which you can be reached from the internet).
+
+Note that the port number is displayed directly after the IP -- in the above case `9000`. This is the port that should be opened and mapped.
+
 ## Keep track of your syncing progress
 
 To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running. You should see something like:
