@@ -20,9 +20,9 @@
 - [Raspberry Pi: Mainnet advice](./pi-guide-mainnet.md)
 - [Graffiti the blockchain](./graffiti.md)
 - [Your own Infura endpoint](infura-guide.md)
+- [Perform a voluntary exit](voluntary-exit.md)
 - [Run just the beacon node]()
 - [Switch between clients]()
-- [Useful pre-genesis checks]()
 # Volume 3
 - [Advanced options]()
 - [Windows users]()

@@ -32,3 +32,6 @@ To avoid exposing your validator identity to the network, we recommend you use a
 
 Ad a final check, we recommend you also go through the EF'S [staker checklist](https://launchpad.ethereum.org/checklist).
 
+## Email notifications
+
+You can use [beaconcha.in](https://beaconcha.in/) to set up email notifications in case your validator goes offline.

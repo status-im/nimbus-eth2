@@ -1,21 +1,33 @@
 # Import your keys
 
-To import your signing key(s) into Nimbus, from the `nimbus-eth2` directory run:
-
+To import your signing key(s) into Nimbus, copy the `validator_keys` directory -- the directory that was created for you when you generated your keys -- into `nimbus-eth2`. Then run:
 
 **Pyrmont**
 ```
-build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_pyrmont_0 "<YOUR VALIDATOR KEYS DIRECTORY>"
- ```
- 
- **Mainnet**
- ```
-build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_mainnet_0 "<YOUR VALIDATOR KEYS DIRECTORY>"
+build/nimbus_beacon_node deposits import --data-dir=build/data/shared_pyrmont_0
 ```
- 
- Replacing `<YOUR VALIDATOR KEYS DIRECTORY>` with the full pathname of the `validator_keys` directory that was created when you generated your keys using the [command line app](https://github.com/ethereum/eth2.0-deposit-cli/releases/).
+
+**Mainnet**
+```
+build/nimbus_beacon_node deposits import --data-dir=build/data/shared_mainnet_0
+```
+
+>**Note:** You can also specify a different path to your validator_keys directory as follows:
+>
+>*Pyrmont*
+>```
+>build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_pyrmont_0 "<YOUR VALIDATOR KEYS DIRECTORY>"
+> ```
+> 
+> *Mainnet*
+> ```
+>build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_mainnet_0 "<YOUR VALIDATOR KEYS DIRECTORY>"
+>```
+> 
+> Replacing `<YOUR VALIDATOR KEYS DIRECTORY>` with the full pathname of the `validator_keys` directory that was created when you generated your keys using the [command line app](https://github.com/ethereum/eth2.0-deposit-cli/releases/).
  
  > **Tip:** run `pwd` in your `validator_keys` directory to print the full pathname to the console (if you're on Windows, run `cd` instead).
+ 
  
  You'll be asked to enter the password you created to encrypt your keystore(s).
  
