@@ -50,14 +50,15 @@ The following steps will take you through how to use Prometheus and Grafana to s
 
 #### 1. Download Prometheus
 
-Download and extract the [latest release](https://prometheus.io/download/) of Prometheus for your platform:
+Use your favourite package manager to download Prometheus -- for example `apt-get install prometheus` on Ubuntu, or `brew install prometheus` on MacOS, should do the trick.
 
-```
-tar xvfz prometheus-*.tar.gz
-cd prometheus-*
-```
+> If you don't use a package manager, you can download the [latest release](https://prometheus.io/download/) of directly from Prometheus website. To extract it, run:
+> 
+> ```
+> tar xvfz prometheus-*.tar.gz
+> cd prometheus-*
+> ```
 
->**Note:** If you use a package manager, you can also download Prometheus that way -- for example `apt-get install prometheus` on Ubuntu, or `brew install prometheus` on MacOS, should do the trick.
 
 #### 2. Copy the binary
 
@@ -75,7 +76,7 @@ Example config file:
 
 ```
 global:
-  scrape_interval: 1s
+  scrape_interval: 6s
 
 scrape_configs:
   - job_name: "nimbus"
@@ -92,7 +93,6 @@ Then run Prometheus:
 
 ```
 prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
-# when starting multiple nodes at the same time, just use the config file from the one with the highest ID
 ```
 
 #### 4. Download Grafana
