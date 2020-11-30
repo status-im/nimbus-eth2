@@ -5,7 +5,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[parseutils, sequtils, strutils],
+  std/[parseutils, sequtils, strutils, deques],
 
   json_rpc/[rpcserver, jsonmarshal],
   chronicles,
@@ -245,20 +245,35 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     node.sendAttestation(attestation)
     return true
 
-  rpcServer.rpc("get_v1_beacon_pool_attester_slahsings") do () -> JsonNode:
+  rpcServer.rpc("get_v1_beacon_pool_attester_slashings") do (
+      ) -> seq[AttesterSlashing]:
+    let length = len(node.exitPool.attester_slashings)
+    var res = newSeqOfCap[AttesterSlashing](length)
+    for item in node.exitPool.attester_slashings.items():
+      res.add(item)
+    return res
+
+  rpcServer.rpc("post_v1_beacon_pool_attester_slashings") do () -> JsonNode:
     unimplemented()
 
-  rpcServer.rpc("post_v1_beacon_pool_attester_slahsings") do () -> JsonNode:
-    unimplemented()
-
-  rpcServer.rpc("get_v1_beacon_pool_proposer_slashings") do () -> JsonNode:
-    unimplemented()
+  rpcServer.rpc("get_v1_beacon_pool_proposer_slashings") do (
+      ) -> seq[ProposerSlashing]:
+    let length = len(node.exitPool.proposer_slashings)
+    var res = newSeqOfCap[ProposerSlashing](length)
+    for item in node.exitPool.proposer_slashings.items():
+      res.add(item)
+    return res
 
   rpcServer.rpc("post_v1_beacon_pool_proposer_slashings") do () -> JsonNode:
     unimplemented()
 
-  rpcServer.rpc("get_v1_beacon_pool_voluntary_exits") do () -> JsonNode:
-    unimplemented()
+  rpcServer.rpc("get_v1_beacon_pool_voluntary_exits") do (
+      ) -> seq[SignedVoluntaryExit]:
+    let length = len(node.exitPool.voluntary_exits)
+    var res = newSeqOfCap[SignedVoluntaryExit](length)
+    for item in node.exitPool.voluntary_exits.items():
+      res.add(item)
+    return res
 
   rpcServer.rpc("post_v1_beacon_pool_voluntary_exits") do (
       exit: SignedVoluntaryExit) -> bool:
