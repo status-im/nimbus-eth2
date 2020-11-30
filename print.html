@@ -449,6 +449,12 @@ NOT 2020-11-18 11:20:02.091+01:00 Local validator attached
 <hr />
 <h2><a class="header" href="#make-sure-your-validator-is-attached" id="make-sure-your-validator-is-attached">Make sure your validator is attached</a></h2>
 <p>On startup, you should see a log message that reads <code>Local validator attached</code>. This has a <code>pubKey</code> field which should the public key of your validator.</p>
+<h2><a class="header" href="#check-your-ip-address" id="check-your-ip-address">Check your IP address</a></h2>
+<p>Check that Nimbus has recognised your external IP properly. To do this, look at the end of the first log line:</p>
+<pre><code>Starting discovery node&quot;,&quot;topics&quot;:&quot;discv5&quot;,&quot;tid&quot;:2665484,&quot;file&quot;:&quot;protocol.nim:802&quot;,&quot;node&quot;:&quot;b9*ee2235:&lt;IP address&gt;:9000&quot;
+</code></pre>
+<p><code>&lt;IP address&gt;</code> should match your external IP (the IP by which you can be reached from the internet).</p>
+<p>Note that the port number is displayed directly after the IP -- in the above case <code>9000</code>. This is the port that should be opened and mapped.</p>
 <h2><a class="header" href="#keep-track-of-your-syncing-progress" id="keep-track-of-your-syncing-progress">Keep track of your syncing progress</a></h2>
 <p>To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running. You should see something like:</p>
 <pre><code>peers: 35 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:7 (316807) ❯ sync: wPwwwwwDwwDPwPPPwwww:7:4.2313:4.0627:03h01m(280512)
@@ -495,7 +501,7 @@ NOT 2020-11-18 11:20:02.091+01:00 Local validator attached
 <p><strong>Note:</strong> If you are setting up your client before launch, it is your responsibility  to check for any new software releases in the run up to launch. At the minimum you should check the <a href="https://github.com/status-im/nimbus-eth2/releases">release page</a> weekly.</p>
 </blockquote>
 <h2><a class="header" href="#more-than-20-peers" id="more-than-20-peers">More than 20 peers</a></h2>
-<p>Please check that your node has at least 20 peers. See <a href="keep-an-eye.html#keep-track-of-your-syncing-progress">the footer</a> at the bottom of the terminal window for your peer count.</p>
+<p>Please check that your node has at least 15 peers. See <a href="keep-an-eye.html#keep-track-of-your-syncing-progress">the footer</a> at the bottom of the terminal window for your peer count.</p>
 <h2><a class="header" href="#validator-attached" id="validator-attached">Validator attached</a></h2>
 <p>Please check that your <a href="keep-an-eye.html#make-sure-your-validator-is-attached">validator is attached</a> to your node.</p>
 <h2><a class="header" href="#vpn" id="vpn">VPN</a></h2>
