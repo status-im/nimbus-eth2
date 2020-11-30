@@ -65,3 +65,8 @@ type
     connecting: int
     connected: int
     disconnecting: int
+
+  AttestationTuple* = tuple
+    aggregation_bits: string
+    data: AttestationData
+    signature: ValidatorSig

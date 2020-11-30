@@ -9,6 +9,7 @@ import
 
   json_rpc/[rpcserver, jsonmarshal],
   chronicles,
+  nimcrypto/utils as ncrutils,
   ../beacon_node_common, ../eth2_json_rpc_serialization, ../eth2_network,
   ../validator_duties,
   ../block_pools/chain_dag, ../exit_pool,
@@ -238,7 +239,10 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     return node.getBlockDataFromBlockId(blockId).data.message.body.attestations.asSeq
 
   rpcServer.rpc("get_v1_beacon_pool_attestations") do (
-    slot: Option[string], committee_index: Option[string]) -> seq[Attestation]:
+    slot: Option[string], committee_index: Option[string]) ->
+    seq[AttestationTuple]:
+
+    var res: seq[AttestationTuple]
 
     let qslot =
       if slot.isSome():
@@ -260,7 +264,15 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       else:
         none[CommitteeIndex]()
 
-    return node.attestationPool[].getAttestations(qslot, qindex)
+    for item in node.attestationPool[].attestations(qslot, qindex):
+      let atuple = (
+        aggregation_bits: "0x" & ncrutils.toHex(item.aggregation_bits.bytes),
+        data: item.data,
+        signature: item.signature
+      )
+      res.add(atuple)
+
+    return res
 
   rpcServer.rpc("post_v1_beacon_pool_attestations") do (
       attestation: Attestation) -> bool:
