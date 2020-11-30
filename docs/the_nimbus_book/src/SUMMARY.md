@@ -11,6 +11,7 @@
 - [Keep an eye on your validator](./keep-an-eye.md)
 - [Keep Nimbus updated](./keep-updated.md)
 - [Mainnet preparations](./preparation.md)
+- [Email notifications](./email-notifications.md)
 # Volume 2
 - [Command line options](./options.md)
 - [Troubleshooting](./troubleshooting.md)
