@@ -247,41 +247,66 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
 
   rpcServer.rpc("get_v1_beacon_pool_attester_slashings") do (
       ) -> seq[AttesterSlashing]:
+    var res: seq[AttesterSlashing]
+    if isNil(node.exitPool):
+      return res
     let length = len(node.exitPool.attester_slashings)
-    var res = newSeqOfCap[AttesterSlashing](length)
+    res = newSeqOfCap[AttesterSlashing](length)
     for item in node.exitPool.attester_slashings.items():
       res.add(item)
     return res
 
-  rpcServer.rpc("post_v1_beacon_pool_attester_slashings") do () -> JsonNode:
-    unimplemented()
+  rpcServer.rpc("post_v1_beacon_pool_attester_slashings") do (
+      slashing: AttesterSlashing) -> bool:
+    if isNil(node.exitPool):
+      raise newException(CatchableError, "Exit pool is not yet available!")
+    let validity = node.exitPool[].validateAttesterSlashing(slashing)
+    if validity.isOk:
+      node.sendAttesterSlashing(slashing)
+    else:
+      raise newException(CatchableError, $(validity.error[1]))
+    return true
 
   rpcServer.rpc("get_v1_beacon_pool_proposer_slashings") do (
       ) -> seq[ProposerSlashing]:
+    var res: seq[ProposerSlashing]
+    if isNil(node.exitPool):
+      return res
     let length = len(node.exitPool.proposer_slashings)
-    var res = newSeqOfCap[ProposerSlashing](length)
+    res = newSeqOfCap[ProposerSlashing](length)
     for item in node.exitPool.proposer_slashings.items():
       res.add(item)
     return res
 
-  rpcServer.rpc("post_v1_beacon_pool_proposer_slashings") do () -> JsonNode:
-    unimplemented()
+  rpcServer.rpc("post_v1_beacon_pool_proposer_slashings") do (
+      slashing: ProposerSlashing) -> bool:
+    if isNil(node.exitPool):
+      raise newException(CatchableError, "Exit pool is not yet available!")
+    let validity = node.exitPool[].validateProposerSlashing(slashing)
+    if validity.isOk:
+      node.sendProposerSlashing(slashing)
+    else:
+      raise newException(CatchableError, $(validity.error[1]))
+    return true
 
   rpcServer.rpc("get_v1_beacon_pool_voluntary_exits") do (
       ) -> seq[SignedVoluntaryExit]:
+    var res: seq[SignedVoluntaryExit]
+    if isNil(node.exitPool):
+      return res
     let length = len(node.exitPool.voluntary_exits)
-    var res = newSeqOfCap[SignedVoluntaryExit](length)
+    res = newSeqOfCap[SignedVoluntaryExit](length)
     for item in node.exitPool.voluntary_exits.items():
       res.add(item)
     return res
 
   rpcServer.rpc("post_v1_beacon_pool_voluntary_exits") do (
       exit: SignedVoluntaryExit) -> bool:
-    doAssert node.exitPool != nil
+    if isNil(node.exitPool):
+      raise newException(CatchableError, "Exit pool is not yet available!")
     let validity = node.exitPool[].validateVoluntaryExit(exit)
     if validity.isOk:
       node.sendVoluntaryExit(exit)
     else:
-      raise newException(ValueError, $(validity.error[1]))
+      raise newException(CatchableError, $(validity.error[1]))
     return true
-
