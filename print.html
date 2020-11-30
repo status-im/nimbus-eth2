@@ -476,6 +476,9 @@ NOT 2020-11-18 11:20:02.091+01:00 Local validator attached
     U - updating peer's status information
 </code></pre>
 <p>The number following it (in the above case represented by <code>7</code>) represents the number of workers that are currently active (i.e not sleeping or waiting for a peer).</p>
+<blockquote>
+<p><strong>Note:</strong> If you're running Nimbus as a service, the above status bar won't be visible to you. You can use you the RPC calls outlined in the <a href="./api.html">API page</a> to retrieve similar information.</p>
+</blockquote>
 <h2><a class="header" href="#eth2stats" id="eth2stats">eth2stats</a></h2>
 <p>eth2stats is a network monitoring suite for your beacon node + validator client. One good pre-genesis check is to query your local node's API to see if you have peers. See our guide <a href="./eth2-stats.html">here</a> for more.</p>
 <h1><a class="header" href="#keep-nimbus-updated" id="keep-nimbus-updated">Keep Nimbus updated</a></h1>
