@@ -50,6 +50,10 @@ Limiting the maximum stake to 32 ETH encourages decentralization of power as it 
 
 Yes but, under normal conditions, you will lose an amount of ETH roughly equivalent to the amount of ETH you would have gained in that period. In other words, if you stood to earn ≈0.01 ETH, you would instead be penalised ≈0.01 ETH.
 
+## I want to switch my validator keys to another machine, how long do I need to wait to avoid getting slashed?
+
+We recommend waiting 2 epochs (around 15 minutes), before restarting Nimbus on a different machine. 
+
 ## When should I top up my validator's balance?
 
 The answer to this question very much depends on how much ETH you have at your disposal.
