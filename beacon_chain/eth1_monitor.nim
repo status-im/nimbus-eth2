@@ -31,7 +31,7 @@ contract(DepositContract):
 
 const
   web3Timeouts = 60.seconds
-  hasDepositRootChecks = true # defined(has_deposit_root_checks)
+  hasDepositRootChecks = defined(has_deposit_root_checks)
   hasGenesisDetection* = defined(has_genesis_detection)
 
 type
@@ -276,16 +276,16 @@ proc fetchTimestamp(p: Web3DataProviderRef, blk: Eth1Block) {.async.} =
   let web3block = await p.getBlockByHash(blk.voteData.block_hash.asBlockHash)
   blk.timestamp = Eth1BlockTimestamp web3block.timestamp
 
-when hasDepositRootChecks:
-  type
-    DepositContractDataStatus = enum
-      Fetched
-      VerifiedCorrect
-      DepositRootIncorrect
-      DepositRootUnavailable
-      DepositCountIncorrect
-      DepositCountUnavailable
+type
+  DepositContractDataStatus = enum
+    Fetched
+    VerifiedCorrect
+    DepositRootIncorrect
+    DepositRootUnavailable
+    DepositCountIncorrect
+    DepositCountUnavailable
 
+when hasDepositRootChecks:
   const
     contractCallTimeout = seconds(60)
 
@@ -655,6 +655,10 @@ proc syncBlockRange(m: Eth1Monitor,
             toBlock = maxBlockNumberRequested
 
       debug.logTime "Deposit logs obtained":
+        # Reduce all request rate until we have a more general solution
+        # for dealing with Infura's rate limits
+        await sleepAsync(milliseconds(100))
+
         let jsonLogsFut = m.dataProvider.ns.getJsonLogs(
           DepositEvent,
           fromBlock = some blockId(currentBlock),
@@ -671,18 +675,16 @@ proc syncBlockRange(m: Eth1Monitor,
       currentBlock = maxBlockNumberRequested + 1
       break
 
-    debug.logTime "Deposits grouped in blocks":
-      let blocksWithDeposits = depositEventsToBlocks(depositLogs)
+    let blocksWithDeposits = depositEventsToBlocks(depositLogs)
 
     for i in 0 ..< blocksWithDeposits.len:
       let blk = blocksWithDeposits[i]
 
-      debug.logTime "New deposit_root computed":
-        for deposit in blk.deposits:
-          merkleizer[].addChunk hash_tree_root(deposit).data
+      for deposit in blk.deposits:
+        merkleizer[].addChunk hash_tree_root(deposit).data
 
-        blk.voteData.deposit_count = merkleizer[].getChunkCount
-        blk.voteData.deposit_root = merkleizer[].getDepositsRoot
+      blk.voteData.deposit_count = merkleizer[].getChunkCount
+      blk.voteData.deposit_root = merkleizer[].getDepositsRoot
 
       if blk.number > fullSyncFromBlock:
         let lastBlock = m.eth1Chain.blocks.peekLast
