@@ -327,33 +327,43 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     return res
 
   rpcServer.rpc("get_v1_beacon_states_stateId_committees_epoch") do (
-      stateId: string, epoch: uint64, index: uint64, slot: uint64) ->
-      seq[BeaconStatesCommitteesTuple]:
-    checkEpochToSlotOverflow(epoch.Epoch)
+      stateId: string, epoch: Option[uint64], index: Option[uint64],
+      slot: Option[uint64]) -> seq[BeaconStatesCommitteesTuple]:
     withStateForStateId(stateId):
-      proc getCommittee(slot: Slot, index: CommitteeIndex): BeaconStatesCommitteesTuple =
+      proc getCommittee(slot: Slot,
+                        index: CommitteeIndex): BeaconStatesCommitteesTuple =
         let vals = get_beacon_committee(state, slot, index, cache).mapIt(it.uint64)
         return (index: index.uint64, slot: slot.uint64, validators: vals)
 
       proc forSlot(slot: Slot, res: var seq[BeaconStatesCommitteesTuple]) =
         let committees_per_slot =
           get_committee_count_per_slot(state, slot.epoch, cache)
-        if index == 0: # parameter is missing (it's optional)
+
+        if index.isNone:
           for committee_index in 0'u64..<committees_per_slot:
             res.add(getCommittee(slot, committee_index.CommitteeIndex))
         else:
-          if index >= committees_per_slot:
-            raise newException(ValueError, "Committee index out of bounds")
-          res.add(getCommittee(slot, index.CommitteeIndex))
+          if index.get() < committees_per_slot:
+            res.add(getCommittee(slot, CommitteeIndex(index.get())))
 
-      if slot == 0: # parameter is missing (it's optional)
+      var res: seq[BeaconStatesCommitteesTuple]
+
+      let qepoch =
+        if epoch.isNone:
+          compute_epoch_at_slot(state.slot)
+        else:
+          Epoch(epoch.get())
+
+      if slot.isNone:
         for i in 0 ..< SLOTS_PER_EPOCH:
-          forSlot(compute_start_slot_at_epoch(epoch.Epoch) + i, result)
+          forSlot(compute_start_slot_at_epoch(qepoch) + i, res)
       else:
-        forSlot(slot.Slot, result)
+        forSlot(Slot(slot.get()), res)
+
+      return res
 
   rpcServer.rpc("get_v1_beacon_headers") do (
-      slot: Option[string], parent_root: Option[string]) ->
+      slot: Option[uint64], parent_root: Option[string]) ->
       seq[BeaconHeadersTuple]:
     unimplemented()
 
@@ -407,28 +417,20 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     return node.getBlockDataFromBlockId(blockId).data.message.body.attestations.asSeq
 
   rpcServer.rpc("get_v1_beacon_pool_attestations") do (
-      slot: Option[string], committee_index: Option[string]) ->
+      slot: Option[uint64], committee_index: Option[uint64]) ->
       seq[AttestationTuple]:
 
     var res: seq[AttestationTuple]
 
     let qslot =
       if slot.isSome():
-        var tmp: uint64
-        let sslot = slot.get()
-        if parseBiggestUInt(sslot, tmp) != len(sslot):
-          raise newException(CatchableError, "Incorrect slot number")
-        some(Slot(tmp))
+        some(Slot(slot.get()))
       else:
         none[Slot]()
 
     let qindex =
       if committee_index.isSome():
-        var tmp: uint64
-        let scommittee_index = committee_index.get()
-        if parseBiggestUInt(scommittee_index, tmp) != len(scommittee_index):
-          raise newException(CatchableError, "Incorrect committee_index number")
-        some(CommitteeIndex(tmp))
+        some(CommitteeIndex(committee_index.get()))
       else:
         none[CommitteeIndex]()
 
