@@ -5,8 +5,8 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[parseutils, sequtils, strutils, deques],
-
+  std/[parseutils, sequtils, strutils, deques, sets],
+  stew/results,
   json_rpc/[rpcserver, jsonmarshal],
   chronicles,
   nimcrypto/utils as ncrutils,
@@ -23,6 +23,10 @@ logScope: topics = "beaconapi"
 type
   RpcServer = RpcHttpServer
 
+  ValidatorQuery = object
+    keyset: HashSet[ValidatorPubKey]
+    ids: seq[uint64]
+
 template unimplemented() =
   raise (ref CatchableError)(msg: "Unimplemented")
 
@@ -36,6 +40,36 @@ proc parsePubkey(str: string): ValidatorPubKey =
   if pubkeyRes.isErr:
     raise newException(CatchableError, "Not a valid public key")
   return pubkeyRes[]
+
+proc createQuery(ids: seq[string]): Result[ValidatorQuery, string] =
+  # validatorIds array should have maximum 30 items, and all items should be
+  # unique.
+  if len(ids) > 30:
+    return err("The number of ids exceeds the limit")
+
+  # All ids in validatorIds must be unique.
+  if len(ids) != len(toHashSet(ids)):
+    return err("ids array must have unique item")
+
+  var res = ValidatorQuery(
+    keyset: initHashSet[ValidatorPubKey](),
+    ids: newSeq[uint64]()
+  )
+
+  for item in ids:
+    if item.startsWith("0x"):
+      if len(item) != RawPubKeySize * 2 + 2:
+        return err("Incorrect hexadecimal key")
+      let pubkeyRes = ValidatorPubKey.fromHex(item)
+      if pubkeyRes.isErr:
+        return err("Incorrect public key")
+      res.keyset.incl(pubkeyRes.get())
+    else:
+      var tmp: uint64
+      if parseBiggestUInt(item, tmp) != len(item):
+        return err("Incorrect index value")
+      res.ids.add(tmp)
+  ok(res)
 
 proc getValidatorInfoFromValidatorId(
     state: BeaconState,
@@ -179,8 +213,34 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       return res.get()
 
   rpcServer.rpc("get_v1_beacon_states_stateId_validator_balances") do (
-      stateId: string) -> JsonNode:
-    unimplemented()
+      stateId: string, validatorsId: Option[seq[string]]) -> seq[BalanceTuple]:
+
+    var res: seq[BalanceTuple]
+    withStateForStateId(stateId):
+      if validatorsId.isNone():
+        for index, value in state.balances.pairs():
+          let balance = (index: uint64(index), balance: value)
+          res.add(balance)
+      else:
+        let qres = createQuery(validatorsId.get())
+        if qres.isErr:
+          raise newException(CatchableError, qres.error)
+
+        var query = qres.get()
+        for index in query.ids:
+          if index < lenu64(state.validators):
+            let validator = state.validators[index]
+            query.keyset.excl(validator.pubkey)
+            let balance = (index: uint64(index),
+                           balance: validator.effective_balance)
+            res.add(balance)
+
+        for index, validator in state.validators.pairs():
+          if validator.pubkey in query.keyset:
+            let balance = (index: uint64(index),
+                           balance: validator.effective_balance)
+            res.add(balance)
+    return res
 
   rpcServer.rpc("get_v1_beacon_states_stateId_committees_epoch") do (
       stateId: string, epoch: uint64, index: uint64, slot: uint64) ->
