@@ -70,3 +70,7 @@ type
     aggregation_bits: string
     data: AttestationData
     signature: ValidatorSig
+
+  BalanceTuple* = tuple
+    index: uint64
+    balance: uint64
