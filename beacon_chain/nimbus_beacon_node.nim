@@ -1200,7 +1200,8 @@ programMain:
     config.runtimePreset = metadata.runtimePreset
 
     if config.cmd == noCommand:
-      config.bootstrapNodes.add metadata.bootstrapNodes
+      for node in mainnetMetadata.bootstrapNodes:
+        config.bootstrapNodes.add node
 
       if metadata.genesisData.len > 0:
         genesisStateContents = newClone metadata.genesisData
@@ -1226,20 +1227,23 @@ programMain:
   else:
     config.runtimePreset = defaultRuntimePreset
     when const_preset == "mainnet":
-      # TODO Remove the ability to override the depositContractAddress
-      #      on the command line in favour of always requiring a custom
-      #      nework file. We have to do this, because any user setting
-      #      would conflict with the default choice of 'mainnet' as a
-      #      --network value.
-      config.depositContractAddress =
-        some mainnetMetadata.depositContractAddress
-      config.depositContractDeployedAt =
-        some mainnetMetadata.depositContractDeployedAt
+      if config.cmd == noCommand:
+        # TODO Remove the ability to override the depositContractAddress
+        #      on the command line in favour of always requiring a custom
+        #      nework file. We have to do this, because any user setting
+        #      would conflict with the default choice of 'mainnet' as a
+        #      --network value.
+        config.depositContractAddress =
+          some mainnetMetadata.depositContractAddress
+        config.depositContractDeployedAt =
+          some mainnetMetadata.depositContractDeployedAt
 
-      config.bootstrapNodes.add mainnetMetadata.bootstrapNodes
-      genesisStateContents = newClone mainnetMetadata.genesisData
-      genesisDepositsSnapshotContents = newClone mainnetMetadata.genesisDepositsSnapshot
-      eth1Network = some mainnet
+        for node in mainnetMetadata.bootstrapNodes:
+          config.bootstrapNodes.add node
+
+        genesisStateContents = newClone mainnetMetadata.genesisData
+        genesisDepositsSnapshotContents = newClone mainnetMetadata.genesisDepositsSnapshot
+        eth1Network = some mainnet
 
   # Single RNG instance for the application - will be seeded on construction
   # and avoid using system resources (such as urandom) after that
@@ -1515,3 +1519,4 @@ programMain:
 
     of RecordCmd.print:
       echo $config.recordPrint
+
