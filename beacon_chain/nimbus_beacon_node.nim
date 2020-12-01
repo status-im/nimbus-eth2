@@ -895,7 +895,10 @@ func formatGwei(amount: uint64): string =
   result = $eth
   if remainder != 0:
     result.add '.'
-    result.add $remainder
+    let remainderStr = $remainder
+    for i in remainderStr.len ..< 9:
+      result.add '0'
+    result.add remainderStr
     while result[^1] == '0':
       result.setLen(result.len - 1)
 
