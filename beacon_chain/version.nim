@@ -15,7 +15,7 @@ const
 
   useInsecureFeatures* = defined(insecure)
 
-  gitRevision* = staticExec("git rev-parse --short HEAD")
+  gitRevision* = strip(staticExec("git rev-parse --short HEAD"))
 
   nimBanner* = staticExec("nim --version | grep -v Compiled")
 
