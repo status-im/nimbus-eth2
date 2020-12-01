@@ -391,7 +391,7 @@ peers: 15 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:
 
 Keep an eye on the number of peers your currently connected to (in the above case that's `35`), as well as your [sync progress](./keep-an-eye.md#syncing-progress).
 
-**Note:** 15 - 20 peers and an average sync speed of 0.5 - 1.0 blocks per second is normal on `Pyrmont` with a Pi.
+**Note:** 15 - 20 peers and an average sync speed of 0.5 - 1.0 blocks per second is normal on `Pyrmont` with a Pi. If you're sync speed is much slower than this, the root of the problem may be your USB3.0 to SSD adapter. See [this post](https://www.raspberrypi.org/forums/viewtopic.php?f=28&t=245931) for a recommended workaround.
 
 ### 20. End ssh session and logout
 
