@@ -676,6 +676,7 @@ proc syncBlockRange(m: Eth1Monitor,
       depositLogs: JsonNode = nil
       blocksPerRequest = 5000'u64 # This is roughly a day of Eth1 blocks
       maxBlockNumberRequested: Eth1BlockNumber
+      backoff = 100
 
     while true:
       maxBlockNumberRequested = min(toBlock, currentBlock + blocksPerRequest - 1)
@@ -688,12 +689,13 @@ proc syncBlockRange(m: Eth1Monitor,
 
       debug "Obtaining deposit log events",
             fromBlock = currentBlock,
-            toBlock = maxBlockNumberRequested
+            toBlock = maxBlockNumberRequested,
+            backoff
 
       debug.logTime "Deposit logs obtained":
         # Reduce all request rate until we have a more general solution
         # for dealing with Infura's rate limits
-        await sleepAsync(milliseconds(100))
+        await sleepAsync(milliseconds(backoff))
 
         let jsonLogsFut = m.dataProvider.ns.getJsonLogs(
           DepositEvent,
@@ -706,6 +708,8 @@ proc syncBlockRange(m: Eth1Monitor,
             retryOrRaise newException(DataProviderTimeout,
               "Request time out while obtaining json logs")
         except CatchableError as err:
+          debug "Request for deposit logs failed", err = err.msg
+          backoff = (backoff * 3) div 2
           retryOrRaise err
 
       currentBlock = maxBlockNumberRequested + 1
@@ -725,6 +729,7 @@ proc syncBlockRange(m: Eth1Monitor,
       if blk.number > fullSyncFromBlock:
         let lastBlock = m.eth1Chain.blocks.peekLast
         for n in max(lastBlock.number + 1, fullSyncFromBlock) ..< blk.number:
+          debug "Obtaining block without deposits", blockNum = n
           let blockWithoutDeposits = awaitWithRetries(
             m.dataProvider.getBlockByNumber(n))
 
