@@ -45,7 +45,7 @@ Description=Nimbus beacon node
 
 [Service]
 WorkingDirectory=<BASE-DIRECTORY>
-ExecStart==<BASE-DIRECTORY>/build/nimbus_beacon_node \
+ExecStart=<BASE-DIRECTORY>/build/nimbus_beacon_node \
   --non-interactive \
   --network=pyrmont \
   --data-dir=build/data/shared_pyrmont_0 \
