@@ -83,8 +83,9 @@ type
 
   Web3DataProviderRef* = ref Web3DataProvider
 
-  CorruptDataProvider = object of CatchableError
-  DataProviderTimeout = object of CatchableError
+  DataProviderFailure = object of CatchableError
+  CorruptDataProvider = object of DataProviderFailure
+  DataProviderTimeout = object of DataProviderFailure
 
   DisconnectHandler* = proc () {.gcsafe, raises: [Defect].}
 
@@ -213,9 +214,43 @@ func hash*(x: Eth1Data): Hash =
 template hash*(x: Eth1Block): Hash =
   hash(x.voteData)
 
+template awaitWithRetries[T](lazyFutExpr: Future[T],
+                             retries = 3,
+                             timeout = web3Timeouts): untyped =
+  const
+    reqType = astToStr(lazyFutExpr)
+
+  var
+    retryDelayMs = 16000
+    f: Future[T]
+    attempts = 0
+
+  while true:
+    f = lazyFutExpr
+    yield f or sleepAsync(timeout)
+    if not f.finished:
+      await cancelAndWait(f)
+    elif f.failed:
+      if f.error[] of Defect:
+        raise f.error
+      else:
+        debug "Web3 request failed", req = reqType, err = f.error.msg
+    else:
+      break
+
+    inc attempts
+    if attempts >= retries:
+      raise newException(DataProviderFailure,
+        reqType & " failed " & $retries & " times")
+
+    await sleepAsync(chronos.milliseconds(retryDelayMs))
+    retryDelayMs *= 2
+
+  read(f)
+
 proc close*(p: Web3DataProviderRef): Future[void] {.async.} =
   if p.blockHeadersSubscription != nil:
-    await p.blockHeadersSubscription.unsubscribe()
+    awaitWithRetries(p.blockHeadersSubscription.unsubscribe())
 
   await p.web3.close()
 
@@ -273,7 +308,8 @@ proc depositEventsToBlocks(depositsList: JsonNode): seq[Eth1Block] =
       signature: ValidatorSig.init(array[96, byte](signature)))
 
 proc fetchTimestamp(p: Web3DataProviderRef, blk: Eth1Block) {.async.} =
-  let web3block = await p.getBlockByHash(blk.voteData.block_hash.asBlockHash)
+  let web3block = awaitWithRetries(
+    p.getBlockByHash(blk.voteData.block_hash.asBlockHash))
   blk.timestamp = Eth1BlockTimestamp web3block.timestamp
 
 type
@@ -333,12 +369,12 @@ proc onBlockHeaders*(p: Web3DataProviderRef,
                      blockHeaderHandler: BlockHeaderHandler,
                      errorHandler: SubscriptionErrorHandler) {.async.} =
   if p.blockHeadersSubscription != nil:
-    await p.blockHeadersSubscription.unsubscribe()
+    awaitWithRetries(p.blockHeadersSubscription.unsubscribe())
 
   info "Waiting for new Eth1 block headers"
 
-  p.blockHeadersSubscription = await p.web3.subscribeForBlockHeaders(
-    blockHeaderHandler, errorHandler)
+  p.blockHeadersSubscription = awaitWithRetries(
+    p.web3.subscribeForBlockHeaders(blockHeaderHandler, errorHandler))
 
 {.push raises: [Defect].}
 
@@ -589,7 +625,7 @@ proc init*(T: type Eth1Monitor,
 
     if eth1Network.isSome:
       let
-        providerNetwork = await web3.provider.net_version()
+        providerNetwork = awaitWithRetries web3.provider.net_version()
         expectedNetwork = case eth1Network.get
           of mainnet: "1"
           of rinkeby: "4"
@@ -689,7 +725,9 @@ proc syncBlockRange(m: Eth1Monitor,
       if blk.number > fullSyncFromBlock:
         let lastBlock = m.eth1Chain.blocks.peekLast
         for n in max(lastBlock.number + 1, fullSyncFromBlock) ..< blk.number:
-          let blockWithoutDeposits = await m.dataProvider.getBlockByNumber(n)
+          let blockWithoutDeposits = awaitWithRetries(
+            m.dataProvider.getBlockByNumber(n))
+
           m.eth1Chain.addBlock(
             lastBlock.makeSuccessorWithoutDeposits(blockWithoutDeposits))
 
@@ -700,7 +738,7 @@ proc syncBlockRange(m: Eth1Monitor,
       template lastBlock: auto = blocksWithDeposits[lastIdx]
 
       let status = when hasDepositRootChecks:
-        await m.dataProvider.fetchDepositContractData(lastBlock)
+        awaitWithRetries m.dataProvider.fetchDepositContractData(lastBlock)
       else:
         DepositRootUnavailable
 
@@ -748,7 +786,8 @@ proc syncBlockRange(m: Eth1Monitor,
 
         if maxBlockNumberRequested == toBlock and
            (m.eth1Chain.blocks.len == 0 or lastBlock.number != toBlock):
-          let web3Block = await m.dataProvider.getBlockByNumber(toBlock)
+          let web3Block = awaitWithRetries(
+            m.dataProvider.getBlockByNumber(toBlock))
 
           debug "Latest block doesn't hold deposits. Obtaining it",
                  ts = web3Block.timestamp.uint64,
@@ -756,14 +795,14 @@ proc syncBlockRange(m: Eth1Monitor,
 
           m.eth1Chain.addBlock lastBlock.makeSuccessorWithoutDeposits(web3Block)
         else:
-          await m.dataProvider.fetchTimestamp(lastBlock)
+          awaitWithRetries m.dataProvider.fetchTimestamp(lastBlock)
 
         var genesisBlockIdx = m.eth1Chain.blocks.len - 1
         if m.isAfterMinGenesisTime(m.eth1Chain.blocks[genesisBlockIdx]):
           for i in 1 ..< eth1Blocks.len:
             let idx = (m.eth1Chain.blocks.len - 1) - i
             let blk = m.eth1Chain.blocks[idx]
-            await m.dataProvider.fetchTimestamp(blk)
+            awaitWithRetries m.dataProvider.fetchTimestamp(blk)
             if m.isGenesisCandidate(blk):
               genesisBlockIdx = idx
             else:
@@ -785,11 +824,12 @@ proc syncBlockRange(m: Eth1Monitor,
           if genesisBlockIdx > 0:
             let genesisParent = m.eth1Chain.blocks[genesisBlockIdx - 1]
             if genesisParent.timestamp == 0:
-              await m.dataProvider.fetchTimestamp(genesisParent)
+              awaitWithRetries m.dataProvider.fetchTimestamp(genesisParent)
             if m.hasEnoughValidators(genesisParent) and
                genesisBlock.number - genesisParent.number > 1:
-              genesisBlock = await m.findGenesisBlockInRange(genesisParent,
-                                                             genesisBlock)
+              genesisBlock = awaitWithRetries(
+                m.findGenesisBlockInRange(genesisParent, genesisBlock))
+
           m.signalGenesis m.createGenesisState(genesisBlock)
 
 proc startEth1Syncing(m: Eth1Monitor) {.async.} =
@@ -799,11 +839,8 @@ proc startEth1Syncing(m: Eth1Monitor) {.async.} =
 
   m.eth2FinalizedDepositsMerkleizer = m.knownStart.createMerkleizer
 
-  let startBlock = awaitWithTimeout(
-    m.dataProvider.getBlockByHash(m.knownStart.eth1Block.asBlockHash),
-    web3Timeouts):
-      error "Eth1 sync failed to obtain information about the starting block in time"
-      return
+  let startBlock = awaitWithRetries(
+    m.dataProvider.getBlockByHash(m.knownStart.eth1Block.asBlockHash))
 
   doAssert m.eth1Chain.blocks.len == 0
   m.eth1Chain.addBlock Eth1Block(
@@ -888,7 +925,8 @@ proc start*(m: Eth1Monitor) =
 proc getEth1BlockHash*(url: string, blockId: RtBlockIdentifier): Future[BlockHash] {.async.} =
   let web3 = await newWeb3(url)
   try:
-    let blk = await web3.provider.eth_getBlockByNumber(blockId, false)
+    let blk = awaitWithRetries(
+      web3.provider.eth_getBlockByNumber(blockId, false))
     return blk.hash
   finally:
     await web3.close()
@@ -914,7 +952,8 @@ when hasGenesisDetection:
           var blk: BlockObject
           while true:
             try:
-              blk = await dataProvider.getBlockByNumber(depositContractDeployedAt.number)
+              blk = awaitWithRetries(
+                dataProvider.getBlockByNumber(depositContractDeployedAt.number))
               break
             except CatchableError as err:
               error "Failed to obtain details for the starting block " &
@@ -1012,7 +1051,8 @@ when hasGenesisDetection:
                           float(endBlock.number - startBlock.number)
         blocksToJump = max(float(MIN_GENESIS_TIME - startBlockTime) / secondsPerBlock, 1.0)
         candidateNumber = min(endBlock.number - 1, startBlock.number + blocksToJump.uint64)
-        candidateBlock = await m.dataProvider.getBlockByNumber(candidateNumber)
+        candidateBlock = awaitWithRetries(
+          m.dataProvider.getBlockByNumber(candidateNumber))
 
       var candidateAsEth1Block = Eth1Block(number: candidateBlock.number.uint64,
                                            timestamp: candidateBlock.timestamp.uint64,
