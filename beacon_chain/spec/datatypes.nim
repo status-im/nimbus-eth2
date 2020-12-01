@@ -60,6 +60,7 @@ const
 
   # Not part of spec. Still useful, pending removing usage if appropriate.
   ZERO_HASH* = Eth2Digest()
+  MAX_GRAFFITI_SIZE = 32
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#configuration
   ATTESTATION_PROPAGATION_SLOT_RANGE* = 32
@@ -257,7 +258,7 @@ type
     object_root*: Eth2Digest
     domain*: Domain
 
-  GraffitiBytes* = distinct array[32, byte]
+  GraffitiBytes* = distinct array[MAX_GRAFFITI_SIZE, byte]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
@@ -805,13 +806,14 @@ func init*(T: type GraffitiBytes, input: string): GraffitiBytes
 
     hexToByteArray(input, distinctBase(result))
   else:
-    if input.len > 32:
+    if input.len > MAX_GRAFFITI_SIZE:
       raise newException(ValueError, "The graffiti value should be 32 characters or less")
     distinctBase(result)[0 ..< input.len] = toBytes(input)
 
 func defaultGraffitiBytes*(): GraffitiBytes =
-  let graffitiBytes =
+  const graffitiBytes =
     toBytes("Nimbus/" & fullVersionStr)
+  static: doAssert graffitiBytes.len <= MAX_GRAFFITI_SIZE
   distinctBase(result)[0 ..< graffitiBytes.len] = graffitiBytes
 
 proc writeValue*(w: var JsonWriter, value: GraffitiBytes)
