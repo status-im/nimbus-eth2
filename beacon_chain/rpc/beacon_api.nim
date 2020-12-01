@@ -27,6 +27,9 @@ type
     keyset: HashSet[ValidatorPubKey]
     ids: seq[uint64]
 
+  StatusQuery = object
+    statset: HashSet[string]
+
 template unimplemented() =
   raise (ref CatchableError)(msg: "Unimplemented")
 
@@ -41,7 +44,7 @@ proc parsePubkey(str: string): ValidatorPubKey =
     raise newException(CatchableError, "Not a valid public key")
   return pubkeyRes[]
 
-proc createQuery(ids: seq[string]): Result[ValidatorQuery, string] =
+proc createIdQuery(ids: openArray[string]): Result[ValidatorQuery, string] =
   # validatorIds array should have maximum 30 items, and all items should be
   # unique.
   if len(ids) > 30:
@@ -71,80 +74,80 @@ proc createQuery(ids: seq[string]): Result[ValidatorQuery, string] =
       res.ids.add(tmp)
   ok(res)
 
-proc getValidatorInfoFromValidatorId(
-    state: BeaconState,
-    current_epoch: Epoch,
-    validatorId: string,
-    status = ""):
-    Option[BeaconStatesValidatorsTuple] =
-  const allowedStatuses = ["", "pending", "pending_initialized", "pending_queued",
-    "active", "active_ongoing", "active_exiting", "active_slashed", "exited",
-    "exited_unslashed", "exited_slashed", "withdrawal", "withdrawal_possible",
-    "withdrawal_done"]
-  if status notin allowedStatuses:
-    raise newException(CatchableError, "Invalid status requested")
+proc createStatusQuery(status: openArray[string]): Result[StatusQuery, string] =
+  const AllowedStatuses = [
+    "pending", "pending_initialized", "pending_queued",
+    "active", "active_ongoing", "active_exiting", "active_slashed",
+    "exited", "exited_unslashed", "exited_slashed",
+    "withdrawal", "withdrawal_possible", "withdrawal_done"
+  ]
 
-  var validatorIdx: uint64
-  let validator = if validatorId.startsWith("0x"):
-    let pubkey = parsePubkey(validatorId)
-    let idx = state.validators.asSeq.findIt(it.pubKey == pubkey)
-    if idx == -1:
-      raise newException(CatchableError, "Could not find validator")
-    validatorIdx = idx.uint64
-    state.validators[idx]
-  else:
-    if parseBiggestUInt(validatorId, validatorIdx) != validatorId.len:
-      raise newException(CatchableError, "Not a valid index")
-    if validatorIdx > state.validators.lenu64:
-      raise newException(CatchableError, "Index out of bounds")
-    state.validators[validatorIdx]
+  if len(status) > len(AllowedStatuses):
+    return err("The number of statuses exceeds the limit")
 
-  # time to determine the status of the validator - the code mimics
-  # whatever is detailed here: https://hackmd.io/ofFJ5gOmQpu1jjHilHbdQQ
+  var res = StatusQuery(statset: initHashSet[string]())
+
+  # All ids in validatorIds must be unique.
+  if len(status) != len(toHashSet(status)):
+    return err("Status array must have unique items")
+
+  for item in status:
+    if item notin AllowedStatuses:
+      return err("Invalid status requested")
+    case item
+    of "pending":
+      res.statset.incl("pending_initialized")
+      res.statset.incl("pending_queued")
+    of "active":
+      res.statset.incl("active_ongoing")
+      res.statset.incl("active_exiting")
+      res.statset.incl("active_slashed")
+    of "exited":
+      res.statset.incl("exited_unslashed")
+      res.statset.incl("exited_slashed")
+    of "withdrawal":
+      res.statset.incl("withdrawal_possible")
+      res.statset.incl("withdrawal_done")
+    else:
+      res.statset.incl(item)
+
+proc getStatus(validator: Validator,
+               current_epoch: Epoch): Result[string, string] =
   let actual_status = if validator.activation_epoch > current_epoch:
     # pending
     if validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH:
-      "pending_initialized"
+      ok("pending_initialized")
     else:
       # validator.activation_eligibility_epoch < FAR_FUTURE_EPOCH:
-      "pending_queued"
+      ok("pending_queued")
   elif validator.activation_epoch <= current_epoch and
       current_epoch < validator.exit_epoch:
     # active
     if validator.exit_epoch == FAR_FUTURE_EPOCH:
-      "active_ongoing"
+      ok("active_ongoing")
     elif not validator.slashed:
       # validator.exit_epoch < FAR_FUTURE_EPOCH
-      "active_exiting"
+      ok("active_exiting")
     else:
       # validator.exit_epoch < FAR_FUTURE_EPOCH and validator.slashed:
-      "active_slashed"
+      ok("active_slashed")
   elif validator.exit_epoch <= current_epoch and
       current_epoch < validator.withdrawable_epoch:
     # exited
     if not validator.slashed:
-      "exited_unslashed"
+      ok("exited_unslashed")
     else:
       # validator.slashed
-      "exited_slashed"
+      ok("exited_slashed")
   elif validator.withdrawable_epoch <= current_epoch:
     # withdrawal
     if validator.effective_balance != 0:
-      "withdrawal_possible"
+      ok("withdrawal_possible")
     else:
       # validator.effective_balance == 0
-      "withdrawal_done"
+      ok("withdrawal_done")
   else:
-    raise newException(CatchableError, "Invalid validator status")
-
-  # if the requested status doesn't match the actual status
-  if status != "" and status notin actual_status:
-    return none(BeaconStatesValidatorsTuple)
-
-  return some((validator: validator,
-               index: validatorIdx,
-               status: actual_status,
-               balance: validator.effective_balance))
+    err("Invalid validator status")
 
 proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData =
   result = case blockId:
@@ -192,25 +195,106 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
               finalized: state.finalized_checkpoint)
 
   rpcServer.rpc("get_v1_beacon_states_stateId_validators") do (
-      stateId: string, validatorIds: seq[string],
-      status: string) -> seq[BeaconStatesValidatorsTuple]:
+      stateId: string, validatorIds: Option[seq[string]],
+      status: Option[seq[string]]) -> seq[BeaconStatesValidatorsTuple]:
+    var vquery: ValidatorQuery
+    var squery: StatusQuery
     let current_epoch = get_current_epoch(node.chainDag.headState.data.data)
+
+    template statusCheck(status, statusQuery, vstatus, current_epoch): bool =
+      if status.isNone():
+        true
+      else:
+        if vstatus in squery.statset:
+          true
+        else:
+          false
+
+    var res: seq[BeaconStatesValidatorsTuple]
+
     withStateForStateId(stateId):
-      for validatorId in validatorIds:
-        let res = state.getValidatorInfoFromValidatorId(
-          current_epoch, validatorId, status)
-        if res.isSome():
-          result.add(res.get())
+      if status.isSome:
+        let sqres = createStatusQuery(status.get())
+        if sqres.isErr:
+          raise newException(CatchableError, sqres.error)
+        squery = sqres.get()
+
+      if validatorIds.isSome:
+        let vqres = createIdQuery(validatorIds.get())
+        if vqres.isErr:
+          raise newException(CatchableError, vqres.error)
+        vquery = vqres.get()
+
+      if validatorIds.isNone():
+        for index, validator in state.validators.pairs():
+          let sres = validator.getStatus(current_epoch)
+          if sres.isOk:
+            let vstatus = sres.get()
+            let includeFlag = statusCheck(status, squery, vstatus,
+                                          current_epoch)
+            if includeFlag:
+              res.add((validator: validator,
+                       index: uint64(index),
+                       status: vstatus,
+                       balance: validator.effective_balance))
+      else:
+        for index in vquery.ids:
+          if index < lenu64(state.validators):
+            let validator = state.validators[index]
+            let sres = validator.getStatus(current_epoch)
+            if sres.isOk:
+              let vstatus = sres.get()
+              let includeFlag = statusCheck(status, squery, vstatus,
+                                            current_epoch)
+              if includeFlag:
+                vquery.keyset.excl(validator.pubkey)
+                res.add((validator: validator,
+                         index: uint64(index),
+                         status: vstatus,
+                         balance: validator.effective_balance))
+
+        for index, validator in state.validators.pairs():
+          if validator.pubkey in vquery.keyset:
+            let sres = validator.getStatus(current_epoch)
+            if sres.isOk:
+              let vstatus = sres.get()
+              let includeFlag = statusCheck(status, squery, vstatus,
+                                            current_epoch)
+              if includeFlag:
+                res.add((validator: validator,
+                         index: uint64(index),
+                         status: vstatus,
+                         balance: validator.effective_balance))
+    return res
 
   rpcServer.rpc("get_v1_beacon_states_stateId_validators_validatorId") do (
       stateId: string, validatorId: string) -> BeaconStatesValidatorsTuple:
     let current_epoch = get_current_epoch(node.chainDag.headState.data.data)
+    let vqres = createIdQuery([validatorId])
+    if vqres.isErr:
+      raise newException(CatchableError, vqres.error)
+    let vquery = vqres.get()
+
     withStateForStateId(stateId):
-      let res = state.getValidatorInfoFromValidatorId(current_epoch, validatorId)
-      if res.isNone:
-        # TODO should we raise here? Maybe this is different from the array case...
-        raise newException(CatchableError, "Validator status differs")
-      return res.get()
+      if len(vquery.ids) > 0:
+        let index = vquery.ids[0]
+        if index < lenu64(state.validators):
+          let validator = state.validators[index]
+          let sres = validator.getStatus(current_epoch)
+          if sres.isOk:
+            return (validator: validator, index: uint64(index),
+                    status: sres.get(), balance: validator.effective_balance)
+          else:
+            raise newException(CatchableError, "Incorrect validator's state")
+      else:
+        for index, validator in state.validators.pairs():
+          if validator.pubkey in vquery.keyset:
+            let sres = validator.getStatus(current_epoch)
+            if sres.isOk:
+              return (validator: validator, index: uint64(index),
+                      status: sres.get(), balance: validator.effective_balance)
+            else:
+              raise newException(CatchableError, "Incorrect validator's state")
 
   rpcServer.rpc("get_v1_beacon_states_stateId_validator_balances") do (
       stateId: string, validatorsId: Option[seq[string]]) -> seq[BalanceTuple]:
@@ -222,21 +306,21 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
           let balance = (index: uint64(index), balance: value)
           res.add(balance)
       else:
-        let qres = createQuery(validatorsId.get())
-        if qres.isErr:
-          raise newException(CatchableError, qres.error)
+        let vqres = createIdQuery(validatorsId.get())
+        if vqres.isErr:
+          raise newException(CatchableError, vqres.error)
 
-        var query = qres.get()
-        for index in query.ids:
+        var vquery = vqres.get()
+        for index in vquery.ids:
           if index < lenu64(state.validators):
             let validator = state.validators[index]
-            query.keyset.excl(validator.pubkey)
+            vquery.keyset.excl(validator.pubkey)
             let balance = (index: uint64(index),
                            balance: validator.effective_balance)
             res.add(balance)
 
         for index, validator in state.validators.pairs():
-          if validator.pubkey in query.keyset:
+          if validator.pubkey in vquery.keyset:
             let balance = (index: uint64(index),
                            balance: validator.effective_balance)
             res.add(balance)
