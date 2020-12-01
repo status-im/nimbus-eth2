@@ -22,7 +22,7 @@ NODE_ID := 0
 BASE_PORT := 9000
 BASE_RPC_PORT := 9190
 BASE_METRICS_PORT := 8008
-GOERLI_WEB3_URL := "wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
+WEB3_URL := "wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
 VALIDATORS := 1
 CPU_LIMIT := 0
 BUILD_END_MSG := "\\e[92mBuild completed successfully:\\e[39m"
@@ -165,7 +165,7 @@ clean_eth2_network_simulation_all:
 	rm -rf tests/simulation/{data,validators}
 
 GOERLI_TESTNETS_PARAMS := \
-  --web3-url=$(GOERLI_WEB3_URL) \
+  --web3-url=$(WEB3_URL) \
   --tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
   --udp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
   --metrics \
@@ -283,7 +283,7 @@ define MAKE_DEPOSIT
 		--count=$(VALIDATORS)
 
 	build/deposit_contract sendDeposits \
-		--web3-url=$(GOERLI_WEB3_URL) \
+		--web3-url=$(WEB3_URL) \
 		--deposit-contract=$$(cat vendor/eth2-testnets/shared/$(1)/deposit_contract.txt) \
 		--deposits-file=nbc-$(1)-deposits.json \
 		--min-delay=$(DEPOSITS_DELAY) \
