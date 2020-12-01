@@ -120,8 +120,9 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
 
   rpcServer.rpc("get_v1_validator_attestation_data") do (
       slot: uint64, committee_index: uint64) -> AttestationData:
-    let ares = node.attestationPool[].getAggregatedAttestation(slot,
-                                                               committee_index)
+    let ares = node.attestationPool[].getAggregatedAttestation(
+      Slot(slot), CommitteeIndex(committee_index)
+    )
     if ares.isSome():
       return ares.get().data
     else:
