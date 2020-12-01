@@ -1123,7 +1123,7 @@ proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
           "won't be able to withdraw your deposited funds for the time " &
           "being. This means that your funds will be effectively frozen " &
           "until withdrawals are enabled in a future phase of Eth2."
-          
+
 
     echoP "To understand more about the Eth2 roadmap, we recommend you " &
           "have a look at\n" &
@@ -1200,8 +1200,7 @@ programMain:
     config.runtimePreset = metadata.runtimePreset
 
     if config.cmd == noCommand:
-      for node in metadata.bootstrapNodes:
-        config.bootstrapNodes.add node
+      config.bootstrapNodes.add metadata.bootstrapNodes
 
       if metadata.genesisData.len > 0:
         genesisStateContents = newClone metadata.genesisData
@@ -1223,18 +1222,21 @@ programMain:
     checkForIncompatibleOption "deposit-contract-block", depositContractDeployedAt
     config.depositContractAddress = some metadata.depositContractAddress
     config.depositContractDeployedAt = some metadata.depositContractDeployedAt
-
     eth1Network = metadata.eth1Network
   else:
     config.runtimePreset = defaultRuntimePreset
     when const_preset == "mainnet":
-      if config.depositContractAddress.isNone:
-        config.depositContractAddress =
-          some mainnetMetadata.depositContractAddress
-      if config.depositContractDeployedAt.isNone:
-        config.depositContractDeployedAt =
-          some mainnetMetadata.depositContractDeployedAt
+      # TODO Remove the ability to override the depositContractAddress
+      #      on the command line in favour of always requiring a custom
+      #      nework file. We have to do this, because any user setting
+      #      would conflict with the default choice of 'mainnet' as a
+      #      --network value.
+      config.depositContractAddress =
+        some mainnetMetadata.depositContractAddress
+      config.depositContractDeployedAt =
+        some mainnetMetadata.depositContractDeployedAt
 
+      config.bootstrapNodes.add mainnetMetadata.bootstrapNodes
       genesisStateContents = newClone mainnetMetadata.genesisData
       genesisDepositsSnapshotContents = newClone mainnetMetadata.genesisDepositsSnapshot
       eth1Network = some mainnet
