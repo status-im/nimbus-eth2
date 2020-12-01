@@ -386,10 +386,12 @@ NOT 2020-10-07 17:04:09.231+02:00 Starting beacon node                       top
 To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running. You should see something like:
 
 ```
-peers: 35 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:7 (316807) ❯ sync: wPwwwwwDwwDPwPPPwwww:7:4.0627 (280512)
+peers: 15 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:7 (316807) ❯ sync: wPwwwwwDwwDPwPPPwwww:7:1.2313:1.0627:12h01m(280512)
 ```
 
 Keep an eye on the number of peers your currently connected to (in the above case that's `35`), as well as your [sync progress](./keep-an-eye.md#syncing-progress).
+
+**Note:** 15 - 20 peers and an average sync speed of 0.5 - 1.0 blocks per second is normal on `Pyrmont` with a Pi.
 
 ### 20. End ssh session and logout
 
