@@ -41,6 +41,24 @@ func checkBeaconStates(a, b: BeaconState) =
   doAssert a.finalized_checkpoint == b.finalized_checkpoint
   doAssert hash_tree_root(a) == hash_tree_root(b)
 
+proc getTestStates(initialState: HashedBeaconState):
+    seq[ref HashedBeaconState] =
+  # Randomly generated slot numbers
+  const stateSlots = [
+    0, 2, 10, 12, 13, 27, 32, 39, 46, 53, 57, 62, 74, 81, 92, 114, 116, 123,
+    128, 129, 130, 131, 147, 148, 163, 170, 174, 188, 189, 201, 216, 237, 241,
+    263, 269, 279, 280, 283, 290, 292, 295]
+
+  var
+    tmpState = assignClone(initialState)
+    cache = StateCache()
+
+  for slot in stateSlots:
+    if tmpState.data.slot < slot.Slot:
+      doAssert process_slots(tmpState[], slot.Slot, cache)
+    doAssert tmpState.data.slot == slot.Slot
+    result.add assignClone(tmpState[])
+
 template wrappedTimedTest(name: string, body: untyped) =
   # `check` macro takes a copy of whatever it's checking, on the stack!
   # This leads to stack overflow
@@ -56,45 +74,19 @@ suiteReport "state diff tests" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
-      quarantine = QuarantineRef()
-      cache = StateCache()
 
-  wrappedTimedTest "from genesis" & preset():
-    var
-      blck = makeTestBlock(dag.headState.data, dag.head.root, cache)
-      tmpState = assignClone(dag.headState.data)
-      tmpStateOriginal = assignClone(dag.headState.data)
-      tmpStateApplyBase = assignClone(dag.headState.data)
-    check:
-      process_slots(
-        tmpState[], tmpState.data.slot + 1.uint64, cache)
+  wrappedTimedTest "random slot differences" & preset():
+    let testStates = getTestStates(dag.headState.data)
 
-    #let anotherBlock = addTestBlock(tmpState[], dag.head.root, cache)
-    block:
-      let status = dag.addRawBlock(quarantine, blck, nil)
-      check: status.isOk()
+    for i in 0 ..< testStates.len:
+      for j in (i+1) ..< testStates.len:
+        doAssert testStates[i].data.slot < testStates[j].data.slot
+        if testStates[i].data.slot + 90 < testStates[j].data.slot:
+          continue
+        var tmpStateApplyBase = assignClone(testStates[i].data)
+        let diff = diffState(testStates[i].data, testStates[j].data)
+        applyDiff(tmpStateApplyBase[], diff)
+        checkBeaconStates(testStates[j].data, tmpStateApplyBase[])
 
-    block:
-      let diff = diffState(tmpStateOriginal.data, tmpState.data)
-      applyDiff(tmpStateApplyBase.data, diff)
-      checkBeaconStates(tmpState.data, tmpStateApplyBase.data)
-    #assign(tmpState[], dag.headState.data)
-
-    check:
-      process_slots(
-        tmpState[], tmpState.data.slot + 80.uint, cache)
-
-    block:
-      let diff = diffState(tmpStateOriginal.data, tmpState.data)
-      tmpStateApplyBase = assignClone(tmpStateOriginal[])
-      applyDiff(tmpStateApplyBase.data, diff)
-      when false:
-        debugEcho "tso[0] = ", tmpStateOriginal.data.block_roots[0], "; tso[1] = ", tmpStateOriginal.data.block_roots[1]
-        debugEcho "ts[0] = ", tmpState.data.block_roots[0], "; ts[1] = ", tmpState.data.block_roots[1]
-        debugEcho "tsab[0] = ", tmpStateApplyBase.data.block_roots[1], "; tsab[1] = ", tmpStateApplyBase.data.block_roots[2]
-      checkBeaconStates(tmpState.data, tmpStateApplyBase.data)
-
-    # TODO more tests (different numbers of slots, adding validators, applying
-    # complex blocks, wrap-around of mod-increment, sane behaviors with forks,
-    # whether that's rejection or functioning well, starting from non-genesis,
-    # etc)
+    # TODO more tests (adding validators, wrap-around of mod-increment,
+    # sane behaviors with forks, whether that's rejection or functioning well)
