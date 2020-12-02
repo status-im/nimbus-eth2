@@ -34,7 +34,9 @@ func attachMerkleProofs*(deposits: var openArray[Deposit]) =
 template getProof*(proofs: seq[Eth2Digest], idxParam: int): openArray[Eth2Digest] =
   let
     idx = idxParam
-    startIdx = idx * DEPOSIT_CONTRACT_TREE_DEPTH
+    ## TODO: It's surprising that we have to do +1 here.
+    ##       It seems that `depositContractLimit` is set too high.
+    startIdx = idx * (DEPOSIT_CONTRACT_TREE_DEPTH + 1)
     endIdx = startIdx + DEPOSIT_CONTRACT_TREE_DEPTH - 1
   proofs.toOpenArray(startIdx, endIdx)
 

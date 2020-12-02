@@ -455,7 +455,7 @@ proc advanceMerkleizer(eth1Chain: Eth1Chain,
 
   return merkleizer.getChunkCount == depositIndex
 
-proc getDepositsRange(eth1Chain: Eth1Chain, first, last: uint64): seq[Deposit] =
+proc getDepositsRange(eth1Chain: Eth1Chain, first, last: uint64): seq[DepositData] =
   # TODO It's possible to make this faster by performing binary search that
   #      will locate the blocks holding the `first` and `last` indices.
   # TODO There is an assumption here that the requested range will be present
@@ -472,7 +472,7 @@ proc getDepositsRange(eth1Chain: Eth1Chain, first, last: uint64): seq[Deposit] =
     for i in 0 ..< blk.deposits.lenu64:
       let globalIdx = firstDepositIdxInBlk + i
       if globalIdx >= first and globalIdx < last:
-        result.add Deposit(data: blk.deposits[i])
+        result.add blk.deposits[i]
 
 proc lowerBound(chain: Eth1Chain, depositCount: uint64): Eth1Block =
   # TODO: This can be replaced with a proper binary search in the
@@ -565,21 +565,22 @@ proc getBlockProposalData*(m: Eth1Monitor,
 
   if pendingDepositsCount > 0:
     if hasLatestDeposits:
-      let totalDepositsInNewBlock = min(MAX_DEPOSITS, pendingDepositsCount)
-      var deposits = m.eth1Chain.getDepositsRange(
-        state.eth1_deposit_index,
-        state.eth1_deposit_index + totalDepositsInNewBlock)
-      let depositRoots = mapIt(deposits, hash_tree_root(it.data))
+      let
+        totalDepositsInNewBlock = min(MAX_DEPOSITS, pendingDepositsCount)
+        deposits = m.eth1Chain.getDepositsRange(
+          state.eth1_deposit_index,
+          state.eth1_deposit_index + pendingDepositsCount)
+        depositRoots = mapIt(deposits, hash_tree_root(it))
 
       var scratchMerkleizer = copy m.eth2FinalizedDepositsMerkleizer
       if m.eth1Chain.advanceMerkleizer(scratchMerkleizer, state.eth1_deposit_index):
         let proofs = scratchMerkleizer.addChunksAndGenMerkleProofs(depositRoots)
-        for i in 0 ..< deposits.lenu64:
-          deposits[i].proof[0..31] = proofs.getProof(i.int)
-          deposits[i].proof[32].data[0..7] =
-            toBytesLE uint64(state.eth1_deposit_index + i + 1)
-
-        swap(result.deposits, deposits)
+        for i in 0 ..< totalDepositsInNewBlock:
+          var proof: array[33, Eth2Digest]
+          proof[0..31] = proofs.getProof(i.int)
+          proof[32] = default(Eth2Digest)
+          proof[32].data[0..7] = toBytesLE uint64(result.vote.deposit_count)
+          result.deposits.add Deposit(data: deposits[i], proof: proof)
       else:
         error "The Eth1 chain is in inconsistent state" # This should not really happen
         result.hasMissingDeposits = true
