@@ -63,7 +63,7 @@ Click on **CHOOSE SD CARD**. You should see a menu pop-up with your SD card list
 
 Click on **WRITE**
 
-![](https://storage.googleapis.com/ethereum-hackmd/upload_0e02be31057745c6b9834a925c54b9d3.png)
+![](https://i.imgur.com/NeOT8pf.png)
 
 Click **YES**
 
