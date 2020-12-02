@@ -1,3 +1,40 @@
+2020-12-02 v1.0.1
+=================
+
+A point release fixing a number of issues reported after the Mainnet launch.
+
+New additions:
+
+* Better pacing of our Eth1 syncing requests less likely to go over the
+  maximum allowed burst rates with the Infura free plans. More resiliency
+  in case of errors.
+
+We've fixed:
+
+* A crash reported by multiple users with the following error message:
+  "Only one concurrent read allowed".
+
+* An error in the default configuration preventing the node from discovering
+  peers on mainnet unless `--network=mainnet` was explicitly specified on the
+  command-line.
+
+* An incorrect value for the fractional part of your ETH balance in the
+  Nimbus status bar.
+
+* An issue that may cause the Eth1 syncing process to get stuck before
+  reaching the head of the chain.
+
+* Unnecessary network traffic related to GossipSub `IHAVE`.
+
+* Incorrect gossipsub pruning which could result in messages getting lost.
+
+* An issue where an excessively long graffiti string could cause a crash
+  upon startup.
+
+* A Linux-only issue causing the `deposits import` command to ignore its
+  supplied arguments.
+
+
 2020-11-29 v1.0.0-stateofus
 ===========================
 
