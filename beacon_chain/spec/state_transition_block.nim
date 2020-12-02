@@ -342,22 +342,20 @@ proc process_operations(preset: RuntimePreset,
 proc process_block*(
     preset: RuntimePreset,
     state: var BeaconState, blck: SomeBeaconBlock, flags: UpdateFlags,
-    stateCache: var StateCache): Result[void, string] {.nbench.}=
+    stateCache: var StateCache): Result[void, cstring] {.nbench.}=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
 
-  let res_block = process_block_header(state, blck, flags, stateCache)
-  if res_block.isErr:
-    return err($(res_block.error))
+  ? process_block_header(state, blck, flags, stateCache)
 
   if not process_randao(state, blck.body, flags, stateCache):
-    return err("Randao failure")
+    return err("Randao failure".cstring)
 
   process_eth1_data(state, blck.body)
 
   let res_ops = process_operations(preset, state, blck.body, flags, stateCache)
   if res_ops.isErr:
-    return err("process_operations encountered error")
+    return err("process_operations encountered error".cstring)
 
   ok()
