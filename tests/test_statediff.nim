@@ -84,7 +84,7 @@ suiteReport "state diff tests" & preset():
         if testStates[i].data.slot + 90 < testStates[j].data.slot:
           continue
         var tmpStateApplyBase = assignClone(testStates[i].data)
-        let diff = diffState(testStates[i].data, testStates[j].data)
+        let diff = diffStates(testStates[i].data, testStates[j].data)
         applyDiff(tmpStateApplyBase[], diff)
         checkBeaconStates(testStates[j].data, tmpStateApplyBase[])
 

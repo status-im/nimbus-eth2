@@ -24,9 +24,10 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + find ancestors [Preset: mainnet]                                                           OK
 + sanity check blocks [Preset: mainnet]                                                      OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
++ sanity check state diff roundtrip [Preset: mainnet]                                        OK
 + sanity check states [Preset: mainnet]                                                      OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Beacon node
 ```diff
 + Compile                                                                                    OK
@@ -268,9 +269,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## state diff tests [Preset: mainnet]
 ```diff
-+ from genesis [Preset: mainnet]                                                             OK
++ random slot differences [Preset: mainnet]                                                  OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 145/154 Fail: 0/154 Skip: 9/154
+OK: 146/155 Fail: 0/155 Skip: 9/155

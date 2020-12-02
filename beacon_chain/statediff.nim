@@ -85,7 +85,7 @@ func setValidatorStatuses(
     validators[i].exit_epoch = hl[i].exit_epoch
     validators[i].withdrawable_epoch = hl[i].withdrawable_epoch
 
-func diffState*(state0, state1: BeaconState): BeaconStateDiff =
+func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
   doAssert state1.slot > state0.slot
   doAssert state0.slot + SLOTS_PER_EPOCH * 3 > state1.slot
 

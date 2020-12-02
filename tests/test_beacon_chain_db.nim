@@ -148,3 +148,7 @@ suiteReport "Beacon chain DB" & preset():
 
     check:
       hash_tree_root(state2[]) == root
+
+  wrappedTimedTest "sanity check state diff roundtrip" & preset():
+    # TODO this
+    discard

@@ -88,6 +88,13 @@ type
       ## that we were not able to verify against a `deposit_root` served
       ## by the web3 provider. This may happen on Geth nodes that serve
       ## only recent contract state data (i.e. only recent `deposit_roots`).
+    kHashToStateDiff
+      ## Instead of storing full BeaconStates, one can store only the diff from
+      ## a different state. As 75% of a typical BeaconState's serialized form's
+      ## the validators, which are mostly immutable and append-only, just using
+      ## a simple append-diff representation helps significantly. Various roots
+      ## are stored in a mod-increment pattern across fixed-sized arrays, which
+      ## addresses most of the rest of the BeaconState sizes.
 
   BeaconBlockSummary* = object
     slot*: Slot
@@ -119,6 +126,9 @@ func subkey(kind: type SignedBeaconBlock, key: Eth2Digest): auto =
 
 func subkey(kind: type BeaconBlockSummary, key: Eth2Digest): auto =
   subkey(kHashToBlockSummary, key.data)
+
+func subkey(kind: type BeaconStateDiff, key: Eth2Digest): auto =
+  subkey(kHashToStateDiff, key.data)
 
 func subkey(root: Eth2Digest, slot: Slot): array[40, byte] =
   var ret: array[40, byte]
@@ -324,6 +334,9 @@ proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
     value: Eth2Digest) =
   db.put(subkey(root, slot), value)
 
+proc putStateDiff(db: BeaconChainDB, root: Eth2Digest, value: BeaconStateDiff) =
+  db.put(subkey(BeaconStateDiff, root), value)
+
 proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.del(subkey(SignedBeaconBlock, key)).expect("working database")
   db.backend.del(subkey(BeaconBlockSummary, key)).expect("working database")
@@ -333,6 +346,9 @@ proc delState*(db: BeaconChainDB, key: Eth2Digest) =
 
 proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
   db.backend.del(subkey(root, slot)).expect("working database")
+
+proc delStateDiff*(db: BeaconChainDB, root: Eth2Digest) =
+  db.backend.del(subkey(BeaconStateDiff, root)).expect("working database")
 
 proc putHeadBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.put(subkey(kHeadBlock), key)
@@ -396,6 +412,10 @@ proc getStateRoot*(db: BeaconChainDB,
                    root: Eth2Digest,
                    slot: Slot): Opt[Eth2Digest] =
   db.get(subkey(root, slot), Eth2Digest)
+
+proc getStateDiff*(db: BeaconChainDB,
+                   root: Eth2Digest): Opt[Eth2Digest] =
+  db.get(subkey(BeaconStateDiff, root), Eth2Digest)
 
 proc getHeadBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
   db.get(subkey(kHeadBlock), Eth2Digest)
