@@ -177,7 +177,8 @@ proc state_transition*(
     trace "state_transition: processing block, signature passed",
       signature = shortLog(signedBlock.signature),
       blockRoot = shortLog(signedBlock.root)
-    if process_block(preset, state.data, signedBlock.message, flags, stateCache):
+    let res = process_block(preset, state.data, signedBlock.message, flags, stateCache)
+    if res.isOk:
       if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
         # State root is what it should be - we're done!
 
@@ -190,6 +191,13 @@ proc state_transition*(
           else: signedBlock.message.state_root
 
         return true
+    else:
+      debug "state_transition: process_block failed",
+        blck = shortLog(signedBlock.message),
+        slot = state.data.slot,
+        eth1_deposit_index = state.data.eth1_deposit_index,
+        deposit_root = shortLog(state.data.eth1_data.deposit_root),
+        error = res.error
 
   # Block processing failed, roll back changes
   rollback(state)
@@ -236,10 +244,15 @@ proc makeBeaconBlock*(
       voluntary_exits:
         List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS](voluntaryExits)))
 
-  let ok = process_block(preset, state.data, blck, {skipBlsValidation}, cache)
+  let res = process_block(preset, state.data, blck, {skipBlsValidation}, cache)
 
-  if not ok:
-    warn "Unable to apply new block to state", blck = shortLog(blck)
+  if res.isErr:
+    warn "Unable to apply new block to state",
+      blck = shortLog(blck),
+      slot = state.data.slot,
+      eth1_deposit_index = state.data.eth1_deposit_index,
+      deposit_root = shortLog(state.data.eth1_data.deposit_root),
+      error = res.error
     rollback(state)
     return
 

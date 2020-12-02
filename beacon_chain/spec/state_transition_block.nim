@@ -342,33 +342,20 @@ proc process_operations(preset: RuntimePreset,
 proc process_block*(
     preset: RuntimePreset,
     state: var BeaconState, blck: SomeBeaconBlock, flags: UpdateFlags,
-    stateCache: var StateCache): bool {.nbench.}=
+    stateCache: var StateCache): Result[void, cstring] {.nbench.}=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
 
-  logScope:
-    blck = shortLog(blck)
-  let res_block = process_block_header(state, blck, flags, stateCache)
-  if res_block.isErr:
-    debug "Block header not valid",
-      block_header_error = $(res_block.error),
-      slot = state.slot
-    return false
+  ? process_block_header(state, blck, flags, stateCache)
 
   if not process_randao(state, blck.body, flags, stateCache):
-    debug "Randao failure", slot = shortLog(state.slot)
-    return false
+    return err("Randao failure".cstring)
 
   process_eth1_data(state, blck.body)
 
   let res_ops = process_operations(preset, state, blck.body, flags, stateCache)
   if res_ops.isErr:
-    debug "process_operations encountered error",
-      operation_error = $(res_ops.error),
-      slot = state.slot,
-      eth1_deposit_index = state.eth1_deposit_index,
-      deposit_root = shortLog(state.eth1_data.deposit_root)
-    return false
+    return err("process_operations encountered error".cstring)
 
-  true
+  ok()
