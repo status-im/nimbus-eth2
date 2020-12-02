@@ -349,7 +349,7 @@ proc process_block*(
 
   let res_block = process_block_header(state, blck, flags, stateCache)
   if res_block.isErr:
-    return err("Block header not valid: " & $(res_block.error))
+    return err($(res_block.error))
 
   if not process_randao(state, blck.body, flags, stateCache):
     return err("Randao failure")

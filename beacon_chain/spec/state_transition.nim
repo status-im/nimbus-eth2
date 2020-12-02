@@ -191,13 +191,13 @@ proc state_transition*(
           else: signedBlock.message.state_root
 
         return true
-
-    debug "state_transition: process_block failed",
-      blck = shortLog(blck),
-      slot = state.data.slot,
-      eth1_deposit_index = state.data.eth1_deposit_index,
-      deposit_root = shortLog(state.data.eth1_data.deposit_root),
-      error = res.error
+    else:
+      debug "state_transition: process_block failed",
+        blck = shortLog(signedBlock.message),
+        slot = state.data.slot,
+        eth1_deposit_index = state.data.eth1_deposit_index,
+        deposit_root = shortLog(state.data.eth1_data.deposit_root),
+        error = res.error
 
   # Block processing failed, roll back changes
   rollback(state)
