@@ -2,6 +2,7 @@
 - [Introduction](./intro.md)
 - [Philosophy]()
 - [System requirements](./hardware.md)
+- [Quick start]()]
 
 # Raspberry Pi
 - [Run your node on a Raspberry Pi](./pi-guide.md)
@@ -23,6 +24,7 @@
 - [Graffiti the blockchain](./graffiti.md)
 - [Nimbus binaries](./binaries.md)
 - [Troubleshooting](./troubleshooting.md)
+- [Import another pair of keys]()
 
 # Tutorials
 - [Grafana and Prometheus](metrics-pretty-pictures.md)
