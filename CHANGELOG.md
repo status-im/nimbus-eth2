@@ -1,38 +1,70 @@
+2020-12-03 v1.0.2
+=================
+
+A release that fixes an issue regarding the occasional missed block proposal.
+
+Proposing a block is arguably the most important duty you have as a validator.
+So it's important you update at your earliest convenience.
+
+-----
+
+**New additions:**
+
+* 8 new JSON-RPC calls that bring us to feature parity with the official
+  beacon node API.
+
+**We've fixed:**
+
+* A deposit merkle proofs generation issue which occasionally resulting
+  in missed block proposals shortly after a new Eth1 head was selected.
+
+* Slow status bar updates in the absense of logging messages.
+
+
 2020-12-02 v1.0.1
 =================
 
-A point release fixing a number of issues reported after the Mainnet launch.
+A release with a number of important fixes and optimisations.
 
-New additions:
+**Please update** at your earliest convenience.
 
-* Better pacing of our Eth1 syncing requests less likely to go over the
-  maximum allowed burst rates with the Infura free plans. More resiliency
-  in case of errors.
+In order to minimise downtime, we recommend updating and rebuilding
+the beacon node **before restarting.**
 
-We've fixed:
+-----
 
-* A crash reported by multiple users with the following error message:
-  "Only one concurrent read allowed".
+**New additions:**
+
+* More conservative Eth1 syncing requests to reduce the likelihood of
+  going over the maximum allowed burst rates under the Infura free plan
+  (predominantly aimed at those running Nimbus on resource-restricted
+   device like Raspberry Pi's) + more resiliency in case of errors.
+
+**We've fixed:**
+
+* A "Only one concurrent read allowed" crash reported by multiple users.
 
 * An error in the default configuration preventing the node from discovering
-  peers on mainnet unless `--network=mainnet` was explicitly specified on the
-  command-line.
+  peers on mainnet unless the `--network=mainnet` flag was passed. Please note
+  that this not affect users starting their node with the `./run-mainnet-beacon-node`
+  command.
 
-* An incorrect value for the fractional part of your ETH balance in the
-  Nimbus status bar.
+* The fractional part of the ETH balance in the Nimbus status bar
+  (the value displayed should now be correct).
 
-* An issue that may cause the Eth1 syncing process to get stuck before
-  reaching the head of the chain.
+* An issue that occasionally caused the Eth1 syncing process to get stuck
+  before reaching the head of the chain.
 
 * Unnecessary network traffic related to GossipSub `IHAVE`.
 
-* Incorrect gossipsub pruning which could result in messages getting lost.
+* Incorrect gossipsub pruning which occasionally resulted in messages
+  getting lost.
 
-* An issue where an excessively long graffiti string could cause a crash
-  upon startup.
+* An issue where an excessively long graffiti string could cause a crash on
+  startup.
 
-* A Linux-only issue causing the `deposits import` command to ignore its
-  supplied arguments.
+* A Linux-only issue that resulted in the `deposits import` command ignoring
+  its supplied arguments.
 
 
 2020-11-29 v1.0.0-stateofus
