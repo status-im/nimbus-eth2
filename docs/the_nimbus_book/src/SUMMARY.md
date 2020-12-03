@@ -1,4 +1,3 @@
-# Summary
 # Introduction
 - [Introduction](./intro.md)
 - [Philosophy]()
