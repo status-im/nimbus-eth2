@@ -251,7 +251,7 @@ type
         name: "dump" }: bool
 
       selfSlashingDetectionEpochs* {.
-        defaultValue: 2
+        defaultValue: 3
         desc: "Number of epochs of gossip to which to listen before broadcasting"
         name: "self-slashing-detection-epochs" }: uint64
 
