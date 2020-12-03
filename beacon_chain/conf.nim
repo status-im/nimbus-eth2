@@ -251,7 +251,7 @@ type
         name: "dump" }: bool
 
       dupProtectionEpochs* {.
-        defaultValue: 3
+        defaultValue: 0
         desc: "Number of epochs of gossip to which to listen before broadcasting"
         name: "dup-protection-epochs" }: uint64
 
