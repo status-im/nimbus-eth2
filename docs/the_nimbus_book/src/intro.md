@@ -2,7 +2,7 @@
 
 Nimbus is an Ethereum 2.0 client focused on offering the best user experience possible for low-resource devices.
 
-This book explains all the ways in which you can use Nimbus to either monitor the eth2 chain or become a fully-fledged validator.
+This book explains the ways in which you can use Nimbus to either monitor the eth2 chain or become a fully-fledged validator.
 
 > The reality is that we are very early in the eth2 validating life cycle. Validating is not for everyone yet, and it comes with both risks and responsibilities. It isn't a particularly easy way to make money. You'll need to put effort into updating your software, researching hard-forks, having a robust setup... . As such, you should only stake if you are genuinely interested in securing the protocol.
 

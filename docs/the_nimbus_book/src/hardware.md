@@ -15,4 +15,4 @@ Note that in order to process incoming validator deposits from the eth1 chain, y
 
 For example, you'll need at least another **290GB SSD** to run [geth fast sync](/eth1.md) on mainnet.
 
-> **Tip:** It's possible to [tell a Raspberry Pi 4 to use a 64-bit kernel](/pi-guide.md#10-64-bit-kernel).
+

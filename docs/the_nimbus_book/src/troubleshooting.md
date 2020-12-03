@@ -1,6 +1,6 @@
 # Troubleshooting
 
-> ⚠️  This page concerns the Pyrmont testnet. If you have made a mainnet deposit, you do not need to connect to eth2 quite yet. Mainnet [Genesis](https://hackmd.io/@benjaminion/genesis) date has been set to [December 1st](https://blog.ethereum.org/2020/11/04/eth2-quick-update-no-19/). This page will be updated nearer the time.
+> ⚠️  This page concerns the Pyrmont testnet. If you're running mainnet, replace `pyrmont` with `mainnet` in the commands below.
 
 
 As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the `master` branch. If you can't find a solution to your problem here, feel free to hit us up on our [discord](https://discord.com/invite/XRxWahP)!

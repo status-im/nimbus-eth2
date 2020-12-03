@@ -1,6 +1,6 @@
 # Network stats and monitoring
 
-> ⚠️  This page concerns the [Pyrmont](https://pyrmont.launchpad.ethereum.org/) testnet. This page will be updated for mainnet very soon.
+> ⚠️  This page concerns the [Pyrmont](https://pyrmont.launchpad.ethereum.org/) testnet. It will be updated for mainnet soon.
 
 eth2stats is a network monitoring suite for your beacon node + validator client.
 
