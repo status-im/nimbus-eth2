@@ -1,15 +1,14 @@
-# Introduction
+# Summary
 - [Introduction](./intro.md)
 - [Philosophy]()
 - [System requirements](./hardware.md)
-- [Quick start]()]
+- [Quick start]()
 
 # Raspberry Pi
 - [Run your node on a Raspberry Pi](./pi-guide.md)
 - [Mainnet advice](./pi-guide-mainnet.md)
 
 # How-to
-
 - [Install dependencies](./install.md)
 - [Build the beacon node](./build.md)
 - [Run an eth1 node](./eth1.md)
@@ -25,7 +24,6 @@
 - [Nimbus binaries](./binaries.md)
 - [Troubleshooting](./troubleshooting.md)
 - [Import another pair of keys]()
-
 # Tutorials
 - [Grafana and Prometheus](metrics-pretty-pictures.md)
 - [Network stats + monitoring](./eth2-stats.md)
@@ -34,7 +32,6 @@
 - [Perform a voluntary exit](voluntary-exit.md)
 - [Run just the beacon node]()
 - [Switch between clients]()
-
 # Reference
 - [Advanced options]()
 - [Windows users]()
@@ -44,4 +41,3 @@
 - [FAQ](./faq.md)
 - [Contribute](./contribute.md)
 - [Resources](./resources.md)
-
