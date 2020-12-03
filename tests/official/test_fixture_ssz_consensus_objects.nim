@@ -33,6 +33,13 @@ type
     # Some have a signing_root field
     signing_root: string
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#eth1block
+  Eth1Block* = object
+    timestamp*: uint64
+    deposit_root*: Eth2Digest
+    deposit_count*: uint64
+    # All other eth1 block fields
+
 # Make signing root optional
 setDefaultValue(SSZHashTreeRoot, signing_root, "")
 

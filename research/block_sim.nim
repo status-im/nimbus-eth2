@@ -15,15 +15,15 @@
 # a database, as if a real node was running.
 
 import
-  confutils, chronicles, stats, times, strformat,
+  math, stats, times, strformat,
   options, random, tables, os,
-  eth/db/kvstore_sqlite3,
+  confutils, chronicles, eth/db/kvstore_sqlite3,
   ../tests/[testblockutil],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, presets,
                         helpers, validator, signatures, state_transition],
   ../beacon_chain/[
     attestation_pool, beacon_node_types, beacon_chain_db,
-    interop, validator_pool],
+    validator_pool, eth1_monitor, extras],
   ../beacon_chain/block_pools/[
     spec_cache, chain_dag, quarantine, clearance],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
@@ -37,6 +37,18 @@ type Timers = enum
   tAttest = "Have committee attest to block"
   tReplay = "Replay all produced blocks"
 
+proc gauss(r: var Rand; mu = 0.0; sigma = 1.0): float =
+  # TODO This is present in Nim 1.4
+  const K = sqrt(2 / E)
+  var
+    a = 0.0
+    b = 0.0
+  while true:
+    a = rand(r, 1.0)
+    b = (2.0 * rand(r, 1.0) - 1.0) * K
+    if  b * b <= -4.0 * a * a * ln(a): break
+  result = mu + sigma * (b / a)
+
 # TODO confutils is an impenetrable black box. how can a help text be added here?
 cli do(slots = SLOTS_PER_EPOCH * 6,
        validators = SLOTS_PER_EPOCH * 200, # One per shard is minimum
@@ -44,9 +56,10 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
        blockRatio {.desc: "ratio of slots with blocks"} = 1.0,
        replay = true):
   let
-    state = loadGenesis(validators, true)
+    (state, depositContractSnapshot) = loadGenesis(validators, false)
     genesisBlock = get_initial_beacon_block(state[].data)
     runtimePreset = defaultRuntimePreset
+    genesisTime = float state[].data.genesis_time
 
   echo "Starting simulation..."
 
@@ -54,14 +67,24 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   defer: db.close()
 
   ChainDAGRef.preInit(db, state[].data, state[].data, genesisBlock)
+  putInitialDepositContractSnapshot(db, depositContractSnapshot)
 
   var
-    chainDag = init(ChainDAGRef, runtimePreset, db)
+    chainDag = ChainDAGRef.init(runtimePreset, db)
+    eth1Chain = Eth1Chain.init(runtimePreset, db)
+    merkleizer = depositContractSnapshot.createMerkleizer
     quarantine = QuarantineRef()
     attPool = AttestationPool.init(chainDag, quarantine)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r = initRand(1)
+
+  eth1Chain.addBlock Eth1Block(
+    number: Eth1BlockNumber 1,
+    timestamp: Eth1BlockTimestamp genesisTime,
+    voteData: Eth1Data(
+      deposit_root: merkleizer.getDepositsRoot,
+      deposit_count: merkleizer.getChunkCount))
 
   let replayState = assignClone(chainDag.headState)
 
@@ -105,20 +128,23 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     chainDag.withState(chainDag.tmpState, head.atSlot(slot)):
       let
+        finalizedEpochRef = chainDag.getFinalizedEpochRef()
         proposerIdx = get_beacon_proposer_index(state, cache).get()
         privKey = hackPrivKey(state.validators[proposerIdx])
-        eth1data = get_eth1data_stub(
-          state.eth1_deposit_index, slot.compute_epoch_at_slot())
+        eth1ProposalData = eth1Chain.getBlockProposalData(
+          state,
+          finalizedEpochRef.eth1_data,
+          finalizedEpochRef.eth1_deposit_index)
         message = makeBeaconBlock(
           runtimePreset,
           hashedState,
           proposerIdx,
           head.root,
           privKey.genRandaoReveal(state.fork, state.genesis_validators_root, slot),
-          eth1data,
+          eth1ProposalData.vote,
           default(GraffitiBytes),
           attPool.getAttestationsForBlock(state, cache),
-          @[],
+          eth1ProposalData.deposits,
           @[],
           @[],
           @[],
@@ -148,12 +174,42 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       blck() = added[]
       chainDag.updateHead(added[], quarantine)
 
+  var
+    lastEth1BlockAt = genesisTime
+    eth1BlockNum = 1000
+
   for i in 0..<slots:
     let
       slot = Slot(i + 1)
       t =
         if slot.isEpoch: tEpoch
         else: tBlock
+      now = genesisTime + float(slot * SECONDS_PER_SLOT)
+
+    while true:
+      let nextBlockTime = lastEth1BlockAt +
+                          max(1.0, gauss(r, float SECONDS_PER_ETH1_BLOCK, 3.0))
+      if nextBlockTime > now:
+        break
+
+      inc eth1BlockNum
+      var eth1Block = Eth1Block(
+        number: Eth1BlockNumber eth1BlockNum,
+        timestamp: Eth1BlockTimestamp nextBlockTime,
+        voteData: Eth1Data(
+          block_hash: makeFakeHash(eth1BlockNum)))
+
+      let newDeposits = int clamp(gauss(r, 5.0, 8.0), 0.0, 1000.0)
+      for i in 0 ..< newDeposits:
+        let d = makeDeposit(merkleizer.getChunkCount.int, {skipBLSValidation})
+        eth1Block.deposits.add d
+        merkleizer.addChunk hash_tree_root(d).data
+
+      eth1Block.voteData.deposit_root = merkleizer.getDepositsRoot
+      eth1Block.voteData.deposit_count = merkleizer.getChunkCount
+
+      eth1Chain.addBlock eth1Block
+      lastEth1BlockAt = nextBlockTime
 
     if blockRatio > 0.0:
       withTimer(timers[t]):

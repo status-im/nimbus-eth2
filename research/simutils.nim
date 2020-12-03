@@ -1,7 +1,7 @@
 import
   stats, os, strformat, times,
   ../tests/[testblockutil],
-  ../beacon_chain/[extras],
+  ../beacon_chain/[extras, eth1_monitor, beacon_chain_db],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, presets]
 
@@ -40,11 +40,17 @@ func verifyConsensus*(state: BeaconState, attesterRatio: auto) =
   if current_epoch >= 4:
     doAssert state.finalized_checkpoint.epoch + 2 >= current_epoch
 
-proc loadGenesis*(validators: Natural, validate: bool): ref HashedBeaconState =
-  let fn = &"genesim_{const_preset}_{validators}_{SPEC_VERSION}.ssz"
-  let res = (ref HashedBeaconState)()
-  if fileExists(fn):
-    res.data = SSZ.loadFile(fn, BeaconState)
+proc loadGenesis*(validators: Natural, validate: bool):
+                 (ref HashedBeaconState, DepositContractSnapshot) =
+  let
+    genesisFn =
+      &"genesis_{const_preset}_{validators}_{SPEC_VERSION}.ssz"
+    contractSnapshotFn =
+      &"deposit_contract_snapshot_{const_preset}_{validators}_{SPEC_VERSION}.ssz"
+    res = (ref HashedBeaconState)()
+
+  if fileExists(genesisFn) and fileExists(contractSnapshotFn):
+    res.data = SSZ.loadFile(genesisFn, BeaconState)
     res.root = hash_tree_root(res.data)
     if res.data.slot != GENESIS_SLOT:
       echo "Can only start from genesis state"
@@ -53,9 +59,13 @@ proc loadGenesis*(validators: Natural, validate: bool): ref HashedBeaconState =
     if res.data.validators.len != validators:
       echo &"Supplied genesis file has {res.data.validators.len} validators, while {validators} where requested, running anyway"
 
-    echo &"Loaded {fn}..."
+    echo &"Loaded {genesisFn}..."
+
     # TODO check that the private keys are interop keys
-    res
+
+    let contractSnapshot = SSZ.loadFile(contractSnapshotFn,
+                                        DepositContractSnapshot)
+    (res, contractSnapshot)
   else:
     echo "Genesis file not found, making one up (use nimbus_beacon_node createTestnet to make one)"
 
@@ -65,6 +75,11 @@ proc loadGenesis*(validators: Natural, validate: bool): ref HashedBeaconState =
       deposits = makeInitialDeposits(validators.uint64, flags)
 
     echo "Generating Genesis..."
+    var merkleizer = init DepositsMerkleizer
+    for d in deposits:
+      merkleizer.addChunk hash_tree_root(d).data
+    let contractSnapshot = DepositContractSnapshot(
+      depositContractState: merkleizer.toDepositContractState)
 
     res.data = initialize_beacon_state_from_eth1(
       defaultRuntimePreset,
@@ -75,10 +90,12 @@ proc loadGenesis*(validators: Natural, validate: bool): ref HashedBeaconState =
 
     res.root = hash_tree_root(res.data)
 
-    echo &"Saving to {fn}..."
-    SSZ.saveFile(fn, res.data)
+    echo &"Saving to {genesisFn}..."
+    SSZ.saveFile(genesisFn, res.data)
+    echo &"Saving to {contractSnapshotFn}..."
+    SSZ.saveFile(contractSnapshotFn, contractSnapshot)
 
-    res
+    (res, contractSnapshot)
 
 proc printTimers*[Timers: enum](
   validate: bool,

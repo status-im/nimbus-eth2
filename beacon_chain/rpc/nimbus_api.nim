@@ -23,7 +23,6 @@ logScope: topics = "nimbusapi"
 
 type
   RpcServer = RpcHttpServer
-  Eth1Block = eth1_monitor.Eth1Block
 
   FutureInfo* = object
     id*: int

@@ -55,8 +55,12 @@ type
       activeValidatorsCount*: uint64
 
   Eth1Chain* = object
+    db: BeaconChainDB
+    preset: RuntimePreset
     blocks: Deque[Eth1Block]
     blocksByHash: Table[BlockHash, Eth1Block]
+    finalizedBlockHash: Eth2Digest
+    finalizedDepositsMerkleizer: DepositsMerkleizer
 
   Eth1MonitorState = enum
     Initialized
@@ -67,20 +71,15 @@ type
 
   Eth1Monitor* = ref object
     state: Eth1MonitorState
-    preset: RuntimePreset
     web3Url: string
     eth1Network: Option[Eth1Network]
     depositContractAddress*: Eth1Address
 
     dataProvider: Web3DataProviderRef
 
+    eth1Chain: Eth1Chain
     latestEth1BlockNumber: Eth1BlockNumber
     eth1Progress: AsyncEvent
-
-    db: BeaconChainDB
-    eth1Chain: Eth1Chain
-    knownStart: DepositContractSnapshot
-    eth2FinalizedDepositsMerkleizer: DepositsMerkleizer
 
     runFut: Future[void]
     stopFut: Future[void]
@@ -213,6 +212,15 @@ when hasGenesisDetection:
 template blocks*(m: Eth1Monitor): Deque[Eth1Block] =
   m.eth1Chain.blocks
 
+template db(m: Eth1Monitor): auto =
+  m.eth1Chain.db
+
+template preset(m: Eth1Monitor): auto =
+  m.eth1Chain.preset
+
+template finalizedDepositsMerkleizer(m: Eth1Monitor): auto =
+  m.eth1Chain.finalizedDepositsMerkleizer
+
 proc fixupWeb3Urls*(web3Url: var string) =
   ## Converts HTTP and HTTPS Infura URLs to their WebSocket equivalents
   ## because we are missing a functional HTTPS client.
@@ -291,8 +299,8 @@ template asBlockHash(x: Eth2Digest): BlockHash =
 func shortLog*(b: Eth1Block): string =
   &"{b.number}:{shortLog b.voteData.block_hash}(deposits = {b.voteData.deposit_count})"
 
-template findBlock*(eth1Chain: Eth1Chain, eth1Data: Eth1Data): Eth1Block =
-  getOrDefault(eth1Chain.blocksByHash, asBlockHash(eth1Data.block_hash), nil)
+template findBlock*(chain: Eth1Chain, eth1Data: Eth1Data): Eth1Block =
+  getOrDefault(chain.blocksByHash, asBlockHash(eth1Data.block_hash), nil)
 
 func makeSuccessorWithoutDeposits(existingBlock: Eth1Block,
                                   successor: BlockObject): ETh1Block =
@@ -307,21 +315,21 @@ func makeSuccessorWithoutDeposits(existingBlock: Eth1Block,
   when hasGenesisDetection:
     result.activeValidatorsCount = existingBlock.activeValidatorsCount
 
-func latestCandidateBlock(m: Eth1Monitor, periodStart: uint64): Eth1Block =
-  for i in countdown(m.eth1Chain.blocks.len - 1, 0):
-    let blk = m.eth1Chain.blocks[i]
-    if is_candidate_block(m.preset, blk, periodStart):
+func latestCandidateBlock(chain: Eth1Chain, periodStart: uint64): Eth1Block =
+  for i in countdown(chain.blocks.len - 1, 0):
+    let blk = chain.blocks[i]
+    if is_candidate_block(chain.preset, blk, periodStart):
       return blk
 
-proc popFirst(eth1Chain: var Eth1Chain) =
-  let removed = eth1Chain.blocks.popFirst
-  eth1Chain.blocksByHash.del removed.voteData.block_hash.asBlockHash
-  eth1_chain_len.set eth1Chain.blocks.len.int64
+proc popFirst(chain: var Eth1Chain) =
+  let removed = chain.blocks.popFirst
+  chain.blocksByHash.del removed.voteData.block_hash.asBlockHash
+  eth1_chain_len.set chain.blocks.len.int64
 
-proc addBlock(eth1Chain: var Eth1Chain, newBlock: Eth1Block) =
-  eth1Chain.blocks.addLast newBlock
-  eth1Chain.blocksByHash[newBlock.voteData.block_hash.asBlockHash] = newBlock
-  eth1_chain_len.set eth1Chain.blocks.len.int64
+proc addBlock*(chain: var Eth1Chain, newBlock: Eth1Block) =
+  chain.blocks.addLast newBlock
+  chain.blocksByHash[newBlock.voteData.block_hash.asBlockHash] = newBlock
+  eth1_chain_len.set chain.blocks.len.int64
 
 func hash*(x: Eth1Data): Hash =
   hashData(unsafeAddr x, sizeof(x))
@@ -495,20 +503,21 @@ proc onBlockHeaders*(p: Web3DataProviderRef,
 
 {.push raises: [Defect].}
 
-func getDepositsRoot(m: DepositsMerkleizer): Eth2Digest =
+func getDepositsRoot*(m: DepositsMerkleizer): Eth2Digest =
   mixInLength(m.getFinalHash, int m.totalChunks)
 
-func toDepositContractState(merkleizer: DepositsMerkleizer): DepositContractState =
+func toDepositContractState*(merkleizer: DepositsMerkleizer): DepositContractState =
   # TODO There is an off by one discrepancy in the size of the arrays here that
   #      need to be investigated. It shouldn't matter as long as the tree is
   #      not populated to its maximum size.
   result.branch[0..31] = merkleizer.getCombinedChunks[0..31]
   result.deposit_count[24..31] = merkleizer.getChunkCount().toBytesBE
 
-func createMerkleizer(s: DepositContractSnapshot): DepositsMerkleizer =
-  DepositsMerkleizer.init(
-    s.depositContractState.branch,
-    s.depositContractState.depositCountU64)
+func createMerkleizer*(s: DepositContractState): DepositsMerkleizer =
+  DepositsMerkleizer.init(s.branch, s.depositCountU64)
+
+func createMerkleizer*(s: DepositContractSnapshot): DepositsMerkleizer =
+  createMerkleizer(s.depositContractState)
 
 func eth1DataFromMerkleizer(eth1Block: Eth2Digest,
                             merkleizer: DepositsMerkleizer): Eth1Data =
@@ -517,24 +526,24 @@ func eth1DataFromMerkleizer(eth1Block: Eth2Digest,
     deposit_count: merkleizer.getChunkCount,
     deposit_root: merkleizer.getDepositsRoot)
 
-proc pruneOldBlocks(m: Eth1Monitor, depositIndex: uint64) =
-  let initialChunks = m.eth2FinalizedDepositsMerkleizer.getChunkCount
+proc pruneOldBlocks(chain: var Eth1Chain, depositIndex: uint64) =
+  let initialChunks = chain.finalizedDepositsMerkleizer.getChunkCount
   var lastBlock: Eth1Block
 
-  while m.eth1Chain.blocks.len > 0:
-    let blk = m.eth1Chain.blocks.peekFirst
+  while chain.blocks.len > 0:
+    let blk = chain.blocks.peekFirst
     if blk.voteData.deposit_count >= depositIndex:
       break
     else:
       for deposit in blk.deposits:
-        m.eth2FinalizedDepositsMerkleizer.addChunk hash_tree_root(deposit).data
-    m.eth1Chain.popFirst()
+        chain.finalizedDepositsMerkleizer.addChunk hash_tree_root(deposit).data
+    chain.popFirst()
     lastBlock = blk
 
-  if m.eth2FinalizedDepositsMerkleizer.getChunkCount > initialChunks:
-    m.db.putEth2FinalizedTo DepositContractSnapshot(
+  if chain.finalizedDepositsMerkleizer.getChunkCount > initialChunks:
+    chain.db.putEth2FinalizedTo DepositContractSnapshot(
       eth1Block: lastBlock.voteData.block_hash,
-      depositContractState: m.eth2FinalizedDepositsMerkleizer.toDepositContractState)
+      depositContractState: chain.finalizedDepositsMerkleizer.toDepositContractState)
 
     eth1_finalized_head.set lastBlock.number.toGaugeValue
     eth1_finalized_deposits.set lastBlock.voteData.deposit_count.toGaugeValue
@@ -543,24 +552,24 @@ proc pruneOldBlocks(m: Eth1Monitor, depositIndex: uint64) =
            newTailBlock = lastBlock.voteData.block_hash,
            depositsCount = lastBlock.voteData.deposit_count
 
-proc advanceMerkleizer(eth1Chain: Eth1Chain,
+proc advanceMerkleizer(chain: Eth1Chain,
                        merkleizer: var DepositsMerkleizer,
                        depositIndex: uint64): bool =
-  if eth1Chain.blocks.len == 0:
+  if chain.blocks.len == 0:
     return depositIndex == merkleizer.getChunkCount
 
-  if eth1Chain.blocks.peekLast.voteData.deposit_count < depositIndex:
+  if chain.blocks.peekLast.voteData.deposit_count < depositIndex:
     return false
 
   let
-    firstBlock = eth1Chain.blocks[0]
+    firstBlock = chain.blocks[0]
     depositsInLastPrunedBlock = firstBlock.voteData.deposit_count -
                                 firstBlock.deposits.lenu64
 
   # advanceMerkleizer should always be called shortly after prunning the chain
   doAssert depositsInLastPrunedBlock == merkleizer.getChunkCount
 
-  for blk in eth1Chain.blocks:
+  for blk in chain.blocks:
     for deposit in blk.deposits:
       if merkleizer.getChunkCount < depositIndex:
         merkleizer.addChunk hash_tree_root(deposit).data
@@ -569,13 +578,13 @@ proc advanceMerkleizer(eth1Chain: Eth1Chain,
 
   return merkleizer.getChunkCount == depositIndex
 
-proc getDepositsRange(eth1Chain: Eth1Chain, first, last: uint64): seq[DepositData] =
+proc getDepositsRange(chain: Eth1Chain, first, last: uint64): seq[DepositData] =
   # TODO It's possible to make this faster by performing binary search that
   #      will locate the blocks holding the `first` and `last` indices.
   # TODO There is an assumption here that the requested range will be present
   #      in the Eth1Chain. This should hold true at the single call site right
   #      now, but we need to guard the pre-conditions better.
-  for blk in eth1Chain.blocks:
+  for blk in chain.blocks:
     if blk.voteData.deposit_count <= first:
       continue
 
@@ -597,64 +606,72 @@ proc lowerBound(chain: Eth1Chain, depositCount: uint64): Eth1Block =
       return
     result = eth1Block
 
-proc trackFinalizedState*(m: Eth1Monitor,
+proc trackFinalizedState*(chain: var Eth1Chain,
                           finalizedEth1Data: Eth1Data,
                           finalizedStateDepositIndex: uint64): bool =
   # Returns true if the Eth1Monitor is synced to the finalization point
-  if m.eth1Chain.blocks.len == 0:
+  if chain.blocks.len == 0:
     debug "Eth1 chain not initialized"
     return false
 
-  let latest = m.eth1Chain.blocks.peekLast
+  let latest = chain.blocks.peekLast
   if latest.voteData.deposit_count < finalizedEth1Data.deposit_count:
     debug "Eth1 chain not synced",
           ourDepositsCount = latest.voteData.deposit_count,
           targetDepositsCount = finalizedEth1Data.deposit_count
     return false
 
-  let matchingBlock = m.eth1Chain.lowerBound(finalizedEth1Data.deposit_count)
+  let matchingBlock = chain.lowerBound(finalizedEth1Data.deposit_count)
   result = if matchingBlock != nil:
     if matchingBlock.voteData.deposit_root == finalizedEth1Data.deposit_root:
       matchingBlock.voteDataVerified = true
       true
     else:
       error "Corrupted deposits history detected",
-            depositsCount = finalizedEth1Data.deposit_count,
-            targetDepositsRoot = finalizedEth1Data.deposit_root,
-            ourDepositsRoot = matchingBlock.voteData.deposit_root
+            ourDepositsCount = matchingBlock.voteData.deposit_count,
+            taretDepositsCount = finalizedEth1Data.deposit_count,
+            ourDepositsRoot = matchingBlock.voteData.deposit_root,
+            targetDepositsRoot = finalizedEth1Data.deposit_root
       false
   else:
     error "The Eth1 chain is in inconsistent state",
           checkpointHash = finalizedEth1Data.block_hash,
           checkpointDeposits = finalizedEth1Data.deposit_count,
-          localChainStart = shortLog(m.eth1Chain.blocks.peekFirst),
-          localChainEnd = shortLog(m.eth1Chain.blocks.peekLast)
+          localChainStart = shortLog(chain.blocks.peekFirst),
+          localChainEnd = shortLog(chain.blocks.peekLast)
     false
 
   if result:
-    m.pruneOldBlocks(finalizedStateDepositIndex)
+    chain.pruneOldBlocks(finalizedStateDepositIndex)
+
+template trackFinalizedState*(m: Eth1Monitor,
+                              finalizedEth1Data: Eth1Data,
+                              finalizedStateDepositIndex: uint64): bool =
+  trackFinalizedState(m.eth1Chain, finalizedEth1Data, finalizedStateDepositIndex)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#get_eth1_data
-proc getBlockProposalData*(m: Eth1Monitor,
+proc getBlockProposalData*(chain: var Eth1Chain,
                            state: BeaconState,
                            finalizedEth1Data: Eth1Data,
                            finalizedStateDepositIndex: uint64): BlockProposalEth1Data =
   let
     periodStart = voting_period_start_time(state)
-    hasLatestDeposits = m.trackFinalizedState(finalizedEth1Data,
-                                              finalizedStateDepositIndex)
+    hasLatestDeposits = chain.trackFinalizedState(finalizedEth1Data,
+                                                  finalizedStateDepositIndex)
 
   var otherVotesCountTable = initCountTable[Eth1Data]()
   for vote in state.eth1_data_votes:
+    let eth1Block = chain.findBlock(vote)
+    if eth1Block == nil:
+      continue
     let
-      eth1Block = m.eth1Chain.findBlock(vote)
       isSuccessor = vote.deposit_count >= state.eth1_data.deposit_count
       # TODO(zah)
       # There is a slight deviation from the spec here to deal with the following
       # problem: the in-memory database of eth1 blocks for a restarted node will
       # be empty which will lead a "no change" vote. To fix this, we'll need to
       # add rolling persistance for all potentially voted on blocks.
-      isCandidate = (eth1Block == nil or is_candidate_block(m.preset, eth1Block, periodStart))
+      isCandidate = (is_candidate_block(chain.preset, eth1Block, periodStart))
 
     if isSuccessor and isCandidate:
       otherVotesCountTable.inc vote
@@ -669,7 +686,7 @@ proc getBlockProposalData*(m: Eth1Monitor,
     if uint64((votes + 1) * 2) > SLOTS_PER_ETH1_VOTING_PERIOD:
       pendingDepositsCount = winningVote.deposit_count - state.eth1_deposit_index
   else:
-    let latestBlock = m.latestCandidateBlock(periodStart)
+    let latestBlock = chain.latestCandidateBlock(periodStart)
     if latestBlock == nil:
       debug "No acceptable eth1 votes and no recent candidates. Voting no change"
       result.vote = state.eth1_data
@@ -681,13 +698,13 @@ proc getBlockProposalData*(m: Eth1Monitor,
     if hasLatestDeposits:
       let
         totalDepositsInNewBlock = min(MAX_DEPOSITS, pendingDepositsCount)
-        deposits = m.eth1Chain.getDepositsRange(
+        deposits = chain.getDepositsRange(
           state.eth1_deposit_index,
           state.eth1_deposit_index + pendingDepositsCount)
         depositRoots = mapIt(deposits, hash_tree_root(it))
 
-      var scratchMerkleizer = copy m.eth2FinalizedDepositsMerkleizer
-      if m.eth1Chain.advanceMerkleizer(scratchMerkleizer, state.eth1_deposit_index):
+      var scratchMerkleizer = copy chain.finalizedDepositsMerkleizer
+      if chain.advanceMerkleizer(scratchMerkleizer, state.eth1_deposit_index):
         let proofs = scratchMerkleizer.addChunksAndGenMerkleProofs(depositRoots)
         for i in 0 ..< totalDepositsInNewBlock:
           var proof: array[33, Eth2Digest]
@@ -700,6 +717,12 @@ proc getBlockProposalData*(m: Eth1Monitor,
         result.hasMissingDeposits = true
     else:
       result.hasMissingDeposits = true
+
+template getBlockProposalData*(m: Eth1Monitor,
+                               state: BeaconState,
+                               finalizedEth1Data: Eth1Data,
+                               finalizedStateDepositIndex: uint64): BlockProposalEth1Data =
+  getBlockProposalData(m.eth1Chain, state, finalizedEth1Data, finalizedStateDepositIndex)
 
 {.pop.}
 
@@ -718,9 +741,28 @@ proc new(T: type Web3DataProvider,
 
   return ok Web3DataProviderRef(url: web3Url, web3: web3, ns: ns)
 
+proc putInitialDepositContractSnapshot*(db: BeaconChainDB,
+                                        s: DepositContractSnapshot) =
+  let existingStart = db.getEth2FinalizedTo()
+  if not existingStart.isOk:
+    db.putEth2FinalizedTo(s)
+
+template getOrDefault[T, E](r: Result[T, E]): T =
+  type TT = T
+  get(r, default(TT))
+
+proc init*(T: type Eth1Chain, preset: RuntimePreset, db: BeaconChainDB): T =
+  let finalizedDeposits = db.getEth2FinalizedTo().getOrDefault()
+  let m = finalizedDeposits.createMerkleizer
+
+  T(db: db,
+    preset: preset,
+    finalizedBlockHash: finalizedDeposits.eth1Block,
+    finalizedDepositsMerkleizer: finalizedDeposits.createMerkleizer)
+
 proc init*(T: type Eth1Monitor,
-           db: BeaconChainDB,
            preset: RuntimePreset,
+           db: BeaconChainDB,
            web3Url: string,
            depositContractAddress: Eth1Address,
            depositContractSnapshot: DepositContractSnapshot,
@@ -728,10 +770,10 @@ proc init*(T: type Eth1Monitor,
   var web3Url = web3Url
   fixupWeb3Urls web3Url
 
+  putInitialDepositContractSnapshot(db, depositContractSnapshot)
+
   T(state: Initialized,
-    db: db,
-    preset: preset,
-    knownStart: depositContractSnapshot,
+    eth1Chain: Eth1Chain.init(preset, db),
     depositContractAddress: depositContractAddress,
     web3Url: web3Url,
     eth1Network: eth1Network,
@@ -985,30 +1027,24 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
   do (err: CatchableError):
     debug "Error while processing Eth1 block headers subscription", err = err.msg
 
-  let eth2PreviouslyFinalizedTo = m.db.getEth2FinalizedTo()
-  if eth2PreviouslyFinalizedTo.isOk:
-    m.knownStart = eth2PreviouslyFinalizedTo.get
-
-  m.eth2FinalizedDepositsMerkleizer = m.knownStart.createMerkleizer
-
   let startBlock = awaitWithRetries(
-    m.dataProvider.getBlockByHash(m.knownStart.eth1Block.asBlockHash))
+    m.dataProvider.getBlockByHash(m.eth1Chain.finalizedBlockHash.asBlockHash))
 
   doAssert m.eth1Chain.blocks.len == 0
   m.eth1Chain.addBlock Eth1Block(
     number: Eth1BlockNumber startBlock.number,
     timestamp: Eth1BlockTimestamp startBlock.timestamp,
     voteData: eth1DataFromMerkleizer(
-      m.knownStart.eth1Block,
-      m.eth2FinalizedDepositsMerkleizer))
+      m.eth1Chain.finalizedBlockHash,
+      m.eth1Chain.finalizedDepositsMerkleizer))
 
   var eth1SyncedTo = Eth1BlockNumber startBlock.number
   eth1_synced_head.set eth1SyncedTo.toGaugeValue
   eth1_finalized_head.set eth1SyncedTo.toGaugeValue
   eth1_finalized_deposits.set(
-    m.eth2FinalizedDepositsMerkleizer.getChunkCount.toGaugeValue)
+    m.eth1Chain.finalizedDepositsMerkleizer.getChunkCount.toGaugeValue)
 
-  var scratchMerkleizer = newClone(copy m.eth2FinalizedDepositsMerkleizer)
+  var scratchMerkleizer = newClone(copy m.finalizedDepositsMerkleizer)
 
   debug "Starting Eth1 syncing", `from` = shortLog(m.eth1Chain.blocks[0])
 
