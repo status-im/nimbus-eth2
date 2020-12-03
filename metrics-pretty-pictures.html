@@ -205,14 +205,12 @@ cd prometheus-*
 <p>Prometheus relies on a YAML configuration file to let it know where, and how often, to scrape data.</p>
 <p>Example config file:</p>
 <pre><code>global:
-  scrape_interval: 6s
+  scrape_interval: 12s
 
 scrape_configs:
   - job_name: &quot;nimbus&quot;
     static_configs:
       - targets: ['127.0.0.1:8008']
-        labels:
-          node: '0'
 
 </code></pre>
 <p>Save the above as <code>prometheus.yml</code> in the <code>nimbus-eth2</code> repo.</p>
@@ -220,7 +218,7 @@ scrape_configs:
 <pre><code>prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
 </code></pre>
 <h4><a class="header" href="#4-download-grafana" id="4-download-grafana">4. Download Grafana</a></h4>
-<p><a href="(https://grafana.com/grafana/download?platform=linux)">Download the latest release</a> of Grafana for your platform.</p>
+<p><a href="(https://grafana.com/grafana/download?platform=linux)">Download the latest release</a> of Grafana for your platform. You need version 7.2 or newer.</p>
 <blockquote>
 <p><strong>Note:</strong> If you use a package manager, you can also download Grafana that way -- for example <code>apt-get install grafana</code> on Ubuntu, or <code>brew install grafana</code> on MacOS, should do the trick.</p>
 </blockquote>
@@ -239,6 +237,7 @@ scrape_configs:
 <p><img src="https://i.imgur.com/YpwThOr.png" alt="" /></p>
 <p>Enter <code>http://localhost:9090</code> in the URL field</p>
 <p><img src="https://i.imgur.com/PtVOnur.png" alt="" /></p>
+<p>Set the &quot;Scrape interval&quot; field to the same value you used in the Prometheus config (&quot;12&quot; in our example above).</p>
 <p>Scroll to the bottom and click on <code>Save and Test</code></p>
 <p><img src="https://i.imgur.com/GJVdwaK.png" alt="" /></p>
 <p>If everything is working correctly you should see a green <code>Data source is working</code> box pop up</p>
