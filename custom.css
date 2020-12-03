@@ -5,7 +5,7 @@
     --sidebar-bg: #fafafa;
     --sidebar-fg: #364149;
     --sidebar-non-existant: #aaaaaa;
-    --sidebar-active: #008cff;
+    --sidebar-active: #ff9c00;
     --sidebar-spacer: #f4f4f4;
 
     --scrollbar: #cccccc;
@@ -13,7 +13,7 @@
     --icons: #cccccc;
     --icons-hover: #333333;
 
-    --links: #4183c4;
+    --links: #ff9c00;
 
     --inline-code-color: #6e6b5e;
 
@@ -21,8 +21,8 @@
     --theme-popup-border: #cccccc;
     --theme-hover: #e6e6e6;
 
-    --quote-bg: orange; //hsl(197, 37%, 96%);
-    --quote-border: hsl(197, 37%, 91%);
+    --quote-bg: rgb(250,250,250); //hsl(197, 37%, 96%);
+    --quote-border: //hsl(197, 37%, 91%);
 
     --table-border-color: hsl(0, 0%, 95%);
     --table-header-bg: hsl(0, 0%, 80%);
@@ -36,4 +36,8 @@
     --searchresults-border-color: #888;
     --searchresults-li-bg: #e4f2fe;
     --search-mark-bg: #a2cff5;
+}
+
+blockquote {
+    padding: 10px 20px;
 }
