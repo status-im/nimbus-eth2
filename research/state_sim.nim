@@ -42,7 +42,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
        validate = true):
   let
     flags = if validate: {} else: {skipBlsValidation}
-    state = loadGenesis(validators, validate)
+    (state, depositContractState) = loadGenesis(validators, validate)
     genesisBlock = get_initial_beacon_block(state.data)
 
   echo "Starting simulation..."

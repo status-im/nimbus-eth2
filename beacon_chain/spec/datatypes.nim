@@ -404,13 +404,6 @@ type
     deposit_count*: uint64
     block_hash*: Eth2Digest
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#eth1block
-  Eth1Block* = object
-    timestamp*: uint64
-    deposit_root*: Eth2Digest
-    deposit_count*: uint64
-    # All other eth1 block fields
-
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#signedvoluntaryexit
   SignedVoluntaryExit* = object
     message*: VoluntaryExit

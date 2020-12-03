@@ -19,7 +19,7 @@ func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
   var bytes = uint64(i + 1000).toBytesLE()
   copyMem(addr result, addr bytes[0], sizeof(bytes))
 
-func makeFakeHash(i: int): Eth2Digest =
+func makeFakeHash*(i: int): Eth2Digest =
   var bytes = uint64(i).toBytesLE()
   static: doAssert sizeof(bytes) <= sizeof(result.data)
   copyMem(addr result.data[0], addr bytes[0], sizeof(bytes))
@@ -34,7 +34,7 @@ func hackPrivKey*(v: Validator): ValidatorPrivKey =
   let i = int(uint64.fromBytesLE(bytes))
   makeFakeValidatorPrivKey(i)
 
-func makeDeposit(i: int, flags: UpdateFlags): DepositData =
+func makeDeposit*(i: int, flags: UpdateFlags = {}): DepositData =
   ## Ugly hack for now: we stick the private key in withdrawal_credentials
   ## which means we can repro private key and randao reveal from this data,
   ## for testing :)

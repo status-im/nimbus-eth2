@@ -140,8 +140,8 @@ proc init*(T: type BeaconNode,
         # TODO Could move this to a separate "GenesisMonitor" process or task
         #      that would do only this - see Paul's proposal for this.
         let eth1MonitorRes = await Eth1Monitor.init(
-          db,
           conf.runtimePreset,
+          db,
           conf.web3Url,
           depositContractAddress,
           depositContractDeployedAt,
@@ -254,8 +254,8 @@ proc init*(T: type BeaconNode,
     let genesisDepositsSnapshot = SSZ.decode(genesisDepositsSnapshotContents[],
                                              DepositContractSnapshot)
     eth1Monitor = Eth1Monitor.init(
-      db,
       conf.runtimePreset,
+      db,
       conf.web3Url,
       depositContractAddress,
       genesisDepositsSnapshot,
