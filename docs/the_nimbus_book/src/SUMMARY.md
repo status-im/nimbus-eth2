@@ -1,6 +1,15 @@
 # Summary
+# Introduction
 - [Introduction](./intro.md)
+- [Philosophy]()
 - [System requirements](./hardware.md)
+
+# Raspberry Pi
+- [Run your node on a Raspberry Pi](./pi-guide.md)
+- [Mainnet advice](./pi-guide-mainnet.md)
+
+# How-to
+
 - [Install dependencies](./install.md)
 - [Build the beacon node](./build.md)
 - [Run an eth1 node](./eth1.md)
@@ -12,25 +21,25 @@
 - [Keep Nimbus updated](./keep-updated.md)
 - [Mainnet preparations](./preparation.md)
 - [Email notifications](./email-notifications.md)
-# Volume 2
-- [Command line options](./options.md)
-- [Troubleshooting](./troubleshooting.md)
+- [Graffiti the blockchain](./graffiti.md)
 - [Nimbus binaries](./binaries.md)
+- [Troubleshooting](./troubleshooting.md)
+
+# Tutorials
 - [Grafana and Prometheus](metrics-pretty-pictures.md)
 - [Network stats + monitoring](./eth2-stats.md)
-- [Run your node on a Raspberry Pi](./pi-guide.md)
-- [Raspberry Pi: Mainnet advice](./pi-guide-mainnet.md)
-- [Graffiti the blockchain](./graffiti.md)
+- [Set up a systemd service](./beacon-node-systemd.md)
 - [Your own Infura endpoint](infura-guide.md)
 - [Perform a voluntary exit](voluntary-exit.md)
 - [Run just the beacon node]()
 - [Switch between clients]()
-# Volume 3
+
+# Reference
 - [Advanced options]()
 - [Windows users]()
 - [API](./api.md)
+- [Command line options](./options.md)
 - [For developers](./developers.md)
-- [Set up a systemd service](./beacon-node-systemd.md)
 - [FAQ](./faq.md)
 - [Contribute](./contribute.md)
 - [Resources](./resources.md)

@@ -36,12 +36,12 @@ Although Nimbus will support full and archival nodes, its main implementation wi
 All our code is open source; we encourage you to keep track of our activity on [GitHub](https://github.com/status-im/nimbus). You can also keep up to date with our progress through the [Nimbus blog](https://our.status.im/tag/nimbus/).
 
 
-## Get in touch
+### Get in touch
 
 Need help with anything? Join us on [Status](https://join.status.im/nimbus-general) and [Discord](https://discord.gg/9dWwPnG).
 
 
-## Disclaimer
+### Disclaimer
 
 This documentation assumes Nimbus is in its ideal state. The project is still under active development. Please submit a [Github issue](https://github.com/status-im/nimbus-eth2/issues) if you come across a problem.
 
