@@ -356,6 +356,6 @@ proc process_block*(
 
   let res_ops = process_operations(preset, state, blck.body, flags, stateCache)
   if res_ops.isErr:
-    return err("process_operations encountered error".cstring)
+    return res_ops
 
   ok()
