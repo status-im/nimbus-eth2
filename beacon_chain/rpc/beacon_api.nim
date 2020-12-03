@@ -113,15 +113,15 @@ proc createStatusQuery(status: openArray[string]): Result[StatusQuery, string] =
 
 proc getStatus(validator: Validator,
                current_epoch: Epoch): Result[string, string] =
-  let actual_status = if validator.activation_epoch > current_epoch:
+  if validator.activation_epoch > current_epoch:
     # pending
     if validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH:
       ok("pending_initialized")
     else:
       # validator.activation_eligibility_epoch < FAR_FUTURE_EPOCH:
       ok("pending_queued")
-  elif validator.activation_epoch <= current_epoch and
-      current_epoch < validator.exit_epoch:
+  elif (validator.activation_epoch <= current_epoch) and
+       (current_epoch < validator.exit_epoch):
     # active
     if validator.exit_epoch == FAR_FUTURE_EPOCH:
       ok("active_ongoing")
@@ -131,8 +131,8 @@ proc getStatus(validator: Validator,
     else:
       # validator.exit_epoch < FAR_FUTURE_EPOCH and validator.slashed:
       ok("active_slashed")
-  elif validator.exit_epoch <= current_epoch and
-      current_epoch < validator.withdrawable_epoch:
+  elif (validator.exit_epoch <= current_epoch) and
+       (current_epoch < validator.withdrawable_epoch):
     # exited
     if not validator.slashed:
       ok("exited_unslashed")
