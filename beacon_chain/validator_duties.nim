@@ -616,16 +616,16 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   var curSlot = lastSlot + 1
 
-  # In general, the default values of 0 are fine, since it will at most prevent
-  # from gossiping (proposing beacon blocks, attesting, etc) for epoch 0.
-  doAssert node.processor[].selfSlashingDetection.probeEpoch == 0 or (
-    node.processor[].selfSlashingDetection.probeEpoch <
-    node.processor[].selfSlashingDetection.broadcastStartEpoch)
-  if curSlot.epoch < node.processor[].selfSlashingDetection.broadcastStartEpoch and
-      curSlot.epoch != node.processor[].selfSlashingDetection.probeEpoch:
+  # In general, the default values of 0 are fine
+  doAssert node.processor[].dupProtection.probeEpoch == 0 or (
+    node.processor[].dupProtection.probeEpoch <
+    node.processor[].dupProtection.broadcastStartEpoch)
+  if curSlot.epoch < node.processor[].dupProtection.broadcastStartEpoch and
+      curSlot.epoch != node.processor[].dupProtection.probeEpoch and
+      node.processor[].dupProtection.probeEpoch > 0:
     notice "Waiting to gossip out to detect potential duplicate validators",
-      broadcastStartEpoch = node.processor[].selfSlashingDetection.broadcastStartEpoch,
-      probeEpoch = node.processor[].selfSlashingDetection.probeEpoch
+      broadcastStartEpoch = node.processor[].dupProtection.broadcastStartEpoch,
+      probeEpoch = node.processor[].dupProtection.probeEpoch
     return
 
   # Start by checking if there's work we should have done in the past that we

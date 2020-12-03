@@ -66,7 +66,7 @@ type
     attestationsQueue*: AsyncQueue[AttestationEntry]
     aggregatesQueue*: AsyncQueue[AggregateEntry]
 
-    selfSlashingDetection*: SelfSlashingDetection
+    dupProtection*: DupProtection
 
 proc updateHead*(self: var Eth2Processor, wallSlot: Slot) =
   ## Trigger fork choice and returns the new head block.
@@ -299,9 +299,10 @@ proc checkForPotentialSelfSlashing(
 
   let epoch = wallSlot.epoch
   # Can skip this whole conditional by setting relevant config value to 0
-  if epoch < self.selfSlashingDetection.broadcastStartEpoch and
-      epoch >= self.selfSlashingDetection.probeEpoch and
-      epoch <= self.selfSlashingDetection.probeEpoch + GUARD_EPOCHS:
+  if epoch < self.dupProtection.broadcastStartEpoch and
+      self.dupProtection.probeEpoch > 0 and
+      epoch >= self.dupProtection.probeEpoch and
+      epoch <= self.dupProtection.probeEpoch + GUARD_EPOCHS:
     let tgtBlck = self.chainDag.getRef(attestationData.target.root)
     doAssert not tgtBlck.isNil  # because attestation is valid above
 
@@ -315,7 +316,7 @@ proc checkForPotentialSelfSlashing(
         notice "Found another validator using same public key; would be slashed",
           validatorIndex,
           validatorPubkey
-        if self.config.selfSlashingDetectionQuit:
+        if self.config.dupProtectionQuit:
           quit QuitFailure
 
 proc attestationValidator*(

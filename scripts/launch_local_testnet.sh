@@ -384,6 +384,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     --metrics \
     --metrics-address="127.0.0.1" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
+    --dup-protection-epochs=0 \
     ${EXTRA_ARGS} \
     > "${DATA_DIR}/log${NUM_NODE}.txt" 2>&1 &
 

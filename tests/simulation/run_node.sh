@@ -9,7 +9,7 @@ shift
 # shellcheck source=/dev/null
 source "$(dirname "$0")/vars.sh"
 
-if [[ ! -z "$1" ]]; then
+if [[ -n "$1" ]]; then
   ADDITIONAL_BEACON_NODE_ARGS=$1
   shift
 else
@@ -18,7 +18,7 @@ fi
 
 BOOTSTRAP_ARG=""
 
-if [[ ! -z "$1" ]]; then
+if [[ -n "$1" ]]; then
   BOOTSTRAP_NODE_ID=$1
   shift
 else
@@ -105,5 +105,6 @@ $BEACON_NODE_BIN \
   --metrics \
   --metrics-address="127.0.0.1" \
   --metrics-port="$(( $BASE_METRICS_PORT + $NODE_ID ))" \
+  --dup-protection-epochs=0 \
   ${ADDITIONAL_BEACON_NODE_ARGS} \
   "$@"

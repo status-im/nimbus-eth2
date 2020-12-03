@@ -250,15 +250,15 @@ type
         desc: "Write SSZ dumps of blocks, attestations and states to data dir"
         name: "dump" }: bool
 
-      selfSlashingDetectionEpochs* {.
+      dupProtectionEpochs* {.
         defaultValue: 3
         desc: "Number of epochs of gossip to which to listen before broadcasting"
-        name: "self-slashing-detection-epochs" }: uint64
+        name: "dup-protection-epochs" }: uint64
 
-      selfSlashingDetectionQuit* {.
+      dupProtectionQuit* {.
         defaultValue: true
-        desc: "Whether to quit, rather than just disabling validators, if self-slashing is detected"
-        name: "self-slashing-detection-quit" }: bool
+        desc: "Whether to quit, rather than just disabling validators, if duplicate validators are detected"
+        name: "dup-protection-quit" }: bool
 
     of createTestnet:
       testnetDepositsFile* {.

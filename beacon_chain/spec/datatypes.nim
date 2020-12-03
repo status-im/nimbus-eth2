@@ -461,9 +461,9 @@ type
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
 
-  SelfSlashingDetection* = object
+  DupProtection* = object
     broadcastStartEpoch*: Epoch
-    probeEpoch*: Epoch
+    probeEpoch*: Epoch # 0 ==> don't probe
 
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
   ($state.validators[validatorIdx].pubkey)[0..7]
