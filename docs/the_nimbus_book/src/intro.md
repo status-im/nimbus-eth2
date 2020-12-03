@@ -1,8 +1,5 @@
 # The Nimbus book
 
->**Note:** This book is very much a living entity. You'll always be able to find the latest version here: [https://status-im.github.io/nimbus-eth2/](https://status-im.github.io/nimbus-eth2/)
-
-
 Nimbus is an Ethereum 2.0 client focused on offering the best user experience possible for resource-restricted devices.
 
 This book explains all the ways in which you can use Nimbus to either monitor the eth2 chain or become a fully-fledged validator.
