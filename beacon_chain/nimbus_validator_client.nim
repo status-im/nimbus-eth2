@@ -182,7 +182,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
         notice "Attesting", slot = slot, public_key = a.public_key
 
         let validator = vc.attachedValidators.validators[a.public_key]
-        let ad = await vc.client.get_v1_validator_attestation(slot, a.committee_index)
+        let ad = await vc.client.get_v1_validator_attestation_data(slot, a.committee_index)
 
         let notSlashable = vc.attachedValidators
                              .slashingProtection
