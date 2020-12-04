@@ -36,6 +36,8 @@ import
   sync_manager, validator_duties, filepath,
   validator_slashing_protection, ./eth2_processor
 
+from eth/common/eth_types import BlockHashOrNumber
+
 const
   hasPrompt = not defined(withoutPrompt)
 
@@ -71,6 +73,8 @@ func enrForkIdFromState(state: BeaconState): ENRForkID =
 proc init*(T: type BeaconNode,
            rng: ref BrHmacDrbgContext,
            conf: BeaconNodeConf,
+           depositContractAddress: Eth1Address,
+           depositContractDeployedAt: BlockHashOrNumber,
            eth1Network: Option[Eth1Network],
            genesisStateContents: ref string,
            genesisDepositsSnapshotContents: ref string): Future[BeaconNode] {.async.} =
@@ -133,32 +137,22 @@ proc init*(T: type BeaconNode,
           fatal "Web3 URL not specified"
           quit 1
 
-        if conf.depositContractAddress.isNone:
-          fatal "Deposit contract address not specified"
-          quit 1
-
-        if conf.depositContractDeployedAt.isNone:
-          # When we don't have a known genesis state, the network metadata
-          # must specify the deployment block of the contract.
-          fatal "Deposit contract deployment block not specified"
-          quit 1
-
         # TODO Could move this to a separate "GenesisMonitor" process or task
         #      that would do only this - see Paul's proposal for this.
         let eth1MonitorRes = await Eth1Monitor.init(
           db,
           conf.runtimePreset,
           conf.web3Url,
-          conf.depositContractAddress.get,
-          conf.depositContractDeployedAt.get,
+          depositContractAddress,
+          depositContractDeployedAt,
           eth1Network)
 
         if eth1MonitorRes.isErr:
           fatal "Failed to start Eth1 monitor",
                 reason = eth1MonitorRes.error,
                 web3Url = conf.web3Url,
-                depositContractAddress = conf.depositContractAddress.get,
-                depositContractDeployedAt = conf.depositContractDeployedAt.get
+                depositContractAddress,
+                depositContractDeployedAt
           quit 1
         else:
           eth1Monitor = eth1MonitorRes.get
@@ -256,7 +250,6 @@ proc init*(T: type BeaconNode,
 
   if eth1Monitor.isNil and
      conf.web3Url.len > 0 and
-     conf.depositContractAddress.isSome and
      genesisDepositsSnapshotContents != nil:
     let genesisDepositsSnapshot = SSZ.decode(genesisDepositsSnapshotContents[],
                                              DepositContractSnapshot)
@@ -266,7 +259,7 @@ proc init*(T: type BeaconNode,
       db,
       conf.runtimePreset,
       conf.web3Url,
-      conf.depositContractAddress.get,
+      depositContractAddress,
       genesisDepositsSnapshot,
       eth1Network)
 
@@ -274,8 +267,8 @@ proc init*(T: type BeaconNode,
       error "Failed to start Eth1 monitor",
             reason = eth1MonitorRes.error,
             web3Url = conf.web3Url,
-            depositContractAddress = conf.depositContractAddress.get,
-            depositContractDeployedAt = conf.depositContractDeployedAt.get
+            depositContractAddress,
+            depositContractDeployedAt
     else:
       eth1Monitor = eth1MonitorRes.get
 
@@ -862,6 +855,10 @@ proc initializeNetworking(node: BeaconNode) {.async.} =
 
   await node.network.start()
 
+func shouldWeStartWeb3(node: BeaconNode): bool =
+  (node.config.web3Mode == Web3Mode.enabled) or
+  (node.config.web3Mode == Web3Mode.auto and node.attachedValidators.count > 0)
+
 proc start(node: BeaconNode) =
   let
     head = node.chainDag.head
@@ -887,7 +884,7 @@ proc start(node: BeaconNode) =
 
   waitFor node.initializeNetworking()
 
-  if node.eth1Monitor != nil and node.attachedValidators.count > 0:
+  if node.eth1Monitor != nil and node.shouldWeStartWeb3:
     node.eth1Monitor.start()
 
   node.run()
@@ -1189,6 +1186,8 @@ programMain:
     genesisStateContents: ref string
     genesisDepositsSnapshotContents: ref string
     eth1Network: Option[Eth1Network]
+    depositContractAddress: Option[Eth1Address]
+    depositContractDeployedAt: Option[BlockHashOrNumber]
 
   setupStdoutLogging(config.logLevel)
 
@@ -1228,34 +1227,15 @@ programMain:
       if metadata.genesisDepositsSnapshot.len > 0:
         genesisDepositsSnapshotContents = newClone metadata.genesisDepositsSnapshot
 
-    template checkForIncompatibleOption(flagName, fieldName) =
-      # TODO: This will have to be reworked slightly when we introduce config files.
-      # We'll need to keep track of the "origin" of the config value, so we can
-      # discriminate between values from config files that can be overridden and
-      # regular command-line options (that may conflict).
-      if config.fieldName.isSome:
-        fatal "Invalid CLI arguments specified. You must not specify '--network' and '" & flagName & "' at the same time",
-            networkParam = config.eth2Network.get, `flagName` = config.fieldName.get
-        quit 1
-
-    checkForIncompatibleOption "deposit-contract", depositContractAddress
-    checkForIncompatibleOption "deposit-contract-block", depositContractDeployedAt
-    config.depositContractAddress = some metadata.depositContractAddress
-    config.depositContractDeployedAt = some metadata.depositContractDeployedAt
+    depositContractAddress = some metadata.depositContractAddress
+    depositContractDeployedAt = some metadata.depositContractDeployedAt
     eth1Network = metadata.eth1Network
   else:
     config.runtimePreset = defaultRuntimePreset
     when const_preset == "mainnet":
       if config.cmd == noCommand:
-        # TODO Remove the ability to override the depositContractAddress
-        #      on the command line in favour of always requiring a custom
-        #      nework file. We have to do this, because any user setting
-        #      would conflict with the default choice of 'mainnet' as a
-        #      --network value.
-        config.depositContractAddress =
-          some mainnetMetadata.depositContractAddress
-        config.depositContractDeployedAt =
-          some mainnetMetadata.depositContractDeployedAt
+        depositContractAddress = some mainnetMetadata.depositContractAddress
+        depositContractDeployedAt = some mainnetMetadata.depositContractDeployedAt
 
         for node in mainnetMetadata.bootstrapNodes:
           config.bootstrapNodes.add node
@@ -1346,11 +1326,18 @@ programMain:
           url = "http://" & $metricsAddress & ":" & $config.metricsPort & "/metrics"
         metrics.startHttpServer($metricsAddress, config.metricsPort)
 
+    if depositContractAddress.isNone or depositContractDeployedAt.isNone:
+      echo "Please specify the a network through the --network option"
+      quit 1
+
     # There are no managed event loops in here, to do a graceful shutdown, but
     # letting the default Ctrl+C handler exit is safe, since we only read from
     # the db.
     var node = waitFor BeaconNode.init(
-      rng, config, eth1Network,
+      rng, config,
+      depositContractAddress.get,
+      depositContractDeployedAt.get,
+      eth1Network,
       genesisStateContents,
       genesisDepositsSnapshotContents)
 
@@ -1538,4 +1525,11 @@ programMain:
 
     of RecordCmd.print:
       echo $config.recordPrint
+
+  of web3:
+    case config.web3Cmd:
+    of Web3Cmd.test:
+      waitFor testWeb3Provider(config.web3TestUrl,
+                               depositContractAddress,
+                               depositContractDeployedAt)
 
