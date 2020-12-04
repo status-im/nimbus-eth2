@@ -677,7 +677,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
       seconds(int64(SECONDS_PER_SLOT * 2) div 3),
       "Waiting to aggregate attestations")
 
-    const TRAILING_DISTANCE = 1
+    const TRAILING_DISTANCE = 0
     # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#configuration
     static:
       doAssert TRAILING_DISTANCE <= ATTESTATION_PROPAGATION_SLOT_RANGE
