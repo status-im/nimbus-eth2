@@ -23,6 +23,7 @@ type
     deposits
     wallets
     record
+    web3
 
   WalletsCmd* {.pure.} = enum
     create  = "Creates a new EIP-2386 wallet"
@@ -41,6 +42,14 @@ type
   RecordCmd* {.pure.} = enum
     create  = "Create a new ENR"
     print = "Print the content of a given ENR"
+
+  Web3Cmd* {.pure.} = enum
+    test = "Test a web3 provider"
+
+  Web3Mode* {.pure.} = enum
+    auto = "Enabled only when validators are attached"
+    enabled = "Always enabled"
+    disabled = "Always disabled"
 
   BeaconNodeConf* = object
     logLevel* {.
@@ -79,13 +88,11 @@ type
       desc: "URL of the Web3 server to observe Eth1"
       name: "web3-url" }: string
 
-    depositContractAddress* {.
-      desc: "Address of the deposit contract"
-      name: "deposit-contract" }: Option[Eth1Address]
-
-    depositContractDeployedAt* {.
-      desc: "The Eth1 block number or hash where the deposit contract has been deployed"
-      name: "deposit-contract-block" }: Option[BlockHashOrNumber]
+    web3Mode* {.
+      hidden
+      defaultValue: Web3Mode.auto
+      desc: "URL of the Web3 server to observe Eth1"
+      name: "web3-mode" }: Web3Mode
 
     nonInteractive* {.
       desc: "Do not display interative prompts. Quit on missing configuration"
@@ -410,6 +417,14 @@ type
           argument
           desc: "ENR URI of the record to print"
           name: "enr" .}: Record
+
+    of web3:
+      case web3Cmd* {.command.}: Web3Cmd
+      of Web3Cmd.test:
+        web3TestUrl* {.
+          argument
+          desc: "The web3 provider URL to test"
+          name: "url" }: Uri
 
   ValidatorClientConf* = object
     logLevel* {.

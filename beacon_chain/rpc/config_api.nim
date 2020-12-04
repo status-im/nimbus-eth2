@@ -20,20 +20,17 @@ type
 template unimplemented() =
   raise (ref CatchableError)(msg: "Unimplemented")
 
+func getDepositAddress(node: BeaconNode): string =
+  if isNil(node.eth1Monitor):
+    ""
+  else:
+    $node.eth1Monitor.depositContractAddress()
+
 proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("get_v1_config_fork_schedule") do () -> seq[Fork]:
     return @[node.chainDag.headState.data.data.fork]
 
   rpcServer.rpc("get_v1_config_spec") do () -> JsonNode:
-    let depositAddress =
-      if isNil(node.eth1Monitor):
-        if node.config.depositContractAddress.isSome():
-          $node.config.depositContractAddress.get()
-        else:
-          ""
-      else:
-        $node.eth1Monitor.depositContractAddress()
-
     return %*{
       "MAX_COMMITTEES_PER_SLOT": $MAX_COMMITTEES_PER_SLOT,
       "TARGET_COMMITTEE_SIZE": $TARGET_COMMITTEE_SIZE,
@@ -56,7 +53,7 @@ proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       "SECONDS_PER_ETH1_BLOCK": $SECONDS_PER_ETH1_BLOCK,
       "DEPOSIT_CHAIN_ID": $DEPOSIT_CHAIN_ID,
       "DEPOSIT_NETWORK_ID": $DEPOSIT_NETWORK_ID,
-      "DEPOSIT_CONTRACT_ADDRESS": depositAddress,
+      "DEPOSIT_CONTRACT_ADDRESS": node.getDepositAddress,
       "MIN_DEPOSIT_AMOUNT": $MIN_DEPOSIT_AMOUNT,
       "MAX_EFFECTIVE_BALANCE": $MAX_EFFECTIVE_BALANCE,
       "EJECTION_BALANCE": $EJECTION_BALANCE,
@@ -108,16 +105,7 @@ proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     }
 
   rpcServer.rpc("get_v1_config_deposit_contract") do () -> JsonNode:
-    let depositAddress =
-      if isNil(node.eth1Monitor):
-        if node.config.depositContractAddress.isSome():
-          $node.config.depositContractAddress.get()
-        else:
-          ""
-      else:
-        $node.eth1Monitor.depositContractAddress()
-
     return %*{
       "chain_id": $DEPOSIT_CHAIN_ID,
-      "address": depositAddress
+      "address": node.getDepositAddress
     }

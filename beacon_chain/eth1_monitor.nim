@@ -1,5 +1,5 @@
 import
-  std/[deques, tables, hashes, options, strformat, strutils, sequtils],
+  std/[deques, tables, hashes, options, strformat, strutils, sequtils, uri],
   chronos, web3, web3/ethtypes as web3Types, json, chronicles/timings,
   eth/common/eth_types, eth/async_utils,
   spec/[datatypes, digest, crypto, helpers],
@@ -936,6 +936,35 @@ proc getEth1BlockHash*(url: string, blockId: RtBlockIdentifier): Future[BlockHas
     return blk.hash
   finally:
     await web3.close()
+
+proc testWeb3Provider*(web3Url: Uri,
+                       depositContractAddress: Option[Eth1Address],
+                       depositContractDeployedAt: Option[BlockHashOrNumber]) {.async.} =
+  template mustSucceed(action: static string, expr: untyped): untyped =
+    try: expr
+    except CatchableError as err:
+      fatal("Failed to " & action, err = err.msg)
+      quit 1
+
+  let
+    web3 = mustSucceed "connect to web3 provider":
+      await newWeb3($web3Url)
+    network = mustSucceed "get network version":
+      awaitWithRetries web3.provider.net_version()
+    latestBlock = mustSucceed "get latest block":
+      awaitWithRetries web3.provider.eth_getBlockByNumber(blockId("latest"), false)
+
+  echo "Network: ", network
+  echo "Latest block: ", latestBlock.number.uint64
+
+  if depositContractAddress.isSome:
+    let ns = web3.contractSender(DepositContract, depositContractAddress.get)
+    try:
+      let depositRoot = awaitWithRetries(
+        ns.get_deposit_root.call(blockNumber = latestBlock.number.uint64))
+      echo "Deposit root: ", depositRoot
+    except CatchableError as err:
+      echo "Web3 provider is not archive mode"
 
 when hasGenesisDetection:
   proc init*(T: type Eth1Monitor,
