@@ -90,7 +90,7 @@ func check_propagation_slot_range(
     pastSlot = (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
 
   if pastSlot.afterGenesis and
-      data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE < pastSlot.slot:
+      data.slot + (ATTESTATION_PROPAGATION_SLOT_RANGE-2) < pastSlot.slot:
     const err_str: cstring = "Attestation slot in the past"
     return err((ValidationResult.Ignore, err_str))
 

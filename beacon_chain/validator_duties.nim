@@ -182,7 +182,8 @@ proc createAndSendAttestation(node: BeaconNode,
                               attestationData: AttestationData,
                               committeeLen: int,
                               indexInCommittee: int,
-                              num_active_validators: uint64) {.async.} =
+                              num_active_validators: uint64,
+                              slot: Slot) {.async.} =
   var attestation = await validator.produceAndSignAttestation(
     attestationData, committeeLen, indexInCommittee, fork,
     genesis_validators_root)
@@ -204,7 +205,8 @@ proc createAndSendAttestation(node: BeaconNode,
 
   notice "Attestation sent", attestation = shortLog(attestation),
                              validator = shortLog(validator), delay = delayStr,
-                             indexInCommittee = indexInCommittee
+                             indexInCommittee = indexInCommittee,
+                             slot = slot
 
   beacon_attestation_sent_delay.observe(delayMillis)
 
@@ -431,7 +433,8 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
 
       traceAsyncErrors createAndSendAttestation(
         node, fork, genesis_validators_root, a.validator, a.data,
-        a.committeeLen, a.indexInCommittee, num_active_validators)
+        a.committeeLen, a.indexInCommittee, num_active_validators,
+        slot)
     else:
       warn "Slashing protection activated for attestation",
         validator = a.validator.pubkey,
@@ -507,7 +510,6 @@ proc broadcastAggregatedAttestations(
                              curr[1].read)
 
     # Don't broadcast when, e.g., this node isn't aggregator
-    # TODO verify there is only one isSome() with test.
     if aggregateAndProof.isSome:
       let sig = await signAggregateAndProof(curr[0].v,
         aggregateAndProof.get, fork, genesis_validators_root)
@@ -517,7 +519,8 @@ proc broadcastAggregatedAttestations(
       node.network.broadcast(node.topicAggregateAndProofs, signedAP)
       notice "Aggregated attestation sent",
         attestation = shortLog(signedAP.message.aggregate),
-        validator = shortLog(curr[0].v)
+        validator = shortLog(curr[0].v),
+        aggregationSlot = aggregationSlot
 
 proc getSlotTimingEntropy(): int64 =
   # Ensure SECONDS_PER_SLOT / ATTESTATION_PRODUCTION_DIVISOR >
