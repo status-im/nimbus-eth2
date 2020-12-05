@@ -182,8 +182,7 @@ proc createAndSendAttestation(node: BeaconNode,
                               attestationData: AttestationData,
                               committeeLen: int,
                               indexInCommittee: int,
-                              num_active_validators: uint64,
-                              slot: Slot) {.async.} =
+                              num_active_validators: uint64) {.async.} =
   var attestation = await validator.produceAndSignAttestation(
     attestationData, committeeLen, indexInCommittee, fork,
     genesis_validators_root)
@@ -205,8 +204,7 @@ proc createAndSendAttestation(node: BeaconNode,
 
   notice "Attestation sent", attestation = shortLog(attestation),
                              validator = shortLog(validator), delay = delayStr,
-                             indexInCommittee = indexInCommittee,
-                             slot = slot
+                             indexInCommittee = indexInCommittee
 
   beacon_attestation_sent_delay.observe(delayMillis)
 
@@ -433,8 +431,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
 
       traceAsyncErrors createAndSendAttestation(
         node, fork, genesis_validators_root, a.validator, a.data,
-        a.committeeLen, a.indexInCommittee, num_active_validators,
-        slot)
+        a.committeeLen, a.indexInCommittee, num_active_validators)
     else:
       warn "Slashing protection activated for attestation",
         validator = a.validator.pubkey,
@@ -520,7 +517,7 @@ proc broadcastAggregatedAttestations(
       notice "Aggregated attestation sent",
         attestation = shortLog(signedAP.message.aggregate),
         validator = shortLog(curr[0].v),
-        aggregationSlot = aggregationSlot
+        aggregationSlot
 
 proc getSlotTimingEntropy(): int64 =
   # Ensure SECONDS_PER_SLOT / ATTESTATION_PRODUCTION_DIVISOR >
