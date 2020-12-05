@@ -449,17 +449,17 @@ proc getAttestationHandlers(node: BeaconNode): Future[void] =
   node.attestationSubnets.subscribedSubnets[0] = initialSubnets
   node.attestationSubnets.subscribedSubnets[1] = initialSubnets
 
-  #node.network.subscribe(getAggregateAndProofsTopic(node.forkDigest))
+  node.network.subscribe(getAggregateAndProofsTopic(node.forkDigest))
 
 proc addMessageHandlers(node: BeaconNode): Future[void] =
-  discard node.getAttestationHandlers()
-  result = allFutures(
+  allFutures(
     # As a side-effect, this gets the attestation subnets too.
     node.network.subscribe(node.topicBeaconBlocks),
     node.network.subscribe(getAttesterSlashingsTopic(node.forkDigest)),
     node.network.subscribe(getProposerSlashingsTopic(node.forkDigest)),
-    node.network.subscribe(getVoluntaryExitsTopic(node.forkDigest))
+    node.network.subscribe(getVoluntaryExitsTopic(node.forkDigest)),
 
+    node.getAttestationHandlers()
   )
 
 func getTopicSubscriptionEnabled(node: BeaconNode): bool =
@@ -476,8 +476,7 @@ proc removeMessageHandlers(node: BeaconNode): Future[void] =
      getVoluntaryExitsTopic(node.forkDigest),
      getProposerSlashingsTopic(node.forkDigest),
      getAttesterSlashingsTopic(node.forkDigest),
-     #getAggregateAndProofsTopic(node.forkDigest)
-    ],
+     getAggregateAndProofsTopic(node.forkDigest)],
     node.network.unsubscribe(it))
 
   for subnet in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
