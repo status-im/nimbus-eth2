@@ -32,8 +32,7 @@ You'll be prompted to enter your mnemonic, and a new password for your keystore.
 
 Check that the `validator_keys` directory contains your extra keystore.
 
-Copy the `validator_keys` directory to `nimbus-eth2` and then follow the instructions [here](./keys.md).
-
+Copy the `validator_keys` directory to `nimbus-eth2` and then follow the instructions [here](./keys.md). Your key will be added to your node on next restart.
 
 ## Generate another key
 
@@ -61,7 +60,9 @@ Check that the `validator_keys` directory contains an extra keystore.
 
 Copy the `validator_keys` directory to `nimbus-eth2`.
 
-Make sure you've made a [deposit](./deposit.md) for your new keystore, and then follow the instructions [here](./keys.md).
+Make sure you've made a [deposit](./deposit.md) for your new keystore, and then follow the instructions [here](./keys.md). Your key will be added to your node on next restart.
+
+
 
 
 
