@@ -893,6 +893,7 @@ build/ncli_db pruneDatabase --db=build/data/shared_pyrmont_0/db --verbose=true
 <blockquote>
 <p>⚠️  Recovering validator keys from a mnemonic should only be used as a last resort. Exposing your mnemonic to a computer at any time puts it at risk of being compromised. Your mnemonic is not encrypted and if leaked, can be used to steal your funds.</p>
 </blockquote>
+<p><em><strong>N.B.</strong> the commands below assume you are trying to recover your original key, hence <code>--validator_start_index</code> has been set to <code>0</code>.</em></p>
 <p>Run the following command from the directory which contains the <code>deposit</code> executable:</p>
 <p><strong>Pyrmont</strong></p>
 <pre><code>./deposit existing-mnemonic --validator_start_index 0 --num_validators 1 --chain pyrmont
@@ -904,6 +905,7 @@ build/ncli_db pruneDatabase --db=build/data/shared_pyrmont_0/db --verbose=true
 <p>Check that the <code>validator_keys</code> directory contains your extra keystore.</p>
 <p>Copy the <code>validator_keys</code> directory to <code>nimbus-eth2</code> and then follow the instructions <a href="./keys.html">here</a>.</p>
 <h2><a class="header" href="#generate-another-key" id="generate-another-key">Generate another key</a></h2>
+<p><em><strong>N.B.</strong> the commands below assume you already have one key and wish to generate a second, hence <code>--validator_start_index</code> has been set to <code>0</code>.</em></p>
 <blockquote>
 <p>⚠️  If you wish to generate another validator key,  you must take great care
 to not generate a copy of your original key. Running the same key on two different validator clients will likely get you slashed.</p>
