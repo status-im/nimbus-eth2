@@ -14,6 +14,8 @@ Specifically, we'll be using the `existing-mnemonic` command. According to the d
 
 > ⚠️  Recovering validator keys from a mnemonic should only be used as a last resort. Exposing your mnemonic to a computer at any time puts it at risk of being compromised. Your mnemonic is not encrypted and if leaked, can be used to steal your funds.
 
+***N.B.** the commands below assume you are trying to recover your original key, hence `--validator_start_index` has been set to `0`.*
+
 Run the following command from the directory which contains the `deposit` executable:
 
 **Pyrmont**
@@ -34,6 +36,9 @@ Copy the `validator_keys` directory to `nimbus-eth2` and then follow the instruc
 
 
 ## Generate another key
+
+***N.B.** the commands below assume you already have one key and wish to generate a second, hence `--validator_start_index` has been set to `0`.*
+
 
 > ⚠️  If you wish to generate another validator key,  you must take great care
 to not generate a copy of your original key. Running the same key on two different validator clients will likely get you slashed.
