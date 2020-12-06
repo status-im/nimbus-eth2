@@ -1,0 +1,266 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Recover / generate more keys - The Nimbus Beacon Chain Book</title>
+        
+        
+
+
+        <!-- Custom HTML head -->
+        
+
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+        <link rel="stylesheet" href="custom.css">
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><strong aria-hidden="true">2.</strong> Philosophy</li><li class="chapter-item expanded "><a href="hardware.html"><strong aria-hidden="true">3.</strong> System requirements</a></li><li class="chapter-item expanded "><strong aria-hidden="true">4.</strong> Quick start</li><li class="chapter-item expanded affix "><li class="part-title">Raspberry Pi</li><li class="chapter-item expanded "><a href="pi-guide.html"><strong aria-hidden="true">5.</strong> Run your node on a Raspberry Pi</a></li><li class="chapter-item expanded "><a href="pi-guide-mainnet.html"><strong aria-hidden="true">6.</strong> Mainnet advice</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to</li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">7.</strong> Install dependencies</a></li><li class="chapter-item expanded "><a href="build.html"><strong aria-hidden="true">8.</strong> Build the beacon node</a></li><li class="chapter-item expanded "><a href="eth1.html"><strong aria-hidden="true">9.</strong> Run an eth1 node</a></li><li class="chapter-item expanded "><a href="start-syncing.html"><strong aria-hidden="true">10.</strong> Sync the beacon node</a></li><li class="chapter-item expanded "><a href="deposit.html"><strong aria-hidden="true">11.</strong> Make a deposit</a></li><li class="chapter-item expanded "><a href="keys.html"><strong aria-hidden="true">12.</strong> Import your keys</a></li><li class="chapter-item expanded "><a href="connect-eth2.html"><strong aria-hidden="true">13.</strong> Connect your validator to eth2</a></li><li class="chapter-item expanded "><a href="keep-an-eye.html"><strong aria-hidden="true">14.</strong> Keep an eye on your validator</a></li><li class="chapter-item expanded "><a href="keep-updated.html"><strong aria-hidden="true">15.</strong> Keep Nimbus updated</a></li><li class="chapter-item expanded "><a href="preparation.html"><strong aria-hidden="true">16.</strong> Mainnet preparations</a></li><li class="chapter-item expanded "><a href="email-notifications.html"><strong aria-hidden="true">17.</strong> Email notifications</a></li><li class="chapter-item expanded "><a href="graffiti.html"><strong aria-hidden="true">18.</strong> Graffiti the blockchain</a></li><li class="chapter-item expanded "><a href="binaries.html"><strong aria-hidden="true">19.</strong> Nimbus binaries</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">20.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="more-keys.html" class="active"><strong aria-hidden="true">21.</strong> Recover / generate more keys</a></li><li class="chapter-item expanded affix "><li class="part-title">Tutorials</li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">22.</strong> Grafana and Prometheus</a></li><li class="chapter-item expanded "><a href="eth2-stats.html"><strong aria-hidden="true">23.</strong> Network stats + monitoring</a></li><li class="chapter-item expanded "><a href="beacon-node-systemd.html"><strong aria-hidden="true">24.</strong> Set up a systemd service</a></li><li class="chapter-item expanded "><a href="infura-guide.html"><strong aria-hidden="true">25.</strong> Your own Infura endpoint</a></li><li class="chapter-item expanded "><a href="voluntary-exit.html"><strong aria-hidden="true">26.</strong> Perform a voluntary exit</a></li><li class="chapter-item expanded "><strong aria-hidden="true">27.</strong> Run just the beacon node</li><li class="chapter-item expanded "><strong aria-hidden="true">28.</strong> Switch between clients</li><li class="chapter-item expanded affix "><li class="part-title">Reference</li><li class="chapter-item expanded "><strong aria-hidden="true">29.</strong> Advanced options</li><li class="chapter-item expanded "><strong aria-hidden="true">30.</strong> Windows users</li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">31.</strong> API</a></li><li class="chapter-item expanded "><a href="options.html"><strong aria-hidden="true">32.</strong> Command line options</a></li><li class="chapter-item expanded "><a href="developers.html"><strong aria-hidden="true">33.</strong> For developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">34.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">35.</strong> Contribute</a></li><li class="chapter-item expanded "><a href="resources.html"><strong aria-hidden="true">36.</strong> Resources</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">The Nimbus Beacon Chain Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#recover-existing-keys--generate-more-keys" id="recover-existing-keys--generate-more-keys">Recover existing keys / Generate more keys</a></h1>
+<p>Your  mnemonic can be used to recover lost keys and generate new ones.</p>
+<p>Every time you generate a keystore from your mnemomic, that keystore is assigned an index. The first keystore you generate has index 0, the second index 1, etc. You can recover any key using your mnemonic and that key's index. For more on how keys are derived, see this <a href="https://blog.ethereum.org/2020/05/21/keys/">excellent post</a>.</p>
+<p>To stay consistent with the rest of the book, we'll take you though how to do this using the <a href="https://github.com/ethereum/eth2.0-deposit-cli">deposit-cli's</a> <a href="https://github.com/ethereum/eth2.0-deposit-cli/releases">binary executable</a>.</p>
+<p>Specifically, we'll be using the <code>existing-mnemonic</code> command. According to the deposit-cli's <a href="https://github.com/ethereum/eth2.0-deposit-cli#step-2-create-keys-and-deposit_data-json">README</a>:</p>
+<blockquote>
+<p>This command is used to re-generate or derive new keys from your existing mnemonic. Use this command, if (i) you have already generated keys with this CLI before, (ii) you want to reuse your mnemonic that you know is secure that you generated elsewhere (reusing your eth1 mnemonic .etc), or (iii) you lost your keystores and need to recover your keys.</p>
+</blockquote>
+<h2><a class="header" href="#recover-existing-key" id="recover-existing-key">Recover existing key</a></h2>
+<blockquote>
+<p>⚠️  Recovering validator keys from a mnemonic should only be used as a last resort. Exposing your mnemonic to a computer at any time puts it at risk of being compromised. Your mnemonic is not encrypted and if leaked, can be used to steal your funds.</p>
+</blockquote>
+<p>Run the following command from the directory which contains the <code>deposit</code> executable:</p>
+<p><strong>Pyrmont</strong></p>
+<pre><code>./deposit existing-mnemonic --validator_start_index 0 --num_validators 1 --chain pyrmont
+</code></pre>
+<p><strong>Mainnet</strong></p>
+<pre><code>./deposit existing-mnemonic --validator_start_index 0 --num_validators 1 --chain mainnet
+</code></pre>
+<p>You'll be prompted to enter your mnemonic, and a new password for your keystore.</p>
+<p>Check that the <code>validator_keys</code> directory contains your extra keystore.</p>
+<p>Copy the <code>validator_keys</code> directory to <code>nimbus-eth2</code> and then follow the instructions <a href="./keys.html">here</a>.</p>
+<h2><a class="header" href="#generate-another-key" id="generate-another-key">Generate another key</a></h2>
+<blockquote>
+<p>⚠️  If you wish to generate another validator key,  you must take great care
+to not generate a copy of your original key. Running the same key on two different validator clients will likely get you slashed.</p>
+</blockquote>
+<p>Run the following command from the directory which contains the <code>deposit</code> executable:</p>
+<p><strong>Pyrmont</strong></p>
+<pre><code>./deposit existing-mnemonic --validator_start_index 1 --num_validators 1 --chain pyrmont
+</code></pre>
+<p><strong>Mainnet</strong></p>
+<pre><code>./deposit existing-mnemonic --validator_start_index 1 --num_validators 1 --chain mainnet
+</code></pre>
+<p>You'll be prompted to enter your mnemonic, and a new password for your keystore.</p>
+<p>Check that the <code>validator_keys</code> directory contains an extra keystore.</p>
+<p>Copy the <code>validator_keys</code> directory to <code>nimbus-eth2</code>.</p>
+<p>Make sure you've made a <a href="./deposit.html">deposit</a> for your new keystore, and then follow the instructions <a href="./keys.html">here</a>.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="troubleshooting.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="metrics-pretty-pictures.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="troubleshooting.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="metrics-pretty-pictures.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>
