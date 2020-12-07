@@ -23,6 +23,7 @@ import
   conf, time, validator_pool,
   attestation_pool, exit_pool, block_pools/[spec_cache, chain_dag, clearance],
   eth2_network, keystore_management, beacon_node_common, beacon_node_types,
+  nimbus_binary_common,
   eth1_monitor, version, ssz/merkleization,
   attestation_aggregation, sync_manager, sszdump,
   validator_slashing_protection
@@ -679,8 +680,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   # through the slot-that is, SECONDS_PER_SLOT * 2 / 3 seconds after the start
   # of slot.
   if slot > 2:
-    sleepToSlotOffsetWithHeadUpdate(
-      seconds(int64(SECONDS_PER_SLOT * 2) div 3),
+    discard await node.beaconClock.sleepToSlotOffset(
+      seconds(int64(SECONDS_PER_SLOT * 2) div 3), slot,
       "Waiting to aggregate attestations")
 
     let aggregationHead = get_ancestor(head, slot)
