@@ -64,7 +64,7 @@ const
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#configuration
   MAXIMUM_GOSSIP_CLOCK_DISPARITY* = 500.millis
-  ATTESTATION_PROPAGATION_SLOT_RANGE* = 16  # not 32 to avoid Lighthouse penalty
+  ATTESTATION_PROPAGATION_SLOT_RANGE* = 24  # not 32 to avoid Lighthouse penalty
 
   SLOTS_PER_ETH1_VOTING_PERIOD* =
     EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH
