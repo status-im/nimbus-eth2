@@ -159,9 +159,8 @@ proc validateAttesterSlashing*(
 
   if not disjoint(
       attester_slashed_indices, pool.prior_seen_attester_slashed_indices):
-    const err_str: cstring =
-      "validateAttesterSlashing: attester-slashed index already attester-slashed"
-    return err((ValidationResult.Ignore, err_str))
+    return err((ValidationResult.Ignore, cstring(
+      "validateAttesterSlashing: attester-slashed index already attester-slashed")))
 
   # [REJECT] All of the conditions within process_attester_slashing pass
   # validation.
@@ -189,9 +188,8 @@ proc validateProposerSlashing*(
   # proposer_slashing.signed_header_1.message.proposer_index.
   if proposer_slashing.signed_header_1.message.proposer_index in
       pool.prior_seen_proposer_slashed_indices:
-    const err_str: cstring =
-      "validateProposerSlashing: proposer-slashed index already proposer-slashed"
-    return err((ValidationResult.Ignore, err_str))
+    return err((ValidationResult.Ignore, cstring(
+      "validateProposerSlashing: proposer-slashed index already proposer-slashed")))
 
   # [REJECT] All of the conditions within process_proposer_slashing pass validation.
   var cache =
@@ -218,12 +216,12 @@ proc validateVoluntaryExit*(
   # the validator with index signed_voluntary_exit.message.validator_index.
   if signed_voluntary_exit.message.validator_index >=
       pool.chainDag.headState.data.data.validators.lenu64:
-    const err_str: cstring = "validateVoluntaryExit: validator index too high"
-    return err((ValidationResult.Ignore, err_str))
+    return err((ValidationResult.Ignore, cstring(
+      "validateVoluntaryExit: validator index too high")))
   if signed_voluntary_exit.message.validator_index in
       pool.prior_seen_voluntary_exit_indices:
-    const err_str: cstring = "validateVoluntaryExit: validator index already voluntarily exited"
-    return err((ValidationResult.Ignore, err_str))
+    return err((ValidationResult.Ignore, cstring(
+      "validateVoluntaryExit: validator index already voluntarily exited")))
 
   # [REJECT] All of the conditions within process_voluntary_exit pass
   # validation.

@@ -60,19 +60,18 @@ func check_attestation_block_slot(
   # If we allow voting for very old blocks, the state transaction below will go
   # nuts and keep processing empty slots
   if not (attestationBlck.slot > pool.chainDag.finalizedHead.slot):
-    const err_str: cstring = "Voting for already-finalized block"
-    return err((ValidationResult.Ignore, err_str))
+    return err((ValidationResult.Ignore, cstring(
+      "Voting for already-finalized block")))
 
   # we'll also cap it at 4 epochs which is somewhat arbitrary, but puts an
   # upper bound on the processing done to validate the attestation
   # TODO revisit with less arbitrary approach
   if not (attestationSlot >= attestationBlck.slot):
-    const err_str: cstring = "Voting for block that didn't exist at the time"
-    return err((ValidationResult.Ignore, err_str))
+    return err((ValidationResult.Ignore, cstring(
+      "Voting for block that didn't exist at the time")))
 
   if not ((attestationSlot - attestationBlck.slot) <= uint64(4 * SLOTS_PER_EPOCH)):
-    const err_str: cstring = "Voting for very old block"
-    return err((ValidationResult.Ignore, err_str))
+    return err((ValidationResult.Ignore, cstring("Voting for very old block")))
 
   ok()
 
@@ -83,8 +82,8 @@ func check_propagation_slot_range(
     futureSlot = (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
 
   if not futureSlot.afterGenesis or data.slot > futureSlot.slot:
-    const err_str: cstring = "Attestation slot in the future"
-    return err((ValidationResult.Ignore, err_str))
+    return err((ValidationResult.Ignore, cstring(
+      "Attestation slot in the future")))
 
   let
     pastSlot = (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
@@ -97,8 +96,8 @@ func check_propagation_slot_range(
 
   if pastSlot.afterGenesis and
       data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE < pastSlot.slot:
-    const err_str: cstring = "Attestation slot in the past"
-    return err((ValidationResult.Ignore, err_str))
+    return err((ValidationResult.Ignore, cstring(
+      "Attestation slot in the past")))
 
   ok()
 
@@ -112,8 +111,7 @@ func check_attestation_beacon_block(
   let attestationBlck = pool.chainDag.getRef(attestation.data.beacon_block_root)
   if attestationBlck.isNil:
     pool.quarantine.addMissing(attestation.data.beacon_block_root)
-    const err_msg: cstring = "Attestation block unknown"
-    return err((ValidationResult.Ignore, err_msg))
+    return err((ValidationResult.Ignore, cstring("Attestation block unknown")))
 
   # Not in spec - check that rewinding to the state is sane
   ? check_attestation_block_slot(pool, attestation.data.slot, attestationBlck)
@@ -134,14 +132,14 @@ func check_aggregation_count(
     onesCount += 1
     if singular: # More than one ok
       if onesCount > 1:
-        const err_str: cstring = "Attestation has too many aggregation bits"
-        return err((ValidationResult.Reject, err_str))
+        return err((ValidationResult.Reject, cstring(
+          "Attestation has too many aggregation bits")))
     else:
       break # Found the one we needed
 
   if onesCount < 1:
-    const err_str: cstring = "Attestation has too few aggregation bits"
-    return err((ValidationResult.Reject, err_str))
+    return err((ValidationResult.Reject, cstring(
+      "Attestation has too few aggregation bits")))
 
   ok()
 
@@ -155,9 +153,8 @@ func check_attestation_subnet(
         attestation.data.slot, attestation.data.index.CommitteeIndex)
 
   if expectedSubnet != topicCommitteeIndex:
-    const err_str: cstring =
-      "Attestation's committee index not for the correct subnet"
-    return err((ValidationResult.Reject, err_str))
+    return err((ValidationResult.Reject, cstring(
+      "Attestation's committee index not for the correct subnet")))
 
   ok()
 
@@ -190,8 +187,8 @@ proc validateAttestation*(
   let tgtBlck = pool.chainDag.getRef(attestation.data.target.root)
   if tgtBlck.isNil:
     pool.quarantine.addMissing(attestation.data.target.root)
-    const err_str: cstring = "Attestation target block unknown"
-    return err((ValidationResult.Ignore, err_str))
+    return err((ValidationResult.Ignore, cstring(
+      "Attestation target block unknown")))
 
   # The following rule follows implicitly from that we clear out any
   # unviable blocks from the chain dag:
@@ -208,9 +205,8 @@ proc validateAttestation*(
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
   if not (attestation.data.index < get_committee_count_per_slot(epochRef)):
-    const err_str: cstring =
-      "validateAttestation: committee index not within expected range"
-    return err((ValidationResult.Reject, err_str))
+    return err((ValidationResult.Reject, cstring(
+      "validateAttestation: committee index not within expected range")))
 
   # [REJECT] The attestation is for the correct subnet -- i.e.
   # compute_subnet_for_attestation(committees_per_slot,
@@ -229,9 +225,8 @@ proc validateAttestation*(
   # attestation.data.beacon_block_root.
   if not (attestation.aggregation_bits.lenu64 == get_beacon_committee_len(
       epochRef, attestation.data.slot, attestation.data.index.CommitteeIndex)):
-    const err_str: cstring =
-      "validateAttestation: number of aggregation bits and committee size mismatch"
-    return err((ValidationResult.Reject, err_str))
+    return err((ValidationResult.Reject, cstring(
+      "validateAttestation: number of aggregation bits and committee size mismatch")))
 
   # The block being voted for (attestation.data.beacon_block_root) has been seen
   # (via both gossip and non-gossip sources) (a client MAY queue aggregates for
@@ -261,8 +256,8 @@ proc validateAttestation*(
       pool.lastVotedEpoch[validator_index.int].isSome() and
       (pool.lastVotedEpoch[validator_index.int].get() >=
         attestation.data.target.epoch):
-    const err_str: cstring = "Validator has already voted in epoch"
-    return err((ValidationResult.Ignore, err_str))
+    return err((ValidationResult.Ignore, cstring(
+      "Validator has already voted in epoch")))
 
   # The signature of attestation is valid.
   block:
@@ -286,9 +281,8 @@ proc validateAttestation*(
       compute_start_slot_at_epoch(attestation.data.target.epoch),
       SLOTS_PER_EPOCH.int).root ==
       attestation.data.target.root):
-    const err_str: cstring =
-      "validateAttestation: attestation's target block not an ancestor of LMD vote block"
-    return err((ValidationResult.Reject, err_str))
+    return err((ValidationResult.Reject, cstring(
+      "validateAttestation: attestation's target block not an ancestor of LMD vote block")))
 
   # Only valid attestations go in the list
   if pool.lastVotedEpoch.len <= validator_index.int:
@@ -359,16 +353,15 @@ proc validateAggregate*(
   let tgtBlck = pool.chainDag.getRef(aggregate.data.target.root)
   if tgtBlck.isNil:
     pool.quarantine.addMissing(aggregate.data.target.root)
-    const err_str: cstring = "Aggregate target block unknown"
-    return err((ValidationResult.Ignore, err_str))
+    return err((ValidationResult.Ignore, cstring(
+      "Aggregate target block unknown")))
 
   let epochRef = pool.chainDag.getEpochRef(tgtBlck, aggregate.data.target.epoch)
 
   if not is_aggregator(
       epochRef, aggregate.data.slot, aggregate.data.index.CommitteeIndex,
       aggregate_and_proof.selection_proof):
-    const err_str: cstring = "Incorrect aggregator"
-    return err((ValidationResult.Reject, err_str))
+    return err((ValidationResult.Reject, cstring("Incorrect aggregator")))
 
   # [REJECT] The aggregator's validator index is within the committee -- i.e.
   # aggregate_and_proof.aggregator_index in get_beacon_committee(state,
@@ -376,16 +369,15 @@ proc validateAggregate*(
   if aggregate_and_proof.aggregator_index.ValidatorIndex notin
       get_beacon_committee(
         epochRef, aggregate.data.slot, aggregate.data.index.CommitteeIndex):
-    const err_str: cstring = "Aggregator's validator index not in committee"
-    return err((ValidationResult.Reject, err_str))
+    return err((ValidationResult.Reject, cstring(
+      "Aggregator's validator index not in committee")))
 
   # [REJECT] The aggregate_and_proof.selection_proof is a valid signature of the
   # aggregate.data.slot by the validator with index
   # aggregate_and_proof.aggregator_index.
   # get_slot_signature(state, aggregate.data.slot, privkey)
   if aggregate_and_proof.aggregator_index >= epochRef.validator_keys.lenu64:
-    const err_str: cstring = "Invalid aggregator_index"
-    return err((ValidationResult.Reject, err_str))
+    return err((ValidationResult.Reject, cstring("Invalid aggregator_index")))
 
   let
     fork = pool.chainDag.headState.data.data.fork
@@ -395,17 +387,16 @@ proc validateAggregate*(
       fork, genesis_validators_root, aggregate.data.slot,
       epochRef.validator_keys[aggregate_and_proof.aggregator_index],
       aggregate_and_proof.selection_proof):
-    const err_str: cstring = "Selection_proof signature verification failed"
-    return err((ValidationResult.Reject, err_str))
+    return err((ValidationResult.Reject, cstring(
+      "Selection_proof signature verification failed")))
 
   # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
   if not verify_aggregate_and_proof_signature(
       fork, genesis_validators_root, aggregate_and_proof,
       epochRef.validator_keys[aggregate_and_proof.aggregator_index],
       signed_aggregate_and_proof.signature):
-    const err_str: cstring =
-      "signed_aggregate_and_proof signature verification failed"
-    return err((ValidationResult.Reject, err_str))
+    return err((ValidationResult.Reject, cstring(
+      "signed_aggregate_and_proof signature verification failed")))
 
   let attesting_indices = get_attesting_indices(
     epochRef, aggregate.data, aggregate.aggregation_bits)
