@@ -1,4 +1,4 @@
-# Recover existing keys / Generate more keys
+# Recover lost keys and generate new ones
 
 Your  mnemonic can be used to recover lost keys and generate new ones.
 

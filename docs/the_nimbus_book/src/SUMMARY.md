@@ -23,7 +23,7 @@
 - [Graffiti the blockchain](./graffiti.md)
 - [Nimbus binaries](./binaries.md)
 - [Troubleshooting](./troubleshooting.md)
-- [Recover / generate more keys](./more-keys.md)
+- [Recover / generate keys](./more-keys.md)
 # Tutorials
 - [Grafana and Prometheus](metrics-pretty-pictures.md)
 - [Network stats + monitoring](./eth2-stats.md)
