@@ -2,10 +2,10 @@
 - [Introduction](./intro.md)
 - [Philosophy]()
 - [System requirements](./hardware.md)
-- [Quick start]()
+- [Run just the beacon node (quickstart)](./quick-start.md)
 
 # Raspberry Pi
-- [Run your node on a Raspberry Pi](./pi-guide.md)
+- [Validating with a Raspberry Pi](./pi-guide.md)
 - [Mainnet advice](./pi-guide-mainnet.md)
 
 # How-to
@@ -13,8 +13,8 @@
 - [Build the beacon node](./build.md)
 - [Run an eth1 node](./eth1.md)
 - [Sync the beacon node](./start-syncing.md)
-- [Make a deposit](./deposit.md)
-- [Import your keys](./keys.md)
+- [Make a deposit for your validator](./deposit.md)
+- [Import your validator keys](./keys.md)
 - [Connect your validator to eth2](./connect-eth2.md)
 - [Keep an eye on your validator](./keep-an-eye.md)
 - [Keep Nimbus updated](./keep-updated.md)

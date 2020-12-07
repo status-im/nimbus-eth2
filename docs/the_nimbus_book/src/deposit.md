@@ -1,4 +1,4 @@
-# Make a deposit
+# Make a deposit for your validator
 The easiest way to get your deposit in is to follow the Ethereum Foundation's launchpad instructions here:
 
 **Testnet**:
