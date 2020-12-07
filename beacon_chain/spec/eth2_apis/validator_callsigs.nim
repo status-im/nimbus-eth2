@@ -14,7 +14,7 @@ proc get_v1_validator_block(slot: Slot, graffiti: GraffitiBytes, randao_reveal: 
 
 proc post_v1_validator_block(body: SignedBeaconBlock): bool
 
-proc get_v1_validator_attestation(slot: Slot, committee_index: CommitteeIndex): AttestationData
+proc get_v1_validator_attestation_data(slot: Slot, committee_index: CommitteeIndex): AttestationData
 
 proc get_v1_validator_aggregate_attestation(slot: Slot, attestation_data_root: Eth2Digest): Attestation
 

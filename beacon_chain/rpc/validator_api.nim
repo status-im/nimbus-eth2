@@ -55,9 +55,9 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       raise newException(CatchableError, "Could not propose block")
     return true
 
-  rpcServer.rpc("get_v1_validator_attestation") do (
+  rpcServer.rpc("get_v1_validator_attestation_data") do (
       slot: Slot, committee_index: CommitteeIndex) -> AttestationData:
-    debug "get_v1_validator_attestation", slot = slot
+    debug "get_v1_validator_attestation_data", slot = slot
     let
       head = node.doChecksAndGetCurrentHead(slot)
       epochRef = node.chainDag.getEpochRef(head, slot.epoch)
@@ -117,13 +117,3 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       validator_pubkey: ValidatorPubKey, slot_signature: ValidatorSig) -> bool:
     debug "post_v1_validator_beacon_committee_subscriptions"
     raise newException(CatchableError, "Not implemented")
-
-  rpcServer.rpc("get_v1_validator_attestation_data") do (
-      slot: uint64, committee_index: uint64) -> AttestationData:
-    let ares = node.attestationPool[].getAggregatedAttestation(
-      Slot(slot), CommitteeIndex(committee_index)
-    )
-    if ares.isSome():
-      return ares.get().data
-    else:
-      raise newException(CatchableError, "Could not create attestation data!")
