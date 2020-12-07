@@ -114,7 +114,8 @@ p2pProtocol BeaconSync(version = 1,
                               ourStatus, theirStatus.get())
     else:
       debug "Status response not received in time",
-        peer, error = theirStatus.error
+            peer, error = theirStatus.error
+      await peer.disconnect(FaultOrError)
 
   proc status(peer: Peer,
               theirStatus: StatusMsg,
