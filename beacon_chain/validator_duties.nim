@@ -677,16 +677,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
       seconds(int64(SECONDS_PER_SLOT * 2) div 3),
       "Waiting to aggregate attestations")
 
-    const TRAILING_DISTANCE = 0
-    # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#configuration
-    static:
-      doAssert TRAILING_DISTANCE <= ATTESTATION_PROPAGATION_SLOT_RANGE
-
-    let
-      aggregationSlot = slot - TRAILING_DISTANCE
-      aggregationHead = get_ancestor(head, aggregationSlot)
-
-    await broadcastAggregatedAttestations(node, aggregationHead, aggregationSlot)
+    let aggregationHead = get_ancestor(head, slot)
+    await broadcastAggregatedAttestations(node, aggregationHead, slot)
 
   if node.eth1Monitor != nil and (slot mod SLOTS_PER_EPOCH) == 0:
     let finalizedEpochRef = node.chainDag.getFinalizedEpochRef()
