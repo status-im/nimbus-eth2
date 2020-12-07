@@ -89,6 +89,12 @@ func check_propagation_slot_range(
   let
     pastSlot = (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#configuration
+  # The spec value of ATTESTATION_PROPAGATION_SLOT_RANGE is 32, but it can
+  # retransmit attestations on the cusp of being out of spec, and which by
+  # the time they reach their destination might be out of spec.
+  const ATTESTATION_PROPAGATION_SLOT_RANGE = 28
+
   if pastSlot.afterGenesis and
       data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE < pastSlot.slot:
     const err_str: cstring = "Attestation slot in the past"

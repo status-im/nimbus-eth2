@@ -63,7 +63,6 @@ const
   MAX_GRAFFITI_SIZE = 32
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#configuration
-  ATTESTATION_PROPAGATION_SLOT_RANGE* = 32
   MAXIMUM_GOSSIP_CLOCK_DISPARITY* = 500.millis
 
   SLOTS_PER_ETH1_VOTING_PERIOD* =

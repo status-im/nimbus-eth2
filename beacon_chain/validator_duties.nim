@@ -513,7 +513,6 @@ proc broadcastAggregatedAttestations(
                              curr[1].read)
 
     # Don't broadcast when, e.g., this node isn't aggregator
-    # TODO verify there is only one isSome() with test.
     if aggregateAndProof.isSome:
       let sig = await signAggregateAndProof(curr[0].v,
         aggregateAndProof.get, fork, genesis_validators_root)
@@ -523,7 +522,8 @@ proc broadcastAggregatedAttestations(
       node.network.broadcast(node.topicAggregateAndProofs, signedAP)
       notice "Aggregated attestation sent",
         attestation = shortLog(signedAP.message.aggregate),
-        validator = shortLog(curr[0].v)
+        validator = shortLog(curr[0].v),
+        aggregationSlot
 
 proc getSlotTimingEntropy(): int64 =
   # Ensure SECONDS_PER_SLOT / ATTESTATION_PRODUCTION_DIVISOR >
@@ -683,16 +683,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
       seconds(int64(SECONDS_PER_SLOT * 2) div 3),
       "Waiting to aggregate attestations")
 
-    const TRAILING_DISTANCE = 1
-    # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#configuration
-    static:
-      doAssert TRAILING_DISTANCE <= ATTESTATION_PROPAGATION_SLOT_RANGE
-
-    let
-      aggregationSlot = slot - TRAILING_DISTANCE
-      aggregationHead = get_ancestor(head, aggregationSlot)
-
-    await broadcastAggregatedAttestations(node, aggregationHead, aggregationSlot)
+    let aggregationHead = get_ancestor(head, slot)
+    await broadcastAggregatedAttestations(node, aggregationHead, slot)
 
   if node.eth1Monitor != nil and (slot mod SLOTS_PER_EPOCH) == 0:
     let finalizedEpochRef = node.chainDag.getFinalizedEpochRef()
