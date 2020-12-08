@@ -45,7 +45,7 @@ func diffValidatorIdentities(state: BeaconState, skipFirst: int):
     HashList[ImmutableValidatorData, Limit VALIDATOR_REGISTRY_LIMIT] =
   # These are append-only. Ignore the first specified number of identities.
   doAssert skipFirst <= state.validators.len
-  for i in (skipFirst + 1) ..< state.validators.len:
+  for i in skipFirst ..< state.validators.len:
     result.add getImmutableValidatorData(state.validators[i])
 
 func applyValidatorIdentities(
@@ -87,7 +87,8 @@ func setValidatorStatuses(
 
 func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
   doAssert state1.slot > state0.slot
-  doAssert state0.slot + SLOTS_PER_EPOCH * 3 > state1.slot
+  doAssert state0.slot + 128 > state1.slot
+  # TODO not here, but in chainDag, an isancestorof check
 
   BeaconStateDiff(
     genesis_time: state1.genesis_time,
@@ -107,7 +108,6 @@ func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
     eth1_data_votes: state1.eth1_data_votes,
     eth1_deposit_index: state1.eth1_deposit_index,
 
-    # TODO validatorIdentities/validatorStatuses not tested
     validatorIdentities: diffValidatorIdentities(state1, state0.validators.len),
     validatorStatuses: getValidatorStatuses(state1),
     balances: state1.balances,
@@ -168,4 +168,3 @@ func applyDiff*(state: var BeaconState, stateDiff: BeaconStateDiff) =
 
   # Don't update slot until the end, because various other updates depend on it
   state.slot = stateDiff.slot
-# TODO: hook into storage

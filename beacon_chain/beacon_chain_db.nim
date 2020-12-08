@@ -334,7 +334,7 @@ proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
     value: Eth2Digest) =
   db.put(subkey(root, slot), value)
 
-proc putStateDiff(db: BeaconChainDB, root: Eth2Digest, value: BeaconStateDiff) =
+proc putStateDiff*(db: BeaconChainDB, root: Eth2Digest, value: BeaconStateDiff) =
   db.put(subkey(BeaconStateDiff, root), value)
 
 proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
@@ -414,8 +414,10 @@ proc getStateRoot*(db: BeaconChainDB,
   db.get(subkey(root, slot), Eth2Digest)
 
 proc getStateDiff*(db: BeaconChainDB,
-                   root: Eth2Digest): Opt[Eth2Digest] =
-  db.get(subkey(BeaconStateDiff, root), Eth2Digest)
+                   root: Eth2Digest): Opt[BeaconStateDiff] =
+  result.ok(BeaconStateDiff())
+  if db.get(subkey(BeaconStateDiff, root), result.get) != GetResult.found:
+    result.err
 
 proc getHeadBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
   db.get(subkey(kHeadBlock), Eth2Digest)
@@ -450,6 +452,9 @@ proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
 
 proc containsState*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(BeaconState, key)).expect("working database")
+
+proc containsStateDiff*(db: BeaconChainDB, key: Eth2Digest): bool =
+  db.backend.contains(subkey(BeaconStateDiff, key)).expect("working database")
 
 iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
     TrustedSignedBeaconBlock =

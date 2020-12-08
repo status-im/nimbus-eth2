@@ -144,11 +144,29 @@ suiteReport "Beacon chain DB" & preset():
 
     check db.containsState(root)
     let state2 = db.getStateRef(root)
+    db.delState(root)
+    check not db.containsState(root)
     db.close()
 
     check:
       hash_tree_root(state2[]) == root
 
   wrappedTimedTest "sanity check state diff roundtrip" & preset():
-    # TODO this
-    discard
+    var
+      db = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)
+
+    # TODO htr(diff) probably not interesting/useful, but stand-in
+    let
+      stateDiff = BeaconStateDiff()
+      root = hash_tree_root(stateDiff)
+
+    db.putStateDiff(root, stateDiff)
+
+    check db.containsStateDiff(root)
+    let state2 = db.getStateDiff(root)
+    db.delStateDiff(root)
+    check not db.containsStateDiff(root)
+    db.close()
+
+    check:
+      hash_tree_root(state2[]) == root
