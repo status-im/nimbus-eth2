@@ -591,6 +591,8 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
     slot = wallSlot.slot # afterGenesis == true!
     nextSlot = slot + 1
 
+  defer: await node.updateGossipStatus(slot)
+
   beacon_slot.set slot.int64
   beacon_current_epoch.set slot.epoch.int64
 
@@ -648,8 +650,6 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
     headEpoch = shortLog(node.chainDag.head.slot.compute_epoch_at_slot()),
     finalizedHead = shortLog(node.chainDag.finalizedHead.blck),
     finalizedEpoch = shortLog(node.chainDag.finalizedHead.blck.slot.compute_epoch_at_slot())
-
-  await node.updateGossipStatus(slot)
 
   when declared(GC_fullCollect):
     # The slots in the beacon node work as frames in a game: we want to make
