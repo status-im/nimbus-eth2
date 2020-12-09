@@ -433,6 +433,14 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) {.async.} =
     for subnet in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
       node.network.metadata.attnets[subnet] = subnet in subscribed_subnets
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
+  let res = node.network.discovery.updateRecord(
+    {"attnets": SSZ.encode(node.network.metadata.attnets)})
+  if res.isErr():
+    # This should not occur in this scenario as the private key would always be
+    # the correct one and the ENR will not increase in size.
+    warn "Failed to update record on subnet cycle", error = res.error
+
 proc getAttestationSubnetHandlers(node: BeaconNode): Future[void] =
   var initialSubnets: set[uint8]
   for i in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
