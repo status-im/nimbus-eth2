@@ -29,7 +29,7 @@ func applyModIncrement[T, U](
 
 func diffAppend[T, U](hl: HashList[T, U], end0: int): HashList[T, U] =
   doAssert hl.len >= end0
-  for i in (end0 + 1) .. hl.len:
+  for i in end0 ..< hl.len:
     result.add hl[i]
 
 func applyAppend[T, U](ha: var HashList[T, U], hl: HashList[T, U]) =

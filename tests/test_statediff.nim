@@ -19,30 +19,6 @@ import
 when isMainModule:
   import chronicles # or some random compile error happens...
 
-func checkBeaconStates(a, b: BeaconState) =
-  # TODO field-by-field macro; do want separate checks
-  doAssert a.genesis_time == b.genesis_time
-  doAssert a.genesis_validators_root == b.genesis_validators_root
-  doAssert a.slot == b.slot
-  doAssert a.fork == b.fork
-  doAssert a.latest_block_header == b.latest_block_header
-  doAssert a.block_roots == b.block_roots
-  doAssert a.historical_roots == b.historical_roots
-  doAssert a.eth1_data == b.eth1_data
-  doAssert a.eth1_data_votes == b.eth1_data_votes
-  doAssert a.eth1_deposit_index == b.eth1_deposit_index
-  doAssert hash_tree_root(a.validators) == hash_tree_root(b.validators)
-  doAssert a.balances == b.balances
-  doAssert a.randao_mixes == b.randao_mixes
-  doAssert a.slashings == b.slashings
-  doAssert a.previous_epoch_attestations == b.previous_epoch_attestations
-  doAssert a.current_epoch_attestations == b.current_epoch_attestations
-  doAssert a.justification_bits == b.justification_bits
-  doAssert a.previous_justified_checkpoint == b.previous_justified_checkpoint
-  doAssert a.current_justified_checkpoint == b.current_justified_checkpoint
-  doAssert a.finalized_checkpoint == b.finalized_checkpoint
-  doAssert hash_tree_root(a) == hash_tree_root(b)
-
 proc valid_deposit(state: var BeaconState) =
   # TODO copy/pasted from foo; refactor
   # Test configuration
@@ -93,12 +69,11 @@ proc getTestStates(initialState: HashedBeaconState):
     # Approaching, but not past, wraparound point
     8100, 8118, 8144, 8148, 8172,
 
-    # TODO these don't work yet
     # Wraparound
-    #8192,
+    8192,
 
     # Past wraparound
-    #8193, 8224, 8239, 8244, 8261
+    8193, 8224, 8239, 8244, 8261
     ]
 
   var
@@ -140,4 +115,5 @@ suiteReport "state diff tests" & preset():
         var tmpStateApplyBase = assignClone(testStates[i].data)
         let diff = diffStates(testStates[i].data, testStates[j].data)
         applyDiff(tmpStateApplyBase[], diff)
-        checkBeaconStates(testStates[j].data, tmpStateApplyBase[])
+        check hash_tree_root(testStates[j].data) ==
+          hash_tree_root(tmpStateApplyBase[])
