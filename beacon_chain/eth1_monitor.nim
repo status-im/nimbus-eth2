@@ -273,8 +273,9 @@ template awaitWithRetries[T](lazyFutExpr: Future[T],
 
     inc attempts
     if attempts >= retries:
-      raise newException(DataProviderFailure,
-        reqType & " failed " & $retries & " times")
+      var errorMsg = reqType & " failed " & $retries & " times"
+      if f.failed: errorMsg &= ". Last error: " & f.error.msg
+      raise newException(DataProviderFailure, errorMsg)
 
     await sleepAsync(chronos.milliseconds(retryDelayMs))
     retryDelayMs *= 2
