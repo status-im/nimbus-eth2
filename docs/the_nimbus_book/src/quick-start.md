@@ -1,6 +1,6 @@
 # Run just the beacon node (quickstart)
 
-This page takes you through how to run just the beacon node without a validator attached.
+This page takes you through how to run just the beacon node **without a validator attached.**
 
 Running a beacon node without a validator attached can help improve the anonymity properties of the network as a whole.
 
