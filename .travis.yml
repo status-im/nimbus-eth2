@@ -15,28 +15,33 @@ git:
 
 matrix:
   include:
-    - os: linux
-      arch: amd64
+    # Due to Travis new pricing we want to dedicate the resources we have
+    # for ARM64 testing, hence Linux/Mac on AMD are commented out
+    # https://blog.travis-ci.com/2020-11-02-travis-ci-new-billing
+    #
+    # - os: linux
+    #   arch: amd64
+    #   sudo: required
+    #   env:
+    #     - NPROC=2
+    #   before_install:
+    #     - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib"
+    # - os: osx
+    #   before_install:
+    #     - HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install ccache
+    #   env:
+    #     - NPROC=2
+    - dist: bionic
+      arch: arm64
       sudo: required
       env:
-        - NPROC=2
+        - NPROC=6 # Worth trying more than 2 parallel jobs: https://travis-ci.community/t/no-cache-support-on-arm64/5416/8
+        # (also used to get a different cache key than the amd64 one)
       before_install:
         - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib"
-    #- os: linux
-      #arch: arm64
-      #sudo: required
-      #env:
-        #- NPROC=6 # Worth trying more than 2 parallel jobs: https://travis-ci.community/t/no-cache-support-on-arm64/5416/8
-        ## (also used to get a different cache key than the amd64 one)
-      #before_install:
-        #- export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib"
-        #- sudo apt-get -q update
-        #- sudo apt-get install -y libpcre3-dev
-    - os: osx
-      before_install:
-        - HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install ccache
-      env:
-        - NPROC=2
+        - sudo apt-get -q update
+        - sudo apt-get install -y libpcre3-dev
+
   #allow_failures:
     ## ARM64 is a bit buggy: https://travis-ci.community/t/no-output-has-been-received-and-then-build-terminated-on-arm64/8834
     #- arch: arm64
