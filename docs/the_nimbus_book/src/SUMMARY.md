@@ -1,6 +1,6 @@
 # Summary
 - [Introduction](./intro.md)
-- [Philosophy]()
+- [Design goals](./philosophy.md)
 - [System requirements](./hardware.md)
 - [Run just the beacon node (quickstart)](./quick-start.md)
 
