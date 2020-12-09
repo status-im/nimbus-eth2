@@ -1,7 +1,10 @@
 import
-  std/[deques, tables, hashes, options, strformat, strutils, sequtils, uri],
-  chronos, web3, web3/ethtypes as web3Types, json, chronicles/timings,
-  eth/common/eth_types, eth/async_utils,
+  std/[deques, hashes, options, strformat, strutils, sequtils, tables,
+       typetraits, uri],
+  # Nimble packages:
+  chronos, json, metrics, chronicles/timings,
+  web3, web3/ethtypes as web3Types, eth/common/eth_types, eth/async_utils,
+  # Local modules:
   spec/[datatypes, digest, crypto, helpers],
   ssz, beacon_chain_db, network_metadata, merkle_minimal, beacon_node_status
 
@@ -100,6 +103,24 @@ type
     deposits*: seq[Deposit]
     hasMissingDeposits*: bool
 
+declareCounter failed_web3_requests,
+  "Failed web3 requests"
+
+declareGauge eth1_latest_head,
+  "The highest Eth1 block number observed on the network"
+
+declareGauge eth1_synced_head,
+  "Block number of the highest synchronized block according to follow distance"
+
+declareGauge eth1_finalized_head,
+  "Block number of the highest Eth1 block finalized by Eth2 consensus"
+
+declareGauge eth1_finalized_deposits,
+  "Number of deposits that were finalized by the Eth2 consensus"
+
+declareGauge eth1_chain_len,
+  "The length of the in-memory chain of Eth1 blocks"
+
 template depositContractAddress*(m: Eth1Monitor): Eth1Address =
   m.dataProvider.ns.contractAddress
 
@@ -146,6 +167,15 @@ proc fixupWeb3Urls*(web3Url: var string) =
   block gethRewrite:
     web3Url = "ws://" & normalizedUrl.substr(pos)
     warn "Only WebSocket web3 providers are supported. Rewriting URL", web3Url
+
+func toGaugeValue(x: uint64): int64 =
+  if x > uint64(int64.high):
+    int64.high
+  else:
+    int64(x)
+
+template toGaugeValue(x: Quantity): int64 =
+  toGaugeValue(distinctBase x)
 
 # TODO: Add preset validation
 # MIN_GENESIS_ACTIVE_VALIDATOR_COUNT should be larger than SLOTS_PER_EPOCH
@@ -200,13 +230,15 @@ func latestCandidateBlock(m: Eth1Monitor, periodStart: uint64): Eth1Block =
     if is_candidate_block(m.preset, blk, periodStart):
       return blk
 
-func popFirst(eth1Chain: var Eth1Chain) =
+proc popFirst(eth1Chain: var Eth1Chain) =
   let removed = eth1Chain.blocks.popFirst
   eth1Chain.blocksByHash.del removed.voteData.block_hash.asBlockHash
+  eth1_chain_len.set eth1Chain.blocks.len.int64
 
-func addBlock(eth1Chain: var Eth1Chain, newBlock: Eth1Block) =
+proc addBlock(eth1Chain: var Eth1Chain, newBlock: Eth1Block) =
   eth1Chain.blocks.addLast newBlock
   eth1Chain.blocksByHash[newBlock.voteData.block_hash.asBlockHash] = newBlock
+  eth1_chain_len.set eth1Chain.blocks.len.int64
 
 func hash*(x: Eth1Data): Hash =
   hashData(unsafeAddr x, sizeof(x))
@@ -235,6 +267,7 @@ template awaitWithRetries[T](lazyFutExpr: Future[T],
         raise f.error
       else:
         debug "Web3 request failed", req = reqType, err = f.error.msg
+        inc failed_web3_requests
     else:
       break
 
@@ -424,6 +457,9 @@ proc pruneOldBlocks(m: Eth1Monitor, depositIndex: uint64) =
     m.db.putEth2FinalizedTo DepositContractSnapshot(
       eth1Block: lastBlock.voteData.block_hash,
       depositContractState: m.eth2FinalizedDepositsMerkleizer.toDepositContractState)
+
+    eth1_finalized_head.set lastBlock.number.toGaugeValue
+    eth1_finalized_deposits.set lastBlock.voteData.deposit_count.toGaugeValue
 
     debug "Eth1 blocks pruned",
            newTailBlock = lastBlock.voteData.block_hash,
@@ -710,6 +746,7 @@ proc syncBlockRange(m: Eth1Monitor,
               "Request time out while obtaining json logs")
         except CatchableError as err:
           debug "Request for deposit logs failed", err = err.msg
+          inc failed_web3_requests
           backoff = (backoff * 3) div 2
           retryOrRaise err
 
@@ -736,8 +773,10 @@ proc syncBlockRange(m: Eth1Monitor,
 
           m.eth1Chain.addBlock(
             lastBlock.makeSuccessorWithoutDeposits(blockWithoutDeposits))
+          eth1_synced_head.set blockWithoutDeposits.number.toGaugeValue
 
       m.eth1Chain.addBlock blk
+      eth1_synced_head.set blk.number.toGaugeValue
 
     if blocksWithDeposits.len > 0:
       let lastIdx = blocksWithDeposits.len - 1
@@ -857,6 +896,11 @@ proc startEth1Syncing(m: Eth1Monitor) {.async.} =
       m.eth2FinalizedDepositsMerkleizer))
 
   var eth1SyncedTo = Eth1BlockNumber startBlock.number
+  eth1_synced_head.set eth1SyncedTo.toGaugeValue
+  eth1_finalized_head.set eth1SyncedTo.toGaugeValue
+  eth1_finalized_deposits.set(
+    m.eth2FinalizedDepositsMerkleizer.getChunkCount.toGaugeValue)
+
   var scratchMerkleizer = newClone(copy m.eth2FinalizedDepositsMerkleizer)
 
   debug "Starting Eth1 syncing", `from` = shortLog(m.eth1Chain.blocks[0])
@@ -886,6 +930,7 @@ proc startEth1Syncing(m: Eth1Monitor) {.async.} =
                            targetBlock,
                            earliestBlockOfInterest)
     eth1SyncedTo = targetBlock
+    eth1_synced_head.set eth1SyncedTo.toGaugeValue
 
 proc run(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
   if delayBeforeStart != ZeroDuration:
@@ -898,7 +943,8 @@ proc run(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
                                          {.raises: [Defect], gcsafe.}:
     try:
       if blk.number.uint64 > m.latestEth1BlockNumber:
-        m.latestEth1BlockNumber = blk.number.uint64
+        eth1_latest_head.set blk.number.toGaugeValue
+        m.latestEth1BlockNumber = Eth1BlockNumber blk.number
         m.eth1Progress.fire()
     except Exception:
       # TODO Investigate why this exception is being raised
