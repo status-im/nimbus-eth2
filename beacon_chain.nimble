@@ -80,13 +80,15 @@ task test, "Run all tests":
   # TODO `test_keystore` is extracted from the rest of the tests because it uses conflicting BLST headers
   buildAndRunBinary "test_keystore", "tests/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]""""
 
-  # Check Miracl/Milagro fallback on select tests
-  buildAndRunBinary "test_interop", "tests/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
-  buildAndRunBinary "test_process_attestation", "tests/spec_block_processing/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
-  buildAndRunBinary "test_process_deposits", "tests/spec_block_processing/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
-  buildAndRunBinary "all_fixtures_require_ssz", "tests/official/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
-  buildAndRunBinary "test_attestation_pool", "tests/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
-  buildAndRunBinary "test_block_pool", "tests/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
+  # As BLST has a pure C fallback as of Dec 2020 undergoing audit and formal verification
+  # we skip Miracl checks as they are costly in CI time.
+  # # Check Miracl/Milagro fallback on select tests
+  # buildAndRunBinary "test_interop", "tests/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
+  # buildAndRunBinary "test_process_attestation", "tests/spec_block_processing/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
+  # buildAndRunBinary "test_process_deposits", "tests/spec_block_processing/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
+  # buildAndRunBinary "all_fixtures_require_ssz", "tests/official/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
+  # buildAndRunBinary "test_attestation_pool", "tests/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
+  # buildAndRunBinary "test_block_pool", "tests/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:BLS_FORCE_BACKEND=miracl -d:chronicles_sinks="json[file]""""
 
   # State and block sims; getting to 4th epoch triggers consensus checks
   buildAndRunBinary "state_sim", "research/", "-d:const_preset=mainnet -d:chronicles_log_level=INFO", "--validators=3000 --slots=128"

@@ -115,7 +115,7 @@ jobs:
 
           # libminiupnp / natpmp
           if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'i386' ]]; then
-            export CFLAGS="${CFLAGS} -m32"
+            export CFLAGS="${CFLAGS} -m32 -mno-adx"
             echo "::set-env name=CFLAGS::$CFLAGS"
           fi
         env:
@@ -131,11 +131,11 @@ jobs:
           mkdir -p external/bin
           cat << EOF > external/bin/gcc
           #!/bin/bash
-          exec $(which gcc) -m32 "\$@"
+          exec $(which gcc) -m32 -mno-adx "\$@"
           EOF
           cat << EOF > external/bin/g++
           #!/bin/bash
-          exec $(which g++) -m32 "\$@"
+          exec $(which g++) -m32 -mno-adx "\$@"
           EOF
           chmod 755 external/bin/gcc external/bin/g++
           echo '::add-path::${{ github.workspace }}/external/bin'
