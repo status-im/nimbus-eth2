@@ -1,3 +1,30 @@
+2020-12-09 v1.0.3
+=================
+
+A release fixing issues that have contributed to Nimbus's lower peer scores
+on the network.
+
+-----
+
+**New additions:**
+
+* New metrics tracking the syncing progress of the Eth1 deposit contract
+  monitor.
+
+* A new `web3 test` command for testing the compatibility of a web3 provider
+  before using it.
+
+**We've fixed:**
+
+* Incorrect timing when sending aggregated attestations.
+
+* Stale ENR records not taking into account the dynamic attestation subnet
+  hopping.
+
+* An invalid error message produced by the `deposits exit` command (validator
+  state unknown).
+
+
 2020-12-03 v1.0.2
 =================
 
@@ -15,8 +42,8 @@ So it's important you update at your earliest convenience.
 
 **We've fixed:**
 
-* A deposit merkle proofs generation issue which occasionally resulting
-  in missed block proposals shortly after a new Eth1 head was selected.
+* A deposit merkle proofs generation issue occasionally resulting in missed
+  block proposals shortly after a new Eth1 head was selected.
 
 * Slow status bar updates in the absense of logging messages.
 
@@ -75,7 +102,9 @@ As promised, a slightly more polished release before Mainnet launch ✨
 Please make sure you update to this release before Eth2 genesis this
 Tuesday (December 1 12:00:23 UTC), as it contains some important improvements.
 
-New additions:
+-----------------
+
+**New additions:**
 
 * Updated list of bootstrap nodes for Mainnet.
 
@@ -97,7 +126,7 @@ New additions:
 * New RPC calls to track node and config status. Specifically, a JSON-RCP
   call for inspecting the active config preset (`get_v1_config_spec`).
 
-We've fixed:
+**We've fixed:**
 
 * Inaccurate peer counts (an occasional mismatch between the number of
   syncing peers and GossipSub peers) -- the default peer limit has been
