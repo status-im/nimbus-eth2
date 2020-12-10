@@ -84,7 +84,6 @@ proc init*(T: type BeaconNode,
 
   var
     genesisState, checkpointState: ref BeaconState
-    genesisDepositsSnapshot: DepositContractSnapshot
     checkpointBlock: SignedBeaconBlock
 
   if conf.finalizedCheckpointState.isSome:

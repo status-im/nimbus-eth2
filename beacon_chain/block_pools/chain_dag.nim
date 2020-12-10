@@ -9,6 +9,7 @@
 
 import
   std/[options, sequtils, tables, sets],
+  stew/assign2,
   metrics, snappy, chronicles,
   ../ssz/[ssz_serialization, merkleization], ../beacon_chain_db, ../extras,
   ../spec/[

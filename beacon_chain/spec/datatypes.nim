@@ -26,7 +26,7 @@
 
 import
   std/[macros, hashes, json, strutils, tables, typetraits],
-  stew/[byteutils], chronicles,
+  stew/[assign2, byteutils], chronicles,
   json_serialization/types as jsonTypes,
   ../version, ../ssz/types as sszTypes, ./crypto, ./digest, ./presets
 
@@ -833,34 +833,3 @@ static:
   # Sanity checks - these types should be trivial enough to copy with memcpy
   doAssert supportsCopyMem(Validator)
   doAssert supportsCopyMem(Eth2Digest)
-
-func assign*[T](tgt: var T, src: T) =
-  # The default `genericAssignAux` that gets generated for assignments in nim
-  # is ridiculously slow. When syncing, the application was spending 50%+ CPU
-  # time in it - `assign`, in the same test, doesn't even show in the perf trace
-
-  when supportsCopyMem(T):
-    when sizeof(src) <= sizeof(int):
-      tgt = src
-    else:
-      copyMem(addr tgt, unsafeAddr src, sizeof(tgt))
-  elif T is object|tuple:
-    for t, s in fields(tgt, src):
-      when supportsCopyMem(type s) and sizeof(s) <= sizeof(int) * 2:
-        t = s # Shortcut
-      else:
-        assign(t, s)
-  elif T is List|BitList:
-    assign(distinctBase tgt, distinctBase src)
-  elif T is seq:
-    tgt.setLen(src.len)
-    when supportsCopyMem(type(tgt[0])):
-      if tgt.len > 0:
-        copyMem(addr tgt[0], unsafeAddr src[0], sizeof(tgt[0]) * tgt.len)
-    else:
-      for i in 0..<tgt.len:
-        assign(tgt[i], src[i])
-  elif T is ref:
-    tgt = src
-  else:
-    unsupported T
