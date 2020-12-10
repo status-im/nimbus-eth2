@@ -1,14 +1,5 @@
 # Mainnet preparations
 
-## Genesis
-
-eth2 will have a `MIN_GENESIS_TIME` of `1606824000` (or for those of you who don’t think in unix time – **December 1, 2020, 12pm UTC**).
-
-To trigger genesis at this time, there must be at least `16,384` validator deposits 7 days prior to December 1. If not, genesis will be triggered 7 days after this threshold has been met (whenever that may be). For a more detailed discussion of how genesis is kicked off, see Ben Edgington’s genesis [excellent writeup](https://hackmd.io/@benjaminion/genesis).
-
-To summarize the above, although Genesis may occur after December 1st, you should be prepared for it to occur on the first. Which means, you should make your deposit no later than **November 24, 2020, 12pm UTC** if you wish to be included in the Genesis block.
-
-> **Tip:** You can keep track of how many deposits are still needed in order for Genesis to be triggered on the [Launchpad homepage](https://launchpad.ethereum.org/).
 
 ## Latest software
 
