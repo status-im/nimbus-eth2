@@ -198,3 +198,8 @@
 	url = https://github.com/status-im/nim-zxcvbn.git
 	ignore = dirty
 	branch = master
+[submodule "vendor/nimbus-benchmarking"]
+	path = vendor/nimbus-benchmarking
+	url = https://github.com/status-im/nimbus-benchmarking.git
+	ignore = dirty
+	branch = master

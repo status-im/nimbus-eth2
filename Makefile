@@ -78,7 +78,8 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	libbacktrace \
 	book \
 	publish-book \
-	dist
+	dist \
+	benchmarks
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
@@ -406,5 +407,12 @@ dist-test:
 			DOCKER_BUILDKIT=1 docker build -f Dockerfile.$${DISTRO} -t nimbus-eth2-dist-test --progress=plain --build-arg USER_ID=$$(id -u) --build-arg GROUP_ID=$$(id -g) . && \
 			docker run --rm --name nimbus-eth2-dist-test -v $(CURDIR):/home/user/nimbus-eth2 nimbus-eth2-dist-test; \
 		done
+
+#- Build and run benchmarks using an external repo (which can be used easily on
+#  older commits, before this Make target was added).
+#- It's up to the user to create a benchmarking environment that minimises the
+#  results spread. We're showing a 95% CI bar to help visualise that.
+benchmarks:
+	+ vendor/nimbus-benchmarking/run_nbc_benchmarks.sh --output-type d3
 
 endif # "variables.mk" was not included

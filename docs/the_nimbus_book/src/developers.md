@@ -113,6 +113,12 @@ make -j$(nproc) NIMFLAGS="-d:release" USE_MULTITAIL=yes eth2_network_simulation
 make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
 ```
 
+- run some benchmarks and generate HTML charts
+
+```bash
+make benchmarks
+```
+
 ### Multi-client interop scripts
 
 [This repository](https://github.com/eth2-clients/multinet) contains a set of scripts used by the client implementation teams to test interop between the clients (in certain simplified scenarios). It mostly helps us find and debug issues.
