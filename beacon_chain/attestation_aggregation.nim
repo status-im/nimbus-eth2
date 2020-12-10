@@ -324,9 +324,17 @@ proc validateAggregate*(
   # [IGNORE] The aggregate is the first valid aggregate received for the
   # aggregator with index aggregate_and_proof.aggregator_index for the epoch
   # aggregate.data.target.epoch.
-  #
-  # This is [IGNORE] and already effectively checked by attestation pool upon
-  # attempting to resolve attestations.
+  # Slightly modified to allow only newer attestations than were previously
+  # seen (no point in propagating older votes)
+  if (pool.lastAggregateVotedEpoch.len >
+        aggregate_and_proof.aggregator_index.int) and
+      pool.lastAggregateVotedEpoch[
+        aggregate_and_proof.aggregator_index.int].isSome() and
+      (pool.lastAggregateVotedEpoch[
+          aggregate_and_proof.aggregator_index.int].get() >=
+        aggregate.data.target.epoch):
+    return err((ValidationResult.Ignore, cstring(
+      "Validator has already aggregated in epoch")))
 
   # [REJECT] The attestation has participants -- that is,
   # len(get_attesting_indices(state, aggregate.data, aggregate.aggregation_bits)) >= 1.
@@ -417,5 +425,13 @@ proc validateAggregate*(
   # aggregate.data.beacon_block_root,
   # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
   # store.finalized_checkpoint.root
+
+  # Only valid aggregates go in the list
+  if pool.lastAggregateVotedEpoch.len <=
+      aggregate_and_proof.aggregator_index.int:
+    pool.lastAggregateVotedEpoch.setLen(
+      aggregate_and_proof.aggregator_index.int + 1)
+  pool.lastAggregateVotedEpoch[aggregate_and_proof.aggregator_index] =
+    some(aggregate.data.target.epoch)
 
   ok(attesting_indices)

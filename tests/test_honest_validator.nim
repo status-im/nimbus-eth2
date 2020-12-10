@@ -2,12 +2,13 @@
 
 import
   unittest, ./testutil,
-  ../beacon_chain/spec/[datatypes, network]
+  ../beacon_chain/spec/[crypto, datatypes, network],
+  ../beacon_chain/attestation_aggregation
 
 suiteReport "Honest validator":
   var forkDigest: ForkDigest
 
-  timedTest "General pubsub topics:":
+  timedTest "General pubsub topics":
     check:
       getBeaconBlocksTopic(forkDigest) == "/eth2/00000000/beacon_block/ssz"
       getVoluntaryExitsTopic(forkDigest) == "/eth2/00000000/voluntary_exit/ssz"
@@ -57,3 +58,10 @@ suiteReport "Honest validator":
         "/eth2/00000000/beacon_attestation_62/ssz"
       getAttestationTopic(forkDigest, 63) ==
         "/eth2/00000000/beacon_attestation_63/ssz"
+
+  timedTest "is_aggregator":
+    check:
+      not is_aggregator(146, ValidatorSig.fromHex(
+        "aa176502f0a5e954e4c6b452d0e11a03513c19b6d189f125f07b6c5c120df011c31da4c4a9c4a52a5a48fcba5b14d7b316b986a146187966d2341388bbf1f86c42e90553ba009ba10edc6b5544a6e945ce6d2419197f66ab2b9df2b0a0c89987")[])
+      is_aggregator(147, ValidatorSig.fromHex(
+        "91a49ae4edfb4b1c9f7856f49c9b0f6d2278b0f714edd6654bf91678d08c0554b8c8bc375f88ffc227f679bf14287dd616e6d1df264599e56516a3f6ab4d91365cc6a40a7e72edeff37c456d4b2b80fa76283911471fe1e292bf64f54cafd55f")[])
