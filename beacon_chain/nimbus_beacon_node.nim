@@ -1319,12 +1319,14 @@ programMain:
 
     config.createDumpDirs()
 
-    when useInsecureFeatures:
-      if config.metricsEnabled:
+    if config.metricsEnabled:
+      when useInsecureFeatures:
         let metricsAddress = config.metricsAddress
         notice "Starting metrics HTTP server",
           url = "http://" & $metricsAddress & ":" & $config.metricsPort & "/metrics"
         metrics.startHttpServer($metricsAddress, config.metricsPort)
+      else:
+        warn "Metrics support disabled, see https://status-im.github.io/nimbus-eth2/metrics-pretty-pictures.html#simple-metrics"
 
     if depositContractAddress.isNone or depositContractDeployedAt.isNone:
       echo "Please specify the a network through the --network option"
