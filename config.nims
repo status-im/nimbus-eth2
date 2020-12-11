@@ -40,13 +40,9 @@ if defined(windows):
 # and larger arithmetic use cases, along with register starvation issues. When
 # engineering a more portable binary release, this should be tweaked but still
 # use at least -msse2 or -msse3.
-#
-# Since ADX is only available on new CPUs, we want to disable it for generic
-# binaries (BLST autodetects it with no other way to opt-out than at the C
-# compiler level).
 if defined(disableMarchNative):
-  switch("passC", "-msse3 -mno-adx")
-  switch("passL", "-msse3 -mno-adx")
+  switch("passC", "-msse3")
+  switch("passL", "-msse3")
 else:
   switch("passC", "-march=native")
   switch("passL", "-march=native")
