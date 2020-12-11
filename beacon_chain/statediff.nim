@@ -85,6 +85,21 @@ func setValidatorStatuses(
     validators[i].exit_epoch = hl[i].exit_epoch
     validators[i].withdrawable_epoch = hl[i].withdrawable_epoch
 
+func deltaEncodeBalances[T](balances: T): T =
+  if balances.len == 0:
+    return
+
+  result.add balances[0]
+
+  for i in 1 ..< balances.len:
+    result.add balances[i] - balances[i - 1]
+
+func deltaDecodeBalances[T](encodedBalances: T): T =
+  var accum = 0'u64
+  for i in 0 ..< encodedBalances.len:
+    accum += encodedBalances[i]
+    result.add accum
+
 func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
   doAssert state1.slot > state0.slot
   doAssert state0.slot + 128 > state1.slot
@@ -111,7 +126,8 @@ func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
 
     validatorIdentities: diffValidatorIdentities(state1, state0.validators.len),
     validatorStatuses: getValidatorStatuses(state1),
-    balances: state1.balances,
+    balances: deltaEncodeBalances[
+      HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]](state1.balances),
 
     # RANDAO mixes gets updated every block, in place, so ensure there's always
     # >=1 value from it
@@ -149,7 +165,8 @@ func applyDiff*(state: var BeaconState, stateDiff: BeaconStateDiff) =
 
   applyValidatorIdentities(state.validators, stateDiff.validator_identities)
   setValidatorStatuses(state.validators, stateDiff.validator_statuses)
-  state.balances = stateDiff.balances
+  state.balances = deltaDecodebalances[
+    HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]](stateDiff.balances)
 
   # RANDAO mixes gets updated every block, in place, so ensure there's always
   # >=1 value from it
