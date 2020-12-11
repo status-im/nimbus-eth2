@@ -71,8 +71,8 @@ type
 
     forkChoice*: ForkChoice
 
-    lastVotedEpoch*: seq[Option[Epoch]] # Sequence based on validator indices
-    lastAggregateVotedEpoch*: seq[Option[Epoch]] # based on validator indices
+    nextAttestationEpoch*: seq[tuple[subnet: Epoch, aggregate: Epoch]] ## \
+    ## sequence based on validator indices
 
   ExitPool* = object
     ## The exit pool tracks attester slashings, proposer slashings, and

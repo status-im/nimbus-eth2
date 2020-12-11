@@ -252,10 +252,9 @@ proc validateAttestation*(
   # validator index.
   # Slightly modified to allow only newer attestations than were previously
   # seen (no point in propagating older votes)
-  if (pool.lastVotedEpoch.len > validator_index.int) and
-      pool.lastVotedEpoch[validator_index.int].isSome() and
-      (pool.lastVotedEpoch[validator_index.int].get() >=
-        attestation.data.target.epoch):
+  if (pool.nextAttestationEpoch.len > validator_index.int) and
+      pool.nextAttestationEpoch[validator_index.int].subnet >=
+        attestation.data.target.epoch:
     return err((ValidationResult.Ignore, cstring(
       "Validator has already voted in epoch")))
 
@@ -285,9 +284,10 @@ proc validateAttestation*(
       "validateAttestation: attestation's target block not an ancestor of LMD vote block")))
 
   # Only valid attestations go in the list
-  if pool.lastVotedEpoch.len <= validator_index.int:
-    pool.lastVotedEpoch.setLen(validator_index.int + 1)
-  pool.lastVotedEpoch[validator_index] = some(attestation.data.target.epoch)
+  if pool.nextAttestationEpoch.len <= validator_index.int:
+    pool.nextAttestationEpoch.setLen(validator_index.int + 1)
+  pool.nextAttestationEpoch[validator_index].subnet =
+    attestation.data.target.epoch + 1
 
   ok(attesting_indices)
 
@@ -326,13 +326,11 @@ proc validateAggregate*(
   # aggregate.data.target.epoch.
   # Slightly modified to allow only newer attestations than were previously
   # seen (no point in propagating older votes)
-  if (pool.lastAggregateVotedEpoch.len >
+  if (pool.nextAttestationEpoch.len >
         aggregate_and_proof.aggregator_index.int) and
-      pool.lastAggregateVotedEpoch[
-        aggregate_and_proof.aggregator_index.int].isSome() and
-      (pool.lastAggregateVotedEpoch[
-          aggregate_and_proof.aggregator_index.int].get() >=
-        aggregate.data.target.epoch):
+      pool.nextAttestationEpoch[
+          aggregate_and_proof.aggregator_index.int].aggregate >=
+        aggregate.data.target.epoch:
     return err((ValidationResult.Ignore, cstring(
       "Validator has already aggregated in epoch")))
 
@@ -427,11 +425,11 @@ proc validateAggregate*(
   # store.finalized_checkpoint.root
 
   # Only valid aggregates go in the list
-  if pool.lastAggregateVotedEpoch.len <=
+  if pool.nextAttestationEpoch.len <=
       aggregate_and_proof.aggregator_index.int:
-    pool.lastAggregateVotedEpoch.setLen(
+    pool.nextAttestationEpoch.setLen(
       aggregate_and_proof.aggregator_index.int + 1)
-  pool.lastAggregateVotedEpoch[aggregate_and_proof.aggregator_index] =
-    some(aggregate.data.target.epoch)
+  pool.nextAttestationEpoch[aggregate_and_proof.aggregator_index].aggregate =
+    aggregate.data.target.epoch + 1
 
   ok(attesting_indices)
