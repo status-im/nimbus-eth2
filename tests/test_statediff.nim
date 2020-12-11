@@ -12,7 +12,8 @@ import
   ./testutil,
   ./helpers/math_helpers,
   ./mocking/mock_deposits,
-  ../beacon_chain/spec/[beaconstate, datatypes, digest, helpers, state_transition, presets],
+  ../beacon_chain/spec/[beaconstate, datatypes, digest, helpers,
+    state_transition, presets],
   ../beacon_chain/[beacon_node_types, ssz, statediff],
   ../beacon_chain/block_pools/[chain_dag, quarantine, clearance]
 
@@ -21,9 +22,7 @@ when isMainModule:
 
 proc valid_deposit(state: var BeaconState) =
   # TODO copy/pasted from foo; refactor
-  # Test configuration
   const deposit_amount = MAX_EFFECTIVE_BALANCE
-  # ----------------------------------------
   let validator_index = state.validators.len
   let deposit = mockUpdateStateForNewDeposit(
                   state,
@@ -32,21 +31,13 @@ proc valid_deposit(state: var BeaconState) =
                   flags = {}
                 )
 
-  # Params for sanity checks
-  # ----------------------------------------
   let pre_val_count = state.validators.len
   let pre_balance = if validator_index < pre_val_count:
                       state.balances[validator_index]
                     else:
                       0
-
-  # State transition
-  # ----------------------------------------
-  check: process_deposit(defaultRuntimePreset(), state, deposit, {}).isOk
-
-  # Check invariants
-  # ----------------------------------------
   check:
+    process_deposit(defaultRuntimePreset(), state, deposit, {}).isOk
     state.validators.len == pre_val_count + 1
     state.balances.len == pre_val_count + 1
     state.balances[validator_index] == pre_balance + deposit.data.amount
