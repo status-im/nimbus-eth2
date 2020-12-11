@@ -253,7 +253,7 @@ proc validateAttestation*(
   # Slightly modified to allow only newer attestations than were previously
   # seen (no point in propagating older votes)
   if (pool.nextAttestationEpoch.len > validator_index.int) and
-      pool.nextAttestationEpoch[validator_index.int].subnet >=
+      pool.nextAttestationEpoch[validator_index.int].subnet >
         attestation.data.target.epoch:
     return err((ValidationResult.Ignore, cstring(
       "Validator has already voted in epoch")))
@@ -329,7 +329,7 @@ proc validateAggregate*(
   if (pool.nextAttestationEpoch.len >
         aggregate_and_proof.aggregator_index.int) and
       pool.nextAttestationEpoch[
-          aggregate_and_proof.aggregator_index.int].aggregate >=
+          aggregate_and_proof.aggregator_index.int].aggregate >
         aggregate.data.target.epoch:
     return err((ValidationResult.Ignore, cstring(
       "Validator has already aggregated in epoch")))
