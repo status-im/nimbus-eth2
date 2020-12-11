@@ -482,10 +482,7 @@ type
 
   BeaconStateDiff* = object
     # Small and/or static; always include
-    genesis_time*: uint64
-    genesis_validators_root*: Eth2Digest
     slot*: Slot
-    fork*: Fork
     latest_block_header*: BeaconBlockHeader
 
     # Mod-increment/circular

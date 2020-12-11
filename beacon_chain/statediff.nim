@@ -90,11 +90,12 @@ func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
   doAssert state0.slot + 128 > state1.slot
   # TODO not here, but in chainDag, an isancestorof check
 
+  doAssert state0.genesis_time == state1.genesis_time
+  doAssert state0.genesis_validators_root == state1.genesis_validators_root
+  doAssert state0.fork == state1.fork
+
   BeaconStateDiff(
-    genesis_time: state1.genesis_time,
-    genesis_validators_root: state1.genesis_validators_root,
     slot: state1.slot,
-    fork: state1.fork,
     latest_block_header: state1.latest_block_header,
 
     block_roots: diffModIncrement[Eth2Digest, SLOTS_PER_HISTORICAL_ROOT.int64](
@@ -131,9 +132,8 @@ func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
   )
 
 func applyDiff*(state: var BeaconState, stateDiff: BeaconStateDiff) =
-  state.genesis_time = stateDiff.genesis_time
-  state.genesis_validators_root = stateDiff.genesis_validators_root
-  state.fork = stateDiff.fork
+  # Carry over always-unchanged genesis_time, genesis_validators_root, and
+  # fork.
   state.latest_block_header = stateDiff.latest_block_header
 
   applyModIncrement[Eth2Digest, SLOTS_PER_HISTORICAL_ROOT.int64](
