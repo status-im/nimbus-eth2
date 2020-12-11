@@ -506,10 +506,7 @@ type
     eth1_deposit_index*: uint64
 
     # Validators come in two parts, the immutable public key and mutable
-    # entrance/exit/slashed information about that validator. Only store
-    # diffs for former, but latter, store completely.
-    validator_identities*:
-      HashList[ImmutableValidatorData, Limit VALIDATOR_REGISTRY_LIMIT]
+    # entrance/exit/slashed information about that validator.
     validator_statuses*:
       HashList[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
 

@@ -8,7 +8,7 @@
 {.used.}
 
 import
-  options, unittest,
+  options, sequtils, unittest,
   ./testutil,
   ./helpers/math_helpers,
   ./mocking/mock_deposits,
@@ -114,6 +114,14 @@ suiteReport "state diff tests" & preset():
           continue
         var tmpStateApplyBase = assignClone(testStates[i].data)
         let diff = diffStates(testStates[i].data, testStates[j].data)
-        applyDiff(tmpStateApplyBase[], diff)
+        # Immutable parts of validators stored separately, so aren't part of
+        # the state diff. Synthesize required portion here for testing.
+        applyDiff(
+          tmpStateApplyBase[],
+          mapIt(testStates[j].data.validators.asSeq[
+              testStates[i].data.validators.len ..
+              testStates[j].data.validators.len - 1],
+            it.getImmutableValidatorData),
+          diff)
         check hash_tree_root(testStates[j].data) ==
           hash_tree_root(tmpStateApplyBase[])

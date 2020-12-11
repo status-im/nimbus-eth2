@@ -36,7 +36,7 @@ func applyAppend[T, U](ha: var HashList[T, U], hl: HashList[T, U]) =
   for item in hl:
     ha.add item
 
-func getImmutableValidatorData(validator: Validator): ImmutableValidatorData =
+func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData =
   ImmutableValidatorData(
     pubkey: validator.pubkey,
     withdrawal_credentials: validator.withdrawal_credentials)
@@ -50,7 +50,7 @@ func diffValidatorIdentities(state: BeaconState, skipFirst: int):
 
 func applyValidatorIdentities(
     validators: var HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT],
-    hl: HashList[ImmutableValidatorData, Limit VALIDATOR_REGISTRY_LIMIT]) =
+    hl: auto) =
   for item in hl:
     validators.add Validator(
       pubkey: item.pubkey,
@@ -124,7 +124,6 @@ func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
     eth1_data_votes: state1.eth1_data_votes,
     eth1_deposit_index: state1.eth1_deposit_index,
 
-    validatorIdentities: diffValidatorIdentities(state1, state0.validators.len),
     validatorStatuses: getValidatorStatuses(state1),
     balances: deltaEncodeBalances[
       HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]](state1.balances),
@@ -147,9 +146,11 @@ func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
     finalized_checkpoint: state1.finalized_checkpoint
   )
 
-func applyDiff*(state: var BeaconState, stateDiff: BeaconStateDiff) =
-  # Carry over always-unchanged genesis_time, genesis_validators_root, and
-  # fork.
+func applyDiff*(
+    state: var BeaconState,
+    immutableValidators: openArray[ImmutableValidatorData],
+    stateDiff: BeaconStateDiff) =
+  # Carry over unchanged genesis_time, genesis_validators_root, and fork.
   state.latest_block_header = stateDiff.latest_block_header
 
   applyModIncrement[Eth2Digest, SLOTS_PER_HISTORICAL_ROOT.int64](
@@ -163,7 +164,7 @@ func applyDiff*(state: var BeaconState, stateDiff: BeaconStateDiff) =
   state.eth1_data_votes = stateDiff.eth1_data_votes
   state.eth1_deposit_index = stateDiff.eth1_deposit_index
 
-  applyValidatorIdentities(state.validators, stateDiff.validator_identities)
+  applyValidatorIdentities(state.validators, immutableValidators)
   setValidatorStatuses(state.validators, stateDiff.validator_statuses)
   state.balances = deltaDecodebalances[
     HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]](stateDiff.balances)
