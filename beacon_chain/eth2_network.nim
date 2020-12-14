@@ -4,15 +4,14 @@ import
   std/options as stdOptions,
 
   # Status libs
-  stew/[varints, base58, endians2, results, byteutils, io2], bearssl,
+  stew/[leb128, base58, endians2, results, byteutils, io2], bearssl,
   stew/shims/net as stewNet,
   stew/shims/[macros, tables],
   faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
   json_serialization, json_serialization/std/[net, options],
   chronos, chronicles, metrics,
-  # TODO: create simpler to use libp2p modules that use re-exports
   libp2p/[switch, peerinfo,
-          multiaddress, multicodec, crypto/crypto, crypto/secp,
+          multiaddress, crypto/crypto, crypto/secp,
           protocols/identify, protocols/protocol],
   libp2p/muxers/muxer, libp2p/muxers/mplex/mplex,
   libp2p/transports/[transport, tcptransport],
@@ -496,8 +495,8 @@ proc writeChunk*(conn: Connection,
   if responseCode.isSome:
     output.write byte(responseCode.get)
 
-  output.write varintBytes(payload.lenu64)
-  output.write(framingFormatCompress payload)
+  output.write toBytes(payload.lenu64, Leb128).toOpenArray()
+  framingFormatCompress(output, payload)
 
   conn.write(output.getOutput)
 
@@ -505,14 +504,14 @@ template errorMsgLit(x: static string): ErrorMsg =
   const val = ErrorMsg toBytes(x)
   val
 
-func formatErrorMsg(msg: ErrorMSg): string =
-  let candidate = string.fromBytes(asSeq(msg))
-  for c in candidate:
-    # TODO UTF-8 - but let's start with ASCII
-    if ord(c) < 32 or ord(c) > 127:
+func formatErrorMsg(msg: ErrorMsg): string =
+  # ErrorMsg "usually" contains a human-readable string - we'll try to parse it
+  # as ASCII and return hex if that fails
+  for c in msg:
+    if c < 32 or c > 127:
       return byteutils.toHex(asSeq(msg))
 
-  return candidate
+  string.fromBytes(asSeq(msg))
 
 proc sendErrorResponse(peer: Peer,
                        conn: Connection,
