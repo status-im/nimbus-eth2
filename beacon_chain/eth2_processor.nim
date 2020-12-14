@@ -357,7 +357,11 @@ proc aggregateValidator*(
   let v = self.attestationPool[].validateAggregate(
       signedAggregateAndProof, wallTime)
   if v.isErr:
-    debug "Dropping aggregate", err = v.error
+    debug "Dropping aggregate",
+      err = v.error,
+      aggregator_index = signedAggregateAndProof.message.aggregator_index,
+      selection_proof = signedAggregateAndProof.message.selection_proof,
+      wallSlot
     return v.error[0]
 
   beacon_aggregates_received.inc()
@@ -371,7 +375,11 @@ proc aggregateValidator*(
     except CatchableError as exc:
       raiseAssert "We just checked that queue is not full! " & exc.msg
 
-  trace "Aggregate validated"
+  trace "Aggregate validated",
+    aggregator_index = signedAggregateAndProof.message.aggregator_index,
+    selection_proof = signedAggregateAndProof.message.selection_proof,
+    wallSlot
+
   try:
     self.aggregatesQueue.addLastNoWait(AggregateEntry(
       v: signedAggregateAndProof.message.aggregate,

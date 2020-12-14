@@ -684,8 +684,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
       seconds(int64(SECONDS_PER_SLOT * 2) div 3), slot,
       "Waiting to aggregate attestations")
 
-    let aggregationHead = get_ancestor(head, slot)
-    await broadcastAggregatedAttestations(node, aggregationHead, slot)
+    await broadcastAggregatedAttestations(node, head, slot)
 
   if node.eth1Monitor != nil and (slot mod SLOTS_PER_EPOCH) == 0:
     let finalizedEpochRef = node.chainDag.getFinalizedEpochRef()

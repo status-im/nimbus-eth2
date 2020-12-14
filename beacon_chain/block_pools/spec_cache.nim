@@ -102,15 +102,6 @@ func get_indexed_attestation*(epochRef: EpochRef, attestation: Attestation): Ind
     signature: attestation.signature
   )
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#aggregation-selection
-func is_aggregator*(epochRef: EpochRef, slot: Slot, index: CommitteeIndex,
-    slot_signature: ValidatorSig): bool =
-  let
-    committee_len = get_beacon_committee_len(epochRef, slot, index)
-    modulo = max(1'u64, committee_len div TARGET_AGGREGATORS_PER_COMMITTEE)
-  bytes_to_uint64(eth2digest(
-    slot_signature.toRaw()).data.toOpenArray(0, 7)) mod modulo == 0
-
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     fork: Fork, genesis_validators_root: Eth2Digest,

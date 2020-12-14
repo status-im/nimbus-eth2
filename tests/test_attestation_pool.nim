@@ -444,18 +444,18 @@ suiteReport "Attestation validation " & preset():
       validateAttestation(pool[], attestation, beaconTime, subnet).error()[0] ==
         ValidationResult.Ignore
 
-    pool[].lastVotedEpoch.setLen(0) # reset for test
+    pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Wrong subnet
       validateAttestation(pool[], attestation, beaconTime, subnet + 1).isErr
 
-    pool[].lastVotedEpoch.setLen(0) # reset for test
+    pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Too far in the future
       validateAttestation(
         pool[], attestation, beaconTime - 1.seconds, subnet + 1).isErr
 
-    pool[].lastVotedEpoch.setLen(0) # reset for test
+    pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Too far in the past
       validateAttestation(
