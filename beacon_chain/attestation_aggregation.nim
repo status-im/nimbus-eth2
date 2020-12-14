@@ -252,8 +252,8 @@ proc validateAttestation*(
   # validator index.
   # Slightly modified to allow only newer attestations than were previously
   # seen (no point in propagating older votes)
-  if (pool.nextAttestationEpoch.len > validator_index.int) and
-      pool.nextAttestationEpoch[validator_index.int].subnet >
+  if (pool.nextAttestationEpoch.lenu64.ValidatorIndex > validator_index) and
+      pool.nextAttestationEpoch[validator_index].subnet >
         attestation.data.target.epoch:
     return err((ValidationResult.Ignore, cstring(
       "Validator has already voted in epoch")))
@@ -284,7 +284,7 @@ proc validateAttestation*(
       "validateAttestation: attestation's target block not an ancestor of LMD vote block")))
 
   # Only valid attestations go in the list
-  if pool.nextAttestationEpoch.len <= validator_index.int:
+  if not (pool.nextAttestationEpoch.lenu64.ValidatorIndex > validator_index):
     pool.nextAttestationEpoch.setLen(validator_index.int + 1)
   pool.nextAttestationEpoch[validator_index].subnet =
     attestation.data.target.epoch + 1
@@ -326,10 +326,10 @@ proc validateAggregate*(
   # aggregate.data.target.epoch.
   # Slightly modified to allow only newer attestations than were previously
   # seen (no point in propagating older votes)
-  if (pool.nextAttestationEpoch.len >
-        aggregate_and_proof.aggregator_index.int) and
+  if (pool.nextAttestationEpoch.lenu64 >
+        aggregate_and_proof.aggregator_index) and
       pool.nextAttestationEpoch[
-          aggregate_and_proof.aggregator_index.int].aggregate >
+          aggregate_and_proof.aggregator_index].aggregate >
         aggregate.data.target.epoch:
     return err((ValidationResult.Ignore, cstring(
       "Validator has already aggregated in epoch")))
@@ -425,8 +425,7 @@ proc validateAggregate*(
   # store.finalized_checkpoint.root
 
   # Only valid aggregates go in the list
-  if pool.nextAttestationEpoch.len <=
-      aggregate_and_proof.aggregator_index.int:
+  if pool.nextAttestationEpoch.lenu64 <= aggregate_and_proof.aggregator_index:
     pool.nextAttestationEpoch.setLen(
       aggregate_and_proof.aggregator_index.int + 1)
   pool.nextAttestationEpoch[aggregate_and_proof.aggregator_index].aggregate =
