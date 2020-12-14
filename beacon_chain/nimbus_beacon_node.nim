@@ -9,6 +9,7 @@ import
   # Standard library
   std/[os, tables, strutils, strformat, sequtils, times, math,
        terminal, osproc, random],
+  system/ansi_c,
 
   # Nimble packages
   stew/[objects, byteutils, endians2, io2], stew/shims/macros,
@@ -829,6 +830,12 @@ proc run*(node: BeaconNode) =
     notice "Shutting down after having received SIGINT"
     bnStatus = BeaconNodeStatus.Stopping
   setControlCHook(controlCHandler)
+  # equivalent SIGTERM handler
+  when defined(posix):
+    proc SIGTERMHandler(signal: cint) {.noconv.} =
+      notice "Shutting down after having received SIGTERM"
+      bnStatus = BeaconNodeStatus.Stopping
+    c_signal(SIGTERM, SIGTERMHandler)
 
   # main event loop
   while bnStatus == BeaconNodeStatus.Running:
@@ -1212,6 +1219,12 @@ programMain:
     notice "Shutting down after having received SIGINT"
     quit 0
   setControlCHook(exitImmediatelyOnCtrlC)
+  # equivalent SIGTERM handler
+  when defined(posix):
+    proc exitImmediatelyOnSIGTERM(signal: cint) {.noconv.} =
+      notice "Shutting down after having received SIGTERM"
+      quit 0
+    c_signal(SIGTERM, exitImmediatelyOnSIGTERM)
 
   if config.eth2Network.isSome:
     let metadata = getMetadataForNetwork(config.eth2Network.get)
