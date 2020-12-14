@@ -50,4 +50,5 @@ beacon_chain/sync_protocol.nim.generated.nim
 
 /dist
 /benchmark_results
+/.update.timestamp
 
