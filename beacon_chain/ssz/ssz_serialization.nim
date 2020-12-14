@@ -15,7 +15,7 @@
 
 import
   std/[typetraits, options],
-  stew/[bitops2, endians2, objects],
+  stew/[bitops2, endians2, leb128, objects],
   serialization, serialization/testing/tracing,
   ../spec/[digest, datatypes],
   ./bytes_reader, ./bitseqs, ./types, ./spec_types
@@ -219,18 +219,11 @@ func sszSize*(value: auto): int {.gcsafe, raises: [Defect].} =
     unsupported T
 
 proc writeValue*[T](w: var SszWriter, x: SizePrefixed[T]) {.raises: [Defect, IOError].} =
-  var cursor = w.stream.delayVarSizeWrite(10)
+  var cursor = w.stream.delayVarSizeWrite(Leb128.maxLen(uint64))
   let initPos = w.stream.pos
   w.writeValue T(x)
-  let length = uint64(w.stream.pos - initPos)
-  when false:
-    discard
-    # TODO varintBytes is sub-optimal at the moment
-    # cursor.writeAndFinalize length.varintBytes
-  else:
-    var buf: VarintBuffer
-    buf.writeVarint length
-    cursor.finalWrite buf.writtenBytes
+  let length = toBytes(uint64(w.stream.pos - initPos), Leb128)
+  cursor.finalWrite length.toOpenArray()
 
 proc readValue*[T](r: var SszReader, val: var T) {.raises: [Defect, MalformedSszError, SszSizeMismatchError, IOError].} =
   when isFixedSize(T):
