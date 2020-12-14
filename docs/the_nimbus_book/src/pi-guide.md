@@ -408,3 +408,9 @@ To detach your `screen` session but leave your processes running, press `Ctrl-A`
 
 Verifying your progress is as simple as `ssh`ing back into your Pi and typing `screen -r`. This will resume your screen session (and you will be able to see your node's entire output since you logged out).
 
+### Professional setup advice
+
+While `screen` is a nice tool for testing, it's not really a good idea to rely on it for serious use. For a more professional setup, we recommend [setting up a systemd service](https://www.raspberrypi.org/documentation/linux/usage/systemd.md) with an autorestart on boot (should you experience an unexpected power outage, this will ensure your validator restarts correctly). 
+
+For the details on how to do this, see [this page](./beacon-node-systemd.md)
+
