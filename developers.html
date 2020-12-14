@@ -243,6 +243,11 @@ make LOG_LEVEL=TRACE nimbus_beacon_node # log everything
 </ul>
 <pre><code class="language-bash">make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
 </code></pre>
+<ul>
+<li>run some benchmarks and generate HTML charts</li>
+</ul>
+<pre><code class="language-bash">make benchmarks
+</code></pre>
 <h3><a class="header" href="#multi-client-interop-scripts" id="multi-client-interop-scripts">Multi-client interop scripts</a></h3>
 <p><a href="https://github.com/eth2-clients/multinet">This repository</a> contains a set of scripts used by the client implementation teams to test interop between the clients (in certain simplified scenarios). It mostly helps us find and debug issues.</p>
 

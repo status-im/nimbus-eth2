@@ -434,6 +434,9 @@ INF 2020-12-01 11:26:36.285+00:00 Slot end                                   top
 <h3><a class="header" href="#20-end-ssh-session-and-logout" id="20-end-ssh-session-and-logout">20. End ssh session and logout</a></h3>
 <p>To detach your <code>screen</code> session but leave your processes running, press <code>Ctrl-A</code> followed by <code>Ctrl-D</code>. You can now exit your <code>ssh</code> session (<code>Ctrl-C</code>) and switch off your laptop.</p>
 <p>Verifying your progress is as simple as <code>ssh</code>ing back into your Pi and typing <code>screen -r</code>. This will resume your screen session (and you will be able to see your node's entire output since you logged out).</p>
+<h3><a class="header" href="#professional-setup-advice" id="professional-setup-advice">Professional setup advice</a></h3>
+<p>While <code>screen</code> is a nice tool for testing, it's not really a good idea to rely on it for serious use. For a more professional setup, we recommend <a href="https://www.raspberrypi.org/documentation/linux/usage/systemd.md">setting up a systemd service</a> with an autorestart on boot (should you experience an unexpected power outage, this will ensure your validator restarts correctly). </p>
+<p>For the details on how to do this, see <a href="./beacon-node-systemd.html">this page</a></p>
 
                     </main>
 

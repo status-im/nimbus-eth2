@@ -540,11 +540,15 @@ INF 2020-12-01 11:26:36.285+00:00 Slot end                                   top
 <h3><a class="header" href="#20-end-ssh-session-and-logout" id="20-end-ssh-session-and-logout">20. End ssh session and logout</a></h3>
 <p>To detach your <code>screen</code> session but leave your processes running, press <code>Ctrl-A</code> followed by <code>Ctrl-D</code>. You can now exit your <code>ssh</code> session (<code>Ctrl-C</code>) and switch off your laptop.</p>
 <p>Verifying your progress is as simple as <code>ssh</code>ing back into your Pi and typing <code>screen -r</code>. This will resume your screen session (and you will be able to see your node's entire output since you logged out).</p>
+<h3><a class="header" href="#professional-setup-advice" id="professional-setup-advice">Professional setup advice</a></h3>
+<p>While <code>screen</code> is a nice tool for testing, it's not really a good idea to rely on it for serious use. For a more professional setup, we recommend <a href="https://www.raspberrypi.org/documentation/linux/usage/systemd.md">setting up a systemd service</a> with an autorestart on boot (should you experience an unexpected power outage, this will ensure your validator restarts correctly). </p>
+<p>For the details on how to do this, see <a href="./beacon-node-systemd.html">this page</a></p>
 <h1><a class="header" href="#validating-with-a-raspberry-pi-mainnet-advice" id="validating-with-a-raspberry-pi-mainnet-advice">Validating with a Raspberry Pi: Mainnet advice</a></h1>
 <p>Whether or not your Pi is up to the task will depend on a number of factors such as SSD speed, network connectivity, etc. As such, it's best to verify performance  on a testnet first.</p>
 <p>The best thing you can do is to set your Pi to run Pyrmont. <strong>If you have no trouble syncing and attesting on Pyrmont, your setup should be more than good enough for mainnet</strong> as well (Mainnet is expected to use fewer resources).</p>
 <blockquote class="twitter-tweet" data-conversation="none"><p lang="en" dir="ltr">We&#39;ve been running lots of PIs and NanoPCs 24/7 for 3 years and never got a hardware fail. It is easy (and cheap) to get redundancy of components (even spare PIs in different locations, more of this to come).</p>&mdash; Ethereum on ARM (@EthereumOnARM) <a href="https://twitter.com/EthereumOnARM/status/1332772217420177408?ref_src=twsrc%5Etfw">November 28, 2020</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 <p>Although we don't expect a modern Pi to fail, we recommend buying a spare Pi, and enterprise grade SSD, on the off-chance it does; keep your original SD around, to make it easy for you to copy the image over.</p>
+<p>Finally in order to make sure your Pi autorestarts on boot, we recommend <a href="https://www.raspberrypi.org/documentation/linux/usage/systemd.md">setting up a systemd service</a>. For the details on how to do this, see <a href="./beacon-node-systemd.html">this page</a></p>
 <h1><a class="header" href="#install-dependencies" id="install-dependencies">Install dependencies</a></h1>
 <p>The Nimbus beacon chain can run on Linux, macOS, Windows, and Android. At the moment, Nimbus has to be built from source, which means you'll need to install some dependencies.</p>
 <h2><a class="header" href="#time" id="time">Time</a></h2>
@@ -1634,6 +1638,11 @@ make LOG_LEVEL=TRACE nimbus_beacon_node # log everything
 <li>don't use the <a href="https://github.com/status-im/nimbus-eth2/pull/745">lightweight stack tracing implementation from nim-libbacktrace</a>:</li>
 </ul>
 <pre><code class="language-bash">make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
+</code></pre>
+<ul>
+<li>run some benchmarks and generate HTML charts</li>
+</ul>
+<pre><code class="language-bash">make benchmarks
 </code></pre>
 <h3><a class="header" href="#multi-client-interop-scripts" id="multi-client-interop-scripts">Multi-client interop scripts</a></h3>
 <p><a href="https://github.com/eth2-clients/multinet">This repository</a> contains a set of scripts used by the client implementation teams to test interop between the clients (in certain simplified scenarios). It mostly helps us find and debug issues.</p>
