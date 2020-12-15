@@ -487,12 +487,12 @@ type
 
     # Mod-increment/circular
     block_roots*:
-      HashList[Eth2Digest, Limit SLOTS_PER_HISTORICAL_ROOT]
+      List[Eth2Digest, Limit SLOTS_PER_HISTORICAL_ROOT]
     state_roots*:
-      HashList[Eth2Digest, Limit SLOTS_PER_HISTORICAL_ROOT]
+      List[Eth2Digest, Limit SLOTS_PER_HISTORICAL_ROOT]
 
     # Append only
-    historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
+    historical_roots*: List[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
 
     # Replace
     eth1_data*: Eth1Data
@@ -508,14 +508,14 @@ type
     # Validators come in two parts, the immutable public key and mutable
     # entrance/exit/slashed information about that validator.
     validator_statuses*:
-      HashList[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
+      List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Represent in full
-    balances*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Mod-increment
-    randao_mixes*: HashList[Eth2Digest, Limit EPOCHS_PER_HISTORICAL_VECTOR]
-    slashings*: HashList[uint64, Limit EPOCHS_PER_SLASHINGS_VECTOR]
+    randao_mixes*: List[Eth2Digest, Limit EPOCHS_PER_HISTORICAL_VECTOR]
+    slashings*: List[uint64, Limit EPOCHS_PER_SLASHINGS_VECTOR]
 
     # To start with, always overwrite, not append
     previous_epoch_attestations*:
