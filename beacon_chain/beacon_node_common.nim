@@ -23,7 +23,7 @@ import
 export
   osproc, chronos, rpcserver, conf, time, beacon_chain_db,
   attestation_pool, eth2_network, beacon_node_types, eth1_monitor,
-  request_manager, sync_manager, eth2_processor, chain_Dag, quarantine,
+  request_manager, sync_manager, eth2_processor, chain_dag, quarantine,
   datatypes
 
 type
