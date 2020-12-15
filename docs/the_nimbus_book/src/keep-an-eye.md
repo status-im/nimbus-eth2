@@ -59,8 +59,4 @@ The number following it (in the above case represented by `7`) represents the nu
 
 > **Note:** If you're running Nimbus as a service, the above status bar won't be visible to you. You can use you the RPC calls outlined in the [API page](./api.md) to retrieve similar information.
 
-## eth2stats
-
-
-eth2stats is a network monitoring suite for your beacon node + validator client. One good pre-genesis check is to query your local node's API to see if you have peers. See our guide [here](./eth2-stats.md) for more.
 

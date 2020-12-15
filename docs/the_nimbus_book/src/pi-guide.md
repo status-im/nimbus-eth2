@@ -412,5 +412,5 @@ Verifying your progress is as simple as `ssh`ing back into your Pi and typing `s
 
 While `screen` is a nice tool for testing, it's not really a good idea to rely on it for serious use. For a more professional setup, we recommend [setting up a systemd service](https://www.raspberrypi.org/documentation/linux/usage/systemd.md) with an autorestart on boot (should you experience an unexpected power outage, this will ensure your validator restarts correctly). 
 
-For the details on how to do this, see [this page](./beacon-node-systemd.md)
+For the details on how to do this, see [this page](./beacon-node-systemd.md).
 

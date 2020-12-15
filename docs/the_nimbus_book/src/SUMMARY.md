@@ -29,10 +29,10 @@
 
 # Tutorials
 - [Grafana and Prometheus](./metrics-pretty-pictures.md)
-- [Network stats + monitoring](./eth2-stats.md)
 - [Setup a systemd service](./beacon-node-systemd.md)
 - [Create your own Infura endpoint](./infura-guide.md)
 - [Switch between clients]()
+- [Network stats (testnets only)](./eth2-stats.md)
 
 # Reference
 - [Advanced options]()
