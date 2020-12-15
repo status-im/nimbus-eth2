@@ -34,8 +34,8 @@ contract(DepositContract):
 
 const
   web3Timeouts = 60.seconds
-  hasDepositRootChecks = true # defined(has_deposit_root_checks)
-  hasGenesisDetection* = true # defined(has_genesis_detection)
+  hasDepositRootChecks = defined(has_deposit_root_checks)
+  hasGenesisDetection* = defined(has_genesis_detection)
 
 type
   Eth1BlockNumber* = uint64
