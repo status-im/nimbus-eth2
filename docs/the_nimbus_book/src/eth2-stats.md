@@ -1,6 +1,7 @@
 # Network stats and monitoring
 
-> ⚠️  This page concerns the [Pyrmont](https://pyrmont.launchpad.ethereum.org/) testnet. It will be updated for mainnet soon.
+> ⚠️  This page concerns the [Pyrmont](https://pyrmont.launchpad.ethereum.org/) testnet. eth2stats is a debugging / developer tool that's suitable for testnets. For privacy reasons, we do not recommend using it for mainnet. For a mainnet alternative, see [this guide](./metrics-pretty-pictures.md).
+ 
 
 eth2stats is a network monitoring suite for your beacon node + validator client.
 
