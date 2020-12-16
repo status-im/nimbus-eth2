@@ -8,7 +8,8 @@
 {.used.}
 
 import
-  options, sequtils, unittest,
+  std/[options, sequtils, unittest],
+  stew/assign2,
   ./testutil, ./testblockutil,
   ../beacon_chain/spec/[datatypes, digest, helpers, state_transition, presets],
   ../beacon_chain/[beacon_node_types, ssz],
