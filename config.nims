@@ -52,6 +52,11 @@ else:
     switch("passC", "-mno-avx512f")
     switch("passL", "-mno-avx512f")
 
+# using frame pointers in nim breaks the GC
+# https://github.com/nim-lang/Nim/issues/10625
+switch("passC", "-fno-omit-frame-pointer")
+switch("passL", "-fno-omit-frame-pointer")
+
 --threads:on
 --opt:speed
 --excessiveStackTrace:on
