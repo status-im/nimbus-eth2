@@ -125,7 +125,7 @@ func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#proposer-slashings
 proc check_proposer_slashing*(
     state: var BeaconState, proposer_slashing: ProposerSlashing,
-    flags: UpdateFlags, cache: var StateCache):
+    flags: UpdateFlags):
     Result[void, cstring] {.nbench.} =
 
   let
@@ -169,7 +169,7 @@ proc process_proposer_slashing*(
     state: var BeaconState, proposer_slashing: ProposerSlashing,
     flags: UpdateFlags, cache: var StateCache):
     Result[void, cstring] {.nbench.} =
-  ? check_proposer_slashing(state, proposer_slashing, flags, cache)
+  ? check_proposer_slashing(state, proposer_slashing, flags)
   slash_validator(
     state,
     proposer_slashing.signed_header_1.message.proposer_index.ValidatorIndex,
@@ -192,8 +192,7 @@ func is_slashable_attestation_data*(
 proc check_attester_slashing*(
        state: var BeaconState,
        attester_slashing: AttesterSlashing,
-       flags: UpdateFlags,
-       cache: var StateCache
+       flags: UpdateFlags
      ): Result[seq[ValidatorIndex], cstring] {.nbench.} =
   let
     attestation_1 = attester_slashing.attestation_1
@@ -230,7 +229,7 @@ proc process_attester_slashing*(
        cache: var StateCache
      ): Result[void, cstring] {.nbench.} =
   let attester_slashing_validity =
-    check_attester_slashing(state, attester_slashing, flags, cache)
+    check_attester_slashing(state, attester_slashing, flags)
 
   if attester_slashing_validity.isErr:
     return err(attester_slashing_validity.error)
@@ -244,8 +243,7 @@ proc process_attester_slashing*(
 proc check_voluntary_exit*(
     state: var BeaconState,
     signed_voluntary_exit: SignedVoluntaryExit,
-    flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.} =
+    flags: UpdateFlags): Result[void, cstring] {.nbench.} =
 
   let voluntary_exit = signed_voluntary_exit.message
 
@@ -299,7 +297,7 @@ proc process_voluntary_exit*(
     signed_voluntary_exit: SignedVoluntaryExit,
     flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.} =
-  ? check_voluntary_exit(state, signed_voluntary_exit, flags, cache)
+  ? check_voluntary_exit(state, signed_voluntary_exit, flags)
   initiate_validator_exit(
     state, signed_voluntary_exit.message.validator_index.ValidatorIndex, cache)
   ok()

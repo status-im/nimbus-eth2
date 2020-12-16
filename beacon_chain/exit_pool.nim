@@ -164,12 +164,9 @@ proc validateAttesterSlashing*(
 
   # [REJECT] All of the conditions within process_attester_slashing pass
   # validation.
-  var cache =
-   getStateCache(pool.chainDag.head,
-     pool.chainDag.headState.data.data.slot.compute_epoch_at_slot)
   let attester_slashing_validity =
     check_attester_slashing(
-      pool.chainDag.headState.data.data, attester_slashing, {}, cache)
+      pool.chainDag.headState.data.data, attester_slashing, {})
   if attester_slashing_validity.isErr:
     return err((ValidationResult.Reject, attester_slashing_validity.error))
 
@@ -192,12 +189,9 @@ proc validateProposerSlashing*(
       "validateProposerSlashing: proposer-slashed index already proposer-slashed")))
 
   # [REJECT] All of the conditions within process_proposer_slashing pass validation.
-  var cache =
-   getStateCache(pool.chainDag.head,
-     pool.chainDag.headState.data.data.slot.compute_epoch_at_slot)
   let proposer_slashing_validity =
     check_proposer_slashing(
-      pool.chainDag.headState.data.data, proposer_slashing, {}, cache)
+      pool.chainDag.headState.data.data, proposer_slashing, {})
   if proposer_slashing_validity.isErr:
     return err((ValidationResult.Reject, proposer_slashing_validity.error))
 
@@ -225,12 +219,9 @@ proc validateVoluntaryExit*(
 
   # [REJECT] All of the conditions within process_voluntary_exit pass
   # validation.
-  var cache =
-   getStateCache(pool.chainDag.head,
-     pool.chainDag.headState.data.data.slot.compute_epoch_at_slot)
   let voluntary_exit_validity =
     check_voluntary_exit(
-      pool.chainDag.headState.data.data, signed_voluntary_exit, {}, cache)
+      pool.chainDag.headState.data.data, signed_voluntary_exit, {})
   if voluntary_exit_validity.isErr:
     return err((ValidationResult.Reject, voluntary_exit_validity.error))
 
