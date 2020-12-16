@@ -1,3 +1,36 @@
+2020-12-16 v1.0.4
+=================
+
+A release bringing further stability improvements and minor performance
+optimisations.
+
+-----
+
+**New additions:**
+
+* Nimbus can now be safely shut down with the SIGTERM signal on POSIX systems.
+
+* New discovery IP limits making theoretic eclipse attack much more costly.
+
+* A new `make benchmarks` target for obtaining a performance score for your system.
+
+* Upgrade of the BLST library bringing minor performance improvement.
+
+**We've fixed:**
+
+* Gossipsub resource leaks that may reduce the quality of the gossipsub mesh and
+  reduce the attestation effectiveness of the client.
+
+* Incomplete validation of the forwarded attestations that may affect negatively
+  the peer score of Nimbus.
+
+* An issue halting the activity of the Eth1 monitor.
+
+* The incorrect zero validator balance displayed while the node is syncing.
+
+* A regression preventing Nimbus to be used with custom testnet metadata files.
+
+
 2020-12-09 v1.0.3
 =================
 

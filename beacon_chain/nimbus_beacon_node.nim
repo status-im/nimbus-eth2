@@ -253,24 +253,13 @@ proc init*(T: type BeaconNode,
      genesisDepositsSnapshotContents != nil:
     let genesisDepositsSnapshot = SSZ.decode(genesisDepositsSnapshotContents[],
                                              DepositContractSnapshot)
-    # TODO(zah) if we don't have any validators attached,
-    #           we don't need a mainchain monitor
-    let eth1MonitorRes = await Eth1Monitor.init(
+    eth1Monitor = Eth1Monitor.init(
       db,
       conf.runtimePreset,
       conf.web3Url,
       depositContractAddress,
       genesisDepositsSnapshot,
       eth1Network)
-
-    if eth1MonitorRes.isErr:
-      error "Failed to start Eth1 monitor",
-            reason = eth1MonitorRes.error,
-            web3Url = conf.web3Url,
-            depositContractAddress,
-            depositContractDeployedAt
-    else:
-      eth1Monitor = eth1MonitorRes.get
 
   let rpcServer = if conf.rpcEnabled:
     RpcServer.init(conf.rpcAddress, conf.rpcPort)

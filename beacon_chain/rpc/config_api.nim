@@ -24,7 +24,7 @@ func getDepositAddress(node: BeaconNode): string =
   if isNil(node.eth1Monitor):
     ""
   else:
-    $node.eth1Monitor.depositContractAddress()
+    $node.eth1Monitor.depositContractAddress
 
 proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("get_v1_config_fork_schedule") do () -> seq[Fork]:
