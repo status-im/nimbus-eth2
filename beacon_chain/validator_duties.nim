@@ -548,7 +548,7 @@ proc getSlotTimingEntropy(): int64 =
   rand(range[(slot_timing_entropy_lower_bound + 1) ..
     (slot_timing_entropy_upper_bound - 1)])
 
-proc updateMetrics(node: BeaconNode) =
+proc updateValidatorMetrics*(node: BeaconNode) =
   when defined(metrics):
     # Technically, this only needs to be done on epoch transitions and if there's
     # a reorg that spans an epoch transition, but it's easier to implement this
@@ -599,6 +599,10 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   if not node.isSynced(head):
     notice "Syncing in progress; skipping validator duties for now",
       slot, headSlot = head.slot
+
+    # Rewards will be growing though, as we sync..
+    updateValidatorMetrics(node)
+
     return
 
   var curSlot = lastSlot + 1
@@ -671,7 +675,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   handleAttestations(node, head, slot)
 
-  updateMetrics(node) # the important stuff is done, update the vanity numbers
+  updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#broadcast-aggregate
   # If the validator is selected to aggregate (is_aggregator), then they

@@ -325,6 +325,9 @@ proc init*(T: type BeaconNode,
   # This merely configures the BeaconSync
   # The traffic will be started when we join the network.
   network.initBeaconSync(chainDag, enrForkId.forkDigest)
+
+  res.updateValidatorMetrics()
+
   return res
 
 func verifyFinalization(node: BeaconNode, slot: Slot) =
