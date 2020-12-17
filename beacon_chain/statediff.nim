@@ -11,30 +11,20 @@ import
   ssz/types,
   spec/[datatypes, digest, helpers]
 
-func diffModIncrement[T, U](hl: HashArray[U, T], end0, end1: uint64):
-    List[T, U] =
-  doAssert end1 >= end0
-  # because RANDAO mixes update within epochs, include overlap with current
-  # slot/epoch/time unit.
-  for i in end0 ..< end1:
-    result.add hl[i mod U.uint64]
+func diffModIncEpoch[T, U](hl: HashArray[U, T], startSlot: uint64):
+    array[SLOTS_PER_EPOCH, T] =
+  static: doAssert U.uint64 mod SLOTS_PER_EPOCH == 0
+  doAssert startSlot mod SLOTS_PER_EPOCH == 0
+  for i in startSlot ..< startSlot + SLOTS_PER_EPOCH:
+    result[i mod SLOTS_PER_EPOCH] = hl[i mod U.uint64]
 
 func applyModIncrement[T, U](
-    ha: var HashArray[U, T], hl: List[T, U], slot: uint64) =
+    ha: var HashArray[U, T], hl: array[SLOTS_PER_EPOCH, T], slot: uint64) =
   var indexSlot = slot
 
   for item in hl:
     ha[indexSlot mod U.uint64] = item
     indexSlot += 1
-
-func diffAppend[T, U](hl: HashList[T, U], end0: int): List[T, U] =
-  doAssert hl.len >= end0
-  for i in end0 ..< hl.len:
-    result.add hl[i]
-
-func applyAppend[T, U](ha: var HashList[T, U], hl: List[T, U]) =
-  for item in hl:
-    ha.add item
 
 func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData =
   ImmutableValidatorData(
@@ -99,24 +89,32 @@ func deltaDecodeBalances*[T, U](encodedBalances: List[T, U]): HashList[T, U] =
 
 func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
   doAssert state1.slot > state0.slot
-  doAssert state0.slot + 128 > state1.slot
+  doAssert state0.slot.isEpoch
+  doAssert state1.slot == state0.slot + SLOTS_PER_EPOCH
   # TODO not here, but in chainDag, an isancestorof check
 
   doAssert state0.genesis_time == state1.genesis_time
   doAssert state0.genesis_validators_root == state1.genesis_validators_root
   doAssert state0.fork == state1.fork
+  doAssert state1.historical_roots.len - state0.historical_roots.len in [0, 1]
+
+  let historical_root_added =
+    state0.historical_roots.len != state1.historical_roots.len
 
   BeaconStateDiff(
     slot: state1.slot,
     latest_block_header: state1.latest_block_header,
 
-    block_roots: diffModIncrement[Eth2Digest, SLOTS_PER_HISTORICAL_ROOT.int64](
-      state1.block_roots, state0.slot.uint64, state1.slot.uint64),
-    state_roots: diffModIncrement[Eth2Digest, SLOTS_PER_HISTORICAL_ROOT.int64](
-      state1.state_roots, state0.slot.uint64, state1.slot.uint64),
-    historical_roots: diffAppend[Eth2Digest, HISTORICAL_ROOTS_LIMIT.int64](
-      state1.historical_roots, state0.historical_roots.len),
-
+    block_roots: diffModIncEpoch[Eth2Digest, SLOTS_PER_HISTORICAL_ROOT.int64](
+      state1.block_roots, state0.slot.uint64),
+    state_roots: diffModIncEpoch[Eth2Digest, SLOTS_PER_HISTORICAL_ROOT.int64](
+      state1.state_roots, state0.slot.uint64),
+    historical_root_added: historical_root_added,
+    historical_root:
+      if historical_root_added:
+        state1.historical_roots[state0.historical_roots.len]
+      else:
+        default(Eth2Digest),
     eth1_data: state1.eth1_data,
     eth1_data_votes: state1.eth1_data_votes,
     eth1_deposit_index: state1.eth1_deposit_index,
@@ -125,14 +123,11 @@ func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
     balances: deltaEncodeBalances[uint64, Limit VALIDATOR_REGISTRY_LIMIT](
       state1.balances),
 
-    # RANDAO mixes gets updated every block, in place, so ensure there's always
-    # >=1 value from it
-    randao_mixes: diffModIncrement[Eth2Digest, EPOCHS_PER_HISTORICAL_VECTOR.int64](
-      state1.randao_mixes, state0.slot.compute_epoch_at_slot.uint64,
-      state1.slot.compute_epoch_at_slot.uint64 + 1),
-    slashings: diffModIncrement[uint64, EPOCHS_PER_SLASHINGS_VECTOR.int64](
-      state1.slashings, state0.slot.compute_epoch_at_slot.uint64,
-      state1.slot.compute_epoch_at_slot.uint64),
+    # RANDAO mixes gets updated every block, in place
+    randao_mix: state1.randao_mixes[state0.slot.compute_epoch_at_slot.uint64 mod
+      EPOCHS_PER_HISTORICAL_VECTOR.uint64],
+    slashing: state1.slashings[state0.slot.compute_epoch_at_slot.uint64 mod
+      EPOCHS_PER_HISTORICAL_VECTOR.uint64],
 
     previous_epoch_attestations: state1.previous_epoch_attestations,
     current_epoch_attestations: state1.current_epoch_attestations,
@@ -154,8 +149,8 @@ func applyDiff*(
     state.block_roots, stateDiff.block_roots, state.slot.uint64)
   applyModIncrement[Eth2Digest, SLOTS_PER_HISTORICAL_ROOT.int64](
     state.state_roots, stateDiff.state_roots, state.slot.uint64)
-  applyAppend[Eth2Digest, HISTORICAL_ROOTS_LIMIT.int64](
-    state.historical_roots, stateDiff.historical_roots)
+  if stateDiff.historical_root_added:
+    state.historical_roots.add stateDiff.historical_root
 
   state.eth1_data = stateDiff.eth1_data
   state.eth1_data_votes = stateDiff.eth1_data_votes
@@ -168,10 +163,10 @@ func applyDiff*(
 
   # RANDAO mixes gets updated every block, in place, so ensure there's always
   # >=1 value from it
-  applyModIncrement[Eth2Digest, EPOCHS_PER_HISTORICAL_VECTOR.int64](
-    state.randao_mixes, stateDiff.randao_mixes, state.slot.epoch.uint64 + 1)
-  applyModIncrement[uint64, EPOCHS_PER_SLASHINGS_VECTOR.int64](
-    state.slashings, stateDiff.slashings, state.slot.epoch.uint64)
+  let epochIndex =
+    state.slot.epoch.uint64 mod EPOCHS_PER_HISTORICAL_VECTOR.uint64
+  state.randao_mixes[epochIndex] = stateDiff.randao_mix
+  state.slashings[epochIndex] = stateDiff.slashing
 
   state.previous_epoch_attestations = stateDiff.previous_epoch_attestations
   state.current_epoch_attestations = stateDiff.current_epoch_attestations

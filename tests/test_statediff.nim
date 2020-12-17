@@ -52,31 +52,29 @@ proc getTestStates(initialState: HashedBeaconState):
   # Randomly generated slot numbers, with a jump to around
   # SLOTS_PER_HISTORICAL_ROOT to force wraparound of those
   # slot-based mod/increment fields.
-  const stateSlots = [
-    0, 2, 10, 12, 13, 27, 32, 39, 46, 53, 57, 62, 74, 81, 92, 114, 116, 123,
-    128, 129, 130, 131, 147, 148, 163, 170, 174, 188, 189, 201, 216, 237, 241,
-    263, 269, 279, 280, 283, 290, 292, 295,
+  const stateEpochs = [
+    0, 1,
 
-    # Approaching, but not past, wraparound point
-    8100, 8118, 8144, 8148, 8172,
+    # Around minimal wraparound SLOTS_PER_HISTORICAL_ROOT wraparound
+    5, 6, 7, 8, 9,
 
-    # Wraparound
-    8192,
+    39, 40, 97, 98, 99, 113, 114, 115, 116, 130, 131, 145, 146, 192, 193,
+    232, 233, 237, 238,
 
-    # Past wraparound
-    8193, 8224, 8239, 8244, 8261
-    ]
+    # Approaching and passing SLOTS_PER_HISTORICAL_ROOT wraparound
+    254, 255, 256, 257, 258]
 
   var
     tmpState = assignClone(initialState)
     cache = StateCache()
 
-  for i, slot in stateSlots:
-    if tmpState.data.slot < slot.Slot:
-      doAssert process_slots(tmpState[], slot.Slot, cache)
+  for i, epoch in stateEpochs:
+    let slot = epoch.Epoch.compute_start_slot_at_epoch
+    if tmpState.data.slot < slot:
+      doAssert process_slots(tmpState[], slot, cache)
     if i mod 3 == 0:
       valid_deposit(tmpState.data)
-    doAssert tmpState.data.slot == slot.Slot
+    doAssert tmpState.data.slot == slot
     result.add assignClone(tmpState[])
 
 template wrappedTimedTest(name: string, body: untyped) =
@@ -101,7 +99,7 @@ suiteReport "state diff tests" & preset():
     for i in 0 ..< testStates.len:
       for j in (i+1) ..< testStates.len:
         doAssert testStates[i].data.slot < testStates[j].data.slot
-        if testStates[i].data.slot + 120 < testStates[j].data.slot:
+        if testStates[i].data.slot + SLOTS_PER_EPOCH != testStates[j].data.slot:
           continue
         var tmpStateApplyBase = assignClone(testStates[i].data)
         let diff = diffStates(testStates[i].data, testStates[j].data)

@@ -486,19 +486,18 @@ type
     latest_block_header*: BeaconBlockHeader
 
     # Mod-increment/circular
-    block_roots*:
-      List[Eth2Digest, Limit SLOTS_PER_HISTORICAL_ROOT]
-    state_roots*:
-      List[Eth2Digest, Limit SLOTS_PER_HISTORICAL_ROOT]
+    block_roots*: array[SLOTS_PER_EPOCH, Eth2Digest]
+    state_roots*: array[SLOTS_PER_EPOCH, Eth2Digest]
 
-    # Append only
-    historical_roots*: List[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
+    # Append only; either 0 or 1 per epoch
+    historical_root_added*: bool
+    historical_root*: Eth2Digest
 
     # Replace
     eth1_data*: Eth1Data
 
     # Append-or-clear, but initially just replace. It's up to 2048 Eth1Data
-    # objects, which is generally worth delta-encoding.
+    # objects.
     eth1_data_votes*:
       HashList[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
 
@@ -514,8 +513,8 @@ type
     balances*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Mod-increment
-    randao_mixes*: List[Eth2Digest, Limit EPOCHS_PER_HISTORICAL_VECTOR]
-    slashings*: List[uint64, Limit EPOCHS_PER_SLASHINGS_VECTOR]
+    randao_mix*: Eth2Digest
+    slashing*: uint64
 
     # To start with, always overwrite, not append
     previous_epoch_attestations*:
