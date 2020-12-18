@@ -132,20 +132,12 @@ proc get_attestation_subnet_changes*(
   var attestationSubnets = prevAttestationSubnets
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
-  var
-    prevStabilitySubnets: set[uint8] = {}
-    stabilitySet: set[uint8] = {}
-  for i in 0 ..< attestationSubnets.stabilitySubnets.len:
-    static: doAssert ATTESTATION_SUBNET_COUNT <= high(uint8)
-    prevStabilitySubnets.incl attestationSubnets.stabilitySubnets[i].subnet
-
-    if epoch >= attestationSubnets.stabilitySubnets[i].expiration:
-      attestationSubnets.stabilitySubnets[i].subnet =
-        rand(ATTESTATION_SUBNET_COUNT - 1).uint8
-      attestationSubnets.stabilitySubnets[i].expiration =
-        epoch + getStabilitySubnetLength()
-
-    stabilitySet.incl attestationSubnets.stabilitySubnets[i].subnet
+  let prevStabilitySubnet = {attestationSubnets.stabilitySubnet.uint8}
+  if epoch >= attestationSubnets.stabilitySubnetExpirationEpoch:
+    attestationSubnets.stabilitySubnet =
+      rand(ATTESTATION_SUBNET_COUNT - 1).uint64
+    attestationSubnets.stabilitySubnetExpirationEpoch =
+      epoch + getStabilitySubnetLength()
 
   var nextEpochSubnets: set[uint8]
   for it in get_committee_assignments(
@@ -156,15 +148,16 @@ proc get_attestation_subnet_changes*(
 
   let
     epochParity = epoch mod 2
+    stabilitySet = {attestationSubnets.stabilitySubnet.uint8}
     currentEpochSubnets = attestationSubnets.subscribedSubnets[1 - epochParity]
 
     expiringSubnets =
-      (prevStabilitySubnets +
+      (prevStabilitySubnet +
         attestationSubnets.subscribedSubnets[epochParity]) -
         nextEpochSubnets - currentEpochSubnets - stabilitySet
     newSubnets =
       (nextEpochSubnets + stabilitySet) -
-        (currentEpochSubnets + prevStabilitySubnets)
+        (currentEpochSubnets + prevStabilitySubnet)
 
   doAssert newSubnets.len <= attachedValidators.len + 1
 

@@ -359,12 +359,11 @@ proc installAttestationSubnetHandlers(node: BeaconNode, subnets: set[uint8])
 
   await allFutures(attestationSubscriptions)
 
-proc updateStabilitySubnetMetadata(
-    node: BeaconNode, stabilitySubnets: set[uint8]) =
+proc updateStabilitySubnetMetadata(node: BeaconNode, stabilitySubnet: uint64) =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#metadata
   node.network.metadata.seq_number += 1
   for subnet in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
-    node.network.metadata.attnets[subnet] = (subnet in stabilitySubnets)
+    node.network.metadata.attnets[subnet] = (subnet == stabilitySubnet)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
@@ -375,11 +374,7 @@ proc updateStabilitySubnetMetadata(
     # be the correct one and the ENR will not increase in size.
     warn "Failed to update record on subnet cycle", error = res.error
   else:
-    debug "Stability subnets changed, updated ENR attnets", stabilitySubnets
-
-func getStabilitySubnets(stabilitySubnets: auto): set[uint8] =
-  for subnetInfo in stabilitySubnets:
-    result.incl subnetInfo.subnet
+    debug "Stability subnet changed, updated ENR attnets", stabilitySubnet
 
 proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) {.async.} =
   static: doAssert RANDOM_SUBNETS_PER_VALIDATOR == 1
@@ -399,8 +394,7 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) {.async.} =
       node.chainDag.headState.data.data, attachedValidators,
       node.attestationSubnets, slot.epoch)
 
-  let prevStabilitySubnets =
-    getStabilitySubnets(node.attestationSubnets.stabilitySubnets)
+  let prevStabilitySubnet = node.attestationSubnets.stabilitySubnet
 
   node.attestationSubnets = newAttestationSubnets
   debug "Attestation subnets",
@@ -409,7 +403,9 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) {.async.} =
       node.attestationSubnets.subscribedSubnets[1 - epochParity],
     upcoming_subnets = node.attestationSubnets.subscribedSubnets[epochParity],
     new_subnets = newSubnets,
-    stability_subnets = node.attestationSubnets.stabilitySubnets
+    stability_subnet = node.attestationSubnets.stabilitySubnet,
+    stability_subnet_expiration_epoch =
+      node.attestationSubnets.stabilitySubnetExpirationEpoch
 
   block:
     var unsubscriptions: seq[Future[void]] = @[]
@@ -421,11 +417,9 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) {.async.} =
 
   await node.installAttestationSubnetHandlers(newSubnets)
 
-  let stabilitySubnets =
-    getStabilitySubnets(node.attestationSubnets.stabilitySubnets)
-
-  if stabilitySubnets != prevStabilitySubnets:
-    node.updateStabilitySubnetMetadata(stabilitySubnets)
+  let stabilitySubnet = node.attestationSubnets.stabilitySubnet
+  if stabilitySubnet != prevStabilitySubnet:
+    node.updateStabilitySubnetMetadata(stabilitySubnet)
 
 proc getAttestationSubnetHandlers(node: BeaconNode): Future[void] =
   var initialSubnets: set[uint8]
@@ -438,15 +432,11 @@ proc getAttestationSubnetHandlers(node: BeaconNode): Future[void] =
   # - Restarting the node with a presistent netkey
   # - When going from synced -> syncing -> synced state
   let wallEpoch =  node.beaconClock.now().slotOrZero().epoch
+  node.attestationSubnets.stabilitySubnet = rand(ATTESTATION_SUBNET_COUNT - 1).uint64
+  node.attestationSubnets.stabilitySubnetExpirationEpoch =
+    wallEpoch + getStabilitySubnetLength()
 
-  doAssert node.attestationSubnets.stabilitySubnets.len == 0
-  for _ in 0 ..< node.attachedValidators.count:
-    node.attestationSubnets.stabilitySubnets.add (
-      subnet: rand(ATTESTATION_SUBNET_COUNT - 1).uint8,
-      expiration: wallEpoch + getStabilitySubnetLength())
-
-  node.updateStabilitySubnetMetadata(
-    node.attestationSubnets.stabilitySubnets.getStabilitySubnets)
+  node.updateStabilitySubnetMetadata(node.attestationSubnets.stabilitySubnet)
 
   # Sets the "current" and "future" attestation subnets. One of these gets
   # replaced by get_attestation_subnet_changes() immediately.
@@ -474,8 +464,6 @@ proc removeMessageHandlers(node: BeaconNode): Future[void] =
   node.attestationSubnets.subscribedSubnets[0] = {}
   node.attestationSubnets.subscribedSubnets[1] = {}
   doAssert not node.getTopicSubscriptionEnabled()
-
-  node.attestationSubnets.stabilitySubnets.setLen(0)
 
   var unsubscriptions = mapIt(
     [getBeaconBlocksTopic(node.forkDigest),

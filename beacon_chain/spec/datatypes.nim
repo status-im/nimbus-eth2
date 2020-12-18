@@ -458,7 +458,8 @@ type
 
   AttestationSubnets* = object
     subscribedSubnets*: array[2, set[uint8]]
-    stabilitySubnets*: seq[tuple[subnet: uint8, expiration: Epoch]]
+    stabilitySubnet*: uint64
+    stabilitySubnetExpirationEpoch*: Epoch
 
   # This matches the mutable state of the Solidity deposit contract
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/solidity_deposit_contract/deposit_contract.sol
