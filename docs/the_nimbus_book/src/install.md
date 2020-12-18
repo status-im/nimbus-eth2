@@ -49,7 +49,16 @@ brew install cmake
 
 ### Windows
 
-You can install the developer tools by following the instruction in our [Windows dev environment section](./advanced.md#windows-dev-environment).
+To build Nimbus on windows, the Mingw-w64 build environment is recommened.
+
+Install Mingw-w64 for your architecture using the "[MinGW-W64 Online Installer](https://sourceforge.net/projects/mingw-w64/files/)":
+
+* select your architecture in the setup menu (`i686` on 32-bit, `x86_64` on 64-bit)
+* set threads to `win32`
+* set exceptions to "dwarf" on 32-bit and "seh" on 64-bit.
+* Change the installation directory to `C:\mingw-w64` and add it to your system PATH in `"My Computer"/"This PC" -> Properties -> Advanced system settings -> Environment Variables -> Path -> Edit -> New -> C:\mingw-w64\mingw64\bin` (`C:\mingw-w64\mingw32\bin` on 32-bit)
+
+Install [Git for Windows](https://gitforwindows.org/) and use a "Git Bash" shell to clone and build nimbus-eth2.
 
 ### Android
 
@@ -62,4 +71,3 @@ Assuming you  use Ubuntu PRoot
 ```sh
 apt install build-essential git
 ```
-

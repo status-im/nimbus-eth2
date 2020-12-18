@@ -16,38 +16,26 @@ Nimbus beacon chain is a research implementation of the beacon chain component o
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 
-- [Nimbus Eth2 (Beacon Chain)](#nimbus-eth2-beacon-chain)
-  - [Documentation](#documentation)
-  - [Related projects](#related-projects)
-  - [Prerequisites for everyone](#prerequisites-for-everyone)
-    - [Linux](#linux)
-    - [MacOS](#macos)
-    - [Windows](#windows)
-    - [Android](#android)
-  - [For users](#for-users)
-    - [Connecting to testnets](#connecting-to-testnets)
-    - [Getting metrics from a local testnet client](#getting-metrics-from-a-local-testnet-client)
-    - [Stress-testing the client by limiting the CPU power](#stress-testing-the-client-by-limiting-the-cpu-power)
-  - [Interop (for other Eth2 clients)](#interop-for-other-eth2-clients)
-  - [For researchers](#for-researchers)
-    - [State transition simulation](#state-transition-simulation)
-    - [Local network simulation](#local-network-simulation)
-    - [Visualising simulation metrics](#visualising-simulation-metrics)
-    - [Network inspection](#network-inspection)
-  - [For developers](#for-developers)
-    - [Windows dev environment](#windows-dev-environment)
-    - [Linux, MacOS](#linux-macos)
-    - [Raspberry Pi](#raspberry-pi)
-    - [Makefile tips and tricks for developers](#makefile-tips-and-tricks-for-developers)
-    - [CI setup](#ci-setup)
-  - [License](#license)
+- [Documentation](#documentation)
+- [Related projects](#related-projects)
+- [Branch guide](#branch-guide)
+- [Developer resources](#developer-resources)
+- [Interop tooling](#interop-tooling)
+- [For researchers](#for-researchers)
+  - [State transition simulation](#state-transition-simulation)
+  - [Local network simulation](#local-network-simulation)
+  - [Visualising simulation metrics](#visualising-simulation-metrics)
+  - [Network inspection](#network-inspection)
+  - [CI setup](#ci-setup)
+- [License](#license)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
-
 
 ## Documentation
 
 You can find the information you need to run a beacon node and operate as a validator in [The Book](https://status-im.github.io/nimbus-eth2/).
+
+The [Quickstart](https://status-im.github.io/nimbus-eth2/quick-start.html) in particular will help you get connected to the Pyrmont Testnet and eth2 Mainnet quickly!
 
 ## Related projects
 
@@ -56,152 +44,30 @@ You can find the information you need to run a beacon node and operate as a vali
 
 You can check where the beacon chain fits in the Ethereum ecosystem our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
 
-## Prerequisites for everyone
+## Branch guide
 
-At the moment, Nimbus has to be built from source.
+* `stable` - latest stable release - **this branch is recommended for most users**
+* `testing` - pre-release branch with features and bugfixes slated for the next stable release - this branch is suitable for use on testnets and for adventerous users that want to live on the edge.
+* `unstable` - main development branch against which PR's are merged - if you want to contribute to Nimbus, start here.
 
-Nimbus has the following external dependencies:
+## Developer resources
 
-* Developer tools (C compiler, Make, Bash, Git)
+To build tools that interact with Nimbus while it's running, we expose an [RPC API](https://status-im.github.io/nimbus-eth2/api.html).
 
-Nim is not an external dependency, Nimbus will build its own local copy.
+To get started with developing Nimbus itself, see the [developer handbook](https://status-im.github.io/nimbus-eth2/developers.html).
 
-### Linux
+Nimbus is built in the [Nim language](https://nim-lang.org) - the compiler is automatically installed when building the project for the first time. More information - in particular security-related information about the language - can be found in the [Auditor Handbook](https://status-im.github.io/nimbus-eth2/auditors-book/).
 
-On common Linux distributions the dependencies can be installed with:
-```sh
-# Debian and Ubuntu
-sudo apt-get install build-essential git
-
-# Fedora
-dnf install @development-tools
-
-# Archlinux, using an AUR manager
-yourAURmanager -S base-devel
-```
-
-### MacOS
-
-Assuming you use [Homebrew](https://brew.sh/) to manage packages:
-
-```sh
-brew install cmake
-```
-
-Make sure you have [CMake](https://cmake.org/) installed, to be able to build libunwind (used for [lightweight stack traces](https://github.com/status-im/nim-libbacktrace)).
-
-### Windows
-
-You can install the developer tools by following the instruction in our [Windows dev environment section](#windows-dev-environment).
-
-### Android
-
-* Install the [Termux](https://termux.com) app from FDroid or the Google Play store
-* Install a [PRoot](https://wiki.termux.com/wiki/PRoot) of your choice following the instructions for your preferred distribution.
-Note, the Ubuntu PRoot is known to contain all Nimbus prerequisites compiled on Arm64 architecture (common architecture for Android devices).
-
-*Assuming Ubuntu PRoot is used*
-
-```sh
-apt install build-essential git
-```
-
-## For users
-
-### Connecting to testnets
-
-Once the [prerequisites](#prerequisites) are installed you can connect to the [Pyrmont testnet](https://github.com/protolambda/pyrmont) with the following commands:
-
-```bash
-git clone https://github.com/status-im/nimbus-eth2
-cd nimbus-eth2
-make pyrmont           # This will build Nimbus and all other dependencies
-                       # and connect you to Pyrmont
-```
-
-You can also start multiple local nodes, in different terminal windows/tabs, by specifying their numeric IDs:
-
-```bash
-make pyrmont NODE_ID=0 # the default
-make pyrmont NODE_ID=1
-make pyrmont NODE_ID=2
-```
-
-To change the TCP and UDP ports from the default value of 9000:
-
-```bash
-make BASE_PORT=9100 pyrmont
-```
-
-### Getting metrics from a local testnet client
-
-```bash
-# the primitive HTTP server started to serve the metrics is considered insecure
-make NIMFLAGS="-d:insecure" pyrmont
-```
-
-Now visit http://127.0.0.1:8008/metrics to see the raw metrics. You should see a plaintext page that looks something like this:
-
-```
-# HELP nim_runtime_info Nim runtime info
-# TYPE nim_runtime_info gauge
-nim_gc_mem_bytes 6275072.0
-nim_gc_mem_occupied_bytes 1881384.0
-nim_gc_heap_instance_occupied_bytes{type_name="KeyValuePairSeq[digest.Eth2Digest, block_pools_types.BlockRef]"} 25165856.0
-nim_gc_heap_instance_occupied_bytes{type_name="BlockRef"} 17284608.0
-nim_gc_heap_instance_occupied_bytes{type_name="string"} 6264507.0
-nim_gc_heap_instance_occupied_bytes{type_name="seq[SelectorKey[asyncdispatch.AsyncData]]"} 409632.0
-nim_gc_heap_instance_occupied_bytes{type_name="OrderedKeyValuePairSeq[Labels, seq[Metric]]"} 122720.0
-nim_gc_heap_instance_occupied_bytes{type_name="Future[system.void]"} 79848.0
-nim_gc_heap_instance_occupied_bytes{type_name="anon ref object from /Users/hackingresearch/nimbus/clone/nim-beacon-chain/vendor/nimbus-build-system/vendor/Nim/lib/pure/asyncmacro.nim(319, 33)"} 65664.0
-nim_gc_heap_instance_occupied_bytes{type_name="anon ref object from /Users/hackingresearch/nimbus/clone/nim-beacon-chain/vendor/nimbus-build-system/vendor/Nim/lib/pure/asyncnet.nim(506, 11)"} 43776.0
-nim_gc_heap_instance_occupied_bytes{type_name="seq[byte]"} 37236.0
-nim_gc_heap_instance_occupied_bytes{type_name="seq[TrustedAttestation]"} 29728.0
-
-...
-```
-
-Unfortunately, this simple method only offers one snapshot in time (you'll need to keep refreshing to see the data update) which means it's impossible to see a useful history of the metrics. In short, it's far from optimal from an information design point of view.
-
-In order to settle on a better solution, we'll need the help of two external projects -- [Prometheus](https://prometheus.io/) and [Grafana](https://grafana.com/).
-
-See [this page](https://status-im.github.io/nimbus-eth2/metrics-pretty-pictures.html#prometheus-and-grafana) from our Nimbus book for a step-by-step guide on how to use Prometheus and Grafana to spin up a beautiful and useful monitoring dashboard for your validator.
-
-------------------
-*For those of you who are already familiar with Prometheus and Grafana*
-
-To feed the data into a Prometheus instance, run:
-
-```bash
-cd build/data/shared_pyrmont_0
-prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
-# when starting multiple nodes at the same time, just use the config file from the one with the highest ID
-```
-
-You can then visualise the data by getting Grafana up and running with the dashboard definition found in `grafana/beacon\_nodes\_Grafana\_dashboard.json`.
-
-
-### Stress-testing the client by limiting the CPU power
-
-```bash
-make pyrmont CPU_LIMIT=20
-```
-
-The limiting is provided by the cpulimit utility, available on Linux and macOS.
-The specified value is a percentage of a single CPU core. Usually 1 - 100, but can be higher on multi-core CPUs.
-
-## Interop (for other Eth2 clients)
+## Interop tooling
 
 After installing the [prerequisites](#prerequisites)
 
-To run the Nimbus state transition, we provide the `ncli` tool:
+We provide several tools to interact with ETH2:
 
-* [ncli](ncli)
-
-The interop scripts have been moved in a common repo, the interop relied on 0.8.3 specs which had seen significant changes. The interop branch still exist but is unmaintained.
-
+* [ncli](ncli/ncli.nim) - command line tools to interact with blocks and states - pretty printers, SSZ decoders, state transition helpers
+* [ncli_db](ncli/ncli_db.nim) - command line tool to perform surgery on the Nimbus sqlite database
+* [inspector]()
 * [multinet](https://github.com/status-im/nimbus-eth2/tree/master/multinet) - a set of scripts to build and run several Eth2 clients locally
-* [interop branch](https://github.com/status-im/nimbus-eth2/tree/interop) (unmaintained)
 
 ## For researchers
 
@@ -303,187 +169,6 @@ The [inspector tool](./beacon_chain/inspector.nim) can help monitor the libp2p n
 
 # Connect to a network from eth2 testnet repo bootstrap file - --decode option attempts to decode the messages as well
 ./env.sh build/inspector_minimal --decode -b:$(curl -s https://raw.githubusercontent.com/eth2-clients/eth2-testnets/master/nimbus/testnet0/bootstrap_nodes.txt | head -n1)
-```
-
-## For developers
-
-Latest updates happen in the `devel` branch which is merged into `master` every week on Tuesday before deploying new testnets.
-
-Interesting Make variables and targets are documented in the [nimbus-build-system](https://github.com/status-im/nimbus-build-system) repo.
-
-The following sections explain how to set up your build environment on your platform.
-
-### Windows dev environment
-
-Install Mingw-w64 for your architecture using the "[MinGW-W64 Online
-Installer](https://sourceforge.net/projects/mingw-w64/files/)" (first link
-under the directory listing). Run it and select your architecture in the setup
-menu ("i686" on 32-bit, "x86\_64" on 64-bit), set the threads to "win32" and
-the exceptions to "dwarf" on 32-bit and "seh" on 64-bit. Change the
-installation directory to "C:\mingw-w64" and add it to your system PATH in "My
-Computer"/"This PC" -> Properties -> Advanced system settings -> Environment
-Variables -> Path -> Edit -> New -> C:\mingw-w64\mingw64\bin (it's "C:\mingw-w64\mingw32\bin" on 32-bit)
-
-Install [Git for Windows](https://gitforwindows.org/) and use a "Git Bash" shell to clone and build nimbus-eth2.
-
-Install [CMake](https://cmake.org/) to be able to build libunwind (used for [lightweight stack traces](https://github.com/status-im/nim-libbacktrace)).
-
-When running the tests, you might hit some Windows path length limits. Increase them by editing the Registry in a PowerShell instance with administrator privileges:
-
-```powershell
-Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -Value 1
-```
-
-and run this in a "Git Bash" terminal:
-
-```bash
-git config --global core.longpaths true
-```
-
-> If you were following the Windows testnet instructions, you can jump back to [Connecting to testnets](#connecting-to-testnets) now
-
-You can now follow those instructions in the previous section by replacing `make` with `mingw32-make` (regardless of your 32-bit or 64-bit architecture):
-
-```bash
-mingw32-make -j $(nproc) test # run the test suite
-```
-
-### Linux, MacOS
-
-After cloning the repo:
-
-```bash
-# The first `make` invocation will update all Git submodules.
-# You'll run `make update` after each `git pull`, in the future, to keep those submodules up to date.
-
-# Build nimbus_beacon_node and all the tools, using as many parallel jobs as you have CPU cores
-make -j $(nproc)
-
-# Run tests
-make -j $(nproc) test
-
-# Update to latest version
-git pull
-make -j $(nproc) update
-```
-
-To run a command that might use binaries from the Status Nim fork:
-```bash
-./env.sh bash # start a new interactive shell with the right env vars set
-which nim
-nim --version # Nimbus is tested and supported on 1.0.2 at the moment
-
-# or without starting a new interactive shell:
-./env.sh which nim
-./env.sh nim --version
-```
-
-### Raspberry Pi
-
-We recommend you remove any cover or use a fan; the Raspberry Pi will get hot (85°C) and throttle.
-
-* Raspberry PI 3b+ or Raspberry Pi 4b.
-* 64gb SD Card (less might work too, but the default recommended 4-8GB will probably be too small)
-* [Rasbian Buster Lite](https://www.raspberrypi.org/downloads/raspbian/) - Lite version is enough to get going and will save some disk space!
-
-Assuming you're working with a freshly written image:
-
-```bash
-
-# Start by increasing swap size to 2gb:
-sudo vi /etc/dphys-swapfile
-# Set CONF_SWAPSIZE=2048
-# :wq
-sudo reboot
-
-# Install prerequisites
-sudo apt-get install git
-
-# Then you can follow instructions for Linux.
-
-```
-
-### Makefile tips and tricks for developers
-
-- build all those tools known to the Makefile:
-
-```bash
-# $(nproc) corresponds to the number of cores you have
-make -j $(nproc)
-```
-
-- build a specific tool:
-
-```bash
-make state_sim
-```
-
-- you can control the Makefile's verbosity with the V variable (defaults to 0):
-
-```bash
-make V=1 # verbose
-make V=2 test # even more verbose
-```
-
-- same for the [Chronicles log level](https://github.com/status-im/nim-chronicles#chronicles_log_level):
-
-```bash
-make LOG_LEVEL=DEBUG bench_bls_sig_agggregation # this is the default
-make LOG_LEVEL=TRACE nimbus_beacon_node # log everything
-```
-
-- pass arbitrary parameters to the Nim compiler:
-
-```bash
-make NIMFLAGS="-d:release"
-```
-
-- you can freely combine those variables on the `make` command line:
-
-```bash
-make -j$(nproc) NIMFLAGS="-d:release" USE_MULTITAIL=yes eth2_network_simulation
-```
-
-- don't use the [lightweight stack tracing implementation from nim-libbacktrace](https://github.com/status-im/nimbus-eth2/pull/745):
-
-```bash
-make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
-```
-
-- disable `-march=native` because you want to run the binary on a different machine than the one you're building it on:
-
-```bash
-make NIMFLAGS="-d:disableMarchNative" nimbus_beacon_node
-```
-
-- disable link-time optimisation (LTO):
-
-```bash
-make NIMFLAGS="-d:disableLTO" nimbus_beacon_node
-```
-
-- build a static binary
-
-```bash
-make NIMFLAGS="--passL:-static" nimbus_beacon_node
-```
-
-- publish a book using [mdBook](https://github.com/rust-lang/mdBook) from sources in "docs/" to GitHub pages:
-
-```bash
-make publish-book
-```
-
-- create a binary distribution
-
-```bash
-make dist
-```
-
-- test the binaries
-
-```bash
-make dist-test
 ```
 
 ### CI setup
