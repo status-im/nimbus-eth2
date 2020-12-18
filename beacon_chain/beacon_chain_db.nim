@@ -21,8 +21,6 @@ type
     keyspace: int
 
   DepositsSeq = DbSeq[DepositData]
-  ImmutableValidatorDataSeq = seq[ImmutableValidatorData]
-  ValidatorKeyToIndexMap = Table[ValidatorPubKey, ValidatorIndex]
 
   DepositsMerkleizer* = SszMerkleizer[depositContractLimit]
 
@@ -46,6 +44,7 @@ type
     backend: KvStoreRef
     preset: RuntimePreset
     genesisDeposits*: DepositsSeq
+    checkpoint*: proc() {.gcsafe.}
 
   Keyspaces* = enum
     defaultKeyspace = "kvstore"
@@ -218,8 +217,8 @@ proc init*(T: type BeaconChainDB,
     let s = secureCreatePath(dir)
     doAssert s.isOk # TODO(zah) Handle this in a better way
 
-    let sqliteStore = SqStoreRef.init(dir, "nbc", Keyspaces).expect(
-      "working database")
+    let sqliteStore = SqStoreRef.init(
+      dir, "nbc", Keyspaces, manualCheckpoint = true).expect("working database")
 
     # Remove the deposits table we used before we switched
     # to storing only deposit contract checkpoints
@@ -230,12 +229,12 @@ proc init*(T: type BeaconChainDB,
       validatorKeyToIndex = initTable[ValidatorPubKey, ValidatorIndex]()
       genesisDepositsSeq = DbSeq[DepositData].init(sqliteStore, "genesis_deposits")
 
-    let isPyrmont =
-      not pyrmontMetadata.incompatible and preset == pyrmontMetadata.runtimePreset
 
     T(backend: kvStore sqliteStore,
       preset: preset,
-      genesisDeposits: genesisDepositsSeq)
+      genesisDeposits: genesisDepositsSeq,
+      checkpoint: proc() = sqliteStore.checkpoint()
+      )
 
 proc snappyEncode(inp: openArray[byte]): seq[byte] =
   try:
