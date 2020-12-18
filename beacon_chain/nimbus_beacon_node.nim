@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  std/[os, tables, strutils, strformat, sequtils, times, math,
+  std/[os, tables, strutils, strformat, times, math,
        terminal, osproc, random],
   system/ansi_c,
 
@@ -348,23 +348,17 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
     # finalization occurs every slot, to 4 slots vs scheduledSlot.
     doAssert finalizedEpoch + 4 >= epoch
 
-proc installAttestationSubnetHandlers(node: BeaconNode, subnets: set[uint8])
-    {.async} =
-  var attestationSubscriptions: seq[Future[void]] = @[]
-
+proc installAttestationSubnetHandlers(node: BeaconNode, subnets: set[uint8]) =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
   for subnet in subnets:
-    attestationSubscriptions.add(node.network.subscribe(
-      getAttestationTopic(node.forkDigest, subnet)))
-
-  await allFutures(attestationSubscriptions)
+    node.network.subscribe(getAttestationTopic(node.forkDigest, subnet))
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#metadata
   node.network.metadata.seq_number += 1
   for subnet in subnets:
     node.network.metadata.attnets[subnet] = true
 
-proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) {.async.} =
+proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) =
   static: doAssert RANDOM_SUBNETS_PER_VALIDATOR == 1
 
   let epochParity = slot.epoch mod 2
@@ -394,12 +388,8 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) {.async.} =
       node.attestationSubnets.stabilitySubnetExpirationEpoch
 
   block:
-    var unsubscriptions: seq[Future[void]] = @[]
     for expiringSubnet in expiringSubnets:
-      unsubscriptions.add(node.network.unsubscribe(
-        getAttestationTopic(node.forkDigest, expiringSubnet)))
-
-    await allFutures(unsubscriptions)
+      node.network.unsubscribe(getAttestationTopic(node.forkDigest, expiringSubnet))
 
     # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#metadata
     # The race condition window is smaller by placing the fast, local, and
@@ -408,7 +398,7 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) {.async.} =
     for expiringSubnet in expiringSubnets:
       node.network.metadata.attnets[expiringSubnet] = false
 
-  await node.installAttestationSubnetHandlers(newSubnets)
+  node.installAttestationSubnetHandlers(newSubnets)
 
   block:
     let subscribed_subnets =
@@ -426,7 +416,7 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) {.async.} =
     # the correct one and the ENR will not increase in size.
     warn "Failed to update record on subnet cycle", error = res.error
 
-proc getAttestationSubnetHandlers(node: BeaconNode): Future[void] =
+proc getAttestationSubnetHandlers(node: BeaconNode) =
   var initialSubnets: set[uint8]
   for i in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
     initialSubnets.incl i
@@ -444,41 +434,35 @@ proc getAttestationSubnetHandlers(node: BeaconNode): Future[void] =
 
   node.installAttestationSubnetHandlers(initialSubnets)
 
-proc addMessageHandlers(node: BeaconNode): Future[void] =
-  allFutures(
-    # As a side-effect, this gets the attestation subnets too.
-    node.network.subscribe(node.topicBeaconBlocks),
-    node.network.subscribe(getAttesterSlashingsTopic(node.forkDigest)),
-    node.network.subscribe(getProposerSlashingsTopic(node.forkDigest)),
-    node.network.subscribe(getVoluntaryExitsTopic(node.forkDigest)),
-    node.network.subscribe(getAggregateAndProofsTopic(node.forkDigest)),
-    node.getAttestationSubnetHandlers()
-  )
+proc addMessageHandlers(node: BeaconNode) =
+  # As a side-effect, this gets the attestation subnets too.
+  node.network.subscribe(node.topicBeaconBlocks)
+  node.network.subscribe(getAttesterSlashingsTopic(node.forkDigest))
+  node.network.subscribe(getProposerSlashingsTopic(node.forkDigest))
+  node.network.subscribe(getVoluntaryExitsTopic(node.forkDigest))
+  node.network.subscribe(getAggregateAndProofsTopic(node.forkDigest))
+  node.getAttestationSubnetHandlers()
+
 
 func getTopicSubscriptionEnabled(node: BeaconNode): bool =
   node.attestationSubnets.subscribedSubnets[0].len +
   node.attestationSubnets.subscribedSubnets[1].len > 0
 
-proc removeMessageHandlers(node: BeaconNode): Future[void] =
+proc removeMessageHandlers(node: BeaconNode) =
   node.attestationSubnets.subscribedSubnets[0] = {}
   node.attestationSubnets.subscribedSubnets[1] = {}
   doAssert not node.getTopicSubscriptionEnabled()
 
-  var unsubscriptions = mapIt(
-    [getBeaconBlocksTopic(node.forkDigest),
-     getVoluntaryExitsTopic(node.forkDigest),
-     getProposerSlashingsTopic(node.forkDigest),
-     getAttesterSlashingsTopic(node.forkDigest),
-     getAggregateAndProofsTopic(node.forkDigest)],
-    node.network.unsubscribe(it))
+  node.network.unsubscribe(getBeaconBlocksTopic(node.forkDigest))
+  node.network.unsubscribe(getVoluntaryExitsTopic(node.forkDigest))
+  node.network.unsubscribe(getProposerSlashingsTopic(node.forkDigest))
+  node.network.unsubscribe(getAttesterSlashingsTopic(node.forkDigest))
+  node.network.unsubscribe(getAggregateAndProofsTopic(node.forkDigest))
 
   for subnet in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
-    unsubscriptions.add node.network.unsubscribe(
-      getAttestationTopic(node.forkDigest, subnet))
+    node.network.unsubscribe(getAttestationTopic(node.forkDigest, subnet))
 
-  allFutures(unsubscriptions)
-
-proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
+proc updateGossipStatus(node: BeaconNode, slot: Slot) =
   # Syncing tends to be ~1 block/s, and allow for an epoch of time for libp2p
   # subscribing to spin up. The faster the sync, the more wallSlot - headSlot
   # lead time is required
@@ -511,7 +495,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
       headSlot = node.chainDag.head.slot,
       syncQueueLen
 
-    await node.addMessageHandlers()
+    node.addMessageHandlers()
     doAssert node.getTopicSubscriptionEnabled()
   elif
       topicSubscriptionEnabled and
@@ -523,11 +507,11 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
       wallSlot = slot,
       headSlot = node.chainDag.head.slot,
       syncQueueLen
-    await node.removeMessageHandlers()
+    node.removeMessageHandlers()
 
   # Subscription or unsubscription might have occurred; recheck
   if slot.isEpoch and node.getTopicSubscriptionEnabled:
-    await node.cycleAttestationSubnets(slot)
+    node.cycleAttestationSubnets(slot)
 
 proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
@@ -584,7 +568,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
     slot = wallSlot.slot # afterGenesis == true!
     nextSlot = slot + 1
 
-  defer: await node.updateGossipStatus(slot)
+  defer: node.updateGossipStatus(slot)
 
   beacon_slot.set slot.int64
   beacon_current_epoch.set slot.epoch.int64
@@ -810,7 +794,7 @@ proc run*(node: BeaconNode) =
     node.requestManager.start()
     node.startSyncManager()
 
-    waitFor node.addMessageHandlers()
+    node.addMessageHandlers()
     doAssert node.getTopicSubscriptionEnabled()
 
   ## Ctrl+C handling
