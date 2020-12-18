@@ -542,6 +542,34 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   if slot.isEpoch and node.getTopicSubscriptionEnabled:
     await node.cycleAttestationSubnets(slot)
 
+proc onSlotEnd(node: BeaconNode, slot, nextSlot: Slot): Future[void] =
+  # Things we do when slot processing has ended and we're about to wait for the
+  # next slot
+
+  when declared(GC_fullCollect):
+    # The slots in the beacon node work as frames in a game: we want to make
+    # sure that we're ready for the next one and don't get stuck in lengthy
+    # garbage collection tasks when time is of essence in the middle of a slot -
+    # while this does not guarantee that we'll never collect during a slot, it
+    # makes sure that all the scratch space we used during slot tasks (logging,
+    # temporary buffers etc) gets recycled for the next slot that is likely to
+    # need similar amounts of memory.
+    GC_fullCollect()
+
+  # Checkpoint the database to clear the WAL file and make sure changes in
+  # the database are synced with the filesystem.
+  node.db.checkpoint()
+
+  info "Slot end",
+    slot = shortLog(slot),
+    nextSlot = shortLog(nextSlot),
+    head = shortLog(node.chainDag.head),
+    headEpoch = shortLog(node.chainDag.head.slot.compute_epoch_at_slot()),
+    finalizedHead = shortLog(node.chainDag.finalizedHead.blck),
+    finalizedEpoch = shortLog(node.chainDag.finalizedHead.blck.slot.compute_epoch_at_slot())
+
+  node.updateGossipStatus(slot)
+
 proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
   ## skip a few in case we're running late.
@@ -559,15 +587,20 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
     node.processor[].blockReceivedDuringSlot.complete()
   node.processor[].blockReceivedDuringSlot = newFuture[void]()
 
+  let delay = beaconTime - scheduledSlot.toBeaconTime()
+
   info "Slot start",
     lastSlot = shortLog(lastSlot),
     scheduledSlot = shortLog(scheduledSlot),
-    beaconTime = shortLog(beaconTime),
+    delay,
     peers = len(node.network.peerPool),
     head = shortLog(node.chainDag.head),
     headEpoch = shortLog(node.chainDag.head.slot.compute_epoch_at_slot()),
     finalized = shortLog(node.chainDag.finalizedHead.blck),
-    finalizedEpoch = shortLog(finalizedEpoch)
+    finalizedEpoch = shortLog(finalizedEpoch),
+    sync =
+      if node.syncManager.inProgress: node.syncManager.syncStatus
+      else: "synced"
 
   # Check before any re-scheduling of onSlotStart()
   checkIfShouldStopAtEpoch(scheduledSlot, node.config.stopAtEpoch)
@@ -597,7 +630,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
     slot = wallSlot.slot # afterGenesis == true!
     nextSlot = slot + 1
 
-  defer: await node.updateGossipStatus(slot)
+  defer: await onSlotEnd(node, slot, nextSlot)
 
   beacon_slot.set slot.int64
   beacon_current_epoch.set slot.epoch.int64
@@ -648,24 +681,6 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
 
   let
     nextSlotStart = saturate(node.beaconClock.fromNow(nextSlot))
-
-  info "Slot end",
-    slot = shortLog(slot),
-    nextSlot = shortLog(nextSlot),
-    head = shortLog(node.chainDag.head),
-    headEpoch = shortLog(node.chainDag.head.slot.compute_epoch_at_slot()),
-    finalizedHead = shortLog(node.chainDag.finalizedHead.blck),
-    finalizedEpoch = shortLog(node.chainDag.finalizedHead.blck.slot.compute_epoch_at_slot())
-
-  when declared(GC_fullCollect):
-    # The slots in the beacon node work as frames in a game: we want to make
-    # sure that we're ready for the next one and don't get stuck in lengthy
-    # garbage collection tasks when time is of essence in the middle of a slot -
-    # while this does not guarantee that we'll never collect during a slot, it
-    # makes sure that all the scratch space we used during slot tasks (logging,
-    # temporary buffers etc) gets recycled for the next slot that is likely to
-    # need similar amounts of memory.
-    GC_fullCollect()
 
   addTimer(nextSlotStart) do (p: pointer):
     asyncCheck node.onSlotStart(slot, nextSlot)
