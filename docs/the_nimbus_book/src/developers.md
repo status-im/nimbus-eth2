@@ -1,32 +1,36 @@
 # For Developers
 
-Latest updates happen in the `devel` branch which is merged into `master` every week on Tuesday.
-
 This page contains tips and tricks for developers, further resources, along with information on how to set up your build environment on your platform.
 
-### Ubuntu guide
+Before building Nimbus for the first time, make sure to install the [prerequisites](./install.md).
 
+## Branch lifecycle
 
-See [this excellent resource](https://someresat.medium.com/guide-to-staking-on-ethereum-2-0-ubuntu-nimbus-e86bdee8c550) for detailed step-by-step guide on how to stake on eth2 with Ubuntu.
+The git repository has 3 main branches, `stable`, `testing` and `unstable` as well as feature and bugfix branches.
 
-It contains instructions on how to:
+### Unstable
 
-- Configure a newly running Ubuntu server instance
-- Configure and run an eth1 node as a service
-- Compile and configure the Nimbus client for eth 2, phase 0
+The `unstable` branch contains features and bugfixes that are actively being tested and worked on.
 
-### Windows dev environment
+* Features and bugfixes are generally pushed to individual branches, each with their own pull request against the `unstable` branch.
+* Once the branch has been reviewed and passed CI, the developer or reviewer merges the branch to `unstable`.
+* The `unstable` branch is regularly deployed to the Nimbus pyrmont fleet where additional testing happens.
 
-Install Mingw-w64 for your architecture using the "[MinGW-W64 Online
-Installer](https://sourceforge.net/projects/mingw-w64/files/)" (first link
-under the directory listing). Run it and select your architecture in the setup
-menu (`i686` on 32-bit, `x86_64` on 64-bit), set the threads to `win32` and
-the exceptions to "dwarf" on 32-bit and "seh" on 64-bit. Change the
-installation directory to "C:\mingw-w64" and add it to your system PATH in "My
-Computer"/"This PC" -> Properties -> Advanced system settings -> Environment
-Variables -> Path -> Edit -> New -> C:\mingw-w64\mingw64\bin (it's "C:\mingw-w64\mingw32\bin" on 32-bit)
+### Testing
 
-Install [Git for Windows](https://gitforwindows.org/) and use a "Git Bash" shell to clone and build nimbus-eth2.
+The `testing` branch contains features and bugfixes that have gone through CI and initial testing on the `unstable` branch and are ready to be included in the next release.
+
+* After testing a bugfix or feature on `unstable`, the features and fixes that are planned for the next release get merged to the `testing` branch either by the release manager or team members.
+* The `testing` branch is regularly deployed to the Nimbus pyrmont fleet as well as a smaller mainnet fleet.
+* The branch should remain release-ready at most times.
+
+### Stable
+
+The `stable` branch tracks the latest released version of Nimbus and is suitable for mainnet staking.
+
+## Build system
+
+### Windows
 
 ```bash
 mingw32-make # this first invocation will update the Git submodules
@@ -54,7 +58,9 @@ git pull
 make update
 ```
 
-To run a command that might use binaries from the Status Nim fork:
+## Environment
+
+Nimbus comes with a build environment similar to Python venv - this helps ensure that the correct version of Nim is used and that all dependencies can be found.
 
 ```bash
 ./env.sh bash # start a new interactive shell with the right env vars set
@@ -64,15 +70,19 @@ nim --version # Nimbus is tested and supported on 1.0.2 at the moment
 # or without starting a new interactive shell:
 ./env.sh which nim
 ./env.sh nim --version
+
+# Start Visual Studio code with environment
+./env.sh code
+
 ```
 
-### Makefile tips and tricks for developers
+## Makefile tips and tricks for developers
 
 - build all those tools known to the Makefile:
 
 ```bash
 # $(nproc) corresponds to the number of cores you have
-make -j$(nproc)
+make -j $(nproc)
 ```
 
 - build a specific tool:
@@ -113,12 +123,51 @@ make -j$(nproc) NIMFLAGS="-d:release" USE_MULTITAIL=yes eth2_network_simulation
 make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
 ```
 
-- run some benchmarks and generate HTML charts
+- disable `-march=native` because you want to run the binary on a different machine than the one you're building it on:
 
 ```bash
-make benchmarks
+make NIMFLAGS="-d:disableMarchNative" nimbus_beacon_node
 ```
 
-### Multi-client interop scripts
+- disable link-time optimisation (LTO):
+
+```bash
+make NIMFLAGS="-d:disableLTO" nimbus_beacon_node
+```
+
+- build a static binary
+
+```bash
+make NIMFLAGS="--passL:-static" nimbus_beacon_node
+```
+
+- publish a book using [mdBook](https://github.com/rust-lang/mdBook) from sources in "docs/" to GitHub pages:
+
+```bash
+make publish-book
+```
+
+- create a binary distribution
+
+```bash
+make dist
+```
+
+- test the binaries
+
+```bash
+make dist-test
+```
+
+## Multi-client interop scripts
 
 [This repository](https://github.com/eth2-clients/multinet) contains a set of scripts used by the client implementation teams to test interop between the clients (in certain simplified scenarios). It mostly helps us find and debug issues.
+
+## Stress-testing the client by limiting the CPU power
+
+```bash
+make pyrmont CPU_LIMIT=20
+```
+
+The limiting is provided by the cpulimit utility, available on Linux and macOS.
+The specified value is a percentage of a single CPU core. Usually 1 - 100, but can be higher on multi-core CPUs.
