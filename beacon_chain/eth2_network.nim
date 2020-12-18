@@ -1628,14 +1628,16 @@ proc addValidator*[MsgType](node: Eth2Node,
 proc unsubscribe*(node: Eth2Node, topic: string): Future[void] =
   node.pubsub.unsubscribeAll(topic)
 
-proc traceMessage(fut: FutureBase, msgId: string) =
+proc traceMessage(fut: FutureBase, msgId: seq[byte]) =
   fut.addCallback do (arg: pointer):
     if not(fut.failed):
-      trace "Outgoing pubsub message sent", msgId
+      trace "Outgoing pubsub message sent", msgId = byteutils.toHex(msgId)
     elif fut.error != nil:
-      debug "Gossip message not sent", msgId, err = fut.error.msg
+      debug "Gossip message not sent",
+        msgId = byteutils.toHex(msgId), err = fut.error.msg
     else:
-      debug "Unexpected future state for gossip", msgId, state = fut.state
+      debug "Unexpected future state for gossip",
+        msgId = byteutils.toHex(msgId), state = fut.state
 
 proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
   let
@@ -1648,4 +1650,4 @@ proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
   inc nbc_gossip_messages_sent
 
   var futSnappy = node.pubsub.publish(topic & "_snappy", compressed)
-  traceMessage(futSnappy, string.fromBytes(gossipId(uncompressed, true)))
+  traceMessage(futSnappy, gossipId(uncompressed, true))
