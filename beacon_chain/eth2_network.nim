@@ -930,8 +930,10 @@ proc getPersistentNetMetadata*(conf: BeaconNodeConf): Eth2Metadata =
   if not fileExists(metadataPath):
     result = Eth2Metadata()
     for i in 0 ..< ATTESTATION_SUBNET_COUNT:
-      # TODO: For now, we indicate that we participate in all subnets
-      result.attnets[i] = true
+      # TODO:
+      # Persistent (stability) subnets should be stored with their expiration
+      # epochs. For now, indicate that we participate in no persistent subnets.
+      result.attnets[i] = false
     Json.saveFile(metadataPath, result)
   else:
     result = Json.loadFile(metadataPath, Eth2Metadata)
@@ -1088,6 +1090,8 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
   # Its important here to create AsyncQueue with limited size, otherwise
   # it could produce HIGH cpu usage.
   result.connQueue = newAsyncQueue[PeerAddr](ConcurrentConnections)
+  # TODO: The persistent net metadata should only be used in the case of reusing
+  # the previous netkey.
   result.metadata = getPersistentNetMetadata(conf)
   result.forkId = enrForkId
   result.discovery = Eth2DiscoveryProtocol.new(

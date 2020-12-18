@@ -359,10 +359,22 @@ proc installAttestationSubnetHandlers(node: BeaconNode, subnets: set[uint8])
 
   await allFutures(attestationSubscriptions)
 
+proc updateStabilitySubnetMetadata(node: BeaconNode, stabilitySubnet: uint64) =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#metadata
   node.network.metadata.seq_number += 1
-  for subnet in subnets:
-    node.network.metadata.attnets[subnet] = true
+  for subnet in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
+    node.network.metadata.attnets[subnet] = (subnet == stabilitySubnet)
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
+  let res = node.network.discovery.updateRecord(
+    {"attnets": SSZ.encode(node.network.metadata.attnets)})
+  if res.isErr():
+    # This should not occur in this scenario as the private key would always
+    # be the correct one and the ENR will not increase in size.
+    warn "Failed to update record on subnet cycle", error = res.error
+  else:
+    debug "Stability subnet changed, updated ENR attnets", stabilitySubnet
 
 proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) {.async.} =
   static: doAssert RANDOM_SUBNETS_PER_VALIDATOR == 1
@@ -381,6 +393,8 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) {.async.} =
     get_attestation_subnet_changes(
       node.chainDag.headState.data.data, attachedValidators,
       node.attestationSubnets, slot.epoch)
+
+  let prevStabilitySubnet = node.attestationSubnets.stabilitySubnet
 
   node.attestationSubnets = newAttestationSubnets
   debug "Attestation subnets",
@@ -401,30 +415,11 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) {.async.} =
 
     await allFutures(unsubscriptions)
 
-    # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#metadata
-    # The race condition window is smaller by placing the fast, local, and
-    # synchronous operation after a variable-latency, asynchronous action.
-    node.network.metadata.seq_number += 1
-    for expiringSubnet in expiringSubnets:
-      node.network.metadata.attnets[expiringSubnet] = false
-
   await node.installAttestationSubnetHandlers(newSubnets)
 
-  block:
-    let subscribed_subnets =
-      node.attestationSubnets.subscribedSubnets[0] +
-      node.attestationSubnets.subscribedSubnets[1] +
-      {node.attestationSubnets.stabilitySubnet.uint8}
-    for subnet in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
-      node.network.metadata.attnets[subnet] = subnet in subscribed_subnets
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
-  let res = node.network.discovery.updateRecord(
-    {"attnets": SSZ.encode(node.network.metadata.attnets)})
-  if res.isErr():
-    # This should not occur in this scenario as the private key would always be
-    # the correct one and the ENR will not increase in size.
-    warn "Failed to update record on subnet cycle", error = res.error
+  let stabilitySubnet = node.attestationSubnets.stabilitySubnet
+  if stabilitySubnet != prevStabilitySubnet:
+    node.updateStabilitySubnetMetadata(stabilitySubnet)
 
 proc getAttestationSubnetHandlers(node: BeaconNode): Future[void] =
   var initialSubnets: set[uint8]
@@ -432,10 +427,16 @@ proc getAttestationSubnetHandlers(node: BeaconNode): Future[void] =
     initialSubnets.incl i
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # TODO:
+  # We might want to reuse the previous stability subnet if not expired when:
+  # - Restarting the node with a presistent netkey
+  # - When going from synced -> syncing -> synced state
   let wallEpoch =  node.beaconClock.now().slotOrZero().epoch
   node.attestationSubnets.stabilitySubnet = rand(ATTESTATION_SUBNET_COUNT - 1).uint64
   node.attestationSubnets.stabilitySubnetExpirationEpoch =
     wallEpoch + getStabilitySubnetLength()
+
+  node.updateStabilitySubnetMetadata(node.attestationSubnets.stabilitySubnet)
 
   # Sets the "current" and "future" attestation subnets. One of these gets
   # replaced by get_attestation_subnet_changes() immediately.
