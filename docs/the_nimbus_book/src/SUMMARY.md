@@ -26,10 +26,10 @@
 - [Recover / generate keys](./more-keys.md)
 - [Migrate keys to another machine]()
 - [Perform a voluntary exit](./voluntary-exit.md)
+- [Setup a systemd service](./beacon-node-systemd.md)
 
 # Tutorials
 - [Grafana and Prometheus](./metrics-pretty-pictures.md)
-- [Setup a systemd service](./beacon-node-systemd.md)
 - [Create your own Infura endpoint](./infura-guide.md)
 - [Switch between clients]()
 - [Network stats (testnets only)](./eth2-stats.md)
