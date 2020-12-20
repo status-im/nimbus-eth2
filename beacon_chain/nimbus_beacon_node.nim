@@ -395,8 +395,6 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) {.async.} =
       stateSlot = node.chainDag.headState.data.data.slot
     return
 
-  # As a result, allow callers to effectively poll this function and only
-  # cycle at most once per epoch.
   if node.attestationSubnets.nextCycleEpoch > wallSlot.epoch:
     return
   node.attestationSubnets.nextCycleEpoch = wallSlot.epoch + 1
