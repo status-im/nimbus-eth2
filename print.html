@@ -1000,6 +1000,9 @@ to not generate a copy of your original key. Running the same key on two differe
 <p><a href="https://www.freedesktop.org/wiki/Software/systemd/"><code>systemd</code></a> is a service manager designed specifically for Linux. There is no port to Mac OS. You can get more information from <a href="https://www.raspberrypi.org/documentation/linux/usage/systemd.md">https://www.raspberrypi.org/documentation/linux/usage/systemd.md</a>  or  <a href="https://www.raspberrypi.org/documentation/linux/usage/systemd.md">https://fedoramagazine.org/what-is-an-init-system/</a></p>
 </blockquote>
 <h3><a class="header" href="#1-create-a-systemd-service" id="1-create-a-systemd-service">1. Create a systemd service</a></h3>
+<blockquote>
+<p>⚠️  The HTTP server used for obtaining metrics is considered insecure. If you wish to run the service with metrics enabled, you'll need to compile the beacon node with the insecure flag enabled — <code>make NIMFLAGS=&quot;-d:insecure&quot; nimbus_beacon_node</code> — and replace <code>--metrics:off</code> with <code>--metrics:on</code> in the service file below. See <a href="./metrics-pretty-pictures.html">here</a> for more on metrics.</p>
+</blockquote>
 <p>Create a <code>systemd</code> service unit file -- <code>nbc.service</code> -- and save it in <code>/etc/systemd/system/</code>.</p>
 <pre><code class="language-txt">[Unit]
 Description=Nimbus beacon node
@@ -1012,7 +1015,7 @@ ExecStart=&lt;BASE-DIRECTORY&gt;/build/nimbus_beacon_node \
   --data-dir=build/data/shared_pyrmont_0 \
   --web3-url=&lt;WEB3-URL&gt; \
   --rpc:on \
-  --metrics:on
+  --metrics:off
 User=&lt;USERNAME&gt;
 Group=&lt;USERNAME&gt;
 Restart=always
