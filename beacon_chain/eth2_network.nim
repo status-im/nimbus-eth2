@@ -1626,7 +1626,7 @@ proc addValidator*[MsgType](node: Eth2Node,
   node.pubsub.addValidator(topic & "_snappy", execValidator)
 
 proc unsubscribe*(node: Eth2Node, topic: string): Future[void] =
-  node.pubsub.unsubscribeAll(topic & "_snappy")
+  node.pubsub.unsubscribeAll(topic)
 
 proc traceMessage(fut: FutureBase, msgId: seq[byte]) =
   fut.addCallback do (arg: pointer):
