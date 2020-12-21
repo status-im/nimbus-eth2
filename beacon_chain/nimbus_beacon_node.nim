@@ -514,7 +514,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) =
   if slot.isEpoch and node.getTopicSubscriptionEnabled:
     node.cycleAttestationSubnets(slot)
 
-proc onSlotEnd(node: BeaconNode, slot, nextSlot: Slot): Future[void] =
+proc onSlotEnd(node: BeaconNode, slot, nextSlot: Slot) =
   # Things we do when slot processing has ended and we're about to wait for the
   # next slot
 
