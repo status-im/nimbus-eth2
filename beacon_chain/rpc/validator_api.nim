@@ -126,7 +126,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
         "Beacon node is currently syncing and not serving request on that endpoint")
 
     let wallSlot = node.beaconClock.now.slotOrZero
-    if wallSlot > slot:
+    if wallSlot > 1 + slot:
       raise newException(CatchableError,
         "Past slot requested")
 
