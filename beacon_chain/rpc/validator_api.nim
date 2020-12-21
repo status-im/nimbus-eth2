@@ -15,7 +15,7 @@ import
   chronicles,
 
   # Local modules
-  ../spec/[datatypes, digest, crypto, helpers, network],
+  ../spec/[datatypes, digest, crypto, helpers, network, signatures],
   ../spec/eth2_apis/callsigs_types,
   ../block_pools/[chain_dag, spec_cache], ../ssz/merkleization,
   ../beacon_node_common, ../beacon_node_types, ../attestation_pool,
@@ -121,10 +121,9 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       raise newException(CatchableError,
         "Invalid committee index")
 
-    when false:
-      if not node.syncManager.inProgress:
-        raise newException(CatchableError,
-          "Beacon node is currently syncing and not serving request on that endpoint")
+    if node.syncManager.inProgress:
+      raise newException(CatchableError,
+        "Beacon node is currently syncing and not serving request on that endpoint")
 
     let wallSlot = node.beaconClock.now.slotOrZero
     if wallSlot > slot:
@@ -135,15 +134,20 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     if epoch - wallSlot.epoch notin [0'u64, 1'u64]:
       raise newException(CatchableError,
         "Slot requested not in current or next wall-slot epoch")
-    # TODO validate slot_signature
+
+    if not verify_slot_signature(
+        node.chainDag.headState.data.data.fork,
+        node.chainDag.headState.data.data.genesis_validators_root,
+        slot, validator_pubkey, slot_signature):
+      raise newException(CatchableError,
+        "Invalid slot signature")
 
     let subnet = committee_index.uint8
     if  subnet notin node.attestationSubnets.subscribedSubnets[0] and
         subnet notin node.attestationSubnets.subscribedSubnets[1]:
-      waitFor node.network.subscribe(getAttestationTopic(
+      await node.network.subscribe(getAttestationTopic(
         node.forkDigest, subnet))
 
     # But it might only be in current
-    # TODO only add it in correct one, based on nextEpoch
     node.attestationSubnets.subscribedSubnets[0].incl subnet
     node.attestationSubnets.subscribedSubnets[1].incl subnet

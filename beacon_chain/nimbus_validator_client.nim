@@ -266,13 +266,15 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
     # need similar amounts of memory.
     GC_fullCollect()
 
-  if (slot-1).isEpoch:
+  if (slot - 2).isEpoch:
     for slot, attesterDuties in vc.attestationsForEpoch[slot.epoch + 1].pairs:
       for ad in attesterDuties:
-        # TODO actually calculat slot signature
+        let
+          validator = vc.attachedValidators.validators[ad.public_key]
+          sig = await validator.getSlotSig(
+            vc.fork, vc.beaconGenesis.genesis_validators_root, slot)
         discard await vc.client.post_v1_validator_beacon_committee_subscriptions(
-          ad.committee_index, ad.slot, true, ad.public_key,
-          default(ValidatorSig))
+          ad.committee_index, ad.slot, true, ad.public_key, sig)
 
   addTimer(nextSlotStart) do (p: pointer):
     asyncCheck vc.onSlotStart(slot, nextSlot)
