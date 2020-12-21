@@ -8,6 +8,8 @@ Systemd is used in order to have a command or program run when your device boots
 
 ### 1. Create a systemd service
 
+> ⚠️  The HTTP server used for obtaining metrics is considered insecure. If you wish to run the service with metrics enabled, you'll need to compile the beacon node with the insecure flag enabled — `make NIMFLAGS="-d:insecure" nimbus_beacon_node` — and replace `--metrics:off` with `--metrics:on` in the service file below.
+
 Create a `systemd` service unit file -- `nbc.service` -- and save it in `/etc/systemd/system/`.
 
 ```txt
@@ -22,7 +24,7 @@ ExecStart=<BASE-DIRECTORY>/build/nimbus_beacon_node \
   --data-dir=build/data/shared_pyrmont_0 \
   --web3-url=<WEB3-URL> \
   --rpc:on \
-  --metrics:on
+  --metrics:off
 User=<USERNAME>
 Group=<USERNAME>
 Restart=always
