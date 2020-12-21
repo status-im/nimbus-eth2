@@ -131,7 +131,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
         "Past slot requested")
 
     let epoch = slot.epoch
-    if epoch - wallSlot.epoch notin [0'u64, 1'u64]:
+    if epoch >= wallSlot.epoch and epoch - wallSlot.epoch > 1:
       raise newException(CatchableError,
         "Slot requested not in current or next wall-slot epoch")
 

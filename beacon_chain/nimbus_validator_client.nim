@@ -266,7 +266,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
     # need similar amounts of memory.
     GC_fullCollect()
 
-  if (slot - 2).isEpoch:
+  if (slot - 2).isEpoch and (slot.epoch + 1) in vc.attestationsForEpoch:
     for slot, attesterDuties in vc.attestationsForEpoch[slot.epoch + 1].pairs:
       for ad in attesterDuties:
         let

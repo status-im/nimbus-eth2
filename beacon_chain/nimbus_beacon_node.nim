@@ -399,6 +399,13 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) {.async.} =
     return
   node.attestationSubnets.nextCycleEpoch = wallSlot.epoch + 1
 
+  # This works so long as at least one block in an epoch provides a basis for
+  # calculating the shuffling for the next epoch. It will keep checking for a
+  # block, each slot, until a block comes in, even if the first few blocks in
+  # an epoch are missing. If a whole epoch without blocks occurs, it's not as
+  # important to attest regardless, as those upcoming blocks will hit maximum
+  # attestations quickly and any individual attestation's likelihood of being
+  # selected is low.
   let epochParity = wallSlot.epoch mod 2
   var attachedValidators: seq[ValidatorIndex]
   for validatorIndex in 0 ..< node.chainDag.headState.data.data.validators.len:
@@ -452,10 +459,11 @@ proc getAttestationSubnetHandlers(node: BeaconNode): Future[void] =
   # We might want to reuse the previous stability subnet if not expired when:
   # - Restarting the node with a presistent netkey
   # - When going from synced -> syncing -> synced state
-  let wallEpoch =  node.beaconClock.now().slotOrZero().epoch
-  doAssert node.attestationSubnets.stabilitySubnets.len == 0
-  for _ in 0 ..< node.attachedValidators.count:
-    node.attestationSubnets.stabilitySubnets.add (
+  let wallEpoch = node.beaconClock.now().slotOrZero().epoch
+  node.attestationSubnets.stabilitySubnets.setLen(
+    node.attachedValidators.count)
+  for i in 0 ..< node.attachedValidators.count:
+    node.attestationSubnets.stabilitySubnets[i] = (
       subnet: rand(ATTESTATION_SUBNET_COUNT - 1).uint8,
       expiration: wallEpoch + getStabilitySubnetLength())
 
@@ -493,7 +501,6 @@ proc removeMessageHandlers(node: BeaconNode): Future[void] =
   node.attestationSubnets.subscribedSubnets[0] = {}
   node.attestationSubnets.subscribedSubnets[1] = {}
   node.attestationSubnets.enabled = false
-  node.attestationSubnets.stabilitySubnets.setLen(0)
   doAssert not node.getTopicSubscriptionEnabled()
 
   var unsubscriptions = mapIt(
