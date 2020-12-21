@@ -930,8 +930,10 @@ proc getPersistentNetMetadata*(conf: BeaconNodeConf): Eth2Metadata =
   if not fileExists(metadataPath):
     result = Eth2Metadata()
     for i in 0 ..< ATTESTATION_SUBNET_COUNT:
-      # TODO: For now, we indicate that we participate in all subnets
-      result.attnets[i] = true
+      # TODO:
+      # Persistent (stability) subnets should be stored with their expiration
+      # epochs. For now, indicate that we participate in no persistent subnets.
+      result.attnets[i] = false
     Json.saveFile(metadataPath, result)
   else:
     result = Json.loadFile(metadataPath, Eth2Metadata)
@@ -1088,6 +1090,8 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
   # Its important here to create AsyncQueue with limited size, otherwise
   # it could produce HIGH cpu usage.
   result.connQueue = newAsyncQueue[PeerAddr](ConcurrentConnections)
+  # TODO: The persistent net metadata should only be used in the case of reusing
+  # the previous netkey.
   result.metadata = getPersistentNetMetadata(conf)
   result.forkId = enrForkId
   result.discovery = Eth2DiscoveryProtocol.new(
@@ -1624,14 +1628,16 @@ proc addValidator*[MsgType](node: Eth2Node,
 proc unsubscribe*(node: Eth2Node, topic: string) =
   node.pubsub.unsubscribeAll(topic & "_snappy")
 
-proc traceMessage(fut: FutureBase, msgId: string) =
+proc traceMessage(fut: FutureBase, msgId: seq[byte]) =
   fut.addCallback do (arg: pointer):
     if not(fut.failed):
-      trace "Outgoing pubsub message sent", msgId
+      trace "Outgoing pubsub message sent", msgId = byteutils.toHex(msgId)
     elif fut.error != nil:
-      debug "Gossip message not sent", msgId, err = fut.error.msg
+      debug "Gossip message not sent",
+        msgId = byteutils.toHex(msgId), err = fut.error.msg
     else:
-      debug "Unexpected future state for gossip", msgId, state = fut.state
+      debug "Unexpected future state for gossip",
+        msgId = byteutils.toHex(msgId), state = fut.state
 
 proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
   let
@@ -1644,4 +1650,4 @@ proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
   inc nbc_gossip_messages_sent
 
   var futSnappy = node.pubsub.publish(topic & "_snappy", compressed)
-  traceMessage(futSnappy, string.fromBytes(gossipId(uncompressed, true)))
+  traceMessage(futSnappy, gossipId(uncompressed, true))

@@ -353,10 +353,22 @@ proc installAttestationSubnetHandlers(node: BeaconNode, subnets: set[uint8]) =
   for subnet in subnets:
     node.network.subscribe(getAttestationTopic(node.forkDigest, subnet))
 
+proc updateStabilitySubnetMetadata(node: BeaconNode, stabilitySubnet: uint64) =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#metadata
   node.network.metadata.seq_number += 1
-  for subnet in subnets:
-    node.network.metadata.attnets[subnet] = true
+  for subnet in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
+    node.network.metadata.attnets[subnet] = (subnet == stabilitySubnet)
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
+  let res = node.network.discovery.updateRecord(
+    {"attnets": SSZ.encode(node.network.metadata.attnets)})
+  if res.isErr():
+    # This should not occur in this scenario as the private key would always
+    # be the correct one and the ENR will not increase in size.
+    warn "Failed to update record on subnet cycle", error = res.error
+  else:
+    debug "Stability subnet changed, updated ENR attnets", stabilitySubnet
 
 proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) =
   static: doAssert RANDOM_SUBNETS_PER_VALIDATOR == 1
@@ -376,6 +388,8 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) =
       node.chainDag.headState.data.data, attachedValidators,
       node.attestationSubnets, slot.epoch)
 
+  let prevStabilitySubnet = node.attestationSubnets.stabilitySubnet
+
   node.attestationSubnets = newAttestationSubnets
   debug "Attestation subnets",
     expiring_subnets = expiringSubnets,
@@ -391,30 +405,11 @@ proc cycleAttestationSubnets(node: BeaconNode, slot: Slot) =
     for expiringSubnet in expiringSubnets:
       node.network.unsubscribe(getAttestationTopic(node.forkDigest, expiringSubnet))
 
-    # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#metadata
-    # The race condition window is smaller by placing the fast, local, and
-    # synchronous operation after a variable-latency, asynchronous action.
-    node.network.metadata.seq_number += 1
-    for expiringSubnet in expiringSubnets:
-      node.network.metadata.attnets[expiringSubnet] = false
-
   node.installAttestationSubnetHandlers(newSubnets)
 
-  block:
-    let subscribed_subnets =
-      node.attestationSubnets.subscribedSubnets[0] +
-      node.attestationSubnets.subscribedSubnets[1] +
-      {node.attestationSubnets.stabilitySubnet.uint8}
-    for subnet in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
-      node.network.metadata.attnets[subnet] = subnet in subscribed_subnets
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
-  let res = node.network.discovery.updateRecord(
-    {"attnets": SSZ.encode(node.network.metadata.attnets)})
-  if res.isErr():
-    # This should not occur in this scenario as the private key would always be
-    # the correct one and the ENR will not increase in size.
-    warn "Failed to update record on subnet cycle", error = res.error
+  let stabilitySubnet = node.attestationSubnets.stabilitySubnet
+  if stabilitySubnet != prevStabilitySubnet:
+    node.updateStabilitySubnetMetadata(stabilitySubnet)
 
 proc getAttestationSubnetHandlers(node: BeaconNode) =
   var initialSubnets: set[uint8]
@@ -422,10 +417,16 @@ proc getAttestationSubnetHandlers(node: BeaconNode) =
     initialSubnets.incl i
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # TODO:
+  # We might want to reuse the previous stability subnet if not expired when:
+  # - Restarting the node with a presistent netkey
+  # - When going from synced -> syncing -> synced state
   let wallEpoch =  node.beaconClock.now().slotOrZero().epoch
   node.attestationSubnets.stabilitySubnet = rand(ATTESTATION_SUBNET_COUNT - 1).uint64
   node.attestationSubnets.stabilitySubnetExpirationEpoch =
     wallEpoch + getStabilitySubnetLength()
+
+  node.updateStabilitySubnetMetadata(node.attestationSubnets.stabilitySubnet)
 
   # Sets the "current" and "future" attestation subnets. One of these gets
   # replaced by get_attestation_subnet_changes() immediately.
@@ -513,6 +514,34 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) =
   if slot.isEpoch and node.getTopicSubscriptionEnabled:
     node.cycleAttestationSubnets(slot)
 
+proc onSlotEnd(node: BeaconNode, slot, nextSlot: Slot): Future[void] =
+  # Things we do when slot processing has ended and we're about to wait for the
+  # next slot
+
+  when declared(GC_fullCollect):
+    # The slots in the beacon node work as frames in a game: we want to make
+    # sure that we're ready for the next one and don't get stuck in lengthy
+    # garbage collection tasks when time is of essence in the middle of a slot -
+    # while this does not guarantee that we'll never collect during a slot, it
+    # makes sure that all the scratch space we used during slot tasks (logging,
+    # temporary buffers etc) gets recycled for the next slot that is likely to
+    # need similar amounts of memory.
+    GC_fullCollect()
+
+  # Checkpoint the database to clear the WAL file and make sure changes in
+  # the database are synced with the filesystem.
+  node.db.checkpoint()
+
+  info "Slot end",
+    slot = shortLog(slot),
+    nextSlot = shortLog(nextSlot),
+    head = shortLog(node.chainDag.head),
+    headEpoch = shortLog(node.chainDag.head.slot.compute_epoch_at_slot()),
+    finalizedHead = shortLog(node.chainDag.finalizedHead.blck),
+    finalizedEpoch = shortLog(node.chainDag.finalizedHead.blck.slot.compute_epoch_at_slot())
+
+  node.updateGossipStatus(slot)
+
 proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
   ## skip a few in case we're running late.
@@ -530,15 +559,20 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
     node.processor[].blockReceivedDuringSlot.complete()
   node.processor[].blockReceivedDuringSlot = newFuture[void]()
 
+  let delay = beaconTime - scheduledSlot.toBeaconTime()
+
   info "Slot start",
     lastSlot = shortLog(lastSlot),
     scheduledSlot = shortLog(scheduledSlot),
-    beaconTime = shortLog(beaconTime),
+    delay,
     peers = len(node.network.peerPool),
     head = shortLog(node.chainDag.head),
     headEpoch = shortLog(node.chainDag.head.slot.compute_epoch_at_slot()),
     finalized = shortLog(node.chainDag.finalizedHead.blck),
-    finalizedEpoch = shortLog(finalizedEpoch)
+    finalizedEpoch = shortLog(finalizedEpoch),
+    sync =
+      if node.syncManager.inProgress: node.syncManager.syncStatus
+      else: "synced"
 
   # Check before any re-scheduling of onSlotStart()
   checkIfShouldStopAtEpoch(scheduledSlot, node.config.stopAtEpoch)
@@ -568,7 +602,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
     slot = wallSlot.slot # afterGenesis == true!
     nextSlot = slot + 1
 
-  defer: node.updateGossipStatus(slot)
+  defer: onSlotEnd(node, slot, nextSlot)
 
   beacon_slot.set slot.int64
   beacon_current_epoch.set slot.epoch.int64
@@ -619,24 +653,6 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
 
   let
     nextSlotStart = saturate(node.beaconClock.fromNow(nextSlot))
-
-  info "Slot end",
-    slot = shortLog(slot),
-    nextSlot = shortLog(nextSlot),
-    head = shortLog(node.chainDag.head),
-    headEpoch = shortLog(node.chainDag.head.slot.compute_epoch_at_slot()),
-    finalizedHead = shortLog(node.chainDag.finalizedHead.blck),
-    finalizedEpoch = shortLog(node.chainDag.finalizedHead.blck.slot.compute_epoch_at_slot())
-
-  when declared(GC_fullCollect):
-    # The slots in the beacon node work as frames in a game: we want to make
-    # sure that we're ready for the next one and don't get stuck in lengthy
-    # garbage collection tasks when time is of essence in the middle of a slot -
-    # while this does not guarantee that we'll never collect during a slot, it
-    # makes sure that all the scratch space we used during slot tasks (logging,
-    # temporary buffers etc) gets recycled for the next slot that is likely to
-    # need similar amounts of memory.
-    GC_fullCollect()
 
   addTimer(nextSlotStart) do (p: pointer):
     asyncCheck node.onSlotStart(slot, nextSlot)
