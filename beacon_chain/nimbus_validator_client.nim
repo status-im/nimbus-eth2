@@ -87,7 +87,6 @@ proc getValidatorDutiesForEpoch(vc: ValidatorClient, epoch: Epoch) {.gcsafe, asy
   vc.attestationsForEpoch.clear()
   await getAttesterDutiesForEpoch(epoch)
   # obtain the attestation duties this VC should do during the next epoch
-  # TODO currently we aren't making use of this but perhaps we should
   await getAttesterDutiesForEpoch(epoch + 1)
 
   # for now we will get the fork each time we update the validator duties for each epoch
@@ -129,6 +128,9 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
     # 1 slot earlier because there are a few back-and-forth requests which
     # could take up time for attesting... Perhaps this should be called more
     # than once per epoch because of forks & other events...
+    #
+    # calling it before epoch n starts means one can't ensure knowing about
+    # epoch n+1.
     if slot.isEpoch:
       await getValidatorDutiesForEpoch(vc, epoch)
 
@@ -263,6 +265,16 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
     # temporary buffers etc) gets recycled for the next slot that is likely to
     # need similar amounts of memory.
     GC_fullCollect()
+
+  if (slot - 2).isEpoch and (slot.epoch + 1) in vc.attestationsForEpoch:
+    for slot, attesterDuties in vc.attestationsForEpoch[slot.epoch + 1].pairs:
+      for ad in attesterDuties:
+        let
+          validator = vc.attachedValidators.validators[ad.public_key]
+          sig = await validator.getSlotSig(
+            vc.fork, vc.beaconGenesis.genesis_validators_root, slot)
+        discard await vc.client.post_v1_validator_beacon_committee_subscriptions(
+          ad.committee_index, ad.slot, true, ad.public_key, sig)
 
   addTimer(nextSlotStart) do (p: pointer):
     asyncCheck vc.onSlotStart(slot, nextSlot)

@@ -15,7 +15,7 @@ import
   chronicles,
 
   # Local modules
-  ../spec/[datatypes, digest, crypto, helpers],
+  ../spec/[datatypes, digest, crypto, helpers, network, signatures],
   ../spec/eth2_apis/callsigs_types,
   ../block_pools/[chain_dag, spec_cache], ../ssz/merkleization,
   ../beacon_node_common, ../beacon_node_types, ../attestation_pool,
@@ -115,5 +115,39 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("post_v1_validator_beacon_committee_subscriptions") do (
       committee_index: CommitteeIndex, slot: Slot, aggregator: bool,
       validator_pubkey: ValidatorPubKey, slot_signature: ValidatorSig) -> bool:
-    debug "post_v1_validator_beacon_committee_subscriptions"
-    raise newException(CatchableError, "Not implemented")
+    debug "post_v1_validator_beacon_committee_subscriptions",
+      committee_index, slot
+    if committee_index.uint64 >= ATTESTATION_SUBNET_COUNT.uint64:
+      raise newException(CatchableError,
+        "Invalid committee index")
+
+    if node.syncManager.inProgress:
+      raise newException(CatchableError,
+        "Beacon node is currently syncing and not serving request on that endpoint")
+
+    let wallSlot = node.beaconClock.now.slotOrZero
+    if wallSlot > slot + 1:
+      raise newException(CatchableError,
+        "Past slot requested")
+
+    let epoch = slot.epoch
+    if epoch >= wallSlot.epoch and epoch - wallSlot.epoch > 1:
+      raise newException(CatchableError,
+        "Slot requested not in current or next wall-slot epoch")
+
+    if not verify_slot_signature(
+        node.chainDag.headState.data.data.fork,
+        node.chainDag.headState.data.data.genesis_validators_root,
+        slot, validator_pubkey, slot_signature):
+      raise newException(CatchableError,
+        "Invalid slot signature")
+
+    let subnet = committee_index.uint8
+    if  subnet notin node.attestationSubnets.subscribedSubnets[0] and
+        subnet notin node.attestationSubnets.subscribedSubnets[1]:
+      await node.network.subscribe(getAttestationTopic(
+        node.forkDigest, subnet))
+
+    # But it might only be in current
+    node.attestationSubnets.subscribedSubnets[0].incl subnet
+    node.attestationSubnets.subscribedSubnets[1].incl subnet
