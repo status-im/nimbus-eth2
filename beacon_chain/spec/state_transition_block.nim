@@ -27,9 +27,11 @@ import
   ./signatures, ./presets,
   ../../nbench/bench_lab
 
+export sets # Generics visibility issue with toSeq(items(intersection(HashSet, HashSet)))
+
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
-    state: var BeaconState, blck: SomeBeaconBlock, flags: UpdateFlags,
+    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): Result[void, cstring] {.nbench.} =
   # Verify that the slots match
   if not (blck.slot == state.slot):
@@ -72,7 +74,7 @@ func `xor`[T: array](a, b: T): T =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#randao
 proc process_randao(
-    state: var BeaconState, body: SomeBeaconBlockBody, flags: UpdateFlags,
+    state: var BeaconState, body: BeaconBlockBody, flags: UpdateFlags,
     stateCache: var StateCache): bool {.nbench.} =
   let
     proposer_index = get_beacon_proposer_index(state, stateCache)
@@ -108,7 +110,7 @@ proc process_randao(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#eth1-data
-func process_eth1_data(state: var BeaconState, body: SomeBeaconBlockBody) {.nbench.}=
+func process_eth1_data(state: var BeaconState, body: BeaconBlockBody) {.nbench.}=
   state.eth1_data_votes.add body.eth1_data
 
   if state.eth1_data_votes.asSeq.count(body.eth1_data).uint64 * 2 >
@@ -189,9 +191,9 @@ func is_slashable_attestation_data*(
      data_2.target.epoch < data_1.target.epoch)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#attester-slashings
-proc check_attester_slashing*(
+proc check_attester_slashing*[Trust](
        state: var BeaconState,
-       attester_slashing: AttesterSlashing,
+       attester_slashing: AttesterSlashing[Trust],
        flags: UpdateFlags
      ): Result[seq[ValidatorIndex], cstring] {.nbench.} =
   let
@@ -210,6 +212,8 @@ proc check_attester_slashing*(
 
   var slashed_indices: seq[ValidatorIndex]
 
+  # export sets otherwise
+  # generics visibility issue with toSeq(items(intersection(HashSet, HashSet)))
   for index in sorted(toSeq(intersection(
       toHashSet(attestation_1.attesting_indices.asSeq),
       toHashSet(attestation_2.attesting_indices.asSeq)).items), system.cmp):
@@ -305,7 +309,7 @@ proc process_voluntary_exit*(
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#operations
 proc process_operations(preset: RuntimePreset,
                         state: var BeaconState,
-                        body: SomeBeaconBlockBody,
+                        body: BeaconBlockBody,
                         flags: UpdateFlags,
                         cache: var StateCache): Result[void, cstring] {.nbench.} =
   # Verify that outstanding deposits are processed up to the maximum number of
@@ -339,7 +343,7 @@ proc process_operations(preset: RuntimePreset,
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#block-processing
 proc process_block*(
     preset: RuntimePreset,
-    state: var BeaconState, blck: SomeBeaconBlock, flags: UpdateFlags,
+    state: var BeaconState, blck: BeaconBlock, flags: UpdateFlags,
     stateCache: var StateCache): Result[void, cstring] {.nbench.}=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when

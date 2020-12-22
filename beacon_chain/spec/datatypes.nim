@@ -78,6 +78,55 @@ const
 template maxSize*(n: int) {.pragma.}
 
 type
+  # The trust level of a block, attestation or signature
+  #
+  # When we receive blocks from outside sources, they are untrusted and go
+  # through several layers of validation. Blocks that have gone through
+  # validations can be trusted to be well-formed, with a correct signature,
+  # having a parent and applying cleanly to the state that their parent
+  # left them with.
+  #
+  # When loading such blocks from the database, to rewind states for example,
+  # it is expensive to redo the validations (in particular, the signature
+  # checks), thus `TrustedBlock` uses a `TrustedSig` type to mark that these
+  # checks can be skipped.
+  #
+  # docs/block_validation_flow.md
+
+  Unchecked* = object          # Object hasn't gone through any verification
+  SigVerified* = object        # Object cryptographic signature has been verified
+  TransitionVerified* = object # Object is valid according to the protocol state transition logic
+  Trusted* = object            # Object is fully verified both cryptographically and logically
+
+  # We use dummy objects instead of static enum as static enum
+  # have cause issues with shortLog:
+  # - cannot use `auto`, need to use `tuple` as return value
+  # - overloading on Eth2Digest needed to be prefixed with the module digest.shortLog(_)
+  # They also required to reorder the type section.
+  # Generics are also better tested than static enums.
+
+  # TODO: we might want to compile with deduplication on
+  # as the C code will be the same but we will have 1 duplicate per trust level
+  # https://stackoverflow.com/questions/15168924/gcc-clang-merging-functions-with-identical-instructions-comdat-folding
+  # linker: --icf (identical COMDAT folding)
+  # GCC: -ffunction-sections
+
+  # Trust level aliases
+  # ---------------------------------------------------------------
+  TrustedSignedBeaconBlock* = SignedBeaconBlock[Trusted]
+  UntrustedSignedBeaconBlock* = SignedBeaconBlock[Unchecked] or
+                                SignedBeaconBlock[SigVerified] or
+                                SignedBeaconBlock[TransitionVerified]
+  TrustedBeaconBlock* = BeaconBlock[Trusted]
+  UntrustedBeaconBlock* = BeaconBlock[Unchecked] or
+                          BeaconBlock[SigVerified] or
+                          BeaconBlock[TransitionVerified]
+
+  TrustedIndexedAttestation* = IndexedAttestation[Trusted]
+  UntrustedIndexedAttestation* = IndexedAttestation[Unchecked] or
+                                  IndexedAttestation[SigVerified] or
+                                  IndexedAttestation[TransitionVerified]
+
   # Domains
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#domain-types
@@ -120,33 +169,29 @@ type
     signed_header_2*: SignedBeaconBlockHeader
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#attesterslashing
-  AttesterSlashing* = object
-    attestation_1*: IndexedAttestation
-    attestation_2*: IndexedAttestation
+  AttesterSlashing*[Trust] = object
+    attestation_1*: IndexedAttestation[Trust]
+    attestation_2*: IndexedAttestation[Trust]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#indexedattestation
-  IndexedAttestation* = object
+  IndexedAttestation*[Trust] = object
     attesting_indices*: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]
     data*: AttestationData
-    signature*: ValidatorSig
-
-  TrustedIndexedAttestation* = object
-    attesting_indices*: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]
-    data*: AttestationData
-    signature*: TrustedSig
+    when Trust is SigVerified|Trusted:
+      signature*: TrustedSig
+    else:
+      signature*: ValidatorSig
 
   CommitteeValidatorsBits* = BitList[Limit MAX_VALIDATORS_PER_COMMITTEE]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#attestation
-  Attestation* = object
+  Attestation*[Trust] = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
-    signature*: ValidatorSig
-
-  TrustedAttestation* = object
-    aggregation_bits*: CommitteeValidatorsBits
-    data*: AttestationData
-    signature*: TrustedSig
+    when Trust is SigVerified|Trusted:
+      signature*: TrustedSig
+    else:
+      signature*: ValidatorSig
 
   ForkDigest* = distinct array[4, byte]
 
@@ -203,7 +248,7 @@ type
     validator_index*: uint64
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#beaconblock
-  BeaconBlock* = object
+  BeaconBlock*[Trust] = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
     ## validators that will have a chance to vote on it through attestations.
@@ -219,30 +264,7 @@ type
     state_root*: Eth2Digest ##\
     ## The state root, _after_ this block has been processed
 
-    body*: BeaconBlockBody
-
-  TrustedBeaconBlock* = object
-    ## When we receive blocks from outside sources, they are untrusted and go
-    ## through several layers of validation. Blocks that have gone through
-    ## validations can be trusted to be well-formed, with a correct signature,
-    ## having a parent and applying cleanly to the state that their parent
-    ## left them with.
-    ##
-    ## When loading such blocks from the database, to rewind states for example,
-    ## it is expensive to redo the validations (in particular, the signature
-    ## checks), thus `TrustedBlock` uses a `TrustedSig` type to mark that these
-    ## checks can be skipped.
-    ##
-    ## TODO this could probably be solved with some type trickery, but there
-    ##      too many bugs in nim around generics handling, and we've used up
-    ##      the trickery budget in the serialization library already. Until
-    ##      then, the type must be manually kept compatible with its untrusted
-    ##      cousin.
-    slot*: Slot
-    proposer_index*: uint64
-    parent_root*: Eth2Digest ##\
-    state_root*: Eth2Digest ##\
-    body*: TrustedBeaconBlockBody
+    body*: BeaconBlockBody[Trust]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
@@ -260,35 +282,20 @@ type
   GraffitiBytes* = distinct array[MAX_GRAFFITI_SIZE, byte]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#beaconblockbody
-  BeaconBlockBody* = object
-    randao_reveal*: ValidatorSig
+  BeaconBlockBody*[Trust] = object
+    when Trust is SigVerified|Trusted:
+      randao_reveal*: TrustedSig
+    else:
+      randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
     graffiti*: GraffitiBytes
 
     # Operations
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
+    attester_slashings*: List[AttesterSlashing[Trust], Limit MAX_ATTESTER_SLASHINGS]
+    attestations*: List[Attestation[Trust], Limit MAX_ATTESTATIONS]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
-    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
-
-  TrustedBeaconBlockBody* = object
-    randao_reveal*: TrustedSig
-    eth1_data*: Eth1Data
-    graffiti*: GraffitiBytes
-
-    # Operations
-    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
-    deposits*: List[Deposit, Limit MAX_DEPOSITS]
-    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
-
-  SomeSignedBeaconBlock* = SignedBeaconBlock | TrustedSignedBeaconBlock
-  SomeBeaconBlock* = BeaconBlock | TrustedBeaconBlock
-  SomeBeaconBlockBody* = BeaconBlockBody | TrustedBeaconBlockBody
-  SomeAttestation* = Attestation | TrustedAttestation
-  SomeIndexedAttestation* = IndexedAttestation | TrustedIndexedAttestation
+    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]  # TODO: trust system?
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#beaconstate
   BeaconState* = object
@@ -417,15 +424,12 @@ type
     signature*: ValidatorSig
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#signedbeaconblock
-  SignedBeaconBlock* = object
-    message*: BeaconBlock
-    signature*: ValidatorSig
-
-    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
-
-  TrustedSignedBeaconBlock* = object
-    message*: TrustedBeaconBlock
-    signature*: TrustedSig
+  SignedBeaconBlock*[Trust] = object
+    message*: BeaconBlock[Trust]
+    when Trust is SigVerified|Trusted:
+      signature*: TrustedSig
+    else:
+      signature*: ValidatorSig
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
@@ -437,7 +441,7 @@ type
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#aggregateandproof
   AggregateAndProof* = object
     aggregator_index*: uint64
-    aggregate*: Attestation
+    aggregate*: Attestation[Trusted]
     selection_proof*: ValidatorSig
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#signedaggregateandproof
@@ -667,7 +671,7 @@ func shortLog*(s: Slot): uint64 =
 func shortLog*(e: Epoch): uint64 =
   e - GENESIS_EPOCH
 
-func shortLog*(v: SomeBeaconBlock): auto =
+func shortLog*(v: BeaconBlock): auto =
   (
     slot: shortLog(v.slot),
     proposer_index: v.proposer_index,
@@ -682,7 +686,7 @@ func shortLog*(v: SomeBeaconBlock): auto =
     voluntary_exits_len: v.body.voluntary_exits.len(),
   )
 
-func shortLog*(v: SomeSignedBeaconBlock): auto =
+func shortLog*(v: SignedBeaconBlock): auto =
   (
     blck: shortLog(v.message),
     signature: shortLog(v.signature)
@@ -733,14 +737,14 @@ func shortLog*(v: PendingAttestation): auto =
     proposer_index: v.proposer_index
   )
 
-func shortLog*(v: SomeAttestation): auto =
+func shortLog*(v: Attestation): auto =
   (
     aggregation_bits: v.aggregation_bits,
     data: shortLog(v.data),
     signature: shortLog(v.signature)
   )
 
-func shortLog*(v: SomeIndexedAttestation): auto =
+func shortLog*(v: IndexedAttestation): auto =
   (
     attestating_indices: v.attesting_indices,
     data: shortLog(v.data),
@@ -773,9 +777,15 @@ func shortLog*(v: SignedVoluntaryExit): auto =
 
 chronicles.formatIt Slot: it.shortLog
 chronicles.formatIt Epoch: it.shortLog
-chronicles.formatIt BeaconBlock: it.shortLog
+chronicles.formatIt BeaconBlock[Unchecked]: it.shortLog
+chronicles.formatIt BeaconBlock[SigVerified]: it.shortLog
+chronicles.formatIt BeaconBlock[TransitionVerified]: it.shortLog
+chronicles.formatIt BeaconBlock[Trusted]: it.shortLog
 chronicles.formatIt AttestationData: it.shortLog
-chronicles.formatIt Attestation: it.shortLog
+chronicles.formatIt Attestation[Unchecked]: it.shortLog
+chronicles.formatIt Attestation[SigVerified]: it.shortLog
+chronicles.formatIt Attestation[TransitionVerified]: it.shortLog
+chronicles.formatIt Attestation[Trusted]: it.shortLog
 chronicles.formatIt Checkpoint: it.shortLog
 
 import json_serialization

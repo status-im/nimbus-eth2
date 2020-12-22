@@ -250,7 +250,7 @@ proc initialize_beacon_state_from_eth1*(
       Eth1Data(block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
     latest_block_header:
       BeaconBlockHeader(
-        body_root: hash_tree_root(BeaconBlockBody(
+        body_root: hash_tree_root(BeaconBlockBody[Unchecked](
           # This differs from the spec intentionally.
           # We must specify the default value for `ValidatorSig`
           # in order to get a correct `hash_tree_root`.
@@ -321,19 +321,19 @@ proc initialize_hashed_beacon_state_from_eth1*(
     preset, eth1_block_hash, eth1_timestamp, deposits, flags)
   HashedBeaconState(data: genesisState[], root: hash_tree_root(genesisState[]))
 
-func emptyBeaconBlockBody(): BeaconBlockBody =
+func emptyBeaconBlockBody(): BeaconBlockBody[Unchecked] =
   # TODO: This shouldn't be necessary if OpaqueBlob is the default
-  BeaconBlockBody(randao_reveal: ValidatorSig(kind: OpaqueBlob))
+  BeaconBlockBody[Unchecked](randao_reveal: ValidatorSig(kind: OpaqueBlob))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#genesis-block
-func get_initial_beacon_block*(state: BeaconState): SignedBeaconBlock =
-  let message = BeaconBlock(
+func get_initial_beacon_block*(state: BeaconState): SignedBeaconBlock[Unchecked] =
+  let message = BeaconBlock[Unchecked](
     slot: state.slot,
     state_root: hash_tree_root(state),
     body: emptyBeaconBlockBody())
     # parent_root, randao_reveal, eth1_data, signature, and body automatically
     # initialized to default values.
-  SignedBeaconBlock(message: message, root: hash_tree_root(message))
+  SignedBeaconBlock[Unchecked](message: message, root: hash_tree_root(message))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: BeaconState,
@@ -430,7 +430,8 @@ proc process_registry_updates*(state: var BeaconState,
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
-    state: BeaconState, indexed_attestation: SomeIndexedAttestation,
+    state: BeaconState,
+    indexed_attestation: IndexedAttestation[Unchecked],
     flags: UpdateFlags): Result[void, cstring] =
   ## Check if ``indexed_attestation`` is not empty, has sorted and unique
   ## indices and has a valid aggregate signature.
@@ -516,31 +517,15 @@ func get_attesting_indices*(state: BeaconState,
     result.incl index
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_indexed_attestation
-func get_indexed_attestation(state: BeaconState, attestation: Attestation,
-    cache: var StateCache): IndexedAttestation =
+func get_indexed_attestation[Trust](state: BeaconState, attestation: Attestation[Trust],
+    cache: var StateCache): IndexedAttestation[Trust] =
   ## Return the indexed attestation corresponding to ``attestation``.
   let
     attesting_indices =
       get_attesting_indices(
         state, attestation.data, attestation.aggregation_bits, cache)
 
-  IndexedAttestation(
-    attesting_indices:
-      List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE].init(
-        sorted(mapIt(attesting_indices.toSeq, it.uint64), system.cmp)),
-    data: attestation.data,
-    signature: attestation.signature
-  )
-
-func get_indexed_attestation(state: BeaconState, attestation: TrustedAttestation,
-    cache: var StateCache): TrustedIndexedAttestation =
-  ## Return the indexed attestation corresponding to ``attestation``.
-  let
-    attesting_indices =
-      get_attesting_indices(
-        state, attestation.data, attestation.aggregation_bits, cache)
-
-  TrustedIndexedAttestation(
+  IndexedAttestation[Trust](
     attesting_indices:
       List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE].init(
         sorted(mapIt(attesting_indices.toSeq, it.uint64), system.cmp)),
@@ -592,7 +577,7 @@ func check_attestation_index(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#attestations
 proc check_attestation*(
-    state: BeaconState, attestation: SomeAttestation, flags: UpdateFlags,
+    state: BeaconState, attestation: Attestation, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
@@ -621,13 +606,13 @@ proc check_attestation*(
     if not (data.source == state.previous_justified_checkpoint):
       return err("FFG data not matching previous justified epoch")
 
-  ? is_valid_indexed_attestation(
-      state, get_indexed_attestation(state, attestation, cache), flags)
+  let idx_att = get_indexed_attestation(state, attestation, cache)
+  ? is_valid_indexed_attestation(state, idx_att, flags)
 
   ok()
 
 proc process_attestation*(
-    state: var BeaconState, attestation: SomeAttestation, flags: UpdateFlags,
+    state: var BeaconState, attestation: Attestation, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.} =
   # In the spec, attestation validation is mixed with state mutation, so here
   # we've split it into two functions so that the validation logic can be

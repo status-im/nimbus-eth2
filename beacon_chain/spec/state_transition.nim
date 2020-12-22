@@ -30,7 +30,7 @@ import
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature*(
-    state: BeaconState, signed_block: SomeSignedBeaconBlock): bool {.nbench.} =
+    state: BeaconState, signed_block: SignedBeaconBlock): bool {.nbench.} =
   let
     proposer_index = signed_block.message.proposer_index
   if proposer_index >= state.validators.lenu64:
@@ -49,7 +49,7 @@ proc verify_block_signature*(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
+proc verifyStateRoot(state: BeaconState, blck: UntrustedBeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   let state_root = hash_tree_root(state)
   if state_root != blck.state_root:
@@ -125,7 +125,7 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot,
     if slotProcessed notin updateFlags or state.data.slot != slot:
       notice(
         "Unusual request for a slot in the past",
-        state_root = shortLog(state.root),
+        state_root = state.root,
         current_slot = state.data.slot,
         target_slot = slot
       )
@@ -142,7 +142,7 @@ proc noRollback*(state: var HashedBeaconState) =
 
 proc state_transition*(
     preset: RuntimePreset,
-    state: var HashedBeaconState, signedBlock: SomeSignedBeaconBlock,
+    state: var HashedBeaconState, signedBlock: SignedBeaconBlock,
     stateCache: var StateCache,
     flags: UpdateFlags, rollback: RollbackHashedProc): bool {.nbench.} =
   ## Time in the beacon chain moves by slots. Every time (haha.) that happens,
@@ -175,8 +175,8 @@ proc state_transition*(
       verify_block_signature(state.data, signedBlock):
 
     trace "state_transition: processing block, signature passed",
-      signature = shortLog(signedBlock.signature),
-      blockRoot = shortLog(signedBlock.root)
+      signature = signedBlock.signature,
+      blockRoot = signedBlock.root
     let res = process_block(preset, state.data, signedBlock.message, flags, stateCache)
     if res.isOk:
       if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
@@ -193,10 +193,10 @@ proc state_transition*(
         return true
     else:
       debug "state_transition: process_block failed",
-        blck = shortLog(signedBlock.message),
+        blck = signedBlock.message,
         slot = state.data.slot,
         eth1_deposit_index = state.data.eth1_deposit_index,
-        deposit_root = shortLog(state.data.eth1_data.deposit_root),
+        deposit_root = state.data.eth1_data.deposit_root,
         error = res.error
 
   # Block processing failed, roll back changes
@@ -213,13 +213,13 @@ proc makeBeaconBlock*(
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
     graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
+    attestations: seq[Attestation[Unchecked]],
     deposits: seq[Deposit],
     proposerSlashings: seq[ProposerSlashing],
-    attesterSlashings: seq[AttesterSlashing],
+    attesterSlashings: seq[AttesterSlashing[Unchecked]],
     voluntaryExits: seq[SignedVoluntaryExit],
     rollback: RollbackHashedProc,
-    cache: var StateCache): Option[BeaconBlock] =
+    cache: var StateCache): Option[BeaconBlock[Unchecked]] =
   ## Create a block for the given state. The last block applied to it must be
   ## the one identified by parent_root and process_slots must be called up to
   ## the slot for which a block is to be created.
@@ -227,31 +227,35 @@ proc makeBeaconBlock*(
   # To create a block, we'll first apply a partial block to the state, skipping
   # some validations.
 
-  var blck = BeaconBlock(
+  # TODO: finish the code refactoring
+  #       the result should be TransitionVerified
+  var blck = BeaconBlock[Unchecked](
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
     parent_root: parent_root,
-    body: BeaconBlockBody(
+    body: BeaconBlockBody[Unchecked](
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
       graffiti: graffiti,
       proposer_slashings: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS](
         proposerSlashings),
-      attester_slashings: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS](
+      attester_slashings: List[AttesterSlashing[Unchecked], Limit MAX_ATTESTER_SLASHINGS](
         attesterSlashings),
-      attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
+      attestations: List[Attestation[Unchecked], Limit MAX_ATTESTATIONS](attestations),
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits:
         List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS](voluntaryExits)))
 
-  let res = process_block(preset, state.data, blck, {skipBlsValidation}, cache)
+  let res = process_block(
+              preset, state.data, blck,
+              {skipBlsValidation}, cache)
 
   if res.isErr:
     warn "Unable to apply new block to state",
-      blck = shortLog(blck),
+      blck = blck,
       slot = state.data.slot,
       eth1_deposit_index = state.data.eth1_deposit_index,
-      deposit_root = shortLog(state.data.eth1_data.deposit_root),
+      deposit_root = state.data.eth1_data.deposit_root,
       error = res.error
     rollback(state)
     return

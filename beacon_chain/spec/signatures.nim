@@ -84,7 +84,7 @@ func get_block_signature*(
 
 proc verify_block_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    blck: Eth2Digest | SomeBeaconBlock | BeaconBlockHeader,
+    blck: Eth2Digest | BeaconBlock | BeaconBlockHeader,
     pubkey: ValidatorPubKey,
     signature: SomeSig): bool =
   withTrust(signature):

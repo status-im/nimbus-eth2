@@ -90,7 +90,7 @@ func getAttestationTopic*(forkDigest: ForkDigest, subnetIndex: uint64):
     raiseAssert e.msg
 
 func getAttestationTopic*(forkDigest: ForkDigest,
-                          attestation: Attestation,
+                          attestation: Attestation[Unchecked],
                           num_active_validators: uint64): string =
   getAttestationTopic(
     forkDigest,
