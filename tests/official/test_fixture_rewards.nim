@@ -16,7 +16,7 @@ import
   ../../beacon_chain/spec/[validator, datatypes, helpers, state_transition_epoch],
   ../../beacon_chain/ssz,
   # Test utilities
-  ../testutil,
+  ../testreportutils,
   ./fixtures_utils
 
 const

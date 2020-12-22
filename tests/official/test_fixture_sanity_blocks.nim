@@ -14,7 +14,7 @@ import
   ../../beacon_chain/spec/[crypto, datatypes, state_transition, presets],
   ../../beacon_chain/ssz,
   # Test utilities
-  ../testutil,
+  ../testreportutils,
   ./fixtures_utils
 
 const
@@ -45,7 +45,7 @@ proc runTest(testName, testDir, unitTestName: string) =
       # so purely lexicographic sorting wouldn't sort properly.
       let numBlocks = toSeq(walkPattern(testPath/"blocks_*.ssz")).len
       for i in 0 ..< numBlocks:
-        let blck = parseTest(testPath/"blocks_" & $i & ".ssz", SSZ, SignedBeaconBlock)
+        let blck = parseTest(testPath/"blocks_" & $i & ".ssz", SSZ, SignedBeaconBlock[Unchecked])
 
         if hasPostState:
           let success = state_transition(

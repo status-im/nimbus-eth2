@@ -14,7 +14,7 @@ import
   # Internals
   ../../beacon_chain/spec/[datatypes, digest, presets],
   # Test utilities
-  ../testutil, ./fixtures_utils
+  ../testreportutils, ./fixtures_utils
 
 const
   SpecDir = currentSourcePath.rsplit(DirSep, 1)[0] /

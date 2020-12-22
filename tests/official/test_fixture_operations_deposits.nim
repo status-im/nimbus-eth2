@@ -16,7 +16,7 @@ import
   ../../beacon_chain/spec/[datatypes, beaconstate, presets],
   ../../beacon_chain/[ssz, extras],
   # Test utilities
-  ../testutil,
+  ../testreportutils,
   ./fixtures_utils,
   ../helpers/debug_state
 

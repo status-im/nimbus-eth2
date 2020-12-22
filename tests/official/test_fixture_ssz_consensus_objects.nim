@@ -15,7 +15,7 @@ import
   ../../beacon_chain/spec/[crypto, datatypes, digest],
   ../../beacon_chain/ssz,
   # Test utilities
-  ../testutil, ./fixtures_utils
+  ../testreportutils, ./fixtures_utils
 
 # SSZ tests of consensus objects (minimal/mainnet preset specific)
 
@@ -92,7 +92,7 @@ proc runSSZtests() =
 
           case sszType:
           of "AggregateAndProof": checkSSZ(AggregateAndProof, path, hash)
-          of "Attestation": checkSSZ(Attestation, path, hash)
+          of "Attestation": checkSSZ(Attestation[Unchecked], path, hash)
           of "AttestationData": checkSSZ(AttestationData, path, hash)
           of "AttesterSlashing": checkSSZ(AttesterSlashing, path, hash)
           of "BeaconBlock": checkSSZ(BeaconBlock, path, hash)

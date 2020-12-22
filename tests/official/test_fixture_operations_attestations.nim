@@ -16,7 +16,7 @@ import
   ../../beacon_chain/spec/[datatypes, beaconstate],
   ../../beacon_chain/ssz,
   # Test utilities
-  ../testutil,
+  ../testreportutils,
   ./fixtures_utils,
   ../helpers/debug_state
 
@@ -41,7 +41,7 @@ proc runTest(identifier: string) =
     timedTest prefix & identifier:
       var cache = StateCache()
 
-      let attestation = parseTest(testDir/"attestation.ssz", SSZ, Attestation)
+      let attestation = parseTest(testDir/"attestation.ssz", SSZ, Attestation[Unchecked])
       var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
 
       if existsFile(testDir/"post.ssz"):

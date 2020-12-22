@@ -16,7 +16,7 @@ import
   ../../beacon_chain/spec/[datatypes, state_transition_block],
   ../../beacon_chain/ssz,
   # Test utilities
-  ../testutil,
+  ../testreportutils,
   ./fixtures_utils,
   ../helpers/debug_state
 

@@ -13,7 +13,7 @@ import
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, state_transition_epoch],
   # Test utilities
-  ../testutil,
+  ../testreportutils,
   ./fixtures_utils,
   ./test_fixture_rewards,
   ../helpers/debug_state
