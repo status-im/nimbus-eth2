@@ -258,7 +258,7 @@ func readSszValue*[T](input: openArray[byte],
           type(field),
           input.toOpenArray(int(startOffset), int(endOffset - 1)))
 
-    when val is SignedBeaconBlock | TrustedSignedBeaconBlock:
+    when val is SignedBeaconBlock:
       if updateRoot:
         val.root = hash_tree_root(val.message)
   else:

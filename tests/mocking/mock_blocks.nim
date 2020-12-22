@@ -40,7 +40,7 @@ proc signMockBlock*(state: BeaconState, signedBlock: var SignedBeaconBlock) =
 proc mockBlock(
     state: BeaconState,
     slot: Slot,
-    flags: UpdateFlags = {}): SignedBeaconBlock =
+    flags: UpdateFlags = {}): SignedBeaconBlock[Unchecked] =
   ## TODO don't do this gradual construction, for exception safety
   ## Mock a BeaconBlock for the specific slot
   ## Skip signature creation if block should not be signed (skipBlsValidation present)
@@ -60,5 +60,5 @@ proc mockBlock(
     signMockBlock(state, result)
 
 proc mockBlockForNextSlot*(state: BeaconState, flags: UpdateFlags = {}):
-    SignedBeaconBlock =
+    SignedBeaconBlock[Unchecked] =
   mockBlock(state, state.slot + 1, flags)

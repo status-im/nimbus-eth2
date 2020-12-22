@@ -21,7 +21,7 @@ import
   ../../beacon_chain/[ssz, extras],
   # Mock helpers
   ../mocking/[mock_deposits, mock_genesis],
-  ../testutil, ../helpers/math_helpers
+  ../testreportutils, ../helpers/math_helpers
 
 suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
 

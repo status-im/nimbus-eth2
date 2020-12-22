@@ -19,7 +19,7 @@ import
   ../../beacon_chain/spec/[beaconstate, datatypes, helpers],
   # Mock helpers
   ../mocking/[mock_genesis, mock_attestations, mock_state],
-  ../testutil
+  ../testreportutils
 
 suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
 

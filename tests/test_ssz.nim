@@ -10,7 +10,7 @@
 import
   unittest, options, json_serialization,
   serialization/testing/generic_suite,
-  ./testutil,
+  ./testreportutils,
   ../beacon_chain/spec/[datatypes, digest],
   ../beacon_chain/ssz, ../beacon_chain/ssz/[navigator, dynamic_navigator]
 

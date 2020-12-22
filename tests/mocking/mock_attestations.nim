@@ -56,7 +56,7 @@ proc mockAttestationData(
     epoch: target_epoch, root: epoch_boundary_root
   )
 
-proc signMockAttestation*(state: BeaconState, attestation: var Attestation) =
+proc signMockAttestation*(state: BeaconState, attestation: var Attestation[Unchecked]) =
   var cache = StateCache()
   let participants = get_attesting_indices(
     state,
@@ -85,7 +85,7 @@ proc signMockAttestation*(state: BeaconState, attestation: var Attestation) =
 proc mockAttestationImpl(
        state: BeaconState,
        slot: Slot,
-       flags: UpdateFlags): Attestation =
+       flags: UpdateFlags): Attestation[Unchecked] =
 
   var cache = StateCache()
 
@@ -110,16 +110,16 @@ proc mockAttestationImpl(
 
 proc mockAttestation*(
        state: BeaconState,
-       flags: UpdateFlags = {}): Attestation =
+       flags: UpdateFlags = {}): Attestation[Unchecked] =
   mockAttestationImpl(state, state.slot, flags)
 
 proc mockAttestation*(
        state: BeaconState,
        slot: Slot,
-       flags: UpdateFlags = {}): Attestation =
+       flags: UpdateFlags = {}): Attestation[Unchecked] =
   mockAttestationImpl(state, slot, flags)
 
-func fillAggregateAttestation*(state: BeaconState, attestation: var Attestation) =
+func fillAggregateAttestation*(state: BeaconState, attestation: var Attestation[Unchecked]) =
   var cache = StateCache()
   let beacon_committee = get_beacon_committee(
     state,
@@ -130,7 +130,7 @@ func fillAggregateAttestation*(state: BeaconState, attestation: var Attestation)
   for i in 0 ..< beacon_committee.len:
     attestation.aggregation_bits[i] = true
 
-proc add*(state: var HashedBeaconState, attestation: Attestation, slot: Slot) =
+proc add*(state: var HashedBeaconState, attestation: Attestation[Unchecked], slot: Slot) =
   var
     signedBlock = mockBlockForNextSlot(state.data)
     cache = StateCache()

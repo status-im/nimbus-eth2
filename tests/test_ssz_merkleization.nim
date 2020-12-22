@@ -265,4 +265,3 @@ proc testMerkleizer =
     doAssert deposits[i].proof == depositsCopy[i].proof
 
 testMerkleizer()
-

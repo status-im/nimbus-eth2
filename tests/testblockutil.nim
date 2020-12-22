@@ -7,10 +7,13 @@
 
 import
   options, stew/endians2,
-  ../beacon_chain/[extras, validator_pool],
+  ../beacon_chain/extras,
   ../beacon_chain/ssz/merkleization,
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, presets,
                         helpers, validator, signatures, state_transition]
+
+# Keep only spec+SSZ types import in this file
+# To ensure we don't involve non-spec primitives in some tests like beaconchainDB
 
 func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
   # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
@@ -58,10 +61,10 @@ proc makeInitialDeposits*(
     result.add makeDeposit(i, flags)
 
 func signBlock*(
-    fork: Fork, genesis_validators_root: Eth2Digest, blck: BeaconBlock,
-    privKey: ValidatorPrivKey, flags: UpdateFlags = {}): SignedBeaconBlock =
+    fork: Fork, genesis_validators_root: Eth2Digest, blck: BeaconBlock[Unchecked],
+    privKey: ValidatorPrivKey, flags: UpdateFlags = {}): SignedBeaconBlock[Unchecked] =
   var root = hash_tree_root(blck)
-  SignedBeaconBlock(
+  SignedBeaconBlock[Unchecked](
     message: blck,
     root: root,
     signature:
@@ -77,10 +80,10 @@ proc addTestBlock*(
     parent_root: Eth2Digest,
     cache: var StateCache,
     eth1_data = Eth1Data(),
-    attestations = newSeq[Attestation](),
+    attestations = newSeq[Attestation[Unchecked]](),
     deposits = newSeq[Deposit](),
     graffiti = default(GraffitiBytes),
-    flags: set[UpdateFlag] = {}): SignedBeaconBlock =
+    flags: set[UpdateFlag] = {}): SignedBeaconBlock[Unchecked] =
   # Create and add a block to state - state will advance by one slot!
   doAssert process_slots(state, state.data.slot + 1, cache, flags)
 
@@ -89,8 +92,12 @@ proc addTestBlock*(
     privKey = hackPrivKey(state.data.validators[proposer_index.get])
     randao_reveal =
       if skipBlsValidation notin flags:
-        privKey.genRandaoReveal(
-          state.data.fork, state.data.genesis_validators_root, state.data.slot)
+        # genRandaoReveal without importing validator_pool
+        get_epoch_signature(
+          state.data.fork,
+          state.data.genesis_validators_root,
+          state.data.slot.compute_epoch_at_slot(),
+          privKey)
       else:
         ValidatorSig()
 
@@ -129,10 +136,10 @@ proc makeTestBlock*(
     parent_root: Eth2Digest,
     cache: var StateCache,
     eth1_data = Eth1Data(),
-    attestations = newSeq[Attestation](),
+    attestations = newSeq[Attestation[Unchecked]](),
     deposits = newSeq[Deposit](),
     graffiti = default(GraffitiBytes),
-    flags: set[UpdateFlag] = {}): SignedBeaconBlock =
+    flags: set[UpdateFlag] = {}): SignedBeaconBlock[Unchecked] =
   # Create a block for `state.slot + 1` - like a block proposer would do!
   # It's a bit awkward - in order to produce a block for N+1, we need to
   # calculate what the state will look like after that block has been applied,
@@ -146,7 +153,7 @@ proc makeAttestation*(
     state: BeaconState, beacon_block_root: Eth2Digest,
     committee: seq[ValidatorIndex], slot: Slot, index: CommitteeIndex,
     validator_index: ValidatorIndex, cache: var StateCache,
-    flags: UpdateFlags = {}): Attestation =
+    flags: UpdateFlags = {}): Attestation[Unchecked] =
   # Avoids state_sim silliness; as it's responsible for all validators,
   # transforming, from monotonic enumerable index -> committee index ->
   # montonoic enumerable index, is wasteful and slow. Most test callers
@@ -169,7 +176,7 @@ proc makeAttestation*(
       else:
         ValidatorSig()
 
-  Attestation(
+  Attestation[Unchecked](
     data: data,
     aggregation_bits: aggregation_bits,
     signature: sig
@@ -193,7 +200,7 @@ proc find_beacon_committee(
 proc makeAttestation*(
     state: BeaconState, beacon_block_root: Eth2Digest,
     validator_index: ValidatorIndex, cache: var StateCache,
-    flags: UpdateFlags = {}): Attestation =
+    flags: UpdateFlags = {}): Attestation[Unchecked] =
   let (committee, slot, index) =
     find_beacon_committee(state, validator_index, cache)
   makeAttestation(state, beacon_block_root, committee, slot, index,
@@ -202,7 +209,7 @@ proc makeAttestation*(
 proc makeFullAttestations*(
     state: BeaconState, beacon_block_root: Eth2Digest, slot: Slot,
     cache: var StateCache,
-    flags: UpdateFlags = {}): seq[Attestation] =
+    flags: UpdateFlags = {}): seq[Attestation[Unchecked]] =
   # Create attestations in which the full committee participates for each shard
   # that should be attested to during a particular slot
   let committees_per_slot =
@@ -216,7 +223,7 @@ proc makeFullAttestations*(
 
     doAssert committee.len() >= 1
     # Initial attestation
-    var attestation = Attestation(
+    var attestation = Attestation[Unchecked](
       aggregation_bits: CommitteeValidatorsBits.init(committee.len),
       data: data,
       signature: get_attestation_signature(

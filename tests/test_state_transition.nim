@@ -9,7 +9,7 @@
 
 import
   unittest, chronicles,
-  ./testutil, ./testblockutil,
+  ./testreportutils, ./testblockutil,
   ../beacon_chain/spec/[beaconstate, datatypes, digest, crypto,
                         validator, state_transition, presets],
   ../beacon_chain/ssz
