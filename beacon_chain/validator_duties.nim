@@ -19,7 +19,8 @@ import
 
   # Local modules
   ./spec/[
-    datatypes, digest, crypto, helpers, network, signatures, state_transition],
+    datatypes, digest, crypto, helpers, network, signatures, state_transition,
+    validator],
   ./conf, ./time, ./validator_pool,
   ./attestation_pool, ./exit_pool,
   ./block_pools/[spec_cache, chain_dag, clearance],
@@ -152,9 +153,15 @@ proc isSynced*(node: BeaconNode, head: BlockRef): bool =
 
 proc sendAttestation*(
     node: BeaconNode, attestation: Attestation, num_active_validators: uint64) =
+  let subnet_index =
+    compute_subnet_for_attestation(
+      get_committee_count_per_slot(num_active_validators), attestation.data.slot,
+      attestation.data.index.CommitteeIndex)
   node.network.broadcast(
-    getAttestationTopic(node.forkDigest, attestation, num_active_validators),
-    attestation)
+    getAttestationTopic(node.forkDigest, subnet_index), attestation)
+
+  # insert into attestation pool
+  discard node.processor[].attestationValidator(attestation, subnet_index)
 
   beacon_attestations_sent.inc()
 
