@@ -1,33 +1,14 @@
 # Set up a systemd service
 
 This page will take you through how to set up a `systemd` service for your beacon node.
-> [`systemd`](https://www.freedesktop.org/wiki/Software/systemd/) is a service manager designed specifically for Linux. There is no port to Mac OS.
 
-## Prerequisites
+Systemd is used in order to have a command or program run when your device boots (i.e. add it as a service). Once this is done, you can start/stop enable/disable from the linux prompt.
 
-NBC's [external dependencies](./install.md#external-dependencies).
+> [`systemd`](https://www.freedesktop.org/wiki/Software/systemd/) is a service manager designed specifically for Linux. There is no port to Mac OS. You can get more information from [https://www.raspberrypi.org/documentation/linux/usage/systemd.md](https://www.raspberrypi.org/documentation/linux/usage/systemd.md)  or  [https://fedoramagazine.org/what-is-an-init-system/](https://www.raspberrypi.org/documentation/linux/usage/systemd.md)
 
-### 1. Clone repository
+### 1. Create a systemd service
 
-If you haven't done so already, clone the [nimbus-eth2](https://github.com/status-im/nimbus-eth2) repository.
-
-```console
-git clone https://github.com/status-im/nimbus-eth2.git
-```
-
-### 2. Build repository
-
-Move into the directory and build the beacon node.
-
-```console
-cd nimbus-eth2
-make nimbus_beacon_node
-```
-
-
-The resulting binaries should appear in `nimbus-eth2/build/nimbus_beacon_node`.
-
-### 3. Create a systemd service unit file
+> ⚠️  The HTTP server used for obtaining metrics is considered insecure. If you wish to run the service with metrics enabled, you'll need to compile the beacon node with the insecure flag enabled — `make NIMFLAGS="-d:insecure" nimbus_beacon_node` — and replace `--metrics:off` with `--metrics:on` in the service file below. See [here](./metrics-pretty-pictures.md) for more on metrics.
 
 Create a `systemd` service unit file -- `nbc.service` -- and save it in `/etc/systemd/system/`.
 
@@ -43,7 +24,7 @@ ExecStart=<BASE-DIRECTORY>/build/nimbus_beacon_node \
   --data-dir=build/data/shared_pyrmont_0 \
   --web3-url=<WEB3-URL> \
   --rpc:on \
-  --metrics:on
+  --metrics:off
 User=<USERNAME>
 Group=<USERNAME>
 Restart=always
@@ -61,13 +42,13 @@ Replace:
 `<WEB3-URL>` with the WebSocket JSON-RPC URL that you are planning to use.
 
 
-### 4. Notify systemd of the newly added service
+### 2. Notify systemd of the newly added service
 
 ```console
 sudo systemctl daemon-reload
 ```
 
-### 5. Start the service
+### 3. Start the service
 
 ```console
 sudo systemctl enable nbc --now
