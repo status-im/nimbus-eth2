@@ -142,7 +142,11 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       raise newException(CatchableError,
         "Invalid slot signature")
 
-    let subnet = committee_index.uint8
+    let
+      head = node.doChecksAndGetCurrentHead(epoch)
+      epochRef = node.chainDag.getEpochRef(head, epoch)
+    let subnet = compute_subnet_for_attestation(
+      get_committee_count_per_slot(epochRef), slot, committee_index).uint8
     if  subnet notin node.attestationSubnets.subscribedSubnets[0] and
         subnet notin node.attestationSubnets.subscribedSubnets[1]:
       node.network.subscribe(getAttestationTopic(node.forkDigest, subnet))
