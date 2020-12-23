@@ -181,8 +181,6 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
         vc.attestationsForEpoch[epoch].contains slot:
       var validatorToAttestationDataRoot: Table[ValidatorPubKey, Eth2Digest]
       for a in vc.attestationsForEpoch[epoch][slot]:
-        notice "Attesting", slot = slot, public_key = a.public_key
-
         let validator = vc.attachedValidators.validators[a.public_key]
         let ad = await vc.client.get_v1_validator_attestation_data(slot, a.committee_index)
 
@@ -206,6 +204,8 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
             ad, a.committee_length.int, a.validator_committee_index,
             vc.fork, vc.beaconGenesis.genesis_validators_root)
 
+          notice "Attesting",
+            slot, public_key = a.public_key, attestation = shortLog(attestation)
           discard await vc.client.post_v1_beacon_pool_attestations(attestation)
 
           validatorToAttestationDataRoot[a.public_key] = attestation.data.hash_tree_root

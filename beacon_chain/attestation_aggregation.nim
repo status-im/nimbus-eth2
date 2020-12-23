@@ -162,7 +162,7 @@ func check_attestation_subnet(
 proc validateAttestation*(
     pool: var AttestationPool,
     attestation: Attestation, wallTime: BeaconTime,
-    topicCommitteeIndex: uint64):
+    topicCommitteeIndex: uint64, checksExpensive: bool):
     Result[HashSet[ValidatorIndex], (ValidationResult, cstring)] =
   # [REJECT] The attestation's epoch matches its target -- i.e.
   # attestation.data.target.epoch ==
@@ -257,6 +257,9 @@ proc validateAttestation*(
         attestation.data.target.epoch:
     return err((ValidationResult.Ignore, cstring(
       "Validator has already voted in epoch")))
+
+  if not checksExpensive:
+    return ok(attesting_indices)
 
   # The signature of attestation is valid.
   block:
