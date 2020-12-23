@@ -89,15 +89,6 @@ func getAttestationTopic*(forkDigest: ForkDigest, subnetIndex: uint64):
   except ValueError as e:
     raiseAssert e.msg
 
-func getAttestationTopic*(forkDigest: ForkDigest,
-                          attestation: Attestation,
-                          num_active_validators: uint64): string =
-  getAttestationTopic(
-    forkDigest,
-    compute_subnet_for_attestation(
-      get_committee_count_per_slot(num_active_validators),
-      attestation.data.slot, attestation.data.index.CommitteeIndex))
-
 func get_committee_assignments(
     state: BeaconState, epoch: Epoch,
     validator_indices: HashSet[ValidatorIndex]):

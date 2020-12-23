@@ -148,7 +148,7 @@ proc storeBlock(
   beacon_store_block_duration_seconds.observe(duration)
   ok()
 
-proc processAttestation(
+proc processAttestation*(
     self: var Eth2Processor, entry: AttestationEntry) =
   logScope:
     signature = shortLog(entry.v.signature)
