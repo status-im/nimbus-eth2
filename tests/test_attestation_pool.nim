@@ -438,22 +438,22 @@ suiteReport "Attestation validation " & preset():
       beaconTime = attestation.data.slot.toBeaconTime()
 
     check:
-      validateAttestation(pool[], attestation, beaconTime, subnet).isOk
+      validateAttestation(pool[], attestation, beaconTime, subnet, true).isOk
 
       # Same validator again
-      validateAttestation(pool[], attestation, beaconTime, subnet).error()[0] ==
+      validateAttestation(pool[], attestation, beaconTime, subnet, true).error()[0] ==
         ValidationResult.Ignore
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Wrong subnet
-      validateAttestation(pool[], attestation, beaconTime, subnet + 1).isErr
+      validateAttestation(pool[], attestation, beaconTime, subnet + 1, true).isErr
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Too far in the future
       validateAttestation(
-        pool[], attestation, beaconTime - 1.seconds, subnet + 1).isErr
+        pool[], attestation, beaconTime - 1.seconds, subnet + 1, true).isErr
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
@@ -461,4 +461,4 @@ suiteReport "Attestation validation " & preset():
       validateAttestation(
         pool[], attestation,
         beaconTime - (SECONDS_PER_SLOT * SLOTS_PER_EPOCH - 1).int.seconds,
-        subnet + 1).isErr
+        subnet + 1, true).isErr
