@@ -72,6 +72,8 @@ when BLS_BACKEND == BLST:
 func update*(ctx: var sha256; digest: Eth2Digest) =
   ctx.update digest.data
 
+# TODO: not sure why but the "init", "update", "final" from BLST
+# seem to require LTO, even though proper indirection was added in the wrapper
 template withEth2Hash*(body: untyped): Eth2Digest =
   ## This little helper will init the hash function and return the sliced
   ## hash:
