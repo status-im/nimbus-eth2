@@ -216,7 +216,8 @@ func readSszValue*[T](input: openArray[byte],
       raise newException(MalformedSszError, "SSZ input of insufficient size")
 
     enumInstanceSerializedFields(val, fieldName, field):
-      const boundingOffsets = getFieldBoundingOffsets(T, fieldName)
+      type RecordType = T # Upstream: Workaround type resolution
+      const boundingOffsets = getFieldBoundingOffsets(RecordType, fieldName)
 
       # type FieldType = type field # buggy
       # For some reason, Nim gets confused about the alias here. This could be a

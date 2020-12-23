@@ -110,17 +110,15 @@ template writeField*(w: var SszWriter,
   mixin toSszType
   when ctx is FixedSizedWriterCtx:
     writeFixedSized(w.stream, toSszType(field))
-  else:
-    type FieldType = type toSszType(field)
-
-    when isFixedSize(FieldType):
+  else: # Upstream: type RecordType = type toSszType(field) will crash
+    when isFixedSize(type toSszType(field)):
       writeFixedSized(ctx.fixedParts, toSszType(field))
     else:
       trs "WRITING OFFSET ", ctx.offset, " FOR ", fieldName
       writeOffset(ctx.fixedParts, ctx.offset)
       let initPos = w.stream.pos
-      trs "WRITING VAR SIZE VALUE OF TYPE ", name(FieldType)
-      when FieldType is BitList:
+      trs "WRITING VAR SIZE VALUE OF TYPE ", name(type toSszType(field))
+      when (type toSszType(field)) is BitList:
         trs "BIT SEQ ", bytes(field)
       writeVarSizeType(w, toSszType(field))
       ctx.offset += w.stream.pos - initPos
@@ -164,7 +162,8 @@ proc writeVarSizeType(w: var SszWriter, value: auto) {.raises: [Defect, IOError]
     writeSeq(w, bytes value)
   elif value is object|tuple|array:
     trs "WRITING OBJECT OR ARRAY"
-    var ctx = beginRecord(w, type value)
+    type RecordType = type value # Upstream, alias needed or crash
+    var ctx = beginRecord(w, RecordType)
     enumerateSubFields(value, field):
       writeField w, ctx, astToStr(field), field
     endRecord w, ctx
