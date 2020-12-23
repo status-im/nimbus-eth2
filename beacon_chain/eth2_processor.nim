@@ -294,8 +294,13 @@ proc checkForPotentialSelfSlashing(
   # Attestations remain valid for 32 slots, so avoid confusing with one's own
   # reflections, for a ATTESTATION_PROPAGATION_SLOT_RANGE div SLOTS_PER_EPOCH
   # period after the attestation slot. For mainnet this can be one additional
-  # epoch, and for minimal, four epochs.
-  const GUARD_EPOCHS = ATTESTATION_PROPAGATION_SLOT_RANGE div SLOTS_PER_EPOCH
+  # epoch, and for minimal, four epochs. Unlike in the attestation validation
+  # checks, use the spec version of the constant here.
+  const
+    # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#configuration
+    ATTESTATION_PROPAGATION_SLOT_RANGE = 32
+
+    GUARD_EPOCHS = ATTESTATION_PROPAGATION_SLOT_RANGE div SLOTS_PER_EPOCH
 
   let epoch = wallSlot.epoch
   # Can skip this whole conditional by setting relevant config value to 0
