@@ -24,8 +24,7 @@ import
   ./conf, ./time, ./validator_pool,
   ./attestation_pool, ./exit_pool,
   ./block_pools/[spec_cache, chain_dag, clearance],
-  ./eth2_network, ./eth2_processor, ./keystore_management,
-  ./beacon_node_common,
+  ./eth2_network, ./keystore_management, ./beacon_node_common,
   ./beacon_node_types, ./nimbus_binary_common, ./eth1_monitor, ./version,
   ./ssz/merkleization, ./attestation_aggregation, ./sync_manager, ./sszdump,
   ./validator_slashing_protection
@@ -162,17 +161,8 @@ proc sendAttestation*(
     getAttestationTopic(node.forkDigest, subnet_index), attestation)
 
   # Ensure node's own broadcast attestations end up in its attestation pool
-  let tgtBlck = node.chainDag.getRef(attestation.data.target.root)
-  if not tgtBlck.isNil:
-    let epochRef = node.chainDag.getEpochRef(
-      tgtBlck, attestation.data.target.epoch)
-    node.processor[].processAttestation(eth2_processor.AttestationEntry(
-      v: attestation, attesting_indices: get_attesting_indices(
-        epochRef, attestation.data, attestation.aggregation_bits)))
-  else:
-    # It could come from the validator client or other RPC users, in which case
-    # it shouldn't necessarily be blocked.
-    debug "Sending attestation without corresponding known target block"
+  discard node.processor[].attestationValidator(
+    attestation, subnet_index, false)
 
   beacon_attestations_sent.inc()
 

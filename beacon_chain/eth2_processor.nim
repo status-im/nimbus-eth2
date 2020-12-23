@@ -148,7 +148,7 @@ proc storeBlock(
   beacon_store_block_duration_seconds.observe(duration)
   ok()
 
-proc processAttestation*(
+proc processAttestation(
     self: var Eth2Processor, entry: AttestationEntry) =
   logScope:
     signature = shortLog(entry.v.signature)
@@ -288,7 +288,8 @@ proc blockValidator*(
 proc attestationValidator*(
     self: var Eth2Processor,
     attestation: Attestation,
-    committeeIndex: uint64): ValidationResult =
+    committeeIndex: uint64,
+    checksExpensive: bool = true): ValidationResult =
   logScope:
     attestation = shortLog(attestation)
     committeeIndex
@@ -307,7 +308,7 @@ proc attestationValidator*(
   let delay = wallTime - attestation.data.slot.toBeaconTime
   debug "Attestation received", delay
   let v = self.attestationPool[].validateAttestation(
-      attestation, wallTime, committeeIndex)
+      attestation, wallTime, committeeIndex, checksExpensive)
   if v.isErr():
     debug "Dropping attestation", err = v.error()
     return v.error[0]
