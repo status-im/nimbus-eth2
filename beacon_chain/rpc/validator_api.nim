@@ -149,8 +149,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       get_committee_count_per_slot(epochRef), slot, committee_index).uint8
     if  subnet notin node.attestationSubnets.subscribedSubnets[0] and
         subnet notin node.attestationSubnets.subscribedSubnets[1]:
-      await node.network.subscribe(getAttestationTopic(
-        node.forkDigest, subnet))
+      node.network.subscribe(getAttestationTopic(node.forkDigest, subnet))
 
     # But it might only be in current
     node.attestationSubnets.subscribedSubnets[0].incl subnet

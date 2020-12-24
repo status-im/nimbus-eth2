@@ -1591,11 +1591,11 @@ proc announcedENR*(node: Eth2Node): enr.Record =
 proc shortForm*(id: KeyPair): string =
   $PeerID.init(id.pubkey)
 
-proc subscribe*(node: Eth2Node, topic: string) {.async.} =
+proc subscribe*(node: Eth2Node, topic: string) =
   proc dummyMsgHandler(topic: string, data: seq[byte]) {.async.} =
     discard
 
-  await node.pubsub.subscribe(topic & "_snappy", dummyMsgHandler)
+  node.pubsub.subscribe(topic & "_snappy", dummyMsgHandler)
 
 proc addValidator*[MsgType](node: Eth2Node,
                             topic: string,
@@ -1625,8 +1625,8 @@ proc addValidator*[MsgType](node: Eth2Node,
 
   node.pubsub.addValidator(topic & "_snappy", execValidator)
 
-proc unsubscribe*(node: Eth2Node, topic: string): Future[void] =
-  node.pubsub.unsubscribeAll(topic)
+proc unsubscribe*(node: Eth2Node, topic: string) =
+  node.pubsub.unsubscribeAll(topic & "_snappy")
 
 proc traceMessage(fut: FutureBase, msgId: seq[byte]) =
   fut.addCallback do (arg: pointer):

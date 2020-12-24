@@ -720,11 +720,11 @@ proc run(conf: InspectorConf) {.async.} =
   try:
     for filter in topics:
       for topic in getTopics(forkDigest.get(), filter):
-        await pubsub.subscribe(topic, pubsubTrampoline)
+        pubsub.subscribe(topic, pubsubTrampoline)
         topicFilters.add(topic)
         trace "Subscribed to topic", topic = topic
     for filter in conf.customTopics:
-      await pubsub.subscribe(filter, pubsubTrampoline)
+      pubsub.subscribe(filter, pubsubTrampoline)
       topicFilters.add(filter)
       trace "Subscribed to custom topic", topic = filter
   except CatchableError as exc:
