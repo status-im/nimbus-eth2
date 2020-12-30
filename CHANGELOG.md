@@ -1,3 +1,5 @@
+* ARM and ARM64 binaries are now produced in CI and added to the release
+
 2020-12-16 v1.0.4
 =================
 

@@ -41,8 +41,9 @@ if defined(windows):
 # engineering a more portable binary release, this should be tweaked but still
 # use at least -msse2 or -msse3.
 if defined(disableMarchNative):
-  switch("passC", "-msse3")
-  switch("passL", "-msse3")
+  if defined(i386) or defined(amd64):
+    switch("passC", "-msse3")
+    switch("passL", "-msse3")
 else:
   switch("passC", "-march=native")
   switch("passL", "-march=native")

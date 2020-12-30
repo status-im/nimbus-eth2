@@ -1,0 +1,18 @@
+# This Docker image can change from one build to another, because the upstream
+# Debian/Ubuntu package index is continuously updated and we have to run
+# `apt-get update` in here.
+#
+# The only way to make this a part of our reproducible build system is to build
+# it once, upload it to Docker Hub and make sure it's being pulled regularly so
+# it's not deleted after 6 months of inactivity.
+
+FROM ubuntu:20.04
+
+SHELL ["/bin/bash", "-c"]
+
+ENV DEBIAN_FRONTEND=noninteractive TZ="Etc/UTC"
+RUN apt-get -qq update \
+ && apt-get -qq -y install build-essential git &>/dev/null \
+ && apt-get -qq clean \
+ && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
