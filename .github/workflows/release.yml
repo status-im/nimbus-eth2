@@ -6,21 +6,11 @@ on:
 name: Upload Release Asset
 
 jobs:
-  build:
-    name: Upload Release Asset
+  build-amd64:
+    name: AMD64 release asset
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Build project
-        id: build_linux
-        run: |
-          #echo "::set-output name=tag::"$(echo ${{ github.ref }} | sed 's%refs/tags/%%')
-          #curl -sSOL https://github.com/status-im/nimbus-eth2/archive/$(echo ${{ github.ref }} | sed 's%refs/tags/%%').tar.gz
-          make dist
-          cd dist
-          echo "::set-output name=linux_amd64_archive::"$(echo nimbus-eth2_Linux_amd64_*.tar.gz)
-      - name: Create Release
+      - name: Create release
         id: create_release
         uses: actions/create-release@v1
         env:
@@ -30,22 +20,93 @@ jobs:
           release_name: Release ${{ github.ref }}
           draft: true
           prerelease: false
-      #- name: Upload Release Tarball
-        #uses: actions/upload-release-asset@v1
-        #env:
-          #GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        #with:
-          #upload_url: ${{ steps.create_release.outputs.upload_url }}
-          #asset_path: ${{ steps.build_linux.outputs.tag }}.tar.gz
-          #asset_name: nimbus-eth2-${{ steps.build_linux.outputs.tag }}.tar.gz
-          #asset_content_type: application/gzip
-      - name: Upload Release Asset
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Build project
+        id: make_dist
+        run: |
+          make dist-amd64
+          cd dist
+          echo "::set-output name=linux_amd64_archive::"$(echo nimbus-eth2_Linux_amd64_*.tar.gz)
+      - name: Upload release asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./dist/${{ steps.build_linux.outputs.linux_amd64_archive }}
-          asset_name: ${{ steps.build_linux.outputs.linux_amd64_archive }}
+          asset_path: ./dist/${{ steps.make_dist.outputs.linux_amd64_archive }}
+          asset_name: ${{ steps.make_dist.outputs.linux_amd64_archive }}
+          asset_content_type: application/gzip
+  build-arm64:
+    name: ARM64 release asset
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install packages
+        env:
+          DEBIAN_FRONTEND: "noninteractive"
+          TZ: "Etc/UTC"
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get -qq -y install binfmt-support qemu-user-static
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Build project
+        id: make_dist
+        run: |
+          make dist-arm64
+          cd dist
+          echo "::set-output name=linux_arm64_archive::"$(echo nimbus-eth2_Linux_arm64v8_*.tar.gz)
+      - name: Fetch latest release
+        id: fetch_release
+        uses: jossef/action-latest-release-info@v1.1.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Check version
+        run: |
+          [[ "refs/tags/${{ steps.fetch_release.outputs.tag_name }}" == "${{ github.ref }}" ]]
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.fetch_release.outputs.upload_url }}
+          asset_path: ./dist/${{ steps.make_dist.outputs.linux_arm64_archive }}
+          asset_name: ${{ steps.make_dist.outputs.linux_arm64_archive }}
+          asset_content_type: application/gzip
+  build-arm:
+    name: ARM release asset
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install packages
+        env:
+          DEBIAN_FRONTEND: "noninteractive"
+          TZ: "Etc/UTC"
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get -qq -y install binfmt-support qemu-user-static
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Build project
+        id: make_dist
+        run: |
+          make dist-arm
+          cd dist
+          echo "::set-output name=linux_arm_archive::"$(echo nimbus-eth2_Linux_arm32v7_*.tar.gz)
+      - name: Fetch latest release
+        id: fetch_release
+        uses: jossef/action-latest-release-info@v1.1.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Check version
+        run: |
+          [[ "refs/tags/${{ steps.fetch_release.outputs.tag_name }}" == "${{ github.ref }}" ]]
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.fetch_release.outputs.upload_url }}
+          asset_path: ./dist/${{ steps.make_dist.outputs.linux_arm_archive }}
+          asset_name: ${{ steps.make_dist.outputs.linux_arm_archive }}
           asset_content_type: application/gzip
 

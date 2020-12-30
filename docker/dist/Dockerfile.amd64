@@ -14,5 +14,5 @@ USER user
 STOPSIGNAL SIGINT
 
 COPY "entry_point.sh" "/home/user/"
-ENTRYPOINT ["/home/user/entry_point.sh"]
+ENTRYPOINT ["/home/user/entry_point.sh", "Linux_amd64"]
 

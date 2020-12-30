@@ -5,17 +5,27 @@ set -e
 cd /home/user/nimbus-eth2
 git config --global core.abbrev 8
 
+if [[ -z "${1}" ]]; then
+  echo "Usage: $(basename ${0}) PLATFORM"
+  exit 1
+fi
+PLATFORM="${1}"
 BINARIES="nimbus_beacon_node nimbus_signing_process"
 
 # we need to build everything against libraries available inside this container, including the Nim compiler
 make clean
-make -j$(nproc) LOG_LEVEL="TRACE" NIMFLAGS="-d:disableMarchNative" PARTIAL_STATIC_LINKING=1 ${BINARIES}
+make \
+  -j$(nproc) \
+  LOG_LEVEL="TRACE" \
+  NIMFLAGS="-d:disableMarchNative" \
+  PARTIAL_STATIC_LINKING=1 \
+  QUICK_AND_DIRTY_COMPILER=1 \
+  ${BINARIES}
 
 # archive directory (we need the Nim compiler in here)
-PREFIX="nimbus-eth2_Linux_amd64_"
+PREFIX="nimbus-eth2_${PLATFORM}_"
 GIT_COMMIT="$(git rev-parse --short HEAD)"
 VERSION="$(./env.sh nim --verbosity:0 --hints:off --warnings:off scripts/print_version.nims)"
-#TIMESTAMP="$(date --utc +'%Y%m%d%H%M%S')"
 DIR="${PREFIX}${VERSION}_${GIT_COMMIT}"
 DIST_PATH="dist/${DIR}"
 # delete old artefacts
@@ -38,7 +48,6 @@ done
 sed -e "s/GIT_COMMIT/${GIT_COMMIT}/" docker/dist/README.md > "${DIST_PATH}/README.md"
 cp -a scripts/run-beacon-node.sh "${DIST_PATH}/scripts"
 cp -a ./run-*-beacon-node.sh "${DIST_PATH}/"
-#cp -a docs/the_nimbus_book "${DIST_PATH}/"
 
 # create the tarball
 cd dist
