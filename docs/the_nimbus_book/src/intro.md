@@ -8,7 +8,7 @@ This book explains the ways in which you can use Nimbus to either monitor the et
 
 ### Helpful resources
 
-- [nimbus-eth2 repository](github.com/status-im/nimbus-eth2)
+- [nimbus-eth2 repository](https://github.com/status-im/nimbus-eth2)
 - [eth2 specification](https://github.com/ethereum/eth2.0-specs/tree/v1.0.0#phase-0)
 - [Ben Edgington's annotated spec](https://benjaminion.xyz/eth2-annotated-spec/phase0/beacon-chain/) 
 
