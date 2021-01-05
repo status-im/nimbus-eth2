@@ -14,7 +14,7 @@ type
   PublicKey = keys.PublicKey
 
 export
-  Eth2DiscoveryProtocol, open, start, close, closeWait, randomNodes,
+  Eth2DiscoveryProtocol, open, start, close, closeWait, queryRandom,
     updateRecord, results
 
 proc parseBootstrapAddress*(address: TaintedString):

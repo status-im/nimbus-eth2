@@ -875,53 +875,46 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   let enrField = ("eth2", SSZ.encode(node.forkId))
 
   while true:
-    # We always request constant number of peers to avoid problem with
-    # low amount of returned peers.
-    let discoveredNodes = node.discovery.randomNodes(node.wantedPeers, enrField)
+    if node.peerPool.lenSpace({PeerType.Outgoing}) > 0:
+      var discoveredNodes = await node.discovery.queryRandom(enrField)
+      var newPeers = 0
+      for discNode in discoveredNodes:
+        let res = discNode.toPeerAddr()
+        if res.isOk():
+          let peerAddr = res.get()
+          # Waiting for an empty space in PeerPool.
+          while true:
+            if node.peerPool.lenSpace({PeerType.Outgoing}) == 0:
+              await node.peerPool.waitForEmptySpace(PeerType.Outgoing)
+            else:
+              break
+          # Check if peer present in SeenTable or PeerPool.
+          if node.checkPeer(peerAddr):
+            if peerAddr.peerId notin node.connTable:
+              # We adding to pending connections table here, but going
+              # to remove it only in `connectWorker`.
+              node.connTable.incl(peerAddr.peerId)
+              await node.connQueue.addLast(peerAddr)
+              inc(newPeers)
+        else:
+          debug "Failed to decode discovery's node address",
+                node = discnode, errMsg = res.error
 
-    var newPeers = 0
-    for discNode in discoveredNodes:
-      let res = discNode.toPeerAddr()
-      if res.isOk():
-        let peerAddr = res.get()
-        # Waiting for an empty space in PeerPool.
-        while true:
-          if node.peerPool.lenSpace({PeerType.Outgoing}) == 0:
-            await node.peerPool.waitForEmptySpace(PeerType.Outgoing)
-          else:
-            break
-        # Check if peer present in SeenTable or PeerPool.
-        if node.checkPeer(peerAddr):
-          if peerAddr.peerId notin node.connTable:
-            # We adding to pending connections table here, but going
-            # to remove it only in `connectWorker`.
-            node.connTable.incl(peerAddr.peerId)
-            await node.connQueue.addLast(peerAddr)
-            inc(newPeers)
-      else:
-        debug "Failed to decode discovery's node address",
-              node = discnode, errMsg = res.error
+      debug "Discovery tick", wanted_peers = node.wantedPeers,
+            space = node.peerPool.shortLogSpace(),
+            acquired = node.peerPool.shortLogAcquired(),
+            available = node.peerPool.shortLogAvailable(),
+            current = node.peerPool.shortLogCurrent(),
+            length = len(node.peerPool),
+            discovered_nodes = len(discoveredNodes),
+            new_peers = newPeers
 
-    trace "Discovery tick", wanted_peers = node.wantedPeers,
-          space = node.peerPool.shortLogSpace(),
-          acquired = node.peerPool.shortLogAcquired(),
-          available = node.peerPool.shortLogAvailable(),
-          current = node.peerPool.shortLogCurrent(),
-          length = len(node.peerPool),
-          discovered_nodes = len(discoveredNodes),
-          new_peers = newPeers
-
-    if newPeers == 0:
-      let currentPeers = node.peerPool.lenCurrent()
-      if currentPeers <= node.wantedPeers shr 2: #  25%
-        notice "Peer count low, no new peers discovered",
-          discovered = len(discoveredNodes), new_peers = newPeers,
-          current_peers = currentPeers, wanted_peers = node.wantedPeers
-      elif currentPeers <= node.wantedPeers shr 3: # 12.5 %
-        warn "Peer count low, no new peers discovered",
-          discovered = len(discoveredNodes), new_peers = newPeers,
-          current_peers = currentPeers, wanted_peers = node.wantedPeers
-      await sleepAsync(5.seconds)
+      if newPeers == 0:
+        let currentPeers = node.peerPool.lenCurrent()
+        if currentPeers <= node.wantedPeers shr 2: #  25%
+          warn "Peer count low, no new peers discovered",
+            discovered_nodes = len(discoveredNodes), new_peers = newPeers,
+            current_peers = currentPeers, wanted_peers = node.wantedPeers
     else:
       await sleepAsync(1.seconds)
 
