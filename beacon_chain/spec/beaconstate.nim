@@ -15,6 +15,9 @@ import
   ./crypto, ./datatypes, ./digest, ./helpers, ./signatures, ./validator,
   ../../nbench/bench_lab
 
+# Workaround for the generic sandwich with items(Hashset) 
+export sets, chronicles
+
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#is_valid_merkle_branch
 func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openArray[Eth2Digest],
                              depth: int, index: uint64,
@@ -525,10 +528,11 @@ func get_indexed_attestation[Trust](state: BeaconState, attestation: Attestation
       get_attesting_indices(
         state, attestation.data, attestation.aggregation_bits, cache)
 
+  # Note: this requires exporting items(Hashsets) from here
   IndexedAttestation[Trust](
     attesting_indices:
       List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE].init(
-        sorted(mapIt(attesting_indices.toSeq, it.uint64), system.cmp)),
+        sorted(mapIt(toSeq(attesting_indices), it.uint64), system.cmp)),
     data: attestation.data,
     signature: attestation.signature
   )
