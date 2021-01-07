@@ -1,0 +1,26 @@
+# The build is reproducible only if this base image stays the same.
+FROM statusteam/nimbus_beacon_node:dist_base_20210105215256_arm64@sha256:472b1625f9d0fbdff3edc7543490980e128bef26ca4e7768a5f1b43fbf85e941
+
+SHELL ["/bin/bash", "-c"]
+
+ARG QEMU_NAME
+ARG QEMU_DIR
+
+# We need the host's registered binfmt_misc "interpreter" inside the container,
+# for that transparent virtualisation to work.
+# Don't bother deleting it at the end, because this image is not being pushed to the hub.
+COPY $QEMU_NAME $QEMU_DIR
+
+ARG USER_ID
+ARG GROUP_ID
+
+RUN addgroup --gid ${GROUP_ID} user; \
+	adduser --disabled-password --gecos '' --uid ${USER_ID} --gid ${GROUP_ID} user;
+
+USER user
+
+STOPSIGNAL SIGINT
+
+COPY "entry_point.sh" "/home/user/"
+ENTRYPOINT ["/home/user/entry_point.sh", "Linux_arm64v8"]
+

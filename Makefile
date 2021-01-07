@@ -78,6 +78,9 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	libbacktrace \
 	book \
 	publish-book \
+	dist-amd64 \
+	dist-arm64 \
+	dist-arm \
 	dist \
 	benchmarks
 
@@ -108,7 +111,7 @@ all: | $(TOOLS) libnfuzz.so libnfuzz.a
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
 
 ifeq ($(OS), Windows_NT)
-	# libbacktrace/libunwind is disabled on Windows.
+  # libbacktrace/libunwind is disabled on Windows.
   USE_LIBBACKTRACE := 0
 endif
 
@@ -390,14 +393,22 @@ publish-book: | book auditors-book
 	git worktree remove -f tmp-book && \
 	rm -rf tmp-book
 
-#- we rebuild everything inside the container, so we need to clean up afterwards
+dist-amd64:
+	MAKE="$(MAKE)" \
+		scripts/make_dist.sh amd64
+
+dist-arm64:
+	MAKE="$(MAKE)" \
+		scripts/make_dist.sh arm64
+
+dist-arm:
+	MAKE="$(MAKE)" \
+		scripts/make_dist.sh arm
+
 dist:
-	docker rm nimbus-eth2-dist $(HANDLE_OUTPUT) || true
-	cd docker/dist && \
-		DOCKER_BUILDKIT=1 docker build -t nimbus-eth2-dist --progress=plain --build-arg USER_ID=$$(id -u) --build-arg GROUP_ID=$$(id -g) . && \
-		docker run --rm --name nimbus-eth2-dist -v $(CURDIR):/home/user/nimbus-eth2 nimbus-eth2-dist
-	ls -l dist
-	$(MAKE) clean
+	$(MAKE) dist-amd64
+	$(MAKE) dist-arm64
+	$(MAKE) dist-arm
 
 #- this simple test will show any missing dynamically-linked Glibc symbols in the target distro
 dist-test:
