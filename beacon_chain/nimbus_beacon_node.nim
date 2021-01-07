@@ -1130,7 +1130,7 @@ proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
     validatorsDir,
     config.secretsDir,
     validatorKeyAsStr,
-    config.nonInteractive)
+    config.getKeystoreFlags())
 
   if signingKey.isNone:
     fatal "Unable to continue without decrypted signing key"
