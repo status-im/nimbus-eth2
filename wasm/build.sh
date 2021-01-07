@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Simple build script to produce an Emscripten-based wasm version of the state
 # sim.
