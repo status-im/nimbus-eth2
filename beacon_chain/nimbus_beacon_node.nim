@@ -1499,7 +1499,7 @@ programMain:
 
       importKeystoresFromDir(
         rng[],
-        config.importedDepositsDir.string,
+        validatorKeysDir.string,
         config.validatorsDir, config.getKeystoreFlags())
 
     of DepositsCmd.exit:
