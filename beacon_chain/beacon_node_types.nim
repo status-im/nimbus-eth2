@@ -14,7 +14,7 @@ export block_pools_types, ValidationResult
 
 const
   ATTESTATION_LOOKBACK* =
-    min(4'u64, SLOTS_PER_EPOCH) + MIN_ATTESTATION_INCLUSION_DELAY
+    min(24'u64, SLOTS_PER_EPOCH) + MIN_ATTESTATION_INCLUSION_DELAY
     ## The number of slots we'll keep track of in terms of "free" attestations
     ## that potentially could be added to a newly created block
 
