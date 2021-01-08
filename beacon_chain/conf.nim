@@ -252,7 +252,7 @@ type
 
       duplicateValidator* {.
         defaultValue: "warn"
-        desc: "What to do when another validator is detected to be running the same validator keys (default `warn`, will become `stop` in the future)"
+        desc: "[=warn*|stop] What to do when another validator is detected to be running the same validator keys (default `warn`, will become `stop` in the future)"
         name: "duplicate-validator"
       }: string
 
