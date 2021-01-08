@@ -622,7 +622,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     node.processor[].dupProtection.broadcastStartEpoch)
   if curSlot.epoch < node.processor[].dupProtection.broadcastStartEpoch and
       curSlot.epoch != node.processor[].dupProtection.probeEpoch and
-      node.config.duplicateValidator != "dontcheck":
+      node.config.duplicateValidator == "stop":
     notice "Waiting to gossip out to detect potential duplicate validators",
       broadcastStartEpoch = node.processor[].dupProtection.broadcastStartEpoch,
       probeEpoch = node.processor[].dupProtection.probeEpoch
