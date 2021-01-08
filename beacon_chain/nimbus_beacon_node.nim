@@ -717,7 +717,8 @@ proc startSyncManager(node: BeaconNode) =
 
   node.syncManager = newSyncManager[Peer, PeerID](
     node.network.peerPool, getLocalHeadSlot, getLocalWallSlot,
-    getFirstSlotAtFinalizedEpoch, node.processor.blocksQueue, chunkSize = 32
+    getFirstSlotAtFinalizedEpoch, node.processor.blocksQueue, chunkSize = 32,
+    tolerance_value = 2
   )
   node.syncManager.start()
 
@@ -1539,4 +1540,3 @@ programMain:
       waitFor testWeb3Provider(config.web3TestUrl,
                                depositContractAddress,
                                depositContractDeployedAt)
-
