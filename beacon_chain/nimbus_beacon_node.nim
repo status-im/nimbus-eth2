@@ -516,8 +516,10 @@ proc setupSelfSlashingProtection(node: BeaconNode, slot: Slot) =
   #
   # This approach catches both startup and network outage conditions.
 
+  const duplicateValidatorEpochs = 2
+
   node.processor.dupProtection.broadcastStartEpoch =
-    slot.epoch + node.config.dupProtectionEpochs
+    slot.epoch + duplicateValidatorEpochs
   # randomize() already called; also, never probe on first epoch in guard
   # period, so that existing, running validators can be picked up. Whilst
   # this reduces entropy for overlapping-start cases, and increases their
@@ -526,14 +528,12 @@ proc setupSelfSlashingProtection(node: BeaconNode, slot: Slot) =
   # duplicate pair overlaps exactly, only the running/starting case. Even
   # 2 epochs is dangerous because it'll guarantee colliding probes in the
   # overlapping case.
-  if node.config.dupProtectionEpochs > 1:
-    # So dPE == 2 -> epoch + 1, always; dPE == 3 -> epoch + (1 or 2), etc.
-    node.processor.dupProtection.probeEpoch =
-      slot.epoch + 1 + rand(node.config.dupProtectionEpochs.int - 2).uint64
-    doAssert node.processor.dupProtection.probeEpoch <
-      node.processor.dupProtection.broadcastStartEpoch
-  else:
-    node.processor.dupProtection.probeEpoch = 0.Epoch # don't probe
+
+  # So dPE == 2 -> epoch + 1, always; dPE == 3 -> epoch + (1 or 2), etc.
+  node.processor.dupProtection.probeEpoch =
+    slot.epoch + 1 + rand(duplicateValidatorEpochs.int - 2).uint64
+  doAssert node.processor.dupProtection.probeEpoch <
+    node.processor.dupProtection.broadcastStartEpoch
 
   debug "Setting up self-slashing protection",
     epoch = slot.epoch,

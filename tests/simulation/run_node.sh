@@ -105,6 +105,6 @@ $BEACON_NODE_BIN \
   --metrics \
   --metrics-address="127.0.0.1" \
   --metrics-port="$(( $BASE_METRICS_PORT + $NODE_ID ))" \
-  --dup-protection-epochs=0 \
+  --duplicate-validator=dontcheck \
   ${ADDITIONAL_BEACON_NODE_ARGS} \
   "$@"

@@ -250,15 +250,11 @@ type
         desc: "Write SSZ dumps of blocks, attestations and states to data dir"
         name: "dump" }: bool
 
-      dupProtectionEpochs* {.
-        defaultValue: 0
-        desc: "Number of epochs of gossip to which to listen before broadcasting"
-        name: "dup-protection-epochs" }: uint64
-
-      dupProtectionQuit* {.
-        defaultValue: true
-        desc: "Whether to quit, rather than just disabling validators, if duplicate validators are detected"
-        name: "dup-protection-quit" }: bool
+      duplicateValidator* {.
+        defaultValue: "warn"
+        desc: "What to do when another validator is detected to be running the same validator keys (default `warn`, will become `stop` in the future)"
+        name: "duplicate-validator"
+      }: string
 
     of createTestnet:
       testnetDepositsFile* {.

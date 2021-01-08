@@ -305,10 +305,12 @@ proc checkForPotentialSelfSlashing(
 
     GUARD_EPOCHS = ATTESTATION_PROPAGATION_SLOT_RANGE div SLOTS_PER_EPOCH
 
+  # If duplicateValidator not dontcheck or stop, it's the default "warn". The
+  # dontcheck option's a deliberately undocumented escape hatch for the local
+  # testnets and similar development and testing use cases.
   let epoch = wallSlot.epoch
-  # Can skip this whole conditional by setting relevant config value to 0
-  if epoch < self.dupProtection.broadcastStartEpoch and
-      self.dupProtection.probeEpoch > 0 and
+  if  self.config.duplicateValidator != "dontcheck" and
+      epoch < self.dupProtection.broadcastStartEpoch and
       epoch >= self.dupProtection.probeEpoch and
       epoch <= self.dupProtection.probeEpoch + GUARD_EPOCHS:
     let tgtBlck = self.chainDag.getRef(attestationData.target.root)
@@ -324,7 +326,7 @@ proc checkForPotentialSelfSlashing(
           validatorIndex,
           validatorPubkey
         beacon_duplicate_validator_protection_activated.inc()
-        if self.config.dupProtectionQuit:
+        if self.config.duplicateValidator == "stop":
           quit QuitFailure
 
 proc attestationValidator*(
