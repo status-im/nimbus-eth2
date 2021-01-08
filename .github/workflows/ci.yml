@@ -110,16 +110,14 @@ jobs:
             ARCH=32
             PLATFORM=x86
           fi
-          echo "::set-env name=ARCH::$ARCH"
-          echo "::set-env name=PLATFORM::$PLATFORM"
+          echo "ARCH=$ARCH" >> $GITHUB_ENV
+          echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
 
           # libminiupnp / natpmp
           if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'i386' ]]; then
             export CFLAGS="${CFLAGS} -m32 -mno-adx"
-            echo "::set-env name=CFLAGS::$CFLAGS"
+            echo "CFLAGS=$CFLAGS" >> $GITHUB_ENV
           fi
-        env:
-          ACTIONS_ALLOW_UNSECURE_COMMANDS: true
 
       - name: Install build dependencies (Linux i386)
         if: runner.os == 'Linux' && matrix.target.cpu == 'i386'
@@ -138,9 +136,7 @@ jobs:
           exec $(which g++) -m32 -mno-adx "\$@"
           EOF
           chmod 755 external/bin/gcc external/bin/g++
-          echo '::add-path::${{ github.workspace }}/external/bin'
-        env:
-          ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+          echo "${{ github.workspace }}/external/bin" >> $GITHUB_PATH
 
       - name: Restore MinGW-W64 (Windows) from cache
         if: runner.os == 'Windows'
@@ -184,10 +180,8 @@ jobs:
           runner.os == 'Windows'
         shell: bash
         run: |
-          echo '::add-path::${{ github.workspace }}'"/external/mingw-${{ matrix.target.cpu }}/bin"
-          echo '::add-path::${{ github.workspace }}'"/external/dlls-${{ matrix.target.cpu }}"
-        env:
-          ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+          echo "${{ github.workspace }}/external/mingw-${{ matrix.target.cpu }}/bin" >> $GITHUB_PATH
+          echo "${{ github.workspace }}/external/dlls-${{ matrix.target.cpu }}" >> $GITHUB_PATH
 
       - name: Install build dependencies (MacOS)
         if: runner.os == 'macOS'
