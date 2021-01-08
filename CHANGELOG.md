@@ -1,4 +1,29 @@
-* ARM and ARM64 binaries are now produced in CI and added to the release
+2021-01-09 v1.0.5
+=================
+
+A release bringing reproducible precompiled binaries for ARM devices and
+significant performance improvements.
+
+-----
+
+**New additions:**
+
+* Reproducible build recipe for creating Nimbus Linux binaries intended for
+  ARM devices.
+
+* Improved attestation subnet walking logic bringing significant reductions
+  in bandwidth usage and CPU load.
+
+* Better usage of the Sqlite3 checkpointing API leading to minor performance
+  improvement.
+
+* Larger window for the candidate attestations included in blocks leading
+  to potentially higher block rewards.
+
+**We've fixed:**
+
+* Incorrect `attnets` value announced in ENR records.
+
 
 2020-12-16 v1.0.4
 =================
