@@ -86,8 +86,7 @@ proc addRemoteValidators*(node: BeaconNode) =
                                 connection: ValidatorConnection(
                                   inStream: node.vcProcess.inputStream,
                                   outStream: node.vcProcess.outputStream,
-                                  pubKeyStr: $key),
-                                disabled: false)
+                                  pubKeyStr: $key))
       node.attachedValidators.addRemoteValidator(key, v)
 
 proc getAttachedValidator*(node: BeaconNode,
@@ -419,7 +418,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
 
     for index_in_committee, validatorIdx in committee:
       let validator = node.getAttachedValidator(epochRef, validatorIdx)
-      if validator != nil and not validator.disabled:
+      if validator != nil:
         let ad = makeAttestationData(
           epochRef, attestationHead, committee_index.CommitteeIndex)
         attestations.add((ad, committee.len, index_in_committee, validator))
@@ -467,7 +466,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   let validator =
     node.attachedValidators.getValidator(proposer.get()[1])
 
-  if validator != nil and not validator.disabled:
+  if validator != nil:
     return await proposeBlock(node, validator, proposer.get()[0], head, slot)
 
   debug "Expecting block proposal",
@@ -507,7 +506,7 @@ proc broadcastAggregatedAttestations(
 
     for index_in_committee, validatorIdx in committee:
       let validator = node.getAttachedValidator(epochRef, validatorIdx)
-      if validator != nil and not validator.disabled:
+      if validator != nil:
         # the validator index and private key pair.
         slotSigs.add getSlotSig(validator, fork,
           genesis_validators_root, aggregationSlot)

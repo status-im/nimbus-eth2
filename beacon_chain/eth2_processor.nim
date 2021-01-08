@@ -22,6 +22,9 @@ declareCounter beacon_proposer_slashings_received,
 declareCounter beacon_voluntary_exits_received,
   "Number of beacon chain voluntary exits received by this peer"
 
+declareCounter beacon_duplicate_validator_protection_activated,
+  "Number of times duplicate validator protection was activated"
+
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
 declareHistogram beacon_attestation_delay,
@@ -317,10 +320,10 @@ proc checkForPotentialSelfSlashing(
       let validatorPubkey = epochRef.validator_keys[validatorIndex]
       if self.validatorPool[].getValidator(validatorPubkey) !=
           default(AttachedValidator):
-        self.validatorPool[].disableValidator(validatorPubkey)
-        notice "Found another validator using same public key; would be slashed",
+        warn "Duplicate validator detected; would be slashed",
           validatorIndex,
           validatorPubkey
+        beacon_duplicate_validator_protection_activated.inc()
         if self.config.dupProtectionQuit:
           quit QuitFailure
 
