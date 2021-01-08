@@ -615,13 +615,14 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   var curSlot = lastSlot + 1
 
-  # In general, the default values of 0 are fine
-  doAssert node.processor[].dupProtection.probeEpoch == 0 or (
+  # The dontcheck option's a deliberately undocumented escape hatch for the
+  # local testnets and similar development and testing use cases.
+  doAssert node.config.duplicateValidator == "dontcheck" or (
     node.processor[].dupProtection.probeEpoch <
     node.processor[].dupProtection.broadcastStartEpoch)
   if curSlot.epoch < node.processor[].dupProtection.broadcastStartEpoch and
       curSlot.epoch != node.processor[].dupProtection.probeEpoch and
-      node.processor[].dupProtection.probeEpoch > 0:
+      node.config.duplicateValidator != "dontcheck":
     notice "Waiting to gossip out to detect potential duplicate validators",
       broadcastStartEpoch = node.processor[].dupProtection.broadcastStartEpoch,
       probeEpoch = node.processor[].dupProtection.probeEpoch

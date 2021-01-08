@@ -463,7 +463,7 @@ type
 
   DupProtection* = object
     broadcastStartEpoch*: Epoch
-    probeEpoch*: Epoch # 0 ==> don't probe
+    probeEpoch*: Epoch
 
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
   ($state.validators[validatorIdx].pubkey)[0..7]

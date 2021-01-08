@@ -74,7 +74,6 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("post_v1_validator_aggregate_and_proofs") do (
       payload: SignedAggregateAndProof) -> bool:
     debug "post_v1_validator_aggregate_and_proofs"
-
     node.network.broadcast(node.topicAggregateAndProofs, payload)
     notice "Aggregated attestation sent",
       attestation = shortLog(payload.message.aggregate)
