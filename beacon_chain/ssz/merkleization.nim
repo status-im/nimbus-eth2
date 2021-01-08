@@ -547,6 +547,10 @@ func hashTreeRootAux[T](x: T): Eth2Digest =
     hashTreeRootAux(x.bytes)
   elif T is array|object|tuple:
     trs "MERKLEIZING FIELDS"
+    static: echo "-----------------------"
+    static: echo "hashTreeRoot: "
+    static: echo "  type: ", $T
+    static: echo "-----------------------"
     const totalFields = when T is array: len(x)
                         else: totalSerializedFields(T)
     merkleizeFields(Limit totalFields):
@@ -689,4 +693,3 @@ func hash_tree_root*(x: auto): Eth2Digest {.raises: [Defect].} =
       hashTreeRootAux toSszType(x)
 
   trs "HASH TREE ROOT FOR ", name(type x), " = ", "0x", $result
-
