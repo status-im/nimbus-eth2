@@ -1,3 +1,5 @@
+* bootstrap the Nim compiler with a default number of iterations
+
 2021-01-09 v1.0.5
 =================
 
