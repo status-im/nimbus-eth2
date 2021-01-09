@@ -19,7 +19,6 @@ make \
   LOG_LEVEL="TRACE" \
   NIMFLAGS="-d:disableMarchNative" \
   PARTIAL_STATIC_LINKING=1 \
-  QUICK_AND_DIRTY_COMPILER=1 \
   ${BINARIES}
 
 # archive directory (we need the Nim compiler in here)
