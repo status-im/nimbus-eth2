@@ -616,7 +616,7 @@ proc trackFinalizedState*(chain: var Eth1Chain,
 
   let latest = chain.blocks.peekLast
   if latest.voteData.deposit_count < finalizedEth1Data.deposit_count:
-    debug "Eth1 chain not synced",
+    warn "Eth1 chain not synced",
           ourDepositsCount = latest.voteData.deposit_count,
           targetDepositsCount = finalizedEth1Data.deposit_count
     return false
