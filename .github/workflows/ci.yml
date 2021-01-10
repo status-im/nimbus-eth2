@@ -92,7 +92,8 @@ jobs:
           steps.get_branch.outputs.branch_name != 'master' &&
           steps.get_branch.outputs.branch_name != 'devel' &&
           steps.get_branch.outputs.branch_name != 'stable' &&
-          steps.get_branch.outputs.branch_name != 'unstable'
+          steps.get_branch.outputs.branch_name != 'unstable' &&
+          steps.get_branch.outputs.branch_name != 'testing'
         uses: styfle/cancel-workflow-action@0.5.0
         with:
           access_token: ${{ github.token }}
