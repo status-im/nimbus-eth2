@@ -617,15 +617,17 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   # The dontcheck option's a deliberately undocumented escape hatch for the
   # local testnets and similar development and testing use cases.
-  doAssert node.config.duplicateValidator == "dontcheck" or (
-    node.processor[].dupProtection.probeEpoch <
-    node.processor[].dupProtection.broadcastStartEpoch)
-  if curSlot.epoch < node.processor[].dupProtection.broadcastStartEpoch and
-      curSlot.epoch != node.processor[].dupProtection.probeEpoch and
-      node.config.duplicateValidator == "stop":
+  doAssert node.config.gossipSlashingProtection == "dontcheck" or (
+    node.processor[].gossipSlashingProtection.probeEpoch <
+    node.processor[].gossipSlashingProtection.broadcastStartEpoch)
+  if curSlot.epoch <
+        node.processor[].gossipSlashingProtection.broadcastStartEpoch and
+      curSlot.epoch != node.processor[].gossipSlashingProtection.probeEpoch and
+      node.config.gossipSlashingProtection == "stop":
     notice "Waiting to gossip out to detect potential duplicate validators",
-      broadcastStartEpoch = node.processor[].dupProtection.broadcastStartEpoch,
-      probeEpoch = node.processor[].dupProtection.probeEpoch
+      broadcastStartEpoch =
+        node.processor[].gossipSlashingProtection.broadcastStartEpoch,
+      probeEpoch = node.processor[].gossipSlashingProtection.probeEpoch
     return
 
   # Start by checking if there's work we should have done in the past that we

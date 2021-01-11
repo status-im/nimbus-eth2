@@ -69,7 +69,7 @@ type
     attestationsQueue*: AsyncQueue[AttestationEntry]
     aggregatesQueue*: AsyncQueue[AggregateEntry]
 
-    dupProtection*: DupProtection
+    gossipSlashingProtection*: DupProtection
 
 proc updateHead*(self: var Eth2Processor, wallSlot: Slot) =
   ## Trigger fork choice and returns the new head block.
@@ -305,11 +305,11 @@ proc checkForPotentialSelfSlashing(
 
     GUARD_EPOCHS = ATTESTATION_PROPAGATION_SLOT_RANGE div SLOTS_PER_EPOCH
 
-  # If duplicateValidator not dontcheck or stop, it's the default "warn".
+  # If gossipSlashingProtection not dontcheck or stop, it's the default "warn".
   let epoch = wallSlot.epoch
-  if  epoch < self.dupProtection.broadcastStartEpoch and
-      epoch >= self.dupProtection.probeEpoch and
-      epoch <= self.dupProtection.probeEpoch + GUARD_EPOCHS:
+  if  epoch < self.gossipSlashingProtection.broadcastStartEpoch and
+      epoch >= self.gossipSlashingProtection.probeEpoch and
+      epoch <= self.gossipSlashingProtection.probeEpoch + GUARD_EPOCHS:
     let tgtBlck = self.chainDag.getRef(attestationData.target.root)
     doAssert not tgtBlck.isNil  # because attestation is valid above
 
@@ -323,7 +323,8 @@ proc checkForPotentialSelfSlashing(
           validatorIndex,
           validatorPubkey
         beacon_duplicate_validator_protection_activated.inc()
-        if self.config.duplicateValidator == "stop":
+        if self.config.gossipSlashingProtection == "stop":
+          warn "We believe you are currently running another instance of the same validator. We've disconnected you from the network as this presents a significant slashing risk. Possible next steps are (a) making sure you've disconnected your validator from your old machine before restarting the client; and (b) running the client again with the gossip-slashing-protection option disabled, only if you are absolutely sure this is the only instance of your validator running, and reporting the issue at https://github.com/status-im/nimbus-eth2/issues."
           quit QuitFailure
 
 proc attestationValidator*(

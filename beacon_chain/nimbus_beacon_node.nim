@@ -518,7 +518,7 @@ proc setupSelfSlashingProtection(node: BeaconNode, slot: Slot) =
 
   const duplicateValidatorEpochs = 2
 
-  node.processor.dupProtection.broadcastStartEpoch =
+  node.processor.gossipSlashingProtection.broadcastStartEpoch =
     slot.epoch + duplicateValidatorEpochs
   # randomize() already called; also, never probe on first epoch in guard
   # period, so that existing, running validators can be picked up. Whilst
@@ -530,15 +530,16 @@ proc setupSelfSlashingProtection(node: BeaconNode, slot: Slot) =
   # overlapping case.
 
   # So dPE == 2 -> epoch + 1, always; dPE == 3 -> epoch + (1 or 2), etc.
-  node.processor.dupProtection.probeEpoch =
+  node.processor.gossipSlashingProtection.probeEpoch =
     slot.epoch + 1 + rand(duplicateValidatorEpochs.int - 2).uint64
-  doAssert node.processor.dupProtection.probeEpoch <
-    node.processor.dupProtection.broadcastStartEpoch
+  doAssert node.processor.gossipSlashingProtection.probeEpoch <
+    node.processor.gossipSlashingProtection.broadcastStartEpoch
 
   debug "Setting up self-slashing protection",
     epoch = slot.epoch,
-    probeEpoch = node.processor.dupProtection.probeEpoch,
-    broadcastStartEpoch = node.processor.dupProtection.broadcastStartEpoch
+    probeEpoch = node.processor.gossipSlashingProtection.probeEpoch,
+    broadcastStartEpoch =
+      node.processor.gossipSlashingProtection.broadcastStartEpoch
 
 proc updateGossipStatus(node: BeaconNode, slot: Slot) =
   # Syncing tends to be ~1 block/s, and allow for an epoch of time for libp2p

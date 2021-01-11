@@ -250,10 +250,10 @@ type
         desc: "Write SSZ dumps of blocks, attestations and states to data dir"
         name: "dump" }: bool
 
-      duplicateValidator* {.
+      gossipSlashingProtection* {.
         defaultValue: "warn"
         desc: "[=warn*|stop] What to do when another validator is detected to be running the same validator keys (default `warn`, will become `stop` in the future)"
-        name: "duplicate-validator"
+        name: "gossip-slashing-protection"
       }: string
 
     of createTestnet:
