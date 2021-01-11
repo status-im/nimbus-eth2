@@ -377,6 +377,7 @@ func getStabilitySubnets(stabilitySubnets: auto): set[uint8] =
 
 proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) =
   static: doAssert RANDOM_SUBNETS_PER_VALIDATOR == 1
+  doAssert not node.config.subscribeAllSubnets
 
   # Only know RANDAO mix, which determines shuffling seed, one epoch in
   # advance. When node.chainDag.headState.data.data.slot.epoch is ahead
@@ -441,6 +442,9 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) =
 
 proc getAttestationSubnetHandlers(node: BeaconNode) =
   var initialSubnets: set[uint8]
+  # If/when this stops subscribing to all attestation subnet handlers, the
+  # subscribeAllSubnets implementation needs modification from its current
+  # no-op/exploit-defaults version.
   for i in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
     initialSubnets.incl i
 
@@ -474,14 +478,12 @@ proc getAttestationSubnetHandlers(node: BeaconNode) =
   node.installAttestationSubnetHandlers(initialSubnets)
 
 proc addMessageHandlers(node: BeaconNode) =
-  # As a side-effect, this gets the attestation subnets too.
   node.network.subscribe(node.topicBeaconBlocks, enableTopicMetrics = true)
   node.network.subscribe(getAttesterSlashingsTopic(node.forkDigest))
   node.network.subscribe(getProposerSlashingsTopic(node.forkDigest))
   node.network.subscribe(getVoluntaryExitsTopic(node.forkDigest))
   node.network.subscribe(getAggregateAndProofsTopic(node.forkDigest), enableTopicMetrics = true)
   node.getAttestationSubnetHandlers()
-
 
 func getTopicSubscriptionEnabled(node: BeaconNode): bool =
   node.attestationSubnets.enabled
@@ -548,8 +550,10 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) =
       syncQueueLen
     node.removeMessageHandlers()
 
-  # Subscription or unsubscription might have occurred; recheck.
-  if node.getTopicSubscriptionEnabled:
+  # Subscription or unsubscription might have occurred; recheck. Since Nimbus
+  # initially subscribes to all subnets, simply do not ever cycle attestation
+  # subnets and they'll all remain subscribed.
+  if node.getTopicSubscriptionEnabled and not node.config.subscribeAllSubnets:
     # This exits early all but one call each epoch.
     node.cycleAttestationSubnets(slot)
 
