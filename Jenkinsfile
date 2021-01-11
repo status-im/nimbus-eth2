@@ -1,6 +1,7 @@
 // https://stackoverflow.com/questions/40760716/jenkins-abort-running-build-if-new-one-is-started
-// We should only abort older jobs in PR branches, so we have a nice CI history in "master" and "devel".
-if (env.BRANCH_NAME != "master" && env.BRANCH_NAME != "devel") {
+// We should only abort older jobs in PR branches, so we have a nice CI history in "stable",
+// "testing", and "unstable".
+if (env.BRANCH_NAME != "stable" && env.BRANCH_NAME != "testing" && env.BRANCH_NAME != "unstable") {
 	def buildNumber = env.BUILD_NUMBER as int
 	if (buildNumber > 1) {
 		milestone(buildNumber - 1)
