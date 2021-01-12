@@ -209,16 +209,6 @@ testnet0 testnet1: | nimbus_beacon_node nimbus_signing_process
 		--data-dir=build/data/$@_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
-# Targets for backwards compatibility
-beacon_node: | nimbus_beacon_node
-	cp build/nimbus_beacon_node build/beacon_node
-
-validator_client: | nimbus_validator_client
-	cp build/nimbus_validator_client build/validator_client
-
-signing_process: | nimbus_signing_process
-	cp build/nimbus_signing_process build/signing_process
-
 #- https://www.gnu.org/software/make/manual/html_node/Multi_002dLine.html
 #- macOS doesn't support "=" at the end of "define FOO": https://stackoverflow.com/questions/13260396/gnu-make-3-81-eval-function-not-working
 define CONNECT_TO_NETWORK
