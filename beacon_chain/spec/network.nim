@@ -118,7 +118,6 @@ proc get_attestation_subnet_changes*(
     prevAttestationSubnets: AttestationSubnets):
     tuple[a: AttestationSubnets, b: set[uint8], c: set[uint8]] =
   static: doAssert ATTESTATION_SUBNET_COUNT == 64  # Fits in a set[uint8]
-  doAssert attachedValidators.len > 0
 
   # Guaranteed equivalent to wallSlot by cycleAttestationSubnets(), especially
   # since it'll try to run early in epochs, avoiding race conditions.
