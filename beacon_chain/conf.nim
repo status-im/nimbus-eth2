@@ -115,6 +115,11 @@ type
       desc: "Node agent string which is used as identifier in network"
       name: "agent-string" }: string
 
+    subscribeAllSubnets* {.
+      defaultValue: false,
+      desc: "Subscribe to all attestation subnet topics when gossiping"
+      name: "subscribe-all-subnets" }: bool
+
     case cmd* {.
       command
       defaultValue: noCommand }: BNStartUpCmd
