@@ -435,10 +435,14 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) =
 
   node.installAttestationSubnetHandlers(newSubnets)
 
-  let stabilitySubnets =
-    getStabilitySubnets(node.attestationSubnets.stabilitySubnets)
-  if stabilitySubnets != prevStabilitySubnets:
-    node.updateStabilitySubnetMetadata(stabilitySubnets)
+  if not node.config.subscribeAllSubnets:
+    # In subscribeAllSubnets mode, this only gets set once, at initial subnet
+    # attestation handler creation, since they're all considered as stability
+    # subnets in that case.
+    let stabilitySubnets =
+      getStabilitySubnets(node.attestationSubnets.stabilitySubnets)
+    if stabilitySubnets != prevStabilitySubnets:
+      node.updateStabilitySubnetMetadata(stabilitySubnets)
 
 proc getAttestationSubnetHandlers(node: BeaconNode) =
   var initialSubnets: set[uint8]
@@ -462,7 +466,10 @@ proc getAttestationSubnetHandlers(node: BeaconNode) =
       expiration: wallEpoch + getStabilitySubnetLength())
 
   node.updateStabilitySubnetMetadata(
-    node.attestationSubnets.stabilitySubnets.getStabilitySubnets)
+    if node.config.subscribeAllSubnets:
+      initialSubnets
+    else:
+      node.attestationSubnets.stabilitySubnets.getStabilitySubnets)
 
   # Sets the "current" and "future" attestation subnets. One of these gets
   # replaced by get_attestation_subnet_changes() immediately. Symmetric so
