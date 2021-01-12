@@ -1591,11 +1591,17 @@ proc announcedENR*(node: Eth2Node): enr.Record =
 proc shortForm*(id: KeyPair): string =
   $PeerID.init(id.pubkey)
 
-proc subscribe*(node: Eth2Node, topic: string) =
+proc subscribe*(node: Eth2Node, topic: string, enableTopicMetrics: bool = false) =
   proc dummyMsgHandler(topic: string, data: seq[byte]) {.async.} =
     discard
 
-  node.pubsub.subscribe(topic & "_snappy", dummyMsgHandler)
+  let
+    topicName = topic & "_snappy"
+
+  if enableTopicMetrics:
+    node.pubsub.knownTopics.incl(topicName)
+
+  node.pubsub.subscribe(topicName, dummyMsgHandler)
 
 proc addValidator*[MsgType](node: Eth2Node,
                             topic: string,
