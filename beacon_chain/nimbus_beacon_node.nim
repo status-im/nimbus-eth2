@@ -475,11 +475,11 @@ proc getAttestationSubnetHandlers(node: BeaconNode) =
 
 proc addMessageHandlers(node: BeaconNode) =
   # As a side-effect, this gets the attestation subnets too.
-  node.network.subscribe(node.topicBeaconBlocks)
+  node.network.subscribe(node.topicBeaconBlocks, enableTopicMetrics = true)
   node.network.subscribe(getAttesterSlashingsTopic(node.forkDigest))
   node.network.subscribe(getProposerSlashingsTopic(node.forkDigest))
   node.network.subscribe(getVoluntaryExitsTopic(node.forkDigest))
-  node.network.subscribe(getAggregateAndProofsTopic(node.forkDigest))
+  node.network.subscribe(getAggregateAndProofsTopic(node.forkDigest), enableTopicMetrics = true)
   node.getAttestationSubnetHandlers()
 
 
