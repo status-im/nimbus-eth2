@@ -407,9 +407,6 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) =
         node.chainDag.headState.data.data, validatorIndex.ValidatorIndex) != nil:
       attachedValidators.add validatorIndex.ValidatorIndex
 
-  if attachedValidators.len == 0:
-    return
-
   let (newAttestationSubnets, expiringSubnets, newSubnets) =
     get_attestation_subnet_changes(
       node.chainDag.headState.data.data, attachedValidators,
