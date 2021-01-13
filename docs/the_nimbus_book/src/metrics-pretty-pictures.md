@@ -16,8 +16,14 @@ make NIMFLAGS="-d:insecure" nimbus_beacon_node
 
 > **Note:** Metrics are not included in the binary by default. The `NIMFLAGS="-d:insecure"` is needed because we consider the HTTP server that needs to start to serve the metrics to be insecure (without this flag it won't launch properly). As such, we recommend you make sure port 8008 is protected.
 
+Run the beacon node  with the `--metrics` flag:
 
-Now visit [http://127.0.0.1:8008/metrics](http://127.0.0.1:8008/metrics) to see the raw metrics. You should see a plaintext page that looks something like this:
+```
+./run-pyrmont-beacon-node.sh --metrics
+```
+
+
+And visit [http://127.0.0.1:8008/metrics](http://127.0.0.1:8008/metrics) to see the raw metrics. You should see a plaintext page that looks something like this:
 
 ```
 # HELP nim_runtime_info Nim runtime info
