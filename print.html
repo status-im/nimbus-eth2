@@ -168,7 +168,7 @@
 <h3><a class="header" href="#helpful-resources" id="helpful-resources">Helpful resources</a></h3>
 <ul>
 <li>
-<p><a href="github.com/status-im/nimbus-eth2">nimbus-eth2 repository</a></p>
+<p><a href="https://github.com/status-im/nimbus-eth2">nimbus-eth2 repository</a></p>
 </li>
 <li>
 <p><a href="https://github.com/ethereum/eth2.0-specs/tree/v1.0.0#phase-0">eth2 specification</a></p>
@@ -886,7 +886,7 @@ NOT 2020-11-18 11:20:02.091+01:00 Local validator attached
 <p>For instructions on how to reproduce the build, <a href="https://github.com/status-im/nimbus-eth2/blob/master/docker/dist/README.md#reproducing-the-build">see here</a>.</p>
 <h1><a class="header" href="#troubleshooting" id="troubleshooting">Troubleshooting</a></h1>
 <blockquote>
-<p>⚠️  This page concerns the Pyrmont testnet. If you're running mainnet, replace <code>pyrmont</code> with <code>mainnet</code> in the commands below.</p>
+<p>⚠️  The commands on this page refer to the Pyrmont testnet. If you're running mainnet, replace <code>pyrmont</code> with <code>mainnet</code> in the commands below.</p>
 </blockquote>
 <p>As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the <code>master</code> branch. If you can't find a solution to your problem here, feel free to hit us up on our <a href="https://discord.com/invite/XRxWahP">discord</a>!</p>
 <blockquote>
@@ -936,6 +936,14 @@ build/ncli_db pruneDatabase --db=build/data/shared_pyrmont_0/db --verbose=true
 <p>(You can replace <code>9100</code> with a port of your choosing)</p>
 <h3><a class="header" href="#catching-up-on-validator-duties" id="catching-up-on-validator-duties">Catching up on validator duties</a></h3>
 <p>If you're being flooded with <code>Catching up on validator duties</code> messages, then your CPU is probably too slow to run Nimbus. Please check that your setup matches our <a href="./hardware.html">system requirements</a>.</p>
+<h3><a class="header" href="#local-timer-is-broken-error" id="local-timer-is-broken-error">Local timer is broken error</a></h3>
+<p>If you cannot start your validator because you are seeing logs that look like the following:</p>
+<pre><code>WRN 2021-01-08 06:32:46.975+00:00 Local timer is broken or peer's status information is invalid topics=&quot;beacnde&quot; tid=120491 file=sync_manager.nim:752 wall_clock_slot=271961 remote_head_slot=271962 local_head_slot=269254 peer=16U*mELUgu index=0 tolerance_value=0 peer_speed=2795.0 peer_score=200
+</code></pre>
+<p>This is likely due to the fact that your local clock is off. To compare your local time with a internet time, run:</p>
+<pre><code>cat &lt;/dev/tcp/time.nist.gov/13 ; date -u 
+</code></pre>
+<p>The first line in the output will give you internet time. And the second line will give you the time according to your machine. These shouldn't be more than a second apart.</p>
 <h3><a class="header" href="#eth1-chain-monitor-failure" id="eth1-chain-monitor-failure">Eth1 chain monitor failure</a></h3>
 <p><em>todo</em></p>
 <h1><a class="header" href="#recover-lost-keys-and-generate-new-ones" id="recover-lost-keys-and-generate-new-ones">Recover lost keys and generate new ones</a></h1>
