@@ -1052,7 +1052,10 @@ WantedBy=default.target
 <blockquote>
 <p><strong>Note:</strong> Metrics are not included in the binary by default. The <code>NIMFLAGS=&quot;-d:insecure&quot;</code> is needed because we consider the HTTP server that needs to start to serve the metrics to be insecure (without this flag it won't launch properly). As such, we recommend you make sure port 8008 is protected.</p>
 </blockquote>
-<p>Now visit <a href="http://127.0.0.1:8008/metrics">http://127.0.0.1:8008/metrics</a> to see the raw metrics. You should see a plaintext page that looks something like this:</p>
+<p>Run the beacon node  with the <code>--metrics</code> flag:</p>
+<pre><code>./run-pyrmont-beacon-node.sh --metrics
+</code></pre>
+<p>And visit <a href="http://127.0.0.1:8008/metrics">http://127.0.0.1:8008/metrics</a> to see the raw metrics. You should see a plaintext page that looks something like this:</p>
 <pre><code># HELP nim_runtime_info Nim runtime info
 # TYPE nim_runtime_info gauge
 nim_gc_mem_bytes 6275072.0
