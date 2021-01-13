@@ -468,10 +468,11 @@ proc runQueueProcessingLoop*(self: ref Eth2Processor) {.async.} =
     # on the same thread, we need to make sure that there is steady progress
     # on the networking side or we get long lockups that lead to timeouts.
     #
-    # We cap waiting for an idle slot to 1 second in case there's a lot of
-    # network traffic taking up all CPU - we don't want to _completely_ stop
-    # processing blocks in this case (attestations will get dropped)
-    discard await idleAsync().withTimeout(1.seconds)
+    # We cap waiting for an idle slot in case there's a lot of network traffic
+    # taking up all CPU - we don't want to _completely_ stop processing blocks
+    # in this case (attestations will get dropped) - doing so also allows us
+    # to benefit from more batching / larger network reads when under load.
+    discard await idleAsync().withTimeout(100.milliseconds)
 
     # Avoid one more `await` when there's work to do
     if not (blockFut.finished or aggregateFut.finished or attestationFut.finished):
