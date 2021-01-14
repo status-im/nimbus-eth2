@@ -87,6 +87,34 @@ func deltaDecodeBalances*[T, U](encodedBalances: List[T, U]): HashList[T, U] =
 
   doAssert encodedBalances.len == result.len
 
+func replaceOrAddEncodeEth1Votes[T, U](votes0, votes1: HashList[T, U]):
+    (bool, List[T, U]) =
+  let
+    num_votes0 = votes0.len
+    lower_bound =
+      if  votes1.len < num_votes0 or
+          (num_votes0 > 0 and votes0[num_votes0 - 1] != votes1[num_votes0 - 1]):
+        # EPOCHS_PER_ETH1_VOTING_PERIOD epochs have passed, and
+        # eth1_data_votes has been reset/cleared. Because their
+        # deposit_index counts increase monotonically, it works
+        # to use only the last element for comparison.
+        0
+      else:
+        num_votes0
+
+  result[0] = lower_bound == 0
+  for i in lower_bound ..< votes1.len:
+    result[1].add votes1[i]
+
+func replaceOrAddDecodeEth1Votes[T, U](
+    votes0: var HashList[T, U], eth1_data_votes_replaced: bool,
+    votes1: List[T, U]) =
+  if eth1_data_votes_replaced:
+    votes0 = HashList[T, U]()
+
+  for item in votes1:
+    votes0.add item
+
 func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
   doAssert state1.slot > state0.slot
   doAssert state0.slot.isEpoch
@@ -98,17 +126,18 @@ func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
   doAssert state0.fork == state1.fork
   doAssert state1.historical_roots.len - state0.historical_roots.len in [0, 1]
 
-  let historical_root_added =
-    state0.historical_roots.len != state1.historical_roots.len
+  let
+    historical_root_added =
+      state0.historical_roots.len != state1.historical_roots.len
+    (eth1_data_votes_replaced, eth1_data_votes) =
+      replaceOrAddEncodeEth1Votes(state0.eth1_data_votes, state1.eth1_data_votes)
 
   BeaconStateDiff(
     slot: state1.slot,
     latest_block_header: state1.latest_block_header,
 
-    block_roots: diffModIncEpoch[Eth2Digest, SLOTS_PER_HISTORICAL_ROOT.int64](
-      state1.block_roots, state0.slot.uint64),
-    state_roots: diffModIncEpoch[Eth2Digest, SLOTS_PER_HISTORICAL_ROOT.int64](
-      state1.state_roots, state0.slot.uint64),
+    block_roots: diffModIncEpoch(state1.block_roots, state0.slot.uint64),
+    state_roots: diffModIncEpoch(state1.state_roots, state0.slot.uint64),
     historical_root_added: historical_root_added,
     historical_root:
       if historical_root_added:
@@ -116,12 +145,12 @@ func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
       else:
         default(Eth2Digest),
     eth1_data: state1.eth1_data,
-    eth1_data_votes: state1.eth1_data_votes,
+    eth1_data_votes_replaced: eth1_data_votes_replaced,
+    eth1_data_votes: eth1_data_votes,
     eth1_deposit_index: state1.eth1_deposit_index,
 
     validatorStatuses: getValidatorStatuses(state1),
-    balances: deltaEncodeBalances[uint64, Limit VALIDATOR_REGISTRY_LIMIT](
-      state1.balances),
+    balances: deltaEncodeBalances(state1.balances),
 
     # RANDAO mixes gets updated every block, in place
     randao_mix: state1.randao_mixes[state0.slot.compute_epoch_at_slot.uint64 mod
@@ -145,21 +174,20 @@ func applyDiff*(
   # Carry over unchanged genesis_time, genesis_validators_root, and fork.
   state.latest_block_header = stateDiff.latest_block_header
 
-  applyModIncrement[Eth2Digest, SLOTS_PER_HISTORICAL_ROOT.int64](
-    state.block_roots, stateDiff.block_roots, state.slot.uint64)
-  applyModIncrement[Eth2Digest, SLOTS_PER_HISTORICAL_ROOT.int64](
-    state.state_roots, stateDiff.state_roots, state.slot.uint64)
+  applyModIncrement(state.block_roots, stateDiff.block_roots, state.slot.uint64)
+  applyModIncrement(state.state_roots, stateDiff.state_roots, state.slot.uint64)
   if stateDiff.historical_root_added:
     state.historical_roots.add stateDiff.historical_root
 
   state.eth1_data = stateDiff.eth1_data
-  state.eth1_data_votes = stateDiff.eth1_data_votes
+  replaceOrAddDecodeEth1Votes(
+    state.eth1_data_votes, stateDiff.eth1_data_votes_replaced,
+    stateDiff.eth1_data_votes)
   state.eth1_deposit_index = stateDiff.eth1_deposit_index
 
   applyValidatorIdentities(state.validators, immutableValidators)
   setValidatorStatuses(state.validators, stateDiff.validator_statuses)
-  state.balances = deltaDecodeBalances[uint64, Limit VALIDATOR_REGISTRY_LIMIT](
-    stateDiff.balances)
+  state.balances = deltaDecodeBalances(stateDiff.balances)
 
   # RANDAO mixes gets updated every block, in place, so ensure there's always
   # >=1 value from it

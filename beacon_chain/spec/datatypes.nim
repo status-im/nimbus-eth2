@@ -496,10 +496,9 @@ type
     # Replace
     eth1_data*: Eth1Data
 
-    # Append-or-clear, but initially just replace. It's up to 2048 Eth1Data
-    # objects.
+    eth1_data_votes_replaced*: bool
     eth1_data_votes*:
-      HashList[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
+      List[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
 
     # Replace
     eth1_deposit_index*: uint64
