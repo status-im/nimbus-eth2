@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -375,6 +375,12 @@ func getStabilitySubnets(stabilitySubnets: auto): set[uint8] =
   for subnetInfo in stabilitySubnets:
     result.incl subnetInfo.subnet
 
+proc getAttachedValidators(node: BeaconNode): seq[ValidatorIndex] =
+  for validatorIndex in 0 ..< node.chainDag.headState.data.data.validators.len:
+    if node.getAttachedValidator(
+        node.chainDag.headState.data.data, validatorIndex.ValidatorIndex) != nil:
+      result.add validatorIndex.ValidatorIndex
+
 proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) =
   static: doAssert RANDOM_SUBNETS_PER_VALIDATOR == 1
   doAssert not node.config.subscribeAllSubnets
@@ -401,12 +407,9 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) =
   # important to attest regardless, as those upcoming blocks will hit maximum
   # attestations quickly and any individual attestation's likelihood of being
   # selected is low.
-  let epochParity = wallSlot.epoch mod 2
-  var attachedValidators: seq[ValidatorIndex]
-  for validatorIndex in 0 ..< node.chainDag.headState.data.data.validators.len:
-    if node.getAttachedValidator(
-        node.chainDag.headState.data.data, validatorIndex.ValidatorIndex) != nil:
-      attachedValidators.add validatorIndex.ValidatorIndex
+  let
+    epochParity = wallSlot.epoch mod 2
+    attachedValidators = node.getAttachedValidators()
 
   let (newAttestationSubnets, expiringSubnets, newSubnets) =
     get_attestation_subnet_changes(
@@ -441,26 +444,55 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) =
     if stabilitySubnets != prevStabilitySubnets:
       node.updateStabilitySubnetMetadata(stabilitySubnets)
 
-proc getAttestationSubnetHandlers(node: BeaconNode) =
-  var initialSubnets: set[uint8]
-  # If/when this stops subscribing to all attestation subnet handlers, the
-  # subscribeAllSubnets implementation needs modification from its current
-  # no-op/exploit-defaults version.
-  for i in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
-    initialSubnets.incl i
+proc getInitialAttestationSubnets(node: BeaconNode): set[uint8] =
+  let
+    wallEpoch = node.beaconClock.now().slotOrZero().epoch
+    validator_indices = toHashSet(node.getAttachedValidators())
 
+  template mergeAttestationSubnets(epoch: Epoch) =
+    for (subnetIndex, _) in get_committee_assignments(
+        node.chainDag.headState.data.data, epoch, validator_indices):
+      result.incl subnetIndex
+
+  # Either wallEpoch is 0, in which case it might be pre-genesis, but we only
+  # care about the already-known first two epochs of attestations, or it's in
+  # epoch 0 for real, in which case both are also already known; or wallEpoch
+  # is greater than 0, in which case it's being called from onSlotStart which
+  # has enough state to calculate wallEpoch + {0,1}'s attestations.
+  mergeAttestationSubnets(wallEpoch)
+  mergeAttestationSubnets(wallEpoch + 1)
+
+proc getAttestationSubnetHandlers(node: BeaconNode) =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   # TODO:
   # We might want to reuse the previous stability subnet if not expired when:
   # - Restarting the node with a presistent netkey
   # - When going from synced -> syncing -> synced state
-  let wallEpoch = node.beaconClock.now().slotOrZero().epoch
+
+  template getAllAttestationSubnets(): set[uint8] =
+    var subnets: set[uint8]
+    for i in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
+      subnets.incl i
+    subnets
+
+  let
+    initialSubnets =
+      if node.config.subscribeAllSubnets:
+        getAllAttestationSubnets()
+      else:
+        node.getInitialAttestationSubnets()
+    wallEpoch = node.beaconClock.now().slotOrZero().epoch
+
+  var initialStabilitySubnets: set[uint8]
+
   node.attestationSubnets.stabilitySubnets.setLen(
     node.attachedValidators.count)
   for i in 0 ..< node.attachedValidators.count:
     node.attestationSubnets.stabilitySubnets[i] = (
       subnet: rand(ATTESTATION_SUBNET_COUNT - 1).uint8,
       expiration: wallEpoch + getStabilitySubnetLength())
+    initialStabilitySubnets.incl(
+      node.attestationSubnets.stabilitySubnets[i].subnet)
 
   node.updateStabilitySubnetMetadata(
     if node.config.subscribeAllSubnets:
@@ -478,8 +510,10 @@ proc getAttestationSubnetHandlers(node: BeaconNode) =
 
   debug "Initial attestation subnets subscribed",
      initialSubnets,
+     initialStabilitySubnets,
      wallEpoch
-  node.installAttestationSubnetHandlers(initialSubnets)
+  node.installAttestationSubnetHandlers(
+    initialSubnets + initialStabilitySubnets)
 
 proc addMessageHandlers(node: BeaconNode) =
   node.network.subscribe(node.topicBeaconBlocks, enableTopicMetrics = true)
@@ -857,8 +891,9 @@ proc run*(node: BeaconNode) =
     node.requestManager.start()
     node.startSyncManager()
 
-    node.addMessageHandlers()
-    doAssert node.getTopicSubscriptionEnabled()
+    if not node.beaconClock.now().toSlot().afterGenesis:
+      node.addMessageHandlers()
+      doAssert node.getTopicSubscriptionEnabled()
 
   ## Ctrl+C handling
   proc controlCHandler() {.noconv.} =

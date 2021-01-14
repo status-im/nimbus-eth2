@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -89,10 +89,10 @@ func getAttestationTopic*(forkDigest: ForkDigest, subnetIndex: uint64):
   except ValueError as e:
     raiseAssert e.msg
 
-func get_committee_assignments(
+func get_committee_assignments*(
     state: BeaconState, epoch: Epoch,
     validator_indices: HashSet[ValidatorIndex]):
-    seq[tuple[subnetIndex: uint64, slot: Slot]] =
+    seq[tuple[subnetIndex: uint8, slot: Slot]] =
   var cache = StateCache()
 
   let
@@ -105,7 +105,7 @@ func get_committee_assignments(
       if not disjoint(validator_indices,
           get_beacon_committee(state, slot, idx, cache).toHashSet):
         result.add(
-          (compute_subnet_for_attestation(committees_per_slot, slot, idx),
+          (compute_subnet_for_attestation(committees_per_slot, slot, idx).uint8,
             slot))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
