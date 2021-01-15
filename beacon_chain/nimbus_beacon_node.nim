@@ -1272,7 +1272,8 @@ proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
           echo "The voluntary exit was not submitted successfully. Please try again."
           quit 1
   except CatchableError as err:
-    fatal "Failed to send the signed exit message to the beacon node RPC"
+    fatal "Failed to send the signed exit message to the beacon node RPC",
+           err = err.msg
     quit 1
 
 programMain:

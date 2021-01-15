@@ -386,7 +386,7 @@ type
 
         rpcUrlForExit* {.
           name: "rpc-url"
-          defaultValue: parseUri("wss://localhost:" & $defaultEth2RpcPort)
+          defaultValue: parseUri("http://localhost:" & $defaultEth2RpcPort)
           desc: "URL of the beacon node JSON-RPC service" }: Uri
 
         exitAtEpoch* {.
