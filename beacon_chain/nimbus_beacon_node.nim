@@ -296,6 +296,21 @@ proc init*(T: type BeaconNode,
     topicAggregateAndProofs: topicAggregateAndProofs,
   )
 
+  # set topic validation routine
+  network.setValidTopics(
+    block:
+      var
+        topics = @[
+            topicBeaconBlocks,
+            getAttesterSlashingsTopic(enrForkId.forkDigest),
+            getProposerSlashingsTopic(enrForkId.forkDigest),
+            getVoluntaryExitsTopic(enrForkId.forkDigest),
+            getAggregateAndProofsTopic(enrForkId.forkDigest)
+          ]
+      for subnet in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
+        topics &= getAttestationTopic(enrForkId.forkDigest, subnet)
+      topics)
+
   info "Loading slashing protection database", path = conf.validatorsDir()
   res.attachedValidators = ValidatorPool.init(
     SlashingProtectionDB.init(

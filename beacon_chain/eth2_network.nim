@@ -1,6 +1,6 @@
 import
   # Std lib
-  std/[typetraits, strutils, os, algorithm, math, sets],
+  std/[typetraits, strutils, sequtils, os, algorithm, math, sets],
   std/options as stdOptions,
 
   # Status libs
@@ -74,6 +74,7 @@ type
     forkId: ENRForkID
     rng*: ref BrHmacDrbgContext
     peers*: Table[PeerID, Peer]
+    validTopics: HashSet[string]
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
@@ -1595,6 +1596,14 @@ proc subscribe*(node: Eth2Node, topic: string, enableTopicMetrics: bool = false)
     node.pubsub.knownTopics.incl(topicName)
 
   node.pubsub.subscribe(topicName, dummyMsgHandler)
+
+proc setValidTopics*(node: Eth2Node, topics: openArray[string]) =
+  let topicsSnappy = topics.mapIt(it & "_snappy")
+  node.validTopics = topicsSnappy.toHashSet()
+  # there is a window of time where we got the switch open, we need this lazy update for now
+  node.pubsub.subscriptionValidator =
+    proc(topic: string): bool {.gcsafe, raises: [Defect].} =
+      topic in node.validTopics
 
 proc addValidator*[MsgType](node: Eth2Node,
                             topic: string,
