@@ -626,7 +626,8 @@ proc onSlotEnd(node: BeaconNode, slot, nextSlot: Slot) =
 
   # Checkpoint the database to clear the WAL file and make sure changes in
   # the database are synced with the filesystem.
-  node.db.checkpoint()
+  if slot mod 4 == 0:
+    node.db.checkpoint()
 
   info "Slot end",
     slot = shortLog(slot),
