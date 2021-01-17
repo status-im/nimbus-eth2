@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  std/[os, tables, strutils, strformat, times, math,
+  std/[math, os, strformat, strutils, tables, times,
        terminal, osproc, random],
   system/ansi_c,
 
@@ -390,15 +390,50 @@ func getStabilitySubnets(stabilitySubnets: auto): set[uint8] =
   for subnetInfo in stabilitySubnets:
     result.incl subnetInfo.subnet
 
-proc getAttachedValidators(node: BeaconNode): seq[ValidatorIndex] =
+proc getAttachedValidators(node: BeaconNode): HashSet[ValidatorIndex] =
   for validatorIndex in 0 ..< node.chainDag.headState.data.data.validators.len:
     if node.getAttachedValidator(
         node.chainDag.headState.data.data, validatorIndex.ValidatorIndex) != nil:
-      result.add validatorIndex.ValidatorIndex
+      result.incl validatorIndex.ValidatorIndex
 
-proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) =
-  static: doAssert RANDOM_SUBNETS_PER_VALIDATOR == 1
-  doAssert not node.config.subscribeAllSubnets
+proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) =
+  doAssert epoch >= 1
+  let attachedValidators = node.getAttachedValidators()
+  for (subnetIndex, slot) in get_committee_assignments(
+      node.chainDag.headState.data.data, epoch, attachedValidators):
+    node.attestationSubnets.unsubscribeSlot[subnetIndex] =
+      max(slot + 1, node.attestationSubnets.unsubscribeSlot[subnetIndex])
+    if subnetIndex notin node.attestationSubnets.subscribedSubnets:
+      const SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS = 32
+      node.attestationSubnets.subscribeSlot[subnetIndex] =
+        # Queue upcoming subscription potentially earlier
+        # SLOTS_PER_EPOCH emulates one boundary condition of the per-epoch
+        # cycling mechanism timing buffers
+        min(
+          slot - min(slot.uint64, SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS),
+          node.attestationSubnets.subscribeSlot[subnetIndex])
+
+proc updateStabilitySubnets(node: BeaconNode, slot: Slot): set[uint8] =
+  # Equivalent to wallSlot by cycleAttestationSubnets(), especially
+  # since it'll try to run early in epochs, avoiding race conditions.
+  static: doAssert ATTESTATION_SUBNET_COUNT <= high(uint8)
+  let epoch = slot.epoch
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  for i in 0 ..< node.attestationSubnets.stabilitySubnets.len:
+    if epoch >= node.attestationSubnets.stabilitySubnets[i].expiration:
+      node.attestationSubnets.stabilitySubnets[i].subnet =
+        rand(ATTESTATION_SUBNET_COUNT - 1).uint8
+      node.attestationSubnets.stabilitySubnets[i].expiration =
+        epoch + getStabilitySubnetLength()
+
+    result.incl node.attestationSubnets.stabilitySubnets[i].subnet
+
+proc cycleAttestationSubnetsPerEpoch(
+    node: BeaconNode, wallSlot: Slot, prevStabilitySubnets: set[uint8]):
+    set[uint8] =
+  # Per-epoch portion of subnet cycling: updating stability subnets and
+  # calculating future attestation subnets.
 
   # Only know RANDAO mix, which determines shuffling seed, one epoch in
   # advance. When node.chainDag.headState.data.data.slot.epoch is ahead
@@ -409,11 +444,7 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) =
     debug "Requested attestation subnets too far in advance",
       wallSlot,
       stateSlot = node.chainDag.headState.data.data.slot
-    return
-
-  if node.attestationSubnets.nextCycleEpoch > wallSlot.epoch:
-    return
-  node.attestationSubnets.nextCycleEpoch = wallSlot.epoch + 1
+    return prevStabilitySubnets
 
   # This works so long as at least one block in an epoch provides a basis for
   # calculating the shuffling for the next epoch. It will keep checking for a
@@ -422,52 +453,84 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) =
   # important to attest regardless, as those upcoming blocks will hit maximum
   # attestations quickly and any individual attestation's likelihood of being
   # selected is low.
-  let
-    epochParity = wallSlot.epoch mod 2
-    attachedValidators = node.getAttachedValidators()
+  if node.attestationSubnets.nextCycleEpoch <= wallSlot.epoch:
+    node.updateSubscriptionSchedule(wallSlot.epoch + 1)
+  node.attestationSubnets.nextCycleEpoch = wallSlot.epoch + 1
 
-  let (newAttestationSubnets, expiringSubnets, newSubnets) =
-    get_attestation_subnet_changes(
-      node.chainDag.headState.data.data, attachedValidators,
-      node.attestationSubnets)
+  let stabilitySubnets = node.updateStabilitySubnets(wallSlot)
 
-  let prevStabilitySubnets =
-    getStabilitySubnets(node.attestationSubnets.stabilitySubnets)
-
-  node.attestationSubnets = newAttestationSubnets
-  debug "Attestation subnets",
-    expiring_subnets = expiringSubnets,
-    current_epoch_subnets =
-      node.attestationSubnets.subscribedSubnets[1 - epochParity],
-    upcoming_subnets = node.attestationSubnets.subscribedSubnets[epochParity],
-    new_subnets = newSubnets,
-    epoch = wallSlot.epoch,
-    num_stability_subnets = node.attestationSubnets.stabilitySubnets.len
-
-  block:
-    for expiringSubnet in expiringSubnets:
-      node.network.unsubscribe(getAttestationTopic(node.forkDigest, expiringSubnet))
-
-  node.installAttestationSubnetHandlers(newSubnets)
-
-  if not node.config.subscribeAllSubnets:
+  if  not node.config.subscribeAllSubnets and
+      stabilitySubnets != prevStabilitySubnets:
     # In subscribeAllSubnets mode, this only gets set once, at initial subnet
     # attestation handler creation, since they're all considered as stability
     # subnets in that case.
-    let stabilitySubnets =
-      getStabilitySubnets(node.attestationSubnets.stabilitySubnets)
-    if stabilitySubnets != prevStabilitySubnets:
-      node.updateStabilitySubnetMetadata(stabilitySubnets)
+    node.updateStabilitySubnetMetadata(stabilitySubnets)
 
-proc getInitialAttestationSubnets(node: BeaconNode): set[uint8] =
+  stabilitySubnets
+
+proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) =
+  static: doAssert RANDOM_SUBNETS_PER_VALIDATOR == 1
+  doAssert not node.config.subscribeAllSubnets
+
+  let prevSubscribedSubnets = node.attestationSubnets.subscribedSubnets
+
+  for i in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
+    if i in node.attestationSubnets.subscribedSubnets:
+      if wallSlot >= node.attestationSubnets.unsubscribeSlot[i]:
+        node.attestationSubnets.subscribedSubnets.excl i
+    else:
+      if wallSlot >= node.attestationSubnets.subscribeSlot[i]:
+        node.attestationSubnets.subscribedSubnets.incl i
+
+  let
+    prevStabilitySubnets =
+      getStabilitySubnets(node.attestationSubnets.stabilitySubnets)
+    stabilitySubnets =
+      node.cycleAttestationSubnetsPerEpoch(wallSlot, prevStabilitySubnets)
+
+  # Accounting specific to non-stability subnets
+  for expiringSubnet in
+      prevSubscribedSubnets - node.attestationSubnets.subscribedSubnets:
+    node.attestationSubnets.subscribeSlot[expiringSubnet] = FAR_FUTURE_SLOT
+
+  let
+    prevAllSubnets = prevSubscribedSubnets + prevStabilitySubnets
+    allSubnets = node.attestationSubnets.subscribedSubnets + stabilitySubnets
+    unsubscribedSubnets = prevAllSubnets - allSubnets
+    subscribedSubnets = allSubnets - prevAllSubnets
+
+  for subnet in unsubscribedSubnets:
+    node.network.unsubscribe(
+      getAttestationTopic(node.forkDigest, subnet))
+
+  node.installAttestationSubnetHandlers(subscribedSubnets)
+
+  debug "Attestation subnets",
+    expiringSubnets =
+      prevSubscribedSubnets - node.attestationSubnets.subscribedSubnets,
+    subnets = node.attestationSubnets.subscribedSubnets,
+    newSubnets =
+      node.attestationSubnets.subscribedSubnets - prevSubscribedSubnets,
+    wallSlot,
+    wallEpoch = wallSlot.epoch,
+    num_stability_subnets = node.attestationSubnets.stabilitySubnets.len,
+    expiring_stability_subnets = prevStabilitySubnets - stabilitySubnets,
+    new_stability_subnets = stabilitySubnets - prevStabilitySubnets,
+    subscribedSubnets,
+    unsubscribedSubnets
+
+proc getInitialAttestationSubnets(node: BeaconNode): Table[uint8, Slot] =
   let
     wallEpoch = node.beaconClock.now().slotOrZero().epoch
-    validator_indices = toHashSet(node.getAttachedValidators())
+    validator_indices = node.getAttachedValidators()
 
   template mergeAttestationSubnets(epoch: Epoch) =
-    for (subnetIndex, _) in get_committee_assignments(
+    for (subnetIndex, slot) in get_committee_assignments(
         node.chainDag.headState.data.data, epoch, validator_indices):
-      result.incl subnetIndex
+      if subnetIndex in result:
+        result[subnetIndex] = max(result[subnetIndex], slot + 1)
+      else:
+        result[subnetIndex] = slot + 1
 
   # Either wallEpoch is 0, in which case it might be pre-genesis, but we only
   # care about the already-known first two epochs of attestations, or it's in
@@ -484,10 +547,10 @@ proc getAttestationSubnetHandlers(node: BeaconNode) =
   # - Restarting the node with a presistent netkey
   # - When going from synced -> syncing -> synced state
 
-  template getAllAttestationSubnets(): set[uint8] =
-    var subnets: set[uint8]
+  template getAllAttestationSubnets(): Table[uint8, Slot] =
+    var subnets: Table[uint8, Slot]
     for i in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
-      subnets.incl i
+      subnets[i] = FAR_FUTURE_SLOT
     subnets
 
   let
@@ -511,16 +574,18 @@ proc getAttestationSubnetHandlers(node: BeaconNode) =
 
   node.updateStabilitySubnetMetadata(
     if node.config.subscribeAllSubnets:
-      initialSubnets
+      {0'u8 .. (ATTESTATION_SUBNET_COUNT - 1)}
     else:
       node.attestationSubnets.stabilitySubnets.getStabilitySubnets)
 
-  # Sets the "current" and "future" attestation subnets. One of these gets
-  # replaced by get_attestation_subnet_changes() immediately. Symmetric so
-  # that it's robust to the exact timing of when cycleAttestationSubnets()
-  # first runs, by making that first (effective) swap a no-op.
-  node.attestationSubnets.subscribedSubnets[0] = initialSubnets
-  node.attestationSubnets.subscribedSubnets[1] = initialSubnets
+  for i in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
+    if i in initialSubnets:
+      node.attestationSubnets.subscribedSubnets.incl i
+      node.attestationSubnets.unsubscribeSlot[i] = initialSubnets[i]
+    else:
+      node.attestationSubnets.subscribedSubnets.excl i
+      node.attestationSubnets.subscribeSlot[i] = FAR_FUTURE_SLOT
+
   node.attestationSubnets.enabled = true
 
   debug "Initial attestation subnets subscribed",
@@ -528,7 +593,7 @@ proc getAttestationSubnetHandlers(node: BeaconNode) =
      initialStabilitySubnets,
      wallEpoch
   node.installAttestationSubnetHandlers(
-    initialSubnets + initialStabilitySubnets)
+    node.attestationSubnets.subscribedSubnets + initialStabilitySubnets)
 
 proc addMessageHandlers(node: BeaconNode) =
   node.network.subscribe(node.topicBeaconBlocks, enableTopicMetrics = true)
@@ -542,8 +607,6 @@ func getTopicSubscriptionEnabled(node: BeaconNode): bool =
   node.attestationSubnets.enabled
 
 proc removeMessageHandlers(node: BeaconNode) =
-  node.attestationSubnets.subscribedSubnets[0] = {}
-  node.attestationSubnets.subscribedSubnets[1] = {}
   node.attestationSubnets.enabled = false
   doAssert not node.getTopicSubscriptionEnabled()
 
