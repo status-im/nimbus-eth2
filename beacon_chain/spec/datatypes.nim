@@ -458,7 +458,7 @@ type
     stabilitySubnets*: seq[tuple[subnet: uint8, expiration: Epoch]]
     nextCycleEpoch*: Epoch
 
-    # These function as the states in a state machine per subnet
+    # These encode states in per-subnet state machines
     subscribedSubnets*: set[uint8]
     subscribeSlot*: array[ATTESTATION_SUBNET_COUNT, Slot]
     unsubscribeSlot*: array[ATTESTATION_SUBNET_COUNT, Slot]
