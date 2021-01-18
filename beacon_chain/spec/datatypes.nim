@@ -461,6 +461,71 @@ type
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#validator
+  ValidatorStatus* = object
+    # This is a validator without the expensive, immutable, append-only parts
+
+    effective_balance*: uint64 ##\
+    ## Balance at stake
+
+    slashed*: bool
+
+    # Status epochs
+    activation_eligibility_epoch*: Epoch ##\
+    ## When criteria for activation were met
+
+    activation_epoch*: Epoch
+    exit_epoch*: Epoch
+
+    withdrawable_epoch*: Epoch ##\
+    ## When validator can withdraw or transfer funds
+
+  BeaconStateDiff* = object
+    # Small and/or static; always include
+    slot*: Slot
+    latest_block_header*: BeaconBlockHeader
+
+    # Mod-increment/circular
+    block_roots*: array[SLOTS_PER_EPOCH, Eth2Digest]
+    state_roots*: array[SLOTS_PER_EPOCH, Eth2Digest]
+
+    # Append only; either 0 or 1 per epoch
+    historical_root_added*: bool
+    historical_root*: Eth2Digest
+
+    # Replace
+    eth1_data*: Eth1Data
+
+    eth1_data_votes_replaced*: bool
+    eth1_data_votes*:
+      List[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
+
+    # Replace
+    eth1_deposit_index*: uint64
+
+    # Validators come in two parts, the immutable public key and mutable
+    # entrance/exit/slashed information about that validator.
+    validator_statuses*:
+      List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Represent in full
+    balances*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Mod-increment
+    randao_mix*: Eth2Digest
+    slashing*: uint64
+
+    # To start with, always overwrite, not append
+    previous_epoch_attestations*:
+      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
+    current_epoch_attestations*:
+      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
+
+    justification_bits*: uint8
+    previous_justified_checkpoint*: Checkpoint
+    current_justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+
 func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
   ($state.validators[validatorIdx].pubkey)[0..7]
 
