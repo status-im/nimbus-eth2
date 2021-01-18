@@ -21,7 +21,7 @@ The related base types are:
   - metadata (slot, blockchain state before/after, proposer)
   - merkle hash of the BeaconBlockBody
 - SignedBeaconBlock
-  - BeaconBLock
+  - BeaconBlock
   - + BLS signature
 
 The base types are defined in the Eth2 specs.
