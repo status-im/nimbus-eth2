@@ -120,6 +120,119 @@ proc addResolvedBlock(
       for v in resolved:
         discard addRawBlock(dag, quarantine, v, onBlockAdded)
 
+proc addRawBlockCheckStateTransition(
+       dag: var ChainDAGRef, quarantine: var QuarantineRef,
+       signedBlock: SignedBeaconBlock, cache: var StateCache
+     ): (ValidationResult, BlockError) =
+  ## addRawBlock - Ensure block can be applied on a state
+  let
+    poolPtr = unsafeAddr dag # safe because restore is short-lived
+  func restore(v: var HashedBeaconState) =
+    # TODO address this ugly workaround - there should probably be a
+    #      `state_transition` that takes a `StateData` instead and updates
+    #      the block as well
+    doAssert v.addr == addr poolPtr.clearanceState.data
+    assign(poolPtr.clearanceState, poolPtr.headState)
+
+  if not state_transition(dag.runtimePreset, dag.clearanceState.data, signedBlock,
+                          cache, dag.updateFlags + {slotProcessed}, restore):
+    info "Invalid block"
+
+    return (ValidationResult.Reject, Invalid)
+  return (ValidationResult.Accept, default(BlockError))
+
+proc addRawBlockKnownParent(
+       dag: var ChainDAGRef, quarantine: var QuarantineRef,
+       signedBlock: SignedBeaconBlock,
+       parent: BlockRef,
+       onBlockAdded: OnBlockAdded
+     ): Result[BlockRef, (ValidationResult, BlockError)] =
+  ## addRawBlock - Block has a parent
+
+  if parent.slot >= signedBlock.message.slot:
+    # A block whose parent is newer than the block itself is clearly invalid -
+    # discard it immediately
+    debug "Invalid block slot",
+      parentBlock = shortLog(parent)
+
+    return err((ValidationResult.Reject, Invalid))
+
+  if (parent.slot < dag.finalizedHead.slot) or
+      (parent.slot == dag.finalizedHead.slot and
+        parent != dag.finalizedHead.blck):
+    # We finalized a block that's newer than the parent of this block - this
+    # block, although recent, is thus building on a history we're no longer
+    # interested in pursuing. This can happen if a client produces a block
+    # while syncing - ie it's own head block will be old, but it'll create
+    # a block according to the wall clock, in its own little world - this is
+    # correct - from their point of view, the head block they have is the
+    # latest thing that happened on the chain and they're performing their
+    # duty correctly.
+    debug "Unviable block, dropping",
+      finalizedHead = shortLog(dag.finalizedHead),
+      tail = shortLog(dag.tail)
+
+    return err((ValidationResult.Ignore, Unviable))
+
+  # The block might have been in either of `orphans` or `missing` - we don't
+  # want any more work done on its behalf
+  quarantine.removeOrphan(signedBlock)
+
+  # The block is resolved, now it's time to validate it to ensure that the
+  # blocks we add to the database are clean for the given state
+
+  # TODO if the block is from the future, we should not be resolving it (yet),
+  #      but maybe we should use it as a hint that our clock is wrong?
+  var cache = StateCache()
+  updateStateData(
+    dag, dag.clearanceState, parent.atSlot(signedBlock.message.slot), true, cache)
+  let (valRes, blockErr) = addRawBlockCheckStateTransition(dag, quarantine, signedBlock, cache)
+  if valRes != ValidationResult.Accept:
+    return err((valRes, blockErr))
+
+  # Careful, clearanceState.data has been updated but not blck - we need to
+  # create the BlockRef first!
+  addResolvedBlock(
+    dag, quarantine, dag.clearanceState, signedBlock, parent, cache,
+    onBlockAdded)
+
+  return ok dag.clearanceState.blck
+
+proc addRawBlockUnresolved(
+       dag: var ChainDAGRef,
+       quarantine: var QuarantineRef,
+       signedBlock: SignedBeaconBlock
+     ): Result[BlockRef, (ValidationResult, BlockError)] =
+  ## addRawBlock - Block is unresolved / has no parent
+
+  # This is an unresolved block - add it to the quarantine, which will cause its
+  # parent to be scheduled for downloading
+  if not quarantine.add(dag, signedBlock):
+    debug "Block quarantine full"
+
+  if signedBlock.message.parent_root in quarantine.missing or
+      containsOrphan(quarantine, signedBlock):
+    debug "Unresolved block (parent missing or orphaned)",
+      orphans = quarantine.orphans.len,
+      missing = quarantine.missing.len
+
+    return err((ValidationResult.Ignore, MissingParent))
+
+  # TODO if we receive spam blocks, one heurestic to implement might be to wait
+  #      for a couple of attestations to appear before fetching parents - this
+  #      would help prevent using up network resources for spam - this serves
+  #      two purposes: one is that attestations are likely to appear for the
+  #      block only if it's valid / not spam - the other is that malicious
+  #      validators that are not proposers can sign invalid blocks and send
+  #      them out without penalty - but signing invalid attestations carries
+  #      a risk of being slashed, making attestations a more valuable spam
+  #      filter.
+  debug "Unresolved block (parent missing)",
+    orphans = quarantine.orphans.len,
+    missing = quarantine.missing.len
+
+  return err((ValidationResult.Ignore, MissingParent))
+
 proc addRawBlock*(
        dag: var ChainDAGRef, quarantine: var QuarantineRef,
        signedBlock: SignedBeaconBlock,
@@ -162,94 +275,8 @@ proc addRawBlock*(
   let parent = dag.blocks.getOrDefault(blck.parent_root)
 
   if parent != nil:
-    if parent.slot >= blck.slot:
-      # A block whose parent is newer than the block itself is clearly invalid -
-      # discard it immediately
-      debug "Invalid block slot",
-        parentBlock = shortLog(parent)
-
-      return err((ValidationResult.Reject, Invalid))
-
-    if (parent.slot < dag.finalizedHead.slot) or
-        (parent.slot == dag.finalizedHead.slot and
-          parent != dag.finalizedHead.blck):
-      # We finalized a block that's newer than the parent of this block - this
-      # block, although recent, is thus building on a history we're no longer
-      # interested in pursuing. This can happen if a client produces a block
-      # while syncing - ie it's own head block will be old, but it'll create
-      # a block according to the wall clock, in its own little world - this is
-      # correct - from their point of view, the head block they have is the
-      # latest thing that happened on the chain and they're performing their
-      # duty correctly.
-      debug "Unviable block, dropping",
-        finalizedHead = shortLog(dag.finalizedHead),
-        tail = shortLog(dag.tail)
-
-      return err((ValidationResult.Ignore, Unviable))
-
-    # The block might have been in either of `orphans` or `missing` - we don't
-    # want any more work done on its behalf
-    quarantine.removeOrphan(signedBlock)
-
-    # The block is resolved, now it's time to validate it to ensure that the
-    # blocks we add to the database are clean for the given state
-
-    # TODO if the block is from the future, we should not be resolving it (yet),
-    #      but maybe we should use it as a hint that our clock is wrong?
-    var cache = StateCache()
-    updateStateData(
-      dag, dag.clearanceState, parent.atSlot(blck.slot), true, cache)
-
-    let
-      poolPtr = unsafeAddr dag # safe because restore is short-lived
-    func restore(v: var HashedBeaconState) =
-      # TODO address this ugly workaround - there should probably be a
-      #      `state_transition` that takes a `StateData` instead and updates
-      #      the block as well
-      doAssert v.addr == addr poolPtr.clearanceState.data
-      assign(poolPtr.clearanceState, poolPtr.headState)
-
-    if not state_transition(dag.runtimePreset, dag.clearanceState.data, signedBlock,
-                            cache, dag.updateFlags + {slotProcessed}, restore):
-      info "Invalid block"
-
-      return err((ValidationResult.Reject, Invalid))
-
-    # Careful, clearanceState.data has been updated but not blck - we need to
-    # create the BlockRef first!
-    addResolvedBlock(
-      dag, quarantine, dag.clearanceState, signedBlock, parent, cache,
-      onBlockAdded)
-
-    return ok dag.clearanceState.blck
-
-  # This is an unresolved block - add it to the quarantine, which will cause its
-  # parent to be scheduled for downloading
-  if not quarantine.add(dag, signedBlock):
-    debug "Block quarantine full"
-
-  if blck.parent_root in quarantine.missing or
-      containsOrphan(quarantine, signedBlock):
-    debug "Unresolved block (parent missing or orphaned)",
-      orphans = quarantine.orphans.len,
-      missing = quarantine.missing.len
-
-    return err((ValidationResult.Ignore, MissingParent))
-
-  # TODO if we receive spam blocks, one heurestic to implement might be to wait
-  #      for a couple of attestations to appear before fetching parents - this
-  #      would help prevent using up network resources for spam - this serves
-  #      two purposes: one is that attestations are likely to appear for the
-  #      block only if it's valid / not spam - the other is that malicious
-  #      validators that are not proposers can sign invalid blocks and send
-  #      them out without penalty - but signing invalid attestations carries
-  #      a risk of being slashed, making attestations a more valuable spam
-  #      filter.
-  debug "Unresolved block (parent missing)",
-    orphans = quarantine.orphans.len,
-    missing = quarantine.missing.len
-
-  return err((ValidationResult.Ignore, MissingParent))
+    return addRawBlockKnownParent(dag, quarantine, signedBlock, parent, onBlockAdded)
+  return addRawBlockUnresolved(dag, quarantine, signedBlock)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#beacon_block
 proc isValidBeaconBlock*(
