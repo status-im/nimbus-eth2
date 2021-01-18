@@ -916,8 +916,10 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
           warn "Peer count low, no new peers discovered",
             discovered_nodes = len(discoveredNodes), new_peers = newPeers,
             current_peers = currentPeers, wanted_peers = node.wantedPeers
-    else:
-      await sleepAsync(1.seconds)
+
+    # Discovery `queryRandom` can have a synchronous fast path for example
+    # when no peers are in the routing table. Don't run it in continuous loop.
+    await sleepAsync(1.seconds)
 
 proc getPersistentNetMetadata*(conf: BeaconNodeConf): Eth2Metadata =
   let metadataPath = conf.dataDir / nodeMetadataFilename
