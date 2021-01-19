@@ -1561,6 +1561,18 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
         p.historyGossip = 3
         p.seenTTL = 385.seconds
         p.gossipFactor = 0.05
+        p.directPeers =
+          block:
+            var res = initTable[PeerId, seq[MultiAddress]]()
+            if conf.directPeers.len > 0:
+              for s in conf.directPeers:
+                let
+                  records = s.split("|")
+                  peerId = PeerID.init(records[0]).tryGet()
+                  address = MultiAddress.init(records[1]).tryGet()
+                res.mGetOrPut(peerId, @[]).add(address)
+                info "Adding priviledged direct peer", peerId, address
+            res
         p.validateParameters().tryGet()
         p
     pubsub = GossipSub.init(

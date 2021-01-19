@@ -255,6 +255,10 @@ type
         desc: "Write SSZ dumps of blocks, attestations and states to data dir"
         name: "dump" }: bool
 
+      directPeers* {.
+        desc: "The list of priviledged, secure and known peers to connect and maintain the connection to, this requires a not random netkey-file. In the format of <peer-id>|/ip4/<address>/tcp/<port>"
+        name: "direct-peers" .}: seq[string]
+
     of createTestnet:
       testnetDepositsFile* {.
         desc: "A LaunchPad deposits file for the genesis state validators"
