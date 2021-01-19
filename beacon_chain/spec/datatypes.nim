@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -61,6 +61,7 @@ const
   # Not part of spec. Still useful, pending removing usage if appropriate.
   ZERO_HASH* = Eth2Digest()
   MAX_GRAFFITI_SIZE = 32
+  FAR_FUTURE_SLOT* = (not 0'u64).Slot
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#configuration
   MAXIMUM_GOSSIP_CLOCK_DISPARITY* = 500.millis
@@ -70,6 +71,9 @@ const
 
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
   BASE_REWARDS_PER_EPOCH* = 4
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#misc
+  ATTESTATION_SUBNET_COUNT* = 64
 
   # https://github.com/ethereum/eth2.0-specs/pull/2101
   ATTESTATION_PRODUCTION_DIVISOR* = 3
@@ -451,9 +455,13 @@ type
 
   AttestationSubnets* = object
     enabled*: bool
-    nextCycleEpoch*: Epoch
-    subscribedSubnets*: array[2, set[uint8]]
     stabilitySubnets*: seq[tuple[subnet: uint8, expiration: Epoch]]
+    nextCycleEpoch*: Epoch
+
+    # These encode states in per-subnet state machines
+    subscribedSubnets*: set[uint8]
+    subscribeSlot*: array[ATTESTATION_SUBNET_COUNT, Slot]
+    unsubscribeSlot*: array[ATTESTATION_SUBNET_COUNT, Slot]
 
   # This matches the mutable state of the Solidity deposit contract
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/solidity_deposit_contract/deposit_contract.sol

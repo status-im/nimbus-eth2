@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -145,12 +145,21 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     let
       head = node.doChecksAndGetCurrentHead(epoch)
       epochRef = node.chainDag.getEpochRef(head, epoch)
-    let subnet = compute_subnet_for_attestation(
-      get_committee_count_per_slot(epochRef), slot, committee_index).uint8
-    if  subnet notin node.attestationSubnets.subscribedSubnets[0] and
-        subnet notin node.attestationSubnets.subscribedSubnets[1]:
-      node.network.subscribe(getAttestationTopic(node.forkDigest, subnet))
+      subnet = compute_subnet_for_attestation(
+        get_committee_count_per_slot(epochRef), slot, committee_index).uint8
 
-    # But it might only be in current
-    node.attestationSubnets.subscribedSubnets[0].incl subnet
-    node.attestationSubnets.subscribedSubnets[1].incl subnet
+    # Either subnet already subscribed or not. If not, subscribe. If it is,
+    # extend subscription. All one knows from the API combined with how far
+    # ahead one can check for attestation schedule is that it might be used
+    # for up to the end of next epoch. Therefore, arrange for subscriptions
+    # to last at least that long.
+    if subnet notin node.attestationSubnets.subscribedSubnets:
+      # When to subscribe. Since it's not clear when from the API it's first
+      # needed, do so immediately.
+      node.attestationSubnets.subscribeSlot[subnet] =
+        min(node.attestationSubnets.subscribeSlot[subnet], wallSlot)
+
+    node.attestationSubnets.unsubscribeSlot[subnet] =
+      max(
+        compute_start_slot_at_epoch(epoch + 2),
+        node.attestationSubnets.unsubscribeSlot[subnet])
