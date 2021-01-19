@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[strformat, sets, random],
+  std/[strformat, sets],
   ./datatypes, ./helpers, ./validator
 
 const
@@ -104,8 +104,3 @@ func get_committee_assignments*(
         result.add(
           (compute_subnet_for_attestation(committees_per_slot, slot, idx).uint8,
             slot))
-
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
-proc getStabilitySubnetLength*(): uint64 =
-  EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION +
-    rand(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION.int).uint64

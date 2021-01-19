@@ -1,5 +1,5 @@
 import
-  os, sequtils, strutils, options, json, terminal, random,
+  os, sequtils, strutils, options, json, terminal,
   chronos, chronicles, confutils, stint, json_serialization,
   ../beacon_chain/network_metadata,
   web3, web3/confutils_defs, eth/keys, stew/io2, filepath,

@@ -8,7 +8,7 @@
 import
   # Standard library
   std/[math, os, strformat, strutils, tables, times,
-       terminal, osproc, random],
+       terminal, osproc],
   system/ansi_c,
 
   # Nimble packages
@@ -19,7 +19,7 @@ import
 
   eth/[keys, async_utils],
   eth/db/[kvstore, kvstore_sqlite3],
-  eth/p2p/enode, eth/p2p/discoveryv5/[protocol, enr],
+  eth/p2p/enode, eth/p2p/discoveryv5/[protocol, enr, random2],
 
   # Local modules
   ./rpc/[beacon_api, config_api, debug_api, event_api, nimbus_api, node_api,
@@ -404,7 +404,10 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) =
     node.attestationSubnets.unsubscribeSlot[subnetIndex] =
       max(slot + 1, node.attestationSubnets.unsubscribeSlot[subnetIndex])
     if subnetIndex notin node.attestationSubnets.subscribedSubnets:
-      const SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS = 32
+      # A Pyrmont test validator didn't manage to subscribe in time with
+      # SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS being 32.
+      const SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS = 34
+
       node.attestationSubnets.subscribeSlot[subnetIndex] =
         # Queue upcoming subscription potentially earlier
         # SLOTS_PER_EPOCH emulates one boundary condition of the per-epoch
@@ -412,6 +415,11 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) =
         min(
           slot - min(slot.uint64, SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS),
           node.attestationSubnets.subscribeSlot[subnetIndex])
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+proc getStabilitySubnetLength(node: BeaconNode): uint64 =
+  EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION +
+    node.network.rng[].rand(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION.int).uint64
 
 proc updateStabilitySubnets(node: BeaconNode, slot: Slot): set[uint8] =
   # Equivalent to wallSlot by cycleAttestationSubnets(), especially
@@ -423,9 +431,9 @@ proc updateStabilitySubnets(node: BeaconNode, slot: Slot): set[uint8] =
   for i in 0 ..< node.attestationSubnets.stabilitySubnets.len:
     if epoch >= node.attestationSubnets.stabilitySubnets[i].expiration:
       node.attestationSubnets.stabilitySubnets[i].subnet =
-        rand(ATTESTATION_SUBNET_COUNT - 1).uint8
+        node.network.rng[].rand(ATTESTATION_SUBNET_COUNT - 1).uint8
       node.attestationSubnets.stabilitySubnets[i].expiration =
-        epoch + getStabilitySubnetLength()
+        epoch + node.getStabilitySubnetLength()
 
     result.incl node.attestationSubnets.stabilitySubnets[i].subnet
 
@@ -567,8 +575,8 @@ proc getAttestationSubnetHandlers(node: BeaconNode) =
     node.attachedValidators.count)
   for i in 0 ..< node.attachedValidators.count:
     node.attestationSubnets.stabilitySubnets[i] = (
-      subnet: rand(ATTESTATION_SUBNET_COUNT - 1).uint8,
-      expiration: wallEpoch + getStabilitySubnetLength())
+      subnet: node.network.rng[].rand(ATTESTATION_SUBNET_COUNT - 1).uint8,
+      expiration: wallEpoch + node.getStabilitySubnetLength())
     initialStabilitySubnets.incl(
       node.attestationSubnets.stabilitySubnets[i].subnet)
 
