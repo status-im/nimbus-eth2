@@ -16,6 +16,7 @@ import # Unit test
   ./test_beacon_node,
   ./test_beaconstate,
   ./test_bitseqs,
+  ./test_statediff,
   ./test_block_pool,
   ./test_datatypes,
   ./test_helpers,
