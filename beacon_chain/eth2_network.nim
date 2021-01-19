@@ -1095,6 +1095,7 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
     {"eth2": SSZ.encode(result.forkId), "attnets": SSZ.encode(result.metadata.attnets)},
     rng)
   result.discoveryEnabled = discovery
+  result.rng = rng
 
   newSeq result.protocolStates, allProtocols.len
   for proto in allProtocols:
