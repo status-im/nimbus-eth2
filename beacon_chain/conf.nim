@@ -256,8 +256,8 @@ type
         name: "dump" }: bool
 
       directPeers* {.
-        desc: "The list of priviledged, secure and known peers to connect and maintain the connection to, this requires a not random netkey-file. In the format of <peer-id>|/ip4/<address>/tcp/<port>"
-        name: "direct-peers" .}: seq[string]
+        desc: "The list of priviledged, secure and known peers to connect and maintain the connection to, this requires a not random netkey-file. In the complete multiaddress format like: /ip4/<address>/p2p/<peerId-public-key>/tcp/<port>"
+        name: "direct-peer" .}: seq[string]
 
     of createTestnet:
       testnetDepositsFile* {.

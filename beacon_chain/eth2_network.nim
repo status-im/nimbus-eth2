@@ -10,13 +10,13 @@ import
   faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
   json_serialization, json_serialization/std/[net, options],
   chronos, chronicles, metrics,
-  libp2p/[switch, peerinfo,
+  libp2p/[switch, peerinfo, multicodec,
           multiaddress, crypto/crypto, crypto/secp,
           protocols/identify, protocols/protocol],
   libp2p/muxers/muxer, libp2p/muxers/mplex/mplex,
   libp2p/transports/[transport, tcptransport],
   libp2p/protocols/secure/[secure, noise],
-  libp2p/protocols/pubsub/[pubsub, rpc/message, rpc/messages],
+  libp2p/protocols/pubsub/[pubsub, gossipsub, rpc/message, rpc/messages],
   libp2p/transports/tcptransport,
   libp2p/stream/connection,
   eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
@@ -26,8 +26,6 @@ import
   ssz/ssz_serialization,
   peer_pool, spec/[datatypes, digest, helpers, network], ./time,
   keystore_management
-
-import libp2p/protocols/pubsub/gossipsub
 
 when chronicles.enabledLogLevel == LogLevel.TRACE:
   import std/sequtils
@@ -1567,11 +1565,11 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
             if conf.directPeers.len > 0:
               for s in conf.directPeers:
                 let
-                  records = s.split("|")
-                  peerId = PeerID.init(records[0]).tryGet()
-                  address = MultiAddress.init(records[1]).tryGet()
-                res.mGetOrPut(peerId, @[]).add(address)
-                info "Adding priviledged direct peer", peerId, address
+                  maddress = MultiAddress.init(s).tryGet()
+                  mpeerId = maddress[multiCodec("p2p")].tryGet()
+                  peerId = PeerID.init(mpeerId.protoAddress().tryGet()).tryGet()
+                res.mGetOrPut(peerId, @[]).add(maddress)
+                info "Adding priviledged direct peer", peerId, address = maddress
             res
         p.validateParameters().tryGet()
         p
