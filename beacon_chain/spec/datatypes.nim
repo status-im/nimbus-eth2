@@ -98,6 +98,12 @@ template maxSize*(n: int) {.pragma.}
 #
 # At the moment we only introduce SigVerifiedBeaconBlock
 # and keep the old naming where BeaconBlock == UntrustedbeaconBlock
+# Also for Attestation, IndexedAttestation, AttesterSlashing, ProposerSlashing.
+# We only distinguish between the base version and the Trusted version
+# (i.e. Attestation and TrustedAttestation)
+# The Trusted version, at the moment, implies that the cryptographic signature was checked.
+# It DOES NOT imply that the state transition was verified.
+# Currently the code MUST verify the state transition as soon as the signature is verified
 #
 # TODO We could implement the trust level as either static enums or generic tags
 # and reduce duplication and improve maintenance and readability,
@@ -148,6 +154,9 @@ type
     signed_header_2*: SignedBeaconBlockHeader
 
   TrustedProposerSlashing* = object
+    # The Trusted version, at the moment, implies that the cryptographic signature was checked.
+    # It DOES NOT imply that the state transition was verified.
+    # Currently the code MUST verify the state transition as soon as the signature is verified
     signed_header_1*: TrustedSignedBeaconBlockHeader
     signed_header_2*: TrustedSignedBeaconBlockHeader
 
@@ -157,6 +166,9 @@ type
     attestation_2*: IndexedAttestation
 
   TrustedAttesterSlashing* = object
+    # The Trusted version, at the moment, implies that the cryptographic signature was checked.
+    # It DOES NOT imply that the state transition was verified.
+    # Currently the code MUST verify the state transition as soon as the signature is verified
     attestation_1*: TrustedIndexedAttestation
     attestation_2*: TrustedIndexedAttestation
 
@@ -167,6 +179,9 @@ type
     signature*: ValidatorSig
 
   TrustedIndexedAttestation* = object
+    # The Trusted version, at the moment, implies that the cryptographic signature was checked.
+    # It DOES NOT imply that the state transition was verified.
+    # Currently the code MUST verify the state transition as soon as the signature is verified
     attesting_indices*: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]
     data*: AttestationData
     signature*: TrustedSig
@@ -180,6 +195,9 @@ type
     signature*: ValidatorSig
 
   TrustedAttestation* = object
+    # The Trusted version, at the moment, implies that the cryptographic signature was checked.
+    # It DOES NOT imply that the state transition was verified.
+    # Currently the code MUST verify the state transition as soon as the signature is verified
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
     signature*: TrustedSig
