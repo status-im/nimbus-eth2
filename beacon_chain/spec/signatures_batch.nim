@@ -8,10 +8,15 @@
 {.push raises: [Defect].}
 
 import
+  # Status lib
   blscurve,
+  eth/keys,
+  # Internal
   ../ssz/merkleization,
   ./crypto, ./datatypes, ./helpers, ./presets,
   ./beaconstate
+
+export SignatureSet, BatchedBLSVerifierCache
 
 func addSignatureSet[T](
       sigs: var seq[SignatureSet],
@@ -109,7 +114,11 @@ proc addAttestation(
     return false
   return true
 
-proc collectSignatureSets(sigs: var seq[SignatureSet], signed_block: SignedBeaconBlock, state: BeaconState): bool =
+proc collectSignatureSets*(
+       sigs: var seq[SignatureSet],
+       signed_block: SignedBeaconBlock,
+       state: BeaconState,
+       cache: var StateCache): bool =
   ## Collect all signatures in a single signed block.
   ## This includes
   ## - Block proposer
@@ -219,7 +228,6 @@ proc collectSignatureSets(sigs: var seq[SignatureSet], signed_block: SignedBeaco
 
   # 5. Attestations
   # ----------------------------------------------------
-  var cache = StateCache()
   for i in 0 ..< signed_block.message.body.attestations.len:
     # don't use "items" for iterating over large type
     # due to https://github.com/nim-lang/Nim/issues/14421
@@ -246,3 +254,29 @@ proc collectSignatureSets(sigs: var seq[SignatureSet], signed_block: SignedBeaco
       return false
 
   return true
+
+proc batchVerify*(
+      sigs: openArray[SignatureSet],
+      cache: var BatchedBLSVerifierCache): bool =
+  # Crypto secure HmacDrbg RNG from BearSSL / nim-eth/keys
+  # TODO: We don't need high security for this RNG
+  #       as it is not used for secret generation
+  #       but only to mix non-public data a malicious party
+  #       cannot control.
+  #       We still likely want to use the application RNG instance
+  var rng {.threadvar.}: ref BrHmacDrbgContext
+  var rngInit {.threadvar.}: bool
+  if not rngInit:
+    rng = keys.newRng()
+    rngInit = true
+
+  var secureRandomBytes: array[32, byte]
+  rng[].brHmacDrbgGenerate(secureRandomBytes)
+
+  # TODO: For now only enable serial batch verification
+  return batchVerifySerial(cache, sigs, secureRandomBytes)
+
+proc batchVerify*(sigs: openArray[SignatureSet]): bool =
+  # Don't {.noinit.} this or seq capacity will be != 0.
+  var cache: BatchedBLSVerifierCache
+  batchVerify(sigs, cache)

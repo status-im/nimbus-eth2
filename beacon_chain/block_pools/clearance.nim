@@ -12,7 +12,7 @@ import
   chronicles,
   stew/[assign2, results],
   ../extras, ../time,
-  ../spec/[crypto, datatypes, digest, helpers, signatures, state_transition],
+  ../spec/[crypto, datatypes, digest, helpers, signatures, signatures_batch, state_transition],
   ./block_pools_types, ./chain_dag, ./quarantine
 
 export results
@@ -42,7 +42,7 @@ proc addRawBlock*(
 
 proc addResolvedBlock(
        dag: var ChainDAGRef, quarantine: var QuarantineRef,
-       state: var StateData, signedBlock: SignedBeaconBlock,
+       state: var StateData, signedBlock: SomeSignedBeaconBlock,
        parent: BlockRef, cache: var StateCache,
        onBlockAdded: OnBlockAdded
      ) =
@@ -122,7 +122,7 @@ proc addResolvedBlock(
 
 proc addRawBlockCheckStateTransition(
        dag: var ChainDAGRef, quarantine: var QuarantineRef,
-       signedBlock: SignedBeaconBlock, cache: var StateCache
+       signedBlock: SomeSignedBeaconBlock, cache: var StateCache
      ): (ValidationResult, BlockError) =
   ## addRawBlock - Ensure block can be applied on a state
   let
@@ -181,19 +181,32 @@ proc addRawBlockKnownParent(
   # The block is resolved, now it's time to validate it to ensure that the
   # blocks we add to the database are clean for the given state
 
+
   # TODO if the block is from the future, we should not be resolving it (yet),
   #      but maybe we should use it as a hint that our clock is wrong?
   var cache = StateCache()
   updateStateData(
     dag, dag.clearanceState, parent.atSlot(signedBlock.message.slot), true, cache)
-  let (valRes, blockErr) = addRawBlockCheckStateTransition(dag, quarantine, signedBlock, cache)
+
+  # First batch verify crypto
+  var sigs: seq[SignatureSet]
+  if not sigs.collectSignatureSets(signedBlock, dag.clearanceState.data.data, cache):
+    # A PublicKey or Signature isn't on the BLS12-381 curve
+    return err((ValidationResult.Reject, Invalid))
+  if not batchVerify(sigs, quarantine.sigVerifCache):
+    return err((ValidationResult.Reject, Invalid))
+
+  static: doAssert sizeof(SignedBeaconBlock) == sizeof(SigVerifiedSignedBeaconBlock)
+  let sigVerifBlock = cast[SigVerifiedSignedBeaconBlock](signedBlock)
+
+  let (valRes, blockErr) = addRawBlockCheckStateTransition(dag, quarantine, sigVerifBlock, cache)
   if valRes != ValidationResult.Accept:
     return err((valRes, blockErr))
 
   # Careful, clearanceState.data has been updated but not blck - we need to
   # create the BlockRef first!
   addResolvedBlock(
-    dag, quarantine, dag.clearanceState, signedBlock, parent, cache,
+    dag, quarantine, dag.clearanceState, sigVerifBlock, parent, cache,
     onBlockAdded)
 
   return ok dag.clearanceState.blck

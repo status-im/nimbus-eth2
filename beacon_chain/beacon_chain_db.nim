@@ -320,6 +320,9 @@ proc putBlock*(db: BeaconChainDB, value: SignedBeaconBlock) =
 proc putBlock*(db: BeaconChainDB, value: TrustedSignedBeaconBlock) =
   db.put(subkey(SignedBeaconBlock, value.root), value)
   db.put(subkey(BeaconBlockSummary, value.root), value.message.toBeaconBlockSummary())
+proc putBlock*(db: BeaconChainDB, value: SigVerifiedSignedBeaconBlock) =
+  db.put(subkey(SignedBeaconBlock, value.root), value)
+  db.put(subkey(BeaconBlockSummary, value.root), value.message.toBeaconBlockSummary())
 
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   # TODO prune old states - this is less easy than it seems as we never know

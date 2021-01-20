@@ -13,7 +13,7 @@ import
   # Status libraries
   stew/[endians2, byteutils], chronicles,
   # Internals
-  ../spec/[datatypes, crypto, digest],
+  ../spec/[datatypes, crypto, digest, signatures_batch],
   ../beacon_chain_db, ../extras
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
@@ -64,6 +64,9 @@ type
     missing*: Table[Eth2Digest, MissingBlock] ##\
     ## Roots of blocks that we would like to have (either parent_root of
     ## unresolved blocks or block roots of attestations)
+
+    sigVerifCache*: BatchedBLSVerifierCache ##\
+    ## A cache for batch BLS signature verification contexts
 
     inAdd*: bool
 
@@ -200,7 +203,7 @@ type
       ## has advanced without blocks
 
   OnBlockAdded* = proc(
-    blckRef: BlockRef, blck: SignedBeaconBlock,
+    blckRef: BlockRef, blck: SomeSignedBeaconBlock,
     epochRef: EpochRef, state: HashedBeaconState) {.raises: [Defect], gcsafe.}
 
 template validator_keys*(e: EpochRef): untyped = e.validator_key_store[1][]
