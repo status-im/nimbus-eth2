@@ -65,7 +65,8 @@ WEB3_HELP
   read WEB3_URL
 fi
 
-build/${NBC_BINARY} \
+# Allow the binary to receive signals directly.
+exec build/${NBC_BINARY} \
   --network=${NETWORK} \
   --data-dir="${DATA_DIR}" \
   --log-file="${DATA_DIR}/nbc_bn_$(date +"%Y%m%d%H%M%S").log" \
