@@ -10,6 +10,7 @@
 import
   # Status lib
   blscurve,
+  stew/byteutils,
   eth/keys,
   # Internal
   ../ssz/merkleization,
@@ -17,6 +18,11 @@ import
   ./beaconstate
 
 export SignatureSet, BatchedBLSVerifierCache
+
+func `$`*(s: SignatureSet): string =
+  "(pubkey: 0x" & s.pubkey.toHex() &
+    ", signing_root: 0x" & s.message.toHex() &
+    ", signature: 0x" & s.signature.toHex() & ')'
 
 func addSignatureSet[T](
       sigs: var seq[SignatureSet],
@@ -30,18 +36,21 @@ func addSignatureSet[T](
   ## to a collection of signature sets for batch verification.
   ## Can return false if `signature` wasn't deserialized to a valid BLS signature.
   try:
-    sigs.add((
-      pubkey,
-      compute_signing_root(
+    let signing_root = compute_signing_root(
         sszObj,
         get_domain(
           state.fork, domain,
           epoch,
           state.genesis_validators_root
         )
-      ).data,
+      ).data
+
+    sigs.add((
+      pubkey,
+      signing_root,
       signature.blsValue
     ))
+
     return true
   except FieldError: # bad discriminant when accessing signature.blsValue
     return false
@@ -160,7 +169,7 @@ proc collectSignatureSets*(
   # ----------------------------------------------------
   if not sigs.addSignatureSet(
           pubkey,
-          signed_block.message,
+          epoch,
           signed_block.message.body.randao_reveal,
           state, epoch,
           DOMAIN_RANDAO):
