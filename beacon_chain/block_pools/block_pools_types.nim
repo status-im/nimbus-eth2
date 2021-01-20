@@ -203,7 +203,7 @@ type
       ## has advanced without blocks
 
   OnBlockAdded* = proc(
-    blckRef: BlockRef, blck: SomeSignedBeaconBlock,
+    blckRef: BlockRef, blck: SignedBeaconBlock,
     epochRef: EpochRef, state: HashedBeaconState) {.raises: [Defect], gcsafe.}
 
 template validator_keys*(e: EpochRef): untyped = e.validator_key_store[1][]

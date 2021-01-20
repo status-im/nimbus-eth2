@@ -206,7 +206,9 @@ proc addRawBlockKnownParent(
   # Careful, clearanceState.data has been updated but not blck - we need to
   # create the BlockRef first!
   addResolvedBlock(
-    dag, quarantine, dag.clearanceState, sigVerifBlock, parent, cache,
+    dag, quarantine, dag.clearanceState,
+    signedBlock, # We don't pass the sigVerifBlock here to simplify "onBlockAdded" callback.
+    parent, cache,
     onBlockAdded)
 
   return ok dag.clearanceState.blck
