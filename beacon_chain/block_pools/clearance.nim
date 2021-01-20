@@ -189,12 +189,15 @@ proc addRawBlockKnownParent(
     dag, dag.clearanceState, parent.atSlot(signedBlock.message.slot), true, cache)
 
   # First batch verify crypto
-  var sigs: seq[SignatureSet]
-  if not sigs.collectSignatureSets(signedBlock, dag.clearanceState.data.data, cache):
-    # A PublicKey or Signature isn't on the BLS12-381 curve
-    return err((ValidationResult.Reject, Invalid))
-  if not batchVerify(sigs, quarantine.sigVerifCache):
-    return err((ValidationResult.Reject, Invalid))
+  if skipBLSValidation notin dag.updateFlags:
+    # TODO: remove skipBLSValidation
+
+    var sigs: seq[SignatureSet]
+    if not sigs.collectSignatureSets(signedBlock, dag.clearanceState.data.data, cache):
+      # A PublicKey or Signature isn't on the BLS12-381 curve
+      return err((ValidationResult.Reject, Invalid))
+    if not batchVerify(sigs, quarantine.sigVerifCache):
+      return err((ValidationResult.Reject, Invalid))
 
   static: doAssert sizeof(SignedBeaconBlock) == sizeof(SigVerifiedSignedBeaconBlock)
   let sigVerifBlock = cast[SigVerifiedSignedBeaconBlock](signedBlock)
@@ -254,7 +257,9 @@ proc addRawBlock*(
        onBlockAdded: OnBlockAdded
      ): Result[BlockRef, (ValidationResult, BlockError)] =
   ## Try adding a block to the chain, verifying first that it passes the state
-  ## transition function.
+  ## transition function and contains correct cryptographic signature.
+  ##
+  ## Cryptographic checks can be skipped by adding skipBLSValidation to dag.updateFlags
 
   logScope:
     blck = shortLog(signedBlock.message)

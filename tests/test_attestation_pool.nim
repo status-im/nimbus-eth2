@@ -8,16 +8,20 @@
 {.used.}
 
 import
+  # Standard library
   std/unittest,
+  # Status lib
   chronicles, chronos,
   stew/byteutils,
-  ./testutil, ./testblockutil,
+  # Internal
   ../beacon_chain/spec/[crypto, datatypes, digest, validator, state_transition,
                         helpers, beaconstate, presets, network],
   ../beacon_chain/[
     beacon_node_types, attestation_pool, attestation_aggregation, extras, time],
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
-  ../beacon_chain/block_pools/[chain_dag, clearance]
+  ../beacon_chain/block_pools/[chain_dag, clearance],
+  # Test utilities
+  ./testutil, ./testblockutil
 
 func combine(tgt: var Attestation, src: Attestation) =
   ## Combine the signature and participation bitfield, with the assumption that
@@ -403,6 +407,7 @@ suiteReport "Attestation validation " & preset():
       process_slots(state.data, state.data.data.slot + 1, cache)
 
   wrappedTimedTest "Validation sanity":
+    # TODO: refactor tests to avoid skipping BLS validation
     chainDag.updateFlags.incl {skipBLSValidation}
 
     var
