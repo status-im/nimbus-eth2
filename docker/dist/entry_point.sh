@@ -12,12 +12,13 @@ fi
 PLATFORM="${1}"
 BINARIES="nimbus_beacon_node nimbus_signing_process"
 
-# we need to build everything against libraries available inside this container, including the Nim compiler
+#- we need to build everything against libraries available inside this container, including the Nim compiler
+#- we disable the log file and log colours; the user only has to worry about logging stdout now
 make clean
 make \
   -j$(nproc) \
   LOG_LEVEL="TRACE" \
-  NIMFLAGS="-d:disableMarchNative" \
+  NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none" \
   PARTIAL_STATIC_LINKING=1 \
   ${BINARIES}
 

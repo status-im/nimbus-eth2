@@ -22,22 +22,18 @@
 - [Email notifications](./email-notifications.md)
 - [Graffiti the blockchain](./graffiti.md)
 - [Download binaries](./binaries.md)
+- [Using Docker images](./docker.md)
 - [Troubleshoot](./troubleshooting.md)
 - [Recover / generate keys](./more-keys.md)
-- [Migrate keys to another machine]()
 - [Perform a voluntary exit](./voluntary-exit.md)
 - [Setup a systemd service](./beacon-node-systemd.md)
 
 # Tutorials
 - [Grafana and Prometheus](./metrics-pretty-pictures.md)
 - [Create your own Infura endpoint](./infura-guide.md)
-- [Switch between clients]()
 - [Network stats (testnets only)](./eth2-stats.md)
 
 # Reference
-- [Advanced options]()
-- [Hardware and cloud hosting]()
-- [Windows users]()
 - [API](./api.md)
 - [Command line options](./options.md)
 - [For developers](./developers.md)
