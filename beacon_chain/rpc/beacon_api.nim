@@ -372,7 +372,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       tuple[canonical: bool, header: SignedBeaconBlockHeader]:
     let bd = node.getBlockDataFromBlockId(blockId)
     let tsbb = bd.data
-    result.header.signature = ValidatorSig.init tsbb.signature.data
+    static: doAssert tsbb.signature is TrustedSig and
+              sizeof(ValidatorSig) == sizeof(tsbb.signature)
+    result.header.signature = cast[ValidatorSig](tsbb.signature)
 
     result.header.message.slot = tsbb.message.slot
     result.header.message.proposer_index = tsbb.message.proposer_index

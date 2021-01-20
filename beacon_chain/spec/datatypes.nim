@@ -86,14 +86,14 @@ template maxSize*(n: int) {.pragma.}
 # if the signature and/or transition logic of a
 # a block have been verified:
 #
-# |                            | Signature unchecked             | Signature verified          |                                                    |   |   |
+# |                            | Signature unchecked             | Signature verified          |
 # |----------------------------|-------------------------------  |-----------------------------|
 # | State transition unchecked | - UntrustedBeaconBlock          | - SigVerifiedBeaconBlock    |
 # |                            | - UntrustedIndexedAttestation   | - TrustedIndexedAttestation |
 # |                            | - UntrustedAttestation          | - TrustedAttestation        |
 # |----------------------------|-------------------------------  |-----------------------------|
 # | State transition verified  | - TransitionVerifiedBeaconBlock | - TrustedSignedBeaconBlock  |
-# |                            | - UntrustedIndexedAttestation   | - TrustedIndexedAttestation |                                                                        |   |   |
+# |                            | - UntrustedIndexedAttestation   | - TrustedIndexedAttestation |
 # |                            | - UntrustedAttestation          | - TrustedAttestation        |
 #
 # At the moment we only introduce SigVerifiedBeaconBlock
