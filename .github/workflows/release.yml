@@ -37,6 +37,20 @@ jobs:
           asset_path: ./dist/${{ steps.make_dist.outputs.linux_amd64_archive }}
           asset_name: ${{ steps.make_dist.outputs.linux_amd64_archive }}
           asset_content_type: application/gzip
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push a Docker image for end users
+        run: |
+          cd dist
+          tar -xzf ${{ steps.make_dist.outputs.linux_amd64_archive }}
+          mv nimbus-eth2_Linux_amd64_* ../docker/dist/binaries/nimbus-eth2
+          cd ../docker/dist/binaries
+          DOCKER_BUILDKIT=1 docker build -f Dockerfile.amd64 -t statusim/nimbus-eth2:amd64-${{ github.ref }} -t statusim/nimbus-eth2:amd64-latest .
+          docker push statusim/nimbus-eth2:amd64-${{ github.ref }}
+          docker push statusim/nimbus-eth2:amd64-latest
   build-arm64:
     name: ARM64 release asset
     runs-on: ubuntu-latest
