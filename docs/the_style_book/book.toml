@@ -1,0 +1,11 @@
+[book]
+authors = ["Jacek Sieka"]
+language = "en"
+multilingual = false
+src = "src"
+title = "The Status Nim style guide"
+
+[preprocessor.toc]
+command = "mdbook-toc"
+renderer = ["html"]
+max-level = 2

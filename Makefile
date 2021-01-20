@@ -367,6 +367,10 @@ auditors-book:
 	cd docs/the_auditors_handbook && \
 	mdbook build
 
+style-book:
+	cd docs/the_style_book && \
+	mdbook build
+
 publish-book: | book auditors-book
 	git branch -D gh-pages && \
 	git branch --track gh-pages origin/gh-pages && \
@@ -375,6 +379,7 @@ publish-book: | book auditors-book
 	mkdir -p tmp-book/auditors-book && \
 	cp -a docs/the_nimbus_book/book/* tmp-book/ && \
 	cp -a docs/the_auditors_handbook/book/* tmp-book/auditors-book/ && \
+	cp -a docs/the_style_book/book/* tmp-book/style-book/ && \
 	cd tmp-book && \
 	git add . && { \
 		git commit -m "make publish-book" && \
