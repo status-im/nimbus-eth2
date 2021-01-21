@@ -273,8 +273,8 @@ proc batchVerify*(
   #       but only to mix non-public data a malicious party
   #       cannot control.
   #       We still likely want to use the application RNG instance
-  var rng {.threadvar.}: ref BrHmacDrbgContext
-  var rngInit {.threadvar.}: bool
+  var rng {.global.}: ref BrHmacDrbgContext
+  var rngInit {.global.}: bool
   if not rngInit:
     rng = keys.newRng()
     rngInit = true
