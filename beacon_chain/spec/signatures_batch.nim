@@ -29,7 +29,8 @@ func addSignatureSet[T](
       pubkey: blscurve.PublicKey,
       sszObj: T,
       signature: ValidatorSig,
-      state: BeaconState,
+      genesis_validators_root: Eth2Digest,
+      fork: Fork,
       epoch: Epoch,
       domain: DomainType): bool {.raises: [Defect].}=
   ## Add a new signature set triplet (pubkey, message, signature)
@@ -41,9 +42,9 @@ func addSignatureSet[T](
   let signing_root = compute_signing_root(
       sszObj,
       get_domain(
-        state.fork, domain,
+        fork, domain,
         epoch,
-        state.genesis_validators_root
+        genesis_validators_root
       )
     ).data
 
@@ -82,7 +83,9 @@ proc addIndexedAttestation(
           attestation.aggregateAttesters(state),
           attestation.data,
           attestation.signature,
-          state, attestation.data.target.epoch,
+          state.genesis_validators_root,
+          state.fork,
+          attestation.data.target.epoch,
           DOMAIN_BEACON_ATTESTER):
     return false
   return true
@@ -118,7 +121,9 @@ proc addAttestation(
           attesters,
           attestation.data,
           attestation.signature,
-          state, attestation.data.target.epoch,
+          state.genesis_validators_root,
+          state.fork,
+          attestation.data.target.epoch,
           DOMAIN_BEACON_ATTESTER):
     return false
   return true
@@ -161,7 +166,9 @@ proc collectSignatureSets*(
           pubkey,
           signed_block.message,
           signed_block.signature,
-          state, epoch,
+          state.genesis_validators_root,
+          state.fork,
+          epoch,
           DOMAIN_BEACON_PROPOSER):
     return false
 
@@ -171,7 +178,9 @@ proc collectSignatureSets*(
           pubkey,
           epoch,
           signed_block.message.body.randao_reveal,
-          state, epoch,
+          state.genesis_validators_root,
+          state.fork,
+          epoch,
           DOMAIN_RANDAO):
     return false
 
@@ -194,7 +203,9 @@ proc collectSignatureSets*(
               proposer1.pubkey.toRealPubKey().get().blsValue,
               header_1.message,
               header_1.signature,
-              state, epoch1,
+              state.genesis_validators_root,
+              state.fork,
+              epoch1,
               DOMAIN_BEACON_PROPOSER
             ):
         return false
@@ -208,7 +219,9 @@ proc collectSignatureSets*(
               proposer2.pubkey.toRealPubKey().get().blsValue,
               header_2.message,
               header_2.signature,
-              state, epoch2,
+              state.genesis_validators_root,
+              state.fork,
+              epoch2,
               DOMAIN_BEACON_PROPOSER
             ):
         return false
@@ -258,7 +271,9 @@ proc collectSignatureSets*(
             state.validators[volex.message.validator_index].pubkey.toRealPubKey().get().blsValue,
             volex.message,
             volex.signature,
-            state, volex.message.epoch,
+            state.genesis_validators_root,
+            state.fork,
+            volex.message.epoch,
             DOMAIN_VOLUNTARY_EXIT):
       return false
 
