@@ -35,25 +35,25 @@ func addSignatureSet[T](
   ## Add a new signature set triplet (pubkey, message, signature)
   ## to a collection of signature sets for batch verification.
   ## Can return false if `signature` wasn't deserialized to a valid BLS signature.
-  try:
-    let signing_root = compute_signing_root(
-        sszObj,
-        get_domain(
-          state.fork, domain,
-          epoch,
-          state.genesis_validators_root
-        )
-      ).data
-
-    sigs.add((
-      pubkey,
-      signing_root,
-      signature.blsValue
-    ))
-
-    return true
-  except FieldError: # bad discriminant when accessing signature.blsValue
+  if signature.kind != Real:
     return false
+
+  let signing_root = compute_signing_root(
+      sszObj,
+      get_domain(
+        state.fork, domain,
+        epoch,
+        state.genesis_validators_root
+      )
+    ).data
+
+  sigs.add((
+    pubkey,
+    signing_root,
+    signature.blsValue
+  ))
+
+  return true
 
 proc aggregateAttesters(
       attestation: IndexedAttestation,
