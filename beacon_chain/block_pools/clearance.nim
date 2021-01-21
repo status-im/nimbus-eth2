@@ -28,6 +28,30 @@ export results
 logScope:
   topics = "clearance"
 
+template asSigVerified(x: SignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+  ## This converts a signed beacon block to a sig verified beacon clock.
+  ## This assumes that their bytes representation is the same.
+  ##
+  ## At the GC-level, the GC is type-agnostic it's all type erased so
+  ## casting between seq[Attestation] and seq[TrustedAttestation]
+  ## will not disrupt GC operations.
+  ##
+  ## This SHOULD be used in function calls to avoid expensive temporary.
+  ## see https://github.com/status-im/nimbus-eth2/pull/2250#discussion_r562010679
+  cast[ptr SigVerifiedSignedBeaconBlock](signedBlock.unsafeAddr)[]
+
+template asTrusted(x: SignedBeaconBlock or SigVerifiedBeaconBlock): TrustedSignedBeaconBlock =
+  ## This converts a sigverified beacon block to a trusted beacon clock.
+  ## This assumes that their bytes representation is the same.
+  ##
+  ## At the GC-level, the GC is type-agnostic it's all type erased so
+  ## casting between seq[Attestation] and seq[TrustedAttestation]
+  ## will not disrupt GC operations.
+  ##
+  ## This SHOULD be used in function calls to avoid expensive temporary.
+  ## see https://github.com/status-im/nimbus-eth2/pull/2250#discussion_r562010679
+  cast[ptr TrustedSignedBeaconBlock](signedBlock.unsafeAddr)[]
+
 func getOrResolve*(dag: ChainDAGRef, quarantine: var QuarantineRef, root: Eth2Digest): BlockRef =
   ## Fetch a block ref, or nil if not found (will be added to list of
   ## blocks-to-resolve)
@@ -208,19 +232,16 @@ proc addRawBlockKnownParent(
       return err((ValidationResult.Reject, Invalid))
 
   static: doAssert sizeof(SignedBeaconBlock) == sizeof(SigVerifiedSignedBeaconBlock)
-  let sigVerifBlock = cast[SigVerifiedSignedBeaconBlock](signedBlock)
-
-  let (valRes, blockErr) = addRawBlockCheckStateTransition(dag, quarantine, sigVerifBlock, cache)
+  let (valRes, blockErr) = addRawBlockCheckStateTransition(
+    dag, quarantine, signedBlock.asSigVerified(), cache)
   if valRes != ValidationResult.Accept:
     return err((valRes, blockErr))
-
-  let trustedBlock = cast[TrustedSignedBeaconBlock](signedBlock)
 
   # Careful, clearanceState.data has been updated but not blck - we need to
   # create the BlockRef first!
   addResolvedBlock(
     dag, quarantine, dag.clearanceState,
-    trustedBlock, # We don't pass the sigVerifBlock here to simplify "onBlockAdded" callback.
+    signedBlock.asTrusted(),
     parent, cache,
     onBlockAdded)
 
