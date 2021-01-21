@@ -186,6 +186,10 @@ proc collectSignatureSets*(
 
   # 3. Proposer slashings
   # ----------------------------------------------------
+  # Denial-of-service:
+  #   SSZ deserialization guarantees that blocks received from random sources
+  #   including peer or RPC
+  #   have at most MAX_PROPOSER_SLASHINGS proposer slashings.
   for i in 0 ..< signed_block.message.body.proposer_slashings.len:
     # don't use "items" for iterating over large type
     # due to https://github.com/nim-lang/Nim/issues/14421
@@ -228,6 +232,10 @@ proc collectSignatureSets*(
 
   # 4. Attester slashings
   # ----------------------------------------------------
+  # Denial-of-service:
+  #   SSZ deserialization guarantees that blocks received from random sources
+  #   including peer or RPC
+  #   have at most MAX_ATTESTER_SLASHINGS attester slashings.
   for i in 0 ..< signed_block.message.body.attester_slashings.len:
     # don't use "items" for iterating over large type
     # due to https://github.com/nim-lang/Nim/issues/14421
@@ -250,6 +258,10 @@ proc collectSignatureSets*(
 
   # 5. Attestations
   # ----------------------------------------------------
+  # Denial-of-service:
+  #   SSZ deserialization guarantees that blocks received from random sources
+  #   including peer or RPC
+  #   have at most MAX_ATTESTATIONS attestations.
   for i in 0 ..< signed_block.message.body.attestations.len:
     # don't use "items" for iterating over large type
     # due to https://github.com/nim-lang/Nim/issues/14421
@@ -261,6 +273,10 @@ proc collectSignatureSets*(
 
   # 6. VoluntaryExits
   # ----------------------------------------------------
+  # Denial-of-service:
+  #   SSZ deserialization guarantees that blocks received from random sources
+  #   including peer or RPC
+  #   have at most MAX_VOLUNTARY_EXITS voluntary exits.
   for i in 0 ..< signed_block.message.body.voluntary_exits.len:
     # don't use "items" for iterating over large type
     # due to https://github.com/nim-lang/Nim/issues/14421

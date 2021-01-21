@@ -28,6 +28,18 @@ The base types are defined in the Eth2 specs.
 On top, Nimbus builds new types to represent the level of trust and validation we have with regards to each BeaconBlock.
 Those types allow the Nim compiler to help us ensure proper usage at compile-time and zero runtime cost.
 
+### BeaconBlocks
+
+Those are spec-defined types.
+
+On deserialization the SSZ code guarantees that BeaconBlock are correctly max-sized
+according to:
+- MAX_PROPOSER_SLASHINGS
+- MAX_ATTESTER_SLASHINGS
+- MAX_ATTESTATIONS
+- MAX_DEPOSITS
+- MAX_VOLUNTARY_EXITS
+
 ### TrustedBeaconBlocks
 
 A block that has been fully checked to be sound
