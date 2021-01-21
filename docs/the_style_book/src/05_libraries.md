@@ -91,7 +91,7 @@ Prefer building the library on-the-fly from source using `{.compile.}`. Pin the 
 * Constrains platform support
 * Nim and `nimble` tooling poorly supports 3rd-party build systems making installation difficult
 * Nim `C++` support immature - `C++` langauge unsuitable for interop
-* Using `{.compile.}` increases build times
+* Using `{.compile.}` increases build times, specially for multi-binary projects - use judiciously for large dependencies
 
 ### Practical notes
 
@@ -122,11 +122,11 @@ Use the Nim standard library judiciously. Prefer smaller, separate packages that
 
 ### Cons
 
-* many modules in the standard library are unmaintained and don't use the state of the are features of nim
+* large, monolithic releases make upgrading difficult - bugs, fixes and improvements are released together causing unnecessary upgrade churn
+* many modules in the standard library are unmaintained and don't use state-of-the-art features of Nim
 * long lead times for getting fixes and improvements to market
 * often not tailored for specific use cases
 * stability and backwards compatibility requirements prevent fixing poor and unsafe API
-* large, monolithic releases make upgrading difficult - bugs, fixes and improvements are released together causing unnecessary upgrade churn
 
 ### Practical notes
 
@@ -149,5 +149,9 @@ If similar libraries exist in nim stdlib and stew, prefer [stew](https://github.
 
 ### Cons
 
-* Community split
+* Less code reuse across community
 * More dependencies that are not part of nim standard distribution
+
+### Practical notes
+
+`nim-stew` exists as a staging area for code that could be considered for future inclusion in the standard library or a separate package, but has not yet been fully fleshed out as a separate and complete library.

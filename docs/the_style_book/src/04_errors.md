@@ -20,7 +20,7 @@ Prefer the use of `Result` when multiple failure paths exist and the calling cod
 
 Raise `Defect` to signal panics such as logic errors or prerequisites being violated.
 
-Make error handling explicit and visible at call site using explicit control flow (`if`, `try`), `results.?`.
+Make error handling explicit and visible at call site using explicit control flow (`if`, `try`, `results.?`).
 
 Handle errors at each abstraction level, avoiding spurious abstraction leakage.
 
@@ -62,19 +62,27 @@ type SomeError = object of CatchableError
 # a call stack - name `XxxDefect`
 type SomeDefect = object of Defect
 
-# Sometimes a hierarchy is used, but it's unclear for what purpose since most catch code doesn't know the specific types as they come from deep layers
+# Sometimes a hierarchy is used, but it's unclear for what purpose since most
+# catch code doesn't know the specific types as they come from deep layers
 type SomeDerivedError = object of SomeError
 
 # Isolate code that may generate exceptions using expression-based try:
-let x = try: ...
-        except CatchableError as exc: ...
+let x =
+  try: ...
+  except CatchableError as exc: ...
+
+# Be careful to catch excpetions inside loops, to avoid partial loop evaluations:
+for x in y:
+  try:..
+  except CatchableError: ..
 ```
 
 #### Pros
 
 * Used by `Nim` standard library
 * Good for quick prototyping without error handling
-* Preserves RVO optimisations
+* Good performance on happy path without `try`
+  * Compatible with RVO
 
 #### Cons
 
@@ -100,7 +108,9 @@ let x = try: ...
 
 ### Practical notes
 
-The use of exceptions in some modules has significantly contributed to resource leaks, deadlocks and other difficult bugs.
+The use of exceptions in some modules has significantly contributed to resource leaks, deadlocks and other difficult bugs. The various exception handling proposals aim to alleviate some of the issues but have not found sufficient grounding in the Nim community to warrant the language changes necessary to proceed.
+
+A notable exception to the guideline is `chronos` and `async`/`await` transformations that lack support for propagating checked exception information.
 
 ### Open questions
 
@@ -117,6 +127,7 @@ The use of exceptions in some modules has significantly contributed to resource 
 
 ### Background
 
+* [Stew EH helpers](https://github.com/status-im/nim-stew/pull/26) - Helpers that make working with checked exceptions easier
 * [Nim Exception RFC](https://github.com/nim-lang/Nim/issues/8363) - seeks to differentiate between recoverable and unrecoverable errors
 * [Zahary's handling proposal](https://gist.github.com/zah/d2d729b39d95a1dfedf8183ca35043b3) - seeks to handle any kind of error-generating API
 * [C++ proposal](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0709r0.pdf) - After 25 years of encouragement, half the polled C++ developers continue avoiding exceptions and Herb Sutter argues about the consequences of doing so
@@ -145,6 +156,10 @@ func f(output: var Type): StatusCode
 * `output` undefined in case of error
 * verbose to use, must first declare mutable variable then call function and check result - mutable variable remains in scope even in "error" branch leading to bugs
 
+## Practical notes
+
+Unlike "Error Enums" used with `Result`, status codes mix "success" and "error" returns in a single enum, making it hard to detect "successful" completion of a function in a generic way.
+
 ## Callbacks
 
 Annotate delayed callback definitions with `raises: [Defect]`.
@@ -157,4 +172,3 @@ Annotate delayed callback definitions with `raises: [Defect]`.
 ### Cons
 
 * Requires alterantive way of transporting error information out of callback which may cause other issues - `Result` return value or closure.
-

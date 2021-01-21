@@ -22,7 +22,7 @@ We do not use `nimble`, due to the lack of build reproducibility and other team-
 
 We track dependencies using `git` submodules to ensure a consistent build environment for all development. This includes the Nim compiler, which is treated like just another dependency - when checking out a top-level project, it comes with an `env.sh` file that allows you to enter the build environment, similar to python `venv`.
 
-When working with upstream projects, it's often convenient to _fork_ the project and submodule the fork, in case urgent fixes / patches are needed. These patches should be passed on to the relevant upstream.
+When working with upstream projects, it's sometimes convenient to _fork_ the project and submodule the fork, in case urgent fixes / patches are needed. These patches should be passed on to the relevant upstream.
 
 ### Pros
 
@@ -33,8 +33,9 @@ When working with upstream projects, it's often convenient to _fork_ the project
 
 ### Cons
 
-* Forking incurs some overhead when upgrading
+* Forking incurs overhead when upgrading
 * Transitive dependencies are difficult to coordinate
+* Cross-project commits hard to orchestrate
 
 ### Practical notes
 
@@ -45,7 +46,7 @@ When working with upstream projects, it's often convenient to _fork_ the project
 
 ## Nim version
 
-We support a single Nim version that is upgraded between release cycles. Individual projects and libraries may choose to support multiple Nim versions, though this involves significant overhead.
+We support a single Nim version that is upgraded between release cycles of our own projects. Individual projects and libraries may choose to support multiple Nim versions, though this involves significant overhead.
 
 ### Pros
 
@@ -62,3 +63,4 @@ We support a single Nim version that is upgraded between release cycles. Individ
 ### Practical notes
 
 * Following Nim `devel`, from experience, leads frequent disruptions as "mysterious" issues appear
+* To support multiple Nim versions in a project, the project should be set up to run CI with all supported versions

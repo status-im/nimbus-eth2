@@ -11,14 +11,14 @@ Nim is a language that organically has grown to contain many advanced features a
 `import` a minimal set of modules using explicit paths. `export` all modules whose types appear in public symbols of the current module. Prefer specific imports. Avoid `include`.
 
 ```nim
-# Prefix std library imports with std
-import std/[options, sets]
-
-# use full name for "external" dependencies (those from other packages)
-import package/[a, b]
-
-# use relative path for "local" dependencies
-import ./c, ../d
+# Group by std, external then internal imports
+import
+  # Standard library imports are prefixed with `std/`
+  std/[options, sets],
+  # use full name for "external" dependencies (those from other packages)
+  package/[a, b],
+  # use relative path for "local" dependencies
+  ./c, ../d
 
 # export modules whose types are used in public symbols in the current module
 export options
@@ -26,7 +26,9 @@ export options
 
 ### Practical notes
 
-Modules in Nim share a global namespace, both for the module name itself and for all symbols contained therein. Because of overloading and generics, it is common that same code behaves differently depending on which modules have been imported.
+Modules in Nim share a global namespace, both for the module name itself and for all symbols contained therein - because of this, it happens that your code might break because a dependency introduces a module or symbol with the same name - using prefixed imports (relative or package) helps mitigate some of these conflicts.
+
+Because of overloading and generic catch-alls, the same code can behave differently depending on which modules have been imported and in which order - reexporting modules that are used in public symbols helps avoid some of these differences.
 
 ## Macros
 
@@ -52,13 +54,14 @@ Avoid generating public API functions with macros.
   * Tooling needed to discover API - return types, parameters, error handling
 * Obfuscated data and control flow
 * Poor debugging support
+* Surprising scope effects on identifier names
 
 ### Practical notes
 
 * Consider a more specific, non-macro version first
 * Use a difficulty multiplier to weigh introduction of macros:
-  * templates are 10x harder to understand than plain code
-  * macros are 10x harder than templates, thus 100x harder than plain code
+  * Templates are 10x harder to understand than plain code
+  * Macros are 10x harder than templates, thus 100x harder than plain code
 * Write as much code as possible in templates, and glue together using macros
 
 See also: [macro defense](https://github.com/status-im/nimbus-eth2/wiki/The-macro-skeptics-guide-to-the-p2pProtocol-macro)
@@ -103,6 +106,8 @@ type XxxRef = ref object
 Prefer to use stack-based and statically sized data types in core/low-level libraries.
 Use heap allocation in glue layers.
 
+Avoid `alloca`.
+
 ```
 func init(T: type Yyy, a, b: int): T = ...
 
@@ -124,8 +129,9 @@ let x = (ref Xxx)(
 
 ### Cons
 
-* Stack space limited - large types
+* Stack space limited - large types on stack cause hard-to-diagnose crashes
 * Hard to deal with variable-sized data correctly
+* `alloca` has confusing semantics that easily cause stack overflows
 
 ## Inline functions
 
@@ -133,7 +139,7 @@ Avoid using explicit `{.inline.}` functions.
 
 ### Pros
 
-* Sometimes give performance advantages
+* Sometimes have performance advantages
 
 ### Cons
 
@@ -208,22 +214,35 @@ Prefer expression-based return or explicit `return` keyword with a value
 
 ### Pros
 
-* Some code uses it, thus allows to maintain consistency
+* Some code uses it, recommended by NEP-1
 * Saves a line of code avoiding an explicit `var` declaration
+* Accumulation-style functions that gradually build up a return value gain consistency
 
 ### Cons
 
 * Disables compiler diagnostics for code branches that forget to set result
-* Risk of using partially initialized instances where some fields are still default-initialized
-    * helpers may accidentally use `result` before it was fully initialized
-    * async/await using result prematurely due to out-of-order execution
+* Risk of using partially initialized instances due to `result` being default-initialized
+    * For `ref` types, `result` starts out as `nil` which accidentally might be returned
+    * Helpers may accidentally use `result` before it was fully initialized
+    * Async/await using result prematurely due to out-of-order execution
 * Partially initialized instances lead to exception-unsafe code where resource leaks happen
+    * RVO causes observable stores in the left-hand side of assignments when exceptions are raised after partially modifying `result`
 * Confusing to people coming from other languages
-* Have to repeat `result.` for every field being set
+* Confusing semantics in templates
 
 ### Practical notes
 
-Nim has 3 ways to assign a return value to a function: `result`, `return` and "expressions". Of the three, "expression" returns guarantee that all code branches produce a value to be returned while explict `return` with a value make explicit what value is being returned in the particular branch. `result` on the other hand, together with indent-based code-flow, makes it difficult to visually ascertain which code path returns which value - of the 3 return styles available, it has almost no benefits and significant downsides. Multiple security issues have been linked to the use of `result` and confusing branching.
+Nim has 3 ways to assign a return value to a function: `result`, `return` and "expressions".
+
+Of the three:
+
+* "expression" returns guarantee that all code branches produce one (and only one) value to be returned
+* explict `return` with a value make explicit what value is being returned in each branch.
+* `result`, together with indent-based code-flow, makes it difficult to visually ascertain which code paths are missing a return value, or overwrite the return value of a previous branch.
+
+Multiple security issues, `nil` reference crashes and wrong-init-order issues have been linked to the use of `result` and lack of assignment in branches.
+
+In general, the use of accumulation-style initialization is discouraged unless necessary by the data type - see [Variable initialization](#variable-initialization)
 
 ## Variable declarations
 
@@ -238,7 +257,7 @@ let
 
 ### Practical notes
 
-`const` and `let` each introduce coompile-time constraints that help limit the scope of bugs that must be considered when reading and debugging code.
+`const` and `let` each introduce compile-time constraints that help limit the scope of bugs that must be considered when reading and debugging code.
 
 ## Variable initialization
 
@@ -253,8 +272,8 @@ func f(b: bool): int =
   if b: 1
   else: 2
 
-# Avoid
-var x
+# Avoid - `x` is not guaranteed to be initialized by all branches and in correct order (for composite types)
+var x: int
 if a >4: x = 5
 else: x = 6
 ```
@@ -271,6 +290,20 @@ None
 ## Functions and procedures
 
 Prefer `func` - use `proc` when side effects cannot conveniently be avoided.
+
+## Callbacks and closures
+
+```nim
+# By default, Nim assumes closures may raise any exception and are not gcsafe
+# By annotating the callback with raises and gcsafe, the compiler ensures that
+# any functions assigned to the closure fit the given constraints
+type Callback = proc(...) {.raises: [Defect], gcsafe.}
+```
+
+### Practical notes
+
+* When calling an un-annotated closure / callback, the compiler does not know if it potentially raises or contains gcunsafe code, thus assumes the worst case
+* Deduced excpetion and gcsafe information is passed up the call chain
 
 ## Binary data
 
@@ -304,4 +337,3 @@ For big ideas, use an RFC issue
 ## Useful resources
 
 * [The Nimbus auditor book](https://nimbus.guide/auditors-book/) goes over security concerns of Nim features in detail
-

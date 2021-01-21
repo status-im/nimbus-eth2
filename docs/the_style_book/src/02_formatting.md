@@ -4,7 +4,14 @@
 
 ## Style
 
-We follow [NEP-1](https://nim-lang.org/docs/nep1.html) for style matters, including naming, capitalization etc.
+We strive to follow [NEP-1](https://nim-lang.org/docs/nep1.html) for style matters, including naming, capitalization, 80-character limit etc. Common places where deviations happen include:
+
+* Code based on external projects
+    * Wrappers / FFI
+    * Implementations of specs that have their own naming convention
+    * Ports from other languages
+* Small differences due to manual formatting
+* Aligned block / parameter / comment indents that require reformatting many lines to accomodate a small change - these are tedious to maintain, thus fixed indents (instead of indents based on identifiers) are allowed / common
 
 ## Naming conventions
 
@@ -18,7 +25,7 @@ We follow [NEP-1](https://nim-lang.org/docs/nep1.html) for style matters, includ
 
 ## Practical notes
 
-* When porting python code, we sometimes prefer python style naming
 * We do not use `nimpretty` - as of writing (nim 1.2), it is not stable enough for daily use:
-    * can break working code
-    * naive formatting algorithm
+    * Can break working code
+    * Naive formatting algorithm
+* We do not make use of Nim's "flexible" identifier names - all uses of an identifier should match the declaration in capitalization and underscores
