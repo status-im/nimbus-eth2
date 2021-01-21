@@ -958,7 +958,7 @@ proc resolvePeer(peer: Peer) =
     inc(nbc_successful_discoveries)
     let delay = now(chronos.Moment) - startTime
     nbc_resolve_time.observe(delay.toFloatSeconds())
-    debug "Peer's ENR recovered", delay = $delay
+    debug "Peer's ENR recovered", delay
 
 proc handlePeer*(peer: Peer) {.async.} =
   let res = peer.network.peerPool.addPeerNoWait(peer, peer.direction)
