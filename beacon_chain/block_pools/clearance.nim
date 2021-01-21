@@ -11,6 +11,7 @@ import
   std/tables,
   chronicles,
   stew/[assign2, results],
+  eth/keys,
   ../extras, ../time,
   ../spec/[crypto, datatypes, digest, helpers, signatures, signatures_batch, state_transition],
   ./block_pools_types, ./chain_dag, ./quarantine
@@ -34,6 +35,13 @@ func getOrResolve*(dag: ChainDAGRef, quarantine: var QuarantineRef, root: Eth2Di
 
   if result.isNil:
     quarantine.addMissing(root)
+
+proc batchVerify(quarantine: var QuarantineRef, sigs: openArray[SignatureSet]): bool =
+  var secureRandomBytes: array[32, byte]
+  quarantine.rng[].brHmacDrbgGenerate(secureRandomBytes)
+
+  # TODO: For now only enable serial batch verification
+  return batchVerifySerial(quarantine.sigVerifCache, sigs, secureRandomBytes)
 
 proc addRawBlock*(
       dag: var ChainDAGRef, quarantine: var QuarantineRef,
@@ -196,7 +204,7 @@ proc addRawBlockKnownParent(
     if not sigs.collectSignatureSets(signedBlock, dag.clearanceState.data.data, cache):
       # A PublicKey or Signature isn't on the BLS12-381 curve
       return err((ValidationResult.Reject, Invalid))
-    if not batchVerify(sigs, quarantine.sigVerifCache):
+    if not quarantine.batchVerify(sigs):
       return err((ValidationResult.Reject, Invalid))
 
   static: doAssert sizeof(SignedBeaconBlock) == sizeof(SigVerifiedSignedBeaconBlock)

@@ -11,13 +11,12 @@ import
   # Status lib
   blscurve,
   stew/byteutils,
-  eth/keys,
   # Internal
   ../ssz/merkleization,
   ./crypto, ./datatypes, ./helpers, ./presets,
   ./beaconstate, ./digest
 
-export SignatureSet, BatchedBLSVerifierCache
+export SignatureSet, BatchedBLSVerifierCache, batchVerify, batchVerifySerial, batchVerifyParallel
 
 func `$`*(s: SignatureSet): string =
   "(pubkey: 0x" & s.pubkey.toHex() &
@@ -294,29 +293,3 @@ proc collectSignatureSets*(
       return false
 
   return true
-
-proc batchVerify*(
-      sigs: openArray[SignatureSet],
-      cache: var BatchedBLSVerifierCache): bool =
-  # Crypto secure HmacDrbg RNG from BearSSL / nim-eth/keys
-  # TODO: We don't need high security for this RNG
-  #       as it is not used for secret generation
-  #       but only to mix non-public data a malicious party
-  #       cannot control.
-  #       We still likely want to use the application RNG instance
-  var rng {.threadvar.}: ref BrHmacDrbgContext
-  var rngInit {.threadvar.}: bool
-  if not rngInit:
-    rng = keys.newRng()
-    rngInit = true
-
-  var secureRandomBytes: array[32, byte]
-  rng[].brHmacDrbgGenerate(secureRandomBytes)
-
-  # TODO: For now only enable serial batch verification
-  return batchVerifySerial(cache, sigs, secureRandomBytes)
-
-proc batchVerify*(sigs: openArray[SignatureSet]): bool =
-  # Don't {.noinit.} this or seq capacity will be != 0.
-  var cache: BatchedBLSVerifierCache
-  batchVerify(sigs, cache)

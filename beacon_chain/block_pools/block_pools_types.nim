@@ -12,6 +12,7 @@ import
   std/[deques, strformat, tables, hashes],
   # Status libraries
   stew/[endians2, byteutils], chronicles,
+  eth/keys,
   # Internals
   ../spec/[datatypes, crypto, digest, signatures_batch],
   ../beacon_chain_db, ../extras
@@ -67,6 +68,8 @@ type
 
     sigVerifCache*: BatchedBLSVerifierCache ##\
     ## A cache for batch BLS signature verification contexts
+    rng*: ref BrHmacDrbgContext  ##\
+    ## A reference to the Nimbus application-wide RNG
 
     inAdd*: bool
 

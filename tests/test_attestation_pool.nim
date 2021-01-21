@@ -13,13 +13,14 @@ import
   # Status lib
   chronicles, chronos,
   stew/byteutils,
+  eth/keys,
   # Internal
   ../beacon_chain/spec/[crypto, datatypes, digest, validator, state_transition,
                         helpers, beaconstate, presets, network],
   ../beacon_chain/[
     beacon_node_types, attestation_pool, attestation_aggregation, extras, time],
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
-  ../beacon_chain/block_pools/[chain_dag, clearance],
+  ../beacon_chain/block_pools/[quarantine, chain_dag, clearance],
   # Test utilities
   ./testutil, ./testblockutil
 
@@ -59,7 +60,7 @@ suiteReport "Attestation pool processing" & preset():
     # Genesis state that results in 3 members per committee
     var
       chainDag = init(ChainDAGRef, defaultRuntimePreset, makeTestDB(SLOTS_PER_EPOCH * 3))
-      quarantine = QuarantineRef()
+      quarantine = QuarantineRef.init(keys.newRng())
       pool = newClone(AttestationPool.init(chainDag, quarantine))
       state = newClone(chainDag.headState)
       cache = StateCache()
@@ -398,7 +399,7 @@ suiteReport "Attestation validation " & preset():
     # Genesis state that results in 3 members per committee
     var
       chainDag = init(ChainDAGRef, defaultRuntimePreset, makeTestDB(SLOTS_PER_EPOCH * 3))
-      quarantine = QuarantineRef()
+      quarantine = QuarantineRef.init(keys.newRng())
       pool = newClone(AttestationPool.init(chainDag, quarantine))
       state = newClone(chainDag.headState)
       cache = StateCache()

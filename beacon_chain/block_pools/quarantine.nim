@@ -11,6 +11,7 @@ import
   std/[tables, options],
   chronicles,
   stew/bitops2,
+  eth/keys,
   ../spec/[crypto, datatypes, digest],
   ./block_pools_types
 
@@ -18,6 +19,10 @@ export options, block_pools_types
 
 logScope:
   topics = "quarant"
+
+func init*(T: type QuarantineRef, rng: ref BrHmacDrbgContext): T =
+  result = T()
+  result.rng = rng
 
 func checkMissing*(quarantine: var QuarantineRef): seq[FetchRecord] =
   ## Return a list of blocks that we should try to resolve from other client -

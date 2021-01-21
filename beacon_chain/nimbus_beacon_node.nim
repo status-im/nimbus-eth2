@@ -208,7 +208,7 @@ proc init*(T: type BeaconNode,
                      else: {}
     chainDag = ChainDAGRef.init(conf.runtimePreset, db, chainDagFlags)
     beaconClock = BeaconClock.init(chainDag.headState.data.data)
-    quarantine = QuarantineRef()
+    quarantine = QuarantineRef.init(rng)
     databaseGenesisValidatorsRoot =
       chainDag.headState.data.data.genesis_validators_root
 

@@ -18,6 +18,7 @@ import
   math, stats, times, strformat,
   options, random, tables, os,
   confutils, chronicles, eth/db/kvstore_sqlite3,
+  eth/keys,
   ../tests/[testblockutil],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, presets,
                         helpers, validator, signatures, state_transition],
@@ -73,7 +74,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     chainDag = ChainDAGRef.init(runtimePreset, db)
     eth1Chain = Eth1Chain.init(runtimePreset, db)
     merkleizer = depositContractSnapshot.createMerkleizer
-    quarantine = QuarantineRef()
+    quarantine = QuarantineRef.init(keys.newRng())
     attPool = AttestationPool.init(chainDag, quarantine)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
