@@ -8,6 +8,7 @@
 import
   # Standard library
   std/[math, os, strformat, strutils, tables, times,
+       random, # TODO: review usage of Nim RNG
        terminal, osproc],
   system/ansi_c,
 
@@ -654,6 +655,9 @@ proc setupSelfSlashingProtection(node: BeaconNode, slot: Slot) =
   # duplicate pair overlaps exactly, only the running/starting case. Even
   # 2 epochs is dangerous because it'll guarantee colliding probes in the
   # overlapping case.
+
+  # TODO: is a pseudo-random RNG enough here?
+  #       If so, should we store the state explicitly?
 
   # So dPE == 2 -> epoch + 1, always; dPE == 3 -> epoch + (1 or 2), etc.
   node.processor.gossipSlashingProtection.probeEpoch =
@@ -1749,4 +1753,3 @@ programMain:
       waitFor testWeb3Provider(config.web3TestUrl,
                                depositContractAddress,
                                depositContractDeployedAt)
-
