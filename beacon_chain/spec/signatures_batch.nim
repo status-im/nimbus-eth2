@@ -15,7 +15,7 @@ import
   # Internal
   ../ssz/merkleization,
   ./crypto, ./datatypes, ./helpers, ./presets,
-  ./beaconstate
+  ./beaconstate, ./digest
 
 export SignatureSet, BatchedBLSVerifierCache
 
@@ -288,8 +288,8 @@ proc batchVerify*(
   #       but only to mix non-public data a malicious party
   #       cannot control.
   #       We still likely want to use the application RNG instance
-  var rng {.global.}: ref BrHmacDrbgContext
-  var rngInit {.global.}: bool
+  var rng {.threadvar.}: ref BrHmacDrbgContext
+  var rngInit {.threadvar.}: bool
   if not rngInit:
     rng = keys.newRng()
     rngInit = true

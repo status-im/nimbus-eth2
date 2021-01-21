@@ -141,11 +141,11 @@ proc storeBlock(
     attestationPool = self.attestationPool
 
   let blck = self.chainDag.addRawBlock(self.quarantine, signedBlock) do (
-      blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+      blckRef: BlockRef, trustedBlock: TrustedSignedBeaconBlock,
       epochRef: EpochRef, state: HashedBeaconState):
     # Callback add to fork choice if valid
     attestationPool[].addForkChoice(
-      epochRef, blckRef, signedBlock.message, wallSlot)
+      epochRef, blckRef, trustedBlock.message, wallSlot)
 
   # Trigger attestation sending
   if blck.isOk and not self.blockReceivedDuringSlot.finished:

@@ -200,7 +200,7 @@ suiteReport "Attestation pool processing" & preset():
     let
       b1 = addTestBlock(state.data, chainDag.tail.root, cache)
       b1Add = chainDag.addRawBlock(quarantine, b1) do (
-          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -213,7 +213,7 @@ suiteReport "Attestation pool processing" & preset():
     let
       b2 = addTestBlock(state.data, b1.root, cache)
       b2Add = chainDag.addRawBlock(quarantine, b2) do (
-          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -228,7 +228,7 @@ suiteReport "Attestation pool processing" & preset():
     let
       b10 = makeTestBlock(state.data, chainDag.tail.root, cache)
       b10Add = chainDag.addRawBlock(quarantine, b10) do (
-          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -243,7 +243,7 @@ suiteReport "Attestation pool processing" & preset():
         graffiti = GraffitiBytes [1'u8, 0, 0, 0 ,0 ,0 ,0 ,0 ,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
       )
       b11Add = chainDag.addRawBlock(quarantine, b11) do (
-          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -288,7 +288,7 @@ suiteReport "Attestation pool processing" & preset():
     let
       b10 = makeTestBlock(state.data, chainDag.tail.root, cache)
       b10Add = chainDag.addRawBlock(quarantine, b10) do (
-          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -302,7 +302,7 @@ suiteReport "Attestation pool processing" & preset():
     # Add back the old block to ensure we have a duplicate error
     let b10_clone = b10 # Assumes deep copy
     let b10Add_clone = chainDag.addRawBlock(quarantine, b10_clone) do (
-          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -317,7 +317,7 @@ suiteReport "Attestation pool processing" & preset():
     let
       b10 = addTestBlock(state.data, chainDag.tail.root, cache)
       b10Add = chainDag.addRawBlock(quarantine, b10) do (
-          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -345,7 +345,7 @@ suiteReport "Attestation pool processing" & preset():
 
         block_root = new_block.root
         let blockRef = chainDag.addRawBlock(quarantine, new_block) do (
-            blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+            blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
             epochRef: EpochRef, state: HashedBeaconState):
           # Callback add to fork choice if valid
           pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -385,7 +385,7 @@ suiteReport "Attestation pool processing" & preset():
 
     # Add back the old block to ensure we have a duplicate error
     let b10Add_clone = chainDag.addRawBlock(quarantine, b10_clone) do (
-          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -416,7 +416,7 @@ suiteReport "Attestation validation " & preset():
         chainDag.headState.data, chainDag.head.root, cache,
         int(SLOTS_PER_EPOCH * 5), false):
       let added = chainDag.addRawBlock(quarantine, blck) do (
-          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)

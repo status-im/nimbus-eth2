@@ -42,19 +42,19 @@ proc addRawBlock*(
 
 proc addResolvedBlock(
        dag: var ChainDAGRef, quarantine: var QuarantineRef,
-       state: var StateData, signedBlock: SomeSignedBeaconBlock,
+       state: var StateData, trustedBlock: TrustedSignedBeaconBlock,
        parent: BlockRef, cache: var StateCache,
        onBlockAdded: OnBlockAdded
      ) =
   # TODO move quarantine processing out of here
-  doAssert state.data.data.slot == signedBlock.message.slot,
+  doAssert state.data.data.slot == trustedBlock.message.slot,
     "state must match block"
-  doAssert state.blck.root == signedBlock.message.parent_root,
+  doAssert state.blck.root == trustedBlock.message.parent_root,
     "the StateData passed into the addResolved function not yet updated!"
 
   let
-    blockRoot = signedBlock.root
-    blockRef = BlockRef.init(blockRoot, signedBlock.message)
+    blockRoot = trustedBlock.root
+    blockRef = BlockRef.init(blockRoot, trustedBlock.message)
     blockEpoch = blockRef.slot.compute_epoch_at_slot()
 
   link(parent, blockRef)
@@ -73,7 +73,7 @@ proc addResolvedBlock(
   trace "Populating block dag", key = blockRoot, val = blockRef
 
   # Resolved blocks should be stored in database
-  dag.putBlock(signedBlock)
+  dag.putBlock(trustedBlock)
 
   var foundHead: BlockRef
   for head in dag.heads.mitems():
@@ -89,7 +89,7 @@ proc addResolvedBlock(
     dag.heads.add(foundHead)
 
   debug "Block resolved",
-    blck = shortLog(signedBlock.message),
+    blck = shortLog(trustedBlock.message),
     blockRoot = shortLog(blockRoot),
     heads = dag.heads.len()
 
@@ -98,7 +98,7 @@ proc addResolvedBlock(
   # Notify others of the new block before processing the quarantine, such that
   # notifications for parents happens before those of the children
   if onBlockAdded != nil:
-    onBlockAdded(blockRef, signedBlock, epochRef, state.data)
+    onBlockAdded(blockRef, trustedBlock, epochRef, state.data)
 
   # Now that we have the new block, we should see if any of the previously
   # unresolved blocks magically become resolved
@@ -206,11 +206,13 @@ proc addRawBlockKnownParent(
   if valRes != ValidationResult.Accept:
     return err((valRes, blockErr))
 
+  let trustedBlock = cast[TrustedSignedBeaconBlock](signedBlock)
+
   # Careful, clearanceState.data has been updated but not blck - we need to
   # create the BlockRef first!
   addResolvedBlock(
     dag, quarantine, dag.clearanceState,
-    signedBlock, # We don't pass the sigVerifBlock here to simplify "onBlockAdded" callback.
+    trustedBlock, # We don't pass the sigVerifBlock here to simplify "onBlockAdded" callback.
     parent, cache,
     onBlockAdded)
 

@@ -166,7 +166,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           blockRoot, privKey)
 
       let added = chainDag.addRawBlock(quarantine, newBlock) do (
-          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         attPool.addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)

@@ -314,6 +314,7 @@ func toBeaconBlockSummary(v: SomeBeaconBlock): BeaconBlockSummary =
     parent_root: v.parent_root,
   )
 
+# TODO: we should only store TrustedSignedBeaconBlock in the DB.
 proc putBlock*(db: BeaconChainDB, value: SignedBeaconBlock) =
   db.put(subkey(type value, value.root), value)
   db.put(subkey(BeaconBlockSummary, value.root), value.message.toBeaconBlockSummary())
