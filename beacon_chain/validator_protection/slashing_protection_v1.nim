@@ -7,16 +7,17 @@
 
 import
   # Standard library
-  std/tables,
+  std/[tables, os],
   # Status
-  eth/db/kvstore,
+  eth/db/[kvstore, kvstore_sqlite3],
   chronicles,
   nimcrypto/[hash, utils],
   serialization,
   json_serialization,
   # Internal
   ../spec/[datatypes, digest, crypto],
-  ../ssz
+  ../ssz,
+  ./slashing_protection_types
 
 # Requirements
 # --------------------------------------------
@@ -136,37 +137,11 @@ import
 # as per-validator linked lists
 
 type
-  SlashingProtectionDB* = ref object
+  SlashingProtectionDB_v1* = ref object
     ## Database storing the blocks attested
     ## by validators attached to a beacon node
     ## or validator client.
     backend: KvStoreRef
-
-  BadVoteKind* = enum
-    ## Attestation bad vote kind
-    # h: height (i.e. epoch for attestation, slot for blocks)
-    # t: target
-    # s: source
-    # 1: existing attestations
-    # 2: candidate attestation
-
-    # Spec slashing condition
-    DoubleVote           # h(t1) = h(t2)
-    SurroundedVote       # h(s1) < h(s2) < h(t2) < h(t1)
-    SurroundingVote      # h(s2) < h(s1) < h(t1) < h(t2)
-    # Non-spec, should never happen in a well functioning client
-    TargetPrecedesSource # h(t1) < h(s1) - current epoch precedes last justified epoch
-
-  BadVote* = object
-    case kind*: BadVoteKind
-    of DoubleVote:
-      existingAttestation*: Eth2Digest
-    of SurroundedVote, SurroundingVote:
-      existingAttestationRoot*: Eth2Digest # Many roots might be in conflict
-      sourceExisting*, targetExisting*: Epoch
-      sourceSlashable*, targetSlashable*: Epoch
-    of TargetPrecedesSource:
-      discard
 
   SlotDesc = object
     # Using tuple instead of objects, crashes the Nim compiler
@@ -211,6 +186,12 @@ type
     ## of a Validator Public Key.
     ## Portable between Miracl/BLST
     ## and limits serialization/deserialization call
+
+func version*(_: type SlashingProtectionDB_v1): static int =
+  1
+
+# Internal
+# -------------------------------------------------------------
 
 {.push raises: [Defect].}
 logScope:
@@ -263,7 +244,7 @@ func subkey(kind: static SlashingKeyKind, valIndex: uint32): array[5, byte] =
   result[1..<5] = toBytesBE(valIndex)
   result[0] = byte ord(kind)
 
-proc put(db: SlashingProtectionDB, key: openArray[byte], v: auto) =
+proc put(db: SlashingProtectionDB_v1, key: openArray[byte], v: auto) =
   db.backend.put(
     key,
     SSZ.encode(v)
@@ -326,12 +307,12 @@ proc rawGet(rawdb: KvStoreRef,
 
   res
 
-proc get(db: SlashingProtectionDB,
+proc get(db: SlashingProtectionDB_v1,
          key: openArray[byte],
          T: typedesc): Opt[T] =
   db.backend.rawGet(key, T)
 
-proc setGenesis(db: SlashingProtectionDB, genesis_validator_root: Eth2Digest) =
+proc setGenesis(db: SlashingProtectionDB_v1, genesis_validator_root: Eth2Digest) =
   # Workaround SSZ / nim-serialization visibility issue
   # "template WriterType(T: type SSZ): type"
   # by having a non-generic proc
@@ -340,19 +321,30 @@ proc setGenesis(db: SlashingProtectionDB, genesis_validator_root: Eth2Digest) =
     genesis_validator_root
   )
 
+# Resource Management
+# -------------------------------------------------------------
+
 proc init*(
-       T: type SlashingProtectionDB,
+       T: type SlashingProtectionDB_v1,
        genesis_validator_root: Eth2Digest,
-       backend: KVStoreRef): SlashingProtectionDB =
-  result = T(backend: backend)
+       basePath, dbname: string): T =
+  result = T(backend: kvStore SqStoreRef.init(basePath, dbname).get())
   result.setGenesis(genesis_validator_root)
 
 proc load*(
-       T: type SlashingProtectionDB,
-       backend: KVStoreRef): SlashingProtectionDB =
+       T: type SlashingProtectionDB_v1,
+       basePath, dbname: string, readOnly: bool
+     ): SlashingProtectionDB_v1 {.raises:[Defect, IOError].}=
   ## Load a slashing protection DB
   ## Note: This is for conversion usage
   ##       this doesn't check the genesis validator root
+  let path = basepath/dbname&".sqlite3"
+  let alreadyExists = fileExists(path)
+  if not alreadyExists:
+    raise newException(IOError, "DB '" & path & "' does not exist.")
+
+  let backend = kvStore SqStoreRef.init(basePath, dbname, readOnly = false).get()
+
   let genesis = backend.rawGet(
       subkey(kGenesisValidatorRoot), Eth2Digest
     )
@@ -363,14 +355,14 @@ proc load*(
 
   result = T(backend: backend)
 
-proc close*(db: SlashingProtectionDB) =
+proc close*(db: SlashingProtectionDB_v1) =
   discard db.backend.close()
 
 # DB Queries
 # --------------------------------------------
 
 proc checkSlashableBlockProposal*(
-       db: SlashingProtectionDB,
+       db: SlashingProtectionDB_v1,
        validator: ValidatorPubKey,
        slot: Slot
      ): Result[void, Eth2Digest] =
@@ -391,7 +383,7 @@ proc checkSlashableBlockProposal*(
   return err(foundBlock.unsafeGet().block_root)
 
 proc checkSlashableAttestation*(
-       db: SlashingProtectionDB,
+       db: SlashingProtectionDB_v1,
        validator: ValidatorPubKey,
        source: Epoch,
        target: Epoch
@@ -449,7 +441,7 @@ proc checkSlashableAttestation*(
   # Chain reorg
   # Detect h(s2) < h(s1)
   # If the candidate attestation source precedes
-  # source(s) we have in the SlashingProtectionDB
+  # source(s) we have in the SlashingProtectionDB_v1
   # we have a chain reorg
   # ---------------------------------
   if source < ll.sourceEpochs.stop:
@@ -528,7 +520,7 @@ proc checkSlashableAttestation*(
 # DB update
 # --------------------------------------------
 
-proc registerValidator(db: SlashingProtectionDB, validator: ValidatorPubKey) =
+proc registerValidator(db: SlashingProtectionDB_v1, validator: ValidatorPubKey) =
   ## Add a new validator to the database
   ## Assumes the validator does not exist
   let maybeNumVals = db.get(
@@ -545,7 +537,7 @@ proc registerValidator(db: SlashingProtectionDB, validator: ValidatorPubKey) =
   db.put(subkey(kValidator, valIndex), validator)
 
 proc registerBlock*(
-       db: SlashingProtectionDB,
+       db: SlashingProtectionDB_v1,
        validator: ValidatorPubKey,
        slot: Slot, block_root: Eth2Digest) =
   ## Add a block to the slashing protection DB
@@ -681,7 +673,7 @@ proc registerBlock*(
     ).unsafeGet()
 
 proc registerAttestation*(
-       db: SlashingProtectionDB,
+       db: SlashingProtectionDB_v1,
        validator: ValidatorPubKey,
        source, target: Epoch,
        attestation_root: Eth2Digest) =
@@ -833,7 +825,7 @@ proc registerAttestation*(
 # --------------------------------------------
 
 proc dumpBlocks*(
-       db: SlashingProtectionDB,
+       db: SlashingProtectionDB_v1,
        validator: ValidatorPubKey
      ): string =
   ## Dump the linked list of blocks proposd by a validator in a string
@@ -868,7 +860,7 @@ proc dumpBlocks*(
   return $blocks
 
 proc dumpAttestations*(
-       db: SlashingProtectionDB,
+       db: SlashingProtectionDB_v1,
        validator: ValidatorPubKey
      ): string =
   ## Dump the linked list of blocks proposd by a validator in a string
@@ -967,7 +959,7 @@ proc readValue*(r: var JsonReader, a: var Eth2Digest0x)
   except ValueError:
     raiseUnexpectedValue(r, "Hex string expected")
 
-proc toSPDIF*(db: SlashingProtectionDB, path: string)
+proc toSPDIF*(db: SlashingProtectionDB_v1, path: string)
              {.raises: [IOError, Defect].} =
   ## Export the full slashing protection database
   ## to a json the Slashing Protection Database Interchange (Complete) Format
@@ -1042,7 +1034,7 @@ proc toSPDIF*(db: SlashingProtectionDB, path: string)
   Json.saveFile(path, extract, pretty = true)
   echo "Exported slashing protection DB to '", path, "'"
 
-proc fromSPDIF*(db: SlashingProtectionDB, path: string): bool
+proc fromSPDIF*(db: SlashingProtectionDB_v1, path: string): bool
              {.raises: [SerializationError, IOError, Defect].} =
   ## Import a (Complete) Slashing Protection Database Interchange Format
   ## file into the specified slahsing protection DB
@@ -1087,3 +1079,8 @@ proc fromSPDIF*(db: SlashingProtectionDB, path: string): bool
       )
 
   return true
+
+# Sanity check
+# --------------------------------------------------------------
+
+static: doAssert SlashingProtectionDB_v1 is SlashingProtectionDB
