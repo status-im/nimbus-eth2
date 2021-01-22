@@ -711,7 +711,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) =
   # subnets and they'll all remain subscribed.
   if node.getTopicSubscriptionEnabled and not node.config.subscribeAllSubnets:
     # This exits early all but one call each epoch.
-    discard node.cycleAttestationSubnets(slot)
+    traceAsyncErrors node.cycleAttestationSubnets(slot)
 
 proc onSlotEnd(node: BeaconNode, slot, nextSlot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
