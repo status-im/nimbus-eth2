@@ -90,7 +90,7 @@ Prefer building the library on-the-fly from source using `{.compile.}`. Pin the 
 * Often leads to unnatural API for `Nim`
 * Constrains platform support
 * Nim and `nimble` tooling poorly supports 3rd-party build systems making installation difficult
-* Nim `C++` support immature - `C++` langauge unsuitable for interop
+* Nim `C++` support immature - `C++` language unsuitable for interop
 * Using `{.compile.}` increases build times, specially for multi-binary projects - use judiciously for large dependencies
 
 ### Practical notes
