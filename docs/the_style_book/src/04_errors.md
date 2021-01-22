@@ -171,4 +171,4 @@ Annotate delayed callback definitions with `raises: [Defect]`.
 
 ### Cons
 
-* Requires alterantive way of transporting error information out of callback which may cause other issues - `Result` return value or closure.
+* Requires alternative way of transporting error information out of callback which may cause other issues - `Result` return value or closure.
