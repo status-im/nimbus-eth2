@@ -218,3 +218,65 @@ proc checkSlashableAttestation*(
   db.queryVersions(
     checkSlashableAttestation(db_version, validator, source, target)
   )
+
+# DB Updates
+# --------------------------------------------
+
+template updateVersions(
+          db: SlashingProtectionDB,
+          query: untyped
+         ) =
+  ## Update multiple DB versions
+  ## Query should be in the form
+  ## myQuery(db_version, args...)
+  ##
+  ## Resolve conflicts according to
+  ## `db.disagreementBehavior`
+  ##
+  ## For example
+  ## registerBlock(db_version, validator, slot, block_root)
+  ##
+  ## db_version will be replaced by db_v1 and db_v2 accordingly
+  if db.useV1():
+    template db_version: untyped = db.db_v1
+    query
+  if db.useV2():
+    template db_version: untyped = db.db_v2
+    query
+
+proc registerBlock*(
+       db: SlashingProtectionDB_v2,
+       validator: ValidatorPubKey,
+       slot: Slot, block_signing_root: Eth2Digest) =
+  ## Add a block to the slashing protection DB
+  ## `checkSlashableBlockProposal` MUST be run
+  ## before to ensure no overwrite.
+  ##
+  ## block_signing_root is the output of
+  ## compute_signing_root(block, domain)
+  updateVersions(
+    registerBlock(db_version, validator, slot, block_signing_root)
+  )
+
+proc registerAttestation*(
+       db: SlashingProtectionDB_v2,
+       validator: ValidatorPubKey,
+       source, target: Epoch,
+       attestation_signing_root: Eth2Digest) =
+  ## Add an attestation to the slashing protection DB
+  ## `checkSlashableAttestation` MUST be run
+  ## before to ensure no overwrite.
+  ##
+  ## attestation_signing_root is the output of
+  ## compute_signing_root(attestation, domain)
+  updateVersions(
+    registerAttestation(db_version, validator,
+      source, target, attestation_signing_root)
+  )
+
+# DB maintenance
+# --------------------------------------------
+# TODO: pruning
+
+# Interchange
+# --------------------------------------------
