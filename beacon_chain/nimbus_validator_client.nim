@@ -314,7 +314,7 @@ programMain:
     vc.attachedValidators.slashingProtection =
       SlashingProtectionDB.init(
         vc.beaconGenesis.genesis_validators_root,
-        kvStore SqStoreRef.init(config.validatorsDir(), "slashing_protection").tryGet()
+        config.validatorsDir(), "slashing_protection"
       )
 
     let

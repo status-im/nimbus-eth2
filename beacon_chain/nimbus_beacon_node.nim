@@ -319,7 +319,7 @@ proc init*(T: type BeaconNode,
   res.attachedValidators = ValidatorPool.init(
     SlashingProtectionDB.init(
       chainDag.headState.data.data.genesis_validators_root,
-      kvStore SqStoreRef.init(conf.validatorsDir(), "slashing_protection").tryGet()
+      conf.validatorsDir(), "slashing_protection"
     )
   )
 

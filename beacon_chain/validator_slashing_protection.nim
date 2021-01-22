@@ -472,7 +472,7 @@ proc init*(T: type SlashingProtectionDB,
   ## or load an existing one with matching genesis root
   ## `dbname` MUST not be ending with .sqlite3
 
-  let alreadyExists = fileExists(basepath/ dbname&".sqlite3")
+  let alreadyExists = fileExists(basepath/dbname&".sqlite3")
 
   result = T(backend: SqStoreRef.init(basePath, dbname, keyspaces = []).get())
   if alreadyExists:
