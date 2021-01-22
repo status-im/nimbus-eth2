@@ -46,14 +46,15 @@ func decrease_balance*(
     state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
   ## Decrease the validator balance at index ``index`` by ``delta``, with
   ## underflow protection.
+  let prev_balance = state.balances.asSeq()[index]
   state.balances[index] =
-    if delta > state.balances[index]:
+    if delta > prev_balance:
       0'u64
     else:
-      state.balances[index] - delta
+      prev_balance - delta
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#deposits
-func get_validator_from_deposit(state: BeaconState, deposit: DepositData):
+func get_validator_from_deposit(deposit: DepositData):
     Validator =
   let
     amount = deposit.amount
@@ -91,31 +92,36 @@ proc process_deposit*(preset: RuntimePreset,
 
   let
     pubkey = deposit.data.pubkey
-    pubkey_inited = pubkey.initPubKey
     amount = deposit.data.amount
+
   var index = -1
 
-  for i, validator in state.validators:
-    if pubkey_inited == validator.pubkey.initPubKey:
+  # This linear scan is unfortunate, but should be fairly fast as we do a simple
+  # byte comparison of the key. The alternative would be to build a Table, but
+  # given that each block can hold no more than 16 deposits, it's slower to
+  # build the table and use it for lookups than to scan it like this.
+  # Once we have a reusable, long-lived cache, this should be revisited
+  for i in 0..<state.validators.len():
+    if state.validators.asSeq()[i].pubkey == pubkey:
       index = i
       break
 
-  if index == -1:
+  if index != -1:
+    # Increase balance by deposit amount
+    increase_balance(state, index.ValidatorIndex, amount)
+  else:
     # Verify the deposit signature (proof of possession) which is not checked
     # by the deposit contract
-    if skipBLSValidation notin flags:
-      if not verify_deposit_signature(preset, deposit.data):
-        # It's ok that deposits fail - they get included in blocks regardless
-        trace "Skipping deposit with invalid signature",
-          deposit = shortLog(deposit.data)
-        return ok()
-
-    # Add validator and balance entries
-    state.validators.add(get_validator_from_deposit(state, deposit.data))
-    state.balances.add(amount)
-  else:
-     # Increase balance by deposit amount
-     increase_balance(state, index.ValidatorIndex, amount)
+    if skipBLSValidation in flags or verify_deposit_signature(preset, deposit.data):
+      # New validator! Add validator and balance entries
+      state.validators.add(get_validator_from_deposit(deposit.data))
+      state.balances.add(amount)
+    else:
+      # Deposits may come with invalid signatures - in that case, they are not
+      # turned into a validator but still get processed to keep the deposit
+      # index correct
+      trace "Skipping deposit with invalid signature",
+        deposit = shortLog(deposit.data)
 
   ok()
 
@@ -160,7 +166,7 @@ func initiate_validator_exit*(state: var BeaconState,
 
   let
     exit_queue_churn = countIt(
-      state.validators, it.exit_epoch == exit_queue_epoch)
+      state.validators.asSeq(), it.exit_epoch == exit_queue_epoch)
 
   if exit_queue_churn.uint64 >= get_validator_churn_limit(state, cache):
     exit_queue_epoch += 1
@@ -250,14 +256,7 @@ proc initialize_beacon_state_from_eth1*(
       Eth1Data(block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
     latest_block_header:
       BeaconBlockHeader(
-        body_root: hash_tree_root(BeaconBlockBody(
-          # This differs from the spec intentionally.
-          # We must specify the default value for `ValidatorSig`
-          # in order to get a correct `hash_tree_root`.
-          randao_reveal: ValidatorSig(kind: OpaqueBlob)
-        ))
-      )
-  )
+        body_root: hash_tree_root(BeaconBlockBody())))
 
   # Seed RANDAO with Eth1 entropy
   state.randao_mixes.fill(eth1_block_hash)
@@ -286,7 +285,7 @@ proc initialize_beacon_state_from_eth1*(
       if skipBlsValidation in flags or
          verify_deposit_signature(preset, deposit):
         pubkeyToIndex[pubkey] = state.validators.len
-        state.validators.add(get_validator_from_deposit(state[], deposit))
+        state.validators.add(get_validator_from_deposit(deposit))
         state.balances.add(amount)
       else:
         # Invalid deposits are perfectly possible
@@ -296,7 +295,7 @@ proc initialize_beacon_state_from_eth1*(
   # Process activations
   for validator_index in 0 ..< state.validators.len:
     let
-      balance = state.balances[validator_index]
+      balance = state.balances.asSeq()[validator_index]
       validator = addr state.validators[validator_index]
 
     validator.effective_balance = min(
@@ -321,9 +320,8 @@ proc initialize_hashed_beacon_state_from_eth1*(
     preset, eth1_block_hash, eth1_timestamp, deposits, flags)
   HashedBeaconState(data: genesisState[], root: hash_tree_root(genesisState[]))
 
-func emptyBeaconBlockBody(): BeaconBlockBody =
-  # TODO: This shouldn't be necessary if OpaqueBlob is the default
-  BeaconBlockBody(randao_reveal: ValidatorSig(kind: OpaqueBlob))
+template emptyBeaconBlockBody(): BeaconBlockBody =
+  BeaconBlockBody()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#genesis-block
 func get_initial_beacon_block*(state: BeaconState): SignedBeaconBlock =
@@ -398,21 +396,23 @@ proc process_registry_updates*(state: var BeaconState,
   # the current epoch, 1 + MAX_SEED_LOOKAHEAD epochs ahead. Thus caches
   # remain valid for this epoch through though this function along with
   # the rest of the epoch transition.
-  for index, validator in state.validators:
-    if is_eligible_for_activation_queue(validator):
+  for index in 0..<state.validators.len():
+    if is_eligible_for_activation_queue(state.validators.asSeq()[index]):
       state.validators[index].activation_eligibility_epoch =
         get_current_epoch(state) + 1
 
-    if is_active_validator(validator, get_current_epoch(state)) and
-        validator.effective_balance <= EJECTION_BALANCE:
+    if is_active_validator(state.validators.asSeq()[index], get_current_epoch(state)) and
+        state.validators.asSeq()[index].effective_balance <= EJECTION_BALANCE:
       initiate_validator_exit(state, index.ValidatorIndex, cache)
 
   ## Queue validators eligible for activation and not dequeued for activation
   var activation_queue : seq[tuple[a: Epoch, b: int]] = @[]
-  for index, validator in state.validators:
+  for index in 0..<state.validators.len():
+    # TODO lent
+    template validator: Validator = state.validators.asSeq()[index]
     if is_eligible_for_activation(state, validator):
       activation_queue.add (
-        state.validators[index].activation_eligibility_epoch, index)
+        validator.activation_eligibility_epoch, index)
 
   activation_queue.sort(system.cmp)
 
@@ -424,8 +424,7 @@ proc process_registry_updates*(state: var BeaconState,
       break
     let
       (_, index) = epoch_and_index
-      validator = addr state.validators[index]
-    validator.activation_epoch =
+    state.validators[index].activation_epoch =
       compute_activation_exit_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#is_valid_indexed_attestation

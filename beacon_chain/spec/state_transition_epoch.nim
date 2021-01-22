@@ -548,16 +548,17 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
     state.eth1_data_votes = default(type state.eth1_data_votes)
 
   # Update effective balances with hysteresis
-  for index, validator in state.validators:
-    let balance = state.balances[index]
+  for index in 0..<state.validators.len:
+    let balance = state.balances.asSeq()[index]
     const
       HYSTERESIS_INCREMENT =
         EFFECTIVE_BALANCE_INCREMENT div HYSTERESIS_QUOTIENT
       DOWNWARD_THRESHOLD =
         HYSTERESIS_INCREMENT * HYSTERESIS_DOWNWARD_MULTIPLIER
       UPWARD_THRESHOLD = HYSTERESIS_INCREMENT * HYSTERESIS_UPWARD_MULTIPLIER
-    if balance + DOWNWARD_THRESHOLD < validator.effective_balance or
-        validator.effective_balance + UPWARD_THRESHOLD < balance:
+    let effective_balance = state.validators.asSeq()[index].effective_balance
+    if balance + DOWNWARD_THRESHOLD < effective_balance or
+        effective_balance + UPWARD_THRESHOLD < balance:
       state.validators[index].effective_balance =
         min(
           balance - balance mod EFFECTIVE_BALANCE_INCREMENT,

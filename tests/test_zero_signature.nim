@@ -38,9 +38,7 @@ suiteReport "Zero signature sanity checks":
 
   timedTest "SSZ serialization roundtrip of SignedBeaconBlockHeader":
 
-    let defaultBlockHeader = SignedBeaconBlockHeader(
-      signature: ValidatorSig(kind: OpaqueBlob)
-    )
+    let defaultBlockHeader = SignedBeaconBlockHeader()
 
     check:
       block:

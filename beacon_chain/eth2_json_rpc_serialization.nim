@@ -15,7 +15,10 @@ proc toJsonHex(data: openArray[byte]): string =
 
 proc fromJson*(n: JsonNode, argName: string, result: var ValidatorPubKey) =
   n.kind.expect(JString, argName)
-  result = initPubKey(ValidatorPubKey.fromHex(n.getStr()).tryGet().initPubKey())
+  var tmp = ValidatorPubKey.fromHex(n.getStr()).tryGet()
+  if not tmp.load().isSome():
+    raise (ref ValueError)(msg: "Invalid public BLS key")
+  result = tmp
 
 proc `%`*(pubkey: ValidatorPubKey): JsonNode =
   newJString(toJsonHex(toRaw(pubkey)))

@@ -35,7 +35,7 @@ func fakeRoot(index: SomeInteger): Eth2Digest =
 
 func fakeValidator(index: SomeInteger): ValidatorPubKey =
   ## Create fake validator public key
-  result = ValidatorPubKey(kind: OpaqueBlob)
+  result = ValidatorPubKey()
   result.blob[0 ..< 8] = (1'u64 shl 48 + index.uint64).toBytesBE()
 
 suiteReport "Slashing Protection DB" & preset():

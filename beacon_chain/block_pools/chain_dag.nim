@@ -146,13 +146,13 @@ proc init*(
         ret
 
   if prevEpoch != nil and (
-    prevEpoch.validator_key_store[0] == hash_tree_root(state.validators) or
+    prevEpoch.validator_key_store[0] == validators_root or
       sameKeys(prevEpoch.validator_key_store[1][], state.validators.asSeq)):
     epochRef.validator_key_store =
       (validators_root, prevEpoch.validator_key_store[1])
   else:
     epochRef.validator_key_store = (
-      hash_tree_root(state.validators),
+      validators_root,
       newClone(mapIt(state.validators.toSeq, it.pubkey)))
 
   # When fork choice runs, it will need the effective balance of the justified

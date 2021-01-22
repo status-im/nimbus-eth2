@@ -77,7 +77,7 @@ proc addRemoteValidators*(node: BeaconNode) =
   while line != "end" and running(node.vcProcess):
     if node.vcProcess.outputStream.readLine(line) and line != "end":
       let
-        key = ValidatorPubKey.fromHex(line).get().initPubKey()
+        key = ValidatorPubKey.fromHex(line).get()
         index = findValidator(node.chainDag.headState.data.data, key)
 
       let v = AttachedValidator(pubKey: key,
@@ -473,7 +473,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     headRoot = shortLog(head.root),
     slot = shortLog(slot),
     proposer_index = proposer.get()[0],
-    proposer = shortLog(proposer.get()[1].initPubKey())
+    proposer = shortLog(proposer.get()[1])
 
   return head
 

@@ -52,7 +52,7 @@ func process_block_header*(
     return err("process_block_header: previous block root mismatch")
 
   # Verify proposer is not slashed
-  if state.validators[proposer_index.get].slashed:
+  if state.validators.asSeq()[proposer_index.get].slashed:
     return err("process_block_header: proposer slashed")
 
   # Cache current block as the new latest block
@@ -86,7 +86,7 @@ proc process_randao(
     epoch = state.get_current_epoch()
 
   if skipBLSValidation notin flags:
-    let proposer_pubkey = state.validators[proposer_index.get].pubkey
+    let proposer_pubkey = state.validators.asSeq()[proposer_index.get].pubkey
 
     if not verify_epoch_signature(
         state.fork, state.genesis_validators_root, epoch, proposer_pubkey,
@@ -149,8 +149,8 @@ proc check_proposer_slashing*(
     return err("check_proposer_slashing: headers not different")
 
   # Verify the proposer is slashable
-  let proposer = state.validators[header_1.proposer_index]
-  if not is_slashable_validator(proposer, get_current_epoch(state)):
+  let proposer = unsafeAddr state.validators.asSeq()[header_1.proposer_index]
+  if not is_slashable_validator(proposer[], get_current_epoch(state)):
     return err("check_proposer_slashing: slashed proposer")
 
   # Verify signatures
@@ -159,7 +159,7 @@ proc check_proposer_slashing*(
         proposer_slashing.signed_header_2]:
       if not verify_block_signature(
           state.fork, state.genesis_validators_root, signed_header.message.slot,
-          signed_header.message, proposer.pubkey, signed_header.signature):
+          signed_header.message, proposer[].pubkey, signed_header.signature):
         return err("check_proposer_slashing: invalid signature")
 
   ok()
@@ -214,7 +214,7 @@ proc check_attester_slashing*(
       toHashSet(attestation_1.attesting_indices.asSeq),
       toHashSet(attestation_2.attesting_indices.asSeq)).items), system.cmp):
     if is_slashable_validator(
-        state.validators[index], get_current_epoch(state)):
+        state.validators.asSeq()[index], get_current_epoch(state)):
       slashed_indices.add index.ValidatorIndex
   if slashed_indices.len == 0:
     return err("Attester slashing: Trying to slash participant(s) twice")
@@ -241,7 +241,7 @@ proc process_attester_slashing*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#voluntary-exits
 proc check_voluntary_exit*(
-    state: var BeaconState,
+    state: BeaconState,
     signed_voluntary_exit: SignedVoluntaryExit,
     flags: UpdateFlags): Result[void, cstring] {.nbench.} =
 
@@ -251,14 +251,15 @@ proc check_voluntary_exit*(
   if voluntary_exit.validator_index >= state.validators.lenu64:
     return err("Exit: invalid validator index")
 
-  let validator = state.validators[voluntary_exit.validator_index]
+  # TODO lent
+  let validator = unsafeAddr state.validators.asSeq()[voluntary_exit.validator_index]
 
   # Verify the validator is active
-  if not is_active_validator(validator, get_current_epoch(state)):
+  if not is_active_validator(validator[], get_current_epoch(state)):
     return err("Exit: validator not active")
 
   # Verify exit has not been initiated
-  if validator.exit_epoch != FAR_FUTURE_EPOCH:
+  if validator[].exit_epoch != FAR_FUTURE_EPOCH:
     return err("Exit: validator has exited")
 
   # Exits must specify an epoch when they become valid; they are not valid
@@ -267,7 +268,7 @@ proc check_voluntary_exit*(
     return err("Exit: exit epoch not passed")
 
   # Verify the validator has been active long enough
-  if not (get_current_epoch(state) >= validator.activation_epoch +
+  if not (get_current_epoch(state) >= validator[].activation_epoch +
       SHARD_COMMITTEE_PERIOD):
     return err("Exit: not in validator set long enough")
 
@@ -275,7 +276,7 @@ proc check_voluntary_exit*(
   if skipBlsValidation notin flags:
     if not verify_voluntary_exit_signature(
         state.fork, state.genesis_validators_root, voluntary_exit,
-        validator.pubkey, signed_voluntary_exit.signature):
+        validator[].pubkey, signed_voluntary_exit.signature):
       return err("Exit: invalid signature")
 
   # Initiate exit
@@ -284,10 +285,10 @@ proc check_voluntary_exit*(
     num_validators = state.validators.len,
     epoch = voluntary_exit.epoch,
     current_epoch = get_current_epoch(state),
-    validator_slashed = validator.slashed,
-    validator_withdrawable_epoch = validator.withdrawable_epoch,
-    validator_exit_epoch = validator.exit_epoch,
-    validator_effective_balance = validator.effective_balance
+    validator_slashed = validator[].slashed,
+    validator_withdrawable_epoch = validator[].withdrawable_epoch,
+    validator_exit_epoch = validator[].exit_epoch,
+    validator_effective_balance = validator[].effective_balance
 
   ok()
 

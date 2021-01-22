@@ -44,7 +44,7 @@ proc addRemoteValidator*(pool: var ValidatorPool,
 
 proc getValidator*(pool: ValidatorPool,
                    validatorKey: ValidatorPubKey): AttachedValidator =
-  pool.validators.getOrDefault(validatorKey.initPubKey)
+  pool.validators.getOrDefault(validatorKey)
 
 proc signWithRemoteValidator(v: AttachedValidator, data: Eth2Digest):
     Future[ValidatorSig] {.async.} =

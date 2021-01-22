@@ -437,7 +437,7 @@ proc logEnrAddress(address: string) =
           var forkid = SSZ.decode(eth2Data.get(), ENRForkID)
           eth2fork_digest = $forkid.fork_digest
           eth2next_fork_version = $forkid.next_fork_version
-          eth2next_fork_epoch = strutils.toHex(cast[uint64](forkid.next_fork_epoch))
+          eth2next_fork_epoch = strutils.toHex(uint64(forkid.next_fork_epoch))
         except CatchableError:
           eth2fork_digest = "Error"
           eth2next_fork_version = "Error"

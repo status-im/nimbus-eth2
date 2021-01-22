@@ -49,7 +49,9 @@ type
       storeBlocks* {.
         defaultValue: false
         desc: "Store each read block back into a separate database".}: bool
-
+      printTimes* {.
+        defaultValue: true
+        desc: "Print csv of block processing time".}: bool
     of dumpState:
       stateRoot* {.
         argument
@@ -128,10 +130,14 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
         b.message.slot.compute_epoch_at_slot
     withTimer(timers[if isEpoch: tApplyEpochBlock else: tApplyBlock]):
       var cache = StateCache()
+      var start = Moment.now()
       if not state_transition(runtimePreset, state[], b, cache, {}, noRollback):
         dump("./", b)
         echo "State transition failed (!)"
         quit 1
+      else:
+        if conf.printTimes:
+          echo b.message.slot, ",", toHex(b.root.data), ",", nanoseconds(Moment.now() - start)
     if conf.storeBlocks:
       withTimer(timers[tDbStore]):
         dbBenchmark.putBlock(b)

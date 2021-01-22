@@ -252,6 +252,7 @@ template high*(x: HashList|HashArray): auto = high(x.data)
 template `[]`*(x: HashList|HashArray, idx: auto): auto = x.data[idx]
 
 proc `[]`*(a: var HashArray, b: auto): var a.T =
+  # Access item and clear cache - use asSeq when only reading!
   clearCaches(a, b.Limit)
   a.data[b]
 
@@ -260,6 +261,7 @@ proc `[]=`*(a: var HashArray, b: auto, c: auto) =
   a.data[b] = c
 
 proc `[]`*(x: var HashList, idx: auto): var x.T =
+  # Access item and clear cache - use asSeq when only reading!
   clearCaches(x, idx.int64)
   x.data[idx]
 
