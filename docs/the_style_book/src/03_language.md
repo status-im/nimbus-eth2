@@ -330,7 +330,7 @@ Avoid `string` for binary data. If stdlib returns strings, [convert](https://git
 
 ### Contributing
 
-For style and other trivial fixes, commit straght to master
+For style and other trivial fixes, commit straight to master
 For small ideas, use a PR
 For big ideas, use an RFC issue
 
