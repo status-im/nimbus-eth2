@@ -410,30 +410,64 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
 
   var cache = StateCache()
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#lookahead
+  # Only subscribe when this node should aggregate; libp2p broadcasting works
+  # on subnet topics regardless.
+  #
+  # Committee sizes in any given epoch vary by 1, i.e. committee sizes $n$
+  # $n+1$ can exist. Furthermore, according to
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#aggregation-selection
+  # is_aggregator uses `len(committee) div TARGET_AGGREGATORS_PER_COMMITTEE`
+  # to determine whether committee length/slot signature pairs aggregate the
+  # attestations in a slot/committee, where TARGET_AGGREGATORS_PER_COMMITTEE
+  # is currently 16 in all defined presets. Therefore, probe a committee len
+  # to determine whether it's possible that it's within a boundary such that
+  # either that length or other possible committee lengths don't cross those
+  # div/mod 16 boundaries which would change is_aggregator results.
+  static: doAssert TARGET_AGGREGATORS_PER_COMMITTEE == 16 # mainnet, minimal
+
+  let
+    probeCommitteeLen = get_beacon_committee_len(
+      node.chainDag.headState.data.data, compute_start_slot_at_epoch(epoch),
+      0.CommitteeIndex, cache)
+
+    # Without knowing whether probeCommitteeLen is the higher or lower, if it's
+    # [-1, 1] mod TARGET_AGGREGATORS_PER_COMMITTEE it might cross boundaries in
+    # is_aggregator, such that one can't hoist committee length calculation out
+    # of the anyIt(...) loop.
+    isConstAggregationLen =
+      (probeCommitteeLen mod TARGET_AGGREGATORS_PER_COMMITTEE) notin
+        [0'u64, 1'u64, TARGET_AGGREGATORS_PER_COMMITTEE - 1]
+
+  template isAnyCommitteeValidatorAggregating(
+      validatorIndices, committeeLen: untyped, slot: Slot): bool =
+    anyIt(
+      validatorIndices,
+      is_aggregator(
+        committeeLen,
+        await attachedValidators[it].getSlotSig(
+          node.chainDag.headState.data.data.fork,
+          node.chainDag.headState.data.data.genesis_validators_root, slot)))
+
   for (validatorIndices, committeeIndex, subnetIndex, slot) in
       get_committee_assignments(
         node.chainDag.headState.data.data, epoch, validatorIndices, cache):
 
-    # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#lookahead
-    # Only subscribe when this node should aggregate; libp2p broadcasting works
-    # on subnet topics regardless.
-    if not anyIt(
+    doAssert compute_epoch_at_slot(slot) == epoch
+
+    if not isAnyCommitteeValidatorAggregating(
         validatorIndices,
-        is_aggregator(
+        if isConstAggregationLen:
+          probeCommitteeLen
+        else:
           get_beacon_committee_len(
-            node.chainDag.headState.data.data,
-            compute_start_slot_at_epoch(epoch),
-            committeeIndex, cache),
-          await attachedValidators[it].getSlotSig(
-            node.chainDag.headState.data.data.fork,
-            node.chainDag.headState.data.data.genesis_validators_root, slot))):
+            node.chainDag.headState.data.data, slot, committeeIndex, cache),
+        slot):
       continue
 
     node.attestationSubnets.unsubscribeSlot[subnetIndex] =
       max(slot + 1, node.attestationSubnets.unsubscribeSlot[subnetIndex])
     if subnetIndex notin node.attestationSubnets.subscribedSubnets:
-      # A Pyrmont test validator didn't manage to subscribe in time with
-      # SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS being 32.
       const SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS = 34
 
       node.attestationSubnets.subscribeSlot[subnetIndex] =
