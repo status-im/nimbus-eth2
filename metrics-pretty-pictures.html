@@ -222,6 +222,9 @@ scrape_configs:
 <p>Then run Prometheus:</p>
 <pre><code>prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
 </code></pre>
+<p>You should see the following confirmation in the logs:</p>
+<pre><code>level=info ts=2021-01-22T14:52:10.604Z caller=main.go:673 msg=&quot;Server is ready to receive web requests.&quot;
+</code></pre>
 <h4><a class="header" href="#4-download-grafana" id="4-download-grafana">4. Download Grafana</a></h4>
 <p><a href="(https://grafana.com/grafana/download?platform=linux)">Download the latest release</a> of Grafana for your platform. You need version 7.2 or newer.</p>
 <blockquote>
