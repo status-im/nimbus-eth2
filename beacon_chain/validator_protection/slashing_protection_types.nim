@@ -16,7 +16,7 @@ import
 # --------------------------------------------
 
 type
-  SlashingProtectionDB* = concept db, type DB
+  SlashingProtectionDB_Concept* = concept db, type DB
     ## Database storing the blocks attested
     ## by validators attached to a beacon node
     ## or validator client.
@@ -31,7 +31,7 @@ type
 
     DB.init(Eth2Digest, string, string) is DB
       # DB.init(genesis_root, dir, filename)
-    DB.load(string, string, bool) is DB
+    DB.loadUnchecked(string, string, bool) is DB
       # DB.load(dir, filename, readOnly)
     db.close()
 
@@ -87,7 +87,21 @@ type
     of TargetPrecedesSource:
       discard
 
-  SlashProtDBMode* = enum
-    kCompleteArchiveV1 # Complete Format V1 backend (saves all attestations)
-    kCompleteArchiveV2 # Complete Format V2 backend (saves all attestations)
-    kLowWaterMarkV2    # Low-Watermark Format V2 backend (prunes attestations)
+func `==`*(a, b: BadVote): bool =
+  ## Comparison operator.
+  ## Used implictily by Result when comparing the
+  ## result of multiple DB versions
+  if a.kind != b.kind:
+    false
+  elif a.kind == DoubleVote:
+    a.existingAttestation == b.existingAttestation
+  elif a.kind in {SurroundedVote, SurroundingVote}:
+    (a.existingAttestationRoot == b.existingAttestationRoot) and
+      (a.sourceExisting == b.sourceExisting) and
+      (a.targetExisting == b.targetExisting) and
+      (a.sourceSlashable == b.sourceSlashable) and
+      (a.targetSlashable == b.targetSlashable)
+  elif a.kind == TargetPrecedesSource:
+    true
+  else: # Unreachable
+    false

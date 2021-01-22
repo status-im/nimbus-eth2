@@ -443,6 +443,35 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
     """, ValidatorInternalID, int64
   ).get()
 
+# DB Multiversioning
+# -------------------------------------------------------------
+
+func getRawDBHandle*(db: SlashingProtectionDB_v2): SqStoreRef =
+  ## Get the underlying raw DB handle
+  db.backend
+
+proc initCompatV1*(T: type SlashingProtectionDB_v2,
+           genesis_validator_root: Eth2Digest,
+           basePath: string,
+           dbname: string): T =
+  ## Initialize a new slashing protection database
+  ## or load an existing one with matching genesis root
+  ## `dbname` MUST not be ending with .sqlite3
+
+  let alreadyExists = fileExists(basepath/dbname&".sqlite3")
+
+  result = T(backend: SqStoreRef.init(basePath, dbname, keyspaces = ["kvstore"]).get())
+  if alreadyExists:
+    result.checkDB(genesis_validator_root)
+  else:
+    result.setupDB(genesis_validator_root)
+
+  # Cached queries
+  result.setupCachedQueries()
+
+# Resource Management
+# -------------------------------------------------------------
+
 proc init*(T: type SlashingProtectionDB_v2,
            genesis_validator_root: Eth2Digest,
            basePath: string,
@@ -462,7 +491,7 @@ proc init*(T: type SlashingProtectionDB_v2,
   # Cached queries
   result.setupCachedQueries()
 
-proc load*(
+proc loadUnchecked*(
        T: type SlashingProtectionDB_v2,
        basePath, dbname: string, readOnly: bool
      ): SlashingProtectionDB_v2 {.raises:[Defect, IOError].}=
@@ -485,7 +514,8 @@ proc close*(db: SlashingProtectionDB_v2) =
   db.backend.close()
 
 # DB Queries
-# --------------------------------------------
+# -------------------------------------------------------------
+
 proc foundAnyResult(status: KVResult[bool]): bool {.inline.}=
   ## Checks a DB query status for errors
   ## Then returns true if any result was found
@@ -958,4 +988,4 @@ proc fromSPDIF*(db: SlashingProtectionDB_v2, path: string): bool
 # Sanity check
 # --------------------------------------------------------------
 
-static: doAssert SlashingProtectionDB_v2 is SlashingProtectionDB
+static: doAssert SlashingProtectionDB_v2 is SlashingProtectionDB_Concept

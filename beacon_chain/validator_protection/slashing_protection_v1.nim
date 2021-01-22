@@ -187,9 +187,6 @@ type
     ## Portable between Miracl/BLST
     ## and limits serialization/deserialization call
 
-func version*(_: type SlashingProtectionDB_v1): static int =
-  1
-
 # Internal
 # -------------------------------------------------------------
 
@@ -321,6 +318,20 @@ proc setGenesis(db: SlashingProtectionDB_v1, genesis_validator_root: Eth2Digest)
     genesis_validator_root
   )
 
+# DB Multiversioning
+# -------------------------------------------------------------
+
+func version*(_: type SlashingProtectionDB_v1): static int =
+  1
+
+proc fromRawDB*(dst: var SlashingProtectionDB_v1, rawdb: KvStoreRef) =
+  ## Initialize a SlashingProtectionDB_v1 from a raw DB
+  doAssert rawdb.contains(
+    subkey(kGenesisValidatorRoot)
+  ).get(), "The Slashing DB is missing genesis information"
+
+  dst = SlashingProtectionDB_v1(backend: rawdb)
+
 # Resource Management
 # -------------------------------------------------------------
 
@@ -331,7 +342,7 @@ proc init*(
   result = T(backend: kvStore SqStoreRef.init(basePath, dbname).get())
   result.setGenesis(genesis_validator_root)
 
-proc load*(
+proc loadUnchecked*(
        T: type SlashingProtectionDB_v1,
        basePath, dbname: string, readOnly: bool
      ): SlashingProtectionDB_v1 {.raises:[Defect, IOError].}=
@@ -344,10 +355,6 @@ proc load*(
     raise newException(IOError, "DB '" & path & "' does not exist.")
 
   let backend = kvStore SqStoreRef.init(basePath, dbname, readOnly = false).get()
-
-  let genesis = backend.rawGet(
-      subkey(kGenesisValidatorRoot), Eth2Digest
-    )
 
   doAssert backend.contains(
     subkey(kGenesisValidatorRoot)
@@ -1083,4 +1090,4 @@ proc fromSPDIF*(db: SlashingProtectionDB_v1, path: string): bool
 # Sanity check
 # --------------------------------------------------------------
 
-static: doAssert SlashingProtectionDB_v1 is SlashingProtectionDB
+static: doAssert SlashingProtectionDB_v1 is SlashingProtectionDB_Concept

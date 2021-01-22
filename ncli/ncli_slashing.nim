@@ -33,7 +33,7 @@ proc doDump(conf: SlashProtConf) =
   # TODO: Make it read-only https://github.com/status-im/nim-eth/issues/312
   # TODO: why is sqlite3 always appending .sqlite3 ?
   let filetrunc = file.changeFileExt("")
-  let db = SlashingProtectionDB_v1.load(dir, filetrunc, readOnly = false)
+  let db = SlashingProtectionDB_v1.loadUnchecked(dir, filetrunc, readOnly = false)
   db.toSPDIF(conf.outfile)
 
 when isMainModule:
