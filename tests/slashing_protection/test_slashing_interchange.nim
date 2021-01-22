@@ -15,7 +15,7 @@ import
   stew/results,
   nimcrypto/utils,
   # Internal
-  ../../beacon_chain/validator_slashing_protection,
+  ../../beacon_chain/validator_protection/slashing_protection_v2,
   ../../beacon_chain/spec/[datatypes, digest, crypto, presets],
   # Test utilies
   ../testutil

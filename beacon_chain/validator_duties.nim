@@ -27,7 +27,7 @@ import
   ./eth2_network, ./keystore_management, ./beacon_node_common,
   ./beacon_node_types, ./nimbus_binary_common, ./eth1_monitor, ./version,
   ./ssz/merkleization, ./attestation_aggregation, ./sync_manager, ./sszdump,
-  ./validator_slashing_protection
+  ./validator_protection/slashing_protection_v2
 
 # Metrics for tracking attestation and beacon block loss
 const delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,

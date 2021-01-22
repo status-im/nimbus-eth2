@@ -26,7 +26,7 @@ import
   sync_manager, keystore_management,
   spec/eth2_apis/callsigs_types,
   eth2_json_rpc_serialization,
-  validator_slashing_protection,
+  validator_protection/slashing_protection_v2,
   eth/db/[kvstore, kvstore_sqlite3]
 
 logScope: topics = "vc"

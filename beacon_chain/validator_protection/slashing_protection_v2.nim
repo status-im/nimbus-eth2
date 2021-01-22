@@ -17,8 +17,8 @@ import
   json_serialization,
   sqlite3_abi,
   # Internal
-  ./spec/[datatypes, digest, crypto],
-  ./ssz
+  ../spec/[datatypes, digest, crypto],
+  ../ssz
 
 # Requirements
 # --------------------------------------------
@@ -262,8 +262,8 @@ logScope:
   topics = "antislash"
 
 # version history:
-# 0 -> https://github.com/status-im/nimbus-eth2/pull/1643, based on KV-store
-const SlashingDB_version = 1
+# 1 -> https://github.com/status-im/nimbus-eth2/pull/1643, based on KV-store
+const SlashingDB_version = 2
 
 template dispose(sqlStmt: SqliteStmt) =
   discard sqlite3_finalize((ptr sqlite3_stmt) sqlStmt)

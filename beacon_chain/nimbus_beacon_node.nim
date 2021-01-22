@@ -38,7 +38,7 @@ import
   eth1_monitor, version, ssz/merkleization,
   sync_protocol, request_manager, keystore_management, interop, statusbar,
   sync_manager, validator_duties, filepath,
-  validator_slashing_protection, ./eth2_processor
+  validator_protection/slashing_protection_v2, ./eth2_processor
 
 from eth/common/eth_types import BlockHashOrNumber
 

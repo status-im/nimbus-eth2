@@ -11,7 +11,7 @@ import
   std/[os, strutils],
   confutils,
   eth/db/[kvstore, kvstore_sqlite3],
-  ../beacon_chain/validator_slashing_protection,
+  ../beacon_chain/validator_protection/slashing_protection_v1,
   ../beacon_chain/spec/digest
 
 type

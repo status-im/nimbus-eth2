@@ -14,7 +14,7 @@ import
   eth/db/kvstore,
   stew/results,
   # Internal
-  ../../beacon_chain/validator_slashing_protection,
+  ../../beacon_chain/validator_protection/slashing_protection_v2,
   ../../beacon_chain/spec/[datatypes, digest, crypto, presets],
   # Test utilies
   ../testutil
