@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -19,7 +19,7 @@ import
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
   ../beacon_chain/block_pools/[chain_dag, clearance]
 
-func combine(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
+func combine(tgt: var Attestation, src: Attestation) =
   ## Combine the signature and participation bitfield, with the assumption that
   ## the same data is being signed - if the signatures overlap, they are not
   ## combined.
@@ -32,11 +32,10 @@ func combine(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
   if not tgt.aggregation_bits.overlaps(src.aggregation_bits):
     tgt.aggregation_bits.combine(src.aggregation_bits)
 
-    if skipBlsValidation notin flags:
-      var agg {.noInit.}: AggregateSignature
-      agg.init(tgt.signature)
-      agg.aggregate(src.signature)
-      tgt.signature = agg.finish()
+    var agg {.noInit.}: AggregateSignature
+    agg.init(tgt.signature)
+    agg.aggregate(src.signature)
+    tgt.signature = agg.finish()
 
 template wrappedTimedTest(name: string, body: untyped) =
   # `check` macro takes a copy of whatever it's checking, on the stack!
@@ -151,7 +150,7 @@ suiteReport "Attestation pool processing" & preset():
       attestation1 = makeAttestation(
         state.data.data, state.blck.root, bc0[1], cache)
 
-    attestation0.combine(attestation1, {})
+    attestation0.combine(attestation1)
 
     pool[].addAttestation(
       attestation0, [bc0[0]].toHashSet, attestation0.data.slot)
@@ -177,7 +176,7 @@ suiteReport "Attestation pool processing" & preset():
       attestation1 = makeAttestation(
         state.data.data, state.blck.root, bc0[1], cache)
 
-    attestation0.combine(attestation1, {})
+    attestation0.combine(attestation1)
 
     pool[].addAttestation(
       attestation1, [bc0[1]].toHashSet, attestation1.data.slot)
