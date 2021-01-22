@@ -11,7 +11,7 @@ import
   std/[os, strutils],
   confutils,
   eth/db/[kvstore, kvstore_sqlite3],
-  ../beacon_chain/validator_protection/slashing_protection_v1,
+  ../beacon_chain/validator_protection/slashing_protection,
   ../beacon_chain/spec/digest
 
 type
@@ -33,8 +33,8 @@ proc doDump(conf: SlashProtConf) =
   # TODO: Make it read-only https://github.com/status-im/nim-eth/issues/312
   # TODO: why is sqlite3 always appending .sqlite3 ?
   let filetrunc = file.changeFileExt("")
-  let db = SlashingProtectionDB_v1.loadUnchecked(dir, filetrunc, readOnly = false)
-  db.toSPDIF(conf.outfile)
+  let db = SlashingProtectionDB.loadUnchecked(dir, filetrunc, readOnly = false)
+  db.exportInterchangeFormat(conf.outfile)
 
 when isMainModule:
   let conf = SlashProtConf.load()

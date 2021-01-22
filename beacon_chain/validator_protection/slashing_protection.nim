@@ -73,18 +73,18 @@ proc init*(
        T: type SlashingProtectionDB,
        genesis_validator_root: Eth2Digest,
        basePath, dbname: string,
-       mode: SlashProtDBMode,
+       modes: set[SlashProtDBMode],
        disagreementBehavior: DisagreementBehavior
      ): T =
   ## Initialize or load a slashing protection DB
   ## This is for Beacon Node usage
 
-  doAssert mode.card >= 1, "No slashing protection mode chosen. Choose a v1, a v2 or v1 and v2 slashing DB mode."
+  doAssert modes.card >= 1, "No slashing protection mode chosen. Choose a v1, a v2 or v1 and v2 slashing DB mode."
   doAssert not(
-    kCompleteArchiveV2 in mode and
-    kLowWatermarkV2 in mode), "Mode(s): " & $mode & ". Choose only one of V2 DB modes."
+    kCompleteArchiveV2 in modes and
+    kLowWatermarkV2 in modes), "Mode(s): " & $modes & ". Choose only one of V2 DB modes."
 
-  result.mode = mode
+  result.modes = modes
   result.disagreementBehavior = disagreementBehavior
 
   result.db_v2 = SlashingProtectionDB_v2.initCompatV1(
@@ -93,6 +93,20 @@ proc init*(
   )
 
   result.db_v1.fromRawDB(kvstore result.db_v2.getRawDBHandle())
+
+proc init*(
+       T: type SlashingProtectionDB,
+       genesis_validator_root: Eth2Digest,
+       basePath, dbname: string
+     ): T =
+  ## Initialize or load a slashing protection DB
+  ## With defaults
+  ## - v2 DB only, low watermark (regular pruning)
+  init(
+    T, genesis_validator_root, basePath, dbname,
+    modes = {kLowWatermarkV2},
+    disagreementBehavior = kChooseV2
+  )
 
 proc loadUnchecked*(
        T: type SlashingProtectionDB,
@@ -237,15 +251,15 @@ template updateVersions(
   ## registerBlock(db_version, validator, slot, block_root)
   ##
   ## db_version will be replaced by db_v1 and db_v2 accordingly
-  if db.useV1():
-    template db_version: untyped = db.db_v1
-    query
-  if db.useV2():
-    template db_version: untyped = db.db_v2
-    query
+  # if db.useV1():
+  #   template db_version: untyped = db.db_v1
+  #   query
+  # if db.useV2():
+  #   template db_version: untyped = db.db_v2
+  #   query
 
 proc registerBlock*(
-       db: SlashingProtectionDB_v2,
+       db: SlashingProtectionDB,
        validator: ValidatorPubKey,
        slot: Slot, block_signing_root: Eth2Digest) =
   ## Add a block to the slashing protection DB
@@ -254,12 +268,12 @@ proc registerBlock*(
   ##
   ## block_signing_root is the output of
   ## compute_signing_root(block, domain)
-  updateVersions(
-    registerBlock(db_version, validator, slot, block_signing_root)
-  )
+  # updateVersions(
+  registerBlock(db.db_v1, validator, slot, block_signing_root)
+  # )
 
 proc registerAttestation*(
-       db: SlashingProtectionDB_v2,
+       db: SlashingProtectionDB,
        validator: ValidatorPubKey,
        source, target: Epoch,
        attestation_signing_root: Eth2Digest) =
@@ -269,10 +283,10 @@ proc registerAttestation*(
   ##
   ## attestation_signing_root is the output of
   ## compute_signing_root(attestation, domain)
-  updateVersions(
-    registerAttestation(db_version, validator,
+  # updateVersions(
+  registerAttestation(db.db_v1, validator,
       source, target, attestation_signing_root)
-  )
+  # )
 
 # DB maintenance
 # --------------------------------------------
@@ -280,3 +294,31 @@ proc registerAttestation*(
 
 # Interchange
 # --------------------------------------------
+
+proc toSPDIR*(db: SlashingProtectionDB): SPDIR
+             {.raises: [IOError, Defect].} =
+  ## Assumes that if the db uses both v1 and v2
+  ## the v2 has the latest information and includes the v1 DB
+  if db.useV2():
+    return db.db_v2.toSPDIR()
+  else:
+    doAssert db.useV1()
+    return db.db_v1.toSPDIR()
+
+proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): bool
+             {.raises: [SerializationError, IOError, Defect].} =
+  let useV1 = db.useV1()
+  let useV2 = db.useV2()
+  if useV2:
+    result = db.db_v2.inclSPDIR(spdir)
+
+  if useV2 and useV1:
+    return result and db.db_v1.inclSPDIR(spdir)
+  else:
+    doAssert useV1
+    return db.db_v1.inclSPDIR(spdir)
+
+# Sanity check
+# --------------------------------------------------------------
+
+static: doAssert SlashingProtectionDB is SlashingProtectionDB_Concept
