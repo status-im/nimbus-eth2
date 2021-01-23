@@ -86,13 +86,13 @@ func getAttestationTopic*(forkDigest: ForkDigest, subnetIndex: uint64):
   except ValueError as e:
     raiseAssert e.msg
 
-func get_committee_assignments*(
+iterator get_committee_assignments*(
     state: BeaconState, epoch: Epoch,
     validator_indices: HashSet[ValidatorIndex],
     cache: var StateCache):
-    seq[tuple[validatorIndices: HashSet[ValidatorIndex],
+    tuple[validatorIndices: HashSet[ValidatorIndex],
       committeeIndex: CommitteeIndex,
-      subnetIndex: uint8, slot: Slot]] =
+      subnetIndex: uint8, slot: Slot] =
   let
     committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
     start_slot = compute_start_slot_at_epoch(epoch)
@@ -104,8 +104,8 @@ func get_committee_assignments*(
         includedIndices =
           toHashSet(get_beacon_committee(state, slot, idx, cache)) *
             validator_indices
-      if includedIndices.len > 0:
-        result.add(
-           (includedIndices, idx,
-            compute_subnet_for_attestation(committees_per_slot, slot, idx).uint8,
-            slot))
+      if includedIndices.len == 0:
+        yield (
+          includedIndices, idx,
+          compute_subnet_for_attestation(committees_per_slot, slot, idx).uint8,
+          slot)
