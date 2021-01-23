@@ -104,7 +104,7 @@ iterator get_committee_assignments*(
         includedIndices =
           toHashSet(get_beacon_committee(state, slot, idx, cache)) *
             validator_indices
-      if includedIndices.len == 0:
+      if includedIndices.len > 0:
         yield (
           includedIndices, idx,
           compute_subnet_for_attestation(committees_per_slot, slot, idx).uint8,
