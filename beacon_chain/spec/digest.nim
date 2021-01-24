@@ -104,7 +104,7 @@ template hash*(x: Eth2Digest): Hash =
   # digests are already good hashes
   cast[ptr Hash](unsafeAddr x.data[0])[]
 
-template `==`*(a, b: Eth2Digest): bool =
+func `==`*(a, b: Eth2Digest): bool =
   # nimcrypto uses a constant-time comparison for all MDigest types which for
   # Eth2Digest is unnecessary - the type should never hold a secret!
   equalMem(unsafeAddr a.data[0], unsafeAddr b.data[0], sizeof(a.data))

@@ -83,8 +83,11 @@ func toPubKey*(privkey: ValidatorPrivKey): ValidatorPubKey =
 
   ValidatorPubKey(blob: pubKey.exportRaw())
 
-proc load*(v: ValidatorPubKey): Option[blscurve.PublicKey] =
-  ## Parse public key blob - this may fail
+proc loadWithCache*(v: ValidatorPubKey): Option[blscurve.PublicKey] =
+  ## Parse public key blob - this may fail - this function uses a cache to
+  ## avoid the expensive deserialization - for now, external public keys only
+  ## come from deposits in blocks - when more sources are added, the memory
+  ## usage of the cache should be considered
   var cache {.threadvar.}: Table[typeof(v.blob), blscurve.PublicKey]
 
   # Try to get parse value from cache - if it's not in there, try to parse it -
@@ -137,13 +140,18 @@ proc blsVerify*(
   ## to enforce correct usage.
   let
     parsedSig = signature.load()
-    parsedKey = pubkey.load()
 
-  # It may happen that signatures or keys fail to parse as invalid blobs may
-  # be passed around - for example, the deposit contract doesn't verify
-  # signatures, so the loading happens lazily at verification time instead!
-  parsedSig.isSome() and parsedKey.isSome() and
-    parsedKey.get.verify(message, parsedSig.get())
+  if parsedSig.isNone():
+    false
+  else:
+    let
+      parsedKey = pubkey.loadWithCache()
+
+    # It may happen that signatures or keys fail to parse as invalid blobs may
+    # be passed around - for example, the deposit contract doesn't verify
+    # signatures, so the loading happens lazily at verification time instead!
+    parsedKey.isSome() and
+      parsedKey.get.verify(message, parsedSig.get())
 
 func blsSign*(privkey: ValidatorPrivKey, message: openArray[byte]): ValidatorSig =
   ## Computes a signature from a secret key and a message
@@ -178,7 +186,7 @@ proc blsFastAggregateVerify*(
     return false
   var unwrapped: seq[PublicKey]
   for pubkey in publicKeys:
-    let realkey = pubkey.load()
+    let realkey = pubkey.loadWithCache()
     if realkey.isNone:
       return false
     unwrapped.add realkey.get

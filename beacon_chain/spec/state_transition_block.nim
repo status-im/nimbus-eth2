@@ -52,7 +52,7 @@ func process_block_header*(
     return err("process_block_header: previous block root mismatch")
 
   # Verify proposer is not slashed
-  if state.validators.asSeq()[proposer_index.get].slashed:
+  if state.validators.asSeq()[blck.proposer_index].slashed:
     return err("process_block_header: proposer slashed")
 
   # Cache current block as the new latest block
@@ -251,7 +251,6 @@ proc check_voluntary_exit*(
   if voluntary_exit.validator_index >= state.validators.lenu64:
     return err("Exit: invalid validator index")
 
-  # TODO lent
   let validator = unsafeAddr state.validators.asSeq()[voluntary_exit.validator_index]
 
   # Verify the validator is active

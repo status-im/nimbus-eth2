@@ -52,6 +52,9 @@ type
       printTimes* {.
         defaultValue: true
         desc: "Print csv of block processing time".}: bool
+      resetCache* {.
+        defaultValue: false
+        desc: "Process each block with a fresh cache".}: bool
     of dumpState:
       stateRoot* {.
         argument
@@ -124,13 +127,16 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
   withTimer(timers[tLoadState]):
     discard db.getState(state[].root, state[].data, noRollback)
 
+  var cache = StateCache()
+
   for b in blocks:
     let
       isEpoch = state[].data.get_current_epoch() !=
         b.message.slot.compute_epoch_at_slot
     withTimer(timers[if isEpoch: tApplyEpochBlock else: tApplyBlock]):
-      var cache = StateCache()
       var start = Moment.now()
+      if conf.resetCache:
+        cache = StateCache()
       if not state_transition(runtimePreset, state[], b, cache, {}, noRollback):
         dump("./", b)
         echo "State transition failed (!)"

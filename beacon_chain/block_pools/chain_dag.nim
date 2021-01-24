@@ -58,7 +58,7 @@ template withState*(
   ## TODO async transformations will lead to a race where stateData gets updated
   ##      while waiting for future to complete - catch this here somehow?
 
-  var cache {.inject.} = blockSlot.blck.getStateCache(blockSlot.slot.epoch())
+  var cache {.inject.} = StateCache()
   updateStateData(dag, stateData, blockSlot, false, cache)
 
   template hashedState(): HashedBeaconState {.inject, used.} = stateData.data
@@ -97,9 +97,9 @@ func get_effective_balances*(state: BeaconState): seq[Gwei] =
 
   for i in 0 ..< result.len:
     # All non-active validators have a 0 balance
-    template validator: Validator = state.validators[i]
-    if validator.is_active_validator(epoch):
-      result[i] = validator.effective_balance
+    let validator = unsafeAddr state.validators[i]
+    if validator[].is_active_validator(epoch):
+      result[i] = validator[].effective_balance
 
 proc init*(
     T: type EpochRef, state: BeaconState, cache: var StateCache,
@@ -273,33 +273,35 @@ func epochAncestor*(blck: BlockRef, epoch: Epoch): BlockSlot =
 
   blck.atEpochStart(epoch)
 
-proc getStateCache*(blck: BlockRef, epoch: Epoch): StateCache =
+func findEpochRef*(blck: BlockRef, epoch: Epoch): EpochRef = # may return nil!
+  let ancestor = blck.epochAncestor(epoch)
+  doAssert ancestor.blck != nil
+  for epochRef in ancestor.blck.epochRefs:
+    if epochRef.epoch == epoch:
+      return epochRef
+
+proc loadStateCache*(cache: var StateCache, blck: BlockRef, epoch: Epoch) =
   # When creating a state cache, we want the current and the previous epoch
   # information to be preloaded as both of these are used in state transition
   # functions
 
-  var res = StateCache()
   template load(e: Epoch) =
-    let ancestor = blck.epochAncestor(epoch)
-    for epochRef in ancestor.blck.epochRefs:
-      if epochRef.epoch == e:
-        res.shuffled_active_validator_indices[epochRef.epoch] =
+    if epoch notin cache.shuffled_active_validator_indices:
+      let epochRef = blck.findEpochRef(epoch)
+      if epochRef != nil:
+        cache.shuffled_active_validator_indices[epochRef.epoch] =
           epochRef.shuffled_active_validator_indices
 
         if epochRef.epoch == epoch:
           for i, idx in epochRef.beacon_proposers:
-            res.beacon_proposer_indices[
+            cache.beacon_proposer_indices[
               epoch.compute_start_slot_at_epoch + i] =
                 if idx.isSome: some(idx.get()[0]) else: none(ValidatorIndex)
-
-        break
 
   load(epoch)
 
   if epoch > 0:
     load(epoch - 1)
-
-  res
 
 func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
   BlockRef(
@@ -442,13 +444,6 @@ proc init*(T: type ChainDAGRef,
     totalBlocks = blocks.len
 
   res
-
-proc findEpochRef*(blck: BlockRef, epoch: Epoch): EpochRef = # may return nil!
-  let ancestor = blck.epochAncestor(epoch)
-  doAssert ancestor.blck != nil
-  for epochRef in ancestor.blck.epochRefs:
-    if epochRef.epoch == epoch:
-      return epochRef
 
 proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
   let epochRef = blck.findEpochRef(epoch)
@@ -662,6 +657,8 @@ proc applyBlock(
     doAssert (addr(statePtr.data) == addr v)
     statePtr[] = dag.headState
 
+  loadStateCache(cache, blck.refs, blck.data.message.slot.epoch)
+
   let ok = state_transition(
     dag.runtimePreset, state.data, blck.data,
     cache, flags + dag.updateFlags + {slotProcessed}, restore)
@@ -782,6 +779,8 @@ proc updateStateData*(
     let ok =
       dag.applyBlock(state, dag.get(ancestors[i]), {}, cache)
     doAssert ok, "Blocks in database should never fail to apply.."
+
+  loadStateCache(cache, bs.blck, bs.slot.epoch)
 
   # ...and make sure to process empty slots as requested
   dag.advanceSlots(state, bs.slot, save, cache)
