@@ -454,15 +454,15 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
         node.chainDag.headState.data.data, epoch, validatorIndices, cache):
 
     doAssert compute_epoch_at_slot(slot) == epoch
+    let committeeLen =
+      if isConstAggregationLen:
+        probeCommitteeLen
+      else:
+        get_beacon_committee_len(
+          node.chainDag.headState.data.data, slot, committeeIndex, cache)
 
     if not isAnyCommitteeValidatorAggregating(
-        validatorIndices,
-        if isConstAggregationLen:
-          probeCommitteeLen
-        else:
-          get_beacon_committee_len(
-            node.chainDag.headState.data.data, slot, committeeIndex, cache),
-        slot):
+        validatorIndices, committeeLen, slot):
       continue
 
     node.attestationSubnets.unsubscribeSlot[subnetIndex] =
