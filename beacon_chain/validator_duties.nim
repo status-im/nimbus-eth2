@@ -617,9 +617,6 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   # The dontcheck option's a deliberately undocumented escape hatch for the
   # local testnets and similar development and testing use cases.
-  doAssert node.config.gossipSlashingProtection == GossipSlashingProtectionMode.dontcheck or (
-    node.processor[].gossipSlashingProtection.probeEpoch <
-    node.processor[].gossipSlashingProtection.broadcastStartEpoch)
   if curSlot.epoch <
         node.processor[].gossipSlashingProtection.broadcastStartEpoch and
       curSlot.epoch != node.processor[].gossipSlashingProtection.probeEpoch and
