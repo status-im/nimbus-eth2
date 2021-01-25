@@ -519,7 +519,7 @@ proc runQueueProcessingLoop*(self: ref Eth2Processor) {.async.} =
     # taking up all CPU - we don't want to _completely_ stop processing blocks
     # in this case (attestations will get dropped) - doing so also allows us
     # to benefit from more batching / larger network reads when under load.
-    discard await idleAsync().withTimeout(100.milliseconds)
+    discard await idleAsync().withTimeout(10.milliseconds)
 
     # Avoid one more `await` when there's work to do
     if not (blockFut.finished or aggregateFut.finished or attestationFut.finished):
