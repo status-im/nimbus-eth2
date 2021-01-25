@@ -18,7 +18,7 @@ programMain:
   # load and send all public keys so the BN knows for which ones to ping us
   doAssert paramCount() == 2
   for curr in validatorKeysFromDirs(paramStr(1), paramStr(2)):
-    validators[curr.toPubKey.initPubKey] = curr
+    validators[curr.toPubKey] = curr
     echo curr.toPubKey
   echo "end"
 
@@ -27,6 +27,6 @@ programMain:
     let args = stdin.readLine.split(" ")
     doAssert args.len == 2
 
-    let privKey = validators[ValidatorPubKey.fromHex(args[0]).get().initPubKey()]
+    let privKey = validators[ValidatorPubKey.fromHex(args[0]).get()]
 
     echo blsSign(privKey, Eth2Digest.fromHex(args[1]).data)

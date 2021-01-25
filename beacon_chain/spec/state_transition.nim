@@ -16,6 +16,27 @@
 # * When updating the code, add TODO sections to mark where there are clear
 #   improvements to be made - other than that, keep things similar to spec unless
 #   motivated by security or performance considerations
+#
+# Performance notes:
+# * The state transition is used in two contexts: to verify that incoming blocks
+#   are correct and to replay existing blocks from database. Incoming blocks
+#   are processed one-by-one while replay happens multiple blocks at a time.
+# * Although signature verification is the slowest operation in the state
+#   state transition, we skip it during replay - this is also when we repeatedly
+#   call the state transition, making the non-signature part of the code
+#   important from a performance point of view.
+# * It's important to start with a prefilled cache - generating the shuffled
+#   list of active validators is generally very slow.
+# * Throughout, the code is affected by inefficient for loop codegen, meaning
+#   that we have to iterate over indices and pick out the value manually:
+#   https://github.com/nim-lang/Nim/issues/14421
+# * Throughout, we're affected by inefficient `let` borrowing, meaning we
+#   often have to take the address of a sequence item due to the above - look
+#   for `let ... = unsafeAddr sequence[idx]`
+# * Throughout, we're affected by the overloading rules that prefer a `var`
+#   overload to a non-var overload - look for `asSeq()` - when the `var`
+#   overload is used, the hash tree cache is cleared, which, aside from being
+#   slow itself, causes additional processing to recalculate the merkle tree.
 
 {.push raises: [Defect].}
 

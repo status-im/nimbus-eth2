@@ -60,13 +60,14 @@ func is_active_validator*(validator: Validator, epoch: Epoch): bool =
 func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
   ## Return the sequence of active validator indices at ``epoch``.
-  for idx, val in state.validators:
-    if is_active_validator(val, epoch):
+  result = newSeqOfCap[ValidatorIndex](state.validators.len)
+  for idx in 0..<state.validators.len:
+    if is_active_validator(state.validators[idx], epoch):
       result.add idx.ValidatorIndex
 
 func get_active_validator_indices_len*(state: BeaconState, epoch: Epoch): uint64 =
-  for idx, val in state.validators:
-    if is_active_validator(val, epoch):
+  for idx in 0..<state.validators.len:
+    if is_active_validator(state.validators[idx], epoch):
       inc result
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_current_epoch

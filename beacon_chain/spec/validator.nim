@@ -278,31 +278,28 @@ func compute_shuffled_index(
   doAssert index < index_count
 
   var
-    pivot_buffer: array[(32+1), byte]
-    source_buffer: array[(32+1+4), byte]
+    source_buffer {.noinit.}: array[(32+1+4), byte]
     cur_idx_permuted = index
 
-  pivot_buffer[0..31] = seed.data
   source_buffer[0..31] = seed.data
 
   # Swap or not (https://link.springer.com/content/pdf/10.1007%2F978-3-642-32009-5_1.pdf)
   # See the 'generalized domain' algorithm on page 3
   for current_round in 0'u8 ..< SHUFFLE_ROUND_COUNT.uint8:
-    pivot_buffer[32] = current_round
     source_buffer[32] = current_round
 
     let
       # If using multiple indices, can amortize this
       pivot =
-        bytes_to_uint64(eth2digest(pivot_buffer).data.toOpenArray(0, 7)) mod
+        bytes_to_uint64(eth2digest(source_buffer.toOpenArray(0, 32)).data.toOpenArray(0, 7)) mod
           index_count
 
       flip = ((index_count + pivot) - cur_idx_permuted) mod index_count
-      position = max(cur_idx_permuted.int, flip.int)
-    source_buffer[33..36] = uint_to_bytes4((position div 256).uint64)
+      position = max(cur_idx_permuted, flip)
+    source_buffer[33..36] = uint_to_bytes4((position shr 8))
     let
       source = eth2digest(source_buffer).data
-      byte_value = source[(position mod 256) div 8]
+      byte_value = source[(position mod 256) shr 3]
       bit = (byte_value shr (position mod 8)) mod 2
 
     cur_idx_permuted = if bit != 0: flip else: cur_idx_permuted

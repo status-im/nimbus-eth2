@@ -538,9 +538,6 @@ type
     broadcastStartEpoch*: Epoch
     probeEpoch*: Epoch
 
-func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
-  ($state.validators[validatorIdx].pubkey)[0..7]
-
 func getDepositMessage*(depositData: DepositData): DepositMessage =
   result.pubkey = depositData.pubkey
   result.amount = depositData.amount

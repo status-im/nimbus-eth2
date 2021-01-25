@@ -196,7 +196,7 @@ proc addRawBlock*(
 
     # TODO if the block is from the future, we should not be resolving it (yet),
     #      but maybe we should use it as a hint that our clock is wrong?
-    var cache = getStateCache(parent, blck.slot.epoch)
+    var cache = StateCache()
     updateStateData(
       dag, dag.clearanceState, parent.atSlot(blck.slot), true, cache)
 
