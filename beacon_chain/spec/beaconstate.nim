@@ -37,24 +37,29 @@ func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openArray[Eth2Digest],
   value == root
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#increase_balance
+func increase_balance*(balance: var Gwei, delta: Gwei) =
+  balance += delta
+
 func increase_balance*(
     state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
   ## Increase the validator balance at index ``index`` by ``delta``.
   if delta != 0: # avoid dirtying the balance cache if not needed
-    state.balances[index] += delta
+    increase_balance(state.balances[index], delta)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#decrease_balance
+func decrease_balance*(balance: var Gwei, delta: Gwei) =
+  balance =
+    if delta > balance:
+      0'u64
+    else:
+      balance - delta
+
 func decrease_balance*(
     state: var BeaconState, index: ValidatorIndex, delta: Gwei) =
   ## Decrease the validator balance at index ``index`` by ``delta``, with
   ## underflow protection.
   if delta != 0: # avoid dirtying the balance cache if not needed
-    let prev_balance = state.balances.asSeq()[index]
-    state.balances[index] =
-      if delta > prev_balance:
-        0'u64
-      else:
-        prev_balance - delta
+    decrease_balance(state.balances[index], delta)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#deposits
 func get_validator_from_deposit(deposit: DepositData):

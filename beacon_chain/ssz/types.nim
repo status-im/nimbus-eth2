@@ -213,6 +213,11 @@ proc clearCaches*(a: var HashList, dataIdx: int64) =
 
   clearCache(a.hashes[0])
 
+proc clearCache*(a: var HashList) =
+  # Clear the full merkle tree, in anticipation of a complete rewrite of the
+  # contents
+  for c in a.hashes.mitems(): clearCache(c)
+
 proc growHashes*(a: var HashList) =
   # Ensure that the hash cache is big enough for the data in the list
   let

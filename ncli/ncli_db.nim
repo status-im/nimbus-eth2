@@ -13,8 +13,9 @@ type Timers = enum
   tInit = "Initialize DB"
   tLoadBlock = "Load block from database"
   tLoadState = "Load state from database"
-  tApplyBlock = "Apply block"
-  tApplyEpochBlock = "Apply epoch block"
+  tAdvanceSlot = "Advance slot, non-epoch"
+  tAdvanceEpoch = "Advance slot, epoch"
+  tApplyBlock = "Apply block, no slot processing"
   tDbStore = "Database block store"
 
 type
@@ -129,21 +130,24 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
 
   var cache = StateCache()
 
-  for b in blocks:
-    let
-      isEpoch = state[].data.get_current_epoch() !=
-        b.message.slot.compute_epoch_at_slot
-    withTimer(timers[if isEpoch: tApplyEpochBlock else: tApplyBlock]):
-      var start = Moment.now()
+  for b in blocks.mitems():
+    while state[].data.slot < b.message.slot:
+      let isEpoch = state[].data.slot.epoch() != (state[].data.slot + 1).epoch
+      withTimer(timers[if isEpoch: tAdvanceEpoch else: tAdvanceSlot]):
+        let ok = process_slots(state[], state[].data.slot + 1, cache, {})
+        doAssert ok, "Slot processing can't fail with correct inputs"
+
+    var start = Moment.now()
+    withTimer(timers[tApplyBlock]):
       if conf.resetCache:
         cache = StateCache()
-      if not state_transition(runtimePreset, state[], b, cache, {}, noRollback):
+      if not state_transition(
+          runtimePreset, state[], b, cache, {slotProcessed}, noRollback):
         dump("./", b)
         echo "State transition failed (!)"
         quit 1
-      else:
-        if conf.printTimes:
-          echo b.message.slot, ",", toHex(b.root.data), ",", nanoseconds(Moment.now() - start)
+    if conf.printTimes:
+      echo b.message.slot, ",", toHex(b.root.data), ",", nanoseconds(Moment.now() - start)
     if conf.storeBlocks:
       withTimer(timers[tDbStore]):
         dbBenchmark.putBlock(b)

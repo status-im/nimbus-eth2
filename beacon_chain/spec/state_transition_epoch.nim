@@ -516,9 +516,14 @@ func process_rewards_and_penalties(
 
   get_attestation_deltas(state, validator_statuses)
 
+  # Here almost all balances are updated (assuming most validators are active) -
+  # clearing the cache becomes a bottleneck if done item by item because of the
+  # recursive nature of cache clearing - instead, we clear the whole cache then
+  # update the raw list directly
+  state.balances.clearCache()
   for idx, v in validator_statuses.statuses:
-    increase_balance(state, idx.ValidatorIndex, v.delta.rewards)
-    decrease_balance(state, idx.ValidatorIndex, v.delta.penalties)
+    increase_balance(state.balances.asSeq()[idx], v.delta.rewards)
+    decrease_balance(state.balances.asSeq()[idx], v.delta.penalties)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#slashings
 func process_slashings*(state: var BeaconState, total_balance: Gwei) {.nbench.}=
