@@ -1561,7 +1561,19 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
         p.historyLength = 6
         p.historyGossip = 3
         p.seenTTL = 385.seconds
+        p.gossipThreshold = -4000
+        p.publishThreshold = -8000
+        p.graylistThreshold = -16000
+        p.decayInterval = 12.seconds
+        p.decayToZero = 0.01
+        p.retainScore = 385.seconds
+        p.ipColocationFactorWeight = -53.75
+        p.ipColocationFactorThreshold = 3
+        p.behaviourPenaltyWeight = -15.9
+        p.behaviourPenaltyDecay = 0.986
+        p.floodPublish = true
         p.gossipFactor = 0.05
+        p.disconnectBadPeers = true
         p.validateParameters().tryGet()
         p
     pubsub = GossipSub.init(
@@ -1588,7 +1600,7 @@ proc announcedENR*(node: Eth2Node): enr.Record =
 proc shortForm*(id: KeyPair): string =
   $PeerID.init(id.pubkey)
 
-proc subscribe*(node: Eth2Node, topic: string, enableTopicMetrics: bool = false) =
+proc subscribe*(node: Eth2Node, topic: string, topicParams: TopicParams, enableTopicMetrics: bool = false) =
   proc dummyMsgHandler(topic: string, data: seq[byte]) {.async.} =
     discard
 
@@ -1598,6 +1610,7 @@ proc subscribe*(node: Eth2Node, topic: string, enableTopicMetrics: bool = false)
   if enableTopicMetrics:
     node.pubsub.knownTopics.incl(topicName)
 
+  node.pubsub.topicParams[topicName] = topicParams
   node.pubsub.subscribe(topicName, dummyMsgHandler)
 
 proc setValidTopics*(node: Eth2Node, topics: openArray[string]) =
