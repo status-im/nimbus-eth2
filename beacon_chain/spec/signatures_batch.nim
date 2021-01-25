@@ -23,6 +23,11 @@ func `$`*(s: SignatureSet): string =
     ", signing_root: 0x" & s.message.toHex() &
     ", signature: 0x" & s.signature.toHex() & ')'
 
+# TODO:
+# Now that we deserialize pubkeys and signatures lazily
+# this module needs graceful handling of rogue pubkey and signature
+# since they can come unchecked directly from the network.
+
 func addSignatureSet[T](
       sigs: var seq[SignatureSet],
       pubkey: blscurve.PublicKey,
@@ -35,9 +40,6 @@ func addSignatureSet[T](
   ## Add a new signature set triplet (pubkey, message, signature)
   ## to a collection of signature sets for batch verification.
   ## Can return false if `signature` wasn't deserialized to a valid BLS signature.
-  if signature.kind != Real:
-    return false
-
   let signing_root = compute_signing_root(
       sszObj,
       get_domain(
@@ -50,7 +52,7 @@ func addSignatureSet[T](
   sigs.add((
     pubkey,
     signing_root,
-    signature.blsValue
+    signature.load().get()
   ))
 
   return true
@@ -61,9 +63,9 @@ proc aggregateAttesters(
      ): blscurve.PublicKey {.noInit.} =
   doAssert attestation.attesting_indices.len > 0
   var attestersAgg{.noInit.}: AggregatePublicKey
-  attestersAgg.init(state.validators[attestation.attesting_indices[0]].pubkey.toRealPubKey().get().blsValue)
+  attestersAgg.init(state.validators[attestation.attesting_indices[0]].pubkey.loadWithCache().get())
   for i in 1 ..< attestation.attesting_indices.len:
-    attestersAgg.aggregate(state.validators[attestation.attesting_indices[i]].pubkey.toRealPubKey().get().blsValue)
+    attestersAgg.aggregate(state.validators[attestation.attesting_indices[i]].pubkey.loadWithCache().get())
   result.finish(attestersAgg)
 
 proc addIndexedAttestation(
@@ -104,10 +106,10 @@ proc addAttestation(
                     cache
                   ):
     if not result: # first iteration
-      attestersAgg.init(state.validators[valIndex].pubkey.toRealPubKey().get().blsValue)
+      attestersAgg.init(state.validators[valIndex].pubkey.loadWithCache().get())
       result = true
     else:
-      attestersAgg.aggregate(state.validators[valIndex].pubkey.toRealPubKey().get().blsValue)
+      attestersAgg.aggregate(state.validators[valIndex].pubkey.loadWithCache().get())
 
   if not result:
     # There was no attesters
@@ -153,10 +155,10 @@ proc collectSignatureSets*(
     return false
 
   let pubkey = block:
-    let pk = state.validators[proposer_index].pubkey.toRealPubKey()
+    let pk = state.validators[proposer_index].pubkey.loadWithCache()
     if pk.isNone:
       return false
-    pk.unsafeGet().blsValue
+    pk.unsafeGet()
   let epoch = signed_block.message.slot.compute_epoch_at_slot()
 
   # 1. Block proposer
@@ -203,7 +205,7 @@ proc collectSignatureSets*(
       let proposer1 = state.validators[header_1.message.proposer_index]
       let epoch1 = header_1.message.slot.compute_epoch_at_slot()
       if not sigs.addSignatureSet(
-              proposer1.pubkey.toRealPubKey().get().blsValue,
+              proposer1.pubkey.loadWithCache().get(),
               header_1.message,
               header_1.signature,
               state.genesis_validators_root,
@@ -219,7 +221,7 @@ proc collectSignatureSets*(
       let proposer2 = state.validators[header_2.message.proposer_index]
       let epoch2 = header_2.message.slot.compute_epoch_at_slot()
       if not sigs.addSignatureSet(
-              proposer2.pubkey.toRealPubKey().get().blsValue,
+              proposer2.pubkey.loadWithCache().get(),
               header_2.message,
               header_2.signature,
               state.genesis_validators_root,
@@ -283,7 +285,7 @@ proc collectSignatureSets*(
     template volex: untyped = signed_block.message.body.voluntary_exits[i]
 
     if not sigs.addSignatureSet(
-            state.validators[volex.message.validator_index].pubkey.toRealPubKey().get().blsValue,
+            state.validators[volex.message.validator_index].pubkey.loadWithCache().get(),
             volex.message,
             volex.signature,
             state.genesis_validators_root,
