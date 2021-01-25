@@ -282,11 +282,11 @@ proc proposeSignedBlock*(node: BeaconNode,
                          newBlock: SignedBeaconBlock): BlockRef =
 
   let newBlockRef = node.chainDag.addRawBlock(node.quarantine, newBlock) do (
-      blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+      blckRef: BlockRef, trustedBlock: TrustedSignedBeaconBlock,
       epochRef: EpochRef, state: HashedBeaconState):
-    # Callback add to fork choice if valid
+    # Callback add to fork choice if signed block valid (and becomes trusted)
     node.attestationPool[].addForkChoice(
-      epochRef, blckRef, signedBlock.message,
+      epochRef, blckRef, trustedBlock.message,
       node.beaconClock.now().slotOrZero())
 
   if newBlockRef.isErr:
@@ -714,4 +714,3 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     let finalizedEpochRef = node.chainDag.getFinalizedEpochRef()
     discard node.eth1Monitor.trackFinalizedState(
       finalizedEpochRef.eth1_data, finalizedEpochRef.eth1_deposit_index)
-

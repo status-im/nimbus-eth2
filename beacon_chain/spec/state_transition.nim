@@ -70,7 +70,7 @@ proc verify_block_signature*(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-proc verifyStateRoot(state: BeaconState, blck: BeaconBlock): bool =
+proc verifyStateRoot(state: BeaconState, blck: BeaconBlock or SigVerifiedBeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   let state_root = hash_tree_root(state)
   if state_root != blck.state_root:

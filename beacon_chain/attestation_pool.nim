@@ -231,7 +231,7 @@ proc addAttestation*(pool: var AttestationPool,
 proc addForkChoice*(pool: var AttestationPool,
                     epochRef: EpochRef,
                     blckRef: BlockRef,
-                    blck: BeaconBlock,
+                    blck: TrustedBeaconBlock,
                     wallSlot: Slot) =
   ## Add a verified block to the fork choice context
   let state = pool.forkChoice.process_block(

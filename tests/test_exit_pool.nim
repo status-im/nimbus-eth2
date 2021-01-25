@@ -9,14 +9,15 @@
 
 import std/unittest
 import chronicles, chronos, testutil
+import eth/keys
 import ../beacon_chain/spec/[datatypes, presets]
 import ../beacon_chain/exit_pool
-import ../beacon_chain/block_pools/chain_dag
+import ../beacon_chain/block_pools/[quarantine, chain_dag]
 
 proc getExitPool(): auto =
   let chainDag =
     init(ChainDAGRef, defaultRuntimePreset, makeTestDB(SLOTS_PER_EPOCH * 3))
-  newClone(ExitPool.init(chainDag, QuarantineRef()))
+  newClone(ExitPool.init(chainDag, QuarantineRef.init(keys.newRng())))
 
 suiteReport "Exit pool testing suite":
   setup:

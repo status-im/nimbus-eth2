@@ -43,7 +43,7 @@ declareGauge beacon_processed_deposits_total, "Number of total deposits included
 logScope: topics = "chaindag"
 
 proc putBlock*(
-    dag: var ChainDAGRef, signedBlock: SignedBeaconBlock) =
+    dag: var ChainDAGRef, signedBlock: TrustedSignedBeaconBlock) =
   dag.db.putBlock(signedBlock)
 
 proc updateStateData*(

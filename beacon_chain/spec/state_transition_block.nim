@@ -27,6 +27,10 @@ import
   ./signatures, ./presets,
   ../../nbench/bench_lab
 
+# Generics visibility issue with toSeq(items(intersection(HashSet, HashSet)))
+# https://github.com/nim-lang/Nim/issues/11225
+export sets
+
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
     state: var BeaconState, blck: SomeBeaconBlock, flags: UpdateFlags,
@@ -124,7 +128,7 @@ func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#proposer-slashings
 proc check_proposer_slashing*(
-    state: var BeaconState, proposer_slashing: ProposerSlashing,
+    state: var BeaconState, proposer_slashing: SomeProposerSlashing,
     flags: UpdateFlags):
     Result[void, cstring] {.nbench.} =
 
@@ -166,7 +170,7 @@ proc check_proposer_slashing*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
-    state: var BeaconState, proposer_slashing: ProposerSlashing,
+    state: var BeaconState, proposer_slashing: SomeProposerSlashing,
     flags: UpdateFlags, cache: var StateCache):
     Result[void, cstring] {.nbench.} =
   ? check_proposer_slashing(state, proposer_slashing, flags)
@@ -191,7 +195,7 @@ func is_slashable_attestation_data*(
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#attester-slashings
 proc check_attester_slashing*(
        state: var BeaconState,
-       attester_slashing: AttesterSlashing,
+       attester_slashing: SomeAttesterSlashing,
        flags: UpdateFlags
      ): Result[seq[ValidatorIndex], cstring] {.nbench.} =
   let
@@ -224,7 +228,7 @@ proc check_attester_slashing*(
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
        state: var BeaconState,
-       attester_slashing: AttesterSlashing,
+       attester_slashing: SomeAttesterSlashing,
        flags: UpdateFlags,
        cache: var StateCache
      ): Result[void, cstring] {.nbench.} =
@@ -242,7 +246,7 @@ proc process_attester_slashing*(
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#voluntary-exits
 proc check_voluntary_exit*(
     state: BeaconState,
-    signed_voluntary_exit: SignedVoluntaryExit,
+    signed_voluntary_exit: SomeSignedVoluntaryExit,
     flags: UpdateFlags): Result[void, cstring] {.nbench.} =
 
   let voluntary_exit = signed_voluntary_exit.message
@@ -294,7 +298,7 @@ proc check_voluntary_exit*(
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#voluntary-exits
 proc process_voluntary_exit*(
     state: var BeaconState,
-    signed_voluntary_exit: SignedVoluntaryExit,
+    signed_voluntary_exit: SomeSignedVoluntaryExit,
     flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.} =
   ? check_voluntary_exit(state, signed_voluntary_exit, flags)
