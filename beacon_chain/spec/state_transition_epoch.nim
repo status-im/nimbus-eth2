@@ -131,19 +131,20 @@ template previous_epoch_head_attesters*(v: TotalBalances): Gwei =
 
 func init*(T: type ValidatorStatuses, state: BeaconState): T =
   result.statuses = newSeq[ValidatorStatus](state.validators.len)
-  for i, v in state.validators:
-    result.statuses[i].is_slashed = v.slashed
+  for i in 0..<state.validators.len:
+    let v = unsafeAddr state.validators[i]
+    result.statuses[i].is_slashed = v[].slashed
     result.statuses[i].is_withdrawable_in_current_epoch =
-      state.get_current_epoch() >= v.withdrawable_epoch
-    result.statuses[i].current_epoch_effective_balance = v.effective_balance
+      state.get_current_epoch() >= v[].withdrawable_epoch
+    result.statuses[i].current_epoch_effective_balance = v[].effective_balance
 
-    if v.is_active_validator(state.get_current_epoch()):
+    if v[].is_active_validator(state.get_current_epoch()):
       result.statuses[i].is_active_in_current_epoch = true
-      result.total_balances.current_epoch_raw += v.effective_balance
+      result.total_balances.current_epoch_raw += v[].effective_balance
 
-    if v.is_active_validator(state.get_previous_epoch()):
+    if v[].is_active_validator(state.get_previous_epoch()):
       result.statuses[i].is_active_in_previous_epoch = true
-      result.total_balances.previous_epoch_raw += v.effective_balance
+      result.total_balances.previous_epoch_raw += v[].effective_balance
 
 func add(a: var Delta, b: Delta) =
   a.rewards += b.rewards
@@ -515,9 +516,14 @@ func process_rewards_and_penalties(
 
   get_attestation_deltas(state, validator_statuses)
 
+  # Here almost all balances are updated (assuming most validators are active) -
+  # clearing the cache becomes a bottleneck if done item by item because of the
+  # recursive nature of cache clearing - instead, we clear the whole cache then
+  # update the raw list directly
+  state.balances.clearCache()
   for idx, v in validator_statuses.statuses:
-    increase_balance(state, idx.ValidatorIndex, v.delta.rewards)
-    decrease_balance(state, idx.ValidatorIndex, v.delta.penalties)
+    increase_balance(state.balances.asSeq()[idx], v.delta.rewards)
+    decrease_balance(state.balances.asSeq()[idx], v.delta.penalties)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#slashings
 func process_slashings*(state: var BeaconState, total_balance: Gwei) {.nbench.}=
@@ -526,13 +532,14 @@ func process_slashings*(state: var BeaconState, total_balance: Gwei) {.nbench.}=
     adjusted_total_slashing_balance =
       min(sum(state.slashings) * PROPORTIONAL_SLASHING_MULTIPLIER, total_balance)
 
-  for index, validator in state.validators:
-    if validator.slashed and epoch + EPOCHS_PER_SLASHINGS_VECTOR div 2 ==
-        validator.withdrawable_epoch:
+  for index in 0..<state.validators.len:
+    let validator = unsafeAddr state.validators.asSeq()[index]
+    if validator[].slashed and epoch + EPOCHS_PER_SLASHINGS_VECTOR div 2 ==
+        validator[].withdrawable_epoch:
       let increment = EFFECTIVE_BALANCE_INCREMENT # Factored out from penalty
                                                   # numerator to avoid uint64 overflow
       let penalty_numerator =
-        validator.effective_balance div increment *
+        validator[].effective_balance div increment *
         adjusted_total_slashing_balance
       let penalty = penalty_numerator div total_balance * increment
       decrease_balance(state, index.ValidatorIndex, penalty)
@@ -548,16 +555,17 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
     state.eth1_data_votes = default(type state.eth1_data_votes)
 
   # Update effective balances with hysteresis
-  for index, validator in state.validators:
-    let balance = state.balances[index]
+  for index in 0..<state.validators.len:
+    let balance = state.balances.asSeq()[index]
     const
       HYSTERESIS_INCREMENT =
         EFFECTIVE_BALANCE_INCREMENT div HYSTERESIS_QUOTIENT
       DOWNWARD_THRESHOLD =
         HYSTERESIS_INCREMENT * HYSTERESIS_DOWNWARD_MULTIPLIER
       UPWARD_THRESHOLD = HYSTERESIS_INCREMENT * HYSTERESIS_UPWARD_MULTIPLIER
-    if balance + DOWNWARD_THRESHOLD < validator.effective_balance or
-        validator.effective_balance + UPWARD_THRESHOLD < balance:
+    let effective_balance = state.validators.asSeq()[index].effective_balance
+    if balance + DOWNWARD_THRESHOLD < effective_balance or
+        effective_balance + UPWARD_THRESHOLD < balance:
       state.validators[index].effective_balance =
         min(
           balance - balance mod EFFECTIVE_BALANCE_INCREMENT,
@@ -579,9 +587,10 @@ func process_final_updates*(state: var BeaconState) {.nbench.}=
     state.historical_roots.add hash_tree_root(
       [hash_tree_root(state.block_roots), hash_tree_root(state.state_roots)])
 
-  # Rotate current/previous epoch attestations
-  state.previous_epoch_attestations = state.current_epoch_attestations
-  state.current_epoch_attestations = default(type state.current_epoch_attestations)
+  # Rotate current/previous epoch attestations - using swap avoids copying all
+  # elements using a slow genericSeqAssign
+  state.previous_epoch_attestations.clear()
+  swap(state.previous_epoch_attestations, state.current_epoch_attestations)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(state: var BeaconState, updateFlags: UpdateFlags,

@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  std/[math, os, strformat, strutils, tables, times,
+  std/[math, os, sequtils, strformat, strutils, tables, times,
        terminal, osproc],
   system/ansi_c,
 
@@ -24,11 +24,14 @@ import
   # Local modules
   ./rpc/[beacon_api, config_api, debug_api, event_api, nimbus_api, node_api,
     validator_api],
-  spec/[datatypes, digest, crypto, beaconstate, helpers, network, presets],
+  spec/[
+    datatypes, digest, crypto, beaconstate, helpers, network, presets,
+    validator],
   spec/[weak_subjectivity, signatures],
   spec/eth2_apis/beacon_rpc_client,
   conf, time, beacon_chain_db, validator_pool, extras,
-  attestation_pool, exit_pool, eth2_network, eth2_discovery,
+  attestation_aggregation, attestation_pool, exit_pool, eth2_network,
+  eth2_discovery,
   beacon_node_common, beacon_node_types, beacon_node_status,
   block_pools/[chain_dag, quarantine, clearance, block_pools_types],
   nimbus_binary_common, network_metadata,
@@ -208,7 +211,7 @@ proc init*(T: type BeaconNode,
                      else: {}
     chainDag = ChainDAGRef.init(conf.runtimePreset, db, chainDagFlags)
     beaconClock = BeaconClock.init(chainDag.headState.data.data)
-    quarantine = QuarantineRef()
+    quarantine = QuarantineRef.init(rng)
     databaseGenesisValidatorsRoot =
       chainDag.headState.data.data.genesis_validators_root
 
@@ -322,7 +325,8 @@ proc init*(T: type BeaconNode,
   proc getWallTime(): BeaconTime = res.beaconClock.now()
 
   res.processor = Eth2Processor.new(
-    conf, chainDag, attestationPool, exitPool, quarantine, getWallTime)
+    conf, chainDag, attestationPool, exitPool, newClone(res.attachedValidators),
+    quarantine, getWallTime)
 
   res.requestManager = RequestManager.init(
     network, res.processor.blocksQueue)
@@ -390,22 +394,81 @@ func getStabilitySubnets(stabilitySubnets: auto): set[uint8] =
   for subnetInfo in stabilitySubnets:
     result.incl subnetInfo.subnet
 
-proc getAttachedValidators(node: BeaconNode): HashSet[ValidatorIndex] =
+proc getAttachedValidators(node: BeaconNode):
+    Table[ValidatorIndex, AttachedValidator] =
   for validatorIndex in 0 ..< node.chainDag.headState.data.data.validators.len:
-    if node.getAttachedValidator(
-        node.chainDag.headState.data.data, validatorIndex.ValidatorIndex) != nil:
-      result.incl validatorIndex.ValidatorIndex
+    let attachedValidator = node.getAttachedValidator(
+      node.chainDag.headState.data.data, validatorIndex.ValidatorIndex)
+    if attachedValidator.isNil:
+      continue
+    result[validatorIndex.ValidatorIndex] = attachedValidator
 
-proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) =
+proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
   doAssert epoch >= 1
-  let attachedValidators = node.getAttachedValidators()
-  for (subnetIndex, slot) in get_committee_assignments(
-      node.chainDag.headState.data.data, epoch, attachedValidators):
+  let
+    attachedValidators = node.getAttachedValidators()
+    validatorIndices = toIntSet(toSeq(attachedValidators.keys()))
+
+  var cache = StateCache()
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#lookahead
+  # Only subscribe when this node should aggregate; libp2p broadcasting works
+  # on subnet topics regardless.
+  #
+  # Committee sizes in any given epoch vary by 1, i.e. committee sizes $n$
+  # $n+1$ can exist. Furthermore, according to
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#aggregation-selection
+  # is_aggregator uses `len(committee) div TARGET_AGGREGATORS_PER_COMMITTEE`
+  # to determine whether committee length/slot signature pairs aggregate the
+  # attestations in a slot/committee, where TARGET_AGGREGATORS_PER_COMMITTEE
+  # is currently 16 in all defined presets. Therefore, probe a committee len
+  # to determine whether it's possible that it's within a boundary such that
+  # either that length or other possible committee lengths don't cross those
+  # div/mod 16 boundaries which would change is_aggregator results.
+  static: doAssert TARGET_AGGREGATORS_PER_COMMITTEE == 16 # mainnet, minimal
+
+  let
+    probeCommitteeLen = get_beacon_committee_len(
+      node.chainDag.headState.data.data, compute_start_slot_at_epoch(epoch),
+      0.CommitteeIndex, cache)
+
+    # Without knowing whether probeCommitteeLen is the higher or lower, if it's
+    # [-1, 1] mod TARGET_AGGREGATORS_PER_COMMITTEE it might cross boundaries in
+    # is_aggregator, such that one can't hoist committee length calculation out
+    # of the anyIt(...) loop.
+    isConstAggregationLen =
+      (probeCommitteeLen mod TARGET_AGGREGATORS_PER_COMMITTEE) notin
+        [0'u64, 1'u64, TARGET_AGGREGATORS_PER_COMMITTEE - 1]
+
+  template isAnyCommitteeValidatorAggregating(
+      validatorIndices, committeeLen: untyped, slot: Slot): bool =
+    anyIt(
+      validatorIndices,
+      is_aggregator(
+        committeeLen,
+        await attachedValidators[it.ValidatorIndex].getSlotSig(
+          node.chainDag.headState.data.data.fork,
+          node.chainDag.headState.data.data.genesis_validators_root, slot)))
+
+  for (validatorIndices, committeeIndex, subnetIndex, slot) in
+      get_committee_assignments(
+        node.chainDag.headState.data.data, epoch, validatorIndices, cache):
+
+    doAssert compute_epoch_at_slot(slot) == epoch
+    let committeeLen =
+      if isConstAggregationLen:
+        probeCommitteeLen
+      else:
+        get_beacon_committee_len(
+          node.chainDag.headState.data.data, slot, committeeIndex, cache)
+
+    if not isAnyCommitteeValidatorAggregating(
+        validatorIndices, committeeLen, slot):
+      continue
+
     node.attestationSubnets.unsubscribeSlot[subnetIndex] =
       max(slot + 1, node.attestationSubnets.unsubscribeSlot[subnetIndex])
     if subnetIndex notin node.attestationSubnets.subscribedSubnets:
-      # A Pyrmont test validator didn't manage to subscribe in time with
-      # SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS being 32.
       const SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS = 34
 
       node.attestationSubnets.subscribeSlot[subnetIndex] =
@@ -439,7 +502,7 @@ proc updateStabilitySubnets(node: BeaconNode, slot: Slot): set[uint8] =
 
 proc cycleAttestationSubnetsPerEpoch(
     node: BeaconNode, wallSlot: Slot, prevStabilitySubnets: set[uint8]):
-    set[uint8] =
+    Future[set[uint8]] {.async.} =
   # Per-epoch portion of subnet cycling: updating stability subnets and
   # calculating future attestation subnets.
 
@@ -448,6 +511,7 @@ proc cycleAttestationSubnetsPerEpoch(
   # of wallSlot, the clock's just incorrect. If the state slot's behind
   # wallSlot, it would have to look more than MIN_SEED_LOOKAHEAD epochs
   # ahead to compute the shuffling determining the beacon committees.
+  static: doAssert MIN_SEED_LOOKAHEAD == 1
   if node.chainDag.headState.data.data.slot.epoch != wallSlot.epoch:
     debug "Requested attestation subnets too far in advance",
       wallSlot,
@@ -462,7 +526,7 @@ proc cycleAttestationSubnetsPerEpoch(
   # attestations quickly and any individual attestation's likelihood of being
   # selected is low.
   if node.attestationSubnets.nextCycleEpoch <= wallSlot.epoch:
-    node.updateSubscriptionSchedule(wallSlot.epoch + 1)
+    await node.updateSubscriptionSchedule(wallSlot.epoch + 1)
   node.attestationSubnets.nextCycleEpoch = wallSlot.epoch + 1
 
   let stabilitySubnets = node.updateStabilitySubnets(wallSlot)
@@ -474,9 +538,9 @@ proc cycleAttestationSubnetsPerEpoch(
     # subnets in that case.
     node.updateStabilitySubnetMetadata(stabilitySubnets)
 
-  stabilitySubnets
+  return stabilitySubnets
 
-proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) =
+proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) {.async.} =
   static: doAssert RANDOM_SUBNETS_PER_VALIDATOR == 1
   doAssert not node.config.subscribeAllSubnets
 
@@ -494,7 +558,7 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) =
     prevStabilitySubnets =
       getStabilitySubnets(node.attestationSubnets.stabilitySubnets)
     stabilitySubnets =
-      node.cycleAttestationSubnetsPerEpoch(wallSlot, prevStabilitySubnets)
+      await node.cycleAttestationSubnetsPerEpoch(wallSlot, prevStabilitySubnets)
 
   # Accounting specific to non-stability subnets
   for expiringSubnet in
@@ -530,11 +594,13 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) =
 proc getInitialAttestationSubnets(node: BeaconNode): Table[uint8, Slot] =
   let
     wallEpoch = node.beaconClock.now().slotOrZero().epoch
-    validator_indices = node.getAttachedValidators()
+    validatorIndices = toIntSet(toSeq(node.getAttachedValidators().keys()))
+
+  var cache = StateCache()
 
   template mergeAttestationSubnets(epoch: Epoch) =
-    for (subnetIndex, slot) in get_committee_assignments(
-        node.chainDag.headState.data.data, epoch, validator_indices):
+    for (_, ci, subnetIndex, slot) in get_committee_assignments(
+        node.chainDag.headState.data.data, epoch, validatorIndices, cache):
       if subnetIndex in result:
         result[subnetIndex] = max(result[subnetIndex], slot + 1)
       else:
@@ -627,6 +693,47 @@ proc removeMessageHandlers(node: BeaconNode) =
   for subnet in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
     node.network.unsubscribe(getAttestationTopic(node.forkDigest, subnet))
 
+proc setupSelfSlashingProtection(node: BeaconNode, slot: Slot) =
+  # When another client's already running, this is very likely to detect
+  # potential duplicate validators, which can trigger slashing. Assuming
+  # the most pessimal case of two validators started simultaneously, the
+  # probability of triggering a slashable condition is up to 1/n, with n
+  # being the number of epochs one waits before proposing or attesting.
+  #
+  # Every missed attestation costs approximately 3*get_base_reward(), which
+  # can be up to around 10,000 Wei. Thus, skipping attestations isn't cheap
+  # and one should gauge the likelihood of this simultaneous launch to tune
+  # the epoch delay to one's perceived risk.
+  #
+  # This approach catches both startup and network outage conditions.
+
+  const duplicateValidatorEpochs = 2
+
+  node.processor.gossipSlashingProtection.broadcastStartEpoch =
+    slot.epoch + duplicateValidatorEpochs
+  # randomize() already called; also, never probe on first epoch in guard
+  # period, so that existing, running validators can be picked up. Whilst
+  # this reduces entropy for overlapping-start cases, and increases their
+  # collision likelihood, that can be compensated for by increasing guard
+  # epoch periods by 1. As a corollary, 1 guard epoch won't detect when a
+  # duplicate pair overlaps exactly, only the running/starting case. Even
+  # 2 epochs is dangerous because it'll guarantee colliding probes in the
+  # overlapping case.
+
+  let rng = node.network.rng
+
+  # So dPE == 2 -> epoch + 1, always; dPE == 3 -> epoch + (1 or 2), etc.
+  node.processor.gossipSlashingProtection.probeEpoch =
+    slot.epoch + 1 + rng[].rand(duplicateValidatorEpochs.int - 2).uint64
+  doAssert node.processor.gossipSlashingProtection.probeEpoch <
+    node.processor.gossipSlashingProtection.broadcastStartEpoch
+
+  debug "Setting up self-slashing protection",
+    epoch = slot.epoch,
+    probeEpoch = node.processor.gossipSlashingProtection.probeEpoch,
+    broadcastStartEpoch =
+      node.processor.gossipSlashingProtection.broadcastStartEpoch
+
 proc updateGossipStatus(node: BeaconNode, slot: Slot) =
   # Syncing tends to be ~1 block/s, and allow for an epoch of time for libp2p
   # subscribing to spin up. The faster the sync, the more wallSlot - headSlot
@@ -660,6 +767,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) =
       headSlot = node.chainDag.head.slot,
       syncQueueLen
 
+    node.setupSelfSlashingProtection(slot)
     node.addMessageHandlers()
     doAssert node.getTopicSubscriptionEnabled()
   elif
@@ -679,9 +787,9 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) =
   # subnets and they'll all remain subscribed.
   if node.getTopicSubscriptionEnabled and not node.config.subscribeAllSubnets:
     # This exits early all but one call each epoch.
-    node.cycleAttestationSubnets(slot)
+    traceAsyncErrors node.cycleAttestationSubnets(slot)
 
-proc onSlotEnd(node: BeaconNode, slot, nextSlot: Slot) =
+proc onSlotEnd(node: BeaconNode, slot, nextSlot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
   # next slot
 
@@ -769,7 +877,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
     slot = wallSlot.slot # afterGenesis == true!
     nextSlot = slot + 1
 
-  defer: onSlotEnd(node, slot, nextSlot)
+  defer: await onSlotEnd(node, slot, nextSlot)
 
   beacon_slot.set slot.int64
   beacon_current_epoch.set slot.epoch.int64
@@ -978,6 +1086,7 @@ proc run*(node: BeaconNode) =
     node.startSyncManager()
 
     if not node.beaconClock.now().toSlot().afterGenesis:
+      node.setupSelfSlashingProtection(curSlot)
       node.addMessageHandlers()
       doAssert node.getTopicSubscriptionEnabled()
 
@@ -1707,4 +1816,3 @@ programMain:
       waitFor testWeb3Provider(config.web3TestUrl,
                                depositContractAddress,
                                depositContractDeployedAt)
-

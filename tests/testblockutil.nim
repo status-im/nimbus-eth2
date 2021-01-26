@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -57,10 +57,10 @@ proc makeInitialDeposits*(
   for i in 0..<n.int:
     result.add makeDeposit(i, flags)
 
-func signBlock*(
+func signBlock(
     fork: Fork, genesis_validators_root: Eth2Digest, blck: BeaconBlock,
     privKey: ValidatorPrivKey, flags: UpdateFlags = {}): SignedBeaconBlock =
-  var root = hash_tree_root(blck)
+  let root = hash_tree_root(blck)
   SignedBeaconBlock(
     message: blck,
     root: root,
@@ -131,8 +131,7 @@ proc makeTestBlock*(
     eth1_data = Eth1Data(),
     attestations = newSeq[Attestation](),
     deposits = newSeq[Deposit](),
-    graffiti = default(GraffitiBytes),
-    flags: set[UpdateFlag] = {}): SignedBeaconBlock =
+    graffiti = default(GraffitiBytes)): SignedBeaconBlock =
   # Create a block for `state.slot + 1` - like a block proposer would do!
   # It's a bit awkward - in order to produce a block for N+1, we need to
   # calculate what the state will look like after that block has been applied,
@@ -140,7 +139,7 @@ proc makeTestBlock*(
   var tmpState = assignClone(state)
   addTestBlock(
     tmpState[], parent_root, cache, eth1_data, attestations, deposits,
-    graffiti, flags)
+    graffiti)
 
 proc makeAttestation*(
     state: BeaconState, beacon_block_root: Eth2Digest,
@@ -192,12 +191,11 @@ proc find_beacon_committee(
 
 proc makeAttestation*(
     state: BeaconState, beacon_block_root: Eth2Digest,
-    validator_index: ValidatorIndex, cache: var StateCache,
-    flags: UpdateFlags = {}): Attestation =
+    validator_index: ValidatorIndex, cache: var StateCache): Attestation =
   let (committee, slot, index) =
     find_beacon_committee(state, validator_index, cache)
   makeAttestation(state, beacon_block_root, committee, slot, index,
-    validator_index, cache, flags)
+    validator_index, cache)
 
 proc makeFullAttestations*(
     state: BeaconState, beacon_block_root: Eth2Digest, slot: Slot,
@@ -244,9 +242,7 @@ iterator makeTestBlocks*(
   parent_root: Eth2Digest,
   cache: var StateCache,
   blocks: int,
-  attested: bool,
-  flags: set[UpdateFlag] = {}
-): SignedBeaconBlock =
+  attested: bool): SignedBeaconBlock =
   var
     state = assignClone(state)
     parent_root = parent_root
@@ -254,11 +250,11 @@ iterator makeTestBlocks*(
     let attestations = if attested:
       makeFullAttestations(
         state[].data, parent_root,
-        state[].data.slot, cache, flags)
+        state[].data.slot, cache)
     else:
       @[]
 
     let blck = addTestBlock(
-      state[], parent_root, cache, attestations = attestations, flags = flags)
+      state[], parent_root, cache, attestations = attestations)
     yield blck
     parent_root = blck.root

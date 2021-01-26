@@ -99,6 +99,12 @@ Then run Prometheus:
 prometheus --config.file=./prometheus.yml --storage.tsdb.path=./prometheus
 ```
 
+You should see the following confirmation in the logs:
+
+```
+level=info ts=2021-01-22T14:52:10.604Z caller=main.go:673 msg="Server is ready to receive web requests."
+```
+
 #### 4. Download Grafana
 
 [Download the latest release]((https://grafana.com/grafana/download?platform=linux)) of Grafana for your platform. You need version 7.2 or newer.

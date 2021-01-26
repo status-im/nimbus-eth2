@@ -99,10 +99,12 @@ template withEth2Hash*(body: untyped): Eth2Digest =
         body
         finish(h)
 
-func hash*(x: Eth2Digest): Hash =
+template hash*(x: Eth2Digest): Hash =
   ## Hash for digests for Nim hash tables
-  # Stub for BeaconChainDB
+  # digests are already good hashes
+  cast[ptr Hash](unsafeAddr x.data[0])[]
 
-  # We just slice the first 4 or 8 bytes of the block hash
-  # depending of if we are on a 32 or 64-bit platform
-  result = cast[ptr Hash](unsafeAddr x)[]
+func `==`*(a, b: Eth2Digest): bool =
+  # nimcrypto uses a constant-time comparison for all MDigest types which for
+  # Eth2Digest is unnecessary - the type should never hold a secret!
+  equalMem(unsafeAddr a.data[0], unsafeAddr b.data[0], sizeof(a.data))

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2019 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,7 +10,7 @@
 
 import
   # Standard library
-  sets,
+  intsets,
   # Status
   chronicles,
   # Specs
@@ -84,8 +84,7 @@ proc signMockAttestation*(state: BeaconState, attestation: var Attestation) =
 
 proc mockAttestationImpl(
        state: BeaconState,
-       slot: Slot,
-       flags: UpdateFlags): Attestation =
+       slot: Slot): Attestation =
 
   var cache = StateCache()
 
@@ -105,19 +104,16 @@ proc mockAttestationImpl(
   for i in 0 ..< beacon_committee.len:
     result.aggregation_bits[i] = true
 
-  if skipBlsValidation notin flags:
-    signMockAttestation(state, result)
+  signMockAttestation(state, result)
+
+proc mockAttestation*(
+       state: BeaconState): Attestation =
+  mockAttestationImpl(state, state.slot)
 
 proc mockAttestation*(
        state: BeaconState,
-       flags: UpdateFlags = {}): Attestation =
-  mockAttestationImpl(state, state.slot, flags)
-
-proc mockAttestation*(
-       state: BeaconState,
-       slot: Slot,
-       flags: UpdateFlags = {}): Attestation =
-  mockAttestationImpl(state, slot, flags)
+       slot: Slot): Attestation =
+  mockAttestationImpl(state, slot)
 
 func fillAggregateAttestation*(state: BeaconState, attestation: var Attestation) =
   var cache = StateCache()

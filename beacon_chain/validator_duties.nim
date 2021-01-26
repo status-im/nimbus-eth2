@@ -77,7 +77,7 @@ proc addRemoteValidators*(node: BeaconNode) =
   while line != "end" and running(node.vcProcess):
     if node.vcProcess.outputStream.readLine(line) and line != "end":
       let
-        key = ValidatorPubKey.fromHex(line).get().initPubKey()
+        key = ValidatorPubKey.fromHex(line).get()
         index = findValidator(node.chainDag.headState.data.data, key)
 
       let v = AttachedValidator(pubKey: key,
@@ -213,9 +213,9 @@ proc createAndSendAttestation(node: BeaconNode,
 
   let (delayStr, delayMillis) =
     if wallTime < deadline:
-      ("-" & $(deadline - wallTime), -toFloatSeconds(deadline - wallTime))
+      (humaneStr(deadline - wallTime) & " earlier", -toFloatSeconds(deadline - wallTime))
     else:
-      ($(wallTime - deadline), toFloatSeconds(wallTime - deadline))
+      (humaneStr(wallTime - deadline), toFloatSeconds(wallTime - deadline))
 
   notice "Attestation sent", attestation = shortLog(attestation),
                              validator = shortLog(validator), delay = delayStr,
@@ -282,11 +282,11 @@ proc proposeSignedBlock*(node: BeaconNode,
                          newBlock: SignedBeaconBlock): BlockRef =
 
   let newBlockRef = node.chainDag.addRawBlock(node.quarantine, newBlock) do (
-      blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+      blckRef: BlockRef, trustedBlock: TrustedSignedBeaconBlock,
       epochRef: EpochRef, state: HashedBeaconState):
-    # Callback add to fork choice if valid
+    # Callback add to fork choice if signed block valid (and becomes trusted)
     node.attestationPool[].addForkChoice(
-      epochRef, blckRef, signedBlock.message,
+      epochRef, blckRef, trustedBlock.message,
       node.beaconClock.now().slotOrZero())
 
   if newBlockRef.isErr:
@@ -473,7 +473,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     headRoot = shortLog(head.root),
     slot = shortLog(slot),
     proposer_index = proposer.get()[0],
-    proposer = shortLog(proposer.get()[1].initPubKey())
+    proposer = shortLog(proposer.get()[1])
 
   return head
 
@@ -615,6 +615,18 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   var curSlot = lastSlot + 1
 
+  # The dontcheck option's a deliberately undocumented escape hatch for the
+  # local testnets and similar development and testing use cases.
+  if curSlot.epoch <
+        node.processor[].gossipSlashingProtection.broadcastStartEpoch and
+      curSlot.epoch != node.processor[].gossipSlashingProtection.probeEpoch and
+      node.config.gossipSlashingProtection == GossipSlashingProtectionMode.stop:
+    notice "Waiting to gossip out to detect potential duplicate validators",
+      broadcastStartEpoch =
+        node.processor[].gossipSlashingProtection.broadcastStartEpoch,
+      probeEpoch = node.processor[].gossipSlashingProtection.probeEpoch
+    return
+
   # Start by checking if there's work we should have done in the past that we
   # can still meaningfully do
   while curSlot < slot:
@@ -702,4 +714,3 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     let finalizedEpochRef = node.chainDag.getFinalizedEpochRef()
     discard node.eth1Monitor.trackFinalizedState(
       finalizedEpochRef.eth1_data, finalizedEpochRef.eth1_deposit_index)
-

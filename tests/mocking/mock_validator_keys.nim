@@ -27,7 +27,7 @@ proc newKeyPair(rng: var BrHmacDrbgContext): BlsResult[tuple[pub: ValidatorPubKe
     sk: SecretKey
     pk: blscurve.PublicKey
   if keyGen(ikm, pk, sk):
-    ok((ValidatorPubKey(kind: Real, blsValue: pk), ValidatorPrivKey(sk)))
+    ok((ValidatorPubKey(blob: pk.exportRaw()), ValidatorPrivKey(sk)))
   else:
     err "bls: cannot generate keypair"
 

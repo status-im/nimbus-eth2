@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[strformat, sets],
+  std/[intsets, strformat],
   ./datatypes, ./helpers, ./validator
 
 const
@@ -86,21 +86,26 @@ func getAttestationTopic*(forkDigest: ForkDigest, subnetIndex: uint64):
   except ValueError as e:
     raiseAssert e.msg
 
-func get_committee_assignments*(
+iterator get_committee_assignments*(
     state: BeaconState, epoch: Epoch,
-    validator_indices: HashSet[ValidatorIndex]):
-    seq[tuple[subnetIndex: uint8, slot: Slot]] =
-  var cache = StateCache()
-
+    validator_indices: IntSet,
+    cache: var StateCache):
+    tuple[validatorIndices: IntSet,
+      committeeIndex: CommitteeIndex,
+      subnetIndex: uint8, slot: Slot] =
   let
     committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
     start_slot = compute_start_slot_at_epoch(epoch)
 
   for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
     for index in 0'u64 ..< committees_per_slot:
-      let idx = index.CommitteeIndex
-      if not disjoint(validator_indices,
-          get_beacon_committee(state, slot, idx, cache).toHashSet):
-        result.add(
-          (compute_subnet_for_attestation(committees_per_slot, slot, idx).uint8,
-            slot))
+      let
+        idx = index.CommitteeIndex
+        includedIndices =
+          toIntSet(get_beacon_committee(state, slot, idx, cache)) *
+            validator_indices
+      if includedIndices.len > 0:
+        yield (
+          includedIndices, idx,
+          compute_subnet_for_attestation(committees_per_slot, slot, idx).uint8,
+          slot)

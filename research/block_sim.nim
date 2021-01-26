@@ -18,14 +18,14 @@ import
   math, stats, times, strformat,
   options, random, tables, os,
   confutils, chronicles, eth/db/kvstore_sqlite3,
+  eth/keys,
   ../tests/[testblockutil],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, presets,
                         helpers, validator, signatures, state_transition],
   ../beacon_chain/[
     attestation_pool, beacon_node_types, beacon_chain_db,
     validator_pool, eth1_monitor, extras],
-  ../beacon_chain/block_pools/[
-    spec_cache, chain_dag, quarantine, clearance],
+  ../beacon_chain/block_pools/[chain_dag, quarantine, clearance],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
 
@@ -73,7 +73,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     chainDag = ChainDAGRef.init(runtimePreset, db)
     eth1Chain = Eth1Chain.init(runtimePreset, db)
     merkleizer = depositContractSnapshot.createMerkleizer
-    quarantine = QuarantineRef()
+    quarantine = QuarantineRef.init(keys.newRng())
     attPool = AttestationPool.init(chainDag, quarantine)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
@@ -117,7 +117,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
                 data: data,
                 aggregation_bits: aggregation_bits,
                 signature: sig
-              ), [validatorIdx].toHashSet(), data.slot)
+              ), [validatorIdx.int].toIntSet(), data.slot)
 
   proc proposeBlock(slot: Slot) =
     if rand(r, 1.0) > blockRatio:
@@ -166,7 +166,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           blockRoot, privKey)
 
       let added = chainDag.addRawBlock(quarantine, newBlock) do (
-          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         attPool.addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)

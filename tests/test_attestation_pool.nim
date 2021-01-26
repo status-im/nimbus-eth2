@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,18 +8,23 @@
 {.used.}
 
 import
+  # Standard library
   std/unittest,
+  # Status lib
   chronicles, chronos,
   stew/byteutils,
-  ./testutil, ./testblockutil,
+  eth/keys,
+  # Internal
   ../beacon_chain/spec/[crypto, datatypes, digest, validator, state_transition,
                         helpers, beaconstate, presets, network],
   ../beacon_chain/[
     beacon_node_types, attestation_pool, attestation_aggregation, extras, time],
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
-  ../beacon_chain/block_pools/[chain_dag, clearance]
+  ../beacon_chain/block_pools/[quarantine, chain_dag, clearance],
+  # Test utilities
+  ./testutil, ./testblockutil
 
-func combine(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
+func combine(tgt: var Attestation, src: Attestation) =
   ## Combine the signature and participation bitfield, with the assumption that
   ## the same data is being signed - if the signatures overlap, they are not
   ## combined.
@@ -32,11 +37,10 @@ func combine(tgt: var Attestation, src: Attestation, flags: UpdateFlags) =
   if not tgt.aggregation_bits.overlaps(src.aggregation_bits):
     tgt.aggregation_bits.combine(src.aggregation_bits)
 
-    if skipBlsValidation notin flags:
-      var agg {.noInit.}: AggregateSignature
-      agg.init(tgt.signature)
-      agg.aggregate(src.signature)
-      tgt.signature = agg.finish()
+    var agg {.noInit.}: AggregateSignature
+    agg.init(tgt.signature)
+    agg.aggregate(src.signature)
+    tgt.signature = agg.finish()
 
 template wrappedTimedTest(name: string, body: untyped) =
   # `check` macro takes a copy of whatever it's checking, on the stack!
@@ -56,7 +60,7 @@ suiteReport "Attestation pool processing" & preset():
     # Genesis state that results in 3 members per committee
     var
       chainDag = init(ChainDAGRef, defaultRuntimePreset, makeTestDB(SLOTS_PER_EPOCH * 3))
-      quarantine = QuarantineRef()
+      quarantine = QuarantineRef.init(keys.newRng())
       pool = newClone(AttestationPool.init(chainDag, quarantine))
       state = newClone(chainDag.headState)
       cache = StateCache()
@@ -73,7 +77,7 @@ suiteReport "Attestation pool processing" & preset():
         state.data.data, state.blck.root, beacon_committee[0], cache)
 
     pool[].addAttestation(
-      attestation, [beacon_committee[0]].toHashSet(), attestation.data.slot)
+      attestation, [beacon_committee[0]].toIntSet(), attestation.data.slot)
 
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
@@ -103,9 +107,9 @@ suiteReport "Attestation pool processing" & preset():
 
     # test reverse order
     pool[].addAttestation(
-      attestation1, [bc1[0]].toHashSet, attestation1.data.slot)
+      attestation1, [bc1[0]].toIntSet, attestation1.data.slot)
     pool[].addAttestation(
-      attestation0, [bc0[0]].toHashSet, attestation1.data.slot)
+      attestation0, [bc0[0]].toIntSet, attestation1.data.slot)
 
     discard process_slots(
       state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
@@ -127,9 +131,9 @@ suiteReport "Attestation pool processing" & preset():
         state.data.data, state.blck.root, bc0[1], cache)
 
     pool[].addAttestation(
-      attestation0, [bc0[0]].toHashSet, attestation0.data.slot)
+      attestation0, [bc0[0]].toIntSet, attestation0.data.slot)
     pool[].addAttestation(
-      attestation1, [bc0[1]].toHashSet, attestation1.data.slot)
+      attestation1, [bc0[1]].toIntSet, attestation1.data.slot)
 
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
@@ -151,12 +155,12 @@ suiteReport "Attestation pool processing" & preset():
       attestation1 = makeAttestation(
         state.data.data, state.blck.root, bc0[1], cache)
 
-    attestation0.combine(attestation1, {})
+    attestation0.combine(attestation1)
 
     pool[].addAttestation(
-      attestation0, [bc0[0]].toHashSet, attestation0.data.slot)
+      attestation0, [bc0[0]].toIntSet, attestation0.data.slot)
     pool[].addAttestation(
-      attestation1, [bc0[1]].toHashSet, attestation1.data.slot)
+      attestation1, [bc0[1]].toIntSet, attestation1.data.slot)
 
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
@@ -177,12 +181,12 @@ suiteReport "Attestation pool processing" & preset():
       attestation1 = makeAttestation(
         state.data.data, state.blck.root, bc0[1], cache)
 
-    attestation0.combine(attestation1, {})
+    attestation0.combine(attestation1)
 
     pool[].addAttestation(
-      attestation1, [bc0[1]].toHashSet, attestation1.data.slot)
+      attestation1, [bc0[1]].toIntSet, attestation1.data.slot)
     pool[].addAttestation(
-      attestation0, [bc0[0]].toHashSet, attestation0.data.slot)
+      attestation0, [bc0[0]].toIntSet, attestation0.data.slot)
 
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
@@ -197,7 +201,7 @@ suiteReport "Attestation pool processing" & preset():
     let
       b1 = addTestBlock(state.data, chainDag.tail.root, cache)
       b1Add = chainDag.addRawBlock(quarantine, b1) do (
-          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -210,7 +214,7 @@ suiteReport "Attestation pool processing" & preset():
     let
       b2 = addTestBlock(state.data, b1.root, cache)
       b2Add = chainDag.addRawBlock(quarantine, b2) do (
-          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -225,7 +229,7 @@ suiteReport "Attestation pool processing" & preset():
     let
       b10 = makeTestBlock(state.data, chainDag.tail.root, cache)
       b10Add = chainDag.addRawBlock(quarantine, b10) do (
-          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -240,7 +244,7 @@ suiteReport "Attestation pool processing" & preset():
         graffiti = GraffitiBytes [1'u8, 0, 0, 0 ,0 ,0 ,0 ,0 ,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
       )
       b11Add = chainDag.addRawBlock(quarantine, b11) do (
-          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -250,7 +254,7 @@ suiteReport "Attestation pool processing" & preset():
       attestation0 = makeAttestation(state.data.data, b10.root, bc1[0], cache)
 
     pool[].addAttestation(
-      attestation0, [bc1[0]].toHashSet, attestation0.data.slot)
+      attestation0, [bc1[0]].toIntSet, attestation0.data.slot)
 
     let head2 = pool[].selectHead(b10Add[].slot)
 
@@ -262,7 +266,7 @@ suiteReport "Attestation pool processing" & preset():
       attestation1 = makeAttestation(state.data.data, b11.root, bc1[1], cache)
       attestation2 = makeAttestation(state.data.data, b11.root, bc1[2], cache)
     pool[].addAttestation(
-      attestation1, [bc1[1]].toHashSet, attestation1.data.slot)
+      attestation1, [bc1[1]].toIntSet, attestation1.data.slot)
 
     let head3 = pool[].selectHead(b10Add[].slot)
     let bigger = if b11.root.data < b10.root.data: b10Add else: b11Add
@@ -272,7 +276,7 @@ suiteReport "Attestation pool processing" & preset():
       head3 == bigger[]
 
     pool[].addAttestation(
-      attestation2, [bc1[2]].toHashSet, attestation2.data.slot)
+      attestation2, [bc1[2]].toIntSet, attestation2.data.slot)
 
     let head4 = pool[].selectHead(b11Add[].slot)
 
@@ -285,7 +289,7 @@ suiteReport "Attestation pool processing" & preset():
     let
       b10 = makeTestBlock(state.data, chainDag.tail.root, cache)
       b10Add = chainDag.addRawBlock(quarantine, b10) do (
-          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -299,7 +303,7 @@ suiteReport "Attestation pool processing" & preset():
     # Add back the old block to ensure we have a duplicate error
     let b10_clone = b10 # Assumes deep copy
     let b10Add_clone = chainDag.addRawBlock(quarantine, b10_clone) do (
-          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -314,7 +318,7 @@ suiteReport "Attestation pool processing" & preset():
     let
       b10 = addTestBlock(state.data, chainDag.tail.root, cache)
       b10Add = chainDag.addRawBlock(quarantine, b10) do (
-          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -342,7 +346,7 @@ suiteReport "Attestation pool processing" & preset():
 
         block_root = new_block.root
         let blockRef = chainDag.addRawBlock(quarantine, new_block) do (
-            blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+            blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
             epochRef: EpochRef, state: HashedBeaconState):
           # Callback add to fork choice if valid
           pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -382,7 +386,7 @@ suiteReport "Attestation pool processing" & preset():
 
     # Add back the old block to ensure we have a duplicate error
     let b10Add_clone = chainDag.addRawBlock(quarantine, b10_clone) do (
-          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -395,7 +399,7 @@ suiteReport "Attestation validation " & preset():
     # Genesis state that results in 3 members per committee
     var
       chainDag = init(ChainDAGRef, defaultRuntimePreset, makeTestDB(SLOTS_PER_EPOCH * 3))
-      quarantine = QuarantineRef()
+      quarantine = QuarantineRef.init(keys.newRng())
       pool = newClone(AttestationPool.init(chainDag, quarantine))
       state = newClone(chainDag.headState)
       cache = StateCache()
@@ -404,6 +408,7 @@ suiteReport "Attestation validation " & preset():
       process_slots(state.data, state.data.data.slot + 1, cache)
 
   wrappedTimedTest "Validation sanity":
+    # TODO: refactor tests to avoid skipping BLS validation
     chainDag.updateFlags.incl {skipBLSValidation}
 
     var
@@ -412,7 +417,7 @@ suiteReport "Attestation validation " & preset():
         chainDag.headState.data, chainDag.head.root, cache,
         int(SLOTS_PER_EPOCH * 5), false):
       let added = chainDag.addRawBlock(quarantine, blck) do (
-          blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)

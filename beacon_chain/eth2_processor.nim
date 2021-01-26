@@ -13,7 +13,7 @@ import
   chronicles, chronos, metrics,
   ./spec/[crypto, datatypes, digest],
   ./block_pools/[clearance, chain_dag],
-  ./attestation_aggregation, ./exit_pool,
+  ./attestation_aggregation, ./exit_pool, ./validator_pool,
   ./beacon_node_types, ./attestation_pool,
   ./time, ./conf, ./sszdump
 
@@ -30,6 +30,9 @@ declareCounter beacon_proposer_slashings_received,
   "Number of beacon chain proposer slashings received by this peer"
 declareCounter beacon_voluntary_exits_received,
   "Number of beacon chain voluntary exits received by this peer"
+
+declareCounter beacon_duplicate_validator_protection_activated,
+  "Number of times duplicate validator protection was activated"
 
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
@@ -57,7 +60,7 @@ type
 
   AttestationEntry* = object
     v*: Attestation
-    attesting_indices*: HashSet[ValidatorIndex]
+    attesting_indices*: IntSet
 
   AggregateEntry* = AttestationEntry
 
@@ -67,12 +70,15 @@ type
     chainDag*: ChainDAGRef
     attestationPool*: ref AttestationPool
     exitPool: ref ExitPool
+    validatorPool: ref ValidatorPool
     quarantine*: QuarantineRef
     blockReceivedDuringSlot*: Future[void]
 
     blocksQueue*: AsyncQueue[BlockEntry]
     attestationsQueue*: AsyncQueue[AttestationEntry]
     aggregatesQueue*: AsyncQueue[AggregateEntry]
+
+    gossipSlashingProtection*: DupProtection
 
 proc updateHead*(self: var Eth2Processor, wallSlot: Slot) =
   ## Trigger fork choice and returns the new head block.
@@ -135,11 +141,11 @@ proc storeBlock(
     attestationPool = self.attestationPool
 
   let blck = self.chainDag.addRawBlock(self.quarantine, signedBlock) do (
-      blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+      blckRef: BlockRef, trustedBlock: TrustedSignedBeaconBlock,
       epochRef: EpochRef, state: HashedBeaconState):
     # Callback add to fork choice if valid
     attestationPool[].addForkChoice(
-      epochRef, blckRef, signedBlock.message, wallSlot)
+      epochRef, blckRef, trustedBlock.message, wallSlot)
 
   # Trigger attestation sending
   if blck.isOk and not self.blockReceivedDuringSlot.finished:
@@ -298,6 +304,42 @@ proc blockValidator*(
 
 {.push raises: [Defect].}
 
+proc checkForPotentialSelfSlashing(
+    self: var Eth2Processor, attestationData: AttestationData,
+    attesterIndices: IntSet, wallSlot: Slot) =
+  # Attestations remain valid for 32 slots, so avoid confusing with one's own
+  # reflections, for a ATTESTATION_PROPAGATION_SLOT_RANGE div SLOTS_PER_EPOCH
+  # period after the attestation slot. For mainnet this can be one additional
+  # epoch, and for minimal, four epochs. Unlike in the attestation validation
+  # checks, use the spec version of the constant here.
+  const
+    # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#configuration
+    ATTESTATION_PROPAGATION_SLOT_RANGE = 32
+
+    GUARD_EPOCHS = ATTESTATION_PROPAGATION_SLOT_RANGE div SLOTS_PER_EPOCH
+
+  # If gossipSlashingProtection not dontcheck or stop, it's the default "warn".
+  let epoch = wallSlot.epoch
+  if  epoch < self.gossipSlashingProtection.broadcastStartEpoch and
+      epoch >= self.gossipSlashingProtection.probeEpoch and
+      epoch <= self.gossipSlashingProtection.probeEpoch + GUARD_EPOCHS:
+    let tgtBlck = self.chainDag.getRef(attestationData.target.root)
+    doAssert not tgtBlck.isNil  # because attestation is valid above
+
+    let epochRef = self.chainDag.getEpochRef(
+      tgtBlck, attestationData.target.epoch)
+    for validatorIndex in attesterIndices:
+      let validatorPubkey = epochRef.validator_keys[validatorIndex]
+      if self.validatorPool[].getValidator(validatorPubkey) !=
+          default(AttachedValidator):
+        warn "Duplicate validator detected; would be slashed",
+          validatorIndex,
+          validatorPubkey
+        beacon_duplicate_validator_protection_activated.inc()
+        if self.config.gossipSlashingProtection == GossipSlashingProtectionMode.stop:
+          warn "We believe you are currently running another instance of the same validator. We've disconnected you from the network as this presents a significant slashing risk. Possible next steps are (a) making sure you've disconnected your validator from your old machine before restarting the client; and (b) running the client again with the gossip-slashing-protection option disabled, only if you are absolutely sure this is the only instance of your validator running, and reporting the issue at https://github.com/status-im/nimbus-eth2/issues."
+          quit QuitFailure
+
 proc attestationValidator*(
     self: var Eth2Processor,
     attestation: Attestation,
@@ -328,6 +370,8 @@ proc attestationValidator*(
 
   beacon_attestations_received.inc()
   beacon_attestation_delay.observe(delay.toFloatSeconds())
+
+  self.checkForPotentialSelfSlashing(attestation.data, v.value, wallSlot)
 
   while self.attestationsQueue.full():
     try:
@@ -380,6 +424,9 @@ proc aggregateValidator*(
 
   beacon_aggregates_received.inc()
   beacon_aggregate_delay.observe(delay.toFloatSeconds())
+
+  self.checkForPotentialSelfSlashing(
+    signedAggregateAndProof.message.aggregate.data, v.value, wallSlot)
 
   while self.aggregatesQueue.full():
     try:
@@ -472,7 +519,7 @@ proc runQueueProcessingLoop*(self: ref Eth2Processor) {.async.} =
     # taking up all CPU - we don't want to _completely_ stop processing blocks
     # in this case (attestations will get dropped) - doing so also allows us
     # to benefit from more batching / larger network reads when under load.
-    discard await idleAsync().withTimeout(100.milliseconds)
+    discard await idleAsync().withTimeout(10.milliseconds)
 
     # Avoid one more `await` when there's work to do
     if not (blockFut.finished or aggregateFut.finished or attestationFut.finished):
@@ -489,10 +536,21 @@ proc runQueueProcessingLoop*(self: ref Eth2Processor) {.async.} =
     elif aggregateFut.finished:
       # aggregates will be dropped under heavy load on producer side
       self[].processAggregate(aggregateFut.read())
+      for i in 0..<7: # process a few at a time - this is fairly fast
+        if self[].aggregatesQueue.empty():
+          break
+        self[].processAggregate(self[].aggregatesQueue.popFirstNoWait())
+
       aggregateFut = self[].aggregatesQueue.popFirst()
     elif attestationFut.finished:
       # attestations will be dropped under heavy load on producer side
       self[].processAttestation(attestationFut.read())
+
+      for i in 0..<7: # process a few at a time - this is fairly fast
+        if self[].attestationsQueue.empty():
+          break
+        self[].processAttestation(self[].attestationsQueue.popFirstNoWait())
+
       attestationFut = self[].attestationsQueue.popFirst()
 
 proc new*(T: type Eth2Processor,
@@ -500,6 +558,7 @@ proc new*(T: type Eth2Processor,
           chainDag: ChainDAGRef,
           attestationPool: ref AttestationPool,
           exitPool: ref ExitPool,
+          validatorPool: ref ValidatorPool,
           quarantine: QuarantineRef,
           getWallTime: GetWallTimeFn): ref Eth2Processor =
   (ref Eth2Processor)(
@@ -508,9 +567,18 @@ proc new*(T: type Eth2Processor,
     chainDag: chainDag,
     attestationPool: attestationPool,
     exitPool: exitPool,
+    validatorPool: validatorPool,
     quarantine: quarantine,
     blockReceivedDuringSlot: newFuture[void](),
     blocksQueue: newAsyncQueue[BlockEntry](1),
-    aggregatesQueue: newAsyncQueue[AggregateEntry](MAX_ATTESTATIONS.int),
-    attestationsQueue: newAsyncQueue[AttestationEntry](TARGET_COMMITTEE_SIZE.int * 4),
+    # limit to the max number of aggregates we expect to see in one slot
+    aggregatesQueue: newAsyncQueue[AggregateEntry](
+      (TARGET_AGGREGATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT).int),
+    # This queue is a bit harder to bound reasonably - we want to get a good
+    # spread of votes across committees - ideally at least TARGET_COMMITTEE_SIZE
+    # per committee - assuming randomness in vote arrival, this limit should
+    # cover that but of course, when votes arrive depends on a number of
+    # factors that are not entire random
+    attestationsQueue: newAsyncQueue[AttestationEntry](
+      (TARGET_COMMITTEE_SIZE * MAX_COMMITTEES_PER_SLOT).int),
   )
