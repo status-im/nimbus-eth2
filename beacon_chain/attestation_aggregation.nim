@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2020 Status Research & Development GmbH
+# Copyright (c) 2019-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[options, sequtils, sets],
+  std/[intsets, options, sequtils],
   chronos, chronicles,
   ./spec/[
     beaconstate, datatypes, crypto, digest, helpers, network, signatures],
@@ -163,7 +163,7 @@ proc validateAttestation*(
     pool: var AttestationPool,
     attestation: Attestation, wallTime: BeaconTime,
     topicCommitteeIndex: uint64, checksExpensive: bool):
-    Result[HashSet[ValidatorIndex], (ValidationResult, cstring)] =
+    Result[IntSet, (ValidationResult, cstring)] =
   # [REJECT] The attestation's epoch matches its target -- i.e.
   # attestation.data.target.epoch ==
   # compute_epoch_at_slot(attestation.data.slot)
@@ -252,7 +252,7 @@ proc validateAttestation*(
   # validator index.
   # Slightly modified to allow only newer attestations than were previously
   # seen (no point in propagating older votes)
-  if (pool.nextAttestationEpoch.lenu64.ValidatorIndex > validator_index) and
+  if (pool.nextAttestationEpoch.len > validator_index) and
       pool.nextAttestationEpoch[validator_index].subnet >
         attestation.data.target.epoch:
     return err((ValidationResult.Ignore, cstring(
@@ -287,8 +287,8 @@ proc validateAttestation*(
       "validateAttestation: attestation's target block not an ancestor of LMD vote block")))
 
   # Only valid attestations go in the list
-  if not (pool.nextAttestationEpoch.lenu64.ValidatorIndex > validator_index):
-    pool.nextAttestationEpoch.setLen(validator_index.int + 1)
+  if not (pool.nextAttestationEpoch.len > validator_index):
+    pool.nextAttestationEpoch.setLen(validator_index + 1)
   pool.nextAttestationEpoch[validator_index].subnet =
     attestation.data.target.epoch + 1
 
@@ -298,7 +298,7 @@ proc validateAttestation*(
 proc validateAggregate*(
     pool: var AttestationPool,
     signedAggregateAndProof: SignedAggregateAndProof, wallTime: BeaconTime):
-    Result[HashSet[ValidatorIndex], (ValidationResult, cstring)] =
+    Result[IntSet, (ValidationResult, cstring)] =
   let
     aggregate_and_proof = signedAggregateAndProof.message
     aggregate = aggregate_and_proof.aggregate

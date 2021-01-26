@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[algorithm, sequtils, sets],
+  std/[algorithm, intsets, sequtils],
   chronicles,
   ../spec/[
     crypto, datatypes, digest, helpers, presets, signatures,
@@ -82,9 +82,9 @@ iterator get_attesting_indices*(epochRef: EpochRef,
 func get_attesting_indices*(epochRef: EpochRef,
                             data: AttestationData,
                             bits: CommitteeValidatorsBits):
-                              HashSet[ValidatorIndex] =
+                              IntSet =
   for idx in get_attesting_indices(epochRef, data, bits):
-    result.incl(idx)
+    result.incl(idx.int)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_indexed_attestation
 func get_indexed_attestation*(epochRef: EpochRef, attestation: Attestation): IndexedAttestation =
@@ -144,7 +144,7 @@ proc is_valid_indexed_attestation*(
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    epochRef: EpochRef, attesting_indices: HashSet[ValidatorIndex],
+    epochRef: EpochRef, attesting_indices: IntSet,
     attestation: SomeAttestation, flags: UpdateFlags): Result[void, cstring] =
   # This is a variation on `is_valid_indexed_attestation` that works directly
   # with an attestation instead of first constructing an `IndexedAttestation`
