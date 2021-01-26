@@ -94,7 +94,7 @@ suiteReport "Slashing Protection DB - Interchange" & preset():
         fakeRoot(65535)
       )
 
-      db.toSPDIF(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
+      db.exportSlashingInterchange(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
 
     block: # import - zero root db
       let db2 = SlashingProtectionDB.init(
@@ -106,8 +106,8 @@ suiteReport "Slashing Protection DB - Interchange" & preset():
         db2.close()
         sqlite3db_delete(TestDir, TestDbName)
 
-      doAssert db2.fromSPDIF(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
-      db2.toSPDIF(currentSourcePath.parentDir/"test_complete_export_slashing_protection_roundtrip1.json")
+      doAssert db2.importSlashingInterchange(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
+      db2.exportSlashingInterchange(currentSourcePath.parentDir/"test_complete_export_slashing_protection_roundtrip1.json")
 
     block: # import - same root db
       let db3 = SlashingProtectionDB.init(
@@ -119,8 +119,8 @@ suiteReport "Slashing Protection DB - Interchange" & preset():
         db3.close()
         sqlite3db_delete(TestDir, TestDbName)
 
-      doAssert db3.fromSPDIF(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
-      db3.toSPDIF(currentSourcePath.parentDir/"test_complete_export_slashing_protection_roundtrip2.json")
+      doAssert db3.importSlashingInterchange(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
+      db3.exportSlashingInterchange(currentSourcePath.parentDir/"test_complete_export_slashing_protection_roundtrip2.json")
 
     block: # import - invalid root db
       let invalid_genvalroot = hexToDigest"0x1234"
@@ -133,4 +133,4 @@ suiteReport "Slashing Protection DB - Interchange" & preset():
         db4.close()
         sqlite3db_delete(TestDir, TestDbName)
 
-      doAssert not db4.fromSPDIF(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
+      doAssert not db4.importSlashingInterchange(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")

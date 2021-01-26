@@ -34,7 +34,7 @@ proc doDump(conf: SlashProtConf) =
   # TODO: why is sqlite3 always appending .sqlite3 ?
   let filetrunc = file.changeFileExt("")
   let db = SlashingProtectionDB.loadUnchecked(dir, filetrunc, readOnly = false)
-  db.exportInterchangeFormat(conf.outfile)
+  db.exportSlashingInterchange(conf.outfile)
 
 when isMainModule:
   let conf = SlashProtConf.load()

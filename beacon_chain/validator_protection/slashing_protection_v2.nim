@@ -451,7 +451,10 @@ proc initCompatV1*(T: type SlashingProtectionDB_v2,
 
   let alreadyExists = fileExists(basepath/dbname&".sqlite3")
 
-  result = T(backend: SqStoreRef.init(basePath, dbname, keyspaces = ["kvstore"]).get())
+  result = T(backend: SqStoreRef.init(
+      basePath, dbname,
+      keyspaces = ["kvstore"] # The key compat part
+    ).get())
   if alreadyExists:
     result.checkDB(genesis_validator_root)
   else:

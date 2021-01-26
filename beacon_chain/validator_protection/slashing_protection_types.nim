@@ -7,7 +7,7 @@
 
 import
   # Stdlib
-  std/typetraits,
+  std/[typetraits, strutils],
   # Status
   eth/db/[kvstore, kvstore_sqlite3],
   stew/results,
@@ -201,7 +201,7 @@ proc readValue*(r: var JsonReader, a: var (SlotString or EpochString))
                {.raises: [SerializationError, IOError, ValueError, Defect].} =
   a = (typeof a)(r.readValue(string).parseBiggestUint())
 
-proc exportInterchangeFormat*(
+proc exportSlashingInterchange*(
        db: SlashingProtectionDB_Concept,
        path: string, prettify = true) =
   ## Export a database to the Slashing Protection Database Interchange Format
@@ -209,7 +209,7 @@ proc exportInterchangeFormat*(
   Json.saveFile(path, spdir, prettify)
   echo "Exported slashing protection DB to '", path, "'"
 
-proc inclInterchangeData*(
+proc importSlashingInterchange*(
        db: SlashingProtectionDB_Concept,
        path: string): bool =
   ## Import a Slashing Protection Database Interchange Format

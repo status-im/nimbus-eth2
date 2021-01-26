@@ -6,6 +6,8 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
+  # stdlib
+  std/os,
   # Status
   eth/db/[kvstore, kvstore_sqlite3],
   stew/results, chronicles,
@@ -16,6 +18,8 @@ import
   ./slashing_protection_v2
 
 export slashing_protection_types
+# Generic sandwich
+export chronicles
 
 # The high-level slashing protection DB
 # -------------------------------------
@@ -84,6 +88,7 @@ proc init*(
     kCompleteArchiveV2 in modes and
     kLowWatermarkV2 in modes), "Mode(s): " & $modes & ". Choose only one of V2 DB modes."
 
+  new result
   result.modes = modes
   result.disagreementBehavior = disagreementBehavior
 
@@ -92,7 +97,12 @@ proc init*(
     basePath, dbname
   )
 
-  result.db_v1.fromRawDB(kvstore result.db_v2.getRawDBHandle())
+  let rawdb = kvstore result.db_v2.getRawDBHandle()
+  if not rawdb.checkOrPutGenesis_DbV1(genesis_validator_root):
+    fatal "The slashing database refers to another chain/mainnet/testnet",
+      path = basePath/dbname,
+      genesis_validator_root = genesis_validator_root
+  result.db_v1.fromRawDB(rawdb)
 
 proc init*(
        T: type SlashingProtectionDB,
@@ -318,7 +328,20 @@ proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): bool
     doAssert useV1
     return db.db_v1.inclSPDIR(spdir)
 
+# The high-level import/export functions are
+# - importSlashingInterchange
+# - exportSlashingInterchange
+# in slashing_protection_types.nim
+#
+# That builds on a DB backend inclSPDIR and toSPDIR
+# SPDIR being a common Intermediate Representation
+
 # Sanity check
 # --------------------------------------------------------------
+
+proc foo(x: SlashingProtectionDB_Concept) =
+  discard
+
+foo(SlashingProtectionDB()) {.explain.}
 
 static: doAssert SlashingProtectionDB is SlashingProtectionDB_Concept

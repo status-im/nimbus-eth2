@@ -326,8 +326,24 @@ proc setGenesis(db: SlashingProtectionDB_v1, genesis_validator_root: Eth2Digest)
 func version*(_: type SlashingProtectionDB_v1): static int =
   1
 
+proc checkOrPutGenesis_DbV1*(rawdb: KvStoreRef, genesis_validator_root: Eth2Digest): bool =
+  if rawdb.contains(
+        subkey(kGenesisValidatorRoot)
+      ).get():
+    return genesis_validator_root == rawdb.rawGet(
+      subkey(kGenesisValidatorRoot),
+      Eth2Digest
+    ).get()
+  else:
+    rawdb.put(
+      subkey(kGenesisValidatorRoot),
+      genesis_validator_root.data
+    ).expect("working database")
+    return true
+
 proc fromRawDB*(dst: var SlashingProtectionDB_v1, rawdb: KvStoreRef) =
   ## Initialize a SlashingProtectionDB_v1 from a raw DB
+  ## For first instantiation, do not forget to call setGenesis
   doAssert rawdb.contains(
     subkey(kGenesisValidatorRoot)
   ).get(), "The Slashing DB is missing genesis information"
@@ -342,7 +358,10 @@ proc init*(
        genesis_validator_root: Eth2Digest,
        basePath, dbname: string): T =
   result = T(backend: kvStore SqStoreRef.init(basePath, dbname).get())
-  result.setGenesis(genesis_validator_root)
+  if not result.backend.checkOrPutGenesis_DbV1(genesis_validator_root):
+    fatal "The slashing database refers to another chain/mainnet/testnet",
+      path = basePath/dbname,
+      genesis_validator_root = genesis_validator_root
 
 proc loadUnchecked*(
        T: type SlashingProtectionDB_v1,
