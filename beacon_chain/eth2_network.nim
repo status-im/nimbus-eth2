@@ -1526,13 +1526,7 @@ proc newBeaconSwitch*(conf: BeaconNodeConf, seckey: PrivateKey,
 
   let identify = newIdentify(peerInfo)
 
-  newSwitch(
-    peerInfo,
-    transports,
-    identify,
-    muxers,
-    secureManagers,
-    maxConnections = conf.maxPeers)
+  newSwitch(peerInfo, transports, identify, muxers, secureManagers)
 
 proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      conf: BeaconNodeConf,
