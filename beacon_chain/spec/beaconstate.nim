@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[tables, algorithm, math, sequtils, options],
+  std/[algorithm, intsets, math, options, sequtils, tables],
   stew/assign2,
   json_serialization/std/sets,
   chronicles,
@@ -495,10 +495,9 @@ iterator get_attesting_indices*(bits: CommitteeValidatorsBits,
     trace "get_attesting_indices: inconsistent aggregation and committee length"
 
 func get_attesting_indices*(bits: CommitteeValidatorsBits,
-                            committee: openArray[ValidatorIndex]):
-                            HashSet[ValidatorIndex] =
+                            committee: openArray[ValidatorIndex]): IntSet =
   for idx in get_attesting_indices(bits, committee):
-    result.incl idx
+    result.incl idx.int
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_attesting_indices
 iterator get_attesting_indices*(state: BeaconState,
@@ -518,11 +517,10 @@ iterator get_attesting_indices*(state: BeaconState,
 func get_attesting_indices*(state: BeaconState,
                             data: AttestationData,
                             bits: CommitteeValidatorsBits,
-                            cache: var StateCache):
-                            HashSet[ValidatorIndex] =
+                            cache: var StateCache): IntSet =
   # Return the set of attesting indices corresponding to ``data`` and ``bits``.
   for index in get_attesting_indices(state, data, bits, cache):
-    result.incl index
+    result.incl index.int
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_indexed_attestation
 func get_indexed_attestation(state: BeaconState, attestation: Attestation,

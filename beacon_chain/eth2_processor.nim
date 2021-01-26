@@ -60,7 +60,7 @@ type
 
   AttestationEntry* = object
     v*: Attestation
-    attesting_indices*: HashSet[ValidatorIndex]
+    attesting_indices*: IntSet
 
   AggregateEntry* = AttestationEntry
 
@@ -306,7 +306,7 @@ proc blockValidator*(
 
 proc checkForPotentialSelfSlashing(
     self: var Eth2Processor, attestationData: AttestationData,
-    attesterIndices: HashSet[ValidatorIndex], wallSlot: Slot) =
+    attesterIndices: IntSet, wallSlot: Slot) =
   # Attestations remain valid for 32 slots, so avoid confusing with one's own
   # reflections, for a ATTESTATION_PROPAGATION_SLOT_RANGE div SLOTS_PER_EPOCH
   # period after the attestation slot. For mainnet this can be one additional

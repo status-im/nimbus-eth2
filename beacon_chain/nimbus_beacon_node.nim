@@ -407,7 +407,7 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
   doAssert epoch >= 1
   let
     attachedValidators = node.getAttachedValidators()
-    validatorIndices = toHashSet(toSeq(attachedValidators.keys()))
+    validatorIndices = toIntSet(toSeq(attachedValidators.keys()))
 
   var cache = StateCache()
 
@@ -446,7 +446,7 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
       validatorIndices,
       is_aggregator(
         committeeLen,
-        await attachedValidators[it].getSlotSig(
+        await attachedValidators[it.ValidatorIndex].getSlotSig(
           node.chainDag.headState.data.data.fork,
           node.chainDag.headState.data.data.genesis_validators_root, slot)))
 
@@ -594,8 +594,7 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) {.async.} =
 proc getInitialAttestationSubnets(node: BeaconNode): Table[uint8, Slot] =
   let
     wallEpoch = node.beaconClock.now().slotOrZero().epoch
-    validatorIndices =
-      toHashSet(toSeq(node.getAttachedValidators().keys()))
+    validatorIndices = toIntSet(toSeq(node.getAttachedValidators().keys()))
 
   var cache = StateCache()
 

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[sequtils, sets, tables],
+  std/[intsets, sequtils, tables],
   # Status libraries
   stew/results, chronicles,
   # Internal
@@ -18,7 +18,7 @@ import
   ./fork_choice_types, ./proto_array,
   ../block_pools/[spec_cache, chain_dag]
 
-export sets, results, fork_choice_types
+export intsets, results, fork_choice_types
 export proto_array.len
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/fork-choice.md
@@ -138,7 +138,7 @@ func process_attestation*(
   ## Add an attestation to the fork choice context
   self.votes.extend(validator_index.int + 1)
 
-  template vote: untyped = self.votes[validator_index.int]
+  template vote: untyped = self.votes[validator_index]
     # alias
 
   if target_epoch > vote.next_epoch or vote == default(VoteTracker):
@@ -156,7 +156,7 @@ proc process_attestation_queue(self: var ForkChoice) =
     if it.slot < self.checkpoints.time:
       for validator_index in it.attesting_indices:
         self.backend.process_attestation(
-          validator_index, it.block_root, it.slot.epoch())
+          validator_index.ValidatorIndex, it.block_root, it.slot.epoch())
       false
     else:
       true
@@ -174,7 +174,7 @@ proc on_attestation*(
        dag: ChainDAGRef,
        attestation_slot: Slot,
        beacon_block_root: Eth2Digest,
-       attesting_indices: HashSet[ValidatorIndex],
+       attesting_indices: IntSet,
        wallSlot: Slot
      ): FcResult[void] =
   ? self.update_time(dag, wallSlot)
@@ -186,7 +186,8 @@ proc on_attestation*(
     for validator_index in attesting_indices:
       # attestation_slot and target epoch must match, per attestation rules
       self.backend.process_attestation(
-        validator_index, beacon_block_root, attestation_slot.epoch)
+        validator_index.ValidatorIndex, beacon_block_root,
+        attestation_slot.epoch)
   else:
     self.queuedAttestations.add(QueuedAttestation(
       slot: attestation_slot,

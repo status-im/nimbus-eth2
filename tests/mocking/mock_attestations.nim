@@ -10,7 +10,7 @@
 
 import
   # Standard library
-  sets,
+  intsets,
   # Status
   chronicles,
   # Specs
