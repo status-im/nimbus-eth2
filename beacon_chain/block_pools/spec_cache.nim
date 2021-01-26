@@ -84,6 +84,8 @@ func get_attesting_indices*(epochRef: EpochRef,
                             bits: CommitteeValidatorsBits):
                               IntSet =
   for idx in get_attesting_indices(epochRef, data, bits):
+    # Because it must have been in get_beacon_committee(...), it's a valid
+    # validator index, so the conversion is as safe as it is anywhere.
     result.incl(idx.int)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_indexed_attestation

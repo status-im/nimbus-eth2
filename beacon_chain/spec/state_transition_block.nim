@@ -27,11 +27,6 @@ import
   ./signatures, ./presets,
   ../../nbench/bench_lab
 
-# Generics visibility issue with toSeq(items(intersection(HashSet, HashSet)))
-# https://github.com/nim-lang/Nim/issues/11225
-when false:
-  export sets
-
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
     state: var BeaconState, blck: SomeBeaconBlock, flags: UpdateFlags,
