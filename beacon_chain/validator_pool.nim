@@ -4,7 +4,7 @@ import
   json_serialization/std/[sets, net],
   eth/db/[kvstore, kvstore_sqlite3],
   ./spec/[datatypes, crypto, digest, signatures, helpers],
-  ./beacon_node_types, validator_protection/slashing_protection_v2
+  ./beacon_node_types, validator_protection/slashing_protection
 
 declareGauge validators,
   "Number of validators attached to the beacon node"

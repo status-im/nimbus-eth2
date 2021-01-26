@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  std/[tables, os, options, strutils, typetraits, decls],
+  std/[os, options, typetraits, decls],
   # Status
   stew/byteutils,
   eth/db/[kvstore, kvstore_sqlite3],
@@ -884,12 +884,18 @@ proc inclSPDIR*(db: SlashingProtectionDB_v2, spdir: SPDIR): bool
 
   for v in 0 ..< spdir.data.len:
     let parsedKey = block:
-      let key = ValidatorPubKey.fromRaw(spdir.data[v].pubkey.PubKeyBytes).get()
-      if key.kind == OpaqueBlob:
-        # The bytes does not describe a point on the BLS12-381 G1 curve
+      let key = ValidatorPubKey.fromRaw(spdir.data[v].pubkey.PubKeyBytes)
+      if key.isErr:
+        # The bytes does not describe a valid encoding (length error)
         echo "Warning! Invalid public key: 0x" & spdir.data[v].pubkey.PubKeyBytes.toHex()
         continue
-      key
+      if key.get().loadWithCache().isNone():
+        # The bytes don't deserialize to a valid BLS G1 elliptic curve point.
+        # Deserialization is costly but done only once per validator.
+        # and SlashingDB import is a very rare event.
+        echo "Warning! Invalid public key: 0x" & spdir.data[v].pubkey.PubKeyBytes.toHex()
+        continue
+      key.get()
     # TODO: this is a bit wasteful to convert parsedKey back to PubKeyBytes
     #       in the register* proc but this is something done very rarely and offline.
     for b in 0 ..< spdir.data[v].signed_blocks.len:

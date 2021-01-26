@@ -6,7 +6,7 @@ import
   spec/[datatypes, digest, crypto],
   block_pools/block_pools_types,
   fork_choice/fork_choice_types,
-  validator_protection/slashing_protection_v2
+  validator_protection/slashing_protection
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
 
