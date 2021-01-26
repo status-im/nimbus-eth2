@@ -29,7 +29,6 @@ import # Unit test
   ./test_statediff,
   ./test_sync_manager,
   ./test_sync_protocol,
-  ./test_timeutils,
   ./test_zero_signature,
   ./fork_choice/tests_fork_choice,
   ./slashing_protection/test_slashing_interchange,

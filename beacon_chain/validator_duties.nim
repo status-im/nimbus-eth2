@@ -213,9 +213,9 @@ proc createAndSendAttestation(node: BeaconNode,
 
   let (delayStr, delayMillis) =
     if wallTime < deadline:
-      (humaneStr(deadline - wallTime) & " earlier", -toFloatSeconds(deadline - wallTime))
+      ("-" & $(deadline - wallTime), -toFloatSeconds(deadline - wallTime))
     else:
-      (humaneStr(wallTime - deadline), toFloatSeconds(wallTime - deadline))
+      ($(wallTime - deadline), toFloatSeconds(wallTime - deadline))
 
   notice "Attestation sent", attestation = shortLog(attestation),
                              validator = shortLog(validator), delay = delayStr,

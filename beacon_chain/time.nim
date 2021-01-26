@@ -104,88 +104,15 @@ proc addTimer*(fromNow: Duration, cb: CallbackFunc, udata: pointer = nil) =
     # https://github.com/nim-lang/Nim/issues/10288 - sigh
     raiseAssert e.msg
 
-func humaneStr*(a: Duration): string {.inline.} =
-  ## Returns a "humane" string representation of the duration that uses
-  ## the most appropriate unit type depending on the actual Duration.
-  var v = a.nanoseconds
-  let days = v div nanoseconds(Day)
-  if days > 0:
-    if days >= 14:
-      return $(v div nanoseconds(Week)) & " weeks"
-    elif days >= 2:
-      return $days & " days"
-
-  let hours = v div nanoseconds(Hour)
-  if hours > 0:
-    if hours >= 2:
-      result = $hours & " hours"
-    else:
-      result = "1 hour"
-    v = v mod nanoseconds(Hour)
-
-  let minutes = v div nanoseconds(Minute)
-  if minutes > 0:
-    if hours > 0:
-      result.add " "
-    if minutes >= 2:
-      result.add $minutes
-      result.add " minutes"
-    else:
-      result.add "1 minute"
-    v = v mod nanoseconds(Minute)
-
-  let
-    isMoreThanAMinute = minutes > 0 or hours > 0
-    seconds = v div nanoseconds(Second)
-
-  if seconds > 0:
-    if isMoreThanAMinute:
-      result.add " "
-      if seconds >= 2:
-        result.add $seconds
-        result.add " seconds"
-      else:
-        result.add "1 second"
-    else:
-      result = $seconds
-      v = v mod nanoseconds(Second)
-      let milliseconds = v div nanoseconds(Millisecond)
-      if milliseconds > 0:
-        let millisecondsStr = $milliseconds
-        result.add "."
-        for _ in millisecondsStr.len ..< 3: result.add "0"
-        result.add millisecondsStr
-      elif seconds == 1:
-        return "1 second"
-      result.add " seconds"
-    return
-
-  if isMoreThanAMinute:
-    return
-
-  let milliseconds = v div nanoseconds(Millisecond)
-  if milliseconds >= 2:
-    return $milliseconds & " milliseconds"
-
-  let microseconds = v div nanoseconds(Microsecond)
-  if microseconds >= 2:
-    return $microseconds & " microseconds"
-
-  let nanoseconds = v div nanoseconds(Nanosecond)
-  if nanoseconds == 1:
-    return "1 nanosecond"
-
-  return $nanoseconds & " nanoseconds"
-
 func shortLog*(d: Duration): string =
   $d
 
 func toFloatSeconds*(d: Duration): float =
   float(milliseconds(d)) / 1000.0
 
-func `$`*(v: BeaconTime): string = $Duration(v)
-func shortLog*(v: BeaconTime): string = humaneStr Duration(v)
+func `$`*(v: BeaconTime): string = $(Duration v)
+func shortLog*(v: BeaconTime): string = $(Duration v)
 
-chronicles.formatIt Duration: humaneStr(it)
-chronicles.formatIt BeaconTime: humaneStr(Duration it)
+chronicles.formatIt Duration: $it
+chronicles.formatIt BeaconTime: $(Duration it)
 
