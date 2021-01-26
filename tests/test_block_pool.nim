@@ -10,6 +10,7 @@
 import
   std/[options, sequtils, unittest],
   stew/assign2,
+  eth/keys,
   ./testutil, ./testblockutil,
   ../beacon_chain/spec/[datatypes, digest, helpers, state_transition, presets],
   ../beacon_chain/[beacon_node_types, ssz],
@@ -123,7 +124,7 @@ suiteReport "Block pool processing" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
-      quarantine = QuarantineRef()
+      quarantine = QuarantineRef.init(keys.newRng())
       stateData = newClone(dag.headState)
       cache = StateCache()
       b1 = addTestBlock(stateData.data, dag.tail.root, cache)
@@ -335,7 +336,7 @@ suiteReport "chain DAG finalization tests" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
-      quarantine = QuarantineRef()
+      quarantine = QuarantineRef.init(keys.newRng())
       cache = StateCache()
 
   wrappedTimedTest "prune heads on finalization" & preset():
@@ -463,7 +464,7 @@ suiteReport "chain DAG finalization tests" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
-      quarantine = QuarantineRef()
+      quarantine = QuarantineRef.init(keys.newRng())
       cache = StateCache()
 
   timedTest "init with gaps" & preset():

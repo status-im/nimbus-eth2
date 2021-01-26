@@ -282,11 +282,11 @@ proc proposeSignedBlock*(node: BeaconNode,
                          newBlock: SignedBeaconBlock): BlockRef =
 
   let newBlockRef = node.chainDag.addRawBlock(node.quarantine, newBlock) do (
-      blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+      blckRef: BlockRef, trustedBlock: TrustedSignedBeaconBlock,
       epochRef: EpochRef, state: HashedBeaconState):
-    # Callback add to fork choice if valid
+    # Callback add to fork choice if signed block valid (and becomes trusted)
     node.attestationPool[].addForkChoice(
-      epochRef, blckRef, signedBlock.message,
+      epochRef, blckRef, trustedBlock.message,
       node.beaconClock.now().slotOrZero())
 
   if newBlockRef.isErr:
@@ -617,9 +617,6 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   # The dontcheck option's a deliberately undocumented escape hatch for the
   # local testnets and similar development and testing use cases.
-  doAssert node.config.gossipSlashingProtection == GossipSlashingProtectionMode.dontcheck or (
-    node.processor[].gossipSlashingProtection.probeEpoch <
-    node.processor[].gossipSlashingProtection.broadcastStartEpoch)
   if curSlot.epoch <
         node.processor[].gossipSlashingProtection.broadcastStartEpoch and
       curSlot.epoch != node.processor[].gossipSlashingProtection.probeEpoch and
@@ -717,4 +714,3 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     let finalizedEpochRef = node.chainDag.getFinalizedEpochRef()
     discard node.eth1Monitor.trackFinalizedState(
       finalizedEpochRef.eth1_data, finalizedEpochRef.eth1_deposit_index)
-

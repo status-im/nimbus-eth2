@@ -131,7 +131,7 @@ proc is_valid_indexed_attestation*(
     return err("indexed attestation: indices not sorted and unique")
 
   # Verify aggregate signature
-  if skipBLSValidation notin flags:
+  if not (skipBLSValidation in flags or indexed_attestation.signature is TrustedSig):
     let pubkeys = mapIt(
       indexed_attestation.attesting_indices, epochRef.validator_keys[it])
     if not verify_attestation_signature(
@@ -155,7 +155,7 @@ proc is_valid_indexed_attestation*(
     return err("indexed_attestation: no attesting indices")
 
   # Verify aggregate signature
-  if skipBLSValidation notin flags:
+  if not (skipBLSValidation in flags or attestation.signature is TrustedSig):
     let pubkeys = mapIt(
       attesting_indices, epochRef.validator_keys[it])
     if not verify_attestation_signature(

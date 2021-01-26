@@ -141,11 +141,11 @@ proc storeBlock(
     attestationPool = self.attestationPool
 
   let blck = self.chainDag.addRawBlock(self.quarantine, signedBlock) do (
-      blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+      blckRef: BlockRef, trustedBlock: TrustedSignedBeaconBlock,
       epochRef: EpochRef, state: HashedBeaconState):
     # Callback add to fork choice if valid
     attestationPool[].addForkChoice(
-      epochRef, blckRef, signedBlock.message, wallSlot)
+      epochRef, blckRef, trustedBlock.message, wallSlot)
 
   # Trigger attestation sending
   if blck.isOk and not self.blockReceivedDuringSlot.finished:
@@ -519,7 +519,7 @@ proc runQueueProcessingLoop*(self: ref Eth2Processor) {.async.} =
     # taking up all CPU - we don't want to _completely_ stop processing blocks
     # in this case (attestations will get dropped) - doing so also allows us
     # to benefit from more batching / larger network reads when under load.
-    discard await idleAsync().withTimeout(100.milliseconds)
+    discard await idleAsync().withTimeout(10.milliseconds)
 
     # Avoid one more `await` when there's work to do
     if not (blockFut.finished or aggregateFut.finished or attestationFut.finished):
