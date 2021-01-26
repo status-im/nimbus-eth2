@@ -8,7 +8,11 @@ Nim is a language that organically has grown to contain many advanced features a
 
 [Manual](https://nim-lang.org/docs/manual.html#modules-import-statement)
 
-`import` a minimal set of modules using explicit paths. `export` all modules whose types appear in public symbols of the current module. Prefer specific imports. Avoid `include`.
+`import` a minimal set of modules using explicit paths.
+
+`export` all modules whose types appear in public symbols of the current module.
+
+Prefer specific imports. Avoid `include`.
 
 ```nim
 # Group by std, external then internal imports
@@ -30,6 +34,8 @@ Modules in Nim share a global namespace, both for the module name itself and for
 
 Because of overloading and generic catch-alls, the same code can behave differently depending on which modules have been imported and in which order - reexporting modules that are used in public symbols helps avoid some of these differences.
 
+See also: [sandwich problem](https://github.com/nim-lang/Nim/issues/11225)
+
 ## Macros
 
 [Manual](https://nim-lang.org/docs/manual.html#macros)
@@ -42,6 +48,7 @@ Avoid generating public API functions with macros.
 * Concise domain-specific languages precisely convey the central idea while hiding underlying details
 * Suitable for cross-cutting libraries such as logging and serialization, that have a simple public API
 * Prevent repetition, sometimes
+* Encode domain-specific knowledge that otherwise would be hard to express
 
 ### Cons
 
@@ -83,16 +90,16 @@ type XxxRef = ref object
 ### Pros
 
 * `ref object` types useful to prevent unintended copies
-* limit risk of accidental stack overflow for large types
+* Limits risk of accidental stack overflow for large types
 * Garbage collector simplifies some algorithms
 
 ### Cons
 
 * `ref object` types have surprising semantics - the meaning of basic operations like `=` changes
-* shared ownership leads to resource leaks and data races
+* Shared ownership leads to resource leaks and data races
 * `nil` references cause runtime crashes
-* semantic differences not visible at call site
-* always mutable - no way to express immutability
+* Semantic differences not visible at call site
+* Always mutable - no way to express immutability
 * Cannot be stack-allocated
 * Hard to emulate value semantics
 * Prone to leaks
@@ -291,7 +298,15 @@ None
 
 Prefer `func` - use `proc` when side effects cannot conveniently be avoided.
 
-## Callbacks and closures
+Avoid public functions and variables (`*`) that don't make up an intended part of public API.
+
+### Practical notes
+
+* Public functions are not covered by dead-code warnings and contribute to overload resolution in the the global namespace
+
+## Callbacks, closures and forward declarations
+
+Annotate `proc` type definitions and forward declarations with `{.raises [Defect], gcsafe}` or specific exception types.
 
 ```nim
 # By default, Nim assumes closures may raise any exception and are not gcsafe
@@ -302,8 +317,9 @@ type Callback = proc(...) {.raises: [Defect], gcsafe.}
 
 ### Practical notes
 
-* When calling an un-annotated closure / callback, the compiler does not know if it potentially raises or contains gcunsafe code, thus assumes the worst case
-* Deduced excpetion and gcsafe information is passed up the call chain
+* Without annotations, `raises Exception` and no gc-safety is assumed by the compiler, infecting deduction in the whole call stack
+* Annotations constrain the functions being assigned to the callback to follow its declaration, simplifying calling the callback safely
+  * In particular, callbacks are difficult to reason about when they raise exceptions - what should the caller of the callback do?
 
 ## Binary data
 
@@ -326,14 +342,42 @@ Avoid `string` for binary data. If stdlib returns strings, [convert](https://git
 
 * [stew](https://github.com/status-im/nim-stew) contains helpers for dealing with bytes and strings
 
-## Workflow
+## Integers
 
-### Contributing
+Prefer signed integers for counting, lengths, array indexing etc.
 
-For style and other trivial fixes, commit straight to master
-For small ideas, use a PR
-For big ideas, use an RFC issue
+Prefer unsigned integers of specified size for interfacing with binary data, bit manipulation, low-level hardware access and similar contexts.
 
-## Useful resources
+Don't cast pointers to `int`.
 
-* [The Nimbus auditor book](https://nimbus.guide/auditors-book/) goes over security concerns of Nim features in detail
+### Practical notes
+
+* Signed integers are overflow-checked and raise an untracked `Defect` on overflow, unsigned integers wrap
+* `int` and `uint` vary depending on platform pointer size - use judiciously
+* Perform range checks before converting to `int`, or convert to larger type
+  * Conversion to signed integer raises untracked `Defect` on overflow
+  * When comparing lengths to unsigned integers, convert the length to unsigned
+* Pointers may overflow `int` when used for arithmetic
+* An alternative to `int` for non-negative integers such as lengths is `Natural`
+  * `Natural` is a `range` type and therefore [unreliable](#range) - it generally avoids the worst problems owing to its simplicity but may require additional casts to work around bugs
+  * Better models length, but is not used by `len`
+
+## `range`
+
+Avoid `range` types.
+
+### Pros
+
+* Range-checking done by compiler
+* More accurate bounds than `intXX`
+* Communicates intent
+
+### Cons
+
+* Implicit conversions to "smaller" ranges may raise `Defect`
+* Language feature has several fundamental design and implementation issues
+  * https://github.com/nim-lang/Nim/issues/16744
+  * https://github.com/nim-lang/Nim/issues/13618
+  * https://github.com/nim-lang/Nim/issues/12780
+  * https://github.com/nim-lang/Nim/issues/10027
+  * https://github.com/nim-lang/Nim/issues?page=1&q=is%3Aissue+is%3Aopen+range

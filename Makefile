@@ -376,7 +376,7 @@ publish-book: | book auditors-book
 	git branch --track gh-pages origin/gh-pages && \
 	git worktree add tmp-book gh-pages && \
 	rm -rf tmp-book/* && \
-	mkdir -p tmp-book/auditors-book && \
+	mkdir -p tmp-book/auditors-book tmp-book/style-book && \
 	cp -a docs/the_nimbus_book/book/* tmp-book/ && \
 	cp -a docs/the_auditors_handbook/book/* tmp-book/auditors-book/ && \
 	cp -a docs/the_style_book/book/* tmp-book/style-book/ && \

@@ -3,7 +3,7 @@ The books in this folder were produced using [mdBook](https://github.com/rust-la
 Some books also use [mdbook-toc](https://github.com/badboy/mdbook-toc) for tables of contents.
 
 ```bash
-# Install tooling
+# Install (or update) tooling
 cargo install mdbook mdbook-toc
 
 # Work on the book locally - open "http://localhost:3000" for live version

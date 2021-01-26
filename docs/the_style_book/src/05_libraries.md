@@ -71,7 +71,7 @@ Print hex output in lowercase. Accept upper and lower case.
 
 ## Wrappers
 
-Prefer native `Nim` code when possible.
+Prefer native `Nim` code when available.
 
 `C` libraries and libraries that expose a `C` API may be used (including `rust`, `C++`).
 
@@ -90,7 +90,11 @@ Prefer building the library on-the-fly from source using `{.compile.}`. Pin the 
 * Often leads to unnatural API for `Nim`
 * Constrains platform support
 * Nim and `nimble` tooling poorly supports 3rd-party build systems making installation difficult
-* Nim `C++` support immature - `C++` language unsuitable for interop
+* Nim `C++` support incomplete
+  * Less test suite coverage - most of `Nim` test suite uses `C` backend
+  * Many core `C++` features like `const`, `&` and `&&` difficult to express - in particular post-`C++11` code has a large semantic gap compared to Nim
+  * Different semantics for exceptions and temporaries compared to `C` backend
+  * All-or-nothing - can't use `C++` codegen selectively for `C++` libraries
 * Using `{.compile.}` increases build times, specially for multi-binary projects - use judiciously for large dependencies
 
 ### Practical notes
@@ -122,7 +126,7 @@ Use the Nim standard library judiciously. Prefer smaller, separate packages that
 
 ### Cons
 
-* large, monolithic releases make upgrading difficult - bugs, fixes and improvements are released together causing unnecessary upgrade churn
+* large, monolithic releases make upgrading difficult - bugs, fixes and improvements are released together causing upgrade churn
 * many modules in the standard library are unmaintained and don't use state-of-the-art features of Nim
 * long lead times for getting fixes and improvements to market
 * often not tailored for specific use cases
@@ -154,4 +158,4 @@ If similar libraries exist in nim stdlib and stew, prefer [stew](https://github.
 
 ### Practical notes
 
-`nim-stew` exists as a staging area for code that could be considered for future inclusion in the standard library or a separate package, but has not yet been fully fleshed out as a separate and complete library.
+`nim-stew` exists as a staging area for code that could be considered for future inclusion in the standard library or, preferably, a separate package, but has not yet been fully fleshed out as a separate and complete library.

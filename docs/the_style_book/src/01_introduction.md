@@ -48,3 +48,15 @@ While this book covers Nim at Status in general, there are other resources avail
 
 * [Nim manual](https://nim-lang.org/docs/manual.html) - the authorative source for understanding the features of the language
 * [The Nimbus auditor book](https://nimbus.guide/auditors-book/) - goes over security details of Nimbus itself and how it relates to the features of Nim
+
+## Workflow
+
+### Contributing
+
+We welcome code contributions and welcome our code being used in other projects.
+
+Generally, all significant code changes are reviewed by at least one team member and must pass CI.
+
+* For style and other trivial fixes, no review is needed (passing CI is sufficent)
+* For small ideas, use a PR
+* For big ideas, use an RFC issue

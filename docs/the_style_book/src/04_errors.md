@@ -6,7 +6,7 @@ In part, the confusion stems from the various contexts in which nim can be used:
 
 When faced with more complex and long-running programs where errors must be dealt with as part of control flow, the use of exceptions can directly be linked to issues like resource leaks, security bugs and crashes.
 
-Likewise, when preparing code for refactoring, the compiler offers little help in exception-based code: although raising a new exception breaks ABI, there is no corresponding change on in the API meaning that changes deep inside dependencies silently breaks dependent code until the issue becomes apparent at runtime, often under exceptional circumstances.
+Likewise, when preparing code for refactoring, the compiler offers little help in exception-based code: although raising a new exception breaks ABI, there is no corresponding change on in the API meaning that changes deep inside dependencies silently break dependent code until the issue becomes apparent at runtime, often under exceptional circumstances.
 
 A final note is that although exceptions may have been used sucessfully in some languages, these languages typically offer complementary features that help manage the complexities introduced by exceptions - RAII, mandatory checking of exceptions etc - this has yet to be developed for Nim.
 
@@ -18,7 +18,7 @@ Prefer `bool`, `Opt` or `Result` to signal failure outcomes explicitly.
 
 Prefer the use of `Result` when multiple failure paths exist and the calling code might need to differentiate between them.
 
-Raise `Defect` to signal panics such as logic errors or prerequisites being violated.
+Raise `Defect` to signal panics such as logic errors or preconditions being violated.
 
 Make error handling explicit and visible at call site using explicit control flow (`if`, `try`, `results.?`).
 
@@ -37,7 +37,7 @@ export results # Re-export modules used in public symbols
 # See `Result` section for specific guidlines for errror type
 func f*(): Result[void, cstring]
 
-# in special cases that warrant the use of exceptions, list these explicitly using the `raises` pragma.
+# In special cases that warrant the use of exceptions, list these explicitly using the `raises` pragma.
 func parse(): Type {.raises: [Defect, ParseError]}
 ```
 
@@ -47,61 +47,71 @@ See also [Error handling helpers](https://github.com/status-im/nim-stew/pull/26)
 
 ## Exceptions
 
-In general, prefer explicit error handling mechanisms such as `Result`(see above).
+In general, prefer [explicit error handling mechanisms](#general).
+
+Annotate each module with a top-level `{.push raises: [Defect].}`.
+
+Use explicit `{.raises.}` annotation for each function in public API.
 
 When using exceptions, use `raises` annotations (checked exceptions).
 
 Raise `Defect` to signal panics and situations that the code is not prepared to handle.
 
 ```nim
+`{.push raises: [Defect].}` # Always at start of module
 
 # Inherit from CatchableError and name XxxError
-type SomeError = object of CatchableError
+type MyLibraryError = object of CatchableError
 
-# Raise Defect when panicking - this crashes the application and leaves
-# a call stack - name `XxxDefect`
+# Raise Defect when panicking - this crashes the application (in different ways
+# depending on Nim version and compiler flags) - name `XxxDefect`
 type SomeDefect = object of Defect
 
-# Sometimes a hierarchy is used, but it's unclear for what purpose since most
-# catch code doesn't know the specific types as they come from deep layers
-type SomeDerivedError = object of SomeError
+# Use hierarchy for more specific errors
+type MySpecificError = object of MyLibraryError
+
+# Explicitly annotate functions with raises
+func f() {.raises: [Defect, MySpecificError]} = discard
 
 # Isolate code that may generate exceptions using expression-based try:
 let x =
   try: ...
-  except CatchableError as exc: ...
+  except MyError as exc: ... # use the most specific error kind possible
 
 # Be careful to catch excpetions inside loops, to avoid partial loop evaluations:
 for x in y:
-  try:..
-  except CatchableError: ..
+  try: ..
+  except MyError: ..
+
+# Provide contextual data when raising specific errors
+raise (ref MyError)(msg: "description", data: value)
 ```
 
-#### Pros
+### Pros
 
 * Used by `Nim` standard library
 * Good for quick prototyping without error handling
 * Good performance on happy path without `try`
   * Compatible with RVO
 
-#### Cons
+### Cons
 
 * Poor readability - exceptions not part of API / signatures by default
     * Have to assume every line may fail
 * Poor maintenance / refactoring support - compiler can't help detect affected code because they're not part of API
 * Nim exception hierarchy unclear and changes between versions
     * the distinction between `Exception`, `CatchableError` and `Defect` is inconsistently implemented
-        * [Exception hierarchy RFC not getting implemented](https://github.com/nim-lang/Nim/issues/11776)
+        * [Exception hierarchy RFC not being implemented](https://github.com/nim-lang/Nim/issues/11776)
     * `Defect` is [not correctly tracked]((https://github.com/nim-lang/Nim/issues/12862))
     * Nim 1.4 further weakens compiler analysis around `Defect`(https://github.com/nim-lang/Nim/pull/13626)
-* Exceptions leak information between abstraction layers
+* Without translation, exceptions leak information between abstraction layers
 * Writing exception-safe code in Nim unpractical due to missing critical features (compared to C++)
     * no RAII - resources often leak in the presence of exceptions
     * destructors incomplete / unstable and thus not usable for safe EH
         * no constructors, thus no way to force particular object states at construction
     * `ref` types incompatible with destructors, even if they worked
 * Poor performance of error path
-    * Several heap allocation for each Exception (exception, stack trace, string)
+    * Several heap allocations for each Exception (exception, stack trace, string)
     * Expensive stack trace
 * Poor performance on happy path
     * every `try` and `defer` has significant performance overhead due to `setjmp` exception handling implementation
@@ -110,7 +120,7 @@ for x in y:
 
 The use of exceptions in some modules has significantly contributed to resource leaks, deadlocks and other difficult bugs. The various exception handling proposals aim to alleviate some of the issues but have not found sufficient grounding in the Nim community to warrant the language changes necessary to proceed.
 
-A notable exception to the guideline is `chronos` and `async`/`await` transformations that lack support for propagating checked exception information.
+A notable exception to the guideline is `chronos` and `async`/`await` transformations that lack support for propagating checked exception information. Several bugs and implementation issues exist in the exception handling transformation employed by `async`.
 
 ### Open questions
 
@@ -122,8 +132,8 @@ A notable exception to the guideline is `chronos` and `async`/`await` transforma
     * Translating exceptions has high visual overhead, specially when hierachy is used - not practical, all advantages lost
 * Should `raises` be used?
     * Equivalent to `Result[T, SomeError]` but lacks generics
-    * Additive - asymptotically tends towards `raises: [CatchableError]` if exceptions are not handled along the way, making it useless
-    * No way to transport accurate raises type information across Future/async/generic code boundaries - no `raisesof` `typeof` equivalent
+    * Additive - asymptotically tends towards `raises: [CatchableError]`, losing value unless exceptions are translated locally
+    * No way to transport accurate raises type information across Future/async/generic code boundaries - no `raisesof` equivalent of `typeof`
 
 ### Background
 
@@ -162,13 +172,4 @@ Unlike "Error Enums" used with `Result`, status codes mix "success" and "error" 
 
 ## Callbacks
 
-Annotate delayed callback definitions with `raises: [Defect]`.
-
-### Pros
-
-* Exceptions that happen in callbacks are difficult for the code calling the callback to deal with correctly
-    * async callbacks in particular, because the calling context is on a different call stack
-
-### Cons
-
-* Requires alternative way of transporting error information out of callback which may cause other issues - `Result` return value or closure.
+See [language section on callbacks](03_language.md#callbacks-closures-and-forward-declarations)
