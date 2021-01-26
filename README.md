@@ -1,3 +1,5 @@
+rebuild me
+
 # Nimbus Eth2 (Beacon Chain)
 
 [![Build Status (Travis)](https://img.shields.io/travis/status-im/nimbus-eth2/master.svg?label=Linux%20/%20macOS "Linux/macOS build status (Travis)")](https://travis-ci.org/status-im/nimbus-eth2)
