@@ -871,8 +871,10 @@ proc inclSPDIR*(db: SlashingProtectionDB_v2, spdir: SPDIR): bool
     selectRootStmt.dispose()
 
     if dbGenValRoot != default(Eth2Digest) and
-      dbGenValRoot != spdir.metadata.genesis_validator_root.Eth2Digest:
-      echo "The slashing protection database and imported file refer to different blockchains."
+         dbGenValRoot != spdir.metadata.genesis_validator_root.Eth2Digest:
+      error "The slashing protection database and imported file refer to different blockchains.",
+        DB_genesis_validator_root = dbGenValRoot,
+        Imported_genesis_validator_root = spdir.metadata.genesis_validator_root.Eth2Digest
       return false
 
     if not status.get():

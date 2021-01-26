@@ -319,11 +319,12 @@ proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): bool
              {.raises: [SerializationError, IOError, Defect].} =
   let useV1 = db.useV1()
   let useV2 = db.useV2()
-  if useV2:
-    result = db.db_v2.inclSPDIR(spdir)
 
   if useV2 and useV1:
+    result = db.db_v2.inclSPDIR(spdir)
     return result and db.db_v1.inclSPDIR(spdir)
+  if useV2 and not useV1:
+    return db.db_v2.inclSPDIR(spdir)
   else:
     doAssert useV1
     return db.db_v1.inclSPDIR(spdir)
@@ -338,10 +339,5 @@ proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): bool
 
 # Sanity check
 # --------------------------------------------------------------
-
-proc foo(x: SlashingProtectionDB_Concept) =
-  discard
-
-foo(SlashingProtectionDB()) {.explain.}
 
 static: doAssert SlashingProtectionDB is SlashingProtectionDB_Concept

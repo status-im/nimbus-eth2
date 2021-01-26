@@ -122,6 +122,7 @@ suiteReport "Slashing Protection DB - Interchange" & preset():
       doAssert db3.importSlashingInterchange(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
       db3.exportSlashingInterchange(currentSourcePath.parentDir/"test_complete_export_slashing_protection_roundtrip2.json")
 
+  wrappedTimedTest "Smoke test - Complete format - Invalid database is refused" & preset():
     block: # import - invalid root db
       let invalid_genvalroot = hexToDigest"0x1234"
       let db4 = SlashingProtectionDB.init(
