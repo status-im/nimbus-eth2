@@ -180,6 +180,11 @@ proc validateAttesterSlashing*(
 proc validateProposerSlashing*(
     pool: var ExitPool, proposer_slashing: ProposerSlashing):
     Result[bool, (ValidationResult, cstring)] =
+  # Not from spec; the rest of NBC wouldn't have correctly processed it either.
+  if proposer_slashing.signed_header_1.message.proposer_index > high(int).uint64:
+    return err((ValidationResult.Ignore, cstring(
+      "validateProposerSlashing: proposer-slashed index too high")))
+
   # [IGNORE] The proposer slashing is the first valid proposer slashing
   # received for the proposer with index
   # proposer_slashing.signed_header_1.message.proposer_index.
@@ -212,6 +217,10 @@ proc validateVoluntaryExit*(
       pool.chainDag.headState.data.data.validators.lenu64:
     return err((ValidationResult.Ignore, cstring(
       "validateVoluntaryExit: validator index too high")))
+
+  # Since pool.chainDag.headState.data.data.validators is a seq, this means
+  # signed_voluntary_exit.message.validator_index.int is already valid, but
+  # check explicitly if one changes that data structure.
   if signed_voluntary_exit.message.validator_index.int in
       pool.prior_seen_voluntary_exit_indices:
     return err((ValidationResult.Ignore, cstring(
