@@ -140,6 +140,22 @@ let x = (ref Xxx)(
 * Hard to deal with variable-sized data correctly
 * `alloca` has confusing semantics that easily cause stack overflows
 
+## Finalizers
+
+[Manual](https://nim-lang.org/docs/system.html#new%2Cref.T%2Cproc%28ref.T%29)
+
+Don't use finalizers.
+
+### Pros
+
+* Work around missing manual cleanup
+
+### Cons
+
+* [Buggy](https://github.com/nim-lang/Nim/issues/4851), cause random GC crashes
+* calling `new` with finalizer for one instance infects all instances with same finalizer
+* Newer Nim versions migrating new implementation of finalizers that are sometimes deterministic (aka destructors)
+
 ## Inline functions
 
 Avoid using explicit `{.inline.}` functions.
@@ -158,6 +174,7 @@ Avoid using explicit `{.inline.}` functions.
 
 * Compilers can use contextual information to balance inlining
 * LTO achieves the same end result without the cons
+* `{.inline.}` does not inline code - rather it copies the function definition into every `C` module making it available for the `C` compiler to inline
 
 ## Converters
 
@@ -185,8 +202,10 @@ Avoid using converters.
 
 Prefer `Xxx(x: 42, y: Yyy(z: 54))` style, or if type has an `init` function, `Type.init(a, b, c)`.
 
+Prefer making the default 0-initialization a valid state for the object.
+
 ```nim
-# `init` functions serve as constructors
+# `init` functions are a convention for constructors - they are not enforced by the language
 func init(T: type Xxx, a, b: int): T = T(
   x: a,
   y: OtherType(s: b) # Prefer Type(field: value)-style initialization
@@ -221,12 +240,14 @@ Prefer expression-based return or explicit `return` keyword with a value
 
 ### Pros
 
-* Some code uses it, recommended by NEP-1
+* Recommended by NEP-1
+* Used in standard library
 * Saves a line of code avoiding an explicit `var` declaration
 * Accumulation-style functions that gradually build up a return value gain consistency
 
 ### Cons
 
+* No visual (or compiler) help when a branch is missing a value, or overwrites a previous value
 * Disables compiler diagnostics for code branches that forget to set result
 * Risk of using partially initialized instances due to `result` being default-initialized
     * For `ref` types, `result` starts out as `nil` which accidentally might be returned
@@ -244,12 +265,14 @@ Nim has 3 ways to assign a return value to a function: `result`, `return` and "e
 Of the three:
 
 * "expression" returns guarantee that all code branches produce one (and only one) value to be returned
-* explict `return` with a value make explicit what value is being returned in each branch.
-* `result`, together with indent-based code-flow, makes it difficult to visually ascertain which code paths are missing a return value, or overwrite the return value of a previous branch.
+  * Used mainly when exit points are balanced and not deeply nested
+* Explict `return` with a value make explicit what value is being returned in each branch
+  * Used to avoid deep nesting and early exit, above all when returning early due to errors
+* `result` is used to accumulate / build up return value, allowing it to take on invalid values in the interim
 
 Multiple security issues, `nil` reference crashes and wrong-init-order issues have been linked to the use of `result` and lack of assignment in branches.
 
-In general, the use of accumulation-style initialization is discouraged unless necessary by the data type - see [Variable initialization](#variable-initialization)
+In general, the use of accumulation-style initialization is discouraged unless made necessary by the data type - see [Variable initialization](#variable-initialization)
 
 ## Variable declarations
 
@@ -292,7 +315,7 @@ else: x = 6
 
 ### Cons
 
-None
+* Might become hard to read when deeply nested
 
 ## Functions and procedures
 
@@ -303,6 +326,29 @@ Avoid public functions and variables (`*`) that don't make up an intended part o
 ### Practical notes
 
 * Public functions are not covered by dead-code warnings and contribute to overload resolution in the the global namespace
+
+## Methods
+
+[Manual](https://nim-lang.org/docs/manual.html#methods)
+
+Use `method` sparingly - consider a "manual" vtable with `proc` closures instead.
+
+### Pros
+
+* Compiler-implemented way of doing dynamic dispatch
+
+### Cons
+
+* Poor implementation
+  * Implemented using sequential `if` type comparisons
+  * Require full program view to "find" all implementations
+* Poor discoverability - hard to tell which `method`'s belong together and form a virtual interface for a type
+  * All implementations must be public (`*`)!
+
+### Practical notes
+
+* Does not work with generics
+* No longer does multi-dispatch
 
 ## Callbacks, closures and forward declarations
 

@@ -136,9 +136,13 @@ Use the Nim standard library judiciously. Prefer smaller, separate packages that
 
 Use the following stdlib replacements that offer safer API (allowing more issues to be detected at compile time):
 
+* async -> chronos
 * bitops -> stew/bitops2
 * endians -> stew/endians2
-* async -> chronos
+* exceptions -> stew/results
+* io -> stew/io2
+* sqlite -> nim-sqlite3-abi
+* streams -> nim-faststreams
 
 ## nim-stew
 
