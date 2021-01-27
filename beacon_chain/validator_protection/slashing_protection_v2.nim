@@ -132,11 +132,6 @@ import
 # - The slashing protection DB only held cryptographic hashes
 #   and epoch/slot integers which are uncompressible
 #   while BeaconChainDB is snappy-compressed.
-#
-# TODO: if we enshrine the split we likely want to use
-#       a relational DB instead of KV-Store,
-#       for efficient pruning, range queries support
-#       and filtering on validators
 
 # SQLite primitives
 # --------------------------------------------
@@ -240,6 +235,16 @@ template dispose(sqlStmt: SqliteStmt) =
 
 proc setupDB(db: SlashingProtectionDB_v2, genesis_validator_root: Eth2Digest) =
   ## Initial setup of the DB
+  # Naming:
+  # - We use the same naming as https://eips.ethereum.org/EIPS/eip-3076
+  #   and Lighthouse to allow loading/exporting without the Intermediate
+  #   interchange format (provided we agree on a metadata format as well)
+  #
+  # - https://github.com/sigp/lighthouse/blob/v1.1.0/validator_client/slashing_protection/src/slashing_database.rs#L59-L88
+  #
+  # Differences
+  # - Lighthouse uses public_key instead of pubkey as in spec
+
   block: # Metadata
     db.backend.exec("""
       CREATE TABLE metadata(
@@ -263,30 +268,33 @@ proc setupDB(db: SlashingProtectionDB_v2, genesis_validator_root: Eth2Digest) =
     db.backend.exec("""
       CREATE TABLE validators(
           id INTEGER PRIMARY KEY,
-          pubkey BLOB NOT NULL UNIQUE
+          public_key BLOB NOT NULL UNIQUE
       );
     """).expect("DB should be working and \"validators\" should not exist")
 
+    # unsure why Lighthouse allows non-unique signing_root
     db.backend.exec("""
-      CREATE TABLE attestations(
-          validator_id INTEGER NOT NULL,
-          source_epoch INTEGER NOT NULL,
-          target_epoch INTEGER NOT NULL,
-          attestation_root BLOB NOT NULL UNIQUE,
-          FOREIGN KEY(validator_id) REFERENCES validators(id)
-          UNIQUE (validator_id, target_epoch)
-      );
-    """).expect("DB should be working and \"attestations\" should not exist")
-
-    db.backend.exec("""
-      CREATE TABLE blocks(
+      CREATE TABLE signed_blocks(
           validator_id INTEGER NOT NULL,
           slot INTEGER NOT NULL,
-          block_root BLOB NOT NULL UNIQUE,
+          signing_root BLOB NOT NULL UNIQUE,
           FOREIGN KEY(validator_id) REFERENCES validators(id)
           UNIQUE (validator_id, slot)
       );
     """).expect("DB should be working and \"blocks\" should not exist")
+
+    # unsure why Lighthouse allows null validator_id
+    # and non-unique signing_root
+    db.backend.exec("""
+      CREATE TABLE signed_attestations(
+          validator_id INTEGER NOT NULL,
+          source_epoch INTEGER NOT NULL,
+          target_epoch INTEGER NOT NULL,
+          signing_root BLOB NOT NULL UNIQUE,
+          FOREIGN KEY(validator_id) REFERENCES validators(id)
+          UNIQUE (validator_id, target_epoch)
+      );
+    """).expect("DB should be working and \"attestations\" should not exist")
 
 proc checkDB(db: SlashingProtectionDB_v2, genesis_validator_root: Eth2Digest) =
   ## Check the metadata of the DB
@@ -318,26 +326,26 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
   # --------------------------------------------------------
   db.sqlInsertValidator = db.backend.prepareStmt("""
     INSERT INTO
-      validators(pubkey)
+      validators(public_key)
     VALUES
       (?);
   """, PubKeyBytes, void).get()
 
   db.sqlInsertAtt = db.backend.prepareStmt("""
-    INSERT INTO attestations(
+    INSERT INTO signed_attestations(
       validator_id,
       source_epoch,
       target_epoch,
-      attestation_root)
+      signing_root)
     VALUES
       (?,?,?,?);
   """, (ValidatorInternalID, int64, int64, Hash32), void).get()
 
   db.sqlInsertBlock = db.backend.prepareStmt("""
-    INSERT INTO blocks(
+    INSERT INTO signed_blocks(
       validator_id,
       slot,
-      block_root)
+      signing_root)
     VALUES
       (?,?,?);
     """, (ValidatorInternalID, int64, Hash32), void
@@ -346,7 +354,7 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
   # Read internal validator ID
   # --------------------------------------------------------
   db.sqlGetValidatorInternalID = db.backend.prepareStmt(
-    "SELECT id from validators WHERE pubkey = ?;",
+    "SELECT id from validators WHERE public_key = ?;",
     PubKeyBytes, ValidatorInternalID
   ).get()
 
@@ -354,9 +362,9 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
   # --------------------------------------------------------
   db.sqlAttForSameTargetEpoch = db.backend.prepareStmt("""
     SELECT
-      attestation_root
+      signing_root
     FROM
-      attestations
+      signed_attestations
     WHERE
       validator_id = ?
       AND
@@ -366,9 +374,9 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
 
   db.sqlAttSurrounded = db.backend.prepareStmt("""
     SELECT
-      source_epoch, target_epoch, attestation_root
+      source_epoch, target_epoch, signing_root
     FROM
-      attestations
+      signed_attestations
     WHERE
       validator_id = ?
       AND
@@ -379,9 +387,9 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
 
   db.sqlAttSurrounding = db.backend.prepareStmt("""
     SELECT
-      source_epoch, target_epoch, attestation_root
+      source_epoch, target_epoch, signing_root
     FROM
-      attestations
+      signed_attestations
     WHERE
       validator_id = ?
       AND
@@ -394,7 +402,7 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
     SELECT
       MIN(source_epoch)
     FROM
-      attestations
+      signed_attestations
     WHERE
       validator_id = ?
     """, ValidatorInternalID, int64
@@ -404,7 +412,7 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
     SELECT
       MIN(source_epoch)
     FROM
-      attestations
+      signed_attestations
     WHERE
       validator_id = ?
     """, ValidatorInternalID, int64
@@ -414,9 +422,9 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
   # --------------------------------------------------------
   db.sqlBlockForSameSlot = db.backend.prepareStmt("""
     SELECT
-      block_root
+      signing_root
     FROM
-      blocks
+      signed_blocks
     WHERE
       validator_id = ?
       AND
@@ -428,7 +436,7 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
     SELECT
       MIN(slot)
     FROM
-      blocks
+      signed_blocks
     WHERE
       validator_id = ?;
     """, ValidatorInternalID, int64
@@ -773,7 +781,7 @@ proc toSPDIR*(db: SlashingProtectionDB_v2): SPDIR
   # -----------------------------------------------------
   block:
     let selectValStmt = db.backend.prepareStmt(
-      "SELECT pubkey FROM validators;",
+      "SELECT public_key FROM validators;",
       NoParams, PubKeyBytes,
       managed = false # manual memory management
     ).get()
@@ -791,13 +799,13 @@ proc toSPDIR*(db: SlashingProtectionDB_v2): SPDIR
   block:
     let selectBlkStmt = db.backend.prepareStmt("""
       SELECT
-        slot, block_root
+        slot, signing_root
       FROM
-        blocks b
+        signed_blocks b
       INNER JOIN
         validators v on b.validator_id = v.id
       WHERE
-        v.pubkey = ?
+        v.public_key = ?
       ORDER BY
         slot ASC
       """, PubKeyBytes, (int64, Hash32),
@@ -806,13 +814,13 @@ proc toSPDIR*(db: SlashingProtectionDB_v2): SPDIR
 
     let selectAttStmt = db.backend.prepareStmt("""
       SELECT
-        source_epoch, target_epoch, attestation_root
+        source_epoch, target_epoch, signing_root
       FROM
-        attestations a
+        signed_attestations a
       INNER JOIN
         validators v on a.validator_id = v.id
       WHERE
-        v.pubkey = ?
+        v.public_key = ?
       ORDER BY
         target_epoch ASC
       """, PubKeyBytes, (int64, int64, Hash32),
