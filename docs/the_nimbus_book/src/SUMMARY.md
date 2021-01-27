@@ -22,7 +22,7 @@
 - [Email notifications](./email-notifications.md)
 - [Graffiti the blockchain](./graffiti.md)
 - [Download binaries](./binaries.md)
-- [Using Docker images](./docker.md)
+- [Docker images](./docker.md)
 - [Troubleshoot](./troubleshooting.md)
 - [Recover / generate keys](./more-keys.md)
 - [Perform a voluntary exit](./voluntary-exit.md)
