@@ -2,7 +2,9 @@
 
 This page takes you through how to run just the beacon node **without a validator attached.**
 
-Running a beacon node without a validator attached can help improve the anonymity properties of the network as a whole.
+Running a beacon node without a validator attached can help improve the anonymity properties of the network as a whole. 
+
+It's also a necessary step to running a validator (since an active validator requires a synced beacon node).
 
 ## 1. Install dependencies
 
