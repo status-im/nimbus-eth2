@@ -107,7 +107,7 @@ import
 # instead of keeping track of the whole history (and allows pruning)
 # In that case we need the following queries
 #
-# 1. db.signedBlockMinimalSlot (EIP3067 condition 1)
+# 1. db.signedBlockMinimalSlot (EIP3067 condition 2)
 # 2. db.signedAttMinimalSourceEpoch (EIP3067 condition 4)
 # 3. db.signedAttMinimalTargetEpoch (EIP3067 condition 5)
 
@@ -547,7 +547,7 @@ proc checkSlashableBlockProposal*(
        db: SlashingProtectionDB_v2,
        validator: ValidatorPubKey,
        slot: Slot
-     ): Result[void, Eth2Digest] =
+     ): Result[void, BadProposal] =
   ## Returns an error if the specified validator
   ## already proposed a block for the specified slot.
   ## This would lead to slashing.
@@ -566,20 +566,50 @@ proc checkSlashableBlockProposal*(
     else:
       id.unsafeGet()
 
-  var root: ETH2Digest
-  let status = db.sqlBlockForSameSlot.exec(
-        (valID, int64 slot)
-      ) do (res: Hash32):
-    root.data = res
+  block: # Condition 1 at https://eips.ethereum.org/EIPS/eip-3076
+    var root: ETH2Digest
+    let status = db.sqlBlockForSameSlot.exec(
+          (valID, int64 slot)
+        ) do (res: Hash32):
+      root.data = res
 
-  # Note: we enforce at the DB level that if (pubkey, slot) exists it maps to a unique block root.
-  if status.foundAnyResult():
-    # Conflicting block exist
-    err(root)
-  else:
-    ok()
+    # Note: we enforce at the DB level that if (pubkey, slot) exists it maps to a unique block root.
+    #
+    # It's possible to allow republishing an already signed block here (Lighthouse does it)
+    # AFAIK repeat signing only happens if the node crashes after saving to the DB and
+    # there is still time to redo the validator work but:
+    # - will the validator have reconstructed the same state in memory?
+    #   for example if the validator has different attestations
+    #   it can't reconstruct the previous signed block anyway.
+    # - it is useful if the validator couldn't gossip.
+    # Rather than adding Result "Ok" and Result "OkRepeatSigning"
+    # and an extra Eth2Digest comparison for that case, we just refuse repeat signing.
+    if status.foundAnyResult():
+      # Conflicting block exist
+      return err(BadProposal(
+        kind: DoubleProposal,
+        existing_block: root))
 
-  # TODO: low-watermark check for EIP3067
+  block: # Condition 2 at https://eips.ethereum.org/EIPS/eip-3076
+    # Low-watermark. This is not in the Eth2 official spec
+    # but a client standard.
+    #
+    # > Refuse to sign any block with
+    # > slot <= min(b.slot for b in data.signed_blocks if b.pubkey == proposer_pubkey),
+    # > except if it is a repeat signing as determined by the signing_root.
+
+    var minSlot: int64
+    let status = db.sqlBlockMinSlot.exec(valID) do (res: int64):
+      minSlot = res
+    if status.foundAnyResult():
+      if int64(slot) <= minSlot:
+        return err(BadProposal(
+          kind: MinSlotViolation,
+          minSlot: Slot minSlot,
+          candidateSlot: slot
+        ))
+
+  ok()
 
 proc checkSlashableAttestation*(
        db: SlashingProtectionDB_v2,

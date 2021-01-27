@@ -101,7 +101,7 @@ type
 
     # Queries
     # --------------------------------------------
-    db.checkSlashableBlockProposal(ValidatorPubKey, Slot) is Result[void, Eth2Digest]
+    db.checkSlashableBlockProposal(ValidatorPubKey, Slot) is Result[void, BadProposal]
       # db.checkSlashableBlockProposal(validator, slot)
     db.checkSlashableAttestation(ValidatorPubKey, Epoch, Epoch) is Result[void, BadVote]
       # db.checkSlashableAttestation(validator, source, target)
@@ -135,7 +135,7 @@ type
     # 2: candidate attestation
 
     # Spec slashing condition
-    DoubleVote           # h(t1) = h(t2)
+    DoubleVote           # h(t1) == h(t2)
     SurroundedVote       # h(s1) < h(s2) < h(t2) < h(t1)
     SurroundingVote      # h(s2) < h(s1) < h(t1) < h(t2)
     # Non-spec, should never happen in a well functioning client
@@ -151,6 +151,20 @@ type
       sourceSlashable*, targetSlashable*: Epoch
     of TargetPrecedesSource:
       discard
+
+  BadProposalKind* = enum
+    # Spec slashing condition
+    DoubleProposal         # h(t1) == h(t2)
+    ## EIP-3067 (https://eips.ethereum.org/EIPS/eip-3076)
+    MinSlotViolation       # h(t2) <= h(t1)
+
+  BadProposal* = object
+    case kind*: BadProposalKind
+    of DoubleProposal:
+      existingBlock*: Eth2Digest
+    of MinSlotViolation:
+      minSlot*: Slot
+      candidateSlot*: Slot
 
 func `==`*(a, b: BadVote): bool =
   ## Comparison operator.
@@ -168,6 +182,22 @@ func `==`*(a, b: BadVote): bool =
       (a.targetSlashable == b.targetSlashable)
   elif a.kind == TargetPrecedesSource:
     true
+  else: # Unreachable
+    false
+
+func `==`*(a, b: BadProposal): bool =
+  ## Comparison operator.
+  ## Used implictily by Result when comparing the
+  ## result of multiple DB versions
+  ##
+  ## Except that V1 doesn't support low-watermark...
+  if a.kind != b.kind:
+    false
+  elif a.kind == DoubleProposal:
+    a.existingBlock == b.existingBlock
+  elif a.kind == MinSlotViolation:
+    a.minSlot == b.minSlot and
+      a.candidateSlot == b.candidateSlot
   else: # Unreachable
     false
 

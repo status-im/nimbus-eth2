@@ -216,7 +216,7 @@ proc checkSlashableBlockProposal*(
        db: SlashingProtectionDB,
        validator: ValidatorPubKey,
        slot: Slot
-     ): Result[void, Eth2Digest] =
+     ): Result[void, BadProposal] =
   ## Returns an error if the specified validator
   ## already proposed a block for the specified slot.
   ## This would lead to slashing.

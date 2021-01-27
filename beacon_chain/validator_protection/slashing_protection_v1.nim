@@ -393,7 +393,7 @@ proc checkSlashableBlockProposal*(
        db: SlashingProtectionDB_v1,
        validator: ValidatorPubKey,
        slot: Slot
-     ): Result[void, Eth2Digest] =
+     ): Result[void, BadProposal] =
   ## Returns an error if the specified validator
   ## already proposed a block for the specified slot.
   ## This would lead to slashing.
@@ -408,7 +408,10 @@ proc checkSlashableBlockProposal*(
   )
   if foundBlock.isNone():
     return ok()
-  return err(foundBlock.unsafeGet().block_root)
+  return err(BadProposal(
+    kind: DoubleProposal,
+    existing_block: foundBlock.unsafeGet().block_root
+  ))
 
 proc checkSlashableAttestation*(
        db: SlashingProtectionDB_v1,
