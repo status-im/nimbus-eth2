@@ -1500,7 +1500,7 @@ programMain:
     config.runtimePreset = metadata.runtimePreset
 
     if config.cmd == noCommand:
-      for node in mainnetMetadata.bootstrapNodes:
+      for node in metadata.bootstrapNodes:
         config.bootstrapNodes.add node
 
       if metadata.genesisData.len > 0:
