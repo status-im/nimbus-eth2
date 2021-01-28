@@ -76,14 +76,17 @@ We support a single Nim version that is upgraded between release cycles of our o
     * You might need to `killall nimsuggest` occasionally
 * Sublime text and `vim` are other popular choices
 
-## Odds and ends
-
-### Practical tools
+## Debugging
 
 * Debugging can be done with `gdb`
+  * Follow the [C/C++ guide](https://code.visualstudio.com/docs/cpp/config-linux) for setting it up in `vscode`
   * pass `--opt:none --debugger:native` to disable optimizations and enable debug symbols
-* Profiling can be done with `perf` and [vtune](https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/vtune-profiler.html)
 
-### Code tricks
+## Profiling
+
+* Linux: `perf`
+* Anywhere: [vtune](https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/vtune-profiler.html)
+
+## Code tricks
 
 * Find out where a function is used: temporarily mark it `{.deprecated.}`
