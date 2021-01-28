@@ -58,16 +58,15 @@ proc mockAttestationData(
 
 proc signMockAttestation*(state: BeaconState, attestation: var Attestation) =
   var cache = StateCache()
-  let participants = get_attesting_indices(
-    state,
-    attestation.data,
-    attestation.aggregation_bits,
-    cache
-  )
 
   var agg {.noInit.}: AggregateSignature
   var first_iter = true # Can't do while loop on hashset
-  for validator_index in participants:
+  for validator_index in get_attesting_indices(
+        state,
+        attestation.data,
+        attestation.aggregation_bits,
+        cache
+      ):
     let sig = get_attestation_signature(
       state.fork, state.genesis_validators_root, attestation.data,
       MockPrivKeys[validator_index]

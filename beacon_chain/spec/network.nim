@@ -86,6 +86,7 @@ func getAttestationTopic*(forkDigest: ForkDigest, subnetIndex: uint64):
   except ValueError as e:
     raiseAssert e.msg
 
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#validator-assignments
 iterator get_committee_assignments*(
     state: BeaconState, epoch: Epoch,
     validator_indices: IntSet,
