@@ -12,6 +12,8 @@ A final note is that although exceptions may have been used sucessfully in some 
 
 Because of the controversies and changing landscape, the preference for Status projects is to avoid the use exceptions unless specially motivated, if only to maintain consistency and simplicity.
 
+<!-- toc -->
+
 ## General
 
 Prefer `bool`, `Opt` or `Result` to signal failure outcomes explicitly.

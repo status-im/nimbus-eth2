@@ -28,6 +28,8 @@ When in doubt:
 
 The latest version of this book can usually be found [online](https://nimbus.guide/style-book/) or on [GitHub](https://github.com/status-im/nimbus-eth2/tree/unstable/docs/the_style_book).
 
+<!-- toc -->
+
 ## Practical notes
 
 * When deviating from the guide, document the rationale in the module, allowing the next developer to understand the motivation behind the deviation

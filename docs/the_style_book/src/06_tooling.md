@@ -1,5 +1,7 @@
 # Tooling
 
+<!-- toc -->
+
 ## Build system
 
 We use a build system with `make` and `git` submodules. The long term plan is to move to a dedicated package and build manager once one becomes available.
@@ -64,3 +66,24 @@ We support a single Nim version that is upgraded between release cycles of our o
 
 * Following Nim `devel`, from experience, leads frequent disruptions as "mysterious" issues appear
 * To support multiple Nim versions in a project, the project should be set up to run CI with all supported versions
+
+## Editors
+
+* Most developers use `vscode` with the [Nim plugin](https://marketplace.visualstudio.com/items?itemName=kosz78.nim)
+  * To start `vscode` with the correct Nim compiler, run it with `./env.sh code`
+  * Run nim files with `F6`
+  * Suggestions, goto and similar features mostly work, but sometimes hang
+    * You might need to `killall nimsuggest` occasionally
+* Sublime text and `vim` are other popular choices
+
+## Odds and ends
+
+### Practical tools
+
+* Debugging can be done with `gdb`
+  * pass `--opt:none --debugger:native` to disable optimizations and enable debug symbols
+* Profiling can be done with `perf` and [vtune](https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/vtune-profiler.html)
+
+### Code tricks
+
+* Find out where a function is used: temporarily mark it `{.deprecated.}`

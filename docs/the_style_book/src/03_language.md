@@ -75,14 +75,21 @@ See also: [macro defense](https://github.com/status-im/nimbus-eth2/wiki/The-macr
 
 ## `ref object`
 
-Avoid `ref object`, except for "handle" types that manage a resource, where shared ownership is intended, in reference-based data structures (trees, linked lists).
+Avoid `ref object`, except:
+
+* for "handle" types that manage a resource and thus break under value semantics
+* where shared ownership is intended
+* in reference-based data structures (trees, linked lists)
+* where a stable pointer is needed for 3rd-party compatibility.
+
+Prefer explicit `ref MyType` where reference semantics are needed, allowing the caller to choose where possible.
 
 ```nim
 # prefer explicit ref modifiers at usage site
 func f(v: ref Xxx) = discard
 let x: ref Xxx = new Xxx
 
-# Consider using naming convention with `ref object`
+# Consider using Hungarian naming convention with `ref object` - this makes it clear at usage sites that the type follows the unusual `ref` semantics
 type XxxRef = ref object
   # ...
 ```
@@ -326,6 +333,7 @@ Avoid public functions and variables (`*`) that don't make up an intended part o
 ### Practical notes
 
 * Public functions are not covered by dead-code warnings and contribute to overload resolution in the the global namespace
+* Prefer `openArray` as argument type over `seq` for traversals
 
 ## Methods
 
