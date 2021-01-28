@@ -207,8 +207,7 @@ type
     sqlAttForSameTargetEpoch: SqliteStmt[(ValidatorInternalID, int64), Hash32]
     sqlAttSurrounded: SqliteStmt[(ValidatorInternalID, int64, int64), (int64, int64, Hash32)]
     sqlAttSurrounding: SqliteStmt[(ValidatorInternalID, int64, int64), (int64, int64, Hash32)]
-    sqlAttMinSourceEpoch: SqliteStmt[ValidatorInternalID, int64]
-    sqlAttMinTargetEpoch: SqliteStmt[ValidatorInternalID, int64]
+    sqlAttMinSourceTargetEpochs: SqliteStmt[ValidatorInternalID, (int64, int64)]
     sqlBlockForSameSlot: SqliteStmt[(ValidatorInternalID, int64), Hash32]
     sqlBlockMinSlot: SqliteStmt[ValidatorInternalID, int64]
 
@@ -398,24 +397,14 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
     """, (ValidatorInternalID, int64, int64), (int64, int64, Hash32)
   ).get()
 
-  db.sqlAttMinSourceEpoch = db.backend.prepareStmt("""
+  db.sqlAttMinSourceTargetEpochs = db.backend.prepareStmt("""
     SELECT
-      MIN(source_epoch)
+      MIN(source_epoch), MIN(target_epoch)
     FROM
       signed_attestations
     WHERE
       validator_id = ?
-    """, ValidatorInternalID, int64
-  ).get()
-
-  db.sqlAttMinTargetEpoch = db.backend.prepareStmt("""
-    SELECT
-      MIN(source_epoch)
-    FROM
-      signed_attestations
-    WHERE
-      validator_id = ?
-    """, ValidatorInternalID, int64
+    """, ValidatorInternalID, (int64, int64)
   ).get()
 
   # Inspect blocks
@@ -566,7 +555,11 @@ proc checkSlashableBlockProposal*(
     else:
       id.unsafeGet()
 
-  block: # Condition 1 at https://eips.ethereum.org/EIPS/eip-3076
+  # Casper FFG 1st slashing condition
+  # Detect h(t1) = h(t2)
+  # ---------------------------------
+  block:
+    # Condition 1 at https://eips.ethereum.org/EIPS/eip-3076
     var root: ETH2Digest
     let status = db.sqlBlockForSameSlot.exec(
           (valID, int64 slot)
@@ -590,7 +583,11 @@ proc checkSlashableBlockProposal*(
         kind: DoubleProposal,
         existing_block: root))
 
-  block: # Condition 2 at https://eips.ethereum.org/EIPS/eip-3076
+  # EIP-3067 - Low-watermark
+  # Detect h(t1) <= h(t2)
+  # ---------------------------------
+  block:
+    # Condition 2 at https://eips.ethereum.org/EIPS/eip-3076
     # Low-watermark. This is not in the Eth2 official spec
     # but a client standard.
     #
@@ -647,6 +644,7 @@ proc checkSlashableAttestation*(
   # Detect h(t1) = h(t2)
   # ---------------------------------
   block:
+    # Condition 3 part 1/3 at https://eips.ethereum.org/EIPS/eip-3076
     var root: ETH2Digest
     let status = db.sqlAttForSameTargetEpoch.exec(
           (valID, int64 target)
@@ -666,6 +664,7 @@ proc checkSlashableAttestation*(
   # Detect h(s1) < h(s2) < h(t2) < h(t1)
   # ---------------------------------
   block:
+    # Condition 3 part 2/3 at https://eips.ethereum.org/EIPS/eip-3076
     var root: ETH2Digest
     var db_source, db_target: Epoch
     let status = db.sqlAttSurrounded.exec(
@@ -693,6 +692,7 @@ proc checkSlashableAttestation*(
   # Detect h(s2) < h(s1) < h(t1) < h(t2)
   # ---------------------------------
   block:
+    # Condition 3 part 3/3 at https://eips.ethereum.org/EIPS/eip-3076
     var root: ETH2Digest
     var db_source, db_target: Epoch
     let status = db.sqlAttSurrounding.exec(
@@ -715,7 +715,36 @@ proc checkSlashableAttestation*(
         targetSlashable: target
       ))
 
-  # TODO: low-watermark check for EIP3067
+  # EIP-3067 - Low-watermark
+  # Detect h(s1) <= h(s2), h(t1) <= h(t2)
+  # ---------------------------------
+  block:
+    # Conditions 4 and 5 at https://eips.ethereum.org/EIPS/eip-3076
+    # Low-watermark. This is not in the Eth2 official spec
+    # but a client standard.
+    #
+    # > Refuse to sign any attestation with source epoch less than the minimum source epoch present in that signer’s attestations
+    # > Refuse to sign any attestation with target epoch less than or equal to the minimum target epoch present in that signer’s attestations
+    var minSourceEpoch, minTargetEpoch: int64
+    let status = db.sqlAttMinSourceTargetEpochs.exec(
+          valID
+        ) do (res: tuple[source, target: int64]):
+      minSourceEpoch = res.source
+      minTargetEpoch = res.target
+
+    if source.int64 <= minSourceEpoch:
+      return err(BadVote(
+        kind: MinSourceViolation,
+        minSource: Epoch minSourceEpoch,
+        candidateSource: source
+      ))
+    if target.int64 <= minTargetEpoch:
+      return err(BadVote(
+        kind: MinTargetViolation,
+        minTarget: Epoch minSourceEpoch,
+        candidateTarget: target
+      ))
+
   return ok()
 
 # DB update

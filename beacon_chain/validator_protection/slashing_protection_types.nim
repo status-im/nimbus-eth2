@@ -138,8 +138,13 @@ type
     DoubleVote           # h(t1) == h(t2)
     SurroundedVote       # h(s1) < h(s2) < h(t2) < h(t1)
     SurroundingVote      # h(s2) < h(s1) < h(t1) < h(t2)
+
     # Non-spec, should never happen in a well functioning client
     TargetPrecedesSource # h(t1) < h(s1) - current epoch precedes last justified epoch
+
+    # EIP-3067 (https://eips.ethereum.org/EIPS/eip-3076)
+    MinSourceViolation   # h(s2) <= h(s1) - EIP3067 condition 4
+    MinTargetViolation   # h(t2) <= h(t1) - EIP3067 condition 5
 
   BadVote* = object
     case kind*: BadVoteKind
@@ -151,11 +156,17 @@ type
       sourceSlashable*, targetSlashable*: Epoch
     of TargetPrecedesSource:
       discard
+    of MinSourceViolation:
+      minSource*: Epoch
+      candidateSource*: Epoch
+    of MinTargetViolation:
+      minTarget*: Epoch
+      candidateTarget*: Epoch
 
   BadProposalKind* = enum
     # Spec slashing condition
     DoubleProposal         # h(t1) == h(t2)
-    ## EIP-3067 (https://eips.ethereum.org/EIPS/eip-3076)
+    # EIP-3067 (https://eips.ethereum.org/EIPS/eip-3076)
     MinSlotViolation       # h(t2) <= h(t1)
 
   BadProposal* = object
@@ -182,6 +193,12 @@ func `==`*(a, b: BadVote): bool =
       (a.targetSlashable == b.targetSlashable)
   elif a.kind == TargetPrecedesSource:
     true
+  elif a.kind == MinSourceViolation:
+    (a.minSource == b.minSource) and
+      (a.candidateSource == b.candidateSource)
+  elif a.kind == MinTargetViolation:
+    (a.minTarget == b.minTarget) and
+      (a.candidateTarget == b.candidateTarget)
   else: # Unreachable
     false
 
