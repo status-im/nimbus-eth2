@@ -373,7 +373,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     --log-level="${LOG_LEVEL}" \
     --tcp-port=$(( BASE_PORT + NUM_NODE )) \
     --udp-port=$(( BASE_PORT + NUM_NODE )) \
-    --max-peers=$(( NUM_NODES * 2 - 1 )) \
+    --max-peers=$(( NUM_NODES - 1 )) \
     --data-dir="${NODE_DATA_DIR}" \
     ${BOOTSTRAP_ARG} \
     ${STATE_SNAPSHOT_ARG} \
