@@ -47,9 +47,9 @@ type
     test = "Test a web3 provider"
 
   Web3Mode* {.pure.} = enum
-    auto = "Enabled only when validators are attached"
-    enabled = "Always enabled"
-    disabled = "Always disabled"
+    auto # Enabled only when validators are attached
+    enabled # Always enabled
+    disabled # Always disabled
 
   GossipSlashingProtectionMode* {.pure.} = enum
     dontcheck
@@ -176,8 +176,6 @@ type
       finalizedCheckpointBlock* {.
         desc: "SSZ file specifying a recent finalized block"
         name: "finalized-checkpoint-block" }: Option[InputFile]
-
-      runtimePreset* {.hidden.}: RuntimePreset
 
       nodeName* {.
         defaultValue: ""

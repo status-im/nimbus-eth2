@@ -261,7 +261,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       assign(poolPtr.tmpState, poolPtr.headState)
 
     makeBeaconBlock(
-      node.config.runtimePreset,
+      node.runtimePreset,
       hashedState,
       validator_index,
       head.root,
