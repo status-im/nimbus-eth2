@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -617,14 +617,16 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   # The dontcheck option's a deliberately undocumented escape hatch for the
   # local testnets and similar development and testing use cases.
-  if curSlot.epoch <
-        node.processor[].gossipSlashingProtection.broadcastStartEpoch and
-      curSlot.epoch != node.processor[].gossipSlashingProtection.probeEpoch and
-      node.config.gossipSlashingProtection == GossipSlashingProtectionMode.stop:
+  #
+  # If broadcastStartEpoch is 0, it hasn't had time to initialize yet, which
+  # means that it'd be okay not to continue, but it won't gossip regardless.
+  if  curSlot.epoch <
+        node.processor[].doppelgangerProtection.broadcastStartEpoch and
+      node.config.doppelgangerProtection !=
+        DoppelgangerProtectionMode.dontcheck:
     notice "Waiting to gossip out to detect potential duplicate validators",
       broadcastStartEpoch =
-        node.processor[].gossipSlashingProtection.broadcastStartEpoch,
-      probeEpoch = node.processor[].gossipSlashingProtection.probeEpoch
+        node.processor[].doppelgangerProtection.broadcastStartEpoch
     return
 
   # Start by checking if there's work we should have done in the past that we

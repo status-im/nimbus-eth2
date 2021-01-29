@@ -653,9 +653,8 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-  DupProtection* = object
+  DoppelgangerProtection* = object
     broadcastStartEpoch*: Epoch
-    probeEpoch*: Epoch
 
 func getDepositMessage*(depositData: DepositData): DepositMessage =
   result.pubkey = depositData.pubkey
