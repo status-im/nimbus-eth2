@@ -624,7 +624,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
         node.processor[].doppelgangerProtection.broadcastStartEpoch and
       node.config.doppelgangerProtection !=
         DoppelgangerProtectionMode.dontcheck:
-    notice "Waiting to gossip out to detect potential duplicate validators",
+    debug "Waiting to gossip out to detect potential duplicate validators",
       broadcastStartEpoch =
         node.processor[].doppelgangerProtection.broadcastStartEpoch
     return
