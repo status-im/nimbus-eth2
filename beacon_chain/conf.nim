@@ -165,6 +165,13 @@ type
               "Must be one of: any, none, upnp, pmp, extip:<IP>"
         defaultValue: "any" }: string
 
+      enrAutoUpdate* {.
+        defaultValue: false
+        desc: "Discovery can automatically update its ENR with the IP address " &
+              "and UDP port as seen by other nodes it communicates with. " &
+              "This option allows to enable/disable this functionality"
+        name: "enr-auto-update" .}: bool
+
       weakSubjectivityCheckpoint* {.
         desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
         name: "weak-subjectivity-checkpoint" }: Option[Checkpoint]

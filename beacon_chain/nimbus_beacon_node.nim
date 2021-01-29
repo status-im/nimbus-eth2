@@ -1582,8 +1582,8 @@ programMain:
           1, # sequence number
           networkKeys.seckey.asEthKey,
           some(config.bootstrapAddress),
-          config.bootstrapPort,
-          config.bootstrapPort,
+          some(config.bootstrapPort),
+          some(config.bootstrapPort),
           [toFieldPair("eth2", SSZ.encode(enrForkIdFromState initialState[])),
            toFieldPair("attnets", SSZ.encode(netMetadata.attnets))])
 
@@ -1801,8 +1801,8 @@ programMain:
         config.seqNumber,
         netKeys.seckey.asEthKey,
         some(config.ipExt),
-        config.tcpPortExt,
-        config.udpPortExt,
+        some(config.tcpPortExt),
+        some(config.udpPortExt),
         fieldPairs).expect("Record within size limits")
 
       echo record.toURI()
