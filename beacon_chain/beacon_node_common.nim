@@ -72,3 +72,7 @@ template findIt*(s: openArray, predicate: untyped): int =
 
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
+
+template runtimePreset*(node: BeaconNode): RuntimePreset =
+  node.db.preset
+

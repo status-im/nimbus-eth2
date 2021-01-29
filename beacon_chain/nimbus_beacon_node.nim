@@ -75,6 +75,7 @@ func enrForkIdFromState(state: BeaconState): ENRForkID =
     next_fork_epoch: FAR_FUTURE_EPOCH)
 
 proc init*(T: type BeaconNode,
+           runtimePreset: RuntimePreset,
            rng: ref BrHmacDrbgContext,
            conf: BeaconNodeConf,
            depositContractAddress: Eth1Address,
@@ -83,7 +84,7 @@ proc init*(T: type BeaconNode,
            genesisStateContents: ref string,
            genesisDepositsSnapshotContents: ref string): Future[BeaconNode] {.async.} =
   let
-    db = BeaconChainDB.init(conf.runtimePreset, conf.databaseDir)
+    db = BeaconChainDB.init(runtimePreset, conf.databaseDir)
 
   var
     genesisState, checkpointState: ref BeaconState
@@ -143,7 +144,7 @@ proc init*(T: type BeaconNode,
         # TODO Could move this to a separate "GenesisMonitor" process or task
         #      that would do only this - see Paul's proposal for this.
         let eth1MonitorRes = await Eth1Monitor.init(
-          conf.runtimePreset,
+          runtimePreset,
           db,
           conf.web3Url,
           depositContractAddress,
@@ -209,7 +210,7 @@ proc init*(T: type BeaconNode,
   let
     chainDagFlags = if conf.verifyFinalization: {verifyFinalization}
                      else: {}
-    chainDag = ChainDAGRef.init(conf.runtimePreset, db, chainDagFlags)
+    chainDag = ChainDAGRef.init(runtimePreset, db, chainDagFlags)
     beaconClock = BeaconClock.init(chainDag.headState.data.data)
     quarantine = QuarantineRef.init(rng)
     databaseGenesisValidatorsRoot =
@@ -257,7 +258,7 @@ proc init*(T: type BeaconNode,
     let genesisDepositsSnapshot = SSZ.decode(genesisDepositsSnapshotContents[],
                                              DepositContractSnapshot)
     eth1Monitor = Eth1Monitor.init(
-      conf.runtimePreset,
+      runtimePreset,
       db,
       conf.web3Url,
       depositContractAddress,
@@ -1440,6 +1441,7 @@ programMain:
     eth1Network: Option[Eth1Network]
     depositContractAddress: Option[Eth1Address]
     depositContractDeployedAt: Option[BlockHashOrNumber]
+    runtimePreset: RuntimePreset
 
   setupStdoutLogging(config.logLevel)
 
@@ -1473,7 +1475,7 @@ programMain:
 
   if config.eth2Network.isSome:
     let metadata = getMetadataForNetwork(config.eth2Network.get)
-    config.runtimePreset = metadata.runtimePreset
+    runtimePreset = metadata.runtimePreset
 
     if config.cmd == noCommand:
       for node in metadata.bootstrapNodes:
@@ -1489,7 +1491,7 @@ programMain:
     depositContractDeployedAt = some metadata.depositContractDeployedAt
     eth1Network = metadata.eth1Network
   else:
-    config.runtimePreset = defaultRuntimePreset
+    runtimePreset = defaultRuntimePreset
     when const_preset == "mainnet":
       if config.cmd == noCommand:
         depositContractAddress = some mainnetMetadata.depositContractAddress
@@ -1533,7 +1535,7 @@ programMain:
                  else: (waitFor getEth1BlockHash(config.web3Url, blockId("latest"))).asEth2Digest
     var
       initialState = initialize_beacon_state_from_eth1(
-        config.runtimePreset, eth1Hash, startTime, deposits, {skipBlsValidation})
+        runtimePreset, eth1Hash, startTime, deposits, {skipBlsValidation})
 
     # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
     initialState.genesis_time = startTime
@@ -1594,7 +1596,9 @@ programMain:
     # letting the default Ctrl+C handler exit is safe, since we only read from
     # the db.
     var node = waitFor BeaconNode.init(
-      rng, config,
+      runtimePreset,
+      rng,
+      config,
       depositContractAddress.get,
       depositContractDeployedAt.get,
       eth1Network,
@@ -1663,7 +1667,7 @@ programMain:
         quit QuitFailure
 
       let deposits = generateDeposits(
-        config.runtimePreset,
+        runtimePreset,
         rng[],
         seed,
         walletPath.wallet.nextAccount,
@@ -1682,7 +1686,7 @@ programMain:
           config.outValidatorsDir / "deposit_data-" & $epochTime() & ".json"
 
         let launchPadDeposits =
-          mapIt(deposits.value, LaunchPadDeposit.init(config.runtimePreset, it))
+          mapIt(deposits.value, LaunchPadDeposit.init(runtimePreset, it))
 
         Json.saveFile(depositDataPath, launchPadDeposits)
         echo "Deposit data written to \"", depositDataPath, "\""
