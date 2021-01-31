@@ -24,7 +24,7 @@ proc post_v1_validator_aggregate_and_proofs(payload: SignedAggregateAndProof): b
 proc get_v1_validator_duties_attester(epoch: Epoch, public_keys: seq[ValidatorPubKey]): seq[AttesterDuties]
 
 # TODO epoch is part of the REST path
-proc get_v1_validator_duties_proposer(epoch: Epoch): seq[ValidatorPubkeySlotPair]
+proc get_v1_validator_duties_proposer(epoch: Epoch): seq[ValidatorDutiesTuple]
 
 proc post_v1_validator_beacon_committee_subscriptions(committee_index: CommitteeIndex,
                                                       slot: Slot,

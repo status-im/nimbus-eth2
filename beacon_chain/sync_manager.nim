@@ -1,7 +1,7 @@
 import chronicles
 import options, deques, heapqueue, tables, strutils, sequtils, math, algorithm
 import stew/results, chronos, chronicles
-import spec/[datatypes, digest, helpers], peer_pool, eth2_network
+import spec/[datatypes, digest, helpers, eth2_apis/callsigs_types], peer_pool, eth2_network
 
 import ./eth2_processor
 import block_pools/block_pools_types
@@ -128,10 +128,6 @@ type
     kind*: SyncFailureKind
     peer*: T
     stamp*: chronos.Moment
-
-  SyncInfo* = object
-    head_slot*: Slot
-    sync_distance*: int64
 
   SyncManagerError* = object of CatchableError
   BeaconBlocksRes* = NetRes[seq[SignedBeaconBlock]]
