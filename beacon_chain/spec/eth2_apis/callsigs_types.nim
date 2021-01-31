@@ -16,7 +16,10 @@ type
     validator_committee_index: uint64
     slot: Slot
 
-  ValidatorPubkeySlotPair* = tuple[public_key: ValidatorPubKey, slot: Slot]
+  ValidatorDutiesTuple* = tuple
+    public_key: ValidatorPubKey
+    validator_index: ValidatorIndex
+    slot: Slot
 
   BeaconGenesisTuple* = tuple
     genesis_time: uint64
@@ -74,3 +77,7 @@ type
   BalanceTuple* = tuple
     index: uint64
     balance: uint64
+
+  SyncInfo* = object
+    head_slot*: Slot
+    sync_distance*: int64

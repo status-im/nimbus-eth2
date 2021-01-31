@@ -29,15 +29,24 @@ proc fromJson*(n: JsonNode, argName: string, result: var List) =
 proc `%`*(list: List): JsonNode = %(asSeq(list))
 
 proc fromJson*(n: JsonNode, argName: string, result: var BitList) =
-  fromJson(n, argName, seq[byte](BitSeq(result)))
+  n.kind.expect(JString, argName)
+  result = type(result)(hexToSeqByte(n.getStr()))
 
-proc `%`*(bitlist: BitList): JsonNode = %(seq[byte](BitSeq(bitlist)))
+proc `%`*(bitlist: BitList): JsonNode =
+  newJString(toJsonHex(seq[byte](BitSeq(bitlist))))
 
 proc fromJson*(n: JsonNode, argName: string, result: var ValidatorSig) =
   n.kind.expect(JString, argName)
   result = ValidatorSig.fromHex(n.getStr()).tryGet()
 
 proc `%`*(value: ValidatorSig): JsonNode =
+  newJString(toJsonHex(toRaw(value)))
+
+proc fromJson*(n: JsonNode, argName: string, result: var TrustedSig) =
+  n.kind.expect(JString, argName)
+  hexToByteArray(n.getStr(), result.data)
+
+proc `%`*(value: TrustedSig): JsonNode =
   newJString(toJsonHex(toRaw(value)))
 
 proc fromJson*(n: JsonNode, argName: string, result: var Version) =
@@ -92,3 +101,10 @@ proc `%`*(value: Eth2Digest): JsonNode =
 proc fromJson*(n: JsonNode, argName: string, result: var Eth2Digest) =
   n.kind.expect(JString, argName)
   hexToByteArray(n.getStr(), result.data)
+
+proc `%`*(value: BitSeq): JsonNode =
+  newJString(toJsonHex(value.bytes))
+
+proc fromJson*(n: JsonNode, argName: string, result: var BitSeq) =
+  n.kind.expect(JString, argName)
+  result = BitSeq(hexToSeqByte(n.getStr()))
