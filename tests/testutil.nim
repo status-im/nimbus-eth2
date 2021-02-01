@@ -21,15 +21,6 @@ func preset*(): string =
   " [Preset: " & const_preset & ']'
 
 # For state_sim
-template withTimer*(stats: var RunningStat, body: untyped) =
-  let start = getMonoTime()
-
-  block:
-    body
-
-  let stop = getMonoTime()
-  stats.push (stop - start).inMicroseconds.float / 1000000.0
-
 template withTimer*(duration: var float, body: untyped) =
   let start = getMonoTime()
 

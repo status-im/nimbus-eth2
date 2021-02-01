@@ -764,9 +764,6 @@ func `[]`*[T](a: var seq[T], b: ValidatorIndex): var T =
 func `[]`*[T](a: seq[T], b: ValidatorIndex): auto =
   a[b.int]
 
-func `[]=`*[T](a: var seq[T], b: ValidatorIndex, c: T) =
-  a[b.int] = c
-
 # `ValidatorIndex` Nim integration
 proc `==`*(x, y: ValidatorIndex) : bool {.borrow, noSideEffect.}
 proc `<`*(x, y: ValidatorIndex) : bool {.borrow, noSideEffect.}
