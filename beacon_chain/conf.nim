@@ -51,7 +51,7 @@ type
     enabled # Always enabled
     disabled # Always disabled
 
-  DoppelgangerProtectionMode* {.pure.} = enum
+  DoppelgangerDetectionMode* {.pure.} = enum
     dontcheck
     warn
     stop
@@ -258,11 +258,11 @@ type
         desc: "Write SSZ dumps of blocks, attestations and states to data dir"
         name: "dump" }: bool
 
-      doppelgangerProtection* {.
-        defaultValue: DoppelgangerProtectionMode.warn
-        desc: "[=warn*|stop] What to do when another validator is detected to be running the same validator keys (default `warn`, will become `stop` in the future)"
-        name: "doppelganger-protection"
-      }: DoppelgangerProtectionMode
+      doppelgangerDetection* {.
+        defaultValue: DoppelgangerDetectionMode.stop
+        desc: "[=stop*] What to do when another validator is detected to be running the same validator keys (default `stop`)"
+        name: "doppelganger-detection"
+      }: DoppelgangerDetectionMode
 
     of createTestnet:
       testnetDepositsFile* {.

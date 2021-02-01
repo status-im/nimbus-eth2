@@ -621,12 +621,11 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   # If broadcastStartEpoch is 0, it hasn't had time to initialize yet, which
   # means that it'd be okay not to continue, but it won't gossip regardless.
   if  curSlot.epoch <
-        node.processor[].doppelgangerProtection.broadcastStartEpoch and
-      node.config.doppelgangerProtection !=
-        DoppelgangerProtectionMode.dontcheck:
+        node.processor[].doppelgangerDetection.broadcastStartEpoch and
+      node.config.doppelgangerDetection != DoppelgangerDetectionMode.dontcheck:
     debug "Waiting to gossip out to detect potential duplicate validators",
       broadcastStartEpoch =
-        node.processor[].doppelgangerProtection.broadcastStartEpoch
+        node.processor[].doppelgangerDetection.broadcastStartEpoch
     return
 
   # Start by checking if there's work we should have done in the past that we
