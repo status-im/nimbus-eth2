@@ -78,7 +78,7 @@ type
     attestationsQueue*: AsyncQueue[AttestationEntry]
     aggregatesQueue*: AsyncQueue[AggregateEntry]
 
-    doppelgangerProtection*: DoppelgangerProtection
+    doppelgangerDetection*: DoppelgangerProtection
 
 proc updateHead*(self: var Eth2Processor, wallSlot: Slot) =
   ## Trigger fork choice and returns the new head block.
@@ -316,9 +316,8 @@ proc checkForPotentialDoppelganger(
     # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#configuration
     ATTESTATION_PROPAGATION_SLOT_RANGE = 32
 
-  # If doppelgangerProtection not dontcheck or stop, it's the default "warn".
   let epoch = wallSlot.epoch
-  if epoch < self.doppelgangerProtection.broadcastStartEpoch:
+  if epoch < self.doppelgangerDetection.broadcastStartEpoch:
     let tgtBlck = self.chainDag.getRef(attestationData.target.root)
     doAssert not tgtBlck.isNil  # because attestation is valid above
 
@@ -332,7 +331,7 @@ proc checkForPotentialDoppelganger(
           validatorIndex,
           validatorPubkey
         beacon_duplicate_validator_protection_activated.inc()
-        if self.config.doppelgangerProtection == DoppelgangerProtectionMode.stop:
+        if self.config.doppelgangerDetection == DoppelgangerDetectionMode.stop:
           warn "We believe you are currently running another instance of the same validator. We've disconnected you from the network as this presents a significant slashing risk. Possible next steps are (a) making sure you've disconnected your validator from your old machine before restarting the client; and (b) running the client again with the gossip-slashing-protection option disabled, only if you are absolutely sure this is the only instance of your validator running, and reporting the issue at https://github.com/status-im/nimbus-eth2/issues."
           quit QuitFailure
 

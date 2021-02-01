@@ -694,7 +694,7 @@ proc removeMessageHandlers(node: BeaconNode) =
   for subnet in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
     node.network.unsubscribe(getAttestationTopic(node.forkDigest, subnet))
 
-proc setupSelfSlashingProtection(node: BeaconNode, slot: Slot) =
+proc setupDoppelgangerDetection(node: BeaconNode, slot: Slot) =
   # When another client's already running, this is very likely to detect
   # potential duplicate validators, which can trigger slashing.
   #
@@ -704,12 +704,12 @@ proc setupSelfSlashingProtection(node: BeaconNode, slot: Slot) =
   # the epoch delay to one's perceived risk.
   const duplicateValidatorEpochs = 2
 
-  node.processor.doppelgangerProtection.broadcastStartEpoch =
+  node.processor.doppelgangerDetection.broadcastStartEpoch =
     slot.epoch + duplicateValidatorEpochs
   debug "Setting up doppelganger protection",
     epoch = slot.epoch,
     broadcastStartEpoch =
-      node.processor.doppelgangerProtection.broadcastStartEpoch
+      node.processor.doppelgangerDetection.broadcastStartEpoch
 
 proc updateGossipStatus(node: BeaconNode, slot: Slot) =
   # Syncing tends to be ~1 block/s, and allow for an epoch of time for libp2p
@@ -744,7 +744,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) =
       headSlot = node.chainDag.head.slot,
       syncQueueLen
 
-    node.setupSelfSlashingProtection(slot)
+    node.setupDoppelgangerDetection(slot)
     node.addMessageHandlers()
     doAssert node.getTopicSubscriptionEnabled()
   elif
@@ -1063,7 +1063,7 @@ proc run*(node: BeaconNode) =
     node.startSyncManager()
 
     if not node.beaconClock.now().toSlot().afterGenesis:
-      node.setupSelfSlashingProtection(curSlot)
+      node.setupDoppelgangerDetection(curSlot)
       node.addMessageHandlers()
       doAssert node.getTopicSubscriptionEnabled()
 
