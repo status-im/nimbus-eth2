@@ -232,7 +232,7 @@ logScope:
 template dispose(sqlStmt: SqliteStmt) =
   discard sqlite3_finalize((ptr sqlite3_stmt) sqlStmt)
 
-proc setupDB(db: SlashingProtectionDB_v2, genesis_validator_root: Eth2Digest) =
+proc setupDB(db: SlashingProtectionDB_v2, genesis_validators_root: Eth2Digest) =
   ## Initial setup of the DB
   # Naming:
   # - We use the same naming as https://eips.ethereum.org/EIPS/eip-3076
@@ -248,16 +248,16 @@ proc setupDB(db: SlashingProtectionDB_v2, genesis_validator_root: Eth2Digest) =
     db.backend.exec("""
       CREATE TABLE metadata(
           slashing_db_version INTEGER,
-          genesis_validator_root BLOB NOT NULL
+          genesis_validators_root BLOB NOT NULL
       );
     """).expect("DB should be working and \"metadata\" should not exist")
 
     # TODO: db.backend.exec does not take parameters
     var rootTuple: tuple[bytes: Hash32]
-    rootTuple[0] = genesis_validator_root.data
+    rootTuple[0] = genesis_validators_root.data
     db.backend.exec("""
       INSERT INTO
-        metadata(slashing_db_version, genesis_validator_root)
+        metadata(slashing_db_version, genesis_validators_root)
       VALUES
         (""" & $db.typeof().version() & """, ?);
     """, rootTuple
@@ -295,7 +295,7 @@ proc setupDB(db: SlashingProtectionDB_v2, genesis_validator_root: Eth2Digest) =
       );
     """).expect("DB should be working and \"attestations\" should not exist")
 
-proc checkDB(db: SlashingProtectionDB_v2, genesis_validator_root: Eth2Digest) =
+proc checkDB(db: SlashingProtectionDB_v2, genesis_validators_root: Eth2Digest) =
   ## Check the metadata of the DB
   let selectStmt = db.backend.prepareStmt(
     "SELECT * FROM metadata;",
@@ -315,9 +315,9 @@ proc checkDB(db: SlashingProtectionDB_v2, genesis_validator_root: Eth2Digest) =
   doAssert version == db.typeof().version(),
     "Incorrect database version: " & $version & "\n" &
     "but expected: " & $db.typeof().version()
-  doAssert root == genesis_validator_root,
+  doAssert root == genesis_validators_root,
     "Invalid database genesis validator root: " & root.data.toHex() & "\n" &
-    "but expected: " & genesis_validator_root.data.toHex()
+    "but expected: " & genesis_validators_root.data.toHex()
 
 proc setupCachedQueries(db: SlashingProtectionDB_v2) =
   ## Create prepared queries for reuse
@@ -439,7 +439,7 @@ func getRawDBHandle*(db: SlashingProtectionDB_v2): SqStoreRef =
   db.backend
 
 proc initCompatV1*(T: type SlashingProtectionDB_v2,
-           genesis_validator_root: Eth2Digest,
+           genesis_validators_root: Eth2Digest,
            basePath: string,
            dbname: string): T =
   ## Initialize a new slashing protection database
@@ -453,9 +453,9 @@ proc initCompatV1*(T: type SlashingProtectionDB_v2,
       keyspaces = ["kvstore"] # The key compat part
     ).get())
   if alreadyExists:
-    result.checkDB(genesis_validator_root)
+    result.checkDB(genesis_validators_root)
   else:
-    result.setupDB(genesis_validator_root)
+    result.setupDB(genesis_validators_root)
 
   # Cached queries
   result.setupCachedQueries()
@@ -464,7 +464,7 @@ proc initCompatV1*(T: type SlashingProtectionDB_v2,
 # -------------------------------------------------------------
 
 proc init*(T: type SlashingProtectionDB_v2,
-           genesis_validator_root: Eth2Digest,
+           genesis_validators_root: Eth2Digest,
            basePath: string,
            dbname: string): T =
   ## Initialize a new slashing protection database
@@ -475,9 +475,9 @@ proc init*(T: type SlashingProtectionDB_v2,
 
   result = T(backend: SqStoreRef.init(basePath, dbname, keyspaces = []).get())
   if alreadyExists:
-    result.checkDB(genesis_validator_root)
+    result.checkDB(genesis_validators_root)
   else:
-    result.setupDB(genesis_validator_root)
+    result.setupDB(genesis_validators_root)
 
   # Cached queries
   result.setupCachedQueries()
@@ -819,19 +819,19 @@ proc toSPDIR*(db: SlashingProtectionDB_v2): SPDIR
   ## to a json the Slashing Protection Database Interchange (Complete) Format
   result.metadata.interchange_format_version = "5"
 
-  # genesis_validator_root
+  # genesis_validators_root
   # -----------------------------------------------------
   block:
     let selectRootStmt = db.backend.prepareStmt(
-      "SELECT genesis_validator_root FROM metadata;",
+      "SELECT genesis_validators_root FROM metadata;",
       NoParams, Hash32,
       managed = false # manual memory management
     ).get()
 
     # Can't capture var SPDIR in a closure
-    let genesis_validator_root {.byaddr.} = result.metadata.genesis_validator_root
+    let genesis_validators_root {.byaddr.} = result.metadata.genesis_validators_root
     let status = selectRootStmt.exec do (res: Hash32):
-      genesis_validator_root = Eth2Digest0x(ETH2Digest(data: res))
+      genesis_validators_root = Eth2Digest0x(ETH2Digest(data: res))
     doAssert status.isOk()
 
     selectRootStmt.dispose()
@@ -915,18 +915,18 @@ proc inclSPDIR*(db: SlashingProtectionDB_v2, spdir: SPDIR): bool
   ## file into the specified slashing protection DB
   ##
   ## The database must be initialized.
-  ## The genesis_validator_root must match or
+  ## The genesis_validators_root must match or
   ## the DB must have a zero root
   doAssert not db.isNil, "The Slashing Protection DB must be initialized."
   doAssert not db.backend.isNil, "The Slashing Protection DB must be initialized."
 
-  # genesis_validator_root
+  # genesis_validators_root
   # -----------------------------------------------------
   block:
     var dbGenValRoot: ETH2Digest
 
     let selectRootStmt = db.backend.prepareStmt(
-      "SELECT genesis_validator_root FROM metadata;",
+      "SELECT genesis_validators_root FROM metadata;",
       NoParams, Hash32,
       managed = false # manual memory management
     ).get()
@@ -938,17 +938,17 @@ proc inclSPDIR*(db: SlashingProtectionDB_v2, spdir: SPDIR): bool
     selectRootStmt.dispose()
 
     if dbGenValRoot != default(Eth2Digest) and
-         dbGenValRoot != spdir.metadata.genesis_validator_root.Eth2Digest:
+         dbGenValRoot != spdir.metadata.genesis_validators_root.Eth2Digest:
       error "The slashing protection database and imported file refer to different blockchains.",
-        DB_genesis_validator_root = dbGenValRoot,
-        Imported_genesis_validator_root = spdir.metadata.genesis_validator_root.Eth2Digest
+        DB_genesis_validators_root = dbGenValRoot,
+        Imported_genesis_validators_root = spdir.metadata.genesis_validators_root.Eth2Digest
       return false
 
     if not status.get():
       # Query worked but returned no result
       # We assume that the DB wasn't setup or
       # is in an earlier version that used the kvstore table
-      db.setupDB(spdir.metadata.genesis_validator_root.Eth2Digest)
+      db.setupDB(spdir.metadata.genesis_validators_root.Eth2Digest)
 
     # TODO: dbGenValRoot == default(Eth2Digest)
 

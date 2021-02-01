@@ -12,7 +12,7 @@ declareGauge validators,
 func init*(T: type ValidatorPool,
             slashingProtectionDB: SlashingProtectionDB): T =
   ## Initialize the validator pool and the slashing protection service
-  ## `genesis_validator_root` is used as an unique ID for the
+  ## `genesis_validators_root` is used as an unique ID for the
   ## blockchain
   ## `backend` is the KeyValue Store backend
   result.validators = initTable[ValidatorPubKey, AttachedValidator]()

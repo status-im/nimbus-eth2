@@ -75,7 +75,7 @@ func version*(_: type SlashingProtectionDB): static int =
 
 proc init*(
        T: type SlashingProtectionDB,
-       genesis_validator_root: Eth2Digest,
+       genesis_validators_root: Eth2Digest,
        basePath, dbname: string,
        modes: set[SlashProtDBMode],
        disagreementBehavior: DisagreementBehavior
@@ -93,27 +93,27 @@ proc init*(
   result.disagreementBehavior = disagreementBehavior
 
   result.db_v2 = SlashingProtectionDB_v2.initCompatV1(
-    genesis_validator_root,
+    genesis_validators_root,
     basePath, dbname
   )
 
   let rawdb = kvstore result.db_v2.getRawDBHandle()
-  if not rawdb.checkOrPutGenesis_DbV1(genesis_validator_root):
+  if not rawdb.checkOrPutGenesis_DbV1(genesis_validators_root):
     fatal "The slashing database refers to another chain/mainnet/testnet",
       path = basePath/dbname,
-      genesis_validator_root = genesis_validator_root
+      genesis_validators_root = genesis_validators_root
   result.db_v1.fromRawDB(rawdb)
 
 proc init*(
        T: type SlashingProtectionDB,
-       genesis_validator_root: Eth2Digest,
+       genesis_validators_root: Eth2Digest,
        basePath, dbname: string
      ): T =
   ## Initialize or load a slashing protection DB
   ## With defaults
   ## - v2 DB only, low watermark (regular pruning)
   init(
-    T, genesis_validator_root, basePath, dbname,
+    T, genesis_validators_root, basePath, dbname,
     modes = {kLowWatermarkV2},
     disagreementBehavior = kChooseV2
   )

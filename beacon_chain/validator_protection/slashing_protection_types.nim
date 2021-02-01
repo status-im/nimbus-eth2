@@ -60,7 +60,7 @@ type
 
   SPDIR_Meta* = object
     interchange_format_version*: string
-    genesis_validator_root*: Eth2Digest0x
+    genesis_validators_root*: Eth2Digest0x
 
   SPDIR_Validator* = object
     pubkey*: PubKey0x

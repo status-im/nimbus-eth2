@@ -166,7 +166,7 @@ type
     kTargetEpoch
     kLinkedListMeta
     # Interchange format
-    kGenesisValidatorRoot
+    kGenesisValidatorsRoot
     kNumValidators
     kValidator
 
@@ -232,7 +232,7 @@ func subkey(
   result[1 .. ^1] = validator
 
 func subkey(kind: static SlashingKeyKind): array[1, byte] =
-  static: doAssert kind in {kNumValidators, kGenesisValidatorRoot}
+  static: doAssert kind in {kNumValidators, kGenesisValidatorsRoot}
   result[0] = byte ord(kind)
 
 func subkey(kind: static SlashingKeyKind, valIndex: uint32): array[5, byte] =
@@ -311,13 +311,13 @@ proc get(db: SlashingProtectionDB_v1,
          T: typedesc): Opt[T] =
   db.backend.rawGet(key, T)
 
-proc setGenesis(db: SlashingProtectionDB_v1, genesis_validator_root: Eth2Digest) =
+proc setGenesis(db: SlashingProtectionDB_v1, genesis_validators_root: Eth2Digest) =
   # Workaround SSZ / nim-serialization visibility issue
   # "template WriterType(T: type SSZ): type"
   # by having a non-generic proc
   db.put(
-    subkey(kGenesisValidatorRoot),
-    genesis_validator_root
+    subkey(kGenesisValidatorsRoot),
+    genesis_validators_root
   )
 
 # DB Multiversioning
@@ -326,18 +326,18 @@ proc setGenesis(db: SlashingProtectionDB_v1, genesis_validator_root: Eth2Digest)
 func version*(_: type SlashingProtectionDB_v1): static int =
   1
 
-proc checkOrPutGenesis_DbV1*(rawdb: KvStoreRef, genesis_validator_root: Eth2Digest): bool =
+proc checkOrPutGenesis_DbV1*(rawdb: KvStoreRef, genesis_validators_root: Eth2Digest): bool =
   if rawdb.contains(
-        subkey(kGenesisValidatorRoot)
+        subkey(kGenesisValidatorsRoot)
       ).get():
-    return genesis_validator_root == rawdb.rawGet(
-      subkey(kGenesisValidatorRoot),
+    return genesis_validators_root == rawdb.rawGet(
+      subkey(kGenesisValidatorsRoot),
       Eth2Digest
     ).get()
   else:
     rawdb.put(
-      subkey(kGenesisValidatorRoot),
-      genesis_validator_root.data
+      subkey(kGenesisValidatorsRoot),
+      genesis_validators_root.data
     ).expect("working database")
     return true
 
@@ -345,7 +345,7 @@ proc fromRawDB*(dst: var SlashingProtectionDB_v1, rawdb: KvStoreRef) =
   ## Initialize a SlashingProtectionDB_v1 from a raw DB
   ## For first instantiation, do not forget to call setGenesis
   doAssert rawdb.contains(
-    subkey(kGenesisValidatorRoot)
+    subkey(kGenesisValidatorsRoot)
   ).get(), "The Slashing DB is missing genesis information"
 
   dst = SlashingProtectionDB_v1(backend: rawdb)
@@ -355,13 +355,13 @@ proc fromRawDB*(dst: var SlashingProtectionDB_v1, rawdb: KvStoreRef) =
 
 proc init*(
        T: type SlashingProtectionDB_v1,
-       genesis_validator_root: Eth2Digest,
+       genesis_validators_root: Eth2Digest,
        basePath, dbname: string): T =
   result = T(backend: kvStore SqStoreRef.init(basePath, dbname).get())
-  if not result.backend.checkOrPutGenesis_DbV1(genesis_validator_root):
+  if not result.backend.checkOrPutGenesis_DbV1(genesis_validators_root):
     fatal "The slashing database refers to another chain/mainnet/testnet",
       path = basePath/dbname,
-      genesis_validator_root = genesis_validator_root
+      genesis_validators_root = genesis_validators_root
 
 proc loadUnchecked*(
        T: type SlashingProtectionDB_v1,
@@ -378,7 +378,7 @@ proc loadUnchecked*(
   let backend = kvStore SqStoreRef.init(basePath, dbname, readOnly = false).get()
 
   doAssert backend.contains(
-    subkey(kGenesisValidatorRoot)
+    subkey(kGenesisValidatorsRoot)
   ).get(), "The Slashing DB is missing genesis information"
 
   result = T(backend: backend)
@@ -940,10 +940,10 @@ proc toSPDIR*(db: SlashingProtectionDB_v1): SPDIR
   ## to the Nimbus Slashing Protection Database Intermediate Format
   result.metadata.interchange_format_version = "5"
 
-  result.metadata.genesis_validator_root = Eth2Digest0x db.get(
-    subkey(kGenesisValidatorRoot), ETH2Digest
+  result.metadata.genesis_validators_root = Eth2Digest0x db.get(
+    subkey(kGenesisValidatorsRoot), ETH2Digest
     # Bug in results.nim
-    # ).expect("Slashing Protection requires genesis_validator_root at init")
+    # ).expect("Slashing Protection requires genesis_validators_root at init")
   ).unsafeGet()
 
   let numValidators = db.get(
@@ -1012,26 +1012,26 @@ proc inclSPDIR*(db: SlashingProtectionDB_v1, spdir: SPDIR): bool
   ## file into the specified slashing protection DB
   ##
   ## The database must be initialized.
-  ## The genesis_validator_root must match or
+  ## The genesis_validators_root must match or
   ## the DB must have a zero root
   doAssert not db.isNil, "The Slashing Protection DB must be initialized."
   doAssert not db.backend.isNil, "The Slashing Protection DB must be initialized."
 
   let dbGenValRoot = db.get(
-    subkey(kGenesisValidatorRoot), ETH2Digest
+    subkey(kGenesisValidatorsRoot), ETH2Digest
   ).unsafeGet()
 
   if dbGenValRoot != default(Eth2Digest) and
-     dbGenValRoot != spdir.metadata.genesis_validator_root.Eth2Digest:
+     dbGenValRoot != spdir.metadata.genesis_validators_root.Eth2Digest:
     error "The slashing protection database and imported file refer to different blockchains.",
-      DB_genesis_validator_root = dbGenValRoot,
-      Imported_genesis_validator_root = spdir.metadata.genesis_validator_root.Eth2Digest
+      DB_genesis_validators_root = dbGenValRoot,
+      Imported_genesis_validators_root = spdir.metadata.genesis_validators_root.Eth2Digest
     return false
 
   if dbGenValRoot == default(Eth2Digest):
     db.put(
-      subkey(kGenesisValidatorRoot),
-      spdir.metadata.genesis_validator_root.Eth2Digest
+      subkey(kGenesisValidatorsRoot),
+      spdir.metadata.genesis_validators_root.Eth2Digest
     )
 
   for v in 0 ..< spdir.data.len:
