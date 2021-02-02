@@ -1,3 +1,9 @@
+# Copyright (c) 2020-2021 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import
   tables, strutils, os,
   stew/shims/macros, nimcrypto/hash,
@@ -68,7 +74,7 @@ type
       incompatibilityDesc*: string
 
 const
-  eth2testnetsDir = currentSourcePath.parentDir / ".." / "vendor" / "eth2-testnets"
+  eth2testnetsDir = currentSourcePath.parentDir.replace('\\', '/') & "/../vendor/eth2-testnets"
 
 const presetValueLoaders = genExpr(nnkBracket):
   for constName in PresetValue:
@@ -107,12 +113,12 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
                              {.raises: [CatchableError, Defect].} =
   try:
     let
-      genesisPath = path / "genesis.ssz"
-      genesisDepositsSnapshotPath = path / "genesis_deposit_contract_snapshot.ssz"
-      configPath = path / "config.yaml"
-      depositContractPath = path / "deposit_contract.txt"
-      depositContractBlockPath = path / "deposit_contract_block.txt"
-      bootstrapNodesPath = path / "bootstrap_nodes.txt"
+      genesisPath = path & "/genesis.ssz"
+      genesisDepositsSnapshotPath = path & "/genesis_deposit_contract_snapshot.ssz"
+      configPath = path & "/config.yaml"
+      depositContractPath = path & "/deposit_contract.txt"
+      depositContractBlockPath = path & "/deposit_contract_block.txt"
+      bootstrapNodesPath = path & "/bootstrap_nodes.txt"
 
       runtimePreset = if fileExists(configPath):
         extractRuntimePreset(configPath, readPresetFile(configPath))
@@ -164,7 +170,7 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
                         incompatibilityDesc: err.msg)
 
 const
-  mainnetMetadataDir = eth2testnetsDir / "shared" / "mainnet"
+  mainnetMetadataDir = eth2testnetsDir & "/shared/mainnet"
 
   mainnetMetadata* = when const_preset == "mainnet":
     Eth2NetworkMetadata(
@@ -172,11 +178,11 @@ const
                            # that there are no constant overrides
       eth1Network: some mainnet,
       runtimePreset: mainnetRuntimePreset,
-      bootstrapNodes: readFile(mainnetMetadataDir / "bootstrap_nodes.txt").splitLines,
+      bootstrapNodes: readFile(mainnetMetadataDir & "/bootstrap_nodes.txt").splitLines,
       depositContractAddress: Eth1Address.fromHex "0x00000000219ab540356cBB839Cbe05303d7705Fa",
       depositContractDeployedAt: BlockHashOrNumber.init "11052984",
-      genesisData: readFile(mainnetMetadataDir / "genesis.ssz"),
-      genesisDepositsSnapshot: readFile(mainnetMetadataDir / "genesis_deposit_contract_snapshot.ssz"))
+      genesisData: readFile(mainnetMetadataDir & "/genesis.ssz"),
+      genesisDepositsSnapshot: readFile(mainnetMetadataDir & "/genesis_deposit_contract_snapshot.ssz"))
   else:
     Eth2NetworkMetadata(
       incompatible: true,
@@ -184,7 +190,7 @@ const
                            "It's not compatible with mainnet")
 
 template eth2testnet(path: string): Eth2NetworkMetadata =
-  loadEth2NetworkMetadata(eth2testnetsDir / path)
+  loadEth2NetworkMetadata(eth2testnetsDir & "/" & path)
 
 const
   pyrmontMetadata* = eth2testnet "shared/pyrmont"
