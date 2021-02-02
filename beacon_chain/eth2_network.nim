@@ -1568,7 +1568,6 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
         p.historyGossip = 3
         p.seenTTL = 385.seconds
         p.gossipFactor = 0.05
-        p.validateParameters().tryGet()
         p
     pubsub = GossipSub.init(
       switch = switch,
@@ -1578,6 +1577,14 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
       verifySignature = false,
       anonymize = true,
       parameters = params)
+
+  # disable any extra scoring weight
+  # do this after validation (done inside init())
+  # this is a scoring violation for validation
+  # but we don't want to use scores for now
+  pubsub.parameters.behaviourPenaltyWeight = 0.0
+  pubsub.parameters.appSpecificWeight = 0.0
+  pubsub.parameters.ipColocationFactorWeight = 0.0
 
   switch.mount(pubsub)
 
