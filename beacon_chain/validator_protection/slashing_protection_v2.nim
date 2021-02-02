@@ -732,7 +732,7 @@ proc checkSlashableAttestation*(
       minSourceEpoch = res.source
       minTargetEpoch = res.target
 
-    if source.int64 <= minSourceEpoch:
+    if source.int64 < minSourceEpoch:
       return err(BadVote(
         kind: MinSourceViolation,
         minSource: Epoch minSourceEpoch,
