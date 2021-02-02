@@ -271,25 +271,26 @@ proc setupDB(db: SlashingProtectionDB_v2, genesis_validators_root: Eth2Digest) =
       );
     """).expect("DB should be working and \"validators\" should not exist")
 
-    # unsure why Lighthouse allows non-unique signing_root
+    # signing_root can be non-unique, as signing_root is not mandatory
+    # and we can use a default value.
     db.backend.exec("""
       CREATE TABLE signed_blocks(
           validator_id INTEGER NOT NULL,
           slot INTEGER NOT NULL,
-          signing_root BLOB NOT NULL UNIQUE,
+          signing_root BLOB NOT NULL,
           FOREIGN KEY(validator_id) REFERENCES validators(id)
           UNIQUE (validator_id, slot)
       );
     """).expect("DB should be working and \"blocks\" should not exist")
 
-    # unsure why Lighthouse allows null validator_id
-    # and non-unique signing_root
+    # signing_root can be non-unique, as signing_root is not mandatory
+    # and we can use a default value.
     db.backend.exec("""
       CREATE TABLE signed_attestations(
           validator_id INTEGER NOT NULL,
           source_epoch INTEGER NOT NULL,
           target_epoch INTEGER NOT NULL,
-          signing_root BLOB NOT NULL UNIQUE,
+          signing_root BLOB NOT NULL,
           FOREIGN KEY(validator_id) REFERENCES validators(id)
           UNIQUE (validator_id, target_epoch)
       );

@@ -62,12 +62,21 @@ const TestDir = ""
 const TestDbPrefix = "test_slashprot_"
 
 proc runTest(identifier: string) =
+
+  # The tests produce a lot of log noise
+  echo "\n\n===========================================\n\n"
+
+
   let testCase = InterchangeTestsDir / identifier
   timedTest "Slashing test: " & identifier:
     let t = parseTest(InterchangeTestsDir/identifier, Json, TestInterchange)
 
     # Create a test specific DB
     let dbname = TestDbPrefix & identifier.changeFileExt("")
+
+    # Delete existing db in case of previous test failure
+    sqlite3db_delete(TestDir, dbname)
+
     let db = SlashingProtectionDB.init(
       Eth2Digest t.genesis_validators_root,
       TestDir,
@@ -90,7 +99,7 @@ proc runTest(identifier: string) =
           ValidatorPubKey.fromRaw(blck.pubkey.PubKeyBytes).get(),
           Slot blck.slot
         )
-        if step.should_succeed:
+        if blck.should_succeed:
           doAssert status.isOk()
         else:
           doAssert status.isErr()
@@ -101,7 +110,7 @@ proc runTest(identifier: string) =
           Epoch att.source_epoch,
           Epoch att.target_epoch
         )
-        if step.should_succeed:
+        if att.should_succeed:
           doAssert status.isOk()
         else:
           doAssert status.isErr()
