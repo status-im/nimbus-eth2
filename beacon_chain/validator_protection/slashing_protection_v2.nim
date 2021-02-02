@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  std/[os, options, typetraits, decls],
+  std/[os, options, typetraits, decls, algorithm],
   # Status
   stew/byteutils,
   eth/db/[kvstore, kvstore_sqlite3],
@@ -961,6 +961,8 @@ proc inclSPDIR*(db: SlashingProtectionDB_v2, spdir: SPDIR): SlashingImportStatus
 
   db.setupCachedQueries()
 
+  # Create a mutable copy for sorting
+  var spdir = spdir
   result = siSuccess
 
   for v in 0 ..< spdir.data.len:
@@ -983,6 +985,15 @@ proc inclSPDIR*(db: SlashingProtectionDB_v2, spdir: SPDIR): SlashingImportStatus
         result = siPartial
         continue
       key.get()
+
+    # Sort by ascending minimum slot so that we don't trigger MinSlotViolation
+    spdir.data[v].signed_blocks.sort do (a, b: SPDIR_SignedBlock) -> int:
+      result = cmp(a.slot.int, b.slot.int)
+
+    spdir.data[v].signed_attestations.sort do (a, b: SPDIR_SignedAttestation) -> int:
+      result = cmp(a.source_epoch.int, b.source_epoch.int)
+      if result == 0: # Same epoch
+        result = cmp(a.target_epoch.int, b.target_epoch.int)
 
     for b in 0 ..< spdir.data[v].signed_blocks.len:
       let status = db.checkSlashableBlockProposal(
