@@ -1568,6 +1568,10 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
         p.historyGossip = 3
         p.seenTTL = 385.seconds
         p.gossipFactor = 0.05
+        # disable any extra scoring weight
+        p.behaviourPenaltyWeight = 0.0
+        p.appSpecificWeight = 0.0
+        p.ipColocationFactorWeight = 0.0
         p.validateParameters().tryGet()
         p
     pubsub = GossipSub.init(
