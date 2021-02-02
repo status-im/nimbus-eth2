@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Copyright (c) 2020-2021 Status Research & Development GmbH. Licensed under
+# either of:
+# - Apache License, version 2.0
+# - MIT license
+# at your option. This file may not be copied, modified, or distributed except
+# according to those terms.
+
 set -e
 
 cd "$(dirname $0)/.."
@@ -32,8 +39,10 @@ fi
 # Windows detection
 if uname | grep -qiE "mingw|msys"; then
   MAKE="mingw32-make"
+  WINPTY="winpty --"
 else
   MAKE="make"
+  WINPTY=""
 fi
 
 if [[ ! -f build/${NBC_BINARY} ]]; then
@@ -66,7 +75,7 @@ WEB3_HELP
 fi
 
 # Allow the binary to receive signals directly.
-exec build/${NBC_BINARY} \
+exec ${WINPTY} build/${NBC_BINARY} \
   --network=${NETWORK} \
   --data-dir="${DATA_DIR}" \
   --log-file="${DATA_DIR}/nbc_bn_$(date +"%Y%m%d%H%M%S").log" \

@@ -122,6 +122,21 @@ jobs:
             echo "CFLAGS=$CFLAGS" >> $GITHUB_ENV
           fi
 
+          ncpu=
+          case '${{ runner.os }}' in
+          'Linux')
+            ncpu=$(nproc)
+            ;;
+          'macOS')
+            ncpu=$(sysctl -n hw.ncpu)
+            ;;
+          'Windows')
+            ncpu=$NUMBER_OF_PROCESSORS
+            ;;
+          esac
+          [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
+          echo "ncpu=$ncpu" >> $GITHUB_ENV
+
       - name: Install build dependencies (Linux i386)
         if: runner.os == 'Linux' && matrix.target.cpu == 'i386'
         run: |
@@ -218,23 +233,6 @@ jobs:
         shell: bash
         working-directory: nim-beacon-chain
         run: |
-          ncpu=
-          ext=
-          case '${{ runner.os }}' in
-          'Linux')
-            ncpu=$(nproc)
-            ;;
-          'macOS')
-            ncpu=$(sysctl -n hw.ncpu)
-            ;;
-          'Windows')
-            ncpu=$NUMBER_OF_PROCESSORS
-            ext=.exe
-            ;;
-          esac
-          [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
-          echo "::set-output name=ncpu::$ncpu"
-
           make -j$ncpu ARCH_OVERRIDE=$PLATFORM CI_CACHE=NimBinaries V=1 update
 
       - name: Get latest fixtures commit hash
@@ -284,11 +282,11 @@ jobs:
         shell: bash
         working-directory: nim-beacon-chain
         run: |
-          ./scripts/launch_local_testnet.sh --testnet 0 --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --enable-logtrace --data-dir local_testnet0_data --base-port 9000 --base-rpc-port 7000  --base-metrics-port 8008 -- --verify-finalization --discv5:no
+          ./scripts/launch_local_testnet.sh --testnet 0 --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --enable-logtrace --data-dir local_testnet0_data --base-port 9000 --base-rpc-port 7000  --base-metrics-port 8008 --timeout 600 -- --verify-finalization --discv5:no
 
       - name: Run nim-beacon-chain testnet1 (mainnet)
         if: matrix.target.TEST_KIND == 'finalization-mainnet'
         shell: bash
         working-directory: nim-beacon-chain
         run: |
-          ./scripts/launch_local_testnet.sh --testnet 1 --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --enable-logtrace --data-dir local_testnet0_data --base-port 9000 --base-rpc-port 7000 --base-metrics-port 8008 -- --verify-finalization --discv5:no
+          ./scripts/launch_local_testnet.sh --testnet 1 --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --enable-logtrace --data-dir local_testnet0_data --base-port 9000 --base-rpc-port 7000 --base-metrics-port 8008 --timeout 2400 -- --verify-finalization --discv5:no

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Status Research & Development GmbH
+# Copyright (c) 2020-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -63,10 +63,10 @@ proc main() =
     cmd: string
 
   for compile in data["compile"]:
-    cmd = compile[1].getStr()
+    cmd = compile[1].getStr().replace('\\', '/')
     objectPath = ""
     found = false
-    for token in split(cmd):
+    for token in split(cmd, Whitespace + {'\''}):
       if found and token.len > 0 and token.endsWith(".o"):
         objectPath = token
         break
@@ -75,20 +75,20 @@ proc main() =
     if found == false or objectPath == "":
       echo "Could not find the object file in this command: ", cmd
       quit(QuitFailure)
-    makefile.writeLine("$#: $#" % [objectPath, compile[0].getStr()])
+    makefile.writeLine("$#: $#" % [objectPath.replace('\\', '/'), compile[0].getStr().replace('\\', '/')])
     makefile.writeLine("\t+ $#\n" % cmd)
 
   var objects: seq[string]
   for obj in data["link"]:
-    objects.add(obj.getStr())
+    objects.add(obj.getStr().replace('\\', '/'))
   makefile.writeLine("OBJECTS := $#\n" % objects.join(" \\\n"))
 
   makefile.writeLine(".PHONY: build")
   makefile.writeLine("build: $(OBJECTS)")
-  makefile.writeLine("\t+ $#" % processLinkCmd(data["linkcmd"].getStr(), makefilePath & ".linkerArgs"))
+  makefile.writeLine("\t+ $#" % processLinkCmd(data["linkcmd"].getStr().replace('\\', '/'), makefilePath & ".linkerArgs"))
   if data.hasKey("extraCmds"):
     for cmd in data["extraCmds"]:
-      makefile.writeLine("\t+ $#" % cmd.getStr())
+      makefile.writeLine("\t+ $#" % cmd.getStr().replace('\\', '/'))
 
 main()
 
