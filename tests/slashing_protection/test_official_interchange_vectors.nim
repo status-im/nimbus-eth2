@@ -78,11 +78,12 @@ proc runTest(identifier: string) =
 
     for step in t.steps:
       let status = db.inclSPDIR(step.interchange)
-      if step.should_succeed:
-        doAssert status
+      if not step.should_succeed:
+        doAssert siFailure == status
+      elif step.allow_partial_import:
+        doAssert siPartial == status
       else:
-        doAssert not status
-        continue # next step
+        doAssert siSuccess == status
 
       for blck in step.blocks:
         let status = db.checkSlashableBlockProposal(

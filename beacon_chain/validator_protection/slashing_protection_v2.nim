@@ -909,7 +909,7 @@ proc toSPDIR*(db: SlashingProtectionDB_v2): SPDIR
           )
         doAssert status.isOk()
 
-proc inclSPDIR*(db: SlashingProtectionDB_v2, spdir: SPDIR): bool
+proc inclSPDIR*(db: SlashingProtectionDB_v2, spdir: SPDIR): SlashingImportStatus
              {.raises: [SerializationError, IOError, Defect].} =
   ## Import a Slashing Protection Database Intermediate Representation
   ## file into the specified slashing protection DB
@@ -917,6 +917,12 @@ proc inclSPDIR*(db: SlashingProtectionDB_v2, spdir: SPDIR): bool
   ## The database must be initialized.
   ## The genesis_validators_root must match or
   ## the DB must have a zero root
+  ##
+  ## This return true if the import was completed successfully.
+  ## It will return false if the import failed.
+  ##
+  ## If some blocks/votes
+  ## are in invalid due to slashing rules, they will be skipped.
   doAssert not db.isNil, "The Slashing Protection DB must be initialized."
   doAssert not db.backend.isNil, "The Slashing Protection DB must be initialized."
 
@@ -942,7 +948,7 @@ proc inclSPDIR*(db: SlashingProtectionDB_v2, spdir: SPDIR): bool
       error "The slashing protection database and imported file refer to different blockchains.",
         DB_genesis_validators_root = dbGenValRoot,
         Imported_genesis_validators_root = spdir.metadata.genesis_validators_root.Eth2Digest
-      return false
+      return siFailure
 
     if not status.get():
       # Query worked but returned no result
@@ -954,29 +960,58 @@ proc inclSPDIR*(db: SlashingProtectionDB_v2, spdir: SPDIR): bool
 
   db.setupCachedQueries()
 
+  result = siSuccess
+
   for v in 0 ..< spdir.data.len:
     let parsedKey = block:
       let key = ValidatorPubKey.fromRaw(spdir.data[v].pubkey.PubKeyBytes)
       if key.isErr:
         # The bytes does not describe a valid encoding (length error)
-        echo "Warning! Invalid public key: 0x" & spdir.data[v].pubkey.PubKeyBytes.toHex()
+        error "Invalid public key.",
+          pubkey = "0x" & spdir.data[v].pubkey.PubKeyBytes.toHex()
+
+        result = siPartial
         continue
       if key.get().loadWithCache().isNone():
         # The bytes don't deserialize to a valid BLS G1 elliptic curve point.
         # Deserialization is costly but done only once per validator.
         # and SlashingDB import is a very rare event.
-        echo "Warning! Invalid public key: 0x" & spdir.data[v].pubkey.PubKeyBytes.toHex()
+        error "Invalid public key.",
+          pubkey = "0x" & spdir.data[v].pubkey.PubKeyBytes.toHex()
+
+        result = siPartial
         continue
       key.get()
-    # TODO: this is a bit wasteful to convert parsedKey back to PubKeyBytes
-    #       in the register* proc but this is something done very rarely and offline.
+
     for b in 0 ..< spdir.data[v].signed_blocks.len:
+      let status = db.checkSlashableBlockProposal(
+        parsedKey, spdir.data[v].signed_blocks[b].slot.Slot
+      )
+      if status.isErr():
+        error "Slashable block. Skipping its import.",
+          candidateBlock = spdir.data[v].signed_blocks[b],
+          conflict = status.error()
+        result = siPartial
+        continue
+
       db.registerBlock(
         parsedKey,
         spdir.data[v].signed_blocks[b].slot.Slot,
         spdir.data[v].signed_blocks[b].signing_root.Eth2Digest
       )
     for a in 0 ..< spdir.data[v].signed_attestations.len:
+      let status = db.checkSlashableAttestation(
+        parsedKey,
+        spdir.data[v].signed_attestations[a].source_epoch.Epoch,
+        spdir.data[v].signed_attestations[a].target_epoch.Epoch
+      )
+      if status.isErr():
+        error "Slashable vote. Skipping its import.",
+          candidateAttestation = spdir.data[v].signed_attestations[a],
+          conflict = status.error()
+        result = siPartial
+        continue
+
       db.registerAttestation(
         parsedKey,
         spdir.data[v].signed_attestations[a].source_epoch.Epoch,
@@ -984,7 +1019,7 @@ proc inclSPDIR*(db: SlashingProtectionDB_v2, spdir: SPDIR): bool
         spdir.data[v].signed_attestations[a].signing_root.Eth2Digest
       )
 
-  return true
+  return result
 
 # Sanity check
 # --------------------------------------------------------------

@@ -106,7 +106,7 @@ suiteReport "Slashing Protection DB - Interchange" & preset():
         db2.close()
         sqlite3db_delete(TestDir, TestDbName)
 
-      doAssert db2.importSlashingInterchange(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
+      doAssert siSuccess == db2.importSlashingInterchange(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
       db2.exportSlashingInterchange(currentSourcePath.parentDir/"test_complete_export_slashing_protection_roundtrip1.json")
 
     block: # import - same root db
@@ -119,7 +119,7 @@ suiteReport "Slashing Protection DB - Interchange" & preset():
         db3.close()
         sqlite3db_delete(TestDir, TestDbName)
 
-      doAssert db3.importSlashingInterchange(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
+      doAssert siSuccess == db3.importSlashingInterchange(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
       db3.exportSlashingInterchange(currentSourcePath.parentDir/"test_complete_export_slashing_protection_roundtrip2.json")
 
   wrappedTimedTest "Smoke test - Complete format - Invalid database is refused" & preset():
@@ -134,4 +134,4 @@ suiteReport "Slashing Protection DB - Interchange" & preset():
         db4.close()
         sqlite3db_delete(TestDir, TestDbName)
 
-      doAssert not db4.importSlashingInterchange(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
+      doAssert siFailure == db4.importSlashingInterchange(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")

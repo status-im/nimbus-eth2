@@ -316,14 +316,22 @@ proc toSPDIR*(db: SlashingProtectionDB): SPDIR
     doAssert db.useV1()
     return db.db_v1.toSPDIR()
 
-proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): bool
+proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): SlashingImportStatus
              {.raises: [SerializationError, IOError, Defect].} =
   let useV1 = db.useV1()
   let useV2 = db.useV2()
 
   if useV2 and useV1:
-    result = db.db_v2.inclSPDIR(spdir)
-    return result and db.db_v1.inclSPDIR(spdir)
+    let resultV2 = db.db_v2.inclSPDIR(spdir)
+    let resultV1 = db.db_v1.inclSPDIR(spdir)
+    if resultV1 == resultV2:
+      return resultV2
+    else:
+      error "The legacy and new slashing protection DB have imported the file with different level of success",
+        resultV1 = resultV1,
+        resultV2 = resultV2
+      return resultV2
+
   if useV2 and not useV1:
     return db.db_v2.inclSPDIR(spdir)
   else:

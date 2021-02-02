@@ -14,6 +14,7 @@ import
   stew/byteutils,
   serialization,
   json_serialization,
+  chronicles,
   # Internal
   ../spec/[datatypes, digest, crypto]
 
@@ -121,10 +122,15 @@ type
     db.toSPDIR() is SPDIR
       # to Slashing Protection Data Intermediate Representation
       # db.toSPDIR(path)
-    db.inclSPDIR(SPDIR) is bool
+    db.inclSPDIR(SPDIR) is SlashingImportStatus
       # include the content of Slashing Protection Data Intermediate Representation
       # in the database
       # db.inclSPDIR(path)
+
+  SlashingImportStatus* = enum
+    siSuccess
+    siFailure
+    siPartial
 
   BadVoteKind* = enum
     ## Attestation bad vote kind
@@ -258,9 +264,30 @@ proc exportSlashingInterchange*(
 
 proc importSlashingInterchange*(
        db: SlashingProtectionDB_Concept,
-       path: string): bool =
+       path: string): SlashingImportStatus =
   ## Import a Slashing Protection Database Interchange Format
   ## into a Nimbus DB.
   ## This adds data to already existing data.
   let spdir = Json.loadFile(path, SPDIR)
   return db.inclSPDIR(spdir)
+
+# Logging
+# --------------------------------------------
+
+func shortLog*(v: SPDIR_SignedBlock): auto =
+  (
+    slot: shortLog(v.slot.Slot),
+    signing_root: shortLog(v.signing_root.Eth2Digest)
+  )
+func shortLog*(v: SPDIR_SignedAttestation): auto =
+  (
+    source_epoch: shortLog(v.source_epoch.Epoch),
+    target_epoch: shortLog(v.target_epoch.Epoch),
+    signing_root: shortLog(v.signing_root.Eth2Digest)
+  )
+
+chronicles.formatIt SlotString: it.Slot.shortLog
+chronicles.formatIt EpochString: it.Slot.shortLog
+chronicles.formatIt Eth2Digest0x: it.Eth2Digest.shortLog
+chronicles.formatIt SPDIR_SignedBlock: it.shortLog
+chronicles.formatIt SPDIR_SignedAttestation: it.shortLog
