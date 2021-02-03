@@ -927,9 +927,36 @@ proc dumpAttestations*(
 
 # DB maintenance
 # --------------------------------------------
-# TODO: pruning
-# Note that the complete interchange format
-# requires all proposals/attestations ever and so prevent pruning.
+proc pruneBlocks*(db: SlashingProtectionDB_v1, validator: ValidatorPubkey, newMinSlot: Slot) =
+  ## Prune all blocks from a validator before the specified newMinSlot
+  ## This is intended for interchange import to ensure
+  ## that in case of a gap, we don't allow signing in that gap.
+  ##
+  ## Note: the Database v1 does not support pruning.
+  warn "Slashing DB pruning is not supported on the v1 of our database. Request ignored.",
+    validator = shortLog(validator),
+    newMinSlot = shortLog(newMinSlot)
+
+proc pruneAttestations*(
+       db: SlashingProtectionDB_v1,
+       validator: ValidatorPubkey,
+       newMinSourceEpoch: Epoch,
+       newMinTargetEpoch: Epoch) =
+  ## Prune all blocks from a validator before the specified newMinSlot
+  ## This is intended for interchange import.
+  ##
+  ## Note: the Database v1 does not support pruning.
+  warn "Slashing DB pruning is not supported on the v1 of our database. Request ignored.",
+    validator = shortLog(validator),
+    newMinSourceEpoch = shortLog(newMinSourceEpoch),
+    newMinTargetEpoch = shortLog(newMinTargetEpoch)
+
+proc pruneAfterFinalization*(
+       db: SlashingProtectionDB_v1,
+       finalizedEpoch: Epoch
+     ) =
+  warn "Slashing DB pruning is not supported on the v1 of our database. Request ignored.",
+    finalizedEpoch = shortLog(finalizedEpoch)
 
 # Interchange
 # --------------------------------------------

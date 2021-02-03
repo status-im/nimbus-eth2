@@ -301,7 +301,50 @@ proc registerAttestation*(
 
 # DB maintenance
 # --------------------------------------------
-# TODO: pruning
+# private for now
+
+proc pruneBlocks(
+       db: SlashingProtectionDB,
+       validator: ValidatorPubkey,
+       newMinSlot: Slot) =
+  ## Prune all blocks from a validator before the specified newMinSlot
+  ## This is intended for interchange import to ensure
+  ## that in case of a gap, we don't allow signing in that gap.
+  ##
+  ## Note: DB v1 does not support pruning
+
+  # {.error: "This is a backend specific proc".}
+  fatal "This is a backend specific proc"
+  quit 1
+
+proc pruneAttestations(
+       db: SlashingProtectionDB,
+       validator: ValidatorPubkey,
+       newMinSourceEpoch: Epoch,
+       newMinTargetEpoch: Epoch) =
+  ## Prune all blocks from a validator before the specified newMinSlot
+  ## This is intended for interchange import to ensure
+  ## that in case of a gap, we don't allow signing in that gap.
+  ##
+  ## Note: DB v1 does not support pruning
+
+  # {.error: "This is a backend specific proc".}
+  fatal "This is a backend specific proc"
+  quit 1
+
+proc pruneAfterFinalization(
+       db: SlashingProtectionDB,
+       finalizedEpoch: Epoch
+     ) =
+  # TODO
+  # call sqlPruneAfterFinalizationBlocks
+  # and sqlPruneAfterFinalizationAttestations
+  # and test that wherever pruning happens, tests still pass
+  # and/or devise new tests
+
+  # {.error: "NotImplementedError".}
+  fatal "Pruning is not implemented"
+  quit 1
 
 # Interchange
 # --------------------------------------------
@@ -348,5 +391,11 @@ proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): SlashingImportStatus
 
 # Sanity check
 # --------------------------------------------------------------
+
+proc foo(db: SlashingProtectionDB_Concept) =
+  discard
+
+var x: SlashingProtectionDB
+foo(x) {.explain.}
 
 static: doAssert SlashingProtectionDB is SlashingProtectionDB_Concept

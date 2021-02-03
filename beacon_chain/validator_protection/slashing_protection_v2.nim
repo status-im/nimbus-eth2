@@ -202,6 +202,10 @@ type
     sqlInsertValidator: SqliteStmt[PubKeyBytes, void]
     sqlInsertAtt: SqliteStmt[(ValidatorInternalID, int64, int64, Hash32), void]
     sqlInsertBlock: SqliteStmt[(ValidatorInternalID, int64, Hash32), void]
+    sqlPruneValidatorBlocks: SqliteStmt[(ValidatorInternalID, int64), void]
+    sqlPruneValidatorAttestations: SqliteStmt[(ValidatorInternalID, int64, int64), void]
+    sqlPruneAfterFinalizationBlocks: SqliteStmt[(ValidatorInternalID, int64), void]
+    sqlPruneAfterFinalizationAttestations: SqliteStmt[(ValidatorInternalID, int64), void]
     # Cached queries - read
     sqlGetValidatorInternalID: SqliteStmt[PubKeyBytes, ValidatorInternalID]
     sqlAttForSameTargetEpoch: SqliteStmt[(ValidatorInternalID, int64), Hash32]
@@ -322,6 +326,11 @@ proc checkDB(db: SlashingProtectionDB_v2, genesis_validators_root: Eth2Digest) =
 
 proc setupCachedQueries(db: SlashingProtectionDB_v2) =
   ## Create prepared queries for reuse
+
+  # Note: assuming pruning every finalized epochs
+  # we keep at most 64 attestations per validators
+  # an index would likely be overkill.
+
   # Insertions
   # --------------------------------------------------------
   db.sqlInsertValidator = db.backend.prepareStmt("""
@@ -365,10 +374,9 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
       signing_root
     FROM
       signed_attestations
-    WHERE
-      validator_id = ?
-      AND
-      target_epoch = ?
+    WHERE 1=1
+      and validator_id = ?
+      and target_epoch = ?
     """, (ValidatorInternalID, int64), Hash32
   ).get()
 
@@ -377,10 +385,10 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
       source_epoch, target_epoch, signing_root
     FROM
       signed_attestations
-    WHERE
-      validator_id = ?
-      AND
-      source_epoch < ? AND ? < target_epoch
+    WHERE 1=1
+      and validator_id = ?
+      and source_epoch < ?
+      and ? < target_epoch
     LIMIT 1
     """, (ValidatorInternalID, int64, int64), (int64, int64, Hash32)
   ).get()
@@ -390,10 +398,10 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
       source_epoch, target_epoch, signing_root
     FROM
       signed_attestations
-    WHERE
-      validator_id = ?
-      AND
-      ? < source_epoch AND target_epoch < ?
+    WHERE 1=1
+      and validator_id = ?
+      and ? < source_epoch
+      and target_epoch < ?
     LIMIT 1
     """, (ValidatorInternalID, int64, int64), (int64, int64, Hash32)
   ).get()
@@ -423,10 +431,9 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
       signing_root
     FROM
       signed_blocks
-    WHERE
-      validator_id = ?
-      AND
-      slot = ?;
+    WHERE 1=1
+      and validator_id = ?
+      and slot = ?
     """, (ValidatorInternalID, int64), Hash32
   ).get()
 
@@ -435,10 +442,95 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
       MIN(slot)
     FROM
       signed_blocks
-    WHERE
-      validator_id = ?;
+    WHERE 1=1
+      and validator_id = ?
+    GROUP BY
+      NULL
     """, ValidatorInternalID, int64
   ).get()
+
+  # Pruning
+  # --------------------------------------------------------
+
+  db.sqlPruneValidatorBlocks = db.backend.prepareStmt("""
+    DELETE
+    FROM
+      signed_blocks AS sb1
+    WHERE 1=1
+      and sb1.validator_id = ?
+      and sb1.slot < ?
+      -- Keep the most recent slot per validator
+      -- even if we make a mistake and call a slot too far in the future
+      and sb1.slot <> (
+        SELECT MAX(sb2.slot)
+        FROM signed_blocks AS sb2
+        WHERE sb2.validator_id = sb1.validator_id
+      )
+    """, (ValidatorInternalID, int64), void
+  ).get()
+
+  db.sqlPruneValidatorAttestations = db.backend.prepareStmt("""
+    DELETE
+    FROM
+      signed_attestations AS sa1
+    WHERE 1=1
+      and sa1.validator_id = ?
+      and sa1.source_epoch < ?
+      and sa1.target_epoch < ?
+      -- Keep the most recent source_epoch per validator
+      and sa1.source_epoch <> (
+          SELECT MAX(sas.source_epoch)
+          FROM signed_attestations AS sas
+          WHERE sa1.validator_id = sas.validator_id
+      )
+      -- And the most recent target_epoch per validator
+      -- even if we make a mistake and call an epoch too far in the future
+      and sa1.target_epoch <> (
+          SELECT MAX(sat.target_epoch)
+          FROM signed_attestations AS sat
+          WHERE sa1.validator_id = sat.validator_id
+      )
+    """, (ValidatorInternalID, int64, int64), void
+  ).get()
+
+  # TODO: test and activate pruning after finalization
+
+  # db.sqlPruneAfterFinalizationBlocks = db.backend.prepareStmt("""
+  #   DELETE
+  #   FROM
+  #     signed_blocks sb1
+  #   WHERE 1=1
+  #     and sb1.slot < ?
+  #     -- Keep the most recent slot per validator
+  #     and sb1.slot <> (
+  #       SELECT MAX(sb2.slot)
+  #       FROM signed_blocks AS sb2
+  #       WHERE sb2.validator_id = sb1.validator_id
+  #     )
+  #   """, (ValidatorInternalID, int64), void
+  # ).get()
+  #
+  # db.sqlPruneAfterFinalizationAttestations = db.backend.prepareStmt("""
+  #   DELETE
+  #   FROM
+  #     signed_attestations
+  #   WHERE 1=1
+  #     and source_epoch < ?
+  #     and target_epoch < ?
+  #     -- Keep the most recent source_epoch per validator
+  #     and sa1.source_epoch <> (
+  #         SELECT MAX(sas.source_epoch)
+  #         FROM signed_attestations AS sas
+  #         WHERE sa1.validator_id = sas.validator_id
+  #     )
+  #     -- And the most recent target_epoch per validator
+  #     and sa1.target_epoch <> (
+  #         SELECT MAX(sat.target_epoch)
+  #         FROM signed_attestations AS sat
+  #         WHERE sa1.validator_id = sat.validator_id
+  #     )
+  #    """, (ValidatorInternalID, int64, int64), void
+  # ).get()
 
 # DB Multiversioning
 # -------------------------------------------------------------
@@ -815,11 +907,52 @@ proc registerAttestation*(
     attestation_root.data))
   doAssert status.isOk(),
     "SQLite error when registering attestation: " & $status.error & "\n" &
-    "for validator: 0x" & validator.toHex() & ", target_epoch: " & $target
+    "for validator: 0x" & validator.toHex() &
+    ", sourceEpoch: " & $source &
+    ", targetEpoch: " & $target
 
 # DB maintenance
 # --------------------------------------------
-# TODO: pruning
+proc pruneBlocks*(db: SlashingProtectionDB_v2, validator: ValidatorPubkey, newMinSlot: Slot) =
+  ## Prune all blocks from a validator before the specified newMinSlot
+  ## This is intended for interchange import to ensure
+  ## that in case of a gap, we don't allow signing in that gap.
+  let valID = db.getOrRegisterValidator(validator)
+  let status = db.sqlPruneValidatorBlocks.exec(
+    (valID, int64 newMinSlot))
+  doAssert status.isOk(),
+    "SQLite error when pruning validator blocks: " & $status.error & "\n" &
+    "for validator: 0x" & validator.toHex() & ", newMinSlot: " & $newMinSlot
+
+proc pruneAttestations*(
+       db: SlashingProtectionDB_v2,
+       validator: ValidatorPubkey,
+       newMinSourceEpoch: Epoch,
+       newMinTargetEpoch: Epoch) =
+  ## Prune all blocks from a validator before the specified newMinSlot
+  ## This is intended for interchange import.
+  let valID = db.getOrRegisterValidator(validator)
+  let status = db.sqlPruneValidatorAttestations.exec(
+    (valID, int64 newMinSourceEpoch, int64 newMinTargetEpoch))
+  doAssert status.isOk(),
+    "SQLite error when pruning validator attestations: " & $status.error & "\n" &
+    "for validator: 0x" & validator.toHex() &
+    ", newSourceEpoch: " & $newMinSourceEpoch &
+    ", newTargetEpoch: " & $newMinTargetEpoch
+
+proc pruneAfterFinalization*(
+       db: SlashingProtectionDB_v2,
+       finalizedEpoch: Epoch
+     ) =
+  warn "Slashing DB pruning after finalization is not supported on the v2 of our database. Request ignored.",
+    finalizedEpoch = shortLog(finalizedEpoch)
+
+  # TODO
+  # call sqlPruneAfterFinalizationBlocks
+  # and sqlPruneAfterFinalizationAttestations
+  # and test that wherever pruning happens, tests still pass
+  # and/or devise new tests
+
 
 # Interchange
 # --------------------------------------------

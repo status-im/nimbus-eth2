@@ -116,6 +116,9 @@ type
 
     # Pruning
     # --------------------------------------------
+    db.pruneBlocks(ValidatorPubKey, Slot)
+    db.pruneAttestations(ValidatorPubKey, Epoch, Epoch)
+    db.pruneAfterFinalization(Epoch)
 
     # Interchange
     # --------------------------------------------
@@ -338,6 +341,14 @@ proc importInterchangeV5Impl*(
 
     const ZeroDigest = Eth2Digest()
 
+    # Blocks
+    # ---------------------------------------------------
+    # After import we need to prune the DB from everything
+    # besides the last imported block slot.
+    # This ensures that even if 2 slashing DB are imported in the wrong order
+    # (the last before the earliest) the minSlotViolation check stays consistent.
+    var maxValidSlotSeen = -1
+
     for b in 0 ..< spdir.data[v].signed_blocks.len:
       template B: untyped = spdir.data[v].signed_blocks[b]
       let status = db.checkSlashableBlockProposal(
@@ -366,11 +377,28 @@ proc importInterchangeV5Impl*(
           result = siPartial
           continue
 
+      if B.slot.int > maxValidSlotSeen:
+        maxValidSlotSeen = B.slot.int
+
       db.registerBlock(
         parsedKey,
         B.slot.Slot,
         B.signing_root.Eth2Digest
       )
+
+    # Now prune everything that predates
+    # this interchange file max slot
+    db.pruneBlocks(parsedKey, Slot maxValidSlotSeen)
+
+    # Attestations
+    # ---------------------------------------------------
+    # After import we need to prune the DB from everything
+    # besides the last imported attestation source and target epochs.
+    # This ensures that even if 2 slashing DB are imported in the wrong order
+    # (the last before the earliest) the minEpochViolation check stays consistent.
+    var maxValidSourceEpochSeen = -1
+    var maxValidTargetEpochSeen = -1
+
     for a in 0 ..< spdir.data[v].signed_attestations.len:
       template A: untyped = spdir.data[v].signed_attestations[a]
       let status = db.checkSlashableAttestation(
@@ -398,9 +426,18 @@ proc importInterchangeV5Impl*(
           result = siPartial
           continue
 
+      if A.source_epoch.int > maxValidSourceEpochSeen:
+        maxValidSourceEpochSeen = A.source_epoch.int
+      if A.target_epoch.int > maxValidTargetEpochSeen:
+        maxValidTargetEpochSeen = A.target_epoch.int
+
       db.registerAttestation(
         parsedKey,
         A.source_epoch.Epoch,
         A.target_epoch.Epoch,
         A.signing_root.Eth2Digest
       )
+
+    # Now prune everything that predates
+    # this interchange file max slot
+    db.pruneAttestations(parsedKey, Epoch maxValidSourceEpochSeen, Epoch maxValidTargetEpochSeen)
