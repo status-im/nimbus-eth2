@@ -615,14 +615,11 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   var curSlot = lastSlot + 1
 
-  # The dontcheck option's a deliberately undocumented escape hatch for the
-  # local testnets and similar development and testing use cases.
-  #
   # If broadcastStartEpoch is 0, it hasn't had time to initialize yet, which
   # means that it'd be okay not to continue, but it won't gossip regardless.
   if  curSlot.epoch <
         node.processor[].doppelgangerDetection.broadcastStartEpoch and
-      node.config.doppelgangerDetection != DoppelgangerDetectionMode.dontcheck:
+      node.config.doppelgangerDetection:
     debug "Waiting to gossip out to detect potential duplicate validators",
       broadcastStartEpoch =
         node.processor[].doppelgangerDetection.broadcastStartEpoch

@@ -31,8 +31,8 @@ declareCounter beacon_proposer_slashings_received,
 declareCounter beacon_voluntary_exits_received,
   "Number of beacon chain voluntary exits received by this peer"
 
-declareCounter beacon_duplicate_validator_protection_activated,
-  "Number of times duplicate validator protection was activated"
+declareCounter doppelganger_detection_activated,
+  "Number of times doppelganger detection was activated"
 
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
@@ -307,15 +307,6 @@ proc blockValidator*(
 proc checkForPotentialDoppelganger(
     self: var Eth2Processor, attestationData: AttestationData,
     attesterIndices: IntSet, wallSlot: Slot) =
-  # Attestations remain valid for 32 slots, so avoid confusing with one's own
-  # reflections, for a ATTESTATION_PROPAGATION_SLOT_RANGE div SLOTS_PER_EPOCH
-  # period after the attestation slot. For mainnet this can be one additional
-  # epoch, and for minimal, four epochs. Unlike in the attestation validation
-  # checks, use the spec version of the constant here.
-  const
-    # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#configuration
-    ATTESTATION_PROPAGATION_SLOT_RANGE = 32
-
   let epoch = wallSlot.epoch
   if epoch < self.doppelgangerDetection.broadcastStartEpoch:
     let tgtBlck = self.chainDag.getRef(attestationData.target.root)
@@ -330,8 +321,8 @@ proc checkForPotentialDoppelganger(
         warn "Duplicate validator detected; would be slashed",
           validatorIndex,
           validatorPubkey
-        beacon_duplicate_validator_protection_activated.inc()
-        if self.config.doppelgangerDetection == DoppelgangerDetectionMode.stop:
+        doppelganger_detection_activated.inc()
+        if self.config.doppelgangerDetection:
           warn "We believe you are currently running another instance of the same validator. We've disconnected you from the network as this presents a significant slashing risk. Possible next steps are (a) making sure you've disconnected your validator from your old machine before restarting the client; and (b) running the client again with the gossip-slashing-protection option disabled, only if you are absolutely sure this is the only instance of your validator running, and reporting the issue at https://github.com/status-im/nimbus-eth2/issues."
           quit QuitFailure
 
