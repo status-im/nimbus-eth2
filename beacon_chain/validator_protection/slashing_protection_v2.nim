@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  std/[os, options, typetraits, decls, algorithm],
+  std/[os, options, typetraits, decls],
   # Status
   stew/byteutils,
   eth/db/[kvstore, kvstore_sqlite3],
@@ -963,75 +963,7 @@ proc inclSPDIR*(db: SlashingProtectionDB_v2, spdir: SPDIR): SlashingImportStatus
 
   # Create a mutable copy for sorting
   var spdir = spdir
-  result = siSuccess
-
-  for v in 0 ..< spdir.data.len:
-    let parsedKey = block:
-      let key = ValidatorPubKey.fromRaw(spdir.data[v].pubkey.PubKeyBytes)
-      if key.isErr:
-        # The bytes does not describe a valid encoding (length error)
-        error "Invalid public key.",
-          pubkey = "0x" & spdir.data[v].pubkey.PubKeyBytes.toHex()
-
-        result = siPartial
-        continue
-      if key.get().loadWithCache().isNone():
-        # The bytes don't deserialize to a valid BLS G1 elliptic curve point.
-        # Deserialization is costly but done only once per validator.
-        # and SlashingDB import is a very rare event.
-        error "Invalid public key.",
-          pubkey = "0x" & spdir.data[v].pubkey.PubKeyBytes.toHex()
-
-        result = siPartial
-        continue
-      key.get()
-
-    # Sort by ascending minimum slot so that we don't trigger MinSlotViolation
-    spdir.data[v].signed_blocks.sort do (a, b: SPDIR_SignedBlock) -> int:
-      result = cmp(a.slot.int, b.slot.int)
-
-    spdir.data[v].signed_attestations.sort do (a, b: SPDIR_SignedAttestation) -> int:
-      result = cmp(a.source_epoch.int, b.source_epoch.int)
-      if result == 0: # Same epoch
-        result = cmp(a.target_epoch.int, b.target_epoch.int)
-
-    for b in 0 ..< spdir.data[v].signed_blocks.len:
-      let status = db.checkSlashableBlockProposal(
-        parsedKey, spdir.data[v].signed_blocks[b].slot.Slot
-      )
-      if status.isErr():
-        error "Slashable block. Skipping its import.",
-          candidateBlock = spdir.data[v].signed_blocks[b],
-          conflict = status.error()
-        result = siPartial
-        continue
-
-      db.registerBlock(
-        parsedKey,
-        spdir.data[v].signed_blocks[b].slot.Slot,
-        spdir.data[v].signed_blocks[b].signing_root.Eth2Digest
-      )
-    for a in 0 ..< spdir.data[v].signed_attestations.len:
-      let status = db.checkSlashableAttestation(
-        parsedKey,
-        spdir.data[v].signed_attestations[a].source_epoch.Epoch,
-        spdir.data[v].signed_attestations[a].target_epoch.Epoch
-      )
-      if status.isErr():
-        error "Slashable vote. Skipping its import.",
-          candidateAttestation = spdir.data[v].signed_attestations[a],
-          conflict = status.error()
-        result = siPartial
-        continue
-
-      db.registerAttestation(
-        parsedKey,
-        spdir.data[v].signed_attestations[a].source_epoch.Epoch,
-        spdir.data[v].signed_attestations[a].target_epoch.Epoch,
-        spdir.data[v].signed_attestations[a].signing_root.Eth2Digest
-      )
-
-  return result
+  return db.importInterchangeV5Impl(spdir)
 
 # Sanity check
 # --------------------------------------------------------------

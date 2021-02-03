@@ -7,7 +7,7 @@
 
 import
   # Stdlib
-  std/[typetraits, strutils],
+  std/[typetraits, strutils, algorithm],
   # Status
   eth/db/[kvstore, kvstore_sqlite3],
   stew/results,
@@ -291,3 +291,112 @@ chronicles.formatIt EpochString: it.Slot.shortLog
 chronicles.formatIt Eth2Digest0x: it.Eth2Digest.shortLog
 chronicles.formatIt SPDIR_SignedBlock: it.shortLog
 chronicles.formatIt SPDIR_SignedAttestation: it.shortLog
+
+# Interchange import
+# --------------------------------------------
+
+proc importInterchangeV5Impl*(
+       db: SlashingProtectionDB_Concept,
+       spdir: var SPDIR
+     ): SlashingImportStatus
+      {.raises: [SerializationError, IOError, Defect].} =
+  ## Common implementation of interchange import
+  ## according to https://eips.ethereum.org/EIPS/eip-3076
+  ## spdir needs to be `var` as it will be sorted in-place
+
+  result = siSuccess
+
+  for v in 0 ..< spdir.data.len:
+    let parsedKey = block:
+      let key = ValidatorPubKey.fromRaw(spdir.data[v].pubkey.PubKeyBytes)
+      if key.isErr:
+        # The bytes does not describe a valid encoding (length error)
+        error "Invalid public key.",
+          pubkey = "0x" & spdir.data[v].pubkey.PubKeyBytes.toHex()
+
+        result = siPartial
+        continue
+      if key.get().loadWithCache().isNone():
+        # The bytes don't deserialize to a valid BLS G1 elliptic curve point.
+        # Deserialization is costly but done only once per validator.
+        # and SlashingDB import is a very rare event.
+        error "Invalid public key.",
+          pubkey = "0x" & spdir.data[v].pubkey.PubKeyBytes.toHex()
+
+        result = siPartial
+        continue
+      key.get()
+
+    # Sort by ascending minimum slot so that we don't trigger MinSlotViolation
+    spdir.data[v].signed_blocks.sort do (a, b: SPDIR_SignedBlock) -> int:
+      result = cmp(a.slot.int, b.slot.int)
+
+    spdir.data[v].signed_attestations.sort do (a, b: SPDIR_SignedAttestation) -> int:
+      result = cmp(a.source_epoch.int, b.source_epoch.int)
+      if result == 0: # Same epoch
+        result = cmp(a.target_epoch.int, b.target_epoch.int)
+
+    const ZeroDigest = Eth2Digest()
+
+    for b in 0 ..< spdir.data[v].signed_blocks.len:
+      template B: untyped = spdir.data[v].signed_blocks[b]
+      let status = db.checkSlashableBlockProposal(
+        parsedKey, B.slot.Slot
+      )
+      if status.isErr():
+        # We might be importing a duplicate which EIP-3076 allows
+        # there is no reason during normal operation to integrate
+        # a duplicate so checkSlashableBlockProposal would have rejected it.
+        # We special-case that for imports.
+        # Note: rule 2 mentions repeat signing in the MinSlotViolation case
+        #       having 2 blocks with the same signing root and different slots
+        #       would break the blockchain so we only check for exact slot.
+        if status.error.kind == DoubleProposal and
+            B.signing_root.Eth2Digest != ZeroDigest and
+            status.error.existingBlock == B.signing_root.Eth2Digest:
+          warn "Block already exists in the DB",
+            candidateBlock = B
+          continue
+        else:
+          error "Slashable block. Skipping its import.",
+            candidateBlock = B,
+            conflict = status.error()
+          result = siPartial
+          continue
+
+      db.registerBlock(
+        parsedKey,
+        B.slot.Slot,
+        B.signing_root.Eth2Digest
+      )
+    for a in 0 ..< spdir.data[v].signed_attestations.len:
+      template A: untyped = spdir.data[v].signed_attestations[a]
+      let status = db.checkSlashableAttestation(
+        parsedKey,
+        A.source_epoch.Epoch,
+        A.target_epoch.Epoch
+      )
+      if status.isErr():
+        # We might be importing a duplicate which EIP-3076 allows
+        # there is no reason during normal operation to integrate
+        # a duplicate so checkSlashableBlockProposal would have rejected it.
+        # We special-case that for imports.
+        if status.error.kind == DoubleVote and
+            A.signing_root.Eth2Digest != ZeroDigest and
+            status.error.existingAttestationRoot == A.signing_root.Eth2Digest:
+          warn "Attestation already exists in the DB",
+            candidateAttestation = A
+          continue
+        else:
+          error "Slashable vote. Skipping its import.",
+            candidateAttestation = A,
+            conflict = status.error()
+          result = siPartial
+          continue
+
+      db.registerAttestation(
+        parsedKey,
+        A.source_epoch.Epoch,
+        A.target_epoch.Epoch,
+        A.signing_root.Eth2Digest
+      )
