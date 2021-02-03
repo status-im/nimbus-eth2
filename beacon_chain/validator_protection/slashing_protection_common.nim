@@ -124,7 +124,7 @@ type
     # --------------------------------------------
     db.toSPDIR() is SPDIR
       # to Slashing Protection Data Intermediate Representation
-      # db.toSPDIR(path)
+      # db.toSPDIR()
     db.inclSPDIR(SPDIR) is SlashingImportStatus
       # include the content of Slashing Protection Data Intermediate Representation
       # in the database
@@ -152,7 +152,7 @@ type
     TargetPrecedesSource # h(t1) < h(s1) - current epoch precedes last justified epoch
 
     # EIP-3067 (https://eips.ethereum.org/EIPS/eip-3076)
-    MinSourceViolation   # h(s2) <= h(s1) - EIP3067 condition 4
+    MinSourceViolation   # h(s2) < h(s1) - EIP3067 condition 4 (strict inequality)
     MinTargetViolation   # h(t2) <= h(t1) - EIP3067 condition 5
 
   BadVote* = object

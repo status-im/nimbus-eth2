@@ -411,7 +411,7 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
   # However this is translated to 0 by the backend.
   # It is better to drop NULL and returns no result
   # if there is actually no result since we always
-  # check SQLite status.
+  # check SQLite status.The "GROUP BY NULL" clause drops NULL
   db.sqlAttMinSourceTargetEpochs = db.backend.prepareStmt("""
     SELECT
       MIN(source_epoch), MIN(target_epoch)
@@ -437,6 +437,8 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
     """, (ValidatorInternalID, int64), Hash32
   ).get()
 
+  # The "GROUP BY NULL" clause drops NULL
+  # which makes aggregate queries more robust.
   db.sqlBlockMinSlot = db.backend.prepareStmt("""
     SELECT
       MIN(slot)
@@ -817,8 +819,9 @@ proc checkSlashableAttestation*(
       ))
 
   # EIP-3067 - Low-watermark
-  # Detect h(s1) <= h(s2), h(t1) <= h(t2)
+  # Detect h(s1) < h(s2), h(t1) <= h(t2)
   # ---------------------------------
+  # Source check is strict inequality
   block:
     # Conditions 4 and 5 at https://eips.ethereum.org/EIPS/eip-3076
     # Low-watermark. This is not in the Eth2 official spec
