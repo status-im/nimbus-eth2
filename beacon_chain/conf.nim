@@ -51,11 +51,6 @@ type
     enabled # Always enabled
     disabled # Always disabled
 
-  DoppelgangerDetectionMode* {.pure.} = enum
-    dontcheck
-    warn
-    stop
-
   BeaconNodeConf* = object
     logLevel* {.
       defaultValue: "INFO"
@@ -266,10 +261,10 @@ type
         name: "dump" }: bool
 
       doppelgangerDetection* {.
-        defaultValue: DoppelgangerDetectionMode.stop
-        desc: "[=stop*] What to do when another validator is detected to be running the same validator keys (default `stop`)"
+        defaultValue: true
+        desc: "Whether to detect whether another validator is be running the same validator keys (default true)"
         name: "doppelganger-detection"
-      }: DoppelgangerDetectionMode
+      }: bool
 
     of createTestnet:
       testnetDepositsFile* {.
