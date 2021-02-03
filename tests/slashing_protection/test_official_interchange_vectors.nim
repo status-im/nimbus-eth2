@@ -157,7 +157,10 @@ proc runTest(identifier: string) =
             "    " & $status & "\n" &
             "    for " & $toHexLogs(blck)
         else:
-          doAssert status.isErr()
+          doAssert status.isErr(),
+            "Unexpected success:\n" &
+            "    " & $status & "\n" &
+            "    for " & $toHexLogs(blck)
 
       for att in step.attestations:
         let status = db.checkSlashableAttestation(
@@ -171,7 +174,10 @@ proc runTest(identifier: string) =
             "    " & $status & "\n" &
             "    for " & $toHexLogs(att)
         else:
-          doAssert status.isErr()
+          doAssert status.isErr(),
+            "Unexpected success:\n" &
+            "    " & $status & "\n" &
+            "    for " & $toHexLogs(att)
 
     # Now close and delete resources.
     db.close()

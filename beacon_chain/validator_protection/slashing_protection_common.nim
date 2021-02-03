@@ -385,7 +385,7 @@ proc importInterchangeV5Impl*(
         # We special-case that for imports.
         if status.error.kind == DoubleVote and
             A.signing_root.Eth2Digest != ZeroDigest and
-            status.error.existingAttestationRoot == A.signing_root.Eth2Digest:
+            status.error.existingAttestation == A.signing_root.Eth2Digest:
           warn "Attestation already exists in the DB",
             pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(),
             candidateAttestation = A
@@ -396,7 +396,6 @@ proc importInterchangeV5Impl*(
             candidateAttestation = A,
             conflict = status.error()
           result = siPartial
-          doAssert false
           continue
 
       db.registerAttestation(
