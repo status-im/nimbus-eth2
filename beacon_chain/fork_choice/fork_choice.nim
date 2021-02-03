@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[intsets, sequtils, tables],
+  std/[sequtils, tables],
   # Status libraries
   stew/results, chronicles,
   # Internal
@@ -18,7 +18,7 @@ import
   ./fork_choice_types, ./proto_array,
   ../block_pools/[spec_cache, chain_dag]
 
-export intsets, results, fork_choice_types
+export results, fork_choice_types
 export proto_array.len
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/fork-choice.md
@@ -174,7 +174,7 @@ proc on_attestation*(
        dag: ChainDAGRef,
        attestation_slot: Slot,
        beacon_block_root: Eth2Digest,
-       attesting_indices: IntSet,
+       attesting_indices: seq[ValidatorIndex],
        wallSlot: Slot
      ): FcResult[void] =
   ? self.update_time(dag, wallSlot)
@@ -191,7 +191,7 @@ proc on_attestation*(
   else:
     self.queuedAttestations.add(QueuedAttestation(
       slot: attestation_slot,
-      attesting_indices: toSeq(attesting_indices),
+      attesting_indices: attesting_indices,
       block_root: beacon_block_root))
   ok()
 
