@@ -134,11 +134,17 @@ proc runTest(identifier: string) =
     for step in t.steps:
       let status = db.inclSPDIR(step.interchange)
       if not step.should_succeed:
-        doAssert siFailure == status
+        doAssert siFailure == status,
+          "Unexpected error:\n" &
+          "    " & $status & "\n"
       elif step.allow_partial_import:
-        doAssert siPartial == status
+        doAssert siPartial == status,
+          "Unexpected error:\n" &
+          "    " & $status & "\n"
       else:
-        doAssert siSuccess == status
+        doAssert siSuccess == status,
+          "Unexpected error:\n" &
+          "    " & $status & "\n"
 
       for blck in step.blocks:
         let status = db.checkSlashableBlockProposal(

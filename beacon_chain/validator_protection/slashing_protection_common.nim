@@ -355,10 +355,12 @@ proc importInterchangeV5Impl*(
             B.signing_root.Eth2Digest != ZeroDigest and
             status.error.existingBlock == B.signing_root.Eth2Digest:
           warn "Block already exists in the DB",
+            pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(),
             candidateBlock = B
           continue
         else:
           error "Slashable block. Skipping its import.",
+            pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(),
             candidateBlock = B,
             conflict = status.error()
           result = siPartial
@@ -385,13 +387,16 @@ proc importInterchangeV5Impl*(
             A.signing_root.Eth2Digest != ZeroDigest and
             status.error.existingAttestationRoot == A.signing_root.Eth2Digest:
           warn "Attestation already exists in the DB",
+            pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(),
             candidateAttestation = A
           continue
         else:
           error "Slashable vote. Skipping its import.",
+            pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(),
             candidateAttestation = A,
             conflict = status.error()
           result = siPartial
+          doAssert false
           continue
 
       db.registerAttestation(

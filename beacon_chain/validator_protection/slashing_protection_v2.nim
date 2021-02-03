@@ -398,6 +398,12 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
     """, (ValidatorInternalID, int64, int64), (int64, int64, Hash32)
   ).get()
 
+  # By default an aggregate always return a value
+  # which can be NULL in SQLite.
+  # However this is translated to 0 by the backend.
+  # It is better to drop NULL and returns no result
+  # if there is actually no result since we always
+  # check SQLite status.
   db.sqlAttMinSourceTargetEpochs = db.backend.prepareStmt("""
     SELECT
       MIN(source_epoch), MIN(target_epoch)
@@ -405,6 +411,8 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
       signed_attestations
     WHERE
       validator_id = ?
+    GROUP BY
+      NULL
     """, ValidatorInternalID, (int64, int64)
   ).get()
 
@@ -733,18 +741,20 @@ proc checkSlashableAttestation*(
       minSourceEpoch = res.source
       minTargetEpoch = res.target
 
-    if source.int64 < minSourceEpoch:
-      return err(BadVote(
-        kind: MinSourceViolation,
-        minSource: Epoch minSourceEpoch,
-        candidateSource: source
-      ))
-    if target.int64 <= minTargetEpoch:
-      return err(BadVote(
-        kind: MinTargetViolation,
-        minTarget: Epoch minSourceEpoch,
-        candidateTarget: target
-      ))
+    if status.foundAnyResult():
+      if source.int64 < minSourceEpoch:
+        return err(BadVote(
+          kind: MinSourceViolation,
+          minSource: Epoch minSourceEpoch,
+          candidateSource: source
+        ))
+
+      if target.int64 <= minTargetEpoch:
+        return err(BadVote(
+          kind: MinTargetViolation,
+          minTarget: Epoch minSourceEpoch,
+          candidateTarget: target
+        ))
 
   return ok()
 
