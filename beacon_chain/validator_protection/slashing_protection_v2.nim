@@ -16,7 +16,7 @@ import
   # Internal
   ../spec/[datatypes, digest, crypto],
   ../ssz,
-  ./slashing_protection_types
+  ./slashing_protection_common
 
 # Requirements
 # --------------------------------------------

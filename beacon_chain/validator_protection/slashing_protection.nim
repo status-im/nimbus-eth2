@@ -13,11 +13,11 @@ import
   stew/results, chronicles,
   # Internal
   ../spec/[datatypes, digest, crypto],
-  ./slashing_protection_types,
+  ./slashing_protection_common,
   ./slashing_protection_v1,
   ./slashing_protection_v2
 
-export slashing_protection_types
+export slashing_protection_common
 # Generic sandwich
 export chronicles
 

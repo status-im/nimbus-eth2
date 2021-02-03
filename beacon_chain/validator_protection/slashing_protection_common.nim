@@ -379,7 +379,7 @@ proc importInterchangeV5Impl*(
       if status.isErr():
         # We might be importing a duplicate which EIP-3076 allows
         # there is no reason during normal operation to integrate
-        # a duplicate so checkSlashableBlockProposal would have rejected it.
+        # a duplicate so checkSlashableAttestation would have rejected it.
         # We special-case that for imports.
         if status.error.kind == DoubleVote and
             A.signing_root.Eth2Digest != ZeroDigest and
