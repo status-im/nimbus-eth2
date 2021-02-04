@@ -563,6 +563,35 @@ proc initCompatV1*(T: type SlashingProtectionDB_v2,
   # Cached queries
   result.setupCachedQueries()
 
+proc getMetadataTable_DbV2*(db: SlashingProtectionDB_v2): Option[Eth2Digest] =
+  ## Check if the DB has v2 metadata
+  ## and get its genesis root
+
+  let selectStmt = db.backend.prepareStmt(
+    "SELECT * FROM metadata;",
+    NoParams, (int32, Hash32),
+    managed = false # manual memory management
+  ).get()
+
+  var version: int32
+  var root: Eth2Digest
+  let status = selectStmt.exec do (res: (int32, Hash32)):
+    version = res[0]
+    root.data = res[1]
+
+  selectStmt.dispose()
+
+  if status.isOk():
+    # Privacy, don't display the user private path
+    if version != db.typeof.version():
+      fatal "Incorrect DB version",
+        found = version,
+        expected = db.typeof.version()
+      quit 1
+    return some(root)
+  else:
+    return none(Eth2Digest)
+
 # Resource Management
 # -------------------------------------------------------------
 

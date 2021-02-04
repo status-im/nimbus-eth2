@@ -326,6 +326,21 @@ proc setGenesis(db: SlashingProtectionDB_v1, genesis_validators_root: Eth2Digest
 func version*(_: type SlashingProtectionDB_v1): static int =
   1
 
+proc getMetadataTable_DbV1*(rawdb: KvStoreRef): Option[Eth2Digest] =
+  ## Check if the DB has v2 metadata
+  ## and get its genesis root
+
+  if rawdb.contains(
+        subkey(kGenesisValidatorsRoot)
+      ).get():
+    return some(
+      rawdb.rawGet(
+        subkey(kGenesisValidatorsRoot),
+        Eth2Digest
+    ).get())
+  else:
+    return none(Eth2Digest)
+
 proc checkOrPutGenesis_DbV1*(rawdb: KvStoreRef, genesis_validators_root: Eth2Digest): bool =
   if rawdb.contains(
         subkey(kGenesisValidatorsRoot)

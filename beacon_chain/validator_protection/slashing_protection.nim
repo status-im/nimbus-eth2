@@ -70,6 +70,26 @@ func version*(_: type SlashingProtectionDB): static int =
 # DB Migration
 # -------------------------------------------------------------
 
+proc requiresMigrationFromDB_v1(db: SlashingProtectionDB_v2): bool =
+  ## Migrate a v1 DB to v2.
+  # Check if we have v2 data:
+  let rawdb = kvstore db.getRawDBHandle()
+
+  let v1Root = rawdb.getMetadataTable_DbV1()
+  if v1Root.isNone():
+    return false
+
+  let v2Root = db.getMetadataTable_DbV2()
+  if v2Root.isNone():
+    return true
+
+  if v1Root != v2Root:
+    fatal "Trying to merge-migrate slashing databases from different chains",
+      v1Root = shortLog(v1Root.get()),
+      v2Root = shortLog(v2Root.get())
+    quit 1
+  return true
+
 # Resource Management
 # -------------------------------------------------------------
 
@@ -82,6 +102,7 @@ proc init*(
      ): T =
   ## Initialize or load a slashing protection DB
   ## This is for Beacon Node usage
+  ## Handles DB version migration
 
   doAssert modes.card >= 1, "No slashing protection mode chosen. Choose a v1, a v2 or v1 and v2 slashing DB mode."
   doAssert not(
@@ -97,12 +118,27 @@ proc init*(
     basePath, dbname
   )
 
+  let requiresMigration = result.db_v2.requiresMigrationFromDB_v1()
+
   let rawdb = kvstore result.db_v2.getRawDBHandle()
   if not rawdb.checkOrPutGenesis_DbV1(genesis_validators_root):
     fatal "The slashing database refers to another chain/mainnet/testnet",
       path = basePath/dbname,
       genesis_validators_root = genesis_validators_root
   result.db_v1.fromRawDB(rawdb)
+
+  if requiresMigration:
+    info "Migrating local validators slashing DB from v1 to v2"
+    let spdir = result.db_v1.toSPDIR()
+    let status = result.db_v2.inclSPDIR(spdir)
+    case status
+    of siSuccess:
+      info "Slashing DB migration successful."
+    of siPartial:
+      warn "Slashing DB migration is a partial success."
+    of siFailure:
+      fatal "Slashing DB migration failure. Aborting to protect validators."
+      quit 1
 
 proc init*(
        T: type SlashingProtectionDB,
@@ -112,6 +148,8 @@ proc init*(
   ## Initialize or load a slashing protection DB
   ## With defaults
   ## - v2 DB only, low watermark (regular pruning)
+  ##
+  ## Does not handle migration
   init(
     T, genesis_validators_root, basePath, dbname,
     modes = {kLowWatermarkV2},
@@ -125,6 +163,8 @@ proc loadUnchecked*(
   ## Load a slashing protection DB
   ## Note: This is for CLI tool usage
   ##       this doesn't check the genesis validator root
+  ##
+  ## Does not handle migration
 
   result.modes = {kCompleteArchiveV1, kCompleteArchiveV2}
   result.disagreementBehavior = kCrash
