@@ -377,33 +377,9 @@ proc getTotalValidators(node: BeaconNode): uint64 =
   epochRef.shuffled_active_validator_indices.lenu64()
 
 proc installAttestationSubnetHandlers(node: BeaconNode, subnets: set[uint8]) =
-  const topicParams = TopicParams(
-    topicWeight: 0.015625,
-    timeInMeshWeight: 0.03333333333333333,
-    timeInMeshQuantum: chronos.seconds(12),
-    timeInMeshCap: 300,
-    firstMessageDeliveriesWeight: 0.8611923631641919,
-    firstMessageDeliveriesDecay: 0.8659643233600653,
-    firstMessageDeliveriesCap: 46.44723027156447,
-    meshMessageDeliveriesWeight: -37.221277470375405,
-    meshMessageDeliveriesDecay: 0.9646616199111993,
-    meshMessageDeliveriesThreshold: 13.595606364013024,
-    meshMessageDeliveriesCap: 217.5297018242084,
-    meshMessageDeliveriesActivation: chronos.seconds(204),
-    meshMessageDeliveriesWindow: chronos.seconds(2),
-    meshFailurePenaltyWeight: -37.221277470375405 ,
-    meshFailurePenaltyDecay: 0.9646616199111993,
-    invalidMessageDeliveriesWeight: -6879.999999999998,
-    invalidMessageDeliveriesDecay: 0.9971259067705325
-  )
-
-  static:
-    # compile time validation
-    topicParams.validateParameters().tryGet()
-
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
   for subnet in subnets:
-    node.network.subscribe(getAttestationTopic(node.forkDigest, subnet), topicParams)
+    node.network.subscribe(getAttestationTopic(node.forkDigest, subnet), TopicParams.init()) # don't score attestation subnets for now
 
 proc updateStabilitySubnetMetadata(
     node: BeaconNode, stabilitySubnets: set[uint8]) =
