@@ -798,7 +798,9 @@ proc resetState(m: Eth1Monitor) {.async.} =
   m.eth1Chain.clear()
   m.latestEth1BlockNumber = 0
 
-  await m.dataProvider.close()
+  if m.dataProvider != nil:
+    await m.dataProvider.close()
+    m.dataProvider = nil
 
 proc stop*(m: Eth1Monitor) {.async.} =
   if m.state == Started:
@@ -819,7 +821,7 @@ proc syncBlockRange(m: Eth1Monitor,
                     merkleizer: ref DepositsMerkleizer,
                     fromBlock, toBlock,
                     fullSyncFromBlock: Eth1BlockNumber) {.gcsafe, async.} =
-  doAssert m.eth1Chain.blocks.len > 0
+  doAssert m.eth1Chain.blocks.len > 0 and m.dataProvider != nil
 
   var currentBlock = fromBlock
   while currentBlock <= toBlock:
