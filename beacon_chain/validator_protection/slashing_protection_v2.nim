@@ -541,31 +541,30 @@ func getRawDBHandle*(db: SlashingProtectionDB_v2): SqStoreRef =
   ## Get the underlying raw DB handle
   db.backend
 
-proc initCompatV1*(T: type SlashingProtectionDB_v2,
-           genesis_validators_root: Eth2Digest,
-           basePath: string,
-           dbname: string): T =
-  ## Initialize a new slashing protection database
-  ## or load an existing one with matching genesis root
-  ## `dbname` MUST not be ending with .sqlite3
-
-  let alreadyExists = fileExists(basepath/dbname&".sqlite3")
-
-  result = T(backend: SqStoreRef.init(
-      basePath, dbname,
-      keyspaces = ["kvstore"] # The key compat part
-    ).get())
-  if alreadyExists:
-    result.checkDB(genesis_validators_root)
-  else:
-    result.setupDB(genesis_validators_root)
-
-  # Cached queries
-  result.setupCachedQueries()
-
 proc getMetadataTable_DbV2*(db: SlashingProtectionDB_v2): Option[Eth2Digest] =
   ## Check if the DB has v2 metadata
   ## and get its genesis root
+  let existenceStmt = db.backend.prepareStmt("""
+    SELECT 1
+     FROM sqlite_master
+     WHERE 1=1
+       and type='table'
+       and name='metadata'
+    """, NoParams, int32,
+    managed = false # manual memory management
+  ).get()
+
+  var hasV2: int32
+  let v2exists = existenceStmt.exec do (res: int32):
+    hasV2 = res
+
+  existenceStmt.dispose()
+
+
+  if v2exists.isErr():
+    return none(Eth2Digest)
+  elif hasV2 == 0:
+    return none(Eth2Digest)
 
   let selectStmt = db.backend.prepareStmt(
     "SELECT * FROM metadata;",
@@ -591,6 +590,28 @@ proc getMetadataTable_DbV2*(db: SlashingProtectionDB_v2): Option[Eth2Digest] =
     return some(root)
   else:
     return none(Eth2Digest)
+
+proc initCompatV1*(T: type SlashingProtectionDB_v2,
+           genesis_validators_root: Eth2Digest,
+           basePath: string,
+           dbname: string): T =
+  ## Initialize a new slashing protection database
+  ## or load an existing one with matching genesis root
+  ## `dbname` MUST not be ending with .sqlite3
+
+  let alreadyExists = fileExists(basepath/dbname&".sqlite3")
+
+  result = T(backend: SqStoreRef.init(
+      basePath, dbname,
+      keyspaces = ["kvstore"] # The key compat part
+    ).get())
+  if alreadyExists and result.getMetadataTable_DbV2().isSome():
+    result.checkDB(genesis_validators_root)
+  else:
+    result.setupDB(genesis_validators_root)
+
+  # Cached queries
+  result.setupCachedQueries()
 
 # Resource Management
 # -------------------------------------------------------------
