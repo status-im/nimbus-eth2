@@ -1062,7 +1062,9 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     if m.eth1Chain.hasConsensusViolation:
       raise newException(CorruptDataProvider, "Eth1 chain contradicts Eth2 consensus")
 
-    await m.eth1Progress.wait()
+    awaitWithTimeout(m.eth1Progress.wait(), 5.minutes):
+      raise newException(CorruptDataProvider, "No eth1 chain progress for too long")
+
     m.eth1Progress.clear()
 
     if m.latestEth1BlockNumber <= m.preset.ETH1_FOLLOW_DISTANCE:
