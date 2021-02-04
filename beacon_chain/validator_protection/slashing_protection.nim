@@ -303,7 +303,7 @@ proc registerAttestation*(
 # --------------------------------------------
 # private for now
 
-proc pruneBlocks(
+proc pruneBlocks*(
        db: SlashingProtectionDB,
        validator: ValidatorPubkey,
        newMinSlot: Slot) =
@@ -317,7 +317,7 @@ proc pruneBlocks(
   fatal "This is a backend specific proc"
   quit 1
 
-proc pruneAttestations(
+proc pruneAttestations*(
        db: SlashingProtectionDB,
        validator: ValidatorPubkey,
        newMinSourceEpoch: Epoch,
@@ -332,7 +332,7 @@ proc pruneAttestations(
   fatal "This is a backend specific proc"
   quit 1
 
-proc pruneAfterFinalization(
+proc pruneAfterFinalization*(
        db: SlashingProtectionDB,
        finalizedEpoch: Epoch
      ) =

@@ -73,6 +73,9 @@ task test, "Run all tests":
   # EF tests
   buildAndRunBinary "all_fixtures_require_ssz", "tests/official/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]""""
 
+  # EIP-3076 - Slashing interchange
+  buildAndRunBinary "test_official_interchange_vectors", "tests/slashing_protection/", """-d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]""""
+
   # Mainnet config
   buildAndRunBinary "proto_array", "beacon_chain/fork_choice/", """-d:const_preset=mainnet -d:chronicles_sinks="json[file]""""
   buildAndRunBinary "fork_choice", "beacon_chain/fork_choice/", """-d:const_preset=mainnet -d:chronicles_sinks="json[file]""""

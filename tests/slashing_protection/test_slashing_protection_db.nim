@@ -39,9 +39,9 @@ func fakeValidator(index: SomeInteger): ValidatorPubKey =
   result.blob[0 ..< 8] = (1'u64 shl 48 + index.uint64).toBytesBE()
 
 proc sqlite3db_delete(basepath, dbname: string) =
-  removeFile(basepath/ dbname&".sqlite3-shm")
-  removeFile(basepath/ dbname&".sqlite3-wal")
-  removeFile(basepath/ dbname&".sqlite3")
+  removeFile(basepath / dbname&".sqlite3-shm")
+  removeFile(basepath / dbname&".sqlite3-wal")
+  removeFile(basepath / dbname&".sqlite3")
 
 const TestDir = ""
 const TestDbName = "test_slashprot"
@@ -113,11 +113,6 @@ suiteReport "Slashing Protection DB" & preset():
       ).isErr()
       # Slot occupied by another validator
       db.checkSlashableBlockProposal(
-        fakeValidator(111),
-        slot = Slot 10
-      ).isOk()
-      # Slot occupied by another validator
-      db.checkSlashableBlockProposal(
         fakeValidator(100),
         slot = Slot 15
       ).isOk()
@@ -174,36 +169,37 @@ suiteReport "Slashing Protection DB" & preset():
       fakeRoot(20)
     )
     for i in 0 ..< 30:
-      if i notin {10, 20}:
-        check:
-          db.checkSlashableBlockProposal(
-            fakeValidator(100),
-            Slot i
-          ).isOk()
+      if i > 10 and i != 20: # MinSlotViolation and DupSlot
+        let status = db.checkSlashableBlockProposal(
+          fakeValidator(100),
+          Slot i
+        )
+        doAssert status.isOk, "error: " & $status
       else:
-         check:
-          db.checkSlashableBlockProposal(
-            fakeValidator(100),
-            Slot i
-          ).isErr()
+        let status = db.checkSlashableBlockProposal(
+          fakeValidator(100),
+          Slot i
+        )
+        doAssert status.isErr, "error: " & $status
     db.registerBlock(
       fakeValidator(100),
       Slot 15,
       fakeRoot(15)
     )
     for i in 0 ..< 30:
-      if i notin {10, 15, 20}:
-        check:
-          db.checkSlashableBlockProposal(
-            fakeValidator(100),
-            Slot i
-          ).isOk()
+      if i > 10 and i notin {15, 20}: # MinSlotViolation and DupSlot
+        let status = db.checkSlashableBlockProposal(
+          fakeValidator(100),
+          Slot i
+        )
+        doAssert status.isOk, "error: " & $status
       else:
-         check:
-          db.checkSlashableBlockProposal(
-            fakeValidator(100),
-            Slot i
-          ).isErr()
+        let status = db.checkSlashableBlockProposal(
+          fakeValidator(100),
+          Slot i
+        )
+        doAssert status.isErr, "error: " & $status
+        check:
           db.checkSlashableBlockProposal(
             fakeValidator(0xDEADBEEF),
             Slot i
@@ -219,50 +215,19 @@ suiteReport "Slashing Protection DB" & preset():
       fakeRoot(17)
     )
     for i in 0 ..< 30:
-      if i notin {10, 12, 15, 17, 20}:
-        check:
-          db.checkSlashableBlockProposal(
-            fakeValidator(100),
-            Slot i
-          ).isOk()
+      if i > 10 and i notin {12, 15, 17, 20}:
+        let status = db.checkSlashableBlockProposal(
+          fakeValidator(100),
+          Slot i
+        )
+        doAssert status.isOk, "error: " & $status
       else:
-         check:
-          db.checkSlashableBlockProposal(
-            fakeValidator(100),
-            Slot i
-          ).isErr()
-          db.checkSlashableBlockProposal(
-            fakeValidator(0xDEADBEEF),
-            Slot i
-          ).isOk()
-    db.registerBlock(
-      fakeValidator(100),
-      Slot 9,
-      fakeRoot(9)
-    )
-    db.registerBlock(
-      fakeValidator(100),
-      Slot 1,
-      fakeRoot(1)
-    )
-    db.registerBlock(
-      fakeValidator(100),
-      Slot 3,
-      fakeRoot(3)
-    )
-    for i in 0 ..< 30:
-      if i notin {1, 3, 9, 10, 12, 15, 17, 20}:
+        let status = db.checkSlashableBlockProposal(
+          fakeValidator(100),
+          Slot i
+        )
+        doAssert status.isErr, "error: " & $status
         check:
-          db.checkSlashableBlockProposal(
-            fakeValidator(100),
-            Slot i
-          ).isOk()
-      else:
-         check:
-          db.checkSlashableBlockProposal(
-            fakeValidator(100),
-            Slot i
-          ).isErr()
           db.checkSlashableBlockProposal(
             fakeValidator(0xDEADBEEF),
             Slot i
@@ -272,24 +237,20 @@ suiteReport "Slashing Protection DB" & preset():
       Slot 29,
       fakeRoot(29)
     )
-    db.registerBlock(
-      fakeValidator(100),
-      Slot 2,
-      fakeRoot(2)
-    )
     for i in 0 ..< 30:
-      if i notin {1, 2, 3, 9, 10, 12, 15, 17, 20, 29}:
-        check:
-          db.checkSlashableBlockProposal(
-            fakeValidator(100),
-            Slot i
-          ).isOk()
+      if i > 10 and i notin {12, 15, 17, 20, 29}:
+        let status = db.checkSlashableBlockProposal(
+          fakeValidator(100),
+          Slot i
+        )
+        doAssert status.isOk, "error: " & $status
       else:
-         check:
-          db.checkSlashableBlockProposal(
-            fakeValidator(100),
-            Slot i
-          ).isErr()
+        let status = db.checkSlashableBlockProposal(
+          fakeValidator(100),
+          Slot i
+        )
+        doAssert status.isErr, "error: " & $status
+        check:
           db.checkSlashableBlockProposal(
             fakeValidator(0xDEADBEEF),
             Slot i
@@ -321,11 +282,6 @@ suiteReport "Slashing Protection DB" & preset():
         fakeValidator(100),
         Epoch 0, Epoch 10,
       ).error.kind == DoubleVote
-      # Epoch occupied by another validator
-      db.checkSlashableAttestation(
-        fakeValidator(111),
-        Epoch 0, Epoch 10
-      ).isOk()
       # Epoch occupied by another validator
       db.checkSlashableAttestation(
         fakeValidator(100),
@@ -538,11 +494,6 @@ suiteReport "Slashing Protection DB" & preset():
         db.checkSlashableAttestation(
           fakeValidator(100),
           Epoch 11, Epoch 21
-        ).isOk
-        # TODO: is that possible?
-        db.checkSlashableAttestation(
-          fakeValidator(100),
-          Epoch 9, Epoch 19
         ).isOk
 
     block:
