@@ -252,7 +252,7 @@ proc validateAttestation*(
   # validator index.
   # Slightly modified to allow only newer attestations than were previously
   # seen (no point in propagating older votes)
-  if (pool.nextAttestationEpoch.lenu64.ValidatorIndex > validator_index) and
+  if (pool.nextAttestationEpoch.lenu64 > validator_index.uint64) and
       pool.nextAttestationEpoch[validator_index].subnet >
         attestation.data.target.epoch:
     return err((ValidationResult.Ignore, cstring(
