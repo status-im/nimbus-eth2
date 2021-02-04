@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2020 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2020-2021 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -23,7 +23,7 @@ fi
 ARCH="${1}"
 DOCKER_TAG="${2}"
 
-if [[ "${ARCH}" == "amd64" ]]; then
+if [[ "${ARCH}" == "amd64" || "${ARCH}" == "win64" ]]; then
   USE_QEMU=0
 else
   USE_QEMU=1
@@ -63,8 +63,6 @@ DOCKER_BUILDKIT=1 \
   docker build \
   -t ${DOCKER_TAG} \
   --progress=plain \
-  --build-arg USER_ID=$(id -u) \
-  --build-arg GROUP_ID=$(id -g) \
   ${DOCKER_EXTRA_ARGS} \
   -f Dockerfile.${ARCH} .
 

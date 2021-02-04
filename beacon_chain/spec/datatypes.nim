@@ -25,7 +25,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[macros, hashes, json, strutils, tables, typetraits],
+  std/[macros, hashes, intsets, json, strutils, tables, typetraits],
   stew/[assign2, byteutils], chronicles,
   json_serialization/types as jsonTypes,
   ../version, ../ssz/types as sszTypes, ./crypto, ./digest, ./presets
@@ -653,9 +653,8 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-  DupProtection* = object
+  DoppelgangerProtection* = object
     broadcastStartEpoch*: Epoch
-    probeEpoch*: Epoch
 
 func getDepositMessage*(depositData: DepositData): DepositMessage =
   result.pubkey = depositData.pubkey
@@ -746,6 +745,18 @@ proc readValue*(reader: var JsonReader, value: var ForkDigest)
   except ValueError:
     raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
 
+# In general, ValidatorIndex is assumed to be convertible to/from an int. This
+# should be valid for a long time, because
+# https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md#configuration
+# notes that "The maximum supported validator count is 2**22 (=4,194,304), or
+# ~134 million ETH staking. Assuming 32 slots per epoch and 64 committees per
+# slot, this gets us to a max 2048 validators in a committee."
+#
+# That's only active validators, so in principle, it can grow larger, but it
+# should be orders of magnitude more validators than expected in the next in
+# the next couple of years, than int32 indexing supports.
+static: doAssert high(int) >= high(int32)
+
 # `ValidatorIndex` seq handling.
 func `[]`*[T](a: var seq[T], b: ValidatorIndex): var T =
   a[b.int]
@@ -753,14 +764,20 @@ func `[]`*[T](a: var seq[T], b: ValidatorIndex): var T =
 func `[]`*[T](a: seq[T], b: ValidatorIndex): auto =
   a[b.int]
 
-func `[]=`*[T](a: var seq[T], b: ValidatorIndex, c: T) =
-  a[b.int] = c
-
 # `ValidatorIndex` Nim integration
 proc `==`*(x, y: ValidatorIndex) : bool {.borrow, noSideEffect.}
 proc `<`*(x, y: ValidatorIndex) : bool {.borrow, noSideEffect.}
 proc hash*(x: ValidatorIndex): Hash {.borrow, noSideEffect.}
 func `$`*(x: ValidatorIndex): auto = $(distinctBase(x))
+
+# TODO Nim 1.4, but not Nim 1.2, defines a function by this name, which works
+# only on openArray[int]. They do the same thing, so either's fine, when both
+# overloads match. The Nim 1.4 stdlib doesn't int-convert but it's a no-op in
+# its case regardless.
+func toIntSet*[T](x: openArray[T]): IntSet =
+  result = initIntSet()
+  for item in items(x):
+    result.incl(item.int)
 
 proc `==`*(x, y: CommitteeIndex) : bool {.borrow, noSideEffect.}
 proc `<`*(x, y: CommitteeIndex) : bool {.borrow, noSideEffect.}

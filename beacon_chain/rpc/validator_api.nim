@@ -102,7 +102,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
                           slot: slot))
 
   rpcServer.rpc("get_v1_validator_duties_proposer") do (
-      epoch: Epoch) -> seq[ValidatorPubkeySlotPair]:
+      epoch: Epoch) -> seq[ValidatorDutiesTuple]:
     debug "get_v1_validator_duties_proposer", epoch = epoch
     let
       head = node.doChecksAndGetCurrentHead(epoch)
@@ -110,6 +110,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     for i in 0 ..< SLOTS_PER_EPOCH:
       if epochRef.beacon_proposers[i].isSome():
         result.add((public_key: epochRef.beacon_proposers[i].get()[1],
+                    validator_index: epochRef.beacon_proposers[i].get()[0],
                     slot: compute_start_slot_at_epoch(epoch) + i))
 
   rpcServer.rpc("post_v1_validator_beacon_committee_subscriptions") do (

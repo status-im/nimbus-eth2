@@ -17,6 +17,7 @@ import
 
   # Local modules
   spec/[datatypes, digest, crypto, helpers, network, signatures],
+  spec/eth2_apis/beacon_rpc_client,
   conf, time, version,
   eth2_network, eth2_discovery, validator_pool, beacon_node_types,
   attestation_aggregation,
@@ -31,10 +32,6 @@ import
 logScope: topics = "vc"
 
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
-
-## Generate client convenience marshalling wrappers from forward declarations
-createRpcSigs(RpcClient, sourceDir / "spec" / "eth2_apis" / "validator_callsigs.nim")
-createRpcSigs(RpcClient, sourceDir / "spec" / "eth2_apis" / "beacon_callsigs.nim")
 
 type
   ValidatorClient = ref object

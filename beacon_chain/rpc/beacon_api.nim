@@ -176,7 +176,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       genesis_time: node.chainDag.headState.data.data.genesis_time,
       genesis_validators_root:
         node.chainDag.headState.data.data.genesis_validators_root,
-      genesis_fork_version: node.config.runtimePreset.GENESIS_FORK_VERSION
+      genesis_fork_version: node.runtimePreset.GENESIS_FORK_VERSION
     )
 
   rpcServer.rpc("get_v1_beacon_states_root") do (stateId: string) -> Eth2Digest:

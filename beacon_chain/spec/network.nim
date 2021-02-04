@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[strformat, sets],
+  std/[intsets, strformat],
   ./datatypes, ./helpers, ./validator
 
 const
@@ -86,11 +86,12 @@ func getAttestationTopic*(forkDigest: ForkDigest, subnetIndex: uint64):
   except ValueError as e:
     raiseAssert e.msg
 
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#validator-assignments
 iterator get_committee_assignments*(
     state: BeaconState, epoch: Epoch,
-    validator_indices: HashSet[ValidatorIndex],
+    validator_indices: IntSet,
     cache: var StateCache):
-    tuple[validatorIndices: HashSet[ValidatorIndex],
+    tuple[validatorIndices: IntSet,
       committeeIndex: CommitteeIndex,
       subnetIndex: uint8, slot: Slot] =
   let
@@ -102,7 +103,7 @@ iterator get_committee_assignments*(
       let
         idx = index.CommitteeIndex
         includedIndices =
-          toHashSet(get_beacon_committee(state, slot, idx, cache)) *
+          toIntSet(get_beacon_committee(state, slot, idx, cache)) *
             validator_indices
       if includedIndices.len > 0:
         yield (

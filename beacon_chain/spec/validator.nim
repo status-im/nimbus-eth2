@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -369,31 +369,3 @@ func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache, slot:
 func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache):
     Option[ValidatorIndex] =
   get_beacon_proposer_index(state, cache, state.slot)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#validator-assignments
-func get_committee_assignment*(
-    state: BeaconState, epoch: Epoch,
-    validator_index: ValidatorIndex):
-    Option[tuple[a: seq[ValidatorIndex], b: CommitteeIndex, c: Slot]] =
-  ## Return the committee assignment in the ``epoch`` for ``validator_index``.
-  ## ``assignment`` returned is a tuple of the following form:
-  ##     * ``assignment[0]`` is the list of validators in the committee
-  ##     * ``assignment[1]`` is the index to which the committee is assigned
-  ##     * ``assignment[2]`` is the slot at which the committee is assigned
-  ## Return None if no assignment.
-  let next_epoch = get_current_epoch(state) + 1
-  doAssert epoch <= next_epoch
-
-  var cache = StateCache()
-
-  let
-    start_slot = compute_start_slot_at_epoch(epoch)
-    committee_count_per_slot =
-      get_committee_count_per_slot(state, epoch, cache)
-  for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
-    for index in 0'u64 ..< committee_count_per_slot:
-      let idx = index.CommitteeIndex
-      let committee = get_beacon_committee(state, slot, idx, cache)
-      if validator_index in committee:
-        return some((committee, idx, slot))
-  none(tuple[a: seq[ValidatorIndex], b: CommitteeIndex, c: Slot])

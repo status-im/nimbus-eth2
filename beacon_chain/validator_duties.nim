@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -213,9 +213,9 @@ proc createAndSendAttestation(node: BeaconNode,
 
   let (delayStr, delayMillis) =
     if wallTime < deadline:
-      (humaneStr(deadline - wallTime) & " earlier", -toFloatSeconds(deadline - wallTime))
+      ("-" & $(deadline - wallTime), -toFloatSeconds(deadline - wallTime))
     else:
-      (humaneStr(wallTime - deadline), toFloatSeconds(wallTime - deadline))
+      ($(wallTime - deadline), toFloatSeconds(wallTime - deadline))
 
   notice "Attestation sent", attestation = shortLog(attestation),
                              validator = shortLog(validator), delay = delayStr,
@@ -261,7 +261,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       assign(poolPtr.tmpState, poolPtr.headState)
 
     makeBeaconBlock(
-      node.config.runtimePreset,
+      node.runtimePreset,
       hashedState,
       validator_index,
       head.root,
@@ -615,16 +615,14 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   var curSlot = lastSlot + 1
 
-  # The dontcheck option's a deliberately undocumented escape hatch for the
-  # local testnets and similar development and testing use cases.
-  if curSlot.epoch <
-        node.processor[].gossipSlashingProtection.broadcastStartEpoch and
-      curSlot.epoch != node.processor[].gossipSlashingProtection.probeEpoch and
-      node.config.gossipSlashingProtection == GossipSlashingProtectionMode.stop:
-    notice "Waiting to gossip out to detect potential duplicate validators",
+  # If broadcastStartEpoch is 0, it hasn't had time to initialize yet, which
+  # means that it'd be okay not to continue, but it won't gossip regardless.
+  if  curSlot.epoch <
+        node.processor[].doppelgangerDetection.broadcastStartEpoch and
+      node.config.doppelgangerDetection:
+    debug "Waiting to gossip out to detect potential duplicate validators",
       broadcastStartEpoch =
-        node.processor[].gossipSlashingProtection.broadcastStartEpoch,
-      probeEpoch = node.processor[].gossipSlashingProtection.probeEpoch
+        node.processor[].doppelgangerDetection.broadcastStartEpoch
     return
 
   # Start by checking if there's work we should have done in the past that we

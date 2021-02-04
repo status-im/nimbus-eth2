@@ -225,11 +225,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Compile                                                                                    OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Time utilities
-```diff
-+ humaneStr                                                                                  OK
-```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Zero signature sanity checks
 ```diff
 + SSZ serialization roundtrip of SignedBeaconBlockHeader                                     OK
@@ -280,4 +275,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 2/2 Fail: 0/2 Skip: 0/2
 
 ---TOTAL---
-OK: 149/158 Fail: 0/158 Skip: 9/158
+OK: 148/157 Fail: 0/157 Skip: 9/157

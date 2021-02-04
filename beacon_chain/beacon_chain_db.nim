@@ -42,7 +42,7 @@ type
     ## between different versions of the client and accidentally using an old
     ## database.
     backend: KvStoreRef
-    preset: RuntimePreset
+    preset*: RuntimePreset
     genesisDeposits*: DepositsSeq
     checkpoint*: proc() {.gcsafe.}
 

@@ -160,7 +160,7 @@ type
 
   QueuedAttestation* = object
     slot*: Slot
-    attesting_indices*: seq[ValidatorIndex]
+    attesting_indices*: seq[int]
     block_root*: Eth2Digest
     target_epoch*: Epoch
 

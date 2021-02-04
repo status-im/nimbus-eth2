@@ -25,8 +25,7 @@ import
   ../beacon_chain/[
     attestation_pool, beacon_node_types, beacon_chain_db,
     validator_pool, eth1_monitor, extras],
-  ../beacon_chain/block_pools/[
-    spec_cache, chain_dag, quarantine, clearance],
+  ../beacon_chain/block_pools/[chain_dag, quarantine, clearance],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
 
@@ -118,7 +117,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
                 data: data,
                 aggregation_bits: aggregation_bits,
                 signature: sig
-              ), [validatorIdx].toHashSet(), data.slot)
+              ), [validatorIdx.int].toIntSet(), data.slot)
 
   proc proposeBlock(slot: Slot) =
     if rand(r, 1.0) > blockRatio:

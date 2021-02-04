@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -20,16 +20,12 @@
 {.push raises: [Defect].}
 
 import
-  std/[algorithm, collections/sets, options, sequtils, sets],
+  std/[algorithm, intsets, options, sequtils],
   chronicles,
   ../extras, ../ssz/merkleization, metrics,
   ./beaconstate, ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
   ./signatures, ./presets,
   ../../nbench/bench_lab
-
-# Generics visibility issue with toSeq(items(intersection(HashSet, HashSet)))
-# https://github.com/nim-lang/Nim/issues/11225
-export sets
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
@@ -215,8 +211,8 @@ proc check_attester_slashing*(
   var slashed_indices: seq[ValidatorIndex]
 
   for index in sorted(toSeq(intersection(
-      toHashSet(attestation_1.attesting_indices.asSeq),
-      toHashSet(attestation_2.attesting_indices.asSeq)).items), system.cmp):
+      toIntSet(attestation_1.attesting_indices.asSeq),
+      toIntSet(attestation_2.attesting_indices.asSeq)).items), system.cmp):
     if is_slashable_validator(
         state.validators.asSeq()[index], get_current_epoch(state)):
       slashed_indices.add index.ValidatorIndex

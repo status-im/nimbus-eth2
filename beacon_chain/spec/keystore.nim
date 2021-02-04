@@ -217,7 +217,7 @@ macro wordListArray*(filename: static string,
                      minWordLen: static int = 0,
                      maxWordLen: static int = high(int)): untyped =
   result = newTree(nnkBracket)
-  var words = slurp(filename).splitLines()
+  var words = slurp(filename.replace('\\', '/')).splitLines()
   for word in words:
     if word.len >= minWordLen and word.len <= maxWordLen:
       result.add newCall("cstring", newLit(word))

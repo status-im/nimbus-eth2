@@ -1,0 +1,18 @@
+# The build is reproducible only if this base image stays the same.
+FROM statusteam/nimbus_beacon_node:dist_base_20210202230118_win64@sha256:47b8ea60a35bd45355f0490677c04a9b42df56b5041cbf64da8ad233511a55d5
+
+SHELL ["/bin/bash", "-c"]
+
+ARG USER_ID
+ARG GROUP_ID
+
+RUN addgroup --gid ${GROUP_ID} user; \
+	adduser --disabled-password --gecos '' --uid ${USER_ID} --gid ${GROUP_ID} user;
+
+USER user
+
+STOPSIGNAL SIGINT
+
+COPY "entry_point.sh" "/home/user/"
+ENTRYPOINT ["/home/user/entry_point.sh", "Windows_amd64"]
+

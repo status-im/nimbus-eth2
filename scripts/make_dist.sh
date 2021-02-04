@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2020 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2020-2021 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -16,7 +16,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")"/..
 CURDIR="${PWD}"
 
 ARCH="${1:-amd64}"
-if [[ "${ARCH}" == "amd64" ]]; then
+if [[ "${ARCH}" == "amd64" || "${ARCH}" == "win64" ]]; then
   USE_QEMU=0
 else
   USE_QEMU=1

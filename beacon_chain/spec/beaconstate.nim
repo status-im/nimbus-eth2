@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[tables, algorithm, math, sequtils, options],
+  std/[algorithm, collections/heapqueue, math, options, sequtils, tables],
   stew/assign2,
   json_serialization/std/sets,
   chronicles,
@@ -476,35 +476,11 @@ proc is_valid_indexed_attestation*(
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_attesting_indices
-iterator get_attesting_indices*(bits: CommitteeValidatorsBits,
-                                committee: openArray[ValidatorIndex]):
-                                  ValidatorIndex =
-  if bits.len == committee.len:
-    for i, index in committee:
-      if bits[i]:
-        yield index
-  else:
-    # This shouldn't happen if one begins with a valid BeaconState and applies
-    # valid updates, but one can construct a BeaconState where it does. Do not
-    # do anything here since the PendingAttestation wouldn't have made it past
-    # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#attestations
-    # which checks len(attestation.aggregation_bits) == len(committee) that in
-    # nimbus-eth2 lives in check_attestation(...).
-    # Addresses https://github.com/status-im/nimbus-eth2/issues/922
-
-    trace "get_attesting_indices: inconsistent aggregation and committee length"
-
-func get_attesting_indices*(bits: CommitteeValidatorsBits,
-                            committee: openArray[ValidatorIndex]):
-                            HashSet[ValidatorIndex] =
-  for idx in get_attesting_indices(bits, committee):
-    result.incl idx
-
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_attesting_indices
 iterator get_attesting_indices*(state: BeaconState,
                                 data: AttestationData,
                                 bits: CommitteeValidatorsBits,
                                 cache: var StateCache): ValidatorIndex =
+  ## Return the set of attesting indices corresponding to ``data`` and ``bits``.
   if bits.lenu64 != get_beacon_committee_len(state, data.slot, data.index.CommitteeIndex, cache):
     trace "get_attesting_indices: inconsistent aggregation and committee length"
   else:
@@ -514,29 +490,30 @@ iterator get_attesting_indices*(state: BeaconState,
         yield index
       inc i
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_attesting_indices
-func get_attesting_indices*(state: BeaconState,
-                            data: AttestationData,
-                            bits: CommitteeValidatorsBits,
-                            cache: var StateCache):
-                            HashSet[ValidatorIndex] =
-  # Return the set of attesting indices corresponding to ``data`` and ``bits``.
+iterator get_sorted_attesting_indices*(state: BeaconState,
+                                       data: AttestationData,
+                                       bits: CommitteeValidatorsBits,
+                                       cache: var StateCache): ValidatorIndex =
+  var heap = initHeapQueue[ValidatorIndex]()
   for index in get_attesting_indices(state, data, bits, cache):
-    result.incl index
+    heap.push(index)
+
+  while heap.len > 0:
+    yield heap.pop()
+
+func get_sorted_attesting_indices_list*(
+    state: BeaconState, data: AttestationData, bits: CommitteeValidatorsBits,
+    cache: var StateCache): List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE] =
+  for index in get_sorted_attesting_indices(state, data, bits, cache):
+    result.add index.uint64
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_indexed_attestation
 func get_indexed_attestation(state: BeaconState, attestation: Attestation,
     cache: var StateCache): IndexedAttestation =
   ## Return the indexed attestation corresponding to ``attestation``.
-  let
-    attesting_indices =
-      get_attesting_indices(
-        state, attestation.data, attestation.aggregation_bits, cache)
-
   IndexedAttestation(
-    attesting_indices:
-      List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE].init(
-        sorted(mapIt(attesting_indices.toSeq, it.uint64), system.cmp)),
+    attesting_indices: get_sorted_attesting_indices_list(
+      state, attestation.data, attestation.aggregation_bits, cache),
     data: attestation.data,
     signature: attestation.signature
   )
@@ -544,15 +521,9 @@ func get_indexed_attestation(state: BeaconState, attestation: Attestation,
 func get_indexed_attestation(state: BeaconState, attestation: TrustedAttestation,
     cache: var StateCache): TrustedIndexedAttestation =
   ## Return the indexed attestation corresponding to ``attestation``.
-  let
-    attesting_indices =
-      get_attesting_indices(
-        state, attestation.data, attestation.aggregation_bits, cache)
-
   TrustedIndexedAttestation(
-    attesting_indices:
-      List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE].init(
-        sorted(mapIt(attesting_indices.toSeq, it.uint64), system.cmp)),
+    attesting_indices: get_sorted_attesting_indices_list(
+      state, attestation.data, attestation.aggregation_bits, cache),
     data: attestation.data,
     signature: attestation.signature
   )

@@ -80,6 +80,7 @@ func enrForkIdFromState(state: BeaconState): ENRForkID =
     next_fork_epoch: FAR_FUTURE_EPOCH)
 
 proc init*(T: type BeaconNode,
+           runtimePreset: RuntimePreset,
            rng: ref BrHmacDrbgContext,
            conf: BeaconNodeConf,
            depositContractAddress: Eth1Address,
@@ -88,7 +89,7 @@ proc init*(T: type BeaconNode,
            genesisStateContents: ref string,
            genesisDepositsSnapshotContents: ref string): Future[BeaconNode] {.async.} =
   let
-    db = BeaconChainDB.init(conf.runtimePreset, conf.databaseDir)
+    db = BeaconChainDB.init(runtimePreset, conf.databaseDir)
 
   var
     genesisState, checkpointState: ref BeaconState
@@ -148,7 +149,7 @@ proc init*(T: type BeaconNode,
         # TODO Could move this to a separate "GenesisMonitor" process or task
         #      that would do only this - see Paul's proposal for this.
         let eth1MonitorRes = await Eth1Monitor.init(
-          conf.runtimePreset,
+          runtimePreset,
           db,
           conf.web3Url,
           depositContractAddress,
@@ -214,7 +215,7 @@ proc init*(T: type BeaconNode,
   let
     chainDagFlags = if conf.verifyFinalization: {verifyFinalization}
                      else: {}
-    chainDag = ChainDAGRef.init(conf.runtimePreset, db, chainDagFlags)
+    chainDag = ChainDAGRef.init(runtimePreset, db, chainDagFlags)
     beaconClock = BeaconClock.init(chainDag.headState.data.data)
     quarantine = QuarantineRef.init(rng)
     databaseGenesisValidatorsRoot =
@@ -262,7 +263,7 @@ proc init*(T: type BeaconNode,
     let genesisDepositsSnapshot = SSZ.decode(genesisDepositsSnapshotContents[],
                                              DepositContractSnapshot)
     eth1Monitor = Eth1Monitor.init(
-      conf.runtimePreset,
+      runtimePreset,
       db,
       conf.web3Url,
       depositContractAddress,
@@ -416,7 +417,7 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
   doAssert epoch >= 1
   let
     attachedValidators = node.getAttachedValidators()
-    validatorIndices = toHashSet(toSeq(attachedValidators.keys()))
+    validatorIndices = toIntSet(toSeq(attachedValidators.keys()))
 
   var cache = StateCache()
 
@@ -455,7 +456,7 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
       validatorIndices,
       is_aggregator(
         committeeLen,
-        await attachedValidators[it].getSlotSig(
+        await attachedValidators[it.ValidatorIndex].getSlotSig(
           node.chainDag.headState.data.data.fork,
           node.chainDag.headState.data.data.genesis_validators_root, slot)))
 
@@ -603,8 +604,7 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) {.async.} =
 proc getInitialAttestationSubnets(node: BeaconNode): Table[uint8, Slot] =
   let
     wallEpoch = node.beaconClock.now().slotOrZero().epoch
-    validatorIndices =
-      toHashSet(toSeq(node.getAttachedValidators().keys()))
+    validatorIndices = toIntSet(toSeq(node.getAttachedValidators().keys()))
 
   var cache = StateCache()
 
@@ -750,46 +750,22 @@ proc removeMessageHandlers(node: BeaconNode) =
   for subnet in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
     node.network.unsubscribe(getAttestationTopic(node.forkDigest, subnet))
 
-proc setupSelfSlashingProtection(node: BeaconNode, slot: Slot) =
+proc setupDoppelgangerDetection(node: BeaconNode, slot: Slot) =
   # When another client's already running, this is very likely to detect
-  # potential duplicate validators, which can trigger slashing. Assuming
-  # the most pessimal case of two validators started simultaneously, the
-  # probability of triggering a slashable condition is up to 1/n, with n
-  # being the number of epochs one waits before proposing or attesting.
+  # potential duplicate validators, which can trigger slashing.
   #
   # Every missed attestation costs approximately 3*get_base_reward(), which
   # can be up to around 10,000 Wei. Thus, skipping attestations isn't cheap
   # and one should gauge the likelihood of this simultaneous launch to tune
   # the epoch delay to one's perceived risk.
-  #
-  # This approach catches both startup and network outage conditions.
-
   const duplicateValidatorEpochs = 2
 
-  node.processor.gossipSlashingProtection.broadcastStartEpoch =
+  node.processor.doppelgangerDetection.broadcastStartEpoch =
     slot.epoch + duplicateValidatorEpochs
-  # randomize() already called; also, never probe on first epoch in guard
-  # period, so that existing, running validators can be picked up. Whilst
-  # this reduces entropy for overlapping-start cases, and increases their
-  # collision likelihood, that can be compensated for by increasing guard
-  # epoch periods by 1. As a corollary, 1 guard epoch won't detect when a
-  # duplicate pair overlaps exactly, only the running/starting case. Even
-  # 2 epochs is dangerous because it'll guarantee colliding probes in the
-  # overlapping case.
-
-  let rng = node.network.rng
-
-  # So dPE == 2 -> epoch + 1, always; dPE == 3 -> epoch + (1 or 2), etc.
-  node.processor.gossipSlashingProtection.probeEpoch =
-    slot.epoch + 1 + rng[].rand(duplicateValidatorEpochs.int - 2).uint64
-  doAssert node.processor.gossipSlashingProtection.probeEpoch <
-    node.processor.gossipSlashingProtection.broadcastStartEpoch
-
-  debug "Setting up self-slashing protection",
+  debug "Setting up doppelganger protection",
     epoch = slot.epoch,
-    probeEpoch = node.processor.gossipSlashingProtection.probeEpoch,
     broadcastStartEpoch =
-      node.processor.gossipSlashingProtection.broadcastStartEpoch
+      node.processor.doppelgangerDetection.broadcastStartEpoch
 
 proc updateGossipStatus(node: BeaconNode, slot: Slot) =
   # Syncing tends to be ~1 block/s, and allow for an epoch of time for libp2p
@@ -824,7 +800,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) =
       headSlot = node.chainDag.head.slot,
       syncQueueLen
 
-    node.setupSelfSlashingProtection(slot)
+    node.setupDoppelgangerDetection(slot)
     node.addMessageHandlers()
     doAssert node.getTopicSubscriptionEnabled()
   elif
@@ -1143,7 +1119,7 @@ proc run*(node: BeaconNode) =
     node.startSyncManager()
 
     if not node.beaconClock.now().toSlot().afterGenesis:
-      node.setupSelfSlashingProtection(curSlot)
+      node.setupDoppelgangerDetection(curSlot)
       node.addMessageHandlers()
       doAssert node.getTopicSubscriptionEnabled()
 
@@ -1521,6 +1497,7 @@ programMain:
     eth1Network: Option[Eth1Network]
     depositContractAddress: Option[Eth1Address]
     depositContractDeployedAt: Option[BlockHashOrNumber]
+    runtimePreset: RuntimePreset
 
   setupStdoutLogging(config.logLevel)
 
@@ -1554,10 +1531,10 @@ programMain:
 
   if config.eth2Network.isSome:
     let metadata = getMetadataForNetwork(config.eth2Network.get)
-    config.runtimePreset = metadata.runtimePreset
+    runtimePreset = metadata.runtimePreset
 
     if config.cmd == noCommand:
-      for node in mainnetMetadata.bootstrapNodes:
+      for node in metadata.bootstrapNodes:
         config.bootstrapNodes.add node
 
       if metadata.genesisData.len > 0:
@@ -1570,7 +1547,7 @@ programMain:
     depositContractDeployedAt = some metadata.depositContractDeployedAt
     eth1Network = metadata.eth1Network
   else:
-    config.runtimePreset = defaultRuntimePreset
+    runtimePreset = defaultRuntimePreset
     when const_preset == "mainnet":
       if config.cmd == noCommand:
         depositContractAddress = some mainnetMetadata.depositContractAddress
@@ -1614,7 +1591,7 @@ programMain:
                  else: (waitFor getEth1BlockHash(config.web3Url, blockId("latest"))).asEth2Digest
     var
       initialState = initialize_beacon_state_from_eth1(
-        config.runtimePreset, eth1Hash, startTime, deposits, {skipBlsValidation})
+        runtimePreset, eth1Hash, startTime, deposits, {skipBlsValidation})
 
     # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
     initialState.genesis_time = startTime
@@ -1639,8 +1616,8 @@ programMain:
           1, # sequence number
           networkKeys.seckey.asEthKey,
           some(config.bootstrapAddress),
-          config.bootstrapPort,
-          config.bootstrapPort,
+          some(config.bootstrapPort),
+          some(config.bootstrapPort),
           [toFieldPair("eth2", SSZ.encode(enrForkIdFromState initialState[])),
            toFieldPair("attnets", SSZ.encode(netMetadata.attnets))])
 
@@ -1675,7 +1652,9 @@ programMain:
     # letting the default Ctrl+C handler exit is safe, since we only read from
     # the db.
     var node = waitFor BeaconNode.init(
-      rng, config,
+      runtimePreset,
+      rng,
+      config,
       depositContractAddress.get,
       depositContractDeployedAt.get,
       eth1Network,
@@ -1744,7 +1723,7 @@ programMain:
         quit QuitFailure
 
       let deposits = generateDeposits(
-        config.runtimePreset,
+        runtimePreset,
         rng[],
         seed,
         walletPath.wallet.nextAccount,
@@ -1763,7 +1742,7 @@ programMain:
           config.outValidatorsDir / "deposit_data-" & $epochTime() & ".json"
 
         let launchPadDeposits =
-          mapIt(deposits.value, LaunchPadDeposit.init(config.runtimePreset, it))
+          mapIt(deposits.value, LaunchPadDeposit.init(runtimePreset, it))
 
         Json.saveFile(depositDataPath, launchPadDeposits)
         echo "Deposit data written to \"", depositDataPath, "\""
@@ -1858,8 +1837,8 @@ programMain:
         config.seqNumber,
         netKeys.seckey.asEthKey,
         some(config.ipExt),
-        config.tcpPortExt,
-        config.udpPortExt,
+        some(config.tcpPortExt),
+        some(config.udpPortExt),
         fieldPairs).expect("Record within size limits")
 
       echo record.toURI()
