@@ -1,3 +1,45 @@
+2021-02-04 v1.0.7
+=================
+
+A release which provides additional protection against accidental slashings and
+further performance improvements across the board.
+
+-----
+
+New additions:
+
+* New slashing protection mechanism (doppelganger detection) prevents your validator
+  from contradicting itself if you have accidentally left it running on another
+  machine(see the `--doppelganger-detection` option).
+
+* Optimized batching of BLS signature verification leading to faster sync speeds
+  and reduced CPU load.
+
+* Further improvements to attestation subnet walking resulting in a reduction in
+  both bandwidth and CPU usage.
+
+* A new `--subscribe-all-subnets` option allowing the node to maintain peers from all
+  attestation subnets (most suitable for bootstrap nodes).
+
+* Official docker images published at https://hub.docker.com/r/statusim/nimbus-eth2
+
+* Reproducible build recipe for creating Nimbus Windows binaries.
+
+We've fixed:
+
+* A bug that had the potential to completely halt all syncing activity.
+
+* Inefficient processing of blocks with Eth1 deposits which occassionally led to
+  increased latencies when delivering attestations.
+
+* Outdated records in our bootstrap nodes list.
+
+* An Eth1 syncing issue which manifested itself as a "Corrupted deposits history detected" error.
+
+* Non-standard encoding of certain data types such as signatures and bit sequences
+  within the results of JSON-RPC requests.
+
+
 2021-01-10 v1.0.6
 =================
 
@@ -14,8 +56,7 @@ significant performance improvements.
 * Improved attestation subnet walking logic: this brings significant reductions
   in bandwidth usage and CPU load.
 
-* Better usage of the Sqlite3 checkpointing API  (minor performance
-  improvement).
+* Better usage of the Sqlite3 checkpointing API (minor performance improvement).
 
 * Larger window for the candidate attestations included in blocks: this can lead
   to higher block rewards.
