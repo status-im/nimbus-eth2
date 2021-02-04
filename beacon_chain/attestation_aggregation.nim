@@ -288,7 +288,7 @@ proc validateAttestation*(
 
   # Only valid attestations go in the list, which keeps validator_index
   # in range
-  if not (pool.nextAttestationEpoch.lenu64.ValidatorIndex > validator_index):
+  if not (pool.nextAttestationEpoch.lenu64 > validator_index.uint64):
     pool.nextAttestationEpoch.setLen(validator_index.int + 1)
   pool.nextAttestationEpoch[validator_index].subnet =
     attestation.data.target.epoch + 1
