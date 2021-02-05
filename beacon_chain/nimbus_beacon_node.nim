@@ -379,6 +379,7 @@ proc getTotalValidators(node: BeaconNode): uint64 =
 
 proc installAttestationSubnetHandlers(node: BeaconNode, subnets: set[uint8]) =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # nimbus won't score attestation subnets for now, we just rely on block and aggregate which are more stabe and reliable
   for subnet in subnets:
     node.network.subscribe(getAttestationTopic(node.forkDigest, subnet), TopicParams.init()) # don't score attestation subnets for now
 
@@ -680,6 +681,8 @@ proc getAttestationSubnetHandlers(node: BeaconNode) =
     node.attestationSubnets.subscribedSubnets + initialStabilitySubnets)
 
 proc addMessageHandlers(node: BeaconNode) =
+  # inspired by lighthouse research here
+  # https://gist.github.com/blacktemplar/5c1862cb3f0e32a1a7fb0b25e79e6e2c#file-generate-scoring-params-py
   const
     blocksTopicParams = TopicParams(
       topicWeight: 0.5,
