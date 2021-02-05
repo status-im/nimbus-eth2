@@ -129,7 +129,7 @@ proc init*(
 
   if requiresMigration:
     info "Migrating local validators slashing DB from v1 to v2"
-    let spdir = result.db_v1.toSPDIR()
+    let spdir = result.db_v1.toSPDIR_lowWatermark()
     let status = result.db_v2.inclSPDIR(spdir)
     case status
     of siSuccess:

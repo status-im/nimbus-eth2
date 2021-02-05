@@ -198,6 +198,11 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Smoke test - Complete format [Preset: mainnet]                                             OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Slashing Protection DB - v1 and v2 migration [Preset: mainnet]
+```diff
++ Minimal format migration [Preset: mainnet]                                                 OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Slashing Protection DB [Preset: mainnet]
 ```diff
 + Attestation ordering #1698                                                                 OK

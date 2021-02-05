@@ -976,10 +976,67 @@ proc pruneAfterFinalization*(
 # Interchange
 # --------------------------------------------
 
+proc toSPDIR_lowWatermark*(db: SlashingProtectionDB_v1): SPDIR
+             {.raises: [IOError, Defect].} =
+  ## Export only the low watermark metadata
+  ## to the Nimbus Slashing Protection Database Intermediate Representation
+  ##
+  ## The full history is lost.
+  result.metadata.interchange_format_version = "5"
+
+  result.metadata.genesis_validators_root = Eth2Digest0x db.get(
+    subkey(kGenesisValidatorsRoot), ETH2Digest
+    # Bug in results.nim
+    # ).expect("Slashing Protection requires genesis_validators_root at init")
+  ).unsafeGet()
+
+  let numValidators = db.get(
+    subkey(kNumValidators),
+    uint32
+  ).get(otherwise = 0'u32)
+
+  for i in 0'u32 ..< numValidators:
+    var validator: SPDIR_Validator
+    validator.pubkey = PubKey0x db.get(
+      subkey(kValidator, i),
+      PubKeyBytes
+    ).unsafeGet()
+
+    template valID: untyped = PubKeyBytes validator.pubkey
+    let ll = db.get(
+      subkey(kLinkedListMeta, valID),
+      KeysEpochs
+    ).unsafeGet()
+
+    # Create a fake block with the highest slot seen
+    # to prevent all signing from lower slots
+    if ll.blockSlots.isInit:
+      validator.signed_blocks.add SPDIR_SignedBlock(
+        slot: SlotString ll.blockSlots.stop
+        # signing_root - empty
+      )
+
+    # Create a fake attestation with the highest epochs seen
+    # to prevent all signing from lower epochs.
+    # In reality, the max source epoch and max target epochs
+    # may be from different attestations.
+    if ll.targetEpochs.isInit:
+      validator.signed_attestations.add SPDIR_SignedAttestation(
+        source_epoch: EpochString ll.sourceEpochs.stop,
+        target_epoch: EpochString ll.targetEpochs.stop,
+      )
+
+    # Update extract without reallocating seqs
+    # by manually transferring ownership
+    result.data.setLen(result.data.len + 1)
+    shallowCopy(result.data[^1], validator)
+
 proc toSPDIR*(db: SlashingProtectionDB_v1): SPDIR
              {.raises: [IOError, Defect].} =
   ## Export the full slashing protection database
-  ## to the Nimbus Slashing Protection Database Intermediate Format
+  ## to the Nimbus Slashing Protection Database Intermediate Representation
+  ##
+  ## Note: this is slow due to how we implement range queries in a KV-store
   result.metadata.interchange_format_version = "5"
 
   result.metadata.genesis_validators_root = Eth2Digest0x db.get(
