@@ -40,3 +40,5 @@
 - [FAQ](./faq.md)
 - [Contribute](./contribute.md)
 - [Resources](./resources.md)
+- [Binary distribution internals](./distribution_internals.md)
+

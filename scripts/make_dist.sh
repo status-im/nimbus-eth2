@@ -13,7 +13,7 @@
 set -e
 
 cd "$(dirname "${BASH_SOURCE[0]}")"/..
-CURDIR="${PWD}"
+REPO_DIR="${PWD}"
 
 ARCH="${1:-amd64}"
 if [[ "${ARCH}" == "amd64" || "${ARCH}" == "win64" ]]; then
@@ -66,7 +66,7 @@ DOCKER_BUILDKIT=1 \
   ${DOCKER_EXTRA_ARGS} \
   -f Dockerfile.${ARCH} .
 
-docker run --rm --name ${DOCKER_TAG} -v ${CURDIR}:/home/user/nimbus-eth2 ${DOCKER_TAG}
+docker run --rm --name ${DOCKER_TAG} -v ${REPO_DIR}:/home/user/nimbus-eth2 ${DOCKER_TAG}
 
 if [[ "${USE_QEMU}" == "1" ]]; then
   rm "${QEMU_NAME}"
