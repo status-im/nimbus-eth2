@@ -39,6 +39,7 @@ fi
 # Windows detection
 if uname | grep -qiE "mingw|msys"; then
   MAKE="mingw32-make"
+  # This "winpty" wrapper is needed to make Ctrl+C work, on some systems.
   WINPTY="winpty --"
 else
   MAKE="make"
