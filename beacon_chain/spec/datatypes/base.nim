@@ -63,6 +63,9 @@ const
   MAX_GRAFFITI_SIZE = 32
   FAR_FUTURE_SLOT* = (not 0'u64).Slot
 
+  # Ideally align reasonably with fewish SQLite pages
+  VALIDATOR_CHUNK_SIZE* = 2048
+
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#configuration
   MAXIMUM_GOSSIP_CLOCK_DISPARITY* = 500.millis
 
@@ -642,6 +645,68 @@ type
     previous_justified_checkpoint*: Checkpoint
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
+
+  # TODO BeaconStateNoImmutableValidators and getBeaconStateNoImmutableValidators should
+  # be beacon chain db creatures, and live there
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#beaconstate
+  BeaconStateNoImmutableValidators* = object
+    # Versioning
+    genesis_time*: uint64
+    genesis_validators_root*: Eth2Digest
+    slot*: Slot
+    fork*: Fork
+
+    # History
+    latest_block_header*: BeaconBlockHeader ##\
+    ## `latest_block_header.state_root == ZERO_HASH` temporarily
+
+    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
+    ## Needed to process attestations, older to newer
+
+    state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+    historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
+
+    # Eth1
+    eth1_data*: Eth1Data
+    eth1_data_votes*:
+      HashList[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
+    eth1_deposit_index*: uint64
+
+    # Registry
+    # TODO HashList vs List? zahary likes List
+    validators*: List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Randomness
+    randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
+
+    # Slashings
+    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
+    ## Per-epoch sums of slashed effective balances
+
+    # Attestations
+    previous_epoch_attestations*:
+      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
+    current_epoch_attestations*:
+      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
+
+    # Finality
+    justification_bits*: uint8 ##\
+    ## Bit set for every recent justified epoch
+    ## Model a Bitvector[4] as a one-byte uint, which should remain consistent
+    ## with ssz/hashing.
+
+    previous_justified_checkpoint*: Checkpoint ##\
+    ## Previous epoch snapshot
+
+    current_justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+
+  ImmutableValidatorList* = object
+    # all but one in db at any time will be full, so optimize for that
+    # in terms of database fragmentation etc
+    count*: uint64
+    immutableValidators*: array[VALIDATOR_CHUNK_SIZE, ImmutableValidatorData]
 
   DoppelgangerProtection* = object
     broadcastStartEpoch*: Epoch

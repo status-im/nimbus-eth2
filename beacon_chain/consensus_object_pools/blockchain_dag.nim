@@ -11,6 +11,7 @@ import
   std/[options, sequtils, tables, sets],
   stew/assign2,
   metrics, snappy, chronicles,
+  ../statediff,
   ../ssz/[ssz_serialization, merkleization], ../beacon_chain_db, ../extras,
   ../spec/[
     crypto, datatypes, digest, helpers, validator, state_transition,
@@ -533,6 +534,25 @@ proc getState(dag: ChainDAGRef, state: var StateData, bs: BlockSlot): bool =
 
   false
 
+func getImmutableValidators*(state: BeaconState):
+    (ValidatorIndex, ref ImmutableValidatorList) =
+  let
+    numValidators = state.validators.lenu64
+    baseIndex = numValidators - (numValidators mod VALIDATOR_CHUNK_SIZE)
+    validatorsInChunk = numValidators - baseIndex
+
+  # TODO this can miss validators if it's not called frequently enough; might
+  # need backup mechanism or tying putState() to churn rate or tracking what,
+  # regardless of when, the last call stored immutable-validator-wise.
+  var immutableValidators = new ImmutableValidatorList
+  doAssert numValidators >= baseIndex
+  immutableValidators[].count = validatorsInChunk
+  for i in 0 ..< validatorsInChunk:
+    immutableValidators[].immutableValidators[i] =
+      getImmutableValidatorData(state.validators[baseIndex + i])
+
+  (baseIndex.ValidatorIndex, immutableValidators)
+
 proc putState*(dag: ChainDAGRef, state: StateData) =
   # Store a state and its root
   logScope:
@@ -550,7 +570,10 @@ proc putState*(dag: ChainDAGRef, state: StateData) =
   # Ideally we would save the state and the root lookup cache in a single
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
-  dag.db.putState(state.data.root, state.data.data)
+  let (baseIndex, immutableValidators) = getImmutableValidators(state.data.data)
+  dag.db.putImmutableValidators(baseIndex, immutableValidators[])
+  dag.db.putStateOnlyMutableValidators(
+    state.data.root, getBeaconStateNoImmutableValidators(state.data.data)[])
   dag.db.putStateRoot(state.blck.root, state.data.data.slot, state.data.root)
 
 func getRef*(dag: ChainDAGRef, root: Eth2Digest): BlockRef =

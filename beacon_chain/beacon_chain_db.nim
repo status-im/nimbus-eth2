@@ -6,7 +6,7 @@ import
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
   ./networking/network_metadata,
-  ./spec/[crypto, datatypes, digest, state_transition],
+  ./spec/[crypto, datatypes, digest, helpers, state_transition],
   ./ssz/[ssz_serialization, merkleization],
   ./eth1/merkle_minimal,
   ./filepath
@@ -96,6 +96,9 @@ type
       ## a simple append-diff representation helps significantly. Various roots
       ## are stored in a mod-increment pattern across fixed-sized arrays, which
       ## addresses most of the rest of the BeaconState sizes.
+    kImmutableValidatorChunk
+      ## for immutable validators
+    kHashToStateOnlyMutableValidators
 
   BeaconBlockSummary* = object
     slot*: Slot
@@ -122,6 +125,10 @@ func subkey[N: static int](kind: DbKeyKind, key: array[N, byte]):
 func subkey(kind: type BeaconState, key: Eth2Digest): auto =
   subkey(kHashToState, key.data)
 
+func subkey(
+    kind: type BeaconStateNoImmutableValidators, key: Eth2Digest): auto =
+  subkey(kHashToStateOnlyMutableValidators, key.data)
+
 func subkey(kind: type SignedBeaconBlock, key: Eth2Digest): auto =
   subkey(kHashToBlock, key.data)
 
@@ -130,6 +137,11 @@ func subkey(kind: type BeaconBlockSummary, key: Eth2Digest): auto =
 
 func subkey(kind: type BeaconStateDiff, key: Eth2Digest): auto =
   subkey(kHashToStateDiff, key.data)
+
+func subkey(kind: type ImmutableValidatorList, baseIndex: ValidatorIndex): auto =
+  # TODO include chunk size? or some other adaptation mechanism to allow
+  # changing chunk size without changing schema. tradeoffs though.
+  subkey(kImmutableValidatorChunk, uint_to_bytes8(baseIndex.uint64))
 
 func subkey(root: Eth2Digest, slot: Slot): array[40, byte] =
   var ret: array[40, byte]
@@ -333,6 +345,11 @@ proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
 proc putState*(db: BeaconChainDB, value: BeaconState) =
   db.putState(hash_tree_root(value), value)
 
+proc putStateOnlyMutableValidators*(
+    db: BeaconChainDB, key: Eth2Digest,
+    value: BeaconStateNoImmutableValidators) =
+  db.put(subkey(type value, key), value)
+
 proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
     value: Eth2Digest) =
   db.put(subkey(root, slot), value)
@@ -340,12 +357,20 @@ proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
 proc putStateDiff*(db: BeaconChainDB, root: Eth2Digest, value: BeaconStateDiff) =
   db.put(subkey(BeaconStateDiff, root), value)
 
+proc putImmutableValidators*(
+    db: BeaconChainDB, baseIndex: ValidatorIndex,
+    value: ImmutableValidatorList) =
+  db.put(subkey(ImmutableValidatorList, baseIndex), value)
+
 proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.del(subkey(SignedBeaconBlock, key)).expect("working database (disk broken/full?)")
   db.backend.del(subkey(BeaconBlockSummary, key)).expect("working database (disk broken/full?)")
 
 proc delState*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.del(subkey(BeaconState, key)).expect("working database (disk broken/full?)")
+
+proc delStateOnlyMutableValidators*(db: BeaconChainDB, key: Eth2Digest) =
+  db.backend.del(subkey(BeaconStateNoImmutableValidators, key)).expect("working database")
 
 proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
   db.backend.del(subkey(root, slot)).expect("working database (disk broken/full?)")
@@ -411,6 +436,28 @@ proc getState*(
     rollback(output)
     false
 
+proc getStateOnlyMutableValidators*(
+    db: BeaconChainDB, key: Eth2Digest, output: var BeaconState,
+    rollback: RollbackProc): bool =
+  ## Load state into `output` - BeaconState is large so we want to avoid
+  ## re-allocating it if possible
+  ## Return `true` iff the entry was found in the database and `output` was
+  ## overwritten.
+  ## Rollback will be called only if output was partially written - if it was
+  ## not found at all, rollback will not be called
+  # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
+  #      https://github.com/nim-lang/Nim/issues/14126
+  # TODO RVO is inefficient for large objects:
+  #      https://github.com/nim-lang/Nim/issues/13879
+  case db.get(subkey(BeaconState, key), output)
+  of GetResult.found:
+    true
+  of GetResult.notFound:
+    false
+  of GetResult.corrupted:
+    rollback(output)
+    false
+
 proc getStateRoot*(db: BeaconChainDB,
                    root: Eth2Digest,
                    slot: Slot): Opt[Eth2Digest] =
@@ -420,6 +467,13 @@ proc getStateDiff*(db: BeaconChainDB,
                    root: Eth2Digest): Opt[BeaconStateDiff] =
   result.ok(BeaconStateDiff())
   if db.get(subkey(BeaconStateDiff, root), result.get) != GetResult.found:
+    result.err
+
+proc getImmutableValidators*(
+    db: BeaconChainDB, baseIndex: ValidatorIndex): Opt[ImmutableValidatorList] =
+  result.ok(ImmutableValidatorList())
+  if db.get(subkey(ImmutableValidatorList, baseIndex), result.get) !=
+      GetResult.found:
     result.err
 
 proc getHeadBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
@@ -455,6 +509,11 @@ proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
 
 proc containsState*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(BeaconState, key)).expect("working database (disk broken/full?)")
+
+proc containsStateOnlyMutableValidators*(db: BeaconChainDB, key: Eth2Digest):
+    bool =
+  db.backend.contains(subkey(BeaconStateNoImmutableValidators, key)).expect(
+    "working database")
 
 proc containsStateDiff*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(BeaconStateDiff, key)).expect("working database (disk broken/full?)")
