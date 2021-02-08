@@ -58,7 +58,7 @@ curl -d '{"jsonrpc":"2.0","method":"get_v1_beacon_states_stateId_validators","pa
 ### [`get_v1_beacon_states_stateId_validators_validatorId`](https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateValidator)
 
 ```
-curl -d '{"jsonrpc":"2.0","method":"get_v1_beacon_states_stateId_validators","params":["finalized", "100167"],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+curl -d '{"jsonrpc":"2.0","method":"get_v1_beacon_states_stateId_validators_validatorId","params":["finalized", "100167"],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 ```
 
 ### [`get_v1_beacon_states_stateId_validator_balances`](https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateValidatorBalances)
