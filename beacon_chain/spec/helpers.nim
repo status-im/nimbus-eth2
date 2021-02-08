@@ -86,9 +86,7 @@ func bytes_to_uint64*(data: openArray[byte]): uint64 =
   doAssert data.len == 8
 
   # Little-endian data representation
-  result = 0
-  for i in countdown(7, 0):
-    result = result * 256 + data[i]
+  uint64.fromBytesLE(data)
 
 # Have 1, 4, and 8-byte versions. Spec only defines 8-byte version, but useful
 # to check invariants on rest.
