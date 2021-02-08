@@ -77,7 +77,7 @@ suiteReport "Attestation pool processing" & preset():
         state.data.data, state.blck.root, beacon_committee[0], cache)
 
     pool[].addAttestation(
-      attestation, [beacon_committee[0]].toIntSet(), attestation.data.slot)
+      attestation, @[beacon_committee[0]], attestation.data.slot)
 
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
@@ -106,10 +106,8 @@ suiteReport "Attestation pool processing" & preset():
         state.data.data, state.blck.root, bc1[0], cache)
 
     # test reverse order
-    pool[].addAttestation(
-      attestation1, [bc1[0]].toIntSet, attestation1.data.slot)
-    pool[].addAttestation(
-      attestation0, [bc0[0]].toIntSet, attestation1.data.slot)
+    pool[].addAttestation(attestation1, @[bc1[0]], attestation1.data.slot)
+    pool[].addAttestation(attestation0, @[bc0[0]], attestation1.data.slot)
 
     discard process_slots(
       state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
@@ -130,10 +128,8 @@ suiteReport "Attestation pool processing" & preset():
       attestation1 = makeAttestation(
         state.data.data, state.blck.root, bc0[1], cache)
 
-    pool[].addAttestation(
-      attestation0, [bc0[0]].toIntSet, attestation0.data.slot)
-    pool[].addAttestation(
-      attestation1, [bc0[1]].toIntSet, attestation1.data.slot)
+    pool[].addAttestation(attestation0, @[bc0[0]], attestation0.data.slot)
+    pool[].addAttestation(attestation1, @[bc0[1]], attestation1.data.slot)
 
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
@@ -157,10 +153,8 @@ suiteReport "Attestation pool processing" & preset():
 
     attestation0.combine(attestation1)
 
-    pool[].addAttestation(
-      attestation0, [bc0[0]].toIntSet, attestation0.data.slot)
-    pool[].addAttestation(
-      attestation1, [bc0[1]].toIntSet, attestation1.data.slot)
+    pool[].addAttestation(attestation0, @[bc0[0]], attestation0.data.slot)
+    pool[].addAttestation(attestation1, @[bc0[1]], attestation1.data.slot)
 
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
@@ -183,10 +177,8 @@ suiteReport "Attestation pool processing" & preset():
 
     attestation0.combine(attestation1)
 
-    pool[].addAttestation(
-      attestation1, [bc0[1]].toIntSet, attestation1.data.slot)
-    pool[].addAttestation(
-      attestation0, [bc0[0]].toIntSet, attestation0.data.slot)
+    pool[].addAttestation(attestation1, @[bc0[1]], attestation1.data.slot)
+    pool[].addAttestation(attestation0, @[bc0[0]], attestation0.data.slot)
 
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
@@ -253,8 +245,7 @@ suiteReport "Attestation pool processing" & preset():
         state.data.data, state.data.data.slot - 1, 1.CommitteeIndex, cache)
       attestation0 = makeAttestation(state.data.data, b10.root, bc1[0], cache)
 
-    pool[].addAttestation(
-      attestation0, [bc1[0]].toIntSet, attestation0.data.slot)
+    pool[].addAttestation(attestation0, @[bc1[0]], attestation0.data.slot)
 
     let head2 = pool[].selectHead(b10Add[].slot)
 
@@ -265,8 +256,7 @@ suiteReport "Attestation pool processing" & preset():
     let
       attestation1 = makeAttestation(state.data.data, b11.root, bc1[1], cache)
       attestation2 = makeAttestation(state.data.data, b11.root, bc1[2], cache)
-    pool[].addAttestation(
-      attestation1, [bc1[1]].toIntSet, attestation1.data.slot)
+    pool[].addAttestation(attestation1, @[bc1[1]], attestation1.data.slot)
 
     let head3 = pool[].selectHead(b10Add[].slot)
     let bigger = if b11.root.data < b10.root.data: b10Add else: b11Add
@@ -275,8 +265,7 @@ suiteReport "Attestation pool processing" & preset():
       # Ties broken lexicographically in spec -> ?
       head3 == bigger[]
 
-    pool[].addAttestation(
-      attestation2, [bc1[2]].toIntSet, attestation2.data.slot)
+    pool[].addAttestation(attestation2, @[bc1[2]], attestation2.data.slot)
 
     let head4 = pool[].selectHead(b11Add[].slot)
 

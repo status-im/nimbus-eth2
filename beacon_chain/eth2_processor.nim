@@ -60,7 +60,7 @@ type
 
   AttestationEntry* = object
     v*: Attestation
-    attesting_indices*: IntSet
+    attesting_indices*: seq[ValidatorIndex]
 
   AggregateEntry* = AttestationEntry
 
@@ -306,7 +306,7 @@ proc blockValidator*(
 
 proc checkForPotentialDoppelganger(
     self: var Eth2Processor, attestationData: AttestationData,
-    attesterIndices: IntSet, wallSlot: Slot) =
+    attesterIndices: openArray[ValidatorIndex], wallSlot: Slot) =
   let epoch = wallSlot.epoch
   if epoch < self.doppelgangerDetection.broadcastStartEpoch:
     let tgtBlck = self.chainDag.getRef(attestationData.target.root)
