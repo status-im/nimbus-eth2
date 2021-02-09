@@ -5,7 +5,7 @@ import
   stew/[endians2, io2, objects, results],
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
-  ./networking/network_metadata,
+  ./networking/network_metadata, ./statediff,
   ./spec/[crypto, datatypes, digest, helpers, state_transition],
   ./ssz/[ssz_serialization, merkleization],
   ./eth1/merkle_minimal,
@@ -336,19 +336,41 @@ proc putBlock*(db: BeaconChainDB, value: SigVerifiedSignedBeaconBlock) =
   db.put(subkey(SignedBeaconBlock, value.root), value)
   db.put(subkey(BeaconBlockSummary, value.root), value.message.toBeaconBlockSummary())
 
+# TODO probably should be statediff, and name is misleading, it's not about
+# getting data from database, but an operation on a state
+func getImmutableValidators*(state: BeaconState):
+    (ValidatorIndex, ref ImmutableValidatorList) =
+  let
+    numValidators = state.validators.lenu64
+    baseIndex = numValidators - (numValidators mod VALIDATOR_CHUNK_SIZE)
+    validatorsInChunk = numValidators - baseIndex
+
+  # TODO this can miss validators if it's not called frequently enough; might
+  # need backup mechanism or tying putState() to churn rate or tracking what,
+  # regardless of when, the last call stored immutable-validator-wise.
+  var immutableValidators = new ImmutableValidatorList
+  doAssert numValidators >= baseIndex
+  immutableValidators[].count = validatorsInChunk
+  for i in 0 ..< validatorsInChunk:
+    immutableValidators[].immutableValidators[i] =
+      getImmutableValidatorData(state.validators[baseIndex + i])
+
+  (baseIndex.ValidatorIndex, immutableValidators)
+
+proc putImmutableValidators*(
+    db: BeaconChainDB, baseIndex: ValidatorIndex,
+    value: ImmutableValidatorList) =
+  db.put(subkey(ImmutableValidatorList, baseIndex), value)
+
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   # TODO prune old states - this is less easy than it seems as we never know
   #      when or if a particular state will become finalized.
-
+  let (baseIndex, immutableValidators) = getImmutableValidators(value)
+  db.putImmutableValidators(baseIndex, immutableValidators[])
   db.put(subkey(type value, key), value)
 
 proc putState*(db: BeaconChainDB, value: BeaconState) =
   db.putState(hash_tree_root(value), value)
-
-proc putStateOnlyMutableValidators*(
-    db: BeaconChainDB, key: Eth2Digest,
-    value: BeaconStateNoImmutableValidators) =
-  db.put(subkey(type value, key), value)
 
 proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
     value: Eth2Digest) =
@@ -357,20 +379,14 @@ proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
 proc putStateDiff*(db: BeaconChainDB, root: Eth2Digest, value: BeaconStateDiff) =
   db.put(subkey(BeaconStateDiff, root), value)
 
-proc putImmutableValidators*(
-    db: BeaconChainDB, baseIndex: ValidatorIndex,
-    value: ImmutableValidatorList) =
-  db.put(subkey(ImmutableValidatorList, baseIndex), value)
-
 proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.del(subkey(SignedBeaconBlock, key)).expect("working database (disk broken/full?)")
   db.backend.del(subkey(BeaconBlockSummary, key)).expect("working database (disk broken/full?)")
 
 proc delState*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.del(subkey(BeaconState, key)).expect("working database (disk broken/full?)")
-
-proc delStateOnlyMutableValidators*(db: BeaconChainDB, key: Eth2Digest) =
-  db.backend.del(subkey(BeaconStateNoImmutableValidators, key)).expect("working database")
+  db.backend.del(subkey(BeaconStateNoImmutableValidators, key)).expect(
+    "working database (disk broken/full?)")
 
 proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
   db.backend.del(subkey(root, slot)).expect("working database (disk broken/full?)")
@@ -414,7 +430,7 @@ proc getBlockSummary*(db: BeaconChainDB, key: Eth2Digest): Opt[BeaconBlockSummar
   if db.get(subkey(BeaconBlockSummary, key), result.get) != GetResult.found:
     result.err()
 
-proc getState*(
+proc getStateOnlyMutableValidators(
     db: BeaconChainDB, key: Eth2Digest, output: var BeaconState,
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
@@ -427,7 +443,9 @@ proc getState*(
   #      https://github.com/nim-lang/Nim/issues/14126
   # TODO RVO is inefficient for large objects:
   #      https://github.com/nim-lang/Nim/issues/13879
-  case db.get(subkey(BeaconState, key), output)
+
+  # TODO reconstruct state from known list of immutable validators
+  case db.get(subkey(BeaconStateNoImmutableValidators, key), output)
   of GetResult.found:
     true
   of GetResult.notFound:
@@ -436,7 +454,7 @@ proc getState*(
     rollback(output)
     false
 
-proc getStateOnlyMutableValidators*(
+proc getState*(
     db: BeaconChainDB, key: Eth2Digest, output: var BeaconState,
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
@@ -508,12 +526,11 @@ proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(SignedBeaconBlock, key)).expect("working database (disk broken/full?)")
 
 proc containsState*(db: BeaconChainDB, key: Eth2Digest): bool =
-  db.backend.contains(subkey(BeaconState, key)).expect("working database (disk broken/full?)")
-
-proc containsStateOnlyMutableValidators*(db: BeaconChainDB, key: Eth2Digest):
-    bool =
+  # TODO doesn't check whether immutable validator covers state, but then,
+  # this function never really checked for the validity of stored state.
   db.backend.contains(subkey(BeaconStateNoImmutableValidators, key)).expect(
-    "working database")
+      "working database  (disk broken/full?)") or
+    db.backend.contains(subkey(BeaconState, key)).expect("working database (disk broken/full?)")
 
 proc containsStateDiff*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(BeaconStateDiff, key)).expect("working database (disk broken/full?)")

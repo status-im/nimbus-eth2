@@ -83,6 +83,8 @@ suiteReport "Beacon chain DB" & preset():
       db.containsState(root)
       hash_tree_root(db.getStateRef(root)[]) == root
 
+    # TODO check state delete
+
     db.close()
 
   wrappedTimedTest "find ancestors" & preset():
@@ -171,3 +173,23 @@ suiteReport "Beacon chain DB" & preset():
 
     check:
       hash_tree_root(state2[]) == root
+
+  wrappedTimedTest "sanity check states 2" & preset():
+    var
+      db = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)
+
+    let
+      state = BeaconStateRef()
+      root = hash_tree_root(state[])
+
+    # TODO it's fine, but maybe for testing purposes should be able to force a
+    # non-split-validators store. the interface isn't yet different
+    db.putState(state[])
+
+    check:
+      db.containsState(root)
+      hash_tree_root(db.getStateRef(root)[]) == root
+
+    # TODO check state delete
+
+    db.close()

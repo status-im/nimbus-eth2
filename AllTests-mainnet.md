@@ -25,9 +25,10 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + sanity check blocks [Preset: mainnet]                                                      OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
++ sanity check states 2 [Preset: mainnet]                                                    OK
 + sanity check states [Preset: mainnet]                                                      OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Beacon node
 ```diff
 + Compile                                                                                    OK
