@@ -4,11 +4,11 @@ Nimbus is a client implementation for both Ethereum 2.0 and Ethereum 1.0 that st
 
 > If you're eager to get started, check out our [quickstart guide](./quick-start.md).
 
-However, resource-restricted hardware is not the only thing Nimbus is good for. Its low resource consumption makes it easy to run Nimbus together with other workloads on your server (this is especially valuable for eth2 stakers looking to lower the cost of their server instances).
+However, resource-restricted hardware is not the only thing Nimbus is good for. Its low resource consumption makes it easy to run Nimbus together with other workloads on your server (this is especially valuable for stakers looking to lower the cost of their server instances).
 
 This book explains the ways in which you can use Nimbus to either monitor the eth2 chain or become a fully-fledged validator.
 
-> The reality is that we are very early in the eth2 validating life cycle. Validating is not for everyone yet, and it comes with both risks and responsibilities. It isn't a particularly easy way to make money. You'll need to put effort into updating your software, researching hard-forks, having a robust setup... . As such, you should only stake if you are genuinely interested in securing the protocol.
+> **N.B.** The reality is that we are very early in the eth2 validating life cycle. Validating is not for everyone yet, and it comes with both risks and responsibilities. It isn't a particularly easy way to make money. You'll need to put effort into updating your software, researching hard-forks, having a robust setup... . As such, you should only stake if you are genuinely interested in securing the protocol.
 
 
 
@@ -29,17 +29,7 @@ Eth2 is a multi-year plan to improve the scalability, security, and programmabil
 
 In contrast to the Ethereum chain, as it currently stands, eth2 uses proof-of-stake (PoS) to secure its network. And while Ethereum as you know and love it will continue to exist as its own independent proof-of-work chain for a little while to come, the transition towards PoS starts now.
 
-In traditional PoW, block proposers are called **_miners_**, whereas in PoS, they are called **_validators_**. In essence, _miners_ rely on actual hardware (such as some specifically manufactured mining machines), while _validators_ rely on software (such as Nimbus) and a good network connection.
-
-### Why Nimbus?
-
-In a sentence, Nimbus aims to be an ethereum client for resource-restricted devices. 
-
-Because we believe that the largest deployment of Ethereum will be on embedded systems, Nimbus is being designed to perform well on IoT and personal mobile devices, including older smartphones with resource-restriced hardware.
-
-Although Nimbus will support full and archival nodes, its main implementation will be as a light client, with a focus on Proof of Stake and sharding.
-
-All our code is open source; we encourage you to keep track of our activity on [GitHub](https://github.com/status-im/nimbus). You can also keep up to date with our progress through the [Nimbus blog](https://our.status.im/tag/nimbus/).
+> In traditional PoW, block proposers are called **_miners_**, whereas in PoS, they are called **_validators_**. In essence, _miners_ rely on actual hardware (such as some specifically manufactured mining machines), while _validators_ rely on software (such as Nimbus) and a good network connection.
 
 
 ### Get in touch
