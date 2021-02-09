@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -25,7 +25,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[macros, hashes, json, strutils, tables, typetraits],
+  std/[macros, hashes, intsets, json, strutils, tables, typetraits],
   stew/[assign2, byteutils], chronicles,
   json_serialization/types as jsonTypes,
   ../version, ../ssz/types as sszTypes, ./crypto, ./digest, ./presets
@@ -61,6 +61,7 @@ const
   # Not part of spec. Still useful, pending removing usage if appropriate.
   ZERO_HASH* = Eth2Digest()
   MAX_GRAFFITI_SIZE = 32
+  FAR_FUTURE_SLOT* = (not 0'u64).Slot
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#configuration
   MAXIMUM_GOSSIP_CLOCK_DISPARITY* = 500.millis
@@ -71,11 +72,44 @@ const
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
   BASE_REWARDS_PER_EPOCH* = 4
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#misc
+  ATTESTATION_SUBNET_COUNT* = 64
+
   # https://github.com/ethereum/eth2.0-specs/pull/2101
   ATTESTATION_PRODUCTION_DIVISOR* = 3
   ATTESTATION_ENTROPY_DIVISOR* = 12
 
 template maxSize*(n: int) {.pragma.}
+
+# Block validation flow
+# We distinguish 4 cases depending
+# if the signature and/or transition logic of a
+# a block have been verified:
+#
+# |                            | Signature unchecked             | Signature verified          |
+# |----------------------------|-------------------------------  |-----------------------------|
+# | State transition unchecked | - UntrustedBeaconBlock          | - SigVerifiedBeaconBlock    |
+# |                            | - UntrustedIndexedAttestation   | - TrustedIndexedAttestation |
+# |                            | - UntrustedAttestation          | - TrustedAttestation        |
+# |----------------------------|-------------------------------  |-----------------------------|
+# | State transition verified  | - TransitionVerifiedBeaconBlock | - TrustedSignedBeaconBlock  |
+# |                            | - UntrustedIndexedAttestation   | - TrustedIndexedAttestation |
+# |                            | - UntrustedAttestation          | - TrustedAttestation        |
+#
+# At the moment we only introduce SigVerifiedBeaconBlock
+# and keep the old naming where BeaconBlock == UntrustedbeaconBlock
+# Also for Attestation, IndexedAttestation, AttesterSlashing, ProposerSlashing.
+# We only distinguish between the base version and the Trusted version
+# (i.e. Attestation and TrustedAttestation)
+# The Trusted version, at the moment, implies that the cryptographic signature was checked.
+# It DOES NOT imply that the state transition was verified.
+# Currently the code MUST verify the state transition as soon as the signature is verified
+#
+# TODO We could implement the trust level as either static enums or generic tags
+# and reduce duplication and improve maintenance and readability,
+# however this caused problems respectively of:
+# - ambiguous calls, in particular for chronicles, with static enums
+# - broke the compiler in SSZ and nim-serialization
 
 type
   # Domains
@@ -119,10 +153,24 @@ type
     signed_header_1*: SignedBeaconBlockHeader
     signed_header_2*: SignedBeaconBlockHeader
 
+  TrustedProposerSlashing* = object
+    # The Trusted version, at the moment, implies that the cryptographic signature was checked.
+    # It DOES NOT imply that the state transition was verified.
+    # Currently the code MUST verify the state transition as soon as the signature is verified
+    signed_header_1*: TrustedSignedBeaconBlockHeader
+    signed_header_2*: TrustedSignedBeaconBlockHeader
+
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#attesterslashing
   AttesterSlashing* = object
     attestation_1*: IndexedAttestation
     attestation_2*: IndexedAttestation
+
+  TrustedAttesterSlashing* = object
+    # The Trusted version, at the moment, implies that the cryptographic signature was checked.
+    # It DOES NOT imply that the state transition was verified.
+    # Currently the code MUST verify the state transition as soon as the signature is verified
+    attestation_1*: TrustedIndexedAttestation
+    attestation_2*: TrustedIndexedAttestation
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#indexedattestation
   IndexedAttestation* = object
@@ -131,6 +179,9 @@ type
     signature*: ValidatorSig
 
   TrustedIndexedAttestation* = object
+    # The Trusted version, at the moment, implies that the cryptographic signature was checked.
+    # It DOES NOT imply that the state transition was verified.
+    # Currently the code MUST verify the state transition as soon as the signature is verified
     attesting_indices*: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]
     data*: AttestationData
     signature*: TrustedSig
@@ -144,6 +195,9 @@ type
     signature*: ValidatorSig
 
   TrustedAttestation* = object
+    # The Trusted version, at the moment, implies that the cryptographic signature was checked.
+    # It DOES NOT imply that the state transition was verified.
+    # Currently the code MUST verify the state transition as soon as the signature is verified
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
     signature*: TrustedSig
@@ -221,6 +275,20 @@ type
 
     body*: BeaconBlockBody
 
+  SigVerifiedBeaconBlock* = object
+    ## A BeaconBlock that contains verified signatures
+    ## but that has not been verified for state transition
+    slot*: Slot
+    proposer_index*: uint64
+
+    parent_root*: Eth2Digest ##\
+    ## Root hash of the previous block
+
+    state_root*: Eth2Digest ##\
+    ## The state root, _after_ this block has been processed
+
+    body*: SigVerifiedBeaconBlockBody
+
   TrustedBeaconBlock* = object
     ## When we receive blocks from outside sources, they are untrusted and go
     ## through several layers of validation. Blocks that have gone through
@@ -272,23 +340,51 @@ type
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
-  TrustedBeaconBlockBody* = object
+  SigVerifiedBeaconBlockBody* = object
+    ## A BeaconBlock body with signatures verified
+    ## including:
+    ## - Randao reveal
+    ## - Attestations
+    ## - ProposerSlashing (SignedBeaconBlockHeader)
+    ## - AttesterSlashing (IndexedAttestation)
+    ## - SignedVoluntaryExits
+    ##
+    ## - ETH1Data (Deposits) can contain invalid BLS signatures
+    ##
+    ## The block state transition has NOT been verified
     randao_reveal*: TrustedSig
     eth1_data*: Eth1Data
     graffiti*: GraffitiBytes
 
     # Operations
-    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*: List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
     attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
-    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+    voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
-  SomeSignedBeaconBlock* = SignedBeaconBlock | TrustedSignedBeaconBlock
-  SomeBeaconBlock* = BeaconBlock | TrustedBeaconBlock
-  SomeBeaconBlockBody* = BeaconBlockBody | TrustedBeaconBlockBody
+  TrustedBeaconBlockBody* = object
+    ## A full verified block
+    randao_reveal*: TrustedSig
+    eth1_data*: Eth1Data
+    graffiti*: GraffitiBytes
+
+    # Operations
+    proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*: List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
+    deposits*: List[Deposit, Limit MAX_DEPOSITS]
+    voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+
+  SomeSignedBeaconBlock* = SignedBeaconBlock | SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock
+  SomeBeaconBlock* = BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock
+  SomeBeaconBlockBody* = BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody
   SomeAttestation* = Attestation | TrustedAttestation
   SomeIndexedAttestation* = IndexedAttestation | TrustedIndexedAttestation
+  SomeProposerSlashing* = ProposerSlashing | TrustedProposerSlashing
+  SomeAttesterSlashing* = AttesterSlashing | TrustedAttesterSlashing
+  SomeSignedBeaconBlockHeader* = SignedBeaconBlockHeader | TrustedSignedBeaconBlockHeader
+  SomeSignedVoluntaryExit* = SignedVoluntaryExit | TrustedSignedVoluntaryExit
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#beaconstate
   BeaconState* = object
@@ -409,10 +505,33 @@ type
     message*: VoluntaryExit
     signature*: ValidatorSig
 
+  TrustedSignedVoluntaryExit* = object
+    message*: VoluntaryExit
+    signature*: TrustedSig
+
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig
+
+    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+
+  SigVerifiedSignedBeaconBlock* = object
+    ## A SignedBeaconBlock with signatures verified
+    ## including:
+    ## - Block signature
+    ## - BeaconBlockBody
+    ##   - Randao reveal
+    ##   - Attestations
+    ##   - ProposerSlashing (SignedBeaconBlockHeader)
+    ##   - AttesterSlashing (IndexedAttestation)
+    ##   - SignedVoluntaryExits
+    ##
+    ##   - ETH1Data (Deposits) can contain invalid BLS signatures
+    ##
+    ## The block state transition has NOT been verified
+    message*: SigVerifiedBeaconBlock
+    signature*: TrustedSig
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
@@ -426,6 +545,10 @@ type
   SignedBeaconBlockHeader* = object
     message*: BeaconBlockHeader
     signature*: ValidatorSig
+
+  TrustedSignedBeaconBlockHeader* = object
+    message*: BeaconBlockHeader
+    signature*: TrustedSig
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#aggregateandproof
   AggregateAndProof* = object
@@ -451,9 +574,13 @@ type
 
   AttestationSubnets* = object
     enabled*: bool
-    nextCycleEpoch*: Epoch
-    subscribedSubnets*: array[2, set[uint8]]
     stabilitySubnets*: seq[tuple[subnet: uint8, expiration: Epoch]]
+    nextCycleEpoch*: Epoch
+
+    # These encode states in per-subnet state machines
+    subscribedSubnets*: set[uint8]
+    subscribeSlot*: array[ATTESTATION_SUBNET_COUNT, Slot]
+    unsubscribeSlot*: array[ATTESTATION_SUBNET_COUNT, Slot]
 
   # This matches the mutable state of the Solidity deposit contract
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/solidity_deposit_contract/deposit_contract.sol
@@ -526,8 +653,8 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-func shortValidatorKey*(state: BeaconState, validatorIdx: int): string =
-  ($state.validators[validatorIdx].pubkey)[0..7]
+  DoppelgangerProtection* = object
+    broadcastStartEpoch*: Epoch
 
 func getDepositMessage*(depositData: DepositData): DepositMessage =
   result.pubkey = depositData.pubkey
@@ -618,6 +745,18 @@ proc readValue*(reader: var JsonReader, value: var ForkDigest)
   except ValueError:
     raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
 
+# In general, ValidatorIndex is assumed to be convertible to/from an int. This
+# should be valid for a long time, because
+# https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md#configuration
+# notes that "The maximum supported validator count is 2**22 (=4,194,304), or
+# ~134 million ETH staking. Assuming 32 slots per epoch and 64 committees per
+# slot, this gets us to a max 2048 validators in a committee."
+#
+# That's only active validators, so in principle, it can grow larger, but it
+# should be orders of magnitude more validators than expected in the next in
+# the next couple of years, than int32 indexing supports.
+static: doAssert high(int) >= high(int32)
+
 # `ValidatorIndex` seq handling.
 func `[]`*[T](a: var seq[T], b: ValidatorIndex): var T =
   a[b.int]
@@ -625,14 +764,20 @@ func `[]`*[T](a: var seq[T], b: ValidatorIndex): var T =
 func `[]`*[T](a: seq[T], b: ValidatorIndex): auto =
   a[b.int]
 
-func `[]=`*[T](a: var seq[T], b: ValidatorIndex, c: T) =
-  a[b.int] = c
-
 # `ValidatorIndex` Nim integration
 proc `==`*(x, y: ValidatorIndex) : bool {.borrow, noSideEffect.}
 proc `<`*(x, y: ValidatorIndex) : bool {.borrow, noSideEffect.}
 proc hash*(x: ValidatorIndex): Hash {.borrow, noSideEffect.}
 func `$`*(x: ValidatorIndex): auto = $(distinctBase(x))
+
+# TODO Nim 1.4, but not Nim 1.2, defines a function by this name, which works
+# only on openArray[int]. They do the same thing, so either's fine, when both
+# overloads match. The Nim 1.4 stdlib doesn't int-convert but it's a no-op in
+# its case regardless.
+func toIntSet*[T](x: openArray[T]): IntSet =
+  result = initIntSet()
+  for item in items(x):
+    result.incl(item.int)
 
 proc `==`*(x, y: CommitteeIndex) : bool {.borrow, noSideEffect.}
 proc `<`*(x, y: CommitteeIndex) : bool {.borrow, noSideEffect.}
@@ -755,7 +900,7 @@ func shortLog*(v: BeaconBlockHeader): auto =
     state_root: shortLog(v.state_root)
   )
 
-func shortLog*(v: SignedBeaconBlockHeader): auto =
+func shortLog*(v: SomeSignedBeaconBlockHeader): auto =
   (
     message: shortLog(v.message),
     signature: shortLog(v.signature)
@@ -806,13 +951,13 @@ func shortLog*(v: SomeIndexedAttestation): auto =
     signature: shortLog(v.signature)
   )
 
-func shortLog*(v: AttesterSlashing): auto =
+func shortLog*(v: SomeAttesterSlashing): auto =
   (
     attestation_1: shortLog(v.attestation_1),
     attestation_2: shortLog(v.attestation_2),
   )
 
-func shortLog*(v: ProposerSlashing): auto =
+func shortLog*(v: SomeProposerSlashing): auto =
   (
     signed_header_1: shortLog(v.signed_header_1),
     signed_header_2: shortLog(v.signed_header_2)
@@ -824,7 +969,7 @@ func shortLog*(v: VoluntaryExit): auto =
     validator_index: v.validator_index
   )
 
-func shortLog*(v: SignedVoluntaryExit): auto =
+func shortLog*(v: SomeSignedVoluntaryExit): auto =
   (
     message: shortLog(v.message),
     signature: shortLog(v.signature)

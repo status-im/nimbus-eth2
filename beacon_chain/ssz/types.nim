@@ -213,6 +213,11 @@ proc clearCaches*(a: var HashList, dataIdx: int64) =
 
   clearCache(a.hashes[0])
 
+proc clearCache*(a: var HashList) =
+  # Clear the full merkle tree, in anticipation of a complete rewrite of the
+  # contents
+  for c in a.hashes.mitems(): clearCache(c)
+
 proc growHashes*(a: var HashList) =
   # Ensure that the hash cache is big enough for the data in the list
   let
@@ -246,12 +251,19 @@ template add*(x: var HashList, val: auto) =
   x.growHashes()
   clearCaches(x, x.data.len() - 1)
 
+proc addDefault*(x: var HashList): ptr x.T =
+  distinctBase(x.data).setLen(x.data.len + 1)
+  x.growHashes()
+  clearCaches(x, x.data.len() - 1)
+  addr x.data[^1]
+
 template len*(x: HashList|HashArray): auto = len(x.data)
 template low*(x: HashList|HashArray): auto = low(x.data)
 template high*(x: HashList|HashArray): auto = high(x.data)
 template `[]`*(x: HashList|HashArray, idx: auto): auto = x.data[idx]
 
 proc `[]`*(a: var HashArray, b: auto): var a.T =
+  # Access item and clear cache - use asSeq when only reading!
   clearCaches(a, b.Limit)
   a.data[b]
 
@@ -260,6 +272,7 @@ proc `[]=`*(a: var HashArray, b: auto, c: auto) =
   a.data[b] = c
 
 proc `[]`*(x: var HashList, idx: auto): var x.T =
+  # Access item and clear cache - use asSeq when only reading!
   clearCaches(x, idx.int64)
   x.data[idx]
 
@@ -273,6 +286,16 @@ template `$`*(x: HashList): auto = $(x.data)
 
 template items* (x: HashList|HashArray): untyped = items(x.data)
 template pairs* (x: HashList|HashArray): untyped = pairs(x.data)
+
+template swap*(a, b: var HashList) =
+  swap(a.data, b.data)
+  swap(a.hashes, b.hashes)
+  swap(a.indices, b.indices)
+
+template clear*(a: var HashList) =
+  a.data.setLen(0)
+  a.hashes.setLen(0)
+  a.indices = default(type a.indices)
 
 template fill*(a: var HashArray, c: auto) =
   mixin fill

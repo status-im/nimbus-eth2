@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2019-2021 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -81,6 +81,7 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	dist-amd64 \
 	dist-arm64 \
 	dist-arm \
+	dist-win64 \
 	dist \
 	benchmarks
 
@@ -373,6 +374,7 @@ publish-book: | book auditors-book
 	git worktree add tmp-book gh-pages && \
 	rm -rf tmp-book/* && \
 	mkdir -p tmp-book/auditors-book && \
+	cp -a docs/the_nimbus_book/CNAME tmp-book/ && \
 	cp -a docs/the_nimbus_book/book/* tmp-book/ && \
 	cp -a docs/the_auditors_handbook/book/* tmp-book/auditors-book/ && \
 	cd tmp-book && \
@@ -395,10 +397,15 @@ dist-arm:
 	MAKE="$(MAKE)" \
 		scripts/make_dist.sh arm
 
+dist-win64:
+	MAKE="$(MAKE)" \
+		scripts/make_dist.sh win64
+
 dist:
 	$(MAKE) dist-amd64
 	$(MAKE) dist-arm64
 	$(MAKE) dist-arm
+	$(MAKE) dist-win64
 
 #- this simple test will show any missing dynamically-linked Glibc symbols in the target distro
 dist-test:

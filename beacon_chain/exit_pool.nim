@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020 Status Research & Development GmbH
+# Copyright (c) 2020-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,7 +9,7 @@
 
 import
   # Standard libraries
-  std/[deques, options, sequtils, sets, tables],
+  std/[deques, intsets, options, sequtils, tables],
   # Status libraries
   chronicles, json_serialization/std/sets as jsonSets,
   # Internal
@@ -17,7 +17,7 @@ import
   ./block_pools/[chain_dag, clearance, quarantine],
   ./beacon_node_types
 
-export beacon_node_types, sets
+export beacon_node_types, intsets
 
 logScope: topics = "exitpool"
 
@@ -58,10 +58,10 @@ iterator getValidatorIndices(attester_slashing: AttesterSlashing): uint64 =
     attestation_2_indices =
       attester_slashing.attestation_2.attesting_indices.asSeq
     attester_slashed_indices =
-      toHashSet(attestation_1_indices) * toHashSet(attestation_2_indices)
+      toIntSet(attestation_1_indices) * toIntSet(attestation_2_indices)
 
   for validator_index in attester_slashed_indices:
-    yield validator_index
+    yield validator_index.uint64
 
 iterator getValidatorIndices(proposer_slashing: ProposerSlashing): uint64 =
   yield proposer_slashing.signed_header_1.message.proposer_index
@@ -155,7 +155,7 @@ proc validateAttesterSlashing*(
     attestation_2_indices =
       attester_slashing.attestation_2.attesting_indices.asSeq
     attester_slashed_indices =
-      toHashSet(attestation_1_indices) * toHashSet(attestation_2_indices)
+      toIntSet(attestation_1_indices) * toIntSet(attestation_2_indices)
 
   if not disjoint(
       attester_slashed_indices, pool.prior_seen_attester_slashed_indices):
@@ -180,10 +180,15 @@ proc validateAttesterSlashing*(
 proc validateProposerSlashing*(
     pool: var ExitPool, proposer_slashing: ProposerSlashing):
     Result[bool, (ValidationResult, cstring)] =
+  # Not from spec; the rest of NBC wouldn't have correctly processed it either.
+  if proposer_slashing.signed_header_1.message.proposer_index > high(int).uint64:
+    return err((ValidationResult.Ignore, cstring(
+      "validateProposerSlashing: proposer-slashed index too high")))
+
   # [IGNORE] The proposer slashing is the first valid proposer slashing
   # received for the proposer with index
   # proposer_slashing.signed_header_1.message.proposer_index.
-  if proposer_slashing.signed_header_1.message.proposer_index in
+  if proposer_slashing.signed_header_1.message.proposer_index.int in
       pool.prior_seen_proposer_slashed_indices:
     return err((ValidationResult.Ignore, cstring(
       "validateProposerSlashing: proposer-slashed index already proposer-slashed")))
@@ -196,7 +201,7 @@ proc validateProposerSlashing*(
     return err((ValidationResult.Reject, proposer_slashing_validity.error))
 
   pool.prior_seen_proposer_slashed_indices.incl(
-    proposer_slashing.signed_header_1.message.proposer_index)
+    proposer_slashing.signed_header_1.message.proposer_index.int)
   pool.proposer_slashings.addExitMessage(
     proposer_slashing, PROPOSER_SLASHINGS_BOUND)
 
@@ -212,7 +217,11 @@ proc validateVoluntaryExit*(
       pool.chainDag.headState.data.data.validators.lenu64:
     return err((ValidationResult.Ignore, cstring(
       "validateVoluntaryExit: validator index too high")))
-  if signed_voluntary_exit.message.validator_index in
+
+  # Since pool.chainDag.headState.data.data.validators is a seq, this means
+  # signed_voluntary_exit.message.validator_index.int is already valid, but
+  # check explicitly if one changes that data structure.
+  if signed_voluntary_exit.message.validator_index.int in
       pool.prior_seen_voluntary_exit_indices:
     return err((ValidationResult.Ignore, cstring(
       "validateVoluntaryExit: validator index already voluntarily exited")))
@@ -226,7 +235,7 @@ proc validateVoluntaryExit*(
     return err((ValidationResult.Reject, voluntary_exit_validity.error))
 
   pool.prior_seen_voluntary_exit_indices.incl(
-    signed_voluntary_exit.message.validator_index)
+    signed_voluntary_exit.message.validator_index.int)
   pool.voluntary_exits.addExitMessage(
     signed_voluntary_exit, VOLUNTARY_EXITS_BOUND)
 

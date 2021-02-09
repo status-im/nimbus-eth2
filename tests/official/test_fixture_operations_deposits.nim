@@ -14,7 +14,7 @@ import
   stew/results,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, beaconstate, presets],
-  ../../beacon_chain/[ssz, extras],
+  ../../beacon_chain/ssz,
   # Test utilities
   ../testutil,
   ./fixtures_utils,
@@ -32,10 +32,7 @@ proc runTest(identifier: string) =
 
   proc `testImpl _ operations_deposits _ identifier`() =
 
-    var flags: UpdateFlags
     var prefix: string
-    if not existsFile(testDir/"meta.yaml"):
-      flags.incl skipBlsValidation
     if existsFile(testDir/"post.ssz"):
       prefix = "[Valid]   "
     else:
@@ -47,10 +44,10 @@ proc runTest(identifier: string) =
 
       if existsFile(testDir/"post.ssz"):
         let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
-        discard process_deposit(defaultRuntimePreset, preState[], deposit, flags)
+        discard process_deposit(defaultRuntimePreset, preState[], deposit)
         reportDiff(preState, postState)
       else:
-        check process_deposit(defaultRuntimePreset, preState[], deposit, flags).isErr
+        check process_deposit(defaultRuntimePreset, preState[], deposit).isErr
 
   `testImpl _ operations_deposits _ identifier`()
 

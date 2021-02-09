@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -278,31 +278,28 @@ func compute_shuffled_index(
   doAssert index < index_count
 
   var
-    pivot_buffer: array[(32+1), byte]
-    source_buffer: array[(32+1+4), byte]
+    source_buffer {.noinit.}: array[(32+1+4), byte]
     cur_idx_permuted = index
 
-  pivot_buffer[0..31] = seed.data
   source_buffer[0..31] = seed.data
 
   # Swap or not (https://link.springer.com/content/pdf/10.1007%2F978-3-642-32009-5_1.pdf)
   # See the 'generalized domain' algorithm on page 3
   for current_round in 0'u8 ..< SHUFFLE_ROUND_COUNT.uint8:
-    pivot_buffer[32] = current_round
     source_buffer[32] = current_round
 
     let
       # If using multiple indices, can amortize this
       pivot =
-        bytes_to_uint64(eth2digest(pivot_buffer).data.toOpenArray(0, 7)) mod
+        bytes_to_uint64(eth2digest(source_buffer.toOpenArray(0, 32)).data.toOpenArray(0, 7)) mod
           index_count
 
       flip = ((index_count + pivot) - cur_idx_permuted) mod index_count
-      position = max(cur_idx_permuted.int, flip.int)
-    source_buffer[33..36] = uint_to_bytes4((position div 256).uint64)
+      position = max(cur_idx_permuted, flip)
+    source_buffer[33..36] = uint_to_bytes4((position shr 8))
     let
       source = eth2digest(source_buffer).data
-      byte_value = source[(position mod 256) div 8]
+      byte_value = source[(position mod 256) shr 3]
       bit = (byte_value shr (position mod 8)) mod 2
 
     cur_idx_permuted = if bit != 0: flip else: cur_idx_permuted
@@ -372,31 +369,3 @@ func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache, slot:
 func get_beacon_proposer_index*(state: BeaconState, cache: var StateCache):
     Option[ValidatorIndex] =
   get_beacon_proposer_index(state, cache, state.slot)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#validator-assignments
-func get_committee_assignment*(
-    state: BeaconState, epoch: Epoch,
-    validator_index: ValidatorIndex):
-    Option[tuple[a: seq[ValidatorIndex], b: CommitteeIndex, c: Slot]] =
-  ## Return the committee assignment in the ``epoch`` for ``validator_index``.
-  ## ``assignment`` returned is a tuple of the following form:
-  ##     * ``assignment[0]`` is the list of validators in the committee
-  ##     * ``assignment[1]`` is the index to which the committee is assigned
-  ##     * ``assignment[2]`` is the slot at which the committee is assigned
-  ## Return None if no assignment.
-  let next_epoch = get_current_epoch(state) + 1
-  doAssert epoch <= next_epoch
-
-  var cache = StateCache()
-
-  let
-    start_slot = compute_start_slot_at_epoch(epoch)
-    committee_count_per_slot =
-      get_committee_count_per_slot(state, epoch, cache)
-  for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
-    for index in 0'u64 ..< committee_count_per_slot:
-      let idx = index.CommitteeIndex
-      let committee = get_beacon_committee(state, slot, idx, cache)
-      if validator_index in committee:
-        return some((committee, idx, slot))
-  none(tuple[a: seq[ValidatorIndex], b: CommitteeIndex, c: Slot])

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -66,12 +66,6 @@ func eth2digest*(v: openArray[byte]): Eth2Digest {.noInit.} =
     ctx.update(v)
     ctx.finish()
 
-when BLS_BACKEND == BLST:
-  func update*(ctx: var BLST_SHA256_CTX; digest: Eth2Digest) =
-    ctx.update digest.data
-func update*(ctx: var sha256; digest: Eth2Digest) =
-  ctx.update digest.data
-
 template withEth2Hash*(body: untyped): Eth2Digest =
   ## This little helper will init the hash function and return the sliced
   ## hash:
@@ -99,10 +93,12 @@ template withEth2Hash*(body: untyped): Eth2Digest =
         body
         finish(h)
 
-func hash*(x: Eth2Digest): Hash =
+template hash*(x: Eth2Digest): Hash =
   ## Hash for digests for Nim hash tables
-  # Stub for BeaconChainDB
+  # digests are already good hashes
+  cast[ptr Hash](unsafeAddr x.data[0])[]
 
-  # We just slice the first 4 or 8 bytes of the block hash
-  # depending of if we are on a 32 or 64-bit platform
-  result = cast[ptr Hash](unsafeAddr x)[]
+func `==`*(a, b: Eth2Digest): bool =
+  # nimcrypto uses a constant-time comparison for all MDigest types which for
+  # Eth2Digest is unnecessary - the type should never hold a secret!
+  equalMem(unsafeAddr a.data[0], unsafeAddr b.data[0], sizeof(a.data))

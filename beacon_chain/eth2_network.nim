@@ -956,7 +956,7 @@ proc resolvePeer(peer: Peer) =
     inc(nbc_successful_discoveries)
     let delay = now(chronos.Moment) - startTime
     nbc_resolve_time.observe(delay.toFloatSeconds())
-    debug "Peer's ENR recovered", delay = $delay
+    debug "Peer's ENR recovered", delay
 
 proc handlePeer*(peer: Peer) {.async.} =
   let res = peer.network.peerPool.addPeerNoWait(peer, peer.direction)
@@ -1093,6 +1093,7 @@ proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
     {"eth2": SSZ.encode(result.forkId), "attnets": SSZ.encode(result.metadata.attnets)},
     rng)
   result.discoveryEnabled = discovery
+  result.rng = rng
 
   newSeq result.protocolStates, allProtocols.len
   for proto in allProtocols:
@@ -1523,7 +1524,13 @@ proc newBeaconSwitch*(conf: BeaconNodeConf, seckey: PrivateKey,
 
   let identify = newIdentify(peerInfo)
 
-  newSwitch(peerInfo, transports, identify, muxers, secureManagers)
+  newSwitch(
+    peerInfo,
+    transports,
+    identify,
+    muxers,
+    secureManagers,
+    maxConnections = conf.maxPeers)
 
 proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      conf: BeaconNodeConf,
@@ -1545,34 +1552,48 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
   var switch = newBeaconSwitch(conf, netKeys.seckey, hostAddress, rng)
 
   let
-    params =
-      block:
-        var p = GossipSubParams.init()
-        # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#the-gossip-domain-gossipsub
-        p.d = 8
-        p.dLow = 6
-        p.dHigh = 12
-        p.dLazy = 6
-        p.heartbeatInterval = 700.milliseconds
-        p.fanoutTTL = 60.seconds
-        p.historyLength = 6
-        p.historyGossip = 3
-        p.seenTTL = 385.seconds
-        p.gossipFactor = 0.05
-        p.directPeers =
-          block:
-            var res = initTable[PeerId, seq[MultiAddress]]()
-            if conf.directPeers.len > 0:
-              for s in conf.directPeers:
-                let
-                  maddress = MultiAddress.init(s).tryGet()
-                  mpeerId = maddress[multiCodec("p2p")].tryGet()
-                  peerId = PeerID.init(mpeerId.protoAddress().tryGet()).tryGet()
-                res.mGetOrPut(peerId, @[]).add(maddress)
-                info "Adding priviledged direct peer", peerId, address = maddress
-            res
-        p.validateParameters().tryGet()
-        p
+    params = GossipSubParams(
+      explicit: true,
+      pruneBackoff: 1.minutes,
+      floodPublish: true,
+      gossipFactor: 0.05,
+      d: 8,
+      dLow: 6,
+      dHigh: 12,
+      dScore: 6,
+      dOut: 6 div 2, # less than dlow and no more than dlow/2
+      dLazy: 6,
+      heartbeatInterval: 700.milliseconds,
+      historyLength: 6,
+      historyGossip: 3,
+      fanoutTTL: 60.seconds,
+      seenTTL: 385.seconds,
+      gossipThreshold: -4000,
+      publishThreshold: -8000,
+      graylistThreshold: -16000, # also disconnect threshold
+      opportunisticGraftThreshold: 0,
+      decayInterval: 12.seconds,
+      decayToZero: 0.01,
+      retainScore: 385.seconds,
+      appSpecificWeight: 0.0,
+      ipColocationFactorWeight: -53.75,
+      ipColocationFactorThreshold: 3.0,
+      behaviourPenaltyWeight: -15.9,
+      behaviourPenaltyDecay: 0.986,
+      disconnectBadPeers: true,
+      directPeers:
+        block:
+          var res = initTable[PeerId, seq[MultiAddress]]()
+          if conf.directPeers.len > 0:
+            for s in conf.directPeers:
+              let
+                maddress = MultiAddress.init(s).tryGet()
+                mpeerId = maddress[multiCodec("p2p")].tryGet()
+                peerId = PeerID.init(mpeerId.protoAddress().tryGet()).tryGet()
+              res.mGetOrPut(peerId, @[]).add(maddress)
+              info "Adding priviledged direct peer", peerId, address = maddress
+          res
+    )
     pubsub = GossipSub.init(
       switch = switch,
       msgIdProvider = msgIdProvider,
@@ -1597,7 +1618,7 @@ proc announcedENR*(node: Eth2Node): enr.Record =
 proc shortForm*(id: KeyPair): string =
   $PeerID.init(id.pubkey)
 
-proc subscribe*(node: Eth2Node, topic: string, enableTopicMetrics: bool = false) =
+proc subscribe*(node: Eth2Node, topic: string, topicParams: TopicParams, enableTopicMetrics: bool = false) =
   proc dummyMsgHandler(topic: string, data: seq[byte]) {.async.} =
     discard
 
@@ -1607,6 +1628,7 @@ proc subscribe*(node: Eth2Node, topic: string, enableTopicMetrics: bool = false)
   if enableTopicMetrics:
     node.pubsub.knownTopics.incl(topicName)
 
+  node.pubsub.topicParams[topicName] = topicParams
   node.pubsub.subscribe(topicName, dummyMsgHandler)
 
 proc setValidTopics*(node: Eth2Node, topics: openArray[string]) =

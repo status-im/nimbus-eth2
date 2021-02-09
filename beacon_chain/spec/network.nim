@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[strformat, sets, random],
+  std/[intsets, strformat],
   ./datatypes, ./helpers, ./validator
 
 const
@@ -18,9 +18,6 @@ const
   topicProposerSlashingsSuffix* = "proposer_slashing/ssz"
   topicAttesterSlashingsSuffix* = "attester_slashing/ssz"
   topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz"
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#misc
-  ATTESTATION_SUBNET_COUNT* = 64
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#eth2-network-interaction-domains
   MAX_CHUNK_SIZE* = 1 * 1024 * 1024 # bytes
@@ -89,79 +86,27 @@ func getAttestationTopic*(forkDigest: ForkDigest, subnetIndex: uint64):
   except ValueError as e:
     raiseAssert e.msg
 
-func get_committee_assignments*(
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#validator-assignments
+iterator get_committee_assignments*(
     state: BeaconState, epoch: Epoch,
-    validator_indices: HashSet[ValidatorIndex]):
-    seq[tuple[subnetIndex: uint8, slot: Slot]] =
-  var cache = StateCache()
-
+    validator_indices: IntSet,
+    cache: var StateCache):
+    tuple[validatorIndices: IntSet,
+      committeeIndex: CommitteeIndex,
+      subnetIndex: uint8, slot: Slot] =
   let
     committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
     start_slot = compute_start_slot_at_epoch(epoch)
 
   for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
     for index in 0'u64 ..< committees_per_slot:
-      let idx = index.CommitteeIndex
-      if not disjoint(validator_indices,
-          get_beacon_committee(state, slot, idx, cache).toHashSet):
-        result.add(
-          (compute_subnet_for_attestation(committees_per_slot, slot, idx).uint8,
-            slot))
-
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
-proc getStabilitySubnetLength*(): uint64 =
-  EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION +
-    rand(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION.int).uint64
-
-proc get_attestation_subnet_changes*(
-    state: BeaconState, attachedValidators: openArray[ValidatorIndex],
-    prevAttestationSubnets: AttestationSubnets):
-    tuple[a: AttestationSubnets, b: set[uint8], c: set[uint8]] =
-  static: doAssert ATTESTATION_SUBNET_COUNT == 64  # Fits in a set[uint8]
-
-  # Guaranteed equivalent to wallSlot by cycleAttestationSubnets(), especially
-  # since it'll try to run early in epochs, avoiding race conditions.
-  let epoch = state.slot.epoch
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
-  var
-    attestationSubnets = prevAttestationSubnets
-    prevStabilitySubnets: set[uint8] = {}
-    stabilitySet: set[uint8] = {}
-  for i in 0 ..< attestationSubnets.stabilitySubnets.len:
-    static: doAssert ATTESTATION_SUBNET_COUNT <= high(uint8)
-    prevStabilitySubnets.incl attestationSubnets.stabilitySubnets[i].subnet
-
-    if epoch >= attestationSubnets.stabilitySubnets[i].expiration:
-      attestationSubnets.stabilitySubnets[i].subnet =
-        rand(ATTESTATION_SUBNET_COUNT - 1).uint8
-      attestationSubnets.stabilitySubnets[i].expiration =
-        epoch + getStabilitySubnetLength()
-
-    stabilitySet.incl attestationSubnets.stabilitySubnets[i].subnet
-
-  var nextEpochSubnets: set[uint8]
-  for it in get_committee_assignments(
-      state, epoch + 1, attachedValidators.toHashSet):
-    nextEpochSubnets.incl it.subnetIndex.uint8
-
-  doAssert nextEpochSubnets.len <= attachedValidators.len
-  nextEpochSubnets.incl stabilitySet
-
-  let
-    epochParity = epoch mod 2
-    currentEpochSubnets = attestationSubnets.subscribedSubnets[1 - epochParity]
-
-    expiringSubnets =
-      (prevStabilitySubnets +
-        attestationSubnets.subscribedSubnets[epochParity]) -
-        nextEpochSubnets - currentEpochSubnets - stabilitySet
-    newSubnets =
-      nextEpochSubnets - (currentEpochSubnets + prevStabilitySubnets)
-
-  doAssert newSubnets.len <= attachedValidators.len + 1
-  doAssert (expiringSubnets * currentEpochSubnets).len == 0
-  doAssert newSubnets <= nextEpochSubnets
-
-  attestationSubnets.subscribedSubnets[epochParity] = nextEpochSubnets
-  (attestationSubnets, expiringSubnets, newSubnets)
+      let
+        idx = index.CommitteeIndex
+        includedIndices =
+          toIntSet(get_beacon_committee(state, slot, idx, cache)) *
+            validator_indices
+      if includedIndices.len > 0:
+        yield (
+          includedIndices, idx,
+          compute_subnet_for_attestation(committees_per_slot, slot, idx).uint8,
+          slot)

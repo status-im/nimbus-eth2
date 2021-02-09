@@ -47,9 +47,9 @@ type
     test = "Test a web3 provider"
 
   Web3Mode* {.pure.} = enum
-    auto = "Enabled only when validators are attached"
-    enabled = "Always enabled"
-    disabled = "Always disabled"
+    auto # Enabled only when validators are attached
+    enabled # Always enabled
+    disabled # Always disabled
 
   BeaconNodeConf* = object
     logLevel* {.
@@ -160,6 +160,13 @@ type
               "Must be one of: any, none, upnp, pmp, extip:<IP>"
         defaultValue: "any" }: string
 
+      enrAutoUpdate* {.
+        defaultValue: false
+        desc: "Discovery can automatically update its ENR with the IP address " &
+              "and UDP port as seen by other nodes it communicates with. " &
+              "This option allows to enable/disable this functionality"
+        name: "enr-auto-update" .}: bool
+
       weakSubjectivityCheckpoint* {.
         desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
         name: "weak-subjectivity-checkpoint" }: Option[Checkpoint]
@@ -171,8 +178,6 @@ type
       finalizedCheckpointBlock* {.
         desc: "SSZ file specifying a recent finalized block"
         name: "finalized-checkpoint-block" }: Option[InputFile]
-
-      runtimePreset* {.hidden.}: RuntimePreset
 
       nodeName* {.
         defaultValue: ""
@@ -256,8 +261,14 @@ type
         name: "dump" }: bool
 
       directPeers* {.
-        desc: "The list of priviledged, secure and known peers to connect and maintain the connection to, this requires a not random netkey-file. In the complete multiaddress format like: /ip4/<address>/p2p/<peerId-public-key>/tcp/<port>"
+        desc: "The list of priviledged, secure and known peers to connect and maintain the connection to, this requires a not random netkey-file. In the complete multiaddress format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>"
         name: "direct-peer" .}: seq[string]
+
+      doppelgangerDetection* {.
+        defaultValue: true
+        desc: "Whether to detect whether another validator is be running the same validator keys (default true)"
+        name: "doppelganger-detection"
+      }: bool
 
     of createTestnet:
       testnetDepositsFile* {.

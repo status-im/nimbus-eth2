@@ -49,7 +49,6 @@ type
     timestamp*: Eth1BlockTimestamp
     deposits*: seq[DepositData]
     voteData*: Eth1Data
-    voteDataVerified*: bool
 
     when hasGenesisDetection:
       activeValidatorsCount*: uint64
@@ -61,6 +60,8 @@ type
     blocksByHash: Table[BlockHash, Eth1Block]
     finalizedBlockHash: Eth2Digest
     finalizedDepositsMerkleizer: DepositsMerkleizer
+    hasConsensusViolation: bool
+      ## The local chain contradicts the observed consensus on the network
 
   Eth1MonitorState = enum
     Initialized
@@ -541,6 +542,7 @@ proc pruneOldBlocks(chain: var Eth1Chain, depositIndex: uint64) =
     lastBlock = blk
 
   if chain.finalizedDepositsMerkleizer.getChunkCount > initialChunks:
+    chain.finalizedBlockHash = lastBlock.voteData.block_hash
     chain.db.putEth2FinalizedTo DepositContractSnapshot(
       eth1Block: lastBlock.voteData.block_hash,
       depositContractState: chain.finalizedDepositsMerkleizer.toDepositContractState)
@@ -624,7 +626,6 @@ proc trackFinalizedState*(chain: var Eth1Chain,
   let matchingBlock = chain.lowerBound(finalizedEth1Data.deposit_count)
   result = if matchingBlock != nil:
     if matchingBlock.voteData.deposit_root == finalizedEth1Data.deposit_root:
-      matchingBlock.voteDataVerified = true
       true
     else:
       error "Corrupted deposits history detected",
@@ -632,6 +633,7 @@ proc trackFinalizedState*(chain: var Eth1Chain,
             taretDepositsCount = finalizedEth1Data.deposit_count,
             ourDepositsRoot = matchingBlock.voteData.deposit_root,
             targetDepositsRoot = finalizedEth1Data.deposit_root
+      chain.hasConsensusViolation = true
       false
   else:
     error "The Eth1 chain is in inconsistent state",
@@ -639,6 +641,7 @@ proc trackFinalizedState*(chain: var Eth1Chain,
           checkpointDeposits = finalizedEth1Data.deposit_count,
           localChainStart = shortLog(chain.blocks.peekFirst),
           localChainEnd = shortLog(chain.blocks.peekLast)
+    chain.hasConsensusViolation = true
     false
 
   if result:
@@ -787,6 +790,7 @@ proc safeCancel(fut: var Future[void]) =
 proc clear(chain: var Eth1Chain) =
   chain.blocks.clear()
   chain.blocksByHash.clear()
+  chain.hasConsensusViolation = false
 
 proc resetState(m: Eth1Monitor) {.async.} =
   safeCancel m.runFut
@@ -794,7 +798,9 @@ proc resetState(m: Eth1Monitor) {.async.} =
   m.eth1Chain.clear()
   m.latestEth1BlockNumber = 0
 
-  await m.dataProvider.close()
+  if m.dataProvider != nil:
+    await m.dataProvider.close()
+    m.dataProvider = nil
 
 proc stop*(m: Eth1Monitor) {.async.} =
   if m.state == Started:
@@ -815,7 +821,7 @@ proc syncBlockRange(m: Eth1Monitor,
                     merkleizer: ref DepositsMerkleizer,
                     fromBlock, toBlock,
                     fullSyncFromBlock: Eth1BlockNumber) {.gcsafe, async.} =
-  doAssert m.eth1Chain.blocks.len > 0
+  doAssert m.eth1Chain.blocks.len > 0 and m.dataProvider != nil
 
   var currentBlock = fromBlock
   while currentBlock <= toBlock:
@@ -907,8 +913,6 @@ proc syncBlockRange(m: Eth1Monitor,
       of DepositRootIncorrect, DepositCountIncorrect:
         raise newException(CorruptDataProvider,
           "The deposit log events disagree with the deposit contract state")
-      of VerifiedCorrect:
-        lastBlock.voteDataVerified = true
       else:
         discard
 
@@ -1057,7 +1061,12 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
       await m.stop()
       return
 
-    await m.eth1Progress.wait()
+    if m.eth1Chain.hasConsensusViolation:
+      raise newException(CorruptDataProvider, "Eth1 chain contradicts Eth2 consensus")
+
+    awaitWithTimeout(m.eth1Progress.wait(), 5.minutes):
+      raise newException(CorruptDataProvider, "No eth1 chain progress for too long")
+
     m.eth1Progress.clear()
 
     if m.latestEth1BlockNumber <= m.preset.ETH1_FOLLOW_DISTANCE:

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,7 +9,7 @@
 
 import
   # Standard libraries
-  std/[deques, sequtils, sets, tables, options],
+  std/[deques, options, sequtils, tables],
   # Status libraries
   chronicles, stew/[byteutils], json_serialization/std/sets as jsonSets,
   # Internal
@@ -19,7 +19,7 @@ import
   ./beacon_node_types,
   ./fork_choice/fork_choice
 
-export beacon_node_types, sets
+export beacon_node_types
 
 logScope: topics = "attpool"
 
@@ -89,7 +89,7 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
   )
 
 proc addForkChoiceVotes(
-    pool: var AttestationPool, slot: Slot, participants: HashSet[ValidatorIndex],
+    pool: var AttestationPool, slot: Slot, participants: seq[ValidatorIndex],
     block_root: Eth2Digest, wallSlot: Slot) =
   # Add attestation votes to fork choice
   if (let v = pool.forkChoice.on_attestation(
@@ -135,22 +135,22 @@ proc updateCurrent(pool: var AttestationPool, wallSlot: Slot) =
 
 func addToAggregates(pool: var AttestationPool, attestation: Attestation) =
   # do a lookup for the current slot and get it's associated htrs/attestations
-  var aggreated_attestation = pool.attestationAggregates.mgetOrPut(
+  var aggregated_attestation = pool.attestationAggregates.mgetOrPut(
     attestation.data.slot, Table[Eth2Digest, Attestation]()).
     # do a lookup for the same attestation data htr and get the attestation
     mgetOrPut(attestation.data.hash_tree_root, attestation)
   # if the aggregation bits differ (we didn't just insert it into the table)
   # and only if there is no overlap of the signatures ==> aggregate!
-  if not aggreated_attestation.aggregation_bits.overlaps(attestation.aggregation_bits):
+  if not aggregated_attestation.aggregation_bits.overlaps(attestation.aggregation_bits):
     var agg {.noInit.}: AggregateSignature
-    agg.init(aggreated_attestation.signature)
-    aggreated_attestation.aggregation_bits.combine(attestation.aggregation_bits)
+    agg.init(aggregated_attestation.signature)
+    aggregated_attestation.aggregation_bits.combine(attestation.aggregation_bits)
     agg.aggregate(attestation.signature)
-    aggreated_attestation.signature = agg.finish()
+    aggregated_attestation.signature = agg.finish()
 
 proc addAttestation*(pool: var AttestationPool,
                      attestation: Attestation,
-                     participants: HashSet[ValidatorIndex],
+                     participants: seq[ValidatorIndex],
                      wallSlot: Slot) =
   ## Add an attestation to the pool, assuming it's been validated already.
   ## Attestations may be either agggregated or not - we're pursuing an eager
@@ -231,7 +231,7 @@ proc addAttestation*(pool: var AttestationPool,
 proc addForkChoice*(pool: var AttestationPool,
                     epochRef: EpochRef,
                     blckRef: BlockRef,
-                    blck: BeaconBlock,
+                    blck: TrustedBeaconBlock,
                     wallSlot: Slot) =
   ## Add a verified block to the fork choice context
   let state = pool.forkChoice.process_block(

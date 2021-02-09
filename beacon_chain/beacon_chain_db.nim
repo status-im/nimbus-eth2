@@ -42,7 +42,7 @@ type
     ## between different versions of the client and accidentally using an old
     ## database.
     backend: KvStoreRef
-    preset: RuntimePreset
+    preset*: RuntimePreset
     genesisDeposits*: DepositsSeq
     checkpoint*: proc() {.gcsafe.}
 
@@ -314,10 +314,14 @@ func toBeaconBlockSummary(v: SomeBeaconBlock): BeaconBlockSummary =
     parent_root: v.parent_root,
   )
 
+# TODO: we should only store TrustedSignedBeaconBlock in the DB.
 proc putBlock*(db: BeaconChainDB, value: SignedBeaconBlock) =
   db.put(subkey(type value, value.root), value)
   db.put(subkey(BeaconBlockSummary, value.root), value.message.toBeaconBlockSummary())
 proc putBlock*(db: BeaconChainDB, value: TrustedSignedBeaconBlock) =
+  db.put(subkey(SignedBeaconBlock, value.root), value)
+  db.put(subkey(BeaconBlockSummary, value.root), value.message.toBeaconBlockSummary())
+proc putBlock*(db: BeaconChainDB, value: SigVerifiedSignedBeaconBlock) =
   db.put(subkey(SignedBeaconBlock, value.root), value)
   db.put(subkey(BeaconBlockSummary, value.root), value.message.toBeaconBlockSummary())
 

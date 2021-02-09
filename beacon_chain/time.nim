@@ -1,7 +1,7 @@
 {.push raises: [Defect].}
 
 import
-  chronos,
+  chronos, chronicles,
   spec/datatypes
 
 from times import Time, getTime, fromUnix, `<`, `-`, inNanoseconds
@@ -110,5 +110,9 @@ func shortLog*(d: Duration): string =
 func toFloatSeconds*(d: Duration): float =
   float(milliseconds(d)) / 1000.0
 
-func `$`*(v: BeaconTime): string = $Duration(v)
-func shortLog*(v: BeaconTime): Duration = Duration(v)
+func `$`*(v: BeaconTime): string = $(Duration v)
+func shortLog*(v: BeaconTime): string = $(Duration v)
+
+chronicles.formatIt Duration: $it
+chronicles.formatIt BeaconTime: $(Duration it)
+

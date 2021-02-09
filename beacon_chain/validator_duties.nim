@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -77,7 +77,7 @@ proc addRemoteValidators*(node: BeaconNode) =
   while line != "end" and running(node.vcProcess):
     if node.vcProcess.outputStream.readLine(line) and line != "end":
       let
-        key = ValidatorPubKey.fromHex(line).get().initPubKey()
+        key = ValidatorPubKey.fromHex(line).get()
         index = findValidator(node.chainDag.headState.data.data, key)
 
       let v = AttachedValidator(pubKey: key,
@@ -261,7 +261,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       assign(poolPtr.tmpState, poolPtr.headState)
 
     makeBeaconBlock(
-      node.config.runtimePreset,
+      node.runtimePreset,
       hashedState,
       validator_index,
       head.root,
@@ -282,11 +282,11 @@ proc proposeSignedBlock*(node: BeaconNode,
                          newBlock: SignedBeaconBlock): BlockRef =
 
   let newBlockRef = node.chainDag.addRawBlock(node.quarantine, newBlock) do (
-      blckRef: BlockRef, signedBlock: SignedBeaconBlock,
+      blckRef: BlockRef, trustedBlock: TrustedSignedBeaconBlock,
       epochRef: EpochRef, state: HashedBeaconState):
-    # Callback add to fork choice if valid
+    # Callback add to fork choice if signed block valid (and becomes trusted)
     node.attestationPool[].addForkChoice(
-      epochRef, blckRef, signedBlock.message,
+      epochRef, blckRef, trustedBlock.message,
       node.beaconClock.now().slotOrZero())
 
   if newBlockRef.isErr:
@@ -473,7 +473,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     headRoot = shortLog(head.root),
     slot = shortLog(slot),
     proposer_index = proposer.get()[0],
-    proposer = shortLog(proposer.get()[1].initPubKey())
+    proposer = shortLog(proposer.get()[1])
 
   return head
 
@@ -615,6 +615,16 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   var curSlot = lastSlot + 1
 
+  # If broadcastStartEpoch is 0, it hasn't had time to initialize yet, which
+  # means that it'd be okay not to continue, but it won't gossip regardless.
+  if  curSlot.epoch <
+        node.processor[].doppelgangerDetection.broadcastStartEpoch and
+      node.config.doppelgangerDetection:
+    debug "Waiting to gossip out to detect potential duplicate validators",
+      broadcastStartEpoch =
+        node.processor[].doppelgangerDetection.broadcastStartEpoch
+    return
+
   # Start by checking if there's work we should have done in the past that we
   # can still meaningfully do
   while curSlot < slot:
@@ -702,4 +712,3 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     let finalizedEpochRef = node.chainDag.getFinalizedEpochRef()
     discard node.eth1Monitor.trackFinalizedState(
       finalizedEpochRef.eth1_data, finalizedEpochRef.eth1_deposit_index)
-

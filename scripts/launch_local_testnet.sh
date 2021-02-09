@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2020 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2020-2021 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -31,8 +31,8 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
   exit 1
 fi
 
-OPTS="hgt:n:d:"
-LONGOPTS="help,testnet:,nodes:,data-dir:,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rpc-port:,base-metrics-port:,with-ganache,reuse-existing-data-dir"
+OPTS="ht:n:d:g"
+LONGOPTS="help,testnet:,nodes:,data-dir:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rpc-port:,base-metrics-port:,reuse-existing-data-dir,timeout:"
 
 # default values
 TESTNET="1"
@@ -48,6 +48,7 @@ BASE_RPC_PORT="7000"
 REUSE_EXISTING_DATA_DIR="0"
 ENABLE_LOGTRACE="0"
 STOP_AT_EPOCH_FLAG=""
+TIMEOUT_DURATION="0"
 
 print_help() {
   cat <<EOF
@@ -70,6 +71,7 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
   --enable-logtrace           display logtrace asr analysis
   --log-level                 set the log level (default: ${LOG_LEVEL})
   --reuse-existing-data-dir   instead of deleting and recreating the data dir, keep it and reuse everything we can from it
+  --timeout                   timeout in seconds (default: ${TIMEOUT_DURATION} - no timeout)
 EOF
 }
 
@@ -91,16 +93,20 @@ while true; do
       TESTNET="$2"
       shift 2
       ;;
-    -n|--stop-at-epoch)
-      STOP_AT_EPOCH_FLAG="--stop-at-epoch=$2"
-      shift 2
-      ;;
     -n|--nodes)
       NUM_NODES="$2"
       shift 2
       ;;
     -d|--data-dir)
       DATA_DIR="$2"
+      shift 2
+      ;;
+    -g|--with-ganache)
+      USE_GANACHE="1"
+      shift
+      ;;
+    --stop-at-epoch)
+      STOP_AT_EPOCH_FLAG="--stop-at-epoch=$2"
       shift 2
       ;;
     --disable-htop)
@@ -111,8 +117,8 @@ while true; do
       USE_VC="0"
       shift
       ;;
-    -g|--with-ganache)
-      USE_GANACHE="1"
+    --enable-logtrace)
+      ENABLE_LOGTRACE="1"
       shift
       ;;
     --log-level)
@@ -135,9 +141,9 @@ while true; do
       REUSE_EXISTING_DATA_DIR="1"
       shift
       ;;
-    --enable-logtrace)
-      ENABLE_LOGTRACE="1"
-      shift
+    --timeout)
+      TIMEOUT_DURATION="$2"
+      shift 2
       ;;
     --)
       shift
@@ -282,11 +288,11 @@ EOF
 # instance as the parent and the target process name as a pattern to the
 # "pkill" command.
 cleanup() {
-  pkill -P $$ nimbus_beacon_node &>/dev/null || true
-  pkill -P $$ nimbus_validator_client &>/dev/null || true
+  pkill -f -P $$ nimbus_beacon_node &>/dev/null || true
+  pkill -f -P $$ nimbus_validator_client &>/dev/null || true
   sleep 2
-  pkill -9 -P $$ nimbus_beacon_node &>/dev/null || true
-  pkill -9 -P $$ nimbus_validator_client &>/dev/null || true
+  pkill -f -9 -P $$ nimbus_beacon_node &>/dev/null || true
+  pkill -f -9 -P $$ nimbus_validator_client &>/dev/null || true
 }
 trap 'cleanup' SIGINT SIGTERM EXIT
 
@@ -385,6 +391,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     --metrics \
     --metrics-address="127.0.0.1" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
+    --doppelganger-detection=off \
     ${EXTRA_ARGS} \
     > "${DATA_DIR}/log${NUM_NODE}.txt" 2>&1 &
 
@@ -400,7 +407,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
       ${STOP_AT_EPOCH_FLAG} \
       --data-dir="${VALIDATOR_DATA_DIR}" \
       --rpc-port="$(( BASE_RPC_PORT + NUM_NODE ))" \
-      > "${DATA_DIR}/log_val${NUM_NODE}.txt" 2>&1 & PIDS="${PIDS},$!"
+      > "${DATA_DIR}/log_val${NUM_NODE}.txt" 2>&1 &
   fi
 done
 
@@ -414,6 +421,19 @@ if [[ "$BG_JOBS" != "$NUM_JOBS" ]]; then
   exit 1
 fi
 
+# timeout - implemented with a background job
+timeout_reached() {
+  echo -e "\nTimeout reached. Aborting.\n"
+  cleanup
+}
+trap 'timeout_reached' SIGALRM
+
+if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
+  export PARENT_PID=$$
+  ( sleep ${TIMEOUT_DURATION} && kill -ALRM ${PARENT_PID} ) 2>/dev/null & WATCHER_PID=$!
+fi
+
+# launch htop or wait for background jobs
 if [[ "$USE_HTOP" == "1" ]]; then
   htop -p "$PIDS"
   cleanup
@@ -426,8 +446,16 @@ else
     echo "${FAILED} child processes had non-zero exit codes (or exited early)."
     dump_logs
     dump_logtrace
+    if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
+      pkill -HUP -P ${WATCHER_PID}
+    fi
     exit 1
   fi
 fi
 
 dump_logtrace
+
+if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
+  pkill -HUP -P ${WATCHER_PID}
+fi
+

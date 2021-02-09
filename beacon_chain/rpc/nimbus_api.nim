@@ -5,7 +5,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[deques, sequtils],
+  std/[deques, sequtils, sets],
   chronos,
   stew/shims/macros,
   stew/byteutils,

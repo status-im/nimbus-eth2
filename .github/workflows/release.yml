@@ -7,7 +7,7 @@ name: Upload Release Asset
 
 jobs:
   build-amd64:
-    name: AMD64 release asset
+    name: Linux AMD64 release asset
     runs-on: ubuntu-latest
     steps:
       - name: Create release
@@ -17,7 +17,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          release_name: ${{ github.ref }}
           draft: true
           prerelease: false
       - name: Checkout code
@@ -37,8 +37,24 @@ jobs:
           asset_path: ./dist/${{ steps.make_dist.outputs.linux_amd64_archive }}
           asset_name: ${{ steps.make_dist.outputs.linux_amd64_archive }}
           asset_content_type: application/gzip
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push a Docker image for end users
+        run: |
+          cd dist
+          tar -xzf ${{ steps.make_dist.outputs.linux_amd64_archive }}
+          mv nimbus-eth2_Linux_amd64_*/ ../docker/dist/binaries/nimbus-eth2
+          cd ../docker/dist/binaries
+          REFNAME="${{ github.ref }}"
+          TAG="${REFNAME#refs/tags/}"
+          DOCKER_BUILDKIT=1 docker build -f Dockerfile.amd64 -t statusim/nimbus-eth2:amd64-${TAG} -t statusim/nimbus-eth2:amd64-latest .
+          docker push statusim/nimbus-eth2:amd64-${TAG}
+          docker push statusim/nimbus-eth2:amd64-latest
   build-arm64:
-    name: ARM64 release asset
+    name: Linux ARM64 release asset
     runs-on: ubuntu-latest
     steps:
       - name: Install packages
@@ -75,7 +91,7 @@ jobs:
           asset_name: ${{ steps.make_dist.outputs.linux_arm64_archive }}
           asset_content_type: application/gzip
   build-arm:
-    name: ARM release asset
+    name: Linux ARM release asset
     runs-on: ubuntu-latest
     steps:
       - name: Install packages
@@ -110,5 +126,35 @@ jobs:
           upload_url: https://uploads.github.com/repos/${{ github.repository }}/releases/${{ steps.fetch_release.outputs.id }}/assets{?name,label}
           asset_path: ./dist/${{ steps.make_dist.outputs.linux_arm_archive }}
           asset_name: ${{ steps.make_dist.outputs.linux_arm_archive }}
+          asset_content_type: application/gzip
+  build-win64:
+    name: Windows AMD64 release asset
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Build project
+        id: make_dist
+        run: |
+          make dist-win64
+          cd dist
+          echo "::set-output name=windows_amd64_archive::"$(echo nimbus-eth2_Windows_amd64_*.tar.gz)
+      - name: Fetch latest release
+        id: fetch_release
+        uses: InsonusK/get-latest-release@v1.0.1
+        with:
+          myToken: ${{ github.token }}
+          view_top: 1
+      - name: Check release version
+        run: |
+          [[ "refs/tags/${{ steps.fetch_release.outputs.tag_name }}" == "${{ github.ref }}" ]]
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: https://uploads.github.com/repos/${{ github.repository }}/releases/${{ steps.fetch_release.outputs.id }}/assets{?name,label}
+          asset_path: ./dist/${{ steps.make_dist.outputs.windows_amd64_archive }}
+          asset_name: ${{ steps.make_dist.outputs.windows_amd64_archive }}
           asset_content_type: application/gzip
 

@@ -46,30 +46,22 @@ const
   # RawPrivKeySize* = 48 for Miracl / 32 for BLST
 
 type
-  BlsValueType* = enum
-    Real
-    OpaqueBlob
+  # BLS deserialization is a bit slow, so we deserialize public keys and
+  # signatures lazily - this helps operations like comparisons and hashes to
+  # be fast (which is important), makes loading blocks and states fast, and
+  # allows invalid values in the SSZ byte stream, which is valid from an SSZ
+  # point of view - the invalid values are later processed to
+  ValidatorPubKey* = object
+    blob*: array[RawPubKeySize, byte]
 
-  BlsValue*[N: static int, T: blscurve.PublicKey or blscurve.Signature] = object
-    # Invalid BLS values may appear in SSZ blobs, their validity being checked
-    # in consensus rather than SSZ decoding, thus we use a variant to hold either
-    case kind*: BlsValueType
-    of Real:
-      blsValue*: T
-    of OpaqueBlob:
-      blob*: array[N, byte]
-
-  ValidatorPubKey* = BlsValue[RawPubKeySize, blscurve.PublicKey]
+  ValidatorSig* = object
+    blob*: array[RawSigSize, byte]
 
   ValidatorPrivKey* = distinct blscurve.SecretKey
-
-  ValidatorSig* = BlsValue[RawSigSize, blscurve.Signature]
 
   BlsCurveType* = ValidatorPrivKey | ValidatorPubKey | ValidatorSig
 
   BlsResult*[T] = Result[T, cstring]
-
-  RandomSourceDepleted* = object of CatchableError
 
   TrustedSig* = object
     data*: array[RawSigSize, byte]
@@ -83,52 +75,57 @@ export AggregateSignature
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#bls-signatures
 
 func toPubKey*(privkey: ValidatorPrivKey): ValidatorPubKey =
-  ## Create a private key from a public key
-  # Un-specced in either hash-to-curve or Eth2  result.kind = Real
-  let ok = result.blsValue.publicFromSecret(SecretKey privkey)
+  ## Derive a public key from a private key
+  # Un-specced in either hash-to-curve or Eth2
+  var pubKey: blscurve.PublicKey
+  let ok = publicFromSecret(pubKey, SecretKey privkey)
   doAssert ok, "The validator private key was a zero key. This should never happen."
 
-proc toRealPubKey(pubkey: ValidatorPubKey): Option[ValidatorPubKey] =
-  var validatorKeyCache {.threadvar.}:
-    Table[array[RawPubKeySize, byte], Option[ValidatorPubKey]]
+  ValidatorPubKey(blob: pubKey.exportRaw())
 
-  case pubkey.kind:
-  of Real:
-    return some(pubkey)
-  of OpaqueBlob:
-    validatorKeyCache.withValue(pubkey.blob, key) do:
-      return key[]
-    do:
-      var val: blscurve.PublicKey
-      let maybeRealKey =
-        if fromBytes(val, pubkey.blob):
-          some ValidatorPubKey(kind: Real, blsValue: val)
-        else:
-          none ValidatorPubKey
-      return validatorKeyCache.mGetOrPut(pubkey.blob, maybeRealKey)
+proc loadWithCache*(v: ValidatorPubKey): Option[blscurve.PublicKey] =
+  ## Parse public key blob - this may fail - this function uses a cache to
+  ## avoid the expensive deserialization - for now, external public keys only
+  ## come from deposits in blocks - when more sources are added, the memory
+  ## usage of the cache should be considered
+  var cache {.threadvar.}: Table[typeof(v.blob), blscurve.PublicKey]
 
-proc initPubKey*(pubkey: ValidatorPubKey): ValidatorPubKey =
-  # Public keys are lazy-initialized, so this needs to be called before any
-  # other function using the public key is tried
-  let key = toRealPubKey(pubkey)
-  if key.isNone:
-    return ValidatorPubKey()
-  key.get
+  # Try to get parse value from cache - if it's not in there, try to parse it -
+  # if that's not possible, it's broken
+  cache.withValue(v.blob, key) do:
+    return some key[]
+  do:
+    # Only valid keys are cached
+    var val: blscurve.PublicKey
+    return
+      if fromBytes(val, v.blob):
+        some cache.mGetOrPut(v.blob, val)
+      else:
+        none blscurve.PublicKey
+
+proc load*(v: ValidatorSig): Option[blscurve.Signature] =
+  ## Parse signature blob - this may fail
+  var parsed: blscurve.Signature
+  if fromBytes(parsed, v.blob):
+    some(parsed)
+  else:
+    none(blscurve.Signature)
 
 func init*(agg: var AggregateSignature, sig: ValidatorSig) {.inline.}=
   ## Initializes an aggregate signature context
   ## This assumes that the signature is valid
-  agg.init(sig.blsValue)
+  agg.init(sig.load().get())
 
 func aggregate*(agg: var AggregateSignature, sig: ValidatorSig) {.inline.}=
   ## Aggregate two Validator Signatures
-  ## This assumes that they are real signatures
-  agg.aggregate(sig.blsValue)
+  ## Both signatures must be valid
+  agg.aggregate(sig.load.get())
 
 func finish*(agg: AggregateSignature): ValidatorSig {.inline.}=
   ## Canonicalize an AggregateSignature into a signature
-  result.kind = Real
-  result.blsValue.finish(agg)
+  var sig: blscurve.Signature
+  sig.finish(agg)
+  ValidatorSig(blob: sig.exportRaw())
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#bls-signatures
 proc blsVerify*(
@@ -141,19 +138,25 @@ proc blsVerify*(
   ## The proof-of-possession MUST be verified before calling this function.
   ## It is recommended to use the overload that accepts a proof-of-possession
   ## to enforce correct usage.
-  if signature.kind != Real:
-    # Invalid signatures are possible in deposits (discussed with Danny)
-    return false
-  let realkey = toRealPubKey(pubkey)
-  if realkey.isNone:
-    # TODO: chronicles warning
-    return false
+  let
+    parsedSig = signature.load()
 
-  realkey.get.blsValue.verify(message, signature.blsValue)
+  if parsedSig.isNone():
+    false
+  else:
+    let
+      parsedKey = pubkey.loadWithCache()
+
+    # It may happen that signatures or keys fail to parse as invalid blobs may
+    # be passed around - for example, the deposit contract doesn't verify
+    # signatures, so the loading happens lazily at verification time instead!
+    parsedKey.isSome() and
+      parsedKey.get.verify(message, parsedSig.get())
 
 func blsSign*(privkey: ValidatorPrivKey, message: openArray[byte]): ValidatorSig =
   ## Computes a signature from a secret key and a message
-  ValidatorSig(kind: Real, blsValue: SecretKey(privkey).sign(message))
+  let sig = SecretKey(privkey).sign(message)
+  ValidatorSig(blob: sig.exportRaw())
 
 proc blsFastAggregateVerify*(
        publicKeys: openArray[ValidatorPubKey],
@@ -178,16 +181,17 @@ proc blsFastAggregateVerify*(
   #           in blscurve which already exists internally
   #         - or at network/databases/serialization boundaries we do not
   #           allow invalid BLS objects to pollute consensus routines
-  if signature.kind != Real:
+  let parsedSig = signature.load()
+  if not parsedSig.isSome():
     return false
   var unwrapped: seq[PublicKey]
   for pubkey in publicKeys:
-    let realkey = toRealPubKey(pubkey)
+    let realkey = pubkey.loadWithCache()
     if realkey.isNone:
       return false
-    unwrapped.add realkey.get.blsValue
+    unwrapped.add realkey.get
 
-  fastAggregateVerify(unwrapped, message, signature.blsValue)
+  fastAggregateVerify(unwrapped, message, parsedSig.get())
 
 proc toGaugeValue*(hash: Eth2Digest): int64 =
   # Only the last 8 bytes are taken into consideration in accordance
@@ -201,12 +205,8 @@ proc toGaugeValue*(hash: Eth2Digest): int64 =
 func `$`*(x: ValidatorPrivKey): string =
   "<private key>"
 
-func `$`*(x: BlsValue): string =
-  # The prefix must be short
-  # due to the mechanics of the `shortLog` function.
-  case x.kind
-  of Real: x.blsValue.toHex()
-  of OpaqueBlob: "r:" & x.blob.toHex()
+func `$`*(x: ValidatorPubKey | ValidatorSig): string =
+  x.blob.toHex()
 
 func toRaw*(x: ValidatorPrivKey): array[32, byte] =
   # TODO: distinct type - see https://github.com/status-im/nim-blscurve/pull/67
@@ -217,13 +217,10 @@ func toRaw*(x: ValidatorPrivKey): array[32, byte] =
     let raw = SecretKey(x).exportRaw()
     result[0..32-1] = raw.toOpenArray(48-32, 48-1)
 
-func toRaw*(x: BlsValue): auto =
-  if x.kind == Real:
-    x.blsValue.exportRaw()
-  else:
-    x.blob
+template toRaw*(x: ValidatorPubKey | ValidatorSig): auto =
+  x.blob
 
-func toRaw*(x: TrustedSig): auto =
+template toRaw*(x: TrustedSig): auto =
   x.data
 
 func toHex*(x: BlsCurveType): string =
@@ -236,18 +233,12 @@ func fromRaw*(T: type ValidatorPrivKey, bytes: openArray[byte]): BlsResult[T] =
   else:
     err "bls: invalid private key"
 
-func fromRaw*[N, T](BT: type BlsValue[N, T], bytes: openArray[byte]): BlsResult[BT] =
-  # This is a workaround, so that we can deserialize the serialization of a
-  # default-initialized BlsValue without raising an exception
-  when defined(ssz_testing) or BT is ValidatorPubKey:
-    ok BT(kind: OpaqueBlob, blob: toArray(N, bytes))
+func fromRaw*(BT: type[ValidatorPubKey | ValidatorSig], bytes: openArray[byte]): BlsResult[BT] =
+  # Signatures and keys are deserialized lazily
+  if bytes.len() != sizeof(BT):
+    err "bls: invalid bls length"
   else:
-    # Try if valid BLS value
-    var val: T
-    if fromBytes(val, bytes):
-      ok BT(kind: Real, blsValue: val)
-    else:
-      ok BT(kind: OpaqueBlob, blob: toArray(N, bytes))
+    ok BT(blob: toArray(sizeof(BT), bytes))
 
 func fromHex*(T: type BlsCurveType, hexStr: string): BlsResult[T] {.inline.} =
   ## Initialize a BLSValue from its hex representation
@@ -256,27 +247,17 @@ func fromHex*(T: type BlsCurveType, hexStr: string): BlsResult[T] {.inline.} =
   except ValueError:
     err "bls: cannot parse value"
 
-func `==`*(a, b: BlsValue): bool =
-  # The assumption here is that converting to raw is mostly fast!
-  case a.kind
-  of Real:
-    if a.kind == b.kind:
-      a.blsValue == b.blsValue
-    else:
-      a.toRaw() == b.blob
-  of OpaqueBlob:
-    if a.kind == b.kind:
-      a.blob == b.blob
-    else:
-      a.blob == b.toRaw()
+func `==`*(a, b: ValidatorPubKey | ValidatorSig): bool =
+  equalMem(unsafeAddr a.blob[0], unsafeAddr b.blob[0], sizeof(a.blob))
 
 # Hashing
 # ----------------------------------------------------------------------
 
-template hash*(x: BlsCurveType): Hash =
-  # TODO: prevent using secret keys
-  bind toRaw
-  hash(toRaw(x))
+template hash*(x: ValidatorPubKey | ValidatorSig): Hash =
+  static: doAssert sizeof(Hash) <= x.blob.len div 2
+  # We use rough "middle" of blob for the hash, assuming this is where most of
+  # the entropy is found
+  cast[ptr Hash](unsafeAddr x.blob[x.blob.len div 2])[]
 
 # Serialization
 # ----------------------------------------------------------------------
@@ -323,7 +304,7 @@ proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey)
     # TODO: Can we provide better diagnostic?
     raiseUnexpectedValue(reader, "Valid hex-encoded private key expected")
 
-template fromSszBytes*(T: type BlsValue, bytes: openArray[byte]): auto =
+template fromSszBytes*(T: type[ValidatorPubKey | ValidatorSig], bytes: openArray[byte]): auto =
   let v = fromRaw(T, bytes)
   if v.isErr:
     raise newException(MalformedSszError, $v.error)
@@ -332,15 +313,10 @@ template fromSszBytes*(T: type BlsValue, bytes: openArray[byte]): auto =
 # Logging
 # ----------------------------------------------------------------------
 
-func shortLog*(x: BlsValue): string =
+func shortLog*(x: ValidatorPubKey | ValidatorSig): string =
   ## Logging for wrapped BLS types
   ## that may contain valid or non-validated data
-  # The prefix must be short
-  # due to the mechanics of the `shortLog` function.
-  if x.kind == Real:
-    byteutils.toHex(x.blsValue.exportRaw().toOpenArray(0, 3))
-  else:
-    "r:" & byteutils.toHex(x.blob.toOpenArray(0, 3))
+  byteutils.toHex(x.blob.toOpenArray(0, 3))
 
 func shortLog*(x: ValidatorPrivKey): string =
   ## Logging for raw unwrapped BLS types

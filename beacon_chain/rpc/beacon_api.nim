@@ -176,7 +176,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       genesis_time: node.chainDag.headState.data.data.genesis_time,
       genesis_validators_root:
         node.chainDag.headState.data.data.genesis_validators_root,
-      genesis_fork_version: node.config.runtimePreset.GENESIS_FORK_VERSION
+      genesis_fork_version: node.runtimePreset.GENESIS_FORK_VERSION
     )
 
   rpcServer.rpc("get_v1_beacon_states_root") do (stateId: string) -> Eth2Digest:
@@ -372,7 +372,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       tuple[canonical: bool, header: SignedBeaconBlockHeader]:
     let bd = node.getBlockDataFromBlockId(blockId)
     let tsbb = bd.data
-    result.header.signature = ValidatorSig.init tsbb.signature.data
+    static: doAssert tsbb.signature is TrustedSig and
+              sizeof(ValidatorSig) == sizeof(tsbb.signature)
+    result.header.signature = cast[ValidatorSig](tsbb.signature)
 
     result.header.message.slot = tsbb.message.slot
     result.header.message.proposer_index = tsbb.message.proposer_index

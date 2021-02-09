@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2019 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,7 +10,7 @@ import
   # Specs
   ../../beacon_chain/spec/[datatypes, helpers, signatures, validator],
   # Internals
-  ../../beacon_chain/[ssz, extras],
+  ../../beacon_chain/ssz,
   # Mock helpers
   ./mock_validator_keys
 
@@ -39,11 +39,9 @@ proc signMockBlock*(state: BeaconState, signedBlock: var SignedBeaconBlock) =
 
 proc mockBlock(
     state: BeaconState,
-    slot: Slot,
-    flags: UpdateFlags = {}): SignedBeaconBlock =
+    slot: Slot): SignedBeaconBlock =
   ## TODO don't do this gradual construction, for exception safety
   ## Mock a BeaconBlock for the specific slot
-  ## Skip signature creation if block should not be signed (skipBlsValidation present)
 
   var emptyCache = StateCache()
   let proposer_index = get_beacon_proposer_index(state, emptyCache)
@@ -56,9 +54,7 @@ proc mockBlock(
     previous_block_header.state_root = state.hash_tree_root()
   result.message.parent_root = previous_block_header.hash_tree_root()
 
-  if skipBlsValidation notin flags:
-    signMockBlock(state, result)
+  signMockBlock(state, result)
 
-proc mockBlockForNextSlot*(state: BeaconState, flags: UpdateFlags = {}):
-    SignedBeaconBlock =
-  mockBlock(state, state.slot + 1, flags)
+proc mockBlockForNextSlot*(state: BeaconState): SignedBeaconBlock =
+  mockBlock(state, state.slot + 1)

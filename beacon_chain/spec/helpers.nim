@@ -60,13 +60,14 @@ func is_active_validator*(validator: Validator, epoch: Epoch): bool =
 func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
   ## Return the sequence of active validator indices at ``epoch``.
-  for idx, val in state.validators:
-    if is_active_validator(val, epoch):
+  result = newSeqOfCap[ValidatorIndex](state.validators.len)
+  for idx in 0..<state.validators.len:
+    if is_active_validator(state.validators[idx], epoch):
       result.add idx.ValidatorIndex
 
 func get_active_validator_indices_len*(state: BeaconState, epoch: Epoch): uint64 =
-  for idx, val in state.validators:
-    if is_active_validator(val, epoch):
+  for idx in 0..<state.validators.len:
+    if is_active_validator(state.validators[idx], epoch):
       inc result
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_current_epoch
@@ -85,9 +86,7 @@ func bytes_to_uint64*(data: openArray[byte]): uint64 =
   doAssert data.len == 8
 
   # Little-endian data representation
-  result = 0
-  for i in countdown(7, 0):
-    result = result * 256 + data[i]
+  uint64.fromBytesLE(data)
 
 # Have 1, 4, and 8-byte versions. Spec only defines 8-byte version, but useful
 # to check invariants on rest.

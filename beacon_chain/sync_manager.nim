@@ -1,7 +1,7 @@
 import chronicles
 import options, deques, heapqueue, tables, strutils, sequtils, math, algorithm
 import stew/results, chronos, chronicles
-import spec/[datatypes, digest, helpers], peer_pool, eth2_network
+import spec/[datatypes, digest, helpers, eth2_apis/callsigs_types], peer_pool, eth2_network
 
 import ./eth2_processor
 import block_pools/block_pools_types
@@ -128,10 +128,6 @@ type
     kind*: SyncFailureKind
     peer*: T
     stamp*: chronos.Moment
-
-  SyncInfo* = object
-    head_slot*: Slot
-    sync_distance*: int64
 
   SyncManagerError* = object of CatchableError
   BeaconBlocksRes* = NetRes[seq[SignedBeaconBlock]]
@@ -1044,59 +1040,6 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
 
   debug "Synchronization loop started", topics = "syncman"
 
-  proc watchTask() {.async.} =
-    const
-      MaxPauseTime = int(SECONDS_PER_SLOT) * int(SLOTS_PER_EPOCH) # 06:24
-      MinPauseTime = int(SECONDS_PER_SLOT) * 5 # 01:00
-
-    pauseTime = MinPauseTime
-
-    while true:
-      let op1 = man.queue.opcounter
-      await sleepAsync(chronos.seconds(pauseTime))
-      let op2 = man.queue.opcounter
-      let (_, _, _, pending) = man.getWorkersStats()
-      if pending == 0:
-        pauseTime = MinPauseTime
-      else:
-        if (op2 - op1 == 0'u64) and (pending > 1):
-          # Syncing is NOT progressing, we double `pauseTime` value, but value
-          # could not be bigger then `MaxPauseTime`.
-          pauseTime =
-            block:
-              let newPauseTime = pauseTime * 2
-              if newPauseTime > MaxPauseTime:
-                MaxPauseTime
-              else:
-                newPauseTime
-          info "Syncing process is not progressing, reset the queue",
-                start_op = op1, end_op = op2,
-                pending_workers_count = pending,
-                reset_to_slot = man.queue.outSlot,
-                pause_time = $(chronos.seconds(pauseTime)),
-                local_head_slot = man.getLocalHeadSlot(), topics = "syncman"
-          await man.queue.resetWait(none[Slot]())
-        else:
-          # Syncing progressing, so reduce `pauseTime` value in half, but value
-          # could not be less then `MinPauseTime`.
-          pauseTime =
-            block:
-              let newPauseTime = (pauseTime * 3) div 4
-              if newPauseTime < MinPauseTime:
-                MinPauseTime
-              else:
-                newPauseTime
-
-      debug "Synchronization watch loop tick",
-            wall_head_slot = man.getLocalWallSlot(),
-            local_head_slot = man.getLocalHeadSlot(),
-            queue_start_slot = man.queue.startSlot,
-            queue_last_slot = man.queue.lastSlot,
-            pause_time = $(chronos.seconds(pauseTime)),
-            avg_sync_speed = man.avgSyncSpeed,
-            ins_sync_speed = man.insSyncSpeed,
-            pending_workers_count = pending, topics = "syncman"
-
   proc averageSpeedTask() {.async.} =
     while true:
       let wallSlot = man.getLocalWallSlot()
@@ -1117,7 +1060,6 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
                  1_000_000_000.0
       man.timeLeft = chronos.nanoseconds(int64(nsec))
 
-  asyncSpawn watchTask()
   asyncSpawn averageSpeedTask()
 
   while true:
