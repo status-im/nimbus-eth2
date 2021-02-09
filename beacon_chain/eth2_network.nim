@@ -1563,7 +1563,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
       dLow: 6,
       dHigh: 12,
       dScore: 6,
-      dOut: 6 - 1, # DLow - 1
+      dOut: 6 div 2, # DLow - 1
       dLazy: 6,
       heartbeatInterval: 700.milliseconds,
       historyLength: 6,
