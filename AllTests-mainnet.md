@@ -194,7 +194,13 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Slashing Protection DB - Interchange [Preset: mainnet]
 ```diff
++ Smoke test - Complete format - Invalid database is refused [Preset: mainnet]               OK
 + Smoke test - Complete format [Preset: mainnet]                                             OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
+## Slashing Protection DB - v1 and v2 migration [Preset: mainnet]
+```diff
++ Minimal format migration [Preset: mainnet]                                                 OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Slashing Protection DB [Preset: mainnet]
@@ -203,13 +209,12 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Empty database [Preset: mainnet]                                                           OK
 + SP for block proposal - backtracking append                                                OK
 + SP for block proposal - linear append                                                      OK
-+ SP for same epoch attestation target - backtracking append                                 OK
 + SP for same epoch attestation target - linear append                                       OK
 + SP for surrounded attestations                                                             OK
 + SP for surrounding attestations                                                            OK
 + Test valid attestation #1699                                                               OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
+OK: 8/8 Fail: 0/8 Skip: 0/8
 ## Spec datatypes
 ```diff
 + Graffiti bytes                                                                             OK
@@ -275,4 +280,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 2/2 Fail: 0/2 Skip: 0/2
 
 ---TOTAL---
-OK: 148/157 Fail: 0/157 Skip: 9/157
+OK: 149/158 Fail: 0/158 Skip: 9/158

@@ -26,7 +26,7 @@ import
   sync_manager, keystore_management,
   spec/eth2_apis/callsigs_types,
   eth2_json_rpc_serialization,
-  validator_slashing_protection,
+  validator_protection/slashing_protection,
   eth/db/[kvstore, kvstore_sqlite3]
 
 logScope: topics = "vc"
@@ -314,7 +314,7 @@ programMain:
     vc.attachedValidators.slashingProtection =
       SlashingProtectionDB.init(
         vc.beaconGenesis.genesis_validators_root,
-        kvStore SqStoreRef.init(config.validatorsDir(), "slashing_protection").tryGet()
+        config.validatorsDir(), "slashing_protection"
       )
 
     let

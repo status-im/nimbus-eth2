@@ -7,16 +7,17 @@
 
 import
   # Standard library
-  std/tables,
+  std/[tables, os],
   # Status
-  eth/db/kvstore,
+  eth/db/[kvstore, kvstore_sqlite3],
   chronicles,
   nimcrypto/[hash, utils],
   serialization,
   json_serialization,
   # Internal
-  ./spec/[datatypes, digest, crypto],
-  ./ssz
+  ../spec/[datatypes, digest, crypto],
+  ../ssz,
+  ./slashing_protection_common
 
 # Requirements
 # --------------------------------------------
@@ -136,37 +137,11 @@ import
 # as per-validator linked lists
 
 type
-  SlashingProtectionDB* = ref object
+  SlashingProtectionDB_v1* = ref object
     ## Database storing the blocks attested
     ## by validators attached to a beacon node
     ## or validator client.
     backend: KvStoreRef
-
-  BadVoteKind* = enum
-    ## Attestation bad vote kind
-    # h: height (i.e. epoch for attestation, slot for blocks)
-    # t: target
-    # s: source
-    # 1: existing attestations
-    # 2: candidate attestation
-
-    # Spec slashing condition
-    DoubleVote           # h(t1) = h(t2)
-    SurroundedVote       # h(s1) < h(s2) < h(t2) < h(t1)
-    SurroundingVote      # h(s2) < h(s1) < h(t1) < h(t2)
-    # Non-spec, should never happen in a well functioning client
-    TargetPrecedesSource # h(t1) < h(s1) - current epoch precedes last justified epoch
-
-  BadVote* = object
-    case kind*: BadVoteKind
-    of DoubleVote:
-      existingAttestation*: Eth2Digest
-    of SurroundedVote, SurroundingVote:
-      existingAttestationRoot*: Eth2Digest # Many roots might be in conflict
-      sourceExisting*, targetExisting*: Epoch
-      sourceSlashable*, targetSlashable*: Epoch
-    of TargetPrecedesSource:
-      discard
 
   SlotDesc = object
     # Using tuple instead of objects, crashes the Nim compiler
@@ -191,7 +166,7 @@ type
     kTargetEpoch
     kLinkedListMeta
     # Interchange format
-    kGenesisValidatorRoot
+    kGenesisValidatorsRoot
     kNumValidators
     kValidator
 
@@ -211,6 +186,9 @@ type
     ## of a Validator Public Key.
     ## Portable between Miracl/BLST
     ## and limits serialization/deserialization call
+
+# Internal
+# -------------------------------------------------------------
 
 {.push raises: [Defect].}
 logScope:
@@ -254,7 +232,7 @@ func subkey(
   result[1 .. ^1] = validator
 
 func subkey(kind: static SlashingKeyKind): array[1, byte] =
-  static: doAssert kind in {kNumValidators, kGenesisValidatorRoot}
+  static: doAssert kind in {kNumValidators, kGenesisValidatorsRoot}
   result[0] = byte ord(kind)
 
 func subkey(kind: static SlashingKeyKind, valIndex: uint32): array[5, byte] =
@@ -263,15 +241,15 @@ func subkey(kind: static SlashingKeyKind, valIndex: uint32): array[5, byte] =
   result[1..<5] = toBytesBE(valIndex)
   result[0] = byte ord(kind)
 
-proc put(db: SlashingProtectionDB, key: openArray[byte], v: auto) =
+proc put(db: SlashingProtectionDB_v1, key: openArray[byte], v: auto) =
   db.backend.put(
     key,
     SSZ.encode(v)
   ).expect("working database")
 
-proc get(db: SlashingProtectionDB,
-         key: openArray[byte],
-         T: typedesc): Opt[T] =
+proc rawGet(rawdb: KvStoreRef,
+            key: openArray[byte],
+            T: typedesc): Opt[T] =
 
   const ExpectedNodeSszSize = block:
     when T is BlockNode:
@@ -285,6 +263,8 @@ proc get(db: SlashingProtectionDB,
     elif T is uint32:
       sizeof(uint32)
     elif T is ValidatorPubKey:
+      RawPubKeySize
+    elif T is PubKeyBytes:
       RawPubKeySize
     else:
       {.error: "Invalid database node type: " & $T.}
@@ -322,37 +302,113 @@ proc get(db: SlashingProtectionDB,
         expectedSize = ExpectedNodeSszSize
       discard
 
-  discard db.backend.get(key, decode).expect("working database")
+  discard rawdb.get(key, decode).expect("working database")
 
   res
 
-proc setGenesis(db: SlashingProtectionDB, genesis_validator_root: Eth2Digest) =
+proc get(db: SlashingProtectionDB_v1,
+         key: openArray[byte],
+         T: typedesc): Opt[T] =
+  db.backend.rawGet(key, T)
+
+proc setGenesis(db: SlashingProtectionDB_v1, genesis_validators_root: Eth2Digest) =
   # Workaround SSZ / nim-serialization visibility issue
   # "template WriterType(T: type SSZ): type"
   # by having a non-generic proc
   db.put(
-    subkey(kGenesisValidatorRoot),
-    genesis_validator_root
+    subkey(kGenesisValidatorsRoot),
+    genesis_validators_root
   )
 
-proc init*(
-       T: type SlashingProtectionDB,
-       genesis_validator_root: Eth2Digest,
-       backend: KVStoreRef): SlashingProtectionDB =
-  result = T(backend: backend)
-  result.setGenesis(genesis_validator_root)
+# DB Multiversioning
+# -------------------------------------------------------------
 
-proc close*(db: SlashingProtectionDB) =
+func version*(_: type SlashingProtectionDB_v1): static int =
+  1
+
+proc getMetadataTable_DbV1*(rawdb: KvStoreRef): Option[Eth2Digest] =
+  ## Check if the DB has v2 metadata
+  ## and get its genesis root
+
+  if rawdb.contains(
+        subkey(kGenesisValidatorsRoot)
+      ).get():
+    return some(
+      rawdb.rawGet(
+        subkey(kGenesisValidatorsRoot),
+        Eth2Digest
+    ).get())
+  else:
+    return none(Eth2Digest)
+
+proc checkOrPutGenesis_DbV1*(rawdb: KvStoreRef, genesis_validators_root: Eth2Digest): bool =
+  if rawdb.contains(
+        subkey(kGenesisValidatorsRoot)
+      ).get():
+    return genesis_validators_root == rawdb.rawGet(
+      subkey(kGenesisValidatorsRoot),
+      Eth2Digest
+    ).get()
+  else:
+    rawdb.put(
+      subkey(kGenesisValidatorsRoot),
+      genesis_validators_root.data
+    ).expect("working database")
+    return true
+
+proc fromRawDB*(dst: var SlashingProtectionDB_v1, rawdb: KvStoreRef) =
+  ## Initialize a SlashingProtectionDB_v1 from a raw DB
+  ## For first instantiation, do not forget to call setGenesis
+  doAssert rawdb.contains(
+    subkey(kGenesisValidatorsRoot)
+  ).get(), "The Slashing DB is missing genesis information"
+
+  dst = SlashingProtectionDB_v1(backend: rawdb)
+
+# Resource Management
+# -------------------------------------------------------------
+
+proc init*(
+       T: type SlashingProtectionDB_v1,
+       genesis_validators_root: Eth2Digest,
+       basePath, dbname: string): T =
+  result = T(backend: kvStore SqStoreRef.init(basePath, dbname).get())
+  if not result.backend.checkOrPutGenesis_DbV1(genesis_validators_root):
+    fatal "The slashing database refers to another chain/mainnet/testnet",
+      path = basePath/dbname,
+      genesis_validators_root = genesis_validators_root
+
+proc loadUnchecked*(
+       T: type SlashingProtectionDB_v1,
+       basePath, dbname: string, readOnly: bool
+     ): SlashingProtectionDB_v1 {.raises:[Defect, IOError].}=
+  ## Load a slashing protection DB
+  ## Note: This is for conversion usage
+  ##       this doesn't check the genesis validator root
+  let path = basepath/dbname&".sqlite3"
+  let alreadyExists = fileExists(path)
+  if not alreadyExists:
+    raise newException(IOError, "DB '" & path & "' does not exist.")
+
+  let backend = kvStore SqStoreRef.init(basePath, dbname, readOnly = false).get()
+
+  doAssert backend.contains(
+    subkey(kGenesisValidatorsRoot)
+  ).get(), "The Slashing DB is missing genesis information"
+
+  result = T(backend: backend)
+
+proc close*(db: SlashingProtectionDB_v1) =
   discard db.backend.close()
 
 # DB Queries
 # --------------------------------------------
 
 proc checkSlashableBlockProposal*(
-       db: SlashingProtectionDB,
+       db: SlashingProtectionDB_v1,
        validator: ValidatorPubKey,
        slot: Slot
-     ): Result[void, Eth2Digest] =
+     ): Result[void, BadProposal] =
   ## Returns an error if the specified validator
   ## already proposed a block for the specified slot.
   ## This would lead to slashing.
@@ -367,18 +423,21 @@ proc checkSlashableBlockProposal*(
   )
   if foundBlock.isNone():
     return ok()
-  return err(foundBlock.unsafeGet().block_root)
+  return err(BadProposal(
+    kind: DoubleProposal,
+    existing_block: foundBlock.unsafeGet().block_root
+  ))
 
 proc checkSlashableAttestation*(
-       db: SlashingProtectionDB,
+       db: SlashingProtectionDB_v1,
        validator: ValidatorPubKey,
        source: Epoch,
        target: Epoch
      ): Result[void, BadVote] =
   ## Returns an error if the specified validator
-  ## already proposed a block for the specified slot.
-  ## This would lead to slashing.
-  ## The error contains the blockroot that was already proposed
+  ## already voted for the specified slot
+  ## or would vote in a contradiction to previous votes
+  ## (surrounding vote or surrounded vote).
   ##
   ## Returns success otherwise
   # TODO distinct type for the result attestation root
@@ -428,7 +487,7 @@ proc checkSlashableAttestation*(
   # Chain reorg
   # Detect h(s2) < h(s1)
   # If the candidate attestation source precedes
-  # source(s) we have in the SlashingProtectionDB
+  # source(s) we have in the SlashingProtectionDB_v1
   # we have a chain reorg
   # ---------------------------------
   if source < ll.sourceEpochs.stop:
@@ -507,7 +566,7 @@ proc checkSlashableAttestation*(
 # DB update
 # --------------------------------------------
 
-proc registerValidator(db: SlashingProtectionDB, validator: ValidatorPubKey) =
+proc registerValidator(db: SlashingProtectionDB_v1, validator: ValidatorPubKey) =
   ## Add a new validator to the database
   ## Assumes the validator does not exist
   let maybeNumVals = db.get(
@@ -524,7 +583,7 @@ proc registerValidator(db: SlashingProtectionDB, validator: ValidatorPubKey) =
   db.put(subkey(kValidator, valIndex), validator)
 
 proc registerBlock*(
-       db: SlashingProtectionDB,
+       db: SlashingProtectionDB_v1,
        validator: ValidatorPubKey,
        slot: Slot, block_root: Eth2Digest) =
   ## Add a block to the slashing protection DB
@@ -660,7 +719,7 @@ proc registerBlock*(
     ).unsafeGet()
 
 proc registerAttestation*(
-       db: SlashingProtectionDB,
+       db: SlashingProtectionDB_v1,
        validator: ValidatorPubKey,
        source, target: Epoch,
        attestation_root: Eth2Digest) =
@@ -812,7 +871,7 @@ proc registerAttestation*(
 # --------------------------------------------
 
 proc dumpBlocks*(
-       db: SlashingProtectionDB,
+       db: SlashingProtectionDB_v1,
        validator: ValidatorPubKey
      ): string =
   ## Dump the linked list of blocks proposd by a validator in a string
@@ -847,7 +906,7 @@ proc dumpBlocks*(
   return $blocks
 
 proc dumpAttestations*(
-       db: SlashingProtectionDB,
+       db: SlashingProtectionDB_v1,
        validator: ValidatorPubKey
      ): string =
   ## Dump the linked list of blocks proposd by a validator in a string
@@ -883,80 +942,52 @@ proc dumpAttestations*(
 
 # DB maintenance
 # --------------------------------------------
-# TODO: pruning
-# Note that the complete interchange format
-# requires all proposals/attestations ever and so prevent pruning.
+proc pruneBlocks*(db: SlashingProtectionDB_v1, validator: ValidatorPubkey, newMinSlot: Slot) =
+  ## Prune all blocks from a validator before the specified newMinSlot
+  ## This is intended for interchange import to ensure
+  ## that in case of a gap, we don't allow signing in that gap.
+  ##
+  ## Note: the Database v1 does not support pruning.
+  warn "Slashing DB pruning is not supported on the v1 of our database. Request ignored.",
+    validator = shortLog(validator),
+    newMinSlot = shortLog(newMinSlot)
+
+proc pruneAttestations*(
+       db: SlashingProtectionDB_v1,
+       validator: ValidatorPubkey,
+       newMinSourceEpoch: Epoch,
+       newMinTargetEpoch: Epoch) =
+  ## Prune all blocks from a validator before the specified newMinSlot
+  ## This is intended for interchange import.
+  ##
+  ## Note: the Database v1 does not support pruning.
+  warn "Slashing DB pruning is not supported on the v1 of our database. Request ignored.",
+    validator = shortLog(validator),
+    newMinSourceEpoch = shortLog(newMinSourceEpoch),
+    newMinTargetEpoch = shortLog(newMinTargetEpoch)
+
+proc pruneAfterFinalization*(
+       db: SlashingProtectionDB_v1,
+       finalizedEpoch: Epoch
+     ) =
+  warn "Slashing DB pruning is not supported on the v1 of our database. Request ignored.",
+    finalizedEpoch = shortLog(finalizedEpoch)
 
 # Interchange
 # --------------------------------------------
 
-type
-  SPDIF = object
-    ## Slashing Protection Database Interchange Format
-    metadata: SPDIF_Meta
-    data: seq[SPDIF_Validator]
-
-  Eth2Digest0x = distinct Eth2Digest
-    ## The spec mandates "0x" prefix on serialization
-    ## So we need to set custom read/write
-  PubKey0x = distinct ValidatorPubKey
-    ## The spec mandates "0x" prefix on serialization
-    ## So we need to set custom read/write
-
-  SPDIF_Meta = object
-    interchange_format: string
-    interchange_format_version: string
-    genesis_validator_root: Eth2Digest0x
-
-  SPDIF_Validator = object
-    pubkey: PubKey0x
-    signed_blocks: seq[SPDIF_SignedBlock]
-    signed_attestations: seq[SPDIF_SignedAttestation]
-
-  SPDIF_SignedBlock = object
-    slot: Slot
-    signing_root: Eth2Digest0x # compute_signing_root(block, domain)
-
-  SPDIF_SignedAttestation = object
-    source_epoch: Epoch
-    target_epoch: Epoch
-    signing_root: Eth2Digest0x # compute_signing_root(attestation, domain)
-
-proc writeValue*(writer: var JsonWriter, value: PubKey0x)
-                {.inline, raises: [IOError, Defect].} =
-  writer.writeValue("0x" & value.ValidatorPubKey.toHex())
-
-proc readValue*(reader: var JsonReader, value: var PubKey0x)
-               {.raises: [SerializationError, IOError, Defect].} =
-  let key = ValidatorPubKey.fromHex(reader.readValue(string))
-  if key.isOk:
-    value = PubKey0x key.get
-  else:
-    # TODO: Can we provide better diagnostic?
-    raiseUnexpectedValue(reader, "Valid hex-encoded public key expected")
-
-proc writeValue*(w: var JsonWriter, a: Eth2Digest0x)
-                {.inline, raises: [IOError, Defect].} =
-  w.writeValue "0x" & a.Eth2Digest.data.toHex(lowercase = true)
-
-proc readValue*(r: var JsonReader, a: var Eth2Digest0x)
-               {.raises: [SerializationError, IOError, Defect].} =
-  try:
-    a = Eth2Digest0x fromHex(Eth2Digest, r.readValue(string))
-  except ValueError:
-    raiseUnexpectedValue(r, "Hex string expected")
-
-proc toSPDIF*(db: SlashingProtectionDB, path: string)
+proc toSPDIR_lowWatermark*(db: SlashingProtectionDB_v1): SPDIR
              {.raises: [IOError, Defect].} =
-  ## Export the full slashing protection database
-  ## to a json the Slashing Protection Database Interchange (Complete) Format
-  var extract: SPDIF
-  extract.metadata.interchange_format = "complete"
-  extract.metadata.interchange_format_version = "3"
-  extract.metadata.genesis_validator_root = Eth2Digest0x db.get(
-    subkey(kGenesisValidatorRoot), ETH2Digest
+  ## Export only the low watermark metadata
+  ## to the Nimbus Slashing Protection Database Intermediate Representation
+  ##
+  ## The full history is lost.
+  result.metadata.interchange_format_version = "5"
+
+  result.metadata.genesis_validators_root = Eth2Digest0x db.get(
+    subkey(kGenesisValidatorsRoot), ETH2Digest
     # Bug in results.nim
-    # ).expect("Slashing Protection requires genesis_validator_root at init")
+    # ).expect("Slashing Protection requires genesis_validators_root at init")
   ).unsafeGet()
 
   let numValidators = db.get(
@@ -965,13 +996,68 @@ proc toSPDIF*(db: SlashingProtectionDB, path: string)
   ).get(otherwise = 0'u32)
 
   for i in 0'u32 ..< numValidators:
-    var validator: SPDIF_Validator
+    var validator: SPDIR_Validator
     validator.pubkey = PubKey0x db.get(
       subkey(kValidator, i),
-      ValidatorPubKey
+      PubKeyBytes
     ).unsafeGet()
 
-    let valID = validator.pubkey.ValidatorPubKey.toRaw()
+    template valID: untyped = PubKeyBytes validator.pubkey
+    let ll = db.get(
+      subkey(kLinkedListMeta, valID),
+      KeysEpochs
+    ).unsafeGet()
+
+    # Create a fake block with the highest slot seen
+    # to prevent all signing from lower slots
+    if ll.blockSlots.isInit:
+      validator.signed_blocks.add SPDIR_SignedBlock(
+        slot: SlotString ll.blockSlots.stop
+        # signing_root - empty
+      )
+
+    # Create a fake attestation with the highest epochs seen
+    # to prevent all signing from lower epochs.
+    # In reality, the max source epoch and max target epochs
+    # may be from different attestations.
+    if ll.targetEpochs.isInit:
+      validator.signed_attestations.add SPDIR_SignedAttestation(
+        source_epoch: EpochString ll.sourceEpochs.stop,
+        target_epoch: EpochString ll.targetEpochs.stop,
+      )
+
+    # Update extract without reallocating seqs
+    # by manually transferring ownership
+    result.data.setLen(result.data.len + 1)
+    shallowCopy(result.data[^1], validator)
+
+proc toSPDIR*(db: SlashingProtectionDB_v1): SPDIR
+             {.raises: [IOError, Defect].} =
+  ## Export the full slashing protection database
+  ## to the Nimbus Slashing Protection Database Intermediate Representation
+  ##
+  ## Note: this is slow due to how we implement range queries in a KV-store
+  result.metadata.interchange_format_version = "5"
+
+  result.metadata.genesis_validators_root = Eth2Digest0x db.get(
+    subkey(kGenesisValidatorsRoot), ETH2Digest
+    # Bug in results.nim
+    # ).expect("Slashing Protection requires genesis_validators_root at init")
+  ).unsafeGet()
+
+  let numValidators = db.get(
+    subkey(kNumValidators),
+    uint32
+  ).get(otherwise = 0'u32)
+
+  for i in 0'u32 ..< numValidators:
+    var validator: SPDIR_Validator
+    validator.pubkey = PubKey0x db.get(
+      subkey(kValidator, i),
+      PubKeyBytes
+    ).unsafeGet()
+
+    template valID: untyped = PubKeyBytes validator.pubkey
     let ll = db.get(
       subkey(kLinkedListMeta, valID),
       KeysEpochs
@@ -985,8 +1071,8 @@ proc toSPDIF*(db: SlashingProtectionDB, path: string)
           BlockNode
         ).unsafeGet()
 
-        validator.signed_blocks.add SPDIF_SignedBlock(
-          slot: curSlot,
+        validator.signed_blocks.add SPDIR_SignedBlock(
+          slot: SlotString curSlot,
           signing_root: Eth2Digest0x node.block_root
         )
 
@@ -997,15 +1083,15 @@ proc toSPDIF*(db: SlashingProtectionDB, path: string)
 
     if ll.targetEpochs.isInit:
       var curEpoch = ll.targetEpochs.start
-      var count = 0
       while true:
         let node = db.get(
           subkey(kTargetEpoch, valID, curEpoch),
           TargetEpochNode
         ).unsafeGet()
 
-        validator.signed_attestations.add SPDIF_SignedAttestation(
-          source_epoch: node.source, target_epoch: curEpoch,
+        validator.signed_attestations.add SPDIR_SignedAttestation(
+          source_epoch: EpochString node.source,
+          target_epoch: EpochString curEpoch,
           signing_root: Eth2Digest0x node.attestation_root
         )
 
@@ -1014,59 +1100,44 @@ proc toSPDIF*(db: SlashingProtectionDB, path: string)
         else:
           curEpoch = node.next
 
-        inc count
-        doAssert count < 5
-
     # Update extract without reallocating seqs
     # by manually transferring ownership
-    extract.data.setLen(extract.data.len + 1)
-    shallowCopy(extract.data[^1], validator)
+    result.data.setLen(result.data.len + 1)
+    shallowCopy(result.data[^1], validator)
 
-  Json.saveFile(path, extract, pretty = true)
-  echo "Exported slashing protection DB to '", path, "'"
-
-proc fromSPDIF*(db: SlashingProtectionDB, path: string): bool
+proc inclSPDIR*(db: SlashingProtectionDB_v1, spdir: SPDIR): SlashingImportStatus
              {.raises: [SerializationError, IOError, Defect].} =
-  ## Import a (Complete) Slashing Protection Database Interchange Format
-  ## file into the specified slahsing protection DB
+  ## Import a Slashing Protection Database Intermediate Representation
+  ## file into the specified slashing protection DB
   ##
   ## The database must be initialized.
-  ## The genesis_validator_root must match or
+  ## The genesis_validators_root must match or
   ## the DB must have a zero root
-
-  let extract = Json.loadFile(path, SPDIF)
-
   doAssert not db.isNil, "The Slashing Protection DB must be initialized."
   doAssert not db.backend.isNil, "The Slashing Protection DB must be initialized."
 
   let dbGenValRoot = db.get(
-    subkey(kGenesisValidatorRoot), ETH2Digest
+    subkey(kGenesisValidatorsRoot), ETH2Digest
   ).unsafeGet()
 
   if dbGenValRoot != default(Eth2Digest) and
-     dbGenValRoot != extract.metadata.genesis_validator_root.Eth2Digest:
-    echo "The slashing protection database and imported file refer to different blockchains."
-    return false
+     dbGenValRoot != spdir.metadata.genesis_validators_root.Eth2Digest:
+    error "The slashing protection database and imported file refer to different blockchains.",
+      DB_genesis_validators_root = dbGenValRoot,
+      Imported_genesis_validators_root = spdir.metadata.genesis_validators_root.Eth2Digest
+    return siFailure
 
   if dbGenValRoot == default(Eth2Digest):
     db.put(
-      subkey(kGenesisValidatorRoot),
-      extract.metadata.genesis_validator_root.Eth2Digest
+      subkey(kGenesisValidatorsRoot),
+      spdir.metadata.genesis_validators_root.Eth2Digest
     )
 
-  for v in 0 ..< extract.data.len:
-    for b in 0 ..< extract.data[v].signed_blocks.len:
-      db.registerBlock(
-        extract.data[v].pubkey.ValidatorPubKey,
-        extract.data[v].signed_blocks[b].slot,
-        extract.data[v].signed_blocks[b].signing_root.Eth2Digest
-      )
-    for a in 0 ..< extract.data[v].signed_attestations.len:
-      db.registerAttestation(
-        extract.data[v].pubkey.ValidatorPubKey,
-        extract.data[v].signed_attestations[a].source_epoch,
-        extract.data[v].signed_attestations[a].target_epoch,
-        extract.data[v].signed_attestations[a].signing_root.Eth2Digest
-      )
+  # Create a mutable copy for sorting
+  var spdir = spdir
+  return db.importInterchangeV5Impl(spdir)
 
-  return true
+# Sanity check
+# --------------------------------------------------------------
+
+static: doAssert SlashingProtectionDB_v1 is SlashingProtectionDB_Concept
