@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Perform a voluntary exit - The Nimbus Beacon Chain Book</title>
+        <title>Binary distribution internals - The Nimbus Beacon Chain Book</title>
         
         
 
@@ -91,7 +91,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="philosophy.html"><strong aria-hidden="true">2.</strong> Design goals</a></li><li class="chapter-item expanded "><a href="hardware.html"><strong aria-hidden="true">3.</strong> System requirements</a></li><li class="chapter-item expanded "><a href="quick-start.html"><strong aria-hidden="true">4.</strong> Run just the beacon node (quickstart)</a></li><li class="chapter-item expanded affix "><li class="part-title">Raspberry Pi</li><li class="chapter-item expanded "><a href="pi-guide.html"><strong aria-hidden="true">5.</strong> Validating with a Raspberry Pi</a></li><li class="chapter-item expanded "><a href="pi-guide-mainnet.html"><strong aria-hidden="true">6.</strong> Mainnet advice</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to</li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">7.</strong> Install dependencies</a></li><li class="chapter-item expanded "><a href="build.html"><strong aria-hidden="true">8.</strong> Build the beacon node</a></li><li class="chapter-item expanded "><a href="eth1.html"><strong aria-hidden="true">9.</strong> Run an eth1 node</a></li><li class="chapter-item expanded "><a href="start-syncing.html"><strong aria-hidden="true">10.</strong> Sync the beacon node</a></li><li class="chapter-item expanded "><a href="deposit.html"><strong aria-hidden="true">11.</strong> Make a deposit for your validator</a></li><li class="chapter-item expanded "><a href="keys.html"><strong aria-hidden="true">12.</strong> Import your validator keys</a></li><li class="chapter-item expanded "><a href="connect-eth2.html"><strong aria-hidden="true">13.</strong> Connect your validator to eth2</a></li><li class="chapter-item expanded "><a href="keep-an-eye.html"><strong aria-hidden="true">14.</strong> Keep an eye on your validator</a></li><li class="chapter-item expanded "><a href="keep-updated.html"><strong aria-hidden="true">15.</strong> Keep Nimbus updated</a></li><li class="chapter-item expanded "><a href="preparation.html"><strong aria-hidden="true">16.</strong> Mainnet preparations</a></li><li class="chapter-item expanded "><a href="email-notifications.html"><strong aria-hidden="true">17.</strong> Email notifications</a></li><li class="chapter-item expanded "><a href="graffiti.html"><strong aria-hidden="true">18.</strong> Graffiti the blockchain</a></li><li class="chapter-item expanded "><a href="binaries.html"><strong aria-hidden="true">19.</strong> Download binaries</a></li><li class="chapter-item expanded "><a href="docker.html"><strong aria-hidden="true">20.</strong> Docker images</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">21.</strong> Troubleshoot</a></li><li class="chapter-item expanded "><a href="more-keys.html"><strong aria-hidden="true">22.</strong> Recover / generate keys</a></li><li class="chapter-item expanded "><a href="voluntary-exit.html" class="active"><strong aria-hidden="true">23.</strong> Perform a voluntary exit</a></li><li class="chapter-item expanded "><a href="beacon-node-systemd.html"><strong aria-hidden="true">24.</strong> Setup a systemd service</a></li><li class="chapter-item expanded affix "><li class="part-title">Tutorials</li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">25.</strong> Grafana and Prometheus</a></li><li class="chapter-item expanded "><a href="infura-guide.html"><strong aria-hidden="true">26.</strong> Create your own Infura endpoint</a></li><li class="chapter-item expanded "><a href="eth2-stats.html"><strong aria-hidden="true">27.</strong> Network stats (testnets only)</a></li><li class="chapter-item expanded affix "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">28.</strong> API</a></li><li class="chapter-item expanded "><a href="options.html"><strong aria-hidden="true">29.</strong> Command line options</a></li><li class="chapter-item expanded "><a href="developers.html"><strong aria-hidden="true">30.</strong> For developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">31.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">32.</strong> Contribute</a></li><li class="chapter-item expanded "><a href="resources.html"><strong aria-hidden="true">33.</strong> Resources</a></li><li class="chapter-item expanded "><a href="distribution_internals.html"><strong aria-hidden="true">34.</strong> Binary distribution internals</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="philosophy.html"><strong aria-hidden="true">2.</strong> Design goals</a></li><li class="chapter-item expanded "><a href="hardware.html"><strong aria-hidden="true">3.</strong> System requirements</a></li><li class="chapter-item expanded "><a href="quick-start.html"><strong aria-hidden="true">4.</strong> Run just the beacon node (quickstart)</a></li><li class="chapter-item expanded affix "><li class="part-title">Raspberry Pi</li><li class="chapter-item expanded "><a href="pi-guide.html"><strong aria-hidden="true">5.</strong> Validating with a Raspberry Pi</a></li><li class="chapter-item expanded "><a href="pi-guide-mainnet.html"><strong aria-hidden="true">6.</strong> Mainnet advice</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to</li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">7.</strong> Install dependencies</a></li><li class="chapter-item expanded "><a href="build.html"><strong aria-hidden="true">8.</strong> Build the beacon node</a></li><li class="chapter-item expanded "><a href="eth1.html"><strong aria-hidden="true">9.</strong> Run an eth1 node</a></li><li class="chapter-item expanded "><a href="start-syncing.html"><strong aria-hidden="true">10.</strong> Sync the beacon node</a></li><li class="chapter-item expanded "><a href="deposit.html"><strong aria-hidden="true">11.</strong> Make a deposit for your validator</a></li><li class="chapter-item expanded "><a href="keys.html"><strong aria-hidden="true">12.</strong> Import your validator keys</a></li><li class="chapter-item expanded "><a href="connect-eth2.html"><strong aria-hidden="true">13.</strong> Connect your validator to eth2</a></li><li class="chapter-item expanded "><a href="keep-an-eye.html"><strong aria-hidden="true">14.</strong> Keep an eye on your validator</a></li><li class="chapter-item expanded "><a href="keep-updated.html"><strong aria-hidden="true">15.</strong> Keep Nimbus updated</a></li><li class="chapter-item expanded "><a href="preparation.html"><strong aria-hidden="true">16.</strong> Mainnet preparations</a></li><li class="chapter-item expanded "><a href="email-notifications.html"><strong aria-hidden="true">17.</strong> Email notifications</a></li><li class="chapter-item expanded "><a href="graffiti.html"><strong aria-hidden="true">18.</strong> Graffiti the blockchain</a></li><li class="chapter-item expanded "><a href="binaries.html"><strong aria-hidden="true">19.</strong> Download binaries</a></li><li class="chapter-item expanded "><a href="docker.html"><strong aria-hidden="true">20.</strong> Docker images</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">21.</strong> Troubleshoot</a></li><li class="chapter-item expanded "><a href="more-keys.html"><strong aria-hidden="true">22.</strong> Recover / generate keys</a></li><li class="chapter-item expanded "><a href="voluntary-exit.html"><strong aria-hidden="true">23.</strong> Perform a voluntary exit</a></li><li class="chapter-item expanded "><a href="beacon-node-systemd.html"><strong aria-hidden="true">24.</strong> Setup a systemd service</a></li><li class="chapter-item expanded affix "><li class="part-title">Tutorials</li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">25.</strong> Grafana and Prometheus</a></li><li class="chapter-item expanded "><a href="infura-guide.html"><strong aria-hidden="true">26.</strong> Create your own Infura endpoint</a></li><li class="chapter-item expanded "><a href="eth2-stats.html"><strong aria-hidden="true">27.</strong> Network stats (testnets only)</a></li><li class="chapter-item expanded affix "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">28.</strong> API</a></li><li class="chapter-item expanded "><a href="options.html"><strong aria-hidden="true">29.</strong> Command line options</a></li><li class="chapter-item expanded "><a href="developers.html"><strong aria-hidden="true">30.</strong> For developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">31.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">32.</strong> Contribute</a></li><li class="chapter-item expanded "><a href="resources.html"><strong aria-hidden="true">33.</strong> Resources</a></li><li class="chapter-item expanded "><a href="distribution_internals.html" class="active"><strong aria-hidden="true">34.</strong> Binary distribution internals</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -157,36 +157,58 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#perform-a-voluntary-exit" id="perform-a-voluntary-exit">Perform a voluntary exit</a></h1>
-<blockquote>
-<p>⚠️  Voluntary exits are <strong>irreversible</strong>. You won't be able to validate again with the same key. And you won't be able to withdraw your stake until the Eth1 and Eth2 merge. <em>Note that voluntary exits won't be processed if the chain isn't finalising.</em></p>
-</blockquote>
-<p>To perform a voluntary exit, with your beacon node running, run:</p>
-<p><strong>Pyrmont</strong></p>
-<pre><code>build/nimbus_beacon_node deposits exit --validator=&lt;VALIDATOR_PUBLIC_KEY&gt; --data-dir=build/data/shared_pyrmont_0
-
-</code></pre>
-<p><strong>Mainnet</strong></p>
-<pre><code>build/nimbus_beacon_node deposits exit --validator=&lt;VALIDATOR_PUBLIC_KEY&gt; --data-dir=build/data/shared_mainnet_0
-</code></pre>
-<blockquote>
-<p><strong>Note:</strong> Make sure your <code>&lt;VALIDATOR_PUBLIC_KEY&gt;</code> is prefixed with <code>0x</code>. In other words the public key should look like <code>0x95e3...</code></p>
-</blockquote>
+                        <h1><a class="header" href="#binary-distribution-internals" id="binary-distribution-internals">Binary distribution internals</a></h1>
+<h2><a class="header" href="#reproducibility" id="reproducibility">Reproducibility</a></h2>
+<p>The binaries we build in GitHub Actions and distribute in GitHub releases come
+from a convoluted process meant to ensure <a href="https://reproducible-builds.org/">reproducibility</a>.</p>
+<p>While being able to produce the same exact binaries from the corresponding Git
+commits is a good idea for any open source project, it becomes a requirement
+for software that deals with digital tokens.</p>
+<h2><a class="header" href="#docker-containers-for-internal-use" id="docker-containers-for-internal-use">Docker containers for internal use</a></h2>
+<p>The easiest way to guarantee that users will be able to replicate those
+binaries is to give them the same software environment we used in CI. Docker
+containers fit the bill, so everything starts with the architecture- and
+OS-specific containers in &quot;docker/dist/base_image/&quot;.</p>
+<p>These images have all the packages we need, are built and published once (to
+Docker Hub), then reused for a long time as the basis for temporary Docker
+images where the nimbus-eth2 build is done.</p>
+<p>These temporary images are controlled by Dockerfiles in &quot;docker/dist/&quot; and,
+since we're not publishing them anywhere, we can customize them to the system
+they run on, by making them use the host's UID/GID, the host's QEMU static
+binaries, etc. They get access to the source code through the use of external volumes.</p>
+<h2><a class="header" href="#build-process" id="build-process">Build process</a></h2>
+<p>It all starts from the GitHub actions in &quot;.github/workflows/release.yml&quot;. There
+is a different job for each supported OS-architecture combination and they all
+run in parallel (ideally).</p>
+<p>The &quot;build-amd64&quot; CI job is special, because it's the one that creates a new
+GitHub release draft, as soon as possible. All the other jobs will upload their
+binary distribution tarballs to this draft release but, since it's not feasible
+to communicate between CI jobs, they'll just use GitHub APIs to find out what
+the latest release is, check that it has the right Git tag, and use it as their
+last step.</p>
+<p>The build itself is triggered by a Make target: <code>make dist-amd64</code>. This invokes
+&quot;scripts/make_dist.sh&quot; which builds the corresponding Docker container from
+&quot;docker/dist/&quot; and runs it with the Git repository's top dir as an external
+volume.</p>
+<p>The entry point for that container is &quot;docker/dist/entry_point.sh&quot; and that's
+where you'll find the Make invocations needed to finally build the software and
+create distributable tarballs.</p>
+<h2><a class="header" href="#docker-images-for-end-users" id="docker-images-for-end-users">Docker images for end users</a></h2>
+<p>Also in &quot;.github/workflows/release.yml&quot;, but only for the &quot;build-amd64&quot; job, we
+unpack the distribution tarball and copy its content into a third type of Docker
+image - this one meant for end users and defined by &quot;docker/dist/binaries/Dockerfile.amd64&quot;.</p>
+<p>We publish that to <a href="https://hub.docker.com/r/statusim/nimbus-eth2">Docker Hub</a>.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="more-keys.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="resources.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
-                        
-                            <a rel="next" href="beacon-node-systemd.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
-                            </a>
                         
 
                         <div style="clear: both"></div>
@@ -196,15 +218,11 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="more-keys.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="resources.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
-                
-                    <a rel="next" href="beacon-node-systemd.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
-                    </a>
                 
             </nav>
 
