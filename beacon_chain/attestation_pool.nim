@@ -9,7 +9,7 @@
 
 import
   # Standard libraries
-  std/[deques, intsets, options, sequtils, tables],
+  std/[deques, options, sequtils, tables],
   # Status libraries
   chronicles, stew/[byteutils], json_serialization/std/sets as jsonSets,
   # Internal
@@ -19,7 +19,7 @@ import
   ./beacon_node_types,
   ./fork_choice/fork_choice
 
-export beacon_node_types, intsets
+export beacon_node_types
 
 logScope: topics = "attpool"
 
@@ -89,7 +89,7 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
   )
 
 proc addForkChoiceVotes(
-    pool: var AttestationPool, slot: Slot, participants: IntSet,
+    pool: var AttestationPool, slot: Slot, participants: seq[ValidatorIndex],
     block_root: Eth2Digest, wallSlot: Slot) =
   # Add attestation votes to fork choice
   if (let v = pool.forkChoice.on_attestation(
@@ -150,7 +150,7 @@ func addToAggregates(pool: var AttestationPool, attestation: Attestation) =
 
 proc addAttestation*(pool: var AttestationPool,
                      attestation: Attestation,
-                     participants: IntSet,
+                     participants: seq[ValidatorIndex],
                      wallSlot: Slot) =
   ## Add an attestation to the pool, assuming it's been validated already.
   ## Attestations may be either agggregated or not - we're pursuing an eager

@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[algorithm, intsets, sequtils],
+  std/[algorithm, sequtils],
   chronicles,
   ../spec/[
     crypto, datatypes, digest, helpers, presets, signatures,
@@ -82,11 +82,10 @@ iterator get_attesting_indices*(epochRef: EpochRef,
 func get_attesting_indices*(epochRef: EpochRef,
                             data: AttestationData,
                             bits: CommitteeValidatorsBits):
-                              IntSet =
+                              seq[ValidatorIndex] =
+  # TODO sequtils2 mapIt
   for idx in get_attesting_indices(epochRef, data, bits):
-    # Because it must have been in get_beacon_committee(...), it's a valid
-    # validator index, so the conversion is as safe as it is anywhere.
-    result.incl(idx.int)
+    result.add(idx)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#get_indexed_attestation
 func get_indexed_attestation*(epochRef: EpochRef, attestation: Attestation): IndexedAttestation =
@@ -146,7 +145,7 @@ proc is_valid_indexed_attestation*(
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    epochRef: EpochRef, attesting_indices: IntSet,
+    epochRef: EpochRef, attesting_indices: auto,
     attestation: SomeAttestation, flags: UpdateFlags): Result[void, cstring] =
   # This is a variation on `is_valid_indexed_attestation` that works directly
   # with an attestation instead of first constructing an `IndexedAttestation`

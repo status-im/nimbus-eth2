@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[intsets, options, sequtils],
+  std/[options, sequtils],
   chronos, chronicles,
   ./spec/[
     beaconstate, datatypes, crypto, digest, helpers, network, signatures],
@@ -163,7 +163,7 @@ proc validateAttestation*(
     pool: var AttestationPool,
     attestation: Attestation, wallTime: BeaconTime,
     topicCommitteeIndex: uint64, checksExpensive: bool):
-    Result[IntSet, (ValidationResult, cstring)] =
+    Result[seq[ValidatorIndex], (ValidationResult, cstring)] =
   # [REJECT] The attestation's epoch matches its target -- i.e.
   # attestation.data.target.epoch ==
   # compute_epoch_at_slot(attestation.data.slot)
@@ -252,7 +252,7 @@ proc validateAttestation*(
   # validator index.
   # Slightly modified to allow only newer attestations than were previously
   # seen (no point in propagating older votes)
-  if (pool.nextAttestationEpoch.len > validator_index) and
+  if (pool.nextAttestationEpoch.lenu64 > validator_index.uint64) and
       pool.nextAttestationEpoch[validator_index].subnet >
         attestation.data.target.epoch:
     return err((ValidationResult.Ignore, cstring(
@@ -286,9 +286,10 @@ proc validateAttestation*(
     return err((ValidationResult.Reject, cstring(
       "validateAttestation: attestation's target block not an ancestor of LMD vote block")))
 
-  # Only valid attestations go in the list
-  if not (pool.nextAttestationEpoch.len > validator_index):
-    pool.nextAttestationEpoch.setLen(validator_index + 1)
+  # Only valid attestations go in the list, which keeps validator_index
+  # in range
+  if not (pool.nextAttestationEpoch.lenu64 > validator_index.uint64):
+    pool.nextAttestationEpoch.setLen(validator_index.int + 1)
   pool.nextAttestationEpoch[validator_index].subnet =
     attestation.data.target.epoch + 1
 
@@ -298,7 +299,7 @@ proc validateAttestation*(
 proc validateAggregate*(
     pool: var AttestationPool,
     signedAggregateAndProof: SignedAggregateAndProof, wallTime: BeaconTime):
-    Result[IntSet, (ValidationResult, cstring)] =
+    Result[seq[ValidatorIndex], (ValidationResult, cstring)] =
   let
     aggregate_and_proof = signedAggregateAndProof.message
     aggregate = aggregate_and_proof.aggregate

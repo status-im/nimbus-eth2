@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2020 Status Research & Development GmbH
+# Copyright (c) 2019-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -117,7 +117,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
                 data: data,
                 aggregation_bits: aggregation_bits,
                 signature: sig
-              ), [validatorIdx.int].toIntSet(), data.slot)
+              ), @[validatorIdx], data.slot)
 
   proc proposeBlock(slot: Slot) =
     if rand(r, 1.0) > blockRatio:
