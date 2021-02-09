@@ -138,10 +138,10 @@ func subkey(kind: type BeaconBlockSummary, key: Eth2Digest): auto =
 func subkey(kind: type BeaconStateDiff, key: Eth2Digest): auto =
   subkey(kHashToStateDiff, key.data)
 
-func subkey(kind: type ImmutableValidatorList, baseIndex: ValidatorIndex): auto =
+func subkey(kind: type ImmutableValidatorList, baseIndex: uint64): auto =
   # TODO include chunk size? or some other adaptation mechanism to allow
   # changing chunk size without changing schema. tradeoffs though.
-  subkey(kImmutableValidatorChunk, uint_to_bytes8(baseIndex.uint64))
+  subkey(kImmutableValidatorChunk, uint_to_bytes8(baseIndex))
 
 func subkey(root: Eth2Digest, slot: Slot): array[40, byte] =
   var ret: array[40, byte]
@@ -336,30 +336,9 @@ proc putBlock*(db: BeaconChainDB, value: SigVerifiedSignedBeaconBlock) =
   db.put(subkey(SignedBeaconBlock, value.root), value)
   db.put(subkey(BeaconBlockSummary, value.root), value.message.toBeaconBlockSummary())
 
-# TODO probably should be statediff, and name is misleading, it's not about
-# getting data from database, but an operation on a state
-func getImmutableValidators*(state: BeaconState):
-    (ValidatorIndex, ref ImmutableValidatorList) =
-  let
-    numValidators = state.validators.lenu64
-    baseIndex = numValidators - (numValidators mod VALIDATOR_CHUNK_SIZE)
-    validatorsInChunk = numValidators - baseIndex
-
-  # TODO this can miss validators if it's not called frequently enough; might
-  # need backup mechanism or tying putState() to churn rate or tracking what,
-  # regardless of when, the last call stored immutable-validator-wise.
-  var immutableValidators = new ImmutableValidatorList
-  doAssert numValidators >= baseIndex
-  immutableValidators[].count = validatorsInChunk
-  for i in 0 ..< validatorsInChunk:
-    immutableValidators[].immutableValidators[i] =
-      getImmutableValidatorData(state.validators[baseIndex + i])
-
-  (baseIndex.ValidatorIndex, immutableValidators)
-
 proc putImmutableValidators*(
-    db: BeaconChainDB, baseIndex: ValidatorIndex,
-    value: ImmutableValidatorList) =
+    db: BeaconChainDB, baseIndex: uint64, value: ImmutableValidatorList) =
+  doAssert baseIndex mod VALIDATOR_CHUNK_SIZE == 0
   db.put(subkey(ImmutableValidatorList, baseIndex), value)
 
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
@@ -430,9 +409,37 @@ proc getBlockSummary*(db: BeaconChainDB, key: Eth2Digest): Opt[BeaconBlockSummar
   if db.get(subkey(BeaconBlockSummary, key), result.get) != GetResult.found:
     result.err()
 
+func getBeaconStateNoImmutableValidators[T, U](x: T): ref U =
+  # TODO this whole approach is a kludge; should be able to avoid copying and
+  # get SSZ to just serialize result.validators differently, concatenate from
+  # before + changed + after, or etc. also adding any additional copies, or a
+  # non-ref return type, hurts performance significantly.
+  #
+  # This copies all fields, except validators.
+  result = new U
+  result.genesis_time = x.genesis_time
+  result.genesis_validators_root = x.genesis_validators_root
+  result.slot = x.slot
+  result.fork = x.fork
+  result.latest_block_header = x.latest_block_header
+  result.block_roots = x.block_roots
+  result.state_roots = x.state_roots
+  result.historical_roots = x.historical_roots
+  result.eth1_data = x.eth1_data
+  result.eth1_data_votes = x.eth1_data_votes
+  result.eth1_deposit_index = x.eth1_deposit_index
+  result.balances = x.balances
+  result.randao_mixes = x.randao_mixes
+  result.slashings = x.slashings
+  result.previous_epoch_attestations = x.previous_epoch_attestations
+  result.current_epoch_attestations = x.current_epoch_attestations
+  result.justification_bits = x.justification_bits
+  result.previous_justified_checkpoint = x.previous_justified_checkpoint
+  result.finalized_checkpoint = x.finalized_checkpoint
+
 proc getStateOnlyMutableValidators(
     db: BeaconChainDB, key: Eth2Digest, output: var BeaconState,
-    rollback: RollbackProc): bool =
+    rollback: RollbackProc, immutableValidators: auto): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
   ## Return `true` iff the entry was found in the database and `output` was
@@ -444,9 +451,41 @@ proc getStateOnlyMutableValidators(
   # TODO RVO is inefficient for large objects:
   #      https://github.com/nim-lang/Nim/issues/13879
 
-  # TODO reconstruct state from known list of immutable validators
-  case db.get(subkey(BeaconStateNoImmutableValidators, key), output)
+  # TODO this involves just far too much pointless copying; the correct
+  # approach is to hook into SSZ
+  var intermediateOutput = new BeaconStateNoImmutableValidators
+  case db.get(
+    subkey(BeaconStateNoImmutableValidators, key), intermediateOutput[])
   of GetResult.found:
+    output = getBeaconStateNoImmutableValidators[
+      BeaconStateNoImmutableValidators, BeaconState](intermediateOutput[])[]
+
+    # This must be guaranteed
+    doAssert immutableValidators.len >= intermediateOutput[].validators.len
+
+    # TODO factor out, maybe
+    for i in 0 ..< intermediateOutput[].validators.len:
+      # Merge immutable and mutable parts
+      debugEcho "foobar: ", i
+
+      # Immutable
+      output.validators[i].pubkey = immutableValidators[i].pubkey
+      output.validators[i].withdrawal_credentials =
+        immutableValidators[i].withdrawal_credentials
+
+      # Mutable
+      output.validators[i].effective_balance =
+        intermediateOutput[].validators[i].effective_balance
+      output.validators[i].slashed = intermediateOutput[].validators[i].slashed
+      output.validators[i].activation_eligibility_epoch =
+        intermediateOutput[].validators[i].activation_eligibility_epoch
+      output.validators[i].activation_epoch =
+        intermediateOutput[].validators[i].activation_epoch
+      output.validators[i].exit_epoch =
+        intermediateOutput[].validators[i].exit_epoch
+      output.validators[i].withdrawable_epoch =
+        intermediateOutput[].validators[i].withdrawable_epoch
+
     true
   of GetResult.notFound:
     false
@@ -456,7 +495,10 @@ proc getStateOnlyMutableValidators(
 
 proc getState*(
     db: BeaconChainDB, key: Eth2Digest, output: var BeaconState,
-    rollback: RollbackProc): bool =
+    rollback: RollbackProc,
+    # TODO can't be auto and can't be openArray[ImmutableValidatorData],
+    # apparently
+    immutableValidators: openArray[ImmutableValidatorData]): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
   ## Return `true` iff the entry was found in the database and `output` was
@@ -467,6 +509,12 @@ proc getState*(
   #      https://github.com/nim-lang/Nim/issues/14126
   # TODO RVO is inefficient for large objects:
   #      https://github.com/nim-lang/Nim/issues/13879
+  if getStateOnlyMutableValidators(
+      db, key, output, rollback, immutableValidators):
+    return true
+
+  # TODO both this and getStateOnlyMutableValidators can rollback. but only one
+  # really has to.
   case db.get(subkey(BeaconState, key), output)
   of GetResult.found:
     true
@@ -488,7 +536,8 @@ proc getStateDiff*(db: BeaconChainDB,
     result.err
 
 proc getImmutableValidators*(
-    db: BeaconChainDB, baseIndex: ValidatorIndex): Opt[ImmutableValidatorList] =
+    db: BeaconChainDB, baseIndex: uint64): Opt[ImmutableValidatorList] =
+  doAssert baseIndex mod VALIDATOR_CHUNK_SIZE == 0
   result.ok(ImmutableValidatorList())
   if db.get(subkey(ImmutableValidatorList, baseIndex), result.get) !=
       GetResult.found:
@@ -531,6 +580,10 @@ proc containsState*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(BeaconStateNoImmutableValidators, key)).expect(
       "working database  (disk broken/full?)") or
     db.backend.contains(subkey(BeaconState, key)).expect("working database (disk broken/full?)")
+
+proc containsImmutableValidators*(db: BeaconChainDB, baseIndex: uint64): bool =
+  db.backend.contains(subkey(ImmutableValidatorList, baseIndex)).expect(
+    "working database")
 
 proc containsStateDiff*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(BeaconStateDiff, key)).expect("working database (disk broken/full?)")

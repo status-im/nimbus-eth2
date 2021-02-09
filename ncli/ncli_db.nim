@@ -131,8 +131,10 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
     root: db.getBlock(blockRefs[^1].root).get().message.state_root
   )
 
+  var foo: seq[ImmutableValidatorData]
   withTimer(timers[tLoadState]):
-    discard db.getState(state[].root, state[].data, noRollback)
+    #discard db.getState(state[].root, state[].data, noRollback, ChainDAGRef.iv)
+    discard db.getState(state[].root, state[].data, noRollback, foo)
 
   var
     cache = StateCache()
@@ -177,11 +179,12 @@ proc cmdDumpState(conf: DbConf, preset: RuntimePreset) =
   let db = BeaconChainDB.init(preset, conf.databaseDir.string)
   defer: db.close()
 
+  var foo: seq[ImmutableValidatorData]
   for stateRoot in conf.stateRoot:
     try:
       let root = Eth2Digest(data: hexToByteArray[32](stateRoot))
       var state = (ref HashedBeaconState)(root: root)
-      if not db.getState(root, state.data, noRollback):
+      if not db.getState(root, state.data, noRollback, foo):
         echo "Couldn't load ", root
       else:
         dump("./", state[])
@@ -224,9 +227,10 @@ proc copyPrunedDatabase(
   let headEpoch = db.getBlock(headBlock.get).get.message.slot.epoch
 
   # Tail states are specially addressed; no stateroot intermediary
+  var foo: seq[ImmutableValidatorData]
   if not db.getState(
       db.getBlock(tailBlock.get).get.message.state_root, beaconState[],
-      noRollback):
+      noRollback, foo):
     doAssert false, "could not load tail state"
   if not dry_run:
     copyDb.putState(beaconState[])
@@ -252,7 +256,8 @@ proc copyPrunedDatabase(
             slot, " with root ", signedBlock.root
         continue
 
-      if not db.getState(sr.get, beaconState[], noRollback):
+      var foo: seq[ImmutableValidatorData]
+      if not db.getState(sr.get, beaconState[], noRollback, foo):
         # Don't copy dangling stateroot pointers
         if stateRequired:
           doAssert false, "state root and state required"

@@ -378,12 +378,15 @@ proc init*(T: type ChainDAGRef,
     cur = headRef.atSlot(headRef.slot)
     tmpState = (ref StateData)()
 
+  # TODO this actually needs to be initialized, before the DAG is really set up
+  var iv: seq[ImmutableValidatorData]
+
   # Now that we have a head block, we need to find the most recent state that
   # we have saved in the database
   while cur.blck != nil:
     let root = db.getStateRoot(cur.blck.root, cur.slot)
     if root.isSome():
-      if db.getState(root.get(), tmpState.data.data, noRollback):
+      if db.getState(root.get(), tmpState.data.data, noRollback, iv):
         tmpState.data.root = root.get()
         tmpState.blck = cur.blck
 
@@ -414,6 +417,7 @@ proc init*(T: type ChainDAGRef,
     epochRefState: tmpState[],
     clearanceState: tmpState[],
     tmpState: tmpState[],
+    #TODO iv: default is fine
 
     # The only allowed flag right now is verifyFinalization, as the others all
     # allow skipping some validation.
@@ -490,7 +494,7 @@ proc getState(
   func restore(v: var BeaconState) =
     assign(v, restoreAddr[].data.data)
 
-  if not dag.db.getState(stateRoot, state.data.data, restore):
+  if not dag.db.getState(stateRoot, state.data.data, restore, dag.iv):
     return false
 
   state.blck = blck

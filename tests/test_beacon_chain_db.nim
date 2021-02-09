@@ -8,18 +8,18 @@
 {.used.}
 
 import  options, unittest, sequtils,
-  ../beacon_chain/[beacon_chain_db, extras, interop],
-  ../beacon_chain/ssz,
+  ../beacon_chain/[beacon_chain_db, extras, interop, ssz, statediff],
   ../beacon_chain/spec/[
     beaconstate, datatypes, digest, crypto, state_transition, presets],
   eth/db/kvstore,
   # test utilies
   ./testutil, ./testblockutil
 
-proc getStateRef(db: BeaconChainDB, root: Eth2Digest): NilableBeaconStateRef =
+proc getStateRef(db: BeaconChainDB, root: Eth2Digest,
+    immutableValidators: auto): NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
   let res = BeaconStateRef()
-  if db.getState(root, res[], noRollback):
+  if db.getState(root, res[], noRollback, immutableValidators):
     return res
 
 template wrappedTimedTest(name: string, body: untyped) =
@@ -40,8 +40,9 @@ suiteReport "Beacon chain DB" & preset():
   wrappedTimedTest "empty database" & preset():
     var
       db = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)
+      immutableValidators: seq[ImmutableValidatorData] = @[]
     check:
-      db.getStateRef(Eth2Digest()).isNil
+      db.getStateRef(Eth2Digest(), immutableValidators).isNil
       db.getBlock(Eth2Digest()).isNone
 
   wrappedTimedTest "sanity check blocks" & preset():
@@ -72,16 +73,19 @@ suiteReport "Beacon chain DB" & preset():
   wrappedTimedTest "sanity check states" & preset():
     var
       db = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)
+      immutableValidators: seq[ImmutableValidatorData] = @[]
 
     let
       state = BeaconStateRef()
       root = hash_tree_root(state[])
 
+    # TODO make sure there's a validator
+
     db.putState(state[])
 
     check:
       db.containsState(root)
-      hash_tree_root(db.getStateRef(root)[]) == root
+      hash_tree_root(db.getStateRef(root, immutableValidators)[]) == root
 
     # TODO check state delete
 
@@ -146,7 +150,11 @@ suiteReport "Beacon chain DB" & preset():
     db.putState(state[])
 
     check db.containsState(root)
-    let state2 = db.getStateRef(root)
+    # This just tests round-tripping for the mutable part; TODO separately test
+    # immutable validator round-tripping
+    let
+      (_, immutableValidators) = getImmutableValidators(state[])
+      state2 = db.getStateRef(root, immutableValidators[].immutableValidators)
     db.delState(root)
     check not db.containsState(root)
     db.close()
@@ -174,6 +182,21 @@ suiteReport "Beacon chain DB" & preset():
     check:
       hash_tree_root(state2[]) == root
 
+  wrappedTimedTest "sanity check immutable validator roundtrip" & preset():
+    var db = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)
+    const
+      immutableValidators = ImmutableValidatorList()
+      baseIndex = 0'u64
+
+    db.putImmutableValidators(baseIndex, immutableValidators)
+
+    check db.containsImmutableValidators(baseIndex)
+    let immutableValidators2 = db.getImmutableValidators(baseIndex)
+    db.close()
+
+    check:
+      immutableValidators == immutableValidators2[]
+
   wrappedTimedTest "sanity check states 2" & preset():
     var
       db = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)
@@ -181,6 +204,9 @@ suiteReport "Beacon chain DB" & preset():
     let
       state = BeaconStateRef()
       root = hash_tree_root(state[])
+      immutableValidators: seq[ImmutableValidatorData] = @[]
+
+    # TODO make sure there's a validator
 
     # TODO it's fine, but maybe for testing purposes should be able to force a
     # non-split-validators store. the interface isn't yet different
@@ -188,7 +214,7 @@ suiteReport "Beacon chain DB" & preset():
 
     check:
       db.containsState(root)
-      hash_tree_root(db.getStateRef(root)[]) == root
+      hash_tree_root(db.getStateRef(root, immutableValidators)[]) == root
 
     # TODO check state delete
 
