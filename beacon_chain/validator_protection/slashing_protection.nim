@@ -226,6 +226,7 @@ template queryVersions(
     if res1 == res2:
       res1
     else:
+      # TODO: Chronicles doesn't work with astToStr.
       const queryStr = astToStr(query)
       case db.disagreementBehavior
       of kCrash:
@@ -274,9 +275,9 @@ proc checkSlashableAttestation*(
        target: Epoch
      ): Result[void, BadVote] =
   ## Returns an error if the specified validator
-  ## already proposed a block for the specified slot.
-  ## This would lead to slashing.
-  ## The error contains the blockroot that was already proposed
+  ## already voted for the specified slot
+  ## or would vote in a contradiction to previous votes
+  ## (surrounding vote or surrounded vote).
   ##
   ## Returns success otherwise
   db.queryVersions(

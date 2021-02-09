@@ -768,9 +768,9 @@ proc checkSlashableAttestation*(
        target: Epoch
      ): Result[void, BadVote] =
   ## Returns an error if the specified validator
-  ## already proposed a block for the specified slot.
-  ## This would lead to slashing.
-  ## The error contains the blockroot that was already proposed
+  ## already voted for the specified slot
+  ## or would vote in a contradiction to previous votes
+  ## (surrounding vote or surrounded vote).
   ##
   ## Returns success otherwise
   # TODO distinct type for the result attestation root
