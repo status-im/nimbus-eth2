@@ -12,5 +12,7 @@ export
   eth2_json_rpc_serialization
 
 createRpcSigs(RpcClient, currentSourcePath.parentDir / "beacon_callsigs.nim")
+createRpcSigs(RpcClient, currentSourcePath.parentDir / "debug_callsigs.nim")
+createRpcSigs(RpcClient, currentSourcePath.parentDir / "nimbus_callsigs.nim")
 createRpcSigs(RpcClient, currentSourcePath.parentDir / "node_callsigs.nim")
 createRpcSigs(RpcClient, currentSourcePath.parentDir / "validator_callsigs.nim")

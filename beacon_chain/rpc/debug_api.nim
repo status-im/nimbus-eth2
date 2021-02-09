@@ -18,7 +18,6 @@ proc installDebugApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     withStateForStateId(stateId):
       return state
 
-  rpcServer.rpc("get_v1_debug_beacon_heads") do (
-      stateId: string) -> seq[tuple[root: Eth2Digest, slot: Slot]]:
+  rpcServer.rpc("get_v1_debug_beacon_heads") do () -> seq[tuple[root: Eth2Digest, slot: Slot]]:
     return node.chainDag.heads.mapIt((it.root, it.slot))
 
