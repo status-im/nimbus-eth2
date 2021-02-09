@@ -373,10 +373,6 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
     # finalization occurs every slot, to 4 slots vs scheduledSlot.
     doAssert finalizedEpoch + 4 >= epoch
 
-proc getTotalValidators(node: BeaconNode): uint64 =
-  let epochRef = getEpochRef(node.chainDag, node.chainDag.head, node.chainDag.head.slot.epoch)
-  epochRef.shuffled_active_validator_indices.lenu64()
-
 proc installAttestationSubnetHandlers(node: BeaconNode, subnets: set[uint8]) =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # nimbus won't score attestation subnets for now, we just rely on block and aggregate which are more stabe and reliable

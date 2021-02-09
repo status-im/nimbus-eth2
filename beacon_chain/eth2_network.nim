@@ -1554,34 +1554,36 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
   var switch = newBeaconSwitch(conf, netKeys.seckey, hostAddress, rng)
 
   let
-    params =
-      block:
-        var p = GossipSubParams.init()
-        # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#the-gossip-domain-gossipsub
-        p.d = 8
-        p.dLow = 6
-        p.dHigh = 12
-        p.dLazy = 6
-        p.heartbeatInterval = 700.milliseconds
-        p.fanoutTTL = 60.seconds
-        p.historyLength = 6
-        p.historyGossip = 3
-        p.seenTTL = 385.seconds
-        p.gossipThreshold = -4000
-        p.publishThreshold = -8000
-        p.graylistThreshold = -16000
-        p.decayInterval = 12.seconds
-        p.decayToZero = 0.01
-        p.retainScore = 385.seconds
-        p.ipColocationFactorWeight = -53.75
-        p.ipColocationFactorThreshold = 3
-        p.behaviourPenaltyWeight = -15.9
-        p.behaviourPenaltyDecay = 0.986
-        p.floodPublish = true
-        p.gossipFactor = 0.05
-        p.disconnectBadPeers = true
-        p.validateParameters().tryGet()
-        p
+    params = GossipSubParams(
+      explicit: true,
+      pruneBackoff: 1.minutes,
+      floodPublish: true,
+      gossipFactor: 0.05,
+      d: 8,
+      dLow: 6,
+      dHigh: 12,
+      dScore: 6,
+      dOut: 6 - 1, # DLow - 1
+      dLazy: 6,
+      heartbeatInterval: 700.milliseconds,
+      historyLength: 6,
+      historyGossip: 3,
+      fanoutTTL: 60.seconds,
+      seenTTL: 385.seconds,
+      gossipThreshold: -4000,
+      publishThreshold: -8000,
+      graylistThreshold: -16000, # also disconnect threshold
+      opportunisticGraftThreshold: 0,
+      decayInterval: 12.seconds,
+      decayToZero: 0.01,
+      retainScore: 385.seconds,
+      appSpecificWeight: 0.0,
+      ipColocationFactorWeight: -53.75,
+      ipColocationFactorThreshold: 3.0,
+      behaviourPenaltyWeight: -15.9,
+      behaviourPenaltyDecay: 0.986,
+      disconnectBadPeers: true
+    )
     pubsub = GossipSub.init(
       switch = switch,
       msgIdProvider = msgIdProvider,
