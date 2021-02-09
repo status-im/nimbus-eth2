@@ -235,8 +235,11 @@ proc writeValue*(writer: var JsonWriter, value: PubKey0x)
   writer.writeValue("0x" & value.PubKeyBytes.toHex())
 
 proc readValue*(reader: var JsonReader, value: var PubKey0x)
-               {.raises: [SerializationError, IOError, ValueError, Defect].} =
-  value = PubKey0x reader.readValue(string).hexToByteArray[:RawPubKeySize]()
+               {.raises: [SerializationError, IOError, Defect].} =
+  try:
+    value = PubKey0x reader.readValue(string).hexToByteArray[:RawPubKeySize]()
+  except ValueError:
+    raiseUnexpectedValue(reader, "Hex string expected")
 
 proc writeValue*(w: var JsonWriter, a: Eth2Digest0x)
                 {.inline, raises: [IOError, Defect].} =
@@ -254,8 +257,11 @@ proc writeValue*(w: var JsonWriter, a: SlotString or EpochString)
   w.writeValue $distinctBase(a)
 
 proc readValue*(r: var JsonReader, a: var (SlotString or EpochString))
-               {.raises: [SerializationError, IOError, ValueError, Defect].} =
-  a = (typeof a)(r.readValue(string).parseBiggestUint())
+               {.raises: [SerializationError, IOError, Defect].} =
+  try:
+    a = (typeof a)(r.readValue(string).parseBiggestUint())
+  except ValueError:
+    raiseUnexpectedValue(r, "Integer in a string expected")
 
 proc exportSlashingInterchange*(
        db: SlashingProtectionDB_Concept,
