@@ -193,7 +193,7 @@ proc useV2(db: SlashingProtectionDB): bool =
 
 template queryVersions(
           db: SlashingProtectionDB,
-          query: untyped
+          queryExpr: untyped
          ): auto =
   ## Query multiple DB versions
   ## Query should be in the form
@@ -208,7 +208,7 @@ template queryVersions(
   ## db_version will be replaced by db_v1 and db_v2 accordingly
   type T = typeof(block:
     template db_version: untyped = db.db_v1
-    query
+    queryExpr
   )
 
   var res1, res2: T
@@ -217,36 +217,36 @@ template queryVersions(
 
   if useV1:
     template db_version: untyped = db.db_v1
-    res1 = query
+    res1 = queryExpr
   if useV2:
     template db_version: untyped = db.db_v2
-    res2 = query
+    res2 = queryExpr
 
   if useV1 and useV2:
     if res1 == res2:
       res1
     else:
       # TODO: Chronicles doesn't work with astToStr.
-      const queryStr = astToStr(query)
+      const queryStr = astToStr(queryExpr)
       case db.disagreementBehavior
       of kCrash:
-        # fatal "Slashing protection DB has an internal error",
-        #   query = queryStr,
-        #   dbV1_result = res1,
-        #   dbV2_result = res2
+        fatal "Slashing protection DB has an internal error",
+          query = queryStr,
+          dbV1_result = res1,
+          dbV2_result = res2
         doAssert false, "Slashing DB internal error"
         res1 # For proper type deduction
       of kChooseV1:
-        # error "Slashing protection DB has an internal error, using v1 result",
-        #   query = queryStr,
-        #   dbV1_result = res1,
-        #   dbV2_result = res2
+        error "Slashing protection DB has an internal error, using v1 result",
+          query = queryStr,
+          dbV1_result = res1,
+          dbV2_result = res2
         res1
       of kChooseV2:
-        # error "Slashing protection DB has an internal error, using v2 result",
-        #   query = queryStr,
-        #   dbV1_result = res1,
-        #   dbV2_result = res2
+        error "Slashing protection DB has an internal error, using v2 result",
+          query = queryStr,
+          dbV1_result = res1,
+          dbV2_result = res2
         res2
   elif useV1:
     res1
