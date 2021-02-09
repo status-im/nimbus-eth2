@@ -24,11 +24,12 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + find ancestors [Preset: mainnet]                                                           OK
 + sanity check blocks [Preset: mainnet]                                                      OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
++ sanity check immutable validator roundtrip [Preset: mainnet]                               OK
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 + sanity check states 2 [Preset: mainnet]                                                    OK
 + sanity check states [Preset: mainnet]                                                      OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
+OK: 8/8 Fail: 0/8 Skip: 0/8
 ## Beacon node
 ```diff
 + Compile                                                                                    OK
@@ -280,4 +281,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 148/157 Fail: 0/157 Skip: 9/157
+OK: 150/159 Fail: 0/159 Skip: 9/159
