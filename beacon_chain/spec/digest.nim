@@ -100,7 +100,7 @@ template hash*(x: Eth2Digest): Hash =
 
 func `==`*(a, b: Eth2Digest): bool =
   when nimvm:
-    a.data[0] == b.data[0]
+    a.data == b.data
   else:
     # nimcrypto uses a constant-time comparison for all MDigest types which for
     # Eth2Digest is unnecessary - the type should never hold a secret!
