@@ -152,7 +152,7 @@ proc init*[T](Seq: type DbSeq[T], db: SqStoreRef, name: string): Seq =
        id INTEGER PRIMARY KEY,
        value BLOB
     );
-  """).expect "working database"
+  """).expect "working database (disk broken/full?)"
 
   let
     insertStmt = db.prepareStmt(
@@ -171,7 +171,7 @@ proc init*[T](Seq: type DbSeq[T], db: SqStoreRef, name: string): Seq =
   let countQueryRes = countStmt.exec do (res: int64):
     recordCount = res
 
-  let found = countQueryRes.expect("working database")
+  let found = countQueryRes.expect("working database (disk broken/full?)")
   if not found: panic()
 
   Seq(insertStmt: insertStmt,
@@ -180,7 +180,7 @@ proc init*[T](Seq: type DbSeq[T], db: SqStoreRef, name: string): Seq =
 
 proc add*[T](s: var DbSeq[T], val: T) =
   var bytes = SSZ.encode(val)
-  s.insertStmt.exec(bytes).expect "working database"
+  s.insertStmt.exec(bytes).expect "working database (disk broken/full?)"
   inc s.recordCount
 
 template len*[T](s: DbSeq[T]): uint64 =
@@ -196,7 +196,7 @@ proc get*[T](s: DbSeq[T], idx: uint64): T =
     except SerializationError:
       panic()
 
-  let found = queryRes.expect("working database")
+  let found = queryRes.expect("working database (disk broken/full?)")
   if not found: panic()
 
 proc createMap*(db: SqStoreRef, keyspace: int;
@@ -204,10 +204,10 @@ proc createMap*(db: SqStoreRef, keyspace: int;
   DbMap[K, V](db: db, keyspace: keyspace)
 
 proc insert*[K, V](m: var DbMap[K, V], key: K, value: V) =
-  m.db.put(m.keyspace, SSZ.encode key, SSZ.encode value).expect("working database")
+  m.db.put(m.keyspace, SSZ.encode key, SSZ.encode value).expect("working database (disk broken/full?)")
 
 proc contains*[K, V](m: DbMap[K, V], key: K): bool =
-  contains(m.db, SSZ.encode key).expect("working database")
+  contains(m.db, SSZ.encode key).expect("working database (disk broken/full?)")
 
 template insert*[K, V](t: var Table[K, V], key: K, value: V) =
   add(t, key, value)
@@ -228,7 +228,7 @@ proc init*(T: type BeaconChainDB,
     doAssert s.isOk # TODO(zah) Handle this in a better way
 
     let sqliteStore = SqStoreRef.init(
-      dir, "nbc", Keyspaces, manualCheckpoint = true).expect("working database")
+      dir, "nbc", Keyspaces, manualCheckpoint = true).expect("working database (disk broken/full?)")
 
     # Remove the deposits table we used before we switched
     # to storing only deposit contract checkpoints
@@ -253,10 +253,10 @@ proc snappyEncode(inp: openArray[byte]): seq[byte] =
     raiseAssert err.msg
 
 proc put(db: BeaconChainDB, key: openArray[byte], v: Eth2Digest) =
-  db.backend.put(key, v.data).expect("working database")
+  db.backend.put(key, v.data).expect("working database (disk broken/full?)")
 
 proc put(db: BeaconChainDB, key: openArray[byte], v: auto) =
-  db.backend.put(key, snappyEncode(SSZ.encode(v))).expect("working database")
+  db.backend.put(key, snappyEncode(SSZ.encode(v))).expect("working database (disk broken/full?)")
 
 proc get(db: BeaconChainDB, key: openArray[byte], T: type Eth2Digest): Opt[T] =
   var res: Opt[T]
@@ -270,7 +270,7 @@ proc get(db: BeaconChainDB, key: openArray[byte], T: type Eth2Digest): Opt[T] =
        typ = name(T), dataLen = data.len
       discard
 
-  discard db.backend.get(key, decode).expect("working database")
+  discard db.backend.get(key, decode).expect("working database (disk broken/full?)")
 
   res
 
@@ -301,7 +301,7 @@ proc get[T](db: BeaconChainDB, key: openArray[byte], output: var T): GetResult =
         err = e.msg, typ = name(T), dataLen = data.len
       status = GetResult.corrupted
 
-  discard db.backend.get(key, decode).expect("working database")
+  discard db.backend.get(key, decode).expect("working database (disk broken/full?)")
 
   status
 
@@ -342,17 +342,17 @@ proc putStateDiff*(db: BeaconChainDB, root: Eth2Digest, value: BeaconStateDiff) 
   db.put(subkey(BeaconStateDiff, root), value)
 
 proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
-  db.backend.del(subkey(SignedBeaconBlock, key)).expect("working database")
-  db.backend.del(subkey(BeaconBlockSummary, key)).expect("working database")
+  db.backend.del(subkey(SignedBeaconBlock, key)).expect("working database (disk broken/full?)")
+  db.backend.del(subkey(BeaconBlockSummary, key)).expect("working database (disk broken/full?)")
 
 proc delState*(db: BeaconChainDB, key: Eth2Digest) =
-  db.backend.del(subkey(BeaconState, key)).expect("working database")
+  db.backend.del(subkey(BeaconState, key)).expect("working database (disk broken/full?)")
 
 proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
-  db.backend.del(subkey(root, slot)).expect("working database")
+  db.backend.del(subkey(root, slot)).expect("working database (disk broken/full?)")
 
 proc delStateDiff*(db: BeaconChainDB, root: Eth2Digest) =
-  db.backend.del(subkey(BeaconStateDiff, root)).expect("working database")
+  db.backend.del(subkey(BeaconStateDiff, root)).expect("working database (disk broken/full?)")
 
 proc putHeadBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.put(subkey(kHeadBlock), key)
@@ -449,16 +449,16 @@ proc getSpeculativeDeposits*(db: BeaconChainDB): Opt[DepositContractSnapshot] =
   if r != found: result.err()
 
 proc delSpeculativeDeposits*(db: BeaconChainDB) =
-  db.backend.del(subkey(kSpeculativeDeposits)).expect("working database")
+  db.backend.del(subkey(kSpeculativeDeposits)).expect("working database (disk broken/full?)")
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
-  db.backend.contains(subkey(SignedBeaconBlock, key)).expect("working database")
+  db.backend.contains(subkey(SignedBeaconBlock, key)).expect("working database (disk broken/full?)")
 
 proc containsState*(db: BeaconChainDB, key: Eth2Digest): bool =
-  db.backend.contains(subkey(BeaconState, key)).expect("working database")
+  db.backend.contains(subkey(BeaconState, key)).expect("working database (disk broken/full?)")
 
 proc containsStateDiff*(db: BeaconChainDB, key: Eth2Digest): bool =
-  db.backend.contains(subkey(BeaconStateDiff, key)).expect("working database")
+  db.backend.contains(subkey(BeaconStateDiff, key)).expect("working database (disk broken/full?)")
 
 iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
     TrustedSignedBeaconBlock =
