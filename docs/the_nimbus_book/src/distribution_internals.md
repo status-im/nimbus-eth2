@@ -20,8 +20,7 @@ These images contain all the packages we need, are built and published once (to
 Docker Hub), and are then reused as the basis for temporary Docker
 images where the `nimbus-eth2` build is carried out.
 
-These temporary images are controlled by Dockerfiles in `docker/dist/`:
-since we're not publishing them anywhere, we can customize them to the system
+These temporary images are controlled by Dockerfiles in `docker/dist/`. Since we're not publishing them anywhere, we can customize them to the system
 they run on (we ensure they use the host's UID/GID, the host's QEMU static
 binaries, etc); they get access to the source code through the use of external volumes.
 
@@ -49,7 +48,7 @@ create distributable tarballs.
 
 ## Docker images for end users
 
-This is also configured in `.github/workflows/release.yml` (exclusively for the `build-amd64` job):  we unpack the distribution tarball and copy its content into a third type of Docker image - this one meant for end users and defined by `docker/dist/binaries/Dockerfile.amd64`.
+Configured in `.github/workflows/release.yml` (exclusively for the `build-amd64` job):  we unpack the distribution tarball and copy its content into a third type of Docker image - this one meant for end users and defined by `docker/dist/binaries/Dockerfile.amd64`.
 
 We then publish that to [Docker Hub](https://hub.docker.com/r/statusim/nimbus-eth2).
 
