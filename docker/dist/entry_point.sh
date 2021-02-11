@@ -28,6 +28,7 @@ if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
   make \
     -j$(nproc) \
     USE_LIBBACKTRACE=0 \
+    QUICK_AND_DIRTY_COMPILER=1 \
     deps
   make \
     -C vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc \
@@ -60,6 +61,7 @@ else
     LOG_LEVEL="TRACE" \
     NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none" \
     PARTIAL_STATIC_LINKING=1 \
+    QUICK_AND_DIRTY_COMPILER=1 \
     ${BINARIES}
 fi
 

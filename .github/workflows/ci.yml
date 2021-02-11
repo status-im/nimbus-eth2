@@ -215,10 +215,6 @@ jobs:
           getHash() {
             git ls-remote "https://github.com/$1" "${2:-HEAD}" | cut -f 1
           }
-          # nimHash=$(getHash nim-lang/Nim '${{ matrix.branch }}')
-          # csourcesHash=$(getHash nim-lang/csources)
-          # echo "::set-output name=nim::$nimHash"
-          # echo "::set-output name=csources::$csourcesHash"
           nbsHash=$(getHash status-im/nimbus-build-system)
           echo "::set-output name=nimbus_build_system::$nbsHash"
 
@@ -229,11 +225,11 @@ jobs:
           path: nim-beacon-chain/NimBinaries
           key: 'nim-${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ steps.versions.outputs.nimbus_build_system }}'
 
-      - name: Build Nim and NBC dependencies
+      - name: Build Nim and Nimbus dependencies
         shell: bash
         working-directory: nim-beacon-chain
         run: |
-          make -j$ncpu ARCH_OVERRIDE=$PLATFORM CI_CACHE=NimBinaries V=1 update
+          make -j$ncpu ARCH_OVERRIDE=$PLATFORM CI_CACHE=NimBinaries QUICK_AND_DIRTY_COMPILER=1 update
 
       - name: Get latest fixtures commit hash
         if: matrix.target.TEST_KIND == 'unit-tests'
