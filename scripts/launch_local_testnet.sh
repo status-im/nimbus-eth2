@@ -191,13 +191,20 @@ else
   MAKE="make"
 fi
 
+# number of CPU cores
+if uname | grep -qi darwin; then
+  NPROC="$(sysctl -n hw.logicalcpu)"
+else
+  NPROC="$(nproc)"
+fi
+
 # Build the binaries
 BINARIES="nimbus_beacon_node nimbus_signing_process nimbus_validator_client deposit_contract"
 if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
   BINARIES="${BINARIES} logtrace"
 fi
 NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh "${NETWORK}")
-$MAKE -j $(nproc) LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:insecure -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" ${BINARIES}
+$MAKE -j ${NPROC} LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:insecure -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" ${BINARIES}
 
 PIDS=""
 WEB3_ARG=""
