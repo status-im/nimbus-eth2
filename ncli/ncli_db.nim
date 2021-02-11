@@ -3,7 +3,7 @@ import
   chronicles, confutils, stew/byteutils, eth/db/kvstore_sqlite3,
   ../beacon_chain/network_metadata,
   ../beacon_chain/[beacon_chain_db, extras],
-  ../beacon_chain/block_pools/[chain_dag],
+  ../beacon_chain/block_pools/chain_dag,
   ../beacon_chain/spec/[crypto, datatypes, digest, helpers,
                         state_transition, presets],
   ../beacon_chain/[ssz, sszdump],
@@ -16,7 +16,7 @@ type Timers = enum
   tAdvanceSlot = "Advance slot, non-epoch"
   tAdvanceEpoch = "Advance slot, epoch"
   tApplyBlock = "Apply block, no slot processing"
-  tDbStore = "Database block store"
+  tDbStore = "Database store"
 
 type
   DbCmd* = enum
@@ -50,6 +50,9 @@ type
       storeBlocks* {.
         defaultValue: false
         desc: "Store each read block back into a separate database".}: bool
+      storeStates* {.
+        defaultValue: false
+        desc: "Store a state each epoch into a separate database".}: bool
       printTimes* {.
         defaultValue: true
         desc: "Print csv of block processing time".}: bool
@@ -93,7 +96,9 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
   let
     db = BeaconChainDB.init(runtimePreset, conf.databaseDir.string)
     dbBenchmark = BeaconChainDB.init(runtimePreset, "benchmark")
-  defer: db.close()
+  defer:
+    db.close()
+    dbBenchmark.close()
 
   if not ChainDAGRef.isInitialized(db):
     echo "Database not initialized"
@@ -151,6 +156,12 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
     if conf.storeBlocks:
       withTimer(timers[tDbStore]):
         dbBenchmark.putBlock(b)
+
+    if conf.storeStates:
+      withTimer(timers[tDbStore]):
+        if state[].data.slot mod SLOTS_PER_EPOCH == 0:
+          dbBenchmark.putState(state[].root, state[].data)
+        dbBenchmark.checkpoint()
 
   printTimers(false, timers)
 
