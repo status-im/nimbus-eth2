@@ -193,22 +193,3 @@ func applyDiff*(
 
   # Don't update slot until the end, because various other updates depend on it
   state.slot = stateDiff.slot
-
-func getImmutableValidators*(state: BeaconState):
-    (uint64, ref ImmutableValidatorList) =
-  let
-    numValidators = state.validators.lenu64
-    baseIndex = numValidators - (numValidators mod VALIDATOR_CHUNK_SIZE)
-    validatorsInChunk = numValidators - baseIndex
-
-  # TODO this can miss validators if it's not called frequently enough; might
-  # need backup mechanism or tying putState() to churn rate or tracking what,
-  # regardless of when, the last call stored immutable-validator-wise.
-  var immutableValidators = new ImmutableValidatorList
-  doAssert numValidators >= baseIndex
-  immutableValidators[].count = validatorsInChunk
-  for i in 0 ..< validatorsInChunk:
-    immutableValidators[].immutableValidators[i] =
-      getImmutableValidatorData(state.validators[baseIndex + i])
-
-  (baseIndex, immutableValidators)

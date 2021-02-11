@@ -150,11 +150,8 @@ suiteReport "Beacon chain DB" & preset():
     db.putState(state[])
 
     check db.containsState(root)
-    # This just tests round-tripping for the mutable part; TODO separately test
-    # immutable validator round-tripping
-    let
-      (_, immutableValidators) = getImmutableValidators(state[])
-      state2 = db.getStateRef(root, immutableValidators[].immutableValidators)
+    let state2 = db.getStateRef(
+      root, mapIt(state[].validators, getImmutableValidatorData(it)))
     db.delState(root)
     check not db.containsState(root)
     db.close()
@@ -189,8 +186,6 @@ suiteReport "Beacon chain DB" & preset():
       baseIndex = 0'u64
 
     db.putImmutableValidators(baseIndex, immutableValidators)
-
-    check db.containsImmutableValidators(baseIndex)
     let immutableValidators2 = db.getImmutableValidators(baseIndex)
     db.close()
 

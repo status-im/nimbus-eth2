@@ -304,6 +304,30 @@ proc loadStateCache*(cache: var StateCache, blck: BlockRef, epoch: Epoch) =
   if epoch > 0:
     load(epoch - 1)
 
+proc loadImmutableValidators(db: BeaconChainDB): seq[ImmutableValidatorData] =
+  var i = 0'u64
+  while true:
+    # Disallow gaps or incomplete lists unless in last chunk.
+    doAssert result.len mod VALIDATOR_CHUNK_SIZE == 0
+
+    let immutableValidators =
+      db.getImmutableValidators(i * VALIDATOR_CHUNK_SIZE)
+    if immutableValidators.isErr:
+      # Assume contiguous database records; this also allows for alternate
+      # schemas, since this is the only time it's ever read from database,
+      # and only mode in which it's read.
+      debug "loadImmutableValidators: loaded immutable validator data",
+        validatorCount = result.len
+      return
+    result.add(immutableValidators[].immutableValidators.toOpenArray(
+      0, immutableValidators[].count - 1))
+
+    if immutableValidators[].count != VALIDATOR_CHUNK_SIZE:
+      debug "loadImmutableValidators: loaded immutable validator data",
+        validatorCount = result.len
+      return
+    i += 1
+
 func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
   BlockRef(
     root: root,
@@ -378,15 +402,15 @@ proc init*(T: type ChainDAGRef,
     cur = headRef.atSlot(headRef.slot)
     tmpState = (ref StateData)()
 
-  # TODO this actually needs to be initialized, before the DAG is really set up
-  var iv: seq[ImmutableValidatorData]
+  let immutableValidators = loadImmutableValidators(db)
 
   # Now that we have a head block, we need to find the most recent state that
   # we have saved in the database
   while cur.blck != nil:
     let root = db.getStateRoot(cur.blck.root, cur.slot)
     if root.isSome():
-      if db.getState(root.get(), tmpState.data.data, noRollback, iv):
+      if db.getState(
+          root.get(), tmpState.data.data, noRollback, immutableValidators):
         tmpState.data.root = root.get()
         tmpState.blck = cur.blck
 
@@ -417,7 +441,7 @@ proc init*(T: type ChainDAGRef,
     epochRefState: tmpState[],
     clearanceState: tmpState[],
     tmpState: tmpState[],
-    #TODO iv: default is fine
+    immutableValidators: immutableValidators,
 
     # The only allowed flag right now is verifyFinalization, as the others all
     # allow skipping some validation.
@@ -481,6 +505,51 @@ proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
 proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
   dag.getEpochRef(dag.finalizedHead.blck, dag.finalizedHead.slot.epoch)
 
+proc updateImmutableValidators(dag, state: auto) =
+  let
+    numValidators = state.validators.lenu64
+    origNumImmutableValidators = dag.immutableValidators.lenu64
+
+  if numValidators <= origNumImmutableValidators:
+    return
+
+  if dag.immutableValidators.len >= 1:
+    # TODO would should be a WARN or similar in production
+    let checkIndex = dag.immutableValidators.len - 1
+    doAssert dag.immutableValidators[checkIndex].pubkey ==
+      state.validators[checkIndex].pubkey
+
+  var immutableValidators = new ImmutableValidatorList
+  let
+    baseMultStart = dag.immutableValidators.lenu64 div VALIDATOR_CHUNK_SIZE
+    baseMultEnd = (state.validators.lenu64 - 1) div VALIDATOR_CHUNK_SIZE
+  for mult in baseMultStart .. baseMultEnd:
+    let validatorsInChunk =
+      if mult == baseMultEnd:
+        state.validators.lenu64 mod VALIDATOR_CHUNK_SIZE
+      else:
+        VALIDATOR_CHUNK_SIZE
+
+    immutableValidators[].count = validatorsInChunk
+    let baseIndex = mult * VALIDATOR_CHUNK_SIZE
+    for i in 0 ..< validatorsInChunk:
+      let
+        index = baseIndex + i
+        immutableValidator =
+          getImmutableValidatorData(state.validators[index])
+      assign(immutableValidators[].immutableValidators[i], immutableValidator)
+      if index >= origNumImmutableValidators:
+        dag.immutableValidators.add immutableValidator
+
+    # Important thing here is partial ordering of all of these happening before
+    # the state being stored.
+    dag.db.putImmutableValidators(baseIndex, immutableValidators[])
+
+  # numValidators > 0, from above
+  doAssert numValidators == dag.immutableValidators.lenu64
+  for idx in [numValidators - 1, origNumImmutableValidators]:
+    doAssert state.validators[idx].pubkey == dag.immutableValidators[idx].pubkey
+
 proc getState(
     dag: ChainDAGRef, state: var StateData, stateRoot: Eth2Digest,
     blck: BlockRef): bool =
@@ -494,7 +563,8 @@ proc getState(
   func restore(v: var BeaconState) =
     assign(v, restoreAddr[].data.data)
 
-  if not dag.db.getState(stateRoot, state.data.data, restore, dag.iv):
+  if not dag.db.getState(
+      stateRoot, state.data.data, restore, dag.immutableValidators):
     return false
 
   state.blck = blck
@@ -554,6 +624,7 @@ proc putState*(dag: ChainDAGRef, state: StateData) =
   # Ideally we would save the state and the root lookup cache in a single
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
+  dag.updateImmutableValidators(state.data.data)
   dag.db.putState(state.data.root, state.data.data)
   dag.db.putStateRoot(state.blck.root, state.data.data.slot, state.data.root)
 

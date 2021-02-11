@@ -5,7 +5,7 @@ import
   stew/[assign2, endians2, io2, objects, results],
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
-  ./networking/network_metadata, ./statediff,
+  ./networking/network_metadata,
   ./spec/[crypto, datatypes, digest, helpers, state_transition],
   ./ssz/[ssz_serialization, merkleization],
   ./eth1/merkle_minimal,
@@ -139,8 +139,6 @@ func subkey(kind: type BeaconStateDiff, key: Eth2Digest): auto =
   subkey(kHashToStateDiff, key.data)
 
 func subkey(kind: type ImmutableValidatorList, baseIndex: uint64): auto =
-  # TODO include chunk size? or some other adaptation mechanism to allow
-  # changing chunk size without changing schema. tradeoffs though.
   subkey(kImmutableValidatorChunk, uint_to_bytes8(baseIndex))
 
 func subkey(root: Eth2Digest, slot: Slot): array[40, byte] =
@@ -344,8 +342,6 @@ proc putImmutableValidators*(
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   # TODO prune old states - this is less easy than it seems as we never know
   #      when or if a particular state will become finalized.
-  let (baseIndex, immutableValidators) = getImmutableValidators(value)
-  db.putImmutableValidators(baseIndex, immutableValidators[])
   db.put(subkey(type value, key), value)
 
 proc putState*(db: BeaconChainDB, value: BeaconState) =
@@ -417,10 +413,10 @@ func getBeaconStateNoImmutableValidators[T, U](x: T): ref U =
   #
   # This copies all fields, except validators.
   result = new U
-  assign(result.genesis_time, x.genesis_time)
-  assign(result.genesis_validators_root, x.genesis_validators_root)
-  assign(result.slot, x.slot)
-  assign(result.fork, x.fork)
+  result.genesis_time = x.genesis_time
+  result.genesis_validators_root = x.genesis_validators_root
+  result.slot = x.slot
+  result.fork = x.fork
   assign(result.latest_block_header, x.latest_block_header)
   assign(result.block_roots, x.block_roots)
   assign(result.state_roots, x.state_roots)
@@ -433,7 +429,7 @@ func getBeaconStateNoImmutableValidators[T, U](x: T): ref U =
   assign(result.slashings, x.slashings)
   assign(result.previous_epoch_attestations, x.previous_epoch_attestations)
   assign(result.current_epoch_attestations, x.current_epoch_attestations)
-  assign(result.justification_bits, x.justification_bits)
+  result.justification_bits = x.justification_bits
   assign(result.previous_justified_checkpoint, x.previous_justified_checkpoint)
   assign(result.finalized_checkpoint, x.finalized_checkpoint)
 
@@ -503,8 +499,6 @@ proc getStateOnlyMutableValidators(
 proc getState*(
     db: BeaconChainDB, key: Eth2Digest, output: var BeaconState,
     rollback: RollbackProc,
-    # TODO can't be auto and can't be openArray[ImmutableValidatorData],
-    # apparently
     immutableValidators: openArray[ImmutableValidatorData]): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
@@ -582,15 +576,9 @@ proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(SignedBeaconBlock, key)).expect("working database (disk broken/full?)")
 
 proc containsState*(db: BeaconChainDB, key: Eth2Digest): bool =
-  # TODO doesn't check whether immutable validator covers state, but then,
-  # this function never really checked for the validity of stored state.
   db.backend.contains(subkey(BeaconStateNoImmutableValidators, key)).expect(
       "working database  (disk broken/full?)") or
     db.backend.contains(subkey(BeaconState, key)).expect("working database (disk broken/full?)")
-
-proc containsImmutableValidators*(db: BeaconChainDB, baseIndex: uint64): bool =
-  db.backend.contains(subkey(ImmutableValidatorList, baseIndex)).expect(
-    "working database")
 
 proc containsStateDiff*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(BeaconStateDiff, key)).expect("working database (disk broken/full?)")

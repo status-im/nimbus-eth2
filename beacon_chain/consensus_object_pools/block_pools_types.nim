@@ -102,7 +102,7 @@ type
     db*: BeaconChainDB ##\
       ## ColdDB - Stores the canonical chain
 
-    iv*: seq[ImmutableValidatorData]
+    immutableValidators*: seq[ImmutableValidatorData]
 
     # -----------------------------------
     # ChainDAGRef - DAG of candidate chains
