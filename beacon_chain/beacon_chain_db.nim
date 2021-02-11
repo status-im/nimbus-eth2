@@ -2,7 +2,7 @@
 
 import
   typetraits, tables,
-  stew/[endians2, io2, objects, results],
+  stew/[assign2, endians2, io2, objects, results],
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
   ./networking/network_metadata, ./statediff,
@@ -417,25 +417,25 @@ func getBeaconStateNoImmutableValidators[T, U](x: T): ref U =
   #
   # This copies all fields, except validators.
   result = new U
-  result.genesis_time = x.genesis_time
-  result.genesis_validators_root = x.genesis_validators_root
-  result.slot = x.slot
-  result.fork = x.fork
-  result.latest_block_header = x.latest_block_header
-  result.block_roots = x.block_roots
-  result.state_roots = x.state_roots
-  result.historical_roots = x.historical_roots
-  result.eth1_data = x.eth1_data
-  result.eth1_data_votes = x.eth1_data_votes
-  result.eth1_deposit_index = x.eth1_deposit_index
-  result.balances = x.balances
-  result.randao_mixes = x.randao_mixes
-  result.slashings = x.slashings
-  result.previous_epoch_attestations = x.previous_epoch_attestations
-  result.current_epoch_attestations = x.current_epoch_attestations
-  result.justification_bits = x.justification_bits
-  result.previous_justified_checkpoint = x.previous_justified_checkpoint
-  result.finalized_checkpoint = x.finalized_checkpoint
+  assign(result.genesis_time, x.genesis_time)
+  assign(result.genesis_validators_root, x.genesis_validators_root)
+  assign(result.slot, x.slot)
+  assign(result.fork, x.fork)
+  assign(result.latest_block_header, x.latest_block_header)
+  assign(result.block_roots, x.block_roots)
+  assign(result.state_roots, x.state_roots)
+  assign(result.historical_roots, x.historical_roots)
+  assign(result.eth1_data, x.eth1_data)
+  assign(result.eth1_data_votes, x.eth1_data_votes)
+  assign(result.eth1_deposit_index, x.eth1_deposit_index)
+  assign(result.balances, x.balances)
+  assign(result.randao_mixes, x.randao_mixes)
+  assign(result.slashings, x.slashings)
+  assign(result.previous_epoch_attestations, x.previous_epoch_attestations)
+  assign(result.current_epoch_attestations, x.current_epoch_attestations)
+  assign(result.justification_bits, x.justification_bits)
+  assign(result.previous_justified_checkpoint, x.previous_justified_checkpoint)
+  assign(result.finalized_checkpoint, x.finalized_checkpoint)
 
 proc getStateOnlyMutableValidators(
     db: BeaconChainDB, key: Eth2Digest, output: var BeaconState,
@@ -466,25 +466,32 @@ proc getStateOnlyMutableValidators(
     # TODO factor out, maybe
     for i in 0 ..< intermediateOutput[].validators.len:
       # Merge immutable and mutable parts
-      debugEcho "foobar: ", i
 
       # Immutable
-      output.validators[i].pubkey = immutableValidators[i].pubkey
-      output.validators[i].withdrawal_credentials =
-        immutableValidators[i].withdrawal_credentials
+      assign(output.validators[i].pubkey, immutableValidators[i].pubkey)
+      assign(
+        output.validators[i].withdrawal_credentials,
+        immutableValidators[i].withdrawal_credentials)
 
       # Mutable
-      output.validators[i].effective_balance =
-        intermediateOutput[].validators[i].effective_balance
-      output.validators[i].slashed = intermediateOutput[].validators[i].slashed
-      output.validators[i].activation_eligibility_epoch =
-        intermediateOutput[].validators[i].activation_eligibility_epoch
-      output.validators[i].activation_epoch =
-        intermediateOutput[].validators[i].activation_epoch
-      output.validators[i].exit_epoch =
-        intermediateOutput[].validators[i].exit_epoch
-      output.validators[i].withdrawable_epoch =
-        intermediateOutput[].validators[i].withdrawable_epoch
+      assign(
+        output.validators[i].effective_balance,
+        intermediateOutput[].validators[i].effective_balance)
+      assign(
+        output.validators[i].slashed,
+        intermediateOutput[].validators[i].slashed)
+      assign(
+        output.validators[i].activation_eligibility_epoch,
+        intermediateOutput[].validators[i].activation_eligibility_epoch)
+      assign(
+        output.validators[i].activation_epoch,
+        intermediateOutput[].validators[i].activation_epoch)
+      assign(
+        output.validators[i].exit_epoch,
+        intermediateOutput[].validators[i].exit_epoch)
+      assign(
+        output.validators[i].withdrawable_epoch,
+        intermediateOutput[].validators[i].withdrawable_epoch)
 
     true
   of GetResult.notFound:
