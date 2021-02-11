@@ -73,9 +73,9 @@ chronicles.formatIt CandidateBlock: it.toHexLogs
 chronicles.formatIt CandidateVote: it.toHexLogs
 
 proc sqlite3db_delete(basepath, dbname: string) =
-  removeFile(basepath/ dbname&".sqlite3-shm")
-  removeFile(basepath/ dbname&".sqlite3-wal")
-  removeFile(basepath/ dbname&".sqlite3")
+  removeFile(basepath / dbname&".sqlite3-shm")
+  removeFile(basepath / dbname&".sqlite3-wal")
+  removeFile(basepath / dbname&".sqlite3")
 
 const InterchangeTestsDir = FixturesDir / "tests-slashing-v5.0.0" / "generated"
 const TestDir = ""
