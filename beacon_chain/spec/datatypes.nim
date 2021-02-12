@@ -656,6 +656,11 @@ type
   DoppelgangerProtection* = object
     broadcastStartEpoch*: Epoch
 
+func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData =
+  ImmutableValidatorData(
+    pubkey: validator.pubkey,
+    withdrawal_credentials: validator.withdrawal_credentials)
+
 func getDepositMessage*(depositData: DepositData): DepositMessage =
   result.pubkey = depositData.pubkey
   result.amount = depositData.amount

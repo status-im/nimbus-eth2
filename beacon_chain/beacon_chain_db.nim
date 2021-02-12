@@ -2,11 +2,11 @@
 
 import
   typetraits, tables,
-  stew/[results, objects, endians2, io2],
+  stew/[endians2, io2, objects, results],
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
   ./network_metadata,
-  ./spec/[datatypes, digest, crypto, state_transition],
+  ./spec/[crypto, datatypes, digest, state_transition],
   ./ssz/[ssz_serialization, merkleization],
   merkle_minimal, filepath
 
