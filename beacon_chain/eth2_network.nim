@@ -210,44 +210,36 @@ const
   clientId* = "Nimbus beacon node " & fullVersionStr
   nodeMetadataFilename = "node-metadata.json"
 
-  TCP = net.Protocol.IPPROTO_TCP
-  HandshakeTimeout = FaultOrError
-
-  NewPeerScore* = 200
+  NewPeerScore = 200
     ## Score which will be assigned to new connected Peer
   PeerScoreLowLimit* = 0
     ## Score after which peer will be kicked
   PeerScoreHighLimit* = 1000
     ## Max value of peer's score
-  PeerScoreInvalidRequest* = -500
+  PeerScoreInvalidRequest = -500
     ## This peer is sending malformed or nonsensical data
-  PeerScoreFlooder* = -250
-    ## This peer is sending too many expensive requests
 
-  ConcurrentConnections* = 10
+  ConcurrentConnections = 10
     ## Maximum number of active concurrent connection requests.
 
-  SeenTableTimeTimeout* =
+  SeenTableTimeTimeout =
     when not defined(local_testnet): 5.minutes else: 10.seconds
 
     ## Seen period of time for timeout connections
-  SeenTableTimeDeadPeer* =
+  SeenTableTimeDeadPeer =
     when not defined(local_testnet): 5.minutes else: 10.seconds
 
     ## Period of time for dead peers.
-  SeenTableTimeIrrelevantNetwork* = 24.hours
+  SeenTableTimeIrrelevantNetwork = 24.hours
     ## Period of time for `IrrelevantNetwork` error reason.
-  SeenTableTimeClientShutDown* = 10.minutes
+  SeenTableTimeClientShutDown = 10.minutes
     ## Period of time for `ClientShutDown` error reason.
-  SeenTableTimeFaultOrError* = 10.minutes
+  SeenTableTimeFaultOrError = 10.minutes
     ## Period of time for `FaultOnError` error reason.
-  SeenTablePenaltyError* = 60.minutes
+  SeenTablePenaltyError = 60.minutes
     ## Period of time for peers which score below or equal to zero.
-  SeenTableTimeReconnect* = 1.minutes
+  SeenTableTimeReconnect = 1.minutes
     ## Minimal time between disconnection and reconnection attempt
-
-  ResolvePeerTimeout* = 1.minutes
-    ## Maximum time allowed for peer resolve process.
 
 template neterr(kindParam: Eth2NetworkingErrorKind): auto =
   err(type(result), Eth2NetworkingError(kind: kindParam))

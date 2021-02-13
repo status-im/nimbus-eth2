@@ -235,10 +235,8 @@ proc init*(T: type BeaconChainDB,
     if sqliteStore.exec("DROP TABLE IF EXISTS deposits;").isErr:
       debug "Failed to drop the deposits table"
 
-    var
-      validatorKeyToIndex = initTable[ValidatorPubKey, ValidatorIndex]()
-      genesisDepositsSeq = DbSeq[DepositData].init(sqliteStore, "genesis_deposits")
-
+    var genesisDepositsSeq =
+      DbSeq[DepositData].init(sqliteStore, "genesis_deposits")
 
     T(backend: kvStore sqliteStore,
       preset: preset,

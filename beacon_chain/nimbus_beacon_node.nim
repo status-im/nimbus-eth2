@@ -1368,7 +1368,7 @@ proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
     fatal "Failed to connect to the beacon node RPC service", err = err.msg
     quit 1
 
-  let (validator, validatorIdx, status, balance) = try:
+  let (validator, validatorIdx, _, _) = try:
     await rpcClient.get_v1_beacon_states_stateId_validators_validatorId(
       "head", config.exitedValidator)
   except CatchableError as err:
@@ -1431,7 +1431,7 @@ proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
     try:
       stdout.write prompt, ": "
       stdin.readLine()
-    except IOError as err:
+    except IOError:
       fatal "Failed to read user input from stdin"
       quit 1
 
