@@ -488,6 +488,8 @@ libnfuzz.a: | build deps
 		[[ -e "$@" ]] && mv "$@" build/ || true # workaround for https://github.com/nim-lang/Nim/issues/12745
 
 book:
+	which mdbook &>/dev/null || { echo "'mdbook' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	which mdbook-toc &>/dev/null || { echo "'mdbook-toc' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	cd docs/the_nimbus_book && \
 	mdbook build
 
@@ -496,6 +498,10 @@ auditors-book:
 	mdbook build
 
 publish-book: | book auditors-book
+	CURRENT_BRANCH="$$(git rev-parse --abbrev-ref HEAD)"; \
+		if [[ "$${CURRENT_BRANCH}" != "stable" && "$${CURRENT_BRANCH}" != "unstable" ]]; then \
+			echo -e "\nWarning: you're publishing the books from a branch that is neither 'stable' nor 'unstable'!\n"; \
+		fi
 	git branch -D gh-pages && \
 	git branch --track gh-pages origin/gh-pages && \
 	git worktree add tmp-book gh-pages && \
