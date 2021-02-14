@@ -1,7 +1,11 @@
-when defined(release):
-  let nimCachePath = "nimcache/release/" & projectName()
+const nimCachePathOverride {.strdefine.} = ""
+when nimCachePathOverride == "":
+  when defined(release):
+    let nimCachePath = "nimcache/release/" & projectName()
+  else:
+    let nimCachePath = "nimcache/debug/" & projectName()
 else:
-  let nimCachePath = "nimcache/debug/" & projectName()
+  let nimCachePath = nimCachePathOverride
 switch("nimcache", nimCachePath)
 
 # `-flto` gives a significant improvement in processing speed, specially hash tree and state transition (basically any CPU-bound code implemented in nim)

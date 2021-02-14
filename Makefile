@@ -37,7 +37,6 @@ endif
 # TODO re-enable ncli_query if/when it works again
 TOOLS := \
 	nimbus_beacon_node \
-	block_sim \
 	deposit_contract \
 	inspector \
 	logtrace \
@@ -47,9 +46,9 @@ TOOLS := \
 	ncli_db \
 	process_dashboard \
 	stack_sizes \
-	state_sim \
 	nimbus_validator_client \
 	nimbus_signing_process
+.PHONY: $(TOOLS)
 
 # bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
 
@@ -67,7 +66,6 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	deps \
 	update \
 	test \
-	$(TOOLS) \
 	clean_eth2_network_simulation_all \
 	eth2_network_simulation \
 	clean-testnet0 \
@@ -120,41 +118,172 @@ DEPOSITS_DELAY := 0
 
 #- "--define:release" cannot be added to "config.nims"
 #- disable Nim's default parallelisation because it starts too many processes for too little gain
-NIM_PARAMS := $(NIM_PARAMS) -d:release --parallelBuild:1
+NIM_PARAMS += -d:release --parallelBuild:1
 
 ifeq ($(USE_LIBBACKTRACE), 0)
 # Blame Jacek for the lack of line numbers in your stack traces ;-)
-NIM_PARAMS := $(NIM_PARAMS) --stacktrace:on --excessiveStackTrace:on --linetrace:off -d:disable_libbacktrace
+NIM_PARAMS += --stacktrace:on --excessiveStackTrace:on --linetrace:off -d:disable_libbacktrace
 endif
 
-deps: | deps-common nat-libs beacon_chain.nims build/generate_makefile
+deps: | deps-common nat-libs build/generate_makefile
 ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
 endif
 
-#- deletes and recreates "beacon_chain.nims" which on Windows is a copy instead of a proper symlink
 #- deletes binaries that might need to be rebuilt after a Git pull
 update: | update-common
-	rm -f beacon_chain.nims && \
-		"$(MAKE)" beacon_chain.nims $(HANDLE_OUTPUT)
 	rm -f build/generate_makefile
-
-# symlink
-beacon_chain.nims:
-	ln -s beacon_chain.nimble $@
 
 # nim-libbacktrace
 libbacktrace:
 	+ "$(MAKE)" -C vendor/nim-libbacktrace --no-print-directory BUILD_CXX_LIB=0
 
-# Windows 10 with WSL enabled, but no distro installed, fails if "../../nimble.sh" is executed directly
-# in a Makefile recipe but works when prefixing it with `bash`. No idea how the PATH is overridden.
+# test suite
+TEST_BINARIES := \
+	test_fixture_const_sanity_check_minimal \
+	test_fixture_const_sanity_check_mainnet \
+	test_fixture_ssz_generic_types \
+	test_fixture_ssz_consensus_objects \
+	all_fixtures_require_ssz \
+	test_official_interchange_vectors \
+	proto_array \
+	fork_choice \
+	all_tests \
+	test_keystore \
+	state_sim \
+	block_sim
+.PHONY: $(TEST_BINARIES)
+
+test_fixture_const_sanity_check_minimal: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"tests/official/test_fixture_const_sanity_check.nim" \
+			$(NIM_PARAMS) -d:const_preset=minimal -d:chronicles_sinks="json[file]" \
+			$(HANDLE_OUTPUT) && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+test_fixture_const_sanity_check_mainnet: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"tests/official/test_fixture_const_sanity_check.nim" \
+			$(NIM_PARAMS) -d:const_preset=mainnet -d:chronicles_sinks="json[file]" \
+			$(HANDLE_OUTPUT) && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+# Generic SSZ test, doesn't use consensus objects minimal/mainnet presets
+test_fixture_ssz_generic_types: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"tests/official/$@.nim" \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:chronicles_sinks="json[file]" \
+			$(HANDLE_OUTPUT) && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+# Consensus object SSZ tests
+test_fixture_ssz_consensus_objects: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"tests/official/$@.nim" \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:chronicles_sinks="json[file]" \
+			$(HANDLE_OUTPUT) && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+# EF tests
+all_fixtures_require_ssz: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"tests/official/$@.nim" \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" \
+			$(HANDLE_OUTPUT) && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+# EIP-3076 - Slashing interchange
+test_official_interchange_vectors: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"tests/slashing_protection/$@.nim" \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" \
+			$(HANDLE_OUTPUT) && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+# Mainnet config
+proto_array: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"beacon_chain/fork_choice/$@.nim" \
+			$(NIM_PARAMS) -d:const_preset=mainnet -d:chronicles_sinks="json[file]" \
+			$(HANDLE_OUTPUT) && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+fork_choice: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"beacon_chain/fork_choice/$@.nim" \
+			$(NIM_PARAMS) -d:const_preset=mainnet -d:chronicles_sinks="json[file]" \
+			$(HANDLE_OUTPUT) && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+all_tests: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"tests/$@.nim" \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" \
+			$(HANDLE_OUTPUT) && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+# TODO `test_keystore` is extracted from the rest of the tests because it uses conflicting BLST headers
+test_keystore: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"tests/$@.nim" \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" \
+			$(HANDLE_OUTPUT) && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+# State and block sims; getting to 4th epoch triggers consensus checks
+state_sim: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"research/$@.nim" \
+			$(NIM_PARAMS) -d:const_preset=mainnet \
+			$(HANDLE_OUTPUT) && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+block_sim: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"research/$@.nim" \
+			$(NIM_PARAMS) -d:const_preset=mainnet \
+			$(HANDLE_OUTPUT) && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
 DISABLE_TEST_FIXTURES_SCRIPT := 0
-test: | build deps
+# This parameter passing scheme is ugly, but short.
+test: | $(TEST_BINARIES)
 ifeq ($(DISABLE_TEST_FIXTURES_SCRIPT), 0)
 	V=$(V) scripts/setup_official_tests.sh
 endif
-	+ $(ENV_SCRIPT) nim test $(NIM_PARAMS) beacon_chain.nims && rm -f 0000-*.json
+	for TEST_BINARY in $(TEST_BINARIES); do \
+		PARAMS=""; \
+		if [[ "$${TEST_BINARY}" == "state_sim" ]]; then PARAMS="--validators=3000 --slots=128"; \
+		elif [[ "$${TEST_BINARY}" == "block_sim" ]]; then PARAMS="--validators=3000 --slots=128"; \
+		fi; \
+		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
+		build/$${TEST_BINARY} $${PARAMS} || { echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Aborting."; exit 1; }; \
+		done; \
+		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
 
 # It's OK to only build this once. `make update` deletes the binary, forcing a rebuild.
 ifneq ($(USE_LIBBACKTRACE), 0)
@@ -173,9 +302,7 @@ build/generate_makefile: tools/generate_makefile.nim | deps-common
 $(TOOLS): | build deps
 	+ for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
 		echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim c --compileOnly -o:build/$@ $(NIM_PARAMS) "$${TOOL_DIR}/$@.nim" && \
-		build/generate_makefile "nimcache/release/$@/$@.json" "nimcache/release/$@/$@.makefile" && \
-		"$(MAKE)" -f "nimcache/release/$@/$@.makefile" --no-print-directory build $(HANDLE_OUTPUT) && \
+		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh $@ "$${TOOL_DIR}/$@.nim" $(NIM_PARAMS) $(HANDLE_OUTPUT) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 clean_eth2_network_simulation_data:
