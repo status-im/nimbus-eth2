@@ -169,7 +169,7 @@ proc checkBitVector(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
 
 proc checkBitList(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
   var maxLen: int
-  let wasMatched = scanf(sszSubType, "bitlist_$i", maxLen)
+  discard scanf(sszSubType, "bitlist_$i", maxLen)
   case maxLen
   of 0: checkBasic(BitList[0], dir, expectedHash)
   of 1: checkBasic(BitList[1], dir, expectedHash)

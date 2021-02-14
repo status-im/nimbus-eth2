@@ -572,16 +572,6 @@ type
       Table[Epoch, seq[ValidatorIndex]]
     beacon_proposer_indices*: Table[Slot, Option[ValidatorIndex]]
 
-  AttestationSubnets* = object
-    enabled*: bool
-    stabilitySubnets*: seq[tuple[subnet: uint8, expiration: Epoch]]
-    nextCycleEpoch*: Epoch
-
-    # These encode states in per-subnet state machines
-    subscribedSubnets*: set[uint8]
-    subscribeSlot*: array[ATTESTATION_SUBNET_COUNT, Slot]
-    unsubscribeSlot*: array[ATTESTATION_SUBNET_COUNT, Slot]
-
   # This matches the mutable state of the Solidity deposit contract
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/solidity_deposit_contract/deposit_contract.sol
   DepositContractState* = object
