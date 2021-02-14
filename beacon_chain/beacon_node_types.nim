@@ -151,4 +151,19 @@ type
     validators*: Table[ValidatorPubKey, AttachedValidator]
     slashingProtection*: SlashingProtectionDB
 
+  AttestationSubnets* = object
+    enabled*: bool
+    stabilitySubnets*: seq[tuple[subnet: uint8, expiration: Epoch]]
+    nextCycleEpoch*: Epoch
+
+    # These encode states in per-subnet state machines
+    subscribedSubnets*: set[uint8]
+    subscribeSlot*: array[ATTESTATION_SUBNET_COUNT, Slot]
+    unsubscribeSlot*: array[ATTESTATION_SUBNET_COUNT, Slot]
+
+    # Used to track the next attestation slots, using an epoch-relative
+    # coordinate system. Defaults don't need initialization.
+    attestingSlots*: array[2, uint32]
+    lastCalculatedAttestationEpoch*: Epoch
+
 func shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)

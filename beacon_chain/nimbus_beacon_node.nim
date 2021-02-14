@@ -457,6 +457,11 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
           node.chainDag.headState.data.data.fork,
           node.chainDag.headState.data.data.genesis_validators_root, slot)))
 
+  # The relevant bitmap are 32 bits each.
+  static: doAssert SLOTS_PER_EPOCH <= 32
+  node.attestationSubnets.lastCalculatedAttestationEpoch = epoch
+  node.attestationSubnets.attestingSlots[epoch mod 2] = 0
+
   for (validatorIndices, committeeIndex, subnetIndex, slot) in
       get_committee_assignments(
         node.chainDag.headState.data.data, epoch, validatorIndices, cache):
@@ -468,6 +473,23 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
       else:
         get_beacon_committee_len(
           node.chainDag.headState.data.data, slot, committeeIndex, cache)
+
+    # Each get_committee_assignments() call here is on the next epoch. At any
+    # given time, only care about two epochs, the current and next epoch. So,
+    # after it is done for an epoch, [aS[epoch mod 2], aS[1 - (epoch mod 2)]]
+    # provides, sequentially, the current and next epochs' slot schedules. If
+    # get_committee_assignments() has not been called for the next epoch yet,
+    # typically because there hasn't been a block in the current epoch, there
+    # isn't valid information in aS[1 - (epoch mod 2)], and only slots within
+    # the current epoch can be known. Usually, this is not a major issue, but
+    # when there hasn't been a block substantially through an epoch, it might
+    # prove misleading to claim that there aren't attestations known, when it
+    # only might be known either way for 3 more slots. However, it's also not
+    # as important to attest when blocks aren't flowing as only attestions in
+    # blocks garner rewards.
+    node.attestationSubnets.attestingSlots[epoch mod 2] =
+      node.attestationSubnets.attestingSlots[epoch mod 2] or
+        (1'u32 shl (slot mod SLOTS_PER_EPOCH))
 
     if not isAnyCommitteeValidatorAggregating(
         validatorIndices, committeeLen, slot):
@@ -606,6 +628,9 @@ proc getInitialAttestationSubnets(node: BeaconNode): Table[uint8, Slot] =
   var cache = StateCache()
 
   template mergeAttestationSubnets(epoch: Epoch) =
+    # TODO when https://github.com/nim-lang/Nim/issues/15972 and
+    # https://github.com/nim-lang/Nim/issues/16217 are fixed, in
+    # Nimbus's Nim, use (_, _, subnetIndex, slot).
     for (_, ci, subnetIndex, slot) in get_committee_assignments(
         node.chainDag.headState.data.data, epoch, validatorIndices, cache):
       if subnetIndex in result:
@@ -821,7 +846,36 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) =
     # This exits early all but one call each epoch.
     traceAsyncErrors node.cycleAttestationSubnets(slot)
 
-proc onSlotEnd(node: BeaconNode, slot, nextSlot: Slot) {.async.} =
+func getNextAttestation(node: BeaconNode, slot: Slot): Slot =
+  # The relevant attestations are in, depending on calculated bounds:
+  # [aS[epoch mod 2], aS[1 - (epoch mod 2)]]
+  #  current epoch          next epoch
+  let orderedAttestingSlots = [
+    node.attestationSubnets.attestingSlots[     slot.epoch mod 2'u64],
+    node.attestationSubnets.attestingSlots[1 - (slot.epoch mod 2'u64)]]
+
+  static: doAssert MIN_ATTESTATION_INCLUSION_DELAY == 1
+
+  # Cleverer ways exist, but a short loop is fine. O(n) vs O(log n) isn't that
+  # important when n is 32 or 64, with early exit on average no more than half
+  # through.
+  for i in [0'u64, 1'u64]:
+    let bitmapEpoch = slot.epoch + i
+
+    if bitmapEpoch > node.attestationSubnets.lastCalculatedAttestationEpoch:
+      doAssert i == 0 or orderedAttestingSlots[0] == 0
+      return FAR_FUTURE_SLOT
+
+    for slotOffset in 0 ..< SLOTS_PER_EPOCH:
+      let nextAttestationSlot =
+        compute_start_slot_at_epoch(bitmapEpoch) + slotOffset
+      if ((orderedAttestingSlots[i] and (1'u32 shl slotOffset)) != 0) and
+          nextAttestationSlot > slot:
+        return nextAttestationSlot
+
+  FAR_FUTURE_SLOT
+
+proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
   # next slot
 
@@ -839,13 +893,28 @@ proc onSlotEnd(node: BeaconNode, slot, nextSlot: Slot) {.async.} =
   # the database are synced with the filesystem.
   node.db.checkpoint()
 
+  let
+    horizonSlot = compute_start_slot_at_epoch(
+      node.attestationSubnets.lastCalculatedAttestationEpoch + 1) - 1
+    nextAttestationSlot = node.getNextAttestation(slot)
+    nextActionWait = saturate(fromNow(node.beaconClock, nextAttestationSlot))
+    horizonDistance = saturate(fromNow(node.beaconClock, horizonSlot))
+
   info "Slot end",
     slot = shortLog(slot),
-    nextSlot = shortLog(nextSlot),
+    nextSlot = shortLog(slot + 1),
     head = shortLog(node.chainDag.head),
     headEpoch = shortLog(node.chainDag.head.slot.compute_epoch_at_slot()),
     finalizedHead = shortLog(node.chainDag.finalizedHead.blck),
-    finalizedEpoch = shortLog(node.chainDag.finalizedHead.blck.slot.compute_epoch_at_slot())
+    finalizedEpoch =
+      shortLog(node.chainDag.finalizedHead.blck.slot.compute_epoch_at_slot()),
+    nextAttestationSlot,
+    nextActionWait =
+      if nextAttestationSlot == FAR_FUTURE_SLOT:
+        "n/a"
+      else:
+        shortLog(nextActionWait),
+    lookaheadTime = shortLog(horizonDistance)
 
   node.updateGossipStatus(slot)
 
@@ -909,7 +978,7 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
     slot = wallSlot.slot # afterGenesis == true!
     nextSlot = slot + 1
 
-  defer: await onSlotEnd(node, slot, nextSlot)
+  defer: await onSlotEnd(node, slot)
 
   beacon_slot.set slot.int64
   beacon_current_epoch.set slot.epoch.int64
