@@ -210,13 +210,13 @@ const
   clientId* = "Nimbus beacon node " & fullVersionStr
   nodeMetadataFilename = "node-metadata.json"
 
-  NewPeerScore = 200
+  NewPeerScore* = 200
     ## Score which will be assigned to new connected Peer
   PeerScoreLowLimit* = 0
     ## Score after which peer will be kicked
   PeerScoreHighLimit* = 1000
     ## Max value of peer's score
-  PeerScoreInvalidRequest = -500
+  PeerScoreInvalidRequest* = -500
     ## This peer is sending malformed or nonsensical data
 
   ConcurrentConnections = 10
