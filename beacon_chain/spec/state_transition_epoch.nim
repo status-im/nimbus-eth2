@@ -49,7 +49,7 @@ template previous_epoch_target_attesters*(v: TotalBalances): Gwei =
 template previous_epoch_head_attesters*(v: TotalBalances): Gwei =
   max(EFFECTIVE_BALANCE_INCREMENT, v.previous_epoch_head_attesters_raw)
 
-func init*(rewards: var RewardInfo, state: BeaconState) =
+func init*(rewards: var RewardInfo, state: SomeBeaconState) =
   rewards.total_balances = TotalBalances()
   rewards.statuses.setLen(state.validators.len)
 
@@ -465,7 +465,7 @@ func process_slashings*(state: var BeaconState, total_balance: Gwei) {.nbench.}=
       let penalty = penalty_numerator div total_balance * increment
       decrease_balance(state, index.ValidatorIndex, penalty)
 
-# https://github.com/ethereum/eth2.0-specs/blob/dev/specs/phase0/beacon-chain.md#eth1-data-votes-updates
+# https://github.com/ethereum/eth2.0-specs/blob/34cea67b91/specs/phase0/beacon-chain.md#eth1-data-votes-updates
 func process_eth1_data_reset*(state: var BeaconState) {.nbench.} =
   let next_epoch = get_current_epoch(state) + 1
 
@@ -473,7 +473,7 @@ func process_eth1_data_reset*(state: var BeaconState) {.nbench.} =
   if next_epoch mod EPOCHS_PER_ETH1_VOTING_PERIOD == 0:
     state.eth1_data_votes = default(type state.eth1_data_votes)
 
-# https://github.com/ethereum/eth2.0-specs/blob/dev/specs/phase0/beacon-chain.md#effective-balances-updates
+# https://github.com/ethereum/eth2.0-specs/blob/34cea67b91/specs/phase0/beacon-chain.md#effective-balances-updates
 func process_effective_balance_updates*(state: var BeaconState) {.nbench.} =
   # Update effective balances with hysteresis
   for index in 0..<state.validators.len:
@@ -492,14 +492,14 @@ func process_effective_balance_updates*(state: var BeaconState) {.nbench.} =
           balance - balance mod EFFECTIVE_BALANCE_INCREMENT,
           MAX_EFFECTIVE_BALANCE)
 
-# https://github.com/ethereum/eth2.0-specs/blob/dev/specs/phase0/beacon-chain.md#slashings-balances-updates
+# https://github.com/ethereum/eth2.0-specs/blob/34cea67b91/specs/phase0/beacon-chain.md#slashings-balances-updates
 func process_slashings_reset*(state: var BeaconState) {.nbench.} =
   let next_epoch = get_current_epoch(state) + 1
 
   # Reset slashings
   state.slashings[int(next_epoch mod EPOCHS_PER_SLASHINGS_VECTOR)] = 0.Gwei
 
-# https://github.com/ethereum/eth2.0-specs/blob/dev/specs/phase0/beacon-chain.md#randao-mixes-updates
+# https://github.com/ethereum/eth2.0-specs/blob/34cea67b91/specs/phase0/beacon-chain.md#randao-mixes-updates
 func process_randao_mixes_reset*(state: var BeaconState) {.nbench.} =
   let
     current_epoch = get_current_epoch(state)
@@ -509,7 +509,7 @@ func process_randao_mixes_reset*(state: var BeaconState) {.nbench.} =
   state.randao_mixes[next_epoch mod EPOCHS_PER_HISTORICAL_VECTOR] =
     get_randao_mix(state, current_epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/dev/specs/phase0/beacon-chain.md#historical-roots-updates
+# https://github.com/ethereum/eth2.0-specs/blob/34cea67b91/specs/phase0/beacon-chain.md#historical-roots-updates
 func process_historical_roots_update*(state: var BeaconState) {.nbench.} =
   # Set historical root accumulator
   let next_epoch = get_current_epoch(state) + 1
@@ -523,7 +523,7 @@ func process_historical_roots_update*(state: var BeaconState) {.nbench.} =
         [hash_tree_root(state.block_roots), hash_tree_root(state.state_roots)]):
       raiseAssert "no more room for historical roots, so long and thanks for the fish!"
 
-# https://github.com/ethereum/eth2.0-specs/blob/dev/specs/phase0/beacon-chain.md#participation-records-rotation
+# https://github.com/ethereum/eth2.0-specs/blob/34cea67b91/specs/phase0/beacon-chain.md#participation-records-rotation
 func process_participation_record_updates*(state: var BeaconState) {.nbench.} =
   # Rotate current/previous epoch attestations - using swap avoids copying all
   # elements using a slow genericSeqAssign

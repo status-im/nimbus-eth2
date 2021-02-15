@@ -633,3 +633,63 @@ proc process_attestation*(
     addPendingAttestation(state.previous_epoch_attestations)
 
   ok()
+
+# https://github.com/ethereum/eth2.0-specs/blob/34cea67b91/specs/lightclient/lightclient-fork.md#upgrading-the-state
+func upgrade_to_lightclient_patch(pre: BeaconState): BeaconStateHF1 =
+  let epoch = get_current_epoch(pre)
+
+  # https://github.com/ethereum/eth2.0-specs/blob/34cea67b91/specs/lightclient/lightclient-fork.md#configuration
+  const LIGHTCLIENT_PATCH_FORK_VERSION = Version [byte 1, 0, 0, 0]
+
+  var empty_participation =
+    HashList[ValidatorFlag, Limit VALIDATOR_REGISTRY_LIMIT]()
+  for _ in 0 ..< len(pre.validators):
+    empty_participation.add 0.ValidatorFlag
+
+  BeaconStateHF1(
+    genesis_time: pre.genesis_time,
+    genesis_validators_root: pre.genesis_validators_root,
+    slot: pre.slot,
+    fork: Fork(
+      previous_version: pre.fork.current_version,
+      current_version: LIGHTCLIENT_PATCH_FORK_VERSION,
+      epoch: epoch
+    ),
+
+    # History
+    latest_block_header: pre.latest_block_header,
+    block_roots: pre.block_roots,
+    state_roots: pre.state_roots,
+    historical_roots: pre.historical_roots,
+
+    # Eth1
+    eth1_data: pre.eth1_data,
+    eth1_data_votes: pre.eth1_data_votes,
+    eth1_deposit_index: pre.eth1_deposit_index,
+
+    # Registry
+    validators: pre.validators,
+    balances: pre.balances,
+
+    # Randomness
+    randao_mixes: pre.randao_mixes,
+
+    # Slashings
+    slashings: pre.slashings,
+
+    # Attestations
+    previous_epoch_participation: empty_participation,
+    current_epoch_participation: empty_participation,
+
+    # Finality
+    justification_bits: pre.justification_bits,
+    previous_justified_checkpoint: pre.previous_justified_checkpoint,
+    current_justified_checkpoint: pre.current_justified_checkpoint,
+    finalized_checkpoint: pre.finalized_checkpoint
+  )
+
+  #TODO
+  # Fill in sync committees
+  #post.current_sync_committee = get_sync_committee(post, get_current_epoch(post))
+  #post.next_sync_committee = get_sync_committee(post, get_current_epoch(post) + EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
+  #post

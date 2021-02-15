@@ -66,7 +66,7 @@ func get_active_validator_indices_len*(state: BeaconState, epoch: Epoch): uint64
       inc result
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_current_epoch
-func get_current_epoch*(state: BeaconState): Epoch =
+func get_current_epoch*(state: SomeBeaconState): Epoch =
   ## Return the current epoch.
   doAssert state.slot >= GENESIS_SLOT, $state.slot
   compute_epoch_at_slot(state.slot)

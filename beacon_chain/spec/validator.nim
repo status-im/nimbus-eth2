@@ -181,8 +181,9 @@ func get_previous_epoch*(current_epoch: Epoch): Epoch =
   else:
     current_epoch - 1
 
-func get_previous_epoch*(state: BeaconState): Epoch =
+func get_previous_epoch*(state: SomeBeaconState): Epoch =
   ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
+  # Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
   get_previous_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#compute_committee
