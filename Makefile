@@ -156,117 +156,105 @@ TEST_BINARIES := \
 
 test_fixture_const_sanity_check_minimal: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/official/test_fixture_const_sanity_check.nim" \
-			$(NIM_PARAMS) -d:const_preset=minimal -d:chronicles_sinks="json[file]" \
-			$(HANDLE_OUTPUT) && \
+			$(NIM_PARAMS) -d:const_preset=minimal -d:chronicles_sinks="json[file]" && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 test_fixture_const_sanity_check_mainnet: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/official/test_fixture_const_sanity_check.nim" \
-			$(NIM_PARAMS) -d:const_preset=mainnet -d:chronicles_sinks="json[file]" \
-			$(HANDLE_OUTPUT) && \
+			$(NIM_PARAMS) -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # Generic SSZ test, doesn't use consensus objects minimal/mainnet presets
 test_fixture_ssz_generic_types: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/official/$@.nim" \
-			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:chronicles_sinks="json[file]" \
-			$(HANDLE_OUTPUT) && \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:chronicles_sinks="json[file]" && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # Consensus object SSZ tests
 test_fixture_ssz_consensus_objects: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/official/$@.nim" \
-			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:chronicles_sinks="json[file]" \
-			$(HANDLE_OUTPUT) && \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:chronicles_sinks="json[file]" && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # EF tests
 all_fixtures_require_ssz: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/official/$@.nim" \
-			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" \
-			$(HANDLE_OUTPUT) && \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # EIP-3076 - Slashing interchange
 test_official_interchange_vectors: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/slashing_protection/$@.nim" \
-			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" \
-			$(HANDLE_OUTPUT) && \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # Mainnet config
 proto_array: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"beacon_chain/fork_choice/$@.nim" \
-			$(NIM_PARAMS) -d:const_preset=mainnet -d:chronicles_sinks="json[file]" \
-			$(HANDLE_OUTPUT) && \
+			$(NIM_PARAMS) -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 fork_choice: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"beacon_chain/fork_choice/$@.nim" \
-			$(NIM_PARAMS) -d:const_preset=mainnet -d:chronicles_sinks="json[file]" \
-			$(HANDLE_OUTPUT) && \
+			$(NIM_PARAMS) -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 all_tests: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/$@.nim" \
-			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" \
-			$(HANDLE_OUTPUT) && \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # TODO `test_keystore` is extracted from the rest of the tests because it uses conflicting BLST headers
 test_keystore: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/$@.nim" \
-			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" \
-			$(HANDLE_OUTPUT) && \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # State and block sims; getting to 4th epoch triggers consensus checks
 state_sim: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"research/$@.nim" \
-			$(NIM_PARAMS) -d:const_preset=mainnet \
-			$(HANDLE_OUTPUT) && \
+			$(NIM_PARAMS) -d:const_preset=mainnet && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 block_sim: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"research/$@.nim" \
-			$(NIM_PARAMS) -d:const_preset=mainnet \
-			$(HANDLE_OUTPUT) && \
+			$(NIM_PARAMS) -d:const_preset=mainnet && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 DISABLE_TEST_FIXTURES_SCRIPT := 0
@@ -302,7 +290,7 @@ build/generate_makefile: tools/generate_makefile.nim | deps-common
 $(TOOLS): | build deps
 	+ for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
 		echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" $(ENV_SCRIPT) scripts/compile_nim_program.sh $@ "$${TOOL_DIR}/$@.nim" $(NIM_PARAMS) $(HANDLE_OUTPUT) && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh $@ "$${TOOL_DIR}/$@.nim" $(NIM_PARAMS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 clean_eth2_network_simulation_data:
