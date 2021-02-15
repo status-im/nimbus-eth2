@@ -2,11 +2,11 @@
 
 import
   typetraits, tables,
-  stew/[results, objects, endians2, io2],
+  stew/[endians2, io2, objects, results],
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
   ./network_metadata,
-  ./spec/[datatypes, digest, crypto, state_transition],
+  ./spec/[crypto, datatypes, digest, state_transition],
   ./ssz/[ssz_serialization, merkleization],
   merkle_minimal, filepath
 
@@ -235,10 +235,8 @@ proc init*(T: type BeaconChainDB,
     if sqliteStore.exec("DROP TABLE IF EXISTS deposits;").isErr:
       debug "Failed to drop the deposits table"
 
-    var
-      validatorKeyToIndex = initTable[ValidatorPubKey, ValidatorIndex]()
-      genesisDepositsSeq = DbSeq[DepositData].init(sqliteStore, "genesis_deposits")
-
+    var genesisDepositsSeq =
+      DbSeq[DepositData].init(sqliteStore, "genesis_deposits")
 
     T(backend: kvStore sqliteStore,
       preset: preset,
