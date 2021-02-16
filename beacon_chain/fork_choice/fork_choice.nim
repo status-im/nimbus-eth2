@@ -97,7 +97,7 @@ proc compute_slots_since_epoch_start(slot: Slot): uint64 =
 
 proc on_tick(self: var Checkpoints, dag: ChainDAGRef, time: Slot): FcResult[void] =
   if self.time > time:
-    return err(ForkChoiceError(kind: fcInconsistentTick))
+    return err ForkChoiceError(kind: fcInconsistentTick)
 
   let newEpoch = self.time.epoch() != time.epoch()
   self.time = time
@@ -106,8 +106,9 @@ proc on_tick(self: var Checkpoints, dag: ChainDAGRef, time: Slot): FcResult[void
       self.best_justified.epoch > self.justified.epoch:
     let blck = dag.getRef(self.best_justified.root)
     if blck.isNil:
-      return err(ForkChoiceError(
-        kind: fcJustifiedNodeUnknown, block_root: self.best_justified.root))
+      return err ForkChoiceError(
+        kind: fcJustifiedNodeUnknown,
+        blockRoot: self.best_justified.root)
 
     let epochRef = dag.getEpochRef(blck, self.best_justified.epoch)
     self.justified = BalanceCheckpoint(
@@ -117,6 +118,7 @@ proc on_tick(self: var Checkpoints, dag: ChainDAGRef, time: Slot): FcResult[void
   ok()
 
 proc process_attestation_queue(self: var ForkChoice) {.gcsafe.}
+
 proc update_time(self: var ForkChoice, dag: ChainDAGRef, time: Slot): FcResult[void] =
   if time > self.checkpoints.time:
     while time > self.checkpoints.time:
@@ -209,8 +211,9 @@ proc should_update_justified_checkpoint(
     justified_blck = dag.getRef(new_justified_checkpoint.root)
 
   if justified_blck.isNil:
-    return err(ForkChoiceError(
-      kind: fcJustifiedNodeUnknown, block_root: new_justified_checkpoint.root))
+    return err ForkChoiceError(
+      kind: fcJustifiedNodeUnknown,
+      blockRoot: new_justified_checkpoint.root)
 
   let justified_ancestor = justified_blck.atSlot(justified_slot)
 
@@ -275,7 +278,7 @@ proc process_block*(self: var ForkChoiceBackend,
                     parent_root: Eth2Digest,
                     justified_epoch: Epoch,
                     finalized_epoch: Epoch): FcResult[void] =
-  self.proto_array.on_block(
+  self.proto_array.onBlock(
     block_root, parent_root, justified_epoch, finalized_epoch)
 
 proc process_block*(self: var ForkChoice,
@@ -336,7 +339,7 @@ proc find_head*(
   )
 
   # Apply score changes
-  ? self.proto_array.apply_score_changes(
+  ? self.proto_array.applyScoreChanges(
     deltas, justified_epoch, finalized_epoch
   )
 
@@ -344,7 +347,7 @@ proc find_head*(
 
   # Find the best block
   var new_head{.noInit.}: Eth2Digest
-  ? self.proto_array.find_head(new_head, justified_root)
+  ? self.proto_array.findHead(new_head, justified_root)
 
   {.noSideEffect.}:
     trace "Fork choice requested",
@@ -425,8 +428,7 @@ func compute_deltas(
         if index >= deltas.len:
           return err ForkChoiceError(
             kind: fcInvalidNodeDelta,
-            index: index
-          )
+            index: index)
         deltas[index] -= Delta old_balance
           # Note that delta can be negative
           # TODO: is int64 big enough?
@@ -436,8 +438,7 @@ func compute_deltas(
         if index >= deltas.len:
           return err ForkChoiceError(
             kind: fcInvalidNodeDelta,
-            index: index
-          )
+            index: index)
         deltas[index] += Delta new_balance
           # Note that delta can be negative
           # TODO: is int64 big enough?
