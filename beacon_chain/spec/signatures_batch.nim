@@ -16,6 +16,9 @@ import
   ./crypto, ./datatypes, ./helpers, ./presets,
   ./beaconstate, ./digest
 
+# Otherwise, error.
+import chronicles
+
 export SignatureSet, BatchedBLSVerifierCache, batchVerify, batchVerifySerial, batchVerifyParallel
 
 func `$`*(s: SignatureSet): string =

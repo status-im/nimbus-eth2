@@ -128,6 +128,12 @@ type
     DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF = 8
     DOMAIN_CONTRIBUTION_AND_PROOF = 9
 
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/lightclient/beacon-chain.md#validator-action-flags
+  ValidatorFlag* = enum
+    TIMELY_HEAD_FLAG = 1
+    TIMELY_SOURCE_FLAG = 2
+    TIMELY_TARGET_FLAG = 4
+
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#custom-types
   Eth2Domain* = array[32, byte]
 
@@ -265,6 +271,7 @@ type
     validator_index*: uint64
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconblock
+  # TODO light client will fork this, via BeaconBlockBody
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -336,6 +343,7 @@ type
   GraffitiBytes* = distinct array[MAX_GRAFFITI_SIZE, byte]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconblockbody
+  # TODO light client will fork this
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -384,6 +392,7 @@ type
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
+  # TODO light client stuff will propagate to the FooBeaconBlock{,Body} types
   SomeSignedBeaconBlock* = SignedBeaconBlock | SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock
   SomeBeaconBlock* = BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock
   SomeBeaconBlockBody* = BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody
@@ -393,65 +402,6 @@ type
   SomeAttesterSlashing* = AttesterSlashing | TrustedAttesterSlashing
   SomeSignedBeaconBlockHeader* = SignedBeaconBlockHeader | TrustedSignedBeaconBlockHeader
   SomeSignedVoluntaryExit* = SignedVoluntaryExit | TrustedSignedVoluntaryExit
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconstate
-  BeaconState* = object
-    # Versioning
-    genesis_time*: uint64
-    genesis_validators_root*: Eth2Digest
-    slot*: Slot
-    fork*: Fork
-
-    # History
-    latest_block_header*: BeaconBlockHeader ##\
-    ## `latest_block_header.state_root == ZERO_HASH` temporarily
-
-    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
-    ## Needed to process attestations, older to newer
-
-    state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
-    historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
-
-    # Eth1
-    eth1_data*: Eth1Data
-    eth1_data_votes*:
-      HashList[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
-    eth1_deposit_index*: uint64
-
-    # Registry
-    validators*: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]
-    balances*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
-
-    # Randomness
-    randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
-
-    # Slashings
-    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
-    ## Per-epoch sums of slashed effective balances
-
-    # Attestations
-    previous_epoch_attestations*:
-      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
-    current_epoch_attestations*:
-      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
-
-    # Finality
-    justification_bits*: uint8 ##\
-    ## Bit set for every recent justified epoch
-    ## Model a Bitvector[4] as a one-byte uint, which should remain consistent
-    ## with ssz/hashing.
-
-    previous_justified_checkpoint*: Checkpoint ##\
-    ## Previous epoch snapshot
-
-    current_justified_checkpoint*: Checkpoint
-    finalized_checkpoint*: Checkpoint
-
-  # TODO Careful, not nil analysis is broken / incomplete and the semantics will
-  #      likely change in future versions of the language:
-  #      https://github.com/nim-lang/RFCs/issues/250
-  BeaconStateRef* = ref BeaconState not nil
-  NilableBeaconStateRef* = ref BeaconState
 
   # Please note that this type is not part of the spec
   ImmutableValidatorData* = object
@@ -568,10 +518,6 @@ type
   SignedAggregateAndProof* = object
     message*: AggregateAndProof
     signature*: ValidatorSig
-
-  HashedBeaconState* = object
-    data*: BeaconState
-    root*: Eth2Digest # hash_tree_root(data)
 
   # This doesn't know about forks or branches in the DAG. It's for straight,
   # linear chunks of the chain.
@@ -927,21 +873,6 @@ func `as`*(d: DepositData, T: type DepositMessage): T =
 
 ethTimeUnit Slot
 ethTimeUnit Epoch
-
-Json.useCustomSerialization(BeaconState.justification_bits):
-  read:
-    let s = reader.readValue(string)
-
-    if s.len != 4:
-      raiseUnexpectedValue(reader, "A string with 4 characters expected")
-
-    try:
-      s.parseHexInt.uint8
-    except ValueError:
-      raiseUnexpectedValue(reader, "The `justification_bits` value must be a hex string")
-
-  write:
-    writer.writeValue "0x" & value.toHex
 
 Json.useCustomSerialization(BitSeq):
   read:

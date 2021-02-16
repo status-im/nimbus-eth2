@@ -13,7 +13,7 @@ import
   # Standard lib
   std/[math, tables],
   # Third-party
-  stew/endians2,
+  stew/[byteutils, endians2],
   # Internal
   ./datatypes/[phase0, altair], ./digest, ./crypto, ../ssz/merkleization
 
@@ -52,7 +52,7 @@ func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_active_validator_indices
-func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
+func get_active_validator_indices*(state: SomeBeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
   ## Return the sequence of active validator indices at ``epoch``.
   result = newSeqOfCap[ValidatorIndex](state.validators.len)
@@ -60,7 +60,8 @@ func get_active_validator_indices*(state: BeaconState, epoch: Epoch):
     if is_active_validator(state.validators[idx], epoch):
       result.add idx.ValidatorIndex
 
-func get_active_validator_indices_len*(state: BeaconState, epoch: Epoch): uint64 =
+func get_active_validator_indices_len*(state: SomeBeaconState, epoch: Epoch):
+    uint64 =
   for idx in 0..<state.validators.len:
     if is_active_validator(state.validators[idx], epoch):
       inc result
@@ -72,8 +73,7 @@ func get_current_epoch*(state: SomeBeaconState): Epoch =
   compute_epoch_at_slot(state.slot)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_randao_mix
-func get_randao_mix*(state: BeaconState,
-                     epoch: Epoch): Eth2Digest =
+func get_randao_mix*(state: SomeBeaconState, epoch: Epoch): Eth2Digest =
   ## Returns the randao mix at a recent ``epoch``.
   state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR]
 
@@ -147,7 +147,7 @@ func get_domain*(
   compute_domain(domain_type, fork_version, genesis_validators_root)
 
 func get_domain*(
-    state: BeaconState, domain_type: DomainType, epoch: Epoch): Eth2Domain =
+    state: SomeBeaconState, domain_type: DomainType, epoch: Epoch): Eth2Domain =
   ## Return the signature domain (fork version concatenated with domain type)
   ## of a message.
   get_domain(state.fork, domain_type, epoch, state.genesis_validators_root)
@@ -163,7 +163,8 @@ func compute_signing_root*(ssz_object: auto, domain: Eth2Domain): Eth2Digest =
   hash_tree_root(domain_wrapped_object)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_seed
-func get_seed*(state: BeaconState, epoch: Epoch, domain_type: DomainType): Eth2Digest =
+func get_seed*(state: SomeBeaconState, epoch: Epoch, domain_type: DomainType):
+    Eth2Digest =
   ## Return the seed at ``epoch``.
 
   var seed_input : array[4+8+32, byte]

@@ -30,11 +30,24 @@ import
   json_serialization/types as jsonTypes,
   ../../ssz/types as sszTypes, ../crypto, ../digest, ../presets
 
-import ./base
+import ./base, ./phase0
 export base
 
+const
+  # https://github.com/ethereum/eth2.0-specs/blob/34cea67b91/specs/lightclient/beacon-chain.md#misc-1
+  SYNC_COMMITTEE_SIZE = 1024
+  SYNC_COMMITTEE_PUBKEY_AGGREGATES_SIZE = 64
+
 type
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/eth2.0-specs/blob/34cea67b91/specs/lightclient/beacon-chain.md#synccommittee
+  SyncCommittee* = object
+    pubkeys*: HashArray[Limit SYNC_COMMITTEE_SIZE, ValidatorPubKey]
+    pubkey_aggregates*:
+      HashArray[
+        Limit SYNC_COMMITTEE_SIZE div SYNC_COMMITTEE_PUBKEY_AGGREGATES_SIZE,
+        ValidatorPubKey]
+
+  # https://github.com/ethereum/eth2.0-specs/blob/34cea67b91/specs/lightclient/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -69,11 +82,11 @@ type
     slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
     ## Per-epoch sums of slashed effective balances
 
-    # Attestations
-    previous_epoch_attestations*:
-      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
-    current_epoch_attestations*:
-      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
+    # Participation
+    previous_epoch_participation*:
+      HashList[ValidatorFlag, Limit VALIDATOR_REGISTRY_LIMIT]
+    current_epoch_participation*:
+      HashList[ValidatorFlag, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Finality
     justification_bits*: uint8 ##\
@@ -87,6 +100,10 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
+    # Light client sync committees
+    current_sync_committee*: SyncCommittee
+    next_sync_committee*: SyncCommittee
+
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
   #      https://github.com/nim-lang/RFCs/issues/250
@@ -96,6 +113,15 @@ type
   HashedBeaconState* = object
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
+
+  # HF1 implies knowledge of phase 0, and this saves creating some other
+  # module to merge such knowledge. Another approach is to have imported
+  # set of phase 0/HF1 symbols be independently combined by each module,
+  # when necessary, but that spreads such detailed abstraction knowledge
+  # more widely through codebase than strictly required. Do not export a
+  # phase 0 version of symbols; anywhere which specially handles it will
+  # have to do so itself.
+  SomeBeaconState* = BeaconState | phase0.BeaconState
 
 Json.useCustomSerialization(BeaconState.justification_bits):
   read:
