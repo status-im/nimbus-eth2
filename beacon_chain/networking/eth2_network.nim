@@ -1062,7 +1062,7 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
 
 proc new*(T: type Eth2Node, config: BeaconNodeConf, enrForkId: ENRForkID,
           switch: Switch, pubsub: GossipSub, ip: Option[ValidIpAddress],
-          tcpPort, udpPort: Port, privKey: keys.PrivateKey, discovery: bool,
+          tcpPort, udpPort: Option[Port], privKey: keys.PrivateKey, discovery: bool,
           rng: ref BrHmacDrbgContext): T =
   let
     metadata = getPersistentNetMetadata(config)
@@ -1315,49 +1315,6 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   result.implementProtocolInit = proc (p: P2PProtocol): NimNode =
     return newCall(initProtocol, newLit(p.name), p.peerInit, p.netInit)
 
-proc setupNat(config: BeaconNodeConf): tuple[ip: Option[ValidIpAddress],
-                                           tcpPort: Port,
-                                           udpPort: Port] =
-  # defaults
-  result.tcpPort = config.tcpPort
-  result.udpPort = config.udpPort
-
-  var nat: NatStrategy
-  case config.nat.toLowerAscii:
-    of "any":
-      nat = NatAny
-    of "none":
-      nat = NatNone
-    of "upnp":
-      nat = NatUpnp
-    of "pmp":
-      nat = NatPmp
-    else:
-      if config.nat.startsWith("extip:"):
-        try:
-          # any required port redirection is assumed to be done by hand
-          result.ip = some(ValidIpAddress.init(config.nat[6..^1]))
-          nat = NatNone
-        except ValueError:
-          error "nor a valid IP address", address = config.nat[6..^1]
-          quit QuitFailure
-      else:
-        error "not a valid NAT mechanism", value = config.nat
-        quit QuitFailure
-
-  if nat != NatNone:
-    let extIp = getExternalIP(nat)
-    if extIP.isSome:
-      result.ip = some(ValidIpAddress.init extIp.get)
-      # TODO redirectPorts in considered a gcsafety violation
-      # because it obtains the address of a non-gcsafe proc?
-      let extPorts = ({.gcsafe.}:
-        redirectPorts(tcpPort = result.tcpPort,
-                      udpPort = result.udpPort,
-                      description = clientId))
-      if extPorts.isSome:
-        (result.tcpPort, result.udpPort) = extPorts.get()
-
 func asLibp2pKey*(key: keys.PublicKey): PublicKey =
   PublicKey(scheme: Secp256k1, skkey: secp.SkPublicKey(key))
 
@@ -1540,10 +1497,11 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      netKeys: KeyPair,
                      enrForkId: ENRForkID): Eth2Node =
   var
-    (extIp, extTcpPort, extUdpPort) = setupNat(config)
+    (extIp, extTcpPort, extUdpPort) = setupAddress(config.nat,
+      config.listenAddress, config.tcpPort, config.udpPort, clientId)
     hostAddress = tcpEndPoint(config.listenAddress, config.tcpPort)
-    announcedAddresses = if extIp.isNone(): @[]
-                         else: @[tcpEndPoint(extIp.get(), extTcpPort)]
+    announcedAddresses = if extIp.isNone() or extTcpPort.isNone(): @[]
+                         else: @[tcpEndPoint(extIp.get(), extTcpPort.get())]
 
   debug "Initializing networking", hostAddress,
                                    network_public_key = netKeys.pubkey,

@@ -75,7 +75,7 @@ proc loadBootstrapFile*(bootstrapFile: string,
 
 proc new*(T: type Eth2DiscoveryProtocol,
           config: BeaconNodeConf,
-          ip: Option[ValidIpAddress], tcpPort, udpPort: Port,
+          enrIp: Option[ValidIpAddress], enrTcpPort, enrUdpPort: Option[Port],
           pk: PrivateKey,
           enrFields: openArray[(string, seq[byte])], rng: ref BrHmacDrbgContext):
           T {.raises: [Exception, Defect].} =
@@ -92,6 +92,6 @@ proc new*(T: type Eth2DiscoveryProtocol,
   if fileExists(persistentBootstrapFile):
     loadBootstrapFile(persistentBootstrapFile, bootstrapEnrs)
 
-  newProtocol(pk, ip, tcpPort, udpPort, enrFields, bootstrapEnrs,
-    bindIp = config.listenAddress, enrAutoUpdate = config.enrAutoUpdate,
-    rng = rng)
+  newProtocol(pk, enrIp, enrTcpPort, enrUdpPort, enrFields, bootstrapEnrs,
+    bindPort = config.udpPort, bindIp = config.listenAddress,
+    enrAutoUpdate = config.enrAutoUpdate, rng = rng)

@@ -5,7 +5,7 @@ import
   chronicles, chronicles/options as chroniclesOptions,
   confutils, confutils/defs, confutils/std/net, stew/shims/net as stewNet,
   stew/io2, unicodedb/properties, normalize,
-  eth/common/eth_types as commonEthTypes,
+  eth/common/eth_types as commonEthTypes, eth/net/nat,
   eth/p2p/discoveryv5/enr,
   json_serialization, web3/[ethtypes, confutils_defs],
   spec/[crypto, keystore, digest, datatypes, network],
@@ -170,7 +170,8 @@ type
       nat* {.
         desc: "Specify method to use for determining public address. " &
               "Must be one of: any, none, upnp, pmp, extip:<IP>"
-        defaultValue: "any" }: string
+        defaultValue: NatConfig(hasExtIp: false, nat: NatAny)
+        name: "nat" .}: NatConfig
 
       enrAutoUpdate* {.
         defaultValue: false
