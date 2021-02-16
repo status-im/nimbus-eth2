@@ -27,6 +27,7 @@
 - [Recover / generate keys](./more-keys.md)
 - [Perform a voluntary exit](./voluntary-exit.md)
 - [Setup a systemd service](./beacon-node-systemd.md)
+- [Setup log rotation](./log-rotate.md)
 
 # Tutorials
 - [Grafana and Prometheus](./metrics-pretty-pictures.md)
