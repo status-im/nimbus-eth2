@@ -412,9 +412,11 @@ proc bootstrapDiscovery(conf: InspectorConf,
   if enrFields.isSome():
     let fields = enrFields.get()
     let pairs = {"eth2": fields.eth2, "attnets": fields.attnets}
-    result = newProtocol(pk, host, tcpPort, udpPort, pairs, bootnodes)
+    result = newProtocol(pk, host, some(tcpPort), some(udpPort), pairs,
+      bootnodes, bindPort = udpPort)
   else:
-    result = newProtocol(pk, host, tcpPort, udpPort, [], bootnodes)
+    result = newProtocol(pk, host, some(tcpPort), some(udpPort), [],
+      bootnodes, bindPort = udpPort)
   result.open()
   result.start()
 
