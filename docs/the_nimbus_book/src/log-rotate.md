@@ -1,14 +1,14 @@
 # Log rotation
 
-Nimbus logs as written to the console and optionally to a file. Using the log file option for a long-running process may lead to difficulties when the file grows large - this is typically solved with a log rotator that will switch which file is witten to as well as compress and remove old logs.
+Nimbus logs are written to the console, and optionally to a file. Using the log file option for a long-running process may lead to difficulties when the file grows large. This is typically solved with a log rotator that will switch which file is witten to as well as compress and remove old logs.
 
-To set up file-based log rotation, an application like [rotatelogs](https://httpd.apache.org/docs/2.4/programs/rotatelogs.html) is used - `rotatelogs` is available on most servers and can be used both with `docker`, `systemd` and manual setups to write rotated logs files.
+To set up file-based log rotation, an application such as [rotatelogs](https://httpd.apache.org/docs/2.4/programs/rotatelogs.html) is used - `rotatelogs` is available on most servers and can be used with `docker`, `systemd` and manual setups to write rotated logs files.
 
-In particular, when using `systemd` and its accompanying `journald` log daemon, this setup can be used to avoid clogging the the system log and keeping the Nimbus logs in a separate location.
+In particular, when using `systemd` and its accompanying `journald` log daemon, this setup avoids clogging the the system log and keep the Nimbus logs in a separate location.
 
 ## Compression
 
-`rotatelogs` works by reading stdin and redirecting it to a file based on a name pattern. Whenever the log is about to be rotate, the application will invoke a shell script with the old and new log files. Our aim is to compress the log file in the script to save space, so we'll create such a helper - it is also available in the [repo](https://github.com/status-im/nimbus-eth2/tree/unstable/scripts/rotatelogs-compress.sh).
+`rotatelogs` works by reading stdin and redirecting it to a file based on a name pattern. Whenever the log is about to be rotated, the application will invoke a shell script with the old and new log files. Our aim is to compress the log file to save space. [repo](https://github.com/status-im/nimbus-eth2/tree/unstable/scripts/rotatelogs-compress.sh) provides a helper script to do so:
 
 ```bash
 # Create a rotation script for rotatelogs
