@@ -409,10 +409,4 @@ proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): SlashingImportStatus
 # Sanity check
 # --------------------------------------------------------------
 
-proc foo(db: SlashingProtectionDB_Concept) =
-  discard
-
-var x: SlashingProtectionDB
-foo(x) {.explain.}
-
 static: doAssert SlashingProtectionDB is SlashingProtectionDB_Concept

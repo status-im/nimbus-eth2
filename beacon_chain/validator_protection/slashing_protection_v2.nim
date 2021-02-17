@@ -594,7 +594,8 @@ proc getMetadataTable_DbV2*(db: SlashingProtectionDB_v2): Option[Eth2Digest] =
 proc initCompatV1*(T: type SlashingProtectionDB_v2,
            genesis_validators_root: Eth2Digest,
            basePath: string,
-           dbname: string): tuple[db: T, requiresMigration: bool] =
+           dbname: string
+     ): tuple[db: SlashingProtectionDB_v2, requiresMigration: bool] =
   ## Initialize a new slashing protection database
   ## or load an existing one with matching genesis root
   ## `dbname` MUST not be ending with .sqlite3
@@ -605,7 +606,7 @@ proc initCompatV1*(T: type SlashingProtectionDB_v2,
       basePath, dbname,
       keyspaces = ["kvstore"] # The key compat part
     ).get())
-  if alreadyExists and result.getMetadataTable_DbV2().isSome():
+  if alreadyExists and result.db.getMetadataTable_DbV2().isSome():
     result.db.checkDB(genesis_validators_root)
     result.requiresMigration = false
   elif alreadyExists:
