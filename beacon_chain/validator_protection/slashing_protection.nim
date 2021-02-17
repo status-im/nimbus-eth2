@@ -67,29 +67,6 @@ func version*(_: type SlashingProtectionDB): static int =
   # The highest DB version supported
   2
 
-# DB Migration
-# -------------------------------------------------------------
-
-proc requiresMigrationFromDB_v1(db: SlashingProtectionDB_v2): bool =
-  ## Migrate a v1 DB to v2.
-  # Check if we have v2 data:
-  let rawdb = kvstore db.getRawDBHandle()
-
-  let v1Root = rawdb.getMetadataTable_DbV1()
-  if v1Root.isNone():
-    return false
-
-  let v2Root = db.getMetadataTable_DbV2()
-  if v2Root.isNone():
-    return true
-
-  if v1Root != v2Root:
-    fatal "Trying to merge-migrate slashing databases from different chains",
-      v1Root = shortLog(v1Root.get()),
-      v2Root = shortLog(v2Root.get())
-    quit 1
-  return true
-
 # Resource Management
 # -------------------------------------------------------------
 
@@ -113,12 +90,11 @@ proc init*(
   result.modes = modes
   result.disagreementBehavior = disagreementBehavior
 
-  result.db_v2 = SlashingProtectionDB_v2.initCompatV1(
+  let (db, requiresMigration) = SlashingProtectionDB_v2.initCompatV1(
     genesis_validators_root,
     basePath, dbname
   )
-
-  let requiresMigration = result.db_v2.requiresMigrationFromDB_v1()
+  result.db_v2 = db
 
   let rawdb = kvstore result.db_v2.getRawDBHandle()
   if not rawdb.checkOrPutGenesis_DbV1(genesis_validators_root):
