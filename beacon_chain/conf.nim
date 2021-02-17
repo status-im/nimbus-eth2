@@ -120,6 +120,13 @@ type
       desc: "Subscribe to all attestation subnet topics when gossiping"
       name: "subscribe-all-subnets" }: bool
 
+    # Can we use a set[enum]?
+    testDualSlashingProtectionDBs* {.
+      hidden
+      defaultValue: false
+      desc: "Use the the 2 slashing protection implementation at the same time to ensure no regression."
+      name: "slashing-test-dual-db" }: bool
+
     case cmd* {.
       command
       defaultValue: noCommand }: BNStartUpCmd
@@ -664,4 +671,3 @@ func defaultAdminListenAddress*(conf: BeaconNodeConf|ValidatorClientConf): Valid
 template writeValue*(writer: var JsonWriter,
                      value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =
   writer.writeValue(string value)
-
