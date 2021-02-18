@@ -11,6 +11,7 @@ SHELL := bash # the shell used internally by "make"
 BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 
 # we set its default value before LOG_LEVEL is used in "variables.mk"
+BUILD_LOG_LEVEL := DEBUG
 LOG_LEVEL := INFO
 
 LINK_PCRE := 0
@@ -435,7 +436,7 @@ pyrmont-vc: | pyrmont-build nimbus_validator_client
 
 ifneq ($(LOG_LEVEL), TRACE)
 pyrmont-dev:
-	+ "$(MAKE)" LOG_LEVEL=TRACE $@
+	+ "$(MAKE)" BUILD_LOG_LEVEL=TRACE LOG_LEVEL=TRACE $@
 else
 pyrmont-dev: | pyrmont-build
 	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,pyrmont,nimbus_beacon_node)
