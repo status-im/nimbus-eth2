@@ -51,6 +51,11 @@ type
     enabled # Always enabled
     disabled # Always disabled
 
+  SlashingDbKind* {.pure.} = enum
+    v1
+    v2
+    both
+
   BeaconNodeConf* = object
     logLevel* {.
       defaultValue: "INFO"
@@ -120,12 +125,11 @@ type
       desc: "Subscribe to all attestation subnet topics when gossiping"
       name: "subscribe-all-subnets" }: bool
 
-    # Can we use a set[enum]?
-    testDualSlashingProtectionDBs* {.
+    slashingDbKind* {.
       hidden
-      defaultValue: false
-      desc: "Use the the 2 slashing protection implementation at the same time to ensure no regression."
-      name: "slashing-test-dual-db" }: bool
+      defaultValue: SlashingDbKind.v1
+      desc: "The slashing DB flavour to use (v1, v2 or both)"
+      name: "slashing-db-kind" }: SlashingDbKind
 
     case cmd* {.
       command

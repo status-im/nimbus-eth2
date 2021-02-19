@@ -320,7 +320,26 @@ proc init*(T: type BeaconNode,
         topics &= getAttestationTopic(enrForkId.forkDigest, subnet)
       topics)
 
-  if conf.testDualSlashingProtectionDBs:
+  case conf.slashingDbKind
+  of SlashingDbKind.v1:
+    info "Loading slashing protection database", path = conf.validatorsDir()
+    res.attachedValidators = ValidatorPool.init(
+      SlashingProtectionDB.init(
+        chainDag.headState.data.data.genesis_validators_root,
+        conf.validatorsDir(), "slashing_protection",
+        modes = {kCompleteArchiveV1},
+        disagreementBehavior = kChooseV1
+      )
+    )
+  of SlashingDbKind.v2:
+    info "Loading slashing protection database (v2)", path = conf.validatorsDir()
+    res.attachedValidators = ValidatorPool.init(
+      SlashingProtectionDB.init(
+        chainDag.headState.data.data.genesis_validators_root,
+        conf.validatorsDir(), "slashing_protection"
+      )
+    )
+  of SlashingDbKind.both:
     info "Loading slashing protection database (dual DB mode)", path = conf.validatorsDir()
     res.attachedValidators = ValidatorPool.init(
       SlashingProtectionDB.init(
@@ -328,14 +347,6 @@ proc init*(T: type BeaconNode,
         conf.validatorsDir(), "slashing_protection",
         modes = {kCompleteArchiveV1, kCompleteArchiveV2},
         disagreementBehavior = kChooseV2
-      )
-    )
-  else:
-    info "Loading slashing protection database", path = conf.validatorsDir()
-    res.attachedValidators = ValidatorPool.init(
-      SlashingProtectionDB.init(
-        chainDag.headState.data.data.genesis_validators_root,
-        conf.validatorsDir(), "slashing_protection"
       )
     )
 
