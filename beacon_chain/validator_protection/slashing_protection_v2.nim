@@ -594,24 +594,30 @@ proc getMetadataTable_DbV2*(db: SlashingProtectionDB_v2): Option[Eth2Digest] =
 proc initCompatV1*(T: type SlashingProtectionDB_v2,
            genesis_validators_root: Eth2Digest,
            basePath: string,
-           dbname: string): T =
+           dbname: string
+     ): tuple[db: SlashingProtectionDB_v2, requiresMigration: bool] =
   ## Initialize a new slashing protection database
   ## or load an existing one with matching genesis root
   ## `dbname` MUST not be ending with .sqlite3
 
   let alreadyExists = fileExists(basepath/dbname&".sqlite3")
 
-  result = T(backend: SqStoreRef.init(
+  result.db = T(backend: SqStoreRef.init(
       basePath, dbname,
       keyspaces = ["kvstore"] # The key compat part
     ).get())
-  if alreadyExists and result.getMetadataTable_DbV2().isSome():
-    result.checkDB(genesis_validators_root)
+  if alreadyExists and result.db.getMetadataTable_DbV2().isSome():
+    result.db.checkDB(genesis_validators_root)
+    result.requiresMigration = false
+  elif alreadyExists:
+    result.db.setupDB(genesis_validators_root)
+    result.requiresMigration = true
   else:
-    result.setupDB(genesis_validators_root)
+    result.db.setupDB(genesis_validators_root)
+    result.requiresMigration = false
 
   # Cached queries
-  result.setupCachedQueries()
+  result.db.setupCachedQueries()
 
 # Resource Management
 # -------------------------------------------------------------

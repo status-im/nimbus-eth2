@@ -320,13 +320,24 @@ proc init*(T: type BeaconNode,
         topics &= getAttestationTopic(enrForkId.forkDigest, subnet)
       topics)
 
-  info "Loading slashing protection database", path = conf.validatorsDir()
-  res.attachedValidators = ValidatorPool.init(
-    SlashingProtectionDB.init(
-      chainDag.headState.data.data.genesis_validators_root,
-      conf.validatorsDir(), "slashing_protection"
+  if conf.testDualSlashingProtectionDBs:
+    info "Loading slashing protection database (dual DB mode)", path = conf.validatorsDir()
+    res.attachedValidators = ValidatorPool.init(
+      SlashingProtectionDB.init(
+        chainDag.headState.data.data.genesis_validators_root,
+        conf.validatorsDir(), "slashing_protection",
+        modes = {kCompleteArchiveV1, kCompleteArchiveV2},
+        disagreementBehavior = kChooseV2
+      )
     )
-  )
+  else:
+    info "Loading slashing protection database", path = conf.validatorsDir()
+    res.attachedValidators = ValidatorPool.init(
+      SlashingProtectionDB.init(
+        chainDag.headState.data.data.genesis_validators_root,
+        conf.validatorsDir(), "slashing_protection"
+      )
+    )
 
   proc getWallTime(): BeaconTime = res.beaconClock.now()
 
