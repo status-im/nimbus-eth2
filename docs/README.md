@@ -4,7 +4,7 @@ Some books also use [mdbook-toc](https://github.com/badboy/mdbook-toc) for table
 
 ```bash
 # Install or update tooling (make sure you add "~/.cargo/bin" to PATH):
-cargo install mdbook mdbook-toc mdbook-open-on-gh
+cargo install mdbook mdbook-toc
 
 # Work on the book locally - open "http://localhost:4000" for live version
 cd docs/the_nimbus_book
