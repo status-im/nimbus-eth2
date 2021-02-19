@@ -1,0 +1,1 @@
+beacon_chain.nimble
