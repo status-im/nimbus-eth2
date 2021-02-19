@@ -73,41 +73,41 @@ func add(nodes: var ProtoNodes, node: ProtoNode) =
 # Forward declarations
 # ----------------------------------------------------------------------
 
-func maybe_update_best_child_and_descendant(
-  self: var ProtoArray, parent_index: Index, child_index: Index): FcResult[void]
-func node_is_viable_for_head(self: ProtoArray, node: ProtoNode): bool
-func node_leads_to_viable_head(self: ProtoArray, node: ProtoNode): FcResult[bool]
+func maybeUpdateBestChildAndDescendant(self: var ProtoArray,
+                                       parentIdx: Index,
+                                       childIdx: Index): FcResult[void]
+
+func nodeIsViableForHead(self: ProtoArray, node: ProtoNode): bool
+func nodeLeadsToViableHead(self: ProtoArray, node: ProtoNode): FcResult[bool]
 
 # ProtoArray routines
 # ----------------------------------------------------------------------
 
 func init*(T: type ProtoArray,
-           justified_epoch: Epoch,
-           finalized_root: Eth2Digest,
-           finalized_epoch: Epoch): T =
+           justifiedEpoch: Epoch,
+           finalizedRoot: Eth2Digest,
+           finalizedEpoch: Epoch): T =
   let node = ProtoNode(
-    root: finalized_root,
+    root: finalizedRoot,
     parent: none(int),
-    justified_epoch: justified_epoch,
-    finalized_epoch: finalized_epoch,
+    justifiedEpoch: justifiedEpoch,
+    finalizedEpoch: finalizedEpoch,
     weight: 0,
-    best_child: none(int),
-    best_descendant: none(int)
+    bestChild: none(int),
+    bestDescendant: none(int)
   )
 
   T(
-    justified_epoch: justified_epoch,
-    finalized_epoch: finalized_epoch,
+    justifiedEpoch: justifiedEpoch,
+    finalizedEpoch: finalizedEpoch,
     nodes: ProtoNodes(buf: @[node], offset: 0),
     indices: {node.root: 0}.toTable()
   )
 
-func apply_score_changes*(
-       self: var ProtoArray,
-       deltas: var openArray[Delta],
-       justified_epoch: Epoch,
-       finalized_epoch: Epoch
-     ): FcResult[void] =
+func applyScoreChanges*(self: var ProtoArray,
+                        deltas: var openArray[Delta],
+                        justifiedEpoch: Epoch,
+                        finalizedEpoch: Epoch): FcResult[void] =
   ## Iterate backwards through the array, touching all nodes and their parents
   ## and potentially the best-child of each parent.
   ##
@@ -124,41 +124,40 @@ func apply_score_changes*(
   doAssert self.indices.len == self.nodes.len # By construction
   if deltas.len != self.indices.len:
     return err ForkChoiceError(
-             kind: fcInvalidDeltaLen,
-             deltasLen: deltas.len,
-             indicesLen: self.indices.len
-           )
+      kind: fcInvalidDeltaLen,
+      deltasLen: deltas.len,
+      indicesLen: self.indices.len)
 
-  self.justified_epoch = justified_epoch
-  self.finalized_epoch = finalized_epoch
+  self.justifiedEpoch = justifiedEpoch
+  self.finalizedEpoch = finalizedEpoch
+
+  ## Alias
+  # This cannot raise the IndexError exception, how to tell compiler?
+  template node: untyped {.dirty.} =
+    self.nodes.buf[nodePhysicalIdx]
 
   # Iterate backwards through all the indices in `self.nodes`
-  for node_physical_index in countdown(self.nodes.len - 1, 0):
-    template node: untyped {.dirty.}= self.nodes.buf[node_physical_index]
-      ## Alias
-      # This cannot raise the IndexError exception, how to tell compiler?
-
+  for nodePhysicalIdx in countdown(self.nodes.len - 1, 0):
     if node.root == default(Eth2Digest):
       continue
 
-    let node_delta = deltas[node_physical_index]
+    let nodeDelta = deltas[nodePhysicalIdx]
 
     # Apply the delta to the node
     # We fail fast if underflow, which shouldn't happen.
     # Note that delta can be negative but weight cannot
-    let weight = node.weight + node_delta
+    let weight = node.weight + nodeDelta
     if weight < 0:
       return err ForkChoiceError(
         kind: fcDeltaUnderflow,
-        index: node_physical_index
-      )
+        index: nodePhysicalIdx)
     node.weight = weight
 
     # If the node has a parent, try to update its best-child and best-descendant
     if node.parent.isSome():
-      let parent_logical_index = node.parent.unsafeGet()
-      let parent_physical_index = parent_logical_index - self.nodes.offset
-      if parent_physical_index < 0:
+      let parentLogicalIdx = node.parent.unsafeGet()
+      let parentPhysicalIdx = parentLogicalIdx - self.nodes.offset
+      if parentPhysicalIdx < 0:
         # Orphan, for example
         #          0
         #         / \
@@ -180,27 +179,35 @@ func apply_score_changes*(
         # that will be pruned next.
         continue
 
-      if parent_physical_index >= deltas.len:
+      if parentPhysicalIdx >= deltas.len:
         return err ForkChoiceError(
           kind: fcInvalidParentDelta,
-          index: parent_physical_index
-        )
+          index: parentPhysicalIdx)
 
       # Back-propagate the nodes delta to its parent.
-      deltas[parent_physical_index] += node_delta
+      deltas[parentPhysicalIdx] += nodeDelta
 
-      let node_logical_index = node_physical_index + self.nodes.offset
-      ? self.maybe_update_best_child_and_descendant(parent_logical_index, node_logical_index)
+  for nodePhysicalIdx in countdown(self.nodes.len - 1, 0):
+    if node.root == default(Eth2Digest):
+      continue
 
-  return ok()
+    if node.parent.isSome():
+      let parentLogicalIdx = node.parent.unsafeGet()
+      let parentPhysicalIdx = parentLogicalIdx - self.nodes.offset
+      if parentPhysicalIdx < 0:
+        # Orphan
+        continue
 
-func on_block*(
-       self: var ProtoArray,
-       root: Eth2Digest,
-       parent: Eth2Digest,
-       justified_epoch: Epoch,
-       finalized_epoch: Epoch
-     ): FcResult[void] =
+      let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
+      ? self.maybeUpdateBestChildAndDescendant(parentLogicalIdx, nodeLogicalIdx)
+
+  ok()
+
+func onBlock*(self: var ProtoArray,
+              root: Eth2Digest,
+              parent: Eth2Digest,
+              justifiedEpoch: Epoch,
+              finalizedEpoch: Epoch): FcResult[void] =
   ## Register a block with the fork choice
   ## A block `hasParentInForkChoice` may be false
   ## on fork choice initialization:
@@ -213,145 +220,130 @@ func on_block*(
   if root in self.indices:
     return ok()
 
-  var parent_index: Index
+  var parentIdx: Index
   self.indices.withValue(parent, index) do:
-    parent_index = index[]
+    parentIdx = index[]
   do:
     return err ForkChoiceError(
       kind: fcUnknownParent,
-      child_root: root,
-      parent_root: parent
-    )
+      childRoot: root,
+      parentRoot: parent)
 
-  let node_logical_index = self.nodes.offset + self.nodes.buf.len
+  let nodeLogicalIdx = self.nodes.offset + self.nodes.buf.len
 
   let node = ProtoNode(
     root: root,
-    parent: some(parent_index),
-    justified_epoch: justified_epoch,
-    finalized_epoch: finalized_epoch,
+    parent: some(parentIdx),
+    justifiedEpoch: justifiedEpoch,
+    finalizedEpoch: finalizedEpoch,
     weight: 0,
-    best_child: none(int),
-    best_descendant: none(int)
+    bestChild: none(int),
+    bestDescendant: none(int)
   )
 
-  self.indices[node.root] = node_logical_index
+  self.indices[node.root] = nodeLogicalIdx
   self.nodes.add node
 
-  ? self.maybe_update_best_child_and_descendant(parent_index, node_logical_index)
+  ? self.maybeUpdateBestChildAndDescendant(parentIdx, nodeLogicalIdx)
 
-  return ok()
+  ok()
 
-func find_head*(
-        self: var ProtoArray,
-        head: var Eth2Digest,
-        justified_root: Eth2Digest
-     ): FcResult[void] =
+func findHead*(self: var ProtoArray,
+               head: var Eth2Digest,
+               justifiedRoot: Eth2Digest): FcResult[void] =
   ## Follows the best-descendant links to find the best-block (i.e. head-block)
   ##
   ## ⚠️ Warning
-  ## The result may not be accurate if `on_new_block`
-  ## is not followed by `apply_score_changes` as `on_new_block` does not
-  ## update the whole tree.
+  ## The result may not be accurate if `onBlock` is not followed by
+  ## `applyScoreChanges` as `onBlock` does not update the whole tree.
 
-  var justified_index: Index
-  self.indices.withValue(justified_root, value) do:
-    justified_index = value[]
+  var justifiedIdx: Index
+  self.indices.withValue(justifiedRoot, value) do:
+    justifiedIdx = value[]
   do:
     return err ForkChoiceError(
       kind: fcJustifiedNodeUnknown,
-      block_root: justified_root
-    )
+      blockRoot: justifiedRoot)
 
-  let justified_node = self.nodes[justified_index]
-  if justified_node.isNone():
+  let justifiedNode = self.nodes[justifiedIdx]
+  if justifiedNode.isNone():
     return err ForkChoiceError(
       kind: fcInvalidJustifiedIndex,
-      index: justified_index
-    )
+      index: justifiedIdx)
 
-  let best_descendant_index = justified_node.get().best_descendant.get(justified_index)
-  let best_node = self.nodes[best_descendant_index]
-  if best_node.isNone():
+  let bestDescendantIdx = justifiedNode.get().bestDescendant.get(justifiedIdx)
+  let bestNode = self.nodes[bestDescendantIdx]
+  if bestNode.isNone():
     return err ForkChoiceError(
       kind: fcInvalidBestDescendant,
-      index: best_descendant_index
-    )
+      index: bestDescendantIdx)
 
   # Perform a sanity check to ensure the node can be head
-  if not self.node_is_viable_for_head(best_node.get()):
+  if not self.nodeIsViableForHead(bestNode.get()):
     return err ForkChoiceError(
       kind: fcInvalidBestNode,
-      start_root: justified_root,
-      justified_epoch: self.justified_epoch,
-      finalized_epoch: self.finalized_epoch,
-      head_root: justified_node.get().root,
-      head_justified_epoch: justified_node.get().justified_epoch,
-      head_finalized_epoch: justified_node.get().finalized_epoch
-    )
+      startRoot: justifiedRoot,
+      justifiedEpoch: self.justifiedEpoch,
+      finalizedEpoch: self.finalizedEpoch,
+      headRoot: justifiedNode.get().root,
+      headJustifiedEpoch: justifiedNode.get().justifiedEpoch,
+      headFinalizedEpoch: justifiedNode.get().finalizedEpoch)
 
-  head = best_node.get().root
-  return ok()
+  head = bestNode.get().root
+  ok()
 
-func prune*(
-       self: var ProtoArray,
-       finalized_root: Eth2Digest
-     ): FcResult[void] =
+func prune*(self: var ProtoArray, finalizedRoot: Eth2Digest): FcResult[void] =
   ## Update the tree with new finalization information.
   ## The tree is pruned if and only if:
-  ## - The `finalized_root` and finalized epoch are different from current
+  ## - The `finalizedRoot` and finalized epoch are different from current
   ##
   ## Returns error if:
   ## - The finalized epoch is less than the current one
   ## - The finalized epoch matches the current one but the finalized root is different
   ## - Internal error due to invalid indices in `self`
 
-  var finalized_index: int
-  self.indices.withValue(finalized_root, value) do:
-    finalized_index = value[]
+  var finalizedIdx: int
+  self.indices.withValue(finalizedRoot, value) do:
+    finalizedIdx = value[]
   do:
     return err ForkChoiceError(
       kind: fcFinalizedNodeUnknown,
-      block_root: finalized_root
-    )
+      blockRoot: finalizedRoot)
 
-  if finalized_index == self.nodes.offset:
+  if finalizedIdx == self.nodes.offset:
     # Nothing to do
     return ok()
 
-  if finalized_index < self.nodes.offset:
+  if finalizedIdx < self.nodes.offset:
     return err ForkChoiceError(
       kind: fcPruningFromOutdatedFinalizedRoot,
-      finalizedRoot: finalized_root
-    )
+      finalizedRoot: finalizedRoot)
 
   trace "Pruning blocks from fork choice",
-    finalizedRoot = shortlog(finalized_root)
+    finalizedRoot = shortlog(finalizedRoot)
 
-  let final_phys_index = finalized_index-self.nodes.offset
-  for node_index in 0 ..< final_phys_index:
-    self.indices.del(self.nodes.buf[node_index].root)
+  let finalPhysicalIdx = finalizedIdx - self.nodes.offset
+  for nodeIdx in 0 ..< finalPhysicalIdx:
+    self.indices.del(self.nodes.buf[nodeIdx].root)
 
   # Drop all nodes prior to finalization.
   # This is done in-place with `moveMem` to avoid costly reallocations.
   static: doAssert ProtoNode.supportsCopyMem(), "ProtoNode must be a trivial type"
-  let tail = self.nodes.len - final_phys_index
+  let tail = self.nodes.len - finalPhysicalIdx
   # TODO: can we have an unallocated `self.nodes`? i.e. self.nodes[0] is nil
-  moveMem(self.nodes.buf[0].addr, self.nodes.buf[final_phys_index].addr, tail * sizeof(ProtoNode))
+  moveMem(self.nodes.buf[0].addr, self.nodes.buf[finalPhysicalIdx].addr, tail * sizeof(ProtoNode))
   self.nodes.buf.setLen(tail)
 
   # update offset
-  self.nodes.offset = finalized_index
+  self.nodes.offset = finalizedIdx
 
-  return ok()
+  ok()
 
-
-func maybe_update_best_child_and_descendant(
-       self: var ProtoArray,
-       parent_index: Index,
-       child_index: Index): Result[void, ForkChoiceError] =
-  ## Observe the parent at `parent_index` with respect to the child at `child_index` and
-  ## potentially modify the `parent.best_child` and `parent.best_descendant` values
+func maybeUpdateBestChildAndDescendant(self: var ProtoArray,
+                                       parentIdx: Index,
+                                       childIdx: Index): FcResult[void] =
+  ## Observe the parent at `parentIdx` with respect to the child at `childIdx` and
+  ## potentially modify the `parent.bestChild` and `parent.bestDescendant` values
   ##
   ## There are four scenarios:
   ##
@@ -362,120 +354,113 @@ func maybe_update_best_child_and_descendant(
   ## 3. The child is not the best child but becomes the best child
   ## 4. The child is not the best child and does not become the best child
 
-  let child = self.nodes[child_index]
+  let child = self.nodes[childIdx]
   if child.isNone():
     return err ForkChoiceError(
       kind: fcInvalidNodeIndex,
-      index: child_index
-    )
+      index: childIdx)
 
-  let parent = self.nodes[parent_index]
+  let parent = self.nodes[parentIdx]
   if parent.isNone():
     return err ForkChoiceError(
       kind: fcInvalidNodeIndex,
-      index: parent_index
-    )
+      index: parentIdx)
 
-  let child_leads_to_viable_head = ? self.node_leads_to_viable_head(child.get())
+  let childLeadsToViableHead = ? self.nodeLeadsToViableHead(child.get())
 
-  let # Aliases to the 3 possible (best_child, best_descendant) tuples
-    change_to_none = (none(Index), none(Index))
-    change_to_child = (
-        some(child_index),
+  let # Aliases to the 3 possible (bestChild, bestDescendant) tuples
+    changeToNone = (none(Index), none(Index))
+    changeToChild = (
+        some(childIdx),
         # Nim `options` module doesn't implement option `or`
-        if child.get().best_descendant.isSome(): child.get().best_descendant
-        else: some(child_index)
+        if child.get().bestDescendant.isSome(): child.get().bestDescendant
+        else: some(childIdx)
       )
-    no_change = (parent.get().best_child, parent.get().best_descendant)
+    noChange = (parent.get().bestChild, parent.get().bestDescendant)
 
   # TODO: state-machine? The control-flow is messy
-  let (new_best_child, new_best_descendant) = block:
-    if parent.get().best_child.isSome:
-      let best_child_index = parent.get().best_child.unsafeGet()
-      if best_child_index == child_index and not child_leads_to_viable_head:
+  let (newBestChild, newBestDescendant) = block:
+    if parent.get().bestChild.isSome:
+      let bestChildIdx = parent.get().bestChild.unsafeGet()
+      if bestChildIdx == childIdx and not childLeadsToViableHead:
         # The child is already the best-child of the parent
         # but it's not viable to be the head block => remove it
-        change_to_none
-      elif best_child_index == child_index:
+        changeToNone
+      elif bestChildIdx == childIdx:
         # If the child is the best-child already, set it again to ensure
         # that the best-descendant of the parent is up-to-date.
-        change_to_child
+        changeToChild
       else:
-        let best_child = self.nodes[best_child_index]
-        if best_child.isNone():
+        let bestChild = self.nodes[bestChildIdx]
+        if bestChild.isNone():
           return err ForkChoiceError(
             kind: fcInvalidBestDescendant,
-            index: best_child_index
-          )
+            index: bestChildIdx)
 
-        let best_child_leads_to_viable_head =
-          ? self.node_leads_to_viable_head(best_child.get())
+        let bestChildLeadsToViableHead =
+          ? self.nodeLeadsToViableHead(bestChild.get())
 
-        if child_leads_to_viable_head and not best_child_leads_to_viable_head:
+        if childLeadsToViableHead and not bestChildLeadsToViableHead:
           # The child leads to a viable head, but the current best-child doesn't
-          change_to_child
-        elif not child_leads_to_viable_head and best_child_leads_to_viable_head:
+          changeToChild
+        elif not childLeadsToViableHead and bestChildLeadsToViableHead:
           # The best child leads to a viable head, but the child doesn't
-          no_change
-        elif child.get().weight == best_child.get().weight:
+          noChange
+        elif child.get().weight == bestChild.get().weight:
           # Tie-breaker of equal weights by root
-          if child.get().root.tiebreak(best_child.get().root):
-            change_to_child
+          if child.get().root.tiebreak(bestChild.get().root):
+            changeToChild
           else:
-            no_change
+            noChange
         else: # Choose winner by weight
           let cw = child.get().weight
-          let bw = best_child.get().weight
+          let bw = bestChild.get().weight
           if cw >= bw:
-            change_to_child
+            changeToChild
           else:
-            no_change
+            noChange
     else:
-      if child_leads_to_viable_head:
+      if childLeadsToViableHead:
         # There is no current best-child and the child is viable
-        change_to_child
+        changeToChild
       else:
         # There is no current best-child but the child is not viable
-        no_change
+        noChange
 
-  self.nodes.buf[parent_index - self.nodes.offset].best_child = new_best_child
-  self.nodes.buf[parent_index - self.nodes.offset].best_descendant = new_best_descendant
+  self.nodes.buf[parentIdx - self.nodes.offset].bestChild = newBestChild
+  self.nodes.buf[parentIdx - self.nodes.offset].bestDescendant = newBestDescendant
 
-  return ok()
+  ok()
 
-func node_leads_to_viable_head(
-       self: ProtoArray, node: ProtoNode
-     ): FcResult[bool] =
+func nodeLeadsToViableHead(self: ProtoArray, node: ProtoNode): FcResult[bool] =
   ## Indicates if the node itself or its best-descendant are viable
   ## for blockchain head
-  let best_descendant_is_viable_for_head = block:
-    if node.best_descendant.isSome():
-      let best_descendant_index = node.best_descendant.unsafeGet()
-      let best_descendant = self.nodes[best_descendant_index]
-      if best_descendant.isNone:
+  let bestDescendantIsViableForHead = block:
+    if node.bestDescendant.isSome():
+      let bestDescendantIdx = node.bestDescendant.unsafeGet()
+      let bestDescendant = self.nodes[bestDescendantIdx]
+      if bestDescendant.isNone:
         return err ForkChoiceError(
-            kind: fcInvalidBestDescendant,
-            index: best_descendant_index
-          )
-      self.node_is_viable_for_head(best_descendant.get())
+          kind: fcInvalidBestDescendant,
+          index: bestDescendantIdx)
+      self.nodeIsViableForHead(bestDescendant.get())
     else:
       false
 
-  return ok(best_descendant_is_viable_for_head or
-      self.node_is_viable_for_head(node))
+  ok(bestDescendantIsViableForHead or self.nodeIsViableForHead(node))
 
-func node_is_viable_for_head(self: ProtoArray, node: ProtoNode): bool =
+func nodeIsViableForHead(self: ProtoArray, node: ProtoNode): bool =
   ## This is the equivalent of `filter_block_tree` function in eth2 spec
   ## https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/fork-choice.md#filter_block_tree
   ##
   ## Any node that has a different finalized or justified epoch
   ## should not be viable for the head.
   (
-    (node.justified_epoch == self.justified_epoch) or
-    (self.justified_epoch == Epoch(0))
+    (node.justifiedEpoch == self.justifiedEpoch) or
+    (self.justifiedEpoch == Epoch(0))
   ) and (
-    (node.finalized_epoch == self.finalized_epoch) or
-    (self.finalized_epoch == Epoch(0))
+    (node.finalizedEpoch == self.finalizedEpoch) or
+    (self.finalizedEpoch == Epoch(0))
   )
 
 # Sanity checks
@@ -493,13 +478,11 @@ when isMainModule:
 
     doAssert tiebreak(a, b)
 
-
   block:
     let a = Eth2Digest.fromHex("0x0000000000000002000000000000000000000000000000000000000000000000")
     let b = Eth2Digest.fromHex("0x0000000000000001000000000000000000000000000000000000000000000000") # sha256(1)
 
     doAssert tiebreak(a, b)
-
 
   block:
     let a = Eth2Digest.fromHex("0xD86E8112F3C4C4442126F8E9F44F16867DA487F29052BF91B810457DB34209A4") # sha256(2)
