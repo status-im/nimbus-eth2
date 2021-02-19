@@ -11,8 +11,10 @@ SHELL := bash # the shell used internally by "make"
 BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 
 # we set its default value before LOG_LEVEL is used in "variables.mk"
-BUILD_LOG_LEVEL := DEBUG
-LOG_LEVEL := INFO
+LOG_LEVEL := DEBUG
+
+# used by Make targets that launch a beacon node
+RUNTIME_LOG_LEVEL := INFO
 
 LINK_PCRE := 0
 
@@ -322,7 +324,7 @@ clean-testnet1:
 testnet0 testnet1: | nimbus_beacon_node nimbus_signing_process
 	build/nimbus_beacon_node \
 		--network=$@ \
-		--log-level="$(LOG_LEVEL)" \
+		--log-level="$(RUNTIME_LOG_LEVEL)" \
 		--data-dir=build/data/$@_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
@@ -340,7 +342,7 @@ define CONNECT_TO_NETWORK
 																													--finalized-checkpoint-block=vendor/eth2-testnets/shared/$(1)/recent-finalized-block.ssz" ; }; \
 	$(CPU_LIMIT_CMD) build/$(2) \
 		--network=$(1) \
-		--log-level="$(LOG_LEVEL)" \
+		--log-level="$(RUNTIME_LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
 		$$CHECKPOINT_PARAMS $(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
@@ -373,7 +375,7 @@ define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 
 	$(CPU_LIMIT_CMD) build/$(2) \
 		--network=$(1) \
-		--log-level="$(LOG_LEVEL)" \
+		--log-level="$(RUNTIME_LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
 		--validators-dir=build/data/shared_$(1)_$(NODE_ID)/empty_dummy_folder \
@@ -383,7 +385,7 @@ define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 	sleep 4
 
 	build/nimbus_validator_client \
-		--log-level="$(LOG_LEVEL)" \
+		--log-level="$(RUNTIME_LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_vc_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
 		--rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) ))
@@ -436,7 +438,7 @@ pyrmont-vc: | pyrmont-build nimbus_validator_client
 
 ifneq ($(LOG_LEVEL), TRACE)
 pyrmont-dev:
-	+ "$(MAKE)" BUILD_LOG_LEVEL=TRACE LOG_LEVEL=TRACE $@
+	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
 pyrmont-dev: | pyrmont-build
 	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,pyrmont,nimbus_beacon_node)
