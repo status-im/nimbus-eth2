@@ -1,0 +1,285 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Setup log rotation - The Nimbus Beacon Chain Book</title>
+        
+        
+
+
+        <!-- Custom HTML head -->
+        
+
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        
+        <link rel="icon" href="favicon.svg">
+        
+        
+        <link rel="shortcut icon" href="favicon.png">
+        
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        
+        <link rel="stylesheet" href="css/print.css" media="print">
+        
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+        <link rel="stylesheet" href="custom.css">
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="philosophy.html"><strong aria-hidden="true">2.</strong> Design goals</a></li><li class="chapter-item expanded "><a href="hardware.html"><strong aria-hidden="true">3.</strong> System requirements</a></li><li class="chapter-item expanded "><a href="quick-start.html"><strong aria-hidden="true">4.</strong> Run just the beacon node (quickstart)</a></li><li class="chapter-item expanded affix "><li class="part-title">Raspberry Pi</li><li class="chapter-item expanded "><a href="pi-guide.html"><strong aria-hidden="true">5.</strong> Validating with a Raspberry Pi</a></li><li class="chapter-item expanded "><a href="pi-guide-mainnet.html"><strong aria-hidden="true">6.</strong> Mainnet advice</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to</li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">7.</strong> Install dependencies</a></li><li class="chapter-item expanded "><a href="build.html"><strong aria-hidden="true">8.</strong> Build the beacon node</a></li><li class="chapter-item expanded "><a href="eth1.html"><strong aria-hidden="true">9.</strong> Run an eth1 node</a></li><li class="chapter-item expanded "><a href="start-syncing.html"><strong aria-hidden="true">10.</strong> Sync the beacon node</a></li><li class="chapter-item expanded "><a href="deposit.html"><strong aria-hidden="true">11.</strong> Make a deposit for your validator</a></li><li class="chapter-item expanded "><a href="keys.html"><strong aria-hidden="true">12.</strong> Import your validator keys</a></li><li class="chapter-item expanded "><a href="connect-eth2.html"><strong aria-hidden="true">13.</strong> Connect your validator to eth2</a></li><li class="chapter-item expanded "><a href="keep-an-eye.html"><strong aria-hidden="true">14.</strong> Keep an eye on your validator</a></li><li class="chapter-item expanded "><a href="keep-updated.html"><strong aria-hidden="true">15.</strong> Keep Nimbus updated</a></li><li class="chapter-item expanded "><a href="preparation.html"><strong aria-hidden="true">16.</strong> Mainnet preparations</a></li><li class="chapter-item expanded "><a href="email-notifications.html"><strong aria-hidden="true">17.</strong> Email notifications</a></li><li class="chapter-item expanded "><a href="graffiti.html"><strong aria-hidden="true">18.</strong> Graffiti the blockchain</a></li><li class="chapter-item expanded "><a href="binaries.html"><strong aria-hidden="true">19.</strong> Download binaries</a></li><li class="chapter-item expanded "><a href="docker.html"><strong aria-hidden="true">20.</strong> Docker images</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">21.</strong> Troubleshoot</a></li><li class="chapter-item expanded "><a href="more-keys.html"><strong aria-hidden="true">22.</strong> Recover / generate keys</a></li><li class="chapter-item expanded "><a href="voluntary-exit.html"><strong aria-hidden="true">23.</strong> Perform a voluntary exit</a></li><li class="chapter-item expanded "><a href="beacon-node-systemd.html"><strong aria-hidden="true">24.</strong> Setup a systemd service</a></li><li class="chapter-item expanded "><a href="log-rotate.html" class="active"><strong aria-hidden="true">25.</strong> Setup log rotation</a></li><li class="chapter-item expanded affix "><li class="part-title">Tutorials</li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">26.</strong> Grafana and Prometheus</a></li><li class="chapter-item expanded "><a href="infura-guide.html"><strong aria-hidden="true">27.</strong> Create your own Infura endpoint</a></li><li class="chapter-item expanded "><a href="eth2-stats.html"><strong aria-hidden="true">28.</strong> Network stats (testnets only)</a></li><li class="chapter-item expanded affix "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">29.</strong> API</a></li><li class="chapter-item expanded "><a href="options.html"><strong aria-hidden="true">30.</strong> Command line options</a></li><li class="chapter-item expanded "><a href="developers.html"><strong aria-hidden="true">31.</strong> For developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">32.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">33.</strong> Contribute</a></li><li class="chapter-item expanded "><a href="resources.html"><strong aria-hidden="true">34.</strong> Resources</a></li><li class="chapter-item expanded "><a href="distribution_internals.html"><strong aria-hidden="true">35.</strong> Binary distribution internals</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">The Nimbus Beacon Chain Book</h1>
+
+                    <div class="right-buttons">
+                        
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        
+                        <a href="https://github.com/status-im/nimbus-eth2" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#log-rotation" id="log-rotation">Log rotation</a></h1>
+<p>Nimbus logs are written to the console, and optionally to a file. Writing to a file for a long-running process may lead to difficulties when the file grows large. This is typically solved with a <em>log rotator</em>. A log rotator is responsible for switching the written to file, as well as compressing and removing old logs.</p>
+<p>To set up file-based log rotation, an application such as <a href="https://httpd.apache.org/docs/2.4/programs/rotatelogs.html">rotatelogs</a> is used - <code>rotatelogs</code> is available on most servers and can be used with <code>docker</code>, <code>systemd</code> and manual setups to write rotated logs files.</p>
+<p>In particular, when using <code>systemd</code> and its accompanying <code>journald</code> log daemon, this setup avoids clogging the the system log by keeping the Nimbus logs in a separate location.</p>
+<h2><a class="header" href="#compression" id="compression">Compression</a></h2>
+<p><code>rotatelogs</code> works by reading stdin and redirecting it to a file based on a name pattern. Whenever the log is about to be rotated, the application invokes a shell script with the old and new log files. Our aim is to compress the log file to save space. <a href="https://github.com/status-im/nimbus-eth2/tree/unstable/scripts/rotatelogs-compress.sh">repo</a> provides a helper script to do so:</p>
+<pre><code class="language-bash"># Create a rotation script for rotatelogs
+cat &lt;&lt; EOF &gt; rotatelogs-compress.sh
+#!/bin/sh
+
+# Helper script for Apache rotatelogs to compress log files on rotation - `$2` contains the old log file name
+
+if [ -f &quot;$2&quot; ]; then
+    # &quot;nice&quot; prevents hogging the CPU with this low-priority task
+    nice gzip -9 &quot;$2&quot;
+fi
+EOF
+
+chmod +x rotatelogs-compress.sh
+</code></pre>
+<h2><a class="header" href="#build" id="build">Build</a></h2>
+<p>Logs in files generally don't benefit from colors. To avoid colors being written to the file, additional flags can be added to the Nimbus <a href="./build.html">build process</a> -- these flags are best saved in a build script to which one can add more options. Future versions of Nimbus will support disabling colors at runtime.</p>
+<pre><code class="language-bash">
+# Build nimbus with colors disabled
+cat &lt;&lt; EOF &gt; build-nbc-text.sh
+#!/bin/bash
+make NIMFLAGS=&quot;-d:chronicles_colors=off -d:chronicles_sinks=textlines&quot; nimbus_beacon_node
+EOF
+</code></pre>
+<h2><a class="header" href="#run" id="run">Run</a></h2>
+<p>The final step is to redirect logs to <code>rotatelogs</code> using a pipe when starting Nimbus:</p>
+<pre><code class="language-bash">build/nimbus_beacon_node \
+  --network:pyrmont \
+  --web3-url=&quot;$WEB3URL&quot; \
+  --data-dir:$DATADIR | rotatelogs -L &quot;$DATADIR/nbc_bn.log&quot; -p &quot;/path/to/rotatelogs-compress.sh&quot; -D -f -c &quot;$DATADIR/log/nbc_bn_%Y%m%d%H%M%S.log&quot; 3600
+</code></pre>
+<p>The options used in this example do the following:</p>
+<ul>
+<li><code>-L nbc_bn.log</code> - symlinks to the latest log file, for use with <code>tail -F</code></li>
+<li><code>-p &quot;/path/to/rotatelogs-compress.sh&quot;</code> - runs <code>rotatelogs-compress.sh</code> when rotation is about to happen</li>
+<li><code>-D</code> - creates the <code>log</code> directory if needed</li>
+<li><code>-f</code> - opens the log immediately when starting <code>rotatelogs</code></li>
+<li><code>-c &quot;$DATADIR/log/nbc_bn_%Y%m%d%H%M%S.log&quot;</code> - includes timestamp in log filename</li>
+<li><code>3600</code> - rotates logs every hour (3600 seconds)</li>
+</ul>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/log-rotate.md">Edit this file on GitHub.</a></footer>
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="beacon-node-systemd.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="metrics-pretty-pictures.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="beacon-node-systemd.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="metrics-pretty-pictures.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>
