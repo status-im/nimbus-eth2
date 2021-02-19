@@ -863,7 +863,6 @@ func getNextAttestation(node: BeaconNode, slot: Slot): Slot =
     let bitmapEpoch = slot.epoch + i
 
     if bitmapEpoch > node.attestationSubnets.lastCalculatedAttestationEpoch:
-      doAssert i == 0 or orderedAttestingSlots[0] == 0
       return FAR_FUTURE_SLOT
 
     for slotOffset in 0 ..< SLOTS_PER_EPOCH:
