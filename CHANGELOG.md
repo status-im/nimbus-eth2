@@ -1,43 +1,81 @@
-2021-02-04 v1.0.7
+2021-02-22 v1.0.8
 =================
 
-A release which provides additional protection against accidental slashings and
-further performance improvements across the board.
+A release bringing important JSON-RPC stability improvements and compatibility
+fixes making it possible to use Nimbus as a RockerPool operator.
 
 -----
 
 New additions:
 
-* New slashing protection mechanism (doppelganger detection) prevents your validator
-  from contradicting itself if you have accidentally left it running on another
-  machine(see the `--doppelganger-detection` option).
+* RocketPool integration:
+  https://github.com/rocket-pool/smartnode/pull/89
 
-* Optimized batching of BLS signature verification leading to faster sync speeds
-  and reduced CPU load.
+* Indications for next attestation time on every "Slot end" log message,
+  helping you to select the best time for restarting the node.
 
-* Further improvements to attestation subnet walking resulting in a reduction in
-  both bandwidth and CPU usage.
+We've fixed:
 
-* A new `--subscribe-all-subnets` option allowing the node to maintain peers from all
-  attestation subnets (most suitable for bootstrap nodes).
+* A rare segmentation fault triggered when connecting to a web3 provider
+  using a secure web socket.
+
+* JSON-RPC spec violations and potential DoS attack vectors.
+
+* 2 stale bootstrap node addressed.
+
+
+2021-02-04 v1.0.7
+=================
+
+A release which provides additional protection against accidental slashings
+and further performance improvements across the board.
+
+-----
+
+New additions:
+
+* New slashing protection mechanism (doppelganger detection) prevents your
+  validator from contradicting itself if you have accidentally left it running
+  on another machine (see the `--doppelganger-detection` option).
+
+* Optimized batching of BLS signature verification leading to faster sync
+  speeds and reduced CPU load.
+
+* Further improvements to attestation subnet walking resulting in a reduction
+  in both bandwidth and CPU usage.
+
+* A new `--subscribe-all-subnets` option allowing the node to maintain peers
+  from all attestation subnets (most suitable for bootstrap nodes).
 
 * Official docker images published at https://hub.docker.com/r/statusim/nimbus-eth2
 
-* Reproducible build recipe for creating Nimbus Windows binaries.
+* Official Windows binaries created from a reproducible build recipe.
+
+*  An option to enable the automatic updating of IP:Port in the ENR
+  (off by default, specify `--enr-auto-update:true` to turn it on)
 
 We've fixed:
 
 * A bug that had the potential to completely halt all syncing activity.
 
-* Inefficient processing of blocks with Eth1 deposits which occassionally led to
-  increased latencies when delivering attestations.
+* Inefficient processing of blocks with Eth1 deposits which occassionally
+  led to increased latencies when delivering attestations.
 
 * Outdated records in our bootstrap nodes list.
 
-* An Eth1 syncing issue which manifested itself as a "Corrupted deposits history detected" error.
+* An Eth1 syncing issue which manifested itself as a "Corrupted deposits
+  history detected" error.
 
-* Non-standard encoding of certain data types such as signatures and bit sequences
-  within the results of JSON-RPC requests.
+* Non-standard encoding of certain data types such as signatures and bit
+  sequences within the results of JSON-RPC requests.
+
+We've deprecated:
+
+* `make beacon_node` will no longer compile the beacon node.
+  You'll need to run `make nimbus_beacon_node` from now on
+
+* On monday we'll phase out the old `master` branch. If you're still building
+  Nimbus from `master`, please switch to `stable`.
 
 
 2021-01-10 v1.0.6
