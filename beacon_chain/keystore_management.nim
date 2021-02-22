@@ -5,7 +5,7 @@ import
   spec/[datatypes, digest, crypto, keystore],
   stew/io2, libp2p/crypto/crypto as lcrypto,
   nimcrypto/utils as ncrutils,
-  conf, ssz/merkleization, network_metadata, filepath
+  "."/[conf, ssz/merkleization, network_metadata, filepath]
 
 export
   keystore
@@ -280,13 +280,13 @@ iterator validatorKeysFromDirs*(validatorsDir, secretsDir: string): ValidatorPri
   except OSError:
     quit 1
 
-iterator validatorKeys*(conf: BeaconNodeConf|ValidatorClientConf): ValidatorPrivKey =
-  let validatorsDir = conf.validatorsDir
+iterator validatorKeys*(config: BeaconNodeConf|ValidatorClientConf): ValidatorPrivKey =
+  let validatorsDir = config.validatorsDir
   try:
     for kind, file in walkDir(validatorsDir):
       if kind == pcDir:
         let keyName = splitFile(file).name
-        let key = loadKeystore(validatorsDir, conf.secretsDir, keyName, conf.nonInteractive)
+        let key = loadKeystore(validatorsDir, config.secretsDir, keyName, config.nonInteractive)
         if key.isSome:
           yield key.get
         else:

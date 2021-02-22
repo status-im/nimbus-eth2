@@ -1114,8 +1114,7 @@ proc getEth1BlockHash*(url: string, blockId: RtBlockIdentifier): Future[BlockHas
     await web3.close()
 
 proc testWeb3Provider*(web3Url: Uri,
-                       depositContractAddress: Option[Eth1Address],
-                       depositContractDeployedAt: Option[BlockHashOrNumber]) {.async.} =
+                       depositContractAddress: Eth1Address) {.async.} =
   template mustSucceed(action: static string, expr: untyped): untyped =
     try: expr
     except CatchableError as err:
@@ -1133,14 +1132,13 @@ proc testWeb3Provider*(web3Url: Uri,
   echo "Network: ", network
   echo "Latest block: ", latestBlock.number.uint64
 
-  if depositContractAddress.isSome:
-    let ns = web3.contractSender(DepositContract, depositContractAddress.get)
-    try:
-      let depositRoot = awaitWithRetries(
-        ns.get_deposit_root.call(blockNumber = latestBlock.number.uint64))
-      echo "Deposit root: ", depositRoot
-    except CatchableError as err:
-      echo "Web3 provider is not archive mode"
+  let ns = web3.contractSender(DepositContract, depositContractAddress)
+  try:
+    let depositRoot = awaitWithRetries(
+      ns.get_deposit_root.call(blockNumber = latestBlock.number.uint64))
+    echo "Deposit root: ", depositRoot
+  except CatchableError as err:
+    echo "Web3 provider is not archive mode: ", err.msg
 
 when hasGenesisDetection:
   proc init*(T: type Eth1Monitor,
@@ -1261,4 +1259,3 @@ when hasGenesisDetection:
     else:
       doAssert bnStatus == BeaconNodeStatus.Stopping
       return new BeaconStateRef # cannot return nil...
-

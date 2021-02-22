@@ -37,7 +37,7 @@ type
     netKeys*: KeyPair
     db*: BeaconChainDB
     config*: BeaconNodeConf
-    attachedValidators*: ValidatorPool
+    attachedValidators*: ref ValidatorPool
     chainDag*: ChainDAGRef
     quarantine*: QuarantineRef
     attestationPool*: ref AttestationPool

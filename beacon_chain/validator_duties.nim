@@ -64,7 +64,7 @@ proc addLocalValidator*(node: BeaconNode,
                         state: BeaconState,
                         privKey: ValidatorPrivKey) =
   let pubKey = privKey.toPubKey()
-  node.attachedValidators.addLocalValidator(
+  node.attachedValidators[].addLocalValidator(
     pubKey, privKey, findValidator(state, pubKey))
 
 proc addLocalValidators*(node: BeaconNode) =
@@ -87,11 +87,11 @@ proc addRemoteValidators*(node: BeaconNode) =
                                   inStream: node.vcProcess.inputStream,
                                   outStream: node.vcProcess.outputStream,
                                   pubKeyStr: $key))
-      node.attachedValidators.addRemoteValidator(key, v)
+      node.attachedValidators[].addRemoteValidator(key, v)
 
 proc getAttachedValidator*(node: BeaconNode,
                            pubkey: ValidatorPubKey): AttachedValidator =
-  node.attachedValidators.getValidator(pubkey)
+  node.attachedValidators[].getValidator(pubkey)
 
 proc getAttachedValidator*(node: BeaconNode,
                            state: BeaconState,
@@ -464,7 +464,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     return head
 
   let validator =
-    node.attachedValidators.getValidator(proposer.get()[1])
+    node.attachedValidators[].getValidator(proposer.get()[1])
 
   if validator != nil:
     return await proposeBlock(node, validator, proposer.get()[0], head, slot)
@@ -569,7 +569,7 @@ proc updateValidatorMetrics*(node: BeaconNode) =
 
     var total: Gwei
     var i = 0
-    for _, v in node.attachedValidators.validators:
+    for _, v in node.attachedValidators[].validators:
       let balance =
         if v.index.isNone():
           0.Gwei
@@ -597,7 +597,7 @@ proc updateValidatorMetrics*(node: BeaconNode) =
 
 proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   ## Perform validator duties - create blocks, vote and aggregate existing votes
-  if node.attachedValidators.count == 0:
+  if node.attachedValidators[].count == 0:
     # Nothing to do because we have no validator attached
     return
 

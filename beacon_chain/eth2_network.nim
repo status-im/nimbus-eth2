@@ -21,11 +21,10 @@ import
   libp2p/stream/connection,
   eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
   eth/net/nat, eth/p2p/discoveryv5/[enr, node],
-  # Beacon node modules
-  version, conf, eth2_discovery, libp2p_json_serialization, conf,
-  ssz/ssz_serialization,
-  peer_pool, spec/[datatypes, digest, helpers, network], ./time,
-  keystore_management
+  "."/[
+    version, conf, eth2_discovery, libp2p_json_serialization,
+    ssz/ssz_serialization, peer_pool, time, keystore_management],
+  ./spec/[datatypes, digest, helpers, network]
 
 import libp2p/protocols/pubsub/gossipsub
 
@@ -600,10 +599,11 @@ proc performProtocolHandshakes*(peer: Peer, incoming: bool) {.async.} =
 proc initProtocol(name: string,
                   peerInit: PeerStateInitializer,
                   networkInit: NetworkStateInitializer): ProtocolInfoObj =
-  result.name = name
-  result.messages = @[]
-  result.peerStateInitializer = peerInit
-  result.networkStateInitializer = networkInit
+  ProtocolInfoObj(
+    name: name,
+    messages: @[],
+    peerStateInitializer: peerInit,
+    networkStateInitializer: networkInit)
 
 proc registerProtocol(protocol: ProtocolInfo) =
   # TODO: This can be done at compile-time in the future
@@ -913,8 +913,8 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
     # when no peers are in the routing table. Don't run it in continuous loop.
     await sleepAsync(1.seconds)
 
-proc getPersistentNetMetadata*(conf: BeaconNodeConf): Eth2Metadata =
-  let metadataPath = conf.dataDir / nodeMetadataFilename
+proc getPersistentNetMetadata*(config: BeaconNodeConf): Eth2Metadata =
+  let metadataPath = config.dataDir / nodeMetadataFilename
   if not fileExists(metadataPath):
     result = Eth2Metadata()
     for i in 0 ..< ATTESTATION_SUBNET_COUNT:
@@ -1058,52 +1058,59 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
               peer = peerId, peer_state = peer.connectionState
       peer.connectionState = Disconnected
 
-proc init*(T: type Eth2Node, conf: BeaconNodeConf, enrForkId: ENRForkID,
-           switch: Switch, pubsub: GossipSub, ip: Option[ValidIpAddress],
-           tcpPort, udpPort: Port, privKey: keys.PrivateKey, discovery: bool,
-           rng: ref BrHmacDrbgContext): T =
-  new result
-  result.switch = switch
-  result.pubsub = pubsub
-  result.wantedPeers = conf.maxPeers
-  result.peerPool = newPeerPool[Peer, PeerID](maxPeers = conf.maxPeers)
+proc new*(T: type Eth2Node, config: BeaconNodeConf, enrForkId: ENRForkID,
+          switch: Switch, pubsub: GossipSub, ip: Option[ValidIpAddress],
+          tcpPort, udpPort: Port, privKey: keys.PrivateKey, discovery: bool,
+          rng: ref BrHmacDrbgContext): T =
+  let
+    metadata = getPersistentNetMetadata(config)
   when not defined(local_testnet):
-    result.connectTimeout = 1.minutes
-    result.seenThreshold = 5.minutes
+    let
+      connectTimeout = 1.minutes
+      seenThreshold = 5.minutes
   else:
-    result.connectTimeout = 10.seconds
-    result.seenThreshold = 10.seconds
-  result.seenTable = initTable[PeerID, SeenItem]()
-  result.connTable = initHashSet[PeerID]()
-  # Its important here to create AsyncQueue with limited size, otherwise
-  # it could produce HIGH cpu usage.
-  result.connQueue = newAsyncQueue[PeerAddr](ConcurrentConnections)
-  # TODO: The persistent net metadata should only be used in the case of reusing
-  # the previous netkey.
-  result.metadata = getPersistentNetMetadata(conf)
-  result.forkId = enrForkId
-  result.discovery = Eth2DiscoveryProtocol.new(
-    conf, ip, tcpPort, udpPort, privKey,
-    {"eth2": SSZ.encode(result.forkId), "attnets": SSZ.encode(result.metadata.attnets)},
-    rng)
-  result.discoveryEnabled = discovery
-  result.rng = rng
+    let
+      connectTimeout = 10.seconds
+      seenThreshold = 10.seconds
 
-  newSeq result.protocolStates, allProtocols.len
+  let node = T(
+    switch: switch,
+    pubsub: pubsub,
+    wantedPeers: config.maxPeers,
+    peerPool: newPeerPool[Peer, PeerID](maxPeers = config.maxPeers),
+    # Its important here to create AsyncQueue with limited size, otherwise
+    # it could produce HIGH cpu usage.
+    connQueue: newAsyncQueue[PeerAddr](ConcurrentConnections),
+    # TODO: The persistent net metadata should only be used in the case of reusing
+    # the previous netkey.
+    metadata: metadata,
+    forkId: enrForkId,
+    discovery: Eth2DiscoveryProtocol.new(
+      config, ip, tcpPort, udpPort, privKey,
+      {"eth2": SSZ.encode(enrForkId), "attnets": SSZ.encode(metadata.attnets)},
+    rng),
+    discoveryEnabled: discovery,
+    rng: rng,
+    connectTimeout: connectTimeout,
+    seenThreshold: seenThreshold,
+  )
+
+  newSeq node.protocolStates, allProtocols.len
   for proto in allProtocols:
     if proto.networkStateInitializer != nil:
-      result.protocolStates[proto.index] = proto.networkStateInitializer(result)
+      node.protocolStates[proto.index] = proto.networkStateInitializer(node)
 
     for msg in proto.messages:
       if msg.protocolMounter != nil:
-        msg.protocolMounter result
+        msg.protocolMounter node
 
-  let node = result
   proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(node, peerId, event)
 
   switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
   switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
+
+  node
 
 template publicKey*(node: Eth2Node): keys.PublicKey =
   node.discovery.privKey.toPublicKey
@@ -1306,15 +1313,15 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   result.implementProtocolInit = proc (p: P2PProtocol): NimNode =
     return newCall(initProtocol, newLit(p.name), p.peerInit, p.netInit)
 
-proc setupNat(conf: BeaconNodeConf): tuple[ip: Option[ValidIpAddress],
+proc setupNat(config: BeaconNodeConf): tuple[ip: Option[ValidIpAddress],
                                            tcpPort: Port,
                                            udpPort: Port] =
   # defaults
-  result.tcpPort = conf.tcpPort
-  result.udpPort = conf.udpPort
+  result.tcpPort = config.tcpPort
+  result.udpPort = config.udpPort
 
   var nat: NatStrategy
-  case conf.nat.toLowerAscii:
+  case config.nat.toLowerAscii:
     of "any":
       nat = NatAny
     of "none":
@@ -1324,16 +1331,16 @@ proc setupNat(conf: BeaconNodeConf): tuple[ip: Option[ValidIpAddress],
     of "pmp":
       nat = NatPmp
     else:
-      if conf.nat.startsWith("extip:"):
+      if config.nat.startsWith("extip:"):
         try:
           # any required port redirection is assumed to be done by hand
-          result.ip = some(ValidIpAddress.init(conf.nat[6..^1]))
+          result.ip = some(ValidIpAddress.init(config.nat[6..^1]))
           nat = NatNone
         except ValueError:
-          error "nor a valid IP address", address = conf.nat[6..^1]
+          error "nor a valid IP address", address = config.nat[6..^1]
           quit QuitFailure
       else:
-        error "not a valid NAT mechanism", value = conf.nat
+        error "not a valid NAT mechanism", value = config.nat
         quit QuitFailure
 
   if nat != NatNone:
@@ -1367,10 +1374,10 @@ template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
 proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
-                           conf: BeaconNodeConf): KeyPair =
-  case conf.cmd
+                           config: BeaconNodeConf): KeyPair =
+  case config.cmd
   of noCommand, record:
-    if conf.netKeyFile == "random":
+    if config.netKeyFile == "random":
       let res = PrivateKey.random(Secp256k1, rng)
       if res.isErr():
         fatal "Could not generate random network key file"
@@ -1386,17 +1393,17 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
       return KeyPair(seckey: privKey, pubkey: privKey.getKey().tryGet())
     else:
       let keyPath =
-        if isAbsolute(conf.netKeyFile):
-          conf.netKeyFile
+        if isAbsolute(config.netKeyFile):
+          config.netKeyFile
         else:
-          conf.dataDir / conf.netKeyFile
+          config.dataDir / config.netKeyFile
 
       if fileAccessible(keyPath, {AccessFlags.Find}):
         info "Network key storage is present, unlocking", key_path = keyPath
 
         # Insecure password used only for automated testing.
         let insecurePassword =
-          if conf.netKeyInsecurePassword:
+          if config.netKeyInsecurePassword:
             some(NetworkInsecureKeyPassword)
           else:
             none[string]()
@@ -1423,7 +1430,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
 
         # Insecure password used only for automated testing.
         let insecurePassword =
-          if conf.netKeyInsecurePassword:
+          if config.netKeyInsecurePassword:
             some(NetworkInsecureKeyPassword)
           else:
             none[string]()
@@ -1438,15 +1445,15 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
         return KeyPair(seckey: privKey, pubkey: pubKey)
 
   of createTestnet:
-    if conf.netKeyFile == "random":
+    if config.netKeyFile == "random":
       fatal "Could not create testnet using `random` network key"
       quit QuitFailure
 
     let keyPath =
-      if isAbsolute(conf.netKeyFile):
-        conf.netKeyFile
+      if isAbsolute(config.netKeyFile):
+        config.netKeyFile
       else:
-        conf.dataDir / conf.netKeyFile
+        config.dataDir / config.netKeyFile
 
     let rres = PrivateKey.random(Secp256k1, rng)
     if rres.isErr():
@@ -1458,7 +1465,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
 
     # Insecure password used only for automated testing.
     let insecurePassword =
-      if conf.netKeyInsecurePassword:
+      if config.netKeyInsecurePassword:
         some(NetworkInsecureKeyPassword)
       else:
         none[string]()
@@ -1501,7 +1508,7 @@ func msgIdProvider(m: messages.Message): seq[byte] =
   except CatchableError:
     gossipId(m.data, false)
 
-proc newBeaconSwitch*(conf: BeaconNodeConf, seckey: PrivateKey,
+proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
                       address: MultiAddress,
                       rng: ref BrHmacDrbgContext): Switch =
   proc createMplex(conn: Connection): Muxer =
@@ -1514,7 +1521,7 @@ proc newBeaconSwitch*(conf: BeaconNodeConf, seckey: PrivateKey,
     muxers = {MplexCodec: mplexProvider}.toTable
     secureManagers = [Secure(newNoise(rng, seckey))]
 
-  peerInfo.agentVersion = conf.agentString
+  peerInfo.agentVersion = config.agentString
 
   let identify = newIdentify(peerInfo)
 
@@ -1524,15 +1531,15 @@ proc newBeaconSwitch*(conf: BeaconNodeConf, seckey: PrivateKey,
     identify,
     muxers,
     secureManagers,
-    maxConnections = conf.maxPeers)
+    maxConnections = config.maxPeers)
 
 proc createEth2Node*(rng: ref BrHmacDrbgContext,
-                     conf: BeaconNodeConf,
+                     config: BeaconNodeConf,
                      netKeys: KeyPair,
                      enrForkId: ENRForkID): Eth2Node =
   var
-    (extIp, extTcpPort, extUdpPort) = setupNat(conf)
-    hostAddress = tcpEndPoint(conf.listenAddress, conf.tcpPort)
+    (extIp, extTcpPort, extUdpPort) = setupNat(config)
+    hostAddress = tcpEndPoint(config.listenAddress, config.tcpPort)
     announcedAddresses = if extIp.isNone(): @[]
                          else: @[tcpEndPoint(extIp.get(), extTcpPort)]
 
@@ -1543,7 +1550,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
   # TODO nim-libp2p still doesn't have support for announcing addresses
   # that are different from the host address (this is relevant when we
   # are running behind a NAT).
-  var switch = newBeaconSwitch(conf, netKeys.seckey, hostAddress, rng)
+  var switch = newBeaconSwitch(config, netKeys.seckey, hostAddress, rng)
 
   let
     params = GossipSubParams(
@@ -1587,11 +1594,11 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
 
   switch.mount(pubsub)
 
-  result = Eth2Node.init(conf, enrForkId, switch, pubsub,
-                         extIp, extTcpPort, extUdpPort,
-                         netKeys.seckey.asEthKey,
-                         discovery = conf.discv5Enabled,
-                         rng = rng)
+  Eth2Node.new(config, enrForkId, switch, pubsub,
+               extIp, extTcpPort, extUdpPort,
+               netKeys.seckey.asEthKey,
+               discovery = config.discv5Enabled,
+               rng = rng)
 
 proc announcedENR*(node: Eth2Node): enr.Record =
   doAssert node.discovery != nil, "The Eth2Node must be initialized"

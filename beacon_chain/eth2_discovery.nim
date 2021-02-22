@@ -4,7 +4,7 @@ import
   std/[os, strutils],
   chronicles, stew/shims/net, stew/results, bearssl,
   eth/keys, eth/p2p/discoveryv5/[enr, protocol, node],
-  conf
+  ./conf
 
 export protocol, keys
 
@@ -74,7 +74,7 @@ proc loadBootstrapFile*(bootstrapFile: string,
     quit 1
 
 proc new*(T: type Eth2DiscoveryProtocol,
-          conf: BeaconNodeConf,
+          config: BeaconNodeConf,
           ip: Option[ValidIpAddress], tcpPort, udpPort: Port,
           pk: PrivateKey,
           enrFields: openArray[(string, seq[byte])], rng: ref BrHmacDrbgContext):
@@ -84,14 +84,14 @@ proc new*(T: type Eth2DiscoveryProtocol,
   # * for setting up a specific key
   # * for using a persistent database
   var bootstrapEnrs: seq[enr.Record]
-  for node in conf.bootstrapNodes:
+  for node in config.bootstrapNodes:
     addBootstrapNode(node, bootstrapEnrs)
-  loadBootstrapFile(string conf.bootstrapNodesFile, bootstrapEnrs)
+  loadBootstrapFile(string config.bootstrapNodesFile, bootstrapEnrs)
 
-  let persistentBootstrapFile = conf.dataDir / "bootstrap_nodes.txt"
+  let persistentBootstrapFile = config.dataDir / "bootstrap_nodes.txt"
   if fileExists(persistentBootstrapFile):
     loadBootstrapFile(persistentBootstrapFile, bootstrapEnrs)
 
   newProtocol(pk, ip, tcpPort, udpPort, enrFields, bootstrapEnrs,
-    bindIp = conf.listenAddress, enrAutoUpdate = conf.enrAutoUpdate,
+    bindIp = config.listenAddress, enrAutoUpdate = config.enrAutoUpdate,
     rng = rng)

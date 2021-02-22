@@ -22,23 +22,20 @@ import
   eth/p2p/enode, eth/p2p/discoveryv5/[protocol, enr, random2],
 
   # Local modules
+  "."/[
+    attestation_aggregation, attestation_pool, beacon_chain_db,
+    beacon_node_common, beacon_node_status, beacon_node_types, conf,
+    eth1_monitor, eth2_discovery, eth2_network, eth2_processor, exit_pool,
+    extras, filepath, interop, keystore_management, network_metadata,
+    nimbus_binary_common, request_manager, ssz/merkleization, statusbar,
+    sync_manager, sync_protocol, time, validator_duties, validator_pool,
+    validator_protection/slashing_protection, version,],
   ./rpc/[beacon_api, config_api, debug_api, event_api, nimbus_api, node_api,
     validator_api],
-  spec/[
-    datatypes, digest, crypto, beaconstate, helpers, network, presets,
-    validator],
-  spec/[weak_subjectivity, signatures],
-  spec/eth2_apis/beacon_rpc_client,
-  conf, time, beacon_chain_db, validator_pool, extras,
-  attestation_aggregation, attestation_pool, exit_pool, eth2_network,
-  eth2_discovery,
-  beacon_node_common, beacon_node_types, beacon_node_status,
-  block_pools/[chain_dag, quarantine, clearance, block_pools_types],
-  nimbus_binary_common, network_metadata,
-  eth1_monitor, version, ssz/merkleization,
-  sync_protocol, request_manager, keystore_management, interop, statusbar,
-  sync_manager, validator_duties, filepath,
-  validator_protection/slashing_protection, ./eth2_processor
+  ./spec/[
+    datatypes, digest, crypto, beaconstate, eth2_apis/beacon_rpc_client,
+    helpers, network, presets, validator, weak_subjectivity, signatures],
+  ./block_pools/[chain_dag, quarantine, clearance, block_pools_types]
 
 from eth/common/eth_types import BlockHashOrNumber
 
@@ -48,7 +45,7 @@ import
   TopicParams, validateParameters, init
 
 const
-  hasPrompt = not defined(withoutPrompt)
+  hasPrompt = false and not defined(withoutPrompt) # disabled, doesn't work
 
 type
   RpcServer* = RpcHttpServer
@@ -82,21 +79,21 @@ func enrForkIdFromState(state: BeaconState): ENRForkID =
 proc init*(T: type BeaconNode,
            runtimePreset: RuntimePreset,
            rng: ref BrHmacDrbgContext,
-           conf: BeaconNodeConf,
+           config: BeaconNodeConf,
            depositContractAddress: Eth1Address,
            depositContractDeployedAt: BlockHashOrNumber,
            eth1Network: Option[Eth1Network],
-           genesisStateContents: ref string,
-           genesisDepositsSnapshotContents: ref string): Future[BeaconNode] {.async.} =
+           genesisStateContents: string,
+           genesisDepositsSnapshotContents: string): BeaconNode =
   let
-    db = BeaconChainDB.init(runtimePreset, conf.databaseDir)
+    db = BeaconChainDB.init(runtimePreset, config.databaseDir)
 
   var
     genesisState, checkpointState: ref BeaconState
     checkpointBlock: SignedBeaconBlock
 
-  if conf.finalizedCheckpointState.isSome:
-    let checkpointStatePath = conf.finalizedCheckpointState.get.string
+  if config.finalizedCheckpointState.isSome:
+    let checkpointStatePath = config.finalizedCheckpointState.get.string
     checkpointState = try:
       newClone(SSZ.loadFile(checkpointStatePath, BeaconState))
     except SerializationError as err:
@@ -107,12 +104,12 @@ proc init*(T: type BeaconNode,
       fatal "Failed to read checkpoint state file", err = err.msg
       quit 1
 
-    if conf.finalizedCheckpointBlock.isNone:
+    if config.finalizedCheckpointBlock.isNone:
       if checkpointState.slot > 0:
         fatal "Specifying a non-genesis --finalized-checkpoint-state requires specifying --finalized-checkpoint-block as well"
         quit 1
     else:
-      let checkpointBlockPath = conf.finalizedCheckpointBlock.get.string
+      let checkpointBlockPath = config.finalizedCheckpointBlock.get.string
       try:
         checkpointBlock = SSZ.loadFile(checkpointBlockPath, SignedBeaconBlock)
       except SerializationError as err:
@@ -121,7 +118,7 @@ proc init*(T: type BeaconNode,
       except IOError as err:
         fatal "Failed to load the checkpoint block", err = err.msg
         quit 1
-  elif conf.finalizedCheckpointBlock.isSome:
+  elif config.finalizedCheckpointBlock.isSome:
     # TODO We can download the state from somewhere in the future relying
     #      on the trusted `state_root` appearing in the checkpoint block.
     fatal "--finalized-checkpoint-block cannot be specified without --finalized-checkpoint-state"
@@ -133,7 +130,7 @@ proc init*(T: type BeaconNode,
       tailState: ref BeaconState
       tailBlock: SignedBeaconBlock
 
-    if genesisStateContents == nil and checkpointState == nil:
+    if genesisStateContents.len == 0 and checkpointState == nil:
       when hasGenesisDetection:
         if genesisDepositsSnapshotContents != nil:
           fatal "A deposits snapshot cannot be provided without also providing a matching beacon state snapshot"
@@ -142,16 +139,16 @@ proc init*(T: type BeaconNode,
         # This is a fresh start without a known genesis state
         # (most likely, it hasn't arrived yet). We'll try to
         # obtain a genesis through the Eth1 deposits monitor:
-        if conf.web3Url.len == 0:
+        if config.web3Url.len == 0:
           fatal "Web3 URL not specified"
           quit 1
 
         # TODO Could move this to a separate "GenesisMonitor" process or task
         #      that would do only this - see Paul's proposal for this.
-        let eth1MonitorRes = await Eth1Monitor.init(
+        let eth1MonitorRes = waitFor Eth1Monitor.init(
           runtimePreset,
           db,
-          conf.web3Url,
+          config.web3Url,
           depositContractAddress,
           depositContractDeployedAt,
           eth1Network)
@@ -159,14 +156,14 @@ proc init*(T: type BeaconNode,
         if eth1MonitorRes.isErr:
           fatal "Failed to start Eth1 monitor",
                 reason = eth1MonitorRes.error,
-                web3Url = conf.web3Url,
+                web3Url = config.web3Url,
                 depositContractAddress,
                 depositContractDeployedAt
           quit 1
         else:
           eth1Monitor = eth1MonitorRes.get
 
-        genesisState = await eth1Monitor.waitGenesis()
+        genesisState = waitFor eth1Monitor.waitGenesis()
         if bnStatus == BeaconNodeStatus.Stopping:
           return nil
 
@@ -182,7 +179,7 @@ proc init*(T: type BeaconNode,
               "in order to support monitoring for genesis events"
         quit 1
 
-    elif genesisStateContents == nil:
+    elif genesisStateContents.len == 0:
       if checkpointState.slot == GENESIS_SLOT:
         genesisState = checkpointState
         tailState = checkpointState
@@ -192,7 +189,7 @@ proc init*(T: type BeaconNode,
         quit 1
     else:
       try:
-        genesisState = newClone(SSZ.decode(genesisStateContents[], BeaconState))
+        genesisState = newClone(SSZ.decode(genesisStateContents, BeaconState))
       except CatchableError as err:
         raiseAssert "Invalid baked-in state: " & err.msg
 
@@ -210,10 +207,10 @@ proc init*(T: type BeaconNode,
       error "Failed to initialize database", err = e.msg
       quit 1
 
-  info "Loading block dag from database", path = conf.databaseDir
+  info "Loading block dag from database", path = config.databaseDir
 
   let
-    chainDagFlags = if conf.verifyFinalization: {verifyFinalization}
+    chainDagFlags = if config.verifyFinalization: {verifyFinalization}
                      else: {}
     chainDag = ChainDAGRef.init(runtimePreset, db, chainDagFlags)
     beaconClock = BeaconClock.init(chainDag.headState.data.data)
@@ -221,29 +218,29 @@ proc init*(T: type BeaconNode,
     databaseGenesisValidatorsRoot =
       chainDag.headState.data.data.genesis_validators_root
 
-  if genesisStateContents != nil:
+  if genesisStateContents.len != 0:
     let
       networkGenesisValidatorsRoot =
-        extractGenesisValidatorRootFromSnapshop(genesisStateContents[])
+        extractGenesisValidatorRootFromSnapshop(genesisStateContents)
 
     if networkGenesisValidatorsRoot != databaseGenesisValidatorsRoot:
       fatal "The specified --data-dir contains data for a different network",
             networkGenesisValidatorsRoot, databaseGenesisValidatorsRoot,
-            dataDir = conf.dataDir
+            dataDir = config.dataDir
       quit 1
 
-  if conf.weakSubjectivityCheckpoint.isSome:
+  if config.weakSubjectivityCheckpoint.isSome:
     let
       currentSlot = beaconClock.now.slotOrZero
       isCheckpointStale = not is_within_weak_subjectivity_period(
         currentSlot,
         chainDag.headState.data.data,
-        conf.weakSubjectivityCheckpoint.get)
+        config.weakSubjectivityCheckpoint.get)
 
     if isCheckpointStale:
       error "Weak subjectivity checkpoint is stale",
             currentSlot,
-            checkpoint = conf.weakSubjectivityCheckpoint.get,
+            checkpoint = config.weakSubjectivityCheckpoint.get,
             headStateSlot = chainDag.headState.data.data.slot
       quit 1
 
@@ -252,50 +249,81 @@ proc init*(T: type BeaconNode,
     if checkpointGenesisValidatorsRoot != databaseGenesisValidatorsRoot:
       fatal "The specified checkpoint state is intended for a different network",
             checkpointGenesisValidatorsRoot, databaseGenesisValidatorsRoot,
-            dataDir = conf.dataDir
+            dataDir = config.dataDir
       quit 1
 
     chainDag.setTailState(checkpointState[], checkpointBlock)
 
   if eth1Monitor.isNil and
-     conf.web3Url.len > 0 and
-     genesisDepositsSnapshotContents != nil:
-    let genesisDepositsSnapshot = SSZ.decode(genesisDepositsSnapshotContents[],
+     config.web3Url.len > 0 and
+     genesisDepositsSnapshotContents.len > 0:
+    let genesisDepositsSnapshot = SSZ.decode(genesisDepositsSnapshotContents,
                                              DepositContractSnapshot)
     eth1Monitor = Eth1Monitor.init(
       runtimePreset,
       db,
-      conf.web3Url,
+      config.web3Url,
       depositContractAddress,
       genesisDepositsSnapshot,
       eth1Network)
 
-  let rpcServer = if conf.rpcEnabled:
-    RpcServer.init(conf.rpcAddress, conf.rpcPort)
+  let rpcServer = if config.rpcEnabled:
+    RpcServer.init(config.rpcAddress, config.rpcPort)
   else:
     nil
 
   let
-    netKeys = getPersistentNetKeys(rng[], conf)
-    nickname = if conf.nodeName == "auto": shortForm(netKeys)
-               else: conf.nodeName
+    netKeys = getPersistentNetKeys(rng[], config)
+    nickname = if config.nodeName == "auto": shortForm(netKeys)
+               else: config.nodeName
     enrForkId = enrForkIdFromState(chainDag.headState.data.data)
     topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.forkDigest)
     topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.forkDigest)
-    network = createEth2Node(rng, conf, netKeys, enrForkId)
+    network = createEth2Node(rng, config, netKeys, enrForkId)
     attestationPool = newClone(AttestationPool.init(chainDag, quarantine))
     exitPool = newClone(ExitPool.init(chainDag, quarantine))
+
+    slashingProtectionDB =
+      case config.slashingDbKind
+      of SlashingDbKind.v1:
+        info "Loading slashing protection database", path = config.validatorsDir()
+        SlashingProtectionDB.init(
+          chainDag.headState.data.data.genesis_validators_root,
+          config.validatorsDir(), "slashing_protection",
+          modes = {kCompleteArchiveV1},
+          disagreementBehavior = kChooseV1
+        )
+      of SlashingDbKind.v2:
+        info "Loading slashing protection database (v2)", path = config.validatorsDir()
+        SlashingProtectionDB.init(
+          chainDag.headState.data.data.genesis_validators_root,
+          config.validatorsDir(), "slashing_protection"
+        )
+      of SlashingDbKind.both:
+        info "Loading slashing protection database (dual DB mode)", path = config.validatorsDir()
+        SlashingProtectionDB.init(
+          chainDag.headState.data.data.genesis_validators_root,
+          config.validatorsDir(), "slashing_protection",
+          modes = {kCompleteArchiveV1, kCompleteArchiveV2},
+          disagreementBehavior = kChooseV2
+        )
+    validatorPool = newClone(ValidatorPool.init(slashingProtectionDB))
+    processor = Eth2Processor.new(
+      config, chainDag, attestationPool, exitPool, validatorPool,
+      quarantine, proc(): BeaconTime = beaconClock.now())
+
   var res = BeaconNode(
     nickname: nickname,
-    graffitiBytes: if conf.graffiti.isSome: conf.graffiti.get.GraffitiBytes
+    graffitiBytes: if config.graffiti.isSome: config.graffiti.get.GraffitiBytes
                    else: defaultGraffitiBytes(),
     network: network,
     netKeys: netKeys,
     db: db,
-    config: conf,
+    config: config,
     chainDag: chainDag,
     quarantine: quarantine,
     attestationPool: attestationPool,
+    attachedValidators: validatorPool,
     exitPool: exitPool,
     eth1Monitor: eth1Monitor,
     beaconClock: beaconClock,
@@ -303,6 +331,8 @@ proc init*(T: type BeaconNode,
     forkDigest: enrForkId.forkDigest,
     topicBeaconBlocks: topicBeaconBlocks,
     topicAggregateAndProofs: topicAggregateAndProofs,
+    processor: processor,
+    requestManager: RequestManager.init(network, processor.blocksQueue)
   )
 
   # set topic validation routine
@@ -319,45 +349,6 @@ proc init*(T: type BeaconNode,
       for subnet in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
         topics &= getAttestationTopic(enrForkId.forkDigest, subnet)
       topics)
-
-  case conf.slashingDbKind
-  of SlashingDbKind.v1:
-    info "Loading slashing protection database", path = conf.validatorsDir()
-    res.attachedValidators = ValidatorPool.init(
-      SlashingProtectionDB.init(
-        chainDag.headState.data.data.genesis_validators_root,
-        conf.validatorsDir(), "slashing_protection",
-        modes = {kCompleteArchiveV1},
-        disagreementBehavior = kChooseV1
-      )
-    )
-  of SlashingDbKind.v2:
-    info "Loading slashing protection database (v2)", path = conf.validatorsDir()
-    res.attachedValidators = ValidatorPool.init(
-      SlashingProtectionDB.init(
-        chainDag.headState.data.data.genesis_validators_root,
-        conf.validatorsDir(), "slashing_protection"
-      )
-    )
-  of SlashingDbKind.both:
-    info "Loading slashing protection database (dual DB mode)", path = conf.validatorsDir()
-    res.attachedValidators = ValidatorPool.init(
-      SlashingProtectionDB.init(
-        chainDag.headState.data.data.genesis_validators_root,
-        conf.validatorsDir(), "slashing_protection",
-        modes = {kCompleteArchiveV1, kCompleteArchiveV2},
-        disagreementBehavior = kChooseV2
-      )
-    )
-
-  proc getWallTime(): BeaconTime = res.beaconClock.now()
-
-  res.processor = Eth2Processor.new(
-    conf, chainDag, attestationPool, exitPool, newClone(res.attachedValidators),
-    quarantine, getWallTime)
-
-  res.requestManager = RequestManager.init(
-    network, res.processor.blocksQueue)
 
   if res.config.inProcessValidators:
     res.addLocalValidators()
@@ -692,8 +683,8 @@ proc getAttestationSubnetHandlers(node: BeaconNode) =
   var initialStabilitySubnets: set[uint8]
 
   node.attestationSubnets.stabilitySubnets.setLen(
-    node.attachedValidators.count)
-  for i in 0 ..< node.attachedValidators.count:
+    node.attachedValidators[].count)
+  for i in 0 ..< node.attachedValidators[].count:
     node.attestationSubnets.stabilitySubnets[i] = (
       subnet: node.network.rng[].rand(ATTESTATION_SUBNET_COUNT - 1).uint8,
       expiration: wallEpoch + node.getStabilitySubnetLength())
@@ -1254,7 +1245,7 @@ proc initializeNetworking(node: BeaconNode) {.async.} =
 
 func shouldWeStartWeb3(node: BeaconNode): bool =
   (node.config.web3Mode == Web3Mode.enabled) or
-  (node.config.web3Mode == Web3Mode.auto and node.attachedValidators.count > 0)
+  (node.config.web3Mode == Web3Mode.auto and node.attachedValidators[].count > 0)
 
 proc start(node: BeaconNode) =
   let
@@ -1274,13 +1265,14 @@ proc start(node: BeaconNode) =
     SECONDS_PER_SLOT,
     SPEC_VERSION,
     dataDir = node.config.dataDir.string,
-    validators = node.attachedValidators.count
+    validators = node.attachedValidators[].count
 
   if genesisTime.inFuture:
     notice "Waiting for genesis", genesisIn = genesisTime.offset
 
   waitFor node.initializeNetworking()
 
+  # TODO this does not account for validators getting attached "later"
   if node.eth1Monitor != nil and node.shouldWeStartWeb3:
     node.eth1Monitor.start()
 
@@ -1304,7 +1296,125 @@ func formatGwei(amount: uint64): string =
     while result[^1] == '0':
       result.setLen(result.len - 1)
 
+proc initStatusBar(node: BeaconNode) =
+  if not isatty(stdout): return
+  if not node.config.statusBarEnabled: return
+
+  enableTrueColors()
+
+  proc dataResolver(expr: string): string =
+    template justified: untyped = node.chainDag.head.atEpochStart(
+      node.chainDag.headState.data.data.current_justified_checkpoint.epoch)
+    # TODO:
+    # We should introduce a general API for resolving dot expressions
+    # such as `db.latest_block.slot` or `metrics.connected_peers`.
+    # Such an API can be shared between the RPC back-end, CLI tools
+    # such as ncli, a potential GraphQL back-end and so on.
+    # The status bar feature would allow the user to specify an
+    # arbitrary expression that is resolvable through this API.
+    case expr.toLowerAscii
+    of "connected_peers":
+      $(node.connectedPeersCount)
+
+    of "head_root":
+      shortLog(node.chainDag.head.root)
+    of "head_epoch":
+      $(node.chainDag.head.slot.epoch)
+    of "head_epoch_slot":
+      $(node.chainDag.head.slot mod SLOTS_PER_EPOCH)
+    of "head_slot":
+      $(node.chainDag.head.slot)
+
+    of "justifed_root":
+      shortLog(justified.blck.root)
+    of "justifed_epoch":
+      $(justified.slot.epoch)
+    of "justifed_epoch_slot":
+      $(justified.slot mod SLOTS_PER_EPOCH)
+    of "justifed_slot":
+      $(justified.slot)
+
+    of "finalized_root":
+      shortLog(node.chainDag.finalizedHead.blck.root)
+    of "finalized_epoch":
+      $(node.chainDag.finalizedHead.slot.epoch)
+    of "finalized_epoch_slot":
+      $(node.chainDag.finalizedHead.slot mod SLOTS_PER_EPOCH)
+    of "finalized_slot":
+      $(node.chainDag.finalizedHead.slot)
+
+    of "epoch":
+      $node.currentSlot.epoch
+
+    of "epoch_slot":
+      $(node.currentSlot mod SLOTS_PER_EPOCH)
+
+    of "slot":
+      $node.currentSlot
+
+    of "slots_per_epoch":
+      $SLOTS_PER_EPOCH
+
+    of "slot_trailing_digits":
+      var slotStr = $node.currentSlot
+      if slotStr.len > 3: slotStr = slotStr[^3..^1]
+      slotStr
+
+    of "attached_validators_balance":
+      formatGwei(node.attachedValidatorBalanceTotal)
+
+    of "sync_status":
+      if isNil(node.syncManager):
+        "pending"
+      else:
+        if node.syncManager.inProgress:
+          node.syncManager.syncStatus
+        else:
+          "synced"
+    else:
+      # We ignore typos for now and just render the expression
+      # as it was written. TODO: come up with a good way to show
+      # an error message to the user.
+      "$" & expr
+
+  var statusBar = StatusBarView.init(
+    node.config.statusBarContents,
+    dataResolver)
+
+  when compiles(defaultChroniclesStream.output.writer):
+    defaultChroniclesStream.output.writer =
+      proc (logLevel: LogLevel, msg: LogOutputStr) {.raises: [Defect].} =
+        try:
+          # p.hidePrompt
+          erase statusBar
+          # p.writeLine msg
+          stdout.write msg
+          render statusBar
+          # p.showPrompt
+        except Exception as e: # render raises Exception
+          logLoggingFailure(cstring(msg), e)
+
+  proc statusBarUpdatesPollingLoop() {.async.} =
+    try:
+      while true:
+        update statusBar
+        erase statusBar
+        render statusBar
+        await sleepAsync(chronos.seconds(1))
+    except CatchableError as exc:
+      warn "Failed to update status bar, no further updates", err = exc.msg
+
+  asyncSpawn statusBarUpdatesPollingLoop()
+
 when hasPrompt:
+  # TODO: nim-prompt seems to have threading issues at the moment
+  #       which result in sporadic crashes. We should introduce a
+  #       lock that guards the access to the internal prompt line
+  #       variable.
+  #
+  # var p = Prompt.init("nimbus > ", providePromptCompletions)
+  # p.useHistoryFile()
+
   from unicode import Rune
   import prompt
 
@@ -1324,120 +1434,9 @@ when hasPrompt:
         p[].writeLine("Unknown command: " & cmd)
 
   proc initPrompt(node: BeaconNode) =
-    if isatty(stdout) and node.config.statusBarEnabled:
-      enableTrueColors()
-
-      # TODO: nim-prompt seems to have threading issues at the moment
-      #       which result in sporadic crashes. We should introduce a
-      #       lock that guards the access to the internal prompt line
-      #       variable.
-      #
-      # var p = Prompt.init("nimbus > ", providePromptCompletions)
-      # p.useHistoryFile()
-
-      proc dataResolver(expr: string): string =
-        template justified: untyped = node.chainDag.head.atEpochStart(
-          node.chainDag.headState.data.data.current_justified_checkpoint.epoch)
-        # TODO:
-        # We should introduce a general API for resolving dot expressions
-        # such as `db.latest_block.slot` or `metrics.connected_peers`.
-        # Such an API can be shared between the RPC back-end, CLI tools
-        # such as ncli, a potential GraphQL back-end and so on.
-        # The status bar feature would allow the user to specify an
-        # arbitrary expression that is resolvable through this API.
-        case expr.toLowerAscii
-        of "connected_peers":
-          $(node.connectedPeersCount)
-
-        of "head_root":
-          shortLog(node.chainDag.head.root)
-        of "head_epoch":
-          $(node.chainDag.head.slot.epoch)
-        of "head_epoch_slot":
-          $(node.chainDag.head.slot mod SLOTS_PER_EPOCH)
-        of "head_slot":
-          $(node.chainDag.head.slot)
-
-        of "justifed_root":
-          shortLog(justified.blck.root)
-        of "justifed_epoch":
-          $(justified.slot.epoch)
-        of "justifed_epoch_slot":
-          $(justified.slot mod SLOTS_PER_EPOCH)
-        of "justifed_slot":
-          $(justified.slot)
-
-        of "finalized_root":
-          shortLog(node.chainDag.finalizedHead.blck.root)
-        of "finalized_epoch":
-          $(node.chainDag.finalizedHead.slot.epoch)
-        of "finalized_epoch_slot":
-          $(node.chainDag.finalizedHead.slot mod SLOTS_PER_EPOCH)
-        of "finalized_slot":
-          $(node.chainDag.finalizedHead.slot)
-
-        of "epoch":
-          $node.currentSlot.epoch
-
-        of "epoch_slot":
-          $(node.currentSlot mod SLOTS_PER_EPOCH)
-
-        of "slot":
-          $node.currentSlot
-
-        of "slots_per_epoch":
-          $SLOTS_PER_EPOCH
-
-        of "slot_trailing_digits":
-          var slotStr = $node.currentSlot
-          if slotStr.len > 3: slotStr = slotStr[^3..^1]
-          slotStr
-
-        of "attached_validators_balance":
-          formatGwei(node.attachedValidatorBalanceTotal)
-
-        of "sync_status":
-          if isNil(node.syncManager):
-            "pending"
-          else:
-            if node.syncManager.inProgress:
-              node.syncManager.syncStatus
-            else:
-              "synced"
-        else:
-          # We ignore typos for now and just render the expression
-          # as it was written. TODO: come up with a good way to show
-          # an error message to the user.
-          "$" & expr
-
-      var statusBar = StatusBarView.init(
-        node.config.statusBarContents,
-        dataResolver)
-
-      when compiles(defaultChroniclesStream.output.writer):
-        defaultChroniclesStream.output.writer =
-          proc (logLevel: LogLevel, msg: LogOutputStr) {.raises: [Defect].} =
-            try:
-              # p.hidePrompt
-              erase statusBar
-              # p.writeLine msg
-              stdout.write msg
-              render statusBar
-              # p.showPrompt
-            except Exception as e: # render raises Exception
-              logLoggingFailure(cstring(msg), e)
-
-      proc statusBarUpdatesPollingLoop() {.async.} =
-        while true:
-          update statusBar
-          erase statusBar
-          render statusBar
-          await sleepAsync(chronos.seconds(1))
-
-      traceAsyncErrors statusBarUpdatesPollingLoop()
-
-      # var t: Thread[ptr Prompt]
-      # createThread(t, processPromptCommands, addr p)
+    # var t: Thread[ptr Prompt]
+    # createThread(t, processPromptCommands, addr p)
+    discard
 
 proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
   let port = try:
@@ -1577,16 +1576,312 @@ proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
            err = err.msg
     quit 1
 
+proc loadEth2Network(config: BeaconNodeConf): Eth2NetworkMetadata =
+  if config.eth2Network.isSome:
+    getMetadataForNetwork(config.eth2Network.get)
+  else:
+    when const_preset == "mainnet":
+      mainnetMetadata
+    else:
+      # Presumably other configurations can have other defaults, but for now
+      # this simplifies the flow
+      echo "Must specify network on non-mainnet node"
+      quit 1
+
+proc loadBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext): BeaconNode =
+  let metadata = config.loadEth2Network()
+
+  # Updating the config based on the metadata certainly is not beautiful but it
+  # works
+  for node in metadata.bootstrapNodes:
+    config.bootstrapNodes.add node
+
+  BeaconNode.init(
+    metadata.runtimePreset,
+    rng,
+    config,
+    metadata.depositContractAddress,
+    metadata.depositContractDeployedAt,
+    metadata.eth1Network,
+    metadata.genesisData,
+    metadata.genesisDepositsSnapshot)
+
+proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) =
+  info "Launching beacon node",
+      version = fullVersionStr,
+      bls_backend = $BLS_BACKEND,
+      cmdParams = commandLineParams(),
+      config
+
+  createPidFile(config.dataDir.string / "beacon_node.pid")
+
+  config.createDumpDirs()
+
+  if config.metricsEnabled:
+    when useInsecureFeatures:
+      let metricsAddress = config.metricsAddress
+      notice "Starting metrics HTTP server",
+        url = "http://" & $metricsAddress & ":" & $config.metricsPort & "/metrics"
+      metrics.startHttpServer($metricsAddress, config.metricsPort)
+    else:
+      warn "Metrics support disabled, see https://status-im.github.io/nimbus-eth2/metrics-pretty-pictures.html#simple-metrics"
+
+  # There are no managed event loops in here, to do a graceful shutdown, but
+  # letting the default Ctrl+C handler exit is safe, since we only read from
+  # the db.
+  let node = loadBeaconNode(config, rng)
+
+  if bnStatus == BeaconNodeStatus.Stopping:
+    return
+
+  initStatusBar(node)
+
+  when hasPrompt:
+    initPrompt(node)
+
+  if node.nickname != "":
+    dynamicLogScope(node = node.nickname): node.start()
+  else:
+    node.start()
+
+proc doCreateTestnet(config: BeaconNodeConf, rng: var BrHmacDrbgContext) =
+  let launchPadDeposits = try:
+    Json.loadFile(config.testnetDepositsFile.string, seq[LaunchPadDeposit])
+  except SerializationError as err:
+    error "Invalid LaunchPad deposits file",
+          err = formatMsg(err, config.testnetDepositsFile.string)
+    quit 1
+
+  var deposits: seq[DepositData]
+  for i in config.firstValidator.int ..< launchPadDeposits.len:
+    deposits.add(launchPadDeposits[i] as DepositData)
+
+  let
+    startTime = uint64(times.toUnix(times.getTime()) + config.genesisOffset)
+    outGenesis = config.outputGenesis.string
+    eth1Hash = if config.web3Url.len == 0: eth1BlockHash
+              else: (waitFor getEth1BlockHash(config.web3Url, blockId("latest"))).asEth2Digest
+    runtimePreset = getRuntimePresetForNetwork(config.eth2Network)
+  var
+    initialState = initialize_beacon_state_from_eth1(
+      runtimePreset, eth1Hash, startTime, deposits, {skipBlsValidation})
+
+  # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
+  initialState.genesis_time = startTime
+
+  doAssert initialState.validators.len > 0
+
+  let outGenesisExt = splitFile(outGenesis).ext
+  if cmpIgnoreCase(outGenesisExt, ".json") == 0:
+    Json.saveFile(outGenesis, initialState, pretty = true)
+    echo "Wrote ", outGenesis
+
+  let outSszGenesis = outGenesis.changeFileExt "ssz"
+  SSZ.saveFile(outSszGenesis, initialState[])
+  echo "Wrote ", outSszGenesis
+
+  let bootstrapFile = config.outputBootstrapFile.string
+  if bootstrapFile.len > 0:
+    let
+      networkKeys = getPersistentNetKeys(rng, config)
+      netMetadata = getPersistentNetMetadata(config)
+      bootstrapEnr = enr.Record.init(
+        1, # sequence number
+        networkKeys.seckey.asEthKey,
+        some(config.bootstrapAddress),
+        some(config.bootstrapPort),
+        some(config.bootstrapPort),
+        [toFieldPair("eth2", SSZ.encode(enrForkIdFromState initialState[])),
+        toFieldPair("attnets", SSZ.encode(netMetadata.attnets))])
+
+    writeFile(bootstrapFile, bootstrapEnr.tryGet().toURI)
+    echo "Wrote ", bootstrapFile
+
+proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) =
+  case config.depositsCmd
+  #[
+  of DepositsCmd.create:
+    var seed: KeySeed
+    defer: burnMem(seed)
+    var walletPath: WalletPathPair
+
+    if config.existingWalletId.isSome:
+      let
+        id = config.existingWalletId.get
+        found = findWalletWithoutErrors(id)
+
+      if found.isSome:
+        walletPath = found.get
+      else:
+        fatal "Unable to find wallet with the specified name/uuid", id
+        quit 1
+
+      var unlocked = unlockWalletInteractively(walletPath.wallet)
+      if unlocked.isOk:
+        swap(seed, unlocked.get)
+      else:
+        # The failure will be reported in `unlockWalletInteractively`.
+        quit 1
+    else:
+      var walletRes = createWalletInteractively(rng[], config)
+      if walletRes.isErr:
+        fatal "Unable to create wallet", err = walletRes.error
+        quit 1
+      else:
+        swap(seed, walletRes.get.seed)
+        walletPath = walletRes.get.walletPath
+
+    let vres = secureCreatePath(config.outValidatorsDir)
+    if vres.isErr():
+      fatal "Could not create directory", path = config.outValidatorsDir
+      quit QuitFailure
+
+    let sres = secureCreatePath(config.outSecretsDir)
+    if sres.isErr():
+      fatal "Could not create directory", path = config.outSecretsDir
+      quit QuitFailure
+
+    let deposits = generateDeposits(
+      runtimePreset,
+      rng[],
+      seed,
+      walletPath.wallet.nextAccount,
+      config.totalDeposits,
+      config.outValidatorsDir,
+      config.outSecretsDir)
+
+    if deposits.isErr:
+      fatal "Failed to generate deposits", err = deposits.error
+      quit 1
+
+    try:
+      let depositDataPath = if config.outDepositsFile.isSome:
+        config.outDepositsFile.get.string
+      else:
+        config.outValidatorsDir / "deposit_data-" & $epochTime() & ".json"
+
+      let launchPadDeposits =
+        mapIt(deposits.value, LaunchPadDeposit.init(runtimePreset, it))
+
+      Json.saveFile(depositDataPath, launchPadDeposits)
+      echo "Deposit data written to \"", depositDataPath, "\""
+
+      walletPath.wallet.nextAccount += deposits.value.len
+      let status = saveWallet(walletPath)
+      if status.isErr:
+        fatal "Failed to update wallet file after generating deposits",
+                wallet = walletPath.path,
+                error = status.error
+        quit 1
+    except CatchableError as err:
+      fatal "Failed to create launchpad deposit data file", err = err.msg
+      quit 1
+
+  of DepositsCmd.status:
+    echo "The status command is not implemented yet"
+    quit 1
+
+  #]#
+  of DepositsCmd.`import`:
+    let validatorKeysDir = if config.importedDepositsDir.isSome:
+      config.importedDepositsDir.get
+    else:
+      let cwd = os.getCurrentDir()
+      if dirExists(cwd / "validator_keys"):
+        InputDir(cwd / "validator_keys")
+      else:
+        echo "The default search path for validator keys is a sub-directory " &
+              "named 'validator_keys' in the current working directory. Since " &
+              "no such directory exists, please either provide the correct path" &
+              "as an argument or copy the imported keys in the expected location."
+        quit 1
+
+    importKeystoresFromDir(
+      rng,
+      validatorKeysDir.string,
+      config.validatorsDir, config.secretsDir)
+
+  of DepositsCmd.exit:
+    waitFor handleValidatorExitCommand(config)
+
+proc doWallets(config: BeaconNodeConf, rng: var BrHmacDrbgContext) =
+  template findWalletWithoutErrors(name: WalletName): auto =
+    let res = keystore_management.findWallet(config, name)
+    if res.isErr:
+      fatal "Failed to locate wallet", error = res.error
+      quit 1
+    res.get
+
+  case config.walletsCmd:
+  of WalletsCmd.create:
+    if config.createdWalletNameFlag.isSome:
+      let
+        name = config.createdWalletNameFlag.get
+        existingWallet = findWalletWithoutErrors(name)
+      if existingWallet.isSome:
+        echo "The Wallet '" & name.string & "' already exists."
+        quit 1
+
+    var walletRes = createWalletInteractively(rng, config)
+    if walletRes.isErr:
+      fatal "Unable to create wallet", err = walletRes.error
+      quit 1
+    burnMem(walletRes.get.seed)
+
+  of WalletsCmd.list:
+    for kind, walletFile in walkDir(config.walletsDir):
+      if kind != pcFile: continue
+      if checkSensitiveFilePermissions(walletFile):
+        let walletRes = loadWallet(walletFile)
+        if walletRes.isOk:
+          echo walletRes.get.longName
+        else:
+          warn "Found corrupt wallet file",
+                wallet = walletFile, error = walletRes.error
+      else:
+        warn "Found wallet file with insecure permissions",
+              wallet = walletFile
+
+  of WalletsCmd.restore:
+    restoreWalletInteractively(rng, config)
+
+proc doRecord(config: BeaconNodeConf, rng: var BrHmacDrbgContext) =
+  case config.recordCmd:
+  of RecordCmd.create:
+    let netKeys = getPersistentNetKeys(rng, config)
+
+    var fieldPairs: seq[FieldPair]
+    for field in config.fields:
+      let fieldPair = field.split(":")
+      if fieldPair.len > 1:
+        fieldPairs.add(toFieldPair(fieldPair[0], hexToSeqByte(fieldPair[1])))
+      else:
+        fatal "Invalid field pair"
+        quit QuitFailure
+
+    let record = enr.Record.init(
+      config.seqNumber,
+      netKeys.seckey.asEthKey,
+      some(config.ipExt),
+      some(config.tcpPortExt),
+      some(config.udpPortExt),
+      fieldPairs).expect("Record within size limits")
+
+    echo record.toURI()
+
+  of RecordCmd.print:
+    echo $config.recordPrint
+
+proc doWeb3Cmd(config: BeaconNodeConf) =
+  case config.web3Cmd:
+  of Web3Cmd.test:
+    let metadata = config.loadEth2Network()
+    waitFor testWeb3Provider(config.web3TestUrl,
+                             metadata.depositContractAddress)
+
 programMain:
   var
     config = makeBannerAndConfig(clientId, BeaconNodeConf)
-    # This is ref so we can mutate it (to erase it) after the initial loading.
-    genesisStateContents: ref string
-    genesisDepositsSnapshotContents: ref string
-    eth1Network: Option[Eth1Network]
-    depositContractAddress: Option[Eth1Address]
-    depositContractDeployedAt: Option[BlockHashOrNumber]
-    runtimePreset: RuntimePreset
 
   setupStdoutLogging(config.logLevel)
 
@@ -1618,326 +1913,14 @@ programMain:
       quit 0
     c_signal(SIGTERM, exitImmediatelyOnSIGTERM)
 
-  if config.eth2Network.isSome:
-    let metadata = getMetadataForNetwork(config.eth2Network.get)
-    runtimePreset = metadata.runtimePreset
-
-    if config.cmd == noCommand:
-      for node in metadata.bootstrapNodes:
-        config.bootstrapNodes.add node
-
-      if metadata.genesisData.len > 0:
-        genesisStateContents = newClone metadata.genesisData
-
-      if metadata.genesisDepositsSnapshot.len > 0:
-        genesisDepositsSnapshotContents = newClone metadata.genesisDepositsSnapshot
-
-    depositContractAddress = some metadata.depositContractAddress
-    depositContractDeployedAt = some metadata.depositContractDeployedAt
-    eth1Network = metadata.eth1Network
-  else:
-    runtimePreset = defaultRuntimePreset
-    when const_preset == "mainnet":
-      if config.cmd == noCommand:
-        depositContractAddress = some mainnetMetadata.depositContractAddress
-        depositContractDeployedAt = some mainnetMetadata.depositContractDeployedAt
-
-        for node in mainnetMetadata.bootstrapNodes:
-          config.bootstrapNodes.add node
-
-        genesisStateContents = newClone mainnetMetadata.genesisData
-        genesisDepositsSnapshotContents = newClone mainnetMetadata.genesisDepositsSnapshot
-        eth1Network = some mainnet
-
   # Single RNG instance for the application - will be seeded on construction
   # and avoid using system resources (such as urandom) after that
   let rng = keys.newRng()
 
-  template findWalletWithoutErrors(name: WalletName): auto =
-    let res = keystore_management.findWallet(config, name)
-    if res.isErr:
-      fatal "Failed to locate wallet", error = res.error
-      quit 1
-    res.get
-
   case config.cmd
-  of createTestnet:
-    let launchPadDeposits = try:
-      Json.loadFile(config.testnetDepositsFile.string, seq[LaunchPadDeposit])
-    except SerializationError as err:
-      error "Invalid LaunchPad deposits file",
-             err = formatMsg(err, config.testnetDepositsFile.string)
-      quit 1
-
-    var deposits: seq[DepositData]
-    for i in config.firstValidator.int ..< launchPadDeposits.len:
-      deposits.add(launchPadDeposits[i] as DepositData)
-
-    let
-      startTime = uint64(times.toUnix(times.getTime()) + config.genesisOffset)
-      outGenesis = config.outputGenesis.string
-      eth1Hash = if config.web3Url.len == 0: eth1BlockHash
-                 else: (waitFor getEth1BlockHash(config.web3Url, blockId("latest"))).asEth2Digest
-    var
-      initialState = initialize_beacon_state_from_eth1(
-        runtimePreset, eth1Hash, startTime, deposits, {skipBlsValidation})
-
-    # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
-    initialState.genesis_time = startTime
-
-    doAssert initialState.validators.len > 0
-
-    let outGenesisExt = splitFile(outGenesis).ext
-    if cmpIgnoreCase(outGenesisExt, ".json") == 0:
-      Json.saveFile(outGenesis, initialState, pretty = true)
-      echo "Wrote ", outGenesis
-
-    let outSszGenesis = outGenesis.changeFileExt "ssz"
-    SSZ.saveFile(outSszGenesis, initialState[])
-    echo "Wrote ", outSszGenesis
-
-    let bootstrapFile = config.outputBootstrapFile.string
-    if bootstrapFile.len > 0:
-      let
-        networkKeys = getPersistentNetKeys(rng[], config)
-        netMetadata = getPersistentNetMetadata(config)
-        bootstrapEnr = enr.Record.init(
-          1, # sequence number
-          networkKeys.seckey.asEthKey,
-          some(config.bootstrapAddress),
-          some(config.bootstrapPort),
-          some(config.bootstrapPort),
-          [toFieldPair("eth2", SSZ.encode(enrForkIdFromState initialState[])),
-           toFieldPair("attnets", SSZ.encode(netMetadata.attnets))])
-
-      writeFile(bootstrapFile, bootstrapEnr.tryGet().toURI)
-      echo "Wrote ", bootstrapFile
-
-  of noCommand:
-    info "Launching beacon node",
-          version = fullVersionStr,
-          bls_backend = $BLS_BACKEND,
-          cmdParams = commandLineParams(),
-          config
-
-    createPidFile(config.dataDir.string / "beacon_node.pid")
-
-    config.createDumpDirs()
-
-    if config.metricsEnabled:
-      when useInsecureFeatures:
-        let metricsAddress = config.metricsAddress
-        notice "Starting metrics HTTP server",
-          url = "http://" & $metricsAddress & ":" & $config.metricsPort & "/metrics"
-        metrics.startHttpServer($metricsAddress, config.metricsPort)
-      else:
-        warn "Metrics support disabled, see https://status-im.github.io/nimbus-eth2/metrics-pretty-pictures.html#simple-metrics"
-
-    if depositContractAddress.isNone or depositContractDeployedAt.isNone:
-      echo "Please specify the a network through the --network option"
-      quit 1
-
-    # There are no managed event loops in here, to do a graceful shutdown, but
-    # letting the default Ctrl+C handler exit is safe, since we only read from
-    # the db.
-    var node = waitFor BeaconNode.init(
-      runtimePreset,
-      rng,
-      config,
-      depositContractAddress.get,
-      depositContractDeployedAt.get,
-      eth1Network,
-      genesisStateContents,
-      genesisDepositsSnapshotContents)
-
-    if bnStatus == BeaconNodeStatus.Stopping:
-      return
-
-    # The memory for the initial snapshot won't be needed anymore
-    if genesisStateContents != nil:
-      genesisStateContents[] = ""
-    if genesisDepositsSnapshotContents != nil:
-      genesisDepositsSnapshotContents[] = ""
-
-    when hasPrompt:
-      initPrompt(node)
-
-    if node.nickname != "":
-      dynamicLogScope(node = node.nickname): node.start()
-    else:
-      node.start()
-
-  of deposits:
-    case config.depositsCmd
-    #[
-    of DepositsCmd.create:
-      var seed: KeySeed
-      defer: burnMem(seed)
-      var walletPath: WalletPathPair
-
-      if config.existingWalletId.isSome:
-        let
-          id = config.existingWalletId.get
-          found = findWalletWithoutErrors(id)
-
-        if found.isSome:
-          walletPath = found.get
-        else:
-          fatal "Unable to find wallet with the specified name/uuid", id
-          quit 1
-
-        var unlocked = unlockWalletInteractively(walletPath.wallet)
-        if unlocked.isOk:
-          swap(seed, unlocked.get)
-        else:
-          # The failure will be reported in `unlockWalletInteractively`.
-          quit 1
-      else:
-        var walletRes = createWalletInteractively(rng[], config)
-        if walletRes.isErr:
-          fatal "Unable to create wallet", err = walletRes.error
-          quit 1
-        else:
-          swap(seed, walletRes.get.seed)
-          walletPath = walletRes.get.walletPath
-
-      let vres = secureCreatePath(config.outValidatorsDir)
-      if vres.isErr():
-        fatal "Could not create directory", path = config.outValidatorsDir
-        quit QuitFailure
-
-      let sres = secureCreatePath(config.outSecretsDir)
-      if sres.isErr():
-        fatal "Could not create directory", path = config.outSecretsDir
-        quit QuitFailure
-
-      let deposits = generateDeposits(
-        runtimePreset,
-        rng[],
-        seed,
-        walletPath.wallet.nextAccount,
-        config.totalDeposits,
-        config.outValidatorsDir,
-        config.outSecretsDir)
-
-      if deposits.isErr:
-        fatal "Failed to generate deposits", err = deposits.error
-        quit 1
-
-      try:
-        let depositDataPath = if config.outDepositsFile.isSome:
-          config.outDepositsFile.get.string
-        else:
-          config.outValidatorsDir / "deposit_data-" & $epochTime() & ".json"
-
-        let launchPadDeposits =
-          mapIt(deposits.value, LaunchPadDeposit.init(runtimePreset, it))
-
-        Json.saveFile(depositDataPath, launchPadDeposits)
-        echo "Deposit data written to \"", depositDataPath, "\""
-
-        walletPath.wallet.nextAccount += deposits.value.len
-        let status = saveWallet(walletPath)
-        if status.isErr:
-          fatal "Failed to update wallet file after generating deposits",
-                 wallet = walletPath.path,
-                 error = status.error
-          quit 1
-      except CatchableError as err:
-        fatal "Failed to create launchpad deposit data file", err = err.msg
-        quit 1
-
-    of DepositsCmd.status:
-      echo "The status command is not implemented yet"
-      quit 1
-
-    #]#
-    of DepositsCmd.`import`:
-      let validatorKeysDir = if config.importedDepositsDir.isSome:
-        config.importedDepositsDir.get
-      else:
-        let cwd = os.getCurrentDir()
-        if dirExists(cwd / "validator_keys"):
-          InputDir(cwd / "validator_keys")
-        else:
-          echo "The default search path for validator keys is a sub-directory " &
-               "named 'validator_keys' in the current working directory. Since " &
-               "no such directory exists, please either provide the correct path" &
-               "as an argument or copy the imported keys in the expected location."
-          quit 1
-
-      importKeystoresFromDir(
-        rng[],
-        validatorKeysDir.string,
-        config.validatorsDir, config.secretsDir)
-
-    of DepositsCmd.exit:
-      waitFor handleValidatorExitCommand(config)
-
-  of wallets:
-    case config.walletsCmd:
-    of WalletsCmd.create:
-      if config.createdWalletNameFlag.isSome:
-        let
-          name = config.createdWalletNameFlag.get
-          existingWallet = findWalletWithoutErrors(name)
-        if existingWallet.isSome:
-          echo "The Wallet '" & name.string & "' already exists."
-          quit 1
-
-      var walletRes = createWalletInteractively(rng[], config)
-      if walletRes.isErr:
-        fatal "Unable to create wallet", err = walletRes.error
-        quit 1
-      burnMem(walletRes.get.seed)
-
-    of WalletsCmd.list:
-      for kind, walletFile in walkDir(config.walletsDir):
-        if kind != pcFile: continue
-        if checkSensitiveFilePermissions(walletFile):
-          let walletRes = loadWallet(walletFile)
-          if walletRes.isOk:
-            echo walletRes.get.longName
-          else:
-            warn "Found corrupt wallet file",
-                 wallet = walletFile, error = walletRes.error
-        else:
-          warn "Found wallet file with insecure permissions",
-               wallet = walletFile
-
-    of WalletsCmd.restore:
-      restoreWalletInteractively(rng[], config)
-
-  of record:
-    case config.recordCmd:
-    of RecordCmd.create:
-      let netKeys = getPersistentNetKeys(rng[], config)
-
-      var fieldPairs: seq[FieldPair]
-      for field in config.fields:
-        let fieldPair = field.split(":")
-        if fieldPair.len > 1:
-          fieldPairs.add(toFieldPair(fieldPair[0], hexToSeqByte(fieldPair[1])))
-        else:
-          fatal "Invalid field pair"
-          quit QuitFailure
-
-      let record = enr.Record.init(
-        config.seqNumber,
-        netKeys.seckey.asEthKey,
-        some(config.ipExt),
-        some(config.tcpPortExt),
-        some(config.udpPortExt),
-        fieldPairs).expect("Record within size limits")
-
-      echo record.toURI()
-
-    of RecordCmd.print:
-      echo $config.recordPrint
-
-  of web3:
-    case config.web3Cmd:
-    of Web3Cmd.test:
-      waitFor testWeb3Provider(config.web3TestUrl,
-                               depositContractAddress,
-                               depositContractDeployedAt)
+  of createTestnet: doCreateTestnet(config, rng[])
+  of noCommand: doRunBeaconNode(config, rng)
+  of deposits: doDeposits(config, rng[])
+  of wallets: doWallets(config, rng[])
+  of record: doRecord(config, rng[])
+  of web3: doWeb3Cmd(config)
