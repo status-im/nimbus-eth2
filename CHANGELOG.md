@@ -1,27 +1,32 @@
 2021-02-22 v1.0.8
 =================
 
-A release bringing important JSON-RPC stability improvements and compatibility
-fixes making it possible to use Nimbus as a RockerPool operator.
+This release includes important JSON-RPC stability improvements
+and compatibility fixes, which make it possible to use Nimbus
+as a RockerPool operator.
 
 -----
 
-New additions:
+**New features:**
 
 * RocketPool integration:
-  https://github.com/rocket-pool/smartnode/pull/89
+  see https://github.com/rocket-pool/smartnode/pull/89
+  and https://github.com/rocket-pool/smartnode-install/pull/26/commits/da720acc8f4c1c31c05971748fbc144de1621830
 
-* Indications for next attestation time on every "Slot end" log message,
-  helping you to select the best time for restarting the node.
+* Next attestation time displayed on every "Slot end" log message
+  (helps you select the best time for restarting the node)
 
-We've fixed:
+* libp2p scoring: disconnect from badly performing peers and prioritise
+  peers with better latency and throughput.
 
-* A rare segmentation fault triggered when connecting to a web3 provider
-  using a secure web socket.
+**We've fixed:**
+
+* A rare crash triggered when connecting to a web3 provider using
+  a secure web socket.
 
 * JSON-RPC spec violations and potential DoS attack vectors.
 
-* 2 stale bootstrap node addressed.
+* Two stale bootstrap node addresses.
 
 
 2021-02-04 v1.0.7
@@ -32,7 +37,7 @@ and further performance improvements across the board.
 
 -----
 
-New additions:
+**New features:**
 
 * New slashing protection mechanism (doppelganger detection) prevents your
   validator from contradicting itself if you have accidentally left it running
@@ -54,7 +59,7 @@ New additions:
 *  An option to enable the automatic updating of IP:Port in the ENR
   (off by default, specify `--enr-auto-update:true` to turn it on)
 
-We've fixed:
+**We've fixed:**
 
 * A bug that had the potential to completely halt all syncing activity.
 
@@ -69,7 +74,7 @@ We've fixed:
 * Non-standard encoding of certain data types such as signatures and bit
   sequences within the results of JSON-RPC requests.
 
-We've deprecated:
+**We've deprecated:**
 
 * `make beacon_node` will no longer compile the beacon node.
   You'll need to run `make nimbus_beacon_node` from now on
@@ -86,7 +91,7 @@ significant performance improvements.
 
 -----
 
-**New additions:**
+**New features:**
 
 * Reproducible build recipe for creating Nimbus Linux binaries intended for
   ARM devices.
@@ -122,7 +127,7 @@ optimisations.
 
 -----
 
-**New additions:**
+**New features:**
 
 * Nimbus can now be safely shut down with the SIGTERM signal on POSIX systems.
 
@@ -155,7 +160,7 @@ on the network.
 
 -----
 
-**New additions:**
+**New features:**
 
 * New metrics tracking the syncing progress of the Eth1 deposit contract
   monitor.
@@ -184,7 +189,7 @@ So it's important you update at your earliest convenience.
 
 -----
 
-**New additions:**
+**New features:**
 
 * 8 new JSON-RPC calls that bring us to feature parity with the official
   beacon node API.
@@ -209,7 +214,7 @@ the beacon node **before restarting.**
 
 -----
 
-**New additions:**
+**New features:**
 
 * More conservative Eth1 syncing requests to reduce the likelihood of
   going over the maximum allowed burst rates under the Infura free plan
@@ -253,7 +258,7 @@ Tuesday (December 1 12:00:23 UTC), as it contains some important improvements.
 
 -----------------
 
-**New additions:**
+**New features:**
 
 * Updated list of bootstrap nodes for Mainnet.
 
@@ -335,11 +340,11 @@ more validators connect to Mainnet.
 2020-11-20 v0.6.6
 =================
 
-New additions:
+**New features:**
 
 * New RPC APIs for inspecting the internal state of the Eth1 monitor.
 
-We've fixed:
+**We've fixed:**
 
 * A fork-choice issue causing Nimbus to get stuck on a particular slot.
 
@@ -352,7 +357,7 @@ We've fixed:
 2020-11-17 v0.6.4
 =================
 
-New additions:
+**New features:**
 
 * Support for the Pyrmont testnet.
 
@@ -362,7 +367,7 @@ New additions:
   user of the beacon node on POSIX systems (the group rights have
   been dropped).
 
-We've fixed:
+**We've fixed:**
 
 * An issue preventing blocks to be downloaded when the client goes
   out of sync.
@@ -376,7 +381,7 @@ We've fixed:
 
 A bugfix release addressing issues discovered in the Toledo network.
 
-New features include:
+**New features:**
 
 * GossipSub 1.1
 
@@ -388,7 +393,7 @@ New features include:
 
 * The ability to launch Nimbus with a partially-synced Geth node.
 
-We've fixed:
+**We've fixed:**
 
 * A bug preventing the node from proposing blocks when connected
   to a web3 provider
@@ -414,7 +419,7 @@ and block proposals is expected to be above 99%. Going forward, our release
 schedule will start to accelerate, with multiple new releases expected before
 the Eth2 mainnet launch.
 
-Changelog highlights include:
+**Changelog highlights include:**
 
 * Full support for the 1.0 Eth2 phase0 spec and the monitoring of the
   mainnet validator deposit contract.
