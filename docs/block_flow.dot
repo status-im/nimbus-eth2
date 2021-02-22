@@ -1,0 +1,35 @@
+digraph architecture{
+  node [shape = invhouse]; Eth2RPC GossipSub;
+  node [shape = octagon]; SyncManager SyncProtocol;
+  SyncManager [label="SyncManager (Sync in)"];
+  node [shape = doubleoctagon] SharedBlockQueue;
+  {rank = same; SyncManager SyncProtocol;}
+
+  node [shape = octagon]; Eth2Processor RequestManager;
+  node [shape = octagon]; ChainDAG Quarantine Clearance;
+
+  Eth2RPC -> SyncManager [dir=both]
+  Eth2RPC -> SyncProtocol [dir=both]
+
+  GossipSub -> Eth2Processor [label="node.topicBeaconBlocks: isValidBeaconBlock (no transition or signature check yet)\nthen enqueued in blocksQueue"];
+  Eth2Processor -> Clearance [label="storeBlock(): enqueue in clearance/quarantine and callback to fork choice"];
+  SyncProtocol -> RequestManager [dir=both, label="fetchAncestorBlocksFromNetwork()"];
+
+  SyncManager -> SharedBlockQueue [dir=both, label="Eth2Processor.blocksQueue\n== SyncManager.outQueue (shared state!)"];
+  Eth2Processor -> SharedBlockQueue [dir=both, label="Eth2Processor.blocksQueue\n== RequestManager.outQueue (shared state!)"];
+  SharedBlockQueue -> RequestManager [dir=both, label="SyncManager.outQueue\n== RequestManager.outQueue (shared state!)"];
+
+  LocalBlockProposer -> Clearance
+
+  RequestManager -> Quarantine [dir=both, label="Retrieve missing ancestors"]
+  Clearance -> Quarantine
+  Clearance -> ChainDAG
+
+  Eth2Processor -> ForkChoice
+  LocalBlockProposer -> ForkChoice
+
+  node [shape = cylinder]; BeaconChainDB;
+  ChainDAG -> BeaconChainDB [dir=both]
+
+  SyncProtocol -> ChainDAG [dir=both, label="Sync out: getBlockRange()\nbeaconBlocksByRoot()\n"]
+}

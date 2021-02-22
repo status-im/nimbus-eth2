@@ -392,7 +392,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     if head.slot >= blck.message.slot:
       node.network.broadcast(getBeaconBlocksTopic(node.forkDigest), blck)
       # The block failed validation, but was successfully broadcast anyway.
-      # It was not integrated into the beacon node''s database.
+      # It was not integrated into the beacon node's database.
       return 202
     else:
       let res = proposeSignedBlock(node, head, AttachedValidator(), blck)
