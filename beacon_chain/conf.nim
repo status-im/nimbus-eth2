@@ -511,7 +511,7 @@ type
         desc: "Delay in seconds between retries after unsuccessful attempts to connect to a beacon node"
         name: "retry-delay" }: int
 
-proc defaultDataDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
+proc defaultDataDir*(config: BeaconNodeConf|ValidatorClientConf): string =
   let dataDir = when defined(windows):
     "AppData" / "Roaming" / "Nimbus"
   elif defined(macosx):
@@ -521,29 +521,29 @@ proc defaultDataDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
 
   getHomeDir() / dataDir / "BeaconNode"
 
-func dumpDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
-  conf.dataDir / "dump"
+func dumpDir*(config: BeaconNodeConf|ValidatorClientConf): string =
+  config.dataDir / "dump"
 
-func dumpDirInvalid*(conf: BeaconNodeConf|ValidatorClientConf): string =
-  conf.dumpDir / "invalid" # things that failed validation
+func dumpDirInvalid*(config: BeaconNodeConf|ValidatorClientConf): string =
+  config.dumpDir / "invalid" # things that failed validation
 
-func dumpDirIncoming*(conf: BeaconNodeConf|ValidatorClientConf): string =
-  conf.dumpDir / "incoming" # things that couldn't be validated (missingparent etc)
+func dumpDirIncoming*(config: BeaconNodeConf|ValidatorClientConf): string =
+  config.dumpDir / "incoming" # things that couldn't be validated (missingparent etc)
 
-func dumpDirOutgoing*(conf: BeaconNodeConf|ValidatorClientConf): string =
-  conf.dumpDir / "outgoing" # things we produced
+func dumpDirOutgoing*(config: BeaconNodeConf|ValidatorClientConf): string =
+  config.dumpDir / "outgoing" # things we produced
 
-proc createDumpDirs*(conf: BeaconNodeConf) =
-  if conf.dumpEnabled:
-    let resInv = secureCreatePath(conf.dumpDirInvalid)
+proc createDumpDirs*(config: BeaconNodeConf) =
+  if config.dumpEnabled:
+    let resInv = secureCreatePath(config.dumpDirInvalid)
     if resInv.isErr():
-      warn "Could not create dump directory", path = conf.dumpDirInvalid
-    let resInc = secureCreatePath(conf.dumpDirIncoming)
+      warn "Could not create dump directory", path = config.dumpDirInvalid
+    let resInc = secureCreatePath(config.dumpDirIncoming)
     if resInc.isErr():
-      warn "Could not create dump directory", path = conf.dumpDirIncoming
-    let resOut = secureCreatePath(conf.dumpDirOutgoing)
+      warn "Could not create dump directory", path = config.dumpDirIncoming
+    let resOut = secureCreatePath(config.dumpDirOutgoing)
     if resOut.isErr():
-      warn "Could not create dump directory", path = conf.dumpDirOutgoing
+      warn "Could not create dump directory", path = config.dumpDirOutgoing
 
 func parseCmdArg*(T: type GraffitiBytes, input: TaintedString): T
                  {.raises: [ValueError, Defect].} =
@@ -611,65 +611,65 @@ proc parseCmdArg*(T: type enr.Record, p: TaintedString): T
 proc completeCmdArg*(T: type enr.Record, val: TaintedString): seq[string] =
   return @[]
 
-func validatorsDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
-  string conf.validatorsDirFlag.get(InputDir(conf.dataDir / "validators"))
+func validatorsDir*(config: BeaconNodeConf|ValidatorClientConf): string =
+  string config.validatorsDirFlag.get(InputDir(config.dataDir / "validators"))
 
-func secretsDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
-  string conf.secretsDirFlag.get(InputDir(conf.dataDir / "secrets"))
+func secretsDir*(config: BeaconNodeConf|ValidatorClientConf): string =
+  string config.secretsDirFlag.get(InputDir(config.dataDir / "secrets"))
 
-func walletsDir*(conf: BeaconNodeConf): string =
-  if conf.walletsDirFlag.isSome:
-    conf.walletsDirFlag.get.string
+func walletsDir*(config: BeaconNodeConf): string =
+  if config.walletsDirFlag.isSome:
+    config.walletsDirFlag.get.string
   else:
-    conf.dataDir / "wallets"
+    config.dataDir / "wallets"
 
-func outWalletName*(conf: BeaconNodeConf): Option[WalletName] =
+func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
   proc fail {.noReturn.} =
     raiseAssert "outWalletName should be used only in the right context"
 
-  case conf.cmd
+  case config.cmd
   of wallets:
-    case conf.walletsCmd
-    of WalletsCmd.create: conf.createdWalletNameFlag
-    of WalletsCmd.restore: conf.restoredWalletNameFlag
+    case config.walletsCmd
+    of WalletsCmd.create: config.createdWalletNameFlag
+    of WalletsCmd.restore: config.restoredWalletNameFlag
     of WalletsCmd.list: fail()
   of deposits:
     # TODO: Uncomment when the deposits create command is restored
-    #case conf.depositsCmd
-    #of DepositsCmd.create: conf.newWalletNameFlag
+    #case config.depositsCmd
+    #of DepositsCmd.create: config.newWalletNameFlag
     #else: fail()
     fail()
   else:
     fail()
 
-func outWalletFile*(conf: BeaconNodeConf): Option[OutFile] =
+func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
   proc fail {.noReturn.} =
     raiseAssert "outWalletName should be used only in the right context"
 
-  case conf.cmd
+  case config.cmd
   of wallets:
-    case conf.walletsCmd
-    of WalletsCmd.create: conf.createdWalletFileFlag
-    of WalletsCmd.restore: conf.restoredWalletFileFlag
+    case config.walletsCmd
+    of WalletsCmd.create: config.createdWalletFileFlag
+    of WalletsCmd.restore: config.restoredWalletFileFlag
     of WalletsCmd.list: fail()
   of deposits:
     # TODO: Uncomment when the deposits create command is restored
-    #case conf.depositsCmd
-    #of DepositsCmd.create: conf.newWalletFileFlag
+    #case config.depositsCmd
+    #of DepositsCmd.create: config.newWalletFileFlag
     #else: fail()
     fail()
   else:
     fail()
 
-func databaseDir*(conf: BeaconNodeConf|ValidatorClientConf): string =
-  conf.dataDir / "db"
+func databaseDir*(config: BeaconNodeConf|ValidatorClientConf): string =
+  config.dataDir / "db"
 
-func defaultListenAddress*(conf: BeaconNodeConf|ValidatorClientConf): ValidIpAddress =
+func defaultListenAddress*(config: BeaconNodeConf|ValidatorClientConf): ValidIpAddress =
   # TODO: How should we select between IPv4 and IPv6
   # Maybe there should be a config option for this.
   (static ValidIpAddress.init("0.0.0.0"))
 
-func defaultAdminListenAddress*(conf: BeaconNodeConf|ValidatorClientConf): ValidIpAddress =
+func defaultAdminListenAddress*(config: BeaconNodeConf|ValidatorClientConf): ValidIpAddress =
   (static ValidIpAddress.init("127.0.0.1"))
 
 template writeValue*(writer: var JsonWriter,
