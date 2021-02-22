@@ -3,7 +3,7 @@
 
 This release includes important JSON-RPC stability improvements
 and compatibility fixes, which make it possible to use Nimbus
-as a RockerPool operator.
+as a RocketPool operator.
 
 -----
 
