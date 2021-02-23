@@ -3,13 +3,13 @@ digraph architecture{
   node [shape = octagon]; SyncManager SyncProtocol;
   SyncManager [label="SyncManager (Sync in)"];
   node [shape = doubleoctagon] SharedBlockQueue;
-  {rank = same; SyncManager SyncProtocol;}
+  {rank = same; SyncManager RequestManager;}
 
   node [shape = octagon]; Eth2Processor RequestManager;
   node [shape = octagon]; ChainDAG Quarantine Clearance;
 
-  Eth2RPC -> SyncManager [dir=both]
   Eth2RPC -> SyncProtocol [dir=both]
+  SyncProtocol -> SyncManager [dir=both, label="beaconBlocksByRange() (mixin)"]
 
   GossipSub -> Eth2Processor [label="node.topicBeaconBlocks: isValidBeaconBlock (no transition or signature check yet)\nthen enqueued in blocksQueue"];
   Eth2Processor -> Clearance [label="storeBlock(): enqueue in clearance/quarantine and callback to fork choice"];
@@ -21,7 +21,7 @@ digraph architecture{
 
   LocalBlockProposer -> Clearance
 
-  RequestManager -> Quarantine [dir=both, label="Retrieve missing ancestors"]
+  RequestManager -> Quarantine [dir=back, label="Retrieve missing ancestors"]
   Clearance -> Quarantine
   Clearance -> ChainDAG
 
@@ -31,5 +31,5 @@ digraph architecture{
   node [shape = cylinder]; BeaconChainDB;
   ChainDAG -> BeaconChainDB [dir=both]
 
-  SyncProtocol -> ChainDAG [dir=both, label="Sync out: getBlockRange()\nbeaconBlocksByRoot()\n"]
+  SyncProtocol -> ChainDAG [dir=back, label="Sync out: getBlockRange()\nbeaconBlocksByRoot()\n"]
 }
