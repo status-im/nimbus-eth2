@@ -103,7 +103,8 @@ It is important to note that 3 data structures are sharing the same `AsyncQueue[
 Blocks are listened to via the gossipsub topic `/eth2/{$forkDigest}/beacon_block/ssz` (`topicBeaconBlocks` variable)
 
 They are then:
-- validated by `blockValidator()` in the Eth2Processor
+- validated by `blockValidator()` in the Eth2Processor by `isValidBeaconBlock()` according to spec https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#beacon_block
+- Important: P2P validation is not full verification (state transition and internal cryptographic signatures were not checked)
 - enqueued in the shared block queue `AsyncQueue[BlockEntry]` in case of success
 - dropped in case of error
 
@@ -114,7 +115,10 @@ Logs:
 
 ### Gossip flow out
 
-TODO
+- After validation in `blockValidator()` in the Eth2Processor by `isValidBeaconBlock()` according to spec https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#beacon_block
+- Important: P2P validation is not full verification (state transition and internal cryptographic signatures were not checked)
+- We jump into libp2p/protocols/pubsub/pubsub.nim in the method `validate(PubSub, message)`
+- which was called by `rpcHandler(GossipSub, PubSubPeer, RPCMsg)`
 
 ### Eth2 RPC in
 
