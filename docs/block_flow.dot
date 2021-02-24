@@ -1,9 +1,12 @@
 digraph architecture{
-  node [shape = invhouse]; Eth2RPC GossipSub;
+  node [shape = invhouse]; Eth2RPC GossipSub WeakSubjectivitySync;
   node [shape = octagon]; SyncManager SyncProtocol RequestManager;
   SyncManager [label="SyncManager (Sync in)"];
   node [shape = doubleoctagon] SharedBlockQueue;
   {rank = same; SyncManager RequestManager;}
+  {rank = same; Eth2RPC GossipSub WeakSubjectivitySync;}
+
+  WeakSubjectivitySync [label="WeakSubjectivitySync (impl TBD)"];
 
   node [shape = octagon]; Eth2Processor RequestManager;
   node [shape = octagon]; ChainDAG Quarantine Clearance;
@@ -21,14 +24,14 @@ digraph architecture{
   Eth2Processor -> SharedBlockQueue [dir=both, label="Eth2Processor.blocksQueue\n== RequestManager.outQueue (shared state!)"];
   SharedBlockQueue -> RequestManager [dir=both, label="SyncManager.outQueue\n== RequestManager.outQueue (shared state!)"];
 
-  LocalBlockProposer -> Clearance
+  LocalValidatorDuties -> Clearance
 
   RequestManager -> Quarantine [dir=back, label="Retrieve missing ancestors"]
   Clearance -> Quarantine
   Clearance -> ChainDAG
 
   Eth2Processor -> ForkChoice
-  LocalBlockProposer -> ForkChoice
+  LocalValidatorDuties -> ForkChoice
 
   node [shape = cylinder]; BeaconChainDB;
   ChainDAG -> BeaconChainDB [dir=both]

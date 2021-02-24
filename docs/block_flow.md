@@ -144,6 +144,10 @@ The RequestManager runs an event loop:
 - and calls `validate(RequestManager, SignedBeaconBlock)` on each block retrieved one-by-one
 - `validate` only enqueues the block in the `AsyncQueue[BlockEntry]` but does no extra validation only the GossipSub case
 
+### Weak subjectivity sync
+
+Not implemented!
+
 ### Consuming the shared block queue
 
 The SharedBlockQueue is consumed by the Eth2Processor via `runQueueProcessingLoop(Eth2Processor)`
