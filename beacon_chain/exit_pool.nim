@@ -139,7 +139,7 @@ func getVoluntaryExitsForBlock*(pool: var ExitPool):
   getExitMessagesForBlock[SignedVoluntaryExit](
     pool.voluntary_exits, pool, MAX_VOLUNTARY_EXITS)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#attester_slashing
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
     pool: var ExitPool, attester_slashing: AttesterSlashing):
     Result[bool, (ValidationResult, cstring)] =
@@ -176,7 +176,7 @@ proc validateAttesterSlashing*(
 
   ok(true)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#proposer_slashing
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#proposer_slashing
 proc validateProposerSlashing*(
     pool: var ExitPool, proposer_slashing: ProposerSlashing):
     Result[bool, (ValidationResult, cstring)] =
@@ -207,7 +207,7 @@ proc validateProposerSlashing*(
 
   ok(true)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#voluntary_exit
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#voluntary_exit
 proc validateVoluntaryExit*(
     pool: var ExitPool, signed_voluntary_exit: SignedVoluntaryExit):
     Result[void, (ValidationResult, cstring)] =

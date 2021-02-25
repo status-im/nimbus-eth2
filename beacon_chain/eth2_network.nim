@@ -164,7 +164,7 @@ type
   MounterProc* = proc(network: Eth2Node) {.gcsafe.}
   MessageContentPrinter* = proc(msg: pointer): string {.gcsafe.}
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#goodbye
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#goodbye
   DisconnectionReason* = enum
     # might see other values on the wire!
     ClientShutDown = 1
@@ -1489,7 +1489,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
     return KeyPair(seckey: privKey, pubkey: privkey.getKey().tryGet())
 
 func gossipId(data: openArray[byte], valid: bool): seq[byte] =
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#topics-and-messages
   const
     MESSAGE_DOMAIN_INVALID_SNAPPY = [0x00'u8, 0x00, 0x00, 0x00]
     MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]

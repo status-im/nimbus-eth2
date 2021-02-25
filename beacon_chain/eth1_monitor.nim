@@ -274,17 +274,17 @@ template toGaugeValue(x: Quantity): int64 =
 #  doAssert SECONDS_PER_ETH1_BLOCK * preset.ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
 #             "Invalid configuration: GENESIS_DELAY is set too low"
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#get_eth1_data
 func compute_time_at_slot(state: BeaconState, slot: Slot): uint64 =
   state.genesis_time + slot * SECONDS_PER_SLOT
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#get_eth1_data
 func voting_period_start_time*(state: BeaconState): uint64 =
   let eth1_voting_period_start_slot =
     state.slot - state.slot mod SLOTS_PER_ETH1_VOTING_PERIOD.uint64
   compute_time_at_slot(state, eth1_voting_period_start_slot)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#get_eth1_data
 func is_candidate_block(preset: RuntimePreset,
                         blk: Eth1Block,
                         period_start: uint64): bool =
@@ -652,7 +652,7 @@ template trackFinalizedState*(m: Eth1Monitor,
                               finalizedStateDepositIndex: uint64): bool =
   trackFinalizedState(m.eth1Chain, finalizedEth1Data, finalizedStateDepositIndex)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#get_eth1_data
 proc getBlockProposalData*(chain: var Eth1Chain,
                            state: BeaconState,
                            finalizedEth1Data: Eth1Data,
