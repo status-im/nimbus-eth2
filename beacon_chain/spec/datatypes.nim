@@ -852,6 +852,12 @@ template lenu64*(x: untyped): untyped =
 func `$`*(v: ForkDigest | Version): string =
   toHex(array[4, byte](v))
 
+func toGaugeValue*(x: uint64|Epoch|Slot): int64 =
+  if x > uint64(int64.high):
+    int64.high
+  else:
+    int64(x)
+
 # TODO where's borrow support when you need it
 func `==`*(a, b: ForkDigest | Version): bool =
   array[4, byte](a) == array[4, byte](b)

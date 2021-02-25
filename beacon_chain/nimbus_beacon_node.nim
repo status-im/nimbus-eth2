@@ -963,10 +963,12 @@ proc onSlotStart(
   # Check before any re-scheduling of onSlotStart()
   checkIfShouldStopAtEpoch(wallSlot, node.config.stopAtEpoch)
 
-  beacon_slot.set wallSlot.int64
-  beacon_current_epoch.set wallSlot.epoch.int64
+  beacon_slot.set wallSlot.toGaugeValue
+  beacon_current_epoch.set wallSlot.epoch.toGaugeValue
 
-  finalization_delay.set wallSlot.epoch.int64 - finalizedEpoch.int64
+  # both non-negative, so difference can't overflow or underflow int64
+  finalization_delay.set(
+    wallSlot.epoch.toGaugeValue - finalizedEpoch.toGaugeValue)
 
   if node.config.verifyFinalization:
     verifyFinalization(node, wallSlot)
