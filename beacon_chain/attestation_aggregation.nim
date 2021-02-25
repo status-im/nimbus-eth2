@@ -18,7 +18,7 @@ import
 logScope:
   topics = "att_aggr"
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#aggregation-selection
 func is_aggregator*(committee_len: uint64, slot_signature: ValidatorSig): bool =
   let
     modulo = max(1'u64, committee_len div TARGET_AGGREGATORS_PER_COMMITTEE)
@@ -39,7 +39,7 @@ proc aggregate_attestations*(
 
   # TODO for testing purposes, refactor this into the condition check
   # and just calculation
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#aggregation-selection
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#aggregation-selection
   if not is_aggregator(epochRef, slot, index, slot_signature):
     return none(AggregateAndProof)
 
@@ -47,8 +47,8 @@ proc aggregate_attestations*(
   if maybe_slot_attestation.isNone:
     return none(AggregateAndProof)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#construct-aggregate
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#aggregateandproof
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#construct-aggregate
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#aggregateandproof
   some(AggregateAndProof(
     aggregator_index: validatorIndex.uint64,
     aggregate: maybe_slot_attestation.get,
@@ -88,7 +88,7 @@ func check_propagation_slot_range(
   let
     pastSlot = (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#configuration
   # The spec value of ATTESTATION_PROPAGATION_SLOT_RANGE is 32, but it can
   # retransmit attestations on the cusp of being out of spec, and which by
   # the time they reach their destination might be out of spec.
@@ -158,7 +158,7 @@ func check_attestation_subnet(
 
   ok()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 proc validateAttestation*(
     pool: var AttestationPool,
     attestation: Attestation, wallTime: BeaconTime,
@@ -295,7 +295,7 @@ proc validateAttestation*(
 
   ok(attesting_indices)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAggregate*(
     pool: var AttestationPool,
     signedAggregateAndProof: SignedAggregateAndProof, wallTime: BeaconTime):

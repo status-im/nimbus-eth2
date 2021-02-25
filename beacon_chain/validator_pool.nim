@@ -58,7 +58,7 @@ proc signWithRemoteValidator(v: AttachedValidator, data: Eth2Digest):
   #      replaced by something more sensible
   await sleepAsync(chronos.milliseconds(1))
 
-# TODO: Honest validator - https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md
+# TODO: Honest validator - https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md
 proc signBlockProposal*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,
                         blockRoot: Eth2Digest): Future[ValidatorSig] {.async.} =
@@ -105,7 +105,7 @@ proc signAggregateAndProof*(v: AttachedValidator,
       fork, genesis_validators_root, aggregate_and_proof)
     result = await signWithRemoteValidator(v, root)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#randao-reveal
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#randao-reveal
 func genRandaoReveal*(k: ValidatorPrivKey, fork: Fork,
     genesis_validators_root: Eth2Digest, slot: Slot): ValidatorSig =
   get_epoch_signature(
