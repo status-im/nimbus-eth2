@@ -72,13 +72,42 @@ type
     exitPool: ref ExitPool
     validatorPool: ref ValidatorPool
     quarantine*: QuarantineRef
-    blockReceivedDuringSlot*: Future[void]
+    expectedSlot: Slot
+    expectedBlockReceived: Future[void]
 
     blocksQueue*: AsyncQueue[BlockEntry]
     attestationsQueue*: AsyncQueue[AttestationEntry]
     aggregatesQueue*: AsyncQueue[AggregateEntry]
 
     doppelgangerDetection*: DoppelgangerProtection
+
+proc checkExpectedBlock(self: var Eth2Processor) =
+  if self.expectedBlockReceived == nil:
+    return
+
+  if self.chainDag.head.slot < self.expectedSlot:
+    return
+
+  self.expectedBlockReceived.complete()
+  self.expectedBlockReceived = nil # Don't keep completed futures around!
+
+proc expectBlock*(self: var Eth2Processor, expectedSlot: Slot): Future[void] =
+  ## Return a future that will complete when a head is selected whose slot is
+  ## equal or greater than the given slot, or a new expectation is created
+  if self.expectedBlockReceived != nil:
+    # Reset the old future to not leave it hanging.. an alternative would be to
+    # cancel it, but it doesn't make any practical difference for now
+    self.expectedBlockReceived.complete()
+
+  let fut = newFuture[void]("Eth2Processor.expectBlock")
+  self.expectedSlot = expectedSlot
+  self.expectedBlockReceived = fut
+
+  # It might happen that by the time we're expecting a block, it might have
+  # already been processed!
+  self.checkExpectedBlock()
+
+  return fut
 
 proc updateHead*(self: var Eth2Processor, wallSlot: Slot) =
   ## Trigger fork choice and returns the new head block.
@@ -100,6 +129,8 @@ proc updateHead*(self: var Eth2Processor, wallSlot: Slot) =
   # Cleanup the fork choice v2 if we have a finalized head
   if oldFinalized != self.chainDag.finalizedHead.blck:
     self.attestationPool[].prune()
+
+  self.checkExpectedBlock()
 
 proc dumpBlock[T](
     self: Eth2Processor, signedBlock: SignedBeaconBlock,
@@ -146,10 +177,6 @@ proc storeBlock(
     # Callback add to fork choice if valid
     attestationPool[].addForkChoice(
       epochRef, blckRef, trustedBlock.message, wallSlot)
-
-  # Trigger attestation sending
-  if blck.isOk and not self.blockReceivedDuringSlot.finished:
-    self.blockReceivedDuringSlot.complete()
 
   self.dumpBlock(signedBlock, blck)
 
@@ -561,7 +588,6 @@ proc new*(T: type Eth2Processor,
     exitPool: exitPool,
     validatorPool: validatorPool,
     quarantine: quarantine,
-    blockReceivedDuringSlot: newFuture[void](),
     blocksQueue: newAsyncQueue[BlockEntry](1),
     # limit to the max number of aggregates we expect to see in one slot
     aggregatesQueue: newAsyncQueue[AggregateEntry](

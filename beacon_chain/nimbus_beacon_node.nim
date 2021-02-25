@@ -930,29 +930,27 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   node.updateGossipStatus(slot)
 
-proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
+proc onSlotStart(
+    node: BeaconNode, wallTime: BeaconTime, lastSlot: Slot) {.async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
   ## skip a few in case we're running late.
+  ## wallTime: current system time - we will strive to perform all duties up
+  ##           to this point in time
   ## lastSlot: the last slot that we successfully processed, so we know where to
-  ##           start work from
-  ## scheduledSlot: the slot that we were aiming for, in terms of timing
+  ##           start work from - there might be jumps if processing is delayed
   let
     # The slot we should be at, according to the clock
-    beaconTime = node.beaconClock.now()
-    wallSlot = beaconTime.toSlot()
+    wallSlot = wallTime.slotOrZero
+    # If everything was working perfectly, the slot that we should be processing
+    expectedSlot = lastSlot + 1
     finalizedEpoch =
       node.chainDag.finalizedHead.blck.slot.compute_epoch_at_slot()
-
-  if not node.processor[].blockReceivedDuringSlot.finished:
-    node.processor[].blockReceivedDuringSlot.complete()
-  node.processor[].blockReceivedDuringSlot = newFuture[void]()
-
-  let delay = beaconTime - scheduledSlot.toBeaconTime()
+    delay = wallTime - expectedSlot.toBeaconTime()
 
   info "Slot start",
     lastSlot = shortLog(lastSlot),
-    scheduledSlot = shortLog(scheduledSlot),
-    delay,
+    wallSlot = shortLog(wallSlot),
+    delay = shortLog(delay),
     peers = len(node.network.peerPool),
     head = shortLog(node.chainDag.head),
     headEpoch = shortLog(node.chainDag.head.slot.compute_epoch_at_slot()),
@@ -963,87 +961,91 @@ proc onSlotStart(node: BeaconNode, lastSlot, scheduledSlot: Slot) {.async.} =
       else: "synced"
 
   # Check before any re-scheduling of onSlotStart()
-  checkIfShouldStopAtEpoch(scheduledSlot, node.config.stopAtEpoch)
+  checkIfShouldStopAtEpoch(wallSlot, node.config.stopAtEpoch)
 
-  if not wallSlot.afterGenesis or (wallSlot.slot < lastSlot):
-    let
-      slot =
-        if wallSlot.afterGenesis: wallSlot.slot
-        else: GENESIS_SLOT
-      nextSlot = slot + 1 # At least GENESIS_SLOT + 1!
+  beacon_slot.set wallSlot.int64
+  beacon_current_epoch.set wallSlot.epoch.int64
 
-    # This can happen if the system clock changes time for example, and it's
-    # pretty bad
-    # TODO shut down? time either was or is bad, and PoS relies on accuracy..
-    warn "Beacon clock time moved back, rescheduling slot actions",
-      beaconTime = shortLog(beaconTime),
-      lastSlot = shortLog(lastSlot),
-      scheduledSlot = shortLog(scheduledSlot),
-      nextSlot = shortLog(nextSlot)
-
-    addTimer(saturate(node.beaconClock.fromNow(nextSlot))) do (p: pointer):
-      asyncCheck node.onSlotStart(slot, nextSlot)
-
-    return
-
-  let
-    slot = wallSlot.slot # afterGenesis == true!
-    nextSlot = slot + 1
-
-  defer: await onSlotEnd(node, slot)
-
-  beacon_slot.set slot.int64
-  beacon_current_epoch.set slot.epoch.int64
-
-  finalization_delay.set scheduledSlot.epoch.int64 - finalizedEpoch.int64
+  finalization_delay.set wallSlot.epoch.int64 - finalizedEpoch.int64
 
   if node.config.verifyFinalization:
-    verifyFinalization(node, scheduledSlot)
+    verifyFinalization(node, wallSlot)
 
-  if slot > lastSlot + SLOTS_PER_EPOCH:
-    # We've fallen behind more than an epoch - there's nothing clever we can
-    # do here really, except skip all the work and try again later.
-    # TODO how long should the period be? Using an epoch because that's roughly
-    #      how long attestations remain interesting
-    # TODO should we shut down instead? clearly we're unable to keep up
-    warn "Unable to keep up, skipping ahead",
-      lastSlot = shortLog(lastSlot),
-      slot = shortLog(slot),
-      nextSlot = shortLog(nextSlot),
-      scheduledSlot = shortLog(scheduledSlot)
+  node.processor[].updateHead(wallSlot)
 
-    addTimer(saturate(node.beaconClock.fromNow(nextSlot))) do (p: pointer):
-      # We pass the current slot here to indicate that work should be skipped!
-      asyncCheck node.onSlotStart(slot, nextSlot)
-    return
+  await node.handleValidatorDuties(lastSlot, wallSlot)
 
-  # Whatever we do during the slot, we need to know the head, because this will
-  # give us a state to work with and thus a shuffling.
-  # TODO if the head is very old, that is indicative of something being very
-  #      wrong - us being out of sync or disconnected from the network - need
-  #      to consider what to do in that case:
-  #      * nothing - the other parts of the application will reconnect and
-  #                  start listening to broadcasts, learn a new head etc..
-  #                  risky, because the network might stall if everyone does
-  #                  this, because no blocks will be produced
-  #      * shut down - this allows the user to notice and take action, but is
-  #                    kind of harsh
-  #      * keep going - we create blocks and attestations as usual and send them
-  #                     out - if network conditions improve, fork choice should
-  #                     eventually select the correct head and the rest will
-  #                     disappear naturally - risky because user is not aware,
-  #                     and might lose stake on canonical chain but "just works"
-  #                     when reconnected..
-  node.processor[].updateHead(slot)
+  await onSlotEnd(node, wallSlot)
 
-  # Time passes in here..
-  await node.handleValidatorDuties(lastSlot, slot)
+proc runSlotLoop(node: BeaconNode, startTime: BeaconTime) {.async.} =
+  var
+    curSlot = startTime.slotOrZero()
+    nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
+    timeToNextSlot = nextSlot.toBeaconTime() - startTime
 
-  let
-    nextSlotStart = saturate(node.beaconClock.fromNow(nextSlot))
+  info "Scheduling first slot action",
+    startTime = shortLog(startTime),
+    nextSlot = shortLog(nextSlot),
+    timeToNextSlot = shortLog(timeToNextSlot)
 
-  addTimer(nextSlotStart) do (p: pointer):
-    asyncCheck node.onSlotStart(slot, nextSlot)
+  while true:
+    # Start by waiting for the time when the slot starts. Sleeping relinquishes
+    # control to other tasks which may or may not finish within the alotted
+    # time, so below, we need to be wary that the ship might have sailed
+    # already.
+    await sleepAsync(timeToNextSlot)
+
+    let
+      wallTime = node.beaconClock.now()
+      wallSlot = wallTime.slotOrZero() # Always > GENESIS!
+
+    if wallSlot < nextSlot:
+      # While we were sleeping, the system clock changed and time moved
+      # backwards!
+      if wallSlot + 1 < nextSlot:
+        # This is a critical condition where it's hard to reason about what
+        # to do next - we'll call the attention of the user here by shutting
+        # down.
+        fatal "System time adjusted backwards significantly - clock may be inaccurate - shutting down",
+          nextSlot = shortLog(nextSlot),
+          wallSlot = shortLog(wallSlot)
+        bnStatus = BeaconNodeStatus.Stopping
+        return
+
+      # Time moved back by a single slot - this could be a minor adjustment,
+      # for example when NTP does its thing after not working for a while
+      warn "System time adjusted backwards, rescheduling slot actions",
+        wallTime = shortLog(wallTime),
+        nextSlot = shortLog(nextSlot),
+        wallSlot = shortLog(wallSlot)
+
+      # cur & next slot remain the same
+      timeToNextSlot = nextSlot.toBeaconTime() - wallTime
+      continue
+
+    if wallSlot > nextSlot + SLOTS_PER_EPOCH:
+      # Time moved forwards by more than an epoch - either the clock was reset
+      # or we've been stuck in processing for a long time - either way, we will
+      # skip ahead so that we only process the events of the last
+      # SLOTS_PER_EPOCH slots
+      warn "Time moved forwards by more than an epoch, skipping ahead",
+        curSlot = shortLog(curSlot),
+        nextSlot = shortLog(nextSlot),
+        wallSlot = shortLog(wallSlot)
+
+      curSlot = wallSlot - SLOTS_PER_EPOCH
+
+    elif wallSlot > nextSlot:
+        notice "Missed expected slot start, catching up",
+          delay = shortLog(wallTime - nextSlot.toBeaconTime()),
+          curSlot = shortLog(curSlot),
+          nextSlot = shortLog(curSlot)
+
+    await onSlotStart(node, wallTime, curSlot)
+
+    curSlot = wallSlot
+    nextSlot = wallSlot + 1
+    timeToNextSlot = saturate(node.beaconClock.fromNow(nextSlot))
 
 proc handleMissingBlocks(node: BeaconNode) =
   let missingBlocks = node.quarantine.checkMissing()
@@ -1179,27 +1181,16 @@ proc run*(node: BeaconNode) =
 
     node.installMessageValidators()
 
-    let
-      curSlot = node.beaconClock.now().slotOrZero()
-      nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
-      fromNow = saturate(node.beaconClock.fromNow(nextSlot))
-
-    info "Scheduling first slot action",
-      beaconTime = shortLog(node.beaconClock.now()),
-      nextSlot = shortLog(nextSlot),
-      fromNow = shortLog(fromNow)
-
-    addTimer(fromNow) do (p: pointer):
-      asyncCheck node.onSlotStart(curSlot, nextSlot)
-
-    node.onSecondLoop = runOnSecondLoop(node)
-    node.blockProcessingLoop = node.processor.runQueueProcessingLoop()
+    let startTime = node.beaconClock.now()
+    asyncSpawn runSlotLoop(node, startTime)
+    asyncSpawn runOnSecondLoop(node)
+    asyncSpawn runQueueProcessingLoop(node.processor)
 
     node.requestManager.start()
     node.startSyncManager()
 
-    if not node.beaconClock.now().toSlot().afterGenesis:
-      node.setupDoppelgangerDetection(curSlot)
+    if not startTime.toSlot().afterGenesis:
+      node.setupDoppelgangerDetection(startTime.slotOrZero())
       node.addMessageHandlers()
       doAssert node.getTopicSubscriptionEnabled()
 

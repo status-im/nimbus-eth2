@@ -51,8 +51,6 @@ type
     syncManager*: SyncManager[Peer, PeerID]
     topicBeaconBlocks*: string
     topicAggregateAndProofs*: string
-    blockProcessingLoop*: Future[void]
-    onSecondLoop*: Future[void]
     genesisSnapshotContent*: string
     attestationSubnets*: AttestationSubnets
     processor*: ref Eth2Processor
