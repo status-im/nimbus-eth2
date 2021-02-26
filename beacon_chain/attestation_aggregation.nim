@@ -54,7 +54,7 @@ proc aggregate_attestations*(
     aggregate: maybe_slot_attestation.get,
     selection_proof: slot_signature))
 
-func check_attestation_block_slot(
+func check_attestation_block(
     pool: AttestationPool, attestationSlot: Slot, attestationBlck: BlockRef):
     Result[void, (ValidationResult, cstring)] =
   # If we allow voting for very old blocks, the state transaction below will go
@@ -108,15 +108,41 @@ func check_attestation_beacon_block(
   # validation.
   # We rely on the chain DAG to have been validated, so check for the existence
   # of the block in the pool.
-  let attestationBlck = pool.chainDag.getRef(attestation.data.beacon_block_root)
-  if attestationBlck.isNil:
+  let blck = pool.chainDag.getRef(attestation.data.beacon_block_root)
+  if blck.isNil:
     pool.quarantine.addMissing(attestation.data.beacon_block_root)
     return err((ValidationResult.Ignore, cstring("Attestation block unknown")))
 
   # Not in spec - check that rewinding to the state is sane
-  ? check_attestation_block_slot(pool, attestation.data.slot, attestationBlck)
+  ? check_attestation_block(pool, attestation.data.slot, blck)
+
+  # [REJECT] The attestation's target block is an ancestor of the block named
+  # in the LMD vote -- i.e. get_ancestor(store,
+  # attestation.data.beacon_block_root,
+  # compute_start_slot_at_epoch(attestation.data.target.epoch)) ==
+  # attestation.data.target.root
+  if not (get_ancestor(blck,
+      compute_start_slot_at_epoch(attestation.data.target.epoch),
+      SLOTS_PER_EPOCH.int).root ==
+      attestation.data.target.root):
+    return err((ValidationResult.Reject, cstring(
+      "attestation's target block not an ancestor of LMD vote block")))
 
   ok()
+
+func check_attestation_target_block(
+    pool: var AttestationPool, attestation: Attestation):
+    Result[BlockRef, (ValidationResult, cstring)] =
+  let blck = pool.chainDag.getRef(attestation.data.target.root)
+  if blck.isNil:
+    pool.quarantine.addMissing(attestation.data.target.root)
+    return err((ValidationResult.Ignore, cstring(
+      "Attestation target block unknown")))
+
+  # Not in spec - check that rewinding to the state is sane
+  ? check_attestation_block(pool, attestation.data.slot, blck)
+
+  ok(blck)
 
 func check_aggregation_count(
     attestation: Attestation, singular: bool):
@@ -164,6 +190,11 @@ proc validateAttestation*(
     attestation: Attestation, wallTime: BeaconTime,
     topicCommitteeIndex: uint64, checksExpensive: bool):
     Result[seq[ValidatorIndex], (ValidationResult, cstring)] =
+  # Some of the checks below have been reordered compared to the spec, to
+  # perform the cheap checks first - in particular, we want to avoid loading
+  # an `EpochRef` and checking signatures. This reordering might lead to
+  # different IGNORE/REJECT results in turn affecting gossip scores.
+
   # [REJECT] The attestation's epoch matches its target -- i.e.
   # attestation.data.target.epoch ==
   # compute_epoch_at_slot(attestation.data.slot)
@@ -184,11 +215,12 @@ proc validateAttestation*(
   # if bit == 0b1]) == 1).
   ? check_aggregation_count(attestation, singular = true) # [REJECT]
 
-  let tgtBlck = pool.chainDag.getRef(attestation.data.target.root)
-  if tgtBlck.isNil:
-    pool.quarantine.addMissing(attestation.data.target.root)
-    return err((ValidationResult.Ignore, cstring(
-      "Attestation target block unknown")))
+  # The block being voted for (attestation.data.beacon_block_root) has been seen
+  # (via both gossip and non-gossip sources) (a client MAY queue aggregates for
+  # processing once block is retrieved).
+  # The block being voted for (attestation.data.beacon_block_root) passes
+  # validation.
+  ? check_attestation_beacon_block(pool, attestation) # [IGNORE/REJECT]
 
   # The following rule follows implicitly from that we clear out any
   # unviable blocks from the chain dag:
@@ -198,9 +230,9 @@ proc validateAttestation*(
   # attestation.data.beacon_block_root,
   # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
   # store.finalized_checkpoint.root
-
-  let epochRef = pool.chainDag.getEpochRef(
-    tgtBlck, attestation.data.target.epoch)
+  let
+    target = ? check_attestation_target_block(pool, attestation)
+    epochRef = pool.chainDag.getEpochRef(target, attestation.data.target.epoch)
 
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
@@ -227,13 +259,6 @@ proc validateAttestation*(
       epochRef, attestation.data.slot, attestation.data.index.CommitteeIndex)):
     return err((ValidationResult.Reject, cstring(
       "validateAttestation: number of aggregation bits and committee size mismatch")))
-
-  # The block being voted for (attestation.data.beacon_block_root) has been seen
-  # (via both gossip and non-gossip sources) (a client MAY queue aggregates for
-  # processing once block is retrieved).
-  # The block being voted for (attestation.data.beacon_block_root) passes
-  # validation.
-  ? check_attestation_beacon_block(pool, attestation) # [IGNORE/REJECT]
 
   let
     fork = pool.chainDag.headState.data.data.fork
@@ -269,23 +294,6 @@ proc validateAttestation*(
     if v.isErr():
       return err((ValidationResult.Reject, v.error))
 
-  # [REJECT] The attestation's target block is an ancestor of the block named
-  # in the LMD vote -- i.e. get_ancestor(store,
-  # attestation.data.beacon_block_root,
-  # compute_start_slot_at_epoch(attestation.data.target.epoch)) ==
-  # attestation.data.target.root
-  let attestationBlck = pool.chainDag.getRef(attestation.data.beacon_block_root)
-
-  # already checked in check_attestation_beacon_block()
-  doAssert not attestationBlck.isNil
-
-  if not (get_ancestor(attestationBlck,
-      compute_start_slot_at_epoch(attestation.data.target.epoch),
-      SLOTS_PER_EPOCH.int).root ==
-      attestation.data.target.root):
-    return err((ValidationResult.Reject, cstring(
-      "validateAttestation: attestation's target block not an ancestor of LMD vote block")))
-
   # Only valid attestations go in the list, which keeps validator_index
   # in range
   if not (pool.nextAttestationEpoch.lenu64 > validator_index.uint64):
@@ -300,15 +308,13 @@ proc validateAggregate*(
     pool: var AttestationPool,
     signedAggregateAndProof: SignedAggregateAndProof, wallTime: BeaconTime):
     Result[seq[ValidatorIndex], (ValidationResult, cstring)] =
-  let
-    aggregate_and_proof = signedAggregateAndProof.message
-    aggregate = aggregate_and_proof.aggregate
+  # Some of the checks below have been reordered compared to the spec, to
+  # perform the cheap checks first - in particular, we want to avoid loading
+  # an `EpochRef` and checking signatures. This reordering might lead to
+  # different IGNORE/REJECT results in turn affecting gossip scores.
 
-  # [IGNORE] aggregate.data.slot is within the last
-  # ATTESTATION_PROPAGATION_SLOT_RANGE slots (with a
-  # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. aggregate.data.slot +
-  # ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= aggregate.data.slot
-  ? check_propagation_slot_range(aggregate.data, wallTime) # [IGNORE]
+  template aggregate_and_proof: untyped = signedAggregateAndProof.message
+  template aggregate: untyped = aggregate_and_proof.aggregate
 
   # [REJECT] The aggregate attestation's epoch matches its target -- i.e.
   # `aggregate.data.target.epoch == compute_epoch_at_slot(aggregate.data.slot)`
@@ -316,6 +322,12 @@ proc validateAggregate*(
     let v = check_attestation_slot_target(aggregate.data)
     if v.isErr():
       return err((ValidationResult.Reject, v.error))
+
+  # [IGNORE] aggregate.data.slot is within the last
+  # ATTESTATION_PROPAGATION_SLOT_RANGE slots (with a
+  # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. aggregate.data.slot +
+  # ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= aggregate.data.slot
+  ? check_propagation_slot_range(aggregate.data, wallTime) # [IGNORE]
 
   # [IGNORE] The valid aggregate attestation defined by
   # hash_tree_root(aggregate) has not already been seen (via aggregate gossip,
@@ -360,13 +372,9 @@ proc validateAggregate*(
   # [REJECT] aggregate_and_proof.selection_proof selects the validator as an
   # aggregator for the slot -- i.e. is_aggregator(state, aggregate.data.slot,
   # aggregate.data.index, aggregate_and_proof.selection_proof) returns True.
-  let tgtBlck = pool.chainDag.getRef(aggregate.data.target.root)
-  if tgtBlck.isNil:
-    pool.quarantine.addMissing(aggregate.data.target.root)
-    return err((ValidationResult.Ignore, cstring(
-      "Aggregate target block unknown")))
-
-  let epochRef = pool.chainDag.getEpochRef(tgtBlck, aggregate.data.target.epoch)
+  let
+    target = ? check_attestation_target_block(pool, aggregate)
+    epochRef = pool.chainDag.getEpochRef(target, aggregate.data.target.epoch)
 
   if not is_aggregator(
       epochRef, aggregate.data.slot, aggregate.data.index.CommitteeIndex,

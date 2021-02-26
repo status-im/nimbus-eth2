@@ -14,6 +14,8 @@ import
   eth/db/[kvstore, kvstore_sqlite3],
   testblockutil
 
+export beacon_chain_db
+
 type
   TestDuration = tuple[duration: float, label: string]
 

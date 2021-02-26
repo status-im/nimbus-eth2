@@ -216,7 +216,9 @@ template head*(v: ChainDagRef): BlockRef = v.headState.blck
 
 func shortLog*(v: BlockSlot): string =
   try:
-    if v.blck.slot == v.slot:
+    if v.blck == nil:
+      &"nil:0@{v.slot}"
+    elif v.blck.slot == v.slot:
       &"{v.blck.root.data.toOpenArray(0, 3).toHex()}:{v.blck.slot}"
     else: # There was a gap - log it
       &"{v.blck.root.data.toOpenArray(0, 3).toHex()}:{v.blck.slot}@{v.slot}"
