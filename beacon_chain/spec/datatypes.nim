@@ -852,7 +852,7 @@ template lenu64*(x: untyped): untyped =
 func `$`*(v: ForkDigest | Version): string =
   toHex(array[4, byte](v))
 
-func toGaugeValue*(x: uint64|Epoch|Slot): int64 =
+func toGaugeValue*(x: uint64 | Epoch | Slot): int64 =
   if x > uint64(int64.high):
     int64.high
   else:
