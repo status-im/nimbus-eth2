@@ -678,11 +678,12 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
     # Wait either for the block or the attestation cutoff time to arrive
     if await node.processor[].expectBlock(slot).withTimeout(attestationCutoff.offset):
-      # The expected block arrived - according to the spec, we should now wait
-      # for abs(slotTimingEntropy) - in our async loop however, we might have
-      # been doing other processing that caused delays here so we'll cap
-      # the waiting to the time when we would have sent out attestations had
-      # the block not arrived.
+      # The expected block arrived (or expectBlock was called again which
+      # shouldn't happen as this is the only place we use it) - according to the
+      # spec, we should now wait for abs(slotTimingEntropy) - in our async loop
+      # however, we might have been doing other processing that caused delays
+      # here so we'll cap the waiting to the time when we would have sent out
+      # attestations had the block not arrived.
       # An opposite case is that we received (or produced) a block that has
       # not yet reached our neighbours. To protect against our attestations
       # being dropped (because the others have not yet seen the block), we'll

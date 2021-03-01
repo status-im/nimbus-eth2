@@ -73,7 +73,7 @@ type
     validatorPool: ref ValidatorPool
     quarantine*: QuarantineRef
     expectedSlot: Slot
-    expectedBlockReceived: Future[void]
+    expectedBlockReceived: Future[bool]
 
     blocksQueue*: AsyncQueue[BlockEntry]
     attestationsQueue*: AsyncQueue[AttestationEntry]
@@ -88,18 +88,18 @@ proc checkExpectedBlock(self: var Eth2Processor) =
   if self.chainDag.head.slot < self.expectedSlot:
     return
 
-  self.expectedBlockReceived.complete()
+  self.expectedBlockReceived.complete(true)
   self.expectedBlockReceived = nil # Don't keep completed futures around!
 
-proc expectBlock*(self: var Eth2Processor, expectedSlot: Slot): Future[void] =
+proc expectBlock*(self: var Eth2Processor, expectedSlot: Slot): Future[bool] =
   ## Return a future that will complete when a head is selected whose slot is
   ## equal or greater than the given slot, or a new expectation is created
   if self.expectedBlockReceived != nil:
     # Reset the old future to not leave it hanging.. an alternative would be to
     # cancel it, but it doesn't make any practical difference for now
-    self.expectedBlockReceived.complete()
+    self.expectedBlockReceived.complete(false)
 
-  let fut = newFuture[void]("Eth2Processor.expectBlock")
+  let fut = newFuture[bool]("Eth2Processor.expectBlock")
   self.expectedSlot = expectedSlot
   self.expectedBlockReceived = fut
 
