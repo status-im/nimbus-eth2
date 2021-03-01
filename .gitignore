@@ -43,9 +43,8 @@ build/
 /docker/*.json
 
 # generated during Nim compilation
-beacon_chain/sync_protocol.nim.generated.nim
+*.nim.generated.nim
 
 /dist
 /benchmark_results
 /.update.timestamp
-

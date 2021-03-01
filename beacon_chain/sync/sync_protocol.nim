@@ -1,9 +1,9 @@
 import
   options, tables, sets, macros,
   chronicles, chronos, stew/ranges/bitranges, libp2p/switch,
-  spec/[datatypes, network, crypto, digest],
-  beacon_node_types, eth2_network,
-  block_pools/chain_dag
+  ../spec/[datatypes, network, crypto, digest],
+  ../[beacon_node_types, eth2_network,
+      block_pools/chain_dag]
 
 logScope:
   topics = "sync"

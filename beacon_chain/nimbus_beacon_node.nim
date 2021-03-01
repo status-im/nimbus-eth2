@@ -27,9 +27,10 @@ import
     beacon_node_common, beacon_node_status, beacon_node_types, conf,
     eth1_monitor, eth2_discovery, eth2_network, eth2_processor, exit_pool,
     extras, filepath, interop, keystore_management, network_metadata,
-    nimbus_binary_common, request_manager, ssz/merkleization, statusbar,
-    sync_manager, sync_protocol, time, validator_duties, validator_pool,
-    validator_protection/slashing_protection, version,],
+    nimbus_binary_common, ssz/merkleization, statusbar,
+    time, validator_duties, validator_pool,
+    validator_protection/slashing_protection, version],
+  ./sync/[sync_manager, sync_protocol, request_manager],
   ./rpc/[beacon_api, config_api, debug_api, event_api, nimbus_api, node_api,
     validator_api],
   ./spec/[
