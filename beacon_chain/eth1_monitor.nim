@@ -260,12 +260,6 @@ proc fixupWeb3Urls*(web3Url: var string) =
     web3Url = "ws://" & normalizedUrl.substr(pos)
     warn "Only WebSocket web3 providers are supported. Rewriting URL", web3Url
 
-func toGaugeValue(x: uint64): int64 =
-  if x > uint64(int64.high):
-    int64.high
-  else:
-    int64(x)
-
 template toGaugeValue(x: Quantity): int64 =
   toGaugeValue(distinctBase x)
 

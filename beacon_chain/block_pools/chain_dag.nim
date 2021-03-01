@@ -885,32 +885,32 @@ proc updateHead*(
       finalized = shortLog(dag.headState.data.data.finalized_checkpoint)
 
   # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
-  if dag.headState.data.data.eth1_data.deposit_count < high(int64).uint64:
-    beacon_pending_deposits.set(
-      dag.headState.data.data.eth1_data.deposit_count.int64 -
-      dag.headState.data.data.eth1_deposit_index.int64)
-    beacon_processed_deposits_total.set(
-      dag.headState.data.data.eth1_deposit_index.int64)
+  # both non-negative, so difference can't overflow or underflow int64
+  beacon_pending_deposits.set(
+    dag.headState.data.data.eth1_data.deposit_count.toGaugeValue -
+    dag.headState.data.data.eth1_deposit_index.toGaugeValue)
+  beacon_processed_deposits_total.set(
+    dag.headState.data.data.eth1_deposit_index.toGaugeValue)
 
   beacon_head_root.set newHead.root.toGaugeValue
-  beacon_head_slot.set newHead.slot.int64
+  beacon_head_slot.set newHead.slot.toGaugeValue
 
   if lastHead.slot.epoch != newHead.slot.epoch:
     # Epoch updated - in theory, these could happen when the wall clock
     # changes epoch, even if there is no new block / head, but we'll delay
     # updating them until a block confirms the change
     beacon_current_justified_epoch.set(
-      dag.headState.data.data.current_justified_checkpoint.epoch.int64)
+      dag.headState.data.data.current_justified_checkpoint.epoch.toGaugeValue)
     beacon_current_justified_root.set(
       dag.headState.data.data.current_justified_checkpoint.root.toGaugeValue)
     beacon_previous_justified_epoch.set(
-      dag.headState.data.data.previous_justified_checkpoint.epoch.int64)
+      dag.headState.data.data.previous_justified_checkpoint.epoch.toGaugeValue)
     beacon_previous_justified_root.set(
       dag.headState.data.data.previous_justified_checkpoint.root.toGaugeValue)
 
     let epochRef = getEpochRef(dag, newHead, newHead.slot.epoch)
     beacon_active_validators.set(
-      epochRef.shuffled_active_validator_indices.lenu64().int64)
+      epochRef.shuffled_active_validator_indices.lenu64().toGaugeValue)
 
   if finalizedHead != dag.finalizedHead:
     block: # Remove states, walking slot by slot
@@ -977,7 +977,7 @@ proc updateHead*(
       heads = dag.heads.len
 
     beacon_finalized_epoch.set(
-      dag.headState.data.data.finalized_checkpoint.epoch.int64)
+      dag.headState.data.data.finalized_checkpoint.epoch.toGaugeValue)
     beacon_finalized_root.set(
       dag.headState.data.data.finalized_checkpoint.root.toGaugeValue)
 
