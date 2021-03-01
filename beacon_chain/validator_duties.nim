@@ -280,7 +280,6 @@ proc proposeSignedBlock*(node: BeaconNode,
                          head: BlockRef,
                          validator: AttachedValidator,
                          newBlock: SignedBeaconBlock): BlockRef =
-
   let newBlockRef = node.chainDag.addRawBlock(node.quarantine, newBlock) do (
       blckRef: BlockRef, trustedBlock: TrustedSignedBeaconBlock,
       epochRef: EpochRef, state: HashedBeaconState):
@@ -393,7 +392,6 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     attestationHeadRoot = shortLog(attestationHead.blck.root),
     attestationSlot = shortLog(slot)
 
-  # Collect data to send before node.stateCache grows stale
   var attestations: seq[tuple[
     data: AttestationData, committeeLen, indexInCommittee: int,
     validator: AttachedValidator]]
@@ -661,35 +659,53 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   #   slot_timing_entropy` seconds have elapsed since the start of the `slot`
   #   (using the `slot_timing_entropy` generated for this slot)
 
-  # We've been doing lots of work up until now which took time. Normally, we
-  # send out attestations at the slot thirds-point, so we go back to the clock
-  # to see how much time we need to wait.
-  # TODO the beacon clock might jump here also. It's probably easier to complete
-  #      the work for the whole slot using a monotonic clock instead, then deal
-  #      with any clock discrepancies once only, at the start of slot timer
-  #      processing..
-  let slotTimingEntropy = getSlotTimingEntropy()
+  # Milliseconds to wait from the start of the slot before sending out
+  # attestations - base value
+  const attestationOffset =
+    SECONDS_PER_SLOT.int64 * 1000 div ATTESTATION_PRODUCTION_DIVISOR
 
-  template sleepToSlotOffsetWithHeadUpdate(extra: chronos.Duration, msg: static string) =
-    let waitTime = node.beaconClock.fromNow(slot.toBeaconTime(extra))
-    if waitTime.inFuture:
-      discard await withTimeout(
-        node.processor[].blockReceivedDuringSlot, waitTime.offset)
+  let
+    slotTimingEntropy = getSlotTimingEntropy() # +/- 1s
+    # The latest point in time when we'll be sending out attestations
+    attestationCutoffTime = slot.toBeaconTime(
+      millis(attestationOffset + slotTimingEntropy))
+    attestationCutoff = node.beaconClock.fromNow(attestationCutoffTime)
 
-      # Might have gotten a valid beacon block this slot, which triggers the
-      # first case, in which we wait for another abs(slotTimingEntropy).
-      if node.processor[].blockReceivedDuringSlot.finished:
-        await sleepAsync(
-          milliseconds(max(slotTimingEntropy, 0 - slotTimingEntropy)))
+  if attestationCutoff.inFuture:
+    debug "Waiting to send attestations",
+      head = shortLog(head),
+      attestationCutoff = shortLog(attestationCutoff.offset)
 
-      # Time passed - we might need to select a new head in that case
-      node.processor[].updateHead(slot)
-      head = node.chainDag.head
+    # Wait either for the block or the attestation cutoff time to arrive
+    if await node.processor[].expectBlock(slot).withTimeout(attestationCutoff.offset):
+      # The expected block arrived (or expectBlock was called again which
+      # shouldn't happen as this is the only place we use it) - according to the
+      # spec, we should now wait for abs(slotTimingEntropy) - in our async loop
+      # however, we might have been doing other processing that caused delays
+      # here so we'll cap the waiting to the time when we would have sent out
+      # attestations had the block not arrived.
+      # An opposite case is that we received (or produced) a block that has
+      # not yet reached our neighbours. To protect against our attestations
+      # being dropped (because the others have not yet seen the block), we'll
+      # impose a minimum delay of 250ms. The delay is enforced only when we're
+      # not hitting the "normal" cutoff time for sending out attestations.
 
-  sleepToSlotOffsetWithHeadUpdate(
-    milliseconds(SECONDS_PER_SLOT.int64 * 1000 div ATTESTATION_PRODUCTION_DIVISOR +
-       slotTimingEntropy),
-    "Waiting to send attestations")
+      let
+        afterBlockDelay = max(250, abs(slotTimingEntropy))
+        afterBlockTime = node.beaconClock.now() + millis(afterBlockDelay)
+        afterBlockCutoff = node.beaconClock.fromNow(
+          min(afterBlockTime, attestationCutoffTime))
+
+      if afterBlockCutoff.inFuture:
+        debug "Got block, waiting to send attestations",
+          head = shortLog(head),
+          afterBlockCutoff = shortLog(afterBlockCutoff.offset)
+
+        await sleepAsync(afterBlockCutoff.offset)
+
+    # Time passed - we might need to select a new head in that case
+    node.processor[].updateHead(slot)
+    head = node.chainDag.head
 
   handleAttestations(node, head, slot)
 
@@ -702,9 +718,13 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   # through the slot-that is, SECONDS_PER_SLOT * 2 / 3 seconds after the start
   # of slot.
   if slot > 2:
-    discard await node.beaconClock.sleepToSlotOffset(
-      seconds(int64(SECONDS_PER_SLOT * 2) div 3), slot,
-      "Waiting to aggregate attestations")
+    let
+      aggregateWaitTime = node.beaconClock.fromNow(
+        slot.toBeaconTime(seconds(int64(SECONDS_PER_SLOT * 2) div 3)))
+    if aggregateWaitTime.inFuture:
+      debug "Waiting to send aggregate attestations",
+        aggregateWaitTime = shortLog(aggregateWaitTime.offset)
+      await sleepAsync(aggregateWaitTime.offset)
 
     await broadcastAggregatedAttestations(node, head, slot)
 
