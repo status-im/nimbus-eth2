@@ -15,7 +15,8 @@ import
   ../spec/[
     crypto, datatypes, digest, helpers, validator, state_transition,
     beaconstate],
-  ./block_pools_types, ./quarantine
+  ../time,
+  "."/[block_pools_types, quarantine]
 
 export block_pools_types, helpers
 
@@ -82,7 +83,7 @@ func parent*(bs: BlockSlot): BlockSlot =
 func parentOrSlot*(bs: BlockSlot): BlockSlot =
   ## Return a blockslot representing the previous slot, using the parent block
   ## with the current slot if the current had a block
-  if bs.slot == Slot(0):
+  if bs.blck.isNil():
     BlockSlot(blck: nil, slot: Slot(0))
   elif bs.slot == bs.blck.slot:
     BlockSlot(blck: bs.blck.parent, slot: bs.slot)
@@ -494,16 +495,34 @@ proc getState(
 
   true
 
+func isStateCheckpoint(bs: BlockSlot): bool =
+  ## State checkpoints are the points in time for which we store full state
+  ## snapshots, which later serve as rewind starting points when replaying state
+  ## transitions from database, for example during reorgs.
+  ##
+  # As a policy, we only store epoch boundary states without the epoch block
+  # (if it exists) applied - the rest can be reconstructed by loading an epoch
+  # boundary state and applying the missing blocks.
+  # We also avoid states that were produced with empty slots only - as such,
+  # there is only a checkpoint for the first epoch after a block.
+
+  # The tail block also counts as a state checkpoint!
+  (bs.slot == bs.blck.slot and bs.blck.parent == nil) or
+  (bs.slot.isEpoch and bs.slot.epoch == (bs.blck.slot.epoch + 1))
+
+func stateCheckpoint*(bs: BlockSlot): BlockSlot =
+  ## The first ancestor BlockSlot that is a state checkpoint
+  var bs = bs
+  while not isStateCheckPoint(bs):
+    bs = bs.parentOrSlot
+  bs
+
 proc getState(dag: ChainDAGRef, state: var StateData, bs: BlockSlot): bool =
   ## Load a state from the database given a block and a slot - this will first
   ## lookup the state root in the state root table then load the corresponding
   ## state, if it exists
-  if not bs.slot.isEpoch:
-    return false # We only ever save epoch states - no need to hit database
-
-  # TODO earlier versions would store the epoch state with a the epoch block
-  #      applied - we generally shouldn't hit the database for such states but
-  #      will do so in a transitionary upgrade period!
+  if not bs.isStateCheckpoint():
+    return false # Only state checkpoints are stored - no need to hit DB
 
   if (let stateRoot = dag.db.getStateRoot(bs.blck.root, bs.slot);
       stateRoot.isSome()):
@@ -518,17 +537,7 @@ proc putState*(dag: ChainDAGRef, state: StateData) =
     stateSlot = shortLog(state.data.data.slot)
     stateRoot = shortLog(state.data.root)
 
-  # As a policy, we only store epoch boundary states without the epoch block
-  # (if it exists) applied - the rest can be reconstructed by loading an epoch
-  # boundary state and applying the missing blocks.
-  # We also avoid states that were produced with empty slots only - we should
-  # not call this function for states that don't have a follow-up block
-  if not state.data.data.slot.isEpoch:
-    trace "Not storing non-epoch state"
-    return
-
-  if state.data.data.slot.epoch != (state.blck.slot.epoch + 1):
-    trace "Not storing state that isn't an immediate epoch successor to its block"
+  if not isStateCheckpoint(state.blck.atSlot(state.data.data.slot)):
     return
 
   if dag.db.containsState(state.data.root):
@@ -681,6 +690,8 @@ proc updateStateData*(
   # an earlier state must be loaded since there's no way to undo the slot
   # transitions
 
+  let startTime = Moment.now()
+
   var
     ancestors: seq[BlockRef]
     cur = bs
@@ -785,15 +796,28 @@ proc updateStateData*(
   # ...and make sure to process empty slots as requested
   dag.advanceSlots(state, bs.slot, save, cache)
 
-  trace "State updated",
-    blocks = ancestors.len,
-    slots = state.data.data.slot - startSlot,
-    stateRoot = shortLog(state.data.root),
-    stateSlot = state.data.data.slot,
-    startRoot = shortLog(startRoot),
-    startSlot,
-    blck = shortLog(bs),
+  let diff = Moment.now() - startTime
+
+  logScope:
+    blocks = ancestors.len
+    slots = state.data.data.slot - startSlot
+    stateRoot = shortLog(state.data.root)
+    stateSlot = state.data.data.slot
+    startRoot = shortLog(startRoot)
+    startSlot
+    blck = shortLog(bs)
     found
+    diff = shortLog(diff)
+
+  if diff >= 1.seconds:
+    # This might indicate there's a cache that's not in order or a disk that is
+    # too slow - for now, it's here for investigative purposes and the cutoff
+    # time might need tuning
+    info "State replayed"
+  elif ancestors.len > 0:
+    debug "State replayed"
+  else:
+    trace "State advanced" # Normal case!
 
 proc delState(dag: ChainDAGRef, bs: BlockSlot) =
   # Delete state state and mapping for a particular block+slot
@@ -890,8 +914,14 @@ proc updateHead*(
 
   if finalizedHead != dag.finalizedHead:
     block: # Remove states, walking slot by slot
-      var cur = finalizedHead
-      while cur != dag.finalizedHead:
+      # We remove all state checkpoints that come _before_ the current finalized
+      # head, as we might frequently be asked to replay states from the
+      # finalized checkpoint and onwards (for example when validating blocks and
+      # attestations)
+      var
+        prev = dag.finalizedHead.stateCheckpoint.parentOrSlot
+        cur = finalizedHead.stateCheckpoint.parentOrSlot
+      while cur.blck != nil and cur != prev:
         # TODO This is a quick fix to prune some states from the database, but
         # not all, pending a smarter storage - the downside of pruning these
         # states is that certain rewinds will take longer

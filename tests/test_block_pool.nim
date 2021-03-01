@@ -412,6 +412,14 @@ suiteReport "chain DAG finalization tests" & preset():
       let status = dag.addRawBlock(quarantine, lateBlock, nil)
       check: status.error == (ValidationResult.Ignore, Unviable)
 
+    block:
+      let
+        finalizedCheckpoint = dag.finalizedHead.stateCheckpoint
+        headCheckpoint = dag.head.atSlot(dag.head.slot).stateCheckpoint
+      check:
+        db.getStateRoot(headCheckpoint.blck.root, headCheckpoint.slot).isSome
+        db.getStateRoot(finalizedCheckpoint.blck.root, finalizedCheckpoint.slot).isSome
+
     let
       dag2 = init(ChainDAGRef, defaultRuntimePreset, db)
 
