@@ -2,10 +2,10 @@ import
   std/[os, strutils, terminal, wordwrap, unicode],
   chronicles, chronos, web3, stint, json_serialization, zxcvbn,
   serialization, blscurve, eth/common/eth_types, eth/keys, confutils, bearssl,
-  spec/[datatypes, digest, crypto, keystore],
+  ../spec/[datatypes, digest, crypto, keystore],
   stew/io2, libp2p/crypto/crypto as lcrypto,
   nimcrypto/utils as ncrutils,
-  "."/[conf, ssz/merkleization, network_metadata, filepath]
+  ".."/[conf, ssz/merkleization, network_metadata, filepath]
 
 export
   keystore
@@ -35,7 +35,7 @@ const
 
   mostCommonPasswords = wordListArray(
     currentSourcePath.parentDir /
-      "../vendor/nimbus-security-resources/passwords/10-million-password-list-top-100000.txt",
+      "../../vendor/nimbus-security-resources/passwords/10-million-password-list-top-100000.txt",
     minWordLen = minPasswordLen)
 
 proc echoP*(msg: string) =

@@ -18,16 +18,17 @@ import
   eth/[keys, async_utils], eth/p2p/discoveryv5/[protocol, enr],
 
   # Local modules
-  ./spec/[
+  ../spec/[
     datatypes, digest, crypto, helpers, network, signatures, state_transition,
     validator],
-  ./conf, ./time, ./validator_pool,
-  ./attestation_pool, ./exit_pool,
-  ./block_pools/[spec_cache, chain_dag, clearance],
-  ./eth2_network, ./keystore_management, ./beacon_node_common,
-  ./beacon_node_types, ./nimbus_binary_common, ./eth1_monitor, ./version,
-  ./ssz/merkleization, ./attestation_aggregation, ./sync_manager, ./sszdump,
-  ./validator_protection/slashing_protection
+  ../conf, ../time,
+  ../attestation_pool, ./exit_pool,
+  ../block_pools/[spec_cache, chain_dag, clearance],
+  ../eth2_network, ../beacon_node_common,
+  ../beacon_node_types, ../nimbus_binary_common, ../eth1_monitor, ../version,
+  ../ssz/merkleization, ../attestation_aggregation, ../sync/sync_manager, ../sszdump,
+  ./slashing_protection,
+  ./validator_pool, ./keystore_management
 
 # Metrics for tracking attestation and beacon block loss
 const delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,

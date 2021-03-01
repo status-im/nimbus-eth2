@@ -17,7 +17,7 @@ import
   serialization,
   json_serialization,
   # Internal
-  ../../beacon_chain/validator_protection/[
+  ../../beacon_chain/validators/[
     slashing_protection,
     slashing_protection_v1,
     slashing_protection_v2

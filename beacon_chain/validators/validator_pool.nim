@@ -3,8 +3,9 @@ import
   chronos, chronicles, metrics,
   json_serialization/std/[sets, net],
   eth/db/[kvstore, kvstore_sqlite3],
-  ./spec/[datatypes, crypto, digest, signatures, helpers],
-  ./beacon_node_types, validator_protection/slashing_protection
+  ../spec/[datatypes, crypto, digest, signatures, helpers],
+  ../beacon_node_types,
+  ./slashing_protection
 
 declareGauge validators,
   "Number of validators attached to the beacon node"

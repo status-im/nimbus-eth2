@@ -13,7 +13,7 @@ import
   nimcrypto/utils,
   chronicles,
   # Internal
-  ../../beacon_chain/validator_protection/slashing_protection,
+  ../../beacon_chain/validators/slashing_protection,
   ../../beacon_chain/spec/[datatypes, digest, crypto, presets],
   # Test utilies
   ../testutil,

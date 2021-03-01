@@ -19,7 +19,7 @@ import
   ../spec/eth2_apis/callsigs_types,
   ../block_pools/[chain_dag, spec_cache], ../ssz/merkleization,
   ../beacon_node_common, ../beacon_node_types, ../attestation_pool,
-  ../validator_duties, ../eth2_network,
+  ../validators/validator_duties, ../eth2_network,
   ../eth2_json_rpc_serialization,
   ./rpc_utils
 
