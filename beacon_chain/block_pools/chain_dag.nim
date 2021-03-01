@@ -495,7 +495,7 @@ proc getState(
 
   true
 
-func isStateCheckpoint*(bs: BlockSlot): bool =
+func isStateCheckpoint(bs: BlockSlot): bool =
   ## State checkpoints are the points in time for which we store full state
   ## snapshots, which later serve as rewind starting points when replaying state
   ## transitions from database, for example during reorgs.
