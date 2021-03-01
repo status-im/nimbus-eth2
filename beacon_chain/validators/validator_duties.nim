@@ -22,7 +22,7 @@ import
     datatypes, digest, crypto, helpers, network, signatures, state_transition,
     validator],
   ../conf, ../time,
-  ../attestation_pool, ./exit_pool,
+  ../attestation_pool, ../exit_pool,
   ../block_pools/[spec_cache, chain_dag, clearance],
   ../eth2_network, ../beacon_node_common,
   ../beacon_node_types, ../nimbus_binary_common, ../eth1_monitor, ../version,

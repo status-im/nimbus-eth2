@@ -1,7 +1,7 @@
 import options, sequtils, strutils
 import chronos, chronicles
 import ../spec/[datatypes, digest],
-       ../[eth2_network, beacon_node_types,
+       ".."/[eth2_network, beacon_node_types,
            ssz/merkleization, eth2_processor],
        ./sync_protocol, ./sync_manager
 export sync_manager
