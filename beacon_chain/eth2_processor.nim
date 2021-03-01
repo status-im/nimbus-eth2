@@ -308,6 +308,12 @@ proc checkForPotentialDoppelganger(
     self: var Eth2Processor, attestationData: AttestationData,
     attesterIndices: openArray[ValidatorIndex], wallSlot: Slot) =
   let epoch = wallSlot.epoch
+
+  # Only check for current epoch, not potential attestations bouncing around
+  # from up to several minutes prior.
+  if attestationData.slot.epoch < epoch:
+    return
+
   if epoch < self.doppelgangerDetection.broadcastStartEpoch:
     let tgtBlck = self.chainDag.getRef(attestationData.target.root)
     doAssert not tgtBlck.isNil  # because attestation is valid above
@@ -320,7 +326,8 @@ proc checkForPotentialDoppelganger(
           default(AttachedValidator):
         warn "Duplicate validator detected; would be slashed",
           validatorIndex,
-          validatorPubkey
+          validatorPubkey,
+          attestationSlot = attestationData.slot
         doppelganger_detection_activated.inc()
         if self.config.doppelgangerDetection:
           warn "We believe you are currently running another instance of the same validator. We've disconnected you from the network as this presents a significant slashing risk. Possible next steps are (a) making sure you've disconnected your validator from your old machine before restarting the client; and (b) running the client again with the gossip-slashing-protection option disabled, only if you are absolutely sure this is the only instance of your validator running, and reporting the issue at https://github.com/status-im/nimbus-eth2/issues."
