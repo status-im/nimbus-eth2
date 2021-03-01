@@ -216,7 +216,7 @@ template head*(v: ChainDagRef): BlockRef = v.headState.blck
 
 func shortLog*(v: BlockSlot): string =
   try:
-    if v.blck == nil:
+    if v.blck.isNil():
       &"nil:0@{v.slot}"
     elif v.blck.slot == v.slot:
       &"{v.blck.root.data.toOpenArray(0, 3).toHex()}:{v.blck.slot}"
@@ -227,7 +227,7 @@ func shortLog*(v: BlockSlot): string =
 
 func shortLog*(v: BlockRef): string =
   try:
-    if v == nil:
+    if v.isNil():
       "BlockRef(nil)"
     else:
       &"{v.root.data.toOpenArray(0, 3).toHex()}:{v.slot}"
@@ -236,7 +236,7 @@ func shortLog*(v: BlockRef): string =
 
 func shortLog*(v: EpochRef): string =
   try:
-    if v == nil:
+    if v.isNil():
       "EpochRef(nil)"
     else:
       &"(epoch ref: {v.epoch})"

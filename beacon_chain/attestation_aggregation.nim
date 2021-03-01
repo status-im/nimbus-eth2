@@ -213,6 +213,7 @@ proc validateAttestation*(
   # processing once block is retrieved).
   # The block being voted for (attestation.data.beacon_block_root) passes
   # validation.
+  # [IGNORE] if block is unseen so far and enqueue it in missing blocks
   let target = ? check_beacon_and_target_block(pool, attestation.data) # [IGNORE/REJECT]
 
   # The following rule follows implicitly from that we clear out any
@@ -359,6 +360,7 @@ proc validateAggregate*(
 
   # [REJECT] The block being voted for (aggregate.data.beacon_block_root)
   # passes validation.
+  # [IGNORE] if block is unseen so far and enqueue it in missing blocks
   let target = ? check_beacon_and_target_block(pool, aggregate.data)
 
   # [REJECT] aggregate_and_proof.selection_proof selects the validator as an

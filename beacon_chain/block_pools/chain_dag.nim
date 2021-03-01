@@ -83,7 +83,7 @@ func parent*(bs: BlockSlot): BlockSlot =
 func parentOrSlot*(bs: BlockSlot): BlockSlot =
   ## Return a blockslot representing the previous slot, using the parent block
   ## with the current slot if the current had a block
-  if bs.blck == nil:
+  if bs.blck.isNil():
     BlockSlot(blck: nil, slot: Slot(0))
   elif bs.slot == bs.blck.slot:
     BlockSlot(blck: bs.blck.parent, slot: bs.slot)
