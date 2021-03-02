@@ -12,7 +12,7 @@ import
   ./testutil, ./testblockutil,
   ../beacon_chain/spec/[beaconstate, datatypes, digest, crypto,
                         validator, state_transition, presets],
-  ../beacon_chain/ssz
+  ../beacon_chain/ssz/ssz
 
 suiteReport "Block processing" & preset():
   ## For now just test that we can compile and execute block processing with
