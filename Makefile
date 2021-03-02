@@ -57,7 +57,7 @@ TOOLS := \
 
 TOOLS_DIRS := \
 	beacon_chain \
-	beacon_chain/deposit_contract \
+	beacon_chain/eth1 \
 	benchmarks \
 	ncli \
 	nbench \
