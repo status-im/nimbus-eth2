@@ -10,7 +10,7 @@
 import
   unittest, ./testutil,
   ../beacon_chain/spec/[datatypes, crypto],
-  ../beacon_chain/ssz/ssz
+  ../beacon_chain/ssz
 
 # Sanity checks to make sure all the workarounds introduced
 # to deal with https://github.com/status-im/nimbus-eth2/issues/374

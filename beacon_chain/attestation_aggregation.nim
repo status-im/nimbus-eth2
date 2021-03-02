@@ -13,7 +13,7 @@ import
   ./spec/[
     beaconstate, datatypes, crypto, digest, helpers, network, signatures],
   ./block_pools/[spec_cache, chain_dag, quarantine, spec_cache],
-  ./attestation_pool, ./beacon_node_types, ./ssz/ssz, ./time
+  ./attestation_pool, ./beacon_node_types, ./ssz, ./time
 
 logScope:
   topics = "att_aggr"

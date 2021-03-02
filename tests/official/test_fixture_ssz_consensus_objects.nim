@@ -13,7 +13,7 @@ import
   yaml,
   # Beacon chain internals
   ../../beacon_chain/spec/[crypto, datatypes, digest],
-  ../../beacon_chain/ssz/ssz,
+  ../../beacon_chain/ssz,
   # Test utilities
   ../testutil, ./fixtures_utils
 

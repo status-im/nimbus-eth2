@@ -9,7 +9,7 @@ import
   os, algorithm, strformat, stats, times, tables, std/monotimes, stew/endians2,
   testutils/markdown_reports, chronicles,
   ../beacon_chain/[beacon_chain_db, extras],
-  ../beacon_chain/ssz/ssz,
+  ../beacon_chain/ssz,
   ../beacon_chain/spec/[digest, beaconstate, datatypes, presets],
   ../beacon_chain/block_pools/chain_dag,
   eth/db/[kvstore, kvstore_sqlite3],

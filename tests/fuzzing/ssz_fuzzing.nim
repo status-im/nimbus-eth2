@@ -1,6 +1,6 @@
 import
   testutils/fuzzing, faststreams/inputs, serialization/testing/tracing,
-  ../../beacon_chain/ssz/ssz,
+  ../../beacon_chain/ssz,
   ../../beacon_chain/spec/[datatypes, crypto, digest, datatypes]
 
 export

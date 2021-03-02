@@ -18,7 +18,7 @@ import
 
   # Internals
   ../../beacon_chain/extras,
-  ../../beacon_chain/ssz/ssz,
+  ../../beacon_chain/ssz,
   ../../beacon_chain/eth1/merkle_minimal,
 
   # Mocking procs
