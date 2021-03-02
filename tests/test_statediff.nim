@@ -14,7 +14,8 @@ import
   ./mocking/mock_deposits,
   ../beacon_chain/spec/[beaconstate, datatypes, digest, helpers,
     state_transition, presets],
-  ../beacon_chain/[beacon_node_types, ssz, statediff],
+  ../beacon_chain/[beacon_node_types, statediff],
+  ../beacon_chain/ssz/ssz,
   ../beacon_chain/block_pools/[chain_dag, quarantine, clearance]
 
 when isMainModule:

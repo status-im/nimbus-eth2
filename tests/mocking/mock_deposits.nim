@@ -17,7 +17,8 @@ import
                            keystore, signatures, presets],
 
   # Internals
-  ../../beacon_chain/[ssz, extras, merkle_minimal],
+  ../../beacon_chain/extras,
+  ../../beacon_chain/ssz/ssz,
   ../../beacon_chain/deposit_contract/merkle_minimal,
 
   # Mocking procs
