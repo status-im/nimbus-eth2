@@ -1,7 +1,7 @@
 import
   std/[strutils, parseutils],
   stew/byteutils,
-  ../beacon_node_common, ../validator_duties,
+  ../beacon_node_common, ../validators/validator_duties,
   ../block_pools/[block_pools_types, chain_dag],
   ../spec/[datatypes, digest, helpers]
 

@@ -11,7 +11,7 @@ import
 
   # Local modules
   spec/[digest, crypto],
-  keystore_management
+  validators/keystore_management
 
 programMain:
   var validators: Table[ValidatorPubKey, ValidatorPrivKey]

@@ -15,10 +15,11 @@ import
 
   # Local modules
   ./conf, ./time, ./beacon_chain_db, ./attestation_pool, ./eth2_network,
-  ./beacon_node_types, ./eth1_monitor, ./request_manager,
-  ./sync_manager, ./eth2_processor,
+  ./beacon_node_types, ./eth1_monitor,
+  ./eth2_processor,
   ./block_pools/[chain_dag, quarantine],
-  ./spec/datatypes
+  ./spec/datatypes,
+  ./sync/[sync_manager, request_manager]
 
 export
   osproc, chronos, rpcserver, conf, time, beacon_chain_db,
@@ -73,4 +74,3 @@ proc currentSlot*(node: BeaconNode): Slot =
 
 template runtimePreset*(node: BeaconNode): RuntimePreset =
   node.db.preset
-

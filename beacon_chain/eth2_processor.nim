@@ -13,7 +13,8 @@ import
   chronicles, chronos, metrics,
   ./spec/[crypto, datatypes, digest],
   ./block_pools/[clearance, chain_dag],
-  ./attestation_aggregation, ./exit_pool, ./validator_pool,
+  ./attestation_aggregation, ./exit_pool,
+  ./validators/validator_pool,
   ./beacon_node_types, ./attestation_pool,
   ./time, ./conf, ./sszdump
 

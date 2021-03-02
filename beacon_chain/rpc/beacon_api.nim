@@ -11,7 +11,7 @@ import
   chronicles,
   nimcrypto/utils as ncrutils,
   ../beacon_node_common, ../eth2_json_rpc_serialization, ../eth2_network,
-  ../validator_duties,
+  ../validators/validator_duties,
   ../block_pools/chain_dag, ../exit_pool,
   ../spec/[crypto, digest, datatypes, validator, network],
   ../spec/eth2_apis/callsigs_types,

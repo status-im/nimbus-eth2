@@ -23,8 +23,9 @@ import
   eth/net/nat, eth/p2p/discoveryv5/[enr, node],
   "."/[
     version, conf, eth2_discovery, libp2p_json_serialization,
-    ssz/ssz_serialization, peer_pool, time, keystore_management],
-  ./spec/[datatypes, digest, helpers, network]
+    ssz/ssz_serialization, peer_pool, time],
+  ./spec/[datatypes, digest, helpers, network],
+  ./validators/keystore_management
 
 import libp2p/protocols/pubsub/gossipsub
 

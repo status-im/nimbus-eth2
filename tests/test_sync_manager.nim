@@ -2,7 +2,8 @@
 
 import unittest
 import chronos
-import ../beacon_chain/[eth2_processor, sync_manager]
+import ../beacon_chain/eth2_processor,
+       ../beacon_chain/sync/sync_manager
 
 type
   SomeTPeer = ref object

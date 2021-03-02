@@ -24,7 +24,8 @@ import
                         helpers, validator, signatures, state_transition],
   ../beacon_chain/[
     attestation_pool, beacon_node_types, beacon_chain_db,
-    validator_pool, eth1_monitor, extras],
+    eth1_monitor, extras],
+  ../beacon_chain/validators/validator_pool,
   ../beacon_chain/block_pools/[chain_dag, quarantine, clearance],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils

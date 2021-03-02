@@ -120,33 +120,10 @@ Logs:
 - We jump into libp2p/protocols/pubsub/pubsub.nim in the method `validate(PubSub, message)`
 - which was called by `rpcHandler(GossipSub, PubSubPeer, RPCMsg)`
 
-### Eth2 RPC in
+### Block syncing
 
-Blocks are requested during sync by the SyncManager.
-
-Blocks are received by batch:
-- `syncStep(SyncManager, index, peer)`
-- in case of success:
-  - `push(SyncQueue, SyncRequest, seq[SignedBeaconBlock]) is called to handle a successful sync step.
-    It calls `validate(SyncQueue, SignedBeaconBlock)` on each block retrieved one-by-one
-  - `validate` only enqueues the block in the `AsyncQueue[BlockEntry]` but does no extra validation only the GossipSub case
-- in case of failure:
-  - `push(SyncQueue, SyncRequest)` is called to reschedule the sync request.
-
-Every second when sync is not in progress, the beacon node will ask the RequestManager to download all missing blocks currently in quarantaine.
-- via `handleMissingBlocks`
-- which calls `fetchAncestorBlocks`
-- which asynchronously enqueue the request
-
-The RequestManager runs an event loop:
-- that calls `fetchAncestorBlocksFromNetwork`
-- which RPC calls peers with `beaconBlocksByRoot`
-- and calls `validate(RequestManager, SignedBeaconBlock)` on each block retrieved one-by-one
-- `validate` only enqueues the block in the `AsyncQueue[BlockEntry]` but does no extra validation only the GossipSub case
-
-### Weak subjectivity sync
-
-Not implemented!
+See [Block syncing](../beacon_chain/sync/README.md)
+for flow explanation and performance characteristics.
 
 ### Consuming the shared block queue
 
@@ -159,45 +136,7 @@ This in turn calls:
 - `addRawBlock(ChainDagRef, QuarantineRef, SignedBeaconBlock, forkChoiceCallback)`
 - trigger sending attestation if relevant
 
-### Comments
-
-The `validate` procedure name for `SyncManager` and `RequestManager`
-as no P2P validation actually occurs.
-
-Furthermore it seems like we are not gossiping blocks as soon as they are validated. TODO: When do we gossip them? Are we waiting for full verification.
-
-### Sync vs Steady State
-
-During sync:
-- The RequestManager is deactivated
-- The syncManager is working full speed ahead
-- Gossip is deactivated
-
-#### Bottlenecks during sync
-
-During sync:
-- The bottleneck is clearing the SharedBlockQueue via `storeBlock`
-  which requires full verification (state transition + cryptography)
-
-##### Backpressure
-
-The SyncManager handles backpressure by ensuring that
-`current_queue_slot <= request.slot <= current_queue_slot + sq.queueSize * sq.chunkSize`.
-- queueSize is -1 unbounded by default according to comment but it seems like all init path uses 1 (?)
-- chunkSize is SLOTS_PER_EPOCH = 32
-
-However the shared `AsyncQueue[BlockEntry]` is unbounded (?) with.
-
-RequestManager and Gossip are deactivated during sync and so do not contribute to pressure
-
-##### Latency & Throughput sensitiveness
-
-Latency TODO
-
-Throughput:
-- storeBlock is bottlenecked by verification (state transition and cryptography) of a block.
-  It might also be bottlenecked by the BeaconChainDB database speed.
-
+### Steady state (synced to head)
 #### Bottlenecks when synced
 
 The SyncManager is deactivated

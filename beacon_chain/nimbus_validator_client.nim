@@ -18,15 +18,15 @@ import
   # Local modules
   spec/[datatypes, digest, crypto, helpers, network, signatures],
   spec/eth2_apis/beacon_rpc_client,
+  sync/sync_manager,
   conf, time, version,
-  eth2_network, eth2_discovery, validator_pool, beacon_node_types,
+  eth2_network, eth2_discovery, beacon_node_types,
   attestation_aggregation,
   nimbus_binary_common,
   version, ssz/merkleization,
-  sync_manager, keystore_management,
   spec/eth2_apis/callsigs_types,
   eth2_json_rpc_serialization,
-  validator_protection/slashing_protection,
+  validators/[keystore_management, validator_pool, slashing_protection],
   eth/db/[kvstore, kvstore_sqlite3]
 
 logScope: topics = "vc"

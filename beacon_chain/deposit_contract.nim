@@ -3,7 +3,8 @@ import
   chronos, chronicles, confutils, stint, json_serialization,
   ../beacon_chain/network_metadata,
   web3, web3/confutils_defs, eth/keys, stew/io2, filepath,
-  spec/[datatypes, crypto, presets], ssz/merkleization, keystore_management
+  spec/[datatypes, crypto, presets], ssz/merkleization,
+  ./validators/keystore_management
 
 # Compiled version of /scripts/depositContract.v.py in this repo
 # The contract was compiled in Remix (https://remix.ethereum.org/) with vyper (remote) compiler.
