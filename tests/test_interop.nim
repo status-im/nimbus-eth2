@@ -2,7 +2,8 @@
 
 import
   unittest, stint, ./testutil, stew/byteutils,
-  ../beacon_chain/[interop, ssz],
+  ../beacon_chain/interop,
+  ../beacon_chain/ssz/ssz,
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, presets]
 
 # Interop test yaml, found here:

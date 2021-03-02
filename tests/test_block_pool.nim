@@ -13,7 +13,8 @@ import
   eth/keys,
   ./testutil, ./testblockutil,
   ../beacon_chain/spec/[datatypes, digest, helpers, state_transition, presets],
-  ../beacon_chain/[beacon_node_types, ssz],
+  ../beacon_chain/beacon_node_types,
+  ../beacon_chain/ssz/ssz,
   ../beacon_chain/block_pools/[chain_dag, quarantine, clearance]
 
 when isMainModule:
