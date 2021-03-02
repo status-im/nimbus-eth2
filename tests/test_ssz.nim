@@ -12,7 +12,7 @@ import
   serialization/testing/generic_suite,
   ./testutil,
   ../beacon_chain/spec/[datatypes, digest],
-  ../beacon_chain/ssz, ../beacon_chain/ssz/[navigator, dynamic_navigator]
+  ../beacon_chain/ssz/[ssz, navigator, dynamic_navigator]
 
 type
   SomeEnum = enum

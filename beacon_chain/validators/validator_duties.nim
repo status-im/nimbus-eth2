@@ -27,7 +27,7 @@ import
   ../deposit_contract/eth1_monitor,
   ../eth2_network, ../beacon_node_common,
   ../beacon_node_types, ../nimbus_binary_common, ../version,
-  ../ssz/merkleization, ../attestation_aggregation, ../sync/sync_manager, ../sszdump,
+  ../ssz/[sszdump, merkleization], ../attestation_aggregation, ../sync/sync_manager,
   ./slashing_protection,
   ./validator_pool, ./keystore_management
 

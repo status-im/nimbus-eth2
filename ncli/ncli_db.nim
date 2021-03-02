@@ -6,7 +6,7 @@ import
   ../beacon_chain/block_pools/chain_dag,
   ../beacon_chain/spec/[crypto, datatypes, digest, helpers,
                         state_transition, presets],
-  ../beacon_chain/[ssz, sszdump],
+  ../beacon_chain/ssz/[ssz, sszdump],
   ../research/simutils
 
 type Timers = enum
