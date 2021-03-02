@@ -13,7 +13,8 @@ import
 
   rpc_utils,
   ../beacon_node_common, ../nimbus_binary_common, ../eth2_network,
-  ../eth1_monitor, ../validators/validator_duties,
+  ../deposit_contract/eth1_monitor,
+  ../validators/validator_duties,
   ../spec/[digest, datatypes, presets],
 
   libp2p/protocols/pubsub/pubsubpeer

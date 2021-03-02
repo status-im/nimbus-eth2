@@ -9,7 +9,8 @@ import
   json_rpc/[rpcserver, jsonmarshal],
   chronicles,
   nimcrypto/utils as ncrutils,
-  ../beacon_node_common, ../eth1_monitor,
+  ../beacon_node_common,
+  ../deposit_contract/eth1_monitor,
   ../spec/[datatypes, digest, presets]
 
 logScope: topics = "configapi"

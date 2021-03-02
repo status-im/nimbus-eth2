@@ -15,8 +15,9 @@ import
 
   # Local modules
   ./conf, ./time, ./beacon_chain_db, ./attestation_pool, ./eth2_network,
-  ./beacon_node_types, ./eth1_monitor,
+  ./beacon_node_types,
   ./eth2_processor,
+  ./deposit_contract/eth1_monitor,
   ./block_pools/[chain_dag, quarantine],
   ./spec/datatypes,
   ./sync/[sync_manager, request_manager]

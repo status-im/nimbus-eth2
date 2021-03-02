@@ -1,9 +1,10 @@
 import
   stats, os, strformat, times,
   ../tests/[testblockutil],
-  ../beacon_chain/[extras, eth1_monitor, beacon_chain_db],
+  ../beacon_chain/[extras, beacon_chain_db],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
-  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, presets]
+  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, presets],
+  ../beacon_chain/deposit_contract/eth1_monitor,
 
 template withTimer*(stats: var RunningStat, body: untyped) =
   # TODO unify timing somehow
