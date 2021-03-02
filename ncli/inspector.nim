@@ -20,7 +20,7 @@ import nimcrypto/[hash, keccak]
 import secp256k1 as s
 import stint
 import snappy
-import ../beacon_chain/spec/[crypto, datatypes, network, digest],
+import ../beacon_chain/spec/[crypto, datatypes, network, digest]
 import ../beacon_chain/ssz/ssz_serialization
 
 const
