@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -16,7 +16,7 @@ import
 const
   # Misc
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/configs/mainnet/phase0.yaml#L5
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/configs/mainnet/phase0.yaml#L5
   CONFIG_NAME* = "mainnet"
 
   MAX_COMMITTEES_PER_SLOT* {.intdefine.}: uint64 = 64
@@ -47,7 +47,7 @@ const
 
   # Gwei values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/configs/mainnet/phase0.yaml#L60
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/configs/mainnet/phase0.yaml#L60
 
   MIN_DEPOSIT_AMOUNT*: uint64 = 2'u64^0 * 10'u64^9 ##\
   ## Minimum amounth of ETH that can be deposited in one call - deposits can
@@ -64,14 +64,14 @@ const
 
   # Initial values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/configs/mainnet/phase0.yaml#L72
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/configs/mainnet/phase0.yaml#L72
   # GENESIS_FORK_VERSION is a runtime preset
 
   BLS_WITHDRAWAL_PREFIX*: byte = 0
 
   # Time parameters
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/configs/mainnet/phase0.yaml#L79
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/configs/mainnet/phase0.yaml#L79
 
   # GENESIS_DELAY is a runtime preset
 
@@ -118,7 +118,7 @@ const
 
   # State vector lengths
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/configs/mainnet/phase0.yaml#L105
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/configs/mainnet/phase0.yaml#L105
 
   EPOCHS_PER_HISTORICAL_VECTOR*: uint64 = 65536 ##\
   ## epochs (~0.8 years)
@@ -133,7 +133,7 @@ const
 
   # Reward and penalty quotients
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/configs/mainnet/phase0.yaml#L117
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/configs/mainnet/phase0.yaml#L117
   BASE_REWARD_FACTOR*: uint64 = 2'u64^6
   WHISTLEBLOWER_REWARD_QUOTIENT*: uint64 = 2'u64^9
   PROPOSER_REWARD_QUOTIENT*: uint64 = 2'u64^3
@@ -143,7 +143,7 @@ const
 
   # Max operations per block
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/configs/mainnet/phase0.yaml#L133
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/configs/mainnet/phase0.yaml#L133
   MAX_PROPOSER_SLASHINGS*: uint64 = 2'u64 ^ 4
   MAX_ATTESTER_SLASHINGS*: uint64 = 2'u64 ^ 1
   MAX_ATTESTATIONS*: uint64 = 2'u64 ^ 7
@@ -152,12 +152,12 @@ const
 
   # Fork choice
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/configs/mainnet/phase0.yaml#L31
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/configs/mainnet/phase0.yaml#L31
   SAFE_SLOTS_TO_UPDATE_JUSTIFIED*: uint64 = 8 # 96 seconds
 
   # Validators
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/configs/mainnet/phase0.yaml#L37
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/configs/mainnet/phase0.yaml#L37
 
   # ETH1_FOLLOW_DISTANCE is a runtime preset
 
@@ -168,7 +168,7 @@ const
 
   # Deposit contract
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/configs/mainnet/phase0.yaml#L51
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/configs/mainnet/phase0.yaml#L51
 
   # Ethereum PoW Mainnet
   # TODO(zah) These violate the spec (this is a temporary change to allow `make medalla` to work)
