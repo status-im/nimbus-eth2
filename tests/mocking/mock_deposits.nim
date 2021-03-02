@@ -18,6 +18,7 @@ import
 
   # Internals
   ../../beacon_chain/[ssz, extras, merkle_minimal],
+  ../../beacon_chain/deposit_contract/merkle_minimal,
 
   # Mocking procs
   ./mock_validator_keys
