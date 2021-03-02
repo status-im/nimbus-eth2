@@ -351,13 +351,14 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
                               cache: var StateCache): seq[Attestation] =
   ## Retrieve attestations that may be added to a new block at the slot of the
   ## given state
-  let newBlockSlot = state.slot
+  let newBlockSlot = state.slot.uint64
   var attestations: seq[AttestationEntry]
 
   pool.updateAttestationsCache(state)
 
-  for i in max(1, newBlockSlot.int64 - ATTESTATION_LOOKBACK.int64) ..
-      newBlockSlot.int64:
+  for i in max(
+        1'u64, newBlockSlot - min(newBlockSlot, ATTESTATION_LOOKBACK)) ..
+      newBlockSlot:
     let maybeSlotData = getAttestationsForSlot(pool, i.Slot)
     if maybeSlotData.isSome:
       insert(attestations, maybeSlotData.get.attestations)

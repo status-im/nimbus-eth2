@@ -583,8 +583,7 @@ proc updateValidatorMetrics*(node: BeaconNode) =
 
       if i < 64:
         attached_validator_balance.set(
-          min(balance, int64.high.uint64).int64,
-          labelValues = [shortLog(v.pubkey)])
+          balance.toGaugeValue, labelValues = [shortLog(v.pubkey)])
       else:
         inc i
       total += balance
