@@ -356,6 +356,11 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
 
   pool.updateAttestationsCache(state)
 
+  # Consider attestations from the current slot and ranging back up to
+  # ATTESTATION_LOOKBACK slots, excluding the special genesis slot. As
+  # unsigned subtraction (mostly avoided in this codebase, partly as a
+  # consequence) will otherwise wrap through zero, clamp value which's
+  # subtracted so that slots through ATTESTATION_LOOKBACK don't do so.
   for i in max(
         1'u64, newBlockSlot - min(newBlockSlot, ATTESTATION_LOOKBACK)) ..
       newBlockSlot:
