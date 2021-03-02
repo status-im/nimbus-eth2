@@ -13,7 +13,7 @@ import
 
   rpc_utils,
   ../beacon_node_common, ../nimbus_binary_common, ../eth2_network,
-  ../deposit_contract/eth1_monitor,
+  ../eth1/eth1_monitor,
   ../validators/validator_duties,
   ../spec/[digest, datatypes, presets],
 

@@ -10,7 +10,7 @@ import
   chronicles,
   nimcrypto/utils as ncrutils,
   ../beacon_node_common,
-  ../deposit_contract/eth1_monitor,
+  ../eth1/eth1_monitor,
   ../spec/[datatypes, digest, presets]
 
 logScope: topics = "configapi"

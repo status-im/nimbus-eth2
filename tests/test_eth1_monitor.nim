@@ -3,7 +3,7 @@
 import
   unittest,
   chronos, web3/ethtypes,
-  ../beacon_chain/deposit_contract/eth1_monitor
+  ../beacon_chain/eth1/eth1_monitor
 
 suite "Eth1 Chain":
   discard

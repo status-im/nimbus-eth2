@@ -19,7 +19,7 @@ import
   # Internals
   ../../beacon_chain/extras,
   ../../beacon_chain/ssz/ssz,
-  ../../beacon_chain/deposit_contract/merkle_minimal,
+  ../../beacon_chain/eth1/merkle_minimal,
 
   # Mocking procs
   ./mock_validator_keys

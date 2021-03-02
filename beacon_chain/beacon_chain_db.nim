@@ -8,7 +8,7 @@ import
   ./network_metadata,
   ./spec/[crypto, datatypes, digest, state_transition],
   ./ssz/[ssz_serialization, merkleization],
-  ./deposit_contract/merkle_minimal,
+  ./eth1/merkle_minimal,
   filepath
 
 type

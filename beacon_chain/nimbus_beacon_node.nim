@@ -37,7 +37,7 @@ import
     datatypes, digest, crypto, beaconstate, eth2_apis/beacon_rpc_client,
     helpers, network, presets, validator, weak_subjectivity, signatures],
   ./block_pools/[chain_dag, quarantine, clearance, block_pools_types],
-  ./deposit_contract/eth1_monitor
+  ./eth1/eth1_monitor
 
 from eth/common/eth_types import BlockHashOrNumber
 
