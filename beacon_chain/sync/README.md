@@ -51,16 +51,19 @@ During sync:
 ## Bottlenecks during sync
 
 During sync:
-- The bottleneck is clearing the SharedBlockQueue via `storeBlock`
+- The bottleneck is clearing the SharedBlockQueue `AsyncQueue[BlockEntry]` via `storeBlock`
   which requires full verification (state transition + cryptography)
 
 ## Backpressure
 
 The SyncManager handles backpressure by ensuring that
 `current_queue_slot <= request.slot <= current_queue_slot + sq.queueSize * sq.chunkSize`.
-- queueSize is -1 unbounded by default according to comment but it seems like all init path uses 1 (?)
+- queueSize is -1, unbounded, by default according to comment but all init paths uses 1 (?)
 - chunkSize is SLOTS_PER_EPOCH = 32
 
-However the shared `AsyncQueue[BlockEntry]` is unbounded (?) with.
+However the shared `AsyncQueue[BlockEntry]` itself is unbounded.
+Concretely:
+- The shared `AsyncQueue[BlockEntry]` is bounded for sync
+- The shared `AsyncQueue[BlockEntry]` is unbounded for validated gossip blocks
 
-RequestManager and Gossip are deactivated during sync and so do not contribute to pressure
+RequestManager and Gossip are deactivated during sync and so do not contribute to pressure.
