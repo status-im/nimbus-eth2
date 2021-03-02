@@ -387,20 +387,20 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
     doAssert finalizedEpoch + 4 >= epoch
 
 proc installAttestationSubnetHandlers(node: BeaconNode, subnets: set[uint8]) =
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # nimbus won't score attestation subnets for now, we just rely on block and aggregate which are more stabe and reliable
   for subnet in subnets:
     node.network.subscribe(getAttestationTopic(node.forkDigest, subnet), TopicParams.init()) # don't score attestation subnets for now
 
 proc updateStabilitySubnetMetadata(
     node: BeaconNode, stabilitySubnets: set[uint8]) =
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#metadata
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#metadata
   node.network.metadata.seq_number += 1
   for subnet in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
     node.network.metadata.attnets[subnet] = (subnet in stabilitySubnets)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
   let res = node.network.discovery.updateRecord(
     {"attnets": SSZ.encode(node.network.metadata.attnets)})
   if res.isErr():
@@ -431,13 +431,13 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
 
   var cache = StateCache()
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#lookahead
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#lookahead
   # Only subscribe when this node should aggregate; libp2p broadcasting works
   # on subnet topics regardless.
   #
   # Committee sizes in any given epoch vary by 1, i.e. committee sizes $n$
   # $n+1$ can exist. Furthermore, according to
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#aggregation-selection
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#aggregation-selection
   # is_aggregator uses `len(committee) div TARGET_AGGREGATORS_PER_COMMITTEE`
   # to determine whether committee length/slot signature pairs aggregate the
   # attestations in a slot/committee, where TARGET_AGGREGATORS_PER_COMMITTEE
@@ -521,7 +521,7 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
           slot - min(slot.uint64, SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS),
           node.attestationSubnets.subscribeSlot[subnetIndex])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 proc getStabilitySubnetLength(node: BeaconNode): uint64 =
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION +
     node.network.rng[].rand(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION.int).uint64
@@ -532,7 +532,7 @@ proc updateStabilitySubnets(node: BeaconNode, slot: Slot): set[uint8] =
   static: doAssert ATTESTATION_SUBNET_COUNT <= high(uint8)
   let epoch = slot.epoch
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   for i in 0 ..< node.attestationSubnets.stabilitySubnets.len:
     if epoch >= node.attestationSubnets.stabilitySubnets[i].expiration:
       node.attestationSubnets.stabilitySubnets[i].subnet =
@@ -660,7 +660,7 @@ proc getInitialAttestationSubnets(node: BeaconNode): Table[uint8, Slot] =
   mergeAttestationSubnets(wallEpoch + 1)
 
 proc getAttestationSubnetHandlers(node: BeaconNode) =
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   # TODO:
   # We might want to reuse the previous stability subnet if not expired when:
   # - Restarting the node with a presistent netkey
@@ -1125,7 +1125,7 @@ proc installRpcHandlers(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.installValidatorApiHandlers(node)
 
 proc installMessageValidators(node: BeaconNode) =
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # These validators stay around the whole time, regardless of which specific
   # subnets are subscribed to during any given epoch.
   for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
