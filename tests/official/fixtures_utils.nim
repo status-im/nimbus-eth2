@@ -9,7 +9,7 @@ import
   # Standard library
   os, strutils, typetraits,
   # Internals
-  ../../beacon_chain/ssz,
+  ../../beacon_chain/ssz/ssz,
   ../../beacon_chain/spec/[datatypes, crypto, state_transition_epoch],
   # Status libs
   stew/byteutils,

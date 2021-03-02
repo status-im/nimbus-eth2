@@ -17,7 +17,7 @@ import
   ../../beacon_chain/spec/[datatypes, beaconstate, helpers, validator, crypto,
                            signatures, presets],
   # Internals
-  ../../beacon_chain/ssz,
+  ../../beacon_chain/ssz/ssz,
   # Mocking procs
   ./mock_blocks,
   ./mock_validator_keys

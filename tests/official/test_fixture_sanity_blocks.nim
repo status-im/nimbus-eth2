@@ -12,7 +12,7 @@ import
   os, sequtils, unittest, chronicles,
   # Beacon chain internals
   ../../beacon_chain/spec/[crypto, datatypes, state_transition, presets],
-  ../../beacon_chain/ssz,
+  ../../beacon_chain/ssz/ssz,
   # Test utilities
   ../testutil,
   ./fixtures_utils

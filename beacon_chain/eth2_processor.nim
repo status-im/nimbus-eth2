@@ -16,7 +16,7 @@ import
   ./attestation_aggregation, ./exit_pool,
   ./validators/validator_pool,
   ./beacon_node_types, ./attestation_pool,
-  ./time, ./conf, ./sszdump
+  ./time, ./conf, ./ssz/sszdump
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_attestations_received,

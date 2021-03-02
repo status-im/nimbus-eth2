@@ -16,7 +16,7 @@ import
   json_serialization,
   # Internal
   ../spec/[datatypes, digest, crypto],
-  ../ssz,
+  ../ssz/ssz,
   ./slashing_protection_common
 
 # Requirements
