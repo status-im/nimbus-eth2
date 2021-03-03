@@ -25,7 +25,7 @@ import
   "."/[
     attestation_aggregation, attestation_pool, beacon_chain_db,
     beacon_node_common, beacon_node_status, beacon_node_types, conf,
-    eth1_monitor, eth2_discovery, eth2_network, eth2_processor, exit_pool,
+    eth2_discovery, eth2_network, eth2_processor, exit_pool,
     extras, filepath, interop, network_metadata,
     nimbus_binary_common, ssz/merkleization, statusbar,
     time, version],
@@ -36,7 +36,8 @@ import
   ./spec/[
     datatypes, digest, crypto, beaconstate, eth2_apis/beacon_rpc_client,
     helpers, network, presets, validator, weak_subjectivity, signatures],
-  ./block_pools/[chain_dag, quarantine, clearance, block_pools_types]
+  ./block_pools/[chain_dag, quarantine, clearance, block_pools_types],
+  ./eth1/eth1_monitor
 
 from eth/common/eth_types import BlockHashOrNumber
 

@@ -15,8 +15,7 @@
 # https://github.com/nim-lang/Nim/issues/14126
 
 import
-  ./ssz/[merkleization, ssz_serialization, types]
+  ssz/[merkleization, ssz_serialization, types]
 
 export
   merkleization, ssz_serialization, types
-

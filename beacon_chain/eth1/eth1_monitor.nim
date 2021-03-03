@@ -5,8 +5,10 @@ import
   chronos, json, metrics, chronicles/timings,
   web3, web3/ethtypes as web3Types, eth/common/eth_types, eth/async_utils,
   # Local modules:
-  spec/[datatypes, digest, crypto, helpers],
-  ssz, beacon_chain_db, network_metadata, merkle_minimal, beacon_node_status
+  ../spec/[datatypes, digest, crypto, helpers],
+  ../ssz,
+  ".."/[beacon_chain_db, network_metadata, beacon_node_status],
+  ./merkle_minimal
 
 export
   web3Types

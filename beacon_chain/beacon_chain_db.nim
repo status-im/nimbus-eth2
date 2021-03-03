@@ -8,7 +8,8 @@ import
   ./network_metadata,
   ./spec/[crypto, datatypes, digest, state_transition],
   ./ssz/[ssz_serialization, merkleization],
-  merkle_minimal, filepath
+  ./eth1/merkle_minimal,
+  filepath
 
 type
   DbSeq*[T] = object

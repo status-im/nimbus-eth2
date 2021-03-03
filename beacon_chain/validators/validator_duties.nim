@@ -24,9 +24,10 @@ import
   ../conf, ../time,
   ../attestation_pool, ../exit_pool,
   ../block_pools/[spec_cache, chain_dag, clearance],
+  ../eth1/eth1_monitor,
   ../eth2_network, ../beacon_node_common,
-  ../beacon_node_types, ../nimbus_binary_common, ../eth1_monitor, ../version,
-  ../ssz/merkleization, ../attestation_aggregation, ../sync/sync_manager, ../sszdump,
+  ../beacon_node_types, ../nimbus_binary_common, ../version,
+  ../ssz, ../ssz/sszdump, ../attestation_aggregation, ../sync/sync_manager,
   ./slashing_protection,
   ./validator_pool, ./keystore_management
 

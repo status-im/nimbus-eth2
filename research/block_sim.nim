@@ -23,8 +23,8 @@ import
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, presets,
                         helpers, validator, signatures, state_transition],
   ../beacon_chain/[
-    attestation_pool, beacon_node_types, beacon_chain_db,
-    eth1_monitor, extras],
+    attestation_pool, beacon_node_types, beacon_chain_db, extras],
+  ../beacon_chain/eth1/eth1_monitor,
   ../beacon_chain/validators/validator_pool,
   ../beacon_chain/block_pools/[chain_dag, quarantine, clearance],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
