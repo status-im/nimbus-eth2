@@ -18,9 +18,6 @@ type
     ##
     ## https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/fork-choice.md#fork-choice
     ##
-    # TODO replace time in chronos with a proper unit type, then this code can
-    #      follow:
-    #      https://github.com/status-im/nim-chronos/issues/15
     # TODO consider NTP and network-adjusted timestamps as outlined here:
     #      https://ethresear.ch/t/network-adjusted-timestamps/4187
     genesis: Time
