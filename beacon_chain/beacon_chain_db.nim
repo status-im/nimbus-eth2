@@ -6,7 +6,7 @@ import
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
   ./networking/network_metadata,
-  ./spec/[crypto, datatypes, digest, helpers, state_transition],
+  ./spec/[crypto, datatypes, digest, state_transition],
   ./ssz/[ssz_serialization, merkleization],
   ./eth1/merkle_minimal,
   ./filepath
@@ -22,6 +22,7 @@ type
     keyspace: int
 
   DepositsSeq = DbSeq[DepositData]
+  ImmutableValidatorsSeq = DbSeq[ImmutableValidatorData]
 
   DepositsMerkleizer* = SszMerkleizer[depositContractLimit]
 
@@ -45,6 +46,7 @@ type
     backend: KvStoreRef
     preset*: RuntimePreset
     genesisDeposits*: DepositsSeq
+    immutableValidators*: ImmutableValidatorsSeq
     checkpoint*: proc() {.gcsafe.}
 
   Keyspaces* = enum
@@ -96,8 +98,6 @@ type
       ## a simple append-diff representation helps significantly. Various roots
       ## are stored in a mod-increment pattern across fixed-sized arrays, which
       ## addresses most of the rest of the BeaconState sizes.
-    kImmutableValidatorChunk
-      ## for immutable validators
     kHashToStateOnlyMutableValidators
 
   BeaconBlockSummary* = object
@@ -137,9 +137,6 @@ func subkey(kind: type BeaconBlockSummary, key: Eth2Digest): auto =
 
 func subkey(kind: type BeaconStateDiff, key: Eth2Digest): auto =
   subkey(kHashToStateDiff, key.data)
-
-func subkey(kind: type ImmutableValidatorList, baseIndex: uint64): auto =
-  subkey(kImmutableValidatorChunk, uint_to_bytes8(baseIndex))
 
 func subkey(root: Eth2Digest, slot: Slot): array[40, byte] =
   var ret: array[40, byte]
@@ -227,33 +224,34 @@ proc init*(T: type BeaconChainDB,
            preset: RuntimePreset,
            dir: string,
            inMemory = false): BeaconChainDB =
-  if inMemory:
-    # TODO
-    # To support testing, the inMemory store should offer the complete
-    # functionalityof the database-backed one (i.e. tracking of deposits
-    # and validators)
-    T(backend: kvStore MemStoreRef.init(),
-      preset: preset)
-  else:
-    let s = secureCreatePath(dir)
-    doAssert s.isOk # TODO(zah) Handle this in a better way
+  var sqliteStore =
+    if inMemory:
+      SqStoreRef.init("", "test", inMemory = true).expect("working database (disk broken/full?)")
+    else:
+      let s = secureCreatePath(dir)
+      doAssert s.isOk # TODO(zah) Handle this in a better way
 
-    let sqliteStore = SqStoreRef.init(
-      dir, "nbc", Keyspaces, manualCheckpoint = true).expect("working database (disk broken/full?)")
+      SqStoreRef.init(
+        dir, "nbc", Keyspaces,
+        manualCheckpoint = true).expect("working database (disk broken/full?)")
 
-    # Remove the deposits table we used before we switched
-    # to storing only deposit contract checkpoints
-    if sqliteStore.exec("DROP TABLE IF EXISTS deposits;").isErr:
-      debug "Failed to drop the deposits table"
+  # Remove the deposits table we used before we switched
+  # to storing only deposit contract checkpoints
+  if sqliteStore.exec("DROP TABLE IF EXISTS deposits;").isErr:
+    debug "Failed to drop the deposits table"
 
-    var genesisDepositsSeq =
+  var
+    genesisDepositsSeq =
       DbSeq[DepositData].init(sqliteStore, "genesis_deposits")
+    immutableValidatorsSeq =
+      DbSeq[ImmutableValidatorData].init(sqliteStore, "immutable_validators")
 
-    T(backend: kvStore sqliteStore,
-      preset: preset,
-      genesisDeposits: genesisDepositsSeq,
-      checkpoint: proc() = sqliteStore.checkpoint()
-      )
+  T(backend: kvStore sqliteStore,
+    preset: preset,
+    genesisDeposits: genesisDepositsSeq,
+    immutableValidators: immutableValidatorsSeq,
+    checkpoint: proc() = sqliteStore.checkpoint()
+    )
 
 proc snappyEncode(inp: openArray[byte]): seq[byte] =
   try:
@@ -333,11 +331,6 @@ proc putBlock*(db: BeaconChainDB, value: TrustedSignedBeaconBlock) =
 proc putBlock*(db: BeaconChainDB, value: SigVerifiedSignedBeaconBlock) =
   db.put(subkey(SignedBeaconBlock, value.root), value)
   db.put(subkey(BeaconBlockSummary, value.root), value.message.toBeaconBlockSummary())
-
-proc putImmutableValidators*(
-    db: BeaconChainDB, baseIndex: uint64, value: ImmutableValidatorList) =
-  doAssert baseIndex mod VALIDATOR_CHUNK_SIZE == 0
-  db.put(subkey(ImmutableValidatorList, baseIndex), value)
 
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   # TODO prune old states - this is less easy than it seems as we never know
@@ -534,14 +527,6 @@ proc getStateDiff*(db: BeaconChainDB,
                    root: Eth2Digest): Opt[BeaconStateDiff] =
   result.ok(BeaconStateDiff())
   if db.get(subkey(BeaconStateDiff, root), result.get) != GetResult.found:
-    result.err
-
-proc getImmutableValidators*(
-    db: BeaconChainDB, baseIndex: uint64): Opt[ImmutableValidatorList] =
-  doAssert baseIndex mod VALIDATOR_CHUNK_SIZE == 0
-  result.ok(ImmutableValidatorList())
-  if db.get(subkey(ImmutableValidatorList, baseIndex), result.get) !=
-      GetResult.found:
     result.err
 
 proc getHeadBlock*(db: BeaconChainDB): Opt[Eth2Digest] =

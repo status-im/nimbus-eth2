@@ -179,19 +179,6 @@ suiteReport "Beacon chain DB" & preset():
     check:
       hash_tree_root(state2[]) == root
 
-  wrappedTimedTest "sanity check immutable validator roundtrip" & preset():
-    var db = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)
-    const
-      immutableValidators = ImmutableValidatorList()
-      baseIndex = 0'u64
-
-    db.putImmutableValidators(baseIndex, immutableValidators)
-    let immutableValidators2 = db.getImmutableValidators(baseIndex)
-    db.close()
-
-    check:
-      immutableValidators == immutableValidators2[]
-
   wrappedTimedTest "sanity check states 2" & preset():
     var
       db = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)

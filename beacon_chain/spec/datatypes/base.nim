@@ -63,9 +63,6 @@ const
   MAX_GRAFFITI_SIZE = 32
   FAR_FUTURE_SLOT* = (not 0'u64).Slot
 
-  # Ideally align reasonably with fewish SQLite pages
-  VALIDATOR_CHUNK_SIZE* = 2048
-
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#configuration
   MAXIMUM_GOSSIP_CLOCK_DISPARITY* = 500.millis
 
@@ -701,12 +698,6 @@ type
 
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
-
-  ImmutableValidatorList* = object
-    # all but one in db at any time will be full, so optimize for that
-    # in terms of database fragmentation etc
-    count*: uint64
-    immutableValidators*: array[VALIDATOR_CHUNK_SIZE, ImmutableValidatorData]
 
   DoppelgangerProtection* = object
     broadcastStartEpoch*: Epoch

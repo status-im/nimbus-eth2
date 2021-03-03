@@ -305,28 +305,8 @@ proc loadStateCache*(cache: var StateCache, blck: BlockRef, epoch: Epoch) =
     load(epoch - 1)
 
 proc loadImmutableValidators(db: BeaconChainDB): seq[ImmutableValidatorData] =
-  var i = 0'u64
-  while true:
-    # Disallow gaps or incomplete lists unless in last chunk.
-    doAssert result.len mod VALIDATOR_CHUNK_SIZE == 0
-
-    let immutableValidators =
-      db.getImmutableValidators(i * VALIDATOR_CHUNK_SIZE)
-    if immutableValidators.isErr:
-      # Assume contiguous database records; this also allows for alternate
-      # schemas, since this is the only time it's ever read from database,
-      # and only mode in which it's read.
-      debug "loadImmutableValidators: loaded immutable validator data",
-        validatorCount = result.len
-      return
-    result.add(immutableValidators[].immutableValidators.toOpenArray(
-      0, immutableValidators[].count - 1))
-
-    if immutableValidators[].count != VALIDATOR_CHUNK_SIZE:
-      debug "loadImmutableValidators: loaded immutable validator data",
-        validatorCount = result.len
-      return
-    i += 1
+  for i in 0'u64 ..< db.immutableValidators.len:
+    result.add db.immutableValidators.get(i)
 
 func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
   BlockRef(
@@ -510,45 +490,17 @@ proc updateImmutableValidators(dag, state: auto) =
     numValidators = state.validators.lenu64
     origNumImmutableValidators = dag.immutableValidators.lenu64
 
+  doAssert dag.immutableValidators.lenu64 == dag.db.immutableValidators.len
+
   if numValidators <= origNumImmutableValidators:
     return
 
-  if dag.immutableValidators.len >= 1:
-    # TODO would should be a WARN or similar in production
-    let checkIndex = dag.immutableValidators.len - 1
-    doAssert dag.immutableValidators[checkIndex].pubkey ==
-      state.validators[checkIndex].pubkey
-
-  var immutableValidators = new ImmutableValidatorList
-  let
-    baseMultStart = dag.immutableValidators.lenu64 div VALIDATOR_CHUNK_SIZE
-    baseMultEnd = (state.validators.lenu64 - 1) div VALIDATOR_CHUNK_SIZE
-  for mult in baseMultStart .. baseMultEnd:
-    let validatorsInChunk =
-      if mult == baseMultEnd:
-        state.validators.lenu64 mod VALIDATOR_CHUNK_SIZE
-      else:
-        VALIDATOR_CHUNK_SIZE
-
-    immutableValidators[].count = validatorsInChunk
-    let baseIndex = mult * VALIDATOR_CHUNK_SIZE
-    for i in 0 ..< validatorsInChunk:
-      let
-        index = baseIndex + i
-        immutableValidator =
-          getImmutableValidatorData(state.validators[index])
-      assign(immutableValidators[].immutableValidators[i], immutableValidator)
-      if index >= origNumImmutableValidators:
-        dag.immutableValidators.add immutableValidator
-
-    # Important thing here is partial ordering of all of these happening before
-    # the state being stored.
-    dag.db.putImmutableValidators(baseIndex, immutableValidators[])
-
-  # numValidators > 0, from above
-  doAssert numValidators == dag.immutableValidators.lenu64
-  for idx in [numValidators - 1, origNumImmutableValidators]:
-    doAssert state.validators[idx].pubkey == dag.immutableValidators[idx].pubkey
+  for validatorIndex in origNumImmutableValidators ..< numValidators:
+    # This precedes state storage
+    let immutableValidator =
+      getImmutableValidatorData(state.validators[validatorIndex])
+    dag.db.immutableValidators.add immutableValidator
+    dag.immutableValidators.add immutableValidator
 
 proc getState(
     dag: ChainDAGRef, state: var StateData, stateRoot: Eth2Digest,

@@ -133,8 +133,8 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
 
   var foo: seq[ImmutableValidatorData]
   withTimer(timers[tLoadState]):
-    #discard db.getState(state[].root, state[].data, noRollback, ChainDAGRef.iv)
     discard db.getState(state[].root, state[].data, noRollback, foo)
+    #discard db.getState(state[].root, state[].data, noRollback, pool.iv)
 
   var
     cache = StateCache()
@@ -180,6 +180,8 @@ proc cmdDumpState(conf: DbConf, preset: RuntimePreset) =
   defer: db.close()
 
   var foo: seq[ImmutableValidatorData]
+  # TODO move the load-immutable-validators thing out of chain dag maybe, since
+  # want it here too. then use that instead of `foo`
   for stateRoot in conf.stateRoot:
     try:
       let root = Eth2Digest(data: hexToByteArray[32](stateRoot))
@@ -228,6 +230,8 @@ proc copyPrunedDatabase(
 
   # Tail states are specially addressed; no stateroot intermediary
   var foo: seq[ImmutableValidatorData]
+  # TODO move the load-immutable-validators thing out of chain dag maybe, since
+  # want it here too. then use that instead of `foo`
   if not db.getState(
       db.getBlock(tailBlock.get).get.message.state_root, beaconState[],
       noRollback, foo):
