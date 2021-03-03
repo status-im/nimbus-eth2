@@ -7,11 +7,11 @@ repositories: "nim-beacon-chain"
 ---
 
 Fork choice backend:
-- [https://github.com/status-im/nim-beacon-chain/tree/devel/beacon_chain/fork_choice](https://github.com/status-im/nim-beacon-chain/tree/devel/beacon_chain/fork_choice)
+- [https://github.com/status-im/nim-beacon-chain/tree/unstable/beacon_chain/fork_choice](https://github.com/status-im/nim-beacon-chain/tree/unstable/beacon_chain/fork_choice)
 
 Fork choice is provided by the "attestation_pool" when "select_head" is called
 
-- [https://github.com/status-im/nim-beacon-chain/blob/devel/beacon_chain/attestation_pool.nim](https://github.com/status-im/nim-beacon-chain/blob/devel/beacon_chain/attestation_pool.nim)
+- [https://github.com/status-im/nim-beacon-chain/blob/unstable/beacon_chain/consensus_object_pools/attestation_pool.nim](https://github.com/status-im/nim-beacon-chain/blob/unstable/beacon_chain/consensus_object_pools/attestation_pool.nim)
 
 Tests:
 - [https://github.com/status-im/nim-beacon-chain/tree/master/tests/fork_choice](https://github.com/status-im/nim-beacon-chain/tree/master/tests/fork_choice)

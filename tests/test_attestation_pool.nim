@@ -17,10 +17,9 @@ import
   # Internal
   ../beacon_chain/spec/[crypto, datatypes, digest, validator, state_transition,
                         helpers, beaconstate, presets, network],
-  ../beacon_chain/[
-    beacon_node_types, attestation_pool, attestation_aggregation, extras, time],
+  ../beacon_chain/[beacon_node_types, attestation_aggregation, extras, time],
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
-  ../beacon_chain/block_pools/[quarantine, chain_dag, clearance],
+  ../beacon_chain/consensus_object_pools/[block_quarantine, blockchain_dag, block_clearance, attestation_pool],
   # Test utilities
   ./testutil, ./testblockutil
 

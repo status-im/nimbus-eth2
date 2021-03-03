@@ -23,7 +23,7 @@ import
 
   # Local modules
   "."/[
-    attestation_aggregation, attestation_pool, beacon_chain_db,
+    attestation_aggregation, beacon_chain_db,
     beacon_node_common, beacon_node_status, beacon_node_types, conf,
     eth2_discovery, eth2_network, eth2_processor, exit_pool,
     extras, filepath, interop, network_metadata,
@@ -36,7 +36,7 @@ import
   ./spec/[
     datatypes, digest, crypto, beaconstate, eth2_apis/beacon_rpc_client,
     helpers, network, presets, validator, weak_subjectivity, signatures],
-  ./block_pools/[chain_dag, quarantine, clearance, block_pools_types],
+  ./consensus_object_pools/[blockchain_dag, block_quarantine, block_clearance, block_pools_types, attestation_pool],
   ./eth1/eth1_monitor
 
 from eth/common/eth_types import BlockHashOrNumber

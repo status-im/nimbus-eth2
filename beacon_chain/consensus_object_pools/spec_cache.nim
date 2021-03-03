@@ -14,7 +14,7 @@ import
     crypto, datatypes, digest, helpers, presets, signatures,
     validator],
   ../extras,
-  ./block_pools_types, ./chain_dag
+  ./block_pools_types, ./blockchain_dag
 
 # Spec functions implemented based on cached values instead of the full state
 func count_active_validators*(epochInfo: EpochRef): uint64 =

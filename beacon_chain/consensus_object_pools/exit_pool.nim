@@ -13,9 +13,9 @@ import
   # Status libraries
   chronicles, json_serialization/std/sets as jsonSets,
   # Internal
-  ./spec/[crypto, datatypes, helpers, state_transition_block],
-  ./block_pools/[chain_dag, clearance, quarantine],
-  ./beacon_node_types
+  ../spec/[crypto, datatypes, helpers, state_transition_block],
+  "."/[blockchain_dag, block_clearance, block_quarantine],
+  ../beacon_node_types
 
 export beacon_node_types, intsets
 

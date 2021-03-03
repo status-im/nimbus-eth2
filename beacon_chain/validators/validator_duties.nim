@@ -22,8 +22,9 @@ import
     datatypes, digest, crypto, helpers, network, signatures, state_transition,
     validator],
   ../conf, ../time,
-  ../attestation_pool, ../exit_pool,
-  ../block_pools/[spec_cache, chain_dag, clearance],
+  ../consensus_object_pools/[
+    spec_cache, blockchain_dag, block_clearance,
+    attestation_pool, exit_pool],
   ../eth1/eth1_monitor,
   ../eth2_network, ../beacon_node_common,
   ../beacon_node_types, ../nimbus_binary_common, ../version,

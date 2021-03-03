@@ -4,7 +4,7 @@ import
   std/[deques, intsets, streams, tables],
   stew/endians2,
   spec/[datatypes, digest, crypto],
-  block_pools/block_pools_types,
+  consensus_object_pools/block_pools_types,
   fork_choice/fork_choice_types,
   validators/slashing_protection
 

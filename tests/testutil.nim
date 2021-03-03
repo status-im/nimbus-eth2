@@ -11,7 +11,7 @@ import
   ../beacon_chain/[beacon_chain_db, extras],
   ../beacon_chain/ssz,
   ../beacon_chain/spec/[digest, beaconstate, datatypes, presets],
-  ../beacon_chain/block_pools/chain_dag,
+  ../beacon_chain/consensus_object_pools/blockchain_dag,
   eth/db/[kvstore, kvstore_sqlite3],
   testblockutil
 

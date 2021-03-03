@@ -13,11 +13,11 @@ import
   # Status libraries
   chronicles, stew/[byteutils], json_serialization/std/sets as jsonSets,
   # Internal
-  ./spec/[beaconstate, datatypes, crypto, digest, helpers],
-  ssz/merkleization,
-  ./block_pools/[spec_cache, chain_dag, clearance, quarantine],
-  ./beacon_node_types,
-  ./fork_choice/fork_choice
+  ../spec/[beaconstate, datatypes, crypto, digest, helpers],
+  ../ssz/merkleization,
+  "."/[spec_cache, blockchain_dag, block_clearance, block_quarantine],
+  ../beacon_node_types,
+  ../fork_choice/fork_choice
 
 export beacon_node_types
 

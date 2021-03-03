@@ -12,10 +12,10 @@ import
   stew/results,
   chronicles, chronos, metrics,
   ./spec/[crypto, datatypes, digest],
-  ./block_pools/[clearance, chain_dag],
-  ./attestation_aggregation, ./exit_pool,
+  ./consensus_object_pools/[block_clearance, blockchain_dag, exit_pool, attestation_pool],
+  ./attestation_aggregation,
   ./validators/validator_pool,
-  ./beacon_node_types, ./attestation_pool,
+  ./beacon_node_types,
   ./time, ./conf, ./ssz/sszdump
 
 # Metrics for tracking attestation and beacon block loss

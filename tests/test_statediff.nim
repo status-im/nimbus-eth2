@@ -16,7 +16,7 @@ import
     state_transition, presets],
   ../beacon_chain/[beacon_node_types, statediff],
   ../beacon_chain/ssz,
-  ../beacon_chain/block_pools/[chain_dag, quarantine, clearance]
+  ../beacon_chain/consensus_object_pools/[blockchain_dag, block_quarantine, block_clearance]
 
 when isMainModule:
   import chronicles # or some random compile error happens...

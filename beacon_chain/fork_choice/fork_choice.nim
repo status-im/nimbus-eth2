@@ -16,7 +16,7 @@ import
   ../spec/[beaconstate, datatypes, digest, helpers],
   # Fork choice
   ./fork_choice_types, ./proto_array,
-  ../block_pools/[spec_cache, chain_dag]
+  ../consensus_object_pools/[spec_cache, blockchain_dag]
 
 export results, fork_choice_types
 export proto_array.len

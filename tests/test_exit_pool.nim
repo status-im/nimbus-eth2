@@ -11,8 +11,7 @@ import std/unittest
 import chronicles, chronos, testutil
 import eth/keys
 import ../beacon_chain/spec/[datatypes, presets]
-import ../beacon_chain/exit_pool
-import ../beacon_chain/block_pools/[quarantine, chain_dag]
+import ../beacon_chain/consensus_object_pools/[block_quarantine, blockchain_dag, exit_pool]
 
 proc getExitPool(): auto =
   let chainDag =
