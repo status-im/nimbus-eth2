@@ -5,7 +5,7 @@ import
   ../consensus_object_pools/[block_pools_types, blockchain_dag],
   ../spec/[datatypes, digest, helpers]
 
-export chain_dag
+export blockchain_dag
 
 template withStateForStateId*(stateId: string, body: untyped): untyped =
   # TODO this can be optimized for the "head" case since that should be most common
