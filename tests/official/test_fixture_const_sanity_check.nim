@@ -12,7 +12,7 @@ import
   # Status libraries
   stew/[byteutils, endians2],
   # Internals
-  ../../beacon_chain/spec/[datatypes, digest, presets],
+  ../../beacon_chain/spec/[datatypes, presets],
   # Test utilities
   ../testutil, ./fixtures_utils
 
