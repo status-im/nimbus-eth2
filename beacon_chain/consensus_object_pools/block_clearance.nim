@@ -12,7 +12,7 @@ import
   chronicles,
   stew/[assign2, results],
   eth/keys,
-  ../extras, ../time,
+  ../extras, ../beacon_clock,
   ../spec/[crypto, datatypes, digest, helpers, signatures, signatures_batch, state_transition],
   ./block_pools_types, ./blockchain_dag, ./block_quarantine
 

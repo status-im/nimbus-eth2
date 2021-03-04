@@ -27,7 +27,7 @@ import
     beacon_node_common, beacon_node_status, beacon_node_types, conf,
     extras, filepath, interop,
     nimbus_binary_common, ssz/merkleization, statusbar,
-    time, version],
+    beacon_clock, version],
   ./networking/[eth2_discovery, eth2_network, network_metadata],
   ./gossip_processing/[eth2_processor, attestation_aggregation],
   ./validators/[validator_duties, validator_pool, slashing_protection, keystore_management],

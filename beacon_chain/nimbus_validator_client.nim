@@ -19,7 +19,7 @@ import
   ./spec/[datatypes, digest, crypto, helpers, network, signatures],
   ./spec/eth2_apis/beacon_rpc_client,
   ./sync/sync_manager,
-  "."/[conf, time, version],
+  "."/[conf, beacon_clock, version],
   ./networking/[eth2_network, eth2_discovery],
   ./rpc/eth2_json_rpc_serialization,
   ./beacon_node_types,

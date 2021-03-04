@@ -14,7 +14,7 @@ import
   chronos, json_rpc/rpcserver,
 
   # Local modules
-  ./conf, ./time, ./beacon_chain_db,
+  ./conf, ./beacon_clock, ./beacon_chain_db,
   ./beacon_node_types,
   ./gossip_processing/eth2_processor,
   ./networking/eth2_network,
@@ -24,7 +24,7 @@ import
   ./sync/[sync_manager, request_manager]
 
 export
-  osproc, chronos, rpcserver, conf, time, beacon_chain_db,
+  osproc, chronos, rpcserver, conf, beacon_clock, beacon_chain_db,
   attestation_pool, eth2_network, beacon_node_types, eth1_monitor,
   request_manager, sync_manager, eth2_processor, blockchain_dag, block_quarantine,
   datatypes

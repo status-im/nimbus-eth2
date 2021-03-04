@@ -16,7 +16,7 @@ import
     spec_cache, blockchain_dag, block_quarantine, spec_cache,
     attestation_pool
   ],
-  ".."/[beacon_node_types, ssz, time]
+  ".."/[beacon_node_types, ssz, beacon_clock]
 
 logScope:
   topics = "att_aggr"

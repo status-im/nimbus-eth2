@@ -21,7 +21,7 @@ import
   ../spec/[
     datatypes, digest, crypto, helpers, network, signatures, state_transition,
     validator],
-  ../conf, ../time,
+  ../conf, ../beacon_clock,
   ../consensus_object_pools/[
     spec_cache, blockchain_dag, block_clearance,
     attestation_pool, exit_pool],
