@@ -104,6 +104,59 @@ type
     slot*: Slot
     parent_root*: Eth2Digest
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#beaconstate
+  BeaconStateNoImmutableValidators = object
+    # Versioning
+    genesis_time*: uint64
+    genesis_validators_root*: Eth2Digest
+    slot*: Slot
+    fork*: Fork
+
+    # History
+    latest_block_header*: BeaconBlockHeader ##\
+    ## `latest_block_header.state_root == ZERO_HASH` temporarily
+
+    block_roots*: array[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
+    ## Needed to process attestations, older to newer
+
+    state_roots*: array[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+    historical_roots*: List[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
+
+    # Eth1
+    eth1_data*: Eth1Data
+    eth1_data_votes*:
+      List[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
+    eth1_deposit_index*: uint64
+
+    # Registry
+    validators*: List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Randomness
+    randao_mixes*: array[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
+
+    # Slashings
+    slashings*: array[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
+    ## Per-epoch sums of slashed effective balances
+
+    # Attestations
+    previous_epoch_attestations*:
+      List[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
+    current_epoch_attestations*:
+      List[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
+
+    # Finality
+    justification_bits*: uint8 ##\
+    ## Bit set for every recent justified epoch
+    ## Model a Bitvector[4] as a one-byte uint, which should remain consistent
+    ## with ssz/hashing.
+
+    previous_justified_checkpoint*: Checkpoint ##\
+    ## Previous epoch snapshot
+
+    current_justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+
 const
   # The largest object we're saving is the BeaconState, and by far, the largest
   # part of it is the validator - each validator takes up at least 129 bytes
@@ -405,12 +458,17 @@ func getBeaconStateNoImmutableValidators[T, U](x: T): ref U =
   # non-ref return type, hurts performance significantly.
   #
   # This copies all fields, except validators.
-
-  template copyToHashList(x, y: untyped) =
+  template assignToHashList(x, y: untyped) =
     # https://github.com/status-im/nimbus-eth2/blob/3f6834cce7b60581cfe3cdd9946e28bdc6d74176/beacon_chain/ssz/bytes_reader.nim#L144
     assign(x.data, y)
     x.hashes.setLen(0)
     x.growHashes()
+
+  template assignToHashArray(x, y: untyped) =
+    # https://github.com/status-im/nimbus-eth2/blob/3f6834cce7b60581cfe3cdd9946e28bdc6d74176/beacon_chain/ssz/bytes_reader.nim#L148
+    assign(x.data, y)
+    for h in x.hashes.mitems():
+      clearCache(h)
 
   result = new U
   result.genesis_time = x.genesis_time
@@ -418,19 +476,19 @@ func getBeaconStateNoImmutableValidators[T, U](x: T): ref U =
   result.slot = x.slot
   result.fork = x.fork
   assign(result.latest_block_header, x.latest_block_header)
-  assign(result.block_roots, x.block_roots)
-  assign(result.state_roots, x.state_roots)
+  assignToHashArray(result.block_roots, x.block_roots)
+  assignToHashArray(result.state_roots, x.state_roots)
 
-  copyToHashList(result.historical_roots, x.historical_roots)
+  assignToHashList(result.historical_roots, x.historical_roots)
   assign(result.eth1_data, x.eth1_data)
-  copyToHashList(result.eth1_data_votes, x.eth1_data_votes)
+  assignToHashList(result.eth1_data_votes, x.eth1_data_votes)
   assign(result.eth1_deposit_index, x.eth1_deposit_index)
-  copyToHashList(result.balances, x.balances)
-  assign(result.randao_mixes, x.randao_mixes)
-  assign(result.slashings, x.slashings)
-  copyToHashList(
+  assignToHashList(result.balances, x.balances)
+  assignToHashArray(result.randao_mixes, x.randao_mixes)
+  assignToHashArray(result.slashings, x.slashings)
+  assignToHashList(
     result.previous_epoch_attestations, x.previous_epoch_attestations)
-  copyToHashList(
+  assignToHashList(
     result.current_epoch_attestations, x.current_epoch_attestations)
   result.justification_bits = x.justification_bits
   assign(result.previous_justified_checkpoint, x.previous_justified_checkpoint)

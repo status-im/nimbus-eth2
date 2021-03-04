@@ -643,61 +643,6 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-  # TODO BeaconStateNoImmutableValidators and getBeaconStateNoImmutableValidators should
-  # be beacon chain db creatures, and live there
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#beaconstate
-  BeaconStateNoImmutableValidators* = object
-    # Versioning
-    genesis_time*: uint64
-    genesis_validators_root*: Eth2Digest
-    slot*: Slot
-    fork*: Fork
-
-    # History
-    latest_block_header*: BeaconBlockHeader ##\
-    ## `latest_block_header.state_root == ZERO_HASH` temporarily
-
-    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
-    ## Needed to process attestations, older to newer
-
-    state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
-    historical_roots*: List[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
-
-    # Eth1
-    eth1_data*: Eth1Data
-    eth1_data_votes*:
-      List[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
-    eth1_deposit_index*: uint64
-
-    # Registry
-    validators*: List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
-    balances*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
-
-    # Randomness
-    randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
-
-    # Slashings
-    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
-    ## Per-epoch sums of slashed effective balances
-
-    # Attestations
-    previous_epoch_attestations*:
-      List[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
-    current_epoch_attestations*:
-      List[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
-
-    # Finality
-    justification_bits*: uint8 ##\
-    ## Bit set for every recent justified epoch
-    ## Model a Bitvector[4] as a one-byte uint, which should remain consistent
-    ## with ssz/hashing.
-
-    previous_justified_checkpoint*: Checkpoint ##\
-    ## Previous epoch snapshot
-
-    current_justified_checkpoint*: Checkpoint
-    finalized_checkpoint*: Checkpoint
-
   DoppelgangerProtection* = object
     broadcastStartEpoch*: Epoch
 
