@@ -451,6 +451,7 @@ func getBeaconStateNoImmutableValidators[T, U](x: T): ref U =
     result.current_epoch_attestations, x.current_epoch_attestations)
   result.justification_bits = x.justification_bits
   assign(result.previous_justified_checkpoint, x.previous_justified_checkpoint)
+  assign(result.current_justified_checkpoint, x.current_justified_checkpoint)
   assign(result.finalized_checkpoint, x.finalized_checkpoint)
 
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
