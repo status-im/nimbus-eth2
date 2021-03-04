@@ -5,7 +5,8 @@ import
   ../spec/[datatypes, digest, crypto, keystore],
   stew/io2, libp2p/crypto/crypto as lcrypto,
   nimcrypto/utils as ncrutils,
-  ".."/[conf, ssz/merkleization, network_metadata, filepath]
+  ".."/[conf, ssz/merkleization, filepath],
+  ../networking/network_metadata
 
 export
   keystore

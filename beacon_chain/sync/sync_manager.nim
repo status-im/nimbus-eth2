@@ -2,9 +2,9 @@ import chronicles
 import options, deques, heapqueue, tables, strutils, sequtils, math, algorithm
 import stew/results, chronos, chronicles
 import ../spec/[datatypes, digest, helpers, eth2_apis/callsigs_types],
-       ../peer_pool, ../eth2_network
+       ../networking/[peer_pool, eth2_network]
 
-import ../eth2_processor
+import ../gossip_processing/eth2_processor
 import ../consensus_object_pools/block_pools_types
 export datatypes, digest, chronos, chronicles, results, block_pools_types
 

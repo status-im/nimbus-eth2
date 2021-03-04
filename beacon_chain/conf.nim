@@ -9,7 +9,8 @@ import
   eth/p2p/discoveryv5/enr,
   json_serialization, web3/[ethtypes, confutils_defs],
   spec/[crypto, keystore, digest, datatypes, network],
-  network_metadata, filepath
+  ./networking/network_metadata,
+  filepath
 
 export
   uri,

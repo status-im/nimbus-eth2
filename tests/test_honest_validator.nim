@@ -3,7 +3,7 @@
 import
   unittest, ./testutil,
   ../beacon_chain/spec/[crypto, datatypes, network],
-  ../beacon_chain/attestation_aggregation
+  ../beacon_chain/gossip_processing/attestation_aggregation
 
 suiteReport "Honest validator":
   var forkDigest: ForkDigest

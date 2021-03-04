@@ -26,9 +26,10 @@ import
     spec_cache, blockchain_dag, block_clearance,
     attestation_pool, exit_pool],
   ../eth1/eth1_monitor,
-  ../eth2_network, ../beacon_node_common,
-  ../beacon_node_types, ../nimbus_binary_common, ../version,
-  ../ssz, ../ssz/sszdump, ../attestation_aggregation, ../sync/sync_manager,
+  ../networking/eth2_network,
+  ".."/[beacon_node_common, beacon_node_types, nimbus_binary_common, version],
+  ../gossip_processing/attestation_aggregation,
+  ../ssz, ../ssz/sszdump, ../sync/sync_manager,
   ./slashing_protection,
   ./validator_pool, ./keystore_management
 

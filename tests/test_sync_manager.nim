@@ -2,7 +2,7 @@
 
 import unittest
 import chronos
-import ../beacon_chain/eth2_processor,
+import ../beacon_chain/gossip_processing/eth2_processor,
        ../beacon_chain/sync/sync_manager
 
 type

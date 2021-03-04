@@ -23,12 +23,13 @@ import
 
   # Local modules
   "."/[
-    attestation_aggregation, beacon_chain_db,
+    beacon_chain_db,
     beacon_node_common, beacon_node_status, beacon_node_types, conf,
-    eth2_discovery, eth2_network, eth2_processor,
-    extras, filepath, interop, network_metadata,
+    extras, filepath, interop,
     nimbus_binary_common, ssz/merkleization, statusbar,
     time, version],
+  ./networking/[eth2_discovery, eth2_network, network_metadata],
+  ./gossip_processing/[eth2_processor, attestation_aggregation],
   ./validators/[validator_duties, validator_pool, slashing_protection, keystore_management],
   ./sync/[sync_manager, sync_protocol, request_manager],
   ./rpc/[beacon_api, config_api, debug_api, event_api, nimbus_api, node_api,

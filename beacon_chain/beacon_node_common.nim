@@ -14,9 +14,10 @@ import
   chronos, json_rpc/rpcserver,
 
   # Local modules
-  ./conf, ./time, ./beacon_chain_db, ./eth2_network,
+  ./conf, ./time, ./beacon_chain_db,
   ./beacon_node_types,
-  ./eth2_processor,
+  ./gossip_processing/eth2_processor,
+  ./networking/eth2_network,
   ./eth1/eth1_monitor,
   ./consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
   ./spec/datatypes,

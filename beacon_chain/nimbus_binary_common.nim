@@ -17,7 +17,8 @@ import
   stew/io2,
 
   # Local modules
-  spec/[datatypes, crypto, helpers], eth2_network, time, filepath
+  ./spec/[datatypes, crypto, helpers], time, filepath,
+  ./networking/eth2_network
 
 proc setupStdoutLogging*(logLevel: string) =
   when compiles(defaultChroniclesStream.output.writer):

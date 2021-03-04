@@ -8,8 +8,8 @@
 {.push raises: [Defect].}
 
 import
-  ssz/types,
-  spec/[datatypes, digest, helpers]
+  ./ssz/types,
+  ./spec/[datatypes, digest, helpers]
 
 func diffModIncEpoch[T, U](hl: HashArray[U, T], startSlot: uint64):
     array[SLOTS_PER_EPOCH, T] =

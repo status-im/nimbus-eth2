@@ -21,11 +21,12 @@ import
   libp2p/stream/connection,
   eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
   eth/net/nat, eth/p2p/discoveryv5/[enr, node],
-  "."/[
-    version, conf, eth2_discovery, libp2p_json_serialization,
-    ssz/ssz_serialization, peer_pool, time],
-  ./spec/[datatypes, digest, helpers, network],
-  ./validators/keystore_management
+  ".."/[
+    version, conf,
+    ssz/ssz_serialization, time],
+  ../spec/[datatypes, digest, helpers, network],
+  ../validators/keystore_management,
+  ./eth2_discovery, ./peer_pool, ./libp2p_json_serialization
 
 import libp2p/protocols/pubsub/gossipsub
 

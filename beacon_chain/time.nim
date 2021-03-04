@@ -2,7 +2,7 @@
 
 import
   chronos, chronicles,
-  spec/datatypes
+  ./spec/datatypes
 
 from times import Time, getTime, fromUnix, `<`, `-`, inNanoseconds
 
@@ -115,4 +115,3 @@ func shortLog*(v: BeaconTime): string = $(Duration v)
 
 chronicles.formatIt Duration: $it
 chronicles.formatIt BeaconTime: $(Duration it)
-

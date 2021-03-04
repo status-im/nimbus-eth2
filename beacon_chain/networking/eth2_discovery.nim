@@ -4,7 +4,7 @@ import
   std/[os, strutils],
   chronicles, stew/shims/net, stew/results, bearssl,
   eth/keys, eth/p2p/discoveryv5/[enr, protocol, node],
-  ./conf
+  ../conf
 
 export protocol, keys
 

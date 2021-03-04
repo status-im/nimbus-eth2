@@ -12,8 +12,8 @@ import
   chronicles,
   json_serialization,
   json_serialization/std/[options, sets, net], serialization/errors,
-  ssz/navigator,
-  spec/[presets, datatypes, digest]
+  ../ssz/navigator,
+  ../spec/[presets, datatypes, digest]
 
 # ATTENTION! This file will produce a large C file, because we are inlining
 # genesis states as C literals in the generated code (and blobs in the final
@@ -74,7 +74,7 @@ type
       incompatibilityDesc*: string
 
 const
-  eth2testnetsDir = currentSourcePath.parentDir.replace('\\', '/') & "/../vendor/eth2-testnets"
+  eth2testnetsDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/eth2-testnets"
 
 const presetValueLoaders = genExpr(nnkBracket):
   for constName in PresetValue:
@@ -228,4 +228,3 @@ proc getRuntimePresetForNetwork*(eth2Network: Option[string]): RuntimePreset =
 
 proc extractGenesisValidatorRootFromSnapshop*(snapshot: string): Eth2Digest =
   sszMount(snapshot, BeaconState).genesis_validators_root[]
-
