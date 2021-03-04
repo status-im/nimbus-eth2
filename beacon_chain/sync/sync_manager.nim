@@ -5,7 +5,7 @@ import ../spec/[datatypes, digest, helpers, eth2_apis/callsigs_types],
        ../peer_pool, ../eth2_network
 
 import ../eth2_processor
-import ../block_pools/block_pools_types
+import ../consensus_object_pools/block_pools_types
 export datatypes, digest, chronos, chronicles, results, block_pools_types
 
 logScope:

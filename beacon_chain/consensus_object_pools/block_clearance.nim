@@ -14,7 +14,7 @@ import
   eth/keys,
   ../extras, ../time,
   ../spec/[crypto, datatypes, digest, helpers, signatures, signatures_batch, state_transition],
-  ./block_pools_types, ./chain_dag, ./quarantine
+  ./block_pools_types, ./blockchain_dag, ./block_quarantine
 
 export results
 
