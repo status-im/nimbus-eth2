@@ -2,33 +2,23 @@ AllTests-mainnet
 ===
 ## Attestation pool processing [Preset: mainnet]
 ```diff
-+ Attestations may arrive in any order [Preset: mainnet]                                     OK
-+ Attestations may overlap, bigger first [Preset: mainnet]                                   OK
-+ Attestations may overlap, smaller first [Preset: mainnet]                                  OK
-+ Attestations should be combined [Preset: mainnet]                                          OK
-+ Can add and retrieve simple attestation [Preset: mainnet]                                  OK
-+ Fork choice returns block with attestation                                                 OK
-+ Fork choice returns latest block with no attestations                                      OK
-+ Trying to add a block twice tags the second as an error                                    OK
-+ Trying to add a duplicate block from an old pruned epoch is tagged as an error             OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
+OK: 0/0 Fail: 0/0 Skip: 0/0
 ## Attestation validation  [Preset: mainnet]
 ```diff
-+ Validation sanity                                                                          OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 0/0 Fail: 0/0 Skip: 0/0
 ## Beacon chain DB [Preset: mainnet]
 ```diff
 + empty database [Preset: mainnet]                                                           OK
 + find ancestors [Preset: mainnet]                                                           OK
 + sanity check blocks [Preset: mainnet]                                                      OK
-+ sanity check genesis roundtrip [Preset: mainnet]                                           OK
+- sanity check genesis roundtrip [Preset: mainnet]                                           Fail
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 + sanity check states 2 [Preset: mainnet]                                                    OK
 + sanity check states [Preset: mainnet]                                                      OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
+OK: 6/7 Fail: 1/7 Skip: 0/7
 ## Beacon node
 ```diff
 + Compile                                                                                    OK
@@ -41,15 +31,8 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Block pool processing [Preset: mainnet]
 ```diff
-+ Adding the same block twice returns a Duplicate error [Preset: mainnet]                    OK
-+ Reverse order block add & get [Preset: mainnet]                                            OK
-+ Simple block add&get [Preset: mainnet]                                                     OK
-+ getRef returns nil for missing blocks                                                      OK
-+ loading tail block works [Preset: mainnet]                                                 OK
-+ updateHead updates head and headState [Preset: mainnet]                                    OK
-+ updateStateData sanity [Preset: mainnet]                                                   OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
+OK: 0/0 Fail: 0/0 Skip: 0/0
 ## Block processing [Preset: mainnet]
 ```diff
 + Attestation gets processed at epoch [Preset: mainnet]                                      OK
@@ -74,11 +57,8 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Exit pool testing suite
 ```diff
-+ addExitMessage/getAttesterSlashingMessage                                                  OK
-+ addExitMessage/getProposerSlashingMessage                                                  OK
-+ addExitMessage/getVoluntaryExitMessage                                                     OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 0/0 Fail: 0/0 Skip: 0/0
 ## Fork Choice + Finality  [Preset: mainnet]
 ```diff
 + fork_choice - testing finality #01                                                         OK
@@ -265,9 +245,8 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 OK: 8/8 Fail: 0/8 Skip: 0/8
 ## chain DAG finalization tests [Preset: mainnet]
 ```diff
-+ init with gaps [Preset: mainnet]                                                           OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 0/0 Fail: 0/0 Skip: 0/0
 ## hash
 ```diff
 + HashArray                                                                                  OK
@@ -280,4 +259,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 150/159 Fail: 0/159 Skip: 9/159
+OK: 126/136 Fail: 1/136 Skip: 9/136

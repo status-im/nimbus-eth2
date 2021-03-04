@@ -481,12 +481,16 @@ proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
 proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
   dag.getEpochRef(dag.finalizedHead.blck, dag.finalizedHead.slot.epoch)
 
-proc updateImmutableValidators(dag, state: auto) =
+# TODO looking more like a beacon_chain_db/immutable-data-base-part proc
+# since it needs to be around for init stuff
+proc updateImmutableValidators(
+    db: BeaconChainDB, immutableValidators: var seq[ImmutableValidatorData],
+    validators: auto) =
   let
-    numValidators = state.validators.lenu64
-    origNumImmutableValidators = dag.immutableValidators.lenu64
+    numValidators = validators.lenu64
+    origNumImmutableValidators = immutableValidators.lenu64
 
-  doAssert dag.immutableValidators.lenu64 == dag.db.immutableValidators.len
+  doAssert immutableValidators.lenu64 == db.immutableValidators.len
 
   if numValidators <= origNumImmutableValidators:
     return
@@ -494,9 +498,9 @@ proc updateImmutableValidators(dag, state: auto) =
   for validatorIndex in origNumImmutableValidators ..< numValidators:
     # This precedes state storage
     let immutableValidator =
-      getImmutableValidatorData(state.validators[validatorIndex])
-    dag.db.immutableValidators.add immutableValidator
-    dag.immutableValidators.add immutableValidator
+      getImmutableValidatorData(validators[validatorIndex])
+    db.immutableValidators.add immutableValidator
+    immutableValidators.add immutableValidator
 
 proc getState(
     dag: ChainDAGRef, state: var StateData, stateRoot: Eth2Digest,
@@ -572,7 +576,8 @@ proc putState*(dag: ChainDAGRef, state: StateData) =
   # Ideally we would save the state and the root lookup cache in a single
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
-  dag.updateImmutableValidators(state.data.data)
+  dag.db.updateImmutableValidators(
+    dag.immutableValidators, state.data.data.validators)
   dag.db.putState(state.data.root, state.data.data)
   dag.db.putStateRoot(state.blck.root, state.data.data.slot, state.data.root)
 
@@ -1077,6 +1082,8 @@ proc preInit*(
     fork = tailState.fork,
     validators = tailState.validators.len()
 
+  for validator in tailState.validators:
+    db.immutableValidators.add getImmutableValidatorData(validator)
   db.putState(tailState)
   db.putBlock(tailBlock)
   db.putTailBlock(tailBlock.root)

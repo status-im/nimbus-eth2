@@ -456,12 +456,10 @@ func getBeaconStateNoImmutableValidators[T, U](x: T): ref U =
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   # TODO prune old states - this is less easy than it seems as we never know
   #      when or if a particular state will become finalized.
-  # TODO re-enable once workaround for assign issue exists
   var mutableOnlyState = getBeaconStateNoImmutableValidators[
     BeaconState, BeaconStateNoImmutableValidators](value)
-  # TODO fill in validator part by getMutableValidatorStatus from statediff
-  # (which, move from there first)
-  db.put(subkey(BeaconStateNoImmutableValidators, key), value)
+  mutableOnlyState[].validators = getMutableValidatorStatuses(value)
+  db.put(subkey(BeaconStateNoImmutableValidators, key), mutableOnlyState[])
 
 proc putState*(db: BeaconChainDB, value: BeaconState) =
   db.putState(hash_tree_root(value), value)
@@ -547,38 +545,28 @@ proc getStateOnlyMutableValidators(
     output = getBeaconStateNoImmutableValidators[
       BeaconStateNoImmutableValidators, BeaconState](intermediateOutput[])[]
 
-    # This must be guaranteed
     doAssert immutableValidators.len >= intermediateOutput[].validators.len
 
     # TODO factor out, maybe
     for i in 0 ..< intermediateOutput[].validators.len:
       # Merge immutable and mutable parts
+      output.validators.add Validator(
+        # Immutable
+        pubkey: immutableValidators[i].pubkey,
+        withdrawal_credentials: immutableValidators[i].withdrawal_credentials,
 
-      # Immutable
-      assign(output.validators[i].pubkey, immutableValidators[i].pubkey)
-      assign(
-        output.validators[i].withdrawal_credentials,
-        immutableValidators[i].withdrawal_credentials)
-
-      # Mutable
-      assign(
-        output.validators[i].effective_balance,
-        intermediateOutput[].validators[i].effective_balance)
-      assign(
-        output.validators[i].slashed,
-        intermediateOutput[].validators[i].slashed)
-      assign(
-        output.validators[i].activation_eligibility_epoch,
-        intermediateOutput[].validators[i].activation_eligibility_epoch)
-      assign(
-        output.validators[i].activation_epoch,
-        intermediateOutput[].validators[i].activation_epoch)
-      assign(
-        output.validators[i].exit_epoch,
-        intermediateOutput[].validators[i].exit_epoch)
-      assign(
-        output.validators[i].withdrawable_epoch,
-        intermediateOutput[].validators[i].withdrawable_epoch)
+        # Mutable
+        effective_balance: intermediateOutput[].validators[i].effective_balance,
+        slashed: intermediateOutput[].validators[i].slashed,
+        activation_eligibility_epoch:
+          intermediateOutput[].validators[i].activation_eligibility_epoch,
+        activation_epoch:
+          intermediateOutput[].validators[i].activation_epoch,
+        exit_epoch:
+          intermediateOutput[].validators[i].exit_epoch,
+        withdrawable_epoch:
+          intermediateOutput[].validators[i].withdrawable_epoch,
+      )
 
     true
   of GetResult.notFound:

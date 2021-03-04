@@ -651,6 +651,21 @@ func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData =
     pubkey: validator.pubkey,
     withdrawal_credentials: validator.withdrawal_credentials)
 
+func getMutableValidatorStatus(validator: Validator): ValidatorStatus =
+  ValidatorStatus(
+      effective_balance: validator.effective_balance,
+      slashed: validator.slashed,
+      activation_eligibility_epoch: validator.activation_eligibility_epoch,
+      activation_epoch: validator.activation_epoch,
+      exit_epoch: validator.exit_epoch,
+      withdrawable_epoch: validator.withdrawable_epoch)
+
+func getMutableValidatorStatuses*(state: BeaconState):
+    List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT] =
+  # use mapIt + .init(foo)?
+  for validator in state.validators:
+    result.add getMutableValidatorStatus(validator)
+
 func getDepositMessage*(depositData: DepositData): DepositMessage =
   result.pubkey = depositData.pubkey
   result.amount = depositData.amount

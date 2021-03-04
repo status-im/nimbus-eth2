@@ -78,21 +78,6 @@ func replaceOrAddDecodeEth1Votes[T, U](
   for item in votes1:
     votes0.add item
 
-func getMutableValidatorStatus(validator: Validator): ValidatorStatus =
-  ValidatorStatus(
-      effective_balance: validator.effective_balance,
-      slashed: validator.slashed,
-      activation_eligibility_epoch: validator.activation_eligibility_epoch,
-      activation_epoch: validator.activation_epoch,
-      exit_epoch: validator.exit_epoch,
-      withdrawable_epoch: validator.withdrawable_epoch)
-
-func getMutableValidatorStatuses(state: BeaconState):
-    List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT] =
-  # use mapIt + .init(foo)?
-  for validator in state.validators:
-    result.add getMutableValidatorStatus(validator)
-
 func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
   doAssert state1.slot > state0.slot
   doAssert state0.slot.isEpoch
