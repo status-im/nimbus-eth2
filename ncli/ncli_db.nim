@@ -131,10 +131,9 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
     root: db.getBlock(blockRefs[^1].root).get().message.state_root
   )
 
-  var foo: seq[ImmutableValidatorData]
   withTimer(timers[tLoadState]):
-    discard db.getState(state[].root, state[].data, noRollback, foo)
-    #discard db.getState(state[].root, state[].data, noRollback, pool.iv)
+    discard db.getState(
+      state[].root, state[].data, noRollback, pool.immutableValidators)
 
   var
     cache = StateCache()
@@ -176,17 +175,16 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
   printTimers(false, timers)
 
 proc cmdDumpState(conf: DbConf, preset: RuntimePreset) =
-  let db = BeaconChainDB.init(preset, conf.databaseDir.string)
+  let
+    db = BeaconChainDB.init(preset, conf.databaseDir.string)
+    immutableValidators = db.loadImmutableValidators()
   defer: db.close()
 
-  var foo: seq[ImmutableValidatorData]
-  # TODO move the load-immutable-validators thing out of chain dag maybe, since
-  # want it here too. then use that instead of `foo`
   for stateRoot in conf.stateRoot:
     try:
       let root = Eth2Digest(data: hexToByteArray[32](stateRoot))
       var state = (ref HashedBeaconState)(root: root)
-      if not db.getState(root, state.data, noRollback, foo):
+      if not db.getState(root, state.data, noRollback, immutableValidators):
         echo "Couldn't load ", root
       else:
         dump("./", state[])
@@ -229,9 +227,9 @@ proc copyPrunedDatabase(
   let headEpoch = db.getBlock(headBlock.get).get.message.slot.epoch
 
   # Tail states are specially addressed; no stateroot intermediary
+  # TODO here, want to copy raw blocks, not the processed forms,
+  # and also the immutable validators; might need to adjust APIs
   var foo: seq[ImmutableValidatorData]
-  # TODO move the load-immutable-validators thing out of chain dag maybe, since
-  # want it here too. then use that instead of `foo`
   if not db.getState(
       db.getBlock(tailBlock.get).get.message.state_root, beaconState[],
       noRollback, foo):

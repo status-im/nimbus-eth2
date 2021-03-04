@@ -189,9 +189,6 @@ suiteReport "Beacon chain DB" & preset():
       immutableValidators: seq[ImmutableValidatorData] = @[]
 
     # TODO make sure there's a validator
-
-    # TODO it's fine, but maybe for testing purposes should be able to force a
-    # non-split-validators store. the interface isn't yet different
     db.putState(state[])
 
     check:

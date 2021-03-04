@@ -618,3 +618,7 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
       break
 
     root = res.summary.parent_root
+
+proc loadImmutableValidators*(db: BeaconChainDB): seq[ImmutableValidatorData] =
+  for i in 0'u64 ..< db.immutableValidators.len:
+    result.add db.immutableValidators.get(i)

@@ -304,10 +304,6 @@ proc loadStateCache*(cache: var StateCache, blck: BlockRef, epoch: Epoch) =
   if epoch > 0:
     load(epoch - 1)
 
-proc loadImmutableValidators(db: BeaconChainDB): seq[ImmutableValidatorData] =
-  for i in 0'u64 ..< db.immutableValidators.len:
-    result.add db.immutableValidators.get(i)
-
 func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
   BlockRef(
     root: root,
