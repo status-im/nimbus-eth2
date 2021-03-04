@@ -25,6 +25,9 @@ type
   BeaconTime* = distinct Duration ## Nanoseconds from beacon genesis time
 
 proc init*(T: type BeaconClock, genesis_time: uint64): T =
+  # ~290 billion years into the future
+  doAssert genesis_time <= high(int64).uint64
+
   let
     unixGenesis = fromUnix(genesis_time.int64)
     # GENESIS_SLOT offsets slot time, but to simplify calculations, we apply that
