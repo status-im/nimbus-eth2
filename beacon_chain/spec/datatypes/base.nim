@@ -661,18 +661,17 @@ type
     ## Needed to process attestations, older to newer
 
     state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
-    historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
+    historical_roots*: List[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
 
     # Eth1
     eth1_data*: Eth1Data
     eth1_data_votes*:
-      HashList[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
+      List[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
     eth1_deposit_index*: uint64
 
     # Registry
-    # TODO HashList vs List? zahary likes List
     validators*: List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
-    balances*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
     randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
@@ -683,9 +682,9 @@ type
 
     # Attestations
     previous_epoch_attestations*:
-      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
+      List[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
     current_epoch_attestations*:
-      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
+      List[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
 
     # Finality
     justification_bits*: uint8 ##\

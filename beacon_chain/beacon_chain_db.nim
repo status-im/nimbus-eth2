@@ -405,6 +405,13 @@ func getBeaconStateNoImmutableValidators[T, U](x: T): ref U =
   # non-ref return type, hurts performance significantly.
   #
   # This copies all fields, except validators.
+
+  template copyToHashList(x, y: untyped) =
+    # https://github.com/status-im/nimbus-eth2/blob/3f6834cce7b60581cfe3cdd9946e28bdc6d74176/beacon_chain/ssz/bytes_reader.nim#L144
+    assign(x.data, y)
+    x.hashes.setLen(0)
+    x.growHashes()
+
   result = new U
   result.genesis_time = x.genesis_time
   result.genesis_validators_root = x.genesis_validators_root
@@ -413,15 +420,18 @@ func getBeaconStateNoImmutableValidators[T, U](x: T): ref U =
   assign(result.latest_block_header, x.latest_block_header)
   assign(result.block_roots, x.block_roots)
   assign(result.state_roots, x.state_roots)
-  assign(result.historical_roots, x.historical_roots)
+
+  copyToHashList(result.historical_roots, x.historical_roots)
   assign(result.eth1_data, x.eth1_data)
-  assign(result.eth1_data_votes, x.eth1_data_votes)
+  copyToHashList(result.eth1_data_votes, x.eth1_data_votes)
   assign(result.eth1_deposit_index, x.eth1_deposit_index)
-  assign(result.balances, x.balances)
+  copyToHashList(result.balances, x.balances)
   assign(result.randao_mixes, x.randao_mixes)
   assign(result.slashings, x.slashings)
-  assign(result.previous_epoch_attestations, x.previous_epoch_attestations)
-  assign(result.current_epoch_attestations, x.current_epoch_attestations)
+  copyToHashList(
+    result.previous_epoch_attestations, x.previous_epoch_attestations)
+  copyToHashList(
+    result.current_epoch_attestations, x.current_epoch_attestations)
   result.justification_bits = x.justification_bits
   assign(result.previous_justified_checkpoint, x.previous_justified_checkpoint)
   assign(result.finalized_checkpoint, x.finalized_checkpoint)
