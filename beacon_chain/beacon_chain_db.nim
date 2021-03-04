@@ -407,18 +407,28 @@ func getBeaconStateNoImmutableValidators[T, U](x: T): ref U =
     x.hashes.setLen(0)
     x.growHashes()
 
-  template assign[V, W](x: HashArray[V, W], y: array[V, W]) =
+  template assign[V, W](dummy, x: HashArray[V, W], y: array[V, W]) =
     # https://github.com/status-im/nimbus-eth2/blob/3f6834cce7b60581cfe3cdd9946e28bdc6d74176/beacon_chain/ssz/bytes_reader.nim#L148
     assign(x.data, y)
     for h in x.hashes.mitems():
       clearCache(h)
 
-  template assign[V, W](dummy: untyped, x: List[V, W], y: HashList[V, W]) =
+  template assign[V, W](x: List[V, W], y: HashList[V, W]) =
     assign(x, y.data)
 
-  # TODO workaround for https://github.com/nim-lang/Nim/issues/17253
-  #template assign[V, W](dummy: untyped, x: array[V, W], y: HashArray[V, W]) =
-  #  assign(x, y.data)
+  template assign[V, W](
+      dummy: HashArray[V, W], x: array[V, W], y: HashArray[V, W]) =
+    assign(x, y.data)
+
+  # https://github.com/nim-lang/Nim/issues/17253 workaround
+  template type_binder(maybe_array_0, maybe_array_1: untyped): untyped =
+    when maybe_array_0 is array:
+      maybe_array_1
+    else:
+      maybe_array_0
+
+  template arrayAssign(x, y: untyped) =
+    assign(type_binder(x, y), x, y)
 
   result = new U
   result.genesis_time = x.genesis_time
@@ -426,16 +436,15 @@ func getBeaconStateNoImmutableValidators[T, U](x: T): ref U =
   result.slot = x.slot
   result.fork = x.fork
   assign(result.latest_block_header, x.latest_block_header)
-  assign(result.block_roots, x.block_roots)
-  assign(result.state_roots, x.state_roots)
-
+  arrayAssign(result.block_roots, x.block_roots)
+  arrayAssign(result.state_roots, x.state_roots)
   assign(result.historical_roots, x.historical_roots)
   assign(result.eth1_data, x.eth1_data)
   assign(result.eth1_data_votes, x.eth1_data_votes)
   assign(result.eth1_deposit_index, x.eth1_deposit_index)
   assign(result.balances, x.balances)
-  assign(result.randao_mixes, x.randao_mixes)
-  assign(result.slashings, x.slashings)
+  arrayAssign(result.randao_mixes, x.randao_mixes)
+  arrayAssign(result.slashings, x.slashings)
   assign(
     result.previous_epoch_attestations, x.previous_epoch_attestations)
   assign(
@@ -447,15 +456,12 @@ func getBeaconStateNoImmutableValidators[T, U](x: T): ref U =
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   # TODO prune old states - this is less easy than it seems as we never know
   #      when or if a particular state will become finalized.
-  when false:
-    # TODO re-enable once workaround for assign issue exists
-    var mutableOnlyState = getBeaconStateNoImmutableValidators[
-      BeaconState, BeaconStateNoImmutableValidators](value)
-    # TODO fill in validator part by getMutableValidatorStatus from statediff
-    # (which, move from there first)
-    db.put(subkey(BeaconStateNoImmutableValidators, key), value)
-  else:
-    db.put(subkey(BeaconState, key), value)
+  # TODO re-enable once workaround for assign issue exists
+  var mutableOnlyState = getBeaconStateNoImmutableValidators[
+    BeaconState, BeaconStateNoImmutableValidators](value)
+  # TODO fill in validator part by getMutableValidatorStatus from statediff
+  # (which, move from there first)
+  db.put(subkey(BeaconStateNoImmutableValidators, key), value)
 
 proc putState*(db: BeaconChainDB, value: BeaconState) =
   db.putState(hash_tree_root(value), value)
