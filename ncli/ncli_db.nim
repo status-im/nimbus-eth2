@@ -1,7 +1,7 @@
 import
   os, stats, strformat, tables,
   chronicles, confutils, stew/byteutils, eth/db/kvstore_sqlite3,
-  ../beacon_chain/network_metadata,
+  ../beacon_chain/networking/network_metadata,
   ../beacon_chain/[beacon_chain_db, extras],
   ../beacon_chain/consensus_object_pools/blockchain_dag,
   ../beacon_chain/spec/[crypto, datatypes, digest, helpers,
