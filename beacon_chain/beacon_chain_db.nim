@@ -104,7 +104,12 @@ type
     slot*: Slot
     parent_root*: Eth2Digest
 
+  # TODO extract this and some other immutable validator-related items into a
+  # separate module -- they're almost only for beacon_chain_db, but overwhelm
+  # this module.
+  # TODO add HF1 compatibility; emphasize HF1 performance, but support phase 0
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/lightclient/beacon-chain.md#beaconstate
   BeaconStateNoImmutableValidators = object
     # Versioning
     genesis_time*: uint64
@@ -385,10 +390,72 @@ proc putBlock*(db: BeaconChainDB, value: SigVerifiedSignedBeaconBlock) =
   db.put(subkey(SignedBeaconBlock, value.root), value)
   db.put(subkey(BeaconBlockSummary, value.root), value.message.toBeaconBlockSummary())
 
+# TODO refactor this into immutable validator-specific module; also, figure out
+# better name, but "get" in this module generally means retrieve from database,
+# which this isn't. another argument, perhaps, for the module split.
+# TODO copy HF1 values too
+func getBeaconStateNoImmutableValidators[T, U](x: T): ref U =
+  # TODO this whole approach is a kludge; should be able to avoid copying and
+  # get SSZ to just serialize result.validators differently, concatenate from
+  # before + changed + after, or etc. also adding any additional copies, or a
+  # non-ref return type, hurts performance significantly.
+  #
+  # This copies all fields, except validators.
+  template assign[V, W](x: HashList[V, W], y: List[V, W]) =
+    # https://github.com/status-im/nimbus-eth2/blob/3f6834cce7b60581cfe3cdd9946e28bdc6d74176/beacon_chain/ssz/bytes_reader.nim#L144
+    assign(x.data, y)
+    x.hashes.setLen(0)
+    x.growHashes()
+
+  template assign[V, W](x: HashArray[V, W], y: array[V, W]) =
+    # https://github.com/status-im/nimbus-eth2/blob/3f6834cce7b60581cfe3cdd9946e28bdc6d74176/beacon_chain/ssz/bytes_reader.nim#L148
+    assign(x.data, y)
+    for h in x.hashes.mitems():
+      clearCache(h)
+
+  template assign[V, W](dummy: untyped, x: List[V, W], y: HashList[V, W]) =
+    assign(x, y.data)
+
+  #TODO
+  #template assign[V, W](dummy: untyped, x: array[V, W], y: HashArray[V, W]) =
+  #  assign(x, y.data)
+
+  result = new U
+  result.genesis_time = x.genesis_time
+  result.genesis_validators_root = x.genesis_validators_root
+  result.slot = x.slot
+  result.fork = x.fork
+  assign(result.latest_block_header, x.latest_block_header)
+  #assign(result.block_roots, x.block_roots)
+  #assign(result.state_roots, x.state_roots)
+
+  assign(result.historical_roots, x.historical_roots)
+  assign(result.eth1_data, x.eth1_data)
+  assign(result.eth1_data_votes, x.eth1_data_votes)
+  assign(result.eth1_deposit_index, x.eth1_deposit_index)
+  assign(result.balances, x.balances)
+  #assign(result.randao_mixes, x.randao_mixes)
+  #assign(result.slashings, x.slashings)
+  assign(
+    result.previous_epoch_attestations, x.previous_epoch_attestations)
+  assign(
+    result.current_epoch_attestations, x.current_epoch_attestations)
+  result.justification_bits = x.justification_bits
+  assign(result.previous_justified_checkpoint, x.previous_justified_checkpoint)
+  assign(result.finalized_checkpoint, x.finalized_checkpoint)
+
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   # TODO prune old states - this is less easy than it seems as we never know
   #      when or if a particular state will become finalized.
-  db.put(subkey(type value, key), value)
+  when false:
+    # TODO re-enable once workaround for assign issue exists
+    var mutableOnlyState = getBeaconStateNoImmutableValidators[
+      BeaconState, BeaconStateNoImmutableValidators](value)
+    # TODO fill in validator part by getMutableValidatorStatus from statediff
+    # (which, move from there first)
+    db.put(subkey(BeaconStateNoImmutableValidators, key), value)
+  else:
+    db.put(subkey(BeaconState, key), value)
 
 proc putState*(db: BeaconChainDB, value: BeaconState) =
   db.putState(hash_tree_root(value), value)
@@ -450,49 +517,6 @@ proc getBlockSummary*(db: BeaconChainDB, key: Eth2Digest): Opt[BeaconBlockSummar
   result.ok(BeaconBlockSummary())
   if db.get(subkey(BeaconBlockSummary, key), result.get) != GetResult.found:
     result.err()
-
-func getBeaconStateNoImmutableValidators[T, U](x: T): ref U =
-  # TODO this whole approach is a kludge; should be able to avoid copying and
-  # get SSZ to just serialize result.validators differently, concatenate from
-  # before + changed + after, or etc. also adding any additional copies, or a
-  # non-ref return type, hurts performance significantly.
-  #
-  # This copies all fields, except validators.
-  template assignToHashList(x, y: untyped) =
-    # https://github.com/status-im/nimbus-eth2/blob/3f6834cce7b60581cfe3cdd9946e28bdc6d74176/beacon_chain/ssz/bytes_reader.nim#L144
-    assign(x.data, y)
-    x.hashes.setLen(0)
-    x.growHashes()
-
-  template assignToHashArray(x, y: untyped) =
-    # https://github.com/status-im/nimbus-eth2/blob/3f6834cce7b60581cfe3cdd9946e28bdc6d74176/beacon_chain/ssz/bytes_reader.nim#L148
-    assign(x.data, y)
-    for h in x.hashes.mitems():
-      clearCache(h)
-
-  result = new U
-  result.genesis_time = x.genesis_time
-  result.genesis_validators_root = x.genesis_validators_root
-  result.slot = x.slot
-  result.fork = x.fork
-  assign(result.latest_block_header, x.latest_block_header)
-  assignToHashArray(result.block_roots, x.block_roots)
-  assignToHashArray(result.state_roots, x.state_roots)
-
-  assignToHashList(result.historical_roots, x.historical_roots)
-  assign(result.eth1_data, x.eth1_data)
-  assignToHashList(result.eth1_data_votes, x.eth1_data_votes)
-  assign(result.eth1_deposit_index, x.eth1_deposit_index)
-  assignToHashList(result.balances, x.balances)
-  assignToHashArray(result.randao_mixes, x.randao_mixes)
-  assignToHashArray(result.slashings, x.slashings)
-  assignToHashList(
-    result.previous_epoch_attestations, x.previous_epoch_attestations)
-  assignToHashList(
-    result.current_epoch_attestations, x.current_epoch_attestations)
-  result.justification_bits = x.justification_bits
-  assign(result.previous_justified_checkpoint, x.previous_justified_checkpoint)
-  assign(result.finalized_checkpoint, x.finalized_checkpoint)
 
 proc getStateOnlyMutableValidators(
     db: BeaconChainDB, key: Eth2Digest, output: var BeaconState,
