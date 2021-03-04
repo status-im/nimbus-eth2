@@ -1136,7 +1136,7 @@ proc getInfo*[A, B](man: SyncManager[A, B]): SyncInfo =
   let wallSlot = man.getLocalWallSlot()
   let headSlot = man.getLocalHeadSlot()
 
-  # Even with 8 second slots (minimal presets), this overflows about 2
+  # Even with 6 second slots (minimal presets), this overflows about 1.75
   # trillion years into the chain's existence, if headSlot is 0.
   let sync_distance = wallSlot - headSlot
   doAssert sync_distance <= high(int64).uint64
