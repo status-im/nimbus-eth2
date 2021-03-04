@@ -416,7 +416,7 @@ func getBeaconStateNoImmutableValidators[T, U](x: T): ref U =
   template assign[V, W](dummy: untyped, x: List[V, W], y: HashList[V, W]) =
     assign(x, y.data)
 
-  #TODO
+  # TODO workaround for https://github.com/nim-lang/Nim/issues/17253
   #template assign[V, W](dummy: untyped, x: array[V, W], y: HashArray[V, W]) =
   #  assign(x, y.data)
 
@@ -426,16 +426,16 @@ func getBeaconStateNoImmutableValidators[T, U](x: T): ref U =
   result.slot = x.slot
   result.fork = x.fork
   assign(result.latest_block_header, x.latest_block_header)
-  #assign(result.block_roots, x.block_roots)
-  #assign(result.state_roots, x.state_roots)
+  assign(result.block_roots, x.block_roots)
+  assign(result.state_roots, x.state_roots)
 
   assign(result.historical_roots, x.historical_roots)
   assign(result.eth1_data, x.eth1_data)
   assign(result.eth1_data_votes, x.eth1_data_votes)
   assign(result.eth1_deposit_index, x.eth1_deposit_index)
   assign(result.balances, x.balances)
-  #assign(result.randao_mixes, x.randao_mixes)
-  #assign(result.slashings, x.slashings)
+  assign(result.randao_mixes, x.randao_mixes)
+  assign(result.slashings, x.slashings)
   assign(
     result.previous_epoch_attestations, x.previous_epoch_attestations)
   assign(
