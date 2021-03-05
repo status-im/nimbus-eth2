@@ -24,7 +24,7 @@ import
   ".."/[
     version, conf,
     ssz/ssz_serialization, beacon_clock],
-  ../spec/[datatypes, digest, helpers, network],
+  ../spec/[datatypes, digest, network],
   ../validators/keystore_management,
   ./eth2_discovery, ./peer_pool, ./libp2p_json_serialization
 

@@ -27,10 +27,9 @@ import
     attestation_pool, exit_pool],
   ../eth1/eth1_monitor,
   ../networking/eth2_network,
-  ".."/[beacon_node_common, beacon_node_types, nimbus_binary_common, version],
-  ../gossip_processing/attestation_aggregation,
+  ".."/[beacon_node_common, beacon_node_types, version],
   ../ssz, ../ssz/sszdump, ../sync/sync_manager,
-  ./slashing_protection,
+  ./slashing_protection, ./attestation_aggregation,
   ./validator_pool, ./keystore_management
 
 # Metrics for tracking attestation and beacon block loss

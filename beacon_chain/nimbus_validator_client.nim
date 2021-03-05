@@ -23,11 +23,10 @@ import
   ./networking/[eth2_network, eth2_discovery],
   ./rpc/eth2_json_rpc_serialization,
   ./beacon_node_types,
-  ./gossip_processing/attestation_aggregation,
   ./nimbus_binary_common,
   ./ssz/merkleization,
   ./spec/eth2_apis/callsigs_types,
-  ./validators/[keystore_management, validator_pool, slashing_protection],
+  ./validators/[attestation_aggregation, keystore_management, validator_pool, slashing_protection],
   ./eth/db/[kvstore, kvstore_sqlite3]
 
 logScope: topics = "vc"
