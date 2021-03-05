@@ -483,7 +483,7 @@ proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
 
 # TODO looking more like a beacon_chain_db/immutable-data-base-part proc
 # since it needs to be around for init stuff
-proc updateImmutableValidators(
+proc updateImmutableValidators*(
     db: BeaconChainDB, immutableValidators: var seq[ImmutableValidatorData],
     validators: auto) =
   let
