@@ -14,16 +14,17 @@ import
   chronos, json_rpc/rpcserver,
 
   # Local modules
-  ./conf, ./time, ./beacon_chain_db, ./eth2_network,
+  ./conf, ./beacon_clock, ./beacon_chain_db,
   ./beacon_node_types,
-  ./eth2_processor,
+  ./gossip_processing/eth2_processor,
+  ./networking/eth2_network,
   ./eth1/eth1_monitor,
   ./consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
   ./spec/datatypes,
   ./sync/[sync_manager, request_manager]
 
 export
-  osproc, chronos, rpcserver, conf, time, beacon_chain_db,
+  osproc, chronos, rpcserver, conf, beacon_clock, beacon_chain_db,
   attestation_pool, eth2_network, beacon_node_types, eth1_monitor,
   request_manager, sync_manager, eth2_processor, blockchain_dag, block_quarantine,
   datatypes

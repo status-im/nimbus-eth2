@@ -5,11 +5,11 @@ import
   stew/[endians2, io2, objects, results],
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
-  ./network_metadata,
+  ./networking/network_metadata,
   ./spec/[crypto, datatypes, digest, state_transition],
   ./ssz/[ssz_serialization, merkleization],
   ./eth1/merkle_minimal,
-  filepath
+  ./filepath
 
 type
   DbSeq*[T] = object

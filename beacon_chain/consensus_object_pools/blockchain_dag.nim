@@ -15,7 +15,7 @@ import
   ../spec/[
     crypto, datatypes, digest, helpers, validator, state_transition,
     beaconstate],
-  ../time,
+  ../beacon_clock,
   "."/[block_pools_types, block_quarantine]
 
 export block_pools_types, helpers

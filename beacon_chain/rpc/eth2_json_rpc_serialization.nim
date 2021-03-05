@@ -3,11 +3,12 @@ import
   std/[tables, json, typetraits],
 
   # Nimble packages
-  stew/byteutils, ssz/types,
+  stew/byteutils,
   json_rpc/jsonmarshal,
 
   # Local modules
-  spec/[datatypes, crypto, digest]
+  ../ssz/types,
+  ../spec/[datatypes, crypto, digest]
 
 proc toJsonHex(data: openArray[byte]): string =
   # Per the eth2 API spec, hex arrays are printed with leading 0x

@@ -4,8 +4,9 @@ import std/options,
   eth/p2p/discoveryv5/enr,
   libp2p/[multiaddress, multicodec],
   nimcrypto/utils as ncrutils,
-  ../beacon_node_common, ../eth2_network, ../sync/sync_manager,
-  ../peer_pool, ../version,
+  ../beacon_node_common, ../version,
+  ../networking/[eth2_network, peer_pool],
+  ../sync/sync_manager,
   ../spec/[datatypes, digest, presets],
   ../spec/eth2_apis/callsigs_types
 

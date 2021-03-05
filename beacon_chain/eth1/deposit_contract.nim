@@ -1,7 +1,8 @@
 import
   os, sequtils, strutils, options, json, terminal, random,
   chronos, chronicles, confutils, stint, json_serialization,
-  ".."/[network_metadata, filepath],
+  ../filepath,
+  ../networking/network_metadata,
   web3, web3/confutils_defs, eth/keys, stew/io2,
   ../spec/[datatypes, crypto, presets], ../ssz/merkleization,
   ../validators/keystore_management

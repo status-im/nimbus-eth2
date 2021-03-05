@@ -6,8 +6,9 @@ import
   web3, web3/ethtypes as web3Types, eth/common/eth_types, eth/async_utils,
   # Local modules:
   ../spec/[datatypes, digest, crypto, helpers],
+  ../networking/network_metadata,
   ../ssz,
-  ".."/[beacon_chain_db, network_metadata, beacon_node_status],
+  ".."/[beacon_chain_db, beacon_node_status],
   ./merkle_minimal
 
 export

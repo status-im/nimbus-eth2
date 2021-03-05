@@ -10,13 +10,14 @@ import
   json_rpc/[rpcserver, jsonmarshal],
   chronicles,
   nimcrypto/utils as ncrutils,
-  ../beacon_node_common, ../eth2_json_rpc_serialization, ../eth2_network,
+  ../beacon_node_common,
+  ../networking/eth2_network,
   ../validators/validator_duties,
   ../consensus_object_pools/[blockchain_dag, exit_pool],
   ../spec/[crypto, digest, datatypes, validator, network],
   ../spec/eth2_apis/callsigs_types,
   ../ssz/merkleization,
-  ./rpc_utils
+  ./rpc_utils, ./eth2_json_rpc_serialization
 
 logScope: topics = "beaconapi"
 
