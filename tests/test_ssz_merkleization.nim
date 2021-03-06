@@ -2,7 +2,8 @@ import
   std/[strutils, sequtils, macros, bitops],
   stew/[bitops2, endians2],
   ../beacon_chain/spec/[beaconstate, datatypes, digest, helpers],
-  ../beacon_chain/[ssz, merkle_minimal],
+  ../beacon_chain/eth1/merkle_minimal,
+  ../beacon_chain/ssz,
   mocking/mock_deposits
 
 func round_step_down(x: Natural, step: static Natural): int =
@@ -265,4 +266,3 @@ proc testMerkleizer =
     doAssert deposits[i].proof == depositsCopy[i].proof
 
 testMerkleizer()
-

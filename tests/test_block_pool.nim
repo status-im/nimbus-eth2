@@ -13,8 +13,9 @@ import
   eth/keys,
   ./testutil, ./testblockutil,
   ../beacon_chain/spec/[datatypes, digest, helpers, state_transition, presets],
-  ../beacon_chain/[beacon_node_types, ssz],
-  ../beacon_chain/block_pools/[chain_dag, quarantine, clearance]
+  ../beacon_chain/beacon_node_types,
+  ../beacon_chain/ssz,
+  ../beacon_chain/consensus_object_pools/[blockchain_dag, block_quarantine, block_clearance]
 
 when isMainModule:
   import chronicles # or some random compile error happens...
@@ -411,6 +412,14 @@ suiteReport "chain DAG finalization tests" & preset():
       # is no longer a viable head candidate
       let status = dag.addRawBlock(quarantine, lateBlock, nil)
       check: status.error == (ValidationResult.Ignore, Unviable)
+
+    block:
+      let
+        finalizedCheckpoint = dag.finalizedHead.stateCheckpoint
+        headCheckpoint = dag.head.atSlot(dag.head.slot).stateCheckpoint
+      check:
+        db.getStateRoot(headCheckpoint.blck.root, headCheckpoint.slot).isSome
+        db.getStateRoot(finalizedCheckpoint.blck.root, finalizedCheckpoint.slot).isSome
 
     let
       dag2 = init(ChainDAGRef, defaultRuntimePreset, db)

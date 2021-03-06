@@ -8,11 +8,14 @@
 import
   os, algorithm, strformat, stats, times, tables, std/monotimes, stew/endians2,
   testutils/markdown_reports, chronicles,
-  ../beacon_chain/[beacon_chain_db, extras, ssz],
+  ../beacon_chain/[beacon_chain_db, extras],
+  ../beacon_chain/ssz,
   ../beacon_chain/spec/[digest, beaconstate, datatypes, presets],
-  ../beacon_chain/block_pools/chain_dag,
+  ../beacon_chain/consensus_object_pools/blockchain_dag,
   eth/db/[kvstore, kvstore_sqlite3],
   testblockutil
+
+export beacon_chain_db
 
 type
   TestDuration = tuple[duration: float, label: string]

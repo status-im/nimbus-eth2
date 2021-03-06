@@ -12,8 +12,10 @@ import
   json_rpc/[rpcserver, jsonmarshal],
 
   rpc_utils,
-  ../beacon_node_common, ../nimbus_binary_common, ../eth2_network,
-  ../eth1_monitor, ../validator_duties,
+  ../beacon_node_common, ../nimbus_binary_common,
+  ../networking/eth2_network,
+  ../eth1/eth1_monitor,
+  ../validators/validator_duties,
   ../spec/[digest, datatypes, presets],
 
   libp2p/protocols/pubsub/pubsubpeer

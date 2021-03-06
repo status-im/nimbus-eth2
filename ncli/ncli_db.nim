@@ -1,12 +1,12 @@
 import
   os, stats, strformat, tables,
   chronicles, confutils, stew/byteutils, eth/db/kvstore_sqlite3,
-  ../beacon_chain/network_metadata,
+  ../beacon_chain/networking/network_metadata,
   ../beacon_chain/[beacon_chain_db, extras],
-  ../beacon_chain/block_pools/chain_dag,
+  ../beacon_chain/consensus_object_pools/blockchain_dag,
   ../beacon_chain/spec/[crypto, datatypes, digest, helpers,
                         state_transition, presets],
-  ../beacon_chain/[ssz, sszdump],
+  ../beacon_chain/ssz, ../beacon_chain/ssz/sszdump,
   ../research/simutils
 
 type Timers = enum

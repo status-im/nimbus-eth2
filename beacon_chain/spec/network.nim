@@ -12,14 +12,14 @@ import
   ./datatypes, ./helpers, ./validator
 
 const
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#topics-and-messages
   topicBeaconBlocksSuffix* = "beacon_block/ssz"
   topicVoluntaryExitsSuffix* = "voluntary_exit/ssz"
   topicProposerSlashingsSuffix* = "proposer_slashing/ssz"
   topicAttesterSlashingsSuffix* = "attester_slashing/ssz"
   topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz"
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/p2p-interface.md#eth2-network-interaction-domains
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#eth2-network-interaction-domains
   MAX_CHUNK_SIZE* = 1 * 1024 * 1024 # bytes
   GOSSIP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
   TTFB_TIMEOUT* = 5.seconds
@@ -60,7 +60,7 @@ func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
   except ValueError as e:
     raiseAssert e.msg
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#broadcast-attestation
 func compute_subnet_for_attestation*(
     committees_per_slot: uint64, slot: Slot, committee_index: CommitteeIndex):
     uint64 =
@@ -75,7 +75,7 @@ func compute_subnet_for_attestation*(
   (committees_since_epoch_start + committee_index.uint64) mod
     ATTESTATION_SUBNET_COUNT
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#broadcast-attestation
 func getAttestationTopic*(forkDigest: ForkDigest, subnetIndex: uint64):
     string =
   ## For subscribing and unsubscribing to/from a subnet.
@@ -86,7 +86,7 @@ func getAttestationTopic*(forkDigest: ForkDigest, subnetIndex: uint64):
   except ValueError as e:
     raiseAssert e.msg
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#validator-assignments
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#validator-assignments
 iterator get_committee_assignments*(
     state: BeaconState, epoch: Epoch,
     validator_indices: IntSet,

@@ -10,13 +10,15 @@ import
   json_rpc/[rpcserver, jsonmarshal],
   chronicles,
   nimcrypto/utils as ncrutils,
-  ../beacon_node_common, ../eth2_json_rpc_serialization, ../eth2_network,
-  ../validator_duties,
-  ../block_pools/chain_dag, ../exit_pool,
+  ../beacon_node_common,
+  ../networking/eth2_network,
+  ../validators/validator_duties,
+  ../gossip_processing/gossip_validation,
+  ../consensus_object_pools/blockchain_dag,
   ../spec/[crypto, digest, datatypes, validator, network],
   ../spec/eth2_apis/callsigs_types,
   ../ssz/merkleization,
-  ./rpc_utils
+  ./rpc_utils, ./eth2_json_rpc_serialization
 
 logScope: topics = "beaconapi"
 
@@ -392,7 +394,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     if head.slot >= blck.message.slot:
       node.network.broadcast(getBeaconBlocksTopic(node.forkDigest), blck)
       # The block failed validation, but was successfully broadcast anyway.
-      # It was not integrated into the beacon node''s database.
+      # It was not integrated into the beacon node's database.
       return 202
     else:
       let res = proposeSignedBlock(node, head, AttachedValidator(), blck)

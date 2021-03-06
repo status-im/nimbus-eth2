@@ -17,7 +17,8 @@ import
   stew/io2,
 
   # Local modules
-  spec/[datatypes, crypto, helpers], eth2_network, time, filepath
+  ./spec/[datatypes, crypto, helpers], beacon_clock, filepath,
+  ./networking/eth2_network
 
 proc setupStdoutLogging*(logLevel: string) =
   when compiles(defaultChroniclesStream.output.writer):
@@ -80,7 +81,7 @@ template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
   {.pop.}
   config
 
-# TODO not sure if this belongs here but it doesn't belong in `time.nim` either
+# TODO not sure if this belongs here but it doesn't belong in `beacon_clock.nim` either
 proc sleepToSlotOffset*(clock: BeaconClock, extra: chronos.Duration,
                         slot: Slot, msg: static string): Future[bool] {.async.} =
   let

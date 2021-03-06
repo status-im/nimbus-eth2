@@ -8,7 +8,8 @@
 {.used.}
 
 import  options, unittest, sequtils,
-  ../beacon_chain/[beacon_chain_db, extras, interop, ssz],
+  ../beacon_chain/[beacon_chain_db, extras, interop],
+  ../beacon_chain/ssz,
   ../beacon_chain/spec/[
     beaconstate, datatypes, digest, crypto, state_transition, presets],
   eth/db/kvstore,

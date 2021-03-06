@@ -7,7 +7,7 @@
 
 # Serenity hash function / digest
 #
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#hash
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#hash
 #
 # In Phase 0 the beacon chain is deployed with SHA256 (SHA2-256).
 # Note that is is different from Keccak256 (often mistakenly called SHA3-256)
@@ -99,6 +99,9 @@ template hash*(x: Eth2Digest): Hash =
   cast[ptr Hash](unsafeAddr x.data[0])[]
 
 func `==`*(a, b: Eth2Digest): bool =
-  # nimcrypto uses a constant-time comparison for all MDigest types which for
-  # Eth2Digest is unnecessary - the type should never hold a secret!
-  equalMem(unsafeAddr a.data[0], unsafeAddr b.data[0], sizeof(a.data))
+  when nimvm:
+    a.data == b.data
+  else:
+    # nimcrypto uses a constant-time comparison for all MDigest types which for
+    # Eth2Digest is unnecessary - the type should never hold a secret!
+    equalMem(unsafeAddr a.data[0], unsafeAddr b.data[0], sizeof(a.data))

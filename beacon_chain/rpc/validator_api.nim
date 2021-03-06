@@ -17,10 +17,11 @@ import
   # Local modules
   ../spec/[datatypes, digest, crypto, helpers, network, signatures],
   ../spec/eth2_apis/callsigs_types,
-  ../block_pools/[chain_dag, spec_cache], ../ssz/merkleization,
-  ../beacon_node_common, ../beacon_node_types, ../attestation_pool,
-  ../validator_duties, ../eth2_network,
-  ../eth2_json_rpc_serialization,
+  ../consensus_object_pools/[blockchain_dag, spec_cache, attestation_pool], ../ssz/merkleization,
+  ../beacon_node_common, ../beacon_node_types,
+  ../validators/validator_duties,
+  ../networking/eth2_network,
+  ./eth2_json_rpc_serialization,
   ./rpc_utils
 
 logScope: topics = "valapi"
