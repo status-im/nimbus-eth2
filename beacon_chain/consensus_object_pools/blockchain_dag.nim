@@ -965,11 +965,11 @@ proc pruneFinalized*(dag: ChainDAGRef) =
     for i in 0..<hlen:
       let n = hlen - i - 1
       let head = dag.heads[n]
-      if dag.prevFinalizedHead.blck.isAncestorOf(head):
+      if dag.finalizedHead.blck.isAncestorOf(head):
         continue
 
       var cur = head.atSlot(head.slot)
-      while not cur.blck.isAncestorOf(dag.prevFinalizedHead.blck):
+      while not cur.blck.isAncestorOf(dag.finalizedHead.blck):
         # TODO there may be more empty states here: those that have a slot
         #      higher than head.slot and those near the branch point - one
         #      needs to be careful though because those close to the branch
