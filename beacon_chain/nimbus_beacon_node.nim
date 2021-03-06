@@ -894,6 +894,11 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
   # next slot
 
+  # Delay pruning until latency critical duties are done
+  # pruning may have already been done in `runQueueProcessingLoop`
+  # during idle time.
+  node.processor[].pruneFinalized()
+
   when declared(GC_fullCollect):
     # The slots in the beacon node work as frames in a game: we want to make
     # sure that we're ready for the next one and don't get stuck in lengthy

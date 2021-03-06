@@ -438,6 +438,10 @@ proc init*(T: type ChainDAGRef,
 
   res.clearanceState = res.headState
 
+  # Pruning metadata
+  res.prevFinalizedHead = res.finalizedHead
+  res.needPruning = false
+
   info "Block dag initialized",
     head = shortLog(headRef),
     finalizedHead = shortLog(res.finalizedHead),
@@ -828,9 +832,12 @@ proc delState(dag: ChainDAGRef, bs: BlockSlot) =
     dag.db.delStateRoot(bs.blck.root, bs.slot)
 
 proc updateHead*(
-    dag: ChainDAGRef, newHead: BlockRef, quarantine: var QuarantineRef) =
+      dag: ChainDAGRef,
+      newHead: BlockRef,
+      quarantine: var QuarantineRef) =
   ## Update what we consider to be the current head, as given by the fork
   ## choice.
+  ##
   ## The choice of head affects the choice of finalization point - the order
   ## of operations naturally becomes important here - after updating the head,
   ## blocks that were once considered potential candidates for a tree will
@@ -913,73 +920,86 @@ proc updateHead*(
       epochRef.shuffled_active_validator_indices.lenu64().toGaugeValue)
 
   if finalizedHead != dag.finalizedHead:
-    block: # Remove states, walking slot by slot
-      # We remove all state checkpoints that come _before_ the current finalized
-      # head, as we might frequently be asked to replay states from the
-      # finalized checkpoint and onwards (for example when validating blocks and
-      # attestations)
-      var
-        prev = dag.finalizedHead.stateCheckpoint.parentOrSlot
-        cur = finalizedHead.stateCheckpoint.parentOrSlot
-      while cur.blck != nil and cur != prev:
-        # TODO This is a quick fix to prune some states from the database, but
-        # not all, pending a smarter storage - the downside of pruning these
-        # states is that certain rewinds will take longer
-        # After long periods of non-finalization, it can also take some time to
-        # release all these states!
-        if cur.slot.epoch mod 32 != 0 and cur.slot != dag.tail.slot:
-          dag.delState(cur)
-        cur = cur.parentOrSlot
-
-    block: # Clean up block refs, walking block by block
-      # Finalization means that we choose a single chain as the canonical one -
-      # it also means we're no longer interested in any branches from that chain
-      # up to the finalization point
-      let hlen = dag.heads.len
-      for i in 0..<hlen:
-        let n = hlen - i - 1
-        let head = dag.heads[n]
-        if finalizedHead.blck.isAncestorOf(head):
-          continue
-
-        var cur = head.atSlot(head.slot)
-        while not cur.blck.isAncestorOf(finalizedHead.blck):
-          # TODO there may be more empty states here: those that have a slot
-          #      higher than head.slot and those near the branch point - one
-          #      needs to be careful though because those close to the branch
-          #      point should not necessarily be cleaned up
-          dag.delState(cur)
-
-          if cur.blck.slot == cur.slot:
-            dag.blocks.del(cur.blck.root)
-            dag.db.delBlock(cur.blck.root)
-
-          if cur.blck.parent.isNil:
-            break
-          cur = cur.parentOrSlot
-
-        dag.heads.del(n)
-    block: # Clean up old EpochRef instances
-      # After finalization, we can clear up the epoch cache and save memory -
-      # it will be recomputed if needed
-      # TODO don't store recomputed pre-finalization epoch refs
-      var tmp = finalizedHead.blck
-      while tmp != dag.finalizedHead.blck:
-        # leave the epoch cache in the last block of the epoch..
-        tmp = tmp.parent
-        if tmp.parent != nil:
-          tmp.parent.epochRefs = @[]
-
-    dag.finalizedHead = finalizedHead
-
     notice "Reached new finalization checkpoint",
-      finalizedHead = shortLog(finalizedHead),
-      heads = dag.heads.len
+      newFinalizedHead = shortLog(finalizedHead),
+      oldFinalizedHead = shortLog(dag.finalizedHead)
+
+    dag.prevFinalizedHead = dag.finalizedHead
+    dag.finalizedHead = finalizedHead
+    dag.needPruning = true
 
     beacon_finalized_epoch.set(
       dag.headState.data.data.finalized_checkpoint.epoch.toGaugeValue)
     beacon_finalized_root.set(
       dag.headState.data.data.finalized_checkpoint.root.toGaugeValue)
+
+proc pruneFinalized*(dag: ChainDAGRef) =
+  ## Prune the DAG after finalization
+  ## The fork choice SHOULD be pruned in sync
+  doAssert dag.prevFinalizedHead != dag.finalizedHead
+  doAssert dag.needPruning == true
+
+  block: # Remove states, walking slot by slot
+    # We remove all state checkpoints that come _before_ the current finalized
+    # head, as we might frequently be asked to replay states from the
+    # finalized checkpoint and onwards (for example when validating blocks and
+    # attestations)
+    var
+      cur = dag.finalizedHead.stateCheckpoint.parentOrSlot
+      prev = dag.prevFinalizedHead.stateCheckpoint.parentOrSlot
+    while cur.blck != nil and cur != prev:
+      # TODO This is a quick fix to prune some states from the database, but
+      # not all, pending a smarter storage - the downside of pruning these
+      # states is that certain rewinds will take longer
+      # After long periods of non-finalization, it can also take some time to
+      # release all these states!
+      if cur.slot.epoch mod 32 != 0 and cur.slot != dag.tail.slot:
+        dag.delState(cur)
+      cur = cur.parentOrSlot
+
+  block: # Clean up block refs, walking block by block
+    # Finalization means that we choose a single chain as the canonical one -
+    # it also means we're no longer interested in any branches from that chain
+    # up to the finalization point
+    let hlen = dag.heads.len
+    for i in 0..<hlen:
+      let n = hlen - i - 1
+      let head = dag.heads[n]
+      if dag.prevFinalizedHead.blck.isAncestorOf(head):
+        continue
+
+      var cur = head.atSlot(head.slot)
+      while not cur.blck.isAncestorOf(dag.prevFinalizedHead.blck):
+        # TODO there may be more empty states here: those that have a slot
+        #      higher than head.slot and those near the branch point - one
+        #      needs to be careful though because those close to the branch
+        #      point should not necessarily be cleaned up
+        dag.delState(cur)
+
+        if cur.blck.slot == cur.slot:
+          dag.blocks.del(cur.blck.root)
+          dag.db.delBlock(cur.blck.root)
+
+        if cur.blck.parent.isNil:
+          break
+        cur = cur.parentOrSlot
+
+      dag.heads.del(n)
+  block: # Clean up old EpochRef instances
+    # After finalization, we can clear up the epoch cache and save memory -
+    # it will be recomputed if needed
+    # TODO don't store recomputed pre-finalization epoch refs
+    var tmp = dag.finalizedHead.blck
+    while tmp != dag.prevFinalizedHead.blck:
+      # leave the epoch cache in the last block of the epoch..
+      tmp = tmp.parent
+      if tmp.parent != nil:
+        tmp.parent.epochRefs = @[]
+
+  dag.needPruning = false
+
+  debug "Pruned the blockchain DAG",
+    currentCandidateHeads = dag.heads.len
 
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): bool =
   let

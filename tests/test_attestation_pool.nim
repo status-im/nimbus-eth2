@@ -343,6 +343,9 @@ suiteReport "Attestation pool processing" & preset():
         let head = pool[].selectHead(blockRef[].slot)
         doassert: head == blockRef[]
         chainDag.updateHead(head, quarantine)
+        if chainDag.needPruning:
+          chainDag.pruneFinalized()
+          # pool[].prune()
 
         attestations.setlen(0)
         for index in 0'u64 ..< committees_per_slot:
@@ -413,6 +416,9 @@ suiteReport "Attestation validation " & preset():
 
       check: added.isOk()
       chainDag.updateHead(added[], quarantine)
+      if chainDag.needPruning:
+        chainDag.pruneFinalized()
+        # pool[].prune()
 
     var
       # Create an attestation for slot 1!

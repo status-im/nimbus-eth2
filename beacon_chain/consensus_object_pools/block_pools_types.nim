@@ -123,6 +123,15 @@ type
     ## Ancestors of this block are guaranteed to have 1 child only.
 
     # -----------------------------------
+    # Pruning metadata
+
+    prevFinalizedHead*: BlockSlot ##\
+    ## The second to last block that was finalized.
+    ## This is used to delay DAG pruning.
+
+    needPruning*: bool
+
+    # -----------------------------------
     # Rewinder - Mutable state processing
 
     headState*: StateData ##\

@@ -173,6 +173,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
       blck() = added[]
       chainDag.updateHead(added[], quarantine)
+      if chainDag.needPruning:
+        chainDag.pruneFinalized()
+        attPool.prune()
 
   var
     lastEth1BlockAt = genesisTime
