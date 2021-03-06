@@ -9,12 +9,12 @@
 
 import
   # Standard libraries
-  std/[deques, intsets, options, sequtils, tables],
+  std/[deques, intsets, tables],
   # Status libraries
-  chronicles, json_serialization/std/sets as jsonSets,
+  chronicles,
   # Internal
-  ../spec/[crypto, datatypes, helpers, state_transition_block],
-  "."/[blockchain_dag, block_clearance, block_quarantine],
+  ../spec/[crypto, datatypes, helpers],
+  "."/[blockchain_dag, block_quarantine],
   ../beacon_node_types
 
 export beacon_node_types, intsets
@@ -22,9 +22,9 @@ export beacon_node_types, intsets
 logScope: topics = "exitpool"
 
 const
-  ATTESTER_SLASHINGS_BOUND = MAX_ATTESTER_SLASHINGS * 2
-  PROPOSER_SLASHINGS_BOUND = MAX_PROPOSER_SLASHINGS * 2
-  VOLUNTARY_EXITS_BOUND = MAX_VOLUNTARY_EXITS * 2
+  ATTESTER_SLASHINGS_BOUND* = MAX_ATTESTER_SLASHINGS * 2
+  PROPOSER_SLASHINGS_BOUND* = MAX_PROPOSER_SLASHINGS * 2
+  VOLUNTARY_EXITS_BOUND* = MAX_VOLUNTARY_EXITS * 2
 
 proc init*(
     T: type ExitPool, chainDag: ChainDAGRef, quarantine: QuarantineRef): T =
@@ -138,105 +138,3 @@ func getVoluntaryExitsForBlock*(pool: var ExitPool):
   ## Retrieve voluntary exits that may be added to a new block
   getExitMessagesForBlock[SignedVoluntaryExit](
     pool.voluntary_exits, pool, MAX_VOLUNTARY_EXITS)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attester_slashing
-proc validateAttesterSlashing*(
-    pool: var ExitPool, attester_slashing: AttesterSlashing):
-    Result[bool, (ValidationResult, cstring)] =
-  # [IGNORE] At least one index in the intersection of the attesting indices of
-  # each attestation has not yet been seen in any prior attester_slashing (i.e.
-  # attester_slashed_indices = set(attestation_1.attesting_indices).intersection(attestation_2.attesting_indices),
-  # verify if any(attester_slashed_indices.difference(prior_seen_attester_slashed_indices))).
-  # TODO sequtils2 should be able to make this more reasonable, from asSeq on
-  # down, and can sort and just find intersection that way
-  let
-    attestation_1_indices =
-      attester_slashing.attestation_1.attesting_indices.asSeq
-    attestation_2_indices =
-      attester_slashing.attestation_2.attesting_indices.asSeq
-    attester_slashed_indices =
-      toIntSet(attestation_1_indices) * toIntSet(attestation_2_indices)
-
-  if not disjoint(
-      attester_slashed_indices, pool.prior_seen_attester_slashed_indices):
-    return err((ValidationResult.Ignore, cstring(
-      "validateAttesterSlashing: attester-slashed index already attester-slashed")))
-
-  # [REJECT] All of the conditions within process_attester_slashing pass
-  # validation.
-  let attester_slashing_validity =
-    check_attester_slashing(
-      pool.chainDag.headState.data.data, attester_slashing, {})
-  if attester_slashing_validity.isErr:
-    return err((ValidationResult.Reject, attester_slashing_validity.error))
-
-  pool.prior_seen_attester_slashed_indices.incl attester_slashed_indices
-  pool.attester_slashings.addExitMessage(
-    attester_slashing, ATTESTER_SLASHINGS_BOUND)
-
-  ok(true)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#proposer_slashing
-proc validateProposerSlashing*(
-    pool: var ExitPool, proposer_slashing: ProposerSlashing):
-    Result[bool, (ValidationResult, cstring)] =
-  # Not from spec; the rest of NBC wouldn't have correctly processed it either.
-  if proposer_slashing.signed_header_1.message.proposer_index > high(int).uint64:
-    return err((ValidationResult.Ignore, cstring(
-      "validateProposerSlashing: proposer-slashed index too high")))
-
-  # [IGNORE] The proposer slashing is the first valid proposer slashing
-  # received for the proposer with index
-  # proposer_slashing.signed_header_1.message.proposer_index.
-  if proposer_slashing.signed_header_1.message.proposer_index.int in
-      pool.prior_seen_proposer_slashed_indices:
-    return err((ValidationResult.Ignore, cstring(
-      "validateProposerSlashing: proposer-slashed index already proposer-slashed")))
-
-  # [REJECT] All of the conditions within process_proposer_slashing pass validation.
-  let proposer_slashing_validity =
-    check_proposer_slashing(
-      pool.chainDag.headState.data.data, proposer_slashing, {})
-  if proposer_slashing_validity.isErr:
-    return err((ValidationResult.Reject, proposer_slashing_validity.error))
-
-  pool.prior_seen_proposer_slashed_indices.incl(
-    proposer_slashing.signed_header_1.message.proposer_index.int)
-  pool.proposer_slashings.addExitMessage(
-    proposer_slashing, PROPOSER_SLASHINGS_BOUND)
-
-  ok(true)
-
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#voluntary_exit
-proc validateVoluntaryExit*(
-    pool: var ExitPool, signed_voluntary_exit: SignedVoluntaryExit):
-    Result[void, (ValidationResult, cstring)] =
-  # [IGNORE] The voluntary exit is the first valid voluntary exit received for
-  # the validator with index signed_voluntary_exit.message.validator_index.
-  if signed_voluntary_exit.message.validator_index >=
-      pool.chainDag.headState.data.data.validators.lenu64:
-    return err((ValidationResult.Ignore, cstring(
-      "validateVoluntaryExit: validator index too high")))
-
-  # Since pool.chainDag.headState.data.data.validators is a seq, this means
-  # signed_voluntary_exit.message.validator_index.int is already valid, but
-  # check explicitly if one changes that data structure.
-  if signed_voluntary_exit.message.validator_index.int in
-      pool.prior_seen_voluntary_exit_indices:
-    return err((ValidationResult.Ignore, cstring(
-      "validateVoluntaryExit: validator index already voluntarily exited")))
-
-  # [REJECT] All of the conditions within process_voluntary_exit pass
-  # validation.
-  let voluntary_exit_validity =
-    check_voluntary_exit(
-      pool.chainDag.headState.data.data, signed_voluntary_exit, {})
-  if voluntary_exit_validity.isErr:
-    return err((ValidationResult.Reject, voluntary_exit_validity.error))
-
-  pool.prior_seen_voluntary_exit_indices.incl(
-    signed_voluntary_exit.message.validator_index.int)
-  pool.voluntary_exits.addExitMessage(
-    signed_voluntary_exit, VOLUNTARY_EXITS_BOUND)
-
-  ok()

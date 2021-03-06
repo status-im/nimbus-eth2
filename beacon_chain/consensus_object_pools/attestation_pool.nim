@@ -9,13 +9,13 @@
 
 import
   # Standard libraries
-  std/[deques, options, sequtils, tables],
+  std/[options, tables, sequtils],
   # Status libraries
   chronicles, stew/[byteutils], json_serialization/std/sets as jsonSets,
   # Internal
-  ../spec/[beaconstate, datatypes, crypto, digest, helpers],
+  ../spec/[beaconstate, datatypes, crypto, digest],
   ../ssz/merkleization,
-  "."/[spec_cache, blockchain_dag, block_clearance, block_quarantine],
+  "."/[spec_cache, blockchain_dag, block_quarantine],
   ../beacon_node_types,
   ../fork_choice/fork_choice
 
