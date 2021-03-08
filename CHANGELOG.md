@@ -1,3 +1,33 @@
+2021-03-09 v1.0.9
+=================
+
+This release includes important security fixes introduced in third-party
+packages and brings further performance improvements.
+
+-----
+
+**We've upgraded:**
+
+* The BLST library is now version 0.3.3:
+  https://github.com/supranational/blst/releases/tag/v0.3.3
+
+* We've switched to a more recent version of BearSSL, featuring a more
+  up-to-date list of trusted root certificates.
+
+* The Eth2 spec has been upgraded to 1.0.1.
+
+**We've fixed:**
+
+* Long processing delays triggered by the reception of attestations that
+  reference already pruned states.
+
+* LibP2P peer management issue leading to accumulation of inactive
+  connections.
+
+* A false-positive in doppelganger detection triggered by rebroadcasted
+  older attestations arriving with a significant delay.
+
+
 2021-02-22 v1.0.8
 =================
 
