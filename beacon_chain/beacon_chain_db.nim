@@ -462,29 +462,32 @@ proc getStateOnlyMutableValidators(
     output = getBeaconStateNoImmutableValidators[
       BeaconStateNoImmutableValidators, BeaconState](intermediateOutput[])[]
 
-    doAssert db.immutableValidatorsMem.len >= intermediateOutput[].validators.len
+    let numValidators = intermediateOutput[].validators.len
+    doAssert db.immutableValidatorsMem.len >= numValidators
 
-    # TODO factor out, maybe
+    output.validators.data.setLen(numValidators)
+
     for i in 0 ..< intermediateOutput[].validators.len:
-      # Merge immutable and mutable parts
-      output.validators.add Validator(
-        # Immutable
-        pubkey: db.immutableValidatorsMem[i].pubkey,
-        withdrawal_credentials:
-          db.immutableValidatorsMem[i].withdrawal_credentials,
+      let
+        # Bypass hash cache invalidation
+        dstValidator = addr output.validators.data[i]
+        srcValidator = addr intermediateOutput[].validators[i]
 
-        # Mutable
-        effective_balance: intermediateOutput[].validators[i].effective_balance,
-        slashed: intermediateOutput[].validators[i].slashed,
-        activation_eligibility_epoch:
-          intermediateOutput[].validators[i].activation_eligibility_epoch,
-        activation_epoch:
-          intermediateOutput[].validators[i].activation_epoch,
-        exit_epoch:
-          intermediateOutput[].validators[i].exit_epoch,
-        withdrawable_epoch:
-          intermediateOutput[].validators[i].withdrawable_epoch,
-      )
+      # TODO don't usually need to copy these much; only do so as needed
+      assign(dstValidator.pubkey, db.immutableValidatorsMem[i].pubkey)
+      assign(dstValidator.withdrawal_credentials,
+        db.immutableValidatorsMem[i].withdrawal_credentials)
+
+      assign(dstValidator.effective_balance, srcValidator.effective_balance)
+      assign(dstValidator.slashed, srcValidator.slashed)
+      assign(dstValidator.activation_eligibility_epoch,
+        srcValidator.activation_eligibility_epoch)
+      assign(dstValidator.activation_epoch, srcValidator.activation_epoch)
+      assign(dstValidator.exit_epoch, srcValidator.exit_epoch)
+      assign(dstValidator.withdrawable_epoch, srcValidator.withdrawable_epoch)
+
+    output.validators.clearCaches(0)
+    output.validators.growHashes()
 
     true
   of GetResult.notFound:
