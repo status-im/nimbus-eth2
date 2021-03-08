@@ -923,7 +923,6 @@ proc updateHead*(
       newFinalizedHead = shortLog(finalizedHead),
       oldFinalizedHead = shortLog(dag.finalizedHead)
 
-    dag.lastPrunePoint = dag.finalizedHead
     dag.finalizedHead = finalizedHead
 
     beacon_finalized_epoch.set(
