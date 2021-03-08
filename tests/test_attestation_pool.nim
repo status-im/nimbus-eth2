@@ -343,7 +343,7 @@ suiteReport "Attestation pool processing" & preset():
         let head = pool[].selectHead(blockRef[].slot)
         doassert: head == blockRef[]
         chainDag.updateHead(head, quarantine)
-        if chainDag.needPruning:
+        if chainDag.needPruning():
           chainDag.pruneFinalized()
           # pool[].prune()
 
@@ -416,7 +416,7 @@ suiteReport "Attestation validation " & preset():
 
       check: added.isOk()
       chainDag.updateHead(added[], quarantine)
-      if chainDag.needPruning:
+      if chainDag.needPruning():
         chainDag.pruneFinalized()
         # pool[].prune()
 

@@ -125,11 +125,9 @@ type
     # -----------------------------------
     # Pruning metadata
 
-    prevFinalizedHead*: BlockSlot ##\
-    ## The second to last block that was finalized.
-    ## This is used to delay DAG pruning.
-
-    needPruning*: bool
+    lastPrunePoint*: BlockSlot ##\
+    ## The last prune point
+    ## We can prune up to finalizedHead
 
     # -----------------------------------
     # Rewinder - Mutable state processing

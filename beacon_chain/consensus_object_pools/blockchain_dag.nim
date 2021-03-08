@@ -439,8 +439,7 @@ proc init*(T: type ChainDAGRef,
   res.clearanceState = res.headState
 
   # Pruning metadata
-  res.prevFinalizedHead = res.finalizedHead
-  res.needPruning = false
+  res.lastPrunePoint = res.finalizedHead
 
   info "Block dag initialized",
     head = shortLog(headRef),
@@ -924,20 +923,21 @@ proc updateHead*(
       newFinalizedHead = shortLog(finalizedHead),
       oldFinalizedHead = shortLog(dag.finalizedHead)
 
-    dag.prevFinalizedHead = dag.finalizedHead
+    dag.lastPrunePoint = dag.finalizedHead
     dag.finalizedHead = finalizedHead
-    dag.needPruning = true
 
     beacon_finalized_epoch.set(
       dag.headState.data.data.finalized_checkpoint.epoch.toGaugeValue)
     beacon_finalized_root.set(
       dag.headState.data.data.finalized_checkpoint.root.toGaugeValue)
 
+func needPruning*(dag: ChainDAGRef): bool =
+  dag.lastPrunePoint != dag.finalizedHead
+
 proc pruneFinalized*(dag: ChainDAGRef) =
   ## Prune the DAG after finalization
   ## The fork choice SHOULD be pruned in sync
-  doAssert dag.prevFinalizedHead != dag.finalizedHead
-  doAssert dag.needPruning == true
+  doAssert dag.needPruning()
 
   block: # Remove states, walking slot by slot
     # We remove all state checkpoints that come _before_ the current finalized
@@ -946,7 +946,7 @@ proc pruneFinalized*(dag: ChainDAGRef) =
     # attestations)
     var
       cur = dag.finalizedHead.stateCheckpoint.parentOrSlot
-      prev = dag.prevFinalizedHead.stateCheckpoint.parentOrSlot
+      prev = dag.lastPrunePoint.stateCheckpoint.parentOrSlot
     while cur.blck != nil and cur != prev:
       # TODO This is a quick fix to prune some states from the database, but
       # not all, pending a smarter storage - the downside of pruning these
@@ -990,13 +990,13 @@ proc pruneFinalized*(dag: ChainDAGRef) =
     # it will be recomputed if needed
     # TODO don't store recomputed pre-finalization epoch refs
     var tmp = dag.finalizedHead.blck
-    while tmp != dag.prevFinalizedHead.blck:
+    while tmp != dag.lastPrunePoint.blck:
       # leave the epoch cache in the last block of the epoch..
       tmp = tmp.parent
       if tmp.parent != nil:
         tmp.parent.epochRefs = @[]
 
-  dag.needPruning = false
+  dag.lastPrunePoint = dag.finalizedHead
 
   debug "Pruned the blockchain DAG",
     currentCandidateHeads = dag.heads.len

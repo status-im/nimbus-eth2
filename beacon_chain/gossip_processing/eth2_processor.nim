@@ -136,7 +136,7 @@ proc pruneFinalized*(self: var Eth2Processor) =
   # TODO: DAG & fork choice procs are unrelated to gossip validation
 
   # Cleanup DAG & fork choice if we have a finalized head
-  if self.chainDag.needPruning:
+  if self.chainDag.needPruning():
     self.chainDag.pruneFinalized()
     self.attestationPool[].prune()
 

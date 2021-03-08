@@ -182,7 +182,7 @@ suiteReport "Block pool processing" & preset():
       b4Add[].parent == b2Add[]
 
     dag.updateHead(b4Add[], quarantine)
-    if dag.needPruning:
+    if dag.needPruning():
       dag.pruneFinalized()
 
     var blocks: array[3, BlockRef]
@@ -247,7 +247,7 @@ suiteReport "Block pool processing" & preset():
       b2Get.get().refs.parent == b1Get.get().refs
 
     dag.updateHead(b2Get.get().refs, quarantine)
-    if dag.needPruning:
+    if dag.needPruning():
       dag.pruneFinalized()
 
     # The heads structure should have been updated to contain only the new
@@ -282,7 +282,7 @@ suiteReport "Block pool processing" & preset():
       b1Add = dag.addRawBlock(quarantine, b1, nil)
 
     dag.updateHead(b1Add[], quarantine)
-    if dag.needPruning:
+    if dag.needPruning():
       dag.pruneFinalized()
 
     check:
@@ -378,7 +378,7 @@ suiteReport "chain DAG finalization tests" & preset():
       let added = dag.addRawBlock(quarantine, blck, nil)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
-      if dag.needPruning:
+      if dag.needPruning():
         dag.pruneFinalized()
 
     check:
@@ -452,7 +452,7 @@ suiteReport "chain DAG finalization tests" & preset():
       let added = dag.addRawBlock(quarantine, blck, nil)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
-      if dag.needPruning:
+      if dag.needPruning():
         dag.pruneFinalized()
 
     check:
@@ -493,7 +493,7 @@ suiteReport "chain DAG finalization tests" & preset():
       let added = dag.addRawBlock(quarantine, blck, nil)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
-      if dag.needPruning:
+      if dag.needPruning():
         dag.pruneFinalized()
 
     # Advance past epoch so that the epoch transition is gapped
@@ -510,7 +510,7 @@ suiteReport "chain DAG finalization tests" & preset():
     let added = dag.addRawBlock(quarantine, blck, nil)
     check: added.isOk()
     dag.updateHead(added[], quarantine)
-    if dag.needPruning:
+    if dag.needPruning():
       dag.pruneFinalized()
 
     let
