@@ -11,9 +11,13 @@ import  options, unittest, sequtils,
   ../beacon_chain/[beacon_chain_db, extras, interop, ssz],
   ../beacon_chain/spec/[
     beaconstate, datatypes, digest, crypto, state_transition, presets],
+  ../beacon_chain/consensus_object_pools/blockchain_dag,
   eth/db/kvstore,
   # test utilies
-  ./testutil, ./testblockutil
+  ./testutil, ./testblockutil, ./teststateutil
+
+when isMainModule:
+  import chronicles # or some random compile error happens...
 
 proc getStateRef(db: BeaconChainDB, root: Eth2Digest,
     immutableValidators: auto): NilableBeaconStateRef =
@@ -72,22 +76,22 @@ suiteReport "Beacon chain DB" & preset():
 
   wrappedTimedTest "sanity check states" & preset():
     var
-      db = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)
-      immutableValidators: seq[ImmutableValidatorData] = @[]
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+      immutableValidators = db.loadImmutableValidators()
 
-    let
-      state = BeaconStateRef()
-      root = hash_tree_root(state[])
+    for state in getTestStates(dag.headState.data):
+      dag.db.updateImmutableValidators(
+        immutableValidators, state[].data.validators)
+      db.putState(state[].data)
+      let root = hash_tree_root(state[].data)
 
-    # TODO make sure there's a validator
+      check:
+        db.containsState(root)
+        hash_tree_root(db.getStateRef(root, immutableValidators)[]) == root
 
-    db.putState(state[])
-
-    check:
-      db.containsState(root)
-      hash_tree_root(db.getStateRef(root, immutableValidators)[]) == root
-
-    # TODO check state delete
+      db.delState(root)
+      check: not db.containsState(root)
 
     db.close()
 
