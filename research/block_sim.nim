@@ -173,8 +173,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
       blck() = added[]
       chainDag.updateHead(added[], quarantine)
-      if chainDag.needPruning():
-        chainDag.pruneFinalized()
+      if chainDag.needStateCachesAndForkChoicePruning():
+        chainDag.pruneBlocksDAG()
+        chainDag.pruneStateCachesDAG()
         attPool.prune()
 
   var

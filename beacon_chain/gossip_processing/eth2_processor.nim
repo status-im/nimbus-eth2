@@ -127,17 +127,23 @@ proc updateHead*(self: var Eth2Processor, wallSlot: Slot) =
   # Store the new head in the chain DAG - this may cause epochs to be
   # justified and finalized
   self.chainDag.updateHead(newHead, self.quarantine)
+
+  # Prune the DAG eagerly (but defer pruning the fork choice, state cache checkpoints and EpochRef to onSlotEnd)
+  self.chainDag.pruneBlocksDAG()
+
   self.checkExpectedBlock()
 
-proc pruneFinalized*(self: var Eth2Processor) =
-  ## Prune attestation pool/fork choice
-  ## and the blockchain DAG if a new finalization point is reached
+proc pruneStateCachesAndForkChoice*(self: var Eth2Processor) =
+  ## Prune unneeded and invalidated data after finalization
+  ## - the DAG state checkpoints
+  ## - the DAG EpochRef
+  ## - the attestation pool/fork choice
 
   # TODO: DAG & fork choice procs are unrelated to gossip validation
 
   # Cleanup DAG & fork choice if we have a finalized head
-  if self.chainDag.needPruning():
-    self.chainDag.pruneFinalized()
+  if self.chainDag.needStateCachesAndForkChoicePruning():
+    self.chainDag.pruneStateCachesDAG()
     self.attestationPool[].prune()
 
 proc dumpBlock[T](
@@ -251,8 +257,8 @@ proc processBlock(self: var Eth2Processor, entry: BlockEntry) =
 
   if res.isOk():
     # Eagerly update head in case the new block gets selected
-    self.updateHead(wallSlot)        # This also eagerly prunes the blocks DAG to prevent processing forks.
-    # self.pruneStateAndForkChoice() # Amortized pruning, we don't prune states & fork choice here but in `onSlotEnd`()
+    self.updateHead(wallSlot)    # This also eagerly prunes the blocks DAG to prevent processing forks.
+    # self.pruneStateCachesDAG() # Amortized pruning, we don't prune states & fork choice here but in `onSlotEnd`()
 
     let updateDone = now(chronos.Moment)
     let storeBlockDuration = storeDone - start
