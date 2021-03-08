@@ -479,8 +479,6 @@ proc getState*(
       db, key, output, rollback, immutableValidators):
     return true
 
-  # TODO both this and getStateOnlyMutableValidators can rollback. but only one
-  # really has to.
   case db.get(subkey(BeaconState, key), output)
   of GetResult.found:
     true

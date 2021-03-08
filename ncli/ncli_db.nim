@@ -229,12 +229,22 @@ proc copyPrunedDatabase(
   # Tail states are specially addressed; no stateroot intermediary
   # TODO here, want to copy raw blocks, not the processed forms,
   # and also the immutable validators; might need to adjust APIs
-  var foo: seq[ImmutableValidatorData]
+  var
+    # Might be empty, but only if the database doesn't use that schema at all,
+    # in which case, getStateOnlyMutableValidators() won't ever access it.
+    immutableValidators = db.loadImmutableValidators()
+
+    # Cant use already-filled version, because updateImmutableValidators checks
+    # for synchronization.
+    immutableValidatorsCopy: seq[ImmutableValidatorData]
+
   if not db.getState(
       db.getBlock(tailBlock.get).get.message.state_root, beaconState[],
-      noRollback, foo):
+      noRollback, immutableValidators):
     doAssert false, "could not load tail state"
   if not dry_run:
+    copyDb.updateImmutableValidators(
+      immutableValidatorsCopy, beaconState[].validators)
     copyDb.putState(beaconState[])
 
   for signedBlock in getAncestors(db, headBlock.get):
@@ -258,8 +268,8 @@ proc copyPrunedDatabase(
             slot, " with root ", signedBlock.root
         continue
 
-      var foo: seq[ImmutableValidatorData]
-      if not db.getState(sr.get, beaconState[], noRollback, foo):
+      if not db.getState(
+          sr.get, beaconState[], noRollback, immutableValidators):
         # Don't copy dangling stateroot pointers
         if stateRequired:
           doAssert false, "state root and state required"
