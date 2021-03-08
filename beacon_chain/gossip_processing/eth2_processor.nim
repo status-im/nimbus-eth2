@@ -128,9 +128,6 @@ proc updateHead*(self: var Eth2Processor, wallSlot: Slot) =
   # justified and finalized
   self.chainDag.updateHead(newHead, self.quarantine)
 
-  # Prune the DAG eagerly (but defer pruning the fork choice, state cache checkpoints and EpochRef to onSlotEnd)
-  self.chainDag.pruneBlocksDAG()
-
   self.checkExpectedBlock()
 
 proc pruneStateCachesAndForkChoice*(self: var Eth2Processor) =

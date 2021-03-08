@@ -35,7 +35,6 @@ template wrappedTimedTest(name: string, body: untyped) =
 
 proc pruneAtFinalization(dag: ChainDAGRef) =
   if dag.needStateCachesAndForkChoicePruning():
-    dag.pruneBlocksDAG()
     dag.pruneStateCachesDAG()
 
 suiteReport "BlockRef and helpers" & preset():

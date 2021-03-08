@@ -54,7 +54,6 @@ template wrappedTimedTest(name: string, body: untyped) =
 
 proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
   if dag.needStateCachesAndForkChoicePruning():
-    dag.pruneBlocksDAG()
     dag.pruneStateCachesDAG()
     # pool[].prune() # We test logic without attestation pool / fork choice pruning
 

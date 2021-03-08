@@ -830,6 +830,93 @@ proc delState(dag: ChainDAGRef, bs: BlockSlot) =
     dag.db.delState(root.get())
     dag.db.delStateRoot(bs.blck.root, bs.slot)
 
+proc pruneBlocksDAG(dag: ChainDAGRef) =
+  ## This prunes the block DAG
+  ## This does NOT prune the cached state checkpoints and EpochRef
+  ## This should be done after a new finalization point is reached
+  ## to invalidate pending blocks or attestations referring
+  ## to a now invalid fork.
+  ##
+  ## This does NOT update the `dag.lastPrunePoint` field.
+  ## as the caches and fork choice can be pruned at a later time.
+
+  # Clean up block refs, walking block by block
+  if dag.lastPrunePoint != dag.finalizedHead:
+    # Finalization means that we choose a single chain as the canonical one -
+    # it also means we're no longer interested in any branches from that chain
+    # up to the finalization point
+    let hlen = dag.heads.len
+    for i in 0..<hlen:
+      let n = hlen - i - 1
+      let head = dag.heads[n]
+      if dag.finalizedHead.blck.isAncestorOf(head):
+        continue
+
+      var cur = head.atSlot(head.slot)
+      while not cur.blck.isAncestorOf(dag.finalizedHead.blck):
+        # TODO there may be more empty states here: those that have a slot
+        #      higher than head.slot and those near the branch point - one
+        #      needs to be careful though because those close to the branch
+        #      point should not necessarily be cleaned up
+        dag.delState(cur) # TODO: should we move that disk I/O to `onSlotEnd`
+
+        if cur.blck.slot == cur.slot:
+          dag.blocks.del(cur.blck.root)
+          dag.db.delBlock(cur.blck.root)
+
+        if cur.blck.parent.isNil:
+          break
+        cur = cur.parentOrSlot
+
+      dag.heads.del(n)
+
+    debug "Pruned the blockchain DAG",
+      currentCandidateHeads = dag.heads.len
+
+func needStateCachesAndForkChoicePruning*(dag: ChainDAGRef): bool =
+  dag.lastPrunePoint != dag.finalizedHead
+
+proc pruneStateCachesDAG*(dag: ChainDAGRef) =
+  ## This prunes the cached state checkpoints and EpochRef
+  ## This does NOT prune the state associated with invalidated blocks on a fork
+  ## They are pruned via `pruneBlocksDAG`
+  ##
+  ## This updates the `dag.lastPrunePoint` variable
+  doAssert dag.needStateCachesAndForkChoicePruning()
+
+  block: # Remove states, walking slot by slot
+    # We remove all state checkpoints that come _before_ the current finalized
+    # head, as we might frequently be asked to replay states from the
+    # finalized checkpoint and onwards (for example when validating blocks and
+    # attestations)
+    var
+      cur = dag.finalizedHead.stateCheckpoint.parentOrSlot
+      prev = dag.lastPrunePoint.stateCheckpoint.parentOrSlot
+    while cur.blck != nil and cur != prev:
+      # TODO This is a quick fix to prune some states from the database, but
+      # not all, pending a smarter storage - the downside of pruning these
+      # states is that certain rewinds will take longer
+      # After long periods of non-finalization, it can also take some time to
+      # release all these states!
+      if cur.slot.epoch mod 32 != 0 and cur.slot != dag.tail.slot:
+        dag.delState(cur)
+      cur = cur.parentOrSlot
+
+  block: # Clean up old EpochRef instances
+    # After finalization, we can clear up the epoch cache and save memory -
+    # it will be recomputed if needed
+    # TODO don't store recomputed pre-finalization epoch refs
+    var tmp = dag.finalizedHead.blck
+    while tmp != dag.lastPrunePoint.blck:
+      # leave the epoch cache in the last block of the epoch..
+      tmp = tmp.parent
+      if tmp.parent != nil:
+        tmp.parent.epochRefs = @[]
+
+  dag.lastPrunePoint = dag.finalizedHead
+
+  debug "Pruned the state checkpoints and DAG caches."
+
 proc updateHead*(
       dag: ChainDAGRef,
       newHead: BlockRef,
@@ -930,92 +1017,7 @@ proc updateHead*(
     beacon_finalized_root.set(
       dag.headState.data.data.finalized_checkpoint.root.toGaugeValue)
 
-proc pruneBlocksDAG*(dag: ChainDAGRef) =
-  ## This prunes the block DAG
-  ## This does NOT prune the cached state checkpoints and EpochRef
-  ## This should be done after a new finalization point is reached
-  ## to invalidate pending blocks or attestations referring
-  ## to a now invalid fork.
-  ##
-  ## This does NOT update the `dag.lastPrunePoint` field.
-  ## as the caches and fork choice can be pruned at a later time.
-
-  # Clean up block refs, walking block by block
-  if dag.lastPrunePoint != dag.finalizedHead:
-    # Finalization means that we choose a single chain as the canonical one -
-    # it also means we're no longer interested in any branches from that chain
-    # up to the finalization point
-    let hlen = dag.heads.len
-    for i in 0..<hlen:
-      let n = hlen - i - 1
-      let head = dag.heads[n]
-      if dag.finalizedHead.blck.isAncestorOf(head):
-        continue
-
-      var cur = head.atSlot(head.slot)
-      while not cur.blck.isAncestorOf(dag.finalizedHead.blck):
-        # TODO there may be more empty states here: those that have a slot
-        #      higher than head.slot and those near the branch point - one
-        #      needs to be careful though because those close to the branch
-        #      point should not necessarily be cleaned up
-        dag.delState(cur) # TODO: should we move that disk I/O to `onSlotEnd`
-
-        if cur.blck.slot == cur.slot:
-          dag.blocks.del(cur.blck.root)
-          dag.db.delBlock(cur.blck.root)
-
-        if cur.blck.parent.isNil:
-          break
-        cur = cur.parentOrSlot
-
-      dag.heads.del(n)
-
-    debug "Pruned the blockchain DAG",
-      currentCandidateHeads = dag.heads.len
-
-func needStateCachesAndForkChoicePruning*(dag: ChainDAGRef): bool =
-  dag.lastPrunePoint != dag.finalizedHead
-
-proc pruneStateCachesDAG*(dag: ChainDAGRef) =
-  ## This prunes the cached state checkpoints and EpochRef
-  ## This does NOT prune the state associated with invalidated blocks on a fork
-  ## They are pruned via `pruneBlocksDAG`
-  ##
-  ## This updates the `dag.lastPrunePoint` variable
-  doAssert dag.needStateCachesAndForkChoicePruning()
-
-  block: # Remove states, walking slot by slot
-    # We remove all state checkpoints that come _before_ the current finalized
-    # head, as we might frequently be asked to replay states from the
-    # finalized checkpoint and onwards (for example when validating blocks and
-    # attestations)
-    var
-      cur = dag.finalizedHead.stateCheckpoint.parentOrSlot
-      prev = dag.lastPrunePoint.stateCheckpoint.parentOrSlot
-    while cur.blck != nil and cur != prev:
-      # TODO This is a quick fix to prune some states from the database, but
-      # not all, pending a smarter storage - the downside of pruning these
-      # states is that certain rewinds will take longer
-      # After long periods of non-finalization, it can also take some time to
-      # release all these states!
-      if cur.slot.epoch mod 32 != 0 and cur.slot != dag.tail.slot:
-        dag.delState(cur)
-      cur = cur.parentOrSlot
-
-  block: # Clean up old EpochRef instances
-    # After finalization, we can clear up the epoch cache and save memory -
-    # it will be recomputed if needed
-    # TODO don't store recomputed pre-finalization epoch refs
-    var tmp = dag.finalizedHead.blck
-    while tmp != dag.lastPrunePoint.blck:
-      # leave the epoch cache in the last block of the epoch..
-      tmp = tmp.parent
-      if tmp.parent != nil:
-        tmp.parent.epochRefs = @[]
-
-  dag.lastPrunePoint = dag.finalizedHead
-
-  debug "Pruned the state checkpoints and DAG caches."
+  dag.pruneBlocksDAG()
 
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): bool =
   let
