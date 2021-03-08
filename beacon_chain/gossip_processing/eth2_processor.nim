@@ -251,8 +251,8 @@ proc processBlock(self: var Eth2Processor, entry: BlockEntry) =
 
   if res.isOk():
     # Eagerly update head in case the new block gets selected
-    self.updateHead(wallSlot)
-    # self.pruneFinalized() # Amortized pruning, we don't prune here but during `runQueueProcessingLoop` idle time
+    self.updateHead(wallSlot)        # This also eagerly prunes the blocks DAG to prevent processing forks.
+    # self.pruneStateAndForkChoice() # Amortized pruning, we don't prune states & fork choice here but in `onSlotEnd`()
 
     let updateDone = now(chronos.Moment)
     let storeBlockDuration = storeDone - start
@@ -558,10 +558,6 @@ proc runQueueProcessingLoop*(self: ref Eth2Processor) {.async.} =
 
     # Avoid one more `await` when there's work to do
     if not (blockFut.finished or aggregateFut.finished or attestationFut.finished):
-      if self.chainDag.needPruning:
-        debug "Using idle time for pruning the DAG"
-        self[].pruneFinalized()
-
       trace "Waiting for processing work"
       await blockFut or aggregateFut or attestationFut
 
