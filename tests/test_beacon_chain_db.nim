@@ -19,11 +19,10 @@ import  options, unittest, sequtils,
 when isMainModule:
   import chronicles # or some random compile error happens...
 
-proc getStateRef(db: BeaconChainDB, root: Eth2Digest,
-    immutableValidators: auto): NilableBeaconStateRef =
+proc getStateRef(db: BeaconChainDB, root: Eth2Digest): NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
   let res = BeaconStateRef()
-  if db.getState(root, res[], noRollback, immutableValidators):
+  if db.getState(root, res[], noRollback):
     return res
 
 template wrappedTimedTest(name: string, body: untyped) =
@@ -44,9 +43,8 @@ suiteReport "Beacon chain DB" & preset():
   wrappedTimedTest "empty database" & preset():
     var
       db = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)
-      immutableValidators: seq[ImmutableValidatorData] = @[]
     check:
-      db.getStateRef(Eth2Digest(), immutableValidators).isNil
+      db.getStateRef(Eth2Digest()).isNil
       db.getBlock(Eth2Digest()).isNone
 
   wrappedTimedTest "sanity check blocks" & preset():
@@ -78,17 +76,14 @@ suiteReport "Beacon chain DB" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
-      immutableValidators = db.loadImmutableValidators()
 
     for state in getTestStates(dag.headState.data):
-      dag.db.updateImmutableValidators(
-        immutableValidators, state[].data.validators)
       db.putState(state[].data)
       let root = hash_tree_root(state[].data)
 
       check:
         db.containsState(root)
-        hash_tree_root(db.getStateRef(root, immutableValidators)[]) == root
+        hash_tree_root(db.getStateRef(root)[]) == root
 
       db.delState(root)
       check: not db.containsState(root)
@@ -154,8 +149,7 @@ suiteReport "Beacon chain DB" & preset():
     db.putState(state[])
 
     check db.containsState(root)
-    let state2 = db.getStateRef(
-      root, mapIt(state[].validators, getImmutableValidatorData(it)))
+    let state2 = db.getStateRef(root)
     db.delState(root)
     check not db.containsState(root)
     db.close()
@@ -190,14 +184,13 @@ suiteReport "Beacon chain DB" & preset():
     let
       state = BeaconStateRef()
       root = hash_tree_root(state[])
-      immutableValidators: seq[ImmutableValidatorData] = @[]
 
     # TODO make sure there's a validator
     db.putState(state[])
 
     check:
       db.containsState(root)
-      hash_tree_root(db.getStateRef(root, immutableValidators)[]) == root
+      hash_tree_root(db.getStateRef(root)[]) == root
 
     # TODO check state delete
 

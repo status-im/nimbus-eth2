@@ -132,8 +132,7 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
   )
 
   withTimer(timers[tLoadState]):
-    discard db.getState(
-      state[].root, state[].data, noRollback, pool.immutableValidators)
+    discard db.getState(state[].root, state[].data, noRollback)
 
   var
     cache = StateCache()
@@ -175,16 +174,14 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
   printTimers(false, timers)
 
 proc cmdDumpState(conf: DbConf, preset: RuntimePreset) =
-  let
-    db = BeaconChainDB.init(preset, conf.databaseDir.string)
-    immutableValidators = db.loadImmutableValidators()
+  let db = BeaconChainDB.init(preset, conf.databaseDir.string)
   defer: db.close()
 
   for stateRoot in conf.stateRoot:
     try:
       let root = Eth2Digest(data: hexToByteArray[32](stateRoot))
       var state = (ref HashedBeaconState)(root: root)
-      if not db.getState(root, state.data, noRollback, immutableValidators):
+      if not db.getState(root, state.data, noRollback):
         echo "Couldn't load ", root
       else:
         dump("./", state[])
@@ -229,22 +226,11 @@ proc copyPrunedDatabase(
   # Tail states are specially addressed; no stateroot intermediary
   # TODO here, want to copy raw blocks, not the processed forms,
   # and also the immutable validators; might need to adjust APIs
-  var
-    # Might be empty, but only if the database doesn't use that schema at all,
-    # in which case, getStateOnlyMutableValidators() won't ever access it.
-    immutableValidators = db.loadImmutableValidators()
-
-    # Cant use already-filled version, because updateImmutableValidators checks
-    # for synchronization.
-    immutableValidatorsCopy: seq[ImmutableValidatorData]
-
   if not db.getState(
       db.getBlock(tailBlock.get).get.message.state_root, beaconState[],
-      noRollback, immutableValidators):
+      noRollback):
     doAssert false, "could not load tail state"
   if not dry_run:
-    copyDb.updateImmutableValidators(
-      immutableValidatorsCopy, beaconState[].validators)
     copyDb.putState(beaconState[])
 
   for signedBlock in getAncestors(db, headBlock.get):
@@ -268,8 +254,7 @@ proc copyPrunedDatabase(
             slot, " with root ", signedBlock.root
         continue
 
-      if not db.getState(
-          sr.get, beaconState[], noRollback, immutableValidators):
+      if not db.getState(sr.get, beaconState[], noRollback):
         # Don't copy dangling stateroot pointers
         if stateRequired:
           doAssert false, "state root and state required"

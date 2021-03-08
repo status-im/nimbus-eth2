@@ -53,7 +53,12 @@ type
     backend: KvStoreRef
     preset*: RuntimePreset
     genesisDeposits*: DepositsSeq
+
+    # ImmutableValidatorsSeq only stores the total count; it's a proxy for SQL
+    # queries.
     immutableValidators*: ImmutableValidatorsSeq
+    immutableValidatorsMem*: seq[ImmutableValidatorData]
+
     checkpoint*: proc() {.gcsafe.}
 
   Keyspaces* = enum
@@ -227,6 +232,15 @@ proc contains*[K, V](m: DbMap[K, V], key: K): bool =
 template insert*[K, V](t: var Table[K, V], key: K, value: V) =
   add(t, key, value)
 
+proc loadImmutableValidators(db: BeaconChainDB): seq[ImmutableValidatorData] =
+  # TODO not called, but build fails otherwise
+  for i in 0'u64 ..< db.immutableValidators.len:
+    result.add db.immutableValidators.get(i)
+
+proc loadImmutableValidators(dbSeq: var auto): seq[ImmutableValidatorData] =
+  for i in 0'u64 ..< dbSeq.len:
+    result.add dbSeq.get(i)
+
 proc init*(T: type BeaconChainDB,
            preset: RuntimePreset,
            dir: string,
@@ -257,6 +271,7 @@ proc init*(T: type BeaconChainDB,
     preset: preset,
     genesisDeposits: genesisDepositsSeq,
     immutableValidators: immutableValidatorsSeq,
+    immutableValidatorsMem: loadImmutableValidators(immutableValidatorsSeq),
     checkpoint: proc() = sqliteStore.checkpoint()
     )
 
@@ -339,12 +354,32 @@ proc putBlock*(db: BeaconChainDB, value: SigVerifiedSignedBeaconBlock) =
   db.put(subkey(SignedBeaconBlock, value.root), value)
   db.put(subkey(BeaconBlockSummary, value.root), value.message.toBeaconBlockSummary())
 
+proc updateImmutableValidators(
+    db: BeaconChainDB, immutableValidators: var seq[ImmutableValidatorData],
+    validators: auto) =
+  let
+    numValidators = validators.lenu64
+    origNumImmutableValidators = immutableValidators.lenu64
+
+  doAssert immutableValidators.lenu64 == db.immutableValidators.len
+
+  if numValidators <= origNumImmutableValidators:
+    return
+
+  for validatorIndex in origNumImmutableValidators ..< numValidators:
+    # This precedes state storage
+    let immutableValidator =
+      getImmutableValidatorData(validators[validatorIndex])
+    db.immutableValidators.add immutableValidator
+    immutableValidators.add immutableValidator
+
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   # TODO prune old states - this is less easy than it seems as we never know
   #      when or if a particular state will become finalized.
   var mutableOnlyState = getBeaconStateNoImmutableValidators[
     BeaconState, BeaconStateNoImmutableValidators](value)
   mutableOnlyState[].validators = getMutableValidatorStatuses(value)
+  updateImmutableValidators(db, db.immutableValidatorsMem, value.validators)
   db.put(subkey(BeaconStateNoImmutableValidators, key), mutableOnlyState[])
 
 proc putState*(db: BeaconChainDB, value: BeaconState) =
@@ -410,7 +445,7 @@ proc getBlockSummary*(db: BeaconChainDB, key: Eth2Digest): Opt[BeaconBlockSummar
 
 proc getStateOnlyMutableValidators(
     db: BeaconChainDB, key: Eth2Digest, output: var BeaconState,
-    rollback: RollbackProc, immutableValidators: auto): bool =
+    rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
   ## Return `true` iff the entry was found in the database and `output` was
@@ -431,15 +466,16 @@ proc getStateOnlyMutableValidators(
     output = getBeaconStateNoImmutableValidators[
       BeaconStateNoImmutableValidators, BeaconState](intermediateOutput[])[]
 
-    doAssert immutableValidators.len >= intermediateOutput[].validators.len
+    doAssert db.immutableValidatorsMem.len >= intermediateOutput[].validators.len
 
     # TODO factor out, maybe
     for i in 0 ..< intermediateOutput[].validators.len:
       # Merge immutable and mutable parts
       output.validators.add Validator(
         # Immutable
-        pubkey: immutableValidators[i].pubkey,
-        withdrawal_credentials: immutableValidators[i].withdrawal_credentials,
+        pubkey: db.immutableValidatorsMem[i].pubkey,
+        withdrawal_credentials:
+          db.immutableValidatorsMem[i].withdrawal_credentials,
 
         # Mutable
         effective_balance: intermediateOutput[].validators[i].effective_balance,
@@ -463,8 +499,7 @@ proc getStateOnlyMutableValidators(
 
 proc getState*(
     db: BeaconChainDB, key: Eth2Digest, output: var BeaconState,
-    rollback: RollbackProc,
-    immutableValidators: openArray[ImmutableValidatorData]): bool =
+    rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
   ## Return `true` iff the entry was found in the database and `output` was
@@ -475,8 +510,7 @@ proc getState*(
   #      https://github.com/nim-lang/Nim/issues/14126
   # TODO RVO is inefficient for large objects:
   #      https://github.com/nim-lang/Nim/issues/13879
-  if getStateOnlyMutableValidators(
-      db, key, output, rollback, immutableValidators):
+  if getStateOnlyMutableValidators(db, key, output, rollback):
     return true
 
   case db.get(subkey(BeaconState, key), output)
@@ -578,7 +612,3 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
       break
 
     root = res.summary.parent_root
-
-proc loadImmutableValidators*(db: BeaconChainDB): seq[ImmutableValidatorData] =
-  for i in 0'u64 ..< db.immutableValidators.len:
-    result.add db.immutableValidators.get(i)

@@ -378,15 +378,12 @@ proc init*(T: type ChainDAGRef,
     cur = headRef.atSlot(headRef.slot)
     tmpState = (ref StateData)()
 
-  let immutableValidators = loadImmutableValidators(db)
-
   # Now that we have a head block, we need to find the most recent state that
   # we have saved in the database
   while cur.blck != nil:
     let root = db.getStateRoot(cur.blck.root, cur.slot)
     if root.isSome():
-      if db.getState(
-          root.get(), tmpState.data.data, noRollback, immutableValidators):
+      if db.getState(root.get(), tmpState.data.data, noRollback):
         tmpState.data.root = root.get()
         tmpState.blck = cur.blck
 
@@ -417,7 +414,6 @@ proc init*(T: type ChainDAGRef,
     epochRefState: tmpState[],
     clearanceState: tmpState[],
     tmpState: tmpState[],
-    immutableValidators: immutableValidators,
 
     # The only allowed flag right now is verifyFinalization, as the others all
     # allow skipping some validation.
@@ -481,27 +477,6 @@ proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
 proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
   dag.getEpochRef(dag.finalizedHead.blck, dag.finalizedHead.slot.epoch)
 
-# TODO looking more like a beacon_chain_db/immutable-data-base-part proc
-# since it needs to be around for init stuff
-proc updateImmutableValidators*(
-    db: BeaconChainDB, immutableValidators: var seq[ImmutableValidatorData],
-    validators: auto) =
-  let
-    numValidators = validators.lenu64
-    origNumImmutableValidators = immutableValidators.lenu64
-
-  doAssert immutableValidators.lenu64 == db.immutableValidators.len
-
-  if numValidators <= origNumImmutableValidators:
-    return
-
-  for validatorIndex in origNumImmutableValidators ..< numValidators:
-    # This precedes state storage
-    let immutableValidator =
-      getImmutableValidatorData(validators[validatorIndex])
-    db.immutableValidators.add immutableValidator
-    immutableValidators.add immutableValidator
-
 proc getState(
     dag: ChainDAGRef, state: var StateData, stateRoot: Eth2Digest,
     blck: BlockRef): bool =
@@ -515,8 +490,7 @@ proc getState(
   func restore(v: var BeaconState) =
     assign(v, restoreAddr[].data.data)
 
-  if not dag.db.getState(
-      stateRoot, state.data.data, restore, dag.immutableValidators):
+  if not dag.db.getState(stateRoot, state.data.data, restore):
     return false
 
   state.blck = blck
@@ -576,8 +550,6 @@ proc putState*(dag: ChainDAGRef, state: StateData) =
   # Ideally we would save the state and the root lookup cache in a single
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
-  dag.db.updateImmutableValidators(
-    dag.immutableValidators, state.data.data.validators)
   dag.db.putState(state.data.root, state.data.data)
   dag.db.putStateRoot(state.blck.root, state.data.data.slot, state.data.root)
 
@@ -1082,8 +1054,6 @@ proc preInit*(
     fork = tailState.fork,
     validators = tailState.validators.len()
 
-  for validator in tailState.validators:
-    db.immutableValidators.add getImmutableValidatorData(validator)
   db.putState(tailState)
   db.putBlock(tailBlock)
   db.putTailBlock(tailBlock.root)
