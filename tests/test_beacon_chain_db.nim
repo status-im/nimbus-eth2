@@ -176,22 +176,3 @@ suiteReport "Beacon chain DB" & preset():
 
     check:
       hash_tree_root(state2[]) == root
-
-  wrappedTimedTest "sanity check states 2" & preset():
-    var
-      db = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)
-
-    let
-      state = BeaconStateRef()
-      root = hash_tree_root(state[])
-
-    # TODO make sure there's a validator
-    db.putState(state[])
-
-    check:
-      db.containsState(root)
-      hash_tree_root(db.getStateRef(root)[]) == root
-
-    # TODO check state delete
-
-    db.close()

@@ -237,10 +237,6 @@ proc loadImmutableValidators(db: BeaconChainDB): seq[ImmutableValidatorData] =
   for i in 0'u64 ..< db.immutableValidators.len:
     result.add db.immutableValidators.get(i)
 
-proc loadImmutableValidators(dbSeq: var auto): seq[ImmutableValidatorData] =
-  for i in 0'u64 ..< dbSeq.len:
-    result.add dbSeq.get(i)
-
 proc init*(T: type BeaconChainDB,
            preset: RuntimePreset,
            dir: string,

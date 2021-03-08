@@ -131,3 +131,7 @@ func getBeaconStateNoImmutableValidators*[T, U](x: T): ref U =
   assign(result.previous_justified_checkpoint, x.previous_justified_checkpoint)
   assign(result.current_justified_checkpoint, x.current_justified_checkpoint)
   assign(result.finalized_checkpoint, x.finalized_checkpoint)
+
+proc loadImmutableValidators*(dbSeq: var auto): seq[ImmutableValidatorData] =
+  for i in 0'u64 ..< dbSeq.len:
+    result.add dbSeq.get(i)
