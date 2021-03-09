@@ -461,22 +461,30 @@ proc getStateOnlyMutableValidators(
   of GetResult.found:
     updateBeaconStateNoImmutableValidators(output, intermediateOutput[])
 
-    let numValidators = intermediateOutput[].validators.len
+    let
+      numValidators = intermediateOutput[].validators.len
+      existingOutputValidators = output.validators.len
     doAssert db.immutableValidatorsMem.len >= numValidators
 
     output.validators.clearCache()
     output.validators.data.setLen(numValidators)
+
+    # If truncation occurred, skip loop
+    for i in existingOutputValidators ..< numValidators:
+      let
+        # Bypass hash cache invalidation
+        dstValidator = addr output.validators.data[i]
+        srcValidator = addr db.immutableValidatorsMem[i]
+
+      assign(dstValidator.pubkey, srcValidator.pubkey)
+      assign(dstValidator.withdrawal_credentials,
+        srcValidator.withdrawal_credentials)
 
     for i in 0 ..< numValidators:
       let
         # Bypass hash cache invalidation
         dstValidator = addr output.validators.data[i]
         srcValidator = addr intermediateOutput[].validators[i]
-
-      # TODO don't usually need to copy these much; only do so as needed
-      assign(dstValidator.pubkey, db.immutableValidatorsMem[i].pubkey)
-      assign(dstValidator.withdrawal_credentials,
-        db.immutableValidatorsMem[i].withdrawal_credentials)
 
       assign(dstValidator.effective_balance, srcValidator.effective_balance)
       assign(dstValidator.slashed, srcValidator.slashed)
