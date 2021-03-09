@@ -14,7 +14,7 @@ Nimbus logs are written to stdout, and optionally to a file. Writing to a file f
 }
 ```
 
-This assumes you configured Nimbus-eth2 to write its logs to "/var/log/nimbus-eth2/" (usually by redirecting stout and stderr from your init script).
+The above assumes you've configured Nimbus-eth2 to write its logs to "/var/log/nimbus-eth2/" (usually by redirecting stout and stderr from your init script).
 
 "copytruncate" is required because, when it comes to moving the log file, `logrotate`'s default behaviour requires application support for re-opening that log file at runtime (something which is currently lacking). So, instead of a move, we tell `logrotate` to do a copy and a truncation of the existing file. A few log lines may be lost in the process.
 
