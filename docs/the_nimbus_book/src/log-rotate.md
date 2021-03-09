@@ -88,7 +88,7 @@ The options used in this example do the following:
 
 ### Deleting old logs
 
-`rotatelogs` will not do this for you, so you need a Cron script (or Systemd timer) for that:
+`rotatelogs` will not do this for you, so you'll need a Cron script (or Systemd timer):
 
 ```bash
 # delete log files older than 7 days
