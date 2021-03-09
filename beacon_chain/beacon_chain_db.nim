@@ -464,7 +464,7 @@ proc getStateOnlyMutableValidators(
     let numValidators = intermediateOutput[].validators.len
     doAssert db.immutableValidatorsMem.len >= numValidators
 
-    output.validators.clear()   # TODO suboptimal
+    output.validators.clearCache()
     output.validators.data.setLen(numValidators)
 
     for i in 0 ..< numValidators:
