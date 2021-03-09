@@ -35,7 +35,7 @@ In particular, when `Systemd` and its accompanying `Journald` log daemon are use
 
 ### Compression
 
-`rotatelogs` works by reading stdin and redirecting it to a file based on a name pattern. Whenever the log is about to be rotated, the application invokes a shell script with the old and new log files. Our aim is to compress the log file to save space. The [Nimbus-eth2 repo](https://github.com/status-im/nimbus-eth2/tree/unstable/scripts/rotatelogs-compress.sh) provides a helper script to do so:
+`rotatelogs` works by reading stdin and redirecting it to a file based on a name pattern. Whenever the log is about to be rotated, the application invokes a shell script with the old and new log files. Our aim is to compress the log file to save space. The [Nimbus-eth2 repo](https://github.com/status-im/nimbus-eth2/tree/unstable/scripts/rotatelogs-compress.sh) provides a helper script that does this:
 
 ```bash
 # Create a rotation script for rotatelogs
