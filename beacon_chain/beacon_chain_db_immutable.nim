@@ -70,9 +70,7 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-# TODO better name: get here generally means retrieve from database,
-# which this isn't. another argument, perhaps, for the module split.
-func getBeaconStateNoImmutableValidators*[T, U](x: T): ref U =
+func updateBeaconStateNoImmutableValidators*[T, U](x: T, y: var U) =
   # TODO this whole approach is a kludge; should be able to avoid copying and
   # get SSZ to just serialize result.validators differently, concatenate from
   # before + changed + after, or etc. also adding any additional copies, or a
@@ -82,7 +80,7 @@ func getBeaconStateNoImmutableValidators*[T, U](x: T): ref U =
   template assign[V, W](x: HashList[V, W], y: List[V, W]) =
     # https://github.com/status-im/nimbus-eth2/blob/3f6834cce7b60581cfe3cdd9946e28bdc6d74176/beacon_chain/ssz/bytes_reader.nim#L144
     assign(x.data, y)
-    x.hashes.setLen(0)
+    x.clearCaches(0)
     x.growHashes()
 
   template assign[V, W](dummy, x: HashArray[V, W], y: array[V, W]) =
@@ -108,29 +106,26 @@ func getBeaconStateNoImmutableValidators*[T, U](x: T): ref U =
   template arrayAssign(x, y: untyped) =
     assign(type_binder(x, y), x, y)
 
-  result = new U
-  result.genesis_time = x.genesis_time
-  result.genesis_validators_root = x.genesis_validators_root
-  result.slot = x.slot
-  result.fork = x.fork
-  assign(result.latest_block_header, x.latest_block_header)
-  arrayAssign(result.block_roots, x.block_roots)
-  arrayAssign(result.state_roots, x.state_roots)
-  assign(result.historical_roots, x.historical_roots)
-  assign(result.eth1_data, x.eth1_data)
-  assign(result.eth1_data_votes, x.eth1_data_votes)
-  assign(result.eth1_deposit_index, x.eth1_deposit_index)
-  assign(result.balances, x.balances)
-  arrayAssign(result.randao_mixes, x.randao_mixes)
-  arrayAssign(result.slashings, x.slashings)
-  assign(
-    result.previous_epoch_attestations, x.previous_epoch_attestations)
-  assign(
-    result.current_epoch_attestations, x.current_epoch_attestations)
-  result.justification_bits = x.justification_bits
-  assign(result.previous_justified_checkpoint, x.previous_justified_checkpoint)
-  assign(result.current_justified_checkpoint, x.current_justified_checkpoint)
-  assign(result.finalized_checkpoint, x.finalized_checkpoint)
+  y.genesis_time = x.genesis_time
+  y.genesis_validators_root = x.genesis_validators_root
+  y.slot = x.slot
+  y.fork = x.fork
+  assign(y.latest_block_header, x.latest_block_header)
+  arrayAssign(y.block_roots, x.block_roots)
+  arrayAssign(y.state_roots, x.state_roots)
+  assign(y.historical_roots, x.historical_roots)
+  assign(y.eth1_data, x.eth1_data)
+  assign(y.eth1_data_votes, x.eth1_data_votes)
+  assign(y.eth1_deposit_index, x.eth1_deposit_index)
+  assign(y.balances, x.balances)
+  arrayAssign(y.randao_mixes, x.randao_mixes)
+  arrayAssign(y.slashings, x.slashings)
+  assign(y.previous_epoch_attestations, x.previous_epoch_attestations)
+  assign(y.current_epoch_attestations, x.current_epoch_attestations)
+  y.justification_bits = x.justification_bits
+  assign(y.previous_justified_checkpoint, x.previous_justified_checkpoint)
+  assign(y.current_justified_checkpoint, x.current_justified_checkpoint)
+  assign(y.finalized_checkpoint, x.finalized_checkpoint)
 
 proc loadImmutableValidators*(dbSeq: var auto): seq[ImmutableValidatorData] =
   for i in 0'u64 ..< dbSeq.len:

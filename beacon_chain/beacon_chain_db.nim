@@ -372,8 +372,8 @@ proc updateImmutableValidators(
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   # TODO prune old states - this is less easy than it seems as we never know
   #      when or if a particular state will become finalized.
-  var mutableOnlyState = getBeaconStateNoImmutableValidators[
-    BeaconState, BeaconStateNoImmutableValidators](value)
+  var mutableOnlyState = new BeaconStateNoImmutableValidators
+  updateBeaconStateNoImmutableValidators(value, mutableOnlyState[])
   mutableOnlyState[].validators = getMutableValidatorStatuses(value)
   updateImmutableValidators(db, db.immutableValidatorsMem, value.validators)
   db.put(subkey(BeaconStateNoImmutableValidators, key), mutableOnlyState[])
@@ -459,8 +459,7 @@ proc getStateOnlyMutableValidators(
   case db.get(
     subkey(BeaconStateNoImmutableValidators, key), intermediateOutput[])
   of GetResult.found:
-    output = getBeaconStateNoImmutableValidators[
-      BeaconStateNoImmutableValidators, BeaconState](intermediateOutput[])[]
+    updateBeaconStateNoImmutableValidators(intermediateOutput[], output)
 
     let numValidators = intermediateOutput[].validators.len
     doAssert db.immutableValidatorsMem.len >= numValidators
