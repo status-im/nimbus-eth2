@@ -31,7 +31,7 @@ rotate 7
 
 [rotatelogs](https://httpd.apache.org/docs/2.4/programs/rotatelogs.html) is available on most servers and can be used with `Docker`, `Systemd` and manual setups to write rotated logs files.
 
-In particular, when using `Systemd` and its accompanying `Journald` log daemon, this setup avoids clogging the system log by keeping the Nimbus logs in a separate location.
+In particular, when `Systemd` and its accompanying `Journald` log daemon are used, this setup avoids clogging the system log by keeping the Nimbus logs in a separate location.
 
 ### Compression
 
