@@ -7,7 +7,7 @@
 
 {.used.}
 
-import  options, unittest, sequtils,
+import  algorithm, options, sequtils, unittest,
   ../beacon_chain/[beacon_chain_db, extras, interop, ssz],
   ../beacon_chain/spec/[
     beaconstate, datatypes, digest, crypto, state_transition, presets],
@@ -76,8 +76,12 @@ suiteReport "Beacon chain DB" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
+      testStates = getTestStates(dag.headState.data)
 
-    for state in getTestStates(dag.headState.data):
+    # Ensure transitions beyond just adding validators and increasing slots
+    sort(testStates)
+
+    for state in testStates:
       db.putState(state[].data)
       let root = hash_tree_root(state[].data)
 
@@ -96,8 +100,12 @@ suiteReport "Beacon chain DB" & preset():
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
 
     let stateBuffer = BeaconStateRef()
+    var testStates = getTestStates(dag.headState.data)
 
-    for state in getTestStates(dag.headState.data):
+    # Ensure transitions beyond just adding validators and increasing slots
+    sort(testStates)
+
+    for state in testStates:
       db.putState(state[].data)
       let root = hash_tree_root(state[].data)
 

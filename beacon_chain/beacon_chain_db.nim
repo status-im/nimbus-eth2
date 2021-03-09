@@ -466,11 +466,20 @@ proc getStateOnlyMutableValidators(
       existingOutputValidators = output.validators.len
     doAssert db.immutableValidatorsMem.len >= numValidators
 
-    output.validators.clearCache()
+    when false:
+      # Seemingly insufficient, as is output.validators.hashes.setLen(0)
+      output.validators.clearCache()
+    else:
+      # So, instead. But this means one can't do the incremental immutable
+      # validator fill. This does not seem to have major benchmark-visible
+      # effects.
+      output.validators.clear()
+
     output.validators.data.setLen(numValidators)
 
     # If truncation occurred, skip loop
-    for i in existingOutputValidators ..< numValidators:
+    #for i in existingOutputValidators ..< numValidators:
+    for i in 0 ..< numValidators:
       let
         # Bypass hash cache invalidation
         dstValidator = addr output.validators.data[i]
