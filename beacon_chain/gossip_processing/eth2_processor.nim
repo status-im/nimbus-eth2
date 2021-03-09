@@ -111,8 +111,12 @@ proc expectBlock*(self: var Eth2Processor, expectedSlot: Slot): Future[bool] =
   return fut
 
 proc updateHead*(self: var Eth2Processor, wallSlot: Slot) =
-  ## Trigger fork choice and returns the new head block.
-  ## Can return `nil`
+  ## Trigger fork choice and update the DAG with the new head block
+  ## This does not automatically prune the DAG after finalization
+  ## `pruneFinalized` must be called for pruning.
+
+  # TODO: DAG & fork choice procs are unrelated to gossip validation
+
   # Grab the new head according to our latest attestation data
   let newHead = self.attestationPool[].selectHead(wallSlot)
   if newHead.isNil():
@@ -122,16 +126,22 @@ proc updateHead*(self: var Eth2Processor, wallSlot: Slot) =
 
   # Store the new head in the chain DAG - this may cause epochs to be
   # justified and finalized
-  let
-    oldFinalized = self.chainDag.finalizedHead.blck
-
   self.chainDag.updateHead(newHead, self.quarantine)
 
-  # Cleanup the fork choice v2 if we have a finalized head
-  if oldFinalized != self.chainDag.finalizedHead.blck:
-    self.attestationPool[].prune()
-
   self.checkExpectedBlock()
+
+proc pruneStateCachesAndForkChoice*(self: var Eth2Processor) =
+  ## Prune unneeded and invalidated data after finalization
+  ## - the DAG state checkpoints
+  ## - the DAG EpochRef
+  ## - the attestation pool/fork choice
+
+  # TODO: DAG & fork choice procs are unrelated to gossip validation
+
+  # Cleanup DAG & fork choice if we have a finalized head
+  if self.chainDag.needStateCachesAndForkChoicePruning():
+    self.chainDag.pruneStateCachesDAG()
+    self.attestationPool[].prune()
 
 proc dumpBlock[T](
     self: Eth2Processor, signedBlock: SignedBeaconBlock,
@@ -244,7 +254,8 @@ proc processBlock(self: var Eth2Processor, entry: BlockEntry) =
 
   if res.isOk():
     # Eagerly update head in case the new block gets selected
-    self.updateHead(wallSlot)
+    self.updateHead(wallSlot)    # This also eagerly prunes the blocks DAG to prevent processing forks.
+    # self.pruneStateCachesDAG() # Amortized pruning, we don't prune states & fork choice here but in `onSlotEnd`()
 
     let updateDone = now(chronos.Moment)
     let storeBlockDuration = storeDone - start
@@ -277,7 +288,7 @@ proc processBlock(self: var Eth2Processor, entry: BlockEntry) =
     if entry.v.resFut != nil:
       entry.v.resFut.complete(Result[void, BlockError].err(res.error()))
 
-{.pop.} # TODO AsyncQueue.addLast raises Exception in theory but not in practise
+{.pop.} # TODO AsyncQueue.addLast raises Exception in theory but not in practice
 
 proc blockValidator*(
     self: var Eth2Processor,

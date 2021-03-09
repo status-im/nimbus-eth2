@@ -33,6 +33,10 @@ template wrappedTimedTest(name: string, body: untyped) =
         body
     wrappedTest()
 
+proc pruneAtFinalization(dag: ChainDAGRef) =
+  if dag.needStateCachesAndForkChoicePruning():
+    dag.pruneStateCachesDAG()
+
 suiteReport "BlockRef and helpers" & preset():
   wrappedTimedTest "isAncestorOf sanity" & preset():
     let
@@ -182,6 +186,7 @@ suiteReport "Block pool processing" & preset():
       b4Add[].parent == b2Add[]
 
     dag.updateHead(b4Add[], quarantine)
+    dag.pruneAtFinalization()
 
     var blocks: array[3, BlockRef]
 
@@ -245,6 +250,7 @@ suiteReport "Block pool processing" & preset():
       b2Get.get().refs.parent == b1Get.get().refs
 
     dag.updateHead(b2Get.get().refs, quarantine)
+    dag.pruneAtFinalization()
 
     # The heads structure should have been updated to contain only the new
     # b2 head
@@ -278,6 +284,7 @@ suiteReport "Block pool processing" & preset():
       b1Add = dag.addRawBlock(quarantine, b1, nil)
 
     dag.updateHead(b1Add[], quarantine)
+    dag.pruneAtFinalization()
 
     check:
       dag.head == b1Add[]
@@ -372,6 +379,7 @@ suiteReport "chain DAG finalization tests" & preset():
       let added = dag.addRawBlock(quarantine, blck, nil)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
+      dag.pruneAtFinalization()
 
     check:
       dag.heads.len() == 1
@@ -444,6 +452,7 @@ suiteReport "chain DAG finalization tests" & preset():
       let added = dag.addRawBlock(quarantine, blck, nil)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
+      dag.pruneAtFinalization()
 
     check:
       dag.heads.len() == 1
@@ -483,6 +492,7 @@ suiteReport "chain DAG finalization tests" & preset():
       let added = dag.addRawBlock(quarantine, blck, nil)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
+      dag.pruneAtFinalization()
 
     # Advance past epoch so that the epoch transition is gapped
     check:
@@ -498,6 +508,7 @@ suiteReport "chain DAG finalization tests" & preset():
     let added = dag.addRawBlock(quarantine, blck, nil)
     check: added.isOk()
     dag.updateHead(added[], quarantine)
+    dag.pruneAtFinalization()
 
     let
       dag2 = init(ChainDAGRef, defaultRuntimePreset, db)
