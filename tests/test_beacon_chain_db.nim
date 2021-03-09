@@ -90,6 +90,27 @@ suiteReport "Beacon chain DB" & preset():
 
     db.close()
 
+  wrappedTimedTest "sanity check states, reusing buffers" & preset():
+    var
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+
+    let stateBuffer = BeaconStateRef()
+
+    for state in getTestStates(dag.headState.data):
+      db.putState(state[].data)
+      let root = hash_tree_root(state[].data)
+
+      check:
+        db.getState(root, stateBuffer[], noRollback)
+        db.containsState(root)
+        hash_tree_root(stateBuffer[]) == root
+
+      db.delState(root)
+      check: not db.containsState(root)
+
+    db.close()
+
   wrappedTimedTest "find ancestors" & preset():
     var
       db = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)

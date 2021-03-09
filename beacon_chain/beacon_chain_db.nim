@@ -373,7 +373,7 @@ proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
   # TODO prune old states - this is less easy than it seems as we never know
   #      when or if a particular state will become finalized.
   var mutableOnlyState = new BeaconStateNoImmutableValidators
-  updateBeaconStateNoImmutableValidators(value, mutableOnlyState[])
+  updateBeaconStateNoImmutableValidators(mutableOnlyState[], value)
   mutableOnlyState[].validators = getMutableValidatorStatuses(value)
   updateImmutableValidators(db, db.immutableValidatorsMem, value.validators)
   db.put(subkey(BeaconStateNoImmutableValidators, key), mutableOnlyState[])
@@ -459,14 +459,15 @@ proc getStateOnlyMutableValidators(
   case db.get(
     subkey(BeaconStateNoImmutableValidators, key), intermediateOutput[])
   of GetResult.found:
-    updateBeaconStateNoImmutableValidators(intermediateOutput[], output)
+    updateBeaconStateNoImmutableValidators(output, intermediateOutput[])
 
     let numValidators = intermediateOutput[].validators.len
     doAssert db.immutableValidatorsMem.len >= numValidators
 
+    output.validators.clear()   # TODO suboptimal
     output.validators.data.setLen(numValidators)
 
-    for i in 0 ..< intermediateOutput[].validators.len:
+    for i in 0 ..< numValidators:
       let
         # Bypass hash cache invalidation
         dstValidator = addr output.validators.data[i]
@@ -485,7 +486,6 @@ proc getStateOnlyMutableValidators(
       assign(dstValidator.exit_epoch, srcValidator.exit_epoch)
       assign(dstValidator.withdrawable_epoch, srcValidator.withdrawable_epoch)
 
-    output.validators.clearCaches(0)
     output.validators.growHashes()
 
     true

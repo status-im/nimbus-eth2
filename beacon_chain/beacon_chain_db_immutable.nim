@@ -70,31 +70,27 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-func updateBeaconStateNoImmutableValidators*[T, U](x: T, y: var U) =
-  # TODO this whole approach is a kludge; should be able to avoid copying and
-  # get SSZ to just serialize result.validators differently, concatenate from
-  # before + changed + after, or etc. also adding any additional copies, or a
-  # non-ref return type, hurts performance significantly.
-  #
+func updateBeaconStateNoImmutableValidators*[T, U](tgt: var U, src: T) =
   # This copies all fields, except validators.
-  template assign[V, W](x: HashList[V, W], y: List[V, W]) =
+  template assign[V, W](tgt: var HashList[V, W], src: List[V, W]) =
     # https://github.com/status-im/nimbus-eth2/blob/3f6834cce7b60581cfe3cdd9946e28bdc6d74176/beacon_chain/ssz/bytes_reader.nim#L144
-    assign(x.data, y)
-    x.clearCaches(0)
-    x.growHashes()
+    tgt.clear()
+    assign(tgt.data, src)
+    tgt.growHashes()
 
-  template assign[V, W](dummy, x: HashArray[V, W], y: array[V, W]) =
+  template assign[V, W](dummy, tgt: var HashArray[V, W], src: array[V, W]) =
     # https://github.com/status-im/nimbus-eth2/blob/3f6834cce7b60581cfe3cdd9946e28bdc6d74176/beacon_chain/ssz/bytes_reader.nim#L148
-    assign(x.data, y)
-    for h in x.hashes.mitems():
+    static: doAssert tgt.len == src.len
+    for h in tgt.hashes.mitems():
       clearCache(h)
+    assign(tgt.data, src)
 
-  template assign[V, W](x: List[V, W], y: HashList[V, W]) =
-    assign(x, y.data)
+  template assign[V, W](tgt: var List[V, W], src: HashList[V, W]) =
+    assign(tgt, src.data)
 
   template assign[V, W](
-      dummy: HashArray[V, W], x: array[V, W], y: HashArray[V, W]) =
-    assign(x, y.data)
+      dummy: HashArray[V, W], tgt: var array[V, W], src: HashArray[V, W]) =
+    assign(tgt, src.data)
 
   # https://github.com/nim-lang/Nim/issues/17253 workaround
   template type_binder(maybe_array_0, maybe_array_1: untyped): untyped =
@@ -103,29 +99,29 @@ func updateBeaconStateNoImmutableValidators*[T, U](x: T, y: var U) =
     else:
       maybe_array_0
 
-  template arrayAssign(x, y: untyped) =
-    assign(type_binder(x, y), x, y)
+  template arrayAssign(tgt, src: untyped) =
+    assign(type_binder(tgt, src), tgt, src)
 
-  y.genesis_time = x.genesis_time
-  y.genesis_validators_root = x.genesis_validators_root
-  y.slot = x.slot
-  y.fork = x.fork
-  assign(y.latest_block_header, x.latest_block_header)
-  arrayAssign(y.block_roots, x.block_roots)
-  arrayAssign(y.state_roots, x.state_roots)
-  assign(y.historical_roots, x.historical_roots)
-  assign(y.eth1_data, x.eth1_data)
-  assign(y.eth1_data_votes, x.eth1_data_votes)
-  assign(y.eth1_deposit_index, x.eth1_deposit_index)
-  assign(y.balances, x.balances)
-  arrayAssign(y.randao_mixes, x.randao_mixes)
-  arrayAssign(y.slashings, x.slashings)
-  assign(y.previous_epoch_attestations, x.previous_epoch_attestations)
-  assign(y.current_epoch_attestations, x.current_epoch_attestations)
-  y.justification_bits = x.justification_bits
-  assign(y.previous_justified_checkpoint, x.previous_justified_checkpoint)
-  assign(y.current_justified_checkpoint, x.current_justified_checkpoint)
-  assign(y.finalized_checkpoint, x.finalized_checkpoint)
+  tgt.genesis_time = src.genesis_time
+  tgt.genesis_validators_root = src.genesis_validators_root
+  tgt.slot = src.slot
+  tgt.fork = src.fork
+  assign(tgt.latest_block_header, src.latest_block_header)
+  arrayAssign(tgt.block_roots, src.block_roots)
+  arrayAssign(tgt.state_roots, src.state_roots)
+  assign(tgt.historical_roots, src.historical_roots)
+  assign(tgt.eth1_data, src.eth1_data)
+  assign(tgt.eth1_data_votes, src.eth1_data_votes)
+  assign(tgt.eth1_deposit_index, src.eth1_deposit_index)
+  assign(tgt.balances, src.balances)
+  arrayAssign(tgt.randao_mixes, src.randao_mixes)
+  arrayAssign(tgt.slashings, src.slashings)
+  assign(tgt.previous_epoch_attestations, src.previous_epoch_attestations)
+  assign(tgt.current_epoch_attestations, src.current_epoch_attestations)
+  tgt.justification_bits = src.justification_bits
+  assign(tgt.previous_justified_checkpoint, src.previous_justified_checkpoint)
+  assign(tgt.current_justified_checkpoint, src.current_justified_checkpoint)
+  assign(tgt.finalized_checkpoint, src.finalized_checkpoint)
 
 proc loadImmutableValidators*(dbSeq: var auto): seq[ImmutableValidatorData] =
   for i in 0'u64 ..< dbSeq.len:
