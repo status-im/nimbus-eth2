@@ -16,7 +16,7 @@ Most systems rely on [logrotate](https://github.com/logrotate/logrotate) for log
 
 This assumes you configured Nimbus-eth2 to write its logs to "/var/log/nimbus-eth2/" (usually by redirecting stout and stderr from your init script).
 
-"copytruncate" is required, because `logrotate`'s default behaviour of moving the log file requires application support for re-opening that log file at runtime and that is currently lacking. So, instead of a move, we tell `logrotate` to do a copy and a truncation of the existing file. A few log lines may be lost in the process.
+"copytruncate" is required because, when it comes to moving the log file, `logrotate`'s default behaviour requires application support for re-opening that log file at runtime (something which is currently lacking). So, instead of a move, we tell `logrotate` to do a copy and a truncation of the existing file. A few log lines may be lost in the process.
 
 You can control rotation frequency and the maximum number of log files kept by using the global configuration file - "/etc/logrotate.conf":
 
