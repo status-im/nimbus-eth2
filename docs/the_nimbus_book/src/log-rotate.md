@@ -1,14 +1,41 @@
 # Log rotation
 
-Nimbus logs are written to the console, and optionally to a file. Writing to a file for a long-running process may lead to difficulties when the file grows large. This is typically solved with a *log rotator*. A log rotator is responsible for switching the written to file, as well as compressing and removing old logs.
+Nimbus logs are written to stdout, and optionally to a file. Writing to a file for a long-running process may lead to difficulties when the file grows large. This is typically solved with a *log rotator*. A log rotator is responsible for switching the written-to file, as well as compressing and removing old logs.
 
-To set up file-based log rotation, an application such as [rotatelogs](https://httpd.apache.org/docs/2.4/programs/rotatelogs.html) is used - `rotatelogs` is available on most servers and can be used with `docker`, `systemd` and manual setups to write rotated logs files.
+## Using "logrotate"
 
-In particular, when using `systemd` and its accompanying `journald` log daemon, this setup avoids clogging the the system log by keeping the Nimbus logs in a separate location.
+Most systems rely on [logrotate](https://github.com/logrotate/logrotate) for log rotation and compression. The corresponding package will install its Cron hooks (or Systemd timer) and all you have to do is add a configuration file for Nimbus-eth2 in "/etc/logrotate.d/nimbus-eth2":
 
-## Compression
+```text
+/var/log/nimbus-eth2/*.log {
+	compress
+	missingok
+	copytruncate
+}
+```
 
-`rotatelogs` works by reading stdin and redirecting it to a file based on a name pattern. Whenever the log is about to be rotated, the application invokes a shell script with the old and new log files. Our aim is to compress the log file to save space. [repo](https://github.com/status-im/nimbus-eth2/tree/unstable/scripts/rotatelogs-compress.sh) provides a helper script to do so:
+This assumes you configured Nimbus-eth2 to write its logs to "/var/log/nimbus-eth2/" (usually by redirecting stout and stderr from your init script).
+
+"copytruncate" is required, because `logrotate`'s default behaviour of moving the log file requires application support for re-opening that log file at runtime and that is currently lacking. So, instead of a move, we tell `logrotate` to do a copy and a truncation of the existing file. A few log lines may be lost in the process.
+
+You can control rotation frequency and the maximum number of log files kept by using the global configuration file - "/etc/logrotate.conf":
+
+```text
+# rotate daily
+daily
+# only keep logs from the last 7 days
+rotate 7
+```
+
+## Using "rotatelogs"
+
+[rotatelogs](https://httpd.apache.org/docs/2.4/programs/rotatelogs.html) is available on most servers and can be used with `Docker`, `Systemd` and manual setups to write rotated logs files.
+
+In particular, when using `Systemd` and its accompanying `Journald` log daemon, this setup avoids clogging the system log by keeping the Nimbus logs in a separate location.
+
+### Compression
+
+`rotatelogs` works by reading stdin and redirecting it to a file based on a name pattern. Whenever the log is about to be rotated, the application invokes a shell script with the old and new log files. Our aim is to compress the log file to save space. The [Nimbus-eth2 repo](https://github.com/status-im/nimbus-eth2/tree/unstable/scripts/rotatelogs-compress.sh) provides a helper script to do so:
 
 ```bash
 # Create a rotation script for rotatelogs
@@ -26,7 +53,7 @@ EOF
 chmod +x rotatelogs-compress.sh
 ```
 
-## Build
+### Build
 
 Logs in files generally don't benefit from colors. To avoid colors being written to the file, additional flags can be added to the Nimbus [build process](./build.md) -- these flags are best saved in a build script to which one can add more options. Future versions of Nimbus will support disabling colors at runtime.
 
@@ -39,7 +66,7 @@ make NIMFLAGS="-d:chronicles_colors=off -d:chronicles_sinks=textlines" nimbus_be
 EOF
 ```
 
-## Run
+### Run
 
 The final step is to redirect logs to `rotatelogs` using a pipe when starting Nimbus:
 
@@ -47,7 +74,7 @@ The final step is to redirect logs to `rotatelogs` using a pipe when starting Ni
 build/nimbus_beacon_node \
   --network:pyrmont \
   --web3-url="$WEB3URL" \
-  --data-dir:$DATADIR | rotatelogs -L "$DATADIR/nbc_bn.log" -p "/path/to/rotatelogs-compress.sh" -D -f -c "$DATADIR/log/nbc_bn_%Y%m%d%H%M%S.log" 3600
+  --data-dir:$DATADIR 2>&1 | rotatelogs -L "$DATADIR/nbc_bn.log" -p "/path/to/rotatelogs-compress.sh" -D -f -c "$DATADIR/log/nbc_bn_%Y%m%d%H%M%S.log" 3600
 ```
 
 The options used in this example do the following:
@@ -58,3 +85,13 @@ The options used in this example do the following:
 * `-f` - opens the log immediately when starting `rotatelogs`
 * `-c "$DATADIR/log/nbc_bn_%Y%m%d%H%M%S.log"` - includes timestamp in log filename
 * `3600` - rotates logs every hour (3600 seconds)
+
+### Deleting old logs
+
+`rotatelogs` will not do this for you, so you need a Cron script (or Systemd timer) for that:
+
+```bash
+# delete log files older than 7 days
+find "$DATADIR/log" -name 'nbc_bn_*.log' -mtime +7 -exec rm '{}' \+
+```
+
