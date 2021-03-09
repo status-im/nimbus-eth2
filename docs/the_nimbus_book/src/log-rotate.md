@@ -4,7 +4,7 @@ Nimbus logs are written to stdout, and optionally to a file. Writing to a file f
 
 ## Using "logrotate"
 
-Most systems rely on [logrotate](https://github.com/logrotate/logrotate) for log rotation and compression. The corresponding package will install its Cron hooks (or Systemd timer) and all you have to do is add a configuration file for Nimbus-eth2 in "/etc/logrotate.d/nimbus-eth2":
+Most systems rely on [logrotate](https://github.com/logrotate/logrotate) for log rotation and compression. The corresponding package will install its Cron hooks (or Systemd timer) -- all you have to do is add a configuration file for Nimbus-eth2 in "/etc/logrotate.d/nimbus-eth2":
 
 ```text
 /var/log/nimbus-eth2/*.log {
@@ -94,4 +94,3 @@ The options used in this example do the following:
 # delete log files older than 7 days
 find "$DATADIR/log" -name 'nbc_bn_*.log' -mtime +7 -exec rm '{}' \+
 ```
-
