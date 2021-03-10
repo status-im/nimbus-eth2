@@ -955,16 +955,19 @@ proc pruneBlocks*(db: SlashingProtectionDB_v1, validator: ValidatorPubkey, newMi
 proc pruneAttestations*(
        db: SlashingProtectionDB_v1,
        validator: ValidatorPubkey,
-       newMinSourceEpoch: Epoch,
-       newMinTargetEpoch: Epoch) =
+       newMinSourceEpoch: int64,
+       newMinTargetEpoch: int64) =
   ## Prune all blocks from a validator before the specified newMinSlot
   ## This is intended for interchange import.
   ##
   ## Note: the Database v1 does not support pruning.
+  ##
+  ## Negative source/target epoch of -1 can be received if no attestation was imported
+  ## In that case nothing is done
   warn "Slashing DB pruning is not supported on the v1 of our database. Request ignored.",
     validator = shortLog(validator),
-    newMinSourceEpoch = shortLog(newMinSourceEpoch),
-    newMinTargetEpoch = shortLog(newMinTargetEpoch)
+    newMinSourceEpoch = newMinSourceEpoch,
+    newMinTargetEpoch = newMinTargetEpoch
 
 proc pruneAfterFinalization*(
        db: SlashingProtectionDB_v1,
