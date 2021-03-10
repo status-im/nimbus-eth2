@@ -33,9 +33,9 @@ Nimbus beacon chain is a research implementation of the beacon chain component o
 
 ## Documentation
 
-You can find the information you need to run a beacon node and operate as a validator in [The Book](https://status-im.github.io/nimbus-eth2/).
+You can find the information you need to run a beacon node and operate as a validator in [The Book](https://nimbus.guide/).
 
-The [Quickstart](https://status-im.github.io/nimbus-eth2/quick-start.html) in particular will help you get connected to the Pyrmont Testnet and eth2 Mainnet quickly!
+The [Quickstart](https://nimbus.guide/quick-start.html) in particular will help you get connected to the Pyrmont Testnet and eth2 Mainnet quickly!
 
 ## Related projects
 
@@ -52,11 +52,11 @@ You can check where the beacon chain fits in the Ethereum ecosystem our Two-Poin
 
 ## Developer resources
 
-To build tools that interact with Nimbus while it's running, we expose an [RPC API](https://status-im.github.io/nimbus-eth2/api.html).
+To build tools that interact with Nimbus while it's running, we expose an [RPC API](https://nimbus.guide/api.html).
 
-To get started with developing Nimbus itself, see the [developer handbook](https://status-im.github.io/nimbus-eth2/developers.html).
+To get started with developing Nimbus itself, see the [developer handbook](https://nimbus.guide/developers.html). The code follows the [Status Nim Style Guide](https://status-im.github.io/nim-style-guide/).
 
-Nimbus is built in the [Nim language](https://nim-lang.org) - the compiler is automatically installed when building the project for the first time. More information - in particular security-related information about the language - can be found in the [Auditor Handbook](https://status-im.github.io/nimbus-eth2/auditors-book/).
+Nimbus is built in the [Nim language](https://nim-lang.org) - the compiler is automatically installed when building the project for the first time. More information - in particular security-related information about the language - can be found in the [Auditor Handbook](https://nimbus.guide/auditors-book/).
 
 ## Interop tooling
 
