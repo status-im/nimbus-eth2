@@ -337,8 +337,8 @@ proc pruneBlocks*(
 proc pruneAttestations*(
        db: SlashingProtectionDB,
        validator: ValidatorPubkey,
-       newMinSourceEpoch: Epoch,
-       newMinTargetEpoch: Epoch) =
+       newMinSourceEpoch: int64,
+       newMinTargetEpoch: int64) =
   ## Prune all blocks from a validator before the specified newMinSlot
   ## This is intended for interchange import to ensure
   ## that in case of a gap, we don't allow signing in that gap.

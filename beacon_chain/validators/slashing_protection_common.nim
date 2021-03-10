@@ -117,7 +117,7 @@ type
     # Pruning
     # --------------------------------------------
     db.pruneBlocks(ValidatorPubKey, Slot)
-    db.pruneAttestations(ValidatorPubKey, Epoch, Epoch)
+    db.pruneAttestations(ValidatorPubKey, int64, int64)
     db.pruneAfterFinalization(Epoch)
 
     # Interchange
