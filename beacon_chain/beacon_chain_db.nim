@@ -184,14 +184,14 @@ proc add*[T](s: var DbSeq[T], val: T) =
   s.insertStmt.exec(bytes).expect "working database (disk broken/full?)"
   inc s.recordCount
 
-template len*[T](s: DbSeq[T]): uint64 =
-  s.recordCount.uint64
+template len*[T](s: DbSeq[T]): int64 =
+  s.recordCount
 
-proc get*[T](s: DbSeq[T], idx: uint64): T =
+proc get*[T](s: DbSeq[T], idx: int64): T =
   # This is used only locally
   let resultAddr = addr result
 
-  let queryRes = s.selectStmt.exec(int64(idx) + 1) do (recordBytes: openArray[byte]):
+  let queryRes = s.selectStmt.exec(idx + 1) do (recordBytes: openArray[byte]):
     try:
       resultAddr[] = decode(SSZ, recordBytes, T)
     except SerializationError:
