@@ -1020,14 +1020,16 @@ proc pruneBlocks*(db: SlashingProtectionDB_v2, validator: ValidatorPubkey, newMi
 proc pruneAttestations*(
        db: SlashingProtectionDB_v2,
        validator: ValidatorPubkey,
-       newMinSourceEpoch: Epoch,
-       newMinTargetEpoch: Epoch) =
+       newMinSourceEpoch: int64,
+       newMinTargetEpoch: int64) =
   ## Prune all blocks from a validator before the specified newMinSlot
   ## This is intended for interchange import.
+  ## Negative source/target epoch of -1 can be received if no attestation was imported
+  ## In that case nothing is done (since we used signed int in SQLite)
   let valID = db.getOrRegisterValidator(validator)
 
   let status = db.sqlPruneValidatorAttestations.exec(
-    (valID, int64 newMinSourceEpoch, int64 newMinTargetEpoch))
+    (valID, newMinSourceEpoch, newMinTargetEpoch))
   doAssert status.isOk(),
     "SQLite error when pruning validator attestations: " & $status.error & "\n" &
     "for validator: 0x" & validator.toHex() &
