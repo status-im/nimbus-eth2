@@ -30,7 +30,8 @@ import
   ".."/[beacon_node_common, beacon_node_types, version],
   ../ssz, ../ssz/sszdump, ../sync/sync_manager,
   ./slashing_protection, ./attestation_aggregation,
-  ./validator_pool, ./keystore_management
+  ./validator_pool, ./keystore_management,
+  ../gossip_processing/consensus_manager
 
 # Metrics for tracking attestation and beacon block loss
 const delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
@@ -679,7 +680,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
       attestationCutoff = shortLog(attestationCutoff.offset)
 
     # Wait either for the block or the attestation cutoff time to arrive
-    if await node.processor[].expectBlock(slot).withTimeout(attestationCutoff.offset):
+    if await node.consensusManager[].expectBlock(slot).withTimeout(attestationCutoff.offset):
       # The expected block arrived (or expectBlock was called again which
       # shouldn't happen as this is the only place we use it) - according to the
       # spec, we should now wait for abs(slotTimingEntropy) - in our async loop
@@ -706,7 +707,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
         await sleepAsync(afterBlockCutoff.offset)
 
     # Time passed - we might need to select a new head in that case
-    node.processor[].updateHead(slot)
+    node.consensusManager[].updateHead(slot)
     head = node.chainDag.head
 
   handleAttestations(node, head, slot)

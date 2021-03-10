@@ -4,7 +4,7 @@ import ../spec/[datatypes, digest],
        ../networking/eth2_network,
        ../beacon_node_types,
        ../ssz/merkleization,
-       ../gossip_processing/eth2_processor,
+       ../gossip_processing/gossip_to_consensus,
        ./sync_protocol, ./sync_manager
 export sync_manager
 
@@ -22,7 +22,7 @@ type
   RequestManager* = object
     network*: Eth2Node
     inpQueue*: AsyncQueue[FetchRecord]
-    outQueue*: AsyncQueue[BlockEntry]
+    verifQueues: ref VerifQueueManager
     loopFuture: Future[void]
 
 func shortLog*(x: seq[Eth2Digest]): string =
@@ -32,11 +32,11 @@ func shortLog*(x: seq[FetchRecord]): string =
   "[" & x.mapIt(shortLog(it.root)).join(", ") & "]"
 
 proc init*(T: type RequestManager, network: Eth2Node,
-           outputQueue: AsyncQueue[BlockEntry]): RequestManager =
+           verifQueues: ref VerifQueueManager): RequestManager =
   RequestManager(
     network: network,
     inpQueue: newAsyncQueue[FetchRecord](),
-    outQueue: outputQueue
+    verifQueues: verifQueues
   )
 
 proc checkResponse(roots: openArray[Eth2Digest],
@@ -59,7 +59,7 @@ proc validate(rman: RequestManager,
     blk: b,
     resfut: newFuture[Result[void, BlockError]]("request.manager.validate")
   )
-  await rman.outQueue.addLast(BlockEntry(v: sblock))
+  rman.verifQueues[].addBlock(sblock)
   return await sblock.resfut
 
 proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
