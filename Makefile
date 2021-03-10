@@ -513,26 +513,26 @@ publish-book: | book auditors-book
 	rm -rf tmp-book
 
 dist-amd64:
-	MAKE="$(MAKE)" \
+	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh amd64
 
 dist-arm64:
-	MAKE="$(MAKE)" \
+	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh arm64
 
 dist-arm:
-	MAKE="$(MAKE)" \
+	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh arm
 
 dist-win64:
-	MAKE="$(MAKE)" \
+	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh win64
 
 dist:
-	$(MAKE) dist-amd64
-	$(MAKE) dist-arm64
-	$(MAKE) dist-arm
-	$(MAKE) dist-win64
+	+ $(MAKE) dist-amd64
+	+ $(MAKE) dist-arm64
+	+ $(MAKE) dist-arm
+	+ $(MAKE) dist-win64
 
 #- this simple test will show any missing dynamically-linked Glibc symbols in the target distro
 dist-test:
