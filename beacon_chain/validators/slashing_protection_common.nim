@@ -446,7 +446,7 @@ proc importInterchangeV5Impl*(
 
     # Now prune everything that predates
     # this interchange file max slot
-    if maxValidSourceEpochSeen < 0:
+    if maxValidSourceEpochSeen < 0 or maxValidTargetEpochSeen < 0:
       doAssert maxValidSourceEpochSeen == -1 and maxValidTargetEpochSeen == -1
       notice "No attestation found in slashing interchange file"
       return
