@@ -29,20 +29,15 @@ if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
     -j$(nproc) \
     USE_LIBBACKTRACE=0 \
     QUICK_AND_DIRTY_COMPILER=1 \
-    deps
-  make \
-    -C vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc \
-    -f Makefile.mingw \
-    clean &>/dev/null
+    deps-common build/generate_makefile
+  # This can be reduced to `make CC=... ...` when it becomes possible to
+  # replace `CC=gcc` with `CC=$(CC)` in "vendor/nimbus-build-system/makefiles/targets.mk".
   make \
     -j$(nproc) \
     -C vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc \
     -f Makefile.mingw \
     CC=x86_64-w64-mingw32.static-gcc \
     libminiupnpc.a &>/dev/null
-  make \
-    -C vendor/nim-nat-traversal/vendor/libnatpmp-upstream \
-    clean &>/dev/null
   make \
     -j$(nproc) \
     -C vendor/nim-nat-traversal/vendor/libnatpmp-upstream \
@@ -54,6 +49,36 @@ if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
     USE_LIBBACKTRACE=0 \
     LOG_LEVEL="TRACE" \
     NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --os:windows --gcc.exe=x86_64-w64-mingw32.static-gcc --gcc.linkerexe=x86_64-w64-mingw32.static-gcc --passL:-static" \
+    ${BINARIES}
+elif [[ "${PLATFORM}" == "Linux_arm32v7" ]]; then
+  CC="arm-linux-gnueabihf-gcc"
+  make \
+    -j$(nproc) \
+    USE_LIBBACKTRACE=0 \
+    QUICK_AND_DIRTY_COMPILER=1 \
+    deps-common build/generate_makefile
+  make \
+    -j$(nproc) \
+    USE_LIBBACKTRACE=0 \
+    LOG_LEVEL="TRACE" \
+    CC="${CC}" \
+    NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --cpu:arm --gcc.exe=${CC} --gcc.linkerexe=${CC}" \
+    PARTIAL_STATIC_LINKING=1 \
+    ${BINARIES}
+elif [[ "${PLATFORM}" == "Linux_arm64v8" ]]; then
+  CC="aarch64-linux-gnu-gcc"
+  make \
+    -j$(nproc) \
+    USE_LIBBACKTRACE=0 \
+    QUICK_AND_DIRTY_COMPILER=1 \
+    deps-common build/generate_makefile
+  make \
+    -j$(nproc) \
+    USE_LIBBACKTRACE=0 \
+    LOG_LEVEL="TRACE" \
+    CC="${CC}" \
+    NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --cpu:arm64 --gcc.exe=${CC} --gcc.linkerexe=${CC}" \
+    PARTIAL_STATIC_LINKING=1 \
     ${BINARIES}
 else
   make \
