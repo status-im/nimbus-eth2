@@ -1027,7 +1027,8 @@ proc pruneAttestations*(
   let valID = db.getOrRegisterValidator(validator)
 
   # Overflows in 14 trillion years (minimal) or 112 trillion years (mainnet)
-  doAssert target <= high(int64).uint64
+  doAssert newMinSourceEpoch <= high(int64).uint64
+  doAssert newMinTargetEpoch <= high(int64).uint64
 
   let status = db.sqlPruneValidatorAttestations.exec(
     (valID, int64 newMinSourceEpoch, int64 newMinTargetEpoch))
