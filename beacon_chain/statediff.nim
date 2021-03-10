@@ -128,7 +128,7 @@ func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
     eth1_deposit_index: state1.eth1_deposit_index,
 
     validatorStatuses: getMutableValidatorStatuses(state1),
-    balances: state1.balances,
+    balances: state1.balances.data,
 
     # RANDAO mixes gets updated every block, in place
     randao_mix: state1.randao_mixes[state0.slot.compute_epoch_at_slot.uint64 mod
@@ -136,8 +136,8 @@ func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
     slashing: state1.slashings[state0.slot.compute_epoch_at_slot.uint64 mod
       EPOCHS_PER_HISTORICAL_VECTOR.uint64],
 
-    previous_epoch_attestations: state1.previous_epoch_attestations,
-    current_epoch_attestations: state1.current_epoch_attestations,
+    previous_epoch_attestations: state1.previous_epoch_attestations.data,
+    current_epoch_attestations: state1.current_epoch_attestations.data,
 
     justification_bits: state1.justification_bits,
     previous_justified_checkpoint: state1.previous_justified_checkpoint,
@@ -149,6 +149,11 @@ func applyDiff*(
     state: var BeaconState,
     immutableValidators: openArray[ImmutableValidatorData],
     stateDiff: BeaconStateDiff) =
+  template assign[T, U](tgt: var HashList[T, U], src: List[T, U]) =
+    tgt.clear()
+    assign(tgt.data, src)
+    tgt.growHashes()
+
   # Carry over unchanged genesis_time, genesis_validators_root, and fork.
   assign(state.latest_block_header, stateDiff.latest_block_header)
 
