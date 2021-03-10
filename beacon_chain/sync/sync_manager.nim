@@ -241,15 +241,15 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
               start, last: Slot, chunkSize: uint64,
               getFinalizedSlotCb: GetSlotCallback,
               verifQueues: ref VerifQueueManager,
-              queueSize: int = -1): SyncQueue[T] =
+              syncQueueSize: int = -1): SyncQueue[T] =
   ## Create new synchronization queue with parameters
   ##
   ## ``start`` and ``last`` are starting and finishing Slots.
   ##
   ## ``chunkSize`` maximum number of slots in one request.
   ##
-  ## ``queueSize`` maximum queue size for incoming data. If ``queueSize > 0``
-  ## queue will help to keep backpressure under control. If ``queueSize <= 0``
+  ## ``syncQueueSize`` maximum queue size for incoming data. If ``syncQueueSize > 0``
+  ## queue will help to keep backpressure under control. If ``syncQueueSize <= 0``
   ## then queue size is unlimited (default).
   ##
   ## ``updateCb`` procedure which will be used to send downloaded blocks to
@@ -298,7 +298,7 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
     startSlot: start,
     lastSlot: last,
     chunkSize: chunkSize,
-    queueSize: queueSize,
+    queueSize: syncQueueSize,
     getFinalizedSlot: getFinalizedSlotCb,
     waiters: newSeq[SyncWaiter[T]](),
     counter: 1'u64,

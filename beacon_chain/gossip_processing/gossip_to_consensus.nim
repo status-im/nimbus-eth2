@@ -27,8 +27,9 @@ type
     blk*: SignedBeaconBlock
     resfut*: Future[Result[void, BlockError]]
 
-  BlockEntry = object
-    v: SyncBlock
+  BlockEntry* = object
+    # Exported for "test_sync_manager"
+    v*: SyncBlock
 
   AttestationEntry = object
     v: Attestation
@@ -54,15 +55,24 @@ type
     ## The queue manager doesn't manage exits (voluntary, attester slashing or proposer slashing)
     ## as don't need extra verification and can be added to the exit pool as soon as they are gossip-validated.
 
-    config: BeaconNodeConf # TODO probably should be a ref across the codebase
+    # Config
+    # ----------------------------------------------------------------
+    dumpEnabled: bool
+    dumpDirInvalid: string
+    dumpDirIncoming: string
+
+    # Clock
+    # ----------------------------------------------------------------
     getWallTime: GetWallTimeFn
 
     # Producers
-    blocksQueue: AsyncQueue[BlockEntry]
+    # ----------------------------------------------------------------
+    blocksQueue*: AsyncQueue[BlockEntry] # Exported for "test_sync_manager"
     attestationsQueue: AsyncQueue[AttestationEntry]
     aggregatesQueue: AsyncQueue[AggregateEntry]
 
     # Consumer
+    # ----------------------------------------------------------------
     consensusManager: ref ConsensusManager
       ## Blockchain DAG, AttestationPool and Quarantine
 
@@ -76,7 +86,10 @@ proc new*(T: type VerifQueueManager,
           consensusManager: ref ConsensusManager,
           getWallTime: GetWallTimeFn): ref VerifQueueManager =
   (ref VerifQueueManager)(
-    config: conf,
+    dumpEnabled: conf.dumpEnabled,
+    dumpDirInvalid: conf.dumpDirInvalid,
+    dumpDirIncoming: conf.dumpDirIncoming,
+
     getWallTime: getWallTime,
 
     blocksQueue: newAsyncQueue[BlockEntry](1),
@@ -192,14 +205,14 @@ proc addAggregate*(self: var VerifQueueManager, agg: SignedAggregateAndProof, at
 proc dumpBlock*[T](
     self: VerifQueueManager, signedBlock: SignedBeaconBlock,
     res: Result[T, (ValidationResult, BlockError)]) =
-  if self.config.dumpEnabled and res.isErr:
+  if self.dumpEnabled and res.isErr:
     case res.error[1]
     of Invalid:
       dump(
-        self.config.dumpDirInvalid, signedBlock)
+        self.dumpDirInvalid, signedBlock)
     of MissingParent:
       dump(
-        self.config.dumpDirIncoming, signedBlock)
+        self.dumpDirIncoming, signedBlock)
     else:
       discard
 
