@@ -274,10 +274,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## state diff tests [Preset: mainnet]
 ```diff
-+ delta-encoding/decoding roundtrip sanity [Preset: mainnet]                                 OK
 + random slot differences [Preset: mainnet]                                                  OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 149/158 Fail: 0/158 Skip: 9/158
+OK: 148/157 Fail: 0/157 Skip: 9/157

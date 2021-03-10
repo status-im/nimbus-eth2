@@ -626,7 +626,7 @@ type
       List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Represent in full
-    balances*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Mod-increment
     randao_mix*: Eth2Digest
