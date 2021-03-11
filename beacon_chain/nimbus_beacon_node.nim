@@ -952,9 +952,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     lookaheadTime = shortLog(horizonDistance)
 
   if nextAttestationSlot != FAR_FUTURE_SLOT:
-    next_action_wait.set(
-      nextActionWaitTime.nanoseconds.float /
-        float(chronos.seconds(1).nanoseconds))
+    next_action_wait.set(nextActionWaitTime.toFloatSeconds)
 
   node.updateGossipStatus(slot)
 
