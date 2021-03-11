@@ -282,4 +282,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 152/161 Fail: 0/161 Skip: 9/161
+OK: 151/160 Fail: 0/160 Skip: 9/160

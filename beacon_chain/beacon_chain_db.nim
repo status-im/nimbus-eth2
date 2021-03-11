@@ -234,7 +234,7 @@ template insert*[K, V](t: var Table[K, V], key: K, value: V) =
 
 proc loadImmutableValidators(db: BeaconChainDB): seq[ImmutableValidatorData] =
   # TODO not called, but build fails otherwise
-  for i in 0'u64 ..< db.immutableValidators.len:
+  for i in 0 ..< db.immutableValidators.len:
     result.add db.immutableValidators.get(i)
 
 proc init*(T: type BeaconChainDB,
@@ -357,7 +357,7 @@ proc updateImmutableValidators(
     numValidators = validators.lenu64
     origNumImmutableValidators = immutableValidators.lenu64
 
-  doAssert immutableValidators.lenu64 == db.immutableValidators.len
+  doAssert immutableValidators.len == db.immutableValidators.len
 
   if numValidators <= origNumImmutableValidators:
     return

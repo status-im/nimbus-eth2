@@ -124,5 +124,5 @@ func updateBeaconStateNoImmutableValidators*[T, U](tgt: var U, src: T) =
   assign(tgt.finalized_checkpoint, src.finalized_checkpoint)
 
 proc loadImmutableValidators*(dbSeq: var auto): seq[ImmutableValidatorData] =
-  for i in 0'u64 ..< dbSeq.len:
+  for i in 0 ..< dbSeq.len:
     result.add dbSeq.get(i)
