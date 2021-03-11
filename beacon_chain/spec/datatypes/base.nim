@@ -634,9 +634,9 @@ type
 
     # To start with, always overwrite, not append
     previous_epoch_attestations*:
-      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
+      List[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
     current_epoch_attestations*:
-      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
+      List[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
 
     justification_bits*: uint8
     previous_justified_checkpoint*: Checkpoint

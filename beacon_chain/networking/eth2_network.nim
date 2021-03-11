@@ -1,6 +1,6 @@
 import
   # Std lib
-  std/[typetraits, strutils, sequtils, os, algorithm, math, sets],
+  std/[typetraits, sequtils, os, algorithm, math, sets],
   std/options as stdOptions,
 
   # Status libs
