@@ -34,7 +34,7 @@ template loadOrExitFalse(signature: ValidatorSig): blscurve.Signature =
   ## Exists the **caller** with false if the signature is invalid
   let sig = signature.load()
   if sig.isNone:
-    return false # this exists the calling scope, as templates are inlined.
+    return false # this exits the calling scope, as templates are inlined.
   sig.unsafeGet()
 
 template loadWithCacheOrExitFalse(pubkey: ValidatorPubKey): blscurve.PublicKey =
@@ -42,7 +42,7 @@ template loadWithCacheOrExitFalse(pubkey: ValidatorPubKey): blscurve.PublicKey =
   ## Exists the **caller** with false if the public key is invalid
   let pk = pubkey.loadWithCache()
   if pk.isNone:
-    return false # this exists the calling scope, as templates are inlined.
+    return false # this exits the calling scope, as templates are inlined.
   pk.unsafeGet()
 
 func addSignatureSet[T](

@@ -29,7 +29,7 @@ import
     nimbus_binary_common, ssz/merkleization, statusbar,
     beacon_clock, version],
   ./networking/[eth2_discovery, eth2_network, network_metadata],
-  ./gossip_processing/eth2_processor,
+  ./gossip_processing/[eth2_processor, gossip_to_consensus, consensus_manager],
   ./validators/[attestation_aggregation, validator_duties, validator_pool, slashing_protection, keystore_management],
   ./sync/[sync_manager, sync_protocol, request_manager],
   ./rpc/[beacon_api, config_api, debug_api, event_api, nimbus_api, node_api,
@@ -311,9 +311,19 @@ proc init*(T: type BeaconNode,
           disagreementBehavior = kChooseV2
         )
     validatorPool = newClone(ValidatorPool.init(slashingProtectionDB))
+
+    consensusManager = ConsensusManager.new(
+      chainDag, attestationPool, quarantine
+    )
+    verifQueues = VerifQueueManager.new(
+      config, consensusManager,
+      proc(): BeaconTime = beaconClock.now())
     processor = Eth2Processor.new(
-      config, chainDag, attestationPool, exitPool, validatorPool,
-      quarantine, proc(): BeaconTime = beaconClock.now())
+      config,
+      verifQueues,
+      chainDag, attestationPool, exitPool, validatorPool,
+      quarantine,
+      proc(): BeaconTime = beaconClock.now())
 
   var res = BeaconNode(
     nickname: nickname,
@@ -335,7 +345,9 @@ proc init*(T: type BeaconNode,
     topicBeaconBlocks: topicBeaconBlocks,
     topicAggregateAndProofs: topicAggregateAndProofs,
     processor: processor,
-    requestManager: RequestManager.init(network, processor.blocksQueue)
+    verifQueues: verifQueues,
+    consensusManager: consensusManager,
+    requestManager: RequestManager.init(network, verifQueues)
   )
 
   # set topic validation routine
@@ -896,7 +908,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   # Delay part of pruning until latency critical duties are done.
   # The other part of pruning, `pruneBlocksDAG`, is done eagerly.
-  node.processor[].pruneStateCachesAndForkChoice()
+  node.consensusManager[].pruneStateCachesAndForkChoice()
 
   when declared(GC_fullCollect):
     # The slots in the beacon node work as frames in a game: we want to make
@@ -980,7 +992,7 @@ proc onSlotStart(
   if node.config.verifyFinalization:
     verifyFinalization(node, wallSlot)
 
-  node.processor[].updateHead(wallSlot)
+  node.consensusManager[].updateHead(wallSlot)
 
   await node.handleValidatorDuties(lastSlot, wallSlot)
 
@@ -1115,7 +1127,7 @@ proc startSyncManager(node: BeaconNode) =
 
   node.syncManager = newSyncManager[Peer, PeerID](
     node.network.peerPool, getLocalHeadSlot, getLocalWallSlot,
-    getFirstSlotAtFinalizedEpoch, node.processor.blocksQueue, chunkSize = 32
+    getFirstSlotAtFinalizedEpoch, node.verifQueues, chunkSize = 32
   )
   node.syncManager.start()
 
@@ -1193,7 +1205,7 @@ proc run*(node: BeaconNode) =
     let startTime = node.beaconClock.now()
     asyncSpawn runSlotLoop(node, startTime)
     asyncSpawn runOnSecondLoop(node)
-    asyncSpawn runQueueProcessingLoop(node.processor)
+    asyncSpawn runQueueProcessingLoop(node.verifQueues)
 
     node.requestManager.start()
     node.startSyncManager()

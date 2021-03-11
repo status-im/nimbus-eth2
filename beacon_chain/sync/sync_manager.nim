@@ -4,7 +4,7 @@ import stew/results, chronos, chronicles
 import ../spec/[datatypes, digest, helpers, eth2_apis/callsigs_types],
        ../networking/[peer_pool, eth2_network]
 
-import ../gossip_processing/eth2_processor
+import ../gossip_processing/gossip_to_consensus
 import ../consensus_object_pools/block_pools_types
 export datatypes, digest, chronos, chronicles, results, block_pools_types
 
@@ -86,7 +86,7 @@ type
     debtsCount: uint64
     readyQueue: HeapQueue[SyncResult[T]]
     rewind: Option[RewindPoint]
-    outQueue: AsyncQueue[BlockEntry]
+    verifQueues: ref VerifQueueManager
 
   SyncWorkerStatus* {.pure.} = enum
     Sleeping, WaitingPeer, UpdatingStatus, Requesting, Downloading, Processing
@@ -113,7 +113,7 @@ type
     chunkSize: uint64
     queue: SyncQueue[A]
     syncFut: Future[void]
-    outQueue: AsyncQueue[BlockEntry]
+    verifQueues: ref VerifQueueManager
     inProgress*: bool
     insSyncSpeed*: float
     avgSyncSpeed*: float
@@ -139,7 +139,7 @@ proc validate*[T](sq: SyncQueue[T],
     blk: blk,
     resfut: newFuture[Result[void, BlockError]]("sync.manager.validate")
   )
-  await sq.outQueue.addLast(BlockEntry(v: sblock))
+  sq.verifQueues[].addBlock(sblock)
   return await sblock.resfut
 
 proc getShortMap*[T](req: SyncRequest[T],
@@ -240,16 +240,16 @@ proc isEmpty*[T](sr: SyncRequest[T]): bool {.inline.} =
 proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
               start, last: Slot, chunkSize: uint64,
               getFinalizedSlotCb: GetSlotCallback,
-              outputQueue: AsyncQueue[BlockEntry],
-              queueSize: int = -1): SyncQueue[T] =
+              verifQueues: ref VerifQueueManager,
+              syncQueueSize: int = -1): SyncQueue[T] =
   ## Create new synchronization queue with parameters
   ##
   ## ``start`` and ``last`` are starting and finishing Slots.
   ##
   ## ``chunkSize`` maximum number of slots in one request.
   ##
-  ## ``queueSize`` maximum queue size for incoming data. If ``queueSize > 0``
-  ## queue will help to keep backpressure under control. If ``queueSize <= 0``
+  ## ``syncQueueSize`` maximum queue size for incoming data. If ``syncQueueSize > 0``
+  ## queue will help to keep backpressure under control. If ``syncQueueSize <= 0``
   ## then queue size is unlimited (default).
   ##
   ## ``updateCb`` procedure which will be used to send downloaded blocks to
@@ -298,7 +298,7 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
     startSlot: start,
     lastSlot: last,
     chunkSize: chunkSize,
-    queueSize: queueSize,
+    queueSize: syncQueueSize,
     getFinalizedSlot: getFinalizedSlotCb,
     waiters: newSeq[SyncWaiter[T]](),
     counter: 1'u64,
@@ -306,7 +306,7 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
     debtsQueue: initHeapQueue[SyncRequest[T]](),
     inpSlot: start,
     outSlot: start,
-    outQueue: outputQueue
+    verifQueues: verifQueues
   )
 
 proc `<`*[T](a, b: SyncRequest[T]): bool {.inline.} =
@@ -666,7 +666,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            getLocalHeadSlotCb: GetSlotCallback,
                            getLocalWallSlotCb: GetSlotCallback,
                            getFinalizedSlotCb: GetSlotCallback,
-                           outputQueue: AsyncQueue[BlockEntry],
+                           verifQueues: ref VerifQueueManager,
                            maxStatusAge = uint64(SLOTS_PER_EPOCH * 4),
                            maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
                            sleepTime = (int(SLOTS_PER_EPOCH) *
@@ -677,7 +677,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            ): SyncManager[A, B] =
 
   let queue = SyncQueue.init(A, getLocalHeadSlotCb(), getLocalWallSlotCb(),
-                             chunkSize, getFinalizedSlotCb, outputQueue, 1)
+                             chunkSize, getFinalizedSlotCb, verifQueues, 1)
 
   result = SyncManager[A, B](
     pool: pool,
@@ -689,7 +689,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     sleepTime: sleepTime,
     chunkSize: chunkSize,
     queue: queue,
-    outQueue: outputQueue,
+    verifQueues: verifQueues,
     notInSyncEvent: newAsyncEvent(),
     inRangeEvent: newAsyncEvent(),
     notInRangeEvent: newAsyncEvent(),
@@ -1109,7 +1109,7 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
           man.queue = SyncQueue.init(A, man.getLocalHeadSlot(),
                                      man.getLocalWallSlot(),
                                      man.chunkSize, man.getFinalizedSlot,
-                                     man.outQueue, 1)
+                                     man.verifQueues, 1)
           man.notInSyncEvent.fire()
           man.inProgress = true
       else:
