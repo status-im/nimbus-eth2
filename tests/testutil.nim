@@ -91,7 +91,7 @@ template timedTest*(name, body) =
   # TODO noto thread-safe as-is
   testTimes.add (f, name)
 
-proc makeTestDB*(tailState: BeaconState, tailBlock: SignedBeaconBlock): BeaconChainDB =
+proc makeTestDB*(tailState: var BeaconState, tailBlock: SignedBeaconBlock): BeaconChainDB =
   result = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)
   ChainDAGRef.preInit(result, tailState, tailState, tailBlock)
 

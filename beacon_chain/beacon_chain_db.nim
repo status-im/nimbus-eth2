@@ -369,16 +369,15 @@ proc updateImmutableValidators(
     db.immutableValidators.add immutableValidator
     immutableValidators.add immutableValidator
 
-proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
+proc putState*(db: BeaconChainDB, key: Eth2Digest, value: var BeaconState) =
   # TODO prune old states - this is less easy than it seems as we never know
   #      when or if a particular state will become finalized.
-  var mutableOnlyState = new BeaconStateNoImmutableValidators
-  updateBeaconStateNoImmutableValidators(mutableOnlyState[], value)
-  mutableOnlyState[].validators = getMutableValidatorStatuses(value)
   updateImmutableValidators(db, db.immutableValidatorsMem, value.validators)
-  db.put(subkey(BeaconStateNoImmutableValidators, key), mutableOnlyState[])
+  db.put(
+    subkey(BeaconStateNoImmutableValidators, key),
+    cast[ref BeaconStateNoImmutableValidators](addr value)[])
 
-proc putState*(db: BeaconChainDB, value: BeaconState) =
+proc putState*(db: BeaconChainDB, value: var BeaconState) =
   db.putState(hash_tree_root(value), value)
 
 proc putStateFull*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
@@ -459,25 +458,18 @@ proc getStateOnlyMutableValidators(
   # TODO RVO is inefficient for large objects:
   #      https://github.com/nim-lang/Nim/issues/13879
 
-  # TODO this involves just far too much pointless copying; the correct
-  # approach is to hook into SSZ
-  var intermediateOutput = new BeaconStateNoImmutableValidators
   case db.get(
-    subkey(BeaconStateNoImmutableValidators, key), intermediateOutput[])
+    subkey(
+      BeaconStateNoImmutableValidators, key),
+      cast[ref BeaconStateNoImmutableValidators](addr output)[])
   of GetResult.found:
-    updateBeaconStateNoImmutableValidators(output, intermediateOutput[])
-
-    let
-      numValidators = intermediateOutput[].validators.len
-      existingOutputValidators = output.validators.len
+    let numValidators = output.validators.len
     doAssert db.immutableValidatorsMem.len >= numValidators
 
-    # TODO don't clear, so enable incremental immutable validator data filling
-    # by starting loop iterations at existingOutputValidators instead of 0
-    output.validators.clear()
-    output.validators.data.setLen(numValidators)
+    output.validators.hashes.setLen(0)
+    for item in output.validators.indices.mitems():
+      item = 0
 
-    # If truncation occurred, skip loop
     for i in 0 ..< numValidators:
       let
         # Bypass hash cache invalidation
@@ -487,20 +479,6 @@ proc getStateOnlyMutableValidators(
       assign(dstValidator.pubkey, srcValidator.pubkey)
       assign(dstValidator.withdrawal_credentials,
         srcValidator.withdrawal_credentials)
-
-    for i in 0 ..< numValidators:
-      let
-        # Bypass hash cache invalidation
-        dstValidator = addr output.validators.data[i]
-        srcValidator = addr intermediateOutput[].validators[i]
-
-      assign(dstValidator.effective_balance, srcValidator.effective_balance)
-      assign(dstValidator.slashed, srcValidator.slashed)
-      assign(dstValidator.activation_eligibility_epoch,
-        srcValidator.activation_eligibility_epoch)
-      assign(dstValidator.activation_epoch, srcValidator.activation_epoch)
-      assign(dstValidator.exit_epoch, srcValidator.exit_epoch)
-      assign(dstValidator.withdrawable_epoch, srcValidator.withdrawable_epoch)
 
     output.validators.growHashes()
 

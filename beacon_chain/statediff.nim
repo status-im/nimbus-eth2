@@ -78,6 +78,20 @@ func replaceOrAddDecodeEth1Votes[T, U](
   for item in votes1:
     votes0.add item
 
+func getMutableValidatorStatuses(state: BeaconState):
+    List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT] =
+  result.setLen(state.validators.len)
+  for i in 0 ..< state.validators.len:
+    let validator = unsafeAddr state.validators.data[i]
+    assign(result[i].effective_balance, validator.effective_balance)
+    assign(result[i].slashed, validator.slashed)
+    assign(
+      result[i].activation_eligibility_epoch,
+      validator.activation_eligibility_epoch)
+    assign(result[i].activation_epoch, validator.activation_epoch)
+    assign(result[i].exit_epoch, validator.exit_epoch)
+    assign(result[i].withdrawable_epoch, validator.withdrawable_epoch)
+
 func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
   doAssert state1.slot > state0.slot
   doAssert state0.slot.isEpoch

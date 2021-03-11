@@ -69,4 +69,3 @@ proc getTestStates*(initialState: HashedBeaconState):
       valid_deposit(tmpState.data)
     doAssert tmpState.data.slot == slot
     result.add assignClone(tmpState[])
-

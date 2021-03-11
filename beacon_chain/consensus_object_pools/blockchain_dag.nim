@@ -533,7 +533,7 @@ proc getState(dag: ChainDAGRef, state: var StateData, bs: BlockSlot): bool =
 
   false
 
-proc putState*(dag: ChainDAGRef, state: StateData) =
+proc putState*(dag: ChainDAGRef, state: var StateData) =
   # Store a state and its root
   logScope:
     blck = shortLog(state.blck)
@@ -1044,7 +1044,7 @@ proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): bool =
 
 proc preInit*(
     T: type ChainDAGRef, db: BeaconChainDB,
-    genesisState, tailState: BeaconState, tailBlock: SignedBeaconBlock) =
+    genesisState, tailState: var BeaconState, tailBlock: SignedBeaconBlock) =
   # write a genesis state, the way the ChainDAGRef expects it to be stored in
   # database
   # TODO probably should just init a block pool with the freshly written
