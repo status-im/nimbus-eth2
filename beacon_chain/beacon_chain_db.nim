@@ -381,6 +381,9 @@ proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
 proc putState*(db: BeaconChainDB, value: BeaconState) =
   db.putState(hash_tree_root(value), value)
 
+proc putStateFull*(db: BeaconChainDB, value: BeaconState) =
+  db.put(subkey(BeaconState, hash_tree_root(value)), value)
+
 proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
     value: Eth2Digest) =
   db.put(subkey(root, slot), value)

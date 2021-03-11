@@ -79,7 +79,8 @@ suiteReport "Beacon chain DB" & preset():
       testStates = getTestStates(dag.headState.data)
 
     # Ensure transitions beyond just adding validators and increasing slots
-    sort(testStates)
+    sort(testStates) do (x, y: ref HashedBeaconState) -> int:
+      cmp($x.root, $y.root)
 
     for state in testStates:
       db.putState(state[].data)
@@ -103,10 +104,60 @@ suiteReport "Beacon chain DB" & preset():
     var testStates = getTestStates(dag.headState.data)
 
     # Ensure transitions beyond just adding validators and increasing slots
-    sort(testStates)
+    sort(testStates) do (x, y: ref HashedBeaconState) -> int:
+      cmp($x.root, $y.root)
 
     for state in testStates:
       db.putState(state[].data)
+      let root = hash_tree_root(state[].data)
+
+      check:
+        db.getState(root, stateBuffer[], noRollback)
+        db.containsState(root)
+        hash_tree_root(stateBuffer[]) == root
+
+      db.delState(root)
+      check: not db.containsState(root)
+
+    db.close()
+
+  wrappedTimedTest "sanity check full states" & preset():
+    var
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+      testStates = getTestStates(dag.headState.data)
+
+    # Ensure transitions beyond just adding validators and increasing slots
+    sort(testStates) do (x, y: ref HashedBeaconState) -> int:
+      cmp($x.root, $y.root)
+
+    for state in testStates:
+      db.putStateFull(state[].data)
+      let root = hash_tree_root(state[].data)
+
+      check:
+        db.containsState(root)
+        hash_tree_root(db.getStateRef(root)[]) == root
+
+      db.delState(root)
+      check: not db.containsState(root)
+
+    db.close()
+
+  wrappedTimedTest "sanity check full states, reusing buffers" & preset():
+    var
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+
+    let stateBuffer = BeaconStateRef()
+    var testStates = getTestStates(dag.headState.data)
+
+    # Ensure transitions beyond just adding validators and increasing slots
+    sort(testStates) do (x, y: ref HashedBeaconState) -> int:
+      cmp($x.root, $y.root)
+
+    for state in testStates:
+      db.putStateFull(state[].data)
       let root = hash_tree_root(state[].data)
 
       check:
