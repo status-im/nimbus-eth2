@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[math, tables],
+  std/tables,
   stew/results,
   chronicles, chronos, metrics,
   ../spec/[crypto, datatypes, digest],

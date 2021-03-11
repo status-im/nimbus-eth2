@@ -67,6 +67,9 @@ declareGauge finalization_delay,
 declareGauge ticks_delay,
   "How long does to take to run the onSecond loop"
 
+declareGauge next_action_wait,
+  "Seconds until the next attestation will be sent"
+
 logScope: topics = "beacnde"
 
 func enrForkIdFromState(state: BeaconState): ENRForkID =
@@ -928,7 +931,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     horizonSlot = compute_start_slot_at_epoch(
       node.attestationSubnets.lastCalculatedAttestationEpoch + 1) - 1
     nextAttestationSlot = node.getNextAttestation(slot)
-    nextActionWait = saturate(fromNow(node.beaconClock, nextAttestationSlot))
+    nextActionWaitTime =
+      saturate(fromNow(node.beaconClock, nextAttestationSlot))
     horizonDistance = saturate(fromNow(node.beaconClock, horizonSlot))
 
   info "Slot end",
@@ -944,8 +948,13 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       if nextAttestationSlot == FAR_FUTURE_SLOT:
         "n/a"
       else:
-        shortLog(nextActionWait),
+        shortLog(nextActionWaitTime),
     lookaheadTime = shortLog(horizonDistance)
+
+  if nextAttestationSlot != FAR_FUTURE_SLOT:
+    next_action_wait.set(
+      nextActionWaitTime.nanoseconds.float /
+        float(chronos.seconds(1).nanoseconds))
 
   node.updateGossipStatus(slot)
 

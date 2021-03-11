@@ -9,7 +9,7 @@
 
 import
   chronicles, chronos,
-  ../spec/[crypto, datatypes, digest],
+  ../spec/[crypto, datatypes],
   ../consensus_object_pools/[blockchain_dag, attestation_pool]
 
 # TODO: Move to "consensus_object_pools" folder
