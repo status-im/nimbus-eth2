@@ -550,7 +550,10 @@ proc putState*(dag: ChainDAGRef, state: StateData) =
   # Ideally we would save the state and the root lookup cache in a single
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
-  dag.db.putState(state.data.root, state.data.data)
+  if state.data.data.slot.epoch mod 64 != 0:
+    dag.db.putState(state.data.root, state.data.data)
+  else:
+    dag.db.putStateFull(state.data.root, state.data.data)
   dag.db.putStateRoot(state.blck.root, state.data.data.slot, state.data.root)
 
 func getRef*(dag: ChainDAGRef, root: Eth2Digest): BlockRef =
