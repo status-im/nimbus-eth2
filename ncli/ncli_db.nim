@@ -16,6 +16,7 @@ type Timers = enum
   tAdvanceSlot = "Advance slot, non-epoch"
   tAdvanceEpoch = "Advance slot, epoch"
   tApplyBlock = "Apply block, no slot processing"
+  tDbLoad = "Database load"
   tDbStore = "Database store"
 
 type
@@ -133,7 +134,9 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
   withTimer(timers[tLoadState]):
     discard db.getState(state[].root, state[].data, noRollback)
 
-  var cache = StateCache()
+  var
+    cache = StateCache()
+    loadedState = new BeaconState
 
   for b in blocks.mitems():
     while state[].data.slot < b.message.slot:
@@ -157,11 +160,16 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
       withTimer(timers[tDbStore]):
         dbBenchmark.putBlock(b)
 
-    if conf.storeStates:
+    if conf.storeStates and state[].data.slot.isEpoch:
       withTimer(timers[tDbStore]):
-        if state[].data.slot mod SLOTS_PER_EPOCH == 0:
-          dbBenchmark.putState(state[].root, state[].data)
+        dbBenchmark.putState(state[].root, state[].data)
         dbBenchmark.checkpoint()
+
+      withTimer(timers[tDbLoad]):
+        doAssert dbBenchmark.getState(state[].root, loadedState[], noRollback)
+
+      if state[].data.slot.epoch mod 16 == 0:
+        doAssert hash_tree_root(state[].data) == hash_tree_root(loadedState[])
 
   printTimers(false, timers)
 
