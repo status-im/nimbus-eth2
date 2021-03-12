@@ -91,17 +91,15 @@ proc addResolvedBlock(
 
   link(parent, blockRef)
 
-  var epochRef = blockRef.findEpochRef(blockEpoch)
+  var epochRef = dag.findEpochRef(parent, blockEpoch)
   if epochRef == nil:
-    let prevEpochRef = blockRef.findEpochRef(blockEpoch - 1)
+    let prevEpochRef =
+      if blockEpoch < 1: nil else: dag.findEpochRef(parent, blockEpoch - 1)
 
     epochRef = EpochRef.init(state.data.data, cache, prevEpochRef)
-    let ancestor = blockRef.epochAncestor(blockEpoch)
-    epochRef.updateKeyStores(ancestor.blck.parent, dag.finalizedHead.blck)
+    dag.addEpochRef(blockRef, epochRef)
 
-    ancestor.blck.epochRefs.add epochRef
-
-  dag.blocks[blockRoot] = blockRef
+  dag.blocks.incl(KeyedBlockRef.init(blockRef))
   trace "Populating block dag", key = blockRoot, val = blockRef
 
   # Resolved blocks should be stored in database
@@ -147,7 +145,8 @@ proc addResolvedBlock(
       entries = quarantine.orphans.len # keep going while quarantine is shrinking
       var resolved: seq[SignedBeaconBlock]
       for _, v in quarantine.orphans:
-        if v.message.parent_root in dag.blocks: resolved.add(v)
+        if v.message.parent_root in dag:
+          resolved.add(v)
 
       for v in resolved:
         discard addRawBlock(dag, quarantine, v, onBlockAdded)
@@ -299,7 +298,7 @@ proc addRawBlock*(
   template blck(): untyped = signedBlock.message # shortcuts without copy
   template blockRoot(): untyped = signedBlock.root
 
-  if blockRoot in dag.blocks:
+  if blockRoot in dag:
     debug "Block already exists"
 
     # We should not call the block added callback for blocks that already
@@ -323,7 +322,7 @@ proc addRawBlock*(
     # be used, but certainly would be IGNORE.
     return err((ValidationResult.Ignore, Unviable))
 
-  let parent = dag.blocks.getOrDefault(blck.parent_root)
+  let parent = dag.getRef(blck.parent_root)
 
   if parent != nil:
     return addRawBlockKnownParent(dag, quarantine, signedBlock, parent, onBlockAdded)

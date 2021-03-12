@@ -97,7 +97,8 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       wallSlot = node.beaconClock.now.slotOrZero
       head = node.doChecksAndGetCurrentHead(wallSlot)
 
-    node.chainDag.withState(node.chainDag.tmpState, head.atSlot(wallSlot)):
+    let proposalState = assignClone(node.chainDag.headState)
+    node.chainDag.withState(proposalState[], head.atSlot(wallSlot)):
       return node.getBlockProposalEth1Data(state)
 
   rpcServer.rpc("getChronosFutures") do () -> seq[FutureInfo]:

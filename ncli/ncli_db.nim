@@ -316,7 +316,8 @@ proc cmdRewindState(conf: DbConf, preset: RuntimePreset) =
     echo "Block not found in database"
     return
 
-  dag.withState(dag.tmpState, blckRef.atSlot(Slot(conf.slot))):
+  let tmpState = assignClone(dag.headState)
+  dag.withState(tmpState[], blckRef.atSlot(Slot(conf.slot))):
     echo "Writing state..."
     dump("./", hashedState, blck)
 
