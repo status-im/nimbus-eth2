@@ -17,7 +17,7 @@ jobs:
         run: |
           make dist-amd64
           cd dist
-          ARCHIVE=nimbus-eth2_Linux_amd64_*.tar.gz
+          ARCHIVE=$(echo nimbus-eth2_Linux_amd64_*.tar.gz)
           echo "::set-output name=archive::"${ARCHIVE}
           echo "::set-output name=archive_dir::"${ARCHIVE%.tar.gz}
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
@@ -61,7 +61,7 @@ jobs:
         run: |
           make dist-arm64
           cd dist
-          ARCHIVE=nimbus-eth2_Linux_arm64v8_*.tar.gz
+          ARCHIVE=$(echo nimbus-eth2_Linux_arm64v8_*.tar.gz)
           echo "::set-output name=archive::"${ARCHIVE}
           echo "::set-output name=archive_dir::"${ARCHIVE%.tar.gz}
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
@@ -88,7 +88,7 @@ jobs:
         run: |
           make dist-arm
           cd dist
-          ARCHIVE=nimbus-eth2_Linux_arm32v7_*.tar.gz
+          ARCHIVE=$(echo nimbus-eth2_Linux_arm32v7_*.tar.gz)
           echo "::set-output name=archive::"${ARCHIVE}
           echo "::set-output name=archive_dir::"${ARCHIVE%.tar.gz}
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
@@ -115,7 +115,7 @@ jobs:
         run: |
           make dist-win64
           cd dist
-          ARCHIVE=nimbus-eth2_Windows_amd64_*.tar.gz
+          ARCHIVE=$(echo nimbus-eth2_Windows_amd64_*.tar.gz)
           echo "::set-output name=archive::"${ARCHIVE}
           echo "::set-output name=archive_dir::"${ARCHIVE%.tar.gz}
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
