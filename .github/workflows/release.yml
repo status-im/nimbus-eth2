@@ -145,7 +145,7 @@ jobs:
 
           ## SHA512 checksums
 
-          ```text
+          \`\`\`text
           EOF
           echo '# Linux AMD64' >> release_notes.md
           cat Linux_amd64_checksum/* >> release_notes.md
