@@ -41,7 +41,7 @@ jobs:
       - name: Build and push a Docker image for end users
         run: |
           cd dist
-          tar -xzf ${{ steps.make_dist.outputs.linux_amd64_archive }}
+          tar -xzf ${{ steps.make_dist.outputs.archive }}
           mv nimbus-eth2_Linux_amd64_*/ ../docker/dist/binaries/nimbus-eth2
           cd ../docker/dist/binaries
           REFNAME="${{ github.ref }}"
