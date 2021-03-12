@@ -234,6 +234,7 @@ proc copyPrunedDatabase(
   for signedBlock in getAncestors(db, headBlock.get):
     if not dry_run:
       copyDb.putBlock(signedBlock)
+      copyDb.checkpoint()
     if verbose:
       echo "copied block at slot ", signedBlock.message.slot
 

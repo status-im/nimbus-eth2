@@ -928,12 +928,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   node.db.checkpoint()
 
   let
-    horizonSlot = compute_start_slot_at_epoch(
-      node.attestationSubnets.lastCalculatedAttestationEpoch + 1) - 1
     nextAttestationSlot = node.getNextAttestation(slot)
     nextActionWaitTime =
       saturate(fromNow(node.beaconClock, nextAttestationSlot))
-    horizonDistance = saturate(fromNow(node.beaconClock, horizonSlot))
 
   info "Slot end",
     slot = shortLog(slot),
@@ -948,8 +945,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       if nextAttestationSlot == FAR_FUTURE_SLOT:
         "n/a"
       else:
-        shortLog(nextActionWaitTime),
-    lookaheadTime = shortLog(horizonDistance)
+        shortLog(nextActionWaitTime)
 
   if nextAttestationSlot != FAR_FUTURE_SLOT:
     next_action_wait.set(nextActionWaitTime.toFloatSeconds)

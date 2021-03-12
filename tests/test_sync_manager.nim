@@ -2,7 +2,7 @@
 
 import unittest
 import chronos
-import ../beacon_chain/gossip_processing/[eth2_processor, gossip_to_consensus],
+import ../beacon_chain/gossip_processing/gossip_to_consensus,
        ../beacon_chain/sync/sync_manager
 
 type
