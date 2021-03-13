@@ -581,6 +581,8 @@ type
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#validator
   ValidatorStatus* = object
     # This is a validator without the expensive, immutable, append-only parts
+    # serialized. They're represented in memory to allow in-place SSZ reading
+    # and writing compatibly with the full Validator object.
 
     pubkey* {.dontserialize.}: ValidatorPubKey
 

@@ -17,7 +17,8 @@ import
   filepath
 
 type 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconstate
+  # Memory-representation-equivalent to a v1.0.1 BeaconState for in-place SSZ reading and writing
   BeaconStateNoImmutableValidators* = object
     # Versioning
     genesis_time*: uint64
@@ -71,6 +72,10 @@ type
     finalized_checkpoint*: Checkpoint
 
 static:
+  # Each of these pairs of types has ABI-compatible memory representations, so
+  # that the SSZ serialization can read and write directly from an object with
+  # only mutable portions of BeaconState into a full BeaconState without using
+  # any extra copies.
   doAssert sizeof(Validator) == sizeof(ValidatorStatus)
   doAssert sizeof(BeaconState) == sizeof(BeaconStateNoImmutableValidators)
 
