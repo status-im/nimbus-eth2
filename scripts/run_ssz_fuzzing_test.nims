@@ -4,7 +4,7 @@ import testutils/fuzzing_engines
 
 const
   gitRoot = thisDir() / ".."
-  fixturesDir = gitRoot / "vendor" / "nim-eth2-scenarios" / "tests-v1.0.0" / "mainnet" / "phase0" / "ssz_static"
+  fixturesDir = gitRoot / "vendor" / "nim-eth2-scenarios" / "tests-v1.0.1" / "mainnet" / "phase0" / "ssz_static"
 
   fuzzingTestsDir = gitRoot / "tests" / "fuzzing"
   fuzzingCorpusesDir = fuzzingTestsDir / "corpus"
