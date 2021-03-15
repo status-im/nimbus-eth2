@@ -52,6 +52,11 @@ template wrappedTimedTest(name: string, body: untyped) =
         body
     wrappedTest()
 
+proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
+  if dag.needStateCachesAndForkChoicePruning():
+    dag.pruneStateCachesDAG()
+    # pool[].prune() # We test logic without attestation pool / fork choice pruning
+
 suiteReport "Attestation pool processing" & preset():
   ## For now just test that we can compile and execute block processing with
   ## mock data.
@@ -343,6 +348,7 @@ suiteReport "Attestation pool processing" & preset():
         let head = pool[].selectHead(blockRef[].slot)
         doassert: head == blockRef[]
         chainDag.updateHead(head, quarantine)
+        pruneAtFinalization(chainDag, pool[])
 
         attestations.setlen(0)
         for index in 0'u64 ..< committees_per_slot:
@@ -413,6 +419,7 @@ suiteReport "Attestation validation " & preset():
 
       check: added.isOk()
       chainDag.updateHead(added[], quarantine)
+      pruneAtFinalization(chainDag, pool[])
 
     var
       # Create an attestation for slot 1!

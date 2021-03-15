@@ -16,7 +16,7 @@ import
   # Local modules
   ./conf, ./beacon_clock, ./beacon_chain_db,
   ./beacon_node_types,
-  ./gossip_processing/eth2_processor,
+  ./gossip_processing/[eth2_processor, gossip_to_consensus, consensus_manager],
   ./networking/eth2_network,
   ./eth1/eth1_monitor,
   ./consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
@@ -57,6 +57,8 @@ type
     genesisSnapshotContent*: string
     attestationSubnets*: AttestationSubnets
     processor*: ref Eth2Processor
+    verifQueues*: ref VerifQueueManager
+    consensusManager*: ref ConsensusManager
     attachedValidatorBalanceTotal*: uint64
 
 const

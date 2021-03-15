@@ -6,23 +6,14 @@
 # it once, upload it to Docker Hub and make sure it's being pulled regularly so
 # it's not deleted after 6 months of inactivity.
 
-# >=glibc-2.28 breaks things for us: https://bugs.launchpad.net/qemu/+bug/1805913
-FROM arm32v7/ubuntu:18.04
+FROM ubuntu:20.04
 
 SHELL ["/bin/bash", "-c"]
 
-ARG QEMU_NAME
-ARG QEMU_DIR
-
-# We need the host's registered binfmt_misc "interpreter" inside the container,
-# for that transparent virtualisation to work.
-COPY $QEMU_NAME $QEMU_DIR
-
-# We delete the static Qemu binary when we're done with it, because it might
-# not run on other systems. Let the child image copy it again.
 ENV DEBIAN_FRONTEND=noninteractive TZ="Etc/UTC"
 RUN apt-get -qq update \
- && apt-get -qq -y install build-essential git &>/dev/null \
+ && apt-get -qq -y install build-essential git \
+  libc6-armhf-armel-cross libc6-dev-armel-armhf-cross binutils-arm-linux-gnueabihf gcc-arm-linux-gnueabihf &>/dev/null \
  && apt-get -qq clean \
- && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* "${QEMU_DIR}/${QEMU_NAME}"
+ && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 

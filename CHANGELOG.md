@@ -1,13 +1,58 @@
-<NEXT RELEASE>
-=================
+2021-03-10 v1.0.10
+==================
 
-...
+This release contains important security and performance improvements.
+
+-----
+
+**Upgraded:**
+
+* We're now running version 0.3.3 of the BLST library:
+  https://github.com/supranational/blst/releases/tag/v0.3.3
+
+* We've switched to a more recent version of BearSSL
+ (this version features a more up-to-date list of trusted root certificates)
+
+* We're now consistent with the v1.0.1 Eth2 spec
+
+**We've fixed:**
+
+* A frequent crash occurring on certain hardware configurations after
+  building Nimbus from source.
+
+* Long processing delays triggered by the reception of attestations that
+  reference already pruned states.
+
+* LibP2P peer management issue which led to an accumulation of inactive
+  connections.
+
+* A false-positive in doppelganger detection triggered by rebroadcasted
+  older attestations arriving with a significant delay.
+
+**New features**:
+
+* A new improved format of the slashing protection database:
+
+  - Significantly reduces the disk load with a large number of validators (1000+).
+
+  - Makes it possible to enhance our doppelganger detection in the future such that
+    waiting for 2 epochs before attesting is not necessary.
+
+  To ensure smooth upgrade and emergency rollback between older and future Nimbus
+  versions, v1.0.10 will keep track of your attestation in both the old and the
+  new format. The extra load should be negligible for home stakers.
 
 **Breaking changes:**
 
 * Renamed some semi-internal debug rpc to be more explicit about their nature:
   * `getGossipSubPeers` is now `debug_getGossipSubPeers`
   * `getChronosFutures` is now `debug_getChronosFutures`
+
+
+2021-03-09 v1.0.9
+=================
+
+This version was an internal release candidate build for the 1.0.10 release.
 
 
 2021-02-22 v1.0.8

@@ -4,6 +4,10 @@ This page contains tips and tricks for developers, further resources, along with
 
 Before building Nimbus for the first time, make sure to install the [prerequisites](./install.md).
 
+## Code style
+
+The code follows the [Status Nim Style Guide](https://status-im.github.io/nim-style-guide/).
+
 ## Branch lifecycle
 
 The git repository has 3 main branches, `stable`, `testing` and `unstable` as well as feature and bugfix branches.
@@ -174,7 +178,7 @@ The specified value is a percentage of a single CPU core. Usually 1 - 100, but c
 
 ## Build and run the local beacon chain simulation
 
-The beacon chain simulation runs several beacon nodes on the local machine, attaches several local validators to each, and builds a beacon chain between them. 
+The beacon chain simulation runs several beacon nodes on the local machine, attaches several local validators to each, and builds a beacon chain between them.
 
 To run the simulation:
 

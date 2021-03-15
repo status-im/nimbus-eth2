@@ -123,6 +123,13 @@ type
     ## Ancestors of this block are guaranteed to have 1 child only.
 
     # -----------------------------------
+    # Pruning metadata
+
+    lastPrunePoint*: BlockSlot ##\
+    ## The last prune point
+    ## We can prune up to finalizedHead
+
+    # -----------------------------------
     # Rewinder - Mutable state processing
 
     headState*: StateData ##\

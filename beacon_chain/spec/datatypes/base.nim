@@ -581,6 +581,13 @@ type
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#validator
   ValidatorStatus* = object
     # This is a validator without the expensive, immutable, append-only parts
+    # serialized. They're represented in memory to allow in-place SSZ reading
+    # and writing compatibly with the full Validator object.
+
+    pubkey* {.dontserialize.}: ValidatorPubKey
+
+    withdrawal_credentials* {.dontserialize.}: Eth2Digest ##\
+    ## Commitment to pubkey for withdrawals and transfers
 
     effective_balance*: uint64 ##\
     ## Balance at stake
@@ -634,9 +641,9 @@ type
 
     # To start with, always overwrite, not append
     previous_epoch_attestations*:
-      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
+      List[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
     current_epoch_attestations*:
-      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
+      List[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
 
     justification_bits*: uint8
     previous_justified_checkpoint*: Checkpoint

@@ -117,7 +117,7 @@ type
     # Pruning
     # --------------------------------------------
     db.pruneBlocks(ValidatorPubKey, Slot)
-    db.pruneAttestations(ValidatorPubKey, Epoch, Epoch)
+    db.pruneAttestations(ValidatorPubKey, int64, int64)
     db.pruneAfterFinalization(Epoch)
 
     # Interchange
@@ -446,4 +446,8 @@ proc importInterchangeV5Impl*(
 
     # Now prune everything that predates
     # this interchange file max slot
-    db.pruneAttestations(parsedKey, Epoch maxValidSourceEpochSeen, Epoch maxValidTargetEpochSeen)
+    if maxValidSourceEpochSeen < 0 or maxValidTargetEpochSeen < 0:
+      doAssert maxValidSourceEpochSeen == -1 and maxValidTargetEpochSeen == -1
+      notice "No attestation found in slashing interchange file"
+      return
+    db.pruneAttestations(parsedKey, maxValidSourceEpochSeen, maxValidTargetEpochSeen)
