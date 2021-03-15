@@ -282,9 +282,7 @@ ifneq ($(USE_LIBBACKTRACE), 0)
 build/generate_makefile: | libbacktrace
 endif
 build/generate_makefile: tools/generate_makefile.nim | deps-common
-	echo -e $(BUILD_MSG) "$@" && \
-	$(ENV_SCRIPT) nim c -o:$@ $(NIM_PARAMS) tools/generate_makefile.nim && \
-	echo -e $(BUILD_END_MSG) "$@"
+	$(ENV_SCRIPT) nim c -o:$@ $(NIM_PARAMS) tools/generate_makefile.nim
 
 # GCC's LTO parallelisation is able to detect a GNU Make jobserver and get its
 # maximum number of processes from there, but only if we use the "+" prefix.
