@@ -238,7 +238,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
               res.add((validator: validator,
                        index: uint64(index),
                        status: vstatus,
-                       balance: validator.effective_balance))
+                       balance: state.balances[index]))
       else:
         for index in vquery.ids:
           if index < lenu64(state.validators):
@@ -253,7 +253,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
                 res.add((validator: validator,
                          index: uint64(index),
                          status: vstatus,
-                         balance: validator.effective_balance))
+                         balance: state.balances[index]))
 
         for index, validator in state.validators.pairs():
           if validator.pubkey in vquery.keyset:
@@ -266,7 +266,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
                 res.add((validator: validator,
                          index: uint64(index),
                          status: vstatus,
-                         balance: validator.effective_balance))
+                         balance: state.balances[index]))
     return res
 
   rpcServer.rpc("get_v1_beacon_states_stateId_validators_validatorId") do (
@@ -285,7 +285,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
           let sres = validator.getStatus(current_epoch)
           if sres.isOk:
             return (validator: validator, index: uint64(index),
-                    status: sres.get(), balance: validator.effective_balance)
+                    status: sres.get(), balance: state.balances[index])
           else:
             raise newException(CatchableError, "Incorrect validator's state")
       else:
@@ -294,7 +294,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
             let sres = validator.getStatus(current_epoch)
             if sres.isOk:
               return (validator: validator, index: uint64(index),
-                      status: sres.get(), balance: validator.effective_balance)
+                      status: sres.get(), balance: state.balances[index])
             else:
               raise newException(CatchableError, "Incorrect validator's state")
 
@@ -318,13 +318,13 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
             let validator = state.validators[index]
             vquery.keyset.excl(validator.pubkey)
             let balance = (index: uint64(index),
-                           balance: validator.effective_balance)
+                           balance: state.balances[index])
             res.add(balance)
 
         for index, validator in state.validators.pairs():
           if validator.pubkey in vquery.keyset:
             let balance = (index: uint64(index),
-                           balance: validator.effective_balance)
+                           balance: state.balances[index])
             res.add(balance)
     return res
 
