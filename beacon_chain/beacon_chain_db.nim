@@ -243,7 +243,7 @@ proc init*(T: type BeaconChainDB,
            inMemory = false): BeaconChainDB =
   var sqliteStore =
     if inMemory:
-      SqStoreRef.init("", "test", inMemory = true).expect("working database (disk broken/full?)")
+      SqStoreRef.init("", "test", inMemory = true).expect("working database (out of memory?)")
     else:
       let s = secureCreatePath(dir)
       doAssert s.isOk # TODO(zah) Handle this in a better way
