@@ -131,18 +131,9 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
         outbound: v.outbound,
         appScore: v.appScore,
         behaviourPenalty: v.behaviourPenalty,
-        sendConnAvail: if v.sendConn != nil:
-            true
-          else:
-            false,
-        closed: if v.sendConn != nil and v.sendConn.closed:
-            true
-          else:
-            false,
-        atEof: if v.sendConn != nil and v.sendConn.atEof:
-            true
-          else:
-            false,
+        sendConnAvail: v.sendConn != nil,
+        closed: if v.sendConn != nil and v.sendConn.closed,
+        atEof: if v.sendConn != nil and v.sendConn.atEof,
         address: if v.address.isSome():
             $v.address.get()
           else:
