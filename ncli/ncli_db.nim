@@ -169,16 +169,20 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
       withTimer(timers[tDbStore]):
         dbBenchmark.putBlock(b)
 
-    if conf.storeStates and state[].data.slot.isEpoch:
-      withTimer(timers[tDbStore]):
+    if state[].data.slot.isEpoch and conf.storeStates:
+      if state[].data.slot.epoch < 2:
         dbBenchmark.putState(state[].root, state[].data)
         dbBenchmark.checkpoint()
+      else:
+        withTimer(timers[tDbStore]):
+          dbBenchmark.putState(state[].root, state[].data)
+          dbBenchmark.checkpoint()
 
-      withTimer(timers[tDbLoad]):
-        doAssert dbBenchmark.getState(state[].root, loadedState[], noRollback)
+        withTimer(timers[tDbLoad]):
+          doAssert dbBenchmark.getState(state[].root, loadedState[], noRollback)
 
-      if state[].data.slot.epoch mod 16 == 0:
-        doAssert hash_tree_root(state[].data) == hash_tree_root(loadedState[])
+        if state[].data.slot.epoch mod 16 == 0:
+          doAssert hash_tree_root(state[].data) == hash_tree_root(loadedState[])
 
   printTimers(false, timers)
 

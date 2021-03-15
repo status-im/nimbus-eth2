@@ -533,7 +533,7 @@ proc getState(dag: ChainDAGRef, state: var StateData, bs: BlockSlot): bool =
 
   false
 
-proc putState*(dag: ChainDAGRef, state: StateData) =
+proc putState*(dag: ChainDAGRef, state: var StateData) =
   # Store a state and its root
   logScope:
     blck = shortLog(state.blck)
@@ -551,6 +551,11 @@ proc putState*(dag: ChainDAGRef, state: StateData) =
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
   dag.db.putState(state.data.root, state.data.data)
+
+  # Allow backwards-compatible version rollback with bounded recovery cost
+  if state.data.data.slot.epoch mod 64 == 0:
+    dag.db.putStateFull(state.data.root, state.data.data)
+
   dag.db.putStateRoot(state.blck.root, state.data.data.slot, state.data.root)
 
 func getRef*(dag: ChainDAGRef, root: Eth2Digest): BlockRef =
@@ -1041,7 +1046,7 @@ proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): bool =
 
 proc preInit*(
     T: type ChainDAGRef, db: BeaconChainDB,
-    genesisState, tailState: BeaconState, tailBlock: SignedBeaconBlock) =
+    genesisState, tailState: var BeaconState, tailBlock: SignedBeaconBlock) =
   # write a genesis state, the way the ChainDAGRef expects it to be stored in
   # database
   # TODO probably should just init a block pool with the freshly written
