@@ -1082,8 +1082,7 @@ proc getGenesisBlockData*(dag: ChainDAGRef): BlockData =
   dag.get(dag.genesis)
 
 proc getGenesisBlockSlot*(dag: ChainDAGRef): BlockSlot =
-  let blockData = dag.getGenesisBlockData()
-  BlockSlot(blck: blockData.refs, slot: GENESIS_SLOT)
+  BlockSlot(blck: dag.genesis, slot: GENESIS_SLOT)
 
 proc getProposer*(
     dag: ChainDAGRef, head: BlockRef, slot: Slot):
