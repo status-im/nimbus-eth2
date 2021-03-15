@@ -1,3 +1,15 @@
+<NEXT RELEASE>
+=================
+
+...
+
+**Breaking changes:**
+
+* Renamed some semi-internal debug rpc to be more explicit about their nature:
+  * `getGossipSubPeers` is now `debug_getGossipSubPeers`
+  * `getChronosFutures` is now `debug_getChronosFutures`
+
+
 2021-02-22 v1.0.8
 =================
 
