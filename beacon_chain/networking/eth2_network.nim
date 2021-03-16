@@ -865,6 +865,38 @@ proc toPeerAddr(node: Node): Result[PeerAddr, cstring] {.raises: [Defect].} =
   let peerAddr = ? nodeRecord.toPeerAddr(tcpProtocol)
   ok(peerAddr)
 
+proc queryRandom*(d: Eth2DiscoveryProtocol, forkId: ENRForkID,
+    attnets: BitArray[ATTESTATION_SUBNET_COUNT]):
+    Future[seq[PeerAddr]] {.async, raises:[Exception, Defect].} =
+  ## Perform a discovery query for a random target matching the eth2 field
+  ## (forkId) and matching at least one of the attestation subnets.
+  let nodes = await d.queryRandom()
+  let eth2Field = SSZ.encode(forkId)
+
+  var filtered: seq[PeerAddr]
+  for n in nodes:
+    if n.record.contains(("eth2", eth2Field)):
+      let res = n.record.tryGet("attnets", seq[byte])
+
+      if res.isSome():
+        let attnetsNode =
+          try:
+            SSZ.decode(res.get(), BitArray[ATTESTATION_SUBNET_COUNT])
+          except SszError as e:
+            debug "Could not decode attestation subnet bitfield of peer",
+              peer = n.record.toURI(), exception = e.name, msg = e.msg
+            continue
+
+        for i in 0..<attnetsNode.bytes.len:
+          if (attnets.bytes[i] and attnetsNode.bytes[i]) > 0:
+            # we have at least one subnet match
+            let peerAddr = n.toPeerAddr()
+            if peerAddr.isOk():
+              filtered.add(peerAddr.get())
+            break
+
+  return filtered
+
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
   let enrField = ("eth2", SSZ.encode(node.forkId))

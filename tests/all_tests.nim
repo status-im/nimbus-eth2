@@ -18,6 +18,7 @@ import # Unit test
   ./test_bitseqs,
   ./test_block_pool,
   ./test_datatypes,
+  ./test_discovery,
   ./test_eth1_monitor,
   ./test_exit_pool,
   ./test_helpers,
