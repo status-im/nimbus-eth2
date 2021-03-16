@@ -20,6 +20,9 @@ import
   ./spec/[datatypes, crypto, helpers], beacon_clock, filepath,
   ./networking/eth2_network
 
+when defined(posix):
+  import termios
+
 proc setupStdoutLogging*(logLevel: string) =
   when compiles(defaultChroniclesStream.output.writer):
     defaultChroniclesStream.outputs[0].writer =
@@ -107,3 +110,13 @@ proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot, stopAtEpoch: uint64) =
 
     # Brute-force, but ensure it's reliable enough to run in CI.
     quit(0)
+
+proc resetStdin*() =
+  when defined(posix):
+    # restore echoing, in case it was disabled by a password prompt
+    let fd = stdin.getFileHandle()
+    var attrs: Termios
+    discard fd.tcGetAttr(attrs.addr)
+    attrs.c_lflag = attrs.c_lflag or Cflag(ECHO)
+    discard fd.tcSetAttr(TCSANOW, attrs.addr)
+

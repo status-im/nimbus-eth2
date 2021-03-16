@@ -1916,6 +1916,8 @@ programMain:
     when defined(windows):
       # workaround for https://github.com/nim-lang/Nim/issues/4057
       setupForeignThreadGc()
+    # in case a password prompt disabled echoing
+    resetStdin()
     echo "" # If we interrupt during an interactive prompt, this
             # will move the cursor to the next line
     notice "Shutting down after having received SIGINT"
