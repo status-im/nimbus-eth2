@@ -133,7 +133,7 @@ proc updateCurrent(pool: var AttestationPool, wallSlot: Slot) =
   for k in keysToRemove:
     pool.attestationAggregates.del k
 
-func addToAggregates(pool: var AttestationPool, attestation: Attestation) =
+proc addToAggregates(pool: var AttestationPool, attestation: Attestation) =
   # do a lookup for the current slot and get it's associated htrs/attestations
   var aggregated_attestation = pool.attestationAggregates.mgetOrPut(
     attestation.data.slot, Table[Eth2Digest, Attestation]()).

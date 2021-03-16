@@ -103,6 +103,25 @@ proc loadWithCache*(v: ValidatorPubKey): Option[blscurve.PublicKey] =
       else:
         none blscurve.PublicKey
 
+proc loadWithCache*(v: ValidatorSig): Option[blscurve.Signature] =
+  ## Parse signature blob - this may fail - this function uses a cache to
+  ## avoid the expensive deserialization - the memory usage of the cache
+  ## should be considered
+  var cache {.threadvar.}: Table[typeof(v.blob), blscurve.Signature]
+
+  # Try to get parse value from cache - if it's not in there, try to parse it -
+  # if that's not possible, it's broken
+  cache.withValue(v.blob, key) do:
+    return some key[]
+  do:
+    # Only valid keys are cached
+    var val: blscurve.Signature
+    return
+      if fromBytes(val, v.blob):
+        some cache.mGetOrPut(v.blob, val)
+      else:
+        none blscurve.Signature
+
 proc load*(v: ValidatorSig): Option[blscurve.Signature] =
   ## Parse signature blob - this may fail
   var parsed: blscurve.Signature
@@ -116,10 +135,10 @@ func init*(agg: var AggregateSignature, sig: ValidatorSig) {.inline.}=
   ## This assumes that the signature is valid
   agg.init(sig.load().get())
 
-func aggregate*(agg: var AggregateSignature, sig: ValidatorSig) {.inline.}=
+proc aggregate*(agg: var AggregateSignature, sig: ValidatorSig) {.deprecated, inline.}=
   ## Aggregate two Validator Signatures
   ## Both signatures must be valid
-  agg.aggregate(sig.load.get())
+  agg.aggregate(sig.loadWithCache.get())
 
 func finish*(agg: AggregateSignature): ValidatorSig {.inline.}=
   ## Canonicalize an AggregateSignature into a signature
