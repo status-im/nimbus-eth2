@@ -271,6 +271,9 @@ declareCounter nbc_successful_discoveries,
 declareCounter nbc_failed_discoveries,
   "Number of failed discoveries"
 
+declareCounter nbc_gossip_kicked_peers,
+  "Number of peers kicked by nbc gossip balancer"
+
 const delayBuckets = [1.0, 5.0, 10.0, 20.0, 40.0, 60.0]
 
 declareHistogram nbc_resolve_time,
@@ -557,12 +560,15 @@ else:
 
 proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
                      ResponseMsg: type,
-                     timeout: Duration): Future[NetRes[ResponseMsg]]
+                     timeout: Option[Duration]): Future[NetRes[ResponseMsg]]
                     {.async.} =
-  var deadline = sleepAsync timeout
+  let stream = if timeout.isSome():
+      var deadline = sleepAsync timeout.get()
+      awaitWithTimeout(peer.network.openStream(peer, protocolId), deadline):
+        return neterr StreamOpenTimeout
+    else:
+      await peer.network.openStream(peer, protocolId)
 
-  let stream = awaitWithTimeout(peer.network.openStream(peer, protocolId),
-                                deadline): return neterr StreamOpenTimeout
   try:
     # Send the request
     await stream.writeChunk(none ResponseCode, requestBytes)
@@ -634,7 +640,7 @@ proc implementSendProcBody(sendProc: SendProc) =
         let ResponseRecord = msg.response.recName
         quote:
           makeEth2Request(`peer`, `msgProto`, `bytes`,
-                          `ResponseRecord`, `timeoutVar`)
+                          `ResponseRecord`, some(`timeoutVar`))
       else:
         quote: sendNotificationMsg(`peer`, `msgProto`, `bytes`)
     else:
@@ -917,7 +923,57 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
     await sleepAsync(1.seconds)
 
 proc runGossipBalanceLoop*(node: Eth2Node) {.async.} =
-  await sleepAsync(5.seconds)
+  type
+    PeerData = object
+      id: PeerID
+      pub: PubsubPeer
+      eth: Peer
+      futureMeta: Future[NetRes[Eth2Metadata]]
+      meta: Eth2MetaData
+
+  proc cleanupPeer(id: PeerID) {.async.} =
+    try:
+      await node.switch.disconnect(id)
+    except CancelledError:
+      raise
+    except CatchableError as exc:
+      trace "Failed to close connection", peer=id, error=exc.name, msg=exc.msg
+
+  while true:
+    var peers: seq[PeerData]
+    for id, info in node.pubsub.peers:
+      var msgBytes: seq[byte]
+      let
+        epeer = node.getPeer(id)
+      peers &= PeerData(
+        id: id,
+        pub: info,
+        eth: epeer,
+        # skip macro usage, we need no timeout and no fuss too
+        futureMeta: makeEth2Request(
+          epeer,
+          "/eth2/beacon_chain/req/metadata/1/",
+          msgBytes,
+          Eth2Metadata,
+          Duration.none))
+
+    discard await allFinished(peers.mapIt(it.futureMeta)).withTimeout(30.seconds)
+
+    for i in countdown(peers.high, 0):
+      let data = peers[i]
+
+      if data.futureMeta.failed():
+        asyncSpawn cleanupPeer(data.id)
+        peers.del(i) # remove tail and continue iter
+
+      let fres = await data.futureMeta
+      if fres.isOk():
+        discard
+      else:
+        asyncSpawn cleanupPeer(data.id)
+        peers.del(i) # remove tail and continue iter
+
+    await sleepAsync(5.seconds)
 
 proc getPersistentNetMetadata*(config: BeaconNodeConf): Eth2Metadata =
   let metadataPath = config.dataDir / nodeMetadataFilename
@@ -1166,10 +1222,14 @@ proc start*(node: Eth2Node) {.async.} =
         if pa.isOk():
           await node.connQueue.addLast(pa.get())
 
+  node.gossipBalancer = node.runGossipBalanceLoop()
+
 proc stop*(node: Eth2Node) {.async.} =
   # Ignore errors in futures, since we're shutting down (but log them on the
   # TRACE level, if a timeout is reached).
-  gossipBalancer.cancel()
+
+  node.gossipBalancer.cancel()
+
   let
     waitedFutures = @[
       node.discovery.closeWait(),
