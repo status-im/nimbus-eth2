@@ -1,3 +1,13 @@
+TBD
+==================
+
+**Breaking changes:**
+
+* Renamed some semi-internal debug rpc to be more explicit about their nature:
+  * `getGossipSubPeers` is now `debug_getGossipSubPeers`
+  * `getChronosFutures` is now `debug_getChronosFutures`
+
+
 2021-03-10 v1.0.10
 ==================
 
@@ -41,12 +51,6 @@ This release contains important security and performance improvements.
   To ensure smooth upgrade and emergency rollback between older and future Nimbus
   versions, v1.0.10 will keep track of your attestation in both the old and the
   new format. The extra load should be negligible for home stakers.
-
-**Breaking changes:**
-
-* Renamed some semi-internal debug rpc to be more explicit about their nature:
-  * `getGossipSubPeers` is now `debug_getGossipSubPeers`
-  * `getChronosFutures` is now `debug_getChronosFutures`
 
 
 2021-03-09 v1.0.9
