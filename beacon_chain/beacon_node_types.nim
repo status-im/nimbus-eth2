@@ -30,7 +30,7 @@ type
     ## added to the aggregate meaning that only non-overlapping aggregates may
     ## be further combined.
     aggregation_bits*: CommitteeValidatorsBits
-    aggregate_signature*: ValidatorSig
+    aggregate_signature*: CookedSig
 
   AttestationEntry* = object
     ## Each entry holds the known signatures for a particular, distinct vote

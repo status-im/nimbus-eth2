@@ -50,8 +50,8 @@ proc gauss(r: var Rand; mu = 0.0; sigma = 1.0): float =
   result = mu + sigma * (b / a)
 
 # TODO confutils is an impenetrable black box. how can a help text be added here?
-cli do(slots = SLOTS_PER_EPOCH * 6,
-       validators = SLOTS_PER_EPOCH * 200, # One per shard is minimum
+cli do(slots = SLOTS_PER_EPOCH * 5,
+       validators = SLOTS_PER_EPOCH * 400, # One per shard is minimum
        attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.82,
        blockRatio {.desc: "ratio of slots with blocks"} = 1.0,
        replay = true):
