@@ -24,7 +24,7 @@ import
   # Test utilities
   ./testutil, ./testblockutil
 
-func combine(tgt: var Attestation, src: Attestation) =
+proc combine(tgt: var Attestation, src: Attestation) =
   ## Combine the signature and participation bitfield, with the assumption that
   ## the same data is being signed - if the signatures overlap, they are not
   ## combined.
