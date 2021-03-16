@@ -59,6 +59,7 @@ type
   Eth2Node* = ref object of RootObj
     switch*: Switch
     pubsub*: GossipSub
+    gossipBalancer*: Future[void]
     discovery*: Eth2DiscoveryProtocol
     discoveryEnabled*: bool
     wantedPeers*: int
@@ -915,6 +916,9 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
     # when no peers are in the routing table. Don't run it in continuous loop.
     await sleepAsync(1.seconds)
 
+proc runGossipBalanceLoop*(node: Eth2Node) {.async.} =
+  await sleepAsync(5.seconds)
+
 proc getPersistentNetMetadata*(config: BeaconNodeConf): Eth2Metadata =
   let metadataPath = config.dataDir / nodeMetadataFilename
   if not fileExists(metadataPath):
@@ -1165,6 +1169,7 @@ proc start*(node: Eth2Node) {.async.} =
 proc stop*(node: Eth2Node) {.async.} =
   # Ignore errors in futures, since we're shutting down (but log them on the
   # TRACE level, if a timeout is reached).
+  gossipBalancer.cancel()
   let
     waitedFutures = @[
       node.discovery.closeWait(),
