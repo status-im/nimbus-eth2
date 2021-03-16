@@ -135,7 +135,7 @@ func init*(agg: var AggregateSignature, sig: ValidatorSig) {.inline.}=
   ## This assumes that the signature is valid
   agg.init(sig.load().get())
 
-proc aggregate*(agg: var AggregateSignature, sig: ValidatorSig) {.deprecated, inline.}=
+proc aggregate*(agg: var AggregateSignature, sig: ValidatorSig) {.inline.}=
   ## Aggregate two Validator Signatures
   ## Both signatures must be valid
   agg.aggregate(sig.loadWithCache.get())
