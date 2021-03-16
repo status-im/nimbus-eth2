@@ -1,15 +1,7 @@
 # The build is reproducible only if this base image stays the same.
-FROM statusteam/nimbus_beacon_node:dist_base_20210105215256_arm64@sha256:472b1625f9d0fbdff3edc7543490980e128bef26ca4e7768a5f1b43fbf85e941
+FROM statusteam/nimbus_beacon_node:dist_base_20210310021543_arm64_v2@sha256:9f63432ec61cae086235359db84575de7edd0b78320e3590285d273cbab79de2
 
 SHELL ["/bin/bash", "-c"]
-
-ARG QEMU_NAME
-ARG QEMU_DIR
-
-# We need the host's registered binfmt_misc "interpreter" inside the container,
-# for that transparent virtualisation to work.
-# Don't bother deleting it at the end, because this image is not being pushed to the hub.
-COPY $QEMU_NAME $QEMU_DIR
 
 ARG USER_ID
 ARG GROUP_ID

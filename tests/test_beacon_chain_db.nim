@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or https://www.apache.org/licenses/LICENSE-2.0)
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
@@ -7,14 +7,17 @@
 
 {.used.}
 
-import  options, unittest, sequtils,
-  ../beacon_chain/[beacon_chain_db, extras, interop],
-  ../beacon_chain/ssz,
+import  algorithm, options, sequtils, unittest,
+  ../beacon_chain/[beacon_chain_db, extras, interop, ssz],
   ../beacon_chain/spec/[
     beaconstate, datatypes, digest, crypto, state_transition, presets],
+  ../beacon_chain/consensus_object_pools/blockchain_dag,
   eth/db/kvstore,
   # test utilies
-  ./testutil, ./testblockutil
+  ./testutil, ./testblockutil, ./teststateutil
+
+when isMainModule:
+  import chronicles # or some random compile error happens...
 
 proc getStateRef(db: BeaconChainDB, root: Eth2Digest): NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
@@ -71,17 +74,99 @@ suiteReport "Beacon chain DB" & preset():
 
   wrappedTimedTest "sanity check states" & preset():
     var
-      db = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+      testStates = getTestStates(dag.headState.data)
 
-    let
-      state = BeaconStateRef()
-      root = hash_tree_root(state[])
+    # Ensure transitions beyond just adding validators and increasing slots
+    sort(testStates) do (x, y: ref HashedBeaconState) -> int:
+      cmp($x.root, $y.root)
 
-    db.putState(state[])
+    for state in testStates:
+      db.putState(state[].data)
+      let root = hash_tree_root(state[].data)
 
-    check:
-      db.containsState(root)
-      hash_tree_root(db.getStateRef(root)[]) == root
+      check:
+        db.containsState(root)
+        hash_tree_root(db.getStateRef(root)[]) == root
+
+      db.delState(root)
+      check: not db.containsState(root)
+
+    db.close()
+
+  wrappedTimedTest "sanity check states, reusing buffers" & preset():
+    var
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+
+    let stateBuffer = BeaconStateRef()
+    var testStates = getTestStates(dag.headState.data)
+
+    # Ensure transitions beyond just adding validators and increasing slots
+    sort(testStates) do (x, y: ref HashedBeaconState) -> int:
+      cmp($x.root, $y.root)
+
+    for state in testStates:
+      db.putState(state[].data)
+      let root = hash_tree_root(state[].data)
+
+      check:
+        db.getState(root, stateBuffer[], noRollback)
+        db.containsState(root)
+        hash_tree_root(stateBuffer[]) == root
+
+      db.delState(root)
+      check: not db.containsState(root)
+
+    db.close()
+
+  wrappedTimedTest "sanity check full states" & preset():
+    var
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+      testStates = getTestStates(dag.headState.data)
+
+    # Ensure transitions beyond just adding validators and increasing slots
+    sort(testStates) do (x, y: ref HashedBeaconState) -> int:
+      cmp($x.root, $y.root)
+
+    for state in testStates:
+      db.putStateFull(state[].data)
+      let root = hash_tree_root(state[].data)
+
+      check:
+        db.containsState(root)
+        hash_tree_root(db.getStateRef(root)[]) == root
+
+      db.delState(root)
+      check: not db.containsState(root)
+
+    db.close()
+
+  wrappedTimedTest "sanity check full states, reusing buffers" & preset():
+    var
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+
+    let stateBuffer = BeaconStateRef()
+    var testStates = getTestStates(dag.headState.data)
+
+    # Ensure transitions beyond just adding validators and increasing slots
+    sort(testStates) do (x, y: ref HashedBeaconState) -> int:
+      cmp($x.root, $y.root)
+
+    for state in testStates:
+      db.putStateFull(state[].data)
+      let root = hash_tree_root(state[].data)
+
+      check:
+        db.getState(root, stateBuffer[], noRollback)
+        db.containsState(root)
+        hash_tree_root(stateBuffer[]) == root
+
+      db.delState(root)
+      check: not db.containsState(root)
 
     db.close()
 

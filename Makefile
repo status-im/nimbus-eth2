@@ -426,7 +426,7 @@ define CLEAN_NETWORK
 endef
 
 ###
-### pyrmont
+### Pyrmont
 ###
 pyrmont-build: | nimbus_beacon_node nimbus_signing_process
 
@@ -450,6 +450,37 @@ pyrmont-dev-deposit: | pyrmont-build deposit_contract
 
 clean-pyrmont:
 	$(call CLEAN_NETWORK,pyrmont)
+
+
+###
+### Prater
+###
+prater-build: | nimbus_beacon_node nimbus_signing_process
+
+# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
+prater: | prater-build
+	$(call CONNECT_TO_NETWORK,prater,nimbus_beacon_node)
+
+prater-vc: | prater-build nimbus_validator_client
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,prater,nimbus_beacon_node)
+
+ifneq ($(LOG_LEVEL), TRACE)
+prater-dev:
+	+ "$(MAKE)" LOG_LEVEL=TRACE $@
+else
+prater-dev: | prater-build
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,prater,nimbus_beacon_node)
+endif
+
+prater-dev-deposit: | prater-build deposit_contract
+	$(call MAKE_DEPOSIT,prater)
+
+clean-prater:
+	$(call CLEAN_NETWORK,prater)
+
+###
+### Other
+###
 
 ctail: | build deps
 	mkdir -p vendor/.nimble/bin/
@@ -511,26 +542,26 @@ publish-book: | book auditors-book
 	rm -rf tmp-book
 
 dist-amd64:
-	MAKE="$(MAKE)" \
+	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh amd64
 
 dist-arm64:
-	MAKE="$(MAKE)" \
+	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh arm64
 
 dist-arm:
-	MAKE="$(MAKE)" \
+	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh arm
 
 dist-win64:
-	MAKE="$(MAKE)" \
+	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh win64
 
 dist:
-	$(MAKE) dist-amd64
-	$(MAKE) dist-arm64
-	$(MAKE) dist-arm
-	$(MAKE) dist-win64
+	+ $(MAKE) dist-amd64
+	+ $(MAKE) dist-arm64
+	+ $(MAKE) dist-arm
+	+ $(MAKE) dist-win64
 
 #- this simple test will show any missing dynamically-linked Glibc symbols in the target distro
 dist-test:
