@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[deques, strformat, tables, hashes],
+  std/[deques, strformat, sets, tables, hashes],
   # Status libraries
   stew/[endians2, byteutils], chronicles,
   eth/keys,
@@ -18,7 +18,8 @@ import
   ../beacon_chain_db, ../extras
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
-export ValidationResult
+export ValidationResult, sets, tables
+
 
 # #############################################
 #
@@ -79,6 +80,13 @@ type
   FetchRecord* = object
     root*: Eth2Digest
 
+  KeyedBlockRef* = object
+    # Special wrapper for BlockRef used in ChainDAG.blocks that allows lookup
+    # by root without keeping a Table that keeps a separate copy of the digest
+    # At the time of writing, a Table[Eth2Digest, BlockRef] adds about 100mb of
+    # unnecessary overhead.
+    data: BlockRef
+
   ChainDAGRef* = ref object
     ## Pool of blocks responsible for keeping a DAG of resolved blocks.
     ##
@@ -105,7 +113,7 @@ type
     # -----------------------------------
     # ChainDAGRef - DAG of candidate chains
 
-    blocks*: Table[Eth2Digest, BlockRef] ##\
+    blocks*: HashSet[KeyedBlockRef] ##\
     ## Directed acyclic graph of blocks pointing back to a finalized block on the chain we're
     ## interested in - we call that block the tail
 
@@ -144,11 +152,14 @@ type
       ## Cached state used during block clearance - must only be used in
       ## clearance module
 
-    tmpState*: StateData ## Scratchpad - may be any state
-
     updateFlags*: UpdateFlags
 
     runtimePreset*: RuntimePreset
+
+    epochRefs*: array[32, (BlockRef, EpochRef)] ##\
+      ## Cached information about a particular epoch ending with the given
+      ## block - we limit the number of held EpochRefs to put a cap on
+      ## memory usage
 
   EpochRef* = ref object
     epoch*: Epoch
@@ -179,16 +190,6 @@ type
     ## Not nil, except for the tail
 
     slot*: Slot # could calculate this by walking to root, but..
-
-    epochRefs*: seq[EpochRef] ##\
-    ## Cached information about the epochs starting at this block.
-    ## Could be multiple, since blocks could skip slots, but usually, not many
-    ## Even if competing forks happen later during this epoch, potential empty
-    ## slots beforehand must all be from this fork. find/getEpochRef() are the
-    ## only supported way of accesssing these.
-    ## In particular, epoch refs are only stored with the last block of the
-    ## parent epoch - this way, it's easy to find them from any block in the
-    ## epoch - including when there are forks that skip the epoch slot.
 
   BlockData* = object
     ## Body and graph in one
@@ -253,5 +254,18 @@ func shortLog*(v: EpochRef): string =
 chronicles.formatIt BlockSlot: shortLog(it)
 chronicles.formatIt BlockRef: shortLog(it)
 
-func hash*(blockRef: BlockRef): Hash =
-  hash(blockRef.root)
+func hash*(key: KeyedBlockRef): Hash =
+  hash(key.data.root)
+
+func `==`*(a, b: KeyedBlockRef): bool =
+  a.data.root == b.data.root
+
+func asLookupKey*(T: type KeyedBlockRef, root: Eth2Digest): KeyedBlockRef =
+  # Create a special, temporary BlockRef instance that just has the key set
+  KeyedBlockRef(data: BlockRef(root: root))
+
+func init*(T: type KeyedBlockRef, blck: BlockRef): KeyedBlockRef =
+  KeyedBlockRef(data: blck)
+
+func blockRef*(key: KeyedBlockRef): BlockRef =
+  key.data

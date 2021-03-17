@@ -32,7 +32,9 @@ import
   blscurve
 
 export
-  hash.`$`, sha2, readValue, writeValue
+  # Exports from sha2 / hash are explicit to avoid exporting upper-case `$` and
+  # constant-time `==`
+  sha2.update, hash.fromHex, readValue, writeValue
 
 type
   Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec
@@ -42,6 +44,9 @@ when BLS_BACKEND == BLST:
   type Eth2DigestCtx* = BLST_SHA256_CTX
 else:
   type Eth2DigestCtx* = sha2.sha256
+
+func `$`*(x: Eth2Digest): string =
+  x.data.toHex()
 
 func shortLog*(x: Eth2Digest): string =
   x.data.toOpenArray(0, 3).toHex()

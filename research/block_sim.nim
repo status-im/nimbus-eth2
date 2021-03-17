@@ -78,6 +78,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r = initRand(1)
+    tmpState = assignClone(chainDag.headState)
 
   eth1Chain.addBlock Eth1Block(
     number: Eth1BlockNumber 1,
@@ -92,7 +93,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     let
       attestationHead = chainDag.head.atSlot(slot)
 
-    chainDag.withState(chainDag.tmpState, attestationHead):
+    chainDag.withState(tmpState[], attestationHead):
       let committees_per_slot =
         get_committee_count_per_slot(state, slot.epoch, cache)
 
@@ -126,7 +127,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     let
       head = chainDag.head
 
-    chainDag.withState(chainDag.tmpState, head.atSlot(slot)):
+    chainDag.withState(tmpState[], head.atSlot(slot)):
       let
         finalizedEpochRef = chainDag.getFinalizedEpochRef()
         proposerIdx = get_beacon_proposer_index(state, cache).get()

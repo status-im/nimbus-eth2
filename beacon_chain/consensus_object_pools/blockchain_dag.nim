@@ -52,6 +52,16 @@ proc updateStateData*(
   dag: ChainDAGRef, state: var StateData, bs: BlockSlot, save: bool,
   cache: var StateCache) {.gcsafe.}
 
+template withStateVars*(stateData: var StateData, body: untyped): untyped =
+  ## Inject a few more descriptive names for the members of `stateData` -
+  ## the stateData instance may get mutated through these names as well
+  template hashedState(): HashedBeaconState {.inject, used.} = stateData.data
+  template state(): BeaconState {.inject, used.} = stateData.data.data
+  template blck(): BlockRef {.inject, used.} = stateData.blck
+  template root(): Eth2Digest {.inject, used.} = stateData.data.root
+
+  body
+
 template withState*(
     dag: ChainDAGRef, stateData: var StateData, blockSlot: BlockSlot,
     body: untyped): untyped =
@@ -63,12 +73,8 @@ template withState*(
   var cache {.inject.} = StateCache()
   updateStateData(dag, stateData, blockSlot, false, cache)
 
-  template hashedState(): HashedBeaconState {.inject, used.} = stateData.data
-  template state(): BeaconState {.inject, used.} = stateData.data.data
-  template blck(): BlockRef {.inject, used.} = stateData.blck
-  template root(): Eth2Digest {.inject, used.} = stateData.data.root
-
-  body
+  withStateVars(stateData):
+    body
 
 func parent*(bs: BlockSlot): BlockSlot =
   ## Return a blockslot representing the previous slot, using the parent block
@@ -180,16 +186,6 @@ func effective_balances*(epochRef: EpochRef): seq[Gwei] =
   except CatchableError as exc:
     raiseAssert exc.msg
 
-func updateKeyStores*(epochRef: EpochRef, blck: BlockRef, finalized: BlockRef) =
-  # Because key stores are additive lists, we can use a newer list whereever an
-  # older list is expected - all indices in the new list will be valid for the
-  # old list also
-  var blck = blck
-  while blck != nil and blck.slot >= finalized.slot:
-    for e in blck.epochRefs:
-      e.validator_key_store = epochRef.validator_key_store
-    blck = blck.parent
-
 func link*(parent, child: BlockRef) =
   doAssert (not (parent.root == Eth2Digest() or child.root == Eth2Digest())),
     "blocks missing root!"
@@ -265,31 +261,32 @@ func epochAncestor*(blck: BlockRef, epoch: Epoch): BlockSlot =
   ##
   ## This function returns a BlockSlot pointing to that epoch boundary, ie the
   ## boundary where the last block has been applied to the state and epoch
-  ## processing has been done - we will store epoch caches in that particular
-  ## block so that any block in the dag that needs it can find it easily. In
-  ## particular, if empty slot processing is done, there may be multiple epoch
-  ## caches found there.
+  ## processing has been done.
   var blck = blck
   while blck.slot.epoch >= epoch and not blck.parent.isNil:
     blck = blck.parent
 
   blck.atEpochStart(epoch)
 
-func findEpochRef*(blck: BlockRef, epoch: Epoch): EpochRef = # may return nil!
+func findEpochRef*(
+    dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef = # may return nil!
   let ancestor = blck.epochAncestor(epoch)
   doAssert ancestor.blck != nil
-  for epochRef in ancestor.blck.epochRefs:
-    if epochRef.epoch == epoch:
-      return epochRef
+  for i in 0..<dag.epochRefs.len:
+    if dag.epochRefs[i][0] == ancestor.blck and dag.epochRefs[i][1].epoch == epoch:
+      return dag.epochRefs[i][1]
 
-proc loadStateCache*(cache: var StateCache, blck: BlockRef, epoch: Epoch) =
+  return nil
+
+proc loadStateCache*(
+    dag: ChainDAGRef, cache: var StateCache, blck: BlockRef, epoch: Epoch) =
   # When creating a state cache, we want the current and the previous epoch
   # information to be preloaded as both of these are used in state transition
   # functions
 
   template load(e: Epoch) =
     if epoch notin cache.shuffled_active_validator_indices:
-      let epochRef = blck.findEpochRef(epoch)
+      let epochRef = dag.findEpochRef(blck, epoch)
       if epochRef != nil:
         cache.shuffled_active_validator_indices[epochRef.epoch] =
           epochRef.shuffled_active_validator_indices
@@ -313,6 +310,9 @@ func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
 
 func init*(T: type BlockRef, root: Eth2Digest, blck: SomeBeaconBlock): BlockRef =
   BlockRef.init(root, blck.slot)
+
+func contains*(dag: ChainDAGRef, root: Eth2Digest): bool =
+  KeyedBlockRef.asLookupKey(root) in dag.blocks
 
 proc init*(T: type ChainDAGRef,
            preset: RuntimePreset,
@@ -344,11 +344,13 @@ proc init*(T: type ChainDAGRef,
     BlockRef.init(genesisBlockRoot, genesisBlock.message)
 
   var
-    blocks = {tailRef.root: tailRef}.toTable()
+    blocks: HashSet[KeyedBlockRef]
     headRef: BlockRef
 
+  blocks.incl(KeyedBlockRef.init(tailRef))
+
   if genesisRef != tailRef:
-    blocks[genesisRef.root] = genesisRef
+    blocks.incl(KeyedBlockRef.init(genesisRef))
 
   if headRoot != tailRoot:
     var curRef: BlockRef
@@ -367,7 +369,7 @@ proc init*(T: type ChainDAGRef,
       else:
         link(newRef, curRef)
         curRef = curRef.parent
-      blocks[curRef.root] = curRef
+      blocks.incl(KeyedBlockRef.init(curRef))
       trace "Populating block dag", key = curRef.root, val = curRef
 
     doAssert curRef == tailRef,
@@ -414,7 +416,6 @@ proc init*(T: type ChainDAGRef,
     headState: tmpState[],
     epochRefState: tmpState[],
     clearanceState: tmpState[],
-    tmpState: tmpState[],
 
     # The only allowed flag right now is verifyFinalization, as the others all
     # allow skipping some validation.
@@ -450,8 +451,38 @@ proc init*(T: type ChainDAGRef,
 
   res
 
+proc addEpochRef*(dag: ChainDAGRef, blck: BlockRef, epochRef: EpochRef) =
+  # Because we put a cap on the number of epochRefs we store, we want to
+  # prune the least useful state - for now, we'll assume that to be the oldest
+  # epochRef we know about.
+  var
+    oldest = 0
+    ancestor = blck.epochAncestor(epochRef.epoch)
+  for x in 0..<dag.epochRefs.len:
+    let candidate = dag.epochRefs[x]
+    if candidate[1] == nil:
+      oldest = x
+      break
+    if candidate[1].epoch < dag.epochRefs[oldest][1].epoch:
+      oldest = x
+
+  dag.epochRefs[oldest] = (ancestor.blck, epochRef)
+
+  # Because key stores are additive lists, we can use a newer list whereever an
+  # older list is expected - all indices in the new list will be valid for the
+  # old list also
+  if epochRef.epoch > 0:
+    var cur = ancestor.blck.epochAncestor(epochRef.epoch - 1)
+    while cur.slot >= dag.finalizedHead.slot:
+      let er = dag.findEpochRef(cur.blck, cur.slot.epoch)
+      if er != nil:
+        er.validator_key_store = epochRef.validator_key_store
+      if cur.slot.epoch == 0:
+        break
+      cur = cur.blck.epochAncestor(cur.slot.epoch - 1)
+
 proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
-  let epochRef = blck.findEpochRef(epoch)
+  let epochRef = dag.findEpochRef(blck, epoch)
   if epochRef != nil:
     beacon_state_data_cache_hits.inc
     return epochRef
@@ -463,16 +494,14 @@ proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
 
   dag.withState(dag.epochRefState, ancestor):
     let
-      prevEpochRef = if dag.tail.slot.epoch >= epoch: nil
-                     else: blck.findEpochRef(epoch - 1)
+      prevEpochRef = if epoch < 1: nil
+                     else: dag.findEpochRef(blck, epoch - 1)
       newEpochRef = EpochRef.init(state, cache, prevEpochRef)
 
-    # TODO consider constraining the number of epochrefs per state
-    if ancestor.blck.slot >= dag.finalizedHead.blck.slot:
+    if epoch >= dag.finalizedHead.slot.epoch():
       # Only cache epoch information for unfinalized blocks - earlier states
       # are seldomly used (ie RPC), so no need to cache
-      ancestor.blck.epochRefs.add newEpochRef
-      newEpochRef.updateKeyStores(blck.parent, dag.finalizedHead.blck)
+      dag.addEpochRef(blck, newEpochRef)
     newEpochRef
 
 proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
@@ -484,7 +513,7 @@ proc getState(
   let restoreAddr =
     # Any restore point will do as long as it's not the object being updated
     if unsafeAddr(state) == unsafeAddr(dag.headState):
-      unsafeAddr dag.tmpState
+      unsafeAddr dag.clearanceState
     else:
       unsafeAddr dag.headState
 
@@ -561,7 +590,14 @@ proc putState*(dag: ChainDAGRef, state: var StateData) =
 
 func getRef*(dag: ChainDAGRef, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
-  dag.blocks.getOrDefault(root, nil)
+  let key = KeyedBlockRef.asLookupKey(root)
+  # HashSet lacks the api to do check-and-get in one lookup - `[]` will return
+  # the copy of the instance in the set which has more fields than `root` set!
+  if key in dag.blocks:
+    try: dag.blocks[key].blockRef()
+    except KeyError: raiseAssert "contains"
+  else:
+    nil
 
 func getBlockRange*(
     dag: ChainDAGRef, startSlot: Slot, skipStep: uint64,
@@ -675,7 +711,7 @@ proc applyBlock(
     doAssert (addr(statePtr.data) == addr v)
     statePtr[] = dag.headState
 
-  loadStateCache(cache, blck.refs, blck.data.message.slot.epoch)
+  loadStateCache(dag, cache, blck.refs, blck.data.message.slot.epoch)
 
   let ok = state_transition(
     dag.runtimePreset, state.data, blck.data,
@@ -800,7 +836,7 @@ proc updateStateData*(
       dag.applyBlock(state, dag.get(ancestors[i]), {}, cache)
     doAssert ok, "Blocks in database should never fail to apply.."
 
-  loadStateCache(cache, bs.blck, bs.slot.epoch)
+  loadStateCache(dag, cache, bs.blck, bs.slot.epoch)
 
   # ...and make sure to process empty slots as requested
   dag.advanceSlots(state, bs.slot, save, cache)
@@ -869,7 +905,7 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
         dag.delState(cur) # TODO: should we move that disk I/O to `onSlotEnd`
 
         if cur.blck.slot == cur.slot:
-          dag.blocks.del(cur.blck.root)
+          dag.blocks.excl(KeyedBlockRef.init(cur.blck))
           dag.db.delBlock(cur.blck.root)
 
         if cur.blck.parent.isNil:
@@ -921,13 +957,10 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
   block: # Clean up old EpochRef instances
     # After finalization, we can clear up the epoch cache and save memory -
     # it will be recomputed if needed
-    # TODO don't store recomputed pre-finalization epoch refs
-    var tmp = dag.finalizedHead.blck
-    while tmp != dag.lastPrunePoint.blck:
-      # leave the epoch cache in the last block of the epoch..
-      tmp = tmp.parent
-      if tmp.parent != nil:
-        tmp.parent.epochRefs = @[]
+    for i in 0..<dag.epochRefs.len:
+      if dag.epochRefs[i][1] != nil and
+          dag.epochRefs[i][1].epoch < dag.finalizedHead.slot.epoch:
+        dag.epochRefs[i] = (nil, nil)
   let stopEpochRef = getTime()
   let durEpochRef = stopEpochRef - startEpochRef
 

@@ -118,7 +118,7 @@ proc blockValidator*(
 
   let delay = wallTime - signedBlock.message.slot.toBeaconTime
 
-  if signedBlock.root in self.chainDag.blocks:
+  if signedBlock.root in self.chainDag:
     # The gossip algorithm itself already does one round of hashing to find
     # already-seen data, but it is fairly aggressive about forgetting about
     # what it has seen already
