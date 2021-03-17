@@ -11,7 +11,7 @@ import
   # Standard libraries
   std/[options, tables, sequtils],
   # Status libraries
-  chronicles, stew/[byteutils], json_serialization/std/sets as jsonSets,
+  chronicles, stew/byteutils, json_serialization/std/sets as jsonSets,
   # Internal
   ../spec/[beaconstate, datatypes, crypto, digest],
   ../ssz/merkleization,
@@ -176,9 +176,10 @@ proc addAttestation*(pool: var AttestationPool,
 
   let
     attestationsSeen = addr pool.candidates[candidateIdx.get]
+    # Only attestestions with valid signatures get here
     validation = Validation(
       aggregation_bits: attestation.aggregation_bits,
-      aggregate_signature: attestation.signature)
+      aggregate_signature: load(attestation.signature).get.CookedSig)
 
   var found = false
   for a in attestationsSeen.attestations.mitems():
@@ -281,7 +282,7 @@ iterator attestations*(pool: AttestationPool, slot: Option[Slot],
           yield Attestation(
             aggregation_bits: validation.aggregation_bits,
             data: entry.data,
-            signature: validation.aggregate_signature
+            signature: validation.aggregate_signature.exportRaw
           )
 
 func getAttestationDataKey(ad: AttestationData): AttestationDataKey =
@@ -377,7 +378,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
       attestation = Attestation(
         aggregation_bits: a.validations[0].aggregation_bits,
         data: a.data,
-        signature: a.validations[0].aggregate_signature
+        signature: a.validations[0].aggregate_signature.exportRaw
       )
 
       agg {.noInit.}: AggregateSignature
@@ -448,7 +449,7 @@ proc getAggregatedAttestation*(pool: AttestationPool,
       attestation = Attestation(
         aggregation_bits: a.validations[0].aggregation_bits,
         data: a.data,
-        signature: a.validations[0].aggregate_signature
+        signature: a.validations[0].aggregate_signature.exportRaw
       )
 
       agg {.noInit.}: AggregateSignature
