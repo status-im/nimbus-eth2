@@ -74,6 +74,7 @@ type
     index: uint64
     balance: uint64
 
-  SyncInfo* = object
-    head_slot*: Slot
-    sync_distance*: int64
+  SyncInfo* = tuple
+    head_slot: Slot
+    sync_distance: int64
+    is_syncing: bool

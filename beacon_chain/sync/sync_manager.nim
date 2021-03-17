@@ -1150,4 +1150,5 @@ proc getInfo*[A, B](man: SyncManager[A, B]): SyncInfo =
   let sync_distance = wallSlot - headSlot
   doAssert sync_distance <= high(int64).uint64
 
-  SyncInfo(head_slot: headSlot, sync_distance: int64(sync_distance))
+  SyncInfo(head_slot: headSlot, sync_distance: int64(sync_distance),
+           is_syncing: man.inProgress)
