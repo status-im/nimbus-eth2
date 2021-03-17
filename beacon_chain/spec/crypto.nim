@@ -68,6 +68,11 @@ type
 
   SomeSig* = TrustedSig | ValidatorSig
 
+  CookedSig* = distinct blscurve.Signature  ## \
+  ## Allows loading in an atttestation or other message's signature once across
+  ## all its computations, rather than repeatedly re-loading it each time it is
+  ## referenced. This primarily currently serves the attestation pool.
+
 export AggregateSignature
 
 # API
@@ -116,10 +121,18 @@ func init*(agg: var AggregateSignature, sig: ValidatorSig) {.inline.}=
   ## This assumes that the signature is valid
   agg.init(sig.load().get())
 
-func aggregate*(agg: var AggregateSignature, sig: ValidatorSig) {.inline.}=
+func init*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
+  ## Initializes an aggregate signature context
+  agg.init(blscurve.Signature(sig))
+
+proc aggregate*(agg: var AggregateSignature, sig: ValidatorSig) {.inline.}=
   ## Aggregate two Validator Signatures
   ## Both signatures must be valid
   agg.aggregate(sig.load.get())
+
+proc aggregate*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
+  ## Aggregate two Validator Signatures
+  agg.aggregate(blscurve.Signature(sig))
 
 func finish*(agg: AggregateSignature): ValidatorSig {.inline.}=
   ## Canonicalize an AggregateSignature into a signature
@@ -225,6 +238,9 @@ template toRaw*(x: TrustedSig): auto =
 
 func toHex*(x: BlsCurveType): string =
   toHex(toRaw(x))
+
+func exportRaw*(x: CookedSig): ValidatorSig =
+  ValidatorSig(blob: blscurve.Signature(x).exportRaw())
 
 func fromRaw*(T: type ValidatorPrivKey, bytes: openArray[byte]): BlsResult[T] =
   var val: SecretKey
