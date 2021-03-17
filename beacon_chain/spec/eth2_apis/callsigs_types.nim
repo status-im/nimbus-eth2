@@ -76,5 +76,5 @@ type
 
   SyncInfo* = tuple
     head_slot: Slot
-    sync_distance: int64
+    sync_distance: uint64
     is_syncing: bool

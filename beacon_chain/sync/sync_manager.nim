@@ -1144,11 +1144,9 @@ proc getInfo*[A, B](man: SyncManager[A, B]): SyncInfo =
   ## Returns current synchronization information for RPC call.
   let wallSlot = man.getLocalWallSlot()
   let headSlot = man.getLocalHeadSlot()
-
-  # Even with 6 second slots (minimal presets), this overflows about 1.75
-  # trillion years into the chain's existence, if headSlot is 0.
   let sync_distance = wallSlot - headSlot
-  doAssert sync_distance <= high(int64).uint64
-
-  SyncInfo(head_slot: headSlot, sync_distance: int64(sync_distance),
-           is_syncing: man.inProgress)
+  (
+    head_slot: headSlot,
+    sync_distance: sync_distance,
+    is_syncing: man.inProgress
+  )

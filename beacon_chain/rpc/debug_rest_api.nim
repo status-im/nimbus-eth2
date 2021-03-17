@@ -3,7 +3,6 @@ import
   presto,
   chronicles,
   ../version, ../beacon_node_common,
-  ../eth2_network, ../peer_pool,
   ../spec/[datatypes, digest, presets],
   ./rest_utils
 

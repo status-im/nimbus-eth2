@@ -5,13 +5,13 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[parseutils, typetraits, sequtils, strutils, deques, sets, options],
+  std/[typetraits, sequtils, strutils, deques, sets, options],
   stew/[results, base10],
   chronicles,
   nimcrypto/utils as ncrutils,
-  ../beacon_node_common, ../eth2_network, ../validator_duties,
-  ../block_pools/chain_dag, ../exit_pool,
-  ../spec/[crypto, digest, validator, network],
+  ../beacon_node_common, ../networking/eth2_network,
+  ../consensus_object_pools/[blockchain_dag, exit_pool],
+  ../spec/[crypto, digest, validator],
   ../ssz/merkleization,
   ./rest_utils
 

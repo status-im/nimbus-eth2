@@ -11,7 +11,7 @@ import
   rest_utils,
   chronicles,
   nimcrypto/utils as ncrutils,
-  ../beacon_node_common, ../eth1_monitor,
+  ../beacon_node_common, ../eth1/eth1_monitor,
   ../spec/[datatypes, digest, presets]
 
 logScope: topics = "rest_config"
