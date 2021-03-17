@@ -141,7 +141,7 @@ Now you're finally ready to register your node with Rocket Pool:
 rocketpool node register
 ```
 
-## 12. Deposit Goerli ETH
+## 12. Make a deposit
 
 The final step is to deposit 32 ETH to initialise your validator (don't worry you'll get half of it back):
 
