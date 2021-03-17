@@ -68,7 +68,10 @@ type
 
   SomeSig* = TrustedSig | ValidatorSig
 
-  CookedSig* = distinct blscurve.Signature
+  CookedSig* = distinct blscurve.Signature  ## \
+  ## Allows loading in an atttestation or other message's signature once across
+  ## all its computations, rather than repeatedly re-loading it each time it is
+  ## referenced. This primarily currently serves the attestation pool.
 
 export AggregateSignature
 
