@@ -929,51 +929,97 @@ proc runGossipBalanceLoop*(node: Eth2Node) {.async.} =
       pub: PubsubPeer
       eth: Peer
       futureMeta: Future[NetRes[Eth2Metadata]]
-      meta: Eth2MetaData
 
   proc cleanupPeer(id: PeerID) {.async.} =
+    # this is crude
+    # likely our discovery or so will try to reconnect to this peer
+    # we should blacklist them
     try:
       await node.switch.disconnect(id)
+      nbc_gossip_kicked_peers.inc()
     except CancelledError:
       raise
     except CatchableError as exc:
       trace "Failed to close connection", peer=id, error=exc.name, msg=exc.msg
 
+  var slowPeers: Table[PeerID, int]
+
   while true:
-    var peers: seq[PeerData]
-    for id, info in node.pubsub.peers:
-      var msgBytes: seq[byte]
-      let
-        epeer = node.getPeer(id)
-      peers &= PeerData(
-        id: id,
-        pub: info,
-        eth: epeer,
-        # skip macro usage, we need no timeout and no fuss too
-        futureMeta: makeEth2Request(
-          epeer,
-          "/eth2/beacon_chain/req/metadata/1/",
-          msgBytes,
-          Eth2Metadata,
-          Duration.none))
+    try:
+      var peers: seq[PeerData]
+      for id, info in node.pubsub.peers:
+        var msgBytes: seq[byte]
+        let
+          epeer = node.getPeer(id)
+        peers &= PeerData(
+          id: id,
+          pub: info,
+          eth: epeer,
+          # skip macro usage, we need no timeout and no fuss too
+          # don't await here, just collect, should be NO THROW
+          # as pointed out by cheatfate this is not really safe
+          # nothing prevents multiple requests to happen
+          # and in fact some of the errors we have are likely that
+          futureMeta: makeEth2Request(
+            epeer,
+            "/eth2/beacon_chain/req/metadata/1/",
+            msgBytes,
+            Eth2Metadata,
+            Duration.none))
 
-    discard await allFinished(peers.mapIt(it.futureMeta)).withTimeout(30.seconds)
+      # wait all futures without throwing? hopefully
+      discard await allFinished(peers.mapIt(it.futureMeta)).withTimeout(10.seconds)
 
-    for i in countdown(peers.high, 0):
-      let data = peers[i]
+      for i in countdown(peers.high, 0):
+        let data = peers[i]
 
-      if data.futureMeta.failed():
-        asyncSpawn cleanupPeer(data.id)
-        peers.del(i) # remove tail and continue iter
+        if not data.futureMeta.finished():
+          # if the allfinished timed-out we might have such cases
 
-      let fres = await data.futureMeta
-      if fres.isOk():
-        discard
-      else:
-        asyncSpawn cleanupPeer(data.id)
-        peers.del(i) # remove tail and continue iter
+          # allow a few slow tries
+          let slowCount = slowPeers.getOrDefault(data.id)
+          if slowCount >= 5:
+            info "A peer was too slow to report its metadata", peer=data.id
+            asyncSpawn cleanupPeer(data.id)
+            slowPeers.del(data.id)
+          else:
+            slowPeers[data.id] = slowCount + 1
 
-    await sleepAsync(5.seconds)
+          # we require cancelation
+          data.futureMeta.cancel()
+          peers.del(i) # remove tail and continue iter
+        else:
+          if data.futureMeta.failed():
+            info "A peer failed to report its metadata", peer=data.id
+            asyncSpawn cleanupPeer(data.id)
+            peers.del(i) # remove tail and continue iter
+          else:
+            let
+              fres = await data.futureMeta
+            if fres.isOk():
+              let
+                meta = fres.get()
+              info "Got metadata", meta, peer=data.id
+              var noSubnets = true
+              for subnet in 0'u8 ..<ATTESTATION_SUBNET_COUNT:
+                if meta.attnets[subnet]:
+                  noSubnets = false
+                  break
+              if noSubnets:
+                info "A peer had no subnets", peer=data.id
+                asyncSpawn cleanupPeer(data.id)
+                peers.del(i) # remove tail and continue iter
+            else:
+              info "A peer had errors", peer=data.id, error=fres.error()
+              asyncSpawn cleanupPeer(data.id)
+              peers.del(i) # remove tail and continue iter
+    except CancelledError:
+      raise
+    except CatchableError as e:
+      # if this happens we got issues likely at chronos/nim level
+      warn "Gossip balancer loop aborted with an error", name=e.name, msg=e.msg,trace=getStackTrace(e)
+
+    await sleepAsync(30.seconds)
 
 proc getPersistentNetMetadata*(config: BeaconNodeConf): Eth2Metadata =
   let metadataPath = config.dataDir / nodeMetadataFilename
