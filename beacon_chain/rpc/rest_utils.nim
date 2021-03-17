@@ -4,10 +4,10 @@ import libp2p/peerid
 import stew/[base10, byteutils]
 import nimcrypto/utils as ncrutils
 import ../spec/[crypto, digest, datatypes]
-import ../beacon_node_common, ../validator_duties
-import ../block_pools/[block_pools_types, chain_dag]
+import ../beacon_node_common
+import ../consensus_object_pools/[block_pools_types, blockchain_dag]
 
-export chain_dag, presto
+export blockchain_dag, presto
 
 const
   DecimalSet = {'0' .. '9'}
@@ -467,10 +467,17 @@ proc getBlockDataFromBlockIdent*(node: BeaconNode,
 
 template withStateForStateIdent*(node: BeaconNode,
                                  blockSlot: BlockSlot, body: untyped): untyped =
-  # TODO this can be optimized for the "head" case since that should be most
-  # common.
-  node.chainDag.withState(node.chainDag.tmpState, blockSlot):
-    body
+  template isState(state: StateData): bool =
+    state.blck.atSlot(state.data.data.slot) == blockSlot
+
+  if isState(node.chainDag.headState):
+    withStateVars(node.chainDag.headState):
+      var cache {.inject.}: StateCache
+      body
+  else:
+    let rpcState = assignClone(node.chainDag.headState)
+    node.chainDag.withState(rpcState[], blockSlot):
+      body
 
 proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
                 msg: string = "", stacktrace: string = ""): RestApiResponse =
