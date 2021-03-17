@@ -137,7 +137,7 @@ endif
 #- deletes binaries that might need to be rebuilt after a Git pull
 update: | update-common
 	rm -f build/generate_makefile
-	rm -frv nimcache/
+	rm -fr nimcache/
 
 # nim-libbacktrace
 libbacktrace:
