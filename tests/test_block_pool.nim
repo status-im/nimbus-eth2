@@ -13,8 +13,9 @@ import
   eth/keys,
   ./testutil, ./testblockutil,
   ../beacon_chain/spec/[datatypes, digest, helpers, state_transition, presets],
-  ../beacon_chain/[beacon_node_types, ssz],
-  ../beacon_chain/block_pools/[chain_dag, quarantine, clearance]
+  ../beacon_chain/beacon_node_types,
+  ../beacon_chain/ssz,
+  ../beacon_chain/consensus_object_pools/[blockchain_dag, block_quarantine, block_clearance]
 
 when isMainModule:
   import chronicles # or some random compile error happens...
@@ -31,6 +32,10 @@ template wrappedTimedTest(name: string, body: untyped) =
       timedTest name:
         body
     wrappedTest()
+
+proc pruneAtFinalization(dag: ChainDAGRef) =
+  if dag.needStateCachesAndForkChoicePruning():
+    dag.pruneStateCachesDAG()
 
 suiteReport "BlockRef and helpers" & preset():
   wrappedTimedTest "isAncestorOf sanity" & preset():
@@ -164,10 +169,10 @@ suiteReport "Block pool processing" & preset():
       b2Add[].root == b2Get.get().refs.root
       dag.heads.len == 1
       dag.heads[0] == b2Add[]
-      not b1Add[].findEpochRef(b1Add[].slot.epoch).isNil
-      b1Add[].findEpochRef(b1Add[].slot.epoch) ==
-        b2Add[].findEpochRef(b2Add[].slot.epoch)
-      b1Add[].findEpochRef(b1Add[].slot.epoch + 1).isNil
+      not dag.findEpochRef(b1Add[], b1Add[].slot.epoch).isNil
+      dag.findEpochRef(b1Add[], b1Add[].slot.epoch) ==
+        dag.findEpochRef(b2Add[], b2Add[].slot.epoch)
+      dag.findEpochRef(b1Add[], b1Add[].slot.epoch + 1).isNil
 
     # Skip one slot to get a gap
     check:
@@ -181,6 +186,7 @@ suiteReport "Block pool processing" & preset():
       b4Add[].parent == b2Add[]
 
     dag.updateHead(b4Add[], quarantine)
+    dag.pruneAtFinalization()
 
     var blocks: array[3, BlockRef]
 
@@ -244,6 +250,7 @@ suiteReport "Block pool processing" & preset():
       b2Get.get().refs.parent == b1Get.get().refs
 
     dag.updateHead(b2Get.get().refs, quarantine)
+    dag.pruneAtFinalization()
 
     # The heads structure should have been updated to contain only the new
     # b2 head
@@ -277,6 +284,7 @@ suiteReport "Block pool processing" & preset():
       b1Add = dag.addRawBlock(quarantine, b1, nil)
 
     dag.updateHead(b1Add[], quarantine)
+    dag.pruneAtFinalization()
 
     check:
       dag.head == b1Add[]
@@ -371,46 +379,50 @@ suiteReport "chain DAG finalization tests" & preset():
       let added = dag.addRawBlock(quarantine, blck, nil)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
+      dag.pruneAtFinalization()
 
     check:
       dag.heads.len() == 1
 
     let
-      headER = dag.heads[0].findEpochRef(dag.heads[0].slot.epoch)
-      finalER = dag.finalizedHead.blck.findEpochRef(dag.finalizedHead.slot.epoch)
+      headER = dag.findEpochRef(dag.heads[0], dag.heads[0].slot.epoch)
+      finalER = dag.findEpochRef(dag.finalizedHead.blck, dag.finalizedHead.slot.epoch)
     check:
 
       # Epochrefs should share validator key set when the validator set is
       # stable
       not headER.isNil
-      not dag.heads[0].findEpochRef(dag.heads[0].slot.epoch - 1).isNil
+      not dag.findEpochRef(dag.heads[0], dag.heads[0].slot.epoch - 1).isNil
       headER !=
-        dag.heads[0].findEpochRef(dag.heads[0].slot.epoch - 1)
+        dag.findEpochRef(dag.heads[0], dag.heads[0].slot.epoch - 1)
       headER.validator_key_store[1] ==
-        dag.heads[0].findEpochRef(dag.heads[0].slot.epoch - 1).validator_key_store[1]
+        dag.findEpochRef(dag.heads[0], dag.heads[0].slot.epoch - 1).validator_key_store[1]
 
       # The EpochRef for the finalized block is needed for eth1 voting, so we
       # should never drop it!
       not finalER.isNil
 
     block:
-      var cur = dag.heads[0]
-      while cur != nil:
-        if cur.slot < dag.finalizedHead.blck.parent.slot:
-          # Cache should be cleaned on finalization
-          check: cur.epochRefs.len == 0
-        else:
+      for er in dag.epochRefs:
+        check: er[1] == nil or er[1].epoch >= dag.finalizedHead.slot.epoch
+
+        if er[1] != nil:
           # EpochRef validator keystores should back-propagate to all previous
           # epochs
-          for e in cur.epochRefs:
-            check (addr headER.validator_keys) == (addr e.validator_keys)
-        cur = cur.parent
-
+            check (addr headER.validator_keys) == (addr er[1].validator_keys)
     block:
       # The late block is a block whose parent was finalized long ago and thus
       # is no longer a viable head candidate
       let status = dag.addRawBlock(quarantine, lateBlock, nil)
       check: status.error == (ValidationResult.Ignore, Unviable)
+
+    block:
+      let
+        finalizedCheckpoint = dag.finalizedHead.stateCheckpoint
+        headCheckpoint = dag.head.atSlot(dag.head.slot).stateCheckpoint
+      check:
+        db.getStateRoot(headCheckpoint.blck.root, headCheckpoint.slot).isSome
+        db.getStateRoot(finalizedCheckpoint.blck.root, finalizedCheckpoint.slot).isSome
 
     let
       dag2 = init(ChainDAGRef, defaultRuntimePreset, db)
@@ -435,6 +447,7 @@ suiteReport "chain DAG finalization tests" & preset():
       let added = dag.addRawBlock(quarantine, blck, nil)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
+      dag.pruneAtFinalization()
 
     check:
       dag.heads.len() == 1
@@ -474,6 +487,7 @@ suiteReport "chain DAG finalization tests" & preset():
       let added = dag.addRawBlock(quarantine, blck, nil)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
+      dag.pruneAtFinalization()
 
     # Advance past epoch so that the epoch transition is gapped
     check:
@@ -489,6 +503,7 @@ suiteReport "chain DAG finalization tests" & preset():
     let added = dag.addRawBlock(quarantine, blck, nil)
     check: added.isOk()
     dag.updateHead(added[], quarantine)
+    dag.pruneAtFinalization()
 
     let
       dag2 = init(ChainDAGRef, defaultRuntimePreset, db)

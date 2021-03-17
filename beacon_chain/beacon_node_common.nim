@@ -14,16 +14,19 @@ import
   chronos, json_rpc/rpcserver,
 
   # Local modules
-  ./conf, ./time, ./beacon_chain_db, ./attestation_pool, ./eth2_network,
-  ./beacon_node_types, ./eth1_monitor, ./request_manager,
-  ./sync_manager, ./eth2_processor,
-  ./block_pools/[chain_dag, quarantine],
-  ./spec/datatypes
+  ./conf, ./beacon_clock, ./beacon_chain_db,
+  ./beacon_node_types,
+  ./gossip_processing/[eth2_processor, gossip_to_consensus, consensus_manager],
+  ./networking/eth2_network,
+  ./eth1/eth1_monitor,
+  ./consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
+  ./spec/datatypes,
+  ./sync/[sync_manager, request_manager]
 
 export
-  osproc, chronos, rpcserver, conf, time, beacon_chain_db,
+  osproc, chronos, rpcserver, conf, beacon_clock, beacon_chain_db,
   attestation_pool, eth2_network, beacon_node_types, eth1_monitor,
-  request_manager, sync_manager, eth2_processor, chain_dag, quarantine,
+  request_manager, sync_manager, eth2_processor, blockchain_dag, block_quarantine,
   datatypes
 
 type
@@ -37,7 +40,7 @@ type
     netKeys*: KeyPair
     db*: BeaconChainDB
     config*: BeaconNodeConf
-    attachedValidators*: ValidatorPool
+    attachedValidators*: ref ValidatorPool
     chainDag*: ChainDAGRef
     quarantine*: QuarantineRef
     attestationPool*: ref AttestationPool
@@ -51,11 +54,11 @@ type
     syncManager*: SyncManager[Peer, PeerID]
     topicBeaconBlocks*: string
     topicAggregateAndProofs*: string
-    blockProcessingLoop*: Future[void]
-    onSecondLoop*: Future[void]
     genesisSnapshotContent*: string
     attestationSubnets*: AttestationSubnets
     processor*: ref Eth2Processor
+    verifQueues*: ref VerifQueueManager
+    consensusManager*: ref ConsensusManager
     attachedValidatorBalanceTotal*: uint64
 
 const
@@ -75,4 +78,3 @@ proc currentSlot*(node: BeaconNode): Slot =
 
 template runtimePreset*(node: BeaconNode): RuntimePreset =
   node.db.preset
-

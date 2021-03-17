@@ -7,7 +7,7 @@
 
 # Serenity hash function / digest
 #
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#hash
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#hash
 #
 # In Phase 0 the beacon chain is deployed with SHA256 (SHA2-256).
 # Note that is is different from Keccak256 (often mistakenly called SHA3-256)
@@ -32,7 +32,9 @@ import
   blscurve
 
 export
-  hash.`$`, sha2, readValue, writeValue
+  # Exports from sha2 / hash are explicit to avoid exporting upper-case `$` and
+  # constant-time `==`
+  sha2.update, hash.fromHex, readValue, writeValue
 
 type
   Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec
@@ -42,6 +44,9 @@ when BLS_BACKEND == BLST:
   type Eth2DigestCtx* = BLST_SHA256_CTX
 else:
   type Eth2DigestCtx* = sha2.sha256
+
+func `$`*(x: Eth2Digest): string =
+  x.data.toHex()
 
 func shortLog*(x: Eth2Digest): string =
   x.data.toOpenArray(0, 3).toHex()
@@ -99,6 +104,9 @@ template hash*(x: Eth2Digest): Hash =
   cast[ptr Hash](unsafeAddr x.data[0])[]
 
 func `==`*(a, b: Eth2Digest): bool =
-  # nimcrypto uses a constant-time comparison for all MDigest types which for
-  # Eth2Digest is unnecessary - the type should never hold a secret!
-  equalMem(unsafeAddr a.data[0], unsafeAddr b.data[0], sizeof(a.data))
+  when nimvm:
+    a.data == b.data
+  else:
+    # nimcrypto uses a constant-time comparison for all MDigest types which for
+    # Eth2Digest is unnecessary - the type should never hold a secret!
+    equalMem(unsafeAddr a.data[0], unsafeAddr b.data[0], sizeof(a.data))

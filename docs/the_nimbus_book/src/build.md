@@ -27,3 +27,7 @@ To build the Nimbus beacon node and it's dependencies, run:
 make nimbus_beacon_node
 ```
 
+## Updating the node
+
+Make sure you stay on the lookout for any critical updates to Nimbus and [keep your node updated](./keep-updated.md).
+

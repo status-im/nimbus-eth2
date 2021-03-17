@@ -10,7 +10,7 @@
 import unittest, ./testutil
 
 when false:
-  import ../beacon_chain/sync_protocol
+  import ../beacon_chain/sync/sync_protocol
 
 suiteReport "Sync protocol":
   # Compile test

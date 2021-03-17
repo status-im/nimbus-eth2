@@ -13,21 +13,21 @@ import
   stew/shims/[tables, macros],
   chronos, confutils, metrics, json_rpc/[rpcclient, jsonmarshal],
   chronicles,
-  json_serialization/std/[options, sets, net],
+  json_serialization/std/[options, net],
 
   # Local modules
-  spec/[datatypes, digest, crypto, helpers, network, signatures],
-  spec/eth2_apis/beacon_rpc_client,
-  conf, time, version,
-  eth2_network, eth2_discovery, validator_pool, beacon_node_types,
-  attestation_aggregation,
-  nimbus_binary_common,
-  version, ssz/merkleization,
-  sync_manager, keystore_management,
-  spec/eth2_apis/callsigs_types,
-  eth2_json_rpc_serialization,
-  validator_protection/slashing_protection,
-  eth/db/[kvstore, kvstore_sqlite3]
+  ./spec/[datatypes, digest, crypto, helpers, network, signatures],
+  ./spec/eth2_apis/beacon_rpc_client,
+  ./sync/sync_manager,
+  "."/[conf, beacon_clock, version],
+  ./networking/[eth2_network, eth2_discovery],
+  ./rpc/eth2_json_rpc_serialization,
+  ./beacon_node_types,
+  ./nimbus_binary_common,
+  ./ssz/merkleization,
+  ./spec/eth2_apis/callsigs_types,
+  ./validators/[attestation_aggregation, keystore_management, validator_pool, slashing_protection],
+  ./eth/db/[kvstore, kvstore_sqlite3]
 
 logScope: topics = "vc"
 
@@ -162,7 +162,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
           slot = slot,
           existingProposal = notSlashable.error
 
-    # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#attesting
+    # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#attesting
     # A validator should create and broadcast the attestation to the associated
     # attestation subnet when either (a) the validator has received a valid
     # block from the expected block proposer for the assigned slot or
@@ -209,7 +209,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
             validator = a.public_key,
             badVoteDetails = $notSlashable.error
 
-      # https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/validator.md#broadcast-aggregate
+      # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#broadcast-aggregate
       # If the validator is selected to aggregate (is_aggregator), then they
       # broadcast their best aggregate as a SignedAggregateAndProof to the global
       # aggregate channel (beacon_aggregate_and_proof) two-thirds of the way

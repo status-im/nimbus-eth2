@@ -17,10 +17,10 @@ import
   # Internal
   ../beacon_chain/spec/[crypto, datatypes, digest, validator, state_transition,
                         helpers, beaconstate, presets, network],
-  ../beacon_chain/[
-    beacon_node_types, attestation_pool, attestation_aggregation, extras, time],
+  ../beacon_chain/[beacon_node_types, extras, beacon_clock],
+  ../beacon_chain/gossip_processing/gossip_validation,
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
-  ../beacon_chain/block_pools/[quarantine, chain_dag, clearance],
+  ../beacon_chain/consensus_object_pools/[block_quarantine, blockchain_dag, block_clearance, attestation_pool],
   # Test utilities
   ./testutil, ./testblockutil
 
@@ -51,6 +51,11 @@ template wrappedTimedTest(name: string, body: untyped) =
       timedTest name:
         body
     wrappedTest()
+
+proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
+  if dag.needStateCachesAndForkChoicePruning():
+    dag.pruneStateCachesDAG()
+    # pool[].prune() # We test logic without attestation pool / fork choice pruning
 
 suiteReport "Attestation pool processing" & preset():
   ## For now just test that we can compile and execute block processing with
@@ -343,6 +348,7 @@ suiteReport "Attestation pool processing" & preset():
         let head = pool[].selectHead(blockRef[].slot)
         doassert: head == blockRef[]
         chainDag.updateHead(head, quarantine)
+        pruneAtFinalization(chainDag, pool[])
 
         attestations.setlen(0)
         for index in 0'u64 ..< committees_per_slot:
@@ -413,6 +419,7 @@ suiteReport "Attestation validation " & preset():
 
       check: added.isOk()
       chainDag.updateHead(added[], quarantine)
+      pruneAtFinalization(chainDag, pool[])
 
     var
       # Create an attestation for slot 1!

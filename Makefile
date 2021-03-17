@@ -11,8 +11,10 @@ SHELL := bash # the shell used internally by "make"
 BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 
 # we set its default value before LOG_LEVEL is used in "variables.mk"
-BUILD_LOG_LEVEL := DEBUG
-LOG_LEVEL := INFO
+LOG_LEVEL := DEBUG
+
+# used by Make targets that launch a beacon node
+RUNTIME_LOG_LEVEL := INFO
 
 LINK_PCRE := 0
 
@@ -55,6 +57,7 @@ TOOLS := \
 
 TOOLS_DIRS := \
 	beacon_chain \
+	beacon_chain/eth1 \
 	benchmarks \
 	ncli \
 	nbench \
@@ -266,8 +269,8 @@ ifeq ($(DISABLE_TEST_FIXTURES_SCRIPT), 0)
 endif
 	for TEST_BINARY in $(TEST_BINARIES); do \
 		PARAMS=""; \
-		if [[ "$${TEST_BINARY}" == "state_sim" ]]; then PARAMS="--validators=3000 --slots=128"; \
-		elif [[ "$${TEST_BINARY}" == "block_sim" ]]; then PARAMS="--validators=3000 --slots=128"; \
+		if [[ "$${TEST_BINARY}" == "state_sim" ]]; then PARAMS="--validators=6000 --slots=128"; \
+		elif [[ "$${TEST_BINARY}" == "block_sim" ]]; then PARAMS="--validators=6000 --slots=128"; \
 		fi; \
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
 		build/$${TEST_BINARY} $${PARAMS} || { echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Aborting."; exit 1; }; \
@@ -322,7 +325,7 @@ clean-testnet1:
 testnet0 testnet1: | nimbus_beacon_node nimbus_signing_process
 	build/nimbus_beacon_node \
 		--network=$@ \
-		--log-level="$(LOG_LEVEL)" \
+		--log-level="$(RUNTIME_LOG_LEVEL)" \
 		--data-dir=build/data/$@_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
@@ -340,7 +343,7 @@ define CONNECT_TO_NETWORK
 																													--finalized-checkpoint-block=vendor/eth2-testnets/shared/$(1)/recent-finalized-block.ssz" ; }; \
 	$(CPU_LIMIT_CMD) build/$(2) \
 		--network=$(1) \
-		--log-level="$(LOG_LEVEL)" \
+		--log-level="$(RUNTIME_LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
 		$$CHECKPOINT_PARAMS $(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
@@ -373,7 +376,7 @@ define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 
 	$(CPU_LIMIT_CMD) build/$(2) \
 		--network=$(1) \
-		--log-level="$(LOG_LEVEL)" \
+		--log-level="$(RUNTIME_LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
 		--validators-dir=build/data/shared_$(1)_$(NODE_ID)/empty_dummy_folder \
@@ -383,7 +386,7 @@ define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 	sleep 4
 
 	build/nimbus_validator_client \
-		--log-level="$(LOG_LEVEL)" \
+		--log-level="$(RUNTIME_LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_vc_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
 		--rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) ))
@@ -423,7 +426,7 @@ define CLEAN_NETWORK
 endef
 
 ###
-### pyrmont
+### Pyrmont
 ###
 pyrmont-build: | nimbus_beacon_node nimbus_signing_process
 
@@ -436,7 +439,7 @@ pyrmont-vc: | pyrmont-build nimbus_validator_client
 
 ifneq ($(LOG_LEVEL), TRACE)
 pyrmont-dev:
-	+ "$(MAKE)" BUILD_LOG_LEVEL=TRACE LOG_LEVEL=TRACE $@
+	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
 pyrmont-dev: | pyrmont-build
 	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,pyrmont,nimbus_beacon_node)
@@ -447,6 +450,37 @@ pyrmont-dev-deposit: | pyrmont-build deposit_contract
 
 clean-pyrmont:
 	$(call CLEAN_NETWORK,pyrmont)
+
+
+###
+### Prater
+###
+prater-build: | nimbus_beacon_node nimbus_signing_process
+
+# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
+prater: | prater-build
+	$(call CONNECT_TO_NETWORK,prater,nimbus_beacon_node)
+
+prater-vc: | prater-build nimbus_validator_client
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,prater,nimbus_beacon_node)
+
+ifneq ($(LOG_LEVEL), TRACE)
+prater-dev:
+	+ "$(MAKE)" LOG_LEVEL=TRACE $@
+else
+prater-dev: | prater-build
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,prater,nimbus_beacon_node)
+endif
+
+prater-dev-deposit: | prater-build deposit_contract
+	$(call MAKE_DEPOSIT,prater)
+
+clean-prater:
+	$(call CLEAN_NETWORK,prater)
+
+###
+### Other
+###
 
 ctail: | build deps
 	mkdir -p vendor/.nimble/bin/
@@ -508,26 +542,26 @@ publish-book: | book auditors-book
 	rm -rf tmp-book
 
 dist-amd64:
-	MAKE="$(MAKE)" \
+	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh amd64
 
 dist-arm64:
-	MAKE="$(MAKE)" \
+	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh arm64
 
 dist-arm:
-	MAKE="$(MAKE)" \
+	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh arm
 
 dist-win64:
-	MAKE="$(MAKE)" \
+	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh win64
 
 dist:
-	$(MAKE) dist-amd64
-	$(MAKE) dist-arm64
-	$(MAKE) dist-arm
-	$(MAKE) dist-win64
+	+ $(MAKE) dist-amd64
+	+ $(MAKE) dist-arm64
+	+ $(MAKE) dist-arm
+	+ $(MAKE) dist-win64
 
 #- this simple test will show any missing dynamically-linked Glibc symbols in the target distro
 dist-test:

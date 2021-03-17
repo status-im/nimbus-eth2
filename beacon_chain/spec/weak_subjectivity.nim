@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -13,7 +13,7 @@ import
 const
   SAFETY_DECAY* = 10'u64
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/weak-subjectivity.md#calculating-the-weak-subjectivity-period
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/weak-subjectivity.md#calculating-the-weak-subjectivity-period
 func compute_weak_subjectivity_period*(state: BeaconState): uint64 =
   var weak_subjectivity_period = MIN_VALIDATOR_WITHDRAWABILITY_DELAY
   let validator_count = get_active_validator_indices_len(state, get_current_epoch(state))
@@ -23,7 +23,7 @@ func compute_weak_subjectivity_period*(state: BeaconState): uint64 =
     weak_subjectivity_period += SAFETY_DECAY * validator_count div (2 * 100 * MIN_PER_EPOCH_CHURN_LIMIT)
   return weak_subjectivity_period
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/weak-subjectivity.md#checking-for-stale-weak-subjectivity-checkpoint
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/weak-subjectivity.md#checking-for-stale-weak-subjectivity-checkpoint
 func is_within_weak_subjectivity_period*(current_slot: Slot,
                                          ws_state: BeaconState,
                                          ws_checkpoint: Checkpoint): bool =
