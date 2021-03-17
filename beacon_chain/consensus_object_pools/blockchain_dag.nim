@@ -52,6 +52,8 @@ proc updateStateData*(
   cache: var StateCache) {.gcsafe.}
 
 template withStateVars*(stateData: var StateData, body: untyped): untyped =
+  ## Inject a few more descriptive names for the members of `stateData` -
+  ## the stateData instance may get mutated through these names as well
   template hashedState(): HashedBeaconState {.inject, used.} = stateData.data
   template state(): BeaconState {.inject, used.} = stateData.data.data
   template blck(): BlockRef {.inject, used.} = stateData.blck
