@@ -16,7 +16,7 @@ import
   # Nimble packages
   stew/[objects, byteutils, endians2, io2], stew/shims/macros,
   chronos, confutils, metrics, metrics/chronos_httpserver,
-  chronicles, bearssl, blscurve,
+  chronicles, bearssl, blscurve, presto,
   json_serialization/std/[options, sets, net], serialization/errors,
 
   eth/[keys, async_utils], eth/net/nat,
@@ -36,6 +36,8 @@ import
     attestation_aggregation, validator_duties, validator_pool,
     slashing_protection, keystore_management],
   ./sync/[sync_manager, sync_protocol, request_manager],
+  ./rpc/[rest_utils, config_rest_api, debug_rest_api, node_rest_api,
+         beacon_rest_api],
   ./rpc/[beacon_api, config_api, debug_api, event_api, nimbus_api, node_api,
     validator_api],
   ./spec/[
@@ -61,6 +63,16 @@ type
 
 template init(T: type RpcHttpServer, ip: ValidIpAddress, port: Port): T =
   newRpcHttpServer([initTAddress(ip, port)])
+
+template init(T: type RestServerRef, ip: ValidIpAddress, port: Port): T =
+  let address = initTAddress(ip, port)
+  let res = RestServerRef.new(getRouter(), address)
+  if res.isErr():
+    notice "Rest server could not be started", address = $address,
+           reason = res.error()
+    nil
+  else:
+    res.get()
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_slot, "Latest slot of the beacon chain state"
@@ -292,6 +304,11 @@ proc init*(T: type BeaconNode,
   else:
     nil
 
+  let restServer = if config.restEnabled:
+    RestServerRef.init(config.restAddress, config.restPort)
+  else:
+    nil
+
   let
     netKeys = getPersistentNetKeys(rng[], config)
     nickname = if config.nodeName == "auto": shortForm(netKeys)
@@ -365,6 +382,7 @@ proc init*(T: type BeaconNode,
     eth1Monitor: eth1Monitor,
     beaconClock: beaconClock,
     rpcServer: rpcServer,
+    restServer: restServer,
     forkDigest: enrForkId.forkDigest,
     topicBeaconBlocks: topicBeaconBlocks,
     topicAggregateAndProofs: topicAggregateAndProofs,
@@ -1170,6 +1188,15 @@ proc installRpcHandlers(rpcServer: RpcServer, node: BeaconNode) =
     rpcServer.installValidatorApiHandlers(node)
   except Exception as exc: raiseAssert exc.msg # TODO fix json-rpc
 
+proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
+  restServer.router.installBeaconApiHandlers(node)
+  restServer.router.installConfigApiHandlers(node)
+  restServer.router.installDebugApiHandlers(node)
+  # restServer.router.installEventApiHandlers(node)
+  # restServer.router.installNimbusApiHandlers(node)
+  restServer.router.installNodeApiHandlers(node)
+  # restServer.router.installValidatorApiHandlers(node)
+
 proc installMessageValidators(node: BeaconNode) =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # These validators stay around the whole time, regardless of which specific
@@ -1230,9 +1257,13 @@ proc run*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
     # it might have been set to "Stopping" with Ctrl+C
     bnStatus = BeaconNodeStatus.Running
 
-    if node.rpcServer != nil:
+    if not(isNil(node.rpcServer)):
       node.rpcServer.installRpcHandlers(node)
       node.rpcServer.start()
+
+    if not(isNil(node.restServer)):
+      node.restServer.installRestHandlers(node)
+      node.restServer.start()
 
     node.installMessageValidators()
 
