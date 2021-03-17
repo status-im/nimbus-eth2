@@ -44,7 +44,7 @@ The following options are available:
                                addresses.
      --listen-address          Listening address for the Ethereum LibP2P and Discovery v5
                                traffic.
-     --tcp-port                Override default listening TCP port 9000 TCP port for Ethereum LibP2P traffic.
+     --tcp-port                Listening UDP port for node discovery, default is 9000
      --udp-port                Override default listening UDP port 9000 UDP port for node discovery.
      --max-peers               The maximum number of peers to connect to.
      --nat                     Specify method to use for determining public address. Must be
