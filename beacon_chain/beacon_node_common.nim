@@ -11,7 +11,7 @@ import
   std/osproc,
 
   # Nimble packages
-  chronos, json_rpc/servers/httpserver,
+  chronos, json_rpc/servers/httpserver, presto
 
   # Local modules
   ./conf, ./beacon_clock, ./beacon_chain_db,
@@ -47,6 +47,7 @@ type
     eth1Monitor*: Eth1Monitor
     beaconClock*: BeaconClock
     rpcServer*: RpcServer
+    restServer*: RestServerRef
     vcProcess*: Process
     forkDigest*: ForkDigest
     requestManager*: RequestManager
