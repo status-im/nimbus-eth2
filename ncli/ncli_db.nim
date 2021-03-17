@@ -356,7 +356,7 @@ proc cmdExportEra(conf: DbConf, preset: RuntimePreset) =
     var e2s = E2Store.open(".", name, firstSlot).get()
     defer: e2s.close()
 
-    dag.withState(tmpState, canonical):
+    dag.withState(tmpState[], canonical):
       e2s.appendRecord(state).get()
 
     var
