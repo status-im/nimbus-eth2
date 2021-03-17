@@ -8,6 +8,9 @@
 - [Validating with a Raspberry Pi](./pi-guide.md)
 - [Mainnet advice](./pi-guide-mainnet.md)
 
+# Rocket Pool
+- [Introductory guide](./rp-quick-start.md)
+
 # How-to
 - [Install dependencies](./install.md)
 - [Build the beacon node](./build.md)
