@@ -18,6 +18,7 @@ import
   ../beacon_clock,
   "."/[block_pools_types, block_quarantine]
 
+from std/times import getTime, `-`
 export block_pools_types, helpers
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
@@ -883,6 +884,8 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
 
   # Clean up block refs, walking block by block
   if dag.lastPrunePoint != dag.finalizedHead:
+    let start = getTime()
+
     # Finalization means that we choose a single chain as the canonical one -
     # it also means we're no longer interested in any branches from that chain
     # up to the finalization point
@@ -911,8 +914,12 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
 
       dag.heads.del(n)
 
+    let stop = getTime()
+    let dur = stop - start
+
     debug "Pruned the blockchain DAG",
-      currentCandidateHeads = dag.heads.len
+      currentCandidateHeads = dag.heads.len,
+      dagPruningDuration = dur
 
 func needStateCachesAndForkChoicePruning*(dag: ChainDAGRef): bool =
   dag.lastPrunePoint != dag.finalizedHead
@@ -925,6 +932,7 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
   ## This updates the `dag.lastPrunePoint` variable
   doAssert dag.needStateCachesAndForkChoicePruning()
 
+  let startState = getTime()
   block: # Remove states, walking slot by slot
     # We remove all state checkpoints that come _before_ the current finalized
     # head, as we might frequently be asked to replay states from the
@@ -942,7 +950,10 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
       if cur.slot.epoch mod 32 != 0 and cur.slot != dag.tail.slot:
         dag.delState(cur)
       cur = cur.parentOrSlot
+  let stopState = getTime()
+  let durState = stopState - startState
 
+  let startEpochRef = getTime()
   block: # Clean up old EpochRef instances
     # After finalization, we can clear up the epoch cache and save memory -
     # it will be recomputed if needed
@@ -950,10 +961,14 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
       if dag.epochRefs[i][1] != nil and
           dag.epochRefs[i][1].epoch < dag.finalizedHead.slot.epoch:
         dag.epochRefs[i] = (nil, nil)
+  let stopEpochRef = getTime()
+  let durEpochRef = stopEpochRef - startEpochRef
 
   dag.lastPrunePoint = dag.finalizedHead
 
-  debug "Pruned the state checkpoints and DAG caches."
+  debug "Pruned the state checkpoints and DAG caches.",
+    statePruningDur = durState,
+    epochRefPruningDur = durEpochRef
 
 proc updateHead*(
       dag: ChainDAGRef,
