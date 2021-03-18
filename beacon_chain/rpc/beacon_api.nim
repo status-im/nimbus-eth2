@@ -236,7 +236,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
                                           current_epoch)
             if includeFlag:
               var validatorBalance = validator.effective_balance
-              if index < len(state.validators):
+              if index < len(state.balances):
                 validatorBalance = state.balances[index]
               res.add((validator: validator,
                        index: uint64(index),
@@ -267,7 +267,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
                                             current_epoch)
               if includeFlag:
                 var validatorBalance = validator.effective_balance
-                if index < len(state.validators):
+                if index < len(state.balances):
                   validatorBalance = state.balances[index]
                 res.add((validator: validator,
                          index: uint64(index),
@@ -300,7 +300,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
             let sres = validator.getStatus(current_epoch)
             if sres.isOk:
               var validatorBalance = validator.effective_balance
-              if index < len(state.validators):
+              if index < len(state.balances):
                 validatorBalance = state.balances[index] 
               return (validator: validator, index: uint64(index),
                       status: sres.get(), balance: validatorBalance)
@@ -333,7 +333,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
         for index, validator in state.validators.pairs():
           if validator.pubkey in vquery.keyset:
             var validatorBalance = validator.effective_balance
-            if index < len(state.validators):
+            if index < len(state.balances):
               validatorBalance = state.balances[index] 
             let balance = (index: uint64(index),
                            balance: validatorBalance)
