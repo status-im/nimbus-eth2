@@ -4,6 +4,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+import ../spec/datatypes except readValue, writeValue
 import
   std/[typetraits, sequtils, strutils, deques, sets, options],
   stew/[results, base10],
@@ -14,8 +15,6 @@ import
   ../spec/[crypto, digest, validator],
   ../ssz/merkleization,
   ./rest_utils
-
-import ../spec/datatypes except readValue, writeValue
 
 logScope: topics = "rest_beaconapi"
 
@@ -290,19 +289,37 @@ proc readValue*(reader: var JsonReader, value: var Slot)
   else:
     reader.raiseUnexpectedValue($res.error())
 
-# proc readValue*(reader: var JsonReader, value: var ValidatorIndex)
-#                {.raises: [IOError, SerializationError, Defect].} =
-#   let svalue = reader.readValue(string)
-#   let res = Base10.decode(uint64, svalue)
-#   if res.isOk():
-#     let v = res.get()
-#     if v < VALIDATOR_REGISTRY_LIMIT:
-#       value = ValidatorIndex(v)
-#     else:
-#       reader.raiseUnexpectedValue(
-#         "Validator index is bigger then VALIDATOR_REGISTRY_LIMIT")
-#   else:
-#     reader.raiseUnexpectedValue($res.error())
+proc readValue*(reader: var JsonReader, value: var uint64)
+               {.raises: [IOError, SerializationError, Defect].} =
+  let svalue = reader.readValue(string)
+  let res = Base10.decode(uint64, svalue)
+  if res.isOk():
+    value = res.get()
+  else:
+    reader.raiseUnexpectedValue($res.error())
+
+proc readValue*(reader: var JsonReader, value: var uint32)
+               {.raises: [IOError, SerializationError, Defect].} =
+  let svalue = reader.readValue(string)
+  let res = Base10.decode(uint32, svalue)
+  if res.isOk():
+    value = res.get()
+  else:
+    reader.raiseUnexpectedValue($res.error())
+
+proc readValue*(reader: var JsonReader, value: var ValidatorIndex)
+               {.raises: [IOError, SerializationError, Defect].} =
+  let svalue = reader.readValue(string)
+  let res = Base10.decode(uint64, svalue)
+  if res.isOk():
+    let v = res.get()
+    if v < VALIDATOR_REGISTRY_LIMIT:
+      value = ValidatorIndex(v)
+    else:
+      reader.raiseUnexpectedValue(
+        "Validator index is bigger then VALIDATOR_REGISTRY_LIMIT")
+  else:
+    reader.raiseUnexpectedValue($res.error())
 
 proc decodeBody*[T](t: typedesc[T],
                     body: ContentBody): Result[T, cstring] =
