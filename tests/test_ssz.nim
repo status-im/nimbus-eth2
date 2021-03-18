@@ -8,7 +8,9 @@
 {.used.}
 
 import
-  unittest, options, json_serialization,
+  std/[unittest, options],
+  nimcrypto/hash,
+  json_serialization,
   serialization/testing/generic_suite,
   ./testutil,
   ../beacon_chain/spec/[datatypes, digest],
@@ -94,7 +96,7 @@ suiteReport "SSZ navigator":
     leaves.add b
     leaves.add c
     let root = hash_tree_root(leaves)
-    check $root == "5248085B588FAB1DD1E03F3CD62201602B12E6560665935964F46E805977E8C5"
+    check $root == "5248085b588fab1dd1e03f3cd62201602b12e6560665935964f46e805977e8c5"
 
     while leaves.len < 1 shl 3:
       leaves.add c

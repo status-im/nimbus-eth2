@@ -248,7 +248,12 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     head: BlockRef,
                                     slot: Slot): Option[BeaconBlock] =
   # Advance state to the slot that we're proposing for
-  node.chainDag.withState(node.chainDag.tmpState, head.atSlot(slot)):
+
+  let
+    proposalState = assignClone(node.chainDag.headState)
+    proposalStateAddr = unsafeAddr proposalState[]
+
+  node.chainDag.withState(proposalState[], head.atSlot(slot)):
     let
       eth1Proposal = node.getBlockProposalEth1Data(state)
       poolPtr = unsafeAddr node.chainDag # safe because restore is short-lived
@@ -261,8 +266,8 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       # TODO address this ugly workaround - there should probably be a
       #      `state_transition` that takes a `StateData` instead and updates
       #      the block as well
-      doAssert v.addr == addr poolPtr.tmpState.data
-      assign(poolPtr.tmpState, poolPtr.headState)
+      doAssert v.addr == addr proposalStateAddr.data
+      assign(proposalStateAddr[], poolPtr.headState)
 
     makeBeaconBlock(
       node.runtimePreset,

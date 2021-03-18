@@ -17,10 +17,10 @@ build-amd64:
 	$(CURDIR)/make_base_image.sh amd64 "$(IMAGE_NAME)"
 
 build-arm64:
-	$(CURDIR)/make_base_image.sh arm64 "$(IMAGE_NAME)_arm64"
+	$(CURDIR)/make_base_image.sh arm64 "$(IMAGE_NAME)_arm64_v2"
 
 build-arm:
-	$(CURDIR)/make_base_image.sh arm "$(IMAGE_NAME)_arm"
+	$(CURDIR)/make_base_image.sh arm "$(IMAGE_NAME)_arm_v2"
 
 build-win64:
 	$(CURDIR)/make_base_image.sh win64 "$(IMAGE_NAME)_win64"
@@ -33,10 +33,10 @@ build-win64:
 #	docker push $(IMAGE_NAME)
 
 #push-arm64: build-arm64
-#	docker push $(IMAGE_NAME)_arm64
+#	docker push $(IMAGE_NAME)_arm64_v2
 
 #push-arm: build-arm
-#	docker push $(IMAGE_NAME)_arm
+#	docker push $(IMAGE_NAME)_arm_v2
 
 #push-win64: build-win64
 #	docker push $(IMAGE_NAME)_win64

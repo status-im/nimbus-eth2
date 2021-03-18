@@ -29,31 +29,68 @@ if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
     -j$(nproc) \
     USE_LIBBACKTRACE=0 \
     QUICK_AND_DIRTY_COMPILER=1 \
-    deps
-  make \
-    -C vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc \
-    -f Makefile.mingw \
-    clean &>/dev/null
+    deps-common build/generate_makefile
+  # This can be reduced to `make CC=... ...` when it becomes possible to
+  # replace `CC=gcc` with `CC=$(CC)` in "vendor/nimbus-build-system/makefiles/targets.mk".
+  CC=x86_64-w64-mingw32.static-gcc
+  CXX=x86_64-w64-mingw32.static-g++
   make \
     -j$(nproc) \
     -C vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc \
     -f Makefile.mingw \
-    CC=x86_64-w64-mingw32.static-gcc \
+    CC="${CC}" \
     libminiupnpc.a &>/dev/null
   make \
-    -C vendor/nim-nat-traversal/vendor/libnatpmp-upstream \
-    clean &>/dev/null
-  make \
     -j$(nproc) \
     -C vendor/nim-nat-traversal/vendor/libnatpmp-upstream \
-    CC=x86_64-w64-mingw32.static-gcc \
+    CC="${CC}" \
     CFLAGS="-Wall -Os -DWIN32 -DNATPMP_STATICLIB -DENABLE_STRNATPMPERR -DNATPMP_MAX_RETRIES=4 ${CFLAGS}" \
     libnatpmp.a &>/dev/null
+  # We set CXX and add CXXFLAGS for libunwind's C++ code, even though we don't
+  # use those C++ objects. I don't see an easy way of disabling the C++ parts in
+  # libunwind itself.
+  #
+  # "libunwind.a" combines objects produced from C and C++ code. Even though we
+  # don't link any C++-generated objects, the linker still checks them for
+  # undefined symbols, so we're forced to use g++ as a linker wrapper.
+  # For some reason, macOS's Clang doesn't need this trick, nor do native (and
+  # newer) Mingw-w64 toolchains on Windows.
+  make \
+    -j$(nproc) \
+    CC="${CC}" \
+    CXX="${CXX}" \
+    CXXFLAGS="${CXXFLAGS} -D__STDC_FORMAT_MACROS -D_WIN32_WINNT=0x0600" \
+    USE_VENDORED_LIBUNWIND=1 \
+    LOG_LEVEL="TRACE" \
+    NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --os:windows --gcc.exe=${CC} --gcc.linkerexe=${CXX} --passL:-static" \
+    ${BINARIES}
+elif [[ "${PLATFORM}" == "Linux_arm32v7" ]]; then
+  CC="arm-linux-gnueabihf-gcc"
   make \
     -j$(nproc) \
     USE_LIBBACKTRACE=0 \
+    QUICK_AND_DIRTY_COMPILER=1 \
+    deps-common build/generate_makefile
+  make \
+    -j$(nproc) \
     LOG_LEVEL="TRACE" \
-    NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --os:windows --gcc.exe=x86_64-w64-mingw32.static-gcc --gcc.linkerexe=x86_64-w64-mingw32.static-gcc --passL:-static" \
+    CC="${CC}" \
+    NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --cpu:arm --gcc.exe=${CC} --gcc.linkerexe=${CC}" \
+    PARTIAL_STATIC_LINKING=1 \
+    ${BINARIES}
+elif [[ "${PLATFORM}" == "Linux_arm64v8" ]]; then
+  CC="aarch64-linux-gnu-gcc"
+  make \
+    -j$(nproc) \
+    USE_LIBBACKTRACE=0 \
+    QUICK_AND_DIRTY_COMPILER=1 \
+    deps-common build/generate_makefile
+  make \
+    -j$(nproc) \
+    LOG_LEVEL="TRACE" \
+    CC="${CC}" \
+    NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --cpu:arm64 --gcc.exe=${CC} --gcc.linkerexe=${CC}" \
+    PARTIAL_STATIC_LINKING=1 \
     ${BINARIES}
 else
   make \
