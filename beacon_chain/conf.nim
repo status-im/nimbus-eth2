@@ -32,7 +32,7 @@ type
     list    = "Lists details about all wallets"
 
   DepositsCmd* {.pure.} = enum
-    # create   = "Creates validator keystores and deposits"
+    create   = "Creates validator keystores and deposits"
     `import` = "Imports password-protected keystores interactively"
     # status   = "Displays status information about all deposits"
     exit     = "Submits a validator voluntary exit"
@@ -361,7 +361,6 @@ type
 
     of deposits:
       case depositsCmd* {.command.}: DepositsCmd
-      #[
       of DepositsCmd.create:
         totalDeposits* {.
           defaultValue: 1
@@ -394,9 +393,10 @@ type
           desc: "Output wallet file"
           name: "new-wallet-file" }: Option[OutFile]
 
+      #[
       of DepositsCmd.status:
         discard
-      #]#
+      ]#
 
       of DepositsCmd.`import`:
         importedDepositsDir* {.
@@ -636,10 +636,11 @@ func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
     of WalletsCmd.restore: config.restoredWalletNameFlag
     of WalletsCmd.list: fail()
   of deposits:
-    # TODO: Uncomment when the deposits create command is restored
-    #case config.depositsCmd
-    #of DepositsCmd.create: config.newWalletNameFlag
-    #else: fail()
+    #[
+    case config.depositsCmd
+    of DepositsCmd.create: config.newWalletNameFlag
+    else: fail()
+    ]#
     fail()
   else:
     fail()
@@ -655,10 +656,11 @@ func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
     of WalletsCmd.restore: config.restoredWalletFileFlag
     of WalletsCmd.list: fail()
   of deposits:
-    # TODO: Uncomment when the deposits create command is restored
-    #case config.depositsCmd
-    #of DepositsCmd.create: config.newWalletFileFlag
-    #else: fail()
+    #[
+    case config.depositsCmd
+    of DepositsCmd.create: config.newWalletFileFlag
+    else: fail()
+    ]#
     fail()
   else:
     fail()

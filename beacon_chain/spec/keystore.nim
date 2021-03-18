@@ -152,14 +152,14 @@ const
 
   scryptParams = ScryptParams(
     dklen: uint64 keyLen,
-    n: 2^18,
+    n: 1, # 2^18,
     p: 1,
     r: 8
   )
 
   pbkdf2Params = Pbkdf2Params(
     dklen: uint64 keyLen,
-    c: uint64(2^18),
+    c: 1, # uint64(2^18),
     prf: HmacSha256
   )
 
