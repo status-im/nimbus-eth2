@@ -71,6 +71,12 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
+func getSizeofSig(x: auto, n: int = 0): seq[(string, int, int)] =
+  for name, value in x.fieldPairs:
+    when value is tuple|object:
+      result.add getSizeofSig(value, n + 1)
+    result.add((name, sizeof(value), n))
+
 static:
   # Each of these pairs of types has ABI-compatible memory representations, so
   # that the SSZ serialization can read and write directly from an object with
@@ -78,6 +84,10 @@ static:
   # any extra copies.
   doAssert sizeof(Validator) == sizeof(ValidatorStatus)
   doAssert sizeof(BeaconState) == sizeof(BeaconStateNoImmutableValidators)
+  doAssert getSizeofSig(Validator()) ==
+    getSizeofSig(ValidatorStatus())
+  doAssert getSizeofSig(BeaconState()) ==
+    getSizeofSig(BeaconStateNoImmutableValidators())
 
 proc loadImmutableValidators*(dbSeq: var auto): seq[ImmutableValidatorData] =
   for i in 0 ..< dbSeq.len:
