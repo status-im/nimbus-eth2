@@ -40,10 +40,10 @@ type
 
   FixedSizedWriterCtx = object
 
-serializationFormat SSZ,
-                    Reader = SszReader,
-                    Writer = SszWriter,
-                    PreferedOutput = seq[byte]
+serializationFormat SSZ
+
+SSZ.setReader SszReader
+SSZ.setWriter SszWriter, PreferredOutput = seq[byte]
 
 template sizePrefixed*[TT](x: TT): untyped =
   type T = TT

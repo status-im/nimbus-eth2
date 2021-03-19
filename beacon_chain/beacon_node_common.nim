@@ -31,13 +31,12 @@ export
 
 type
   RpcServer* = RpcHttpServer
-  KeyPair* = eth2_network.KeyPair
 
   BeaconNode* = ref object
     nickname*: string
     graffitiBytes*: GraffitiBytes
     network*: Eth2Node
-    netKeys*: KeyPair
+    netKeys*: NetKeyPair
     db*: BeaconChainDB
     config*: BeaconNodeConf
     attachedValidators*: ref ValidatorPool

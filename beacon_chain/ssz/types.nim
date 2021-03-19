@@ -75,6 +75,11 @@ template layer*(vIdx: int64): int =
   ## index 0 for the mixed-in-length
   log2trunc(vIdx.uint64).int
 
+func hashListIndicesLen(maxChunkIdx: int64): int =
+  # TODO: This exists only to work-around a compilation issue when the complex
+  # expression is used directly in the HastList array size definition below
+  int(layer(maxChunkIdx)) + 1
+
 type
   List*[T; maxLen: static Limit] = distinct seq[T]
   BitList*[maxLen: static Limit] = distinct BitSeq
@@ -86,7 +91,7 @@ type
   HashList*[T; maxLen: static Limit] = object
     data*: List[T, maxLen]
     hashes* {.dontSerialize.}: seq[Eth2Digest]
-    indices* {.dontSerialize.}: array[int(layer(maxChunkIdx(T, maxLen))) + 1, int64]
+    indices* {.dontSerialize.}: array[hashListIndicesLen(maxChunkIdx(T, maxLen)), int64]
 
   # Note for readers:
   # We use `array` for `Vector` and

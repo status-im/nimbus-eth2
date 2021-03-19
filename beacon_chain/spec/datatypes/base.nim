@@ -126,7 +126,7 @@ type
     DOMAIN_SYNC_COMMITTEE = 7
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#custom-types
-  Domain* = array[32, byte]
+  Eth2Domain* = array[32, byte]
 
   # https://github.com/nim-lang/Nim/issues/574 and be consistent across
   # 32-bit and 64-bit word platforms.
@@ -324,7 +324,7 @@ type
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#signingdata
   SigningData* = object
     object_root*: Eth2Digest
-    domain*: Domain
+    domain*: Eth2Domain
 
   GraffitiBytes* = distinct array[MAX_GRAFFITI_SIZE, byte]
 
@@ -728,6 +728,14 @@ proc writeValue*(writer: var JsonWriter, value: CommitteeIndex)
 proc readValue*(reader: var JsonReader, value: var CommitteeIndex)
                {.raises: [IOError, SerializationError, Defect].} =
   value = CommitteeIndex reader.readValue(distinctBase CommitteeIndex)
+
+proc writeValue*(writer: var JsonWriter, value: HashList)
+                {.raises: [IOError, SerializationError, Defect].} =
+  writeValue(writer, value.data)
+
+proc readValue*(reader: var JsonReader, value: var HashList)
+               {.raises: [IOError, SerializationError, Defect].} =
+  readValue(reader, value.data)
 
 template writeValue*(writer: var JsonWriter, value: Version | ForkDigest) =
   writeValue(writer, $value)

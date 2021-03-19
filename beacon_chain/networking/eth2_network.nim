@@ -40,7 +40,7 @@ logScope:
   topics = "networking"
 
 type
-  KeyPair* = crypto.KeyPair
+  NetKeyPair* = crypto.KeyPair
   PublicKey* = crypto.PublicKey
   PrivateKey* = crypto.PrivateKey
 
@@ -1368,7 +1368,7 @@ template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
 proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
-                           config: BeaconNodeConf): KeyPair =
+                           config: BeaconNodeConf): NetKeyPair =
   case config.cmd
   of noCommand, record:
     if config.netKeyFile == "random":
@@ -1384,7 +1384,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
         quit QuitFailure
       info "Generating new networking key", network_public_key = pubKey,
                                             network_peer_id = $pres.get()
-      return KeyPair(seckey: privKey, pubkey: privKey.getKey().tryGet())
+      return NetKeyPair(seckey: privKey, pubkey: privKey.getKey().tryGet())
     else:
       let keyPath =
         if isAbsolute(config.netKeyFile):
@@ -1410,7 +1410,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
         let pubKey = privKey.getKey().tryGet()
         info "Network key storage was successfully unlocked",
              key_path = keyPath, network_public_key = pubKey
-        return KeyPair(seckey: privKey, pubkey: pubKey)
+        return NetKeyPair(seckey: privKey, pubkey: pubKey)
       else:
         info "Network key storage is missing, creating a new one",
              key_path = keyPath
@@ -1436,7 +1436,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
 
         info "New network key storage was created", key_path = keyPath,
              network_public_key = pubKey
-        return KeyPair(seckey: privKey, pubkey: pubKey)
+        return NetKeyPair(seckey: privKey, pubkey: pubKey)
 
   of createTestnet:
     if config.netKeyFile == "random":
@@ -1472,7 +1472,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
     info "New network key storage was created", key_path = keyPath,
          network_public_key = pubKey
 
-    return KeyPair(seckey: privKey, pubkey: privkey.getKey().tryGet())
+    return NetKeyPair(seckey: privKey, pubkey: privkey.getKey().tryGet())
   else:
     let res = PrivateKey.random(Secp256k1, rng)
     if res.isErr():
@@ -1480,7 +1480,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
       quit QuitFailure
 
     let privKey = res.get()
-    return KeyPair(seckey: privKey, pubkey: privkey.getKey().tryGet())
+    return NetKeyPair(seckey: privKey, pubkey: privkey.getKey().tryGet())
 
 func gossipId(data: openArray[byte], valid: bool): seq[byte] =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#topics-and-messages
@@ -1529,7 +1529,7 @@ proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
 
 proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      config: BeaconNodeConf,
-                     netKeys: KeyPair,
+                     netKeys: NetKeyPair,
                      enrForkId: ENRForkID): Eth2Node =
   var
     (extIp, extTcpPort, extUdpPort) = setupAddress(config.nat,
@@ -1611,7 +1611,7 @@ proc announcedENR*(node: Eth2Node): enr.Record =
   doAssert node.discovery != nil, "The Eth2Node must be initialized"
   node.discovery.localNode.record
 
-proc shortForm*(id: KeyPair): string =
+proc shortForm*(id: NetKeyPair): string =
   $PeerID.init(id.pubkey)
 
 proc subscribe*(node: Eth2Node, topic: string, topicParams: TopicParams, enableTopicMetrics: bool = false) =
