@@ -25,7 +25,7 @@ type
   BLSSignMsgInput = object
     privkey*: ValidatorPrivKey
     message*: seq[byte]
-    domain*: Domain
+    domain*: Eth2Domain
 
   BLSSignMsg* = object
     input*: BLSSignMsgInput
@@ -39,8 +39,8 @@ type
     input*: seq[ValidatorPubKey]
     output*: ValidatorPubKey
 
-proc readValue*(r: var JsonReader, a: var Domain) =
-  ## Custom deserializer for Domain
+proc readValue*(r: var JsonReader, a: var Eth2Domain) =
+  ## Custom deserializer for Eth2Domain
   # Furthermore Nim parseHex doesn't support uint
   # until https://github.com/nim-lang/Nim/pull/11067
   # (0.20)

@@ -17,11 +17,6 @@ import
   # Internal
   ./datatypes, ./digest, ./crypto, ../ssz/merkleization
 
-type
-  # This solves an ambiguous identifier Error in some contexts
-  # (other candidate is nativesockets.Domain)
-  Domain = datatypes.Domain
-
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
   ## Return the largest integer ``x`` such that ``x**2 <= n``.
@@ -129,7 +124,7 @@ func compute_fork_digest*(current_version: Version,
 func compute_domain*(
     domain_type: DomainType,
     fork_version: Version,
-    genesis_validators_root: Eth2Digest = ZERO_HASH): Domain =
+    genesis_validators_root: Eth2Digest = ZERO_HASH): Eth2Domain =
   ## Return the domain for the ``domain_type`` and ``fork_version``.
   let fork_data_root =
     compute_fork_data_root(fork_version, genesis_validators_root)
@@ -138,7 +133,10 @@ func compute_domain*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_domain
 func get_domain*(
-    fork: Fork, domain_type: DomainType, epoch: Epoch, genesis_validators_root: Eth2Digest): Domain =
+    fork: Fork,
+    domain_type: DomainType,
+    epoch: Epoch,
+    genesis_validators_root: Eth2Digest): Eth2Domain =
   ## Return the signature domain (fork version concatenated with domain type)
   ## of a message.
   let fork_version =
@@ -149,13 +147,13 @@ func get_domain*(
   compute_domain(domain_type, fork_version, genesis_validators_root)
 
 func get_domain*(
-    state: BeaconState, domain_type: DomainType, epoch: Epoch): Domain =
+    state: BeaconState, domain_type: DomainType, epoch: Epoch): Eth2Domain =
   ## Return the signature domain (fork version concatenated with domain type)
   ## of a message.
   get_domain(state.fork, domain_type, epoch, state.genesis_validators_root)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#compute_signing_root
-func compute_signing_root*(ssz_object: auto, domain: Domain): Eth2Digest =
+func compute_signing_root*(ssz_object: auto, domain: Eth2Domain): Eth2Digest =
   ## Return the signing root of an object by calculating the root of the
   ## object-domain tree.
   let domain_wrapped_object = SigningData(

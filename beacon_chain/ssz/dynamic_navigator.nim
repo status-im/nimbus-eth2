@@ -51,7 +51,7 @@ type
 
 proc jsonPrinterImpl[T](m: MemRange, outStream: OutputStream, pretty: bool) {.raisesssz.} =
   var typedNavigator = sszMount(m, T)
-  var jsonWriter = init(JsonWriter, outStream, pretty)
+  var jsonWriter = Json.Writer.init(outStream, pretty)
   # TODO: it should be possible to serialize the navigator object
   #       without dereferencing it (to avoid the intermediate value).
   writeValue(jsonWriter, typedNavigator[])

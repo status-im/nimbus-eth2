@@ -237,7 +237,7 @@ proc writeValue*(writer: var JsonWriter, value: PubKey0x)
 proc readValue*(reader: var JsonReader, value: var PubKey0x)
                {.raises: [SerializationError, IOError, Defect].} =
   try:
-    value = PubKey0x reader.readValue(string).hexToByteArray[:RawPubKeySize]()
+    value = PubKey0x reader.readValue(string).hexToByteArray(RawPubKeySize)
   except ValueError:
     raiseUnexpectedValue(reader, "Hex string expected")
 
