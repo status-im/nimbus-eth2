@@ -5,8 +5,6 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
-
 import
   std/math,
   stew/results,
@@ -37,7 +35,7 @@ type
     v: Attestation
     attesting_indices: seq[ValidatorIndex]
 
-  AggregateEntry* = AttestationEntry
+  AggregateEntry = AttestationEntry
 
   VerifQueueManager* = object
     ## This manages the queues of blocks and attestations.
@@ -70,6 +68,9 @@ type
     # Producers
     # ----------------------------------------------------------------
     blocksQueue*: AsyncQueue[BlockEntry] # Exported for "test_sync_manager"
+    # TODO:
+    #   is there a point to separate
+    #   attestations & aggregates here?
     attestationsQueue: AsyncQueue[AttestationEntry]
     aggregatesQueue: AsyncQueue[AggregateEntry]
 
@@ -77,6 +78,19 @@ type
     # ----------------------------------------------------------------
     consensusManager: ref ConsensusManager
       ## Blockchain DAG, AttestationPool and Quarantine
+
+{.push raises: [Defect].}
+
+const
+  # We cap waiting for an idle slot in case there's a lot of network traffic
+  # taking up all CPU - we don't want to _completely_ stop processing blocks
+  # in this case (attestations will get dropped) - doing so also allows us
+  # to benefit from more batching / larger network reads when under load.
+  BatchAttAccumTime* = 10.milliseconds
+
+  # Attestation processing is fairly quick and therefore done in batches to
+  # avoid some of the `Future` overhead
+  BatchedAttSize* = 16
 
 # Initialization
 # ------------------------------------------------------------------------------
@@ -336,18 +350,8 @@ proc runQueueProcessingLoop*(self: ref VerifQueueManager) {.async.} =
     # we run both networking and CPU-heavy things like block processing
     # on the same thread, we need to make sure that there is steady progress
     # on the networking side or we get long lockups that lead to timeouts.
-    const
-      # We cap waiting for an idle slot in case there's a lot of network traffic
-      # taking up all CPU - we don't want to _completely_ stop processing blocks
-      # in this case (attestations will get dropped) - doing so also allows us
-      # to benefit from more batching / larger network reads when under load.
-      idleTimeout = 10.milliseconds
 
-      # Attestation processing is fairly quick and therefore done in batches to
-      # avoid some of the `Future` overhead
-      attestationBatch = 16
-
-    discard await idleAsync().withTimeout(idleTimeout)
+    discard await idleAsync().withTimeout(BatchAttAccumTime)
 
     # Avoid one more `await` when there's work to do
     if not (blockFut.finished or aggregateFut.finished or attestationFut.finished):
@@ -364,7 +368,7 @@ proc runQueueProcessingLoop*(self: ref VerifQueueManager) {.async.} =
     elif aggregateFut.finished:
       # aggregates will be dropped under heavy load on producer side
       self[].processAggregate(aggregateFut.read())
-      for i in 0..<attestationBatch: # process a few at a time - this is fairly fast
+      for i in 0..<BatchedAttSize: # process a few at a time - this is fairly fast
         if self[].aggregatesQueue.empty():
           break
         self[].processAggregate(self[].aggregatesQueue.popFirstNoWait())
@@ -374,7 +378,7 @@ proc runQueueProcessingLoop*(self: ref VerifQueueManager) {.async.} =
       # attestations will be dropped under heavy load on producer side
       self[].processAttestation(attestationFut.read())
 
-      for i in 0..<attestationBatch: # process a few at a time - this is fairly fast
+      for i in 0..<BatchedAttSize: # process a few at a time - this is fairly fast
         if self[].attestationsQueue.empty():
           break
         self[].processAttestation(self[].attestationsQueue.popFirstNoWait())

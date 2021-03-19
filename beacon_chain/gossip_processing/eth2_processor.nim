@@ -10,8 +10,9 @@
 import
   std/tables,
   stew/results,
+  eth/keys,
   chronicles, chronos, metrics,
-  ../spec/[crypto, datatypes, digest],
+  ../spec/[crypto, datatypes, digest, signatures_batch],
   ../consensus_object_pools/[block_clearance, blockchain_dag, exit_pool, attestation_pool],
   ./gossip_validation, ./gossip_to_consensus,
   ../validators/validator_pool,
@@ -70,6 +71,14 @@ type
     # ----------------------------------------------------------------
     exitPool: ref ExitPool
 
+    # Almost validated, pending cryptographic signature check
+    # ----------------------------------------------------------------
+    pendingAttestationCrypto: PendingAttestationsCrypto
+    sigVerifCache: BatchedBLSVerifierCache ##\
+    ## A cache for batch BLS signature verification contexts
+    rng*: ref BrHmacDrbgContext  ##\
+    ## A reference to the Nimbus application-wide RNG
+
     # Missing information
     # ----------------------------------------------------------------
     quarantine*: QuarantineRef
@@ -96,6 +105,103 @@ proc new*(T: type Eth2Processor,
     validatorPool: validatorPool,
     quarantine: quarantine
   )
+
+# Buffer for crypto checks
+# -----------------------------------------------------------------------------------
+
+func clear(atts: var PendingAttestationsCrypto) =
+  ## Empty the crypto-pending attestations & aggregate queues
+  atts.pendingBuffer.setLen(0)
+  atts.resultsBuffer.setLen(0)
+
+proc done(atts: var PendingAttestationsCrypto, idx: int) =
+  ## Send signal to [Attestation/Aggregate]Validator
+  ## that the attestation was crypto-verified (and so gossip validated)
+  ## with success
+  atts.resultsBuffer[idx].complete(Result[void, cstring].ok())
+
+proc fail(atts: var PendingAttestationsCrypto, idx: int, error: cstring) =
+  ## Send signal to [Attestation/Aggregate]Validator
+  ## that the attestation was NOT crypto-verified (and so NOT gossip validated)
+  atts.resultsBuffer[idx].complete(Result[void, cstring].err(error))
+
+proc complete(atts: var PendingAttestationsCrypto, idx: int, res: Result[void, cstring]) =
+  ## Send signal to [Attestation/Aggregate]Validator
+  atts.resultsBuffer[idx].complete(res)
+
+proc processPendingAttCrypto(self: var Eth2Processor) =
+  ## Drain all attestations waiting for crypto verifications
+  ##
+  ## This is called:
+  ## - every 10ms (BatchAttAccumTime)
+  ## - when 16 attestations are buffered (BatchedAttSize)
+  ##
+  ## TODO:
+  ## At the moment, draining on 16 atts doesn't extend the 10ms timer
+  ## Hence we could reach 16 atts at 9ms and then 1ms later not have enough
+  ## attestation.
+  ## In practice:
+  ## - only 2 attestations are needed to amortize the cost of batching
+  ## - verifying 16 attestations should take over 10ms
+  ## - having 16+ attestations per 10ms happens only during bursts
+
+  doAssert self.pendingAttestationCrypto.pendingBuffer.len ==
+             self.pendingAttestationCrypto.resultsBuffer.len
+
+  if self.pendingAttestationCrypto.pendingBuffer.len == 0:
+    return
+
+  var secureRandomBytes: array[32, byte]
+  self.rng[].brHmacDrbgGenerate(secureRandomBytes)
+
+  # TODO: For now only enable serial batch verification
+  let ok = batchVerifySerial(
+    self.sigVerifCache,
+    self.pendingAttestationCrypto.pendingBuffer,
+    secureRandomBytes)
+
+  trace "Batch attestations & aggregate crypto verification",
+    batchSize = buf.pendingBuffer.len,
+    cryptoVerified = ok
+
+  if ok:
+    for i in 0 ..< self.pendingAttestationCrypto.resultsBuffer.len:
+      self.pendingAttestationCrypto.done(i)
+  else:
+    trace "Batch verification failure - falling back",
+      batchSize = buf.pendingBuffer.len
+    for i in 0 ..< self.pendingAttestationCrypto.pendingBuffer.len:
+      let ok = blsVerify self.pendingAttestationCrypto.pendingBuffer[i]
+      if ok:
+        self.pendingAttestationCrypto.done(i)
+      else:
+        self.pendingAttestationCrypto.fail(i, "batch crypto verification: invalid signature")
+
+  self.pendingAttestationCrypto.clear()
+
+proc processPendingAttCryptoIf(self: var Eth2Processor, threshold: int) =
+  ## Drain all attestations waiting for crypto verifications
+  ## if a threashold is reached
+  if self.pendingAttestationCrypto.pendingBuffer.len >= threshold:
+    trace "Threshold reach - force batch verification",
+      threshold = threshold
+    self.processPendingAttCrypto()
+
+{.pop.}
+
+proc runAttQueueProcessingLoop*(self: ref Eth2Processor) {.async.} =
+  ## Drain the attestation processing buffer every 10ms
+
+  while true:
+    # Cooperative concurrency: one idle calculation step per loop - because
+    # we run both networking and CPU-heavy things like block processing
+    # on the same thread, we need to make sure that there is steady progress
+    # on the networking side or we get long lockups that lead to timeouts.
+
+    discard await idleAsync().withTimeout(BatchAttAccumTime)
+    self[].processPendingAttCrypto()
+
+{.push raises: [Defect].}
 
 # Gossip Management
 # -----------------------------------------------------------------------------------
@@ -201,7 +307,13 @@ proc attestationValidator*(
   # Potential under/overflows are fine; would just create odd metrics and logs
   let delay = wallTime - attestation.data.slot.toBeaconTime
   debug "Attestation received", delay
+
+  # Empty the batch attestation crypto if needed
+  self.processPendingAttCryptoIf(threshold = BatchedAttSize)
+
+  # Now proceed to validation
   let v = self.attestationPool[].validateAttestation(
+      self.pendingAttestationCrypto,
       attestation, wallTime, committeeIndex, checksExpensive)
   if v.isErr():
     debug "Dropping attestation", err = v.error()

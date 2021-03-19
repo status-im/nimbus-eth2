@@ -89,11 +89,35 @@ proc aggregateAttesters(
   aggPK.finish(attestersAgg)
   return true
 
+proc aggregateAttesters(
+      aggPK: var blscurve.PublicKey,
+      attestation: IndexedAttestation,
+      epochRef: auto
+     ): bool =
+  mixin validator_keys
+
+  doAssert attestation.attesting_indices.len > 0
+  var attestersAgg{.noInit.}: AggregatePublicKey
+  attestersAgg.init(epochRef.validator_keys[attestation.attesting_indices[0]]
+                         .pubkey.loadWithCacheOrExitFalse())
+  for i in 1 ..< attestation.attesting_indices.len:
+    attestersAgg.aggregate(epochRef.validator_keys[attestation.attesting_indices[i]]
+                                .pubkey.loadWithCacheOrExitFalse())
+  aggPK.finish(attestersAgg)
+  return true
+
 proc addIndexedAttestation(
       sigs: var seq[SignatureSet],
       attestation: IndexedAttestation,
       state: BeaconState
      ): bool =
+  ## Add an indexed attestation for batched BLS verification
+  ## purposes
+  ## This only verifies cryptography, checking that
+  ## the indices are sorted and unique is not checked for example.
+  ##
+  ## Returns true if the indexed attestations was added to the batching buffer
+  ## Returns false if saniy checks failed (non-empty, keys are valid)
   if attestation.attesting_indices.len == 0:
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
@@ -151,6 +175,92 @@ proc addAttestation(
           attestation.signature,
           state.genesis_validators_root,
           state.fork,
+          attestation.data.target.epoch,
+          DOMAIN_BEACON_ATTESTER):
+    return false
+  return true
+
+# Public API
+# ------------------------------------------------------
+
+proc addAttestation*(
+      sigs: var seq[SignatureSet],
+      fork: Fork, genesis_validators_root: Eth2Digest,
+      epochRef: auto,
+      attestation: Attestation
+     ): bool =
+  ## Add an attestation for batched BLS verification
+  ## purposes
+  ## This only verifies cryptography
+  ##
+  ## Returns true if the attestation was added to the batching buffer
+  ## Returns false if saniy checks failed (non-empty, keys are valid)
+  ## In that case the seq[SignatureSet] is unmodified
+  mixin get_attesting_indices, validator_keys, pubkey
+
+  result = false
+
+  var attestersAgg{.noInit.}: AggregatePublicKey
+  for valIndex in epochRef.get_attesting_indices(
+                    attestation.data,
+                    attestation.aggregation_bits):
+    if not result: # first iteration
+      attestersAgg.init(epochRef.validator_keys[valIndex]
+                                .loadWithCacheOrExitFalse())
+      result = true
+    else:
+      attestersAgg.aggregate(epochRef.validator_keys[valIndex]
+                                     .loadWithCacheOrExitFalse())
+
+  if not result:
+    # There was no attesters
+    return false
+
+  var attesters{.noinit.}: blscurve.PublicKey
+  attesters.finish(attestersAgg)
+
+  if not sigs.addSignatureSet(
+          attesters,
+          attestation.data,
+          attestation.signature,
+          genesis_validators_root,
+          fork,
+          attestation.data.target.epoch,
+          DOMAIN_BEACON_ATTESTER):
+    return false
+  return true
+
+proc addIndexedAttestation*(
+      sigs: var seq[SignatureSet],
+      fork: Fork, genesis_validators_root: Eth2Digest,
+      epochRef: auto,
+      attestation: IndexedAttestation,
+     ): bool =
+  ## Add an indexed attestation for batched BLS verification
+  ## purposes
+  ## This only verifies cryptography, checking that
+  ## the indices are sorted and unique is not checked for example.
+  ##
+  ## Returns true if the indexed attestations was added to the batching buffer
+  ## Returns false if saniy checks failed (non-empty, keys are valid)
+  ## In that case the seq[SignatureSet] is unmodified
+  if attestation.attesting_indices.len == 0:
+    # Aggregation spec requires non-empty collection
+    # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
+    # Eth2 spec requires at least one attesting indice in slashing
+    # - https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    return false
+
+  var aggPK {.noInit.}: blscurve.PublicKey
+  if not aggPK.aggregateAttesters(attestation, epochRef):
+    return false
+
+  if not sigs.addSignatureSet(
+          aggPK,
+          attestation.data,
+          attestation.signature,
+          genesis_validators_root,
+          fork,
           attestation.data.target.epoch,
           DOMAIN_BEACON_ATTESTER):
     return false

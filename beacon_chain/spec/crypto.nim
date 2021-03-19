@@ -166,6 +166,16 @@ proc blsVerify*(
     parsedKey.isSome() and
       parsedKey.get.verify(message, parsedSig.get())
 
+proc blsVerify*(sigSet: SignatureSet): bool =
+  ## Unbatched verification
+  ## of 1 SignatureSet
+  ## tuple[pubkey: blscurve.PublicKey, message: array[32, byte], blscurve.signature: Signature]
+  verify(
+    sigSet.pubkey,
+    sigSet.message,
+    sigSet.signature
+  )
+
 func blsSign*(privkey: ValidatorPrivKey, message: openArray[byte]): ValidatorSig =
   ## Computes a signature from a secret key and a message
   let sig = SecretKey(privkey).sign(message)
