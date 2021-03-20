@@ -94,6 +94,7 @@ proc new*(T: type Eth2Processor,
           exitPool: ref ExitPool,
           validatorPool: ref ValidatorPool,
           quarantine: QuarantineRef,
+          rng: ref BrHmacDrbgContext,
           getWallTime: GetWallTimeFn): ref Eth2Processor =
   (ref Eth2Processor)(
     config: config,
@@ -103,7 +104,8 @@ proc new*(T: type Eth2Processor,
     attestationPool: attestationPool,
     exitPool: exitPool,
     validatorPool: validatorPool,
-    quarantine: quarantine
+    quarantine: quarantine,
+    rng: rng
   )
 
 # Buffer for crypto checks
@@ -151,6 +153,9 @@ proc processPendingAttCrypto(self: var Eth2Processor) =
   if self.pendingAttestationCrypto.pendingBuffer.len == 0:
     return
 
+  notice "Starting batch attestations & aggregate crypto verification",
+    batchSize = self.pendingAttestationCrypto.pendingBuffer.len
+
   var secureRandomBytes: array[32, byte]
   self.rng[].brHmacDrbgGenerate(secureRandomBytes)
 
@@ -160,16 +165,16 @@ proc processPendingAttCrypto(self: var Eth2Processor) =
     self.pendingAttestationCrypto.pendingBuffer,
     secureRandomBytes)
 
-  trace "Batch attestations & aggregate crypto verification",
-    batchSize = buf.pendingBuffer.len,
+  notice "Finished batch attestations & aggregate crypto verification",
+    batchSize = self.pendingAttestationCrypto.pendingBuffer.len,
     cryptoVerified = ok
 
   if ok:
     for i in 0 ..< self.pendingAttestationCrypto.resultsBuffer.len:
       self.pendingAttestationCrypto.done(i)
   else:
-    trace "Batch verification failure - falling back",
-      batchSize = buf.pendingBuffer.len
+    notice "Batch verification failure - falling back",
+      batchSize = self.pendingAttestationCrypto.pendingBuffer.len
     for i in 0 ..< self.pendingAttestationCrypto.pendingBuffer.len:
       let ok = blsVerify self.pendingAttestationCrypto.pendingBuffer[i]
       if ok:
@@ -183,7 +188,7 @@ proc processPendingAttCryptoIf(self: var Eth2Processor, threshold: int) =
   ## Drain all attestations waiting for crypto verifications
   ## if a threashold is reached
   if self.pendingAttestationCrypto.pendingBuffer.len >= threshold:
-    trace "Threshold reach - force batch verification",
+    notice "Threshold reach - force batch verification",
       threshold = threshold
     self.processPendingAttCrypto()
 

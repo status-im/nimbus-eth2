@@ -339,6 +339,7 @@ proc init*(T: type BeaconNode,
       verifQueues,
       chainDag, attestationPool, exitPool, validatorPool,
       quarantine,
+      rng,
       proc(): BeaconTime = beaconClock.now())
 
   var res = BeaconNode(
@@ -1233,6 +1234,7 @@ proc run*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
     let startTime = node.beaconClock.now()
     asyncSpawn runSlotLoop(node, startTime)
     asyncSpawn runOnSecondLoop(node)
+    asyncSpawn runAttQueueProcessingLoop(node.processor)
     asyncSpawn runQueueProcessingLoop(node.verifQueues)
 
     node.requestManager.start()
