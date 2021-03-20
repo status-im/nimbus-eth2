@@ -266,6 +266,43 @@ proc addIndexedAttestation*(
     return false
   return true
 
+proc addSlotSignature*(
+      sigs: var seq[SignatureSet],
+      fork: Fork, genesis_validators_root: Eth2Digest,
+      slot: Slot,
+      pubkey: ValidatorPubKey,
+      signature: ValidatorSig): bool =
+
+  let epoch = compute_epoch_at_slot(slot)
+  return sigs.addSignatureSet(
+    pubkey.loadWithCacheOrExitFalse(),
+    sszObj = slot,
+    signature,
+    genesis_validators_root,
+    fork,
+    epoch,
+    DOMAIN_SELECTION_PROOF
+  )
+
+proc addAggregateAndProofSignature*(
+      sigs: var seq[SignatureSet],
+      fork: Fork, genesis_validators_root: Eth2Digest,
+      aggregate_and_proof: AggregateAndProof,
+      pubkey: ValidatorPubKey,
+      signature: ValidatorSig
+  ): bool =
+
+  let epoch = compute_epoch_at_slot(aggregate_and_proof.aggregate.data.slot)
+  return sigs.addSignatureSet(
+    pubkey.loadWithCacheOrExitFalse(),
+    sszObj = aggregate_and_proof,
+    signature,
+    genesis_validators_root,
+    fork,
+    epoch,
+    DOMAIN_AGGREGATE_AND_PROOF
+  )
+
 proc collectSignatureSets*(
        sigs: var seq[SignatureSet],
        signed_block: SignedBeaconBlock,

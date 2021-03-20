@@ -250,6 +250,7 @@ proc aggregateValidator*(
   debug "Aggregate received", delay
 
   let v = self.attestationPool[].validateAggregate(
+      self.batchCrypto,
       signedAggregateAndProof, wallTime)
   if v.isErr:
     debug "Dropping aggregate",

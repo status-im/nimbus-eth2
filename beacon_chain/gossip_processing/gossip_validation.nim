@@ -305,7 +305,9 @@ proc validateAttestation*(
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAggregate*(
     pool: var AttestationPool,
-    signedAggregateAndProof: SignedAggregateAndProof, wallTime: BeaconTime):
+    batchCrypto: ref BatchCrypto,
+    signedAggregateAndProof: SignedAggregateAndProof,
+    wallTime: BeaconTime):
     Result[seq[ValidatorIndex], (ValidationResult, cstring)] =
   # Some of the checks below have been reordered compared to the spec, to
   # perform the cheap checks first - in particular, we want to avoid loading
@@ -389,42 +391,65 @@ proc validateAggregate*(
     return err((ValidationResult.Reject, cstring(
       "Aggregator's validator index not in committee")))
 
-  # [REJECT] The aggregate_and_proof.selection_proof is a valid signature of the
-  # aggregate.data.slot by the validator with index
-  # aggregate_and_proof.aggregator_index.
-  # get_slot_signature(state, aggregate.data.slot, privkey)
-  if aggregate_and_proof.aggregator_index >= epochRef.validator_keys.lenu64:
-    return err((ValidationResult.Reject, cstring("Invalid aggregator_index")))
-
-  let
-    fork = pool.chainDag.headState.data.data.fork
-    genesis_validators_root =
-      pool.chainDag.headState.data.data.genesis_validators_root
-  if not verify_slot_signature(
-      fork, genesis_validators_root, aggregate.data.slot,
-      epochRef.validator_keys[aggregate_and_proof.aggregator_index],
-      aggregate_and_proof.selection_proof):
-    return err((ValidationResult.Reject, cstring(
-      "Selection_proof signature verification failed")))
-
-  # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
-  if not verify_aggregate_and_proof_signature(
-      fork, genesis_validators_root, aggregate_and_proof,
-      epochRef.validator_keys[aggregate_and_proof.aggregator_index],
-      signed_aggregate_and_proof.signature):
-    return err((ValidationResult.Reject, cstring(
-      "signed_aggregate_and_proof signature verification failed")))
-
-  let attesting_indices = get_attesting_indices(
-    epochRef, aggregate.data, aggregate.aggregation_bits)
-
-  # [REJECT] The signature of aggregate is valid.
   block:
-    let v = is_valid_indexed_attestation(
-        fork, genesis_validators_root, epochRef, attesting_indices,
-        aggregate, {})
-    if v.isErr():
-      return err((ValidationResult.Reject, v.error))
+    # 1. [REJECT] The aggregate_and_proof.selection_proof is a valid signature of the
+    #    aggregate.data.slot by the validator with index
+    #    aggregate_and_proof.aggregator_index.
+    #    get_slot_signature(state, aggregate.data.slot, privkey)
+    # 2. [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
+    # 3. [REJECT] The signature of aggregate is valid.
+    if aggregate_and_proof.aggregator_index >= epochRef.validator_keys.lenu64:
+      return err((ValidationResult.Reject, cstring("Invalid aggregator_index")))
+
+    let
+      fork = pool.chainDag.headState.data.data.fork
+      genesis_validators_root =
+        pool.chainDag.headState.data.data.genesis_validators_root
+
+    let deferredCrypto = batchCrypto
+                  .scheduleAggregateChecks(
+                    fork, genesis_validators_root, epochRef,
+                    signed_aggregate_and_proof
+                  )
+    if deferredCrypto.isNone():
+      return err((ValidationResult.Reject,
+                  cstring("validateAttestation: crypto sanity checks failure")))
+
+    # [REJECT] aggregate_and_proof.selection_proof
+    let slotChecked = try:
+      waitFor deferredCrypto.get().slotCheck
+    except Exception as e:
+      # TODO
+      # https://github.com/nim-lang/Nim/issues/10288 - sigh
+      raiseAssert e.msg
+
+    if slotChecked.isErr():
+      return err((ValidationResult.Reject, cstring(
+        "Selection_proof signature verification failed")))
+
+    # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
+    let aggregatorChecked = try:
+      waitFor deferredCrypto.get().aggregatorCheck
+    except Exception as e:
+      # TODO
+      # https://github.com/nim-lang/Nim/issues/10288 - sigh
+      raiseAssert e.msg
+
+    if aggregatorChecked.isErr():
+      return err((ValidationResult.Reject, cstring(
+        "signed_aggregate_and_proof aggregator signature verification failed")))
+
+    # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
+    let aggregateChecked = try:
+      waitFor deferredCrypto.get().aggregateCheck
+    except Exception as e:
+      # TODO
+      # https://github.com/nim-lang/Nim/issues/10288 - sigh
+      raiseAssert e.msg
+
+    if aggregateChecked.isErr():
+      return err((ValidationResult.Reject, cstring(
+        "signed_aggregate_and_proof aggregate attester signatures verification failed")))
 
   # The following rule follows implicitly from that we clear out any
   # unviable blocks from the chain dag:
@@ -441,6 +466,9 @@ proc validateAggregate*(
       aggregate_and_proof.aggregator_index.int + 1)
   pool.nextAttestationEpoch[aggregate_and_proof.aggregator_index].aggregate =
     aggregate.data.target.epoch + 1
+
+  let attesting_indices = get_attesting_indices(
+    epochRef, aggregate.data, aggregate.aggregation_bits)
 
   ok(attesting_indices)
 

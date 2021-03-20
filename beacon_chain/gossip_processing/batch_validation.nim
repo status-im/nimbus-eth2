@@ -35,7 +35,7 @@ logScope:
 
 type
   BatchCrypto* = object
-    # The buffers are bounded by BatchedbatchCryptoize (16) which was chosen:
+    # The buffers are bounded by BatchedCryptoSize (16) which was chosen:
     # - based on "nimble bench" in nim-blscurve
     #   so that low power devices like Raspberry Pi 4 can process
     #   that many batched verifications within 20ms
@@ -58,7 +58,7 @@ const
 
   # Attestation processing is fairly quick and therefore done in batches to
   # avoid some of the `Future` overhead
-  BatchedbatchCryptoize = 16
+  BatchedCryptoSize = 16
 
 proc new*(T: type BatchCrypto, rng: ref BrHmacDrbgContext): ref BatchCrypto =
   (ref BatchCrypto)(rng: rng)
@@ -133,41 +133,14 @@ proc deferCryptoProcessing(self: ref BatchCrypto, idleTimeout: Duration) {.async
   discard await idleAsync().withTimeout(idleTimeout)
   self.processBufferedCrypto()
 
-proc scheduleAttestationCheck*(
-      batchCrypto: ref BatchCrypto,
-      fork: Fork, genesis_validators_root: Eth2Digest,
-      epochRef: auto,
-      attestation: Attestation
-     ): Option[Future[Result[void, cstring]]] =
-  ## Schedule crypto verification of an attestation
+proc schedule(batchCrypto: ref BatchCrypto, fut: Future[Result[void, cstring]], checkThreshold = true) =
+  ## Schedule a cryptocheck for processing
   ##
   ## The buffer is processed:
-  ## - when 16 attestations are buffered (BatchedbatchCryptoize)
+  ## - when 16 or more attestations/aggregates are buffered (BatchedCryptoSize)
   ## - when there are no network events (idleAsync)
   ## - otherwise after 10ms (BatchAttAccumTime)
-  ##
-  ## This returns None if crypto sanity checks failed
-  ## and a future with the deferred attestation check otherwise.
-  doAssert batchCrypto.pendingBuffer.len < BatchedbatchCryptoize
-
-  # Enqueue in the buffer
-  # ------------------------------------------------------
-  let sanity = batchCrypto
-                .pendingBuffer
-                .addAttestation(
-                  fork, genesis_validators_root, epochRef,
-                  attestation
-                )
-  if not sanity:
-    return none(Future[Result[void, cstring]])
-
-  let fut = newFuture[Result[void, cstring]](
-    "batch_validation.scheduleAttestationCheck"
-  )
   batchCrypto.resultsBuffer.add fut
-
-  # Scheduling
-  # ------------------------------------------------------
 
   if batchCrypto.pendingBuffer.len == 1:
     # First attestation to be scheduled in the batch
@@ -181,8 +154,121 @@ proc scheduleAttestationCheck*(
         # Also in 1.2.6, Future and IOSelector errors don't inherit from CatchableError or Defect
         raiseAssert e.msg
     )
-  elif batchCrypto.pendingBuffer.len == BatchedbatchCryptoize:
+  elif checkThreshold and batchCrypto.pendingBuffer.len >= BatchedCryptoSize:
     # Reached the max buffer size, process immediately
     batchCrypto.processBufferedCrypto()
 
+proc scheduleAttestationCheck*(
+      batchCrypto: ref BatchCrypto,
+      fork: Fork, genesis_validators_root: Eth2Digest,
+      epochRef: auto,
+      attestation: Attestation
+     ): Option[Future[Result[void, cstring]]] =
+  ## Schedule crypto verification of an attestation
+  ##
+  ## The buffer is processed:
+  ## - when 16 or more attestations/aggregates are buffered (BatchedCryptoSize)
+  ## - when there are no network events (idleAsync)
+  ## - otherwise after 10ms (BatchAttAccumTime)
+  ##
+  ## This returns None if crypto sanity checks failed
+  ## and a future with the deferred attestation check otherwise.
+  doAssert batchCrypto.pendingBuffer.len < BatchedCryptoSize
+
+  let sanity = batchCrypto
+                .pendingBuffer
+                .addAttestation(
+                  fork, genesis_validators_root, epochRef,
+                  attestation
+                )
+  if not sanity:
+    return none(Future[Result[void, cstring]])
+
+  let fut = newFuture[Result[void, cstring]](
+    "batch_validation.scheduleAttestationCheck"
+  )
+
+  batchCrypto.schedule(fut)
+
   return some(fut)
+
+proc scheduleAggregateChecks*(
+      batchCrypto: ref BatchCrypto,
+      fork: Fork, genesis_validators_root: Eth2Digest,
+      epochRef: auto,
+      signedAggregateAndProof: SignedAggregateAndProof
+     ): Option[tuple[slotCheck, aggregatorCheck, aggregateCheck: Future[Result[void, cstring]]]] =
+  ## Schedule crypto verification of an aggregate
+  ##
+  ## This involves 3 checks:
+  ## - verify_slot_signature
+  ## - verify_aggregate_and_proof_signature
+  ## - is_valid_indexed_attestation
+  ##
+  ## The buffer is processed:
+  ## - when 16 or more attestations/aggregates are buffered (BatchedCryptoSize)
+  ## - when there are no network events (idleAsync)
+  ## - otherwise after 10ms (BatchAttAccumTime)
+  ##
+  ## This returns None if crypto sanity checks failed
+  ## and 2 futures with the deferred aggregate checks otherwise.
+  doAssert batchCrypto.pendingBuffer.len < BatchedCryptoSize
+
+  template aggregate_and_proof: untyped = signedAggregateAndProof.message
+  template aggregate: untyped = aggregate_and_proof.aggregate
+
+  type R = tuple[slotCheck, aggregatorCheck, aggregateCheck: Future[Result[void, cstring]]]
+
+  # Enqueue in the buffer
+  # ------------------------------------------------------
+  let aggregator = epochRef.validator_keys[aggregate_and_proof.aggregator_index]
+  block:
+    let sanity = batchCrypto
+                  .pendingBuffer
+                  .addSlotSignature(
+                    fork, genesis_validators_root,
+                    aggregate.data.slot,
+                    aggregator,
+                    aggregate_and_proof.selection_proof
+                  )
+    if not sanity:
+      return none(R)
+
+  block:
+    let sanity = batchCrypto
+                  .pendingBuffer
+                  .addAggregateAndProofSignature(
+                    fork, genesis_validators_root,
+                    aggregate_and_proof,
+                    aggregator,
+                    signed_aggregate_and_proof.signature
+                  )
+    if not sanity:
+      return none(R)
+
+  block:
+    let sanity = batchCrypto
+                  .pendingBuffer
+                  .addAttestation(
+                    fork, genesis_validators_root, epochRef,
+                    aggregate
+                  )
+    if not sanity:
+      return none(R)
+
+  let futSlot = newFuture[Result[void, cstring]](
+    "batch_validation.scheduleAggregateChecks.slotCheck"
+  )
+  let futAggregator = newFuture[Result[void, cstring]](
+    "batch_validation.scheduleAggregateChecks.aggregatorCheck"
+  )
+
+  let futAggregate = newFuture[Result[void, cstring]](
+    "batch_validation.scheduleAggregateChecks.aggregateCheck"
+  )
+
+  batchCrypto.schedule(futSlot, checkThreshold = false)
+  batchCrypto.schedule(futAggregator, checkThreshold = false)
+  batchCrypto.schedule(futAggregate)
+
+  return some((futSlot, futAggregator, futAggregate))
