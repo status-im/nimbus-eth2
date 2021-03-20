@@ -124,6 +124,8 @@ proc process_deposit*(preset: RuntimePreset,
       # New validator! Add validator and balance entries
       state.validators.add(get_validator_from_deposit(deposit.data))
       state.balances.add(amount)
+
+      doAssert state.validators.len == state.balances.len
     else:
       # Deposits may come with invalid signatures - in that case, they are not
       # turned into a validator but still get processed to keep the deposit
