@@ -140,11 +140,21 @@ proc schedule(batchCrypto: ref BatchCrypto, fut: Future[Result[void, cstring]], 
   ## - when 16 or more attestations/aggregates are buffered (BatchedCryptoSize)
   ## - when there are no network events (idleAsync)
   ## - otherwise after 10ms (BatchAttAccumTime)
+
+  # Note: use the resultsBuffer size to detect the first item
+  #       as pendingBuffer is appended to 3 by 3 in case of aggregates
+
   batchCrypto.resultsBuffer.add fut
 
-  if batchCrypto.pendingBuffer.len == 1:
+  notice "Batch verification - buffered",
+    batchSize = batchCrypto.resultsBuffer.len
+
+  if batchCrypto.resultsBuffer.len == 1:
     # First attestation to be scheduled in the batch
     # wait for an idle time or up to 10ms before processing
+    notice "Batch verification - schedule deadline",
+      deadline = BatchAttAccumTime,
+      batchSize = batchCrypto.resultsBuffer.len
     asyncSpawn(
       try:
         batchCrypto.deferCryptoProcessing(BatchAttAccumTime)
@@ -154,7 +164,8 @@ proc schedule(batchCrypto: ref BatchCrypto, fut: Future[Result[void, cstring]], 
         # Also in 1.2.6, Future and IOSelector errors don't inherit from CatchableError or Defect
         raiseAssert e.msg
     )
-  elif checkThreshold and batchCrypto.pendingBuffer.len >= BatchedCryptoSize:
+  elif checkThreshold and
+       batchCrypto.resultsBuffer.len >= BatchedCryptoSize:
     # Reached the max buffer size, process immediately
     batchCrypto.processBufferedCrypto()
 
