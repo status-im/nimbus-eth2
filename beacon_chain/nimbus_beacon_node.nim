@@ -1234,7 +1234,6 @@ proc run*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
     let startTime = node.beaconClock.now()
     asyncSpawn runSlotLoop(node, startTime)
     asyncSpawn runOnSecondLoop(node)
-    asyncSpawn runAttQueueProcessingLoop(node.processor)
     asyncSpawn runQueueProcessingLoop(node.verifQueues)
 
     node.requestManager.start()

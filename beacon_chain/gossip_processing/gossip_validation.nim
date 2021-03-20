@@ -16,29 +16,21 @@ import
   # Internals
   ../spec/[
     beaconstate, state_transition_block,
-    datatypes, crypto, digest, helpers, network, signatures, signatures_batch],
+    datatypes, crypto, digest, helpers, network, signatures],
   ../consensus_object_pools/[
     spec_cache, blockchain_dag, block_quarantine, spec_cache,
     attestation_pool, exit_pool
   ],
   ".."/[beacon_node_types, ssz, beacon_clock],
   ../validators/attestation_aggregation,
-  ../extras
+  ../extras,
+  ./batch_validation
 
 logScope:
   topics = "gossip_checks"
 
-type
-  PendingAttestationsCrypto* = object
-    # The buffers are bounded by BatchedAttSize (16) which was chosen:
-    # - based on "nimble bench" in nim-blscurve
-    #   so that low power devices like Raspberry Pi 4 can process
-    #   that many batched verifications within 20ms
-    # - based on the accumulation rate of attestations and aggregates
-    #   in large instances which were 12000 per slot (12s)
-    #   hence 1 per ms (but the pattern is bursty around the 4s mark)
-    pendingBuffer*: seq[SignatureSet]
-    resultsBuffer*: seq[Future[Result[void, cstring]]]
+# Internal checks
+# ----------------------------------------------------------------
 
 func check_attestation_block(
     pool: AttestationPool, attestationSlot: Slot, blck: BlockRef):
@@ -163,10 +155,13 @@ func check_attestation_subnet(
 
   ok()
 
+# Gossip Validation
+# ----------------------------------------------------------------
+
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 proc validateAttestation*(
     pool: var AttestationPool,
-    pendingAttestationCrypto: var PendingAttestationsCrypto,
+    batchCrypto: ref BatchCrypto,
     attestation: Attestation,
     wallTime: BeaconTime,
     topicCommitteeIndex: uint64, checksExpensive: bool):
@@ -278,28 +273,20 @@ proc validateAttestation*(
       return err((ValidationResult.Reject, v.error))
 
     # Buffer crypto checks
-    let buffered = pendingAttestationCrypto
-                     .pendingBuffer
-                     .addAttestation(
-                       fork, genesis_validators_root, epochRef,
-                       attestation
-                     )
-    if not buffered:
+    let deferredCrypto = batchCrypto
+                  .scheduleAttestationCheck(
+                    fork, genesis_validators_root, epochRef,
+                    attestation
+                  )
+    if deferredCrypto.isNone():
       return err((ValidationResult.Reject,
                   cstring("validateAttestation: crypto sanity checks failure")))
-    else:
-      pendingAttestationCrypto
-        .resultsBuffer.add newFuture[Result[void, cstring]](
-          "gossip_validation.validateAttestation"
-        )
 
     # Await the crypto check
     let cryptoChecked = try:
-      waitFor pendingAttestationCrypto
-                .resultsBuffer[^1]
+      waitFor deferredCrypto.get()
     except Exception as e:
-      # TODO https://github.com/status-im/nim-chronos/issues/94
-      # shouldn't happen because we should have initialized chronos by now
+      # TODO
       # https://github.com/nim-lang/Nim/issues/10288 - sigh
       raiseAssert e.msg
 
