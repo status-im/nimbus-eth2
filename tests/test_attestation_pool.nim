@@ -18,7 +18,7 @@ import
   ../beacon_chain/spec/[crypto, datatypes, digest, validator, state_transition,
                         helpers, beaconstate, presets, network],
   ../beacon_chain/[beacon_node_types, extras, beacon_clock],
-  ../beacon_chain/gossip_processing/gossip_validation,
+  ../beacon_chain/gossip_processing/[gossip_validation, batch_validation],
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
   ../beacon_chain/consensus_object_pools/[block_quarantine, blockchain_dag, block_clearance, attestation_pool],
   # Test utilities
@@ -398,6 +398,7 @@ suiteReport "Attestation validation " & preset():
       pool = newClone(AttestationPool.init(chainDag, quarantine))
       state = newClone(chainDag.headState)
       cache = StateCache()
+      batchCrypto = BatchCrypto.new(keys.newRng())
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
       process_slots(state.data, state.data.data.slot + 1, cache)
@@ -439,27 +440,27 @@ suiteReport "Attestation validation " & preset():
       beaconTime = attestation.data.slot.toBeaconTime()
 
     check:
-      validateAttestation(pool[], attestation, beaconTime, subnet, true).isOk
+      validateAttestation(pool[], batchCrypto, attestation, beaconTime, subnet, true).isOk
 
       # Same validator again
-      validateAttestation(pool[], attestation, beaconTime, subnet, true).error()[0] ==
+      validateAttestation(pool[], batchCrypto, attestation, beaconTime, subnet, true).error()[0] ==
         ValidationResult.Ignore
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Wrong subnet
-      validateAttestation(pool[], attestation, beaconTime, subnet + 1, true).isErr
+      validateAttestation(pool[], batchCrypto, attestation, beaconTime, subnet + 1, true).isErr
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Too far in the future
       validateAttestation(
-        pool[], attestation, beaconTime - 1.seconds, subnet + 1, true).isErr
+        pool[], batchCrypto, attestation, beaconTime - 1.seconds, subnet + 1, true).isErr
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Too far in the past
       validateAttestation(
-        pool[], attestation,
+        pool[], batchCrypto, attestation,
         beaconTime - (SECONDS_PER_SLOT * SLOTS_PER_EPOCH - 1).int.seconds,
         subnet + 1, true).isErr
