@@ -167,7 +167,7 @@ proc sendAttestation*(
     getAttestationTopic(node.forkDigest, subnet_index), attestation)
 
   # Ensure node's own broadcast attestations end up in its attestation pool
-  discard node.processor[].attestationValidator(
+  discard node.processor.attestationValidator(
     attestation, subnet_index, false)
 
   beacon_attestations_sent.inc()

@@ -440,27 +440,27 @@ suiteReport "Attestation validation " & preset():
       beaconTime = attestation.data.slot.toBeaconTime()
 
     check:
-      validateAttestation(pool[], batchCrypto, attestation, beaconTime, subnet, true).isOk
+      validateAttestation(pool, batchCrypto, attestation, beaconTime, subnet, true).waitFor().isOk
 
       # Same validator again
-      validateAttestation(pool[], batchCrypto, attestation, beaconTime, subnet, true).error()[0] ==
+      validateAttestation(pool, batchCrypto, attestation, beaconTime, subnet, true).waitFor().error()[0] ==
         ValidationResult.Ignore
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Wrong subnet
-      validateAttestation(pool[], batchCrypto, attestation, beaconTime, subnet + 1, true).isErr
+      validateAttestation(pool, batchCrypto, attestation, beaconTime, subnet + 1, true).waitFor().isErr
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Too far in the future
       validateAttestation(
-        pool[], batchCrypto, attestation, beaconTime - 1.seconds, subnet + 1, true).isErr
+        pool, batchCrypto, attestation, beaconTime - 1.seconds, subnet + 1, true).waitFor().isErr
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Too far in the past
       validateAttestation(
-        pool[], batchCrypto, attestation,
+        pool, batchCrypto, attestation,
         beaconTime - (SECONDS_PER_SLOT * SLOTS_PER_EPOCH - 1).int.seconds,
-        subnet + 1, true).isErr
+        subnet + 1, true).waitFor().isErr
