@@ -9,7 +9,7 @@
 
 import std/[unittest, random, heapqueue, tables]
 import chronos
-import ../beacon_chain/peer_pool
+import ../beacon_chain/networking/peer_pool
 import testutil
 
 type

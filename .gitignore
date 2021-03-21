@@ -24,9 +24,6 @@ build/
 *.exe
 *.dll
 
-# a symlink that can't be added to the repo because of Windows
-/beacon_chain.nims
-
 /scripts/testnet*.sh
 
 # State sim # TODO - move in another folder
@@ -46,9 +43,8 @@ build/
 /docker/*.json
 
 # generated during Nim compilation
-beacon_chain/sync_protocol.nim.generated.nim
+*.nim.generated.nim
 
 /dist
 /benchmark_results
 /.update.timestamp
-

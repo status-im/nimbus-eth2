@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -12,12 +12,13 @@ import
   json_rpc/[rpcserver, jsonmarshal],
 
   rpc_utils,
-  ../beacon_node_common, ../nimbus_binary_common, ../eth2_network,
-  ../eth1_monitor, ../validator_duties,
+  ../beacon_node_common, ../nimbus_binary_common,
+  ../networking/eth2_network,
+  ../eth1/eth1_monitor,
+  ../validators/validator_duties,
   ../spec/[digest, datatypes, presets],
 
-  libp2p/protocols/pubsub/[gossipsub, pubsubpeer]
-
+  libp2p/protocols/pubsub/pubsubpeer
 
 logScope: topics = "nimbusapi"
 
@@ -95,10 +96,11 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       wallSlot = node.beaconClock.now.slotOrZero
       head = node.doChecksAndGetCurrentHead(wallSlot)
 
-    node.chainDag.withState(node.chainDag.tmpState, head.atSlot(wallSlot)):
+    let proposalState = assignClone(node.chainDag.headState)
+    node.chainDag.withState(proposalState[], head.atSlot(wallSlot)):
       return node.getBlockProposalEth1Data(state)
 
-  rpcServer.rpc("getChronosFutures") do () -> seq[FutureInfo]:
+  rpcServer.rpc("debug_getChronosFutures") do () -> seq[FutureInfo]:
     when defined(chronosFutureTracking):
       var res: seq[FutureInfo]
 
@@ -117,11 +119,11 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       raise (ref CatchableError)(
         msg: "Compile with '-d:chronosFutureTracking' to enable this request")
 
-  rpcServer.rpc("getGossipSubPeers") do () -> JsonNode:
+  rpcServer.rpc("debug_getGossipSubPeers") do () -> JsonNode:
     var res = newJObject()
     var gossipsub = newJObject()
 
-    proc toNode(v: PubSubPeer): JsonNode =
+    proc toNode(v: PubSubPeer, backoff: Moment): JsonNode =
       %(
         peerId: $v.peerId,
         score: v.score,
@@ -129,13 +131,27 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
         iHaveBudget: v.iHaveBudget,
         outbound: v.outbound,
         appScore: v.appScore,
-        behaviourPenalty: v.behaviourPenalty
+        behaviourPenalty: v.behaviourPenalty,
+        sendConnAvail: v.sendConn != nil,
+        closed: v.sendConn != nil and v.sendConn.closed,
+        atEof: v.sendConn != nil and v.sendConn.atEof,
+        address: if v.address.isSome():
+            $v.address.get()
+          else:
+            "<no address>",
+        backoff: $(backoff - Moment.now()),
+        agent: when defined(libp2p_agents_metrics):
+            v.shortAgent
+          else:
+            "unknown",
       )
 
     for topic, v in node.network.pubsub.gossipsub:
       var peers = newJArray()
+      let backoff = node.network.pubsub.backingOff.getOrDefault(topic)
       for peer in v:
-        peers.add(peer.toNode())
+        peers.add(peer.toNode(backOff.getOrDefault(peer.peerId)))
+
 
       gossipsub.add(topic, peers)
 
@@ -144,11 +160,52 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     var mesh = newJObject()
     for topic, v in node.network.pubsub.mesh:
       var peers = newJArray()
+      let backoff = node.network.pubsub.backingOff.getOrDefault(topic)
       for peer in v:
-        peers.add(peer.toNode())
+        peers.add(peer.toNode(backOff.getOrDefault(peer.peerId)))
 
       mesh.add(topic, peers)
 
     res.add("mesh", mesh)
+
+    var coloc = newJArray()
+    for k, v in node.network.pubsub.peersInIP:
+      var a = newJObject()
+      var peers = newJArray()
+      for p in v:
+        peers.add(%($p))
+      a.add($k, peers)
+      coloc.add(a)
+
+    res.add("colocationPeers", coloc)
+
+    var stats = newJArray()
+    for peerId, pstats in node.network.pubsub.peerStats:
+      let
+        peer = node.network.pubsub.peers.getOrDefault(peerId)
+        null = isNil(peer)
+        connected = if null:
+            false
+          else :
+            peer.connected()
+
+      stats.add(%(
+        peerId: $peerId,
+        null: null,
+        connected: connected,
+        expire: $(pstats.expire - Moment.now()),
+        score: pstats.score
+      ))
+
+    res.add("peerStats", stats)
+
+    var peers = newJArray()
+    for peerId, peer in node.network.pubsub.peers:
+      peers.add(%(
+        connected: peer.connected,
+        peerId: $peerId
+      ))
+
+    res.add("allPeers", peers)
 
     return res

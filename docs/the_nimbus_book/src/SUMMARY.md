@@ -8,6 +8,9 @@
 - [Validating with a Raspberry Pi](./pi-guide.md)
 - [Mainnet advice](./pi-guide-mainnet.md)
 
+# Rocket Pool
+- [Introductory guide](./rp-quick-start.md)
+
 # How-to
 - [Install dependencies](./install.md)
 - [Build the beacon node](./build.md)
@@ -27,6 +30,7 @@
 - [Recover / generate keys](./more-keys.md)
 - [Perform a voluntary exit](./voluntary-exit.md)
 - [Setup a systemd service](./beacon-node-systemd.md)
+- [Setup log rotation](./log-rotate.md)
 
 # Tutorials
 - [Grafana and Prometheus](./metrics-pretty-pictures.md)

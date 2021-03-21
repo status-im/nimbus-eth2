@@ -16,7 +16,7 @@ import
   chronicles,
   # Internal
   ../spec/[datatypes, digest],
-  ../block_pools/block_pools_types
+  ../consensus_object_pools/block_pools_types
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
@@ -76,7 +76,7 @@ type
     case kind*: fcKind
     of fcFinalizedNodeUnknown,
        fcJustifiedNodeUnknown:
-         block_root*: Eth2Digest
+         blockRoot*: Eth2Digest
     of fcInvalidFinalizedRootChange,
        fcInconsistentTick:
       discard
@@ -95,18 +95,18 @@ type
       deltasLen*: int
       indicesLen*: int
     of fcRevertedFinalizedEpoch:
-      current_finalized_epoch*: Epoch
+      currentFinalizedEpoch*: Epoch
       new_finalized_epoch*: Epoch
     of fcInvalidBestNode:
-      start_root*: Eth2Digest
-      justified_epoch*: Epoch
-      finalized_epoch*: Epoch
-      head_root*: Eth2Digest
-      head_justified_epoch*: Epoch
-      head_finalized_epoch*: Epoch
+      startRoot*: Eth2Digest
+      justifiedEpoch*: Epoch
+      finalizedEpoch*: Epoch
+      headRoot*: Eth2Digest
+      headJustifiedEpoch*: Epoch
+      headFinalizedEpoch*: Epoch
     of fcUnknownParent:
-      child_root*: Eth2Digest
-      parent_root*: Eth2Digest
+      childRoot*: Eth2Digest
+      parentRoot*: Eth2Digest
     of fcPruningFromOutdatedFinalizedRoot:
       finalizedRoot*: Eth2Digest
 
@@ -119,19 +119,19 @@ type
     ## to get the physical index
 
   ProtoArray* = object
-    justified_epoch*: Epoch
-    finalized_epoch*: Epoch
+    justifiedEpoch*: Epoch
+    finalizedEpoch*: Epoch
     nodes*: Protonodes
     indices*: Table[Eth2Digest, Index]
 
   ProtoNode* = object
     root*: Eth2Digest
     parent*: Option[Index]
-    justified_epoch*: Epoch
-    finalized_epoch*: Epoch
+    justifiedEpoch*: Epoch
+    finalizedEpoch*: Epoch
     weight*: int64
-    best_child*: Option[Index]
-    best_descendant*: Option[Index]
+    bestChild*: Option[Index]
+    bestDescendant*: Option[Index]
 
   BalanceCheckpoint* = object
     blck*: BlockRef

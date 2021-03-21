@@ -17,7 +17,9 @@ import
                            keystore, signatures, presets],
 
   # Internals
-  ../../beacon_chain/[ssz, extras, merkle_minimal],
+  ../../beacon_chain/extras,
+  ../../beacon_chain/ssz,
+  ../../beacon_chain/eth1/merkle_minimal,
 
   # Mocking procs
   ./mock_validator_keys

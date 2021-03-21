@@ -31,10 +31,7 @@ type
     # so we **must** use "root" as a field name
     root: string
     # Containers have a root (thankfully) and signing_root field
-    signing_root: string
-
-# Make signing root optional
-setDefaultValue(SSZHashTreeRoot, signing_root, "")
+    signing_root {.defaultVal: "".}: string
 
 type
   # Heterogeneous containers
@@ -169,7 +166,7 @@ proc checkBitVector(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
 
 proc checkBitList(sszSubType, dir: string, expectedHash: SSZHashTreeRoot) =
   var maxLen: int
-  let wasMatched = scanf(sszSubType, "bitlist_$i", maxLen)
+  discard scanf(sszSubType, "bitlist_$i", maxLen)
   case maxLen
   of 0: checkBasic(BitList[0], dir, expectedHash)
   of 1: checkBasic(BitList[1], dir, expectedHash)

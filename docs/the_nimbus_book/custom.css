@@ -40,3 +40,12 @@
 blockquote {
     padding: 10px 20px;
 }
+
+footer {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.8em;
+    text-align: center;
+    border-top: 1px solid black;
+    padding: 10px 0;
+}

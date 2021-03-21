@@ -10,13 +10,15 @@ import
   json_rpc/[rpcserver, jsonmarshal],
   chronicles,
   nimcrypto/utils as ncrutils,
-  ../beacon_node_common, ../eth2_json_rpc_serialization, ../eth2_network,
-  ../validator_duties,
-  ../block_pools/chain_dag, ../exit_pool,
+  ../beacon_node_common,
+  ../networking/eth2_network,
+  ../validators/validator_duties,
+  ../gossip_processing/gossip_validation,
+  ../consensus_object_pools/blockchain_dag,
   ../spec/[crypto, digest, datatypes, validator, network],
   ../spec/eth2_apis/callsigs_types,
   ../ssz/merkleization,
-  ./rpc_utils
+  ./rpc_utils, ./eth2_json_rpc_serialization
 
 logScope: topics = "beaconapi"
 
@@ -236,7 +238,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
               res.add((validator: validator,
                        index: uint64(index),
                        status: vstatus,
-                       balance: validator.effective_balance))
+                       balance: state.balances[index]))
       else:
         for index in vquery.ids:
           if index < lenu64(state.validators):
@@ -251,7 +253,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
                 res.add((validator: validator,
                          index: uint64(index),
                          status: vstatus,
-                         balance: validator.effective_balance))
+                         balance: state.balances[index]))
 
         for index, validator in state.validators.pairs():
           if validator.pubkey in vquery.keyset:
@@ -264,7 +266,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
                 res.add((validator: validator,
                          index: uint64(index),
                          status: vstatus,
-                         balance: validator.effective_balance))
+                         balance: state.balances[index]))
     return res
 
   rpcServer.rpc("get_v1_beacon_states_stateId_validators_validatorId") do (
@@ -283,7 +285,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
           let sres = validator.getStatus(current_epoch)
           if sres.isOk:
             return (validator: validator, index: uint64(index),
-                    status: sres.get(), balance: validator.effective_balance)
+                    status: sres.get(), balance: state.balances[index])
           else:
             raise newException(CatchableError, "Incorrect validator's state")
       else:
@@ -292,7 +294,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
             let sres = validator.getStatus(current_epoch)
             if sres.isOk:
               return (validator: validator, index: uint64(index),
-                      status: sres.get(), balance: validator.effective_balance)
+                      status: sres.get(), balance: state.balances[index])
             else:
               raise newException(CatchableError, "Incorrect validator's state")
 
@@ -316,13 +318,13 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
             let validator = state.validators[index]
             vquery.keyset.excl(validator.pubkey)
             let balance = (index: uint64(index),
-                           balance: validator.effective_balance)
+                           balance: state.balances[index])
             res.add(balance)
 
         for index, validator in state.validators.pairs():
           if validator.pubkey in vquery.keyset:
             let balance = (index: uint64(index),
-                           balance: validator.effective_balance)
+                           balance: state.balances[index])
             res.add(balance)
     return res
 
@@ -392,7 +394,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
     if head.slot >= blck.message.slot:
       node.network.broadcast(getBeaconBlocksTopic(node.forkDigest), blck)
       # The block failed validation, but was successfully broadcast anyway.
-      # It was not integrated into the beacon node''s database.
+      # It was not integrated into the beacon node's database.
       return 202
     else:
       let res = proposeSignedBlock(node, head, AttachedValidator(), blck)

@@ -9,12 +9,12 @@
 
 import
   # Standard library
-  std/unittest,
+  std/[unittest, os],
   # Status lib
   eth/db/kvstore,
   stew/results,
   # Internal
-  ../../beacon_chain/validator_slashing_protection,
+  ../../beacon_chain/validators/slashing_protection,
   ../../beacon_chain/spec/[datatypes, digest, crypto, presets],
   # Test utilies
   ../testutil
@@ -38,9 +38,35 @@ func fakeValidator(index: SomeInteger): ValidatorPubKey =
   result = ValidatorPubKey()
   result.blob[0 ..< 8] = (1'u64 shl 48 + index.uint64).toBytesBE()
 
+proc sqlite3db_delete(basepath, dbname: string) =
+  removeFile(basepath / dbname&".sqlite3-shm")
+  removeFile(basepath / dbname&".sqlite3-wal")
+  removeFile(basepath / dbname&".sqlite3")
+
+const TestDir = ""
+const TestDbName = "test_slashprot"
+
+# Reminder of SQLite constraints for fake data:
+# attestations:
+# - all fields are NOT NULL
+# - attestation_root is unique
+# - (validator_id, target_epoch)
+# blocks:
+# - all fields are NOT NULL
+# - block_root is unique
+# - (validator_id, slot)
+
 suiteReport "Slashing Protection DB" & preset():
   wrappedTimedTest "Empty database" & preset():
-    let db = SlashingProtectionDB.init(default(Eth2Digest), kvStore MemStoreRef.init())
+    sqlite3db_delete(TestDir, TestDbName)
+    let db = SlashingProtectionDB.init(
+               default(Eth2Digest),
+               TestDir,
+               TestDbName
+             )
+    defer:
+      db.close()
+      sqlite3db_delete(TestDir, TestDbName)
 
     check:
       db.checkSlashableBlockProposal(
@@ -58,10 +84,16 @@ suiteReport "Slashing Protection DB" & preset():
         target = Epoch 1
       ).error.kind == TargetPrecedesSource
 
-    db.close()
-
   wrappedTimedTest "SP for block proposal - linear append":
-    let db = SlashingProtectionDB.init(default(Eth2Digest), kvStore MemStoreRef.init())
+    sqlite3db_delete(TestDir, TestDbName)
+    let db = SlashingProtectionDB.init(
+               default(Eth2Digest),
+               TestDir,
+               TestDbName
+             )
+    defer:
+      db.close()
+      sqlite3db_delete(TestDir, TestDbName)
 
     db.registerBlock(
       fakeValidator(100),
@@ -79,11 +111,6 @@ suiteReport "Slashing Protection DB" & preset():
         fakeValidator(100),
         slot = Slot 10
       ).isErr()
-      # Slot occupied by another validator
-      db.checkSlashableBlockProposal(
-        fakeValidator(111),
-        slot = Slot 10
-      ).isOk()
       # Slot occupied by another validator
       db.checkSlashableBlockProposal(
         fakeValidator(100),
@@ -115,7 +142,15 @@ suiteReport "Slashing Protection DB" & preset():
       ).isErr()
 
   wrappedTimedTest "SP for block proposal - backtracking append":
-    let db = SlashingProtectionDB.init(default(Eth2Digest), kvStore MemStoreRef.init())
+    sqlite3db_delete(TestDir, TestDbName)
+    let db = SlashingProtectionDB.init(
+               default(Eth2Digest),
+               TestDir,
+               TestDbName
+             )
+    defer:
+      db.close()
+      sqlite3db_delete(TestDir, TestDbName)
 
     # last finalized block
     db.registerBlock(
@@ -135,36 +170,37 @@ suiteReport "Slashing Protection DB" & preset():
       fakeRoot(20)
     )
     for i in 0 ..< 30:
-      if i notin {10, 20}:
-        check:
-          db.checkSlashableBlockProposal(
-            fakeValidator(100),
-            Slot i
-          ).isOk()
+      if i > 10 and i != 20: # MinSlotViolation and DupSlot
+        let status = db.checkSlashableBlockProposal(
+          fakeValidator(100),
+          Slot i
+        )
+        doAssert status.isOk, "error: " & $status
       else:
-         check:
-          db.checkSlashableBlockProposal(
-            fakeValidator(100),
-            Slot i
-          ).isErr()
+        let status = db.checkSlashableBlockProposal(
+          fakeValidator(100),
+          Slot i
+        )
+        doAssert status.isErr, "error: " & $status
     db.registerBlock(
       fakeValidator(100),
       Slot 15,
       fakeRoot(15)
     )
     for i in 0 ..< 30:
-      if i notin {10, 15, 20}:
-        check:
-          db.checkSlashableBlockProposal(
-            fakeValidator(100),
-            Slot i
-          ).isOk()
+      if i > 10 and i notin {15, 20}: # MinSlotViolation and DupSlot
+        let status = db.checkSlashableBlockProposal(
+          fakeValidator(100),
+          Slot i
+        )
+        doAssert status.isOk, "error: " & $status
       else:
-         check:
-          db.checkSlashableBlockProposal(
-            fakeValidator(100),
-            Slot i
-          ).isErr()
+        let status = db.checkSlashableBlockProposal(
+          fakeValidator(100),
+          Slot i
+        )
+        doAssert status.isErr, "error: " & $status
+        check:
           db.checkSlashableBlockProposal(
             fakeValidator(0xDEADBEEF),
             Slot i
@@ -180,50 +216,19 @@ suiteReport "Slashing Protection DB" & preset():
       fakeRoot(17)
     )
     for i in 0 ..< 30:
-      if i notin {10, 12, 15, 17, 20}:
-        check:
-          db.checkSlashableBlockProposal(
-            fakeValidator(100),
-            Slot i
-          ).isOk()
+      if i > 10 and i notin {12, 15, 17, 20}:
+        let status = db.checkSlashableBlockProposal(
+          fakeValidator(100),
+          Slot i
+        )
+        doAssert status.isOk, "error: " & $status
       else:
-         check:
-          db.checkSlashableBlockProposal(
-            fakeValidator(100),
-            Slot i
-          ).isErr()
-          db.checkSlashableBlockProposal(
-            fakeValidator(0xDEADBEEF),
-            Slot i
-          ).isOk()
-    db.registerBlock(
-      fakeValidator(100),
-      Slot 9,
-      fakeRoot(9)
-    )
-    db.registerBlock(
-      fakeValidator(100),
-      Slot 1,
-      fakeRoot(1)
-    )
-    db.registerBlock(
-      fakeValidator(100),
-      Slot 3,
-      fakeRoot(3)
-    )
-    for i in 0 ..< 30:
-      if i notin {1, 3, 9, 10, 12, 15, 17, 20}:
+        let status = db.checkSlashableBlockProposal(
+          fakeValidator(100),
+          Slot i
+        )
+        doAssert status.isErr, "error: " & $status
         check:
-          db.checkSlashableBlockProposal(
-            fakeValidator(100),
-            Slot i
-          ).isOk()
-      else:
-         check:
-          db.checkSlashableBlockProposal(
-            fakeValidator(100),
-            Slot i
-          ).isErr()
           db.checkSlashableBlockProposal(
             fakeValidator(0xDEADBEEF),
             Slot i
@@ -233,31 +238,35 @@ suiteReport "Slashing Protection DB" & preset():
       Slot 29,
       fakeRoot(29)
     )
-    db.registerBlock(
-      fakeValidator(100),
-      Slot 2,
-      fakeRoot(2)
-    )
     for i in 0 ..< 30:
-      if i notin {1, 2, 3, 9, 10, 12, 15, 17, 20, 29}:
-        check:
-          db.checkSlashableBlockProposal(
-            fakeValidator(100),
-            Slot i
-          ).isOk()
+      if i > 10 and i notin {12, 15, 17, 20, 29}:
+        let status = db.checkSlashableBlockProposal(
+          fakeValidator(100),
+          Slot i
+        )
+        doAssert status.isOk, "error: " & $status
       else:
-         check:
-          db.checkSlashableBlockProposal(
-            fakeValidator(100),
-            Slot i
-          ).isErr()
+        let status = db.checkSlashableBlockProposal(
+          fakeValidator(100),
+          Slot i
+        )
+        doAssert status.isErr, "error: " & $status
+        check:
           db.checkSlashableBlockProposal(
             fakeValidator(0xDEADBEEF),
             Slot i
           ).isOk()
 
   wrappedTimedTest "SP for same epoch attestation target - linear append":
-    let db = SlashingProtectionDB.init(default(Eth2Digest), kvStore MemStoreRef.init())
+    sqlite3db_delete(TestDir, TestDbName)
+    let db = SlashingProtectionDB.init(
+               default(Eth2Digest),
+               TestDir,
+               TestDbName
+             )
+    defer:
+      db.close()
+      sqlite3db_delete(TestDir, TestDbName)
 
     db.registerAttestation(
       fakeValidator(100),
@@ -275,11 +284,6 @@ suiteReport "Slashing Protection DB" & preset():
         fakeValidator(100),
         Epoch 0, Epoch 10,
       ).error.kind == DoubleVote
-      # Epoch occupied by another validator
-      db.checkSlashableAttestation(
-        fakeValidator(111),
-        Epoch 0, Epoch 10
-      ).isOk()
       # Epoch occupied by another validator
       db.checkSlashableAttestation(
         fakeValidator(100),
@@ -310,155 +314,17 @@ suiteReport "Slashing Protection DB" & preset():
         Epoch 0, Epoch 20
       ).error.kind == DoubleVote
 
-  wrappedTimedTest "SP for same epoch attestation target - backtracking append":
-    let db = SlashingProtectionDB.init(default(Eth2Digest), kvStore MemStoreRef.init())
-
-    # last finalized block
-    db.registerAttestation(
-      fakeValidator(0),
-      Epoch 0, Epoch 0,
-      fakeRoot(0)
-    )
-
-    db.registerAttestation(
-      fakeValidator(100),
-      Epoch 0, Epoch 10,
-      fakeRoot(10)
-    )
-    db.registerAttestation(
-      fakeValidator(100),
-      Epoch 0, Epoch 20,
-      fakeRoot(20)
-    )
-    for i in 0 ..< 30:
-      if i notin {10, 20}:
-        check:
-          db.checkSlashableAttestation(
-            fakeValidator(100),
-            Epoch 0, Epoch i
-          ).isOk()
-      else:
-         check:
-          db.checkSlashableAttestation(
-            fakeValidator(100),
-            Epoch 0, Epoch i
-          ).error.kind == DoubleVote
-          db.checkSlashableAttestation(
-            fakeValidator(0xDEADBEEF),
-            Epoch 0, Epoch i
-          ).isOk()
-    db.registerAttestation(
-      fakeValidator(100),
-      Epoch 0, Epoch 15,
-      fakeRoot(15)
-    )
-    for i in 0 ..< 30:
-      if i notin {10, 15, 20}:
-        check:
-          db.checkSlashableAttestation(
-            fakeValidator(100),
-            Epoch 0, Epoch i
-          ).isOk()
-      else:
-         check:
-          db.checkSlashableAttestation(
-            fakeValidator(100),
-            Epoch 0, Epoch i
-          ).error.kind == DoubleVote
-          db.checkSlashableAttestation(
-            fakeValidator(0xDEADBEEF),
-            Epoch 0, Epoch i
-          ).isOk()
-    db.registerAttestation(
-      fakeValidator(100),
-      Epoch 0, Epoch 12,
-      fakeRoot(12)
-    )
-    db.registerAttestation(
-      fakeValidator(100),
-      Epoch 0, Epoch 17,
-      fakeRoot(17)
-    )
-    for i in 0 ..< 30:
-      if i notin {10, 12, 15, 17, 20}:
-        check:
-          db.checkSlashableAttestation(
-            fakeValidator(100),
-            Epoch 0, Epoch i
-          ).isOk()
-      else:
-         check:
-          db.checkSlashableAttestation(
-            fakeValidator(100),
-            Epoch 0, Epoch i
-          ).error.kind == DoubleVote
-          db.checkSlashableAttestation(
-            fakeValidator(0xDEADBEEF),
-            Epoch 0, Epoch i
-          ).isOk()
-    db.registerAttestation(
-      fakeValidator(100),
-      Epoch 0, Epoch 9,
-      fakeRoot(9)
-    )
-    db.registerAttestation(
-      fakeValidator(100),
-      Epoch 0, Epoch 1,
-      fakeRoot(1)
-    )
-    db.registerAttestation(
-      fakeValidator(100),
-      Epoch 0, Epoch 3,
-      fakeRoot(3)
-    )
-    for i in 0 ..< 30:
-      if i notin {1, 3, 9, 10, 12, 15, 17, 20}:
-        check:
-          db.checkSlashableAttestation(
-            fakeValidator(100),
-            Epoch 0, Epoch i
-          ).isOk()
-      else:
-         check:
-          db.checkSlashableAttestation(
-            fakeValidator(100),
-            Epoch 0, Epoch i
-          ).error.kind == DoubleVote
-          db.checkSlashableAttestation(
-            fakeValidator(0xDEADBEEF),
-            Epoch 0, Epoch i
-          ).isOk()
-    db.registerAttestation(
-      fakeValidator(100),
-      Epoch 0, Epoch 29,
-      fakeRoot(29)
-    )
-    db.registerAttestation(
-      fakeValidator(100),
-      Epoch 0, Epoch 2,
-      fakeRoot(2)
-    )
-    for i in 0 ..< 30:
-      if i notin {1, 2, 3, 9, 10, 12, 15, 17, 20, 29}:
-        check:
-          db.checkSlashableAttestation(
-            fakeValidator(100),
-            Epoch 0, Epoch i
-          ).isOk()
-      else:
-        check:
-          db.checkSlashableAttestation(
-            fakeValidator(100),
-            Epoch 0, Epoch i
-          ).error.kind == DoubleVote
-          db.checkSlashableAttestation(
-            fakeValidator(0xDEADBEEF),
-            Epoch 0, Epoch i
-          ).isOk()
-
   wrappedTimedTest "SP for surrounded attestations":
     block:
-      let db = SlashingProtectionDB.init(default(Eth2Digest), kvStore MemStoreRef.init())
+      sqlite3db_delete(TestDir, TestDbName)
+      let db = SlashingProtectionDB.init(
+                default(Eth2Digest),
+                TestDir,
+                TestDbName
+              )
+      defer:
+        db.close()
+        sqlite3db_delete(TestDir, TestDbName)
 
       db.registerAttestation(
         fakeValidator(100),
@@ -479,19 +345,22 @@ suiteReport "Slashing Protection DB" & preset():
           fakeValidator(100),
           Epoch 11, Epoch 21
         ).isOk
-        # TODO: is that possible?
-        db.checkSlashableAttestation(
-          fakeValidator(100),
-          Epoch 9, Epoch 19
-        ).isOk
 
     block:
-      let db = SlashingProtectionDB.init(default(Eth2Digest), kvStore MemStoreRef.init())
+      sqlite3db_delete(TestDir, TestDbName)
+      let db = SlashingProtectionDB.init(
+                default(Eth2Digest),
+                TestDir,
+                TestDbName
+              )
+      defer:
+        db.close()
+        sqlite3db_delete(TestDir, TestDbName)
 
       db.registerAttestation(
         fakeValidator(100),
         Epoch 0, Epoch 1,
-        fakeRoot(0)
+        fakeRoot(1)
       )
 
       db.registerAttestation(
@@ -522,7 +391,15 @@ suiteReport "Slashing Protection DB" & preset():
 
   wrappedTimedTest "SP for surrounding attestations":
     block:
-      let db = SlashingProtectionDB.init(default(Eth2Digest), kvStore MemStoreRef.init())
+      sqlite3db_delete(TestDir, TestDbName)
+      let db = SlashingProtectionDB.init(
+                default(Eth2Digest),
+                TestDir,
+                TestDbName
+              )
+      defer:
+        db.close()
+        sqlite3db_delete(TestDir, TestDbName)
 
       db.registerAttestation(
         fakeValidator(100),
@@ -541,12 +418,20 @@ suiteReport "Slashing Protection DB" & preset():
         ).error.kind == SurroundingVote
 
     block:
-      let db = SlashingProtectionDB.init(default(Eth2Digest), kvStore MemStoreRef.init())
+      sqlite3db_delete(TestDir, TestDbName)
+      let db = SlashingProtectionDB.init(
+                default(Eth2Digest),
+                TestDir,
+                TestDbName
+              )
+      defer:
+        db.close()
+        sqlite3db_delete(TestDir, TestDbName)
 
       db.registerAttestation(
         fakeValidator(100),
         Epoch 0, Epoch 1,
-        fakeRoot(20)
+        fakeRoot(1)
       )
 
       db.registerAttestation(
@@ -567,24 +452,32 @@ suiteReport "Slashing Protection DB" & preset():
 
   wrappedTimedTest "Attestation ordering #1698":
     block:
-      let db = SlashingProtectionDB.init(default(Eth2Digest), kvStore MemStoreRef.init())
+      sqlite3db_delete(TestDir, TestDbName)
+      let db = SlashingProtectionDB.init(
+                default(Eth2Digest),
+                TestDir,
+                TestDbName
+              )
+      defer:
+        db.close()
+        sqlite3db_delete(TestDir, TestDbName)
 
       db.registerAttestation(
         fakeValidator(100),
         Epoch 1, Epoch 2,
-        fakeRoot(20)
+        fakeRoot(2)
       )
 
       db.registerAttestation(
         fakeValidator(100),
         Epoch 8, Epoch 10,
-        fakeRoot(20)
+        fakeRoot(10)
       )
 
       db.registerAttestation(
         fakeValidator(100),
         Epoch 14, Epoch 15,
-        fakeRoot(20)
+        fakeRoot(15)
       )
 
       # The current list is, 2 -> 10 -> 15
@@ -592,7 +485,7 @@ suiteReport "Slashing Protection DB" & preset():
       db.registerAttestation(
         fakeValidator(100),
         Epoch 3, Epoch 6,
-        fakeRoot(20)
+        fakeRoot(6)
       )
 
       # The current list is 2 -> 6 -> 10 -> 15
@@ -605,7 +498,15 @@ suiteReport "Slashing Protection DB" & preset():
 
   wrappedTimedTest "Test valid attestation #1699":
     block:
-      let db = SlashingProtectionDB.init(default(Eth2Digest), kvStore MemStoreRef.init())
+      sqlite3db_delete(TestDir, TestDbName)
+      let db = SlashingProtectionDB.init(
+                default(Eth2Digest),
+                TestDir,
+                TestDbName
+              )
+      defer:
+        db.close()
+        sqlite3db_delete(TestDir, TestDbName)
 
       db.registerAttestation(
         fakeValidator(100),
@@ -616,7 +517,7 @@ suiteReport "Slashing Protection DB" & preset():
       db.registerAttestation(
         fakeValidator(100),
         Epoch 40, Epoch 50,
-        fakeRoot(20)
+        fakeRoot(50)
       )
 
       check:

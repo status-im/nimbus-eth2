@@ -1,7 +1,5 @@
 # Nimbus Eth2 (Beacon Chain)
 
-[![Build Status (Travis)](https://img.shields.io/travis/status-im/nimbus-eth2/master.svg?label=Linux%20/%20macOS "Linux/macOS build status (Travis)")](https://travis-ci.org/status-im/nimbus-eth2)
-[![Build Status (Azure)](https://dev.azure.com/nimbus-dev/nimbus-eth2/_apis/build/status/status-im.nimbus-eth2?branchName=master)](https://dev.azure.com/nimbus-dev/nimbus-eth2/_build/latest?definitionId=3&branchName=master)
 [![Github Actions CI](https://github.com/status-im/nimbus-eth2/workflows/Nimbus%20nimbus-eth2%20CI/badge.svg)](https://github.com/status-im/nim-blscurve/actions?query=workflow%3A%22BLSCurve+CI%22)
 [![License: Apache](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
@@ -33,14 +31,14 @@ Nimbus beacon chain is a research implementation of the beacon chain component o
 
 ## Documentation
 
-You can find the information you need to run a beacon node and operate as a validator in [The Book](https://status-im.github.io/nimbus-eth2/).
+You can find the information you need to run a beacon node and operate as a validator in [The Book](https://nimbus.guide/).
 
-The [Quickstart](https://status-im.github.io/nimbus-eth2/quick-start.html) in particular will help you get connected to the Pyrmont Testnet and eth2 Mainnet quickly!
+The [Quickstart](https://nimbus.guide/quick-start.html) in particular will help you get connected to the Pyrmont Testnet and eth2 Mainnet quickly!
 
 ## Related projects
 
 * [status-im/nimbus-eth1](https://github.com/status-im/nimbus-eth1/): Nimbus for Ethereum 1
-* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v1.0.0#phase-0): Serenity specification that this project implements
+* [ethereum/eth2.0-specs](https://github.com/ethereum/eth2.0-specs/tree/v1.0.1#phase-0): Serenity specification that this project implements
 
 You can check where the beacon chain fits in the Ethereum ecosystem our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
 
@@ -52,11 +50,11 @@ You can check where the beacon chain fits in the Ethereum ecosystem our Two-Poin
 
 ## Developer resources
 
-To build tools that interact with Nimbus while it's running, we expose an [RPC API](https://status-im.github.io/nimbus-eth2/api.html).
+To build tools that interact with Nimbus while it's running, we expose an [RPC API](https://nimbus.guide/api.html).
 
-To get started with developing Nimbus itself, see the [developer handbook](https://status-im.github.io/nimbus-eth2/developers.html).
+To get started with developing Nimbus itself, see the [developer handbook](https://nimbus.guide/developers.html). The code follows the [Status Nim Style Guide](https://status-im.github.io/nim-style-guide/).
 
-Nimbus is built in the [Nim language](https://nim-lang.org) - the compiler is automatically installed when building the project for the first time. More information - in particular security-related information about the language - can be found in the [Auditor Handbook](https://status-im.github.io/nimbus-eth2/auditors-book/).
+Nimbus is built in the [Nim language](https://nim-lang.org) - the compiler is automatically installed when building the project for the first time. More information - in particular security-related information about the language - can be found in the [Auditor Handbook](https://nimbus.guide/auditors-book/).
 
 ## Interop tooling
 

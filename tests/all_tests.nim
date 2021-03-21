@@ -32,7 +32,8 @@ import # Unit test
   ./test_zero_signature,
   ./fork_choice/tests_fork_choice,
   ./slashing_protection/test_slashing_interchange,
-  ./slashing_protection/test_slashing_protection_db
+  ./slashing_protection/test_slashing_protection_db,
+  ./slashing_protection/test_migration
 
 import # Refactor state transition unit tests
   # In mainnet these take 2 minutes and are empty TODOs

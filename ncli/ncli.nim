@@ -5,7 +5,7 @@ import
   ../research/simutils,
   ../beacon_chain/spec/[crypto, datatypes, digest, helpers, state_transition],
   ../beacon_chain/extras,
-  ../beacon_chain/network_metadata,
+  ../beacon_chain/networking/network_metadata,
   ../beacon_chain/ssz/[merkleization, ssz_serialization]
 
 type

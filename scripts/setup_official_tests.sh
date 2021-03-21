@@ -37,4 +37,5 @@ fi
 
 pushd "${SUBREPO_DIR}"
 ./download_test_vectors.sh
+./download_slashing_interchange_tests.sh
 popd

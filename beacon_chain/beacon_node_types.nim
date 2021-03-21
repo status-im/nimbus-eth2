@@ -4,9 +4,9 @@ import
   std/[deques, intsets, streams, tables],
   stew/endians2,
   spec/[datatypes, digest, crypto],
-  block_pools/block_pools_types,
+  consensus_object_pools/block_pools_types,
   fork_choice/fork_choice_types,
-  validator_slashing_protection
+  validators/slashing_protection
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
 
@@ -30,7 +30,7 @@ type
     ## added to the aggregate meaning that only non-overlapping aggregates may
     ## be further combined.
     aggregation_bits*: CommitteeValidatorsBits
-    aggregate_signature*: ValidatorSig
+    aggregate_signature*: CookedSig
 
   AttestationEntry* = object
     ## Each entry holds the known signatures for a particular, distinct vote
@@ -150,5 +150,20 @@ type
   ValidatorPool* = object
     validators*: Table[ValidatorPubKey, AttachedValidator]
     slashingProtection*: SlashingProtectionDB
+
+  AttestationSubnets* = object
+    enabled*: bool
+    stabilitySubnets*: seq[tuple[subnet: uint8, expiration: Epoch]]
+    nextCycleEpoch*: Epoch
+
+    # These encode states in per-subnet state machines
+    subscribedSubnets*: set[uint8]
+    subscribeSlot*: array[ATTESTATION_SUBNET_COUNT, Slot]
+    unsubscribeSlot*: array[ATTESTATION_SUBNET_COUNT, Slot]
+
+    # Used to track the next attestation slots, using an epoch-relative
+    # coordinate system. Defaults don't need initialization.
+    attestingSlots*: array[2, uint32]
+    lastCalculatedAttestationEpoch*: Epoch
 
 func shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)

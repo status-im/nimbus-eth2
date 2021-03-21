@@ -122,13 +122,15 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + [Valid]    invalid_sig_other_version                                                       OK
 + [Valid]    invalid_sig_top_up                                                              OK
 + [Valid]    invalid_withdrawal_credentials_top_up                                           OK
++ [Valid]    new_deposit_eth1_withdrawal_credentials                                         OK
 + [Valid]    new_deposit_max                                                                 OK
++ [Valid]    new_deposit_non_versioned_withdrawal_credentials                                OK
 + [Valid]    new_deposit_over_max                                                            OK
 + [Valid]    new_deposit_under_max                                                           OK
 + [Valid]    success_top_up                                                                  OK
 + [Valid]    valid_sig_but_forked_state                                                      OK
 ```
-OK: 11/11 Fail: 0/11 Skip: 0/11
+OK: 13/13 Fail: 0/13 Skip: 0/13
 ## Official - Operations - Proposer slashing  [Preset: mainnet]
 ```diff
 + [Invalid] epochs_are_different                                                             OK
@@ -261,4 +263,4 @@ OK: 38/38 Fail: 0/38 Skip: 0/38
 OK: 5/5 Fail: 0/5 Skip: 0/5
 
 ---TOTAL---
-OK: 203/203 Fail: 0/203 Skip: 0/203
+OK: 205/205 Fail: 0/205 Skip: 0/205

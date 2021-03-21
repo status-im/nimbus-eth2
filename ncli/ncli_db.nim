@@ -1,13 +1,13 @@
 import
   os, stats, strformat, tables,
   chronicles, confutils, stew/byteutils, eth/db/kvstore_sqlite3,
-  ../beacon_chain/network_metadata,
+  ../beacon_chain/networking/network_metadata,
   ../beacon_chain/[beacon_chain_db, extras],
-  ../beacon_chain/block_pools/[chain_dag],
+  ../beacon_chain/consensus_object_pools/blockchain_dag,
   ../beacon_chain/spec/[crypto, datatypes, digest, helpers,
                         state_transition, presets],
-  ../beacon_chain/[ssz, sszdump],
-  ../research/simutils
+  ../beacon_chain/ssz, ../beacon_chain/ssz/sszdump,
+  ../research/simutils, ./e2store
 
 type Timers = enum
   tInit = "Initialize DB"
@@ -16,7 +16,8 @@ type Timers = enum
   tAdvanceSlot = "Advance slot, non-epoch"
   tAdvanceEpoch = "Advance slot, epoch"
   tApplyBlock = "Apply block, no slot processing"
-  tDbStore = "Database block store"
+  tDbLoad = "Database load"
+  tDbStore = "Database store"
 
 type
   DbCmd* = enum
@@ -25,6 +26,7 @@ type
     dumpBlock
     pruneDatabase
     rewindState
+    exportEra
 
   # TODO:
   # This should probably allow specifying a run-time preset
@@ -50,6 +52,9 @@ type
       storeBlocks* {.
         defaultValue: false
         desc: "Store each read block back into a separate database".}: bool
+      storeStates* {.
+        defaultValue: false
+        desc: "Store a state each epoch into a separate database".}: bool
       printTimes* {.
         defaultValue: true
         desc: "Print csv of block processing time".}: bool
@@ -86,6 +91,14 @@ type
         argument
         desc: "Slot".}: uint64
 
+    of exportEra:
+      era* {.
+        defaultValue: 0
+        desc: "The era number to write".}: uint64
+      eraCount* {.
+        defaultValue: 1
+        desc: "Number of eras to write".}: uint64
+
 proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
   var timers: array[Timers, RunningStat]
 
@@ -93,7 +106,9 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
   let
     db = BeaconChainDB.init(runtimePreset, conf.databaseDir.string)
     dbBenchmark = BeaconChainDB.init(runtimePreset, "benchmark")
-  defer: db.close()
+  defer:
+    db.close()
+    dbBenchmark.close()
 
   if not ChainDAGRef.isInitialized(db):
     echo "Database not initialized"
@@ -128,7 +143,9 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
   withTimer(timers[tLoadState]):
     discard db.getState(state[].root, state[].data, noRollback)
 
-  var cache = StateCache()
+  var
+    cache = StateCache()
+    loadedState = new BeaconState
 
   for b in blocks.mitems():
     while state[].data.slot < b.message.slot:
@@ -151,6 +168,21 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
     if conf.storeBlocks:
       withTimer(timers[tDbStore]):
         dbBenchmark.putBlock(b)
+
+    if state[].data.slot.isEpoch and conf.storeStates:
+      if state[].data.slot.epoch < 2:
+        dbBenchmark.putState(state[].root, state[].data)
+        dbBenchmark.checkpoint()
+      else:
+        withTimer(timers[tDbStore]):
+          dbBenchmark.putState(state[].root, state[].data)
+          dbBenchmark.checkpoint()
+
+        withTimer(timers[tDbLoad]):
+          doAssert dbBenchmark.getState(state[].root, loadedState[], noRollback)
+
+        if state[].data.slot.epoch mod 16 == 0:
+          doAssert hash_tree_root(state[].data) == hash_tree_root(loadedState[])
 
   printTimers(false, timers)
 
@@ -215,6 +247,7 @@ proc copyPrunedDatabase(
   for signedBlock in getAncestors(db, headBlock.get):
     if not dry_run:
       copyDb.putBlock(signedBlock)
+      copyDb.checkpoint()
     if verbose:
       echo "copied block at slot ", signedBlock.message.slot
 
@@ -283,9 +316,61 @@ proc cmdRewindState(conf: DbConf, preset: RuntimePreset) =
     echo "Block not found in database"
     return
 
-  dag.withState(dag.tmpState, blckRef.atSlot(Slot(conf.slot))):
+  let tmpState = assignClone(dag.headState)
+  dag.withState(tmpState[], blckRef.atSlot(Slot(conf.slot))):
     echo "Writing state..."
     dump("./", hashedState, blck)
+
+proc atCanonicalSlot(blck: BlockRef, slot: Slot): BlockSlot =
+  if slot == 0:
+    blck.atSlot(slot)
+  else:
+    blck.atSlot(slot - 1).blck.atSlot(slot)
+
+proc cmdExportEra(conf: DbConf, preset: RuntimePreset) =
+  let db = BeaconChainDB.init(preset, conf.databaseDir.string)
+  defer: db.close()
+
+  if not ChainDAGRef.isInitialized(db):
+    echo "Database not initialized"
+    quit 1
+
+  echo "Initializing block pool..."
+  let
+    dag = init(ChainDAGRef, preset, db)
+
+  let tmpState = assignClone(dag.headState)
+
+  for era in conf.era..<conf.era + conf.eraCount:
+    let
+      firstSlot = if era == 0: Slot(0) else: Slot((era - 1) * SLOTS_PER_HISTORICAL_ROOT)
+      endSlot = Slot(era * SLOTS_PER_HISTORICAL_ROOT)
+      slotCount = endSlot - firstSlot
+      name = &"ethereum2-mainnet-{era.int:08x}-{1:08x}"
+      canonical = dag.head.atCanonicalSlot(endSlot)
+
+    if endSlot > dag.head.slot:
+      echo "Written all complete eras"
+      break
+
+    var e2s = E2Store.open(".", name, firstSlot).get()
+    defer: e2s.close()
+
+    dag.withState(tmpState[], canonical):
+      e2s.appendRecord(state).get()
+
+    var
+      ancestors: seq[BlockRef]
+      cur = canonical.blck
+    if era != 0:
+      while cur != nil and cur.slot >= firstSlot:
+        ancestors.add(cur)
+        cur = cur.parent
+
+      for i in 0..<ancestors.len():
+        let
+          ancestor = ancestors[ancestors.len - 1 - i]
+        e2s.appendRecord(db.getBlock(ancestor.root).get()).get()
 
 when isMainModule:
   var
@@ -303,3 +388,5 @@ when isMainModule:
     cmdPrune(conf, runtimePreset)
   of rewindState:
     cmdRewindState(conf, runtimePreset)
+  of exportEra:
+    cmdExportEra(conf, runtimePreset)

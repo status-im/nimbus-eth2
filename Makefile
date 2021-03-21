@@ -11,7 +11,10 @@ SHELL := bash # the shell used internally by "make"
 BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 
 # we set its default value before LOG_LEVEL is used in "variables.mk"
-LOG_LEVEL := INFO
+LOG_LEVEL := DEBUG
+
+# used by Make targets that launch a beacon node
+RUNTIME_LOG_LEVEL := INFO
 
 LINK_PCRE := 0
 
@@ -37,7 +40,6 @@ endif
 # TODO re-enable ncli_query if/when it works again
 TOOLS := \
 	nimbus_beacon_node \
-	block_sim \
 	deposit_contract \
 	inspector \
 	logtrace \
@@ -47,14 +49,15 @@ TOOLS := \
 	ncli_db \
 	process_dashboard \
 	stack_sizes \
-	state_sim \
 	nimbus_validator_client \
 	nimbus_signing_process
+.PHONY: $(TOOLS)
 
 # bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
 
 TOOLS_DIRS := \
 	beacon_chain \
+	beacon_chain/eth1 \
 	benchmarks \
 	ncli \
 	nbench \
@@ -67,7 +70,6 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	deps \
 	update \
 	test \
-	$(TOOLS) \
 	clean_eth2_network_simulation_all \
 	eth2_network_simulation \
 	clean-testnet0 \
@@ -120,41 +122,161 @@ DEPOSITS_DELAY := 0
 
 #- "--define:release" cannot be added to "config.nims"
 #- disable Nim's default parallelisation because it starts too many processes for too little gain
-NIM_PARAMS := $(NIM_PARAMS) -d:release --parallelBuild:1
+NIM_PARAMS += -d:release --parallelBuild:1
 
 ifeq ($(USE_LIBBACKTRACE), 0)
 # Blame Jacek for the lack of line numbers in your stack traces ;-)
-NIM_PARAMS := $(NIM_PARAMS) --stacktrace:on --excessiveStackTrace:on --linetrace:off -d:disable_libbacktrace
+NIM_PARAMS += --stacktrace:on --excessiveStackTrace:on --linetrace:off -d:disable_libbacktrace
 endif
 
-deps: | deps-common nat-libs beacon_chain.nims build/generate_makefile
+deps: | deps-common nat-libs build/generate_makefile
 ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
 endif
 
-#- deletes and recreates "beacon_chain.nims" which on Windows is a copy instead of a proper symlink
 #- deletes binaries that might need to be rebuilt after a Git pull
 update: | update-common
-	rm -f beacon_chain.nims && \
-		"$(MAKE)" beacon_chain.nims $(HANDLE_OUTPUT)
 	rm -f build/generate_makefile
-
-# symlink
-beacon_chain.nims:
-	ln -s beacon_chain.nimble $@
+	rm -fr nimcache/
 
 # nim-libbacktrace
 libbacktrace:
 	+ "$(MAKE)" -C vendor/nim-libbacktrace --no-print-directory BUILD_CXX_LIB=0
 
-# Windows 10 with WSL enabled, but no distro installed, fails if "../../nimble.sh" is executed directly
-# in a Makefile recipe but works when prefixing it with `bash`. No idea how the PATH is overridden.
+# test suite
+TEST_BINARIES := \
+	test_fixture_const_sanity_check_minimal \
+	test_fixture_const_sanity_check_mainnet \
+	test_fixture_ssz_generic_types \
+	test_fixture_ssz_consensus_objects \
+	all_fixtures_require_ssz \
+	test_official_interchange_vectors \
+	proto_array \
+	fork_choice \
+	all_tests \
+	test_keystore \
+	state_sim \
+	block_sim
+.PHONY: $(TEST_BINARIES)
+
+test_fixture_const_sanity_check_minimal: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"tests/official/test_fixture_const_sanity_check.nim" \
+			$(NIM_PARAMS) -d:const_preset=minimal -d:chronicles_sinks="json[file]" && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+test_fixture_const_sanity_check_mainnet: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"tests/official/test_fixture_const_sanity_check.nim" \
+			$(NIM_PARAMS) -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+# Generic SSZ test, doesn't use consensus objects minimal/mainnet presets
+test_fixture_ssz_generic_types: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"tests/official/$@.nim" \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:chronicles_sinks="json[file]" && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+# Consensus object SSZ tests
+test_fixture_ssz_consensus_objects: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"tests/official/$@.nim" \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:chronicles_sinks="json[file]" && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+# EF tests
+all_fixtures_require_ssz: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"tests/official/$@.nim" \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+# EIP-3076 - Slashing interchange
+test_official_interchange_vectors: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"tests/slashing_protection/$@.nim" \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+# Mainnet config
+proto_array: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"beacon_chain/fork_choice/$@.nim" \
+			$(NIM_PARAMS) -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+fork_choice: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"beacon_chain/fork_choice/$@.nim" \
+			$(NIM_PARAMS) -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+all_tests: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"tests/$@.nim" \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+# TODO `test_keystore` is extracted from the rest of the tests because it uses conflicting BLST headers
+test_keystore: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"tests/$@.nim" \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+# State and block sims; getting to 4th epoch triggers consensus checks
+state_sim: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"research/$@.nim" \
+			$(NIM_PARAMS) -d:const_preset=mainnet && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+block_sim: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"research/$@.nim" \
+			$(NIM_PARAMS) -d:const_preset=mainnet && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
 DISABLE_TEST_FIXTURES_SCRIPT := 0
-test: | build deps
+# This parameter passing scheme is ugly, but short.
+test: | $(TEST_BINARIES)
 ifeq ($(DISABLE_TEST_FIXTURES_SCRIPT), 0)
 	V=$(V) scripts/setup_official_tests.sh
 endif
-	+ $(ENV_SCRIPT) nim test $(NIM_PARAMS) beacon_chain.nims && rm -f 0000-*.json
+	for TEST_BINARY in $(TEST_BINARIES); do \
+		PARAMS=""; \
+		if [[ "$${TEST_BINARY}" == "state_sim" ]]; then PARAMS="--validators=6000 --slots=128"; \
+		elif [[ "$${TEST_BINARY}" == "block_sim" ]]; then PARAMS="--validators=6000 --slots=128"; \
+		fi; \
+		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
+		build/$${TEST_BINARY} $${PARAMS} || { echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Aborting."; exit 1; }; \
+		done; \
+		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
 
 # It's OK to only build this once. `make update` deletes the binary, forcing a rebuild.
 ifneq ($(USE_LIBBACKTRACE), 0)
@@ -173,9 +295,7 @@ build/generate_makefile: tools/generate_makefile.nim | deps-common
 $(TOOLS): | build deps
 	+ for D in $(TOOLS_DIRS); do [ -e "$${D}/$@.nim" ] && TOOL_DIR="$${D}" && break; done && \
 		echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim c --compileOnly -o:build/$@ $(NIM_PARAMS) "$${TOOL_DIR}/$@.nim" && \
-		build/generate_makefile "nimcache/release/$@/$@.json" "nimcache/release/$@/$@.makefile" && \
-		"$(MAKE)" -f "nimcache/release/$@/$@.makefile" --no-print-directory build $(HANDLE_OUTPUT) && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh $@ "$${TOOL_DIR}/$@.nim" $(NIM_PARAMS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 clean_eth2_network_simulation_data:
@@ -206,7 +326,7 @@ clean-testnet1:
 testnet0 testnet1: | nimbus_beacon_node nimbus_signing_process
 	build/nimbus_beacon_node \
 		--network=$@ \
-		--log-level="$(LOG_LEVEL)" \
+		--log-level="$(RUNTIME_LOG_LEVEL)" \
 		--data-dir=build/data/$@_$(NODE_ID) \
 		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
 
@@ -224,7 +344,7 @@ define CONNECT_TO_NETWORK
 																													--finalized-checkpoint-block=vendor/eth2-testnets/shared/$(1)/recent-finalized-block.ssz" ; }; \
 	$(CPU_LIMIT_CMD) build/$(2) \
 		--network=$(1) \
-		--log-level="$(LOG_LEVEL)" \
+		--log-level="$(RUNTIME_LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
 		$$CHECKPOINT_PARAMS $(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
@@ -257,7 +377,7 @@ define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 
 	$(CPU_LIMIT_CMD) build/$(2) \
 		--network=$(1) \
-		--log-level="$(LOG_LEVEL)" \
+		--log-level="$(RUNTIME_LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
 		--validators-dir=build/data/shared_$(1)_$(NODE_ID)/empty_dummy_folder \
@@ -267,7 +387,7 @@ define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 	sleep 4
 
 	build/nimbus_validator_client \
-		--log-level="$(LOG_LEVEL)" \
+		--log-level="$(RUNTIME_LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_vc_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
 		--rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) ))
@@ -307,7 +427,7 @@ define CLEAN_NETWORK
 endef
 
 ###
-### pyrmont
+### Pyrmont
 ###
 pyrmont-build: | nimbus_beacon_node nimbus_signing_process
 
@@ -331,6 +451,37 @@ pyrmont-dev-deposit: | pyrmont-build deposit_contract
 
 clean-pyrmont:
 	$(call CLEAN_NETWORK,pyrmont)
+
+
+###
+### Prater
+###
+prater-build: | nimbus_beacon_node nimbus_signing_process
+
+# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
+prater: | prater-build
+	$(call CONNECT_TO_NETWORK,prater,nimbus_beacon_node)
+
+prater-vc: | prater-build nimbus_validator_client
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,prater,nimbus_beacon_node)
+
+ifneq ($(LOG_LEVEL), TRACE)
+prater-dev:
+	+ "$(MAKE)" LOG_LEVEL=TRACE $@
+else
+prater-dev: | prater-build
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,prater,nimbus_beacon_node)
+endif
+
+prater-dev-deposit: | prater-build deposit_contract
+	$(call MAKE_DEPOSIT,prater)
+
+clean-prater:
+	$(call CLEAN_NETWORK,prater)
+
+###
+### Other
+###
 
 ctail: | build deps
 	mkdir -p vendor/.nimble/bin/
@@ -361,6 +512,8 @@ libnfuzz.a: | build deps
 		[[ -e "$@" ]] && mv "$@" build/ || true # workaround for https://github.com/nim-lang/Nim/issues/12745
 
 book:
+	which mdbook &>/dev/null || { echo "'mdbook' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	which mdbook-toc &>/dev/null || { echo "'mdbook-toc' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	cd docs/the_nimbus_book && \
 	mdbook build
 
@@ -369,6 +522,10 @@ auditors-book:
 	mdbook build
 
 publish-book: | book auditors-book
+	CURRENT_BRANCH="$$(git rev-parse --abbrev-ref HEAD)"; \
+		if [[ "$${CURRENT_BRANCH}" != "stable" && "$${CURRENT_BRANCH}" != "unstable" ]]; then \
+			echo -e "\nWarning: you're publishing the books from a branch that is neither 'stable' nor 'unstable'!\n"; \
+		fi
 	git branch -D gh-pages && \
 	git branch --track gh-pages origin/gh-pages && \
 	git worktree add tmp-book gh-pages && \
@@ -386,26 +543,26 @@ publish-book: | book auditors-book
 	rm -rf tmp-book
 
 dist-amd64:
-	MAKE="$(MAKE)" \
+	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh amd64
 
 dist-arm64:
-	MAKE="$(MAKE)" \
+	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh arm64
 
 dist-arm:
-	MAKE="$(MAKE)" \
+	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh arm
 
 dist-win64:
-	MAKE="$(MAKE)" \
+	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh win64
 
 dist:
-	$(MAKE) dist-amd64
-	$(MAKE) dist-arm64
-	$(MAKE) dist-arm
-	$(MAKE) dist-win64
+	+ $(MAKE) dist-amd64
+	+ $(MAKE) dist-arm64
+	+ $(MAKE) dist-arm
+	+ $(MAKE) dist-win64
 
 #- this simple test will show any missing dynamically-linked Glibc symbols in the target distro
 dist-test:

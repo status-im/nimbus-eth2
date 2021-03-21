@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020 Status Research & Development GmbH
+# Copyright (c) 2020-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,8 +8,9 @@
 {.push raises: [Defect].}
 
 import
-  ssz/types,
-  spec/[datatypes, digest, helpers]
+  stew/assign2,
+  ./ssz/types,
+  ./spec/[datatypes, digest, helpers]
 
 func diffModIncEpoch[T, U](hl: HashArray[U, T], startSlot: uint64):
     array[SLOTS_PER_EPOCH, T] =
@@ -26,11 +27,6 @@ func applyModIncrement[T, U](
     ha[indexSlot mod U.uint64] = item
     indexSlot += 1
 
-func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData =
-  ImmutableValidatorData(
-    pubkey: validator.pubkey,
-    withdrawal_credentials: validator.withdrawal_credentials)
-
 func applyValidatorIdentities(
     validators: var HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT],
     hl: auto) =
@@ -38,20 +34,6 @@ func applyValidatorIdentities(
     validators.add Validator(
       pubkey: item.pubkey,
       withdrawal_credentials: item.withdrawal_credentials)
-
-func getValidatorStatus(validator: Validator): ValidatorStatus =
-  ValidatorStatus(
-      effective_balance: validator.effective_balance,
-      slashed: validator.slashed,
-      activation_eligibility_epoch: validator.activation_eligibility_epoch,
-      activation_epoch: validator.activation_epoch,
-      exit_epoch: validator.exit_epoch,
-      withdrawable_epoch: validator.withdrawable_epoch)
-
-func getValidatorStatuses(state: BeaconState):
-    List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT] =
-  for validator in state.validators:
-    result.add getValidatorStatus(validator)
 
 func setValidatorStatuses(
     validators: var HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT],
@@ -67,25 +49,6 @@ func setValidatorStatuses(
     validators[i].activation_epoch = hl[i].activation_epoch
     validators[i].exit_epoch = hl[i].exit_epoch
     validators[i].withdrawable_epoch = hl[i].withdrawable_epoch
-
-func deltaEncodeBalances*[T, U](balances: HashList[T, U]): List[T, U] =
-  if balances.len == 0:
-    return
-
-  result.add balances[0]
-
-  for i in 1 ..< balances.len:
-    result.add balances[i] - balances[i - 1]
-
-  doAssert balances.len == result.len
-
-func deltaDecodeBalances*[T, U](encodedBalances: List[T, U]): HashList[T, U] =
-  var accum = 0'u64
-  for i in 0 ..< encodedBalances.len:
-    accum += encodedBalances[i]
-    result.add accum
-
-  doAssert encodedBalances.len == result.len
 
 func replaceOrAddEncodeEth1Votes[T, U](votes0, votes1: HashList[T, U]):
     (bool, List[T, U]) =
@@ -114,6 +77,20 @@ func replaceOrAddDecodeEth1Votes[T, U](
 
   for item in votes1:
     votes0.add item
+
+func getMutableValidatorStatuses(state: BeaconState):
+    List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT] =
+  result.setLen(state.validators.len)
+  for i in 0 ..< state.validators.len:
+    let validator = unsafeAddr state.validators.data[i]
+    assign(result[i].effective_balance, validator.effective_balance)
+    assign(result[i].slashed, validator.slashed)
+    assign(
+      result[i].activation_eligibility_epoch,
+      validator.activation_eligibility_epoch)
+    assign(result[i].activation_epoch, validator.activation_epoch)
+    assign(result[i].exit_epoch, validator.exit_epoch)
+    assign(result[i].withdrawable_epoch, validator.withdrawable_epoch)
 
 func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
   doAssert state1.slot > state0.slot
@@ -149,8 +126,8 @@ func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
     eth1_data_votes: eth1_data_votes,
     eth1_deposit_index: state1.eth1_deposit_index,
 
-    validatorStatuses: getValidatorStatuses(state1),
-    balances: deltaEncodeBalances(state1.balances),
+    validatorStatuses: getMutableValidatorStatuses(state1),
+    balances: state1.balances.data,
 
     # RANDAO mixes gets updated every block, in place
     randao_mix: state1.randao_mixes[state0.slot.compute_epoch_at_slot.uint64 mod
@@ -158,8 +135,8 @@ func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
     slashing: state1.slashings[state0.slot.compute_epoch_at_slot.uint64 mod
       EPOCHS_PER_HISTORICAL_VECTOR.uint64],
 
-    previous_epoch_attestations: state1.previous_epoch_attestations,
-    current_epoch_attestations: state1.current_epoch_attestations,
+    previous_epoch_attestations: state1.previous_epoch_attestations.data,
+    current_epoch_attestations: state1.current_epoch_attestations.data,
 
     justification_bits: state1.justification_bits,
     previous_justified_checkpoint: state1.previous_justified_checkpoint,
@@ -171,38 +148,47 @@ func applyDiff*(
     state: var BeaconState,
     immutableValidators: openArray[ImmutableValidatorData],
     stateDiff: BeaconStateDiff) =
+  template assign[T, U](tgt: var HashList[T, U], src: List[T, U]) =
+    tgt.clear()
+    assign(tgt.data, src)
+    tgt.growHashes()
+
   # Carry over unchanged genesis_time, genesis_validators_root, and fork.
-  state.latest_block_header = stateDiff.latest_block_header
+  assign(state.latest_block_header, stateDiff.latest_block_header)
 
   applyModIncrement(state.block_roots, stateDiff.block_roots, state.slot.uint64)
   applyModIncrement(state.state_roots, stateDiff.state_roots, state.slot.uint64)
   if stateDiff.historical_root_added:
     state.historical_roots.add stateDiff.historical_root
 
-  state.eth1_data = stateDiff.eth1_data
+  assign(state.eth1_data, stateDiff.eth1_data)
   replaceOrAddDecodeEth1Votes(
     state.eth1_data_votes, stateDiff.eth1_data_votes_replaced,
     stateDiff.eth1_data_votes)
-  state.eth1_deposit_index = stateDiff.eth1_deposit_index
+  assign(state.eth1_deposit_index, stateDiff.eth1_deposit_index)
 
   applyValidatorIdentities(state.validators, immutableValidators)
   setValidatorStatuses(state.validators, stateDiff.validator_statuses)
-  state.balances = deltaDecodeBalances(stateDiff.balances)
+  assign(state.balances, stateDiff.balances)
 
   # RANDAO mixes gets updated every block, in place, so ensure there's always
   # >=1 value from it
   let epochIndex =
     state.slot.epoch.uint64 mod EPOCHS_PER_HISTORICAL_VECTOR.uint64
-  state.randao_mixes[epochIndex] = stateDiff.randao_mix
-  state.slashings[epochIndex] = stateDiff.slashing
+  assign(state.randao_mixes[epochIndex], stateDiff.randao_mix)
+  assign(state.slashings[epochIndex], stateDiff.slashing)
 
-  state.previous_epoch_attestations = stateDiff.previous_epoch_attestations
-  state.current_epoch_attestations = stateDiff.current_epoch_attestations
+  assign(
+    state.previous_epoch_attestations, stateDiff.previous_epoch_attestations)
+  assign(
+    state.current_epoch_attestations, stateDiff.current_epoch_attestations)
 
   state.justification_bits = stateDiff.justification_bits
-  state.previous_justified_checkpoint = stateDiff.previous_justified_checkpoint
-  state.current_justified_checkpoint = stateDiff.current_justified_checkpoint
-  state.finalized_checkpoint = stateDiff.finalized_checkpoint
+  assign(
+    state.previous_justified_checkpoint, stateDiff.previous_justified_checkpoint)
+  assign(
+    state.current_justified_checkpoint, stateDiff.current_justified_checkpoint)
+  assign(state.finalized_checkpoint, stateDiff.finalized_checkpoint)
 
   # Don't update slot until the end, because various other updates depend on it
   state.slot = stateDiff.slot

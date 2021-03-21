@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -34,7 +34,7 @@ template loadOrExitFalse(signature: ValidatorSig): blscurve.Signature =
   ## Exists the **caller** with false if the signature is invalid
   let sig = signature.load()
   if sig.isNone:
-    return false # this exists the calling scope, as templates are inlined.
+    return false # this exits the calling scope, as templates are inlined.
   sig.unsafeGet()
 
 template loadWithCacheOrExitFalse(pubkey: ValidatorPubKey): blscurve.PublicKey =
@@ -42,7 +42,7 @@ template loadWithCacheOrExitFalse(pubkey: ValidatorPubKey): blscurve.PublicKey =
   ## Exists the **caller** with false if the public key is invalid
   let pk = pubkey.loadWithCache()
   if pk.isNone:
-    return false # this exists the calling scope, as templates are inlined.
+    return false # this exits the calling scope, as templates are inlined.
   pk.unsafeGet()
 
 func addSignatureSet[T](
@@ -98,7 +98,7 @@ proc addIndexedAttestation(
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
     # Eth2 spec requires at least one attesting indice in slashing
-    # - https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    # - https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return false
 
   var aggPK {.noInit.}: blscurve.PublicKey

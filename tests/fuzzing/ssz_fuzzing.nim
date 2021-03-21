@@ -39,4 +39,3 @@ template sszFuzzingTest*(T: type) =
         echo repr(decoded)
 
         doAssert false
-

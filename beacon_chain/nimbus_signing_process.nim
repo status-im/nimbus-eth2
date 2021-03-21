@@ -10,8 +10,8 @@ import
   os, strutils, tables,
 
   # Local modules
-  spec/[digest, crypto],
-  keystore_management
+  ./spec/[digest, crypto],
+  ./validators/keystore_management
 
 programMain:
   var validators: Table[ValidatorPubKey, ValidatorPrivKey]

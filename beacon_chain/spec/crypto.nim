@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -68,11 +68,16 @@ type
 
   SomeSig* = TrustedSig | ValidatorSig
 
+  CookedSig* = distinct blscurve.Signature  ## \
+  ## Allows loading in an atttestation or other message's signature once across
+  ## all its computations, rather than repeatedly re-loading it each time it is
+  ## referenced. This primarily currently serves the attestation pool.
+
 export AggregateSignature
 
 # API
 # ----------------------------------------------------------------------
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#bls-signatures
 
 func toPubKey*(privkey: ValidatorPrivKey): ValidatorPubKey =
   ## Derive a public key from a private key
@@ -116,10 +121,18 @@ func init*(agg: var AggregateSignature, sig: ValidatorSig) {.inline.}=
   ## This assumes that the signature is valid
   agg.init(sig.load().get())
 
-func aggregate*(agg: var AggregateSignature, sig: ValidatorSig) {.inline.}=
+func init*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
+  ## Initializes an aggregate signature context
+  agg.init(blscurve.Signature(sig))
+
+proc aggregate*(agg: var AggregateSignature, sig: ValidatorSig) {.inline.}=
   ## Aggregate two Validator Signatures
   ## Both signatures must be valid
   agg.aggregate(sig.load.get())
+
+proc aggregate*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
+  ## Aggregate two Validator Signatures
+  agg.aggregate(blscurve.Signature(sig))
 
 func finish*(agg: AggregateSignature): ValidatorSig {.inline.}=
   ## Canonicalize an AggregateSignature into a signature
@@ -127,7 +140,7 @@ func finish*(agg: AggregateSignature): ValidatorSig {.inline.}=
   sig.finish(agg)
   ValidatorSig(blob: sig.exportRaw())
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.0/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#bls-signatures
 proc blsVerify*(
     pubkey: ValidatorPubKey, message: openArray[byte],
     signature: ValidatorSig): bool =
@@ -225,6 +238,9 @@ template toRaw*(x: TrustedSig): auto =
 
 func toHex*(x: BlsCurveType): string =
   toHex(toRaw(x))
+
+func exportRaw*(x: CookedSig): ValidatorSig =
+  ValidatorSig(blob: blscurve.Signature(x).exportRaw())
 
 func fromRaw*(T: type ValidatorPrivKey, bytes: openArray[byte]): BlsResult[T] =
   var val: SecretKey
