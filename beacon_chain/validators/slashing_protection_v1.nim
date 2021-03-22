@@ -11,7 +11,7 @@ import
   # Status
   eth/db/[kvstore, kvstore_sqlite3],
   chronicles,
-  nimcrypto/[hash, utils],
+  nimcrypto/hash,
   serialization,
   json_serialization,
   # Internal

@@ -137,6 +137,7 @@ endif
 #- deletes binaries that might need to be rebuilt after a Git pull
 update: | update-common
 	rm -f build/generate_makefile
+	rm -fr nimcache/
 
 # nim-libbacktrace
 libbacktrace:
@@ -513,6 +514,7 @@ libnfuzz.a: | build deps
 book:
 	which mdbook &>/dev/null || { echo "'mdbook' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	which mdbook-toc &>/dev/null || { echo "'mdbook-toc' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	which mdbook-open-on-gh &>/dev/null || { echo "'mdbook-open-on-gh' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	cd docs/the_nimbus_book && \
 	mdbook build
 
