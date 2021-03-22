@@ -3,7 +3,9 @@
 <blockquote class="twitter-tweet"><p lang="en" dir="ltr">We believe decentralised staking pools like <a href="https://twitter.com/Rocket_Pool?ref_src=twsrc%5Etfw">@Rocket_Pool</a> and <a href="https://twitter.com/DAppNode?ref_src=twsrc%5Etfw">@DAppNode</a> DAO are essential to ensuring <a href="https://twitter.com/ethereum?ref_src=twsrc%5Etfw">@ethereum</a>&#39;s future as an unbreakable and censorship-resistant system.<a href="https://t.co/FXQQICZsfL">https://t.co/FXQQICZsfL</a></p>&mdash; Nimbus (@ethnimbus) <a href="https://twitter.com/ethnimbus/status/1367841160081907717?ref_src=twsrc%5Etfw">March 5, 2021</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
 
-This guide offers a bare-bones introduction to getting up and running with Nimbus and [Rocket Pool](https://www.rocketpool.net/). It does not seek to be comprehensive. 
+This guide offers a bare-bones introduction to getting up and running with Nimbus and [Rocket Pool](https://www.rocketpool.net/) -- a trustless staking pool which matches those who wish to stake some ETH with those who wish to operate a node.
+
+> **Nota Bene:** Rocket Pool is not only for node operators. Staking in Rocket Pool as a regular user is as easy as navigating to the [Rocket Pool website](https://beta.rocketpool.net/), entering an amount of ETH to stake, and clicking Start! When you stake, you will immediately receive an amount of rETH with equivalent value to the ETH you deposit. This allows anyone, no matter how technical or wealthy, to help contribute to the decentralisation of the network.
 
 It assumes you are familiar with the basics of how Rocket Pool works. If that's not the case, we recommend reading through the following resources first:
 - Our [introductory post](https://our.status.im/rocket-pool-integration/)
@@ -13,7 +15,7 @@ It assumes you are familiar with the basics of how Rocket Pool works. If that's 
 
 If you're a Raspberry Pi user, we highly recommend [this wonderful and complementary resouce](https://github.com/jclapis/rp-pi-guide/blob/main/Overview.md) by community member Joe Clapis.
 
-> **N.B.** Rocket Pool is currently running their [Beta Finale](https://medium.com/rocket-pool/rocket-pool-3-0-beta-finale-fb35c4f8e003) on Pyrmont testnet, so this is the perfect time to get up to speed and play around with their stack.
+> **Note:** Rocket Pool is currently running their [Beta Finale](https://medium.com/rocket-pool/rocket-pool-3-0-beta-finale-fb35c4f8e003) on Pyrmont testnet, so this is the perfect time to get up to speed and play around with their stack.
 
 ## 1. Install Docker + Compose
 
