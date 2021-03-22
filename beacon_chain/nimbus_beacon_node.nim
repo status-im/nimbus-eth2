@@ -7,8 +7,8 @@
 
 import
   # Standard library
-  std/[math, os, sequtils, strformat, strutils, tables, times,
-       terminal, osproc],
+  std/[math, os, osproc, random, sequtils, strformat, strutils,
+       tables, times, terminal],
   system/ansi_c,
 
   # Nimble packages
@@ -213,6 +213,9 @@ proc init*(T: type BeaconNode,
     except CatchableError as e:
       error "Failed to initialize database", err = e.msg
       quit 1
+
+  # Doesn't use std/random directly, but dependencies might
+  randomize()
 
   info "Loading block dag from database", path = config.databaseDir
 

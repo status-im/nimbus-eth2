@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  os, strutils, json,
+  std/[os, json, random, strutils],
 
   # Nimble packages
   stew/shims/[tables, macros],
@@ -280,6 +280,9 @@ programMain:
   setupStdoutLogging(config.logLevel)
 
   setupLogging(config.logLevel, config.logFile)
+
+  # Doesn't use std/random directly, but dependencies might
+  randomize()
 
   case config.cmd
   of VCNoCommand:
