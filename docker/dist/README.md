@@ -67,3 +67,13 @@ All the same conventions apply:
 WEB3_URL="ws://localhost:8545" ./run-mainnet-node.sh --max-peers=150
 ```
 
+## Running a Prater node
+
+`run-prater-beacon-node.sh` is a similar script intended for connecting to the Prater
+testnet. All the same conventions apply:
+
+```bash
+# using a local Geth instance
+WEB3_URL="ws://localhost:8545" ./run-prater-node.sh --max-peers=150
+```
+
