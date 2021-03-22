@@ -170,7 +170,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#command-line-options" id="command-line-options">Command line options</a></h1>
-<p>You can pass any <code>nimbus_beacon_node</code> options to the <code>pyrmont</code> and <code>mainnet</code> scripts. For example, if you wanted to launch Nimbus on mainnet with a different base port, say <code>9100</code>, you would run:</p>
+<p>You can pass any <code>nimbus_beacon_node</code> options to the <code>pyrmont</code> and <code>mainnet</code> scripts. For example, if you wanted to launch Nimbus on mainnet with different base ports than the default <code>9000/udp</code> and <code>9000/tcp</code>, say <code>9100/udp</code> and <code>9100/tcp</code>, you would run:</p>
 <pre><code>./run-mainnet-beacon-node.sh --tcp-port=9100 --udp-port=9100
 </code></pre>
 <p>To see a list of the command line options availabe to you, with descriptions, navigate to the <code>build</code> directory and run:</p>
@@ -206,8 +206,8 @@ The following options are available:
                                addresses.
      --listen-address          Listening address for the Ethereum LibP2P and Discovery v5
                                traffic.
-     --tcp-port                Listening TCP port for Ethereum LibP2P traffic.
-     --udp-port                Listening UDP port for node discovery.
+     --tcp-port                Listening TCP port for Ethereum LibP2P traffic, the default is 9000
+     --udp-port                Listening UDP port for node discovery, default is 9000
      --max-peers               The maximum number of peers to connect to.
      --nat                     Specify method to use for determining public address. Must be
                                one of: any, none, upnp, pmp, extip:&lt;IP&gt;.

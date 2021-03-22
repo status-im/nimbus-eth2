@@ -565,7 +565,10 @@ INF 2020-12-01 11:26:36.285+00:00 Slot end                                   top
 <p>Finally in order to make sure your Pi autorestarts on boot, we recommend <a href="https://www.raspberrypi.org/documentation/linux/usage/systemd.md">setting up a systemd service</a>. For the details on how to do this, see <a href="./beacon-node-systemd.html">this page</a></p>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/pi-guide-mainnet.md">Edit this file on GitHub.</a></footer><h1><a class="header" href="#rocket-pool-introductory-guide" id="rocket-pool-introductory-guide">Rocket Pool: Introductory guide</a></h1>
 <blockquote class="twitter-tweet"><p lang="en" dir="ltr">We believe decentralised staking pools like <a href="https://twitter.com/Rocket_Pool?ref_src=twsrc%5Etfw">@Rocket_Pool</a> and <a href="https://twitter.com/DAppNode?ref_src=twsrc%5Etfw">@DAppNode</a> DAO are essential to ensuring <a href="https://twitter.com/ethereum?ref_src=twsrc%5Etfw">@ethereum</a>&#39;s future as an unbreakable and censorship-resistant system.<a href="https://t.co/FXQQICZsfL">https://t.co/FXQQICZsfL</a></p>&mdash; Nimbus (@ethnimbus) <a href="https://twitter.com/ethnimbus/status/1367841160081907717?ref_src=twsrc%5Etfw">March 5, 2021</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
-<p>This guide offers a bare-bones introduction to getting up and running with Nimbus and <a href="https://www.rocketpool.net/">Rocket Pool</a>. It does not seek to be comprehensive. </p>
+<p>This guide offers a bare-bones introduction to getting up and running with Nimbus and <a href="https://www.rocketpool.net/">Rocket Pool</a> -- a trustless staking pool which matches those who wish to stake some ETH with those who wish to operate a node.</p>
+<blockquote>
+<p><strong>Nota Bene:</strong> Rocket Pool is not only for node operators. Staking in Rocket Pool as a regular user is as easy as navigating to the <a href="https://beta.rocketpool.net/">Rocket Pool website</a>, entering an amount of ETH to stake, and clicking Start! When you stake, you will immediately receive an amount of rETH with equivalent value to the ETH you deposit. This allows anyone, no matter how technical or wealthy, to help contribute to the decentralisation of the network.</p>
+</blockquote>
 <p>It assumes you are familiar with the basics of how Rocket Pool works. If that's not the case, we recommend reading through the following resources first:</p>
 <ul>
 <li>Our <a href="https://our.status.im/rocket-pool-integration/">introductory post</a></li>
@@ -573,9 +576,9 @@ INF 2020-12-01 11:26:36.285+00:00 Slot end                                   top
 <li>Rocket Pool explainer series: <a href="https://medium.com/rocket-pool/rocket-pool-staking-protocol-part-2-e0d346911fe1">part 2</a></li>
 <li><a href="https://medium.com/rocket-pool/rocket-pool-3-0-beta-finale-fb35c4f8e003">Beta Finale</a> announcement</li>
 </ul>
-<p>If you're a Raspberry Pi user, we highly recommend <a href="https://github.com/jclapis/rp-pi-guide/blob/main/Docker.md">this wonderful and complementary resouce</a> by community member Joe Clapis.</p>
+<p>If you're a Raspberry Pi user, we highly recommend <a href="https://github.com/jclapis/rp-pi-guide/blob/main/Overview.md">this wonderful and complementary resouce</a> by community member Joe Clapis.</p>
 <blockquote>
-<p><strong>N.B.</strong> Rocket Pool is currently running their <a href="https://medium.com/rocket-pool/rocket-pool-3-0-beta-finale-fb35c4f8e003">Beta Finale</a> on Pyrmont testnet, so this is the perfect time to get up to speed and play around with their stack.</p>
+<p><strong>Note:</strong> Rocket Pool is currently running their <a href="https://medium.com/rocket-pool/rocket-pool-3-0-beta-finale-fb35c4f8e003">Beta Finale</a> on Pyrmont testnet, so this is the perfect time to get up to speed and play around with their stack.</p>
 </blockquote>
 <h2><a class="header" href="#1-install-docker--compose" id="1-install-docker--compose">1. Install Docker + Compose</a></h2>
 <blockquote>
@@ -680,7 +683,7 @@ eth2_1        | INF 2021-02-21 06:35:43.568+00:00 Slot end
 <p>Smart node docs (for all things documentation related): <a href="https://rocket-pool.readthedocs.io/en/latest/smart-node/introduction.html">https://rocket-pool.readthedocs.io/en/latest/smart-node/introduction.html</a></p>
 </li>
 <li>
-<p>Joe Clapis' guide (Excellent resource for Pi users): <a href="https://github.com/jclapis/rp-pi-guide/blob/main/Docker.md">https://github.com/jclapis/rp-pi-guide/blob/main/Docker.md</a></p>
+<p>Joe Clapis' guide (Excellent resource for Pi users): <a href="https://github.com/jclapis/rp-pi-guide/blob/main/Overview.md">https://github.com/jclapis/rp-pi-guide/blob/main/Overview.md</a></p>
 </li>
 <li>
 <p>Rocket Pool's <a href="https://discord.gg/a5zVQd66gr">discord</a></p>
@@ -1200,11 +1203,28 @@ WantedBy=default.target
 <pre><code class="language-console">sudo systemctl enable nbc --now
 </code></pre>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/beacon-node-systemd.md">Edit this file on GitHub.</a></footer><h1><a class="header" href="#log-rotation" id="log-rotation">Log rotation</a></h1>
-<p>Nimbus logs are written to the console, and optionally to a file. Writing to a file for a long-running process may lead to difficulties when the file grows large. This is typically solved with a <em>log rotator</em>. A log rotator is responsible for switching the written to file, as well as compressing and removing old logs.</p>
-<p>To set up file-based log rotation, an application such as <a href="https://httpd.apache.org/docs/2.4/programs/rotatelogs.html">rotatelogs</a> is used - <code>rotatelogs</code> is available on most servers and can be used with <code>docker</code>, <code>systemd</code> and manual setups to write rotated logs files.</p>
-<p>In particular, when using <code>systemd</code> and its accompanying <code>journald</code> log daemon, this setup avoids clogging the the system log by keeping the Nimbus logs in a separate location.</p>
-<h2><a class="header" href="#compression" id="compression">Compression</a></h2>
-<p><code>rotatelogs</code> works by reading stdin and redirecting it to a file based on a name pattern. Whenever the log is about to be rotated, the application invokes a shell script with the old and new log files. Our aim is to compress the log file to save space. <a href="https://github.com/status-im/nimbus-eth2/tree/unstable/scripts/rotatelogs-compress.sh">repo</a> provides a helper script to do so:</p>
+<p>Nimbus logs are written to stdout, and optionally to a file. Writing to a file for a long-running process may lead to difficulties when the file grows large. This is typically solved with a <em>log rotator</em>. A log rotator is responsible for switching the written-to file, as well as compressing and removing old logs.</p>
+<h2><a class="header" href="#using-logrotate" id="using-logrotate">Using &quot;logrotate&quot;</a></h2>
+<p><a href="https://github.com/logrotate/logrotate">logrotate</a> provides log rotation and compression. The corresponding package will install its Cron hooks (or Systemd timer) -- all you have to do is add a configuration file for Nimbus-eth2 in &quot;/etc/logrotate.d/nimbus-eth2&quot;:</p>
+<pre><code class="language-text">/var/log/nimbus-eth2/*.log {
+	compress
+	missingok
+	copytruncate
+}
+</code></pre>
+<p>The above assumes you've configured Nimbus-eth2 to write its logs to &quot;/var/log/nimbus-eth2/&quot; (usually by redirecting stout and stderr from your init script).</p>
+<p>&quot;copytruncate&quot; is required because, when it comes to moving the log file, <code>logrotate</code>'s default behaviour requires application support for re-opening that log file at runtime (something which is currently lacking). So, instead of a move, we tell <code>logrotate</code> to do a copy and a truncation of the existing file. A few log lines may be lost in the process.</p>
+<p>You can control rotation frequency and the maximum number of log files kept by using the global configuration file - &quot;/etc/logrotate.conf&quot;:</p>
+<pre><code class="language-text"># rotate daily
+daily
+# only keep logs from the last 7 days
+rotate 7
+</code></pre>
+<h2><a class="header" href="#using-rotatelogs" id="using-rotatelogs">Using &quot;rotatelogs&quot;</a></h2>
+<p><a href="https://httpd.apache.org/docs/2.4/programs/rotatelogs.html">rotatelogs</a> is available on most servers and can be used with <code>Docker</code>, <code>Systemd</code> and manual setups to write rotated logs files.</p>
+<p>In particular, when <code>Systemd</code> and its accompanying <code>Journald</code> log daemon are used, this setup avoids clogging the system log by keeping the Nimbus logs in a separate location.</p>
+<h3><a class="header" href="#compression" id="compression">Compression</a></h3>
+<p><code>rotatelogs</code> works by reading stdin and redirecting it to a file based on a name pattern. Whenever the log is about to be rotated, the application invokes a shell script with the old and new log files. Our aim is to compress the log file to save space. The <a href="https://github.com/status-im/nimbus-eth2/tree/unstable/scripts/rotatelogs-compress.sh">Nimbus-eth2 repo</a> provides a helper script that does this:</p>
 <pre><code class="language-bash"># Create a rotation script for rotatelogs
 cat &lt;&lt; EOF &gt; rotatelogs-compress.sh
 #!/bin/sh
@@ -1219,7 +1239,7 @@ EOF
 
 chmod +x rotatelogs-compress.sh
 </code></pre>
-<h2><a class="header" href="#build" id="build">Build</a></h2>
+<h3><a class="header" href="#build" id="build">Build</a></h3>
 <p>Logs in files generally don't benefit from colors. To avoid colors being written to the file, additional flags can be added to the Nimbus <a href="./build.html">build process</a> -- these flags are best saved in a build script to which one can add more options. Future versions of Nimbus will support disabling colors at runtime.</p>
 <pre><code class="language-bash">
 # Build nimbus with colors disabled
@@ -1228,12 +1248,12 @@ cat &lt;&lt; EOF &gt; build-nbc-text.sh
 make NIMFLAGS=&quot;-d:chronicles_colors=off -d:chronicles_sinks=textlines&quot; nimbus_beacon_node
 EOF
 </code></pre>
-<h2><a class="header" href="#run" id="run">Run</a></h2>
+<h3><a class="header" href="#run" id="run">Run</a></h3>
 <p>The final step is to redirect logs to <code>rotatelogs</code> using a pipe when starting Nimbus:</p>
 <pre><code class="language-bash">build/nimbus_beacon_node \
   --network:pyrmont \
   --web3-url=&quot;$WEB3URL&quot; \
-  --data-dir:$DATADIR | rotatelogs -L &quot;$DATADIR/nbc_bn.log&quot; -p &quot;/path/to/rotatelogs-compress.sh&quot; -D -f -c &quot;$DATADIR/log/nbc_bn_%Y%m%d%H%M%S.log&quot; 3600
+  --data-dir:$DATADIR 2&gt;&amp;1 | rotatelogs -L &quot;$DATADIR/nbc_bn.log&quot; -p &quot;/path/to/rotatelogs-compress.sh&quot; -D -f -c &quot;$DATADIR/log/nbc_bn_%Y%m%d%H%M%S.log&quot; 3600
 </code></pre>
 <p>The options used in this example do the following:</p>
 <ul>
@@ -1244,6 +1264,11 @@ EOF
 <li><code>-c &quot;$DATADIR/log/nbc_bn_%Y%m%d%H%M%S.log&quot;</code> - includes timestamp in log filename</li>
 <li><code>3600</code> - rotates logs every hour (3600 seconds)</li>
 </ul>
+<h3><a class="header" href="#deleting-old-logs" id="deleting-old-logs">Deleting old logs</a></h3>
+<p><code>rotatelogs</code> will not do this for you, so you'll need a Cron script (or Systemd timer):</p>
+<pre><code class="language-bash"># delete log files older than 7 days
+find &quot;$DATADIR/log&quot; -name 'nbc_bn_*.log' -mtime +7 -exec rm '{}' \+
+</code></pre>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/log-rotate.md">Edit this file on GitHub.</a></footer><h1><a class="header" href="#grafana-and-prometheus" id="grafana-and-prometheus">Grafana and Prometheus</a></h1>
 <p>In this page we'll cover how to use  Grafana and Prometheus to help you visualise important real-time metrics concerning your validator and/or beacon node.</p>
 <p>Prometheus is an open-source systems monitoring and alerting toolkit. It runs as a service on your computer and its job is to capture metrics. You can find more information about Prometheus <a href="https://prometheus.io/docs/introduction/overview/">here</a>.</p>
@@ -1631,7 +1656,7 @@ scrape_configs:
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getGossipSubPeers&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result'
 </code></pre>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/api.md">Edit this file on GitHub.</a></footer><h1><a class="header" href="#command-line-options-1" id="command-line-options-1">Command line options</a></h1>
-<p>You can pass any <code>nimbus_beacon_node</code> options to the <code>pyrmont</code> and <code>mainnet</code> scripts. For example, if you wanted to launch Nimbus on mainnet with a different base port, say <code>9100</code>, you would run:</p>
+<p>You can pass any <code>nimbus_beacon_node</code> options to the <code>pyrmont</code> and <code>mainnet</code> scripts. For example, if you wanted to launch Nimbus on mainnet with different base ports than the default <code>9000/udp</code> and <code>9000/tcp</code>, say <code>9100/udp</code> and <code>9100/tcp</code>, you would run:</p>
 <pre><code>./run-mainnet-beacon-node.sh --tcp-port=9100 --udp-port=9100
 </code></pre>
 <p>To see a list of the command line options availabe to you, with descriptions, navigate to the <code>build</code> directory and run:</p>
@@ -1667,8 +1692,8 @@ The following options are available:
                                addresses.
      --listen-address          Listening address for the Ethereum LibP2P and Discovery v5
                                traffic.
-     --tcp-port                Listening TCP port for Ethereum LibP2P traffic.
-     --udp-port                Listening UDP port for node discovery.
+     --tcp-port                Listening TCP port for Ethereum LibP2P traffic, the default is 9000
+     --udp-port                Listening UDP port for node discovery, default is 9000
      --max-peers               The maximum number of peers to connect to.
      --nat                     Specify method to use for determining public address. Must be
                                one of: any, none, upnp, pmp, extip:&lt;IP&gt;.
