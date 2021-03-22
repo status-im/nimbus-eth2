@@ -154,12 +154,12 @@ type
 
       tcpPort* {.
         defaultValue: defaultEth2TcpPort
-        desc: "Listening TCP port for Ethereum LibP2P traffic"
+        desc: "Listening TCP port for Ethereum LibP2P traffic, the default is 9000"
         name: "tcp-port" }: Port
 
       udpPort* {.
         defaultValue: defaultEth2TcpPort
-        desc: "Listening UDP port for node discovery"
+        desc: "Listening UDP port for node discovery, default is 9000"
         name: "udp-port" }: Port
 
       maxPeers* {.

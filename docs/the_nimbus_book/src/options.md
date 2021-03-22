@@ -1,6 +1,6 @@
 # Command line options
 
-You can pass any `nimbus_beacon_node` options to the `pyrmont` and `mainnet` scripts. For example, if you wanted to launch Nimbus on mainnet with a different base port, say `9100`, you would run:
+You can pass any `nimbus_beacon_node` options to the `pyrmont` and `mainnet` scripts. For example, if you wanted to launch Nimbus on mainnet with different base ports than the default `9000/udp` and `9000/tcp`, say `9100/udp` and `9100/tcp`, you would run:
 
 ```
 ./run-mainnet-beacon-node.sh --tcp-port=9100 --udp-port=9100
@@ -44,8 +44,8 @@ The following options are available:
                                addresses.
      --listen-address          Listening address for the Ethereum LibP2P and Discovery v5
                                traffic.
-     --tcp-port                Listening TCP port for Ethereum LibP2P traffic.
-     --udp-port                Listening UDP port for node discovery.
+     --tcp-port                Listening TCP port for Ethereum LibP2P traffic, the default is 9000
+     --udp-port                Listening UDP port for node discovery, default is 9000
      --max-peers               The maximum number of peers to connect to.
      --nat                     Specify method to use for determining public address. Must be
                                one of: any, none, upnp, pmp, extip:<IP>.
@@ -87,4 +87,3 @@ Available sub-commands:
 
 ...
 ```
-							   
