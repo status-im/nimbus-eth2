@@ -137,6 +137,7 @@ endif
 #- deletes binaries that might need to be rebuilt after a Git pull
 update: | update-common
 	rm -f build/generate_makefile
+	rm -fr nimcache/
 
 # nim-libbacktrace
 libbacktrace:
@@ -269,8 +270,8 @@ ifeq ($(DISABLE_TEST_FIXTURES_SCRIPT), 0)
 endif
 	for TEST_BINARY in $(TEST_BINARIES); do \
 		PARAMS=""; \
-		if [[ "$${TEST_BINARY}" == "state_sim" ]]; then PARAMS="--validators=3000 --slots=128"; \
-		elif [[ "$${TEST_BINARY}" == "block_sim" ]]; then PARAMS="--validators=3000 --slots=128"; \
+		if [[ "$${TEST_BINARY}" == "state_sim" ]]; then PARAMS="--validators=6000 --slots=128"; \
+		elif [[ "$${TEST_BINARY}" == "block_sim" ]]; then PARAMS="--validators=6000 --slots=128"; \
 		fi; \
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
 		build/$${TEST_BINARY} $${PARAMS} || { echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Aborting."; exit 1; }; \

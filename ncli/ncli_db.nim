@@ -316,7 +316,8 @@ proc cmdRewindState(conf: DbConf, preset: RuntimePreset) =
     echo "Block not found in database"
     return
 
-  dag.withState(dag.tmpState, blckRef.atSlot(Slot(conf.slot))):
+  let tmpState = assignClone(dag.headState)
+  dag.withState(tmpState[], blckRef.atSlot(Slot(conf.slot))):
     echo "Writing state..."
     dump("./", hashedState, blck)
 
@@ -338,6 +339,8 @@ proc cmdExportEra(conf: DbConf, preset: RuntimePreset) =
   let
     dag = init(ChainDAGRef, preset, db)
 
+  let tmpState = assignClone(dag.headState)
+
   for era in conf.era..<conf.era + conf.eraCount:
     let
       firstSlot = if era == 0: Slot(0) else: Slot((era - 1) * SLOTS_PER_HISTORICAL_ROOT)
@@ -353,7 +356,7 @@ proc cmdExportEra(conf: DbConf, preset: RuntimePreset) =
     var e2s = E2Store.open(".", name, firstSlot).get()
     defer: e2s.close()
 
-    dag.withState(dag.tmpState, canonical):
+    dag.withState(tmpState[], canonical):
       e2s.appendRecord(state).get()
 
     var

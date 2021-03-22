@@ -375,7 +375,7 @@ proc putState*(db: BeaconChainDB, key: Eth2Digest, value: var BeaconState) =
   updateImmutableValidators(db, db.immutableValidatorsMem, value.validators)
   db.put(
     subkey(BeaconStateNoImmutableValidators, key),
-    cast[ref BeaconStateNoImmutableValidators](addr value)[])
+    isomorphicCast[BeaconStateNoImmutableValidators](value))
 
 proc putState*(db: BeaconChainDB, value: var BeaconState) =
   db.putState(hash_tree_root(value), value)
@@ -461,7 +461,7 @@ proc getStateOnlyMutableValidators(
   case db.get(
     subkey(
       BeaconStateNoImmutableValidators, key),
-      cast[ref BeaconStateNoImmutableValidators](addr output)[])
+      isomorphicCast[BeaconStateNoImmutableValidators](output))
   of GetResult.found:
     let numValidators = output.validators.len
     doAssert db.immutableValidatorsMem.len >= numValidators

@@ -8,10 +8,20 @@ import
 export blockchain_dag
 
 template withStateForStateId*(stateId: string, body: untyped): untyped =
-  # TODO this can be optimized for the "head" case since that should be most common
-  node.chainDag.withState(node.chainDag.tmpState,
-                          node.stateIdToBlockSlot(stateId)):
-    body
+  let
+    bs = node.stateIdToBlockSlot(stateId)
+
+  template isState(state: StateData): bool =
+    state.blck.atSlot(state.data.data.slot) == bs
+
+  if isState(node.chainDag.headState):
+    withStateVars(node.chainDag.headState):
+      var cache {.inject.}: StateCache
+      body
+  else:
+    let rpcState = assignClone(node.chainDag.headState)
+    node.chainDag.withState(rpcState[], bs):
+      body
 
 proc toBlockSlot*(blckRef: BlockRef): BlockSlot =
   blckRef.atSlot(blckRef.slot)
