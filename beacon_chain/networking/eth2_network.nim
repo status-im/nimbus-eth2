@@ -1001,7 +1001,8 @@ proc runGossipBalanceLoop*(node: Eth2Node) {.async.} =
                 meta = fres.get()
               info "Got metadata", meta, peer=data.id
               var noSubnets = true
-              for subnet in 0'u8 ..<ATTESTATION_SUBNET_COUNT:
+              for subnet in 0'u8..(ATTESTATION_SUBNET_COUNT - 1'u8):
+              # for subnet in 0'u8 ..<ATTESTATION_SUBNET_COUNT: # compilation failed...
                 if meta.attnets[subnet]:
                   noSubnets = false
                   break
