@@ -51,8 +51,12 @@ const
   # to benefit from more batching / larger network reads when under load.
   BatchAttAccumTime = 10.milliseconds
 
-  # Attestation processing is fairly quick and therefore done in batches to
-  # avoid some of the `Future` overhead
+  # Threshold for immediate trigger of batch verification.
+  # A balance between throughput and worst case latency.
+  # At least 6 so that the constant factors
+  # (RNG for blinding and Final Exponentiation)
+  # are amortized,
+  # but not too big as we need to redo checks one-by-one if one failed.
   BatchedCryptoSize = 16
 
 proc new*(T: type BatchCrypto, rng: ref BrHmacDrbgContext): ref BatchCrypto =
@@ -163,6 +167,7 @@ proc schedule(batchCrypto: ref BatchCrypto, fut: Future[Result[void, cstring]], 
   elif checkThreshold and
        batchCrypto.resultsBuffer.len >= BatchedCryptoSize:
     # Reached the max buffer size, process immediately
+    # TODO: how to cancel the scheduled `deferCryptoProcessing(BatchAttAccumTime)` ?
     batchCrypto.processBufferedCrypto()
 
 proc scheduleAttestationCheck*(
