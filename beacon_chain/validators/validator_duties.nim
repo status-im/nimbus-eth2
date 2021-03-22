@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  std/[os, osproc, random, sequtils, streams, tables],
+  std/[os, osproc, sequtils, streams, tables],
 
   # Nimble packages
   stew/[assign2, objects, shims/macros],
@@ -541,28 +541,6 @@ proc broadcastAggregatedAttestations(
         validator = shortLog(curr[0].v),
         aggregationSlot
 
-proc getSlotTimingEntropy(): int64 =
-  # Ensure SECONDS_PER_SLOT / ATTESTATION_PRODUCTION_DIVISOR >
-  # SECONDS_PER_SLOT / ATTESTATION_ENTROPY_DIVISOR, which will
-  # enure that the second condition can't go negative.
-  static: doAssert ATTESTATION_ENTROPY_DIVISOR > ATTESTATION_PRODUCTION_DIVISOR
-
-  # For each `slot`, a validator must generate a uniform random variable
-  # `slot_timing_entropy` between `(-SECONDS_PER_SLOT /
-  # ATTESTATION_ENTROPY_DIVISOR, SECONDS_PER_SLOT /
-  # ATTESTATION_ENTROPY_DIVISOR)` with millisecond resolution and using local
-  # entropy.
-  #
-  # Per issue discussion "validators served by the same beacon node can have
-  # the same attestation production time, i.e., they can share the source of
-  # the entropy and the actual slot_timing_entropy value."
-  const
-    slot_timing_entropy_upper_bound =
-      SECONDS_PER_SLOT.int64 * 1000 div ATTESTATION_ENTROPY_DIVISOR
-    slot_timing_entropy_lower_bound = 0-slot_timing_entropy_upper_bound
-  rand(range[(slot_timing_entropy_lower_bound + 1) ..
-    (slot_timing_entropy_upper_bound - 1)])
-
 proc updateValidatorMetrics*(node: BeaconNode) =
   when defined(metrics):
     # Technically, this only needs to be done on epoch transitions and if there's
@@ -654,29 +632,14 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   head = await handleProposal(node, head, slot)
 
-  # Fix timing attack: https://github.com/ethereum/eth2.0-specs/pull/2101
-  # A validator must create and broadcast the `attestation` to the associated
-  # attestation subnet when the earlier one of the following two events occurs:
-  #
-  #   - The validator has received a valid block from the expected block
-  #   proposer for the assigned `slot`. In this case, the validator must set a
-  #   timer for `abs(slot_timing_entropy)`. The end of this timer will be the
-  #   trigger for attestation production.
-  #
-  #   - `SECONDS_PER_SLOT / ATTESTATION_PRODUCTION_DIVISOR +
-  #   slot_timing_entropy` seconds have elapsed since the start of the `slot`
-  #   (using the `slot_timing_entropy` generated for this slot)
-
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#attesting
   # Milliseconds to wait from the start of the slot before sending out
-  # attestations - base value
-  const attestationOffset =
-    SECONDS_PER_SLOT.int64 * 1000 div ATTESTATION_PRODUCTION_DIVISOR
+  # attestations
+  const attestationOffset = SECONDS_PER_SLOT.int64 * 1000 div 3
 
   let
-    slotTimingEntropy = getSlotTimingEntropy() # +/- 1s
     # The latest point in time when we'll be sending out attestations
-    attestationCutoffTime = slot.toBeaconTime(
-      millis(attestationOffset + slotTimingEntropy))
+    attestationCutoffTime = slot.toBeaconTime(millis(attestationOffset))
     attestationCutoff = node.beaconClock.fromNow(attestationCutoffTime)
 
   if attestationCutoff.inFuture:
@@ -687,9 +650,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     # Wait either for the block or the attestation cutoff time to arrive
     if await node.consensusManager[].expectBlock(slot).withTimeout(attestationCutoff.offset):
       # The expected block arrived (or expectBlock was called again which
-      # shouldn't happen as this is the only place we use it) - according to the
-      # spec, we should now wait for abs(slotTimingEntropy) - in our async loop
-      # however, we might have been doing other processing that caused delays
+      # shouldn't happen as this is the only place we use it) - in our async
+      # loop however, we might have been doing other processing that caused delays
       # here so we'll cap the waiting to the time when we would have sent out
       # attestations had the block not arrived.
       # An opposite case is that we received (or produced) a block that has
@@ -698,8 +660,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
       # impose a minimum delay of 250ms. The delay is enforced only when we're
       # not hitting the "normal" cutoff time for sending out attestations.
 
+      const afterBlockDelay = 250
       let
-        afterBlockDelay = max(250, abs(slotTimingEntropy))
         afterBlockTime = node.beaconClock.now() + millis(afterBlockDelay)
         afterBlockCutoff = node.beaconClock.fromNow(
           min(afterBlockTime, attestationCutoffTime))
