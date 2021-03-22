@@ -13,7 +13,7 @@ import
   json_serialization/std/sets,
   chronicles,
   ../extras, ../ssz/merkleization,
-  ./crypto, ./datatypes/[phase0, hf1], ./digest, ./helpers, ./signatures, ./validator,
+  ./crypto, ./datatypes/[phase0, altair], ./digest, ./helpers, ./signatures, ./validator,
   ../../nbench/bench_lab
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_valid_merkle_branch
@@ -637,7 +637,7 @@ proc process_attestation*(
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/34cea67b91/specs/lightclient/lightclient-fork.md#upgrading-the-state
-func upgrade_to_lightclient_patch(pre: phase0.BeaconState): hf1.BeaconState =
+func upgrade_to_altair(pre: phase0.BeaconState): altair.BeaconState =
   let epoch = get_current_epoch(pre)
 
   # https://github.com/ethereum/eth2.0-specs/blob/34cea67b91/specs/lightclient/lightclient-fork.md#configuration
@@ -648,7 +648,7 @@ func upgrade_to_lightclient_patch(pre: phase0.BeaconState): hf1.BeaconState =
   for _ in 0 ..< len(pre.validators):
     empty_participation.add 0.ValidatorFlag
 
-  hf1.BeaconState(
+  altair.BeaconState(
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
     slot: pre.slot,

@@ -24,6 +24,12 @@
 
 {.push raises: [Defect].}
 
+
+#  std/[macros, intsets, json, strutils, tables],
+#  stew/[assign2, byteutils], chronicles,
+#  json_serialization/types as jsonTypes,
+#  ../../ssz/types as sszTypes, ../crypto, ../digest, ../presets
+
 import
   std/macros,
   stew/assign2,
@@ -128,8 +134,99 @@ type
     TIMELY_SOURCE_FLAG_INDEX = 1
     TIMELY_TARGET_FLAG_INDEX = 2
 
+  # https://github.com/ethereum/eth2.0-specs/blob/34cea67b91/specs/lightclient/beacon-chain.md#beaconstate
+  BeaconState* = object
+    # Versioning
+    genesis_time*: uint64
+    genesis_validators_root*: Eth2Digest
+    slot*: Slot
+    fork*: Fork
+
+    # History
+    latest_block_header*: BeaconBlockHeader ##\
+    ## `latest_block_header.state_root == ZERO_HASH` temporarily
+
+    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
+    ## Needed to process attestations, older to newer
+
+    state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+    historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
+
+    # Eth1
+    eth1_data*: Eth1Data
+    eth1_data_votes*:
+      HashList[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
+    eth1_deposit_index*: uint64
+
+    # Registry
+    validators*: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Randomness
+    randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
+
+    # Slashings
+    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
+    ## Per-epoch sums of slashed effective balances
+
+    # Participation
+    previous_epoch_participation*:
+      HashList[ValidatorFlag, Limit VALIDATOR_REGISTRY_LIMIT]
+    current_epoch_participation*:
+      HashList[ValidatorFlag, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Finality
+    justification_bits*: uint8 ##\
+    ## Bit set for every recent justified epoch
+    ## Model a Bitvector[4] as a one-byte uint, which should remain consistent
+    ## with ssz/hashing.
+
+    previous_justified_checkpoint*: Checkpoint ##\
+    ## Previous epoch snapshot
+
+    current_justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+
+    # Light client sync committees
+    current_sync_committee*: SyncCommittee
+    next_sync_committee*: SyncCommittee
+
+  # TODO Careful, not nil analysis is broken / incomplete and the semantics will
+  #      likely change in future versions of the language:
+  #      https://github.com/nim-lang/RFCs/issues/250
+  BeaconStateRef* = ref BeaconState not nil
+  NilableBeaconStateRef* = ref BeaconState
+
+  HashedBeaconState* = object
+    data*: BeaconState
+    root*: Eth2Digest # hash_tree_root(data)
+
+  # HF1 implies knowledge of phase 0, and this saves creating some other
+  # module to merge such knowledge. Another approach is to have imported
+  # set of phase 0/HF1 symbols be independently combined by each module,
+  # when necessary, but that spreads such detailed abstraction knowledge
+  # more widely through codebase than strictly required. Do not export a
+  # phase 0 version of symbols; anywhere which specially handles it will
+  # have to do so itself.
+  SomeBeaconState* = BeaconState | phase0.BeaconState
+
 # TODO when https://github.com/nim-lang/Nim/issues/14440 lands in Status's Nim,
 # switch proc {.noSideEffect.} to func.
 proc `or`*(x, y: ParticipationFlags) : ParticipationFlags {.borrow, noSideEffect.}
 proc `and`*(x, y: ParticipationFlags) : ParticipationFlags {.borrow, noSideEffect.}
 proc `==`*(x, y: ParticipationFlags) : bool {.borrow, noSideEffect.}
+
+Json.useCustomSerialization(BeaconState.justification_bits):
+  read:
+    let s = reader.readValue(string)
+
+    if s.len != 4:
+      raiseUnexpectedValue(reader, "A string with 4 characters expected")
+
+    try:
+      s.parseHexInt.uint8
+    except ValueError:
+      raiseUnexpectedValue(reader, "The `justification_bits` value must be a hex string")
+
+  write:
+    writer.writeValue "0x" & value.toHex

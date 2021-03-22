@@ -10,7 +10,7 @@
 
 import
   std/[options, math, tables],
-  ./datatypes/[phase0, hf1], ./digest, ./helpers
+  ./datatypes/[phase0, altair], ./digest, ./helpers
 
 const
   SEED_SIZE = sizeof(Eth2Digest)
