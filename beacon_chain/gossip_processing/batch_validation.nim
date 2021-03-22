@@ -92,8 +92,10 @@ proc processBufferedCrypto(self: ref BatchCrypto) =
   if self.pendingBuffer.len == 0:
     return
 
-  notice "Starting batch attestations & aggregate crypto verification",
+  debug "batch crypto - starting",
     batchSize = self.pendingBuffer.len
+
+  let startTime = Moment.now()
 
   var secureRandomBytes: array[32, byte]
   self.rng[].brHmacDrbgGenerate(secureRandomBytes)
@@ -104,15 +106,18 @@ proc processBufferedCrypto(self: ref BatchCrypto) =
     self.pendingBuffer,
     secureRandomBytes)
 
-  notice "Finished batch attestations & aggregate crypto verification",
+  let stopTime = Moment.now()
+
+  debug "batch crypto - finished",
     batchSize = self.pendingBuffer.len,
-    cryptoVerified = ok
+    cryptoVerified = ok,
+    dur = stopTime - startTime
 
   if ok:
     for i in 0 ..< self.resultsBuffer.len:
       self.done(i)
   else:
-    notice "Batch verification failure - falling back",
+    debug "batch crypto - failure, falling back",
       batchSize = self.pendingBuffer.len
     for i in 0 ..< self.pendingBuffer.len:
       let ok = blsVerify self.pendingBuffer[i]
@@ -146,13 +151,10 @@ proc schedule(batchCrypto: ref BatchCrypto, fut: Future[Result[void, cstring]], 
 
   batchCrypto.resultsBuffer.add fut
 
-  notice "Batch verification - buffered",
-    batchSize = batchCrypto.resultsBuffer.len
-
   if batchCrypto.resultsBuffer.len == 1:
     # First attestation to be scheduled in the batch
     # wait for an idle time or up to 10ms before processing
-    notice "Batch verification - schedule deadline",
+    debug "batch crypto - scheduling next",
       deadline = BatchAttAccumTime,
       batchSize = batchCrypto.resultsBuffer.len
     asyncSpawn(
