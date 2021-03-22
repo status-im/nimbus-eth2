@@ -8,9 +8,6 @@
 # This file contains constants that are part of the spec and thus subject to
 # serialization and spec updates.
 
-import
-  math
-
 const
   # Updated penalty values
   # ---------------------------------------------------------------
