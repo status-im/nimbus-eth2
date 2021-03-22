@@ -261,12 +261,10 @@ proc main() {.async.} =
 
     if cfg.maxDelay > 0.0:
       delayGenerator = proc (): chronos.Duration =
-        # TODO remove .int, because new rand() already returns int
         let
           minDelay = (cfg.minDelay*1000).int64
           maxDelay = (cfg.maxDelay*1000).int64
         chronos.milliseconds (rng[].rand(maxDelay - minDelay) + minDelay)
-        # (rand(cfg.minDelay..cfg.maxDelay)*1000).int
 
     await sendDeposits(deposits, cfg.web3Url, cfg.privateKey,
                        cfg.depositContractAddress, delayGenerator)
