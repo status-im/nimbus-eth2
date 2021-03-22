@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import
   # Std lib
   std/[typetraits, sequtils, os, algorithm, math, sets],
@@ -158,13 +160,13 @@ type
     InvalidRequest
     ServerError
 
-  PeerStateInitializer* = proc(peer: Peer): RootRef {.gcsafe.}
-  NetworkStateInitializer* = proc(network: EthereumNode): RootRef {.gcsafe.}
-  OnPeerConnectedHandler* = proc(peer: Peer, incoming: bool): Future[void] {.gcsafe.}
-  OnPeerDisconnectedHandler* = proc(peer: Peer): Future[void] {.gcsafe.}
+  PeerStateInitializer* = proc(peer: Peer): RootRef {.gcsafe, raises: [Defect].}
+  NetworkStateInitializer* = proc(network: EthereumNode): RootRef {.gcsafe, raises: [Defect].}
+  OnPeerConnectedHandler* = proc(peer: Peer, incoming: bool): Future[void] {.gcsafe, raises: [Defect].}
+  OnPeerDisconnectedHandler* = proc(peer: Peer): Future[void] {.gcsafe, raises: [Defect].}
   ThunkProc* = LPProtoHandler
-  MounterProc* = proc(network: Eth2Node) {.gcsafe.}
-  MessageContentPrinter* = proc(msg: pointer): string {.gcsafe.}
+  MounterProc* = proc(network: Eth2Node) {.gcsafe, raises: [Defect].}
+  MessageContentPrinter* = proc(msg: pointer): string {.gcsafe, raises: [Defect].}
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#goodbye
   DisconnectionReason* = enum
@@ -423,7 +425,8 @@ proc isSeen*(network: ETh2Node, peerId: PeerID): bool =
   if peerId notin network.seenTable:
     false
   else:
-    let item = network.seenTable[peerId]
+    let item = try: network.seenTable[peerId]
+    except KeyError: raiseAssert "checked with notin"
     if currentTime >= item.stamp:
       # Peer is in SeenTable, but the time period has expired.
       network.seenTable.del(peerId)
@@ -467,7 +470,7 @@ proc disconnect*(peer: Peer, reason: DisconnectionReason,
 include eth/p2p/p2p_backends_helpers
 include eth/p2p/p2p_tracing
 
-proc getRequestProtoName(fn: NimNode): NimNode =
+proc getRequestProtoName(fn: NimNode): NimNode {.raises: [Exception].} =
   # `getCustomPragmaVal` doesn't work yet on regular nnkProcDef nodes
   # (TODO: file as an issue)
 
@@ -484,15 +487,22 @@ proc getRequestProtoName(fn: NimNode): NimNode =
 proc writeChunk*(conn: Connection,
                  responseCode: Option[ResponseCode],
                  payload: Bytes): Future[void] =
-  var output = memoryOutput()
+  try:
+    var output = memoryOutput()
 
-  if responseCode.isSome:
-    output.write byte(responseCode.get)
+    if responseCode.isSome:
+      output.write byte(responseCode.get)
 
-  output.write toBytes(payload.lenu64, Leb128).toOpenArray()
-  framingFormatCompress(output, payload)
+    output.write toBytes(payload.lenu64, Leb128).toOpenArray()
+    framingFormatCompress(output, payload)
 
-  conn.write(output.getOutput)
+    conn.write(output.getOutput)
+  except IOError:
+    # TODO implement without faststreams?
+    raiseAssert "Shouldn't happen with memoryOutput"
+  except LPStreamClosedError:
+    # TODO fix in libp2p raises branch, the transformed proc doesn't actually raise
+    raiseAssert "pending fix in raises branch"
 
 template errorMsgLit(x: static string): ErrorMsg =
   const val = ErrorMsg toBytes(x)
@@ -620,12 +630,12 @@ proc setEventHandlers(p: ProtocolInfo,
   p.onPeerConnected = onPeerConnected
   p.onPeerDisconnected = onPeerDisconnected
 
-proc implementSendProcBody(sendProc: SendProc) =
+proc implementSendProcBody(sendProc: SendProc) {.raises: [Exception].} =
   let
     msg = sendProc.msg
     UntypedResponse = bindSym "UntypedResponse"
 
-  proc sendCallGenerator(peer, bytes: NimNode): NimNode =
+  proc sendCallGenerator(peer, bytes: NimNode): NimNode {.raises: [Exception].} =
     if msg.kind != msgResponse:
       let msgProto = getRequestProtoName(msg.procDef)
       case msg.kind
@@ -915,7 +925,8 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
     # when no peers are in the routing table. Don't run it in continuous loop.
     await sleepAsync(1.seconds)
 
-proc getPersistentNetMetadata*(config: BeaconNodeConf): Eth2Metadata =
+proc getPersistentNetMetadata*(config: BeaconNodeConf): Eth2Metadata {.
+    raises: [Defect, IOError, SerializationError].} =
   let metadataPath = config.dataDir / nodeMetadataFilename
   if not fileExists(metadataPath):
     result = Eth2Metadata()
@@ -1342,14 +1353,15 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
         fatal "Could not generate random network key file"
         quit QuitFailure
       let privKey = res.get()
-      let pubKey = privKey.getKey().tryGet()
+      let pubKey = privKey.getKey().expect(
+        "Should always be possible to get public key from random")
       let pres =  PeerID.init(pubKey)
       if pres.isErr():
         fatal "Could not obtain PeerID from network key"
         quit QuitFailure
       info "Generating new networking key", network_public_key = pubKey,
                                             network_peer_id = $pres.get()
-      return KeyPair(seckey: privKey, pubkey: privKey.getKey().tryGet())
+      return KeyPair(seckey: privKey, pubkey: pubKey)
     else:
       let keyPath =
         if isAbsolute(config.netKeyFile):
@@ -1372,7 +1384,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
           fatal "Could not load network key file"
           quit QuitFailure
         let privKey = res.get()
-        let pubKey = privKey.getKey().tryGet()
+        let pubKey = privKey.getKey().expect("Valid private key")
         info "Network key storage was successfully unlocked",
              key_path = keyPath, network_public_key = pubKey
         return KeyPair(seckey: privKey, pubkey: pubKey)
@@ -1385,7 +1397,8 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
           quit QuitFailure
 
         let privKey = rres.get()
-        let pubKey = privKey.getKey().tryGet()
+        let pubKey = privKey.getKey().expect(
+          "Should always be possible to get public key from random")
 
         # Insecure password used only for automated testing.
         let insecurePassword =
@@ -1420,7 +1433,8 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
       quit QuitFailure
 
     let privKey = rres.get()
-    let pubKey = privKey.getKey().tryGet()
+    let pubKey = privKey.getKey().expect(
+      "Should always be possible to get public key from random")
 
     # Insecure password used only for automated testing.
     let insecurePassword =
@@ -1437,7 +1451,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
     info "New network key storage was created", key_path = keyPath,
          network_public_key = pubKey
 
-    return KeyPair(seckey: privKey, pubkey: privkey.getKey().tryGet())
+    return KeyPair(seckey: privKey, pubkey: pubKey)
   else:
     let res = PrivateKey.random(Secp256k1, rng)
     if res.isErr():
@@ -1445,7 +1459,8 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
       quit QuitFailure
 
     let privKey = res.get()
-    return KeyPair(seckey: privKey, pubkey: privkey.getKey().tryGet())
+    return KeyPair(seckey: privKey, pubkey: privkey.getKey().expect(
+        "Should always be possible to get public key from random"))
 
 func gossipId(data: openArray[byte], valid: bool): seq[byte] =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#topics-and-messages
