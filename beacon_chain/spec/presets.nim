@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -22,6 +22,7 @@ type
 
   RuntimePreset* = object
     GENESIS_FORK_VERSION*: Version
+    ALTAIR_FORK_VERSION*: Version
     GENESIS_DELAY*: uint64
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT*: uint64
     MIN_GENESIS_TIME*: uint64
@@ -40,6 +41,7 @@ const
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT,
     MIN_GENESIS_TIME,
     GENESIS_FORK_VERSION,
+    ALTAIR_FORK_VERSION,
     GENESIS_DELAY,
     ETH1_FOLLOW_DISTANCE,
   }
@@ -60,10 +62,12 @@ const
     DOMAIN_VOLUNTARY_EXIT,
     DOMAIN_SELECTION_PROOF,
     DOMAIN_AGGREGATE_AND_PROOF,
+    DOMAIN_SYNC_COMMITTEE,
     CONFIG_NAME
   }
 
   presetValueTypes* = {
+    ALTAIR_FORK_VERSION: "Version",
     BLS_WITHDRAWAL_PREFIX: "byte",
     GENESIS_FORK_VERSION: "Version",
   }.toTable
@@ -133,6 +137,7 @@ const mainnetRuntimePreset* = RuntimePreset(
   MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: 16384,
   MIN_GENESIS_TIME: 1606824000, # Dec 1, 2020, 12pm UTC
   GENESIS_FORK_VERSION: Version [byte 0, 0, 0, 0],
+  ALTAIR_FORK_VERSION: Version [byte 1, 0, 0, 0],
   GENESIS_DELAY: 604800,
   ETH1_FOLLOW_DISTANCE: 2048)
 
@@ -141,6 +146,7 @@ const
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: 64,
     MIN_GENESIS_TIME: 1606824000, # Dec 1, 2020, 12pm UTC
     GENESIS_FORK_VERSION: Version [byte 0, 0, 0, 1],
+    ALTAIR_FORK_VERSION: Version [byte 1, 0, 0, 0],
     GENESIS_DELAY: 300,
     ETH1_FOLLOW_DISTANCE: 16)
 

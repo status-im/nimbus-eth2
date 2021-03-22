@@ -114,8 +114,8 @@ template maxSize*(n: int) {.pragma.}
 type
   # Domains
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#domain-types
   DomainType* = enum
+    # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#domain-types
     DOMAIN_BEACON_PROPOSER = 0
     DOMAIN_BEACON_ATTESTER = 1
     DOMAIN_RANDAO = 2
@@ -123,6 +123,11 @@ type
     DOMAIN_VOLUNTARY_EXIT = 4
     DOMAIN_SELECTION_PROOF = 5
     DOMAIN_AGGREGATE_AND_PROOF = 6
+
+    # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.1/configs/mainnet/altair.yaml#L31
+    # Needs to be in same enum definition and is safe regardless of whether one
+    # only accesses phase 0 definitions
+    DOMAIN_SYNC_COMMITTEE = 7
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#custom-types
   Domain* = array[32, byte]
