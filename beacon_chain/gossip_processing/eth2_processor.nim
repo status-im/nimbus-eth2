@@ -11,7 +11,7 @@ import
   std/tables,
   stew/results,
   chronicles, chronos, metrics,
-  ../spec/[crypto, datatypes, digest, signatures_batch],
+  ../spec/[crypto, datatypes, digest],
   ../consensus_object_pools/[block_clearance, blockchain_dag, exit_pool, attestation_pool],
   ./gossip_validation, ./gossip_to_consensus,
   ./batch_validation,

@@ -6,23 +6,18 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  # Standard library
-  std/[sequtils, intsets],
   # Status
   chronicles, chronos,
   stew/results,
   eth/keys,
   # Internals
   ../spec/[
-    beaconstate, state_transition_block,
-    datatypes, crypto, digest, helpers, network, signatures, signatures_batch],
+    datatypes, crypto, digest, helpers, signatures_batch],
   ../consensus_object_pools/[
-    spec_cache, blockchain_dag, block_quarantine, spec_cache,
+    blockchain_dag, block_quarantine,
     attestation_pool, exit_pool
   ],
-  ".."/[beacon_node_types, ssz, beacon_clock],
-  ../validators/attestation_aggregation,
-  ../extras
+  ".."/[beacon_node_types, ssz, beacon_clock]
 
 export BrHmacDrbgContext
 
@@ -92,7 +87,7 @@ proc processBufferedCrypto(self: ref BatchCrypto) =
   if self.pendingBuffer.len == 0:
     return
 
-  debug "batch crypto - starting",
+  trace "batch crypto - starting",
     batchSize = self.pendingBuffer.len
 
   let startTime = Moment.now()
@@ -154,7 +149,7 @@ proc schedule(batchCrypto: ref BatchCrypto, fut: Future[Result[void, cstring]], 
   if batchCrypto.resultsBuffer.len == 1:
     # First attestation to be scheduled in the batch
     # wait for an idle time or up to 10ms before processing
-    debug "batch crypto - scheduling next",
+    trace "batch crypto - scheduling next",
       deadline = BatchAttAccumTime
     asyncSpawn(
       try:
