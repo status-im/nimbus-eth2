@@ -215,7 +215,7 @@ proc init*(T: type BeaconNode,
       quit 1
 
   # Doesn't use std/random directly, but dependencies might
-  randomize()
+  randomize(rng[].rand(high(int)))
 
   info "Loading block dag from database", path = config.databaseDir
 
