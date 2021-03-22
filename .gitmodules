@@ -203,3 +203,8 @@
 	url = https://github.com/status-im/nimbus-benchmarking.git
 	ignore = untracked
 	branch = master
+[submodule "vendor/nim-unittest2"]
+	path = vendor/nim-unittest2
+	url = https://github.com/status-im/nim-unittest2.git
+	ignore = untracked
+	branch = master
