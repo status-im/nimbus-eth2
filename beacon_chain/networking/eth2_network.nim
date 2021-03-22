@@ -19,6 +19,7 @@ import
   libp2p/protocols/pubsub/[pubsub, rpc/message, rpc/messages],
   libp2p/transports/tcptransport,
   libp2p/stream/connection,
+  libp2p/utils/semaphore,
   eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
   eth/net/nat, eth/p2p/discoveryv5/[enr, node],
   ".."/[
@@ -855,7 +856,11 @@ proc connectWorker(node: Eth2Node, index: int) {.async.} =
     # This loop will never produce HIGH CPU usage because it will wait
     # and block until it not obtains new peer from the queue ``connQueue``.
     let remotePeerAddr = await node.connQueue.popFirst()
-    await node.dialPeer(remotePeerAddr, index)
+    # Previous worker dial might have hit the maximum peers.
+    # TODO: could clear the whole connTable and connQueue here also, best
+    # would be to have this event based coming from peer pool or libp2p.
+    if node.switch.connManager.outSema.count > 0:
+      await node.dialPeer(remotePeerAddr, index)
     # Peer was added to `connTable` before adding it to `connQueue`, so we
     # excluding peer here after processing.
     node.connTable.excl(remotePeerAddr.peerId)
@@ -870,7 +875,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   let enrField = ("eth2", SSZ.encode(node.forkId))
 
   while true:
-    if node.peerPool.lenSpace({PeerType.Outgoing}) > 0:
+    if node.switch.connManager.outSema.count > 0:
       var discoveredNodes = await node.discovery.queryRandom(enrField)
       var newPeers = 0
       for discNode in discoveredNodes:
