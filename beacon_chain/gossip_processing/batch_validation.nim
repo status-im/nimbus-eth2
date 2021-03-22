@@ -155,8 +155,7 @@ proc schedule(batchCrypto: ref BatchCrypto, fut: Future[Result[void, cstring]], 
     # First attestation to be scheduled in the batch
     # wait for an idle time or up to 10ms before processing
     debug "batch crypto - scheduling next",
-      deadline = BatchAttAccumTime,
-      batchSize = batchCrypto.resultsBuffer.len
+      deadline = BatchAttAccumTime
     asyncSpawn(
       try:
         batchCrypto.deferCryptoProcessing(BatchAttAccumTime)
