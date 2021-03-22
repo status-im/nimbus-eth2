@@ -11,7 +11,7 @@ It assumes you are familiar with the basics of how Rocket Pool works. If that's 
 - Rocket Pool explainer series: [part 2](https://medium.com/rocket-pool/rocket-pool-staking-protocol-part-2-e0d346911fe1)
 - [Beta Finale](https://medium.com/rocket-pool/rocket-pool-3-0-beta-finale-fb35c4f8e003) announcement
 
-If you're a Raspberry Pi user, we highly recommend [this wonderful and complementary resouce](https://github.com/jclapis/rp-pi-guide/blob/main/Docker.md) by community member Joe Clapis.
+If you're a Raspberry Pi user, we highly recommend [this wonderful and complementary resouce](https://github.com/jclapis/rp-pi-guide/blob/main/Overview.md) by community member Joe Clapis.
 
 > **N.B.** Rocket Pool is currently running their [Beta Finale](https://medium.com/rocket-pool/rocket-pool-3-0-beta-finale-fb35c4f8e003) on Pyrmont testnet, so this is the perfect time to get up to speed and play around with their stack.
 
@@ -165,6 +165,6 @@ That’s it! You’re officially part of the Rocket Pool network!
 
 - Smart node docs (for all things documentation related): [https://rocket-pool.readthedocs.io/en/latest/smart-node/introduction.html](https://rocket-pool.readthedocs.io/en/latest/smart-node/introduction.html)
 
-- Joe Clapis' guide (Excellent resource for Pi users): [https://github.com/jclapis/rp-pi-guide/blob/main/Docker.md](https://github.com/jclapis/rp-pi-guide/blob/main/Docker.md)
+- Joe Clapis' guide (Excellent resource for Pi users): [https://github.com/jclapis/rp-pi-guide/blob/main/Overview.md](https://github.com/jclapis/rp-pi-guide/blob/main/Overview.md)
 
 - Rocket Pool's [discord](https://discord.gg/a5zVQd66gr)
