@@ -1543,8 +1543,8 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
       directPeers:
         block:
           var res = initTable[PeerId, seq[MultiAddress]]()
-          if conf.directPeers.len > 0:
-            for s in conf.directPeers:
+          if config.directPeers.len > 0:
+            for s in config.directPeers:
               let
                 maddress = MultiAddress.init(s).tryGet()
                 mpeerId = maddress[multiCodec("p2p")].tryGet()
