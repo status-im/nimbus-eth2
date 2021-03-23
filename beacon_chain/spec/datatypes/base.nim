@@ -75,10 +75,6 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#misc
   ATTESTATION_SUBNET_COUNT* = 64
 
-  # https://github.com/ethereum/eth2.0-specs/pull/2101
-  ATTESTATION_PRODUCTION_DIVISOR* = 3
-  ATTESTATION_ENTROPY_DIVISOR* = 12
-
 template maxSize*(n: int) {.pragma.}
 
 # Block validation flow

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[os, tables, random, strutils, typetraits],
+  std/[os, tables, strutils, typetraits],
 
   # Nimble packages
   chronos, confutils/defs,
@@ -46,8 +46,6 @@ proc updateLogLevel*(logLevel: string) =
         warn "Unrecognized logging topic", topic = topicName
 
 proc setupLogging*(logLevel: string, logFile: Option[OutFile]) =
-  randomize()
-
   if logFile.isSome:
     when defaultChroniclesStream.outputs.type.arity > 1:
       block openLogFile:

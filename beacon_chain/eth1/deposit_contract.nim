@@ -1,9 +1,10 @@
 import
-  os, sequtils, strutils, options, json, terminal, random,
+  os, sequtils, strutils, options, json, terminal,
   chronos, chronicles, confutils, stint, json_serialization,
   ../filepath,
   ../networking/network_metadata,
-  web3, web3/confutils_defs, eth/keys, stew/io2,
+  web3, web3/confutils_defs, eth/keys, eth/p2p/discoveryv5/random2,
+  stew/io2,
   ../spec/[datatypes, crypto, presets], ../ssz/merkleization,
   ../validators/keystore_management
 
@@ -260,7 +261,10 @@ proc main() {.async.} =
 
     if cfg.maxDelay > 0.0:
       delayGenerator = proc (): chronos.Duration =
-        chronos.milliseconds (rand(cfg.minDelay..cfg.maxDelay)*1000).int
+        let
+          minDelay = (cfg.minDelay*1000).int64
+          maxDelay = (cfg.maxDelay*1000).int64
+        chronos.milliseconds (rng[].rand(maxDelay - minDelay) + minDelay)
 
     await sendDeposits(deposits, cfg.web3Url, cfg.privateKey,
                        cfg.depositContractAddress, delayGenerator)
