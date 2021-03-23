@@ -35,7 +35,7 @@ type
     else:
       index: uint32
 
-  BeaconBlockCallback* = proc(signedBlock: SignedBeaconBlock) {.gcsafe.}
+  BeaconBlockCallback* = proc(signedBlock: SignedBeaconBlock) {.gcsafe, raises: [Defect].}
 
   BeaconSyncNetworkState* = ref object
     chainDag*: ChainDAGRef

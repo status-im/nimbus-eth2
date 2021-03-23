@@ -193,7 +193,7 @@ proc keyboardCreatePassword(prompt: string,
     return ok(password)
 
 proc keyboardGetPassword[T](prompt: string, attempts: int,
-                            pred: proc(p: string): KsResult[T] {.closure.}): KsResult[T] =
+                            pred: proc(p: string): KsResult[T] {.gcsafe, raises: [Defect].}): KsResult[T] =
   var
     remainingAttempts = attempts
     counter = 1

@@ -91,7 +91,7 @@ proc noRollback*(state: var BeaconState) =
   trace "Skipping rollback of broken state"
 
 type
-  RollbackHashedProc* = proc(state: var HashedBeaconState) {.gcsafe.}
+  RollbackHashedProc* = proc(state: var HashedBeaconState) {.gcsafe, raises: [Defect].}
 
 # Hashed-state transition functions
 # ---------------------------------------------------------------

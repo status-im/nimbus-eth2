@@ -1320,7 +1320,7 @@ proc initStatusBar(node: BeaconNode) =
 
   enableTrueColors()
 
-  proc dataResolver(expr: string): string =
+  proc dataResolver(expr: string): string {.raises: [Defect].} =
     template justified: untyped = node.chainDag.head.atEpochStart(
       node.chainDag.headState.data.data.current_justified_checkpoint.epoch)
     # TODO:

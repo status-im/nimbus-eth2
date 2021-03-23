@@ -215,8 +215,7 @@ type
 
   OnBlockAdded* = proc(
     blckRef: BlockRef, blck: TrustedSignedBeaconBlock,
-    epochRef: EpochRef, state: HashedBeaconState) {.raises: [Defect], gcsafe.}
-    # The `{.gcsafe.}` annotation is needed to shut up the compiler.
+    epochRef: EpochRef, state: HashedBeaconState) {.gcsafe, raises: [Defect].}
 
 template validator_keys*(e: EpochRef): untyped = e.validator_key_store[1][]
 
