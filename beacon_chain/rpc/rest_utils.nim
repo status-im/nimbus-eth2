@@ -1,12 +1,12 @@
-import std/json
-import presto
-import libp2p/peerid
-import stew/[base10, byteutils]
-import nimcrypto/utils as ncrutils
-import ../spec/[crypto, digest, datatypes]
-import ../beacon_node_common
-import ../consensus_object_pools/[block_pools_types, blockchain_dag]
-
+import presto,
+       libp2p/peerid,
+       stew/[base10, byteutils],
+       faststreams/[outputs],
+       serialization, json_serialization,
+       nimcrypto/utils as ncrutils,
+       ../spec/[crypto, digest, datatypes],
+       ../beacon_node_common,
+       ../consensus_object_pools/[block_pools_types, blockchain_dag]
 export blockchain_dag, presto
 
 const
@@ -30,6 +30,8 @@ const
     # Size of `xxx_root` hexadecimal value (without 0x)
 
   FarFutureEpochString* = "18446744073709551615"
+
+  MaxEpoch* = compute_epoch_at_slot(not(0'u64))
 
 type
   ValidatorQueryKind* {.pure.} = enum
@@ -85,26 +87,10 @@ type
   PeerDirectKind* {.pure.} = enum
     Inbound, Outbound
 
-proc toString*(s: uint64): string =
-  Base10.toString(s)
+  EventTopic* {.pure.} = enum
+    Head, Block, Attestation, VoluntaryExit, FinalizedCheckpoint, ChainReorg
 
-proc `%`*(s: Eth2Digest): JsonNode =
-  JsonNode(kind: JString,
-           str: "0x" & ncrutils.toHex(s.data, true))
-
-proc toJsonHex(data: openArray[byte]): string =
-  # Per the eth2 API spec, hex arrays are printed with leading 0x
-  "0x" & ncrutils.toHex(data, true)
-
-proc `%`*(list: List): JsonNode =
-  %(asSeq(list))
-
-proc `%`*(bitlist: BitList): JsonNode =
-  newJString(toJsonHex(seq[byte](BitSeq(bitlist))))
-
-proc `%`*(s: Version): JsonNode =
-  JsonNode(kind: JString,
-           str: "0x" & ncrutils.toHex(cast[array[4, byte]](s), true))
+  EventTopics* = set[EventTopic]
 
 func match(data: openarray[char], charset: set[char]): int =
   for ch in data:
@@ -373,6 +359,24 @@ proc decodeString*(t: typedesc[PeerDirectKind],
   else:
     err("Incorrect peer's direction value")
 
+proc decodeString*(t: typedesc[EventTopic],
+                   value: string): Result[EventTopic, cstring] =
+  case value
+  of "head":
+    ok(EventTopic.Head)
+  of "block":
+    ok(EventTopic.Block)
+  of "attestation":
+    ok(EventTopic.Attestation)
+  of "voluntary_exit":
+    ok(EventTopic.VoluntaryExit)
+  of "finalized_checkpoint":
+    ok(EventTopic.FinalizedCheckpoint)
+  of "chain_reorg":
+    ok(EventTopic.ChainReorg)
+  else:
+    err("Incorrect event's topic value")
+
 proc decodeString*(t: typedesc[ValidatorSig],
                    value: string): Result[ValidatorSig, cstring] =
   if len(value) != ValidatorSigSize + 2:
@@ -387,6 +391,10 @@ proc decodeString*(t: typedesc[GraffitiBytes],
     ok(GraffitiBytes.init(value))
   except ValueError:
     err("Unable to decode graffiti value")
+
+proc decodeString*(t: typedesc[string],
+                   value: string): Result[string, cstring] =
+  ok(value)
 
 proc jsonResponse*(t: typedesc[RestApiResponse], j: JsonNode): RestApiResponse =
   let data =  %*{"data": j}
@@ -407,8 +415,7 @@ proc getCurrentHead*(node: BeaconNode,
 
 proc getCurrentHead*(node: BeaconNode,
                      epoch: Epoch): Result[BlockRef, cstring] =
-  const maxEpoch = compute_epoch_at_slot(not(0'u64))
-  if epoch >= maxEpoch:
+  if epoch >= MaxEpoch:
     return err("Requesting epoch for which slot would overflow")
   node.getCurrentHead(compute_start_slot_at_epoch(epoch))
 
@@ -443,7 +450,6 @@ proc getBlockSlot*(node: BeaconNode,
 
 proc getBlockDataFromBlockIdent*(node: BeaconNode,
                                  id: BlockIdent): Result[BlockData, cstring] =
-  warn "Searching for block", ident = $id
   case id.kind
   of BlockQueryKind.Named:
     case id.value
@@ -465,8 +471,8 @@ proc getBlockDataFromBlockIdent*(node: BeaconNode,
       return err("Block not found")
     ok(node.chainDag.get(blockSlot.blck))
 
-template withStateForStateIdent*(node: BeaconNode,
-                                 blockSlot: BlockSlot, body: untyped): untyped =
+template withStateForBlockSlot*(node: BeaconNode,
+                                blockSlot: BlockSlot, body: untyped): untyped =
   template isState(state: StateData): bool =
     state.blck.atSlot(state.data.data.slot) == blockSlot
 
@@ -478,12 +484,3 @@ template withStateForStateIdent*(node: BeaconNode,
     let rpcState = assignClone(node.chainDag.headState)
     node.chainDag.withState(rpcState[], blockSlot):
       body
-
-proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
-                msg: string = "", stacktrace: string = ""): RestApiResponse =
-  let data =
-    if len(stacktrace) > 0:
-      %*{"code": status.toInt(), "message": msg, "stacktrace": stacktrace}
-    else:
-      %*{"code": status.toInt(), "message": msg}
-  RestApiResponse.error(status, $data, "application/json")

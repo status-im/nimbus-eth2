@@ -9,7 +9,7 @@ import
   ../networking/[eth2_network, peer_pool],
   ../spec/[datatypes, digest, presets],
   ../spec/eth2_apis/callsigs_types,
-  ./rest_utils
+  ./eth2_json_rest_serialization, ./rest_utils
 
 logScope: topics = "rest_node"
 
@@ -138,41 +138,47 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
           newSeq[string]()
 
     return RestApiResponse.jsonResponse(
-      %(
+      (
         peer_id: $node.network.peerId(),
         enr: node.network.enrRecord().toUri(),
         p2p_addresses: p2pAddresses,
         discovery_addresses: discoveryAddresses,
-        metadata: (node.network.metadata.seq_number,
-                   "0x" & ncrutils.toHex(node.network.metadata.attnets.bytes))
+        metadata: (
+          seq_number: node.network.metadata.seq_number,
+          attnets: "0x" & ncrutils.toHex(node.network.metadata.attnets.bytes)
+        )
       )
     )
 
   router.api(MethodGet, "/api/eth/v1/node/peers") do (
     states: seq[PeerStateKind],
     directions: seq[PeerDirectKind]) -> RestApiResponse:
-    if states.isErr():
-      return RestApiResponse.jsonError(Http400,
-                                       "Invalid state value(s)",
-                                       $states.error())
-    if directions.isErr():
-      return RestApiResponse.jsonError(Http400,
-                                       "Invalid direction value(s)",
-                                       $directions.error())
-    let sres = validateState(states.get())
-    if sres.isErr():
-      return RestApiResponse.jsonError(Http400,
-                                       "Invalid state value(s)",
-                                       $sres.error())
-    let dres = validateDirection(directions.get())
-    if dres.isErr():
-      return RestApiResponse.jsonError(Http400,
-                                       "Invalid direction value(s)",
-                                       $dres.error())
+    let connectionMask =
+      block:
+        if states.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                           "Invalid state value(s)",
+                                           $states.error())
+        let sres = validateState(states.get())
+        if sres.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                           "Invalid state value(s)",
+                                           $sres.error())
+        sres.get()
+    let directionMask =
+      block:
+        if directions.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                           "Invalid direction value(s)",
+                                           $directions.error())
+        let dres = validateDirection(directions.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                           "Invalid direction value(s)",
+                                           $dres.error())
+        dres.get()
 
     var res: seq[NodePeerTuple]
-    let connectionMask = sres.get()
-    let directionMask = dres.get()
     for item in node.network.peers.values():
       if (item.connectionState in connectionMask) and
          (item.direction in directionMask):
@@ -186,8 +192,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
           proto: item.info.protoVersion  # part of specification.
         )
         res.add(peer)
-
-    return RestApiResponse.jsonResponse(%res)
+    return RestApiResponse.jsonResponse(res)
 
   router.api(MethodGet, "/api/eth/v1/node/peer_count") do () -> RestApiResponse:
     var res: NodePeerCountTuple
@@ -203,19 +208,22 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         inc(res.disconnected)
       of ConnectionState.None:
         discard
-    return RestApiResponse.jsonResponse(%res)
+    return RestApiResponse.jsonResponse(res)
 
   router.api(MethodGet, "/api/eth/v1/node/peers/{peer_id}") do (
     peer_id: PeerID) -> RestApiResponse:
-    if peer_id.isErr():
-      return RestApiResponse.jsonError(Http400, "PeerID could not be parsed",
-                                       $peer_id.error())
-    let peer = node.network.peers.getOrDefault(peer_id.get())
-    if isNil(peer):
-      return RestApiResponse.jsonError(Http404, "Peer not found")
-
+    let peer =
+      block:
+        if peer_id.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                           "Unable to parse PeerID value",
+                                           $peer_id.error())
+        let res = node.network.peers.getOrDefault(peer_id.get())
+        if isNil(res):
+          return RestApiResponse.jsonError(Http404, "Peer not found")
+        res
     return RestApiResponse.jsonResponse(
-      %(
+      (
         peer_id: $peer.info.peerId,
         enr: if peer.enr.isSome(): peer.enr.get().toUri() else: "",
         last_seen_p2p_address: peer.info.getLastSeenAddress(),
@@ -228,13 +236,11 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   router.api(MethodGet, "/api/eth/v1/node/version") do () -> RestApiResponse:
     return RestApiResponse.jsonResponse(
-      %(version: "Nimbus/" & fullVersionStr)
+      (version: "Nimbus/" & fullVersionStr)
     )
 
   router.api(MethodGet, "/api/eth/v1/node/syncing") do () -> RestApiResponse:
-    return RestApiResponse.jsonResponse(
-      %node.syncManager.getInfo()
-    )
+    return RestApiResponse.jsonResponse(node.syncManager.getInfo())
 
   router.api(MethodGet, "/api/eth/v1/node/health") do () -> RestApiResponse:
     # TODO: Add ability to detect node's issues and return 503 error according
@@ -244,4 +250,4 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         (health: 206)
       else:
         (health: 200)
-    return RestApiResponse.jsonResponse(%res)
+    return RestApiResponse.jsonResponse(res)

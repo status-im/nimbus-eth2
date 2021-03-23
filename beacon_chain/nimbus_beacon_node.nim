@@ -37,7 +37,7 @@ import
     slashing_protection, keystore_management],
   ./sync/[sync_manager, sync_protocol, request_manager],
   ./rpc/[rest_utils, config_rest_api, debug_rest_api, node_rest_api,
-         beacon_rest_api],
+         beacon_rest_api, event_rest_api, validator_rest_api, nimbus_rest_api],
   ./rpc/[beacon_api, config_api, debug_api, event_api, nimbus_api, node_api,
     validator_api],
   ./spec/[
@@ -1192,10 +1192,10 @@ proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
   restServer.router.installBeaconApiHandlers(node)
   restServer.router.installConfigApiHandlers(node)
   restServer.router.installDebugApiHandlers(node)
-  # restServer.router.installEventApiHandlers(node)
-  # restServer.router.installNimbusApiHandlers(node)
+  restServer.router.installEventApiHandlers(node)
+  restServer.router.installNimbusApiHandlers(node)
   restServer.router.installNodeApiHandlers(node)
-  # restServer.router.installValidatorApiHandlers(node)
+  restServer.router.installValidatorApiHandlers(node)
 
 proc installMessageValidators(node: BeaconNode) =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
