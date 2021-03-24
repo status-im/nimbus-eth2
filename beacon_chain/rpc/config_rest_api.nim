@@ -25,7 +25,8 @@ func getDepositAddress(node: BeaconNode): string =
 proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet,
              "/api/eth/v1/config/fork/schedule") do () -> RestApiResponse:
-    # TODO: This implementation doesn't look right.
+    # TODO: Implemenation needs a fix, when forks infrastructure will be
+    # established.
     return RestApiResponse.jsonResponse(
       [node.chainDag.headState.data.data.fork]
     )
