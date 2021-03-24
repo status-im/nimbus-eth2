@@ -273,6 +273,10 @@ type
         desc: "Write SSZ dumps of blocks, attestations and states to data dir"
         name: "dump" }: bool
 
+      directPeers* {.
+        desc: "The list of priviledged, secure and known peers to connect and maintain the connection to, this requires a not random netkey-file. In the complete multiaddress format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>. Peering agreements are established out of band and must be reciprocal."
+        name: "direct-peer" .}: seq[string]
+
       doppelgangerDetection* {.
         defaultValue: true
         desc: "Whether to detect whether another validator is be running the same validator keys (default true)"

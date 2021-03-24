@@ -10,15 +10,16 @@ import
   faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
   json_serialization, json_serialization/std/[net, options],
   chronos, chronicles, metrics,
-  libp2p/[switch, peerinfo,
+  libp2p/[switch, peerinfo, multicodec,
           multiaddress, crypto/crypto, crypto/secp,
           protocols/identify, protocols/protocol],
   libp2p/muxers/muxer, libp2p/muxers/mplex/mplex,
   libp2p/transports/[transport, tcptransport],
   libp2p/protocols/secure/[secure, noise],
-  libp2p/protocols/pubsub/[pubsub, rpc/message, rpc/messages],
+  libp2p/protocols/pubsub/[pubsub, gossipsub, rpc/message, rpc/messages],
   libp2p/transports/tcptransport,
   libp2p/stream/connection,
+  libp2p/utils/semaphore,
   eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
   eth/net/nat, eth/p2p/discoveryv5/[enr, node],
   ".."/[
@@ -27,8 +28,6 @@ import
   ../spec/[datatypes, digest, network],
   ../validators/keystore_management,
   ./eth2_discovery, ./peer_pool, ./libp2p_json_serialization
-
-import libp2p/protocols/pubsub/gossipsub
 
 when chronicles.enabledLogLevel == LogLevel.TRACE:
   import std/sequtils
@@ -855,7 +854,11 @@ proc connectWorker(node: Eth2Node, index: int) {.async.} =
     # This loop will never produce HIGH CPU usage because it will wait
     # and block until it not obtains new peer from the queue ``connQueue``.
     let remotePeerAddr = await node.connQueue.popFirst()
-    await node.dialPeer(remotePeerAddr, index)
+    # Previous worker dial might have hit the maximum peers.
+    # TODO: could clear the whole connTable and connQueue here also, best
+    # would be to have this event based coming from peer pool or libp2p.
+    if node.switch.connManager.outSema.count > 0:
+      await node.dialPeer(remotePeerAddr, index)
     # Peer was added to `connTable` before adding it to `connQueue`, so we
     # excluding peer here after processing.
     node.connTable.excl(remotePeerAddr.peerId)
@@ -865,12 +868,44 @@ proc toPeerAddr(node: Node): Result[PeerAddr, cstring] {.raises: [Defect].} =
   let peerAddr = ? nodeRecord.toPeerAddr(tcpProtocol)
   ok(peerAddr)
 
+proc queryRandom*(d: Eth2DiscoveryProtocol, forkId: ENRForkID,
+    attnets: BitArray[ATTESTATION_SUBNET_COUNT]):
+    Future[seq[PeerAddr]] {.async, raises:[Exception, Defect].} =
+  ## Perform a discovery query for a random target matching the eth2 field
+  ## (forkId) and matching at least one of the attestation subnets.
+  let nodes = await d.queryRandom()
+  let eth2Field = SSZ.encode(forkId)
+
+  var filtered: seq[PeerAddr]
+  for n in nodes:
+    if n.record.contains(("eth2", eth2Field)):
+      let res = n.record.tryGet("attnets", seq[byte])
+
+      if res.isSome():
+        let attnetsNode =
+          try:
+            SSZ.decode(res.get(), BitArray[ATTESTATION_SUBNET_COUNT])
+          except SszError as e:
+            debug "Could not decode attestation subnet bitfield of peer",
+              peer = n.record.toURI(), exception = e.name, msg = e.msg
+            continue
+
+        for i in 0..<attnetsNode.bytes.len:
+          if (attnets.bytes[i] and attnetsNode.bytes[i]) > 0:
+            # we have at least one subnet match
+            let peerAddr = n.toPeerAddr()
+            if peerAddr.isOk():
+              filtered.add(peerAddr.get())
+            break
+
+  return filtered
+
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
   let enrField = ("eth2", SSZ.encode(node.forkId))
 
   while true:
-    if node.peerPool.lenSpace({PeerType.Outgoing}) > 0:
+    if node.switch.connManager.outSema.count > 0:
       var discoveredNodes = await node.discovery.queryRandom(enrField)
       var newPeers = 0
       for discNode in discoveredNodes:
@@ -1541,7 +1576,19 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
       ipColocationFactorThreshold: 3.0,
       behaviourPenaltyWeight: -15.9,
       behaviourPenaltyDecay: 0.986,
-      disconnectBadPeers: true
+      disconnectBadPeers: true,
+      directPeers:
+        block:
+          var res = initTable[PeerId, seq[MultiAddress]]()
+          if config.directPeers.len > 0:
+            for s in config.directPeers:
+              let
+                maddress = MultiAddress.init(s).tryGet()
+                mpeerId = maddress[multiCodec("p2p")].tryGet()
+                peerId = PeerID.init(mpeerId.protoAddress().tryGet()).tryGet()
+              res.mGetOrPut(peerId, @[]).add(maddress)
+              info "Adding priviledged direct peer", peerId, address = maddress
+          res
     )
     pubsub = GossipSub.init(
       switch = switch,

@@ -8,6 +8,19 @@ TBD
   * `getChronosFutures` is now `debug_getChronosFutures`
 
 
+2021-03-10 v1.0.12
+==================
+
+This is bugfix release correcting an error in the Prater testnet config
+leading to incorrect Eth1 voting.
+
+
+2021-03-10 v1.0.11
+==================
+
+This is a minor release adding support for connecting to the Prater testnet.
+
+
 2021-03-10 v1.0.10
 ==================
 

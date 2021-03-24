@@ -161,9 +161,10 @@ type
     subscribeSlot*: array[ATTESTATION_SUBNET_COUNT, Slot]
     unsubscribeSlot*: array[ATTESTATION_SUBNET_COUNT, Slot]
 
-    # Used to track the next attestation slots, using an epoch-relative
-    # coordinate system. Defaults don't need initialization.
+    # Used to track the next attestation and proposal slots using an
+    # epoch-relative coordinate system. Doesn't need initialization.
     attestingSlots*: array[2, uint32]
-    lastCalculatedAttestationEpoch*: Epoch
+    proposingSlots*: array[2, uint32]
+    lastCalculatedEpoch*: Epoch
 
 func shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)

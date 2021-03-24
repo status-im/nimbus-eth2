@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  os, strutils, json,
+  std/[os, json, random, strutils],
 
   # Nimble packages
   stew/shims/[tables, macros],
@@ -27,7 +27,8 @@ import
   ./ssz/merkleization,
   ./spec/eth2_apis/callsigs_types,
   ./validators/[attestation_aggregation, keystore_management, validator_pool, slashing_protection],
-  ./eth/db/[kvstore, kvstore_sqlite3]
+  ./eth/db/[kvstore, kvstore_sqlite3],
+  ./eth/keys, ./eth/p2p/discoveryv5/random2
 
 logScope: topics = "vc"
 
@@ -280,6 +281,13 @@ programMain:
   setupStdoutLogging(config.logLevel)
 
   setupLogging(config.logLevel, config.logFile)
+
+  # Doesn't use std/random directly, but dependencies might
+  let rng = keys.newRng()
+  if rng.isNil:
+    randomize()
+  else:
+    randomize(rng[].rand(high(int)))
 
   case config.cmd
   of VCNoCommand:
