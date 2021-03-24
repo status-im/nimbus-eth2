@@ -1120,12 +1120,14 @@ proc startSyncManager(node: BeaconNode) =
         debug "Peer was removed from PeerPool due to low score", peer = peer,
               peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
               score_high_limit = PeerScoreHighLimit
-        asyncSpawn peer.disconnect(PeerScoreLow)
+        asyncSpawn(try: peer.disconnect(PeerScoreLow)
+        except Exception as exc: raiseAssert exc.msg) # Shouldn't actually happen!
       else:
         debug "Peer was removed from PeerPool", peer = peer,
               peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
               score_high_limit = PeerScoreHighLimit
-        asyncSpawn peer.disconnect(FaultOrError)
+        asyncSpawn(try: peer.disconnect(FaultOrError)
+        except Exception as exc: raiseAssert exc.msg) # Shouldn't actually happen!
 
   node.network.peerPool.setScoreCheck(scoreCheck)
   node.network.peerPool.setOnDeletePeer(onDeletePeer)
@@ -1319,7 +1321,7 @@ proc initStatusBar(node: BeaconNode) =
 
   enableTrueColors()
 
-  proc dataResolver(expr: string): string =
+  proc dataResolver(expr: string): string {.raises: [Defect].} =
     template justified: untyped = node.chainDag.head.atEpochStart(
       node.chainDag.headState.data.data.current_justified_checkpoint.epoch)
     # TODO:

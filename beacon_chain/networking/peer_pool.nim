@@ -28,13 +28,13 @@ type
 
   PeerIndex = object
     data: int
-    cmp: proc(a, b: PeerIndex): bool {.closure, gcsafe.}
+    cmp: proc(a, b: PeerIndex): bool {.gcsafe, raises: [Defect].}
 
   PeerScoreCheckCallback*[T] = proc(peer: T): bool {.gcsafe, raises: [Defect].}
 
   PeerCounterCallback* = proc() {.gcsafe, raises: [Defect].}
 
-  PeerOnDeleteCallback*[T] = proc(peer: T) {.gcsafe.}
+  PeerOnDeleteCallback*[T] = proc(peer: T) {.gcsafe, raises: [Defect].}
 
   PeerPool*[A, B] = ref object
     incNotEmptyEvent*: AsyncEvent
@@ -45,7 +45,7 @@ type
     outQueue: HeapQueue[PeerIndex]
     registry: Table[B, PeerIndex]
     storage: seq[PeerItem[A]]
-    cmp: proc(a, b: PeerIndex): bool {.closure, gcsafe.}
+    cmp: proc(a, b: PeerIndex): bool {.gcsafe, raises: [Defect].}
     scoreCheck: PeerScoreCheckCallback[A]
     onDeletePeer: PeerOnDeleteCallback[A]
     peerCounter: PeerCounterCallback
@@ -288,7 +288,8 @@ proc deletePeer*[A, B](pool: PeerPool[A, B], peer: A, force = false): bool =
   mixin getKey
   let key = getKey(peer)
   if pool.registry.hasKey(key):
-    let pindex = pool.registry[key].data
+    let pindex = try: pool.registry[key].data
+    except KeyError: raiseAssert "checked with hasKey"
     var item = addr(pool.storage[pindex])
     if (PeerFlags.Acquired in item[].flags):
       if not(force):
@@ -339,7 +340,7 @@ proc deletePeer*[A, B](pool: PeerPool[A, B], peer: A, force = false): bool =
 
 proc addPeerImpl[A, B](pool: PeerPool[A, B], peer: A, peerKey: B,
                        peerType: PeerType) =
-  proc onPeerClosed(udata: pointer) {.gcsafe.} =
+  proc onPeerClosed(udata: pointer) {.gcsafe, raises: [Defect].} =
     discard pool.deletePeer(peer)
 
   let item = PeerItem[A](data: peer, peerType: peerType,

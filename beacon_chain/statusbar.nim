@@ -1,5 +1,7 @@
+{.push raises: [Defect].}
+
 import
-  tables, strutils, parseutils, sequtils, terminal, colors
+  std/[strutils, parseutils, sequtils, terminal, colors]
 
 type
   ContentFragments = seq[tuple[kind: InterpolatedKind, value: string]]
@@ -12,7 +14,8 @@ type
     cellsLeft: seq[StatusBarCell]
     cellsRight: seq[StatusBarCell]
 
-  DataItemResolver* = proc (dataItem: string): string
+  DataItemResolver* = proc (dataItem: string): string {.
+    gcsafe, raises: [Defect].}
 
   StatusBarView* = object
     model: DataItemResolver
@@ -29,10 +32,12 @@ const
   backgroundColor = rgb(36, 36, 36)
   foregroundColor = colWhiteSmoke
 
-func loadFragmentsLayout(contentLayout: string): ContentFragments =
+func loadFragmentsLayout(contentLayout: string): ContentFragments {.
+    raises: [Defect, ValueError].} =
   result = toSeq(interpolatedFragments(strip contentLayout))
 
-func loadCellsLayout(cellsLayout: string): seq[StatusBarCell] =
+func loadCellsLayout(cellsLayout: string): seq[StatusBarCell] {.
+    raises: [Defect, ValueError].} =
   var cells = cellsLayout.split(';')
   for cell in cells:
     var columns = cell.split(':', maxSplit = 1)
@@ -49,7 +54,7 @@ func loadLayout(layout: string): Layout {.raises: [Defect, ValueError].} =
   result.cellsLeft = loadCellsLayout(sections[0])
   if sections.len == 2: result.cellsRight = loadCellsLayout(sections[1])
 
-func updateContent(cell: var StatusBarCell, model: DataItemResolver) =
+proc updateContent(cell: var StatusBarCell, model: DataItemResolver) =
   cell.content.setLen 0
   for fragment in cell.contentFragments:
     case fragment[0]
@@ -58,11 +63,11 @@ func updateContent(cell: var StatusBarCell, model: DataItemResolver) =
     of ikExpr, ikVar:
       cell.content.add model(fragment[1])
 
-func updateCells(cells: var seq[StatusBarCell], model: DataItemResolver) =
+proc updateCells(cells: var seq[StatusBarCell], model: DataItemResolver) =
   for cell in mitems(cells):
     cell.updateContent(model)
 
-func update*(s: var StatusBarView) =
+proc update*(s: var StatusBarView) =
   updateCells s.layout.cellsLeft, s.model
   updateCells s.layout.cellsRight, s.model
 
@@ -73,18 +78,29 @@ func width(cells: seq[StatusBarCell]): int =
   result = max(0, cells.len - 1) # the number of separators
   for cell in cells: result += cell.width
 
+var complained = false
+template ignoreException(body: untyped) =
+  try:
+    body
+  except Exception as exc:
+    if not complained:
+      # TODO terminal.nim exception leak
+      echo "Unable to update status bar: ", exc.msg
+      complained = true
+
 proc renderCells(cells: seq[StatusBarCell], sep: string) =
   for i, cell in cells:
-    stdout.setBackgroundColor backgroundColor
-    stdout.setForegroundColor foregroundColor
-    stdout.setStyle {styleDim}
-    if i > 0: stdout.write sep
-    stdout.write " ", cell.label, ": "
-    stdout.setStyle {styleBright}
-    stdout.write cell.content, " "
-    stdout.resetAttributes()
+    ignoreException:
+      stdout.setBackgroundColor backgroundColor
+      stdout.setForegroundColor foregroundColor
+      stdout.setStyle {styleDim}
+      if i > 0: stdout.write sep
+      stdout.write " ", cell.label, ": "
+      stdout.setStyle {styleBright}
+      stdout.write cell.content, " "
+      stdout.resetAttributes()
 
-proc render*(s: var StatusBarView) =
+proc render*(s: var StatusBarView) {.raises: [Defect, ValueError].} =
   doAssert s.consumedLines == 0
 
   let
@@ -92,21 +108,23 @@ proc render*(s: var StatusBarView) =
     allCellsWidth = s.layout.cellsLeft.width + s.layout.cellsRight.width
 
   if allCellsWidth > 0:
-    renderCells(s.layout.cellsLeft, sepLeft)
-    stdout.setBackgroundColor backgroundColor
-    if termWidth > allCellsWidth:
-      stdout.write spaces(termWidth - allCellsWidth)
-      s.consumedLines = 1
-    else:
-      stdout.write spaces(max(0, termWidth - s.layout.cellsLeft.width)), "\p"
-      s.consumedLines = 2
-    renderCells(s.layout.cellsRight, sepRight)
-    stdout.flushFile
+    ignoreException:
+      renderCells(s.layout.cellsLeft, sepLeft)
+      stdout.setBackgroundColor backgroundColor
+      if termWidth > allCellsWidth:
+        stdout.write spaces(termWidth - allCellsWidth)
+        s.consumedLines = 1
+      else:
+        stdout.write spaces(max(0, termWidth - s.layout.cellsLeft.width)), "\p"
+        s.consumedLines = 2
+      renderCells(s.layout.cellsRight, sepRight)
+      stdout.flushFile
 
 proc erase*(s: var StatusBarView) =
-  for i in 1 ..< s.consumedLines: cursorUp()
-  for i in 0 ..< s.consumedLines: eraseLine()
-  s.consumedLines = 0
+  ignoreException:
+    for i in 1 ..< s.consumedLines: cursorUp()
+    for i in 0 ..< s.consumedLines: eraseLine()
+    s.consumedLines = 0
 
 func init*(T: type StatusBarView,
            layout: string,

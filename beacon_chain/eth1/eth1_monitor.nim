@@ -112,7 +112,7 @@ type
     pubkey: Bytes48,
     withdrawalCredentials: Bytes32,
     amount: Bytes8,
-    signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode) {.raises: [Defect], gcsafe.}
+    signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode) {.gcsafe, raises: [Defect].}
 
   BlockProposalEth1Data* = object
     vote*: Eth1Data

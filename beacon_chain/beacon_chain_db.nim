@@ -59,7 +59,7 @@ type
     immutableValidators*: ImmutableValidatorsSeq
     immutableValidatorsMem*: seq[ImmutableValidatorData]
 
-    checkpoint*: proc() {.gcsafe.}
+    checkpoint*: proc() {.gcsafe, raises: [Defect].}
 
   Keyspaces* = enum
     defaultKeyspace = "kvstore"

@@ -157,13 +157,13 @@ type
     InvalidRequest
     ServerError
 
-  PeerStateInitializer* = proc(peer: Peer): RootRef {.gcsafe.}
-  NetworkStateInitializer* = proc(network: EthereumNode): RootRef {.gcsafe.}
+  PeerStateInitializer* = proc(peer: Peer): RootRef {.gcsafe, raises: [Defect].}
+  NetworkStateInitializer* = proc(network: EthereumNode): RootRef {.gcsafe, raises: [Defect].}
   OnPeerConnectedHandler* = proc(peer: Peer, incoming: bool): Future[void] {.gcsafe.}
-  OnPeerDisconnectedHandler* = proc(peer: Peer): Future[void] {.gcsafe.}
+  OnPeerDisconnectedHandler* = proc(peer: Peer): Future[void] {.gcsafe, raises: [Defect].}
   ThunkProc* = LPProtoHandler
   MounterProc* = proc(network: Eth2Node) {.gcsafe.}
-  MessageContentPrinter* = proc(msg: pointer): string {.gcsafe.}
+  MessageContentPrinter* = proc(msg: pointer): string {.gcsafe, raises: [Defect].}
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#goodbye
   DisconnectionReason* = enum
@@ -1638,7 +1638,7 @@ proc setValidTopics*(node: Eth2Node, topics: openArray[string]) =
 proc addValidator*[MsgType](node: Eth2Node,
                             topic: string,
                             msgValidator: proc(msg: MsgType):
-                            ValidationResult {.gcsafe.} ) =
+                            ValidationResult {.gcsafe, raises: [Defect].} ) =
   # Validate messages as soon as subscribed
   proc execValidator(
       topic: string, message: GossipMsg): Future[ValidationResult] {.async.} =
