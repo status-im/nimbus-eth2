@@ -124,8 +124,11 @@ type
     # Needs to be in same enum definition and is safe regardless of whether one
     # only accesses phase 0 definitions
     DOMAIN_SYNC_COMMITTEE = 7
-    DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF = 8
-    DOMAIN_CONTRIBUTION_AND_PROOF = 9
+
+    # TODO enable when builds
+    # https://github.com/status-im/nimbus-eth2/pull/2454 shows issue
+    #DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF = 8
+    #DOMAIN_CONTRIBUTION_AND_PROOF = 9
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#custom-types
   Eth2Domain* = array[32, byte]
