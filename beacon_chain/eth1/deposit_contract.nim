@@ -181,6 +181,7 @@ proc sendDeposits*(deposits: seq[LaunchPadDeposit],
         await sleepAsync(60.seconds)
         web3 = await initWeb3(web3Url, privateKey)
 
+{.pop.} # TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 proc main() {.async.} =
   var cfg = CliConfig.load()
   let rng = keys.newRng()
