@@ -1,3 +1,12 @@
+# beacon_chain
+# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [Defect].}
+
 import
   options, tables, sets, macros,
   chronicles, chronos, stew/ranges/bitranges, libp2p/switch,
@@ -87,6 +96,7 @@ proc handleStatus(peer: Peer,
 
 proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) {.gcsafe.}
 
+{.pop.} # TODO fix p2p macro for raises
 p2pProtocol BeaconSync(version = 1,
                        networkState = BeaconSyncNetworkState,
                        peerState = BeaconSyncPeerState):

@@ -1,8 +1,11 @@
+# beacon_chain
 # Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [Defect].}
 
 import
   std/[deques, sequtils, sets],
@@ -32,7 +35,8 @@ type
     line*: int
     state*: string
 
-proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
+proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
+    raises: [Exception].} = # TODO fix json-rpc
   ## Install non-standard api handlers - some of these are used by 3rd-parties
   ## such as eth2stats, pending a full REST api
   rpcServer.rpc("getBeaconHead") do () -> Slot:

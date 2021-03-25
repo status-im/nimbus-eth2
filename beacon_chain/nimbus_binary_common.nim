@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [Defect].}
+
 # Common routines for a BeaconNode and a ValidatorClient
 
 import
@@ -32,7 +34,7 @@ proc setupStdoutLogging*(logLevel: string) =
         except IOError as err:
           logLoggingFailure(cstring(msg), err)
 
-proc updateLogLevel*(logLevel: string) =
+proc updateLogLevel*(logLevel: string) {.raises: [Defect, ValueError].} =
   # Updates log levels (without clearing old ones)
   let directives = logLevel.split(";")
   try:
@@ -58,15 +60,22 @@ proc setupLogging*(logLevel: string, logFile: Option[OutFile]) =
                 path = logFileDir, err = ioErrorMsg(lres.error)
           break openLogFile
 
-        if not defaultChroniclesStream.outputs[1].open(logFile):
-          error "Failed to create log file", logFile
+        try:
+          if not defaultChroniclesStream.outputs[1].open(logFile):
+            error "Failed to create log file", logFile
+        except CatchableError as exc:
+          # TODO why is there both exception and bool?
+          error "Failed to create log file", logFile, msg = exc.msg
     else:
       warn "The --log-file option is not active in the current build"
 
   try:
     updateLogLevel(logLevel)
   except ValueError as err:
-    stderr.write "Invalid value for --log-level. " & err.msg
+    try:
+      stderr.write "Invalid value for --log-level. " & err.msg
+    except IOError as exc:
+      echo "Invalid value for --log-level. " & err.msg
     quit 1
 
 template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =

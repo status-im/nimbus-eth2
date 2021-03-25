@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 {.push raises: [Defect].}
 
 import
@@ -98,13 +105,7 @@ func saturate*(d: tuple[inFuture: bool, offset: Duration]): Duration =
   if d.inFuture: d.offset else: seconds(0)
 
 proc addTimer*(fromNow: Duration, cb: CallbackFunc, udata: pointer = nil) =
-  try:
-    discard setTimer(Moment.now() + fromNow, cb, udata)
-  except Exception as e:
-    # TODO https://github.com/status-im/nim-chronos/issues/94
-    # shouldn't happen because we should have initialized chronos by now
-    # https://github.com/nim-lang/Nim/issues/10288 - sigh
-    raiseAssert e.msg
+  discard setTimer(Moment.now() + fromNow, cb, udata)
 
 func shortLog*(d: Duration): string =
   $d

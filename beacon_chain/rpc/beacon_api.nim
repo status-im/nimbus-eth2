@@ -1,8 +1,11 @@
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# beacon_chain
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [Defect].}
 
 import
   std/[parseutils, sequtils, strutils, deques, sets],
@@ -35,7 +38,7 @@ type
 template unimplemented() =
   raise (ref CatchableError)(msg: "Unimplemented")
 
-proc parsePubkey(str: string): ValidatorPubKey =
+proc parsePubkey(str: string): ValidatorPubKey {.raises: [Defect, ValueError].} =
   const expectedLen = RawPubKeySize * 2 + 2
   if str.len != expectedLen: # +2 because of the `0x` prefix
     raise newException(ValueError,
@@ -43,7 +46,7 @@ proc parsePubkey(str: string): ValidatorPubKey =
       $str.len & " provided")
   let pubkeyRes = fromHex(ValidatorPubKey, str)
   if pubkeyRes.isErr:
-    raise newException(CatchableError, "Not a valid public key")
+    raise newException(ValueError, "Not a valid public key")
   return pubkeyRes[]
 
 proc createIdQuery(ids: openArray[string]): Result[ValidatorQuery, string] =
@@ -71,8 +74,11 @@ proc createIdQuery(ids: openArray[string]): Result[ValidatorQuery, string] =
       res.keyset.incl(pubkeyRes.get())
     else:
       var tmp: uint64
-      if parseBiggestUInt(item, tmp) != len(item):
-        return err("Incorrect index value")
+      try:
+        if parseBiggestUInt(item, tmp) != len(item):
+          return err("Incorrect index value")
+      except ValueError:
+        return err("Cannot parse index value: " & item)
       res.ids.add(tmp)
   ok(res)
 
@@ -151,7 +157,7 @@ proc getStatus(validator: Validator,
   else:
     err("Invalid validator status")
 
-proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData =
+proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData {.raises: [Defect, CatchableError].} =
   result = case blockId:
     of "head":
       node.chainDag.get(node.chainDag.head)
@@ -172,7 +178,8 @@ proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData =
           raise newException(CatchableError, "Block not found")
         node.chainDag.get(blockSlot.blck)
 
-proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
+proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
+    raises: [Exception].} = # TODO fix json-rpc
   rpcServer.rpc("get_v1_beacon_genesis") do () -> BeaconGenesisTuple:
     return (
       genesis_time: node.chainDag.headState.data.data.genesis_time,

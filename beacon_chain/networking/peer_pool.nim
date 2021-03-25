@@ -1,3 +1,12 @@
+# beacon_chain
+# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [Defect].}
+
 import std/[tables, heapqueue]
 import chronos
 
@@ -676,12 +685,12 @@ iterator acquiredPeers*[A, B](pool: PeerPool[A, B],
     let pindex = sorted.pop().data
     yield pool.storage[pindex].data
 
-proc `[]`*[A, B](pool: PeerPool[A, B], key: B): A {.inline.} =
+proc `[]`*[A, B](pool: PeerPool[A, B], key: B): A {.inline, raises: [Defect, KeyError].} =
   ## Retrieve peer with key ``key`` from PeerPool ``pool``.
   let pindex = pool.registry[key]
   pool.storage[pindex.data]
 
-proc `[]`*[A, B](pool: var PeerPool[A, B], key: B): var A {.inline.} =
+proc `[]`*[A, B](pool: var PeerPool[A, B], key: B): var A {.inline, raises: [Defect, KeyError].} =
   ## Retrieve peer with key ``key`` from PeerPool ``pool``.
   let pindex = pool.registry[key]
   pool.storage[pindex.data].data
