@@ -1248,7 +1248,9 @@ proc run*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   proc controlCHandler() {.noconv.} =
     when defined(windows):
       # workaround for https://github.com/nim-lang/Nim/issues/4057
-      setupForeignThreadGc()
+      try:
+        setupForeignThreadGc()
+      except Exception as exc: raiseAssert exc.msg # shouldn't happen
     notice "Shutting down after having received SIGINT"
     bnStatus = BeaconNodeStatus.Stopping
   try:
