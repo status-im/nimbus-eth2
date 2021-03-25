@@ -34,10 +34,6 @@ import ./base
 export base
 
 const
-  # https://github.com/ethereum/eth2.0-specs/blob/34cea67b91/specs/lightclient/beacon-chain.md#misc-1
-  SYNC_COMMITTEE_SIZE* = 1024
-  SYNC_COMMITTEE_PUBKEY_AGGREGATES_SIZE* = 64
-
   # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/beacon-chain.md#incentivization-weights
   TIMELY_HEAD_WEIGHT* = 12
   TIMELY_SOURCE_WEIGHT* = 12
@@ -60,7 +56,7 @@ type
     pubkeys*: HashArray[Limit SYNC_COMMITTEE_SIZE, ValidatorPubKey]
     pubkey_aggregates*:
       HashArray[
-        Limit SYNC_COMMITTEE_SIZE div SYNC_COMMITTEE_PUBKEY_AGGREGATES_SIZE,
+        Limit SYNC_COMMITTEE_SIZE div SYNC_PUBKEYS_PER_AGGREGATE,
         ValidatorPubKey]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/validator.md#synccommitteesignature
@@ -113,8 +109,7 @@ type
     slot*: Slot
     subcommittee_index*: uint64
   
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/beacon-chain.md#participation-flag-in:w
-  # dices
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/beacon-chain.md#participation-flag-indices
   ValidatorFlag* = enum
     TIMELY_HEAD_FLAG = 0
     TIMELY_SOURCE_FLAG = 1

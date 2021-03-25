@@ -152,13 +152,17 @@ const
 
 when const_preset == "mainnet":
   template defaultRuntimePreset*: auto = mainnetRuntimePreset
-  import ./presets/v1_0_1/mainnet
-  export mainnet
+  import
+    ./presets/v1_0_1/mainnet as phase0Mainnet,
+    ./presets/altair/mainnet as altairMainnet
+  export phase0Mainnet, altairMainnet
 
 elif const_preset == "minimal":
   template defaultRuntimePreset*: auto = minimalRuntimePreset
-  import ./presets/v1_0_1/minimal
-  export minimal
+  import
+    ./presets/v1_0_1/minimal as phase0Minimal,
+    ./presets/altair/minimal as altairMinimal
+  export phase0Minimal, altairMinimal
 
 else:
   macro createConstantsFromPreset*(path: static string): untyped =
