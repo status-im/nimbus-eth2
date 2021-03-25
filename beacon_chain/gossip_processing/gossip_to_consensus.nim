@@ -160,7 +160,7 @@ proc addBlock*(self: var VerifQueueManager, syncBlock: SyncBlock) {.raises: [Exc
 proc addAttestation*(self: var VerifQueueManager, att: Attestation, att_indices: seq[ValidatorIndex]) =
   ## Enqueue a Gossip-validated attestation for consensus verification
   # Backpressure:
-  #   no handling
+  #   If buffer is full, the oldest attestation is dropped and the newest is enqueued
   # Producer:
   # - Gossip (when synced)
   while self.attestationsQueue.full():
@@ -180,7 +180,7 @@ proc addAttestation*(self: var VerifQueueManager, att: Attestation, att_indices:
 proc addAggregate*(self: var VerifQueueManager, agg: SignedAggregateAndProof, att_indices: seq[ValidatorIndex]) =
   ## Enqueue a Gossip-validated aggregate attestation for consensus verification
   # Backpressure:
-  #   no handling
+  #   If buffer is full, the oldest aggregate is dropped and the newest is enqueued
   # Producer:
   # - Gossip (when synced)
 
