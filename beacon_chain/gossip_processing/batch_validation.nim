@@ -15,7 +15,8 @@ import
     datatypes, crypto, digest, helpers, signatures_batch],
   ../consensus_object_pools/[
     blockchain_dag, block_quarantine,
-    attestation_pool, exit_pool
+    attestation_pool, exit_pool,
+    block_pools_types, spec_cache
   ],
   ".."/[beacon_node_types, ssz, beacon_clock]
 
@@ -134,6 +135,11 @@ proc deferCryptoProcessing(self: ref BatchCrypto, idleTimeout: Duration) {.async
   ## - if time threshold is reached
   ## - or if networking is idle
 
+  # TODO: how to cancel the scheduled `deferCryptoProcessing(BatchAttAccumTime)` ?
+  #       when the buffer size threshold is reached?
+  # In practice this only happens when we receive a burst of attestations/aggregates.
+  # Though it's possible to reach the threshold 9ms in,
+  # and have only 1ms left for further accumulation.
   discard await idleAsync().withTimeout(idleTimeout)
   self.processBufferedCrypto()
 
@@ -173,7 +179,7 @@ proc schedule(batchCrypto: ref BatchCrypto, fut: Future[Result[void, cstring]], 
 proc scheduleAttestationCheck*(
       batchCrypto: ref BatchCrypto,
       fork: Fork, genesis_validators_root: Eth2Digest,
-      epochRef: auto,
+      epochRef: EpochRef,
       attestation: Attestation
      ): Option[Future[Result[void, cstring]]] =
   ## Schedule crypto verification of an attestation
@@ -207,7 +213,7 @@ proc scheduleAttestationCheck*(
 proc scheduleAggregateChecks*(
       batchCrypto: ref BatchCrypto,
       fork: Fork, genesis_validators_root: Eth2Digest,
-      epochRef: auto,
+      epochRef: EpochRef,
       signedAggregateAndProof: SignedAggregateAndProof
      ): Option[tuple[slotCheck, aggregatorCheck, aggregateCheck: Future[Result[void, cstring]]]] =
   ## Schedule crypto verification of an aggregate

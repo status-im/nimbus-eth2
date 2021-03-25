@@ -219,16 +219,14 @@ proc addAttestation*(
   var attesters{.noinit.}: blscurve.PublicKey
   attesters.finish(attestersAgg)
 
-  if not sigs.addSignatureSet(
-          attesters,
-          attestation.data,
-          attestation.signature,
-          genesis_validators_root,
-          fork,
-          attestation.data.target.epoch,
-          DOMAIN_BEACON_ATTESTER):
-    return false
-  return true
+  return sigs.addSignatureSet(
+    attesters,
+    attestation.data,
+    attestation.signature,
+    genesis_validators_root,
+    fork,
+    attestation.data.target.epoch,
+    DOMAIN_BEACON_ATTESTER)
 
 proc addIndexedAttestation*(
       sigs: var seq[SignatureSet],
@@ -255,16 +253,14 @@ proc addIndexedAttestation*(
   if not aggPK.aggregateAttesters(attestation, epochRef):
     return false
 
-  if not sigs.addSignatureSet(
-          aggPK,
-          attestation.data,
-          attestation.signature,
-          genesis_validators_root,
-          fork,
-          attestation.data.target.epoch,
-          DOMAIN_BEACON_ATTESTER):
-    return false
-  return true
+  return sigs.addSignatureSet(
+    aggPK,
+    attestation.data,
+    attestation.signature,
+    genesis_validators_root,
+    fork,
+    attestation.data.target.epoch,
+    DOMAIN_BEACON_ATTESTER)
 
 proc addSlotSignature*(
       sigs: var seq[SignatureSet],
