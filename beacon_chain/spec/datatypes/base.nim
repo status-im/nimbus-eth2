@@ -653,9 +653,6 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-  DoppelgangerProtection* = object
-    broadcastStartEpoch*: Epoch
-
 func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData =
   ImmutableValidatorData(
     pubkey: validator.pubkey,
@@ -665,9 +662,6 @@ func getDepositMessage*(depositData: DepositData): DepositMessage =
   result.pubkey = depositData.pubkey
   result.amount = depositData.amount
   result.withdrawal_credentials = depositData.withdrawal_credentials
-
-func getDepositMessage*(deposit: Deposit): DepositMessage =
-  deposit.data.getDepositMessage
 
 # TODO when https://github.com/nim-lang/Nim/issues/14440 lands in Status's Nim,
 # switch proc {.noSideEffect.} to func.

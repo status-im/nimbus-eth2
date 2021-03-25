@@ -50,6 +50,9 @@ declareHistogram beacon_store_block_duration_seconds,
   "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
 
 type
+  DoppelgangerProtection = object
+    broadcastStartEpoch*: Epoch
+
   Eth2Processor* = object
     config*: BeaconNodeConf
     getWallTime*: GetWallTimeFn

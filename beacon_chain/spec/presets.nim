@@ -63,6 +63,8 @@ const
     DOMAIN_SELECTION_PROOF,
     DOMAIN_AGGREGATE_AND_PROOF,
     DOMAIN_SYNC_COMMITTEE,
+    DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF,
+    DOMAIN_CONTRIBUTION_AND_PROOF,
     CONFIG_NAME
   }
 
@@ -155,6 +157,12 @@ when const_preset == "mainnet":
   import
     ./presets/v1_0_1/mainnet as phase0Mainnet,
     ./presets/altair/mainnet as altairMainnet
+
+  # https://github.com/nim-lang/Nim/issues/17511 workaround
+  static:
+    discard phase0Mainnet.CONFIG_NAME
+    discard altairMainnet.CONFIG_NAME
+
   export phase0Mainnet, altairMainnet
 
 elif const_preset == "minimal":
@@ -162,6 +170,12 @@ elif const_preset == "minimal":
   import
     ./presets/v1_0_1/minimal as phase0Minimal,
     ./presets/altair/minimal as altairMinimal
+
+  # https://github.com/nim-lang/Nim/issues/17511 workaround
+  static:
+    discard phase0Minimal.CONFIG_NAME
+    discard altairMinimal.CONFIG_NAME
+
   export phase0Minimal, altairMinimal
 
 else:
