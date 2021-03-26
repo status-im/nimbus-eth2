@@ -12,7 +12,7 @@
 # had materialized - they've now made it out to releases which means the easiest
 # thing to do is to maintain them as-is, even if there are mismatches. In
 # particular, numbers are serialized as strings in the eth2 API - here, they
-# use strings instead.
+# use numbers instead.
 #
 # Using numbers creates problems - uint64 which often appears in eth2 can't
 # portably be represented since many json parsers balk at anything >2^53 and
