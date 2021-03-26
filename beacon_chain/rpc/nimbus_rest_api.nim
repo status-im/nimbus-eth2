@@ -140,17 +140,17 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponse((peers: res))
 
   router.api(MethodPost, "/api/nimbus/v1/graffiti") do (
-    graffiti: Option[string]) -> RestApiResponse:
-    if graffiti.isSome and graffiti.get.isOk:
-      try:
-        node.graffitiBytes = GraffitiBytes.init(graffiti.get.get)
-        return RestApiResponse.jsonResponse((result: true))
-      except CatchableError as err:
-        return RestApiResponse.jsonError(
-          Http400, "Invalid graffiti string", err.msg)
+    value: Option[GraffitiBytes]) -> RestApiResponse:
+    if value.isSome() and value.get().isOk():
+      node.graffitiBytes = value.get().get()
+      return RestApiResponse.jsonResponse((result: true))
     else:
       return RestApiResponse.jsonError(
           Http400, "You must specify a valid graffiti string")
+
+  router.api(MethodGet, "/api/nimbus/v1/graffiti") do (
+    ) -> RestApiResponse:
+    return RestApiResponse.jsonResponse(node.graffitiBytes)
 
   router.api(MethodPost, "/api/nimbus/v1/chronicles/settings") do (
     log_level: Option[string]) -> RestApiResponse:
