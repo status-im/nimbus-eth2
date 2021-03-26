@@ -24,17 +24,17 @@
 import
   # Standard library
   std/hashes,
-  #Status libraries
+  # Status libraries
   chronicles,
   nimcrypto/[sha2, hash],
   stew/byteutils,
-  eth/common/eth_types_json_serialization,
+  json_serialization,
   blscurve
 
 export
   # Exports from sha2 / hash are explicit to avoid exporting upper-case `$` and
   # constant-time `==`
-  sha2.update, hash.fromHex, readValue, writeValue
+  sha2.update, hash.fromHex, json_serialization
 
 type
   Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec
@@ -110,3 +110,12 @@ func `==`*(a, b: Eth2Digest): bool =
     # nimcrypto uses a constant-time comparison for all MDigest types which for
     # Eth2Digest is unnecessary - the type should never hold a secret!
     equalMem(unsafeAddr a.data[0], unsafeAddr b.data[0], sizeof(a.data))
+
+proc writeValue*(w: var JsonWriter, a: Eth2Digest) {.raises: [Defect, IOError, SerializationError].} =
+  w.writeValue $a
+
+proc readValue*(r: var JsonReader, a: var Eth2Digest) {.raises: [Defect, IOError, SerializationError].} =
+  try:
+    a = fromHex(type(a), r.readValue(string))
+  except ValueError:
+    raiseUnexpectedValue(r, "Hex string expected")

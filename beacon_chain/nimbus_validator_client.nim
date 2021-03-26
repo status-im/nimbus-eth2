@@ -9,11 +9,11 @@
 
 import
   # Standard library
-  std/[os, json, random, strutils],
+  std/[os, random, strutils],
 
   # Nimble packages
   stew/shims/[tables, macros],
-  chronos, confutils, metrics, json_rpc/[rpcclient, jsonmarshal],
+  chronos, confutils, metrics,
   chronicles,
   json_serialization/std/[options, net],
 
@@ -23,7 +23,6 @@ import
   ./sync/sync_manager,
   "."/[conf, beacon_clock, version],
   ./networking/[eth2_network, eth2_discovery],
-  ./rpc/eth2_json_rpc_serialization,
   ./beacon_node_types,
   ./nimbus_binary_common,
   ./ssz/merkleization,

@@ -13,6 +13,7 @@ import std/options,
   eth/p2p/discoveryv5/enr,
   libp2p/[multiaddress, multicodec],
   nimcrypto/utils as ncrutils,
+  ./eth2_json_rpc_serialization,
   ../beacon_node_common, ../version,
   ../networking/[eth2_network, peer_pool],
   ../sync/sync_manager,
@@ -23,9 +24,6 @@ logScope: topics = "nodeapi"
 
 type
   RpcServer = RpcHttpServer
-
-template unimplemented() =
-  raise (ref CatchableError)(msg: "Unimplemented")
 
 proc validateState(state: Option[seq[string]]): Option[set[ConnectionState]] =
   var res: set[ConnectionState]
