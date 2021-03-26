@@ -1,11 +1,7 @@
 import
-  # Standard library
-  options,
-  # Local modules
-  # TODO for some reason "../[datatypes, digest, crypto]" results in "Error: cannot open file"
-  ../datatypes,
-  ../digest,
-  ../crypto
+  ".."/[datatypes, digest, crypto]
+
+export datatypes, digest, crypto
 
 type
   AttesterDuties* = tuple

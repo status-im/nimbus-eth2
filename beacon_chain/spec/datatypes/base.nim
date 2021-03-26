@@ -25,13 +25,13 @@
 {.push raises: [Defect].}
 
 import
-  std/[macros, hashes, intsets, json, strutils, tables, typetraits],
+  std/[macros, hashes, intsets, strutils, tables, typetraits],
   stew/[assign2, byteutils], chronicles,
-  json_serialization/types as jsonTypes,
+  json_serialization,
   ../../version, ../../ssz/types as sszTypes, ../crypto, ../digest, ../presets
 
 export
-  sszTypes, presets
+  sszTypes, presets, json_serialization
 
 # Presently, we're reusing the data types from the serialization (uint64) in the
 # objects we pass around to the beacon chain logic, thus keeping the two
@@ -702,7 +702,6 @@ template ethTimeUnit(typ: type) {.dirty.} =
   # Nim integration
   proc `$`*(x: typ): string {.borrow, noSideEffect.}
   proc hash*(x: typ): Hash {.borrow, noSideEffect.}
-  proc `%`*(x: typ): JsonNode {.borrow, noSideEffect.}
 
   # Serialization
   proc writeValue*(writer: var JsonWriter, value: typ)
@@ -998,10 +997,6 @@ chronicles.formatIt BeaconBlock: it.shortLog
 chronicles.formatIt AttestationData: it.shortLog
 chronicles.formatIt Attestation: it.shortLog
 chronicles.formatIt Checkpoint: it.shortLog
-
-import json_serialization
-export json_serialization
-export writeValue, readValue
 
 const
   # http://facweb.cs.depaul.edu/sjost/it212/documents/ascii-pr.htm

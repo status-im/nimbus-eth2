@@ -10,18 +10,16 @@
 import
   std/[deques, sequtils, sets],
   chronos,
-  stew/shims/macros,
   stew/byteutils,
-  json_rpc/[rpcserver, jsonmarshal],
+  json_rpc/servers/httpserver,
+  libp2p/protocols/pubsub/pubsubpeer,
 
-  rpc_utils,
-  ../beacon_node_common, ../nimbus_binary_common,
-  ../networking/eth2_network,
-  ../eth1/eth1_monitor,
-  ../validators/validator_duties,
-  ../spec/[digest, datatypes, presets],
+  "."/[rpc_utils, eth2_json_rpc_serialization],
+  ".."/[
+    beacon_node_common, nimbus_binary_common, networking/eth2_network,
+    eth1/eth1_monitor, validators/validator_duties],
+  ../spec/[digest, datatypes, presets]
 
-  libp2p/protocols/pubsub/pubsubpeer
 
 logScope: topics = "nimbusapi"
 

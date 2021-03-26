@@ -12,8 +12,8 @@ import
   std/[os, osproc, sequtils, streams, tables],
 
   # Nimble packages
-  stew/[assign2, objects, shims/macros],
-  chronos, metrics, json_rpc/[rpcserver, jsonmarshal],
+  stew/[assign2, objects],
+  chronos, metrics,
   chronicles,
   json_serialization/std/[options, sets, net], serialization/errors,
   eth/db/kvstore,

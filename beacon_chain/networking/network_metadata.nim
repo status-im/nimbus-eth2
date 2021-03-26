@@ -16,6 +16,7 @@ import
   json_serialization,
   json_serialization/std/[options, sets, net], serialization/errors,
   ../ssz/navigator,
+  eth/common/eth_types_json_serialization,
   ../spec/[presets, datatypes, digest]
 
 # ATTENTION! This file will produce a large C file, because we are inlining

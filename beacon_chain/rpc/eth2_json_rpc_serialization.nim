@@ -7,9 +7,22 @@
 
 {.push raises: [Defect].}
 
+# The serializations in this file are approximations of
+# https://ethereum.github.io/eth2.0-APIs/#/ but where written before the standard
+# had materialized - they've now made it out to releases which means the easiest
+# thing to do is to maintain them as-is, even if there are mismatches. In
+# particular, numbers are serialized as strings in the eth2 API - here, they
+# use numbers instead.
+#
+# Using numbers creates problems - uint64 which often appears in eth2 can't
+# portably be represented since many json parsers balk at anything >2^53 and
+# start losing precision. The other issue is the json parser in nim - it can't
+# handle numbers >2^63, either crashing or giving wrong results:
+# https://github.com/status-im/nimbus-eth2/issues/2430
+
 import
   # Standard library
-  std/[tables, json, typetraits],
+  std/[tables, typetraits],
 
   # Nimble packages
   stew/byteutils,
@@ -18,6 +31,8 @@ import
   # Local modules
   ../ssz/types,
   ../spec/[datatypes, crypto, digest]
+
+export jsonmarshal, datatypes, crypto, digest
 
 proc toJsonHex(data: openArray[byte]): string =
   # Per the eth2 API spec, hex arrays are printed with leading 0x
@@ -91,6 +106,17 @@ genFromJsonForIntType(Epoch)
 genFromJsonForIntType(Slot)
 genFromJsonForIntType(CommitteeIndex)
 genFromJsonForIntType(ValidatorIndex)
+
+proc `%`*(value: Epoch): JsonNode =
+  # In nim <= 1.2.6, `uint64` was silently cast to int64 resulting in
+  # FAR_FUTURE_EPOCH showing as -1 - this is a hack to maintain that behaviour
+  # in a world where a Defect or an actual correct value is used - the eth2
+  # REST api instead prints all epochs and similar large numbers as strings!
+  # See also https://github.com/status-im/nimbus-eth2/issues/2430
+  newJInt(cast[int64](value))
+
+proc `%`*(value: Slot): JsonNode =
+  newJInt(cast[int64](value))
 
 proc `%`*(value: GraffitiBytes): JsonNode =
   newJString(toJsonHex(distinctBase(value)))

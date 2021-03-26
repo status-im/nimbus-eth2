@@ -63,25 +63,25 @@ proc getBlockSlotFromString*(node: BeaconNode, slot: string): BlockSlot {.raises
   if parseBiggestUInt(slot, parsed) != slot.len:
     raise newException(ValueError, "Not a valid slot number")
   let head = node.doChecksAndGetCurrentHead(parsed.Slot)
-  return head.atSlot(parsed.Slot)
+  head.atSlot(parsed.Slot)
 
 proc stateIdToBlockSlot*(node: BeaconNode, stateId: string): BlockSlot {.raises: [Defect, CatchableError].} =
-  result = case stateId:
-    of "head":
-      node.chainDag.head.toBlockSlot()
-    of "genesis":
-      node.chainDag.getGenesisBlockSlot()
-    of "finalized":
-      node.chainDag.finalizedHead
-    of "justified":
-      node.chainDag.head.atEpochStart(
-        node.chainDag.headState.data.data.current_justified_checkpoint.epoch)
+  case stateId:
+  of "head":
+    node.chainDag.head.toBlockSlot()
+  of "genesis":
+    node.chainDag.getGenesisBlockSlot()
+  of "finalized":
+    node.chainDag.finalizedHead
+  of "justified":
+    node.chainDag.head.atEpochStart(
+      node.chainDag.headState.data.data.current_justified_checkpoint.epoch)
+  else:
+    if stateId.startsWith("0x"):
+      let blckRoot = parseRoot(stateId)
+      let blckRef = node.chainDag.getRef(blckRoot)
+      if blckRef.isNil:
+        raise newException(CatchableError, "Block not found")
+      blckRef.toBlockSlot()
     else:
-      if stateId.startsWith("0x"):
-        let blckRoot = parseRoot(stateId)
-        let blckRef = node.chainDag.getRef(blckRoot)
-        if blckRef.isNil:
-          raise newException(CatchableError, "Block not found")
-        blckRef.toBlockSlot()
-      else:
-        node.getBlockSlotFromString(stateId)
+      node.getBlockSlotFromString(stateId)

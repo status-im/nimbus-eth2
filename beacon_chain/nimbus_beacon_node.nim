@@ -16,7 +16,6 @@ import
   # Nimble packages
   stew/[objects, byteutils, endians2, io2], stew/shims/macros,
   chronos, confutils, metrics, metrics/chronos_httpserver,
-  json_rpc/[rpcclient, rpcserver, jsonmarshal],
   chronicles, bearssl, blscurve,
   json_serialization/std/[options, sets, net], serialization/errors,
 

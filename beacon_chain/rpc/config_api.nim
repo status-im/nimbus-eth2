@@ -9,7 +9,7 @@
 
 import
   stew/endians2,
-  json_rpc/[rpcserver, jsonmarshal],
+  json_rpc/servers/httpserver,
   chronicles,
   nimcrypto/utils as ncrutils,
   ../beacon_node_common,

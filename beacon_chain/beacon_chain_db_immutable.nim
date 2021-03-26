@@ -9,14 +9,14 @@
 
 import
   tables,
-  stew/[assign2, endians2, io2, objects, results],
-  serialization, chronicles,
+  stew/[assign2, io2, objects, results],
+  serialization,
   eth/db/[kvstore, kvstore_sqlite3],
   ./spec/[crypto, datatypes, digest],
   ./ssz/[ssz_serialization, merkleization],
   filepath
 
-type 
+type
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to a v1.0.1 BeaconState for in-place SSZ reading and writing
   BeaconStateNoImmutableValidators* = object
