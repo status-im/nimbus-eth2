@@ -1,8 +1,7 @@
 import
-  options,
-  ../[datatypes, digest, crypto],
-  json_rpc/jsonmarshal,
   callsigs_types
+
+export callsigs_types
 
 proc getBeaconHead(): Slot
 proc getChainHead(): JsonNode

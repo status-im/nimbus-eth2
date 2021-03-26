@@ -22,7 +22,7 @@
 
 import
   # Standard library
-  std/[tables, json, typetraits],
+  std/[tables, typetraits],
 
   # Nimble packages
   stew/byteutils,
@@ -32,7 +32,7 @@ import
   ../ssz/types,
   ../spec/[datatypes, crypto, digest]
 
-export jsonmarshal
+export jsonmarshal, datatypes, crypto, digest
 
 proc toJsonHex(data: openArray[byte]): string =
   # Per the eth2 API spec, hex arrays are printed with leading 0x

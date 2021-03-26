@@ -13,7 +13,7 @@ import
 
   # Nimble packages
   stew/[objects],
-  json_rpc/[rpcserver, jsonmarshal],
+  json_rpc/servers/httpserver,
   chronicles,
 
   # Local modules

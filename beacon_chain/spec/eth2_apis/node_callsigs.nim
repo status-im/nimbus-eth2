@@ -1,7 +1,5 @@
 import
   options,
-  ../[datatypes, digest, crypto],
-  json_rpc/jsonmarshal,
   callsigs_types
 
 proc get_v1_node_identity(): NodeIdentityTuple

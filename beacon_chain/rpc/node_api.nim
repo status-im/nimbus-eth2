@@ -9,7 +9,7 @@
 
 import std/options,
   chronicles,
-  json_rpc/[rpcserver, jsonmarshal],
+  json_rpc/servers/httpserver,
   eth/p2p/discoveryv5/enr,
   libp2p/[multiaddress, multicodec],
   nimcrypto/utils as ncrutils,

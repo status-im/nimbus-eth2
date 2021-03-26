@@ -11,7 +11,7 @@ import
   std/[deques, sequtils, sets],
   chronos,
   stew/byteutils,
-  json_rpc/[rpcserver, jsonmarshal],
+  json_rpc/servers/httpserver,
   libp2p/protocols/pubsub/pubsubpeer,
 
   "."/[rpc_utils, eth2_json_rpc_serialization],

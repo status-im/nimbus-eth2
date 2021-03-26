@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  json_rpc/[rpcserver, jsonmarshal],
+  json_rpc/servers/httpserver,
   chronicles,
   ../beacon_node_common
 

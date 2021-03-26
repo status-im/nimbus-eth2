@@ -1,11 +1,6 @@
 import
-  # Standard library
   options,
-  # Local modules
-  ../[datatypes, digest, crypto],
-  json_rpc/jsonmarshal,
   callsigs_types
-
 
 # calls that return a bool are actually without a return type in the main REST API
 # spec but nim-json-rpc requires that all RPC calls have a return type.

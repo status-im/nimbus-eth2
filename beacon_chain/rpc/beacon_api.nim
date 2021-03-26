@@ -10,7 +10,7 @@
 import
   std/[parseutils, sequtils, strutils, deques, sets],
   stew/results,
-  json_rpc/[rpcserver, jsonmarshal],
+  json_rpc/servers/httpserver,
   chronicles,
   nimcrypto/utils as ncrutils,
   ../beacon_node_common,

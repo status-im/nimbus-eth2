@@ -9,7 +9,7 @@
 
 import
   std/sequtils,
-  json_rpc/[rpcserver, jsonmarshal],
+  json_rpc/servers/httpserver,
   chronicles,
   ../version, ../beacon_node_common,
   ../networking/[eth2_network, peer_pool],
