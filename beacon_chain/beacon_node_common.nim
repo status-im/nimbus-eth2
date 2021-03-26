@@ -11,7 +11,7 @@ import
   std/osproc,
 
   # Nimble packages
-  chronos, json_rpc/servers/httpserver, presto
+  chronos, json_rpc/servers/httpserver, presto,
 
   # Local modules
   ./conf, ./beacon_clock, ./beacon_chain_db,
