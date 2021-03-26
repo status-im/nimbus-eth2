@@ -74,6 +74,13 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + parent sanity [Preset: mainnet]                                                            OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Eth2 specific discovery tests
+```diff
++ Invalid attnets field                                                                      OK
++ Subnet query                                                                               OK
++ Subnet query after ENR update                                                              OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Exit pool testing suite
 ```diff
 + addExitMessage/getAttesterSlashingMessage                                                  OK
@@ -282,4 +289,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 151/160 Fail: 0/160 Skip: 9/160
+OK: 154/163 Fail: 0/163 Skip: 9/163
