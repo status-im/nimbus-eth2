@@ -1,6 +1,10 @@
 TBD
 ==================
 
+**New features:**
+
+* Added the `setGraffiti` RPC (POST /api/nimbus/v1/graffiti in the REST API)
+
 **Breaking changes:**
 
 * Renamed some semi-internal debug rpc to be more explicit about their nature:

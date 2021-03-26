@@ -87,6 +87,10 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       updateLogLevel(level)
     return true
 
+  rpcServer.rpc("setGraffiti") do (graffiti: string) -> bool:
+    node.graffitiBytes = GraffitiBytes.init(graffiti)
+    return true
+
   rpcServer.rpc("getEth1Chain") do () -> seq[Eth1Block]:
     result = if node.eth1Monitor != nil:
       mapIt(node.eth1Monitor.blocks, it)
@@ -153,7 +157,6 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       let backoff = node.network.pubsub.backingOff.getOrDefault(topic)
       for peer in v:
         peers.add(peer.toNode(backOff.getOrDefault(peer.peerId)))
-
 
       gossipsub.add(topic, peers)
 
