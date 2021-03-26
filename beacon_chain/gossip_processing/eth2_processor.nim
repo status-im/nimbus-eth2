@@ -146,12 +146,7 @@ proc blockValidator*(
   # sync, we don't lose the gossip blocks, but also don't block the gossip
   # propagation of seemingly good blocks
   trace "Block validated"
-  try:
-    self.verifQueues[].addBlock(SyncBlock(blk: signedBlock))
-  except Exception as e:
-    # Chronos can in theory raise an untyped exception in `internalCheckComplete`
-    # but in practice that's always a Defect not a Catchable exception
-    raiseAssert e.msg
+  self.verifQueues[].addBlock(SyncBlock(blk: signedBlock))
 
   ValidationResult.Accept
 

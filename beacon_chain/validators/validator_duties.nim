@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [Defect].}
+
 import
   # Standard library
   std/[os, osproc, sequtils, streams, tables],
@@ -75,7 +77,7 @@ proc addLocalValidators*(node: BeaconNode) =
   for validatorKey in node.config.validatorKeys:
     node.addLocalValidator node.chainDag.headState.data.data, validatorKey
 
-proc addRemoteValidators*(node: BeaconNode) =
+proc addRemoteValidators*(node: BeaconNode) {.raises: [Defect, OSError, IOError].} =
   # load all the validators from the child process - loop until `end`
   var line = newStringOfCap(120).TaintedString
   while line != "end" and running(node.vcProcess):

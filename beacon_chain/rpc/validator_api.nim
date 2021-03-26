@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [Defect].}
+
 import
   # Standard library
   std/[tables],
@@ -29,7 +31,8 @@ logScope: topics = "valapi"
 type
   RpcServer* = RpcHttpServer
 
-proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
+proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
+    raises: [Exception].} = # TODO fix json-rpc
   rpcServer.rpc("get_v1_validator_block") do (
       slot: Slot, graffiti: GraffitiBytes, randao_reveal: ValidatorSig) -> BeaconBlock:
     debug "get_v1_validator_block", slot = slot
