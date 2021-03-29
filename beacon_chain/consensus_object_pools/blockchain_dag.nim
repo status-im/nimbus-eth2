@@ -18,7 +18,6 @@ import
   ../beacon_clock,
   "."/[block_pools_types, block_quarantine]
 
-from std/times import getTime, `-`
 export block_pools_types, helpers
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
