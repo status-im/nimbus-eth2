@@ -335,8 +335,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodPost,
              "/api/eth/v1/validator/beacon_committee_subscriptions") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
-    # TODO: This call could not be finished because more complex peer manager
-    # is needed.
+    # TODO (cheatfate): This call could not be finished because more complex
+    # peer manager implementation needed.
     let requests =
       block:
         if contentBody.isNone():

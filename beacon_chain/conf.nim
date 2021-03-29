@@ -278,7 +278,7 @@ type
         name: "rest" }: bool
 
       restPort* {.
-        defaultValue: defaultEth2RpcPort
+        defaultValue: DefaultEth2RestPort
         desc: "HTTP port for the REST service"
         name: "rest-port" }: Port
 

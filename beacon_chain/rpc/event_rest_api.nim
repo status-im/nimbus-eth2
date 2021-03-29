@@ -51,7 +51,8 @@ proc validateEventTopics(events: seq[EventTopic]): Result[EventTopics,
 proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/api/eth/v1/events") do (
     topics: seq[EventTopic]) -> RestApiResponse:
-
+    # TODO (cheatfate): This call is not fully implemented yet, because there
+    # missing infrastructure to raise/catch global events (eventbus).
     let eventTopics =
       block:
         if topics.isErr():
