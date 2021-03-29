@@ -18,6 +18,11 @@ import
 
 logScope: topics = "rest_beaconapi"
 
+const
+  # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
+  # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validators.yaml#L17
+  MaximumValidatorIds = 30
+
 type
   ValidatorTuple = tuple
     index: ValidatorIndex
@@ -212,7 +217,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if id.isErr():
           return RestApiResponse.jsonError(Http400,
                                            "Invalid validator identifier(s)")
-        id.get()
+        let ires = id.get()
+        if len(ires) > MaximumValidatorIds:
+          return RestApiResponse.jsonError(Http400,
+                                         "Maximum number of id values exceeded")
+        ires
 
     let validatorsMask =
       block:
@@ -350,7 +359,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if id.isErr():
           return RestApiResponse.jsonError(Http400,
                                            "Invalid validator identifier(s)")
-        id.get()
+        let ires = id.get()
+        if len(ires) > MaximumValidatorIds:
+          return RestApiResponse.jsonError(Http400,
+                                         "Maximum number of id values exceeded")
+        ires
     let (keySet, indexSet) =
       block:
         var res1: HashSet[ValidatorPubKey]
@@ -471,6 +484,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockHeaders
   router.api(MethodGet, "/api/eth/v1/beacon/headers") do (
     slot: Option[Slot], parent_root: Option[Eth2Digest]) -> RestApiResponse:
+    # TODO (cheatfate): This call could not be implemented because structure
+    # of database do not allow to query blocks by `parent_root`.
     return RestApiResponse.jsonError(Http500, "Not implemented yet")
 
   # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockHeader
