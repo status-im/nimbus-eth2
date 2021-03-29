@@ -9,7 +9,7 @@
 
 import
   typetraits, tables,
-  stew/[assign2, endians2, io2, objects, results],
+  stew/[assign2, byteutils, endians2, io2, objects, results],
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
   ./networking/network_metadata, ./beacon_chain_db_immutable,
@@ -60,6 +60,8 @@ type
     immutableValidatorsMem*: seq[ImmutableValidatorData]
 
     checkpoint*: proc() {.gcsafe, raises: [Defect].}
+
+    rootDir: string
 
   Keyspaces* = enum
     defaultKeyspace = "kvstore"
@@ -268,8 +270,47 @@ proc init*(T: type BeaconChainDB,
     genesisDeposits: genesisDepositsSeq,
     immutableValidators: immutableValidatorsSeq,
     immutableValidatorsMem: loadImmutableValidators(immutableValidatorsSeq),
-    checkpoint: proc() = sqliteStore.checkpoint()
+    checkpoint: proc() = sqliteStore.checkpoint(),
+    rootDir: dir,
     )
+
+proc splitName(name: openArray[byte]): tuple[dir, file: string] =
+  if name.len() > 2:
+    (name.toOpenArray(0, 1).toHex(), name.toOpenArray(2, name.high()).toHex())
+  else:
+    ("0000", name.toHex())
+
+proc filePut(db: BeaconChainDB, key: openArray[byte], value: openArray[byte]) =
+  let
+    (dir, name) = splitName(key)
+    root = db.rootDir & "/" & dir
+    fileName = root & "/" & name
+
+  createPath(root).expect("Creating directory works: " & root)
+
+  io2.writeFile(fileName, value).expect("Writing file works: " & fileName)
+
+proc fileGet(db: BeaconChainDB, key: openArray[byte], onData: DataProc): Result[bool, string] =
+  let
+    (dir, name) = splitName(key)
+    root = db.rootDir & "/" & dir
+    fileName = root & "/" & name
+
+  var data: seq[byte]
+  # We don't return error here - instead, if the file can't be loaded,
+  if readFile(fileName, data).isErr():
+    return ok(false)
+
+  onData(data)
+  ok(true)
+
+proc fileDel(db: BeaconChainDB, key: openArray[byte]) =
+  let
+    (dir, name) = splitName(key)
+    root = db.rootDir & "/" & dir
+    fileName = root & "/" & name
+
+  discard removeFile(fileName)
 
 proc snappyEncode(inp: openArray[byte]): seq[byte] =
   try:
@@ -289,6 +330,8 @@ proc put(db: BeaconChainDB, key: openArray[byte], v: Eth2Digest) =
 
 proc put(db: BeaconChainDB, key: openArray[byte], v: auto) =
   db.backend.put(key, snappyEncode(sszEncode(v))).expect("working database (disk broken/full?)")
+proc fileEncodePut(db: BeaconChainDB, key: openArray[byte], v: auto) =
+  db.filePut(key, snappyEncode(sszEncode(v)))
 
 proc get(db: BeaconChainDB, key: openArray[byte], T: type Eth2Digest): Opt[T] =
   var res: Opt[T]
@@ -337,6 +380,32 @@ proc get[T](db: BeaconChainDB, key: openArray[byte], output: var T): GetResult =
 
   status
 
+proc fileGet[T](db: BeaconChainDB, key: openArray[byte], output: var T): GetResult =
+  var status = GetResult.notFound
+
+  # TODO address is needed because there's no way to express lifetimes in nim
+  #      we'll use unsafeAddr to find the code later
+  var outputPtr = unsafeAddr output # callback is local, ptr wont escape
+  proc decode(data: openArray[byte]) =
+    try:
+      let decompressed = snappy.decode(data, maxDecompressedDbRecordSize)
+      if decompressed.len > 0:
+        outputPtr[] = SSZ.decode(decompressed, T, updateRoot = false)
+        status = GetResult.found
+      else:
+        warn "Corrupt snappy record found in database", typ = name(T)
+        status = GetResult.corrupted
+    except SerializationError as e:
+      # If the data can't be deserialized, it could be because it's from a
+      # version of the software that uses a different SSZ encoding
+      warn "Unable to deserialize data, old database?",
+        err = e.msg, typ = name(T), dataLen = data.len
+      status = GetResult.corrupted
+
+  discard db.fileGet(key, decode).expect("working database (disk broken/full?)")
+
+  status
+
 proc close*(db: BeaconChainDB) =
   discard db.backend.close()
 
@@ -377,10 +446,8 @@ proc updateImmutableValidators(
     immutableValidators.add immutableValidator
 
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: var BeaconState) =
-  # TODO prune old states - this is less easy than it seems as we never know
-  #      when or if a particular state will become finalized.
   updateImmutableValidators(db, db.immutableValidatorsMem, value.validators)
-  db.put(
+  db.fileEncodePut(
     subkey(BeaconStateNoImmutableValidators, key),
     isomorphicCast[BeaconStateNoImmutableValidators](value))
 
@@ -406,8 +473,7 @@ proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
 
 proc delState*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.del(subkey(BeaconState, key)).expect("working database (disk broken/full?)")
-  db.backend.del(subkey(BeaconStateNoImmutableValidators, key)).expect(
-    "working database (disk broken/full?)")
+  db.fileDel(subkey(BeaconStateNoImmutableValidators, key))
 
 proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
   db.backend.del(subkey(root, slot)).expect("working database (disk broken/full?)")
@@ -465,7 +531,7 @@ proc getStateOnlyMutableValidators(
   # TODO RVO is inefficient for large objects:
   #      https://github.com/nim-lang/Nim/issues/13879
 
-  case db.get(
+  case db.fileGet(
     subkey(
       BeaconStateNoImmutableValidators, key),
       isomorphicCast[BeaconStateNoImmutableValidators](output))
