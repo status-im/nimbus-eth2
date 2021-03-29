@@ -18,9 +18,10 @@ template withTrust(sig: SomeSig, body: untyped): bool =
     body
 
 func getDepositMessage(depositData: DepositData): DepositMessage =
-  result.pubkey = depositData.pubkey
-  result.amount = depositData.amount
-  result.withdrawal_credentials = depositData.withdrawal_credentials
+  DepositMessage(
+    pubkey: depositData.pubkey,
+    amount: depositData.amount,
+    withdrawal_credentials: depositData.withdrawal_credentials)
 
 func compute_slot_root*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot
