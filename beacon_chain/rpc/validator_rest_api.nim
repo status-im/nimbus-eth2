@@ -19,7 +19,7 @@ import
 logScope: topics = "rest_validatorapi"
 
 type
-  AttesterDutyTuple* = tuple
+  RestAttesterDutyTuple* = tuple
     pubkey: ValidatorPubKey
     validator_index: ValidatorIndex
     committee_index: CommitteeIndex
@@ -28,12 +28,12 @@ type
     validator_committee_index: ValidatorIndex
     slot: Slot
 
-  ProposerDutyTuple* = tuple
+  RestProposerDutyTuple* = tuple
     pubkey: ValidatorPubKey
     validator_index: ValidatorIndex
     slot: Slot
 
-  CommitteeSubscriptionTuple* = tuple
+  RestCommitteeSubscriptionTuple* = tuple
     validator_index: ValidatorIndex
     committee_index: CommitteeIndex
     committees_at_slot: uint64
@@ -92,7 +92,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         node.chainDag.genesis.root
     let duties =
       block:
-        var res: seq[AttesterDutyTuple]
+        var res: seq[RestAttesterDutyTuple]
         let epochRef = node.chainDag.getEpochRef(qhead, qepoch)
         let committees_per_slot = get_committee_count_per_slot(epochRef)
         for i in 0 ..< SLOTS_PER_EPOCH:
@@ -162,7 +162,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         node.chainDag.genesis.root
     let duties =
       block:
-        var res: seq[ProposerDutyTuple]
+        var res: seq[RestProposerDutyTuple]
         let epochRef = node.chainDag.getEpochRef(qhead, qepoch)
         for i in 0 ..< SLOTS_PER_EPOCH:
           if epochRef.beacon_proposers[i].isSome():
@@ -341,7 +341,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         if contentBody.isNone():
           return RestApiResponse.jsonError(Http400, "Empty request's body")
-        let dres = decodeBody(seq[CommitteeSubscriptionTuple],
+        let dres = decodeBody(seq[RestCommitteeSubscriptionTuple],
                               contentBody.get())
         if dres.isErr():
           return RestApiResponse.jsonError(Http400, "Unable to decode " &

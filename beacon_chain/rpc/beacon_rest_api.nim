@@ -24,22 +24,22 @@ const
   MaximumValidatorIds = 30
 
 type
-  ValidatorTuple = tuple
+  RestValidatorTuple = tuple
     index: ValidatorIndex
     balance: string
     status: string
     validator: Validator
 
-  ValidatorBalanceTuple = tuple
+  RestValidatorBalanceTuple = tuple
     index: ValidatorIndex
     balance: string
 
-  BeaconStatesCommitteesTuple* = tuple
+  RestBeaconStatesCommitteesTuple* = tuple
     index: CommitteeIndex
     slot: Slot
     validators: seq[ValidatorIndex]
 
-  FailureTuple* = tuple
+  RestAttestationsFailureTuple* = tuple
     index: uint64
     message: string
 
@@ -255,7 +255,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     node.withStateForBlockSlot(bslot):
       let current_epoch = get_current_epoch(node.chainDag.headState.data.data)
-      var res: seq[ValidatorTuple]
+      var res: seq[RestValidatorTuple]
       for index, validator in state().validators.pairs():
         let r1 =
           if len(keySet) == 0:
@@ -383,7 +383,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         (res1, res2)
     node.withStateForBlockSlot(bslot):
       let current_epoch = get_current_epoch(node.chainDag.headState.data.data)
-      var res: seq[ValidatorBalanceTuple]
+      var res: seq[RestValidatorBalanceTuple]
       for index, validator in state().validators.pairs():
         let rflag =
           if (len(keySet) == 0) and (len(indexSet) == 0):
@@ -446,13 +446,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         none[Slot]()
     node.withStateForBlockSlot(bslot):
       proc getCommittee(slot: Slot,
-                        index: CommitteeIndex): BeaconStatesCommitteesTuple =
+                       index: CommitteeIndex): RestBeaconStatesCommitteesTuple =
         let validators = get_beacon_committee(state, slot, index,
                                               cache).mapIt(it)
         (index: index, slot: slot, validators: validators)
 
       proc forSlot(slot: Slot, cindex: Option[CommitteeIndex],
-                   res: var seq[BeaconStatesCommitteesTuple]) =
+                   res: var seq[RestBeaconStatesCommitteesTuple]) =
         let committees_per_slot =
           get_committee_count_per_slot(state, Epoch(slot), cache)
 
@@ -464,7 +464,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           if uint64(idx) < committees_per_slot:
             res.add(getCommittee(slot, CommitteeIndex(idx)))
 
-      var res: seq[BeaconStatesCommitteesTuple]
+      var res: seq[RestBeaconStatesCommitteesTuple]
       let qepoch =
         if vepoch.isNone:
           compute_epoch_at_slot(state().slot)
@@ -638,7 +638,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $dres.error())
         dres.get()
 
-    var failures: seq[FailureTuple]
+    var failures: seq[RestAttestationsFailureTuple]
     for atindex, attestation in attestations.pairs():
       let wallTime = node.processor.getWallTime()
       let res = node.attestationPool[].validateAttestation(
