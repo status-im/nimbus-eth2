@@ -19,26 +19,26 @@ import
 logScope: topics = "rest_nimbusapi"
 
 type
-  PeerInfoTuple* = tuple
+  RestPeerInfoTuple* = tuple
     peerId: string
     addrs: seq[string]
     protocols: seq[string]
     protoVersion: string
     agentVersion: string
 
-  SimplePeerTuple* = tuple
-    info: PeerInfoTuple
+  RestSimplePeerTuple* = tuple
+    info: RestPeerInfoTuple
     connectionState: string
     score: int
 
-  FutureInfoTuple* = tuple
+  RestFutureInfoTuple* = tuple
     id: int
     procname: string
     filename: string
     line: int
     state: string
 
-  PubSubPeerTuple* = tuple
+  RestPubSubPeerTuple* = tuple
     peerId: PeerID
     score: float64
     iWantBudget: int
@@ -53,18 +53,18 @@ type
     backoff: string
     agent: string
 
-  PeerStatsTuple* = tuple
+  RestPeerStatsTuple* = tuple
     peerId: PeerID
     null: bool
     connected: bool
     expire: string
     score: float64
 
-  PeerStatusTuple* = tuple
+  RestPeerStatusTuple* = tuple
     peerId: PeerID
     connected: bool
 
-proc toNode(v: PubSubPeer, backoff: Moment): PubSubPeerTuple =
+proc toNode(v: PubSubPeer, backoff: Moment): RestPubSubPeerTuple =
   (
     peerId: v.peerId,
     score: v.score,
@@ -130,7 +130,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   router.api(MethodGet, "/api/nimbus/v1/network/peers") do (
     ) -> RestApiResponse:
-    var res: seq[SimplePeerTuple]
+    var res: seq[RestSimplePeerTuple]
     for id, peer in node.network.peerPool:
       res.add((
         info: shortLog(peer.info),
@@ -191,7 +191,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/api/nimbus/v1/debug/chronos/futures") do (
     ) -> RestApiResponse:
     when defined(chronosFutureTracking):
-      var res: seq[FutureInfoTuple]
+      var res: seq[RestFutureInfoTuple]
       for item in pendingFutures():
         let loc = item.location[LocCreateIndex][]
         res.add(
@@ -213,9 +213,9 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     let gossipPeers =
       block:
-        var res: seq[tuple[topic: string, peers: seq[PubSubPeerTuple]]]
+        var res: seq[tuple[topic: string, peers: seq[RestPubSubPeerTuple]]]
         for topic, v in node.network.pubsub.gossipsub:
-          var peers: seq[PubSubPeerTuple]
+          var peers: seq[RestPubSubPeerTuple]
           let backoff = node.network.pubsub.backingOff.getOrDefault(topic)
           for peer in v:
             peers.add(peer.toNode(backOff.getOrDefault(peer.peerId)))
@@ -223,9 +223,9 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res
     let meshPeers =
       block:
-        var res: seq[tuple[topic: string, peers: seq[PubSubPeerTuple]]]
+        var res: seq[tuple[topic: string, peers: seq[RestPubSubPeerTuple]]]
         for topic, v in node.network.pubsub.mesh:
-          var peers: seq[PubSubPeerTuple]
+          var peers: seq[RestPubSubPeerTuple]
           let backoff = node.network.pubsub.backingOff.getOrDefault(topic)
           for peer in v:
             peers.add(peer.toNode(backOff.getOrDefault(peer.peerId)))
@@ -242,7 +242,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res
     let peerStats =
       block:
-        var stats: seq[PeerStatsTuple]
+        var stats: seq[RestPeerStatsTuple]
         for peerId, pstats in node.network.pubsub.peerStats:
           let peer = node.network.pubsub.peers.getOrDefault(peerId)
           stats.add(
@@ -257,7 +257,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         stats
     let allPeers =
       block:
-        var peers: seq[PeerStatusTuple]
+        var peers: seq[RestPeerStatusTuple]
         for peerId, peer in node.network.pubsub.peers:
           peers.add((peerId: peerId, connected: peer.connected))
         peers
