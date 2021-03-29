@@ -884,7 +884,7 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
 
   # Clean up block refs, walking block by block
   if dag.lastPrunePoint != dag.finalizedHead:
-    let start = getTime()
+    let start = Moment.now()
 
     # Finalization means that we choose a single chain as the canonical one -
     # it also means we're no longer interested in any branches from that chain
@@ -914,7 +914,7 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
 
       dag.heads.del(n)
 
-    let stop = getTime()
+    let stop = Moment.now()
     let dur = stop - start
 
     debug "Pruned the blockchain DAG",
@@ -932,7 +932,7 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
   ## This updates the `dag.lastPrunePoint` variable
   doAssert dag.needStateCachesAndForkChoicePruning()
 
-  let startState = getTime()
+  let startState = Moment.now()
   block: # Remove states, walking slot by slot
     # We remove all state checkpoints that come _before_ the current finalized
     # head, as we might frequently be asked to replay states from the
@@ -950,10 +950,10 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
       if cur.slot.epoch mod 32 != 0 and cur.slot != dag.tail.slot:
         dag.delState(cur)
       cur = cur.parentOrSlot
-  let stopState = getTime()
+  let stopState = Moment.now()
   let durState = stopState - startState
 
-  let startEpochRef = getTime()
+  let startEpochRef = Moment.now()
   block: # Clean up old EpochRef instances
     # After finalization, we can clear up the epoch cache and save memory -
     # it will be recomputed if needed
@@ -961,7 +961,7 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
       if dag.epochRefs[i][1] != nil and
           dag.epochRefs[i][1].epoch < dag.finalizedHead.slot.epoch:
         dag.epochRefs[i] = (nil, nil)
-  let stopEpochRef = getTime()
+  let stopEpochRef = Moment.now()
   let durEpochRef = stopEpochRef - startEpochRef
 
   dag.lastPrunePoint = dag.finalizedHead

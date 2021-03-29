@@ -6,6 +6,8 @@ import
 
 from times import Time, getTime, fromUnix, `<`, `-`, inNanoseconds
 
+export chronos.Duration, Moment, now
+
 type
   BeaconClock* = object
     ## The beacon clock represents time as it passes on a beacon chain. Beacon
