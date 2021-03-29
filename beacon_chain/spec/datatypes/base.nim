@@ -659,14 +659,6 @@ func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData =
     pubkey: validator.pubkey,
     withdrawal_credentials: validator.withdrawal_credentials)
 
-func getDepositMessage*(depositData: DepositData): DepositMessage =
-  result.pubkey = depositData.pubkey
-  result.amount = depositData.amount
-  result.withdrawal_credentials = depositData.withdrawal_credentials
-
-func getDepositMessage*(deposit: Deposit): DepositMessage =
-  deposit.data.getDepositMessage
-
 # TODO when https://github.com/nim-lang/Nim/issues/14440 lands in Status's Nim,
 # switch proc {.noSideEffect.} to func.
 template ethTimeUnit(typ: type) {.dirty.} =
