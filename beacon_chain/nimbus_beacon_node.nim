@@ -463,8 +463,6 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
     attachedValidators = node.getAttachedValidators()
     validatorIndices = toIntSet(toSeq(attachedValidators.keys()))
 
-  var cache = StateCache()
-
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#lookahead
   # Only subscribe when this node should aggregate; libp2p broadcasting works
   # on subnet topics regardless.
