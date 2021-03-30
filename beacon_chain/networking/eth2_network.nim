@@ -1707,7 +1707,7 @@ proc addValidator*[MsgType](node: Eth2Node,
 proc addAsyncValidator*[MsgType](node: Eth2Node,
                             topic: string,
                             msgValidator: proc(msg: MsgType):
-                            Future[ValidationResult] {.gcsafe.} ) =
+                            Future[ValidationResult] {.gcsafe, raises: [Defect].} ) =
 
   proc execValidator(
       topic: string, message: GossipMsg): Future[ValidationResult] =
@@ -1724,13 +1724,7 @@ proc addAsyncValidator*[MsgType](node: Eth2Node,
       result.complete(ValidationResult.Ignore)
       return
 
-    try:
-      return msgValidator(SSZ.decode(decompressed, MsgType))
-    except CatchableError as err:
-      debug "Gossip validation error",
-        msg = err.msg, topic, len = message.data.len
-      result.complete(ValidationResult.Ignore)
-      return
+    return msgValidator(SSZ.decode(decompressed, MsgType))
 
   node.pubsub.addValidator(topic & "_snappy", execValidator)
 
