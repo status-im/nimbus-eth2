@@ -8,10 +8,10 @@
 {.push raises: [Defect].}
 
 import
-  std/[algorithm, sequtils],
+  std/[algorithm, intsets, sequtils],
   chronicles,
   ../spec/[
-    crypto, datatypes, digest, helpers, presets, signatures,
+    crypto, datatypes, digest, helpers, network, presets, signatures,
     validator],
   ../extras,
   ./block_pools_types, ./blockchain_dag
@@ -193,3 +193,26 @@ func makeAttestationData*(
       root: epoch_boundary_block.blck.root
     )
   )
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#validator-assignments
+iterator get_committee_assignments*(
+    epochRef: EpochRef, epoch: Epoch, validator_indices: IntSet):
+    tuple[validatorIndices: IntSet,
+      committeeIndex: CommitteeIndex,
+      subnetIndex: uint8, slot: Slot] =
+  let
+    committees_per_slot = get_committee_count_per_slot(epochRef)
+    start_slot = compute_start_slot_at_epoch(epoch)
+
+  for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
+    for index in 0'u64 ..< committees_per_slot:
+      let
+        idx = index.CommitteeIndex
+        includedIndices =
+          toIntSet(get_beacon_committee(epochRef, slot, idx)) *
+            validator_indices
+      if includedIndices.len > 0:
+        yield (
+          includedIndices, idx,
+          compute_subnet_for_attestation(committees_per_slot, slot, idx).uint8,
+          slot)

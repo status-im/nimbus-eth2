@@ -463,8 +463,6 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
     attachedValidators = node.getAttachedValidators()
     validatorIndices = toIntSet(toSeq(attachedValidators.keys()))
 
-  var cache = StateCache()
-
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#lookahead
   # Only subscribe when this node should aggregate; libp2p broadcasting works
   # on subnet topics regardless.
@@ -496,8 +494,7 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
   static: doAssert SLOTS_PER_EPOCH <= 32
 
   for (validatorIndices, committeeIndex, subnetIndex, slot) in
-      get_committee_assignments(
-        node.chainDag.headState.data.data, epoch, validatorIndices, cache):
+      get_committee_assignments(epochRef, epoch, validatorIndices):
 
     doAssert compute_epoch_at_slot(slot) == epoch
 
@@ -653,14 +650,13 @@ proc getInitialAttestationSubnets(node: BeaconNode): Table[uint8, Slot] =
     wallEpoch = node.beaconClock.now().slotOrZero().epoch
     validatorIndices = toIntSet(toSeq(node.getAttachedValidators().keys()))
 
-  var cache = StateCache()
-
   template mergeAttestationSubnets(epoch: Epoch) =
     # TODO when https://github.com/nim-lang/Nim/issues/15972 and
     # https://github.com/nim-lang/Nim/issues/16217 are fixed, in
     # Nimbus's Nim, use (_, _, subnetIndex, slot).
+    let epochRef = node.chainDag.getEpochRef(node.chainDag.head, epoch)
     for (_, ci, subnetIndex, slot) in get_committee_assignments(
-        node.chainDag.headState.data.data, epoch, validatorIndices, cache):
+        epochRef, epoch, validatorIndices):
       result.withValue(subnetIndex, v) do:
         v[] = max(v[], slot + 1)
       do:
