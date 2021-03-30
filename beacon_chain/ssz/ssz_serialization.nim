@@ -13,7 +13,7 @@
 
 import
   std/[typetraits, options],
-  stew/[bitops2, endians2, leb128, objects],
+  stew/[endians2, leb128, objects],
   serialization, serialization/testing/tracing,
   ../spec/[digest, datatypes],
   ./bytes_reader, ./bitseqs, ./types, ./spec_types

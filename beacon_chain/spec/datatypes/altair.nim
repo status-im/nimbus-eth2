@@ -45,7 +45,20 @@ const
   TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE* = 4
   SYNC_COMMITTEE_SUBNET_COUNT* = 8
 
+let
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/beacon-chain.md#misc
+  # Cannot be computed at compile-time due to importc dependency
+  G2_POINT_AT_INFINITY* = ValidatorSig.fromRaw([
+    0xc0'u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0])
+
 type
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/beacon-chain.md#custom-types
+  ParticipationFlags* = distinct uint8
+
   # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/beacon-chain.md#syncaggregate
   SyncAggregate* = object
     sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
@@ -110,7 +123,13 @@ type
     subcommittee_index*: uint64
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/beacon-chain.md#participation-flag-indices
-  ValidatorFlag* = enum
-    TIMELY_HEAD_FLAG = 0
-    TIMELY_SOURCE_FLAG = 1
-    TIMELY_TARGET_FLAG = 2
+  ParticipationFlag* = enum
+    TIMELY_HEAD_FLAG_INDEX = 0
+    TIMELY_SOURCE_FLAG_INDEX = 1
+    TIMELY_TARGET_FLAG_INDEX = 2
+
+# TODO when https://github.com/nim-lang/Nim/issues/14440 lands in Status's Nim,
+# switch proc {.noSideEffect.} to func.
+proc `or`*(x, y: ParticipationFlags) : ParticipationFlags {.borrow, noSideEffect.}
+proc `and`*(x, y: ParticipationFlags) : ParticipationFlags {.borrow, noSideEffect.}
+proc `==`*(x, y: ParticipationFlags) : bool {.borrow, noSideEffect.}
