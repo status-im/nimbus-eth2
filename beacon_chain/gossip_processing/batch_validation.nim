@@ -63,27 +63,27 @@ const
 proc new*(T: type BatchCrypto, rng: ref BrHmacDrbgContext): ref BatchCrypto =
   (ref BatchCrypto)(rng: rng)
 
-func clear(batchCrypto: ref BatchCrypto) =
+func clear(batchCrypto: var BatchCrypto) =
   ## Empty the crypto-pending attestations & aggregate queues
   batchCrypto.pendingBuffer.setLen(0)
   batchCrypto.resultsBuffer.setLen(0)
 
-proc done(batchCrypto: ref BatchCrypto, idx: int) =
+proc done(batchCrypto: var BatchCrypto, idx: int) =
   ## Send signal to [Attestation/Aggregate]Validator
   ## that the attestation was crypto-verified (and so gossip validated)
   ## with success
   batchCrypto.resultsBuffer[idx].complete(Result[void, cstring].ok())
 
-proc fail(batchCrypto: ref BatchCrypto, idx: int, error: cstring) =
+proc fail(batchCrypto: var BatchCrypto, idx: int, error: cstring) =
   ## Send signal to [Attestation/Aggregate]Validator
   ## that the attestation was NOT crypto-verified (and so NOT gossip validated)
   batchCrypto.resultsBuffer[idx].complete(Result[void, cstring].err(error))
 
-proc complete(batchCrypto: ref BatchCrypto, idx: int, res: Result[void, cstring]) =
+proc complete(batchCrypto: var BatchCrypto, idx: int, res: Result[void, cstring]) =
   ## Send signal to [Attestation/Aggregate]Validator
   batchCrypto.resultsBuffer[idx].complete(res)
 
-proc processBufferedCrypto(self: ref BatchCrypto) =
+proc processBufferedCrypto(self: var BatchCrypto) =
   ## Drain all attestations waiting for crypto verifications
 
   doAssert self.pendingBuffer.len ==
@@ -128,8 +128,6 @@ proc processBufferedCrypto(self: ref BatchCrypto) =
 
   self.clear()
 
-{.pop.} # async raising generic Exception
-
 proc deferCryptoProcessing(self: ref BatchCrypto, idleTimeout: Duration) {.async.} =
   ## Process pending crypto check:
   ## - if time threshold is reached
@@ -141,7 +139,7 @@ proc deferCryptoProcessing(self: ref BatchCrypto, idleTimeout: Duration) {.async
   # Though it's possible to reach the threshold 9ms in,
   # and have only 1ms left for further accumulation.
   discard await idleAsync().withTimeout(idleTimeout)
-  self.processBufferedCrypto()
+  self[].processBufferedCrypto()
 
 proc schedule(batchCrypto: ref BatchCrypto, fut: Future[Result[void, cstring]], checkThreshold = true) =
   ## Schedule a cryptocheck for processing
@@ -161,20 +159,12 @@ proc schedule(batchCrypto: ref BatchCrypto, fut: Future[Result[void, cstring]], 
     # wait for an idle time or up to 10ms before processing
     trace "batch crypto - scheduling next",
       deadline = BatchAttAccumTime
-    asyncSpawn(
-      try:
-        batchCrypto.deferCryptoProcessing(BatchAttAccumTime)
-      except Exception as e:
-        # Chronos can in theory raise an untyped exception in `internalCheckComplete`
-        # which asyncSpawn doesn't like.
-        # Also in 1.2.6, Future and IOSelector errors don't inherit from CatchableError or Defect
-        raiseAssert e.msg
-    )
+    asyncSpawn batchCrypto.deferCryptoProcessing(BatchAttAccumTime)
   elif checkThreshold and
        batchCrypto.resultsBuffer.len >= BatchedCryptoSize:
     # Reached the max buffer size, process immediately
     # TODO: how to cancel the scheduled `deferCryptoProcessing(BatchAttAccumTime)` ?
-    batchCrypto.processBufferedCrypto()
+    batchCrypto[].processBufferedCrypto()
 
 proc scheduleAttestationCheck*(
       batchCrypto: ref BatchCrypto,
