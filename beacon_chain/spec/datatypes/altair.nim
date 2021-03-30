@@ -36,7 +36,7 @@ import
   json_serialization/types as jsonTypes,
   ../../ssz/types as sszTypes, ../crypto, ../digest, ../presets
 
-import ./base
+import ./base, ./phase0
 export base
 
 const
@@ -134,7 +134,7 @@ type
     TIMELY_SOURCE_FLAG_INDEX = 1
     TIMELY_TARGET_FLAG_INDEX = 2
 
-  # https://github.com/ethereum/eth2.0-specs/blob/34cea67b91/specs/lightclient/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -171,9 +171,9 @@ type
 
     # Participation
     previous_epoch_participation*:
-      HashList[ValidatorFlag, Limit VALIDATOR_REGISTRY_LIMIT]
+      HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
     current_epoch_participation*:
-      HashList[ValidatorFlag, Limit VALIDATOR_REGISTRY_LIMIT]
+      HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Finality
     justification_bits*: uint8 ##\

@@ -636,17 +636,17 @@ proc process_attestation*(
 
   ok()
 
-# https://github.com/ethereum/eth2.0-specs/blob/34cea67b91/specs/lightclient/lightclient-fork.md#upgrading-the-state
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/fork.md#upgrading-the-state
 func upgrade_to_altair(pre: phase0.BeaconState): altair.BeaconState =
   let epoch = get_current_epoch(pre)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/34cea67b91/specs/lightclient/lightclient-fork.md#configuration
-  const LIGHTCLIENT_PATCH_FORK_VERSION = Version [byte 1, 0, 0, 0]
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/fork.md#configuration
+  const ALTAIR_FORK_VERSION = Version [byte 1, 0, 0, 0]
 
   var empty_participation =
-    HashList[ValidatorFlag, Limit VALIDATOR_REGISTRY_LIMIT]()
+    HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]()
   for _ in 0 ..< len(pre.validators):
-    empty_participation.add 0.ValidatorFlag
+    empty_participation.add 0.ParticipationFlags
 
   altair.BeaconState(
     genesis_time: pre.genesis_time,
@@ -654,7 +654,7 @@ func upgrade_to_altair(pre: phase0.BeaconState): altair.BeaconState =
     slot: pre.slot,
     fork: Fork(
       previous_version: pre.fork.current_version,
-      current_version: LIGHTCLIENT_PATCH_FORK_VERSION,
+      current_version: ALTAIR_FORK_VERSION,
       epoch: epoch
     ),
 
