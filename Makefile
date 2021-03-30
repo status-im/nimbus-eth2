@@ -47,6 +47,7 @@ TOOLS := \
 	nbench_spec_scenarios \
 	ncli \
 	ncli_db \
+	ncli_slashing \
 	process_dashboard \
 	stack_sizes \
 	nimbus_validator_client \

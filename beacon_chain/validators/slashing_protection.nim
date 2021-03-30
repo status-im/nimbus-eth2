@@ -104,6 +104,7 @@ proc init*(
     fatal "The slashing database refers to another chain/mainnet/testnet",
       path = basePath/dbname,
       genesis_validators_root = genesis_validators_root
+    quit 1
   result.db_v1.fromRawDB(rawdb)
 
   if requiresMigration:
@@ -144,15 +145,25 @@ proc loadUnchecked*(
   ##       this doesn't check the genesis validator root
   ##
   ## Does not handle migration
+  new result
 
-  result.modes = {kCompleteArchiveV1, kCompleteArchiveV2}
+  result.modes = {}
   result.disagreementBehavior = kCrash
 
-  result.db_v2 = SlashingProtectionDB_v2.loadUnchecked(
-    basePath, dbname, readOnly
-  )
+  try:
+    result.db_v2 = SlashingProtectionDB_v2.loadUnchecked(
+      basePath, dbname, readOnly
+    )
+    result.modes.incl(kCompleteArchiveV2)
+  except:
+    result.disagreementBehavior = kChooseV1
 
-  result.db_v1.fromRawDB(kvstore result.db_v2.getRawDBHandle())
+  try:
+    result.db_v1.fromRawDB(kvstore result.db_v2.getRawDBHandle())
+    result.modes.incl(kCompleteArchiveV1)
+  except:
+    doAssert result.modes.card > 0, "Couldn't open the DB."
+    result.disagreementBehavior = kChooseV2
 
 proc close*(db: SlashingProtectionDB) =
   ## Close a slashing protection database
