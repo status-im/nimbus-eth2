@@ -297,13 +297,7 @@ proc validateAttestation*(
                   cstring("validateAttestation: crypto sanity checks failure")))
 
     # Await the crypto check
-    let cryptoChecked = try:
-      await deferredCrypto.get()
-    except Exception as e:
-      # TODO
-      # https://github.com/nim-lang/Nim/issues/10288 - sigh
-      raiseAssert e.msg
-
+    let cryptoChecked = await deferredCrypto.get()
     if cryptoChecked.isErr():
       return err((ValidationResult.Reject, cryptoChecked.error))
 
@@ -440,37 +434,19 @@ proc validateAggregate*(
                   cstring("validateAttestation: crypto sanity checks failure")))
 
     # [REJECT] aggregate_and_proof.selection_proof
-    let slotChecked = try:
-      await deferredCrypto.get().slotCheck
-    except Exception as e:
-      # TODO
-      # https://github.com/nim-lang/Nim/issues/10288 - sigh
-      raiseAssert e.msg
-
+    let slotChecked = await deferredCrypto.get().slotCheck
     if slotChecked.isErr():
       return err((ValidationResult.Reject, cstring(
         "Selection_proof signature verification failed")))
 
     # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
-    let aggregatorChecked = try:
-      await deferredCrypto.get().aggregatorCheck
-    except Exception as e:
-      # TODO
-      # https://github.com/nim-lang/Nim/issues/10288 - sigh
-      raiseAssert e.msg
-
+    let aggregatorChecked = await deferredCrypto.get().aggregatorCheck
     if aggregatorChecked.isErr():
       return err((ValidationResult.Reject, cstring(
         "signed_aggregate_and_proof aggregator signature verification failed")))
 
     # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
-    let aggregateChecked = try:
-      await deferredCrypto.get().aggregateCheck
-    except Exception as e:
-      # TODO
-      # https://github.com/nim-lang/Nim/issues/10288 - sigh
-      raiseAssert e.msg
-
+    let aggregateChecked = await deferredCrypto.get().aggregateCheck
     if aggregateChecked.isErr():
       return err((ValidationResult.Reject, cstring(
         "signed_aggregate_and_proof aggregate attester signatures verification failed")))
