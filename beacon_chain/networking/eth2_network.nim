@@ -1710,7 +1710,7 @@ proc addAsyncValidator*[MsgType](node: Eth2Node,
                             Future[ValidationResult] {.gcsafe, raises: [Defect].} ) =
 
   proc execValidator(
-      topic: string, message: GossipMsg): Future[ValidationResult] =
+      topic: string, message: GossipMsg): Future[ValidationResult] {.raises: [Defect].} =
 
     inc nbc_gossip_messages_received
     trace "Validating incoming gossip message",
@@ -1724,9 +1724,19 @@ proc addAsyncValidator*[MsgType](node: Eth2Node,
       result.complete(ValidationResult.Ignore)
       return
 
-    return msgValidator(SSZ.decode(decompressed, MsgType))
+    let decoded = try:
+      SSZ.decode(decompressed, MsgType)
+    except:
+      error "SSZ decoding failure",
+        topic, len = message.data.len
+      result.complete(ValidationResult.Ignore)
+      return
 
-  node.pubsub.addValidator(topic & "_snappy", execValidator)
+    return msgValidator(decoded)
+
+  try:
+    node.pubsub.addValidator(topic & "_snappy", execValidator)
+  except Exception as exc: raiseAssert exc.msg # TODO fix libp2p
 
 proc unsubscribe*(node: Eth2Node, topic: string) {.raises: [Defect, CatchableError].} =
   try:
