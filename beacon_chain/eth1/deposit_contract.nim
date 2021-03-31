@@ -1,3 +1,12 @@
+# beacon_chain
+# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [Defect].}
+
 import
   os, sequtils, strutils, options, json, terminal,
   chronos, chronicles, confutils, stint, json_serialization,
@@ -122,7 +131,7 @@ proc sendEth(web3: Web3, to: Eth1Address, valueEth: int): Future[TxHash] =
   web3.send(tr)
 
 type
-  DelayGenerator* = proc(): chronos.Duration {.closure, gcsafe.}
+  DelayGenerator* = proc(): chronos.Duration {.gcsafe, raises: [Defect].}
 
 proc ethToWei(eth: UInt256): UInt256 =
   eth * 1000000000000000000.u256
@@ -172,6 +181,7 @@ proc sendDeposits*(deposits: seq[LaunchPadDeposit],
         await sleepAsync(60.seconds)
         web3 = await initWeb3(web3Url, privateKey)
 
+{.pop.} # TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 proc main() {.async.} =
   var cfg = CliConfig.load()
   let rng = keys.newRng()

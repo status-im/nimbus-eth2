@@ -5,13 +5,15 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [Defect].}
+
 import
   # Standard library
-  std/[os, json, random, strutils],
+  std/[os, random, strutils],
 
   # Nimble packages
   stew/shims/[tables, macros],
-  chronos, confutils, metrics, json_rpc/[rpcclient, jsonmarshal],
+  chronos, confutils, metrics,
   chronicles,
   json_serialization/std/[options, net],
 
@@ -21,7 +23,6 @@ import
   ./sync/sync_manager,
   "."/[conf, beacon_clock, version],
   ./networking/[eth2_network, eth2_discovery],
-  ./rpc/eth2_json_rpc_serialization,
   ./beacon_node_types,
   ./nimbus_binary_common,
   ./ssz/merkleization,
@@ -274,6 +275,8 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
 
   addTimer(nextSlotStart) do (p: pointer):
     asyncCheck vc.onSlotStart(slot, nextSlot)
+
+{.pop.} # TODO moduletests exceptions
 
 programMain:
   let config = makeBannerAndConfig("Nimbus validator client " & fullVersionStr, ValidatorClientConf)

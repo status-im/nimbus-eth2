@@ -1,9 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [Defect].}
 
 import
   # Stdlib
@@ -237,7 +239,7 @@ proc writeValue*(writer: var JsonWriter, value: PubKey0x)
 proc readValue*(reader: var JsonReader, value: var PubKey0x)
                {.raises: [SerializationError, IOError, Defect].} =
   try:
-    value = PubKey0x reader.readValue(string).hexToByteArray[:RawPubKeySize]()
+    value = PubKey0x reader.readValue(string).hexToByteArray(RawPubKeySize)
   except ValueError:
     raiseUnexpectedValue(reader, "Hex string expected")
 
@@ -265,7 +267,7 @@ proc readValue*(r: var JsonReader, a: var (SlotString or EpochString))
 
 proc exportSlashingInterchange*(
        db: SlashingProtectionDB_Concept,
-       path: string, prettify = true) =
+       path: string, prettify = true) {.raises: [Defect, IOError].} =
   ## Export a database to the Slashing Protection Database Interchange Format
   let spdir = db.toSPDIR()
   Json.saveFile(path, spdir, prettify)
@@ -273,7 +275,7 @@ proc exportSlashingInterchange*(
 
 proc importSlashingInterchange*(
        db: SlashingProtectionDB_Concept,
-       path: string): SlashingImportStatus =
+       path: string): SlashingImportStatus {.raises: [Defect, IOError, SerializationError].} =
   ## Import a Slashing Protection Database Interchange Format
   ## into a Nimbus DB.
   ## This adds data to already existing data.

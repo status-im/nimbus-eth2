@@ -1,9 +1,19 @@
+# beacon_chain
+# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [Defect].}
+
 import std/options,
   chronicles,
-  json_rpc/[rpcserver, jsonmarshal],
+  json_rpc/servers/httpserver,
   eth/p2p/discoveryv5/enr,
   libp2p/[multiaddress, multicodec],
   nimcrypto/utils as ncrutils,
+  ./eth2_json_rpc_serialization,
   ../beacon_node_common, ../version,
   ../networking/[eth2_network, peer_pool],
   ../sync/sync_manager,
@@ -14,9 +24,6 @@ logScope: topics = "nodeapi"
 
 type
   RpcServer = RpcHttpServer
-
-template unimplemented() =
-  raise (ref CatchableError)(msg: "Unimplemented")
 
 proc validateState(state: Option[seq[string]]): Option[set[ConnectionState]] =
   var res: set[ConnectionState]
@@ -142,7 +149,8 @@ proc getP2PAddresses(node: BeaconNode): Option[seq[string]] =
       addresses.add($(resa.get()))
   return some(addresses)
 
-proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
+proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
+    raises: [Exception].} = # TODO fix json-rpc
   rpcServer.rpc("get_v1_node_identity") do () -> NodeIdentityTuple:
     let discoveryAddresses =
       block:

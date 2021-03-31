@@ -1,13 +1,11 @@
 import
-  std/[os, json],
-  json_rpc/[rpcclient, jsonmarshal],
+  std/os,
+  json_rpc/rpcclient,
   ../../rpc/eth2_json_rpc_serialization,
-  ../crypto, ../digest, ../datatypes,
-  callsigs_types
+  ./callsigs_types
 
 export
   rpcclient,
-  crypto, digest, datatypes,
   callsigs_types,
   eth2_json_rpc_serialization
 

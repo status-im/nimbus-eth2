@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [Defect].}
+
 import
   std/math,
   stew/results,
@@ -76,8 +78,6 @@ type
     consensusManager: ref ConsensusManager
       ## Blockchain DAG, AttestationPool and Quarantine
 
-{.push raises: [Defect].}
-
 # Initialization
 # ------------------------------------------------------------------------------
 
@@ -131,9 +131,7 @@ proc complete*(blk: SyncBlock, res: Result[void, BlockError]) =
 # Enqueue
 # ------------------------------------------------------------------------------
 
-{.pop.}
-
-proc addBlock*(self: var VerifQueueManager, syncBlock: SyncBlock) {.raises: [Exception].} =
+proc addBlock*(self: var VerifQueueManager, syncBlock: SyncBlock) =
   ## Enqueue a Gossip-validated block for consensus verification
   # Backpressure:
   #   If no item can be enqueued because buffer is full,
@@ -143,24 +141,13 @@ proc addBlock*(self: var VerifQueueManager, syncBlock: SyncBlock) {.raises: [Exc
   # - SyncManager (during sync)
   # - RequestManager (missing ancestor blocks)
 
-  # TODO: solve the signature requiring raise: [Exception]
-  #       even when push/pop is used
-
-  asyncSpawn(
-    try:
-      self.blocksQueue.addLast(BlockEntry(v: syncBlock))
-    except Exception as e:
-      # Chronos can in theory raise an untyped exception in `internalCheckComplete`
-      # which asyncSpawn doesn't like.
-      raiseAssert e.msg
-  )
-
-{.push raises: [Defect].}
+  # addLast doesn't fail
+  asyncSpawn(self.blocksQueue.addLast(BlockEntry(v: syncBlock)))
 
 proc addAttestation*(self: var VerifQueueManager, att: Attestation, att_indices: seq[ValidatorIndex]) =
   ## Enqueue a Gossip-validated attestation for consensus verification
   # Backpressure:
-  #   no handling
+  #   If buffer is full, the oldest attestation is dropped and the newest is enqueued
   # Producer:
   # - Gossip (when synced)
   while self.attestationsQueue.full():
@@ -180,7 +167,7 @@ proc addAttestation*(self: var VerifQueueManager, att: Attestation, att_indices:
 proc addAggregate*(self: var VerifQueueManager, agg: SignedAggregateAndProof, att_indices: seq[ValidatorIndex]) =
   ## Enqueue a Gossip-validated aggregate attestation for consensus verification
   # Backpressure:
-  #   no handling
+  #   If buffer is full, the oldest aggregate is dropped and the newest is enqueued
   # Producer:
   # - Gossip (when synced)
 
@@ -331,8 +318,6 @@ proc processBlock(self: var VerifQueueManager, entry: BlockEntry) =
   else:
     if entry.v.resFut != nil:
       entry.v.resFut.complete(Result[void, BlockError].err(res.error()))
-
-{.pop.} # Chronos: Error: can raise an unlisted exception: ref Exception
 
 proc runQueueProcessingLoop*(self: ref VerifQueueManager) {.async.} =
   # Blocks in eth2 arrive on a schedule for every slot:

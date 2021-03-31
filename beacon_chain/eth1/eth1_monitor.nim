@@ -1,3 +1,12 @@
+# beacon_chain
+# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [Defect].}
+
 import
   std/[deques, hashes, options, strformat, strutils, sequtils, tables,
        typetraits, uri],
@@ -31,9 +40,6 @@ contract(DepositContract):
                     amount: Bytes8,
                     signature: Bytes96,
                     index: Bytes8) {.event.}
-# TODO
-# The raises list of this module are still not usable due to general
-# Exceptions being reported from Chronos's asyncfutures2.
 
 const
   web3Timeouts = 60.seconds
@@ -112,7 +118,7 @@ type
     pubkey: Bytes48,
     withdrawalCredentials: Bytes32,
     amount: Bytes8,
-    signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode) {.raises: [Defect], gcsafe.}
+    signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode) {.gcsafe, raises: [Defect].}
 
   BlockProposalEth1Data* = object
     vote*: Eth1Data
@@ -295,7 +301,9 @@ template asBlockHash(x: Eth2Digest): BlockHash =
   BlockHash(x.data)
 
 func shortLog*(b: Eth1Block): string =
-  &"{b.number}:{shortLog b.voteData.block_hash}(deposits = {b.voteData.deposit_count})"
+  try:
+    &"{b.number}:{shortLog b.voteData.block_hash}(deposits = {b.voteData.deposit_count})"
+  except ValueError as exc: raiseAssert exc.msg
 
 template findBlock*(chain: Eth1Chain, eth1Data: Eth1Data): Eth1Block =
   getOrDefault(chain.blocksByHash, asBlockHash(eth1Data.block_hash), nil)
@@ -386,14 +394,15 @@ proc getBlockByHash*(p: Web3DataProviderRef, hash: BlockHash):
 
 proc getBlockByNumber*(p: Web3DataProviderRef,
                        number: Eth1BlockNumber): Future[BlockObject] =
-  return p.web3.provider.eth_getBlockByNumber(&"0x{number:X}", false)
+  p.web3.provider.eth_getBlockByNumber("0x" & toHex(number), false)
 
 template readJsonField(j: JsonNode, fieldName: string, ValueType: type): untyped =
   var res: ValueType
   fromJson(j[fieldName], fieldName, res)
   res
 
-proc depositEventsToBlocks(depositsList: JsonNode): seq[Eth1Block] =
+proc depositEventsToBlocks(depositsList: JsonNode): seq[Eth1Block] {.
+    raises: [Defect, CatchableError].} =
   if depositsList.kind != JArray:
     raise newException(CatchableError,
       "Web3 provider didn't return a list of deposit events")
@@ -498,8 +507,6 @@ proc onBlockHeaders*(p: Web3DataProviderRef,
 
   p.blockHeadersSubscription = awaitWithRetries(
     p.web3.subscribeForBlockHeaders(blockHeaderHandler, errorHandler))
-
-{.push raises: [Defect].}
 
 func getDepositsRoot*(m: DepositsMerkleizer): Eth2Digest =
   mixInLength(m.getFinalHash, int m.totalChunks)

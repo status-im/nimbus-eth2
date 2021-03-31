@@ -59,7 +59,7 @@ type
     immutableValidators*: ImmutableValidatorsSeq
     immutableValidatorsMem*: seq[ImmutableValidatorData]
 
-    checkpoint*: proc() {.gcsafe.}
+    checkpoint*: proc() {.gcsafe, raises: [Defect].}
 
   Keyspaces* = enum
     defaultKeyspace = "kvstore"
@@ -277,11 +277,18 @@ proc snappyEncode(inp: openArray[byte]): seq[byte] =
   except CatchableError as err:
     raiseAssert err.msg
 
+proc sszEncode(v: auto): seq[byte] =
+  try:
+    SSZ.encode(v)
+  except IOError as err:
+    # In-memory encode shouldn't fail!
+    raiseAssert err.msg
+
 proc put(db: BeaconChainDB, key: openArray[byte], v: Eth2Digest) =
   db.backend.put(key, v.data).expect("working database (disk broken/full?)")
 
 proc put(db: BeaconChainDB, key: openArray[byte], v: auto) =
-  db.backend.put(key, snappyEncode(SSZ.encode(v))).expect("working database (disk broken/full?)")
+  db.backend.put(key, snappyEncode(sszEncode(v))).expect("working database (disk broken/full?)")
 
 proc get(db: BeaconChainDB, key: openArray[byte], T: type Eth2Digest): Opt[T] =
   var res: Opt[T]

@@ -1,24 +1,25 @@
+# beacon_chain
 # Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [Defect].}
+
 import
   std/[deques, sequtils, sets],
   chronos,
-  stew/shims/macros,
   stew/byteutils,
-  json_rpc/[rpcserver, jsonmarshal],
+  json_rpc/servers/httpserver,
+  libp2p/protocols/pubsub/pubsubpeer,
 
-  rpc_utils,
-  ../beacon_node_common, ../nimbus_binary_common,
-  ../networking/eth2_network,
-  ../eth1/eth1_monitor,
-  ../validators/validator_duties,
-  ../spec/[digest, datatypes, presets],
+  "."/[rpc_utils, eth2_json_rpc_serialization],
+  ".."/[
+    beacon_node_common, nimbus_binary_common, networking/eth2_network,
+    eth1/eth1_monitor, validators/validator_duties],
+  ../spec/[digest, datatypes, presets]
 
-  libp2p/protocols/pubsub/pubsubpeer
 
 logScope: topics = "nimbusapi"
 
@@ -32,7 +33,8 @@ type
     line*: int
     state*: string
 
-proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
+proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
+    raises: [Exception].} = # TODO fix json-rpc
   ## Install non-standard api handlers - some of these are used by 3rd-parties
   ## such as eth2stats, pending a full REST api
   rpcServer.rpc("getBeaconHead") do () -> Slot:
@@ -83,6 +85,10 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
   rpcServer.rpc("setLogLevel") do (level: string) -> bool:
     {.gcsafe.}: # It's probably not, actually. Hopefully we don't log from threads...
       updateLogLevel(level)
+    return true
+
+  rpcServer.rpc("setGraffiti") do (graffiti: string) -> bool:
+    node.graffitiBytes = GraffitiBytes.init(graffiti)
     return true
 
   rpcServer.rpc("getEth1Chain") do () -> seq[Eth1Block]:
@@ -151,7 +157,6 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) =
       let backoff = node.network.pubsub.backingOff.getOrDefault(topic)
       for peer in v:
         peers.add(peer.toNode(backOff.getOrDefault(peer.peerId)))
-
 
       gossipsub.add(topic, peers)
 

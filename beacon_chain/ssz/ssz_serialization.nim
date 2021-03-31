@@ -5,9 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# TODO Cannot override push, even though the function is annotated
-# nimbus-eth2/beacon_chain/ssz.nim(212, 18) Error: can raise an unlisted exception: IOError
-# {.push raises: [Defect].}
+{.push raises: [Defect].}
 {.pragma: raisesssz, raises: [Defect, MalformedSszError, SszSizeMismatchError].}
 
 ## SSZ serialization for core SSZ types, as specified in:
@@ -40,10 +38,10 @@ type
 
   FixedSizedWriterCtx = object
 
-serializationFormat SSZ,
-                    Reader = SszReader,
-                    Writer = SszWriter,
-                    PreferedOutput = seq[byte]
+serializationFormat SSZ
+
+SSZ.setReader SszReader
+SSZ.setWriter SszWriter, PreferredOutput = seq[byte]
 
 template sizePrefixed*[TT](x: TT): untyped =
   type T = TT
@@ -91,7 +89,7 @@ template supports*(_: type SSZ, T: type): bool =
 func init*(T: type SszWriter, stream: OutputStream): T {.raises: [Defect].} =
   result.stream = stream
 
-proc writeVarSizeType(w: var SszWriter, value: auto) {.gcsafe.}
+proc writeVarSizeType(w: var SszWriter, value: auto) {.gcsafe, raises: [Defect, IOError].}
 
 proc beginRecord*(w: var SszWriter, TT: type): auto {.raises: [Defect].} =
   type T = TT

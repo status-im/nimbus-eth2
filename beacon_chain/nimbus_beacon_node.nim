@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [Defect].}
+
 import
   # Standard library
   std/[math, os, osproc, random, sequtils, strformat, strutils,
@@ -14,7 +16,6 @@ import
   # Nimble packages
   stew/[objects, byteutils, endians2, io2], stew/shims/macros,
   chronos, confutils, metrics, metrics/chronos_httpserver,
-  json_rpc/[rpcclient, rpcserver, jsonmarshal],
   chronicles, bearssl, blscurve,
   json_serialization/std/[options, sets, net], serialization/errors,
 
@@ -31,7 +32,9 @@ import
     beacon_clock, version],
   ./networking/[eth2_discovery, eth2_network, network_metadata],
   ./gossip_processing/[eth2_processor, gossip_to_consensus, consensus_manager],
-  ./validators/[attestation_aggregation, validator_duties, validator_pool, slashing_protection, keystore_management],
+  ./validators/[
+    attestation_aggregation, validator_duties, validator_pool,
+    slashing_protection, keystore_management],
   ./sync/[sync_manager, sync_protocol, request_manager],
   ./rpc/[beacon_api, config_api, debug_api, event_api, nimbus_api, node_api,
     validator_api],
@@ -93,7 +96,8 @@ proc init*(T: type BeaconNode,
            depositContractDeployedAt: BlockHashOrNumber,
            eth1Network: Option[Eth1Network],
            genesisStateContents: string,
-           genesisDepositsSnapshotContents: string): BeaconNode =
+           genesisDepositsSnapshotContents: string): BeaconNode {.
+    raises: [Defect, CatchableError].} =
   let
     db = BeaconChainDB.init(runtimePreset, config.databaseDir)
 
@@ -212,8 +216,8 @@ proc init*(T: type BeaconNode,
     try:
       ChainDAGRef.preInit(db, genesisState[], tailState[], tailBlock)
       doAssert ChainDAGRef.isInitialized(db), "preInit should have initialized db"
-    except CatchableError as e:
-      error "Failed to initialize database", err = e.msg
+    except CatchableError as exc:
+      error "Failed to initialize database", err = exc.msg
       quit 1
 
   # Doesn't use std/random directly, but dependencies might
@@ -298,7 +302,8 @@ proc init*(T: type BeaconNode,
     slashingProtectionDB =
       case config.slashingDbKind
       of SlashingDbKind.v1:
-        info "Loading slashing protection database", path = config.validatorsDir()
+        info "Loading slashing protection database",
+          path = config.validatorsDir()
         SlashingProtectionDB.init(
           chainDag.headState.data.data.genesis_validators_root,
           config.validatorsDir(), "slashing_protection",
@@ -306,13 +311,15 @@ proc init*(T: type BeaconNode,
           disagreementBehavior = kChooseV1
         )
       of SlashingDbKind.v2:
-        info "Loading slashing protection database (v2)", path = config.validatorsDir()
+        info "Loading slashing protection database (v2)",
+          path = config.validatorsDir()
         SlashingProtectionDB.init(
           chainDag.headState.data.data.genesis_validators_root,
           config.validatorsDir(), "slashing_protection"
         )
       of SlashingDbKind.both:
-        info "Loading slashing protection database (dual DB mode)", path = config.validatorsDir()
+        info "Loading slashing protection database (dual DB mode)",
+          path = config.validatorsDir()
         SlashingProtectionDB.init(
           chainDag.headState.data.data.genesis_validators_root,
           config.validatorsDir(), "slashing_protection",
@@ -380,7 +387,9 @@ proc init*(T: type BeaconNode,
     let cmd = getAppDir() / "nimbus_signing_process".addFileExt(ExeExt)
     let args = [$res.config.validatorsDir, $res.config.secretsDir]
     let workdir = io2.getCurrentDir().tryGet()
-    res.vcProcess = startProcess(cmd, workdir, args)
+    res.vcProcess = try: startProcess(cmd, workdir, args)
+    except CatchableError as exc: raise exc
+    except Exception as exc: raiseAssert exc.msg
     res.addRemoteValidators()
 
   # This merely configures the BeaconSync
@@ -410,7 +419,8 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
     # finalization occurs every slot, to 4 slots vs scheduledSlot.
     doAssert finalizedEpoch + 4 >= epoch
 
-proc installAttestationSubnetHandlers(node: BeaconNode, subnets: set[uint8]) =
+proc installAttestationSubnetHandlers(node: BeaconNode, subnets: set[uint8]) {.
+    raises: [Defect, CatchableError].} =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # nimbus won't score attestation subnets for now, we just rely on block and aggregate which are more stabe and reliable
   for subnet in subnets:
@@ -453,8 +463,6 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
     attachedValidators = node.getAttachedValidators()
     validatorIndices = toIntSet(toSeq(attachedValidators.keys()))
 
-  var cache = StateCache()
-
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#lookahead
   # Only subscribe when this node should aggregate; libp2p broadcasting works
   # on subnet topics regardless.
@@ -486,8 +494,7 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
   static: doAssert SLOTS_PER_EPOCH <= 32
 
   for (validatorIndices, committeeIndex, subnetIndex, slot) in
-      get_committee_assignments(
-        node.chainDag.headState.data.data, epoch, validatorIndices, cache):
+      get_committee_assignments(epochRef, epoch, validatorIndices):
 
     doAssert compute_epoch_at_slot(slot) == epoch
 
@@ -643,17 +650,16 @@ proc getInitialAttestationSubnets(node: BeaconNode): Table[uint8, Slot] =
     wallEpoch = node.beaconClock.now().slotOrZero().epoch
     validatorIndices = toIntSet(toSeq(node.getAttachedValidators().keys()))
 
-  var cache = StateCache()
-
   template mergeAttestationSubnets(epoch: Epoch) =
     # TODO when https://github.com/nim-lang/Nim/issues/15972 and
     # https://github.com/nim-lang/Nim/issues/16217 are fixed, in
     # Nimbus's Nim, use (_, _, subnetIndex, slot).
+    let epochRef = node.chainDag.getEpochRef(node.chainDag.head, epoch)
     for (_, ci, subnetIndex, slot) in get_committee_assignments(
-        node.chainDag.headState.data.data, epoch, validatorIndices, cache):
-      if subnetIndex in result:
-        result[subnetIndex] = max(result[subnetIndex], slot + 1)
-      else:
+        epochRef, epoch, validatorIndices):
+      result.withValue(subnetIndex, v) do:
+        v[] = max(v[], slot + 1)
+      do:
         result[subnetIndex] = slot + 1
 
   # Either wallEpoch is 0, in which case it might be pre-genesis, but we only
@@ -664,7 +670,8 @@ proc getInitialAttestationSubnets(node: BeaconNode): Table[uint8, Slot] =
   mergeAttestationSubnets(wallEpoch)
   mergeAttestationSubnets(wallEpoch + 1)
 
-proc getAttestationSubnetHandlers(node: BeaconNode) =
+proc getAttestationSubnetHandlers(node: BeaconNode) {.
+  raises: [Defect, CatchableError].} =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   # TODO:
   # We might want to reuse the previous stability subnet if not expired when:
@@ -705,7 +712,8 @@ proc getAttestationSubnetHandlers(node: BeaconNode) =
   for i in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
     if i in initialSubnets:
       node.attestationSubnets.subscribedSubnets.incl i
-      node.attestationSubnets.unsubscribeSlot[i] = initialSubnets[i]
+      node.attestationSubnets.unsubscribeSlot[i] =
+        try: initialSubnets[i] except KeyError: raiseAssert "checked with in"
     else:
       node.attestationSubnets.subscribedSubnets.excl i
       node.attestationSubnets.subscribeSlot[i] = FAR_FUTURE_SLOT
@@ -719,7 +727,7 @@ proc getAttestationSubnetHandlers(node: BeaconNode) =
   node.installAttestationSubnetHandlers(
     node.attestationSubnets.subscribedSubnets + initialStabilitySubnets)
 
-proc addMessageHandlers(node: BeaconNode) =
+proc addMessageHandlers(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   # inspired by lighthouse research here
   # https://gist.github.com/blacktemplar/5c1862cb3f0e32a1a7fb0b25e79e6e2c#file-generate-scoring-params-py
   const
@@ -779,7 +787,7 @@ proc addMessageHandlers(node: BeaconNode) =
 func getTopicSubscriptionEnabled(node: BeaconNode): bool =
   node.attestationSubnets.enabled
 
-proc removeMessageHandlers(node: BeaconNode) =
+proc removeMessageHandlers(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   node.attestationSubnets.enabled = false
   doAssert not node.getTopicSubscriptionEnabled()
 
@@ -809,7 +817,7 @@ proc setupDoppelgangerDetection(node: BeaconNode, slot: Slot) =
     broadcastStartEpoch =
       node.processor.doppelgangerDetection.broadcastStartEpoch
 
-proc updateGossipStatus(node: BeaconNode, slot: Slot) =
+proc updateGossipStatus(node: BeaconNode, slot: Slot) {.raises: [Defect, CatchableError].} =
   # Syncing tends to be ~1 block/s, and allow for an epoch of time for libp2p
   # subscribing to spin up. The faster the sync, the more wallSlot - headSlot
   # lead time is required
@@ -1120,12 +1128,14 @@ proc startSyncManager(node: BeaconNode) =
         debug "Peer was removed from PeerPool due to low score", peer = peer,
               peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
               score_high_limit = PeerScoreHighLimit
-        asyncSpawn peer.disconnect(PeerScoreLow)
+        asyncSpawn(try: peer.disconnect(PeerScoreLow)
+        except Exception as exc: raiseAssert exc.msg) # Shouldn't actually happen!
       else:
         debug "Peer was removed from PeerPool", peer = peer,
               peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
               score_high_limit = PeerScoreHighLimit
-        asyncSpawn peer.disconnect(FaultOrError)
+        asyncSpawn(try: peer.disconnect(FaultOrError)
+        except Exception as exc: raiseAssert exc.msg) # Shouldn't actually happen!
 
   node.network.peerPool.setScoreCheck(scoreCheck)
   node.network.peerPool.setOnDeletePeer(onDeletePeer)
@@ -1140,13 +1150,15 @@ func connectedPeersCount(node: BeaconNode): int =
   len(node.network.peerPool)
 
 proc installRpcHandlers(rpcServer: RpcServer, node: BeaconNode) =
-  rpcServer.installBeaconApiHandlers(node)
-  rpcServer.installConfigApiHandlers(node)
-  rpcServer.installDebugApiHandlers(node)
-  rpcServer.installEventApiHandlers(node)
-  rpcServer.installNimbusApiHandlers(node)
-  rpcServer.installNodeApiHandlers(node)
-  rpcServer.installValidatorApiHandlers(node)
+  try:
+    rpcServer.installBeaconApiHandlers(node)
+    rpcServer.installConfigApiHandlers(node)
+    rpcServer.installDebugApiHandlers(node)
+    rpcServer.installEventApiHandlers(node)
+    rpcServer.installNimbusApiHandlers(node)
+    rpcServer.installNodeApiHandlers(node)
+    rpcServer.installValidatorApiHandlers(node)
+  except Exception as exc: raiseAssert exc.msg # TODO fix json-rpc
 
 proc installMessageValidators(node: BeaconNode) =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
@@ -1190,13 +1202,20 @@ proc stop*(node: BeaconNode) =
   bnStatus = BeaconNodeStatus.Stopping
   notice "Graceful shutdown"
   if not node.config.inProcessValidators:
-    node.vcProcess.close()
-  waitFor node.network.stop()
+    try:
+      node.vcProcess.close()
+    except Exception as exc:
+      warn "Couldn't close vc process", msg = exc.msg
+  try:
+    waitFor node.network.stop()
+  except CatchableError as exc:
+    warn "Couldn't stop network", msg = exc.msg
+
   node.attachedValidators.slashingProtection.close()
   node.db.close()
   notice "Databases closed"
 
-proc run*(node: BeaconNode) =
+proc run*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   if bnStatus == BeaconNodeStatus.Starting:
     # it might have been set to "Stopping" with Ctrl+C
     bnStatus = BeaconNodeStatus.Running
@@ -1224,10 +1243,16 @@ proc run*(node: BeaconNode) =
   proc controlCHandler() {.noconv.} =
     when defined(windows):
       # workaround for https://github.com/nim-lang/Nim/issues/4057
-      setupForeignThreadGc()
+      try:
+        setupForeignThreadGc()
+      except Exception as exc: raiseAssert exc.msg # shouldn't happen
     notice "Shutting down after having received SIGINT"
     bnStatus = BeaconNodeStatus.Stopping
-  setControlCHook(controlCHandler)
+  try:
+    setControlCHook(controlCHandler)
+  except Exception as exc: # TODO Exception
+    warn "Cannot set ctrl-c handler", msg = exc.msg
+
   # equivalent SIGTERM handler
   when defined(posix):
     proc SIGTERMHandler(signal: cint) {.noconv.} =
@@ -1237,16 +1262,13 @@ proc run*(node: BeaconNode) =
 
   # main event loop
   while bnStatus == BeaconNodeStatus.Running:
-    try:
-      poll()
-    except CatchableError as e:
-      debug "Exception in poll()", exc = e.name, err = e.msg
+    poll() # if poll fails, the network is broken
 
   # time to say goodbye
   node.stop()
 
 var gPidFile: string
-proc createPidFile(filename: string) =
+proc createPidFile(filename: string) {.raises: [Defect, IOError].} =
   writeFile filename, $os.getCurrentProcessId()
   gPidFile = filename
   addQuitProc proc {.noconv.} = discard io2.removeFile(gPidFile)
@@ -1264,7 +1286,7 @@ func shouldWeStartWeb3(node: BeaconNode): bool =
   (node.config.web3Mode == Web3Mode.enabled) or
   (node.config.web3Mode == Web3Mode.auto and node.attachedValidators[].count > 0)
 
-proc start(node: BeaconNode) =
+proc start(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   let
     head = node.chainDag.head
     finalizedHead = node.chainDag.finalizedHead
@@ -1313,13 +1335,16 @@ func formatGwei(amount: uint64): string =
     while result[^1] == '0':
       result.setLen(result.len - 1)
 
-proc initStatusBar(node: BeaconNode) =
+proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
   if not isatty(stdout): return
   if not node.config.statusBarEnabled: return
 
-  enableTrueColors()
+  try:
+    enableTrueColors()
+  except Exception as exc: # TODO Exception
+    error "Couldn't enable colors", err = exc.msg
 
-  proc dataResolver(expr: string): string =
+  proc dataResolver(expr: string): string {.raises: [Defect].} =
     template justified: untyped = node.chainDag.head.atEpochStart(
       node.chainDag.headState.data.data.current_justified_checkpoint.epoch)
     # TODO:
@@ -1593,7 +1618,7 @@ proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
            err = err.msg
     quit 1
 
-proc loadEth2Network(config: BeaconNodeConf): Eth2NetworkMetadata =
+proc loadEth2Network(config: BeaconNodeConf): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
   if config.eth2Network.isSome:
     getMetadataForNetwork(config.eth2Network.get)
   else:
@@ -1605,7 +1630,8 @@ proc loadEth2Network(config: BeaconNodeConf): Eth2NetworkMetadata =
       echo "Must specify network on non-mainnet node"
       quit 1
 
-proc loadBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext): BeaconNode =
+proc loadBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext): BeaconNode {.
+    raises: [Defect, CatchableError].} =
   let metadata = config.loadEth2Network()
 
   # Updating the config based on the metadata certainly is not beautiful but it
@@ -1623,7 +1649,7 @@ proc loadBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext): Bea
     metadata.genesisData,
     metadata.genesisDepositsSnapshot)
 
-proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) =
+proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.raises: [Defect, CatchableError].} =
   info "Launching beacon node",
       version = fullVersionStr,
       bls_backend = $BLS_BACKEND,
@@ -1639,7 +1665,10 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) =
       let metricsAddress = config.metricsAddress
       notice "Starting metrics HTTP server",
         url = "http://" & $metricsAddress & ":" & $config.metricsPort & "/metrics"
-      startMetricsHttpServer($metricsAddress, config.metricsPort)
+      try:
+        startMetricsHttpServer($metricsAddress, config.metricsPort)
+      except CatchableError as exc: raise exc
+      except Exception as exc: raiseAssert exc.msg # TODO fix metrics
     else:
       warn "Metrics support disabled, see https://status-im.github.io/nimbus-eth2/metrics-pretty-pictures.html#simple-metrics"
 
@@ -1661,7 +1690,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) =
   else:
     node.start()
 
-proc doCreateTestnet(config: BeaconNodeConf, rng: var BrHmacDrbgContext) =
+proc doCreateTestnet(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.raises: [Defect, CatchableError].} =
   let launchPadDeposits = try:
     Json.loadFile(config.testnetDepositsFile.string, seq[LaunchPadDeposit])
   except SerializationError as err:
@@ -1714,7 +1743,8 @@ proc doCreateTestnet(config: BeaconNodeConf, rng: var BrHmacDrbgContext) =
     writeFile(bootstrapFile, bootstrapEnr.tryGet().toURI)
     echo "Wrote ", bootstrapFile
 
-proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) =
+proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
+    raises: [Defect, CatchableError].} =
   case config.depositsCmd
   #[
   of DepositsCmd.create:
@@ -1821,7 +1851,8 @@ proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) =
   of DepositsCmd.exit:
     waitFor handleValidatorExitCommand(config)
 
-proc doWallets(config: BeaconNodeConf, rng: var BrHmacDrbgContext) =
+proc doWallets(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
+    raises: [Defect, CatchableError].} =
   template findWalletWithoutErrors(name: WalletName): auto =
     let res = keystore_management.findWallet(config, name)
     if res.isErr:
@@ -1862,7 +1893,8 @@ proc doWallets(config: BeaconNodeConf, rng: var BrHmacDrbgContext) =
   of WalletsCmd.restore:
     restoreWalletInteractively(rng, config)
 
-proc doRecord(config: BeaconNodeConf, rng: var BrHmacDrbgContext) =
+proc doRecord(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
+    raises: [Defect, CatchableError].} =
   case config.recordCmd:
   of RecordCmd.create:
     let netKeys = getPersistentNetKeys(rng, config)
@@ -1889,13 +1921,14 @@ proc doRecord(config: BeaconNodeConf, rng: var BrHmacDrbgContext) =
   of RecordCmd.print:
     echo $config.recordPrint
 
-proc doWeb3Cmd(config: BeaconNodeConf) =
+proc doWeb3Cmd(config: BeaconNodeConf) {.raises: [Defect, CatchableError].} =
   case config.web3Cmd:
   of Web3Cmd.test:
     let metadata = config.loadEth2Network()
     waitFor testWeb3Provider(config.web3TestUrl,
                              metadata.depositContractAddress)
 
+{.pop.} # TODO moduletests exceptions
 programMain:
   var
     config = makeBannerAndConfig(clientId, BeaconNodeConf)

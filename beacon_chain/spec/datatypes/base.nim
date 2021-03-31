@@ -25,13 +25,13 @@
 {.push raises: [Defect].}
 
 import
-  std/[macros, hashes, intsets, json, strutils, tables, typetraits],
+  std/[macros, hashes, intsets, strutils, tables, typetraits],
   stew/[assign2, byteutils], chronicles,
-  json_serialization/types as jsonTypes,
+  json_serialization,
   ../../version, ../../ssz/types as sszTypes, ../crypto, ../digest, ../presets
 
 export
-  sszTypes, presets
+  sszTypes, presets, json_serialization
 
 # Presently, we're reusing the data types from the serialization (uint64) in the
 # objects we pass around to the beacon chain logic, thus keeping the two
@@ -126,7 +126,7 @@ type
     DOMAIN_SYNC_COMMITTEE = 7
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#custom-types
-  Domain* = array[32, byte]
+  Eth2Domain* = array[32, byte]
 
   # https://github.com/nim-lang/Nim/issues/574 and be consistent across
   # 32-bit and 64-bit word platforms.
@@ -324,7 +324,7 @@ type
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#signingdata
   SigningData* = object
     object_root*: Eth2Digest
-    domain*: Domain
+    domain*: Eth2Domain
 
   GraffitiBytes* = distinct array[MAX_GRAFFITI_SIZE, byte]
 
@@ -659,14 +659,6 @@ func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData =
     pubkey: validator.pubkey,
     withdrawal_credentials: validator.withdrawal_credentials)
 
-func getDepositMessage*(depositData: DepositData): DepositMessage =
-  result.pubkey = depositData.pubkey
-  result.amount = depositData.amount
-  result.withdrawal_credentials = depositData.withdrawal_credentials
-
-func getDepositMessage*(deposit: Deposit): DepositMessage =
-  deposit.data.getDepositMessage
-
 # TODO when https://github.com/nim-lang/Nim/issues/14440 lands in Status's Nim,
 # switch proc {.noSideEffect.} to func.
 template ethTimeUnit(typ: type) {.dirty.} =
@@ -702,7 +694,6 @@ template ethTimeUnit(typ: type) {.dirty.} =
   # Nim integration
   proc `$`*(x: typ): string {.borrow, noSideEffect.}
   proc hash*(x: typ): Hash {.borrow, noSideEffect.}
-  proc `%`*(x: typ): JsonNode {.borrow, noSideEffect.}
 
   # Serialization
   proc writeValue*(writer: var JsonWriter, value: typ)
@@ -728,6 +719,14 @@ proc writeValue*(writer: var JsonWriter, value: CommitteeIndex)
 proc readValue*(reader: var JsonReader, value: var CommitteeIndex)
                {.raises: [IOError, SerializationError, Defect].} =
   value = CommitteeIndex reader.readValue(distinctBase CommitteeIndex)
+
+proc writeValue*(writer: var JsonWriter, value: HashList)
+                {.raises: [IOError, SerializationError, Defect].} =
+  writeValue(writer, value.data)
+
+proc readValue*(reader: var JsonReader, value: var HashList)
+               {.raises: [IOError, SerializationError, Defect].} =
+  readValue(reader, value.data)
 
 template writeValue*(writer: var JsonWriter, value: Version | ForkDigest) =
   writeValue(writer, $value)
@@ -990,10 +989,6 @@ chronicles.formatIt BeaconBlock: it.shortLog
 chronicles.formatIt AttestationData: it.shortLog
 chronicles.formatIt Attestation: it.shortLog
 chronicles.formatIt Checkpoint: it.shortLog
-
-import json_serialization
-export json_serialization
-export writeValue, readValue
 
 const
   # http://facweb.cs.depaul.edu/sjost/it212/documents/ascii-pr.htm

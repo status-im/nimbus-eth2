@@ -1,8 +1,11 @@
-# Copyright (c) 2020-2021 Status Research & Development GmbH
+# beacon_chain
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [Defect].}
 
 import
   tables, strutils, os,
@@ -13,6 +16,7 @@ import
   json_serialization,
   json_serialization/std/[options, sets, net], serialization/errors,
   ../ssz/navigator,
+  eth/common/eth_types_json_serialization,
   ../spec/[presets, datatypes, digest]
 
 # ATTENTION! This file will produce a large C file, because we are inlining
@@ -22,8 +26,6 @@ import
 #
 # TODO(zah):
 # We can compress the embedded states with snappy before embedding them here.
-
-{.push raises: [Defect].}
 
 export
   ethtypes, conversions, RuntimePreset

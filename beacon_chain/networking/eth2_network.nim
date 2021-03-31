@@ -1,3 +1,12 @@
+# beacon_chain
+# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [Defect].}
+
 import
   # Std lib
   std/[typetraits, sequtils, os, algorithm, math, sets],
@@ -40,7 +49,7 @@ logScope:
   topics = "networking"
 
 type
-  KeyPair* = crypto.KeyPair
+  NetKeyPair* = crypto.KeyPair
   PublicKey* = crypto.PublicKey
   PrivateKey* = crypto.PrivateKey
 
@@ -157,13 +166,13 @@ type
     InvalidRequest
     ServerError
 
-  PeerStateInitializer* = proc(peer: Peer): RootRef {.gcsafe.}
-  NetworkStateInitializer* = proc(network: EthereumNode): RootRef {.gcsafe.}
+  PeerStateInitializer* = proc(peer: Peer): RootRef {.gcsafe, raises: [Defect].}
+  NetworkStateInitializer* = proc(network: EthereumNode): RootRef {.gcsafe, raises: [Defect].}
   OnPeerConnectedHandler* = proc(peer: Peer, incoming: bool): Future[void] {.gcsafe.}
-  OnPeerDisconnectedHandler* = proc(peer: Peer): Future[void] {.gcsafe.}
+  OnPeerDisconnectedHandler* = proc(peer: Peer): Future[void] {.gcsafe, raises: [Defect].}
   ThunkProc* = LPProtoHandler
-  MounterProc* = proc(network: Eth2Node) {.gcsafe.}
-  MessageContentPrinter* = proc(msg: pointer): string {.gcsafe.}
+  MounterProc* = proc(network: Eth2Node) {.gcsafe, raises: [Defect, CatchableError].}
+  MessageContentPrinter* = proc(msg: pointer): string {.gcsafe, raises: [Defect].}
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#goodbye
   DisconnectionReason* = enum
@@ -422,7 +431,8 @@ proc isSeen*(network: ETh2Node, peerId: PeerID): bool =
   if peerId notin network.seenTable:
     false
   else:
-    let item = network.seenTable[peerId]
+    let item = try: network.seenTable[peerId]
+    except KeyError: raiseAssert "checked with notin"
     if currentTime >= item.stamp:
       # Peer is in SeenTable, but the time period has expired.
       network.seenTable.del(peerId)
@@ -473,10 +483,12 @@ proc getRequestProtoName(fn: NimNode): NimNode =
   let pragmas = fn.pragma
   if pragmas.kind == nnkPragma and pragmas.len > 0:
     for pragma in pragmas:
-      if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
-        let protoName = $(pragma[1])
-        let protoVer = $(pragma[2].intVal)
-        return newLit("/eth2/beacon_chain/req/" & protoName & "/" & protoVer & "/")
+      try:
+        if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
+          let protoName = $(pragma[1])
+          let protoVer = $(pragma[2].intVal)
+          return newLit("/eth2/beacon_chain/req/" & protoName & "/" & protoVer & "/")
+      except Exception as exc: raiseAssert exc.msg # TODO https://github.com/nim-lang/Nim/issues/17454
 
   return newLit("")
 
@@ -485,13 +497,18 @@ proc writeChunk*(conn: Connection,
                  payload: Bytes): Future[void] =
   var output = memoryOutput()
 
-  if responseCode.isSome:
-    output.write byte(responseCode.get)
+  try:
+    if responseCode.isSome:
+      output.write byte(responseCode.get)
 
-  output.write toBytes(payload.lenu64, Leb128).toOpenArray()
-  framingFormatCompress(output, payload)
-
-  conn.write(output.getOutput)
+    output.write toBytes(payload.lenu64, Leb128).toOpenArray()
+    framingFormatCompress(output, payload)
+  except IOError as exc:
+    raiseAssert exc.msg # memoryOutput shouldn't raise
+  try:
+    conn.write(output.getOutput)
+  except Exception as exc: # TODO fix libp2p
+    raiseAssert exc.msg
 
 template errorMsgLit(x: static string): ErrorMsg =
   const val = ErrorMsg toBytes(x)
@@ -619,7 +636,7 @@ proc setEventHandlers(p: ProtocolInfo,
   p.onPeerConnected = onPeerConnected
   p.onPeerDisconnected = onPeerDisconnected
 
-proc implementSendProcBody(sendProc: SendProc) =
+proc implementSendProcBody(sendProc: SendProc) {.raises: [Exception].} =
   let
     msg = sendProc.msg
     UntypedResponse = bindSym "UntypedResponse"
@@ -950,7 +967,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
     # when no peers are in the routing table. Don't run it in continuous loop.
     await sleepAsync(1.seconds)
 
-proc getPersistentNetMetadata*(config: BeaconNodeConf): Eth2Metadata =
+proc getPersistentNetMetadata*(config: BeaconNodeConf): Eth2Metadata {.raises: [Defect, IOError, SerializationError].} =
   let metadataPath = config.dataDir / nodeMetadataFilename
   if not fileExists(metadataPath):
     result = Eth2Metadata()
@@ -1098,7 +1115,7 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
 proc new*(T: type Eth2Node, config: BeaconNodeConf, enrForkId: ENRForkID,
           switch: Switch, pubsub: GossipSub, ip: Option[ValidIpAddress],
           tcpPort, udpPort: Option[Port], privKey: keys.PrivateKey, discovery: bool,
-          rng: ref BrHmacDrbgContext): T =
+          rng: ref BrHmacDrbgContext): T {.raises: [Defect, CatchableError].} =
   let
     metadata = getPersistentNetMetadata(config)
   when not defined(local_testnet):
@@ -1141,12 +1158,15 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, enrForkId: ENRForkID,
       if msg.protocolMounter != nil:
         msg.protocolMounter node
 
+
   proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(node, peerId, event)
 
-  switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
-  switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
-
+  try:
+    switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
+    switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
+  except Exception as exc: # TODO fix libp2p, shouldn't happen
+    raiseAssert exc.msg
   node
 
 template publicKey*(node: Eth2Node): keys.PublicKey =
@@ -1368,7 +1388,7 @@ template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
 proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
-                           config: BeaconNodeConf): KeyPair =
+                           config: BeaconNodeConf): NetKeyPair =
   case config.cmd
   of noCommand, record:
     if config.netKeyFile == "random":
@@ -1376,15 +1396,16 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
       if res.isErr():
         fatal "Could not generate random network key file"
         quit QuitFailure
-      let privKey = res.get()
-      let pubKey = privKey.getKey().tryGet()
-      let pres =  PeerID.init(pubKey)
+      let
+        privKey = res.get()
+        pubKey = privKey.getKey().expect("working public key from random")
+        pres = PeerID.init(pubKey)
       if pres.isErr():
         fatal "Could not obtain PeerID from network key"
         quit QuitFailure
       info "Generating new networking key", network_public_key = pubKey,
                                             network_peer_id = $pres.get()
-      return KeyPair(seckey: privKey, pubkey: privKey.getKey().tryGet())
+      NetKeyPair(seckey: privKey, pubkey: pubKey)
     else:
       let keyPath =
         if isAbsolute(config.netKeyFile):
@@ -1406,11 +1427,12 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
         if res.isNone():
           fatal "Could not load network key file"
           quit QuitFailure
-        let privKey = res.get()
-        let pubKey = privKey.getKey().tryGet()
+        let
+          privKey = res.get()
+          pubKey = privKey.getKey().expect("working public key from file")
         info "Network key storage was successfully unlocked",
              key_path = keyPath, network_public_key = pubKey
-        return KeyPair(seckey: privKey, pubkey: pubKey)
+        NetKeyPair(seckey: privKey, pubkey: pubKey)
       else:
         info "Network key storage is missing, creating a new one",
              key_path = keyPath
@@ -1419,8 +1441,9 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
           fatal "Could not generate random network key file"
           quit QuitFailure
 
-        let privKey = rres.get()
-        let pubKey = privKey.getKey().tryGet()
+        let
+          privKey = rres.get()
+          pubKey = privKey.getKey().expect("working public key from random")
 
         # Insecure password used only for automated testing.
         let insecurePassword =
@@ -1436,7 +1459,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
 
         info "New network key storage was created", key_path = keyPath,
              network_public_key = pubKey
-        return KeyPair(seckey: privKey, pubkey: pubKey)
+        NetKeyPair(seckey: privKey, pubkey: pubKey)
 
   of createTestnet:
     if config.netKeyFile == "random":
@@ -1454,8 +1477,9 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
       fatal "Could not generate random network key file"
       quit QuitFailure
 
-    let privKey = rres.get()
-    let pubKey = privKey.getKey().tryGet()
+    let
+      privKey = rres.get()
+      pubKey = privKey.getKey().expect("working public key from random")
 
     # Insecure password used only for automated testing.
     let insecurePassword =
@@ -1472,15 +1496,17 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
     info "New network key storage was created", key_path = keyPath,
          network_public_key = pubKey
 
-    return KeyPair(seckey: privKey, pubkey: privkey.getKey().tryGet())
+    NetKeyPair(seckey: privKey, pubkey: pubKey)
   else:
     let res = PrivateKey.random(Secp256k1, rng)
     if res.isErr():
       fatal "Could not generate random network key file"
       quit QuitFailure
 
-    let privKey = res.get()
-    return KeyPair(seckey: privKey, pubkey: privkey.getKey().tryGet())
+    let
+      privKey = res.get()
+      pubKey = privKey.getKey().expect("working public key from random")
+    NetKeyPair(seckey: privKey, pubkey: pubKey)
 
 func gossipId(data: openArray[byte], valid: bool): seq[byte] =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#topics-and-messages
@@ -1504,36 +1530,43 @@ func msgIdProvider(m: messages.Message): seq[byte] =
 
 proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
                       address: MultiAddress,
-                      rng: ref BrHmacDrbgContext): Switch =
-  proc createMplex(conn: Connection): Muxer =
-    Mplex.init(conn, inTimeout = 5.minutes, outTimeout = 5.minutes)
+                      rng: ref BrHmacDrbgContext): Switch {.raises: [Defect, CatchableError].} =
+  try:
+    proc createMplex(conn: Connection): Muxer =
+      Mplex.init(conn, inTimeout = 5.minutes, outTimeout = 5.minutes)
 
-  let
-    peerInfo = PeerInfo.init(seckey, [address])
-    mplexProvider = newMuxerProvider(createMplex, MplexCodec)
-    transports = @[Transport(TcpTransport.init({ServerFlags.ReuseAddr}))]
-    muxers = {MplexCodec: mplexProvider}.toTable
-    secureManagers = [Secure(newNoise(rng, seckey))]
+    let
+      peerInfo = PeerInfo.init(seckey, [address])
+      mplexProvider = newMuxerProvider(createMplex, MplexCodec)
+      transports = @[Transport(TcpTransport.init({ServerFlags.ReuseAddr}))]
+      muxers = {MplexCodec: mplexProvider}.toTable
+      secureManagers = [Secure(newNoise(rng, seckey))]
 
-  peerInfo.agentVersion = config.agentString
+    peerInfo.agentVersion = config.agentString
 
-  let identify = newIdentify(peerInfo)
+    let identify = newIdentify(peerInfo)
 
-  newSwitch(
-    peerInfo,
-    transports,
-    identify,
-    muxers,
-    secureManagers,
-    maxConnections = config.maxPeers)
+    newSwitch(
+      peerInfo,
+      transports,
+      identify,
+      muxers,
+      secureManagers,
+      maxConnections = config.maxPeers)
+  except CatchableError as exc: raise exc
+  except Exception as exc: # TODO fix libp2p
+    if exc is Defect: raise (ref Defect)exc
+    raiseAssert exc.msg
 
 proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      config: BeaconNodeConf,
-                     netKeys: KeyPair,
-                     enrForkId: ENRForkID): Eth2Node =
+                     netKeys: NetKeyPair,
+                     enrForkId: ENRForkID): Eth2Node {.raises: [Defect, CatchableError].} =
   var
-    (extIp, extTcpPort, extUdpPort) = setupAddress(config.nat,
-      config.listenAddress, config.tcpPort, config.udpPort, clientId)
+    (extIp, extTcpPort, extUdpPort) = try: setupAddress(
+      config.nat, config.listenAddress, config.tcpPort, config.udpPort, clientId)
+    except CatchableError as exc: raise exc
+    except Exception as exc: raiseAssert exc.msg
     hostAddress = tcpEndPoint(config.listenAddress, config.tcpPort)
     announcedAddresses = if extIp.isNone() or extTcpPort.isNone(): @[]
                          else: @[tcpEndPoint(extIp.get(), extTcpPort.get())]
@@ -1590,7 +1623,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
               info "Adding priviledged direct peer", peerId, address = maddress
           res
     )
-    pubsub = GossipSub.init(
+    pubsub = try: GossipSub.init(
       switch = switch,
       msgIdProvider = msgIdProvider,
       triggerSelf = true,
@@ -1598,7 +1631,8 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
       verifySignature = false,
       anonymize = true,
       parameters = params)
-
+    except CatchableError as exc: raise exc
+    except Exception as exc: raiseAssert exc.msg # TODO fix libp2p
   switch.mount(pubsub)
 
   Eth2Node.new(config, enrForkId, switch, pubsub,
@@ -1611,10 +1645,12 @@ proc announcedENR*(node: Eth2Node): enr.Record =
   doAssert node.discovery != nil, "The Eth2Node must be initialized"
   node.discovery.localNode.record
 
-proc shortForm*(id: KeyPair): string =
+proc shortForm*(id: NetKeyPair): string =
   $PeerID.init(id.pubkey)
 
-proc subscribe*(node: Eth2Node, topic: string, topicParams: TopicParams, enableTopicMetrics: bool = false) =
+proc subscribe*(
+    node: Eth2Node, topic: string, topicParams: TopicParams,
+    enableTopicMetrics: bool = false) {.raises: [Defect, CatchableError].} =
   proc dummyMsgHandler(topic: string, data: seq[byte]) {.async.} =
     discard
 
@@ -1625,7 +1661,10 @@ proc subscribe*(node: Eth2Node, topic: string, topicParams: TopicParams, enableT
     node.pubsub.knownTopics.incl(topicName)
 
   node.pubsub.topicParams[topicName] = topicParams
-  node.pubsub.subscribe(topicName, dummyMsgHandler)
+  try:
+    node.pubsub.subscribe(topicName, dummyMsgHandler)
+  except CatchableError as exc: raise exc # TODO fix libp2p
+  except Exception as exc: raiseAssert exc.msg
 
 proc setValidTopics*(node: Eth2Node, topics: openArray[string]) =
   let topicsSnappy = topics.mapIt(it & "_snappy")
@@ -1638,7 +1677,7 @@ proc setValidTopics*(node: Eth2Node, topics: openArray[string]) =
 proc addValidator*[MsgType](node: Eth2Node,
                             topic: string,
                             msgValidator: proc(msg: MsgType):
-                            ValidationResult {.gcsafe.} ) =
+                            ValidationResult {.gcsafe, raises: [Defect].} ) =
   # Validate messages as soon as subscribed
   proc execValidator(
       topic: string, message: GossipMsg): Future[ValidationResult] {.async.} =
@@ -1661,10 +1700,15 @@ proc addValidator*[MsgType](node: Eth2Node,
         ValidationResult.Ignore
     return res
 
-  node.pubsub.addValidator(topic & "_snappy", execValidator)
+  try:
+    node.pubsub.addValidator(topic & "_snappy", execValidator)
+  except Exception as exc: raiseAssert exc.msg # TODO fix libp2p
 
-proc unsubscribe*(node: Eth2Node, topic: string) =
-  node.pubsub.unsubscribeAll(topic & "_snappy")
+proc unsubscribe*(node: Eth2Node, topic: string) {.raises: [Defect, CatchableError].} =
+  try:
+    node.pubsub.unsubscribeAll(topic & "_snappy")
+  except CatchableError as exc: raise exc
+  except Exception as exc: raiseAssert exc.msg # TODO fix libp2p
 
 proc traceMessage(fut: FutureBase, msgId: seq[byte]) =
   fut.addCallback do (arg: pointer):
@@ -1678,14 +1722,21 @@ proc traceMessage(fut: FutureBase, msgId: seq[byte]) =
         msgId = byteutils.toHex(msgId), state = fut.state
 
 proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
-  let
-    uncompressed = SSZ.encode(msg)
-    compressed = snappy.encode(uncompressed)
+  try:
+    let
+      uncompressed = SSZ.encode(msg)
+      compressed = try: snappy.encode(uncompressed)
+      except InputTooLarge:
+        raiseAssert "More than 4gb? not likely.."
 
-  # This is only for messages we create. A message this large amounts to an
-  # internal logic error.
-  doAssert uncompressed.len <= GOSSIP_MAX_SIZE
-  inc nbc_gossip_messages_sent
+    # This is only for messages we create. A message this large amounts to an
+    # internal logic error.
+    doAssert uncompressed.len <= GOSSIP_MAX_SIZE
+    inc nbc_gossip_messages_sent
 
-  var futSnappy = node.pubsub.publish(topic & "_snappy", compressed)
-  traceMessage(futSnappy, gossipId(uncompressed, true))
+    var futSnappy = try: node.pubsub.publish(topic & "_snappy", compressed)
+    except Exception as exc:
+      raiseAssert exc.msg # TODO fix libp2p
+    traceMessage(futSnappy, gossipId(uncompressed, true))
+  except IOError as exc:
+    raiseAssert exc.msg # TODO in-memory compression shouldn't fail

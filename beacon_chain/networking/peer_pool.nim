@@ -1,3 +1,12 @@
+# beacon_chain
+# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [Defect].}
+
 import std/[tables, heapqueue]
 import chronos
 
@@ -28,13 +37,13 @@ type
 
   PeerIndex = object
     data: int
-    cmp: proc(a, b: PeerIndex): bool {.closure, gcsafe.}
+    cmp: proc(a, b: PeerIndex): bool {.gcsafe, raises: [Defect].}
 
   PeerScoreCheckCallback*[T] = proc(peer: T): bool {.gcsafe, raises: [Defect].}
 
   PeerCounterCallback* = proc() {.gcsafe, raises: [Defect].}
 
-  PeerOnDeleteCallback*[T] = proc(peer: T) {.gcsafe.}
+  PeerOnDeleteCallback*[T] = proc(peer: T) {.gcsafe, raises: [Defect].}
 
   PeerPool*[A, B] = ref object
     incNotEmptyEvent*: AsyncEvent
@@ -45,7 +54,7 @@ type
     outQueue: HeapQueue[PeerIndex]
     registry: Table[B, PeerIndex]
     storage: seq[PeerItem[A]]
-    cmp: proc(a, b: PeerIndex): bool {.closure, gcsafe.}
+    cmp: proc(a, b: PeerIndex): bool {.gcsafe, raises: [Defect].}
     scoreCheck: PeerScoreCheckCallback[A]
     onDeletePeer: PeerOnDeleteCallback[A]
     peerCounter: PeerCounterCallback
@@ -288,7 +297,8 @@ proc deletePeer*[A, B](pool: PeerPool[A, B], peer: A, force = false): bool =
   mixin getKey
   let key = getKey(peer)
   if pool.registry.hasKey(key):
-    let pindex = pool.registry[key].data
+    let pindex = try: pool.registry[key].data
+    except KeyError: raiseAssert "checked with hasKey"
     var item = addr(pool.storage[pindex])
     if (PeerFlags.Acquired in item[].flags):
       if not(force):
@@ -339,7 +349,7 @@ proc deletePeer*[A, B](pool: PeerPool[A, B], peer: A, force = false): bool =
 
 proc addPeerImpl[A, B](pool: PeerPool[A, B], peer: A, peerKey: B,
                        peerType: PeerType) =
-  proc onPeerClosed(udata: pointer) {.gcsafe.} =
+  proc onPeerClosed(udata: pointer) {.gcsafe, raises: [Defect].} =
     discard pool.deletePeer(peer)
 
   let item = PeerItem[A](data: peer, peerType: peerType,
@@ -675,12 +685,12 @@ iterator acquiredPeers*[A, B](pool: PeerPool[A, B],
     let pindex = sorted.pop().data
     yield pool.storage[pindex].data
 
-proc `[]`*[A, B](pool: PeerPool[A, B], key: B): A {.inline.} =
+proc `[]`*[A, B](pool: PeerPool[A, B], key: B): A {.inline, raises: [Defect, KeyError].} =
   ## Retrieve peer with key ``key`` from PeerPool ``pool``.
   let pindex = pool.registry[key]
   pool.storage[pindex.data]
 
-proc `[]`*[A, B](pool: var PeerPool[A, B], key: B): var A {.inline.} =
+proc `[]`*[A, B](pool: var PeerPool[A, B], key: B): var A {.inline, raises: [Defect, KeyError].} =
   ## Retrieve peer with key ``key`` from PeerPool ``pool``.
   let pindex = pool.registry[key]
   pool.storage[pindex.data].data
