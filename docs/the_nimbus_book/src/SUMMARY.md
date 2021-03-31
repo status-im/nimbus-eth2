@@ -11,6 +11,9 @@
 # Rocket Pool
 - [Introductory guide](./rp-quick-start.md)
 
+# Prater testnet
+- [What you should know](./prater.md)
+
 # How-to
 - [Install dependencies](./install.md)
 - [Build the beacon node](./build.md)
