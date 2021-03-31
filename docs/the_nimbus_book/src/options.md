@@ -15,16 +15,16 @@ To see a list of the command line options availabe to you, with descriptions, na
 You should see the following output:
 
 ```
-Usage: 
+Usage:
 
 nimbus_beacon_node [OPTIONS]... command
 
 The following options are available:
 
      --log-level               Sets the log level for process and topics (e.g. "DEBUG;
-                               TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none").
+                               TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none") [=INFO].
      --log-file                Specifies a path for the written Json log file.
-     --network                 The Eth2 network to join.
+     --network                 The Eth2 network to join [=mainnet].
  -d, --data-dir                The directory where nimbus will store all blockchain data.
      --validators-dir          A directory containing validator keystores.
      --secrets-dir             A directory containing validator keystore passwords.
@@ -33,9 +33,9 @@ The following options are available:
      --non-interactive         Do not display interative prompts. Quit on missing
                                configuration.
      --netkey-file             Source of network (secp256k1) private key file
-                               (random|<path>) (default: random).
+                               (random|<path>) [=random].
      --insecure-netkey-password  Use pre-generated INSECURE password for network private key
-                               file (default: false).
+                               file [=false].
      --agent-string            Node agent string which is used as identifier in network.
      --subscribe-all-subnets   Subscribe to all attestation subnet topics when gossiping.
  -b, --bootstrap-node          Specifies one or more bootstrap nodes to use when connecting
@@ -43,10 +43,10 @@ The following options are available:
      --bootstrap-file          Specifies a line-delimited file of bootstrap Ethereum network
                                addresses.
      --listen-address          Listening address for the Ethereum LibP2P and Discovery v5
-                               traffic.
-     --tcp-port                Listening TCP port for Ethereum LibP2P traffic, the default is 9000
-     --udp-port                Listening UDP port for node discovery, default is 9000
-     --max-peers               The maximum number of peers to connect to.
+                               traffic [=0.0.0.0].
+     --tcp-port                Listening TCP port for Ethereum LibP2P traffic [=9000].
+     --udp-port                Listening UDP port for node discovery [=9000].
+     --max-peers               The maximum number of peers to connect to [=160].
      --nat                     Specify method to use for determining public address. Must be
                                one of: any, none, upnp, pmp, extip:<IP>.
      --enr-auto-update         Discovery can automatically update its ENR with the IP
@@ -66,24 +66,28 @@ The following options are available:
      --verify-finalization     Specify whether to verify finalization occurs on schedule,
                                for testing.
      --stop-at-epoch           A positive epoch selects the epoch at which to stop.
-     --metrics                 Enable the metrics server.
-     --metrics-address         Listening address of the metrics server.
-     --metrics-port            Listening HTTP port of the metrics server.
+     --metrics                 Enable the metrics server [=false].
+     --metrics-address         Listening address of the metrics server [=127.0.0.1].
+     --metrics-port            Listening HTTP port of the metrics server [=8008].
      --status-bar              Display a status bar at the bottom of the terminal screen.
      --status-bar-contents     Textual template for the contents of the status bar.
-     --rpc                     Enable the JSON-RPC server.
-     --rpc-port                HTTP port for the JSON-RPC service.
-     --rpc-address             Listening address of the RPC server.
+     --rpc                     Enable the JSON-RPC server [=false].
+     --rpc-port                HTTP port for the JSON-RPC service [=9190].
+     --rpc-address             Listening address of the RPC server [=127.0.0.1].
      --in-process-validators   Disable the push model (the beacon node tells a signing
                                process with the private keys of the validators what to sign
                                and when) and load the validators in the beacon node itself.
-     --discv5                  Enable Discovery v5.
+     --discv5                  Enable Discovery v5 [=true].
      --dump                    Write SSZ dumps of blocks, attestations and states to data
-                               dir.
+                               dir [=false].
+     --direct-peer             The list of priviledged, secure and known peers to connect
+                               and maintain the connection to, this requires a not random
+                               netkey-file. In the complete multiaddress format like:
+                               /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>. Peering
+                               agreements are established out of band and must be
+                               reciprocal..
      --doppelganger-detection  Whether to detect whether another validator is be running the
-                               same validator keys (default true).
-
-Available sub-commands:
+                               same validator keys [=true].
 
 ...
 ```
