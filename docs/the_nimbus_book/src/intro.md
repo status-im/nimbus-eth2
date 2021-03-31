@@ -1,10 +1,12 @@
 # The Nimbus book
 
+*If you're eager to get started, check out our [quickstart guide](./quick-start.md).*
+
 Nimbus is a client implementation for both Ethereum 2.0 and Ethereum 1.0 that strives to be as lightweight as possible in terms of resources used. This allows it to perform well on embedded systems, resource-restricted devices -- including Raspberry Pis and mobile devices.
 
-> If you're eager to get started, check out our [quickstart guide](./quick-start.md).
-
 However, resource-restricted hardware is not the only thing Nimbus is good for. Its low resource consumption makes it easy to run Nimbus together with other workloads on your server (this is especially valuable for stakers looking to lower the cost of their server instances).
+
+<blockquote class="twitter-tweet"><p lang="en" dir="ltr">&quot;just because it [Nimbus] is optimized to be minimally resource intensive, doesn&#39;t mean you can&#39;t run it on a server. It means that when you do run it on a server, it is consuming a lot less resources.&quot; <a href="https://t.co/F2sdZouBtD">https://t.co/F2sdZouBtD</a></p>&mdash; Nimbus (@ethnimbus) <a href="https://twitter.com/ethnimbus/status/1376836270245154817?ref_src=twsrc%5Etfw">March 30, 2021</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
 This book explains the ways in which you can use Nimbus to either monitor the eth2 chain or become a fully-fledged validator.
 
@@ -35,6 +37,9 @@ In contrast to the Ethereum chain, as it currently stands, eth2 uses proof-of-st
 ### Get in touch
 
 Need help with anything? Join us on [Status](https://join.status.im/nimbus-general) and [Discord](https://discord.gg/9dWwPnG).
+
+### Stay updated
+Subscribe to our newsletter [here](https://subscribe.nimbus.team/).
 
 
 ### Disclaimer
