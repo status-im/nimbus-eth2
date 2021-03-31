@@ -20,8 +20,6 @@ const
 
   versionBlob* = "stateofus" # Single word - ends up in the default graffitti
 
-  useInsecureFeatures* = defined(insecure)
-
   gitRevision* = strip(staticExec("git rev-parse --short HEAD"))[0..5]
 
   nimBanner* = staticExec("nim --version | grep -v Compiled")

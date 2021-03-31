@@ -4,10 +4,10 @@
 
 ### Why are metrics not working?
 
-Metrics are currently implemented using a HTTP server that hasn't been hardened sufficiently (which means it can't be exposed as a public endpoint). It must therefore be enabled specifically during build:
+The metrics server is disabled by default, enable it by passing `--metrics` to the run command:
 
 ```
-make NIMFLAGS="-d:insecure" nimbus_beacon_node --metrics ...
+./run-mainnet-beacon-node.sh --metrics ...
 ```
 
 ## Validating
@@ -40,7 +40,7 @@ Before a validator can start to secure the network, he or she needs to stake **3
 
 ### Is there any advantage to having more than 32 ETH at stake?
 
-No. There is no advantage to having more than 32 ETH staked. 
+No. There is no advantage to having more than 32 ETH staked.
 
 Limiting the maximum stake to 32 ETH encourages decentralization of power as it prevents any single validator from having an excessively large vote on the state of the chain.
 
@@ -52,7 +52,7 @@ Yes but, under normal conditions, you will lose an amount of ETH roughly equival
 
 ## I want to switch my validator keys to another machine, how long do I need to wait to avoid getting slashed?
 
-We recommend waiting 2 epochs (around 15 minutes), before restarting Nimbus on a different machine. 
+We recommend waiting 2 epochs (around 15 minutes), before restarting Nimbus on a different machine.
 
 ## When should I top up my validator's balance?
 
@@ -64,7 +64,7 @@ At the other end of the spectrum, if your balance is closer to 31 ETH, it's prob
 
 ## When can I withdraw my funds, and what's the difference between exiting and withdrawing?
 
-You can signal your intent to stop validating by signing a voluntary exit message with your validator. 
+You can signal your intent to stop validating by signing a voluntary exit message with your validator.
 
 However, bear in mind that in Phase 0, once you've exited, there's no going back.
 
@@ -133,7 +133,7 @@ It depends. In addition to [the impact of effective balance](https://www.attesta
 
 ### How great does an honest validator's uptime need to be for it to be net profitable?
 
-Overall, validators are expected to be net profitable as long as their uptime is [greater than 50%](https://blog.ethereum.org/2020/01/13/validated-staking-on-eth2-1-incentives/). 
+Overall, validators are expected to be net profitable as long as their uptime is [greater than 50%](https://blog.ethereum.org/2020/01/13/validated-staking-on-eth2-1-incentives/).
 
 This means that validators need not go to extreme lengths with backup clients or redundant internet connections as the repercussions of being offline are not so severe.
 
@@ -147,7 +147,7 @@ The idea behind this is to minimize the losses from honest mistakes, but strongl
 
 ### What exactly is slashing?
 
-Slashing has two purposes: (1) to make it prohibitively expensive to attack eth2, and (2) to stop validators from being lazy by checking that they actually perform their duties. Slashing a validator is to destroy (a portion of) the validator’s stake if they act in a provably destructive manner. 
+Slashing has two purposes: (1) to make it prohibitively expensive to attack eth2, and (2) to stop validators from being lazy by checking that they actually perform their duties. Slashing a validator is to destroy (a portion of) the validator’s stake if they act in a provably destructive manner.
 
 Validators that are slashed are prevented from participating in the protocol further and are forcibly exited.
 
@@ -174,7 +174,7 @@ As such, it's a good idea to create your keys from mnemonics which act as anothe
 
 If the withdrawal key is stolen, the thief can transfer the validator’s balance, but only once the validator has exited.
 
-If the signing key is not under the thief’s control, the thief cannot exit the validator. 
+If the signing key is not under the thief’s control, the thief cannot exit the validator.
 
 The user with the signing key could attempt to quickly exit the validator and then transfer the funds -- with the withdrawal key -- before the thief.
 
