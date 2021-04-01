@@ -874,7 +874,7 @@ proc delState(dag: ChainDAGRef, bs: BlockSlot) =
 proc pruneBlocksDAG(dag: ChainDAGRef) =
   ## This prunes the block DAG
   ## This does NOT prune the cached state checkpoints and EpochRef
-  ## This should be done after a new finalization point is reached
+  ## This must be done after a new finalization point is reached
   ## to invalidate pending blocks or attestations referring
   ## to a now invalid fork.
   ##
@@ -882,43 +882,39 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
   ## as the caches and fork choice can be pruned at a later time.
 
   # Clean up block refs, walking block by block
-  if dag.lastPrunePoint != dag.finalizedHead:
-    let start = Moment.now()
+  let start = Moment.now()
 
-    # Finalization means that we choose a single chain as the canonical one -
-    # it also means we're no longer interested in any branches from that chain
-    # up to the finalization point
-    let hlen = dag.heads.len
-    for i in 0..<hlen:
-      let n = hlen - i - 1
-      let head = dag.heads[n]
-      if dag.finalizedHead.blck.isAncestorOf(head):
-        continue
+  # Finalization means that we choose a single chain as the canonical one -
+  # it also means we're no longer interested in any branches from that chain
+  # up to the finalization point
+  let hlen = dag.heads.len
+  for i in 0..<hlen:
+    let n = hlen - i - 1
+    let head = dag.heads[n]
+    if dag.finalizedHead.blck.isAncestorOf(head):
+      continue
 
-      var cur = head.atSlot(head.slot)
-      while not cur.blck.isAncestorOf(dag.finalizedHead.blck):
-        # TODO there may be more empty states here: those that have a slot
-        #      higher than head.slot and those near the branch point - one
-        #      needs to be careful though because those close to the branch
-        #      point should not necessarily be cleaned up
-        dag.delState(cur) # TODO: should we move that disk I/O to `onSlotEnd`
+    var cur = head.atSlot(head.slot)
+    while not cur.blck.isAncestorOf(dag.finalizedHead.blck):
+      dag.delState(cur) # TODO: should we move that disk I/O to `onSlotEnd`
 
-        if cur.blck.slot == cur.slot:
-          dag.blocks.excl(KeyedBlockRef.init(cur.blck))
-          dag.db.delBlock(cur.blck.root)
+      if cur.blck.slot == cur.slot:
+        dag.blocks.excl(KeyedBlockRef.init(cur.blck))
+        dag.db.delBlock(cur.blck.root)
 
-        if cur.blck.parent.isNil:
-          break
-        cur = cur.parentOrSlot
+      if cur.blck.parent.isNil:
+        break
+      cur = cur.parentOrSlot
 
-      dag.heads.del(n)
+    dag.heads.del(n)
 
-    let stop = Moment.now()
-    let dur = stop - start
+  let stop = Moment.now()
+  let dur = stop - start
 
-    debug "Pruned the blockchain DAG",
-      currentCandidateHeads = dag.heads.len,
-      dagPruningDuration = dur
+  debug "Pruned the blockchain DAG",
+    currentCandidateHeads = dag.heads.len,
+    prunedHeads = hlen - dag.heads.len,
+    dagPruningDuration = dur
 
 func needStateCachesAndForkChoicePruning*(dag: ChainDAGRef): bool =
   dag.lastPrunePoint != dag.finalizedHead
@@ -1069,7 +1065,10 @@ proc updateHead*(
     beacon_finalized_root.set(
       dag.headState.data.data.finalized_checkpoint.root.toGaugeValue)
 
-  dag.pruneBlocksDAG()
+    # Pruning the block dag is required every time the finalized head changes
+    # in order to clear out blocks that are no longer viable and should
+    # therefore no longer be considered as part of the chain we're following
+    dag.pruneBlocksDAG()
 
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): bool =
   let
