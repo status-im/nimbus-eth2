@@ -24,6 +24,12 @@ export
   defaultEth2TcpPort, enabledLogLevel, ValidIpAddress,
   defs, parseCmdArg, completeCmdArg, network_metadata
 
+const
+  # TODO: How should we select between IPv4 and IPv6
+  # Maybe there should be a config option for this.
+  defaultListenAddress* = (static ValidIpAddress.init("0.0.0.0"))
+  defaultAdminListenAddress* = (static ValidIpAddress.init("127.0.0.1"))
+
 type
   BNStartUpCmd* = enum
     noCommand
@@ -67,7 +73,7 @@ type
   BeaconNodeConf* = object
     logLevel* {.
       defaultValue: "INFO"
-      desc: "Sets the log level for process and topics (e.g. \"DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none\")"
+      desc: "Sets the log level for process and topics (e.g. \"DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none\") [=INFO]"
       name: "log-level" }: string
 
     logFile* {.
@@ -75,7 +81,7 @@ type
       name: "log-file" }: Option[OutFile]
 
     eth2Network* {.
-      desc: "The Eth2 network to join"
+      desc: "The Eth2 network to join [=mainnet]"
       name: "network" }: Option[string]
 
     dataDir* {.
@@ -114,13 +120,13 @@ type
     netKeyFile* {.
       defaultValue: "random",
       desc: "Source of network (secp256k1) private key file " &
-            "(random|<path>) (default: random)"
+            "(random|<path>) [=random]"
       name: "netkey-file" }: string
 
     netKeyInsecurePassword* {.
       defaultValue: false,
       desc: "Use pre-generated INSECURE password for network private key " &
-            "file (default: false)"
+            "file [=false]"
       name: "insecure-netkey-password" }: bool
 
     agentString* {.
@@ -136,7 +142,7 @@ type
     slashingDbKind* {.
       hidden
       defaultValue: SlashingDbKind.both
-      desc: "The slashing DB flavour to use (v1, v2 or both)"
+      desc: "The slashing DB flavour to use (v1, v2 or both) [=both]"
       name: "slashing-db-kind" }: SlashingDbKind
 
     case cmd* {.
@@ -155,23 +161,24 @@ type
         name: "bootstrap-file" }: InputFile
 
       listenAddress* {.
-        defaultValue: defaultListenAddress(config)
-        desc: "Listening address for the Ethereum LibP2P and Discovery v5 traffic"
+        defaultValue: defaultListenAddress
+        desc: "Listening address for the Ethereum LibP2P and Discovery v5 " &
+          "traffic [=0.0.0.0]"
         name: "listen-address" }: ValidIpAddress
 
       tcpPort* {.
         defaultValue: defaultEth2TcpPort
-        desc: "Listening TCP port for Ethereum LibP2P traffic, the default is 9000"
+        desc: "Listening TCP port for Ethereum LibP2P traffic [=9000]"
         name: "tcp-port" }: Port
 
       udpPort* {.
         defaultValue: defaultEth2TcpPort
-        desc: "Listening UDP port for node discovery, default is 9000"
+        desc: "Listening UDP port for node discovery [=9000]"
         name: "udp-port" }: Port
 
       maxPeers* {.
         defaultValue: 160 # 5 (fanout) * 64 (subnets) / 2 (subs) for a heathy mesh
-        desc: "The maximum number of peers to connect to"
+        desc: "The maximum number of peers to connect to [=160]"
         name: "max-peers" }: int
 
       nat* {.
@@ -222,17 +229,17 @@ type
 
       metricsEnabled* {.
         defaultValue: false
-        desc: "Enable the metrics server"
+        desc: "Enable the metrics server [=false]"
         name: "metrics" }: bool
 
       metricsAddress* {.
-        defaultValue: defaultAdminListenAddress(config)
-        desc: "Listening address of the metrics server"
+        defaultValue: defaultAdminListenAddress
+        desc: "Listening address of the metrics server [=127.0.0.1]"
         name: "metrics-address" }: ValidIpAddress
 
       metricsPort* {.
         defaultValue: 8008
-        desc: "Listening HTTP port of the metrics server"
+        desc: "Listening HTTP port of the metrics server [=8008]"
         name: "metrics-port" }: Port
 
       statusBarEnabled* {.
@@ -252,17 +259,17 @@ type
 
       rpcEnabled* {.
         defaultValue: false
-        desc: "Enable the JSON-RPC server"
+        desc: "Enable the JSON-RPC server [=false]"
         name: "rpc" }: bool
 
       rpcPort* {.
         defaultValue: defaultEth2RpcPort
-        desc: "HTTP port for the JSON-RPC service"
+        desc: "HTTP port for the JSON-RPC service [=9190]"
         name: "rpc-port" }: Port
 
       rpcAddress* {.
-        defaultValue: defaultAdminListenAddress(config)
-        desc: "Listening address of the RPC server"
+        defaultValue: defaultAdminListenAddress
+        desc: "Listening address of the RPC server [=127.0.0.1]"
         name: "rpc-address" }: ValidIpAddress
 
       inProcessValidators* {.
@@ -272,12 +279,12 @@ type
 
       discv5Enabled* {.
         defaultValue: true
-        desc: "Enable Discovery v5"
+        desc: "Enable Discovery v5 [=true]"
         name: "discv5" }: bool
 
       dumpEnabled* {.
         defaultValue: false
-        desc: "Write SSZ dumps of blocks, attestations and states to data dir"
+        desc: "Write SSZ dumps of blocks, attestations and states to data dir [=false]"
         name: "dump" }: bool
 
       directPeers* {.
@@ -286,7 +293,7 @@ type
 
       doppelgangerDetection* {.
         defaultValue: true
-        desc: "Whether to detect whether another validator is be running the same validator keys (default true)"
+        desc: "Whether to detect whether another validator is be running the same validator keys [=true]"
         name: "doppelganger-detection"
       }: bool
 
@@ -469,7 +476,7 @@ type
   ValidatorClientConf* = object
     logLevel* {.
       defaultValue: "INFO"
-      desc: "Sets the log level"
+      desc: "Sets the log level [=INFO]"
       name: "log-level" }: string
 
     logFile* {.
@@ -511,17 +518,17 @@ type
 
       rpcPort* {.
         defaultValue: defaultEth2RpcPort
-        desc: "HTTP port of the server to connect to for RPC - for the validator duties in the pull model"
+        desc: "HTTP port of the server to connect to for RPC [=9190]"
         name: "rpc-port" }: Port
 
       rpcAddress* {.
-        defaultValue: defaultAdminListenAddress(config)
-        desc: "Address of the server to connect to for RPC - for the validator duties in the pull model"
+        defaultValue: defaultAdminListenAddress
+        desc: "Address of the server to connect to for RPC [=127.0.0.1]"
         name: "rpc-address" }: ValidIpAddress
 
       retryDelay* {.
         defaultValue: 10
-        desc: "Delay in seconds between retries after unsuccessful attempts to connect to a beacon node"
+        desc: "Delay in seconds between retries after unsuccessful attempts to connect to a beacon node [=10]"
         name: "retry-delay" }: int
 
 proc defaultDataDir*(config: BeaconNodeConf|ValidatorClientConf): string =
@@ -676,14 +683,6 @@ func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
 
 func databaseDir*(config: BeaconNodeConf|ValidatorClientConf): string =
   config.dataDir / "db"
-
-func defaultListenAddress*(config: BeaconNodeConf|ValidatorClientConf): ValidIpAddress =
-  # TODO: How should we select between IPv4 and IPv6
-  # Maybe there should be a config option for this.
-  (static ValidIpAddress.init("0.0.0.0"))
-
-func defaultAdminListenAddress*(config: BeaconNodeConf|ValidatorClientConf): ValidIpAddress =
-  (static ValidIpAddress.init("127.0.0.1"))
 
 template writeValue*(writer: var JsonWriter,
                      value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =
