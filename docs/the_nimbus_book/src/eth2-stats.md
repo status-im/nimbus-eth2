@@ -1,7 +1,7 @@
 # Network stats and monitoring
 
 > ⚠️  This page concerns the [Pyrmont](https://pyrmont.launchpad.ethereum.org/) testnet. eth2stats is a debugging / developer tool that's suitable for testnets. For privacy reasons, we do not recommend using it for mainnet. For a mainnet alternative, see [this guide](./metrics-pretty-pictures.md).
- 
+
 
 eth2stats is a network monitoring suite for your beacon node + validator client.
 
@@ -52,7 +52,7 @@ Click on `Compile from source` and copy the command at the bottom.
 
 From your `nimbus-eth2` repository, run:
 ```
-make NIMFLAGS="-d:insecure" nimbus_beacon_node
+make nimbus_beacon_node
 ```
 
 Followed by:
@@ -75,8 +75,3 @@ From your `eth2stats-client` repository, **run the command you copied in step 4.
 ```
 
 Your node should now be displayed on [https://pyrmont.eth2.wtf/](https://pyrmont.eth2.wtf/) :)
-
-
-
-
-

@@ -138,8 +138,7 @@ Specific steps:
 ```bash
 # This will generate the Prometheus config on the fly, based on the number of
 # nodes (which you can control by passing something like NODES=6 to `make`).
-# The `-d:insecure` flag starts an HTTP server from which the Prometheus daemon will pull the metrics.
-make VALIDATORS=192 NODES=6 USER_NODES=0 NIMFLAGS="-d:insecure" eth2_network_simulation
+make VALIDATORS=192 NODES=6 USER_NODES=0 eth2_network_simulation
 
 # In another terminal tab, after the sim started:
 cd tests/simulation/prometheus

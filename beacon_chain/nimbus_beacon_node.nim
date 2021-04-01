@@ -1661,16 +1661,13 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.r
   config.createDumpDirs()
 
   if config.metricsEnabled:
-    when useInsecureFeatures:
-      let metricsAddress = config.metricsAddress
-      notice "Starting metrics HTTP server",
-        url = "http://" & $metricsAddress & ":" & $config.metricsPort & "/metrics"
-      try:
-        startMetricsHttpServer($metricsAddress, config.metricsPort)
-      except CatchableError as exc: raise exc
-      except Exception as exc: raiseAssert exc.msg # TODO fix metrics
-    else:
-      warn "Metrics support disabled, see https://status-im.github.io/nimbus-eth2/metrics-pretty-pictures.html#simple-metrics"
+    let metricsAddress = config.metricsAddress
+    notice "Starting metrics HTTP server",
+      url = "http://" & $metricsAddress & ":" & $config.metricsPort & "/metrics"
+    try:
+      startMetricsHttpServer($metricsAddress, config.metricsPort)
+    except CatchableError as exc: raise exc
+    except Exception as exc: raiseAssert exc.msg # TODO fix metrics
 
   # There are no managed event loops in here, to do a graceful shutdown, but
   # letting the default Ctrl+C handler exit is safe, since we only read from
