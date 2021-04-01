@@ -138,7 +138,7 @@ proc deferCryptoProcessing(self: ref BatchCrypto, idleTimeout: Duration) {.async
   # In practice this only happens when we receive a burst of attestations/aggregates.
   # Though it's possible to reach the threshold 9ms in,
   # and have only 1ms left for further accumulation.
-  discard await sleepAsync().withTimeout(idleTimeout)
+  await sleepAsync(idleTimeout)
   self[].processBufferedCrypto()
 
 proc schedule(batchCrypto: ref BatchCrypto, fut: Future[Result[void, cstring]], checkThreshold = true) =
