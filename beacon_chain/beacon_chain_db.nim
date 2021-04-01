@@ -306,8 +306,7 @@ proc init*(T: type BeaconChainDB,
            preset: RuntimePreset,
            dir: string,
            inMemory = false): BeaconChainDB =
-  var sqliteStore =
-    if inMemory:
+  var sqliteStore = if inMemory:
       SqStoreRef.init("", "test", inMemory = true).expect("working database (out of memory?)")
     else:
       let s = secureCreatePath(dir)
@@ -327,15 +326,17 @@ proc init*(T: type BeaconChainDB,
       DbSeq[DepositData].init(sqliteStore, "genesis_deposits")
     immutableValidatorsSeq =
       DbSeq[ImmutableValidatorData].init(sqliteStore, "immutable_validators")
-    stateStore = DirStoreRef.init(dir & "/state")
+    backend = kvStore sqliteStore
+    stateStore =
+      if inMemory: backend else: kvStore DirStoreRef.init(dir & "/state")
 
-  T(backend: kvStore sqliteStore,
+  T(backend: backend,
     preset: preset,
     genesisDeposits: genesisDepositsSeq,
     immutableValidators: immutableValidatorsSeq,
     immutableValidatorsMem: loadImmutableValidators(immutableValidatorsSeq),
     checkpoint: proc() = sqliteStore.checkpoint(),
-    stateStore: kvStore stateStore,
+    stateStore: stateStore,
     )
 
 proc snappyEncode(inp: openArray[byte]): seq[byte] =
