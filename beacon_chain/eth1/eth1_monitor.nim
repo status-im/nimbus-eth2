@@ -394,7 +394,9 @@ proc getBlockByHash*(p: Web3DataProviderRef, hash: BlockHash):
 
 proc getBlockByNumber*(p: Web3DataProviderRef,
                        number: Eth1BlockNumber): Future[BlockObject] =
-  p.web3.provider.eth_getBlockByNumber("0x" & toHex(number), false)
+  let hexNumber = try: &"0x{number:X}" # No leading 0's!
+  except ValueError as exc: raiseAssert exc.msg # Never fails
+  p.web3.provider.eth_getBlockByNumber(hexNumber, false)
 
 template readJsonField(j: JsonNode, fieldName: string, ValueType: type): untyped =
   var res: ValueType
