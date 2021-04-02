@@ -257,21 +257,32 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       let current_epoch = get_current_epoch(node.chainDag.headState.data.data)
       var res: seq[RestValidatorTuple]
       for index, validator in state().validators.pairs():
-        let r1 =
-          if len(keySet) == 0:
+        let includeFlag =
+          if (len(keySet) == 0) and (len(indexSet) == 0):
             true
           else:
-            (validator.pubkey in keySet)
-        let r2 =
-          if len(indexSet) == 0:
-            true
-          else:
-            (ValidatorIndex(index) in indexSet)
+            let indexFlag =
+              if len(indexSet) > 0:
+                if ValidatorIndex(index) in indexSet:
+                  true
+                else:
+                  false
+              else:
+                false
+            let keyFlag =
+              if len(keySet) > 0:
+                if validator.pubkey in keySet:
+                  true
+                else:
+                  false
+              else:
+                false
+            indexFlag or keyFlag
         let sres = validator.getStatus(current_epoch)
         if sres.isOk():
           let vstatus = sres.get()
-          let r3 = vstatus in validatorsMask
-          if (r1 or r2) and r3:
+          let statusFlag = vstatus in validatorsMask
+          if includeFlag and statusFlag:
             res.add((
               index: ValidatorIndex(index),
               balance: Base10.toString(state().balances[index]),
@@ -385,15 +396,31 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       let current_epoch = get_current_epoch(node.chainDag.headState.data.data)
       var res: seq[RestValidatorBalanceTuple]
       for index, validator in state().validators.pairs():
-        let rflag =
+        let includeFlag =
           if (len(keySet) == 0) and (len(indexSet) == 0):
             true
           else:
-            (validator.pubkey in keySet) or (ValidatorIndex(index) in indexSet)
+            let indexFlag =
+              if len(indexSet) > 0:
+                if ValidatorIndex(index) in indexSet:
+                  true
+                else:
+                  false
+              else:
+                false
+            let keyFlag =
+              if len(keySet) > 0:
+                if validator.pubkey in keySet:
+                  true
+                else:
+                  false
+              else:
+                false
+            indexFlag or keyFlag
         let sres = validator.getStatus(current_epoch)
         if sres.isOk():
           let vstatus = sres.get()
-          if rflag:
+          if includeFlag:
             res.add((
               index: ValidatorIndex(index),
               balance: Base10.toString(state().balances[index]),
