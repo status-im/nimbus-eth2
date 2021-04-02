@@ -1704,6 +1704,40 @@ proc addValidator*[MsgType](node: Eth2Node,
     node.pubsub.addValidator(topic & "_snappy", execValidator)
   except Exception as exc: raiseAssert exc.msg # TODO fix libp2p
 
+proc addAsyncValidator*[MsgType](node: Eth2Node,
+                            topic: string,
+                            msgValidator: proc(msg: MsgType):
+                            Future[ValidationResult] {.gcsafe, raises: [Defect].} ) =
+
+  proc execValidator(
+      topic: string, message: GossipMsg): Future[ValidationResult] {.raises: [Defect].} =
+
+    inc nbc_gossip_messages_received
+    trace "Validating incoming gossip message",
+      len = message.data.len, topic
+
+    let decompressed = snappy.decode(message.data, GOSSIP_MAX_SIZE)
+
+    if decompressed.len == 0:
+      debug "Empty gossip data after decompression",
+        topic, len = message.data.len
+      result.complete(ValidationResult.Ignore)
+      return
+
+    let decoded = try:
+      SSZ.decode(decompressed, MsgType)
+    except:
+      error "SSZ decoding failure",
+        topic, len = message.data.len
+      result.complete(ValidationResult.Ignore)
+      return
+
+    return msgValidator(decoded)
+
+  try:
+    node.pubsub.addValidator(topic & "_snappy", execValidator)
+  except Exception as exc: raiseAssert exc.msg # TODO fix libp2p
+
 proc unsubscribe*(node: Eth2Node, topic: string) {.raises: [Defect, CatchableError].} =
   try:
     node.pubsub.unsubscribeAll(topic & "_snappy")

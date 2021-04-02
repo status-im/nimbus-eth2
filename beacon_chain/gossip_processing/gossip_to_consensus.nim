@@ -5,8 +5,6 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
-
 import
   std/math,
   stew/results,
@@ -37,7 +35,7 @@ type
     v: Attestation
     attesting_indices: seq[ValidatorIndex]
 
-  AggregateEntry* = AttestationEntry
+  AggregateEntry = AttestationEntry
 
   VerifQueueManager* = object
     ## This manages the queues of blocks and attestations.
@@ -70,6 +68,9 @@ type
     # Producers
     # ----------------------------------------------------------------
     blocksQueue*: AsyncQueue[BlockEntry] # Exported for "test_sync_manager"
+    # TODO:
+    #   is there a point to separate
+    #   attestations & aggregates here?
     attestationsQueue: AsyncQueue[AttestationEntry]
     aggregatesQueue: AsyncQueue[AggregateEntry]
 
@@ -77,6 +78,8 @@ type
     # ----------------------------------------------------------------
     consensusManager: ref ConsensusManager
       ## Blockchain DAG, AttestationPool and Quarantine
+
+{.push raises: [Defect].}
 
 # Initialization
 # ------------------------------------------------------------------------------
@@ -331,6 +334,10 @@ proc runQueueProcessingLoop*(self: ref VerifQueueManager) {.async.} =
     aggregateFut = self[].aggregatesQueue.popFirst()
     attestationFut = self[].attestationsQueue.popFirst()
 
+  # TODO:
+  #   revisit `idleTimeout`
+  #   and especially `attestationBatch` in light of batch validation
+  #   in particular we might want `attestationBatch` to drain both attestation & aggregates
   while true:
     # Cooperative concurrency: one idle calculation step per loop - because
     # we run both networking and CPU-heavy things like block processing

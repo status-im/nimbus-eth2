@@ -339,6 +339,7 @@ proc init*(T: type BeaconNode,
       verifQueues,
       chainDag, attestationPool, exitPool, validatorPool,
       quarantine,
+      rng,
       proc(): BeaconTime = beaconClock.now())
 
   var res = BeaconNode(
@@ -1167,16 +1168,16 @@ proc installMessageValidators(node: BeaconNode) =
   for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
     closureScope:
       let ci = it
-      node.network.addValidator(
+      node.network.addAsyncValidator(
         getAttestationTopic(node.forkDigest, ci),
         # This proc needs to be within closureScope; don't lift out of loop.
-        proc(attestation: Attestation): ValidationResult =
-          node.processor[].attestationValidator(attestation, ci))
+        proc(attestation: Attestation): Future[ValidationResult] =
+          node.processor.attestationValidator(attestation, ci))
 
-  node.network.addValidator(
+  node.network.addAsyncValidator(
     getAggregateAndProofsTopic(node.forkDigest),
-    proc(signedAggregateAndProof: SignedAggregateAndProof): ValidationResult =
-      node.processor[].aggregateValidator(signedAggregateAndProof))
+    proc(signedAggregateAndProof: SignedAggregateAndProof): Future[ValidationResult] =
+      node.processor.aggregateValidator(signedAggregateAndProof))
 
   node.network.addValidator(
     node.topicBeaconBlocks,

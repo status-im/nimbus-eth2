@@ -14,6 +14,7 @@ import
   ../spec/[crypto, datatypes, digest],
   ../consensus_object_pools/[block_clearance, blockchain_dag, exit_pool, attestation_pool],
   ./gossip_validation, ./gossip_to_consensus,
+  ./batch_validation,
   ../validators/validator_pool,
   ../beacon_node_types,
   ../beacon_clock, ../conf, ../ssz/sszdump
@@ -70,6 +71,10 @@ type
     # ----------------------------------------------------------------
     exitPool: ref ExitPool
 
+    # Almost validated, pending cryptographic signature check
+    # ----------------------------------------------------------------
+    batchCrypto: ref BatchCrypto
+
     # Missing information
     # ----------------------------------------------------------------
     quarantine*: QuarantineRef
@@ -85,6 +90,7 @@ proc new*(T: type Eth2Processor,
           exitPool: ref ExitPool,
           validatorPool: ref ValidatorPool,
           quarantine: QuarantineRef,
+          rng: ref BrHmacDrbgContext,
           getWallTime: GetWallTimeFn): ref Eth2Processor =
   (ref Eth2Processor)(
     config: config,
@@ -94,7 +100,8 @@ proc new*(T: type Eth2Processor,
     attestationPool: attestationPool,
     exitPool: exitPool,
     validatorPool: validatorPool,
-    quarantine: quarantine
+    quarantine: quarantine,
+    batchCrypto: BatchCrypto.new(rng = rng)
   )
 
 # Gossip Management
@@ -179,11 +186,13 @@ proc checkForPotentialDoppelganger(
           warn "We believe you are currently running another instance of the same validator. We've disconnected you from the network as this presents a significant slashing risk. Possible next steps are (a) making sure you've disconnected your validator from your old machine before restarting the client; and (b) running the client again with the gossip-slashing-protection option disabled, only if you are absolutely sure this is the only instance of your validator running, and reporting the issue at https://github.com/status-im/nimbus-eth2/issues."
           quit QuitFailure
 
+{.pop.} # async can raise anything
+
 proc attestationValidator*(
-    self: var Eth2Processor,
+    self: ref Eth2Processor,
     attestation: Attestation,
     committeeIndex: uint64,
-    checksExpensive: bool = true): ValidationResult =
+    checksExpensive: bool = true): Future[ValidationResult] {.async.} =
   logScope:
     attestation = shortLog(attestation)
     committeeIndex
@@ -201,7 +210,10 @@ proc attestationValidator*(
   # Potential under/overflows are fine; would just create odd metrics and logs
   let delay = wallTime - attestation.data.slot.toBeaconTime
   debug "Attestation received", delay
-  let v = self.attestationPool[].validateAttestation(
+
+  # Now proceed to validation
+  let v = await self.attestationPool.validateAttestation(
+      self.batchCrypto,
       attestation, wallTime, committeeIndex, checksExpensive)
   if v.isErr():
     debug "Dropping attestation", err = v.error()
@@ -210,16 +222,16 @@ proc attestationValidator*(
   beacon_attestations_received.inc()
   beacon_attestation_delay.observe(delay.toFloatSeconds())
 
-  self.checkForPotentialDoppelganger(attestation.data, v.value, wallSlot)
+  self[].checkForPotentialDoppelganger(attestation.data, v.value, wallSlot)
 
   trace "Attestation validated"
   self.verifQueues[].addAttestation(attestation, v.get())
 
-  ValidationResult.Accept
+  return ValidationResult.Accept
 
 proc aggregateValidator*(
-    self: var Eth2Processor,
-    signedAggregateAndProof: SignedAggregateAndProof): ValidationResult =
+    self: ref Eth2Processor,
+    signedAggregateAndProof: SignedAggregateAndProof): Future[ValidationResult] {.async.} =
   logScope:
     aggregate = shortLog(signedAggregateAndProof.message.aggregate)
     signature = shortLog(signedAggregateAndProof.signature)
@@ -239,7 +251,8 @@ proc aggregateValidator*(
     wallTime - signedAggregateAndProof.message.aggregate.data.slot.toBeaconTime
   debug "Aggregate received", delay
 
-  let v = self.attestationPool[].validateAggregate(
+  let v = await self.attestationPool.validateAggregate(
+      self.batchCrypto,
       signedAggregateAndProof, wallTime)
   if v.isErr:
     debug "Dropping aggregate",
@@ -252,7 +265,7 @@ proc aggregateValidator*(
   beacon_aggregates_received.inc()
   beacon_aggregate_delay.observe(delay.toFloatSeconds())
 
-  self.checkForPotentialDoppelganger(
+  self[].checkForPotentialDoppelganger(
     signedAggregateAndProof.message.aggregate.data, v.value, wallSlot)
 
   trace "Aggregate validated",
@@ -262,7 +275,9 @@ proc aggregateValidator*(
 
   self.verifQueues[].addAggregate(signedAggregateAndProof, v.get())
 
-  ValidationResult.Accept
+  return ValidationResult.Accept
+
+{.push raises: [Defect].}
 
 proc attesterSlashingValidator*(
     self: var Eth2Processor, attesterSlashing: AttesterSlashing):
