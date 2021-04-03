@@ -73,7 +73,7 @@ type
 
     # Almost validated, pending cryptographic signature check
     # ----------------------------------------------------------------
-    batchCrypto: ref BatchCrypto
+    batchCrypto*: ref BatchCrypto
 
     # Missing information
     # ----------------------------------------------------------------
