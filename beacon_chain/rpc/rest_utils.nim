@@ -24,23 +24,24 @@ const
     # Size of `ValidatorPubKey` hexadecimal value (without 0x)
   ValidatorSigSize = RawSigSize * 2
     # Size of `ValidatorSig` hexadecimal value (without 0x)
-  ValidatorIndexSize = len($(1 shl 40))
-    # Maximum size of `ValidatorIndex` decimal value
   RootHashSize = sizeof(Eth2Digest) * 2
     # Size of `xxx_root` hexadecimal value (without 0x)
-
   FarFutureEpochString* = "18446744073709551615"
-
   MaxEpoch* = compute_epoch_at_slot(not(0'u64))
 
 type
   ValidatorQueryKind* {.pure.} = enum
     Index, Key
 
+  RestValidatorIndex* = distinct uint64
+
+  ValidatorIndexError* {.pure.} = enum
+    UnsupportedValue, TooHighValue
+
   ValidatorIdent* = object
     case kind*: ValidatorQueryKind
     of ValidatorQueryKind.Index:
-      index*: ValidatorIndex
+      index*: RestValidatorIndex
     of ValidatorQueryKind.Key:
       key*: ValidatorPubKey
 
@@ -165,10 +166,7 @@ proc validate(key: string, value: string): int =
         else:
           match(value.toOpenArray(2, len(value) - 1), HexadecimalSet)
       else:
-        if len(value) > ValidatorIndexSize:
-          1
-        else:
-          match(value, DecimalSet)
+        match(value, DecimalSet)
     else:
       match(value, DecimalSet)
   else:
@@ -251,9 +249,6 @@ proc decodeString*(t: typedesc[BlockIdent],
 
 proc decodeString*(t: typedesc[ValidatorIdent],
                    value: string): Result[ValidatorIdent, cstring] =
-  # This should raise exception if ValidatorIndex type will be changed,
-  # because currently it `uint32` but in 40bits size in specification.
-  doAssert(sizeof(uint32) == sizeof(ValidatorIndex))
   if len(value) > 2:
     if (value[0] == '0') and (value[1] == 'x'):
       if len(value) != ValidatorKeySize + 2:
@@ -263,15 +258,15 @@ proc decodeString*(t: typedesc[ValidatorIdent],
         ok(ValidatorIdent(kind: ValidatorQueryKind.Key,
                           key: res))
     elif (value[0] in DecimalSet) and (value[1] in DecimalSet):
-      let res = ? Base10.decode(uint32, value)
+      let res = ? Base10.decode(uint64, value)
       ok(ValidatorIdent(kind: ValidatorQueryKind.Index,
-                        index: ValidatorIndex(res)))
+                        index: RestValidatorIndex(res)))
     else:
       err("Incorrect validator identifier value")
   else:
-    let res = ? Base10.decode(uint32, value)
+    let res = ? Base10.decode(uint64, value)
     ok(ValidatorIdent(kind: ValidatorQueryKind.Index,
-                      index: ValidatorIndex(res)))
+                      index: RestValidatorIndex(res)))
 
 proc decodeString*(t: typedesc[PeerID],
                    value: string): Result[PeerID, cstring] =
@@ -484,3 +479,21 @@ template withStateForBlockSlot*(node: BeaconNode,
     let rpcState = assignClone(node.chainDag.headState)
     node.chainDag.withState(rpcState[], blockSlot):
       body
+
+proc toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
+                                                          ValidatorIndexError] =
+  when sizeof(ValidatorIndex) == 4:
+    if uint64(value) < VALIDATOR_REGISTRY_LIMIT:
+      if uint64(value) <= uint64(high(uint32)):
+        ok(ValidatorIndex(value))
+      else:
+        err(ValidatorIndexError.UnsupportedValue)
+    else:
+      err(ValidatorIndexError.TooHighValue)
+  elif sizeof(ValidatorIndex) == 8:
+    if uint64(value) < VALIDATOR_REGISTRY_LIMIT:
+      ok(ValidatorIndex(value))
+    else:
+      err(ValidatorIndexError.TooHighValue)
+  else:
+    doAssert(false, "ValidatorIndex type size is incorrect")
