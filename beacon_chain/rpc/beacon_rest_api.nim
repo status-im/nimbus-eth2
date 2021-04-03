@@ -548,9 +548,56 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockHeaders
   router.api(MethodGet, "/api/eth/v1/beacon/headers") do (
     slot: Option[Slot], parent_root: Option[Eth2Digest]) -> RestApiResponse:
-    # TODO (cheatfate): This call could not be implemented because structure
+    # TODO (cheatfate): This call is not complete, because structure
     # of database do not allow to query blocks by `parent_root`.
-    return RestApiResponse.jsonError(Http500, "Not implemented yet")
+    let qslot =
+      if slot.isSome():
+        let rslot = slot.get()
+        if rslot.isErr():
+          return RestApiResponse.jsonError(Http400, "Invalid slot value",
+                                           $rslot.error())
+        rslot.get()
+      else:
+        node.chainDag.head.slot
+
+    if parent_root.isSome():
+      let rroot = parent_root.get()
+      if rroot.isErr():
+        return RestApiResponse.jsonError(Http400, "Invalid parent_root value",
+                                         $rroot.error())
+      return RestApiResponse.jsonError(Http500, "Not implemented yet")
+
+    let bdata =
+      block:
+        let head =
+          block:
+            let res = node.getCurrentHead(qslot)
+            if res.isErr():
+              return RestApiResponse.jsonError(Http404,
+                                               "Slot number is too far away",
+                                               $res.error())
+            res.get()
+        let blockSlot = head.atSlot(qslot)
+        if isNil(blockSlot.blck):
+          return RestApiResponse.jsonError(Http404, "Block header not found")
+        node.chainDag.get(blockSlot.blck)
+
+    return RestApiResponse.jsonResponse(
+      (
+        root: bdata.data.root,
+        canonical: bdata.refs.isAncestorOf(node.chainDag.head),
+        header: (
+          message: (
+            slot: bdata.data.message.slot,
+            proposer_index: bdata.data.message.proposer_index,
+            parent_root: bdata.data.message.parent_root,
+            state_root: bdata.data.message.state_root,
+            body_root: bdata.data.message.body.hash_tree_root()
+          ),
+          signature: bdata.data.signature
+        )
+      )
+    )
 
   # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockHeader
   router.api(MethodGet, "/api/eth/v1/beacon/headers/{block_id}") do (
