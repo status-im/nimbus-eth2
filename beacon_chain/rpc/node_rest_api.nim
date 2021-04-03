@@ -17,6 +17,12 @@ type
   ConnectionStateSet* = set[ConnectionState]
   PeerTypeSet* = set[PeerType]
 
+  RestNodePeerCountTuple* = tuple
+    disconnected: uint64
+    connecting: uint64
+    connected: uint64
+    disconnecting: uint64
+
 proc validateState(states: seq[PeerStateKind]): Result[ConnectionStateSet,
                                                        cstring] =
   var res: set[ConnectionState]
@@ -195,7 +201,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponse(res)
 
   router.api(MethodGet, "/api/eth/v1/node/peer_count") do () -> RestApiResponse:
-    var res: NodePeerCountTuple
+    var res: RestNodePeerCountTuple
     for item in node.network.peers.values():
       case item.connectionState
       of Connecting:
