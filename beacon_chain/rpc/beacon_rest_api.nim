@@ -247,10 +247,23 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            "Only unique validator keys allowed")
             res1.incl(item.key)
           of ValidatorQueryKind.Index:
-            if item.index in res2:
+            let vitem =
+              block:
+                let vres = item.index.toValidatorIndex()
+                if vres.isErr():
+                  case vres.error()
+                  of ValidatorIndexError.TooHighValue:
+                    return RestApiResponse.jsonError(Http400,
+                                              "Incorrect validator index value")
+                  of ValidatorIndexError.UnsupportedValue:
+                    return RestApiResponse.jsonError(Http500,
+                                            "Unsupported validator index value")
+                vres.get()
+
+            if vitem in res2:
               return RestApiResponse.jsonError(Http400,
                                         "Only unique validator indexes allowed")
-            res2.incl(item.index)
+            res2.incl(vitem)
         (res1, res2)
 
     node.withStateForBlockSlot(bslot):
@@ -309,7 +322,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         bres.get()
     if validator_id.isErr():
       return RestApiResponse.jsonError(Http400, "Invalid validator_id",
-                                       $validator_id.error())
+                                                $validator_id.error())
     node.withStateForBlockSlot(bslot):
       let current_epoch = get_current_epoch(node.chainDag.headState.data.data)
       let vid = validator_id.get()
@@ -332,16 +345,28 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                           "Could not obtain validator's status")
         return RestApiResponse.jsonError(Http404, "Could not find validator")
       of ValidatorQueryKind.Index:
-        let index = uint64(vid.index)
-        if index >= uint64(len(state().validators)):
+        let vindex =
+          block:
+            let vres = vid.index.toValidatorIndex()
+            if vres.isErr():
+              case vres.error()
+              of ValidatorIndexError.TooHighValue:
+                return RestApiResponse.jsonError(Http400,
+                                              "Incorrect validator index value")
+              of ValidatorIndexError.UnsupportedValue:
+                return RestApiResponse.jsonError(Http500,
+                                            "Unsupported validator index value")
+            vres.get()
+
+        if uint64(vindex) >= uint64(len(state().validators)):
           return RestApiResponse.jsonError(Http404, "Could not find validator")
-        let validator = state().validators[index]
+        let validator = state().validators[vindex]
         let sres = validator.getStatus(current_epoch)
         if sres.isOk():
           return RestApiResponse.jsonResponse(
             (
-              index: ValidatorIndex(index),
-              balance: Base10.toString(state().balances[index]),
+              index: vindex,
+              balance: Base10.toString(state().balances[vindex]),
               status: toString(sres.get()),
               validator: validator
             )
@@ -387,10 +412,22 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            "Only unique validator keys allowed")
             res1.incl(item.key)
           of ValidatorQueryKind.Index:
-            if item.index in res2:
+            let vitem =
+              block:
+                let vres = item.index.toValidatorIndex()
+                if vres.isErr():
+                  case vres.error()
+                  of ValidatorIndexError.TooHighValue:
+                    return RestApiResponse.jsonError(Http400,
+                                              "Incorrect validator index value")
+                  of ValidatorIndexError.UnsupportedValue:
+                    return RestApiResponse.jsonError(Http500,
+                                            "Unsupported validator index value")
+                vres.get()
+            if vitem in res2:
               return RestApiResponse.jsonError(Http400,
                                         "Only unique validator indexes allowed")
-            res2.incl(item.index)
+            res2.incl(vitem)
         (res1, res2)
     node.withStateForBlockSlot(bslot):
       let current_epoch = get_current_epoch(node.chainDag.headState.data.data)
