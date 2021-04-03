@@ -283,7 +283,7 @@ type
         name: "rest-port" }: Port
 
       restAddress* {.
-        defaultValue: defaultAdminListenAddress(config)
+        defaultValue: defaultAdminListenAddress
         desc: "Listening address of the REST server"
         name: "rest-address" }: ValidIpAddress
 

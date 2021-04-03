@@ -323,7 +323,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         dres.get()
 
     let wallTime = node.processor.getWallTime()
-    let res = node.attestationPool[].validateAggregate(payload, wallTime)
+    let res = await node.attestationPool.validateAggregate(
+      node.processor.batchCrypto, payload, wallTime
+    )
     if res.isErr():
       return RestApiResponse.jsonError(Http400, "Aggregate and proofs " &
         "verification failed", $res.error())
