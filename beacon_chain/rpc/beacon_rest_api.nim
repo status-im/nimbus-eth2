@@ -487,7 +487,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if repoch.isErr():
           return RestApiResponse.jsonError(Http400, "Invalid epoch value",
                                            $repoch.error())
-        some(repoch.get())
+        let res = repoch.get()
+        if res > MaxEpoch:
+          return RestApiResponse.jsonError(Http400, "Requesting epoch for " &
+                                           "which slot would overflow")
+        some(res)
       else:
         none[Epoch]()
     let vindex =
