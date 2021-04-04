@@ -222,10 +222,12 @@ proc attestationValidator*(
   beacon_attestations_received.inc()
   beacon_attestation_delay.observe(delay.toFloatSeconds())
 
-  self[].checkForPotentialDoppelganger(attestation.data, v.value, wallSlot)
+  self[].checkForPotentialDoppelganger(
+    attestation.data, v.value.attestingIndices, wallSlot)
 
   trace "Attestation validated"
-  self.verifQueues[].addAttestation(attestation, v.get())
+  let (attestingIndices, sig) = v.get()
+  self.verifQueues[].addAttestation(attestation, attestingIndices, sig)
 
   return ValidationResult.Accept
 
@@ -266,14 +268,17 @@ proc aggregateValidator*(
   beacon_aggregate_delay.observe(delay.toFloatSeconds())
 
   self[].checkForPotentialDoppelganger(
-    signedAggregateAndProof.message.aggregate.data, v.value, wallSlot)
+    signedAggregateAndProof.message.aggregate.data, v.value.attestingIndices,
+    wallSlot)
 
   trace "Aggregate validated",
     aggregator_index = signedAggregateAndProof.message.aggregator_index,
     selection_proof = signedAggregateAndProof.message.selection_proof,
     wallSlot
 
-  self.verifQueues[].addAggregate(signedAggregateAndProof, v.get())
+  let (attestingIndices, sig) = v.get()
+  self.verifQueues[].addAggregate(
+    signedAggregateAndProof, attestingIndices, sig)
 
   return ValidationResult.Accept
 

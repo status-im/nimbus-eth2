@@ -171,7 +171,7 @@ proc scheduleAttestationCheck*(
       fork: Fork, genesis_validators_root: Eth2Digest,
       epochRef: EpochRef,
       attestation: Attestation
-     ): Option[Future[Result[void, cstring]]] =
+     ): Option[(Future[Result[void, cstring]], CookedSig)] =
   ## Schedule crypto verification of an attestation
   ##
   ## The buffer is processed:
@@ -183,14 +183,14 @@ proc scheduleAttestationCheck*(
   ## and a future with the deferred attestation check otherwise.
   doAssert batchCrypto.pendingBuffer.len < BatchedCryptoSize
 
-  let sanity = batchCrypto
-                .pendingBuffer
-                .addAttestation(
-                  fork, genesis_validators_root, epochRef,
-                  attestation
-                )
+  let (sanity, sig) = batchCrypto
+                       .pendingBuffer
+                       .addAttestation(
+                         fork, genesis_validators_root, epochRef,
+                         attestation
+                       )
   if not sanity:
-    return none(Future[Result[void, cstring]])
+    return none((Future[Result[void, cstring]], CookedSig))
 
   let fut = newFuture[Result[void, cstring]](
     "batch_validation.scheduleAttestationCheck"
@@ -198,14 +198,17 @@ proc scheduleAttestationCheck*(
 
   batchCrypto.schedule(fut)
 
-  return some(fut)
+  return some((fut, sig))
 
 proc scheduleAggregateChecks*(
       batchCrypto: ref BatchCrypto,
       fork: Fork, genesis_validators_root: Eth2Digest,
       epochRef: EpochRef,
       signedAggregateAndProof: SignedAggregateAndProof
-     ): Option[tuple[slotCheck, aggregatorCheck, aggregateCheck: Future[Result[void, cstring]]]] =
+     ): Option[(
+       tuple[slotCheck, aggregatorCheck, aggregateCheck:
+         Future[Result[void, cstring]]],
+       CookedSig)] =
   ## Schedule crypto verification of an aggregate
   ##
   ## This involves 3 checks:
@@ -225,7 +228,10 @@ proc scheduleAggregateChecks*(
   template aggregate_and_proof: untyped = signedAggregateAndProof.message
   template aggregate: untyped = aggregate_and_proof.aggregate
 
-  type R = tuple[slotCheck, aggregatorCheck, aggregateCheck: Future[Result[void, cstring]]]
+  type R = (
+    tuple[slotCheck, aggregatorCheck, aggregateCheck:
+      Future[Result[void, cstring]]],
+    CookedSig)
 
   # Enqueue in the buffer
   # ------------------------------------------------------
@@ -254,15 +260,14 @@ proc scheduleAggregateChecks*(
     if not sanity:
       return none(R)
 
-  block:
-    let sanity = batchCrypto
-                  .pendingBuffer
-                  .addAttestation(
-                    fork, genesis_validators_root, epochRef,
-                    aggregate
-                  )
-    if not sanity:
-      return none(R)
+  let (sanity, sig) = batchCrypto
+                       .pendingBuffer
+                       .addAttestation(
+                         fork, genesis_validators_root, epochRef,
+                         aggregate
+                       )
+  if not sanity:
+    return none(R)
 
   let futSlot = newFuture[Result[void, cstring]](
     "batch_validation.scheduleAggregateChecks.slotCheck"
@@ -279,4 +284,4 @@ proc scheduleAggregateChecks*(
   batchCrypto.schedule(futAggregator, checkThreshold = false)
   batchCrypto.schedule(futAggregate)
 
-  return some((futSlot, futAggregator, futAggregate))
+  return some(((futSlot, futAggregator, futAggregate), sig))

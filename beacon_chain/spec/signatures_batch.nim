@@ -29,27 +29,30 @@ func `$`*(s: SignatureSet): string =
 #     there is no guarantee that pubkeys and signatures received are valid
 #     unlike when Nimbus did eager loading which ensured they were correct beforehand
 
-template loadOrExitFalse(signature: ValidatorSig): blscurve.Signature =
+template loadOrExit(signature: ValidatorSig, failReturn: auto):
+    blscurve.Signature =
   ## Load a BLS signature from a raw signature
-  ## Exists the **caller** with false if the signature is invalid
+  ## Exits the **caller** with false if the signature is invalid
   let sig = signature.load()
   if sig.isNone:
-    return false # this exits the calling scope, as templates are inlined.
+    doAssert false
+    return failReturn # this exits the calling scope, as templates are inlined.
   sig.unsafeGet()
 
-template loadWithCacheOrExitFalse(pubkey: ValidatorPubKey): blscurve.PublicKey =
+template loadWithCacheOrExit(pubkey: ValidatorPubKey, failReturn: auto):
+    blscurve.PublicKey =
   ## Load a BLS signature from a raw public key
   ## Exists the **caller** with false if the public key is invalid
   let pk = pubkey.loadWithCache()
   if pk.isNone:
-    return false # this exits the calling scope, as templates are inlined.
+    return failReturn # this exits the calling scope, as templates are inlined.
   pk.unsafeGet()
 
 func addSignatureSet[T](
       sigs: var seq[SignatureSet],
       pubkey: blscurve.PublicKey,
       sszObj: T,
-      signature: ValidatorSig,
+      signature: ValidatorSig | blscurve.Signature,
       genesis_validators_root: Eth2Digest,
       fork: Fork,
       epoch: Epoch,
@@ -66,11 +69,18 @@ func addSignatureSet[T](
       )
     ).data
 
-  sigs.add((
-    pubkey,
-    signing_root,
-    signature.loadOrExitFalse()
-  ))
+  when signature is ValidatorSig:
+    sigs.add((
+      pubkey,
+      signing_root,
+      signature.loadOrExit(false)
+    ))
+  else:
+    sigs.add((
+      pubkey,
+      signing_root,
+      signature
+    ))
 
   return true
 
@@ -82,10 +92,10 @@ proc aggregateAttesters(
   doAssert attestation.attesting_indices.len > 0
   var attestersAgg{.noInit.}: AggregatePublicKey
   attestersAgg.init(state.validators[attestation.attesting_indices[0]]
-                         .pubkey.loadWithCacheOrExitFalse())
+                         .pubkey.loadWithCacheOrExit(false))
   for i in 1 ..< attestation.attesting_indices.len:
     attestersAgg.aggregate(state.validators[attestation.attesting_indices[i]]
-                                .pubkey.loadWithCacheOrExitFalse())
+                                .pubkey.loadWithCacheOrExit(false))
   aggPK.finish(attestersAgg)
   return true
 
@@ -156,14 +166,14 @@ proc addAttestation(
                   ):
     if not result: # first iteration
       attestersAgg.init(state.validators[valIndex]
-                             .pubkey.loadWithCacheOrExitFalse())
+                             .pubkey.loadWithCacheOrExit(false))
       result = true
     else:
       attestersAgg.aggregate(state.validators[valIndex]
-                                  .pubkey.loadWithCacheOrExitFalse())
+                                  .pubkey.loadWithCacheOrExit(false))
 
   if not result:
-    # There was no attesters
+    # There were no attesters
     return false
 
   var attesters{.noinit.}: blscurve.PublicKey
@@ -188,45 +198,51 @@ proc addAttestation*(
       fork: Fork, genesis_validators_root: Eth2Digest,
       epochRef: auto,
       attestation: Attestation
-     ): bool =
+     ): tuple[valid: bool, sig: CookedSig] =
   ## Add an attestation for batched BLS verification
   ## purposes
   ## This only verifies cryptography
   ##
   ## Returns true if the attestation was added to the batching buffer
-  ## Returns false if saniy checks failed (non-empty, keys are valid)
+  ## Returns false if sanity checks failed (non-empty, keys are valid)
   ## In that case the seq[SignatureSet] is unmodified
   mixin get_attesting_indices, validator_keys, pubkey
 
-  result = false
+  let defaultFail = (false, default(CookedSig))
+
+  result = defaultFail
 
   var attestersAgg{.noInit.}: AggregatePublicKey
   for valIndex in epochRef.get_attesting_indices(
                     attestation.data,
                     attestation.aggregation_bits):
-    if not result: # first iteration
+    if not result.valid: # first iteration
       attestersAgg.init(epochRef.validator_keys[valIndex]
-                                .loadWithCacheOrExitFalse())
-      result = true
+                                .loadWithCacheOrExit(defaultFail))
+      result.valid = true
     else:
       attestersAgg.aggregate(epochRef.validator_keys[valIndex]
-                                     .loadWithCacheOrExitFalse())
+                                     .loadWithCacheOrExit(defaultFail))
 
-  if not result:
-    # There was no attesters
-    return false
+  if not result.valid:
+    # There were no attesters
+    return defaultFail
 
   var attesters{.noinit.}: blscurve.PublicKey
   attesters.finish(attestersAgg)
 
-  return sigs.addSignatureSet(
-    attesters,
-    attestation.data,
-    attestation.signature,
-    genesis_validators_root,
-    fork,
-    attestation.data.target.epoch,
-    DOMAIN_BEACON_ATTESTER)
+  let cookedSig = attestation.signature.loadOrExit(defaultFail)
+
+  return (
+    sigs.addSignatureSet(
+      attesters,
+      attestation.data,
+      cookedSig,
+      genesis_validators_root,
+      fork,
+      attestation.data.target.epoch,
+      DOMAIN_BEACON_ATTESTER),
+    CookedSig(cookedSig))
 
 proc addIndexedAttestation*(
       sigs: var seq[SignatureSet],
@@ -271,7 +287,7 @@ proc addSlotSignature*(
 
   let epoch = compute_epoch_at_slot(slot)
   return sigs.addSignatureSet(
-    pubkey.loadWithCacheOrExitFalse(),
+    pubkey.loadWithCacheOrExit(false),
     sszObj = slot,
     signature,
     genesis_validators_root,
@@ -290,7 +306,7 @@ proc addAggregateAndProofSignature*(
 
   let epoch = compute_epoch_at_slot(aggregate_and_proof.aggregate.data.slot)
   return sigs.addSignatureSet(
-    pubkey.loadWithCacheOrExitFalse(),
+    pubkey.loadWithCacheOrExit(false),
     sszObj = aggregate_and_proof,
     signature,
     genesis_validators_root,
@@ -325,7 +341,7 @@ proc collectSignatureSets*(
     return false
 
   let pubkey = state.validators[proposer_index]
-                    .pubkey.loadWithCacheOrExitFalse()
+                    .pubkey.loadWithCacheOrExit(false)
   let epoch = signed_block.message.slot.compute_epoch_at_slot()
 
   # 1. Block proposer
@@ -372,7 +388,7 @@ proc collectSignatureSets*(
       let proposer1 = state.validators[header_1.message.proposer_index]
       let epoch1 = header_1.message.slot.compute_epoch_at_slot()
       if not sigs.addSignatureSet(
-              proposer1.pubkey.loadWithCacheOrExitFalse(),
+              proposer1.pubkey.loadWithCacheOrExit(false),
               header_1.message,
               header_1.signature,
               state.genesis_validators_root,
@@ -388,7 +404,7 @@ proc collectSignatureSets*(
       let proposer2 = state.validators[header_2.message.proposer_index]
       let epoch2 = header_2.message.slot.compute_epoch_at_slot()
       if not sigs.addSignatureSet(
-              proposer2.pubkey.loadWithCacheOrExitFalse(),
+              proposer2.pubkey.loadWithCacheOrExit(false),
               header_2.message,
               header_2.signature,
               state.genesis_validators_root,
@@ -453,7 +469,7 @@ proc collectSignatureSets*(
 
     if not sigs.addSignatureSet(
             state.validators[volex.message.validator_index]
-                 .pubkey.loadWithCacheOrExitFalse(),
+                 .pubkey.loadWithCacheOrExit(false),
             volex.message,
             volex.signature,
             state.genesis_validators_root,
