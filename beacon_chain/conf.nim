@@ -141,7 +141,7 @@ type
 
     slashingDbKind* {.
       hidden
-      defaultValue: SlashingDbKind.both
+      defaultValue: SlashingDbKind.v2
       desc: "The slashing DB flavour to use (v1, v2 or both) [=both]"
       name: "slashing-db-kind" }: SlashingDbKind
 
