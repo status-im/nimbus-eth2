@@ -391,11 +391,6 @@ proc decodeString*(t: typedesc[string],
                    value: string): Result[string, cstring] =
   ok(value)
 
-proc jsonResponse*(t: typedesc[RestApiResponse], j: JsonNode): RestApiResponse =
-  let data =  %*{"data": j}
-  ok(ContentBody(contentType: "application/json",
-                 data: cast[seq[byte]]($data)))
-
 proc getRouter*(): RestRouter =
   RestRouter.init(validate)
 

@@ -198,7 +198,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
           proto: item.info.protoVersion  # part of specification.
         )
         res.add(peer)
-    return RestApiResponse.jsonResponse(res)
+    return RestApiResponse.jsonResponseWMeta(res, (count: uint64(len(res))))
 
   router.api(MethodGet, "/api/eth/v1/node/peer_count") do () -> RestApiResponse:
     var res: RestNodePeerCountTuple
