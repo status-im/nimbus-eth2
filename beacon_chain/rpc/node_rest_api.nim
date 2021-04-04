@@ -157,15 +157,15 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
     )
 
   router.api(MethodGet, "/api/eth/v1/node/peers") do (
-    states: seq[PeerStateKind],
-    directions: seq[PeerDirectKind]) -> RestApiResponse:
+    state: seq[PeerStateKind],
+    direction: seq[PeerDirectKind]) -> RestApiResponse:
     let connectionMask =
       block:
-        if states.isErr():
+        if state.isErr():
           return RestApiResponse.jsonError(Http400,
                                            "Invalid state value(s)",
-                                           $states.error())
-        let sres = validateState(states.get())
+                                           $state.error())
+        let sres = validateState(state.get())
         if sres.isErr():
           return RestApiResponse.jsonError(Http400,
                                            "Invalid state value(s)",
@@ -173,11 +173,11 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         sres.get()
     let directionMask =
       block:
-        if directions.isErr():
+        if direction.isErr():
           return RestApiResponse.jsonError(Http400,
                                            "Invalid direction value(s)",
-                                           $directions.error())
-        let dres = validateDirection(directions.get())
+                                           $direction.error())
+        let dres = validateDirection(direction.get())
         if dres.isErr():
           return RestApiResponse.jsonError(Http400,
                                            "Invalid direction value(s)",

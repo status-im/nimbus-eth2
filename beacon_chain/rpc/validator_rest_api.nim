@@ -59,7 +59,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400, "Incorrect epoch value",
                                            $epoch.error())
         let res = epoch.get()
-        if res >= MaxEpoch:
+        if res > MaxEpoch:
           return RestApiResponse.jsonError(Http400, "Requesting epoch for " &
                                            "which slot would overflow")
         res
@@ -129,7 +129,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400, "Incorrect epoch value",
                                            $epoch.error())
         let res = epoch.get()
-        if res >= MaxEpoch:
+        if res > MaxEpoch:
           return RestApiResponse.jsonError(Http400, "Requesting epoch for " &
                                            "which slot would overflow")
         res
