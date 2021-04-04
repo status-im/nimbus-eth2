@@ -449,17 +449,18 @@ proc validateAggregate*(
     return err((ValidationResult.Reject, cstring(
       "Selection_proof signature verification failed")))
 
-  # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
-  let aggregatorChecked = await cryptoFuts.aggregatorCheck
-  if aggregatorChecked.isErr():
-    return err((ValidationResult.Reject, cstring(
-      "signed_aggregate_and_proof aggregator signature verification failed")))
+  block:
+    # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
+    let aggregatorChecked = await cryptoFuts.aggregatorCheck
+    if aggregatorChecked.isErr():
+      return err((ValidationResult.Reject, cstring(
+        "signed_aggregate_and_proof aggregator signature verification failed")))
 
-  # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
-  let aggregateChecked = await cryptoFuts.aggregateCheck
-  if aggregateChecked.isErr():
-    return err((ValidationResult.Reject, cstring(
-      "signed_aggregate_and_proof aggregate attester signatures verification failed")))
+    # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
+    let aggregateChecked = await cryptoFuts.aggregateCheck
+    if aggregateChecked.isErr():
+      return err((ValidationResult.Reject, cstring(
+        "signed_aggregate_and_proof aggregate attester signatures verification failed")))
 
   # The following rule follows implicitly from that we clear out any
   # unviable blocks from the chain dag:
