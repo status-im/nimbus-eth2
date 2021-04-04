@@ -36,6 +36,16 @@ proc jsonResponse*(t: typedesc[RestApiResponse],
   ok(ContentBody(contentType: "application/json",
                  data: stream.getOutput(seq[byte])))
 
+proc jsonResponseWMeta*(t: typedesc[RestApiResponse],
+                        data: auto, meta: auto): RestApiResponse =
+  var stream = memoryOutput()
+  var writer = JsonWriter[RestJson].init(stream)
+  writer.beginRecord()
+  writer.writeField("data", data)
+  writer.writeField("meta", meta)
+  writer.endRecord()
+  ok(ContentBody(contentType: "application/json",
+                 data: stream.getOutput(seq[byte])))
 
 proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
                 msg: string = "", stacktrace: string = ""): RestApiResponse =
