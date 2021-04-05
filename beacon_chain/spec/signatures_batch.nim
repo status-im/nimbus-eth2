@@ -42,7 +42,7 @@ template loadOrExit(signature: ValidatorSig, failReturn: auto):
 template loadWithCacheOrExit(pubkey: ValidatorPubKey, failReturn: auto):
     blscurve.PublicKey =
   ## Load a BLS signature from a raw public key
-  ## Exists the **caller** with false if the public key is invalid
+  ## Exits the **caller** with false if the public key is invalid
   let pk = pubkey.loadWithCache()
   if pk.isNone:
     return failReturn # this exits the calling scope, as templates are inlined.
