@@ -21,7 +21,8 @@ import
   chronos, chronicles, metrics,
   libp2p/[switch, peerinfo, multicodec,
           multiaddress, crypto/crypto, crypto/secp,
-          protocols/identify, protocols/protocol],
+          protocols/identify, protocols/protocol,
+          builders],
   libp2p/muxers/muxer, libp2p/muxers/mplex/mplex,
   libp2p/transports/[transport, tcptransport],
   libp2p/protocols/secure/[secure, noise],
@@ -1532,27 +1533,16 @@ proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
                       address: MultiAddress,
                       rng: ref BrHmacDrbgContext): Switch {.raises: [Defect, CatchableError].} =
   try:
-    proc createMplex(conn: Connection): Muxer =
-      Mplex.init(conn, inTimeout = 5.minutes, outTimeout = 5.minutes)
-
-    let
-      peerInfo = PeerInfo.init(seckey, [address])
-      mplexProvider = newMuxerProvider(createMplex, MplexCodec)
-      transports = @[Transport(TcpTransport.init({ServerFlags.ReuseAddr}))]
-      muxers = {MplexCodec: mplexProvider}.toTable
-      secureManagers = [Secure(newNoise(rng, seckey))]
-
-    peerInfo.agentVersion = config.agentString
-
-    let identify = newIdentify(peerInfo)
-
-    newSwitch(
-      peerInfo,
-      transports,
-      identify,
-      muxers,
-      secureManagers,
-      maxConnections = config.maxPeers)
+    SwitchBuilder
+      .init()
+      .withPrivateKey(seckey)
+      .withAddress(address)
+      .withRng(rng)
+      .withMplex(5.minutes, 5.minutes)
+      .withTcpTransport({ServerFlags.ReuseAddr})
+      .withNoise()
+      .withAgentVersion(config.agentString)
+      .build()
   except CatchableError as exc: raise exc
   except Exception as exc: # TODO fix libp2p
     if exc is Defect: raise (ref Defect)exc
