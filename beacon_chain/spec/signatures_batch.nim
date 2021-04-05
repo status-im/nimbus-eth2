@@ -35,7 +35,6 @@ template loadOrExit(signature: ValidatorSig, failReturn: auto):
   ## Exits the **caller** with false if the signature is invalid
   let sig = signature.load()
   if sig.isNone:
-    doAssert false
     return failReturn # this exits the calling scope, as templates are inlined.
   sig.unsafeGet()
 
