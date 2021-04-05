@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 import std/[sequtils, strutils, os, tables, options]
 import confutils, chronicles, chronos
-import libp2p/[switch, standard_setup, multiaddress, multicodec, peerinfo]
+import libp2p/[switch, builders, multiaddress, multicodec, peerinfo]
 import libp2p/crypto/crypto as lcrypto
 import libp2p/crypto/secp as lsecp
 import libp2p/protocols/pubsub/[pubsub, gossipsub]
