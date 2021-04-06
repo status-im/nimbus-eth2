@@ -115,9 +115,9 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
   echo "Opening database..."
   let
     db = BeaconChainDB.new(
-      runtimePreset, config.databaseDir.string,
+      runtimePreset, conf.databaseDir.string,
       inMemory = false,
-      fileStateStorage = config.stateDbKind == StateDbKind.file)
+      fileStateStorage = conf.stateDbKind == StateDbKind.file)
     dbBenchmark = BeaconChainDB.new(runtimePreset, "benchmark")
   defer:
     db.close()
