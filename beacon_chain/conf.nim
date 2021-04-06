@@ -102,10 +102,9 @@ type
       desc: "A directory containing wallet files"
       name: "wallets-dir" }: Option[InputDir]
 
-    web3Url* {.
-      defaultValue: ""
-      desc: "URL of the Web3 server to observe Eth1"
-      name: "web3-url" }: string
+    web3Urls* {.
+      desc: "One of more Web3 provider URLs used for obtaining deposit contract data"
+      name: "web3-url" }: seq[string]
 
     web3Mode* {.
       hidden

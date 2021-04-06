@@ -152,7 +152,7 @@ proc init*(T: type BeaconNode,
         # This is a fresh start without a known genesis state
         # (most likely, it hasn't arrived yet). We'll try to
         # obtain a genesis through the Eth1 deposits monitor:
-        if config.web3Url.len == 0:
+        if config.web3Urls.len == 0:
           fatal "Web3 URL not specified"
           quit 1
 
@@ -161,7 +161,7 @@ proc init*(T: type BeaconNode,
         let eth1MonitorRes = waitFor Eth1Monitor.init(
           runtimePreset,
           db,
-          config.web3Url,
+          config.web3Urls,
           depositContractAddress,
           depositContractDeployedAt,
           eth1Network)
@@ -169,7 +169,7 @@ proc init*(T: type BeaconNode,
         if eth1MonitorRes.isErr:
           fatal "Failed to start Eth1 monitor",
                 reason = eth1MonitorRes.error,
-                web3Url = config.web3Url,
+                web3Urls = config.web3Urls,
                 depositContractAddress,
                 depositContractDeployedAt
           quit 1
@@ -271,14 +271,14 @@ proc init*(T: type BeaconNode,
     chainDag.setTailState(checkpointState[], checkpointBlock)
 
   if eth1Monitor.isNil and
-     config.web3Url.len > 0 and
+     config.web3Urls.len > 0 and
      genesisDepositsSnapshotContents.len > 0:
     let genesisDepositsSnapshot = SSZ.decode(genesisDepositsSnapshotContents,
                                              DepositContractSnapshot)
     eth1Monitor = Eth1Monitor.init(
       runtimePreset,
       db,
-      config.web3Url,
+      config.web3Urls,
       depositContractAddress,
       genesisDepositsSnapshot,
       eth1Network)
@@ -1702,8 +1702,8 @@ proc doCreateTestnet(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.raise
   let
     startTime = uint64(times.toUnix(times.getTime()) + config.genesisOffset)
     outGenesis = config.outputGenesis.string
-    eth1Hash = if config.web3Url.len == 0: eth1BlockHash
-              else: (waitFor getEth1BlockHash(config.web3Url, blockId("latest"))).asEth2Digest
+    eth1Hash = if config.web3Urls.len == 0: eth1BlockHash
+               else: (waitFor getEth1BlockHash(config.web3Urls[0], blockId("latest"))).asEth2Digest
     runtimePreset = getRuntimePresetForNetwork(config.eth2Network)
   var
     initialState = initialize_beacon_state_from_eth1(
