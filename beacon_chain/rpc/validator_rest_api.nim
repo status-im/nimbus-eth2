@@ -48,11 +48,26 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         if contentBody.isNone():
           return RestApiResponse.jsonError(Http400, "Empty request's body")
-        let dres = decodeBody(seq[ValidatorIndex], contentBody.get())
+        let dres = decodeBody(seq[RestValidatorIndex], contentBody.get())
         if dres.isErr():
           return RestApiResponse.jsonError(Http400, "Unable to decode " &
             "list of validator indexes", $dres.error())
-        dres.get()
+        var res: seq[ValidatorIndex]
+        let items = dres.get()
+        for item in items:
+          let vres = item.toValidatorIndex()
+          if vres.isErr():
+            case vres.error()
+            of ValidatorIndexError.TooHighValue:
+              return RestApiResponse.jsonError(Http400,
+                                              "Incorrect validator index value")
+            of ValidatorIndexError.UnsupportedValue:
+              return RestApiResponse.jsonError(Http500,
+                                            "Unsupported validator index value")
+          res.add(vres.get())
+        if len(res) == 0:
+          return RestApiResponse.jsonError(Http400, "Empty indexes list")
+        res
     let qepoch =
       block:
         if epoch.isErr():

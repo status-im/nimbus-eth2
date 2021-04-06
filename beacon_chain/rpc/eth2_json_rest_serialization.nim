@@ -151,6 +151,23 @@ proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorIndex) {.
   else:
     reader.raiseUnexpectedValue($res.error())
 
+## RestValidatorIndex
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: RestValidatorIndex) {.
+     raises: [IOError, Defect].} =
+  writeValue(writer, Base10.toString(uint64(value)))
+
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var RestValidatorIndex) {.
+     raises: [IOError, SerializationError, Defect].} =
+  let svalue = reader.readValue(string)
+  let res = Base10.decode(uint64, svalue)
+  if res.isOk():
+    let v = res.get()
+    value = RestValidatorIndex(v)
+  else:
+    reader.raiseUnexpectedValue($res.error())
+
 ## CommitteeIndex
 proc writeValue*(writer: var JsonWriter[RestJson], value: CommitteeIndex) {.
      raises: [IOError, Defect].} =
