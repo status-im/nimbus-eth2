@@ -1534,7 +1534,7 @@ proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
                       rng: ref BrHmacDrbgContext): Switch {.raises: [Defect, CatchableError].} =
   try:
     SwitchBuilder
-      .init()
+      .new()
       .withPrivateKey(seckey)
       .withAddress(address)
       .withRng(rng)
