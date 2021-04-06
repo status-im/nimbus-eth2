@@ -23,6 +23,15 @@ type
   #      doesn't find it.. :/
   #      eth/db/kvstore.nim(75, 6) Error: type mismatch: got <DirStoreRef, openArray[byte], openArray[byte]>
   DirStoreRef* = ref object of RootObj
+    # DirStore is an experimental storage based on plain files stored in a
+    # directory tree - this _might_ be a suitable way of storing large blobs
+    # efficiently, where sqlite sometimes struggles - see
+    # https://github.com/status-im/nimbus-eth2/issues/2440
+    #
+    # The issue described by 2440 happens when both blocks and states are all
+    # stored in a single, giant table. The slow deletes have since been
+    # mitigated by using separate tables.
+
     root: string
 
 proc splitName(db: DirStoreRef, name: openArray[byte]): tuple[dir, file: string] =
@@ -128,7 +137,8 @@ type
 
   Keyspaces* = enum
     defaultKeyspace = "kvstore"
-    validatorIndexFromPubKey
+    validatorIndexFromPubKey # Unused (?)
+    stateNoValidators = "state_no_validators"
 
   DbKeyKind = enum
     kHashToState
@@ -302,6 +312,35 @@ proc loadImmutableValidators(db: BeaconChainDB): seq[ImmutableValidatorData] =
   for i in 0 ..< db.immutableValidators.len:
     result.add db.immutableValidators.get(i)
 
+type
+  SqKeyspaceStoreRef* = ref object of RootObj
+    # Wrapper around SqStoreRef to target a particular keyspace - using
+    # keyspaces helps keep performance decent when using large blobs in tables
+    # that otherwise contain lots of rows.
+    db: SqStoreRef
+    keyspace: int
+
+proc get*(db: SqKeyspaceStoreRef, key: openArray[byte], onData: DataProc): KvResult[bool] =
+  get(db.db, db.keyspace, key, onData)
+
+proc del*(db: SqKeyspaceStoreRef, key: openArray[byte]): KvResult[void] =
+  del(db.db, db.keyspace, key)
+
+proc contains*(db: SqKeyspaceStoreRef, key: openArray[byte]): KvResult[bool] =
+  contains(db.db, db.keyspace, key)
+
+proc put*(db: SqKeyspaceStoreRef, key, val: openArray[byte]): KvResult[void] =
+  put(db.db, db.keyspace, key, val)
+
+proc close*(db: SqKeyspaceStoreRef): KvResult[void] =
+  ok() # Gets closed with the "default" keyspace
+
+proc init(T: type SqKeyspaceStoreRef, db: SqStoreRef, keyspace: Keyspaces): T =
+  T(
+    db: db,
+    keyspace: int(keyspace)
+  )
+
 proc new*(T: type BeaconChainDB,
           preset: RuntimePreset,
           dir: string,
@@ -330,8 +369,10 @@ proc new*(T: type BeaconChainDB,
       DbSeq[ImmutableValidatorData].init(sqliteStore, "immutable_validators")
     backend = kvStore sqliteStore
     stateStore =
-      if inMemory or (not fileStateStorage): backend
-      else: kvStore DirStoreRef.init(dir & "/state")
+      if inMemory or (not fileStateStorage):
+        kvStore SqKeyspaceStoreRef.init(sqliteStore, stateNoValidators)
+      else:
+        kvStore DirStoreRef.init(dir & "/state")
 
   T(backend: backend,
     preset: preset,
