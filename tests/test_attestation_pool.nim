@@ -42,7 +42,7 @@ func combine(tgt: var Attestation, src: Attestation) =
     agg.aggregate(src.signature)
     tgt.signature = agg.finish()
 
-func unsafeLoadSig(a: Attestation): CookedSig =
+func loadSig(a: Attestation): CookedSig =
   a.signature.load.get().CookedSig
 
 template wrappedTimedTest(name: string, body: untyped) =
@@ -85,7 +85,7 @@ suiteReport "Attestation pool processing" & preset():
         state.data.data, state.blck.root, beacon_committee[0], cache)
 
     pool[].addAttestation(
-      attestation, @[beacon_committee[0]], attestation.unsafeLoadSig,
+      attestation, @[beacon_committee[0]], attestation.loadSig,
       attestation.data.slot)
 
     check:
@@ -116,11 +116,9 @@ suiteReport "Attestation pool processing" & preset():
 
     # test reverse order
     pool[].addAttestation(
-      attestation1, @[bc1[0]], attestation1.unsafeLoadSig,
-      attestation1.data.slot)
+      attestation1, @[bc1[0]], attestation1.loadSig, attestation1.data.slot)
     pool[].addAttestation(
-      attestation0, @[bc0[0]], attestation0.unsafeLoadSig,
-      attestation1.data.slot)
+      attestation0, @[bc0[0]], attestation0.loadSig, attestation1.data.slot)
 
     discard process_slots(
       state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
@@ -142,11 +140,9 @@ suiteReport "Attestation pool processing" & preset():
         state.data.data, state.blck.root, bc0[1], cache)
 
     pool[].addAttestation(
-      attestation0, @[bc0[0]], attestation0.unsafeLoadSig,
-      attestation0.data.slot)
+      attestation0, @[bc0[0]], attestation0.loadSig, attestation0.data.slot)
     pool[].addAttestation(
-      attestation1, @[bc0[1]], attestation1.unsafeLoadSig,
-      attestation1.data.slot)
+      attestation1, @[bc0[1]], attestation1.loadSig, attestation1.data.slot)
 
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
@@ -171,11 +167,9 @@ suiteReport "Attestation pool processing" & preset():
     attestation0.combine(attestation1)
 
     pool[].addAttestation(
-      attestation0, @[bc0[0]], attestation0.unsafeLoadSig,
-      attestation0.data.slot)
+      attestation0, @[bc0[0]], attestation0.loadSig, attestation0.data.slot)
     pool[].addAttestation(
-      attestation1, @[bc0[1]], attestation1.unsafeLoadSig,
-      attestation1.data.slot)
+      attestation1, @[bc0[1]], attestation1.loadSig, attestation1.data.slot)
 
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
@@ -199,11 +193,9 @@ suiteReport "Attestation pool processing" & preset():
     attestation0.combine(attestation1)
 
     pool[].addAttestation(
-      attestation1, @[bc0[1]], attestation1.unsafeLoadSig,
-      attestation1.data.slot)
+      attestation1, @[bc0[1]], attestation1.loadSig, attestation1.data.slot)
     pool[].addAttestation(
-      attestation0, @[bc0[0]], attestation0.unsafeLoadSig,
-      attestation0.data.slot)
+      attestation0, @[bc0[0]], attestation0.loadSig, attestation0.data.slot)
 
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
@@ -271,8 +263,7 @@ suiteReport "Attestation pool processing" & preset():
       attestation0 = makeAttestation(state.data.data, b10.root, bc1[0], cache)
 
     pool[].addAttestation(
-      attestation0, @[bc1[0]], attestation0.unsafeLoadSig,
-      attestation0.data.slot)
+      attestation0, @[bc1[0]], attestation0.loadSig, attestation0.data.slot)
 
     let head2 = pool[].selectHead(b10Add[].slot)
 
@@ -284,8 +275,7 @@ suiteReport "Attestation pool processing" & preset():
       attestation1 = makeAttestation(state.data.data, b11.root, bc1[1], cache)
       attestation2 = makeAttestation(state.data.data, b11.root, bc1[2], cache)
     pool[].addAttestation(
-      attestation1, @[bc1[1]], attestation1.unsafeLoadSig,
-      attestation1.data.slot)
+      attestation1, @[bc1[1]], attestation1.loadSig, attestation1.data.slot)
 
     let head3 = pool[].selectHead(b10Add[].slot)
     let bigger = if b11.root.data < b10.root.data: b10Add else: b11Add
@@ -295,8 +285,7 @@ suiteReport "Attestation pool processing" & preset():
       head3 == bigger[]
 
     pool[].addAttestation(
-      attestation2, @[bc1[2]], attestation2.unsafeLoadSig,
-      attestation2.data.slot)
+      attestation2, @[bc1[2]], attestation2.loadSig, attestation2.data.slot)
 
     let head4 = pool[].selectHead(b11Add[].slot)
 

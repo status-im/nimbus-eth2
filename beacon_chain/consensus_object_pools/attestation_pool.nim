@@ -182,7 +182,6 @@ proc addAttestation*(pool: var AttestationPool,
     # Only attestestions with valid signatures get here
 
   template getValidation(): auto =
-    doAssert attestation.signature == signature.exportRaw
     Validation(
       aggregation_bits: attestation.aggregation_bits,
       aggregate_signature: signature)
