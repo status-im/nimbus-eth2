@@ -17,7 +17,7 @@ import
   ./batch_validation,
   ../validators/validator_pool,
   ../beacon_node_types,
-  ../beacon_clock, ../conf, ../ssz/sszdump
+  ../beacon_clock, ../ssz/sszdump
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_attestations_received,
@@ -52,7 +52,7 @@ declareHistogram beacon_store_block_duration_seconds,
 
 type
   Eth2Processor* = object
-    config*: BeaconNodeConf
+    doppelGangerDetectionEnabled*: bool
     getWallTime*: GetWallTimeFn
 
     # Local sources of truth for validation
@@ -83,7 +83,7 @@ type
 # ------------------------------------------------------------------------------
 
 proc new*(T: type Eth2Processor,
-          config: BeaconNodeConf,
+          doppelGangerDetectionEnabled: bool,
           verifQueues: ref VerifQueueManager,
           chainDag: ChainDAGRef,
           attestationPool: ref AttestationPool,
@@ -93,7 +93,7 @@ proc new*(T: type Eth2Processor,
           rng: ref BrHmacDrbgContext,
           getWallTime: GetWallTimeFn): ref Eth2Processor =
   (ref Eth2Processor)(
-    config: config,
+    doppelGangerDetectionEnabled: doppelGangerDetectionEnabled,
     getWallTime: getWallTime,
     verifQueues: verifQueues,
     chainDag: chainDag,
@@ -182,7 +182,7 @@ proc checkForPotentialDoppelganger(
           validatorPubkey,
           attestationSlot = attestationData.slot
         doppelganger_detection_activated.inc()
-        if self.config.doppelgangerDetection:
+        if self.doppelgangerDetectionEnabled:
           warn "We believe you are currently running another instance of the same validator. We've disconnected you from the network as this presents a significant slashing risk. Possible next steps are (a) making sure you've disconnected your validator from your old machine before restarting the client; and (b) running the client again with the gossip-slashing-protection option disabled, only if you are absolutely sure this is the only instance of your validator running, and reporting the issue at https://github.com/status-im/nimbus-eth2/issues."
           quit QuitFailure
 
@@ -277,8 +277,6 @@ proc aggregateValidator*(
 
   return ValidationResult.Accept
 
-{.push raises: [Defect].}
-
 proc attesterSlashingValidator*(
     self: var Eth2Processor, attesterSlashing: AttesterSlashing):
     ValidationResult =
@@ -323,5 +321,3 @@ proc voluntaryExitValidator*(
   beacon_voluntary_exits_received.inc()
 
   ValidationResult.Accept
-
-{.pop.}
