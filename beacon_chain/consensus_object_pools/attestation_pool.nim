@@ -182,9 +182,11 @@ proc addAttestation*(pool: var AttestationPool,
     # Only attestestions with valid signatures get here
 
   template getValidation(): auto =
+    doAssert attestation.signature == signature.exportRaw
     Validation(
       aggregation_bits: attestation.aggregation_bits,
-      aggregate_signature: signature)
+      aggregate_signature: signature,
+      aggregate_signature_raw: attestation.signature)
 
   var found = false
   for a in attestationsSeen.attestations.mitems():
@@ -287,7 +289,7 @@ iterator attestations*(pool: AttestationPool, slot: Option[Slot],
           yield Attestation(
             aggregation_bits: validation.aggregation_bits,
             data: entry.data,
-            signature: validation.aggregate_signature.exportRaw
+            signature: validation.aggregate_signature_raw
           )
 
 func getAttestationDataKey(ad: AttestationData): AttestationDataKey =
@@ -383,7 +385,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
       attestation = Attestation(
         aggregation_bits: a.validations[0].aggregation_bits,
         data: a.data,
-        signature: a.validations[0].aggregate_signature.exportRaw
+        signature: a.validations[0].aggregate_signature_raw
       )
 
       agg {.noInit.}: AggregateSignature
@@ -454,7 +456,7 @@ proc getAggregatedAttestation*(pool: AttestationPool,
       attestation = Attestation(
         aggregation_bits: a.validations[0].aggregation_bits,
         data: a.data,
-        signature: a.validations[0].aggregate_signature.exportRaw
+        signature: a.validations[0].aggregate_signature_raw
       )
 
       agg {.noInit.}: AggregateSignature

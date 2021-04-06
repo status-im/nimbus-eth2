@@ -38,6 +38,7 @@ type
     ## be further combined.
     aggregation_bits*: CommitteeValidatorsBits
     aggregate_signature*: CookedSig
+    aggregate_signature_raw*: ValidatorSig
 
   AttestationEntry* = object
     ## Each entry holds the known signatures for a particular, distinct vote

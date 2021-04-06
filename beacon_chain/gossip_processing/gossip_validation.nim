@@ -305,7 +305,6 @@ proc validateAttestation*(
   let
     (cryptoFut, sig) = deferredCrypto.get()
     cryptoChecked = await cryptoFut
-  doAssert attestation.signature == sig.exportRaw
   if cryptoChecked.isErr():
     return err((ValidationResult.Reject, cryptoChecked.error))
 

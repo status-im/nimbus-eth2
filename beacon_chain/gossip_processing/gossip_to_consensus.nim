@@ -286,7 +286,6 @@ proc processAttestation(
     quit 1
 
   trace "Processing attestation"
-  doAssert entry.sig.exportRaw == entry.v.signature
   self.consensusManager.attestationPool[].addAttestation(
     entry.v, entry.attesting_indices, entry.sig, wallSlot)
 
@@ -304,7 +303,6 @@ proc processAggregate(
     quit 1
 
   trace "Processing aggregate"
-  doAssert entry.sig.exportRaw == entry.v.signature
   self.consensusManager.attestationPool[].addAttestation(
     entry.v, entry.attesting_indices, entry.sig, wallSlot)
 
