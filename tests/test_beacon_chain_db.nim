@@ -42,14 +42,14 @@ func withDigest(blck: TrustedBeaconBlock): TrustedSignedBeaconBlock =
 suiteReport "Beacon chain DB" & preset():
   wrappedTimedTest "empty database" & preset():
     var
-      db = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)
+      db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
     check:
       db.getStateRef(Eth2Digest()).isNil
       db.getBlock(Eth2Digest()).isNone
 
   wrappedTimedTest "sanity check blocks" & preset():
     var
-      db = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)
+      db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
 
     let
       signedBlock = withDigest(TrustedBeaconBlock())
@@ -172,7 +172,7 @@ suiteReport "Beacon chain DB" & preset():
 
   wrappedTimedTest "find ancestors" & preset():
     var
-      db = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)
+      db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
 
     let
       a0 = withDigest(
@@ -218,7 +218,7 @@ suiteReport "Beacon chain DB" & preset():
     # serialization where an all-zero default-initialized bls signature could
     # not be deserialized because the deserialization was too strict.
     var
-      db = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)
+      db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
 
     let
       state = initialize_beacon_state_from_eth1(
@@ -239,7 +239,7 @@ suiteReport "Beacon chain DB" & preset():
 
   wrappedTimedTest "sanity check state diff roundtrip" & preset():
     var
-      db = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)
+      db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
 
     # TODO htr(diff) probably not interesting/useful, but stand-in
     let

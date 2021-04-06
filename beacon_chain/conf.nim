@@ -70,6 +70,10 @@ type
     v2
     both
 
+  StateDbKind* {.pure.} = enum
+    sql
+    file
+
   BeaconNodeConf* = object
     logLevel* {.
       defaultValue: "INFO"
@@ -144,6 +148,12 @@ type
       defaultValue: SlashingDbKind.both
       desc: "The slashing DB flavour to use (v1, v2 or both) [=both]"
       name: "slashing-db-kind" }: SlashingDbKind
+
+    stateDbKind* {.
+      hidden
+      defaultValue: StateDbKind.sql
+      desc: "State DB kind (sql, file) [=sql]"
+      name: "state-db-kind" }: StateDbKind
 
     case cmd* {.
       command
