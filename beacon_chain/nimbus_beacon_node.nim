@@ -332,10 +332,11 @@ proc init*(T: type BeaconNode,
       chainDag, attestationPool, quarantine
     )
     verifQueues = VerifQueueManager.new(
-      config, consensusManager,
+      config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
+      consensusManager,
       proc(): BeaconTime = beaconClock.now())
     processor = Eth2Processor.new(
-      config,
+      config.doppelgangerDetection,
       verifQueues,
       chainDag, attestationPool, exitPool, validatorPool,
       quarantine,

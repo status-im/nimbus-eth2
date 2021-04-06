@@ -12,8 +12,8 @@ import
   ../spec/[crypto, datatypes, digest],
   ../consensus_object_pools/[block_clearance, blockchain_dag, attestation_pool],
   ./consensus_manager,
-  ../beacon_node_types,
-  ../beacon_clock, ../conf, ../ssz/sszdump
+  ".."/[beacon_clock, beacon_node_types],
+  ../ssz/sszdump
 
 # Gossip Queue Manager
 # ------------------------------------------------------------------------------
@@ -21,6 +21,12 @@ import
 
 declareHistogram beacon_store_block_duration_seconds,
   "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
+
+declareCounter beacon_attestations_dropped_queue_full,
+  "Number of attestations dropped because queue is full"
+
+declareCounter beacon_aggregates_dropped_queue_full,
+  "Number of aggregates dropped because queue is full"
 
 type
   SyncBlock* = object
@@ -72,7 +78,11 @@ type
     #   is there a point to separate
     #   attestations & aggregates here?
     attestationsQueue: AsyncQueue[AttestationEntry]
+    attestationsDropped: int
+    attestationsDropTime: tuple[afterGenesis: bool, slot: Slot]
     aggregatesQueue: AsyncQueue[AggregateEntry]
+    aggregatesDropped: int
+    aggregatesDropTime: tuple[afterGenesis: bool, slot: Slot]
 
     # Consumer
     # ----------------------------------------------------------------
@@ -85,13 +95,14 @@ type
 # ------------------------------------------------------------------------------
 
 proc new*(T: type VerifQueueManager,
-          conf: BeaconNodeConf,
+          dumpEnabled: bool,
+          dumpDirInvalid, dumpDirIncoming: string,
           consensusManager: ref ConsensusManager,
           getWallTime: GetWallTimeFn): ref VerifQueueManager =
   (ref VerifQueueManager)(
-    dumpEnabled: conf.dumpEnabled,
-    dumpDirInvalid: conf.dumpDirInvalid,
-    dumpDirIncoming: conf.dumpDirIncoming,
+    dumpEnabled: dumpEnabled,
+    dumpDirInvalid: dumpDirInvalid,
+    dumpDirIncoming: dumpDirIncoming,
 
     getWallTime: getWallTime,
 
@@ -107,7 +118,9 @@ proc new*(T: type VerifQueueManager,
     attestationsQueue: newAsyncQueue[AttestationEntry](
       (TARGET_COMMITTEE_SIZE * MAX_COMMITTEES_PER_SLOT).int),
 
-    consensusManager: consensusManager
+    consensusManager: consensusManager,
+    attestationsDropTime: getWallTime().toSlot(),
+    aggregatesDropTime: getWallTime().toSlot(),
   )
 
 # Sync callbacks
@@ -154,12 +167,21 @@ proc addAttestation*(self: var VerifQueueManager, att: Attestation, att_indices:
   # Producer:
   # - Gossip (when synced)
   while self.attestationsQueue.full():
+    self.attestationsDropped += 1
+    beacon_attestations_dropped_queue_full.inc()
+
     try:
-      notice "Queue full, dropping oldest attestation",
-        dropped = shortLog(self.attestationsQueue[0].v)
       discard self.attestationsQueue.popFirstNoWait()
     except AsyncQueueEmptyError as exc:
       raiseAssert "If queue is full, we have at least one item! " & exc.msg
+
+  if self.attestationsDropped > 0:
+    let now = self.getWallTime().toSlot() # Print notice once per slot
+    if now != self.attestationsDropTime:
+      notice "Queue full, attestations dropped",
+        count = self.attestationsDropped
+      self.attestationsDropTime = now
+      self.attestationsDropped = 0
 
   try:
     self.attestationsQueue.addLastNoWait(
@@ -175,12 +197,21 @@ proc addAggregate*(self: var VerifQueueManager, agg: SignedAggregateAndProof, at
   # - Gossip (when synced)
 
   while self.aggregatesQueue.full():
+    self.aggregatesDropped += 1
+    beacon_aggregates_dropped_queue_full.inc()
+
     try:
-      notice "Queue full, dropping oldest aggregate",
-        dropped = shortLog(self.aggregatesQueue[0].v)
       discard self.aggregatesQueue.popFirstNoWait()
     except AsyncQueueEmptyError as exc:
       raiseAssert "We just checked that queue is not full! " & exc.msg
+
+  if self.aggregatesDropped > 0:
+    let now = self.getWallTime().toSlot() # Print notice once per slot
+    if now != self.aggregatesDropTime:
+      notice "Queue full, aggregates dropped",
+        count = self.aggregatesDropped
+      self.aggregatesDropTime = now
+      self.aggregatesDropped = 0
 
   try:
     self.aggregatesQueue.addLastNoWait(AggregateEntry(
