@@ -1740,11 +1740,19 @@ proc doCreateTestnet(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.raise
     writeFile(bootstrapFile, bootstrapEnr.tryGet().toURI)
     echo "Wrote ", bootstrapFile
 
+proc findWalletWithoutErrors(config: BeaconNodeConf,
+                             name: WalletName): Option[WalletPathPair] =
+  let res = findWallet(config, name)
+  if res.isErr:
+    fatal "Failed to locate wallet", error = res.error
+    quit 1
+  res.get
+
 proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
     raises: [Defect, CatchableError].} =
   case config.depositsCmd
-  #[
   of DepositsCmd.create:
+    let metadata = config.loadEth2Network()
     var seed: KeySeed
     defer: burnMem(seed)
     var walletPath: WalletPathPair
@@ -1752,7 +1760,7 @@ proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
     if config.existingWalletId.isSome:
       let
         id = config.existingWalletId.get
-        found = findWalletWithoutErrors(id)
+        found = findWalletWithoutErrors(config, id)
 
       if found.isSome:
         walletPath = found.get
@@ -1767,7 +1775,7 @@ proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
         # The failure will be reported in `unlockWalletInteractively`.
         quit 1
     else:
-      var walletRes = createWalletInteractively(rng[], config)
+      var walletRes = createWalletInteractively(rng, config)
       if walletRes.isErr:
         fatal "Unable to create wallet", err = walletRes.error
         quit 1
@@ -1786,8 +1794,8 @@ proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
       quit QuitFailure
 
     let deposits = generateDeposits(
-      runtimePreset,
-      rng[],
+      metadata.runtimePreset,
+      rng,
       seed,
       walletPath.wallet.nextAccount,
       config.totalDeposits,
@@ -1805,7 +1813,7 @@ proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
         config.outValidatorsDir / "deposit_data-" & $epochTime() & ".json"
 
       let launchPadDeposits =
-        mapIt(deposits.value, LaunchPadDeposit.init(runtimePreset, it))
+        mapIt(deposits.value, LaunchPadDeposit.init(metadata.runtimePreset, it))
 
       Json.saveFile(depositDataPath, launchPadDeposits)
       echo "Deposit data written to \"", depositDataPath, "\""
@@ -1820,12 +1828,12 @@ proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
     except CatchableError as err:
       fatal "Failed to create launchpad deposit data file", err = err.msg
       quit 1
-
+  #[
   of DepositsCmd.status:
     echo "The status command is not implemented yet"
     quit 1
+  ]#
 
-  #]#
   of DepositsCmd.`import`:
     let validatorKeysDir = if config.importedDepositsDir.isSome:
       config.importedDepositsDir.get
@@ -1850,19 +1858,12 @@ proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
 
 proc doWallets(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
     raises: [Defect, CatchableError].} =
-  template findWalletWithoutErrors(name: WalletName): auto =
-    let res = keystore_management.findWallet(config, name)
-    if res.isErr:
-      fatal "Failed to locate wallet", error = res.error
-      quit 1
-    res.get
-
   case config.walletsCmd:
   of WalletsCmd.create:
     if config.createdWalletNameFlag.isSome:
       let
         name = config.createdWalletNameFlag.get
-        existingWallet = findWalletWithoutErrors(name)
+        existingWallet = findWalletWithoutErrors(config, name)
       if existingWallet.isSome:
         echo "The Wallet '" & name.string & "' already exists."
         quit 1
