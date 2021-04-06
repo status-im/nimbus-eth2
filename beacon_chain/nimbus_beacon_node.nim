@@ -99,7 +99,10 @@ proc init*(T: type BeaconNode,
            genesisDepositsSnapshotContents: string): BeaconNode {.
     raises: [Defect, CatchableError].} =
   let
-    db = BeaconChainDB.init(runtimePreset, config.databaseDir)
+    db = BeaconChainDB.new(
+      runtimePreset, config.databaseDir,
+      inMemory = false,
+      fileStateStorage = config.stateDbKind == StateDbKind.file)
 
   var
     genesisState, checkpointState: ref BeaconState

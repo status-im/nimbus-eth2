@@ -28,6 +28,10 @@ type
     rewindState
     exportEra
 
+  StateDbKind* {.pure.} = enum
+    sql
+    file
+
   # TODO:
   # This should probably allow specifying a run-time preset
   DbConf = object
@@ -39,6 +43,11 @@ type
     eth2Network* {.
       desc: "The Eth2 network preset to use"
       name: "network" }: Option[string]
+
+    stateDbKind* {.
+      defaultValue: StateDbKind.sql
+      desc: "State DB kind (sql, file) [=sql]"
+      name: "state-db-kind" }: StateDbKind
 
     case cmd* {.
       command
@@ -61,6 +70,7 @@ type
       resetCache* {.
         defaultValue: false
         desc: "Process each block with a fresh cache".}: bool
+
     of dumpState:
       stateRoot* {.
         argument
@@ -104,8 +114,11 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
 
   echo "Opening database..."
   let
-    db = BeaconChainDB.init(runtimePreset, conf.databaseDir.string)
-    dbBenchmark = BeaconChainDB.init(runtimePreset, "benchmark")
+    db = BeaconChainDB.new(
+      runtimePreset, config.databaseDir.string,
+      inMemory = false,
+      fileStateStorage = config.stateDbKind == StateDbKind.file)
+    dbBenchmark = BeaconChainDB.new(runtimePreset, "benchmark")
   defer:
     db.close()
     dbBenchmark.close()
@@ -187,7 +200,7 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
   printTimers(false, timers)
 
 proc cmdDumpState(conf: DbConf, preset: RuntimePreset) =
-  let db = BeaconChainDB.init(preset, conf.databaseDir.string)
+  let db = BeaconChainDB.new(preset, conf.databaseDir.string)
   defer: db.close()
 
   for stateRoot in conf.stateRoot:
@@ -202,7 +215,7 @@ proc cmdDumpState(conf: DbConf, preset: RuntimePreset) =
       echo "Couldn't load ", stateRoot, ": ", e.msg
 
 proc cmdDumpBlock(conf: DbConf, preset: RuntimePreset) =
-  let db = BeaconChainDB.init(preset, conf.databaseDir.string)
+  let db = BeaconChainDB.new(preset, conf.databaseDir.string)
   defer: db.close()
 
   for blockRoot in conf.blockRootx:
@@ -289,9 +302,9 @@ proc copyPrunedDatabase(
 
 proc cmdPrune(conf: DbConf, preset: RuntimePreset) =
   let
-    db = BeaconChainDB.init(preset, conf.databaseDir.string)
+    db = BeaconChainDB.new(preset, conf.databaseDir.string)
     # TODO: add the destination as CLI paramter
-    copyDb = BeaconChainDB.init(preset, "pruned_db")
+    copyDb = BeaconChainDB.new(preset, "pruned_db")
 
   defer:
     db.close()
@@ -301,7 +314,7 @@ proc cmdPrune(conf: DbConf, preset: RuntimePreset) =
 
 proc cmdRewindState(conf: DbConf, preset: RuntimePreset) =
   echo "Opening database..."
-  let db = BeaconChainDB.init(preset, conf.databaseDir.string)
+  let db = BeaconChainDB.new(preset, conf.databaseDir.string)
   defer: db.close()
 
   if not ChainDAGRef.isInitialized(db):
@@ -328,7 +341,7 @@ proc atCanonicalSlot(blck: BlockRef, slot: Slot): BlockSlot =
     blck.atSlot(slot - 1).blck.atSlot(slot)
 
 proc cmdExportEra(conf: DbConf, preset: RuntimePreset) =
-  let db = BeaconChainDB.init(preset, conf.databaseDir.string)
+  let db = BeaconChainDB.new(preset, conf.databaseDir.string)
   defer: db.close()
 
   if not ChainDAGRef.isInitialized(db):

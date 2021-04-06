@@ -63,7 +63,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
   echo "Starting simulation..."
 
-  let db = BeaconChainDB.init(runtimePreset, "block_sim_db")
+  let db = BeaconChainDB.new(runtimePreset, "block_sim_db")
   defer: db.close()
 
   ChainDAGRef.preInit(db, state[].data, state[].data, genesisBlock)

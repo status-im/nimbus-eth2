@@ -302,10 +302,12 @@ proc loadImmutableValidators(db: BeaconChainDB): seq[ImmutableValidatorData] =
   for i in 0 ..< db.immutableValidators.len:
     result.add db.immutableValidators.get(i)
 
-proc init*(T: type BeaconChainDB,
-           preset: RuntimePreset,
-           dir: string,
-           inMemory = false): BeaconChainDB =
+proc new*(T: type BeaconChainDB,
+          preset: RuntimePreset,
+          dir: string,
+          inMemory = false,
+          fileStateStorage = false,
+    ): BeaconChainDB =
   var sqliteStore = if inMemory:
       SqStoreRef.init("", "test", inMemory = true).expect("working database (out of memory?)")
     else:
@@ -328,7 +330,8 @@ proc init*(T: type BeaconChainDB,
       DbSeq[ImmutableValidatorData].init(sqliteStore, "immutable_validators")
     backend = kvStore sqliteStore
     stateStore =
-      if inMemory: backend else: kvStore DirStoreRef.init(dir & "/state")
+      if inMemory or (not fileStateStorage): backend
+      else: kvStore DirStoreRef.init(dir & "/state")
 
   T(backend: backend,
     preset: preset,
