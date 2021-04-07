@@ -31,9 +31,10 @@ func applyValidatorIdentities(
     validators: var HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT],
     hl: auto) =
   for item in hl:
-    validators.add Validator(
-      pubkey: item.pubkey,
-      withdrawal_credentials: item.withdrawal_credentials)
+    if not validators.add Validator(
+        pubkey: item.pubkey,
+        withdrawal_credentials: item.withdrawal_credentials):
+      raiseAssert "cannot readd"
 
 func setValidatorStatuses(
     validators: var HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT],
@@ -67,7 +68,8 @@ func replaceOrAddEncodeEth1Votes[T, U](votes0, votes1: HashList[T, U]):
 
   result[0] = lower_bound == 0
   for i in lower_bound ..< votes1.len:
-    result[1].add votes1[i]
+    if not result[1].add votes1[i]:
+      raiseAssert "same limit"
 
 func replaceOrAddDecodeEth1Votes[T, U](
     votes0: var HashList[T, U], eth1_data_votes_replaced: bool,
@@ -76,11 +78,13 @@ func replaceOrAddDecodeEth1Votes[T, U](
     votes0 = HashList[T, U]()
 
   for item in votes1:
-    votes0.add item
+    if not votes0.add item:
+      raiseAssert "same limit"
 
 func getMutableValidatorStatuses(state: BeaconState):
     List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT] =
-  result.setLen(state.validators.len)
+  if not result.setLen(state.validators.len):
+    raiseAssert "same limt as validators"
   for i in 0 ..< state.validators.len:
     let validator = unsafeAddr state.validators.data[i]
     assign(result[i].effective_balance, validator.effective_balance)
@@ -149,9 +153,8 @@ func applyDiff*(
     immutableValidators: openArray[ImmutableValidatorData],
     stateDiff: BeaconStateDiff) =
   template assign[T, U](tgt: var HashList[T, U], src: List[T, U]) =
-    tgt.clear()
     assign(tgt.data, src)
-    tgt.growHashes()
+    tgt.resetCache()
 
   # Carry over unchanged genesis_time, genesis_validators_root, and fork.
   assign(state.latest_block_header, stateDiff.latest_block_header)
@@ -159,7 +162,8 @@ func applyDiff*(
   applyModIncrement(state.block_roots, stateDiff.block_roots, state.slot.uint64)
   applyModIncrement(state.state_roots, stateDiff.state_roots, state.slot.uint64)
   if stateDiff.historical_root_added:
-    state.historical_roots.add stateDiff.historical_root
+    if not state.historical_roots.add stateDiff.historical_root:
+      raiseAssert "cannot readd historical state root"
 
   assign(state.eth1_data, stateDiff.eth1_data)
   replaceOrAddDecodeEth1Votes(

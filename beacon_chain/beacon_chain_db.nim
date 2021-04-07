@@ -473,10 +473,6 @@ proc getStateOnlyMutableValidators(
     let numValidators = output.validators.len
     doAssert db.immutableValidatorsMem.len >= numValidators
 
-    output.validators.hashes.setLen(0)
-    for item in output.validators.indices.mitems():
-      item = 0
-
     for i in 0 ..< numValidators:
       let
         # Bypass hash cache invalidation
@@ -487,7 +483,7 @@ proc getStateOnlyMutableValidators(
       assign(dstValidator.withdrawal_credentials,
         srcValidator.withdrawal_credentials)
 
-    output.validators.growHashes()
+    output.validators.resetCache()
 
     true
   of GetResult.notFound:

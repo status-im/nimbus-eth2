@@ -91,31 +91,40 @@ suiteReport "SSZ navigator":
     let b = [byte 0x04, 0x05, 0x06].toDigest
     let c = [byte 0x07, 0x08, 0x09].toDigest
 
+    var xx: List[uint64, 16]
+    check:
+      not xx.setLen(17)
+      xx.setLen(16)
+
     var leaves = HashList[Eth2Digest, 1'i64 shl 3]()
-    leaves.add a
-    leaves.add b
-    leaves.add c
+    check:
+      leaves.add a
+      leaves.add b
+      leaves.add c
     let root = hash_tree_root(leaves)
     check $root == "5248085b588fab1dd1e03f3cd62201602b12e6560665935964f46e805977e8c5"
 
     while leaves.len < 1 shl 3:
-      leaves.add c
-      check hash_tree_root(leaves) == hash_tree_root(leaves.data)
+      check:
+        leaves.add c
+        hash_tree_root(leaves) == hash_tree_root(leaves.data)
 
     leaves = default(type leaves)
 
     while leaves.len < (1 shl 3) - 1:
-      leaves.add c
-      leaves.add c
-      check hash_tree_root(leaves) == hash_tree_root(leaves.data)
+      check:
+        leaves.add c
+        leaves.add c
+        hash_tree_root(leaves) == hash_tree_root(leaves.data)
 
     leaves = default(type leaves)
 
     while leaves.len < (1 shl 3) - 2:
-      leaves.add c
-      leaves.add c
-      leaves.add c
-      check hash_tree_root(leaves) == hash_tree_root(leaves.data)
+      check:
+        leaves.add c
+        leaves.add c
+        leaves.add c
+        hash_tree_root(leaves) == hash_tree_root(leaves.data)
 
     for i in 0 ..< leaves.data.len - 2:
       leaves[i] = a
@@ -124,23 +133,26 @@ suiteReport "SSZ navigator":
       check hash_tree_root(leaves) == hash_tree_root(leaves.data)
 
     var leaves2 = HashList[Eth2Digest, 1'i64 shl 48]() # Large number!
-    leaves2.add a
-    leaves2.add b
-    leaves2.add c
-    check hash_tree_root(leaves2) == hash_tree_root(leaves2.data)
+    check:
+      leaves2.add a
+      leaves2.add b
+      leaves2.add c
+      hash_tree_root(leaves2) == hash_tree_root(leaves2.data)
 
     var leaves3 = HashList[Eth2Digest, 7]() # Non-power-of-2
-    check hash_tree_root(leaves3) == hash_tree_root(leaves3.data)
-    leaves3.add a
-    leaves3.add b
-    leaves3.add c
-    check hash_tree_root(leaves3) == hash_tree_root(leaves3.data)
+    check:
+      hash_tree_root(leaves3) == hash_tree_root(leaves3.data)
+      leaves3.add a
+      leaves3.add b
+      leaves3.add c
+      hash_tree_root(leaves3) == hash_tree_root(leaves3.data)
 
   timedTest "basictype":
     var leaves = HashList[uint64, 1'i64 shl 3]()
     while leaves.len < leaves.maxLen:
-      leaves.add leaves.lenu64
-      check hash_tree_root(leaves) == hash_tree_root(leaves.data)
+      check:
+        leaves.add leaves.lenu64
+        hash_tree_root(leaves) == hash_tree_root(leaves.data)
 
 suiteReport "SSZ dynamic navigator":
   timedTest "navigating fields":
@@ -197,10 +209,45 @@ suiteReport "hash":
 
     both: it.arr[0].data[0] = byte 1
 
-    both: it.li.add Eth2Digest()
+    both: check: it.li.add Eth2Digest()
 
   var y: HashArray[32, uint64]
   doAssert hash_tree_root(y) == hash_tree_root(y.data)
   for i in 0..<y.len:
     y[i] = 42'u64
     doAssert hash_tree_root(y) == hash_tree_root(y.data)
+
+  timedTest "HashList":
+    type MyList = HashList[uint64, 1024]
+    var
+      small, large: MyList
+
+    check: small.add(10'u64)
+
+    for i in 0..<100:
+      check: large.add(uint64(i))
+
+    let
+      sroot = hash_tree_root(small)
+      lroot = hash_tree_root(large)
+
+    doAssert sroot == hash_tree_root(small.data)
+    doAssert lroot == hash_tree_root(large.data)
+
+    var
+      sbytes = SSZ.encode(small)
+      lbytes = SSZ.encode(large)
+      sloaded = SSZ.decode(sbytes, MyList)
+      lloaded = SSZ.decode(lbytes, MyList)
+
+    doAssert sroot == hash_tree_root(sloaded)
+    doAssert lroot == hash_tree_root(lloaded)
+
+    # Here we smoke test that the cache is reset correctly even when reading
+    # into an existing instance - the instances are size-swapped so the reader
+    # will have some more work to do
+    readSszValue(sbytes, lloaded)
+    readSszValue(lbytes, sloaded)
+
+    doAssert lroot == hash_tree_root(sloaded)
+    doAssert sroot == hash_tree_root(lloaded)

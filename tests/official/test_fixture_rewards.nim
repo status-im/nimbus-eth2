@@ -35,8 +35,10 @@ func add(v: var Deltas, idx: int, delta: Delta) =
   v.penalties[idx] += delta.penalties
 
 func init(T: type Deltas, len: int): T =
-  result.rewards.setLen(len)
-  result.penalties.setLen(len)
+  if not result.rewards.setLen(len):
+    raiseAssert "setLen"
+  if not result.penalties.setLen(len):
+    raiseAssert "setLen"
 
 proc runTest(rewardsDir, identifier: string) =
   # We wrap the tests in a proc to avoid running out of globals

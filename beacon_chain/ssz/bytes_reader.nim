@@ -24,9 +24,8 @@ template setOutputSize[R, T](a: var array[R, T], length: int) =
     raiseIncorrectSize a.type
 
 proc setOutputSize(list: var List, length: int) {.raisesssz.} =
-  if int64(length) > list.maxLen:
+  if not list.setLen length:
     raise newException(MalformedSszError, "SSZ list maximum size exceeded")
-  list.setLen length
 
 # fromSszBytes copies the wire representation to a Nim variable,
 # assuming there's enough data in the buffer
@@ -140,15 +139,9 @@ func readSszValue*[T](input: openArray[byte],
     if resultBytesCount == maxExpectedSize:
       checkForForbiddenBits(T, input, val.maxLen + 1)
 
-  elif val is HashList:
+  elif val is HashList | HashArray:
     readSszValue(input, val.data)
-    val.hashes.setLen(0)
-    val.growHashes()
-
-  elif val is HashArray:
-    readSszValue(input, val.data)
-    for h in val.hashes.mitems():
-      clearCache(h)
+    val.resetCache()
 
   elif val is List|array:
     type E = type val[0]
