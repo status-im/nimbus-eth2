@@ -251,9 +251,9 @@ proc validateAttestation*(
       "validateAttestation: number of aggregation bits and committee size mismatch")))
 
   let
-    fork = pool.chainDag.headState.data.data.fork
+    fork = getStateField(pool.chainDag.headState, fork)
     genesis_validators_root =
-      pool.chainDag.headState.data.data.genesis_validators_root
+      getStateField(pool.chainDag.headState, genesis_validators_root)
     attesting_indices = get_attesting_indices(
       epochRef, attestation.data, attestation.aggregation_bits)
 
@@ -420,9 +420,9 @@ proc validateAggregate*(
       return err((ValidationResult.Reject, cstring("Invalid aggregator_index")))
 
     let
-      fork = pool.chainDag.headState.data.data.fork
+      fork = getStateField(pool.chainDag.headState, fork)
       genesis_validators_root =
-        pool.chainDag.headState.data.data.genesis_validators_root
+        getStateField(pool.chainDag.headState, genesis_validators_root)
 
     let deferredCrypto = batchCrypto
                   .scheduleAggregateChecks(
@@ -567,7 +567,7 @@ proc isValidBeaconBlock*(
   # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
   # store.finalized_checkpoint.root
   let
-    finalized_checkpoint = dag.headState.data.data.finalized_checkpoint
+    finalized_checkpoint = getStateField(dag.headState, finalized_checkpoint)
     ancestor = get_ancestor(
       parent_ref, compute_start_slot_at_epoch(finalized_checkpoint.epoch))
 
@@ -601,8 +601,8 @@ proc isValidBeaconBlock*(
   # [REJECT] The proposer signature, signed_beacon_block.signature, is valid
   # with respect to the proposer_index pubkey.
   if not verify_block_signature(
-      dag.headState.data.data.fork,
-      dag.headState.data.data.genesis_validators_root,
+      getStateField(dag.headState, fork),
+      getStateField(dag.headState, genesis_validators_root),
       signed_beacon_block.message.slot,
       signed_beacon_block.message,
       proposer.get()[1],
@@ -690,11 +690,11 @@ proc validateVoluntaryExit*(
   # [IGNORE] The voluntary exit is the first valid voluntary exit received for
   # the validator with index signed_voluntary_exit.message.validator_index.
   if signed_voluntary_exit.message.validator_index >=
-      pool.chainDag.headState.data.data.validators.lenu64:
+      getStateField(pool.chainDag.headState, validators).lenu64:
     return err((ValidationResult.Ignore, cstring(
       "validateVoluntaryExit: validator index too high")))
 
-  # Since pool.chainDag.headState.data.data.validators is a seq, this means
+  # Given that getStateField(pool.chainDag.headState, validators) is a seq,
   # signed_voluntary_exit.message.validator_index.int is already valid, but
   # check explicitly if one changes that data structure.
   if signed_voluntary_exit.message.validator_index.int in

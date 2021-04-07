@@ -182,9 +182,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     raises: [Exception].} = # TODO fix json-rpc
   rpcServer.rpc("get_v1_beacon_genesis") do () -> BeaconGenesisTuple:
     return (
-      genesis_time: node.chainDag.headState.data.data.genesis_time,
+      genesis_time: getStateField(node.chainDag.headState, genesis_time),
       genesis_validators_root:
-        node.chainDag.headState.data.data.genesis_validators_root,
+        getStateField(node.chainDag.headState, genesis_validators_root),
       genesis_fork_version: node.runtimePreset.GENESIS_FORK_VERSION
     )
 

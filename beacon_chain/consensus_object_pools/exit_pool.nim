@@ -111,7 +111,7 @@ func getExitMessagesForBlock[T](
 
     if allIt(
         getValidatorIndices(exit_message),
-        pool.chainDag.headState.data.data.validators[it].exit_epoch !=
+        getStateField(pool.chainDag.headState, validators)[it].exit_epoch !=
           FAR_FUTURE_EPOCH):
       # A beacon block exit message already targeted all these validators
       continue

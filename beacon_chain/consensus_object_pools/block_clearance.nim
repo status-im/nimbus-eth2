@@ -79,7 +79,7 @@ proc addResolvedBlock(
        onBlockAdded: OnBlockAdded
      ) =
   # TODO move quarantine processing out of here
-  doAssert state.data.data.slot == trustedBlock.message.slot,
+  doAssert getStateField(state, slot) == trustedBlock.message.slot,
     "state must match block"
   doAssert state.blck.root == trustedBlock.message.parent_root,
     "the StateData passed into the addResolved function not yet updated!"

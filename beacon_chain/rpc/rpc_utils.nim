@@ -21,7 +21,7 @@ template withStateForStateId*(stateId: string, body: untyped): untyped =
     bs = node.stateIdToBlockSlot(stateId)
 
   template isState(state: StateData): bool =
-    state.blck.atSlot(state.data.data.slot) == bs
+    state.blck.atSlot(getStateField(state, slot)) == bs
 
   if isState(node.chainDag.headState):
     withStateVars(node.chainDag.headState):
@@ -75,7 +75,7 @@ proc stateIdToBlockSlot*(node: BeaconNode, stateId: string): BlockSlot {.raises:
     node.chainDag.finalizedHead
   of "justified":
     node.chainDag.head.atEpochStart(
-      node.chainDag.headState.data.data.current_justified_checkpoint.epoch)
+      getStateField(node.chainDag.headState, current_justified_checkpoint).epoch)
   else:
     if stateId.startsWith("0x"):
       let blckRoot = parseRoot(stateId)

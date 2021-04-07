@@ -36,6 +36,10 @@ type
   GetWallTimeFn* = proc(): BeaconTime {.gcsafe, raises: [Defect].}
 
 proc init*(T: type BeaconClock, genesis_time: uint64): T =
+  ## Initialize time from a beacon state. The genesis time of a beacon state is
+  ## constant throughout its lifetime, so the state from any slot will do,
+  ## including the genesis state.
+
   # ~290 billion years into the future
   doAssert genesis_time <= high(int64).uint64
 
@@ -46,12 +50,6 @@ proc init*(T: type BeaconClock, genesis_time: uint64): T =
     unixGenesisOffset = times.seconds(int(GENESIS_SLOT * SECONDS_PER_SLOT))
 
   T(genesis: unixGenesis - unixGenesisOffset)
-
-proc init*(T: type BeaconClock, state: BeaconState): T =
-  ## Initialize time from a beacon state. The genesis time of a beacon state is
-  ## constant throughout its lifetime, so the state from any slot will do,
-  ## including the genesis state.
-  BeaconClock.init(state.genesis_time)
 
 template `<`*(a, b: BeaconTime): bool =
   Duration(a) < Duration(b)
