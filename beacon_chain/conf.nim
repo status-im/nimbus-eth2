@@ -274,17 +274,17 @@ type
 
       restEnabled* {.
         defaultValue: false
-        desc: "Enable the REST server"
+        desc: "Enable the REST (BETA version) server [=false]"
         name: "rest" }: bool
 
       restPort* {.
         defaultValue: DefaultEth2RestPort
-        desc: "HTTP port for the REST service"
+        desc: "Port for the REST (BETA version) server [=5052]"
         name: "rest-port" }: Port
 
       restAddress* {.
         defaultValue: defaultAdminListenAddress
-        desc: "Listening address of the REST server"
+        desc: "Listening address of the REST (BETA version) server [=127.0.0.1]"
         name: "rest-address" }: ValidIpAddress
 
       inProcessValidators* {.
