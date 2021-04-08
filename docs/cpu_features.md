@@ -34,7 +34,7 @@ nim c -r -d:danger --outdir:build benchmarks/bench_sha256.nim
 
 Due to tree hashing, hashing 32 bytes is the most important benchmark.
 
-**Without SSE3**
+**Without SSSE3**
 ```
 Backend: BLST, mode: 64-bit
 ====================================================================================================================================
