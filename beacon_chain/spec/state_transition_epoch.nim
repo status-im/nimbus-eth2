@@ -598,8 +598,9 @@ func process_historical_roots_update(state: var BeaconState) {.nbench.} =
     # significant additional stack or heap.
     # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#historicalbatch
     # In response to https://github.com/status-im/nimbus-eth2/issues/921
-    state.historical_roots.add hash_tree_root(
-      [hash_tree_root(state.block_roots), hash_tree_root(state.state_roots)])
+    if not state.historical_roots.add hash_tree_root(
+        [hash_tree_root(state.block_roots), hash_tree_root(state.state_roots)]):
+      raiseAssert "no more room for historical roots, so long and thanks for the fish!"
 
 # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/phase0/beacon-chain.md#participation-records-rotation
 func process_participation_record_updates(state: var BeaconState) {.nbench.} =

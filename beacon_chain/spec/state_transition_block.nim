@@ -73,13 +73,12 @@ func `xor`[T: array](a, b: T): T =
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#randao
 proc process_randao(
     state: var BeaconState, body: SomeBeaconBlockBody, flags: UpdateFlags,
-    stateCache: var StateCache): bool {.nbench.} =
+    stateCache: var StateCache): Result[void, cstring] {.nbench.} =
   let
     proposer_index = get_beacon_proposer_index(state, stateCache)
 
   if proposer_index.isNone:
-    debug "Proposer index missing, probably along with any active validators"
-    return false
+    return err("process_randao: proposer index missing, probably along with any active validators")
 
   # Verify RANDAO reveal
   let
@@ -91,11 +90,8 @@ proc process_randao(
     if not verify_epoch_signature(
         state.fork, state.genesis_validators_root, epoch, proposer_pubkey,
         body.randao_reveal):
-      debug "Randao mismatch", proposer_pubkey = shortLog(proposer_pubkey),
-                                epoch,
-                                signature = shortLog(body.randao_reveal),
-                                slot = state.slot
-      return false
+
+      return err("process_randao: invalid epoch signature")
 
   # Mix it in
   let
@@ -105,15 +101,18 @@ proc process_randao(
   state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR].data =
     mix.data xor rr
 
-  true
+  ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#eth1-data
-func process_eth1_data(state: var BeaconState, body: SomeBeaconBlockBody) {.nbench.}=
-  state.eth1_data_votes.add body.eth1_data
+func process_eth1_data(state: var BeaconState, body: SomeBeaconBlockBody): Result[void, cstring] {.nbench.}=
+  if not state.eth1_data_votes.add body.eth1_data:
+    # Count is reset  in process_final_updates, so this should never happen
+    return err("process_eth1_data: no more room for eth1 data")
 
   if state.eth1_data_votes.asSeq.count(body.eth1_data).uint64 * 2 >
       SLOTS_PER_ETH1_VOTING_PERIOD:
     state.eth1_data = body.eth1_data
+  ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
@@ -340,20 +339,14 @@ proc process_operations(preset: RuntimePreset,
 proc process_block*(
     preset: RuntimePreset,
     state: var BeaconState, blck: SomeBeaconBlock, flags: UpdateFlags,
-    stateCache: var StateCache): Result[void, cstring] {.nbench.}=
+    cache: var StateCache): Result[void, cstring] {.nbench.}=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
 
-  ? process_block_header(state, blck, flags, stateCache)
-
-  if not process_randao(state, blck.body, flags, stateCache):
-    return err("Randao failure".cstring)
-
-  process_eth1_data(state, blck.body)
-
-  let res_ops = process_operations(preset, state, blck.body, flags, stateCache)
-  if res_ops.isErr:
-    return res_ops
+  ? process_block_header(state, blck, flags, cache)
+  ? process_randao(state, blck.body, flags, cache)
+  ? process_eth1_data(state, blck.body)
+  ? process_operations(preset, state, blck.body, flags, cache)
 
   ok()
