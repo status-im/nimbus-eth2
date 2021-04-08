@@ -50,8 +50,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
         let dres = decodeBody(seq[RestValidatorIndex], contentBody.get())
         if dres.isErr():
-          return RestApiResponse.jsonError(Http400, "Unable to decode " &
-            "list of validator indexes", $dres.error())
+          return RestApiResponse.jsonError(Http400,
+                                           InvalidValidatorIndexValueError,
+                                           $dres.error())
         var res: seq[ValidatorIndex]
         let items = dres.get()
         for item in items:
@@ -66,7 +67,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                             UnsupportedValidatorIndexValueError)
           res.add(vres.get())
         if len(res) == 0:
-          return RestApiResponse.jsonError(Http400, "Empty indexes list")
+          return RestApiResponse.jsonError(Http400,
+                                           EmptyValidatorIndexArrayError)
         res
     let qepoch =
       block:
@@ -96,8 +98,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           if not(node.isSynced(node.chainDag.head)):
             return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
           else:
-            return RestApiResponse.jsonError(Http400,
-                                             "Cound not find slot data")
+            return RestApiResponse.jsonError(Http400, BlockNotFoundError)
         bref.root
       else:
         node.chainDag.genesis.root
@@ -195,15 +196,15 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
                                                $slot.error())
             slot.get()
+
         let qrandao =
           if randao_reveal.isNone():
-            return RestApiResponse.jsonError(Http400,
-                                             "Missing randao_reveal value")
+            return RestApiResponse.jsonError(Http400, MissingRandaoRevealValue)
           else:
             let res = randao_reveal.get()
             if res.isErr():
               return RestApiResponse.jsonError(Http400,
-                                               "Incorrect randao_reveal value",
+                                               InvalidRandaoRevealValue,
                                                $res.error())
             res.get()
         let qgraffiti =
@@ -213,7 +214,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             let res = graffiti.get()
             if res.isErr():
               return RestApiResponse.jsonError(Http400,
-                                               "Incorrect graffiti bytes value",
+                                               InvalidGraffitiBytesValye,
                                                $res.error())
             res.get()
         let qhead =
@@ -228,14 +229,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             res.get()
         let proposer = node.chainDag.getProposer(qhead, qslot)
         if proposer.isNone():
-          return RestApiResponse.jsonError(Http400,
-                                           "Could not retrieve block for slot")
+          return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
         let res = makeBeaconBlockForHeadAndSlot(
           node, qrandao, proposer.get()[0], qgraffiti, qhead, qslot)
         if res.isNone():
-          return RestApiResponse.jsonError(Http400,
-                                           "Could not make block for slot")
+          return RestApiResponse.jsonError(Http400, BlockProduceError)
         res.get()
+
     return RestApiResponse.jsonResponse(message)
 
   # https://ethereum.github.io/eth2.0-APIs/#/Validator/produceAttestationData
@@ -296,18 +296,17 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let qroot =
           block:
             if attestation_data_root.isNone():
-              return RestApiResponse.jsonError(Http400, "Missing " &
-                                               "attestation_data_root value")
+              return RestApiResponse.jsonError(Http400,
+                                           MissingAttestationDataRootValueError)
             let res = attestation_data_root.get()
             if res.isErr():
-              return RestApiResponse.jsonError(Http400, "Incorrect " &
-                                               "attestation_data_root value",
-                                               $res.error())
+              return RestApiResponse.jsonError(Http400,
+                             InvalidAttestationDataRootValueError, $res.error())
             res.get()
         let res = node.attestationPool[].getAggregatedAttestation(qslot, qroot)
         if res.isNone():
-          return RestApiResponse.jsonError(Http400, "Could not retrieve an " &
-                                           "aggregated attestation")
+          return RestApiResponse.jsonError(Http400,
+                                          UnableToGetAggregatedAttestationError)
         res.get()
     return RestApiResponse.jsonResponse(attestation)
 
@@ -320,8 +319,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
         let dres = decodeBody(SignedAggregateAndProof, contentBody.get())
         if dres.isErr():
-          return RestApiResponse.jsonError(Http400, "Unable to decode " &
-            "SignedAggregateAndProof object", $dres.error())
+          return RestApiResponse.jsonError(Http400,
+                                           InvalidAggregateAndProofObjectError,
+                                           $dres.error())
         dres.get()
 
     let wallTime = node.processor.getWallTime()
@@ -329,11 +329,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       node.processor.batchCrypto, payload, wallTime
     )
     if res.isErr():
-      return RestApiResponse.jsonError(Http400, "Aggregate and proofs " &
-        "verification failed", $res.error())
+      return RestApiResponse.jsonError(Http400,
+                                       AggregateAndProofValidationError,
+                                       $res.error())
     node.network.broadcast(node.topicAggregateAndProofs, payload)
     return RestApiResponse.jsonError(Http200,
-                                     "Aggregate and proofs was broadcasted")
+                                     AggregateAndProofValidationSuccess)
 
   # https://ethereum.github.io/eth2.0-APIs/#/Validator/prepareBeaconCommitteeSubnet
   router.api(MethodPost,
@@ -348,8 +349,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let dres = decodeBody(seq[RestCommitteeSubscriptionTuple],
                               contentBody.get())
         if dres.isErr():
-          return RestApiResponse.jsonError(Http400, "Unable to decode " &
-            "subscription request(s)")
+          return RestApiResponse.jsonError(Http400,
+                                           InvalidSubscriptionRequestValueError,
+                                           $dres.error())
         dres.get()
     if not(node.isSynced(node.chainDag.head)):
       return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
@@ -364,21 +366,21 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           if uint64(idx) >=
                            lenu64(node.chainDag.headState.data.data.validators):
             return RestApiResponse.jsonError(Http400,
-                                             "Invalid validator_index value")
+                                             InvalidValidatorIndexValueError)
           node.chainDag.headState.data.data.validators[idx].pubkey
 
       let wallSlot = node.beaconClock.now.slotOrZero
       if wallSlot > request.slot + 1:
-        return RestApiResponse.jsonError(Http400, "Past slot requested")
+        return RestApiResponse.jsonError(Http400, SlotFromThePastError)
       let epoch = request.slot.epoch
       if epoch >= wallSlot.epoch and epoch - wallSlot.epoch > 1:
-        return RestApiResponse.jsonError(Http400, "Slot requested not in " &
-          "next wall-slot epoch")
+        return RestApiResponse.jsonError(Http400,
+                                         SlotNotInNextWallSlotEpochError)
       let head =
         block:
           let res = node.getCurrentHead(epoch)
           if res.isErr():
-            return RestApiResponse.jsonError(Http400, "Unable to obtain head",
+            return RestApiResponse.jsonError(Http400, NoHeadForSlotError,
                                              $res.error())
           res.get()
       let epochRef = node.chainDag.getEpochRef(head, epoch)
