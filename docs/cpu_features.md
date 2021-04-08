@@ -37,21 +37,21 @@ Due to tree hashing, hashing 32 bytes is the most important benchmark.
 **Without SSE3**
 ```
 Backend: BLST, mode: 64-bit
-====================================================================================================================================
+==================================================================================
 
-SHA256 - 32B - BLST                                                         4524886.878 ops/s          221 ns/op          660 cycles
-SHA256 - 128B - BLST                                                        1776198.934 ops/s          563 ns/op         1689 cycles
-SHA256 - 5MB - BLST                                                              70.723 ops/s     14139678 ns/op     42419720 cycles
+SHA256 - 32B - BLST       4524886.878 ops/s          221 ns/op          660 cycles
+SHA256 - 128B - BLST      1776198.934 ops/s          563 ns/op         1689 cycles
+SHA256 - 5MB - BLST            70.723 ops/s     14139678 ns/op     42419720 cycles
 ```
 **With SSE3**
 
 ```
 Backend: BLST, mode: 64-bit
-====================================================================================================================================
+==================================================================================
 
-SHA256 - 32B - BLST                                                         5376344.086 ops/s          186 ns/op          555 cycles
-SHA256 - 128B - BLST                                                        2183406.114 ops/s          458 ns/op         1376 cycles
-SHA256 - 5MB - BLST                                                              87.142 ops/s     11475557 ns/op     34427254 cycles
+SHA256 - 32B - BLST       5376344.086 ops/s          186 ns/op          555 cycles
+SHA256 - 128B - BLST      2183406.114 ops/s          458 ns/op         1376 cycles
+SHA256 - 5MB - BLST            87.142 ops/s     11475557 ns/op     34427254 cycles
 ```
 
 ### BMI2 & ADX
@@ -77,25 +77,25 @@ and verifying a block requires verifying up to 6 signatures (block proposer, RAN
 **Without BMI2 & ADX**
 ```
 Backend: BLST, mode: 64-bit
-====================================================================================================================================
+=============================================================================================================
 
-BLS signature                                                                  1960.023 ops/s       510198 ns/op      1530624 cycles
-BLS verification                                                                743.122 ops/s      1345674 ns/op      4037105 cycles
-BLS agg verif of 1 msg by 128 pubkeys                                           704.634 ops/s      1419176 ns/op      4257591 cycles
-BLS verif of 6 msgs by 6 pubkeys                                                120.588 ops/s      8292683 ns/op     24878257 cycles
-Serial batch verify 6 msgs by 6 pubkeys (with blinding)                         218.027 ops/s      4586595 ns/op     13759932 cycles
+BLS signature                                           1960.023 ops/s       510198 ns/op      1530624 cycles
+BLS verification                                         743.122 ops/s      1345674 ns/op      4037105 cycles
+BLS agg verif of 1 msg by 128 pubkeys                    704.634 ops/s      1419176 ns/op      4257591 cycles
+BLS verif of 6 msgs by 6 pubkeys                         120.588 ops/s      8292683 ns/op     24878257 cycles
+Serial batch verify 6 msgs by 6 pubkeys (with blinding)  218.027 ops/s      4586595 ns/op     13759932 cycles
 ```
 
 **With BMI2 & ADX**
 ```
 Backend: BLST, mode: 64-bit
-====================================================================================================================================
+=============================================================================================================
 
-BLS signature                                                                  2550.084 ops/s       392144 ns/op      1176454 cycles
-BLS verification                                                                930.081 ops/s      1075175 ns/op      3225589 cycles
-BLS agg verif of 1 msg by 128 pubkeys                                           878.672 ops/s      1138081 ns/op      3414286 cycles
-BLS verif of 6 msgs by 6 pubkeys                                                154.833 ops/s      6458588 ns/op     19376076 cycles
-Serial batch verify 6 msgs by 6 pubkeys (with blinding)                         282.562 ops/s      3539046 ns/op     10617328 cycles
+BLS signature                                           2550.084 ops/s       392144 ns/op      1176454 cycles
+BLS verification                                         930.081 ops/s      1075175 ns/op      3225589 cycles
+BLS agg verif of 1 msg by 128 pubkeys                    878.672 ops/s      1138081 ns/op      3414286 cycles
+BLS verif of 6 msgs by 6 pubkeys                         154.833 ops/s      6458588 ns/op     19376076 cycles
+Serial batch verify 6 msgs by 6 pubkeys (with blinding)  282.562 ops/s      3539046 ns/op     10617328 cycles
 ```
 
 ### SHA-NI
