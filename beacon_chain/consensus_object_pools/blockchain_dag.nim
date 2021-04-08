@@ -51,13 +51,16 @@ proc updateStateData*(
   dag: ChainDAGRef, state: var StateData, bs: BlockSlot, save: bool,
   cache: var StateCache) {.gcsafe.}
 
-template withStateVars*(stateData: var StateData, body: untyped): untyped =
+template withStateVars*(
+    stateDataInternal: var StateData, body: untyped): untyped =
   ## Inject a few more descriptive names for the members of `stateData` -
   ## the stateData instance may get mutated through these names as well
-  template hashedState(): HashedBeaconState {.inject, used.} = stateData.data
-  template state(): BeaconState {.inject, used.} = stateData.data.data
-  template blck(): BlockRef {.inject, used.} = stateData.blck
-  template root(): Eth2Digest {.inject, used.} = stateData.data.root
+  template stateData(): StateData {.inject, used.} = stateDataInternal
+  template hashedState(): HashedBeaconState {.inject, used.} =
+    stateDataInternal.data
+  template state(): BeaconState {.inject, used.} = stateDataInternal.data.data
+  template blck(): BlockRef {.inject, used.} = stateDataInternal.blck
+  template root(): Eth2Digest {.inject, used.} = stateDataInternal.data.root
 
   body
 

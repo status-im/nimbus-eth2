@@ -479,7 +479,8 @@ proc getAttachedValidators(node: BeaconNode):
   for validatorIndex in 0 ..<
       getStateField(node.chainDag.headState, validators).len:
     let attachedValidator = node.getAttachedValidator(
-      node.chainDag.headState.data.data, validatorIndex.ValidatorIndex)
+      getStateField(node.chainDag.headState, validators),
+      validatorIndex.ValidatorIndex)
     if attachedValidator.isNil:
       continue
     result[validatorIndex.ValidatorIndex] = attachedValidator
