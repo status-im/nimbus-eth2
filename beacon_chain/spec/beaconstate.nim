@@ -514,7 +514,7 @@ func get_sorted_attesting_indices_list*(
     cache: var StateCache): List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE] =
   for index in get_sorted_attesting_indices(state, data, bits, cache):
     if not result.add index.uint64:
-      raiseAssert "same length as bits"
+      raiseAssert "The `result` list has the same max size as the sorted `bits` input"
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_indexed_attestation
 func get_indexed_attestation(state: BeaconState, attestation: Attestation,
