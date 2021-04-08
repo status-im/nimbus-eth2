@@ -43,7 +43,7 @@ SHA256 - 32B - BLST                                                         4524
 SHA256 - 128B - BLST                                                        1776198.934 ops/s          563 ns/op         1689 cycles
 SHA256 - 5MB - BLST                                                              70.723 ops/s     14139678 ns/op     42419720 cycles
 ```
-**With SSE3**
+**With SSSE3**
 
 ```
 Backend: BLST, mode: 64-bit
