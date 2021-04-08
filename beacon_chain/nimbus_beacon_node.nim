@@ -1751,7 +1751,10 @@ proc findWalletWithoutErrors(config: BeaconNodeConf,
 proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
     raises: [Defect, CatchableError].} =
   case config.depositsCmd
-  of DepositsCmd.create:
+  of DepositsCmd.createTestnetDeposits:
+    if config.eth2Network.isNone:
+      fatal "Please specify the intended testnet for the deposits"
+      quit 1
     let metadata = config.loadEth2Network()
     var seed: KeySeed
     defer: burnMem(seed)

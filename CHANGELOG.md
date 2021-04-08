@@ -22,8 +22,8 @@ if possible.
 
 * The metrics support is now compiled by default thanks to a new and more secure HTTP back-end.
 
-* Command-line tools for generating keystores and JSON deposit files suitable for use with the
-  official network launchpads.
+* Command-line tools for generating testnet keystores and JSON deposit files suitable for use
+  with the official network launchpads.
 
 * `setGraffiti` JSON-RPC call for modifying the graffiti bytes of the client at run-time.
 
