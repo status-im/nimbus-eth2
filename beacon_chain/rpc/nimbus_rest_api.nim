@@ -145,8 +145,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       node.graffitiBytes = value.get().get()
       return RestApiResponse.jsonResponse((result: true))
     else:
-      return RestApiResponse.jsonError(
-          Http400, "You must specify a valid graffiti string")
+      return RestApiResponse.jsonError(Http400, InvalidGraffitiBytesValye)
 
   router.api(MethodGet, "/api/nimbus/v1/graffiti") do (
     ) -> RestApiResponse:
@@ -159,7 +158,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         block:
           let res = log_level.get()
           if res.isErr():
-            return RestApiResponse.jsonError(Http400, "Invalid log_level value",
+            return RestApiResponse.jsonError(Http400, InvalidLogLevelValueError,
                                              $res.error())
           res.get()
       {.gcsafe.}:
@@ -182,7 +181,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         let res = node.getCurrentHead(wallSlot)
         if res.isErr():
-          return RestApiResponse.jsonError(Http503, "Node is not synced yet")
+          return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
         res.get()
     let proposalState = assignClone(node.chainDag.headState)
     node.chainDag.withState(proposalState[], head.atSlot(wallSlot)):

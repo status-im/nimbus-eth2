@@ -38,6 +38,8 @@ const
     "Beacon node is currently syncing and not serving request on that endpoint"
   BlockNotFoundError* =
     "Block header/data has not been found"
+  BlockProduceError* =
+    "Could not produce the block"
   EmptyRequestBodyError* =
     "Empty request's body"
   InvalidBlockObjectError* =
@@ -66,6 +68,13 @@ const
     "Invalid voluntary exit, it will never pass validation so it's rejected"
   VoluntaryExitValidationSuccess* =
     "Voluntary exit object(s) was broadcasted"
+  InvalidAggregateAndProofObjectError* =
+    "Unable to decode aggregate and proof object(s)"
+  AggregateAndProofValidationError* =
+    "Invalid aggregate and proof, it will never pass validation so it's " &
+    "rejected"
+  AggregateAndProofValidationSuccess* =
+    "Aggregate and proof object(s) was broadcasted"
   InvalidParentRootValueError* =
     "Invalid parent root value"
   MissingSlotValueError* =
@@ -76,6 +85,18 @@ const
     "Missing `committee_index` value"
   InvalidCommitteeIndexValueError* =
     "Invalid committee index value"
+  MissingAttestationDataRootValueError* =
+    "Missing `attestation_data_root` value"
+  InvalidAttestationDataRootValueError* =
+    "Invalid attestation data root value"
+  UnableToGetAggregatedAttestationError* =
+    "Unable to retrieve an aggregated attestation"
+  MissingRandaoRevealValue* =
+    "Missing `randao_reveal` value"
+  InvalidRandaoRevealValue* =
+    "Invalid randao reveal value"
+  InvalidGraffitiBytesValye* =
+    "Invalid graffiti bytes value"
   InvalidEpochValueError* =
     "Invalid epoch value"
   InvalidStateIdValueError* =
@@ -88,6 +109,12 @@ const
     "Maximum number of validator identifier values exceeded"
   InvalidValidatorStatusValueError* =
     "Invalid validator's status value error"
+  InvalidValidatorIndexValueError* =
+    "Invalid validator's index value(s)"
+  EmptyValidatorIndexArrayError* =
+    "Empty validator's index array"
+  InvalidSubscriptionRequestValueError* =
+    "Invalid subscription request object(s)"
   ValidatorNotFoundError* =
     "Could not find validator"
   ValidatorStatusNotFoundError* =
@@ -104,10 +131,26 @@ const
     "State not found"
   SlotNotFoundError* =
     "Slot number is too far away"
+  SlotNotInNextWallSlotEpochError* =
+    "Requested slot not in next wall-slot epoch"
+  SlotFromThePastError* =
+    "Requested slot from the past"
+  ProposerNotFoundError* =
+    "Could not find proposer for the head and slot"
   NoHeadForSlotError* =
     "Cound not find head for slot"
   EpochOverflowValueError* =
     "Requesting epoch for which slot would overflow"
+  InvalidPeerStateValueError* =
+    "Invalid peer's state value(s) error"
+  InvalidPeerDirectionValueError* =
+    "Invalid peer's direction value(s) error"
+  InvalidPeerIdValueError* =
+    "Invalid peer's id value(s) error"
+  PeerNotFoundError* =
+    "Peer not found"
+  InvalidLogLevelValueError* =
+    "Invalid log level value error"
   InternalServerError* =
     "Internal server error"
   NoImplementationError* =

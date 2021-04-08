@@ -162,25 +162,23 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let connectionMask =
       block:
         if state.isErr():
-          return RestApiResponse.jsonError(Http400,
-                                           "Invalid state value(s)",
+          return RestApiResponse.jsonError(Http400, InvalidPeerStateValueError,
                                            $state.error())
         let sres = validateState(state.get())
         if sres.isErr():
-          return RestApiResponse.jsonError(Http400,
-                                           "Invalid state value(s)",
+          return RestApiResponse.jsonError(Http400, InvalidPeerStateValueError,
                                            $sres.error())
         sres.get()
     let directionMask =
       block:
         if direction.isErr():
           return RestApiResponse.jsonError(Http400,
-                                           "Invalid direction value(s)",
+                                           InvalidPeerDirectionValueError,
                                            $direction.error())
         let dres = validateDirection(direction.get())
         if dres.isErr():
           return RestApiResponse.jsonError(Http400,
-                                           "Invalid direction value(s)",
+                                           InvalidPeerDirectionValueError,
                                            $dres.error())
         dres.get()
 
@@ -221,12 +219,11 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let peer =
       block:
         if peer_id.isErr():
-          return RestApiResponse.jsonError(Http400,
-                                           "Unable to parse PeerID value",
+          return RestApiResponse.jsonError(Http400, InvalidPeerIdValueError,
                                            $peer_id.error())
         let res = node.network.peers.getOrDefault(peer_id.get())
         if isNil(res):
-          return RestApiResponse.jsonError(Http404, "Peer not found")
+          return RestApiResponse.jsonError(Http404, PeerNotFoundError)
         res
     return RestApiResponse.jsonResponse(
       (
