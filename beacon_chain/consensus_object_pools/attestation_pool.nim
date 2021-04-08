@@ -78,8 +78,10 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
     doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
 
   info "Fork choice initialized",
-    justified_epoch = chainDag.headState.data.data.current_justified_checkpoint.epoch,
-    finalized_epoch = chainDag.headState.data.data.finalized_checkpoint.epoch,
+    justified_epoch = getStateField(
+      chainDag.headState, current_justified_checkpoint).epoch,
+    finalized_epoch = getStateField(
+      chainDag.headState, finalized_checkpoint).epoch,
     finalized_root = shortlog(chainDag.finalizedHead.blck.root)
 
   T(

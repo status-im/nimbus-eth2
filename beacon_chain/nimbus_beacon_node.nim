@@ -78,10 +78,10 @@ declareGauge next_action_wait,
 
 logScope: topics = "beacnde"
 
-func enrForkIdFromState(state: BeaconState): ENRForkID =
+func getEnrForkId(fork: Fork, genesis_validators_root: Eth2Digest): ENRForkID =
   let
-    forkVer = state.fork.current_version
-    forkDigest = compute_fork_digest(forkVer, state.genesis_validators_root)
+    forkVer = fork.current_version
+    forkDigest = compute_fork_digest(forkVer, genesis_validators_root)
 
   ENRForkID(
     fork_digest: forkDigest,
@@ -232,10 +232,11 @@ proc init*(T: type BeaconNode,
     chainDagFlags = if config.verifyFinalization: {verifyFinalization}
                      else: {}
     chainDag = ChainDAGRef.init(runtimePreset, db, chainDagFlags)
-    beaconClock = BeaconClock.init(chainDag.headState.data.data)
+    beaconClock =
+      BeaconClock.init(getStateField(chainDag.headState, genesis_time))
     quarantine = QuarantineRef.init(rng)
     databaseGenesisValidatorsRoot =
-      chainDag.headState.data.data.genesis_validators_root
+      getStateField(chainDag.headState, genesis_validators_root)
 
   if genesisStateContents.len != 0:
     let
@@ -260,7 +261,7 @@ proc init*(T: type BeaconNode,
       error "Weak subjectivity checkpoint is stale",
             currentSlot,
             checkpoint = config.weakSubjectivityCheckpoint.get,
-            headStateSlot = chainDag.headState.data.data.slot
+            headStateSlot = getStateField(chainDag.headState, slot)
       quit 1
 
   if checkpointState != nil:
@@ -295,7 +296,9 @@ proc init*(T: type BeaconNode,
     netKeys = getPersistentNetKeys(rng[], config)
     nickname = if config.nodeName == "auto": shortForm(netKeys)
                else: config.nodeName
-    enrForkId = enrForkIdFromState(chainDag.headState.data.data)
+    enrForkId = getEnrForkId(
+      getStateField(chainDag.headState, fork),
+      getStateField(chainDag.headState, genesis_validators_root))
     topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.forkDigest)
     topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.forkDigest)
     network = createEth2Node(rng, config, netKeys, enrForkId)
@@ -308,7 +311,7 @@ proc init*(T: type BeaconNode,
         info "Loading slashing protection database",
           path = config.validatorsDir()
         SlashingProtectionDB.init(
-          chainDag.headState.data.data.genesis_validators_root,
+          getStateField(chainDag.headState, genesis_validators_root),
           config.validatorsDir(), "slashing_protection",
           modes = {kCompleteArchiveV1},
           disagreementBehavior = kChooseV1
@@ -317,14 +320,14 @@ proc init*(T: type BeaconNode,
         info "Loading slashing protection database (v2)",
           path = config.validatorsDir()
         SlashingProtectionDB.init(
-          chainDag.headState.data.data.genesis_validators_root,
+          getStateField(chainDag.headState, genesis_validators_root),
           config.validatorsDir(), "slashing_protection"
         )
       of SlashingDbKind.both:
         info "Loading slashing protection database (dual DB mode)",
           path = config.validatorsDir()
         SlashingProtectionDB.init(
-          chainDag.headState.data.data.genesis_validators_root,
+          getStateField(chainDag.headState, genesis_validators_root),
           config.validatorsDir(), "slashing_protection",
           modes = {kCompleteArchiveV1, kCompleteArchiveV2},
           disagreementBehavior = kChooseV2
@@ -455,7 +458,8 @@ func getStabilitySubnets(stabilitySubnets: auto): set[uint8] =
 
 proc getAttachedValidators(node: BeaconNode):
     Table[ValidatorIndex, AttachedValidator] =
-  for validatorIndex in 0 ..< node.chainDag.headState.data.data.validators.len:
+  for validatorIndex in 0 ..<
+      getStateField(node.chainDag.headState, validators).len:
     let attachedValidator = node.getAttachedValidator(
       node.chainDag.headState.data.data, validatorIndex.ValidatorIndex)
     if attachedValidator.isNil:
@@ -489,8 +493,9 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
       is_aggregator(
         committeeLen,
         await attachedValidators[it.ValidatorIndex].getSlotSig(
-          node.chainDag.headState.data.data.fork,
-          node.chainDag.headState.data.data.genesis_validators_root, slot)))
+          getStateField(node.chainDag.headState, fork),
+          getStateField(
+            node.chainDag.headState, genesis_validators_root), slot)))
 
   node.attestationSubnets.lastCalculatedEpoch = epoch
   node.attestationSubnets.attestingSlots[epoch mod 2] = 0
@@ -571,10 +576,10 @@ proc cycleAttestationSubnetsPerEpoch(
   # wallSlot, it would have to look more than MIN_SEED_LOOKAHEAD epochs
   # ahead to compute the shuffling determining the beacon committees.
   static: doAssert MIN_SEED_LOOKAHEAD == 1
-  if node.chainDag.headState.data.data.slot.epoch != wallSlot.epoch:
+  if getStateField(node.chainDag.headState, slot).epoch != wallSlot.epoch:
     debug "Requested attestation subnets too far in advance",
       wallSlot,
-      stateSlot = node.chainDag.headState.data.data.slot
+      stateSlot = getStateField(node.chainDag.headState, slot)
     return prevStabilitySubnets
 
   # This works so long as at least one block in an epoch provides a basis for
@@ -1351,7 +1356,7 @@ proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
 
   proc dataResolver(expr: string): string {.raises: [Defect].} =
     template justified: untyped = node.chainDag.head.atEpochStart(
-      node.chainDag.headState.data.data.current_justified_checkpoint.epoch)
+      getStateField(node.chainDag.headState, current_justified_checkpoint).epoch)
     # TODO:
     # We should introduce a general API for resolving dot expressions
     # such as `db.latest_block.slot` or `metrics.connected_peers`.
@@ -1739,7 +1744,8 @@ proc doCreateTestnet(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.raise
         some(config.bootstrapAddress),
         some(config.bootstrapPort),
         some(config.bootstrapPort),
-        [toFieldPair("eth2", SSZ.encode(enrForkIdFromState initialState[])),
+        [toFieldPair("eth2", SSZ.encode(getEnrForkId(
+          initialState[].fork, initialState[].genesis_validators_root))),
         toFieldPair("attnets", SSZ.encode(netMetadata.attnets))])
 
     writeFile(bootstrapFile, bootstrapEnr.tryGet().toURI)

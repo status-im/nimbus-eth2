@@ -47,12 +47,6 @@ proc init*(T: type BeaconClock, genesis_time: uint64): T =
 
   T(genesis: unixGenesis - unixGenesisOffset)
 
-proc init*(T: type BeaconClock, state: BeaconState): T =
-  ## Initialize time from a beacon state. The genesis time of a beacon state is
-  ## constant throughout its lifetime, so the state from any slot will do,
-  ## including the genesis state.
-  BeaconClock.init(state.genesis_time)
-
 template `<`*(a, b: BeaconTime): bool =
   Duration(a) < Duration(b)
 

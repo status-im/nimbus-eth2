@@ -301,6 +301,9 @@ proc loadStateCache*(
   if epoch > 0:
     load(epoch - 1)
 
+template getStateField*(stateData, fieldName: untyped): untyped =
+  stateData.data.data.fieldName
+
 func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
   BlockRef(
     root: root,
@@ -433,7 +436,7 @@ proc init*(T: type ChainDAGRef,
   # When we start from a snapshot state, the `finalized_checkpoint` in the
   # snapshot will point to an even older state, but we trust the tail state
   # (the snapshot) to be finalized, hence the `max` expression below.
-  let finalizedEpoch = max(res.headState.data.data.finalized_checkpoint.epoch,
+  let finalizedEpoch = max(getStateField(res.headState, finalized_checkpoint).epoch,
                            tailRef.slot.epoch)
   res.finalizedHead = headRef.atEpochStart(finalizedEpoch)
 
@@ -566,10 +569,10 @@ proc putState*(dag: ChainDAGRef, state: var StateData) =
   # Store a state and its root
   logScope:
     blck = shortLog(state.blck)
-    stateSlot = shortLog(state.data.data.slot)
+    stateSlot = shortLog(getStateField(state, slot))
     stateRoot = shortLog(state.data.root)
 
-  if not isStateCheckpoint(state.blck.atSlot(state.data.data.slot)):
+  if not isStateCheckpoint(state.blck.atSlot(getStateField(state, slot))):
     return
 
   if dag.db.containsState(state.data.root):
@@ -582,10 +585,11 @@ proc putState*(dag: ChainDAGRef, state: var StateData) =
   dag.db.putState(state.data.root, state.data.data)
 
   # Allow backwards-compatible version rollback with bounded recovery cost
-  if state.data.data.slot.epoch mod 64 == 0:
+  if getStateField(state, slot).epoch mod 64 == 0:
     dag.db.putStateFull(state.data.root, state.data.data)
 
-  dag.db.putStateRoot(state.blck.root, state.data.data.slot, state.data.root)
+  dag.db.putStateRoot(
+    state.blck.root, getStateField(state, slot), state.data.root)
 
 func getRef*(dag: ChainDAGRef, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
@@ -687,10 +691,10 @@ proc advanceSlots(
   # Given a state, advance it zero or more slots by applying empty slot
   # processing - the state must be positions at a slot before or equal to the
   # target
-  doAssert state.data.data.slot <= slot
-  while state.data.data.slot < slot:
+  doAssert getStateField(state, slot) <= slot
+  while getStateField(state, slot) < slot:
     doAssert process_slots(
-        state.data, state.data.data.slot + 1, cache,
+        state.data, getStateField(state, slot) + 1, cache,
         dag.updateFlags),
       "process_slots shouldn't fail when state slot is correct"
     if save:
@@ -744,7 +748,7 @@ proc updateStateData*(
   template canAdvance(state: StateData, bs: BlockSlot): bool =
     # The block is the same and we're at an early enough slot - the state can
     # be used to arrive at the desired blockslot
-    state.blck == bs.blck and state.data.data.slot <= bs.slot
+    state.blck == bs.blck and getStateField(state, slot) <= bs.slot
 
   # First, run a quick check if we can simply apply a few blocks to an in-memory
   # state - any in-memory state will be faster than loading from database.
@@ -790,7 +794,7 @@ proc updateStateData*(
 
   if not found:
     debug "UpdateStateData cache miss",
-      bs, stateBlock = state.blck, stateSlot = state.data.data.slot
+      bs, stateBlock = state.blck, stateSlot = getStateField(state, slot)
 
     # Either the state is too new or was created by applying a different block.
     # We'll now resort to loading the state from the database then reapplying
@@ -823,7 +827,7 @@ proc updateStateData*(
     beacon_state_rewinds.inc()
 
   let
-    startSlot {.used.} = state.data.data.slot # used in logs below
+    startSlot {.used.} = getStateField(state, slot) # used in logs below
     startRoot {.used.} = state.data.root
   # Time to replay all the blocks between then and now
   for i in countdown(ancestors.len - 1, 0):
@@ -844,9 +848,9 @@ proc updateStateData*(
 
   logScope:
     blocks = ancestors.len
-    slots = state.data.data.slot - startSlot
+    slots = getStateField(state, slot) - startSlot
     stateRoot = shortLog(state.data.root)
-    stateSlot = state.data.data.slot
+    stateSlot = getStateField(state, slot)
     startRoot = shortLog(startRoot)
     startSlot
     blck = shortLog(bs)
@@ -999,7 +1003,7 @@ proc updateHead*(
 
   let
     finalizedHead = newHead.atEpochStart(
-      dag.headState.data.data.finalized_checkpoint.epoch)
+      getStateField(dag.headState, finalized_checkpoint).epoch)
 
   doAssert (not finalizedHead.blck.isNil),
     "Block graph should always lead to a finalized block"
@@ -1010,9 +1014,10 @@ proc updateHead*(
       headParent = shortLog(newHead.parent),
       stateRoot = shortLog(dag.headState.data.root),
       headBlock = shortLog(dag.headState.blck),
-      stateSlot = shortLog(dag.headState.data.data.slot),
-      justified = shortLog(dag.headState.data.data.current_justified_checkpoint),
-      finalized = shortLog(dag.headState.data.data.finalized_checkpoint)
+      stateSlot = shortLog(getStateField(dag.headState, slot)),
+      justified =
+        shortLog(getStateField(dag.headState, current_justified_checkpoint)),
+      finalized = shortLog(getStateField(dag.headState, finalized_checkpoint))
 
     # A reasonable criterion for "reorganizations of the chain"
     quarantine.clearQuarantine()
@@ -1021,17 +1026,19 @@ proc updateHead*(
     debug "Updated head block",
       stateRoot = shortLog(dag.headState.data.root),
       headBlock = shortLog(dag.headState.blck),
-      stateSlot = shortLog(dag.headState.data.data.slot),
-      justified = shortLog(dag.headState.data.data.current_justified_checkpoint),
-      finalized = shortLog(dag.headState.data.data.finalized_checkpoint)
+      stateSlot = shortLog(getStateField(dag.headState, slot)),
+      justified = shortLog(getStateField(
+        dag.headState, current_justified_checkpoint)),
+      finalized = shortLog(getStateField(
+        dag.headState, finalized_checkpoint))
 
   # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
   # both non-negative, so difference can't overflow or underflow int64
   beacon_pending_deposits.set(
-    dag.headState.data.data.eth1_data.deposit_count.toGaugeValue -
-    dag.headState.data.data.eth1_deposit_index.toGaugeValue)
+    getStateField(dag.headState, eth1_data).deposit_count.toGaugeValue -
+    getStateField(dag.headState, eth1_deposit_index).toGaugeValue)
   beacon_processed_deposits_total.set(
-    dag.headState.data.data.eth1_deposit_index.toGaugeValue)
+    getStateField(dag.headState, eth1_deposit_index).toGaugeValue)
 
   beacon_head_root.set newHead.root.toGaugeValue
   beacon_head_slot.set newHead.slot.toGaugeValue
@@ -1041,13 +1048,17 @@ proc updateHead*(
     # changes epoch, even if there is no new block / head, but we'll delay
     # updating them until a block confirms the change
     beacon_current_justified_epoch.set(
-      dag.headState.data.data.current_justified_checkpoint.epoch.toGaugeValue)
+      getStateField(
+        dag.headState, current_justified_checkpoint).epoch.toGaugeValue)
     beacon_current_justified_root.set(
-      dag.headState.data.data.current_justified_checkpoint.root.toGaugeValue)
+      getStateField(
+        dag.headState, current_justified_checkpoint).root.toGaugeValue)
     beacon_previous_justified_epoch.set(
-      dag.headState.data.data.previous_justified_checkpoint.epoch.toGaugeValue)
+      getStateField(
+        dag.headState, previous_justified_checkpoint).epoch.toGaugeValue)
     beacon_previous_justified_root.set(
-      dag.headState.data.data.previous_justified_checkpoint.root.toGaugeValue)
+      getStateField(
+        dag.headState, previous_justified_checkpoint).root.toGaugeValue)
 
     let epochRef = getEpochRef(dag, newHead, newHead.slot.epoch)
     beacon_active_validators.set(
@@ -1061,9 +1072,9 @@ proc updateHead*(
     dag.finalizedHead = finalizedHead
 
     beacon_finalized_epoch.set(
-      dag.headState.data.data.finalized_checkpoint.epoch.toGaugeValue)
+      getStateField(dag.headState, finalized_checkpoint).epoch.toGaugeValue)
     beacon_finalized_root.set(
-      dag.headState.data.data.finalized_checkpoint.root.toGaugeValue)
+      getStateField(dag.headState, finalized_checkpoint).root.toGaugeValue)
 
     # Pruning the block dag is required every time the finalized head changes
     # in order to clear out blocks that are no longer viable and should
