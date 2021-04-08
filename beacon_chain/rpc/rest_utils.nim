@@ -29,6 +29,90 @@ const
   FarFutureEpochString* = "18446744073709551615"
   MaxEpoch* = compute_epoch_at_slot(not(0'u64))
 
+  BlockValidationError* =
+    "The block failed validation, but was successfully broadcast anyway. It " &
+    "was not integrated into the beacon node's database."
+  BlockValidationSuccess* =
+    "The block was validated successfully and has been broadcast"
+  BeaconNodeInSyncError* =
+    "Beacon node is currently syncing and not serving request on that endpoint"
+  BlockNotFoundError* =
+    "Block header/data has not been found"
+  EmptyRequestBodyError* =
+    "Empty request's body"
+  InvalidBlockObjectError* =
+    "Unable to decode block object(s)"
+  InvalidAttestationObjectError* =
+    "Unable to decode attestation object(s)"
+  AttestationValidationError* =
+    "Some errors happened while validating attestation(s)"
+  AttestationValidationSuccess* =
+    "Attestation object(s) was broadcasted"
+  InvalidAttesterSlashingObjectError* =
+    "Unable to decode attester slashing object(s)"
+  AttesterSlashingValidationError* =
+    "Invalid attester slashing, it will never pass validation so it's rejected"
+  AttesterSlashingValidationSuccess* =
+    "Attester slashing object was broadcasted"
+  InvalidProposerSlashingObjectError* =
+    "Unable to decode proposer slashing object(s)"
+  ProposerSlashingValidationError* =
+    "Invalid proposer slashing, it will never pass validation so it's rejected"
+  ProposerSlashingValidationSuccess* =
+    "Proposer slashing object was broadcasted"
+  InvalidVoluntaryExitObjectError* =
+    "Unable to decode voluntary exit object(s)"
+  VoluntaryExitValidationError* =
+    "Invalid voluntary exit, it will never pass validation so it's rejected"
+  VoluntaryExitValidationSuccess* =
+    "Voluntary exit object(s) was broadcasted"
+  InvalidParentRootValueError* =
+    "Invalid parent root value"
+  MissingSlotValueError* =
+    "Missing `slot` value"
+  InvalidSlotValueError* =
+    "Invalid slot value"
+  MissingCommitteeIndexValueError* =
+    "Missing `committee_index` value"
+  InvalidCommitteeIndexValueError* =
+    "Invalid committee index value"
+  InvalidEpochValueError* =
+    "Invalid epoch value"
+  InvalidStateIdValueError* =
+    "Invalid state identifier value"
+  InvalidBlockIdValueError* =
+    "Invalid block identifier value"
+  InvalidValidatorIdValueError* =
+    "Invalid validator's identifier value(s)"
+  MaximumNumberOfValidatorIdsError* =
+    "Maximum number of validator identifier values exceeded"
+  InvalidValidatorStatusValueError* =
+    "Invalid validator's status value error"
+  ValidatorNotFoundError* =
+    "Could not find validator"
+  ValidatorStatusNotFoundError* =
+    "Could not obtain validator's status"
+  UniqueValidatorKeyError* =
+    "Only unique validator's keys are allowed"
+  TooHighValidatorIndexValueError* =
+    "Validator index exceeds maximum number of validators allowed"
+  UnsupportedValidatorIndexValueError* =
+    "Validator index exceeds maximum supported number of validators"
+  UniqueValidatorIndexError* =
+    "Only unique validator's index are allowed"
+  StateNotFoundError* =
+    "State not found"
+  SlotNotFoundError* =
+    "Slot number is too far away"
+  NoHeadForSlotError* =
+    "Cound not find head for slot"
+  EpochOverflowValueError* =
+    "Requesting epoch for which slot would overflow"
+  InternalServerError* =
+    "Internal server error"
+  NoImplementationError* =
+    "Not implemented yet"
+
 type
   ValidatorQueryKind* {.pure.} = enum
     Index, Key

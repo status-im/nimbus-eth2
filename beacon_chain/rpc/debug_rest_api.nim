@@ -15,16 +15,16 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let bslot =
       block:
         if state_id.isErr():
-          return RestApiResponse.jsonError(Http400, "Invalid state_id",
+          return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                            $state_id.error())
         let bres = node.getBlockSlot(state_id.get())
         if bres.isErr():
-          return RestApiResponse.jsonError(Http404, "State not found",
+          return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                            $bres.error())
         bres.get()
     node.withStateForBlockSlot(bslot):
       return RestApiResponse.jsonResponse(state())
-    return RestApiResponse.jsonError(Http500, "Internal server error")
+    return RestApiResponse.jsonError(Http500, InternalServerError)
 
   router.api(MethodGet,
              "/api/eth/v1/debug/beacon/heads") do () -> RestApiResponse:

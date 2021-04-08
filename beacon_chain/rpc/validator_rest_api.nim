@@ -47,7 +47,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let indexList =
       block:
         if contentBody.isNone():
-          return RestApiResponse.jsonError(Http400, "Empty request's body")
+          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
         let dres = decodeBody(seq[RestValidatorIndex], contentBody.get())
         if dres.isErr():
           return RestApiResponse.jsonError(Http400, "Unable to decode " &
@@ -60,10 +60,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             case vres.error()
             of ValidatorIndexError.TooHighValue:
               return RestApiResponse.jsonError(Http400,
-                                              "Incorrect validator index value")
+                                               TooHighValidatorIndexValueError)
             of ValidatorIndexError.UnsupportedValue:
               return RestApiResponse.jsonError(Http500,
-                                            "Unsupported validator index value")
+                                            UnsupportedValidatorIndexValueError)
           res.add(vres.get())
         if len(res) == 0:
           return RestApiResponse.jsonError(Http400, "Empty indexes list")
@@ -71,23 +71,20 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let qepoch =
       block:
         if epoch.isErr():
-          return RestApiResponse.jsonError(Http400, "Incorrect epoch value",
+          return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
                                            $epoch.error())
         let res = epoch.get()
         if res > MaxEpoch:
-          return RestApiResponse.jsonError(Http400, "Requesting epoch for " &
-                                           "which slot would overflow")
+          return RestApiResponse.jsonError(Http400, EpochOverflowValueError)
         res
     let qhead =
       block:
         let res = node.getCurrentHead(qepoch)
         if res.isErr():
           if not(node.isSynced(node.chainDag.head)):
-            return RestApiResponse.jsonError(Http503, "Beacon node is " &
-              "currently syncing and not serving request on that endpoint")
+            return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
           else:
-            return RestApiResponse.jsonError(Http400,
-                                             "Cound not find head for slot",
+            return RestApiResponse.jsonError(Http400, NoHeadForSlotError,
                                              $res.error())
         res.get()
     let droot =
@@ -97,8 +94,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         )
         if isNil(bref):
           if not(node.isSynced(node.chainDag.head)):
-            return RestApiResponse.jsonError(Http503, "Beacon node is " &
-              "currently syncing and not serving request on that endpoint")
+            return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
           else:
             return RestApiResponse.jsonError(Http400,
                                              "Cound not find slot data")
@@ -141,23 +137,20 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let qepoch =
       block:
         if epoch.isErr():
-          return RestApiResponse.jsonError(Http400, "Incorrect epoch value",
+          return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
                                            $epoch.error())
         let res = epoch.get()
         if res > MaxEpoch:
-          return RestApiResponse.jsonError(Http400, "Requesting epoch for " &
-                                           "which slot would overflow")
+          return RestApiResponse.jsonError(Http400, EpochOverflowValueError)
         res
     let qhead =
       block:
         let res = node.getCurrentHead(qepoch)
         if res.isErr():
           if not(node.isSynced(node.chainDag.head)):
-            return RestApiResponse.jsonError(Http503, "Beacon node is " &
-              "currently syncing and not serving request on that endpoint")
+            return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
           else:
-            return RestApiResponse.jsonError(Http400,
-                                             "Cound not find head for slot",
+            return RestApiResponse.jsonError(Http400, NoHeadForSlotError,
                                              $res.error())
         res.get()
     let droot =
@@ -167,11 +160,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         )
         if isNil(bref):
           if not(node.isSynced(node.chainDag.head)):
-            return RestApiResponse.jsonError(Http503, "Beacon node is " &
-              "currently syncing and not serving request on that endpoint")
+            return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
           else:
-            return RestApiResponse.jsonError(Http400,
-                                             "Cound not find slot data")
+            return RestApiResponse.jsonError(Http400, BlockNotFoundError)
         bref.root
       else:
         node.chainDag.genesis.root
@@ -201,7 +192,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let qslot =
           block:
             if slot.isErr():
-              return RestApiResponse.jsonError(Http400, "Incorrect slot value",
+              return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
                                                $slot.error())
             slot.get()
         let qrandao =
@@ -230,11 +221,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             let res = node.getCurrentHead(qslot)
             if res.isErr():
               if not(node.isSynced(node.chainDag.head)):
-                return RestApiResponse.jsonError(Http503, "Beacon node is " &
-                  "currently syncing and not serving request on that endpoint")
+                return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
               else:
-                return RestApiResponse.jsonError(Http400,
-                                                 "Cound not find head for slot",
+                return RestApiResponse.jsonError(Http400, NoHeadForSlotError,
                                                  $res.error())
             res.get()
         let proposer = node.chainDag.getProposer(qhead, qslot)
@@ -258,21 +247,21 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let qslot =
           block:
             if slot.isNone():
-              return RestApiResponse.jsonError(Http400, "Missing slot value")
+              return RestApiResponse.jsonError(Http400, MissingSlotValueError)
             let res = slot.get()
             if res.isErr():
-              return RestApiResponse.jsonError(Http400, "Incorrect slot value",
+              return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
                                                $res.error())
             res.get()
         let qindex =
           block:
             if committee_index.isNone():
               return RestApiResponse.jsonError(Http400,
-                                               "Missing committee_index value")
+                                               MissingCommitteeIndexValueError)
             let res = committee_index.get()
             if res.isErr():
-              return RestApiResponse.jsonError(Http400, "Incorrect " &
-                                               "committee_index value",
+              return RestApiResponse.jsonError(Http400,
+                                               InvalidCommitteeIndexValueError,
                                                $res.error())
             res.get()
         let qhead =
@@ -280,11 +269,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             let res = node.getCurrentHead(qslot)
             if res.isErr():
               if not(node.isSynced(node.chainDag.head)):
-                return RestApiResponse.jsonError(Http503, "Beacon node is " &
-                  "currently syncing and not serving request on that endpoint")
+                return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
               else:
-                return RestApiResponse.jsonError(Http400,
-                                                 "Cound not find head for slot",
+                return RestApiResponse.jsonError(Http400, NoHeadForSlotError,
                                                  $res.error())
             res.get()
         let epochRef = node.chainDag.getEpochRef(qhead, qslot.epoch)
@@ -300,10 +287,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let qslot =
           block:
             if slot.isNone():
-              return RestApiResponse.jsonError(Http400, "Missing slot value")
+              return RestApiResponse.jsonError(Http400, MissingSlotValueError)
             let res = slot.get()
             if res.isErr():
-              return RestApiResponse.jsonError(Http400, "Incorrect slot value",
+              return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
                                                $res.error())
             res.get()
         let qroot =
@@ -330,7 +317,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let payload =
       block:
         if contentBody.isNone():
-          return RestApiResponse.jsonError(Http400, "Empty request's body")
+          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
         let dres = decodeBody(SignedAggregateAndProof, contentBody.get())
         if dres.isErr():
           return RestApiResponse.jsonError(Http400, "Unable to decode " &
@@ -357,7 +344,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let requests =
       block:
         if contentBody.isNone():
-          return RestApiResponse.jsonError(Http400, "Empty request's body")
+          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
         let dres = decodeBody(seq[RestCommitteeSubscriptionTuple],
                               contentBody.get())
         if dres.isErr():
@@ -365,13 +352,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             "subscription request(s)")
         dres.get()
     if not(node.isSynced(node.chainDag.head)):
-      return RestApiResponse.jsonError(Http503, "Beacon node is " &
-        "currently syncing and not serving request on that endpoint")
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
 
     for request in requests:
       if uint64(request.committee_index) >= uint64(ATTESTATION_SUBNET_COUNT):
-        return RestApiResponse.jsonError(Http400, "Invalid committee_index " &
-                                         "value")
+        return RestApiResponse.jsonError(Http400,
+                                         InvalidCommitteeIndexValueError)
       let validator_pubkey =
         block:
           let idx = request.validator_index
@@ -400,4 +386,4 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         get_committee_count_per_slot(epochRef), request.slot,
         request.committee_index)
       )
-    return RestApiResponse.jsonError(Http500, "Not implemented yet")
+    return RestApiResponse.jsonError(Http500, NoImplementationError)
