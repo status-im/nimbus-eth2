@@ -45,7 +45,7 @@ type
     list    = "Lists details about all wallets"
 
   DepositsCmd* {.pure.} = enum
-    create   = "Creates validator keystores and deposits"
+    createTestnetDeposits = "Creates validator keystores and deposits for testnet usage"
     `import` = "Imports password-protected keystores interactively"
     # status   = "Displays status information about all deposits"
     exit     = "Submits a validator voluntary exit"
@@ -379,7 +379,7 @@ type
 
     of deposits:
       case depositsCmd* {.command.}: DepositsCmd
-      of DepositsCmd.create:
+      of DepositsCmd.createTestnetDeposits:
         totalDeposits* {.
           defaultValue: 1
           desc: "Number of deposits to generate"
@@ -655,7 +655,7 @@ func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
     of WalletsCmd.list: fail()
   of deposits:
     case config.depositsCmd
-    of DepositsCmd.create: config.newWalletNameFlag
+    of DepositsCmd.createTestnetDeposits: config.newWalletNameFlag
     else: fail()
   else:
     fail()
@@ -672,7 +672,7 @@ func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
     of WalletsCmd.list: fail()
   of deposits:
     case config.depositsCmd
-    of DepositsCmd.create: config.newWalletFileFlag
+    of DepositsCmd.createTestnetDeposits: config.newWalletFileFlag
     else: fail()
   else:
     fail()

@@ -394,7 +394,7 @@ define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 endef
 
 define MAKE_DEPOSIT_DATA
-	build/nimbus_beacon_node deposits create \
+	build/nimbus_beacon_node deposits createTestnetDeposits \
 		--network=$(1) \
 		--new-wallet-file=build/data/shared_$(1)_$(NODE_ID)/wallet.json \
 		--out-validators-dir=build/data/shared_$(1)_$(NODE_ID)/validators \
@@ -404,7 +404,7 @@ define MAKE_DEPOSIT_DATA
 endef
 
 define MAKE_DEPOSIT
-	build/nimbus_beacon_node deposits create \
+	build/nimbus_beacon_node deposits createTestnetDeposits \
 		--network=$(1) \
 		--out-deposits-file=nbc-$(1)-deposits.json \
 		--new-wallet-file=build/data/shared_$(1)_$(NODE_ID)/wallet.json \
