@@ -18,6 +18,7 @@ The major bottlenecks that can be improved by CPU specific instructions are:
 Intel: Core 2, 2006\
 AMD: Bulldozer, 2011\
 Flag: `-mssse3`
+Configuration: https://github.com/supranational/blst/blob/v0.3.4/build/assembly.S#L3-L6
 
 SSSE3 improves SHA256 computations. SHA256 is used **recursively** to hash all consensus objects and to build a merkle tree.
 Thanks to caching, SHA256 computation speed is mostly relevant only when receiving new blocks and attestations from the network, but state transitions do not depend on it (unlike a naive spec implementation).
@@ -57,10 +58,13 @@ SHA256 - 5MB - BLST            87.142 ops/s     11475557 ns/op     34427254 cycl
 ### BMI2 & ADX
 
 Intel: Broadwell, 2015\
-AMD: Ryzen, 2017
+AMD: Ryzen, 2017\
+Configuration: https://github.com/supranational/blst/blob/v0.3.4/build/assembly.S#L18
 
 The MULX instruction (BMI2), ADCX and ADOX (ADX) significantly improves big integer multiplication and squaring.
 The speedup is about 20~25% depending on the custom assembly implementation.
+
+All CPUs that support ADX support BMI2.
 
 ```
 git clone https://github.com/status-im/nim-blscurve
@@ -110,9 +114,36 @@ Intel:
 
 AMD: Ryzen, 2017\
 Flag: `-msha`
+Configuration: https://github.com/supranational/blst/blob/v0.3.4/src/sha256.h#L11-L12
 
 On Ryzen, **hardware SHA is 4X faster** than when using SIMD instructions (Table 1, p14).
 
 - SoK: A Performance Evaluation of Cryptographic InstructionSets on Modern Architectures\
   Armando Faz-Hernández, Julio López, Ana Karina D. S. de Oliveira, 2018\
   https://www.lasca.ic.unicamp.br/media/publications/p9-faz-hernandez.pdf
+
+## ARM
+
+32-bit ARM (ARMv6) has a multiplication instruction 32x32 -> 64 called UMULL.
+
+Unfortunately, 64-bit ARM (ARMv8) unlike x86-64 doesn't have a single 64x64 -> 128 multiplication instruction. MUL and UMULH instruction needs to be used for extended precision multiplication.
+
+- Multiprecision Multiplication on ARMv8\
+  Zhe Liu, Kimmo Jarvinenadl, Weiqiang Liu, Hwajeong Seo\
+  http://arith24.arithsymposium.org/slides/s2-liu.pdf
+
+Concretely, this means that ARMv8 CPUs are impaired compared to x86-64 at equivalent frequency for big integers and cryptography (for example Apple M1).
+
+### Cryptographic extensions
+
+Except for Raspberry Pi, ARMv8 processors support the crypto extensions which include hardware implementation of SHA256.
+
+This is detected via
+- `__ARM_FEATURE_CRYPTO` https://github.com/supranational/blst/blob/v0.3.4/src/sha256.h#L14-L15
+
+The compilation flag should be either
+- `-mfpu=crypto-neon-fp-armv8`
+- or `-march=armv8-a+crypto`
+
+The speedup is expected to be 2x faster than without.\
+https://patchwork.kernel.org/project/linux-arm-kernel/patch/20150316154835.GA31336@google.com/
