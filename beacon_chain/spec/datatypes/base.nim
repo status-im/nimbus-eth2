@@ -728,6 +728,7 @@ proc writeValue*(writer: var JsonWriter, value: HashList)
 
 proc readValue*(reader: var JsonReader, value: var HashList)
                {.raises: [IOError, SerializationError, Defect].} =
+  value.resetCache()
   readValue(reader, value.data)
 
 template writeValue*(writer: var JsonWriter, value: Version | ForkDigest) =

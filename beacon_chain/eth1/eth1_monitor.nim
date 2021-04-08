@@ -81,7 +81,8 @@ type
 
   Eth1Monitor* = ref object
     state: Eth1MonitorState
-    web3Url: string
+    startIdx: int
+    web3Urls: seq[string]
     eth1Network: Option[Eth1Network]
     depositContractAddress*: Eth1Address
 
@@ -739,7 +740,7 @@ proc new(T: type Web3DataProvider,
          depositContractAddress: Eth1Address,
          web3Url: string): Future[Result[Web3DataProviderRef, string]] {.async.} =
   let web3Fut = newWeb3(web3Url)
-  yield web3Fut or sleepAsync(chronos.seconds(5))
+  yield web3Fut or sleepAsync(chronos.seconds(10))
   if (not web3Fut.finished) or web3Fut.failed:
     await cancelAndWait(web3Fut)
     return err "Failed to setup web3 connection"
@@ -772,19 +773,22 @@ proc init*(T: type Eth1Chain, preset: RuntimePreset, db: BeaconChainDB): T =
 proc init*(T: type Eth1Monitor,
            preset: RuntimePreset,
            db: BeaconChainDB,
-           web3Url: string,
+           web3Urls: seq[string],
            depositContractAddress: Eth1Address,
            depositContractSnapshot: DepositContractSnapshot,
            eth1Network: Option[Eth1Network]): T =
-  var web3Url = web3Url
-  fixupWeb3Urls web3Url
+  doAssert web3Urls.len > 0
+
+  var web3Urls = web3Urls
+  for url in mitems(web3Urls):
+    fixupWeb3Urls url
 
   putInitialDepositContractSnapshot(db, depositContractSnapshot)
 
   T(state: Initialized,
     eth1Chain: Eth1Chain.init(preset, db),
     depositContractAddress: depositContractAddress,
-    web3Url: web3Url,
+    web3Urls: web3Urls,
     eth1Network: eth1Network,
     eth1Progress: newAsyncEvent())
 
@@ -1000,12 +1004,15 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
   if delayBeforeStart != ZeroDuration:
     await sleepAsync(delayBeforeStart)
 
+  let web3Url = m.web3Urls[m.startIdx mod m.web3Urls.len]
+  inc m.startIdx
+
   info "Starting Eth1 deposit contract monitoring",
-    contract = $m.depositContractAddress, url = m.web3Url
+    contract = $m.depositContractAddress, url = web3Url
 
   let dataProviderRes = await Web3DataProvider.new(
     m.depositContractAddress,
-    m.web3Url)
+    web3Url)
 
   m.dataProvider = dataProviderRes.tryGet()
   let web3 = m.dataProvider.web3
@@ -1150,12 +1157,14 @@ when hasGenesisDetection:
   proc init*(T: type Eth1Monitor,
              db: BeaconChainDB,
              preset: RuntimePreset,
-             web3Url: string,
+             web3Urls: seq[string],
              depositContractAddress: Eth1Address,
              depositContractDeployedAt: BlockHashOrNumber,
              eth1Network: Option[Eth1Network]): Future[Result[T, string]] {.async.} =
+    doAssert web3Urls.len > 0
     try:
-      let dataProviderRes = await Web3DataProvider.new(depositContractAddress, web3Url)
+      var urlIdx = 0
+      let dataProviderRes = await Web3DataProvider.new(depositContractAddress, web3Urls[urlIdx])
       if dataProviderRes.isErr:
         return err(dataProviderRes.error)
       var dataProvider = dataProviderRes.get
@@ -1180,8 +1189,10 @@ when hasGenesisDetection:
             #       Until this is fixed upstream, we'll just try to recreate
             #       the web3 provider before retrying. In case this fails,
             #       the Eth1Monitor will be restarted.
+            inc urlIdx
             dataProvider = tryGet(
-              await Web3DataProvider.new(depositContractAddress, web3Url))
+              await Web3DataProvider.new(depositContractAddress,
+                                         web3Urls[urlIdx mod web3Urls.len]))
           blk.hash.asEth2Digest
 
       let depositContractSnapshot = DepositContractSnapshot(
@@ -1190,7 +1201,7 @@ when hasGenesisDetection:
       var monitor = Eth1Monitor.init(
         db,
         preset,
-        web3Url,
+        web3Urls,
         depositContractAddress,
         depositContractSnapshot,
         eth1Network)

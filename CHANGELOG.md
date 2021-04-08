@@ -1,15 +1,60 @@
-TBD
-==================
+2021-04-05 v1.1.0
+=================
+
+This release brings planned reforms to our database schema that provide substantial
+performance improvements and pave the way for an an improved doppelganger detection
+ready immediately to propose and attest to blocks (in a future release).
+
+Please be aware that we will remain committed to maintaining backwards compatibility between
+releases, but **this release does not support downgrading back to any previous 1.0.x release**.
+
+As a safety precaution, we advise you to **please backup your Nimbus database before upgrading**
+if possible.
 
 **New features:**
 
-* Added the `setGraffiti` RPC (POST /api/nimbus/v1/graffiti in the REST API)
+* More efficient state storage format ==> reduced I/O load and lower storage requirements.
+
+* More efficient in-memory cache for non-finalized states ==> significant reduction in memory
+  usage.
+
+* More efficient slashing database schema ==> scales better to a larger number of validators.
+
+* The metrics support is now compiled by default thanks to a new and more secure HTTP back-end.
+
+* Command-line tools for generating testnet keystores and JSON deposit files suitable for use
+  with the official network launchpads.
+
+* `setGraffiti` JSON-RPC call for modifying the graffiti bytes of the client at run-time.
+
+* `next_action_wait` metric indicating the time until the next scheduled
+  attestation or block proposal.
+
+* More convenient command-line help messages providing information regarding the default
+  values of all parameters.
+
+* `--direct-peer` gives you the ability to specify gossip nodes to automatically connect to.
+
+* Official docker images for ARM and ARM64.
+
+* Support for fallback `--web3-url` providers.
+
+**We've fixed:**
+
+* Long processing delays induced by database pruning.
+
+* File descriptor leaks (which manifested after failures of the selected web3 provider).
+
+* The validator APIs now return precise actual balances instead of rounded effective balances.
+
+* A connection tracking problem which produced failed outgoing connection attempts.
 
 **Breaking changes:**
 
-* Renamed some semi-internal debug rpc to be more explicit about their nature:
-  * `getGossipSubPeers` is now `debug_getGossipSubPeers`
-  * `getChronosFutures` is now `debug_getChronosFutures`
+* Nimbus-specific JSON-RPCs intended for debug purposes now have the `debug_` prefix:
+
+  - `getGossipSubPeers` is now `debug_getGossipSubPeers`
+  - `getChronosFutures` is now `debug_getChronosFutures`
 
 
 2021-03-10 v1.0.12

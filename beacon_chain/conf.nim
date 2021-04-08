@@ -45,7 +45,7 @@ type
     list    = "Lists details about all wallets"
 
   DepositsCmd* {.pure.} = enum
-    # create   = "Creates validator keystores and deposits"
+    createTestnetDeposits = "Creates validator keystores and deposits for testnet usage"
     `import` = "Imports password-protected keystores interactively"
     # status   = "Displays status information about all deposits"
     exit     = "Submits a validator voluntary exit"
@@ -106,10 +106,9 @@ type
       desc: "A directory containing wallet files"
       name: "wallets-dir" }: Option[InputDir]
 
-    web3Url* {.
-      defaultValue: ""
-      desc: "URL of the Web3 server to observe Eth1"
-      name: "web3-url" }: string
+    web3Urls* {.
+      desc: "One of more Web3 provider URLs used for obtaining deposit contract data"
+      name: "web3-url" }: seq[string]
 
     web3Mode* {.
       hidden
@@ -145,7 +144,7 @@ type
 
     slashingDbKind* {.
       hidden
-      defaultValue: SlashingDbKind.both
+      defaultValue: SlashingDbKind.v2
       desc: "The slashing DB flavour to use (v1, v2 or both) [=both]"
       name: "slashing-db-kind" }: SlashingDbKind
 
@@ -389,8 +388,7 @@ type
 
     of deposits:
       case depositsCmd* {.command.}: DepositsCmd
-      #[
-      of DepositsCmd.create:
+      of DepositsCmd.createTestnetDeposits:
         totalDeposits* {.
           defaultValue: 1
           desc: "Number of deposits to generate"
@@ -422,9 +420,10 @@ type
           desc: "Output wallet file"
           name: "new-wallet-file" }: Option[OutFile]
 
+      #[
       of DepositsCmd.status:
         discard
-      #]#
+      ]#
 
       of DepositsCmd.`import`:
         importedDepositsDir* {.
@@ -664,11 +663,9 @@ func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
     of WalletsCmd.restore: config.restoredWalletNameFlag
     of WalletsCmd.list: fail()
   of deposits:
-    # TODO: Uncomment when the deposits create command is restored
-    #case config.depositsCmd
-    #of DepositsCmd.create: config.newWalletNameFlag
-    #else: fail()
-    fail()
+    case config.depositsCmd
+    of DepositsCmd.createTestnetDeposits: config.newWalletNameFlag
+    else: fail()
   else:
     fail()
 
@@ -683,11 +680,9 @@ func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
     of WalletsCmd.restore: config.restoredWalletFileFlag
     of WalletsCmd.list: fail()
   of deposits:
-    # TODO: Uncomment when the deposits create command is restored
-    #case config.depositsCmd
-    #of DepositsCmd.create: config.newWalletFileFlag
-    #else: fail()
-    fail()
+    case config.depositsCmd
+    of DepositsCmd.createTestnetDeposits: config.newWalletFileFlag
+    else: fail()
   else:
     fail()
 
