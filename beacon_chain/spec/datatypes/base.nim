@@ -139,10 +139,10 @@ type
   # VALIDATOR_REGISTRY_LIMIT is 1^40 in spec 1.0, but if the number of
   # validators ever grows near 1^32 that we support here, we'll have bigger
   # issues than the size of this type to take care of. Until then, we'll use
-  # uint32 as it halves memory requirements for active validator sets,
+  # int32 as it halves memory requirements for active validator sets,
   # improves consistency on 32-vs-64-bit platforms and works better with
   # Nim seq constraints.
-  ValidatorIndex* = distinct uint32
+  ValidatorIndex* = distinct int32
 
   # Though in theory the committee index would fit in a uint8, it is not used
   # in a way that would significantly benefit from the smaller type, thus we
