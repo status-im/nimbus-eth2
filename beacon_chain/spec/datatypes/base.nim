@@ -137,7 +137,7 @@ type
   # instances are not invalid _per se_ when they hold an out-of-bounds index -
   # that is part of consensus.
   # VALIDATOR_REGISTRY_LIMIT is 1^40 in spec 1.0, but if the number of
-  # validators ever grows near 1^32 that we support here, we'll have bigger
+  # validators ever grows near 1^31 that we support here, we'll have bigger
   # issues than the size of this type to take care of. Until then, we'll use
   # int32 as it halves memory requirements for active validator sets,
   # improves consistency on 32-vs-64-bit platforms and works better with
