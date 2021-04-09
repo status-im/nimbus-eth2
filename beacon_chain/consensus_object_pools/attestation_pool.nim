@@ -153,6 +153,7 @@ func addToAggregates(pool: var AttestationPool, attestation: Attestation) =
 proc addAttestation*(pool: var AttestationPool,
                      attestation: Attestation,
                      participants: seq[ValidatorIndex],
+                     signature: CookedSig,
                      wallSlot: Slot) =
   ## Add an attestation to the pool, assuming it's been validated already.
   ## Attestations may be either agggregated or not - we're pursuing an eager
@@ -179,15 +180,19 @@ proc addAttestation*(pool: var AttestationPool,
   let
     attestationsSeen = addr pool.candidates[candidateIdx.get]
     # Only attestestions with valid signatures get here
-    validation = Validation(
+
+  template getValidation(): auto =
+    doAssert attestation.signature == signature.exportRaw
+    Validation(
       aggregation_bits: attestation.aggregation_bits,
-      aggregate_signature: load(attestation.signature).get.CookedSig)
+      aggregate_signature: signature,
+      aggregate_signature_raw: attestation.signature)
 
   var found = false
   for a in attestationsSeen.attestations.mitems():
     if a.data == attestation.data:
       for v in a.validations:
-        if validation.aggregation_bits.isSubsetOf(v.aggregation_bits):
+        if attestation.aggregation_bits.isSubsetOf(v.aggregation_bits):
           # The validations in the new attestation are a subset of one of the
           # attestations that we already have on file - no need to add this
           # attestation to the database
@@ -202,9 +207,9 @@ proc addAttestation*(pool: var AttestationPool,
         trace "Removing subset attestations", newParticipants = participants
 
         a.validations.keepItIf(
-          not it.aggregation_bits.isSubsetOf(validation.aggregation_bits))
+          not it.aggregation_bits.isSubsetOf(attestation.aggregation_bits))
 
-        a.validations.add(validation)
+        a.validations.add(getValidation())
         pool.addForkChoiceVotes(
           attestation.data.slot, participants, attestation.data.beacon_block_root,
           wallSlot)
@@ -220,7 +225,7 @@ proc addAttestation*(pool: var AttestationPool,
   if not found:
     attestationsSeen.attestations.add(AttestationEntry(
       data: attestation.data,
-      validations: @[validation],
+      validations: @[getValidation()],
       aggregation_bits: attestation.aggregation_bits
     ))
     pool.addForkChoiceVotes(
@@ -284,7 +289,7 @@ iterator attestations*(pool: AttestationPool, slot: Option[Slot],
           yield Attestation(
             aggregation_bits: validation.aggregation_bits,
             data: entry.data,
-            signature: validation.aggregate_signature.exportRaw
+            signature: validation.aggregate_signature_raw
           )
 
 func getAttestationDataKey(ad: AttestationData): AttestationDataKey =
@@ -380,7 +385,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
       attestation = Attestation(
         aggregation_bits: a.validations[0].aggregation_bits,
         data: a.data,
-        signature: a.validations[0].aggregate_signature.exportRaw
+        signature: a.validations[0].aggregate_signature_raw
       )
 
       agg {.noInit.}: AggregateSignature
@@ -451,7 +456,7 @@ proc getAggregatedAttestation*(pool: AttestationPool,
       attestation = Attestation(
         aggregation_bits: a.validations[0].aggregation_bits,
         data: a.data,
-        signature: a.validations[0].aggregate_signature.exportRaw
+        signature: a.validations[0].aggregate_signature_raw
       )
 
       agg {.noInit.}: AggregateSignature

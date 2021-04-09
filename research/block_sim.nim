@@ -118,7 +118,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
                 data: data,
                 aggregation_bits: aggregation_bits,
                 signature: sig
-              ), @[validatorIdx], data.slot)
+              ), @[validatorIdx], sig.load.get().CookedSig, data.slot)
 
   proc proposeBlock(slot: Slot) =
     if rand(r, 1.0) > blockRatio:

@@ -40,6 +40,7 @@ type
   AttestationEntry = object
     v: Attestation
     attesting_indices: seq[ValidatorIndex]
+    sig: CookedSig
 
   AggregateEntry = AttestationEntry
 
@@ -160,7 +161,9 @@ proc addBlock*(self: var VerifQueueManager, syncBlock: SyncBlock) =
   # addLast doesn't fail
   asyncSpawn(self.blocksQueue.addLast(BlockEntry(v: syncBlock)))
 
-proc addAttestation*(self: var VerifQueueManager, att: Attestation, att_indices: seq[ValidatorIndex]) =
+proc addAttestation*(
+    self: var VerifQueueManager, att: Attestation,
+    att_indices: seq[ValidatorIndex], sig: CookedSig) =
   ## Enqueue a Gossip-validated attestation for consensus verification
   # Backpressure:
   #   If buffer is full, the oldest attestation is dropped and the newest is enqueued
@@ -185,11 +188,13 @@ proc addAttestation*(self: var VerifQueueManager, att: Attestation, att_indices:
 
   try:
     self.attestationsQueue.addLastNoWait(
-      AttestationEntry(v: att, attesting_indices: att_indices))
+      AttestationEntry(v: att, attesting_indices: att_indices, sig: sig))
   except AsyncQueueFullError as exc:
     raiseAssert "We just checked that queue is not full! " & exc.msg
 
-proc addAggregate*(self: var VerifQueueManager, agg: SignedAggregateAndProof, att_indices: seq[ValidatorIndex]) =
+proc addAggregate*(
+    self: var VerifQueueManager, agg: SignedAggregateAndProof,
+    att_indices: seq[ValidatorIndex], sig: CookedSig) =
   ## Enqueue a Gossip-validated aggregate attestation for consensus verification
   # Backpressure:
   #   If buffer is full, the oldest aggregate is dropped and the newest is enqueued
@@ -216,7 +221,8 @@ proc addAggregate*(self: var VerifQueueManager, agg: SignedAggregateAndProof, at
   try:
     self.aggregatesQueue.addLastNoWait(AggregateEntry(
       v: agg.message.aggregate,
-      attesting_indices: att_indices))
+      attesting_indices: att_indices,
+      sig: sig))
   except AsyncQueueFullError as exc:
     raiseAssert "We just checked that queue is not full! " & exc.msg
 
@@ -281,7 +287,7 @@ proc processAttestation(
 
   trace "Processing attestation"
   self.consensusManager.attestationPool[].addAttestation(
-    entry.v, entry.attesting_indices, wallSlot)
+    entry.v, entry.attesting_indices, entry.sig, wallSlot)
 
 proc processAggregate(
     self: var VerifQueueManager, entry: AggregateEntry) =
@@ -298,7 +304,7 @@ proc processAggregate(
 
   trace "Processing aggregate"
   self.consensusManager.attestationPool[].addAttestation(
-    entry.v, entry.attesting_indices, wallSlot)
+    entry.v, entry.attesting_indices, entry.sig, wallSlot)
 
 proc processBlock(self: var VerifQueueManager, entry: BlockEntry) =
   logScope:

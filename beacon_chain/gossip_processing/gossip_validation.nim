@@ -166,7 +166,8 @@ proc validateAttestation*(
     attestation: Attestation,
     wallTime: BeaconTime,
     topicCommitteeIndex: uint64, checksExpensive: bool):
-    Future[Result[seq[ValidatorIndex], (ValidationResult, cstring)]] {.async.} =
+    Future[Result[tuple[attestingIndices: seq[ValidatorIndex], sig: CookedSig],
+      (ValidationResult, cstring)]] {.async.} =
   # Some of the checks below have been reordered compared to the spec, to
   # perform the cheap checks first - in particular, we want to avoid loading
   # an `EpochRef` and checking signatures. This reordering might lead to
@@ -274,7 +275,11 @@ proc validateAttestation*(
       "Validator has already voted in epoch")))
 
   if not checksExpensive:
-    return ok(attesting_indices)
+    # Only sendAttestation, which discards result, doesn't use checksExpensive
+    # TODO this means that (a) this becomes an "expensive" check and (b) it is
+    # doing in-principle unnecessary work, since this should be known from the
+    # attestation creation.
+    return ok((attesting_indices, attestation.signature.load.get().CookedSig))
 
   # The signature of attestation is valid.
   block:
@@ -286,20 +291,22 @@ proc validateAttestation*(
     if v.isErr():
       return err((ValidationResult.Reject, v.error))
 
-    # Buffer crypto checks
-    let deferredCrypto = batchCrypto
-                  .scheduleAttestationCheck(
-                    fork, genesis_validators_root, epochRef,
-                    attestation
-                  )
-    if deferredCrypto.isNone():
-      return err((ValidationResult.Reject,
-                  cstring("validateAttestation: crypto sanity checks failure")))
+  # Buffer crypto checks
+  let deferredCrypto = batchCrypto
+                        .scheduleAttestationCheck(
+                          fork, genesis_validators_root, epochRef,
+                          attestation
+                        )
+  if deferredCrypto.isNone():
+    return err((ValidationResult.Reject,
+                cstring("validateAttestation: crypto sanity checks failure")))
 
-    # Await the crypto check
-    let cryptoChecked = await deferredCrypto.get()
-    if cryptoChecked.isErr():
-      return err((ValidationResult.Reject, cryptoChecked.error))
+  # Await the crypto check
+  let
+    (cryptoFut, sig) = deferredCrypto.get()
+    cryptoChecked = await cryptoFut
+  if cryptoChecked.isErr():
+    return err((ValidationResult.Reject, cryptoChecked.error))
 
   # Only valid attestations go in the list, which keeps validator_index
   # in range
@@ -308,7 +315,7 @@ proc validateAttestation*(
   pool.nextAttestationEpoch[validator_index].subnet =
     attestation.data.target.epoch + 1
 
-  return ok(attesting_indices)
+  return ok((attesting_indices, sig))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAggregate*(
@@ -316,7 +323,8 @@ proc validateAggregate*(
     batchCrypto: ref BatchCrypto,
     signedAggregateAndProof: SignedAggregateAndProof,
     wallTime: BeaconTime):
-    Future[Result[seq[ValidatorIndex], (ValidationResult, cstring)]] {.async.} =
+    Future[Result[tuple[attestingIndices: seq[ValidatorIndex], sig: CookedSig],
+      (ValidationResult, cstring)]] {.async.} =
   # Some of the checks below have been reordered compared to the spec, to
   # perform the cheap checks first - in particular, we want to avoid loading
   # an `EpochRef` and checking signatures. This reordering might lead to
@@ -419,34 +427,37 @@ proc validateAggregate*(
     if aggregate_and_proof.aggregator_index >= epochRef.validator_keys.lenu64:
       return err((ValidationResult.Reject, cstring("Invalid aggregator_index")))
 
-    let
-      fork = getStateField(pool.chainDag.headState, fork)
-      genesis_validators_root =
-        getStateField(pool.chainDag.headState, genesis_validators_root)
+  let
+    fork = getStateField(pool.chainDag.headState, fork)
+    genesis_validators_root =
+      getStateField(pool.chainDag.headState, genesis_validators_root)
 
-    let deferredCrypto = batchCrypto
-                  .scheduleAggregateChecks(
-                    fork, genesis_validators_root, epochRef,
-                    signed_aggregate_and_proof
-                  )
-    if deferredCrypto.isNone():
-      return err((ValidationResult.Reject,
-                  cstring("validateAttestation: crypto sanity checks failure")))
+  let deferredCrypto = batchCrypto
+                .scheduleAggregateChecks(
+                  fork, genesis_validators_root, epochRef,
+                  signed_aggregate_and_proof
+                )
+  if deferredCrypto.isNone():
+    return err((ValidationResult.Reject,
+                cstring("validateAttestation: crypto sanity checks failure")))
 
-    # [REJECT] aggregate_and_proof.selection_proof
-    let slotChecked = await deferredCrypto.get().slotCheck
-    if slotChecked.isErr():
-      return err((ValidationResult.Reject, cstring(
-        "Selection_proof signature verification failed")))
+  # [REJECT] aggregate_and_proof.selection_proof
+  let
+    (cryptoFuts, sig) = deferredCrypto.get()
+    slotChecked = await cryptoFuts.slotCheck
+  if slotChecked.isErr():
+    return err((ValidationResult.Reject, cstring(
+      "Selection_proof signature verification failed")))
 
+  block:
     # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
-    let aggregatorChecked = await deferredCrypto.get().aggregatorCheck
+    let aggregatorChecked = await cryptoFuts.aggregatorCheck
     if aggregatorChecked.isErr():
       return err((ValidationResult.Reject, cstring(
         "signed_aggregate_and_proof aggregator signature verification failed")))
 
     # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
-    let aggregateChecked = await deferredCrypto.get().aggregateCheck
+    let aggregateChecked = await cryptoFuts.aggregateCheck
     if aggregateChecked.isErr():
       return err((ValidationResult.Reject, cstring(
         "signed_aggregate_and_proof aggregate attester signatures verification failed")))
@@ -470,7 +481,7 @@ proc validateAggregate*(
   let attesting_indices = get_attesting_indices(
     epochRef, aggregate.data, aggregate.aggregation_bits)
 
-  return ok(attesting_indices)
+  return ok((attesting_indices, sig))
 
 {.push raises: [Defect].}
 
