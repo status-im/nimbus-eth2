@@ -538,9 +538,9 @@
   },
   {
     "topics": ["beacon", "states_validators", "mainnet"],
-    "comment": "Index value equal to high(uint32)",
+    "comment": "Index value equal to high(int32)",
     "request": {
-      "url": "/eth/v1/beacon/states/head/validators?id=4294967295",
+      "url": "/eth/v1/beacon/states/head/validators?id=2147483647",
       "headers": {"Accept": "application/json"}
     },
     "response": {
@@ -551,7 +551,7 @@
     "topics": ["beacon", "states_validators", "mainnet"],
     "comment": "Index value equal to high(uint32) + 1",
     "request": {
-      "url": "/eth/v1/beacon/states/head/validators?id=4294967296",
+      "url": "/eth/v1/beacon/states/head/validators?id=2147483648",
       "headers": {"Accept": "application/json"}
     },
     "response": {
@@ -991,9 +991,9 @@
   },
   {
     "topics": ["beacon", "states_validatorid", "mainnet"],
-    "comment": "Validator index high(uint32) value",
+    "comment": "Validator index high(int32) value",
     "request": {
-      "url": "/eth/v1/beacon/states/head/validators/4294967295",
+      "url": "/eth/v1/beacon/states/head/validators/2147483647",
       "headers": {"Accept": "application/json"}
     },
     "response": {
@@ -1003,9 +1003,9 @@
   },
   {
     "topics": ["beacon", "states_validatorid", "mainnet"],
-    "comment": "Validator index high(uint32) + 1 value (unsupported)",
+    "comment": "Validator index high(int32) + 1 value (unsupported)",
     "request": {
-      "url": "/eth/v1/beacon/states/head/validators/4294967296",
+      "url": "/eth/v1/beacon/states/head/validators/2147483648",
       "headers": {"Accept": "application/json"}
     },
     "response": {
@@ -1225,9 +1225,9 @@
   },
   {
     "topics": ["beacon", "states_validator_balances", "mainnet"],
-    "comment": "Index value equal to high(uint32)",
+    "comment": "Index value equal to high(int32)",
     "request": {
-      "url": "/eth/v1/beacon/states/head/validator_balances?id=4294967295",
+      "url": "/eth/v1/beacon/states/head/validator_balances?id=2147483647",
       "headers": {"Accept": "application/json"}
     },
     "response": {
@@ -1236,9 +1236,9 @@
   },
   {
     "topics": ["beacon", "states_validator_balances", "mainnet"],
-    "comment": "Index value equal to high(uint32) + 1",
+    "comment": "Index value equal to high(int32) + 1",
     "request": {
-      "url": "/eth/v1/beacon/states/head/validator_balances?id=4294967296",
+      "url": "/eth/v1/beacon/states/head/validator_balances?id=2147483648",
       "headers": {"Accept": "application/json"}
     },
     "response": {
@@ -3068,7 +3068,7 @@
       "url": "/eth/v1/validator/duties/attester/0",
       "method": "POST",
       "headers": {"Accept": "application/json"},
-      "body": {"content-type": "application/json", "data": "[\"4294967295\"]"}
+      "body": {"content-type": "application/json", "data": "[\"2147483647\"]"}
     },
     "response": {
       "status": {"operator": "equals", "value": "200"},
@@ -3082,7 +3082,7 @@
       "url": "/eth/v1/validator/duties/attester/0",
       "method": "POST",
       "headers": {"Accept": "application/json"},
-      "body": {"content-type": "application/json", "data": "[\"4294967296\"]"}
+      "body": {"content-type": "application/json", "data": "[\"2147483648\"]"}
     },
     "response": {
       "status": {"operator": "equals", "value": "500"},
