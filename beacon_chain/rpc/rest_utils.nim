@@ -231,71 +231,17 @@ proc validate(key: string, value: string): int =
   ## because it will be used for query routing.
   case key
   of "{epoch}":
-    # Can be any decimal 64bit value.
-    if len(value) > MaxDecimalSize: 1 else: match(value, DecimalSet)
+    0
   of "{slot}":
-    # Can be any decimal 64bit value.
-    if len(value) > MaxDecimalSize: 1 else: match(value, DecimalSet)
+    0
   of "{peer_id}":
-    # Can be base58 encoded value.
-    if len(value) > MaxPeerIdSize: 1 else: match(value, Base58Set)
+    0
   of "{state_id}":
-    # Can be one of: "head" (canonical head in node's view), "genesis",
-    # "finalized", "justified", <slot>, <hex encoded stateRoot with 0x prefix>.
-    if len(value) > 2:
-      if (value[0] == '0') and (value[1] == 'x'):
-        if len(value) != 2 + RootHashSize:
-          1
-        else:
-          match(value.toOpenArray(2, len(value) - 1), HexadecimalSet)
-      elif (value[0] in DecimalSet) and (value[1] in DecimalSet):
-        if len(value) > MaxDecimalSize:
-          1
-        else:
-          match(value.toOpenArray(2, len(value) - 1), DecimalSet)
-      else:
-        case value
-        of "head": 0
-        of "genesis": 0
-        of "finalized": 0
-        of "justified": 0
-        else: 1
-    else:
-      match(value, DecimalSet)
+    0
   of "{block_id}":
-    # Can be one of: "head" (canonical head in node's view), "genesis",
-    # "finalized", <slot>, <hex encoded blockRoot with 0x prefix>.
-    if len(value) > 2:
-      if (value[0] == '0') and (value[1] == 'x'):
-        if len(value) != 2 + RootHashSize:
-          1
-        else:
-          match(value.toOpenArray(2, len(value) - 1), HexadecimalSet)
-      elif (value[0] in DecimalSet) and (value[1] in DecimalSet):
-        if len(value) > MaxDecimalSize:
-          1
-        else:
-          match(value.toOpenArray(2, len(value) - 1), DecimalSet)
-      else:
-        case value
-        of "head": 0
-        of "genesis": 0
-        of "finalized": 0
-        else: 1
-    else:
-      match(value, DecimalSet)
+    0
   of "{validator_id}":
-    # Either hex encoded public key (with 0x prefix) or validator index.
-    if len(value) > 2:
-      if (value[0] == '0') and (value[1] == 'x'):
-        if len(value) != 2 + ValidatorKeySize:
-          1
-        else:
-          match(value.toOpenArray(2, len(value) - 1), HexadecimalSet)
-      else:
-        match(value, DecimalSet)
-    else:
-      match(value, DecimalSet)
+    0
   else:
     1
 
