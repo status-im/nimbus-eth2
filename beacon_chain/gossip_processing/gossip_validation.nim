@@ -26,6 +26,9 @@ import
   ../extras,
   ./batch_validation
 
+from libp2p/protocols/pubsub/pubsub import ValidationResult
+export ValidationResult
+
 logScope:
   topics = "gossip_checks"
 
@@ -118,25 +121,14 @@ func check_beacon_and_target_block(
 func check_aggregation_count(
     attestation: Attestation, singular: bool):
     Result[void, (ValidationResult, cstring)] =
-  var onesCount = 0
-  # TODO a cleverer algorithm, along the lines of countOnes() in nim-stew
-  # But that belongs in nim-stew, since it'd break abstraction layers, to
-  # use details of its representation from nimbus-eth2.
 
-  for aggregation_bit in attestation.aggregation_bits:
-    if not aggregation_bit:
-      continue
-    onesCount += 1
-    if singular: # More than one ok
-      if onesCount > 1:
-        return err((ValidationResult.Reject, cstring(
-          "Attestation has too many aggregation bits")))
-    else:
-      break # Found the one we needed
-
-  if onesCount < 1:
+  let ones = attestation.aggregation_bits.countOnes()
+  if singular and ones != 1:
     return err((ValidationResult.Reject, cstring(
-      "Attestation has too few aggregation bits")))
+      "Attestation must have a single attestation bit set")))
+  elif not singular and ones < 1:
+    return err((ValidationResult.Reject, cstring(
+      "Attestation must have at least one attestation bit set")))
 
   ok()
 

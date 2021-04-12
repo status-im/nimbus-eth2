@@ -17,9 +17,7 @@ import
   ../spec/[datatypes, crypto, digest, signatures_batch],
   ../beacon_chain_db, ../extras
 
-from libp2p/protocols/pubsub/pubsub import ValidationResult
-export ValidationResult, sets, tables
-
+export sets, tables
 
 # #############################################
 #

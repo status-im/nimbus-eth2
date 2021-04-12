@@ -16,7 +16,9 @@ import
   ../spec/[crypto, datatypes, digest, helpers, signatures, signatures_batch, state_transition],
   ./block_pools_types, ./blockchain_dag, ./block_quarantine
 
-export results
+from libp2p/protocols/pubsub/pubsub import ValidationResult
+
+export results, ValidationResult
 
 # Clearance
 # ---------------------------------------------
