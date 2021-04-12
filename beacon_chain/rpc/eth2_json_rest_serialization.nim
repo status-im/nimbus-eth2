@@ -339,3 +339,16 @@ proc decodeBody*[T](t: typedesc[T],
     except CatchableError as exc:
       return err("Unexpected deserialization error")
   ok(data)
+
+RestJson.useCustomSerialization(BeaconState.justification_bits):
+  read:
+    let s = reader.readValue(string)
+    if s.len != 4:
+      raiseUnexpectedValue(reader, "A string with 4 characters expected")
+    try:
+      hexToByteArray(s, 1)[0]
+    except ValueError:
+      raiseUnexpectedValue(reader,
+                          "The `justification_bits` value must be a hex string")
+  write:
+    writer.writeValue "0x" & toHex([value])
