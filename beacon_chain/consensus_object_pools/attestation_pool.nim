@@ -274,17 +274,11 @@ iterator attestations*(pool: AttestationPool, slot: Option[Slot],
                        index: Option[CommitteeIndex]): Attestation =
   for seenAttestations in pool.candidates.items():
     for entry in seenAttestations.attestations.items():
-      let slotInclude =
-        if slot.isSome():
-          entry.data.slot == slot.get()
-        else:
-          true
-      let committeeInclude =
-        if index.isSome():
-          CommitteeIndex(entry.data.index) == index.get()
-        else:
-          true
-      if slotInclude or committeeInclude:
+      let includeFlag =
+        (slot.isNone() and index.isNone()) or
+        (slot.isSome() and (entry.data.slot == slot.get())) or
+        (index.isSome() and (CommitteeIndex(entry.data.index) == index.get()))
+      if includeFlag:
         for validation in entry.validations.items():
           yield Attestation(
             aggregation_bits: validation.aggregation_bits,
