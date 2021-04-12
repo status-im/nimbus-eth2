@@ -10,14 +10,12 @@
 import
   std/[deques, intsets, streams, tables],
   stew/endians2,
-  spec/[datatypes, digest, crypto],
-  consensus_object_pools/block_pools_types,
-  fork_choice/fork_choice_types,
-  validators/slashing_protection
+  ./spec/[datatypes, digest, crypto],
+  ./consensus_object_pools/block_pools_types,
+  ./fork_choice/fork_choice_types,
+  ./validators/slashing_protection
 
-from libp2p/protocols/pubsub/pubsub import ValidationResult
-
-export block_pools_types, ValidationResult
+export tables, block_pools_types
 
 const
   ATTESTATION_LOOKBACK* =
@@ -37,27 +35,22 @@ type
     ## added to the aggregate meaning that only non-overlapping aggregates may
     ## be further combined.
     aggregation_bits*: CommitteeValidatorsBits
-    aggregate_signature*: CookedSig
-    aggregate_signature_raw*: ValidatorSig
+    aggregate_signature*: AggregateSignature
 
   AttestationEntry* = object
     ## Each entry holds the known signatures for a particular, distinct vote
     data*: AttestationData
-    blck*: BlockRef
-    aggregation_bits*: CommitteeValidatorsBits
-    validations*: seq[Validation]
+    committee_len*: int
+    singles*: Table[int, CookedSig] ## \
+      ## On the attestation subnets, only attestations with a single vote are
+      ## allowed - these can be collected separately to top up aggregates with -
+      ## here we collect them by mapping index in committee to a vote
+    aggregates*: seq[Validation]
 
-  AttestationsSeen* = object
-    attestations*: seq[AttestationEntry] ## \
+  AttestationTable* = Table[Eth2Digest, AttestationEntry]
     ## Depending on the world view of the various validators, they may have
-    ## voted on different states - here we collect all the different
-    ## combinations that validators have come up with so that later, we can
-    ## count how popular each world view is (fork choice)
-    ## TODO this could be a Table[AttestationData, seq[Validation] or something
-    ##      less naive
-
-  # These provide types for attestation pool's cache attestations.
-  AttestationDataKey* = (Slot, uint64, Epoch, Epoch)
+    ## voted on different states - this map keeps track of each vote keyed by
+    ## hash_tree_root(AttestationData)
 
   AttestationPool* = object
     ## The attestation pool keeps track of all attestations that potentially
@@ -66,11 +59,7 @@ type
     ## "free" attestations with those found in past blocks - these votes
     ## are tracked separately in the fork choice.
 
-    attestationAggregates*: Table[Slot, Table[Eth2Digest, Attestation]]
-      ## An up-to-date aggregate of each (htr-ed) attestation_data we see for
-      ## each slot. We keep aggregates up to 32 slots back from the current slot.
-
-    candidates*: array[ATTESTATION_LOOKBACK, AttestationsSeen] ## \
+    candidates*: array[ATTESTATION_LOOKBACK, AttestationTable] ## \
       ## We keep one item per slot such that indexing matches slot number
       ## together with startingSlot
 
@@ -85,21 +74,6 @@ type
 
     nextAttestationEpoch*: seq[tuple[subnet: Epoch, aggregate: Epoch]] ## \
     ## sequence based on validator indices
-
-    attestedValidators*:
-      Table[AttestationDataKey, CommitteeValidatorsBits] ## \
-    ## Cache for quick lookup during beacon block construction of attestations
-    ## which have already been included, and therefore should be skipped. This
-    ## isn't that useful for a couple validators per node, but pays off when a
-    ## larger number of local validators is attached.
-
-    lastPreviousEpochAttestationsLen*: int
-    lastCurrentEpochAttestationsLen*: int ## \
-    lastPreviousEpochAttestation*: PendingAttestation
-    lastCurrentEpochAttestation*: PendingAttestation
-    ## Used to detect and incorporate new attestations since the last block
-    ## created. Defaults are fine as initial values and don't need explicit
-    ## initialization.
 
   ExitPool* = object
     ## The exit pool tracks attester slashings, proposer slashings, and

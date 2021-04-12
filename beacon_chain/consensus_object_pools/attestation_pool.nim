@@ -13,10 +13,10 @@ import
   # Status libraries
   chronicles, stew/byteutils, json_serialization/std/sets as jsonSets,
   # Internal
-  ../spec/[beaconstate, datatypes, crypto, digest],
+  ../spec/[beaconstate, datatypes, crypto, digest, validator],
   ../ssz/merkleization,
   "."/[spec_cache, blockchain_dag, block_quarantine],
-  ../beacon_node_types,
+  ../beacon_node_types, ../extras,
   ../fork_choice/fork_choice
 
 export beacon_node_types
@@ -111,44 +111,104 @@ func candidateIdx(pool: AttestationPool, slot: Slot): Option[uint64] =
 
 proc updateCurrent(pool: var AttestationPool, wallSlot: Slot) =
   if wallSlot + 1 < pool.candidates.lenu64:
-    return
+    return # Genesis
 
-  if pool.startingSlot + pool.candidates.lenu64 - 1 > wallSlot:
+  let
+    newStartingSlot = wallSlot + 1 - pool.candidates.lenu64
+
+  if newStartingSlot < pool.startingSlot:
     error "Current slot older than attestation pool view, clock reset?",
-      poolSlot = pool.startingSlot, wallSlot
+      startingSlot = pool.startingSlot, newStartingSlot, wallSlot
     return
 
   # As time passes we'll clear out any old attestations as they are no longer
   # viable to be included in blocks
 
-  let newWallSlot = wallSlot + 1 - pool.candidates.lenu64
-  for i in pool.startingSlot..newWallSlot:
-    pool.candidates[i.uint64 mod pool.candidates.lenu64] = AttestationsSeen()
+  if newStartingSlot - pool.startingSlot >= pool.candidates.lenu64():
+    # In case many slots passed since the last update, avoid iterating over
+    # the same indices over and over
+    pool.candidates = default(type(pool.candidates))
+  else:
+    for i in pool.startingSlot..newStartingSlot:
+      pool.candidates[i.uint64 mod pool.candidates.lenu64] = AttestationTable()
 
-  pool.startingSlot = newWallSlot
+  pool.startingSlot = newStartingSlot
 
-  # now also clear old aggregated attestations
-  var keysToRemove: seq[Slot] = @[]
-  for k, v in pool.attestationAggregates.pairs:
-    if k < pool.startingSlot:
-      keysToRemove.add k
-  for k in keysToRemove:
-    pool.attestationAggregates.del k
+proc oneIndex(bits: CommitteeValidatorsBits): Option[int] =
+  # Find the index of the set bit, iff one bit is set
+  var res = none(int)
+  var idx = 0
+  for idx in 0..<bits.len():
+    if bits[idx]:
+      if res.isNone():
+        res = some(idx)
+      else: # More than one bit set!
+        return none(int)
+  res
 
-func addToAggregates(pool: var AttestationPool, attestation: Attestation) =
-  # do a lookup for the current slot and get it's associated htrs/attestations
-  var aggregated_attestation = pool.attestationAggregates.mgetOrPut(
-    attestation.data.slot, Table[Eth2Digest, Attestation]()).
-    # do a lookup for the same attestation data htr and get the attestation
-    mgetOrPut(attestation.data.hash_tree_root, attestation)
-  # if the aggregation bits differ (we didn't just insert it into the table)
-  # and only if there is no overlap of the signatures ==> aggregate!
-  if not aggregated_attestation.aggregation_bits.overlaps(attestation.aggregation_bits):
-    var agg {.noInit.}: AggregateSignature
-    agg.init(aggregated_attestation.signature)
-    aggregated_attestation.aggregation_bits.combine(attestation.aggregation_bits)
-    agg.aggregate(attestation.signature)
-    aggregated_attestation.signature = agg.finish()
+func toAttestation(entry: AttestationEntry, validation: Validation): Attestation =
+  Attestation(
+    aggregation_bits: validation.aggregation_bits,
+    data: entry.data,
+    signature: validation.aggregate_signature.finish().exportRaw()
+  )
+
+func updateAggregates(entry: var AttestationEntry) =
+  # Upgrade the list of aggregates to ensure that there is at least one
+  # aggregate (assuming there are singles) and all aggregates have all
+  # singles incorporated
+  if entry.singles.len() == 0:
+    return
+
+  if entry.aggregates.len() == 0:
+    # If there are singles, we can create an aggregate from them that will
+    # represent our best knowledge about the current votes
+    for index_in_committee, signature in entry.singles:
+      if entry.aggregates.len() == 0:
+        # Create aggregate on first iteration..
+        entry.aggregates.add(
+          Validation(
+            aggregation_bits: CommitteeValidatorsBits.init(entry.committee_len),
+            aggregate_signature: AggregateSignature.init(signature)
+          ))
+      else:
+        entry.aggregates[0].aggregate_signature.aggregate(signature)
+
+      entry.aggregates[0].aggregation_bits.setBit(index_in_committee)
+  else:
+    # There already exist aggregates - we'll try to top them up by adding
+    # singles to them - for example, it may happen that we're being asked to
+    # produce a block 4s after creating an aggregate and new information may
+    # have arrived by then.
+    # In theory, also aggregates could be combined but finding the best
+    # combination is hard, so we'll pragmatically use singles only here
+    var updated = false
+    for index_in_committee, signature in entry.singles:
+      for v in entry.aggregates.mitems():
+        if not v.aggregation_bits[index_in_committee]:
+          v.aggregation_bits.setBit(index_in_committee)
+          v.aggregate_signature.aggregate(signature)
+          updated = true
+
+    if updated:
+      # One or more aggregates were updated - time to remove the ones that are
+      # pure subsets of the others. This may lead to quadratic behaviour, but
+      # the number of aggregates for the entry is limited by the number of
+      # aggregators on the topic which is capped `is_aggregator` and
+      # TARGET_AGGREGATORS_PER_COMMITTEE
+      var i = 0
+      while i < entry.aggregates.len():
+        var j = 0
+        while j < entry.aggregates.len():
+          if i != j and entry.aggregates[i].aggregation_bits.isSubsetOf(
+              entry.aggregates[j].aggregation_bits):
+            entry.aggregates[i] = entry.aggregates[j]
+            entry.aggregates.del(j)
+            dec i # Rerun checks on the new `i` item
+            break
+          else:
+            inc j
+        inc i
 
 proc addAttestation*(pool: var AttestationPool,
                      attestation: Attestation,
@@ -156,16 +216,15 @@ proc addAttestation*(pool: var AttestationPool,
                      signature: CookedSig,
                      wallSlot: Slot) =
   ## Add an attestation to the pool, assuming it's been validated already.
-  ## Attestations may be either agggregated or not - we're pursuing an eager
-  ## strategy where we'll drop validations we already knew about and combine
-  ## the new attestation with an existing one if possible.
   ##
-  ## This strategy is not optimal in the sense that it would be possible to find
-  ## a better packing of attestations by delaying the aggregation, but because
-  ## it's possible to include more than one aggregate in a block we can be
-  ## somewhat lazy instead of looking for a perfect packing.
+  ## Assuming the votes in the attestation have not already been seen, the
+  ## attestation will be added to the fork choice and lazily added to a list of
+  ## attestations for future aggregation and block production.
   logScope:
     attestation = shortLog(attestation)
+
+  doAssert attestation.signature == signature.exportRaw(),
+    "Deserialized signature must match the one in the attestation"
 
   updateCurrent(pool, wallSlot)
 
@@ -175,66 +234,54 @@ proc addAttestation*(pool: var AttestationPool,
       startingSlot = pool.startingSlot
     return
 
-  pool.addToAggregates(attestation)
-
   let
-    attestationsSeen = addr pool.candidates[candidateIdx.get]
-    # Only attestestions with valid signatures get here
+    singleIndex = oneIndex(attestation.aggregation_bits)
+    root = hash_tree_root(attestation.data)
+    # Careful with pointer, candidate table must not be touched after here
+    entry = addr pool.candidates[candidateIdx.get].mGetOrPut(
+      root,
+      AttestationEntry(
+        data: attestation.data,
+        committee_len: attestation.aggregation_bits.len()))
 
-  template getValidation(): auto =
-    doAssert attestation.signature == signature.exportRaw
-    Validation(
-      aggregation_bits: attestation.aggregation_bits,
-      aggregate_signature: signature,
-      aggregate_signature_raw: attestation.signature)
+  if singleIndex.isSome():
+    if singleIndex.get() in entry[].singles:
+      trace "Attestation already seen",
+        singles = entry[].singles.len(),
+        aggregates = entry[].aggregates.len()
 
-  var found = false
-  for a in attestationsSeen.attestations.mitems():
-    if a.data == attestation.data:
-      for v in a.validations:
-        if attestation.aggregation_bits.isSubsetOf(v.aggregation_bits):
-          # The validations in the new attestation are a subset of one of the
-          # attestations that we already have on file - no need to add this
-          # attestation to the database
-          trace "Ignoring subset attestation", newParticipants = participants
-          found = true
-          break
-
-      if not found:
-        # Attestations in the pool that are a subset of the new attestation
-        # can now be removed per same logic as above
-
-        trace "Removing subset attestations", newParticipants = participants
-
-        a.validations.keepItIf(
-          not it.aggregation_bits.isSubsetOf(attestation.aggregation_bits))
-
-        a.validations.add(getValidation())
-        pool.addForkChoiceVotes(
-          attestation.data.slot, participants, attestation.data.beacon_block_root,
-          wallSlot)
-
-        debug "Attestation resolved",
-          attestation = shortLog(attestation),
-          validations = a.validations.len()
-
-        found = true
-
-      break
-
-  if not found:
-    attestationsSeen.attestations.add(AttestationEntry(
-      data: attestation.data,
-      validations: @[getValidation()],
-      aggregation_bits: attestation.aggregation_bits
-    ))
-    pool.addForkChoiceVotes(
-      attestation.data.slot, participants, attestation.data.beacon_block_root,
-      wallSlot)
+      return
 
     debug "Attestation resolved",
-      attestation = shortLog(attestation),
-      validations = 1
+      singles = entry[].singles.len(),
+      aggregates = entry[].aggregates.len()
+
+    entry[].singles[singleIndex.get()] = signature
+  else:
+    # More than one vote in this attestation
+    for i in 0..<entry[].aggregates.len():
+      if attestation.aggregation_bits.isSubsetOf(entry[].aggregates[i].aggregation_bits):
+        trace "Aggregate already seen",
+          singles = entry[].singles.len(),
+          aggregates = entry[].aggregates.len()
+        return
+
+    # Since we're adding a new aggregate, we can now remove existing
+    # aggregates that don't add any new votes
+    entry[].aggregates.keepItIf(
+      not it.aggregation_bits.isSubsetOf(attestation.aggregation_bits))
+
+    entry[].aggregates.add(Validation(
+      aggregation_bits: attestation.aggregation_bits,
+      aggregate_signature: AggregateSignature.init(signature)))
+
+    debug "Aggregate resolved",
+      singles = entry[].singles.len(),
+      aggregates = entry[].aggregates.len()
+
+  pool.addForkChoiceVotes(
+    attestation.data.slot, participants, attestation.data.beacon_block_root,
+    wallSlot)
 
 proc addForkChoice*(pool: var AttestationPool,
                     epochRef: EpochRef,
@@ -252,220 +299,258 @@ proc addForkChoice*(pool: var AttestationPool,
     error "Couldn't add block to fork choice, bug?",
       blck = shortLog(blck), err = state.error
 
-proc getAttestationsForSlot(pool: AttestationPool, newBlockSlot: Slot):
-    Option[AttestationsSeen] =
-  if newBlockSlot < (GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY):
-    debug "Too early for attestations", newBlockSlot = shortLog(newBlockSlot)
-    return none(AttestationsSeen)
-
-  let
-    attestationSlot = newBlockSlot - MIN_ATTESTATION_INCLUSION_DELAY
-    candidateIdx = pool.candidateIdx(attestationSlot)
-
-  if candidateIdx.isNone:
-    trace "No attestations matching the slot range",
-      attestationSlot = shortLog(attestationSlot),
-      startingSlot = shortLog(pool.startingSlot)
-    return none(AttestationsSeen)
-
-  some(pool.candidates[candidateIdx.get()])
-
 iterator attestations*(pool: AttestationPool, slot: Option[Slot],
                        index: Option[CommitteeIndex]): Attestation =
-  for seenAttestations in pool.candidates.items():
-    for entry in seenAttestations.attestations.items():
-      let includeFlag =
-        (slot.isNone() and index.isNone()) or
-        (slot.isSome() and (entry.data.slot == slot.get())) or
-        (index.isSome() and (CommitteeIndex(entry.data.index) == index.get()))
-      if includeFlag:
-        for validation in entry.validations.items():
-          yield Attestation(
-            aggregation_bits: validation.aggregation_bits,
-            data: entry.data,
-            signature: validation.aggregate_signature_raw
-          )
+  template processTable(table: AttestationTable) =
+    for _, entry in table:
+      if index.isNone() or entry.data.index == index.get().uint64:
+        var singleAttestation = Attestation(
+          aggregation_bits: CommitteeValidatorsBits.init(entry.committee_len),
+          data: entry.data)
 
-func getAttestationDataKey(ad: AttestationData): AttestationDataKey =
-  # This determines the rest of the AttestationData
-  (ad.slot, ad.index, ad.source.epoch, ad.target.epoch)
+        for index, signature in entry.singles:
+          singleAttestation.aggregation_bits.setBit(index)
+          singleAttestation.signature = signature.exportRaw()
+          yield singleAttestation
+          singleAttestation.aggregation_bits.clearBit(index)
 
-func incorporateCacheAttestation(
-    pool: var AttestationPool, attestation: PendingAttestation) =
-  let key = attestation.data.getAttestationDataKey
-  try:
-    var validatorBits = pool.attestedValidators[key]
-    validatorBits.combine(attestation.aggregation_bits)
-    pool.attestedValidators[key] = validatorBits
-  except KeyError:
-    pool.attestedValidators[key] = attestation.aggregation_bits
+        for v in entry.aggregates:
+          yield entry.toAttestation(v)
 
-func populateAttestationCache(pool: var AttestationPool, state: BeaconState) =
-  pool.attestedValidators.clear()
-
-  for pendingAttestation in state.previous_epoch_attestations:
-    pool.incorporateCacheAttestation(pendingAttestation)
-
-  for pendingAttestation in state.current_epoch_attestations:
-    pool.incorporateCacheAttestation(pendingAttestation)
-
-func updateAttestationsCache(pool: var AttestationPool,
-                             state: BeaconState) =
-  # There have likely been additional attestations integrated into BeaconState
-  # since last block production, an epoch change, or even a tree restructuring
-  # so that there's nothing in common in the BeaconState altogether, since the
-  # last time requested.
-  if (
-      (pool.lastPreviousEpochAttestationsLen == 0 or
-        (pool.lastPreviousEpochAttestationsLen <= state.previous_epoch_attestations.len and
-          pool.lastPreviousEpochAttestation ==
-            state.previous_epoch_attestations[pool.lastPreviousEpochAttestationsLen - 1])) and
-      (pool.lastCurrentEpochAttestationsLen == 0 or
-        (pool.lastCurrentEpochAttestationsLen <= state.current_epoch_attestations.len and
-          pool.lastCurrentEpochAttestation ==
-            state.current_epoch_attestations[pool.lastCurrentEpochAttestationsLen - 1]))
-     ):
-    # There are multiple validators attached to this node proposing in the
-    # same epoch. As such, incorporate that new attestation. Both previous
-    # and current attestations lists might have been appended to.
-    for i in pool.lastPreviousEpochAttestationsLen ..<
-        state.previous_epoch_attestations.len:
-      pool.incorporateCacheAttestation(state.previous_epoch_attestations[i])
-    for i in pool.lastCurrentEpochAttestationsLen ..<
-        state.current_epoch_attestations.len:
-      pool.incorporateCacheAttestation(state.current_epoch_attestations[i])
+  if slot.isSome():
+    let candidateIdx = pool.candidateIdx(slot.get())
+    if candidateIdx.isSome():
+      processTable(pool.candidates[candidateIdx.get()])
   else:
-    # Tree restructuring or other cache flushing event. This must trigger
-    # sometimes to clear old attestations.
-    pool.populateAttestationCache(state)
+    for i in 0..<pool.candidates.len():
+      processTable(pool.candidates[i])
 
-  pool.lastPreviousEpochAttestationsLen = state.previous_epoch_attestations.len
-  pool.lastCurrentEpochAttestationsLen = state.current_epoch_attestations.len
-  if pool.lastPreviousEpochAttestationsLen > 0:
-    pool.lastPreviousEpochAttestation =
-      state.previous_epoch_attestations[pool.lastPreviousEpochAttestationsLen - 1]
-  if pool.lastCurrentEpochAttestationsLen > 0:
-    pool.lastCurrentEpochAttestation =
-      state.current_epoch_attestations[pool.lastCurrentEpochAttestationsLen - 1]
+type
+  AttestationCacheKey* = (Slot, uint64)
+  AttestationCache = Table[AttestationCacheKey, CommitteeValidatorsBits] ##\
+    ## Cache for quick lookup during beacon block construction of attestations
+    ## which have already been included, and therefore should be skipped.
+
+func getAttestationCacheKey(ad: AttestationData): AttestationCacheKey =
+  # The committee is unique per slot and committee index which means we can use
+  # it as key for a participation cache - this is checked in `check_attestation`
+  (ad.slot, ad.index)
+
+func add(
+    attCache: var AttestationCache, data: AttestationData,
+    aggregation_bits: CommitteeValidatorsBits) =
+  let key = data.getAttestationCacheKey()
+  attCache.withValue(key, v) do:
+    v[].incl(aggregation_bits)
+  do:
+    attCache[key] = aggregation_bits
+
+func init(T: type AttestationCache, state: BeaconState): T =
+  # Load attestations that are scheduled for being given rewards for
+  for i in 0..<state.previous_epoch_attestations.len():
+    result.add(
+      state.previous_epoch_attestations[i].data,
+      state.previous_epoch_attestations[i].aggregation_bits)
+  for i in 0..<state.current_epoch_attestations.len():
+    result.add(
+      state.current_epoch_attestations[i].data,
+      state.current_epoch_attestations[i].aggregation_bits)
+
+proc score(
+    attCache: var AttestationCache, data: AttestationData,
+    aggregation_bits: CommitteeValidatorsBits): int =
+  # The score of an attestation is loosely based on how many new votes it brings
+  # to the state - a more accurate score function would also look at inclusion
+  # distance and effective balance.
+  # TODO cache not var, but `withValue` requires it
+  let
+    key = data.getAttestationCacheKey()
+    bitsScore = aggregation_bits.countOnes()
+
+  attCache.withValue(key, value):
+    doAssert aggregation_bits.len() == value[].len(),
+      "check_attestation ensures committee length"
+
+    # How many votes were in the attestation minues the votes that are the same
+    return bitsScore - aggregation_bits.countOverlap(value[])
+
+  # Not found in cache - fresh vote meaning all attestations count
+  bitsScore
 
 proc getAttestationsForBlock*(pool: var AttestationPool,
                               state: BeaconState,
                               cache: var StateCache): seq[Attestation] =
   ## Retrieve attestations that may be added to a new block at the slot of the
   ## given state
-  let newBlockSlot = state.slot.uint64
-  var attestations: seq[AttestationEntry]
+  ## https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#attestations
+  let
+    newBlockSlot = state.slot.uint64
 
-  pool.updateAttestationsCache(state)
+  if newBlockSlot < MIN_ATTESTATION_INCLUSION_DELAY:
+    return # Too close to genesis
 
-  # Consider attestations from the current slot and ranging back up to
-  # ATTESTATION_LOOKBACK slots, excluding the special genesis slot. As
-  # unsigned subtraction (mostly avoided in this codebase, partly as a
-  # consequence) will otherwise wrap through zero, clamp value which's
-  # subtracted so that slots through ATTESTATION_LOOKBACK don't do so.
-  for i in max(
-        1'u64, newBlockSlot - min(newBlockSlot, ATTESTATION_LOOKBACK)) ..
-      newBlockSlot:
-    let maybeSlotData = getAttestationsForSlot(pool, i.Slot)
-    if maybeSlotData.isSome:
-      insert(attestations, maybeSlotData.get.attestations)
+  let
+    # Attestations produced in a particular slot are added to the block
+    # at the slot where at least MIN_ATTESTATION_INCLUSION_DELAY have passed
+    maxAttestationSlot = newBlockSlot - MIN_ATTESTATION_INCLUSION_DELAY
 
-  if attestations.len == 0:
-    return
+  var
+    candidates: seq[tuple[
+      score: int, slot: Slot, entry: ptr AttestationEntry, validation: int]]
+    attCache = AttestationCache.init(state)
 
-  for a in attestations:
-    var
-      # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#construct-attestation
-      attestation = Attestation(
-        aggregation_bits: a.validations[0].aggregation_bits,
-        data: a.data,
-        signature: a.validations[0].aggregate_signature_raw
-      )
+  for i in 0..<ATTESTATION_LOOKBACK:
+    if i > maxAttestationSlot: # Around genesis..
+      break
 
-      agg {.noInit.}: AggregateSignature
-    agg.init(a.validations[0].aggregate_signature)
+    let
+      slot = Slot(maxAttestationSlot - i)
+      candidateIdx = pool.candidateIdx(slot)
 
-    # Signature verification here is more of a sanity check - it could
-    # be optimized away, though for now it's easier to reuse the logic from
-    # the state transition function to ensure that the new block will not
-    # fail application.
-    if (let v = check_attestation(state, attestation, {}, cache); v.isErr):
-      warn "Attestation no longer validates...",
-        attestation = shortLog(attestation),
-        err = v.error
+    if candidateIdx.isNone():
+      # Passed the collection horizon - shouldn't happen because it's based on
+      # ATTESTATION_LOOKBACK
+      break
 
-      continue
+    for _, entry in pool.candidates[candidateIdx.get()].mpairs():
+      entry.updateAggregates()
 
-    for i in 1..a.validations.high:
-      if not attestation.aggregation_bits.overlaps(
-          a.validations[i].aggregation_bits):
-        attestation.aggregation_bits.combine(a.validations[i].aggregation_bits)
-        agg.aggregate(a.validations[i].aggregate_signature)
+      for j in 0..<entry.aggregates.len():
+        let
+          attestation = entry.toAttestation(entry.aggregates[j])
 
-    # Since each validator attests exactly once per epoch and its attestation
-    # has been validated to have been included in the attestation pool, there
-    # only exists one possible slot/committee combination to check.
-    try:
-      if a.aggregation_bits.isSubsetOf(
-          pool.attestedValidators[a.data.getAttestationDataKey]):
-        continue
-    except KeyError:
-      # No record of inclusion, so go ahead and include attestation.
-      discard
+        # Attestations are checked based on the state that we're adding the
+        # attestation to - there might have been a fork between when we first
+        # saw the attestation and the time that we added it
+        # TODO avoid creating a full attestation here and instead do the checks
+        #      based on the attestation data and bits
+        if not check_attestation(state, attestation, {skipBlsValidation}, cache).isOk():
+          continue
 
-    attestation.signature = agg.finish()
-    result.add(attestation)
+        let score = attCache.score(
+          entry.data, entry.aggregates[j].aggregation_bits)
+        if score == 0:
+          # 0 score means the attestation would not bring any votes - discard
+          # it early
+          # Note; this must be done _after_ `check_attestation` as it relies on
+          # the committee to match the state that was used to build the cache
+          continue
 
-    if result.lenu64 >= MAX_ATTESTATIONS:
-      debug "getAttestationsForBlock: returning early after hitting MAX_ATTESTATIONS",
-        attestationSlot = newBlockSlot - 1
-      return
+        # Careful, must not update the attestation table for the pointer to
+        # remain valid
+        candidates.add((score, slot, addr entry, j))
 
-func getAggregatedAttestation*(pool: AttestationPool,
+  # Using a greedy algorithm, select as many attestations as possible that will
+  # fit in the block.
+  #
+  # For each round, we'll look for the best attestation and add it to the result
+  # then re-score the other candidates.
+  #
+  # A possible improvement here would be to use a maximum cover algorithm.
+  var
+    prevEpoch = state.get_previous_epoch()
+    prevEpochSpace =
+      state.previous_epoch_attestations.maxLen - state.previous_epoch_attestations.len()
+
+  var res: seq[Attestation]
+
+  while candidates.len > 0 and res.lenu64() < MAX_ATTESTATIONS:
+    block:
+      # Find the candidate with the highest score - slot is used as a
+      # tie-breaker so that more recent attestations are added first
+      let
+        candidate =
+          # Fast path for when all remaining candidates fit
+          if candidates.lenu64 < MAX_ATTESTATIONS: candidates.len - 1
+          else: maxIndex(candidates)
+        (_, slot, entry, j) = candidates[candidate]
+
+      candidates.del(candidate) # careful, `del` reorders candidates
+
+      if entry[].data.target.epoch == prevEpoch:
+        if prevEpochSpace < 1:
+          continue # No need to rescore since we didn't add the attestation
+
+        prevEpochSpace -= 1
+
+      res.add(entry[].toAttestation(entry[].aggregates[j]))
+
+      # Update cache so that the new votes are taken into account when updating
+      # the score below
+      attCache.add(entry[].data,  entry[].aggregates[j].aggregation_bits)
+
+    block:
+      # Because we added some votes, it's quite possible that some candidates
+      # are no longer interesting - update the scores of the existing candidates
+      for it in candidates.mitems():
+        it.score = attCache.score(
+          it.entry[].data,
+          it.entry[].aggregates[it.validation].aggregation_bits)
+
+      candidates.keepItIf:
+        # Only keep candidates that might add coverage
+        it.score > 0
+
+  res
+
+func bestValidation(aggregates: openArray[Validation]): (int, int) =
+  # Look for best validation based on number of votes in the aggregate
+  doAssert aggregates.len() > 0,
+    "updateAggregates should have created at least one aggregate"
+  var
+    bestIndex = 0
+    best = aggregates[bestIndex].aggregation_bits.countOnes()
+
+  for i in 1..<aggregates.len():
+    let count = aggregates[i].aggregation_bits.countOnes()
+    if count > best:
+      best = count
+      bestIndex = i
+  (bestIndex, best)
+
+func getAggregatedAttestation*(pool: var AttestationPool,
                                slot: Slot,
-                               ad_htr: Eth2Digest): Option[Attestation] =
-  try:
-    if pool.attestationAggregates.contains(slot) and
-        pool.attestationAggregates[slot].contains(ad_htr):
-      return some pool.attestationAggregates[slot][ad_htr]
-  except KeyError:
-    doAssert(false) # shouldn't be possible because we check with `contains`
-  none(Attestation)
-
-proc getAggregatedAttestation*(pool: AttestationPool,
-                               slot: Slot,
-                               index: CommitteeIndex): Option[Attestation] =
-  let attestations = pool.getAttestationsForSlot(
-    slot + MIN_ATTESTATION_INCLUSION_DELAY)
-  if attestations.isNone:
+                               attestation_data_root: Eth2Digest): Option[Attestation] =
+  let
+    candidateIdx = pool.candidateIdx(slot)
+  if candidateIdx.isNone:
     return none(Attestation)
 
-  for a in attestations.get.attestations:
-    doAssert a.data.slot == slot
-    if index.uint64 != a.data.index:
-      continue
+  pool.candidates[candidateIdx.get].withValue(attestation_data_root, entry):
+    entry[].updateAggregates()
 
-    var
-      # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#construct-attestation
-      attestation = Attestation(
-        aggregation_bits: a.validations[0].aggregation_bits,
-        data: a.data,
-        signature: a.validations[0].aggregate_signature_raw
-      )
+    let (bestIndex, _) = bestValidation(entry[].aggregates)
 
-      agg {.noInit.}: AggregateSignature
-
-    agg.init(a.validations[0].aggregate_signature)
-    for v in a.validations[1..^1]:
-      if not attestation.aggregation_bits.overlaps(v.aggregation_bits):
-        attestation.aggregation_bits.combine(v.aggregation_bits)
-        agg.aggregate(v.aggregate_signature)
-
-      attestation.signature = agg.finish()
-
-    return some(attestation)
+    # Found the right hash, no need to look further
+    return some(entry[].toAttestation(entry[].aggregates[bestIndex]))
 
   none(Attestation)
+
+proc getAggregatedAttestation*(pool: var AttestationPool,
+                               slot: Slot,
+                               index: CommitteeIndex): Option[Attestation] =
+  ## Select the attestation that has the most votes going for it in the given
+  ## slot/index
+  ## https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#construct-aggregate
+  let
+    candidateIdx = pool.candidateIdx(slot)
+  if candidateIdx.isNone:
+    return none(Attestation)
+
+  var res: Option[Attestation]
+  for _, entry in pool.candidates[candidateIdx.get].mpairs():
+    doAssert entry.data.slot == slot
+    if index.uint64 != entry.data.index:
+      continue
+
+    entry.updateAggregates()
+
+    let (bestIndex, best) = bestValidation(entry.aggregates)
+
+    if res.isNone() or best > res.get().aggregation_bits.countOnes():
+      res = some(entry.toAttestation(entry.aggregates[bestIndex]))
+
+  res
 
 proc selectHead*(pool: var AttestationPool, wallSlot: Slot): BlockRef =
   ## Trigger fork choice and returns the new head block.

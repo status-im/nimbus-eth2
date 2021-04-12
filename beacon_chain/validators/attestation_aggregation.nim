@@ -26,7 +26,7 @@ func is_aggregator*(epochRef: EpochRef, slot: Slot, index: CommitteeIndex,
   return is_aggregator(committee_len, slot_signature)
 
 proc aggregate_attestations*(
-    pool: AttestationPool, epochRef: EpochRef, slot: Slot, index: CommitteeIndex,
+    pool: var AttestationPool, epochRef: EpochRef, slot: Slot, index: CommitteeIndex,
     validatorIndex: ValidatorIndex, slot_signature: ValidatorSig): Option[AggregateAndProof] =
   doAssert validatorIndex in get_beacon_committee(epochRef, slot, index)
   doAssert index.uint64 < get_committee_count_per_slot(epochRef)

@@ -235,7 +235,8 @@ func `$`*(a: BitSeq): string =
   for i in countdown(length - 1, 0):
     result.add if a[i]: '1' else: '0'
 
-func combine*(tgt: var BitSeq, src: BitSeq) =
+func incl*(tgt: var BitSeq, src: BitSeq) =
+  # Update `tgt` to include the bits of `src`, as if applying `or` to each bit
   doAssert tgt.len == src.len
   for tgtWord, srcWord in words(tgt, src):
     tgtWord = tgtWord or srcWord
@@ -245,6 +246,12 @@ func overlaps*(a, b: BitSeq): bool =
     if (wa and wb) != 0:
       return true
 
+func countOverlap*(a, b: BitSeq): int =
+  var res = 0
+  for wa, wb in words(a, b):
+    res += countOnes(wa and wb)
+  res
+
 func isSubsetOf*(a, b: BitSeq): bool =
   let alen = a.len
   doAssert b.len == alen
@@ -253,10 +260,24 @@ func isSubsetOf*(a, b: BitSeq): bool =
       return false
   true
 
-proc isZeros*(x: BitSeq): bool =
+func isZeros*(x: BitSeq): bool =
   for w in words(x):
     if w != 0: return false
   return true
+
+func countOnes*(x: BitSeq): int =
+  # Count the number of set bits
+  var res = 0
+  for w in words(x):
+    res += w.countOnes()
+  res
+
+func clear*(x: var BitSeq) =
+  for w in words(x):
+    w = 0
+
+func countZeros*(x: BitSeq): int =
+  x.len() - x.countOnes()
 
 template bytes*(x: BitSeq): untyped =
   seq[byte](x)

@@ -81,9 +81,11 @@ proc addTestBlock*(
     attestations = newSeq[Attestation](),
     deposits = newSeq[Deposit](),
     graffiti = default(GraffitiBytes),
-    flags: set[UpdateFlag] = {}): SignedBeaconBlock =
+    flags: set[UpdateFlag] = {},
+    nextSlot = true): SignedBeaconBlock =
   # Create and add a block to state - state will advance by one slot!
-  doAssert process_slots(state, state.data.slot + 1, cache, flags)
+  if nextSlot:
+    doAssert process_slots(state, state.data.slot + 1, cache, flags)
 
   let
     proposer_index = get_beacon_proposer_index(state.data, cache)
@@ -235,7 +237,7 @@ proc makeFullAttestations*(
           hackPrivKey(state.validators[committee[j]])
         ))
 
-    attestation.signature = agg.finish()
+    attestation.signature = agg.finish().exportRaw()
     result.add attestation
 
 iterator makeTestBlocks*(

@@ -125,6 +125,9 @@ func init*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
   ## Initializes an aggregate signature context
   agg.init(blscurve.Signature(sig))
 
+func init*(T: type AggregateSignature, sig: CookedSig | ValidatorSig): T =
+  result.init(sig)
+
 proc aggregate*(agg: var AggregateSignature, sig: ValidatorSig) {.inline.}=
   ## Aggregate two Validator Signatures
   ## Both signatures must be valid
@@ -134,11 +137,11 @@ proc aggregate*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
   ## Aggregate two Validator Signatures
   agg.aggregate(blscurve.Signature(sig))
 
-func finish*(agg: AggregateSignature): ValidatorSig {.inline.}=
+func finish*(agg: AggregateSignature): CookedSig {.inline.}=
   ## Canonicalize an AggregateSignature into a signature
   var sig: blscurve.Signature
   sig.finish(agg)
-  ValidatorSig(blob: sig.exportRaw())
+  CookedSig(sig)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#bls-signatures
 proc blsVerify*(

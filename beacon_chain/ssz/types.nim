@@ -183,9 +183,12 @@ template `==`*(a, b: BitList): bool = BitSeq(a) == BitSeq(b)
 template setBit*(x: var BitList, idx: Natural) = setBit(BitSeq(x), idx)
 template clearBit*(x: var BitList, idx: Natural) = clearBit(BitSeq(x), idx)
 template overlaps*(a, b: BitList): bool = overlaps(BitSeq(a), BitSeq(b))
-template combine*(a: var BitList, b: BitList) = combine(BitSeq(a), BitSeq(b))
+template incl*(a: var BitList, b: BitList) = incl(BitSeq(a), BitSeq(b))
 template isSubsetOf*(a, b: BitList): bool = isSubsetOf(BitSeq(a), BitSeq(b))
 template isZeros*(x: BitList): bool = isZeros(BitSeq(x))
+template countOnes*(x: BitList): int = countOnes(BitSeq(x))
+template countZeros*(x: BitList): int = countZeros(BitSeq(x))
+template countOverlap*(x, y: BitList): int = countOverlap(BitSeq(x), BitSeq(y))
 template `$`*(a: BitList): string = $(BitSeq(a))
 
 iterator items*(x: BitList): bool =
