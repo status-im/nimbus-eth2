@@ -315,6 +315,9 @@ proc add*(x: var HashList, val: auto): bool =
     false
 
 proc addDefault*(x: var HashList): ptr x.T =
+  if x.data.len >= x.maxLen:
+    return nil
+
   distinctBase(x.data).setLen(x.data.len + 1)
   x.growHashes()
   clearCaches(x, x.data.len() - 1)

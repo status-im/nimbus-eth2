@@ -55,9 +55,9 @@ declarePublicGauge(attached_validator_balance_total,
 
 logScope: topics = "beacval"
 
-proc findValidator(state: BeaconState, pubKey: ValidatorPubKey):
+proc findValidator(validators: auto, pubKey: ValidatorPubKey):
     Option[ValidatorIndex] =
-  let idx = state.validators.asSeq.findIt(it.pubKey == pubKey)
+  let idx = validators.asSeq.findIt(it.pubKey == pubKey)
   if idx == -1:
     # We allow adding a validator even if its key is not in the state registry:
     # it might be that the deposit for this validator has not yet been processed
@@ -71,7 +71,7 @@ proc addLocalValidator*(node: BeaconNode,
                         privKey: ValidatorPrivKey) =
   let pubKey = privKey.toPubKey()
   node.attachedValidators[].addLocalValidator(
-    pubKey, privKey, findValidator(state, pubKey))
+    pubKey, privKey, findValidator(state.validators, pubKey))
 
 proc addLocalValidators*(node: BeaconNode) =
   for validatorKey in node.config.validatorKeys:
@@ -84,7 +84,8 @@ proc addRemoteValidators*(node: BeaconNode) {.raises: [Defect, OSError, IOError]
     if node.vcProcess.outputStream.readLine(line) and line != "end":
       let
         key = ValidatorPubKey.fromHex(line).get()
-        index = findValidator(node.chainDag.headState.data.data, key)
+        index = findValidator(
+          getStateField(node.chainDag.headState, validators), key)
 
       let v = AttachedValidator(pubKey: key,
                                 index: index,
@@ -100,10 +101,10 @@ proc getAttachedValidator*(node: BeaconNode,
   node.attachedValidators[].getValidator(pubkey)
 
 proc getAttachedValidator*(node: BeaconNode,
-                           state: BeaconState,
+                           state_validators: auto,
                            idx: ValidatorIndex): AttachedValidator =
-  if idx < state.validators.len.ValidatorIndex:
-    let validator = node.getAttachedValidator(state.validators[idx].pubkey)
+  if idx < state_validators.len.ValidatorIndex:
+    let validator = node.getAttachedValidator(state_validators[idx].pubkey)
     if validator != nil and validator.index != some(idx.ValidatorIndex):
       # Update index, in case the validator was activated!
       notice "Validator activated", pubkey = validator.pubkey, index = idx
@@ -111,7 +112,7 @@ proc getAttachedValidator*(node: BeaconNode,
     validator
   else:
     warn "Validator index out of bounds",
-      idx, stateSlot = state.slot, validators = state.validators.len
+      idx, validators = state_validators.len
     nil
 
 proc getAttachedValidator*(node: BeaconNode,
