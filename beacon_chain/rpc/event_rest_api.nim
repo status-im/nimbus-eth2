@@ -65,3 +65,9 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
 
     return RestApiResponse.jsonError(Http500, "Not implemented yet")
+
+  router.redirect(
+    MethodGet,
+    "/eth/v1/events",
+    "/api/eth/v1/events"
+  )

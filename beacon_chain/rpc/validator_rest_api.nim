@@ -389,3 +389,39 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         request.committee_index)
       )
     return RestApiResponse.jsonError(Http500, NoImplementationError)
+
+  router.redirect(
+    MethodPost,
+    "/eth/v1/validator/duties/attester/{epoch}",
+    "/api/eth/v1/validator/duties/attester/{epoch}"
+  )
+  router.redirect(
+    MethodGet,
+    "/eth/v1/validator/duties/proposer/{epoch}",
+    "/api/eth/v1/validator/duties/proposer/{epoch}"
+  )
+  router.redirect(
+    MethodGet,
+    "/eth/v1/validator/blocks/{slot}",
+    "/api/eth/v1/validator/blocks/{slot}"
+  )
+  router.redirect(
+    MethodGet,
+    "/eth/v1/validator/attestation_data",
+    "/api/eth/v1/validator/attestation_data"
+  )
+  router.redirect(
+    MethodGet,
+    "/eth/v1/validator/aggregate_attestation",
+    "/api/eth/v1/validator/aggregate_attestation"
+  )
+  router.redirect(
+    MethodPost,
+    "/eth/v1/validator/aggregate_and_proofs",
+    "/api/eth/v1/validator/aggregate_and_proofs"
+  )
+  router.redirect(
+    MethodPost,
+    "/eth/v1/validator/beacon_committee_subscriptions",
+    "/api/eth/v1/validator/beacon_committee_subscriptions"
+  )

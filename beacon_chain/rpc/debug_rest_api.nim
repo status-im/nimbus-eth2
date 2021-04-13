@@ -31,3 +31,14 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponse(
       node.chainDag.heads.mapIt((root: it.root, slot: it.slot))
     )
+
+  router.redirect(
+    MethodGet,
+    "/eth/v1/debug/beacon/states/{state_id}",
+    "/api/eth/v1/debug/beacon/states/{state_id}"
+  )
+  router.redirect(
+    MethodGet,
+    "/eth/v1/debug/beacon/heads",
+    "/api/eth/v1/debug/beacon/heads"
+  )
