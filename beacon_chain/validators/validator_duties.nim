@@ -231,18 +231,20 @@ proc createAndSendAttestation(node: BeaconNode,
   beacon_attestation_sent_delay.observe(delayMillis)
 
 proc getBlockProposalEth1Data*(node: BeaconNode,
-                               state: BeaconState): BlockProposalEth1Data =
+                               stateData: StateData): BlockProposalEth1Data =
   if node.eth1Monitor.isNil:
-    var pendingDepositsCount = state.eth1_data.deposit_count -
-                               state.eth1_deposit_index
+    var pendingDepositsCount =
+      getStateField(stateData, eth1_data).deposit_count -
+        getStateField(stateData, eth1_deposit_index)
     if pendingDepositsCount > 0:
       result.hasMissingDeposits = true
     else:
-      result.vote = state.eth1_data
+      result.vote = getStateField(stateData, eth1_data)
   else:
     let finalizedEpochRef = node.chainDag.getFinalizedEpochRef()
     result = node.eth1Monitor.getBlockProposalData(
-      state, finalizedEpochRef.eth1_data, finalizedEpochRef.eth1_deposit_index)
+      stateData.data.data, finalizedEpochRef.eth1_data,
+      finalizedEpochRef.eth1_deposit_index)
 
 proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     randao_reveal: ValidatorSig,
@@ -258,7 +260,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
 
   node.chainDag.withState(proposalState[], head.atSlot(slot)):
     let
-      eth1Proposal = node.getBlockProposalEth1Data(state)
+      eth1Proposal = node.getBlockProposalEth1Data(stateData)
       poolPtr = unsafeAddr node.chainDag # safe because restore is short-lived
 
     if eth1Proposal.hasMissingDeposits:
