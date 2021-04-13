@@ -156,14 +156,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
     let droot =
       if qepoch >= Epoch(2):
-        let bref = node.chainDag.getBlockByPreciseSlot(
+        let bref = node.chainDag.getBlockBySlot(
           compute_start_slot_at_epoch(qepoch - 1) - 1
         )
-        if isNil(bref):
-          if not(node.isSynced(node.chainDag.head)):
-            return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-          else:
-            return RestApiResponse.jsonError(Http400, BlockNotFoundError)
         bref.root
       else:
         node.chainDag.genesis.root
@@ -171,7 +166,14 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         var res: seq[RestProposerDutyTuple]
         let epochRef = node.chainDag.getEpochRef(qhead, qepoch)
-        for i in 0 ..< SLOTS_PER_EPOCH:
+        let startSlot =
+          # Fix for https://github.com/status-im/nimbus-eth2/issues/2488
+          # Slot(0) at Epoch(0) do not have a proposer.
+          if (qepoch == Epoch(0)) and (i == 0):
+            1
+          else:
+            0
+        for i in startSlot ..< SLOTS_PER_EPOCH:
           if epochRef.beacon_proposers[i].isSome():
             let proposer = epochRef.beacon_proposers[i].get()
             res.add(
