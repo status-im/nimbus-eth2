@@ -163,3 +163,19 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponse(
       (chain_id: $DEPOSIT_CHAIN_ID, address: node.getDepositAddress())
     )
+
+  router.redirect(
+    MethodGet,
+    "/eth/v1/config/fork_schedule",
+    "/api/eth/v1/config/fork_schedule"
+  )
+  router.redirect(
+    MethodGet,
+    "/eth/v1/config/spec",
+    "/api/eth/v1/config/spec"
+  )
+  router.redirect(
+    MethodGet,
+    "/eth/v1/config/deposit_contract",
+    "/api/eth/v1/config/deposit_contract"
+  )
