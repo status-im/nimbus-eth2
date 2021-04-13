@@ -62,22 +62,22 @@
   {
     "topics": ["beacon", "states_root"],
     "request": {"url": "/eth/v1/beacon/states/heat/root"},
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_root"],
     "request": {"url": "/eth/v1/beacon/states/genezis/root"},
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_root"],
     "request": {"url": "/eth/v1/beacon/states/finalised/root"},
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_root"],
     "request": {"url": "/eth/v1/beacon/states/justilied/root"},
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_root"],
@@ -114,31 +114,31 @@
     "topics": ["beacon", "states_root"],
     "request": {"url": "/eth/v1/beacon/states/0x/root"},
     "comment": "Hexadecimal state root tests",
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_root"],
     "request": {"url": "/eth/v1/beacon/states/0x0/root"},
     "comment": "Hexadecimal state root tests",
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_root"],
     "request": {"url": "/eth/v1/beacon/states/0x00/root"},
     "comment": "Hexadecimal state root tests",
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_root"],
     "request": {"url": "/eth/v1/beacon/states/0x1/root"},
     "comment": "Hexadecimal state root tests",
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_root"],
     "request": {"url": "/eth/v1/beacon/states/0x11/root"},
     "comment": "Hexadecimal state root tests",
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_root"],
@@ -217,22 +217,22 @@
   {
     "topics": ["beacon", "states_fork"],
     "request": {"url": "/eth/v1/beacon/states/heat/fork"},
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_fork"],
     "request": {"url": "/eth/v1/beacon/states/genezis/fork"},
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_fork"],
     "request": {"url": "/eth/v1/beacon/states/finalised/fork"},
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_fork"],
     "request": {"url": "/eth/v1/beacon/states/justilied/fork"},
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_fork"],
@@ -272,31 +272,31 @@
     "topics": ["beacon", "states_fork"],
     "request": {"url": "/eth/v1/beacon/states/0x/fork"},
     "comment": "Hexadecimal state root tests",
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_fork"],
     "request": {"url": "/eth/v1/beacon/states/0x0/fork"},
     "comment": "Hexadecimal state root tests",
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_fork"],
     "request": {"url": "/eth/v1/beacon/states/0x00/fork"},
     "comment": "Hexadecimal state root tests",
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_fork"],
     "request": {"url": "/eth/v1/beacon/states/0x1/fork"},
     "comment": "Hexadecimal state root tests",
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_fork"],
     "request": {"url": "/eth/v1/beacon/states/0x11/fork"},
     "comment": "Hexadecimal state root tests",
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_fork"],
@@ -375,22 +375,22 @@
   {
     "topics": ["beacon", "states_finality_checkpoints"],
     "request": {"url": "/eth/v1/beacon/states/heat/finality_checkpoints"},
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_finality_checkpoints"],
     "request": {"url": "/eth/v1/beacon/states/genezis/finality_checkpoints"},
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_finality_checkpoints"],
     "request": {"url": "/eth/v1/beacon/states/finalised/finality_checkpoints"},
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_finality_checkpoints"],
     "request": {"url": "/eth/v1/beacon/states/justilied/finality_checkpoints"},
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_finality_checkpoints"],
@@ -434,31 +434,31 @@
     "topics": ["beacon", "states_finality_checkpoints"],
     "request": {"url": "/eth/v1/beacon/states/0x/finality_checkpoints"},
     "comment": "Hexadecimal state root tests",
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_finality_checkpoints"],
     "request": {"url": "/eth/v1/beacon/states/0x0/finality_checkpoints"},
     "comment": "Hexadecimal state root tests",
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_finality_checkpoints"],
     "request": {"url": "/eth/v1/beacon/states/0x00/finality_checkpoints"},
     "comment": "Hexadecimal state root tests",
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_finality_checkpoints"],
     "request": {"url": "/eth/v1/beacon/states/0x1/finality_checkpoints"},
     "comment": "Hexadecimal state root tests",
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_finality_checkpoints"],
     "request": {"url": "/eth/v1/beacon/states/0x11/finality_checkpoints"},
     "comment": "Hexadecimal state root tests",
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "states_finality_checkpoints"],
@@ -1100,7 +1100,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "404"},
+      "status": {"operator": "equals", "value": "400"},
     }
   },
   {
@@ -1111,7 +1111,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "404"},
+      "status": {"operator": "equals", "value": "400"},
     }
   },
   {
@@ -1122,7 +1122,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "404"},
+      "status": {"operator": "equals", "value": "400"},
     }
   },
   {
@@ -1133,7 +1133,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "404"},
+      "status": {"operator": "equals", "value": "400"},
     }
   },
   {
@@ -1144,7 +1144,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "404"},
+      "status": {"operator": "equals", "value": "400"},
     }
   },
   {
@@ -1684,7 +1684,7 @@
       "url": "/eth/v1/beacon/headers/heat",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_headers_blockid"],
@@ -1692,7 +1692,7 @@
       "url": "/eth/v1/beacon/headers/geneziz",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_headers_blockid"],
@@ -1700,7 +1700,7 @@
       "url": "/eth/v1/beacon/headers/finalised",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_headers_blockid"],
@@ -1756,7 +1756,7 @@
       "url": "/eth/v1/beacon/headers/0x",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_headers_blockid"],
@@ -1764,7 +1764,7 @@
       "url": "/eth/v1/beacon/headers/0x0",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_headers_blockid"],
@@ -1772,7 +1772,7 @@
       "url": "/eth/v1/beacon/headers/0x00",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_headers_blockid"],
@@ -1780,7 +1780,7 @@
       "url": "/eth/v1/beacon/headers/0xII",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_headers_blockid"],
@@ -1788,7 +1788,7 @@
       "url": "/eth/v1/beacon/headers/foobar",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_blocks_blockid"],
@@ -1892,7 +1892,7 @@
       "url": "/eth/v1/beacon/blocks/heat",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_blocks_blockid"],
@@ -1900,7 +1900,7 @@
       "url": "/eth/v1/beacon/blocks/geneziz",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_blocks_blockid"],
@@ -1908,7 +1908,7 @@
       "url": "/eth/v1/beacon/blocks/finalised",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_blocks_blockid"],
@@ -1916,7 +1916,7 @@
       "url": "/eth/v1/beacon/blocks/foobar",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_blocks_blockid"],
@@ -1924,7 +1924,7 @@
       "url": "/eth/v1/beacon/blocks/0x",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_blocks_blockid"],
@@ -1932,7 +1932,7 @@
       "url": "/eth/v1/beacon/blocks/0x0",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_blocks_blockid"],
@@ -1940,7 +1940,7 @@
       "url": "/eth/v1/beacon/blocks/0x00",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_blocks_blockid"],
@@ -1948,7 +1948,7 @@
       "url": "/eth/v1/beacon/blocks/0x000000000000000000000000000000000000000000000000000000000000000000",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_block_root_blockid"],
@@ -2052,7 +2052,7 @@
       "url": "/eth/v1/beacon/blocks/heat/root",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_block_root_blockid"],
@@ -2060,7 +2060,7 @@
       "url": "/eth/v1/beacon/blocks/geneziz/root",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_block_root_blockid"],
@@ -2068,7 +2068,7 @@
       "url": "/eth/v1/beacon/blocks/finalised/root",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_block_root_blockid"],
@@ -2076,7 +2076,7 @@
       "url": "/eth/v1/beacon/blocks/foobar/root",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_block_root_blockid"],
@@ -2084,7 +2084,7 @@
       "url": "/eth/v1/beacon/blocks/0x/root",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_block_root_blockid"],
@@ -2092,7 +2092,7 @@
       "url": "/eth/v1/beacon/blocks/0x0/root",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_block_root_blockid"],
@@ -2100,7 +2100,7 @@
       "url": "/eth/v1/beacon/blocks/0x00/root",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_block_root_blockid"],
@@ -2108,7 +2108,7 @@
       "url": "/eth/v1/beacon/blocks/0x000000000000000000000000000000000000000000000000000000000000000000/root",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_block_attestations_blockid"],
@@ -2200,7 +2200,7 @@
       "url": "/eth/v1/beacon/blocks/heat/attestations",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_block_attestations_blockid"],
@@ -2208,7 +2208,7 @@
       "url": "/eth/v1/beacon/blocks/geneziz/attestations",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_block_attestations_blockid"],
@@ -2216,7 +2216,7 @@
       "url": "/eth/v1/beacon/blocks/finalised/attestations",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_block_attestations_blockid"],
@@ -2224,7 +2224,7 @@
       "url": "/eth/v1/beacon/blocks/foobar/attestations",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_block_attestations_blockid"],
@@ -2232,7 +2232,7 @@
       "url": "/eth/v1/beacon/blocks/0x/attestations",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_block_attestations_blockid"],
@@ -2240,7 +2240,7 @@
       "url": "/eth/v1/beacon/blocks/0x0/attestations",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_block_attestations_blockid"],
@@ -2248,7 +2248,7 @@
       "url": "/eth/v1/beacon/blocks/0x00/attestations",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "beacon_block_attestations_blockid"],
@@ -2256,7 +2256,7 @@
       "url": "/eth/v1/beacon/blocks/0x000000000000000000000000000000000000000000000000000000000000000000/attestations",
       "headers": {"Accept": "application/json"}
     },
-    "response": {"status": {"operator": "equals", "value": "404"}}
+    "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
     "topics": ["beacon", "pool_attestations"],
@@ -2681,7 +2681,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "404"}
+      "status": {"operator": "equals", "value": "400"}
     }
   },
   {
@@ -2797,7 +2797,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "404"}
+      "status": {"operator": "equals", "value": "400"}
     }
   },
   {
@@ -3059,7 +3059,7 @@
       "headers": {"Accept": "application/json"},
     },
     "response": {
-      "status": {"operator": "equals", "value": "404"}
+      "status": {"operator": "equals", "value": "400"}
     }
   },
   {
