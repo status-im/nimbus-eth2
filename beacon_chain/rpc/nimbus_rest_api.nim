@@ -185,7 +185,8 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
     let proposalState = assignClone(node.chainDag.headState)
     node.chainDag.withState(proposalState[], head.atSlot(wallSlot)):
-      return RestApiResponse.jsonResponse(node.getBlockProposalEth1Data(state))
+      return RestApiResponse.jsonResponse(
+        node.getBlockProposalEth1Data(stateData))
 
   router.api(MethodGet, "/api/nimbus/v1/debug/chronos/futures") do (
     ) -> RestApiResponse:
