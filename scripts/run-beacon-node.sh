@@ -58,7 +58,15 @@ MISSING_BINARY_HELP
   exit 1
 fi
 
-if [[ "$WEB3_URL" == "" ]]; then
+WEB3_URL_OPT_PRESENT=0
+for op in "$@"; do
+  if [[ "${op}" =~ ^--web3-url=.*$ ]]; then
+    WEB3_URL_OPT_PRESENT=1
+    break
+  fi
+done
+
+if [[ "${WEB3_URL}" == "" && "${WEB3_URL_OPT_PRESENT}" == "0" ]]; then
   cat <<WEB3_HELP
 
 To monitor the Eth1 validator deposit contract, you'll need to pair
@@ -75,15 +83,20 @@ WEB3_HELP
   read WEB3_URL
 fi
 
+EXTRA_ARGS=""
+if [[ "${WEB3_URL}" != "" ]]; then
+  EXTRA_ARGS="--web3-url=${WEB3_URL}"
+fi
+
 # Allow the binary to receive signals directly.
 exec ${WINPTY} build/${NBC_BINARY} \
   --network=${NETWORK} \
   --data-dir="${DATA_DIR}" \
   --log-file="${DATA_DIR}/nbc_bn_$(date +"%Y%m%d%H%M%S").log" \
-  --web3-url="${WEB3_URL}" \
   --tcp-port=$(( ${BASE_P2P_PORT} + ${NODE_ID} )) \
   --udp-port=$(( ${BASE_P2P_PORT} + ${NODE_ID} )) \
   --rpc \
   --rpc-port=$(( ${BASE_RPC_PORT} +${NODE_ID} )) \
+  ${EXTRA_ARGS} \
   $@
 

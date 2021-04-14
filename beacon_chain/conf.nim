@@ -330,16 +330,6 @@ type
         desc: "The number of validator deposits in the newly created chain"
         name: "total-validators" }: uint64
 
-      firstValidator* {.
-        defaultValue: 0
-        desc: "Index of first validator to add to validator list"
-        name: "first-validator" }: uint64
-
-      lastUserValidator* {.
-        defaultValue: config.totalValidators - 1,
-        desc: "The last validator index that will be free for taking from a testnet participant"
-        name: "last-user-validator" }: uint64
-
       bootstrapAddress* {.
         defaultValue: init(ValidIpAddress, "127.0.0.1")
         desc: "The public IP address that will be advertised as a bootstrap node for the testnet"
