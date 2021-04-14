@@ -36,6 +36,7 @@
 - [Setup a systemd service](./beacon-node-systemd.md)
 - [Setup log rotation](./log-rotate.md)
 - [Verify the integrity of Nimbus](./checksums.md)
+- [Back up your database](./database-backup.md)
 
 # Tutorials
 - [Grafana and Prometheus](./metrics-pretty-pictures.md)
