@@ -1738,7 +1738,7 @@ proc doCreateTestnet(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.raise
     quit 1
 
   var deposits: seq[DepositData]
-  for i in config.firstValidator.int ..< launchPadDeposits.len:
+  for i in 0 ..< launchPadDeposits.len:
     deposits.add(launchPadDeposits[i] as DepositData)
 
   let
