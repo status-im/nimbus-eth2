@@ -171,6 +171,33 @@ You'll be directed to the dashboard where you'll be able to gain insights into t
 And voila! That's all there is to it :)
 
 
+## Recommended setups (Nimbus dashboard challenge winners)
+
+### Joe Clapis
+
+![](https://i.imgur.com/05eJeBr.png)
+
+Joe – who’s done some brilliant work [integrating Nimbus with Rocket Pool](https://our.status.im/rocket-pool-integration/) – has created a [wonderful guide](https://github.com/jclapis/rp-pi-guide/blob/main/Grafana.md) where he takes you through how to set up a Grafana server on your Pi – using his dashboard as an example.
+
+In his words:
+
+> This captures just about every metric I think I’d like to see at a glance.
+
+Whether or not you're running a Pi, we recommend you check out his guide [here]( https://github.com/jclapis/rp-pi-guide/blob/main/Grafana.md).
+
+
+### Metanull
+
+![](https://i.imgur.com/OlvNGlq.jpg)
+
+A dashboard aimed primarily at users rather than developers.
+
+Note that this dashboard does rely heavily on three prometheus exporter tools: `node_exporter` for system metrics, `json_exporter` for ETH price, and `blackbox_exporter` for ping times.
+
+The good news is that you don't need to use all these tools, as long as you take care of removing the related panels.
+
+See [here](https://github.com/metanull-operator/eth2-grafana/tree/master/nimbus) for a detailed guide explaining how to use it.
+
 ## Enabling mobile alerts
 
 ### Telegram
