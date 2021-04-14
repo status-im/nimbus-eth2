@@ -93,7 +93,6 @@ make build
   --data-dir="$DATA_DIR_ABS" \
   --validators-dir="$VALIDATORS_DIR_ABS" \
   --total-validators=$TOTAL_VALIDATORS \
-  --last-user-validator=$USER_VALIDATORS \
   --output-genesis="$NETWORK_DIR_ABS/genesis.ssz" \
   --output-bootstrap-file="$NETWORK_DIR_ABS/bootstrap_nodes.txt" \
   --bootstrap-address=$BOOTSTRAP_IP \
