@@ -11,17 +11,21 @@ import
   # Standard libraries
   std/[options, tables, sequtils],
   # Status libraries
+  metrics,
   chronicles, stew/byteutils, json_serialization/std/sets as jsonSets,
   # Internal
   ../spec/[beaconstate, datatypes, crypto, digest, validator],
   ../ssz/merkleization,
   "."/[spec_cache, blockchain_dag, block_quarantine],
-  ../beacon_node_types, ../extras,
+  ".."/[beacon_clock, beacon_node_types, extras],
   ../fork_choice/fork_choice
 
 export beacon_node_types
 
 logScope: topics = "attpool"
+
+declareGauge attestation_pool_block_attestation_packing_time,
+  "Time it took to create list of attestations for block"
 
 proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: QuarantineRef): T =
   ## Initialize an AttestationPool from the chainDag `headState`
@@ -102,12 +106,12 @@ proc addForkChoiceVotes(
       # hopefully the fork choice will heal itself over time.
       error "Couldn't add attestation to fork choice, bug?", err = v.error()
 
-func candidateIdx(pool: AttestationPool, slot: Slot): Option[uint64] =
+func candidateIdx(pool: AttestationPool, slot: Slot): Option[int] =
   if slot >= pool.startingSlot and
       slot < (pool.startingSlot + pool.candidates.lenu64):
-    some(slot mod pool.candidates.lenu64)
+    some(int(slot mod pool.candidates.lenu64))
   else:
-    none(uint64)
+    none(int)
 
 proc updateCurrent(pool: var AttestationPool, wallSlot: Slot) =
   if wallSlot + 1 < pool.candidates.lenu64:
@@ -210,6 +214,52 @@ func updateAggregates(entry: var AttestationEntry) =
             inc j
         inc i
 
+proc addAttestation(entry: var AttestationEntry,
+                    attestation: Attestation,
+                    signature: CookedSig): bool =
+  logScope:
+    attestation = shortLog(attestation)
+
+  let
+    singleIndex = oneIndex(attestation.aggregation_bits)
+
+  if singleIndex.isSome():
+    if singleIndex.get() in entry.singles:
+      trace "Attestation already seen",
+        singles = entry.singles.len(),
+        aggregates = entry.aggregates.len()
+
+      return false
+
+    debug "Attestation resolved",
+      singles = entry.singles.len(),
+      aggregates = entry.aggregates.len()
+
+    entry.singles[singleIndex.get()] = signature
+  else:
+    # More than one vote in this attestation
+    for i in 0..<entry.aggregates.len():
+      if attestation.aggregation_bits.isSubsetOf(entry.aggregates[i].aggregation_bits):
+        trace "Aggregate already seen",
+          singles = entry.singles.len(),
+          aggregates = entry.aggregates.len()
+        return false
+
+    # Since we're adding a new aggregate, we can now remove existing
+    # aggregates that don't add any new votes
+    entry.aggregates.keepItIf(
+      not it.aggregation_bits.isSubsetOf(attestation.aggregation_bits))
+
+    entry.aggregates.add(Validation(
+      aggregation_bits: attestation.aggregation_bits,
+      aggregate_signature: AggregateSignature.init(signature)))
+
+    debug "Aggregate resolved",
+      singles = entry.singles.len(),
+      aggregates = entry.aggregates.len()
+
+  true
+
 proc addAttestation*(pool: var AttestationPool,
                      attestation: Attestation,
                      participants: seq[ValidatorIndex],
@@ -234,50 +284,23 @@ proc addAttestation*(pool: var AttestationPool,
       startingSlot = pool.startingSlot
     return
 
-  let
-    singleIndex = oneIndex(attestation.aggregation_bits)
-    root = hash_tree_root(attestation.data)
-    # Careful with pointer, candidate table must not be touched after here
-    entry = addr pool.candidates[candidateIdx.get].mGetOrPut(
-      root,
-      AttestationEntry(
-        data: attestation.data,
-        committee_len: attestation.aggregation_bits.len()))
+  let attestation_data_root = hash_tree_root(attestation.data)
 
-  if singleIndex.isSome():
-    if singleIndex.get() in entry[].singles:
-      trace "Attestation already seen",
-        singles = entry[].singles.len(),
-        aggregates = entry[].aggregates.len()
-
+  # TODO withValue is an abomination but hard to use anything else too without
+  #      creating an unnecessary AttestationEntry on the hot path and avoiding
+  #      multiple lookups
+  pool.candidates[candidateIdx.get()].withValue(attestation_data_root, entry) do:
+    if not addAttestation(entry[], attestation, signature):
       return
-
-    debug "Attestation resolved",
-      singles = entry[].singles.len(),
-      aggregates = entry[].aggregates.len()
-
-    entry[].singles[singleIndex.get()] = signature
-  else:
-    # More than one vote in this attestation
-    for i in 0..<entry[].aggregates.len():
-      if attestation.aggregation_bits.isSubsetOf(entry[].aggregates[i].aggregation_bits):
-        trace "Aggregate already seen",
-          singles = entry[].singles.len(),
-          aggregates = entry[].aggregates.len()
-        return
-
-    # Since we're adding a new aggregate, we can now remove existing
-    # aggregates that don't add any new votes
-    entry[].aggregates.keepItIf(
-      not it.aggregation_bits.isSubsetOf(attestation.aggregation_bits))
-
-    entry[].aggregates.add(Validation(
-      aggregation_bits: attestation.aggregation_bits,
-      aggregate_signature: AggregateSignature.init(signature)))
-
-    debug "Aggregate resolved",
-      singles = entry[].singles.len(),
-      aggregates = entry[].aggregates.len()
+  do:
+    if not addAttestation(
+        pool.candidates[candidateIdx.get()].mGetOrPut(
+          attestation_data_root,
+          AttestationEntry(
+            data: attestation.data,
+            committee_len: attestation.aggregation_bits.len())),
+        attestation, signature):
+      return
 
   pool.addForkChoiceVotes(
     attestation.data.slot, participants, attestation.data.beacon_block_root,
@@ -301,8 +324,18 @@ proc addForkChoice*(pool: var AttestationPool,
 
 iterator attestations*(pool: AttestationPool, slot: Option[Slot],
                        index: Option[CommitteeIndex]): Attestation =
-  template processTable(table: AttestationTable) =
-    for _, entry in table:
+  let candidateIndices =
+    if slot.isSome():
+      let candidateIdx = pool.candidateIdx(slot.get())
+      if candidateIdx.isSome():
+        candidateIdx.get() .. candidateIdx.get()
+      else:
+        1 .. 0
+    else:
+      0 ..< pool.candidates.len()
+
+  for candidateIndex in candidateIndices:
+    for _, entry in pool.candidates[candidateIndex]:
       if index.isNone() or entry.data.index == index.get().uint64:
         var singleAttestation = Attestation(
           aggregation_bits: CommitteeValidatorsBits.init(entry.committee_len),
@@ -316,14 +349,6 @@ iterator attestations*(pool: AttestationPool, slot: Option[Slot],
 
         for v in entry.aggregates:
           yield entry.toAttestation(v)
-
-  if slot.isSome():
-    let candidateIdx = pool.candidateIdx(slot.get())
-    if candidateIdx.isSome():
-      processTable(pool.candidates[candidateIdx.get()])
-  else:
-    for i in 0..<pool.candidates.len():
-      processTable(pool.candidates[i])
 
 type
   AttestationCacheKey* = (Slot, uint64)
@@ -393,6 +418,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
     # Attestations produced in a particular slot are added to the block
     # at the slot where at least MIN_ATTESTATION_INCLUSION_DELAY have passed
     maxAttestationSlot = newBlockSlot - MIN_ATTESTATION_INCLUSION_DELAY
+    startPackingTime = Moment.now()
 
   var
     candidates: seq[tuple[
@@ -422,9 +448,8 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
         # Attestations are checked based on the state that we're adding the
         # attestation to - there might have been a fork between when we first
         # saw the attestation and the time that we added it
-        # TODO avoid creating a full attestation here and instead do the checks
-        #      based on the attestation data and bits
-        if not check_attestation(state, attestation, {skipBlsValidation}, cache).isOk():
+        if not check_attestation(
+              state, attestation, {skipBlsValidation}, cache).isOk():
           continue
 
         let score = attCache.score(
@@ -453,7 +478,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
       state.previous_epoch_attestations.maxLen - state.previous_epoch_attestations.len()
 
   var res: seq[Attestation]
-
+  let totalCandidates = candidates.len()
   while candidates.len > 0 and res.lenu64() < MAX_ATTESTATIONS:
     block:
       # Find the candidate with the highest score - slot is used as a
@@ -490,6 +515,14 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
       candidates.keepItIf:
         # Only keep candidates that might add coverage
         it.score > 0
+
+  let
+    packingTime = Moment.now() - startPackingTime
+
+  debug "Packed attestations for block",
+    newBlockSlot, packingTime, totalCandidates, attestations = res.len()
+  attestation_pool_block_attestation_packing_time.set(
+    packingTime.toFloatSeconds())
 
   res
 
