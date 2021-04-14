@@ -18,6 +18,7 @@
 - [Install dependencies](./install.md)
 - [Build the beacon node](./build.md)
 - [Run an eth1 node](./eth1.md)
+- [Add a backup web3 provider](./web3-backup.md)
 - [Sync the beacon node](./start-syncing.md)
 - [Make a deposit for your validator](./deposit.md)
 - [Import your validator keys](./keys.md)
