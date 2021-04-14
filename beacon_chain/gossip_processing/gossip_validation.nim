@@ -8,9 +8,12 @@
 {.push raises: [Defect].}
 
 import
+  # Standard library
   std/[sequtils, intsets, deques],
-  chronicles,
+  # Status
+  chronicles, chronos,
   stew/results,
+  # Internals
   ../spec/[
     beaconstate, state_transition_block,
     datatypes, crypto, digest, helpers, network, signatures],
@@ -20,10 +23,17 @@ import
   ],
   ".."/[beacon_node_types, ssz, beacon_clock],
   ../validators/attestation_aggregation,
-  ../extras
+  ../extras,
+  ./batch_validation
+
+from libp2p/protocols/pubsub/pubsub import ValidationResult
+export ValidationResult
 
 logScope:
   topics = "gossip_checks"
+
+# Internal checks
+# ----------------------------------------------------------------
 
 func check_attestation_block(
     pool: AttestationPool, attestationSlot: Slot, blck: BlockRef):
@@ -111,25 +121,14 @@ func check_beacon_and_target_block(
 func check_aggregation_count(
     attestation: Attestation, singular: bool):
     Result[void, (ValidationResult, cstring)] =
-  var onesCount = 0
-  # TODO a cleverer algorithm, along the lines of countOnes() in nim-stew
-  # But that belongs in nim-stew, since it'd break abstraction layers, to
-  # use details of its representation from nimbus-eth2.
 
-  for aggregation_bit in attestation.aggregation_bits:
-    if not aggregation_bit:
-      continue
-    onesCount += 1
-    if singular: # More than one ok
-      if onesCount > 1:
-        return err((ValidationResult.Reject, cstring(
-          "Attestation has too many aggregation bits")))
-    else:
-      break # Found the one we needed
-
-  if onesCount < 1:
+  let ones = attestation.aggregation_bits.countOnes()
+  if singular and ones != 1:
     return err((ValidationResult.Reject, cstring(
-      "Attestation has too few aggregation bits")))
+      "Attestation must have a single attestation bit set")))
+  elif not singular and ones < 1:
+    return err((ValidationResult.Reject, cstring(
+      "Attestation must have at least one attestation bit set")))
 
   ok()
 
@@ -148,12 +147,19 @@ func check_attestation_subnet(
 
   ok()
 
+# Gossip Validation
+# ----------------------------------------------------------------
+{.pop.} # async can raises anything
+
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 proc validateAttestation*(
-    pool: var AttestationPool,
-    attestation: Attestation, wallTime: BeaconTime,
+    pool: ref AttestationPool,
+    batchCrypto: ref BatchCrypto,
+    attestation: Attestation,
+    wallTime: BeaconTime,
     topicCommitteeIndex: uint64, checksExpensive: bool):
-    Result[seq[ValidatorIndex], (ValidationResult, cstring)] =
+    Future[Result[tuple[attestingIndices: seq[ValidatorIndex], sig: CookedSig],
+      (ValidationResult, cstring)]] {.async.} =
   # Some of the checks below have been reordered compared to the spec, to
   # perform the cheap checks first - in particular, we want to avoid loading
   # an `EpochRef` and checking signatures. This reordering might lead to
@@ -172,12 +178,18 @@ proc validateAttestation*(
   # attestation.data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot
   # >= attestation.data.slot (a client MAY queue future attestations for
   # processing at the appropriate slot).
-  ? check_propagation_slot_range(attestation.data, wallTime) # [IGNORE]
+  block:
+    let v = check_propagation_slot_range(attestation.data, wallTime) # [IGNORE]
+    if v.isErr():
+      return err(v.error)
 
   # The attestation is unaggregated -- that is, it has exactly one
   # participating validator (len([bit for bit in attestation.aggregation_bits
   # if bit == 0b1]) == 1).
-  ? check_aggregation_count(attestation, singular = true) # [REJECT]
+  block:
+    let v = check_aggregation_count(attestation, singular = true) # [REJECT]
+    if v.isErr():
+      return err(v.error)
 
   # The block being voted for (attestation.data.beacon_block_root) has been seen
   # (via both gossip and non-gossip sources) (a client MAY queue attestations for
@@ -185,7 +197,11 @@ proc validateAttestation*(
   # The block being voted for (attestation.data.beacon_block_root) passes
   # validation.
   # [IGNORE] if block is unseen so far and enqueue it in missing blocks
-  let target = ? check_beacon_and_target_block(pool, attestation.data) # [IGNORE/REJECT]
+  let target = block:
+    let v = check_beacon_and_target_block(pool[], attestation.data) # [IGNORE/REJECT]
+    if v.isErr():
+      return err(v.error)
+    v.get()
 
   # The following rule follows implicitly from that we clear out any
   # unviable blocks from the chain dag:
@@ -210,7 +226,10 @@ proc validateAttestation*(
   # committees_per_slot = get_committee_count_per_slot(state,
   # attestation.data.target.epoch), which may be pre-computed along with the
   # committee information for the signature check.
-  ? check_attestation_subnet(epochRef, attestation, topicCommitteeIndex)
+  block:
+    let v = check_attestation_subnet(epochRef, attestation, topicCommitteeIndex) # [REJECT]
+    if v.isErr():
+      return err(v.error)
 
   # [REJECT] The number of aggregation bits matches the committee size -- i.e.
   # len(attestation.aggregation_bits) == len(get_beacon_committee(state,
@@ -225,9 +244,9 @@ proc validateAttestation*(
       "validateAttestation: number of aggregation bits and committee size mismatch")))
 
   let
-    fork = pool.chainDag.headState.data.data.fork
+    fork = getStateField(pool.chainDag.headState, fork)
     genesis_validators_root =
-      pool.chainDag.headState.data.data.genesis_validators_root
+      getStateField(pool.chainDag.headState, genesis_validators_root)
     attesting_indices = get_attesting_indices(
       epochRef, attestation.data, attestation.aggregation_bits)
 
@@ -248,15 +267,38 @@ proc validateAttestation*(
       "Validator has already voted in epoch")))
 
   if not checksExpensive:
-    return ok(attesting_indices)
+    # Only sendAttestation, which discards result, doesn't use checksExpensive
+    # TODO this means that (a) this becomes an "expensive" check and (b) it is
+    # doing in-principle unnecessary work, since this should be known from the
+    # attestation creation.
+    return ok((attesting_indices, attestation.signature.load.get().CookedSig))
 
   # The signature of attestation is valid.
   block:
+    # First pass - without cryptography
     let v = is_valid_indexed_attestation(
         fork, genesis_validators_root, epochRef, attesting_indices,
-        attestation, {})
+        attestation,
+        {skipBLSValidation})
     if v.isErr():
       return err((ValidationResult.Reject, v.error))
+
+  # Buffer crypto checks
+  let deferredCrypto = batchCrypto
+                        .scheduleAttestationCheck(
+                          fork, genesis_validators_root, epochRef,
+                          attestation
+                        )
+  if deferredCrypto.isNone():
+    return err((ValidationResult.Reject,
+                cstring("validateAttestation: crypto sanity checks failure")))
+
+  # Await the crypto check
+  let
+    (cryptoFut, sig) = deferredCrypto.get()
+    cryptoChecked = await cryptoFut
+  if cryptoChecked.isErr():
+    return err((ValidationResult.Reject, cryptoChecked.error))
 
   # Only valid attestations go in the list, which keeps validator_index
   # in range
@@ -265,13 +307,16 @@ proc validateAttestation*(
   pool.nextAttestationEpoch[validator_index].subnet =
     attestation.data.target.epoch + 1
 
-  ok(attesting_indices)
+  return ok((attesting_indices, sig))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAggregate*(
-    pool: var AttestationPool,
-    signedAggregateAndProof: SignedAggregateAndProof, wallTime: BeaconTime):
-    Result[seq[ValidatorIndex], (ValidationResult, cstring)] =
+    pool: ref AttestationPool,
+    batchCrypto: ref BatchCrypto,
+    signedAggregateAndProof: SignedAggregateAndProof,
+    wallTime: BeaconTime):
+    Future[Result[tuple[attestingIndices: seq[ValidatorIndex], sig: CookedSig],
+      (ValidationResult, cstring)]] {.async.} =
   # Some of the checks below have been reordered compared to the spec, to
   # perform the cheap checks first - in particular, we want to avoid loading
   # an `EpochRef` and checking signatures. This reordering might lead to
@@ -291,7 +336,10 @@ proc validateAggregate*(
   # ATTESTATION_PROPAGATION_SLOT_RANGE slots (with a
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. aggregate.data.slot +
   # ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= aggregate.data.slot
-  ? check_propagation_slot_range(aggregate.data, wallTime) # [IGNORE]
+  block:
+    let v = check_propagation_slot_range(aggregate.data, wallTime) # [IGNORE]
+    if v.isErr():
+      return err(v.error)
 
   # [IGNORE] The valid aggregate attestation defined by
   # hash_tree_root(aggregate) has not already been seen (via aggregate gossip,
@@ -327,12 +375,19 @@ proc validateAggregate*(
   #     members, i.e. they counts don't match.
   # But (2) would reflect an invalid aggregation in other ways, so reject it
   # either way.
-  ? check_aggregation_count(aggregate, singular = false)
+  block:
+    let v = check_aggregation_count(aggregate, singular = false) # [REJECT]
+    if v.isErr():
+      return err(v.error)
 
   # [REJECT] The block being voted for (aggregate.data.beacon_block_root)
   # passes validation.
   # [IGNORE] if block is unseen so far and enqueue it in missing blocks
-  let target = ? check_beacon_and_target_block(pool, aggregate.data)
+  let target = block:
+    let v = check_beacon_and_target_block(pool[], aggregate.data) # [IGNORE/REJECT]
+    if v.isErr():
+      return err(v.error)
+    v.get()
 
   # [REJECT] aggregate_and_proof.selection_proof selects the validator as an
   # aggregator for the slot -- i.e. is_aggregator(state, aggregate.data.slot,
@@ -354,42 +409,50 @@ proc validateAggregate*(
     return err((ValidationResult.Reject, cstring(
       "Aggregator's validator index not in committee")))
 
-  # [REJECT] The aggregate_and_proof.selection_proof is a valid signature of the
-  # aggregate.data.slot by the validator with index
-  # aggregate_and_proof.aggregator_index.
-  # get_slot_signature(state, aggregate.data.slot, privkey)
-  if aggregate_and_proof.aggregator_index >= epochRef.validator_keys.lenu64:
-    return err((ValidationResult.Reject, cstring("Invalid aggregator_index")))
+  block:
+    # 1. [REJECT] The aggregate_and_proof.selection_proof is a valid signature of the
+    #    aggregate.data.slot by the validator with index
+    #    aggregate_and_proof.aggregator_index.
+    #    get_slot_signature(state, aggregate.data.slot, privkey)
+    # 2. [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
+    # 3. [REJECT] The signature of aggregate is valid.
+    if aggregate_and_proof.aggregator_index >= epochRef.validator_keys.lenu64:
+      return err((ValidationResult.Reject, cstring("Invalid aggregator_index")))
 
   let
-    fork = pool.chainDag.headState.data.data.fork
+    fork = getStateField(pool.chainDag.headState, fork)
     genesis_validators_root =
-      pool.chainDag.headState.data.data.genesis_validators_root
-  if not verify_slot_signature(
-      fork, genesis_validators_root, aggregate.data.slot,
-      epochRef.validator_keys[aggregate_and_proof.aggregator_index],
-      aggregate_and_proof.selection_proof):
+      getStateField(pool.chainDag.headState, genesis_validators_root)
+
+  let deferredCrypto = batchCrypto
+                .scheduleAggregateChecks(
+                  fork, genesis_validators_root, epochRef,
+                  signed_aggregate_and_proof
+                )
+  if deferredCrypto.isNone():
+    return err((ValidationResult.Reject,
+                cstring("validateAttestation: crypto sanity checks failure")))
+
+  # [REJECT] aggregate_and_proof.selection_proof
+  let
+    (cryptoFuts, sig) = deferredCrypto.get()
+    slotChecked = await cryptoFuts.slotCheck
+  if slotChecked.isErr():
     return err((ValidationResult.Reject, cstring(
       "Selection_proof signature verification failed")))
 
-  # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
-  if not verify_aggregate_and_proof_signature(
-      fork, genesis_validators_root, aggregate_and_proof,
-      epochRef.validator_keys[aggregate_and_proof.aggregator_index],
-      signed_aggregate_and_proof.signature):
-    return err((ValidationResult.Reject, cstring(
-      "signed_aggregate_and_proof signature verification failed")))
-
-  let attesting_indices = get_attesting_indices(
-    epochRef, aggregate.data, aggregate.aggregation_bits)
-
-  # [REJECT] The signature of aggregate is valid.
   block:
-    let v = is_valid_indexed_attestation(
-        fork, genesis_validators_root, epochRef, attesting_indices,
-        aggregate, {})
-    if v.isErr():
-      return err((ValidationResult.Reject, v.error))
+    # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
+    let aggregatorChecked = await cryptoFuts.aggregatorCheck
+    if aggregatorChecked.isErr():
+      return err((ValidationResult.Reject, cstring(
+        "signed_aggregate_and_proof aggregator signature verification failed")))
+
+    # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
+    let aggregateChecked = await cryptoFuts.aggregateCheck
+    if aggregateChecked.isErr():
+      return err((ValidationResult.Reject, cstring(
+        "signed_aggregate_and_proof aggregate attester signatures verification failed")))
 
   # The following rule follows implicitly from that we clear out any
   # unviable blocks from the chain dag:
@@ -407,7 +470,12 @@ proc validateAggregate*(
   pool.nextAttestationEpoch[aggregate_and_proof.aggregator_index].aggregate =
     aggregate.data.target.epoch + 1
 
-  ok(attesting_indices)
+  let attesting_indices = get_attesting_indices(
+    epochRef, aggregate.data, aggregate.aggregation_bits)
+
+  return ok((attesting_indices, sig))
+
+{.push raises: [Defect].}
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_block
 proc isValidBeaconBlock*(
@@ -502,7 +570,7 @@ proc isValidBeaconBlock*(
   # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
   # store.finalized_checkpoint.root
   let
-    finalized_checkpoint = dag.headState.data.data.finalized_checkpoint
+    finalized_checkpoint = getStateField(dag.headState, finalized_checkpoint)
     ancestor = get_ancestor(
       parent_ref, compute_start_slot_at_epoch(finalized_checkpoint.epoch))
 
@@ -536,8 +604,8 @@ proc isValidBeaconBlock*(
   # [REJECT] The proposer signature, signed_beacon_block.signature, is valid
   # with respect to the proposer_index pubkey.
   if not verify_block_signature(
-      dag.headState.data.data.fork,
-      dag.headState.data.data.genesis_validators_root,
+      getStateField(dag.headState, fork),
+      getStateField(dag.headState, genesis_validators_root),
       signed_beacon_block.message.slot,
       signed_beacon_block.message,
       proposer.get()[1],
@@ -625,11 +693,11 @@ proc validateVoluntaryExit*(
   # [IGNORE] The voluntary exit is the first valid voluntary exit received for
   # the validator with index signed_voluntary_exit.message.validator_index.
   if signed_voluntary_exit.message.validator_index >=
-      pool.chainDag.headState.data.data.validators.lenu64:
+      getStateField(pool.chainDag.headState, validators).lenu64:
     return err((ValidationResult.Ignore, cstring(
       "validateVoluntaryExit: validator index too high")))
 
-  # Since pool.chainDag.headState.data.data.validators is a seq, this means
+  # Given that getStateField(pool.chainDag.headState, validators) is a seq,
   # signed_voluntary_exit.message.validator_index.int is already valid, but
   # check explicitly if one changes that data structure.
   if signed_voluntary_exit.message.validator_index.int in

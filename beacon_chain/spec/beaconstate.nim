@@ -122,8 +122,11 @@ proc process_deposit*(preset: RuntimePreset,
     # by the deposit contract
     if skipBLSValidation in flags or verify_deposit_signature(preset, deposit.data):
       # New validator! Add validator and balance entries
-      state.validators.add(get_validator_from_deposit(deposit.data))
-      state.balances.add(amount)
+      if not state.validators.add(get_validator_from_deposit(deposit.data)):
+        return err("process_deposit: too many validators")
+      if not state.balances.add(amount):
+        static: doAssert state.balances.maxLen == state.validators.maxLen
+        raiseAssert "adding validator succeeded, so should balances"
 
       doAssert state.validators.len == state.balances.len
     else:
@@ -298,8 +301,11 @@ proc initialize_beacon_state_from_eth1*(
       if skipBlsValidation in flags or
          verify_deposit_signature(preset, deposit):
         pubkeyToIndex[pubkey] = state.validators.len
-        state.validators.add(get_validator_from_deposit(deposit))
-        state.balances.add(amount)
+        if not state.validators.add(get_validator_from_deposit(deposit)):
+          raiseAssert "too many validators"
+        if not state.balances.add(amount):
+          raiseAssert "same as validators"
+
       else:
         # Invalid deposits are perfectly possible
         trace "Skipping deposit with invalid signature",
@@ -507,7 +513,8 @@ func get_sorted_attesting_indices_list*(
     state: BeaconState, data: AttestationData, bits: CommitteeValidatorsBits,
     cache: var StateCache): List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE] =
   for index in get_sorted_attesting_indices(state, data, bits, cache):
-    result.add index.uint64
+    if not result.add index.uint64:
+      raiseAssert "The `result` list has the same max size as the sorted `bits` input"
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_indexed_attestation
 func get_indexed_attestation(state: BeaconState, attestation: Attestation,
@@ -626,6 +633,8 @@ proc process_attestation*(
     # data sadly is a processing hotspot - the business with the addDefault
     # pointer is here simply to work around the poor codegen
     var pa = attestations.addDefault()
+    if pa.isNil:
+      return err("process_attestation: too many pending attestations")
     assign(pa[].aggregation_bits, attestation.aggregation_bits)
     pa[].data = attestation.data
     pa[].inclusion_delay = state.slot - attestation.data.slot

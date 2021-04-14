@@ -21,7 +21,8 @@ import
   chronos, chronicles, metrics,
   libp2p/[switch, peerinfo, multicodec,
           multiaddress, crypto/crypto, crypto/secp,
-          protocols/identify, protocols/protocol],
+          protocols/identify, protocols/protocol,
+          builders],
   libp2p/muxers/muxer, libp2p/muxers/mplex/mplex,
   libp2p/transports/[transport, tcptransport],
   libp2p/protocols/secure/[secure, noise],
@@ -1532,27 +1533,17 @@ proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
                       address: MultiAddress,
                       rng: ref BrHmacDrbgContext): Switch {.raises: [Defect, CatchableError].} =
   try:
-    proc createMplex(conn: Connection): Muxer =
-      Mplex.init(conn, inTimeout = 5.minutes, outTimeout = 5.minutes)
-
-    let
-      peerInfo = PeerInfo.init(seckey, [address])
-      mplexProvider = newMuxerProvider(createMplex, MplexCodec)
-      transports = @[Transport(TcpTransport.init({ServerFlags.ReuseAddr}))]
-      muxers = {MplexCodec: mplexProvider}.toTable
-      secureManagers = [Secure(newNoise(rng, seckey))]
-
-    peerInfo.agentVersion = config.agentString
-
-    let identify = newIdentify(peerInfo)
-
-    newSwitch(
-      peerInfo,
-      transports,
-      identify,
-      muxers,
-      secureManagers,
-      maxConnections = config.maxPeers)
+    SwitchBuilder
+      .new()
+      .withPrivateKey(seckey)
+      .withAddress(address)
+      .withRng(rng)
+      .withNoise()
+      .withMplex(5.minutes, 5.minutes)
+      .withMaxConnections(config.maxPeers)
+      .withAgentVersion(config.agentString)
+      .withTcpTransport({ServerFlags.ReuseAddr})
+      .build()
   except CatchableError as exc: raise exc
   except Exception as exc: # TODO fix libp2p
     if exc is Defect: raise (ref Defect)exc
@@ -1699,6 +1690,40 @@ proc addValidator*[MsgType](node: Eth2Node,
           msg = err.msg, topic, len = message.data.len
         ValidationResult.Ignore
     return res
+
+  try:
+    node.pubsub.addValidator(topic & "_snappy", execValidator)
+  except Exception as exc: raiseAssert exc.msg # TODO fix libp2p
+
+proc addAsyncValidator*[MsgType](node: Eth2Node,
+                            topic: string,
+                            msgValidator: proc(msg: MsgType):
+                            Future[ValidationResult] {.gcsafe, raises: [Defect].} ) =
+
+  proc execValidator(
+      topic: string, message: GossipMsg): Future[ValidationResult] {.raises: [Defect].} =
+
+    inc nbc_gossip_messages_received
+    trace "Validating incoming gossip message",
+      len = message.data.len, topic
+
+    let decompressed = snappy.decode(message.data, GOSSIP_MAX_SIZE)
+
+    if decompressed.len == 0:
+      debug "Empty gossip data after decompression",
+        topic, len = message.data.len
+      result.complete(ValidationResult.Ignore)
+      return
+
+    let decoded = try:
+      SSZ.decode(decompressed, MsgType)
+    except:
+      error "SSZ decoding failure",
+        topic, len = message.data.len
+      result.complete(ValidationResult.Ignore)
+      return
+
+    return msgValidator(decoded)
 
   try:
     node.pubsub.addValidator(topic & "_snappy", execValidator)

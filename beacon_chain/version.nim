@@ -15,12 +15,10 @@ when not defined(nimscript):
 
 const
   versionMajor* = 1
-  versionMinor* = 0
-  versionBuild* = 12
+  versionMinor* = 1
+  versionBuild* = 0
 
   versionBlob* = "stateofus" # Single word - ends up in the default graffitti
-
-  useInsecureFeatures* = defined(insecure)
 
   gitRevision* = strip(staticExec("git rev-parse --short HEAD"))[0..5]
 

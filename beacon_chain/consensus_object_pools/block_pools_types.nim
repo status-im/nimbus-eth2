@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[deques, strformat, sets, tables, hashes],
+  std/[strformat, sets, tables, hashes],
   # Status libraries
   stew/[endians2, byteutils], chronicles,
   eth/keys,
@@ -17,9 +17,7 @@ import
   ../spec/[datatypes, crypto, digest, signatures_batch],
   ../beacon_chain_db, ../extras
 
-from libp2p/protocols/pubsub/pubsub import ValidationResult
-export ValidationResult, sets, tables
-
+export sets, tables
 
 # #############################################
 #

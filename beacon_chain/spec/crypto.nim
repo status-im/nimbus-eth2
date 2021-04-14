@@ -125,6 +125,9 @@ func init*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
   ## Initializes an aggregate signature context
   agg.init(blscurve.Signature(sig))
 
+func init*(T: type AggregateSignature, sig: CookedSig | ValidatorSig): T =
+  result.init(sig)
+
 proc aggregate*(agg: var AggregateSignature, sig: ValidatorSig) {.inline.}=
   ## Aggregate two Validator Signatures
   ## Both signatures must be valid
@@ -134,11 +137,11 @@ proc aggregate*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
   ## Aggregate two Validator Signatures
   agg.aggregate(blscurve.Signature(sig))
 
-func finish*(agg: AggregateSignature): ValidatorSig {.inline.}=
+func finish*(agg: AggregateSignature): CookedSig {.inline.}=
   ## Canonicalize an AggregateSignature into a signature
   var sig: blscurve.Signature
   sig.finish(agg)
-  ValidatorSig(blob: sig.exportRaw())
+  CookedSig(sig)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#bls-signatures
 proc blsVerify*(
@@ -165,6 +168,16 @@ proc blsVerify*(
     # signatures, so the loading happens lazily at verification time instead!
     parsedKey.isSome() and
       parsedKey.get.verify(message, parsedSig.get())
+
+proc blsVerify*(sigSet: SignatureSet): bool =
+  ## Unbatched verification
+  ## of 1 SignatureSet
+  ## tuple[pubkey: blscurve.PublicKey, message: array[32, byte], blscurve.signature: Signature]
+  verify(
+    sigSet.pubkey,
+    sigSet.message,
+    sigSet.signature
+  )
 
 func blsSign*(privkey: ValidatorPrivKey, message: openArray[byte]): ValidatorSig =
   ## Computes a signature from a secret key and a message

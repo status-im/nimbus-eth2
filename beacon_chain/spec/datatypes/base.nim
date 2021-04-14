@@ -120,10 +120,12 @@ type
     DOMAIN_SELECTION_PROOF = 5
     DOMAIN_AGGREGATE_AND_PROOF = 6
 
-    # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.1/configs/mainnet/altair.yaml#L31
+    # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/beacon-chain.md#domain-types
     # Needs to be in same enum definition and is safe regardless of whether one
     # only accesses phase 0 definitions
     DOMAIN_SYNC_COMMITTEE = 7
+    DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF = 8
+    DOMAIN_CONTRIBUTION_AND_PROOF = 9
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#custom-types
   Eth2Domain* = array[32, byte]
@@ -726,6 +728,7 @@ proc writeValue*(writer: var JsonWriter, value: HashList)
 
 proc readValue*(reader: var JsonReader, value: var HashList)
                {.raises: [IOError, SerializationError, Defect].} =
+  value.resetCache()
   readValue(reader, value.data)
 
 template writeValue*(writer: var JsonWriter, value: Version | ForkDigest) =

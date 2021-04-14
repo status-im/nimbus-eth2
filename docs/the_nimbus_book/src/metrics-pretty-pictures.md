@@ -8,20 +8,11 @@ Grafana is a tool for beautiful dashboard monitoring that works well with Promet
 
 ## Simple metrics
 
-The easiest way to see metrics concerning your validator / node is to build the beacon node with the `NIMFLAGS="-d:insecure"`:
-
-```
-make NIMFLAGS="-d:insecure" nimbus_beacon_node
-```
-
-> **Note:** Metrics are not included in the binary by default. The `NIMFLAGS="-d:insecure"` is needed because we consider the HTTP server that needs to start to serve the metrics to be insecure (without this flag it won't launch properly). As such, we recommend you make sure port 8008 is protected.
-
 Run the beacon node  with the `--metrics` flag:
 
 ```
 ./run-pyrmont-beacon-node.sh --metrics
 ```
-
 
 And visit [http://127.0.0.1:8008/metrics](http://127.0.0.1:8008/metrics) to see the raw metrics. You should see a plaintext page that looks something like this:
 
@@ -44,6 +35,8 @@ nim_gc_heap_instance_occupied_bytes{type_name="seq[TrustedAttestation]"} 29728.0
 ...
 ```
 
+> **Note:** Metrics are by default only accessible from the same machine as the beacon node is running on - to fetch metrics from a remote machine, an SSH tunnel is recommended.
+
 Unfortunately, this simple method only offers one snapshot in time (you'll need to keep refreshing to see the data update) which means it's impossible to see a useful history of the metrics. In short, it's far from optimal from an information design point of view.
 
 In order to settle on a better solution, we'll need the help of two external projects -- Prometheus and Grafana.
@@ -59,7 +52,7 @@ The following steps will take you through how to use Prometheus and Grafana to s
 Use your favourite package manager to download Prometheus -- for example `apt-get install prometheus` on Ubuntu, or `brew install prometheus` on MacOS, should do the trick.
 
 > If you don't use a package manager, you can download the [latest release](https://prometheus.io/download/) of directly from Prometheus website. To extract it, run:
-> 
+>
 > ```
 > tar xvfz prometheus-*.tar.gz
 > cd prometheus-*

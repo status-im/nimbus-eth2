@@ -65,8 +65,8 @@ if [ "$ETH1_PRIVATE_KEY" != "" ]; then
   echo "Done: $DEPOSIT_CONTRACT_ADDRESS"
 fi
 
-echo "Building a local nimbus_beacon_node instance for 'deposits create' and 'createTestnet'"
-make -j2 NIMFLAGS="-d:insecure -d:testnet_servers_image ${NETWORK_NIM_FLAGS}" nimbus_beacon_node nimbus_signing_process process_dashboard
+echo "Building a local nimbus_beacon_node instance for 'deposits createTestnetDeposits' and 'createTestnet'"
+make -j2 NIMFLAGS="-d:testnet_servers_image ${NETWORK_NIM_FLAGS}" nimbus_beacon_node nimbus_signing_process process_dashboard
 
 echo "Generating Grafana dashboards for remote testnet servers"
 for testnet in 0 1; do
@@ -83,7 +83,7 @@ echo "Building Docker image..."
 # in docker/Makefile, and are enabled by default.
 make build
 
-../build/nimbus_beacon_node deposits create \
+../build/nimbus_beacon_node deposits createTestnetDeposits \
   --count=$TOTAL_VALIDATORS \
   --out-validators-dir="$VALIDATORS_DIR_ABS" \
   --out-secrets-dir="$SECRETS_DIR_ABS" \

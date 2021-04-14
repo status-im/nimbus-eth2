@@ -208,3 +208,9 @@
 	url = https://github.com/status-im/nim-unittest2.git
 	ignore = untracked
 	branch = master
+[submodule "vendor/nim-presto"]
+	path = vendor/nim-presto
+	url = https://github.com/status-im/nim-presto.git
+	ignore = untracked
+	branch = master
+

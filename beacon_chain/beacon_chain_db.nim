@@ -9,7 +9,7 @@
 
 import
   typetraits, tables,
-  stew/[assign2, endians2, io2, objects, results],
+  stew/[assign2, byteutils, endians2, io2, objects, results],
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
   ./networking/network_metadata, ./beacon_chain_db_immutable,
@@ -17,6 +17,78 @@ import
   ./ssz/[ssz_serialization, merkleization],
   ./eth1/merkle_minimal,
   ./filepath
+
+type
+  # TODO when DirStoreRef and helpers are placed in a separate module, kvStore
+  #      doesn't find it.. :/
+  #      eth/db/kvstore.nim(75, 6) Error: type mismatch: got <DirStoreRef, openArray[byte], openArray[byte]>
+  DirStoreRef* = ref object of RootObj
+    # DirStore is an experimental storage based on plain files stored in a
+    # directory tree - this _might_ be a suitable way of storing large blobs
+    # efficiently, where sqlite sometimes struggles - see
+    # https://github.com/status-im/nimbus-eth2/issues/2440
+    #
+    # The issue described by 2440 happens when both blocks and states are all
+    # stored in a single, giant table. The slow deletes have since been
+    # mitigated by using separate tables.
+
+    root: string
+
+proc splitName(db: DirStoreRef, name: openArray[byte]): tuple[dir, file: string] =
+  # Splitting the name helps keep the number of files per directory down - up
+  # to 65536 folders will be created
+  if name.len() > 2:
+    (db.root & "/" & name.toOpenArray(0, 1).toHex(), name.toOpenArray(2, name.high()).toHex())
+  else:
+    (db.root & "/" & "0000", name.toHex())
+
+proc get*(db: DirStoreRef, key: openArray[byte], onData: DataProc): KvResult[bool] =
+  let
+    (root, name) = db.splitName(key)
+    fileName = root & "/" & name
+
+  var data: seq[byte]
+
+  if readFile(fileName, data).isOk():
+    onData(data)
+    ok(true)
+  else:
+    # Serious errors are caught when writing, so we simplify things and say
+    # the entry doesn't exist if for any reason we can't read it
+    # TODO align this with `contains` that simply checks if the file exists
+    ok(false)
+
+proc del*(db: DirStoreRef, key: openArray[byte]): KvResult[void] =
+  let
+    (root, name) = db.splitName(key)
+    fileName = root & "/" & name
+
+  removeFile(fileName).mapErr(ioErrorMsg)
+
+proc contains*(db: DirStoreRef, key: openArray[byte]): KvResult[bool] =
+  let
+    (root, name) = db.splitName(key)
+    fileName = root & "/" & name
+
+  ok(isFile(fileName))
+
+proc put*(db: DirStoreRef, key, val: openArray[byte]): KvResult[void] =
+  let
+    (root, name) = db.splitName(key)
+    fileName = root & "/" & name
+
+  ? createPath(root).mapErr(ioErrorMsg)
+  ? io2.writeFile(fileName, val).mapErr(ioErrorMsg)
+
+  ok()
+
+proc close*(db: DirStoreRef): KvResult[void] =
+  discard
+
+proc init*(T: type DirStoreRef, root: string): T =
+  T(
+    root: root,
+  )
 
 type
   DbSeq*[T] = object
@@ -61,9 +133,12 @@ type
 
     checkpoint*: proc() {.gcsafe, raises: [Defect].}
 
+    stateStore: KvStoreRef
+
   Keyspaces* = enum
     defaultKeyspace = "kvstore"
-    validatorIndexFromPubKey
+    validatorIndexFromPubKey # Unused (?)
+    stateNoValidators = "state_no_validators"
 
   DbKeyKind = enum
     kHashToState
@@ -237,13 +312,44 @@ proc loadImmutableValidators(db: BeaconChainDB): seq[ImmutableValidatorData] =
   for i in 0 ..< db.immutableValidators.len:
     result.add db.immutableValidators.get(i)
 
-proc init*(T: type BeaconChainDB,
-           preset: RuntimePreset,
-           dir: string,
-           inMemory = false): BeaconChainDB =
-  var sqliteStore =
-    if inMemory:
-      SqStoreRef.init("", "test", inMemory = true).expect("working database (out of memory?)")
+type
+  SqKeyspaceStoreRef* = ref object of RootObj
+    # Wrapper around SqStoreRef to target a particular keyspace - using
+    # keyspaces helps keep performance decent when using large blobs in tables
+    # that otherwise contain lots of rows.
+    db: SqStoreRef
+    keyspace: int
+
+proc get*(db: SqKeyspaceStoreRef, key: openArray[byte], onData: DataProc): KvResult[bool] =
+  get(db.db, db.keyspace, key, onData)
+
+proc del*(db: SqKeyspaceStoreRef, key: openArray[byte]): KvResult[void] =
+  del(db.db, db.keyspace, key)
+
+proc contains*(db: SqKeyspaceStoreRef, key: openArray[byte]): KvResult[bool] =
+  contains(db.db, db.keyspace, key)
+
+proc put*(db: SqKeyspaceStoreRef, key, val: openArray[byte]): KvResult[void] =
+  put(db.db, db.keyspace, key, val)
+
+proc close*(db: SqKeyspaceStoreRef): KvResult[void] =
+  ok() # Gets closed with the "default" keyspace
+
+proc init(T: type SqKeyspaceStoreRef, db: SqStoreRef, keyspace: Keyspaces): T =
+  T(
+    db: db,
+    keyspace: int(keyspace)
+  )
+
+proc new*(T: type BeaconChainDB,
+          preset: RuntimePreset,
+          dir: string,
+          inMemory = false,
+          fileStateStorage = false,
+    ): BeaconChainDB =
+  var sqliteStore = if inMemory:
+      SqStoreRef.init("", "test", Keyspaces, inMemory = true).expect(
+        "working database (out of memory?)")
     else:
       let s = secureCreatePath(dir)
       doAssert s.isOk # TODO(zah) Handle this in a better way
@@ -262,13 +368,20 @@ proc init*(T: type BeaconChainDB,
       DbSeq[DepositData].init(sqliteStore, "genesis_deposits")
     immutableValidatorsSeq =
       DbSeq[ImmutableValidatorData].init(sqliteStore, "immutable_validators")
+    backend = kvStore sqliteStore
+    stateStore =
+      if inMemory or (not fileStateStorage):
+        kvStore SqKeyspaceStoreRef.init(sqliteStore, stateNoValidators)
+      else:
+        kvStore DirStoreRef.init(dir & "/state")
 
-  T(backend: kvStore sqliteStore,
+  T(backend: backend,
     preset: preset,
     genesisDeposits: genesisDepositsSeq,
     immutableValidators: immutableValidatorsSeq,
     immutableValidatorsMem: loadImmutableValidators(immutableValidatorsSeq),
-    checkpoint: proc() = sqliteStore.checkpoint()
+    checkpoint: proc() = sqliteStore.checkpoint(),
+    stateStore: stateStore,
     )
 
 proc snappyEncode(inp: openArray[byte]): seq[byte] =
@@ -284,13 +397,14 @@ proc sszEncode(v: auto): seq[byte] =
     # In-memory encode shouldn't fail!
     raiseAssert err.msg
 
-proc put(db: BeaconChainDB, key: openArray[byte], v: Eth2Digest) =
-  db.backend.put(key, v.data).expect("working database (disk broken/full?)")
+proc putRaw(db: KvStoreRef, key: openArray[byte], v: Eth2Digest) =
+  db.put(key, v.data).expect("working database (disk broken/full?)")
 
-proc put(db: BeaconChainDB, key: openArray[byte], v: auto) =
-  db.backend.put(key, snappyEncode(sszEncode(v))).expect("working database (disk broken/full?)")
+proc putEncoded(db: KvStoreRef, key: openArray[byte], v: auto) =
+  db.put(key, snappyEncode(sszEncode(v))).expect(
+    "working database (disk broken/full?)")
 
-proc get(db: BeaconChainDB, key: openArray[byte], T: type Eth2Digest): Opt[T] =
+proc getRaw(db: KvStoreRef, key: openArray[byte], T: type Eth2Digest): Opt[T] =
   var res: Opt[T]
   proc decode(data: openArray[byte]) =
     if data.len == 32:
@@ -302,7 +416,7 @@ proc get(db: BeaconChainDB, key: openArray[byte], T: type Eth2Digest): Opt[T] =
        typ = name(T), dataLen = data.len
       discard
 
-  discard db.backend.get(key, decode).expect("working database (disk broken/full?)")
+  discard db.get(key, decode).expect("working database (disk broken/full?)")
 
   res
 
@@ -311,7 +425,7 @@ type GetResult = enum
   notFound = "Not found"
   corrupted = "Corrupted"
 
-proc get[T](db: BeaconChainDB, key: openArray[byte], output: var T): GetResult =
+proc getEncoded[T](db: KvStoreRef, key: openArray[byte], output: var T): GetResult =
   var status = GetResult.notFound
 
   # TODO address is needed because there's no way to express lifetimes in nim
@@ -333,7 +447,7 @@ proc get[T](db: BeaconChainDB, key: openArray[byte], output: var T): GetResult =
         err = e.msg, typ = name(T), dataLen = data.len
       status = GetResult.corrupted
 
-  discard db.backend.get(key, decode).expect("working database (disk broken/full?)")
+  discard db.get(key, decode).expect("working database (disk broken/full?)")
 
   status
 
@@ -348,14 +462,17 @@ func toBeaconBlockSummary(v: SomeBeaconBlock): BeaconBlockSummary =
 
 # TODO: we should only store TrustedSignedBeaconBlock in the DB.
 proc putBlock*(db: BeaconChainDB, value: SignedBeaconBlock) =
-  db.put(subkey(type value, value.root), value)
-  db.put(subkey(BeaconBlockSummary, value.root), value.message.toBeaconBlockSummary())
+  db.backend.putEncoded(subkey(type value, value.root), value)
+  db.backend.putEncoded(
+    subkey(BeaconBlockSummary, value.root), value.message.toBeaconBlockSummary())
 proc putBlock*(db: BeaconChainDB, value: TrustedSignedBeaconBlock) =
-  db.put(subkey(SignedBeaconBlock, value.root), value)
-  db.put(subkey(BeaconBlockSummary, value.root), value.message.toBeaconBlockSummary())
+  db.backend.putEncoded(subkey(SignedBeaconBlock, value.root), value)
+  db.backend.putEncoded(
+    subkey(BeaconBlockSummary, value.root), value.message.toBeaconBlockSummary())
 proc putBlock*(db: BeaconChainDB, value: SigVerifiedSignedBeaconBlock) =
-  db.put(subkey(SignedBeaconBlock, value.root), value)
-  db.put(subkey(BeaconBlockSummary, value.root), value.message.toBeaconBlockSummary())
+  db.backend.putEncoded(subkey(SignedBeaconBlock, value.root), value)
+  db.backend.putEncoded(
+    subkey(BeaconBlockSummary, value.root), value.message.toBeaconBlockSummary())
 
 proc updateImmutableValidators(
     db: BeaconChainDB, immutableValidators: var seq[ImmutableValidatorData],
@@ -377,10 +494,8 @@ proc updateImmutableValidators(
     immutableValidators.add immutableValidator
 
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: var BeaconState) =
-  # TODO prune old states - this is less easy than it seems as we never know
-  #      when or if a particular state will become finalized.
   updateImmutableValidators(db, db.immutableValidatorsMem, value.validators)
-  db.put(
+  db.stateStore.putEncoded(
     subkey(BeaconStateNoImmutableValidators, key),
     isomorphicCast[BeaconStateNoImmutableValidators](value))
 
@@ -388,17 +503,17 @@ proc putState*(db: BeaconChainDB, value: var BeaconState) =
   db.putState(hash_tree_root(value), value)
 
 proc putStateFull*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
-  db.put(subkey(BeaconState, key), value)
+  db.backend.putEncoded(subkey(BeaconState, key), value)
 
 proc putStateFull*(db: BeaconChainDB, value: BeaconState) =
   db.putStateFull(hash_tree_root(value), value)
 
 proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
     value: Eth2Digest) =
-  db.put(subkey(root, slot), value)
+  db.backend.putRaw(subkey(root, slot), value)
 
 proc putStateDiff*(db: BeaconChainDB, root: Eth2Digest, value: BeaconStateDiff) =
-  db.put(subkey(BeaconStateDiff, root), value)
+  db.backend.putEncoded(subkey(BeaconStateDiff, root), value)
 
 proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.del(subkey(SignedBeaconBlock, key)).expect("working database (disk broken/full?)")
@@ -406,8 +521,8 @@ proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
 
 proc delState*(db: BeaconChainDB, key: Eth2Digest) =
   db.backend.del(subkey(BeaconState, key)).expect("working database (disk broken/full?)")
-  db.backend.del(subkey(BeaconStateNoImmutableValidators, key)).expect(
-    "working database (disk broken/full?)")
+  db.stateStore.del(subkey(BeaconStateNoImmutableValidators, key)).expect(
+    "working filesystem (disk broken/full?)")
 
 proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
   db.backend.del(subkey(root, slot)).expect("working database (disk broken/full?)")
@@ -416,30 +531,30 @@ proc delStateDiff*(db: BeaconChainDB, root: Eth2Digest) =
   db.backend.del(subkey(BeaconStateDiff, root)).expect("working database (disk broken/full?)")
 
 proc putHeadBlock*(db: BeaconChainDB, key: Eth2Digest) =
-  db.put(subkey(kHeadBlock), key)
+  db.backend.putRaw(subkey(kHeadBlock), key)
 
 proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
-  db.put(subkey(kTailBlock), key)
+  db.backend.putRaw(subkey(kTailBlock), key)
 
 proc putGenesisBlockRoot*(db: BeaconChainDB, key: Eth2Digest) =
-  db.put(subkey(kGenesisBlockRoot), key)
+  db.backend.putRaw(subkey(kGenesisBlockRoot), key)
 
 proc putEth1FinalizedTo*(db: BeaconChainDB,
                          eth1Checkpoint: DepositContractSnapshot) =
-  db.put(subkey(kDepositsFinalizedByEth1), eth1Checkpoint)
+  db.backend.putEncoded(subkey(kDepositsFinalizedByEth1), eth1Checkpoint)
 
 proc putEth2FinalizedTo*(db: BeaconChainDB,
                          eth1Checkpoint: DepositContractSnapshot) =
-  db.put(subkey(kDepositsFinalizedByEth2), eth1Checkpoint)
+  db.backend.putEncoded(subkey(kDepositsFinalizedByEth2), eth1Checkpoint)
 
 proc putSpeculativeDeposits*(db: BeaconChainDB,
                              eth1Checkpoint: DepositContractSnapshot) =
-  db.put(subkey(kSpeculativeDeposits), eth1Checkpoint)
+  db.backend.putEncoded(subkey(kSpeculativeDeposits), eth1Checkpoint)
 
 proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
   result.ok(TrustedSignedBeaconBlock())
-  if db.get(subkey(SignedBeaconBlock, key), result.get) != GetResult.found:
+  if db.backend.getEncoded(subkey(SignedBeaconBlock, key), result.get) != GetResult.found:
     result.err()
   else:
     # set root after deserializing (so it doesn't get zeroed)
@@ -448,7 +563,7 @@ proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[TrustedSignedBeaconBlock
 proc getBlockSummary*(db: BeaconChainDB, key: Eth2Digest): Opt[BeaconBlockSummary] =
   # We only store blocks that we trust in the database
   result.ok(BeaconBlockSummary())
-  if db.get(subkey(BeaconBlockSummary, key), result.get) != GetResult.found:
+  if db.backend.getEncoded(subkey(BeaconBlockSummary, key), result.get) != GetResult.found:
     result.err()
 
 proc getStateOnlyMutableValidators(
@@ -465,17 +580,13 @@ proc getStateOnlyMutableValidators(
   # TODO RVO is inefficient for large objects:
   #      https://github.com/nim-lang/Nim/issues/13879
 
-  case db.get(
+  case db.stateStore.getEncoded(
     subkey(
       BeaconStateNoImmutableValidators, key),
       isomorphicCast[BeaconStateNoImmutableValidators](output))
   of GetResult.found:
     let numValidators = output.validators.len
     doAssert db.immutableValidatorsMem.len >= numValidators
-
-    output.validators.hashes.setLen(0)
-    for item in output.validators.indices.mitems():
-      item = 0
 
     for i in 0 ..< numValidators:
       let
@@ -487,7 +598,7 @@ proc getStateOnlyMutableValidators(
       assign(dstValidator.withdrawal_credentials,
         srcValidator.withdrawal_credentials)
 
-    output.validators.growHashes()
+    output.validators.resetCache()
 
     true
   of GetResult.notFound:
@@ -512,7 +623,7 @@ proc getState*(
   if getStateOnlyMutableValidators(db, key, output, rollback):
     return true
 
-  case db.get(subkey(BeaconState, key), output)
+  case db.backend.getEncoded(subkey(BeaconState, key), output)
   of GetResult.found:
     true
   of GetResult.notFound:
@@ -524,37 +635,37 @@ proc getState*(
 proc getStateRoot*(db: BeaconChainDB,
                    root: Eth2Digest,
                    slot: Slot): Opt[Eth2Digest] =
-  db.get(subkey(root, slot), Eth2Digest)
+  db.backend.getRaw(subkey(root, slot), Eth2Digest)
 
 proc getStateDiff*(db: BeaconChainDB,
                    root: Eth2Digest): Opt[BeaconStateDiff] =
   result.ok(BeaconStateDiff())
-  if db.get(subkey(BeaconStateDiff, root), result.get) != GetResult.found:
+  if db.backend.getEncoded(subkey(BeaconStateDiff, root), result.get) != GetResult.found:
     result.err
 
 proc getHeadBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
-  db.get(subkey(kHeadBlock), Eth2Digest)
+  db.backend.getRaw(subkey(kHeadBlock), Eth2Digest)
 
 proc getTailBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
-  db.get(subkey(kTailBlock), Eth2Digest)
+  db.backend.getRaw(subkey(kTailBlock), Eth2Digest)
 
 proc getGenesisBlockRoot*(db: BeaconChainDB): Eth2Digest =
-  db.get(subkey(kGenesisBlockRoot), Eth2Digest).expect(
+  db.backend.getRaw(subkey(kGenesisBlockRoot), Eth2Digest).expect(
     "The database must be seeded with the genesis state")
 
 proc getEth1FinalizedTo*(db: BeaconChainDB): Opt[DepositContractSnapshot] =
   result.ok(DepositContractSnapshot())
-  let r = db.get(subkey(kDepositsFinalizedByEth1), result.get)
+  let r = db.backend.getEncoded(subkey(kDepositsFinalizedByEth1), result.get)
   if r != found: result.err()
 
 proc getEth2FinalizedTo*(db: BeaconChainDB): Opt[DepositContractSnapshot] =
   result.ok(DepositContractSnapshot())
-  let r = db.get(subkey(kDepositsFinalizedByEth2), result.get)
+  let r = db.backend.getEncoded(subkey(kDepositsFinalizedByEth2), result.get)
   if r != found: result.err()
 
 proc getSpeculativeDeposits*(db: BeaconChainDB): Opt[DepositContractSnapshot] =
   result.ok(DepositContractSnapshot())
-  let r = db.get(subkey(kSpeculativeDeposits), result.get)
+  let r = db.backend.getEncoded(subkey(kSpeculativeDeposits), result.get)
   if r != found: result.err()
 
 proc delSpeculativeDeposits*(db: BeaconChainDB) =
@@ -564,7 +675,7 @@ proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(SignedBeaconBlock, key)).expect("working database (disk broken/full?)")
 
 proc containsState*(db: BeaconChainDB, key: Eth2Digest): bool =
-  db.backend.contains(subkey(BeaconStateNoImmutableValidators, key)).expect(
+  db.stateStore.contains(subkey(BeaconStateNoImmutableValidators, key)).expect(
       "working database  (disk broken/full?)") or
     db.backend.contains(subkey(BeaconState, key)).expect("working database (disk broken/full?)")
 
@@ -581,7 +692,7 @@ iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
   var
     res: TrustedSignedBeaconBlock
     root = root
-  while db.get(subkey(SignedBeaconBlock, root), res) == GetResult.found:
+  while db.backend.getEncoded(subkey(SignedBeaconBlock, root), res) == GetResult.found:
     res.root = root
     yield res
     root = res.message.parent_root
@@ -599,12 +710,12 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
     root = root
 
   while true:
-    if db.get(subkey(BeaconBlockSummary, root), res.summary) == GetResult.found:
+    if db.backend.getEncoded(subkey(BeaconBlockSummary, root), res.summary) == GetResult.found:
       res.root = root
       yield res
-    elif db.get(subkey(SignedBeaconBlock, root), tmp) == GetResult.found:
+    elif db.backend.getEncoded(subkey(SignedBeaconBlock, root), tmp) == GetResult.found:
       res.summary = tmp.message.toBeaconBlockSummary()
-      db.put(subkey(BeaconBlockSummary, root), res.summary)
+      db.backend.putEncoded(subkey(BeaconBlockSummary, root), res.summary)
       res.root = root
       yield res
     else:

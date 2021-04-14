@@ -16,7 +16,7 @@ import
   # Nimble packages
   stew/[objects, byteutils, endians2, io2], stew/shims/macros,
   chronos, confutils, metrics, metrics/chronos_httpserver,
-  chronicles, bearssl, blscurve,
+  chronicles, bearssl, blscurve, presto,
   json_serialization/std/[options, sets, net], serialization/errors,
 
   eth/[keys, async_utils], eth/net/nat,
@@ -36,6 +36,8 @@ import
     attestation_aggregation, validator_duties, validator_pool,
     slashing_protection, keystore_management],
   ./sync/[sync_manager, sync_protocol, request_manager],
+  ./rpc/[rest_utils, config_rest_api, debug_rest_api, node_rest_api,
+         beacon_rest_api, event_rest_api, validator_rest_api, nimbus_rest_api],
   ./rpc/[beacon_api, config_api, debug_api, event_api, nimbus_api, node_api,
     validator_api],
   ./spec/[
@@ -62,6 +64,16 @@ type
 template init(T: type RpcHttpServer, ip: ValidIpAddress, port: Port): T =
   newRpcHttpServer([initTAddress(ip, port)])
 
+template init(T: type RestServerRef, ip: ValidIpAddress, port: Port): T =
+  let address = initTAddress(ip, port)
+  let res = RestServerRef.new(getRouter(), address)
+  if res.isErr():
+    notice "Rest server could not be started", address = $address,
+           reason = res.error()
+    nil
+  else:
+    res.get()
+
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_slot, "Latest slot of the beacon chain state"
 declareGauge beacon_current_epoch, "Current epoch"
@@ -78,10 +90,10 @@ declareGauge next_action_wait,
 
 logScope: topics = "beacnde"
 
-func enrForkIdFromState(state: BeaconState): ENRForkID =
+func getEnrForkId(fork: Fork, genesis_validators_root: Eth2Digest): ENRForkID =
   let
-    forkVer = state.fork.current_version
-    forkDigest = compute_fork_digest(forkVer, state.genesis_validators_root)
+    forkVer = fork.current_version
+    forkDigest = compute_fork_digest(forkVer, genesis_validators_root)
 
   ENRForkID(
     fork_digest: forkDigest,
@@ -99,7 +111,10 @@ proc init*(T: type BeaconNode,
            genesisDepositsSnapshotContents: string): BeaconNode {.
     raises: [Defect, CatchableError].} =
   let
-    db = BeaconChainDB.init(runtimePreset, config.databaseDir)
+    db = BeaconChainDB.new(
+      runtimePreset, config.databaseDir,
+      inMemory = false,
+      fileStateStorage = config.stateDbKind == StateDbKind.file)
 
   var
     genesisState, checkpointState: ref BeaconState
@@ -152,7 +167,7 @@ proc init*(T: type BeaconNode,
         # This is a fresh start without a known genesis state
         # (most likely, it hasn't arrived yet). We'll try to
         # obtain a genesis through the Eth1 deposits monitor:
-        if config.web3Url.len == 0:
+        if config.web3Urls.len == 0:
           fatal "Web3 URL not specified"
           quit 1
 
@@ -161,7 +176,7 @@ proc init*(T: type BeaconNode,
         let eth1MonitorRes = waitFor Eth1Monitor.init(
           runtimePreset,
           db,
-          config.web3Url,
+          config.web3Urls,
           depositContractAddress,
           depositContractDeployedAt,
           eth1Network)
@@ -169,7 +184,7 @@ proc init*(T: type BeaconNode,
         if eth1MonitorRes.isErr:
           fatal "Failed to start Eth1 monitor",
                 reason = eth1MonitorRes.error,
-                web3Url = config.web3Url,
+                web3Urls = config.web3Urls,
                 depositContractAddress,
                 depositContractDeployedAt
           quit 1
@@ -229,10 +244,11 @@ proc init*(T: type BeaconNode,
     chainDagFlags = if config.verifyFinalization: {verifyFinalization}
                      else: {}
     chainDag = ChainDAGRef.init(runtimePreset, db, chainDagFlags)
-    beaconClock = BeaconClock.init(chainDag.headState.data.data)
+    beaconClock =
+      BeaconClock.init(getStateField(chainDag.headState, genesis_time))
     quarantine = QuarantineRef.init(rng)
     databaseGenesisValidatorsRoot =
-      chainDag.headState.data.data.genesis_validators_root
+      getStateField(chainDag.headState, genesis_validators_root)
 
   if genesisStateContents.len != 0:
     let
@@ -257,7 +273,7 @@ proc init*(T: type BeaconNode,
       error "Weak subjectivity checkpoint is stale",
             currentSlot,
             checkpoint = config.weakSubjectivityCheckpoint.get,
-            headStateSlot = chainDag.headState.data.data.slot
+            headStateSlot = getStateField(chainDag.headState, slot)
       quit 1
 
   if checkpointState != nil:
@@ -271,14 +287,14 @@ proc init*(T: type BeaconNode,
     chainDag.setTailState(checkpointState[], checkpointBlock)
 
   if eth1Monitor.isNil and
-     config.web3Url.len > 0 and
+     config.web3Urls.len > 0 and
      genesisDepositsSnapshotContents.len > 0:
     let genesisDepositsSnapshot = SSZ.decode(genesisDepositsSnapshotContents,
                                              DepositContractSnapshot)
     eth1Monitor = Eth1Monitor.init(
       runtimePreset,
       db,
-      config.web3Url,
+      config.web3Urls,
       depositContractAddress,
       genesisDepositsSnapshot,
       eth1Network)
@@ -288,11 +304,18 @@ proc init*(T: type BeaconNode,
   else:
     nil
 
+  let restServer = if config.restEnabled:
+    RestServerRef.init(config.restAddress, config.restPort)
+  else:
+    nil
+
   let
     netKeys = getPersistentNetKeys(rng[], config)
     nickname = if config.nodeName == "auto": shortForm(netKeys)
                else: config.nodeName
-    enrForkId = enrForkIdFromState(chainDag.headState.data.data)
+    enrForkId = getEnrForkId(
+      getStateField(chainDag.headState, fork),
+      getStateField(chainDag.headState, genesis_validators_root))
     topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.forkDigest)
     topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.forkDigest)
     network = createEth2Node(rng, config, netKeys, enrForkId)
@@ -305,7 +328,7 @@ proc init*(T: type BeaconNode,
         info "Loading slashing protection database",
           path = config.validatorsDir()
         SlashingProtectionDB.init(
-          chainDag.headState.data.data.genesis_validators_root,
+          getStateField(chainDag.headState, genesis_validators_root),
           config.validatorsDir(), "slashing_protection",
           modes = {kCompleteArchiveV1},
           disagreementBehavior = kChooseV1
@@ -314,14 +337,14 @@ proc init*(T: type BeaconNode,
         info "Loading slashing protection database (v2)",
           path = config.validatorsDir()
         SlashingProtectionDB.init(
-          chainDag.headState.data.data.genesis_validators_root,
+          getStateField(chainDag.headState, genesis_validators_root),
           config.validatorsDir(), "slashing_protection"
         )
       of SlashingDbKind.both:
         info "Loading slashing protection database (dual DB mode)",
           path = config.validatorsDir()
         SlashingProtectionDB.init(
-          chainDag.headState.data.data.genesis_validators_root,
+          getStateField(chainDag.headState, genesis_validators_root),
           config.validatorsDir(), "slashing_protection",
           modes = {kCompleteArchiveV1, kCompleteArchiveV2},
           disagreementBehavior = kChooseV2
@@ -332,13 +355,15 @@ proc init*(T: type BeaconNode,
       chainDag, attestationPool, quarantine
     )
     verifQueues = VerifQueueManager.new(
-      config, consensusManager,
+      config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
+      consensusManager,
       proc(): BeaconTime = beaconClock.now())
     processor = Eth2Processor.new(
-      config,
+      config.doppelgangerDetection,
       verifQueues,
       chainDag, attestationPool, exitPool, validatorPool,
       quarantine,
+      rng,
       proc(): BeaconTime = beaconClock.now())
 
   var res = BeaconNode(
@@ -357,6 +382,7 @@ proc init*(T: type BeaconNode,
     eth1Monitor: eth1Monitor,
     beaconClock: beaconClock,
     rpcServer: rpcServer,
+    restServer: restServer,
     forkDigest: enrForkId.forkDigest,
     topicBeaconBlocks: topicBeaconBlocks,
     topicAggregateAndProofs: topicAggregateAndProofs,
@@ -450,9 +476,11 @@ func getStabilitySubnets(stabilitySubnets: auto): set[uint8] =
 
 proc getAttachedValidators(node: BeaconNode):
     Table[ValidatorIndex, AttachedValidator] =
-  for validatorIndex in 0 ..< node.chainDag.headState.data.data.validators.len:
+  for validatorIndex in 0 ..<
+      getStateField(node.chainDag.headState, validators).len:
     let attachedValidator = node.getAttachedValidator(
-      node.chainDag.headState.data.data, validatorIndex.ValidatorIndex)
+      getStateField(node.chainDag.headState, validators),
+      validatorIndex.ValidatorIndex)
     if attachedValidator.isNil:
       continue
     result[validatorIndex.ValidatorIndex] = attachedValidator
@@ -484,8 +512,9 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
       is_aggregator(
         committeeLen,
         await attachedValidators[it.ValidatorIndex].getSlotSig(
-          node.chainDag.headState.data.data.fork,
-          node.chainDag.headState.data.data.genesis_validators_root, slot)))
+          getStateField(node.chainDag.headState, fork),
+          getStateField(
+            node.chainDag.headState, genesis_validators_root), slot)))
 
   node.attestationSubnets.lastCalculatedEpoch = epoch
   node.attestationSubnets.attestingSlots[epoch mod 2] = 0
@@ -566,10 +595,10 @@ proc cycleAttestationSubnetsPerEpoch(
   # wallSlot, it would have to look more than MIN_SEED_LOOKAHEAD epochs
   # ahead to compute the shuffling determining the beacon committees.
   static: doAssert MIN_SEED_LOOKAHEAD == 1
-  if node.chainDag.headState.data.data.slot.epoch != wallSlot.epoch:
+  if getStateField(node.chainDag.headState, slot).epoch != wallSlot.epoch:
     debug "Requested attestation subnets too far in advance",
       wallSlot,
-      stateSlot = node.chainDag.headState.data.data.slot
+      stateSlot = getStateField(node.chainDag.headState, slot)
     return prevStabilitySubnets
 
   # This works so long as at least one block in an epoch provides a basis for
@@ -1160,6 +1189,15 @@ proc installRpcHandlers(rpcServer: RpcServer, node: BeaconNode) =
     rpcServer.installValidatorApiHandlers(node)
   except Exception as exc: raiseAssert exc.msg # TODO fix json-rpc
 
+proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
+  restServer.router.installBeaconApiHandlers(node)
+  restServer.router.installConfigApiHandlers(node)
+  restServer.router.installDebugApiHandlers(node)
+  restServer.router.installEventApiHandlers(node)
+  restServer.router.installNimbusApiHandlers(node)
+  restServer.router.installNodeApiHandlers(node)
+  restServer.router.installValidatorApiHandlers(node)
+
 proc installMessageValidators(node: BeaconNode) =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # These validators stay around the whole time, regardless of which specific
@@ -1167,16 +1205,16 @@ proc installMessageValidators(node: BeaconNode) =
   for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
     closureScope:
       let ci = it
-      node.network.addValidator(
+      node.network.addAsyncValidator(
         getAttestationTopic(node.forkDigest, ci),
         # This proc needs to be within closureScope; don't lift out of loop.
-        proc(attestation: Attestation): ValidationResult =
-          node.processor[].attestationValidator(attestation, ci))
+        proc(attestation: Attestation): Future[ValidationResult] =
+          node.processor.attestationValidator(attestation, ci))
 
-  node.network.addValidator(
+  node.network.addAsyncValidator(
     getAggregateAndProofsTopic(node.forkDigest),
-    proc(signedAggregateAndProof: SignedAggregateAndProof): ValidationResult =
-      node.processor[].aggregateValidator(signedAggregateAndProof))
+    proc(signedAggregateAndProof: SignedAggregateAndProof): Future[ValidationResult] =
+      node.processor.aggregateValidator(signedAggregateAndProof))
 
   node.network.addValidator(
     node.topicBeaconBlocks,
@@ -1220,9 +1258,13 @@ proc run*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
     # it might have been set to "Stopping" with Ctrl+C
     bnStatus = BeaconNodeStatus.Running
 
-    if node.rpcServer != nil:
+    if not(isNil(node.rpcServer)):
       node.rpcServer.installRpcHandlers(node)
       node.rpcServer.start()
+
+    if not(isNil(node.restServer)):
+      node.restServer.installRestHandlers(node)
+      node.restServer.start()
 
     node.installMessageValidators()
 
@@ -1346,7 +1388,7 @@ proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
 
   proc dataResolver(expr: string): string {.raises: [Defect].} =
     template justified: untyped = node.chainDag.head.atEpochStart(
-      node.chainDag.headState.data.data.current_justified_checkpoint.epoch)
+      getStateField(node.chainDag.headState, current_justified_checkpoint).epoch)
     # TODO:
     # We should introduce a general API for resolving dot expressions
     # such as `db.latest_block.slot` or `metrics.connected_peers`.
@@ -1661,16 +1703,13 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.r
   config.createDumpDirs()
 
   if config.metricsEnabled:
-    when useInsecureFeatures:
-      let metricsAddress = config.metricsAddress
-      notice "Starting metrics HTTP server",
-        url = "http://" & $metricsAddress & ":" & $config.metricsPort & "/metrics"
-      try:
-        startMetricsHttpServer($metricsAddress, config.metricsPort)
-      except CatchableError as exc: raise exc
-      except Exception as exc: raiseAssert exc.msg # TODO fix metrics
-    else:
-      warn "Metrics support disabled, see https://status-im.github.io/nimbus-eth2/metrics-pretty-pictures.html#simple-metrics"
+    let metricsAddress = config.metricsAddress
+    notice "Starting metrics HTTP server",
+      url = "http://" & $metricsAddress & ":" & $config.metricsPort & "/metrics"
+    try:
+      startMetricsHttpServer($metricsAddress, config.metricsPort)
+    except CatchableError as exc: raise exc
+    except Exception as exc: raiseAssert exc.msg # TODO fix metrics
 
   # There are no managed event loops in here, to do a graceful shutdown, but
   # letting the default Ctrl+C handler exit is safe, since we only read from
@@ -1705,8 +1744,8 @@ proc doCreateTestnet(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.raise
   let
     startTime = uint64(times.toUnix(times.getTime()) + config.genesisOffset)
     outGenesis = config.outputGenesis.string
-    eth1Hash = if config.web3Url.len == 0: eth1BlockHash
-              else: (waitFor getEth1BlockHash(config.web3Url, blockId("latest"))).asEth2Digest
+    eth1Hash = if config.web3Urls.len == 0: eth1BlockHash
+               else: (waitFor getEth1BlockHash(config.web3Urls[0], blockId("latest"))).asEth2Digest
     runtimePreset = getRuntimePresetForNetwork(config.eth2Network)
   var
     initialState = initialize_beacon_state_from_eth1(
@@ -1737,17 +1776,29 @@ proc doCreateTestnet(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.raise
         some(config.bootstrapAddress),
         some(config.bootstrapPort),
         some(config.bootstrapPort),
-        [toFieldPair("eth2", SSZ.encode(enrForkIdFromState initialState[])),
+        [toFieldPair("eth2", SSZ.encode(getEnrForkId(
+          initialState[].fork, initialState[].genesis_validators_root))),
         toFieldPair("attnets", SSZ.encode(netMetadata.attnets))])
 
     writeFile(bootstrapFile, bootstrapEnr.tryGet().toURI)
     echo "Wrote ", bootstrapFile
 
+proc findWalletWithoutErrors(config: BeaconNodeConf,
+                             name: WalletName): Option[WalletPathPair] =
+  let res = findWallet(config, name)
+  if res.isErr:
+    fatal "Failed to locate wallet", error = res.error
+    quit 1
+  res.get
+
 proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
     raises: [Defect, CatchableError].} =
   case config.depositsCmd
-  #[
-  of DepositsCmd.create:
+  of DepositsCmd.createTestnetDeposits:
+    if config.eth2Network.isNone:
+      fatal "Please specify the intended testnet for the deposits"
+      quit 1
+    let metadata = config.loadEth2Network()
     var seed: KeySeed
     defer: burnMem(seed)
     var walletPath: WalletPathPair
@@ -1755,7 +1806,7 @@ proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
     if config.existingWalletId.isSome:
       let
         id = config.existingWalletId.get
-        found = findWalletWithoutErrors(id)
+        found = findWalletWithoutErrors(config, id)
 
       if found.isSome:
         walletPath = found.get
@@ -1770,7 +1821,7 @@ proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
         # The failure will be reported in `unlockWalletInteractively`.
         quit 1
     else:
-      var walletRes = createWalletInteractively(rng[], config)
+      var walletRes = createWalletInteractively(rng, config)
       if walletRes.isErr:
         fatal "Unable to create wallet", err = walletRes.error
         quit 1
@@ -1789,8 +1840,8 @@ proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
       quit QuitFailure
 
     let deposits = generateDeposits(
-      runtimePreset,
-      rng[],
+      metadata.runtimePreset,
+      rng,
       seed,
       walletPath.wallet.nextAccount,
       config.totalDeposits,
@@ -1808,7 +1859,7 @@ proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
         config.outValidatorsDir / "deposit_data-" & $epochTime() & ".json"
 
       let launchPadDeposits =
-        mapIt(deposits.value, LaunchPadDeposit.init(runtimePreset, it))
+        mapIt(deposits.value, LaunchPadDeposit.init(metadata.runtimePreset, it))
 
       Json.saveFile(depositDataPath, launchPadDeposits)
       echo "Deposit data written to \"", depositDataPath, "\""
@@ -1823,12 +1874,12 @@ proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
     except CatchableError as err:
       fatal "Failed to create launchpad deposit data file", err = err.msg
       quit 1
-
+  #[
   of DepositsCmd.status:
     echo "The status command is not implemented yet"
     quit 1
+  ]#
 
-  #]#
   of DepositsCmd.`import`:
     let validatorKeysDir = if config.importedDepositsDir.isSome:
       config.importedDepositsDir.get
@@ -1853,19 +1904,12 @@ proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
 
 proc doWallets(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
     raises: [Defect, CatchableError].} =
-  template findWalletWithoutErrors(name: WalletName): auto =
-    let res = keystore_management.findWallet(config, name)
-    if res.isErr:
-      fatal "Failed to locate wallet", error = res.error
-      quit 1
-    res.get
-
   case config.walletsCmd:
   of WalletsCmd.create:
     if config.createdWalletNameFlag.isSome:
       let
         name = config.createdWalletNameFlag.get
-        existingWallet = findWalletWithoutErrors(name)
+        existingWallet = findWalletWithoutErrors(config, name)
       if existingWallet.isSome:
         echo "The Wallet '" & name.string & "' already exists."
         quit 1

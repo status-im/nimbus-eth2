@@ -133,9 +133,7 @@ suiteReport "Block pool processing" & preset():
       stateData = newClone(dag.headState)
       cache = StateCache()
       b1 = addTestBlock(stateData.data, dag.tail.root, cache)
-      b1Root = hash_tree_root(b1.message)
-      b2 = addTestBlock(stateData.data, b1Root, cache)
-      b2Root {.used.} = hash_tree_root(b2.message)
+      b2 = addTestBlock(stateData.data, b1.root, cache)
   wrappedTimedTest "getRef returns nil for missing blocks":
     check:
       dag.getRef(default Eth2Digest) == nil
@@ -154,7 +152,7 @@ suiteReport "Block pool processing" & preset():
 
     check:
       b1Get.isSome()
-      b1Get.get().refs.root == b1Root
+      b1Get.get().refs.root == b1.root
       b1Add[].root == b1Get.get().refs.root
       dag.heads.len == 1
       dag.heads[0] == b1Add[]
@@ -263,12 +261,12 @@ suiteReport "Block pool processing" & preset():
 
     check:
       # ensure we loaded the correct head state
-      dag2.head.root == b2Root
+      dag2.head.root == b2.root
       hash_tree_root(dag2.headState.data.data) == b2.message.state_root
-      dag2.get(b1Root).isSome()
-      dag2.get(b2Root).isSome()
+      dag2.get(b1.root).isSome()
+      dag2.get(b2.root).isSome()
       dag2.heads.len == 1
-      dag2.heads[0].root == b2Root
+      dag2.heads[0].root == b2.root
 
   wrappedTimedTest "Adding the same block twice returns a Duplicate error" & preset():
     let

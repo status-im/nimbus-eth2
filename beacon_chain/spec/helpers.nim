@@ -15,7 +15,7 @@ import
   # Third-party
   stew/endians2,
   # Internal
-  ./datatypes, ./digest, ./crypto, ../ssz/merkleization
+  ./datatypes/[phase0, altair], ./digest, ./crypto, ../ssz/merkleization
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
@@ -178,3 +178,21 @@ func get_seed*(state: BeaconState, epoch: Epoch, domain_type: DomainType): Eth2D
     get_randao_mix(state, # Avoid underflow
       epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1).data
   eth2digest(seed_input)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/beacon-chain.md#get_flag_indices_and_weights
+iterator get_flag_indices_and_weights*(): (ParticipationFlag, int) =
+  for item in [
+      (TIMELY_HEAD_FLAG_INDEX, TIMELY_HEAD_WEIGHT),
+      (TIMELY_SOURCE_FLAG_INDEX, TIMELY_SOURCE_WEIGHT),
+      (TIMELY_TARGET_FLAG_INDEX, TIMELY_TARGET_WEIGHT)]:
+    yield item
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/beacon-chain.md#add_flag
+func add_flag*(flags: ParticipationFlags, flag_index: int): ParticipationFlags =
+  let flag = ParticipationFlags(1'u8 shl flag_index)
+  flags or flag
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/beacon-chain.md#has_flag
+func has_flag*(flags: ParticipationFlags, flag_index: int): bool =
+  let flag = ParticipationFlags(1'u8 shl flag_index)
+  (flags and flag) == flag

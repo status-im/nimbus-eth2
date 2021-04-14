@@ -85,13 +85,38 @@ type
   BitList*[maxLen: static Limit] = distinct BitSeq
 
   HashArray*[maxLen: static Limit; T] = object
+    ## Array implementation that caches the hash of each chunk of data - see
+    ## also HashList for more details.
     data*: array[maxLen, T]
     hashes* {.dontSerialize.}: array[maxChunkIdx(T, maxLen), Eth2Digest]
 
   HashList*[T; maxLen: static Limit] = object
+    ## List implementation that caches the hash of each chunk of data as well
+    ## as the combined hash of each level of the merkle tree using a flattened
+    ## list of hashes.
+    ##
+    ## The merkle tree of a list is formed by imagining a virtual buffer of
+    ## `maxLen` length which is zero-filled where there is no data. Then,
+    ## a merkle tree of hashes is formed as usual - at each level of the tree,
+    ## iff the hash is combined from two zero-filled chunks, the hash is not
+    ## stored in the `hashes` list - instead, `indices` keeps track of where in
+    ## the list each level starts. When the length of `data` changes, the
+    ## `hashes` and `indices` structures must be updated accordingly using
+    ## `growHashes`.
+    ##
+    ## All mutating operators (those that take `var HashList`) will
+    ## automatically invalidate the cache for the relevant chunks - the leaf and
+    ## all intermediate chunk hashes up to the root. When large changes are made
+    ## to `data`, it might be more efficient to batch the updates then reset
+    ## the cache using resetCache` instead.
+
     data*: List[T, maxLen]
-    hashes* {.dontSerialize.}: seq[Eth2Digest]
-    indices* {.dontSerialize.}: array[hashListIndicesLen(maxChunkIdx(T, maxLen)), int64]
+    hashes* {.dontSerialize.}: seq[Eth2Digest] ## \
+      ## Flattened tree store that skips "empty" branches of the tree - the
+      ## starting index in this sequence of each "level" in the tree is found
+      ## in `indices`.
+    indices* {.dontSerialize.}: array[hashListIndicesLen(maxChunkIdx(T, maxLen)), int64] ##\
+      ## Holds the starting index in the hashes list for each level of the tree
 
   # Note for readers:
   # We use `array` for `Vector` and
@@ -115,9 +140,7 @@ template init*[T, N](L: type List[T, N], x: seq[T]): auto =
   List[T, N](x)
 
 template `$`*(x: List): auto = $(distinctBase x)
-template add*(x: var List, val: auto) = add(distinctBase x, val)
 template len*(x: List): auto = len(distinctBase x)
-template setLen*(x: var List, val: auto) = setLen(distinctBase x, val)
 template low*(x: List): auto = low(distinctBase x)
 template high*(x: List): auto = high(distinctBase x)
 template `[]`*(x: List, idx: auto): untyped = distinctBase(x)[idx]
@@ -130,6 +153,20 @@ template items* (x: List): untyped = items(distinctBase x)
 template pairs* (x: List): untyped = pairs(distinctBase x)
 template mitems*(x: var List): untyped = mitems(distinctBase x)
 template mpairs*(x: var List): untyped = mpairs(distinctBase x)
+
+proc add*(x: var List, val: auto): bool =
+  if x.len < x.maxLen:
+    add(distinctBase x, val)
+    true
+  else:
+    false
+
+proc setLen*(x: var List, newLen: int): bool =
+  if newLen <= x.maxLen:
+    setLen(distinctBase x, newLen)
+    true
+  else:
+    false
 
 template init*(L: type BitList, x: seq[byte], N: static Limit): auto =
   BitList[N](data: x)
@@ -146,9 +183,12 @@ template `==`*(a, b: BitList): bool = BitSeq(a) == BitSeq(b)
 template setBit*(x: var BitList, idx: Natural) = setBit(BitSeq(x), idx)
 template clearBit*(x: var BitList, idx: Natural) = clearBit(BitSeq(x), idx)
 template overlaps*(a, b: BitList): bool = overlaps(BitSeq(a), BitSeq(b))
-template combine*(a: var BitList, b: BitList) = combine(BitSeq(a), BitSeq(b))
+template incl*(a: var BitList, b: BitList) = incl(BitSeq(a), BitSeq(b))
 template isSubsetOf*(a, b: BitList): bool = isSubsetOf(BitSeq(a), BitSeq(b))
 template isZeros*(x: BitList): bool = isZeros(BitSeq(x))
+template countOnes*(x: BitList): int = countOnes(BitSeq(x))
+template countZeros*(x: BitList): int = countZeros(BitSeq(x))
+template countOverlap*(x, y: BitList): int = countOverlap(BitSeq(x), BitSeq(y))
 template `$`*(a: BitList): string = $(BitSeq(a))
 
 iterator items*(x: BitList): bool =
@@ -194,13 +234,16 @@ func nodesAtLayer*(layer, depth, leaves: int): int =
 
 func cacheNodes*(depth, leaves: int): int =
   ## Total number of nodes needed to cache a tree of a given depth with
-  ## `leaves` items in it (the rest zero-filled)
+  ## `leaves` items in it - chunks that are zero-filled have well-known hash
+  ## trees and don't need to be stored in the tree.
   var res = 0
   for i in 0..<depth:
     res += nodesAtLayer(i, depth, leaves)
   res
 
 proc clearCaches*(a: var HashList, dataIdx: int64) =
+  ## Clear each level of the merkle tree up to the root affected by a data
+  ## change at `dataIdx`.
   if a.hashes.len == 0:
     return
 
@@ -212,6 +255,8 @@ proc clearCaches*(a: var HashList, dataIdx: int64) =
       idxInLayer = idx - (1'i64 shl layer)
       layerIdx = idxInlayer + a.indices[layer]
     if layerIdx < a.indices[layer + 1]:
+      # Only clear cache when we're actually storing it - ie it hasn't been
+      # skipped by the "combined zero hash" optimization
       clearCache(a.hashes[layerIdx])
 
     idx = idx shr 1
@@ -225,7 +270,8 @@ proc clearCache*(a: var HashList) =
   for c in a.hashes.mitems(): clearCache(c)
 
 proc growHashes*(a: var HashList) =
-  # Ensure that the hash cache is big enough for the data in the list
+  ## Ensure that the hash cache is big enough for the data in the list - must
+  ## be called whenever `data` grows.
   let
     leaves = int(
       chunkIdx(a, a.data.len() + dataPerChunk(a.T) - 1))
@@ -250,14 +296,31 @@ proc growHashes*(a: var HashList) =
   swap(a.hashes, newHashes)
   a.indices = newIndices
 
+proc resetCache*(a: var HashList) =
+  ## Perform a full reset of the hash cache, for example after data has been
+  ## rewritten "manually" without going through the exported operators
+  a.hashes.setLen(0)
+  a.indices = default(type a.indices)
+  a.growHashes()
+
+proc resetCache*(a: var HashArray) =
+  for h in a.hashes.mitems():
+    clearCache(h)
+
 template len*(a: type HashArray): auto = int(a.maxLen)
 
-template add*(x: var HashList, val: auto) =
-  add(x.data, val)
-  x.growHashes()
-  clearCaches(x, x.data.len() - 1)
+proc add*(x: var HashList, val: auto): bool =
+  if add(x.data, val):
+    x.growHashes()
+    clearCaches(x, x.data.len() - 1)
+    true
+  else:
+    false
 
 proc addDefault*(x: var HashList): ptr x.T =
+  if x.data.len >= x.maxLen:
+    return nil
+
   distinctBase(x.data).setLen(x.data.len + 1)
   x.growHashes()
   clearCaches(x, x.data.len() - 1)
@@ -299,7 +362,8 @@ template swap*(a, b: var HashList) =
   swap(a.indices, b.indices)
 
 template clear*(a: var HashList) =
-  a.data.setLen(0)
+  if not a.data.setLen(0):
+    raiseAssert "length 0 should always succeed"
   a.hashes.setLen(0)
   a.indices = default(type a.indices)
 

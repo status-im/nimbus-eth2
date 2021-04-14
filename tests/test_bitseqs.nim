@@ -12,21 +12,33 @@ suite "Bit fields":
 
     check:
       not a[0]
+      a.isZeros()
 
     a.setBit 1
 
     check:
       not a[0]
       a[1]
+      a.countOnes() == 1
+      a.countZeros() == 99
+      not a.isZeros()
+      a.countOverlap(a) == 1
 
     b.setBit 2
 
-    a.combine(b)
+    a.incl(b)
 
     check:
       not a[0]
       a[1]
       a[2]
+      a.countOverlap(a) == 2
+      a.countOverlap(b) == 1
+      b.countOverlap(a) == 1
+      b.countOverlap(b) == 1
+    a.clear()
+    check:
+      not a[1]
 
   test "iterating words":
     for bitCount in [8, 3, 7, 8, 14, 15, 16, 19, 260]:
@@ -73,4 +85,4 @@ suite "Bit fields":
       check:
         not a.overlaps(b)
         not b.overlaps(a)
-
+        a.countOverlap(b) == 0

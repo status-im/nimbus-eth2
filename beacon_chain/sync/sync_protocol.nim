@@ -84,8 +84,10 @@ proc getCurrentStatus*(state: BeaconSyncNetworkState): StatusMsg {.gcsafe.} =
 
   StatusMsg(
     forkDigest: state.forkDigest,
-    finalizedRoot: chainDag.headState.data.data.finalized_checkpoint.root,
-    finalizedEpoch: chainDag.headState.data.data.finalized_checkpoint.epoch,
+    finalizedRoot:
+      getStateField(chainDag.headState, finalized_checkpoint).root,
+    finalizedEpoch:
+      getStateField(chainDag.headState, finalized_checkpoint).epoch,
     headRoot: headBlock.root,
     headSlot: headBlock.slot)
 

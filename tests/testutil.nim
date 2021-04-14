@@ -92,7 +92,7 @@ template timedTest*(name, body) =
   testTimes.add (f, name)
 
 proc makeTestDB*(tailState: var BeaconState, tailBlock: SignedBeaconBlock): BeaconChainDB =
-  result = BeaconChainDB.init(defaultRuntimePreset, "", inMemory = true)
+  result = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
   ChainDAGRef.preInit(result, tailState, tailState, tailBlock)
 
 proc makeTestDB*(validators: Natural): BeaconChainDB =

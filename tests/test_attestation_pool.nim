@@ -8,19 +8,21 @@
 {.used.}
 
 import
-  # Standard library
-  std/unittest,
+  std/sequtils,
   # Status lib
+  unittest2,
   chronicles, chronos,
   stew/byteutils,
   eth/keys,
   # Internal
+  ../beacon_chain/[beacon_node_types, extras, beacon_clock],
+  ../beacon_chain/gossip_processing/[gossip_validation, batch_validation],
+  ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
+  ../beacon_chain/consensus_object_pools/[
+    block_quarantine, blockchain_dag, block_clearance, attestation_pool],
+  ../beacon_chain/ssz/merkleization,
   ../beacon_chain/spec/[crypto, datatypes, digest, validator, state_transition,
                         helpers, beaconstate, presets, network],
-  ../beacon_chain/[beacon_node_types, extras, beacon_clock],
-  ../beacon_chain/gossip_processing/gossip_validation,
-  ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
-  ../beacon_chain/consensus_object_pools/[block_quarantine, blockchain_dag, block_clearance, attestation_pool],
   # Test utilities
   ./testutil, ./testblockutil
 
@@ -34,23 +36,17 @@ func combine(tgt: var Attestation, src: Attestation) =
   # In a BLS aggregate signature, one needs to count how many times a
   # particular public key has been added - since we use a single bit per key, we
   # can only it once, thus we can never combine signatures that overlap already!
-  if not tgt.aggregation_bits.overlaps(src.aggregation_bits):
-    tgt.aggregation_bits.combine(src.aggregation_bits)
+  doAssert not tgt.aggregation_bits.overlaps(src.aggregation_bits)
 
-    var agg {.noInit.}: AggregateSignature
-    agg.init(tgt.signature)
-    agg.aggregate(src.signature)
-    tgt.signature = agg.finish()
+  tgt.aggregation_bits.incl(src.aggregation_bits)
 
-template wrappedTimedTest(name: string, body: untyped) =
-  # `check` macro takes a copy of whatever it's checking, on the stack!
-  # This leads to stack overflow
-  # We can mitigate that by wrapping checks in proc
-  block: # Symbol namespacing
-    proc wrappedTest() =
-      timedTest name:
-        body
-    wrappedTest()
+  var agg {.noInit.}: AggregateSignature
+  agg.init(tgt.signature)
+  agg.aggregate(src.signature)
+  tgt.signature = agg.finish().exportRaw()
+
+func loadSig(a: Attestation): CookedSig =
+  a.signature.load.get().CookedSig
 
 proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
   if dag.needStateCachesAndForkChoicePruning():
@@ -62,9 +58,9 @@ suiteReport "Attestation pool processing" & preset():
   ## mock data.
 
   setup:
-    # Genesis state that results in 3 members per committee
+    # Genesis state that results in 6 members per committee
     var
-      chainDag = init(ChainDAGRef, defaultRuntimePreset, makeTestDB(SLOTS_PER_EPOCH * 3))
+      chainDag = init(ChainDAGRef, defaultRuntimePreset, makeTestDB(SLOTS_PER_EPOCH * 6))
       quarantine = QuarantineRef.init(keys.newRng())
       pool = newClone(AttestationPool.init(chainDag, quarantine))
       state = newClone(chainDag.headState)
@@ -73,26 +69,187 @@ suiteReport "Attestation pool processing" & preset():
     check:
       process_slots(state.data, state.data.data.slot + 1, cache)
 
-  wrappedTimedTest "Can add and retrieve simple attestation" & preset():
+  timedTest "Can add and retrieve simple attestations" & preset():
     let
       # Create an attestation for slot 1!
-      beacon_committee = get_beacon_committee(
+      bc0 = get_beacon_committee(
         state.data.data, state.data.data.slot, 0.CommitteeIndex, cache)
       attestation = makeAttestation(
-        state.data.data, state.blck.root, beacon_committee[0], cache)
+        state.data.data, state.blck.root, bc0[0], cache)
 
     pool[].addAttestation(
-      attestation, @[beacon_committee[0]], attestation.data.slot)
+      attestation, @[bc0[0]], attestation.loadSig,
+      attestation.data.slot)
 
     check:
-      process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
+      # Added attestation, should get it back
+      toSeq(pool[].attestations(none(Slot), none(CommitteeIndex))) ==
+        @[attestation]
+      toSeq(pool[].attestations(
+        some(attestation.data.slot), none(CommitteeIndex))) == @[attestation]
+      toSeq(pool[].attestations(
+        some(attestation.data.slot), some(attestation.data.index.CommitteeIndex))) ==
+        @[attestation]
+      toSeq(pool[].attestations(none(Slot), some(attestation.data.index.CommitteeIndex))) ==
+        @[attestation]
+      toSeq(pool[].attestations(some(
+        attestation.data.slot + 1), none(CommitteeIndex))) == []
+      toSeq(pool[].attestations(
+        none(Slot), some(CommitteeIndex(attestation.data.index + 1)))) == []
+
+      process_slots(
+        state.data, state.data.data.slot + MIN_ATTESTATION_INCLUSION_DELAY, cache)
 
     let attestations = pool[].getAttestationsForBlock(state.data.data, cache)
 
     check:
       attestations.len == 1
+      pool[].getAggregatedAttestation(1.Slot, 0.CommitteeIndex).isSome()
 
-  wrappedTimedTest "Attestations may arrive in any order" & preset():
+    let
+      root1 = addTestBlock(
+        state.data, state.blck.root,
+        cache, attestations = attestations, nextSlot = false).root
+      bc1 = get_beacon_committee(
+        state.data.data, state.data.data.slot, 0.CommitteeIndex, cache)
+      att1 = makeAttestation(
+        state.data.data, root1, bc1[0], cache)
+
+    check:
+      process_slots(
+        state.data, state.data.data.slot + MIN_ATTESTATION_INCLUSION_DELAY, cache)
+
+    check:
+      # shouldn't include already-included attestations
+      pool[].getAttestationsForBlock(state.data.data, cache) == []
+
+    pool[].addAttestation(
+      att1, @[bc1[0]], att1.loadSig, att1.data.slot)
+
+    check:
+      # but new ones should go in
+      pool[].getAttestationsForBlock(state.data.data, cache).len() == 1
+
+    let
+      att2 = makeAttestation(
+        state.data.data, root1, bc1[1], cache)
+    pool[].addAttestation(
+      att2, @[bc1[1]], att2.loadSig, att2.data.slot)
+
+    let
+      combined = pool[].getAttestationsForBlock(state.data.data, cache)
+
+    check:
+      # New attestations should be combined with old attestations
+      combined.len() == 1
+      combined[0].aggregation_bits.countOnes() == 2
+
+    pool[].addAttestation(
+      combined[0], @[bc1[1], bc1[0]], combined[0].loadSig, combined[0].data.slot)
+
+    check:
+      # readding the combined attestation shouldn't have an effect
+      pool[].getAttestationsForBlock(state.data.data, cache).len() == 1
+
+    let
+      # Someone votes for a different root
+      att3 = makeAttestation(state.data.data, Eth2Digest(), bc1[2], cache)
+    pool[].addAttestation(
+      att3, @[bc1[2]], att3.loadSig, att3.data.slot)
+
+    check:
+      # We should now get both attestations for the block, but the aggregate
+      # should be the one with the most votes
+      pool[].getAttestationsForBlock(state.data.data, cache).len() == 2
+      pool[].getAggregatedAttestation(2.Slot, 0.CommitteeIndex).
+        get().aggregation_bits.countOnes() == 2
+      pool[].getAggregatedAttestation(2.Slot, hash_tree_root(att2.data)).
+        get().aggregation_bits.countOnes() == 2
+
+    let
+      # Someone votes for a different root
+      att4 = makeAttestation(state.data.data, Eth2Digest(), bc1[2], cache)
+    pool[].addAttestation(
+      att4, @[bc1[2]], att3.loadSig, att3.data.slot)
+
+  timedTest "Working with aggregates" & preset():
+    let
+      # Create an attestation for slot 1!
+      bc0 = get_beacon_committee(
+        state.data.data, state.data.data.slot, 0.CommitteeIndex, cache)
+
+    var
+      att0 = makeAttestation(state.data.data, state.blck.root, bc0[0], cache)
+      att0x = att0
+      att1 = makeAttestation(state.data.data, state.blck.root, bc0[1], cache)
+      att2 = makeAttestation(state.data.data, state.blck.root, bc0[2], cache)
+      att3 = makeAttestation(state.data.data, state.blck.root, bc0[3], cache)
+
+    # Both attestations include member 2 but neither is a subset of the other
+    att0.combine(att2)
+    att1.combine(att2)
+
+    pool[].addAttestation(att0, @[bc0[0], bc0[2]], att0.loadSig, att0.data.slot)
+    pool[].addAttestation(att1, @[bc0[1], bc0[2]], att1.loadSig, att1.data.slot)
+
+    check:
+      process_slots(
+        state.data, state.data.data.slot + MIN_ATTESTATION_INCLUSION_DELAY, cache)
+
+    check:
+      pool[].getAttestationsForBlock(state.data.data, cache).len() == 2
+      # Can get either aggregate here, random!
+      pool[].getAggregatedAttestation(1.Slot, 0.CommitteeIndex).isSome()
+
+    # Add in attestation 3 - both aggregates should now have it added
+    pool[].addAttestation(att3, @[bc0[3]], att3.loadSig, att3.data.slot)
+
+    block:
+      let attestations = pool[].getAttestationsForBlock(state.data.data, cache)
+      check:
+        attestations.len() == 2
+        attestations[0].aggregation_bits.countOnes() == 3
+        # Can get either aggregate here, random!
+        pool[].getAggregatedAttestation(1.Slot, 0.CommitteeIndex).isSome()
+
+    # Add in attestation 0 as single - attestation 1 is now a superset of the
+    # aggregates in the pool, so everything else should be removed
+    pool[].addAttestation(att0x, @[bc0[0]], att0x.loadSig, att0x.data.slot)
+
+    block:
+      let attestations = pool[].getAttestationsForBlock(state.data.data, cache)
+      check:
+        attestations.len() == 1
+        attestations[0].aggregation_bits.countOnes() == 4
+        pool[].getAggregatedAttestation(1.Slot, 0.CommitteeIndex).isSome()
+
+  timedTest "Everyone voting for something different" & preset():
+    var attestations: int
+    for i in 0..<SLOTS_PER_EPOCH:
+      var root: Eth2Digest
+      root.data[0..<8] = toBytesBE(i.uint64)
+      let
+        bc0 = get_beacon_committee(
+          state.data.data, state.data.data.slot, 0.CommitteeIndex, cache)
+
+      for j in 0..<bc0.len():
+        root.data[8..<16] = toBytesBE(j.uint64)
+        var att = makeAttestation(state.data.data, root, bc0[j], cache)
+        pool[].addAttestation(att, @[bc0[j]], att.loadSig, att.data.slot)
+        inc attestations
+
+      check:
+        process_slots(state.data, state.data.data.slot + 1, cache)
+
+    doAssert attestations.uint64 > MAX_ATTESTATIONS,
+      "6*SLOTS_PER_EPOCH validators > 128 mainnet MAX_ATTESTATIONS"
+    check:
+      # Fill block with attestations
+      pool[].getAttestationsForBlock(state.data.data, cache).lenu64() ==
+        MAX_ATTESTATIONS
+      pool[].getAggregatedAttestation(state.data.data.slot - 1, 0.CommitteeIndex).isSome()
+
+  timedTest "Attestations may arrive in any order" & preset():
     var cache = StateCache()
     let
       # Create an attestation for slot 1!
@@ -111,8 +268,10 @@ suiteReport "Attestation pool processing" & preset():
         state.data.data, state.blck.root, bc1[0], cache)
 
     # test reverse order
-    pool[].addAttestation(attestation1, @[bc1[0]], attestation1.data.slot)
-    pool[].addAttestation(attestation0, @[bc0[0]], attestation1.data.slot)
+    pool[].addAttestation(
+      attestation1, @[bc1[0]], attestation1.loadSig, attestation1.data.slot)
+    pool[].addAttestation(
+      attestation0, @[bc0[0]], attestation0.loadSig, attestation0.data.slot)
 
     discard process_slots(
       state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
@@ -122,7 +281,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       attestations.len == 1
 
-  wrappedTimedTest "Attestations should be combined" & preset():
+  timedTest "Attestations should be combined" & preset():
     var cache = StateCache()
     let
       # Create an attestation for slot 1!
@@ -133,8 +292,10 @@ suiteReport "Attestation pool processing" & preset():
       attestation1 = makeAttestation(
         state.data.data, state.blck.root, bc0[1], cache)
 
-    pool[].addAttestation(attestation0, @[bc0[0]], attestation0.data.slot)
-    pool[].addAttestation(attestation1, @[bc0[1]], attestation1.data.slot)
+    pool[].addAttestation(
+      attestation0, @[bc0[0]], attestation0.loadSig, attestation0.data.slot)
+    pool[].addAttestation(
+      attestation1, @[bc0[1]], attestation1.loadSig, attestation1.data.slot)
 
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
@@ -144,7 +305,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       attestations.len == 1
 
-  wrappedTimedTest "Attestations may overlap, bigger first" & preset():
+  timedTest "Attestations may overlap, bigger first" & preset():
     var cache = StateCache()
 
     var
@@ -158,8 +319,10 @@ suiteReport "Attestation pool processing" & preset():
 
     attestation0.combine(attestation1)
 
-    pool[].addAttestation(attestation0, @[bc0[0]], attestation0.data.slot)
-    pool[].addAttestation(attestation1, @[bc0[1]], attestation1.data.slot)
+    pool[].addAttestation(
+      attestation0, @[bc0[0]], attestation0.loadSig, attestation0.data.slot)
+    pool[].addAttestation(
+      attestation1, @[bc0[1]], attestation1.loadSig, attestation1.data.slot)
 
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
@@ -169,7 +332,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       attestations.len == 1
 
-  wrappedTimedTest "Attestations may overlap, smaller first" & preset():
+  timedTest "Attestations may overlap, smaller first" & preset():
     var cache = StateCache()
     var
       # Create an attestation for slot 1!
@@ -182,8 +345,10 @@ suiteReport "Attestation pool processing" & preset():
 
     attestation0.combine(attestation1)
 
-    pool[].addAttestation(attestation1, @[bc0[1]], attestation1.data.slot)
-    pool[].addAttestation(attestation0, @[bc0[0]], attestation0.data.slot)
+    pool[].addAttestation(
+      attestation1, @[bc0[1]], attestation1.loadSig, attestation1.data.slot)
+    pool[].addAttestation(
+      attestation0, @[bc0[0]], attestation0.loadSig, attestation0.data.slot)
 
     check:
       process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
@@ -193,7 +358,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       attestations.len == 1
 
-  wrappedTimedTest "Fork choice returns latest block with no attestations":
+  timedTest "Fork choice returns latest block with no attestations":
     var cache = StateCache()
     let
       b1 = addTestBlock(state.data, chainDag.tail.root, cache)
@@ -221,7 +386,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       head2 == b2Add[]
 
-  wrappedTimedTest "Fork choice returns block with attestation":
+  timedTest "Fork choice returns block with attestation":
     var cache = StateCache()
     let
       b10 = makeTestBlock(state.data, chainDag.tail.root, cache)
@@ -250,7 +415,8 @@ suiteReport "Attestation pool processing" & preset():
         state.data.data, state.data.data.slot - 1, 1.CommitteeIndex, cache)
       attestation0 = makeAttestation(state.data.data, b10.root, bc1[0], cache)
 
-    pool[].addAttestation(attestation0, @[bc1[0]], attestation0.data.slot)
+    pool[].addAttestation(
+      attestation0, @[bc1[0]], attestation0.loadSig, attestation0.data.slot)
 
     let head2 = pool[].selectHead(b10Add[].slot)
 
@@ -261,7 +427,8 @@ suiteReport "Attestation pool processing" & preset():
     let
       attestation1 = makeAttestation(state.data.data, b11.root, bc1[1], cache)
       attestation2 = makeAttestation(state.data.data, b11.root, bc1[2], cache)
-    pool[].addAttestation(attestation1, @[bc1[1]], attestation1.data.slot)
+    pool[].addAttestation(
+      attestation1, @[bc1[1]], attestation1.loadSig, attestation1.data.slot)
 
     let head3 = pool[].selectHead(b10Add[].slot)
     let bigger = if b11.root.data < b10.root.data: b10Add else: b11Add
@@ -270,7 +437,8 @@ suiteReport "Attestation pool processing" & preset():
       # Ties broken lexicographically in spec -> ?
       head3 == bigger[]
 
-    pool[].addAttestation(attestation2, @[bc1[2]], attestation2.data.slot)
+    pool[].addAttestation(
+      attestation2, @[bc1[2]], attestation2.loadSig, attestation2.data.slot)
 
     let head4 = pool[].selectHead(b11Add[].slot)
 
@@ -278,7 +446,7 @@ suiteReport "Attestation pool processing" & preset():
       # Two votes for b11
       head4 == b11Add[]
 
-  wrappedTimedTest "Trying to add a block twice tags the second as an error":
+  timedTest "Trying to add a block twice tags the second as an error":
     var cache = StateCache()
     let
       b10 = makeTestBlock(state.data, chainDag.tail.root, cache)
@@ -304,7 +472,7 @@ suiteReport "Attestation pool processing" & preset():
 
     doAssert: b10Add_clone.error == (ValidationResult.Ignore, Duplicate)
 
-  wrappedTimedTest "Trying to add a duplicate block from an old pruned epoch is tagged as an error":
+  timedTest "Trying to add a duplicate block from an old pruned epoch is tagged as an error":
     # Note: very sensitive to stack usage
 
     chainDag.updateFlags.incl {skipBLSValidation}
@@ -346,7 +514,7 @@ suiteReport "Attestation pool processing" & preset():
           pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
         let head = pool[].selectHead(blockRef[].slot)
-        doassert: head == blockRef[]
+        doAssert: head == blockRef[]
         chainDag.updateHead(head, quarantine)
         pruneAtFinalization(chainDag, pool[])
 
@@ -398,11 +566,12 @@ suiteReport "Attestation validation " & preset():
       pool = newClone(AttestationPool.init(chainDag, quarantine))
       state = newClone(chainDag.headState)
       cache = StateCache()
+      batchCrypto = BatchCrypto.new(keys.newRng())
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
       process_slots(state.data, state.data.data.slot + 1, cache)
 
-  wrappedTimedTest "Validation sanity":
+  timedTest "Validation sanity":
     # TODO: refactor tests to avoid skipping BLS validation
     chainDag.updateFlags.incl {skipBLSValidation}
 
@@ -439,27 +608,27 @@ suiteReport "Attestation validation " & preset():
       beaconTime = attestation.data.slot.toBeaconTime()
 
     check:
-      validateAttestation(pool[], attestation, beaconTime, subnet, true).isOk
+      validateAttestation(pool, batchCrypto, attestation, beaconTime, subnet, true).waitFor().isOk
 
       # Same validator again
-      validateAttestation(pool[], attestation, beaconTime, subnet, true).error()[0] ==
+      validateAttestation(pool, batchCrypto, attestation, beaconTime, subnet, true).waitFor().error()[0] ==
         ValidationResult.Ignore
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Wrong subnet
-      validateAttestation(pool[], attestation, beaconTime, subnet + 1, true).isErr
+      validateAttestation(pool, batchCrypto, attestation, beaconTime, subnet + 1, true).waitFor().isErr
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Too far in the future
       validateAttestation(
-        pool[], attestation, beaconTime - 1.seconds, subnet + 1, true).isErr
+        pool, batchCrypto, attestation, beaconTime - 1.seconds, subnet + 1, true).waitFor().isErr
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Too far in the past
       validateAttestation(
-        pool[], attestation,
+        pool, batchCrypto, attestation,
         beaconTime - (SECONDS_PER_SLOT * SLOTS_PER_EPOCH - 1).int.seconds,
-        subnet + 1, true).isErr
+        subnet + 1, true).waitFor().isErr

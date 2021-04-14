@@ -5,8 +5,6 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
-
 import
   std/math,
   stew/results,
@@ -14,8 +12,8 @@ import
   ../spec/[crypto, datatypes, digest],
   ../consensus_object_pools/[block_clearance, blockchain_dag, attestation_pool],
   ./consensus_manager,
-  ../beacon_node_types,
-  ../beacon_clock, ../conf, ../ssz/sszdump
+  ".."/[beacon_clock, beacon_node_types],
+  ../ssz/sszdump
 
 # Gossip Queue Manager
 # ------------------------------------------------------------------------------
@@ -23,6 +21,12 @@ import
 
 declareHistogram beacon_store_block_duration_seconds,
   "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
+
+declareCounter beacon_attestations_dropped_queue_full,
+  "Number of attestations dropped because queue is full"
+
+declareCounter beacon_aggregates_dropped_queue_full,
+  "Number of aggregates dropped because queue is full"
 
 type
   SyncBlock* = object
@@ -36,8 +40,9 @@ type
   AttestationEntry = object
     v: Attestation
     attesting_indices: seq[ValidatorIndex]
+    sig: CookedSig
 
-  AggregateEntry* = AttestationEntry
+  AggregateEntry = AttestationEntry
 
   VerifQueueManager* = object
     ## This manages the queues of blocks and attestations.
@@ -70,25 +75,35 @@ type
     # Producers
     # ----------------------------------------------------------------
     blocksQueue*: AsyncQueue[BlockEntry] # Exported for "test_sync_manager"
+    # TODO:
+    #   is there a point to separate
+    #   attestations & aggregates here?
     attestationsQueue: AsyncQueue[AttestationEntry]
+    attestationsDropped: int
+    attestationsDropTime: tuple[afterGenesis: bool, slot: Slot]
     aggregatesQueue: AsyncQueue[AggregateEntry]
+    aggregatesDropped: int
+    aggregatesDropTime: tuple[afterGenesis: bool, slot: Slot]
 
     # Consumer
     # ----------------------------------------------------------------
     consensusManager: ref ConsensusManager
       ## Blockchain DAG, AttestationPool and Quarantine
 
+{.push raises: [Defect].}
+
 # Initialization
 # ------------------------------------------------------------------------------
 
 proc new*(T: type VerifQueueManager,
-          conf: BeaconNodeConf,
+          dumpEnabled: bool,
+          dumpDirInvalid, dumpDirIncoming: string,
           consensusManager: ref ConsensusManager,
           getWallTime: GetWallTimeFn): ref VerifQueueManager =
   (ref VerifQueueManager)(
-    dumpEnabled: conf.dumpEnabled,
-    dumpDirInvalid: conf.dumpDirInvalid,
-    dumpDirIncoming: conf.dumpDirIncoming,
+    dumpEnabled: dumpEnabled,
+    dumpDirInvalid: dumpDirInvalid,
+    dumpDirIncoming: dumpDirIncoming,
 
     getWallTime: getWallTime,
 
@@ -104,7 +119,9 @@ proc new*(T: type VerifQueueManager,
     attestationsQueue: newAsyncQueue[AttestationEntry](
       (TARGET_COMMITTEE_SIZE * MAX_COMMITTEES_PER_SLOT).int),
 
-    consensusManager: consensusManager
+    consensusManager: consensusManager,
+    attestationsDropTime: getWallTime().toSlot(),
+    aggregatesDropTime: getWallTime().toSlot(),
   )
 
 # Sync callbacks
@@ -144,27 +161,40 @@ proc addBlock*(self: var VerifQueueManager, syncBlock: SyncBlock) =
   # addLast doesn't fail
   asyncSpawn(self.blocksQueue.addLast(BlockEntry(v: syncBlock)))
 
-proc addAttestation*(self: var VerifQueueManager, att: Attestation, att_indices: seq[ValidatorIndex]) =
+proc addAttestation*(
+    self: var VerifQueueManager, att: Attestation,
+    att_indices: seq[ValidatorIndex], sig: CookedSig) =
   ## Enqueue a Gossip-validated attestation for consensus verification
   # Backpressure:
   #   If buffer is full, the oldest attestation is dropped and the newest is enqueued
   # Producer:
   # - Gossip (when synced)
   while self.attestationsQueue.full():
+    self.attestationsDropped += 1
+    beacon_attestations_dropped_queue_full.inc()
+
     try:
-      notice "Queue full, dropping oldest attestation",
-        dropped = shortLog(self.attestationsQueue[0].v)
       discard self.attestationsQueue.popFirstNoWait()
     except AsyncQueueEmptyError as exc:
       raiseAssert "If queue is full, we have at least one item! " & exc.msg
 
+  if self.attestationsDropped > 0:
+    let now = self.getWallTime().toSlot() # Print notice once per slot
+    if now != self.attestationsDropTime:
+      notice "Queue full, attestations dropped",
+        count = self.attestationsDropped
+      self.attestationsDropTime = now
+      self.attestationsDropped = 0
+
   try:
     self.attestationsQueue.addLastNoWait(
-      AttestationEntry(v: att, attesting_indices: att_indices))
+      AttestationEntry(v: att, attesting_indices: att_indices, sig: sig))
   except AsyncQueueFullError as exc:
     raiseAssert "We just checked that queue is not full! " & exc.msg
 
-proc addAggregate*(self: var VerifQueueManager, agg: SignedAggregateAndProof, att_indices: seq[ValidatorIndex]) =
+proc addAggregate*(
+    self: var VerifQueueManager, agg: SignedAggregateAndProof,
+    att_indices: seq[ValidatorIndex], sig: CookedSig) =
   ## Enqueue a Gossip-validated aggregate attestation for consensus verification
   # Backpressure:
   #   If buffer is full, the oldest aggregate is dropped and the newest is enqueued
@@ -172,17 +202,27 @@ proc addAggregate*(self: var VerifQueueManager, agg: SignedAggregateAndProof, at
   # - Gossip (when synced)
 
   while self.aggregatesQueue.full():
+    self.aggregatesDropped += 1
+    beacon_aggregates_dropped_queue_full.inc()
+
     try:
-      notice "Queue full, dropping oldest aggregate",
-        dropped = shortLog(self.aggregatesQueue[0].v)
       discard self.aggregatesQueue.popFirstNoWait()
     except AsyncQueueEmptyError as exc:
       raiseAssert "We just checked that queue is not full! " & exc.msg
 
+  if self.aggregatesDropped > 0:
+    let now = self.getWallTime().toSlot() # Print notice once per slot
+    if now != self.aggregatesDropTime:
+      notice "Queue full, aggregates dropped",
+        count = self.aggregatesDropped
+      self.aggregatesDropTime = now
+      self.aggregatesDropped = 0
+
   try:
     self.aggregatesQueue.addLastNoWait(AggregateEntry(
       v: agg.message.aggregate,
-      attesting_indices: att_indices))
+      attesting_indices: att_indices,
+      sig: sig))
   except AsyncQueueFullError as exc:
     raiseAssert "We just checked that queue is not full! " & exc.msg
 
@@ -247,7 +287,7 @@ proc processAttestation(
 
   trace "Processing attestation"
   self.consensusManager.attestationPool[].addAttestation(
-    entry.v, entry.attesting_indices, wallSlot)
+    entry.v, entry.attesting_indices, entry.sig, wallSlot)
 
 proc processAggregate(
     self: var VerifQueueManager, entry: AggregateEntry) =
@@ -264,7 +304,7 @@ proc processAggregate(
 
   trace "Processing aggregate"
   self.consensusManager.attestationPool[].addAttestation(
-    entry.v, entry.attesting_indices, wallSlot)
+    entry.v, entry.attesting_indices, entry.sig, wallSlot)
 
 proc processBlock(self: var VerifQueueManager, entry: BlockEntry) =
   logScope:
@@ -331,6 +371,10 @@ proc runQueueProcessingLoop*(self: ref VerifQueueManager) {.async.} =
     aggregateFut = self[].aggregatesQueue.popFirst()
     attestationFut = self[].attestationsQueue.popFirst()
 
+  # TODO:
+  #   revisit `idleTimeout`
+  #   and especially `attestationBatch` in light of batch validation
+  #   in particular we might want `attestationBatch` to drain both attestation & aggregates
   while true:
     # Cooperative concurrency: one idle calculation step per loop - because
     # we run both networking and CPU-heavy things like block processing

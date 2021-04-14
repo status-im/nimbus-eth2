@@ -138,10 +138,10 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
                   makeAttestation(state[].data, latest_block_root, scas, target_slot,
                     i.CommitteeIndex, v, cache, flags)
                 if not att2.aggregation_bits.overlaps(attestation.aggregation_bits):
-                  attestation.aggregation_bits.combine(att2.aggregation_bits)
+                  attestation.aggregation_bits.incl(att2.aggregation_bits)
                   if skipBlsValidation notin flags:
                     agg.aggregate(att2.signature)
-          attestation.signature = agg.finish()
+          attestation.signature = agg.finish().exportRaw()
 
         if not first:
           # add the attestation if any of the validators attested, as given

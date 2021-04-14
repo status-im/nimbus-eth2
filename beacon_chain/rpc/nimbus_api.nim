@@ -43,8 +43,9 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   rpcServer.rpc("getChainHead") do () -> JsonNode:
     let
       head = node.chainDag.head
-      finalized = node.chainDag.headState.data.data.finalized_checkpoint
-      justified = node.chainDag.headState.data.data.current_justified_checkpoint
+      finalized = getStateField(node.chainDag.headState, finalized_checkpoint)
+      justified =
+        getStateField(node.chainDag.headState, current_justified_checkpoint)
     return %* {
       "head_slot": head.slot,
       "head_block_root": head.root.data.toHex(),
@@ -104,7 +105,7 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
     let proposalState = assignClone(node.chainDag.headState)
     node.chainDag.withState(proposalState[], head.atSlot(wallSlot)):
-      return node.getBlockProposalEth1Data(state)
+      return node.getBlockProposalEth1Data(stateData)
 
   rpcServer.rpc("debug_getChronosFutures") do () -> seq[FutureInfo]:
     when defined(chronosFutureTracking):

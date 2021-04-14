@@ -16,7 +16,9 @@ import
   ../spec/[crypto, datatypes, digest, helpers, signatures, signatures_batch, state_transition],
   ./block_pools_types, ./blockchain_dag, ./block_quarantine
 
-export results
+from libp2p/protocols/pubsub/pubsub import ValidationResult
+
+export results, ValidationResult
 
 # Clearance
 # ---------------------------------------------
@@ -79,7 +81,7 @@ proc addResolvedBlock(
        onBlockAdded: OnBlockAdded
      ) =
   # TODO move quarantine processing out of here
-  doAssert state.data.data.slot == trustedBlock.message.slot,
+  doAssert getStateField(state, slot) == trustedBlock.message.slot,
     "state must match block"
   doAssert state.blck.root == trustedBlock.message.parent_root,
     "the StateData passed into the addResolved function not yet updated!"
