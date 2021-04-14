@@ -18,6 +18,7 @@
 - [Install dependencies](./install.md)
 - [Build the beacon node](./build.md)
 - [Run an eth1 node](./eth1.md)
+- [Add a backup web3 provider](./web3-backup.md)
 - [Sync the beacon node](./start-syncing.md)
 - [Make a deposit for your validator](./deposit.md)
 - [Import your validator keys](./keys.md)
@@ -34,6 +35,7 @@
 - [Perform a voluntary exit](./voluntary-exit.md)
 - [Setup a systemd service](./beacon-node-systemd.md)
 - [Setup log rotation](./log-rotate.md)
+- [Verify the integrity of Nimbus](./checksums.md)
 
 # Tutorials
 - [Grafana and Prometheus](./metrics-pretty-pictures.md)
