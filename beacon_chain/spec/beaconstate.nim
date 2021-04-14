@@ -489,53 +489,44 @@ iterator get_attesting_indices*(state: BeaconState,
                                 bits: CommitteeValidatorsBits,
                                 cache: var StateCache): ValidatorIndex =
   ## Return the set of attesting indices corresponding to ``data`` and ``bits``.
-  if bits.lenu64 != get_beacon_committee_len(state, data.slot, data.index.CommitteeIndex, cache):
+  if bits.lenu64 != get_beacon_committee_len(
+      state, data.slot, data.index.CommitteeIndex, cache):
     trace "get_attesting_indices: inconsistent aggregation and committee length"
   else:
     var i = 0
-    for index in get_beacon_committee(state, data.slot, data.index.CommitteeIndex, cache):
+    for index in get_beacon_committee(
+        state, data.slot, data.index.CommitteeIndex, cache):
       if bits[i]:
         yield index
       inc i
 
-iterator get_sorted_attesting_indices*(state: BeaconState,
-                                       data: AttestationData,
-                                       bits: CommitteeValidatorsBits,
-                                       cache: var StateCache): ValidatorIndex =
-  var heap = initHeapQueue[ValidatorIndex]()
-  for index in get_attesting_indices(state, data, bits, cache):
-    heap.push(index)
+proc is_valid_indexed_attestation*(
+    state: BeaconState, attestation: SomeAttestation, flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] =
+  # This is a variation on `is_valid_indexed_attestation` that works directly
+  # with an attestation instead of first constructing an `IndexedAttestation`
+  # and then validating it - for the purpose of validating the signature, the
+  # order doesn't matter and we can proceed straight to validating the
+  # signature instead
 
-  while heap.len > 0:
-    yield heap.pop()
+  let sigs = attestation.aggregation_bits.countOnes()
+  if sigs == 0:
+    return err("is_valid_indexed_attestation: no attesting indices")
 
-func get_sorted_attesting_indices_list*(
-    state: BeaconState, data: AttestationData, bits: CommitteeValidatorsBits,
-    cache: var StateCache): List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE] =
-  for index in get_sorted_attesting_indices(state, data, bits, cache):
-    if not result.add index.uint64:
-      raiseAssert "The `result` list has the same max size as the sorted `bits` input"
+  # Verify aggregate signature
+  if not (skipBLSValidation in flags or attestation.signature is TrustedSig):
+    var
+      pubkeys = newSeqOfCap[ValidatorPubKey](sigs)
+    for index in get_attesting_indices(
+        state, attestation.data, attestation.aggregation_bits, cache):
+      pubkeys.add(state.validators[index].pubkey)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_indexed_attestation
-func get_indexed_attestation(state: BeaconState, attestation: Attestation,
-    cache: var StateCache): IndexedAttestation =
-  ## Return the indexed attestation corresponding to ``attestation``.
-  IndexedAttestation(
-    attesting_indices: get_sorted_attesting_indices_list(
-      state, attestation.data, attestation.aggregation_bits, cache),
-    data: attestation.data,
-    signature: attestation.signature
-  )
+    if not verify_attestation_signature(
+        state.fork, state.genesis_validators_root, attestation.data,
+        pubkeys, attestation.signature):
+      return err("indexed attestation: signature verification failure")
 
-func get_indexed_attestation(state: BeaconState, attestation: TrustedAttestation,
-    cache: var StateCache): TrustedIndexedAttestation =
-  ## Return the indexed attestation corresponding to ``attestation``.
-  TrustedIndexedAttestation(
-    attesting_indices: get_sorted_attesting_indices_list(
-      state, attestation.data, attestation.aggregation_bits, cache),
-    data: attestation.data,
-    signature: attestation.signature
-  )
+  ok()
 
 # Attestation validation
 # ------------------------------------------------------------------------------------------
@@ -610,8 +601,7 @@ proc check_attestation*(
     if not (data.source == state.previous_justified_checkpoint):
       return err("FFG data not matching previous justified epoch")
 
-  ? is_valid_indexed_attestation(
-      state, get_indexed_attestation(state, attestation, cache), flags)
+  ? is_valid_indexed_attestation(state, attestation, flags, cache)
 
   ok()
 

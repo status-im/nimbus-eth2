@@ -277,8 +277,7 @@ proc validateAttestation*(
   block:
     # First pass - without cryptography
     let v = is_valid_indexed_attestation(
-        fork, genesis_validators_root, epochRef, attesting_indices,
-        attestation,
+        fork, genesis_validators_root, epochRef, attestation,
         {skipBLSValidation})
     if v.isErr():
       return err((ValidationResult.Reject, v.error))
