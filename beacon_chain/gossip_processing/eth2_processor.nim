@@ -47,9 +47,6 @@ declareHistogram beacon_aggregate_delay,
 declareHistogram beacon_block_delay,
   "Time(s) between slot start and beacon block reception", buckets = delayBuckets
 
-declareHistogram beacon_store_block_duration_seconds,
-  "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
-
 type
   Eth2Processor* = object
     doppelGangerDetectionEnabled*: bool
