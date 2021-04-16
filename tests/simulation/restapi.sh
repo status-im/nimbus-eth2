@@ -1,18 +1,13 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
-GIT_CMD="git rev-parse --show-toplevel"
-GIT_ROOT="$($GIT_CMD)"
-PWD_CMD="pwd"
-TEST_ROOT="$($PWD_CMD)"
 NUM_VALIDATORS=${VALIDATORS:-32}
 TOTAL_NODES=${NODES:-1}
-TEST_DIR="${TEST_ROOT}/testrest"
+GIT_ROOT="$(git rev-parse --show-toplevel)"
+TEST_DIR="${GIT_ROOT}/build/resttest_sim"
 VALIDATORS_DIR="${TEST_DIR}/validators"
 SECRETS_DIR="${TEST_DIR}/secrets"
 SNAPSHOT_FILE="${TEST_DIR}/state_snapshot.ssz"
 NETWORK_BOOTSTRAP_FILE="${TEST_DIR}/bootstrap_hidden_nodes.txt"
-BEACON_NODE_BIN="${GIT_ROOT}/build/nimbus_beacon_node"
-RESTTEST_BIN="${GIT_ROOT}/build/resttest"
 RESTTEST_RULES="${GIT_ROOT}/ncli/resttest-rules.json"
 DEPOSIT_CONTRACT_BIN="${GIT_ROOT}/build/deposit_contract"
 BOOTSTRAP_ENR_FILE="${TEST_DIR}/beacon_node.enr"
@@ -20,6 +15,9 @@ NETWORK_METADATA_FILE="${TEST_DIR}/network.json"
 DEPOSITS_FILE="${TEST_DIR}/deposits.json"
 REST_ADDRESS="127.0.0.1"
 REST_PORT="5052"
+
+mkdir -p "${TEST_DIR}"
+cd "${TEST_DIR}"
 
 # Windows detection
 if uname | grep -qiE "mingw|msys"; then
@@ -35,40 +33,36 @@ else
   NPROC="$(nproc)"
 fi
 
-make_once () {
-  target_flag_var="$1_name"
-  if [[ -z "${!target_flag_var}" ]]; then
-    export $target_flag_var=1
-    $MAKE -j ${NPROC} $1
+build_if_missing () {
+  if [[ ! -e "${GIT_ROOT}/build/${1}" ]]; then
+    ${MAKE} -C "${GIT_ROOT}" -j ${NPROC} ${1}
   fi
 }
 
 EXISTING_VALIDATORS=0
-if [[ -f "$DEPOSITS_FILE" ]]; then
+if [[ -f "${DEPOSITS_FILE}" ]]; then
   # We count the number of deposits by counting the number of
   # occurrences of the 'deposit_data_root' field:
-  EXISTING_VALIDATORS=$(grep -o -i deposit_data_root "$DEPOSITS_FILE" | wc -l)
+  EXISTING_VALIDATORS=$(grep -o -i deposit_data_root "${DEPOSITS_FILE}" | wc -l)
 fi
 
-if [[ $EXISTING_VALIDATORS -ne $NUM_VALIDATORS ]]; then
-  make_once deposit_contract
-  make_once resttest
-
-  rm -rf "$VALIDATORS_DIR"
-  rm -rf "$SECRETS_DIR"
-
-  build/deposit_contract generateSimulationDeposits \
+if [[ ${EXISTING_VALIDATORS} -ne ${NUM_VALIDATORS} ]]; then
+  build_if_missing deposit_contract
+  rm -rf "${VALIDATORS_DIR}" "${SECRETS_DIR}"
+  ../deposit_contract generateSimulationDeposits \
     --count="${NUM_VALIDATORS}" \
-    --out-validators-dir="$VALIDATORS_DIR" \
-    --out-secrets-dir="$SECRETS_DIR" \
-    --out-deposits-file="$DEPOSITS_FILE"
-
+    --out-validators-dir="${VALIDATORS_DIR}" \
+    --out-secrets-dir="${SECRETS_DIR}" \
+    --out-deposits-file="${DEPOSITS_FILE}"
   echo "All deposits prepared"
 fi
 
-if [ ! -f "${SNAPSHOT_FILE}" ]; then
-  echo Creating testnet genesis...
-  $BEACON_NODE_BIN \
+build_if_missing nimbus_beacon_node
+build_if_missing resttest
+
+if [[ ! -f "${SNAPSHOT_FILE}" ]]; then
+  echo "Creating testnet genesis..."
+  ../nimbus_beacon_node \
     --data-dir="${TEST_DIR}" \
     createTestnet \
     --deposits-file="${DEPOSITS_FILE}" \
@@ -77,19 +71,19 @@ if [ ! -f "${SNAPSHOT_FILE}" ]; then
     --output-bootstrap-file="${NETWORK_BOOTSTRAP_FILE}" \
     --netkey-file=network_key.json \
     --insecure-netkey-password=true \
-    --genesis-offset=30 # Delay in seconds
+    --genesis-offset=0 # Delay in seconds
 fi
 
 DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
 DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
 
-echo Wrote $NETWORK_METADATA_FILE:
-tee "$NETWORK_METADATA_FILE" <<EOF
+echo "Writing ${NETWORK_METADATA_FILE}:"
+tee "${NETWORK_METADATA_FILE}" <<EOF
 {
   "runtimePreset": {
     "MIN_GENESIS_ACTIVE_VALIDATOR_COUNT": ${NUM_VALIDATORS},
     "MIN_GENESIS_TIME": 0,
-    "GENESIS_DELAY": 10,
+    "GENESIS_DELAY": 0,
     "GENESIS_FORK_VERSION": "0x00000000",
     "ETH1_FOLLOW_DISTANCE": 1,
   },
@@ -98,51 +92,48 @@ tee "$NETWORK_METADATA_FILE" <<EOF
 }
 EOF
 
-cd "$TEST_ROOT"
-
 SNAPSHOT_ARG=""
-if [ -f "${SNAPSHOT_FILE}" ]; then
+if [[ -f "${SNAPSHOT_FILE}" ]]; then
   SNAPSHOT_ARG="--finalized-checkpoint-state=${SNAPSHOT_FILE}"
 fi
 
-$BEACON_NODE_BIN \
+../nimbus_beacon_node \
   --log-level=${LOG_LEVEL:-DEBUG} \
-  --network=$NETWORK_METADATA_FILE \
-  --data-dir=$TEST_DIR \
-  --secrets-dir=$SECRETS_DIR \
-  $SNAPSHOT_ARG \
+  --network="${NETWORK_METADATA_FILE}" \
+  --data-dir="${TEST_DIR}" \
+  --secrets-dir="${SECRETS_DIR}" \
+  ${SNAPSHOT_ARG} \
   --doppelganger-detection=off \
   --nat=none \
   --rest=true \
-  --rest-address=$REST_ADDRESS \
-  --rest-port= $REST_PORT \
+  --rest-address=${REST_ADDRESS} \
+  --rest-port= ${REST_PORT} \
   ${ADDITIONAL_BEACON_NODE_ARGS} \
   "$@" > bbbb.log 2>&1 &
-
 BEACON_NODE_STATUS=$?
 
-if [ $BEACON_NODE_STATUS -eq 0 ]; then
-  echo "$BEACON_NODE_BIN has been successfully started"
+if [[ ${BEACON_NODE_STATUS} -eq 0 ]]; then
+  echo "nimbus_beacon_node has been successfully started"
 
   BEACON_NODE_PID="$(jobs -p)"
 
-  $RESTTEST_BIN \
-    --delay=60 \
+  ../resttest \
+    --delay=0 \
     --timeout=60 \
     --skip-topic=slow \
     --connections=4 \
-    --rules-file=$RESTTEST_RULES \
-    http://$REST_ADDRESS:$REST_PORT/api
-
+    --rules-file="${RESTTEST_RULES}" \
+    http://${REST_ADDRESS}:${REST_PORT}/api
   RESTTEST_STATUS=$?
-  kill -2 $BEACON_NODE_PID
 
-  if [ $RESTTEST_STATUS -eq 0 ]; then
-    echo "All tests are completed successfully!"
+  kill -SIGINT ${BEACON_NODE_PID}
+
+  if [[ ${RESTTEST_STATUS} -eq 0 ]]; then
+    echo "All tests were completed successfully!"
   else
-    echo "Some of the tests are failed!"
+    echo "Some of the tests failed!"
     exit 1
   fi
 else
-  echo "$BEACON_NODE_BIN failed to start"
+  echo "nimbus_beacon_node failed to start"
 fi

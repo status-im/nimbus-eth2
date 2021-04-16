@@ -269,6 +269,7 @@ test: | $(TEST_BINARIES)
 ifeq ($(DISABLE_TEST_FIXTURES_SCRIPT), 0)
 	V=$(V) scripts/setup_official_tests.sh
 endif
+	tests/simulation/restapi.sh
 	for TEST_BINARY in $(TEST_BINARIES); do \
 		PARAMS=""; \
 		if [[ "$${TEST_BINARY}" == "state_sim" ]]; then PARAMS="--validators=6000 --slots=128"; \
