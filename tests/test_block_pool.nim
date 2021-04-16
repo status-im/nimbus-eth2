@@ -15,7 +15,8 @@ import
   ../beacon_chain/spec/[datatypes, digest, helpers, state_transition, presets],
   ../beacon_chain/beacon_node_types,
   ../beacon_chain/ssz,
-  ../beacon_chain/consensus_object_pools/[blockchain_dag, block_quarantine, block_clearance]
+  ../beacon_chain/consensus_object_pools/[
+    blockchain_dag, block_quarantine, block_clearance, statedata_helpers]
 
 when isMainModule:
   import chronicles # or some random compile error happens...
@@ -174,7 +175,7 @@ suiteReport "Block pool processing" & preset():
 
     # Skip one slot to get a gap
     check:
-      process_slots(stateData.data, stateData.data.data.slot + 1, cache)
+      process_slots(stateData.data, getStateField(stateData, slot) + 1, cache)
 
     let
       b4 = addTestBlock(stateData.data, b2.root, cache)
@@ -262,7 +263,7 @@ suiteReport "Block pool processing" & preset():
     check:
       # ensure we loaded the correct head state
       dag2.head.root == b2.root
-      hash_tree_root(dag2.headState.data.data) == b2.message.state_root
+      hash_tree_root(dag2.headState) == b2.message.state_root
       dag2.get(b1.root).isSome()
       dag2.get(b2.root).isSome()
       dag2.heads.len == 1
@@ -286,7 +287,7 @@ suiteReport "Block pool processing" & preset():
 
     check:
       dag.head == b1Add[]
-      dag.headState.data.data.slot == b1Add[].slot
+      getStateField(dag.headState, slot) == b1Add[].slot
 
   wrappedTimedTest "updateStateData sanity" & preset():
     let
@@ -304,38 +305,38 @@ suiteReport "Block pool processing" & preset():
 
     check:
       tmpState.blck == b1Add[]
-      tmpState.data.data.slot == bs1.slot
+      getStateField(tmpState, slot) == bs1.slot
 
     # Skip slots
     dag.updateStateData(tmpState[], bs1_3, false, cache) # skip slots
 
     check:
       tmpState.blck == b1Add[]
-      tmpState.data.data.slot == bs1_3.slot
+      getStateField(tmpState, slot) == bs1_3.slot
 
     # Move back slots, but not blocks
     dag.updateStateData(tmpState[], bs1_3.parent(), false, cache)
     check:
       tmpState.blck == b1Add[]
-      tmpState.data.data.slot == bs1_3.parent().slot
+      getStateField(tmpState, slot) == bs1_3.parent().slot
 
     # Move to different block and slot
     dag.updateStateData(tmpState[], bs2_3, false, cache)
     check:
       tmpState.blck == b2Add[]
-      tmpState.data.data.slot == bs2_3.slot
+      getStateField(tmpState, slot) == bs2_3.slot
 
     # Move back slot and block
     dag.updateStateData(tmpState[], bs1, false, cache)
     check:
       tmpState.blck == b1Add[]
-      tmpState.data.data.slot == bs1.slot
+      getStateField(tmpState, slot) == bs1.slot
 
     # Move back to genesis
     dag.updateStateData(tmpState[], bs1.parent(), false, cache)
     check:
       tmpState.blck == b1Add[].parent
-      tmpState.data.data.slot == bs1.parent.slot
+      getStateField(tmpState, slot) == bs1.parent.slot
 
 suiteReport "chain DAG finalization tests" & preset():
   setup:
@@ -431,8 +432,7 @@ suiteReport "chain DAG finalization tests" & preset():
       dag2.head.root == dag.head.root
       dag2.finalizedHead.blck.root == dag.finalizedHead.blck.root
       dag2.finalizedHead.slot == dag.finalizedHead.slot
-      hash_tree_root(dag2.headState.data.data) ==
-        hash_tree_root(dag.headState.data.data)
+      hash_tree_root(dag2.headState) == hash_tree_root(dag.headState)
 
   wrappedTimedTest "orphaned epoch block" & preset():
     var prestate = (ref HashedBeaconState)()
@@ -496,7 +496,7 @@ suiteReport "chain DAG finalization tests" & preset():
       dag.headState.data, dag.head.root, cache,
       attestations = makeFullAttestations(
         dag.headState.data.data, dag.head.root,
-        dag.headState.data.data.slot, cache, {}))
+        getStateField(dag.headState, slot), cache, {}))
 
     let added = dag.addRawBlock(quarantine, blck, nil)
     check: added.isOk()
@@ -512,5 +512,4 @@ suiteReport "chain DAG finalization tests" & preset():
       dag2.head.root == dag.head.root
       dag2.finalizedHead.blck.root == dag.finalizedHead.blck.root
       dag2.finalizedHead.slot == dag.finalizedHead.slot
-      hash_tree_root(dag2.headState.data.data) ==
-        hash_tree_root(dag.headState.data.data)
+      hash_tree_root(dag2.headState) == hash_tree_root(dag.headState)

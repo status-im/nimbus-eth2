@@ -362,10 +362,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         block:
           let idx = request.validator_index
           if uint64(idx) >=
-                           lenu64(node.chainDag.headState.data.data.validators):
+                           lenu64(getStateField(node.chainDag.headState, validators)):
             return RestApiResponse.jsonError(Http400,
                                              InvalidValidatorIndexValueError)
-          node.chainDag.headState.data.data.validators[idx].pubkey
+          getStateField(node.chainDag.headState, validators)[idx].pubkey
 
       let wallSlot = node.beaconClock.now.slotOrZero
       if wallSlot > request.slot + 1:

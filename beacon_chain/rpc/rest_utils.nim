@@ -509,7 +509,7 @@ proc getBlockSlot*(node: BeaconNode,
       ok(node.chainDag.finalizedHead)
     of StateIdentType.Justified:
       ok(node.chainDag.head.atEpochStart(
-         node.chainDag.headState.data.data.current_justified_checkpoint.epoch))
+         getStateField(node.chainDag.headState, current_justified_checkpoint).epoch))
 
 proc getBlockDataFromBlockIdent*(node: BeaconNode,
                                  id: BlockIdent): Result[BlockData, cstring] =
@@ -537,7 +537,7 @@ proc getBlockDataFromBlockIdent*(node: BeaconNode,
 template withStateForBlockSlot*(node: BeaconNode,
                                 blockSlot: BlockSlot, body: untyped): untyped =
   template isState(state: StateData): bool =
-    state.blck.atSlot(state.data.data.slot) == blockSlot
+    state.blck.atSlot(getStateField(state, slot)) == blockSlot
 
   if isState(node.chainDag.headState):
     withStateVars(node.chainDag.headState):
