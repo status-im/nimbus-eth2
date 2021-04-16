@@ -21,4 +21,4 @@ func get_current_epoch*(stateData: StateData): Epoch =
 template hash_tree_root*(stateData: StateData): Eth2Digest =
   # Dispatch here based on type/fork of state. Since StateData is a ref object
   # type, if Nim chooses the wrong overload, it will simply fail to compile.
-  hash_tree_root(stateData.data.data)
+  stateData.data.root
