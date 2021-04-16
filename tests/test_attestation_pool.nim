@@ -67,13 +67,13 @@ suiteReport "Attestation pool processing" & preset():
       cache = StateCache()
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
-      process_slots(state.data, state.data.data.slot + 1, cache)
+      process_slots(state.data, getStateField(state, slot) + 1, cache)
 
   timedTest "Can add and retrieve simple attestations" & preset():
     let
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
-        state.data.data, state.data.data.slot, 0.CommitteeIndex, cache)
+        state.data.data, getStateField(state, slot), 0.CommitteeIndex, cache)
       attestation = makeAttestation(
         state.data.data, state.blck.root, bc0[0], cache)
 
@@ -98,7 +98,8 @@ suiteReport "Attestation pool processing" & preset():
         none(Slot), some(CommitteeIndex(attestation.data.index + 1)))) == []
 
       process_slots(
-        state.data, state.data.data.slot + MIN_ATTESTATION_INCLUSION_DELAY, cache)
+        state.data,
+        getStateField(state, slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache)
 
     let attestations = pool[].getAttestationsForBlock(state.data.data, cache)
 
@@ -111,13 +112,14 @@ suiteReport "Attestation pool processing" & preset():
         state.data, state.blck.root,
         cache, attestations = attestations, nextSlot = false).root
       bc1 = get_beacon_committee(
-        state.data.data, state.data.data.slot, 0.CommitteeIndex, cache)
+        state.data.data, getStateField(state, slot), 0.CommitteeIndex, cache)
       att1 = makeAttestation(
         state.data.data, root1, bc1[0], cache)
 
     check:
       process_slots(
-        state.data, state.data.data.slot + MIN_ATTESTATION_INCLUSION_DELAY, cache)
+        state.data,
+        getStateField(state, slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache)
 
     check:
       # shouldn't include already-included attestations
@@ -176,7 +178,7 @@ suiteReport "Attestation pool processing" & preset():
     let
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
-        state.data.data, state.data.data.slot, 0.CommitteeIndex, cache)
+        state.data.data, getStateField(state, slot), 0.CommitteeIndex, cache)
 
     var
       att0 = makeAttestation(state.data.data, state.blck.root, bc0[0], cache)
@@ -194,7 +196,8 @@ suiteReport "Attestation pool processing" & preset():
 
     check:
       process_slots(
-        state.data, state.data.data.slot + MIN_ATTESTATION_INCLUSION_DELAY, cache)
+        state.data,
+        getStateField(state, slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache)
 
     check:
       pool[].getAttestationsForBlock(state.data.data, cache).len() == 2
@@ -230,7 +233,7 @@ suiteReport "Attestation pool processing" & preset():
       root.data[0..<8] = toBytesBE(i.uint64)
       let
         bc0 = get_beacon_committee(
-          state.data.data, state.data.data.slot, 0.CommitteeIndex, cache)
+          state.data.data, getStateField(state, slot), 0.CommitteeIndex, cache)
 
       for j in 0..<bc0.len():
         root.data[8..<16] = toBytesBE(j.uint64)
@@ -239,7 +242,7 @@ suiteReport "Attestation pool processing" & preset():
         inc attestations
 
       check:
-        process_slots(state.data, state.data.data.slot + 1, cache)
+        process_slots(state.data, getStateField(state, slot) + 1, cache)
 
     doAssert attestations.uint64 > MAX_ATTESTATIONS,
       "6*SLOTS_PER_EPOCH validators > 128 mainnet MAX_ATTESTATIONS"
@@ -247,23 +250,24 @@ suiteReport "Attestation pool processing" & preset():
       # Fill block with attestations
       pool[].getAttestationsForBlock(state.data.data, cache).lenu64() ==
         MAX_ATTESTATIONS
-      pool[].getAggregatedAttestation(state.data.data.slot - 1, 0.CommitteeIndex).isSome()
+      pool[].getAggregatedAttestation(
+        getStateField(state, slot) - 1, 0.CommitteeIndex).isSome()
 
   timedTest "Attestations may arrive in any order" & preset():
     var cache = StateCache()
     let
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
-        state.data.data, state.data.data.slot, 0.CommitteeIndex, cache)
+        state.data.data, getStateField(state, slot), 0.CommitteeIndex, cache)
       attestation0 = makeAttestation(
         state.data.data, state.blck.root, bc0[0], cache)
 
     check:
-      process_slots(state.data, state.data.data.slot + 1, cache)
+      process_slots(state.data, getStateField(state, slot) + 1, cache)
 
     let
       bc1 = get_beacon_committee(state.data.data,
-        state.data.data.slot, 0.CommitteeIndex, cache)
+        getStateField(state, slot), 0.CommitteeIndex, cache)
       attestation1 = makeAttestation(
         state.data.data, state.blck.root, bc1[0], cache)
 
@@ -286,7 +290,7 @@ suiteReport "Attestation pool processing" & preset():
     let
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
-        state.data.data, state.data.data.slot, 0.CommitteeIndex, cache)
+        state.data.data, getStateField(state, slot), 0.CommitteeIndex, cache)
       attestation0 = makeAttestation(
         state.data.data, state.blck.root, bc0[0], cache)
       attestation1 = makeAttestation(
@@ -311,7 +315,7 @@ suiteReport "Attestation pool processing" & preset():
     var
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
-        state.data.data, state.data.data.slot, 0.CommitteeIndex, cache)
+        state.data.data, getStateField(state, slot), 0.CommitteeIndex, cache)
       attestation0 = makeAttestation(
         state.data.data, state.blck.root, bc0[0], cache)
       attestation1 = makeAttestation(
@@ -337,7 +341,7 @@ suiteReport "Attestation pool processing" & preset():
     var
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(state.data.data,
-        state.data.data.slot, 0.CommitteeIndex, cache)
+        getStateField(state, slot), 0.CommitteeIndex, cache)
       attestation0 = makeAttestation(
         state.data.data, state.blck.root, bc0[0], cache)
       attestation1 = makeAttestation(
@@ -412,7 +416,7 @@ suiteReport "Attestation pool processing" & preset():
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
       bc1 = get_beacon_committee(
-        state.data.data, state.data.data.slot - 1, 1.CommitteeIndex, cache)
+        state.data.data, getStateField(state, slot) - 1, 1.CommitteeIndex, cache)
       attestation0 = makeAttestation(state.data.data, b10.root, bc1[0], cache)
 
     pool[].addAttestation(
@@ -521,7 +525,8 @@ suiteReport "Attestation pool processing" & preset():
         attestations.setlen(0)
         for index in 0'u64 ..< committees_per_slot:
           let committee = get_beacon_committee(
-              state.data.data, state.data.data.slot, index.CommitteeIndex, cache)
+            state.data.data, getStateField(state, slot), index.CommitteeIndex,
+            cache)
 
           # Create a bitfield filled with the given count per attestation,
           # exactly on the right-most part of the committee field.
@@ -532,7 +537,7 @@ suiteReport "Attestation pool processing" & preset():
           attestations.add Attestation(
             aggregation_bits: aggregation_bits,
             data: makeAttestationData(
-              state.data.data, state.data.data.slot,
+              state.data.data, getStateField(state, slot),
               index.CommitteeIndex, blockroot)
             # signature: ValidatorSig()
           )
@@ -569,7 +574,7 @@ suiteReport "Attestation validation " & preset():
       batchCrypto = BatchCrypto.new(keys.newRng())
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
-      process_slots(state.data, state.data.data.slot + 1, cache)
+      process_slots(state.data, getStateField(state, slot) + 1, cache)
 
   timedTest "Validation sanity":
     # TODO: refactor tests to avoid skipping BLS validation
