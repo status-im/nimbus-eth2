@@ -15,14 +15,14 @@ import
   stew/byteutils,
   eth/keys,
   # Internal
-  ../beacon_chain/[beacon_node_types, extras, beacon_clock],
-  ../beacon_chain/gossip_processing/[gossip_validation, batch_validation],
+  ../beacon_chain/[beacon_node_types, extras],
+  ../beacon_chain/gossip_processing/[gossip_validation],
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
   ../beacon_chain/consensus_object_pools/[
     block_quarantine, blockchain_dag, block_clearance, attestation_pool],
   ../beacon_chain/ssz/merkleization,
   ../beacon_chain/spec/[crypto, datatypes, digest, validator, state_transition,
-                        helpers, beaconstate, presets, network],
+                        helpers, beaconstate, presets],
   # Test utilities
   ./testutil, ./testblockutil
 
@@ -41,12 +41,12 @@ func combine(tgt: var Attestation, src: Attestation) =
   tgt.aggregation_bits.incl(src.aggregation_bits)
 
   var agg {.noInit.}: AggregateSignature
-  agg.init(tgt.signature)
-  agg.aggregate(src.signature)
-  tgt.signature = agg.finish().exportRaw()
+  agg.init(tgt.signature.load().get())
+  agg.aggregate(src.signature.load.get())
+  tgt.signature = agg.finish().toValidatorSig()
 
 func loadSig(a: Attestation): CookedSig =
-  a.signature.load.get().CookedSig
+  a.signature.load.get()
 
 proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
   if dag.needStateCachesAndForkChoicePruning():
@@ -560,80 +560,3 @@ suiteReport "Attestation pool processing" & preset():
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
     doAssert: b10Add_clone.error == (ValidationResult.Ignore, Duplicate)
-
-
-suiteReport "Attestation validation " & preset():
-  setup:
-    # Genesis state that results in 3 members per committee
-    var
-      chainDag = init(ChainDAGRef, defaultRuntimePreset, makeTestDB(SLOTS_PER_EPOCH * 3))
-      quarantine = QuarantineRef.init(keys.newRng())
-      pool = newClone(AttestationPool.init(chainDag, quarantine))
-      state = newClone(chainDag.headState)
-      cache = StateCache()
-      batchCrypto = BatchCrypto.new(keys.newRng())
-    # Slot 0 is a finalized slot - won't be making attestations for it..
-    check:
-      process_slots(state.data, getStateField(state, slot) + 1, cache)
-
-  timedTest "Validation sanity":
-    # TODO: refactor tests to avoid skipping BLS validation
-    chainDag.updateFlags.incl {skipBLSValidation}
-
-    var
-      cache: StateCache
-    for blck in makeTestBlocks(
-        chainDag.headState.data, chainDag.head.root, cache,
-        int(SLOTS_PER_EPOCH * 5), false):
-      let added = chainDag.addRawBlock(quarantine, blck) do (
-          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
-          epochRef: EpochRef, state: HashedBeaconState):
-        # Callback add to fork choice if valid
-        pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
-
-      check: added.isOk()
-      chainDag.updateHead(added[], quarantine)
-      pruneAtFinalization(chainDag, pool[])
-
-    var
-      # Create an attestation for slot 1!
-      beacon_committee = get_beacon_committee(
-        chainDag.headState.data.data, chainDag.head.slot, 0.CommitteeIndex, cache)
-      attestation = makeAttestation(
-        chainDag.headState.data.data, chainDag.head.root, beacon_committee[0], cache)
-
-      committees_per_slot =
-        get_committee_count_per_slot(chainDag.headState.data.data,
-        attestation.data.slot.epoch, cache)
-
-      subnet = compute_subnet_for_attestation(
-        committees_per_slot,
-        attestation.data.slot, attestation.data.index.CommitteeIndex)
-
-      beaconTime = attestation.data.slot.toBeaconTime()
-
-    check:
-      validateAttestation(pool, batchCrypto, attestation, beaconTime, subnet, true).waitFor().isOk
-
-      # Same validator again
-      validateAttestation(pool, batchCrypto, attestation, beaconTime, subnet, true).waitFor().error()[0] ==
-        ValidationResult.Ignore
-
-    pool[].nextAttestationEpoch.setLen(0) # reset for test
-    check:
-      # Wrong subnet
-      validateAttestation(pool, batchCrypto, attestation, beaconTime, subnet + 1, true).waitFor().isErr
-
-    pool[].nextAttestationEpoch.setLen(0) # reset for test
-    check:
-      # Too far in the future
-      validateAttestation(
-        pool, batchCrypto, attestation, beaconTime - 1.seconds, subnet + 1, true).waitFor().isErr
-
-    pool[].nextAttestationEpoch.setLen(0) # reset for test
-    check:
-      # Too far in the past
-      validateAttestation(
-        pool, batchCrypto, attestation,
-        beaconTime - (SECONDS_PER_SLOT * SLOTS_PER_EPOCH - 1).int.seconds,
-        subnet + 1, true).waitFor().isErr

@@ -136,7 +136,7 @@ suiteReport "Interop":
 
       check:
         # TODO re-enable
-        true or dep.sig == computed_sig
+        true or dep.sig == computed_sig.toValidatorSig()
 
   timedTest "Interop genesis":
     # Check against https://github.com/protolambda/zcli:

@@ -75,15 +75,6 @@ type
     # Producers
     # ----------------------------------------------------------------
     blocksQueue*: AsyncQueue[BlockEntry] # Exported for "test_sync_manager"
-    # TODO:
-    #   is there a point to separate
-    #   attestations & aggregates here?
-    attestationsQueue: AsyncQueue[AttestationEntry]
-    attestationsDropped: int
-    attestationsDropTime: tuple[afterGenesis: bool, slot: Slot]
-    aggregatesQueue: AsyncQueue[AggregateEntry]
-    aggregatesDropped: int
-    aggregatesDropTime: tuple[afterGenesis: bool, slot: Slot]
 
     # Consumer
     # ----------------------------------------------------------------
@@ -107,21 +98,8 @@ proc new*(T: type VerifQueueManager,
 
     getWallTime: getWallTime,
 
-    blocksQueue: newAsyncQueue[BlockEntry](1),
-    # limit to the max number of aggregates we expect to see in one slot
-    aggregatesQueue: newAsyncQueue[AggregateEntry](
-      (TARGET_AGGREGATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT).int),
-    # This queue is a bit harder to bound reasonably - we want to get a good
-    # spread of votes across committees - ideally at least TARGET_COMMITTEE_SIZE
-    # per committee - assuming randomness in vote arrival, this limit should
-    # cover that but of course, when votes arrive depends on a number of
-    # factors that are not entire random
-    attestationsQueue: newAsyncQueue[AttestationEntry](
-      (TARGET_COMMITTEE_SIZE * MAX_COMMITTEES_PER_SLOT).int),
-
+    blocksQueue: newAsyncQueue[BlockEntry](),
     consensusManager: consensusManager,
-    attestationsDropTime: getWallTime().toSlot(),
-    aggregatesDropTime: getWallTime().toSlot(),
   )
 
 # Sync callbacks
@@ -145,86 +123,25 @@ proc complete*(blk: SyncBlock, res: Result[void, BlockError]) =
   if blk.resfut != nil:
     blk.resfut.complete(res)
 
+proc hasBlocks*(self: VerifQueueManager): bool =
+  self.blocksQueue.len() > 0
+
 # Enqueue
 # ------------------------------------------------------------------------------
 
 proc addBlock*(self: var VerifQueueManager, syncBlock: SyncBlock) =
   ## Enqueue a Gossip-validated block for consensus verification
   # Backpressure:
-  #   If no item can be enqueued because buffer is full,
-  #   we suspend here.
+  #   There is no backpressure here - producers must wait for the future in the
+  #   SyncBlock to constrain their own processing
   # Producers:
   # - Gossip (when synced)
   # - SyncManager (during sync)
   # - RequestManager (missing ancestor blocks)
 
-  # addLast doesn't fail
-  asyncSpawn(self.blocksQueue.addLast(BlockEntry(v: syncBlock)))
-
-proc addAttestation*(
-    self: var VerifQueueManager, att: Attestation,
-    att_indices: seq[ValidatorIndex], sig: CookedSig) =
-  ## Enqueue a Gossip-validated attestation for consensus verification
-  # Backpressure:
-  #   If buffer is full, the oldest attestation is dropped and the newest is enqueued
-  # Producer:
-  # - Gossip (when synced)
-  while self.attestationsQueue.full():
-    self.attestationsDropped += 1
-    beacon_attestations_dropped_queue_full.inc()
-
-    try:
-      discard self.attestationsQueue.popFirstNoWait()
-    except AsyncQueueEmptyError as exc:
-      raiseAssert "If queue is full, we have at least one item! " & exc.msg
-
-  if self.attestationsDropped > 0:
-    let now = self.getWallTime().toSlot() # Print notice once per slot
-    if now != self.attestationsDropTime:
-      notice "Queue full, attestations dropped",
-        count = self.attestationsDropped
-      self.attestationsDropTime = now
-      self.attestationsDropped = 0
-
-  try:
-    self.attestationsQueue.addLastNoWait(
-      AttestationEntry(v: att, attesting_indices: att_indices, sig: sig))
-  except AsyncQueueFullError as exc:
-    raiseAssert "We just checked that queue is not full! " & exc.msg
-
-proc addAggregate*(
-    self: var VerifQueueManager, agg: SignedAggregateAndProof,
-    att_indices: seq[ValidatorIndex], sig: CookedSig) =
-  ## Enqueue a Gossip-validated aggregate attestation for consensus verification
-  # Backpressure:
-  #   If buffer is full, the oldest aggregate is dropped and the newest is enqueued
-  # Producer:
-  # - Gossip (when synced)
-
-  while self.aggregatesQueue.full():
-    self.aggregatesDropped += 1
-    beacon_aggregates_dropped_queue_full.inc()
-
-    try:
-      discard self.aggregatesQueue.popFirstNoWait()
-    except AsyncQueueEmptyError as exc:
-      raiseAssert "We just checked that queue is not full! " & exc.msg
-
-  if self.aggregatesDropped > 0:
-    let now = self.getWallTime().toSlot() # Print notice once per slot
-    if now != self.aggregatesDropTime:
-      notice "Queue full, aggregates dropped",
-        count = self.aggregatesDropped
-      self.aggregatesDropTime = now
-      self.aggregatesDropped = 0
-
-  try:
-    self.aggregatesQueue.addLastNoWait(AggregateEntry(
-      v: agg.message.aggregate,
-      attesting_indices: att_indices,
-      sig: sig))
-  except AsyncQueueFullError as exc:
-    raiseAssert "We just checked that queue is not full! " & exc.msg
+  # addLast doesn't fail with unbounded queues, but we'll add asyncSpawn as a
+  # sanity check
+  asyncSpawn self.blocksQueue.addLast(BlockEntry(v: syncBlock))
 
 # Storage
 # ------------------------------------------------------------------------------
@@ -271,40 +188,6 @@ proc storeBlock(
 
 # Event Loop
 # ------------------------------------------------------------------------------
-
-proc processAttestation(
-    self: var VerifQueueManager, entry: AttestationEntry) =
-  logScope:
-    signature = shortLog(entry.v.signature)
-
-  let
-    wallTime = self.getWallTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot()
-
-  if not afterGenesis:
-    error "Processing attestation before genesis, clock turned back?"
-    quit 1
-
-  trace "Processing attestation"
-  self.consensusManager.attestationPool[].addAttestation(
-    entry.v, entry.attesting_indices, entry.sig, wallSlot)
-
-proc processAggregate(
-    self: var VerifQueueManager, entry: AggregateEntry) =
-  logScope:
-    signature = shortLog(entry.v.signature)
-
-  let
-    wallTime = self.getWallTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot()
-
-  if not afterGenesis:
-    error "Processing aggregate before genesis, clock turned back?"
-    quit 1
-
-  trace "Processing aggregate"
-  self.consensusManager.attestationPool[].addAttestation(
-    entry.v, entry.attesting_indices, entry.sig, wallSlot)
 
 proc processBlock(self: var VerifQueueManager, entry: BlockEntry) =
   logScope:
@@ -360,67 +243,18 @@ proc processBlock(self: var VerifQueueManager, entry: BlockEntry) =
       entry.v.resFut.complete(Result[void, BlockError].err(res.error()))
 
 proc runQueueProcessingLoop*(self: ref VerifQueueManager) {.async.} =
-  # Blocks in eth2 arrive on a schedule for every slot:
-  #
-  # * Block arrives at time 0
-  # * Attestations arrives at time 4
-  # * Aggregate arrives at time 8
-
-  var
-    blockFut = self[].blocksQueue.popFirst()
-    aggregateFut = self[].aggregatesQueue.popFirst()
-    attestationFut = self[].attestationsQueue.popFirst()
-
-  # TODO:
-  #   revisit `idleTimeout`
-  #   and especially `attestationBatch` in light of batch validation
-  #   in particular we might want `attestationBatch` to drain both attestation & aggregates
   while true:
-    # Cooperative concurrency: one idle calculation step per loop - because
+    # Cooperative concurrency: one block per loop iteration - because
     # we run both networking and CPU-heavy things like block processing
     # on the same thread, we need to make sure that there is steady progress
     # on the networking side or we get long lockups that lead to timeouts.
     const
       # We cap waiting for an idle slot in case there's a lot of network traffic
       # taking up all CPU - we don't want to _completely_ stop processing blocks
-      # in this case (attestations will get dropped) - doing so also allows us
-      # to benefit from more batching / larger network reads when under load.
+      # in this case - doing so also allows us to benefit from more batching /
+      # larger network reads when under load.
       idleTimeout = 10.milliseconds
-
-      # Attestation processing is fairly quick and therefore done in batches to
-      # avoid some of the `Future` overhead
-      attestationBatch = 16
 
     discard await idleAsync().withTimeout(idleTimeout)
 
-    # Avoid one more `await` when there's work to do
-    if not (blockFut.finished or aggregateFut.finished or attestationFut.finished):
-      trace "Waiting for processing work"
-      await blockFut or aggregateFut or attestationFut
-
-    # Only run one task per idle iteration, in priority order: blocks are needed
-    # for all other processing - then come aggregates which are cheap to
-    # process but might have a big impact on fork choice - last come
-    # attestations which individually have the smallest effect on chain progress
-    if blockFut.finished:
-      self[].processBlock(blockFut.read())
-      blockFut = self[].blocksQueue.popFirst()
-    elif aggregateFut.finished:
-      # aggregates will be dropped under heavy load on producer side
-      self[].processAggregate(aggregateFut.read())
-      for i in 0..<attestationBatch: # process a few at a time - this is fairly fast
-        if self[].aggregatesQueue.empty():
-          break
-        self[].processAggregate(self[].aggregatesQueue.popFirstNoWait())
-
-      aggregateFut = self[].aggregatesQueue.popFirst()
-    elif attestationFut.finished:
-      # attestations will be dropped under heavy load on producer side
-      self[].processAttestation(attestationFut.read())
-
-      for i in 0..<attestationBatch: # process a few at a time - this is fairly fast
-        if self[].attestationsQueue.empty():
-          break
-        self[].processAttestation(self[].attestationsQueue.popFirstNoWait())
-
-      attestationFut = self[].attestationsQueue.popFirst()
+    self[].processBlock(await self[].blocksQueue.popFirst())

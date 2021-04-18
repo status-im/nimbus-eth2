@@ -95,11 +95,12 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
   )
 
 proc addForkChoiceVotes(
-    pool: var AttestationPool, slot: Slot, participants: seq[ValidatorIndex],
-    block_root: Eth2Digest, wallSlot: Slot) =
+    pool: var AttestationPool, slot: Slot,
+    attesting_indices: openArray[ValidatorIndex], block_root: Eth2Digest,
+    wallSlot: Slot) =
   # Add attestation votes to fork choice
   if (let v = pool.forkChoice.on_attestation(
-    pool.chainDag, slot, block_root, participants, wallSlot);
+    pool.chainDag, slot, block_root, attesting_indices, wallSlot);
     v.isErr):
       # This indicates that the fork choice and the chain dag are out of sync -
       # this is most likely the result of a bug, but we'll try to keep going -
@@ -154,7 +155,7 @@ func toAttestation(entry: AttestationEntry, validation: Validation): Attestation
   Attestation(
     aggregation_bits: validation.aggregation_bits,
     data: entry.data,
-    signature: validation.aggregate_signature.finish().exportRaw()
+    signature: validation.aggregate_signature.finish().toValidatorSig()
   )
 
 func updateAggregates(entry: var AttestationEntry) =
@@ -262,7 +263,7 @@ proc addAttestation(entry: var AttestationEntry,
 
 proc addAttestation*(pool: var AttestationPool,
                      attestation: Attestation,
-                     participants: seq[ValidatorIndex],
+                     attesting_indices: openArray[ValidatorIndex],
                      signature: CookedSig,
                      wallSlot: Slot) =
   ## Add an attestation to the pool, assuming it's been validated already.
@@ -273,7 +274,7 @@ proc addAttestation*(pool: var AttestationPool,
   logScope:
     attestation = shortLog(attestation)
 
-  doAssert attestation.signature == signature.exportRaw(),
+  doAssert attestation.signature == signature.toValidatorSig(),
     "Deserialized signature must match the one in the attestation"
 
   updateCurrent(pool, wallSlot)
@@ -303,8 +304,8 @@ proc addAttestation*(pool: var AttestationPool,
       return
 
   pool.addForkChoiceVotes(
-    attestation.data.slot, participants, attestation.data.beacon_block_root,
-    wallSlot)
+    attestation.data.slot, attesting_indices,
+    attestation.data.beacon_block_root, wallSlot)
 
 proc addForkChoice*(pool: var AttestationPool,
                     epochRef: EpochRef,
@@ -343,7 +344,7 @@ iterator attestations*(pool: AttestationPool, slot: Option[Slot],
 
         for index, signature in entry.singles:
           singleAttestation.aggregation_bits.setBit(index)
-          singleAttestation.signature = signature.exportRaw()
+          singleAttestation.signature = signature.toValidatorSig()
           yield singleAttestation
           singleAttestation.aggregation_bits.clearBit(index)
 

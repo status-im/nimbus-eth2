@@ -53,5 +53,5 @@ func makeDeposit*(
     withdrawal_credentials: makeWithdrawalCredentials(pubkey))
 
   if skipBLSValidation notin flags:
-    result.signature = preset.get_deposit_signature(result, privkey)
+    result.signature = preset.get_deposit_signature(result, privkey).toValidatorSig()
 

@@ -5,9 +5,11 @@
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [Defect].}
+
 import
   # Status
-  chronicles, chronos,
+  chronicles, chronos, metrics,
   stew/results,
   eth/keys,
   # Internals
@@ -25,11 +27,25 @@ export BrHmacDrbgContext
 logScope:
   topics = "gossip_checks"
 
+declareCounter beacon_attestations_skipped,
+  "Number of attestation signature checks skipped"
+
 # Batched gossip validation
 # ----------------------------------------------------------------
-{.push raises: [Defect].}
 
 type
+  BatchResult* {.pure.} = enum
+    Valid
+    Invalid
+    Timeout
+
+  Eager = proc(): bool {.gcsafe, raises: [Defect].}
+
+  Batch* = object
+    created: Moment
+    pendingBuffer: seq[SignatureSet]
+    resultsBuffer: seq[Future[BatchResult]]
+
   BatchCrypto* = object
     # The buffers are bounded by BatchedCryptoSize (16) which was chosen:
     # - based on "nimble bench" in nim-blscurve
@@ -38,18 +54,22 @@ type
     # - based on the accumulation rate of attestations and aggregates
     #   in large instances which were 12000 per slot (12s)
     #   hence 1 per ms (but the pattern is bursty around the 4s mark)
-    pendingBuffer: seq[SignatureSet]
-    resultsBuffer: seq[Future[Result[void, cstring]]]
+    batches: seq[ref Batch]
+    eager: Eager ##\
+    ## Eager is used to enable eager processing of attestations when it's
+    ## prudent to do so (instead of leaving the CPU for other, presumably more
+    ## important work like block processing)
     sigVerifCache: BatchedBLSVerifierCache ##\
     ## A cache for batch BLS signature verification contexts
     rng: ref BrHmacDrbgContext  ##\
     ## A reference to the Nimbus application-wide RNG
+    pruneTime: Moment ## :ast time we had to prune something
 
 const
   # We cap waiting for an idle slot in case there's a lot of network traffic
-  # taking up all CPU - we don't want to _completely_ stop processing blocks
-  # in this case (attestations will get dropped) - doing so also allows us
-  # to benefit from more batching / larger network reads when under load.
+  # taking up all CPU - we don't want to _completely_ stop processing
+  # attestations - doing so also allows us to benefit from more batching /
+  # larger network reads when under load.
   BatchAttAccumTime = 10.milliseconds
 
   # Threshold for immediate trigger of batch verification.
@@ -60,145 +80,176 @@ const
   # but not too big as we need to redo checks one-by-one if one failed.
   BatchedCryptoSize = 16
 
-proc new*(T: type BatchCrypto, rng: ref BrHmacDrbgContext): ref BatchCrypto =
-  (ref BatchCrypto)(rng: rng)
+proc new*(
+    T: type BatchCrypto, rng: ref BrHmacDrbgContext, eager: Eager): ref BatchCrypto =
+  (ref BatchCrypto)(rng: rng, eager: eager, pruneTime: Moment.now())
 
-func clear(batchCrypto: var BatchCrypto) =
-  ## Empty the crypto-pending attestations & aggregate queues
-  batchCrypto.pendingBuffer.setLen(0)
-  batchCrypto.resultsBuffer.setLen(0)
+func len(batch: Batch): int =
+  doAssert batch.resultsBuffer.len() == batch.pendingBuffer.len()
+  batch.resultsBuffer.len()
 
-proc done(batchCrypto: var BatchCrypto, idx: int) =
-  ## Send signal to [Attestation/Aggregate]Validator
-  ## that the attestation was crypto-verified (and so gossip validated)
-  ## with success
-  batchCrypto.resultsBuffer[idx].complete(Result[void, cstring].ok())
+func full(batch: Batch): bool =
+  batch.len() >= BatchedCryptoSize
 
-proc fail(batchCrypto: var BatchCrypto, idx: int, error: cstring) =
-  ## Send signal to [Attestation/Aggregate]Validator
-  ## that the attestation was NOT crypto-verified (and so NOT gossip validated)
-  batchCrypto.resultsBuffer[idx].complete(Result[void, cstring].err(error))
+proc clear(batch: var Batch) =
+  batch.pendingBuffer.setLen(0)
+  batch.resultsBuffer.setLen(0)
 
-proc complete(batchCrypto: var BatchCrypto, idx: int, res: Result[void, cstring]) =
-  ## Send signal to [Attestation/Aggregate]Validator
-  batchCrypto.resultsBuffer[idx].complete(res)
+proc skip(batch: var Batch) =
+  beacon_attestations_skipped.inc batch.len().int64
 
-proc processBufferedCrypto(self: var BatchCrypto) =
-  ## Drain all attestations waiting for crypto verifications
+  for res in batch.resultsBuffer.mitems():
+    res.complete(BatchResult.Timeout)
+  batch.clear() # release memory early
 
-  doAssert self.pendingBuffer.len ==
-             self.resultsBuffer.len
+proc pruneBatchQueue(batchCrypto: ref BatchCrypto) =
+  let
+    now = Moment.now()
 
-  if self.pendingBuffer.len == 0:
+  # If batches haven't been processed for more than 12 seconds
+  while batchCrypto.batches.len() > 0:
+    if batchCrypto.batches[0][].created + SECONDS_PER_SLOT.int64.seconds > now:
+      break
+    if batchCrypto.pruneTime + SECONDS_PER_SLOT.int64.seconds > now:
+      notice "Batch queue pruned, skipping attestation validation",
+        batches = batchCrypto.batches.len()
+      batchCrypto.pruneTime = Moment.now()
+    batchCrypto.batches[0][].skip()
+    batchCrypto.batches.delete(0)
+
+proc processBatch(batchCrypto: ref BatchCrypto) =
+  ## Process one batch, if there is any
+
+  # Pruning the queue here makes sure we catch up with processing if need be
+  batchCrypto.pruneBatchQueue() # Skip old batches
+
+  if batchCrypto[].batches.len() == 0:
+    # No more batches left, they might have been eagerly processed or pruned
+    return
+
+  let
+    batch = batchCrypto[].batches[0]
+    batchSize = batch[].len()
+  batchCrypto[].batches.del(0)
+
+  if batchSize == 0:
+    # Nothing to do in this batch, can happen when a batch is created without
+    # there being any signatures successfully added to it
     return
 
   trace "batch crypto - starting",
-    batchSize = self.pendingBuffer.len
+    batchSize
 
   let startTime = Moment.now()
 
   var secureRandomBytes: array[32, byte]
-  self.rng[].brHmacDrbgGenerate(secureRandomBytes)
+  batchCrypto[].rng[].brHmacDrbgGenerate(secureRandomBytes)
 
   # TODO: For now only enable serial batch verification
   let ok = batchVerifySerial(
-    self.sigVerifCache,
-    self.pendingBuffer,
+    batchCrypto.sigVerifCache,
+    batch.pendingBuffer,
     secureRandomBytes)
 
   let stopTime = Moment.now()
 
-  debug "batch crypto - finished",
-    batchSize = self.pendingBuffer.len,
+  trace "batch crypto - finished",
+    batchSize,
     cryptoVerified = ok,
     dur = stopTime - startTime
 
   if ok:
-    for i in 0 ..< self.resultsBuffer.len:
-      self.done(i)
+    for res in batch.resultsBuffer.mitems():
+      res.complete(BatchResult.Valid)
   else:
+    # Batched verification failed meaning that some of the signature checks
+    # failed, but we don't know which ones - check each signature separately
+    # instead
     debug "batch crypto - failure, falling back",
-      batchSize = self.pendingBuffer.len
-    for i in 0 ..< self.pendingBuffer.len:
-      let ok = blsVerify self.pendingBuffer[i]
-      if ok:
-        self.done(i)
-      else:
-        self.fail(i, "batch crypto verification: invalid signature")
+      batchSize
+    for i, res in batch.resultsBuffer.mpairs():
+      let ok = blsVerify batch[].pendingBuffer[i]
+      res.complete(if ok: BatchResult.Valid else: BatchResult.Invalid)
 
-  self.clear()
+  batch[].clear() # release memory early
 
-proc deferCryptoProcessing(self: ref BatchCrypto, idleTimeout: Duration) {.async.} =
-  ## Process pending crypto check:
-  ## - if time threshold is reached
-  ## - or if networking is idle
+proc deferCryptoProcessing(batchCrypto: ref BatchCrypto) {.async.} =
+  ## Process pending crypto check after some time has passed - the time is
+  ## chosen such that there's time to fill the batch but not so long that
+  ## latency across the network is negatively affected
+  await sleepAsync(BatchAttAccumTime)
 
-  # TODO: how to cancel the scheduled `deferCryptoProcessing(BatchAttAccumTime)` ?
-  #       when the buffer size threshold is reached?
-  # In practice this only happens when we receive a burst of attestations/aggregates.
-  # Though it's possible to reach the threshold 9ms in,
-  # and have only 1ms left for further accumulation.
-  await sleepAsync(idleTimeout)
-  self[].processBufferedCrypto()
+  # Take the first batch in the queue and process it - if eager processing has
+  # stolen it already, that's fine
+  batchCrypto.processBatch()
 
-proc schedule(batchCrypto: ref BatchCrypto, fut: Future[Result[void, cstring]], checkThreshold = true) =
-  ## Schedule a cryptocheck for processing
-  ##
-  ## The buffer is processed:
-  ## - when 16 or more attestations/aggregates are buffered (BatchedCryptoSize)
-  ## - when there are no network events (idleAsync)
-  ## - otherwise after 10ms (BatchAttAccumTime)
+proc getBatch(batchCrypto: ref BatchCrypto): (ref Batch, bool) =
+  # Get a batch suitable for attestation processing - in particular, attestation
+  # batches might be skipped
+  batchCrypto.pruneBatchQueue()
 
-  # Note: use the resultsBuffer size to detect the first item
-  #       as pendingBuffer is appended to 3 by 3 in case of aggregates
+  if batchCrypto.batches.len() == 0 or
+      batchCrypto.batches[^1][].full():
+    # There are no batches in progress - start a new batch and schedule a
+    # deferred task to eventually handle it
+    let batch = (ref Batch)(created: Moment.now())
+    batchCrypto[].batches.add(batch)
+    (batch, true)
+  else:
+    let batch = batchCrypto[].batches[^1]
+    # len will be 0 when the batch was created but nothing added to it
+    # because of early failures
+    (batch, batch[].len() == 0)
+proc scheduleBatch(batchCrypto: ref BatchCrypto, fresh: bool) =
+  if fresh:
+    # Every time we start a new round of batching, we need to launch a deferred
+    # task that will compute the result of the batch eventually in case the
+    # batch is never filled or eager processing is blocked
+    asyncSpawn batchCrypto.deferCryptoProcessing()
 
-  batchCrypto.resultsBuffer.add fut
-
-  if batchCrypto.resultsBuffer.len == 1:
-    # First attestation to be scheduled in the batch
-    # wait for an idle time or up to 10ms before processing
-    trace "batch crypto - scheduling next",
-      deadline = BatchAttAccumTime
-    asyncSpawn batchCrypto.deferCryptoProcessing(BatchAttAccumTime)
-  elif checkThreshold and
-       batchCrypto.resultsBuffer.len >= BatchedCryptoSize:
-    # Reached the max buffer size, process immediately
-    # TODO: how to cancel the scheduled `deferCryptoProcessing(BatchAttAccumTime)` ?
-    batchCrypto[].processBufferedCrypto()
+  if batchCrypto.batches.len() > 0 and
+      batchCrypto.batches[0][].full() and
+      batchCrypto.eager():
+    # If there's a full batch, process it eagerly assuming the callback allows
+    batchCrypto.processBatch()
 
 proc scheduleAttestationCheck*(
       batchCrypto: ref BatchCrypto,
       fork: Fork, genesis_validators_root: Eth2Digest,
       epochRef: EpochRef,
       attestation: Attestation
-     ): Option[(Future[Result[void, cstring]], CookedSig)] =
+     ): Option[(Future[BatchResult], CookedSig)] =
   ## Schedule crypto verification of an attestation
   ##
   ## The buffer is processed:
-  ## - when 16 or more attestations/aggregates are buffered (BatchedCryptoSize)
-  ## - when there are no network events (idleAsync)
+  ## - when eager processing is enabled and the batch is full
   ## - otherwise after 10ms (BatchAttAccumTime)
   ##
   ## This returns None if crypto sanity checks failed
   ## and a future with the deferred attestation check otherwise.
-  doAssert batchCrypto.pendingBuffer.len < BatchedCryptoSize
+  ##
+  let (batch, fresh) = batchCrypto.getBatch()
 
-  let (sanity, sig) = batchCrypto
-                       .pendingBuffer
-                       .addAttestation(
-                         fork, genesis_validators_root, epochRef,
-                         attestation
-                       )
-  if not sanity:
-    return none((Future[Result[void, cstring]], CookedSig))
+  doAssert batch.pendingBuffer.len < BatchedCryptoSize
 
-  let fut = newFuture[Result[void, cstring]](
+  let sig = batch
+              .pendingBuffer
+              .addAttestation(
+                fork, genesis_validators_root, epochRef,
+                attestation
+              )
+  if not sig.isSome():
+    return none((Future[BatchResult], CookedSig))
+
+  let fut = newFuture[BatchResult](
     "batch_validation.scheduleAttestationCheck"
   )
 
-  batchCrypto.schedule(fut)
+  batch[].resultsBuffer.add(fut)
 
-  return some((fut, sig))
+  batchCrypto.scheduleBatch(fresh)
+
+  return some((fut, sig.get()))
 
 proc scheduleAggregateChecks*(
       batchCrypto: ref BatchCrypto,
@@ -207,7 +258,7 @@ proc scheduleAggregateChecks*(
       signedAggregateAndProof: SignedAggregateAndProof
      ): Option[(
        tuple[slotCheck, aggregatorCheck, aggregateCheck:
-         Future[Result[void, cstring]]],
+         Future[BatchResult]],
        CookedSig)] =
   ## Schedule crypto verification of an aggregate
   ##
@@ -217,71 +268,74 @@ proc scheduleAggregateChecks*(
   ## - is_valid_indexed_attestation
   ##
   ## The buffer is processed:
-  ## - when 16 or more attestations/aggregates are buffered (BatchedCryptoSize)
-  ## - when there are no network events (idleAsync)
+  ## - when eager processing is enabled and the batch is full
   ## - otherwise after 10ms (BatchAttAccumTime)
   ##
-  ## This returns None if crypto sanity checks failed
-  ## and 2 futures with the deferred aggregate checks otherwise.
-  doAssert batchCrypto.pendingBuffer.len < BatchedCryptoSize
+  ## This returns None if the signatures could not be loaded.
+  ## and 3 futures with the deferred aggregate checks otherwise.
+  let (batch, fresh) = batchCrypto.getBatch()
+
+  doAssert batch[].pendingBuffer.len < BatchedCryptoSize
 
   template aggregate_and_proof: untyped = signedAggregateAndProof.message
   template aggregate: untyped = aggregate_and_proof.aggregate
 
   type R = (
     tuple[slotCheck, aggregatorCheck, aggregateCheck:
-      Future[Result[void, cstring]]],
+      Future[BatchResult]],
     CookedSig)
 
   # Enqueue in the buffer
   # ------------------------------------------------------
   let aggregator = epochRef.validator_keys[aggregate_and_proof.aggregator_index]
   block:
-    let sanity = batchCrypto
-                  .pendingBuffer
-                  .addSlotSignature(
-                    fork, genesis_validators_root,
-                    aggregate.data.slot,
-                    aggregator,
-                    aggregate_and_proof.selection_proof
-                  )
-    if not sanity:
+    if not batch
+            .pendingBuffer
+            .addSlotSignature(
+              fork, genesis_validators_root,
+              aggregate.data.slot,
+              aggregator,
+              aggregate_and_proof.selection_proof
+            ):
       return none(R)
-
-  block:
-    let sanity = batchCrypto
-                  .pendingBuffer
-                  .addAggregateAndProofSignature(
-                    fork, genesis_validators_root,
-                    aggregate_and_proof,
-                    aggregator,
-                    signed_aggregate_and_proof.signature
-                  )
-    if not sanity:
-      return none(R)
-
-  let (sanity, sig) = batchCrypto
-                       .pendingBuffer
-                       .addAttestation(
-                         fork, genesis_validators_root, epochRef,
-                         aggregate
-                       )
-  if not sanity:
-    return none(R)
-
-  let futSlot = newFuture[Result[void, cstring]](
+  let futSlot = newFuture[BatchResult](
     "batch_validation.scheduleAggregateChecks.slotCheck"
   )
-  let futAggregator = newFuture[Result[void, cstring]](
+  batch.resultsBuffer.add(futSlot)
+
+  block:
+    if not batch
+            .pendingBuffer
+            .addAggregateAndProofSignature(
+              fork, genesis_validators_root,
+              aggregate_and_proof,
+              aggregator,
+              signed_aggregate_and_proof.signature
+            ):
+      batchCrypto.scheduleBatch(fresh)
+      return none(R)
+
+  let futAggregator = newFuture[BatchResult](
     "batch_validation.scheduleAggregateChecks.aggregatorCheck"
   )
 
-  let futAggregate = newFuture[Result[void, cstring]](
+  batch.resultsBuffer.add(futAggregator)
+
+  let sig = batch
+              .pendingBuffer
+              .addAttestation(
+                fork, genesis_validators_root, epochRef,
+                aggregate
+              )
+  if not sig.isSome():
+    batchCrypto.scheduleBatch(fresh)
+    return none(R)
+
+  let futAggregate = newFuture[BatchResult](
     "batch_validation.scheduleAggregateChecks.aggregateCheck"
   )
+  batch.resultsBuffer.add(futAggregate)
 
-  batchCrypto.schedule(futSlot, checkThreshold = false)
-  batchCrypto.schedule(futAggregator, checkThreshold = false)
-  batchCrypto.schedule(futAggregate)
+  batchCrypto.scheduleBatch(fresh)
 
-  return some(((futSlot, futAggregator, futAggregate), sig))
+  return some(((futSlot, futAggregator, futAggregate), sig.get()))

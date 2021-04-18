@@ -50,7 +50,7 @@ type
   # signatures lazily - this helps operations like comparisons and hashes to
   # be fast (which is important), makes loading blocks and states fast, and
   # allows invalid values in the SSZ byte stream, which is valid from an SSZ
-  # point of view - the invalid values are later processed to
+  # point of view - the invalid values are caught later
   ValidatorPubKey* = object
     blob*: array[RawPubKeySize, byte]
 
@@ -69,10 +69,9 @@ type
   SomeSig* = TrustedSig | ValidatorSig
 
   CookedSig* = distinct blscurve.Signature  ## \
-  ## Allows loading in an atttestation or other message's signature once across
-  ## all its computations, rather than repeatedly re-loading it each time it is
-  ## referenced. This primarily currently serves the attestation pool.
-
+    ## Cooked signatures are those that have been loaded successfully from a
+    ## ValidatorSig and are used to avoid expensive reloading as well as error
+    ## checking
 export AggregateSignature
 
 # API
@@ -108,36 +107,26 @@ proc loadWithCache*(v: ValidatorPubKey): Option[blscurve.PublicKey] =
       else:
         none blscurve.PublicKey
 
-proc load*(v: ValidatorSig): Option[blscurve.Signature] =
+proc load*(v: ValidatorSig): Option[CookedSig] =
   ## Parse signature blob - this may fail
   var parsed: blscurve.Signature
   if fromBytes(parsed, v.blob):
-    some(parsed)
+    some(CookedSig(parsed))
   else:
-    none(blscurve.Signature)
-
-func init*(agg: var AggregateSignature, sig: ValidatorSig) {.inline.}=
-  ## Initializes an aggregate signature context
-  ## This assumes that the signature is valid
-  agg.init(sig.load().get())
+    none(CookedSig)
 
 func init*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
   ## Initializes an aggregate signature context
   agg.init(blscurve.Signature(sig))
 
-func init*(T: type AggregateSignature, sig: CookedSig | ValidatorSig): T =
+func init*(T: type AggregateSignature, sig: CookedSig): T =
   result.init(sig)
 
-proc aggregate*(agg: var AggregateSignature, sig: ValidatorSig) {.inline.}=
-  ## Aggregate two Validator Signatures
-  ## Both signatures must be valid
-  agg.aggregate(sig.load.get())
-
 proc aggregate*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
-  ## Aggregate two Validator Signatures
+  ## Aggregate two valid Validator Signatures
   agg.aggregate(blscurve.Signature(sig))
 
-func finish*(agg: AggregateSignature): CookedSig {.inline.}=
+func finish*(agg: AggregateSignature): CookedSig {.inline.} =
   ## Canonicalize an AggregateSignature into a signature
   var sig: blscurve.Signature
   sig.finish(agg)
@@ -146,7 +135,7 @@ func finish*(agg: AggregateSignature): CookedSig {.inline.}=
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#bls-signatures
 proc blsVerify*(
     pubkey: ValidatorPubKey, message: openArray[byte],
-    signature: ValidatorSig): bool =
+    signature: CookedSig): bool =
   ## Check that a signature is valid for a message
   ## under the provided public key.
   ## returns `true` if the signature is valid, `false` otherwise.
@@ -155,19 +144,23 @@ proc blsVerify*(
   ## It is recommended to use the overload that accepts a proof-of-possession
   ## to enforce correct usage.
   let
-    parsedSig = signature.load()
+    parsedKey = pubkey.loadWithCache()
+
+  # It may happen that signatures or keys fail to parse as invalid blobs may
+  # be passed around - for example, the deposit contract doesn't verify
+  # signatures, so the loading happens lazily at verification time instead!
+  parsedKey.isSome() and
+    parsedKey.get.verify(message, blscurve.Signature(signature))
+
+proc blsVerify*(
+    pubkey: ValidatorPubKey, message: openArray[byte],
+    signature: ValidatorSig): bool =
+  let parsedSig = signature.load()
 
   if parsedSig.isNone():
     false
   else:
-    let
-      parsedKey = pubkey.loadWithCache()
-
-    # It may happen that signatures or keys fail to parse as invalid blobs may
-    # be passed around - for example, the deposit contract doesn't verify
-    # signatures, so the loading happens lazily at verification time instead!
-    parsedKey.isSome() and
-      parsedKey.get.verify(message, parsedSig.get())
+    blsVerify(pubkey, message, parsedSig.get())
 
 proc blsVerify*(sigSet: SignatureSet): bool =
   ## Unbatched verification
@@ -179,15 +172,14 @@ proc blsVerify*(sigSet: SignatureSet): bool =
     sigSet.signature
   )
 
-func blsSign*(privkey: ValidatorPrivKey, message: openArray[byte]): ValidatorSig =
+func blsSign*(privkey: ValidatorPrivKey, message: openArray[byte]): CookedSig =
   ## Computes a signature from a secret key and a message
-  let sig = SecretKey(privkey).sign(message)
-  ValidatorSig(blob: sig.exportRaw())
+  CookedSig(SecretKey(privkey).sign(message))
 
 proc blsFastAggregateVerify*(
        publicKeys: openArray[ValidatorPubKey],
        message: openArray[byte],
-       signature: ValidatorSig
+       signature: CookedSig
      ): bool =
   ## Verify the aggregate of multiple signatures on the same message
   ## This function is faster than AggregateVerify
@@ -207,9 +199,6 @@ proc blsFastAggregateVerify*(
   #           in blscurve which already exists internally
   #         - or at network/databases/serialization boundaries we do not
   #           allow invalid BLS objects to pollute consensus routines
-  let parsedSig = signature.load()
-  if not parsedSig.isSome():
-    return false
   var unwrapped: seq[PublicKey]
   for pubkey in publicKeys:
     let realkey = pubkey.loadWithCache()
@@ -217,7 +206,18 @@ proc blsFastAggregateVerify*(
       return false
     unwrapped.add realkey.get
 
-  fastAggregateVerify(unwrapped, message, parsedSig.get())
+  fastAggregateVerify(unwrapped, message, blscurve.Signature(signature))
+
+proc blsFastAggregateVerify*(
+       publicKeys: openArray[ValidatorPubKey],
+       message: openArray[byte],
+       signature: ValidatorSig
+     ): bool =
+  let parsedSig = signature.load()
+  if not parsedSig.isSome():
+    false
+  else:
+    blsFastAggregateVerify(publicKeys, message, parsedSig.get())
 
 proc toGaugeValue*(hash: Eth2Digest): int64 =
   # Only the last 8 bytes are taken into consideration in accordance
@@ -252,7 +252,7 @@ template toRaw*(x: TrustedSig): auto =
 func toHex*(x: BlsCurveType): string =
   toHex(toRaw(x))
 
-func exportRaw*(x: CookedSig): ValidatorSig =
+func toValidatorSig*(x: CookedSig): ValidatorSig =
   ValidatorSig(blob: blscurve.Signature(x).exportRaw())
 
 func fromRaw*(T: type ValidatorPrivKey, bytes: openArray[byte]): BlsResult[T] =
