@@ -34,39 +34,17 @@ type
     ## Fork Choice Error Kinds
     fcFinalizedNodeUnknown
     fcJustifiedNodeUnknown
-    fcInvalidFinalizedRootChange
     fcInvalidNodeIndex
-    fcInvalidParentIndex
-    fcInvalidBestChildIndex
     fcInvalidJustifiedIndex
     fcInvalidBestDescendant
     fcInvalidParentDelta
     fcInvalidNodeDelta
     fcDeltaUnderflow
-    fcIndexUnderflow
     fcInvalidDeltaLen
-    fcRevertedFinalizedEpoch
     fcInvalidBestNode
     fcInconsistentTick
-    # -------------------------
-    # TODO: Extra error modes beyond Proto/Lighthouse to be reviewed
     fcUnknownParent
     fcPruningFromOutdatedFinalizedRoot
-
-  AttErrorKind* = enum
-    attFromFuture
-    attFromPast
-    attBadTargetEpoch
-    attUnkownTarget
-    attUnknownBlock
-    attWrongTarget
-    attFutureSlot
-
-  FcUnderflowKind* = enum
-    ## Fork Choice Overflow Kinds
-     fcUnderflowIndices = "Indices Overflow"
-     fcUnderflowBestChild = "Best Child Overflow"
-     fcUnderflowBestDescendant = "Best Descendant Overflow"
 
   Index* = int
   Delta* = int64
@@ -77,26 +55,18 @@ type
     of fcFinalizedNodeUnknown,
        fcJustifiedNodeUnknown:
          blockRoot*: Eth2Digest
-    of fcInvalidFinalizedRootChange,
-       fcInconsistentTick:
+    of fcInconsistentTick:
       discard
     of fcInvalidNodeIndex,
-       fcInvalidParentIndex,
-       fcInvalidBestChildIndex,
        fcInvalidJustifiedIndex,
        fcInvalidBestDescendant,
        fcInvalidParentDelta,
        fcInvalidNodeDelta,
        fcDeltaUnderflow:
          index*: Index
-    of fcIndexUnderflow:
-      underflowKind*: FcUnderflowKind
     of fcInvalidDeltaLen:
       deltasLen*: int
       indicesLen*: int
-    of fcRevertedFinalizedEpoch:
-      currentFinalizedEpoch*: Epoch
-      new_finalized_epoch*: Epoch
     of fcInvalidBestNode:
       startRoot*: Eth2Digest
       justifiedEpoch*: Epoch
@@ -158,17 +128,10 @@ type
     votes*: seq[VoteTracker]
     balances*: seq[Gwei]
 
-  QueuedAttestation* = object
-    slot*: Slot
-    attesting_indices*: seq[ValidatorIndex]
-    block_root*: Eth2Digest
-    target_epoch*: Epoch
-
   ForkChoice* = object
     backend*: ForkChoiceBackend
     checkpoints*: Checkpoints
     finalizedBlock*: BlockRef ## Any finalized block used at startup
-    queuedAttestations*: seq[QueuedAttestation]
 
 func shortlog*(vote: VoteTracker): auto =
   (

@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[sequtils, tables],
+  std/[tables],
   # Status libraries
   stew/results, chronicles,
   # Internal
@@ -40,9 +40,6 @@ func compute_deltas(
        old_balances: openArray[Gwei],
        new_balances: openArray[Gwei]
      ): FcResult[void]
-# TODO: raises [Defect] - once https://github.com/nim-lang/Nim/issues/12862 is fixed
-#       https://github.com/status-im/nimbus-eth2/pull/865#pullrequestreview-389117232
-
 # Fork choice routines
 # ----------------------------------------------------------------------
 
@@ -71,7 +68,8 @@ proc init*(T: type ForkChoice,
     epoch = epochRef.epoch, blck = shortLog(blck)
 
   let
-    justified = BalanceCheckpoint(blck: blck, epoch: epochRef.epoch, balances: epochRef.effective_balances)
+    justified = BalanceCheckpoint(
+      blck: blck, epoch: epochRef.epoch, balances: epochRef.effective_balances)
     finalized = Checkpoint(root: blck.root, epoch: epochRef.epoch)
     best_justified = Checkpoint(
       root: justified.blck.root, epoch: justified.epoch)
@@ -117,14 +115,10 @@ proc on_tick(self: var Checkpoints, dag: ChainDAGRef, time: Slot): FcResult[void
       balances: epochRef.effective_balances)
   ok()
 
-proc process_attestation_queue(self: var ForkChoice) {.gcsafe.}
-
 proc update_time(self: var ForkChoice, dag: ChainDAGRef, time: Slot): FcResult[void] =
   if time > self.checkpoints.time:
     while time > self.checkpoints.time:
       ? on_tick(self.checkpoints, dag, self.checkpoints.time + 1)
-
-    self.process_attestation_queue() # Only run if time changed!
 
   ok()
 
@@ -153,16 +147,6 @@ func process_attestation*(
         validator_index = validator_index,
         new_vote = shortLog(vote)
 
-proc process_attestation_queue(self: var ForkChoice) =
-  self.queuedAttestations.keepItIf:
-    if it.slot < self.checkpoints.time:
-      for validator_index in it.attesting_indices:
-        self.backend.process_attestation(
-          validator_index.ValidatorIndex, it.block_root, it.slot.epoch())
-      false
-    else:
-      true
-
 func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## Returns `true` if a block is known to the fork choice
   ## and `false` otherwise.
@@ -176,7 +160,7 @@ proc on_attestation*(
        dag: ChainDAGRef,
        attestation_slot: Slot,
        beacon_block_root: Eth2Digest,
-       attesting_indices: seq[ValidatorIndex],
+       attesting_indices: openArray[ValidatorIndex],
        wallSlot: Slot
      ): FcResult[void] =
   ? self.update_time(dag, wallSlot)
@@ -188,13 +172,11 @@ proc on_attestation*(
     for validator_index in attesting_indices:
       # attestation_slot and target epoch must match, per attestation rules
       self.backend.process_attestation(
-        validator_index.ValidatorIndex, beacon_block_root,
-        attestation_slot.epoch)
+        validator_index, beacon_block_root, attestation_slot.epoch)
   else:
-    self.queuedAttestations.add(QueuedAttestation(
-      slot: attestation_slot,
-      attesting_indices: attesting_indices,
-      block_root: beacon_block_root))
+    # Attestations like this should be filtered much earlier in the pipeline!
+    debug "Dropping attestation, too early",
+      attestation_slot, time = self.checkpoints.time
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/fork-choice.md#should_update_justified_checkpoint
