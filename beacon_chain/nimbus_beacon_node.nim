@@ -1204,12 +1204,12 @@ proc installMessageValidators(node: BeaconNode) =
   # subnets are subscribed to during any given epoch.
   for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
     closureScope:
-      let ci = it
+      let attestation_subnet = it
       node.network.addAsyncValidator(
-        getAttestationTopic(node.forkDigest, ci),
+        getAttestationTopic(node.forkDigest, attestation_subnet),
         # This proc needs to be within closureScope; don't lift out of loop.
         proc(attestation: Attestation): Future[ValidationResult] =
-          node.processor.attestationValidator(attestation, ci))
+          node.processor.attestationValidator(attestation, attestation_subnet))
 
   node.network.addAsyncValidator(
     getAggregateAndProofsTopic(node.forkDigest),

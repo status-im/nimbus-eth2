@@ -134,16 +134,16 @@ func check_aggregation_count(
 
 func check_attestation_subnet(
     epochRef: EpochRef, attestation: Attestation,
-    topicCommitteeIndex: uint64): Result[void, (ValidationResult, cstring)] =
+    attestation_subnet: uint64): Result[void, (ValidationResult, cstring)] =
   let
     expectedSubnet =
       compute_subnet_for_attestation(
         get_committee_count_per_slot(epochRef),
         attestation.data.slot, attestation.data.index.CommitteeIndex)
 
-  if expectedSubnet != topicCommitteeIndex:
+  if expectedSubnet != attestation_subnet:
     return err((ValidationResult.Reject, cstring(
-      "Attestation's committee index not for the correct subnet")))
+      "Attestation not on the correct subnet")))
 
   ok()
 
@@ -157,7 +157,7 @@ proc validateAttestation*(
     batchCrypto: ref BatchCrypto,
     attestation: Attestation,
     wallTime: BeaconTime,
-    topicCommitteeIndex: uint64, checksExpensive: bool):
+    attestation_subnet: uint64, checksExpensive: bool):
     Future[Result[tuple[attestingIndices: seq[ValidatorIndex], sig: CookedSig],
       (ValidationResult, cstring)]] {.async.} =
   # Some of the checks below have been reordered compared to the spec, to
@@ -227,7 +227,7 @@ proc validateAttestation*(
   # attestation.data.target.epoch), which may be pre-computed along with the
   # committee information for the signature check.
   block:
-    let v = check_attestation_subnet(epochRef, attestation, topicCommitteeIndex) # [REJECT]
+    let v = check_attestation_subnet(epochRef, attestation, attestation_subnet) # [REJECT]
     if v.isErr():
       return err(v.error)
 

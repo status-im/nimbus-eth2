@@ -355,7 +355,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
 
     for request in requests:
-      if uint64(request.committee_index) >= uint64(ATTESTATION_SUBNET_COUNT):
+      if uint64(request.committee_index) >= uint64(MAX_COMMITTEES_PER_SLOT):
         return RestApiResponse.jsonError(Http400,
                                          InvalidCommitteeIndexValueError)
       let validator_pubkey =
