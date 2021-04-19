@@ -1,39 +1,86 @@
-2021-04-05 v1.1.0
+2021-04-19 v1.2.0
 =================
 
-This release brings planned reforms to our database schema that provide substantial
-performance improvements and pave the way for an an improved doppelganger detection
-ready immediately to propose and attest to blocks (in a future release).
+If [`v1.1.0`](https://github.com/status-im/nimbus-eth2/releases/tag/v1.1.0)
+was the big I/O update, `v1.2.0` is all about the CPU - together, these
+updates help secure Nimbus against future network growth, and provide us
+with a higher security margin and substantial [profitability improvements]
+(https://twitter.com/ethnimbus/status/1384071918723092486).
 
-Please be aware that we will remain committed to maintaining backwards compatibility between
-releases, but **this release does not support downgrading back to any previous 1.0.x release**.
+To highlight just one data point, this release offers **up to 40% performance
+improvements** over `v1.1.0` ( 🙏  batched attestation processing).
+This makes it the first release we can officially recommend for validating
+on a Raspberry Pi 4.
 
-As a safety precaution, we advise you to **please backup your Nimbus database before upgrading**
-if possible.
+> **N.B.** this release contains a **critical stability fix** so please
+  **make sure you upgrade!**
 
 **New features:**
 
-* More efficient state storage format ==> reduced I/O load and lower storage requirements.
+* Beta support for the official Beacon Node REST API:
+  https://ethereum.github.io/eth2.0-APIs/. Enable it by launching
+  the client with the `--rest:on` command-line flag
 
-* More efficient in-memory cache for non-finalized states ==> significant reduction in memory
-  usage.
+* Batched attestation verification and other reforms **->** massive
+  reduction in overall CPU usage.
 
-* More efficient slashing database schema ==> scales better to a larger number of validators.
+* Improved attestation aggregation logic **->** denser aggregations
+  which in turn improve the overall health of the network and improve
+  block production.
 
-* The metrics support is now compiled by default thanks to a new and more secure HTTP back-end.
+* More efficient LibP2P connection handling code **->** reduction in
+  overall memory usage.
 
-* Command-line tools for generating testnet keystores and JSON deposit files suitable for use
-  with the official network launchpads.
+**We've fixed:**
 
-* `setGraffiti` JSON-RPC call for modifying the graffiti bytes of the client at run-time.
+* A critical stability issue in attestation processing.
+
+* `scripts/run-*-node.sh` no longer prompts for a web3 provider URL
+  when the `--web3-url` command-line option has already been specified.
+
+2021-04-05 v1.1.0
+=================
+
+This release brings planned reforms to our database schema that provide
+substantial performance improvements and pave the way for an an improved
+doppelganger detection ready immediately to propose and attest to blocks
+(in a future release).
+
+Please be aware that we will remain committed to maintaining backwards
+compatibility between releases, but **this release does not support
+downgrading back to any previous 1.0.x release**.
+
+As a safety precaution, we advise you to **please backup your Nimbus
+database before upgrading** if possible.
+
+**New features:**
+
+* More efficient state storage format ==> reduced I/O load and lower
+  storage requirements.
+
+* More efficient in-memory cache for non-finalized states ==> significant
+  reduction in memory usage.
+
+* More efficient slashing database schema ==> scales better to a larger
+  number of validators.
+
+* The metrics support is now compiled by default thanks to a new and
+  more secure HTTP back-end.
+
+* Command-line tools for generating testnet keystores and JSON deposit
+  files suitable for use with the official network launchpads.
+
+* `setGraffiti` JSON-RPC call for modifying the graffiti bytes of the
+  client at run-time.
 
 * `next_action_wait` metric indicating the time until the next scheduled
   attestation or block proposal.
 
-* More convenient command-line help messages providing information regarding the default
-  values of all parameters.
+* More convenient command-line help messages providing information
+  regarding the default values of all parameters.
 
-* `--direct-peer` gives you the ability to specify gossip nodes to automatically connect to.
+* `--direct-peer` gives you the ability to specify gossip nodes
+  to automatically connect to.
 
 * Official docker images for ARM and ARM64.
 
@@ -43,15 +90,19 @@ if possible.
 
 * Long processing delays induced by database pruning.
 
-* File descriptor leaks (which manifested after failures of the selected web3 provider).
+* File descriptor leaks (which manifested after failures of the selected
+  web3 provider).
 
-* The validator APIs now return precise actual balances instead of rounded effective balances.
+* The validator APIs now return precise actual balances instead of rounded
+  effective balances.
 
-* A connection tracking problem which produced failed outgoing connection attempts.
+* A connection tracking problem which produced failed outgoing connection
+  attempts.
 
 **Breaking changes:**
 
-* Nimbus-specific JSON-RPCs intended for debug purposes now have the `debug_` prefix:
+* Nimbus-specific JSON-RPCs intended for debug purposes now have
+  the `debug_` prefix:
 
   - `getGossipSubPeers` is now `debug_getGossipSubPeers`
   - `getChronosFutures` is now `debug_getChronosFutures`
@@ -107,12 +158,13 @@ This release contains important security and performance improvements.
 
   - Significantly reduces the disk load with a large number of validators (1000+).
 
-  - Makes it possible to enhance our doppelganger detection in the future such that
-    waiting for 2 epochs before attesting is not necessary.
+  - Makes it possible to enhance our doppelganger detection in the future
+    such that waiting for 2 epochs before attesting is not necessary.
 
-  To ensure smooth upgrade and emergency rollback between older and future Nimbus
-  versions, v1.0.10 will keep track of your attestation in both the old and the
-  new format. The extra load should be negligible for home stakers.
+  To ensure smooth upgrade and emergency rollback between older and future
+  Nimbus versions, v1.0.10 will keep track of your attestation in both the
+  old and the new format. The extra load should be negligible for home
+  stakers.
 
 
 2021-03-09 v1.0.9
