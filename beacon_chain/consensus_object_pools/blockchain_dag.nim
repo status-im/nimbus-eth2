@@ -587,10 +587,6 @@ proc putState*(dag: ChainDAGRef, state: var StateData) =
   # is resilient against one or the other going missing
   dag.db.putState(state.data.root, state.data.data)
 
-  # Allow backwards-compatible version rollback with bounded recovery cost
-  if getStateField(state, slot).epoch mod 256 == 0:
-    dag.db.putStateFull(state.data.root, state.data.data)
-
   dag.db.putStateRoot(
     state.blck.root, getStateField(state, slot), state.data.root)
 

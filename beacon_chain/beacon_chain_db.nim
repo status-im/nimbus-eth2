@@ -502,11 +502,8 @@ proc putState*(db: BeaconChainDB, key: Eth2Digest, value: var BeaconState) =
 proc putState*(db: BeaconChainDB, value: var BeaconState) =
   db.putState(hash_tree_root(value), value)
 
-proc putStateFull*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
-  db.backend.putEncoded(subkey(BeaconState, key), value)
-
 proc putStateFull*(db: BeaconChainDB, value: BeaconState) =
-  db.putStateFull(hash_tree_root(value), value)
+  db.backend.putEncoded(subkey(BeaconState, hash_tree_root(value)), value)
 
 proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
     value: Eth2Digest) =
