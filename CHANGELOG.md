@@ -1,24 +1,26 @@
 2021-04-20 v1.2.1
 =================
 
-This is a hotfix release, solving a database migration issue for users who
-have used Nimbus 1.1.0 to sync with the network from genesis. If you have
-used older versions of Nimbus prior to upgrading to 1.1.0, you should not
-be affected. The issue was causing the 1.2.0 client to perform a full sync
-after upgrading from 1.1.0. If this happened to you, our advice is to take
-one of the following actions:
+This is a hotfix release that solves the database migration issue highlighted
+in the previous release -- this problem affected new Nimbus users who used
+v1.1.0 to sync with the network from genesis, essentially resetting their
+database and causing them to start re-syncing from genesis.
 
-1) If you have backed-up your database prior to upgrading to 1.2.0, you can
-   restore the database from backup and execute the migration successfully
-   after upgrading to 1.2.1.
+If you have used an older version of Nimbus prior to upgrading to v1.1.0,
+you should not be affected.
 
-2) It would be safe to allow the full sync to complete either with 1.2.0 or
-   after upgrading to 1.2.1. The normal operation of the client will resume
-   once it's fully synced.
+If you were affected, you have a couple of options available to you:
 
-Please accept our sincery appologies for any caused inconvenience. We will be
-reviewing our release testing policies to ensure that more possible upgrade
-paths are being covered in the future.
+1) If you have backed-up your database prior to upgrading to v1.2.0, you
+   can restore the database from backup and execute the migration successfully
+   after upgrading to this release.
+
+2) If you haven't backed up your database, you can upgrade to this release at
+   your convenience; rest assured it won't delete your sync history.
+
+Please accept our sincerest apologies for any inconvenience we may have caused.
+We are reviewing our release testing policies to ensure that we cover a greater
+number of possible upgrade paths going forward.
 
 
 2021-04-19 v1.2.0
