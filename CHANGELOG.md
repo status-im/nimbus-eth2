@@ -4,7 +4,7 @@
 This is a hotfix release that solves the database migration issue highlighted
 in the previous release -- this problem affected new Nimbus users who used
 v1.1.0 to sync with the network from genesis, essentially resetting their
-database and causing them to start re-syncing from genesis.
+state database and causing them to start re-syncing from genesis.
 
 If you have used an older version of Nimbus prior to upgrading to v1.1.0,
 you should not be affected.
@@ -32,10 +32,9 @@ updates help secure Nimbus against future network growth, and provide us
 with a higher security margin and substantial [profitability improvements]
 (https://twitter.com/ethnimbus/status/1384071918723092486).
 
-To highlight just one data point, this release offers **up to 40% performance
-improvements** over `v1.1.0` ( 🙏  batched attestation processing).
-This makes it the first release we can officially recommend for validating
-on a Raspberry Pi 4.
+To highlight just one data point, CPU usage has been cut by up to 50% over
+v1.1.0 ( 🙏  batched attestation processing). This makes it the first release
+we can officially recommend for validating on a Raspberry Pi 4.
 
 > **N.B.** this release contains a **critical stability fix** so please
   **make sure you upgrade!**
