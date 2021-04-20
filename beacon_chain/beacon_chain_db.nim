@@ -567,7 +567,7 @@ proc getBlockSummary*(db: BeaconChainDB, key: Eth2Digest): Opt[BeaconBlockSummar
     result.err()
 
 proc getStateOnlyMutableValidators(
-    db: BeaconChainDB, key: Eth2Digest, output: var BeaconState,
+    db: BeaconChainDB, store: KvStoreRef, key: Eth2Digest, output: var BeaconState,
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
@@ -580,7 +580,7 @@ proc getStateOnlyMutableValidators(
   # TODO RVO is inefficient for large objects:
   #      https://github.com/nim-lang/Nim/issues/13879
 
-  case db.stateStore.getEncoded(
+  case store.getEncoded(
     subkey(
       BeaconStateNoImmutableValidators, key),
       isomorphicCast[BeaconStateNoImmutableValidators](output))
@@ -620,7 +620,7 @@ proc getState*(
   #      https://github.com/nim-lang/Nim/issues/14126
   # TODO RVO is inefficient for large objects:
   #      https://github.com/nim-lang/Nim/issues/13879
-  if getStateOnlyMutableValidators(db, key, output, rollback):
+  if getStateOnlyMutableValidators(db, db.stateStore, key, output, rollback):
     return true
 
   case db.backend.getEncoded(subkey(BeaconState, key), output)
@@ -681,6 +681,38 @@ proc containsState*(db: BeaconChainDB, key: Eth2Digest): bool =
 
 proc containsStateDiff*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.backend.contains(subkey(BeaconStateDiff, key)).expect("working database (disk broken/full?)")
+
+proc repairGenesisState*(db: BeaconChainDB, key: Eth2Digest): KvResult[void] =
+  # Nimbus 1.0 reads and writes writes genesis BeaconState to `backend`
+  # Nimbus 1.1 writes a genesis BeaconStateNoImmutableValidators to `backend` and
+  # reads both BeaconState and BeaconStateNoImmutableValidators from `backend`
+  # Nimbus 1.2 writes a genesis BeaconStateNoImmutableValidators to `stateStore`
+  # and reads BeaconState from `backend` and BeaconStateNoImmutableValidators
+  # from `stateStore`. This means that 1.2 cannot read a database created with
+  # 1.1 and earlier versions can't read databases created with either of 1.1
+  # and 1.2.
+  # Here, we will try to repair the database so that no matter what, there will
+  # be a `BeaconState` in `backend`:
+
+  if ? db.backend.contains(subkey(BeaconState, key)):
+    # No compatibility issues, life goes on
+    discard
+  elif ? db.backend.contains(subkey(BeaconStateNoImmutableValidators, key)):
+    # 1.1 writes this but not a full state - rewrite a full state
+    var output = new BeaconState
+    if not getStateOnlyMutableValidators(db, db.backend, key, output[], noRollback):
+      return err("Cannot load partial state")
+
+    putStateFull(db, output[])
+  elif ? db.stateStore.contains(subkey(BeaconStateNoImmutableValidators, key)):
+    # 1.2 writes this but not a full state - rewrite a full state
+    var output = new BeaconState
+    if not getStateOnlyMutableValidators(db, db.stateStore, key, output[], noRollback):
+      return err("Cannot load partial state")
+
+    putStateFull(db, output[])
+
+  ok()
 
 iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
     TrustedSignedBeaconBlock =
