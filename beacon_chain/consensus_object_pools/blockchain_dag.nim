@@ -1099,6 +1099,11 @@ proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): bool =
   if not (headBlock.isSome() and tailBlock.isSome()):
     return false
 
+  # 1.1 and 1.2 need a compatibility hack
+  if db.repairGenesisState(tailBlock.get().message.state_root).isErr():
+    notice "Could not repair genesis state"
+    return false
+
   if not db.containsState(tailBlock.get().message.state_root):
     return false
 
@@ -1120,6 +1125,7 @@ proc preInit*(
     validators = tailState.validators.len()
 
   db.putState(tailState)
+  db.putStateFull(tailState)
   db.putBlock(tailBlock)
   db.putTailBlock(tailBlock.root)
   db.putHeadBlock(tailBlock.root)
@@ -1130,6 +1136,7 @@ proc preInit*(
   else:
     doAssert genesisState.slot == GENESIS_SLOT
     db.putState(genesisState)
+    db.putStateFull(genesisState)
     let genesisBlock = get_initial_beacon_block(genesisState)
     db.putBlock(genesisBlock)
     db.putStateRoot(genesisBlock.root, GENESIS_SLOT, genesisBlock.message.state_root)

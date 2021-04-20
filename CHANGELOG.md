@@ -1,3 +1,26 @@
+2021-04-20 v1.2.1
+=================
+
+This is a hotfix release, solving a database migration issue for users who
+have used Nimbus 1.1.0 to sync with the network from genesis. If you have
+used older versions of Nimbus prior to upgrading to 1.1.0, you should not
+be affected. The issue was causing the 1.2.0 client to perform a full sync
+after upgrading from 1.1.0. If this happened to you, our advice is to take
+one of the following actions:
+
+1) If you have backed-up your database prior to upgrading to 1.2.0, you can
+   restore the database from backup and execute the migration successfully
+   after upgrading to 1.2.1.
+
+2) It would be safe to allow the full sync to complete either with 1.2.0 or
+   after upgrading to 1.2.1. The normal operation of the client will resume
+   once it's fully synced.
+
+Please accept our sincery appologies for any caused inconvenience. We will be
+reviewing our release testing policies to ensure that more possible upgrade
+paths are being covered in the future.
+
+
 2021-04-19 v1.2.0
 =================
 
