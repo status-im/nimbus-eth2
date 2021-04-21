@@ -42,6 +42,10 @@ The [Quickstart](https://nimbus.guide/quick-start.html) in particular will help 
 
 You can check where the beacon chain fits in the Ethereum ecosystem our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
 
+## Donations
+
+If you'd like to contribute to Nimbus development, our donation address is [`0x70E47C843E0F6ab0991A3189c28F2957eb6d3842`](https://etherscan.io/address/0x70E47C843E0F6ab0991A3189c28F2957eb6d3842)
+
 ## Branch guide
 
 * `stable` - latest stable release - **this branch is recommended for most users**
