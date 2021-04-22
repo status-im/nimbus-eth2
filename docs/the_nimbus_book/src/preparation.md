@@ -1,4 +1,4 @@
-# Mainnet preparations
+# Prepare for Mainnet
 
 
 ## Latest software
