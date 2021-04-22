@@ -231,7 +231,6 @@ if [[ $USE_GANACHE == "0" ]]; then
     --data-dir="${DATA_DIR}" \
     --deposits-file="${DEPOSITS_FILE}" \
     --total-validators=${TOTAL_VALIDATORS} \
-    --last-user-validator=${USER_VALIDATORS} \
     --output-genesis="${NETWORK_DIR}/genesis.ssz" \
     --output-bootstrap-file="${NETWORK_DIR}/bootstrap_nodes.txt" \
     --bootstrap-address=${BOOTSTRAP_IP} \

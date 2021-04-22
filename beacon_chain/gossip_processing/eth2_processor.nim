@@ -47,9 +47,6 @@ declareHistogram beacon_aggregate_delay,
 declareHistogram beacon_block_delay,
   "Time(s) between slot start and beacon block reception", buckets = delayBuckets
 
-declareHistogram beacon_store_block_duration_seconds,
-  "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
-
 type
   Eth2Processor* = object
     doppelGangerDetectionEnabled*: bool
@@ -191,11 +188,11 @@ proc checkForPotentialDoppelganger(
 proc attestationValidator*(
     self: ref Eth2Processor,
     attestation: Attestation,
-    committeeIndex: uint64,
+    attestation_subnet: uint64,
     checksExpensive: bool = true): Future[ValidationResult] {.async.} =
   logScope:
     attestation = shortLog(attestation)
-    committeeIndex
+    attestation_subnet
 
   let
     wallTime = self.getWallTime()
@@ -214,7 +211,7 @@ proc attestationValidator*(
   # Now proceed to validation
   let v = await self.attestationPool.validateAttestation(
       self.batchCrypto,
-      attestation, wallTime, committeeIndex, checksExpensive)
+      attestation, wallTime, attestation_subnet, checksExpensive)
   if v.isErr():
     debug "Dropping attestation", err = v.error()
     return v.error[0]

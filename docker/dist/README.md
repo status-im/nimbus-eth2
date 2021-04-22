@@ -26,7 +26,7 @@ make dist
 
 ## Significant differences from self-built binaries
 
-No `-march=native` and no metrics support.
+No `-march=native`.
 
 ## Running a Pyrmont node
 

@@ -122,7 +122,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       validator_pubkey: ValidatorPubKey, slot_signature: ValidatorSig) -> bool:
     debug "post_v1_validator_beacon_committee_subscriptions",
       committee_index, slot
-    if committee_index.uint64 >= ATTESTATION_SUBNET_COUNT.uint64:
+    if committee_index.uint64 >= MAX_COMMITTEES_PER_SLOT.uint64:
       raise newException(CatchableError,
         "Invalid committee index")
 

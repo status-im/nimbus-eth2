@@ -66,16 +66,17 @@ proc findValidator(validators: auto, pubKey: ValidatorPubKey):
   else:
     some(idx.ValidatorIndex)
 
-proc addLocalValidator*(node: BeaconNode,
-                        state: BeaconState,
-                        privKey: ValidatorPrivKey) =
+proc addLocalValidator(node: BeaconNode,
+                       stateData: StateData,
+                       privKey: ValidatorPrivKey) =
   let pubKey = privKey.toPubKey()
   node.attachedValidators[].addLocalValidator(
-    pubKey, privKey, findValidator(state.validators, pubKey))
+    pubKey, privKey,
+    findValidator(getStateField(stateData, validators), pubKey))
 
 proc addLocalValidators*(node: BeaconNode) =
   for validatorKey in node.config.validatorKeys:
-    node.addLocalValidator node.chainDag.headState.data.data, validatorKey
+    node.addLocalValidator node.chainDag.headState, validatorKey
 
 proc addRemoteValidators*(node: BeaconNode) {.raises: [Defect, OSError, IOError].} =
   # load all the validators from the child process - loop until `end`
@@ -218,7 +219,7 @@ proc createAndSendAttestation(node: BeaconNode,
   let deadline = attestationData.slot.toBeaconTime() +
                  seconds(int(SECONDS_PER_SLOT div 3))
 
-  let (delayStr, delayMillis) =
+  let (delayStr, delaySecs) =
     if wallTime < deadline:
       ("-" & $(deadline - wallTime), -toFloatSeconds(deadline - wallTime))
     else:
@@ -228,7 +229,7 @@ proc createAndSendAttestation(node: BeaconNode,
                              validator = shortLog(validator), delay = delayStr,
                              indexInCommittee = indexInCommittee
 
-  beacon_attestation_sent_delay.observe(delayMillis)
+  beacon_attestation_sent_delay.observe(delaySecs)
 
 proc getBlockProposalEth1Data*(node: BeaconNode,
                                stateData: StateData): BlockProposalEth1Data =

@@ -224,7 +224,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
     # TODO if attestation pool was smarter, it would include older attestations
     #      too!
-    verifyConsensus(chainDag.headState.data.data, attesterRatio * blockRatio)
+    verifyConsensus(chainDag.headState, attesterRatio * blockRatio)
 
     if t == tEpoch:
       echo &". slot: {shortLog(slot)} ",
@@ -241,4 +241,4 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
   echo "Done!"
 
-  printTimers(chainDag.headState.data.data, attesters, true, timers)
+  printTimers(chainDag.headState, attesters, true, timers)

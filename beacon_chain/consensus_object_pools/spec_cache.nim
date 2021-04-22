@@ -145,24 +145,29 @@ proc is_valid_indexed_attestation*(
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    epochRef: EpochRef, attesting_indices: auto,
+    epochRef: EpochRef,
     attestation: SomeAttestation, flags: UpdateFlags): Result[void, cstring] =
   # This is a variation on `is_valid_indexed_attestation` that works directly
   # with an attestation instead of first constructing an `IndexedAttestation`
   # and then validating it - for the purpose of validating the signature, the
   # order doesn't matter and we can proceed straight to validating the
   # signature instead
-  if attesting_indices.len == 0:
-    return err("indexed_attestation: no attesting indices")
+  let sigs = attestation.aggregation_bits.countOnes()
+  if sigs == 0:
+    return err("is_valid_indexed_attestation: no attesting indices")
 
   # Verify aggregate signature
   if not (skipBLSValidation in flags or attestation.signature is TrustedSig):
-    let pubkeys = mapIt(
-      attesting_indices, epochRef.validator_keys[it])
+    var
+      pubkeys = newSeqOfCap[ValidatorPubKey](sigs)
+    for index in get_attesting_indices(
+        epochRef, attestation.data, attestation.aggregation_bits):
+      pubkeys.add(epochRef.validator_keys[index])
+
     if not verify_attestation_signature(
         fork, genesis_validators_root, attestation.data,
         pubkeys, attestation.signature):
-      return err("indexed attestation: signature verification failure")
+      return err("is_valid_indexed_attestation: signature verification failure")
 
   ok()
 

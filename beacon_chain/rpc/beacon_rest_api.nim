@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,7 +9,7 @@ import
   chronicles,
   nimcrypto/utils as ncrutils,
   ../beacon_node_common, ../networking/eth2_network,
-  ../consensus_object_pools/[blockchain_dag, exit_pool],
+  ../consensus_object_pools/[blockchain_dag, exit_pool, statedata_helpers],
   ../gossip_processing/gossip_validation,
   ../validators/validator_duties,
   ../spec/[crypto, digest, validator, datatypes, network],
@@ -127,9 +127,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/api/eth/v1/beacon/genesis") do () -> RestApiResponse:
     return RestApiResponse.jsonResponse(
       (
-        genesis_time: node.chainDag.headState.data.data.genesis_time,
+        genesis_time: getStateField(node.chainDag.headState, genesis_time),
         genesis_validators_root:
-          node.chainDag.headState.data.data.genesis_validators_root,
+          getStateField(node.chainDag.headState, genesis_validators_root),
         genesis_fork_version: node.runtimePreset.GENESIS_FORK_VERSION
       )
     )
@@ -268,7 +268,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         (res1, res2)
 
     node.withStateForBlockSlot(bslot):
-      let current_epoch = get_current_epoch(node.chainDag.headState.data.data)
+      let current_epoch = get_current_epoch(node.chainDag.headState)
       var res: seq[RestValidatorTuple]
       for index, validator in getStateField(stateData, validators).pairs():
         let includeFlag =
@@ -309,7 +309,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, InvalidValidatorIdValueError,
                                        $validator_id.error())
     node.withStateForBlockSlot(bslot):
-      let current_epoch = get_current_epoch(node.chainDag.headState.data.data)
+      let current_epoch = get_current_epoch(node.chainDag.headState)
       let vid = validator_id.get()
       case vid.kind
       of ValidatorQueryKind.Key:
@@ -416,7 +416,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             res2.incl(vitem)
         (res1, res2)
     node.withStateForBlockSlot(bslot):
-      let current_epoch = get_current_epoch(node.chainDag.headState.data.data)
+      let current_epoch = get_current_epoch(node.chainDag.headState)
       var res: seq[RestValidatorBalanceTuple]
       for index, validator in getStateField(stateData, validators).pairs():
         let includeFlag =

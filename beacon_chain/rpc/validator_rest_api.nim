@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -355,17 +355,17 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
 
     for request in requests:
-      if uint64(request.committee_index) >= uint64(ATTESTATION_SUBNET_COUNT):
+      if uint64(request.committee_index) >= uint64(MAX_COMMITTEES_PER_SLOT):
         return RestApiResponse.jsonError(Http400,
                                          InvalidCommitteeIndexValueError)
       let validator_pubkey =
         block:
           let idx = request.validator_index
           if uint64(idx) >=
-                           lenu64(node.chainDag.headState.data.data.validators):
+                           lenu64(getStateField(node.chainDag.headState, validators)):
             return RestApiResponse.jsonError(Http400,
                                              InvalidValidatorIndexValueError)
-          node.chainDag.headState.data.data.validators[idx].pubkey
+          getStateField(node.chainDag.headState, validators)[idx].pubkey
 
       let wallSlot = node.beaconClock.now.slotOrZero
       if wallSlot > request.slot + 1:
