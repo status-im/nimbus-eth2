@@ -370,7 +370,7 @@ https://status-im.github.io/nimbus-eth2/eth1.html
 Please enter a Web3 provider URL:
 ```
 
-Enter your own secure websocket (`wss`) [Infura endpoint](./infura-guide.md).
+Enter your own secure websocket (`wss`) [endpoint](eth1.md).
 
 ### 19. Check for successful connection
 
