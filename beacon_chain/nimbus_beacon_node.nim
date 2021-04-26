@@ -1598,7 +1598,7 @@ proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
       validator_index: validatorIdx))
 
   signedExit.signature = get_voluntary_exit_signature(
-    fork, genesisValidatorsRoot, signedExit.message, signingKey.get)
+    fork, genesisValidatorsRoot, signedExit.message, signingKey.get).toValidatorSig()
 
   template ask(prompt: string): string =
     try:

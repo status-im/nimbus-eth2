@@ -1665,22 +1665,29 @@ proc setValidTopics*(node: Eth2Node, topics: openArray[string]) =
     proc(topic: string): bool {.gcsafe, raises: [Defect].} =
       topic in node.validTopics
 
+proc newValidationResultFuture(v: ValidationResult): Future[ValidationResult] =
+  let res = newFuture[ValidationResult]("eth2_network.execValidator")
+  res.complete(v)
+  res
+
 proc addValidator*[MsgType](node: Eth2Node,
                             topic: string,
                             msgValidator: proc(msg: MsgType):
                             ValidationResult {.gcsafe, raises: [Defect].} ) =
   # Validate messages as soon as subscribed
   proc execValidator(
-      topic: string, message: GossipMsg): Future[ValidationResult] {.async.} =
+      topic: string, message: GossipMsg): Future[ValidationResult] {.raises: [Defect].} =
     inc nbc_gossip_messages_received
     trace "Validating incoming gossip message",
       len = message.data.len, topic
 
     let res =
       try:
-        let decompressed = snappy.decode(message.data, GOSSIP_MAX_SIZE)
+        var decompressed = snappy.decode(message.data, GOSSIP_MAX_SIZE)
         if decompressed.len > 0:
-          msgValidator(SSZ.decode(decompressed, MsgType))
+          let decoded = SSZ.decode(decompressed, MsgType)
+          decompressed = newSeq[byte](0) # release memory before validating
+          msgValidator(decoded)
         else:
           debug "Empty gossip data after decompression",
             topic, len = message.data.len
@@ -1689,7 +1696,7 @@ proc addValidator*[MsgType](node: Eth2Node,
         debug "Gossip validation error",
           msg = err.msg, topic, len = message.data.len
         ValidationResult.Ignore
-    return res
+    return newValidationResultFuture(res)
 
   try:
     node.pubsub.addValidator(topic & "_snappy", execValidator)
@@ -1699,31 +1706,28 @@ proc addAsyncValidator*[MsgType](node: Eth2Node,
                             topic: string,
                             msgValidator: proc(msg: MsgType):
                             Future[ValidationResult] {.gcsafe, raises: [Defect].} ) =
-
   proc execValidator(
       topic: string, message: GossipMsg): Future[ValidationResult] {.raises: [Defect].} =
-
     inc nbc_gossip_messages_received
     trace "Validating incoming gossip message",
       len = message.data.len, topic
 
-    let decompressed = snappy.decode(message.data, GOSSIP_MAX_SIZE)
-
-    if decompressed.len == 0:
-      debug "Empty gossip data after decompression",
-        topic, len = message.data.len
-      result.complete(ValidationResult.Ignore)
-      return
-
-    let decoded = try:
-      SSZ.decode(decompressed, MsgType)
-    except:
-      error "SSZ decoding failure",
-        topic, len = message.data.len
-      result.complete(ValidationResult.Ignore)
-      return
-
-    return msgValidator(decoded)
+    let res =
+      try:
+        var decompressed = snappy.decode(message.data, GOSSIP_MAX_SIZE)
+        if decompressed.len > 0:
+          let decoded = SSZ.decode(decompressed, MsgType)
+          decompressed = newSeq[byte](0) # release memory before validating
+          return msgValidator(decoded) # Reuses future from msgValidator
+        else:
+          debug "Empty gossip data after decompression",
+            topic, len = message.data.len
+          ValidationResult.Ignore
+      except CatchableError as err:
+        debug "Gossip validation error",
+          msg = err.msg, topic, len = message.data.len
+        ValidationResult.Ignore
+    return newValidationResultFuture(res)
 
   try:
     node.pubsub.addValidator(topic & "_snappy", execValidator)

@@ -8,7 +8,7 @@
 import
   options,
   # Specs
-  ../../beacon_chain/spec/[datatypes, helpers, signatures, validator],
+  ../../beacon_chain/spec/[crypto, datatypes, helpers, signatures, validator],
   # Internals
   ../../beacon_chain/ssz,
   # Mock helpers
@@ -28,11 +28,11 @@ proc signMockBlockImpl(
 
   signedBlock.message.body.randao_reveal = get_epoch_signature(
     state.fork, state.genesis_validators_root, block_slot.compute_epoch_at_slot,
-    privkey)
+    privkey).toValidatorSig()
   signedBlock.root = hash_tree_root(signedBlock.message)
   signedBlock.signature = get_block_signature(
     state.fork, state.genesis_validators_root, block_slot,
-    signedBlock.root, privkey)
+    signedBlock.root, privkey).toValidatorSig()
 
 proc signMockBlock*(state: BeaconState, signedBlock: var SignedBeaconBlock) =
   signMockBlockImpl(state, signedBlock)

@@ -15,11 +15,6 @@ AllTests-mainnet
 + Working with aggregates [Preset: mainnet]                                                  OK
 ```
 OK: 11/11 Fail: 0/11 Skip: 0/11
-## Attestation validation  [Preset: mainnet]
-```diff
-+ Validation sanity                                                                          OK
-```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Beacon chain DB [Preset: mainnet]
 ```diff
 + empty database [Preset: mainnet]                                                           OK
@@ -98,6 +93,11 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + fork_choice - testing with votes                                                           OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
+## Gossip validation  [Preset: mainnet]
+```diff
++ Validation sanity                                                                          OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Honest validator
 ```diff
 + General pubsub topics                                                                      OK

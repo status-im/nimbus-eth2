@@ -51,7 +51,7 @@ func makeDeposit*(i: int, flags: UpdateFlags = {}): DepositData =
 
   if skipBLSValidation notin flags:
     result.signature = get_deposit_signature(
-      defaultRuntimePreset, result, privkey)
+      defaultRuntimePreset, result, privkey).toValidatorSig()
 
 proc makeInitialDeposits*(
     n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}): seq[DepositData] =
@@ -68,7 +68,7 @@ func signBlock(
     signature:
       if skipBlsValidation notin flags:
         get_block_signature(
-          fork, genesis_validators_root, blck.slot, root, privKey)
+          fork, genesis_validators_root, blck.slot, root, privKey).toValidatorSig()
       else:
         ValidatorSig()
   )
@@ -93,7 +93,8 @@ proc addTestBlock*(
     randao_reveal =
       if skipBlsValidation notin flags:
         privKey.genRandaoReveal(
-          state.data.fork, state.data.genesis_validators_root, state.data.slot)
+          state.data.fork, state.data.genesis_validators_root, state.data.slot).
+            toValidatorSig()
       else:
         ValidatorSig()
 
@@ -167,7 +168,7 @@ proc makeAttestation*(
     sig =
       if skipBLSValidation notin flags:
         get_attestation_signature(state.fork, state.genesis_validators_root,
-          data, hackPrivKey(validator))
+          data, hackPrivKey(validator)).toValidatorSig()
       else:
         ValidatorSig()
 
@@ -219,13 +220,12 @@ proc makeFullAttestations*(
     # Initial attestation
     var attestation = Attestation(
       aggregation_bits: CommitteeValidatorsBits.init(committee.len),
-      data: data,
-      signature: get_attestation_signature(
-        state.fork, state.genesis_validators_root, data,
-        hackPrivKey(state.validators[committee[0]]))
-    )
+      data: data)
+
     var agg {.noInit.}: AggregateSignature
-    agg.init(attestation.signature)
+    agg.init(get_attestation_signature(
+        state.fork, state.genesis_validators_root, data,
+        hackPrivKey(state.validators[committee[0]])))
 
     # Aggregate the remainder
     attestation.aggregation_bits.setBit 0
@@ -237,7 +237,7 @@ proc makeFullAttestations*(
           hackPrivKey(state.validators[committee[j]])
         ))
 
-    attestation.signature = agg.finish().exportRaw()
+    attestation.signature = agg.finish().toValidatorSig()
     result.add attestation
 
 iterator makeTestBlocks*(

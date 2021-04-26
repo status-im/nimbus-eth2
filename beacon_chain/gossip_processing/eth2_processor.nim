@@ -98,7 +98,11 @@ proc new*(T: type Eth2Processor,
     exitPool: exitPool,
     validatorPool: validatorPool,
     quarantine: quarantine,
-    batchCrypto: BatchCrypto.new(rng = rng)
+    batchCrypto: BatchCrypto.new(
+      rng = rng,
+      # Only run eager attestation signature verification if we're not
+      # processing blocks in order to give priority to block processing
+      eager = proc(): bool = not verifQueues[].hasBlocks())
   )
 
 # Gossip Management
@@ -219,12 +223,14 @@ proc attestationValidator*(
   beacon_attestations_received.inc()
   beacon_attestation_delay.observe(delay.toFloatSeconds())
 
+  let (attestation_index, sig) = v.get()
+
   self[].checkForPotentialDoppelganger(
-    attestation.data, v.value.attestingIndices, wallSlot)
+    attestation.data, [attestation_index], wallSlot)
 
   trace "Attestation validated"
-  let (attestingIndices, sig) = v.get()
-  self.verifQueues[].addAttestation(attestation, attestingIndices, sig)
+  self.attestationPool[].addAttestation(
+    attestation, [attestation_index], sig, wallSlot)
 
   return ValidationResult.Accept
 
@@ -264,8 +270,10 @@ proc aggregateValidator*(
   beacon_aggregates_received.inc()
   beacon_aggregate_delay.observe(delay.toFloatSeconds())
 
+  let (attesting_indices, sig) = v.get()
+
   self[].checkForPotentialDoppelganger(
-    signedAggregateAndProof.message.aggregate.data, v.value.attestingIndices,
+    signedAggregateAndProof.message.aggregate.data, attesting_indices,
     wallSlot)
 
   trace "Aggregate validated",
@@ -273,9 +281,8 @@ proc aggregateValidator*(
     selection_proof = signedAggregateAndProof.message.selection_proof,
     wallSlot
 
-  let (attestingIndices, sig) = v.get()
-  self.verifQueues[].addAggregate(
-    signedAggregateAndProof, attestingIndices, sig)
+  self.attestationPool[].addAttestation(
+    signedAggregateAndProof.message.aggregate, attesting_indices, sig, wallSlot)
 
   return ValidationResult.Accept
 

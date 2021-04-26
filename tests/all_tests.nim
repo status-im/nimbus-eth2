@@ -21,6 +21,7 @@ import # Unit test
   ./test_discovery,
   ./test_eth1_monitor,
   ./test_exit_pool,
+  ./test_gossip_validation,
   ./test_helpers,
   ./test_honest_validator,
   ./test_interop,

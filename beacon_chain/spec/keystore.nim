@@ -761,5 +761,5 @@ proc prepareDeposit*(preset: RuntimePreset,
     pubkey: signingPubKey,
     withdrawal_credentials: makeWithdrawalCredentials(withdrawalPubKey))
 
-  res.signature = preset.get_deposit_signature(res, signingKey)
+  res.signature = preset.get_deposit_signature(res, signingKey).toValidatorSig()
   return res
