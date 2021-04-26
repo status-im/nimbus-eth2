@@ -22,12 +22,6 @@ import
 declareHistogram beacon_store_block_duration_seconds,
   "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
 
-declareCounter beacon_attestations_dropped_queue_full,
-  "Number of attestations dropped because queue is full"
-
-declareCounter beacon_aggregates_dropped_queue_full,
-  "Number of aggregates dropped because queue is full"
-
 type
   SyncBlock* = object
     blk*: SignedBeaconBlock

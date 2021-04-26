@@ -9,7 +9,7 @@
 
 import
   # Status
-  chronicles, chronos, metrics,
+  chronicles, chronos,
   stew/results,
   eth/keys,
   # Internals
@@ -27,9 +27,6 @@ export BrHmacDrbgContext
 logScope:
   topics = "gossip_checks"
 
-declareCounter beacon_attestations_skipped,
-  "Number of attestation signature checks skipped"
-
 # Batched gossip validation
 # ----------------------------------------------------------------
 
@@ -39,7 +36,10 @@ type
     Invalid
     Timeout
 
-  Eager = proc(): bool {.gcsafe, raises: [Defect].}
+  Eager = proc(): bool {.gcsafe, raises: [Defect].} ##\
+  ## Callback that returns true if eager processing should be done to lower
+  ## latency at the expense of spending more cycles validating things, creating
+  ## a crude timesharing priority mechanism.
 
   Batch* = object
     created: Moment
@@ -47,13 +47,17 @@ type
     resultsBuffer: seq[Future[BatchResult]]
 
   BatchCrypto* = object
-    # The buffers are bounded by BatchedCryptoSize (16) which was chosen:
+    # Each batch is bounded by BatchedCryptoSize (16) which was chosen:
     # - based on "nimble bench" in nim-blscurve
     #   so that low power devices like Raspberry Pi 4 can process
     #   that many batched verifications within 20ms
     # - based on the accumulation rate of attestations and aggregates
     #   in large instances which were 12000 per slot (12s)
     #   hence 1 per ms (but the pattern is bursty around the 4s mark)
+    # The number of batches is bounded by time - batch validation is skipped if
+    # we can't process them in the time that one slot takes, and we return
+    # timeout instead which prevents the gossip layer from forwarding the
+    # batch.
     batches: seq[ref Batch]
     eager: Eager ##\
     ## Eager is used to enable eager processing of attestations when it's
@@ -96,8 +100,6 @@ proc clear(batch: var Batch) =
   batch.resultsBuffer.setLen(0)
 
 proc skip(batch: var Batch) =
-  beacon_attestations_skipped.inc batch.len().int64
-
   for res in batch.resultsBuffer.mitems():
     res.complete(BatchResult.Timeout)
   batch.clear() # release memory early

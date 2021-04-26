@@ -11,7 +11,7 @@ import
   # Standard library
   std/[intsets, deques],
   # Status
-  chronicles, chronos,
+  chronicles, chronos, metrics,
   stew/results,
   # Internals
   ../spec/[
@@ -31,6 +31,12 @@ export ValidationResult
 
 logScope:
   topics = "gossip_checks"
+
+declareCounter beacon_attestations_dropped_queue_full,
+  "Number of attestations dropped because queue is full"
+
+declareCounter beacon_aggregates_dropped_queue_full,
+  "Number of aggregates dropped because queue is full"
 
 # Internal checks
 # ----------------------------------------------------------------
@@ -300,6 +306,7 @@ proc validateAttestation*(
   of BatchResult.Invalid:
     return err((ValidationResult.Reject, cstring("validateAttestation: invalid signature")))
   of BatchResult.Timeout:
+    beacon_attestations_dropped_queue_full.inc()
     return err((ValidationResult.Ignore, cstring("validateAttestation: timeout checking signature")))
   of BatchResult.Valid:
     discard # keep going only in this case
@@ -447,6 +454,7 @@ proc validateAggregate*(
     of BatchResult.Invalid:
       return err((ValidationResult.Reject, cstring("validateAggregate: invalid slot signature")))
     of BatchResult.Timeout:
+      beacon_aggregates_dropped_queue_full.inc()
       return err((ValidationResult.Reject, cstring("validateAggregate: timeout checking slot signature")))
     of BatchResult.Valid:
       discard
@@ -458,6 +466,7 @@ proc validateAggregate*(
     of BatchResult.Invalid:
       return err((ValidationResult.Reject, cstring("validateAggregate: invalid aggregator signature")))
     of BatchResult.Timeout:
+      beacon_aggregates_dropped_queue_full.inc()
       return err((ValidationResult.Reject, cstring("validateAggregate: timeout checking aggregator signature")))
     of BatchResult.Valid:
       discard
@@ -469,6 +478,7 @@ proc validateAggregate*(
     of BatchResult.Invalid:
       return err((ValidationResult.Reject, cstring("validateAggregate: invalid aggregate signature")))
     of BatchResult.Timeout:
+      beacon_aggregates_dropped_queue_full.inc()
       return err((ValidationResult.Reject, cstring("validateAggregate: timeout checking aggregate signature")))
     of BatchResult.Valid:
       discard
