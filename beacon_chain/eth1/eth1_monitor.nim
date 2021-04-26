@@ -195,7 +195,7 @@ when hasGenesisDetection:
 
     var deposits = m.allGenesisDepositsUpTo(eth1Block.voteData.deposit_count)
 
-    result = initialize_beacon_state_from_eth1(
+    result = initialize_beacon_state(
       m.preset,
       eth1Block.voteData.block_hash,
       eth1Block.timestamp.uint64,
