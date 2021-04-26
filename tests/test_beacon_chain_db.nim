@@ -221,7 +221,7 @@ suiteReport "Beacon chain DB" & preset():
       db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
 
     let
-      state = initialize_beacon_state_from_eth1(
+      state = initialize_beacon_state(
         defaultRuntimePreset, eth1BlockHash, 0,
         makeInitialDeposits(SLOTS_PER_EPOCH), {skipBlsValidation})
       root = hash_tree_root(state[])

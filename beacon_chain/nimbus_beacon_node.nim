@@ -1748,7 +1748,7 @@ proc doCreateTestnet(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.raise
                else: (waitFor getEth1BlockHash(config.web3Urls[0], blockId("latest"))).asEth2Digest
     runtimePreset = getRuntimePresetForNetwork(config.eth2Network)
   var
-    initialState = initialize_beacon_state_from_eth1(
+    initialState = initialize_beacon_state(
       runtimePreset, eth1Hash, startTime, deposits, {skipBlsValidation})
 
   # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state

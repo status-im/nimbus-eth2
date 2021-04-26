@@ -33,9 +33,6 @@ declareCounter beacon_proposer_slashings_received,
 declareCounter beacon_voluntary_exits_received,
   "Number of beacon chain voluntary exits received by this peer"
 
-declareCounter doppelganger_detection_activated,
-  "Number of times doppelganger detection was activated"
-
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
 declareHistogram beacon_attestation_delay,
@@ -172,16 +169,14 @@ proc checkForPotentialDoppelganger(
       tgtBlck, attestationData.target.epoch)
     for validatorIndex in attesterIndices:
       let validatorPubkey = epochRef.validator_keys[validatorIndex]
-      if self.validatorPool[].getValidator(validatorPubkey) !=
-          default(AttachedValidator):
-        warn "Duplicate validator detected; would be slashed",
+      if  self.doppelgangerDetectionEnabled and
+          self.validatorPool[].getValidator(validatorPubkey) !=
+            default(AttachedValidator):
+        warn "We believe you are currently running another instance of the same validator. We've disconnected you from the network as this presents a significant slashing risk. Possible next steps are (a) making sure you've disconnected your validator from your old machine before restarting the client; and (b) running the client again with the gossip-slashing-protection option disabled, only if you are absolutely sure this is the only instance of your validator running, and reporting the issue at https://github.com/status-im/nimbus-eth2/issues.",
           validatorIndex,
           validatorPubkey,
           attestationSlot = attestationData.slot
-        doppelganger_detection_activated.inc()
-        if self.doppelgangerDetectionEnabled:
-          warn "We believe you are currently running another instance of the same validator. We've disconnected you from the network as this presents a significant slashing risk. Possible next steps are (a) making sure you've disconnected your validator from your old machine before restarting the client; and (b) running the client again with the gossip-slashing-protection option disabled, only if you are absolutely sure this is the only instance of your validator running, and reporting the issue at https://github.com/status-im/nimbus-eth2/issues."
-          quit QuitFailure
+        quit QuitFailure
 
 {.pop.} # async can raise anything
 

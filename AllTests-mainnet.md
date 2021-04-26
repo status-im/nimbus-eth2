@@ -40,7 +40,7 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Beacon state [Preset: mainnet]
 ```diff
-+ Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
++ Smoke test initialize_beacon_state [Preset: mainnet]                                       OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Block pool processing [Preset: mainnet]
