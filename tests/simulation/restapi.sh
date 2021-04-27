@@ -4,6 +4,7 @@ NUM_VALIDATORS=${VALIDATORS:-32}
 TOTAL_NODES=${NODES:-1}
 GIT_ROOT="$(git rev-parse --show-toplevel)"
 TEST_DIR="${GIT_ROOT}/build/resttest_sim"
+LOG_FILE="${TEST_DIR}/resttest_node.log"
 VALIDATORS_DIR="${TEST_DIR}/validators"
 SECRETS_DIR="${TEST_DIR}/secrets"
 SNAPSHOT_FILE="${TEST_DIR}/state_snapshot.ssz"
@@ -15,8 +16,9 @@ NETWORK_METADATA_FILE="${TEST_DIR}/network.json"
 DEPOSITS_FILE="${TEST_DIR}/deposits.json"
 REST_ADDRESS="127.0.0.1"
 REST_PORT="5052"
+MKDIR_SCRIPT="${GIT_ROOT}/scripts/makedir.sh"
 
-mkdir -p "${TEST_DIR}"
+$MKDIR_SCRIPT "${TEST_DIR}"
 cd "${TEST_DIR}"
 
 # Windows detection
@@ -109,7 +111,7 @@ fi
   --rest-address=${REST_ADDRESS} \
   --rest-port= ${REST_PORT} \
   ${ADDITIONAL_BEACON_NODE_ARGS} \
-  "$@" > bbbb.log 2>&1 &
+  "$@" > ${LOG_FILE} 2>&1 &
 BEACON_NODE_STATUS=$?
 
 if [[ ${BEACON_NODE_STATUS} -eq 0 ]]; then
@@ -132,6 +134,7 @@ if [[ ${BEACON_NODE_STATUS} -eq 0 ]]; then
     echo "All tests were completed successfully!"
   else
     echo "Some of the tests failed!"
+    tail -n 100 ${LOG_FILE}
     exit 1
   fi
 else
