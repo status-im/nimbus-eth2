@@ -478,7 +478,7 @@ proc getCurrentHead*(node: BeaconNode,
 
 proc getCurrentHead*(node: BeaconNode,
                      epoch: Epoch): Result[BlockRef, cstring] =
-  if epoch >= MaxEpoch:
+  if epoch > MaxEpoch:
     return err("Requesting epoch for which slot would overflow")
   node.getCurrentHead(compute_start_slot_at_epoch(epoch))
 

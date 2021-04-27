@@ -1,0 +1,3149 @@
+[
+  {
+    "topics": ["beacon", "genesis"],
+    "request": {
+      "url": "/eth/v1/beacon/genesis",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"genesis_time": "", "genesis_validators_root": "", "genesis_fork_version": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_root"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"root": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_root"],
+    "request": {
+      "url": "/eth/v1/beacon/states/genesis/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"root": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_root"],
+    "request": {
+      "url": "/eth/v1/beacon/states/finalized/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"root": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_root"],
+    "request": {
+      "url": "/eth/v1/beacon/states/justified/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"root": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_root"],
+    "request": {"url": "/eth/v1/beacon/states/heat/root"},
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_root"],
+    "request": {"url": "/eth/v1/beacon/states/genezis/root"},
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_root"],
+    "request": {"url": "/eth/v1/beacon/states/finalised/root"},
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_root"],
+    "request": {"url": "/eth/v1/beacon/states/justilied/root"},
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_root"],
+    "request": {
+      "url": "/eth/v1/beacon/states/0/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"root": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_root"],
+    "request": {
+      "url": "/eth/v1/beacon/states/18446744073709551615/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "comment": "Maximum value for uint64",
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_root"],
+    "request": {"url": "/eth/v1/beacon/states/18446744073709551616/root"},
+    "comment": "Overflow uint64 value test",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_root"],
+    "request": {"url": "/eth/v1/beacon/states/0x/root"},
+    "comment": "Hexadecimal state root tests",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_root"],
+    "request": {"url": "/eth/v1/beacon/states/0x0/root"},
+    "comment": "Hexadecimal state root tests",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_root"],
+    "request": {"url": "/eth/v1/beacon/states/0x00/root"},
+    "comment": "Hexadecimal state root tests",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_root"],
+    "request": {"url": "/eth/v1/beacon/states/0x1/root"},
+    "comment": "Hexadecimal state root tests",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_root"],
+    "request": {"url": "/eth/v1/beacon/states/0x11/root"},
+    "comment": "Hexadecimal state root tests",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_root"],
+    "request": {
+      "url": "/eth/v1/beacon/states/0x0000000000000000000000000000000000000000000000000000000000000000/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "comment": "Hexadecimal state root tests",
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_root"],
+    "request": {
+      "url": "/eth/v1/beacon/states/0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "comment": "Hexadecimal state root tests",
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_fork"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/fork",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"previous_version": "", "current_version": "", "epoch": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_fork"],
+    "request": {
+      "url": "/eth/v1/beacon/states/genesis/fork",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"previous_version": "", "current_version": "", "epoch": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_fork"],
+    "request": {
+      "url": "/eth/v1/beacon/states/finalized/fork",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"previous_version": "", "current_version": "", "epoch": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_fork"],
+    "request": {
+      "url": "/eth/v1/beacon/states/justified/fork",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"previous_version": "", "current_version": "", "epoch": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_fork"],
+    "request": {"url": "/eth/v1/beacon/states/heat/fork"},
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_fork"],
+    "request": {"url": "/eth/v1/beacon/states/genezis/fork"},
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_fork"],
+    "request": {"url": "/eth/v1/beacon/states/finalised/fork"},
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_fork"],
+    "request": {"url": "/eth/v1/beacon/states/justilied/fork"},
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_fork"],
+    "request": {
+      "url": "/eth/v1/beacon/states/0/fork",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"previous_version": "", "current_version": "", "epoch": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_fork"],
+    "request": {
+      "url": "/eth/v1/beacon/states/18446744073709551615/fork",
+      "headers": {"Accept": "application/json"}
+    },
+    "comment": "Maximum value for uint64",
+    "response": {"status": {"operator": "equals", "value": "404"}}
+  },
+  {
+    "topics": ["beacon", "states_fork"],
+    "request": {
+      "url": "/eth/v1/beacon/states/18446744073709551616/fork",
+      "headers": {"Accept": "application/json"}
+    },
+    "comment": "Overflow uint64 value test",
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_fork"],
+    "request": {"url": "/eth/v1/beacon/states/0x/fork"},
+    "comment": "Hexadecimal state root tests",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_fork"],
+    "request": {"url": "/eth/v1/beacon/states/0x0/fork"},
+    "comment": "Hexadecimal state root tests",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_fork"],
+    "request": {"url": "/eth/v1/beacon/states/0x00/fork"},
+    "comment": "Hexadecimal state root tests",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_fork"],
+    "request": {"url": "/eth/v1/beacon/states/0x1/fork"},
+    "comment": "Hexadecimal state root tests",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_fork"],
+    "request": {"url": "/eth/v1/beacon/states/0x11/fork"},
+    "comment": "Hexadecimal state root tests",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_fork"],
+    "request": {
+      "url": "/eth/v1/beacon/states/0x0000000000000000000000000000000000000000000000000000000000000000/fork",
+      "headers": {"Accept": "application/json"}
+    },
+    "comment": "Hexadecimal state root tests",
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_fork"],
+    "request": {
+      "url": "/eth/v1/beacon/states/0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF/fork",
+      "headers": {"Accept": "application/json"}
+    },
+    "comment": "Hexadecimal state root tests",
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_finality_checkpoints"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/finality_checkpoints",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"previous_justified": {"epoch": "", "root": ""}, "current_justified": {"epoch": "", "root": ""}, "finalized": {"epoch": "", "root": ""}}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_finality_checkpoints"],
+    "request": {
+      "url": "/eth/v1/beacon/states/genesis/finality_checkpoints",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"previous_justified": {"epoch": "", "root": ""}, "current_justified": {"epoch": "", "root": ""}, "finalized": {"epoch": "", "root": ""}}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_finality_checkpoints"],
+    "request": {
+      "url": "/eth/v1/beacon/states/finalized/finality_checkpoints",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"previous_justified": {"epoch": "", "root": ""}, "current_justified": {"epoch": "", "root": ""}, "finalized": {"epoch": "", "root": ""}}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_finality_checkpoints"],
+    "request": {
+      "url": "/eth/v1/beacon/states/justified/finality_checkpoints",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"previous_justified": {"epoch": "", "root": ""}, "current_justified": {"epoch": "", "root": ""}, "finalized": {"epoch": "", "root": ""}}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_finality_checkpoints"],
+    "request": {"url": "/eth/v1/beacon/states/heat/finality_checkpoints"},
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_finality_checkpoints"],
+    "request": {"url": "/eth/v1/beacon/states/genezis/finality_checkpoints"},
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_finality_checkpoints"],
+    "request": {"url": "/eth/v1/beacon/states/finalised/finality_checkpoints"},
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_finality_checkpoints"],
+    "request": {"url": "/eth/v1/beacon/states/justilied/finality_checkpoints"},
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_finality_checkpoints"],
+    "request": {
+      "url": "/eth/v1/beacon/states/0/finality_checkpoints",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"previous_justified": {"epoch": "", "root": ""}, "current_justified": {"epoch": "", "root": ""}, "finalized": {"epoch": "", "root": ""}}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_finality_checkpoints"],
+    "request": {
+      "url": "/eth/v1/beacon/states/18446744073709551615/finality_checkpoints",
+      "headers": {"Accept": "application/json"}
+    },
+    "comment": "Maximum value for uint64",
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_finality_checkpoints"],
+    "request": {
+      "url": "/eth/v1/beacon/states/18446744073709551616/finality_checkpoints",
+      "headers": {"Accept": "application/json"}
+    },
+    "comment": "Overflow uint64 value test",
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_finality_checkpoints"],
+    "request": {"url": "/eth/v1/beacon/states/0x/finality_checkpoints"},
+    "comment": "Hexadecimal state root tests",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_finality_checkpoints"],
+    "request": {"url": "/eth/v1/beacon/states/0x0/finality_checkpoints"},
+    "comment": "Hexadecimal state root tests",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_finality_checkpoints"],
+    "request": {"url": "/eth/v1/beacon/states/0x00/finality_checkpoints"},
+    "comment": "Hexadecimal state root tests",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_finality_checkpoints"],
+    "request": {"url": "/eth/v1/beacon/states/0x1/finality_checkpoints"},
+    "comment": "Hexadecimal state root tests",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_finality_checkpoints"],
+    "request": {"url": "/eth/v1/beacon/states/0x11/finality_checkpoints"},
+    "comment": "Hexadecimal state root tests",
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "states_finality_checkpoints"],
+    "request": {
+      "url": "/eth/v1/beacon/states/0x0000000000000000000000000000000000000000000000000000000000000000/finality_checkpoints",
+      "headers": {"Accept": "application/json"}
+    },
+    "comment": "Hexadecimal state root tests",
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_finality_checkpoints"],
+    "request": {
+      "url": "/eth/v1/beacon/states/0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF/finality_checkpoints",
+      "headers": {"Accept": "application/json"}
+    },
+    "comment": "Hexadecimal state root tests",
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators_slow", "slow"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=1",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Maximum number of id[] is 30",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&id=1&id=2&id=3&id=4&id=5&id=6&id=7&id=8&id=9&id=10&id=11&id=12&id=13&id=14&id=15&id=16&id=17&id=18&id=19&id=20&id=21&id=22&id=23&id=24&id=25&id=26&id=27&id=28&id=29",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Number of id[] is bigger than 30",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&id=1&id=2&id=3&id=4&id=5&id=6&id=7&id=8&id=9&id=10&id=11&id=12&id=13&id=14&id=15&id=16&id=17&id=18&id=19&id=20&id=21&id=22&id=23&id=24&id=25&id=26&id=27&id=28&id=29&id=30",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators", "mainnet"],
+    "comment": "Index value equal to high(int32)",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=2147483647",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "oneof", "value": ["404", "200"]},
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators", "mainnet"],
+    "comment": "Index value equal to high(uint32) + 1",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=2147483648",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "500"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators", "mainnet"],
+    "comment": "Index value equal to VALIDATOR_REGISTRY_LIMIT - 1",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=1099511627775",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "500"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators", "mainnet"],
+    "comment": "Index value equal to VALIDATOR_REGISTRY_LIMIT",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=1099511627776",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Index value which is bigger max(ValidatorIndex)",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=18446744073709551615",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Index value which is bigger uint64",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Incorrect hexadecimal values #1",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0x",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Incorrect hexadecimal values #2",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0x0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Incorrect hexadecimal values #3",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0x00",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Incorrect hexadecimal values #4",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0xZZ",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Correct hexadecimal values #1",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Correct hexadecimal values #2",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Correct values of different types",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000&id=0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001&id=0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002&id=0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003&id=0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004&id=5&id=6&id=7&id=8&id=9",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Correct status value #1",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&status=pending_initialized",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Correct status value #2",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&status=pending_initialized&status=pending_queued",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Correct status value #3",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&status=pending_initialized&status=pending_queued&status=active_ongoing",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Correct status value #4",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&status=pending_initialized&status=pending_queued&status=active_ongoing&status=active_exiting",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Correct status value #5",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&status=pending_initialized&status=pending_queued&status=active_ongoing&status=active_exiting&status=active_slashed",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Correct status value #6",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&status=pending_initialized&status=pending_queued&status=active_ongoing&status=active_exiting&status=active_slashed&status=exited_unslashed",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Correct status value #7",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&status=pending_initialized&status=pending_queued&status=active_ongoing&status=active_exiting&status=active_slashed&status=exited_unslashed&status=exited_slashed",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Correct status value #8",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&status=pending_initialized&status=pending_queued&status=active_ongoing&status=active_exiting&status=active_slashed&status=exited_unslashed&status=exited_slashed&status=withdrawal_possible",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Correct status value #9",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&status=pending_initialized&status=pending_queued&status=active_ongoing&status=active_exiting&status=active_slashed&status=exited_unslashed&status=exited_slashed&status=withdrawal_possible&status=withdrawal_done",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Correct status value #10",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&status=active",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Correct status value #11",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&status=active&status=pending",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Correct status value #12",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&status=active&status=pending&status=exited",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Correct status value #13",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&status=active&status=pending&status=exited&status=withdrawal",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Non-unique id values #1",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&id=0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Non-unique id values #2",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000&id=0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Non-unique status values #1",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&status=pending&status=pending_initialized",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Non-unique status values #2",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&status=active&status=active_ongoing",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Non-unique status values #3",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&status=exited&status=exited_unslashed",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Non-unique status values #4",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&status=withdrawal&status=withdrawal_done",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Non-unique status values #5",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&status=active&status=active",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Non-unique status values #6",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0&status=pending_initialized&status=pending_initialized",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validatorid"],
+    "comment": "Correct ValidatorIndex value",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators/0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validatorid", "mainnet"],
+    "comment": "Validator index high(int32) value",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators/2147483647",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "oneof", "value": ["404", "200"]},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+    }
+  },
+  {
+    "topics": ["beacon", "states_validatorid", "mainnet"],
+    "comment": "Validator index high(int32) + 1 value (unsupported)",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators/2147483648",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "500"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validatorid", "mainnet"],
+    "comment": "Validator index VALIDATOR_REGISTRY_LIMIT - 1",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators/1099511627775",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "500"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validatorid", "mainnet"],
+    "comment": "Validator index VALIDATOR_REGISTRY_LIMIT",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators/1099511627776",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validatorid", "mainnet"],
+    "comment": "Validator index high(uint64)",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators/18446744073709551615",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validatorid", "mainnet"],
+    "comment": "Validator index high(uint64) + 1",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators/18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validatorid"],
+    "comment": "Incorrect uint64 integer as validator index",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators/18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validatorid"],
+    "comment": "Incorrect uint64 integer as validator index",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators/18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validatorid"],
+    "comment": "Incorrect hexadecimal value as validator key #1",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators/0x",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+    }
+  },
+  {
+    "topics": ["beacon", "states_validatorid"],
+    "comment": "Incorrect hexadecimal value as validator key #2",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators/0x0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+    }
+  },
+  {
+    "topics": ["beacon", "states_validatorid"],
+    "comment": "Incorrect hexadecimal value as validator key #2",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators/0x00",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+    }
+  },
+  {
+    "topics": ["beacon", "states_validatorid"],
+    "comment": "Incorrect hexadecimal value as validator key #2",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators/0xHH",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+    }
+  },
+  {
+    "topics": ["beacon", "states_validatorid"],
+    "comment": "Incorrect hexadecimal value as validator key #3",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators/0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+    }
+  },
+  {
+    "topics": ["beacon", "states_validatorid"],
+    "comment": "Correct hexadecimal value as validator key #1",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators/0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validatorid"],
+    "comment": "Correct hexadecimal value as validator key #1",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators/0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validator_balances_slow", "slow"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validator_balances",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": ""}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validator_balances"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validator_balances?id=0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": ""}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validator_balances"],
+    "comment": "Maximum number of id[] is 30",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validator_balances?id=0&id=1&id=2&id=3&id=4&id=5&id=6&id=7&id=8&id=9&id=10&id=11&id=12&id=13&id=14&id=15&id=16&id=17&id=18&id=19&id=20&id=21&id=22&id=23&id=24&id=25&id=26&id=27&id=28&id=29",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": ""}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validator_balances"],
+    "comment": "Number of id[] is bigger than 30",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validator_balances?id=0&id=1&id=2&id=3&id=4&id=5&id=6&id=7&id=8&id=9&id=10&id=11&id=12&id=13&id=14&id=15&id=16&id=17&id=18&id=19&id=20&id=21&id=22&id=23&id=24&id=25&id=26&id=27&id=28&id=29&id=30",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validator_balances", "mainnet"],
+    "comment": "Index value equal to high(int32)",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validator_balances?id=2147483647",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "oneof", "value": ["404", "200"]},
+    }
+  },
+  {
+    "topics": ["beacon", "states_validator_balances", "mainnet"],
+    "comment": "Index value equal to high(int32) + 1",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validator_balances?id=2147483648",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "500"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validator_balances", "mainnet"],
+    "comment": "Index value equal to VALIDATOR_REGISTRY_LIMIT - 1",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validator_balances?id=1099511627775",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "500"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validator_balances", "mainnet"],
+    "comment": "Index value equal to VALIDATOR_REGISTRY_LIMIT",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validator_balances?id=1099511627776",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validator_balances"],
+    "comment": "Index value which is bigger max(ValidatorIndex)",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validator_balances?id=18446744073709551615",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validator_balances"],
+    "comment": "Index value which is bigger uint64",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validator_balances?id=18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+{
+    "topics": ["beacon", "states_validator_balances"],
+    "comment": "Incorrect hexadecimal values #1",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validator_balances?id=0x",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validator_balances"],
+    "comment": "Incorrect hexadecimal values #2",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validator_balances?id=0x0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validator_balances"],
+    "comment": "Incorrect hexadecimal values #3",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validator_balances?id=0x00",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validator_balances"],
+    "comment": "Incorrect hexadecimal values #4",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validator_balances?id=0xJJ",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validator_balances"],
+    "comment": "Correct hexadecimal values #1",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validator_balances"],
+    "comment": "Correct hexadecimal values #2",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validator_balances"],
+    "comment": "Correct values of different types",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000&id=0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001&id=0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002&id=0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003&id=0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004&id=5&id=6&id=7&id=8&id=9",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_committees"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/committees",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "slot": "", "validators": [""]}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_committees"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/committees?index=0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "slot": "", "validators": [""]}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_committees"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/committees?index=18446744073709551615",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "slot": "", "validators": [""]}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_committees"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/committees?index=18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_committees"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/committees?slot=0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "slot": "", "validators": [""]}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_committees"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/committees?slot=18446744073709551615",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "slot": "", "validators": [""]}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_committees"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/committees?slot=18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_committees"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/committees?epoch=0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "slot": "", "validators": [""]}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_committees"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/committees?epoch=576460752303423487",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "slot": "", "validators": [""]}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_committees"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/committees?epoch=576460752303423488",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_committees"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/committees?epoch=18446744073709551615",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_committees"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/committees?epoch=18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_committees"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/committees?slot=0&index=0&epoch=0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "slot": "", "validators": [""]}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_headers"],
+    "request": {
+      "url": "/eth/v1/beacon/headers",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"root": "", "canonical": true, "header": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""}, "signature": ""}}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_headers"],
+    "request": {
+      "url": "/eth/v1/beacon/headers?slot=0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"root": "", "canonical": true, "header": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""}, "signature": ""}}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_headers"],
+    "request": {
+      "url": "/eth/v1/beacon/headers?slot=18446744073709551615",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_headers"],
+    "request": {
+      "url": "/eth/v1/beacon/headers?slot=18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_headers"],
+    "request": {
+      "url": "/eth/v1/beacon/headers?parent_root=0x",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_headers"],
+    "request": {
+      "url": "/eth/v1/beacon/headers?parent_root=0x0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_headers"],
+    "request": {
+      "url": "/eth/v1/beacon/headers?parent_root=0xPP",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_headers"],
+    "request": {
+      "url": "/eth/v1/beacon/headers?parent_root=0x0000000000000000000000000000000000000000000000000000000000000000",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "500"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_headers_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/headers/head",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"root": "", "canonical": true, "header": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""}, "signature": ""}}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_headers_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/headers/genesis",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"root": "", "canonical": true, "header": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""}, "signature": ""}}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_headers_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/headers/finalized",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"root": "", "canonical": true, "header": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""}, "signature": ""}}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_headers_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/headers/heat",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_headers_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/headers/geneziz",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_headers_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/headers/finalised",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_headers_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/headers/0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"root": "", "canonical": true, "header": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""}, "signature": ""}}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_headers_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/headers/0x0000000000000000000000000000000000000000000000000000000000000000",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_headers_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/headers/18446744073709551615",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_headers_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/headers/18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_headers_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/headers/0x",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_headers_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/headers/0x0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_headers_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/headers/0x00",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_headers_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/headers/0xII",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_headers_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/headers/foobar",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/head",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/genesis",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/finalized",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/18446744073709551615",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/0x0000000000000000000000000000000000000000000000000000000000000000",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/heat",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/geneziz",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/finalised",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/foobar",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/0x",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/0x0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/0x00",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/0x000000000000000000000000000000000000000000000000000000000000000000",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_block_root_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/head/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": {"root": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_block_root_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/genesis/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": {"root": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_block_root_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/finalized/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": {"root": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_block_root_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/0/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": {"root": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_block_root_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/18446744073709551615/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_block_root_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/18446744073709551616/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_block_root_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/0x0000000000000000000000000000000000000000000000000000000000000000/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_block_root_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/18446744073709551616/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_block_root_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/heat/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_block_root_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/geneziz/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_block_root_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/finalised/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_block_root_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/foobar/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_block_root_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/0x/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_block_root_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/0x0/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_block_root_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/0x00/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_block_root_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/0x000000000000000000000000000000000000000000000000000000000000000000/root",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_block_attestations_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/head/attestations",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_block_attestations_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/genesis/attestations",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_block_attestations_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/finalized/attestations",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_block_attestations_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/0/attestations",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_block_attestations_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/18446744073709551615/attestations",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_block_attestations_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/18446744073709551616/attestations",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_block_attestations_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/0x0000000000000000000000000000000000000000000000000000000000000000/attestations",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_block_attestations_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/heat/attestations",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_block_attestations_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/geneziz/attestations",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_block_attestations_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/finalised/attestations",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_block_attestations_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/foobar/attestations",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_block_attestations_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/0x/attestations",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_block_attestations_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/0x0/attestations",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_block_attestations_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/0x00/attestations",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_block_attestations_blockid"],
+    "request": {
+      "url": "/eth/v1/beacon/blocks/0x000000000000000000000000000000000000000000000000000000000000000000/attestations",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "pool_attestations"],
+    "request": {
+      "url": "/eth/v1/beacon/pool/attestations",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations"],
+    "request": {
+      "url": "/eth/v1/beacon/pool/attestations?slot=0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations"],
+    "request": {
+      "url": "/eth/v1/beacon/pool/attestations?slot=18446744073709551615",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations"],
+    "request": {
+      "url": "/eth/v1/beacon/pool/attestations?slot=18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations"],
+    "request": {
+      "url": "/eth/v1/beacon/pool/attestations?slot=word",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations"],
+    "request": {
+      "url": "/eth/v1/beacon/pool/attestations?committee_index=0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations"],
+    "request": {
+      "url": "/eth/v1/beacon/pool/attestations?committee_index=18446744073709551615",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations"],
+    "request": {
+      "url": "/eth/v1/beacon/pool/attestations?committee_index=18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations"],
+    "request": {
+      "url": "/eth/v1/beacon/pool/attestations?committee_index=word",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations"],
+    "request": {
+      "url": "/eth/v1/beacon/pool/attestations?slot=0&committee_index=0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations"],
+    "request": {
+      "url": "/eth/v1/beacon/pool/attestations?slot=word&committee_index=word",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations"],
+    "request": {
+      "url": "/eth/v1/beacon/pool/attestations?slot=18446744073709551615&committee_index=18446744073709551615",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attestations"],
+    "request": {
+      "url": "/eth/v1/beacon/pool/attestations?slot=18446744073709551616&committee_index=18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_attester_slashings"],
+    "request": {
+      "url": "/eth/v1/beacon/pool/attester_slashings",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_proposer_slashings"],
+    "request": {
+      "url": "/eth/v1/beacon/pool/proposer_slashings",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""}, "signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""}, "signature": ""}}]}]
+    }
+  },
+  {
+    "topics": ["beacon", "pool_voluntary_exits"],
+    "request": {
+      "url": "/eth/v1/beacon/pool/voluntary_exits",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}]
+    }
+  },
+  {
+    "topics": ["config"],
+    "request": {
+      "url": "/eth/v1/config/fork_schedule",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"previous_version": "", "current_version": "", "epoch": ""}]}]
+    }
+  },
+  {
+    "topics": ["config"],
+    "request": {
+      "url": "/eth/v1/config/spec",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"MAX_COMMITTEES_PER_SLOT": "", "TARGET_COMMITTEE_SIZE": "", "MAX_VALIDATORS_PER_COMMITTEE": "", "MIN_PER_EPOCH_CHURN_LIMIT": "", "CHURN_LIMIT_QUOTIENT": "", "SHUFFLE_ROUND_COUNT": "", "MIN_GENESIS_ACTIVE_VALIDATOR_COUNT": "", "MIN_GENESIS_TIME": "", "HYSTERESIS_QUOTIENT": "", "HYSTERESIS_DOWNWARD_MULTIPLIER": "", "HYSTERESIS_UPWARD_MULTIPLIER": "", "SAFE_SLOTS_TO_UPDATE_JUSTIFIED": "", "ETH1_FOLLOW_DISTANCE": "", "TARGET_AGGREGATORS_PER_COMMITTEE": "", "RANDOM_SUBNETS_PER_VALIDATOR": "", "EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION": "", "SECONDS_PER_ETH1_BLOCK": "", "DEPOSIT_CHAIN_ID": "", "DEPOSIT_NETWORK_ID": "", "DEPOSIT_CONTRACT_ADDRESS": "", "MIN_DEPOSIT_AMOUNT": "", "MAX_EFFECTIVE_BALANCE": "", "EJECTION_BALANCE": "", "EFFECTIVE_BALANCE_INCREMENT": "", "GENESIS_FORK_VERSION": "", "BLS_WITHDRAWAL_PREFIX": "", "GENESIS_DELAY": "", "SECONDS_PER_SLOT": "", "MIN_ATTESTATION_INCLUSION_DELAY": "", "SLOTS_PER_EPOCH": "", "MIN_SEED_LOOKAHEAD": "", "MAX_SEED_LOOKAHEAD": "", "EPOCHS_PER_ETH1_VOTING_PERIOD": "", "SLOTS_PER_HISTORICAL_ROOT": "", "MIN_VALIDATOR_WITHDRAWABILITY_DELAY": "", "SHARD_COMMITTEE_PERIOD": "", "MIN_EPOCHS_TO_INACTIVITY_PENALTY": "", "EPOCHS_PER_HISTORICAL_VECTOR": "", "EPOCHS_PER_SLASHINGS_VECTOR": "", "HISTORICAL_ROOTS_LIMIT": "", "VALIDATOR_REGISTRY_LIMIT": "", "BASE_REWARD_FACTOR": "", "WHISTLEBLOWER_REWARD_QUOTIENT": "", "PROPOSER_REWARD_QUOTIENT": "", "INACTIVITY_PENALTY_QUOTIENT": "", "MIN_SLASHING_PENALTY_QUOTIENT" :"", "PROPORTIONAL_SLASHING_MULTIPLIER" :"", "MAX_PROPOSER_SLASHINGS" :"", "MAX_ATTESTER_SLASHINGS" :"", "MAX_ATTESTATIONS" :"", "MAX_DEPOSITS" :"", "MAX_VOLUNTARY_EXITS" :"", "DOMAIN_BEACON_PROPOSER" :"", "DOMAIN_BEACON_ATTESTER" :"", "DOMAIN_RANDAO" :"", "DOMAIN_DEPOSIT" :"", "DOMAIN_VOLUNTARY_EXIT" :"", "DOMAIN_SELECTION_PROOF" :"", "DOMAIN_AGGREGATE_AND_PROOF" :""}}]
+    }
+  },
+  {
+    "topics": ["config"],
+    "request": {
+      "url": "/eth/v1/config/deposit_contract",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"chain_id": "", "address": ""}}]
+    }
+  },
+  {
+    "topics": ["debug"],
+    "request": {
+      "url": "/eth/v1/debug/beacon/heads",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"root": "", "slot": ""}]}]
+    }
+  },
+  {
+    "topics": ["debug", "beacon_states_head_slow", "slow"],
+    "request": {
+      "url": "/eth/v1/debug/beacon/states/head",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"genesis_time": "", "genesis_validators_root": "", "slot": "", "fork": {"previous_version": "", "current_version": "", "epoch": ""}, "latest_block_header": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""}, "block_roots": [""], "state_roots": [""], "historical_roots": [""], "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "eth1_data_votes": [{"deposit_root": "", "deposit_count": "", "block_hash": ""}], "eth1_deposit_index": "", "validators": [{"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}], "balances": [""], "randao_mixes": [""], "slashings": [""], "previous_epoch_attestations": [{"aggregation_bits": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}, "inclusion_delay": "", "proposer_index": ""}], "current_epoch_attestations": [{"aggregation_bits": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}, "inclusion_delay": "", "proposer_index": ""}], "justification_bits": "", "previous_justified_checkpoint": {"epoch": "", "root": ""}, "current_justified_checkpoint": {"epoch": "", "root": ""}, "finalized_checkpoint": {"epoch": "", "root": ""}}}]
+    }
+  },
+  {
+    "topics": ["node"],
+    "request": {
+      "url": "/eth/v1/node/identity",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"peer_id": "", "enr": "", "p2p_addresses": [""], "discovery_addresses": [""], "metadata": {"seq_number": "", "attnets": ""}}}]
+    }
+  },
+  {
+    "topics": ["node"],
+    "request": {
+      "url": "/eth/v1/node/peers",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": ""}}}]
+    }
+  },
+  {
+    "topics": ["node"],
+    "request": {
+      "url": "/eth/v1/node/peers?state=disconnected",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": ""}}}]
+    }
+  },
+  {
+    "topics": ["node"],
+    "request": {
+      "url": "/eth/v1/node/peers?state=connecting",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": ""}}}]
+    }
+  },
+  {
+    "topics": ["node"],
+    "request": {
+      "url": "/eth/v1/node/peers?state=connected",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": ""}}}]
+    }
+  },
+  {
+    "topics": ["node"],
+    "request": {
+      "url": "/eth/v1/node/peers?state=disconnecting",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": ""}}}]
+    }
+  },
+  {
+    "topics": ["node"],
+    "request": {
+      "url": "/eth/v1/node/peers?state=disconnected&state=connecting&state=connected&state=disconnecting",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": ""}}}]
+    }
+  },
+  {
+    "topics": ["node"],
+    "request": {
+      "url": "/eth/v1/node/peers?state=disconnected&state=connecting&state=connected&state=disconnecting&direction=inbound&direction=outbound",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": ""}}}]
+    }
+  },
+  {
+    "topics": ["node"],
+    "request": {
+      "url": "/eth/v1/node/peers?direction=inbound",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": ""}}}]
+    }
+  },
+  {
+    "topics": ["node"],
+    "request": {
+      "url": "/eth/v1/node/peers?direction=outbound",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"data": [{"peer_id": "", "enr": "", "last_seen_p2p_address": "", "state": "", "direction": ""}], "meta": {"count": ""}}}]
+    }
+  },
+  {
+    "topics": ["node"],
+    "request": {
+      "url": "/eth/v1/node/peers?state=disconnected&state=disconnected",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["node"],
+    "request": {
+      "url": "/eth/v1/node/peers?direction=inbound&direction=inbound",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["node"],
+    "request": {
+      "url": "/eth/v1/node/peers/QmYyQSo1c1Ym7orWxLYvCrM2EmxFTANf8wXmmE7DWjhx5N",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "oneof", "value": ["200", "404"]}
+    }
+  },
+  {
+    "topics": ["node"],
+    "request": {
+      "url": "/eth/v1/node/peers/QmYyQSo1c1Ym7orWxLYvCrM2EmxFTANf8wXmmE7DWjhx5",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"}
+    }
+  },
+  {
+    "topics": ["node"],
+    "request": {
+      "url": "/eth/v1/node/peers/QmYyQSo1c1Ym7orWxLYvCrM2EmxFTANf8wXmmE7DWjhx5l",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"}
+    }
+  },
+  {
+    "topics": ["node"],
+    "request": {
+      "url": "/eth/v1/node/peer_count",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"disconnected": "", "connecting": "", "connected": "", "disconnecting": ""}}]
+    }
+  },
+  {
+    "topics": ["node"],
+    "request": {
+      "url": "/eth/v1/node/version",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"version": ""}}]
+    }
+  },
+  {
+    "topics": ["node"],
+    "request": {
+      "url": "/eth/v1/node/syncing",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"head_slot": "", "sync_distance": "", "is_syncing": false}}]
+    }
+  },
+  {
+    "topics": ["node"],
+    "request": {
+      "url": "/eth/v1/node/health",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "oneof", "value": ["200", "206", "503"]}}
+  },
+  {
+    "topics": ["validator", "proposer_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/proposer/0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "value": {"dependent_root": "", "data": [{"pubkey": "", "validator_index": "", "slot": ""}]}}]
+    }
+  },
+  {
+    "topics": ["validator", "proposer_duties", "mainnet"],
+    "comment": "Maximum epoch for mainnet parameters",
+    "request": {
+      "url": "/eth/v1/validator/duties/proposer/576460752303423487",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "503"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "proposer_duties", "mainnet"],
+    "comment": "Maximum epoch + 1 for mainnet parameters",
+    "request": {
+      "url": "/eth/v1/validator/duties/proposer/576460752303423488",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "proposer_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/proposer/18446744073709551615",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "proposer_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/proposer/18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "proposer_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/proposer/foobar",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"}
+    }
+  },
+  {
+    "topics": ["validator", "attestation_data"],
+    "request": {
+      "url": "/eth/v1/validator/attestation_data?slot=0&committee_index=0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]
+    }
+  },
+  {
+    "topics": ["validator", "attestation_data"],
+    "request": {
+      "url": "/eth/v1/validator/attestation_data",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "attestation_data"],
+    "request": {
+      "url": "/eth/v1/validator/attestation_data?slot=0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "attestation_data"],
+    "request": {
+      "url": "/eth/v1/validator/attestation_data?committee_index=0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "attestation_data"],
+    "request": {
+      "url": "/eth/v1/validator/attestation_data?slot=18446744073709551615&committee_index=18446744073709551615",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "503"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "attestation_data"],
+    "request": {
+      "url": "/eth/v1/validator/attestation_data?slot=18446744073709551616&committee_index=18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "attestation_data"],
+    "request": {
+      "url": "/eth/v1/validator/attestation_data?slot=foobar&committee_index=foobar",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "attestation_data"],
+    "request": {
+      "url": "/eth/v1/validator/attestation_data?slot=&committee_index=",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "aggregate_attestation"],
+    "request": {
+      "url": "/eth/v1/validator/aggregate_attestation",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+    {
+    "topics": ["validator", "aggregate_attestation"],
+    "request": {
+      "url": "/eth/v1/validator/aggregate_attestation?slot=0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "aggregate_attestation"],
+    "request": {
+      "url": "/eth/v1/validator/aggregate_attestation?slot=&attestation_data_root=",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "aggregate_attestation"],
+    "request": {
+      "url": "/eth/v1/validator/aggregate_attestation?slot=0&attestation_data_root=0x0000000000000000000000000000000000000000000000000000000000000000",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "oneof", "value": ["400", "200"]},
+    }
+  },
+  {
+    "topics": ["validator", "attester_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/attester/0",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"0\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "value": {"dependent_root": "", "data":[{"pubkey": "", "validator_index": "", "committee_index": "", "committee_length": "", "committees_at_slot": "", "validator_committee_index": "", "slot": ""}]}}]
+    }
+  },
+  {
+    "topics": ["validator", "attester_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/attester/0",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "attester_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/attester/0",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "attester_duties"],
+    "request": {
+      "method": "POST",
+      "url": "/eth/v1/validator/duties/attester/0",
+      "headers": {"Accept": "application/json"},
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+    }
+  },
+  {
+    "topics": ["validator", "attester_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/attester/576460752303423487",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"0\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "503"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "attester_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/attester/576460752303423488",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"0\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "attester_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/attester/18446744073709551615",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"0\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "attester_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/attester/18446744073709551616",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"0\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "attester_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/attester/foobar",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"}
+    }
+  },
+  {
+    "topics": ["validator", "attester_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/attester/0",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"2147483647\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "value": {"dependent_root": "", "data":[{"pubkey": "", "validator_index": "", "committee_index": "", "committee_length": "", "committees_at_slot": "", "validator_committee_index": "", "slot": ""}]}}]
+    }
+  },
+  {
+    "topics": ["validator", "attester_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/attester/0",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"2147483648\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "500"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "attester_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/attester/0",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"1099511627775\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "500"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "attester_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/attester/0",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"1099511627776\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "attester_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/attester/0",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"18446744073709551615\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "attester_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/attester/0",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"18446744073709551616\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+]
