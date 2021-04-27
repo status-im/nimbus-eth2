@@ -278,7 +278,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}
-          path: build/*.xml
+          path: nim-beacon-chain/build/*.xml
 
       - name: Run nim-beacon-chain testnet0 (minimal)
         if: matrix.target.TEST_KIND == 'finalization-minimal'
