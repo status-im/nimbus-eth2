@@ -9,7 +9,6 @@
 
 import
   # Standard library
-  unittest,
   # Vendored packages
   stew/bitops2,
   # Specs
@@ -213,7 +212,7 @@ proc finalizeOn12(state: var HashedBeaconState, epoch: Epoch, sufficient_support
     doAssert state.data.finalized_checkpoint == old_finalized # no new finalized checkpoint
 
 proc payload =
-  suiteReport "[Unit - Spec - Epoch processing] Justification and Finalization " & preset():
+  suite "[Unit - Spec - Epoch processing] Justification and Finalization " & preset():
     echo "   Finalization rules are detailed at https://github.com/protolambda/eth2-docs#justification-and-finalization"
 
     const NumValidators = uint64(8) * SLOTS_PER_EPOCH
@@ -223,28 +222,28 @@ proc payload =
     setup:
       var state = assignClone(genesisState[])
 
-    timedTest " Rule I - 234 finalization with enough support":
+    test " Rule I - 234 finalization with enough support":
       finalizeOn234(state[], Epoch 5, sufficient_support = true)
 
-    timedTest " Rule I - 234 finalization without support":
+    test " Rule I - 234 finalization without support":
       finalizeOn234(state[], Epoch 5, sufficient_support = false)
 
-    timedTest " Rule II - 23 finalization with enough support":
+    test " Rule II - 23 finalization with enough support":
       finalizeOn23(state[], Epoch 4, sufficient_support = true)
 
-    timedTest " Rule II - 23 finalization without support":
+    test " Rule II - 23 finalization without support":
       finalizeOn23(state[], Epoch 4, sufficient_support = false)
 
-    timedTest " Rule III - 123 finalization with enough support":
+    test " Rule III - 123 finalization with enough support":
       finalizeOn123(state[], Epoch 6, sufficient_support = true)
 
-    timedTest " Rule III - 123 finalization without support":
+    test " Rule III - 123 finalization without support":
       finalizeOn123(state[], Epoch 6, sufficient_support = false)
 
-    timedTest " Rule IV - 12 finalization with enough support":
+    test " Rule IV - 12 finalization with enough support":
       finalizeOn12(state[], Epoch 3, sufficient_support = true)
 
-    timedTest " Rule IV - 12 finalization without support":
+    test " Rule IV - 12 finalization without support":
       finalizeOn12(state[], Epoch 3, sufficient_support = false)
 
 payload()

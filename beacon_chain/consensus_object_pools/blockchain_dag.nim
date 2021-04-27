@@ -18,7 +18,7 @@ import
   ../beacon_clock,
   "."/[block_pools_types, block_quarantine]
 
-export block_pools_types, helpers
+export block_pools_types, helpers, datatypes
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"

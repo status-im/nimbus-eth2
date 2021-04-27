@@ -7,13 +7,12 @@
 
 {.used.}
 
-import unittest, ./testutil
+import unittest2
 
-when false:
-  import ../beacon_chain/sync/sync_protocol
+import ../beacon_chain/sync/sync_protocol
 
-suiteReport "Sync protocol":
+suite "Sync protocol":
   # Compile test
 
-  timedTest "Compile":
+  test "Compile":
     discard

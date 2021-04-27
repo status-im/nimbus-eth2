@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[unittest, os],
+  std/[os],
   # Status lib
   eth/db/kvstore,
   stew/results,
@@ -19,14 +19,6 @@ import
   ../../beacon_chain/spec/[datatypes, digest, crypto, presets],
   # Test utilies
   ../testutil
-
-template wrappedTimedTest(name: string, body: untyped) =
-  # `check` macro takes a copy of whatever it's checking, on the stack!
-  block: # Symbol namespacing
-    proc wrappedTest() =
-      timedTest name:
-        body
-    wrappedTest()
 
 func fakeRoot(index: SomeInteger): Eth2Digest =
   ## Create fake roots
@@ -50,12 +42,12 @@ proc sqlite3db_delete(basepath, dbname: string) =
 const TestDir = ""
 const TestDbName = "test_slashprot"
 
-suiteReport "Slashing Protection DB - Interchange" & preset():
+suite "Slashing Protection DB - Interchange" & preset():
   # https://hackmd.io/@sproul/Bk0Y0qdGD#Format-1-Complete
   # https://eips.ethereum.org/EIPS/eip-3076
   sqlite3db_delete(TestDir, TestDbName)
 
-  wrappedTimedTest "Smoke test - Complete format" & preset():
+  test "Smoke test - Complete format" & preset():
     let genesis_validators_root = hexToDigest"0x04700007fabc8282644aed6d1c7c9e21d38a03a0c4ba193f3afe428824b3a673"
     block: # export
       let db = SlashingProtectionDB.init(
@@ -122,7 +114,7 @@ suiteReport "Slashing Protection DB - Interchange" & preset():
       doAssert siSuccess == db3.importSlashingInterchange(currentSourcePath.parentDir/"test_complete_export_slashing_protection.json")
       db3.exportSlashingInterchange(currentSourcePath.parentDir/"test_complete_export_slashing_protection_roundtrip2.json")
 
-  wrappedTimedTest "Smoke test - Complete format - Invalid database is refused" & preset():
+  test "Smoke test - Complete format - Invalid database is refused" & preset():
     block: # import - invalid root db
       let invalid_genvalroot = hexToDigest"0x1234"
       let db4 = SlashingProtectionDB.init(

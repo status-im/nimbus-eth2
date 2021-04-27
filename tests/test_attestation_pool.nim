@@ -24,7 +24,7 @@ import
   ../beacon_chain/spec/[crypto, datatypes, digest, validator, state_transition,
                         helpers, beaconstate, presets],
   # Test utilities
-  ./testutil, ./testblockutil
+  ./testutil, ./testdbutil, ./testblockutil
 
 func combine(tgt: var Attestation, src: Attestation) =
   ## Combine the signature and participation bitfield, with the assumption that
@@ -53,7 +53,7 @@ proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
     dag.pruneStateCachesDAG()
     # pool[].prune() # We test logic without attestation pool / fork choice pruning
 
-suiteReport "Attestation pool processing" & preset():
+suite "Attestation pool processing" & preset():
   ## For now just test that we can compile and execute block processing with
   ## mock data.
 
@@ -69,7 +69,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       process_slots(state.data, getStateField(state, slot) + 1, cache)
 
-  timedTest "Can add and retrieve simple attestations" & preset():
+  test "Can add and retrieve simple attestations" & preset():
     let
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
@@ -174,7 +174,7 @@ suiteReport "Attestation pool processing" & preset():
     pool[].addAttestation(
       att4, @[bc1[2]], att3.loadSig, att3.data.slot)
 
-  timedTest "Working with aggregates" & preset():
+  test "Working with aggregates" & preset():
     let
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
@@ -226,7 +226,7 @@ suiteReport "Attestation pool processing" & preset():
         attestations[0].aggregation_bits.countOnes() == 4
         pool[].getAggregatedAttestation(1.Slot, 0.CommitteeIndex).isSome()
 
-  timedTest "Everyone voting for something different" & preset():
+  test "Everyone voting for something different" & preset():
     var attestations: int
     for i in 0..<SLOTS_PER_EPOCH:
       var root: Eth2Digest
@@ -253,7 +253,7 @@ suiteReport "Attestation pool processing" & preset():
       pool[].getAggregatedAttestation(
         getStateField(state, slot) - 1, 0.CommitteeIndex).isSome()
 
-  timedTest "Attestations may arrive in any order" & preset():
+  test "Attestations may arrive in any order" & preset():
     var cache = StateCache()
     let
       # Create an attestation for slot 1!
@@ -285,7 +285,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       attestations.len == 1
 
-  timedTest "Attestations should be combined" & preset():
+  test "Attestations should be combined" & preset():
     var cache = StateCache()
     let
       # Create an attestation for slot 1!
@@ -309,7 +309,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       attestations.len == 1
 
-  timedTest "Attestations may overlap, bigger first" & preset():
+  test "Attestations may overlap, bigger first" & preset():
     var cache = StateCache()
 
     var
@@ -336,7 +336,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       attestations.len == 1
 
-  timedTest "Attestations may overlap, smaller first" & preset():
+  test "Attestations may overlap, smaller first" & preset():
     var cache = StateCache()
     var
       # Create an attestation for slot 1!
@@ -362,7 +362,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       attestations.len == 1
 
-  timedTest "Fork choice returns latest block with no attestations":
+  test "Fork choice returns latest block with no attestations":
     var cache = StateCache()
     let
       b1 = addTestBlock(state.data, chainDag.tail.root, cache)
@@ -390,7 +390,7 @@ suiteReport "Attestation pool processing" & preset():
     check:
       head2 == b2Add[]
 
-  timedTest "Fork choice returns block with attestation":
+  test "Fork choice returns block with attestation":
     var cache = StateCache()
     let
       b10 = makeTestBlock(state.data, chainDag.tail.root, cache)
@@ -450,7 +450,7 @@ suiteReport "Attestation pool processing" & preset():
       # Two votes for b11
       head4 == b11Add[]
 
-  timedTest "Trying to add a block twice tags the second as an error":
+  test "Trying to add a block twice tags the second as an error":
     var cache = StateCache()
     let
       b10 = makeTestBlock(state.data, chainDag.tail.root, cache)
@@ -476,7 +476,7 @@ suiteReport "Attestation pool processing" & preset():
 
     doAssert: b10Add_clone.error == (ValidationResult.Ignore, Duplicate)
 
-  timedTest "Trying to add a duplicate block from an old pruned epoch is tagged as an error":
+  test "Trying to add a duplicate block from an old pruned epoch is tagged as an error":
     # Note: very sensitive to stack usage
 
     chainDag.updateFlags.incl {skipBLSValidation}

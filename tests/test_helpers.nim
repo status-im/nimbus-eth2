@@ -8,11 +8,11 @@
 {.used.}
 
 import
-  unittest, ./testutil,
+  ./unittest2,
   ../beacon_chain/spec/[helpers]
 
-suiteReport "Spec helpers":
-  timedTest "integer_squareroot":
+suite "Spec helpers":
+  test "integer_squareroot":
     check:
       integer_squareroot(0'u64) == 0'u64
       integer_squareroot(1'u64) == 1'u64

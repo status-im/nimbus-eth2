@@ -14,7 +14,7 @@
 
 import
   # Standard library
-  unittest, math,
+  std/math,
   # Specs
   ../../beacon_chain/spec/[beaconstate, datatypes, crypto, presets],
   # Internals
@@ -24,14 +24,14 @@ import
   ../mocking/[mock_deposits, mock_genesis],
   ../testutil, ../helpers/math_helpers
 
-suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
+suite "[Unit - Spec - Block processing] Deposits " & preset():
 
   const NumValidators = uint64 5 * SLOTS_PER_EPOCH
   let genesisState = newClone(initGenesisState(NumValidators))
   doAssert genesisState.data.validators.lenu64 == NumValidators
 
   template valid_deposit(deposit_amount: uint64, name: string): untyped =
-    timedTest "Deposit " & name & " MAX_EFFECTIVE_BALANCE balance (" &
+    test "Deposit " & name & " MAX_EFFECTIVE_BALANCE balance (" &
           $(MAX_EFFECTIVE_BALANCE div 10'u64^9) & " ETH)":
       var state = assignClone(genesisState[])
 
@@ -73,7 +73,7 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
   valid_deposit(MAX_EFFECTIVE_BALANCE, "at")
   valid_deposit(MAX_EFFECTIVE_BALANCE + 1, "over")
 
-  timedTest "Validator top-up":
+  test "Validator top-up":
     var state = assignClone(genesisState[])
 
     # Test configuration
@@ -112,7 +112,7 @@ suiteReport "[Unit - Spec - Block processing] Deposits " & preset():
         )
 
   template invalid_signature(deposit_amount: uint64, name: string): untyped =
-    timedTest "Invalid deposit " & name & " MAX_EFFECTIVE_BALANCE balance (" &
+    test "Invalid deposit " & name & " MAX_EFFECTIVE_BALANCE balance (" &
           $(MAX_EFFECTIVE_BALANCE div 10'u64^9) & " ETH)":
       var state = assignClone(genesisState[])
 

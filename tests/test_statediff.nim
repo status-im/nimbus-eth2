@@ -8,8 +8,9 @@
 {.used.}
 
 import
-  options, sequtils, unittest,
-  ./testutil, ./teststateutil,
+  options, sequtils,
+  unittest2,
+  ./testutil, ./testdbutil, ./teststateutil,
   ../beacon_chain/spec/[datatypes, digest, helpers, presets],
   ../beacon_chain/[beacon_node_types, statediff],
   ../beacon_chain/ssz,
@@ -18,23 +19,13 @@ import
 when isMainModule:
   import chronicles # or some random compile error happens...
 
-template wrappedTimedTest(name: string, body: untyped) =
-  # `check` macro takes a copy of whatever it's checking, on the stack!
-  # This leads to stack overflow
-  # We can mitigate that by wrapping checks in proc
-  block: # Symbol namespacing
-    proc wrappedTest() =
-      timedTest name:
-        body
-    wrappedTest()
-
-suiteReport "state diff tests" & preset():
+suite "state diff tests" & preset():
   setup:
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
 
-  wrappedTimedTest "random slot differences" & preset():
+  test "random slot differences" & preset():
     let testStates = getTestStates(dag.headState.data)
 
     for i in 0 ..< testStates.len:

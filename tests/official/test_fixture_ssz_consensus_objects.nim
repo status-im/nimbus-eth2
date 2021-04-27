@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  os, unittest, strutils, streams, strformat,
+  os, strutils, streams, strformat,
   macros, sets,
   # Third-party
   yaml,
@@ -80,12 +80,12 @@ proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot =
 # Test runner
 # ----------------------------------------------------------------
 
-proc runSSZtests() =
+suite "Official - SSZ consensus objects " & preset():
   doAssert existsDir(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the official test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true):
     doAssert pathKind == pcDir
 
-    timedTest &"  Testing    {sszType}":
+    test &"  Testing    {sszType}":
       let path = SSZDir/sszType
       for pathKind, sszTestKind in walkDir(path, relative = true):
         doAssert pathKind == pcDir
@@ -127,8 +127,5 @@ proc runSSZtests() =
           of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)
-
-suiteReport "Official - SSZ consensus objects " & preset():
-  runSSZtests()
 
 summarizeLongTests("FixtureSSZConsensus")

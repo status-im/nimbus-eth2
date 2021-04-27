@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[unittest, os],
+  std/[os],
   # Status lib
   eth/db/kvstore,
   stew/results,
@@ -23,7 +23,7 @@ template wrappedTimedTest(name: string, body: untyped) =
   # `check` macro takes a copy of whatever it's checking, on the stack!
   block: # Symbol namespacing
     proc wrappedTest() =
-      timedTest name:
+      test name:
         body
     wrappedTest()
 
@@ -56,7 +56,7 @@ const TestDbName = "test_slashprot"
 # - block_root is unique
 # - (validator_id, slot)
 
-suiteReport "Slashing Protection DB" & preset():
+suite "Slashing Protection DB" & preset():
   wrappedTimedTest "Empty database" & preset():
     sqlite3db_delete(TestDir, TestDbName)
     let db = SlashingProtectionDB.init(

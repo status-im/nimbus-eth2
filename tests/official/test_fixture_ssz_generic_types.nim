@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  os, unittest, strutils, streams, strformat, strscans,
+  os, strutils, streams, strformat, strscans,
   macros, typetraits,
   # Status libraries
   faststreams, ../testutil,
@@ -245,7 +245,7 @@ proc sszCheck(baseDir, sszType, sszSubType: string) =
 # Test runner
 # ------------------------------------------------------------------------
 
-proc runSSZtests() =
+suite "Official - SSZ generic types":
   doAssert existsDir(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the official test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true):
     doAssert pathKind == pcDir
@@ -259,13 +259,13 @@ proc runSSZtests() =
     of "containers":
       skipped = " - skipping BitsStruct"
 
-    timedTest &"Testing {sszType:12} inputs - valid" & skipped:
+    test &"Testing {sszType:12} inputs - valid" & skipped:
       let path = SSZDir/sszType/"valid"
       for pathKind, sszSubType in walkDir(path, relative = true):
         if pathKind != pcDir: continue
         sszCheck(path, sszType, sszSubType)
 
-    timedTest &"Testing {sszType:12} inputs - invalid" & skipped:
+    test &"Testing {sszType:12} inputs - invalid" & skipped:
       let path = SSZDir/sszType/"invalid"
       for pathKind, sszSubType in walkDir(path, relative = true):
         if pathKind != pcDir: continue
@@ -280,8 +280,5 @@ proc runSSZtests() =
           checkpoint getStackTrace(getCurrentException())
           checkpoint getCurrentExceptionMsg()
           check false
-
-suiteReport "Official - SSZ generic types":
-  runSSZtests()
 
 summarizeLongTests("FixtureSSZGeneric")

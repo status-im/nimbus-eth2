@@ -7,10 +7,10 @@
 
 {.used.}
 
-import std/[unittest, random, heapqueue, tables]
+import std/[random, heapqueue, tables]
 import chronos
 import ../beacon_chain/networking/peer_pool
-import testutil
+import ./testutil
 
 type
   PeerTestID* = string
@@ -35,8 +35,8 @@ proc init*(t: typedesc[PeerTest], id: string = "",
 proc close*(peer: PeerTest) =
   peer.future.complete()
 
-suiteReport "PeerPool testing suite":
-  timedTest "addPeerNoWait() test":
+suite "PeerPool testing suite":
+  test "addPeerNoWait() test":
     const peersCount = [
       [10, 5, 5, 10, 5, 5],
       [-1, 5, 5, 10, 5, 5],
@@ -66,7 +66,7 @@ suiteReport "PeerPool testing suite":
         pool.lenAvailable({PeerType.Incoming}) == item[4]
         pool.lenAvailable({PeerType.Outgoing}) == item[5]
 
-  timedTest "addPeer() test":
+  test "addPeer() test":
     proc testAddPeer1(): Future[bool] {.async.} =
       var pool = newPeerPool[PeerTest, PeerTestID](maxPeers = 1,
                                                    maxIncomingPeers = 1,
@@ -185,7 +185,7 @@ suiteReport "PeerPool testing suite":
       waitFor(testAddPeer3()) == true
       waitFor(testAddPeer4()) == true
 
-  timedTest "Acquire from empty pool":
+  test "Acquire from empty pool":
     var pool0 = newPeerPool[PeerTest, PeerTestID]()
     var pool1 = newPeerPool[PeerTest, PeerTestID]()
     var pool2 = newPeerPool[PeerTest, PeerTestID]()
@@ -237,7 +237,7 @@ suiteReport "PeerPool testing suite":
       itemFut23.finished == false
       itemFut24.finished == false
 
-  timedTest "Acquire/Sorting and consistency test": closureScope:
+  test "Acquire/Sorting and consistency test": closureScope:
     const
       TestsCount = 1000
       MaxNumber = 1_000_000
@@ -306,7 +306,7 @@ suiteReport "PeerPool testing suite":
 
     check waitFor(testAcquireRelease()) == TestsCount
 
-  timedTest "deletePeer() test":
+  test "deletePeer() test":
     proc testDeletePeer(): Future[bool] {.async.} =
       var pool = newPeerPool[PeerTest, PeerTestID]()
       var peer = PeerTest.init("deletePeer")
@@ -362,7 +362,7 @@ suiteReport "PeerPool testing suite":
       result = true
     check waitFor(testDeletePeer()) == true
 
-  timedTest "Peer lifetime test":
+  test "Peer lifetime test":
     proc testPeerLifetime(): Future[bool] {.async.} =
       var pool = newPeerPool[PeerTest, PeerTestID]()
       var peer = PeerTest.init("closingPeer")
@@ -411,7 +411,7 @@ suiteReport "PeerPool testing suite":
 
     check waitFor(testPeerLifetime()) == true
 
-  timedTest "Safe/Clear test": closureScope:
+  test "Safe/Clear test": closureScope:
     var pool = newPeerPool[PeerTest, PeerTestID]()
     var peer1 = PeerTest.init("peer1", 10)
     var peer2 = PeerTest.init("peer2", 9)
@@ -458,7 +458,7 @@ suiteReport "PeerPool testing suite":
     asyncCheck testConsumer()
     check waitFor(testClose()) == true
 
-  timedTest "Access peers by key test": closureScope:
+  test "Access peers by key test": closureScope:
     var pool = newPeerPool[PeerTest, PeerTestID]()
     var peer1 = PeerTest.init("peer1", 10)
     var peer2 = PeerTest.init("peer2", 9)
@@ -487,7 +487,7 @@ suiteReport "PeerPool testing suite":
     ppeer[].weight = 100
     check pool["peer1"].weight == 100
 
-  timedTest "Iterators test":
+  test "Iterators test":
     var pool = newPeerPool[PeerTest, PeerTestID]()
     var peer1 = PeerTest.init("peer1", 10)
     var peer2 = PeerTest.init("peer2", 9)
@@ -587,7 +587,7 @@ suiteReport "PeerPool testing suite":
       len(acqui2) == 2
       len(acqui3) == 1
 
-  timedTest "Score check test":
+  test "Score check test":
     var pool = newPeerPool[PeerTest, PeerTestID]()
     proc scoreCheck(peer: PeerTest): bool =
       if peer.weight >= 0:
@@ -649,7 +649,7 @@ suiteReport "PeerPool testing suite":
       lenAcquired(pool) == 0
       len(pool) == 0
 
-  timedTest "Delete peer on release text":
+  test "Delete peer on release text":
     proc testDeleteOnRelease(): Future[bool] {.async.} =
       proc scoreCheck(peer: PeerTest): bool =
         if peer.weight >= 0:
@@ -683,7 +683,7 @@ suiteReport "PeerPool testing suite":
 
     check waitFor(testDeleteOnRelease()) == true
 
-  timedTest "Space tests":
+  test "Space tests":
     var pool1 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79)
     var pool2 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
                                                   maxIncomingPeers = 39)

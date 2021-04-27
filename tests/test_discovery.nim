@@ -1,16 +1,16 @@
 {.used.}
 
 import
-  std/unittest,
+  unittest2,
   chronos, stew/shims/net, eth/keys, eth/p2p/discoveryv5/enr,
   ../beacon_chain/conf,
   ../beacon_chain/spec/datatypes,
   ../beacon_chain/networking/[eth2_network, eth2_discovery],
   ./testutil
 
-template timedAsyncTest*(name, body: untyped) =
-  timedTest name:
-    proc scenario {.async.} = body
+template asyncTest*(name, body: untyped) =
+  test name:
+    proc scenario {.async.} = {.gcsafe.}: body
     waitFor scenario()
 
 proc new*(T: type Eth2DiscoveryProtocol,
@@ -30,7 +30,7 @@ proc generateNode(rng: ref BrHmacDrbgContext, port: Port,
   Eth2DiscoveryProtocol.new(keys.PrivateKey.random(rng[]),
         some(ip), some(port), some(port), port, ip, enrFields, rng = rng)
 
-suiteReport "Eth2 specific discovery tests":
+suite "Eth2 specific discovery tests":
   let
     rng = keys.newRng()
     enrForkId = ENRForkID(
@@ -38,7 +38,7 @@ suiteReport "Eth2 specific discovery tests":
       next_fork_version: Version([byte 0, 0, 0, 0]),
       next_fork_epoch: Epoch(0))
 
-  timedAsyncTest "Subnet query":
+  asyncTest "Subnet query":
     var attnets: BitArray[ATTESTATION_SUBNET_COUNT]
     attnets.setBit(34)
 
@@ -63,7 +63,7 @@ suiteReport "Eth2 specific discovery tests":
     await node1.closeWait()
     await node2.closeWait()
 
-  timedAsyncTest "Invalid attnets field":
+  asyncTest "Invalid attnets field":
     var invalidAttnets: BitArray[ATTESTATION_SUBNET_COUNT div 2]
     invalidAttnets.setBit(15)
     # TODO: This doesn't fail actually.
@@ -97,7 +97,7 @@ suiteReport "Eth2 specific discovery tests":
     await node2.closeWait()
     await node3.closeWait()
 
-  timedAsyncTest "Subnet query after ENR update":
+  asyncTest "Subnet query after ENR update":
     var attnets: BitArray[ATTESTATION_SUBNET_COUNT]
     attnets.setBit(1)
 

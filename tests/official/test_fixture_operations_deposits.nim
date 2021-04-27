@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  os, unittest,
+  os,
   # Utilities
   stew/results,
   # Beacon chain internals
@@ -38,7 +38,7 @@ proc runTest(identifier: string) =
     else:
       prefix = "[Invalid] "
 
-    timedTest prefix & " " & identifier:
+    test prefix & " " & identifier:
       let deposit = parseTest(testDir/"deposit.ssz", SSZ, Deposit)
       var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
 
@@ -51,6 +51,6 @@ proc runTest(identifier: string) =
 
   `testImpl _ operations_deposits _ identifier`()
 
-suiteReport "Official - Operations - Deposits " & preset():
+suite "Official - Operations - Deposits " & preset():
   for kind, path in walkDir(OperationsDepositsDir, true):
     runTest(path)

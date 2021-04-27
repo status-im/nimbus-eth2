@@ -9,8 +9,9 @@
 
 import
   # Standard libs
-  os, unittest,
+  os,
   # Status libs
+  unittest2,
   blscurve, stew/byteutils,
   # Beacon chain internals
   ../../beacon_chain/spec/crypto,
@@ -49,14 +50,14 @@ proc readValue*(r: var JsonReader, a: var Eth2Domain) =
 # TODO: json tests were removed
 const BLSDir = JsonTestsDir/"general"/"phase0"/"bls"
 
-suiteReport "Official - BLS tests":
-  timedTest "Private to public key conversion":
+suite "Official - BLS tests":
+  test "Private to public key conversion":
     for file in walkDirRec(BLSDir/"priv_to_pub"):
       let t = parseTest(file, Json, BLSPrivToPub)
       let implResult = t.input.pubkey()
       check: implResult == t.output
 
-  timedTest "Message signing":
+  test "Message signing":
     for file in walkDirRec(BLSDir/"sign_msg"):
       let t = parseTest(file, Json, BLSSignMsg)
       let implResult = t.input.privkey.bls_sign(
@@ -65,13 +66,13 @@ suiteReport "Official - BLS tests":
       )
       check: implResult == t.output
 
-  timedTest "Aggregating signatures":
+  test "Aggregating signatures":
     for file in walkDirRec(BLSDir/"aggregate_sigs"):
       let t = parseTest(file, Json, BLSAggSig)
       let implResult = t.input.combine()
       check: implResult == t.output
 
-  timedTest "Aggregating public keys":
+  test "Aggregating public keys":
     for file in walkDirRec(BLSDir/"aggregate_pubkeys"):
       let t = parseTest(file, Json, BLSAggPubKey)
       let implResult = t.input.combine()

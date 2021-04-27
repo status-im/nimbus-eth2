@@ -8,7 +8,8 @@
 {.used.}
 
 import
-  json, unittest, typetraits,
+  std/[json, typetraits],
+  unittest2,
   stew/byteutils, blscurve, eth/keys, json_serialization,
   libp2p/crypto/crypto as lcrypto,
   nimcrypto/utils as ncrutils,
@@ -166,12 +167,12 @@ const
 let
   rng = keys.newRng()
 
-suiteReport "KeyStorage testing suite":
+suite "KeyStorage testing suite":
   setup:
     let secret = ValidatorPrivKey.fromRaw(secretBytes).get
     let nsecret = init(lcrypto.PrivateKey, secretNetBytes).get
 
-  timedTest "[PBKDF2] Keystore decryption":
+  test "[PBKDF2] Keystore decryption":
     let
       keystore = Json.decode(pbkdf2Vector, Keystore)
       decrypt = decryptKeystore(keystore, KeystorePass.init password)
@@ -179,7 +180,7 @@ suiteReport "KeyStorage testing suite":
     check decrypt.isOk
     check secret.isEqual(decrypt.get())
 
-  timedTest "[SCRYPT] Keystore decryption":
+  test "[SCRYPT] Keystore decryption":
     let
       keystore = Json.decode(scryptVector, Keystore)
       decrypt = decryptKeystore(keystore, KeystorePass.init password)
@@ -187,7 +188,7 @@ suiteReport "KeyStorage testing suite":
     check decrypt.isOk
     check secret.isEqual(decrypt.get())
 
-  timedTest "[PBKDF2] Network Keystore decryption":
+  test "[PBKDF2] Network Keystore decryption":
     let
       keystore = Json.decode(pbkdf2NetVector, NetKeystore)
       decrypt = decryptNetKeystore(keystore, KeystorePass.init password)
@@ -195,7 +196,7 @@ suiteReport "KeyStorage testing suite":
     check decrypt.isOk
     check nsecret == decrypt.get()
 
-  timedTest "[SCRYPT] Network Keystore decryption":
+  test "[SCRYPT] Network Keystore decryption":
     let
       keystore = Json.decode(scryptNetVector, NetKeystore)
       decrypt = decryptNetKeystore(keystore, KeystorePass.init password)
@@ -203,7 +204,7 @@ suiteReport "KeyStorage testing suite":
     check decrypt.isOk
     check nsecret == decrypt.get()
 
-  timedTest "[PBKDF2] Keystore encryption":
+  test "[PBKDF2] Keystore encryption":
     let keystore = createKeystore(kdfPbkdf2, rng[], secret,
                                   KeystorePass.init password,
                                   salt=salt, iv=iv,
@@ -217,7 +218,7 @@ suiteReport "KeyStorage testing suite":
 
     check encryptJson == pbkdf2Json
 
-  timedTest "[PBKDF2] Network Keystore encryption":
+  test "[PBKDF2] Network Keystore encryption":
     let nkeystore = createNetKeystore(kdfPbkdf2, rng[], nsecret,
                                       KeystorePass.init password,
                                       salt = salt, iv = iv,
@@ -230,7 +231,7 @@ suiteReport "KeyStorage testing suite":
     pbkdf2Json{"uuid"} = %""
     check encryptJson == pbkdf2Json
 
-  timedTest "[SCRYPT] Keystore encryption":
+  test "[SCRYPT] Keystore encryption":
     let keystore = createKeystore(kdfScrypt, rng[], secret,
                                   KeystorePass.init password,
                                   salt=salt, iv=iv,
@@ -244,7 +245,7 @@ suiteReport "KeyStorage testing suite":
 
     check encryptJson == scryptJson
 
-  timedTest "[SCRYPT] Network Keystore encryption":
+  test "[SCRYPT] Network Keystore encryption":
     let nkeystore = createNetKeystore(kdfScrypt, rng[], nsecret,
                                       KeystorePass.init password,
                                       salt = salt, iv = iv,
@@ -257,7 +258,7 @@ suiteReport "KeyStorage testing suite":
     pbkdf2Json{"uuid"} = %""
     check encryptJson == pbkdf2Json
 
-  timedTest "Pbkdf2 errors":
+  test "Pbkdf2 errors":
     expect Defect:
       echo createKeystore(kdfPbkdf2, rng[], secret, salt = [byte 1])
 

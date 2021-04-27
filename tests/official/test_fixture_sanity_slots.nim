@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  os, strutils, unittest,
+  os, strutils,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, state_transition],
   # Test utilities
@@ -29,7 +29,7 @@ proc runTest(identifier: string) =
     num_slots = readLines(testDir / "slots.yaml", 2)[0].parseInt.uint64
 
   proc `testImpl _ slots _ identifier`() =
-    timedTest "Slots - " & identifier:
+    test "Slots - " & identifier:
       var
         preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
         hashedPreState = (ref HashedBeaconState)(
@@ -47,6 +47,6 @@ proc runTest(identifier: string) =
 
   `testImpl _ slots _ identifier`()
 
-suiteReport "Official - Sanity - Slots " & preset():
+suite "Official - Sanity - Slots " & preset():
   for kind, path in walkDir(SanitySlotsDir, true):
     runTest(path)

@@ -8,7 +8,7 @@
 {.used.}
 
 import
-  unittest, ./testutil,
+  unittest2,
   ../beacon_chain/spec/[datatypes, crypto],
   ../beacon_chain/ssz
 
@@ -17,7 +17,7 @@ import
 # and https://github.com/ethereum/eth2.0-specs/issues/1396
 # don't blow up.
 
-suiteReport "Zero signature sanity checks":
+suite "Zero signature sanity checks":
   # Using signature directly triggers a bug
   # in object_serialization/stew: https://github.com/status-im/nimbus-eth2/issues/396
 
@@ -36,7 +36,7 @@ suiteReport "Zero signature sanity checks":
 
   #   check(zeroSIg == deserZeroSig)
 
-  timedTest "SSZ serialization roundtrip of SignedBeaconBlockHeader":
+  test "SSZ serialization roundtrip of SignedBeaconBlockHeader":
 
     let defaultBlockHeader = SignedBeaconBlockHeader()
 

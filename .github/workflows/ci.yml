@@ -273,6 +273,13 @@ jobs:
         run: |
           make -j$ncpu ARCH_OVERRIDE=$PLATFORM DISABLE_TEST_FIXTURES_SCRIPT=1 test
 
+      - name: Upload Unit Test Results
+        if: matrix.target.TEST_KIND == 'unit-tests'
+        uses: actions/upload-artifact@v2
+        with:
+          name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}
+          path: build/*.xml
+
       - name: Run nim-beacon-chain testnet0 (minimal)
         if: matrix.target.TEST_KIND == 'finalization-minimal'
         shell: bash
@@ -286,3 +293,21 @@ jobs:
         working-directory: nim-beacon-chain
         run: |
           ./scripts/launch_local_testnet.sh --testnet 1 --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --enable-logtrace --data-dir local_testnet0_data --base-port 9000 --base-rpc-port 7000 --base-metrics-port 8008 --timeout 2400 -- --verify-finalization --discv5:no
+
+  publish-test-results:
+    name: "Publish Unit Tests Results"
+    needs: build
+    runs-on: ubuntu-latest
+    # the build job might be skipped, we don't need to run this job then
+    if: success() || failure()
+
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+
+      - name: Publish Unit Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v1
+        with:
+          files: artifacts/**/*.xml

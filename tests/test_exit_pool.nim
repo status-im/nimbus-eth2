@@ -7,21 +7,21 @@
 
 {.used.}
 
-import std/unittest
-import chronicles, chronos, testutil
+import chronicles, chronos
 import eth/keys
 import ../beacon_chain/spec/[datatypes, presets]
 import ../beacon_chain/consensus_object_pools/[block_quarantine, blockchain_dag, exit_pool]
+import "."/[testutil, testdbutil]
 
 proc getExitPool(): auto =
   let chainDag =
     init(ChainDAGRef, defaultRuntimePreset, makeTestDB(SLOTS_PER_EPOCH * 3))
   newClone(ExitPool.init(chainDag, QuarantineRef.init(keys.newRng())))
 
-suiteReport "Exit pool testing suite":
+suite "Exit pool testing suite":
   setup:
     let pool = getExitPool()
-  timedTest "addExitMessage/getProposerSlashingMessage":
+  test "addExitMessage/getProposerSlashingMessage":
     for i in 0'u64 .. MAX_PROPOSER_SLASHINGS + 5:
       for j in 0'u64 .. i:
         pool.proposer_slashings.addExitMessage(
@@ -31,7 +31,7 @@ suiteReport "Exit pool testing suite":
           min(i + 1, MAX_PROPOSER_SLASHINGS)
         pool[].getProposerSlashingsForBlock().len == 0
 
-  timedTest "addExitMessage/getAttesterSlashingMessage":
+  test "addExitMessage/getAttesterSlashingMessage":
     for i in 0'u64 .. MAX_ATTESTER_SLASHINGS + 5:
       for j in 0'u64 .. i:
         pool.attester_slashings.addExitMessage(
@@ -46,7 +46,7 @@ suiteReport "Exit pool testing suite":
           min(i + 1, MAX_ATTESTER_SLASHINGS)
         pool[].getAttesterSlashingsForBlock().len == 0
 
-  timedTest "addExitMessage/getVoluntaryExitMessage":
+  test "addExitMessage/getVoluntaryExitMessage":
     for i in 0'u64 .. MAX_VOLUNTARY_EXITS + 5:
       for j in 0'u64 .. i:
         pool.voluntary_exits.addExitMessage(

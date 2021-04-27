@@ -8,11 +8,10 @@
 {.used.}
 
 import
-  std/[unittest, options],
+  std/[options],
+  unittest2,
   nimcrypto/hash,
   json_serialization,
-  serialization/testing/generic_suite,
-  ./testutil,
   ../beacon_chain/spec/[datatypes, digest],
   ../beacon_chain/ssz, ../beacon_chain/ssz/[navigator, dynamic_navigator]
 
@@ -55,8 +54,6 @@ static:
   doAssert fixedPortionSize(ObjWithFields) ==
     1 + 4 + sizeof(array[20, byte]) + (256 div 8) + 4 + 8
 
-executeRoundTripTests SSZ
-
 type
   Foo = object
     bar: Bar
@@ -73,8 +70,8 @@ type
 proc toDigest[N: static int](x: array[N, byte]): Eth2Digest =
   result.data[0 .. N-1] = x
 
-suiteReport "SSZ navigator":
-  timedTest "simple object fields":
+suite "SSZ navigator":
+  test "simple object fields":
     var foo = Foo(bar: Bar(b: BarList @[1'u64, 2, 3], baz: Baz(i: 10'u64)))
     let encoded = SSZ.encode(foo)
 
@@ -86,7 +83,7 @@ suiteReport "SSZ navigator":
     let mountedBar = mountedFoo.bar
     check mountedBar.baz.i == 10'u64
 
-  timedTest "lists with max size":
+  test "lists with max size":
     let a = [byte 0x01, 0x02, 0x03].toDigest
     let b = [byte 0x04, 0x05, 0x06].toDigest
     let c = [byte 0x07, 0x08, 0x09].toDigest
@@ -147,15 +144,15 @@ suiteReport "SSZ navigator":
       leaves3.add c
       hash_tree_root(leaves3) == hash_tree_root(leaves3.data)
 
-  timedTest "basictype":
+  test "basictype":
     var leaves = HashList[uint64, 1'i64 shl 3]()
     while leaves.len < leaves.maxLen:
       check:
         leaves.add leaves.lenu64
         hash_tree_root(leaves) == hash_tree_root(leaves.data)
 
-suiteReport "SSZ dynamic navigator":
-  timedTest "navigating fields":
+suite "SSZ dynamic navigator":
+  test "navigating fields":
     var fooOrig = Foo(bar: Bar(b: BarList @[1'u64, 2, 3], baz: Baz(i: 10'u64)))
     let fooEncoded = SSZ.encode(fooOrig)
 
@@ -185,8 +182,8 @@ type
 
     li: HashList[Eth2Digest, 8]
 
-suiteReport "hash":
-  timedTest "HashArray":
+suite "hash":
+  test "HashArray":
     var
       o = Obj()
       ho = HashObj()
@@ -217,7 +214,7 @@ suiteReport "hash":
     y[i] = 42'u64
     doAssert hash_tree_root(y) == hash_tree_root(y.data)
 
-  timedTest "HashList":
+  test "HashList":
     type MyList = HashList[uint64, 1024]
     var
       small, large: MyList

@@ -6,10 +6,11 @@
 import
   # Standard library
   macros, os, strutils, tables, math, json, streams,
-  strformat, unittest,
+  strformat,
   # Third party
   yaml,
   # Status libraries
+  unittest2,
   stew/[byteutils, endians2],
   # Internals
   ../../beacon_chain/spec/[datatypes, presets],
@@ -128,7 +129,7 @@ proc checkConfig() =
   var config = yamlStream.loadToJson()
   doAssert config.len == 1
   for constant, value in config[0]:
-    timedTest &"{constant:<50}{value:<20}{preset()}":
+    test &"{constant:<50}{value:<20}{preset()}":
       if constant in IgnoreKeys:
         echo &"        ↶↶ Skipping {constant}"
         skip()
@@ -142,5 +143,5 @@ proc checkConfig() =
       else:
         check: ConstsToCheck[constant] == value.getBiggestInt().uint64()
 
-suiteReport "Official - constants & config " & preset():
+suite "Official - constants & config " & preset():
   checkConfig()

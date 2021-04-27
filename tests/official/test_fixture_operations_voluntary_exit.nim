@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  os, unittest,
+  os,
   # Utilities
   stew/results,
   # Beacon chain internals
@@ -38,7 +38,7 @@ proc runTest(identifier: string) =
     else:
       prefix = "[Invalid] "
 
-    timedTest prefix & identifier:
+    test prefix & identifier:
       let voluntaryExit = parseTest(testDir/"voluntary_exit.ssz", SSZ, SignedVoluntaryExit)
       var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
 
@@ -58,6 +58,6 @@ proc runTest(identifier: string) =
 
   `testImpl _ voluntary_exit _ identifier`()
 
-suiteReport "Official - Operations - Voluntary exit " & preset():
+suite "Official - Operations - Voluntary exit " & preset():
   for kind, path in walkDir(OpVoluntaryExitDir, true):
     runTest(path)
