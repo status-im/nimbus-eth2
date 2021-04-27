@@ -83,11 +83,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         let res = node.getCurrentHead(qepoch)
         if res.isErr():
-          if not(node.isSynced(node.chainDag.head)):
-            return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-          else:
-            return RestApiResponse.jsonError(Http400, NoHeadForSlotError,
-                                             $res.error())
+          return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
         res.get()
     let droot =
       if qepoch >= Epoch(2):
@@ -148,11 +144,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         let res = node.getCurrentHead(qepoch)
         if res.isErr():
-          if not(node.isSynced(node.chainDag.head)):
-            return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-          else:
-            return RestApiResponse.jsonError(Http400, NoHeadForSlotError,
-                                             $res.error())
+          return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
         res.get()
     let droot =
       if qepoch >= Epoch(2):
@@ -266,11 +258,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           block:
             let res = node.getCurrentHead(qslot)
             if res.isErr():
-              if not(node.isSynced(node.chainDag.head)):
-                return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-              else:
-                return RestApiResponse.jsonError(Http400, NoHeadForSlotError,
-                                                 $res.error())
+              return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
             res.get()
         let epochRef = node.chainDag.getEpochRef(qhead, qslot.epoch)
         makeAttestationData(epochRef, qhead.atSlot(qslot), qindex)

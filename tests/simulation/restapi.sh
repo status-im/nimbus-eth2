@@ -118,7 +118,7 @@ if [[ ${BEACON_NODE_STATUS} -eq 0 ]]; then
   BEACON_NODE_PID="$(jobs -p)"
 
   ../resttest \
-    --delay=0 \
+    --delay=30 \
     --timeout=60 \
     --skip-topic=slow \
     --connections=4 \
