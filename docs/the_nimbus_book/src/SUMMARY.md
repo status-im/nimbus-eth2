@@ -37,6 +37,7 @@
 - [Verify the integrity of Nimbus](./checksums.md)
 - [Back up your database](./database-backup.md)
 - [Add a backup web3 provider](./web3-backup.md)
+- [Add an additional validator](./additional-validator.md)
 
 # Tutorials
 - [Grafana and Prometheus](./metrics-pretty-pictures.md)
