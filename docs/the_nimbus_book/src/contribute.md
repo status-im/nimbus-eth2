@@ -17,27 +17,27 @@ We use an utility tool called mdBook to create online books from Markdown files.
 
 ## Build and Deploy
 
-The first step is to submit a pull request to the [devel branch](https://github.com/status-im/nimbus-eth2/tree/devel).
+The first step is to submit a pull request to the [unstable branch](https://github.com/status-im/nimbus-eth2/tree/unstable).
 Then, after it is merged, do the following under our main repository:
 
 1. `cd nimbus-eth2`
-2. `git checkout devel`
+2. `git checkout unstable`
 3. `git pull`
 4. `make update` (This is to update the submodules to the latest version)
 5. `make publish-book`
 
-## Trouble Shooting
+## Troubleshooting
 
-If you see file conflicts in the pull request, this may due to that you have created your new branch from an old version of the `devel` branch. Update your new branch using the following commands:
+If you see file conflicts in the pull request, this may due to that you have created your new branch from an old version of the `unstable` branch. Update your new branch using the following commands:
 
 ```
-git checkout devel
+git checkout unstable
 git pull
 make update
 git checkout readme
-git merge devel
-# use something like `git mergetool` to resolve conflicts, then read the instructions for completing the merge (usually just a `git commit`)
-# check the output of `git diff devel`
+git merge unstable
+# use something like "git mergetool" to resolve conflicts, then read the instructions for completing the merge (usually just a `git commit`)
+# check the output of "git diff unstable"
 ```
 
 Thank you so much for your help to the decentralized and open source community. :)

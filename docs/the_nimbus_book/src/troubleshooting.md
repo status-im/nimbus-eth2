@@ -5,7 +5,7 @@
 
 As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the `master` branch. If you can't find a solution to your problem here, feel free to hit us up on our [discord](https://discord.com/invite/XRxWahP)!
 
-> **Note:** While the `master` branch of the `nimbus-eth2` repository is more stable, the latest updates happen in the `devel` branch which is (usually) merged into master every week on Tuesday. If you choose to run Nimbus directly from the `devel` branch, be prepared for instabilities!
+> **Note:** While the `stable` branch of the `nimbus-eth2` repository is more stable, the latest updates happen in the `unstable` branch which is (usually) merged into master every week on Tuesday. If you choose to run Nimbus directly from the `unstable` branch, be prepared for instabilities!
 
 To update and restart, run `git pull`, `make update`, followed by `make nimbus_beacon_node`:
 
