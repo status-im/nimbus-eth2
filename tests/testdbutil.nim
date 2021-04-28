@@ -13,7 +13,7 @@ import
   eth/db/[kvstore, kvstore_sqlite3],
   ./testblockutil
 
-export beacon_chain_db, testblockutil
+export beacon_chain_db, testblockutil, kvstore, kvstore_sqlite3
 
 proc makeTestDB*(tailState: var BeaconState, tailBlock: SignedBeaconBlock): BeaconChainDB =
   result = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
@@ -21,7 +21,7 @@ proc makeTestDB*(tailState: var BeaconState, tailBlock: SignedBeaconBlock): Beac
 
 proc makeTestDB*(validators: Natural): BeaconChainDB =
   let
-    genState = initialize_beacon_state_from_eth1(
+    genState = initialize_beacon_state(
       defaultRuntimePreset,
       Eth2Digest(),
       0,
