@@ -33,4 +33,4 @@ programMain:
 
     let privKey = validators[ValidatorPubKey.fromHex(args[0]).get()]
 
-    echo blsSign(privKey, Eth2Digest.fromHex(args[1]).data)
+    echo blsSign(privKey, Eth2Digest.fromHex(args[1]).data).toValidatorSig()

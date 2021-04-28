@@ -131,7 +131,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
                 attestation =
                   makeAttestation(state[].data, latest_block_root, scas, target_slot,
                     i.CommitteeIndex, v, cache, flags)
-                agg.init(attestation.signature)
+                agg.init(attestation.signature.load.get())
                 first = false
               else:
                 let att2 =
@@ -140,8 +140,8 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
                 if not att2.aggregation_bits.overlaps(attestation.aggregation_bits):
                   attestation.aggregation_bits.incl(att2.aggregation_bits)
                   if skipBlsValidation notin flags:
-                    agg.aggregate(att2.signature)
-          attestation.signature = agg.finish().exportRaw()
+                    agg.aggregate(att2.signature.load.get())
+          attestation.signature = agg.finish().toValidatorSig()
 
         if not first:
           # add the attestation if any of the validators attested, as given

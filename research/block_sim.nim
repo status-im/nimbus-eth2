@@ -117,8 +117,8 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
               Attestation(
                 data: data,
                 aggregation_bits: aggregation_bits,
-                signature: sig
-              ), @[validatorIdx], sig.load.get().CookedSig, data.slot)
+                signature: sig.toValidatorSig()
+              ), [validatorIdx], sig, data.slot)
 
   proc proposeBlock(slot: Slot) =
     if rand(r, 1.0) > blockRatio:
@@ -141,7 +141,8 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
           hashedState,
           proposerIdx,
           head.root,
-          privKey.genRandaoReveal(state.fork, state.genesis_validators_root, slot),
+          privKey.genRandaoReveal(state.fork, state.genesis_validators_root,
+            slot).toValidatorSig(),
           eth1ProposalData.vote,
           default(GraffitiBytes),
           attPool.getAttestationsForBlock(state, cache),
@@ -164,7 +165,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
       newBlock.signature = withTimerRet(timers[tSignBlock]):
         get_block_signature(
           state.fork, state.genesis_validators_root, newBlock.message.slot,
-          blockRoot, privKey)
+          blockRoot, privKey).toValidatorSig()
 
       let added = chainDag.addRawBlock(quarantine, newBlock) do (
           blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,

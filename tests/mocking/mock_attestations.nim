@@ -78,7 +78,7 @@ proc signMockAttestation*(state: BeaconState, attestation: var Attestation) =
       agg.aggregate(sig)
 
   if first_iter != true:
-    attestation.signature = agg.finish().exportRaw()
+    attestation.signature = agg.finish().toValidatorSig()
     # Otherwise no participants so zero sig
 
 proc mockAttestationImpl(

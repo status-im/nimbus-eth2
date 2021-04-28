@@ -33,9 +33,6 @@ declareCounter beacon_proposer_slashings_received,
 declareCounter beacon_voluntary_exits_received,
   "Number of beacon chain voluntary exits received by this peer"
 
-declareCounter doppelganger_detection_activated,
-  "Number of times doppelganger detection was activated"
-
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
 declareHistogram beacon_attestation_delay,
@@ -98,7 +95,11 @@ proc new*(T: type Eth2Processor,
     exitPool: exitPool,
     validatorPool: validatorPool,
     quarantine: quarantine,
-    batchCrypto: BatchCrypto.new(rng = rng)
+    batchCrypto: BatchCrypto.new(
+      rng = rng,
+      # Only run eager attestation signature verification if we're not
+      # processing blocks in order to give priority to block processing
+      eager = proc(): bool = not verifQueues[].hasBlocks())
   )
 
 # Gossip Management
@@ -172,16 +173,14 @@ proc checkForPotentialDoppelganger(
       tgtBlck, attestationData.target.epoch)
     for validatorIndex in attesterIndices:
       let validatorPubkey = epochRef.validator_keys[validatorIndex]
-      if self.validatorPool[].getValidator(validatorPubkey) !=
-          default(AttachedValidator):
-        warn "Duplicate validator detected; would be slashed",
+      if  self.doppelgangerDetectionEnabled and
+          self.validatorPool[].getValidator(validatorPubkey) !=
+            default(AttachedValidator):
+        warn "We believe you are currently running another instance of the same validator. We've disconnected you from the network as this presents a significant slashing risk. Possible next steps are (a) making sure you've disconnected your validator from your old machine before restarting the client; and (b) running the client again with the gossip-slashing-protection option disabled, only if you are absolutely sure this is the only instance of your validator running, and reporting the issue at https://github.com/status-im/nimbus-eth2/issues.",
           validatorIndex,
           validatorPubkey,
           attestationSlot = attestationData.slot
-        doppelganger_detection_activated.inc()
-        if self.doppelgangerDetectionEnabled:
-          warn "We believe you are currently running another instance of the same validator. We've disconnected you from the network as this presents a significant slashing risk. Possible next steps are (a) making sure you've disconnected your validator from your old machine before restarting the client; and (b) running the client again with the gossip-slashing-protection option disabled, only if you are absolutely sure this is the only instance of your validator running, and reporting the issue at https://github.com/status-im/nimbus-eth2/issues."
-          quit QuitFailure
+        quit QuitFailure
 
 {.pop.} # async can raise anything
 
@@ -219,12 +218,14 @@ proc attestationValidator*(
   beacon_attestations_received.inc()
   beacon_attestation_delay.observe(delay.toFloatSeconds())
 
+  let (attestation_index, sig) = v.get()
+
   self[].checkForPotentialDoppelganger(
-    attestation.data, v.value.attestingIndices, wallSlot)
+    attestation.data, [attestation_index], wallSlot)
 
   trace "Attestation validated"
-  let (attestingIndices, sig) = v.get()
-  self.verifQueues[].addAttestation(attestation, attestingIndices, sig)
+  self.attestationPool[].addAttestation(
+    attestation, [attestation_index], sig, wallSlot)
 
   return ValidationResult.Accept
 
@@ -264,8 +265,10 @@ proc aggregateValidator*(
   beacon_aggregates_received.inc()
   beacon_aggregate_delay.observe(delay.toFloatSeconds())
 
+  let (attesting_indices, sig) = v.get()
+
   self[].checkForPotentialDoppelganger(
-    signedAggregateAndProof.message.aggregate.data, v.value.attestingIndices,
+    signedAggregateAndProof.message.aggregate.data, attesting_indices,
     wallSlot)
 
   trace "Aggregate validated",
@@ -273,9 +276,8 @@ proc aggregateValidator*(
     selection_proof = signedAggregateAndProof.message.selection_proof,
     wallSlot
 
-  let (attestingIndices, sig) = v.get()
-  self.verifQueues[].addAggregate(
-    signedAggregateAndProof, attestingIndices, sig)
+  self.attestationPool[].addAttestation(
+    signedAggregateAndProof.message.aggregate, attesting_indices, sig, wallSlot)
 
   return ValidationResult.Accept
 

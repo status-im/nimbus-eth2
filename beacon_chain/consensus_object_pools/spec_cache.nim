@@ -78,6 +78,27 @@ iterator get_attesting_indices*(epochRef: EpochRef,
         yield index
       inc i
 
+func get_attesting_indices_one*(epochRef: EpochRef,
+                                data: AttestationData,
+                                bits: CommitteeValidatorsBits):
+                                  Option[ValidatorIndex] =
+  # A variation on get_attesting_indices that returns the validator index only
+  # if only one validator index is set
+  if bits.lenu64 != get_beacon_committee_len(epochRef, data.slot, data.index.CommitteeIndex):
+    trace "get_attesting_indices: inconsistent aggregation and committee length"
+    none(ValidatorIndex)
+  else:
+    var res = none(ValidatorIndex)
+    var i = 0
+    for index in get_beacon_committee(epochRef, data.slot, data.index.CommitteeIndex):
+      if bits[i]:
+        if res.isNone():
+          res = some(index)
+        else:
+          return none(ValidatorIndex)
+      inc i
+    res
+
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(epochRef: EpochRef,
                             data: AttestationData,

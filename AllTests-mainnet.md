@@ -15,11 +15,6 @@ AllTests-mainnet
 + Working with aggregates [Preset: mainnet]                                                  OK
 ```
 OK: 11/11 Fail: 0/11 Skip: 0/11
-## Attestation validation  [Preset: mainnet]
-```diff
-+ Validation sanity                                                                          OK
-```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Beacon chain DB [Preset: mainnet]
 ```diff
 + empty database [Preset: mainnet]                                                           OK
@@ -40,7 +35,7 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Beacon state [Preset: mainnet]
 ```diff
-+ Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
++ Smoke test initialize_beacon_state [Preset: mainnet]                                       OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Block pool processing [Preset: mainnet]
@@ -98,6 +93,11 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + fork_choice - testing with votes                                                           OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
+## Gossip validation  [Preset: mainnet]
+```diff
++ Validation sanity                                                                          OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Honest validator
 ```diff
 + General pubsub topics                                                                      OK

@@ -35,7 +35,7 @@ func compute_slot_root*(
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#aggregation-selection
 func get_slot_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    privkey: ValidatorPrivKey): ValidatorSig =
+    privkey: ValidatorPrivKey): CookedSig =
   blsSign(privKey, compute_slot_root(fork, genesis_validators_root, slot).data)
 
 proc verify_slot_signature*(
@@ -60,7 +60,7 @@ func compute_epoch_root*(
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#randao-reveal
 func get_epoch_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
-    privkey: ValidatorPrivKey): ValidatorSig =
+    privkey: ValidatorPrivKey): CookedSig =
   blsSign(privKey, compute_epoch_root(fork, genesis_validators_root, epoch).data)
 
 proc verify_epoch_signature*(
@@ -85,7 +85,7 @@ func compute_block_root*(
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#signature
 func get_block_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    root: Eth2Digest, privkey: ValidatorPrivKey): ValidatorSig =
+    root: Eth2Digest, privkey: ValidatorPrivKey): CookedSig =
   blsSign(privKey, compute_block_root(fork, genesis_validators_root, slot, root).data)
 
 proc verify_block_signature*(
@@ -114,7 +114,7 @@ func compute_aggregate_and_proof_root*(fork: Fork, genesis_validators_root: Eth2
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#broadcast-aggregate
 func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
                                         aggregate_and_proof: AggregateAndProof,
-                                        privKey: ValidatorPrivKey): ValidatorSig =
+                                        privKey: ValidatorPrivKey): CookedSig =
   blsSign(privKey, compute_aggregate_and_proof_root(fork, genesis_validators_root,
                                                     aggregate_and_proof).data)
 
@@ -144,7 +144,7 @@ func compute_attestation_root*(
 func get_attestation_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     attestation_data: AttestationData,
-    privkey: ValidatorPrivKey): ValidatorSig =
+    privkey: ValidatorPrivKey): CookedSig =
   blsSign(privKey, compute_attestation_root(fork, genesis_validators_root,
                                             attestation_data).data)
 
@@ -165,7 +165,7 @@ proc verify_attestation_signature*(
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#deposits
 func get_deposit_signature*(preset: RuntimePreset,
                             deposit: DepositData,
-                            privkey: ValidatorPrivKey): ValidatorSig =
+                            privkey: ValidatorPrivKey): CookedSig =
   let
     deposit_message = deposit.getDepositMessage()
     # Fork-agnostic domain since deposits are valid across forks
@@ -188,7 +188,7 @@ func get_voluntary_exit_signature*(
     fork: Fork,
     genesis_validators_root: Eth2Digest,
     voluntary_exit: VoluntaryExit,
-    privkey: ValidatorPrivKey): ValidatorSig =
+    privkey: ValidatorPrivKey): CookedSig =
   let
     domain = get_domain(
       fork, DOMAIN_VOLUNTARY_EXIT, voluntary_exit.epoch, genesis_validators_root)

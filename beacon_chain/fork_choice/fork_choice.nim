@@ -40,9 +40,6 @@ func compute_deltas(
        old_balances: openArray[Gwei],
        new_balances: openArray[Gwei]
      ): FcResult[void]
-# TODO: raises [Defect] - once https://github.com/nim-lang/Nim/issues/12862 is fixed
-#       https://github.com/status-im/nimbus-eth2/pull/865#pullrequestreview-389117232
-
 # Fork choice routines
 # ----------------------------------------------------------------------
 
@@ -71,7 +68,8 @@ proc init*(T: type ForkChoice,
     epoch = epochRef.epoch, blck = shortLog(blck)
 
   let
-    justified = BalanceCheckpoint(blck: blck, epoch: epochRef.epoch, balances: epochRef.effective_balances)
+    justified = BalanceCheckpoint(
+      blck: blck, epoch: epochRef.epoch, balances: epochRef.effective_balances)
     finalized = Checkpoint(root: blck.root, epoch: epochRef.epoch)
     best_justified = Checkpoint(
       root: justified.blck.root, epoch: justified.epoch)
@@ -176,7 +174,7 @@ proc on_attestation*(
        dag: ChainDAGRef,
        attestation_slot: Slot,
        beacon_block_root: Eth2Digest,
-       attesting_indices: seq[ValidatorIndex],
+       attesting_indices: openArray[ValidatorIndex],
        wallSlot: Slot
      ): FcResult[void] =
   ? self.update_time(dag, wallSlot)
@@ -188,12 +186,14 @@ proc on_attestation*(
     for validator_index in attesting_indices:
       # attestation_slot and target epoch must match, per attestation rules
       self.backend.process_attestation(
-        validator_index.ValidatorIndex, beacon_block_root,
-        attestation_slot.epoch)
+        validator_index, beacon_block_root, attestation_slot.epoch)
   else:
+    # Spec:
+    # Attestations can only affect the fork choice of subsequent slots.
+    # Delay consideration in the fork choice until their slot is in the past.
     self.queuedAttestations.add(QueuedAttestation(
       slot: attestation_slot,
-      attesting_indices: attesting_indices,
+      attesting_indices: @attesting_indices,
       block_root: beacon_block_root))
   ok()
 
