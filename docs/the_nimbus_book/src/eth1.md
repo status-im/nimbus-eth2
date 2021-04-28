@@ -1,4 +1,4 @@
-## Run an eth1 node
+# Run an eth1 node
 
 In order to process incoming validator deposits from the eth1 chain, you'll need to run an eth1 client in parallel to your eth2 client. 
 

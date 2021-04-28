@@ -1,6 +1,6 @@
 # Nimbus binaries
 
-Nimbus binaries exist for Nimbus -- initially Linux `AMD64`, `ARM` and `ARM64`, but Windows and MacOS binaries will be added in the future.
+Nimbus binaries exist for Nimbus -- initially Linux `AMD64`, `ARM32` and `ARM64`, and Windows -- but MacOS binaries will be added in the future.
 
 You can find the latest release here: [https://github.com/status-im/nimbus-eth2/releases](https://github.com/status-im/nimbus-eth2/releases)
 

@@ -10,7 +10,6 @@ It's also a necessary step to running a validator (since an active validator req
 
 You'll need to install some packages in order for Nimbus to run correctly.
 
-
 **Linux**
 
 On common Linux distributions the dependencies can be installed with
