@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  os, unittest,
+  os,
   # Utilities
   stew/results,
   # Beacon chain internals
@@ -38,7 +38,7 @@ proc runTest(identifier: string) =
     else:
       prefix = "[Invalid] "
 
-    timedTest prefix & identifier:
+    test prefix & identifier:
       var cache = StateCache()
 
       let attesterSlashing = parseTest(testDir/"attester_slashing.ssz", SSZ, AttesterSlashing)
@@ -58,6 +58,6 @@ proc runTest(identifier: string) =
 
   `testImpl _ operations_attester_slashing _ identifier`()
 
-suiteReport "Official - Operations - Attester slashing " & preset():
+suite "Official - Operations - Attester slashing " & preset():
   for kind, path in walkDir(OpAttSlashingDir, true):
     runTest(path)

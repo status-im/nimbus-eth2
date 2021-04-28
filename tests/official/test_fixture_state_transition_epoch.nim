@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  os, unittest, strutils,
+  os, strutils,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, state_transition_epoch],
   # Test utilities
@@ -22,31 +22,23 @@ from ../../beacon_chain/spec/beaconstate import process_registry_updates
   # XXX: move to state_transition_epoch?
 
 template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, useCache: static bool): untyped =
-  # We wrap the tests in a proc to avoid running out of globals
-  # in the future: Nim supports up to 3500 globals
-  # but unittest with the macro/templates put everything as globals
-  # https://github.com/nim-lang/Nim/issues/12084#issue-486866402
+  suite "Official - Epoch Processing - " & testName & preset():
+    doAssert dirExists(suiteDir)
+    for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}):
 
-  proc `suiteImpl _ transitionProc`() =
-    suiteReport "Official - Epoch Processing - " & testName & preset():
-      doAssert dirExists(suiteDir)
-      for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}):
+      let unitTestName = testDir.rsplit(DirSep, 1)[1]
+      test testName & " - " & unitTestName & preset():
+        # BeaconState objects are stored on the heap to avoid stack overflow
+        var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
+        let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
 
-        let unitTestName = testDir.rsplit(DirSep, 1)[1]
-        timedTest testName & " - " & unitTestName & preset():
-          # BeaconState objects are stored on the heap to avoid stack overflow
-          var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
-          let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
+        when useCache:
+          var cache = StateCache()
+          transitionProc(preState[], cache)
+        else:
+          transitionProc(preState[])
 
-          when useCache:
-            var cache = StateCache()
-            transitionProc(preState[], cache)
-          else:
-            transitionProc(preState[])
-
-          reportDiff(preState, postState)
-
-  `suiteImpl _ transitionProc`()
+        reportDiff(preState, postState)
 
 # Justification & Finalization
 # ---------------------------------------------------------------

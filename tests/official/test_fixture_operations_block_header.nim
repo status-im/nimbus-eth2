@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  os, unittest,
+  os,
   # Utilities
   stew/results,
   # Beacon chain internals
@@ -38,7 +38,7 @@ proc runTest(identifier: string) =
     else:
       prefix = "[Invalid] "
 
-    timedTest prefix & identifier:
+    test prefix & identifier:
       var cache = StateCache()
 
       let blck = parseTest(testDir/"block.ssz", SSZ, BeaconBlock)
@@ -56,6 +56,6 @@ proc runTest(identifier: string) =
 
   `testImpl _ blockheader _ identifier`()
 
-suiteReport "Official - Operations - Block header " & preset():
+suite "Official - Operations - Block header " & preset():
   for kind, path in walkDir(OpBlockHeaderDir, true):
     runTest(path)

@@ -12,8 +12,6 @@
 {.used.}
 
 import
-  # Standard library
-  unittest,
   stew/results,
   # Specs
   ../../beacon_chain/spec/[beaconstate, datatypes, helpers],
@@ -21,7 +19,7 @@ import
   ../mocking/[mock_genesis, mock_attestations, mock_state],
   ../testutil
 
-suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
+suite "[Unit - Spec - Block processing] Attestations " & preset():
 
   const NumValidators = uint64(8) * SLOTS_PER_EPOCH
   let genesisState = newClone(initGenesisState(NumValidators))
@@ -33,7 +31,7 @@ suiteReport "[Unit - Spec - Block processing] Attestations " & preset():
     # The BeaconState is exposed as "state" in the calling context
     # The attestation to process must be named "attestation" in the calling context
 
-    timedTest name:
+    test name:
       var state {.inject.} = newClone(genesisState[])
 
       # Attestation setup body

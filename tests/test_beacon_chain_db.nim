@@ -7,14 +7,16 @@
 
 {.used.}
 
-import  algorithm, options, sequtils, unittest,
+import
+  std/[algorithm, options, sequtils],
+  unittest2,
   ../beacon_chain/[beacon_chain_db, extras, interop, ssz],
   ../beacon_chain/spec/[
     beaconstate, datatypes, digest, crypto, state_transition, presets],
   ../beacon_chain/consensus_object_pools/blockchain_dag,
   eth/db/kvstore,
   # test utilies
-  ./testutil, ./testblockutil, ./teststateutil
+  ./testutil, ./testdbutil, ./testblockutil, ./teststateutil
 
 when isMainModule:
   import chronicles # or some random compile error happens...
@@ -25,29 +27,21 @@ proc getStateRef(db: BeaconChainDB, root: Eth2Digest): NilableBeaconStateRef =
   if db.getState(root, res[], noRollback):
     return res
 
-template wrappedTimedTest(name: string, body: untyped) =
-  # `check` macro takes a copy of whatever it's checking, on the stack!
-  block: # Symbol namespacing
-    proc wrappedTest() =
-      timedTest name:
-        body
-    wrappedTest()
-
 func withDigest(blck: TrustedBeaconBlock): TrustedSignedBeaconBlock =
   TrustedSignedBeaconBlock(
     message: blck,
     root: hash_tree_root(blck)
   )
 
-suiteReport "Beacon chain DB" & preset():
-  wrappedTimedTest "empty database" & preset():
+suite "Beacon chain DB" & preset():
+  test "empty database" & preset():
     var
       db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
     check:
       db.getStateRef(Eth2Digest()).isNil
       db.getBlock(Eth2Digest()).isNone
 
-  wrappedTimedTest "sanity check blocks" & preset():
+  test "sanity check blocks" & preset():
     var
       db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
 
@@ -72,7 +66,7 @@ suiteReport "Beacon chain DB" & preset():
 
     db.close()
 
-  wrappedTimedTest "sanity check states" & preset():
+  test "sanity check states" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
@@ -95,7 +89,7 @@ suiteReport "Beacon chain DB" & preset():
 
     db.close()
 
-  wrappedTimedTest "sanity check states, reusing buffers" & preset():
+  test "sanity check states, reusing buffers" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
@@ -121,7 +115,7 @@ suiteReport "Beacon chain DB" & preset():
 
     db.close()
 
-  wrappedTimedTest "sanity check full states" & preset():
+  test "sanity check full states" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
@@ -144,7 +138,7 @@ suiteReport "Beacon chain DB" & preset():
 
     db.close()
 
-  wrappedTimedTest "sanity check full states, reusing buffers" & preset():
+  test "sanity check full states, reusing buffers" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
@@ -170,7 +164,7 @@ suiteReport "Beacon chain DB" & preset():
 
     db.close()
 
-  wrappedTimedTest "find ancestors" & preset():
+  test "find ancestors" & preset():
     var
       db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
 
@@ -212,7 +206,7 @@ suiteReport "Beacon chain DB" & preset():
     doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 1
     doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 3
 
-  wrappedTimedTest "sanity check genesis roundtrip" & preset():
+  test "sanity check genesis roundtrip" & preset():
     # This is a really dumb way of checking that we can roundtrip a genesis
     # state. We've been bit by this because we've had a bug in the BLS
     # serialization where an all-zero default-initialized bls signature could
@@ -237,7 +231,7 @@ suiteReport "Beacon chain DB" & preset():
     check:
       hash_tree_root(state2[]) == root
 
-  wrappedTimedTest "sanity check state diff roundtrip" & preset():
+  test "sanity check state diff roundtrip" & preset():
     var
       db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
 

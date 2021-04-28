@@ -8,12 +8,13 @@
 {.used.}
 
 import
-  unittest, typetraits,
+  std/typetraits,
+  unittest2,
   ../beacon_chain/spec/datatypes,
   ./testutil
 
-suiteReport "Spec datatypes":
-  timedTest "Graffiti bytes":
+suite "Spec datatypes":
+  test "Graffiti bytes":
     var
       g1 = GraffitiBytes.init "Hello"
       g2 = default(GraffitiBytes)
@@ -28,4 +29,3 @@ suiteReport "Spec datatypes":
 
       g2 == GraffitiBytes.init("")
       g3 == GraffitiBytes.init($g3)
-

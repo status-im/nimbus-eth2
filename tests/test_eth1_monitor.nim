@@ -1,9 +1,10 @@
 {.used.}
 
 import
-  unittest,
+  unittest2,
   chronos, web3/ethtypes,
-  ../beacon_chain/eth1/eth1_monitor
+  ../beacon_chain/eth1/eth1_monitor,
+  ./testutil
 
 suite "Eth1 Chain":
   discard

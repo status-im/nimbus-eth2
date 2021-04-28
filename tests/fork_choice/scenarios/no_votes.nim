@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# import ../interpreter # included to be able to use "suiteReport"
+# import ../interpreter # included to be able to use "suite"
 
 proc setup_no_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   let balances = newSeq[Gwei](16)
@@ -253,7 +253,7 @@ proc setup_no_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]
   )
 
 proc test_no_votes() =
-  timedTest "fork_choice - testing no votes":
+  test "fork_choice - testing no votes":
     # for i in 0 ..< 6:
     #   echo "    block (", i, ") hash: ", fakeHash(i)
     # echo "    ------------------------------------------------------"

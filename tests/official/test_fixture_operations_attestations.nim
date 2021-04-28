@@ -9,8 +9,9 @@
 
 import
   # Standard library
-  os, unittest,
+  os,
   # Utilities
+  unittest2,
   stew/results,
   # Beacon chain internals
   ../../beacon_chain/spec/[datatypes, beaconstate],
@@ -38,7 +39,7 @@ proc runTest(identifier: string) =
     else:
       prefix = "[Invalid] "
 
-    timedTest prefix & identifier:
+    test prefix & identifier:
       var cache = StateCache()
 
       let attestation = parseTest(testDir/"attestation.ssz", SSZ, Attestation)
@@ -56,6 +57,6 @@ proc runTest(identifier: string) =
 
   `testImpl _ operations_attestations _ identifier`()
 
-suiteReport "Official - Operations - Attestations " & preset():
+suite "Official - Operations - Attestations " & preset():
   for kind, path in walkDir(OperationsAttestationsDir, true):
     runTest(path)

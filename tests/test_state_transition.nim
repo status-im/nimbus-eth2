@@ -8,13 +8,14 @@
 {.used.}
 
 import
-  unittest, chronicles,
+  chronicles,
+  unittest2,
   ./testutil, ./testblockutil,
   ../beacon_chain/spec/[beaconstate, datatypes, digest, crypto,
                         validator, state_transition, presets],
   ../beacon_chain/ssz
 
-suiteReport "Block processing" & preset():
+suite "Block processing" & preset():
   ## For now just test that we can compile and execute block processing with
   ## mock data.
 
@@ -31,12 +32,12 @@ suiteReport "Block processing" & preset():
       state = newClone(genesisState[])
       cache = StateCache()
 
-  timedTest "Passes from genesis state, no block" & preset():
+  test "Passes from genesis state, no block" & preset():
     check:
       process_slots(state[], state.data.slot + 1, cache)
       state.data.slot == genesisState.data.slot + 1
 
-  timedTest "Passes from genesis state, empty block" & preset():
+  test "Passes from genesis state, empty block" & preset():
     var
       previous_block_root = genesisBlock.root
       new_block = makeTestBlock(state[], previous_block_root, cache)
@@ -49,12 +50,12 @@ suiteReport "Block processing" & preset():
 
       state.data.slot == genesisState.data.slot + 1
 
-  timedTest "Passes through epoch update, no block" & preset():
+  test "Passes through epoch update, no block" & preset():
     check:
       process_slots(state[], Slot(SLOTS_PER_EPOCH), cache)
       state.data.slot == genesisState.data.slot + SLOTS_PER_EPOCH
 
-  timedTest "Passes through epoch update, empty block" & preset():
+  test "Passes through epoch update, empty block" & preset():
     var
       previous_block_root = genesisRoot
       cache = StateCache()
@@ -73,7 +74,7 @@ suiteReport "Block processing" & preset():
     check:
       state.data.slot == genesisState.data.slot + SLOTS_PER_EPOCH
 
-  timedTest "Attestation gets processed at epoch" & preset():
+  test "Attestation gets processed at epoch" & preset():
     var
       previous_block_root = genesisRoot
       cache = StateCache()

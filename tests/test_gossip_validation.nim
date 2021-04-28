@@ -22,14 +22,14 @@ import
   ../beacon_chain/spec/[crypto, datatypes, digest, validator, state_transition,
                         helpers, presets, network],
   # Test utilities
-  ./testutil, ./testblockutil
+  ./testutil, ./testdbutil, ./testblockutil
 
 proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
   if dag.needStateCachesAndForkChoicePruning():
     dag.pruneStateCachesDAG()
     # pool[].prune() # We test logic without att_1_0 pool / fork choice pruning
 
-suiteReport "Gossip validation " & preset():
+suite "Gossip validation " & preset():
   setup:
     # Genesis state that results in 3 members per committee
     var
@@ -43,7 +43,7 @@ suiteReport "Gossip validation " & preset():
     check:
       process_slots(state.data, getStateField(state, slot) + 1, cache)
 
-  timedTest "Validation sanity":
+  test "Validation sanity":
     # TODO: refactor tests to avoid skipping BLS validation
     chainDag.updateFlags.incl {skipBLSValidation}
 

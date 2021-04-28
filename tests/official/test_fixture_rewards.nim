@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  os, unittest,
+  os,
   # Utilities
   stew/results,
   # Beacon chain internals
@@ -48,7 +48,7 @@ proc runTest(rewardsDir, identifier: string) =
   let testDir = rewardsDir / identifier
 
   proc `testImpl _ rewards _ identifier`() =
-    timedTest "Rewards" & " - " & identifier & preset():
+    test "Rewards" & " - " & identifier & preset():
       var
         state = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
         cache = StateCache()
@@ -123,7 +123,7 @@ proc runTest(rewardsDir, identifier: string) =
 
   `testImpl _ rewards _ identifier`()
 
-suiteReport "Official - Rewards " & preset():
+suite "Official - Rewards " & preset():
   for rewardsDir in [RewardsDirBasic, RewardsDirLeak, RewardsDirRandom]:
     for kind, path in walkDir(rewardsDir, true):
       runTest(rewardsDir, path)

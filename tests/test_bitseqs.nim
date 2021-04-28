@@ -1,8 +1,10 @@
 {.used.}
 
 import
-  unittest, strformat,
-  ../beacon_chain/ssz/bitseqs
+  unittest2,
+  strformat,
+  ../beacon_chain/ssz/bitseqs,
+  ./testutil
 
 suite "Bit fields":
   test "roundtrips":

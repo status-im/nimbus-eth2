@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  os, sequtils, unittest, chronicles,
+  os, sequtils, chronicles,
   # Beacon chain internals
   ../../beacon_chain/spec/[crypto, datatypes, state_transition, presets],
   ../../beacon_chain/ssz,
@@ -34,7 +34,7 @@ proc runTest(testName, testDir, unitTestName: string) =
       hasPostState = existsFile(testPath/"post.ssz")
       prefix = if hasPostState: "[Valid]   " else: "[Invalid] "
 
-    timedTest prefix & testName & " - " & unitTestName & preset():
+    test prefix & testName & " - " & unitTestName & preset():
       var
         preState = newClone(parseTest(testPath/"pre.ssz", SSZ, BeaconState))
         hashedPreState = (ref HashedBeaconState)(
@@ -67,10 +67,10 @@ proc runTest(testName, testDir, unitTestName: string) =
 
   `testImpl _ blck _ testName`()
 
-suiteReport "Official - Sanity - Blocks " & preset():
+suite "Official - Sanity - Blocks " & preset():
   for kind, path in walkDir(SanityBlocksDir, true):
     runTest("Official - Sanity - Blocks", SanityBlocksDir, path)
 
-suiteReport "Official - Finality " & preset():
+suite "Official - Finality " & preset():
   for kind, path in walkDir(FinalityDir, true):
     runTest("Official - Finality", FinalityDir, path)

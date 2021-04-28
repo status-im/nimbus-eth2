@@ -4,9 +4,9 @@
 
 {.used.}
 
-import ../testutil, std/unittest
+import ../testutil
 
-# include to be able to use "suiteReport"
+# include to be able to use "suite"
 import ./interpreter
-suiteReport "Fork Choice + Finality " & preset():
+suite "Fork Choice + Finality " & preset():
   include scenarios/[no_votes, votes, ffg_01, ffg_02]

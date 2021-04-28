@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  os, unittest,
+  os,
   # Utilities
   stew/results,
   # Beacon chain internals
@@ -38,7 +38,7 @@ proc runTest(identifier: string) =
     else:
       prefix = "[Invalid] "
 
-    timedTest prefix & identifier:
+    test prefix & identifier:
       let proposerSlashing = parseTest(testDir/"proposer_slashing.ssz", SSZ, ProposerSlashing)
       var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
 
@@ -56,6 +56,6 @@ proc runTest(identifier: string) =
 
   `testImpl_proposer_slashing _ identifier`()
 
-suiteReport "Official - Operations - Proposer slashing " & preset():
+suite "Official - Operations - Proposer slashing " & preset():
   for kind, path in walkDir(OpProposerSlashingDir, true):
     runTest(path)

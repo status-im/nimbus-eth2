@@ -1,6 +1,6 @@
 {.used.}
 
-import unittest
+import unittest2
 import chronos
 import ../beacon_chain/gossip_processing/gossip_to_consensus,
        ../beacon_chain/sync/sync_manager

@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[unittest, os],
+  std/[os],
   # Status lib
   eth/db/kvstore,
   stew/results,
@@ -29,7 +29,7 @@ template wrappedTimedTest(name: string, body: untyped) =
   # `check` macro takes a copy of whatever it's checking, on the stack!
   block: # Symbol namespacing
     proc wrappedTest() =
-      timedTest name:
+      test name:
         body
     wrappedTest()
 
@@ -55,7 +55,7 @@ proc sqlite3db_delete(basepath, dbname: string) =
 const TestDir = ""
 const TestDbName = "t_slashprot_migration"
 
-suiteReport "Slashing Protection DB - v1 and v2 migration" & preset():
+suite "Slashing Protection DB - v1 and v2 migration" & preset():
   # https://eips.ethereum.org/EIPS/eip-3076
   sqlite3db_delete(TestDir, TestDbName)
 

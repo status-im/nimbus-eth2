@@ -144,21 +144,25 @@ update: | update-common
 libbacktrace:
 	+ "$(MAKE)" -C vendor/nim-libbacktrace --no-print-directory BUILD_CXX_LIB=0
 
-# test suite
-TEST_BINARIES := \
+# test binaries that can output an XML report
+XML_TEST_BINARIES := \
 	test_fixture_const_sanity_check_minimal \
 	test_fixture_const_sanity_check_mainnet \
 	test_fixture_ssz_generic_types \
 	test_fixture_ssz_consensus_objects \
 	all_fixtures_require_ssz \
 	test_official_interchange_vectors \
+	all_tests \
+	test_keystore
+
+# test suite
+TEST_BINARIES := \
 	proto_array \
 	fork_choice \
-	all_tests \
-	test_keystore \
+	test_ssz_roundtrip \
 	state_sim \
 	block_sim
-.PHONY: $(TEST_BINARIES)
+.PHONY: $(TEST_BINARIES) $(XML_TEST_BINARIES)
 
 test_fixture_const_sanity_check_minimal: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
@@ -237,6 +241,15 @@ all_tests: | build deps
 			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
+# TODO `test_ssz_roundtrip` is extracted from the rest of the tests because it's incompatible with unittest2
+test_ssz_roundtrip: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"tests/$@.nim" \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
 # TODO `test_keystore` is extracted from the rest of the tests because it uses conflicting BLST headers
 test_keystore: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
@@ -265,11 +278,17 @@ block_sim: | build deps
 
 DISABLE_TEST_FIXTURES_SCRIPT := 0
 # This parameter passing scheme is ugly, but short.
-test: | $(TEST_BINARIES)
+test: | $(XML_TEST_BINARIES) $(TEST_BINARIES)
 ifeq ($(DISABLE_TEST_FIXTURES_SCRIPT), 0)
 	V=$(V) scripts/setup_official_tests.sh
 endif
 	tests/simulation/restapi.sh
+	for TEST_BINARY in $(XML_TEST_BINARIES); do \
+		PARAMS="--xml:build/$${TEST_BINARY}.xml --console"; \
+		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
+		build/$${TEST_BINARY} $${PARAMS} || { echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Aborting."; exit 1; }; \
+		done; \
+		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
 	for TEST_BINARY in $(TEST_BINARIES); do \
 		PARAMS=""; \
 		if [[ "$${TEST_BINARY}" == "state_sim" ]]; then PARAMS="--validators=6000 --slots=128"; \

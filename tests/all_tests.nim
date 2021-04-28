@@ -13,7 +13,6 @@ import # Official constants
 import # Unit test
   ./test_attestation_pool,
   ./test_beacon_chain_db,
-  ./test_beacon_node,
   ./test_beaconstate,
   ./test_bitseqs,
   ./test_block_pool,

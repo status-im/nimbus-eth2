@@ -7,13 +7,10 @@
 
 {.used.}
 
-import unittest, ./testutil
+# this is not part of test_ssz because the roundtrip tests are incompatible
+# with unittest2 as of writing
+import
+  serialization/testing/generic_suite,
+  ../beacon_chain/ssz
 
-when false:
-  import ../beacon_chain/nimbus_beacon_node
-
-suiteReport "Beacon node":
-  # Compile test
-
-  timedTest "Compile":
-    discard
+executeRoundTripTests SSZ

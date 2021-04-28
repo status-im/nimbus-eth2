@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  std/[unittest, os],
+  std/[os],
   # Status lib
   stew/[results, byteutils],
   nimcrypto/utils,
@@ -16,7 +16,7 @@ import
   ../../beacon_chain/validators/slashing_protection,
   ../../beacon_chain/spec/[datatypes, digest, crypto, presets],
   # Test utilies
-  ../testutil,
+  ../testutil, ../testdbutil,
   ../official/fixtures_utils
 
 type
@@ -141,7 +141,7 @@ proc runTest(identifier: string) =
 
 
   let testCase = InterchangeTestsDir / identifier
-  timedTest "Slashing test: " & identifier:
+  test "Slashing test: " & identifier:
     let t = parseTest(InterchangeTestsDir/identifier, Json, TestInterchange)
 
     # Create a test specific DB
@@ -211,6 +211,6 @@ proc runTest(identifier: string) =
     sqlite3db_delete(TestDir, dbname)
 
 
-suiteReport "Slashing Interchange tests " & preset():
+suite "Slashing Interchange tests " & preset():
   for kind, path in walkDir(InterchangeTestsDir, true):
     runTest(path)
