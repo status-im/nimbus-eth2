@@ -50,6 +50,11 @@ If you're experiencing a low peer count, you may be behind a firewall. Try resta
 ```
 ./run-pyrmont-beacon-node.sh --nat:extip:35.124.65.104
 ```
+### noCommand does not accept arguments
+
+When starting nimbus and you get, 
+```The command 'noCommand' does not accept arguments```
+Make sure that your command line flags are in the format of `--foo=bar`, `--baz`, or `--foo-bar=qux`.
 
 ### Address already in use error
 
