@@ -13,12 +13,12 @@ Nimbus-eth2 is a extremely efficient Beacon Chain client for participating in th
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
-
 - [Documentation](#documentation)
 - [Related projects](#related-projects)
+- [Donations](#donations)
 - [Branch guide](#branch-guide)
 - [Developer resources](#developer-resources)
-- [Interop tooling](#interop-tooling)
+- [Tooling and utilities](#tooling-and-utilities)
 - [For researchers](#for-researchers)
   - [State transition simulation](#state-transition-simulation)
   - [Local network simulation](#local-network-simulation)
