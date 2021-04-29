@@ -25,14 +25,6 @@ import
   # Test utilies
   ../testutil
 
-template wrappedTimedTest(name: string, body: untyped) =
-  # `check` macro takes a copy of whatever it's checking, on the stack!
-  block: # Symbol namespacing
-    proc wrappedTest() =
-      test name:
-        body
-    wrappedTest()
-
 func fakeRoot(index: SomeInteger): Eth2Digest =
   ## Create fake roots
   ## Those are just the value serialized in big-endian
@@ -59,7 +51,7 @@ suite "Slashing Protection DB - v1 and v2 migration" & preset():
   # https://eips.ethereum.org/EIPS/eip-3076
   sqlite3db_delete(TestDir, TestDbName)
 
-  wrappedTimedTest "Minimal format migration" & preset():
+  test "Minimal format migration" & preset():
     let genesis_validators_root = hexToDigest"0x04700007fabc8282644aed6d1c7c9e21d38a03a0c4ba193f3afe428824b3a673"
     block: # export from a v1 DB
       let db = SlashingProtectionDB_v1.init(

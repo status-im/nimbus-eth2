@@ -322,32 +322,23 @@ proc init*(T: type BeaconNode,
     attestationPool = newClone(AttestationPool.init(chainDag, quarantine))
     exitPool = newClone(ExitPool.init(chainDag, quarantine))
 
+  case config.slashingDbKind
+  of SlashingDbKind.v2:
+    discard
+  of SlashingDbKind.v1:
+    error "Slashing DB v1 is no longer supported for writing"
+    quit 1
+  of SlashingDbKind.both:
+    warn "Slashing DB v1 deprecated, writing only v2"
+
+  info "Loading slashing protection database (v2)",
+    path = config.validatorsDir()
+
+  let
     slashingProtectionDB =
-      case config.slashingDbKind
-      of SlashingDbKind.v1:
-        info "Loading slashing protection database",
-          path = config.validatorsDir()
-        SlashingProtectionDB.init(
-          getStateField(chainDag.headState, genesis_validators_root),
-          config.validatorsDir(), "slashing_protection",
-          modes = {kCompleteArchiveV1},
-          disagreementBehavior = kChooseV1
-        )
-      of SlashingDbKind.v2:
-        info "Loading slashing protection database (v2)",
-          path = config.validatorsDir()
-        SlashingProtectionDB.init(
+      SlashingProtectionDB.init(
           getStateField(chainDag.headState, genesis_validators_root),
           config.validatorsDir(), "slashing_protection"
-        )
-      of SlashingDbKind.both:
-        info "Loading slashing protection database (dual DB mode)",
-          path = config.validatorsDir()
-        SlashingProtectionDB.init(
-          getStateField(chainDag.headState, genesis_validators_root),
-          config.validatorsDir(), "slashing_protection",
-          modes = {kCompleteArchiveV1, kCompleteArchiveV2},
-          disagreementBehavior = kChooseV2
         )
     validatorPool = newClone(ValidatorPool.init(slashingProtectionDB))
 

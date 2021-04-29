@@ -531,7 +531,7 @@ proc checkSlashableAttestation*(
       # s2 < s1 < t1 < t2
       # Logged by caller
       return err(BadVote(
-        kind: SurroundingVote,
+        kind: SurroundVote,
         existingAttestationRoot: ar1,
         sourceExisting: s1,
         targetExisting: t1,
@@ -542,7 +542,7 @@ proc checkSlashableAttestation*(
       # s1 < s2 < t2 < t1
       # Logged by caller
       return err(BadVote(
-        kind: SurroundedVote,
+        kind: SurroundVote,
         existingAttestationRoot: ar1,
         sourceExisting: s1,
         targetExisting: t1,
@@ -587,10 +587,10 @@ proc registerValidator(db: SlashingProtectionDB_v1, validator: ValidatorPubKey) 
 proc registerBlock*(
        db: SlashingProtectionDB_v1,
        validator: ValidatorPubKey,
-       slot: Slot, block_root: Eth2Digest) =
+       slot: Slot, block_root: Eth2Digest): Result[void, BadProposal] =
   ## Add a block to the slashing protection DB
-  ## `checkSlashableBlockProposal` MUST be run
-  ## before to ensure no overwrite.
+
+  ? checkSlashableBlockProposal(db, validator, slot)
 
   let valID = validator.toRaw()
 
@@ -724,10 +724,12 @@ proc registerAttestation*(
        db: SlashingProtectionDB_v1,
        validator: ValidatorPubKey,
        source, target: Epoch,
-       attestation_root: Eth2Digest) =
+       attestation_root: Eth2Digest): Result[void, BadVote] =
   ## Add an attestation to the slashing protection DB
   ## `checkSlashableAttestation` MUST be run
   ## before to ensure no overwrite.
+
+  ? checkSlashableAttestation(db, validator, source, target)
 
   let valID = validator.toRaw()
 
@@ -1141,8 +1143,3 @@ proc inclSPDIR*(db: SlashingProtectionDB_v1, spdir: SPDIR): SlashingImportStatus
   # Create a mutable copy for sorting
   var spdir = spdir
   return db.importInterchangeV5Impl(spdir)
-
-# Sanity check
-# --------------------------------------------------------------
-
-static: doAssert SlashingProtectionDB_v1 is SlashingProtectionDB_Concept

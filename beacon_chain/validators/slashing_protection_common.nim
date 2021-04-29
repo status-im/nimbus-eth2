@@ -82,56 +82,6 @@ type
 # Slashing Protection types
 # --------------------------------------------
 
-type
-  SlashingProtectionDB_Concept* = concept db, type DB
-    ## Database storing the blocks attested
-    ## by validators attached to a beacon node
-    ## or validator client.
-
-    # Metadata
-    # --------------------------------------------
-    DB.version is int
-
-    # Resource Management
-    # --------------------------------------------
-    DB is ref
-
-    DB.init(Eth2Digest, string, string) is DB
-      # DB.init(genesis_root, dir, filename)
-    DB.loadUnchecked(string, string, bool) is DB
-      # DB.load(dir, filename, readOnly)
-    db.close()
-
-    # Queries
-    # --------------------------------------------
-    db.checkSlashableBlockProposal(ValidatorPubKey, Slot) is Result[void, BadProposal]
-      # db.checkSlashableBlockProposal(validator, slot)
-    db.checkSlashableAttestation(ValidatorPubKey, Epoch, Epoch) is Result[void, BadVote]
-      # db.checkSlashableAttestation(validator, source, target)
-
-    # Updates
-    # --------------------------------------------
-    db.registerBlock(ValidatorPubKey, Slot, Eth2Digest)
-      # db.checkSlashableAttestation(validator, slot, block_root)
-    db.registerAttestation(ValidatorPubKey, Epoch, Epoch, Eth2Digest)
-      # db.checkSlashableAttestation(validator, source, target, block_root)
-
-    # Pruning
-    # --------------------------------------------
-    db.pruneBlocks(ValidatorPubKey, Slot)
-    db.pruneAttestations(ValidatorPubKey, int64, int64)
-    db.pruneAfterFinalization(Epoch)
-
-    # Interchange
-    # --------------------------------------------
-    db.toSPDIR() is SPDIR
-      # to Slashing Protection Data Intermediate Representation
-      # db.toSPDIR()
-    db.inclSPDIR(SPDIR) is SlashingImportStatus
-      # include the content of Slashing Protection Data Intermediate Representation
-      # in the database
-      # db.inclSPDIR(path)
-
   SlashingImportStatus* = enum
     siSuccess
     siFailure
@@ -146,9 +96,8 @@ type
     # 2: candidate attestation
 
     # Spec slashing condition
-    DoubleVote           # h(t1) == h(t2)
-    SurroundedVote       # h(s1) < h(s2) < h(t2) < h(t1)
-    SurroundingVote      # h(s2) < h(s1) < h(t1) < h(t2)
+    DoubleVote   # h(t1) == h(t2)
+    SurroundVote # h(s1) < h(s2) < h(t2) < h(t1) or h(s2) < h(s1) < h(t1) < h(t2)
 
     # Non-spec, should never happen in a well functioning client
     TargetPrecedesSource # h(t1) < h(s1) - current epoch precedes last justified epoch
@@ -156,12 +105,13 @@ type
     # EIP-3067 (https://eips.ethereum.org/EIPS/eip-3076)
     MinSourceViolation   # h(s2) < h(s1) - EIP3067 condition 4 (strict inequality)
     MinTargetViolation   # h(t2) <= h(t1) - EIP3067 condition 5
+    DatabaseError          # Cannot read/write the slashing protection db
 
-  BadVote* = object
+  BadVote* {.pure.} = object
     case kind*: BadVoteKind
     of DoubleVote:
       existingAttestation*: Eth2Digest
-    of SurroundedVote, SurroundingVote:
+    of SurroundVote:
       existingAttestationRoot*: Eth2Digest # Many roots might be in conflict
       sourceExisting*, targetExisting*: Epoch
       sourceSlashable*, targetSlashable*: Epoch
@@ -173,12 +123,15 @@ type
     of MinTargetViolation:
       minTarget*: Epoch
       candidateTarget*: Epoch
+    of BadVoteKind.DatabaseError:
+      message*: string
 
-  BadProposalKind* = enum
+  BadProposalKind* {.pure.} = enum
     # Spec slashing condition
     DoubleProposal         # h(t1) == h(t2)
     # EIP-3067 (https://eips.ethereum.org/EIPS/eip-3076)
     MinSlotViolation       # h(t2) <= h(t1)
+    DatabaseError          # Cannot read/write the slashing protection db
 
   BadProposal* = object
     case kind*: BadProposalKind
@@ -187,6 +140,8 @@ type
     of MinSlotViolation:
       minSlot*: Slot
       candidateSlot*: Slot
+    of BadProposalKind.DatabaseError:
+      message*: string
 
 func `==`*(a, b: BadVote): bool =
   ## Comparison operator.
@@ -196,7 +151,7 @@ func `==`*(a, b: BadVote): bool =
     false
   elif a.kind == DoubleVote:
     a.existingAttestation == b.existingAttestation
-  elif a.kind in {SurroundedVote, SurroundingVote}:
+  elif a.kind in {SurroundVote, SurroundVote}:
     (a.existingAttestationRoot == b.existingAttestationRoot) and
       (a.sourceExisting == b.sourceExisting) and
       (a.targetExisting == b.targetExisting) and
@@ -266,7 +221,7 @@ proc readValue*(r: var JsonReader, a: var (SlotString or EpochString))
     raiseUnexpectedValue(r, "Integer in a string expected")
 
 proc exportSlashingInterchange*(
-       db: SlashingProtectionDB_Concept,
+       db: auto,
        path: string, prettify = true) {.raises: [Defect, IOError].} =
   ## Export a database to the Slashing Protection Database Interchange Format
   let spdir = db.toSPDIR()
@@ -274,7 +229,7 @@ proc exportSlashingInterchange*(
   echo "Exported slashing protection DB to '", path, "'"
 
 proc importSlashingInterchange*(
-       db: SlashingProtectionDB_Concept,
+       db: auto,
        path: string): SlashingImportStatus {.raises: [Defect, IOError, SerializationError].} =
   ## Import a Slashing Protection Database Interchange Format
   ## into a Nimbus DB.
@@ -307,7 +262,7 @@ chronicles.formatIt SPDIR_SignedAttestation: it.shortLog
 # --------------------------------------------
 
 proc importInterchangeV5Impl*(
-       db: SlashingProtectionDB_Concept,
+       db: auto,
        spdir: var SPDIR
      ): SlashingImportStatus
       {.raises: [SerializationError, IOError, Defect].} =
@@ -359,8 +314,8 @@ proc importInterchangeV5Impl*(
 
     for b in 0 ..< spdir.data[v].signed_blocks.len:
       template B: untyped = spdir.data[v].signed_blocks[b]
-      let status = db.checkSlashableBlockProposal(
-        parsedKey, B.slot.Slot
+      let status = db.registerBlock(
+        parsedKey, B.slot.Slot, B.signing_root.Eth2Digest
       )
       if status.isErr():
         # We might be importing a duplicate which EIP-3076 allows
@@ -388,12 +343,6 @@ proc importInterchangeV5Impl*(
       if B.slot.int > maxValidSlotSeen:
         maxValidSlotSeen = B.slot.int
 
-      db.registerBlock(
-        parsedKey,
-        B.slot.Slot,
-        B.signing_root.Eth2Digest
-      )
-
     # Now prune everything that predates
     # this interchange file max slot
     db.pruneBlocks(parsedKey, Slot maxValidSlotSeen)
@@ -409,10 +358,11 @@ proc importInterchangeV5Impl*(
 
     for a in 0 ..< spdir.data[v].signed_attestations.len:
       template A: untyped = spdir.data[v].signed_attestations[a]
-      let status = db.checkSlashableAttestation(
+      let status = db.registerAttestation(
         parsedKey,
         A.source_epoch.Epoch,
-        A.target_epoch.Epoch
+        A.target_epoch.Epoch,
+        A.signing_root.Eth2Digest
       )
       if status.isErr():
         # We might be importing a duplicate which EIP-3076 allows
@@ -438,13 +388,6 @@ proc importInterchangeV5Impl*(
         maxValidSourceEpochSeen = A.source_epoch.int
       if A.target_epoch.int > maxValidTargetEpochSeen:
         maxValidTargetEpochSeen = A.target_epoch.int
-
-      db.registerAttestation(
-        parsedKey,
-        A.source_epoch.Epoch,
-        A.target_epoch.Epoch,
-        A.signing_root.Eth2Digest
-      )
 
     # Now prune everything that predates
     # this interchange file max slot
