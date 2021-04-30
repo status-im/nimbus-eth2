@@ -20,6 +20,7 @@ import
   ./slashing_protection_v2
 
 export slashing_protection_common
+
 # Generic sandwich
 export chronicles
 
@@ -51,7 +52,7 @@ type
     ## Database storing the blocks attested
     ## by validators attached to a beacon node
     ## or validator client.
-    db_v2: SlashingProtectionDB_v2
+    db_v2*: SlashingProtectionDB_v2
     modes: set[SlashProtDBMode]
     disagreementBehavior: DisagreementBehavior
 
@@ -283,3 +284,7 @@ proc pruneAfterFinalization*(
 #
 # That builds on a DB backend inclSPDIR and toSPDIR
 # SPDIR being a common Intermediate Representation
+
+proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): SlashingImportStatus
+             {.raises: [SerializationError, IOError, Defect].} =
+  db.db_v2.inclSPDIR(spdir)

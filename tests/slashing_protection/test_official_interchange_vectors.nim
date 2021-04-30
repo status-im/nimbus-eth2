@@ -174,7 +174,7 @@ proc runTest(identifier: string) =
           "    " & $status & "\n"
 
       for blck in step.blocks:
-        let status = db.checkSlashableBlockProposal(
+        let status = db.db_v2.checkSlashableBlockProposal(none(ValidatorIndex),
           ValidatorPubKey.fromRaw(blck.pubkey.PubKeyBytes).get(),
           Slot blck.slot
         )
@@ -190,7 +190,7 @@ proc runTest(identifier: string) =
             "    for " & $toHexLogs(blck)
 
       for att in step.attestations:
-        let status = db.checkSlashableAttestation(
+        let status = db.db_v2.checkSlashableAttestation(none(ValidatorIndex),
           ValidatorPubKey.fromRaw(att.pubkey.PubKeyBytes).get(),
           Epoch att.source_epoch,
           Epoch att.target_epoch
