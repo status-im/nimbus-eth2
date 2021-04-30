@@ -1,5 +1,9 @@
 name: CI
-on: [push, pull_request]
+on:
+  push:
+    paths-ignore: ['media/**', 'docs/**', '**/*.md']
+  pull_request:
+    paths-ignore: ['media/**', 'docs/**', '**/*.md']
 
 jobs:
   build:
