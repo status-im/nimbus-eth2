@@ -288,3 +288,7 @@ proc pruneAfterFinalization*(
 proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): SlashingImportStatus
              {.raises: [SerializationError, IOError, Defect].} =
   db.db_v2.inclSPDIR(spdir)
+
+proc toSPDIR*(db: SlashingProtectionDB): SPDIR
+             {.raises: [IOError, Defect].} =
+  db.db_v2.toSPDIR()
