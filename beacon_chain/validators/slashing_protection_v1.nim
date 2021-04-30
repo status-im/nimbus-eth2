@@ -620,7 +620,7 @@ proc registerBlock*(
         # targetEpochs.isInit will be false
       )
     )
-    return
+    return ok()
 
   var ll = maybeLL.unsafeGet()
   var cur = ll.blockSlots.stop
@@ -632,7 +632,7 @@ proc registerBlock*(
     db.put(subkey(kBlock, valID, slot), node)
     # TODO: what if crash here?
     db.put(subkey(kLinkedListMeta, valID), ll)
-    return
+    return ok()
 
   if cur < slot:
     # Adding a block later than all known blocks
@@ -652,7 +652,7 @@ proc registerBlock*(
     db.put(subkey(kBlock, valID, cur), prevNode)
     # TODO: what if crash here?
     db.put(subkey(kLinkedListMeta, valID), ll)
-    return
+    return ok()
 
   # TODO: we likely want a proper DB or better KV-store high-level API
   #       in the future.
@@ -687,7 +687,7 @@ proc registerBlock*(
       # TODO: what if crash here?
       db.put(subkey(kBlock, valID, cur), curNode)
       db.put(subkey(kLinkedListMeta, valID), ll)
-      return
+      return ok()
     elif slot > curNode.prev:
       # Reached: prev < slot < cur
       # Change: prev <-> cur
@@ -709,7 +709,7 @@ proc registerBlock*(
       # TODO: what if crash here?
       db.put(subkey(kBlock, valID, cur), curNode)
       db.put(subkey(kBlock, valID, prev), prevNode)
-      return
+      return ok()
 
     # Previous
     cur = curNode.prev
@@ -719,6 +719,8 @@ proc registerBlock*(
       # bug in Nim results, ".e" field inaccessible
       # ).expect("Consistent linked-list in DB")
     ).unsafeGet()
+
+  ok()
 
 proc registerAttestation*(
        db: SlashingProtectionDB_v1,
@@ -761,7 +763,7 @@ proc registerAttestation*(
         targetEpochs: EpochDesc(start: target, stop: target, isInit: true)
       )
     )
-    return
+    return ok()
 
   var ll = maybeLL.unsafeGet()
   var cur = ll.targetEpochs.stop
@@ -775,7 +777,7 @@ proc registerAttestation*(
     db.put(subkey(kTargetEpoch, valID, target), node)
     # TODO: what if crash here?
     db.put(subkey(kLinkedListMeta, valID), ll)
-    return
+    return ok()
 
   block: # Update source epoch
     if ll.sourceEpochs.stop < source:
@@ -802,7 +804,7 @@ proc registerAttestation*(
     db.put(subkey(kTargetEpoch, valID, cur), prevNode)
     # TODO: what if crash here?
     db.put(subkey(kLinkedListMeta, valID), ll)
-    return
+    return ok()
 
   # TODO: we likely want a proper DB or better KV-store high-level API
   #       in the future.
@@ -837,7 +839,7 @@ proc registerAttestation*(
       # TODO: what if crash here?
       db.put(subkey(kTargetEpoch, valID, cur), curNode)
       db.put(subkey(kLinkedListMeta, valID), ll)
-      return
+      return ok()
     elif target > curNode.prev:
       # Reached: prev < target < cur
       # Change: prev <-> cur
@@ -860,7 +862,7 @@ proc registerAttestation*(
       # TODO: what if crash here?
       db.put(subkey(kTargetEpoch, valID, cur), curNode)
       db.put(subkey(kTargetEpoch, valID, prev), prevNode)
-      return
+      return ok()
 
     # Previous
     cur = curNode.prev
@@ -870,6 +872,8 @@ proc registerAttestation*(
       # bug in Nim results, ".e" field inaccessible
       # ).expect("Consistent linked-list in DB")
     ).unsafeGet()
+
+  ok()
 
 # Debug tools
 # --------------------------------------------

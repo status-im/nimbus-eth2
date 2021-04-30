@@ -11,7 +11,7 @@ import
   # Standard library
   std/[os],
   # Status lib
-  eth/db/kvstore,
+  eth/db/[kvstore, kvstore_sqlite3],
   stew/results,
   nimcrypto/utils,
   serialization,
@@ -24,17 +24,6 @@ import
   ../../beacon_chain/spec/[datatypes, digest, crypto, presets],
   # Test utilies
   ../testutil
-
-func fakeRoot(index: SomeInteger): Eth2Digest =
-  ## Create fake roots
-  ## Those are just the value serialized in big-endian
-  ## We prevent zero hash special case via a power of 2 prefix
-  result.data[0 ..< 8] = (1'u64 shl 32 + index.uint64).toBytesBE()
-
-func fakeValidator(index: SomeInteger): ValidatorPubKey =
-  ## Create fake validator public key
-  result = ValidatorPubKey()
-  result.blob[0 ..< 8] = (1'u64 shl 48 + index.uint64).toBytesBE()
 
 func hexToDigest(hex: string): Eth2Digest =
   result = Eth2Digest.fromHex(hex)
@@ -63,18 +52,19 @@ suite "Slashing Protection DB - v1 and v2 migration" & preset():
       let pubkey = ValidatorPubKey
                     .fromHex"0xb845089a1457f811bfc000588fbb4e713669be8ce060ea6be3c6ece09afc3794106c91ca73acda5e5457122d58723bed"
                     .get()
-      db.registerBlock(
-        pubkey,
-        Slot 81952,
-        Eth2Digest()
-      )
+      check:
+        db.registerBlock(
+          pubkey,
+          Slot 81952,
+          Eth2Digest()
+        ).isOk()
 
-      db.registerAttestation(
-        pubkey,
-        source = Epoch 2290,
-        target = Epoch 3007,
-        Eth2Digest()
-      )
+        db.registerAttestation(
+          pubkey,
+          source = Epoch 2290,
+          target = Epoch 3007,
+          Eth2Digest()
+        ).isOk()
 
       let spdir = db.toSPDIR_lowWatermark()
       Json.saveFile(
