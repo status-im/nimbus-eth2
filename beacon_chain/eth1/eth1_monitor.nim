@@ -672,21 +672,17 @@ proc getBlockProposalData*(chain: var Eth1Chain,
   var otherVotesCountTable = initCountTable[Eth1Data]()
   for vote in state.eth1_data_votes:
     let eth1Block = chain.findBlock(vote)
-    if eth1Block == nil:
-      continue
-    let
-      isSuccessor = vote.deposit_count >= state.eth1_data.deposit_count
-      # TODO(zah)
-      # There is a slight deviation from the spec here to deal with the following
-      # problem: the in-memory database of eth1 blocks for a restarted node will
-      # be empty which will lead a "no change" vote. To fix this, we'll need to
-      # add rolling persistance for all potentially voted on blocks.
-      isCandidate = (is_candidate_block(chain.preset, eth1Block, periodStart))
-
-    if isSuccessor and isCandidate:
+    if eth1Block != nil and
+       eth1Block.voteData.deposit_root == vote.deposit_root and
+       vote.deposit_count >= state.eth1_data.deposit_count and
+       is_candidate_block(chain.preset, eth1Block, periodStart):
       otherVotesCountTable.inc vote
     else:
-      debug "Ignoring eth1 vote", root = vote.block_hash, isSuccessor, isCandidate
+      debug "Ignoring eth1 vote",
+            root = vote.block_hash,
+            deposits = vote.deposit_count,
+            depositsRoot = vote.deposit_root,
+            localDeposits = state.eth1_data.deposit_count
 
   var pendingDepositsCount = state.eth1_data.deposit_count - state.eth1_deposit_index
   if otherVotesCountTable.len > 0:
