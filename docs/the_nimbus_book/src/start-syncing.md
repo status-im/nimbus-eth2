@@ -42,7 +42,7 @@ INF 2020-12-01 11:26:31.000+00:00 Slot start                                 top
 INF 2020-12-01 11:26:36.285+00:00 Slot end                                   topics="beacnde" tid=21815 file=nimbus_beacon_node.nim:593 slot=96567 nextSlot=96568 head=b54486c4:96563 headEpoch=3017 finalizedHead=2f5d12e4:96479 finalizedEpoch=3014
 ...
 ```
-> If you want to put the database somewhere else, (e.g. an external ssd) pass the `--data-dir=/your/path`. ⚠️ If you are doing this, remember to pass this flag to **all** your nimbus calls.
+> If you want to put the database somewhere else, (e.g. an external ssd) pass the `--data-dir=/your/path`. ⚠️ If you do this, remember to pass this flag to **all** your nimbus calls.
 
 ### Command line options
 
