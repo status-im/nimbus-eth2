@@ -54,7 +54,7 @@ If you're experiencing a low peer count, you may be behind a firewall. Try resta
 
 If, on start,  you see
 ```The command 'noCommand' does not accept arguments```
-Make sure that your command line flags are in the format of `--foo=bar`, `--baz`, or `--foo-bar=qux`.
+Double check to see if your command line flags are in the correct format, i.e. `--foo=bar`, `--baz`, or `--foo-bar=qux`.
 
 ### Address already in use error
 
@@ -97,4 +97,3 @@ The first line in the output will give you internet time. And the second line wi
 ### Eth1 chain monitor failure
 
 *todo*
-
