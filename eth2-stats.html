@@ -169,42 +169,42 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#network-stats-and-monitoring" id="network-stats-and-monitoring">Network stats and monitoring</a></h1>
+                        <h1 id="network-stats-and-monitoring"><a class="header" href="#network-stats-and-monitoring">Network stats and monitoring</a></h1>
 <blockquote>
 <p>⚠️  This page concerns the <a href="https://pyrmont.launchpad.ethereum.org/">Pyrmont</a> testnet. eth2stats is a debugging / developer tool that's suitable for testnets. For privacy reasons, we do not recommend using it for mainnet. For a mainnet alternative, see <a href="./metrics-pretty-pictures.html">this guide</a>.</p>
 </blockquote>
 <p>eth2stats is a network monitoring suite for your beacon node + validator client.</p>
 <p>It consists of a <a href="https://github.com/Alethio/eth2stats-client">command-line-interface</a> (to help you query your node's API), and an <a href="https://eth2stats.io/medalla-testnet">associated website</a> (which allows you to monitor your node from anywhere).</p>
 <p>In this guide we'll take you through how to get eth2stats running on your local machine, and how to hook your node up to the website.</p>
-<h2><a class="header" href="#prerequisites" id="prerequisites">Prerequisites</a></h2>
+<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
 <p>Knowledge of both <a href="https://www.learnenough.com/git-tutorial/getting_started">git</a> and <a href="https://www.learnenough.com/command-line-tutorial/basics">command line basics</a>, and a working <a href="https://golang.org/dl/">Golang</a> environment.</p>
-<h2><a class="header" href="#guide" id="guide">Guide</a></h2>
-<h3><a class="header" href="#1-clone-the-eth2stats-repository" id="1-clone-the-eth2stats-repository">1. Clone the eth2stats repository</a></h3>
+<h2 id="guide"><a class="header" href="#guide">Guide</a></h2>
+<h3 id="1-clone-the-eth2stats-repository"><a class="header" href="#1-clone-the-eth2stats-repository">1. Clone the eth2stats repository</a></h3>
 <pre><code>git clone https://github.com/Alethio/eth2stats-client.git
 </code></pre>
-<h3><a class="header" href="#2-move-into-the-repository" id="2-move-into-the-repository">2. Move into the repository</a></h3>
+<h3 id="2-move-into-the-repository"><a class="header" href="#2-move-into-the-repository">2. Move into the repository</a></h3>
 <pre><code>cd eth2stats-client
 </code></pre>
-<h3><a class="header" href="#3-build-the-executable" id="3-build-the-executable">3. Build the executable</a></h3>
+<h3 id="3-build-the-executable"><a class="header" href="#3-build-the-executable">3. Build the executable</a></h3>
 <pre><code>make build
 </code></pre>
-<h3><a class="header" href="#4-add-your-node" id="4-add-your-node">4. Add your node</a></h3>
+<h3 id="4-add-your-node"><a class="header" href="#4-add-your-node">4. Add your node</a></h3>
 <p>Go to <a href="https://pyrmont.eth2.wtf/">https://pyrmont.eth2.wtf/</a></p>
-<h4><a class="header" href="#1-click-on-add-node" id="1-click-on-add-node">1. Click on add node</a></h4>
+<h4 id="1-click-on-add-node"><a class="header" href="#1-click-on-add-node">1. Click on add node</a></h4>
 <p><img src="https://i.imgur.com/1ofuj4E.png" alt="" /></p>
-<h4><a class="header" href="#2-configure-name-and-client-type" id="2-configure-name-and-client-type">2. Configure name and client type</a></h4>
+<h4 id="2-configure-name-and-client-type"><a class="header" href="#2-configure-name-and-client-type">2. Configure name and client type</a></h4>
 <p><img src="https://i.imgur.com/iQfwAit.png" alt="" /></p>
-<h4><a class="header" href="#3-copy-the-command" id="3-copy-the-command">3. Copy the command</a></h4>
+<h4 id="3-copy-the-command"><a class="header" href="#3-copy-the-command">3. Copy the command</a></h4>
 <p>Click on <code>Compile from source</code> and copy the command at the bottom.
 <img src="https://i.imgur.com/biT5HkJ.png" alt="" /></p>
-<h3><a class="header" href="#5-build-and-run-your-node-with-metrics-enabled" id="5-build-and-run-your-node-with-metrics-enabled">5. Build and run your node with metrics enabled</a></h3>
+<h3 id="5-build-and-run-your-node-with-metrics-enabled"><a class="header" href="#5-build-and-run-your-node-with-metrics-enabled">5. Build and run your node with metrics enabled</a></h3>
 <p>From your <code>nimbus-eth2</code> repository, run:</p>
 <pre><code>make nimbus_beacon_node
 </code></pre>
 <p>Followed by:</p>
 <pre><code>./run-pyrmont-beacon-node.sh --metrics
 </code></pre>
-<h3><a class="header" href="#6-run-eth2stats" id="6-run-eth2stats">6. Run eth2stats</a></h3>
+<h3 id="6-run-eth2stats"><a class="header" href="#6-run-eth2stats">6. Run eth2stats</a></h3>
 <p>From your <code>eth2stats-client</code> repository, <strong>run the command you copied in step 4.3:</strong></p>
 <pre><code>./eth2stats-client run \
 --eth2stats.node-name=&quot;roger&quot; \
@@ -215,7 +215,7 @@
 --beacon.metrics-addr=&quot;http://localhost:8008/metrics&quot;
 </code></pre>
 <p>Your node should now be displayed on <a href="https://pyrmont.eth2.wtf/">https://pyrmont.eth2.wtf/</a> :)</p>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/eth2-stats.md">Edit this file on GitHub.</a></footer>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

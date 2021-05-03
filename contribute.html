@@ -169,21 +169,21 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#contribute" id="contribute">Contribute</a></h1>
+                        <h1 id="contribute"><a class="header" href="#contribute">Contribute</a></h1>
 <p>Follow these steps to contribute to this book!</p>
 <p>We use an utility tool called mdBook to create online books from Markdown files.</p>
-<h2><a class="header" href="#before-you-start" id="before-you-start">Before You Start</a></h2>
+<h2 id="before-you-start"><a class="header" href="#before-you-start">Before You Start</a></h2>
 <ol>
 <li>Install mdBook from <a href="https://github.com/rust-lang/mdBook">here</a>.</li>
 <li>Clone the repository by <code>git clone https://github.com/status-im/nimbus-eth2.git</code>.</li>
 <li>Go to where the Markdown files are located by <code>cd docs</code>.</li>
 </ol>
-<h2><a class="header" href="#real-time-update-and-preview-changes" id="real-time-update-and-preview-changes">Real-Time Update and Preview Changes</a></h2>
+<h2 id="real-time-update-and-preview-changes"><a class="header" href="#real-time-update-and-preview-changes">Real-Time Update and Preview Changes</a></h2>
 <ol>
 <li>Run <code>mdbook serve</code> in the terminal.</li>
 <li>Preview the book at <a href="http://localhost:3000">http://localhost:3000</a>.</li>
 </ol>
-<h2><a class="header" href="#build-and-deploy" id="build-and-deploy">Build and Deploy</a></h2>
+<h2 id="build-and-deploy"><a class="header" href="#build-and-deploy">Build and Deploy</a></h2>
 <p>The first step is to submit a pull request to the <a href="https://github.com/status-im/nimbus-eth2/tree/unstable">unstable branch</a>.
 Then, after it is merged, do the following under our main repository:</p>
 <ol>
@@ -193,7 +193,7 @@ Then, after it is merged, do the following under our main repository:</p>
 <li><code>make update</code> (This is to update the submodules to the latest version)</li>
 <li><code>make publish-book</code></li>
 </ol>
-<h2><a class="header" href="#troubleshooting" id="troubleshooting">Troubleshooting</a></h2>
+<h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
 <p>If you see file conflicts in the pull request, this may due to that you have created your new branch from an old version of the <code>unstable</code> branch. Update your new branch using the following commands:</p>
 <pre><code>git checkout unstable
 git pull
@@ -204,7 +204,7 @@ git merge unstable
 # check the output of &quot;git diff unstable&quot;
 </code></pre>
 <p>Thank you so much for your help to the decentralized and open source community. :)</p>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/contribute.md">Edit this file on GitHub.</a></footer>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

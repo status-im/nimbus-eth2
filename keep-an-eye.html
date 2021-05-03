@@ -169,7 +169,7 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#keep-an-eye-on-your-validator" id="keep-an-eye-on-your-validator">Keep an eye on your validator</a></h1>
+                        <h1 id="keep-an-eye-on-your-validator"><a class="header" href="#keep-an-eye-on-your-validator">Keep an eye on your validator</a></h1>
 <p>The best way to keep track of your validator's status is using the <code>beaconcha.in</code> explorer (click on the orange magnifying glass at the very top and paste in your validator's public key):</p>
 <ul>
 <li><strong>Testnet:</strong> <a href="https:/pyrmont.beaconcha.in">pyrmont.beaconcha.in</a> </li>
@@ -178,15 +178,15 @@
 <p>If you deposit after the <a href="https://hackmd.io/@benjaminion/genesis">genesis</a> state was decided, your validator(s) will be put in a queue based on deposit time, and will slowly be inducted into the validator set after genesis. Getting through the queue may take a few hours or a day or so.</p>
 <p>You can even create an account (<a href="https://pyrmont.beaconcha.in/register">testnet link</a>, <a href="https://beaconcha.in/register">mainnet link</a>) to add alerts and keep track of your validator's performance (<a href="https://pyrmont.beaconcha.in/dashboard">testnet link</a>, <a href="https://beaconcha.in/dashboard">mainnet link</a>).</p>
 <hr />
-<h2><a class="header" href="#make-sure-your-validator-is-attached" id="make-sure-your-validator-is-attached">Make sure your validator is attached</a></h2>
+<h2 id="make-sure-your-validator-is-attached"><a class="header" href="#make-sure-your-validator-is-attached">Make sure your validator is attached</a></h2>
 <p>On startup, you should see a log message that reads <code>Local validator attached</code>. This has a <code>pubKey</code> field which should the public key of your validator.</p>
-<h2><a class="header" href="#check-your-ip-address" id="check-your-ip-address">Check your IP address</a></h2>
+<h2 id="check-your-ip-address"><a class="header" href="#check-your-ip-address">Check your IP address</a></h2>
 <p>Check that Nimbus has recognised your external IP properly. To do this, look at the end of the first log line:</p>
 <pre><code>Starting discovery node&quot;,&quot;topics&quot;:&quot;discv5&quot;,&quot;tid&quot;:2665484,&quot;file&quot;:&quot;protocol.nim:802&quot;,&quot;node&quot;:&quot;b9*ee2235:&lt;IP address&gt;:9000&quot;
 </code></pre>
 <p><code>&lt;IP address&gt;</code> should match your external IP (the IP by which you can be reached from the internet).</p>
 <p>Note that the port number is displayed directly after the IP -- in the above case <code>9000</code>. This is the port that should be opened and mapped.</p>
-<h2><a class="header" href="#keep-track-of-your-syncing-progress" id="keep-track-of-your-syncing-progress">Keep track of your syncing progress</a></h2>
+<h2 id="keep-track-of-your-syncing-progress"><a class="header" href="#keep-track-of-your-syncing-progress">Keep track of your syncing progress</a></h2>
 <p>To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running. You should see something like:</p>
 <pre><code>peers: 35 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:7 (316807) ❯ sync: wPwwwwwDwwDPwPPPwwww:7:4.2313:4.0627:03h01m(280512)
 </code></pre>
@@ -210,7 +210,7 @@
 <blockquote>
 <p><strong>Note:</strong> If you're running Nimbus as a service, the above status bar won't be visible to you. You can use you the RPC calls outlined in the <a href="./api.html">API page</a> to retrieve similar information.</p>
 </blockquote>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/keep-an-eye.md">Edit this file on GitHub.</a></footer>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

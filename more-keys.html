@@ -169,7 +169,7 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#recover-lost-keys-and-generate-new-ones" id="recover-lost-keys-and-generate-new-ones">Recover lost keys and generate new ones</a></h1>
+                        <h1 id="recover-lost-keys-and-generate-new-ones"><a class="header" href="#recover-lost-keys-and-generate-new-ones">Recover lost keys and generate new ones</a></h1>
 <p>Your  mnemonic can be used to recover lost keys and generate new ones.</p>
 <p>Every time you generate a keystore from your mnemomic, that keystore is assigned an index. The first keystore you generate has index 0, the second index 1, etc. You can recover any key using your mnemonic and that key's index. For more on how keys are derived, see this <a href="https://blog.ethereum.org/2020/05/21/keys/">excellent post</a>.</p>
 <p>To stay consistent with the rest of the book, we'll take you though how to do this using the <a href="https://github.com/ethereum/eth2.0-deposit-cli">deposit-cli's</a> <a href="https://github.com/ethereum/eth2.0-deposit-cli/releases">binary executable</a>.</p>
@@ -177,7 +177,7 @@
 <blockquote>
 <p>This command is used to re-generate or derive new keys from your existing mnemonic. Use this command, if (i) you have already generated keys with this CLI before, (ii) you want to reuse your mnemonic that you know is secure that you generated elsewhere (reusing your eth1 mnemonic .etc), or (iii) you lost your keystores and need to recover your keys.</p>
 </blockquote>
-<h2><a class="header" href="#recover-existing-key" id="recover-existing-key">Recover existing key</a></h2>
+<h2 id="recover-existing-key"><a class="header" href="#recover-existing-key">Recover existing key</a></h2>
 <blockquote>
 <p>⚠️  Recovering validator keys from a mnemonic should only be used as a last resort. Exposing your mnemonic to a computer at any time puts it at risk of being compromised. Your mnemonic is not encrypted and if leaked, can be used to steal your funds.</p>
 </blockquote>
@@ -192,7 +192,7 @@
 <p>You'll be prompted to enter your mnemonic, and a new password for your keystore.</p>
 <p>Check that the <code>validator_keys</code> directory contains your extra keystore.</p>
 <p>Copy the <code>validator_keys</code> directory to <code>nimbus-eth2</code> and then follow the instructions <a href="./keys.html">here</a>. Your key will be added to your node on next restart.</p>
-<h2><a class="header" href="#generate-another-key" id="generate-another-key">Generate another key</a></h2>
+<h2 id="generate-another-key"><a class="header" href="#generate-another-key">Generate another key</a></h2>
 <blockquote>
 <p>⚠️  If you wish to generate another validator key,  you must take great care
 to not generate a copy of your original key. Running the same key on two different validator clients will likely get you slashed.</p>
@@ -209,7 +209,7 @@ to not generate a copy of your original key. Running the same key on two differe
 <p>Check that the <code>validator_keys</code> directory contains an extra keystore.</p>
 <p>Copy the <code>validator_keys</code> directory to <code>nimbus-eth2</code>.</p>
 <p>Make sure you've made a <a href="./deposit.html">deposit</a> for your new keystore, and then follow the instructions <a href="./keys.html">here</a>. Your key will be added to your node on next restart.</p>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/more-keys.md">Edit this file on GitHub.</a></footer>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

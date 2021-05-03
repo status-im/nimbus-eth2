@@ -169,9 +169,9 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#log-rotation" id="log-rotation">Log rotation</a></h1>
+                        <h1 id="log-rotation"><a class="header" href="#log-rotation">Log rotation</a></h1>
 <p>Nimbus logs are written to stdout, and optionally to a file. Writing to a file for a long-running process may lead to difficulties when the file grows large. This is typically solved with a <em>log rotator</em>. A log rotator is responsible for switching the written-to file, as well as compressing and removing old logs.</p>
-<h2><a class="header" href="#using-logrotate" id="using-logrotate">Using &quot;logrotate&quot;</a></h2>
+<h2 id="using-logrotate"><a class="header" href="#using-logrotate">Using &quot;logrotate&quot;</a></h2>
 <p><a href="https://github.com/logrotate/logrotate">logrotate</a> provides log rotation and compression. The corresponding package will install its Cron hooks (or Systemd timer) -- all you have to do is add a configuration file for Nimbus-eth2 in &quot;/etc/logrotate.d/nimbus-eth2&quot;:</p>
 <pre><code class="language-text">/var/log/nimbus-eth2/*.log {
 	compress
@@ -187,10 +187,10 @@ daily
 # only keep logs from the last 7 days
 rotate 7
 </code></pre>
-<h2><a class="header" href="#using-rotatelogs" id="using-rotatelogs">Using &quot;rotatelogs&quot;</a></h2>
+<h2 id="using-rotatelogs"><a class="header" href="#using-rotatelogs">Using &quot;rotatelogs&quot;</a></h2>
 <p><a href="https://httpd.apache.org/docs/2.4/programs/rotatelogs.html">rotatelogs</a> is available on most servers and can be used with <code>Docker</code>, <code>Systemd</code> and manual setups to write rotated logs files.</p>
 <p>In particular, when <code>Systemd</code> and its accompanying <code>Journald</code> log daemon are used, this setup avoids clogging the system log by keeping the Nimbus logs in a separate location.</p>
-<h3><a class="header" href="#compression" id="compression">Compression</a></h3>
+<h3 id="compression"><a class="header" href="#compression">Compression</a></h3>
 <p><code>rotatelogs</code> works by reading stdin and redirecting it to a file based on a name pattern. Whenever the log is about to be rotated, the application invokes a shell script with the old and new log files. Our aim is to compress the log file to save space. The <a href="https://github.com/status-im/nimbus-eth2/tree/unstable/scripts/rotatelogs-compress.sh">Nimbus-eth2 repo</a> provides a helper script that does this:</p>
 <pre><code class="language-bash"># Create a rotation script for rotatelogs
 cat &lt;&lt; EOF &gt; rotatelogs-compress.sh
@@ -206,7 +206,7 @@ EOF
 
 chmod +x rotatelogs-compress.sh
 </code></pre>
-<h3><a class="header" href="#build" id="build">Build</a></h3>
+<h3 id="build"><a class="header" href="#build">Build</a></h3>
 <p>Logs in files generally don't benefit from colors. To avoid colors being written to the file, additional flags can be added to the Nimbus <a href="./build.html">build process</a> -- these flags are best saved in a build script to which one can add more options. Future versions of Nimbus will support disabling colors at runtime.</p>
 <pre><code class="language-bash">
 # Build nimbus with colors disabled
@@ -215,7 +215,7 @@ cat &lt;&lt; EOF &gt; build-nbc-text.sh
 make NIMFLAGS=&quot;-d:chronicles_colors=off -d:chronicles_sinks=textlines&quot; nimbus_beacon_node
 EOF
 </code></pre>
-<h3><a class="header" href="#run" id="run">Run</a></h3>
+<h3 id="run"><a class="header" href="#run">Run</a></h3>
 <p>The final step is to redirect logs to <code>rotatelogs</code> using a pipe when starting Nimbus:</p>
 <pre><code class="language-bash">build/nimbus_beacon_node \
   --network:pyrmont \
@@ -231,12 +231,12 @@ EOF
 <li><code>-c &quot;$DATADIR/log/nbc_bn_%Y%m%d%H%M%S.log&quot;</code> - includes timestamp in log filename</li>
 <li><code>3600</code> - rotates logs every hour (3600 seconds)</li>
 </ul>
-<h3><a class="header" href="#deleting-old-logs" id="deleting-old-logs">Deleting old logs</a></h3>
+<h3 id="deleting-old-logs"><a class="header" href="#deleting-old-logs">Deleting old logs</a></h3>
 <p><code>rotatelogs</code> will not do this for you, so you'll need a Cron script (or Systemd timer):</p>
 <pre><code class="language-bash"># delete log files older than 7 days
 find &quot;$DATADIR/log&quot; -name 'nbc_bn_*.log' -mtime +7 -exec rm '{}' \+
 </code></pre>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/log-rotate.md">Edit this file on GitHub.</a></footer>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

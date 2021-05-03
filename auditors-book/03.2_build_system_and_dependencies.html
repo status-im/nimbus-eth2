@@ -163,14 +163,14 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#nimbus-build-system--dependencies" id="nimbus-build-system--dependencies">Nimbus build system &amp; dependencies</a></h1>
-<h2><a class="header" href="#build-system" id="build-system">Build system</a></h2>
-<h3><a class="header" href="#nbc-repo" id="nbc-repo">NBC repo</a></h3>
+                        <h1 id="nimbus-build-system--dependencies"><a class="header" href="#nimbus-build-system--dependencies">Nimbus build system &amp; dependencies</a></h1>
+<h2 id="build-system"><a class="header" href="#build-system">Build system</a></h2>
+<h3 id="nbc-repo"><a class="header" href="#nbc-repo">NBC repo</a></h3>
 <p><code>nimbus-eth2</code> uses a build system based on makefiles.
 Usage is described in the README.</p>
 <p>In particular a <code>env.sh</code> scripts is provided that setups the environment variable
 expected.</p>
-<h3><a class="header" href="#libraries" id="libraries">Libraries</a></h3>
+<h3 id="libraries"><a class="header" href="#libraries">Libraries</a></h3>
 <p>Library repositories uses the official package manager called <code>nimble</code>
 for building and testing.</p>
 <p>In particular, we use by convention the following command to run the test suite via nimble task system:</p>
@@ -179,12 +179,12 @@ for building and testing.</p>
 <p>The details are implemented in <code>&lt;package name&gt;.nimble</code> at the root of the repository.</p>
 <p>The continuous integration setup for Travis, Azure Pipelines and/or Appveyor
 are also setting up a Nim environment from scratch.</p>
-<h2><a class="header" href="#package-dependencies" id="package-dependencies">Package dependencies</a></h2>
-<h3><a class="header" href="#nbc-repo-1" id="nbc-repo-1">NBC repo</a></h3>
+<h2 id="package-dependencies"><a class="header" href="#package-dependencies">Package dependencies</a></h2>
+<h3 id="nbc-repo-1"><a class="header" href="#nbc-repo-1">NBC repo</a></h3>
 <p>For the <code>nimbus-eth2</code> application, all dependencies are vendored
 in the <code>vendor</code> folder.</p>
 <p>With regards to the audit scope we have the following dependencies:</p>
-<h4><a class="header" href="#all" id="all">All</a></h4>
+<h4 id="all"><a class="header" href="#all">All</a></h4>
 <ul>
 <li>Async
 <ul>
@@ -224,7 +224,7 @@ in the <code>vendor</code> folder.</p>
 </ul>
 </li>
 </ul>
-<h4><a class="header" href="#network-core" id="network-core">Network core</a></h4>
+<h4 id="network-core"><a class="header" href="#network-core">Network core</a></h4>
 <ul>
 <li>Cryptography
 <ul>
@@ -253,7 +253,7 @@ in the <code>vendor</code> folder.</p>
 </ul>
 </li>
 </ul>
-<h4><a class="header" href="#eth2-specification-core" id="eth2-specification-core">ETH2 Specification core</a></h4>
+<h4 id="eth2-specification-core"><a class="header" href="#eth2-specification-core">ETH2 Specification core</a></h4>
 <ul>
 <li>Cryptography
 <ul>
@@ -276,7 +276,7 @@ in the <code>vendor</code> folder.</p>
 </ul>
 </li>
 </ul>
-<h4><a class="header" href="#validator-core" id="validator-core">Validator core</a></h4>
+<h4 id="validator-core"><a class="header" href="#validator-core">Validator core</a></h4>
 <ul>
 <li>Cryptography
 <ul>

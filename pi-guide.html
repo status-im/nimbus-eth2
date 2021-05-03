@@ -169,12 +169,12 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#validating-with-a-raspberry-pi-guide" id="validating-with-a-raspberry-pi-guide">Validating with a Raspberry Pi: Guide</a></h1>
+                        <h1 id="validating-with-a-raspberry-pi-guide"><a class="header" href="#validating-with-a-raspberry-pi-guide">Validating with a Raspberry Pi: Guide</a></h1>
 <blockquote class="twitter-tweet"><p lang="en" dir="ltr">I expect the new Raspberry Pi 4 (4GB RAM option, external SSD) to handle an Eth2 validator node without breaking a sweat. That&#39;s $100 of hardware running at 10 Watts to support a 32 ETH node (currently ~$10K stake).</p>&mdash; Justin Ðrake (@drakefjustin) <a href="https://twitter.com/drakefjustin/status/1143091047058366465?ref_src=twsrc%5Etfw">June 24, 2019</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
-<h2><a class="header" href="#introduction" id="introduction">Introduction</a></h2>
+<h2 id="introduction"><a class="header" href="#introduction">Introduction</a></h2>
 <p>This page will take you through how to use your laptop to program your Raspberry Pi, get Nimbus running, and connect to the <strong>Pyrmont testnet</strong>.</p>
 <p>One of the most important aspects of the Raspberry Pi experience is trying to make it as easy as possible to get started. As such, we try our best to explain things from first-principles.</p>
-<h2><a class="header" href="#prerequisites" id="prerequisites">Prerequisites</a></h2>
+<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
 <ul>
 <li>Raspberry Pi 4 (4GB RAM option)</li>
 <li>64GB microSD Card</li>
@@ -197,21 +197,21 @@
 </ol>
 <p>In both cases, avoid low quality SSD disks (the SSD is a key component of your node and can drastically affect both the performance and sync time). Keep in mind that you need to plug the disk to an USB 3.0 port (the blue port).</p>
 </blockquote>
-<h3><a class="header" href="#1-download-raspberry-pi-imager" id="1-download-raspberry-pi-imager">1. Download Raspberry Pi Imager</a></h3>
+<h3 id="1-download-raspberry-pi-imager"><a class="header" href="#1-download-raspberry-pi-imager">1. Download Raspberry Pi Imager</a></h3>
 <p><a href="https://www.raspberrypi.org/blog/raspberry-pi-imager-imaging-utility/">Raspberry Pi Imager</a> is a new imaging utility that makes it simple to manage your microSD card with Raspbian (the free Pi operating system based on Debian).</p>
 <p>You can find the <a href="https://www.learnenough.com/command-line-tutorial/basics">download</a> link for your operating system here: <a href="https://downloads.raspberrypi.org/imager/imager_1.4.exe">Windows</a>, <a href="https://downloads.raspberrypi.org/imager/imager_1.4.dmg">macOS</a>, <a href="https://downloads.raspberrypi.org/imager/imager_1.4_amd64.deb">Ubuntu</a>.</p>
-<h3><a class="header" href="#2-download-raspian-64-bit-os-beta" id="2-download-raspian-64-bit-os-beta">2. Download Raspian 64-bit OS (Beta)</a></h3>
+<h3 id="2-download-raspian-64-bit-os-beta"><a class="header" href="#2-download-raspian-64-bit-os-beta">2. Download Raspian 64-bit OS (Beta)</a></h3>
 <p>You can find the latest version, <a href="https://downloads.raspberrypi.org/raspios_arm64/images/">here</a>.</p>
-<h3><a class="header" href="#3-plug-in-sd-card" id="3-plug-in-sd-card">3. Plug in SD card</a></h3>
+<h3 id="3-plug-in-sd-card"><a class="header" href="#3-plug-in-sd-card">3. Plug in SD card</a></h3>
 <p>Use your microSD to USB adapter to plug the SD card into your computer.</p>
-<h3><a class="header" href="#4-download-raspberry-pi-os" id="4-download-raspberry-pi-os">4. Download Raspberry Pi OS</a></h3>
+<h3 id="4-download-raspberry-pi-os"><a class="header" href="#4-download-raspberry-pi-os">4. Download Raspberry Pi OS</a></h3>
 <p>Open Raspberry Pi Imager and click on <strong>CHOOSE OS</strong></p>
 <p><img src="https://storage.googleapis.com/ethereum-hackmd/upload_7b8cfa54f877218b6d971f09fa8d62ff.png" alt="" /></p>
 <p>Scroll down and click on <strong>Use custom</strong></p>
 <p><img src="https://i.imgur.com/ar88MTt.png" alt="" /></p>
 <p>Find the OS you downloaded in step 2</p>
 <p><img src="https://i.imgur.com/NeOT8pf.png" alt="" /></p>
-<h3><a class="header" href="#4b-write-to-sd-card" id="4b-write-to-sd-card">4b. Write to SD card</a></h3>
+<h3 id="4b-write-to-sd-card"><a class="header" href="#4b-write-to-sd-card">4b. Write to SD card</a></h3>
 <p>Click on <strong>CHOOSE SD CARD</strong>. You should see a menu pop-up with your SD card listed -- Select it</p>
 <p><img src="https://storage.googleapis.com/ethereum-hackmd/upload_f90713c1ef782a94b5fce9eb8249c206.png" alt="" /></p>
 <p>Click on <strong>WRITE</strong></p>
@@ -219,7 +219,7 @@
 <p>Click <strong>YES</strong></p>
 <p><img src="https://storage.googleapis.com/ethereum-hackmd/upload_160208a5bc983165c2a1eb9bffed01c2.png" alt="" /></p>
 <p>Make a cup of coffee :)</p>
-<h3><a class="header" href="#5-set-up-wireless-lan" id="5-set-up-wireless-lan">5. Set up wireless LAN</a></h3>
+<h3 id="5-set-up-wireless-lan"><a class="header" href="#5-set-up-wireless-lan">5. Set up wireless LAN</a></h3>
 <p>Since you have loaded Raspberry Pi OS onto a blank SD card, you will have two partitions. The first one, which is the smaller one, is the <code>boot</code> partition.</p>
 <p>Create a <code>wpa_supplicant</code> configuration file in the <code>boot</code> partition with the following content:</p>
 <pre><code># wpa_supplicant.conf
@@ -236,14 +236,14 @@ network={
 <blockquote>
 <p><strong>Note:</strong> Don't forget to replace the placeholder <code>country</code>, <code>ssid</code>, and <code>psk</code> values. See <a href="https://en.wikipedia.org/wiki/ISO_3166-1">Wikipedia</a> for a list of 2 letter <code>ISO 3166-1</code> country codes.</p>
 </blockquote>
-<h3><a class="header" href="#6-enable-ssh-using-linux-or-macos" id="6-enable-ssh-using-linux-or-macos">6. Enable SSH (using Linux or macOS)</a></h3>
+<h3 id="6-enable-ssh-using-linux-or-macos"><a class="header" href="#6-enable-ssh-using-linux-or-macos">6. Enable SSH (using Linux or macOS)</a></h3>
 <p>You can <a href="https://www.raspberrypi.org/documentation/remote-access/ssh/">access the command line</a> of a Raspberry Pi remotely from another computer or device on the same network using <a href="https://en.wikipedia.org/wiki/Ssh_(Secure_Shell)">SSH</a>.</p>
 <p>While SSH is not enabled by default, you can enable it by placing a file named <code>ssh</code>, without any extension, onto the boot partition of the SD card.</p>
 <p>When the Pi boots, it will look for the <code>ssh</code> file. If it is found, SSH is enabled and the file is deleted. The content of the file does not matter; it can contain text, or nothing at all.</p>
 <p>To create an empty <code>ssh</code> file, from the home directory of the <code>boot</code> partition file, run:</p>
 <pre><code>touch ssh
 </code></pre>
-<h3><a class="header" href="#7-find-your-pis-ip-address" id="7-find-your-pis-ip-address">7. Find your Pi's IP address</a></h3>
+<h3 id="7-find-your-pis-ip-address"><a class="header" href="#7-find-your-pis-ip-address">7. Find your Pi's IP address</a></h3>
 <p>Since Raspberry Pi OS supports <a href="https://en.wikipedia.org/wiki/Multicast_DNS">Multicast_DNS</a> out of the box, you can reach your Raspberry Pi by using its hostname and the <code>.local</code> suffix.</p>
 <p>The default hostname on a fresh Raspberry Pi OS install is <code>raspberrypi</code>, so any Raspberry Pi running Raspberry Pi OS should respond to:</p>
 <pre><code>ping raspberrypi.local
@@ -256,7 +256,7 @@ network={
 ...
 </code></pre>
 <p>Keep note of your Pi's IP address. In the above case, that's <code>195.177.101.93</code></p>
-<h3><a class="header" href="#8-ssh-using-linux-or-macos" id="8-ssh-using-linux-or-macos">8. SSH (using Linux or macOS)</a></h3>
+<h3 id="8-ssh-using-linux-or-macos"><a class="header" href="#8-ssh-using-linux-or-macos">8. SSH (using Linux or macOS)</a></h3>
 <p>Connect to your Pi by running:</p>
 <pre><code>ssh pi@195.177.101.93
 </code></pre>
@@ -281,7 +281,7 @@ This is a security risk - please login as the 'pi' user and type 'passwd' to set
 <p>Followed by a command-line prompt indicating a successful connection:</p>
 <pre><code>pi@raspberrypi:~ $
 </code></pre>
-<h3><a class="header" href="#9-increase-swap-size-to-2gb" id="9-increase-swap-size-to-2gb">9. Increase swap size to 2GB</a></h3>
+<h3 id="9-increase-swap-size-to-2gb"><a class="header" href="#9-increase-swap-size-to-2gb">9. Increase swap size to 2GB</a></h3>
 <p>The first step is to increase the <a href="https://itsfoss.com/swap-size/">swap size</a> to 2GB (2048MB).</p>
 <blockquote>
 <p><strong>Note:</strong> Swap acts as a breather to your system when the RAM is exhausted. When the RAM is exhausted, your Linux system uses part of the hard disk memory and allocates it to the running application.</p>
@@ -300,7 +300,7 @@ CONF_SWAPSIZE=2048
 
 </code></pre>
 <p>Save (<code>Ctrl+S</code>) and exit (<code>Ctrl+X</code>).</p>
-<h3><a class="header" href="#10-reboot" id="10-reboot">10. Reboot</a></h3>
+<h3 id="10-reboot"><a class="header" href="#10-reboot">10. Reboot</a></h3>
 <p>Reboot your Pi to have the above changes take effect:</p>
 <pre><code>sudo reboot
 </code></pre>
@@ -310,7 +310,7 @@ CONF_SWAPSIZE=2048
 <blockquote>
 <p><strong>Note:</strong> Remember to replace <code>195.177.101.93</code> with the IP address of your Pi.</p>
 </blockquote>
-<h3><a class="header" href="#10b-boot-from-external-ssd" id="10b-boot-from-external-ssd">10b. Boot from external SSD</a></h3>
+<h3 id="10b-boot-from-external-ssd"><a class="header" href="#10b-boot-from-external-ssd">10b. Boot from external SSD</a></h3>
 <p>Follow <a href="https://www.tomshardware.com/how-to/boot-raspberry-pi-4-usb">this guide</a> to copy the contents of your SD card over to your SSD, and boot your Pi from your SSD.</p>
 <blockquote>
 <p><strong>Tips:</strong></p>
@@ -326,28 +326,28 @@ rpi-clone sda
 <p>To shutdown your Pi safely, run <code>sudo shutdown -h now</code></p>
 </blockquote>
 <p>Once you're done, <code>ssh</code> back into your Pi.</p>
-<h3><a class="header" href="#11-install-nimbus-dependencies" id="11-install-nimbus-dependencies">11. Install Nimbus dependencies</a></h3>
+<h3 id="11-install-nimbus-dependencies"><a class="header" href="#11-install-nimbus-dependencies">11. Install Nimbus dependencies</a></h3>
 <p>You'll need to install some packages (<code>git</code>) in order for Nimbus to run correctly.</p>
 <p>To do so, run:</p>
 <pre><code>sudo apt-get install git
 
 </code></pre>
-<h3><a class="header" href="#12-install-screen" id="12-install-screen">12. Install Screen</a></h3>
+<h3 id="12-install-screen"><a class="header" href="#12-install-screen">12. Install Screen</a></h3>
 <p><code>screen</code> is a tool that lets you safely detach from the SSH session without exiting the remote job. In other words <code>screen</code> allows the commands you run on your Pi from your laptop to keep running after you've logged out.</p>
 <p>Run the following command to install <code>screen</code>:</p>
 <pre><code>sudo apt-get install screen
 </code></pre>
-<h3><a class="header" href="#13-clone-the-nimbus-repository" id="13-clone-the-nimbus-repository">13. Clone the Nimbus repository</a></h3>
+<h3 id="13-clone-the-nimbus-repository"><a class="header" href="#13-clone-the-nimbus-repository">13. Clone the Nimbus repository</a></h3>
 <p>Run the following command to clone the <a href="https://github.com/status-im/nimbus-eth2">nimbus-eth2 repository</a>:</p>
 <pre><code>git clone https://github.com/status-im/nimbus-eth2
 </code></pre>
-<h3><a class="header" href="#14-build-the-beacon-node" id="14-build-the-beacon-node">14. Build the beacon node</a></h3>
+<h3 id="14-build-the-beacon-node"><a class="header" href="#14-build-the-beacon-node">14. Build the beacon node</a></h3>
 <p>Change into the directory and build the beacon node.</p>
 <pre><code>cd nimbus-eth2
 make nimbus_beacon_node
 </code></pre>
 <p><em>Patience... this may take a few minutes.</em></p>
-<h3><a class="header" href="#15-copy-signing-key-over-to-pi" id="15-copy-signing-key-over-to-pi">15. Copy signing key over to Pi</a></h3>
+<h3 id="15-copy-signing-key-over-to-pi"><a class="header" href="#15-copy-signing-key-over-to-pi">15. Copy signing key over to Pi</a></h3>
 <blockquote>
 <p><strong>Note:</strong> If you haven't generated your validator key(s) and/or made your deposit yet, follow the instructions on <a href="./deposit.html">this page</a> before carrying on.</p>
 </blockquote>
@@ -362,12 +362,12 @@ make nimbus_beacon_node
 <blockquote>
 <p><strong>Tip:</strong> run <code>pwd</code> in your <code>validator_keys</code> directory to print the full pathname to the console.</p>
 </blockquote>
-<h3><a class="header" href="#16-import-signing-key-into-nimbus" id="16-import-signing-key-into-nimbus">16. Import signing key into Nimbus</a></h3>
+<h3 id="16-import-signing-key-into-nimbus"><a class="header" href="#16-import-signing-key-into-nimbus">16. Import signing key into Nimbus</a></h3>
 <p>To import your signing key into Nimbus, from the <code>nimbus-eth2</code> directory run:</p>
 <pre><code>build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_pyrmont_0 ../validator_keys
 </code></pre>
 <p>You'll be asked to enter the password you created to encrypt your keystore(s). Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your <a href="https://blog.ethereum.org/2020/05/21/keys/">key</a> (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).</p>
-<h3><a class="header" href="#17-run-screen" id="17-run-screen">17. Run Screen</a></h3>
+<h3 id="17-run-screen"><a class="header" href="#17-run-screen">17. Run Screen</a></h3>
 <p>From the <code>nimbus-eth2</code> directory, run:</p>
 <pre><code>screen
 </code></pre>
@@ -400,7 +400,7 @@ Capabilities:
 +builtin-telnet
 </code></pre>
 <p>Press <code>Enter</code> or <code>Space</code>.</p>
-<h3><a class="header" href="#18-connect-to-pyrmont" id="18-connect-to-pyrmont">18. Connect to Pyrmont</a></h3>
+<h3 id="18-connect-to-pyrmont"><a class="header" href="#18-connect-to-pyrmont">18. Connect to Pyrmont</a></h3>
 <p>We're finally ready to connect to Pyrmont!</p>
 <blockquote>
 <p><strong>Note:</strong> If you haven't already, we recommend registering for, and running, your own Infura endpoint to connect to eth1. For instruction on how to do so, see <a href="./infura-guide.html">this page</a>.</p>
@@ -420,7 +420,7 @@ https://status-im.github.io/nimbus-eth2/eth1.html
 Please enter a Web3 provider URL:
 </code></pre>
 <p>Enter your own secure websocket (<code>wss</code>) <a href="eth1.html">endpoint</a>.</p>
-<h3><a class="header" href="#19-check-for-successful-connection" id="19-check-for-successful-connection">19. Check for successful connection</a></h3>
+<h3 id="19-check-for-successful-connection"><a class="header" href="#19-check-for-successful-connection">19. Check for successful connection</a></h3>
 <p>If you look near the top of the logs printed to your console, you should see confirmation that your beacon node has started, with your local validator attached:</p>
 <pre><code>INF 2020-12-01 11:25:33.487+01:00 Launching beacon node
 ...
@@ -443,13 +443,13 @@ INF 2020-12-01 11:26:36.285+00:00 Slot end                                   top
 <blockquote>
 <p><strong>Note:</strong> 15 - 20 peers and an average sync speed of <strong>0.5 - 1.0</strong> blocks per second is normal on <code>Pyrmont</code> with a Pi. If you're sync speed is much slower than this, the root of the problem may be your USB3.0 to SSD adapter. See <a href="https://www.raspberrypi.org/forums/viewtopic.php?f=28&amp;t=245931">this post</a> for a recommended workaround.</p>
 </blockquote>
-<h3><a class="header" href="#20-end-ssh-session-and-logout" id="20-end-ssh-session-and-logout">20. End ssh session and logout</a></h3>
+<h3 id="20-end-ssh-session-and-logout"><a class="header" href="#20-end-ssh-session-and-logout">20. End ssh session and logout</a></h3>
 <p>To detach your <code>screen</code> session but leave your processes running, press <code>Ctrl-A</code> followed by <code>Ctrl-D</code>. You can now exit your <code>ssh</code> session (<code>Ctrl-C</code>) and switch off your laptop.</p>
 <p>Verifying your progress is as simple as <code>ssh</code>ing back into your Pi and typing <code>screen -r</code>. This will resume your screen session (and you will be able to see your node's entire output since you logged out).</p>
-<h3><a class="header" href="#professional-setup-advice" id="professional-setup-advice">Professional setup advice</a></h3>
+<h3 id="professional-setup-advice"><a class="header" href="#professional-setup-advice">Professional setup advice</a></h3>
 <p>While <code>screen</code> is a nice tool for testing, it's not really a good idea to rely on it for serious use. For a more professional setup, we recommend <a href="https://www.raspberrypi.org/documentation/linux/usage/systemd.md">setting up a systemd service</a> with an autorestart on boot (should you experience an unexpected power outage, this will ensure your validator restarts correctly). </p>
 <p>For the details on how to do this, see <a href="./beacon-node-systemd.html">this page</a>.</p>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/pi-guide.md">Edit this file on GitHub.</a></footer>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

@@ -169,13 +169,13 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#set-up-a-systemd-service" id="set-up-a-systemd-service">Set up a systemd service</a></h1>
+                        <h1 id="set-up-a-systemd-service"><a class="header" href="#set-up-a-systemd-service">Set up a systemd service</a></h1>
 <p>This page will take you through how to set up a <code>systemd</code> service for your beacon node.</p>
 <p>Systemd is used in order to have a command or program run when your device boots (i.e. add it as a service). Once this is done, you can start/stop enable/disable from the linux prompt.</p>
 <blockquote>
 <p><a href="https://www.freedesktop.org/wiki/Software/systemd/"><code>systemd</code></a> is a service manager designed specifically for Linux. There is no port to Mac OS. You can get more information from <a href="https://www.raspberrypi.org/documentation/linux/usage/systemd.md">https://www.raspberrypi.org/documentation/linux/usage/systemd.md</a>  or  <a href="https://www.raspberrypi.org/documentation/linux/usage/systemd.md">https://fedoramagazine.org/what-is-an-init-system/</a></p>
 </blockquote>
-<h3><a class="header" href="#1-create-a-systemd-service" id="1-create-a-systemd-service">1. Create a systemd service</a></h3>
+<h3 id="1-create-a-systemd-service"><a class="header" href="#1-create-a-systemd-service">1. Create a systemd service</a></h3>
 <blockquote>
 <p>⚠️  If you wish to run the service with metrics enabled, you'll need to replace <code>--metrics:off</code> with <code>--metrics:on</code> in the service file below. See <a href="./metrics-pretty-pictures.html">here</a> for more on metrics.</p>
 </blockquote>
@@ -203,13 +203,13 @@ WantedBy=default.target
 <p><code>&lt;BASE-DIRECTORY&gt;</code> with the location of the repository in which you performed the <code>git clone</code> command in step 1.</p>
 <p><code>&lt;USERNAME&gt;</code> with the username of the system user responsible for running the launched processes.</p>
 <p><code>&lt;WEB3-URL&gt;</code> with the WebSocket JSON-RPC URL that you are planning to use.</p>
-<h3><a class="header" href="#2-notify-systemd-of-the-newly-added-service" id="2-notify-systemd-of-the-newly-added-service">2. Notify systemd of the newly added service</a></h3>
+<h3 id="2-notify-systemd-of-the-newly-added-service"><a class="header" href="#2-notify-systemd-of-the-newly-added-service">2. Notify systemd of the newly added service</a></h3>
 <pre><code class="language-console">sudo systemctl daemon-reload
 </code></pre>
-<h3><a class="header" href="#3-start-the-service" id="3-start-the-service">3. Start the service</a></h3>
+<h3 id="3-start-the-service"><a class="header" href="#3-start-the-service">3. Start the service</a></h3>
 <pre><code class="language-console">sudo systemctl enable nimbus-eth2-pyrmont --now
 </code></pre>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/beacon-node-systemd.md">Edit this file on GitHub.</a></footer>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

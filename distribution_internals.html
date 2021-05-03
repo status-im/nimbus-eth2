@@ -169,14 +169,14 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#binary-distribution-internals" id="binary-distribution-internals">Binary distribution internals</a></h1>
-<h2><a class="header" href="#reproducibility" id="reproducibility">Reproducibility</a></h2>
+                        <h1 id="binary-distribution-internals"><a class="header" href="#binary-distribution-internals">Binary distribution internals</a></h1>
+<h2 id="reproducibility"><a class="header" href="#reproducibility">Reproducibility</a></h2>
 <p>The binaries we build in GitHub Actions and distribute in <a href="https://github.com/status-im/nimbus-eth2/releases">our releases</a> come
 from an intricate process meant to ensure <a href="https://reproducible-builds.org/">reproducibility</a>.</p>
 <p>While the ability to produce the same exact binaries from the corresponding Git
 commits is a good idea for any open source project, it is a requirement
 for software that deals with digital tokens of significant value.</p>
-<h2><a class="header" href="#docker-containers-for-internal-use" id="docker-containers-for-internal-use">Docker containers for internal use</a></h2>
+<h2 id="docker-containers-for-internal-use"><a class="header" href="#docker-containers-for-internal-use">Docker containers for internal use</a></h2>
 <p>The easiest way to guarantee that users are able to replicate 
 our binaries for themselves is to give them the same software environment we used in CI. Docker
 containers fit the bill, so everything starts with the architecture- and
@@ -187,7 +187,7 @@ images where the <code>nimbus-eth2</code> build is carried out.</p>
 <p>These temporary images are controlled by Dockerfiles in <code>docker/dist/</code>. Since we're not publishing them anywhere, we can customize them to the system
 they run on (we ensure they use the host's UID/GID, the host's QEMU static
 binaries, etc); they get access to the source code through the use of external volumes.</p>
-<h2><a class="header" href="#build-process" id="build-process">Build process</a></h2>
+<h2 id="build-process"><a class="header" href="#build-process">Build process</a></h2>
 <p>It all starts from the GitHub actions in <code>.github/workflows/release.yml</code>. There
 is a different job for each supported OS-architecture combination and they all
 run in parallel (ideally).</p>
@@ -204,10 +204,10 @@ volume.</p>
 <p>The entry point for that container is <code>docker/dist/entry\_point.sh</code> and that's
 where you'll find the Make invocations needed to finally build the software and
 create distributable tarballs.</p>
-<h2><a class="header" href="#docker-images-for-end-users" id="docker-images-for-end-users">Docker images for end users</a></h2>
+<h2 id="docker-images-for-end-users"><a class="header" href="#docker-images-for-end-users">Docker images for end users</a></h2>
 <p>Configured in <code>.github/workflows/release.yml</code> (exclusively for the <code>build-amd64</code> job):  we unpack the distribution tarball and copy its content into a third type of Docker image - this one meant for end users and defined by <code>docker/dist/binaries/Dockerfile.amd64</code>.</p>
 <p>We then publish that to <a href="https://hub.docker.com/r/statusim/nimbus-eth2">Docker Hub</a>.</p>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/distribution_internals.md">Edit this file on GitHub.</a></footer>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
