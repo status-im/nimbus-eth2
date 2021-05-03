@@ -41,7 +41,7 @@ Replace:
 
 `<WEB3-URL>` with the WebSocket JSON-RPC URL that you are planning to use.
 
-> Want to run on mainnet? just replace all instances of `prymont` to `mainnet`.
+> If you want to run on mainnet, simply replace all instances of `prymont` with `mainnet`.
 
 ### 2. Notify systemd of the newly added service
 
