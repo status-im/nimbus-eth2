@@ -74,7 +74,7 @@ type
     peerPool*: PeerPool[Peer, PeerID]
     protocolStates*: seq[RootRef]
     libp2pTransportLoops*: seq[Future[void]]
-    metadata*: Eth2Metadata
+    metadata*: MetaData
     connectTimeout*: chronos.Duration
     seenThreshold*: chronos.Duration
     connQueue: AsyncQueue[PeerAddr]
@@ -87,10 +87,6 @@ type
     validTopics: HashSet[string]
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
-
-  Eth2MetaData* = object
-    seq_number*: uint64
-    attnets*: BitArray[ATTESTATION_SUBNET_COUNT]
 
   AverageThroughput* = object
     count*: uint64
@@ -963,10 +959,10 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
     # when no peers are in the routing table. Don't run it in continuous loop.
     await sleepAsync(1.seconds)
 
-proc getPersistentNetMetadata*(config: BeaconNodeConf): Eth2Metadata {.raises: [Defect, IOError, SerializationError].} =
+proc getPersistentNetMetadata*(config: BeaconNodeConf): MetaData {.raises: [Defect, IOError, SerializationError].} =
   let metadataPath = config.dataDir / nodeMetadataFilename
   if not fileExists(metadataPath):
-    result = Eth2Metadata()
+    result = MetaData()
     for i in 0 ..< ATTESTATION_SUBNET_COUNT:
       # TODO:
       # Persistent (stability) subnets should be stored with their expiration
@@ -974,7 +970,7 @@ proc getPersistentNetMetadata*(config: BeaconNodeConf): Eth2Metadata {.raises: [
       result.attnets[i] = false
     Json.saveFile(metadataPath, result)
   else:
-    result = Json.loadFile(metadataPath, Eth2Metadata)
+    result = Json.loadFile(metadataPath, MetaData)
 
 proc resolvePeer(peer: Peer) =
   # Resolve task which performs searching of peer's public key and recovery of

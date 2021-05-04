@@ -143,7 +143,7 @@ p2pProtocol BeaconSync(version = 1,
     {.libp2pProtocol("ping", 1).} =
     return peer.network.metadata.seq_number
 
-  proc getMetadata(peer: Peer): Eth2Metadata
+  proc getMetaData(peer: Peer): MetaData
     {.libp2pProtocol("metadata", 1).} =
     return peer.network.metadata
 
