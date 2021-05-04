@@ -90,16 +90,6 @@ declareGauge next_action_wait,
 
 logScope: topics = "beacnde"
 
-func getEnrForkId(fork: Fork, genesis_validators_root: Eth2Digest): ENRForkID =
-  let
-    forkVer = fork.current_version
-    forkDigest = compute_fork_digest(forkVer, genesis_validators_root)
-
-  ENRForkID(
-    fork_digest: forkDigest,
-    next_fork_version: forkVer,
-    next_fork_epoch: FAR_FUTURE_EPOCH)
-
 proc init*(T: type BeaconNode,
            runtimePreset: RuntimePreset,
            rng: ref BrHmacDrbgContext,
@@ -313,11 +303,11 @@ proc init*(T: type BeaconNode,
     netKeys = getPersistentNetKeys(rng[], config)
     nickname = if config.nodeName == "auto": shortForm(netKeys)
                else: config.nodeName
-    enrForkId = getEnrForkId(
+    enrForkId = getENRForkID(
       getStateField(chainDag.headState, fork),
       getStateField(chainDag.headState, genesis_validators_root))
-    topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.forkDigest)
-    topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.forkDigest)
+    topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.fork_digest)
+    topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.fork_digest)
     network = createEth2Node(rng, config, netKeys, enrForkId)
     attestationPool = newClone(AttestationPool.init(chainDag, quarantine))
     exitPool = newClone(ExitPool.init(chainDag, quarantine))
@@ -357,7 +347,7 @@ proc init*(T: type BeaconNode,
       rng,
       proc(): BeaconTime = beaconClock.now())
 
-  var res = BeaconNode(
+  var node = BeaconNode(
     nickname: nickname,
     graffitiBytes: if config.graffiti.isSome: config.graffiti.get.GraffitiBytes
                    else: defaultGraffitiBytes(),
@@ -374,7 +364,7 @@ proc init*(T: type BeaconNode,
     beaconClock: beaconClock,
     rpcServer: rpcServer,
     restServer: restServer,
-    forkDigest: enrForkId.forkDigest,
+    forkDigest: enrForkId.fork_digest,
     topicBeaconBlocks: topicBeaconBlocks,
     topicAggregateAndProofs: topicAggregateAndProofs,
     processor: processor,
@@ -389,33 +379,33 @@ proc init*(T: type BeaconNode,
       var
         topics = @[
             topicBeaconBlocks,
-            getAttesterSlashingsTopic(enrForkId.forkDigest),
-            getProposerSlashingsTopic(enrForkId.forkDigest),
-            getVoluntaryExitsTopic(enrForkId.forkDigest),
-            getAggregateAndProofsTopic(enrForkId.forkDigest)
+            getAttesterSlashingsTopic(enrForkId.fork_digest),
+            getProposerSlashingsTopic(enrForkId.fork_digest),
+            getVoluntaryExitsTopic(enrForkId.fork_digest),
+            getAggregateAndProofsTopic(enrForkId.fork_digest)
           ]
       for subnet in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
-        topics &= getAttestationTopic(enrForkId.forkDigest, subnet)
+        topics &= getAttestationTopic(enrForkId.fork_digest, subnet)
       topics)
 
-  if res.config.inProcessValidators:
-    res.addLocalValidators()
+  if node.config.inProcessValidators:
+    node.addLocalValidators()
   else:
     let cmd = getAppDir() / "nimbus_signing_process".addFileExt(ExeExt)
-    let args = [$res.config.validatorsDir, $res.config.secretsDir]
+    let args = [$node.config.validatorsDir, $node.config.secretsDir]
     let workdir = io2.getCurrentDir().tryGet()
-    res.vcProcess = try: startProcess(cmd, workdir, args)
+    node.vcProcess = try: startProcess(cmd, workdir, args)
     except CatchableError as exc: raise exc
     except Exception as exc: raiseAssert exc.msg
-    res.addRemoteValidators()
+    node.addRemoteValidators()
 
   # This merely configures the BeaconSync
   # The traffic will be started when we join the network.
-  network.initBeaconSync(chainDag, enrForkId.forkDigest)
+  network.initBeaconSync(chainDag, enrForkId.fork_digest)
 
-  res.updateValidatorMetrics()
+  node.updateValidatorMetrics()
 
-  return res
+  return node
 
 func verifyFinalization(node: BeaconNode, slot: Slot) =
   # Epoch must be >= 4 to check finalization
@@ -1767,7 +1757,7 @@ proc doCreateTestnet(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.raise
         some(config.bootstrapAddress),
         some(config.bootstrapPort),
         some(config.bootstrapPort),
-        [toFieldPair("eth2", SSZ.encode(getEnrForkId(
+        [toFieldPair("eth2", SSZ.encode(getENRForkID(
           initialState[].fork, initialState[].genesis_validators_root))),
         toFieldPair("attnets", SSZ.encode(netMetadata.attnets))])
 
