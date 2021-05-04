@@ -92,11 +92,6 @@ type
     seq_number*: uint64
     attnets*: BitArray[ATTESTATION_SUBNET_COUNT]
 
-  ENRForkID* = object
-    fork_digest*: ForkDigest
-    next_fork_version*: Version
-    next_fork_epoch*: Epoch
-
   AverageThroughput* = object
     count*: uint64
     average*: float
