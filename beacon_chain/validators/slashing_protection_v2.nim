@@ -672,14 +672,13 @@ proc getValidatorInternalID(
        validator: ValidatorPubKey): Option[ValidatorInternalID] =
   ## Retrieve a validator internal ID
   if index.isSome():
-    # An unfortunate aspect of the v2 format is that the validator public key
-    # is mapped to an internal id instead of using the validator index - this
-    # slows down access to the table due to the extra lookup as well as
-    # insertions that now must do a foreign key validation. We can at least
-    # avoid the extra lookup by using a cache here.
-    # Future work could get rid of the whole thing by simply using
-    # the validator index directly, but this would require an (incompatible)
-    # database upgrade.
+    # Validator keys are mapped to internal id:s instead of using the
+    # validator index - this allows importing keys without knowing the
+    # state but has the unfortunate consequence of introducing an indirection
+    # that must be kept updated at some cost. In a future version of the
+    # database, one could consider a simplified design that directly uses the
+    # validator index. In the meantime, this cache avoids some of the
+    # unnecessary read traffic when checking and registering entries.
     db.internalIds.withValue(index.get(), internal) do:
       return some(internal[])
 

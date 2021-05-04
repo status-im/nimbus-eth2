@@ -149,24 +149,26 @@ func `==`*(a, b: BadVote): bool =
   ## result of multiple DB versions
   if a.kind != b.kind:
     false
-  elif a.kind == DoubleVote:
-    a.existingAttestation == b.existingAttestation
-  elif a.kind in {SurroundVote, SurroundVote}:
-    (a.existingAttestationRoot == b.existingAttestationRoot) and
-      (a.sourceExisting == b.sourceExisting) and
-      (a.targetExisting == b.targetExisting) and
-      (a.sourceSlashable == b.sourceSlashable) and
-      (a.targetSlashable == b.targetSlashable)
-  elif a.kind == TargetPrecedesSource:
-    true
-  elif a.kind == MinSourceViolation:
-    (a.minSource == b.minSource) and
-      (a.candidateSource == b.candidateSource)
-  elif a.kind == MinTargetViolation:
-    (a.minTarget == b.minTarget) and
-      (a.candidateTarget == b.candidateTarget)
-  else: # Unreachable
-    false
+  else:
+    case a.kind
+    of DoubleVote:
+      a.existingAttestation == b.existingAttestation
+    of SurroundVote:
+      (a.existingAttestationRoot == b.existingAttestationRoot) and
+        (a.sourceExisting == b.sourceExisting) and
+        (a.targetExisting == b.targetExisting) and
+        (a.sourceSlashable == b.sourceSlashable) and
+        (a.targetSlashable == b.targetSlashable)
+    of TargetPrecedesSource:
+      true
+    of MinSourceViolation:
+      (a.minSource == b.minSource) and
+        (a.candidateSource == b.candidateSource)
+    of MinTargetViolation:
+      (a.minTarget == b.minTarget) and
+        (a.candidateTarget == b.candidateTarget)
+    of BadVoteKind.DatabaseError:
+      true
 
 func `==`*(a, b: BadProposal): bool =
   ## Comparison operator.
