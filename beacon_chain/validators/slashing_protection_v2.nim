@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[os, options, typetraits, decls],
+  std/[os, options, typetraits, decls, tables],
   # Status
   stew/byteutils,
   eth/db/[kvstore, kvstore_sqlite3],
@@ -211,11 +211,12 @@ type
     # Cached queries - read
     sqlGetValidatorInternalID: SqliteStmt[PubKeyBytes, ValidatorInternalID]
     sqlAttForSameTargetEpoch: SqliteStmt[(ValidatorInternalID, int64), Hash32]
-    sqlAttSurrounded: SqliteStmt[(ValidatorInternalID, int64, int64), (int64, int64, Hash32)]
-    sqlAttSurrounding: SqliteStmt[(ValidatorInternalID, int64, int64), (int64, int64, Hash32)]
+    sqlAttSurrounds: SqliteStmt[(ValidatorInternalID, int64, int64, int64, int64), (int64, int64, Hash32)]
     sqlAttMinSourceTargetEpochs: SqliteStmt[ValidatorInternalID, (int64, int64)]
     sqlBlockForSameSlot: SqliteStmt[(ValidatorInternalID, int64), Hash32]
     sqlBlockMinSlot: SqliteStmt[ValidatorInternalID, int64]
+
+    internalIds: Table[ValidatorIndex, ValidatorInternalID]
 
   ValidatorInternalID = int32
     ## Validator internal ID in the DB
@@ -382,30 +383,17 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
     """, (ValidatorInternalID, int64), Hash32
   ).get()
 
-  db.sqlAttSurrounded = db.backend.prepareStmt("""
+  db.sqlAttSurrounds = db.backend.prepareStmt("""
     SELECT
       source_epoch, target_epoch, signing_root
     FROM
       signed_attestations
     WHERE 1=1
       and validator_id = ?
-      and source_epoch < ?
-      and ? < target_epoch
+      and ((source_epoch < ? and ? < target_epoch) OR
+           (? < source_epoch and target_epoch < ?))
     LIMIT 1
-    """, (ValidatorInternalID, int64, int64), (int64, int64, Hash32)
-  ).get()
-
-  db.sqlAttSurrounding = db.backend.prepareStmt("""
-    SELECT
-      source_epoch, target_epoch, signing_root
-    FROM
-      signed_attestations
-    WHERE 1=1
-      and validator_id = ?
-      and ? < source_epoch
-      and target_epoch < ?
-    LIMIT 1
-    """, (ValidatorInternalID, int64, int64), (int64, int64, Hash32)
+    """, (ValidatorInternalID, int64, int64, int64, int64), (int64, int64, Hash32)
   ).get()
 
   # By default an aggregate always return a value
@@ -680,8 +668,20 @@ proc foundAnyResult(status: KVResult[bool]): bool {.inline.}=
 
 proc getValidatorInternalID(
        db: SlashingProtectionDB_v2,
+       index: Option[ValidatorIndex],
        validator: ValidatorPubKey): Option[ValidatorInternalID] =
   ## Retrieve a validator internal ID
+  if index.isSome():
+    # Validator keys are mapped to internal id:s instead of using the
+    # validator index - this allows importing keys without knowing the
+    # state but has the unfortunate consequence of introducing an indirection
+    # that must be kept updated at some cost. In a future version of the
+    # database, one could consider a simplified design that directly uses the
+    # validator index. In the meantime, this cache avoids some of the
+    # unnecessary read traffic when checking and registering entries.
+    db.internalIds.withValue(index.get(), internal) do:
+      return some(internal[])
+
   let serializedPubkey = validator.toRaw() # Miracl/BLST to bytes
   var valID: ValidatorInternalID
   let status = db.sqlGetValidatorInternalID.exec(serializedPubkey) do (res: ValidatorInternalID):
@@ -689,13 +689,15 @@ proc getValidatorInternalID(
 
   # Note: we enforce at the DB level that if the pubkey exists it is unique.
   if status.foundAnyResult():
+    if index.isSome():
+      db.internalIds[index.get()] = valID
     some(valID)
   else:
     none(ValidatorInternalID)
 
-proc checkSlashableBlockProposal*(
+proc checkSlashableBlockProposalOther(
        db: SlashingProtectionDB_v2,
-       validator: ValidatorPubKey,
+       valID: ValidatorInternalID,
        slot: Slot
      ): Result[void, BadProposal] =
   ## Returns an error if the specified validator
@@ -705,49 +707,6 @@ proc checkSlashableBlockProposal*(
   ##
   ## Returns success otherwise
   # TODO distinct type for the result block root
-
-  let valID = block:
-    let id = db.getValidatorInternalID(validator)
-    if id.isNone():
-      notice "No slashing protection data - first block proposal?",
-        validator = validator,
-        slot = slot
-      return ok()
-    else:
-      id.unsafeGet()
-
-  # Casper FFG 1st slashing condition
-  # Detect h(t1) = h(t2)
-  # ---------------------------------
-  block:
-    # Condition 1 at https://eips.ethereum.org/EIPS/eip-3076
-    var root: ETH2Digest
-
-    # 6 second (minimal preset) slots => overflow at ~1.75 trillion years under
-    # minimal preset, and twice that with mainnet preset
-    doAssert slot <= high(int64).uint64
-
-    let status = db.sqlBlockForSameSlot.exec(
-          (valID, int64 slot)
-        ) do (res: Hash32):
-      root.data = res
-
-    # Note: we enforce at the DB level that if (pubkey, slot) exists it maps to a unique block root.
-    #
-    # It's possible to allow republishing an already signed block here (Lighthouse does it)
-    # AFAIK repeat signing only happens if the node crashes after saving to the DB and
-    # there is still time to redo the validator work but:
-    # - will the validator have reconstructed the same state in memory?
-    #   for example if the validator has different attestations
-    #   it can't reconstruct the previous signed block anyway.
-    # - it is useful if the validator couldn't gossip.
-    # Rather than adding Result "Ok" and Result "OkRepeatSigning"
-    # and an extra Eth2Digest comparison for that case, we just refuse repeat signing.
-    if status.foundAnyResult():
-      # Conflicting block exist
-      return err(BadProposal(
-        kind: DoubleProposal,
-        existing_block: root))
 
   # EIP-3067 - Low-watermark
   # Detect h(t1) <= h(t2)
@@ -778,37 +737,87 @@ proc checkSlashableBlockProposal*(
 
   ok()
 
-proc checkSlashableAttestation*(
+proc checkSlashableBlockProposalDoubleProposal(
        db: SlashingProtectionDB_v2,
-       validator: ValidatorPubKey,
-       source: Epoch,
-       target: Epoch
-     ): Result[void, BadVote] =
+       valID: ValidatorInternalID,
+       slot: Slot
+     ): Result[void, BadProposal] =
   ## Returns an error if the specified validator
-  ## already voted for the specified slot
-  ## or would vote in a contradiction to previous votes
-  ## (surrounding vote or surrounded vote).
+  ## already proposed a block for the specified slot.
+  ## This would lead to slashing.
+  ## The error contains the blockroot that was already proposed
   ##
   ## Returns success otherwise
-  # TODO distinct type for the result attestation root
+  # TODO distinct type for the result block root
 
+  # Casper FFG 1st slashing condition
+  # Detect h(t1) = h(t2)
+  # ---------------------------------
+  block:
+    # Condition 1 at https://eips.ethereum.org/EIPS/eip-3076
+    var root: ETH2Digest
+    let status = db.sqlBlockForSameSlot.exec(
+          (valID, int64 slot)
+        ) do (res: Hash32):
+      root.data = res
+
+    # Note: we enforce at the DB level that if (pubkey, slot) exists it maps to a unique block root.
+    #
+    # It's possible to allow republishing an already signed block here (Lighthouse does it)
+    # AFAIK repeat signing only happens if the node crashes after saving to the DB and
+    # there is still time to redo the validator work but:
+    # - will the validator have reconstructed the same state in memory?
+    #   for example if the validator has different attestations
+    #   it can't reconstruct the previous signed block anyway.
+    # - it is useful if the validator couldn't gossip.
+    # Rather than adding Result "Ok" and Result "OkRepeatSigning"
+    # and an extra Eth2Digest comparison for that case, we just refuse repeat signing.
+    if status.foundAnyResult():
+      # Conflicting block exist
+      return err(BadProposal(
+        kind: DoubleProposal,
+        existing_block: root))
+
+  ok()
+
+proc checkSlashableBlockProposal*(
+       db: SlashingProtectionDB_v2,
+       index: Option[ValidatorIndex],
+       validator: ValidatorPubKey,
+       slot: Slot
+     ): Result[void, BadProposal] =
+  ## Returns an error if the specified validator
+  ## already proposed a block for the specified slot.
+  ## This would lead to slashing.
+  ## The error contains the blockroot that was already proposed
+  ##
+  ## Returns success otherwise
+  # TODO distinct type for the result block root
+
+  let valID = block:
+    let id = db.getValidatorInternalID(index, validator)
+    if id.isNone():
+      notice "No slashing protection data - first block proposal?",
+        validator = validator,
+        slot = slot
+      return ok()
+    else:
+      id.unsafeGet()
+
+  ? checkSlashableBlockProposalDoubleProposal(db, valID, slot)
+  ? checkSlashableBlockProposalOther(db, valID, slot)
+
+  ok()
+
+proc checkSlashableAttestationDoubleVote(
+       db: SlashingProtectionDB_v2,
+       valID: ValidatorInternalID,
+       source: Epoch,
+       target: Epoch): Result[void, BadVote] =
   # Sanity
   # ---------------------------------
   if source > target:
     return err(BadVote(kind: TargetPrecedesSource))
-
-  # Internal metadata
-  # ---------------------------------
-  let valID = block:
-    let id = db.getValidatorInternalID(validator)
-    if id.isNone():
-      notice "No slashing protection data - first attestation?",
-        validator = validator,
-        attSource = source,
-        attTarget = target
-      return ok()
-    else:
-      id.unsafeGet()
 
   # Casper FFG 1st slashing condition
   # Detect h(t1) = h(t2)
@@ -833,12 +842,38 @@ proc checkSlashableAttestation*(
         existingAttestation: root
       ))
 
+  ok()
+
+proc checkSlashableAttestationOther(
+       db: SlashingProtectionDB_v2,
+       valID: ValidatorInternalID,
+       source: Epoch,
+       target: Epoch): Result[void, BadVote] =
+  # Simple double votes are protected by the unique index on the database table
+  # - this function checks everything else!
+
+  ## Returns an error if the specified validator
+  ## already voted for the specified slot
+  ## or would vote in a contradiction to previous votes
+  ## (surrounding vote or surrounded vote).
+  ##
+  ## Returns success otherwise
+  # TODO distinct type for the result attestation root
+
+  # Sanity
+  # ---------------------------------
+  if source > target:
+    return err(BadVote(kind: TargetPrecedesSource))
+
   # Casper FFG 2nd slashing condition
   # -> Surrounded vote
   # Detect h(s1) < h(s2) < h(t2) < h(t1)
+  # -> Surrounding vote
+  # Detect h(s2) < h(s1) < h(t1) < h(t2)
   # ---------------------------------
   block:
     # Condition 3 part 2/3 at https://eips.ethereum.org/EIPS/eip-3076
+    # Condition 3 part 3/3 at https://eips.ethereum.org/EIPS/eip-3076
     var root: ETH2Digest
     var db_source, db_target: Epoch
 
@@ -846,8 +881,8 @@ proc checkSlashableAttestation*(
     doAssert source <= high(int64).uint64
     doAssert target <= high(int64).uint64
 
-    let status = db.sqlAttSurrounded.exec(
-          (valID, int64 source, int64 target)
+    let status = db.sqlAttSurrounds.exec(
+          (valID, int64 source, int64 target, int64 source, int64 target)
         ) do (res: tuple[source, target: int64, root: Hash32]):
       db_source = Epoch res.source
       db_target = Epoch res.target
@@ -858,35 +893,7 @@ proc checkSlashableAttestation*(
       # Conflicting attestation exist, log by caller
       # s1 < s2 < t2 < t1
       return err(BadVote(
-        kind: SurroundedVote,
-        existingAttestationRoot: root,
-        sourceExisting: db_source,
-        targetExisting: db_target,
-        sourceSlashable: source,
-        targetSlashable: target
-      ))
-
-  # Casper FFG 2nd slashing condition
-  # -> Surrounding vote
-  # Detect h(s2) < h(s1) < h(t1) < h(t2)
-  # ---------------------------------
-  block:
-    # Condition 3 part 3/3 at https://eips.ethereum.org/EIPS/eip-3076
-    var root: ETH2Digest
-    var db_source, db_target: Epoch
-    let status = db.sqlAttSurrounding.exec(
-          (valID, int64 source, int64 target)
-        ) do (res: tuple[source, target: int64, root: Hash32]):
-      db_source = Epoch res.source
-      db_target = Epoch res.target
-      root.data = res.root
-
-    # Note: we enforce at the DB level that if (pubkey, target) exists it maps to a unique block root.
-    if status.foundAnyResult():
-      # Conflicting attestation exist, log by caller
-      # s1 < s2 < t2 < t1
-      return err(BadVote(
-        kind: SurroundingVote,
+        kind: SurroundVote,
         existingAttestationRoot: root,
         sourceExisting: db_source,
         targetExisting: db_target,
@@ -933,7 +940,31 @@ proc checkSlashableAttestation*(
           candidateTarget: target
         ))
 
-  return ok()
+  ok()
+
+proc checkSlashableAttestation*(
+       db: SlashingProtectionDB_v2,
+       index: Option[ValidatorIndex],
+       validator: ValidatorPubKey,
+       source: Epoch,
+       target: Epoch
+     ): Result[void, BadVote] =
+  if source > target:
+    return err(BadVote(kind: TargetPrecedesSource))
+
+  let valID = block:
+    let id = db.getValidatorInternalID(index, validator)
+    if id.isNone():
+      notice "No slashing protection data - first attestation?",
+        validator, source, target
+      return ok()
+    else:
+      id.unsafeGet()
+
+  ? checkSlashableAttestationDoubleVote(db, valID, source, target)
+  ? checkSlashableAttestationOther(db, valID, source, target)
+
+  ok()
 
 # DB update
 # --------------------------------------------
@@ -948,16 +979,17 @@ proc registerValidator(db: SlashingProtectionDB_v2, validator: ValidatorPubKey) 
 
 proc getOrRegisterValidator(
        db: SlashingProtectionDB_v2,
+       index: Option[ValidatorIndex],
        validator: ValidatorPubKey): ValidatorInternalID =
   ## Get validator from the database
   ## or register it and then return it
-  let id = db.getValidatorInternalID(validator)
+  let id = db.getValidatorInternalID(index, validator)
   if id.isNone():
     info "No slashing protection data for validator - initiating",
       validator = validator
 
     db.registerValidator(validator)
-    let id = db.getValidatorInternalID(validator)
+    let id = db.getValidatorInternalID(index, validator)
     doAssert id.isSome()
     id.unsafeGet()
   else:
@@ -965,33 +997,65 @@ proc getOrRegisterValidator(
 
 proc registerBlock*(
        db: SlashingProtectionDB_v2,
+       index: Option[ValidatorIndex],
        validator: ValidatorPubKey,
-       slot: Slot, block_root: Eth2Digest) =
+       slot: Slot, block_root: Eth2Digest): Result[void, BadProposal] =
   ## Add a block to the slashing protection DB
   ## `checkSlashableBlockProposal` MUST be run
   ## before to ensure no overwrite.
-  let valID = db.getOrRegisterValidator(validator)
+  let valID = db.getOrRegisterValidator(index, validator)
 
   # 6 second (minimal preset) slots => overflow at ~1.75 trillion years under
   # minimal preset, and twice that with mainnet preset
   doAssert slot <= high(int64).uint64
 
+  let check = checkSlashableBlockProposalOther(db, valID, slot)
+  if check.isErr():
+    # Check for double vote to get more accurate error information
+    ? checkSlashableBlockProposalDoubleProposal(db, valID, slot)
+    return check
+
   let status = db.sqlInsertBlock.exec(
-    (valID, int64 slot,
-    block_root.data))
-  doAssert status.isOk(),
-    "SQLite error when registering block: " & $status.error & "\n" &
-    "for validator: 0x" & validator.toHex() & ", slot: " & $slot
+    (valID, int64 slot, block_root.data))
+  if status.isErr():
+    # Inserting primarily fails when the constraint for double proposals is
+    # violated but may also happen due to disk full and other storage issues -
+    # in any case, we'll return an error so that production is halted
+    ? checkSlashableBlockProposalDoubleProposal(db, valID, slot)
+    # If this was not a slashing error, it must have been a database error
+    return err(BadProposal(
+      kind: BadProposalKind.DatabaseError,
+      message: status.error))
+
+  ok()
+
+proc registerBlock*(
+       db: SlashingProtectionDB_v2,
+       validator: ValidatorPubKey,
+       slot: Slot, block_root: Eth2Digest): Result[void, BadProposal] =
+  registerBlock(db, none(ValidatorIndex), validator, slot, block_root)
 
 proc registerAttestation*(
        db: SlashingProtectionDB_v2,
+       index: Option[ValidatorIndex],
        validator: ValidatorPubKey,
        source, target: Epoch,
-       attestation_root: Eth2Digest) =
+       attestation_root: Eth2Digest): Result[void, BadVote] =
   ## Add an attestation to the slashing protection DB
   ## `checkSlashableAttestation` MUST be run
   ## before to ensure no overwrite.
-  let valID = db.getOrRegisterValidator(validator)
+  if source > target:
+    return err(BadVote(kind: TargetPrecedesSource))
+
+  let valID = db.getOrRegisterValidator(index, validator)
+
+  # Double votes caught by database index!
+  let check = checkSlashableAttestationOther(db, valID, source, target)
+
+  if check.isErr():
+    # Check for double vote to get more accurate error information
+    ? checkSlashableAttestationDoubleVote(db, valID, source, target)
+    return check
 
   # Overflows in 14 trillion years (minimal) or 112 trillion years (mainnet)
   doAssert source <= high(int64).uint64
@@ -1000,27 +1064,49 @@ proc registerAttestation*(
   let status = db.sqlInsertAtt.exec(
     (valID, int64 source, int64 target,
     attestation_root.data))
-  doAssert status.isOk(),
-    "SQLite error when registering attestation: " & $status.error & "\n" &
-    "for validator: 0x" & validator.toHex() &
-    ", sourceEpoch: " & $source &
-    ", targetEpoch: " & $target
+  if status.isErr():
+    # Inserting primarily fails when the constraint for double votes is
+    # violated but may also happen due to disk full and other storage issues -
+    # in any case, we'll return an error so that production is halted
+    ? checkSlashableAttestationDoubleVote(db, valID, source, target)
+    # If this was not a slashing error, it must have been a database error
+    return err(BadVote(
+      kind: BadVoteKind.DatabaseError,
+      message: status.error))
 
+  ok()
+
+proc registerAttestation*(
+       db: SlashingProtectionDB_v2,
+       validator: ValidatorPubKey,
+       source, target: Epoch,
+       attestation_root: Eth2Digest): Result[void, BadVote] =
+  registerAttestation(
+    db, none(ValidatorIndex), validator, source, target, attestation_root)
 # DB maintenance
 # --------------------------------------------
-proc pruneBlocks*(db: SlashingProtectionDB_v2, validator: ValidatorPubkey, newMinSlot: Slot) =
+proc pruneBlocks*(
+    db: SlashingProtectionDB_v2,
+    index: Option[ValidatorIndex],
+    validator: ValidatorPubkey, newMinSlot: Slot) =
   ## Prune all blocks from a validator before the specified newMinSlot
   ## This is intended for interchange import to ensure
   ## that in case of a gap, we don't allow signing in that gap.
-  let valID = db.getOrRegisterValidator(validator)
+  let valID = db.getOrRegisterValidator(index, validator)
   let status = db.sqlPruneValidatorBlocks.exec(
     (valID, int64 newMinSlot))
   doAssert status.isOk(),
     "SQLite error when pruning validator blocks: " & $status.error & "\n" &
     "for validator: 0x" & validator.toHex() & ", newMinSlot: " & $newMinSlot
 
+proc pruneBlocks*(
+    db: SlashingProtectionDB_v2,
+    validator: ValidatorPubkey, newMinSlot: Slot) =
+  pruneBlocks(db, none(ValidatorIndex), validator, newMinSlot)
+
 proc pruneAttestations*(
        db: SlashingProtectionDB_v2,
+       index: Option[ValidatorIndex],
        validator: ValidatorPubkey,
        newMinSourceEpoch: int64,
        newMinTargetEpoch: int64) =
@@ -1028,7 +1114,7 @@ proc pruneAttestations*(
   ## This is intended for interchange import.
   ## Negative source/target epoch of -1 can be received if no attestation was imported
   ## In that case nothing is done (since we used signed int in SQLite)
-  let valID = db.getOrRegisterValidator(validator)
+  let valID = db.getOrRegisterValidator(index, validator)
 
   let status = db.sqlPruneValidatorAttestations.exec(
     (valID, newMinSourceEpoch, newMinTargetEpoch))
@@ -1037,6 +1123,14 @@ proc pruneAttestations*(
     "for validator: 0x" & validator.toHex() &
     ", newSourceEpoch: " & $newMinSourceEpoch &
     ", newTargetEpoch: " & $newMinTargetEpoch
+
+proc pruneAttestations*(
+       db: SlashingProtectionDB_v2,
+       validator: ValidatorPubkey,
+       newMinSourceEpoch: int64,
+       newMinTargetEpoch: int64) =
+  pruneAttestations(
+    db, none(ValidatorIndex), validator, newMinSourceEpoch, newMinTargetEpoch)
 
 proc pruneAfterFinalization*(
        db: SlashingProtectionDB_v2,
@@ -1205,8 +1299,3 @@ proc inclSPDIR*(db: SlashingProtectionDB_v2, spdir: SPDIR): SlashingImportStatus
   # Create a mutable copy for sorting
   var spdir = spdir
   return db.importInterchangeV5Impl(spdir)
-
-# Sanity check
-# --------------------------------------------------------------
-
-static: doAssert SlashingProtectionDB_v2 is SlashingProtectionDB_Concept

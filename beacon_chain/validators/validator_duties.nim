@@ -338,27 +338,18 @@ proc proposeBlock(node: BeaconNode,
       slot = shortLog(slot)
     return head
 
-  let notSlashable = node.attachedValidators
-                        .slashingProtection
-                        .checkSlashableBlockProposal(validator.pubkey, slot)
-  if notSlashable.isErr:
-    warn "Slashing protection activated",
-      validator = validator.pubkey,
-      slot = slot,
-      existingProposal = notSlashable.error
-    return head
-
   let
     fork = getStateField(node.chainDag.headState, fork)
     genesis_validators_root =
       getStateField(node.chainDag.headState, genesis_validators_root)
-  let
     randao = await validator.genRandaoReveal(
       fork, genesis_validators_root, slot)
     message = makeBeaconBlockForHeadAndSlot(
       node, randao, validator_index, node.graffitiBytes, head, slot)
+
   if not message.isSome():
     return head # already logged elsewhere!
+
   var
     newBlock = SignedBeaconBlock(
       message: message.get()
@@ -369,9 +360,16 @@ proc proposeBlock(node: BeaconNode,
   # TODO: recomputed in block proposal
   let signing_root = compute_block_root(
     fork, genesis_validators_root, slot, newBlock.root)
-  node.attachedValidators
+  let notSlashable = node.attachedValidators
     .slashingProtection
-    .registerBlock(validator.pubkey, slot, signing_root)
+    .registerBlock(validator_index, validator.pubkey, slot, signing_root)
+
+  if notSlashable.isErr:
+    warn "Slashing protection activated",
+      validator = validator.pubkey,
+      slot = slot,
+      existingProposal = notSlashable.error
+    return head
 
   newBlock.signature = await validator.signBlockProposal(
     fork, genesis_validators_root, slot, newBlock.root)
@@ -409,7 +407,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
 
   var attestations: seq[tuple[
     data: AttestationData, committeeLen, indexInCommittee: int,
-    validator: AttachedValidator]]
+    validator: AttachedValidator, validator_index: ValidatorIndex]]
 
   # We need to run attestations exactly for the slot that we're attesting to.
   # In case blocks went missing, this means advancing past the latest block
@@ -429,34 +427,28 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     let committee = get_beacon_committee(
       epochRef, slot, committee_index.CommitteeIndex)
 
-    for index_in_committee, validatorIdx in committee:
-      let validator = node.getAttachedValidator(epochRef, validatorIdx)
+    for index_in_committee, validator_index in committee:
+      let validator = node.getAttachedValidator(epochRef, validator_index)
       if validator != nil:
         let ad = makeAttestationData(
           epochRef, attestationHead, committee_index.CommitteeIndex)
-        attestations.add((ad, committee.len, index_in_committee, validator))
+        attestations.add(
+          (ad, committee.len, index_in_committee, validator, validator_index))
 
   for a in attestations:
+    # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
+    let signing_root = compute_attestation_root(
+          fork, genesis_validators_root, a.data)
     let notSlashable = node.attachedValidators
-                           .slashingProtection
-                           .checkSlashableAttestation(
-                             a.validator.pubkey,
-                             a.data.source.epoch,
-                             a.data.target.epoch)
-
+        .slashingProtection
+        .registerAttestation(
+          a.validator_index,
+          a.validator.pubkey,
+          a.data.source.epoch,
+          a.data.target.epoch,
+          signing_root
+        )
     if notSlashable.isOk():
-      # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
-      let signing_root = compute_attestation_root(
-            fork, genesis_validators_root, a.data)
-      node.attachedValidators
-          .slashingProtection
-          .registerAttestation(
-            a.validator.pubkey,
-            a.data.source.epoch,
-            a.data.target.epoch,
-            signing_root
-          )
-
       traceAsyncErrors createAndSendAttestation(
         node, fork, genesis_validators_root, a.validator, a.data,
         a.committeeLen, a.indexInCommittee, num_active_validators)
