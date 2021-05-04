@@ -10,7 +10,7 @@ Systemd is used in order to have a command or program run when your device boots
 
 > ⚠️  If you wish to run the service with metrics enabled, you'll need to replace `--metrics:off` with `--metrics:on` in the service file below. See [here](./metrics-pretty-pictures.md) for more on metrics.
 
-Create a `systemd` service unit file -- `nimbus-eth2-pyrmont.service` -- and save it in `/etc/systemd/system/`.
+Create a `systemd` service unit file -- `nimbus-eth2-pyrmont.service` -- and save it in `/lib/systemd/system/`.
 
 ```txt
 [Unit]
