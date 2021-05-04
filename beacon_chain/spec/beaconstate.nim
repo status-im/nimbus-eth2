@@ -240,7 +240,7 @@ func genesis_time_from_eth1_timestamp*(preset: RuntimePreset, eth1_timestamp: ui
   eth1_timestamp + preset.GENESIS_DELAY
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#genesis
-proc initialize_beacon_state*(
+proc initialize_beacon_state_from_eth1*(
     preset: RuntimePreset,
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
@@ -335,7 +335,7 @@ proc initialize_hashed_beacon_state_from_eth1*(
     eth1_timestamp: uint64,
     deposits: openArray[DepositData],
     flags: UpdateFlags = {}): HashedBeaconState =
-  let genesisState = initialize_beacon_state(
+  let genesisState = initialize_beacon_state_from_eth1(
     preset, eth1_block_hash, eth1_timestamp, deposits, flags)
   HashedBeaconState(data: genesisState[], root: hash_tree_root(genesisState[]))
 
