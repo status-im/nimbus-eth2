@@ -2,6 +2,9 @@
 
 <blockquote class="twitter-tweet"><p lang="en" dir="ltr">I expect the new Raspberry Pi 4 (4GB RAM option, external SSD) to handle an Eth2 validator node without breaking a sweat. That&#39;s $100 of hardware running at 10 Watts to support a 32 ETH node (currently ~$10K stake).</p>&mdash; Justin Ðrake (@drakefjustin) <a href="https://twitter.com/drakefjustin/status/1143091047058366465?ref_src=twsrc%5Etfw">June 24, 2019</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
+> In addition to this guide, we highly recommend this [wonderful and complementary resource](https://github.com/jclapis/rp-pi-guide/blob/main/Overview.md) by community member Joe Clapis.
+
+
 ## Introduction
 This page will take you through how to use your laptop to program your Raspberry Pi, get Nimbus running, and connect to the **Pyrmont testnet**.
 
