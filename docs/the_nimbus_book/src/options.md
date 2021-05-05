@@ -6,10 +6,10 @@ You can pass any `nimbus_beacon_node` options to the `pyrmont` and `mainnet` scr
 ./run-mainnet-beacon-node.sh --tcp-port=9100 --udp-port=9100
 ```
 
-To see a list of the command line options availabe to you, with descriptions, navigate to the `build` directory and run:
+To see a list of the command line options availabe to you, with descriptions, run:
 
 ```
-./nimbus_beacon_node --help
+build/./nimbus_beacon_node --help
 ```
 
 You should see the following output:

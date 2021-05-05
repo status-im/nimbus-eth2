@@ -46,7 +46,7 @@
 
 # Reference
 - [API](./api.md)
-- [Command line options](./options.md)
+- [Help / Command line options](./options.md)
 - [For developers](./developers.md)
 - [FAQ](./faq.md)
 - [Contribute](./contribute.md)
