@@ -21,8 +21,8 @@ proc processSlotsUntilEndCurrentEpoch(state: var HashedBeaconState) =
 
   # For the last slot of the epoch,
   # only process_slot without process_epoch
-  # (see process_slots())
-  process_slot(state)
+  # (see process_slots()) - state.root is invalid after here!
+  process_slot(state.data, state.root)
 
 proc transitionEpochUntilJustificationFinalization*(state: var HashedBeaconState) =
   # Process slots and do the epoch transition until crosslinks

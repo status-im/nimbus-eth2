@@ -30,7 +30,7 @@ import
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
     state: var BeaconState, blck: SomeBeaconBlock, flags: UpdateFlags,
-    stateCache: var StateCache): Result[void, cstring] {.nbench.} =
+    cache: var StateCache): Result[void, cstring] {.nbench.} =
   # Verify that the slots match
   if not (blck.slot == state.slot):
     return err("process_block_header: slot mismatch")
@@ -40,7 +40,7 @@ func process_block_header*(
     return err("process_block_header: block not newer than latest block header")
 
   # Verify that proposer index is the correct index
-  let proposer_index = get_beacon_proposer_index(state, stateCache)
+  let proposer_index = get_beacon_proposer_index(state, cache)
   if proposer_index.isNone:
     return err("process_block_header: proposer missing")
 
@@ -73,9 +73,9 @@ func `xor`[T: array](a, b: T): T =
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#randao
 proc process_randao(
     state: var BeaconState, body: SomeBeaconBlockBody, flags: UpdateFlags,
-    stateCache: var StateCache): Result[void, cstring] {.nbench.} =
+    cache: var StateCache): Result[void, cstring] {.nbench.} =
   let
-    proposer_index = get_beacon_proposer_index(state, stateCache)
+    proposer_index = get_beacon_proposer_index(state, cache)
 
   if proposer_index.isNone:
     return err("process_randao: proposer index missing, probably along with any active validators")

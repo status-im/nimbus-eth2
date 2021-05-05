@@ -251,7 +251,7 @@ func get_total_active_balance*(state: BeaconState, cache: var StateCache): Gwei 
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#justification-and-finalization
 proc process_justification_and_finalization*(state: var BeaconState,
-    total_balances: TotalBalances, updateFlags: UpdateFlags = {}) {.nbench.} =
+    total_balances: TotalBalances, flags: UpdateFlags = {}) {.nbench.} =
   # Initial FFG checkpoint values have a `0x00` stub for `root`.
   # Skip FFG updates in the first two epochs to avoid corner cases that might
   # result in modifying this stub.
@@ -288,7 +288,7 @@ proc process_justification_and_finalization*(state: var BeaconState,
     trace "Justified with previous epoch",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.current_justified_checkpoint)
-  elif verifyFinalization in updateFlags:
+  elif verifyFinalization in flags:
     warn "Low attestation participation in previous epoch",
       total_balances, epoch = get_current_epoch(state)
 
@@ -621,8 +621,8 @@ func process_final_updates*(state: var BeaconState) {.nbench.} =
   process_participation_record_updates(state)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#epoch-processing
-proc process_epoch*(state: var BeaconState, updateFlags: UpdateFlags,
-    cache: var StateCache) {.nbench.} =
+proc process_epoch*(
+    state: var BeaconState, flags: UpdateFlags, cache: var StateCache) {.nbench.} =
   let currentEpoch = get_current_epoch(state)
   trace "process_epoch",
     current_epoch = currentEpoch
@@ -631,13 +631,13 @@ proc process_epoch*(state: var BeaconState, updateFlags: UpdateFlags,
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(
-    state, validator_statuses.total_balances, updateFlags)
+    state, validator_statuses.total_balances, flags)
 
   # state.slot hasn't been incremented yet.
-  if verifyFinalization in updateFlags and currentEpoch >= 2:
+  if verifyFinalization in flags and currentEpoch >= 2:
     doAssert state.current_justified_checkpoint.epoch + 2 >= currentEpoch
 
-  if verifyFinalization in updateFlags and currentEpoch >= 3:
+  if verifyFinalization in flags and currentEpoch >= 3:
     # Rule 2/3/4 finalization results in the most pessimal case. The other
     # three finalization rules finalize more quickly as long as the any of
     # the finalization rules triggered.

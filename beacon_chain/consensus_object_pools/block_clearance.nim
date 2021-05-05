@@ -154,18 +154,16 @@ proc addResolvedBlock(
         discard addRawBlock(dag, quarantine, v, onBlockAdded)
 
 proc addRawBlockCheckStateTransition(
-       dag: var ChainDAGRef, quarantine: var QuarantineRef,
+       dag: ChainDAGRef, quarantine: var QuarantineRef,
        signedBlock: SomeSignedBeaconBlock, cache: var StateCache
      ): (ValidationResult, BlockError) =
   ## addRawBlock - Ensure block can be applied on a state
-  let
-    poolPtr = unsafeAddr dag # safe because restore is short-lived
   func restore(v: var HashedBeaconState) =
     # TODO address this ugly workaround - there should probably be a
     #      `state_transition` that takes a `StateData` instead and updates
     #      the block as well
-    doAssert v.addr == addr poolPtr.clearanceState.data
-    assign(poolPtr.clearanceState, poolPtr.headState)
+    doAssert v.addr == addr dag.clearanceState.data
+    assign(dag.clearanceState, dag.headState)
 
   if not state_transition(dag.runtimePreset, dag.clearanceState.data, signedBlock,
                           cache, dag.updateFlags + {slotProcessed}, restore):
