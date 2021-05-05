@@ -25,15 +25,13 @@ make clean
 if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
   # Cross-compilation using the MXE distribution of Mingw-w64
   export PATH="/usr/lib/mxe/usr/bin:${PATH}"
+  CC=x86_64-w64-mingw32.static-gcc
+  CXX=x86_64-w64-mingw32.static-g++
   make \
     -j$(nproc) \
     USE_LIBBACKTRACE=0 \
     QUICK_AND_DIRTY_COMPILER=1 \
     deps-common build/generate_makefile
-  # This can be reduced to `make CC=... ...` when it becomes possible to
-  # replace `CC=gcc` with `CC=$(CC)` in "vendor/nimbus-build-system/makefiles/targets.mk".
-  CC=x86_64-w64-mingw32.static-gcc
-  CXX=x86_64-w64-mingw32.static-g++
   make \
     -j$(nproc) \
     -C vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc \
