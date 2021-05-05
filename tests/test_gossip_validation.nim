@@ -38,10 +38,11 @@ suite "Gossip validation " & preset():
       pool = newClone(AttestationPool.init(chainDag, quarantine))
       state = newClone(chainDag.headState)
       cache = StateCache()
+      rewards = RewardInfo()
       batchCrypto = BatchCrypto.new(keys.newRng(), eager = proc(): bool = false)
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
-      process_slots(state.data, getStateField(state, slot) + 1, cache)
+      process_slots(state.data, getStateField(state, slot) + 1, cache, rewards)
 
   test "Validation sanity":
     # TODO: refactor tests to avoid skipping BLS validation

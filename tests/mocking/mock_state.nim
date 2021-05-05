@@ -14,12 +14,17 @@ import
 
 proc nextEpoch*(state: var HashedBeaconState) =
   ## Transition to the start of the next epoch
-  var cache = StateCache()
+  var
+    cache = StateCache()
+    rewards = RewardInfo()
   let slot =
     state.data.slot + SLOTS_PER_EPOCH - (state.data.slot mod SLOTS_PER_EPOCH)
-  doAssert process_slots(state, slot, cache)
+  doAssert process_slots(state, slot, cache, rewards)
 
 proc nextSlot*(state: var HashedBeaconState) =
   ## Transition to the next slot
-  var cache = StateCache()
-  doAssert process_slots(state, state.data.slot + 1, cache)
+  var
+    cache = StateCache()
+    rewards = RewardInfo()
+
+  doAssert process_slots(state, state.data.slot + 1, cache, rewards)

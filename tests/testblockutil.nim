@@ -85,7 +85,8 @@ proc addTestBlock*(
     nextSlot = true): SignedBeaconBlock =
   # Create and add a block to state - state will advance by one slot!
   if nextSlot:
-    doAssert process_slots(state, state.data.slot + 1, cache, flags)
+    var rewards: RewardInfo
+    doAssert process_slots(state, state.data.slot + 1, cache, rewards, flags)
 
   let
     proposer_index = get_beacon_proposer_index(state.data, cache)

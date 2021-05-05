@@ -40,6 +40,7 @@ proc runTest(testName, testDir, unitTestName: string) =
         hashedPreState = (ref HashedBeaconState)(
           data: preState[], root: hash_tree_root(preState[]))
         cache = StateCache()
+        rewards = RewardInfo()
 
       # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
       # so purely lexicographic sorting wouldn't sort properly.
@@ -49,12 +50,12 @@ proc runTest(testName, testDir, unitTestName: string) =
 
         if hasPostState:
           let success = state_transition(
-            defaultRuntimePreset, hashedPreState[], blck, cache, flags = {},
+            defaultRuntimePreset, hashedPreState[], blck, cache, rewards, flags = {},
             noRollback)
           doAssert success, "Failure when applying block " & $i
         else:
           let success = state_transition(
-            defaultRuntimePreset, hashedPreState[], blck, cache, flags = {},
+            defaultRuntimePreset, hashedPreState[], blck, cache, rewards, flags = {},
             noRollback)
           doAssert (i + 1 < numBlocks) or not success,
             "We didn't expect these invalid blocks to be processed"

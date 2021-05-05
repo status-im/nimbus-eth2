@@ -4,8 +4,8 @@ import
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/[beacon_chain_db, extras],
   ../beacon_chain/consensus_object_pools/blockchain_dag,
-  ../beacon_chain/spec/[crypto, datatypes, digest, helpers,
-                        state_transition, presets],
+  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers,
+                        state_transition, presets, validator],
   ../beacon_chain/ssz, ../beacon_chain/ssz/sszdump,
   ../research/simutils, ./e2store
 
@@ -27,6 +27,7 @@ type
     pruneDatabase
     rewindState
     exportEra
+    validatorPerf
 
   StateDbKind* {.pure.} = enum
     sql
@@ -55,9 +56,14 @@ type
       .}: DbCmd
 
     of bench:
-      slots* {.
+      benchSlot* {.
+        defaultValue: 0
+        name: "start-slot"
+        desc: "Starting slot, negative = backwards from head".}: int64
+      benchSlots* {.
         defaultValue: 50000
-        desc: "Number of slots to run benchmark for".}: uint64
+        name: "slots"
+        desc: "Number of slots to run benchmark for, 0 = all the way to head".}: uint64
       storeBlocks* {.
         defaultValue: false
         desc: "Store each read block back into a separate database".}: bool
@@ -109,6 +115,39 @@ type
         defaultValue: 1
         desc: "Number of eras to write".}: uint64
 
+    of validatorPerf:
+      perfSlot* {.
+        defaultValue: 0
+        name: "start-slot"
+        desc: "Starting slot, negative = backwards from head".}: int64
+      perfSlots* {.
+        defaultValue: 50000
+        name: "slots"
+        desc: "Number of slots to run benchmark for, 0 = all the way to head".}: uint64
+
+proc getBlockRange(dag: ChainDAGRef, startSlot: int64, count: uint64): seq[BlockRef] =
+  # Range of block in reverse order
+  let
+    start =
+      if startSlot >= 0: Slot(startSlot)
+      elif uint64(-startSlot) >= dag.head.slot: Slot(0)
+      else: Slot(dag.head.slot - uint64(-startSlot))
+    ends =
+      if count == 0: dag.head.slot + 1
+      else: start + count
+  var
+     blockRefs: seq[BlockRef]
+     cur = dag.head
+
+  while cur != nil:
+    if cur.slot < ends:
+      if cur.slot < start or cur.slot == 0: # skip genesis
+        break
+      else:
+        blockRefs.add cur
+    cur = cur.parent
+  blockRefs
+
 proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
   var timers: array[Timers, RunningStat]
 
@@ -116,7 +155,6 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
   let
     db = BeaconChainDB.new(
       runtimePreset, conf.databaseDir.string,
-      inMemory = false,
       fileStateStorage = conf.stateDbKind == StateDbKind.file)
     dbBenchmark = BeaconChainDB.new(runtimePreset, "benchmark")
   defer:
@@ -128,43 +166,37 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
     quit 1
 
   echo "Initializing block pool..."
-  let pool = withTimerRet(timers[tInit]):
+  let dag = withTimerRet(timers[tInit]):
     ChainDAGRef.init(runtimePreset, db, {})
 
-  echo &"Loaded {pool.blocks.len} blocks, head slot {pool.head.slot}"
-
   var
-    blockRefs: seq[BlockRef]
+    blockRefs = dag.getBlockRange(conf.benchSlot, conf.benchSlots)
     blocks: seq[TrustedSignedBeaconBlock]
-    cur = pool.head
 
-  while cur != nil:
-    blockRefs.add cur
-    cur = cur.parent
+  echo &"Loaded {dag.blocks.len} blocks, head slot {dag.head.slot}, selected {blockRefs.len} blocks"
+  doAssert blockRefs.len() > 0, "Must select at least one block"
 
-  for b in 1..<blockRefs.len: # Skip genesis block
-    if blockRefs[blockRefs.len - b - 1].slot > conf.slots:
-      break
-
+  for b in 0..<blockRefs.len:
     withTimer(timers[tLoadBlock]):
       blocks.add db.getBlock(blockRefs[blockRefs.len - b - 1].root).get()
 
-  let state = (ref HashedBeaconState)(
-    root: db.getBlock(blockRefs[^1].root).get().message.state_root
-  )
-
-  withTimer(timers[tLoadState]):
-    discard db.getState(state[].root, state[].data, noRollback)
+  let state = newClone(dag.headState)
 
   var
     cache = StateCache()
+    rewards = RewardInfo()
     loadedState = new BeaconState
 
+  withTimer(timers[tLoadState]):
+    dag.updateStateData(
+      state[], blockRefs[^1].atSlot(blockRefs[^1].slot - 1), false, cache)
+
   for b in blocks.mitems():
-    while state[].data.slot < b.message.slot:
-      let isEpoch = state[].data.slot.epoch() != (state[].data.slot + 1).epoch
+    while state[].data.data.slot < b.message.slot:
+      let isEpoch = (state[].data.data.slot + 1).isEpoch()
       withTimer(timers[if isEpoch: tAdvanceEpoch else: tAdvanceSlot]):
-        let ok = process_slots(state[], state[].data.slot + 1, cache, {})
+        let ok = process_slots(
+          state[].data, state[].data.data.slot + 1, cache, rewards, {})
         doAssert ok, "Slot processing can't fail with correct inputs"
 
     var start = Moment.now()
@@ -172,7 +204,7 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
       if conf.resetCache:
         cache = StateCache()
       if not state_transition(
-          runtimePreset, state[], b, cache, {slotProcessed}, noRollback):
+          runtimePreset, state[].data, b, cache, rewards, {slotProcessed}, noRollback):
         dump("./", b)
         echo "State transition failed (!)"
         quit 1
@@ -182,20 +214,20 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
       withTimer(timers[tDbStore]):
         dbBenchmark.putBlock(b)
 
-    if state[].data.slot.isEpoch and conf.storeStates:
-      if state[].data.slot.epoch < 2:
-        dbBenchmark.putState(state[].root, state[].data)
+    if state[].data.data.slot.isEpoch and conf.storeStates:
+      if state[].data.data.slot.epoch < 2:
+        dbBenchmark.putState(state[].data.root, state[].data.data)
         dbBenchmark.checkpoint()
       else:
         withTimer(timers[tDbStore]):
-          dbBenchmark.putState(state[].root, state[].data)
+          dbBenchmark.putState(state[].data.root, state[].data.data)
           dbBenchmark.checkpoint()
 
         withTimer(timers[tDbLoad]):
-          doAssert dbBenchmark.getState(state[].root, loadedState[], noRollback)
+          doAssert dbBenchmark.getState(state[].data.root, loadedState[], noRollback)
 
-        if state[].data.slot.epoch mod 16 == 0:
-          doAssert hash_tree_root(state[].data) == hash_tree_root(loadedState[])
+        if state[].data.data.slot.epoch mod 16 == 0:
+          doAssert hash_tree_root(state[].data.data) == hash_tree_root(loadedState[])
 
   printTimers(false, timers)
 
@@ -385,6 +417,134 @@ proc cmdExportEra(conf: DbConf, preset: RuntimePreset) =
           ancestor = ancestors[ancestors.len - 1 - i]
         e2s.appendRecord(db.getBlock(ancestor.root).get()).get()
 
+type
+  # Validator performance metrics tool based on
+  # https://github.com/paulhauner/lighthouse/blob/etl/lcli/src/etl/validator_performance.rs
+  # Credits to Paul Hauner
+  ValidatorPerformance = object
+    attestation_hits: uint64
+    attestation_misses: uint64
+    head_attestation_hits: uint64
+    head_attestation_misses: uint64
+    target_attestation_hits: uint64
+    target_attestation_misses: uint64
+    first_slot_head_attester_when_first_slot_empty: uint64
+    first_slot_head_attester_when_first_slot_not_empty: uint64
+    delays: Table[uint64, uint64]
+
+proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimePreset) =
+  echo "Opening database..."
+  let
+    db = BeaconChainDB.new(
+      runtimePreset, conf.databaseDir.string,
+      fileStateStorage = conf.stateDbKind == StateDbKind.file)
+  defer:
+    db.close()
+
+  if not ChainDAGRef.isInitialized(db):
+    echo "Database not initialized"
+    quit 1
+
+  echo "Initializing block pool..."
+  let dag = ChainDAGRef.init(runtimePreset, db, {})
+
+  var
+    blockRefs = dag.getBlockRange(conf.perfSlot, conf.perfSlots)
+    perfs = newSeq[ValidatorPerformance](
+      dag.headState.data.data.validators.len())
+    cache = StateCache()
+    rewards = RewardInfo()
+    blck: TrustedSignedBeaconBlock
+
+  echo &"Loaded {dag.blocks.len} blocks, head slot {dag.head.slot}, selected {blockRefs.len} blocks"
+  doAssert blockRefs.len() > 0, "Must select at least one block"
+
+  let state = newClone(dag.headState)
+  dag.updateStateData(
+    state[], blockRefs[^1].atSlot(blockRefs[^1].slot - 1), false, cache)
+
+  for bi in 0..<blockRefs.len:
+    blck = db.getBlock(blockRefs[blockRefs.len - bi - 1].root).get()
+    while state[].data.data.slot < blck.message.slot:
+      let ok = process_slots(
+        state[].data, state[].data.data.slot + 1, cache, rewards, {})
+      doAssert ok, "Slot processing can't fail with correct inputs"
+
+      if state[].data.data.slot.isEpoch():
+        let
+          prev_epoch_target_slot =
+            state[].data.data.get_previous_epoch().compute_start_slot_at_epoch()
+          penultimate_epoch_end_slot =
+            if prev_epoch_target_slot == 0: Slot(0)
+            else: prev_epoch_target_slot - 1
+          first_slot_empty =
+            state[].data.data.get_block_root_at_slot(prev_epoch_target_slot) ==
+            state[].data.data.get_block_root_at_slot(penultimate_epoch_end_slot)
+
+        let first_slot_attesters = block:
+          let committee_count = state[].data.data.get_committee_count_per_slot(
+            prev_epoch_target_slot, cache)
+          var indices = HashSet[ValidatorIndex]()
+          for committee_index in 0..<committee_count:
+            for validator_index in state[].data.data.get_beacon_committee(
+                prev_epoch_target_slot, committee_index.CommitteeIndex, cache):
+              indices.incl(validator_index)
+          indices
+
+        for i, s in rewards.statuses.pairs():
+          let perf = addr perfs[i]
+          if RewardFlags.isActiveInPreviousEpoch in s.flags:
+            if s.is_previous_epoch_attester.isSome():
+              perf.attestation_hits += 1;
+
+              if RewardFlags.isPreviousEpochHeadAttester in s.flags:
+                perf.head_attestation_hits += 1
+              else:
+                perf.head_attestation_misses += 1
+
+              if RewardFlags.isPreviousEpochTargetAttester in s.flags:
+                perf.target_attestation_hits += 1
+              else:
+                perf.target_attestation_misses += 1
+
+              if i.ValidatorIndex in first_slot_attesters:
+                if first_slot_empty:
+                  perf.first_slot_head_attester_when_first_slot_empty += 1
+                else:
+                  perf.first_slot_head_attester_when_first_slot_not_empty += 1
+
+              if s.inclusion_info.isSome():
+                perf.delays.mGetOrPut(s.inclusion_info.get().delay, 0'u64) += 1
+
+            else:
+              perf.attestation_misses += 1;
+
+    if not state_transition(
+        runtimePreset, state[].data, blck, cache, rewards, {slotProcessed}, noRollback):
+      echo "State transition failed (!)"
+      quit 1
+
+  echo "validator_index,attestation_hits,attestation_misses,head_attestation_hits,head_attestation_misses,target_attestation_hits,target_attestation_misses,delay_avg,first_slot_head_attester_when_first_slot_empty,first_slot_head_attester_when_first_slot_not_empty"
+
+  for (i, perf) in perfs.pairs:
+    var
+      count = 0'u64
+      sum = 0'u64
+    for delay, n in perf.delays:
+        count += n
+        sum += delay * n
+    echo i,",",
+      perf.attestation_hits,",",
+      perf.attestation_misses,",",
+      perf.head_attestation_hits,",",
+      perf.head_attestation_misses,",",
+      perf.target_attestation_hits,",",
+      perf.target_attestation_misses,",",
+      if count == 0: 0.0
+      else: sum.float / count.float,",",
+      perf.first_slot_head_attester_when_first_slot_empty,",",
+      perf.first_slot_head_attester_when_first_slot_not_empty
+
 when isMainModule:
   var
     conf = DbConf.load()
@@ -403,3 +563,5 @@ when isMainModule:
     cmdRewindState(conf, runtimePreset)
   of exportEra:
     cmdExportEra(conf, runtimePreset)
+  of validatorPerf:
+    cmdValidatorPerf(conf, runtimePreset)
