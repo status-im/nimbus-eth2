@@ -427,7 +427,7 @@ func encodeOpaqueTransaction(ot: OpaqueTransaction): string =
 
 func encodeOpaqueTransaction(ot: OpaqueTransaction): string =
   var res = "0x"
-  for b in ot.data:
+  for b in ot:
     res &= b.toHex
   res
 
