@@ -150,6 +150,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
           @[],
           @[],
           @[],
+          ExecutionPayload(),
           noRollback,
           cache)
 

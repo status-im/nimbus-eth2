@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[os, osproc, sequtils, streams, tables],
+  std/[os, osproc, sequtils, streams, strutils, tables],
 
   # Nimble packages
   stew/[assign2, objects],
@@ -266,12 +266,24 @@ proc getBlockProposalEth1Data*(node: BeaconNode,
       stateData.data.data, finalizedEpochRef.eth1_data,
       finalizedEpochRef.eth1_deposit_index)
 
+func getOpaqueTransaction(s_orig: string): OpaqueTransaction =
+  var bytes: seq[byte]
+  var s = s_orig
+  s.removePrefix("0x")
+  try:
+    for c in parseHexStr(s).items():
+      bytes.add byte(c)
+    OpaqueTransaction(List[byte, MAX_BYTES_PER_OPAQUE_TRANSACTION].init(
+      bytes))
+  except ValueError:
+    raiseAssert "Geth returned invalidly formatted transaction"
+
 proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     randao_reveal: ValidatorSig,
                                     validator_index: ValidatorIndex,
                                     graffiti: GraffitiBytes,
                                     head: BlockRef,
-                                    slot: Slot): Option[BeaconBlock] =
+                                    slot: Slot): Future[Option[BeaconBlock]] {.async.} =
   # Advance state to the slot that we're proposing for
 
   let
@@ -294,7 +306,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       doAssert v.addr == addr proposalStateAddr.data
       assign(proposalStateAddr[], poolPtr.headState)
 
-    makeBeaconBlock(
+    return makeBeaconBlock(
       node.runtimePreset,
       hashedState,
       validator_index,
@@ -307,6 +319,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       node.exitPool[].getProposerSlashingsForBlock(),
       node.exitPool[].getAttesterSlashingsForBlock(),
       node.exitPool[].getVoluntaryExitsForBlock(),
+      default(ExecutionPayload),
       restore,
       cache)
 
@@ -363,7 +376,7 @@ proc proposeBlock(node: BeaconNode,
       getStateField(node.chainDag.headState, genesis_validators_root)
     randao = await validator.genRandaoReveal(
       fork, genesis_validators_root, slot)
-    message = makeBeaconBlockForHeadAndSlot(
+    message = await makeBeaconBlockForHeadAndSlot(
       node, randao, validator_index, node.graffitiBytes, head, slot)
 
   if not message.isSome():

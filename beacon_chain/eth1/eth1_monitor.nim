@@ -12,11 +12,13 @@ import
        typetraits, uri],
   # Nimble packages:
   chronos, json, metrics, chronicles/timings,
-  web3, web3/ethtypes as web3Types, eth/common/eth_types, eth/async_utils,
+  web3, web3/ethtypes as web3Types, web3/ethhexstrings, eth/common/eth_types,
+  eth/async_utils, stew/byteutils,
   # Local modules:
   ../spec/[datatypes, digest, crypto, helpers],
   ../networking/network_metadata,
   ../ssz,
+  ../rpc/eth_merge_web3,
   ".."/[beacon_chain_db, beacon_node_status],
   ./merkle_minimal
 
@@ -400,6 +402,38 @@ proc getBlockByNumber*(p: Web3DataProviderRef,
   let hexNumber = try: &"0x{number:X}" # No leading 0's!
   except ValueError as exc: raiseAssert exc.msg # Never fails
   p.web3.provider.eth_getBlockByNumber(hexNumber, false)
+
+proc setHead*(p: Web3DataProviderRef, hash: Eth2Digest):
+    Future[BoolReturnSuccessRPC] =
+  p.web3.provider.consensus_setHead(hash.data.encodeQuantityHex)
+
+proc assembleBlock*(p: Web3DataProviderRef, parentHash: Eth2Digest,
+                    timestamp: uint64): Future[ExecutionPayloadRPC] =
+  p.web3.provider.consensus_assembleBlock(BlockParams(
+    parentHash: parentHash.data.encodeQuantityHex,
+    timestamp: encodeQuantity(timestamp)))
+
+func encodeOpaqueTransaction(ot: OpaqueTransaction): string =
+  var res = "0x"
+  for b in ot:
+    res &= b.toHex
+  res
+
+proc newBlock*(p: Web3DataProviderRef,
+               executableData: ExecutionPayload): Future[BoolReturnValidRPC] =
+  p.web3.provider.consensus_newBlock(ExecutionPayloadRPC(
+    parentHash: executableData.parent_hash.data.encodeQuantityHex,
+    miner: executableData.coinbase.data.encodeQuantityHex,
+    stateRoot: executableData.state_root.data.encodeQuantityHex,
+    number: executableData.number.encodeQuantity,
+    gasLimit: executableData.gas_limit.encodeQuantity,
+    gasUsed: executableData.gas_used.encodeQuantity,
+    timestamp: executableData.timestamp.encodeQuantity,
+    receiptsRoot: executableData.receipt_root.data.encodeQuantityHex,
+    logsBloom: executableData.logs_bloom.data.encodeQuantityHex,
+    blockHash: executableData.block_hash.data.encodeQuantityHex,
+    transactions: List[string, MAX_EXECUTION_TRANSACTIONS].init(
+      mapIt(executableData.transactions, it.encodeOpaqueTransaction))))
 
 template readJsonField(j: JsonNode, fieldName: string, ValueType: type): untyped =
   var res: ValueType

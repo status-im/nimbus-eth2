@@ -265,6 +265,7 @@ proc makeBeaconBlock*(
     proposerSlashings: seq[ProposerSlashing],
     attesterSlashings: seq[AttesterSlashing],
     voluntaryExits: seq[SignedVoluntaryExit],
+    executionPayload: ExecutionPayload,
     rollback: RollbackHashedProc,
     cache: var StateCache): Option[BeaconBlock] =
   ## Create a block for the given state. The last block applied to it must be
@@ -306,4 +307,4 @@ proc makeBeaconBlock*(
   state.root = hash_tree_root(state.data)
   blck.state_root = state.root
 
-  some(blck)
+  return some(blck)

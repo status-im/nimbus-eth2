@@ -40,7 +40,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     let proposer = node.chainDag.getProposer(head, slot)
     if proposer.isNone():
       raise newException(CatchableError, "could not retrieve block for slot: " & $slot)
-    let message = makeBeaconBlockForHeadAndSlot(
+    let message = await makeBeaconBlockForHeadAndSlot(
       node, randao_reveal, proposer.get()[0], graffiti, head, slot)
     if message.isNone():
       raise newException(CatchableError, "could not retrieve block for slot: " & $slot)
