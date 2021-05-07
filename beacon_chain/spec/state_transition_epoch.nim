@@ -58,15 +58,15 @@ func init*(rewards: var RewardInfo, state: SomeBeaconState) =
     var flags: set[RewardFlags]
 
     if v[].slashed:
-      flags.incl(isSlashed)
+      flags.incl(RewardFlags.isSlashed)
     if state.get_current_epoch() >= v[].withdrawable_epoch:
-      flags.incl canWithdrawInCurrentEpoch
+      flags.incl RewardFlags.canWithdrawInCurrentEpoch
 
     if v[].is_active_validator(state.get_current_epoch()):
       rewards.total_balances.current_epoch_raw += v[].effective_balance
 
     if v[].is_active_validator(state.get_previous_epoch()):
-      flags.incl isActiveInPreviousEpoch
+      flags.incl RewardFlags.isActiveInPreviousEpoch
       rewards.total_balances.previous_epoch_raw += v[].effective_balance
 
     rewards.statuses[i] = RewardStatus(
@@ -87,10 +87,10 @@ func process_attestation(
     is_previous_epoch_attester: Option[InclusionInfo]
 
   if a.data.target.epoch == state.get_current_epoch():
-    flags.incl isCurrentEpochAttester
+    flags.incl RewardFlags.isCurrentEpochAttester
 
     if a.data.target.root == get_block_root(state, state.get_current_epoch()):
-      flags.incl isCurrentEpochTargetAttester
+      flags.incl RewardFlags.isCurrentEpochTargetAttester
 
   elif a.data.target.epoch == state.get_previous_epoch():
     is_previous_epoch_attester = some(InclusionInfo(
@@ -99,10 +99,10 @@ func process_attestation(
     ))
 
     if a.data.target.root == get_block_root(state, state.get_previous_epoch()):
-      flags.incl isPreviousEpochTargetAttester
+      flags.incl RewardFlags.isPreviousEpochTargetAttester
 
       if a.data.beacon_block_root == get_block_root_at_slot(state, a.data.slot):
-        flags.incl isPreviousEpochHeadAttester
+        flags.incl RewardFlags.isPreviousEpochHeadAttester
 
   # Update the cache for all participants
   for validator_index in get_attesting_indices(
@@ -128,30 +128,30 @@ func process_attestations*(
     process_attestation(self, state, a, cache)
 
   for idx, v in self.statuses:
-    if isSlashed in v.flags:
+    if v.flags.contains RewardFlags.isSlashed:
       continue
 
     let validator_balance = state.validators[idx].effective_balance
 
-    if isCurrentEpochAttester in v.flags:
+    if v.flags.contains RewardFlags.isCurrentEpochAttester:
       self.total_balances.current_epoch_attesters_raw += validator_balance
 
-    if isCurrentEpochTargetAttester in v.flags:
+    if v.flags.contains RewardFlags.isCurrentEpochTargetAttester:
       self.total_balances.current_epoch_target_attesters_raw += validator_balance
 
     if v.is_previous_epoch_attester.isSome():
       self.total_balances.previous_epoch_attesters_raw += validator_balance
 
-    if isPreviousEpochTargetAttester in v.flags:
+    if v.flags.contains RewardFlags.isPreviousEpochTargetAttester:
       self.total_balances.previous_epoch_target_attesters_raw += validator_balance
 
-    if isPreviousEpochHeadAttester in v.flags:
+    if v.flags.contains RewardFlags.isPreviousEpochHeadAttester:
       self.total_balances.previous_epoch_head_attesters_raw += validator_balance
 
 func is_eligible_validator*(validator: RewardStatus): bool =
-  isActiveInPreviousEpoch in validator.flags or
-    (isSlashed in validator.flags and
-      (canWithdrawInCurrentEpoch notin validator.flags))
+  validator.flags.contains(RewardFlags.isActiveInPreviousEpoch) or
+    (validator.flags.contains(RewardFlags.isSlashed) and not
+      (validator.flags.contains RewardFlags.canWithdrawInCurrentEpoch))
 
 # Spec
 # --------------------------------------------------------
@@ -311,7 +311,7 @@ func get_source_delta*(validator: RewardStatus,
   ## Return attester micro-rewards/penalties for source-vote for each validator.
   get_attestation_component_delta(
     validator.is_previous_epoch_attester.isSome() and
-      (isSlashed notin validator.flags),
+      not (validator.flags.contains RewardFlags.isSlashed),
     total_balances.previous_epoch_attesters,
     total_balances.current_epoch,
     base_reward,
@@ -323,8 +323,8 @@ func get_target_delta*(validator: RewardStatus,
                        finality_delay: uint64): RewardDelta =
   ## Return attester micro-rewards/penalties for target-vote for each validator.
   get_attestation_component_delta(
-    isPreviousEpochTargetAttester in validator.flags and
-      (isSlashed notin validator.flags),
+    validator.flags.contains(RewardFlags.isPreviousEpochTargetAttester) and
+      not (validator.flags.contains(RewardFlags.isSlashed)),
     total_balances.previous_epoch_target_attesters,
     total_balances.current_epoch,
     base_reward,
@@ -336,8 +336,8 @@ func get_head_delta*(validator: RewardStatus,
                      finality_delay: uint64): RewardDelta =
   ## Return attester micro-rewards/penalties for head-vote for each validator.
   get_attestation_component_delta(
-    isPreviousEpochHeadAttester in validator.flags and
-      (isSlashed notin validator.flags),
+    validator.flags.contains(RewardFlags.isPreviousEpochHeadAttester) and
+      ((not validator.flags.contains(RewardFlags.isSlashed))),
     total_balances.previous_epoch_head_attesters,
     total_balances.current_epoch,
     base_reward,
@@ -347,7 +347,7 @@ func get_inclusion_delay_delta*(validator: RewardStatus,
                                 base_reward: uint64):
                                   (RewardDelta, Option[(uint64, RewardDelta)]) =
   ## Return proposer and inclusion delay micro-rewards/penalties for each validator.
-  if validator.is_previous_epoch_attester.isSome() and (isSlashed notin validator.flags):
+  if validator.is_previous_epoch_attester.isSome() and ((not validator.flags.contains(RewardFlags.isSlashed))):
     let
       inclusion_info = validator.is_previous_epoch_attester.get()
       proposer_reward = get_proposer_reward(base_reward)
@@ -373,8 +373,8 @@ func get_inactivity_penalty_delta*(validator: RewardStatus,
     # Additionally, all validators whose FFG target didn't match are penalized extra
     # This condition is equivalent to this condition from the spec:
     # `index not in get_unslashed_attesting_indices(state, matching_target_attestations)`
-    if (isSlashed in validator.flags) or
-        (isPreviousEpochTargetAttester notin validator.flags):
+    if (validator.flags.contains(RewardFlags.isSlashed)) or
+        ((not validator.flags.contains(RewardFlags.isPreviousEpochTargetAttester))):
       delta.penalties +=
         validator.current_epoch_effective_balance * finality_delay div
           INACTIVITY_PENALTY_QUOTIENT

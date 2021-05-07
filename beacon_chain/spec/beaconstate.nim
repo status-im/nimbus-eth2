@@ -636,17 +636,17 @@ proc process_attestation*(
 
   ok()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/fork.md#upgrading-the-state
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.3/specs/altair/fork.md#upgrading-the-state
 func upgrade_to_altair(pre: phase0.BeaconState): altair.BeaconState =
   let epoch = get_current_epoch(pre)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/fork.md#configuration
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.3/specs/altair/fork.md#configuration
   const ALTAIR_FORK_VERSION = Version [byte 1, 0, 0, 0]
 
   var empty_participation =
     HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]()
   for _ in 0 ..< len(pre.validators):
-    empty_participation.add 0.ParticipationFlags
+    doAssert empty_participation.add 0.ParticipationFlags
 
   altair.BeaconState(
     genesis_time: pre.genesis_time,
