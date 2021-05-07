@@ -192,11 +192,11 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
       state[], blockRefs[^1].atSlot(blockRefs[^1].slot - 1), false, cache)
 
   for b in blocks.mitems():
-    while state[].data.data.slot < b.message.slot:
-      let isEpoch = (state[].data.data.slot + 1).isEpoch()
+    while getStateField(state[], slot) < b.message.slot:
+      let isEpoch = (getStateField(state[], slot) + 1).isEpoch()
       withTimer(timers[if isEpoch: tAdvanceEpoch else: tAdvanceSlot]):
         let ok = process_slots(
-          state[].data, state[].data.data.slot + 1, cache, rewards, {})
+          state[].data, getStateField(state[], slot) + 1, cache, rewards, {})
         doAssert ok, "Slot processing can't fail with correct inputs"
 
     var start = Moment.now()
@@ -214,8 +214,8 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
       withTimer(timers[tDbStore]):
         dbBenchmark.putBlock(b)
 
-    if state[].data.data.slot.isEpoch and conf.storeStates:
-      if state[].data.data.slot.epoch < 2:
+    if getStateField(state[], slot).isEpoch and conf.storeStates:
+      if getStateField(state[], slot).epoch < 2:
         dbBenchmark.putState(state[].data.root, state[].data.data)
         dbBenchmark.checkpoint()
       else:
@@ -226,7 +226,7 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
         withTimer(timers[tDbLoad]):
           doAssert dbBenchmark.getState(state[].data.root, loadedState[], noRollback)
 
-        if state[].data.data.slot.epoch mod 16 == 0:
+        if getStateField(state[], slot).epoch mod 16 == 0:
           doAssert hash_tree_root(state[].data.data) == hash_tree_root(loadedState[])
 
   printTimers(false, timers)
@@ -517,12 +517,12 @@ proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimePreset) =
 
   for bi in 0..<blockRefs.len:
     blck = db.getBlock(blockRefs[blockRefs.len - bi - 1].root).get()
-    while state[].data.data.slot < blck.message.slot:
+    while getStateField(state[], slot) < blck.message.slot:
       let ok = process_slots(
-        state[].data, state[].data.data.slot + 1, cache, rewards, {})
+        state[].data, getStateField(state[], slot) + 1, cache, rewards, {})
       doAssert ok, "Slot processing can't fail with correct inputs"
 
-      if state[].data.data.slot.isEpoch():
+      if getStateField(state[], slot).isEpoch():
         processEpoch()
 
     if not state_transition(
