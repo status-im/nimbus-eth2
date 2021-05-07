@@ -117,11 +117,11 @@ type
 
     of validatorPerf:
       perfSlot* {.
-        defaultValue: 0
+        defaultValue: -128 * SLOTS_PER_EPOCH.int64
         name: "start-slot"
         desc: "Starting slot, negative = backwards from head".}: int64
       perfSlots* {.
-        defaultValue: 50000
+        defaultValue: 0
         name: "slots"
         desc: "Number of slots to run benchmark for, 0 = all the way to head".}: uint64
 
@@ -445,7 +445,7 @@ proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimePreset) =
     echo "Database not initialized"
     quit 1
 
-  echo "Initializing block pool..."
+  echo "# Initializing block pool..."
   let dag = ChainDAGRef.init(runtimePreset, db, {})
 
   var
@@ -456,12 +456,64 @@ proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimePreset) =
     rewards = RewardInfo()
     blck: TrustedSignedBeaconBlock
 
-  echo &"Loaded {dag.blocks.len} blocks, head slot {dag.head.slot}, selected {blockRefs.len} blocks"
   doAssert blockRefs.len() > 0, "Must select at least one block"
+
+  echo "# Analyzing performance for epochs ",
+    blockRefs[^1].slot.epoch, " - ", blockRefs[0].slot.epoch
 
   let state = newClone(dag.headState)
   dag.updateStateData(
     state[], blockRefs[^1].atSlot(blockRefs[^1].slot - 1), false, cache)
+
+  proc processEpoch() =
+    let
+      prev_epoch_target_slot =
+        state[].data.data.get_previous_epoch().compute_start_slot_at_epoch()
+      penultimate_epoch_end_slot =
+        if prev_epoch_target_slot == 0: Slot(0)
+        else: prev_epoch_target_slot - 1
+      first_slot_empty =
+        state[].data.data.get_block_root_at_slot(prev_epoch_target_slot) ==
+        state[].data.data.get_block_root_at_slot(penultimate_epoch_end_slot)
+
+    let first_slot_attesters = block:
+      let committee_count = state[].data.data.get_committee_count_per_slot(
+        prev_epoch_target_slot, cache)
+      var indices = HashSet[ValidatorIndex]()
+      for committee_index in 0..<committee_count:
+        for validator_index in state[].data.data.get_beacon_committee(
+            prev_epoch_target_slot, committee_index.CommitteeIndex, cache):
+          indices.incl(validator_index)
+      indices
+
+    for i, s in rewards.statuses.pairs():
+      let perf = addr perfs[i]
+      if RewardFlags.isActiveInPreviousEpoch in s.flags:
+        if s.is_previous_epoch_attester.isSome():
+          perf.attestation_hits += 1;
+
+          if RewardFlags.isPreviousEpochHeadAttester in s.flags:
+            perf.head_attestation_hits += 1
+          else:
+            perf.head_attestation_misses += 1
+
+          if RewardFlags.isPreviousEpochTargetAttester in s.flags:
+            perf.target_attestation_hits += 1
+          else:
+            perf.target_attestation_misses += 1
+
+          if i.ValidatorIndex in first_slot_attesters:
+            if first_slot_empty:
+              perf.first_slot_head_attester_when_first_slot_empty += 1
+            else:
+              perf.first_slot_head_attester_when_first_slot_not_empty += 1
+
+          if s.inclusion_info.isSome():
+            perf.delays.mGetOrPut(s.inclusion_info.get().delay, 0'u64) += 1
+
+        else:
+          perf.attestation_misses += 1;
+
 
   for bi in 0..<blockRefs.len:
     blck = db.getBlock(blockRefs[blockRefs.len - bi - 1].root).get()
@@ -471,58 +523,17 @@ proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimePreset) =
       doAssert ok, "Slot processing can't fail with correct inputs"
 
       if state[].data.data.slot.isEpoch():
-        let
-          prev_epoch_target_slot =
-            state[].data.data.get_previous_epoch().compute_start_slot_at_epoch()
-          penultimate_epoch_end_slot =
-            if prev_epoch_target_slot == 0: Slot(0)
-            else: prev_epoch_target_slot - 1
-          first_slot_empty =
-            state[].data.data.get_block_root_at_slot(prev_epoch_target_slot) ==
-            state[].data.data.get_block_root_at_slot(penultimate_epoch_end_slot)
-
-        let first_slot_attesters = block:
-          let committee_count = state[].data.data.get_committee_count_per_slot(
-            prev_epoch_target_slot, cache)
-          var indices = HashSet[ValidatorIndex]()
-          for committee_index in 0..<committee_count:
-            for validator_index in state[].data.data.get_beacon_committee(
-                prev_epoch_target_slot, committee_index.CommitteeIndex, cache):
-              indices.incl(validator_index)
-          indices
-
-        for i, s in rewards.statuses.pairs():
-          let perf = addr perfs[i]
-          if RewardFlags.isActiveInPreviousEpoch in s.flags:
-            if s.is_previous_epoch_attester.isSome():
-              perf.attestation_hits += 1;
-
-              if RewardFlags.isPreviousEpochHeadAttester in s.flags:
-                perf.head_attestation_hits += 1
-              else:
-                perf.head_attestation_misses += 1
-
-              if RewardFlags.isPreviousEpochTargetAttester in s.flags:
-                perf.target_attestation_hits += 1
-              else:
-                perf.target_attestation_misses += 1
-
-              if i.ValidatorIndex in first_slot_attesters:
-                if first_slot_empty:
-                  perf.first_slot_head_attester_when_first_slot_empty += 1
-                else:
-                  perf.first_slot_head_attester_when_first_slot_not_empty += 1
-
-              if s.inclusion_info.isSome():
-                perf.delays.mGetOrPut(s.inclusion_info.get().delay, 0'u64) += 1
-
-            else:
-              perf.attestation_misses += 1;
+        processEpoch()
 
     if not state_transition(
         runtimePreset, state[].data, blck, cache, rewards, {slotProcessed}, noRollback):
       echo "State transition failed (!)"
       quit 1
+
+  # Capture rewards from the epoch leading up to the last block
+  let nextEpochStart = (blck.message.slot.epoch + 1).compute_start_slot_at_epoch
+  doAssert  process_slots(state[].data, nextEpochStart, cache, rewards, {})
+  processEpoch()
 
   echo "validator_index,attestation_hits,attestation_misses,head_attestation_hits,head_attestation_misses,target_attestation_hits,target_attestation_misses,delay_avg,first_slot_head_attester_when_first_slot_empty,first_slot_head_attester_when_first_slot_not_empty"
 
