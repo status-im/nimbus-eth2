@@ -145,7 +145,9 @@ proc parseSSZ(path: string, T: typedesc): T =
 
 proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, skipBLS: bool) =
   let prePath = dir / preState & ".ssz"
-  var cache = StateCache()
+  var
+    cache = StateCache()
+    rewards = RewardInfo()
 
   echo "Running: ", prePath
   let state = (ref HashedBeaconState)(
@@ -161,11 +163,14 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
     let flags = if skipBLS: {skipBlsValidation}
                 else: {}
     let success = state_transition(
-      defaultRuntimePreset, state[], signedBlock, cache, flags, noRollback)
+      defaultRuntimePreset, state[], signedBlock, cache, rewards, flags,
+      noRollback)
     echo "State transition status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 
 proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
-  var cache = StateCache()
+  var
+    cache = StateCache()
+    rewards = RewardInfo()
   let prePath = dir / preState & ".ssz"
 
   echo "Running: ", prePath
@@ -175,7 +180,7 @@ proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
   state.root = hash_tree_root(state.data)
 
   # Shouldn't necessarily assert, because nbench can run test suite
-  discard process_slots(state[], state.data.slot + numSlots, cache)
+  discard process_slots(state[], state.data.slot + numSlots, cache, rewards)
 
 template processEpochScenarioImpl(
            dir, preState: string,

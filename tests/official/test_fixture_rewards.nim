@@ -30,7 +30,7 @@ type Deltas = object
   rewards: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
   penalties: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
-func add(v: var Deltas, idx: int, delta: Delta) =
+func add(v: var Deltas, idx: int, delta: RewardDelta) =
   v.rewards[idx] += delta.rewards
   v.penalties[idx] += delta.penalties
 
@@ -62,12 +62,13 @@ proc runTest(rewardsDir, identifier: string) =
           parseTest(testDir/"inactivity_penalty_deltas.ssz", SSZ, Deltas)
 
       var
-        validator_statuses = ValidatorStatuses.init(state[])
+        rewards = RewardInfo()
         finality_delay = (state[].get_previous_epoch() - state[].finalized_checkpoint.epoch)
 
-      validator_statuses.process_attestations(state[], cache)
+      rewards.init(state[])
+      rewards.process_attestations(state[], cache)
       let
-        total_balance = validator_statuses.total_balances.current_epoch
+        total_balance = rewards.total_balances.current_epoch
         total_balance_sqrt = integer_squareroot(total_balance)
 
       var
@@ -77,7 +78,7 @@ proc runTest(rewardsDir, identifier: string) =
         inclusionDelayDeltas2 = Deltas.init(state[].validators.len)
         inactivityPenaltyDeltas2 = Deltas.init(state[].validators.len)
 
-      for index, validator in validator_statuses.statuses.mpairs():
+      for index, validator in rewards.statuses.mpairs():
         if not is_eligible_validator(validator):
           continue
 
@@ -86,11 +87,11 @@ proc runTest(rewardsDir, identifier: string) =
             state[], index.ValidatorIndex, total_balance_sqrt)
 
         sourceDeltas2.add(index, get_source_delta(
-          validator, base_reward, validator_statuses.total_balances, finality_delay))
+          validator, base_reward, rewards.total_balances, finality_delay))
         targetDeltas2.add(index, get_target_delta(
-          validator, base_reward, validator_statuses.total_balances, finality_delay))
+          validator, base_reward, rewards.total_balances, finality_delay))
         headDeltas2.add(index, get_head_delta(
-          validator, base_reward, validator_statuses.total_balances, finality_delay))
+          validator, base_reward, rewards.total_balances, finality_delay))
 
         let
           (inclusion_delay_delta, proposer_delta) =

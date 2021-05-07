@@ -68,12 +68,14 @@ proc sszDecodeEntireInput*(input: openArray[byte], Decoded: type): Decoded =
 proc process_justification_and_finalization*(state: var BeaconState) =
   var cache = StateCache()
 
-  var validator_statuses = ValidatorStatuses.init(state)
-  validator_statuses.process_attestations(state, cache)
-  process_justification_and_finalization(state, validator_statuses.total_balances)
+  var rewards: RewardInfo
+  rewards.init(state)
+  rewards.process_attestations(state, cache)
+  process_justification_and_finalization(state, rewards.total_balances)
 
 proc process_slashings*(state: var BeaconState) =
   var cache = StateCache()
-  var validator_statuses = ValidatorStatuses.init(state)
-  validator_statuses.process_attestations(state, cache)
-  process_slashings(state, validator_statuses.total_balances.current_epoch)
+  var rewards: RewardInfo
+  rewards.init(state)
+  rewards.process_attestations(state, cache)
+  process_slashings(state, rewards.total_balances.current_epoch)
