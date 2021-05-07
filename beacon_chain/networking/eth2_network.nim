@@ -1633,8 +1633,11 @@ proc shortForm*(id: NetKeyPair): string =
 proc subscribe*(
     node: Eth2Node, topic: string, topicParams: TopicParams,
     enableTopicMetrics: bool = false) {.raises: [Defect, CatchableError].} =
-  proc dummyMsgHandler(topic: string, data: seq[byte]) {.async.} =
-    discard
+  proc dummyMsgHandler(topic: string, data: seq[byte]): Future[void] =
+    # Avoid closure environment with `{.async.}`
+    var res = newFuture[void]("eth2_network.dummyMsgHandler")
+    res.complete()
+    res
 
   let
     topicName = topic & "_snappy"
