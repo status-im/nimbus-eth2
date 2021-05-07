@@ -140,14 +140,14 @@ func check_aggregation_count(
 
 func check_attestation_subnet(
     epochRef: EpochRef, attestation: Attestation,
-    attestation_subnet: uint64): Result[void, (ValidationResult, cstring)] =
+    subnet_id: SubnetId): Result[void, (ValidationResult, cstring)] =
   let
     expectedSubnet =
       compute_subnet_for_attestation(
         get_committee_count_per_slot(epochRef),
         attestation.data.slot, attestation.data.index.CommitteeIndex)
 
-  if expectedSubnet != attestation_subnet:
+  if expectedSubnet != subnet_id:
     return err((ValidationResult.Reject, cstring(
       "Attestation not on the correct subnet")))
 
@@ -162,7 +162,7 @@ proc validateAttestation*(
     batchCrypto: ref BatchCrypto,
     attestation: Attestation,
     wallTime: BeaconTime,
-    attestation_subnet: uint64, checksExpensive: bool):
+    subnet_id: SubnetId, checkSignature: bool):
     Future[Result[tuple[attesting_index: ValidatorIndex, sig: CookedSig],
       (ValidationResult, cstring)]] {.async.} =
   # Some of the checks below have been reordered compared to the spec, to
@@ -232,7 +232,7 @@ proc validateAttestation*(
   # attestation.data.target.epoch), which may be pre-computed along with the
   # committee information for the signature check.
   block:
-    let v = check_attestation_subnet(epochRef, attestation, attestation_subnet) # [REJECT]
+    let v = check_attestation_subnet(epochRef, attestation, subnet_id) # [REJECT]
     if v.isErr():
       return err(v.error)
 
@@ -271,14 +271,6 @@ proc validateAttestation*(
     return err((ValidationResult.Ignore, cstring(
       "Validator has already voted in epoch")))
 
-  if not checksExpensive:
-    # Only sendAttestation, which discards result, doesn't use checksExpensive
-    # TODO this means that (a) this becomes an "expensive" check and (b) it is
-    # doing in-principle unnecessary work, since this should be known from the
-    # attestation creation.
-    return ok((validator_index, attestation.signature.load.get().CookedSig))
-
-  # The signature of attestation is valid.
   block:
     # First pass - without cryptography
     let v = is_valid_indexed_attestation(
@@ -287,29 +279,38 @@ proc validateAttestation*(
     if v.isErr():
       return err((ValidationResult.Reject, v.error))
 
-  # Buffer crypto checks
-  let deferredCrypto = batchCrypto
-                        .scheduleAttestationCheck(
-                          fork, genesis_validators_root, epochRef,
-                          attestation
-                        )
-  if deferredCrypto.isNone():
-    return err((ValidationResult.Reject,
-                cstring("validateAttestation: crypto sanity checks failure")))
+  let sig =
+    if checkSignature:
+      # Attestation signatures are batch-verified
+      let deferredCrypto = batchCrypto
+                            .scheduleAttestationCheck(
+                              fork, genesis_validators_root, epochRef,
+                              attestation
+                            )
+      if deferredCrypto.isNone():
+        return err((ValidationResult.Reject,
+                    cstring("validateAttestation: crypto sanity checks failure")))
 
-  # Await the crypto check
-  let
-    (cryptoFut, sig) = deferredCrypto.get()
+      # Await the crypto check
+      let
+        (cryptoFut, sig) = deferredCrypto.get()
 
-  var x = (await cryptoFut)
-  case x
-  of BatchResult.Invalid:
-    return err((ValidationResult.Reject, cstring("validateAttestation: invalid signature")))
-  of BatchResult.Timeout:
-    beacon_attestations_dropped_queue_full.inc()
-    return err((ValidationResult.Ignore, cstring("validateAttestation: timeout checking signature")))
-  of BatchResult.Valid:
-    discard # keep going only in this case
+      var x = (await cryptoFut)
+      case x
+      of BatchResult.Invalid:
+        return err((ValidationResult.Reject, cstring("validateAttestation: invalid signature")))
+      of BatchResult.Timeout:
+        beacon_attestations_dropped_queue_full.inc()
+        return err((ValidationResult.Ignore, cstring("validateAttestation: timeout checking signature")))
+      of BatchResult.Valid:
+        sig # keep going only in this case
+    else:
+      let sig = attestation.signature.load()
+      if not sig.isSome():
+        return err((
+          ValidationResult.Ignore,
+          cstring("validateAttestation: unable to load signature")))
+      sig.get()
 
   # Only valid attestations go in the list, which keeps validator_index
   # in range

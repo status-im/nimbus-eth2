@@ -194,9 +194,12 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
             ad, a.committee_length.int, a.validator_committee_index,
             vc.fork, vc.beaconGenesis.genesis_validators_root)
 
-          notice "Attesting",
-            slot, public_key = a.public_key, attestation = shortLog(attestation)
-          discard await vc.client.post_v1_beacon_pool_attestations(attestation)
+          notice "Sending attestation to beacon node",
+            public_key = a.public_key, attestation = shortLog(attestation)
+          let ok = await vc.client.post_v1_beacon_pool_attestations(attestation)
+          if not ok:
+            warn "Failed to send attestation to beacon node",
+              public_key = a.public_key, attestation = shortLog(attestation)
 
           validatorToAttestationDataRoot[a.public_key] = attestation.data.hash_tree_root
         else:

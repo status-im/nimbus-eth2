@@ -281,3 +281,28 @@ func countZeros*(x: BitSeq): int =
 
 template bytes*(x: BitSeq): untyped =
   seq[byte](x)
+
+iterator items*(x: BitArray): bool =
+  for i in 0..<x.bits:
+    yield x[i]
+
+iterator pairs*(x: BitArray): (int, bool) =
+  for i in 0..<x.bits:
+    yield (i, x[i])
+
+func incl*(a: var BitArray, b: BitArray) =
+  # Update `a` to include the bits of `b`, as if applying `or` to each bit
+  for i in 0..<a.bytes.len:
+    a[i] = a[i] or b[i]
+
+func clear*(a: var BitArray) =
+  for b in a.bytes.mitems(): b = 0
+
+func union*(a, b: BitArray): BitArray =
+  for i in 0..<a.bytes.len:
+    result[i] = a[i] or b[i]
+
+func difference*(a, b: BitArray): BitArray =
+  for i in 0..<a.bytes.len:
+    result[i] = a[i] and (not b[i])
+

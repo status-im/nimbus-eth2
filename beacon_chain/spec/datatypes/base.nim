@@ -149,6 +149,10 @@ type
   # leave it at spec size
   CommitteeIndex* = distinct uint64
 
+  # The subnet id maps which gossip subscription to use to publish an
+  # attestation - it is distinct from the CommitteeIndex in particular
+  SubnetId* = distinct uint64
+
   Gwei* = uint64
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#proposerslashing
@@ -816,6 +820,14 @@ proc readValue*(reader: var JsonReader, value: var CommitteeIndex)
                {.raises: [IOError, SerializationError, Defect].} =
   value = CommitteeIndex reader.readValue(distinctBase CommitteeIndex)
 
+proc writeValue*(writer: var JsonWriter, value: SubnetId)
+                {.raises: [IOError, Defect].} =
+  writeValue(writer, distinctBase value)
+
+proc readValue*(reader: var JsonReader, value: var SubnetId)
+               {.raises: [IOError, SerializationError, Defect].} =
+  value = SubnetId reader.readValue(distinctBase SubnetId)
+
 proc writeValue*(writer: var JsonWriter, value: HashList)
                 {.raises: [IOError, SerializationError, Defect].} =
   writeValue(writer, value.data)
@@ -882,6 +894,9 @@ proc `==`*(x, y: CommitteeIndex) : bool {.borrow, noSideEffect.}
 proc `<`*(x, y: CommitteeIndex) : bool {.borrow, noSideEffect.}
 proc hash*(x: CommitteeIndex): Hash {.borrow, noSideEffect.}
 func `$`*(x: CommitteeIndex): auto = $(distinctBase(x))
+
+proc `==`*(x, y: SubnetId) : bool {.borrow, noSideEffect.}
+proc `$`*(x: SubnetId): string {.borrow, noSideEffect.}
 
 func `as`*(d: DepositData, T: type DepositMessage): T =
   T(pubkey: d.pubkey,
