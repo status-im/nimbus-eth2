@@ -21,13 +21,18 @@ suite "Bit fields":
       not a[0]
       a[1]
 
-      union(a, b) == a
-      difference(a, b) == a
+      a + b == a
+      a - b == a
 
-      union(b, a) == a
-      difference(b, a) == b
+      b + a == a
+      b - a == b # b is empty
 
     b.setBit 2
+
+    check:
+      (a + b)[2]
+      (b - a)[2]
+      not (b - a)[1]
 
     a.incl(b)
 

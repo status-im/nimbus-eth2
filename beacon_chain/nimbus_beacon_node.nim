@@ -594,30 +594,30 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) {.async.} =
 
   # Accounting specific to non-stability subnets
   for i, enabled in
-      difference(prevSubscribedSubnets, node.attestationSubnets.subscribedSubnets):
+      (prevSubscribedSubnets - node.attestationSubnets.subscribedSubnets):
     if enabled:
       node.attestationSubnets.subscribeSlot[i] = FAR_FUTURE_SLOT
 
   let
-    prevAllSubnets = union(prevSubscribedSubnets, prevStabilitySubnets)
-    allSubnets = union(node.attestationSubnets.subscribedSubnets, stabilitySubnets)
-    unsubscribeSubnets = difference(prevAllSubnets, allSubnets)
-    subscribeSubnets = difference(allSubnets, prevAllSubnets)
+    prevAllSubnets = prevSubscribedSubnets + prevStabilitySubnets
+    allSubnets = node.attestationSubnets.subscribedSubnets + stabilitySubnets
+    unsubscribeSubnets = prevAllSubnets - allSubnets
+    subscribeSubnets = allSubnets - prevAllSubnets
 
   node.network.unsubscribeAttestationSubnets(unsubscribeSubnets)
   node.network.subscribeAttestationSubnets(subscribeSubnets)
 
   debug "Attestation subnets",
     expiringSubnets =
-      difference(prevSubscribedSubnets, node.attestationSubnets.subscribedSubnets),
+      prevSubscribedSubnets - node.attestationSubnets.subscribedSubnets,
     subnets = node.attestationSubnets.subscribedSubnets,
     newSubnets =
-      difference(node.attestationSubnets.subscribedSubnets, prevSubscribedSubnets),
+      node.attestationSubnets.subscribedSubnets - prevSubscribedSubnets,
     wallSlot,
     wallEpoch = wallSlot.epoch,
     num_stability_subnets = node.attestationSubnets.stabilitySubnets.len,
-    expiring_stability_subnets = difference(prevStabilitySubnets, stabilitySubnets),
-    new_stability_subnets = difference(stabilitySubnets, prevStabilitySubnets),
+    expiring_stability_subnets = prevStabilitySubnets - stabilitySubnets,
+    new_stability_subnets = stabilitySubnets - prevStabilitySubnets,
     subscribeSubnets,
     unsubscribeSubnets
 
@@ -694,7 +694,7 @@ proc subscribeAttestationSubnetHandlers(node: BeaconNode) {.
      initialStabilitySubnets,
      wallEpoch
   node.network.subscribeAttestationSubnets(
-    union(node.attestationSubnets.subscribedSubnets, initialStabilitySubnets))
+    node.attestationSubnets.subscribedSubnets + initialStabilitySubnets)
 
 proc addMessageHandlers(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   # inspired by lighthouse research here

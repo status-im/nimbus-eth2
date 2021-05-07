@@ -298,11 +298,12 @@ func incl*(a: var BitArray, b: BitArray) =
 func clear*(a: var BitArray) =
   for b in a.bytes.mitems(): b = 0
 
-func union*(a, b: BitArray): BitArray =
+# Set operations
+func `+`*(a, b: BitArray): BitArray =
   for i in 0..<a.bytes.len:
     result[i] = a[i] or b[i]
 
-func difference*(a, b: BitArray): BitArray =
+func `-`*(a, b: BitArray): BitArray =
   for i in 0..<a.bytes.len:
     result[i] = a[i] and (not b[i])
 
