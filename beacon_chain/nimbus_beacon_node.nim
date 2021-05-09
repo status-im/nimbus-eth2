@@ -525,7 +525,7 @@ func updateStabilitySubnets(node: BeaconNode, slot: Slot): BitArray[ATTESTATION_
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   for ss in node.attestationSubnets.stabilitySubnets.mitems():
-    if epoch >= n.expiration:
+    if epoch >= ss.expiration:
       ss.subnet_id = node.network.getRandomSubnetId()
       ss.expiration = epoch + node.network.getStabilitySubnetLength()
 
@@ -658,18 +658,18 @@ proc subscribeAttestationSubnetHandlers(node: BeaconNode) {.
     # In all-subnets mode, we create a stability subnet subscription for every
     # subnet - this will be propagated in the attnets ENR entry
     node.attestationSubnets.stabilitySubnets.setLen(ATTESTATION_SUBNET_COUNT)
-    for i, n in node.attestationSubnets.stabilitySubnets.mpairs():
-      n.subnet_id = SubnetId(i)
-      n.expiration = FAR_FUTURE_EPOCH
+    for i, ss in node.attestationSubnets.stabilitySubnets.mpairs():
+      ss.subnet_id = SubnetId(i)
+      ss.expiration = FAR_FUTURE_EPOCH
   else:
     # TODO make length dynamic when validator-client-based validators join and leave
     # In normal mode, there's one subnet subscription per validator, changing
     # randomly over time
     node.attestationSubnets.stabilitySubnets.setLen(
       node.attachedValidators[].count)
-    for i, n in node.attestationSubnets.stabilitySubnets.mpairs():
-      n.subnet_id = node.network.getRandomSubnetId()
-      n.expiration = wallEpoch + node.getStabilitySubnetLength()
+    for i, ss in node.attestationSubnets.stabilitySubnets.mpairs():
+      ss.subnet_id = node.network.getRandomSubnetId()
+      ss.expiration = wallEpoch + node.getStabilitySubnetLength()
 
   let initialStabilitySubnets =
     node.attestationSubnets.stabilitySubnets.getStabilitySubnets()
