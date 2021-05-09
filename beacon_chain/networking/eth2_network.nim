@@ -1808,5 +1808,5 @@ func getStabilitySubnetLength*(node: Eth2Node): uint64 =
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION +
     node.rng[].rand(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION.int).uint64
 
-func getRandomSubnetId(node: Eth2Node): SubnetId =
+func getRandomSubnetId*(node: Eth2Node): SubnetId =
   node.rng[].rand(ATTESTATION_SUBNET_COUNT - 1).SubnetId

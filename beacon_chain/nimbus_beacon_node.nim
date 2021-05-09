@@ -529,7 +529,7 @@ func updateStabilitySubnets(node: BeaconNode, slot: Slot): BitArray[ATTESTATION_
       ss.subnet_id = node.network.getRandomSubnetId()
       ss.expiration = epoch + node.network.getStabilitySubnetLength()
 
-    result[n.subnet_id.int] = true
+    result[ss.subnet_id.int] = true
 
 proc cycleAttestationSubnetsPerEpoch(
     node: BeaconNode, wallSlot: Slot,
@@ -662,6 +662,8 @@ proc subscribeAttestationSubnetHandlers(node: BeaconNode) {.
       ss.subnet_id = SubnetId(i)
       ss.expiration = FAR_FUTURE_EPOCH
   else:
+    let wallEpoch = node.beaconClock.now().slotOrZero().epoch
+
     # TODO make length dynamic when validator-client-based validators join and leave
     # In normal mode, there's one subnet subscription per validator, changing
     # randomly over time
@@ -669,7 +671,7 @@ proc subscribeAttestationSubnetHandlers(node: BeaconNode) {.
       node.attachedValidators[].count)
     for i, ss in node.attestationSubnets.stabilitySubnets.mpairs():
       ss.subnet_id = node.network.getRandomSubnetId()
-      ss.expiration = wallEpoch + node.getStabilitySubnetLength()
+      ss.expiration = wallEpoch + node.network.getStabilitySubnetLength()
 
   let initialStabilitySubnets =
     node.attestationSubnets.stabilitySubnets.getStabilitySubnets()
@@ -677,7 +679,6 @@ proc subscribeAttestationSubnetHandlers(node: BeaconNode) {.
 
   let
     initialSubnets = node.getInitialAttestationSubnets()
-    wallEpoch = node.beaconClock.now().slotOrZero().epoch
   for i in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
     if SubnetId(i) in initialSubnets:
       node.attestationSubnets.subscribedSubnets[i] = true
@@ -691,8 +692,7 @@ proc subscribeAttestationSubnetHandlers(node: BeaconNode) {.
 
   debug "Initial attestation subnets subscribed",
      initialSubnets,
-     initialStabilitySubnets,
-     wallEpoch
+     initialStabilitySubnets
   node.network.subscribeAttestationSubnets(
     node.attestationSubnets.subscribedSubnets + initialStabilitySubnets)
 
