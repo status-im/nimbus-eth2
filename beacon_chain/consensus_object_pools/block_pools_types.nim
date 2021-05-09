@@ -176,30 +176,11 @@ type
     # balances, as used in fork choice
     effective_balances_bytes*: seq[byte]
 
-  BlockRef* = ref object
-    ## Node in object graph guaranteed to lead back to tail block, and to have
-    ## a corresponding entry in database.
-    ## Block graph should form a tree - in particular, there are no cycles.
-
-    root*: Eth2Digest ##\
-    ## Root that can be used to retrieve block data from database
-
-    parent*: BlockRef ##\
-    ## Not nil, except for the tail
-
-    slot*: Slot # could calculate this by walking to root, but..
-
   BlockData* = object
     ## Body and graph in one
 
     data*: TrustedSignedBeaconBlock # We trust all blocks we have a ref for
     refs*: BlockRef
-
-  StateData* = object
-    data*: HashedBeaconState
-
-    blck*: BlockRef ##\
-    ## The block associated with the state found in data
 
   BlockSlot* = object
     ## Unique identifier for a particular fork and time in the block chain -

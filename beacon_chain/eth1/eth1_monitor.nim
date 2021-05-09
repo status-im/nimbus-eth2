@@ -17,6 +17,7 @@ import
   # Local modules:
   ../spec/[datatypes, digest, crypto, helpers],
   ../networking/network_metadata,
+  ../consensus_object_pools/block_pools_types,
   ../ssz,
   ../rpc/eth_merge_web3,
   ".."/[beacon_chain_db, beacon_node_status],
@@ -697,20 +698,20 @@ template trackFinalizedState*(m: Eth1Monitor,
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#get_eth1_data
 proc getBlockProposalData*(chain: var Eth1Chain,
-                           state: BeaconState,
+                           state: StateData,
                            finalizedEth1Data: Eth1Data,
                            finalizedStateDepositIndex: uint64): BlockProposalEth1Data =
   let
-    periodStart = voting_period_start_time(state)
+    periodStart = voting_period_start_time(state.data.data)
     hasLatestDeposits = chain.trackFinalizedState(finalizedEth1Data,
                                                   finalizedStateDepositIndex)
 
   var otherVotesCountTable = initCountTable[Eth1Data]()
-  for vote in state.eth1_data_votes:
+  for vote in getStateField(state, eth1_data_votes):
     let eth1Block = chain.findBlock(vote)
     if eth1Block != nil and
        eth1Block.voteData.deposit_root == vote.deposit_root and
-       vote.deposit_count >= state.eth1_data.deposit_count and
+       vote.deposit_count >= getStateField(state, eth1_data).deposit_count and
        is_candidate_block(chain.preset, eth1Block, periodStart):
       otherVotesCountTable.inc vote
     else:
@@ -718,20 +719,23 @@ proc getBlockProposalData*(chain: var Eth1Chain,
             root = vote.block_hash,
             deposits = vote.deposit_count,
             depositsRoot = vote.deposit_root,
-            localDeposits = state.eth1_data.deposit_count
+            localDeposits = getStateField(state, eth1_data).deposit_count
 
-  var pendingDepositsCount = state.eth1_data.deposit_count - state.eth1_deposit_index
+  var pendingDepositsCount =
+    getStateField(state, eth1_data).deposit_count -
+      getStateField(state, eth1_deposit_index)
   if otherVotesCountTable.len > 0:
     let (winningVote, votes) = otherVotesCountTable.largest
     debug "Voting on eth1 head with majority", votes
     result.vote = winningVote
     if uint64((votes + 1) * 2) > SLOTS_PER_ETH1_VOTING_PERIOD:
-      pendingDepositsCount = winningVote.deposit_count - state.eth1_deposit_index
+      pendingDepositsCount = winningVote.deposit_count -
+        getStateField(state, eth1_deposit_index)
   else:
     let latestBlock = chain.latestCandidateBlock(periodStart)
     if latestBlock == nil:
       debug "No acceptable eth1 votes and no recent candidates. Voting no change"
-      result.vote = state.eth1_data
+      result.vote = getStateField(state, eth1_data)
     else:
       debug "No acceptable eth1 votes. Voting for latest candidate"
       result.vote = latestBlock.voteData
@@ -741,12 +745,13 @@ proc getBlockProposalData*(chain: var Eth1Chain,
       let
         totalDepositsInNewBlock = min(MAX_DEPOSITS, pendingDepositsCount)
         deposits = chain.getDepositsRange(
-          state.eth1_deposit_index,
-          state.eth1_deposit_index + pendingDepositsCount)
+          getStateField(state, eth1_deposit_index),
+          getStateField(state, eth1_deposit_index) + pendingDepositsCount)
         depositRoots = mapIt(deposits, hash_tree_root(it))
 
       var scratchMerkleizer = copy chain.finalizedDepositsMerkleizer
-      if chain.advanceMerkleizer(scratchMerkleizer, state.eth1_deposit_index):
+      if chain.advanceMerkleizer(
+          scratchMerkleizer, getStateField(state, eth1_deposit_index)):
         let proofs = scratchMerkleizer.addChunksAndGenMerkleProofs(depositRoots)
         for i in 0 ..< totalDepositsInNewBlock:
           var proof: array[33, Eth2Digest]
@@ -761,7 +766,7 @@ proc getBlockProposalData*(chain: var Eth1Chain,
       result.hasMissingDeposits = true
 
 template getBlockProposalData*(m: Eth1Monitor,
-                               state: BeaconState,
+                               state: StateData,
                                finalizedEth1Data: Eth1Data,
                                finalizedStateDepositIndex: uint64): BlockProposalEth1Data =
   getBlockProposalData(m.eth1Chain, state, finalizedEth1Data, finalizedStateDepositIndex)

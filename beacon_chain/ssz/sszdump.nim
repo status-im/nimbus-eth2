@@ -10,7 +10,6 @@
 import
   os, strformat, chronicles,
   ./ssz_serialization,
-  ../beacon_node_types,
   ../spec/[crypto, datatypes, digest]
 
 # Dump errors are generally not fatal where used currently - the code calling

@@ -755,6 +755,25 @@ type
     statuses*: seq[RewardStatus]
     total_balances*: TotalBalances
 
+  BlockRef* = ref object
+    ## Node in object graph guaranteed to lead back to tail block, and to have
+    ## a corresponding entry in database.
+    ## Block graph should form a tree - in particular, there are no cycles.
+
+    root*: Eth2Digest ##\
+    ## Root that can be used to retrieve block data from database
+
+    parent*: BlockRef ##\
+    ## Not nil, except for the tail
+
+    slot*: Slot # could calculate this by walking to root, but..
+
+  StateData* = object
+    data*: HashedBeaconState
+
+    blck*: BlockRef ##\
+    ## The block associated with the state found in data
+
 func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData =
   ImmutableValidatorData(
     pubkey: validator.pubkey,
@@ -1153,6 +1172,9 @@ proc readValue*(r: var JsonReader, T: type GraffitiBytes): T
     init(GraffitiBytes, r.readValue(string))
   except ValueError as err:
     r.raiseUnexpectedValue err.msg
+
+template getStateField*(stateData, fieldName: untyped): untyped =
+  stateData.data.data.fieldName
 
 static:
   # Sanity checks - these types should be trivial enough to copy with memcpy

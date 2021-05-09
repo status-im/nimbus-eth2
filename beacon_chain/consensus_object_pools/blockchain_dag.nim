@@ -16,7 +16,7 @@ import
     crypto, datatypes, digest, helpers, validator, state_transition,
     beaconstate],
   ../beacon_clock,
-  "."/[block_pools_types, block_quarantine]
+  "."/[block_pools_types, block_quarantine, statedata_helpers]
 
 export block_pools_types, helpers, datatypes
 
@@ -112,24 +112,25 @@ func get_effective_balances*(state: BeaconState): seq[Gwei] =
       result[i] = validator[].effective_balance
 
 proc init*(
-    T: type EpochRef, state: BeaconState, cache: var StateCache,
+    T: type EpochRef, state: StateData, cache: var StateCache,
     prevEpoch: EpochRef): T =
   let
     epoch = state.get_current_epoch()
     epochRef = EpochRef(
       epoch: epoch,
-      eth1_data: state.eth1_data,
-      eth1_deposit_index: state.eth1_deposit_index,
-      current_justified_checkpoint: state.current_justified_checkpoint,
-      finalized_checkpoint: state.finalized_checkpoint,
+      eth1_data: getStateField(state, eth1_data),
+      eth1_deposit_index: getStateField(state, eth1_deposit_index),
+      current_justified_checkpoint:
+        getStateField(state, current_justified_checkpoint),
+      finalized_checkpoint: getStateField(state, finalized_checkpoint),
       shuffled_active_validator_indices:
-        cache.get_shuffled_active_validator_indices(state, epoch))
+        cache.get_shuffled_active_validator_indices(state.data.data, epoch))
   for i in 0'u64..<SLOTS_PER_EPOCH:
     let idx = get_beacon_proposer_index(
-      state, cache, epoch.compute_start_slot_at_epoch() + i)
+      state.data.data, cache, epoch.compute_start_slot_at_epoch() + i)
     if idx.isSome():
       epochRef.beacon_proposers[i] =
-        some((idx.get(), state.validators[idx.get].pubkey))
+        some((idx.get(), getStateField(state, validators)[idx.get].pubkey))
 
   # Validator sets typically don't change between epochs - a more efficient
   # scheme could be devised where parts of the validator key set is reused
@@ -141,7 +142,7 @@ proc init*(
   # information may however result in a different root, even if the public
   # keys are the same
 
-  let validators_root = hash_tree_root(state.validators)
+  let validators_root = hash_tree_root(getStateField(state, validators))
 
   template sameKeys(a: openArray[ValidatorPubKey], b: openArray[Validator]): bool =
     if a.len != b.len:
@@ -157,13 +158,15 @@ proc init*(
 
   if prevEpoch != nil and (
     prevEpoch.validator_key_store[0] == validators_root or
-      sameKeys(prevEpoch.validator_key_store[1][], state.validators.asSeq)):
+      sameKeys(
+        prevEpoch.validator_key_store[1][],
+        getStateField(state, validators).asSeq)):
     epochRef.validator_key_store =
       (validators_root, prevEpoch.validator_key_store[1])
   else:
     epochRef.validator_key_store = (
       validators_root,
-      newClone(mapIt(state.validators.toSeq, it.pubkey)))
+      newClone(mapIt(getStateField(state, validators).toSeq, it.pubkey)))
 
   # When fork choice runs, it will need the effective balance of the justified
   # checkpoint - we pre-load the balances here to avoid rewinding the justified
@@ -177,7 +180,8 @@ proc init*(
 
   epochRef.effective_balances_bytes =
     snappyEncode(SSZ.encode(
-      List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT](get_effective_balances(state))))
+      List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT](
+        get_effective_balances(state.data.data))))
 
   epochRef
 
@@ -303,9 +307,6 @@ proc loadStateCache*(
 
   if epoch > 0:
     load(epoch - 1)
-
-template getStateField*(stateData, fieldName: untyped): untyped =
-  stateData.data.data.fieldName
 
 func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
   BlockRef(
@@ -500,7 +501,7 @@ proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
     let
       prevEpochRef = if epoch < 1: nil
                      else: dag.findEpochRef(blck, epoch - 1)
-      newEpochRef = EpochRef.init(state, cache, prevEpochRef)
+      newEpochRef = EpochRef.init(stateData, cache, prevEpochRef)
 
     if epoch >= dag.finalizedHead.slot.epoch():
       # Only cache epoch information for unfinalized blocks - earlier states

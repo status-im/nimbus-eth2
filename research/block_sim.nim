@@ -133,7 +133,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
         proposerIdx = get_beacon_proposer_index(state, cache).get()
         privKey = hackPrivKey(state.validators[proposerIdx])
         eth1ProposalData = eth1Chain.getBlockProposalData(
-          state,
+          stateData,
           finalizedEpochRef.eth1_data,
           finalizedEpochRef.eth1_deposit_index)
         message = makeBeaconBlock(
@@ -145,7 +145,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
             slot).toValidatorSig(),
           eth1ProposalData.vote,
           default(GraffitiBytes),
-          attPool.getAttestationsForBlock(state, cache),
+          attPool.getAttestationsForBlock(stateData, cache),
           eth1ProposalData.deposits,
           @[],
           @[],

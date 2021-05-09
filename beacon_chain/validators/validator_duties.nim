@@ -263,7 +263,7 @@ proc getBlockProposalEth1Data*(node: BeaconNode,
   else:
     let finalizedEpochRef = node.chainDag.getFinalizedEpochRef()
     result = node.eth1Monitor.getBlockProposalData(
-      stateData.data.data, finalizedEpochRef.eth1_data,
+      stateData, finalizedEpochRef.eth1_data,
       finalizedEpochRef.eth1_deposit_index)
 
 func getOpaqueTransaction(s: string): OpaqueTransaction =
@@ -321,7 +321,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       randao_reveal,
       eth1Proposal.vote,
       graffiti,
-      node.attestationPool[].getAttestationsForBlock(state, cache),
+      node.attestationPool[].getAttestationsForBlock(stateData, cache),
       eth1Proposal.deposits,
       node.exitPool[].getProposerSlashingsForBlock(),
       node.exitPool[].getAttesterSlashingsForBlock(),
