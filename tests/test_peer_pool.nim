@@ -455,7 +455,7 @@ suite "PeerPool testing suite":
       await pool.clearSafe()
       result = true
 
-    asyncCheck testConsumer()
+    asyncSpawn testConsumer()
     check waitFor(testClose()) == true
 
   test "Access peers by key test": closureScope:

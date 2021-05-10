@@ -165,8 +165,9 @@ proc addRawBlockCheckStateTransition(
     doAssert v.addr == addr dag.clearanceState.data
     assign(dag.clearanceState, dag.headState)
 
+  var rewards: RewardInfo
   if not state_transition(dag.runtimePreset, dag.clearanceState.data, signedBlock,
-                          cache, dag.updateFlags + {slotProcessed}, restore):
+                          cache, rewards, dag.updateFlags + {slotProcessed}, restore):
     info "Invalid block"
 
     return (ValidationResult.Reject, Invalid)

@@ -31,10 +31,11 @@ suite "Block processing" & preset():
     var
       state = newClone(genesisState[])
       cache = StateCache()
+      rewards = RewardInfo()
 
   test "Passes from genesis state, no block" & preset():
     check:
-      process_slots(state[], state.data.slot + 1, cache)
+      process_slots(state[], state.data.slot + 1, cache, rewards)
       state.data.slot == genesisState.data.slot + 1
 
   test "Passes from genesis state, empty block" & preset():
@@ -43,7 +44,7 @@ suite "Block processing" & preset():
       new_block = makeTestBlock(state[], previous_block_root, cache)
 
     let block_ok = state_transition(
-      defaultRuntimePreset, state[], new_block, cache, {}, noRollback)
+      defaultRuntimePreset, state[], new_block, cache, rewards, {}, noRollback)
 
     check:
       block_ok
@@ -52,19 +53,18 @@ suite "Block processing" & preset():
 
   test "Passes through epoch update, no block" & preset():
     check:
-      process_slots(state[], Slot(SLOTS_PER_EPOCH), cache)
+      process_slots(state[], Slot(SLOTS_PER_EPOCH), cache, rewards)
       state.data.slot == genesisState.data.slot + SLOTS_PER_EPOCH
 
   test "Passes through epoch update, empty block" & preset():
     var
       previous_block_root = genesisRoot
-      cache = StateCache()
 
     for i in 1..SLOTS_PER_EPOCH:
       let new_block = makeTestBlock(state[], previous_block_root, cache)
 
       let block_ok = state_transition(
-        defaultRuntimePreset, state[], new_block, cache, {}, noRollback)
+        defaultRuntimePreset, state[], new_block, cache, rewards, {}, noRollback)
 
       check:
         block_ok
@@ -77,11 +77,10 @@ suite "Block processing" & preset():
   test "Attestation gets processed at epoch" & preset():
     var
       previous_block_root = genesisRoot
-      cache = StateCache()
 
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
-      process_slots(state[], state.data.slot + 1, cache)
+      process_slots(state[], state.data.slot + 1, cache, rewards)
 
     let
       # Create an attestation for slot 1 signed by the only attester we have!
@@ -94,14 +93,15 @@ suite "Block processing" & preset():
     # to let the attestation propagate properly to interested participants
     check:
       process_slots(
-        state[], GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY + 1, cache)
+        state[], GENESIS_SLOT + MIN_ATTESTATION_INCLUSION_DELAY + 1, cache,
+        rewards)
 
     let
       new_block = makeTestBlock(state[], previous_block_root, cache,
         attestations = @[attestation]
       )
     check state_transition(
-      defaultRuntimePreset, state[], new_block, cache, {}, noRollback)
+      defaultRuntimePreset, state[], new_block, cache, rewards, {}, noRollback)
 
     check:
       # TODO epoch attestations can get multiplied now; clean up paths to
@@ -109,7 +109,7 @@ suite "Block processing" & preset():
       state.data.current_epoch_attestations.len >= 1
 
     check:
-      process_slots(state[], Slot(191), cache)
+      process_slots(state[], Slot(191), cache, rewards)
 
     # Would need to process more epochs for the attestation to be removed from
     # the state! (per above bug)

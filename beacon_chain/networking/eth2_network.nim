@@ -31,7 +31,7 @@ import
   libp2p/stream/connection,
   libp2p/utils/semaphore,
   eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
-  eth/net/nat, eth/p2p/discoveryv5/[enr, node],
+  eth/net/nat, eth/p2p/discoveryv5/[enr, node, random2],
   ".."/[
     version, conf,
     ssz/ssz_serialization, beacon_clock],
@@ -1633,8 +1633,11 @@ proc shortForm*(id: NetKeyPair): string =
 proc subscribe*(
     node: Eth2Node, topic: string, topicParams: TopicParams,
     enableTopicMetrics: bool = false) {.raises: [Defect, CatchableError].} =
-  proc dummyMsgHandler(topic: string, data: seq[byte]) {.async.} =
-    discard
+  proc dummyMsgHandler(topic: string, data: seq[byte]): Future[void] =
+    # Avoid closure environment with `{.async.}`
+    var res = newFuture[void]("eth2_network.dummyMsgHandler")
+    res.complete()
+    res
 
   let
     topicName = topic & "_snappy"
@@ -1760,3 +1763,50 @@ proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
     traceMessage(futSnappy, gossipId(uncompressed, true))
   except IOError as exc:
     raiseAssert exc.msg # TODO in-memory compression shouldn't fail
+
+proc subscribeAttestationSubnets*(
+    node: Eth2Node, subnets: BitArray[ATTESTATION_SUBNET_COUNT]) {.
+    raises: [Defect, CatchableError].} =
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # nimbus won't score attestation subnets for now, we just rely on block and aggregate which are more stabe and reliable
+
+  for subnet_id, enabled in subnets:
+    if enabled:
+      node.subscribe(getAttestationTopic(
+        node.forkID.fork_digest, SubnetId(subnet_id)), TopicParams.init()) # don't score attestation subnets for now
+
+proc unsubscribeAttestationSubnets*(
+    node: Eth2Node, subnets: BitArray[ATTESTATION_SUBNET_COUNT]) {.
+    raises: [Defect, CatchableError].} =
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # nimbus won't score attestation subnets for now, we just rely on block and aggregate which are more stabe and reliable
+
+  for subnet_id, enabled in subnets:
+    if enabled:
+      node.unsubscribe(getAttestationTopic(
+        node.forkID.fork_digest, SubnetId(subnet_id)))
+
+proc updateStabilitySubnetMetadata*(
+    node: Eth2Node, attnets: BitArray[ATTESTATION_SUBNET_COUNT]) =
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#metadata
+  node.metadata.seq_number += 1
+  node.metadata.attnets = attnets
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
+  let res = node.discovery.updateRecord(
+    {"attnets": SSZ.encode(node.metadata.attnets)})
+  if res.isErr():
+    # This should not occur in this scenario as the private key would always
+    # be the correct one and the ENR will not increase in size.
+    warn "Failed to update record on subnet cycle", error = res.error
+  else:
+    debug "Stability subnets changed; updated ENR attnets", attnets
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+func getStabilitySubnetLength*(node: Eth2Node): uint64 =
+  EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION +
+    node.rng[].rand(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION.int).uint64
+
+func getRandomSubnetId*(node: Eth2Node): SubnetId =
+  node.rng[].rand(ATTESTATION_SUBNET_COUNT - 1).SubnetId

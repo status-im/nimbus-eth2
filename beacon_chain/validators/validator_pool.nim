@@ -63,13 +63,9 @@ proc signWithRemoteValidator(v: AttachedValidator, data: Eth2Digest):
   v.connection.inStream.flush()
   var line = newStringOfCap(120).TaintedString
   discard v.connection.outStream.readLine(line)
-  result = ValidatorSig.fromHex(line).get()
-  # TODO this is an ugly hack to fake a delay and subsequent async reordering
-  #      for the purpose of testing the external validator delay - to be
-  #      replaced by something more sensible
-  await sleepAsync(chronos.milliseconds(1))
+  return ValidatorSig.fromHex(line).get()
 
-# TODO: Honest validator - https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md
 proc signBlockProposal*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,
                         blockRoot: Eth2Digest): Future[ValidatorSig] {.async.} =
@@ -81,14 +77,14 @@ proc signBlockProposal*(v: AttachedValidator, fork: Fork,
     await signWithRemoteValidator(v, root)
 
 proc signAttestation*(v: AttachedValidator,
-                      attestation: AttestationData,
+                      data: AttestationData,
                       fork: Fork, genesis_validators_root: Eth2Digest):
                       Future[ValidatorSig] {.async.} =
   return if v.kind == inProcess:
     get_attestation_signature(
-      fork, genesis_validators_root, attestation, v.privKey).toValidatorSig()
+      fork, genesis_validators_root, data, v.privKey).toValidatorSig()
   else:
-    let root = compute_attestation_root(fork, genesis_validators_root, attestation)
+    let root = compute_attestation_root(fork, genesis_validators_root, data)
     await signWithRemoteValidator(v, root)
 
 proc produceAndSignAttestation*(validator: AttachedValidator,

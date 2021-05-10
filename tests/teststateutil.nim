@@ -60,11 +60,12 @@ proc getTestStates*(initialState: HashedBeaconState):
   var
     tmpState = assignClone(initialState)
     cache = StateCache()
+    rewards = RewardInfo()
 
   for i, epoch in stateEpochs:
     let slot = epoch.Epoch.compute_start_slot_at_epoch
     if tmpState.data.slot < slot:
-      doAssert process_slots(tmpState[], slot, cache)
+      doAssert process_slots(tmpState[], slot, cache, rewards)
     if i mod 3 == 0:
       valid_deposit(tmpState.data)
     doAssert tmpState.data.slot == slot

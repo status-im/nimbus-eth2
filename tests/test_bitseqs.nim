@@ -7,7 +7,45 @@ import
   ./testutil
 
 suite "Bit fields":
-  test "roundtrips":
+  test "roundtrips BitArray":
+    var
+      a = BitArray[100]()
+      b = BitArray[100]()
+
+    check:
+      not a[0]
+
+    a.setBit 1
+
+    check:
+      not a[0]
+      a[1]
+
+      a + b == a
+      a - b == a
+
+      b + a == a
+      b - a == b # b is empty
+
+    b.setBit 2
+
+    check:
+      (a + b)[2]
+      (b - a)[2]
+      not (b - a)[1]
+
+    a.incl(b)
+
+    check:
+      not a[0]
+      a[1]
+      a[2]
+
+    a.clear()
+    check:
+      not a[1]
+
+  test "roundtrips BitSeq":
     var
       a = BitSeq.init(100)
       b = BitSeq.init(100)

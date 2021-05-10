@@ -19,45 +19,45 @@ suite "Honest validator":
 
   test "Mainnet attestation topics":
     check:
-      getAttestationTopic(forkDigest, 0) ==
+      getAttestationTopic(forkDigest, SubnetId(0)) ==
         "/eth2/00000000/beacon_attestation_0/ssz"
-      getAttestationTopic(forkDigest, 5) ==
+      getAttestationTopic(forkDigest, SubnetId(5)) ==
         "/eth2/00000000/beacon_attestation_5/ssz"
-      getAttestationTopic(forkDigest, 7) ==
+      getAttestationTopic(forkDigest, SubnetId(7)) ==
         "/eth2/00000000/beacon_attestation_7/ssz"
-      getAttestationTopic(forkDigest, 9) ==
+      getAttestationTopic(forkDigest, SubnetId(9)) ==
         "/eth2/00000000/beacon_attestation_9/ssz"
-      getAttestationTopic(forkDigest, 13) ==
+      getAttestationTopic(forkDigest, SubnetId(13)) ==
         "/eth2/00000000/beacon_attestation_13/ssz"
-      getAttestationTopic(forkDigest, 19) ==
+      getAttestationTopic(forkDigest, SubnetId(19)) ==
         "/eth2/00000000/beacon_attestation_19/ssz"
-      getAttestationTopic(forkDigest, 20) ==
+      getAttestationTopic(forkDigest, SubnetId(20)) ==
         "/eth2/00000000/beacon_attestation_20/ssz"
-      getAttestationTopic(forkDigest, 22) ==
+      getAttestationTopic(forkDigest, SubnetId(22)) ==
         "/eth2/00000000/beacon_attestation_22/ssz"
-      getAttestationTopic(forkDigest, 25) ==
+      getAttestationTopic(forkDigest, SubnetId(25)) ==
         "/eth2/00000000/beacon_attestation_25/ssz"
-      getAttestationTopic(forkDigest, 27) ==
+      getAttestationTopic(forkDigest, SubnetId(27)) ==
         "/eth2/00000000/beacon_attestation_27/ssz"
-      getAttestationTopic(forkDigest, 31) ==
+      getAttestationTopic(forkDigest, SubnetId(31)) ==
         "/eth2/00000000/beacon_attestation_31/ssz"
-      getAttestationTopic(forkDigest, 39) ==
+      getAttestationTopic(forkDigest, SubnetId(39)) ==
         "/eth2/00000000/beacon_attestation_39/ssz"
-      getAttestationTopic(forkDigest, 45) ==
+      getAttestationTopic(forkDigest, SubnetId(45)) ==
         "/eth2/00000000/beacon_attestation_45/ssz"
-      getAttestationTopic(forkDigest, 47) ==
+      getAttestationTopic(forkDigest, SubnetId(47)) ==
         "/eth2/00000000/beacon_attestation_47/ssz"
-      getAttestationTopic(forkDigest, 48) ==
+      getAttestationTopic(forkDigest, SubnetId(48)) ==
         "/eth2/00000000/beacon_attestation_48/ssz"
-      getAttestationTopic(forkDigest, 50) ==
+      getAttestationTopic(forkDigest, SubnetId(50)) ==
         "/eth2/00000000/beacon_attestation_50/ssz"
-      getAttestationTopic(forkDigest, 53) ==
+      getAttestationTopic(forkDigest, SubnetId(53)) ==
         "/eth2/00000000/beacon_attestation_53/ssz"
-      getAttestationTopic(forkDigest, 54) ==
+      getAttestationTopic(forkDigest, SubnetId(54)) ==
         "/eth2/00000000/beacon_attestation_54/ssz"
-      getAttestationTopic(forkDigest, 62) ==
+      getAttestationTopic(forkDigest, SubnetId(62)) ==
         "/eth2/00000000/beacon_attestation_62/ssz"
-      getAttestationTopic(forkDigest, 63) ==
+      getAttestationTopic(forkDigest, SubnetId(63)) ==
         "/eth2/00000000/beacon_attestation_63/ssz"
 
   test "is_aggregator":

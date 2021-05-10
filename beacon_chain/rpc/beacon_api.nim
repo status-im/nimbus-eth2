@@ -461,8 +461,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("post_v1_beacon_pool_attestations") do (
       attestation: Attestation) -> bool:
-    node.sendAttestation(attestation)
-    return true
+    return await node.sendAttestation(attestation)
 
   rpcServer.rpc("get_v1_beacon_pool_attester_slashings") do (
       ) -> seq[AttesterSlashing]:

@@ -65,9 +65,10 @@ suite "Attestation pool processing" & preset():
       pool = newClone(AttestationPool.init(chainDag, quarantine))
       state = newClone(chainDag.headState)
       cache = StateCache()
+      rewards: RewardInfo
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
-      process_slots(state.data, getStateField(state, slot) + 1, cache)
+      process_slots(state.data, getStateField(state, slot) + 1, cache, rewards)
 
   test "Can add and retrieve simple attestations" & preset():
     let
@@ -99,7 +100,8 @@ suite "Attestation pool processing" & preset():
 
       process_slots(
         state.data,
-        getStateField(state, slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache)
+        getStateField(state, slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
+        rewards)
 
     let attestations = pool[].getAttestationsForBlock(state.data.data, cache)
 
@@ -119,7 +121,8 @@ suite "Attestation pool processing" & preset():
     check:
       process_slots(
         state.data,
-        getStateField(state, slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache)
+        getStateField(state, slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
+        rewards)
 
     check:
       # shouldn't include already-included attestations
@@ -197,7 +200,8 @@ suite "Attestation pool processing" & preset():
     check:
       process_slots(
         state.data,
-        getStateField(state, slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache)
+        getStateField(state, slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
+        rewards)
 
     check:
       pool[].getAttestationsForBlock(state.data.data, cache).len() == 2
@@ -242,7 +246,8 @@ suite "Attestation pool processing" & preset():
         inc attestations
 
       check:
-        process_slots(state.data, getStateField(state, slot) + 1, cache)
+        process_slots(state.data, getStateField(state, slot) + 1, cache,
+        rewards)
 
     doAssert attestations.uint64 > MAX_ATTESTATIONS,
       "6*SLOTS_PER_EPOCH validators > 128 mainnet MAX_ATTESTATIONS"
@@ -263,7 +268,7 @@ suite "Attestation pool processing" & preset():
         state.data.data, state.blck.root, bc0[0], cache)
 
     check:
-      process_slots(state.data, getStateField(state, slot) + 1, cache)
+      process_slots(state.data, getStateField(state, slot) + 1, cache, rewards)
 
     let
       bc1 = get_beacon_committee(state.data.data,
@@ -278,7 +283,7 @@ suite "Attestation pool processing" & preset():
       attestation0, @[bc0[0]], attestation0.loadSig, attestation0.data.slot)
 
     discard process_slots(
-      state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
+      state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards)
 
     let attestations = pool[].getAttestationsForBlock(state.data.data, cache)
 
@@ -302,7 +307,8 @@ suite "Attestation pool processing" & preset():
       attestation1, @[bc0[1]], attestation1.loadSig, attestation1.data.slot)
 
     check:
-      process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
+      process_slots(
+        state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards)
 
     let attestations = pool[].getAttestationsForBlock(state.data.data, cache)
 
@@ -329,7 +335,8 @@ suite "Attestation pool processing" & preset():
       attestation1, @[bc0[1]], attestation1.loadSig, attestation1.data.slot)
 
     check:
-      process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
+      process_slots(
+        state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards)
 
     let attestations = pool[].getAttestationsForBlock(state.data.data, cache)
 
@@ -355,7 +362,8 @@ suite "Attestation pool processing" & preset():
       attestation0, @[bc0[0]], attestation0.loadSig, attestation0.data.slot)
 
     check:
-      process_slots(state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache)
+      process_slots(
+        state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards)
 
     let attestations = pool[].getAttestationsForBlock(state.data.data, cache)
 

@@ -175,14 +175,14 @@ func get_committee_count_per_slot*(state: BeaconState,
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(current_epoch: Epoch): Epoch =
-  # Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
+  ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
   if current_epoch == GENESIS_EPOCH:
     current_epoch
   else:
     current_epoch - 1
 
 func get_previous_epoch*(state: BeaconState): Epoch =
-  # Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
+  ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
   get_previous_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#compute_committee

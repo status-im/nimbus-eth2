@@ -588,7 +588,7 @@ proc putState*(dag: ChainDAGRef, state: var StateData) =
   dag.db.putState(state.data.root, state.data.data)
 
   # Allow backwards-compatible version rollback with bounded recovery cost
-  if getStateField(state, slot).epoch mod 64 == 0:
+  if getStateField(state, slot).epoch mod 256 == 0:
     dag.db.putStateFull(state.data.root, state.data.data)
 
   dag.db.putStateRoot(
@@ -690,14 +690,14 @@ proc get*(dag: ChainDAGRef, root: Eth2Digest): Option[BlockData] =
 
 proc advanceSlots(
     dag: ChainDAGRef, state: var StateData, slot: Slot, save: bool,
-    cache: var StateCache) =
+    cache: var StateCache, rewards: var RewardInfo) =
   # Given a state, advance it zero or more slots by applying empty slot
   # processing - the state must be positions at a slot before or equal to the
   # target
   doAssert getStateField(state, slot) <= slot
   while getStateField(state, slot) < slot:
     doAssert process_slots(
-        state.data, getStateField(state, slot) + 1, cache,
+        state.data, getStateField(state, slot) + 1, cache, rewards,
         dag.updateFlags),
       "process_slots shouldn't fail when state slot is correct"
     if save:
@@ -706,7 +706,7 @@ proc advanceSlots(
 proc applyBlock(
     dag: ChainDAGRef,
     state: var StateData, blck: BlockData, flags: UpdateFlags,
-    cache: var StateCache): bool =
+    cache: var StateCache, rewards: var RewardInfo): bool =
   # Apply a single block to the state - the state must be positioned at the
   # parent of the block with a slot lower than the one of the block being
   # applied
@@ -721,7 +721,7 @@ proc applyBlock(
 
   let ok = state_transition(
     dag.runtimePreset, state.data, blck.data,
-    cache, flags + dag.updateFlags + {slotProcessed}, restore)
+    cache, rewards, flags + dag.updateFlags + {slotProcessed}, restore)
   if ok:
     state.blck = blck.refs
 
@@ -832,6 +832,7 @@ proc updateStateData*(
   let
     startSlot {.used.} = getStateField(state, slot) # used in logs below
     startRoot {.used.} = state.data.root
+  var rewards: RewardInfo
   # Time to replay all the blocks between then and now
   for i in countdown(ancestors.len - 1, 0):
     # Because the ancestors are in the database, there's no need to persist them
@@ -839,13 +840,13 @@ proc updateStateData*(
     # database, we can skip certain checks that have already been performed
     # before adding the block to the database.
     let ok =
-      dag.applyBlock(state, dag.get(ancestors[i]), {}, cache)
+      dag.applyBlock(state, dag.get(ancestors[i]), {}, cache, rewards)
     doAssert ok, "Blocks in database should never fail to apply.."
 
   loadStateCache(dag, cache, bs.blck, bs.slot.epoch)
 
   # ...and make sure to process empty slots as requested
-  dag.advanceSlots(state, bs.slot, save, cache)
+  dag.advanceSlots(state, bs.slot, save, cache, rewards)
 
   let diff = Moment.now() - startTime
 

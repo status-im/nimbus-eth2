@@ -127,23 +127,30 @@ func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc advance_slot(
     state: var BeaconState, previous_slot_state_root: Eth2Digest,
-    flags: UpdateFlags, cache: var StateCache) {.nbench.} =
+    flags: UpdateFlags, cache: var StateCache, rewards: var RewardInfo) {.nbench.} =
   # Do the per-slot and potentially the per-epoch processing, then bump the
   # slot number - we've now arrived at the slot state on top of which a block
   # optionally can be applied.
   process_slot(state, previous_slot_state_root)
 
+  rewards.statuses.setLen(0)
+  rewards.total_balances = TotalBalances()
+
   let is_epoch_transition = (state.slot + 1).isEpoch
   if is_epoch_transition:
     # Note: Genesis epoch = 0, no need to test if before Genesis
-    process_epoch(state, flags, cache)
+    process_epoch(state, flags, cache, rewards)
     clear_epoch_from_cache(cache, (state.slot + 1).compute_epoch_at_slot)
 
   state.slot += 1
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc process_slots*(state: var HashedBeaconState, slot: Slot,
-    cache: var StateCache, flags: UpdateFlags = {}): bool {.nbench.} =
+    cache: var StateCache, rewards: var RewardInfo,
+    flags: UpdateFlags = {}): bool {.nbench.} =
+  ## Process one or more slot transitions without blocks - if the slot transtion
+  ## passes an epoch boundary, epoch processing will run and `rewards` will be
+  ## updated, else it will be cleared
   if not (state.data.slot < slot):
     if slotProcessed notin flags or state.data.slot != slot:
       notice(
@@ -156,7 +163,7 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot,
 
   # Catch up to the target slot
   while state.data.slot < slot:
-    advance_slot(state.data, state.root, flags, cache)
+    advance_slot(state.data, state.root, flags, cache, rewards)
 
     # The root must be updated on every slot update, or the next `process_slot`
     # will be incorrect
@@ -170,7 +177,7 @@ proc noRollback*(state: var HashedBeaconState) =
 proc state_transition*(
     preset: RuntimePreset,
     state: var HashedBeaconState, signedBlock: SomeSignedBeaconBlock,
-    cache: var StateCache, flags: UpdateFlags,
+    cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
     rollback: RollbackHashedProc): bool {.nbench.} =
   ## Apply a block to the state, advancing the slot counter as necessary. The
   ## given state must be of a lower slot, or, in case the `slotProcessed` flag
@@ -200,7 +207,7 @@ proc state_transition*(
 
   # Update the state so its slot matches that of the block
   while state.data.slot < slot:
-    advance_slot(state.data, state.root, flags, cache)
+    advance_slot(state.data, state.root, flags, cache, rewards)
 
     if state.data.slot < slot:
       # Don't update state root for the slot of the block
