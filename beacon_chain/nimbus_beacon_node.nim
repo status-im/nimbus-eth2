@@ -875,8 +875,19 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
   # next slot
 
+  if node.chainDag.needStateCachesAndForkChoicePruning():
+    if node.attachedValidators.validators.len > 0:
+      node.attachedValidators
+          .slashingProtection
+          # pruning is only done if the DB is set to pruning mode.
+          .pruneAfterFinalization(
+            node.chainDag.finalizedHead.slot.compute_epoch_at_slot()
+          )
+
   # Delay part of pruning until latency critical duties are done.
   # The other part of pruning, `pruneBlocksDAG`, is done eagerly.
+  # ----
+  # This is the last pruning to do as it clears the "needPruning" condition.
   node.consensusManager[].pruneStateCachesAndForkChoice()
 
   when declared(GC_fullCollect):

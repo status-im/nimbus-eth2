@@ -16,7 +16,7 @@ import
   chronicles,
   sqlite3_abi,
   # Internal
-  ../spec/[datatypes, digest, crypto],
+  ../spec/[datatypes, digest, crypto, helpers],
   ../ssz,
   ./slashing_protection_common
 
@@ -206,8 +206,8 @@ type
     sqlInsertBlock: SqliteStmt[(ValidatorInternalID, int64, Hash32), void]
     sqlPruneValidatorBlocks: SqliteStmt[(ValidatorInternalID, int64), void]
     sqlPruneValidatorAttestations: SqliteStmt[(ValidatorInternalID, int64, int64), void]
-    sqlPruneAfterFinalizationBlocks: SqliteStmt[(ValidatorInternalID, int64), void]
-    sqlPruneAfterFinalizationAttestations: SqliteStmt[(ValidatorInternalID, int64), void]
+    sqlPruneAfterFinalizationBlocks: SqliteStmt[int64, void]
+    sqlPruneAfterFinalizationAttestations: SqliteStmt[(int64, int64), void]
     # Cached queries - read
     sqlGetValidatorInternalID: SqliteStmt[PubKeyBytes, ValidatorInternalID]
     sqlAttForSameTargetEpoch: SqliteStmt[(ValidatorInternalID, int64), Hash32]
@@ -485,44 +485,42 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
     """, (ValidatorInternalID, int64, int64), void
   ).get()
 
-  # TODO: test and activate pruning after finalization
+  db.sqlPruneAfterFinalizationBlocks = db.backend.prepareStmt("""
+    DELETE
+    FROM
+      signed_blocks AS sb1
+    WHERE 1=1
+      and sb1.slot < ?
+      -- Keep the most recent slot per validator
+      and sb1.slot <> (
+        SELECT MAX(sb2.slot)
+        FROM signed_blocks AS sb2
+        WHERE sb2.validator_id = sb1.validator_id
+      )
+    """, int64, void
+  ).get()
 
-  # db.sqlPruneAfterFinalizationBlocks = db.backend.prepareStmt("""
-  #   DELETE
-  #   FROM
-  #     signed_blocks sb1
-  #   WHERE 1=1
-  #     and sb1.slot < ?
-  #     -- Keep the most recent slot per validator
-  #     and sb1.slot <> (
-  #       SELECT MAX(sb2.slot)
-  #       FROM signed_blocks AS sb2
-  #       WHERE sb2.validator_id = sb1.validator_id
-  #     )
-  #   """, (ValidatorInternalID, int64), void
-  # ).get()
-  #
-  # db.sqlPruneAfterFinalizationAttestations = db.backend.prepareStmt("""
-  #   DELETE
-  #   FROM
-  #     signed_attestations
-  #   WHERE 1=1
-  #     and source_epoch < ?
-  #     and target_epoch < ?
-  #     -- Keep the most recent source_epoch per validator
-  #     and sa1.source_epoch <> (
-  #         SELECT MAX(sas.source_epoch)
-  #         FROM signed_attestations AS sas
-  #         WHERE sa1.validator_id = sas.validator_id
-  #     )
-  #     -- And the most recent target_epoch per validator
-  #     and sa1.target_epoch <> (
-  #         SELECT MAX(sat.target_epoch)
-  #         FROM signed_attestations AS sat
-  #         WHERE sa1.validator_id = sat.validator_id
-  #     )
-  #    """, (ValidatorInternalID, int64, int64), void
-  # ).get()
+  db.sqlPruneAfterFinalizationAttestations = db.backend.prepareStmt("""
+    DELETE
+    FROM
+      signed_attestations AS sa1
+    WHERE 1=1
+      and source_epoch < ?
+      and target_epoch < ?
+      -- Keep the most recent source_epoch per validator
+      and sa1.source_epoch <> (
+          SELECT MAX(sas.source_epoch)
+          FROM signed_attestations AS sas
+          WHERE sa1.validator_id = sas.validator_id
+      )
+      -- And the most recent target_epoch per validator
+      and sa1.target_epoch <> (
+          SELECT MAX(sat.target_epoch)
+          FROM signed_attestations AS sat
+          WHERE sa1.validator_id = sat.validator_id
+      )
+     """, (int64, int64), void
+  ).get()
 
 # DB Multiversioning
 # -------------------------------------------------------------
@@ -1136,15 +1134,30 @@ proc pruneAfterFinalization*(
        db: SlashingProtectionDB_v2,
        finalizedEpoch: Epoch
      ) =
-  warn "Slashing DB pruning after finalization is not supported on the v2 of our database. Request ignored.",
-    finalizedEpoch = shortLog(finalizedEpoch)
+  ## Prune blocks and attestations after a specified `finalizedEpoch`
+  ## The block with the highest slot
+  ## and the attestation(s) with the highest source and target epochs
+  ## are never pruned.
+  ##
+  ## This ensures that even if pruning is called with an incorrect epoch
+  ## slashing protection can fallback to the minimal / high-watermark protection mode.
 
-  # TODO
-  # call sqlPruneAfterFinalizationBlocks
-  # and sqlPruneAfterFinalizationAttestations
-  # and test that wherever pruning happens, tests still pass
-  # and/or devise new tests
+  block: # Prune blocks
+    let finalizedSlot = compute_start_slot_at_epoch(finalizedEpoch)
+    let status = db.sqlPruneAfterFinalizationBlocks
+                   .exec(int64 finalizedSlot)
+    doAssert status.isOk(),
+      "SQLite error when pruning validator attestations: " & $status.error & "\n" &
+      "for " &
+      "finalizedEpoch: " & $finalizedEpoch &
+      ", firstSlotOfFinalizedEpoch: " & $finalizedSlot
 
+  block: # Prune attestations
+    let status = db.sqlPruneAfterFinalizationAttestations
+                   .exec((int64 finalizedEpoch, int64 finalizedEpoch))
+    doAssert status.isOk(),
+      "SQLite error when pruning validator attestations: " & $status.error & "\n" &
+      "for finalized epoch: " & $finalizedEpoch
 
 # Interchange
 # --------------------------------------------
