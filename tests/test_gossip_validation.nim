@@ -92,13 +92,14 @@ suite "Gossip validation " & preset():
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Wrong subnet
-      validateAttestation(pool, batchCrypto, att_1_0, beaconTime, subnet + 1, true).waitFor().isErr
+      validateAttestation(
+        pool, batchCrypto, att_1_0, beaconTime, SubnetId(subnet.uint8 + 1), true).waitFor().isErr
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Too far in the future
       validateAttestation(
-        pool, batchCrypto, att_1_0, beaconTime - 1.seconds, subnet + 1, true).waitFor().isErr
+        pool, batchCrypto, att_1_0, beaconTime - 1.seconds, subnet, true).waitFor().isErr
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
@@ -106,7 +107,7 @@ suite "Gossip validation " & preset():
       validateAttestation(
         pool, batchCrypto, att_1_0,
         beaconTime - (SECONDS_PER_SLOT * SLOTS_PER_EPOCH - 1).int.seconds,
-        subnet + 1, true).waitFor().isErr
+        subnet, true).waitFor().isErr
 
     block:
       var broken = att_1_0

@@ -53,7 +53,7 @@ func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#broadcast-attestation
 func compute_subnet_for_attestation*(
     committees_per_slot: uint64, slot: Slot, committee_index: CommitteeIndex):
-    uint64 =
+    SubnetId =
   # Compute the correct subnet for an attestation for Phase 0.
   # Note, this mimics expected Phase 1 behavior where attestations will be
   # mapped to their shard subnet.
@@ -62,16 +62,15 @@ func compute_subnet_for_attestation*(
     committees_since_epoch_start =
       committees_per_slot * slots_since_epoch_start
 
-  (committees_since_epoch_start + committee_index.uint64) mod
-    ATTESTATION_SUBNET_COUNT
+  SubnetId(
+    (committees_since_epoch_start + committee_index.uint64) mod
+    ATTESTATION_SUBNET_COUNT)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#broadcast-attestation
-func getAttestationTopic*(forkDigest: ForkDigest, subnetIndex: uint64):
+func getAttestationTopic*(forkDigest: ForkDigest, subnet_id: SubnetId):
     string =
   ## For subscribing and unsubscribing to/from a subnet.
-  doAssert subnetIndex < ATTESTATION_SUBNET_COUNT
-
-  eth2Prefix(forkDigest) & "beacon_attestation_" & $subnetIndex & "/ssz"
+  eth2Prefix(forkDigest) & "beacon_attestation_" & $uint64(subnet_id) & "/ssz"
 
 func getENRForkID*(fork: Fork, genesis_validators_root: Eth2Digest): ENRForkID =
   let

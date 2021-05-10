@@ -135,11 +135,11 @@ type
 
   AttestationSubnets* = object
     enabled*: bool
-    stabilitySubnets*: seq[tuple[subnet: uint8, expiration: Epoch]]
+    stabilitySubnets*: seq[tuple[subnet_id: SubnetId, expiration: Epoch]]
     nextCycleEpoch*: Epoch
 
     # These encode states in per-subnet state machines
-    subscribedSubnets*: set[uint8]
+    subscribedSubnets*: BitArray[ATTESTATION_SUBNET_COUNT]
     subscribeSlot*: array[ATTESTATION_SUBNET_COUNT, Slot]
     unsubscribeSlot*: array[ATTESTATION_SUBNET_COUNT, Slot]
 

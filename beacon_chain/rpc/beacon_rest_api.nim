@@ -718,15 +718,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     var failures: seq[RestAttestationsFailureTuple]
     for atindex, attestation in attestations.pairs():
-      let wallTime = node.processor.getWallTime()
-      let res = await node.attestationPool.validateAttestation(
-        node.processor.batchCrypto, attestation, wallTime,
-        attestation.data.index, true
-      )
-      if res.isErr():
-        failures.add((index: uint64(atindex), message: $res.error()))
-      else:
-        node.sendAttestation(attestation)
+      if not await node.sendAttestation(attestation):
+        failures.add(
+          (index: uint64(atindex), message: "Attestation failed validation"))
 
     if len(failures) > 0:
       return RestApiResponse.jsonErrorList(Http400, AttestationValidationError,

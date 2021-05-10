@@ -101,9 +101,10 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ```diff
 + iterating words                                                                            OK
 + overlaps                                                                                   OK
-+ roundtrips                                                                                 OK
++ roundtrips BitArray                                                                        OK
++ roundtrips BitSeq                                                                          OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Block pool processing [Preset: mainnet]
 ```diff
 + Adding the same block twice returns a Duplicate error [Preset: mainnet]                    OK
@@ -318,4 +319,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 175/184 Fail: 0/184 Skip: 9/184
+OK: 176/185 Fail: 0/185 Skip: 9/185

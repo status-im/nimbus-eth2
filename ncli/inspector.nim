@@ -194,7 +194,7 @@ func getTopics(forkDigest: ForkDigest,
   of TopicFilter.Attestations:
     mapIt(
       0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64,
-      getAttestationTopic(forkDigest, it) & "_snappy")
+      getAttestationTopic(forkDigest, SubnetId(it)) & "_snappy")
 
 proc loadBootFile(name: string): seq[string] =
   try:
