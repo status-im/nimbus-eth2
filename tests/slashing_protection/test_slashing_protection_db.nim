@@ -626,7 +626,7 @@ suite "Slashing Protection DB" & preset():
           Epoch 20, Epoch 30
         ).isOk
 
-  wrappedTimedTest "Pruning blocks works":
+  test "Pruning blocks works":
     block:
       sqlite3db_delete(TestDir, TestDbName)
       let db = SlashingProtectionDB.init(
@@ -639,18 +639,21 @@ suite "Slashing Protection DB" & preset():
         sqlite3db_delete(TestDir, TestDbName)
 
       db.registerBlock(
+        ValidatorIndex(100),
         fakeValidator(100),
         Slot 10,
         fakeRoot(10)
-      )
+      ).expect("registered block")
       db.registerBlock(
+        ValidatorIndex(100),
         fakeValidator(100),
         Slot 1000,
         fakeRoot(20)
-      )
+      ).expect("registered block")
 
       # After pruning, duplicate becomes a min slot violation
       doAssert db.checkSlashableBlockProposal(
+        ValidatorIndex(100),
         fakeValidator(100),
         Slot 10,
       ).error.kind == DoubleProposal
@@ -660,11 +663,12 @@ suite "Slashing Protection DB" & preset():
       )
 
       doAssert db.checkSlashableBlockProposal(
+        ValidatorIndex(100),
         fakeValidator(100),
         Slot 10,
       ).error.kind == MinSlotViolation
 
-  wrappedTimedTest "Don't prune the very last block even by mistake":
+  test "Don't prune the very last block even by mistake":
     block:
       sqlite3db_delete(TestDir, TestDbName)
       let db = SlashingProtectionDB.init(
@@ -677,17 +681,20 @@ suite "Slashing Protection DB" & preset():
         sqlite3db_delete(TestDir, TestDbName)
 
       db.registerBlock(
+        ValidatorIndex(100),
         fakeValidator(100),
         Slot 10,
         fakeRoot(10)
-      )
+      ).expect("registered block")
       db.registerBlock(
+        ValidatorIndex(100),
         fakeValidator(100),
         Slot 1000,
         fakeRoot(20)
-      )
+      ).expect("registered block")
 
       doAssert db.checkSlashableBlockProposal(
+        ValidatorIndex(100),
         fakeValidator(100),
         Slot 1000,
       ).error.kind == DoubleProposal
@@ -699,11 +706,12 @@ suite "Slashing Protection DB" & preset():
 
       # Last block is still there
       doAssert db.checkSlashableBlockProposal(
+        ValidatorIndex(100),
         fakeValidator(100),
         Slot 1000,
       ).error.kind == DoubleProposal
 
-  wrappedTimedTest "Pruning attestations works":
+  test "Pruning attestations works":
     block:
       sqlite3db_delete(TestDir, TestDbName)
       let db = SlashingProtectionDB.init(
@@ -717,34 +725,39 @@ suite "Slashing Protection DB" & preset():
 
 
       db.registerAttestation(
+        ValidatorIndex(100),
         fakeValidator(100),
         Epoch 10, Epoch 20,
         fakeRoot(20)
-      )
+      ).expect("registered block")
 
       db.registerAttestation(
+        ValidatorIndex(100),
         fakeValidator(100),
         Epoch 40, Epoch 50,
         fakeRoot(50)
-      )
+      ).expect("registered block")
 
       # After pruning, duplicate becomes a min source epoch violation
       doAssert db.checkSlashableAttestation(
+        ValidatorIndex(100),
         fakeValidator(100),
         Epoch 10, Epoch 20
       ).error.kind == DoubleVote
 
       # After pruning, surrounding vote becomes a min source epoch violation
       doAssert db.checkSlashableAttestation(
+        ValidatorIndex(100),
         fakeValidator(100),
         Epoch 9, Epoch 21
-      ).error.kind == SurroundingVote
+      ).error.kind == SurroundVote
 
       # After pruning, surrounded vote becomes a min source epoch violation
       doAssert db.checkSlashableAttestation(
+        ValidatorIndex(100),
         fakeValidator(100),
         Epoch 11, Epoch 19
-      ).error.kind == SurroundedVote
+      ).error.kind == SurroundVote
 
       # --------------------------------
       db.pruneAfterFinalization(
@@ -753,16 +766,19 @@ suite "Slashing Protection DB" & preset():
       # --------------------------------
 
       doAssert db.checkSlashableAttestation(
+        ValidatorIndex(100),
         fakeValidator(100),
         Epoch 10, Epoch 20
       ).error.kind == MinSourceViolation
 
       doAssert db.checkSlashableAttestation(
+        ValidatorIndex(100),
         fakeValidator(100),
         Epoch 9, Epoch 21
       ).error.kind == MinSourceViolation
 
       doAssert db.checkSlashableAttestation(
+        ValidatorIndex(100),
         fakeValidator(100),
         Epoch 11, Epoch 19
       ).error.kind == MinSourceViolation
@@ -770,7 +786,7 @@ suite "Slashing Protection DB" & preset():
       # TODO is it possible to actually trigger MinTargetViolation
       # given all the other constraints?
 
-  wrappedTimedTest "Don't prune the very last attestation(s) even by mistake":
+  test "Don't prune the very last attestation(s) even by mistake":
     block:
       sqlite3db_delete(TestDir, TestDbName)
       let db = SlashingProtectionDB.init(
@@ -783,16 +799,18 @@ suite "Slashing Protection DB" & preset():
         sqlite3db_delete(TestDir, TestDbName)
 
       db.registerAttestation(
+        ValidatorIndex(100),
         fakeValidator(100),
         Epoch 10, Epoch 20,
         fakeRoot(20)
-      )
+      ).expect("registered block")
 
       db.registerAttestation(
+        ValidatorIndex(100),
         fakeValidator(100),
         Epoch 40, Epoch 50,
         fakeRoot(50)
-      )
+      ).expect("registered block")
 
       # --------------------------------
       db.pruneAfterFinalization(
@@ -801,6 +819,7 @@ suite "Slashing Protection DB" & preset():
       # --------------------------------
 
       doAssert db.checkSlashableAttestation(
+        ValidatorIndex(100),
         fakeValidator(100),
         Epoch 40, Epoch 50
       ).error.kind == DoubleVote
