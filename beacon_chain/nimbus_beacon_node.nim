@@ -577,6 +577,9 @@ proc cycleAttestationSubnetsPerEpoch(
 
   return stabilitySubnets
 
+func subnetLog(v: BitArray): string =
+  $toSeq(v.oneIndices())
+
 proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) {.async.} =
   static: doAssert RANDOM_SUBNETS_PER_VALIDATOR == 1
   doAssert not node.config.subscribeAllSubnets
@@ -614,12 +617,12 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) {.async.} =
   debug "Attestation subnets",
     wallSlot,
     wallEpoch = wallSlot.epoch,
-    prevAggregateSubnets = toSeq(prevAggregateSubnets.oneIndices()),
-    aggregateSubnets = toSeq(node.attestationSubnets.aggregateSubnets.oneIndices()),
-    prevStabilitySubnets = toSeq(prevStabilitySubnets.oneIndices()),
-    stabilitySubnets = toSeq(stabilitySubnets.oneIndices()),
-    subscribeSubnets = toSeq(subscribeSubnets.oneIndices()),
-    unsubscribeSubnets = toSeq(unsubscribeSubnets.oneIndices())
+    prevAggregateSubnets = subnetLog(prevAggregateSubnets),
+    aggregateSubnets = subnetLog(node.attestationSubnets.aggregateSubnets),
+    prevStabilitySubnets = subnetLog(prevStabilitySubnets),
+    stabilitySubnets = subnetLog(stabilitySubnets),
+    subscribeSubnets = subnetLog(subscribeSubnets),
+    unsubscribeSubnets = subnetLog(unsubscribeSubnets)
 
 proc getInitialAggregateSubnets(node: BeaconNode): Table[SubnetId, Slot] =
   let
@@ -691,9 +694,8 @@ proc subscribeAttestationSubnetHandlers(node: BeaconNode) {.
   node.attestationSubnets.enabled = true
 
   debug "Initial attestation subnets subscribed",
-     aggregateSubnets =
-      toSeq(node.attestationSubnets.aggregateSubnets.oneIndices()),
-     stabilitySubnets = toSeq(stabilitySubnets.oneIndices())
+     aggregateSubnets = subnetLog(node.attestationSubnets.aggregateSubnets),
+     stabilitySubnets = subnetLog(stabilitySubnets)
   node.network.subscribeAttestationSubnets(
     node.attestationSubnets.aggregateSubnets + stabilitySubnets)
 
