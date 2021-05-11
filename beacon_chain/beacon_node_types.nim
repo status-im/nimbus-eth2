@@ -135,11 +135,15 @@ type
 
   AttestationSubnets* = object
     enabled*: bool
-    stabilitySubnets*: seq[tuple[subnet_id: SubnetId, expiration: Epoch]]
+    stabilitySubnets*: seq[tuple[subnet_id: SubnetId, expiration: Epoch]] ##\
+      ## The subnets on which we listen and broadcast gossip traffic to maintain
+      ## the health of the network - these are advertised in the ENR
     nextCycleEpoch*: Epoch
 
     # These encode states in per-subnet state machines
-    subscribedSubnets*: BitArray[ATTESTATION_SUBNET_COUNT]
+    aggregateSubnets*: BitArray[ATTESTATION_SUBNET_COUNT] ##\
+      ## The subnets on which we listen for attestations in order to produce
+      ## aggregates
     subscribeSlot*: array[ATTESTATION_SUBNET_COUNT, Slot]
     unsubscribeSlot*: array[ATTESTATION_SUBNET_COUNT, Slot]
 

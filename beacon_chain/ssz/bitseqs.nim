@@ -228,7 +228,7 @@ template cmp*(a, b: BitSeq): int =
 template `==`*(a, b: BitSeq): bool =
   cmp(a, b) == 0
 
-func `$`*(a: BitSeq): string =
+func `$`*(a: BitSeq | BitArray): string =
   let length = a.len
   result = newStringOfCap(2 + length)
   result.add "0b"
@@ -301,9 +301,13 @@ func clear*(a: var BitArray) =
 # Set operations
 func `+`*(a, b: BitArray): BitArray =
   for i in 0..<a.bytes.len:
-    result[i] = a[i] or b[i]
+    result.bytes[i] = a.bytes[i] or b.bytes[i]
 
 func `-`*(a, b: BitArray): BitArray =
   for i in 0..<a.bytes.len:
-    result[i] = a[i] and (not b[i])
+    result.bytes[i] = a.bytes[i] and (not b.bytes[i])
+
+iterator oneIndices*(a: BitArray): int =
+  for i in 0..<a.len:
+    if a[i]: yield i
 

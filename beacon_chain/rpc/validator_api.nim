@@ -158,7 +158,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     # ahead one can check for attestation schedule is that it might be used
     # for up to the end of next epoch. Therefore, arrange for subscriptions
     # to last at least that long.
-    if node.attestationSubnets.subscribedSubnets[subnet_id.uint64]:
+    if not node.attestationSubnets.aggregateSubnets[subnet_id.uint64]:
       # When to subscribe. Since it's not clear when from the API it's first
       # needed, do so immediately.
       node.attestationSubnets.subscribeSlot[subnet_id.uint64] =

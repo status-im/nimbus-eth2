@@ -426,7 +426,7 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
     # finalization occurs every slot, to 4 slots vs scheduledSlot.
     doAssert finalizedEpoch + 4 >= epoch
 
-func getStabilitySubnets(stabilitySubnets: auto): BitArray[ATTESTATION_SUBNET_COUNT] =
+func toBitArray(stabilitySubnets: auto): BitArray[ATTESTATION_SUBNET_COUNT] =
   for subnetInfo in stabilitySubnets:
     result[subnetInfo.subnet_id.int] = true
 
@@ -507,8 +507,13 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
 
     node.attestationSubnets.unsubscribeSlot[subnet_id.uint64] =
       max(slot + 1, node.attestationSubnets.unsubscribeSlot[subnet_id.uint64])
-    if node.attestationSubnets.subscribedSubnets[subnet_id.uint64]:
-      const SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS = 34
+    if not node.attestationSubnets.aggregateSubnets[subnet_id.uint64]:
+      # The lead time here allows for the gossip mesh to stabilise well before
+      # attestations start flowing on the channel - the downside of a long lead
+      # time is that we waste bandwidth and CPU on traffic we're not strictly
+      # interested in - it could potentially be decreased, specially when peers
+      # are selected based on their stability subnet connectivity
+      const SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS = 6
 
       node.attestationSubnets.subscribeSlot[subnet_id.uint64] =
         # Queue upcoming subscription potentially earlier
@@ -572,35 +577,37 @@ proc cycleAttestationSubnetsPerEpoch(
 
   return stabilitySubnets
 
+func subnetLog(v: BitArray): string =
+  $toSeq(v.oneIndices())
+
 proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) {.async.} =
   static: doAssert RANDOM_SUBNETS_PER_VALIDATOR == 1
   doAssert not node.config.subscribeAllSubnets
 
-  let prevSubscribedSubnets = node.attestationSubnets.subscribedSubnets
-
-  for i in 0..<node.attestationSubnets.subscribedSubnets.len():
-    if node.attestationSubnets.subscribedSubnets[i]:
-      if wallSlot >= node.attestationSubnets.unsubscribeSlot[i]:
-        node.attestationSubnets.subscribedSubnets[i] = false
-    else:
-      if wallSlot >= node.attestationSubnets.subscribeSlot[i]:
-        node.attestationSubnets.subscribedSubnets[i] = true
-
   let
     prevStabilitySubnets =
-      node.attestationSubnets.stabilitySubnets.getStabilitySubnets()
+      node.attestationSubnets.stabilitySubnets.toBitArray()
     stabilitySubnets =
       await node.cycleAttestationSubnetsPerEpoch(wallSlot, prevStabilitySubnets)
 
+  let prevAggregateSubnets = node.attestationSubnets.aggregateSubnets
+
+  for i in 0..<node.attestationSubnets.aggregateSubnets.len():
+    if node.attestationSubnets.aggregateSubnets[i]:
+      if wallSlot >= node.attestationSubnets.unsubscribeSlot[i]:
+        node.attestationSubnets.aggregateSubnets[i] = false
+    else:
+      if wallSlot >= node.attestationSubnets.subscribeSlot[i]:
+        node.attestationSubnets.aggregateSubnets[i] = true
+
   # Accounting specific to non-stability subnets
-  for i, enabled in
-      (prevSubscribedSubnets - node.attestationSubnets.subscribedSubnets):
-    if enabled:
-      node.attestationSubnets.subscribeSlot[i] = FAR_FUTURE_SLOT
+  for i in (prevAggregateSubnets - node.attestationSubnets.aggregateSubnets).
+      oneIndices():
+    node.attestationSubnets.subscribeSlot[i] = FAR_FUTURE_SLOT
 
   let
-    prevAllSubnets = prevSubscribedSubnets + prevStabilitySubnets
-    allSubnets = node.attestationSubnets.subscribedSubnets + stabilitySubnets
+    prevAllSubnets = prevAggregateSubnets + prevStabilitySubnets
+    allSubnets = node.attestationSubnets.aggregateSubnets + stabilitySubnets
     unsubscribeSubnets = prevAllSubnets - allSubnets
     subscribeSubnets = allSubnets - prevAllSubnets
 
@@ -608,25 +615,21 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) {.async.} =
   node.network.subscribeAttestationSubnets(subscribeSubnets)
 
   debug "Attestation subnets",
-    expiringSubnets =
-      prevSubscribedSubnets - node.attestationSubnets.subscribedSubnets,
-    subnets = node.attestationSubnets.subscribedSubnets,
-    newSubnets =
-      node.attestationSubnets.subscribedSubnets - prevSubscribedSubnets,
     wallSlot,
     wallEpoch = wallSlot.epoch,
-    num_stability_subnets = node.attestationSubnets.stabilitySubnets.len,
-    expiring_stability_subnets = prevStabilitySubnets - stabilitySubnets,
-    new_stability_subnets = stabilitySubnets - prevStabilitySubnets,
-    subscribeSubnets,
-    unsubscribeSubnets
+    prevAggregateSubnets = subnetLog(prevAggregateSubnets),
+    aggregateSubnets = subnetLog(node.attestationSubnets.aggregateSubnets),
+    prevStabilitySubnets = subnetLog(prevStabilitySubnets),
+    stabilitySubnets = subnetLog(stabilitySubnets),
+    subscribeSubnets = subnetLog(subscribeSubnets),
+    unsubscribeSubnets = subnetLog(unsubscribeSubnets)
 
-proc getInitialAttestationSubnets(node: BeaconNode): Table[SubnetId, Slot] =
+proc getInitialAggregateSubnets(node: BeaconNode): Table[SubnetId, Slot] =
   let
     wallEpoch = node.beaconClock.now().slotOrZero().epoch
     validatorIndices = toIntSet(toSeq(node.getAttachedValidators().keys()))
 
-  template mergeAttestationSubnets(epoch: Epoch) =
+  template mergeAggregateSubnets(epoch: Epoch) =
     # TODO when https://github.com/nim-lang/Nim/issues/15972 and
     # https://github.com/nim-lang/Nim/issues/16217 are fixed, in
     # Nimbus's Nim, use (_, _, subnetIndex, slot).
@@ -643,8 +646,8 @@ proc getInitialAttestationSubnets(node: BeaconNode): Table[SubnetId, Slot] =
   # epoch 0 for real, in which case both are also already known; or wallEpoch
   # is greater than 0, in which case it's being called from onSlotStart which
   # has enough state to calculate wallEpoch + {0,1}'s attestations.
-  mergeAttestationSubnets(wallEpoch)
-  mergeAttestationSubnets(wallEpoch + 1)
+  mergeAggregateSubnets(wallEpoch)
+  mergeAggregateSubnets(wallEpoch + 1)
 
 proc subscribeAttestationSubnetHandlers(node: BeaconNode) {.
   raises: [Defect, CatchableError].} =
@@ -673,28 +676,28 @@ proc subscribeAttestationSubnetHandlers(node: BeaconNode) {.
       ss.subnet_id = node.network.getRandomSubnetId()
       ss.expiration = wallEpoch + node.network.getStabilitySubnetLength()
 
-  let initialStabilitySubnets =
-    node.attestationSubnets.stabilitySubnets.getStabilitySubnets()
-  node.network.updateStabilitySubnetMetadata(initialStabilitySubnets)
+  let stabilitySubnets =
+    node.attestationSubnets.stabilitySubnets.toBitArray()
+  node.network.updateStabilitySubnetMetadata(stabilitySubnets)
 
   let
-    initialSubnets = node.getInitialAttestationSubnets()
+    aggregateSubnets = node.getInitialAggregateSubnets()
   for i in 0'u8 ..< ATTESTATION_SUBNET_COUNT:
-    if SubnetId(i) in initialSubnets:
-      node.attestationSubnets.subscribedSubnets[i] = true
+    if SubnetId(i) in aggregateSubnets:
+      node.attestationSubnets.aggregateSubnets[i] = true
       node.attestationSubnets.unsubscribeSlot[i] =
-        try: initialSubnets[SubnetId(i)] except KeyError: raiseAssert "checked with in"
+        try: aggregateSubnets[SubnetId(i)] except KeyError: raiseAssert "checked with in"
     else:
-      node.attestationSubnets.subscribedSubnets[i] = false
+      node.attestationSubnets.aggregateSubnets[i] = false
       node.attestationSubnets.subscribeSlot[i] = FAR_FUTURE_SLOT
 
   node.attestationSubnets.enabled = true
 
   debug "Initial attestation subnets subscribed",
-     initialSubnets,
-     initialStabilitySubnets
+     aggregateSubnets = subnetLog(node.attestationSubnets.aggregateSubnets),
+     stabilitySubnets = subnetLog(stabilitySubnets)
   node.network.subscribeAttestationSubnets(
-    node.attestationSubnets.subscribedSubnets + initialStabilitySubnets)
+    node.attestationSubnets.aggregateSubnets + stabilitySubnets)
 
 proc addMessageHandlers(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   # inspired by lighthouse research here
