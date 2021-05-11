@@ -485,40 +485,86 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
     """, (ValidatorInternalID, int64, int64), void
   ).get()
 
+  # Important:
+  # The query plan MUST NOT involve correlated subqueries for speed concerns on 2000+ validators.
+  # use temporary tables or views instead
+
   db.sqlPruneAfterFinalizationBlocks = db.backend.prepareStmt("""
+    WITH max_proposer_slot AS (
+      SELECT
+        validator_id,
+        MAX(slot) AS max_slot
+      FROM
+        signed_blocks
+      GROUP BY
+        validator_id
+      ORDER BY
+        validator_id
+    )
     DELETE
     FROM
-      signed_blocks AS sb1
-    WHERE 1=1
-      and sb1.slot < ?
-      -- Keep the most recent slot per validator
-      and sb1.slot <> (
-        SELECT MAX(sb2.slot)
-        FROM signed_blocks AS sb2
-        WHERE sb2.validator_id = sb1.validator_id
-      )
+      signed_blocks
+    -- Delete everything except ...
+    WHERE ROWID NOT IN (
+      SELECT sb.ROWID
+      FROM
+        signed_blocks sb
+      LEFT JOIN
+        max_proposer_slot on max_proposer_slot.validator_id = sb.validator_id
+      WHERE
+        -- last finalized slot or later
+        sb.slot >= ?
+        -- also keep the most recent slot per validator
+        or sb.slot = max_proposer_slot.max_slot
+    )
     """, int64, void
   ).get()
 
   db.sqlPruneAfterFinalizationAttestations = db.backend.prepareStmt("""
+    WITH
+      max_source AS (
+        SELECT
+          validator_id,
+          MAX(source_epoch) AS max_source_epoch
+        FROM
+          signed_attestations
+        GROUP BY
+          validator_id
+        ORDER BY
+          validator_id
+      ),
+      max_target AS (
+        SELECT
+          validator_id,
+          MAX(target_epoch) AS max_target_epoch
+        FROM
+          signed_attestations
+        GROUP BY
+          validator_id
+        ORDER BY
+          validator_id
+      )
     DELETE
     FROM
-      signed_attestations AS sa1
-    WHERE 1=1
-      and source_epoch < ?
-      and target_epoch < ?
-      -- Keep the most recent source_epoch per validator
-      and sa1.source_epoch <> (
-          SELECT MAX(sas.source_epoch)
-          FROM signed_attestations AS sas
-          WHERE sa1.validator_id = sas.validator_id
-      )
-      -- And the most recent target_epoch per validator
-      and sa1.target_epoch <> (
-          SELECT MAX(sat.target_epoch)
-          FROM signed_attestations AS sat
-          WHERE sa1.validator_id = sat.validator_id
-      )
+      signed_attestations
+    -- Delete everything except ...
+    WHERE ROWID NOT IN (
+      SELECT sa.ROWID
+      FROM
+        signed_attestations sa
+      LEFT JOIN
+        max_source on max_source.validator_id = sa.validator_id
+      LEFT JOIN
+        max_target on max_target.validator_id = sa.validator_id
+      WHERE
+        -- last finalized epochs or later
+        source_epoch >= ?
+        or target_epoch >= ?
+        -- Keep the most recent source_epoch per validator
+        or sa.source_epoch = max_source.max_source_epoch
+        -- And the most recent target_epoch per validator
+        or sa.target_epoch = max_target.max_target_epoch
+    )
      """, (int64, int64), void
   ).get()
 
