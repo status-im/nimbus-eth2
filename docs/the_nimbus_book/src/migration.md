@@ -50,9 +50,12 @@ Follow the instructions [outlined here](./keys.md).
 
 To import the slashing protection history you exported in **step 3**, from the `nimbus-eth2` directory run:
 
-```
 
-```
+.
+.
+.
+
+*TO BE COMPLETED*
 
 
 

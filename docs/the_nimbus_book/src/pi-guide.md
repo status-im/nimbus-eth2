@@ -255,16 +255,8 @@ To do so, run:
 sudo apt-get install git
 
 ```
-### 12. Install Screen
 
-`screen` is a tool that lets you safely detach from the SSH session without exiting the remote job. In other words `screen` allows the commands you run on your Pi from your laptop to keep running after you've logged out.
-
-Run the following command to install `screen`:
-```
-sudo apt-get install screen
-```
-
-### 13. Clone the Nimbus repository
+### 12. Clone the Nimbus repository
 
 Run the following command to clone the [nimbus-eth2 repository](https://github.com/status-im/nimbus-eth2):
 
@@ -272,7 +264,7 @@ Run the following command to clone the [nimbus-eth2 repository](https://github.c
 git clone https://github.com/status-im/nimbus-eth2
 ```
 
-### 14. Build the beacon node
+### 13. Build the beacon node
 
 Change into the directory and build the beacon node.
 ```
@@ -282,7 +274,7 @@ make nimbus_beacon_node
 
 *Patience... this may take a few minutes.*
 
-### 15. Copy signing key over to Pi
+### 14. Copy signing key over to Pi
 
 >**Note:** If you haven't generated your validator key(s) and/or made your deposit yet, follow the instructions on [this page](./deposit.md) before carrying on.
 
@@ -302,7 +294,7 @@ As usual, replace `195.177.101.93` with your Pi's IP address, and `<VALIDATOR_KE
  > **Tip:** run `pwd` in your `validator_keys` directory to print the full pathname to the console.
 
 
-### 16. Import signing key into Nimbus
+### 15. Import signing key into Nimbus
 
 To import your signing key into Nimbus, from the `nimbus-eth2` directory run:
 
@@ -312,46 +304,8 @@ build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_pyrmont_0
 
  You'll be asked to enter the password you created to encrypt your keystore(s). Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your [key](https://blog.ethereum.org/2020/05/21/keys/) (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).
 
-### 17. Run Screen
 
-From the `nimbus-eth2` directory, run:
-```
-screen
-```
-
-You should see output that looks like the following:
-```
-GNU Screen version 4.06.02 (GNU) 23-Oct-17
-
-Copyright (c) 2015-2017 Juergen Weigert, Alexander Naumov, Amadeusz Slawinski
-Copyright (c) 2010-2014 Juergen Weigert, Sadrul Habib Chowdhury
-Copyright (c) 2008-2009 Juergen Weigert, Michael Schroeder, Micah Cowan, Sadrul Habib Chowdhury
-Copyright (c) 1993-2007 Juergen Weigert, Michael Schroeder
-Copyright (c) 1987 Oliver Laumann
-
-This program is free software; you can redistribute it and/or modify it under the terms of the GNU
-General Public License as published by the Free Software Foundation; either version 3, or (at your
-option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even
-the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
-License for more details.
-
-You should have received a copy of the GNU General Public License along with this program (see the file
-COPYING); if not, see http://www.gnu.org/licenses/, or contact Free Software Foundation, Inc., 51
-Franklin Street, Fifth Floor, Boston, MA  02111-1301  USA.
-
-Send bugreports, fixes, enhancements, t-shirts, money, beer & pizza to screen-devel@gnu.org
-
-
-Capabilities:
-+copy +remote-detach +power-detach +multi-attach +multi-user +font +color-256 +utf8 +rxvt
-+builtin-telnet
-```
-
-Press `Enter` or `Space`.
-
-### 18. Connect to Pyrmont
+### 16. Connect to Pyrmont
 
 We're finally ready to connect to Pyrmont!
 
@@ -378,7 +332,7 @@ Please enter a Web3 provider URL:
 
 Enter your own secure websocket (`wss`) [endpoint](eth1.md).
 
-### 19. Check for successful connection
+### 17. Check for successful connection
 
 If you look near the top of the logs printed to your console, you should see confirmation that your beacon node has started, with your local validator attached:
 
@@ -408,15 +362,12 @@ Keep an eye on the number of peers your currently connected to (in the above cas
 
 > **Note:** 15 - 20 peers and an average sync speed of **0.5 - 1.0** blocks per second is normal on `Pyrmont` with a Pi. If you're sync speed is much slower than this, the root of the problem may be your USB3.0 to SSD adapter. See [this post](https://www.raspberrypi.org/forums/viewtopic.php?f=28&t=245931) for a recommended workaround.
 
-### 20. End ssh session and logout
-
-To detach your `screen` session but leave your processes running, press `Ctrl-A` followed by `Ctrl-D`. You can now exit your `ssh` session (`Ctrl-C`) and switch off your laptop.
-
-Verifying your progress is as simple as `ssh`ing back into your Pi and typing `screen -r`. This will resume your screen session (and you will be able to see your node's entire output since you logged out).
 
 ### Professional setup advice
 
-While `screen` is a nice tool for testing, it's not really a good idea to rely on it for serious use. For a more professional setup, we recommend [setting up a systemd service](https://www.raspberrypi.org/documentation/linux/usage/systemd.md) with an autorestart on boot (should you experience an unexpected power outage, this will ensure your validator restarts correctly). 
+Now that you have Nimbus up and running, we recommend [setting up a systemd service](https://www.raspberrypi.org/documentation/linux/usage/systemd.md) with an autorestart on boot (should you experience an unexpected power outage, this will ensure your validator restarts correctly). 
 
-For the details on how to do this, see [this page](./beacon-node-systemd.md).
+Systemd will also ensure your validator keeps running when you exit your ssh session (`Ctrl-C`) and/or switch off your laptop.
+
+For the details on how to set up a systemd service, see [this page](./beacon-node-systemd.md).
 
