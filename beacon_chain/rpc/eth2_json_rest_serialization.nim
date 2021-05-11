@@ -270,15 +270,6 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: BloomLogs) {.
      raises: [IOError, Defect].} =
   writeValue(writer, hexOriginal(value.data))
 
-## OpaqueTransaction
-proc readValue*(reader: var JsonReader[RestJson], value: var OpaqueTransaction) {.
-     raises: [IOError, SerializationError, Defect].} =
-  readValue(reader, value)
-
-proc writeValue*(writer: var JsonWriter[RestJson], value: OpaqueTransaction) {.
-     raises: [IOError, Defect].} =
-  writeValue(writer, value)
-
 ## HashArray
 proc readValue*(reader: var JsonReader[RestJson], value: var HashArray) {.
      raises: [IOError, SerializationError, Defect].} =
