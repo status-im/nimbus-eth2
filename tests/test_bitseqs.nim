@@ -2,7 +2,7 @@
 
 import
   unittest2,
-  strformat,
+  std/[sequtils, strformat],
   ../beacon_chain/ssz/bitseqs,
   ./testutil
 
@@ -11,6 +11,7 @@ suite "Bit fields":
     var
       a = BitArray[100]()
       b = BitArray[100]()
+      c = BitArray[100]()
 
     check:
       not a[0]
@@ -20,12 +21,14 @@ suite "Bit fields":
     check:
       not a[0]
       a[1]
+      toSeq(a.oneIndices()) == [1]
 
       a + b == a
       a - b == a
+      a - a == c # empty
 
       b + a == a
-      b - a == b # b is empty
+      b - b == c # b is empty
 
     b.setBit 2
 
@@ -33,6 +36,15 @@ suite "Bit fields":
       (a + b)[2]
       (b - a)[2]
       not (b - a)[1]
+
+    a.setBit 99
+
+    check:
+      (a + b)[99]
+      (b - a)[2]
+      not (b - a)[1]
+      not (b - a)[99]
+      toSeq(a.oneIndices()) == [1, 99]
 
     a.incl(b)
 
