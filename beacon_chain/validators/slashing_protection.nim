@@ -267,15 +267,19 @@ proc pruneAfterFinalization*(
        db: SlashingProtectionDB,
        finalizedEpoch: Epoch
      ) =
-  # TODO
-  # call sqlPruneAfterFinalizationBlocks
-  # and sqlPruneAfterFinalizationAttestations
-  # and test that wherever pruning happens, tests still pass
-  # and/or devise new tests
+  ## Prune blocks and attestations after a specified `finalizedEpoch`
+  ## The block with the highest slot
+  ## and the attestation(s) with the highest source and target epochs
+  ## are never pruned.
+  ##
+  ## This ensures that even if pruning is called with an incorrect epoch
+  ## slashing protection can fallback to the minimal / high-watermark protection mode.
+  ##
+  ## Pruning is only done if pruning is enabled (DB in kLowWatermarkV2 mode)
+  ## Pruning is only triggered on v2 database.
 
-  # {.error: "NotImplementedError".}
-  fatal "Pruning is not implemented"
-  quit 1
+  if kLowWatermarkV2 in db.modes:
+    db.db_v2.pruneAfterFinalization(finalizedEpoch)
 
 # The high-level import/export functions are
 # - importSlashingInterchange

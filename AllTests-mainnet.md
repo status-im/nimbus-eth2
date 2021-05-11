@@ -226,7 +226,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Slashing Protection DB [Preset: mainnet]
 ```diff
 + Attestation ordering #1698                                                                 OK
++ Don't prune the very last attestation(s) even by mistake                                   OK
++ Don't prune the very last block even by mistake                                            OK
 + Empty database [Preset: mainnet]                                                           OK
++ Pruning attestations works                                                                 OK
++ Pruning blocks works                                                                       OK
 + SP for block proposal - backtracking append                                                OK
 + SP for block proposal - linear append                                                      OK
 + SP for same epoch attestation target - linear append                                       OK
@@ -234,7 +238,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + SP for surrounding attestations                                                            OK
 + Test valid attestation #1699                                                               OK
 ```
-OK: 8/8 Fail: 0/8 Skip: 0/8
+OK: 12/12 Fail: 0/12 Skip: 0/12
 ## Spec datatypes
 ```diff
 + Graffiti bytes                                                                             OK
@@ -319,4 +323,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 176/185 Fail: 0/185 Skip: 9/185
+OK: 180/189 Fail: 0/189 Skip: 9/189
