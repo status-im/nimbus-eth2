@@ -29,6 +29,9 @@ One of the most important aspects of the Raspberry Pi experience is trying to ma
 > 2. Use an USB 3.0 External Hard Drive Case with a SSD Disk. For example, [Ethereum on Arm](https://twitter.com/EthereumOnARM) use an Inateck 2.5 Hard Drive Enclosure FE2011. Make sure to buy a case with an UASP compliant chip, particularly, one of these: JMicron (JMS567 or JMS578) or ASMedia (ASM1153E).
 >
 > In both cases, avoid low quality SSD disks (the SSD is a key component of your node and can drastically affect both the performance and sync time). Keep in mind that you need to plug the disk to an USB 3.0 port (the blue port).
+>
+> **N.B**
+> *If you have a Raspberry Pi 4 and are getting bad speeds transferring data to/from USB3.0 SSDs, please [read this recommended fix.](https://www.raspberrypi.org/forums/viewtopic.php?t=245931#p1501426)*
 
 ### 1. Download Raspberry Pi Imager
 

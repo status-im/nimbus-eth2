@@ -64,6 +64,6 @@ sudo systemctl enable nimbus-eth2-pyrmont --now
 sudo journalctl -u nimbus-eth2-pyrmont.service
 ```
 
-This will show you the Nimbus logs at the default setting -- it should include regular "slot start" messages which will show the sync progress.
+This will show you the Nimbus logs at the default setting -- it should include regular "slot start" messages which will show your sync progress.
 
 For more options, see [here](https://www.raspberrypi.org/documentation/linux/usage/systemd.md).

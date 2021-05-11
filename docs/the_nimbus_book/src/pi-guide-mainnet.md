@@ -8,5 +8,14 @@ The best thing you can do is to set your Pi to run Pyrmont. **If you have no tro
 
 Although we don't expect a modern Pi to fail, we recommend buying a spare Pi, and enterprise grade SSD, on the off-chance it does; keep your original SD around, to make it easy for you to copy the image over.
 
-Finally in order to make sure your Pi autorestarts on boot, we recommend [setting up a systemd service](https://www.raspberrypi.org/documentation/linux/usage/systemd.md). For the details on how to do this, see [this page](./beacon-node-systemd.md)
+
+### Systemd
+
+In order to make sure your Pi autorestarts on boot, we recommend [setting up a systemd service](https://www.raspberrypi.org/documentation/linux/usage/systemd.md). For the details on how to do this, see [this page](./beacon-node-systemd.md).
+
+
+### Overclocking
+
+While you shouldn't need to, if you're feeling adventurous and want to try and squeeze out some extra performance out of your Pi's CPU, see [this guide](https://github.com/jclapis/rp-pi-guide/blob/main/Overclocking.md) by Joe Clapis.
+
 

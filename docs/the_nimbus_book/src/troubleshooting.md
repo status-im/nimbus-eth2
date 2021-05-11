@@ -3,7 +3,7 @@
 > ⚠️  The commands on this page refer to the Pyrmont testnet. If you're running mainnet, replace `pyrmont` with `mainnet` in the commands below.
 
 
-As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the `master` branch. If you can't find a solution to your problem here, feel free to hit us up on our [discord](https://discord.com/invite/XRxWahP)!
+As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the `stable` branch. If you can't find a solution to your problem here, feel free to hit us up on our [discord](https://discord.com/invite/XRxWahP)!
 
 > **Note:** While the `stable` branch of the `nimbus-eth2` repository is more stable, the latest updates happen in the `unstable` branch which is (usually) merged into master every week on Tuesday. If you choose to run Nimbus directly from the `unstable` branch, be prepared for instabilities!
 
@@ -91,6 +91,19 @@ The first line in the output will give you internet time. And the second line wi
 
 ### Eth1 chain monitor failure
 
-*todo*
+If you see an error that looks like the following:
+
+```
+{"lvl":"ERR","ts":"2021-05-11 09:05:53.547+00:00","msg":"Eth1 chain monitoring failure, restarting","topics":"eth1","tid":1,"file":"eth1_monitor.nim:1158","err":"Trying to access value with err: Failed to setup web3 connection"}
+```
+
+It's because your node can't connect to the web3 provider you have specified. Please double check that you've correctly specified your provider. If you haven't done so already, we recommend [adding a backup](web3-backup.md).
+
+## Raspberry Pi
+
+### Trouble transferring data to/from USB3.0 SSDs
+
+We have seen reports of extremely degraded performance when using several types of USB3.0 to SSD adapter or when using native USB3.0 disk drives. [This post](https://www.raspberrypi.org/forums/viewtopic.php?t=245931#p1501426) details why there is a difference in behaviour from models prior to Pi 4 and the recommended workaround.
+
 
 

@@ -29,7 +29,6 @@
 - [Graffiti the blockchain](./graffiti.md)
 - [Download binaries](./binaries.md)
 - [Download Docker images](./docker.md)
-- [Troubleshoot](./troubleshooting.md)
 - [Recover / generate keys](./more-keys.md)
 - [Perform a voluntary exit](./voluntary-exit.md)
 - [Set up a systemd service](./beacon-node-systemd.md)
@@ -48,6 +47,7 @@
 # Reference
 - [API](./api.md)
 - [Help / Command line options](./options.md)
+- [Troubleshooting](./troubleshooting.md)
 - [For developers](./developers.md)
 - [FAQ](./faq.md)
 - [Contribute](./contribute.md)
