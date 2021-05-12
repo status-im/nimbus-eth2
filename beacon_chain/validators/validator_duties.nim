@@ -17,12 +17,11 @@ import
   chronicles,
   json_serialization/std/[options, sets, net], serialization/errors,
   eth/db/kvstore,
-  eth/[keys, async_utils], eth/p2p/discoveryv5/[protocol, enr],
+  eth/keys, eth/p2p/discoveryv5/[protocol, enr],
 
   # Local modules
   ../spec/[
-    datatypes, digest, crypto, helpers, network, signatures, state_transition,
-    validator],
+    datatypes, digest, crypto, helpers, network, signatures, state_transition],
   ../conf, ../beacon_clock,
   ../consensus_object_pools/[
     spec_cache, blockchain_dag, block_clearance,
