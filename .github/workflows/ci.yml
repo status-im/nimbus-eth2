@@ -292,7 +292,7 @@ jobs:
         with:
           files: nim-beacon-chain/build/*.xml
           check_name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}
-          comment_on_pr: false
+          comment_mode: off
 
       # Windows and macOS
       - name: Publish Unit Test Results
@@ -301,7 +301,7 @@ jobs:
         with:
           files: nim-beacon-chain/build/*.xml
           check_name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}
-          comment_on_pr: false
+          comment_mode: off
 
       - name: Run nim-beacon-chain testnet0 (minimal)
         if: matrix.target.TEST_KIND == 'finalization-minimal'
