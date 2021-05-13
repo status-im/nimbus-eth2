@@ -84,14 +84,12 @@ OK: 11/11 Fail: 0/11 Skip: 0/11
 + empty database [Preset: mainnet]                                                           OK
 + find ancestors [Preset: mainnet]                                                           OK
 + sanity check blocks [Preset: mainnet]                                                      OK
-+ sanity check full states [Preset: mainnet]                                                 OK
-+ sanity check full states, reusing buffers [Preset: mainnet]                                OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 + sanity check states [Preset: mainnet]                                                      OK
 + sanity check states, reusing buffers [Preset: mainnet]                                     OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Beacon state [Preset: mainnet]
 ```diff
 + Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
@@ -323,4 +321,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 180/189 Fail: 0/189 Skip: 9/189
+OK: 178/187 Fail: 0/187 Skip: 9/187
