@@ -90,6 +90,66 @@ elif [[ "${PLATFORM}" == "Linux_arm64v8" ]]; then
     NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --cpu:arm64 --gcc.exe=${CC} --gcc.linkerexe=${CC}" \
     PARTIAL_STATIC_LINKING=1 \
     ${BINARIES}
+elif [[ "${PLATFORM}" == "macOS_amd64" ]]; then
+  export PATH="/opt/osxcross/bin:${PATH}"
+  export OSXCROSS_MP_INC=1 # sets up include and library paths
+  export ZERO_AR_DATE=1 # avoid timestamps in binaries
+  DARWIN_VER="20.4"
+  CC="o64-clang"
+  make \
+    -j$(nproc) \
+    USE_LIBBACKTRACE=0 \
+    QUICK_AND_DIRTY_COMPILER=1 \
+    deps-common build/generate_makefile
+  make \
+    -j$(nproc) \
+    CC="${CC}" \
+    LIBTOOL="x86_64-apple-darwin${DARWIN_VER}-libtool" \
+    OS="darwin" \
+    NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --os:macosx --clang.exe=${CC}" \
+    nat-libs
+  make \
+    -j$(nproc) \
+    LOG_LEVEL="TRACE" \
+    CC="${CC}" \
+    AR="x86_64-apple-darwin${DARWIN_VER}-ar" \
+    RANLIB="x86_64-apple-darwin${DARWIN_VER}-ranlib" \
+    CMAKE="x86_64-apple-darwin${DARWIN_VER}-cmake" \
+    DSYMUTIL="x86_64-apple-darwin${DARWIN_VER}-dsymutil" \
+    FORCE_DSYMUTIL=1 \
+    USE_VENDORED_LIBUNWIND=1 \
+    NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --os:macosx --clang.exe=${CC} --clang.linkerexe=${CC}" \
+    ${BINARIES}
+elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
+  export PATH="/opt/osxcross/bin:${PATH}"
+  export OSXCROSS_MP_INC=1 # sets up include and library paths
+  export ZERO_AR_DATE=1 # avoid timestamps in binaries
+  DARWIN_VER="20.4"
+  CC="oa64-clang"
+  make \
+    -j$(nproc) \
+    USE_LIBBACKTRACE=0 \
+    QUICK_AND_DIRTY_COMPILER=1 \
+    deps-common build/generate_makefile
+  make \
+    -j$(nproc) \
+    CC="${CC}" \
+    LIBTOOL="arm64-apple-darwin${DARWIN_VER}-libtool" \
+    OS="darwin" \
+    NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --os:macosx --cpu:arm64 --clang.exe=${CC}" \
+    nat-libs
+  make \
+    -j$(nproc) \
+    LOG_LEVEL="TRACE" \
+    CC="${CC}" \
+    AR="arm64-apple-darwin${DARWIN_VER}-ar" \
+    RANLIB="arm64-apple-darwin${DARWIN_VER}-ranlib" \
+    CMAKE="arm64-apple-darwin${DARWIN_VER}-cmake" \
+    DSYMUTIL="arm64-apple-darwin${DARWIN_VER}-dsymutil" \
+    FORCE_DSYMUTIL=1 \
+    USE_VENDORED_LIBUNWIND=1 \
+    NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --os:macosx --cpu:arm64 --clang.exe=${CC} --clang.linkerexe=${CC}" \
+    ${BINARIES}
 else
   make \
     -j$(nproc) \
@@ -119,6 +179,10 @@ mkdir "${DIST_PATH}/build"
 # copy and checksum binaries, copy scripts and docs
 for BINARY in ${BINARIES}; do
   cp -a "./build/${BINARY}" "${DIST_PATH}/build/"
+  if [[ "${PLATFORM}" =~ macOS ]]; then
+    # debug info
+    cp -a "./build/${BINARY}.dSYM" "${DIST_PATH}/build/"
+  fi
   cd "${DIST_PATH}/build"
   sha512sum "${BINARY}" > "${BINARY}.sha512sum"
   if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
@@ -137,6 +201,10 @@ elif [[ "${PLATFORM}" == "Linux_arm64v8" ]]; then
 elif [[ "${PLATFORM}" == "Windows_amd64" ]]; then
   sed -i -e 's/^make dist$/make dist-win64/' "${DIST_PATH}/README.md"
   cp -a docker/dist/README-Windows.md "${DIST_PATH}/"
+elif [[ "${PLATFORM}" == "macOS_amd64" ]]; then
+  sed -i -e 's/^make dist$/make dist-macos/' "${DIST_PATH}/README.md"
+elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
+  sed -i -e 's/^make dist$/make dist-macos-arm64/' "${DIST_PATH}/README.md"
 fi
 
 cp -a scripts/run-beacon-node.sh "${DIST_PATH}/scripts"

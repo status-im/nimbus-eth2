@@ -1,0 +1,18 @@
+# The build is reproducible only if this base image stays the same.
+FROM statusteam/nimbus_beacon_node:dist_base_20210513160553_macos@sha256:eef4aff594307c0ff615160aa7184b3660648ce929bb670a409428fc32bd04ed
+
+SHELL ["/bin/bash", "-c"]
+
+ARG USER_ID
+ARG GROUP_ID
+
+RUN addgroup --gid ${GROUP_ID} user; \
+	adduser --disabled-password --gecos '' --uid ${USER_ID} --gid ${GROUP_ID} user;
+
+USER user
+
+STOPSIGNAL SIGINT
+
+COPY "entry_point.sh" "/home/user/"
+ENTRYPOINT ["/home/user/entry_point.sh", "macOS_arm64"]
+
