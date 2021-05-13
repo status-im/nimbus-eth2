@@ -171,7 +171,7 @@ You'll be directed to the dashboard where you'll be able to gain insights into t
 And voila! That's all there is to it :)
 
 
-## Recommended setups (Nimbus dashboard challenge winners)
+## Community dashboards
 
 ### Joe Clapis
 
