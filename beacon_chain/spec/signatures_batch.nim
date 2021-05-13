@@ -109,7 +109,7 @@ proc aggregateAttesters(
 proc addIndexedAttestation(
       sigs: var seq[SignatureSet],
       attestation: IndexedAttestation,
-      state: BeaconState
+      state: StateData
      ): bool =
   ## Add an indexed attestation for batched BLS verification
   ## purposes
@@ -126,15 +126,15 @@ proc addIndexedAttestation(
     return false
 
   var aggPK {.noInit.}: blscurve.PublicKey
-  if not aggPK.aggregateAttesters(attestation, state):
+  if not aggPK.aggregateAttesters(attestation, state.data.data):
     return false
 
   sigs.addSignatureSet(
           aggPK,
           attestation.data,
           attestation.signature.loadOrExit(false),
-          state.genesis_validators_root,
-          state.fork,
+          getStateField(state, genesis_validators_root),
+          getStateField(state, fork),
           attestation.data.target.epoch,
           DOMAIN_BEACON_ATTESTER)
   return true
@@ -142,22 +142,22 @@ proc addIndexedAttestation(
 proc addAttestation(
       sigs: var seq[SignatureSet],
       attestation: Attestation,
-      state: BeaconState,
+      state: StateData,
       cache: var StateCache
      ): bool =
   var inited = false
   var attestersAgg{.noInit.}: AggregatePublicKey
-  for valIndex in state.get_attesting_indices(
+  for valIndex in state.data.data.get_attesting_indices(
                     attestation.data,
                     attestation.aggregation_bits,
                     cache
                   ):
     if not inited: # first iteration
-      attestersAgg.init(state.validators[valIndex]
+      attestersAgg.init(getStateField(state, validators)[valIndex]
                              .pubkey.loadWithCacheOrExit(false))
       inited = true
     else:
-      attestersAgg.aggregate(state.validators[valIndex]
+      attestersAgg.aggregate(getStateField(state, validators)[valIndex]
                                   .pubkey.loadWithCacheOrExit(false))
 
   if not inited:
@@ -171,8 +171,8 @@ proc addAttestation(
           attesters,
           attestation.data,
           attestation.signature.loadOrExit(false),
-          state.genesis_validators_root,
-          state.fork,
+          getStateField(state, genesis_validators_root),
+          getStateField(state, fork),
           attestation.data.target.epoch,
           DOMAIN_BEACON_ATTESTER)
 
@@ -383,13 +383,13 @@ proc collectSignatureSets*(
     # Attestation 1
     if not sigs.addIndexedAttestation(
             slashing.attestation_1,
-            state.data.data):
+            state):
       return false
 
     # Conflicting attestation 2
     if not sigs.addIndexedAttestation(
             slashing.attestation_2,
-            state.data.data):
+            state):
       return false
 
   # 5. Attestations
@@ -404,7 +404,7 @@ proc collectSignatureSets*(
     # fixed in 1.4.2
     if not sigs.addAttestation(
             signed_block.message.body.attestations[i],
-            state.data.data, cache):
+            state, cache):
       return false
 
   # 6. VoluntaryExits

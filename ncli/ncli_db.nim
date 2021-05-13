@@ -3,7 +3,7 @@ import
   chronicles, confutils, stew/byteutils, eth/db/kvstore_sqlite3,
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/[beacon_chain_db, extras],
-  ../beacon_chain/consensus_object_pools/blockchain_dag,
+  ../beacon_chain/consensus_object_pools/[blockchain_dag, statedata_helpers],
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers,
                         state_transition, presets, validator],
   ../beacon_chain/ssz, ../beacon_chain/ssz/sszdump,
@@ -440,7 +440,7 @@ proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimePreset) =
   var
     blockRefs = dag.getBlockRange(conf.perfSlot, conf.perfSlots)
     perfs = newSeq[ValidatorPerformance](
-      dag.headState.data.data.validators.len())
+      getStateField(dag.headState, validators).len())
     cache = StateCache()
     rewards = RewardInfo()
     blck: TrustedSignedBeaconBlock
@@ -457,7 +457,7 @@ proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimePreset) =
   proc processEpoch() =
     let
       prev_epoch_target_slot =
-        state[].data.data.get_previous_epoch().compute_start_slot_at_epoch()
+        state[].get_previous_epoch().compute_start_slot_at_epoch()
       penultimate_epoch_end_slot =
         if prev_epoch_target_slot == 0: Slot(0)
         else: prev_epoch_target_slot - 1

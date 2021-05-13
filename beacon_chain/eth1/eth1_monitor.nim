@@ -284,13 +284,14 @@ template toGaugeValue(x: Quantity): int64 =
 #             "Invalid configuration: GENESIS_DELAY is set too low"
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#get_eth1_data
-func compute_time_at_slot(state: BeaconState, slot: Slot): uint64 =
-  state.genesis_time + slot * SECONDS_PER_SLOT
+func compute_time_at_slot(state: StateData, slot: Slot): uint64 =
+  getStateField(state, genesis_time) + slot * SECONDS_PER_SLOT
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#get_eth1_data
-func voting_period_start_time*(state: BeaconState): uint64 =
+func voting_period_start_time*(state: StateData): uint64 =
   let eth1_voting_period_start_slot =
-    state.slot - state.slot mod SLOTS_PER_ETH1_VOTING_PERIOD.uint64
+    getStateField(state, slot) - getStateField(state, slot) mod
+      SLOTS_PER_ETH1_VOTING_PERIOD.uint64
   compute_time_at_slot(state, eth1_voting_period_start_slot)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#get_eth1_data
@@ -702,7 +703,7 @@ proc getBlockProposalData*(chain: var Eth1Chain,
                            finalizedEth1Data: Eth1Data,
                            finalizedStateDepositIndex: uint64): BlockProposalEth1Data =
   let
-    periodStart = voting_period_start_time(state.data.data)
+    periodStart = voting_period_start_time(state)
     hasLatestDeposits = chain.trackFinalizedState(finalizedEth1Data,
                                                   finalizedStateDepositIndex)
 
