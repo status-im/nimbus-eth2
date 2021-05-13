@@ -1,3 +1,5 @@
+* we're now distributing macOS AMD64 and ARM64 binaries - reproducible, as usual
+
 2021-05-03 v1.2.2
 =================
 
