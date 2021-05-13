@@ -1,37 +1,37 @@
 2021-05-17 v1.3.0
 =================
 
-A new release offering safer and easier options for migrating to Nimbus from
-other clients and bringing further performance optimizations.
+This release offers safer and easier options to migrate to Nimbus from other clients.
+It also brings further performance optimizations.
 
-**New features:**
+**We've added:**
 
-* A new `slashingdb` sub-command offering import and export options for the
-  EIP-3076 slashing protection interchange format. Please see the the prepared
-  [migration guides](https://nimbus.guide/migrate.html) outlining the safest
-  way to migrate to Nimbus from other clients.
+* A new `slashingdb` sub-command with `import` and `export` options. This allows for
+  safely migrating to Nimbus from another client (as per the [EIP-3076](https://eips.ethereum.org/EIPS/eip-3076) slashing
+  protection interchange format).
+  Please see the the newly prepared [migration guides](https://nimbus.guide/migrate.html) for the details.
 
-* Pruning of the slashing protection database and transition to more optimal
-  queries *->* significant reduction of disk and CPU usage on nodes running
-  large number of validators.
+* Pruning of the slashing protection database and a transition to more optimal
+  queries. This results in a significant reduction in both disk and CPU usage
+  on nodes running a large number of validators.
 
 * More consistent level of validation for the attestations received from
-  third-party sources and the JSON-RPC and REST APIs, preventing invalid
-  attestations to be broadcasted to the network.
+  third-party sources and the JSON-RPC and REST APIs. This prevents invalid
+  attestations from being broadcasted to the network.
 
 * Performance tuning of attestation subnet transition timings and state
-  snapshotting intervals *->* improved CPU and bandwidth usage.
+  snapshotting intervals. This results in improved CPU and bandwidth usage.
+
+* A new `ncli_db validatorPerf` command. This can be used to perform a textual
+  report for the attestation performance of a particular validator
+  (please note that `ncli_db` is available only when compiling from source).
+
+* Official binaries for macOS (AMD64 and ARM64).
 
 **We've fixed:**
 
-* Problems in the GossipSub subnet walking logic leading to unnecessary
-  bandwidth and CPU costs.
-
-**New tools:**
-
-* A new `ncli_db validatorPerf` command for producing a textual report for the
-  attestation performance of a particular validator (please note that `ncli_db`
-  is available only when compiling from source).
+* Problems in the GossipSub subnet walking logic leading to unnecessary bandwidth
+  and CPU costs.
 
 
 2021-05-03 v1.2.2

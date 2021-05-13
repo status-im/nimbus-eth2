@@ -1,0 +1,24 @@
+# This Docker image can change from one build to another, because the upstream
+# Debian/Ubuntu package index is continuously updated and we have to run
+# `apt-get update` in here.
+#
+# The only way to make this a part of our reproducible build system is to build
+# it once, upload it to Docker Hub and make sure it's being pulled regularly so
+# it's not deleted after 6 months of inactivity.
+
+FROM ubuntu:20.04
+
+SHELL ["/bin/bash", "-c"]
+
+ENV DEBIAN_FRONTEND=noninteractive TZ="Etc/UTC"
+RUN apt-get -qq update \
+ && apt-get -qq -y install build-essential git clang-11 llvm-11-dev cmake curl libssl-dev lzma-dev libxml2-dev &>/dev/null \
+ && update-alternatives --install /usr/bin/clang clang /usr/bin/clang-11 100 \
+ && update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-11 100 \
+ && apt-get -qq clean \
+ && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+COPY "build_osxcross.sh" "/root/"
+RUN cd /root \
+ && ./build_osxcross.sh
+

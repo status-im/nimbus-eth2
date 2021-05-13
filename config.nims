@@ -1,3 +1,5 @@
+import strutils
+
 const nimCachePathOverride {.strdefine.} = ""
 when nimCachePathOverride == "":
   when defined(release):
@@ -79,8 +81,7 @@ switch("define", "withoutPCRE")
 
 switch("import", "testutils/moduletests")
 
-const useLibStackTrace = not defined(macosx) and
-                         not defined(windows) and
+const useLibStackTrace = not defined(windows) and
                          not defined(disable_libbacktrace)
 
 when useLibStackTrace:
@@ -90,9 +91,25 @@ else:
   --stacktrace:on
   --linetrace:on
 
-# the default open files limit is too low on macOS (512), breaking the
-# "--debugger:native" build. It can be increased with `ulimit -n 1024`.
-if not defined(macosx):
+var canEnableDebuggingSymbols = true
+if defined(macosx):
+  # The default open files limit is too low on macOS (512), breaking the
+  # "--debugger:native" build. It can be increased with `ulimit -n 1024`.
+  let openFilesLimitTarget = 1024
+  var openFilesLimit = 0
+  try:
+    openFilesLimit = staticExec("ulimit -n").strip(chars = Whitespace + Newlines).parseInt()
+    if openFilesLimit < openFilesLimitTarget:
+      echo "Open files limit too low to enable debugging symbols and lightweight stack traces."
+      echo "Increase it with \"ulimit -n " & $openFilesLimitTarget & "\""
+      canEnableDebuggingSymbols = false
+  except:
+    echo "ulimit error"
+# We ignore this resource limit on Windows, where a default `ulimit -n` of 256
+# in Git Bash is apparently ignored by the OS, and on Linux where the default of
+# 1024 is good enough for us.
+
+if canEnableDebuggingSymbols:
   # add debugging symbols and original files and line numbers
   --debugger:native
 
