@@ -20,7 +20,7 @@ type
     dump = "Dump the validator slashing protection DB to json"
     restore = "Restore the validator slashing protection DB from json"
 
-  SlashProtConf = object
+  SlashProtConf* = object
 
     db{.desc: "The path to the database .sqlite3 file" .}: string
 

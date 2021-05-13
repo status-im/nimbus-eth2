@@ -38,6 +38,7 @@ type
     wallets
     record
     web3
+    slashingdb
 
   WalletsCmd* {.pure.} = enum
     create  = "Creates a new EIP-2386 wallet"
@@ -73,6 +74,13 @@ type
   StateDbKind* {.pure.} = enum
     sql
     file
+
+  SlashProtCmd* = enum
+    exportAll = "Export the whole validator slashing protection DB to json."
+    `import` = "Import the slashing protection json to the node."
+    `export` = "Export specified validators slashing protection data to json"
+    # migrateAll = "Export and remove the whole validator slashing protection DB."
+    # migrate = "Export and remove specified validators from Nimbus."
 
   BeaconNodeConf* = object
     logLevel* {.
@@ -486,6 +494,20 @@ type
           argument
           desc: "The web3 provider URL to test"
           name: "url" }: Uri
+
+    of slashingdb:
+      # TODO: when this is not set, confutils crashes
+      interchangeFile* {.
+        desc: "Path to the slashing interchange file"
+        name: "interchange" .}: Option[string]
+
+      case slashingdbCmd* {.command.}: SlashProtCmd
+      of SlashProtCmd.exportAll, SlashProtCmd.`import`:
+        discard
+      of SlashProtCmd.`export`:
+        validators* {.
+          argument
+          desc: "One or more validators to export".}: seq[string]
 
   ValidatorClientConf* = object
     logLevel* {.
