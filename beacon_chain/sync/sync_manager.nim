@@ -439,18 +439,17 @@ proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
       if failSlot == rewind.failSlot:
         # `MissingParent` happened at same slot so we increase rewind point by
         # factor of 2.
-        let epochs = rewind.epochCount * 2
-        sq.rewind = some(RewindPoint(failSlot: failSlot, epochCount: epochs))
-        epochs
+        rewind.epochCount * 2
       else:
         # `MissingParent` happened at different slot so we going to rewind for
         # 1 epoch only.
-        sq.rewind = some(RewindPoint(failSlot: failSlot, epochCount: 1'u64))
         1'u64
     else:
       # `MissingParent` happened first time.
-      sq.rewind = some(RewindPoint(failSlot: failSlot, epochCount: 1'u64))
       1'u64
+
+  # Update and save new rewind point in SyncQueue.
+  sq.rewind = some(RewindPoint(failSlot: failSlot, epochCount: epochCount))
 
   # Calculate the latest finalized epoch.
   let finalizedEpoch = compute_epoch_at_slot(finalizedSlot)
