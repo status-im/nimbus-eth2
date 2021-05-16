@@ -6,10 +6,10 @@ other clients and bringing further performance optimizations.
 
 **New features:**
 
-* A new `slashingProtection` sub-command offering import and export options
-  for the EIP-3076 slashing protection interchange format. Please see the
-  the prepared [migration guides](https://nimbus.guide/migrate.html) outlining
-  the safest way to migrate to Nimbus from other clients.
+* A new `slashingdb` sub-command offering import and export options for the
+  EIP-3076 slashing protection interchange format. Please see the the prepared
+  [migration guides](https://nimbus.guide/migrate.html) outlining the safest
+  way to migrate to Nimbus from other clients.
 
 * Pruning of the slashing protection database and transition to more optimal
   queries *->* significant reduction of disk and CPU usage on nodes running

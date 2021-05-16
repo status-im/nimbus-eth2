@@ -1936,30 +1936,9 @@ proc doSlashingExport(conf: BeaconNodeConf) {.raises: [IOError, Defect].}=
   # TODO: Make it read-only https://github.com/status-im/nim-eth/issues/312
   let db = SlashingProtectionDB.loadUnchecked(dir, filetrunc, readOnly = false)
 
-  let interchange = block:
-    if conf.interchangeFile.isSome():
-      string(conf.interchangeFile.unsafeGet())
-    else:
-      conf.validatorsDir() & "/" & "interchange-" & "" & ".json"
-
-  db.exportSlashingInterchange(interchange)
+  let interchange = conf.exportedInterchangeFile.string
+  db.exportSlashingInterchange(interchange, conf.exportedValidators)
   echo "Export finished: '", dir/filetrunc & ".sqlite3" , "' into '", interchange, "'"
-
-proc doSlashingPartialExport(conf: BeaconNodeConf) {.raises: [IOError, Defect].} =
-  let
-    dir = conf.validatorsDir()
-    filetrunc = SlashingDbName
-  # TODO: Make it read-only https://github.com/status-im/nim-eth/issues/312
-  let db = SlashingProtectionDB.loadUnchecked(dir, filetrunc, readOnly = false)
-
-  let interchange = block:
-    if conf.interchangeFile.isSome():
-      string(conf.interchangeFile.unsafeGet())
-    else:
-      conf.validatorsDir() & "/" & "interchange-" & "" & ".json"
-
-  db.exportPartialSlashingInterchange(conf.validators, interchange)
-  echo "Partial export finished: '", dir/filetrunc/".sqlite3" , "' into '", interchange, "'"
 
 proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOError, Defect].} =
   let
@@ -1967,11 +1946,7 @@ proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOErr
     filetrunc = SlashingDbName
   # TODO: Make it read-only https://github.com/status-im/nim-eth/issues/312
 
-  let interchange = block:
-    if conf.interchangeFile.isSome():
-      string(conf.interchangeFile.unsafeGet())
-    else:
-      conf.validatorsDir() & "/" & "interchange-" & "" & ".json"
+  let interchange = conf.importedInterchangeFile.string
 
   var spdir: SPDIR
   try:
@@ -2003,10 +1978,8 @@ proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOErr
 proc doSlashingInterchange(conf: BeaconNodeConf) {.raises: [Defect, CatchableError].} =
   doAssert conf.cmd == slashingdb
   case conf.slashingdbCmd
-  of SlashProtCmd.exportAll:
-    conf.doSlashingExport()
   of SlashProtCmd.`export`:
-    conf.doSlashingPartialExport()
+    conf.doSlashingExport()
   of SlashProtCmd.`import`:
     conf.doSlashingImport()
 

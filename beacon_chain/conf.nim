@@ -76,9 +76,8 @@ type
     file
 
   SlashProtCmd* = enum
-    exportAll = "Export the whole validator slashing protection DB to json."
-    `import` = "Import the slashing protection json to the node."
-    `export` = "Export specified validators slashing protection data to json"
+    `import` = "Import a EIP-3076 slashing protection interchange file"
+    `export` = "Export a EIP-3076 slashing protection interchange file"
     # migrateAll = "Export and remove the whole validator slashing protection DB."
     # migrate = "Export and remove specified validators from Nimbus."
 
@@ -496,18 +495,20 @@ type
           name: "url" }: Uri
 
     of slashingdb:
-      # TODO: when this is not set, confutils crashes
-      interchangeFile* {.
-        desc: "Path to the slashing interchange file"
-        name: "interchange" .}: Option[string]
-
       case slashingdbCmd* {.command.}: SlashProtCmd
-      of SlashProtCmd.exportAll, SlashProtCmd.`import`:
-        discard
+      of SlashProtCmd.`import`:
+        importedInterchangeFile* {.
+          desc: "EIP-3076 slashing protection interchange file to import"
+          argument .}: InputFile
       of SlashProtCmd.`export`:
-        validators* {.
-          argument
-          desc: "One or more validators to export".}: seq[string]
+        exportedValidators* {.
+          desc: "Limit the export to specific validators " &
+                "(specified as numeric indices or public keys)"
+          abbr: "v"
+          name: "validator" }: seq[string]
+        exportedInterchangeFile* {.
+          desc: "EIP-3076 slashing protection interchange file to export"
+          argument }: OutFile
 
   ValidatorClientConf* = object
     logLevel* {.

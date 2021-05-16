@@ -9,10 +9,11 @@
 
 import
   # stdlib
-  std/os,
+  std/[os, algorithm, sequtils],
   # Status
   eth/db/[kvstore, kvstore_sqlite3],
-  stew/results, chronicles,
+  stew/[results, byteutils],
+  chronicles,
   # Internal
   ../spec/[datatypes, digest, crypto],
   ./slashing_protection_common,
@@ -167,13 +168,6 @@ proc loadUnchecked*(
   except:
     result.disagreementBehavior = kChooseV1
 
-  try:
-    result.db_v1.fromRawDB(kvstore result.db_v2.getRawDBHandle())
-    result.modes.incl(kCompleteArchiveV1)
-  except:
-    doAssert result.modes.card > 0, "Couldn't open the DB."
-    result.disagreementBehavior = kChooseV2
-
 proc close*(db: SlashingProtectionDB) =
   ## Close a slashing protection database
   db.db_v2.close()
@@ -307,3 +301,24 @@ proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): SlashingImportStatus
 proc toSPDIR*(db: SlashingProtectionDB): SPDIR
              {.raises: [IOError, Defect].} =
   db.db_v2.toSPDIR()
+
+proc exportSlashingInterchange*(
+       db: SlashingProtectionDB,
+       path: string,
+       validatorsWhiteList: seq[string] = @[],
+       prettify = true) {.raises: [Defect, IOError].} =
+  ## Export a database to the Slashing Protection Database Interchange Format
+  # We could modify toSPDIR to do the filtering directly
+  # but this is not a performance sensitive operation.
+  # so it's better to keep it simple.
+  var spdir = db.toSPDIR()
+
+  if validatorsWhiteList.len > 0:
+    # O(a log b) with b the number of validators to keep
+    #        and a the total number of validators in DB
+    let validators = validatorsWhiteList.sorted()
+    spdir.data.keepItIf(validators.binarySearch("0x" & it.pubkey.PubKeyBytes.toHex()) != -1)
+
+  Json.saveFile(path, spdir, prettify)
+  echo "Exported slashing protection DB to '", path, "'"
+

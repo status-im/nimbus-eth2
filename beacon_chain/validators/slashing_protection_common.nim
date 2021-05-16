@@ -222,32 +222,6 @@ proc readValue*(r: var JsonReader, a: var (SlotString or EpochString))
   except ValueError:
     raiseUnexpectedValue(r, "Integer in a string expected")
 
-proc exportSlashingInterchange*(
-       db: auto,
-       path: string, prettify = true) {.raises: [Defect, IOError].} =
-  ## Export a database to the Slashing Protection Database Interchange Format
-  let spdir = db.toSPDIR()
-  Json.saveFile(path, spdir, prettify)
-  echo "Exported slashing protection DB to '", path, "'"
-
-proc exportPartialSlashingInterchange*(
-       db: SlashingProtectionDB_Concept,
-       validators: seq[string],
-       path: string, prettify = true) {.raises: [Defect, IOError].} =
-  ## Export a database to the Slashing Protection Database Interchange Format
-  # We could modify toSPDIR to do the filtering directly
-  # but this is not a performance sensitive operation.
-  # so it's better to keep it simple.
-  var spdir = db.toSPDIR()
-
-  # O(a log b) with b the number of validators to keep
-  #        and a the total number of validators in DB
-  let validators = validators.sorted()
-  spdir.data.keepItIf(validators.binarySearch("0x" & it.pubkey.PubKeyBytes.toHex()) != -1)
-
-  Json.saveFile(path, spdir, prettify)
-  echo "Exported slashing protection DB to '", path, "'"
-
 proc importSlashingInterchange*(
        db: auto,
        path: string): SlashingImportStatus {.raises: [Defect, IOError, SerializationError].} =
