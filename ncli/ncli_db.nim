@@ -29,6 +29,10 @@ type
     exportEra
     validatorPerf
 
+  StateDbKind* {.pure.} = enum
+    sql
+    file
+
   # TODO:
   # This should probably allow specifying a run-time preset
   DbConf = object
@@ -40,6 +44,11 @@ type
     eth2Network* {.
       desc: "The Eth2 network preset to use"
       name: "network" }: Option[string]
+
+    stateDbKind* {.
+      defaultValue: StateDbKind.sql
+      desc: "State DB kind (sql, file) [=sql]"
+      name: "state-db-kind" }: StateDbKind
 
     case cmd* {.
       command
@@ -145,7 +154,8 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
   echo "Opening database..."
   let
     db = BeaconChainDB.new(
-      runtimePreset, conf.databaseDir.string,)
+      runtimePreset, conf.databaseDir.string,
+      fileStateStorage = conf.stateDbKind == StateDbKind.file)
     dbBenchmark = BeaconChainDB.new(runtimePreset, "benchmark")
   defer:
     db.close()
@@ -426,7 +436,8 @@ proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimePreset) =
   echo "Opening database..."
   let
     db = BeaconChainDB.new(
-      runtimePreset, conf.databaseDir.string,)
+      runtimePreset, conf.databaseDir.string,
+      fileStateStorage = conf.stateDbKind == StateDbKind.file)
   defer:
     db.close()
 

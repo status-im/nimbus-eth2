@@ -638,6 +638,7 @@ proc initCompatV1*(T: type SlashingProtectionDB_v2,
 
   result.db = T(backend: SqStoreRef.init(
       basePath, dbname,
+      keyspaces = ["kvstore"] # The key compat part
     ).get())
   if alreadyExists and result.db.getMetadataTable_DbV2().isSome():
     result.db.checkDB(genesis_validators_root)

@@ -103,11 +103,12 @@ proc init*(T: type BeaconNode,
   let
     db = BeaconChainDB.new(
       runtimePreset, config.databaseDir,
-      inMemory = false)
+      inMemory = false,
+      fileStateStorage = config.stateDbKind == StateDbKind.file)
 
   var
     genesisState, checkpointState: ref BeaconState
-    checkpointBlock: TrustedSignedBeaconBlock
+    checkpointBlock: SignedBeaconBlock
 
   if config.finalizedCheckpointState.isSome:
     let checkpointStatePath = config.finalizedCheckpointState.get.string
@@ -128,8 +129,7 @@ proc init*(T: type BeaconNode,
     else:
       let checkpointBlockPath = config.finalizedCheckpointBlock.get.string
       try:
-        # TODO Perform sanity checks like signature and slot verification at least
-        checkpointBlock = SSZ.loadFile(checkpointBlockPath, TrustedSignedBeaconBlock)
+        checkpointBlock = SSZ.loadFile(checkpointBlockPath, SignedBeaconBlock)
       except SerializationError as err:
         fatal "Invalid checkpoint block", err = err.formatMsg(checkpointBlockPath)
         quit 1
@@ -146,7 +146,7 @@ proc init*(T: type BeaconNode,
   if not ChainDAGRef.isInitialized(db):
     var
       tailState: ref BeaconState
-      tailBlock: TrustedSignedBeaconBlock
+      tailBlock: SignedBeaconBlock
 
     if genesisStateContents.len == 0 and checkpointState == nil:
       when hasGenesisDetection:

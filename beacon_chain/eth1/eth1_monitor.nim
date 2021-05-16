@@ -62,8 +62,6 @@ type
     when hasGenesisDetection:
       activeValidatorsCount*: uint64
 
-  DepositsMerkleizer* = SszMerkleizer[depositContractLimit]
-
   Eth1Chain* = object
     db: BeaconChainDB
     preset: RuntimePreset
@@ -216,7 +214,7 @@ when hasGenesisDetection:
         m.genesisValidators.add ImmutableValidatorData(
           pubkey: pubkey,
           withdrawal_credentials: deposit.withdrawal_credentials)
-        m.genesisValidatorKeyToIndex[pubkey] = idx
+        m.genesisValidatorKeyToIndex.insert(pubkey, idx)
 
   proc processGenesisDeposit*(m: Eth1Monitor, newDeposit: DepositData) =
     m.db.genesisDeposits.add newDeposit
