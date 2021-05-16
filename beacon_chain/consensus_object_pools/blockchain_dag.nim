@@ -58,7 +58,6 @@ template withStateVars*(
   template stateData(): StateData {.inject, used.} = stateDataInternal
   template hashedState(): HashedBeaconState {.inject, used.} =
     stateDataInternal.data
-  template state(): BeaconState {.inject, used.} = stateDataInternal.data.data
   template blck(): BlockRef {.inject, used.} = stateDataInternal.blck
   template root(): Eth2Digest {.inject, used.} = stateDataInternal.data.root
 

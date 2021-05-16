@@ -345,12 +345,13 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     withStateForStateId(stateId):
       proc getCommittee(slot: Slot,
                         index: CommitteeIndex): BeaconStatesCommitteesTuple =
-        let vals = get_beacon_committee(state, slot, index, cache).mapIt(it.uint64)
+        let vals = get_beacon_committee(
+          stateData.data.data, slot, index, cache).mapIt(it.uint64)
         return (index: index.uint64, slot: slot.uint64, validators: vals)
 
       proc forSlot(slot: Slot, res: var seq[BeaconStatesCommitteesTuple]) =
         let committees_per_slot =
-          get_committee_count_per_slot(state, slot.epoch, cache)
+          get_committee_count_per_slot(stateData.data.data, slot.epoch, cache)
 
         if index.isNone:
           for committee_index in 0'u64..<committees_per_slot:

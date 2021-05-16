@@ -392,7 +392,7 @@ proc cmdExportEra(conf: DbConf, preset: RuntimePreset) =
     defer: e2s.close()
 
     dag.withState(tmpState[], canonical):
-      e2s.appendRecord(state).get()
+      e2s.appendRecord(stateData.data.data).get()
 
     var
       ancestors: seq[BlockRef]
