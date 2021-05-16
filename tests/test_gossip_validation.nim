@@ -17,7 +17,8 @@ import
   ../beacon_chain/gossip_processing/[gossip_validation, batch_validation],
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
   ../beacon_chain/consensus_object_pools/[
-    block_quarantine, blockchain_dag, block_clearance, attestation_pool],
+    block_quarantine, blockchain_dag, block_clearance, attestation_pool,
+    statedata_helpers],
   ../beacon_chain/ssz/merkleization,
   ../beacon_chain/spec/[crypto, datatypes, digest, validator, state_transition,
                         helpers, presets, network],
@@ -66,7 +67,7 @@ suite "Gossip validation " & preset():
     var
       # Create attestations for slot 1
       beacon_committee = get_beacon_committee(
-        chainDag.headState.data.data, chainDag.head.slot, 0.CommitteeIndex, cache)
+        chainDag.headState, chainDag.head.slot, 0.CommitteeIndex, cache)
       att_1_0 = makeAttestation(
         chainDag.headState.data.data, chainDag.head.root, beacon_committee[0], cache)
       att_1_1 = makeAttestation(

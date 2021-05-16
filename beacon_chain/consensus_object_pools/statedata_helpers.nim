@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  ../spec/[datatypes, digest, helpers, presets],
+  ../spec/[datatypes, digest, helpers, presets, validator],
   ./block_pools_types
 
 # State-related functionality based on StateData instead of BeaconState
@@ -26,6 +26,17 @@ func get_previous_epoch*(stateData: StateData): Epoch =
     GENESIS_EPOCH
   else:
     current_epoch - 1
+
+# Dispatch functions
+func get_beacon_committee*(
+    state: StateData, slot: Slot, index: CommitteeIndex,
+    cache: var StateCache): seq[ValidatorIndex] =
+  # This one is used by tests/, ncli/, and a couple of places in RPC
+  # TODO use the iterator version alone, to remove the risk of using
+  # diverging get_beacon_committee() in tests and beacon_chain/ by a
+  # wrapper approach (e.g., toSeq). This is a perf tradeoff for test
+  # correctness/consistency.
+  get_beacon_committee(state.data.data, slot, index, cache)
 
 template hash_tree_root*(stateData: StateData): Eth2Digest =
   # Dispatch here based on type/fork of state. Since StateData is a ref object

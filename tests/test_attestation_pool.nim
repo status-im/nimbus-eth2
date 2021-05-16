@@ -19,7 +19,8 @@ import
   ../beacon_chain/gossip_processing/[gossip_validation],
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
   ../beacon_chain/consensus_object_pools/[
-    block_quarantine, blockchain_dag, block_clearance, attestation_pool],
+    block_quarantine, blockchain_dag, block_clearance, attestation_pool,
+    statedata_helpers],
   ../beacon_chain/ssz/merkleization,
   ../beacon_chain/spec/[crypto, datatypes, digest, validator, state_transition,
                         helpers, beaconstate, presets],
@@ -74,7 +75,7 @@ suite "Attestation pool processing" & preset():
     let
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
-        state.data.data, getStateField(state, slot), 0.CommitteeIndex, cache)
+        state[], getStateField(state, slot), 0.CommitteeIndex, cache)
       attestation = makeAttestation(
         state.data.data, state.blck.root, bc0[0], cache)
 
@@ -114,7 +115,7 @@ suite "Attestation pool processing" & preset():
         state.data, state.blck.root,
         cache, attestations = attestations, nextSlot = false).root
       bc1 = get_beacon_committee(
-        state.data.data, getStateField(state, slot), 0.CommitteeIndex, cache)
+        state[], getStateField(state, slot), 0.CommitteeIndex, cache)
       att1 = makeAttestation(
         state.data.data, root1, bc1[0], cache)
 
@@ -181,7 +182,7 @@ suite "Attestation pool processing" & preset():
     let
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
-        state.data.data, getStateField(state, slot), 0.CommitteeIndex, cache)
+        state[], getStateField(state, slot), 0.CommitteeIndex, cache)
 
     var
       att0 = makeAttestation(state.data.data, state.blck.root, bc0[0], cache)
@@ -237,7 +238,7 @@ suite "Attestation pool processing" & preset():
       root.data[0..<8] = toBytesBE(i.uint64)
       let
         bc0 = get_beacon_committee(
-          state.data.data, getStateField(state, slot), 0.CommitteeIndex, cache)
+          state[], getStateField(state, slot), 0.CommitteeIndex, cache)
 
       for j in 0..<bc0.len():
         root.data[8..<16] = toBytesBE(j.uint64)
@@ -263,7 +264,7 @@ suite "Attestation pool processing" & preset():
     let
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
-        state.data.data, getStateField(state, slot), 0.CommitteeIndex, cache)
+        state[], getStateField(state, slot), 0.CommitteeIndex, cache)
       attestation0 = makeAttestation(
         state.data.data, state.blck.root, bc0[0], cache)
 
@@ -271,7 +272,7 @@ suite "Attestation pool processing" & preset():
       process_slots(state.data, getStateField(state, slot) + 1, cache, rewards)
 
     let
-      bc1 = get_beacon_committee(state.data.data,
+      bc1 = get_beacon_committee(state[],
         getStateField(state, slot), 0.CommitteeIndex, cache)
       attestation1 = makeAttestation(
         state.data.data, state.blck.root, bc1[0], cache)
@@ -295,7 +296,7 @@ suite "Attestation pool processing" & preset():
     let
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
-        state.data.data, getStateField(state, slot), 0.CommitteeIndex, cache)
+        state[], getStateField(state, slot), 0.CommitteeIndex, cache)
       attestation0 = makeAttestation(
         state.data.data, state.blck.root, bc0[0], cache)
       attestation1 = makeAttestation(
@@ -321,7 +322,7 @@ suite "Attestation pool processing" & preset():
     var
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
-        state.data.data, getStateField(state, slot), 0.CommitteeIndex, cache)
+        state[], getStateField(state, slot), 0.CommitteeIndex, cache)
       attestation0 = makeAttestation(
         state.data.data, state.blck.root, bc0[0], cache)
       attestation1 = makeAttestation(
@@ -424,7 +425,7 @@ suite "Attestation pool processing" & preset():
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
       bc1 = get_beacon_committee(
-        state.data.data, getStateField(state, slot) - 1, 1.CommitteeIndex, cache)
+        state[], getStateField(state, slot) - 1, 1.CommitteeIndex, cache)
       attestation0 = makeAttestation(state.data.data, b10.root, bc1[0], cache)
 
     pool[].addAttestation(
@@ -533,7 +534,7 @@ suite "Attestation pool processing" & preset():
         attestations.setlen(0)
         for index in 0'u64 ..< committees_per_slot:
           let committee = get_beacon_committee(
-            state.data.data, getStateField(state, slot), index.CommitteeIndex,
+            state[], getStateField(state, slot), index.CommitteeIndex,
             cache)
 
           # Create a bitfield filled with the given count per attestation,

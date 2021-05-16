@@ -25,7 +25,9 @@ import
   ../beacon_chain/[beacon_node_types, beacon_chain_db, extras],
   ../beacon_chain/eth1/eth1_monitor,
   ../beacon_chain/validators/validator_pool,
-  ../beacon_chain/consensus_object_pools/[blockchain_dag, block_quarantine, block_clearance, attestation_pool],
+  ../beacon_chain/consensus_object_pools/[blockchain_dag, block_quarantine,
+                                          block_clearance, attestation_pool,
+                                          statedata_helpers],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
 
@@ -99,7 +101,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
       for committee_index in 0'u64..<committees_per_slot:
         let committee = get_beacon_committee(
-          stateData.data.data, slot, committee_index.CommitteeIndex, cache)
+          stateData, slot, committee_index.CommitteeIndex, cache)
 
         for index_in_committee, validatorIdx in committee:
           if rand(r, 1.0) <= attesterRatio:
