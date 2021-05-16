@@ -1,5 +1,7 @@
 # Nimbus Eth2 (Beacon Chain)
 
+foobar
+
 [![Github Actions CI](https://github.com/status-im/nimbus-eth2/workflows/Nimbus%20nimbus-eth2%20CI/badge.svg)](https://github.com/status-im/nim-blscurve/actions?query=workflow%3A%22BLSCurve+CI%22)
 [![License: Apache](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
