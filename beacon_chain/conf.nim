@@ -86,8 +86,8 @@ type
 
   BeaconNodeConf* = object
     logLevel* {.
+      desc: "Sets the log level for process and topics (e.g. \"DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none\")"
       defaultValue: "INFO"
-      desc: "Sets the log level for process and topics (e.g. \"DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none\") [=INFO]"
       name: "log-level" }: string
 
     logFile* {.
@@ -95,12 +95,14 @@ type
       name: "log-file" }: Option[OutFile]
 
     eth2Network* {.
-      desc: "The Eth2 network to join [=mainnet]"
+      desc: "The Eth2 network to join"
+      defaultValueDesc: "mainnet"
       name: "network" }: Option[string]
 
     dataDir* {.
-      defaultValue: config.defaultDataDir()
       desc: "The directory where nimbus will store all blockchain data"
+      defaultValue: config.defaultDataDir()
+      defaultValueDesc: ""
       abbr: "d"
       name: "data-dir" }: OutDir
 
@@ -131,15 +133,14 @@ type
       name: "non-interactive" }: bool
 
     netKeyFile* {.
-      defaultValue: "random",
       desc: "Source of network (secp256k1) private key file " &
-            "(random|<path>) [=random]"
+            "(random|<path>)"
+      defaultValue: "random",
       name: "netkey-file" }: string
 
     netKeyInsecurePassword* {.
+      desc: "Use pre-generated INSECURE password for network private key file"
       defaultValue: false,
-      desc: "Use pre-generated INSECURE password for network private key " &
-            "file [=false]"
       name: "insecure-netkey-password" }: bool
 
     agentString* {.
@@ -155,13 +156,14 @@ type
     slashingDbKind* {.
       hidden
       defaultValue: SlashingDbKind.v2
-      desc: "The slashing DB flavour to use (v2) [=v2]"
+      desc: "The slashing DB flavour to use"
       name: "slashing-db-kind" }: SlashingDbKind
 
     stateDbKind* {.
       hidden
+      desc: "State DB kind (sql, file)"
       defaultValue: StateDbKind.sql
-      desc: "State DB kind (sql, file) [=sql]"
+      defaultValueDesc: "sql"
       name: "state-db-kind" }: StateDbKind
 
     case cmd* {.
@@ -175,42 +177,45 @@ type
         name: "bootstrap-node" }: seq[string]
 
       bootstrapNodesFile* {.
-        defaultValue: ""
         desc: "Specifies a line-delimited file of bootstrap Ethereum network addresses"
+        defaultValue: ""
         name: "bootstrap-file" }: InputFile
 
       listenAddress* {.
+        desc: "Listening address for the Ethereum LibP2P and Discovery v5 traffic"
         defaultValue: defaultListenAddress
-        desc: "Listening address for the Ethereum LibP2P and Discovery v5 " &
-          "traffic [=0.0.0.0]"
+        defaultValueDesc: "0.0.0.0"
         name: "listen-address" }: ValidIpAddress
 
       tcpPort* {.
+        desc: "Listening TCP port for Ethereum LibP2P traffic"
         defaultValue: defaultEth2TcpPort
-        desc: "Listening TCP port for Ethereum LibP2P traffic [=9000]"
+        defaultValueDesc: "9000"
         name: "tcp-port" }: Port
 
       udpPort* {.
+        desc: "Listening UDP port for node discovery"
         defaultValue: defaultEth2TcpPort
-        desc: "Listening UDP port for node discovery [=9000]"
+        # defaultValueDesc: 9000
         name: "udp-port" }: Port
 
       maxPeers* {.
+        desc: "The maximum number of peers to connect to"
         defaultValue: 160 # 5 (fanout) * 64 (subnets) / 2 (subs) for a heathy mesh
-        desc: "The maximum number of peers to connect to [=160]"
         name: "max-peers" }: int
 
       nat* {.
         desc: "Specify method to use for determining public address. " &
               "Must be one of: any, none, upnp, pmp, extip:<IP>"
         defaultValue: NatConfig(hasExtIp: false, nat: NatAny)
+        defaultValueDesc: "any"
         name: "nat" .}: NatConfig
 
       enrAutoUpdate* {.
-        defaultValue: false
         desc: "Discovery can automatically update its ENR with the IP address " &
               "and UDP port as seen by other nodes it communicates with. " &
               "This option allows to enable/disable this functionality"
+        defaultValue: false
         name: "enr-auto-update" .}: bool
 
       weakSubjectivityCheckpoint* {.
@@ -226,9 +231,9 @@ type
         name: "finalized-checkpoint-block" }: Option[InputFile]
 
       nodeName* {.
-        defaultValue: ""
         desc: "A name for this node that will appear in the logs. " &
               "If you set this to 'auto', a persistent automatically generated ID will be selected for each --data-dir folder"
+        defaultValue: ""
         name: "node-name" }: string
 
       graffiti* {.
@@ -237,88 +242,94 @@ type
         name: "graffiti" }: Option[GraffitiBytes]
 
       verifyFinalization* {.
-        defaultValue: false
         desc: "Specify whether to verify finalization occurs on schedule, for testing"
+        defaultValue: false
         name: "verify-finalization" }: bool
 
       stopAtEpoch* {.
-        defaultValue: 0
         desc: "A positive epoch selects the epoch at which to stop"
+        defaultValue: 0
         name: "stop-at-epoch" }: uint64
 
       metricsEnabled* {.
+        desc: "Enable the metrics server"
         defaultValue: false
-        desc: "Enable the metrics server [=false]"
         name: "metrics" }: bool
 
       metricsAddress* {.
+        desc: "Listening address of the metrics server"
         defaultValue: defaultAdminListenAddress
-        desc: "Listening address of the metrics server [=127.0.0.1]"
+        defaultValueDesc: "127.0.0.1"
         name: "metrics-address" }: ValidIpAddress
 
       metricsPort* {.
+        desc: "Listening HTTP port of the metrics server"
         defaultValue: 8008
-        desc: "Listening HTTP port of the metrics server [=8008]"
         name: "metrics-port" }: Port
 
       statusBarEnabled* {.
-        defaultValue: true
         desc: "Display a status bar at the bottom of the terminal screen"
+        defaultValue: true
         name: "status-bar" }: bool
 
       statusBarContents* {.
+        desc: "Textual template for the contents of the status bar"
         defaultValue: "peers: $connected_peers;" &
                       "finalized: $finalized_root:$finalized_epoch;" &
                       "head: $head_root:$head_epoch:$head_epoch_slot;" &
                       "time: $epoch:$epoch_slot ($slot);" &
                       "sync: $sync_status|" &
                       "ETH: $attached_validators_balance"
-        desc: "Textual template for the contents of the status bar"
+        defaultValueDesc: ""
         name: "status-bar-contents" }: string
 
       rpcEnabled* {.
+        desc: "Enable the JSON-RPC server"
         defaultValue: false
-        desc: "Enable the JSON-RPC server [=false]"
         name: "rpc" }: bool
 
       rpcPort* {.
+        desc: "HTTP port for the JSON-RPC service"
         defaultValue: defaultEth2RpcPort
-        desc: "HTTP port for the JSON-RPC service [=9190]"
+        defaultValueDesc: "9190"
         name: "rpc-port" }: Port
 
       rpcAddress* {.
+        desc: "Listening address of the RPC server"
         defaultValue: defaultAdminListenAddress
-        desc: "Listening address of the RPC server [=127.0.0.1]"
+        defaultValueDesc: "127.0.0.1"
         name: "rpc-address" }: ValidIpAddress
 
       restEnabled* {.
+        desc: "Enable the REST (BETA version) server"
         defaultValue: false
-        desc: "Enable the REST (BETA version) server [=false]"
         name: "rest" }: bool
 
       restPort* {.
+        desc: "Port for the REST (BETA version) server"
         defaultValue: DefaultEth2RestPort
-        desc: "Port for the REST (BETA version) server [=5052]"
+        defaultValueDesc: "5052"
         name: "rest-port" }: Port
 
       restAddress* {.
+        desc: "Listening address of the REST (BETA version) server"
         defaultValue: defaultAdminListenAddress
-        desc: "Listening address of the REST (BETA version) server [=127.0.0.1]"
+        defaultValueDesc: "127.0.0.1"
         name: "rest-address" }: ValidIpAddress
 
       inProcessValidators* {.
-        defaultValue: true # the use of the nimbus_signing_process binary by default will be delayed until async I/O over stdin/stdout is developed for the child process.
         desc: "Disable the push model (the beacon node tells a signing process with the private keys of the validators what to sign and when) and load the validators in the beacon node itself"
+        defaultValue: true # the use of the nimbus_signing_process binary by default will be delayed until async I/O over stdin/stdout is developed for the child process.
         name: "in-process-validators" }: bool
 
       discv5Enabled* {.
+        desc: "Enable Discovery v5"
         defaultValue: true
-        desc: "Enable Discovery v5 [=true]"
         name: "discv5" }: bool
 
       dumpEnabled* {.
+        desc: "Write SSZ dumps of blocks, attestations and states to data dir"
         defaultValue: false
-        desc: "Write SSZ dumps of blocks, attestations and states to data dir [=false]"
         name: "dump" }: bool
 
       directPeers* {.
@@ -326,8 +337,8 @@ type
         name: "direct-peer" .}: seq[string]
 
       doppelgangerDetection* {.
+        desc: "Whether to detect whether another validator is be running the same validator keys"
         defaultValue: true
-        desc: "Whether to detect whether another validator is be running the same validator keys [=true]"
         name: "doppelganger-detection"
       }: bool
 
@@ -341,18 +352,20 @@ type
         name: "total-validators" }: uint64
 
       bootstrapAddress* {.
-        defaultValue: init(ValidIpAddress, "127.0.0.1")
         desc: "The public IP address that will be advertised as a bootstrap node for the testnet"
+        defaultValue: init(ValidIpAddress, "127.0.0.1")
+        defaultValueDesc: "127.0.0.1"
         name: "bootstrap-address" }: ValidIpAddress
 
       bootstrapPort* {.
-        defaultValue: defaultEth2TcpPort
         desc: "The TCP/UDP port that will be used by the bootstrap node"
+        defaultValue: defaultEth2TcpPort
+        defaultValueDesc: "9000"
         name: "bootstrap-port" }: Port
 
       genesisOffset* {.
-        defaultValue: 5
         desc: "Seconds from now to add to genesis time"
+        defaultValue: 5
         name: "genesis-offset" }: int
 
       outputGenesis* {.
@@ -360,8 +373,8 @@ type
         name: "output-genesis" }: OutFile
 
       withGenesisRoot* {.
-        defaultValue: false
         desc: "Include a genesis root in 'network.json'"
+        defaultValue: false
         name: "with-genesis-root" }: bool
 
       outputBootstrapFile* {.
@@ -405,8 +418,8 @@ type
       case depositsCmd* {.command.}: DepositsCmd
       of DepositsCmd.createTestnetDeposits:
         totalDeposits* {.
-          defaultValue: 1
           desc: "Number of deposits to generate"
+          defaultValue: 1
           name: "count" }: int
 
         existingWalletId* {.
@@ -414,13 +427,13 @@ type
           name: "wallet" }: Option[WalletName]
 
         outValidatorsDir* {.
-          defaultValue: "validators"
           desc: "Output folder for validator keystores"
+          defaultValue: "validators"
           name: "out-validators-dir" }: string
 
         outSecretsDir* {.
-          defaultValue: "secrets"
           desc: "Output folder for randomly generated keystore passphrases"
+          defaultValue: "secrets"
           name: "out-secrets-dir" }: string
 
         outDepositsFile* {.
@@ -451,9 +464,10 @@ type
           desc: "Validator index or a public key of the exited validator" }: string
 
         rpcUrlForExit* {.
-          name: "rpc-url"
+          desc: "URL of the beacon node JSON-RPC service"
           defaultValue: parseUri("http://localhost:" & $defaultEth2RpcPort)
-          desc: "URL of the beacon node JSON-RPC service" }: Uri
+          defaultValueDesc: "http://localhost:9190"
+          name: "rpc-url" }: Uri
 
         exitAtEpoch* {.
           name: "epoch"
@@ -475,8 +489,8 @@ type
           name: "udp-port" .}: Port
 
         seqNumber* {.
-          defaultValue: 1,
           desc: "Record sequence number"
+          defaultValue: 1,
           name: "seq-number" .}: uint
 
         fields* {.
@@ -515,8 +529,8 @@ type
 
   ValidatorClientConf* = object
     logLevel* {.
+      desc: "Sets the log level"
       defaultValue: "INFO"
-      desc: "Sets the log level [=INFO]"
       name: "log-level" }: string
 
     logFile* {.
@@ -524,8 +538,9 @@ type
       name: "log-file" }: Option[OutFile]
 
     dataDir* {.
-      defaultValue: config.defaultDataDir()
       desc: "The directory where nimbus will store all blockchain data"
+      defaultValue: config.defaultDataDir()
+      defaultValueDesc: ""
       abbr: "d"
       name: "data-dir" }: OutDir
 
@@ -552,13 +567,14 @@ type
         name: "graffiti" }: Option[GraffitiBytes]
 
       stopAtEpoch* {.
-        defaultValue: 0
         desc: "A positive epoch selects the epoch at which to stop"
+        defaultValue: 0
         name: "stop-at-epoch" }: uint64
 
       rpcPort* {.
+        desc: "HTTP port of the server to connect to for RPC"
         defaultValue: defaultEth2RpcPort
-        desc: "HTTP port of the server to connect to for RPC [=9190]"
+        defaultValueDesc: "9190"
         name: "rpc-port" }: Port
 
       rpcAddress* {.
@@ -568,8 +584,8 @@ type
         name: "rpc-address" }: ValidIpAddress
 
       retryDelay* {.
-        defaultValue: 10
         desc: "Delay in seconds between retries after unsuccessful attempts to connect to a beacon node [=10]"
+        defaultValue: 10
         name: "retry-delay" }: int
 
 proc defaultDataDir*(config: BeaconNodeConf|ValidatorClientConf): string =
