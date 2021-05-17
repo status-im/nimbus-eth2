@@ -13,7 +13,7 @@ import
   # Status
   eth/db/[kvstore, kvstore_sqlite3],
   stew/[results, byteutils],
-  chronicles,
+  chronicles, chronicles/timings,
   # Internal
   ../spec/[datatypes, digest, crypto],
   ./slashing_protection_common,
@@ -273,7 +273,8 @@ proc pruneAfterFinalization*(
   ## Pruning is only triggered on v2 database.
 
   if kLowWatermark in db.modes:
-    db.db_v2.pruneAfterFinalization(finalizedEpoch)
+    debug.logTime "Pruning slashing DB":
+      db.db_v2.pruneAfterFinalization(finalizedEpoch)
 
 # The high-level import/export functions are
 # - importSlashingInterchange
