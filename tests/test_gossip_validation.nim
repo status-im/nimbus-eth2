@@ -20,8 +20,8 @@ import
     block_quarantine, blockchain_dag, block_clearance, attestation_pool,
     statedata_helpers],
   ../beacon_chain/ssz/merkleization,
-  ../beacon_chain/spec/[crypto, datatypes, digest, validator, state_transition,
-                        helpers, presets, network],
+  ../beacon_chain/spec/[crypto, datatypes, digest, state_transition, helpers,
+                        presets, network],
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil
 
@@ -74,8 +74,8 @@ suite "Gossip validation " & preset():
         chainDag.headState, chainDag.head.root, beacon_committee[1], cache)
 
       committees_per_slot =
-        get_committee_count_per_slot(chainDag.headState.data.data,
-        att_1_0.data.slot.epoch, cache)
+        get_committee_count_per_slot(chainDag.headState,
+          att_1_0.data.slot.epoch, cache)
 
       subnet = compute_subnet_for_attestation(
         committees_per_slot,

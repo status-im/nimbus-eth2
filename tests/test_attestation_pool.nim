@@ -22,8 +22,8 @@ import
     block_quarantine, blockchain_dag, block_clearance, attestation_pool,
     statedata_helpers],
   ../beacon_chain/ssz/merkleization,
-  ../beacon_chain/spec/[crypto, datatypes, digest, validator, state_transition,
-                        helpers, beaconstate, presets],
+  ../beacon_chain/spec/[crypto, datatypes, digest, state_transition, helpers,
+                        beaconstate, presets],
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil
 
@@ -503,7 +503,7 @@ suite "Attestation pool processing" & preset():
     for epoch in 0 ..< 5:
       let start_slot = compute_start_slot_at_epoch(Epoch epoch)
       let committees_per_slot =
-        get_committee_count_per_slot(state.data.data, Epoch epoch, cache)
+        get_committee_count_per_slot(state[], Epoch epoch, cache)
       for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
         let new_block = addTestBlock(
           state.data, block_root, cache, attestations = attestations)

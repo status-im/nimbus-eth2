@@ -466,8 +466,8 @@ proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimePreset) =
         state[].data.data.get_block_root_at_slot(penultimate_epoch_end_slot)
 
     let first_slot_attesters = block:
-      let committee_count = state[].data.data.get_committee_count_per_slot(
-        prev_epoch_target_slot, cache)
+      let committee_count = state[].get_committee_count_per_slot(
+        prev_epoch_target_slot.epoch, cache)
       var indices = HashSet[ValidatorIndex]()
       for committee_index in 0..<committee_count:
         for validator_index in state[].data.data.get_beacon_committee(

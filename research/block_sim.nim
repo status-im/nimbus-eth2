@@ -97,7 +97,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
     chainDag.withState(tmpState[], attestationHead):
       let committees_per_slot =
-        get_committee_count_per_slot(stateData.data.data, slot.epoch, cache)
+        get_committee_count_per_slot(stateData, slot.epoch, cache)
 
       for committee_index in 0'u64..<committees_per_slot:
         let committee = get_beacon_committee(

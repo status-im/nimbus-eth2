@@ -38,6 +38,12 @@ func get_beacon_committee*(
   # correctness/consistency.
   get_beacon_committee(state.data.data, slot, index, cache)
 
+func get_committee_count_per_slot*(state: StateData,
+                                   epoch: Epoch,
+                                   cache: var StateCache): uint64 =
+  # Return the number of committees at ``epoch``.
+  get_committee_count_per_slot(state.data.data, epoch, cache)
+
 template hash_tree_root*(stateData: StateData): Eth2Digest =
   # Dispatch here based on type/fork of state. Since StateData is a ref object
   # type, if Nim chooses the wrong overload, it will simply fail to compile.

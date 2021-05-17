@@ -18,7 +18,7 @@ import
   ../validators/validator_duties,
   ../gossip_processing/gossip_validation,
   ../consensus_object_pools/[blockchain_dag, statedata_helpers],
-  ../spec/[crypto, digest, datatypes, validator, network],
+  ../spec/[crypto, digest, datatypes, network],
   ../spec/eth2_apis/callsigs_types,
   ../ssz/merkleization,
   ./rpc_utils, ./eth2_json_rpc_serialization
@@ -351,7 +351,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
       proc forSlot(slot: Slot, res: var seq[BeaconStatesCommitteesTuple]) =
         let committees_per_slot =
-          get_committee_count_per_slot(stateData.data.data, slot.epoch, cache)
+          get_committee_count_per_slot(stateData, slot.epoch, cache)
 
         if index.isNone:
           for committee_index in 0'u64..<committees_per_slot:
