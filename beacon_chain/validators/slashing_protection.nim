@@ -54,6 +54,13 @@ type
     ## or validator client.
     db_v2*: SlashingProtectionDB_v2
     modes: set[SlashProtDBMode]
+    disagreementBehavior: DisagreementBehavior
+
+  DisagreementBehavior* = enum
+    ## How to handle disagreement between DB versions
+    kCrash
+    kChooseV1
+    kChooseV2
 
 # DB Multiversioning
 # -------------------------------------------------------------
@@ -69,7 +76,8 @@ proc init*(
        T: type SlashingProtectionDB,
        genesis_validators_root: Eth2Digest,
        basePath, dbname: string,
-       modes: set[SlashProtDBMode]
+       modes: set[SlashProtDBMode],
+       disagreementBehavior: DisagreementBehavior
      ): T =
   ## Initialize or load a slashing protection DB
   ## This is for Beacon Node usage
@@ -82,6 +90,7 @@ proc init*(
 
   new result
   result.modes = modes
+  result.disagreementBehavior = disagreementBehavior
 
   let (db, requiresMigration) = SlashingProtectionDB_v2.initCompatV1(
     genesis_validators_root,
@@ -89,16 +98,16 @@ proc init*(
   )
   result.db_v2 = db
 
+  var db_v1: SlashingProtectionDB_v1
+
+  let rawdb = kvstore result.db_v2.getRawDBHandle()
+  if not rawdb.checkOrPutGenesis_DbV1(genesis_validators_root):
+    fatal "The slashing database refers to another chain/mainnet/testnet",
+      path = basePath/dbname,
+      genesis_validators_root = genesis_validators_root
+  db_v1.fromRawDB(rawdb)
+
   if requiresMigration:
-    var db_v1: SlashingProtectionDB_v1
-
-    let rawdb = kvstore result.db_v2.getRawDBHandle().openKvStore().get()
-    if not rawdb.checkOrPutGenesis_DbV1(genesis_validators_root):
-      fatal "The slashing database refers to another chain/mainnet/testnet",
-        path = basePath/dbname,
-        genesis_validators_root = genesis_validators_root
-    db_v1.fromRawDB(rawdb)
-
     info "Migrating local validators slashing DB from v1 to v2"
     let spdir = try: db_v1.toSPDIR_lowWatermark()
     except IOError as exc:
@@ -119,8 +128,6 @@ proc init*(
       fatal "Slashing DB migration failure. Aborting to protect validators."
       quit 1
 
-    db_v1.close()
-
 proc init*(
        T: type SlashingProtectionDB,
        genesis_validators_root: Eth2Digest,
@@ -134,6 +141,7 @@ proc init*(
   init(
     T, genesis_validators_root, basePath, dbname,
     modes = {kLowWatermarkV2},
+    disagreementBehavior = kChooseV2
   )
 
 proc loadUnchecked*(
@@ -147,12 +155,13 @@ proc loadUnchecked*(
   ## Does not handle migration
 
   result.modes = {kCompleteArchiveV1, kCompleteArchiveV2}
+  result.disagreementBehavior = kCrash
 
   result.db_v2 = SlashingProtectionDB_v2.loadUnchecked(
     basePath, dbname, readOnly
   )
 
-  result.db_v1.fromRawDB(kvstore result.db_v2.getRawDBHandle().openKvStore())
+  result.db_v1.fromRawDB(kvstore result.db_v2.getRawDBHandle())
 
 proc close*(db: SlashingProtectionDB) =
   ## Close a slashing protection database

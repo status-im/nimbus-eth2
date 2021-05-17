@@ -396,6 +396,7 @@ proc init*(T: type ChainDAGRef,
         tmpState.blck = cur.blck
 
         break
+
     if cur.blck.parent != nil and
         cur.blck.slot.epoch != epoch(cur.blck.parent.slot):
       # We store the state of the parent block with the epoch processing applied
@@ -585,6 +586,10 @@ proc putState*(dag: ChainDAGRef, state: var StateData) =
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
   dag.db.putState(state.data.root, state.data.data)
+
+  # Allow backwards-compatible version rollback with bounded recovery cost
+  if getStateField(state, slot).epoch mod 256 == 0:
+    dag.db.putStateFull(state.data.root, state.data.data)
 
   dag.db.putStateRoot(
     state.blck.root, getStateField(state, slot), state.data.root)
@@ -1095,6 +1100,11 @@ proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): bool =
   if not (headBlock.isSome() and tailBlock.isSome()):
     return false
 
+  # 1.1 and 1.2 need a compatibility hack
+  if db.repairGenesisState(tailBlock.get().message.state_root).isErr():
+    notice "Could not repair genesis state"
+    return false
+
   if not db.containsState(tailBlock.get().message.state_root):
     return false
 
@@ -1102,7 +1112,7 @@ proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): bool =
 
 proc preInit*(
     T: type ChainDAGRef, db: BeaconChainDB,
-    genesisState, tailState: var BeaconState, tailBlock: TrustedSignedBeaconBlock) =
+    genesisState, tailState: var BeaconState, tailBlock: SignedBeaconBlock) =
   # write a genesis state, the way the ChainDAGRef expects it to be stored in
   # database
   # TODO probably should just init a block pool with the freshly written
@@ -1116,6 +1126,7 @@ proc preInit*(
     validators = tailState.validators.len()
 
   db.putState(tailState)
+  db.putStateFull(tailState)
   db.putBlock(tailBlock)
   db.putTailBlock(tailBlock.root)
   db.putHeadBlock(tailBlock.root)
@@ -1126,6 +1137,7 @@ proc preInit*(
   else:
     doAssert genesisState.slot == GENESIS_SLOT
     db.putState(genesisState)
+    db.putStateFull(genesisState)
     let genesisBlock = get_initial_beacon_block(genesisState)
     db.putBlock(genesisBlock)
     db.putStateRoot(genesisBlock.root, GENESIS_SLOT, genesisBlock.message.state_root)
@@ -1133,7 +1145,7 @@ proc preInit*(
 
 proc setTailState*(dag: ChainDAGRef,
                    checkpointState: BeaconState,
-                   checkpointBlock: TrustedSignedBeaconBlock) =
+                   checkpointBlock: SignedBeaconBlock) =
   # TODO(zah)
   # Delete all records up to the tail node. If the tail node is not
   # in the database, init the dabase in a way similar to `preInit`.

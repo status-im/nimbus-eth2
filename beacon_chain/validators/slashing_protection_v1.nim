@@ -143,7 +143,6 @@ type
     ## Database storing the blocks attested
     ## by validators attached to a beacon node
     ## or validator client.
-    db: SqStoreRef
     backend: KvStoreRef
 
   SlotDesc = object
@@ -375,8 +374,7 @@ proc init*(
        T: type SlashingProtectionDB_v1,
        genesis_validators_root: Eth2Digest,
        basePath, dbname: string): T =
-  let db =  SqStoreRef.init(basePath, dbname).get()
-  result = T(db: db, backend: kvStore db.openKvStore().get())
+  result = T(backend: kvStore SqStoreRef.init(basePath, dbname).get())
   if not result.backend.checkOrPutGenesis_DbV1(genesis_validators_root):
     fatal "The slashing database refers to another chain/mainnet/testnet",
       path = basePath/dbname,
@@ -393,18 +391,16 @@ proc loadUnchecked*(
   let alreadyExists = fileExists(path)
   if not alreadyExists:
     raise newException(IOError, "DB '" & path & "' does not exist.")
-  let db = SqStoreRef.init(basePath, dbname, readOnly = false).get()
-  let backend = kvStore db.openKvStore()
+
+  let backend = kvStore SqStoreRef.init(basePath, dbname, readOnly = false).get()
 
   doAssert backend.contains(
     subkey(kGenesisValidatorsRoot)
   ).get(), "The Slashing DB is missing genesis information"
 
-  result = T(db: db, backend: backend)
+  result = T(backend: backend)
 
 proc close*(db: SlashingProtectionDB_v1) =
-  if db.db != nil:
-    db.db.close()
   discard db.backend.close()
 
 # DB Queries
