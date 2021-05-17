@@ -165,6 +165,10 @@ proc addRawBlockCheckStateTransition(
     doAssert v.addr == addr dag.clearanceState.data
     assign(dag.clearanceState, dag.headState)
 
+  logScope:
+    blck = shortLog(signedBlock.message)
+    blockRoot = shortLog(signedBlock.root)
+
   var rewards: RewardInfo
   if not state_transition(dag.runtimePreset, dag.clearanceState.data, signedBlock,
                           cache, rewards, dag.updateFlags + {slotProcessed}, restore):
@@ -253,6 +257,10 @@ proc addRawBlockUnresolved(
        signedBlock: SignedBeaconBlock
      ): Result[BlockRef, (ValidationResult, BlockError)] =
   ## addRawBlock - Block is unresolved / has no parent
+
+  logScope:
+    blck = shortLog(signedBlock.message)
+    blockRoot = shortLog(signedBlock.root)
 
   # This is an unresolved block - add it to the quarantine, which will cause its
   # parent to be scheduled for downloading
