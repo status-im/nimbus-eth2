@@ -18,4 +18,6 @@ In order to make sure your Pi autorestarts on boot, we recommend [setting up a s
 
 While you shouldn't need to, if you're feeling adventurous and want to try and squeeze out some extra performance out of your Pi's CPU, see [this guide](https://github.com/jclapis/rp-pi-guide/blob/main/Overclocking.md) by Joe Clapis.
 
+>  **Note:** we have since improved performance in several ways which should make a vanilla Pi perform well. However, overclocking may still give some benefits, in particular you have more performance to deal with anomalies (like spamming etc).
+
 

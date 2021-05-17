@@ -38,6 +38,7 @@
 - [Add a backup web3 provider](./web3-backup.md)
 - [Add an additional validator](./additional-validator.md)
 - [Migrate from another client](./migration.md)
+- [Move a Nimbus validator to another server](./change-servers.md)
 
 # Tutorials
 - [Grafana and Prometheus](./metrics-pretty-pictures.md)
@@ -47,6 +48,7 @@
 # Reference
 - [API](./api.md)
 - [Help / Command line options](./options.md)
+- [Advanced migration options](./migration-options.md)
 - [Troubleshooting](./troubleshooting.md)
 - [For developers](./developers.md)
 - [FAQ](./faq.md)
