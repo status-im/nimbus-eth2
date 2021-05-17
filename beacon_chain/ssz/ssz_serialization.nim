@@ -234,3 +234,12 @@ proc readValue*[T](r: var SszReader, val: var T) {.raises: [Defect, MalformedSsz
     # TODO(zah) Read the fixed portion first and precisely measure the
     # size of the dynamic portion to consume the right number of bytes.
     readSszValue(r.stream.read(r.stream.len.get), val, r.updateRoot)
+
+proc readSszBytes*[T](data: openArray[byte], val: var T, updateRoot = true) {.
+    raises: [Defect, MalformedSszError, SszSizeMismatchError].} =
+  when isFixedSize(T):
+    const minimalSize = fixedPortionSize(T)
+    if data.len < minimalSize:
+      raise newException(MalformedSszError, "SSZ input of insufficient size")
+
+  readSszValue(data, val, updateRoot)
