@@ -371,16 +371,16 @@ func add(
   do:
     attCache[key] = aggregation_bits
 
-func init(T: type AttestationCache, state: BeaconState): T =
+func init(T: type AttestationCache, state: StateData): T =
   # Load attestations that are scheduled for being given rewards for
-  for i in 0..<state.previous_epoch_attestations.len():
+  for i in 0..<getStateField(state, previous_epoch_attestations).len():
     result.add(
-      state.previous_epoch_attestations[i].data,
-      state.previous_epoch_attestations[i].aggregation_bits)
-  for i in 0..<state.current_epoch_attestations.len():
+      getStateField(state, previous_epoch_attestations)[i].data,
+      getStateField(state, previous_epoch_attestations)[i].aggregation_bits)
+  for i in 0..<getStateField(state, current_epoch_attestations).len():
     result.add(
-      state.current_epoch_attestations[i].data,
-      state.current_epoch_attestations[i].aggregation_bits)
+      getStateField(state, current_epoch_attestations)[i].data,
+      getStateField(state, current_epoch_attestations)[i].aggregation_bits)
 
 proc score(
     attCache: var AttestationCache, data: AttestationData,
@@ -423,7 +423,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   var
     candidates: seq[tuple[
       score: int, slot: Slot, entry: ptr AttestationEntry, validation: int]]
-    attCache = AttestationCache.init(state.data.data)
+    attCache = AttestationCache.init(state)
 
   for i in 0..<ATTESTATION_LOOKBACK:
     if i > maxAttestationSlot: # Around genesis..

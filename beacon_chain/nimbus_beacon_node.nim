@@ -261,7 +261,7 @@ proc init*(T: type BeaconNode,
       currentSlot = beaconClock.now.slotOrZero
       isCheckpointStale = not is_within_weak_subjectivity_period(
         currentSlot,
-        chainDag.headState.data.data,
+        chainDag.headState,
         config.weakSubjectivityCheckpoint.get)
 
     if isCheckpointStale:

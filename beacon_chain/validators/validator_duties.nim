@@ -579,22 +579,21 @@ proc updateValidatorMetrics*(node: BeaconNode) =
     # We'll limit labelled metrics to the first 64, so that we don't overload
     # prom
 
-    template state: untyped = node.chainDag.headState.data.data
-
     var total: Gwei
     var i = 0
     for _, v in node.attachedValidators[].validators:
       let balance =
         if v.index.isNone():
           0.Gwei
-        elif v.index.get().uint64 >= state.balances.lenu64:
+        elif v.index.get().uint64 >=
+            getStateField(node.chainDag.headState, balances).lenu64:
           debug "Cannot get validator balance, index out of bounds",
             pubkey = shortLog(v.pubkey), index = v.index.get(),
-            balances = state.balances.len,
+            balances = getStateField(node.chainDag.headState, balances).len,
             stateRoot = node.chainDag.headState.data.root
           0.Gwei
         else:
-          state.balances[v.index.get()]
+          getStateField(node.chainDag.headState, balances)[v.index.get()]
 
       if i < 64:
         attached_validator_balance.set(
