@@ -69,9 +69,9 @@ suite "Gossip validation " & preset():
       beacon_committee = get_beacon_committee(
         chainDag.headState, chainDag.head.slot, 0.CommitteeIndex, cache)
       att_1_0 = makeAttestation(
-        chainDag.headState.data.data, chainDag.head.root, beacon_committee[0], cache)
+        chainDag.headState, chainDag.head.root, beacon_committee[0], cache)
       att_1_1 = makeAttestation(
-        chainDag.headState.data.data, chainDag.head.root, beacon_committee[1], cache)
+        chainDag.headState, chainDag.head.root, beacon_committee[1], cache)
 
       committees_per_slot =
         get_committee_count_per_slot(chainDag.headState.data.data,

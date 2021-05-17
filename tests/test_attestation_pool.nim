@@ -76,8 +76,7 @@ suite "Attestation pool processing" & preset():
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
         state[], getStateField(state, slot), 0.CommitteeIndex, cache)
-      attestation = makeAttestation(
-        state.data.data, state.blck.root, bc0[0], cache)
+      attestation = makeAttestation(state[], state.blck.root, bc0[0], cache)
 
     pool[].addAttestation(
       attestation, @[bc0[0]], attestation.loadSig,
@@ -116,8 +115,7 @@ suite "Attestation pool processing" & preset():
         cache, attestations = attestations, nextSlot = false).root
       bc1 = get_beacon_committee(
         state[], getStateField(state, slot), 0.CommitteeIndex, cache)
-      att1 = makeAttestation(
-        state.data.data, root1, bc1[0], cache)
+      att1 = makeAttestation(state[], root1, bc1[0], cache)
 
     check:
       process_slots(
@@ -137,8 +135,7 @@ suite "Attestation pool processing" & preset():
       pool[].getAttestationsForBlock(state[], cache).len() == 1
 
     let
-      att2 = makeAttestation(
-        state.data.data, root1, bc1[1], cache)
+      att2 = makeAttestation(state[], root1, bc1[1], cache)
     pool[].addAttestation(
       att2, @[bc1[1]], att2.loadSig, att2.data.slot)
 
@@ -159,7 +156,7 @@ suite "Attestation pool processing" & preset():
 
     let
       # Someone votes for a different root
-      att3 = makeAttestation(state.data.data, Eth2Digest(), bc1[2], cache)
+      att3 = makeAttestation(state[], Eth2Digest(), bc1[2], cache)
     pool[].addAttestation(
       att3, @[bc1[2]], att3.loadSig, att3.data.slot)
 
@@ -174,7 +171,7 @@ suite "Attestation pool processing" & preset():
 
     let
       # Someone votes for a different root
-      att4 = makeAttestation(state.data.data, Eth2Digest(), bc1[2], cache)
+      att4 = makeAttestation(state[], Eth2Digest(), bc1[2], cache)
     pool[].addAttestation(
       att4, @[bc1[2]], att3.loadSig, att3.data.slot)
 
@@ -185,11 +182,11 @@ suite "Attestation pool processing" & preset():
         state[], getStateField(state, slot), 0.CommitteeIndex, cache)
 
     var
-      att0 = makeAttestation(state.data.data, state.blck.root, bc0[0], cache)
+      att0 = makeAttestation(state[], state.blck.root, bc0[0], cache)
       att0x = att0
-      att1 = makeAttestation(state.data.data, state.blck.root, bc0[1], cache)
-      att2 = makeAttestation(state.data.data, state.blck.root, bc0[2], cache)
-      att3 = makeAttestation(state.data.data, state.blck.root, bc0[3], cache)
+      att1 = makeAttestation(state[], state.blck.root, bc0[1], cache)
+      att2 = makeAttestation(state[], state.blck.root, bc0[2], cache)
+      att3 = makeAttestation(state[], state.blck.root, bc0[3], cache)
 
     # Both attestations include member 2 but neither is a subset of the other
     att0.combine(att2)
@@ -242,7 +239,7 @@ suite "Attestation pool processing" & preset():
 
       for j in 0..<bc0.len():
         root.data[8..<16] = toBytesBE(j.uint64)
-        var att = makeAttestation(state.data.data, root, bc0[j], cache)
+        var att = makeAttestation(state[], root, bc0[j], cache)
         pool[].addAttestation(att, @[bc0[j]], att.loadSig, att.data.slot)
         inc attestations
 
@@ -265,8 +262,7 @@ suite "Attestation pool processing" & preset():
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
         state[], getStateField(state, slot), 0.CommitteeIndex, cache)
-      attestation0 = makeAttestation(
-        state.data.data, state.blck.root, bc0[0], cache)
+      attestation0 = makeAttestation(state[], state.blck.root, bc0[0], cache)
 
     check:
       process_slots(state.data, getStateField(state, slot) + 1, cache, rewards)
@@ -274,8 +270,7 @@ suite "Attestation pool processing" & preset():
     let
       bc1 = get_beacon_committee(state[],
         getStateField(state, slot), 0.CommitteeIndex, cache)
-      attestation1 = makeAttestation(
-        state.data.data, state.blck.root, bc1[0], cache)
+      attestation1 = makeAttestation(state[], state.blck.root, bc1[0], cache)
 
     # test reverse order
     pool[].addAttestation(
@@ -297,10 +292,8 @@ suite "Attestation pool processing" & preset():
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
         state[], getStateField(state, slot), 0.CommitteeIndex, cache)
-      attestation0 = makeAttestation(
-        state.data.data, state.blck.root, bc0[0], cache)
-      attestation1 = makeAttestation(
-        state.data.data, state.blck.root, bc0[1], cache)
+      attestation0 = makeAttestation(state[], state.blck.root, bc0[0], cache)
+      attestation1 = makeAttestation(state[], state.blck.root, bc0[1], cache)
 
     pool[].addAttestation(
       attestation0, @[bc0[0]], attestation0.loadSig, attestation0.data.slot)
@@ -323,10 +316,8 @@ suite "Attestation pool processing" & preset():
       # Create an attestation for slot 1!
       bc0 = get_beacon_committee(
         state[], getStateField(state, slot), 0.CommitteeIndex, cache)
-      attestation0 = makeAttestation(
-        state.data.data, state.blck.root, bc0[0], cache)
-      attestation1 = makeAttestation(
-        state.data.data, state.blck.root, bc0[1], cache)
+      attestation0 = makeAttestation(state[], state.blck.root, bc0[0], cache)
+      attestation1 = makeAttestation(state[], state.blck.root, bc0[1], cache)
 
     attestation0.combine(attestation1)
 
@@ -348,12 +339,10 @@ suite "Attestation pool processing" & preset():
     var cache = StateCache()
     var
       # Create an attestation for slot 1!
-      bc0 = get_beacon_committee(state.data.data,
+      bc0 = get_beacon_committee(state[],
         getStateField(state, slot), 0.CommitteeIndex, cache)
-      attestation0 = makeAttestation(
-        state.data.data, state.blck.root, bc0[0], cache)
-      attestation1 = makeAttestation(
-        state.data.data, state.blck.root, bc0[1], cache)
+      attestation0 = makeAttestation(state[], state.blck.root, bc0[0], cache)
+      attestation1 = makeAttestation(state[], state.blck.root, bc0[1], cache)
 
     attestation0.combine(attestation1)
 
@@ -426,7 +415,7 @@ suite "Attestation pool processing" & preset():
 
       bc1 = get_beacon_committee(
         state[], getStateField(state, slot) - 1, 1.CommitteeIndex, cache)
-      attestation0 = makeAttestation(state.data.data, b10.root, bc1[0], cache)
+      attestation0 = makeAttestation(state[], b10.root, bc1[0], cache)
 
     pool[].addAttestation(
       attestation0, @[bc1[0]], attestation0.loadSig, attestation0.data.slot)
@@ -438,8 +427,8 @@ suite "Attestation pool processing" & preset():
       head2 == b10Add[]
 
     let
-      attestation1 = makeAttestation(state.data.data, b11.root, bc1[1], cache)
-      attestation2 = makeAttestation(state.data.data, b11.root, bc1[2], cache)
+      attestation1 = makeAttestation(state[], b11.root, bc1[1], cache)
+      attestation2 = makeAttestation(state[], b11.root, bc1[2], cache)
     pool[].addAttestation(
       attestation1, @[bc1[1]], attestation1.loadSig, attestation1.data.slot)
 

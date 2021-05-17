@@ -11,7 +11,8 @@ import
   ../beacon_chain/validators/validator_pool,
   ../beacon_chain/ssz/merkleization,
   ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, presets,
-                        helpers, validator, signatures, state_transition]
+                        helpers, validator, signatures, state_transition],
+  ../beacon_chain/consensus_object_pools/statedata_helpers
 
 func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
   # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
@@ -53,7 +54,7 @@ func makeDeposit*(i: int, flags: UpdateFlags = {}): DepositData =
     result.signature = get_deposit_signature(
       defaultRuntimePreset, result, privkey).toValidatorSig()
 
-proc makeInitialDeposits*(
+func makeInitialDeposits*(
     n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}): seq[DepositData] =
   for i in 0..<n.int:
     result.add makeDeposit(i, flags)
@@ -147,8 +148,8 @@ proc makeTestBlock*(
     tmpState[], parent_root, cache, eth1_data, attestations, deposits,
     graffiti)
 
-proc makeAttestation*(
-    state: BeaconState, beacon_block_root: Eth2Digest,
+func makeAttestation*(
+    state: StateData, beacon_block_root: Eth2Digest,
     committee: seq[ValidatorIndex], slot: Slot, index: CommitteeIndex,
     validator_index: ValidatorIndex, cache: var StateCache,
     flags: UpdateFlags = {}): Attestation =
@@ -157,9 +158,9 @@ proc makeAttestation*(
   # montonoic enumerable index, is wasteful and slow. Most test callers
   # want ValidatorIndex, so that's supported too.
   let
-    validator = state.validators[validator_index]
+    validator = getStateField(state, validators)[validator_index]
     sac_index = committee.find(validator_index)
-    data = makeAttestationData(state, slot, index, beacon_block_root)
+    data = makeAttestationData(state.data.data, slot, index, beacon_block_root)
 
   doAssert sac_index != -1, "find_beacon_committee should guarantee this"
 
@@ -169,7 +170,9 @@ proc makeAttestation*(
   let
     sig =
       if skipBLSValidation notin flags:
-        get_attestation_signature(state.fork, state.genesis_validators_root,
+        get_attestation_signature(
+          getStateField(state, fork),
+          getStateField(state, genesis_validators_root),
           data, hackPrivKey(validator)).toValidatorSig()
       else:
         ValidatorSig()
@@ -180,12 +183,12 @@ proc makeAttestation*(
     signature: sig
   )
 
-proc find_beacon_committee(
-    state: BeaconState, validator_index: ValidatorIndex,
+func find_beacon_committee*(
+    state: StateData, validator_index: ValidatorIndex,
     cache: var StateCache): auto =
-  let epoch = compute_epoch_at_slot(state.slot)
+  let epoch = compute_epoch_at_slot(getStateField(state, slot))
   for epoch_committee_index in 0'u64 ..< get_committee_count_per_slot(
-      state, epoch, cache) * SLOTS_PER_EPOCH:
+      state.data.data, epoch, cache) * SLOTS_PER_EPOCH:
     let
       slot = ((epoch_committee_index mod SLOTS_PER_EPOCH) +
         epoch.compute_start_slot_at_epoch.uint64).Slot
@@ -195,15 +198,15 @@ proc find_beacon_committee(
       return (committee, slot, index)
   doAssert false
 
-proc makeAttestation*(
-    state: BeaconState, beacon_block_root: Eth2Digest,
+func makeAttestation*(
+    state: StateData, beacon_block_root: Eth2Digest,
     validator_index: ValidatorIndex, cache: var StateCache): Attestation =
   let (committee, slot, index) =
     find_beacon_committee(state, validator_index, cache)
   makeAttestation(state, beacon_block_root, committee, slot, index,
     validator_index, cache)
 
-proc makeFullAttestations*(
+func makeFullAttestations*(
     state: BeaconState, beacon_block_root: Eth2Digest, slot: Slot,
     cache: var StateCache,
     flags: UpdateFlags = {}): seq[Attestation] =
