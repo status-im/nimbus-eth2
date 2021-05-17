@@ -1962,8 +1962,7 @@ proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOErr
     genesis_validators_root = Eth2Digest spdir.metadata.genesis_validators_root,
     basePath = dir,
     dbname = filetrunc,
-    modes = {kCompleteArchiveV2},
-    disagreementBehavior = kChooseV2
+    modes = {kCompleteArchive}
   )
 
   # Now import the slashing interchange file

@@ -9,7 +9,7 @@
 
 import
   # Stdlib
-  std/[typetraits, strutils, algorithm, sequtils],
+  std/[typetraits, strutils, algorithm],
   # Status
   eth/db/[kvstore, kvstore_sqlite3],
   stew/results,
@@ -169,6 +169,15 @@ func `==`*(a, b: BadVote): bool =
         (a.candidateTarget == b.candidateTarget)
     of BadVoteKind.DatabaseError:
       true
+
+template `==`*(a, b: PubKey0x): bool =
+  PubKeyBytes(a) == PubKeyBytes(b)
+
+template `<`*(a, b: PubKey0x): bool =
+  PubKeyBytes(a) < PubKeyBytes(b)
+
+template cmp*(a, b: PubKey0x): bool =
+  cmp(PubKeyBytes(a), PubKeyBytes(b))
 
 func `==`*(a, b: BadProposal): bool =
   ## Comparison operator.

@@ -9,15 +9,18 @@
 
 import
   strutils, os, options, unicode, uri,
+
   chronicles, chronicles/options as chroniclesOptions,
   confutils, confutils/defs, confutils/std/net, stew/shims/net as stewNet,
-  stew/io2, unicodedb/properties, normalize,
+  stew/[io2, byteutils], unicodedb/properties, normalize,
   eth/common/eth_types as commonEthTypes, eth/net/nat,
   eth/p2p/discoveryv5/enr,
   json_serialization, web3/[ethtypes, confutils_defs],
-  spec/[crypto, keystore, digest, datatypes, network],
+
+  ./spec/[crypto, keystore, digest, datatypes, network],
   ./networking/network_metadata,
-  filepath
+  ./validators/slashing_protection_common,
+  ./filepath
 
 export
   uri,
@@ -505,7 +508,7 @@ type
           desc: "Limit the export to specific validators " &
                 "(specified as numeric indices or public keys)"
           abbr: "v"
-          name: "validator" }: seq[string]
+          name: "validator" }: seq[PubKey0x]
         exportedInterchangeFile* {.
           desc: "EIP-3076 slashing protection interchange file to export"
           argument }: OutFile
@@ -559,8 +562,9 @@ type
         name: "rpc-port" }: Port
 
       rpcAddress* {.
-        defaultValue: defaultAdminListenAddress
-        desc: "Address of the server to connect to for RPC [=127.0.0.1]"
+        desc: "Address of the server to connect to for RPC"
+        defaultValue: init(ValidIpAddress, "127.0.0.1")
+        defaultValueDesc: "127.0.0.1"
         name: "rpc-address" }: ValidIpAddress
 
       retryDelay* {.
@@ -621,6 +625,13 @@ func parseCmdArg*(T: type Uri, input: TaintedString): T
   parseUri(input.string)
 
 func completeCmdArg*(T: type Uri, input: TaintedString): seq[string] =
+  return @[]
+
+func parseCmdArg*(T: type PubKey0x, input: TaintedString): T
+                 {.raises: [ValueError, Defect].} =
+  PubKey0x(hexToPaddedByteArray[RawPubKeySize](input.string))
+
+func completeCmdArg*(T: type PubKey0x, input: TaintedString): seq[string] =
   return @[]
 
 func parseCmdArg*(T: type Checkpoint, input: TaintedString): T
