@@ -311,9 +311,10 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 ## hash
 ```diff
 + HashArray                                                                                  OK
-+ HashList                                                                                   OK
++ HashList fixed                                                                             OK
++ HashList variable                                                                          OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## state diff tests [Preset: mainnet]
 ```diff
 + random slot differences [Preset: mainnet]                                                  OK
@@ -321,4 +322,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 178/187 Fail: 0/187 Skip: 9/187
+OK: 179/188 Fail: 0/188 Skip: 9/188
