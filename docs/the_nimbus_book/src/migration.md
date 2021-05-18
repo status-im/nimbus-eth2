@@ -1,5 +1,8 @@
 # Migrate from another client
 
+
+*See [here](./migration-options.md) for advanced options*
+
 ## Step 1 - Sync the Nimbus beacon node
 No matter which client you are migrating over from, the first step is to sync the beacon node.
 
@@ -40,6 +43,35 @@ To be extra sure that your validator has stopped, wait a few epochs and confirm 
 
 </br>
 
+### Export from Nimbus
+
+**1. Disable the Nimbus validator client**
+
+Once your Nimbus beacon node on your new setup has synced and you're satisfied that it's working, stop and disable the Nimbus validator client on your current setup. 
+
+If you're using systemd and your service is called `nimbus-eth2-mainnet`, run the following commands to stop and disable the service:
+
+```
+sudo systemctl stop nimbus-eth2-mainnet.service
+sudo systemctl disable nimbus-eth2-mainnet.service
+```
+
+It's important that you disable the service as well as stopping it, to prevent it from starting up again on reboot.
+
+</br>
+
+**2. Export slashing protection history**
+
+Run the following to export your Nimbus validator's [slashing protection](https://eips.ethereum.org/EIPS/eip-3076) history:
+
+```
+build/nimbus_beacon_node slashingdb export database.json
+```
+
+This will export your history in the correct format to `database.json`.
+
+To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator have stopped attesting (check `beaconcha.in`).
+
 ### Export from Lighthouse
 *coming soon*
 
@@ -57,11 +89,10 @@ To import you validator key(s), follow the instructions [outlined here](./keys.m
 To import the slashing protection history you exported in **step 3**, from the `nimbus-eth2` directory run:
 
 ```
-build/nimbus_beacon_node slashingdb import --interchange=path/to/export_dir/interchange.json
+build/nimbus_beacon_node slashingdb import path/to/export_dir/database.json
 ```
 
-Replacing `/path/to/export_dir` with the directory you specified when you exported your slashing protection history
-
+Replacing `/path/to/export_dir` with the file/directory you specified when you exported your slashing protection history.
 
 ## Step 5 - Start the Nimbus validator
 

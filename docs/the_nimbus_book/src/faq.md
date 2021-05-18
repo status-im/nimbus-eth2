@@ -22,6 +22,13 @@ You can think of it as a small penalty that you pay only on first launch and res
 
 While we strongly recommend it, you can disable it with an explicit flag (`--doppelganger-detection=false`) if you don't plan on moving your setup.
 
+### What's the best way to stress test my eth1 + eth2 setup before committing with real ETH?
+
+We recommend [running a Nimbus beacon node](./quick-start.md) on [Prater](./prater.md) and a mainnet [eth1 client](./eth1.md) on the same machine.
+
+To stress test it, `add--subscribe-all-subnets` to the [beacon node options](./options.md). This represents more or less the maximum load you could have on eth2.
+
+
 ## Validating
 
 ### What exactly is a validator?
