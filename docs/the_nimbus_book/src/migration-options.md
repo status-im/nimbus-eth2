@@ -1,4 +1,4 @@
-# Advanced migration options
+# Migration options (advanced)
 
 
 ## Import validators
@@ -52,9 +52,9 @@ The validator directory contains your validator's setup.
 build/nimbus_beacon_node slashingdb export database.json --validators-dir=path/to/validatorsdir/
 ```
 
-### With the data-dir folder
+### Export from a specific data directory
 
-The data-dir contains your beacon node setup.
+The data directory (`data-dir`) contains your beacon node setup.
 
 ```
 build/nimbus_beacon_node slashingdb export database.json --data-dir=path/to/datadir/
