@@ -269,9 +269,15 @@ proc new*(T: type BeaconChainDB,
   if db.exec("DROP TABLE IF EXISTS deposits;").isErr:
     debug "Failed to drop the deposits table"
 
+  # An old pubkey->index mapping that hasn't been used on any mainnet release
+  if db.exec("DROP TABLE IF EXISTS validatorIndexFromPubKey;").isErr:
+    debug "Failed to drop the validatorIndexFromPubKey table"
+
   var
     # V0 compatibility tables
     backend = kvStore db.openKvStore().expectDb()
+    # state_no_validators is similar to state_no_validators2 but uses a
+    # different key encoding and was created WITHOUT ROWID
     stateStore = kvStore db.openKvStore("state_no_validators").expectDb()
 
     genesisDepositsSeq =
