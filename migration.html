@@ -1,0 +1,299 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Migrate from another client - The Nimbus Beacon Chain Book</title>
+        
+        
+
+
+        <!-- Custom HTML head -->
+        
+
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        
+        <link rel="icon" href="favicon.svg">
+        
+        
+        <link rel="shortcut icon" href="favicon.png">
+        
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        
+        <link rel="stylesheet" href="css/print.css" media="print">
+        
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+        <link rel="stylesheet" href="custom.css">
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="philosophy.html"><strong aria-hidden="true">2.</strong> Design goals</a></li><li class="chapter-item expanded "><a href="hardware.html"><strong aria-hidden="true">3.</strong> System requirements</a></li><li class="chapter-item expanded "><a href="quick-start.html"><strong aria-hidden="true">4.</strong> Run just the beacon node (quickstart)</a></li><li class="chapter-item expanded affix "><li class="part-title">Raspberry Pi</li><li class="chapter-item expanded "><a href="pi-guide.html"><strong aria-hidden="true">5.</strong> Validating with a Raspberry Pi</a></li><li class="chapter-item expanded "><a href="pi-guide-mainnet.html"><strong aria-hidden="true">6.</strong> Mainnet advice</a></li><li class="chapter-item expanded affix "><li class="part-title">Rocket Pool</li><li class="chapter-item expanded "><a href="rp-quick-start.html"><strong aria-hidden="true">7.</strong> Introductory guide</a></li><li class="chapter-item expanded affix "><li class="part-title">Prater testnet</li><li class="chapter-item expanded "><a href="prater.html"><strong aria-hidden="true">8.</strong> What you should know</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to</li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">9.</strong> Install dependencies</a></li><li class="chapter-item expanded "><a href="build.html"><strong aria-hidden="true">10.</strong> Build the beacon node</a></li><li class="chapter-item expanded "><a href="eth1.html"><strong aria-hidden="true">11.</strong> Run an eth1 node</a></li><li class="chapter-item expanded "><a href="start-syncing.html"><strong aria-hidden="true">12.</strong> Sync the beacon node</a></li><li class="chapter-item expanded "><a href="deposit.html"><strong aria-hidden="true">13.</strong> Make a deposit for your validator</a></li><li class="chapter-item expanded "><a href="keys.html"><strong aria-hidden="true">14.</strong> Import your validator keys</a></li><li class="chapter-item expanded "><a href="connect-eth2.html"><strong aria-hidden="true">15.</strong> Connect your validator to eth2</a></li><li class="chapter-item expanded "><a href="keep-an-eye.html"><strong aria-hidden="true">16.</strong> Keep an eye on your validator</a></li><li class="chapter-item expanded "><a href="keep-updated.html"><strong aria-hidden="true">17.</strong> Keep Nimbus updated</a></li><li class="chapter-item expanded "><a href="preparation.html"><strong aria-hidden="true">18.</strong> Prepare for mainnet</a></li><li class="chapter-item expanded "><a href="email-notifications.html"><strong aria-hidden="true">19.</strong> Set up email notifications</a></li><li class="chapter-item expanded "><a href="graffiti.html"><strong aria-hidden="true">20.</strong> Graffiti the blockchain</a></li><li class="chapter-item expanded "><a href="binaries.html"><strong aria-hidden="true">21.</strong> Download binaries</a></li><li class="chapter-item expanded "><a href="docker.html"><strong aria-hidden="true">22.</strong> Download Docker images</a></li><li class="chapter-item expanded "><a href="more-keys.html"><strong aria-hidden="true">23.</strong> Recover / generate keys</a></li><li class="chapter-item expanded "><a href="voluntary-exit.html"><strong aria-hidden="true">24.</strong> Perform a voluntary exit</a></li><li class="chapter-item expanded "><a href="beacon-node-systemd.html"><strong aria-hidden="true">25.</strong> Set up a systemd service</a></li><li class="chapter-item expanded "><a href="log-rotate.html"><strong aria-hidden="true">26.</strong> Set up log rotation</a></li><li class="chapter-item expanded "><a href="checksums.html"><strong aria-hidden="true">27.</strong> Verify the integrity of Nimbus</a></li><li class="chapter-item expanded "><a href="database-backup.html"><strong aria-hidden="true">28.</strong> Back up your database</a></li><li class="chapter-item expanded "><a href="web3-backup.html"><strong aria-hidden="true">29.</strong> Add a backup web3 provider</a></li><li class="chapter-item expanded "><a href="additional-validator.html"><strong aria-hidden="true">30.</strong> Add an additional validator</a></li><li class="chapter-item expanded "><a href="migration.html" class="active"><strong aria-hidden="true">31.</strong> Migrate from another client</a></li><li class="chapter-item expanded affix "><li class="part-title">Tutorials</li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">32.</strong> Grafana and Prometheus</a></li><li class="chapter-item expanded "><a href="infura-guide.html"><strong aria-hidden="true">33.</strong> Create your own Infura endpoint</a></li><li class="chapter-item expanded "><a href="eth2-stats.html"><strong aria-hidden="true">34.</strong> Network stats (testnets only)</a></li><li class="chapter-item expanded affix "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">35.</strong> API</a></li><li class="chapter-item expanded "><a href="options.html"><strong aria-hidden="true">36.</strong> Help / Command line options</a></li><li class="chapter-item expanded "><a href="migration-options.html"><strong aria-hidden="true">37.</strong> Advanced migration options</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">38.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="developers.html"><strong aria-hidden="true">39.</strong> For developers</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">40.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">41.</strong> Contribute</a></li><li class="chapter-item expanded "><a href="resources.html"><strong aria-hidden="true">42.</strong> Resources</a></li><li class="chapter-item expanded "><a href="distribution_internals.html"><strong aria-hidden="true">43.</strong> Binary distribution internals</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">The Nimbus Beacon Chain Book</h1>
+
+                    <div class="right-buttons">
+                        
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        
+                        <a href="https://github.com/status-im/nimbus-eth2" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#migrate-from-another-client" id="migrate-from-another-client">Migrate from another client</a></h1>
+<p><em>See <a href="./migration-options.html">here</a> for advanced options</em></p>
+<h2><a class="header" href="#step-1---sync-the-nimbus-beacon-node" id="step-1---sync-the-nimbus-beacon-node">Step 1 - Sync the Nimbus beacon node</a></h2>
+<p>No matter which client you are migrating over from, the first step is to sync the beacon node.</p>
+<p>The easiest way to do this is to follow the <a href="./quick-start.html">Nimbus quickstart guide</a>.  Syncing the beacon node might take up to 30h depending on your hardware, so you should keep validating using your current setup until it completes.</p>
+<h2><a class="header" href="#step-2---export-your-slashing-protection-history" id="step-2---export-your-slashing-protection-history">Step 2 - Export your slashing protection history</a></h2>
+<blockquote>
+<p>Hat tip to Michael Sproul for his <a href="https://lighthouse.sigmaprime.io/switch-to-lighthouse.html">wonderful guide</a> on how to migrate from Prysm to Lighthouse.</p>
+</blockquote>
+<h3><a class="header" href="#export-from-prysm" id="export-from-prysm">Export from Prysm</a></h3>
+<p><strong>1. Disable the Prysm validator client</strong></p>
+<p>Once your Nimbus beacon node has synced and you're satisfied that it's working, stop and disable the Prysm validator client (you can also stop the Prysm beacon node if you wish).</p>
+<p>If you're using systemd and your service is called <code>prysmvalidator</code>, run the following commands to stop and disable the service:</p>
+<pre><code>sudo systemctl stop prysmvalidator.service
+sudo systemctl disable prysmvalidator.service
+</code></pre>
+<p>It's important that you disable the Prysm validator as well as stopping it, to prevent it from starting up again on reboot.</p>
+</br>
+<p><strong>2. Export slashing protection history</strong></p>
+<p>Run the following to export your Prysm validator's <a href="https://eips.ethereum.org/EIPS/eip-3076">slashing protection</a> history:</p>
+<pre><code>prysm.sh validator slashing-protection export --datadir=/your/prysm/wallet --slashing-protection-export-dir=/path/to/export_dir
+</code></pre>
+<p>To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator have stopped attesting (check <a href="https://beaconcha.in/">beaconcha.in</a>).</p>
+</br>
+<h3><a class="header" href="#export-from-nimbus" id="export-from-nimbus">Export from Nimbus</a></h3>
+<p><strong>1. Disable the Nimbus validator client</strong></p>
+<p>Once your Nimbus beacon node on your new setup has synced and you're satisfied that it's working, stop and disable the Nimbus validator client on your current setup. </p>
+<p>If you're using systemd and your service is called <code>nimbus-eth2-mainnet</code>, run the following commands to stop and disable the service:</p>
+<pre><code>sudo systemctl stop nimbus-eth2-mainnet.service
+sudo systemctl disable nimbus-eth2-mainnet.service
+</code></pre>
+<p>It's important that you disable the service as well as stopping it, to prevent it from starting up again on reboot.</p>
+</br>
+<p><strong>2. Export slashing protection history</strong></p>
+<p>Run the following to export your Nimbus validator's <a href="https://eips.ethereum.org/EIPS/eip-3076">slashing protection</a> history:</p>
+<pre><code>build/nimbus_beacon_node slashingdb export database.json
+</code></pre>
+<p>This will export your history in the correct format to <code>database.json</code>.</p>
+<p>To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator have stopped attesting (check <code>beaconcha.in</code>).</p>
+<h3><a class="header" href="#export-from-lighthouse" id="export-from-lighthouse">Export from Lighthouse</a></h3>
+<p><em>coming soon</em></p>
+<h3><a class="header" href="#export-from-teku" id="export-from-teku">Export from Teku</a></h3>
+<p><em>coming soon</em></p>
+<h2><a class="header" href="#step-3---import-your-validator-keys-into-nimbus" id="step-3---import-your-validator-keys-into-nimbus">Step 3 - Import your validator key(s) into Nimbus</a></h2>
+<p>To import you validator key(s), follow the instructions <a href="./keys.html">outlined here</a>.</p>
+<blockquote>
+<p>To check that your key(s) has been successfully imported, look for a file named after your public key in <code>build/data/shared_mainet_0/secrets/</code>.</p>
+</blockquote>
+<h2><a class="header" href="#step-4---import-your-slashing-protection-history" id="step-4---import-your-slashing-protection-history">Step 4 - Import your slashing protection history</a></h2>
+<p>To import the slashing protection history you exported in <strong>step 3</strong>, from the <code>nimbus-eth2</code> directory run:</p>
+<pre><code>build/nimbus_beacon_node slashingdb import path/to/export_dir/database.json
+</code></pre>
+<p>Replacing <code>/path/to/export_dir</code> with the file/directory you specified when you exported your slashing protection history.</p>
+<h2><a class="header" href="#step-5---start-the-nimbus-validator" id="step-5---start-the-nimbus-validator">Step 5 - Start the Nimbus validator</a></h2>
+<p>Follow the instructions <a href="./connect-eth2.html">here</a> to start your validator using our pre-built <a href="./binaries.html">binaries</a>.</p>
+<p>If you prefer to use Docker, see <a href="./docker.html">here</a></p>
+<p>For a quick guide on how to set up a systemd service, see <a href="./beacon-node-systemd.html">here</a></p>
+<h2><a class="header" href="#final-thoughts" id="final-thoughts">Final thoughts</a></h2>
+<p>If you are unsure of the safety of a step, please get in touch with us directly on <a href="https://discord.gg/nnNEBvHu3m">discord</a>. Additionally, we recommend testing the migration works correctly on a testnet before going ahead on mainnet.</p>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/migration.md">Edit this file on GitHub.</a></footer>
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="additional-validator.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="metrics-pretty-pictures.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="additional-validator.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="metrics-pretty-pictures.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>
