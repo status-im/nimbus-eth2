@@ -35,7 +35,7 @@ The data directory (`data-dir`) contains your beacon node setup.
 build/nimbus_beacon_node slashingdb export database.json --data-dir=path/to/datadir/
 ```
 
-## Partial exports
+### Partial exports
 
 You can perform a partial export by specifying the public key of the relevant validator you wish to export.
 
