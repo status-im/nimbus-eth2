@@ -12,6 +12,8 @@ Systemd is used in order to have a command or program run when your device boots
 
 Create a `systemd` service unit file -- `nimbus-eth2-pyrmont.service` -- and save it in `/etc/systemd/system/`.
 
+The contents of the file should look like this:
+
 ```txt
 [Unit]
 Description=Nimbus beacon node
@@ -33,13 +35,15 @@ Restart=always
 WantedBy=default.target
 ```
 
-Replace:
+Where you should replace:
 
-`<BASE-DIRECTORY>` with the location of the repository in which you performed the `git clone` command in step 1.
+`<BASE-DIRECTORY>` with the location of the `nimbus-eth2` repository on your device.
 
 `<USERNAME>` with the username of the system user responsible for running the launched processes.
 
-`<WEB3-URL>` with the WebSocket JSON-RPC URL that you are planning to use.
+`<WEB3-URL>` with the WebSocket JSON-RPC URL you are planning to use.
+
+> **N.B.** If you're running Nimbus on a Pi, your `<BASE-DIRECTORY>` is `/home/pi/nimbus-eth2/` and your `<USERNAME>` is `pi`
 
 
 ### 2. Notify systemd of the newly added service
@@ -53,3 +57,13 @@ sudo systemctl daemon-reload
 ```console
 sudo systemctl enable nimbus-eth2-pyrmont --now
 ```
+
+### 4. Monitor the service
+
+```console
+sudo journalctl -u nimbus-eth2-pyrmont.service
+```
+
+This will show you the Nimbus logs at the default setting -- it should include regular "slot start" messages which will show your sync progress.
+
+For more options, see [here](https://www.raspberrypi.org/documentation/linux/usage/systemd.md).

@@ -10,6 +10,25 @@ The metrics server is disabled by default, enable it by passing `--metrics` to t
 ./run-mainnet-beacon-node.sh --metrics ...
 ```
 
+### Why does my validator miss two epochs of attestations after restarting?
+
+When a validator is started (or restarted) it prudently listens for 2 epochs for attestations from a validator with the same index (a doppelganger), before sending an attestation itself.
+
+In sum, it's a simple way of handling the case where one validator comes online with the same key as another validator that's already online (i.e one device was started without switching the other off).
+
+While this strategy requires the client to wait two whole epochs on restart before attesting, a couple of missed attestations is a very minor price to pay in exchange for significantly reducing the risk of an accidental slashing.
+
+You can think of it as a small penalty that you pay only on first launch and restarts. When you take into account the total runtime of your validator, the impact should be minimal.
+
+While we strongly recommend it, you can disable it with an explicit flag (`--doppelganger-detection=false`) if you don't plan on moving your setup.
+
+### What's the best way to stress test my eth1 + eth2 setup before committing with real ETH?
+
+We recommend [running a Nimbus beacon node](./quick-start.md) on [Prater](./prater.md) and a mainnet [eth1 client](./eth1.md) on the same machine.
+
+To stress test it, `add--subscribe-all-subnets` to the [beacon node options](./options.md). This represents more or less the maximum load you could have on eth2.
+
+
 ## Validating
 
 ### What exactly is a validator?

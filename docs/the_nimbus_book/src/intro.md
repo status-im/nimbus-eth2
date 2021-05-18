@@ -1,6 +1,6 @@
 # The Nimbus book
 
-*If you're eager to get started, check out our [quickstart guide](./quick-start.md).*
+*If you're eager to get started, check out our [quickstart guide](./quick-start.md)*
 
 Nimbus is a client implementation for both Ethereum 2.0 and Ethereum 1.0 that strives to be as lightweight as possible in terms of resources used. This allows it to perform well on embedded systems, resource-restricted devices -- including Raspberry Pis and mobile devices.
 

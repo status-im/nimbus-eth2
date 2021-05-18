@@ -29,7 +29,6 @@
 - [Graffiti the blockchain](./graffiti.md)
 - [Download binaries](./binaries.md)
 - [Download Docker images](./docker.md)
-- [Troubleshoot](./troubleshooting.md)
 - [Recover / generate keys](./more-keys.md)
 - [Perform a voluntary exit](./voluntary-exit.md)
 - [Set up a systemd service](./beacon-node-systemd.md)
@@ -38,6 +37,7 @@
 - [Back up your database](./database-backup.md)
 - [Add a backup web3 provider](./web3-backup.md)
 - [Add an additional validator](./additional-validator.md)
+- [Migrate from another client](./migration.md)
 
 # Tutorials
 - [Grafana and Prometheus](./metrics-pretty-pictures.md)
@@ -46,7 +46,9 @@
 
 # Reference
 - [API](./api.md)
-- [Command line options](./options.md)
+- [Help / Command line options](./options.md)
+- [Advanced migration options](./migration-options.md)
+- [Troubleshooting](./troubleshooting.md)
 - [For developers](./developers.md)
 - [FAQ](./faq.md)
 - [Contribute](./contribute.md)
