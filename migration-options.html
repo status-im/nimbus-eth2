@@ -169,7 +169,7 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#advanced-migration-options" id="advanced-migration-options">Advanced migration options</a></h1>
+                        <h1><a class="header" href="#migration-options-advanced" id="migration-options-advanced">Migration options (advanced)</a></h1>
 <h2><a class="header" href="#import-validators" id="import-validators">Import validators</a></h2>
 <p>The default command for importing your validator's slashing protection history into the database is:</p>
 <pre><code>build/nimbus_beacon_node slashingdb import database.json
@@ -196,8 +196,8 @@ Export finished: '$HOME/.cache/nimbus/BeaconNode/validators/slashing_protection.
 <p>The validator directory contains your validator's setup.</p>
 <pre><code>build/nimbus_beacon_node slashingdb export database.json --validators-dir=path/to/validatorsdir/
 </code></pre>
-<h3><a class="header" href="#with-the-data-dir-folder" id="with-the-data-dir-folder">With the data-dir folder</a></h3>
-<p>The data-dir contains your beacon node setup.</p>
+<h3><a class="header" href="#export-from-a-specific-data-directory" id="export-from-a-specific-data-directory">Export from a specific data directory</a></h3>
+<p>The data directory (<code>data-dir</code>) contains your beacon node setup.</p>
 <pre><code>build/nimbus_beacon_node slashingdb export database.json --data-dir=path/to/datadir/
 </code></pre>
 <h2><a class="header" href="#partial-exports" id="partial-exports">Partial exports</a></h2>
