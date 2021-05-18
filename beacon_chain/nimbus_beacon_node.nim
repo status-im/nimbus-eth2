@@ -66,7 +66,9 @@ template init(T: type RpcHttpServer, ip: ValidIpAddress, port: Port): T =
 
 template init(T: type RestServerRef, ip: ValidIpAddress, port: Port): T =
   let address = initTAddress(ip, port)
-  let res = RestServerRef.new(getRouter(), address)
+  let serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
+                     HttpServerFlags.NotifyDisconnect}
+  let res = RestServerRef.new(getRouter(), address, serverFlags = serverFlags)
   if res.isErr():
     notice "Rest server could not be started", address = $address,
            reason = res.error()
