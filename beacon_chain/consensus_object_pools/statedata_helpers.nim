@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  ../spec/[datatypes, digest, helpers, presets, validator],
+  ../spec/[beaconstate, datatypes, digest, helpers, presets, validator],
   ./block_pools_types
 
 # State-related functionality based on StateData instead of BeaconState
@@ -48,3 +48,15 @@ template hash_tree_root*(stateData: StateData): Eth2Digest =
   # Dispatch here based on type/fork of state. Since StateData is a ref object
   # type, if Nim chooses the wrong overload, it will simply fail to compile.
   stateData.data.root
+
+func get_shuffled_active_validator_indices*(
+    cache: var StateCache, state: StateData, epoch: Epoch):
+    var seq[ValidatorIndex] =
+  cache.get_shuffled_active_validator_indices(state.data.data, epoch)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_block_root_at_slot
+func get_block_root_at_slot*(state: StateData,
+                             slot: Slot): Eth2Digest =
+  ## Return the block root at a recent ``slot``.
+
+  get_block_root_at_slot(state.data.data, slot)

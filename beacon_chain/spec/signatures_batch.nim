@@ -77,14 +77,14 @@ func addSignatureSet[T](
 proc aggregateAttesters(
       aggPK: var blscurve.PublicKey,
       attestation: IndexedAttestation,
-      state: StateData
+      validators: seq[Validator],
      ): bool =
   doAssert attestation.attesting_indices.len > 0
   var attestersAgg{.noInit.}: AggregatePublicKey
-  attestersAgg.init(getStateField(state, validators)[attestation.attesting_indices[0]]
+  attestersAgg.init(validators[attestation.attesting_indices[0]]
                          .pubkey.loadWithCacheOrExit(false))
   for i in 1 ..< attestation.attesting_indices.len:
-    attestersAgg.aggregate(getStateField(state, validators)[attestation.attesting_indices[i]]
+    attestersAgg.aggregate(validators[attestation.attesting_indices[i]]
                                 .pubkey.loadWithCacheOrExit(false))
   aggPK.finish(attestersAgg)
   return true
@@ -126,7 +126,8 @@ proc addIndexedAttestation(
     return false
 
   var aggPK {.noInit.}: blscurve.PublicKey
-  if not aggPK.aggregateAttesters(attestation, state):
+  if not aggPK.aggregateAttesters(
+      attestation, getStateField(state, validators).asSeq):
     return false
 
   sigs.addSignatureSet(

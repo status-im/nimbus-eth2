@@ -123,7 +123,7 @@ proc init*(
         getStateField(state, current_justified_checkpoint),
       finalized_checkpoint: getStateField(state, finalized_checkpoint),
       shuffled_active_validator_indices:
-        cache.get_shuffled_active_validator_indices(state.data.data, epoch))
+        cache.get_shuffled_active_validator_indices(state, epoch))
   for i in 0'u64..<SLOTS_PER_EPOCH:
     let idx = get_beacon_proposer_index(
       state.data.data, cache, epoch.compute_start_slot_at_epoch() + i)

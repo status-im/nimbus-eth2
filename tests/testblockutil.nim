@@ -188,7 +188,7 @@ func find_beacon_committee*(
     cache: var StateCache): auto =
   let epoch = compute_epoch_at_slot(getStateField(state, slot))
   for epoch_committee_index in 0'u64 ..< get_committee_count_per_slot(
-      state.data.data, epoch, cache) * SLOTS_PER_EPOCH:
+      state, epoch, cache) * SLOTS_PER_EPOCH:
     let
       slot = ((epoch_committee_index mod SLOTS_PER_EPOCH) +
         epoch.compute_start_slot_at_epoch.uint64).Slot

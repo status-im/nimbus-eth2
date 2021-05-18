@@ -548,8 +548,8 @@ proc cycleAttestationSubnetsPerEpoch(
   # calculating future attestation subnets.
 
   # Only know RANDAO mix, which determines shuffling seed, one epoch in
-  # advance. When node.chainDag.headState.data.data.slot.epoch is ahead
-  # of wallSlot, the clock's just incorrect. If the state slot's behind
+  # advance. When getStateField(node.chainDag.headState, slot).epoch is
+  # ahead of wallSlot, the clock's just incorrect. If the slot's behind
   # wallSlot, it would have to look more than MIN_SEED_LOOKAHEAD epochs
   # ahead to compute the shuffling determining the beacon committees.
   static: doAssert MIN_SEED_LOOKAHEAD == 1

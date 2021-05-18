@@ -8,7 +8,8 @@
 {.push raises: [Defect].}
 
 import
-  ./datatypes, ./digest, ./helpers
+  ./datatypes, ./digest, ./helpers,
+  ../consensus_object_pools/statedata_helpers
 
 const
   SAFETY_DECAY* = 10'u64
@@ -17,8 +18,7 @@ const
 func compute_weak_subjectivity_period(state: StateData): uint64 =
   var weak_subjectivity_period = MIN_VALIDATOR_WITHDRAWABILITY_DELAY
   let validator_count =
-    get_active_validator_indices_len(
-      state.data.data, get_current_epoch(state.data.data))
+    get_active_validator_indices_len(state.data.data, get_current_epoch(state))
   if validator_count >= MIN_PER_EPOCH_CHURN_LIMIT * CHURN_LIMIT_QUOTIENT:
     weak_subjectivity_period += SAFETY_DECAY * CHURN_LIMIT_QUOTIENT div (2 * 100)
   else:

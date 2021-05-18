@@ -503,7 +503,7 @@ suite "chain DAG finalization tests" & preset():
         check:
           dag.get(cur).data.message.state_root ==
             tmpStateData[].data.root
-          tmpStateData[].data.root == hash_tree_root(tmpSTateData[].data.data)
+          tmpStateData[].data.root == hash_tree_root(tmpSTateData[])
         cur = cur.parent
 
     let

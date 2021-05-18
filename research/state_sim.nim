@@ -50,6 +50,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
   var
     attestations = initTable[Slot, seq[Attestation]]()
     latest_block_root = hash_tree_root(genesisBlock.message)
+    blockrefs = @[BlockRef(root: latest_block_root, slot: 0.Slot)]
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r = initRand(1)
@@ -110,15 +111,16 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
         committees_per_slot =
           get_committee_count_per_slot(state[].data, target_slot.epoch, cache)
 
+      blockrefs.add BlockRef(
+        root: latest_block_root, parent: blockrefs[^1], slot: target_slot)
+
       let
         scass = withTimerRet(timers[tShuffle]):
           mapIt(
             0 ..< committees_per_slot.int,
             get_beacon_committee(state[].data, target_slot, it.CommitteeIndex, cache))
 
-        # makeAttestation() doesn't modify state and doesn't use the BlockRef,
-        # so create minimal StateData
-        stateData = (ref StateData)(data: state[])
+        stateData = (ref StateData)(data: state[], blck: blockrefs[^1])
 
       for i, scas in scass:
         var
