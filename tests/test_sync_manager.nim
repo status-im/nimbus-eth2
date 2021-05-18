@@ -1,5 +1,6 @@
 {.used.}
 
+import std/strutils
 import unittest2
 import chronos
 import ../beacon_chain/gossip_processing/gossip_to_consensus,
@@ -515,3 +516,60 @@ suite "SyncManager test suite":
       checkResponse(r22, @[chain[4], chain[5]]) == false
       checkResponse(r22, @[chain[4]]) == false
       checkResponse(r22, @[chain[3], chain[1]]) == false
+
+  test "[SyncQueue] getRewindPoint() test":
+    let aq = newVerifQueues()
+    block:
+      var queue = SyncQueue.init(SomeTPeer,
+                                 Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
+                                 1'u64, getFirstSlotAtFinalizedEpoch, aq, 2)
+      let finalizedSlot = compute_start_slot_at_epoch(Epoch(0'u64))
+      let startSlot = compute_start_slot_at_epoch(Epoch(0'u64)) + 1'u64
+      let finishSlot = compute_start_slot_at_epoch(Epoch(2'u64))
+
+      for i in uint64(startSlot) ..< uint64(finishSlot):
+        check queue.getRewindPoint(Slot(i), finalizedSlot) == finalizedSlot
+
+    block:
+      var queue = SyncQueue.init(SomeTPeer,
+                                 Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
+                                 1'u64, getFirstSlotAtFinalizedEpoch, aq, 2)
+      let finalizedSlot = compute_start_slot_at_epoch(Epoch(1'u64))
+      let startSlot = compute_start_slot_at_epoch(Epoch(1'u64)) + 1'u64
+      let finishSlot = compute_start_slot_at_epoch(Epoch(3'u64))
+
+      for i in uint64(startSlot) ..< uint64(finishSlot) :
+        check queue.getRewindPoint(Slot(i), finalizedSlot) == finalizedSlot
+
+    block:
+      var queue = SyncQueue.init(SomeTPeer,
+                                 Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
+                                 1'u64, getFirstSlotAtFinalizedEpoch, aq, 2)
+      let finalizedSlot = compute_start_slot_at_epoch(Epoch(0'u64))
+      let failSlot = Slot(0xFFFF_FFFF_FFFF_FFFFF'u64)
+      let failEpoch = compute_epoch_at_slot(failSlot)
+
+      var counter = 1'u64
+      for i in 0 ..< 64:
+        if counter >= failEpoch:
+          break
+        let rewindEpoch = failEpoch - counter
+        let rewindSlot = compute_start_slot_at_epoch(rewindEpoch)
+        check queue.getRewindPoint(failSlot, finalizedSlot) == rewindSlot
+        counter = counter shl 1
+
+    block:
+      var queue = SyncQueue.init(SomeTPeer,
+                                 Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
+                                 1'u64, getFirstSlotAtFinalizedEpoch, aq, 2)
+      let finalizedSlot = compute_start_slot_at_epoch(Epoch(1'u64))
+      let failSlot = Slot(0xFFFF_FFFF_FFFF_FFFFF'u64)
+      let failEpoch = compute_epoch_at_slot(failSlot)
+      var counter = 1'u64
+      for i in 0 ..< 64:
+        if counter >= failEpoch:
+          break
+        let rewindEpoch = failEpoch - counter
+        let rewindSlot = compute_start_slot_at_epoch(rewindEpoch)
+        check queue.getRewindPoint(failSlot, finalizedSlot) == rewindSlot
+        counter = counter shl 1

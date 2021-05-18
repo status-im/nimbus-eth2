@@ -15,7 +15,8 @@ import ../spec/[datatypes, digest, helpers, eth2_apis/callsigs_types],
 
 import ../gossip_processing/gossip_to_consensus
 import ../consensus_object_pools/block_pools_types
-export datatypes, digest, chronos, chronicles, results, block_pools_types
+export datatypes, digest, chronos, chronicles, results, block_pools_types,
+       helpers
 
 logScope:
   topics = "syncman"
@@ -432,6 +433,12 @@ proc toDebtsQueue[T](sq: SyncQueue[T], sr: SyncRequest[T]) =
 
 proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
                         finalizedSlot: Slot): Slot =
+  # Calculate the latest finalized epoch.
+  let finalizedEpoch = compute_epoch_at_slot(finalizedSlot)
+
+  # Calculate failure epoch.
+  let failEpoch = compute_epoch_at_slot(failSlot)
+
   # Calculate exponential rewind point in number of epochs.
   let epochCount =
     if sq.rewind.isSome():
@@ -439,33 +446,73 @@ proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
       if failSlot == rewind.failSlot:
         # `MissingParent` happened at same slot so we increase rewind point by
         # factor of 2.
-        let epochs = rewind.epochCount * 2
-        sq.rewind = some(RewindPoint(failSlot: failSlot, epochCount: epochs))
-        epochs
+        if failEpoch > finalizedEpoch:
+          let rewindPoint = rewind.epochCount shl 1
+          if rewindPoint < rewind.epochCount:
+            # If exponential rewind point produces `uint64` overflow we will
+            # make rewind to latest finalized epoch.
+            failEpoch - finalizedEpoch
+          else:
+            if (failEpoch < rewindPoint) or
+               (failEpoch - rewindPoint < finalizedEpoch):
+              # If exponential rewind point points to position which is far
+              # behind latest finalized epoch.
+              failEpoch - finalizedEpoch
+            else:
+              rewindPoint
+        else:
+          warn "Trying to rewind over the last finalized epoch",
+               finalized_slot = finalizedSlot, fail_slot = failSlot,
+               finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
+               rewind_epoch_count = rewind.epochCount,
+               finalized_epoch = finalizedEpoch
+          0'u64
       else:
         # `MissingParent` happened at different slot so we going to rewind for
         # 1 epoch only.
-        sq.rewind = some(RewindPoint(failSlot: failSlot, epochCount: 1'u64))
-        1'u64
+        if (failEpoch < 1'u64) or (failEpoch - 1'u64 < finalizedEpoch):
+          warn "Сould not rewind further than the last finalized epoch",
+               finalized_slot = finalizedSlot, fail_slot = failSlot,
+               finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
+               rewind_epoch_count = rewind.epochCount,
+               finalized_epoch = finalizedEpoch
+          0'u64
+        else:
+          1'u64
     else:
       # `MissingParent` happened first time.
-      sq.rewind = some(RewindPoint(failSlot: failSlot, epochCount: 1'u64))
-      1'u64
+      if (failEpoch < 1'u64) or (failEpoch - 1'u64 < finalizedEpoch):
+        warn "Сould not rewind further than the last finalized epoch",
+             finalized_slot = finalizedSlot, fail_slot = failSlot,
+             finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
+             finalized_epoch = finalizedEpoch
+        0'u64
+      else:
+        1'u64
 
-  # Calculate the latest finalized epoch.
-  let finalizedEpoch = compute_epoch_at_slot(finalizedSlot)
+  # echo "epochCount = ", epochCount
 
-  # Calculate the rewind epoch, which should not be less than the latest
-  # finalized epoch.
-  let rewindEpoch =
-    block:
-      let failEpoch = compute_epoch_at_slot(failSlot)
-      if failEpoch < finalizedEpoch + epochCount:
+  if epochCount == 0'u64:
+    warn "Unable to continue syncing, please restart the node",
+         finalized_slot = finalizedSlot, fail_slot = failSlot,
+         finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
+         finalized_epoch = finalizedEpoch
+    # Calculate the rewind epoch, which will be equal to last rewind point or
+    # finalizedEpoch
+    let rewindEpoch =
+      if sq.rewind.isNone():
         finalizedEpoch
       else:
-        failEpoch - epochCount
-
-  compute_start_slot_at_epoch(rewindEpoch)
+        compute_epoch_at_slot(sq.rewind.get().failSlot) -
+          sq.rewind.get().epochCount
+    compute_start_slot_at_epoch(rewindEpoch)
+  else:
+    # Calculate the rewind epoch, which should not be less than the latest
+    # finalized epoch.
+    let rewindEpoch = failEpoch - epochCount
+    # Update and save new rewind point in SyncQueue.
+    sq.rewind = some(RewindPoint(failSlot: failSlot, epochCount: epochCount))
+    compute_start_slot_at_epoch(rewindEpoch)
 
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
               data: seq[SignedBeaconBlock]) {.async, gcsafe.} =
