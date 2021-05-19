@@ -179,7 +179,7 @@
 <blockquote>
 <p>⚠️  If you wish to run the service with metrics enabled, you'll need to replace <code>--metrics:off</code> with <code>--metrics:on</code> in the service file below. See <a href="./metrics-pretty-pictures.html">here</a> for more on metrics.</p>
 </blockquote>
-<p>Create a <code>systemd</code> service unit file -- <code>nimbus-eth2-pyrmont.service</code> -- and save it in <code>/etc/systemd/system/</code>.</p>
+<p>Create a <code>systemd</code> service unit file -- <code>nimbus-eth2-pyrmont.service</code> -- and save it in <code>/lib/systemd/system/</code>.</p>
 <p>The contents of the file should look like this:</p>
 <pre><code class="language-txt">[Unit]
 Description=Nimbus beacon node
@@ -206,6 +206,9 @@ WantedBy=default.target
 <p><code>&lt;WEB3-URL&gt;</code> with the WebSocket JSON-RPC URL you are planning to use.</p>
 <blockquote>
 <p><strong>N.B.</strong> If you're running Nimbus on a Pi, your <code>&lt;BASE-DIRECTORY&gt;</code> is <code>/home/pi/nimbus-eth2/</code> and your <code>&lt;USERNAME&gt;</code> is <code>pi</code></p>
+</blockquote>
+<blockquote>
+<p>If you want to run on mainnet, simply replace all instances of <code>pyrmont</code> with <code>mainnet</code>.</p>
 </blockquote>
 <h3><a class="header" href="#2-notify-systemd-of-the-newly-added-service" id="2-notify-systemd-of-the-newly-added-service">2. Notify systemd of the newly added service</a></h3>
 <pre><code class="language-console">sudo systemctl daemon-reload

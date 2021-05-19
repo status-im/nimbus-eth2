@@ -210,6 +210,10 @@ build/ncli_db pruneDatabase --db=build/data/shared_pyrmont_0/db --verbose=true
 <p>If you're experiencing a low peer count, you may be behind a firewall. Try restarting your client and passing <code>--nat:extip:$EXT_IP_ADDRESS</code> as an option to <code>./run-pyrmont-beacon-node.sh</code>, where <code>$EXT_IP_ADDRESS</code> is your real IP. For example, if your real IP address is <code>35.124.65.104</code>, you'd run:</p>
 <pre><code>./run-pyrmont-beacon-node.sh --nat:extip:35.124.65.104
 </code></pre>
+<h3><a class="header" href="#nocommand-does-not-accept-arguments" id="nocommand-does-not-accept-arguments">noCommand does not accept arguments</a></h3>
+<p>If, on start,  you see
+<code>The command 'noCommand' does not accept arguments</code>
+Double check to see if your command line flags are in the correct format, i.e. <code>--foo=bar</code>, <code>--baz</code>, or <code>--foo-bar=qux</code>.</p>
 <h3><a class="header" href="#address-already-in-use-error" id="address-already-in-use-error">Address already in use error</a></h3>
 <p>If you're seeing an error that looks like:</p>
 <pre><code>Error: unhandled exception: (98) Address already in use [TransportOsError]

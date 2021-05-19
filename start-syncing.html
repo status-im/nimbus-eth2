@@ -198,6 +198,9 @@ INF 2020-12-01 11:26:31.000+00:00 Slot start                                 top
 INF 2020-12-01 11:26:36.285+00:00 Slot end                                   topics=&quot;beacnde&quot; tid=21815 file=nimbus_beacon_node.nim:593 slot=96567 nextSlot=96568 head=b54486c4:96563 headEpoch=3017 finalizedHead=2f5d12e4:96479 finalizedEpoch=3014
 ...
 </code></pre>
+<blockquote>
+<p>If you want to put the database somewhere else, (e.g. an external ssd) pass the <code>--data-dir=/your/path</code>. ⚠️ If you do this, remember to pass this flag to <strong>all</strong> your nimbus calls.</p>
+</blockquote>
 <h3><a class="header" href="#command-line-options" id="command-line-options">Command line options</a></h3>
 <p>You can pass any <code>nimbus_beacon_node</code> options to the <code>pyrmont</code> and <code>mainnet</code> scripts. For example, if you wanted to launch Nimbus on <code>pyrmont</code> with a different base port, say <code>9100</code>, you would run:</p>
 <pre><code>./run-pyrmont-beacon-node.sh --tcp-port=9100 --udp-port=9100

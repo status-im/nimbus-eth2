@@ -382,6 +382,9 @@ INF 2020-12-01 11:26:31.000+00:00 Slot start                                 top
 INF 2020-12-01 11:26:36.285+00:00 Slot end                                   topics=&quot;beacnde&quot; tid=21815 file=nimbus_beacon_node.nim:593 slot=96567 nextSlot=96568 head=b54486c4:96563 headEpoch=3017 finalizedHead=2f5d12e4:96479 finalizedEpoch=3014
 ...
 </code></pre>
+<blockquote>
+<p>If you want to put the database somewhere else, (e.g. an external ssd) pass the <code>--data-dir=/your/path</code>. ⚠️ If you do this, remember to pass this flag to <strong>all</strong> your nimbus calls.</p>
+</blockquote>
 <h3><a class="header" href="#command-line-options" id="command-line-options">Command line options</a></h3>
 <p>You can pass any <code>nimbus_beacon_node</code> options to the <code>pyrmont</code> and <code>mainnet</code> scripts. For example, if you wanted to launch Nimbus on <code>pyrmont</code> with a different base port, say <code>9100</code>, you would run:</p>
 <pre><code>./run-pyrmont-beacon-node.sh --tcp-port=9100 --udp-port=9100
@@ -650,7 +653,7 @@ to not generate a copy of your original key. Running the same key on two differe
 <blockquote>
 <p>⚠️  If you wish to run the service with metrics enabled, you'll need to replace <code>--metrics:off</code> with <code>--metrics:on</code> in the service file below. See <a href="./metrics-pretty-pictures.html">here</a> for more on metrics.</p>
 </blockquote>
-<p>Create a <code>systemd</code> service unit file -- <code>nimbus-eth2-pyrmont.service</code> -- and save it in <code>/etc/systemd/system/</code>.</p>
+<p>Create a <code>systemd</code> service unit file -- <code>nimbus-eth2-pyrmont.service</code> -- and save it in <code>/lib/systemd/system/</code>.</p>
 <p>The contents of the file should look like this:</p>
 <pre><code class="language-txt">[Unit]
 Description=Nimbus beacon node
@@ -677,6 +680,9 @@ WantedBy=default.target
 <p><code>&lt;WEB3-URL&gt;</code> with the WebSocket JSON-RPC URL you are planning to use.</p>
 <blockquote>
 <p><strong>N.B.</strong> If you're running Nimbus on a Pi, your <code>&lt;BASE-DIRECTORY&gt;</code> is <code>/home/pi/nimbus-eth2/</code> and your <code>&lt;USERNAME&gt;</code> is <code>pi</code></p>
+</blockquote>
+<blockquote>
+<p>If you want to run on mainnet, simply replace all instances of <code>pyrmont</code> with <code>mainnet</code>.</p>
 </blockquote>
 <h3><a class="header" href="#2-notify-systemd-of-the-newly-added-service" id="2-notify-systemd-of-the-newly-added-service">2. Notify systemd of the newly added service</a></h3>
 <pre><code class="language-console">sudo systemctl daemon-reload
@@ -1667,6 +1673,9 @@ specified as an UTF-8 encoded string or as an 0x-prefixed hex string specifying 
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getGossipSubPeers&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result'
 </code></pre>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/api.md">Edit this file on GitHub.</a></footer><h1><a class="header" href="#command-line-options-1" id="command-line-options-1">Command line options</a></h1>
+<blockquote>
+<p>⚠️  If you want to add your own options, remember that the format is <code>--foo=bar</code>, <code>--baz</code>, or <code>--foo-bar=qux</code></p>
+</blockquote>
 <p>You can pass any <code>nimbus_beacon_node</code> options to the <code>pyrmont</code> and <code>mainnet</code> scripts. For example, if you wanted to launch Nimbus on mainnet with different base ports than the default <code>9000/udp</code> and <code>9000/tcp</code>, say <code>9100/udp</code> and <code>9100/tcp</code>, you would run:</p>
 <pre><code>./run-mainnet-beacon-node.sh --tcp-port=9100 --udp-port=9100
 </code></pre>
@@ -1827,6 +1836,10 @@ build/ncli_db pruneDatabase --db=build/data/shared_pyrmont_0/db --verbose=true
 <p>If you're experiencing a low peer count, you may be behind a firewall. Try restarting your client and passing <code>--nat:extip:$EXT_IP_ADDRESS</code> as an option to <code>./run-pyrmont-beacon-node.sh</code>, where <code>$EXT_IP_ADDRESS</code> is your real IP. For example, if your real IP address is <code>35.124.65.104</code>, you'd run:</p>
 <pre><code>./run-pyrmont-beacon-node.sh --nat:extip:35.124.65.104
 </code></pre>
+<h3><a class="header" href="#nocommand-does-not-accept-arguments" id="nocommand-does-not-accept-arguments">noCommand does not accept arguments</a></h3>
+<p>If, on start,  you see
+<code>The command 'noCommand' does not accept arguments</code>
+Double check to see if your command line flags are in the correct format, i.e. <code>--foo=bar</code>, <code>--baz</code>, or <code>--foo-bar=qux</code>.</p>
 <h3><a class="header" href="#address-already-in-use-error" id="address-already-in-use-error">Address already in use error</a></h3>
 <p>If you're seeing an error that looks like:</p>
 <pre><code>Error: unhandled exception: (98) Address already in use [TransportOsError]
