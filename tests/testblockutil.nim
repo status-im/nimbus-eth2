@@ -10,8 +10,8 @@ import
   ../beacon_chain/extras,
   ../beacon_chain/validators/validator_pool,
   ../beacon_chain/ssz/merkleization,
-  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, presets,
-                        helpers, validator, signatures, state_transition],
+  ../beacon_chain/spec/[crypto, datatypes, digest, presets, helpers, validator,
+                        signatures, state_transition],
   ../beacon_chain/consensus_object_pools/statedata_helpers
 
 func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
@@ -148,6 +148,37 @@ proc makeTestBlock*(
     tmpState[], parent_root, cache, eth1_data, attestations, deposits,
     graffiti)
 
+func makeAttestationData*(
+    state: StateData, slot: Slot, committee_index: CommitteeIndex,
+    beacon_block_root: Eth2Digest): AttestationData =
+  ## Create an attestation / vote for the block `beacon_block_root` using the
+  ## data in `state` to fill in the rest of the fields.
+  ## `state` is the state corresponding to the `beacon_block_root` advanced to
+  ## the slot we're attesting to.
+
+  let
+    current_epoch = get_current_epoch(state)
+    start_slot = compute_start_slot_at_epoch(current_epoch)
+    epoch_boundary_block_root =
+      if start_slot == getStateField(state, slot): beacon_block_root
+      else: get_block_root_at_slot(state, start_slot)
+
+  doAssert slot.compute_epoch_at_slot == current_epoch,
+    "Computed epoch was " & $slot.compute_epoch_at_slot &
+    "  while the state current_epoch was " & $current_epoch
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#attestation-data
+  AttestationData(
+    slot: slot,
+    index: committee_index.uint64,
+    beacon_block_root: beacon_block_root,
+    source: getStateField(state, current_justified_checkpoint),
+    target: Checkpoint(
+      epoch: current_epoch,
+      root: epoch_boundary_block_root
+    )
+  )
+
 func makeAttestation*(
     state: StateData, beacon_block_root: Eth2Digest,
     committee: seq[ValidatorIndex], slot: Slot, index: CommitteeIndex,
@@ -160,7 +191,7 @@ func makeAttestation*(
   let
     validator = getStateField(state, validators)[validator_index]
     sac_index = committee.find(validator_index)
-    data = makeAttestationData(state.data.data, slot, index, beacon_block_root)
+    data = makeAttestationData(state, slot, index, beacon_block_root)
 
   doAssert sac_index != -1, "find_beacon_committee should guarantee this"
 
@@ -207,7 +238,7 @@ func makeAttestation*(
     validator_index, cache)
 
 func makeFullAttestations*(
-    state: BeaconState, beacon_block_root: Eth2Digest, slot: Slot,
+    state: StateData, beacon_block_root: Eth2Digest, slot: Slot,
     cache: var StateCache,
     flags: UpdateFlags = {}): seq[Attestation] =
   # Create attestations in which the full committee participates for each shard
@@ -219,7 +250,8 @@ func makeFullAttestations*(
     let
       committee = get_beacon_committee(
         state, slot, index.CommitteeIndex, cache)
-      data = makeAttestationData(state, slot, index.CommitteeIndex, beacon_block_root)
+      data = makeAttestationData(
+        state, slot, index.CommitteeIndex, beacon_block_root)
 
     doAssert committee.len() >= 1
     # Initial attestation
@@ -229,8 +261,9 @@ func makeFullAttestations*(
 
     var agg {.noInit.}: AggregateSignature
     agg.init(get_attestation_signature(
-        state.fork, state.genesis_validators_root, data,
-        hackPrivKey(state.validators[committee[0]])))
+        getStateField(state, fork),
+        getStateField(state, genesis_validators_root), data,
+        hackPrivKey(getStateField(state, validators)[committee[0]])))
 
     # Aggregate the remainder
     attestation.aggregation_bits.setBit 0
@@ -238,12 +271,22 @@ func makeFullAttestations*(
       attestation.aggregation_bits.setBit j
       if skipBLSValidation notin flags:
         agg.aggregate(get_attestation_signature(
-          state.fork, state.genesis_validators_root, data,
-          hackPrivKey(state.validators[committee[j]])
+          getStateField(state, fork),
+          getStateField(state, genesis_validators_root), data,
+          hackPrivKey(getStateField(state, validators)[committee[j]])
         ))
 
     attestation.signature = agg.finish().toValidatorSig()
     result.add attestation
+
+func makeFullAttestations*(
+    state: HashedBeaconState, beacon_block_root: Eth2Digest, slot: Slot,
+    cache: var StateCache,
+    flags: UpdateFlags = {}): seq[Attestation] =
+  makeFullAttestations(
+    (ref StateData)(data: state, blck: BlockRef(
+      root: beacon_block_root, slot: slot))[], beacon_block_root, slot, cache,
+    flags)
 
 iterator makeTestBlocks*(
   state: HashedBeaconState,
@@ -256,9 +299,7 @@ iterator makeTestBlocks*(
     parent_root = parent_root
   for _ in 0..<blocks:
     let attestations = if attested:
-      makeFullAttestations(
-        state[].data, parent_root,
-        state[].data.slot, cache)
+      makeFullAttestations(state[], parent_root, state[].data.slot, cache)
     else:
       @[]
 

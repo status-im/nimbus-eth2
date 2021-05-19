@@ -122,13 +122,12 @@ suite "Block pool processing" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
       quarantine = QuarantineRef.init(keys.newRng())
-      stateData = newClone(dag.headState)
+      state = newClone(dag.headState.data)
       cache = StateCache()
       rewards = RewardInfo()
-      att0 = makeFullAttestations(
-        stateData.data.data, dag.tail.root, 0.Slot, cache)
-      b1 = addTestBlock(stateData.data, dag.tail.root, cache, attestations = att0)
-      b2 = addTestBlock(stateData.data, b1.root, cache)
+      att0 = makeFullAttestations(state[], dag.tail.root, 0.Slot, cache)
+      b1 = addTestBlock(state[], dag.tail.root, cache, attestations = att0)
+      b2 = addTestBlock(state[], b1.root, cache)
   test "getRef returns nil for missing blocks":
     check:
       dag.getRef(default Eth2Digest) == nil
@@ -169,11 +168,10 @@ suite "Block pool processing" & preset():
 
     # Skip one slot to get a gap
     check:
-      process_slots(
-        stateData.data, getStateField(stateData, slot) + 1, cache, rewards)
+      process_slots(state[], state.data.slot + 1, cache, rewards)
 
     let
-      b4 = addTestBlock(stateData.data, b2.root, cache)
+      b4 = addTestBlock(state[], b2.root, cache)
       b4Add = dag.addRawBlock(quarantine, b4, nil)
 
     check:
@@ -349,8 +347,8 @@ suite "chain DAG finalization tests" & preset():
       tmpState = assignClone(dag.headState.data)
     check:
       process_slots(
-        tmpState[], tmpState.data.slot + (5 * SLOTS_PER_EPOCH).uint64, cache,
-        rewards)
+        tmpState[], tmpState.data.slot + (5 * SLOTS_PER_EPOCH).uint64,
+        cache, rewards)
 
     let lateBlock = addTestBlock(tmpState[], dag.head.root, cache)
     block:
@@ -371,7 +369,7 @@ suite "chain DAG finalization tests" & preset():
       blck = addTestBlock(
         tmpState[], dag.head.root, cache,
         attestations = makeFullAttestations(
-          tmpState[].data, dag.head.root, tmpState[].data.slot, cache, {}))
+          tmpState[], dag.head.root, tmpState.data.slot, cache, {}))
       let added = dag.addRawBlock(quarantine, blck, nil)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
@@ -484,8 +482,8 @@ suite "chain DAG finalization tests" & preset():
     var blck = makeTestBlock(
       dag.headState.data, dag.head.root, cache,
       attestations = makeFullAttestations(
-        dag.headState.data.data, dag.head.root,
-        getStateField(dag.headState, slot), cache, {}))
+        dag.headState, dag.head.root, getStateField(dag.headState, slot),
+        cache, {}))
 
     let added = dag.addRawBlock(quarantine, blck, nil)
     check: added.isOk()

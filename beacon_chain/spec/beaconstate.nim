@@ -633,34 +633,3 @@ proc process_attestation*(
     addPendingAttestation(state.previous_epoch_attestations)
 
   ok()
-
-func makeAttestationData*(
-    state: BeaconState, slot: Slot, committee_index: CommitteeIndex,
-    beacon_block_root: Eth2Digest): AttestationData =
-  ## Create an attestation / vote for the block `beacon_block_root` using the
-  ## data in `state` to fill in the rest of the fields.
-  ## `state` is the state corresponding to the `beacon_block_root` advanced to
-  ## the slot we're attesting to.
-
-  let
-    current_epoch = get_current_epoch(state)
-    start_slot = compute_start_slot_at_epoch(current_epoch)
-    epoch_boundary_block_root =
-      if start_slot == state.slot: beacon_block_root
-      else: get_block_root_at_slot(state, start_slot)
-
-  doAssert slot.compute_epoch_at_slot == current_epoch,
-    "Computed epoch was " & $slot.compute_epoch_at_slot &
-    "  while the state current_epoch was " & $current_epoch
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#attestation-data
-  AttestationData(
-    slot: slot,
-    index: committee_index.uint64,
-    beacon_block_root: beacon_block_root,
-    source: state.current_justified_checkpoint,
-    target: Checkpoint(
-      epoch: current_epoch,
-      root: epoch_boundary_block_root
-    )
-  )

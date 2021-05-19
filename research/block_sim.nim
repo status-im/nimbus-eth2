@@ -107,8 +107,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
           if rand(r, 1.0) <= attesterRatio:
             let
               data = makeAttestationData(
-                stateData.data.data, slot, committee_index.CommitteeIndex,
-                blck.root)
+                stateData, slot, committee_index.CommitteeIndex, blck.root)
               sig =
                 get_attestation_signature(getStateField(stateData, fork),
                   getStateField(stateData, genesis_validators_root),

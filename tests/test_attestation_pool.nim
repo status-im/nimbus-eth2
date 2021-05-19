@@ -23,7 +23,7 @@ import
     statedata_helpers],
   ../beacon_chain/ssz/merkleization,
   ../beacon_chain/spec/[crypto, datatypes, digest, state_transition, helpers,
-                        beaconstate, presets],
+                        presets],
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil
 
@@ -535,7 +535,7 @@ suite "Attestation pool processing" & preset():
           attestations.add Attestation(
             aggregation_bits: aggregation_bits,
             data: makeAttestationData(
-              state.data.data, getStateField(state, slot),
+              state[], getStateField(state, slot),
               index.CommitteeIndex, blockroot)
             # signature: ValidatorSig()
           )
