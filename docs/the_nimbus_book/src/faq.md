@@ -28,6 +28,12 @@ We recommend [running a Nimbus beacon node](./quick-start.md) on [Prater](./prat
 
 To stress test it, `add--subscribe-all-subnets` to the [beacon node options](./options.md). This represents more or less the maximum load you could have on eth2.
 
+# How do I add an additional validator?
+
+To add an additional validator, just follow [the same steps](./keys.md) as you did when you added your first. You'll have to restart the beacon node for the changes to take effect.
+
+> Note that a single Nimbus instance is able to handle multiple validators.
+
 
 ## Validating
 
