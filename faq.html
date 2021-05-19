@@ -184,6 +184,11 @@
 <h3><a class="header" href="#whats-the-best-way-to-stress-test-my-eth1--eth2-setup-before-committing-with-real-eth" id="whats-the-best-way-to-stress-test-my-eth1--eth2-setup-before-committing-with-real-eth">What's the best way to stress test my eth1 + eth2 setup before committing with real ETH?</a></h3>
 <p>We recommend <a href="./quick-start.html">running a Nimbus beacon node</a> on <a href="./prater.html">Prater</a> and a mainnet <a href="./eth1.html">eth1 client</a> on the same machine.</p>
 <p>To stress test it, <code>add--subscribe-all-subnets</code> to the <a href="./options.html">beacon node options</a>. This represents more or less the maximum load you could have on eth2.</p>
+<h1><a class="header" href="#how-do-i-add-an-additional-validator" id="how-do-i-add-an-additional-validator">How do I add an additional validator?</a></h1>
+<p>To add an additional validator, just follow <a href="./keys.html">the same steps</a> as you did when you added your first. You'll have to restart the beacon node for the changes to take effect.</p>
+<blockquote>
+<p>Note that a single Nimbus instance is able to handle multiple validators.</p>
+</blockquote>
 <h2><a class="header" href="#validating" id="validating">Validating</a></h2>
 <h3><a class="header" href="#what-exactly-is-a-validator" id="what-exactly-is-a-validator">What exactly is a validator?</a></h3>
 <p>A validator is an entity that participates in the consensus of the Ethereum 2.0 protocol.</p>
