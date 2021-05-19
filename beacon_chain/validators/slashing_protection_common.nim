@@ -170,6 +170,15 @@ func `==`*(a, b: BadVote): bool =
     of BadVoteKind.DatabaseError:
       true
 
+template `==`*(a, b: PubKey0x): bool =
+  PubKeyBytes(a) == PubKeyBytes(b)
+
+template `<`*(a, b: PubKey0x): bool =
+  PubKeyBytes(a) < PubKeyBytes(b)
+
+template cmp*(a, b: PubKey0x): bool =
+  cmp(PubKeyBytes(a), PubKeyBytes(b))
+
 func `==`*(a, b: BadProposal): bool =
   ## Comparison operator.
   ## Used implictily by Result when comparing the
@@ -196,7 +205,7 @@ proc writeValue*(writer: var JsonWriter, value: PubKey0x)
 proc readValue*(reader: var JsonReader, value: var PubKey0x)
                {.raises: [SerializationError, IOError, Defect].} =
   try:
-    value = PubKey0x reader.readValue(string).hexToByteArray(RawPubKeySize)
+    value = PubKey0x hexToByteArray(reader.readValue(string), RawPubKeySize)
   except ValueError:
     raiseUnexpectedValue(reader, "Hex string expected")
 
@@ -221,14 +230,6 @@ proc readValue*(r: var JsonReader, a: var (SlotString or EpochString))
     a = (typeof a)(r.readValue(string).parseBiggestUint())
   except ValueError:
     raiseUnexpectedValue(r, "Integer in a string expected")
-
-proc exportSlashingInterchange*(
-       db: auto,
-       path: string, prettify = true) {.raises: [Defect, IOError].} =
-  ## Export a database to the Slashing Protection Database Interchange Format
-  let spdir = db.toSPDIR()
-  Json.saveFile(path, spdir, prettify)
-  echo "Exported slashing protection DB to '", path, "'"
 
 proc importSlashingInterchange*(
        db: auto,

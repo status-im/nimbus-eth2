@@ -85,6 +85,8 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	dist-arm64 \
 	dist-arm \
 	dist-win64 \
+	dist-macos \
+	dist-macos-arm64 \
 	dist \
 	benchmarks
 
@@ -582,11 +584,21 @@ dist-win64:
 	+ MAKE="$(MAKE)" \
 		scripts/make_dist.sh win64
 
+dist-macos:
+	+ MAKE="$(MAKE)" \
+		scripts/make_dist.sh macos
+
+dist-macos-arm64:
+	+ MAKE="$(MAKE)" \
+		scripts/make_dist.sh macos-arm64
+
 dist:
 	+ $(MAKE) dist-amd64
 	+ $(MAKE) dist-arm64
 	+ $(MAKE) dist-arm
 	+ $(MAKE) dist-win64
+	+ $(MAKE) dist-macos
+	+ $(MAKE) dist-macos-arm64
 
 #- this simple test will show any missing dynamically-linked Glibc symbols in the target distro
 dist-test:

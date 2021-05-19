@@ -30,7 +30,8 @@ DOCKER_BUILDKIT=1 \
   --build-arg GROUP_ID=$(id -g) \
   -f Dockerfile.${ARCH} .
 
-docker run --rm --name ${DOCKER_TAG} -v ${REPO_DIR}:/home/user/nimbus-eth2 ${DOCKER_TAG}
+# seccomp can have some serious overhead, so we disable it with "--privileged" - https://pythonspeed.com/articles/docker-performance-overhead/
+docker run --privileged --rm --name ${DOCKER_TAG} -v ${REPO_DIR}:/home/user/nimbus-eth2 ${DOCKER_TAG}
 
 cd - &>/dev/null
 
