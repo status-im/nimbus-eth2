@@ -1,6 +1,6 @@
 # Nimbus binaries
 
-Nimbus binaries exist for Nimbus -- initially Linux `AMD64`, `ARM32` and `ARM64`, and Windows -- but MacOS binaries will be added in the future.
+We currently have binaries available for Linux `AMD64`, `ARM32` and `ARM64`, Windows and  MacOS (`AMD64` and `ARM64`).
 
 You can find the latest release here: [https://github.com/status-im/nimbus-eth2/releases](https://github.com/status-im/nimbus-eth2/releases)
 
@@ -8,7 +8,7 @@ Scroll to the bottom of the first release you see, and click on `Assets`. You sh
 
 ![](https://i.imgur.com/R33o4MG.png)
 
-Click on the `tar.gz` file that corresponds to your OS and architecture, unpack the archive, read the README and run the binary directly or through some provided wrapper script.
+Click on the `tar.gz` file that corresponds to your OS and architecture, unpack the archive, read the README and run the binary directly (or through one of our provided wrapper scripts).
 
 We've designed the build process to be reproducible. In practice, this means that anyone can verify that these exact binaries were produced from the corresponding source code commits. For more about the philosophy and importance of this feature see [reproducible-builds.org](https://reproducible-builds.org/).
 
