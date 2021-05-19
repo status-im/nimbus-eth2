@@ -92,6 +92,9 @@ declareGauge next_action_wait,
 
 logScope: topics = "beacnde"
 
+const SlashingDbName = "slashing_protection"
+  # changing this requires physical file rename as well or history is lost.
+
 proc init*(T: type BeaconNode,
            runtimePreset: RuntimePreset,
            rng: ref BrHmacDrbgContext,
@@ -330,8 +333,7 @@ proc init*(T: type BeaconNode,
     slashingProtectionDB =
       SlashingProtectionDB.init(
           getStateField(chainDag.headState, genesis_validators_root),
-          config.validatorsDir(), "slashing_protection"
-        )
+          config.validatorsDir(), SlashingDbName)
     validatorPool = newClone(ValidatorPool.init(slashingProtectionDB))
 
     consensusManager = ConsensusManager.new(
@@ -1929,6 +1931,59 @@ proc doWeb3Cmd(config: BeaconNodeConf) {.raises: [Defect, CatchableError].} =
     waitFor testWeb3Provider(config.web3TestUrl,
                              metadata.depositContractAddress)
 
+proc doSlashingExport(conf: BeaconNodeConf) {.raises: [IOError, Defect].}=
+  let
+    dir = conf.validatorsDir()
+    filetrunc = SlashingDbName
+  # TODO: Make it read-only https://github.com/status-im/nim-eth/issues/312
+  let db = SlashingProtectionDB.loadUnchecked(dir, filetrunc, readOnly = false)
+
+  let interchange = conf.exportedInterchangeFile.string
+  db.exportSlashingInterchange(interchange, conf.exportedValidators)
+  echo "Export finished: '", dir/filetrunc & ".sqlite3" , "' into '", interchange, "'"
+
+proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOError, Defect].} =
+  let
+    dir = conf.validatorsDir()
+    filetrunc = SlashingDbName
+  # TODO: Make it read-only https://github.com/status-im/nim-eth/issues/312
+
+  let interchange = conf.importedInterchangeFile.string
+
+  var spdir: SPDIR
+  try:
+    spdir = JSON.loadFile(interchange, SPDIR)
+  except SerializationError as err:
+    writeStackTrace()
+    stderr.write $JSON & " load issue for file \"", interchange, "\"\n"
+    stderr.write err.formatMsg(interchange), "\n"
+    quit 1
+
+  # Open DB and handle migration from v1 to v2 if needed
+  let db = SlashingProtectionDB.init(
+    genesis_validators_root = Eth2Digest spdir.metadata.genesis_validators_root,
+    basePath = dir,
+    dbname = filetrunc,
+    modes = {kCompleteArchive}
+  )
+
+  # Now import the slashing interchange file
+  # Failures mode:
+  # - siError can only happen with invalid genesis_validators_root which would be caught above
+  # - siPartial can happen for invalid public keys, slashable blocks, slashable votes
+  let status = db.inclSPDIR(spdir)
+  doAssert status in {siSuccess, siPartial}
+
+  echo "Import finished: '", interchange, "' into '", dir/filetrunc & ".sqlite3", "'"
+
+proc doSlashingInterchange(conf: BeaconNodeConf) {.raises: [Defect, CatchableError].} =
+  doAssert conf.cmd == slashingdb
+  case conf.slashingdbCmd
+  of SlashProtCmd.`export`:
+    conf.doSlashingExport()
+  of SlashProtCmd.`import`:
+    conf.doSlashingImport()
+
 {.pop.} # TODO moduletests exceptions
 programMain:
   var
@@ -1977,3 +2032,4 @@ programMain:
   of wallets: doWallets(config, rng[])
   of record: doRecord(config, rng[])
   of web3: doWeb3Cmd(config)
+  of slashingdb: doSlashingInterchange(config)

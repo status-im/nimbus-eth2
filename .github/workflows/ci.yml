@@ -233,6 +233,9 @@ jobs:
         shell: bash
         working-directory: nim-beacon-chain
         run: |
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            ulimit -n 1024
+          fi
           make -j$ncpu ARCH_OVERRIDE=$PLATFORM CI_CACHE=NimBinaries QUICK_AND_DIRTY_COMPILER=1 update
 
       - name: Get latest fixtures commit hash
@@ -268,6 +271,9 @@ jobs:
         shell: bash
         working-directory: nim-beacon-chain
         run: |
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            ulimit -n 1024
+          fi
           make -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" nimbus_beacon_node nimbus_validator_client
 
       - name: Run nim-beacon-chain tests
@@ -275,6 +281,9 @@ jobs:
         shell: bash
         working-directory: nim-beacon-chain
         run: |
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            ulimit -n 1024
+          fi
           make -j$ncpu ARCH_OVERRIDE=$PLATFORM DISABLE_TEST_FIXTURES_SCRIPT=1 test
 
       # The upload creates a combined report that gets posted as a comment on the PR

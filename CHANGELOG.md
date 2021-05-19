@@ -1,3 +1,39 @@
+2021-05-17 v1.3.0
+=================
+
+This release offers safer and easier options to migrate to Nimbus from other clients.
+It also brings further performance optimizations.
+
+**We've added:**
+
+* A new `slashingdb` sub-command with `import` and `export` options. This allows for
+  safely migrating to Nimbus from another client (as per the [EIP-3076](https://eips.ethereum.org/EIPS/eip-3076)
+  slashing protection interchange format).
+  Please see the the newly prepared [migration guides](https://nimbus.guide/migration.html) for the details.
+
+* A new `ncli_db validatorPerf` command. This can be used to perform a textual
+  report for the attestation performance of a particular validator
+  (please note that `ncli_db` is available only when compiling from source).
+
+* Official binaries for macOS (AMD64 and ARM64).
+
+* Pruning of the slashing protection database and a transition to more optimal
+  queries. This results in a significant reduction in both disk and CPU usage
+  on nodes running a large number of validators.
+
+* More consistent level of validation for the attestations received from
+  third-party sources and the JSON-RPC and REST APIs. This prevents invalid
+  attestations from being broadcasted to the network.
+
+* Performance tuning of attestation subnet transition timings and state
+  snapshotting intervals. This results in improved CPU and bandwidth usage.
+
+**We've fixed:**
+
+* Problems in the GossipSub subnet walking logic leading to unnecessary bandwidth
+  and CPU costs.
+
+
 2021-05-03 v1.2.2
 =================
 

@@ -26,3 +26,7 @@ build/generate_makefile "nimcache/release/${BINARY}/${PROJECT_NAME}.json" "nimca
 [[ "$V" == "0" ]] && exec &>/dev/null
 "${MAKE}" -f "nimcache/release/${BINARY}/${BINARY}.makefile" --no-print-directory build
 
+if uname | grep -qi darwin || [[ -n "${FORCE_DSYMUTIL}" ]]; then
+  [[ -z "${DSYMUTIL}" ]] && DSYMUTIL="dsymutil"
+  "${DSYMUTIL}" build/${BINARY}
+fi

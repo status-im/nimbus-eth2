@@ -400,7 +400,7 @@ proc loadUnchecked*(
     subkey(kGenesisValidatorsRoot)
   ).get(), "The Slashing DB is missing genesis information"
 
-  result = T(db: db, backend: backend)
+  T(db: db, backend: backend)
 
 proc close*(db: SlashingProtectionDB_v1) =
   if db.db != nil:

@@ -8,10 +8,12 @@ IMAGE_NAME := statusteam/nimbus_beacon_node:$(IMAGE_TAG)
 	build-arm64 \
 	build-arm \
 	build-win64 \
+	build-macos \
 	push-amd64 \
 	push-arm64 \
 	push-arm \
-	push-win64
+	push-win64 \
+	push-macos
 
 build-amd64:
 	$(CURDIR)/make_base_image.sh amd64 "$(IMAGE_NAME)"
@@ -24,6 +26,9 @@ build-arm:
 
 build-win64:
 	$(CURDIR)/make_base_image.sh win64 "$(IMAGE_NAME)_win64"
+
+build-macos:
+	$(CURDIR)/make_base_image.sh macos "$(IMAGE_NAME)_macos"
 
 # You probably don't want to recreate and push these base images to Docker Hub,
 # because when older images expire and get deleted, it will no longer be possible
@@ -40,4 +45,7 @@ build-win64:
 
 #push-win64: build-win64
 #	docker push $(IMAGE_NAME)_win64
+
+#push-macos: build-macos
+	#docker push $(IMAGE_NAME)_macos
 

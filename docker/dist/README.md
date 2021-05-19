@@ -1,7 +1,7 @@
 # Binary Nimbus beacon node distribution
 
 This binary distribution of the Nimbus eth2 package is compiled
-in [reproducible way](https://reproducible-builds.org/) from source files
+in a [reproducible way](https://reproducible-builds.org/) from source files
 hosted at https://github.com/status-im/nimbus-eth2.
 
 The tarball containing this README uses the following naming scheme:

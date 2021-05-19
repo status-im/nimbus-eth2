@@ -9,10 +9,11 @@
 
 import
   # stdlib
-  std/os,
+  std/[os, algorithm, sequtils],
   # Status
   eth/db/[kvstore, kvstore_sqlite3],
-  stew/results, chronicles,
+  stew/[results, byteutils],
+  chronicles, chronicles/timings,
   # Internal
   ../spec/[datatypes, digest, crypto],
   ./slashing_protection_common,
@@ -44,9 +45,8 @@ export chronicles
 
 type
   SlashProtDBMode* = enum
-    kCompleteArchiveV1 # Complete Format V1 backend (saves all attestations)
-    kCompleteArchiveV2 # Complete Format V2 backend (saves all attestations)
-    kLowWatermarkV2    # Low-Watermark Format V2 backend (prunes attestations)
+    kCompleteArchive # Complete Format V2 backend (saves all attestations)
+    kLowWatermark    # Low-Watermark Format V2 backend (prunes attestations)
 
   SlashingProtectionDB* = ref object
     ## Database storing the blocks attested
@@ -70,15 +70,15 @@ proc init*(
        genesis_validators_root: Eth2Digest,
        basePath, dbname: string,
        modes: set[SlashProtDBMode]
-     ): T =
+    ): T =
   ## Initialize or load a slashing protection DB
   ## This is for Beacon Node usage
   ## Handles DB version migration
 
   doAssert modes.card >= 1, "No slashing protection mode chosen. Choose a v1, a v2 or v1 and v2 slashing DB mode."
   doAssert not(
-    kCompleteArchiveV2 in modes and
-    kLowWatermarkV2 in modes), "Mode(s): " & $modes & ". Choose only one of V2 DB modes."
+    kCompleteArchive in modes and
+    kLowWatermark in modes), "Mode(s): " & $modes & ". Choose only one of V2 DB modes."
 
   new result
   result.modes = modes
@@ -97,6 +97,7 @@ proc init*(
       fatal "The slashing database refers to another chain/mainnet/testnet",
         path = basePath/dbname,
         genesis_validators_root = genesis_validators_root
+      quit 1
     db_v1.fromRawDB(rawdb)
 
     info "Migrating local validators slashing DB from v1 to v2"
@@ -133,7 +134,7 @@ proc init*(
   ## Does not handle migration
   init(
     T, genesis_validators_root, basePath, dbname,
-    modes = {kLowWatermarkV2},
+    modes = {kLowWatermark}
   )
 
 proc loadUnchecked*(
@@ -145,14 +146,17 @@ proc loadUnchecked*(
   ##       this doesn't check the genesis validator root
   ##
   ## Does not handle migration
+  new result
 
-  result.modes = {kCompleteArchiveV1, kCompleteArchiveV2}
-
-  result.db_v2 = SlashingProtectionDB_v2.loadUnchecked(
-    basePath, dbname, readOnly
-  )
-
-  result.db_v1.fromRawDB(kvstore result.db_v2.getRawDBHandle().openKvStore())
+  result.modes = {}
+  try:
+    result.db_v2 = SlashingProtectionDB_v2.loadUnchecked(
+      basePath, dbname, readOnly
+    )
+    result.modes.incl(kCompleteArchive)
+  except CatchableError as err:
+    error "Failed to load the Slashing protection database", err = err.msg
+    quit 1
 
 proc close*(db: SlashingProtectionDB) =
   ## Close a slashing protection database
@@ -266,11 +270,12 @@ proc pruneAfterFinalization*(
   ## This ensures that even if pruning is called with an incorrect epoch
   ## slashing protection can fallback to the minimal / high-watermark protection mode.
   ##
-  ## Pruning is only done if pruning is enabled (DB in kLowWatermarkV2 mode)
+  ## Pruning is only done if pruning is enabled (DB in kLowWatermark mode)
   ## Pruning is only triggered on v2 database.
 
-  if kLowWatermarkV2 in db.modes:
-    db.db_v2.pruneAfterFinalization(finalizedEpoch)
+  if kLowWatermark in db.modes:
+    debug.logTime "Pruning slashing DB":
+      db.db_v2.pruneAfterFinalization(finalizedEpoch)
 
 # The high-level import/export functions are
 # - importSlashingInterchange
@@ -287,3 +292,31 @@ proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): SlashingImportStatus
 proc toSPDIR*(db: SlashingProtectionDB): SPDIR
              {.raises: [IOError, Defect].} =
   db.db_v2.toSPDIR()
+
+proc exportSlashingInterchange*(
+       db: SlashingProtectionDB,
+       path: string,
+       validatorsWhiteList: seq[PubKey0x] = @[],
+       prettify = true) {.raises: [Defect, IOError].} =
+  ## Export a database to the Slashing Protection Database Interchange Format
+  # We could modify toSPDIR to do the filtering directly
+  # but this is not a performance sensitive operation.
+  # so it's better to keep it simple.
+  var spdir = db.toSPDIR()
+
+  if validatorsWhiteList.len > 0:
+    # O(a log b) with b the number of validators to keep
+    #        and a the total number of validators in DB
+    let validators = validatorsWhiteList.sorted()
+    spdir.data.keepItIf(validators.binarySearch(it.pubkey) != -1)
+
+    if spdir.data.len != validatorsWhiteList.len:
+      let exportedKeys = spdir.data.mapIt(it.pubkey).sorted()
+      for v in validators:
+        if exportedKeys.binarySearch(v) == -1:
+          warn "Specified validator key not found in the slashing database",
+                key = v.PubKeyBytes.toHex
+
+  Json.saveFile(path, spdir, prettify)
+  echo "Exported slashing protection DB to '", path, "'"
+
