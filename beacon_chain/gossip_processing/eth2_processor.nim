@@ -187,11 +187,11 @@ proc checkForPotentialDoppelganger(
 proc attestationValidator*(
     self: ref Eth2Processor,
     attestation: Attestation,
-    attestation_subnet: uint64,
-    checksExpensive: bool = true): Future[ValidationResult] {.async.} =
+    subnet_id: SubnetId,
+    checkSignature: bool = true): Future[ValidationResult] {.async.} =
   logScope:
     attestation = shortLog(attestation)
-    attestation_subnet
+    subnet_id
 
   let
     wallTime = self.getWallTime()
@@ -209,8 +209,7 @@ proc attestationValidator*(
 
   # Now proceed to validation
   let v = await self.attestationPool.validateAttestation(
-      self.batchCrypto,
-      attestation, wallTime, attestation_subnet, checksExpensive)
+      self.batchCrypto, attestation, wallTime, subnet_id, checkSignature)
   if v.isErr():
     debug "Dropping attestation", err = v.error()
     return v.error[0]

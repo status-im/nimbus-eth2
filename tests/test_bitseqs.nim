@@ -2,12 +2,62 @@
 
 import
   unittest2,
-  strformat,
+  std/[sequtils, strformat],
   ../beacon_chain/ssz/bitseqs,
   ./testutil
 
 suite "Bit fields":
-  test "roundtrips":
+  test "roundtrips BitArray":
+    var
+      a = BitArray[100]()
+      b = BitArray[100]()
+      c = BitArray[100]()
+
+    check:
+      not a[0]
+
+    a.setBit 1
+
+    check:
+      not a[0]
+      a[1]
+      toSeq(a.oneIndices()) == [1]
+
+      a + b == a
+      a - b == a
+      a - a == c # empty
+
+      b + a == a
+      b - b == c # b is empty
+
+    b.setBit 2
+
+    check:
+      (a + b)[2]
+      (b - a)[2]
+      not (b - a)[1]
+
+    a.setBit 99
+
+    check:
+      (a + b)[99]
+      (b - a)[2]
+      not (b - a)[1]
+      not (b - a)[99]
+      toSeq(a.oneIndices()) == [1, 99]
+
+    a.incl(b)
+
+    check:
+      not a[0]
+      a[1]
+      a[2]
+
+    a.clear()
+    check:
+      not a[1]
+
+  test "roundtrips BitSeq":
     var
       a = BitSeq.init(100)
       b = BitSeq.init(100)

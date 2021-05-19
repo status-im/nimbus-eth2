@@ -143,6 +143,7 @@ type
     ## Database storing the blocks attested
     ## by validators attached to a beacon node
     ## or validator client.
+    db: SqStoreRef
     backend: KvStoreRef
 
   SlotDesc = object
@@ -374,7 +375,8 @@ proc init*(
        T: type SlashingProtectionDB_v1,
        genesis_validators_root: Eth2Digest,
        basePath, dbname: string): T =
-  result = T(backend: kvStore SqStoreRef.init(basePath, dbname).get())
+  let db =  SqStoreRef.init(basePath, dbname).get()
+  result = T(db: db, backend: kvStore db.openKvStore().get())
   if not result.backend.checkOrPutGenesis_DbV1(genesis_validators_root):
     fatal "The slashing database refers to another chain/mainnet/testnet",
       path = basePath/dbname,
@@ -391,16 +393,18 @@ proc loadUnchecked*(
   let alreadyExists = fileExists(path)
   if not alreadyExists:
     raise newException(IOError, "DB '" & path & "' does not exist.")
-
-  let backend = kvStore SqStoreRef.init(basePath, dbname, readOnly = false).get()
+  let db = SqStoreRef.init(basePath, dbname, readOnly = false).get()
+  let backend = kvStore db.openKvStore()
 
   doAssert backend.contains(
     subkey(kGenesisValidatorsRoot)
   ).get(), "The Slashing DB is missing genesis information"
 
-  result = T(backend: backend)
+  result = T(db: db, backend: backend)
 
 proc close*(db: SlashingProtectionDB_v1) =
+  if db.db != nil:
+    db.db.close()
   discard db.backend.close()
 
 # DB Queries
@@ -531,7 +535,7 @@ proc checkSlashableAttestation*(
       # s2 < s1 < t1 < t2
       # Logged by caller
       return err(BadVote(
-        kind: SurroundingVote,
+        kind: SurroundVote,
         existingAttestationRoot: ar1,
         sourceExisting: s1,
         targetExisting: t1,
@@ -542,7 +546,7 @@ proc checkSlashableAttestation*(
       # s1 < s2 < t2 < t1
       # Logged by caller
       return err(BadVote(
-        kind: SurroundedVote,
+        kind: SurroundVote,
         existingAttestationRoot: ar1,
         sourceExisting: s1,
         targetExisting: t1,
@@ -587,10 +591,10 @@ proc registerValidator(db: SlashingProtectionDB_v1, validator: ValidatorPubKey) 
 proc registerBlock*(
        db: SlashingProtectionDB_v1,
        validator: ValidatorPubKey,
-       slot: Slot, block_root: Eth2Digest) =
+       slot: Slot, block_root: Eth2Digest): Result[void, BadProposal] =
   ## Add a block to the slashing protection DB
-  ## `checkSlashableBlockProposal` MUST be run
-  ## before to ensure no overwrite.
+
+  ? checkSlashableBlockProposal(db, validator, slot)
 
   let valID = validator.toRaw()
 
@@ -620,7 +624,7 @@ proc registerBlock*(
         # targetEpochs.isInit will be false
       )
     )
-    return
+    return ok()
 
   var ll = maybeLL.unsafeGet()
   var cur = ll.blockSlots.stop
@@ -632,7 +636,7 @@ proc registerBlock*(
     db.put(subkey(kBlock, valID, slot), node)
     # TODO: what if crash here?
     db.put(subkey(kLinkedListMeta, valID), ll)
-    return
+    return ok()
 
   if cur < slot:
     # Adding a block later than all known blocks
@@ -652,7 +656,7 @@ proc registerBlock*(
     db.put(subkey(kBlock, valID, cur), prevNode)
     # TODO: what if crash here?
     db.put(subkey(kLinkedListMeta, valID), ll)
-    return
+    return ok()
 
   # TODO: we likely want a proper DB or better KV-store high-level API
   #       in the future.
@@ -687,7 +691,7 @@ proc registerBlock*(
       # TODO: what if crash here?
       db.put(subkey(kBlock, valID, cur), curNode)
       db.put(subkey(kLinkedListMeta, valID), ll)
-      return
+      return ok()
     elif slot > curNode.prev:
       # Reached: prev < slot < cur
       # Change: prev <-> cur
@@ -709,7 +713,7 @@ proc registerBlock*(
       # TODO: what if crash here?
       db.put(subkey(kBlock, valID, cur), curNode)
       db.put(subkey(kBlock, valID, prev), prevNode)
-      return
+      return ok()
 
     # Previous
     cur = curNode.prev
@@ -720,14 +724,18 @@ proc registerBlock*(
       # ).expect("Consistent linked-list in DB")
     ).unsafeGet()
 
+  ok()
+
 proc registerAttestation*(
        db: SlashingProtectionDB_v1,
        validator: ValidatorPubKey,
        source, target: Epoch,
-       attestation_root: Eth2Digest) =
+       attestation_root: Eth2Digest): Result[void, BadVote] =
   ## Add an attestation to the slashing protection DB
   ## `checkSlashableAttestation` MUST be run
   ## before to ensure no overwrite.
+
+  ? checkSlashableAttestation(db, validator, source, target)
 
   let valID = validator.toRaw()
 
@@ -759,7 +767,7 @@ proc registerAttestation*(
         targetEpochs: EpochDesc(start: target, stop: target, isInit: true)
       )
     )
-    return
+    return ok()
 
   var ll = maybeLL.unsafeGet()
   var cur = ll.targetEpochs.stop
@@ -773,7 +781,7 @@ proc registerAttestation*(
     db.put(subkey(kTargetEpoch, valID, target), node)
     # TODO: what if crash here?
     db.put(subkey(kLinkedListMeta, valID), ll)
-    return
+    return ok()
 
   block: # Update source epoch
     if ll.sourceEpochs.stop < source:
@@ -800,7 +808,7 @@ proc registerAttestation*(
     db.put(subkey(kTargetEpoch, valID, cur), prevNode)
     # TODO: what if crash here?
     db.put(subkey(kLinkedListMeta, valID), ll)
-    return
+    return ok()
 
   # TODO: we likely want a proper DB or better KV-store high-level API
   #       in the future.
@@ -835,7 +843,7 @@ proc registerAttestation*(
       # TODO: what if crash here?
       db.put(subkey(kTargetEpoch, valID, cur), curNode)
       db.put(subkey(kLinkedListMeta, valID), ll)
-      return
+      return ok()
     elif target > curNode.prev:
       # Reached: prev < target < cur
       # Change: prev <-> cur
@@ -858,7 +866,7 @@ proc registerAttestation*(
       # TODO: what if crash here?
       db.put(subkey(kTargetEpoch, valID, cur), curNode)
       db.put(subkey(kTargetEpoch, valID, prev), prevNode)
-      return
+      return ok()
 
     # Previous
     cur = curNode.prev
@@ -868,6 +876,8 @@ proc registerAttestation*(
       # bug in Nim results, ".e" field inaccessible
       # ).expect("Consistent linked-list in DB")
     ).unsafeGet()
+
+  ok()
 
 # Debug tools
 # --------------------------------------------
@@ -1141,8 +1151,3 @@ proc inclSPDIR*(db: SlashingProtectionDB_v1, spdir: SPDIR): SlashingImportStatus
   # Create a mutable copy for sorting
   var spdir = spdir
   return db.importInterchangeV5Impl(spdir)
-
-# Sanity check
-# --------------------------------------------------------------
-
-static: doAssert SlashingProtectionDB_v1 is SlashingProtectionDB_Concept

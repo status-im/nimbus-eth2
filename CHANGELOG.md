@@ -1,3 +1,23 @@
+2021-05-03 v1.2.2
+=================
+
+This is a bugfix release improving the stability of the REST API and addressing
+issues discovered during the mainnet deposit processing accident of 24-25 April.
+
+**New features:**
+
+* More efficient attestation processing pipeline using less queuing.
+
+**We've fixed:**
+
+* Insufficient validation of third-party Eth1Data votes.
+
+* Sporadic REST API connection interruptions resulting from large request or
+  result payloads.
+
+* Incorrectly sent empty GossipSub IWANT messages.
+
+
 2021-04-20 v1.2.1
 =================
 
@@ -61,6 +81,7 @@ we can officially recommend for validating on a Raspberry Pi 4.
 
 * `scripts/run-*-node.sh` no longer prompts for a web3 provider URL
   when the `--web3-url` command-line option has already been specified.
+
 
 2021-04-05 v1.1.0
 =================

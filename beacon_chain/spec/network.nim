@@ -8,8 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/strformat,
-  ./datatypes
+  "."/[datatypes, digest, helpers]
 
 const
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#topics-and-messages
@@ -33,40 +32,28 @@ const
   # This is not part of the spec! But its port which uses Lighthouse
   DefaultEth2RestPort* = 5052
 
+template eth2Prefix(forkDigest: ForkDigest): string =
+  "/eth2/" & $forkDigest & "/"
+
 func getBeaconBlocksTopic*(forkDigest: ForkDigest): string =
-  try:
-    &"/eth2/{$forkDigest}/{topicBeaconBlocksSuffix}"
-  except ValueError as e:
-    raiseAssert e.msg
+  eth2Prefix(forkDigest) & topicBeaconBlocksSuffix
 
 func getVoluntaryExitsTopic*(forkDigest: ForkDigest): string =
-  try:
-    &"/eth2/{$forkDigest}/{topicVoluntaryExitsSuffix}"
-  except ValueError as e:
-    raiseAssert e.msg
+  eth2Prefix(forkDigest) & topicVoluntaryExitsSuffix
 
 func getProposerSlashingsTopic*(forkDigest: ForkDigest): string =
-  try:
-    &"/eth2/{$forkDigest}/{topicProposerSlashingsSuffix}"
-  except ValueError as e:
-    raiseAssert e.msg
+  eth2Prefix(forkDigest) & topicProposerSlashingsSuffix
 
 func getAttesterSlashingsTopic*(forkDigest: ForkDigest): string =
-  try:
-    &"/eth2/{$forkDigest}/{topicAttesterSlashingsSuffix}"
-  except ValueError as e:
-    raiseAssert e.msg
+  eth2Prefix(forkDigest) & topicAttesterSlashingsSuffix
 
 func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
-  try:
-    &"/eth2/{$forkDigest}/{topicAggregateAndProofsSuffix}"
-  except ValueError as e:
-    raiseAssert e.msg
+  eth2Prefix(forkDigest) & topicAggregateAndProofsSuffix
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#broadcast-attestation
 func compute_subnet_for_attestation*(
     committees_per_slot: uint64, slot: Slot, committee_index: CommitteeIndex):
-    uint64 =
+    SubnetId =
   # Compute the correct subnet for an attestation for Phase 0.
   # Note, this mimics expected Phase 1 behavior where attestations will be
   # mapped to their shard subnet.
@@ -75,16 +62,23 @@ func compute_subnet_for_attestation*(
     committees_since_epoch_start =
       committees_per_slot * slots_since_epoch_start
 
-  (committees_since_epoch_start + committee_index.uint64) mod
-    ATTESTATION_SUBNET_COUNT
+  SubnetId(
+    (committees_since_epoch_start + committee_index.uint64) mod
+    ATTESTATION_SUBNET_COUNT)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#broadcast-attestation
-func getAttestationTopic*(forkDigest: ForkDigest, subnetIndex: uint64):
+func getAttestationTopic*(forkDigest: ForkDigest, subnet_id: SubnetId):
     string =
   ## For subscribing and unsubscribing to/from a subnet.
-  doAssert subnetIndex < ATTESTATION_SUBNET_COUNT
+  eth2Prefix(forkDigest) & "beacon_attestation_" & $uint64(subnet_id) & "/ssz"
 
-  try:
-    &"/eth2/{$forkDigest}/beacon_attestation_{subnetIndex}/ssz"
-  except ValueError as e:
-    raiseAssert e.msg
+func getENRForkID*(fork: Fork, genesis_validators_root: Eth2Digest): ENRForkID =
+  let
+    current_fork_version = fork.current_version
+    fork_digest = compute_fork_digest(
+      current_fork_version, genesis_validators_root)
+
+  ENRForkID(
+    fork_digest: fork_digest,
+    next_fork_version: current_fork_version,
+    next_fork_epoch: FAR_FUTURE_EPOCH)

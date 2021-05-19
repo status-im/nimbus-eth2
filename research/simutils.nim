@@ -102,7 +102,7 @@ proc loadGenesis*(validators: Natural, validate: bool):
     let contractSnapshot = DepositContractSnapshot(
       depositContractState: merkleizer.toDepositContractState)
 
-    res.data = initialize_beacon_state(
+    res.data = initialize_beacon_state_from_eth1(
       defaultRuntimePreset,
       Eth2Digest(),
       0,

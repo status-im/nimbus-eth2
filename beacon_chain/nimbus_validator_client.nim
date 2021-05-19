@@ -135,25 +135,25 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
     if vc.proposalsForCurrentEpoch.contains slot:
       let public_key = vc.proposalsForCurrentEpoch[slot]
 
+      notice "Proposing block", slot = slot, public_key = public_key
+
+      let validator = vc.attachedValidators.validators[public_key]
+      let randao_reveal = await validator.genRandaoReveal(
+        vc.fork, vc.beaconGenesis.genesis_validators_root, slot)
+      var newBlock = SignedBeaconBlock(
+          message: await vc.client.get_v1_validator_block(slot, vc.graffitiBytes, randao_reveal)
+        )
+      newBlock.root = hash_tree_root(newBlock.message)
+
+      # TODO: signing_root is recomputed in signBlockProposal just after
+      let signing_root = compute_block_root(vc.fork, vc.beaconGenesis.genesis_validators_root, slot, newBlock.root)
       let notSlashable = vc.attachedValidators
-                          .slashingProtection
-                          .checkSlashableBlockProposal(public_key, slot)
+        .slashingProtection
+        .registerBlock(
+          newBlock.message.proposer_index.ValidatorIndex, public_key, slot,
+          signing_root)
+
       if notSlashable.isOk:
-        let validator = vc.attachedValidators.validators[public_key]
-        notice "Proposing block", slot = slot, public_key = public_key
-        let randao_reveal = await validator.genRandaoReveal(
-          vc.fork, vc.beaconGenesis.genesis_validators_root, slot)
-        var newBlock = SignedBeaconBlock(
-            message: await vc.client.get_v1_validator_block(slot, vc.graffitiBytes, randao_reveal)
-          )
-        newBlock.root = hash_tree_root(newBlock.message)
-
-        # TODO: signing_root is recomputed in signBlockProposal just after
-        let signing_root = compute_block_root(vc.fork, vc.beaconGenesis.genesis_validators_root, slot, newBlock.root)
-        vc.attachedValidators
-          .slashingProtection
-          .registerBlock(public_key, slot, signing_root)
-
         newBlock.signature = await validator.signBlockProposal(
           vc.fork, vc.beaconGenesis.genesis_validators_root, slot, newBlock.root)
 
@@ -181,29 +181,25 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
         let validator = vc.attachedValidators.validators[a.public_key]
         let ad = await vc.client.get_v1_validator_attestation_data(slot, a.committee_index)
 
+        # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
+        let signing_root = compute_attestation_root(
+          vc.fork, vc.beaconGenesis.genesis_validators_root, ad)
         let notSlashable = vc.attachedValidators
-                             .slashingProtection
-                             .checkSlashableAttestation(
-                               a.public_key,
-                               ad.source.epoch,
-                               ad.target.epoch)
+          .slashingProtection
+          .registerAttestation(
+            a.validator_index, a.public_key, ad.source.epoch, ad.target.epoch, signing_root)
         if notSlashable.isOk():
-          # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
-          let signing_root = compute_attestation_root(
-            vc.fork, vc.beaconGenesis.genesis_validators_root, ad)
-          vc.attachedValidators
-            .slashingProtection
-            .registerAttestation(
-              a.public_key, ad.source.epoch, ad.target.epoch, signing_root)
-
           # TODO I don't like these (u)int64-to-int conversions...
           let attestation = await validator.produceAndSignAttestation(
             ad, a.committee_length.int, a.validator_committee_index,
             vc.fork, vc.beaconGenesis.genesis_validators_root)
 
-          notice "Attesting",
-            slot, public_key = a.public_key, attestation = shortLog(attestation)
-          discard await vc.client.post_v1_beacon_pool_attestations(attestation)
+          notice "Sending attestation to beacon node",
+            public_key = a.public_key, attestation = shortLog(attestation)
+          let ok = await vc.client.post_v1_beacon_pool_attestations(attestation)
+          if not ok:
+            warn "Failed to send attestation to beacon node",
+              public_key = a.public_key, attestation = shortLog(attestation)
 
           validatorToAttestationDataRoot[a.public_key] = attestation.data.hash_tree_root
         else:

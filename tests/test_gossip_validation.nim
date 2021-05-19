@@ -38,10 +38,11 @@ suite "Gossip validation " & preset():
       pool = newClone(AttestationPool.init(chainDag, quarantine))
       state = newClone(chainDag.headState)
       cache = StateCache()
+      rewards = RewardInfo()
       batchCrypto = BatchCrypto.new(keys.newRng(), eager = proc(): bool = false)
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
-      process_slots(state.data, getStateField(state, slot) + 1, cache)
+      process_slots(state.data, getStateField(state, slot) + 1, cache, rewards)
 
   test "Validation sanity":
     # TODO: refactor tests to avoid skipping BLS validation
@@ -91,13 +92,14 @@ suite "Gossip validation " & preset():
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Wrong subnet
-      validateAttestation(pool, batchCrypto, att_1_0, beaconTime, subnet + 1, true).waitFor().isErr
+      validateAttestation(
+        pool, batchCrypto, att_1_0, beaconTime, SubnetId(subnet.uint8 + 1), true).waitFor().isErr
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Too far in the future
       validateAttestation(
-        pool, batchCrypto, att_1_0, beaconTime - 1.seconds, subnet + 1, true).waitFor().isErr
+        pool, batchCrypto, att_1_0, beaconTime - 1.seconds, subnet, true).waitFor().isErr
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
@@ -105,7 +107,7 @@ suite "Gossip validation " & preset():
       validateAttestation(
         pool, batchCrypto, att_1_0,
         beaconTime - (SECONDS_PER_SLOT * SLOTS_PER_EPOCH - 1).int.seconds,
-        subnet + 1, true).waitFor().isErr
+        subnet, true).waitFor().isErr
 
     block:
       var broken = att_1_0

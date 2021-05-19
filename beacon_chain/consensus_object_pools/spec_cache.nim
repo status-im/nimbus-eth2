@@ -24,6 +24,10 @@ func count_active_validators*(epochInfo: EpochRef): uint64 =
 func get_committee_count_per_slot*(epochInfo: EpochRef): uint64 =
   get_committee_count_per_slot(count_active_validators(epochInfo))
 
+iterator get_committee_indices*(epochRef: EpochRef): CommitteeIndex =
+  for i in 0'u64..<get_committee_count_per_slot(epochRef):
+    yield CommitteeIndex(i)
+
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_beacon_committee
 iterator get_beacon_committee*(
     epochRef: EpochRef, slot: Slot, index: CommitteeIndex): ValidatorIndex =
@@ -225,7 +229,7 @@ iterator get_committee_assignments*(
     epochRef: EpochRef, epoch: Epoch, validator_indices: IntSet):
     tuple[validatorIndices: IntSet,
       committeeIndex: CommitteeIndex,
-      subnetIndex: uint8, slot: Slot] =
+      subnet_id: SubnetId, slot: Slot] =
   let
     committees_per_slot = get_committee_count_per_slot(epochRef)
     start_slot = compute_start_slot_at_epoch(epoch)
@@ -240,5 +244,5 @@ iterator get_committee_assignments*(
       if includedIndices.len > 0:
         yield (
           includedIndices, idx,
-          compute_subnet_for_attestation(committees_per_slot, slot, idx).uint8,
+          compute_subnet_for_attestation(committees_per_slot, slot, idx),
           slot)

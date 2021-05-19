@@ -240,7 +240,7 @@ func genesis_time_from_eth1_timestamp*(preset: RuntimePreset, eth1_timestamp: ui
   eth1_timestamp + preset.GENESIS_DELAY
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#genesis
-proc initialize_beacon_state*(
+proc initialize_beacon_state_from_eth1*(
     preset: RuntimePreset,
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
@@ -335,22 +335,19 @@ proc initialize_hashed_beacon_state_from_eth1*(
     eth1_timestamp: uint64,
     deposits: openArray[DepositData],
     flags: UpdateFlags = {}): HashedBeaconState =
-  let genesisState = initialize_beacon_state(
+  let genesisState = initialize_beacon_state_from_eth1(
     preset, eth1_block_hash, eth1_timestamp, deposits, flags)
   HashedBeaconState(data: genesisState[], root: hash_tree_root(genesisState[]))
 
-template emptyBeaconBlockBody(): BeaconBlockBody =
-  BeaconBlockBody()
-
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#genesis-block
-func get_initial_beacon_block*(state: BeaconState): SignedBeaconBlock =
-  let message = BeaconBlock(
+func get_initial_beacon_block*(state: BeaconState): TrustedSignedBeaconBlock =
+  # The genesis block is implicitly trusted
+  let message = TrustedBeaconBlock(
     slot: state.slot,
-    state_root: hash_tree_root(state),
-    body: emptyBeaconBlockBody())
+    state_root: hash_tree_root(state),)
     # parent_root, randao_reveal, eth1_data, signature, and body automatically
     # initialized to default values.
-  SignedBeaconBlock(message: message, root: hash_tree_root(message))
+  TrustedSignedBeaconBlock(message: message, root: hash_tree_root(message))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: BeaconState,

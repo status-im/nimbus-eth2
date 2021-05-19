@@ -149,6 +149,10 @@ type
   # leave it at spec size
   CommitteeIndex* = distinct uint64
 
+  # The subnet id maps which gossip subscription to use to publish an
+  # attestation - it is distinct from the CommitteeIndex in particular
+  SubnetId* = distinct uint8
+
   Gwei* = uint64
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#proposerslashing
@@ -607,6 +611,17 @@ type
     withdrawable_epoch*: Epoch ##\
     ## When validator can withdraw or transfer funds
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#metadata
+  MetaData* = object
+    seq_number*: uint64
+    attnets*: BitArray[ATTESTATION_SUBNET_COUNT]
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#eth2-field
+  ENRForkID* = object
+    fork_digest*: ForkDigest
+    next_fork_version*: Version
+    next_fork_epoch*: Epoch
+
   BeaconStateDiff* = object
     # Small and/or static; always include
     slot*: Slot
@@ -655,6 +670,89 @@ type
 
   DoppelgangerProtection* = object
     broadcastStartEpoch*: Epoch
+
+type
+  # Caches for computing justificiation, rewards and penalties - based on
+  # implementation in Lighthouse:
+  # https://github.com/sigp/lighthouse/blob/master/consensus/state_processing/src/per_epoch_processing/validator_statuses.rs
+  RewardDelta* = object
+    rewards*: Gwei
+    penalties*: Gwei
+
+  InclusionInfo* = object
+    # The distance between the attestation slot and the slot that attestation
+    # was included in block.
+    delay*: uint64
+    # The index of the proposer at the slot where the attestation was included.
+    proposer_index*: uint64
+
+  RewardFlags* {.pure.} = enum
+    isSlashed
+    canWithdrawInCurrentEpoch
+    isActiveInPreviousEpoch
+    isCurrentEpochAttester
+
+    # the validator's beacon block root attestation for the first slot
+    # of the _current_ epoch matches the block root known to the state.
+    isCurrentEpochTargetAttester
+
+    # Set if the validator's beacon block root attestation for the first slot of
+    # the _previous_ epoch matches the block root known to the state.
+    # Information used to reward the block producer of this validators
+    # earliest-included attestation.
+    isPreviousEpochTargetAttester
+    # True if the validator's beacon block root attestation in the _previous_
+    # epoch at the attestation's slot (`attestation_data.slot`) matches the
+    # block root known to the state.
+    isPreviousEpochHeadAttester
+
+  RewardStatus* = object
+    ## Data detailing the status of a single validator with respect to the
+    ## reward processing
+
+    # The validator's effective balance in the _current_ epoch.
+    current_epoch_effective_balance*: uint64
+
+    # True if the validator had an attestation included in the _previous_ epoch.
+    is_previous_epoch_attester*: Option[InclusionInfo]
+
+    inclusion_info*: Option[InclusionInfo]
+
+    # Total rewards and penalties for this validator
+    delta*: RewardDelta
+
+    flags*: set[RewardFlags]
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_total_balance
+  TotalBalances* = object
+    # The total effective balance of all active validators during the _current_
+    # epoch.
+    current_epoch_raw*: Gwei
+    # The total effective balance of all active validators during the _previous_
+    # epoch.
+    previous_epoch_raw*: Gwei
+    # The total effective balance of all validators who attested during the
+    # _current_ epoch.
+    current_epoch_attesters_raw*: Gwei
+    # The total effective balance of all validators who attested during the
+    # _current_ epoch and agreed with the state about the beacon block at the
+    # first slot of the _current_ epoch.
+    current_epoch_target_attesters_raw*: Gwei
+    # The total effective balance of all validators who attested during the
+    # _previous_ epoch.
+    previous_epoch_attesters_raw*: Gwei
+    # The total effective balance of all validators who attested during the
+    # _previous_ epoch and agreed with the state about the beacon block at the
+    # first slot of the _previous_ epoch.
+    previous_epoch_target_attesters_raw*: Gwei
+    # The total effective balance of all validators who attested during the
+    # _previous_ epoch and agreed with the state about the beacon block at the
+    # time of attestation.
+    previous_epoch_head_attesters_raw*: Gwei
+
+  RewardInfo* = object
+    statuses*: seq[RewardStatus]
+    total_balances*: TotalBalances
 
 func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData =
   ImmutableValidatorData(
@@ -722,6 +820,18 @@ proc readValue*(reader: var JsonReader, value: var CommitteeIndex)
                {.raises: [IOError, SerializationError, Defect].} =
   value = CommitteeIndex reader.readValue(distinctBase CommitteeIndex)
 
+proc writeValue*(writer: var JsonWriter, value: SubnetId)
+                {.raises: [IOError, Defect].} =
+  writeValue(writer, distinctBase value)
+
+proc readValue*(reader: var JsonReader, value: var SubnetId)
+               {.raises: [IOError, SerializationError, Defect].} =
+  let v = reader.readValue(distinctBase SubnetId)
+  if v > ATTESTATION_SUBNET_COUNT:
+    raiseUnexpectedValue(
+      reader, "Subnet id must be <= " & $ATTESTATION_SUBNET_COUNT)
+  value = SubnetId(v)
+
 proc writeValue*(writer: var JsonWriter, value: HashList)
                 {.raises: [IOError, SerializationError, Defect].} =
   writeValue(writer, value.data)
@@ -788,6 +898,9 @@ proc `==`*(x, y: CommitteeIndex) : bool {.borrow, noSideEffect.}
 proc `<`*(x, y: CommitteeIndex) : bool {.borrow, noSideEffect.}
 proc hash*(x: CommitteeIndex): Hash {.borrow, noSideEffect.}
 func `$`*(x: CommitteeIndex): auto = $(distinctBase(x))
+
+proc `==`*(x, y: SubnetId) : bool {.borrow, noSideEffect.}
+proc `$`*(x: SubnetId): string {.borrow, noSideEffect.}
 
 func `as`*(d: DepositData, T: type DepositMessage): T =
   T(pubkey: d.pubkey,
@@ -1044,3 +1157,4 @@ static:
   # Sanity checks - these types should be trivial enough to copy with memcpy
   doAssert supportsCopyMem(Validator)
   doAssert supportsCopyMem(Eth2Digest)
+  doAssert ATTESTATION_SUBNET_COUNT <= high(distinctBase SubnetId).int

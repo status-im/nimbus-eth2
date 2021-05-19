@@ -48,11 +48,6 @@ type
     eth2: seq[byte]
     attnets: seq[byte]
 
-  ENRForkID* = object
-    fork_digest*: ForkDigest
-    next_fork_version*: Version
-    next_fork_epoch*: Epoch
-
   TopicFilter* {.pure.} = enum
     Blocks, Attestations, Exits, ProposerSlashing, AttesterSlashings
 
@@ -199,7 +194,7 @@ func getTopics(forkDigest: ForkDigest,
   of TopicFilter.Attestations:
     mapIt(
       0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64,
-      getAttestationTopic(forkDigest, it) & "_snappy")
+      getAttestationTopic(forkDigest, SubnetId(it)) & "_snappy")
 
 proc loadBootFile(name: string): seq[string] =
   try:
@@ -242,11 +237,10 @@ proc getBootstrapAddress(bootnode: string): Option[BootstrapAddress] =
     warn "Incorrect bootstrap address", address = bootnode, errMsg = exc.msg
 
 func tryGetForkDigest(bootnode: enr.Record): Option[ForkDigest] =
-  var forkId: ENRForkID
-  var sszForkData = bootnode.tryGet("eth2", seq[byte])
+  let sszForkData = bootnode.tryGet("eth2", seq[byte])
   if sszForkData.isSome():
     try:
-      forkId = SSZ.decode(sszForkData.get(), ENRForkID)
+      let forkId = SSZ.decode(sszForkData.get(), ENRForkID)
       result = some(forkId.fork_digest)
     except CatchableError:
       discard

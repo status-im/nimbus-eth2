@@ -228,7 +228,7 @@ template cmp*(a, b: BitSeq): int =
 template `==`*(a, b: BitSeq): bool =
   cmp(a, b) == 0
 
-func `$`*(a: BitSeq): string =
+func `$`*(a: BitSeq | BitArray): string =
   let length = a.len
   result = newStringOfCap(2 + length)
   result.add "0b"
@@ -281,3 +281,33 @@ func countZeros*(x: BitSeq): int =
 
 template bytes*(x: BitSeq): untyped =
   seq[byte](x)
+
+iterator items*(x: BitArray): bool =
+  for i in 0..<x.bits:
+    yield x[i]
+
+iterator pairs*(x: BitArray): (int, bool) =
+  for i in 0..<x.bits:
+    yield (i, x[i])
+
+func incl*(a: var BitArray, b: BitArray) =
+  # Update `a` to include the bits of `b`, as if applying `or` to each bit
+  for i in 0..<a.bytes.len:
+    a[i] = a[i] or b[i]
+
+func clear*(a: var BitArray) =
+  for b in a.bytes.mitems(): b = 0
+
+# Set operations
+func `+`*(a, b: BitArray): BitArray =
+  for i in 0..<a.bytes.len:
+    result.bytes[i] = a.bytes[i] or b.bytes[i]
+
+func `-`*(a, b: BitArray): BitArray =
+  for i in 0..<a.bytes.len:
+    result.bytes[i] = a.bytes[i] and (not b.bytes[i])
+
+iterator oneIndices*(a: BitArray): int =
+  for i in 0..<a.len:
+    if a[i]: yield i
+

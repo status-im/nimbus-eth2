@@ -84,26 +84,25 @@ OK: 11/11 Fail: 0/11 Skip: 0/11
 + empty database [Preset: mainnet]                                                           OK
 + find ancestors [Preset: mainnet]                                                           OK
 + sanity check blocks [Preset: mainnet]                                                      OK
-+ sanity check full states [Preset: mainnet]                                                 OK
-+ sanity check full states, reusing buffers [Preset: mainnet]                                OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 + sanity check states [Preset: mainnet]                                                      OK
 + sanity check states, reusing buffers [Preset: mainnet]                                     OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Beacon state [Preset: mainnet]
 ```diff
-+ Smoke test initialize_beacon_state [Preset: mainnet]                                       OK
++ Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Bit fields
 ```diff
 + iterating words                                                                            OK
 + overlaps                                                                                   OK
-+ roundtrips                                                                                 OK
++ roundtrips BitArray                                                                        OK
++ roundtrips BitSeq                                                                          OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Block pool processing [Preset: mainnet]
 ```diff
 + Adding the same block twice returns a Duplicate error [Preset: mainnet]                    OK
@@ -225,7 +224,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Slashing Protection DB [Preset: mainnet]
 ```diff
 + Attestation ordering #1698                                                                 OK
++ Don't prune the very last attestation(s) even by mistake                                   OK
++ Don't prune the very last block even by mistake                                            OK
 + Empty database [Preset: mainnet]                                                           OK
++ Pruning attestations works                                                                 OK
++ Pruning blocks works                                                                       OK
 + SP for block proposal - backtracking append                                                OK
 + SP for block proposal - linear append                                                      OK
 + SP for same epoch attestation target - linear append                                       OK
@@ -233,7 +236,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + SP for surrounding attestations                                                            OK
 + Test valid attestation #1699                                                               OK
 ```
-OK: 8/8 Fail: 0/8 Skip: 0/8
+OK: 12/12 Fail: 0/12 Skip: 0/12
 ## Spec datatypes
 ```diff
 + Graffiti bytes                                                                             OK
@@ -308,9 +311,10 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 ## hash
 ```diff
 + HashArray                                                                                  OK
-+ HashList                                                                                   OK
++ HashList fixed                                                                             OK
++ HashList variable                                                                          OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## state diff tests [Preset: mainnet]
 ```diff
 + random slot differences [Preset: mainnet]                                                  OK
@@ -318,4 +322,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 175/184 Fail: 0/184 Skip: 9/184
+OK: 179/188 Fail: 0/188 Skip: 9/188

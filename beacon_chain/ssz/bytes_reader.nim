@@ -168,6 +168,7 @@ func readSszValue*[T](input: openArray[byte],
       if input.len == 0:
         # This is an empty list.
         # The default initialization of the return value is fine.
+        val.setOutputSize 0
         return
       elif input.len < offsetSize:
         raise newException(MalformedSszError, "SSZ input of insufficient size")

@@ -17,12 +17,11 @@ import
   chronicles,
   json_serialization/std/[options, sets, net], serialization/errors,
   eth/db/kvstore,
-  eth/[keys, async_utils], eth/p2p/discoveryv5/[protocol, enr],
+  eth/keys, eth/p2p/discoveryv5/[protocol, enr],
 
   # Local modules
   ../spec/[
-    datatypes, digest, crypto, helpers, network, signatures, state_transition,
-    validator],
+    datatypes, digest, crypto, helpers, network, signatures, state_transition],
   ../conf, ../beacon_clock,
   ../consensus_object_pools/[
     spec_cache, blockchain_dag, block_clearance,
@@ -160,19 +159,26 @@ proc isSynced*(node: BeaconNode, head: BlockRef): bool =
     true
 
 proc sendAttestation*(
-    node: BeaconNode, attestation: Attestation, num_active_validators: uint64) =
-  let subnet_index =
-    compute_subnet_for_attestation(
-      get_committee_count_per_slot(num_active_validators), attestation.data.slot,
-      attestation.data.index.CommitteeIndex)
-  node.network.broadcast(
-    getAttestationTopic(node.forkDigest, subnet_index), attestation)
+    node: BeaconNode, attestation: Attestation,
+    subnet_id: SubnetId, checkSignature: bool): Future[bool] {.async.} =
+  # Validate attestation before sending it via gossip - validation will also
+  # register the attestation with the attestation pool. Notably, although
+  # libp2p calls the data handler for any subscription on the subnet
+  # topic, it does not perform validation.
+  let ok = await node.processor.attestationValidator(
+    attestation, subnet_id, checkSignature)
 
-  # Ensure node's own broadcast attestations end up in its attestation pool
-  discard node.processor.attestationValidator(
-    attestation, subnet_index, false)
-
-  beacon_attestations_sent.inc()
+  return case ok
+    of ValidationResult.Accept:
+      node.network.broadcast(
+        getAttestationTopic(node.forkDigest, subnet_id), attestation)
+      beacon_attestations_sent.inc()
+      true
+    else:
+      notice "Produced attestation failed validation",
+        attestation = shortLog(attestation),
+        result = $ok
+      false
 
 proc sendVoluntaryExit*(node: BeaconNode, exit: SignedVoluntaryExit) =
   node.network.broadcast(getVoluntaryExitsTopic(node.forkDigest), exit)
@@ -185,18 +191,21 @@ proc sendProposerSlashing*(node: BeaconNode, slashing: ProposerSlashing) =
   node.network.broadcast(getProposerSlashingsTopic(node.forkDigest),
                          slashing)
 
-proc sendAttestation*(node: BeaconNode, attestation: Attestation) =
-  # For the validator API, which doesn't supply num_active_validators.
+proc sendAttestation*(node: BeaconNode, attestation: Attestation): Future[bool] =
+  # For the validator API, which doesn't supply the subnet id.
   let attestationBlck =
     node.chainDag.getRef(attestation.data.beacon_block_root)
   if attestationBlck.isNil:
     debug "Attempt to send attestation without corresponding block"
     return
+  let
+    epochRef = node.chainDag.getEpochRef(
+      attestationBlck, attestation.data.target.epoch)
+    subnet_id = compute_subnet_for_attestation(
+      get_committee_count_per_slot(epochRef), attestation.data.slot,
+      attestation.data.index.CommitteeIndex)
 
-  node.sendAttestation(
-    attestation,
-    count_active_validators(
-      node.chainDag.getEpochRef(attestationBlck, attestation.data.target.epoch)))
+  node.sendAttestation(attestation, subnet_id, checkSignature = true)
 
 proc createAndSendAttestation(node: BeaconNode,
                               fork: Fork,
@@ -205,31 +214,41 @@ proc createAndSendAttestation(node: BeaconNode,
                               attestationData: AttestationData,
                               committeeLen: int,
                               indexInCommittee: int,
-                              num_active_validators: uint64) {.async.} =
-  var attestation = await validator.produceAndSignAttestation(
-    attestationData, committeeLen, indexInCommittee, fork,
-    genesis_validators_root)
+                              subnet_id: SubnetId) {.async.} =
+  try:
+    var
+      attestation = await validator.produceAndSignAttestation(
+        attestationData, committeeLen, indexInCommittee, fork,
+        genesis_validators_root)
 
-  node.sendAttestation(attestation, num_active_validators)
+    let ok = await node.sendAttestation(
+      attestation, subnet_id, checkSignature = false)
+    if not ok: # Logged in sendAttestation
+      return
 
-  if node.config.dumpEnabled:
-    dump(node.config.dumpDirOutgoing, attestation.data, validator.pubKey)
+    let sent = node.beaconClock.now()
+    if node.config.dumpEnabled:
+      dump(node.config.dumpDirOutgoing, attestation.data, validator.pubKey)
 
-  let wallTime = node.beaconClock.now()
-  let deadline = attestationData.slot.toBeaconTime() +
-                 seconds(int(SECONDS_PER_SLOT div 3))
+    let wallTime = node.beaconClock.now()
+    let deadline = attestationData.slot.toBeaconTime() +
+                  seconds(int(SECONDS_PER_SLOT div 3))
 
-  let (delayStr, delaySecs) =
-    if wallTime < deadline:
-      ("-" & $(deadline - wallTime), -toFloatSeconds(deadline - wallTime))
-    else:
-      ($(wallTime - deadline), toFloatSeconds(wallTime - deadline))
+    let (delayStr, delaySecs) =
+      if wallTime < deadline:
+        ("-" & $(deadline - wallTime), -toFloatSeconds(deadline - wallTime))
+      else:
+        ($(wallTime - deadline), toFloatSeconds(wallTime - deadline))
 
-  notice "Attestation sent", attestation = shortLog(attestation),
-                             validator = shortLog(validator), delay = delayStr,
-                             indexInCommittee = indexInCommittee
+    notice "Attestation sent", attestation = shortLog(attestation),
+                              validator = shortLog(validator), delay = delayStr,
+                              indexInCommittee = indexInCommittee
 
-  beacon_attestation_sent_delay.observe(delaySecs)
+    beacon_attestation_sent_delay.observe(delaySecs)
+  except CatchableError as exc:
+    # An error could happen here when the signature task fails - we must
+    # not leak the exception because this is an asyncSpawn task
+    notice "Error sending attestation", err = exc.msg
 
 proc getBlockProposalEth1Data*(node: BeaconNode,
                                stateData: StateData): BlockProposalEth1Data =
@@ -338,27 +357,18 @@ proc proposeBlock(node: BeaconNode,
       slot = shortLog(slot)
     return head
 
-  let notSlashable = node.attachedValidators
-                        .slashingProtection
-                        .checkSlashableBlockProposal(validator.pubkey, slot)
-  if notSlashable.isErr:
-    warn "Slashing protection activated",
-      validator = validator.pubkey,
-      slot = slot,
-      existingProposal = notSlashable.error
-    return head
-
   let
     fork = getStateField(node.chainDag.headState, fork)
     genesis_validators_root =
       getStateField(node.chainDag.headState, genesis_validators_root)
-  let
     randao = await validator.genRandaoReveal(
       fork, genesis_validators_root, slot)
     message = makeBeaconBlockForHeadAndSlot(
       node, randao, validator_index, node.graffitiBytes, head, slot)
+
   if not message.isSome():
     return head # already logged elsewhere!
+
   var
     newBlock = SignedBeaconBlock(
       message: message.get()
@@ -369,9 +379,16 @@ proc proposeBlock(node: BeaconNode,
   # TODO: recomputed in block proposal
   let signing_root = compute_block_root(
     fork, genesis_validators_root, slot, newBlock.root)
-  node.attachedValidators
+  let notSlashable = node.attachedValidators
     .slashingProtection
-    .registerBlock(validator.pubkey, slot, signing_root)
+    .registerBlock(validator_index, validator.pubkey, slot, signing_root)
+
+  if notSlashable.isErr:
+    warn "Slashing protection activated",
+      validator = validator.pubkey,
+      slot = slot,
+      existingProposal = notSlashable.error
+    return head
 
   newBlock.signature = await validator.signBlockProposal(
     fork, genesis_validators_root, slot, newBlock.root)
@@ -407,10 +424,6 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     attestationHeadRoot = shortLog(attestationHead.blck.root),
     attestationSlot = shortLog(slot)
 
-  var attestations: seq[tuple[
-    data: AttestationData, committeeLen, indexInCommittee: int,
-    validator: AttachedValidator]]
-
   # We need to run attestations exactly for the slot that we're attesting to.
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
@@ -418,52 +431,42 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   let
     epochRef = node.chainDag.getEpochRef(
       attestationHead.blck, slot.compute_epoch_at_slot())
-    committees_per_slot =
-      get_committee_count_per_slot(epochRef)
-    num_active_validators = count_active_validators(epochRef)
+    committees_per_slot = get_committee_count_per_slot(epochRef)
     fork = getStateField(node.chainDag.headState, fork)
     genesis_validators_root =
       getStateField(node.chainDag.headState, genesis_validators_root)
 
-  for committee_index in 0'u64..<committees_per_slot:
-    let committee = get_beacon_committee(
-      epochRef, slot, committee_index.CommitteeIndex)
+  for committee_index in get_committee_indices(epochRef):
+    let committee = get_beacon_committee(epochRef, slot, committee_index)
 
-    for index_in_committee, validatorIdx in committee:
-      let validator = node.getAttachedValidator(epochRef, validatorIdx)
-      if validator != nil:
-        let ad = makeAttestationData(
-          epochRef, attestationHead, committee_index.CommitteeIndex)
-        attestations.add((ad, committee.len, index_in_committee, validator))
+    for index_in_committee, validator_index in committee:
+      let validator = node.getAttachedValidator(epochRef, validator_index)
+      if validator == nil:
+        continue
 
-  for a in attestations:
-    let notSlashable = node.attachedValidators
-                           .slashingProtection
-                           .checkSlashableAttestation(
-                             a.validator.pubkey,
-                             a.data.source.epoch,
-                             a.data.target.epoch)
-
-    if notSlashable.isOk():
-      # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
-      let signing_root = compute_attestation_root(
-            fork, genesis_validators_root, a.data)
-      node.attachedValidators
+      let
+        data = makeAttestationData(epochRef, attestationHead, committee_index)
+        # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
+        signing_root = compute_attestation_root(
+          fork, genesis_validators_root, data)
+        registered = node.attachedValidators
           .slashingProtection
           .registerAttestation(
-            a.validator.pubkey,
-            a.data.source.epoch,
-            a.data.target.epoch,
-            signing_root
-          )
-
-      traceAsyncErrors createAndSendAttestation(
-        node, fork, genesis_validators_root, a.validator, a.data,
-        a.committeeLen, a.indexInCommittee, num_active_validators)
-    else:
-      warn "Slashing protection activated for attestation",
-        validator = a.validator.pubkey,
-        badVoteDetails = $notSlashable.error
+            validator_index,
+            validator.pubkey,
+            data.source.epoch,
+            data.target.epoch,
+            signing_root)
+      if registered.isOk():
+        let subnet_id = compute_subnet_for_attestation(
+          committees_per_slot, data.slot, data.index.CommitteeIndex)
+        asyncSpawn createAndSendAttestation(
+          node, fork, genesis_validators_root, validator, data,
+          committee.len(), index_in_committee, subnet_id)
+      else:
+        warn "Slashing protection activated for attestation",
+          validator = validator.pubkey,
+          badVoteDetails = $registered.error()
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async.} =

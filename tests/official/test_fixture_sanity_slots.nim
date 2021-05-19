@@ -20,10 +20,6 @@ import
 const SanitySlotsDir = SszTestsDir/const_preset/"phase0"/"sanity"/"slots"/"pyspec_tests"
 
 proc runTest(identifier: string) =
-  # We wrap the tests in a proc to avoid running out of globals
-  # in the future: Nim supports up to 3500 globals
-  # but unittest with the macro/templates put everything as globals
-  # https://github.com/nim-lang/Nim/issues/12084#issue-486866402
   let
     testDir = SanitySlotsDir / identifier
     num_slots = readLines(testDir / "slots.yaml", 2)[0].parseInt.uint64
@@ -35,11 +31,12 @@ proc runTest(identifier: string) =
         hashedPreState = (ref HashedBeaconState)(
           data: preState[], root: hash_tree_root(preState[]))
         cache = StateCache()
+        rewards: RewardInfo
       let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
 
       check:
         process_slots(
-          hashedPreState[], hashedPreState.data.slot + num_slots, cache)
+          hashedPreState[], hashedPreState.data.slot + num_slots, cache, rewards)
 
         hashedPreState.root == postState[].hash_tree_root()
       let newPreState = newClone(hashedPreState.data)

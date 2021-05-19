@@ -124,7 +124,10 @@ suite "Block pool processing" & preset():
       quarantine = QuarantineRef.init(keys.newRng())
       stateData = newClone(dag.headState)
       cache = StateCache()
-      b1 = addTestBlock(stateData.data, dag.tail.root, cache)
+      rewards = RewardInfo()
+      att0 = makeFullAttestations(
+        stateData.data.data, dag.tail.root, 0.Slot, cache)
+      b1 = addTestBlock(stateData.data, dag.tail.root, cache, attestations = att0)
       b2 = addTestBlock(stateData.data, b1.root, cache)
   test "getRef returns nil for missing blocks":
     check:
@@ -166,7 +169,8 @@ suite "Block pool processing" & preset():
 
     # Skip one slot to get a gap
     check:
-      process_slots(stateData.data, getStateField(stateData, slot) + 1, cache)
+      process_slots(
+        stateData.data, getStateField(stateData, slot) + 1, cache, rewards)
 
     let
       b4 = addTestBlock(stateData.data, b2.root, cache)
@@ -336,6 +340,7 @@ suite "chain DAG finalization tests" & preset():
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
       quarantine = QuarantineRef.init(keys.newRng())
       cache = StateCache()
+      rewards = RewardInfo()
 
   test "prune heads on finalization" & preset():
     # Create a fork that will not be taken
@@ -344,7 +349,8 @@ suite "chain DAG finalization tests" & preset():
       tmpState = assignClone(dag.headState.data)
     check:
       process_slots(
-        tmpState[], tmpState.data.slot + (5 * SLOTS_PER_EPOCH).uint64, cache)
+        tmpState[], tmpState.data.slot + (5 * SLOTS_PER_EPOCH).uint64, cache,
+        rewards)
 
     let lateBlock = addTestBlock(tmpState[], dag.head.root, cache)
     block:
@@ -444,7 +450,7 @@ suite "chain DAG finalization tests" & preset():
     # The loop creates multiple branches, which StateCache isn't suitable for
     cache = StateCache()
 
-    doAssert process_slots(prestate[], prestate[].data.slot + 1, cache)
+    doAssert process_slots(prestate[], prestate[].data.slot + 1, cache, rewards)
 
     # create another block, orphaning the head
     let blck = makeTestBlock(
@@ -461,14 +467,6 @@ suite "chain DAG finalization tests" & preset():
     let added2 = dag2.addRawBlock(quarantine, blck, nil)
     check: added2.isOk()
 
-suite "chain DAG finalization tests" & preset():
-  setup:
-    var
-      db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimePreset, db)
-      quarantine = QuarantineRef.init(keys.newRng())
-      cache = StateCache()
-
   test "init with gaps" & preset():
     for blck in makeTestBlocks(
         dag.headState.data, dag.head.root, cache, int(SLOTS_PER_EPOCH * 6 - 2),
@@ -481,7 +479,7 @@ suite "chain DAG finalization tests" & preset():
     # Advance past epoch so that the epoch transition is gapped
     check:
       process_slots(
-        dag.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2), cache)
+        dag.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2), cache, rewards)
 
     var blck = makeTestBlock(
       dag.headState.data, dag.head.root, cache,
@@ -493,6 +491,20 @@ suite "chain DAG finalization tests" & preset():
     check: added.isOk()
     dag.updateHead(added[], quarantine)
     dag.pruneAtFinalization()
+
+    block:
+      # Check that we can rewind to every block from head to finalized
+      var
+        cur = dag.head
+        tmpStateData = assignClone(dag.headState)
+      while cur.slot >= dag.finalizedHead.slot:
+        assign(tmpStateData[], dag.headState)
+        dag.updateStateData(tmpStateData[], cur.atSlot(cur.slot), false, cache)
+        check:
+          dag.get(cur).data.message.state_root ==
+            tmpStateData[].data.root
+          tmpStateData[].data.root == hash_tree_root(tmpSTateData[].data.data)
+        cur = cur.parent
 
     let
       dag2 = init(ChainDAGRef, defaultRuntimePreset, db)

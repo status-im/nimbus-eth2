@@ -97,19 +97,23 @@ type
 # ---------------------------------------------------------------
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-func process_slot*(state: var HashedBeaconState) {.nbench.} =
+func process_slot*(
+    state: var BeaconState, pre_state_root: Eth2Digest) {.nbench.} =
+  # `process_slot` is the first stage of per-slot processing - it is run for
+  # every slot, including epoch slots - it does not however update the slot
+  # number! `pre_state_root` refers to the state root of the incoming
+  # state before any slot processing has been done.
+
   # Cache state root
-  let previous_slot_state_root = state.root
-  state.data.state_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
-    previous_slot_state_root
+  state.state_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] = pre_state_root
 
   # Cache latest block header state root
-  if state.data.latest_block_header.state_root == ZERO_HASH:
-    state.data.latest_block_header.state_root = previous_slot_state_root
+  if state.latest_block_header.state_root == ZERO_HASH:
+    state.latest_block_header.state_root = pre_state_root
 
   # Cache block root
-  state.data.block_roots[state.data.slot mod SLOTS_PER_HISTORICAL_ROOT] =
-    hash_tree_root(state.data.latest_block_header)
+  state.block_roots[state.slot mod SLOTS_PER_HISTORICAL_ROOT] =
+    hash_tree_root(state.latest_block_header)
 
 func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
   cache.shuffled_active_validator_indices.del epoch
@@ -122,28 +126,33 @@ func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc advance_slot(
-    state: var HashedBeaconState, updateFlags: UpdateFlags,
-    epochCache: var StateCache) {.nbench.} =
-  process_slot(state)
+    state: var BeaconState, previous_slot_state_root: Eth2Digest,
+    flags: UpdateFlags, cache: var StateCache, rewards: var RewardInfo) {.nbench.} =
+  # Do the per-slot and potentially the per-epoch processing, then bump the
+  # slot number - we've now arrived at the slot state on top of which a block
+  # optionally can be applied.
+  process_slot(state, previous_slot_state_root)
 
-  let is_epoch_transition = (state.data.slot + 1).isEpoch
+  rewards.statuses.setLen(0)
+  rewards.total_balances = TotalBalances()
+
+  let is_epoch_transition = (state.slot + 1).isEpoch
   if is_epoch_transition:
     # Note: Genesis epoch = 0, no need to test if before Genesis
-    process_epoch(state.data, updateFlags, epochCache)
-    clear_epoch_from_cache(
-      epochCache, (state.data.slot + 1).compute_epoch_at_slot)
+    process_epoch(state, flags, cache, rewards)
+    clear_epoch_from_cache(cache, (state.slot + 1).compute_epoch_at_slot)
 
-  state.data.slot += 1
-
-  # The root must be updated on every slot update, or the next `process_slot`
-  # will be incorrect
-  state.root = hash_tree_root(state.data)
+  state.slot += 1
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc process_slots*(state: var HashedBeaconState, slot: Slot,
-    cache: var StateCache, updateFlags: UpdateFlags = {}): bool {.nbench.} =
+    cache: var StateCache, rewards: var RewardInfo,
+    flags: UpdateFlags = {}): bool {.nbench.} =
+  ## Process one or more slot transitions without blocks - if the slot transtion
+  ## passes an epoch boundary, epoch processing will run and `rewards` will be
+  ## updated, else it will be cleared
   if not (state.data.slot < slot):
-    if slotProcessed notin updateFlags or state.data.slot != slot:
+    if slotProcessed notin flags or state.data.slot != slot:
       notice(
         "Unusual request for a slot in the past",
         state_root = shortLog(state.root),
@@ -154,7 +163,11 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot,
 
   # Catch up to the target slot
   while state.data.slot < slot:
-    advance_slot(state, updateFlags, cache)
+    advance_slot(state.data, state.root, flags, cache, rewards)
+
+    # The root must be updated on every slot update, or the next `process_slot`
+    # will be incorrect
+    state.root = hash_tree_root(state.data)
 
   true
 
@@ -164,16 +177,17 @@ proc noRollback*(state: var HashedBeaconState) =
 proc state_transition*(
     preset: RuntimePreset,
     state: var HashedBeaconState, signedBlock: SomeSignedBeaconBlock,
-    stateCache: var StateCache,
-    flags: UpdateFlags, rollback: RollbackHashedProc): bool {.nbench.} =
-  ## Time in the beacon chain moves by slots. Every time (haha.) that happens,
-  ## we will update the beacon state. Normally, the state updates will be driven
-  ## by the contents of a new block, but it may happen that the block goes
-  ## missing - the state updates happen regardless.
+    cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
+    rollback: RollbackHashedProc): bool {.nbench.} =
+  ## Apply a block to the state, advancing the slot counter as necessary. The
+  ## given state must be of a lower slot, or, in case the `slotProcessed` flag
+  ## is set, can be the slot state of the same slot as the block (where the
+  ## slot state is the state without any block applied). To create a slot state,
+  ## advance the state corresponding to the the parent block using
+  ## `process_slots`.
   ##
-  ## The flags are used to specify that certain validations should be skipped
-  ## for the new block. This is done during block proposal, to create a state
-  ## whose hash can be included in the new block.
+  ## To run the state transition function in preparation for block production,
+  ## use `makeBeaconBlock` instead.
   ##
   ## `rollback` is called if the transition fails and the given state has been
   ## partially changed. If a temporary state was given to `state_transition`,
@@ -182,48 +196,60 @@ proc state_transition*(
   ## before the state has been updated, `rollback` will not be called.
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
 
-  # This only fails if it hasn't changed stateCache, so it can't create a false
-  # not-followed future history in stateCache.
-  if not process_slots(state, signedBlock.message.slot, stateCache, flags):
-    rollback(state)
-    return false
+  let slot = signedBlock.message.slot
+  if not (state.data.slot < slot):
+    if slotProcessed notin flags or state.data.slot != slot:
+      notice "State must precede block",
+        state_root = shortLog(state.root),
+        current_slot = state.data.slot,
+        blck = shortLog(signedBlock)
+      return false
+
+  # Update the state so its slot matches that of the block
+  while state.data.slot < slot:
+    advance_slot(state.data, state.root, flags, cache, rewards)
+
+    if state.data.slot < slot:
+      # Don't update state root for the slot of the block
+      state.root = hash_tree_root(state.data)
 
   # Block updates - these happen when there's a new block being suggested
   # by the block proposer. Every actor in the network will update its state
   # according to the contents of this block - but first they will validate
   # that the block is sane.
-  if skipBLSValidation in flags or
-      verify_block_signature(state.data, signedBlock):
+  if not (skipBLSValidation in flags or
+      verify_block_signature(state.data, signedBlock)):
+    rollback(state)
+    return false
 
-    trace "state_transition: processing block, signature passed",
-      signature = shortLog(signedBlock.signature),
-      blockRoot = shortLog(signedBlock.root)
-    let res = process_block(preset, state.data, signedBlock.message, flags, stateCache)
-    if res.isOk:
-      if skipStateRootValidation in flags or verifyStateRoot(state.data, signedBlock.message):
-        # State root is what it should be - we're done!
+  trace "state_transition: processing block, signature passed",
+    signature = shortLog(signedBlock.signature),
+    blockRoot = shortLog(signedBlock.root)
 
-        # TODO when creating a new block, state_root is not yet set.. comparing
-        #      with zero hash here is a bit fragile however, but this whole thing
-        #      should go away with proper hash caching
-        # TODO shouldn't ever have to recalculate; verifyStateRoot() does it
-        state.root =
-          if signedBlock.message.state_root == Eth2Digest(): hash_tree_root(state.data)
-          else: signedBlock.message.state_root
+  let res = process_block(preset, state.data, signedBlock.message, flags, cache)
 
-        return true
-    else:
-      debug "state_transition: process_block failed",
-        blck = shortLog(signedBlock.message),
-        slot = state.data.slot,
-        eth1_deposit_index = state.data.eth1_deposit_index,
-        deposit_root = shortLog(state.data.eth1_data.deposit_root),
-        error = res.error
+  if not res.isOk():
+    debug "state_transition: process_block failed",
+      blck = shortLog(signedBlock.message),
+      slot = state.data.slot,
+      eth1_deposit_index = state.data.eth1_deposit_index,
+      deposit_root = shortLog(state.data.eth1_data.deposit_root),
+      error = res.error
+    rollback(state)
+    return false
 
-  # Block processing failed, roll back changes
-  rollback(state)
+  if not (skipStateRootValidation in flags or
+        verifyStateRoot(state.data, signedBlock.message)):
+    rollback(state)
+    return false
 
-  false
+  # only blocks currently being produced have an empty state root - we use a
+  # separate function for those
+  doAssert signedBlock.message.state_root != Eth2Digest(),
+    "see makeBeaconBlock for block production"
+  state.root = signedBlock.message.state_root
+
+  true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#preparing-for-a-beaconblock
 proc makeBeaconBlock*(

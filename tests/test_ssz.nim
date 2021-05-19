@@ -25,6 +25,9 @@ type
     data: array[256, bool]
     data2: HashArray[256, bool]
 
+  NonFixed = object
+    data: HashList[uint64, 1024]
+
 template reject(stmt) =
   doAssert(not compiles(stmt))
 
@@ -38,6 +41,8 @@ static:
   doAssert isFixedSize(array[20, bool]) == true
   doAssert isFixedSize(Simple) == true
   doAssert isFixedSize(List[bool, 128]) == false
+
+  doAssert isFixedSize(NonFixed) == false
 
   reject fixedPortionSize(int)
 
@@ -208,16 +213,20 @@ suite "hash":
 
     both: check: it.li.add Eth2Digest()
 
-  var y: HashArray[32, uint64]
-  doAssert hash_tree_root(y) == hash_tree_root(y.data)
-  for i in 0..<y.len:
-    y[i] = 42'u64
-    doAssert hash_tree_root(y) == hash_tree_root(y.data)
+    var y: HashArray[32, uint64]
+    check: hash_tree_root(y) == hash_tree_root(y.data)
+    for i in 0..<y.len:
+      y[i] = 42'u64
+      check: hash_tree_root(y) == hash_tree_root(y.data)
 
-  test "HashList":
+  test "HashList fixed":
     type MyList = HashList[uint64, 1024]
     var
       small, large: MyList
+
+    let
+      emptyBytes = SSZ.encode(small)
+      emptyRoot = hash_tree_root(small)
 
     check: small.add(10'u64)
 
@@ -228,8 +237,9 @@ suite "hash":
       sroot = hash_tree_root(small)
       lroot = hash_tree_root(large)
 
-    doAssert sroot == hash_tree_root(small.data)
-    doAssert lroot == hash_tree_root(large.data)
+    check:
+      sroot == hash_tree_root(small.data)
+      lroot == hash_tree_root(large.data)
 
     var
       sbytes = SSZ.encode(small)
@@ -237,8 +247,9 @@ suite "hash":
       sloaded = SSZ.decode(sbytes, MyList)
       lloaded = SSZ.decode(lbytes, MyList)
 
-    doAssert sroot == hash_tree_root(sloaded)
-    doAssert lroot == hash_tree_root(lloaded)
+    check:
+      sroot == hash_tree_root(sloaded)
+      lroot == hash_tree_root(lloaded)
 
     # Here we smoke test that the cache is reset correctly even when reading
     # into an existing instance - the instances are size-swapped so the reader
@@ -246,5 +257,56 @@ suite "hash":
     readSszValue(sbytes, lloaded)
     readSszValue(lbytes, sloaded)
 
-    doAssert lroot == hash_tree_root(sloaded)
-    doAssert sroot == hash_tree_root(lloaded)
+    check:
+      lroot == hash_tree_root(sloaded)
+      sroot == hash_tree_root(lloaded)
+
+    readSszValue(emptyBytes, sloaded)
+    check:
+      emptyRoot == hash_tree_root(sloaded)
+
+  test "HashList variable":
+    type MyList = HashList[NonFixed, 1024]
+    var
+      small, large: MyList
+
+    let
+      emptyBytes = SSZ.encode(small)
+      emptyRoot = hash_tree_root(small)
+
+    check: small.add(NonFixed())
+
+    for i in 0..<100:
+      check: large.add(NonFixed())
+
+    let
+      sroot = hash_tree_root(small)
+      lroot = hash_tree_root(large)
+
+    check:
+      sroot == hash_tree_root(small.data)
+      lroot == hash_tree_root(large.data)
+
+    var
+      sbytes = SSZ.encode(small)
+      lbytes = SSZ.encode(large)
+      sloaded = SSZ.decode(sbytes, MyList)
+      lloaded = SSZ.decode(lbytes, MyList)
+
+    check:
+      sroot == hash_tree_root(sloaded)
+      lroot == hash_tree_root(lloaded)
+
+    # Here we smoke test that the cache is reset correctly even when reading
+    # into an existing instance - the instances are size-swapped so the reader
+    # will have some more work to do
+    readSszValue(sbytes, lloaded)
+    readSszValue(lbytes, sloaded)
+
+    check:
+      lroot == hash_tree_root(sloaded)
+      sroot == hash_tree_root(lloaded)
+
+    readSszValue(emptyBytes, sloaded)
+    check:
+      emptyRoot == hash_tree_root(sloaded)

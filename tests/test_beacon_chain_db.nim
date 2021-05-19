@@ -115,55 +115,6 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
-  test "sanity check full states" & preset():
-    var
-      db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimePreset, db)
-      testStates = getTestStates(dag.headState.data)
-
-    # Ensure transitions beyond just adding validators and increasing slots
-    sort(testStates) do (x, y: ref HashedBeaconState) -> int:
-      cmp($x.root, $y.root)
-
-    for state in testStates:
-      db.putStateFull(state[].data)
-      let root = hash_tree_root(state[].data)
-
-      check:
-        db.containsState(root)
-        hash_tree_root(db.getStateRef(root)[]) == root
-
-      db.delState(root)
-      check: not db.containsState(root)
-
-    db.close()
-
-  test "sanity check full states, reusing buffers" & preset():
-    var
-      db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimePreset, db)
-
-    let stateBuffer = BeaconStateRef()
-    var testStates = getTestStates(dag.headState.data)
-
-    # Ensure transitions beyond just adding validators and increasing slots
-    sort(testStates) do (x, y: ref HashedBeaconState) -> int:
-      cmp($x.root, $y.root)
-
-    for state in testStates:
-      db.putStateFull(state[].data)
-      let root = hash_tree_root(state[].data)
-
-      check:
-        db.getState(root, stateBuffer[], noRollback)
-        db.containsState(root)
-        hash_tree_root(stateBuffer[]) == root
-
-      db.delState(root)
-      check: not db.containsState(root)
-
-    db.close()
-
   test "find ancestors" & preset():
     var
       db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
@@ -215,7 +166,7 @@ suite "Beacon chain DB" & preset():
       db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
 
     let
-      state = initialize_beacon_state(
+      state = initialize_beacon_state_from_eth1(
         defaultRuntimePreset, eth1BlockHash, 0,
         makeInitialDeposits(SLOTS_PER_EPOCH), {skipBlsValidation})
       root = hash_tree_root(state[])
@@ -242,10 +193,9 @@ suite "Beacon chain DB" & preset():
 
     db.putStateDiff(root, stateDiff)
 
-    check db.containsStateDiff(root)
     let state2 = db.getStateDiff(root)
     db.delStateDiff(root)
-    check not db.containsStateDiff(root)
+    check db.getStateDiff(root).isNone()
     db.close()
 
     check:

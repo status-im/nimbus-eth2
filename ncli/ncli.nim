@@ -83,9 +83,11 @@ proc doTransition(conf: NcliConf) =
 
   stateY.root = hash_tree_root(stateY.data)
 
-  var cache = StateCache()
+  var
+    cache = StateCache()
+    rewards = RewardInfo()
   if not state_transition(getRuntimePresetForNetwork(conf.eth2Network),
-                          stateY[], blckX, cache, flags, noRollback):
+                          stateY[], blckX, cache, rewards, flags, noRollback):
     error "State transition failed"
     quit 1
   else:
@@ -107,11 +109,13 @@ proc doSlots(conf: NcliConf) =
 
   stateY.root = hash_tree_root(stateY.data)
 
-  var cache: StateCache
+  var
+    cache = StateCache()
+    rewards = RewardInfo()
   for i in 0'u64..<conf.slot:
     let isEpoch = (stateY[].data.slot + 1).isEpoch
     withTimer(timers[if isEpoch: tApplyEpochSlot else: tApplySlot]):
-      doAssert process_slots(stateY[], stateY[].data.slot + 1, cache)
+      doAssert process_slots(stateY[], stateY[].data.slot + 1, cache, rewards)
 
   withTimer(timers[tSaveState]):
     SSZ.saveFile(conf.postState, stateY.data)

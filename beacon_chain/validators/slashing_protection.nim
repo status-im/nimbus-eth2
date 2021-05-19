@@ -5,8 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# TODO doesn't work with concepts (sigh)
-# {.push raises: [Defect].}
+{.push raises: [Defect].}
 
 import
   # stdlib
@@ -21,6 +20,7 @@ import
   ./slashing_protection_v2
 
 export slashing_protection_common
+
 # Generic sandwich
 export chronicles
 
@@ -52,16 +52,8 @@ type
     ## Database storing the blocks attested
     ## by validators attached to a beacon node
     ## or validator client.
-    db_v1: SlashingProtectionDB_v1
-    db_v2: SlashingProtectionDB_v2
+    db_v2*: SlashingProtectionDB_v2
     modes: set[SlashProtDBMode]
-    disagreementBehavior: DisagreementBehavior
-
-  DisagreementBehavior* = enum
-    ## How to handle disagreement between DB versions
-    kCrash
-    kChooseV1
-    kChooseV2
 
 # DB Multiversioning
 # -------------------------------------------------------------
@@ -77,8 +69,7 @@ proc init*(
        T: type SlashingProtectionDB,
        genesis_validators_root: Eth2Digest,
        basePath, dbname: string,
-       modes: set[SlashProtDBMode],
-       disagreementBehavior: DisagreementBehavior
+       modes: set[SlashProtDBMode]
      ): T =
   ## Initialize or load a slashing protection DB
   ## This is for Beacon Node usage
@@ -91,7 +82,6 @@ proc init*(
 
   new result
   result.modes = modes
-  result.disagreementBehavior = disagreementBehavior
 
   let (db, requiresMigration) = SlashingProtectionDB_v2.initCompatV1(
     genesis_validators_root,
@@ -99,17 +89,27 @@ proc init*(
   )
   result.db_v2 = db
 
-  let rawdb = kvstore result.db_v2.getRawDBHandle()
-  if not rawdb.checkOrPutGenesis_DbV1(genesis_validators_root):
-    fatal "The slashing database refers to another chain/mainnet/testnet",
-      path = basePath/dbname,
-      genesis_validators_root = genesis_validators_root
-  result.db_v1.fromRawDB(rawdb)
-
   if requiresMigration:
+    var db_v1: SlashingProtectionDB_v1
+
+    let rawdb = kvstore result.db_v2.getRawDBHandle().openKvStore().get()
+    if not rawdb.checkOrPutGenesis_DbV1(genesis_validators_root):
+      fatal "The slashing database refers to another chain/mainnet/testnet",
+        path = basePath/dbname,
+        genesis_validators_root = genesis_validators_root
+    db_v1.fromRawDB(rawdb)
+
     info "Migrating local validators slashing DB from v1 to v2"
-    let spdir = result.db_v1.toSPDIR_lowWatermark()
-    let status = result.db_v2.inclSPDIR(spdir)
+    let spdir = try: db_v1.toSPDIR_lowWatermark()
+    except IOError as exc:
+      fatal "Cannot migrate v1 database", err = exc.msg
+      quit 1
+
+    let status = try: result.db_v2.inclSPDIR(spdir)
+    except CatchableError as exc:
+      fatal "Writing DB v2 failed", err = exc.msg
+      quit 1
+
     case status
     of siSuccess:
       info "Slashing DB migration successful."
@@ -118,6 +118,8 @@ proc init*(
     of siFailure:
       fatal "Slashing DB migration failure. Aborting to protect validators."
       quit 1
+
+    db_v1.close()
 
 proc init*(
        T: type SlashingProtectionDB,
@@ -132,7 +134,6 @@ proc init*(
   init(
     T, genesis_validators_root, basePath, dbname,
     modes = {kLowWatermarkV2},
-    disagreementBehavior = kChooseV2
   )
 
 proc loadUnchecked*(
@@ -146,13 +147,12 @@ proc loadUnchecked*(
   ## Does not handle migration
 
   result.modes = {kCompleteArchiveV1, kCompleteArchiveV2}
-  result.disagreementBehavior = kCrash
 
   result.db_v2 = SlashingProtectionDB_v2.loadUnchecked(
     basePath, dbname, readOnly
   )
 
-  result.db_v1.fromRawDB(kvstore result.db_v2.getRawDBHandle())
+  result.db_v1.fromRawDB(kvstore result.db_v2.getRawDBHandle().openKvStore())
 
 proc close*(db: SlashingProtectionDB) =
   ## Close a slashing protection database
@@ -163,77 +163,9 @@ proc close*(db: SlashingProtectionDB) =
 # DB Queries
 # --------------------------------------------
 
-proc useV1(db: SlashingProtectionDB): bool =
-  kCompleteArchiveV1 in db.modes
-
-proc useV2(db: SlashingProtectionDB): bool =
-  kCompleteArchiveV2 in db.modes or
-    kLowWatermarkV2 in db.modes
-
-template queryVersions(
-          db: SlashingProtectionDB,
-          queryExpr: untyped
-         ): auto =
-  ## Query multiple DB versions
-  ## Query should be in the form
-  ## myQuery(db_version, args...)
-  ##
-  ## Resolve conflicts according to
-  ## `db.disagreementBehavior`
-  ##
-  ## For example
-  ## checkSlashableBlockProposal(db_version, validator, slot)
-  ##
-  ## db_version will be replaced by db_v1 and db_v2 accordingly
-  type T = typeof(block:
-    template db_version: untyped = db.db_v1
-    queryExpr
-  )
-
-  var res1, res2: T
-  let useV1 = db.useV1()
-  let useV2 = db.useV2()
-
-  if useV1:
-    template db_version: untyped = db.db_v1
-    res1 = queryExpr
-  if useV2:
-    template db_version: untyped = db.db_v2
-    res2 = queryExpr
-
-  if useV1 and useV2:
-    if res1 == res2:
-      res1
-    else:
-      # TODO: Chronicles doesn't work with astToStr.
-      const queryStr = astToStr(queryExpr)
-      case db.disagreementBehavior
-      of kCrash:
-        fatal "Slashing protection DB has an internal error",
-          query = queryStr,
-          dbV1_result = res1,
-          dbV2_result = res2
-        doAssert false, "Slashing DB internal error"
-        res1 # For proper type deduction
-      of kChooseV1:
-        error "Slashing protection DB has an internal error, using v1 result",
-          query = queryStr,
-          dbV1_result = res1,
-          dbV2_result = res2
-        res1
-      of kChooseV2:
-        error "Slashing protection DB has an internal error, using v2 result",
-          query = queryStr,
-          dbV1_result = res1,
-          dbV2_result = res2
-        res2
-  elif useV1:
-    res1
-  else:
-    res2
-
 proc checkSlashableBlockProposal*(
        db: SlashingProtectionDB,
+       index: ValidatorIndex,
        validator: ValidatorPubKey,
        slot: Slot
      ): Result[void, BadProposal] =
@@ -243,12 +175,11 @@ proc checkSlashableBlockProposal*(
   ## The error contains the blockroot that was already proposed
   ##
   ## Returns success otherwise
-  db.queryVersions(
-    checkSlashableBlockProposal(db_version, validator, slot)
-  )
+  checkSlashableBlockProposal(db.db_v2, some(index), validator, slot)
 
 proc checkSlashableAttestation*(
        db: SlashingProtectionDB,
+       index: ValidatorIndex,
        validator: ValidatorPubKey,
        source: Epoch,
        target: Epoch
@@ -259,65 +190,36 @@ proc checkSlashableAttestation*(
   ## (surrounding vote or surrounded vote).
   ##
   ## Returns success otherwise
-  db.queryVersions(
-    checkSlashableAttestation(db_version, validator, source, target)
-  )
+  checkSlashableAttestation(db.db_v2, some(index), validator, source, target)
 
-# DB Updates
+# DB Updates - only v2 supported here
 # --------------------------------------------
-
-template updateVersions(
-          db: SlashingProtectionDB,
-          query: untyped
-         ) {.dirty.} =
-  ## Update multiple DB versions
-  ## Query should be in the form
-  ## myQuery(db_version, args...)
-  ##
-  ## Resolve conflicts according to
-  ## `db.disagreementBehavior`
-  ##
-  ## For example
-  ## registerBlock(db_version, validator, slot, block_root)
-  ##
-  ## db_version will be replaced by db_v1 and db_v2 accordingly
-
-  if db.useV1():
-    template db_version: untyped = db.db_v1
-    query
-  if db.useV2():
-    template db_version: untyped = db.db_v2
-    query
 
 proc registerBlock*(
        db: SlashingProtectionDB,
+       index: ValidatorIndex,
        validator: ValidatorPubKey,
-       slot: Slot, block_signing_root: Eth2Digest) =
-  ## Add a block to the slashing protection DB
-  ## `checkSlashableBlockProposal` MUST be run
-  ## before to ensure no overwrite.
+       slot: Slot, block_signing_root: Eth2Digest): Result[void, BadProposal] =
+  ## Add a block to the slashing protection DB - the registration will
+  ## fail if it would violate a slashing protection rule.
   ##
   ## block_signing_root is the output of
   ## compute_signing_root(block, domain)
-  db.updateVersions(
-    registerBlock(db_version, validator, slot, block_signing_root)
-  )
+  registerBlock(db.db_v2, some(index), validator, slot, block_signing_root)
 
 proc registerAttestation*(
        db: SlashingProtectionDB,
+       index: ValidatorIndex,
        validator: ValidatorPubKey,
        source, target: Epoch,
-       attestation_signing_root: Eth2Digest) =
-  ## Add an attestation to the slashing protection DB
-  ## `checkSlashableAttestation` MUST be run
-  ## before to ensure no overwrite.
+       attestation_signing_root: Eth2Digest): Result[void, BadVote] =
+  ## Add an attestation to the slashing protection DB - the registration will
+  ## fail if it would violate a slashing protection rule.
   ##
   ## attestation_signing_root is the output of
   ## compute_signing_root(attestation, domain)
-  db.updateVersions(
-    registerAttestation(db_version, validator,
-        source, target, attestation_signing_root)
-  )
+  registerAttestation(db.db_v2, some(index), validator,
+      source, target, attestation_signing_root)
 
 # DB maintenance
 # --------------------------------------------
@@ -356,50 +258,19 @@ proc pruneAfterFinalization*(
        db: SlashingProtectionDB,
        finalizedEpoch: Epoch
      ) =
-  # TODO
-  # call sqlPruneAfterFinalizationBlocks
-  # and sqlPruneAfterFinalizationAttestations
-  # and test that wherever pruning happens, tests still pass
-  # and/or devise new tests
+  ## Prune blocks and attestations after a specified `finalizedEpoch`
+  ## The block with the highest slot
+  ## and the attestation(s) with the highest source and target epochs
+  ## are never pruned.
+  ##
+  ## This ensures that even if pruning is called with an incorrect epoch
+  ## slashing protection can fallback to the minimal / high-watermark protection mode.
+  ##
+  ## Pruning is only done if pruning is enabled (DB in kLowWatermarkV2 mode)
+  ## Pruning is only triggered on v2 database.
 
-  # {.error: "NotImplementedError".}
-  fatal "Pruning is not implemented"
-  quit 1
-
-# Interchange
-# --------------------------------------------
-
-proc toSPDIR*(db: SlashingProtectionDB): SPDIR
-             {.raises: [IOError, Defect].} =
-  ## Assumes that if the db uses both v1 and v2
-  ## the v2 has the latest information and includes the v1 DB
-  if db.useV2():
-    return db.db_v2.toSPDIR()
-  else:
-    doAssert db.useV1()
-    return db.db_v1.toSPDIR()
-
-proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): SlashingImportStatus
-             {.raises: [SerializationError, IOError, Defect].} =
-  let useV1 = db.useV1()
-  let useV2 = db.useV2()
-
-  if useV2 and useV1:
-    let resultV2 = db.db_v2.inclSPDIR(spdir)
-    let resultV1 = db.db_v1.inclSPDIR(spdir)
-    if resultV1 == resultV2:
-      return resultV2
-    else:
-      error "The legacy and new slashing protection DB have imported the file with different level of success",
-        resultV1 = resultV1,
-        resultV2 = resultV2
-      return resultV2
-
-  if useV2 and not useV1:
-    return db.db_v2.inclSPDIR(spdir)
-  else:
-    doAssert useV1
-    return db.db_v1.inclSPDIR(spdir)
+  if kLowWatermarkV2 in db.modes:
+    db.db_v2.pruneAfterFinalization(finalizedEpoch)
 
 # The high-level import/export functions are
 # - importSlashingInterchange
@@ -409,7 +280,10 @@ proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): SlashingImportStatus
 # That builds on a DB backend inclSPDIR and toSPDIR
 # SPDIR being a common Intermediate Representation
 
-# Sanity check
-# --------------------------------------------------------------
+proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): SlashingImportStatus
+             {.raises: [SerializationError, IOError, Defect].} =
+  db.db_v2.inclSPDIR(spdir)
 
-static: doAssert SlashingProtectionDB is SlashingProtectionDB_Concept
+proc toSPDIR*(db: SlashingProtectionDB): SPDIR
+             {.raises: [IOError, Defect].} =
+  db.db_v2.toSPDIR()

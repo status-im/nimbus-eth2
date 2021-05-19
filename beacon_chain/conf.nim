@@ -70,10 +70,6 @@ type
     v2
     both
 
-  StateDbKind* {.pure.} = enum
-    sql
-    file
-
   BeaconNodeConf* = object
     logLevel* {.
       defaultValue: "INFO"
@@ -107,7 +103,7 @@ type
       name: "wallets-dir" }: Option[InputDir]
 
     web3Urls* {.
-      desc: "One of more Web3 provider URLs used for obtaining deposit contract data"
+      desc: "One or more Web3 provider URLs used for obtaining deposit contract data"
       name: "web3-url" }: seq[string]
 
     web3Mode* {.
@@ -145,14 +141,8 @@ type
     slashingDbKind* {.
       hidden
       defaultValue: SlashingDbKind.v2
-      desc: "The slashing DB flavour to use (v1, v2 or both) [=both]"
+      desc: "The slashing DB flavour to use (v2) [=v2]"
       name: "slashing-db-kind" }: SlashingDbKind
-
-    stateDbKind* {.
-      hidden
-      defaultValue: StateDbKind.sql
-      desc: "State DB kind (sql, file) [=sql]"
-      name: "state-db-kind" }: StateDbKind
 
     case cmd* {.
       command

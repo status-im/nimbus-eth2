@@ -12,25 +12,29 @@ import
 
 proc processSlotsUntilEndCurrentEpoch(state: var HashedBeaconState) =
   # Process all slots until the end of the last slot of the current epoch
-  var cache = StateCache()
+  var
+    cache = StateCache()
+    rewards = RewardInfo()
   let slot =
     state.data.slot + SLOTS_PER_EPOCH - (state.data.slot mod SLOTS_PER_EPOCH)
 
   # Transition to slot before the epoch state transition
-  discard process_slots(state, slot - 1, cache)
+  discard process_slots(state, slot - 1, cache, rewards)
 
   # For the last slot of the epoch,
   # only process_slot without process_epoch
-  # (see process_slots())
-  process_slot(state)
+  # (see process_slots()) - state.root is invalid after here!
+  process_slot(state.data, state.root)
 
 proc transitionEpochUntilJustificationFinalization*(state: var HashedBeaconState) =
   # Process slots and do the epoch transition until crosslinks
   processSlotsUntilEndCurrentEpoch(state)
 
-  var cache = StateCache()
+  var
+    cache = StateCache()
+    rewards = RewardInfo()
 
-  var validator_statuses = ValidatorStatuses.init(state.data)
-  validator_statuses.process_attestations(state.data, cache)
+  rewards.init(state.data)
+  rewards.process_attestations(state.data, cache)
   process_justification_and_finalization(
-    state.data, validator_statuses.total_balances)
+    state.data, rewards.total_balances)
