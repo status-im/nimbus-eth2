@@ -4,6 +4,7 @@
 - [System requirements](./hardware.md)
 - [Run just the beacon node (quickstart)](./quick-start.md)
 - [Run a validator]()
+- [Mainnet checklist](./preparation.md)
 
 # How-to (beacon node)
 - [Install dependencies](./install.md)
@@ -22,7 +23,6 @@
 - [Add an additional validator](./additional-validator.md)
 
 # How-to (misc)
-- [Prepare for mainnet](./preparation.md)
 - [Run an eth1 node](./eth1.md)
 - [Set up a systemd service](./beacon-node-systemd.md)
 - [Set up log rotation](./log-rotate.md)
