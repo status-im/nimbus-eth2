@@ -170,24 +170,28 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#docker-images" id="docker-images">Docker images</a></h1>
-<p>Docker images for end-users are generated and published automatically <a href="https://hub.docker.com/r/statusim/nimbus-eth2">to Docker Hub</a> from the Nimbus-eth2 CI, by a GitHub action, whenever a new release is tagged in Git.</p>
+<p>Docker images for end-users are generated and published automatically to <a href="https://hub.docker.com/r/statusim/nimbus-eth2">Docker Hub</a> from the Nimbus-eth2 CI, by a GitHub action, whenever a new release is tagged in Git.</p>
 <p>We have version-specific Docker tags (<code>statusim/nimbus-eth2:amd64-v1.2.3</code>) and a tag for the latest image (<code>statusim/nimbus-eth2:amd64-latest</code>).</p>
-<p>These images are simply the contents of <a href="./binaries.html">release tarballs</a> inside a &quot;debian:bullseye-slim&quot; image, running under a user imaginatively named &quot;user&quot;, with UID:GID of 1000:1000.</p>
-<p>The unpacked archive is in &quot;/home/user/nimbus-eth2&quot; which is also the default <em>WORKDIR</em>. The default <em>ENTRYPOINT</em> is the binary itself: &quot;/home/user/nimbus-eth2/build/nimbus_beacon_node&quot;.</p>
+<p>These images are simply the contents of <a href="./binaries.html">release tarballs</a> inside a <code>debian:bullseye-slim</code> image, running under a user imaginatively named <code>user</code>, with UID:GID of 1000:1000.</p>
+<p>The unpacked archive is in <code>/home/user/nimbus-eth2</code> which is also the default <em>WORKDIR</em>. The default <em>ENTRYPOINT</em> is the binary itself: <code>/home/user/nimbus-eth2/build/nimbus\_beacon\_node</code></p>
 <h2><a class="header" href="#usage" id="usage">Usage</a></h2>
-<p>You need to create an external data directory and mount it as a volume inside the container, with the mounting point being &quot;/home/user/nimbus-eth2/build/data&quot;.</p>
+<p>You need to create an external data directory and mount it as a volume inside the container, with  mounting point: <code>/home/user/nimbus-eth2/build/data</code></p>
 <pre><code class="language-text">mkdir data
 docker run -it --rm -v ${PWD}/data:/home/user/nimbus-eth2/build/data statusim/nimbus-eth2:amd64-latest [nimbus_beacon_node args here]
 </code></pre>
-<p>Or you can use a wrapper script instead:</p>
+<h3><a class="header" href="#wrapper-script" id="wrapper-script">Wrapper script</a></h3>
+<p>If you wish, you can choose to use a wrapper script instead:</p>
 <pre><code class="language-text">mkdir data
 docker run -it --rm -v ${PWD}/data:/home/user/nimbus-eth2/build/data -e WEB3_URL=&quot;wss://mainnet.infura.io/ws/v3/YOUR_TOKEN&quot; --entrypoint /home/user/nimbus-eth2/run-mainnet-beacon-node.sh statusim/nimbus-eth2:amd64-latest [nimbus_beacon_node args here]
 </code></pre>
-<p>Better yet, use <code>docker-compose</code>, with one of the <a href="https://github.com/status-im/nimbus-eth2/tree/stable/docker/dist/binaries">example configuration files</a> as a base for your custom configuration:</p>
+<h3><a class="header" href="#docker-compose" id="docker-compose">Docker compose</a></h3>
+<p>Our preferred setup is using <code>docker-compose</code>. You can use one of our <a href="https://github.com/status-im/nimbus-eth2/tree/stable/docker/dist/binaries">example configuration files</a> as a base for your own custom configuration:</p>
 <pre><code class="language-text">mkdir data
 docker-compose -f docker-compose-example1.yml up --quiet-pull --no-color --detach
 </code></pre>
-<p>The rather voluminous logging is done on stdout, so you might want to change the system-wide Docker logging defaults (dumping everything in &quot;/var/lib/docker/containers/CONTAINER_ID/CONTAINER_ID-json.log&quot;) to something like &quot;syslog&quot;. Make sure there's some log rotation system in use and the intervals make sense for these large logs.</p>
+<blockquote>
+<p><strong>Note:</strong> The rather voluminous logging is done on <code>stdout</code>, so you might want to change the system-wide Docker logging defaults (which dumps everything in <code>/var/lib/docker/containers/CONTAINER_ID/CONTAINER_ID-json.log</code>) to something like <code>syslog</code>. We recommend using a log rotation system with appropriate intervals for logs of this size.</p>
+</blockquote>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/docker.md">Edit this file on GitHub.</a></footer>
                     </main>
 
