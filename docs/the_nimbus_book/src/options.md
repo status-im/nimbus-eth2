@@ -1,5 +1,7 @@
 # Command line options
 
+> ⚠️  If you want to add your own options, remember that the format is `--foo=bar`, `--baz`, or `--foo-bar=qux`
+
 You can pass any `nimbus_beacon_node` options to the `pyrmont` and `mainnet` scripts. For example, if you wanted to launch Nimbus on mainnet with different base ports than the default `9000/udp` and `9000/tcp`, say `9100/udp` and `9100/tcp`, you would run:
 
 ```

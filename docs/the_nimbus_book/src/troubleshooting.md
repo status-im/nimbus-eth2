@@ -50,6 +50,11 @@ If you're experiencing a low peer count, you may be behind a firewall. Try resta
 ```
 ./run-pyrmont-beacon-node.sh --nat:extip:35.124.65.104
 ```
+### noCommand does not accept arguments
+
+If, on start,  you see
+```The command 'noCommand' does not accept arguments```
+Double check to see if your command line flags are in the correct format, i.e. `--foo=bar`, `--baz`, or `--foo-bar=qux`.
 
 ### Address already in use error
 
@@ -91,6 +96,7 @@ The first line in the output will give you internet time. And the second line wi
 
 ### Eth1 chain monitor failure
 
+
 If you see an error that looks like the following:
 
 ```
@@ -104,6 +110,4 @@ It's because your node can't connect to the web3 provider you have specified. Pl
 ### Trouble transferring data to/from USB3.0 SSDs
 
 We have seen reports of extremely degraded performance when using several types of USB3.0 to SSD adapter or when using native USB3.0 disk drives. [This post](https://www.raspberrypi.org/forums/viewtopic.php?t=245931#p1501426) details why there is a difference in behaviour from models prior to Pi 4 and the recommended workaround.
-
-
 
