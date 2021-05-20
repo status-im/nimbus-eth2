@@ -80,12 +80,6 @@ type
     # migrateAll = "Export and remove the whole validator slashing protection DB."
     # migrate = "Export and remove specified validators from Nimbus."
 
-  SlashProtCmd* = enum
-    `import` = "Import a EIP-3076 slashing protection interchange file"
-    `export` = "Export a EIP-3076 slashing protection interchange file"
-    # migrateAll = "Export and remove the whole validator slashing protection DB."
-    # migrate = "Export and remove specified validators from Nimbus."
-
   BeaconNodeConf* = object
     logLevel* {.
       desc: "Sets the log level for process and topics (e.g. \"DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none\")"
