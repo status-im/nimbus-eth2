@@ -1,7 +1,7 @@
 name: Daily
 on:
   schedule:
-    - cron: "55 15 * * *"
+    - cron: "25 16 * * *"
 
 jobs:
   build:
@@ -171,7 +171,7 @@ jobs:
       - name: Get the Ethereum Foundation fixtures
         shell: bash
         run: |
-          scripts/setup_official_tests.sh fixturesCache
+          V=1 scripts/setup_official_tests.sh fixturesCache
 
       - name: Build Nim and Nimbus dependencies
         shell: bash
