@@ -907,6 +907,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   )
   router.redirect(
     MethodPost,
+    "/eth/v1/beacon/pool/attestations",
+    "/api/eth/v1/beacon/pool/attestations"
+  )
+  router.redirect(
+    MethodPost,
     "/eth/v1/beacon/pool/attester_slashings",
     "/api/eth/v1/beacon/pool/attester_slashings"
   )
