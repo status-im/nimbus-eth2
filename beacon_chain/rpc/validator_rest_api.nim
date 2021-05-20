@@ -19,26 +19,26 @@ import
 logScope: topics = "rest_validatorapi"
 
 type
-  RestAttesterDutyTuple* = tuple
-    pubkey: ValidatorPubKey
-    validator_index: ValidatorIndex
-    committee_index: CommitteeIndex
-    committee_length: uint64
-    committees_at_slot: uint64
-    validator_committee_index: ValidatorIndex
-    slot: Slot
+  RestAttesterDuty* = object
+    pubkey*: ValidatorPubKey
+    validator_index*: ValidatorIndex
+    committee_index*: CommitteeIndex
+    committee_length*: uint64
+    committees_at_slot*: uint64
+    validator_committee_index*: ValidatorIndex
+    slot*: Slot
 
-  RestProposerDutyTuple* = tuple
-    pubkey: ValidatorPubKey
-    validator_index: ValidatorIndex
-    slot: Slot
+  RestProposerDuty* = object
+    pubkey*: ValidatorPubKey
+    validator_index*: ValidatorIndex
+    slot*: Slot
 
-  RestCommitteeSubscriptionTuple* = tuple
-    validator_index: ValidatorIndex
-    committee_index: CommitteeIndex
-    committees_at_slot: uint64
-    slot: Slot
-    is_aggregator: bool
+  RestCommitteeSubscription* = object
+    validator_index*: ValidatorIndex
+    committee_index*: CommitteeIndex
+    committees_at_slot*: uint64
+    slot*: Slot
+    is_aggregator*: bool
 
 proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/eth2.0-APIs/#/Validator/getAttesterDuties
@@ -92,7 +92,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         node.chainDag.genesis.root
     let duties =
       block:
-        var res: seq[RestAttesterDutyTuple]
+        var res: seq[RestAttesterDuty]
         let epochRef = node.chainDag.getEpochRef(qhead, qepoch)
         let committees_per_slot = get_committee_count_per_slot(epochRef)
         for i in 0 ..< SLOTS_PER_EPOCH:
@@ -106,7 +106,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 let validator_key = epochRef.validator_keys[validator_index]
                 if validator_index in indexList:
                   res.add(
-                    (
+                    RestAttesterDuty(
                       pubkey: validator_key,
                       validator_index: validator_index,
                       committee_index: CommitteeIndex(committee_index),
@@ -145,7 +145,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         node.chainDag.genesis.root
     let duties =
       block:
-        var res: seq[RestProposerDutyTuple]
+        var res: seq[RestProposerDuty]
         let epochRef = node.chainDag.getEpochRef(qhead, qepoch)
         # Fix for https://github.com/status-im/nimbus-eth2/issues/2488
         # Slot(0) at Epoch(0) do not have a proposer.
@@ -154,7 +154,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           if epochRef.beacon_proposers[i].isSome():
             let proposer = epochRef.beacon_proposers[i].get()
             res.add(
-              (
+              RestProposerDuty(
                 pubkey: proposer[1],
                 validator_index: proposer[0],
                 slot: compute_start_slot_at_epoch(qepoch) + i
@@ -321,7 +321,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         if contentBody.isNone():
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-        let dres = decodeBody(seq[RestCommitteeSubscriptionTuple],
+        let dres = decodeBody(seq[RestCommitteeSubscription],
                               contentBody.get())
         if dres.isErr():
           return RestApiResponse.jsonError(Http400,
