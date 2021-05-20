@@ -1,7 +1,7 @@
 name: Daily
 on:
   schedule:
-    - cron: "40 17 * * *"
+    - cron: "10 20 * * *"
 
 jobs:
   build:
@@ -151,6 +151,11 @@ jobs:
           brew install gnu-getopt
           brew link --force gnu-getopt
 
+      - name: Build Nim and Nimbus dependencies
+        shell: bash
+        run: |
+          make -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
+
       - name: Get latest fixtures commit hash
         id: fixtures_version
         shell: bash
@@ -171,12 +176,7 @@ jobs:
       - name: Get the Ethereum Foundation fixtures
         shell: bash
         run: |
-          V=1 scripts/setup_official_tests.sh fixturesCache
-
-      - name: Build Nim and Nimbus dependencies
-        shell: bash
-        run: |
-          make -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
+          scripts/setup_official_tests.sh fixturesCache
 
       - name: Smoke test the Beacon Node and Validator Client with all tracing enabled
         shell: bash
