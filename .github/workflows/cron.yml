@@ -1,7 +1,7 @@
 name: Daily
 on:
   schedule:
-    - cron: "40 16 * * *"
+    - cron: "40 17 * * *"
 
 jobs:
   build:
