@@ -91,7 +91,6 @@ proc init*(
 
   if requiresMigration:
     var db_v1: SlashingProtectionDB_v1
-
     let rawdb = kvstore result.db_v2.getRawDBHandle().openKvStore().get()
     if not rawdb.checkOrPutGenesis_DbV1(genesis_validators_root):
       fatal "The slashing database refers to another chain/mainnet/testnet",
