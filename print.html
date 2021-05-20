@@ -571,7 +571,7 @@ NOT 2020-11-18 11:20:02.091+01:00 Local validator attached
 <p>⚠️  If you wish to generate another validator key,  you must take great care
 to not generate a copy of your original key. Running the same key on two different validator clients will likely get you slashed.</p>
 </blockquote>
-<p><em><strong>N.B.</strong> the commands below assume you already have one key and wish to generate a second, hence <code>--validator_start_index</code> has been set to <code>0</code>.</em></p>
+<p><em><strong>N.B.</strong> the commands below assume you already have one key and wish to generate a second, hence <code>--validator_start_index</code> has been set to <code>1</code> (as <code>0</code> would be the original key).</em></p>
 <p>Run the following command from the directory which contains the <code>deposit</code> executable:</p>
 <p><strong>Pyrmont</strong></p>
 <pre><code>./deposit existing-mnemonic --validator_start_index 1 --num_validators 1 --chain pyrmont
