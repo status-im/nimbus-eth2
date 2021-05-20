@@ -2,8 +2,8 @@
 # set -Eeuo pipefail
 # https://github.com/prysmaticlabs/bazel-go-ethereum/blob/catalyst/run-catalyst.sh
 
-# To increase verbosity: debug.verbosity(5) or debug.verbosity(6)
-# MetaMask seed phrase for account with balance is
+# To increase verbosity: debug.verbosity(4)
+# MetaMask seed phrase for account with balance is:
 # lecture manual soon title cloth uncle gesture cereal common fruit tooth crater
 
 echo \{ \

@@ -12,7 +12,7 @@ import
   std/[os, osproc, sequtils, streams, tables],
 
   # Nimble packages
-  stew/[assign2, objects],
+  stew/[assign2, byteutils, objects],
   chronos, metrics,
   chronicles,
   json_serialization/std/[options, sets, net], serialization/errors,
@@ -266,12 +266,31 @@ proc getBlockProposalEth1Data*(node: BeaconNode,
       stateData.data.data, finalizedEpochRef.eth1_data,
       finalizedEpochRef.eth1_deposit_index)
 
+func getOpaqueTransaction(s: string): OpaqueTransaction =
+  try:
+    # Effectively an internal logic error in the Eth1/Eth2 client system, as
+    # it's not possible to just omit a malformatted transaction: it would be
+    # the wrong ExecutionPayload blockHash overall, and rejected by newBlock
+    # when one attempted to reinsert it into Geth (which, while not all Eth2
+    # clients might connect to, some will). It's also not possible to skip a
+    # whole ExecutionPayload being that it's an integral part of BeaconBlock
+    # construction. So not much better to do than bail if an incoming string
+    # representation of the OpaqueTransaction is invalid. init() could catch
+    # this, but it'd make its interface clumsier in a way it doesn't .add().
+    let opaqueTransactionSeq = hexToSeqByte(s)
+    if opaqueTransactionSeq.len > MAX_BYTES_PER_OPAQUE_TRANSACTION:
+      raiseAssert "Execution engine returned too-long opaque transaction"
+    OpaqueTransaction(List[byte, MAX_BYTES_PER_OPAQUE_TRANSACTION].init(
+      opaqueTransactionSeq))
+  except ValueError:
+    raiseAssert "Execution engine returned invalidly formatted transaction"
+
 proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     randao_reveal: ValidatorSig,
                                     validator_index: ValidatorIndex,
                                     graffiti: GraffitiBytes,
                                     head: BlockRef,
-                                    slot: Slot): Option[BeaconBlock] =
+                                    slot: Slot): Future[Option[BeaconBlock]] {.async.} =
   # Advance state to the slot that we're proposing for
 
   let
@@ -294,7 +313,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       doAssert v.addr == addr proposalStateAddr.data
       assign(proposalStateAddr[], poolPtr.headState)
 
-    makeBeaconBlock(
+    return makeBeaconBlock(
       node.runtimePreset,
       hashedState,
       validator_index,
@@ -307,6 +326,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       node.exitPool[].getProposerSlashingsForBlock(),
       node.exitPool[].getAttesterSlashingsForBlock(),
       node.exitPool[].getVoluntaryExitsForBlock(),
+      default(ExecutionPayload),
       restore,
       cache)
 
@@ -363,7 +383,7 @@ proc proposeBlock(node: BeaconNode,
       getStateField(node.chainDag.headState, genesis_validators_root)
     randao = await validator.genRandaoReveal(
       fork, genesis_validators_root, slot)
-    message = makeBeaconBlockForHeadAndSlot(
+    message = await makeBeaconBlockForHeadAndSlot(
       node, randao, validator_index, node.graffitiBytes, head, slot)
 
   if not message.isSome():

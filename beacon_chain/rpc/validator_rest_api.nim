@@ -220,7 +220,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let proposer = node.chainDag.getProposer(qhead, qslot)
         if proposer.isNone():
           return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
-        let res = makeBeaconBlockForHeadAndSlot(
+        let res = await makeBeaconBlockForHeadAndSlot(
           node, qrandao, proposer.get()[0], qgraffiti, qhead, qslot)
         if res.isNone():
           return RestApiResponse.jsonError(Http400, BlockProduceError)

@@ -30,13 +30,11 @@ const
   EVM_BLOCK_ROOTS_SIZE* = 8
 
 type
-  # https://github.com/ethereum/eth2.0-specs/blob/eca6bd7d622a0cfb7343bff742da046ed25b3825/specs/merge/beacon-chain.md#custom-types
-  # TODO is this maneuver sizeof()/memcpy()/SSZ-equivalent? Pretty sure, but not 100% certain
-  OpaqueTransaction* = object
-    data*: List[byte, MAX_BYTES_PER_OPAQUE_TRANSACTION]
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/merge/beacon-chain.md#custom-types
+  OpaqueTransaction* = List[byte, Limit MAX_BYTES_PER_OPAQUE_TRANSACTION]
 
   EthAddress* = object
-    data*: array[20, byte]  # TODO there's a network_metadata type, but the import hierarchy's inconvenient without splitting out aspects of this module
+    data*: array[20, byte]  # TODO there's a network_metadata type, but the import hierarchy's inconvenient
 
   BloomLogs* = object
     data*: array[BYTES_PER_LOGS_BLOOM, byte]
@@ -54,6 +52,20 @@ type
     receipt_root*: Eth2Digest
     logs_bloom*: BloomLogs
     transactions*: List[OpaqueTransaction, MAX_EXECUTION_TRANSACTIONS]
+
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/merge/beacon-chain.md#executionpayloadheader
+  ExecutionPayloadHeader* = object
+    block_hash*: Eth2Digest  # Hash of execution block
+    parent_hash*: Eth2Digest
+    coinbase*: EthAddress
+    state_root*: Eth2Digest
+    number*: uint64
+    gas_limit*: uint64
+    gas_used*: uint64
+    timestamp*: uint64
+    receipt_root*: Eth2Digest
+    logs_bloom*: BloomLogs
+    transactions_root*: Eth2Digest
 
   # Empirically derived from Catalyst responses; doesn't seem to match merge
   # spec per commit 1fb9a6dd32b581c912d672634882d7e2eb2775cd from 2021-04-22
@@ -80,6 +92,9 @@ type
 
   BoolReturnSuccessRPC* = object
     success*: bool
+
+func encodeQuantityHex*(x: auto): string =
+  "0x" & x.toHex
 
 proc fromHex*(T: typedesc[BloomLogs], s: string): T =
   hexToBytes(s, result.data)
