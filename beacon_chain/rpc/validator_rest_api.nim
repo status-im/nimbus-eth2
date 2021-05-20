@@ -87,15 +87,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
     let droot =
       if qepoch >= Epoch(2):
-        let bref = node.chainDag.getBlockByPreciseSlot(
-          compute_start_slot_at_epoch(qepoch - 1) - 1
-        )
-        if isNil(bref):
-          if not(node.isSynced(node.chainDag.head)):
-            return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-          else:
-            return RestApiResponse.jsonError(Http400, BlockNotFoundError)
-        bref.root
+        qhead.atSlot(compute_start_slot_at_epoch(qepoch - 1) - 1).blck.root
       else:
         node.chainDag.genesis.root
     let duties =
@@ -148,10 +140,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
     let droot =
       if qepoch >= Epoch(2):
-        let bref = node.chainDag.getBlockBySlot(
-          compute_start_slot_at_epoch(qepoch - 1) - 1
-        )
-        bref.root
+        qhead.atSlot(compute_start_slot_at_epoch(qepoch - 1) - 1).blck.root
       else:
         node.chainDag.genesis.root
     let duties =
