@@ -288,26 +288,28 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/eth2.0-APIs/#/Validator/publishAggregateAndProofs
   router.api(MethodPost, "/api/eth/v1/validator/aggregate_and_proofs") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
-    let payload =
+    let proofs =
       block:
         if contentBody.isNone():
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-        let dres = decodeBody(SignedAggregateAndProof, contentBody.get())
+        let dres = decodeBody(seq[SignedAggregateAndProof], contentBody.get())
         if dres.isErr():
           return RestApiResponse.jsonError(Http400,
                                            InvalidAggregateAndProofObjectError,
                                            $dres.error())
         dres.get()
 
-    let wallTime = node.processor.getWallTime()
-    let res = await node.attestationPool.validateAggregate(
-      node.processor.batchCrypto, payload, wallTime
-    )
-    if res.isErr():
-      return RestApiResponse.jsonError(Http400,
-                                       AggregateAndProofValidationError,
-                                       $res.error())
-    node.network.broadcast(node.topicAggregateAndProofs, payload)
+    for item in proofs:
+      let wallTime = node.processor.getWallTime()
+      let res = await node.attestationPool.validateAggregate(
+        node.processor.batchCrypto, item, wallTime
+      )
+      if res.isErr():
+        return RestApiResponse.jsonError(Http400,
+                                         AggregateAndProofValidationError,
+                                         $res.error())
+      node.network.broadcast(node.topicAggregateAndProofs, item)
+
     return RestApiResponse.jsonError(Http200,
                                      AggregateAndProofValidationSuccess)
 
