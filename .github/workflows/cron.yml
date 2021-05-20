@@ -1,7 +1,7 @@
 name: Daily
 on:
   schedule:
-    - cron: "45 3 * * *"
+    - cron: "55 15 * * *"
 
 jobs:
   build:
@@ -41,7 +41,7 @@ jobs:
 
     name: '${{ matrix.target.os }}-${{ matrix.target.cpu }} (Nim ${{ matrix.branch }})'
     runs-on: ${{ matrix.builder }}
-    continue-on-error: ${{ matrix.branch }} == 'devel'
+    continue-on-error: ${{ matrix.branch == 'devel' }}
     steps:
       - name: Checkout nimbus-eth2
         uses: actions/checkout@v2
