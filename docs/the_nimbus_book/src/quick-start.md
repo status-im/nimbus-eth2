@@ -52,14 +52,20 @@ make nimbus_beacon_node
 
 *Patience... this may take a few minutes.*
 
-## 4. Connect to mainnet
+## 4. Connect to the network
 
 To connect to mainnet, run:
 ```
 ./run-mainnet-beacon-node.sh
 ```
 
-You'll be prompted to enter a web3-provider url:
+To connect to the testnet , run:
+
+```
+./run-prater-beacon-node.sh
+```
+
+In both case you'll be prompted to enter a web3-provider url:
 
 ```
 To monitor the Eth1 validator deposit contract, you'll need to pair
