@@ -15,4 +15,5 @@ Note that in order to process incoming validator deposits from the eth1 chain, y
 
 For example, you'll need at least another **290GB SSD** to run [geth fast sync](/eth1.md) on mainnet.
 
+To future proof your setup we recommend a **1TB SSD**.
 
