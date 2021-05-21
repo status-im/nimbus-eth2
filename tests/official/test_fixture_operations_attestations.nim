@@ -34,7 +34,7 @@ proc runTest(identifier: string) =
   proc `testImpl _ operations_attestations _ identifier`() =
 
     var prefix: string
-    if existsFile(testDir/"post.ssz"):
+    if existsFile(testDir/"post.ssz_snappy"):
       prefix = "[Valid]   "
     else:
       prefix = "[Invalid] "
@@ -42,11 +42,14 @@ proc runTest(identifier: string) =
     test prefix & identifier:
       var cache = StateCache()
 
-      let attestation = parseTest(testDir/"attestation.ssz", SSZ, Attestation)
-      var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
+      let attestation =
+        parseTest(testDir/"attestation.ssz_snappy", SSZ, Attestation)
+      var preState =
+        newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
 
-      if existsFile(testDir/"post.ssz"):
-        let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
+      if existsFile(testDir/"post.ssz_snappy"):
+        let postState =
+          newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
         let done = process_attestation(preState[], attestation, {}, cache).isOk
         doAssert done, "Valid attestation not processed"
         check: preState[].hash_tree_root() == postState[].hash_tree_root()

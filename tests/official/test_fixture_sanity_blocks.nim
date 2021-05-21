@@ -31,12 +31,12 @@ proc runTest(testName, testDir, unitTestName: string) =
 
   proc `testImpl _ blck _ testName`() =
     let
-      hasPostState = existsFile(testPath/"post.ssz")
+      hasPostState = existsFile(testPath/"post.ssz_snappy")
       prefix = if hasPostState: "[Valid]   " else: "[Invalid] "
 
     test prefix & testName & " - " & unitTestName & preset():
       var
-        preState = newClone(parseTest(testPath/"pre.ssz", SSZ, BeaconState))
+        preState = newClone(parseTest(testPath/"pre.ssz_snappy", SSZ, BeaconState))
         hashedPreState = (ref HashedBeaconState)(
           data: preState[], root: hash_tree_root(preState[]))
         cache = StateCache()
@@ -44,9 +44,9 @@ proc runTest(testName, testDir, unitTestName: string) =
 
       # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
       # so purely lexicographic sorting wouldn't sort properly.
-      let numBlocks = toSeq(walkPattern(testPath/"blocks_*.ssz")).len
+      let numBlocks = toSeq(walkPattern(testPath/"blocks_*.ssz_snappy")).len
       for i in 0 ..< numBlocks:
-        let blck = parseTest(testPath/"blocks_" & $i & ".ssz", SSZ, SignedBeaconBlock)
+        let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, SignedBeaconBlock)
 
         if hasPostState:
           let success = state_transition(
@@ -61,7 +61,7 @@ proc runTest(testName, testDir, unitTestName: string) =
             "We didn't expect these invalid blocks to be processed"
 
       if hasPostState:
-        let postState = newClone(parseTest(testPath/"post.ssz", SSZ, BeaconState))
+        let postState = newClone(parseTest(testPath/"post.ssz_snappy", SSZ, BeaconState))
         when false:
           reportDiff(hashedPreState.data, postState)
         doAssert hashedPreState.root == postState[].hash_tree_root()

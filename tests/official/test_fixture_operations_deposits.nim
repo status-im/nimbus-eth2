@@ -33,17 +33,19 @@ proc runTest(identifier: string) =
   proc `testImpl _ operations_deposits _ identifier`() =
 
     var prefix: string
-    if existsFile(testDir/"post.ssz"):
+    if existsFile(testDir/"post.ssz_snappy"):
       prefix = "[Valid]   "
     else:
       prefix = "[Invalid] "
 
     test prefix & " " & identifier:
-      let deposit = parseTest(testDir/"deposit.ssz", SSZ, Deposit)
-      var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
+      let deposit = parseTest(testDir/"deposit.ssz_snappy", SSZ, Deposit)
+      var preState =
+        newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
 
-      if existsFile(testDir/"post.ssz"):
-        let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
+      if existsFile(testDir/"post.ssz_snappy"):
+        let postState =
+          newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
         discard process_deposit(defaultRuntimePreset, preState[], deposit)
         reportDiff(preState, postState)
       else:

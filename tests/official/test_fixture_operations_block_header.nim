@@ -33,20 +33,23 @@ proc runTest(identifier: string) =
   proc `testImpl _ blockheader _ identifier`() =
 
     var prefix: string
-    if existsFile(testDir/"post.ssz"):
+    if existsFile(testDir/"post.ssz_snappy"):
       prefix = "[Valid]   "
     else:
       prefix = "[Invalid] "
 
     test prefix & identifier:
-      var cache = StateCache()
+      let blck = parseTest(testDir/"block.ssz_snappy", SSZ, BeaconBlock)
+      var
+        cache = StateCache()
+        preState =
+          newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
 
-      let blck = parseTest(testDir/"block.ssz", SSZ, BeaconBlock)
-      var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
-
-      if existsFile(testDir/"post.ssz"):
-        let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
-        let done = process_block_header(preState[], blck, {}, cache).isOk
+      if existsFile(testDir/"post.ssz_snappy"):
+        let
+          postState =
+            newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
+          done = process_block_header(preState[], blck, {}, cache).isOk
         doAssert done, "Valid block header not processed"
         check: preState[].hash_tree_root() == postState[].hash_tree_root()
         reportDiff(preState, postState)

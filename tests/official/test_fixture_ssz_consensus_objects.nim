@@ -14,6 +14,8 @@ import
   # Beacon chain internals
   ../../beacon_chain/spec/[crypto, datatypes, digest],
   ../../beacon_chain/ssz,
+  # Status libraries
+  snappy,
   # Test utilities
   ../testutil, ./fixtures_utils
 
@@ -45,7 +47,8 @@ type
 
 proc checkSSZ(T: type SignedBeaconBlock, dir: string, expectedHash: SSZHashTreeRoot) =
   # Deserialize into a ref object to not fill Nim stack
-  let encoded = readFileBytes(dir/"serialized.ssz")
+  let encoded = snappy.decode(
+    readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
   var deserialized = newClone(sszDecodeEntireInput(encoded, T))
 
   # SignedBeaconBlocks usually not hashed because they're identified by
@@ -62,7 +65,8 @@ proc checkSSZ(T: type SignedBeaconBlock, dir: string, expectedHash: SSZHashTreeR
 
 proc checkSSZ(T: type, dir: string, expectedHash: SSZHashTreeRoot) =
   # Deserialize into a ref object to not fill Nim stack
-  let encoded = readFileBytes(dir/"serialized.ssz")
+  let encoded = snappy.decode(
+    readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
   var deserialized = newClone(sszDecodeEntireInput(encoded, T))
 
   check: expectedHash.root == "0x" & toLowerASCII($hash_tree_root(deserialized[]))

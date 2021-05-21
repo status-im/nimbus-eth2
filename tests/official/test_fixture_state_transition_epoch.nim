@@ -29,8 +29,8 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
       let unitTestName = testDir.rsplit(DirSep, 1)[1]
       test testName & " - " & unitTestName & preset():
         # BeaconState objects are stored on the heap to avoid stack overflow
-        var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
-        let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
+        var preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
+        let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
 
         when useCache:
           var cache = StateCache()
@@ -66,5 +66,20 @@ runSuite(SlashingsDir, "Slashings",  process_slashings, useCache = false)
 # Final updates
 # ---------------------------------------------------------------
 
-const FinalUpdatesDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"final_updates"/"pyspec_tests"
-runSuite(FinalUpdatesDir, "Final updates",  process_final_updates, useCache = false)
+const Eth1DataResetDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"eth1_data_reset/"/"pyspec_tests"
+runSuite(Eth1DataResetDir, "Eth1 data reset", process_eth1_data_reset, useCache = false)
+
+const EffectiveBalanceUpdatesDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"effective_balance_updates"/"pyspec_tests"
+runSuite(EffectiveBalanceUpdatesDir, "Effective balance updates", process_effective_balance_updates, useCache = false)
+
+const SlashingsResetDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"slashings_reset"/"pyspec_tests"
+runSuite(SlashingsResetDir, "Slashings reset", process_slashings_reset, useCache = false)
+
+const RandaoMixesResetDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"randao_mixes_reset"/"pyspec_tests"
+runSuite(RandaoMixesResetDir, "RANDAO mixes reset", process_randao_mixes_reset, useCache = false)
+
+const HistoricalRootsUpdateDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"historical_roots_update"/"pyspec_tests"
+runSuite(HistoricalRootsUpdateDir, "Historical roots update", process_historical_roots_update, useCache = false)
+
+const ParticipationRecordsDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"/"participation_record_updates"/"pyspec_tests"
+runSuite(ParticipationRecordsDir, "Participation record updates", process_participation_record_updates, useCache = false)

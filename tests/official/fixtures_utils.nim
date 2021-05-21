@@ -11,7 +11,8 @@ import
   # Internals
   ../../beacon_chain/ssz,
   ../../beacon_chain/spec/[datatypes, crypto, state_transition_epoch],
-  # Status libs
+  # Status libs,
+  snappy,
   stew/byteutils,
   serialization, json_serialization
 
@@ -28,7 +29,7 @@ export  # Workaround:
 # #######################
 # JSON deserialization
 
-proc readValue*(r: var JsonReader, a: var seq[byte]) =
+func readValue*(r: var JsonReader, a: var seq[byte]) =
   ## Custom deserializer for seq[byte]
   a = hexToSeqByte(r.readValue(string))
 
@@ -42,9 +43,10 @@ type
 const
   FixturesDir* =
     currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / "vendor" / "nim-eth2-scenarios"
-  SszTestsDir* = FixturesDir / "tests-v" & SPEC_VERSION
+  SszTestsDir* = FixturesDir / "tests-v1.1.0-alpha.5"
+  MaxObjectSize* = 3_000_000
 
-proc parseTest*(path: string, Format: typedesc[Json or SSZ], T: typedesc): T =
+proc parseTest*(path: string, Format: typedesc[Json], T: typedesc): T =
   try:
     # debugEcho "          [Debug] Loading file: \"", path, '\"'
     result = Format.loadFile(path, T)
@@ -65,6 +67,16 @@ proc sszDecodeEntireInput*(input: openArray[byte], Decoded: type): Decoded =
   if stream.readable:
     raise newException(UnconsumedInput, "Remaining bytes in the input")
 
+proc parseTest*(path: string, Format: typedesc[SSZ], T: typedesc): T =
+  try:
+    # debugEcho "          [Debug] Loading file: \"", path, '\"'
+    sszDecodeEntireInput(snappy.decode(readFileBytes(path), MaxObjectSize), T)
+  except SerializationError as err:
+    writeStackTrace()
+    stderr.write $Format & " load issue for file \"", path, "\"\n"
+    stderr.write err.formatMsg(path), "\n"
+    quit 1
+
 proc process_justification_and_finalization*(state: var BeaconState) =
   var cache = StateCache()
 
@@ -73,7 +85,7 @@ proc process_justification_and_finalization*(state: var BeaconState) =
   rewards.process_attestations(state, cache)
   process_justification_and_finalization(state, rewards.total_balances)
 
-proc process_slashings*(state: var BeaconState) =
+func process_slashings*(state: var BeaconState) =
   var cache = StateCache()
   var rewards: RewardInfo
   rewards.init(state)
