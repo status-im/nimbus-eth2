@@ -14,9 +14,9 @@ import
   metrics,
   chronicles, stew/byteutils, json_serialization/std/sets as jsonSets,
   # Internal
-  ../spec/[beaconstate, datatypes, crypto, digest, validator],
+  ../spec/[beaconstate, datatypes, crypto, digest],
   ../ssz/merkleization,
-  "."/[spec_cache, blockchain_dag, block_quarantine],
+  "."/[spec_cache, blockchain_dag, block_quarantine, statedata_helpers],
   ".."/[beacon_clock, beacon_node_types, extras],
   ../fork_choice/fork_choice
 
@@ -371,16 +371,16 @@ func add(
   do:
     attCache[key] = aggregation_bits
 
-func init(T: type AttestationCache, state: BeaconState): T =
+func init(T: type AttestationCache, state: StateData): T =
   # Load attestations that are scheduled for being given rewards for
-  for i in 0..<state.previous_epoch_attestations.len():
+  for i in 0..<getStateField(state, previous_epoch_attestations).len():
     result.add(
-      state.previous_epoch_attestations[i].data,
-      state.previous_epoch_attestations[i].aggregation_bits)
-  for i in 0..<state.current_epoch_attestations.len():
+      getStateField(state, previous_epoch_attestations)[i].data,
+      getStateField(state, previous_epoch_attestations)[i].aggregation_bits)
+  for i in 0..<getStateField(state, current_epoch_attestations).len():
     result.add(
-      state.current_epoch_attestations[i].data,
-      state.current_epoch_attestations[i].aggregation_bits)
+      getStateField(state, current_epoch_attestations)[i].data,
+      getStateField(state, current_epoch_attestations)[i].aggregation_bits)
 
 proc score(
     attCache: var AttestationCache, data: AttestationData,
@@ -404,13 +404,12 @@ proc score(
   bitsScore
 
 proc getAttestationsForBlock*(pool: var AttestationPool,
-                              state: BeaconState,
+                              state: StateData,
                               cache: var StateCache): seq[Attestation] =
   ## Retrieve attestations that may be added to a new block at the slot of the
   ## given state
   ## https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#attestations
-  let
-    newBlockSlot = state.slot.uint64
+  let newBlockSlot = getStateField(state, slot).uint64
 
   if newBlockSlot < MIN_ATTESTATION_INCLUSION_DELAY:
     return # Too close to genesis
@@ -450,7 +449,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
         # attestation to - there might have been a fork between when we first
         # saw the attestation and the time that we added it
         if not check_attestation(
-              state, attestation, {skipBlsValidation}, cache).isOk():
+              state.data.data, attestation, {skipBlsValidation}, cache).isOk():
           continue
 
         let score = attCache.score(
@@ -476,7 +475,8 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   var
     prevEpoch = state.get_previous_epoch()
     prevEpochSpace =
-      state.previous_epoch_attestations.maxLen - state.previous_epoch_attestations.len()
+      getStateField(state, previous_epoch_attestations).maxLen -
+        getStateField(state, previous_epoch_attestations).len()
 
   var res: seq[Attestation]
   let totalCandidates = candidates.len()

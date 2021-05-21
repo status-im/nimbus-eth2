@@ -50,6 +50,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
   var
     attestations = initTable[Slot, seq[Attestation]]()
     latest_block_root = hash_tree_root(genesisBlock.message)
+    blockrefs = @[BlockRef(root: latest_block_root, slot: 0.Slot)]
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r = initRand(1)
@@ -110,11 +111,16 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
         committees_per_slot =
           get_committee_count_per_slot(state[].data, target_slot.epoch, cache)
 
+      blockrefs.add BlockRef(
+        root: latest_block_root, parent: blockrefs[^1], slot: target_slot)
+
       let
         scass = withTimerRet(timers[tShuffle]):
           mapIt(
             0 ..< committees_per_slot.int,
             get_beacon_committee(state[].data, target_slot, it.CommitteeIndex, cache))
+
+        stateData = (ref StateData)(data: state[], blck: blockrefs[^1])
 
       for i, scas in scass:
         var
@@ -129,13 +135,13 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
             if (rand(r, high(int)).float * attesterRatio).int <= high(int):
               if first:
                 attestation =
-                  makeAttestation(state[].data, latest_block_root, scas, target_slot,
+                  makeAttestation(stateData[], latest_block_root, scas, target_slot,
                     i.CommitteeIndex, v, cache, flags)
                 agg.init(attestation.signature.load.get())
                 first = false
               else:
                 let att2 =
-                  makeAttestation(state[].data, latest_block_root, scas, target_slot,
+                  makeAttestation(stateData[], latest_block_root, scas, target_slot,
                     i.CommitteeIndex, v, cache, flags)
                 if not att2.aggregation_bits.overlaps(attestation.aggregation_bits):
                   attestation.aggregation_bits.incl(att2.aggregation_bits)

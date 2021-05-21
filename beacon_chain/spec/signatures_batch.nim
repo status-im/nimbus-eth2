@@ -77,14 +77,14 @@ func addSignatureSet[T](
 proc aggregateAttesters(
       aggPK: var blscurve.PublicKey,
       attestation: IndexedAttestation,
-      state: BeaconState
+      validators: seq[Validator],
      ): bool =
   doAssert attestation.attesting_indices.len > 0
   var attestersAgg{.noInit.}: AggregatePublicKey
-  attestersAgg.init(state.validators[attestation.attesting_indices[0]]
+  attestersAgg.init(validators[attestation.attesting_indices[0]]
                          .pubkey.loadWithCacheOrExit(false))
   for i in 1 ..< attestation.attesting_indices.len:
-    attestersAgg.aggregate(state.validators[attestation.attesting_indices[i]]
+    attestersAgg.aggregate(validators[attestation.attesting_indices[i]]
                                 .pubkey.loadWithCacheOrExit(false))
   aggPK.finish(attestersAgg)
   return true
@@ -109,7 +109,7 @@ proc aggregateAttesters(
 proc addIndexedAttestation(
       sigs: var seq[SignatureSet],
       attestation: IndexedAttestation,
-      state: BeaconState
+      state: StateData
      ): bool =
   ## Add an indexed attestation for batched BLS verification
   ## purposes
@@ -126,15 +126,16 @@ proc addIndexedAttestation(
     return false
 
   var aggPK {.noInit.}: blscurve.PublicKey
-  if not aggPK.aggregateAttesters(attestation, state):
+  if not aggPK.aggregateAttesters(
+      attestation, getStateField(state, validators).asSeq):
     return false
 
   sigs.addSignatureSet(
           aggPK,
           attestation.data,
           attestation.signature.loadOrExit(false),
-          state.genesis_validators_root,
-          state.fork,
+          getStateField(state, genesis_validators_root),
+          getStateField(state, fork),
           attestation.data.target.epoch,
           DOMAIN_BEACON_ATTESTER)
   return true
@@ -142,22 +143,22 @@ proc addIndexedAttestation(
 proc addAttestation(
       sigs: var seq[SignatureSet],
       attestation: Attestation,
-      state: BeaconState,
+      state: StateData,
       cache: var StateCache
      ): bool =
   var inited = false
   var attestersAgg{.noInit.}: AggregatePublicKey
-  for valIndex in state.get_attesting_indices(
+  for valIndex in state.data.data.get_attesting_indices(
                     attestation.data,
                     attestation.aggregation_bits,
                     cache
                   ):
     if not inited: # first iteration
-      attestersAgg.init(state.validators[valIndex]
+      attestersAgg.init(getStateField(state, validators)[valIndex]
                              .pubkey.loadWithCacheOrExit(false))
       inited = true
     else:
-      attestersAgg.aggregate(state.validators[valIndex]
+      attestersAgg.aggregate(getStateField(state, validators)[valIndex]
                                   .pubkey.loadWithCacheOrExit(false))
 
   if not inited:
@@ -171,8 +172,8 @@ proc addAttestation(
           attesters,
           attestation.data,
           attestation.signature.loadOrExit(false),
-          state.genesis_validators_root,
-          state.fork,
+          getStateField(state, genesis_validators_root),
+          getStateField(state, fork),
           attestation.data.target.epoch,
           DOMAIN_BEACON_ATTESTER)
 
@@ -272,7 +273,7 @@ proc addAggregateAndProofSignature*(
 proc collectSignatureSets*(
        sigs: var seq[SignatureSet],
        signed_block: SignedBeaconBlock,
-       state: BeaconState,
+       state: StateData,
        cache: var StateCache): bool =
   ## Collect all signatures in a single signed block.
   ## This includes
@@ -291,10 +292,10 @@ proc collectSignatureSets*(
 
   let
     proposer_index = signed_block.message.proposer_index
-  if proposer_index >= state.validators.lenu64:
+  if proposer_index >= getStateField(state, validators).lenu64:
     return false
 
-  let pubkey = state.validators[proposer_index]
+  let pubkey = getStateField(state, validators)[proposer_index]
                     .pubkey.loadWithCacheOrExit(false)
   let epoch = signed_block.message.slot.compute_epoch_at_slot()
 
@@ -304,8 +305,8 @@ proc collectSignatureSets*(
           pubkey,
           signed_block.message,
           signed_block.signature.loadOrExit(false),
-          state.genesis_validators_root,
-          state.fork,
+          getStateField(state, genesis_validators_root),
+          getStateField(state, fork),
           epoch,
           DOMAIN_BEACON_PROPOSER)
 
@@ -315,8 +316,8 @@ proc collectSignatureSets*(
           pubkey,
           epoch,
           signed_block.message.body.randao_reveal.loadOrExit(false),
-          state.genesis_validators_root,
-          state.fork,
+          getStateField(state, genesis_validators_root),
+          getStateField(state, fork),
           epoch,
           DOMAIN_RANDAO)
 
@@ -337,14 +338,15 @@ proc collectSignatureSets*(
     # Proposed block 1
     block:
       let header_1 = slashing.signed_header_1
-      let proposer1 = state.validators[header_1.message.proposer_index]
+      let proposer1 =
+        getStateField(state, validators)[header_1.message.proposer_index]
       let epoch1 = header_1.message.slot.compute_epoch_at_slot()
       sigs.addSignatureSet(
               proposer1.pubkey.loadWithCacheOrExit(false),
               header_1.message,
               header_1.signature.loadOrExit(false),
-              state.genesis_validators_root,
-              state.fork,
+              getStateField(state, genesis_validators_root),
+              getStateField(state, fork),
               epoch1,
               DOMAIN_BEACON_PROPOSER
             )
@@ -352,14 +354,15 @@ proc collectSignatureSets*(
     # Conflicting block 2
     block:
       let header_2 = slashing.signed_header_2
-      let proposer2 = state.validators[header_2.message.proposer_index]
+      let proposer2 =
+        getStateField(state, validators)[header_2.message.proposer_index]
       let epoch2 = header_2.message.slot.compute_epoch_at_slot()
       sigs.addSignatureSet(
               proposer2.pubkey.loadWithCacheOrExit(false),
               header_2.message,
               header_2.signature.loadOrExit(false),
-              state.genesis_validators_root,
-              state.fork,
+              getStateField(state, genesis_validators_root),
+              getStateField(state, fork),
               epoch2,
               DOMAIN_BEACON_PROPOSER
             )
@@ -418,12 +421,12 @@ proc collectSignatureSets*(
     template volex: untyped = signed_block.message.body.voluntary_exits[i]
 
     sigs.addSignatureSet(
-            state.validators[volex.message.validator_index]
+            getStateField(state, validators)[volex.message.validator_index]
                  .pubkey.loadWithCacheOrExit(false),
             volex.message,
             volex.signature.loadOrExit(false),
-            state.genesis_validators_root,
-            state.fork,
+            getStateField(state, genesis_validators_root),
+            getStateField(state, fork),
             volex.message.epoch,
             DOMAIN_VOLUNTARY_EXIT)
 

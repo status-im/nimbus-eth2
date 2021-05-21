@@ -17,10 +17,11 @@ import
   ../beacon_chain/gossip_processing/[gossip_validation, batch_validation],
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
   ../beacon_chain/consensus_object_pools/[
-    block_quarantine, blockchain_dag, block_clearance, attestation_pool],
+    block_quarantine, blockchain_dag, block_clearance, attestation_pool,
+    statedata_helpers],
   ../beacon_chain/ssz/merkleization,
-  ../beacon_chain/spec/[crypto, datatypes, digest, validator, state_transition,
-                        helpers, presets, network],
+  ../beacon_chain/spec/[crypto, datatypes, digest, state_transition, helpers,
+                        presets, network],
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil
 
@@ -66,15 +67,15 @@ suite "Gossip validation " & preset():
     var
       # Create attestations for slot 1
       beacon_committee = get_beacon_committee(
-        chainDag.headState.data.data, chainDag.head.slot, 0.CommitteeIndex, cache)
+        chainDag.headState, chainDag.head.slot, 0.CommitteeIndex, cache)
       att_1_0 = makeAttestation(
-        chainDag.headState.data.data, chainDag.head.root, beacon_committee[0], cache)
+        chainDag.headState, chainDag.head.root, beacon_committee[0], cache)
       att_1_1 = makeAttestation(
-        chainDag.headState.data.data, chainDag.head.root, beacon_committee[1], cache)
+        chainDag.headState, chainDag.head.root, beacon_committee[1], cache)
 
       committees_per_slot =
-        get_committee_count_per_slot(chainDag.headState.data.data,
-        att_1_0.data.slot.epoch, cache)
+        get_committee_count_per_slot(chainDag.headState,
+          att_1_0.data.slot.epoch, cache)
 
       subnet = compute_subnet_for_attestation(
         committees_per_slot,

@@ -25,7 +25,9 @@ import
   ../beacon_chain/[beacon_node_types, beacon_chain_db, extras],
   ../beacon_chain/eth1/eth1_monitor,
   ../beacon_chain/validators/validator_pool,
-  ../beacon_chain/consensus_object_pools/[blockchain_dag, block_quarantine, block_clearance, attestation_pool],
+  ../beacon_chain/consensus_object_pools/[blockchain_dag, block_quarantine,
+                                          block_clearance, attestation_pool,
+                                          statedata_helpers],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
 
@@ -95,21 +97,22 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
     chainDag.withState(tmpState[], attestationHead):
       let committees_per_slot =
-        get_committee_count_per_slot(state, slot.epoch, cache)
+        get_committee_count_per_slot(stateData, slot.epoch, cache)
 
       for committee_index in 0'u64..<committees_per_slot:
         let committee = get_beacon_committee(
-          state, slot, committee_index.CommitteeIndex, cache)
+          stateData, slot, committee_index.CommitteeIndex, cache)
 
         for index_in_committee, validatorIdx in committee:
           if rand(r, 1.0) <= attesterRatio:
             let
               data = makeAttestationData(
-                state, slot, committee_index.CommitteeIndex, blck.root)
+                stateData, slot, committee_index.CommitteeIndex, blck.root)
               sig =
-                get_attestation_signature(state.fork,
-                  state.genesis_validators_root,
-                  data, hackPrivKey(state.validators[validatorIdx]))
+                get_attestation_signature(getStateField(stateData, fork),
+                  getStateField(stateData, genesis_validators_root),
+                  data, hackPrivKey(
+                    getStateField(stateData, validators)[validatorIdx]))
             var aggregation_bits = CommitteeValidatorsBits.init(committee.len)
             aggregation_bits.setBit index_in_committee
 
@@ -130,10 +133,12 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
     chainDag.withState(tmpState[], head.atSlot(slot)):
       let
         finalizedEpochRef = chainDag.getFinalizedEpochRef()
-        proposerIdx = get_beacon_proposer_index(state, cache).get()
-        privKey = hackPrivKey(state.validators[proposerIdx])
+        proposerIdx = get_beacon_proposer_index(
+          stateData.data.data, cache).get()
+        privKey = hackPrivKey(
+          getStateField(stateData, validators)[proposerIdx])
         eth1ProposalData = eth1Chain.getBlockProposalData(
-          state,
+          stateData,
           finalizedEpochRef.eth1_data,
           finalizedEpochRef.eth1_deposit_index)
         message = makeBeaconBlock(
@@ -141,11 +146,13 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
           hashedState,
           proposerIdx,
           head.root,
-          privKey.genRandaoReveal(state.fork, state.genesis_validators_root,
+          privKey.genRandaoReveal(
+            getStateField(stateData, fork),
+            getStateField(stateData, genesis_validators_root),
             slot).toValidatorSig(),
           eth1ProposalData.vote,
           default(GraffitiBytes),
-          attPool.getAttestationsForBlock(state, cache),
+          attPool.getAttestationsForBlock(stateData, cache),
           eth1ProposalData.deposits,
           @[],
           @[],
@@ -165,7 +172,9 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
       # Careful, state no longer valid after here because of the await..
       newBlock.signature = withTimerRet(timers[tSignBlock]):
         get_block_signature(
-          state.fork, state.genesis_validators_root, newBlock.message.slot,
+          getStateField(stateData, fork),
+          getStateField(stateData, genesis_validators_root),
+          newBlock.message.slot,
           blockRoot, privKey).toValidatorSig()
 
       let added = chainDag.addRawBlock(quarantine, newBlock) do (

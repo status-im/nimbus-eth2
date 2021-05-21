@@ -12,7 +12,7 @@ import
   ../consensus_object_pools/[blockchain_dag, exit_pool, statedata_helpers],
   ../gossip_processing/gossip_validation,
   ../validators/validator_duties,
-  ../spec/[crypto, digest, validator, datatypes, network],
+  ../spec/[crypto, digest, datatypes, network],
   ../ssz/merkleization,
   ./eth2_json_rest_serialization, ./rest_utils
 
@@ -485,7 +485,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.withStateForBlockSlot(bslot):
       proc getCommittee(slot: Slot,
                        index: CommitteeIndex): RestBeaconStatesCommittees =
-        let validators = get_beacon_committee(state, slot, index,
+        let validators = get_beacon_committee(stateData, slot, index,
                                               cache).mapIt(it)
         RestBeaconStatesCommittees(index: index, slot: slot,
                                    validators: validators)
@@ -493,7 +493,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       proc forSlot(slot: Slot, cindex: Option[CommitteeIndex],
                    res: var seq[RestBeaconStatesCommittees]) =
         let committees_per_slot =
-          get_committee_count_per_slot(state, Epoch(slot), cache)
+          get_committee_count_per_slot(stateData, Epoch(slot), cache)
 
         if cindex.isNone:
           for committee_index in 0'u64 ..< committees_per_slot:

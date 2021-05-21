@@ -23,7 +23,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $bres.error())
         bres.get()
     node.withStateForBlockSlot(bslot):
-      return RestApiResponse.jsonResponse(state())
+      return RestApiResponse.jsonResponse(stateData.data.data)
     return RestApiResponse.jsonError(Http500, InternalServerError)
 
   router.api(MethodGet,

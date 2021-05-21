@@ -15,6 +15,19 @@ import
                         validator, state_transition, presets],
   ../beacon_chain/ssz
 
+proc makeAttestation(
+    state: BeaconState, beacon_block_root: Eth2Digest,
+    validator_index: ValidatorIndex, cache: var StateCache): Attestation =
+  # The called functions don't use the extra-BeaconState parts of StateData.
+  let
+    stateData = (ref StateData)(
+      data: HashedBeaconState(data: state),
+      blck: BlockRef(root: beacon_block_root, slot: state.slot))
+    (committee, slot, index) =
+      find_beacon_committee(stateData[], validator_index, cache)
+  makeAttestation(stateData[], beacon_block_root, committee, slot, index,
+    validator_index, cache)
+
 suite "Block processing" & preset():
   ## For now just test that we can compile and execute block processing with
   ## mock data.

@@ -3,9 +3,9 @@ import
   chronicles, confutils, stew/byteutils, eth/db/kvstore_sqlite3,
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/[beacon_chain_db, extras],
-  ../beacon_chain/consensus_object_pools/blockchain_dag,
-  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers,
-                        state_transition, presets, validator],
+  ../beacon_chain/consensus_object_pools/[blockchain_dag, statedata_helpers],
+  ../beacon_chain/spec/[crypto, datatypes, digest, helpers, state_transition,
+                        presets],
   ../beacon_chain/ssz, ../beacon_chain/ssz/sszdump,
   ../research/simutils, ./e2store
 
@@ -217,7 +217,7 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
           doAssert dbBenchmark.getState(state[].data.root, loadedState[], noRollback)
 
         if getStateField(state[], slot).epoch mod 16 == 0:
-          doAssert hash_tree_root(state[].data.data) == hash_tree_root(loadedState[])
+          doAssert hash_tree_root(state[]) == hash_tree_root(loadedState[])
 
   printTimers(false, timers)
 
@@ -392,7 +392,7 @@ proc cmdExportEra(conf: DbConf, preset: RuntimePreset) =
     defer: e2s.close()
 
     dag.withState(tmpState[], canonical):
-      e2s.appendRecord(state).get()
+      e2s.appendRecord(stateData.data.data).get()
 
     var
       ancestors: seq[BlockRef]
@@ -440,7 +440,7 @@ proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimePreset) =
   var
     blockRefs = dag.getBlockRange(conf.perfSlot, conf.perfSlots)
     perfs = newSeq[ValidatorPerformance](
-      dag.headState.data.data.validators.len())
+      getStateField(dag.headState, validators).len())
     cache = StateCache()
     rewards = RewardInfo()
     blck: TrustedSignedBeaconBlock
@@ -457,20 +457,20 @@ proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimePreset) =
   proc processEpoch() =
     let
       prev_epoch_target_slot =
-        state[].data.data.get_previous_epoch().compute_start_slot_at_epoch()
+        state[].get_previous_epoch().compute_start_slot_at_epoch()
       penultimate_epoch_end_slot =
         if prev_epoch_target_slot == 0: Slot(0)
         else: prev_epoch_target_slot - 1
       first_slot_empty =
-        state[].data.data.get_block_root_at_slot(prev_epoch_target_slot) ==
-        state[].data.data.get_block_root_at_slot(penultimate_epoch_end_slot)
+        state[].get_block_root_at_slot(prev_epoch_target_slot) ==
+        state[].get_block_root_at_slot(penultimate_epoch_end_slot)
 
     let first_slot_attesters = block:
-      let committee_count = state[].data.data.get_committee_count_per_slot(
-        prev_epoch_target_slot, cache)
+      let committee_count = state[].get_committee_count_per_slot(
+        prev_epoch_target_slot.epoch, cache)
       var indices = HashSet[ValidatorIndex]()
       for committee_index in 0..<committee_count:
-        for validator_index in state[].data.data.get_beacon_committee(
+        for validator_index in state[].get_beacon_committee(
             prev_epoch_target_slot, committee_index.CommitteeIndex, cache):
           indices.incl(validator_index)
       indices
