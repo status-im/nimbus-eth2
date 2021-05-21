@@ -3,7 +3,7 @@
 - [Design goals](./philosophy.md)
 - [System requirements](./hardware.md)
 - [Run just the beacon node (quickstart)](./quick-start.md)
-- [Run a validator]()
+- [Run a validator](./run-a-validator.md)
 - [Mainnet checklist](./preparation.md)
 
 # How-to (beacon node)
@@ -17,10 +17,10 @@
 - [Import your validator keys](./keys.md)
 - [Connect your validator to eth2](./connect-eth2.md)
 - [Keep an eye on your validator](./keep-an-eye.md)
-- [Keep Nimbus updated](./keep-updated.md)
 - [Recover / generate keys](./more-keys.md)
 - [Perform a voluntary exit](./voluntary-exit.md)
 - [Add an additional validator](./additional-validator.md)
+- [Keep Nimbus updated](./keep-updated.md)
 
 # How-to (misc)
 - [Run an eth1 node](./eth1.md)
