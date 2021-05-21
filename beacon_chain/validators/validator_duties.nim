@@ -22,7 +22,7 @@ import
   # Local modules
   ../spec/[
     datatypes, digest, crypto, helpers, network, signatures, state_transition,
-    state_transition_block, validator],
+    state_transition_block],
   ../conf, ../beacon_clock,
   ../consensus_object_pools/[
     spec_cache, blockchain_dag, block_clearance,
@@ -353,7 +353,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       assign(proposalStateAddr[], poolPtr.headState)
 
     try:
-      let executionPayload = await node.getExecutionPayload(state)
+      let executionPayload = await node.getExecutionPayload(stateData.data.data)
 
       return makeBeaconBlock(
         node.runtimePreset,
@@ -363,7 +363,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
         randao_reveal,
         eth1Proposal.vote,
         graffiti,
-        node.attestationPool[].getAttestationsForBlock(state, cache),
+        node.attestationPool[].getAttestationsForBlock(stateData, cache),
         eth1Proposal.deposits,
         node.exitPool[].getProposerSlashingsForBlock(),
         node.exitPool[].getAttesterSlashingsForBlock(),

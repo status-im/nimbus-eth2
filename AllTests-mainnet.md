@@ -321,4 +321,4 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 180/189 Fail: 0/189 Skip: 9/189
+OK: 181/187 Fail: 0/187 Skip: 6/187
