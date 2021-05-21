@@ -7,10 +7,10 @@ This is particularly important if you are joining a network that's been running 
 
 ### Testnet
 
-To start syncing the `pyrmont` testnet , from the `nimbus-eth2` repository, run:
+To start syncing the `prater` testnet , from the `nimbus-eth2` repository, run:
 
 ```
- ./run-pyrmont-beacon-node.sh 
+ ./run-prater-beacon-node.sh 
 ```
 
 ### Mainnet
@@ -31,7 +31,7 @@ You should see the following output:
 ```
 INF 2020-12-01 11:25:33.487+01:00 Launching beacon node
 ...
-INF 2020-12-01 11:25:34.556+01:00 Loading block dag from database            topics="beacnde" tid=19985314 file=nimbus_beacon_node.nim:198 path=build/data/shared_pyrmont_0/db
+INF 2020-12-01 11:25:34.556+01:00 Loading block dag from database            topics="beacnde" tid=19985314 file=nimbus_beacon_node.nim:198 path=build/data/shared_prater_0/db
 INF 2020-12-01 11:25:35.921+01:00 Block dag initialized
 INF 2020-12-01 11:25:37.073+01:00 Generating new networking key
 ...
@@ -46,10 +46,10 @@ INF 2020-12-01 11:26:36.285+00:00 Slot end                                   top
 
 ### Command line options
 
-You can pass any `nimbus_beacon_node` options to the `pyrmont` and `mainnet` scripts. For example, if you wanted to launch Nimbus on `pyrmont` with a different base port, say `9100`, you would run:
+You can pass any `nimbus_beacon_node` options to the `prater` and `mainnet` scripts. For example, if you wanted to launch Nimbus on `prater` with a different base port, say `9100`, you would run:
 
 ```
-./run-pyrmont-beacon-node.sh --tcp-port=9100 --udp-port=9100
+./run-prater-beacon-node.sh --tcp-port=9100 --udp-port=9100
 ```
 
 To see a list of the command line options availabe to you, with descriptions, navigate to the `build` directory and run:
