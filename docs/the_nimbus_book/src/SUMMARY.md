@@ -13,16 +13,17 @@
 - [Add a backup web3 provider](./web3-backup.md)
 
 # How-to (validator)
-- [Make a deposit for your validator](./deposit.md)
+- [Make a deposit](./deposit.md)
 - [Import your validator keys](./keys.md)
 - [Connect your validator to eth2](./connect-eth2.md)
 - [Keep an eye on your validator](./keep-an-eye.md)
 - [Recover / generate keys](./more-keys.md)
 - [Perform a voluntary exit](./voluntary-exit.md)
 - [Add an additional validator](./additional-validator.md)
-- [Keep Nimbus updated](./keep-updated.md)
+
 
 # How-to (misc)
+- [Update Nimbus](./keep-updated.md)
 - [Run an eth1 node](./eth1.md)
 - [Set up a systemd service](./beacon-node-systemd.md)
 - [Set up log rotation](./log-rotate.md)
