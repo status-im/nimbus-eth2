@@ -717,8 +717,6 @@ type
     # True if the validator had an attestation included in the _previous_ epoch.
     is_previous_epoch_attester*: Option[InclusionInfo]
 
-    inclusion_info*: Option[InclusionInfo]
-
     # Total rewards and penalties for this validator
     delta*: RewardDelta
 
