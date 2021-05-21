@@ -531,7 +531,7 @@ func process_participation_record_updates*(state: var BeaconState) {.nbench.} =
   swap(state.previous_epoch_attestations, state.current_epoch_attestations)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#final-updates
-func process_final_updates(state: var BeaconState) {.nbench.} =
+func process_final_updates*(state: var BeaconState) {.nbench.} =
   # This function's a wrapper over the HF1 split/refactored HF1 version. TODO
   # remove once test vectors become available for each HF1 function.
   process_eth1_data_reset(state)
