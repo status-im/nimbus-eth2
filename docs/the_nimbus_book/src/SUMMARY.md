@@ -2,7 +2,7 @@
 - [Introduction](./intro.md)
 - [Design goals](./philosophy.md)
 - [System requirements](./hardware.md)
-- [Run just the beacon node (quickstart)](./quick-start.md)
+- [Run the beacon node (quickstart)](./quick-start.md)
 - [Run a validator](./run-a-validator.md)
 - [Mainnet checklist](./preparation.md)
 

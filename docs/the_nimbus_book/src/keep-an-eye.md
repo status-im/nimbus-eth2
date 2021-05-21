@@ -3,13 +3,13 @@
  
 The best way to keep track of your validator's status is using the `beaconcha.in` explorer (click on the orange magnifying glass at the very top and paste in your validator's public key):
  
- - **Testnet:** [pyrmont.beaconcha.in](https:/pyrmont.beaconcha.in) 
+ - **Testnet:** [prater.beaconcha.in](https:/prater.beaconcha.in) 
  - **Mainnet:** [beaconcha.in](https://beaconcha.in/)
  
 If you deposit after the [genesis](https://hackmd.io/@benjaminion/genesis) state was decided, your validator(s) will be put in a queue based on deposit time, and will slowly be inducted into the validator set after genesis. Getting through the queue may take a few hours or a day or so.
 
  
-You can even create an account ([testnet link](https://pyrmont.beaconcha.in/register), [mainnet link](https://beaconcha.in/register)) to add alerts and keep track of your validator's performance ([testnet link](https://pyrmont.beaconcha.in/dashboard), [mainnet link](https://beaconcha.in/dashboard)).
+You can even create an account ([testnet link](https://prater.beaconcha.in/register), [mainnet link](https://beaconcha.in/register)) to add alerts and keep track of your validator's performance ([testnet link](https://prater.beaconcha.in/dashboard), [mainnet link](https://beaconcha.in/dashboard)).
 
 -------------------------------
 

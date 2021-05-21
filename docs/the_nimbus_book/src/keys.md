@@ -1,4 +1,4 @@
-# Import your validator keys
+# Import your validator keys into Nimbus
 
 To import your signing key(s) into Nimbus, copy the `validator_keys` directory -- the directory that was created for you when you generated your keys using the [command line app](https://github.com/ethereum/eth2.0-deposit-cli) -- into `nimbus-eth2`. Then run:
 

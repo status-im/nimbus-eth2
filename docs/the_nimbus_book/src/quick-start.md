@@ -1,4 +1,4 @@
-# Run just the beacon node (quickstart)
+# Run the beacon node (quickstart)
 
 This page takes you through how to run just the beacon node **without a validator attached.**
 
@@ -81,3 +81,6 @@ Please enter a Web3 provider URL:
 
 Press enter to skip (this is only important when you're running a validator).
 
+## 5. Keep track of your sync progress
+
+See [here](./keep-an-eye.html#keep-track-of-your-syncing-progress) for how to keep track of your sync progress.
