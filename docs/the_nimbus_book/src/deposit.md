@@ -14,7 +14,7 @@ The easiest way to get your deposit in is to follow the Ethereum Foundation's la
 
 You may notice that there have been considerable improvements to the launchpad process since the summer.
  
-In particular, the Key Generation section is now much clearer, and you no longer have to install dependencies to get the command line app working.
+In particular, the Key Generation section is now much clearer, and you no longer have to install dependencies to get the [command line app](https://github.com/ethereum/eth2.0-deposit-cli) working.
 
 We won't elaborate on each individual step here, since they are well explained on the site itself. However, there are two points of note:
 
