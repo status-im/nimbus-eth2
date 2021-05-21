@@ -1,4 +1,4 @@
-# Run just the beacon node (quickstart)
+# Run the beacon node (quickstart)
 
 This page takes you through how to run just the beacon node **without a validator attached.**
 
@@ -52,14 +52,20 @@ make nimbus_beacon_node
 
 *Patience... this may take a few minutes.*
 
-## 4. Connect to mainnet
+## 4. Connect to the network
 
 To connect to mainnet, run:
 ```
 ./run-mainnet-beacon-node.sh
 ```
 
-You'll be prompted to enter a web3-provider url:
+To connect to the testnet , run:
+
+```
+./run-prater-beacon-node.sh
+```
+
+In both case you'll be prompted to enter a web3-provider url:
 
 ```
 To monitor the Eth1 validator deposit contract, you'll need to pair
@@ -75,3 +81,6 @@ Please enter a Web3 provider URL:
 
 Press enter to skip (this is only important when you're running a validator).
 
+## 5. Keep track of your sync progress
+
+See [here](./keep-an-eye.html#keep-track-of-your-syncing-progress) for how to keep track of your sync progress.

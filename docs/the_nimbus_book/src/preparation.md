@@ -1,4 +1,4 @@
-# Prepare for Mainnet
+# Mainnet checklist
 
 
 ## Latest software
@@ -15,11 +15,20 @@ Please check that your node has at least 15 peers. See [the footer](keep-an-eye.
 
 Please check that your [validator is attached](keep-an-eye.md#make-sure-your-validator-is-attached) to your node.
 
+## Systemd
+
+Now that you have Nimbus up and running, we recommend [setting up a systemd service](https://www.raspberrypi.org/documentation/linux/usage/systemd.md) with an autorestart on boot (should you experience an unexpected power outage, this will ensure your validator restarts correctly). 
+
+Systemd will also ensure your validator keeps running when you exit your ssh session (`Ctrl-C`) and/or switch off your laptop.
+
+
+For the details on how to do this, see [this page](./beacon-node-systemd.md).
+
+
 ## VPN
 
-To avoid exposing your validator identity to the network, we recommend you use a trustworthy VPN such as [protonmail](https://protonmail.com/).. This help reduce the risk of revealing your IP address to the network.
+To avoid exposing your validator identity (IP address) to the network, we recommend using a trustworthy VPN such as [protonmail](https://protonmail.com/). While it may result in the occasional missed attestation, we believe the [tradeoff](https://our.status.im/validator-privacy-call-to-action/) is worth it.
 
 ## Ethereum Foundation's Checklist
 
 Ad a final check, we recommend you also go through the EF'S [staker checklist](https://launchpad.ethereum.org/checklist).
-

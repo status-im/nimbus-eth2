@@ -1,8 +1,10 @@
 # Make a deposit for your validator
 The easiest way to get your deposit in is to follow the Ethereum Foundation's launchpad instructions here:
 
-**Testnet**:
-[https://pyrmont.launchpad.ethereum.org/](https://pyrmont.launchpad.ethereum.org/)
+**Prater testnet**:
+[https://prater.launchpad.ethereum.org/](https://prater.launchpad.ethereum.org/)
+
+> Use Prater to stress test / future proof  your set up against peak mainnet load. See [here](./prater.md) for all you need to know
 
 **Mainnet**: [https://launchpad.ethereum.org/](https://launchpad.ethereum.org/)
 
@@ -12,7 +14,7 @@ The easiest way to get your deposit in is to follow the Ethereum Foundation's la
 
 You may notice that there have been considerable improvements to the launchpad process since the summer.
  
-In particular, the Key Generation section is now much clearer, and you no longer have to install dependencies to get the command line app working.
+In particular, the Key Generation section is now much clearer, and you no longer have to install dependencies to get the [command line app](https://github.com/ethereum/eth2.0-deposit-cli) working.
 
 We won't elaborate on each individual step here, since they are well explained on the site itself. However, there are two points of note:
 
@@ -41,5 +43,5 @@ We recommend you click on `Beaconchain`. This will open up a window that allows 
 It's a good idea to bookmark this page.
 
 ## Expected waiting time (the queue)
-Once you send off your transaction(s), your validator will be put in a queue based on deposit time. Getting through the queue may take a few hours or days (assuming the chain is finalising). No validators are accepted into the validator set while the chain isn't finalising.
+Once you send off your transaction(s), your validator will be put in a queue based on deposit time. Getting through the queue may take a few hours or days (assuming the chain is finalising). No validators are accepted into the validator set while the chain isn't finalising. The `Pending Validators` metric on the [beaconcha.in](https://beaconcha.in/) will give you the size of the queue.
 
