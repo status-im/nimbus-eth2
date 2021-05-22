@@ -18,9 +18,9 @@ Specifically, we'll be using the `existing-mnemonic` command. Here's a descripti
 
 Run the following command from the directory which contains the `deposit` executable:
 
-**Pyrmont**
+**Prater**
 ```
-./deposit existing-mnemonic --validator_start_index 0 --num_validators 1 --chain pyrmont
+./deposit existing-mnemonic --validator_start_index 0 --num_validators 1 --chain prater
 ```
 
 **Mainnet**
@@ -44,9 +44,9 @@ to not generate a copy of your original key. Running the same key on two differe
 
 Run the following command from the directory which contains the `deposit` executable:
 
-**Pyrmont**
+**Prater**
 ```
-./deposit existing-mnemonic --validator_start_index 1 --num_validators 1 --chain pyrmont
+./deposit existing-mnemonic --validator_start_index 1 --num_validators 1 --chain prater
 ```
 
 **Mainnet**

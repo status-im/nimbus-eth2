@@ -6,7 +6,7 @@
 
 
 ## Introduction
-This page will take you through how to use your laptop to program your Raspberry Pi, get Nimbus running, and connect to the **Pyrmont testnet**.
+This page will take you through how to use your laptop to program your Raspberry Pi, get Nimbus running, and connect to the **Prater testnet**.
 
 
 
@@ -305,15 +305,15 @@ build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_pyrmont_0
  You'll be asked to enter the password you created to encrypt your keystore(s). Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your [key](https://blog.ethereum.org/2020/05/21/keys/) (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).
 
 
-### 16. Connect to Pyrmont
+### 16. Connect to Prater
 
-We're finally ready to connect to Pyrmont!
+We're finally ready to connect to the Prater testnet!
 
 >**Note:** If you haven't already, we recommend registering for, and running, your own Infura endpoint to connect to eth1. For instruction on how to do so, see [this page](./infura-guide.md).
 
-To connect to pyrmont, run:
+To connect to Prater, run:
 ```
-./run-pyrmont-beacon-node.sh
+./run-prater-beacon-node.sh
 ```
 
 You'll be prompted to enter a web3-provider url:
@@ -360,7 +360,7 @@ peers: 15 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:
 
 Keep an eye on the number of peers your currently connected to (in the above case that's `15`), as well as your [sync progress](./keep-an-eye.md#syncing-progress).
 
-> **Note:** 15 - 20 peers and an average sync speed of **0.5 - 1.0** blocks per second is normal on `Pyrmont` with a Pi. If you're sync speed is much slower than this, the root of the problem may be your USB3.0 to SSD adapter. See [this post](https://www.raspberrypi.org/forums/viewtopic.php?f=28&t=245931) for a recommended workaround.
+> **Note:** 15 - 20 peers and an average sync speed of **0.5 - 1.0** blocks per second is normal on `Prater` with a Pi. If you're sync speed is much slower than this, the root of the problem may be your USB3.0 to SSD adapter. See [this post](https://www.raspberrypi.org/forums/viewtopic.php?f=28&t=245931) for a recommended workaround.
 
 
 ### Mainnet advice

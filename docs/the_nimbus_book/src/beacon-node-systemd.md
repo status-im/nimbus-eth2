@@ -10,7 +10,7 @@ Systemd is used in order to have a command or program run when your device boots
 
 > ⚠️  If you wish to run the service with metrics enabled, you'll need to replace `--metrics:off` with `--metrics:on` in the service file below. See [here](./metrics-pretty-pictures.md) for more on metrics.
 
-Create a `systemd` service unit file -- `nimbus-eth2-pyrmont.service` -- and save it in `/lib/systemd/system/`.
+Create a `systemd` service unit file -- `nimbus-eth2-prater.service` -- and save it in `/lib/systemd/system/`.
 
 The contents of the file should look like this:
 
@@ -22,8 +22,8 @@ Description=Nimbus beacon node
 WorkingDirectory=<BASE-DIRECTORY>
 ExecStart=<BASE-DIRECTORY>/build/nimbus_beacon_node \
   --non-interactive \
-  --network=pyrmont \
-  --data-dir=build/data/shared_pyrmont_0 \
+  --network=prater \
+  --data-dir=build/data/shared_prater_0 \
   --web3-url=<WEB3-URL> \
   --rpc:on \
   --metrics:off
@@ -45,7 +45,7 @@ Where you should replace:
 
 > **N.B.** If you're running Nimbus on a Pi, your `<BASE-DIRECTORY>` is `/home/pi/nimbus-eth2/` and your `<USERNAME>` is `pi`
 
-> If you want to run on mainnet, simply replace all instances of `pyrmont` with `mainnet`.
+> If you want to run on mainnet, simply replace all instances of `prater` with `mainnet`. If you wish to run on `pyrmont`, replace all instances of `prater` with `pyrmont`.
 
 ### 2. Notify systemd of the newly added service
 
@@ -56,15 +56,17 @@ sudo systemctl daemon-reload
 ### 3. Start the service
 
 ```console
-sudo systemctl enable nimbus-eth2-pyrmont --now
+sudo systemctl enable nimbus-eth2-prater --now
 ```
 
 ### 4. Monitor the service
 
 ```console
-sudo journalctl -u nimbus-eth2-pyrmont.service
+sudo journalctl -u nimbus-eth2-prater.service
 ```
 
 This will show you the Nimbus logs at the default setting -- it should include regular "slot start" messages which will show your sync progress.
 
 For more options, see [here](https://www.raspberrypi.org/documentation/linux/usage/systemd.md).
+
+

@@ -18,14 +18,14 @@ The `unstable` branch contains features and bugfixes that are actively being tes
 
 * Features and bugfixes are generally pushed to individual branches, each with their own pull request against the `unstable` branch.
 * Once the branch has been reviewed and passed CI, the developer or reviewer merges the branch to `unstable`.
-* The `unstable` branch is regularly deployed to the Nimbus pyrmont fleet where additional testing happens.
+* The `unstable` branch is regularly deployed to the Nimbus prater and pyrmont fleets where additional testing happens.
 
 ### Testing
 
 The `testing` branch contains features and bugfixes that have gone through CI and initial testing on the `unstable` branch and are ready to be included in the next release.
 
 * After testing a bugfix or feature on `unstable`, the features and fixes that are planned for the next release get merged to the `testing` branch either by the release manager or team members.
-* The `testing` branch is regularly deployed to the Nimbus pyrmont fleet as well as a smaller mainnet fleet.
+* The `testing` branch is regularly deployed to the Nimbus prater and pyrmont fleet as well as a smaller mainnet fleet.
 * The branch should remain release-ready at most times.
 
 ### Stable
@@ -170,7 +170,7 @@ make dist-test
 ## Stress-testing the client by limiting the CPU power
 
 ```bash
-make pyrmont CPU_LIMIT=20
+make prater CPU_LIMIT=20
 ```
 
 The limiting is provided by the cpulimit utility, available on Linux and macOS.
