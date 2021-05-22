@@ -35,10 +35,8 @@
 # Guides
 - [Grafana and Prometheus](./metrics-pretty-pictures.md)
 - [Create your own Infura endpoint](./infura-guide.md)
-- [Network stats (testnets only)](./eth2-stats.md)
 - [Migrating from another client](./migration.md)
 - [Validating with a Raspberry Pi](./pi-guide.md)
-- [Trying Rocket Pool](./rp-quick-start.md)
 
 
 # Downloads

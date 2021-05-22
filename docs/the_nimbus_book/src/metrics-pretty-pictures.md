@@ -11,7 +11,7 @@ Grafana is a tool for beautiful dashboard monitoring that works well with Promet
 Run the beacon node  with the `--metrics` flag:
 
 ```
-./run-pyrmont-beacon-node.sh --metrics
+./run-prater-beacon-node.sh --metrics
 ```
 
 And visit [http://127.0.0.1:8008/metrics](http://127.0.0.1:8008/metrics) to see the raw metrics. You should see a plaintext page that looks something like this:
