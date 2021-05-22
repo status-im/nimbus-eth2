@@ -35,8 +35,8 @@
 # Guides
 - [Grafana and Prometheus](./metrics-pretty-pictures.md)
 - [Create your own Infura endpoint](./infura-guide.md)
-- [Migrating from another client](./migration.md)
-- [Validating with a Raspberry Pi](./pi-guide.md)
+- [Migrate from another client](./migration.md)
+- [Validate with a Raspberry Pi](./pi-guide.md)
 
 
 # Downloads
