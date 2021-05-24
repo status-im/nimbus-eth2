@@ -8,6 +8,9 @@ These images are simply the contents of [release tarballs](./binaries.md) inside
 
 The unpacked archive is in `/home/user/nimbus-eth2` which is also the default *WORKDIR*. The default *ENTRYPOINT* is the binary itself: `/home/user/nimbus-eth2/build/nimbus\_beacon\_node`
 
+> **N.B.** Docker images do not support the `log-file` [option](./options.md) - The way we recommend setting up docker is to capture its console output with a [log rotation helper](./log-rotate.md).
+
+
 ## Usage
 
 You need to create an external data directory and mount it as a volume inside the container, with  mounting point: `/home/user/nimbus-eth2/build/data`
@@ -35,3 +38,4 @@ docker-compose -f docker-compose-example1.yml up --quiet-pull --no-color --detac
 ```
 
 > **Note:** The rather voluminous logging is done on `stdout`, so you might want to change the system-wide Docker logging defaults (which dumps everything in `/var/lib/docker/containers/CONTAINER_ID/CONTAINER_ID-json.log`) to something like `syslog`. We recommend using a log rotation system with appropriate intervals for logs of this size.
+

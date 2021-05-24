@@ -2,7 +2,7 @@
 
 Nimbus logs are written to stdout, and optionally to a file. Writing to a file for a long-running process may lead to difficulties when the file grows large. This is typically solved with a *log rotator*. A log rotator is responsible for switching the written-to file, as well as compressing and removing old logs.
 
-## Using "logrotate"
+## Using `logrotate`
 
 [logrotate](https://github.com/logrotate/logrotate) provides log rotation and compression. The corresponding package will install its Cron hooks (or Systemd timer) -- all you have to do is add a configuration file for Nimbus-eth2 in "/etc/logrotate.d/nimbus-eth2":
 
@@ -27,7 +27,7 @@ daily
 rotate 7
 ```
 
-## Using "rotatelogs"
+## Using `rotatelogs`
 
 [rotatelogs](https://httpd.apache.org/docs/2.4/programs/rotatelogs.html) is available on most servers and can be used with `Docker`, `Systemd` and manual setups to write rotated logs files.
 
