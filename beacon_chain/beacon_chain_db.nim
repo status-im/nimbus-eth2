@@ -17,6 +17,8 @@ import
   ./ssz/[ssz_serialization, merkleization],
   ./filepath
 
+logScope: topics = "bc_db"
+
 type
   DbSeq*[T] = object
     insertStmt: SqliteStmt[openArray[byte], void]
@@ -50,7 +52,11 @@ type
     ##
     ## 1.2 moved BeaconStateNoImmutableValidators to a separate table to
     ## alleviate some of the btree balancing issues - this doubled the speed but
-    ## was still slow
+    ## was still
+    ##
+    ## 1.3 creates `kvstore` with rowid, making it quite fast, but doesn't do
+    ## anything about existing databases. Versions after that use a separate
+    ## file instead (V1)
     db: SqStoreRef
     backend: KvStoreRef # kvstore
     stateStore: KvStoreRef # state_no_validators
