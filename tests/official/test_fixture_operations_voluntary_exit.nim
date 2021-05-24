@@ -33,21 +33,25 @@ proc runTest(identifier: string) =
   proc `testImpl _ voluntary_exit _ identifier`() =
 
     var prefix: string
-    if existsFile(testDir/"post.ssz"):
+    if existsFile(testDir/"post.ssz_snappy"):
       prefix = "[Valid]   "
     else:
       prefix = "[Invalid] "
 
     test prefix & identifier:
-      let voluntaryExit = parseTest(testDir/"voluntary_exit.ssz", SSZ, SignedVoluntaryExit)
-      var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
+      let voluntaryExit = parseTest(
+        testDir/"voluntary_exit.ssz_snappy", SSZ, SignedVoluntaryExit)
+      var
+        preState =
+          newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
+        cache = StateCache()
 
-      var cache = StateCache()
-
-      if existsFile(testDir/"post.ssz"):
-        let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
-        let done =
-          process_voluntary_exit(preState[], voluntaryExit, {}, cache).isOk
+      if existsFile(testDir/"post.ssz_snappy"):
+        let
+          postState =
+            newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
+          done =
+            process_voluntary_exit(preState[], voluntaryExit, {}, cache).isOk
         doAssert done, "Valid voluntary exit not processed"
         check: preState[].hash_tree_root() == postState[].hash_tree_root()
         reportDiff(preState, postState)

@@ -33,20 +33,25 @@ proc runTest(identifier: string) =
   proc `testImpl_proposer_slashing _ identifier`() =
 
     var prefix: string
-    if existsFile(testDir/"post.ssz"):
+    if existsFile(testDir/"post.ssz_snappy"):
       prefix = "[Valid]   "
     else:
       prefix = "[Invalid] "
 
     test prefix & identifier:
-      let proposerSlashing = parseTest(testDir/"proposer_slashing.ssz", SSZ, ProposerSlashing)
-      var preState = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
+      let proposerSlashing = parseTest(
+        testDir/"proposer_slashing.ssz_snappy", SSZ, ProposerSlashing)
+      var
+        preState =
+          newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
+        cache = StateCache()
 
-      var cache = StateCache()
-
-      if existsFile(testDir/"post.ssz"):
-        let postState = newClone(parseTest(testDir/"post.ssz", SSZ, BeaconState))
-        let done = process_proposer_slashing(preState[], proposerSlashing, {}, cache).isOk
+      if existsFile(testDir/"post.ssz_snappy"):
+        let
+          postState =
+            newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
+          done = process_proposer_slashing(
+            preState[], proposerSlashing, {}, cache).isOk
         doAssert done, "Valid proposer slashing not processed"
         check: preState[].hash_tree_root() == postState[].hash_tree_root()
         reportDiff(preState, postState)

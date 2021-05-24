@@ -50,16 +50,18 @@ proc runTest(rewardsDir, identifier: string) =
   proc `testImpl _ rewards _ identifier`() =
     test "Rewards" & " - " & identifier & preset():
       var
-        state = newClone(parseTest(testDir/"pre.ssz", SSZ, BeaconState))
+        state = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
         cache = StateCache()
       let
-        sourceDeltas = parseTest(testDir/"source_deltas.ssz", SSZ, Deltas)
-        targetDeltas = parseTest(testDir/"target_deltas.ssz", SSZ, Deltas)
-        headDeltas = parseTest(testDir/"head_deltas.ssz", SSZ, Deltas)
+        sourceDeltas =
+          parseTest(testDir/"source_deltas.ssz_snappy", SSZ, Deltas)
+        targetDeltas =
+          parseTest(testDir/"target_deltas.ssz_snappy", SSZ, Deltas)
+        headDeltas = parseTest(testDir/"head_deltas.ssz_snappy", SSZ, Deltas)
         inclusionDelayDeltas =
-          parseTest(testDir/"inclusion_delay_deltas.ssz", SSZ, Deltas)
+          parseTest(testDir/"inclusion_delay_deltas.ssz_snappy", SSZ, Deltas)
         inactivityPenaltyDeltas =
-          parseTest(testDir/"inactivity_penalty_deltas.ssz", SSZ, Deltas)
+          parseTest(testDir/"inactivity_penalty_deltas.ssz_snappy", SSZ, Deltas)
 
       var
         rewards = RewardInfo()
