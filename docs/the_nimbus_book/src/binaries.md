@@ -14,3 +14,5 @@ We've designed the build process to be reproducible. In practice, this means tha
 
 For instructions on how to reproduce the build, [see here](https://github.com/status-im/nimbus-eth2/blob/master/docker/dist/README.md#reproducing-the-build).
 
+> **N.B.** Binaries are built with Docker. As such they do not support the `log-file` [option](./options.md). We recommend capturing the console output with a [log rotation helper](./log-rotate.md) instead. 
+

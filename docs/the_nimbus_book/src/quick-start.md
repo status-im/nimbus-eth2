@@ -1,86 +1,25 @@
-# Run the beacon node (quickstart)
+# Run the beacon node
 
 This page takes you through how to run just the beacon node **without a validator attached.**
 
-Running a beacon node without a validator attached can help improve the anonymity properties of the network as a whole. 
+The beacon node connects to the eth2 network, manages the blockchain, and provides API's to interact with the beacon chain.
+
+Running a beacon node without a validator attached is a [worthwhile endeavor](https://vitalik.ca/general/2021/05/23/scaling.html#its-crucial-for-blockchain-decentralization-for-regular-users-to-be-able-to-run-a-node).
 
 It's also a necessary step to running a validator (since an active validator requires a synced beacon node).
 
-## 1. Install dependencies
+## 1. Install
 
-You'll need to install some packages in order for Nimbus to run correctly.
-
-**Linux**
-
-On common Linux distributions the dependencies can be installed with
-
-```sh
-# Debian and Ubuntu
-sudo apt-get install build-essential git
-
-# Fedora
-dnf install @development-tools
-
-# Archlinux, using an AUR manager
-yourAURmanager -S base-devel
-```
-
-**macOS**
-
-Assuming you use [Homebrew](https://brew.sh/) to manage packages:
-
-```sh
-brew install cmake
-```
+[Install Nimbus' dependencies](./install.html#external-dependencies) 
 
 
-## 2. Clone the Nimbus repository
 
-Run the following command to clone the [nimbus-eth2 repository](https://github.com/status-im/nimbus-eth2):
+## 2. Build
 
-```
-git clone https://github.com/status-im/nimbus-eth2
-```
+[Build the beacon node](./build.md) 
 
-## 3. Build the beacon node
 
-Change into the directory and build the beacon node.
-```
-cd nimbus-eth2
-make nimbus_beacon_node
-```
 
-*Patience... this may take a few minutes.*
+## 3. Sync
 
-## 4. Connect to the network
-
-To connect to mainnet, run:
-```
-./run-mainnet-beacon-node.sh
-```
-
-To connect to the testnet , run:
-
-```
-./run-prater-beacon-node.sh
-```
-
-In both case you'll be prompted to enter a web3-provider url:
-
-```
-To monitor the Eth1 validator deposit contract, you'll need to pair
-the Nimbus beacon node with a Web3 provider capable of serving Eth1
-event logs. This could be a locally running Eth1 client such as Geth
-or a cloud service such as Infura. For more information please see
-our setup guide:
-
-https://status-im.github.io/nimbus-eth2/eth1.html
-
-Please enter a Web3 provider URL:
-```
-
-Press enter to skip (this is only important when you're running a validator).
-
-## 5. Keep track of your sync progress
-
-See [here](./keep-an-eye.html#keep-track-of-your-syncing-progress) for how to keep track of your sync progress.
+[Sync the chain](./start-syncing.md)

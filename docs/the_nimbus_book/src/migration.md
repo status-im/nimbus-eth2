@@ -3,10 +3,10 @@
 
 *See [here](./migration-options.md) for advanced options*
 
-## Step 1 - Sync the Nimbus beacon node
-No matter which client you are migrating over from, the first step is to sync the beacon node.
+## Step 1 - Sync the beacon node
+No matter which client you are migrating over from, the first step is to sync the Nimbus beacon node.
 
-The easiest way to do this is to follow the [Nimbus quickstart guide](./quick-start.md).  Syncing the beacon node might take up to 30h depending on your hardware, so you should keep validating using your current setup until it completes.
+The easiest way to do this is to follow the [beacon node quick start guide](./quick-start.md).  Syncing the beacon node might take up to 30h depending on your hardware - you should keep validating using your current setup until it completes.
 
 
 ## Step 2 - Export your slashing protection history

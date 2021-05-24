@@ -31,18 +31,24 @@ Note that the port number is displayed directly after the IP -- in the above cas
 
 ## Keep track of your syncing progress
 
-To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running. You should see something like:
+To keep track of your sync progress, pay attention to the `Slot start` messages in you logs:
 
 ```
-peers: 35 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:7 (316807) ❯ sync: wPwwwwwDwwDPwPPPwwww:7:4.2313:4.0627:03h01m(280512)
+INF 2021-05-24 14:53:59.067+02:00 Slot start                                 
+topics="beacnde" tid=3485464 file=nimbus_beacon_node.nim:968 lastSlot=1253067 wallSlot=1253068 delay=67ms515us0ns
+peers=22
+head=eb994064:90753 
+headEpoch=2836 
+finalized=031b9591:90688 
+finalizedEpoch=2834 
+sync="PPPPPDDDDP:10:15.4923:7.7398:01d17h43m (90724)"
 ```
 
 Where:
 - `peers` tells you how many peers you're currently connected to (in the above case, 35 peers)
 - `finalized` tells you the most recent finalized epoch you've synced to so far (the 8765th epoch)
 - `head` tells you the most recent slot you've synced to so far (the 2nd slot of the 8767th epoch)
-- `time` tells you the current time since Genesis (the 7th slot of the 9900th epoch -- or equivalently, the 316,807th slot)
-- `sync` tells you how fast you're syncing right now (4.2313 blocks per second), your average sync speed since you stared (4.0627 blocks per second), the time left until you're fully synced (3 hours and 1 min) how many blocks you've synced so far (280,512), along with information about 20 sync workers linked to the 20 most performant peers you are currently connected to (represented by a string of letters and a number).
+- `sync` tells you how fast you're syncing right now (`15.4923` blocks per second), your average sync speed since you stared (`7.7398` blocks per second), the time left until you're fully synced (`01d17h43m`) how many blocks you've synced so far (`90724`), along with information about 10 sync workers linked to the 10 most performant peers you are currently connected to (represented by a string of letters and a number).
 
 The string of letters -- what we call the `sync worker map` (in the above case represented by `wPwwwwwDwwDPwPPPwwww`) represents the status of the sync workers mentioned above, where:
 
@@ -55,8 +61,8 @@ The string of letters -- what we call the `sync worker map` (in the above case r
     U - updating peer's status information
 ```
 
-The number following it (in the above case represented by `7`) represents the number of workers that are currently active (i.e not sleeping or waiting for a peer).
+The number following it (in the above case represented by `10`) represents the number of workers that are currently active (i.e not sleeping or waiting for a peer).
 
-> **Note:** If you're running Nimbus as a service, the above status bar won't be visible to you. You can use you the RPC calls outlined in the [API page](./api.md) to retrieve similar information.
+> **Note:** You can also use you the RPC calls outlined in the [API page](./api.md) to retrieve similar information.
 
 

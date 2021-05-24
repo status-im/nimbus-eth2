@@ -57,3 +57,6 @@ To see a list of the command line options availabe to you, with descriptions, na
 ```
 ./nimbus_beacon_node --help
 ```
+### Keep track of your sync progress
+
+See [here](./keep-an-eye.html#keep-track-of-your-syncing-progress) for how to keep track of your sync progress.

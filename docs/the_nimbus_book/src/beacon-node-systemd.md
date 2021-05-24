@@ -65,7 +65,7 @@ sudo systemctl enable nimbus-eth2-prater --now
 sudo journalctl -u nimbus-eth2-prater.service
 ```
 
-This will show you the Nimbus logs at the default setting -- it should include regular "slot start" messages which will show your sync progress.
+This will show you the Nimbus logs at the default setting -- it should include regular "slot start" messages which will show your [sync progress](./keep-an-eye.md#keep-track-of-your-syncing-progress).
 
 For more options, see [here](https://www.raspberrypi.org/documentation/linux/usage/systemd.md).
 
