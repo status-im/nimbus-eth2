@@ -22,6 +22,7 @@ BINARIES="nimbus_beacon_node nimbus_signing_process"
 #- we need to build everything against libraries available inside this container, including the Nim compiler
 #- we disable the log file and log colours; the user only has to worry about logging stdout now
 make clean
+NIMFLAGS_COMMON="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --gcc.options.debug:'-g1' --clang.options.debug:'-gline-tables-only'"
 if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
   # Cross-compilation using the MXE distribution of Mingw-w64
   export PATH="/usr/lib/mxe/usr/bin:${PATH}"
@@ -60,7 +61,7 @@ if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
     CXXFLAGS="${CXXFLAGS} -D__STDC_FORMAT_MACROS -D_WIN32_WINNT=0x0600" \
     USE_VENDORED_LIBUNWIND=1 \
     LOG_LEVEL="TRACE" \
-    NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --os:windows --gcc.exe=${CC} --gcc.linkerexe=${CXX} --passL:-static" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --os:windows --gcc.exe=${CC} --gcc.linkerexe=${CXX} --passL:-static" \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "Linux_arm32v7" ]]; then
   CC="arm-linux-gnueabihf-gcc"
@@ -73,7 +74,7 @@ elif [[ "${PLATFORM}" == "Linux_arm32v7" ]]; then
     -j$(nproc) \
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
-    NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --cpu:arm --gcc.exe=${CC} --gcc.linkerexe=${CC}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --cpu:arm --gcc.exe=${CC} --gcc.linkerexe=${CC}" \
     PARTIAL_STATIC_LINKING=1 \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "Linux_arm64v8" ]]; then
@@ -87,7 +88,7 @@ elif [[ "${PLATFORM}" == "Linux_arm64v8" ]]; then
     -j$(nproc) \
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
-    NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --cpu:arm64 --gcc.exe=${CC} --gcc.linkerexe=${CC}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --cpu:arm64 --gcc.exe=${CC} --gcc.linkerexe=${CC}" \
     PARTIAL_STATIC_LINKING=1 \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "macOS_amd64" ]]; then
@@ -106,7 +107,7 @@ elif [[ "${PLATFORM}" == "macOS_amd64" ]]; then
     CC="${CC}" \
     LIBTOOL="x86_64-apple-darwin${DARWIN_VER}-libtool" \
     OS="darwin" \
-    NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --os:macosx --clang.exe=${CC}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --clang.exe=${CC}" \
     nat-libs
   make \
     -j$(nproc) \
@@ -118,7 +119,7 @@ elif [[ "${PLATFORM}" == "macOS_amd64" ]]; then
     DSYMUTIL="x86_64-apple-darwin${DARWIN_VER}-dsymutil" \
     FORCE_DSYMUTIL=1 \
     USE_VENDORED_LIBUNWIND=1 \
-    NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --os:macosx --clang.exe=${CC} --clang.linkerexe=${CC}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --clang.exe=${CC} --clang.linkerexe=${CC}" \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
   export PATH="/opt/osxcross/bin:${PATH}"
@@ -136,7 +137,7 @@ elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
     CC="${CC}" \
     LIBTOOL="arm64-apple-darwin${DARWIN_VER}-libtool" \
     OS="darwin" \
-    NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --os:macosx --cpu:arm64 --clang.exe=${CC}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --clang.exe=${CC}" \
     nat-libs
   make \
     -j$(nproc) \
@@ -148,13 +149,14 @@ elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
     DSYMUTIL="arm64-apple-darwin${DARWIN_VER}-dsymutil" \
     FORCE_DSYMUTIL=1 \
     USE_VENDORED_LIBUNWIND=1 \
-    NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --os:macosx --cpu:arm64 --clang.exe=${CC} --clang.linkerexe=${CC}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --clang.exe=${CC} --clang.linkerexe=${CC}" \
     ${BINARIES}
 else
+  # Linux AMD64
   make \
     -j$(nproc) \
     LOG_LEVEL="TRACE" \
-    NIMFLAGS="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none" \
+    NIMFLAGS="${NIMFLAGS_COMMON}" \
     PARTIAL_STATIC_LINKING=1 \
     QUICK_AND_DIRTY_COMPILER=1 \
     ${BINARIES}
