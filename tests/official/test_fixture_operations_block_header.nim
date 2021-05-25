@@ -13,14 +13,15 @@ import
   # Utilities
   stew/results,
   # Beacon chain internals
-  ../../beacon_chain/spec/[datatypes, state_transition_block, crypto],
+  ../../beacon_chain/spec/[state_transition_block, crypto],
+  ../../beacon_chain/spec/datatypes/altair,
   ../../beacon_chain/ssz,
   # Test utilities
   ../testutil,
   ./fixtures_utils,
   ../helpers/debug_state
 
-const OpBlockHeaderDir = SszTestsDir/const_preset/"phase0"/"operations"/"block_header"/"pyspec_tests"
+const OpBlockHeaderDir = SszTestsDir/const_preset/"altair"/"operations"/"block_header"/"pyspec_tests"
 
 proc runTest(identifier: string) =
   # We wrap the tests in a proc to avoid running out of globals

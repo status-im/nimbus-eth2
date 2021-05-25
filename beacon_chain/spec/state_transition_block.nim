@@ -23,13 +23,13 @@ import
   std/[algorithm, intsets, options, sequtils],
   chronicles,
   ../extras, ../ssz/merkleization, metrics,
-  ./beaconstate, ./crypto, ./datatypes, ./digest, ./helpers, ./validator,
-  ./signatures, ./presets,
+  ./beaconstate, ./crypto, ./datatypes/[phase0, altair], ./digest, ./helpers,
+  ./validator, ./signatures, ./presets,
   ../../nbench/bench_lab
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
-    state: var BeaconState, blck: SomeBeaconBlock, flags: UpdateFlags,
+    state: var SomeBeaconState, blck: SomeSomeBeaconBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.} =
   # Verify that the slots match
   if not (blck.slot == state.slot):
@@ -72,7 +72,7 @@ func `xor`[T: array](a, b: T): T =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#randao
 proc process_randao(
-    state: var BeaconState, body: SomeBeaconBlockBody, flags: UpdateFlags,
+    state: var SomeBeaconState, body: SomeSomeBeaconBlockBody, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.} =
   let
     proposer_index = get_beacon_proposer_index(state, cache)
@@ -104,7 +104,7 @@ proc process_randao(
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#eth1-data
-func process_eth1_data(state: var BeaconState, body: SomeBeaconBlockBody): Result[void, cstring] {.nbench.}=
+func process_eth1_data(state: var SomeBeaconState, body: SomeSomeBeaconBlockBody): Result[void, cstring] {.nbench.}=
   if not state.eth1_data_votes.add body.eth1_data:
     # Count is reset  in process_final_updates, so this should never happen
     return err("process_eth1_data: no more room for eth1 data")
@@ -123,7 +123,7 @@ func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#proposer-slashings
 proc check_proposer_slashing*(
-    state: var BeaconState, proposer_slashing: SomeProposerSlashing,
+    state: var SomeBeaconState, proposer_slashing: SomeProposerSlashing,
     flags: UpdateFlags):
     Result[void, cstring] {.nbench.} =
 
@@ -165,7 +165,7 @@ proc check_proposer_slashing*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
-    state: var BeaconState, proposer_slashing: SomeProposerSlashing,
+    state: var SomeBeaconState, proposer_slashing: SomeProposerSlashing,
     flags: UpdateFlags, cache: var StateCache):
     Result[void, cstring] {.nbench.} =
   ? check_proposer_slashing(state, proposer_slashing, flags)
@@ -189,7 +189,7 @@ func is_slashable_attestation_data*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#attester-slashings
 proc check_attester_slashing*(
-       state: var BeaconState,
+       state: var SomeBeaconState,
        attester_slashing: SomeAttesterSlashing,
        flags: UpdateFlags
      ): Result[seq[ValidatorIndex], cstring] {.nbench.} =
@@ -222,7 +222,7 @@ proc check_attester_slashing*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
-       state: var BeaconState,
+       state: var SomeBeaconState,
        attester_slashing: SomeAttesterSlashing,
        flags: UpdateFlags,
        cache: var StateCache
@@ -240,7 +240,7 @@ proc process_attester_slashing*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#voluntary-exits
 proc check_voluntary_exit*(
-    state: BeaconState,
+    state: SomeBeaconState,
     signed_voluntary_exit: SomeSignedVoluntaryExit,
     flags: UpdateFlags): Result[void, cstring] {.nbench.} =
 
@@ -292,7 +292,7 @@ proc check_voluntary_exit*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#voluntary-exits
 proc process_voluntary_exit*(
-    state: var BeaconState,
+    state: var SomeBeaconState,
     signed_voluntary_exit: SomeSignedVoluntaryExit,
     flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.} =
@@ -303,8 +303,8 @@ proc process_voluntary_exit*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#operations
 proc process_operations(preset: RuntimePreset,
-                        state: var BeaconState,
-                        body: SomeBeaconBlockBody,
+                        state: var SomeBeaconState,
+                        body: SomeSomeBeaconBlockBody,
                         flags: UpdateFlags,
                         cache: var StateCache): Result[void, cstring] {.nbench.} =
   # Verify that outstanding deposits are processed up to the maximum number of
@@ -338,7 +338,7 @@ proc process_operations(preset: RuntimePreset,
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#block-processing
 proc process_block*(
     preset: RuntimePreset,
-    state: var BeaconState, blck: SomeBeaconBlock, flags: UpdateFlags,
+    state: var SomeBeaconState, blck: SomeSomeBeaconBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.}=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when

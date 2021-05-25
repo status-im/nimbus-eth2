@@ -399,6 +399,22 @@ type
   SomeBeaconBlock* = BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock
   SomeBeaconBlockBody* = BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody
 
+  # TODO rename
+
+  # TODO why does this fail?
+  #SomeSomeBeaconBlock* = SomeBeaconBlock | phase0.SomeBeaconBlock
+  SomeSomeBeaconBlock* =
+    BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock |
+    phase0.BeaconBlock | phase0.SigVerifiedBeaconBlock | phase0.TrustedBeaconBlock
+
+  # TODO see above, re why does it fail
+  SomeSomeBeaconBlockBody* =
+    BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody |
+    phase0.BeaconBlockBody | phase0.SigVerifiedBeaconBlockBody | phase0.TrustedBeaconBlockBody
+  #SomeSomeBeaconBlockBody* = SomeBeaconBlockBody | phase0.SomeBeaconBlockBody
+
+  SomeSomeSignedBeaconBlock* = SomeSignedBeaconBlock | phase0.SomeSignedBeaconBlock
+
 # TODO when https://github.com/nim-lang/Nim/issues/14440 lands in Status's Nim,
 # switch proc {.noSideEffect.} to func.
 when false:
