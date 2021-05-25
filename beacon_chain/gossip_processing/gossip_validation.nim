@@ -287,9 +287,8 @@ proc validateAttestation*(
                               fork, genesis_validators_root, epochRef,
                               attestation
                             )
-      if deferredCrypto.isNone():
-        return err((ValidationResult.Reject,
-                    cstring("validateAttestation: crypto sanity checks failure")))
+      if deferredCrypto.isErr():
+        return err((ValidationResult.Reject, deferredCrypto.error))
 
       # Await the crypto check
       let
@@ -441,9 +440,8 @@ proc validateAggregate*(
                   fork, genesis_validators_root, epochRef,
                   signed_aggregate_and_proof
                 )
-  if deferredCrypto.isNone():
-    return err((ValidationResult.Reject,
-                cstring("validateAggregate: crypto sanity checks failure")))
+  if deferredCrypto.isErr():
+    return err((ValidationResult.Reject, deferredCrypto.error))
 
   let
     (cryptoFuts, sig) = deferredCrypto.get()
