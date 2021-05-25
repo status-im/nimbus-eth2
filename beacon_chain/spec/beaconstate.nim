@@ -273,7 +273,7 @@ proc initialize_beacon_state_from_eth1*(
       Eth1Data(block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
     latest_block_header:
       BeaconBlockHeader(
-        body_root: hash_tree_root(BeaconBlockBody())))
+        body_root: hash_tree_root(default(phase0.BeaconBlockBody))))
 
   # Seed RANDAO with Eth1 entropy
   state.randao_mixes.fill(eth1_block_hash)
@@ -342,14 +342,16 @@ proc initialize_hashed_beacon_state_from_eth1*(
     data: genesisState[], root: hash_tree_root(genesisState[]))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#genesis-block
-func get_initial_beacon_block*(state: phase0.BeaconState): TrustedSignedBeaconBlock =
+func get_initial_beacon_block*(state: phase0.BeaconState):
+    phase0.TrustedSignedBeaconBlock =
   # The genesis block is implicitly trusted
-  let message = TrustedBeaconBlock(
+  let message = phase0.TrustedBeaconBlock(
     slot: state.slot,
     state_root: hash_tree_root(state),)
     # parent_root, randao_reveal, eth1_data, signature, and body automatically
     # initialized to default values.
-  TrustedSignedBeaconBlock(message: message, root: hash_tree_root(message))
+  phase0.TrustedSignedBeaconBlock(
+    message: message, root: hash_tree_root(message))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: SomeBeaconState,

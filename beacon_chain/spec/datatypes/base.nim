@@ -61,7 +61,7 @@ const
 
   # Not part of spec. Still useful, pending removing usage if appropriate.
   ZERO_HASH* = Eth2Digest()
-  MAX_GRAFFITI_SIZE = 32
+  MAX_GRAFFITI_SIZE* = 32
   FAR_FUTURE_SLOT* = (not 0'u64).Slot
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#configuration
@@ -264,132 +264,6 @@ type
 
     validator_index*: uint64
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconblock
-  # TODO light client will fork this, via BeaconBlockBody
-  BeaconBlock* = object
-    ## For each slot, a proposer is chosen from the validator pool to propose
-    ## a new block. Once the block as been proposed, it is transmitted to
-    ## validators that will have a chance to vote on it through attestations.
-    ## Each block collects attestations, or votes, on past blocks, thus a chain
-    ## is formed.
-
-    slot*: Slot
-    proposer_index*: uint64
-
-    parent_root*: Eth2Digest ##\
-    ## Root hash of the previous block
-
-    state_root*: Eth2Digest ##\
-    ## The state root, _after_ this block has been processed
-
-    body*: BeaconBlockBody
-
-  SigVerifiedBeaconBlock* = object
-    ## A BeaconBlock that contains verified signatures
-    ## but that has not been verified for state transition
-    slot*: Slot
-    proposer_index*: uint64
-
-    parent_root*: Eth2Digest ##\
-    ## Root hash of the previous block
-
-    state_root*: Eth2Digest ##\
-    ## The state root, _after_ this block has been processed
-
-    body*: SigVerifiedBeaconBlockBody
-
-  TrustedBeaconBlock* = object
-    ## When we receive blocks from outside sources, they are untrusted and go
-    ## through several layers of validation. Blocks that have gone through
-    ## validations can be trusted to be well-formed, with a correct signature,
-    ## having a parent and applying cleanly to the state that their parent
-    ## left them with.
-    ##
-    ## When loading such blocks from the database, to rewind states for example,
-    ## it is expensive to redo the validations (in particular, the signature
-    ## checks), thus `TrustedBlock` uses a `TrustedSig` type to mark that these
-    ## checks can be skipped.
-    ##
-    ## TODO this could probably be solved with some type trickery, but there
-    ##      too many bugs in nim around generics handling, and we've used up
-    ##      the trickery budget in the serialization library already. Until
-    ##      then, the type must be manually kept compatible with its untrusted
-    ##      cousin.
-    slot*: Slot
-    proposer_index*: uint64
-    parent_root*: Eth2Digest ##\
-    state_root*: Eth2Digest ##\
-    body*: TrustedBeaconBlockBody
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconblockheader
-  BeaconBlockHeader* = object
-    slot*: Slot
-    proposer_index*: uint64
-    parent_root*: Eth2Digest
-    state_root*: Eth2Digest
-    body_root*: Eth2Digest
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#signingdata
-  SigningData* = object
-    object_root*: Eth2Digest
-    domain*: Eth2Domain
-
-  GraffitiBytes* = distinct array[MAX_GRAFFITI_SIZE, byte]
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconblockbody
-  # TODO light client will fork this
-  BeaconBlockBody* = object
-    randao_reveal*: ValidatorSig
-    eth1_data*: Eth1Data
-    graffiti*: GraffitiBytes
-
-    # Operations
-    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
-    deposits*: List[Deposit, Limit MAX_DEPOSITS]
-    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
-
-  SigVerifiedBeaconBlockBody* = object
-    ## A BeaconBlock body with signatures verified
-    ## including:
-    ## - Randao reveal
-    ## - Attestations
-    ## - ProposerSlashing (SignedBeaconBlockHeader)
-    ## - AttesterSlashing (IndexedAttestation)
-    ## - SignedVoluntaryExits
-    ##
-    ## - ETH1Data (Deposits) can contain invalid BLS signatures
-    ##
-    ## The block state transition has NOT been verified
-    randao_reveal*: TrustedSig
-    eth1_data*: Eth1Data
-    graffiti*: GraffitiBytes
-
-    # Operations
-    proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
-    deposits*: List[Deposit, Limit MAX_DEPOSITS]
-    voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
-
-  TrustedBeaconBlockBody* = object
-    ## A full verified block
-    randao_reveal*: TrustedSig
-    eth1_data*: Eth1Data
-    graffiti*: GraffitiBytes
-
-    # Operations
-    proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
-    deposits*: List[Deposit, Limit MAX_DEPOSITS]
-    voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
-
-  # TODO light client stuff will propagate to the FooBeaconBlock{,Body} types
-  SomeSignedBeaconBlock* = SignedBeaconBlock | SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock
-  SomeBeaconBlock* = BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock
-  SomeBeaconBlockBody* = BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody
   SomeAttestation* = Attestation | TrustedAttestation
   SomeIndexedAttestation* = IndexedAttestation | TrustedIndexedAttestation
   SomeProposerSlashing* = ProposerSlashing | TrustedProposerSlashing
@@ -461,37 +335,20 @@ type
     message*: VoluntaryExit
     signature*: TrustedSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#signedbeaconblock
-  SignedBeaconBlock* = object
-    message*: BeaconBlock
-    signature*: ValidatorSig
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconblockheader
+  BeaconBlockHeader* = object
+    slot*: Slot
+    proposer_index*: uint64
+    parent_root*: Eth2Digest
+    state_root*: Eth2Digest
+    body_root*: Eth2Digest
 
-    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#signingdata
+  SigningData* = object
+    object_root*: Eth2Digest
+    domain*: Eth2Domain
 
-  SigVerifiedSignedBeaconBlock* = object
-    ## A SignedBeaconBlock with signatures verified
-    ## including:
-    ## - Block signature
-    ## - BeaconBlockBody
-    ##   - Randao reveal
-    ##   - Attestations
-    ##   - ProposerSlashing (SignedBeaconBlockHeader)
-    ##   - AttesterSlashing (IndexedAttestation)
-    ##   - SignedVoluntaryExits
-    ##
-    ##   - ETH1Data (Deposits) can contain invalid BLS signatures
-    ##
-    ## The block state transition has NOT been verified
-    message*: SigVerifiedBeaconBlock
-    signature*: TrustedSig
-
-    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
-
-  TrustedSignedBeaconBlock* = object
-    message*: TrustedBeaconBlock
-    signature*: TrustedSig
-
-    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+  GraffitiBytes* = distinct array[MAX_GRAFFITI_SIZE, byte]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#signedbeaconblockheader
   SignedBeaconBlockHeader* = object
@@ -919,27 +776,6 @@ func shortLog*(s: Slot): uint64 =
 func shortLog*(e: Epoch): uint64 =
   e - GENESIS_EPOCH
 
-func shortLog*(v: SomeBeaconBlock): auto =
-  (
-    slot: shortLog(v.slot),
-    proposer_index: v.proposer_index,
-    parent_root: shortLog(v.parent_root),
-    state_root: shortLog(v.state_root),
-    eth1data: v.body.eth1_data,
-    graffiti: $v.body.graffiti,
-    proposer_slashings_len: v.body.proposer_slashings.len(),
-    attester_slashings_len: v.body.attester_slashings.len(),
-    attestations_len: v.body.attestations.len(),
-    deposits_len: v.body.deposits.len(),
-    voluntary_exits_len: v.body.voluntary_exits.len(),
-  )
-
-func shortLog*(v: SomeSignedBeaconBlock): auto =
-  (
-    blck: shortLog(v.message),
-    signature: shortLog(v.signature)
-  )
-
 func shortLog*(v: BeaconBlockHeader): auto =
   (
     slot: shortLog(v.slot),
@@ -1025,7 +861,6 @@ func shortLog*(v: SomeSignedVoluntaryExit): auto =
 
 chronicles.formatIt Slot: it.shortLog
 chronicles.formatIt Epoch: it.shortLog
-chronicles.formatIt BeaconBlock: it.shortLog
 chronicles.formatIt AttestationData: it.shortLog
 chronicles.formatIt Attestation: it.shortLog
 chronicles.formatIt Checkpoint: it.shortLog

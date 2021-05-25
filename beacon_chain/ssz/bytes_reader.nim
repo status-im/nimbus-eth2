@@ -12,7 +12,8 @@
 import
   std/[typetraits, options],
   stew/[endians2, objects],
-  ../spec/[digest, datatypes], ./types, ./spec_types, ./merkleization
+  ../spec/digest, ./types, ./spec_types, ./merkleization,
+  ../spec/datatypes/[phase0, altair]
 
 template raiseIncorrectSize(T: type) =
   const typeName = name(T)
@@ -58,6 +59,9 @@ template fromSszBytes*(T: type Slot, bytes: openArray[byte]): T =
 
 template fromSszBytes*(T: type Epoch, bytes: openArray[byte]): T =
   T fromSszBytes(uint64, bytes)
+
+template fromSszBytes*(T: type ParticipationFlags, bytes: openArray[byte]): T =
+  T fromSszBytes(uint8, bytes)
 
 func fromSszBytes*(T: type ForkDigest, bytes: openArray[byte]): T {.raisesssz.} =
   if bytes.len != sizeof(result):
