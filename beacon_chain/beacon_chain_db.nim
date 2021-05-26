@@ -259,13 +259,13 @@ proc loadImmutableValidators(db: BeaconChainDB): seq[ImmutableValidatorData] =
 
 proc copyDbSeq[T](db0, db: SqStoreRef, name: string) =
   var
-    src = DbSeq[T].init(db0, "genesis_deposits")
+    src = DbSeq[T].init(db0, name)
 
   if src.isErr():
     debug "Skipping migration", name, msg = src.error()
     return
 
-  var tgt = DbSeq[T].init(db, "genesis_deposits").expectDb()
+  var tgt = DbSeq[T].init(db, name).expectDb()
 
   while tgt.len < src.get().len():
     tgt.add src.get().get(tgt.len())
