@@ -38,11 +38,12 @@ import ./base, ./phase0
 export base
 
 const
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/beacon-chain.md#incentivization-weights
-  TIMELY_HEAD_WEIGHT* = 12
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#incentivization-weights
   TIMELY_SOURCE_WEIGHT* = 12
   TIMELY_TARGET_WEIGHT* = 24
+  TIMELY_HEAD_WEIGHT* = 12
   SYNC_REWARD_WEIGHT* = 8
+  PROPOSER_WEIGHT* = 8
   WEIGHT_DENOMINATOR* = 64
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/validator.md#misc

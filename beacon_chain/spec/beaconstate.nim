@@ -154,7 +154,7 @@ func get_validator_churn_limit(state: SomeBeaconState, cache: var StateCache):
       state, state.get_current_epoch(), cache) div CHURN_LIMIT_QUOTIENT)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#initiate_validator_exit
-func initiate_validator_exit*(state: var phase0.BeaconState,
+func initiate_validator_exit*(state: var SomeBeaconState,
                               index: ValidatorIndex, cache: var StateCache) =
   ## Initiate the exit of the validator with index ``index``.
 
@@ -194,7 +194,8 @@ func initiate_validator_exit*(state: var phase0.BeaconState,
     validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#slash_validator
-proc slash_validator*(state: var phase0.BeaconState, slashed_index: ValidatorIndex,
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#modified-slash_validator
+proc slash_validator*(state: var SomeBeaconState, slashed_index: ValidatorIndex,
     cache: var StateCache) =
   ## Slash the validator with index ``index``.
   let epoch = get_current_epoch(state)
@@ -215,8 +216,17 @@ proc slash_validator*(state: var phase0.BeaconState, slashed_index: ValidatorInd
     max(validator.withdrawable_epoch, epoch + EPOCHS_PER_SLASHINGS_VECTOR)
   state.slashings[int(epoch mod EPOCHS_PER_SLASHINGS_VECTOR)] +=
     validator.effective_balance
-  decrease_balance(state, slashed_index,
-    validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT)
+
+  # TODO Consider whether this is better than splitting the functions apart; in
+  # each case, tradeoffs. Here, it's just changing a couple of constants.
+  when state is phase0.BeaconState:
+    decrease_balance(state, slashed_index,
+      validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT)
+  elif state is altair.BeaconState:
+    decrease_balance(state, slashed_index,
+      validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR)
+  else:
+    raiseAssert "invalid BeaconState type"
 
   # The rest doesn't make sense without there being any proposer index, so skip
   let proposer_index = get_beacon_proposer_index(state, cache)
@@ -228,14 +238,21 @@ proc slash_validator*(state: var phase0.BeaconState, slashed_index: ValidatorInd
   let
     # Spec has whistleblower_index as optional param, but it's never used.
     whistleblower_index = proposer_index.get
-    whistleblowing_reward =
+    whistleblower_reward =
       (validator.effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT).Gwei
-    proposer_reward = whistleblowing_reward div PROPOSER_REWARD_QUOTIENT
+    proposer_reward =
+      when state is phase0.BeaconState:
+        whistleblower_reward div PROPOSER_REWARD_QUOTIENT
+      elif state is altair.BeaconState:
+        whistleblower_reward * PROPOSER_WEIGHT div WEIGHT_DENOMINATOR
+      else:
+        raiseAssert "invalid BeaconState type"
+
   increase_balance(state, proposer_index.get, proposer_reward)
   # TODO: evaluate if spec bug / underflow can be triggered
-  doAssert(whistleblowing_reward >= proposer_reward, "Spec bug: underflow in slash_validator")
+  doAssert(whistleblower_reward >= proposer_reward, "Spec bug: underflow in slash_validator")
   increase_balance(
-    state, whistleblower_index, whistleblowing_reward - proposer_reward)
+    state, whistleblower_index, whistleblower_reward - proposer_reward)
 
 func genesis_time_from_eth1_timestamp*(preset: RuntimePreset, eth1_timestamp: uint64): uint64 =
   eth1_timestamp + preset.GENESIS_DELAY
