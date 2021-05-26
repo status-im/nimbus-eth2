@@ -16,7 +16,7 @@ It's also a necessary step to running a validator (since an active validator req
 
 ## 2. Build
 
-[Build the beacon node](./build.md) 
+[Build the beacon node](./build.md) or install a precompiled release from the [Nimbus eth2 releases page](https://github.com/status-im/nimbus-eth2/releases/latest).
 
 
 

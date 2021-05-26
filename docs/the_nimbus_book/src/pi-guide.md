@@ -245,36 +245,22 @@ Follow [this guide](https://www.tomshardware.com/how-to/boot-raspberry-pi-4-usb)
 
 Once you're done, `ssh` back into your Pi.
 
+### 11. Install the beacon node
 
-### 11. Install Nimbus dependencies
+Open the [Nimbus eth2 releases page](https://github.com/status-im/nimbus-eth2/releases/latest) and copy the link for the file that starts with `nimbus-eth2_Linux_arm64v8`.
 
-You'll need to install some packages (`git`) in order for Nimbus to run correctly.
-
-To do so, run:
-```
-sudo apt-get install git
+Run this in your home directory to download nimbus-eth2:
 
 ```
-
-### 12. Clone the Nimbus repository
-
-Run the following command to clone the [nimbus-eth2 repository](https://github.com/status-im/nimbus-eth2):
-
-```
-git clone https://github.com/status-im/nimbus-eth2
+mkdir nimbus-eth2
+wget <insert download link here>
+tar -xzf nimbus-eth2_Linux_arm64v8*.tar.gz -C nimbus-eth2
+rm nimbus-eth2_Linux_arm64v8*.tar.gz
 ```
 
-### 13. Build the beacon node
+Now you can find the software in the nimbus-eth2 directory.
 
-Change into the directory and build the beacon node.
-```
-cd nimbus-eth2
-make nimbus_beacon_node
-```
-
-*Patience... this may take a few minutes.*
-
-### 14. Copy signing key over to Pi
+### 12. Copy signing key over to Pi
 
 >**Note:** If you haven't generated your validator key(s) and/or made your deposit yet, follow the instructions on [this page](./deposit.md) before carrying on.
 
@@ -294,7 +280,7 @@ As usual, replace `195.177.101.93` with your Pi's IP address, and `<VALIDATOR_KE
  > **Tip:** run `pwd` in your `validator_keys` directory to print the full pathname to the console.
 
 
-### 15. Import signing key into Nimbus
+### 13. Import signing key into Nimbus
 
 To import your signing key into Nimbus, from the `nimbus-eth2` directory run:
 
@@ -305,7 +291,7 @@ build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_pyrmont_0
  You'll be asked to enter the password you created to encrypt your keystore(s). Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your [key](https://blog.ethereum.org/2020/05/21/keys/) (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).
 
 
-### 16. Connect to Prater
+### 14. Connect to Prater
 
 We're finally ready to connect to the Prater testnet!
 
@@ -332,7 +318,7 @@ Please enter a Web3 provider URL:
 
 Enter your own secure websocket (`wss`) [endpoint](eth1.md).
 
-### 17. Check for successful connection
+### 15. Check for successful connection
 
 If you look near the top of the logs printed to your console, you should see confirmation that your beacon node has started, with your local validator attached:
 
