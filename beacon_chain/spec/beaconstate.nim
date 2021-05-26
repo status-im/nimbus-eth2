@@ -62,6 +62,7 @@ func decrease_balance*(
     decrease_balance(state.balances[index], delta)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#deposits
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#modified-process_deposit
 func get_validator_from_deposit(deposit: DepositData):
     Validator =
   let
@@ -80,7 +81,7 @@ func get_validator_from_deposit(deposit: DepositData):
   )
 
 proc process_deposit*(preset: RuntimePreset,
-                      state: var phase0.BeaconState,
+                      state: var SomeBeaconState,
                       deposit: Deposit,
                       flags: UpdateFlags = {}): Result[void, cstring] {.nbench.}=
   ## Process an Eth1 deposit, registering a validator or increasing its balance.
@@ -127,6 +128,14 @@ proc process_deposit*(preset: RuntimePreset,
       if not state.balances.add(amount):
         static: doAssert state.balances.maxLen == state.validators.maxLen
         raiseAssert "adding validator succeeded, so should balances"
+
+      when state is altair.BeaconState:
+        if not state.previous_epoch_participation.add(ParticipationFlags(0)):
+          return err("process_deposit: too many validators (previous_epoch_participation)")
+        if not state.current_epoch_participation.add(ParticipationFlags(0)):
+          return err("process_deposit: too many validators (current_epoch_participation)")
+        if not state.inactivity_scores.add(0'u64):
+          return err("process_deposit: too many validators (inactivity_scores)")
 
       doAssert state.validators.len == state.balances.len
     else:

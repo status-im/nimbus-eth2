@@ -8,6 +8,7 @@
 {.used.}
 
 import
+  chronicles,
   # Standard library
   os,
   # Utilities
@@ -20,9 +21,6 @@ import
   ../testutil,
   ./fixtures_utils,
   ../helpers/debug_state
-
-when isMainModule:
-  import chronicles # or some random compile error happens...
 
 const OpVoluntaryExitDir = SszTestsDir/const_preset/"altair"/"operations"/"voluntary_exit"/"pyspec_tests"
 
