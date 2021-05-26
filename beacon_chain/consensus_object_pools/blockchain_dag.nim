@@ -343,7 +343,8 @@ proc init*(T: type ChainDAGRef,
     tailRef
   else:
     let
-      genesisBlockRoot = db.getGenesisBlockRoot()
+      genesisBlockRoot = db.getGenesisBlockRoot().expect(
+        "preInit should have initialized the database with a genesis block root")
       genesisBlock = db.getBlock(genesisBlockRoot).expect(
         "preInit should have initialized the database with a genesis block")
     BlockRef.init(genesisBlockRoot, genesisBlock.message)
