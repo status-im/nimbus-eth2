@@ -8,30 +8,45 @@ If you generated your signing key using the [eth2 launchpad](https://pyrmont.lau
 
 ## Prerequisites
 
-> ⚠️ If this is your first time playing with Nimbus, please make sure you [install our external dependencies](./install.md) first.
-
 This tutorial assumes basic knowledge of the [command line](https://www.learnenough.com/command-line-tutorial/basics#:~:text=Learn%20Enough%20Command%20Line%20to%20Be%20Dangerous%20is%20an%20introduction,broad%20an%20audience%20as%20possible.).
 
 ## Validating
 
 To start validating on the `pyrmont` network:
 
+### 1. Install the beacon node
 
-#### 1. Clone the nim beacon chain repository
+You can either download a pre-compiled release or build the beacon node yourself:
+
+#### 1a. Download the beacon node
+
+Open the [Nimbus eth2 releases page](https://github.com/status-im/nimbus-eth2/releases/latest) and copy the link for the file that works on your system. 
+If you're not sure which Linux release to use, `amd64` will work on home PCs while the `arm` builds work on low-power devices.
+
+Run this in your home directory to download nimbus-eth2:
+
+```
+mkdir nimbus-eth2
+wget <insert download link here>
+tar -xzf nimbus-eth2_*.tar.gz -C nimbus-eth2
+rm nimbus-eth2_*.tar.gz
+```
+
+Please continue to step 2.
+
+#### 1b. Build the beacon node
+
+> ⚠️ If this is your first time playing with Nimbus, please make sure you [install our external dependencies](./install.md) first.
 
 ```
 git clone https://github.com/status-im/nimbus-eth2
 cd nimbus-eth2
-```
-
-#### 2. Build the beacon node
-```
 make nimbus_beacon_node
 ```
 
 *Patience... this may take a few minutes.*
 
-#### 3. Import keystore(s)
+### 3. Import keystore(s)
 
 ```
 build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_pyrmont_0 <YOUR VALIDATOR KEYS DIRECTORY>
@@ -44,7 +59,7 @@ Replacing `<YOUR VALIDATOR KEYS DIRECTORY>` with the full pathname of your `vali
 You'll be asked to enter the password you created to encrypt your keystore(s) in the *Generate Keys* section of the Launchpad process. Don't worry, this is entirely normal. Your validator client needs both your keystore(s) and the password encrypting it to import your [keys](https://blog.ethereum.org/2020/05/21/keys/) (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).
 
 
-#### 4. Connect to Pyrmont
+### 4. Connect to Pyrmont
 
 ```
 ./run-pyrmont-beacon-node.sh
@@ -77,7 +92,7 @@ INF 2020-08-03 16:24:17.958+02:00 Starting beacon node                       top
 > ./run-pyrmont-beacon-node.sh --graffiti='<YOUR_GRAFFITI>'
 
 
-#### 5. Keep an eye on your validator
+### 5. Keep an eye on your validator
 
 If you deposited after the [genesis](https://hackmd.io/@benjaminion/genesis) state was decided (August 2nd 1300 UTC), your validators will have been put in a queue based on deposit time, and will slowly be inducted into the validator set after genesis. Getting through the queue may take a few hours or days.
 
@@ -117,17 +132,11 @@ The string of letters -- what we call the `sync worker map` (in the above case r
 The number following it (in the above case represented by `7`) represents the number of workers that are currently active (i.e not sleeping or waiting for a peer).
 
 
-#### 6. Keep your validator updated
+### 6. Keep your validator updated
 
 Finally, makes sure you stay on the lookout for any critical updates to Nimbus. This best way to do so is through the **announcements** channel on our [discord](https://discord.com/invite/XRxWahP).
 
-To update to the latest version, disconnect from pyrmont and run:
-
-```
-git pull && make update
-```
-
-Once the update is complete, run `make nimbus_beacon_node` and `./run-pyrmont-beacon-node.sh` to reconnect to the network.
+Check [Keep Nimbus updated](./keep-updated.md) for instructions on how to update your node to a new version.
 
 Looking forward to seeing you on Pyrmont! 💛
 
