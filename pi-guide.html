@@ -331,23 +331,16 @@ rpi-clone sda
 <p>To shutdown your Pi safely, run <code>sudo shutdown -h now</code></p>
 </blockquote>
 <p>Once you're done, <code>ssh</code> back into your Pi.</p>
-<h3><a class="header" href="#11-install-nimbus-dependencies" id="11-install-nimbus-dependencies">11. Install Nimbus dependencies</a></h3>
-<p>You'll need to install some packages (<code>git</code>) in order for Nimbus to run correctly.</p>
-<p>To do so, run:</p>
-<pre><code>sudo apt-get install git
-
+<h3><a class="header" href="#11-install-the-beacon-node" id="11-install-the-beacon-node">11. Install the beacon node</a></h3>
+<p>Open the <a href="https://github.com/status-im/nimbus-eth2/releases/latest">Nimbus eth2 releases page</a> and copy the link for the file that starts with <code>nimbus-eth2_Linux_arm64v8</code>.</p>
+<p>Run this in your home directory to download nimbus-eth2:</p>
+<pre><code>mkdir nimbus-eth2
+wget &lt;insert download link here&gt;
+tar -xzf nimbus-eth2_Linux_arm64v8*.tar.gz -C nimbus-eth2
+rm nimbus-eth2_Linux_arm64v8*.tar.gz
 </code></pre>
-<h3><a class="header" href="#12-clone-the-nimbus-repository" id="12-clone-the-nimbus-repository">12. Clone the Nimbus repository</a></h3>
-<p>Run the following command to clone the <a href="https://github.com/status-im/nimbus-eth2">nimbus-eth2 repository</a>:</p>
-<pre><code>git clone https://github.com/status-im/nimbus-eth2
-</code></pre>
-<h3><a class="header" href="#13-build-the-beacon-node" id="13-build-the-beacon-node">13. Build the beacon node</a></h3>
-<p>Change into the directory and build the beacon node.</p>
-<pre><code>cd nimbus-eth2
-make nimbus_beacon_node
-</code></pre>
-<p><em>Patience... this may take a few minutes.</em></p>
-<h3><a class="header" href="#14-copy-signing-key-over-to-pi" id="14-copy-signing-key-over-to-pi">14. Copy signing key over to Pi</a></h3>
+<p>Now you can find the software in the nimbus-eth2 directory.</p>
+<h3><a class="header" href="#12-copy-signing-key-over-to-pi" id="12-copy-signing-key-over-to-pi">12. Copy signing key over to Pi</a></h3>
 <blockquote>
 <p><strong>Note:</strong> If you haven't generated your validator key(s) and/or made your deposit yet, follow the instructions on <a href="./deposit.html">this page</a> before carrying on.</p>
 </blockquote>
@@ -362,12 +355,12 @@ make nimbus_beacon_node
 <blockquote>
 <p><strong>Tip:</strong> run <code>pwd</code> in your <code>validator_keys</code> directory to print the full pathname to the console.</p>
 </blockquote>
-<h3><a class="header" href="#15-import-signing-key-into-nimbus" id="15-import-signing-key-into-nimbus">15. Import signing key into Nimbus</a></h3>
+<h3><a class="header" href="#13-import-signing-key-into-nimbus" id="13-import-signing-key-into-nimbus">13. Import signing key into Nimbus</a></h3>
 <p>To import your signing key into Nimbus, from the <code>nimbus-eth2</code> directory run:</p>
 <pre><code>build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_pyrmont_0 ../validator_keys
 </code></pre>
 <p>You'll be asked to enter the password you created to encrypt your keystore(s). Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your <a href="https://blog.ethereum.org/2020/05/21/keys/">key</a> (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).</p>
-<h3><a class="header" href="#16-connect-to-prater" id="16-connect-to-prater">16. Connect to Prater</a></h3>
+<h3><a class="header" href="#14-connect-to-prater" id="14-connect-to-prater">14. Connect to Prater</a></h3>
 <p>We're finally ready to connect to the Prater testnet!</p>
 <blockquote>
 <p><strong>Note:</strong> If you haven't already, we recommend registering for, and running, your own Infura endpoint to connect to eth1. For instruction on how to do so, see <a href="./infura-guide.html">this page</a>.</p>
@@ -387,7 +380,7 @@ https://status-im.github.io/nimbus-eth2/eth1.html
 Please enter a Web3 provider URL:
 </code></pre>
 <p>Enter your own secure websocket (<code>wss</code>) <a href="eth1.html">endpoint</a>.</p>
-<h3><a class="header" href="#17-check-for-successful-connection" id="17-check-for-successful-connection">17. Check for successful connection</a></h3>
+<h3><a class="header" href="#15-check-for-successful-connection" id="15-check-for-successful-connection">15. Check for successful connection</a></h3>
 <p>If you look near the top of the logs printed to your console, you should see confirmation that your beacon node has started, with your local validator attached:</p>
 <pre><code>INF 2020-12-01 11:25:33.487+01:00 Launching beacon node
 ...

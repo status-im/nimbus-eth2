@@ -171,19 +171,26 @@
                     <main>
                         <h1><a class="header" href="#keep-nimbus-updated" id="keep-nimbus-updated">Keep Nimbus updated</a></h1>
 <p>Make sure you stay on the lookout for any critical updates to Nimbus. This best way to do so is through the <strong>announcements</strong> channel on our <a href="https://discord.com/invite/XRxWahP">discord</a>.</p>
-<p>To update to the latest version, run:</p>
+<blockquote>
+<p><strong>Note:</strong> If your beacon node is already running, you'll need to disconnect and reconnect for the changes to take effect.</p>
+</blockquote>
+<p>To update to the latest version, either:</p>
+<h2><a class="header" href="#download-the-binary" id="download-the-binary">Download the binary</a></h2>
+<p>Open the <a href="https://github.com/status-im/nimbus-eth2/releases/latest">Nimbus eth2 releases page</a> and copy the link for the file that works on your system.</p>
+<pre><code>wget &lt;insert download link here&gt;
+tar -xzf nimbus-eth2_Linux_arm64v8*.tar.gz -C nimbus-eth2
+rm nimbus-eth2_Linux_arm64v8*.tar.gz
+</code></pre>
+<h2><a class="header" href="#compile-the-beacon-node-release" id="compile-the-beacon-node-release">Compile the beacon node release</a></h2>
+<blockquote>
+<p>⚠️   In order to minimise downtime, we recommend updating and rebuilding the beacon node before restarting.</p>
+</blockquote>
 <pre><code>git pull &amp;&amp; make update
 </code></pre>
 <p>Followed by:</p>
 <pre><code>make nimbus_beacon_node
 </code></pre>
 <p>to <a href="./build.html">rebuild the beacon node</a>.</p>
-<blockquote>
-<p>⚠️   In order to minimise downtime, we recommend updating and rebuilding the beacon node before restarting.</p>
-</blockquote>
-<blockquote>
-<p><strong>Note:</strong> If your beacon node is already running, you'll need to disconnect and reconnect for the changes to take effect.</p>
-</blockquote>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/keep-updated.md">Edit this file on GitHub.</a></footer>
                     </main>
 
