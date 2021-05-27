@@ -8,20 +8,22 @@
 {.used.}
 
 import
+  chronicles,
   # Standard library
   os,
   # Utilities
   unittest2,
   stew/results,
   # Beacon chain internals
-  ../../beacon_chain/spec/[datatypes, beaconstate],
+  ../../beacon_chain/spec/beaconstate,
+  ../../beacon_chain/spec/datatypes/altair,
   ../../beacon_chain/ssz,
   # Test utilities
   ../testutil,
   ./fixtures_utils,
   ../helpers/debug_state
 
-const OperationsAttestationsDir = SszTestsDir/const_preset/"phase0"/"operations"/"attestation"/"pyspec_tests"
+const OperationsAttestationsDir = SszTestsDir/const_preset/"altair"/"operations"/"attestation"/"pyspec_tests"
 
 proc runTest(identifier: string) =
   # We wrap the tests in a proc to avoid running out of globals

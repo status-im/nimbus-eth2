@@ -672,6 +672,9 @@ static: doAssert high(int) >= high(int32)
 func `[]`*[T](a: var seq[T], b: ValidatorIndex): var T =
   a[b.int]
 
+func `[]=`*[T](a: var seq[T], b: ValidatorIndex, c: T) =
+  a[b.int] = c
+
 func `[]`*[T](a: seq[T], b: ValidatorIndex): auto =
   a[b.int]
 
