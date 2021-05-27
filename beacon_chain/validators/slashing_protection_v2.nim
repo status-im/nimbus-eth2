@@ -218,7 +218,7 @@ type
 
     internalIds: Table[ValidatorIndex, ValidatorInternalID]
 
-  ValidatorInternalID = int32
+  ValidatorInternalID = int64
     ## Validator internal ID in the DB
     ## This is cached to cost querying cost
 
@@ -307,13 +307,13 @@ proc checkDB(db: SlashingProtectionDB_v2, genesis_validators_root: Eth2Digest) =
   ## Check the metadata of the DB
   let selectStmt = db.backend.prepareStmt(
     "SELECT * FROM metadata;",
-    NoParams, (int32, Hash32),
+    NoParams, (int64, Hash32),
     managed = false # manual memory management
   ).get()
 
-  var version: int32
+  var version: int64
   var root: Eth2Digest
-  let status = selectStmt.exec do (res: (int32, Hash32)):
+  let status = selectStmt.exec do (res: (int64, Hash32)):
     version = res[0]
     root.data = res[1]
 
@@ -584,12 +584,12 @@ proc getMetadataTable_DbV2*(db: SlashingProtectionDB_v2): Option[Eth2Digest] =
      WHERE 1=1
        and type='table'
        and name='metadata'
-    """, NoParams, int32,
+    """, NoParams, int64,
     managed = false # manual memory management
   ).get()
 
-  var hasV2: int32
-  let v2exists = existenceStmt.exec do (res: int32):
+  var hasV2: int64
+  let v2exists = existenceStmt.exec do (res: int64):
     hasV2 = res
 
   existenceStmt.dispose()
@@ -602,13 +602,13 @@ proc getMetadataTable_DbV2*(db: SlashingProtectionDB_v2): Option[Eth2Digest] =
 
   let selectStmt = db.backend.prepareStmt(
     "SELECT * FROM metadata;",
-    NoParams, (int32, Hash32),
+    NoParams, (int64, Hash32),
     managed = false # manual memory management
   ).get()
 
-  var version: int32
+  var version: int64
   var root: Eth2Digest
-  let status = selectStmt.exec do (res: (int32, Hash32)):
+  let status = selectStmt.exec do (res: (int64, Hash32)):
     version = res[0]
     root.data = res[1]
 
