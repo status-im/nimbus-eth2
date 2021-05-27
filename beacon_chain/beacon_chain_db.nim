@@ -19,6 +19,10 @@ import
 
 logScope: topics = "bc_db"
 
+const
+  # Negative cache size to make sqlite use kilobytes
+  cacheSize = -24 * 1024 # 24mb
+
 type
   DbSeq*[T] = object
     insertStmt: SqliteStmt[openArray[byte], void]
@@ -272,8 +276,11 @@ proc new*(T: type BeaconChainDB,
 
   # Remove the deposits table we used before we switched
   # to storing only deposit contract checkpoints
-  if db.exec("DROP TABLE IF EXISTS deposits;").isErr:
-    debug "Failed to drop the deposits table"
+  if (let e = db.exec("DROP TABLE IF EXISTS deposits;"); e.isErr):
+    warn "Failed to drop the deposits table", msg = e.error()
+
+  if (let e = db.exec("PRAGMA cache_size=" & $cacheSize & ";"); e.isErr):
+    warn "Failed to set cache size", msg = e.error()
 
   # An old pubkey->index mapping that hasn't been used on any mainnet release
   if db.exec("DROP TABLE IF EXISTS validatorIndexFromPubKey;").isErr:
