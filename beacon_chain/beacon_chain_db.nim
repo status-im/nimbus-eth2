@@ -57,7 +57,6 @@ type
     ## 1.3 creates `kvstore` with rowid, making it quite fast, but doesn't do
     ## anything about existing databases. Versions after that use a separate
     ## file instead (V1)
-    db: SqStoreRef
     backend: KvStoreRef # kvstore
     stateStore: KvStoreRef # state_no_validators
 
@@ -252,76 +251,42 @@ proc get*[T](s: DbSeq[T], idx: int64): T =
   let found = queryRes.expectDb()
   if not found: panic()
 
-proc loadImmutableValidators(db: BeaconChainDB): seq[ImmutableValidatorData] =
-  # TODO not called, but build fails otherwise
-  for i in 0 ..< db.immutableValidators.len:
-    result.add db.immutableValidators.get(i)
-
-proc copyDbSeq[T](db0, db: SqStoreRef, name: string) =
-  var
-    src = DbSeq[T].init(db0, name)
-
-  if src.isErr():
-    debug "Skipping migration", name, msg = src.error()
-    return
-
-  var tgt = DbSeq[T].init(db, name).expectDb()
-
-  while tgt.len < src.get().len():
-    tgt.add src.get().get(tgt.len())
-
-  src.get().close()
-  tgt.close()
-
-proc migrateV0(db0, db: SqStoreRef) =
-  # Minimal migration of tables that are the same in V0 and V1 - a full
-  # migration might take hours
-  copyDbSeq[DepositData](db0, db, "genesis_deposits")
-  copyDbSeq[ImmutableValidatorData](db0, db, "immutable_validators")
+proc loadImmutableValidators(vals: DbSeq[ImmutableValidatorData]): seq[ImmutableValidatorData] =
+  for i in 0 ..< vals.len:
+    result.add vals.get(i)
 
 proc new*(T: type BeaconChainDB,
           preset: RuntimePreset,
           dir: string,
           inMemory = false,
     ): BeaconChainDB =
-  var
-    (db0, db) = if inMemory:
-      (SqStoreRef.init("", "test", readOnly = true, inMemory = true),
-        SqStoreRef.init("", "test", inMemory = true).expect(
-        "working database (out of memory?)"))
+  var db = if inMemory:
+      SqStoreRef.init("", "test", inMemory = true).expect(
+        "working database (out of memory?)")
     else:
       let s = secureCreatePath(dir)
       doAssert s.isOk # TODO(zah) Handle this in a better way
-      # The original "nbc" database had tables created "WITHOUT ROWID" which
-      # turned out to perform poorly with large blobs when rebalancing its
-      # internal tree - this affects all tables in the database, so we need
-      # to create a new database instead.
-      # In this version, the old database is used as a read-only data source
-      # which enables easy rollback for users that want to downgrade - later,
-      # a migration should be performed instead.
-      (SqStoreRef.init(dir, "nbc", readOnly = true),
-        SqStoreRef.init(
-                dir, "nbcv1", manualCheckpoint = true).expectDb())
 
-  let v0 =
-    if not db0.isErr():
-      debug "Using V0 database as backing store"
-      migrateV0(db0.get(), db)
+      SqStoreRef.init(
+        dir, "nbc", manualCheckpoint = true).expectDb()
 
-      BeaconChainDBV0(
-        db: db0.get(),
-        # kvstore used to be created "WITHOUT ROWID"
-        backend: kvStore db0.get().openKvStore().get(nil),
-        # state_no_validators is similar to state_no_validators2 but uses a
-        # different key encoding and was created WITHOUT ROWID
-        stateStore: kvStore db0.get().openKvStore("state_no_validators").get(nil),
-      )
-    else:
-      debug "No V0 database found, running in v1 mode", msg = db0.error()
+  # Remove the deposits table we used before we switched
+  # to storing only deposit contract checkpoints
+  if db.exec("DROP TABLE IF EXISTS deposits;").isErr:
+    debug "Failed to drop the deposits table"
 
-      BeaconChainDBV0()
+  # An old pubkey->index mapping that hasn't been used on any mainnet release
+  if db.exec("DROP TABLE IF EXISTS validatorIndexFromPubKey;").isErr:
+    debug "Failed to drop the validatorIndexFromPubKey table"
 
   var
+    # V0 compatibility tables - these were created WITHOUT ROWID which is slow
+    # for large blobs
+    backend = kvStore db.openKvStore().expectDb()
+    # state_no_validators is similar to state_no_validators2 but uses a
+    # different key encoding and was created WITHOUT ROWID
+    stateStore = kvStore db.openKvStore("state_no_validators").expectDb()
+
     genesisDepositsSeq =
       DbSeq[DepositData].init(db, "genesis_deposits").expectDb()
     immutableValidatorsSeq =
@@ -337,7 +302,10 @@ proc new*(T: type BeaconChainDB,
 
   T(
     db: db,
-    v0: v0,
+    v0: BeaconChainDBV0(
+      backend: backend,
+      stateStore: stateStore,
+    ),
     preset: preset,
     genesisDeposits: genesisDepositsSeq,
     immutableValidators: immutableValidatorsSeq,
@@ -350,8 +318,6 @@ proc new*(T: type BeaconChainDB,
     stateDiffs: stateDiffs,
     summaries: summaries,
   )
-
-func hasV0*(db: BeaconChainDB): bool = not isNil(db.v0.db)
 
 proc decodeSSZ[T](data: openArray[byte], output: var T): bool =
   try:
@@ -450,17 +416,8 @@ proc putSnappySSZ(db: KvStoreRef, key: openArray[byte], v: auto) =
   db.put(key, encodeSnappySSZ(v)).expectDb()
 
 proc close*(db: BeaconChainDBV0) =
-  if isNil(db.db): return
-
-  if not isNil(db.stateStore):
-    discard db.stateStore.close()
-    db.stateStore = nil
-  if not isNil(db.backend):
-    discard db.backend.close()
-    db.backend = nil
-
-  db.db.close()
-  db.db = nil
+  discard db.stateStore.close()
+  discard db.backend.close()
 
 proc close*(db: BeaconchainDB) =
   if db.db == nil: return
@@ -565,15 +522,12 @@ proc putEth2FinalizedTo*(db: BeaconChainDB,
 
 proc getBlock(db: BeaconChainDBV0, key: Eth2Digest): Opt[TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
-  if not isNil(db.backend):
-    result.ok(TrustedSignedBeaconBlock())
-    if db.backend.getSnappySSZ(subkey(SignedBeaconBlock, key), result.get) != GetResult.found:
-      result.err()
-    else:
-      # set root after deserializing (so it doesn't get zeroed)
-      result.get().root = key
-  else:
+  result.ok(TrustedSignedBeaconBlock())
+  if db.backend.getSnappySSZ(subkey(SignedBeaconBlock, key), result.get) != GetResult.found:
     result.err()
+  else:
+    # set root after deserializing (so it doesn't get zeroed)
+    result.get().root = key
 
 proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
@@ -634,14 +588,10 @@ proc getState(
   # Nimbus 1.2 writes a genesis BeaconStateNoImmutableValidators to `stateStore`
   # and reads BeaconState from `backend` and BeaconStateNoImmutableValidators
   # from `stateStore`. We will try to read the state from all these locations.
-  if not isNil(db.stateStore) and getStateOnlyMutableValidators(
+  if getStateOnlyMutableValidators(
       immutableValidatorsMem, db.stateStore,
       subkey(BeaconStateNoImmutableValidators, key), output, rollback):
     return true
-
-  if isNil(db.backend):
-    return false
-
   if getStateOnlyMutableValidators(
       immutableValidatorsMem, db.backend,
       subkey(BeaconStateNoImmutableValidators, key), output, rollback):
@@ -678,10 +628,7 @@ proc getState*(
 proc getStateRoot(db: BeaconChainDBV0,
                    root: Eth2Digest,
                    slot: Slot): Opt[Eth2Digest] =
-  if not isNil(db.backend):
-    db.backend.getRaw(subkey(root, slot), Eth2Digest)
-  else:
-    err()
+  db.backend.getRaw(subkey(root, slot), Eth2Digest)
 
 proc getStateRoot*(db: BeaconChainDB,
                    root: Eth2Digest,
@@ -696,42 +643,30 @@ proc getStateDiff*(db: BeaconChainDB,
     result.err
 
 proc getHeadBlock(db: BeaconChainDBV0): Opt[Eth2Digest] =
-  if not isNil(db.backend):
-    db.backend.getRaw(subkey(kHeadBlock), Eth2Digest)
-  else:
-    err()
+  db.backend.getRaw(subkey(kHeadBlock), Eth2Digest)
 
 proc getHeadBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
   db.keyValues.getRaw(subkey(kHeadBlock), Eth2Digest) or
     db.v0.getHeadBlock()
 
 proc getTailBlock(db: BeaconChainDBV0): Opt[Eth2Digest] =
-  if not isNil(db.backend):
-    db.backend.getRaw(subkey(kTailBlock), Eth2Digest)
-  else:
-    err()
+  db.backend.getRaw(subkey(kTailBlock), Eth2Digest)
 
 proc getTailBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
   db.keyValues.getRaw(subkey(kTailBlock), Eth2Digest) or
     db.v0.getTailBlock()
 
 proc getGenesisBlockRoot(db: BeaconChainDBV0): Opt[Eth2Digest] =
-  if not isNil(db.backend):
-    db.backend.getRaw(subkey(kGenesisBlockRoot), Eth2Digest)
-  else:
-    err()
+  db.backend.getRaw(subkey(kGenesisBlockRoot), Eth2Digest)
 
 proc getGenesisBlockRoot*(db: BeaconChainDB): Opt[Eth2Digest] =
   db.keyValues.getRaw(subkey(kGenesisBlockRoot), Eth2Digest) or
     db.v0.getGenesisBlockRoot()
 
 proc getEth2FinalizedTo(db: BeaconChainDBV0): Opt[DepositContractSnapshot] =
-  if not isNil(db.backend):
-    result.ok(DepositContractSnapshot())
-    let r = db.backend.getSnappySSZ(subkey(kDepositsFinalizedByEth2), result.get)
-    if r != found: result.err()
-  else:
-    result.err()
+  result.ok(DepositContractSnapshot())
+  let r = db.backend.getSnappySSZ(subkey(kDepositsFinalizedByEth2), result.get)
+  if r != found: result.err()
 
 proc getEth2FinalizedTo*(db: BeaconChainDB): Opt[DepositContractSnapshot] =
   result.ok(DepositContractSnapshot())
@@ -739,18 +674,16 @@ proc getEth2FinalizedTo*(db: BeaconChainDB): Opt[DepositContractSnapshot] =
   if r != found: return db.v0.getEth2FinalizedTo()
 
 proc containsBlock*(db: BeaconChainDBV0, key: Eth2Digest): bool =
-  not isNil(db.backend) and
-    db.backend.contains(subkey(SignedBeaconBlock, key)).expectDb()
+  db.backend.contains(subkey(SignedBeaconBlock, key)).expectDb()
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.blocks.contains(key.data).expectDb() or db.v0.containsBlock(key)
 
 proc containsState*(db: BeaconChainDBV0, key: Eth2Digest): bool =
   let sk = subkey(BeaconStateNoImmutableValidators, key)
-  (not isNil(db.stateStore) and db.stateStore.contains(sk).expectDb()) or
-    (not isNil(db.backend) and (
-      db.backend.contains(sk).expectDb() or
-      db.backend.contains(subkey(BeaconState, key)).expectDb()))
+  db.stateStore.contains(sk).expectDb() or
+    db.backend.contains(sk).expectDb() or
+    db.backend.contains(subkey(BeaconState, key)).expectDb
 
 proc containsState*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.statesNoVal.contains(key.data).expectDb or db.v0.containsState(key)
@@ -766,8 +699,8 @@ iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
     res: TrustedSignedBeaconBlock
     root = root
   while db.blocks.getSnappySSZ(root.data, res) == GetResult.found or
-        (not isNil(db.v0.backend) and db.v0.backend.getSnappySSZ(
-          subkey(SignedBeaconBlock, root), res) == GetResult.found):
+        db.v0.backend.getSnappySSZ(
+          subkey(SignedBeaconBlock, root), res) == GetResult.found:
     res.root = root
     yield res
     root = res.message.parent_root
@@ -817,11 +750,9 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
       res.summary = summary[]
       yield res
     do: # Summary was not found in summary table, look elsewhere
-      if (not isNil(db.v0.backend) and db.v0.backend.getSnappySSZ(
-          subkey(BeaconBlockSummary, res.root), res.summary) == GetResult.found):
+      if db.v0.backend.getSnappySSZ(subkey(BeaconBlockSummary, res.root), res.summary) == GetResult.found:
         yield res
-      elif (not isNil(db.v0.backend) and db.v0.backend.getSnappySSZ(
-          subkey(SignedBeaconBlock, res.root), blck) == GetResult.found):
+      elif db.v0.backend.getSnappySSZ(subkey(SignedBeaconBlock, res.root), blck) == GetResult.found:
         res.summary = blck.message.toBeaconBlockSummary()
         yield res
       else:
@@ -830,3 +761,12 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
       db.putBeaconBlockSummary(res.root, res.summary)
 
     res.root = res.summary.parent_root
+
+  if false:
+    # When the current version has been online for a bit, we can safely remove
+    # summaries from kvstore by enabling this little snippet - if users were
+    # to downgrade after the summaries have been purged, the old versions that
+    # use summaries can also recreate them on the fly from blocks.
+    db.db.exec(
+      "DELETE FROM kvstore WHERE key >= ? and key < ?",
+      ([byte ord(kHashToBlockSummary)], [byte ord(kHashToBlockSummary) + 1])).expectDb()
