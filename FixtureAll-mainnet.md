@@ -107,6 +107,9 @@ FixtureAll-mainnet
 + [Invalid] invalid_sig_1_and_2_swap                                                         OK
 + [Invalid] invalid_sig_2                                                                    OK
 + [Invalid] invalid_signature                                                                OK
++ [Invalid] invalid_signature_extra_participant                                              OK
++ [Invalid] invalid_signature_missing_participant                                            OK
++ [Invalid] invalid_signature_past_block                                                     OK
 + [Invalid] invalid_slot_block_header                                                        OK
 + [Invalid] mismatched_target_and_slot                                                       OK
 + [Invalid] new_source_epoch                                                                 OK
@@ -188,8 +191,11 @@ FixtureAll-mainnet
 + [Valid]   success_slashed_and_proposer_index_the_same                                      OK
 + [Valid]   success_surround                                                                 OK
 + [Valid]   success_with_effective_balance_disparity                                         OK
++ [Valid]   sync_committee_rewards_duplicate_committee                                       OK
++ [Valid]   sync_committee_rewards_empty_participants                                        OK
++ [Valid]   sync_committee_rewards_not_full_participants                                     OK
 ```
-OK: 186/186 Fail: 0/186 Skip: 0/186
+OK: 192/192 Fail: 0/192 Skip: 0/192
 ## Official - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -230,4 +236,4 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 200/200 Fail: 0/200 Skip: 0/200
+OK: 206/206 Fail: 0/206 Skip: 0/206

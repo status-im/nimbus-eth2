@@ -336,7 +336,7 @@ proc process_operations(preset: RuntimePreset,
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#sync-committee-processing
-proc process_sync_committee(
+proc process_sync_committee*(
     state: var altair.BeaconState, aggregate: SyncAggregate, cache: var StateCache):
     Result[void, cstring] {.nbench.} =
   # Verify sync committee aggregate signature signing over the previous slot
@@ -352,10 +352,10 @@ proc process_sync_committee(
     if aggregate.sync_committee_bits[i]:
       participant_pubkeys.add committee_pubkeys[i]
 
-  # TODO appropriate log level? this is passing official test vectors, but probably
-  # should also fail out of function
-  discard blsFastAggregateVerify(
-    participant_pubkeys, signing_root.data, aggregate.sync_committee_signature)
+  # Empty participants allowed
+  if participant_pubkeys.len > 0 and not blsFastAggregateVerify(
+      participant_pubkeys, signing_root.data, aggregate.sync_committee_signature):
+    return err("process_sync_committee: invalid signature")
 
   # Compute participant and proposer rewards
   let
