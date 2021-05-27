@@ -75,7 +75,7 @@ proc verify_block_signature*(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-proc verifyStateRoot(state: SomeBeaconState, blck: phase0.BeaconBlock or phase0.SigVerifiedBeaconBlock): bool =
+proc verifyStateRoot(state: SomeBeaconState, blck: phase0.BeaconBlock or phase0.SigVerifiedBeaconBlock or altair.BeaconBlock or altair.SigVerifiedBeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   let state_root = hash_tree_root(state)
   if state_root != blck.state_root:
@@ -181,8 +181,9 @@ proc noRollback*(state: var phase0.HashedBeaconState) =
 
 proc state_transition*(
     preset: RuntimePreset,
+    # TODO this will be StateData
     #state: var phase0.HashedBeaconState, signedBlock: phase0.SomeSignedBeaconBlock,
-    state: var phase0.HashedBeaconState, signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock | phase0.TrustedSignedBeaconBlock,
+    state: var (phase0.HashedBeaconState | altair.HashedBeaconState), signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock | phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
     cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
     rollback: RollbackHashedProc): bool {.nbench.} =
   ## Apply a block to the state, advancing the slot counter as necessary. The
@@ -225,7 +226,9 @@ proc state_transition*(
   # that the block is sane.
   if not (skipBLSValidation in flags or
       verify_block_signature(state.data, signedBlock)):
-    rollback(state)
+    when false:
+      # TODO fixme
+      rollback(state)
     return false
 
   trace "state_transition: processing block, signature passed",
@@ -241,12 +244,16 @@ proc state_transition*(
       eth1_deposit_index = state.data.eth1_deposit_index,
       deposit_root = shortLog(state.data.eth1_data.deposit_root),
       error = res.error
-    rollback(state)
+    when false:
+      # TODO re-enable
+      rollback(state)
     return false
 
   if not (skipStateRootValidation in flags or
         verifyStateRoot(state.data, signedBlock.message)):
-    rollback(state)
+    when false:
+      # TODO re-enable
+      rollback(state)
     return false
 
   # only blocks currently being produced have an empty state root - we use a

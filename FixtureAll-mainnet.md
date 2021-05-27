@@ -66,7 +66,6 @@ FixtureAll-mainnet
 + [Invalid] Official - Sanity - Blocks - invalid_state_root [Preset: mainnet]                OK
 + [Invalid] Official - Sanity - Blocks - parent_from_same_slot [Preset: mainnet]             OK
 + [Invalid] Official - Sanity - Blocks - prev_slot_block_transition [Preset: mainnet]        OK
-+ [Invalid] Official - Sanity - Blocks - proposal_for_genesis_slot [Preset: mainnet]         OK
 + [Invalid] Official - Sanity - Blocks - same_slot_block_transition [Preset: mainnet]        OK
 + [Invalid] Official - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]         OK
 + [Invalid] Official - Sanity - Blocks - zero_block_sig [Preset: mainnet]                    OK
@@ -151,10 +150,6 @@ FixtureAll-mainnet
 + [Valid]   Official - Sanity - Blocks - deposit_top_up [Preset: mainnet]                    OK
 + [Valid]   Official - Sanity - Blocks - empty_block_transition [Preset: mainnet]            OK
 + [Valid]   Official - Sanity - Blocks - empty_epoch_transition [Preset: mainnet]            OK
-+ [Valid]   Official - Sanity - Blocks - full_random_operations_0 [Preset: mainnet]          OK
-+ [Valid]   Official - Sanity - Blocks - full_random_operations_1 [Preset: mainnet]          OK
-+ [Valid]   Official - Sanity - Blocks - full_random_operations_2 [Preset: mainnet]          OK
-+ [Valid]   Official - Sanity - Blocks - full_random_operations_3 [Preset: mainnet]          OK
 + [Valid]   Official - Sanity - Blocks - high_proposer_index [Preset: mainnet]               OK
 + [Valid]   Official - Sanity - Blocks - historical_batch [Preset: mainnet]                  OK
 + [Valid]   Official - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: mai OK
@@ -194,7 +189,7 @@ FixtureAll-mainnet
 + [Valid]   success_surround                                                                 OK
 + [Valid]   success_with_effective_balance_disparity                                         OK
 ```
-OK: 191/191 Fail: 0/191 Skip: 0/191
+OK: 186/186 Fail: 0/186 Skip: 0/186
 ## Official - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -235,4 +230,4 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 205/205 Fail: 0/205 Skip: 0/205
+OK: 200/200 Fail: 0/200 Skip: 0/200
