@@ -20,7 +20,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[algorithm, intsets, options, sequtils],
+  std/[algorithm, intsets, options, sequtils, sets, tables],
   chronicles,
   ../extras, ../ssz/merkleization, metrics,
   ./beaconstate, ./crypto, ./datatypes/[phase0, altair], ./digest, ./helpers,
@@ -335,10 +335,66 @@ proc process_operations(preset: RuntimePreset,
 
   ok()
 
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#sync-committee-processing
+proc process_sync_committee(
+    state: var altair.BeaconState, aggregate: SyncAggregate, cache: var StateCache):
+    Result[void, cstring] {.nbench.} =
+  # Verify sync committee aggregate signature signing over the previous slot
+  # block root
+  let
+    committee_pubkeys = state.current_sync_committee.pubkeys
+    previous_slot = max(state.slot, Slot(1)) - 1
+    domain = get_domain(state, DOMAIN_SYNC_COMMITTEE, compute_epoch_at_slot(previous_slot))
+    signing_root = compute_signing_root(get_block_root_at_slot(state, previous_slot), domain)
+
+  var participant_pubkeys: seq[ValidatorPubKey]
+  for i in 0 ..< committee_pubkeys.len:
+    if aggregate.sync_committee_bits[i]:
+      participant_pubkeys.add committee_pubkeys[i]
+  doAssert blsFastAggregateVerify(
+    participant_pubkeys, signing_root.data, aggregate.sync_committee_signature)
+
+  # Compute participant and proposer rewards
+  let
+    total_active_increments = get_total_active_balance(state, cache) div EFFECTIVE_BALANCE_INCREMENT
+    total_base_rewards = get_base_reward_per_increment(state, cache) * total_active_increments
+    max_participant_rewards = total_base_rewards * SYNC_REWARD_WEIGHT div WEIGHT_DENOMINATOR div SLOTS_PER_EPOCH
+    participant_reward = max_participant_rewards div SYNC_COMMITTEE_SIZE
+    proposer_reward = participant_reward * PROPOSER_WEIGHT div (WEIGHT_DENOMINATOR - PROPOSER_WEIGHT)
+
+  # Apply participant and proposer rewards
+
+  # stand-in to be replaced
+  # TODO obviously not viable as written
+  # TODO also, this could use the pubkey -> index map that's been approached a couple places
+  let s = toHashSet(state.current_sync_committee.pubkeys.data)  # TODO leaking abstraction
+  var pubkeyIndices: Table[ValidatorPubKey, ValidatorIndex]
+  for i, v in state.validators:
+    if v.pubkey in s:
+      pubkeyIndices[v.pubkey] = i.ValidatorIndex
+
+  let committee_indices = mapIt(state.current_sync_committee.pubkeys, pubkeyIndices.getOrDefault(it))
+  var participant_indices: seq[ValidatorIndex]
+  for i, committee_index in committee_indices:
+    if aggregate.sync_committee_bits[i]:
+      participant_indices.add committee_index
+  for participant_index in participant_indices:
+    let proposer_index = get_beacon_proposer_index(state, cache)
+    if proposer_index.isSome:
+      increase_balance(state, participant_index, participant_reward)
+      increase_balance(state, proposer_index.get, proposer_reward)
+    else:
+      warn "process_sync_committee: get_beacon_proposer_index failed"
+
+  ok()
+
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#block-processing
+# https://github.com/nim-lang/Nim/issues/18095
+# copy of datatypes/phase0.nim
+type Foo1 = phase0.BeaconBlock | phase0.SigVerifiedBeaconBlock | phase0.TrustedBeaconBlock
 proc process_block*(
     preset: RuntimePreset,
-    state: var SomeBeaconState, blck: SomeSomeBeaconBlock, flags: UpdateFlags,
+    state: var phase0.BeaconState, blck: Foo1, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.}=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
@@ -348,5 +404,25 @@ proc process_block*(
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
   ? process_operations(preset, state, blck.body, flags, cache)
+
+  ok()
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#block-processing
+# https://github.com/nim-lang/Nim/issues/18095
+# copy of datatypes/phase0.nim
+type Foo2 = altair.BeaconBlock | altair.SigVerifiedBeaconBlock | altair.TrustedBeaconBlock
+proc process_block*(
+    preset: RuntimePreset,
+    state: var altair.BeaconState, blck: Foo2, flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] {.nbench.}=
+  ## When there's a new block, we need to verify that the block is sane and
+  ## update the state accordingly - the state is left in an unknown state when
+  ## block application fails (!)
+
+  ? process_block_header(state, blck, flags, cache)
+  ? process_randao(state, blck.body, flags, cache)
+  ? process_eth1_data(state, blck.body)
+  ? process_operations(preset, state, blck.body, flags, cache)
+  ? process_sync_committee(state, blck.body.sync_aggregate, cache)  # [New in Altair]
 
   ok()

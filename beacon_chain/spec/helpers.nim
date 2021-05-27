@@ -180,14 +180,6 @@ func get_seed*(state: SomeBeaconState, epoch: Epoch, domain_type: DomainType):
       epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1).data
   eth2digest(seed_input)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/beacon-chain.md#get_flag_indices_and_weights
-iterator get_flag_indices_and_weights*(): (ParticipationFlag, int) =
-  for item in [
-      (TIMELY_HEAD_FLAG_INDEX, TIMELY_HEAD_WEIGHT),
-      (TIMELY_SOURCE_FLAG_INDEX, TIMELY_SOURCE_WEIGHT),
-      (TIMELY_TARGET_FLAG_INDEX, TIMELY_TARGET_WEIGHT)]:
-    yield item
-
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/beacon-chain.md#add_flag
 func add_flag*(flags: ParticipationFlags, flag_index: int): ParticipationFlags =
   let flag = ParticipationFlags(1'u8 shl flag_index)

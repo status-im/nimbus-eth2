@@ -273,7 +273,7 @@ func get_beacon_committee_len*(
   )
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#compute_shuffled_index
-func compute_shuffled_index(
+func compute_shuffled_index*(
     index: uint64, index_count: uint64, seed: Eth2Digest): uint64 =
   ## Return the shuffled index corresponding to ``seed`` (and ``index_count``).
   doAssert index < index_count

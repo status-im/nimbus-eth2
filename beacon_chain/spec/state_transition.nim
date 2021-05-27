@@ -103,7 +103,7 @@ type
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func process_slot*(
-    state: var phase0.BeaconState, pre_state_root: Eth2Digest) {.nbench.} =
+    state: var SomeBeaconState, pre_state_root: Eth2Digest) {.nbench.} =
   # `process_slot` is the first stage of per-slot processing - it is run for
   # every slot, including epoch slots - it does not however update the slot
   # number! `pre_state_root` refers to the state root of the incoming
@@ -131,7 +131,7 @@ func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc advance_slot(
-    state: var phase0.BeaconState, previous_slot_state_root: Eth2Digest,
+    state: var SomeBeaconState, previous_slot_state_root: Eth2Digest,
     flags: UpdateFlags, cache: var StateCache, rewards: var RewardInfo) {.nbench.} =
   # Do the per-slot and potentially the per-epoch processing, then bump the
   # slot number - we've now arrived at the slot state on top of which a block
@@ -150,7 +150,7 @@ proc advance_slot(
   state.slot += 1
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-proc process_slots*(state: var phase0.HashedBeaconState, slot: Slot,
+proc process_slots*(state: var SomeHashedBeaconState, slot: Slot,
     cache: var StateCache, rewards: var RewardInfo,
     flags: UpdateFlags = {}): bool {.nbench.} =
   ## Process one or more slot transitions without blocks - if the slot transtion

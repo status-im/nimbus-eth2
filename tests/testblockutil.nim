@@ -6,6 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
+  chronicles,
   options, stew/endians2,
   ../beacon_chain/extras,
   ../beacon_chain/validators/validator_pool,

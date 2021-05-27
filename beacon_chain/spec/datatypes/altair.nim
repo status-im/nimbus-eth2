@@ -54,8 +54,17 @@ const
   FINALIZED_ROOT_INDEX* = 105'u16
   NEXT_SYNC_COMMITTEE_INDEX* = 55'u16
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#participation-flag-indices
+  TIMELY_SOURCE_FLAG_INDEX* = 0
+  TIMELY_TARGET_FLAG_INDEX* = 1
+  TIMELY_HEAD_FLAG_INDEX* = 2
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#inactivity-penalties
+  #INACTIVITY_SCORE_BIAS* = 4
+  INACTIVITY_SCORE_RECOVERY_RATE* = 16
+
 let
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/beacon-chain.md#misc
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#misc
   # Cannot be computed at compile-time due to importc dependency
   G2_POINT_AT_INFINITY* = ValidatorSig.fromRaw([
     0xc0'u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -64,6 +73,8 @@ let
           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
           0, 0, 0, 0])
 
+  PARTICIPATION_FLAG_WEIGHTS* =
+    [TIMELY_SOURCE_WEIGHT, TIMELY_TARGET_WEIGHT, TIMELY_HEAD_WEIGHT]
 type
   ### New types
 
@@ -130,12 +141,6 @@ type
   SyncAggregatorSelectionData* = object
     slot*: Slot
     subcommittee_index*: uint64
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#participation-flag-indices
-  ParticipationFlag* = enum
-    TIMELY_HEAD_FLAG_INDEX = 0
-    TIMELY_SOURCE_FLAG_INDEX = 1
-    TIMELY_TARGET_FLAG_INDEX = 2
 
   ### Modified/overloaded
 
@@ -249,6 +254,8 @@ type
   # phase 0 version of symbols; anywhere which specially handles it will
   # have to do so itself.
   SomeBeaconState* = BeaconState | phase0.BeaconState
+  SomeHashedBeaconState* = HashedBeaconState | phase0.HashedBeaconState  # probably not useful long-term,
+  ## since process_slots will need to be StateData
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object

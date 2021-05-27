@@ -211,24 +211,6 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - Epoch Processing - Justification & Finalization [Preset: mainnet]
-```diff
-+ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
-+ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
-+ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
-```
-OK: 9/9 Fail: 0/9 Skip: 0/9
-## Official - Epoch Processing - Participation record updates [Preset: mainnet]
-```diff
-+ Participation record updates - updated_participation_record [Preset: mainnet]              OK
-```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Official - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
@@ -246,14 +228,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit [Preset: mainnet]                             OK
 ```
 OK: 8/8 Fail: 0/8 Skip: 0/8
-## Official - Epoch Processing - Slashings [Preset: mainnet]
-```diff
-+ Slashings - low_penalty [Preset: mainnet]                                                  OK
-+ Slashings - max_penalties [Preset: mainnet]                                                OK
-+ Slashings - minimal_penalty [Preset: mainnet]                                              OK
-+ Slashings - scaled_penalties [Preset: mainnet]                                             OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Official - Epoch Processing - Slashings reset [Preset: mainnet]
 ```diff
 + Slashings reset - flush_slashings [Preset: mainnet]                                        OK
@@ -261,4 +235,4 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 219/219 Fail: 0/219 Skip: 0/219
+OK: 205/205 Fail: 0/205 Skip: 0/205

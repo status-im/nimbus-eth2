@@ -16,6 +16,8 @@ import
   ./crypto, ./datatypes/[phase0, altair], ./digest, ./helpers, ./signatures, ./validator,
   ../../nbench/bench_lab
 
+import blscurve # TODO bad
+
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_valid_merkle_branch
 func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openArray[Eth2Digest],
                              depth: int, index: uint64,
@@ -423,7 +425,7 @@ func is_eligible_for_activation(state: SomeBeaconState, validator: Validator):
     validator.activation_epoch == FAR_FUTURE_EPOCH
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#registry-updates
-proc process_registry_updates*(state: var phase0.BeaconState,
+proc process_registry_updates*(state: var SomeBeaconState,
     cache: var StateCache) {.nbench.} =
   ## Process activation eligibility and ejections
 
@@ -723,3 +725,96 @@ func upgrade_to_altair(pre: phase0.BeaconState): altair.BeaconState =
   #post.current_sync_committee = get_sync_committee(post, get_current_epoch(post))
   #post.next_sync_committee = get_sync_committee(post, get_current_epoch(post) + EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
   #post
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#get_next_sync_committee_indices
+func get_next_sync_committee_indices(state: altair.BeaconState): seq[ValidatorIndex] =
+  ## Return the sequence of sync committee indices (which may include
+  ## duplicate indices) for the next sync committee, given a ``state`` at a
+  ## sync committee period boundary.
+
+  # Note: Committee can contain duplicate indices for small validator sets
+  # (< SYNC_COMMITTEE_SIZE + 128)
+  let epoch = Epoch(get_current_epoch(state) + 1)
+
+  const MAX_RANDOM_BYTE = 255
+  let
+    active_validator_indices = get_active_validator_indices(state, epoch)
+    active_validator_count = uint64(len(active_validator_indices))
+    seed = get_seed(state, epoch, DOMAIN_SYNC_COMMITTEE)
+  var
+    i = 0'u64
+    sync_committee_indices: seq[ValidatorIndex]
+    hash_buffer: array[40, byte]
+  hash_buffer[0..31] = seed.data
+  while len(sync_committee_indices) < SYNC_COMMITTEE_SIZE:
+    hash_buffer[32..39] = uint_to_bytes8(uint64(i div 32))
+    let
+      shuffled_index = compute_shuffled_index(uint64(i mod active_validator_count), active_validator_count, seed)
+      candidate_index = active_validator_indices[shuffled_index]
+      random_byte = eth2digest(hash_buffer).data[i mod 32]
+      effective_balance = state.validators[candidate_index].effective_balance
+    if effective_balance * MAX_RANDOM_BYTE >= MAX_EFFECTIVE_BALANCE * random_byte:
+      sync_committee_indices.add candidate_index
+    i += 1'u64
+  sync_committee_indices
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#get_next_sync_committee
+proc get_next_sync_committee*(state: altair.BeaconState): SyncCommittee =
+  ## Return the *next* sync committee for a given ``state``.
+  #
+  # ``SyncCommittee`` contains an aggregate pubkey that enables
+  # resource-constrained clients to save some computation when verifying the
+  # sync committee's signature.
+  #
+  # ``SyncCommittee`` can also contain duplicate pubkeys, when
+  # ``get_next_sync_committee_indices`` returns duplicate indices.
+  # Implementations must take care when handling optimizations relating to
+  # aggregation and verification in the presence of duplicates.
+  #
+  # Note: This function should only be called at sync committee period
+  # boundaries by ``process_sync_committee_updates`` as
+  # ``get_next_sync_committee_indices`` is not stable within a given period.
+  let
+    indices = get_next_sync_committee_indices(state)
+    pubkeys = mapIt(indices, state.validators[it].pubkey)
+
+  # see signatures_batch, TODO shouldn't be here
+  var
+    aggregate_pubkey: blscurve.PublicKey
+    attestersAgg: AggregatePublicKey
+  let ck = pubkeys[0].loadWithCache()
+  if ck.isNone:
+    attestersAgg.init(ck.get)
+  for i in 1 ..< pubkeys.len:
+    let cookedKey = pubkeys[i].loadWithCache()
+    if cookedKey.isNone():
+      # TODO is this the correct failure handling?
+      continue
+    attestersAgg.aggregate(cookedKey.get)
+  aggregate_pubkey.finish(attestersAgg)
+
+  var res = SyncCommittee(aggregate_pubkey: ValidatorPubKey(blob: aggregate_pubkey.exportRaw()))
+  doAssert indices.len == SYNC_COMMITTEE_SIZE # needs to fill vector exactly
+  doAssert pubkeys.len == SYNC_COMMITTEE_SIZE
+  for i in 0 ..< SYNC_COMMITTEE_SIZE:
+    # obviously ineffecient
+    res.pubkeys[i] = pubkeys[i]
+  res
+
+# TODO these aren't great here
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_total_active_balance
+func get_total_active_balance*(state: SomeBeaconState, cache: var StateCache): Gwei =
+  ## Return the combined effective balance of the active validators.
+  # Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei
+  # minimum to avoid divisions by zero.
+
+  let epoch = state.get_current_epoch()
+
+  get_total_balance(
+    state, cache.get_shuffled_active_validator_indices(state, epoch))
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#get_base_reward_per_increment
+func get_base_reward_per_increment*(state: altair.BeaconState, cache: var StateCache): Gwei =
+  EFFECTIVE_BALANCE_INCREMENT * BASE_REWARD_FACTOR div
+    integer_squareroot(get_total_active_balance(state, cache))
