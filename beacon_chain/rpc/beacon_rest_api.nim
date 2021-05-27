@@ -614,7 +614,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if dres.isErr():
           return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
                                            $dres.error())
-        dres.get()
+        var res = dres.get()
+        # `SignedBeaconBlock` deserialization do not update `root` field, so we
+        # need to calculate it.
+        res.root = hash_tree_root(res.message)
+        res
+
     let head = node.chainDag.head
     if not(node.isSynced(head)):
       return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
