@@ -86,7 +86,3 @@ template isomorphicCast*[T, U](x: var U): T =
     doAssert sizeof(T) == sizeof(U)
     doAssert getSizeofSig(T()) == getSizeofSig(U())
   cast[ref T](addr x)[]
-
-proc loadImmutableValidators*(dbSeq: var auto): seq[ImmutableValidatorData] =
-  for i in 0 ..< dbSeq.len:
-    result.add dbSeq.get(i)
