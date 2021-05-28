@@ -11,6 +11,7 @@ FixtureSSZConsensus-mainnet
 +   Testing    BeaconBlockHeader                                                             OK
 +   Testing    BeaconState                                                                   OK
 +   Testing    Checkpoint                                                                    OK
++   Testing    ContributionAndProof                                                          OK
 +   Testing    Deposit                                                                       OK
 +   Testing    DepositData                                                                   OK
 +   Testing    DepositMessage                                                                OK
@@ -20,17 +21,25 @@ FixtureSSZConsensus-mainnet
 +   Testing    ForkData                                                                      OK
 +   Testing    HistoricalBatch                                                               OK
 +   Testing    IndexedAttestation                                                            OK
++   Testing    LightClientSnapshot                                                           OK
++   Testing    LightClientUpdate                                                             OK
 +   Testing    PendingAttestation                                                            OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
 +   Testing    SignedBeaconBlock                                                             OK
 +   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedContributionAndProof                                                    OK
 +   Testing    SignedVoluntaryExit                                                           OK
 +   Testing    SigningData                                                                   OK
++   Testing    SyncAggregate                                                                 OK
++   Testing    SyncAggregatorSelectionData                                                   OK
++   Testing    SyncCommittee                                                                 OK
++   Testing    SyncCommitteeContribution                                                     OK
++   Testing    SyncCommitteeSignature                                                        OK
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```
-OK: 27/27 Fail: 0/27 Skip: 0/27
+OK: 36/36 Fail: 0/36 Skip: 0/36
 
 ---TOTAL---
-OK: 27/27 Fail: 0/27 Skip: 0/27
+OK: 36/36 Fail: 0/36 Skip: 0/36

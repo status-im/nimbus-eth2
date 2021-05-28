@@ -11,7 +11,7 @@
 const
   # Updated penalty values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/configs/mainnet/altair.yaml#L5
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.5/configs/mainnet/altair.yaml#L3
   CONFIG_NAME* = "mainnet"
 
   INACTIVITY_PENALTY_QUOTIENT_ALTAIR* = 50331648 ##\
@@ -23,28 +23,26 @@ const
   # Misc
   # ---------------------------------------------------------------
   # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/configs/mainnet/altair.yaml#L15
-  SYNC_COMMITTEE_SIZE* = 1024
   SYNC_PUBKEYS_PER_AGGREGATE* = 64
   INACTIVITY_SCORE_BIAS* = 4
 
-  # Time parameters
+  # Sync Committee
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/configs/mainnet/altair.yaml#L25
-  EPOCHS_PER_SYNC_COMMITTEE_PERIOD* = 256
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.5/configs/mainnet/altair.yaml#L13
+  SYNC_COMMITTEE_SIZE* = 512
+  EPOCHS_PER_SYNC_COMMITTEE_PERIOD* = 512
 
   # Signature domains (DOMAIN_SYNC_COMMITTEE) in spec/datatypes/base
 
   # Fork
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/configs/mainnet/altair.yaml#L36
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.5/configs/mainnet/altair.yaml#L36
 
   # ALTAIR_FORK_VERSION is a runtime preset
 
-  ALTAIR_FORK_SLOT* = 0 # TBD
+  ALTAIR_FORK_EPOCH* = 18446744073709551615'u64
 
   # Sync protocol
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/configs/mainnet/altair.yaml#L43
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.5/configs/mainnet/altair.yaml#L44
   MIN_SYNC_COMMITTEE_PARTICIPANTS* = 1
-  MAX_VALID_LIGHT_CLIENT_UPDATES* = 8192
-  LIGHT_CLIENT_UPDATE_TIMEOUT* = 8192

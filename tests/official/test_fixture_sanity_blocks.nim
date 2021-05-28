@@ -11,15 +11,16 @@ import
   # Standard library
   os, sequtils, chronicles,
   # Beacon chain internals
-  ../../beacon_chain/spec/[crypto, datatypes, state_transition, presets],
+  ../../beacon_chain/spec/[crypto, state_transition, presets],
+  ../../beacon_chain/spec/datatypes/altair,
   ../../beacon_chain/ssz,
   # Test utilities
   ../testutil,
   ./fixtures_utils
 
 const
-  FinalityDir = SszTestsDir/const_preset/"phase0"/"finality"/"finality"/"pyspec_tests"
-  SanityBlocksDir = SszTestsDir/const_preset/"phase0"/"sanity"/"blocks"/"pyspec_tests"
+  FinalityDir = SszTestsDir/const_preset/"altair"/"finality"/"finality"/"pyspec_tests"
+  SanityBlocksDir = SszTestsDir/const_preset/"altair"/"sanity"/"blocks"/"pyspec_tests"
 
 proc runTest(testName, testDir, unitTestName: string) =
   # We wrap the tests in a proc to avoid running out of globals
@@ -73,5 +74,6 @@ suite "Official - Sanity - Blocks " & preset():
     runTest("Official - Sanity - Blocks", SanityBlocksDir, path)
 
 suite "Official - Finality " & preset():
+  # these seem to only exist in minimal presets, both for phase0 and altair
   for kind, path in walkDir(FinalityDir, true):
     runTest("Official - Finality", FinalityDir, path)

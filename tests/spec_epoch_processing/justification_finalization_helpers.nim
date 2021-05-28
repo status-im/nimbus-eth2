@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,7 +9,7 @@ import
   # Standard library
   strformat, tables,
   # Specs
-  ../../beacon_chain/spec/[datatypes, state_transition_epoch, validator, helpers],
+  ../../beacon_chain/spec/[beaconstate, datatypes, validator, helpers],
   # Test helpers
   ../helpers/digest_helpers
 

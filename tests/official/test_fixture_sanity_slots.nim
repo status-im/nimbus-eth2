@@ -8,16 +8,18 @@
 {.used.}
 
 import
+  chronicles,
   # Standard library
   os, strutils,
   # Beacon chain internals
-  ../../beacon_chain/spec/[datatypes, state_transition],
+  ../../beacon_chain/spec/state_transition,
+  ../../beacon_chain/spec/datatypes/altair,
   # Test utilities
   ../testutil,
   ./fixtures_utils,
   ../helpers/debug_state
 
-const SanitySlotsDir = SszTestsDir/const_preset/"phase0"/"sanity"/"slots"/"pyspec_tests"
+const SanitySlotsDir = SszTestsDir/const_preset/"altair"/"sanity"/"slots"/"pyspec_tests"
 
 proc runTest(identifier: string) =
   let

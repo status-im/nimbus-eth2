@@ -66,7 +66,6 @@ FixtureAll-mainnet
 + [Invalid] Official - Sanity - Blocks - invalid_state_root [Preset: mainnet]                OK
 + [Invalid] Official - Sanity - Blocks - parent_from_same_slot [Preset: mainnet]             OK
 + [Invalid] Official - Sanity - Blocks - prev_slot_block_transition [Preset: mainnet]        OK
-+ [Invalid] Official - Sanity - Blocks - proposal_for_genesis_slot [Preset: mainnet]         OK
 + [Invalid] Official - Sanity - Blocks - same_slot_block_transition [Preset: mainnet]        OK
 + [Invalid] Official - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]         OK
 + [Invalid] Official - Sanity - Blocks - zero_block_sig [Preset: mainnet]                    OK
@@ -108,6 +107,9 @@ FixtureAll-mainnet
 + [Invalid] invalid_sig_1_and_2_swap                                                         OK
 + [Invalid] invalid_sig_2                                                                    OK
 + [Invalid] invalid_signature                                                                OK
++ [Invalid] invalid_signature_extra_participant                                              OK
++ [Invalid] invalid_signature_missing_participant                                            OK
++ [Invalid] invalid_signature_past_block                                                     OK
 + [Invalid] invalid_slot_block_header                                                        OK
 + [Invalid] mismatched_target_and_slot                                                       OK
 + [Invalid] new_source_epoch                                                                 OK
@@ -151,10 +153,6 @@ FixtureAll-mainnet
 + [Valid]   Official - Sanity - Blocks - deposit_top_up [Preset: mainnet]                    OK
 + [Valid]   Official - Sanity - Blocks - empty_block_transition [Preset: mainnet]            OK
 + [Valid]   Official - Sanity - Blocks - empty_epoch_transition [Preset: mainnet]            OK
-+ [Valid]   Official - Sanity - Blocks - full_random_operations_0 [Preset: mainnet]          OK
-+ [Valid]   Official - Sanity - Blocks - full_random_operations_1 [Preset: mainnet]          OK
-+ [Valid]   Official - Sanity - Blocks - full_random_operations_2 [Preset: mainnet]          OK
-+ [Valid]   Official - Sanity - Blocks - full_random_operations_3 [Preset: mainnet]          OK
 + [Valid]   Official - Sanity - Blocks - high_proposer_index [Preset: mainnet]               OK
 + [Valid]   Official - Sanity - Blocks - historical_batch [Preset: mainnet]                  OK
 + [Valid]   Official - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: mai OK
@@ -193,8 +191,11 @@ FixtureAll-mainnet
 + [Valid]   success_slashed_and_proposer_index_the_same                                      OK
 + [Valid]   success_surround                                                                 OK
 + [Valid]   success_with_effective_balance_disparity                                         OK
++ [Valid]   sync_committee_rewards_duplicate_committee                                       OK
++ [Valid]   sync_committee_rewards_empty_participants                                        OK
++ [Valid]   sync_committee_rewards_not_full_participants                                     OK
 ```
-OK: 191/191 Fail: 0/191 Skip: 0/191
+OK: 192/192 Fail: 0/192 Skip: 0/192
 ## Official - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -209,24 +210,6 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Official - Epoch Processing - Historical roots update [Preset: mainnet]
 ```diff
 + Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
-```
-OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - Epoch Processing - Justification & Finalization [Preset: mainnet]
-```diff
-+ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
-+ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
-+ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
-```
-OK: 9/9 Fail: 0/9 Skip: 0/9
-## Official - Epoch Processing - Participation record updates [Preset: mainnet]
-```diff
-+ Participation record updates - updated_participation_record [Preset: mainnet]              OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Official - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
@@ -246,14 +229,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit [Preset: mainnet]                             OK
 ```
 OK: 8/8 Fail: 0/8 Skip: 0/8
-## Official - Epoch Processing - Slashings [Preset: mainnet]
-```diff
-+ Slashings - low_penalty [Preset: mainnet]                                                  OK
-+ Slashings - max_penalties [Preset: mainnet]                                                OK
-+ Slashings - minimal_penalty [Preset: mainnet]                                              OK
-+ Slashings - scaled_penalties [Preset: mainnet]                                             OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Official - Epoch Processing - Slashings reset [Preset: mainnet]
 ```diff
 + Slashings reset - flush_slashings [Preset: mainnet]                                        OK
@@ -261,4 +236,4 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 219/219 Fail: 0/219 Skip: 0/219
+OK: 206/206 Fail: 0/206 Skip: 0/206

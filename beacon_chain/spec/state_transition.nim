@@ -45,13 +45,18 @@ import
   chronicles,
   stew/results,
   ../extras, ../ssz/merkleization, metrics,
-  ./datatypes, ./crypto, ./digest, ./helpers, ./signatures, ./validator,
+  ./datatypes/[phase0, altair], ./crypto, ./digest, ./helpers, ./signatures, ./validator,
   ./state_transition_block, ./state_transition_epoch,
   ../../nbench/bench_lab
 
+# TODO why need anything except the first two?
+type Foo = phase0.SomeSignedBeaconBlock | altair.SomeSignedBeaconBlock | phase0.SignedBeaconBlock | altair.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock
+
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature*(
-    state: BeaconState, signed_block: SomeSignedBeaconBlock): bool {.nbench.} =
+    #state: SomeBeaconState, signed_block: SomeSomeSignedBeaconBlock): bool {.nbench.} =
+    state: SomeBeaconState, signed_block: Foo): bool {.nbench.} =
+    #state: SomeBeaconState, signed_block: phase0.SomeSignedBeaconBlock | altair.SomeSignedBeaconBlock): bool {.nbench.} =
   let
     proposer_index = signed_block.message.proposer_index
   if proposer_index >= state.validators.lenu64:
@@ -70,7 +75,7 @@ proc verify_block_signature*(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-proc verifyStateRoot(state: BeaconState, blck: BeaconBlock or SigVerifiedBeaconBlock): bool =
+proc verifyStateRoot(state: SomeBeaconState, blck: phase0.BeaconBlock or phase0.SigVerifiedBeaconBlock or altair.BeaconBlock or altair.SigVerifiedBeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   let state_root = hash_tree_root(state)
   if state_root != blck.state_root:
@@ -80,25 +85,25 @@ proc verifyStateRoot(state: BeaconState, blck: BeaconBlock or SigVerifiedBeaconB
   else:
     true
 
-proc verifyStateRoot(state: BeaconState, blck: TrustedBeaconBlock): bool =
+proc verifyStateRoot(state: phase0.BeaconState, blck: phase0.TrustedBeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   true
 
 type
-  RollbackProc* = proc(v: var BeaconState) {.gcsafe, raises: [Defect].}
+  RollbackProc* = proc(v: var phase0.BeaconState) {.gcsafe, raises: [Defect].}
 
-proc noRollback*(state: var BeaconState) =
+proc noRollback*(state: var phase0.BeaconState) =
   trace "Skipping rollback of broken state"
 
 type
-  RollbackHashedProc* = proc(state: var HashedBeaconState) {.gcsafe, raises: [Defect].}
+  RollbackHashedProc* = proc(state: var phase0.HashedBeaconState) {.gcsafe, raises: [Defect].}
 
 # Hashed-state transition functions
 # ---------------------------------------------------------------
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func process_slot*(
-    state: var BeaconState, pre_state_root: Eth2Digest) {.nbench.} =
+    state: var SomeBeaconState, pre_state_root: Eth2Digest) {.nbench.} =
   # `process_slot` is the first stage of per-slot processing - it is run for
   # every slot, including epoch slots - it does not however update the slot
   # number! `pre_state_root` refers to the state root of the incoming
@@ -126,7 +131,7 @@ func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc advance_slot(
-    state: var BeaconState, previous_slot_state_root: Eth2Digest,
+    state: var SomeBeaconState, previous_slot_state_root: Eth2Digest,
     flags: UpdateFlags, cache: var StateCache, rewards: var RewardInfo) {.nbench.} =
   # Do the per-slot and potentially the per-epoch processing, then bump the
   # slot number - we've now arrived at the slot state on top of which a block
@@ -145,7 +150,7 @@ proc advance_slot(
   state.slot += 1
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-proc process_slots*(state: var HashedBeaconState, slot: Slot,
+proc process_slots*(state: var SomeHashedBeaconState, slot: Slot,
     cache: var StateCache, rewards: var RewardInfo,
     flags: UpdateFlags = {}): bool {.nbench.} =
   ## Process one or more slot transitions without blocks - if the slot transtion
@@ -171,12 +176,14 @@ proc process_slots*(state: var HashedBeaconState, slot: Slot,
 
   true
 
-proc noRollback*(state: var HashedBeaconState) =
+proc noRollback*(state: var phase0.HashedBeaconState) =
   trace "Skipping rollback of broken state"
 
 proc state_transition*(
     preset: RuntimePreset,
-    state: var HashedBeaconState, signedBlock: SomeSignedBeaconBlock,
+    # TODO this will be StateData
+    #state: var phase0.HashedBeaconState, signedBlock: phase0.SomeSignedBeaconBlock,
+    state: var (phase0.HashedBeaconState | altair.HashedBeaconState), signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock | phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
     cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
     rollback: RollbackHashedProc): bool {.nbench.} =
   ## Apply a block to the state, advancing the slot counter as necessary. The
@@ -219,7 +226,9 @@ proc state_transition*(
   # that the block is sane.
   if not (skipBLSValidation in flags or
       verify_block_signature(state.data, signedBlock)):
-    rollback(state)
+    when false:
+      # TODO fixme
+      rollback(state)
     return false
 
   trace "state_transition: processing block, signature passed",
@@ -235,12 +244,16 @@ proc state_transition*(
       eth1_deposit_index = state.data.eth1_deposit_index,
       deposit_root = shortLog(state.data.eth1_data.deposit_root),
       error = res.error
-    rollback(state)
+    when false:
+      # TODO re-enable
+      rollback(state)
     return false
 
   if not (skipStateRootValidation in flags or
         verifyStateRoot(state.data, signedBlock.message)):
-    rollback(state)
+    when false:
+      # TODO re-enable
+      rollback(state)
     return false
 
   # only blocks currently being produced have an empty state root - we use a
@@ -254,7 +267,7 @@ proc state_transition*(
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#preparing-for-a-beaconblock
 proc makeBeaconBlock*(
     preset: RuntimePreset,
-    state: var HashedBeaconState,
+    state: var phase0.HashedBeaconState,
     proposer_index: ValidatorIndex,
     parent_root: Eth2Digest,
     randao_reveal: ValidatorSig,
@@ -267,7 +280,7 @@ proc makeBeaconBlock*(
     voluntaryExits: seq[SignedVoluntaryExit],
     executionPayload: ExecutionPayload,
     rollback: RollbackHashedProc,
-    cache: var StateCache): Option[BeaconBlock] =
+    cache: var StateCache): Option[phase0.BeaconBlock] =
   ## Create a block for the given state. The last block applied to it must be
   ## the one identified by parent_root and process_slots must be called up to
   ## the slot for which a block is to be created.
@@ -275,11 +288,11 @@ proc makeBeaconBlock*(
   # To create a block, we'll first apply a partial block to the state, skipping
   # some validations.
 
-  var blck = BeaconBlock(
+  var blck = phase0.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
     parent_root: parent_root,
-    body: BeaconBlockBody(
+    body: phase0.BeaconBlockBody(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
       graffiti: graffiti,

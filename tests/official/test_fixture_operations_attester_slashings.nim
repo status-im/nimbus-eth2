@@ -13,14 +13,15 @@ import
   # Utilities
   stew/results,
   # Beacon chain internals
-  ../../beacon_chain/spec/[datatypes, state_transition_block],
+  ../../beacon_chain/spec/state_transition_block,
+  ../../beacon_chain/spec/datatypes/altair,
   ../../beacon_chain/ssz,
   # Test utilities
   ../testutil,
   ./fixtures_utils,
   ../helpers/debug_state
 
-const OpAttSlashingDir = SszTestsDir/const_preset/"phase0"/"operations"/"attester_slashing"/"pyspec_tests"
+const OpAttSlashingDir = SszTestsDir/const_preset/"altair"/"operations"/"attester_slashing"/"pyspec_tests"
 
 proc runTest(identifier: string) =
   # We wrap the tests in a proc to avoid running out of globals

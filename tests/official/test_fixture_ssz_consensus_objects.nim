@@ -12,7 +12,8 @@ import
   # Third-party
   yaml,
   # Beacon chain internals
-  ../../beacon_chain/spec/[crypto, datatypes, digest],
+  ../../beacon_chain/spec/[crypto, digest],
+  ../../beacon_chain/spec/datatypes/altair,
   ../../beacon_chain/ssz,
   # Status libraries
   snappy,
@@ -25,7 +26,7 @@ import
 # ----------------------------------------------------------------
 
 const
-  SSZDir = SszTestsDir/const_preset/"phase0"/"ssz_static"
+  SSZDir = SszTestsDir/const_preset/"altair"/"ssz_static"
 
 type
   SSZHashTreeRoot = object
@@ -35,7 +36,7 @@ type
     # Some have a signing_root field
     signing_root {.defaultVal: "".}: string
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#eth1block
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/altair/validator.md#eth1block
   Eth1Block* = object
     timestamp*: uint64
     deposit_root*: Eth2Digest
@@ -108,6 +109,7 @@ suite "Official - SSZ consensus objects " & preset():
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
           of "BeaconState": checkSSZ(BeaconState, path, hash)
           of "Checkpoint": checkSSZ(Checkpoint, path, hash)
+          of "ContributionAndProof": checkSSZ(ContributionAndProof, path, hash)
           of "Deposit": checkSSZ(Deposit, path, hash)
           of "DepositData": checkSSZ(DepositData, path, hash)
           of "DepositMessage": checkSSZ(DepositMessage, path, hash)
@@ -117,6 +119,8 @@ suite "Official - SSZ consensus objects " & preset():
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
           of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
+          of "LightClientSnapshot": checkSSZ(LightClientSnapshot, path, hash)
+          of "LightClientUpdate": checkSSZ(LightClientUpdate, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":
@@ -124,9 +128,18 @@ suite "Official - SSZ consensus objects " & preset():
           of "SignedBeaconBlock": checkSSZ(SignedBeaconBlock, path, hash)
           of "SignedBeaconBlockHeader":
             checkSSZ(SignedBeaconBlockHeader, path, hash)
+          of "SignedContributionAndProof":
+            checkSSZ(SignedContributionAndProof, path, hash)
           of "SignedVoluntaryExit": checkSSZ(SignedVoluntaryExit, path, hash)
-          of "SigningData":
-            checkSSZ(SigningData, path, hash)
+          of "SigningData": checkSSZ(SigningData, path, hash)
+          of "SyncAggregate": checkSSZ(SyncAggregate, path, hash)
+          of "SyncAggregatorSelectionData":
+            checkSSZ(SyncAggregatorSelectionData, path, hash)
+          of "SyncCommittee": checkSSZ(SyncCommittee, path, hash)
+          of "SyncCommitteeContribution":
+            checkSSZ(SyncCommitteeContribution, path, hash)
+          of "SyncCommitteeSignature":
+            checkSSZ(SyncCommitteeSignature, path, hash)
           of "Validator": checkSSZ(Validator, path, hash)
           of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
           else:

@@ -11,10 +11,9 @@ import
   # Standard library
   os,
   # Utilities
-  unittest2,
   stew/results,
   # Beacon chain internals
-  ../../beacon_chain/spec/beaconstate,
+  ../../beacon_chain/spec/state_transition_block,
   ../../beacon_chain/spec/datatypes/altair,
   ../../beacon_chain/ssz,
   # Test utilities
@@ -22,7 +21,10 @@ import
   ./fixtures_utils,
   ../helpers/debug_state
 
-const OperationsAttestationsDir = SszTestsDir/const_preset/"altair"/"operations"/"attestation"/"pyspec_tests"
+when isMainModule:
+  import chronicles # or some random compile error happens...
+
+const OpSyncCommitteeDir = SszTestsDir/const_preset/"altair"/"operations"/"sync_committee"/"pyspec_tests"
 
 proc runTest(identifier: string) =
   # We wrap the tests in a proc to avoid running out of globals
@@ -30,9 +32,9 @@ proc runTest(identifier: string) =
   # but unittest with the macro/templates put everything as globals
   # https://github.com/nim-lang/Nim/issues/12084#issue-486866402
 
-  let testDir = OperationsAttestationsDir / identifier
+  let testDir = OpSyncCommitteeDir / identifier
 
-  proc `testImpl _ operations_attestations _ identifier`() =
+  proc `testImpl_sync_committee _ identifier`() =
 
     var prefix: string
     if existsFile(testDir/"post.ssz_snappy"):
@@ -41,26 +43,28 @@ proc runTest(identifier: string) =
       prefix = "[Invalid] "
 
     test prefix & identifier:
-      var cache = StateCache()
-
-      let attestation =
-        parseTest(testDir/"attestation.ssz_snappy", SSZ, Attestation)
-      var preState =
-        newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
+      let syncAggregate = parseTest(
+        testDir/"sync_aggregate.ssz_snappy", SSZ, SyncAggregate)
+      var
+        preState =
+          newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
+        cache = StateCache()
 
       if existsFile(testDir/"post.ssz_snappy"):
-        let postState =
-          newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
-        let done = process_attestation(preState[], attestation, {}, cache).isOk
-        doAssert done, "Valid attestation not processed"
+        let
+          postState =
+            newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
+          done = process_sync_committee(
+            preState[], syncAggregate, cache).isOk
+        doAssert done, "Valid sync aggregate not processed"
         check: preState[].hash_tree_root() == postState[].hash_tree_root()
         reportDiff(preState, postState)
       else:
-        let done = process_attestation(preState[], attestation, {}, cache).isOk
-        doAssert done == false, "We didn't expect this invalid attestation to be processed."
+        let done = process_sync_committee(preState[], syncAggregate, cache).isOk
+        doAssert done == false, "We didn't expect this invalid proposer slashing to be processed."
 
-  `testImpl _ operations_attestations _ identifier`()
+  `testImpl_sync_committee _ identifier`()
 
-suite "Official - Operations - Attestations " & preset():
-  for kind, path in walkDir(OperationsAttestationsDir, true):
+suite "Official - Operations - Sync Committee " & preset():
+  for kind, path in walkDir(OpSyncCommitteeDir, true):
     runTest(path)

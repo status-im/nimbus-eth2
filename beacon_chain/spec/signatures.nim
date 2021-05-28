@@ -9,7 +9,7 @@
 
 import
   ../ssz/merkleization,
-  ./crypto, ./digest, ./datatypes, ./helpers, ./presets
+  ./crypto, ./digest, ./datatypes/[phase0, altair], ./helpers, ./presets
 
 template withTrust(sig: SomeSig, body: untyped): bool =
   when sig is TrustedSig:
@@ -90,7 +90,7 @@ func get_block_signature*(
 
 proc verify_block_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    blck: Eth2Digest | SomeBeaconBlock | BeaconBlockHeader,
+    blck: Eth2Digest | SomeSomeBeaconBlock | BeaconBlockHeader,
     pubkey: ValidatorPubKey,
     signature: SomeSig): bool =
   withTrust(signature):
