@@ -200,12 +200,12 @@ proc processBlock(self: var BlockProcessor, entry: BlockEntry) =
     beacon_store_block_duration_seconds.observe(storeBlockDur.toFloatSeconds())
 
     debug "Block processed",
-      local_head_slot = self.consensusManager.chainDag.head.slot,
-      block_slot = entry.blck.message.slot,
-      validation_dur = entry.validationDur,
-      queue_dur = queueDur,
-      store_block_dur = storeBlockDur,
-      update_head_dur = updateHeadDur
+      localHeadSlot = self.consensusManager.chainDag.head.slot,
+      blockSlot = entry.blck.message.slot,
+      validationDur = entry.validationDur,
+      queueDur,
+      storeBlockDur,
+      updateHeadDur
 
     entry.done()
   elif res.error() in {BlockError.Duplicate, BlockError.Old}:

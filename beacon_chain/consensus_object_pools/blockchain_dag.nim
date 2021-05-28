@@ -859,8 +859,8 @@ proc updateStateData*(
     startSlot
     blck = shortLog(bs)
     found
-    assign_dur = assignDur
-    replay_dur = replayDur
+    assignDur
+    replayDur
 
   if (assignDur + replayDur) >= 1.seconds:
     # This might indicate there's a cache that's not in order or a disk that is
@@ -923,7 +923,7 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
   debug "Pruned the blockchain DAG",
     currentCandidateHeads = dag.heads.len,
     prunedHeads = hlen - dag.heads.len,
-    dagPruningDuration = dur
+    dagPruningDur = dur
 
 func needStateCachesAndForkChoicePruning*(dag: ChainDAGRef): bool =
   dag.lastPrunePoint != dag.finalizedHead
