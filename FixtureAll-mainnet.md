@@ -272,6 +272,46 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 + Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## Official - Altair - SSZ consensus objects  [Preset: mainnet]
+```diff
++   Testing    AggregateAndProof                                                             OK
++   Testing    Attestation                                                                   OK
++   Testing    AttestationData                                                               OK
++   Testing    AttesterSlashing                                                              OK
++   Testing    BeaconBlock                                                                   OK
++   Testing    BeaconBlockBody                                                               OK
++   Testing    BeaconBlockHeader                                                             OK
++   Testing    BeaconState                                                                   OK
++   Testing    Checkpoint                                                                    OK
++   Testing    ContributionAndProof                                                          OK
++   Testing    Deposit                                                                       OK
++   Testing    DepositData                                                                   OK
++   Testing    DepositMessage                                                                OK
++   Testing    Eth1Block                                                                     OK
++   Testing    Eth1Data                                                                      OK
++   Testing    Fork                                                                          OK
++   Testing    ForkData                                                                      OK
++   Testing    HistoricalBatch                                                               OK
++   Testing    IndexedAttestation                                                            OK
++   Testing    LightClientSnapshot                                                           OK
++   Testing    LightClientUpdate                                                             OK
++   Testing    PendingAttestation                                                            OK
++   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
++   Testing    SignedBeaconBlock                                                             OK
++   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedContributionAndProof                                                    OK
++   Testing    SignedVoluntaryExit                                                           OK
++   Testing    SigningData                                                                   OK
++   Testing    SyncAggregate                                                                 OK
++   Testing    SyncAggregatorSelectionData                                                   OK
++   Testing    SyncCommittee                                                                 OK
++   Testing    SyncCommitteeContribution                                                     OK
++   Testing    SyncCommitteeSignature                                                        OK
++   Testing    Validator                                                                     OK
++   Testing    VoluntaryExit                                                                 OK
+```
+OK: 36/36 Fail: 0/36 Skip: 0/36
 ## Official - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -367,46 +407,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 27/27 Fail: 0/27 Skip: 0/27
-## Official - SSZ consensus objects  [Preset: mainnet]
-```diff
-+   Testing    AggregateAndProof                                                             OK
-+   Testing    Attestation                                                                   OK
-+   Testing    AttestationData                                                               OK
-+   Testing    AttesterSlashing                                                              OK
-+   Testing    BeaconBlock                                                                   OK
-+   Testing    BeaconBlockBody                                                               OK
-+   Testing    BeaconBlockHeader                                                             OK
-+   Testing    BeaconState                                                                   OK
-+   Testing    Checkpoint                                                                    OK
-+   Testing    ContributionAndProof                                                          OK
-+   Testing    Deposit                                                                       OK
-+   Testing    DepositData                                                                   OK
-+   Testing    DepositMessage                                                                OK
-+   Testing    Eth1Block                                                                     OK
-+   Testing    Eth1Data                                                                      OK
-+   Testing    Fork                                                                          OK
-+   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
-+   Testing    IndexedAttestation                                                            OK
-+   Testing    LightClientSnapshot                                                           OK
-+   Testing    LightClientUpdate                                                             OK
-+   Testing    PendingAttestation                                                            OK
-+   Testing    ProposerSlashing                                                              OK
-+   Testing    SignedAggregateAndProof                                                       OK
-+   Testing    SignedBeaconBlock                                                             OK
-+   Testing    SignedBeaconBlockHeader                                                       OK
-+   Testing    SignedContributionAndProof                                                    OK
-+   Testing    SignedVoluntaryExit                                                           OK
-+   Testing    SigningData                                                                   OK
-+   Testing    SyncAggregate                                                                 OK
-+   Testing    SyncAggregatorSelectionData                                                   OK
-+   Testing    SyncCommittee                                                                 OK
-+   Testing    SyncCommitteeContribution                                                     OK
-+   Testing    SyncCommitteeSignature                                                        OK
-+   Testing    Validator                                                                     OK
-+   Testing    VoluntaryExit                                                                 OK
-```
-OK: 36/36 Fail: 0/36 Skip: 0/36
 
 ---TOTAL---
 OK: 335/335 Fail: 0/335 Skip: 0/335
