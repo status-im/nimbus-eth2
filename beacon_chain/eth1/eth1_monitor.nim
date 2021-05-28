@@ -114,9 +114,9 @@ type
 
   Web3DataProviderRef* = ref Web3DataProvider
 
-  DataProviderFailure = object of CatchableError
-  CorruptDataProvider = object of DataProviderFailure
-  DataProviderTimeout = object of DataProviderFailure
+  DataProviderFailure* = object of CatchableError
+  CorruptDataProvider* = object of DataProviderFailure
+  DataProviderTimeout* = object of DataProviderFailure
 
   DisconnectHandler* = proc () {.gcsafe, raises: [Defect].}
 
@@ -350,9 +350,9 @@ func hash*(x: Eth1Data): Hash =
 template hash*(x: Eth1Block): Hash =
   hash(x.voteData)
 
-template awaitWithRetries[T](lazyFutExpr: Future[T],
-                             retries = 3,
-                             timeout = web3Timeouts): untyped =
+template awaitWithRetries*[T](lazyFutExpr: Future[T],
+                              retries = 3,
+                              timeout = web3Timeouts): untyped =
   const
     reqType = astToStr(lazyFutExpr)
 
@@ -864,6 +864,8 @@ const
 
 proc earliestBlockOfInterest(m: Eth1Monitor): Eth1BlockNumber =
   m.latestEth1BlockNumber - (2 * m.preset.ETH1_FOLLOW_DISTANCE) - votedBlocksSafetyMargin
+
+
 
 proc syncBlockRange(m: Eth1Monitor,
                     merkleizer: ref DepositsMerkleizer,
