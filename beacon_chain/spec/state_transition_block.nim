@@ -392,12 +392,13 @@ proc process_sync_committee*(
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#block-processing
-# https://github.com/nim-lang/Nim/issues/18095
+# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/phase0.nim
-type Foo1 = phase0.BeaconBlock | phase0.SigVerifiedBeaconBlock | phase0.TrustedBeaconBlock
+type SomePhase0Block =
+  phase0.BeaconBlock | phase0.SigVerifiedBeaconBlock | phase0.TrustedBeaconBlock
 proc process_block*(
     preset: RuntimePreset,
-    state: var phase0.BeaconState, blck: Foo1, flags: UpdateFlags,
+    state: var phase0.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.}=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
@@ -411,12 +412,13 @@ proc process_block*(
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#block-processing
-# https://github.com/nim-lang/Nim/issues/18095
-# copy of datatypes/phase0.nim
-type Foo2 = altair.BeaconBlock | altair.SigVerifiedBeaconBlock | altair.TrustedBeaconBlock
+# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
+# copy of datatypes/altair.nim
+type SomeAltairBlock =
+  altair.BeaconBlock | altair.SigVerifiedBeaconBlock | altair.TrustedBeaconBlock
 proc process_block*(
     preset: RuntimePreset,
-    state: var altair.BeaconState, blck: Foo2, flags: UpdateFlags,
+    state: var altair.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.}=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when

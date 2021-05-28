@@ -58,11 +58,7 @@ proc checkSSZ(T: type SignedBeaconBlock, dir: string, expectedHash: SSZHashTreeR
     [hash_tree_root(deserialized.message),
     hash_tree_root(deserialized.signature)]))
 
-  when false:
-    # TODO this apparently works with phase0; the .root field isn't part of
-    # the SSZ object per se, though, so there's no reason that calling that
-    # sszDecodeEntireInput function would fill it in.
-    check deserialized.root == hash_tree_root(deserialized.message)
+  check deserialized.root == hash_tree_root(deserialized.message)
   check SSZ.encode(deserialized[]) == encoded
   check sszSize(deserialized[]) == encoded.len
 
