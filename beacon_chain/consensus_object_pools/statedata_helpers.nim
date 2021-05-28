@@ -8,8 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  ../spec/[beaconstate, datatypes, digest, helpers, presets, validator],
-  ./block_pools_types
+  ../spec/[beaconstate, datatypes, digest, helpers, presets, validator]
 
 # State-related functionality based on StateData instead of BeaconState
 

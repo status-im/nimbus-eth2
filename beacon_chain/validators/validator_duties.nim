@@ -226,7 +226,6 @@ proc createAndSendAttestation(node: BeaconNode,
     if not ok: # Logged in sendAttestation
       return
 
-    let sent = node.beaconClock.now()
     if node.config.dumpEnabled:
       dump(node.config.dumpDirOutgoing, attestation.data, validator.pubKey)
 

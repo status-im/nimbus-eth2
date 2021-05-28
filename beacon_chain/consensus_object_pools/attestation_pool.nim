@@ -142,7 +142,6 @@ proc updateCurrent(pool: var AttestationPool, wallSlot: Slot) =
 proc oneIndex(bits: CommitteeValidatorsBits): Option[int] =
   # Find the index of the set bit, iff one bit is set
   var res = none(int)
-  var idx = 0
   for idx in 0..<bits.len():
     if bits[idx]:
       if res.isNone():
@@ -489,6 +488,10 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
           # Fast path for when all remaining candidates fit
           if candidates.lenu64 < MAX_ATTESTATIONS: candidates.len - 1
           else: maxIndex(candidates)
+        # TODO slot not used; replace with _ when
+        # https://github.com/nim-lang/Nim/issues/15972 and
+        # https://github.com/nim-lang/Nim/issues/16217 are
+        # fixed in Status's Nim.
         (_, slot, entry, j) = candidates[candidate]
 
       candidates.del(candidate) # careful, `del` reorders candidates

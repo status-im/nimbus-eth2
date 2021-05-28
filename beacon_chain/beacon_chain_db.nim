@@ -738,7 +738,6 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
     summaries = db.loadSummaries()
     res: tuple[root: Eth2Digest, summary: BeaconBlockSummary]
     blck: TrustedSignedBeaconBlock
-    foundOldSummary = false
 
   res.root = root
 

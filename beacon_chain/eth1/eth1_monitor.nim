@@ -228,9 +228,6 @@ when hasGenesisDetection:
 template blocks*(m: Eth1Monitor): Deque[Eth1Block] =
   m.eth1Chain.blocks
 
-template db(m: Eth1Monitor): auto =
-  m.eth1Chain.db
-
 template preset(m: Eth1Monitor): auto =
   m.eth1Chain.preset
 

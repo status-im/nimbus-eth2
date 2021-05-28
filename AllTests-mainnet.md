@@ -246,11 +246,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + integer_squareroot                                                                         OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Sync protocol
-```diff
-+ Compile                                                                                    OK
-```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## SyncManager test suite
 ```diff
 + [SyncQueue] Async pending and resetWait() test                                             OK
@@ -322,4 +317,4 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 180/188 Fail: 0/188 Skip: 8/188
+OK: 179/187 Fail: 0/187 Skip: 8/187

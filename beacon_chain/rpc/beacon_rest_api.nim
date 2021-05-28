@@ -148,7 +148,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $bres.error())
         bres.get()
     node.withStateForBlockSlot(bslot):
-      return RestApiResponse.jsonResponse((root: hashedState().root))
+      return RestApiResponse.jsonResponse((root: stateRoot))
     return RestApiResponse.jsonError(Http500, InternalServerError)
 
   # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateFork
