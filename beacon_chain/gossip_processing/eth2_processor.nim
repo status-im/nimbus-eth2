@@ -13,7 +13,7 @@ import
   chronicles, chronos, metrics,
   ../spec/[crypto, datatypes, digest],
   ../consensus_object_pools/[block_clearance, blockchain_dag, exit_pool, attestation_pool],
-  ./gossip_validation, ./gossip_to_consensus,
+  ./gossip_validation, ./block_processor,
   ./batch_validation,
   ../validators/validator_pool,
   ../beacon_node_types,
@@ -59,7 +59,7 @@ type
 
     # Gossip validated -> enqueue for further verification
     # ----------------------------------------------------------------
-    verifQueues: ref VerifQueueManager
+    blockProcessor: ref BlockProcessor
 
     # Validated with no further verification required
     # ----------------------------------------------------------------
@@ -78,7 +78,7 @@ type
 
 proc new*(T: type Eth2Processor,
           doppelGangerDetectionEnabled: bool,
-          verifQueues: ref VerifQueueManager,
+          blockProcessor: ref BlockProcessor,
           chainDag: ChainDAGRef,
           attestationPool: ref AttestationPool,
           exitPool: ref ExitPool,
@@ -89,7 +89,7 @@ proc new*(T: type Eth2Processor,
   (ref Eth2Processor)(
     doppelGangerDetectionEnabled: doppelGangerDetectionEnabled,
     getWallTime: getWallTime,
-    verifQueues: verifQueues,
+    blockProcessor: blockProcessor,
     chainDag: chainDag,
     attestationPool: attestationPool,
     exitPool: exitPool,
@@ -99,7 +99,7 @@ proc new*(T: type Eth2Processor,
       rng = rng,
       # Only run eager attestation signature verification if we're not
       # processing blocks in order to give priority to block processing
-      eager = proc(): bool = not verifQueues[].hasBlocks())
+      eager = proc(): bool = not blockProcessor[].hasBlocks())
   )
 
 # Gossip Management
@@ -137,7 +137,7 @@ proc blockValidator*(
   let blck = self.chainDag.isValidBeaconBlock(
     self.quarantine, signedBlock, wallTime, {})
 
-  self.verifQueues[].dumpBlock(signedBlock, blck)
+  self.blockProcessor[].dumpBlock(signedBlock, blck)
 
   if not blck.isOk:
     return blck.error[0]
@@ -151,7 +151,8 @@ proc blockValidator*(
   # sync, we don't lose the gossip blocks, but also don't block the gossip
   # propagation of seemingly good blocks
   trace "Block validated"
-  self.verifQueues[].addBlock(SyncBlock(blk: signedBlock))
+  self.blockProcessor[].addBlock(
+    signedBlock, validationDur = self.getWallTime() - wallTime)
 
   ValidationResult.Accept
 

@@ -13,7 +13,7 @@ import stew/results, chronos, chronicles
 import ../spec/[datatypes, digest, helpers, eth2_apis/callsigs_types],
        ../networking/[peer_pool, eth2_network]
 
-import ../gossip_processing/gossip_to_consensus
+import ../gossip_processing/block_processor
 import ../consensus_object_pools/block_pools_types
 export datatypes, digest, chronos, chronicles, results, block_pools_types,
        helpers
@@ -96,7 +96,7 @@ type
     debtsCount: uint64
     readyQueue: HeapQueue[SyncResult[T]]
     rewind: Option[RewindPoint]
-    verifQueues: ref VerifQueueManager
+    blockProcessor: ref BlockProcessor
 
   SyncWorkerStatus* {.pure.} = enum
     Sleeping, WaitingPeer, UpdatingStatus, Requesting, Downloading, Processing
@@ -123,7 +123,7 @@ type
     chunkSize: uint64
     queue: SyncQueue[A]
     syncFut: Future[void]
-    verifQueues: ref VerifQueueManager
+    blockProcessor: ref BlockProcessor
     inProgress*: bool
     insSyncSpeed*: float
     avgSyncSpeed*: float
@@ -144,13 +144,10 @@ type
   BeaconBlocksRes* = NetRes[seq[SignedBeaconBlock]]
 
 proc validate*[T](sq: SyncQueue[T],
-           blk: SignedBeaconBlock): Future[Result[void, BlockError]] {.async.} =
-  let sblock = SyncBlock(
-    blk: blk,
-    resfut: newFuture[Result[void, BlockError]]("sync.manager.validate")
-  )
-  sq.verifQueues[].addBlock(sblock)
-  return await sblock.resfut
+                  blk: SignedBeaconBlock): Future[Result[void, BlockError]] =
+  let resfut = newFuture[Result[void, BlockError]]("sync.manager.validate")
+  sq.blockProcessor[].addBlock(blk, resfut)
+  resfut
 
 proc getShortMap*[T](req: SyncRequest[T],
                      data: openArray[SignedBeaconBlock]): string =
@@ -250,7 +247,7 @@ proc isEmpty*[T](sr: SyncRequest[T]): bool {.inline.} =
 proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
               start, last: Slot, chunkSize: uint64,
               getFinalizedSlotCb: GetSlotCallback,
-              verifQueues: ref VerifQueueManager,
+              blockProcessor: ref BlockProcessor,
               syncQueueSize: int = -1): SyncQueue[T] =
   ## Create new synchronization queue with parameters
   ##
@@ -316,7 +313,7 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
     debtsQueue: initHeapQueue[SyncRequest[T]](),
     inpSlot: start,
     outSlot: start,
-    verifQueues: verifQueues
+    blockProcessor: blockProcessor
   )
 
 proc `<`*[T](a, b: SyncRequest[T]): bool {.inline.} =
@@ -722,7 +719,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            getLocalHeadSlotCb: GetSlotCallback,
                            getLocalWallSlotCb: GetSlotCallback,
                            getFinalizedSlotCb: GetSlotCallback,
-                           verifQueues: ref VerifQueueManager,
+                           blockProcessor: ref BlockProcessor,
                            maxStatusAge = uint64(SLOTS_PER_EPOCH * 4),
                            maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
                            sleepTime = (int(SLOTS_PER_EPOCH) *
@@ -733,7 +730,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            ): SyncManager[A, B] =
 
   let queue = SyncQueue.init(A, getLocalHeadSlotCb(), getLocalWallSlotCb(),
-                             chunkSize, getFinalizedSlotCb, verifQueues, 1)
+                             chunkSize, getFinalizedSlotCb, blockProcessor, 1)
 
   result = SyncManager[A, B](
     pool: pool,
@@ -745,7 +742,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     sleepTime: sleepTime,
     chunkSize: chunkSize,
     queue: queue,
-    verifQueues: verifQueues,
+    blockProcessor: blockProcessor,
     notInSyncEvent: newAsyncEvent(),
     inRangeEvent: newAsyncEvent(),
     notInRangeEvent: newAsyncEvent(),
@@ -1165,7 +1162,7 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
           man.queue = SyncQueue.init(A, man.getLocalHeadSlot(),
                                      man.getLocalWallSlot(),
                                      man.chunkSize, man.getFinalizedSlot,
-                                     man.verifQueues, 1)
+                                     man.blockProcessor, 1)
           man.notInSyncEvent.fire()
           man.inProgress = true
       else:
