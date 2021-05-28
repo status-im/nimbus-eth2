@@ -90,6 +90,7 @@ proc addResolvedBlock(
     blockRoot = trustedBlock.root
     blockRef = BlockRef.init(blockRoot, trustedBlock.message)
     blockEpoch = blockRef.slot.compute_epoch_at_slot()
+    startTick = Moment.now()
 
   link(parent, blockRef)
 
@@ -100,12 +101,14 @@ proc addResolvedBlock(
 
     epochRef = EpochRef.init(state, cache, prevEpochRef)
     dag.addEpochRef(blockRef, epochRef)
+  let epochRefTick = Moment.now()
 
   dag.blocks.incl(KeyedBlockRef.init(blockRef))
   trace "Populating block dag", key = blockRoot, val = blockRef
 
   # Resolved blocks should be stored in database
   dag.putBlock(trustedBlock)
+  let putTick = Moment.now()
 
   var foundHead: BlockRef
   for head in dag.heads.mitems():
@@ -123,7 +126,9 @@ proc addResolvedBlock(
   debug "Block resolved",
     blck = shortLog(trustedBlock.message),
     blockRoot = shortLog(blockRoot),
-    heads = dag.heads.len()
+    heads = dag.heads.len(),
+    epochRefDur = epochRefTick - startTick,
+    putBlockDur = putTick - epochRefTick
 
   state.blck = blockRef
 

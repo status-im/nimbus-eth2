@@ -583,7 +583,7 @@ proc putState*(dag: ChainDAGRef, state: var StateData) =
   if dag.db.containsState(state.data.root):
     return
 
-  debug "Storing state"
+  let startTick = Moment.now()
   # Ideally we would save the state and the root lookup cache in a single
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
@@ -591,6 +591,8 @@ proc putState*(dag: ChainDAGRef, state: var StateData) =
 
   dag.db.putStateRoot(
     state.blck.root, getStateField(state, slot), state.data.root)
+
+  debug "Stored state", putStateDur = Moment.now() - startTick
 
 func getRef*(dag: ChainDAGRef, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
@@ -739,7 +741,7 @@ proc updateStateData*(
   # an earlier state must be loaded since there's no way to undo the slot
   # transitions
 
-  let startTime = Moment.now()
+  let startTick = Moment.now()
 
   var
     ancestors: seq[BlockRef]
@@ -788,10 +790,7 @@ proc updateStateData*(
       break
 
     # Moving slot by slot helps find states that were advanced with empty slots
-    cur = cur.parentOrSlot
-
-  # Let's see if we're within a few epochs of the state block - then we can
-  # simply replay blocks without loading the whole state
+    cur = cur.parentOrSlot()
 
   if not found:
     debug "UpdateStateData cache miss",
@@ -810,24 +809,27 @@ proc updateStateData*(
     while not dag.getState(state, cur):
       # There's no state saved for this particular BlockSlot combination, keep
       # looking...
-      if cur.blck.parent != nil and
-          cur.blck.slot.epoch != epoch(cur.blck.parent.slot):
-        # We store the state of the parent block with the epoch processing applied
-        # in the database - we'll need to apply the block however!
+      if cur.slot == cur.blck.slot:
+        # This is not an empty slot, so the block will need to be applied to
+        # eventually reach bs
         ancestors.add(cur.blck)
-        cur = cur.blck.parent.atEpochStart(cur.blck.slot.epoch)
-      else:
-        if cur.slot == cur.blck.slot:
-          # This is not an empty slot, so the block will need to be applied to
-          # eventually reach bs
-          ancestors.add(cur.blck)
 
-        # Moves back slot by slot, in case a state for an empty slot was saved
-        cur = cur.parent
+      if cur.slot == dag.tail.slot:
+        # If we've walked all the way to the tail and still not found a state,
+        # there's no hope finding one - the database likely has become corrupt
+        # and one will have to resync from start.
+        fatal "Cannot find state to load, the database is likely corrupt",
+          cur, bs, head = dag.head, tail = dag.tail
+        quit 1
+
+      # Move slot by slot to capture epoch boundary states
+      cur = cur.parentOrSlot()
 
     beacon_state_rewinds.inc()
 
+  # Starting state has been assigned, either from memory or database
   let
+    assignTick = Moment.now()
     startSlot {.used.} = getStateField(state, slot) # used in logs below
     startRoot {.used.} = state.data.root
   var rewards: RewardInfo
@@ -846,7 +848,9 @@ proc updateStateData*(
   # ...and make sure to process empty slots as requested
   dag.advanceSlots(state, bs.slot, save, cache, rewards)
 
-  let diff = Moment.now() - startTime
+  let
+    assignDur = assignTick - startTick
+    replayDur = Moment.now() - assignTick
 
   logScope:
     blocks = ancestors.len
@@ -857,9 +861,10 @@ proc updateStateData*(
     startSlot
     blck = shortLog(bs)
     found
-    diff = shortLog(diff)
+    assignDur
+    replayDur
 
-  if diff >= 1.seconds:
+  if (assignDur + replayDur) >= 1.seconds:
     # This might indicate there's a cache that's not in order or a disk that is
     # too slow - for now, it's here for investigative purposes and the cutoff
     # time might need tuning
@@ -888,7 +893,7 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
   ## as the caches and fork choice can be pruned at a later time.
 
   # Clean up block refs, walking block by block
-  let start = Moment.now()
+  let startTick = Moment.now()
 
   # Finalization means that we choose a single chain as the canonical one -
   # it also means we're no longer interested in any branches from that chain
@@ -914,13 +919,12 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
 
     dag.heads.del(n)
 
-  let stop = Moment.now()
-  let dur = stop - start
+  let dagPruningDur = Moment.now() - startTick
 
   debug "Pruned the blockchain DAG",
     currentCandidateHeads = dag.heads.len,
     prunedHeads = hlen - dag.heads.len,
-    dagPruningDuration = dur
+    dagPruningDur
 
 func needStateCachesAndForkChoicePruning*(dag: ChainDAGRef): bool =
   dag.lastPrunePoint != dag.finalizedHead

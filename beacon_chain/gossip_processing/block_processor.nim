@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [Defect].}
+
 import
   std/math,
   stew/results,
@@ -15,24 +17,22 @@ import
   ".."/[beacon_clock, beacon_node_types],
   ../ssz/sszdump
 
-# Gossip Queue Manager
+# Block Processor
 # ------------------------------------------------------------------------------
-# The queue manager moves blocks from "Gossip validated" to "Consensus verified"
+# The block processor moves blocks from "Incoming" to "Consensus verified"
 
 declareHistogram beacon_store_block_duration_seconds,
   "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
 
 type
-  SyncBlock* = object
-    blk*: SignedBeaconBlock
-    resfut*: Future[Result[void, BlockError]]
-
   BlockEntry* = object
-    # Exported for "test_sync_manager"
-    v*: SyncBlock
+    blck*: SignedBeaconBlock
+    resfut*: Future[Result[void, BlockError]]
+    queueTick*: Moment # Moment when block was enqueued
+    validationDur*: Duration # Time it took to perform gossip validation
 
-  VerifQueueManager* = object
-    ## This manages the queues of blocks and attestations.
+  BlockProcessor* = object
+    ## This manages the processing of blocks from different sources
     ## Blocks and attestations are enqueued in a gossip-validated state
     ##
     ## from:
@@ -45,9 +45,6 @@ type
     ## - database
     ## - attestation pool
     ## - fork choice
-    ##
-    ## The queue manager doesn't manage exits (voluntary, attester slashing or proposer slashing)
-    ## as don't need extra verification and can be added to the exit pool as soon as they are gossip-validated.
 
     # Config
     # ----------------------------------------------------------------
@@ -68,17 +65,15 @@ type
     consensusManager: ref ConsensusManager
       ## Blockchain DAG, AttestationPool and Quarantine
 
-{.push raises: [Defect].}
-
 # Initialization
 # ------------------------------------------------------------------------------
 
-proc new*(T: type VerifQueueManager,
+proc new*(T: type BlockProcessor,
           dumpEnabled: bool,
           dumpDirInvalid, dumpDirIncoming: string,
           consensusManager: ref ConsensusManager,
-          getWallTime: GetWallTimeFn): ref VerifQueueManager =
-  (ref VerifQueueManager)(
+          getWallTime: GetWallTimeFn): ref BlockProcessor =
+  (ref BlockProcessor)(
     dumpEnabled: dumpEnabled,
     dumpDirInvalid: dumpDirInvalid,
     dumpDirIncoming: dumpDirIncoming,
@@ -92,35 +87,32 @@ proc new*(T: type VerifQueueManager,
 # Sync callbacks
 # ------------------------------------------------------------------------------
 
-proc done*(blk: SyncBlock) =
-  ## Send signal to [Sync/Request]Manager that the block ``blk`` has passed
+proc done*(entry: BlockEntry) =
+  ## Send signal to [Sync/Request]Manager that the block ``entry`` has passed
   ## verification successfully.
-  if blk.resfut != nil:
-    blk.resfut.complete(Result[void, BlockError].ok())
+  if entry.resfut != nil:
+    entry.resfut.complete(Result[void, BlockError].ok())
 
-proc fail*(blk: SyncBlock, error: BlockError) =
+proc fail*(entry: BlockEntry, error: BlockError) =
   ## Send signal to [Sync/Request]Manager that the block ``blk`` has NOT passed
   ## verification with specific ``error``.
-  if blk.resfut != nil:
-    blk.resfut.complete(Result[void, BlockError].err(error))
+  if entry.resfut != nil:
+    entry.resfut.complete(Result[void, BlockError].err(error))
 
-proc complete*(blk: SyncBlock, res: Result[void, BlockError]) =
-  ## Send signal to [Sync/Request]Manager about result ``res`` of block ``blk``
-  ## verification.
-  if blk.resfut != nil:
-    blk.resfut.complete(res)
-
-proc hasBlocks*(self: VerifQueueManager): bool =
+proc hasBlocks*(self: BlockProcessor): bool =
   self.blocksQueue.len() > 0
 
 # Enqueue
 # ------------------------------------------------------------------------------
 
-proc addBlock*(self: var VerifQueueManager, syncBlock: SyncBlock) =
+proc addBlock*(
+    self: var BlockProcessor, blck: SignedBeaconBlock,
+    resfut: Future[Result[void, BlockError]] = nil,
+    validationDur = Duration()) =
   ## Enqueue a Gossip-validated block for consensus verification
   # Backpressure:
   #   There is no backpressure here - producers must wait for the future in the
-  #   SyncBlock to constrain their own processing
+  #   BlockEntry to constrain their own processing
   # Producers:
   # - Gossip (when synced)
   # - SyncManager (during sync)
@@ -128,13 +120,18 @@ proc addBlock*(self: var VerifQueueManager, syncBlock: SyncBlock) =
 
   # addLast doesn't fail with unbounded queues, but we'll add asyncSpawn as a
   # sanity check
-  asyncSpawn self.blocksQueue.addLast(BlockEntry(v: syncBlock))
+  try:
+    self.blocksQueue.addLastNoWait(BlockEntry(
+      blck: blck, resfut: resfut, queueTick: Moment.now(),
+      validationDur: validationDur))
+  except AsyncQueueFullError:
+    raiseAssert "unbounded queue"
 
 # Storage
 # ------------------------------------------------------------------------------
 
 proc dumpBlock*[T](
-    self: VerifQueueManager, signedBlock: SignedBeaconBlock,
+    self: BlockProcessor, signedBlock: SignedBeaconBlock,
     res: Result[T, (ValidationResult, BlockError)]) =
   if self.dumpEnabled and res.isErr:
     case res.error[1]
@@ -148,13 +145,13 @@ proc dumpBlock*[T](
       discard
 
 proc storeBlock(
-    self: var VerifQueueManager, signedBlock: SignedBeaconBlock,
+    self: var BlockProcessor, signedBlock: SignedBeaconBlock,
     wallSlot: Slot): Result[void, BlockError] =
   let
-    start = Moment.now()
     attestationPool = self.consensusManager.attestationPool
 
-  let blck = self.consensusManager.chainDag.addRawBlock(self.consensusManager.quarantine, signedBlock) do (
+  let blck = self.consensusManager.chainDag.addRawBlock(
+    self.consensusManager.quarantine, signedBlock) do (
       blckRef: BlockRef, trustedBlock: TrustedSignedBeaconBlock,
       epochRef: EpochRef, state: HashedBeaconState):
     # Callback add to fork choice if valid
@@ -168,17 +165,14 @@ proc storeBlock(
   # was pruned from the ForkChoice.
   if blck.isErr:
     return err(blck.error[1])
-
-  let duration = (Moment.now() - start).toFloatSeconds()
-  beacon_store_block_duration_seconds.observe(duration)
   ok()
 
 # Event Loop
 # ------------------------------------------------------------------------------
 
-proc processBlock(self: var VerifQueueManager, entry: BlockEntry) =
+proc processBlock(self: var BlockProcessor, entry: BlockEntry) =
   logScope:
-    blockRoot = shortLog(entry.v.blk.root)
+    blockRoot = shortLog(entry.blck.root)
 
   let
     wallTime = self.getWallTime()
@@ -189,47 +183,37 @@ proc processBlock(self: var VerifQueueManager, entry: BlockEntry) =
     quit 1
 
   let
-    start = now(chronos.Moment)
-    res = self.storeBlock(entry.v.blk, wallSlot)
-    storeDone = now(chronos.Moment)
+    startTick = Moment.now()
+    res = self.storeBlock(entry.blck, wallSlot)
+    storeTick = Moment.now()
 
   if res.isOk():
     # Eagerly update head in case the new block gets selected
-    self.consensusManager[].updateHead(wallSlot)    # This also eagerly prunes the blocks DAG to prevent processing forks.
-    # self.consensusManager.pruneStateCachesDAG() # Amortized pruning, we don't prune states & fork choice here but in `onSlotEnd`()
+    self.consensusManager[].updateHead(wallSlot)
 
-    let updateDone = now(chronos.Moment)
-    let storeBlockDuration = storeDone - start
-    let updateHeadDuration = updateDone - storeDone
-    let overallDuration = updateDone - start
-    let storeSpeed =
-      block:
-        let secs = float(chronos.seconds(1).nanoseconds)
-        if not(overallDuration.isZero()):
-          let v = secs / float(overallDuration.nanoseconds)
-          round(v * 10_000) / 10_000
-        else:
-          0.0
+    let
+      updateHeadTick = Moment.now()
+      queueDur = startTick - entry.queueTick
+      storeBlockDur = storeTick - startTick
+      updateHeadDur = updateHeadTick - storeTick
+
+    beacon_store_block_duration_seconds.observe(storeBlockDur.toFloatSeconds())
+
     debug "Block processed",
-      local_head_slot = self.consensusManager.chainDag.head.slot,
-      store_speed = storeSpeed,
-      block_slot = entry.v.blk.message.slot,
-      store_block_duration = $storeBlockDuration,
-      update_head_duration = $updateHeadDuration,
-      overall_duration = $overallDuration
+      localHeadSlot = self.consensusManager.chainDag.head.slot,
+      blockSlot = entry.blck.message.slot,
+      validationDur = entry.validationDur,
+      queueDur, storeBlockDur, updateHeadDur
 
-    if entry.v.resFut != nil:
-      entry.v.resFut.complete(Result[void, BlockError].ok())
+    entry.done()
   elif res.error() in {BlockError.Duplicate, BlockError.Old}:
-    # These are harmless / valid outcomes - for the purpose of scoring peers,
-    # they are ok
-    if entry.v.resFut != nil:
-      entry.v.resFut.complete(Result[void, BlockError].ok())
+    # Duplicate and old blocks are ok from a sync point of view, so we mark
+    # them as successful
+    entry.done()
   else:
-    if entry.v.resFut != nil:
-      entry.v.resFut.complete(Result[void, BlockError].err(res.error()))
+    entry.fail(res.error())
 
-proc runQueueProcessingLoop*(self: ref VerifQueueManager) {.async.} =
+proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
   while true:
     # Cooperative concurrency: one block per loop iteration - because
     # we run both networking and CPU-heavy things like block processing

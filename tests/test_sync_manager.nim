@@ -3,7 +3,7 @@
 import std/strutils
 import unittest2
 import chronos
-import ../beacon_chain/gossip_processing/gossip_to_consensus,
+import ../beacon_chain/gossip_processing/block_processor,
        ../beacon_chain/sync/sync_manager
 
 type
@@ -18,11 +18,11 @@ proc updateScore(peer: SomeTPeer, score: int) =
 proc getFirstSlotAtFinalizedEpoch(): Slot =
   Slot(0)
 
-proc newVerifQueues(): ref VerifQueueManager =
-  # We only want VerifQueueManager.blocksQueue to be an AsyncQueue of size 1
-  # The rest of the fields are unused
-  (ref VerifQueueManager)(
-    blocksQueue: newAsyncQueue[BlockEntry](1)
+proc newBlockProcessor(): ref BlockProcessor =
+  # Minimal block processor for test - the real block processor has an unbounded
+  # queue but the tests here
+  (ref BlockProcessor)(
+    blocksQueue: newAsyncQueue[BlockEntry]()
   )
 
 suite "SyncManager test suite":
@@ -37,7 +37,7 @@ suite "SyncManager test suite":
 
   test "[SyncQueue] Start and finish slots equal":
     let p1 = SomeTPeer()
-    let aq = newVerifQueues()
+    let aq = newBlockProcessor()
     var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(0), 1'u64,
                                getFirstSlotAtFinalizedEpoch, aq)
     check len(queue) == 1
@@ -54,7 +54,7 @@ suite "SyncManager test suite":
       r11.slot == Slot(0) and r11.count == 1'u64 and r11.step == 1'u64
 
   test "[SyncQueue] Two full requests success/fail":
-    let aq = newVerifQueues()
+    let aq = newBlockProcessor()
     var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(1), 1'u64,
                                getFirstSlotAtFinalizedEpoch, aq)
     let p1 = SomeTPeer()
@@ -83,7 +83,7 @@ suite "SyncManager test suite":
       r22.slot == Slot(1) and r22.count == 1'u64 and r22.step == 1'u64
 
   test "[SyncQueue] Full and incomplete success/fail start from zero":
-    let aq = newVerifQueues()
+    let aq = newBlockProcessor()
     var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 2'u64,
                                getFirstSlotAtFinalizedEpoch, aq)
     let p1 = SomeTPeer()
@@ -123,7 +123,7 @@ suite "SyncManager test suite":
       r33.slot == Slot(4) and r33.count == 1'u64 and r33.step == 1'u64
 
   test "[SyncQueue] Full and incomplete success/fail start from non-zero":
-    let aq = newVerifQueues()
+    let aq = newBlockProcessor()
     var queue = SyncQueue.init(SomeTPeer, Slot(1), Slot(5), 3'u64,
                                getFirstSlotAtFinalizedEpoch, aq)
     let p1 = SomeTPeer()
@@ -152,7 +152,7 @@ suite "SyncManager test suite":
       r42.slot == Slot(4) and r42.count == 2'u64 and r42.step == 1'u64
 
   test "[SyncQueue] Smart and stupid success/fail":
-    let aq = newVerifQueues()
+    let aq = newBlockProcessor()
     var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 5'u64,
                                getFirstSlotAtFinalizedEpoch, aq)
     let p1 = SomeTPeer()
@@ -181,7 +181,7 @@ suite "SyncManager test suite":
       r52.slot == Slot(4) and r52.count == 1'u64 and r52.step == 1'u64
 
   test "[SyncQueue] One smart and one stupid + debt split + empty":
-    let aq = newVerifQueues()
+    let aq = newBlockProcessor()
     var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(4), 5'u64,
                                getFirstSlotAtFinalizedEpoch, aq)
     let p1 = SomeTPeer()
@@ -220,13 +220,13 @@ suite "SyncManager test suite":
       proc simpleValidator(aq: AsyncQueue[BlockEntry]) {.async.} =
         while true:
           let sblock = await aq.popFirst()
-          if sblock.v.blk.message.slot == Slot(counter):
+          if sblock.blck.message.slot == Slot(counter):
             inc(counter)
+            sblock.done()
           else:
-            sblock.v.fail(BlockError.Invalid)
-          sblock.v.done()
+            sblock.fail(BlockError.Invalid)
 
-      let aq = newVerifQueues()
+      let aq = newBlockProcessor()
       var chain = createChain(Slot(0), Slot(2))
       var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(2), 1'u64,
                                  getFirstSlotAtFinalizedEpoch, aq, 1)
@@ -269,13 +269,13 @@ suite "SyncManager test suite":
       proc simpleValidator(aq: AsyncQueue[BlockEntry]) {.async.} =
         while true:
           let sblock = await aq.popFirst()
-          if sblock.v.blk.message.slot == Slot(counter):
+          if sblock.blck.message.slot == Slot(counter):
             inc(counter)
+            sblock.done()
           else:
-            sblock.v.fail(BlockError.Invalid)
-          sblock.v.done()
+            sblock.fail(BlockError.Invalid)
 
-      let aq = newVerifQueues()
+      let aq = newBlockProcessor()
       var chain = createChain(Slot(5), Slot(11))
       var queue = SyncQueue.init(SomeTPeer, Slot(5), Slot(11), 2'u64,
                                  getFirstSlotAtFinalizedEpoch, aq, 2)
@@ -324,13 +324,13 @@ suite "SyncManager test suite":
       proc simpleValidator(aq: AsyncQueue[BlockEntry]) {.async.} =
         while true:
           let sblock = await aq.popFirst()
-          if sblock.v.blk.message.slot == Slot(counter):
+          if sblock.blck.message.slot == Slot(counter):
             inc(counter)
+            sblock.done()
           else:
-            sblock.v.fail(BlockError.Invalid)
-          sblock.v.done()
+            sblock.fail(BlockError.Invalid)
 
-      let aq = newVerifQueues()
+      let aq = newBlockProcessor()
       var chain = createChain(Slot(5), Slot(18))
       var queue = SyncQueue.init(SomeTPeer, Slot(5), Slot(18), 2'u64,
                                  getFirstSlotAtFinalizedEpoch, aq, 2)
@@ -518,7 +518,7 @@ suite "SyncManager test suite":
       checkResponse(r22, @[chain[3], chain[1]]) == false
 
   test "[SyncQueue] getRewindPoint() test":
-    let aq = newVerifQueues()
+    let aq = newBlockProcessor()
     block:
       var queue = SyncQueue.init(SomeTPeer,
                                  Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),

@@ -31,7 +31,7 @@ import
     nimbus_binary_common, ssz/merkleization, statusbar,
     beacon_clock, version],
   ./networking/[eth2_discovery, eth2_network, network_metadata],
-  ./gossip_processing/[eth2_processor, gossip_to_consensus, consensus_manager],
+  ./gossip_processing/[eth2_processor, block_processor, consensus_manager],
   ./validators/[
     attestation_aggregation, validator_duties, validator_pool,
     slashing_protection, keystore_management],
@@ -338,13 +338,13 @@ proc init*(T: type BeaconNode,
     consensusManager = ConsensusManager.new(
       chainDag, attestationPool, quarantine
     )
-    verifQueues = VerifQueueManager.new(
+    blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       consensusManager,
       proc(): BeaconTime = beaconClock.now())
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
-      verifQueues,
+      blockProcessor,
       chainDag, attestationPool, exitPool, validatorPool,
       quarantine,
       rng,
@@ -371,9 +371,9 @@ proc init*(T: type BeaconNode,
     topicBeaconBlocks: topicBeaconBlocks,
     topicAggregateAndProofs: topicAggregateAndProofs,
     processor: processor,
-    verifQueues: verifQueues,
+    blockProcessor: blockProcessor,
     consensusManager: consensusManager,
-    requestManager: RequestManager.init(network, verifQueues)
+    requestManager: RequestManager.init(network, blockProcessor)
   )
 
   # set topic validation routine
@@ -1129,7 +1129,7 @@ proc startSyncManager(node: BeaconNode) =
 
   node.syncManager = newSyncManager[Peer, PeerID](
     node.network.peerPool, getLocalHeadSlot, getLocalWallSlot,
-    getFirstSlotAtFinalizedEpoch, node.verifQueues, chunkSize = 32
+    getFirstSlotAtFinalizedEpoch, node.blockProcessor, chunkSize = 32
   )
   node.syncManager.start()
 
@@ -1229,7 +1229,7 @@ proc run*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
     let startTime = node.beaconClock.now()
     asyncSpawn runSlotLoop(node, startTime)
     asyncSpawn runOnSecondLoop(node)
-    asyncSpawn runQueueProcessingLoop(node.verifQueues)
+    asyncSpawn runQueueProcessingLoop(node.blockProcessor)
 
     node.requestManager.start()
     node.startSyncManager()
