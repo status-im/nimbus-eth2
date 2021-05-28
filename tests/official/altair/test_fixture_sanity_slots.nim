@@ -12,12 +12,12 @@ import
   # Standard library
   os, strutils,
   # Beacon chain internals
-  ../../beacon_chain/spec/state_transition,
-  ../../beacon_chain/spec/datatypes/altair,
+  ../../../beacon_chain/spec/state_transition,
+  ../../../beacon_chain/spec/datatypes/altair,
   # Test utilities
-  ../testutil,
-  ./fixtures_utils,
-  ../helpers/debug_state
+  ../../testutil,
+  ../fixtures_utils,
+  ../../helpers/debug_state
 
 const SanitySlotsDir = SszTestsDir/const_preset/"altair"/"sanity"/"slots"/"pyspec_tests"
 
@@ -46,6 +46,6 @@ proc runTest(identifier: string) =
 
   `testImpl _ slots _ identifier`()
 
-suite "Official - Sanity - Slots " & preset():
+suite "Official - Altair - Sanity - Slots " & preset():
   for kind, path in walkDir(SanitySlotsDir, true):
     runTest(path)

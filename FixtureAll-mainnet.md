@@ -55,20 +55,35 @@ FixtureAll-mainnet
 + Slots - slots_2                                                                            OK
 + [Invalid]  bad_merkle_proof                                                                OK
 + [Invalid]  wrong_deposit_for_deposit_count                                                 OK
-+ [Invalid] Official - Sanity - Blocks - double_same_proposer_slashings_same_block [Preset:  OK
-+ [Invalid] Official - Sanity - Blocks - double_similar_proposer_slashings_same_block [Prese OK
-+ [Invalid] Official - Sanity - Blocks - double_validator_exit_same_block [Preset: mainnet]  OK
-+ [Invalid] Official - Sanity - Blocks - duplicate_attester_slashing [Preset: mainnet]       OK
-+ [Invalid] Official - Sanity - Blocks - expected_deposit_in_block [Preset: mainnet]         OK
-+ [Invalid] Official - Sanity - Blocks - invalid_block_sig [Preset: mainnet]                 OK
-+ [Invalid] Official - Sanity - Blocks - invalid_proposer_index_sig_from_expected_proposer [ OK
-+ [Invalid] Official - Sanity - Blocks - invalid_proposer_index_sig_from_proposer_index [Pre OK
-+ [Invalid] Official - Sanity - Blocks - invalid_state_root [Preset: mainnet]                OK
-+ [Invalid] Official - Sanity - Blocks - parent_from_same_slot [Preset: mainnet]             OK
-+ [Invalid] Official - Sanity - Blocks - prev_slot_block_transition [Preset: mainnet]        OK
-+ [Invalid] Official - Sanity - Blocks - same_slot_block_transition [Preset: mainnet]        OK
-+ [Invalid] Official - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]         OK
-+ [Invalid] Official - Sanity - Blocks - zero_block_sig [Preset: mainnet]                    OK
++ [Invalid] Official - Altair - Sanity - Blocks - double_same_proposer_slashings_same_block  OK
++ [Invalid] Official - Altair - Sanity - Blocks - double_similar_proposer_slashings_same_blo OK
++ [Invalid] Official - Altair - Sanity - Blocks - double_validator_exit_same_block [Preset:  OK
++ [Invalid] Official - Altair - Sanity - Blocks - duplicate_attester_slashing [Preset: mainn OK
++ [Invalid] Official - Altair - Sanity - Blocks - expected_deposit_in_block [Preset: mainnet OK
++ [Invalid] Official - Altair - Sanity - Blocks - invalid_block_sig [Preset: mainnet]        OK
++ [Invalid] Official - Altair - Sanity - Blocks - invalid_proposer_index_sig_from_expected_p OK
++ [Invalid] Official - Altair - Sanity - Blocks - invalid_proposer_index_sig_from_proposer_i OK
++ [Invalid] Official - Altair - Sanity - Blocks - invalid_state_root [Preset: mainnet]       OK
++ [Invalid] Official - Altair - Sanity - Blocks - parent_from_same_slot [Preset: mainnet]    OK
++ [Invalid] Official - Altair - Sanity - Blocks - prev_slot_block_transition [Preset: mainne OK
++ [Invalid] Official - Altair - Sanity - Blocks - same_slot_block_transition [Preset: mainne OK
++ [Invalid] Official - Altair - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet OK
++ [Invalid] Official - Altair - Sanity - Blocks - zero_block_sig [Preset: mainnet]           OK
++ [Invalid] Official - Phase 0 - Sanity - Blocks - double_same_proposer_slashings_same_block OK
++ [Invalid] Official - Phase 0 - Sanity - Blocks - double_similar_proposer_slashings_same_bl OK
++ [Invalid] Official - Phase 0 - Sanity - Blocks - double_validator_exit_same_block [Preset: OK
++ [Invalid] Official - Phase 0 - Sanity - Blocks - duplicate_attester_slashing [Preset: main OK
++ [Invalid] Official - Phase 0 - Sanity - Blocks - expected_deposit_in_block [Preset: mainne OK
++ [Invalid] Official - Phase 0 - Sanity - Blocks - invalid_block_sig [Preset: mainnet]       OK
++ [Invalid] Official - Phase 0 - Sanity - Blocks - invalid_proposer_index_sig_from_expected_ OK
++ [Invalid] Official - Phase 0 - Sanity - Blocks - invalid_proposer_index_sig_from_proposer_ OK
++ [Invalid] Official - Phase 0 - Sanity - Blocks - invalid_state_root [Preset: mainnet]      OK
++ [Invalid] Official - Phase 0 - Sanity - Blocks - parent_from_same_slot [Preset: mainnet]   OK
++ [Invalid] Official - Phase 0 - Sanity - Blocks - prev_slot_block_transition [Preset: mainn OK
++ [Invalid] Official - Phase 0 - Sanity - Blocks - proposal_for_genesis_slot [Preset: mainne OK
++ [Invalid] Official - Phase 0 - Sanity - Blocks - same_slot_block_transition [Preset: mainn OK
++ [Invalid] Official - Phase 0 - Sanity - Blocks - slash_and_exit_same_index [Preset: mainne OK
++ [Invalid] Official - Phase 0 - Sanity - Blocks - zero_block_sig [Preset: mainnet]          OK
 + [Invalid] after_epoch_slots                                                                OK
 + [Invalid] all_empty_indices                                                                OK
 + [Invalid] att1_bad_extra_index                                                             OK
@@ -146,25 +161,48 @@ FixtureAll-mainnet
 + [Valid]    new_deposit_under_max                                                           OK
 + [Valid]    success_top_up                                                                  OK
 + [Valid]    valid_sig_but_forked_state                                                      OK
-+ [Valid]   Official - Sanity - Blocks - attestation [Preset: mainnet]                       OK
-+ [Valid]   Official - Sanity - Blocks - attester_slashing [Preset: mainnet]                 OK
-+ [Valid]   Official - Sanity - Blocks - balance_driven_status_transitions [Preset: mainnet] OK
-+ [Valid]   Official - Sanity - Blocks - deposit_in_block [Preset: mainnet]                  OK
-+ [Valid]   Official - Sanity - Blocks - deposit_top_up [Preset: mainnet]                    OK
-+ [Valid]   Official - Sanity - Blocks - empty_block_transition [Preset: mainnet]            OK
-+ [Valid]   Official - Sanity - Blocks - empty_epoch_transition [Preset: mainnet]            OK
-+ [Valid]   Official - Sanity - Blocks - high_proposer_index [Preset: mainnet]               OK
-+ [Valid]   Official - Sanity - Blocks - historical_batch [Preset: mainnet]                  OK
-+ [Valid]   Official - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: mai OK
-+ [Valid]   Official - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Preset OK
-+ [Valid]   Official - Sanity - Blocks - multiple_different_proposer_slashings_same_block [P OK
-+ [Valid]   Official - Sanity - Blocks - multiple_different_validator_exits_same_block [Pres OK
-+ [Valid]   Official - Sanity - Blocks - proposer_after_inactive_index [Preset: mainnet]     OK
-+ [Valid]   Official - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]            OK
-+ [Valid]   Official - Sanity - Blocks - proposer_slashing [Preset: mainnet]                 OK
-+ [Valid]   Official - Sanity - Blocks - skipped_slots [Preset: mainnet]                     OK
-+ [Valid]   Official - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]         OK
-+ [Valid]   Official - Sanity - Blocks - voluntary_exit [Preset: mainnet]                    OK
++ [Valid]   Official - Altair - Sanity - Blocks - attestation [Preset: mainnet]              OK
++ [Valid]   Official - Altair - Sanity - Blocks - attester_slashing [Preset: mainnet]        OK
++ [Valid]   Official - Altair - Sanity - Blocks - balance_driven_status_transitions [Preset: OK
++ [Valid]   Official - Altair - Sanity - Blocks - deposit_in_block [Preset: mainnet]         OK
++ [Valid]   Official - Altair - Sanity - Blocks - deposit_top_up [Preset: mainnet]           OK
++ [Valid]   Official - Altair - Sanity - Blocks - empty_block_transition [Preset: mainnet]   OK
++ [Valid]   Official - Altair - Sanity - Blocks - empty_epoch_transition [Preset: mainnet]   OK
++ [Valid]   Official - Altair - Sanity - Blocks - high_proposer_index [Preset: mainnet]      OK
++ [Valid]   Official - Altair - Sanity - Blocks - historical_batch [Preset: mainnet]         OK
++ [Valid]   Official - Altair - Sanity - Blocks - multiple_attester_slashings_no_overlap [Pr OK
++ [Valid]   Official - Altair - Sanity - Blocks - multiple_attester_slashings_partial_overla OK
++ [Valid]   Official - Altair - Sanity - Blocks - multiple_different_proposer_slashings_same OK
++ [Valid]   Official - Altair - Sanity - Blocks - multiple_different_validator_exits_same_bl OK
++ [Valid]   Official - Altair - Sanity - Blocks - proposer_after_inactive_index [Preset: mai OK
++ [Valid]   Official - Altair - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]   OK
++ [Valid]   Official - Altair - Sanity - Blocks - proposer_slashing [Preset: mainnet]        OK
++ [Valid]   Official - Altair - Sanity - Blocks - skipped_slots [Preset: mainnet]            OK
++ [Valid]   Official - Altair - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet OK
++ [Valid]   Official - Altair - Sanity - Blocks - voluntary_exit [Preset: mainnet]           OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - attestation [Preset: mainnet]             OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - attester_slashing [Preset: mainnet]       OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - balance_driven_status_transitions [Preset OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - deposit_in_block [Preset: mainnet]        OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - deposit_top_up [Preset: mainnet]          OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - empty_block_transition [Preset: mainnet]  OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - empty_epoch_transition [Preset: mainnet]  OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - full_random_operations_0 [Preset: mainnet OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - full_random_operations_1 [Preset: mainnet OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - full_random_operations_2 [Preset: mainnet OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - full_random_operations_3 [Preset: mainnet OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - high_proposer_index [Preset: mainnet]     OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - historical_batch [Preset: mainnet]        OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - multiple_attester_slashings_no_overlap [P OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - multiple_attester_slashings_partial_overl OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - multiple_different_proposer_slashings_sam OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - multiple_different_validator_exits_same_b OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - proposer_after_inactive_index [Preset: ma OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]  OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - proposer_slashing [Preset: mainnet]       OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - skipped_slots [Preset: mainnet]           OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainne OK
++ [Valid]   Official - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: mainnet]          OK
 + [Valid]   correct_epoch_delay                                                              OK
 + [Valid]   correct_min_inclusion_delay                                                      OK
 + [Valid]   correct_sqrt_epoch_delay                                                         OK
@@ -195,29 +233,29 @@ FixtureAll-mainnet
 + [Valid]   sync_committee_rewards_empty_participants                                        OK
 + [Valid]   sync_committee_rewards_not_full_participants                                     OK
 ```
-OK: 192/192 Fail: 0/192 Skip: 0/192
-## Official - Epoch Processing - Effective balance updates [Preset: mainnet]
+OK: 230/230 Fail: 0/230 Skip: 0/230
+## Official - Altair - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - Epoch Processing - Eth1 data reset [Preset: mainnet]
+## Official - Altair - Epoch Processing - Eth1 data reset [Preset: mainnet]
 ```diff
 + Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
 + Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## Official - Epoch Processing - Historical roots update [Preset: mainnet]
+## Official - Altair - Epoch Processing - Historical roots update [Preset: mainnet]
 ```diff
 + Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
+## Official - Altair - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - Epoch Processing - Registry updates [Preset: mainnet]
+## Official - Altair - Epoch Processing - Registry updates [Preset: mainnet]
 ```diff
 + Registry updates - activation_queue_activation_and_ejection [Preset: mainnet]              OK
 + Registry updates - activation_queue_efficiency [Preset: mainnet]                           OK
@@ -229,11 +267,146 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit [Preset: mainnet]                             OK
 ```
 OK: 8/8 Fail: 0/8 Skip: 0/8
-## Official - Epoch Processing - Slashings reset [Preset: mainnet]
+## Official - Altair - Epoch Processing - Slashings reset [Preset: mainnet]
 ```diff
 + Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## Official - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## Official - Phase 0 - Epoch Processing - Eth1 data reset [Preset: mainnet]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
+## Official - Phase 0 - Epoch Processing - Historical roots update [Preset: mainnet]
+```diff
++ Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## Official - Phase 0 - Epoch Processing - Justification & Finalization [Preset: mainnet]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
++ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
+```
+OK: 9/9 Fail: 0/9 Skip: 0/9
+## Official - Phase 0 - Epoch Processing - Participation record updates [Preset: mainnet]
+```diff
++ Participation record updates - updated_participation_record [Preset: mainnet]              OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## Official - Phase 0 - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## Official - Phase 0 - Epoch Processing - Registry updates [Preset: mainnet]
+```diff
++ Registry updates - activation_queue_activation_and_ejection [Preset: mainnet]              OK
++ Registry updates - activation_queue_efficiency [Preset: mainnet]                           OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
++ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
++ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
++ Registry updates - ejection [Preset: mainnet]                                              OK
++ Registry updates - ejection_past_churn_limit [Preset: mainnet]                             OK
+```
+OK: 8/8 Fail: 0/8 Skip: 0/8
+## Official - Phase 0 - Epoch Processing - Slashings [Preset: mainnet]
+```diff
++ Slashings - low_penalty [Preset: mainnet]                                                  OK
++ Slashings - max_penalties [Preset: mainnet]                                                OK
++ Slashings - minimal_penalty [Preset: mainnet]                                              OK
++ Slashings - scaled_penalties [Preset: mainnet]                                             OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
+## Official - Phase 0 - Epoch Processing - Slashings reset [Preset: mainnet]
+```diff
++ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## Official - Phase 0 - SSZ consensus objects  [Preset: mainnet]
+```diff
++   Testing    AggregateAndProof                                                             OK
++   Testing    Attestation                                                                   OK
++   Testing    AttestationData                                                               OK
++   Testing    AttesterSlashing                                                              OK
++   Testing    BeaconBlock                                                                   OK
++   Testing    BeaconBlockBody                                                               OK
++   Testing    BeaconBlockHeader                                                             OK
++   Testing    BeaconState                                                                   OK
++   Testing    Checkpoint                                                                    OK
++   Testing    Deposit                                                                       OK
++   Testing    DepositData                                                                   OK
++   Testing    DepositMessage                                                                OK
++   Testing    Eth1Block                                                                     OK
++   Testing    Eth1Data                                                                      OK
++   Testing    Fork                                                                          OK
++   Testing    ForkData                                                                      OK
++   Testing    HistoricalBatch                                                               OK
++   Testing    IndexedAttestation                                                            OK
++   Testing    PendingAttestation                                                            OK
++   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
++   Testing    SignedBeaconBlock                                                             OK
++   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedVoluntaryExit                                                           OK
++   Testing    SigningData                                                                   OK
++   Testing    Validator                                                                     OK
++   Testing    VoluntaryExit                                                                 OK
+```
+OK: 27/27 Fail: 0/27 Skip: 0/27
+## Official - SSZ consensus objects  [Preset: mainnet]
+```diff
++   Testing    AggregateAndProof                                                             OK
++   Testing    Attestation                                                                   OK
++   Testing    AttestationData                                                               OK
++   Testing    AttesterSlashing                                                              OK
++   Testing    BeaconBlock                                                                   OK
++   Testing    BeaconBlockBody                                                               OK
++   Testing    BeaconBlockHeader                                                             OK
++   Testing    BeaconState                                                                   OK
++   Testing    Checkpoint                                                                    OK
++   Testing    ContributionAndProof                                                          OK
++   Testing    Deposit                                                                       OK
++   Testing    DepositData                                                                   OK
++   Testing    DepositMessage                                                                OK
++   Testing    Eth1Block                                                                     OK
++   Testing    Eth1Data                                                                      OK
++   Testing    Fork                                                                          OK
++   Testing    ForkData                                                                      OK
++   Testing    HistoricalBatch                                                               OK
++   Testing    IndexedAttestation                                                            OK
++   Testing    LightClientSnapshot                                                           OK
++   Testing    LightClientUpdate                                                             OK
++   Testing    PendingAttestation                                                            OK
++   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
++   Testing    SignedBeaconBlock                                                             OK
++   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedContributionAndProof                                                    OK
++   Testing    SignedVoluntaryExit                                                           OK
++   Testing    SigningData                                                                   OK
++   Testing    SyncAggregate                                                                 OK
++   Testing    SyncAggregatorSelectionData                                                   OK
++   Testing    SyncCommittee                                                                 OK
++   Testing    SyncCommitteeContribution                                                     OK
++   Testing    SyncCommitteeSignature                                                        OK
++   Testing    Validator                                                                     OK
++   Testing    VoluntaryExit                                                                 OK
+```
+OK: 36/36 Fail: 0/36 Skip: 0/36
 
 ---TOTAL---
-OK: 206/206 Fail: 0/206 Skip: 0/206
+OK: 335/335 Fail: 0/335 Skip: 0/335

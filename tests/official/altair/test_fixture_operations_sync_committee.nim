@@ -13,13 +13,13 @@ import
   # Utilities
   stew/results,
   # Beacon chain internals
-  ../../beacon_chain/spec/state_transition_block,
-  ../../beacon_chain/spec/datatypes/altair,
-  ../../beacon_chain/ssz,
+  ../../../beacon_chain/spec/state_transition_block,
+  ../../../beacon_chain/spec/datatypes/altair,
+  ../../../beacon_chain/ssz,
   # Test utilities
-  ../testutil,
-  ./fixtures_utils,
-  ../helpers/debug_state
+  ../../testutil,
+  ../fixtures_utils,
+  ../../helpers/debug_state
 
 when isMainModule:
   import chronicles # or some random compile error happens...
@@ -65,6 +65,6 @@ proc runTest(identifier: string) =
 
   `testImpl_sync_committee _ identifier`()
 
-suite "Official - Operations - Sync Committee " & preset():
+suite "Official - Altair - Operations - Sync Committee " & preset():
   for kind, path in walkDir(OpSyncCommitteeDir, true):
     runTest(path)

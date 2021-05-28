@@ -13,13 +13,13 @@ import
   # Utilities
   stew/results,
   # Beacon chain internals
-  ../../beacon_chain/spec/state_transition_block,
-  ../../beacon_chain/spec/datatypes/altair,
-  ../../beacon_chain/ssz,
+  ../../../beacon_chain/spec/state_transition_block,
+  ../../../beacon_chain/spec/datatypes/altair,
+  ../../../beacon_chain/ssz,
   # Test utilities
-  ../testutil,
-  ./fixtures_utils,
-  ../helpers/debug_state
+  ../../testutil,
+  ../fixtures_utils,
+  ../../helpers/debug_state
 
 const OpVoluntaryExitDir = SszTestsDir/const_preset/"altair"/"operations"/"voluntary_exit"/"pyspec_tests"
 
@@ -63,6 +63,6 @@ proc runTest(identifier: string) =
 
   `testImpl _ voluntary_exit _ identifier`()
 
-suite "Official - Operations - Voluntary exit " & preset():
+suite "Official - Altair - Operations - Voluntary exit " & preset():
   for kind, path in walkDir(OpVoluntaryExitDir, true):
     runTest(path)
