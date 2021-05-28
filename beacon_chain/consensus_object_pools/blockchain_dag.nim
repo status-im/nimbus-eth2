@@ -583,7 +583,7 @@ proc putState*(dag: ChainDAGRef, state: var StateData) =
   if dag.db.containsState(state.data.root):
     return
 
-  debug "Storing state"
+  let startTick = Moment.now()
   # Ideally we would save the state and the root lookup cache in a single
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
@@ -591,6 +591,8 @@ proc putState*(dag: ChainDAGRef, state: var StateData) =
 
   dag.db.putStateRoot(
     state.blck.root, getStateField(state, slot), state.data.root)
+
+  debug "Stored state", putStateDur = Moment.now() - startTick
 
 func getRef*(dag: ChainDAGRef, root: Eth2Digest): BlockRef =
   ## Retrieve a resolved block reference, if available
@@ -891,7 +893,7 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
   ## as the caches and fork choice can be pruned at a later time.
 
   # Clean up block refs, walking block by block
-  let start = Moment.now()
+  let startTick = Moment.now()
 
   # Finalization means that we choose a single chain as the canonical one -
   # it also means we're no longer interested in any branches from that chain
@@ -917,13 +919,12 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
 
     dag.heads.del(n)
 
-  let stop = Moment.now()
-  let dur = stop - start
+  let dagPruningDur = Moment.now() - startTick
 
   debug "Pruned the blockchain DAG",
     currentCandidateHeads = dag.heads.len,
     prunedHeads = hlen - dag.heads.len,
-    dagPruningDur = dur
+    dagPruningDur
 
 func needStateCachesAndForkChoicePruning*(dag: ChainDAGRef): bool =
   dag.lastPrunePoint != dag.finalizedHead

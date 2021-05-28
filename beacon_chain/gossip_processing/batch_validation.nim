@@ -142,7 +142,7 @@ proc processBatch(batchCrypto: ref BatchCrypto) =
   trace "batch crypto - starting",
     batchSize
 
-  let startTime = Moment.now()
+  let startTick = Moment.now()
 
   var secureRandomBytes: array[32, byte]
   batchCrypto[].rng[].brHmacDrbgGenerate(secureRandomBytes)
@@ -153,12 +153,10 @@ proc processBatch(batchCrypto: ref BatchCrypto) =
     batch.pendingBuffer,
     secureRandomBytes)
 
-  let stopTime = Moment.now()
-
   trace "batch crypto - finished",
     batchSize,
     cryptoVerified = ok,
-    dur = stopTime - startTime
+    batchDur = Moment.now() - startTick
 
   if ok:
     for res in batch.resultsBuffer.mitems():

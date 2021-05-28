@@ -183,19 +183,19 @@ proc processBlock(self: var BlockProcessor, entry: BlockEntry) =
     quit 1
 
   let
-    start = Moment.now()
+    startTick = Moment.now()
     res = self.storeBlock(entry.blck, wallSlot)
-    storeDone = Moment.now()
+    storeTick = Moment.now()
 
   if res.isOk():
     # Eagerly update head in case the new block gets selected
     self.consensusManager[].updateHead(wallSlot)
 
     let
-      updateDone = Moment.now()
-      queueDur = entry.queueTick - start
-      storeBlockDur = storeDone - start
-      updateHeadDur = updateDone - storeDone
+      updateHeadTick = Moment.now()
+      queueDur = startTick - entry.queueTick
+      storeBlockDur = storeTick - startTick
+      updateHeadDur = updateHeadTick - storeTick
 
     beacon_store_block_duration_seconds.observe(storeBlockDur.toFloatSeconds())
 
@@ -203,9 +203,7 @@ proc processBlock(self: var BlockProcessor, entry: BlockEntry) =
       localHeadSlot = self.consensusManager.chainDag.head.slot,
       blockSlot = entry.blck.message.slot,
       validationDur = entry.validationDur,
-      queueDur,
-      storeBlockDur,
-      updateHeadDur
+      queueDur, storeBlockDur, updateHeadDur
 
     entry.done()
   elif res.error() in {BlockError.Duplicate, BlockError.Old}:

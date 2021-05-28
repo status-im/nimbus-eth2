@@ -417,7 +417,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
     # Attestations produced in a particular slot are added to the block
     # at the slot where at least MIN_ATTESTATION_INCLUSION_DELAY have passed
     maxAttestationSlot = newBlockSlot - MIN_ATTESTATION_INCLUSION_DELAY
-    startPackingTime = Moment.now()
+    startPackingTick = Moment.now()
 
   var
     candidates: seq[tuple[
@@ -521,12 +521,12 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
         it.score > 0
 
   let
-    packingTime = Moment.now() - startPackingTime
+    packingDur = Moment.now() - startPackingTick
 
   debug "Packed attestations for block",
-    newBlockSlot, packingTime, totalCandidates, attestations = res.len()
+    newBlockSlot, packingDur, totalCandidates, attestations = res.len()
   attestation_pool_block_attestation_packing_time.set(
-    packingTime.toFloatSeconds())
+    packingDur.toFloatSeconds())
 
   res
 
