@@ -13,15 +13,15 @@ import
   # Utilities
   stew/results,
   # Beacon chain internals
-  ../../beacon_chain/spec/[state_transition_block, crypto],
-  ../../beacon_chain/spec/datatypes/altair,
-  ../../beacon_chain/ssz,
+  ../../../beacon_chain/spec/state_transition_block,
+  ../../../beacon_chain/spec/datatypes/phase0,
+  ../../../beacon_chain/ssz,
   # Test utilities
-  ../testutil,
-  ./fixtures_utils,
-  ../helpers/debug_state
+  ../../testutil,
+  ../fixtures_utils,
+  ../../helpers/debug_state
 
-const OpBlockHeaderDir = SszTestsDir/const_preset/"altair"/"operations"/"block_header"/"pyspec_tests"
+const OpAttSlashingDir = SszTestsDir/const_preset/"phase0"/"operations"/"attester_slashing"/"pyspec_tests"
 
 proc runTest(identifier: string) =
   # We wrap the tests in a proc to avoid running out of globals
@@ -29,9 +29,9 @@ proc runTest(identifier: string) =
   # but unittest with the macro/templates put everything as globals
   # https://github.com/nim-lang/Nim/issues/12084#issue-486866402
 
-  let testDir = OpBlockHeaderDir / identifier
+  let testDir = OpAttSlashingDir / identifier
 
-  proc `testImpl _ blockheader _ identifier`() =
+  proc `testImpl _ operations_attester_slashing _ identifier`() =
 
     var prefix: string
     if existsFile(testDir/"post.ssz_snappy"):
@@ -40,7 +40,8 @@ proc runTest(identifier: string) =
       prefix = "[Invalid] "
 
     test prefix & identifier:
-      let blck = parseTest(testDir/"block.ssz_snappy", SSZ, BeaconBlock)
+      let attesterSlashing =
+        parseTest(testDir/"attester_slashing.ssz_snappy", SSZ, AttesterSlashing)
       var
         cache = StateCache()
         preState =
@@ -50,16 +51,18 @@ proc runTest(identifier: string) =
         let
           postState =
             newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
-          done = process_block_header(preState[], blck, {}, cache).isOk
-        doAssert done, "Valid block header not processed"
+          done = process_attester_slashing(preState[], attesterSlashing,
+                                           {}, cache).isOk
+        doAssert done, "Valid attestater slashing not processed"
         check: preState[].hash_tree_root() == postState[].hash_tree_root()
         reportDiff(preState, postState)
       else:
-        let done = process_block_header(preState[], blck, {}, cache).isOk
-        doAssert done == false, "We didn't expect this invalid block header to be processed."
+        let done = process_attester_slashing(preState[], attesterSlashing,
+                                             {}, cache).isOk
+        doAssert done == false, "We didn't expect this invalid attester slashing to be processed."
 
-  `testImpl _ blockheader _ identifier`()
+  `testImpl _ operations_attester_slashing _ identifier`()
 
-suite "Official - Operations - Block header " & preset():
-  for kind, path in walkDir(OpBlockHeaderDir, true):
+suite "Official - Phase 0 - Operations - Attester slashing " & preset():
+  for kind, path in walkDir(OpAttSlashingDir, true):
     runTest(path)

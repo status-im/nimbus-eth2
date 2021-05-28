@@ -13,15 +13,15 @@ import
   # Utilities
   stew/results,
   # Beacon chain internals
-  ../../beacon_chain/spec/state_transition_block,
-  ../../beacon_chain/spec/datatypes/altair,
-  ../../beacon_chain/ssz,
+  ../../../beacon_chain/spec/state_transition_block,
+  ../../../beacon_chain/spec/datatypes/phase0,
+  ../../../beacon_chain/ssz,
   # Test utilities
-  ../testutil,
-  ./fixtures_utils,
-  ../helpers/debug_state
+  ../../testutil,
+  ../fixtures_utils,
+  ../../helpers/debug_state
 
-const OpAttSlashingDir = SszTestsDir/const_preset/"altair"/"operations"/"attester_slashing"/"pyspec_tests"
+const OpVoluntaryExitDir = SszTestsDir/const_preset/"phase0"/"operations"/"voluntary_exit"/"pyspec_tests"
 
 proc runTest(identifier: string) =
   # We wrap the tests in a proc to avoid running out of globals
@@ -29,9 +29,9 @@ proc runTest(identifier: string) =
   # but unittest with the macro/templates put everything as globals
   # https://github.com/nim-lang/Nim/issues/12084#issue-486866402
 
-  let testDir = OpAttSlashingDir / identifier
+  let testDir = OpVoluntaryExitDir / identifier
 
-  proc `testImpl _ operations_attester_slashing _ identifier`() =
+  proc `testImpl _ voluntary_exit _ identifier`() =
 
     var prefix: string
     if existsFile(testDir/"post.ssz_snappy"):
@@ -40,29 +40,29 @@ proc runTest(identifier: string) =
       prefix = "[Invalid] "
 
     test prefix & identifier:
-      let attesterSlashing =
-        parseTest(testDir/"attester_slashing.ssz_snappy", SSZ, AttesterSlashing)
+      let voluntaryExit = parseTest(
+        testDir/"voluntary_exit.ssz_snappy", SSZ, SignedVoluntaryExit)
       var
-        cache = StateCache()
         preState =
           newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
+        cache = StateCache()
 
       if existsFile(testDir/"post.ssz_snappy"):
         let
           postState =
             newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
-          done = process_attester_slashing(preState[], attesterSlashing,
-                                           {}, cache).isOk
-        doAssert done, "Valid attestater slashing not processed"
+          done =
+            process_voluntary_exit(preState[], voluntaryExit, {}, cache).isOk
+        doAssert done, "Valid voluntary exit not processed"
         check: preState[].hash_tree_root() == postState[].hash_tree_root()
         reportDiff(preState, postState)
       else:
-        let done = process_attester_slashing(preState[], attesterSlashing,
-                                             {}, cache).isOk
-        doAssert done == false, "We didn't expect this invalid attester slashing to be processed."
+        let done =
+          process_voluntary_exit(preState[], voluntaryExit, {}, cache).isOk
+        doAssert done == false, "We didn't expect this invalid voluntary exit to be processed."
 
-  `testImpl _ operations_attester_slashing _ identifier`()
+  `testImpl _ voluntary_exit _ identifier`()
 
-suite "Official - Operations - Attester slashing " & preset():
-  for kind, path in walkDir(OpAttSlashingDir, true):
+suite "Official - Phase 0 - Operations - Voluntary exit " & preset():
+  for kind, path in walkDir(OpVoluntaryExitDir, true):
     runTest(path)

@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.used.}
+
 import
   # Standard library
   os, strutils, streams, strformat,
@@ -13,12 +15,12 @@ import
   yaml,
   # Beacon chain internals
   ../../beacon_chain/spec/[crypto, digest],
-  ../../beacon_chain/spec/datatypes/altair,
+  ../../beacon_chain/spec/datatypes/phase0,
   ../../beacon_chain/ssz,
   # Status libraries
   snappy,
   # Test utilities
-  ../testutil, ./fixtures_utils
+  ../../testutil, ../fixtures_utils
 
 # SSZ tests of consensus objects (minimal/mainnet preset specific)
 
@@ -26,7 +28,7 @@ import
 # ----------------------------------------------------------------
 
 const
-  SSZDir = SszTestsDir/const_preset/"altair"/"ssz_static"
+  SSZDir = SszTestsDir/const_preset/"phase0"/"ssz_static"
 
 type
   SSZHashTreeRoot = object
@@ -36,7 +38,7 @@ type
     # Some have a signing_root field
     signing_root {.defaultVal: "".}: string
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/altair/validator.md#eth1block
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#eth1block
   Eth1Block* = object
     timestamp*: uint64
     deposit_root*: Eth2Digest
@@ -85,7 +87,7 @@ proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot =
 # Test runner
 # ----------------------------------------------------------------
 
-suite "Official - SSZ consensus objects " & preset():
+suite "Official - Phase 0 - SSZ consensus objects " & preset():
   doAssert existsDir(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the official test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true):
     doAssert pathKind == pcDir
@@ -109,7 +111,6 @@ suite "Official - SSZ consensus objects " & preset():
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
           of "BeaconState": checkSSZ(BeaconState, path, hash)
           of "Checkpoint": checkSSZ(Checkpoint, path, hash)
-          of "ContributionAndProof": checkSSZ(ContributionAndProof, path, hash)
           of "Deposit": checkSSZ(Deposit, path, hash)
           of "DepositData": checkSSZ(DepositData, path, hash)
           of "DepositMessage": checkSSZ(DepositMessage, path, hash)
@@ -119,8 +120,6 @@ suite "Official - SSZ consensus objects " & preset():
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
           of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
-          of "LightClientSnapshot": checkSSZ(LightClientSnapshot, path, hash)
-          of "LightClientUpdate": checkSSZ(LightClientUpdate, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":
@@ -128,18 +127,8 @@ suite "Official - SSZ consensus objects " & preset():
           of "SignedBeaconBlock": checkSSZ(SignedBeaconBlock, path, hash)
           of "SignedBeaconBlockHeader":
             checkSSZ(SignedBeaconBlockHeader, path, hash)
-          of "SignedContributionAndProof":
-            checkSSZ(SignedContributionAndProof, path, hash)
           of "SignedVoluntaryExit": checkSSZ(SignedVoluntaryExit, path, hash)
           of "SigningData": checkSSZ(SigningData, path, hash)
-          of "SyncAggregate": checkSSZ(SyncAggregate, path, hash)
-          of "SyncAggregatorSelectionData":
-            checkSSZ(SyncAggregatorSelectionData, path, hash)
-          of "SyncCommittee": checkSSZ(SyncCommittee, path, hash)
-          of "SyncCommitteeContribution":
-            checkSSZ(SyncCommitteeContribution, path, hash)
-          of "SyncCommitteeSignature":
-            checkSSZ(SyncCommitteeSignature, path, hash)
           of "Validator": checkSSZ(Validator, path, hash)
           of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
           else:

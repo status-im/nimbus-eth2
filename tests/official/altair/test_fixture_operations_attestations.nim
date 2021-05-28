@@ -11,17 +11,18 @@ import
   # Standard library
   os,
   # Utilities
+  unittest2,
   stew/results,
   # Beacon chain internals
-  ../../beacon_chain/spec/[beaconstate, presets],
-  ../../beacon_chain/spec/datatypes/altair,
-  ../../beacon_chain/ssz,
+  ../../../beacon_chain/spec/beaconstate,
+  ../../../beacon_chain/spec/datatypes/altair,
+  ../../../beacon_chain/ssz,
   # Test utilities
-  ../testutil,
-  ./fixtures_utils,
-  ../helpers/debug_state
+  ../../testutil,
+  ../fixtures_utils,
+  ../../helpers/debug_state
 
-const OperationsDepositsDir = SszTestsDir/const_preset/"altair"/"operations"/"deposit"/"pyspec_tests"
+const OperationsAttestationsDir = SszTestsDir/const_preset/"altair"/"operations"/"attestation"/"pyspec_tests"
 
 proc runTest(identifier: string) =
   # We wrap the tests in a proc to avoid running out of globals
@@ -29,9 +30,9 @@ proc runTest(identifier: string) =
   # but unittest with the macro/templates put everything as globals
   # https://github.com/nim-lang/Nim/issues/12084#issue-486866402
 
-  let testDir = OperationsDepositsDir / identifier
+  let testDir = OperationsAttestationsDir / identifier
 
-  proc `testImpl _ operations_deposits _ identifier`() =
+  proc `testImpl _ operations_attestations _ identifier`() =
 
     var prefix: string
     if existsFile(testDir/"post.ssz_snappy"):
@@ -39,21 +40,27 @@ proc runTest(identifier: string) =
     else:
       prefix = "[Invalid] "
 
-    test prefix & " " & identifier:
-      let deposit = parseTest(testDir/"deposit.ssz_snappy", SSZ, Deposit)
+    test prefix & identifier:
+      var cache = StateCache()
+
+      let attestation =
+        parseTest(testDir/"attestation.ssz_snappy", SSZ, Attestation)
       var preState =
         newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
 
       if existsFile(testDir/"post.ssz_snappy"):
         let postState =
           newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
-        discard process_deposit(defaultRuntimePreset, preState[], deposit)
+        let done = process_attestation(preState[], attestation, {}, cache).isOk
+        doAssert done, "Valid attestation not processed"
+        check: preState[].hash_tree_root() == postState[].hash_tree_root()
         reportDiff(preState, postState)
       else:
-        check process_deposit(defaultRuntimePreset, preState[], deposit).isErr
+        let done = process_attestation(preState[], attestation, {}, cache).isOk
+        doAssert done == false, "We didn't expect this invalid attestation to be processed."
 
-  `testImpl _ operations_deposits _ identifier`()
+  `testImpl _ operations_attestations _ identifier`()
 
-suite "Official - Operations - Deposits " & preset():
-  for kind, path in walkDir(OperationsDepositsDir, true):
+suite "Official - Altair - Operations - Attestations " & preset():
+  for kind, path in walkDir(OperationsAttestationsDir, true):
     runTest(path)

@@ -151,7 +151,6 @@ XML_TEST_BINARIES := \
 	test_fixture_const_sanity_check_minimal \
 	test_fixture_const_sanity_check_mainnet \
 	test_fixture_ssz_generic_types \
-	test_fixture_ssz_consensus_objects \
 	all_fixtures_require_ssz \
 	test_official_interchange_vectors \
 	all_tests \
@@ -184,15 +183,6 @@ test_fixture_const_sanity_check_mainnet: | build deps
 
 # Generic SSZ test, doesn't use consensus objects minimal/mainnet presets
 test_fixture_ssz_generic_types: | build deps
-	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
-			$@ \
-			"tests/official/$@.nim" \
-			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:chronicles_sinks="json[file]" && \
-		echo -e $(BUILD_END_MSG) "build/$@"
-
-# Consensus object SSZ tests
-test_fixture_ssz_consensus_objects: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \

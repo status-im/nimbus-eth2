@@ -11,19 +11,19 @@ import
   # Standard library
   os, strutils,
   # Beacon chain internals
-  ../../beacon_chain/spec/state_transition_epoch,
-  ../../beacon_chain/spec/datatypes/altair,
+  ../../../beacon_chain/spec/state_transition_epoch,
+  ../../../beacon_chain/spec/datatypes/altair,
   # Test utilities
-  ../testutil,
-  ./fixtures_utils,
-  ./test_fixture_rewards,
-  ../helpers/debug_state
+  ../../testutil,
+  ../fixtures_utils,
+  ../test_fixture_rewards,
+  ../../helpers/debug_state
 
-from ../../beacon_chain/spec/beaconstate import process_registry_updates
+from ../../../beacon_chain/spec/beaconstate import process_registry_updates
   # XXX: move to state_transition_epoch?
 
 template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, useCache: static bool): untyped =
-  suite "Official - Epoch Processing - " & testName & preset():
+  suite "Official - Altair - Epoch Processing - " & testName & preset():
     doAssert dirExists(suiteDir)
     for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}):
 
