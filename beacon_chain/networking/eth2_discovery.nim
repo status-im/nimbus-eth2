@@ -18,7 +18,6 @@ export protocol, keys
 type
   Eth2DiscoveryProtocol* = protocol.Protocol
   Eth2DiscoveryId* = NodeId
-  PublicKey = keys.PublicKey
 
 export
   Eth2DiscoveryProtocol, open, start, close, closeWait, queryRandom,

@@ -156,21 +156,21 @@ proc blockValidator*(
   ValidationResult.Accept
 
 proc checkForPotentialDoppelganger(
-    self: var Eth2Processor, attestationData: AttestationData,
+    self: var Eth2Processor, attestation: Attestation,
     attesterIndices: openArray[ValidatorIndex], wallSlot: Slot) =
   let epoch = wallSlot.epoch
 
   # Only check for current epoch, not potential attestations bouncing around
   # from up to several minutes prior.
-  if attestationData.slot.epoch < epoch:
+  if attestation.data.slot.epoch < epoch:
     return
 
   if epoch < self.doppelgangerDetection.broadcastStartEpoch:
-    let tgtBlck = self.chainDag.getRef(attestationData.target.root)
+    let tgtBlck = self.chainDag.getRef(attestation.data.target.root)
     doAssert not tgtBlck.isNil  # because attestation is valid above
 
     let epochRef = self.chainDag.getEpochRef(
-      tgtBlck, attestationData.target.epoch)
+      tgtBlck, attestation.data.target.epoch)
     for validatorIndex in attesterIndices:
       let validatorPubkey = epochRef.validator_keys[validatorIndex]
       if  self.doppelgangerDetectionEnabled and
@@ -179,7 +179,7 @@ proc checkForPotentialDoppelganger(
         warn "We believe you are currently running another instance of the same validator. We've disconnected you from the network as this presents a significant slashing risk. Possible next steps are (a) making sure you've disconnected your validator from your old machine before restarting the client; and (b) running the client again with the gossip-slashing-protection option disabled, only if you are absolutely sure this is the only instance of your validator running, and reporting the issue at https://github.com/status-im/nimbus-eth2/issues.",
           validatorIndex,
           validatorPubkey,
-          attestationSlot = attestationData.slot
+          attestation = shortLog(attestation)
         quit QuitFailure
 
 {.pop.} # async can raise anything
@@ -220,7 +220,7 @@ proc attestationValidator*(
   let (attestation_index, sig) = v.get()
 
   self[].checkForPotentialDoppelganger(
-    attestation.data, [attestation_index], wallSlot)
+    attestation, [attestation_index], wallSlot)
 
   trace "Attestation validated"
   self.attestationPool[].addAttestation(
@@ -267,7 +267,7 @@ proc aggregateValidator*(
   let (attesting_indices, sig) = v.get()
 
   self[].checkForPotentialDoppelganger(
-    signedAggregateAndProof.message.aggregate.data, attesting_indices,
+    signedAggregateAndProof.message.aggregate, attesting_indices,
     wallSlot)
 
   trace "Aggregate validated",

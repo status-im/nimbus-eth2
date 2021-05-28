@@ -74,7 +74,7 @@ proc setupLogging*(logLevel: string, logFile: Option[OutFile]) =
   except ValueError as err:
     try:
       stderr.write "Invalid value for --log-level. " & err.msg
-    except IOError as exc:
+    except IOError:
       echo "Invalid value for --log-level. " & err.msg
     quit 1
 

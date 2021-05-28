@@ -31,13 +31,6 @@ type
     # Exported for "test_sync_manager"
     v*: SyncBlock
 
-  AttestationEntry = object
-    v: Attestation
-    attesting_indices: seq[ValidatorIndex]
-    sig: CookedSig
-
-  AggregateEntry = AttestationEntry
-
   VerifQueueManager* = object
     ## This manages the queues of blocks and attestations.
     ## Blocks and attestations are enqueued in a gossip-validated state

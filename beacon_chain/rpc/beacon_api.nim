@@ -190,7 +190,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("get_v1_beacon_states_root") do (stateId: string) -> Eth2Digest:
     withStateForStateId(stateId):
-      return hashedState.root
+      return stateRoot
 
   rpcServer.rpc("get_v1_beacon_states_fork") do (stateId: string) -> Fork:
     withStateForStateId(stateId):
