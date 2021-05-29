@@ -718,6 +718,7 @@ proc applyBlock(
     statePtr[] = dag.headState
 
   loadStateCache(dag, cache, blck.refs, blck.data.message.slot.epoch)
+  # for att in atts: loadsc(att)
 
   let ok = state_transition(
     dag.runtimePreset, state.data, blck.data,
@@ -846,6 +847,13 @@ proc updateStateData*(
   loadStateCache(dag, cache, bs.blck, bs.slot.epoch)
 
   # ...and make sure to process empty slots as requested
+
+  # foreach epoch_boundary_crossed, for epoch which ended:
+  # state.previous_epoch_attestations.data
+  # state.current_epoch_attestations.data
+  # do same dag.getRef(data.beacon_block_root), !isNil -> loadStateCache(data.slot.epoch)
+  # try to avoid duplicates but don't bother at first
+
   dag.advanceSlots(state, bs.slot, save, cache, rewards)
 
   let
