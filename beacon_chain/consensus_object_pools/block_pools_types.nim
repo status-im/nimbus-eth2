@@ -13,8 +13,9 @@ import
   # Status libraries
   stew/[endians2, byteutils], chronicles,
   eth/keys,
+  blscurve,
   # Internals
-  ../spec/[datatypes, crypto, digest, signatures_batch],
+  ../spec/[datatypes, crypto, digest],
   ../beacon_chain_db, ../extras
 
 export sets, tables

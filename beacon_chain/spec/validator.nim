@@ -12,6 +12,8 @@ import
   std/[options, math, tables],
   ./datatypes/[phase0, altair], ./digest, ./helpers
 
+import chronicles
+
 const
   SEED_SIZE = sizeof(Eth2Digest)
   ROUND_SIZE = 1
@@ -130,6 +132,12 @@ func get_shuffled_active_validator_indices*(
 
   shuffle_list(
     active_validator_indices, get_seed(state, epoch, DOMAIN_BEACON_ATTESTER))
+
+  {.noSideEffect.}:
+    debug "FOO1: POST",
+      avi = active_validator_indices.toOpenArray(0, 2),
+      stacktrace = getStackTrace()
+
 
   active_validator_indices
 

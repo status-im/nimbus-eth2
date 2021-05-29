@@ -14,7 +14,8 @@ import
   # Internal
   ../ssz/merkleization,
   ./crypto, ./datatypes, ./helpers, ./presets,
-  ./beaconstate, ./digest
+  ./beaconstate, ./digest,
+  ../consensus_object_pools/blockchain_dag
 
 # Otherwise, error.
 import chronicles
@@ -146,11 +147,17 @@ proc addIndexedAttestation(
 proc addAttestation(
       sigs: var seq[SignatureSet],
       attestation: Attestation,
+      dag: ChainDAGRef,
       state: StateData,
       cache: var StateCache
      ): bool =
   var inited = false
   var attestersAgg{.noInit.}: AggregatePublicKey
+
+  let blck = dag.getRef(attestation.data.beacon_block_root)
+  if not blck.isNil:
+    dag.loadStateCache(cache, blck, attestation.data.slot.epoch)
+
   for valIndex in state.data.data.get_attesting_indices(
                     attestation.data,
                     attestation.aggregation_bits,
@@ -276,6 +283,7 @@ proc addAggregateAndProofSignature*(
 proc collectSignatureSets*(
        sigs: var seq[SignatureSet],
        signed_block: SignedBeaconBlock,
+       dag: ChainDAGRef,
        state: StateData,
        cache: var StateCache): bool =
   ## Collect all signatures in a single signed block.
@@ -408,7 +416,7 @@ proc collectSignatureSets*(
     # fixed in 1.4.2
     if not sigs.addAttestation(
             signed_block.message.body.attestations[i],
-            state, cache):
+            dag, state, cache):
       return false
 
   # 6. VoluntaryExits
