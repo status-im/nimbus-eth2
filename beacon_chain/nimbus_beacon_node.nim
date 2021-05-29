@@ -910,6 +910,17 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # the database are synced with the filesystem.
   node.db.checkpoint()
 
+  # When we're not behind schedule, we'll speculatively update the clearance
+  # state in anticipation of receiving the next block
+  if node.beaconClock.now() + 500.millis < (slot+1).toBeaconTime():
+    # This is not a perfect location to be calling advance since the block
+    # for the current slot may have not arrived yet, specially when running
+    # a node that is not attesting - there's a small chance we'll call
+    # advance twice for a block and not at all for the next because of these
+    # timing effect - this is fine, except for the missed opportunity to
+    # speculate
+    node.chainDag.advanceClearanceState()
+
   # -1 is a more useful output than 18446744073709551615 as an indicator of
   # no future attestation/proposal known.
   template displayInt64(x: Slot): int64 =

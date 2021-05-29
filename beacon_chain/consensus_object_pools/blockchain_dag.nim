@@ -458,35 +458,55 @@ proc init*(T: type ChainDAGRef,
 
   res
 
-proc addEpochRef*(dag: ChainDAGRef, blck: BlockRef, epochRef: EpochRef) =
-  # Because we put a cap on the number of epochRefs we store, we want to
-  # prune the least useful state - for now, we'll assume that to be the oldest
-  # epochRef we know about.
-  var
-    oldest = 0
-    ancestor = blck.epochAncestor(epochRef.epoch)
-  for x in 0..<dag.epochRefs.len:
-    let candidate = dag.epochRefs[x]
-    if candidate[1] == nil:
-      oldest = x
-      break
-    if candidate[1].epoch < dag.epochRefs[oldest][1].epoch:
-      oldest = x
+proc getEpochRef*(
+    dag: ChainDAGRef, state: StateData, cache: var StateCache): EpochRef =
+  let
+    blck = state.blck
+    epoch = getStateField(state, slot).epoch
 
-  dag.epochRefs[oldest] = (ancestor.blck, epochRef)
+  var epochRef = dag.findEpochRef(blck, epoch)
+  if epochRef == nil:
+    let
+      ancestor = blck.epochAncestor(epoch)
+      prevEpochRef = if epoch < 1: nil
+                     else: dag.findEpochRef(blck, epoch - 1)
 
-  # Because key stores are additive lists, we can use a newer list whereever an
-  # older list is expected - all indices in the new list will be valid for the
-  # old list also
-  if epochRef.epoch > 0:
-    var cur = ancestor.blck.epochAncestor(epochRef.epoch - 1)
-    while cur.slot >= dag.finalizedHead.slot:
-      let er = dag.findEpochRef(cur.blck, cur.slot.epoch)
-      if er != nil:
-        er.validator_key_store = epochRef.validator_key_store
-      if cur.slot.epoch == 0:
-        break
-      cur = cur.blck.epochAncestor(cur.slot.epoch - 1)
+    epochRef = EpochRef.init(state, cache, prevEpochRef)
+
+    if epoch >= dag.finalizedHead.slot.epoch():
+      # Only cache epoch information for unfinalized blocks - earlier states
+      # are seldomly used (ie RPC), so no need to cache
+
+      # Because we put a cap on the number of epochRefs we store, we want to
+      # prune the least useful state - for now, we'll assume that to be the
+      # oldest epochRef we know about.
+
+      var
+        oldest = 0
+      for x in 0..<dag.epochRefs.len:
+        let candidate = dag.epochRefs[x]
+        if candidate[1] == nil:
+          oldest = x
+          break
+        if candidate[1].epoch < dag.epochRefs[oldest][1].epoch:
+          oldest = x
+
+      dag.epochRefs[oldest] = (ancestor.blck, epochRef)
+
+      # Because key stores are additive lists, we can use a newer list whereever an
+      # older list is expected - all indices in the new list will be valid for the
+      # old list also
+      if epoch > 0:
+        var cur = ancestor.blck.epochAncestor(epoch - 1)
+        while cur.slot >= dag.finalizedHead.slot:
+          let er = dag.findEpochRef(cur.blck, cur.slot.epoch)
+          if er != nil:
+            er.validator_key_store = epochRef.validator_key_store
+          if cur.slot.epoch == 0:
+            break
+          cur = cur.blck.epochAncestor(cur.slot.epoch - 1)
+
+  epochRef
 
 proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
   let epochRef = dag.findEpochRef(blck, epoch)
@@ -500,16 +520,7 @@ proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
     ancestor = blck.epochAncestor(epoch)
 
   dag.withState(dag.epochRefState, ancestor):
-    let
-      prevEpochRef = if epoch < 1: nil
-                     else: dag.findEpochRef(blck, epoch - 1)
-      newEpochRef = EpochRef.init(stateData, cache, prevEpochRef)
-
-    if epoch >= dag.finalizedHead.slot.epoch():
-      # Only cache epoch information for unfinalized blocks - earlier states
-      # are seldomly used (ie RPC), so no need to cache
-      dag.addEpochRef(blck, newEpochRef)
-    newEpochRef
+    dag.getEpochRef(stateData, cache)
 
 proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
   dag.getEpochRef(dag.finalizedHead.blck, dag.finalizedHead.slot.epoch)
