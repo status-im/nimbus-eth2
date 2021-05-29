@@ -226,8 +226,8 @@ proc state_transition*(
   # that the block is sane.
   if not (skipBLSValidation in flags or
       verify_block_signature(state.data, signedBlock)):
-    when false:
-      # TODO fixme
+    when not (state is altair.HashedBeaconState):
+      # TODO re-enable in Altair
       rollback(state)
     return false
 
@@ -244,15 +244,15 @@ proc state_transition*(
       eth1_deposit_index = state.data.eth1_deposit_index,
       deposit_root = shortLog(state.data.eth1_data.deposit_root),
       error = res.error
-    when false:
-      # TODO re-enable
+    when not (state is altair.HashedBeaconState):
+      # TODO re-enable in Altair
       rollback(state)
     return false
 
   if not (skipStateRootValidation in flags or
         verifyStateRoot(state.data, signedBlock.message)):
-    when false:
-      # TODO re-enable
+    when not (state is altair.HashedBeaconState):
+      # TODO re-enable in Altair
       rollback(state)
     return false
 
