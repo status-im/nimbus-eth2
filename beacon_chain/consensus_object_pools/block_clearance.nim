@@ -40,6 +40,9 @@ template asSigVerified(x: SignedBeaconBlock): SigVerifiedSignedBeaconBlock =
   ##
   ## This SHOULD be used in function calls to avoid expensive temporary.
   ## see https://github.com/status-im/nimbus-eth2/pull/2250#discussion_r562010679
+  static: # TODO See isomorphicCast
+    doAssert sizeof(SignedBeaconBlock) == sizeof(SigVerifiedSignedBeaconBlock)
+
   cast[ptr SigVerifiedSignedBeaconBlock](signedBlock.unsafeAddr)[]
 
 template asTrusted(x: SignedBeaconBlock or SigVerifiedBeaconBlock): TrustedSignedBeaconBlock =
@@ -52,6 +55,9 @@ template asTrusted(x: SignedBeaconBlock or SigVerifiedBeaconBlock): TrustedSigne
   ##
   ## This SHOULD be used in function calls to avoid expensive temporary.
   ## see https://github.com/status-im/nimbus-eth2/pull/2250#discussion_r562010679
+  static: # TODO See isomorphicCast
+    doAssert sizeof(x) == sizeof(TrustedSignedBeaconBlock)
+
   cast[ptr TrustedSignedBeaconBlock](signedBlock.unsafeAddr)[]
 
 func getOrResolve*(dag: ChainDAGRef, quarantine: var QuarantineRef, root: Eth2Digest): BlockRef =
@@ -90,49 +96,42 @@ proc addResolvedBlock(
   let
     blockRoot = trustedBlock.root
     blockRef = BlockRef.init(blockRoot, trustedBlock.message)
-    blockEpoch = blockRef.slot.compute_epoch_at_slot()
     startTick = Moment.now()
 
   link(parent, blockRef)
 
-  var epochRef = dag.findEpochRef(parent, blockEpoch)
-  if epochRef == nil:
-    let prevEpochRef =
-      if blockEpoch < 1: nil else: dag.findEpochRef(parent, blockEpoch - 1)
-
-    epochRef = EpochRef.init(state, cache, prevEpochRef)
-    dag.addEpochRef(blockRef, epochRef)
-  let epochRefTick = Moment.now()
-
   dag.blocks.incl(KeyedBlockRef.init(blockRef))
-  trace "Populating block dag", key = blockRoot, val = blockRef
 
   # Resolved blocks should be stored in database
   dag.putBlock(trustedBlock)
   let putBlockTick = Moment.now()
 
-  var foundHead: BlockRef
+  var foundHead: bool
   for head in dag.heads.mitems():
     if head.isAncestorOf(blockRef):
-
       head = blockRef
-
-      foundHead = head
+      foundHead = true
       break
 
-  if foundHead.isNil:
-    foundHead = blockRef
-    dag.heads.add(foundHead)
+  if not foundHead:
+    dag.heads.add(blockRef)
+
+  # Up to here, state.data was referring to the new state after the block had
+  # been applied but the `blck` field was still set to the parent
+  state.blck = blockRef
+
+  # Getting epochRef with the state will potentially create a new EpochRef
+  let
+    epochRef = dag.getEpochRef(state, cache)
+    epochRefTick = Moment.now()
 
   debug "Block resolved",
     blck = shortLog(trustedBlock.message),
     blockRoot = shortLog(blockRoot),
     heads = dag.heads.len(),
     stateDataDur, sigVerifyDur, stateVerifyDur,
-    epochRefDur = epochRefTick - startTick,
-    putBlockDur = putBlockTick - epochRefTick
-
-  state.blck = blockRef
+    putBlockDur = putBlockTick - startTick,
+    epochRefDur = epochRefTick - putBlockTick
 
   # Notify others of the new block before processing the quarantine, such that
   # notifications for parents happens before those of the children
@@ -183,6 +182,21 @@ proc addRawBlockCheckStateTransition(
 
     return (ValidationResult.Reject, Invalid)
   return (ValidationResult.Accept, default(BlockError))
+
+proc advanceClearanceState*(dag: var ChainDagRef) =
+  # When the chain is synced, the most likely block to be produced is the block
+  # right after head - we can exploit this assumption and advance the state
+  # to that slot before the block arrives, thus allowing us to do the expensive
+  # epoch transition ahead of time.
+  # Notably, we use the clearance state here because that's where the block will
+  # first be seen - later, this state will be copied to the head state!
+  if dag.clearanceState.blck.slot == getStateField(dag.clearanceState, slot):
+    let next =  dag.clearanceState.blck.atSlot(
+      getStateField(dag.clearanceState, slot) + 1)
+    debug "Preparing clearance state for next block", next
+
+    var cache = StateCache()
+    updateStateData(dag, dag.clearanceState,next, true, cache)
 
 proc addRawBlockKnownParent(
        dag: var ChainDAGRef, quarantine: var QuarantineRef,
@@ -244,11 +258,11 @@ proc addRawBlockKnownParent(
       return err((ValidationResult.Reject, Invalid))
 
   let sigVerifyTick = Moment.now()
-  static: doAssert sizeof(SignedBeaconBlock) == sizeof(SigVerifiedSignedBeaconBlock)
   let (valRes, blockErr) = addRawBlockCheckStateTransition(
     dag, quarantine, signedBlock.asSigVerified(), cache)
   if valRes != ValidationResult.Accept:
     return err((valRes, blockErr))
+
   let stateVerifyTick = Moment.now()
   # Careful, clearanceState.data has been updated but not blck - we need to
   # create the BlockRef first!
