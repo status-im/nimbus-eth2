@@ -768,7 +768,7 @@ func process_participation_record_updates*(state: var phase0.BeaconState) {.nben
   swap(state.previous_epoch_attestations, state.current_epoch_attestations)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#participation-flags-updates
-func process_participation_flag_updates(state: var altair.BeaconState) =
+func process_participation_flag_updates*(state: var altair.BeaconState) =
   state.previous_epoch_participation = state.current_epoch_participation
 
   # TODO more subtle clearing
@@ -777,14 +777,14 @@ func process_participation_flag_updates(state: var altair.BeaconState) =
     doAssert state.current_epoch_participation.add 0.ParticipationFlags
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#sync-committee-updates
-proc process_sync_committee_updates(state: var altair.BeaconState) =
+proc process_sync_committee_updates*(state: var altair.BeaconState) =
   let next_epoch = get_current_epoch(state) + 1
   if next_epoch mod EPOCHS_PER_SYNC_COMMITTEE_PERIOD == 0:
     state.current_sync_committee = state.next_sync_committee
     state.next_sync_committee = get_next_sync_committee(state)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#inactivity-scores
-func process_inactivity_updates(state: var altair.BeaconState) =
+func process_inactivity_updates*(state: var altair.BeaconState) =
   # Score updates based on previous epoch participation, skip genesis epoch
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
