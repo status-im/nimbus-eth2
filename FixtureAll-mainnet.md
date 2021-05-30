@@ -180,6 +180,11 @@ FixtureAll-mainnet
 + [Valid]   Official - Altair - Sanity - Blocks - skipped_slots [Preset: mainnet]            OK
 + [Valid]   Official - Altair - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet OK
 + [Valid]   Official - Altair - Sanity - Blocks - voluntary_exit [Preset: mainnet]           OK
++ [Valid]   Official - Phase 0 - Finality - finality_no_updates_at_genesis [Preset: mainnet] OK
++ [Valid]   Official - Phase 0 - Finality - finality_rule_1 [Preset: mainnet]                OK
++ [Valid]   Official - Phase 0 - Finality - finality_rule_2 [Preset: mainnet]                OK
++ [Valid]   Official - Phase 0 - Finality - finality_rule_3 [Preset: mainnet]                OK
++ [Valid]   Official - Phase 0 - Finality - finality_rule_4 [Preset: mainnet]                OK
 + [Valid]   Official - Phase 0 - Sanity - Blocks - attestation [Preset: mainnet]             OK
 + [Valid]   Official - Phase 0 - Sanity - Blocks - attester_slashing [Preset: mainnet]       OK
 + [Valid]   Official - Phase 0 - Sanity - Blocks - balance_driven_status_transitions [Preset OK
@@ -233,7 +238,7 @@ FixtureAll-mainnet
 + [Valid]   sync_committee_rewards_empty_participants                                        OK
 + [Valid]   sync_committee_rewards_not_full_participants                                     OK
 ```
-OK: 230/230 Fail: 0/230 Skip: 0/230
+OK: 235/235 Fail: 0/235 Skip: 0/235
 ## Official - Altair - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -409,4 +414,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 335/335 Fail: 0/335 Skip: 0/335
+OK: 340/340 Fail: 0/340 Skip: 0/340
