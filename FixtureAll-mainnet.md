@@ -161,6 +161,11 @@ FixtureAll-mainnet
 + [Valid]    new_deposit_under_max                                                           OK
 + [Valid]    success_top_up                                                                  OK
 + [Valid]    valid_sig_but_forked_state                                                      OK
++ [Valid]   Official - Altair - Finality - finality_no_updates_at_genesis [Preset: mainnet]  OK
++ [Valid]   Official - Altair - Finality - finality_rule_1 [Preset: mainnet]                 OK
++ [Valid]   Official - Altair - Finality - finality_rule_2 [Preset: mainnet]                 OK
++ [Valid]   Official - Altair - Finality - finality_rule_3 [Preset: mainnet]                 OK
++ [Valid]   Official - Altair - Finality - finality_rule_4 [Preset: mainnet]                 OK
 + [Valid]   Official - Altair - Sanity - Blocks - attestation [Preset: mainnet]              OK
 + [Valid]   Official - Altair - Sanity - Blocks - attester_slashing [Preset: mainnet]        OK
 + [Valid]   Official - Altair - Sanity - Blocks - balance_driven_status_transitions [Preset: OK
@@ -238,7 +243,7 @@ FixtureAll-mainnet
 + [Valid]   sync_committee_rewards_empty_participants                                        OK
 + [Valid]   sync_committee_rewards_not_full_participants                                     OK
 ```
-OK: 235/235 Fail: 0/235 Skip: 0/235
+OK: 240/240 Fail: 0/240 Skip: 0/240
 ## Official - Altair - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -414,4 +419,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 340/340 Fail: 0/340 Skip: 0/340
+OK: 345/345 Fail: 0/345 Skip: 0/345
