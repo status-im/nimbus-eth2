@@ -18,10 +18,13 @@ import
   ../testutil, ./fixtures_utils
 
 const
-  # TODO NimYAML issue
+  # TODO NimYAML issue in Altair re 2^64 - 1 and parseBiggestInt
   SpecDir = currentSourcePath.rsplit(DirSep, 1)[0] /
                   ".."/".."/"beacon_chain"/"spec"
-  Config = SszTestsDir/const_preset/"config"/"phase0.yaml"
+
+  # v1.1.0-alpha.6 doesn't seem to have this file
+  OldSszTestsDir* = FixturesDir / "tests-v1.1.0-alpha.5"
+  Config = OldSszTestsDir/const_preset/"config"/"phase0.yaml"
 
 type
   CheckedType = SomeInteger or Slot or Epoch

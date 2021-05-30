@@ -74,6 +74,6 @@ suite "Official - Altair - Sanity - Blocks " & preset():
     runTest("Official - Altair - Sanity - Blocks", SanityBlocksDir, path)
 
 suite "Official - Altair - Finality " & preset():
-  # these seem to only exist in minimal presets, both for phase0 and altair
-  for kind, path in walkDir(FinalityDir, true):
-    runTest("Official - Altair - Finality", FinalityDir, path)
+  when false:
+    for kind, path in walkDir(FinalityDir, true):
+      runTest("Official - Altair - Finality", FinalityDir, path)

@@ -144,6 +144,11 @@ FixtureSSZConsensus-mainnet
 + [Valid]    new_deposit_under_max                                                           OK
 + [Valid]    success_top_up                                                                  OK
 + [Valid]    valid_sig_but_forked_state                                                      OK
++ [Valid]   Official - Phase 0 - Finality - finality_no_updates_at_genesis [Preset: mainnet] OK
++ [Valid]   Official - Phase 0 - Finality - finality_rule_1 [Preset: mainnet]                OK
++ [Valid]   Official - Phase 0 - Finality - finality_rule_2 [Preset: mainnet]                OK
++ [Valid]   Official - Phase 0 - Finality - finality_rule_3 [Preset: mainnet]                OK
++ [Valid]   Official - Phase 0 - Finality - finality_rule_4 [Preset: mainnet]                OK
 + [Valid]   Official - Phase 0 - Sanity - Blocks - attestation [Preset: mainnet]             OK
 + [Valid]   Official - Phase 0 - Sanity - Blocks - attester_slashing [Preset: mainnet]       OK
 + [Valid]   Official - Phase 0 - Sanity - Blocks - balance_driven_status_transitions [Preset OK
@@ -194,7 +199,7 @@ FixtureSSZConsensus-mainnet
 + [Valid]   success_surround                                                                 OK
 + [Valid]   success_with_effective_balance_disparity                                         OK
 ```
-OK: 191/191 Fail: 0/191 Skip: 0/191
+OK: 196/196 Fail: 0/196 Skip: 0/196
 ## Official - Altair - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -332,4 +337,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 282/282 Fail: 0/282 Skip: 0/282
+OK: 287/287 Fail: 0/287 Skip: 0/287
