@@ -899,7 +899,7 @@ proc updateStateData*(
   elif ancestors.len > 0:
     debug "State replayed"
   else:
-    debug "State advanced" # Normal case!
+    trace "State advanced" # Normal case!
 
 proc delState(dag: ChainDAGRef, bs: BlockSlot) =
   # Delete state state and mapping for a particular block+slot
