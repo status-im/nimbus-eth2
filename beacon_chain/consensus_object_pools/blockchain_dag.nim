@@ -321,6 +321,21 @@ func init*(T: type BlockRef, root: Eth2Digest, blck: SomeBeaconBlock): BlockRef 
 func contains*(dag: ChainDAGRef, root: Eth2Digest): bool =
   KeyedBlockRef.asLookupKey(root) in dag.blocks
 
+func isStateCheckpoint(bs: BlockSlot): bool =
+  ## State checkpoints are the points in time for which we store full state
+  ## snapshots, which later serve as rewind starting points when replaying state
+  ## transitions from database, for example during reorgs.
+  ##
+  # As a policy, we only store epoch boundary states without the epoch block
+  # (if it exists) applied - the rest can be reconstructed by loading an epoch
+  # boundary state and applying the missing blocks.
+  # We also avoid states that were produced with empty slots only - as such,
+  # there is only a checkpoint for the first epoch after a block.
+
+  # The tail block also counts as a state checkpoint!
+  (bs.slot == bs.blck.slot and bs.blck.parent == nil) or
+  (bs.slot.isEpoch and bs.slot.epoch == (bs.blck.slot.epoch + 1))
+
 proc init*(T: type ChainDAGRef,
            preset: RuntimePreset,
            db: BeaconChainDB,
@@ -392,21 +407,15 @@ proc init*(T: type ChainDAGRef,
   # Now that we have a head block, we need to find the most recent state that
   # we have saved in the database
   while cur.blck != nil:
-    let root = db.getStateRoot(cur.blck.root, cur.slot)
-    if root.isSome():
-      if db.getState(root.get(), tmpState.data.data, noRollback):
-        tmpState.data.root = root.get()
-        tmpState.blck = cur.blck
+    if cur.isStateCheckpoint():
+      let root = db.getStateRoot(cur.blck.root, cur.slot)
+      if root.isSome():
+        if db.getState(root.get(), tmpState.data.data, noRollback):
+          tmpState.data.root = root.get()
+          tmpState.blck = cur.blck
 
-        break
-    if cur.blck.parent != nil and
-        cur.blck.slot.epoch != epoch(cur.blck.parent.slot):
-      # We store the state of the parent block with the epoch processing applied
-      # in the database!
-      cur = cur.blck.parent.atEpochStart(cur.blck.slot.epoch)
-    else:
-      # Moves back slot by slot, in case a state for an empty slot was saved
-      cur = cur.parent
+          break
+    cur = cur.parentOrSlot()
 
   if tmpState.blck == nil:
     warn "No state found in head history, database corrupt?"
@@ -546,21 +555,6 @@ proc getState(
 
   true
 
-func isStateCheckpoint(bs: BlockSlot): bool =
-  ## State checkpoints are the points in time for which we store full state
-  ## snapshots, which later serve as rewind starting points when replaying state
-  ## transitions from database, for example during reorgs.
-  ##
-  # As a policy, we only store epoch boundary states without the epoch block
-  # (if it exists) applied - the rest can be reconstructed by loading an epoch
-  # boundary state and applying the missing blocks.
-  # We also avoid states that were produced with empty slots only - as such,
-  # there is only a checkpoint for the first epoch after a block.
-
-  # The tail block also counts as a state checkpoint!
-  (bs.slot == bs.blck.slot and bs.blck.parent == nil) or
-  (bs.slot.isEpoch and bs.slot.epoch == (bs.blck.slot.epoch + 1))
-
 func stateCheckpoint*(bs: BlockSlot): BlockSlot =
   ## The first ancestor BlockSlot that is a state checkpoint
   var bs = bs
@@ -591,7 +585,9 @@ proc putState*(dag: ChainDAGRef, state: var StateData) =
   if not isStateCheckpoint(state.blck.atSlot(getStateField(state, slot))):
     return
 
-  if dag.db.containsState(state.data.root):
+  # Don't consider legacy tables here, they are slow to read so we'll want to
+  # rewrite things in the new database anyway.
+  if dag.db.containsState(state.data.root, legacy = false):
     return
 
   let startTick = Moment.now()
@@ -759,10 +755,30 @@ proc updateStateData*(
     cur = bs
     found = false
 
+  template exactMatch(state: StateData, bs: BlockSlot): bool =
+    # The block is the same and we're at an early enough slot - the state can
+    # be used to arrive at the desired blockslot
+    state.blck == bs.blck and getStateField(state, slot) == bs.slot
+
   template canAdvance(state: StateData, bs: BlockSlot): bool =
     # The block is the same and we're at an early enough slot - the state can
     # be used to arrive at the desired blockslot
     state.blck == bs.blck and getStateField(state, slot) <= bs.slot
+
+  # Fast path: check all caches for an exact match - this is faster than
+  # advancing a state where there's epoch processing to do, by a wide margin -
+  # it also avoids `hash_tree_root` for slot processing
+  if exactMatch(state, cur):
+    found = true
+  elif exactMatch(dag.headState, cur):
+    assign(state, dag.headState)
+    found = true
+  elif exactMatch(dag.clearanceState, cur):
+    assign(state, dag.clearanceState)
+    found = true
+  elif exactMatch(dag.epochRefState, cur):
+    assign(state, dag.epochRefState)
+    found = true
 
   # First, run a quick check if we can simply apply a few blocks to an in-memory
   # state - any in-memory state will be faster than loading from database.
@@ -772,7 +788,7 @@ proc updateStateData*(
   # This happens in particular during startup where we replay blocks
   # sequentially to grab their votes.
   const RewindBlockThreshold = 64
-  while ancestors.len < RewindBlockThreshold:
+  while not found and ancestors.len < RewindBlockThreshold:
     if canAdvance(state, cur):
       found = true
       break
@@ -883,7 +899,7 @@ proc updateStateData*(
   elif ancestors.len > 0:
     debug "State replayed"
   else:
-    trace "State advanced" # Normal case!
+    debug "State advanced" # Normal case!
 
 proc delState(dag: ChainDAGRef, bs: BlockSlot) =
   # Delete state state and mapping for a particular block+slot

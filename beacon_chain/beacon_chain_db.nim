@@ -683,10 +683,11 @@ proc containsState*(db: BeaconChainDBV0, key: Eth2Digest): bool =
   let sk = subkey(BeaconStateNoImmutableValidators, key)
   db.stateStore.contains(sk).expectDb() or
     db.backend.contains(sk).expectDb() or
-    db.backend.contains(subkey(BeaconState, key)).expectDb
+    db.backend.contains(subkey(BeaconState, key)).expectDb()
 
-proc containsState*(db: BeaconChainDB, key: Eth2Digest): bool =
-  db.statesNoVal.contains(key.data).expectDb or db.v0.containsState(key)
+proc containsState*(db: BeaconChainDB, key: Eth2Digest, legacy: bool = true): bool =
+  db.statesNoVal.contains(key.data).expectDb or
+    (legacy and db.v0.containsState(key))
 
 iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
     TrustedSignedBeaconBlock =
