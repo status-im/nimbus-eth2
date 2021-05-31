@@ -74,6 +74,5 @@ suite "Official - Phase 0 - Sanity - Blocks " & preset():
     runTest("Official - Phase 0 - Sanity - Blocks", SanityBlocksDir, path)
 
 suite "Official - Phase 0 - Finality " & preset():
-  # these seem to only exist in minimal presets
   for kind, path in walkDir(FinalityDir, true):
     runTest("Official - Phase 0 - Finality", FinalityDir, path)

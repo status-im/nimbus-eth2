@@ -100,19 +100,19 @@ func parentOrSlot*(bs: BlockSlot): BlockSlot =
   else:
     BlockSlot(blck: bs.blck, slot: bs.slot - 1)
 
-func get_effective_balances*(state: BeaconState): seq[Gwei] =
+func get_effective_balances(state: StateData): seq[Gwei] =
   ## Get the balances from a state as counted for fork choice
-  result.newSeq(state.validators.len) # zero-init
+  result.newSeq(getStateField(state, validators).len) # zero-init
 
-  let epoch = state.get_current_epoch()
+  let epoch = get_current_epoch(state)
 
   for i in 0 ..< result.len:
     # All non-active validators have a 0 balance
-    let validator = unsafeAddr state.validators[i]
+    let validator = unsafeAddr getStateField(state, validators)[i]
     if validator[].is_active_validator(epoch):
       result[i] = validator[].effective_balance
 
-proc init*(
+func init(
     T: type EpochRef, state: StateData, cache: var StateCache,
     prevEpoch: EpochRef): T =
   let
@@ -182,7 +182,7 @@ proc init*(
   epochRef.effective_balances_bytes =
     snappyEncode(SSZ.encode(
       List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT](
-        get_effective_balances(state.data.data))))
+        get_effective_balances(state))))
 
   epochRef
 
@@ -256,7 +256,7 @@ func atEpochStart*(blck: BlockRef, epoch: Epoch): BlockSlot =
   ## Return the BlockSlot corresponding to the first slot in the given epoch
   atSlot(blck, epoch.compute_start_slot_at_epoch)
 
-func atEpochEnd*(blck: BlockRef, epoch: Epoch): BlockSlot =
+func atEpochEnd(blck: BlockRef, epoch: Epoch): BlockSlot =
   ## Return the BlockSlot corresponding to the last slot in the given epoch
   atSlot(blck, (epoch + 1).compute_start_slot_at_epoch - 1)
 
@@ -285,7 +285,7 @@ func findEpochRef*(
 
   return nil
 
-proc loadStateCache*(
+func loadStateCache(
     dag: ChainDAGRef, cache: var StateCache, blck: BlockRef, epoch: Epoch) =
   # When creating a state cache, we want the current and the previous epoch
   # information to be preloaded as both of these are used in state transition
@@ -467,7 +467,7 @@ proc init*(T: type ChainDAGRef,
 
   res
 
-proc getEpochRef*(
+func getEpochRef*(
     dag: ChainDAGRef, state: StateData, cache: var StateCache): EpochRef =
   let
     blck = state.blck
@@ -575,7 +575,7 @@ proc getState(dag: ChainDAGRef, state: var StateData, bs: BlockSlot): bool =
 
   false
 
-proc putState*(dag: ChainDAGRef, state: var StateData) =
+proc putState(dag: ChainDAGRef, state: var StateData) =
   # Store a state and its root
   logScope:
     blck = shortLog(state.blck)
@@ -670,12 +670,6 @@ func getBlockBySlot*(dag: ChainDAGRef, slot: Slot): BlockRef =
   ## Retrieves the first block in the current canonical chain
   ## with slot number less or equal to `slot`.
   dag.head.atSlot(slot).blck
-
-func getBlockByPreciseSlot*(dag: ChainDAGRef, slot: Slot): BlockRef =
-  ## Retrieves a block from the canonical chain with a slot
-  ## number equal to `slot`.
-  let found = dag.getBlockBySlot(slot)
-  if found.slot != slot: found else: nil
 
 proc get*(dag: ChainDAGRef, blck: BlockRef): BlockData =
   ## Retrieve the associated block body of a block reference
@@ -1160,7 +1154,7 @@ proc preInit*(
     db.putStateRoot(genesisBlock.root, GENESIS_SLOT, genesisBlock.message.state_root)
     db.putGenesisBlockRoot(genesisBlock.root)
 
-proc setTailState*(dag: ChainDAGRef,
+func setTailState*(dag: ChainDAGRef,
                    checkpointState: BeaconState,
                    checkpointBlock: TrustedSignedBeaconBlock) =
   # TODO(zah)
@@ -1171,7 +1165,7 @@ proc setTailState*(dag: ChainDAGRef,
 proc getGenesisBlockData*(dag: ChainDAGRef): BlockData =
   dag.get(dag.genesis)
 
-proc getGenesisBlockSlot*(dag: ChainDAGRef): BlockSlot =
+func getGenesisBlockSlot*(dag: ChainDAGRef): BlockSlot =
   BlockSlot(blck: dag.genesis, slot: GENESIS_SLOT)
 
 proc getProposer*(
