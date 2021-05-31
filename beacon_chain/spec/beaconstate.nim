@@ -925,3 +925,77 @@ proc upgrade_to_altair*(pre: phase0.BeaconState): altair.BeaconState =
   post.next_sync_committee = get_next_sync_committee(post)
 
   post
+
+# TODO stack issues in the test fixture if this one isn't used, even with
+# newClone(upgrade_to_altair(...))
+proc upgrade_to_altair_ref*(pre: phase0.BeaconState): ref altair.BeaconState =
+  let epoch = get_current_epoch(pre)
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/fork.md#configuration
+  const ALTAIR_FORK_VERSION = Version [byte 1, 0, 0, 0]
+
+  var
+    empty_participation =
+      HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]()
+    inactivity_scores = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]()
+  for _ in 0 ..< len(pre.validators):
+    doAssert empty_participation.add 0.ParticipationFlags
+  for _ in 0 ..< len(pre.validators):
+    doAssert inactivity_scores.add 0'u64
+
+  var post = (ref altair.BeaconState)(
+    genesis_time: pre.genesis_time,
+    genesis_validators_root: pre.genesis_validators_root,
+    slot: pre.slot,
+    fork: Fork(
+      previous_version: pre.fork.current_version,
+      current_version: ALTAIR_FORK_VERSION,
+      epoch: epoch
+    ),
+
+    # History
+    latest_block_header: pre.latest_block_header,
+    block_roots: pre.block_roots,
+    state_roots: pre.state_roots,
+    historical_roots: pre.historical_roots,
+
+    # Eth1
+    eth1_data: pre.eth1_data,
+    eth1_data_votes: pre.eth1_data_votes,
+    eth1_deposit_index: pre.eth1_deposit_index,
+
+    # Registry
+    validators: pre.validators,
+    balances: pre.balances,
+
+    # Randomness
+    randao_mixes: pre.randao_mixes,
+
+    # Slashings
+    slashings: pre.slashings,
+
+    # Attestations
+    previous_epoch_participation: empty_participation,
+    current_epoch_participation: empty_participation,
+
+    # Finality
+    justification_bits: pre.justification_bits,
+    previous_justified_checkpoint: pre.previous_justified_checkpoint,
+    current_justified_checkpoint: pre.current_justified_checkpoint,
+    finalized_checkpoint: pre.finalized_checkpoint,
+
+    # Inactivity
+    inactivity_scores: inactivity_scores
+  )
+
+  # Fill in previous epoch participation from the pre state's pending
+  # attestations
+  translate_participation(post[], pre.previous_epoch_attestations.asSeq)
+
+  # Fill in sync committees
+  # Note: A duplicate committee is assigned for the current and next committee
+  # at the fork boundary
+  post[].current_sync_committee = get_next_sync_committee(post[])
+  post[].next_sync_committee = get_next_sync_committee(post[])
+
+  post

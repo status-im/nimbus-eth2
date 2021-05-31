@@ -23,4 +23,5 @@ import
   ./test_fixture_operations_proposer_slashings,
   ./test_fixture_operations_sync_committee,
   ./test_fixture_operations_voluntary_exit,
-  ./test_fixture_fork
+  ./test_fixture_fork,
+  ./test_fixture_transition

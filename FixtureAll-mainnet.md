@@ -2,6 +2,14 @@ FixtureAll-mainnet
 ===
 ## 
 ```diff
++ Official - Altair - Transition - normal_transition [Preset: mainnet]                       OK
++ Official - Altair - Transition - transition_missing_first_post_block [Preset: mainnet]     OK
++ Official - Altair - Transition - transition_missing_last_pre_fork_block [Preset: mainnet]  OK
++ Official - Altair - Transition - transition_only_blocks_post_fork [Preset: mainnet]        OK
++ Official - Altair - Transition - transition_with_finality [Preset: mainnet]                OK
++ Official - Altair - Transition - transition_with_no_attestations_until_after_fork [Preset: OK
++ Official - Altair - Transition - transition_with_random_half_participation [Preset: mainne OK
++ Official - Altair - Transition - transition_with_random_three_quarters_participation [Pres OK
 + Rewards - all_balances_too_low_for_reward [Preset: mainnet]                                OK
 + Rewards - duplicate_attestations_at_later_slots [Preset: mainnet]                          OK
 + Rewards - empty [Preset: mainnet]                                                          OK
@@ -257,7 +265,7 @@ FixtureAll-mainnet
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 254/254 Fail: 0/254 Skip: 0/254
+OK: 262/262 Fail: 0/262 Skip: 0/262
 ## Official - Altair - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -475,4 +483,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 385/385 Fail: 0/385 Skip: 0/385
+OK: 393/393 Fail: 0/393 Skip: 0/393
