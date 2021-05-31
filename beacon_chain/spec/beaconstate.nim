@@ -815,24 +815,16 @@ proc get_next_sync_committee*(state: altair.BeaconState): SyncCommittee =
     pubkeys = mapIt(indices, state.validators[it].pubkey)
 
   # TODO not robust
-  doAssert indices.len == SYNC_COMMITTEE_SIZE
   doAssert pubkeys.len == SYNC_COMMITTEE_SIZE
 
   # see signatures_batch, TODO shouldn't be here
-  # TODO also, generally, need a policy on invalid keys, since they're not
-  # necessarily caught elsewhere
+  # Deposit processing ensures all keys are valid
   var
     aggregate_pubkey: blscurve.PublicKey
     attestersAgg: AggregatePublicKey
-  let ck = pubkeys[0].loadWithCache()
-  if ck.isSome:
-    attestersAgg.init(ck.get)
+  attestersAgg.init(pubkeys[0].loadWithCache().get)
   for i in 1 ..< pubkeys.len:
-    let cookedKey = pubkeys[i].loadWithCache()
-    if cookedKey.isNone():
-      # TODO is this the correct failure handling?
-      continue
-    attestersAgg.aggregate(cookedKey.get)
+    attestersAgg.aggregate(pubkeys[i].loadWithCache().get)
   aggregate_pubkey.finish(attestersAgg)
 
   var res = SyncCommittee(aggregate_pubkey:
@@ -861,8 +853,8 @@ func translate_participation(
     for index in get_attesting_indices(
         state, data, attestation.aggregation_bits, cache):
       for flag_index in participation_flag_indices:
-         state.previous_epoch_participation[index] =
-           add_flag(state.previous_epoch_participation[index], flag_index)
+        state.previous_epoch_participation[index] =
+          add_flag(state.previous_epoch_participation[index], flag_index)
 
 proc upgrade_to_altair*(pre: phase0.BeaconState): altair.BeaconState =
   let epoch = get_current_epoch(pre)
