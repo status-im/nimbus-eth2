@@ -361,11 +361,6 @@ type
         desc: "Output file where to write the initial state snapshot"
         name: "output-genesis" }: OutFile
 
-      withGenesisRoot* {.
-        desc: "Include a genesis root in 'network.json'"
-        defaultValue: false
-        name: "with-genesis-root" }: bool
-
       outputBootstrapFile* {.
         desc: "Output file with list of bootstrap nodes for the network"
         name: "output-bootstrap-file" }: OutFile
