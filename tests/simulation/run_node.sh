@@ -80,11 +80,6 @@ fi
 rm -rf "$NODE_DATA_DIR/dump"
 "$MAKEDIR" "$NODE_DATA_DIR/dump"
 
-SNAPSHOT_ARG=""
-if [ -f "${SNAPSHOT_FILE}" ]; then
-  SNAPSHOT_ARG="--finalized-checkpoint-state=${SNAPSHOT_FILE}"
-fi
-
 cd "$NODE_DATA_DIR"
 
 $BEACON_NODE_BIN \
@@ -96,7 +91,6 @@ $BEACON_NODE_BIN \
   --node-name=$NODE_ID \
   --tcp-port=$PORT \
   --udp-port=$PORT \
-  $SNAPSHOT_ARG \
   $NAT_ARG \
   $WEB3_ARG \
   --rpc \
