@@ -242,8 +242,22 @@ FixtureAll-mainnet
 + [Valid]   sync_committee_rewards_duplicate_committee                                       OK
 + [Valid]   sync_committee_rewards_empty_participants                                        OK
 + [Valid]   sync_committee_rewards_not_full_participants                                     OK
++ altair_fork_random_0                                                                       OK
++ altair_fork_random_1                                                                       OK
++ altair_fork_random_2                                                                       OK
++ altair_fork_random_3                                                                       OK
++ altair_fork_random_duplicate_attestations                                                  OK
++ altair_fork_random_low_balances                                                            OK
++ altair_fork_random_misc_balances                                                           OK
++ altair_fork_random_mismatched_attestations                                                 OK
++ fork_base_state                                                                            OK
++ fork_many_next_epoch                                                                       OK
++ fork_next_epoch                                                                            OK
++ fork_next_epoch_with_block                                                                 OK
++ fork_random_low_balances                                                                   OK
++ fork_random_misc_balances                                                                  OK
 ```
-OK: 240/240 Fail: 0/240 Skip: 0/240
+OK: 254/254 Fail: 0/254 Skip: 0/254
 ## Official - Altair - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -461,4 +475,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 371/371 Fail: 0/371 Skip: 0/371
+OK: 385/385 Fail: 0/385 Skip: 0/385
