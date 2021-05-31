@@ -34,6 +34,9 @@
 - [Back up your database](./database-backup.md)
 - [Set up email notifications](./email-notifications.md)
 - [Graffiti the blockchain](./graffiti.md)
+- [Maximise profits](./profits.md)
+- [Monitor the health of your node](.health.md)
+- [Increase privacy](./privacy.md)
 
 # Guides
 - [Grafana and Prometheus](./metrics-pretty-pictures.md)

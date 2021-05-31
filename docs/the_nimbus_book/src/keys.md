@@ -16,12 +16,14 @@ build/nimbus_beacon_node deposits import --data-dir=build/data/shared_mainnet_0
 >
 >*Prater*
 >```
->build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_prater_0 "<YOUR VALIDATOR KEYS DIRECTORY>"
+>build/nimbus_beacon_node deposits import \
+> --data-dir=build/data/shared_prater_0 "<YOUR VALIDATOR KEYS DIRECTORY>"
 > ```
 > 
 > *Mainnet*
 > ```
->build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_mainnet_0 "<YOUR VALIDATOR KEYS DIRECTORY>"
+>build/nimbus_beacon_node deposits import \ 
+> --data-dir=build/data/shared_mainnet_0 "<YOUR VALIDATOR KEYS DIRECTORY>"
 >```
 > 
 > Replacing `<YOUR VALIDATOR KEYS DIRECTORY>` with the full pathname of the `validator_keys` directory that was created when you generated your keys using the [command line app](https://github.com/ethereum/eth2.0-deposit-cli/releases/).

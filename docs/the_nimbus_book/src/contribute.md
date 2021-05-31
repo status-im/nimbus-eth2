@@ -8,7 +8,7 @@ We use an utility tool called mdBook to create online books from Markdown files.
 
 1. Install mdBook from [here](https://github.com/rust-lang/mdBook).
 2. Clone the repository by `git clone https://github.com/status-im/nimbus-eth2.git`.
-3. Go to where the Markdown files are located by `cd docs`.
+3. Go to where the Markdown files are located by `cd docs/the_nimbus_book/`.
 
 ## Real-Time Update and Preview Changes
 

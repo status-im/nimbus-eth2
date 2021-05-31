@@ -7,21 +7,26 @@ To perform a voluntary exit, with your beacon node running, run:
 **Pyrmont**
 
 ```
-build/nimbus_beacon_node deposits exit --validator=<VALIDATOR_PUBLIC_KEY> --data-dir=build/data/shared_pyrmont_0
+build/nimbus_beacon_node deposits exit \
+ --validator=<VALIDATOR_PUBLIC_KEY> \
+ --data-dir=build/data/shared_pyrmont_0
 ```
 
 **Prater**
 
 ```
-build/nimbus_beacon_node deposits exit --validator=<VALIDATOR_PUBLIC_KEY> --data-dir=build/data/shared_prater_0
-
+build/nimbus_beacon_node deposits exit \ 
+ --validator=<VALIDATOR_PUBLIC_KEY> \ 
+ --data-dir=build/data/shared_prater_0
 ```
 
 
 **Mainnet**
 
 ```
-build/nimbus_beacon_node deposits exit --validator=<VALIDATOR_PUBLIC_KEY> --data-dir=build/data/shared_mainnet_0
+build/nimbus_beacon_node deposits exit \ 
+ --validator=<VALIDATOR_PUBLIC_KEY> \
+ --data-dir=build/data/shared_mainnet_0
 ```
 
 > **Note:** Make sure your `<VALIDATOR_PUBLIC_KEY>` is prefixed with `0x`. In other words the public key should look like `0x95e3...`
