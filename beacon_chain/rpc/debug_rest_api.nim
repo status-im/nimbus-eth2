@@ -29,7 +29,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet,
              "/api/eth/v1/debug/beacon/heads") do () -> RestApiResponse:
     return RestApiResponse.jsonResponse(
-      node.chainDag.heads.mapIt((root: it.root, slot: it.slot))
+      node.dag.heads.mapIt((root: it.root, slot: it.slot))
     )
 
   router.redirect(

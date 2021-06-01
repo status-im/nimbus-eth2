@@ -389,7 +389,7 @@ proc saveNetKeystore*(rng: var BrHmacDrbgContext, keyStorePath: string,
 
 proc saveKeystore(rng: var BrHmacDrbgContext,
                   validatorsDir, secretsDir: string,
-                  signingKey: ValidatorPrivKey, signingPubKey: ValidatorPubKey,
+                  signingKey: ValidatorPrivKey, signingPubKey: CookedPubKey,
                   signingKeyPath: KeyPath): Result[void, KeystoreGenerationError] =
   let
     keyName = "0x" & $signingPubKey
@@ -462,7 +462,8 @@ proc generateDeposits*(preset: RuntimePreset,
                    derivedKey, signingPubKey,
                    makeKeyPath(validatorIdx, signingKeyKind))
 
-    deposits.add preset.prepareDeposit(withdrawalPubKey, derivedKey, signingPubKey)
+    deposits.add preset.prepareDeposit(
+      withdrawalPubKey, derivedKey, signingPubKey)
 
   ok deposits
 

@@ -38,14 +38,14 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   ## Install non-standard api handlers - some of these are used by 3rd-parties
   ## such as eth2stats, pending a full REST api
   rpcServer.rpc("getBeaconHead") do () -> Slot:
-    return node.chainDag.head.slot
+    return node.dag.head.slot
 
   rpcServer.rpc("getChainHead") do () -> JsonNode:
     let
-      head = node.chainDag.head
-      finalized = getStateField(node.chainDag.headState, finalized_checkpoint)
+      head = node.dag.head
+      finalized = getStateField(node.dag.headState, finalized_checkpoint)
       justified =
-        getStateField(node.chainDag.headState, current_justified_checkpoint)
+        getStateField(node.dag.headState, current_justified_checkpoint)
     return %* {
       "head_slot": head.slot,
       "head_block_root": head.root.data.toHex(),
@@ -103,8 +103,8 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       wallSlot = node.beaconClock.now.slotOrZero
       head = node.doChecksAndGetCurrentHead(wallSlot)
 
-    let proposalState = assignClone(node.chainDag.headState)
-    node.chainDag.withState(proposalState[], head.atSlot(wallSlot)):
+    let proposalState = assignClone(node.dag.headState)
+    node.dag.withState(proposalState[], head.atSlot(wallSlot)):
       return node.getBlockProposalEth1Data(stateData)
 
   rpcServer.rpc("debug_getChronosFutures") do () -> seq[FutureInfo]:

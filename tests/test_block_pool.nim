@@ -378,32 +378,21 @@ suite "chain DAG finalization tests" & preset():
     check:
       dag.heads.len() == 1
 
-    let
-      headER = dag.findEpochRef(dag.heads[0], dag.heads[0].slot.epoch)
-      finalER = dag.findEpochRef(dag.finalizedHead.blck, dag.finalizedHead.slot.epoch)
     check:
+      dag.validatorKeys.len() == getStateField(dag.headState, validators).len()
 
-      # Epochrefs should share validator key set when the validator set is
-      # stable
-      not headER.isNil
-      not dag.findEpochRef(dag.heads[0], dag.heads[0].slot.epoch - 1).isNil
-      headER !=
-        dag.findEpochRef(dag.heads[0], dag.heads[0].slot.epoch - 1)
-      headER.validator_key_store[1] ==
-        dag.findEpochRef(dag.heads[0], dag.heads[0].slot.epoch - 1).validator_key_store[1]
+    let
+      finalER = dag.findEpochRef(dag.finalizedHead.blck, dag.finalizedHead.slot.epoch)
 
       # The EpochRef for the finalized block is needed for eth1 voting, so we
       # should never drop it!
+    check:
       not finalER.isNil
 
     block:
       for er in dag.epochRefs:
         check: er[1] == nil or er[1].epoch >= dag.finalizedHead.slot.epoch
 
-        if er[1] != nil:
-          # EpochRef validator keystores should back-propagate to all previous
-          # epochs
-            check (addr headER.validator_keys) == (addr er[1].validator_keys)
     block:
       # The late block is a block whose parent was finalized long ago and thus
       # is no longer a viable head candidate
@@ -514,3 +503,4 @@ suite "chain DAG finalization tests" & preset():
       dag2.finalizedHead.blck.root == dag.finalizedHead.blck.root
       dag2.finalizedHead.slot == dag.finalizedHead.slot
       hash_tree_root(dag2.headState) == hash_tree_root(dag.headState)
+      dag2.validatorKeys.len() == dag.validatorKeys.len()

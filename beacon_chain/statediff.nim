@@ -100,7 +100,7 @@ func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
   doAssert state1.slot > state0.slot
   doAssert state0.slot.isEpoch
   doAssert state1.slot == state0.slot + SLOTS_PER_EPOCH
-  # TODO not here, but in chainDag, an isancestorof check
+  # TODO not here, but in dag, an isancestorof check
 
   doAssert state0.genesis_time == state1.genesis_time
   doAssert state0.genesis_validators_root == state1.genesis_validators_root

@@ -820,15 +820,13 @@ proc get_next_sync_committee*(state: altair.BeaconState): SyncCommittee =
   # see signatures_batch, TODO shouldn't be here
   # Deposit processing ensures all keys are valid
   var
-    aggregate_pubkey: blscurve.PublicKey
     attestersAgg: AggregatePublicKey
   attestersAgg.init(pubkeys[0].loadWithCache().get)
   for i in 1 ..< pubkeys.len:
     attestersAgg.aggregate(pubkeys[i].loadWithCache().get)
-  aggregate_pubkey.finish(attestersAgg)
+  let aggregate_pubkey = finish(attestersAgg)
 
-  var res = SyncCommittee(aggregate_pubkey:
-    ValidatorPubKey(blob: aggregate_pubkey.exportRaw()))
+  var res = SyncCommittee(aggregate_pubkey: aggregate_pubkey.toPubKey())
   for i in 0 ..< SYNC_COMMITTEE_SIZE:
     # obviously ineffecient
     res.pubkeys[i] = pubkeys[i]

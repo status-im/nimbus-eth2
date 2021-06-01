@@ -127,9 +127,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/api/eth/v1/beacon/genesis") do () -> RestApiResponse:
     return RestApiResponse.jsonResponse(
       (
-        genesis_time: getStateField(node.chainDag.headState, genesis_time),
+        genesis_time: getStateField(node.dag.headState, genesis_time),
         genesis_validators_root:
-          getStateField(node.chainDag.headState, genesis_validators_root),
+          getStateField(node.dag.headState, genesis_validators_root),
         genesis_fork_version: node.runtimePreset.GENESIS_FORK_VERSION
       )
     )
@@ -268,7 +268,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         (res1, res2)
 
     node.withStateForBlockSlot(bslot):
-      let current_epoch = get_current_epoch(node.chainDag.headState)
+      let current_epoch = get_current_epoch(node.dag.headState)
       var res: seq[RestValidator]
       for index, validator in getStateField(stateData, validators).pairs():
         let includeFlag =
@@ -309,7 +309,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, InvalidValidatorIdValueError,
                                        $validator_id.error())
     node.withStateForBlockSlot(bslot):
-      let current_epoch = get_current_epoch(node.chainDag.headState)
+      let current_epoch = get_current_epoch(node.dag.headState)
       let vid = validator_id.get()
       case vid.kind
       of ValidatorQueryKind.Key:
@@ -416,7 +416,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             res2.incl(vitem)
         (res1, res2)
     node.withStateForBlockSlot(bslot):
-      let current_epoch = get_current_epoch(node.chainDag.headState)
+      let current_epoch = get_current_epoch(node.dag.headState)
       var res: seq[RestValidatorBalance]
       for index, validator in getStateField(stateData, validators).pairs():
         let includeFlag =
@@ -533,7 +533,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $rslot.error())
         rslot.get()
       else:
-        node.chainDag.head.slot
+        node.dag.head.slot
 
     if parent_root.isSome():
       let rroot = parent_root.get()
@@ -554,12 +554,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let blockSlot = head.atSlot(qslot)
         if isNil(blockSlot.blck):
           return RestApiResponse.jsonError(Http404, BlockNotFoundError)
-        node.chainDag.get(blockSlot.blck)
+        node.dag.get(blockSlot.blck)
 
     return RestApiResponse.jsonResponse(
       (
         root: bdata.data.root,
-        canonical: bdata.refs.isAncestorOf(node.chainDag.head),
+        canonical: bdata.refs.isAncestorOf(node.dag.head),
         header: (
           message: (
             slot: bdata.data.message.slot,
@@ -589,7 +589,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponse(
       (
         root: bdata.data.root,
-        canonical: bdata.refs.isAncestorOf(node.chainDag.head),
+        canonical: bdata.refs.isAncestorOf(node.dag.head),
         header: (
           message: (
             slot: bdata.data.message.slot,
@@ -620,7 +620,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.root = hash_tree_root(res.message)
         res
 
-    let head = node.chainDag.head
+    let head = node.dag.head
     if not(node.isSynced(head)):
       return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
 

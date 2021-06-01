@@ -24,7 +24,7 @@ func init*(T: type QuarantineRef, rng: ref BrHmacDrbgContext): T =
   result = T()
   result.rng = rng
 
-func checkMissing*(quarantine: var QuarantineRef): seq[FetchRecord] =
+func checkMissing*(quarantine: QuarantineRef): seq[FetchRecord] =
   ## Return a list of blocks that we should try to resolve from other client -
   ## to be called periodically but not too often (once per slot?)
   var done: seq[Eth2Digest]
@@ -58,7 +58,7 @@ func containsOrphan*(
     quarantine: QuarantineRef, signedBlock: SignedBeaconBlock): bool =
   (signedBlock.root, signedBlock.signature) in quarantine.orphans
 
-func addMissing*(quarantine: var QuarantineRef, root: Eth2Digest) =
+func addMissing*(quarantine: QuarantineRef, root: Eth2Digest) =
   ## Schedule the download a the given block
   # Can only request by root, not by signature, so partial match suffices
   if not anyIt(quarantine.orphans.keys, it[0] == root):
@@ -66,7 +66,7 @@ func addMissing*(quarantine: var QuarantineRef, root: Eth2Digest) =
     discard quarantine.missing.hasKeyOrPut(root, MissingBlock())
 
 func removeOrphan*(
-    quarantine: var QuarantineRef, signedBlock: SignedBeaconBlock) =
+    quarantine: QuarantineRef, signedBlock: SignedBeaconBlock) =
   quarantine.orphans.del((signedBlock.root, signedBlock.signature))
 
 func isViableOrphan(dag: ChainDAGRef, signedBlock: SignedBeaconBlock): bool =
@@ -74,7 +74,7 @@ func isViableOrphan(dag: ChainDAGRef, signedBlock: SignedBeaconBlock): bool =
   # either is the finalized block or more recent
   signedBlock.message.slot > dag.finalizedHead.slot
 
-func removeOldBlocks(quarantine: var QuarantineRef, dag: ChainDAGRef) =
+func removeOldBlocks(quarantine: QuarantineRef, dag: ChainDAGRef) =
   var oldBlocks: seq[(Eth2Digest, ValidatorSig)]
 
   for k, v in quarantine.orphans.pairs():
@@ -84,11 +84,11 @@ func removeOldBlocks(quarantine: var QuarantineRef, dag: ChainDAGRef) =
   for k in oldBlocks:
     quarantine.orphans.del k
 
-func clearQuarantine*(quarantine: var QuarantineRef) =
+func clearQuarantine*(quarantine: QuarantineRef) =
   quarantine.orphans.clear()
   quarantine.missing.clear()
 
-func add*(quarantine: var QuarantineRef, dag: ChainDAGRef,
+func add*(quarantine: QuarantineRef, dag: ChainDAGRef,
           signedBlock: SignedBeaconBlock): bool =
   ## Adds block to quarantine's `orphans` and `missing` lists.
 

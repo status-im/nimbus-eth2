@@ -718,7 +718,7 @@ proc createKeystore*(kdfKind: KdfKind,
 
   Keystore(
     crypto: cryptoField,
-    pubkey: pubkey,
+    pubkey: pubkey.toPubKey(),
     path: path,
     description: newClone(description),
     uuid: $uuid,
@@ -747,18 +747,22 @@ proc createWallet*(kdfKind: KdfKind,
     nextAccount: nextAccount.get(0))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/deposit-contract.md#withdrawal-credentials
-proc makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
+func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
   var bytes = eth2digest(k.toRaw())
   bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
   bytes
 
+# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/deposit-contract.md#withdrawal-credentials
+proc makeWithdrawalCredentials*(k: CookedPubKey): Eth2Digest =
+  makeWithdrawalCredentials(k.toPubKey())
+
 proc prepareDeposit*(preset: RuntimePreset,
-                     withdrawalPubKey: ValidatorPubKey,
-                     signingKey: ValidatorPrivKey, signingPubKey: ValidatorPubKey,
+                     withdrawalPubKey: CookedPubKey,
+                     signingKey: ValidatorPrivKey, signingPubKey: CookedPubKey,
                      amount = MAX_EFFECTIVE_BALANCE.Gwei): DepositData =
   var res = DepositData(
     amount: amount,
-    pubkey: signingPubKey,
+    pubkey: signingPubKey.toPubKey(),
     withdrawal_credentials: makeWithdrawalCredentials(withdrawalPubKey))
 
   res.signature = preset.get_deposit_signature(res, signingKey).toValidatorSig()

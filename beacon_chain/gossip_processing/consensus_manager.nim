@@ -21,7 +21,7 @@ type
 
     # Validated & Verified
     # ----------------------------------------------------------------
-    chainDag*: ChainDAGRef
+    dag*: ChainDAGRef
     attestationPool*: ref AttestationPool
 
     # Missing info
@@ -32,12 +32,12 @@ type
 # ------------------------------------------------------------------------------
 
 proc new*(T: type ConsensusManager,
-          chainDag: ChainDAGRef,
+          dag: ChainDAGRef,
           attestationPool: ref AttestationPool,
           quarantine: QuarantineRef
          ): ref ConsensusManager =
   (ref ConsensusManager)(
-    chainDag: chainDag,
+    dag: dag,
     attestationPool: attestationPool,
     quarantine: quarantine
   )
@@ -49,7 +49,7 @@ proc checkExpectedBlock(self: var ConsensusManager) =
   if self.expectedBlockReceived == nil:
     return
 
-  if self.chainDag.head.slot < self.expectedSlot:
+  if self.dag.head.slot < self.expectedSlot:
     return
 
   self.expectedBlockReceived.complete(true)
@@ -82,12 +82,12 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
   let newHead = self.attestationPool[].selectHead(wallSlot)
   if newHead.isNil():
     warn "Head selection failed, using previous head",
-      head = shortLog(self.chainDag.head), wallSlot
+      head = shortLog(self.dag.head), wallSlot
     return
 
   # Store the new head in the chain DAG - this may cause epochs to be
   # justified and finalized
-  self.chainDag.updateHead(newHead, self.quarantine)
+  self.dag.updateHead(newHead, self.quarantine)
 
   self.checkExpectedBlock()
 
@@ -98,6 +98,6 @@ proc pruneStateCachesAndForkChoice*(self: var ConsensusManager) =
   ## - the attestation pool/fork choice
 
   # Cleanup DAG & fork choice if we have a finalized head
-  if self.chainDag.needStateCachesAndForkChoicePruning():
-    self.chainDag.pruneStateCachesDAG()
+  if self.dag.needStateCachesAndForkChoicePruning():
+    self.dag.pruneStateCachesDAG()
     self.attestationPool[].prune()

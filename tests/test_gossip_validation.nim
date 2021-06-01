@@ -34,10 +34,10 @@ suite "Gossip validation " & preset():
   setup:
     # Genesis state that results in 3 members per committee
     var
-      chainDag = init(ChainDAGRef, defaultRuntimePreset, makeTestDB(SLOTS_PER_EPOCH * 3))
+      dag = init(ChainDAGRef, defaultRuntimePreset, makeTestDB(SLOTS_PER_EPOCH * 3))
       quarantine = QuarantineRef.init(keys.newRng())
-      pool = newClone(AttestationPool.init(chainDag, quarantine))
-      state = newClone(chainDag.headState)
+      pool = newClone(AttestationPool.init(dag, quarantine))
+      state = newClone(dag.headState)
       cache = StateCache()
       rewards = RewardInfo()
       batchCrypto = BatchCrypto.new(keys.newRng(), eager = proc(): bool = false)
@@ -47,34 +47,34 @@ suite "Gossip validation " & preset():
 
   test "Validation sanity":
     # TODO: refactor tests to avoid skipping BLS validation
-    chainDag.updateFlags.incl {skipBLSValidation}
+    dag.updateFlags.incl {skipBLSValidation}
 
     var
       cache: StateCache
     for blck in makeTestBlocks(
-        chainDag.headState.data, chainDag.head.root, cache,
+        dag.headState.data, dag.head.root, cache,
         int(SLOTS_PER_EPOCH * 5), false):
-      let added = chainDag.addRawBlock(quarantine, blck) do (
+      let added = dag.addRawBlock(quarantine, blck) do (
           blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
       check: added.isOk()
-      chainDag.updateHead(added[], quarantine)
-      pruneAtFinalization(chainDag, pool[])
+      dag.updateHead(added[], quarantine)
+      pruneAtFinalization(dag, pool[])
 
     var
       # Create attestations for slot 1
       beacon_committee = get_beacon_committee(
-        chainDag.headState, chainDag.head.slot, 0.CommitteeIndex, cache)
+        dag.headState, dag.head.slot, 0.CommitteeIndex, cache)
       att_1_0 = makeAttestation(
-        chainDag.headState, chainDag.head.root, beacon_committee[0], cache)
+        dag.headState, dag.head.root, beacon_committee[0], cache)
       att_1_1 = makeAttestation(
-        chainDag.headState, chainDag.head.root, beacon_committee[1], cache)
+        dag.headState, dag.head.root, beacon_committee[1], cache)
 
       committees_per_slot =
-        get_committee_count_per_slot(chainDag.headState,
+        get_committee_count_per_slot(dag.headState,
           att_1_0.data.slot.epoch, cache)
 
       subnet = compute_subnet_for_attestation(

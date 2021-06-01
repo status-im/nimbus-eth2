@@ -159,19 +159,21 @@ type
       ## block - we limit the number of held EpochRefs to put a cap on
       ## memory usage
 
+    validatorKeys*: seq[CookedPubKey] ##\
+      ## The deposit scheme in eth2 guarantees that validators are added in the
+      ## same order regardless of which fork the chain takes - there may be more
+      ## keys in the cache than there are validators in the head state however!
+
   EpochRef* = ref object
+    dag*: ChainDAGRef
     epoch*: Epoch
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
     eth1_data*: Eth1Data
     eth1_deposit_index*: uint64
     beacon_proposers*: array[
-      SLOTS_PER_EPOCH, Option[(ValidatorIndex, ValidatorPubKey)]]
+      SLOTS_PER_EPOCH, Option[ValidatorIndex]]
     shuffled_active_validator_indices*: seq[ValidatorIndex]
-    # This is an expensive cache that is sometimes shared among epochref
-    # instances - in particular, validators keep their keys and locations in the
-    # validator list in each particular history.
-    validator_key_store*: (Eth2Digest, ref seq[ValidatorPubKey])
 
     # balances, as used in fork choice
     effective_balances_bytes*: seq[byte]
@@ -196,9 +198,9 @@ type
     blckRef: BlockRef, blck: TrustedSignedBeaconBlock,
     epochRef: EpochRef, state: HashedBeaconState) {.gcsafe, raises: [Defect].}
 
-template validator_keys*(e: EpochRef): untyped = e.validator_key_store[1][]
+template validator_keys*(e: EpochRef): seq[CookedPubKey] = e.dag.validatorKeys
 
-template head*(v: ChainDagRef): BlockRef = v.headState.blck
+template head*(dag: ChainDagRef): BlockRef = dag.headState.blck
 
 func shortLog*(v: BlockSlot): string =
   try:

@@ -37,11 +37,11 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       slot: Slot, graffiti: GraffitiBytes, randao_reveal: ValidatorSig) -> BeaconBlock:
     debug "get_v1_validator_block", slot = slot
     let head = node.doChecksAndGetCurrentHead(slot)
-    let proposer = node.chainDag.getProposer(head, slot)
+    let proposer = node.dag.getProposer(head, slot)
     if proposer.isNone():
       raise newException(CatchableError, "could not retrieve block for slot: " & $slot)
     let message = await makeBeaconBlockForHeadAndSlot(
-      node, randao_reveal, proposer.get()[0], graffiti, head, slot)
+      node, randao_reveal, proposer.get(), graffiti, head, slot)
     if message.isNone():
       raise newException(CatchableError, "could not retrieve block for slot: " & $slot)
     return message.get()
@@ -64,7 +64,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     debug "get_v1_validator_attestation_data", slot = slot
     let
       head = node.doChecksAndGetCurrentHead(slot)
-      epochRef = node.chainDag.getEpochRef(head, slot.epoch)
+      epochRef = node.dag.getEpochRef(head, slot.epoch)
     return makeAttestationData(epochRef, head.atSlot(slot), committee_index)
 
   rpcServer.rpc("get_v1_validator_aggregate_attestation") do (
@@ -87,7 +87,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     debug "get_v1_validator_duties_attester", epoch = epoch
     let
       head = node.doChecksAndGetCurrentHead(epoch)
-      epochRef = node.chainDag.getEpochRef(head, epoch)
+      epochRef = node.dag.getEpochRef(head, epoch)
       committees_per_slot = get_committee_count_per_slot(epochRef)
     for i in 0 ..< SLOTS_PER_EPOCH:
       let slot = compute_start_slot_at_epoch(epoch) + i
@@ -96,7 +96,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
           epochRef, slot, committee_index.CommitteeIndex)
         for index_in_committee, validatorIdx in committee:
           if validatorIdx < epochRef.validator_keys.len.ValidatorIndex:
-            let curr_val_pubkey = epochRef.validator_keys[validatorIdx]
+            let curr_val_pubkey = epochRef.validator_keys[validatorIdx].toPubKey()
             if public_keys.findIt(it == curr_val_pubkey) != -1:
               result.add((public_key: curr_val_pubkey,
                           validator_index: validatorIdx,
@@ -110,11 +110,11 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     debug "get_v1_validator_duties_proposer", epoch = epoch
     let
       head = node.doChecksAndGetCurrentHead(epoch)
-      epochRef = node.chainDag.getEpochRef(head, epoch)
-    for i in 0 ..< SLOTS_PER_EPOCH:
-      if epochRef.beacon_proposers[i].isSome():
-        result.add((public_key: epochRef.beacon_proposers[i].get()[1],
-                    validator_index: epochRef.beacon_proposers[i].get()[0],
+      epochRef = node.dag.getEpochRef(head, epoch)
+    for i, bp in epochRef.beacon_proposers:
+      if bp.isSome():
+        result.add((public_key: epochRef.validator_keys[bp.get()].toPubKey(),
+                    validator_index: bp.get(),
                     slot: compute_start_slot_at_epoch(epoch) + i))
 
   rpcServer.rpc("post_v1_validator_beacon_committee_subscriptions") do (
@@ -141,15 +141,15 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
         "Slot requested not in current or next wall-slot epoch")
 
     if not verify_slot_signature(
-        getStateField(node.chainDag.headState, fork),
-        getStateField(node.chainDag.headState, genesis_validators_root),
+        getStateField(node.dag.headState, fork),
+        getStateField(node.dag.headState, genesis_validators_root),
         slot, validator_pubkey, slot_signature):
       raise newException(CatchableError,
         "Invalid slot signature")
 
     let
       head = node.doChecksAndGetCurrentHead(epoch)
-      epochRef = node.chainDag.getEpochRef(head, epoch)
+      epochRef = node.dag.getEpochRef(head, epoch)
       subnet_id = compute_subnet_for_attestation(
         get_committee_count_per_slot(epochRef), slot, committee_index)
 

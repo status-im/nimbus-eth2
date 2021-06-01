@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[algorithm, intsets, sequtils],
+  std/[intsets],
   chronicles,
   ../spec/[
     crypto, datatypes, digest, helpers, network, presets, signatures,
@@ -112,61 +112,6 @@ func get_attesting_indices*(epochRef: EpochRef,
   for idx in get_attesting_indices(epochRef, data, bits):
     result.add(idx)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_indexed_attestation
-func get_indexed_attestation*(epochRef: EpochRef, attestation: Attestation): IndexedAttestation =
-  # Return the indexed attestation corresponding to ``attestation``.
-  let
-    attesting_indices =
-      get_attesting_indices(
-        epochRef, attestation.data, attestation.aggregation_bits)
-
-  IndexedAttestation(
-    attesting_indices:
-      List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE].init(
-        sorted(mapIt(attesting_indices, it.uint64), system.cmp)),
-    data: attestation.data,
-    signature: attestation.signature
-  )
-
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
-proc is_valid_indexed_attestation*(
-    fork: Fork, genesis_validators_root: Eth2Digest,
-    epochRef: EpochRef, indexed_attestation: SomeIndexedAttestation,
-    flags: UpdateFlags): Result[void, cstring] =
-  # Check if ``indexed_attestation`` is not empty, has sorted and unique
-  # indices and has a valid aggregate signature.
-
-  template is_sorted_and_unique(s: untyped): bool =
-    var res = true
-    for i in 1 ..< s.len:
-      if s[i - 1].uint64 >= s[i].uint64:
-        res = false
-        break
-    res
-
-  if len(indexed_attestation.attesting_indices) == 0:
-    return err("indexed_attestation: no attesting indices")
-
-  # Not from spec, but this function gets used in front-line roles, not just
-  # behind firewall.
-  let num_validators = epochRef.validator_keys.lenu64
-  if anyIt(indexed_attestation.attesting_indices, it >= num_validators):
-    return err("indexed attestation: not all indices valid validators")
-
-  if not is_sorted_and_unique(indexed_attestation.attesting_indices):
-    return err("indexed attestation: indices not sorted and unique")
-
-  # Verify aggregate signature
-  if not (skipBLSValidation in flags or indexed_attestation.signature is TrustedSig):
-    let pubkeys = mapIt(
-      indexed_attestation.attesting_indices, epochRef.validator_keys[it])
-    if not verify_attestation_signature(
-        fork, genesis_validators_root, indexed_attestation.data,
-        pubkeys, indexed_attestation.signature):
-      return err("indexed attestation: signature verification failure")
-
-  ok()
-
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     fork: Fork, genesis_validators_root: Eth2Digest,
@@ -184,7 +129,7 @@ proc is_valid_indexed_attestation*(
   # Verify aggregate signature
   if not (skipBLSValidation in flags or attestation.signature is TrustedSig):
     var
-      pubkeys = newSeqOfCap[ValidatorPubKey](sigs)
+      pubkeys = newSeqOfCap[CookedPubKey](sigs)
     for index in get_attesting_indices(
         epochRef, attestation.data, attestation.aggregation_bits):
       pubkeys.add(epochRef.validator_keys[index])

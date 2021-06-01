@@ -146,7 +146,8 @@ suite "Interop":
 
     for i in 0..<64:
       let privKey = makeInteropPrivKey(i)
-      deposits.add makeDeposit(defaultRuntimePreset, privKey.toPubKey(), privKey)
+      deposits.add makeDeposit(
+        defaultRuntimePreset, privKey.toPubKey().toPubKey(), privKey)
 
     const genesis_time = 1570500000
     var

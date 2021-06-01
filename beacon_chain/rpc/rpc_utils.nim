@@ -23,13 +23,13 @@ template withStateForStateId*(stateId: string, body: untyped): untyped =
   template isState(state: StateData): bool =
     state.blck.atSlot(getStateField(state, slot)) == bs
 
-  if isState(node.chainDag.headState):
-    withStateVars(node.chainDag.headState):
+  if isState(node.dag.headState):
+    withStateVars(node.dag.headState):
       var cache {.inject.}: StateCache
       body
   else:
-    let rpcState = assignClone(node.chainDag.headState)
-    node.chainDag.withState(rpcState[], bs):
+    let rpcState = assignClone(node.dag.headState)
+    node.dag.withState(rpcState[], bs):
       body
 
 proc toBlockSlot*(blckRef: BlockRef): BlockSlot =
@@ -45,7 +45,7 @@ func checkEpochToSlotOverflow*(epoch: Epoch) {.raises: [Defect, ValueError].} =
       ValueError, "Requesting epoch for which slot would overflow")
 
 proc doChecksAndGetCurrentHead*(node: BeaconNode, slot: Slot): BlockRef {.raises: [Defect, CatchableError].} =
-  result = node.chainDag.head
+  result = node.dag.head
   if not node.isSynced(result):
     raise newException(CatchableError, "Cannot fulfill request until node is synced")
   # TODO for now we limit the requests arbitrarily by up to 2 epochs into the future
@@ -68,18 +68,18 @@ proc getBlockSlotFromString*(node: BeaconNode, slot: string): BlockSlot {.raises
 proc stateIdToBlockSlot*(node: BeaconNode, stateId: string): BlockSlot {.raises: [Defect, CatchableError].} =
   case stateId:
   of "head":
-    node.chainDag.head.toBlockSlot()
+    node.dag.head.toBlockSlot()
   of "genesis":
-    node.chainDag.getGenesisBlockSlot()
+    node.dag.getGenesisBlockSlot()
   of "finalized":
-    node.chainDag.finalizedHead
+    node.dag.finalizedHead
   of "justified":
-    node.chainDag.head.atEpochStart(
-      getStateField(node.chainDag.headState, current_justified_checkpoint).epoch)
+    node.dag.head.atEpochStart(
+      getStateField(node.dag.headState, current_justified_checkpoint).epoch)
   else:
     if stateId.startsWith("0x"):
       let blckRoot = parseRoot(stateId)
-      let blckRef = node.chainDag.getRef(blckRoot)
+      let blckRef = node.dag.getRef(blckRoot)
       if blckRef.isNil:
         raise newException(CatchableError, "Block not found")
       blckRef.toBlockSlot()

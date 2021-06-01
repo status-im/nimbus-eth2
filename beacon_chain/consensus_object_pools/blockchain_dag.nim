@@ -9,7 +9,7 @@
 
 import
   std/[options, sequtils, tables, sets],
-  stew/assign2,
+  stew/[assign2, byteutils],
   metrics, snappy, chronicles,
   ../ssz/[ssz_serialization, merkleization], ../beacon_chain_db, ../extras,
   ../spec/[
@@ -44,7 +44,7 @@ declareGauge beacon_processed_deposits_total, "Number of total deposits included
 logScope: topics = "chaindag"
 
 proc putBlock*(
-    dag: var ChainDAGRef, signedBlock: TrustedSignedBeaconBlock) =
+    dag: ChainDAGRef, signedBlock: TrustedSignedBeaconBlock) =
   dag.db.putBlock(signedBlock)
 
 proc updateStateData*(
@@ -111,12 +111,29 @@ func get_effective_balances(validators: openArray[Validator], epoch: Epoch):
     if validator[].is_active_validator(epoch):
       result[i] = validator[].effective_balance
 
-func init(
-    T: type EpochRef, state: StateData, cache: var StateCache,
-    prevEpoch: EpochRef): T =
+proc updateValidatorKeys*(dag: ChainDAGRef, validators: openArray[Validator]) =
+  # Update validator key cache - must be called every time a state is loaded
+  # from database or a block is applied successfully (from anywhere).
+  # The validator key indexing is shared across all histories, and grows when a
+  # validated block is added.
+  while dag.validatorKeys.len() < validators.len():
+    let key = validators[dag.validatorKeys.len()].pubkey.load()
+    if not key.isSome():
+      # State keys are verified when deposit is processed - a state should never
+      # contain invalid keys
+      fatal "Invalid pubkey in state",
+        validator_index = dag.validatorKeys.len(),
+        raw = toHex(validators[dag.validatorKeys.len()].pubkey.toRaw())
+      quit 1
+    dag.validatorKeys.add(key.get())
+
+func init*(
+    T: type EpochRef, dag: ChainDAGRef, state: StateData,
+    cache: var StateCache): T =
   let
     epoch = state.get_current_epoch()
     epochRef = EpochRef(
+      dag: dag, # This gives access to the validator pubkeys through an EpochRef
       epoch: epoch,
       eth1_data: getStateField(state, eth1_data),
       eth1_deposit_index: getStateField(state, eth1_deposit_index),
@@ -126,47 +143,8 @@ func init(
       shuffled_active_validator_indices:
         cache.get_shuffled_active_validator_indices(state, epoch))
   for i in 0'u64..<SLOTS_PER_EPOCH:
-    let idx = get_beacon_proposer_index(
+    epochRef.beacon_proposers[i] = get_beacon_proposer_index(
       state.data.data, cache, epoch.compute_start_slot_at_epoch() + i)
-    if idx.isSome():
-      epochRef.beacon_proposers[i] =
-        some((idx.get(), getStateField(state, validators)[idx.get].pubkey))
-
-  # Validator sets typically don't change between epochs - a more efficient
-  # scheme could be devised where parts of the validator key set is reused
-  # between epochs because in a single history, the validator set only
-  # grows - this however is a trivially implementable compromise.
-
-  # The validators root is cached in the state, so we can quickly compare
-  # it to see if it remains unchanged - effective balances in the validator
-  # information may however result in a different root, even if the public
-  # keys are the same
-
-  let validators_root = hash_tree_root(getStateField(state, validators))
-
-  template sameKeys(a: openArray[ValidatorPubKey], b: openArray[Validator]): bool =
-    if a.len != b.len:
-      false
-    else:
-      block:
-        var ret = true
-        for i, key in a:
-          if key != b[i].pubkey:
-            ret = false
-            break
-        ret
-
-  if prevEpoch != nil and (
-    prevEpoch.validator_key_store[0] == validators_root or
-      sameKeys(
-        prevEpoch.validator_key_store[1][],
-        getStateField(state, validators).asSeq)):
-    epochRef.validator_key_store =
-      (validators_root, prevEpoch.validator_key_store[1])
-  else:
-    epochRef.validator_key_store = (
-      validators_root,
-      newClone(mapIt(getStateField(state, validators).toSeq, it.pubkey)))
 
   # When fork choice runs, it will need the effective balance of the justified
   # checkpoint - we pre-load the balances here to avoid rewinding the justified
@@ -300,8 +278,7 @@ func loadStateCache(
         if epochRef.epoch == epoch:
           for i, idx in epochRef.beacon_proposers:
             cache.beacon_proposer_indices[
-              epoch.compute_start_slot_at_epoch + i] =
-                if idx.isSome: some(idx.get()[0]) else: none(ValidatorIndex)
+              epoch.compute_start_slot_at_epoch + i] = idx
 
   load(epoch)
 
@@ -422,7 +399,7 @@ proc init*(T: type ChainDAGRef,
     #      would be a good recovery model?
     raiseAssert "No state found in head history, database corrupt?"
 
-  let res = ChainDAGRef(
+  let dag = ChainDAGRef(
     blocks: blocks,
     tail: tailRef,
     genesis: genesisRef,
@@ -438,10 +415,12 @@ proc init*(T: type ChainDAGRef,
     runtimePreset: preset,
   )
 
-  doAssert res.updateFlags in [{}, {verifyFinalization}]
+  doAssert dag.updateFlags in [{}, {verifyFinalization}]
+
+  dag.updateValidatorKeys(getStateField(dag.headState, validators).asSeq())
 
   var cache: StateCache
-  res.updateStateData(res.headState, headRef.atSlot(headRef.slot), false, cache)
+  dag.updateStateData(dag.headState, headRef.atSlot(headRef.slot), false, cache)
   # We presently save states on the epoch boundary - it means that the latest
   # state we loaded might be older than head block - nonetheless, it will be
   # from the same epoch as the head, thus the finalized and justified slots are
@@ -449,22 +428,22 @@ proc init*(T: type ChainDAGRef,
   # When we start from a snapshot state, the `finalized_checkpoint` in the
   # snapshot will point to an even older state, but we trust the tail state
   # (the snapshot) to be finalized, hence the `max` expression below.
-  let finalizedEpoch = max(getStateField(res.headState, finalized_checkpoint).epoch,
+  let finalizedEpoch = max(getStateField(dag.headState, finalized_checkpoint).epoch,
                            tailRef.slot.epoch)
-  res.finalizedHead = headRef.atEpochStart(finalizedEpoch)
+  dag.finalizedHead = headRef.atEpochStart(finalizedEpoch)
 
-  res.clearanceState = res.headState
+  dag.clearanceState = dag.headState
 
   # Pruning metadata
-  res.lastPrunePoint = res.finalizedHead
+  dag.lastPrunePoint = dag.finalizedHead
 
   info "Block dag initialized",
     head = shortLog(headRef),
-    finalizedHead = shortLog(res.finalizedHead),
+    finalizedHead = shortLog(dag.finalizedHead),
     tail = shortLog(tailRef),
     totalBlocks = blocks.len
 
-  res
+  dag
 
 func getEpochRef*(
     dag: ChainDAGRef, state: StateData, cache: var StateCache): EpochRef =
@@ -474,12 +453,7 @@ func getEpochRef*(
 
   var epochRef = dag.findEpochRef(blck, epoch)
   if epochRef == nil:
-    let
-      ancestor = blck.epochAncestor(epoch)
-      prevEpochRef = if epoch < 1: nil
-                     else: dag.findEpochRef(blck, epoch - 1)
-
-    epochRef = EpochRef.init(state, cache, prevEpochRef)
+    epochRef = EpochRef.init(dag, state, cache)
 
     if epoch >= dag.finalizedHead.slot.epoch():
       # Only cache epoch information for unfinalized blocks - earlier states
@@ -499,20 +473,9 @@ func getEpochRef*(
         if candidate[1].epoch < dag.epochRefs[oldest][1].epoch:
           oldest = x
 
+      let
+        ancestor = blck.epochAncestor(epoch)
       dag.epochRefs[oldest] = (ancestor.blck, epochRef)
-
-      # Because key stores are additive lists, we can use a newer list whereever an
-      # older list is expected - all indices in the new list will be valid for the
-      # old list also
-      if epoch > 0:
-        var cur = ancestor.blck.epochAncestor(epoch - 1)
-        while cur.slot >= dag.finalizedHead.slot:
-          let er = dag.findEpochRef(cur.blck, cur.slot.epoch)
-          if er != nil:
-            er.validator_key_store = epochRef.validator_key_store
-          if cur.slot.epoch == 0:
-            break
-          cur = cur.blck.epochAncestor(cur.slot.epoch - 1)
 
   epochRef
 
@@ -551,6 +514,11 @@ proc getState(
 
   state.blck = blck
   state.data.root = stateRoot
+
+  # In case a newer state is loaded from database than we previously knew - this
+  # is in theory possible if the head state we load on init is older than
+  # some other random known state in the database
+  dag.updateValidatorKeys(getStateField(state, validators).asSeq())
 
   true
 
@@ -724,6 +692,9 @@ proc applyBlock(
     cache, rewards, flags + dag.updateFlags + {slotProcessed}, restore)
   if ok:
     state.blck = blck.refs
+
+  # New validators might have been added by block (on startup for example)
+  dag.updateValidatorKeys(getStateField(state, validators).asSeq())
 
   ok
 
@@ -993,7 +964,7 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
 proc updateHead*(
       dag: ChainDAGRef,
       newHead: BlockRef,
-      quarantine: var QuarantineRef) =
+      quarantine: QuarantineRef) =
   ## Update what we consider to be the current head, as given by the fork
   ## choice.
   ##
@@ -1168,10 +1139,19 @@ func getGenesisBlockSlot*(dag: ChainDAGRef): BlockSlot =
   BlockSlot(blck: dag.genesis, slot: GENESIS_SLOT)
 
 proc getProposer*(
-    dag: ChainDAGRef, head: BlockRef, slot: Slot):
-    Option[(ValidatorIndex, ValidatorPubKey)] =
+    dag: ChainDAGRef, head: BlockRef, slot: Slot): Option[ValidatorIndex] =
   let
     epochRef = dag.getEpochRef(head, slot.compute_epoch_at_slot())
     slotInEpoch = slot - slot.compute_epoch_at_slot().compute_start_slot_at_epoch()
 
-  epochRef.beacon_proposers[slotInEpoch]
+  let proposer = epochRef.beacon_proposers[slotInEpoch]
+  if proposer.isSome():
+    if proposer.get().uint64 >= dag.validatorKeys.lenu64():
+      # Sanity check - it should never happen that the key cache doesn't contain
+      # a key for the selected proposer - that would mean that we somehow
+      # created validators in the state without updating the cache!
+      warn "Proposer key not found",
+        keys = dag.validatorKeys.lenu64(), proposer = proposer.get()
+      return none(ValidatorIndex)
+
+  proposer

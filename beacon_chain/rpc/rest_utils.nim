@@ -469,7 +469,7 @@ proc getRouter*(): RestRouter =
 
 proc getCurrentHead*(node: BeaconNode,
                      slot: Slot): Result[BlockRef, cstring] =
-  let res = node.chainDag.head
+  let res = node.dag.head
   # if not(node.isSynced(res)):
   #   return err("Cannot fulfill request until node is synced")
   if res.slot + uint64(2 * SLOTS_PER_EPOCH) < slot:
@@ -495,21 +495,21 @@ proc getBlockSlot*(node: BeaconNode,
       return err("Block not found")
     ok(bslot)
   of StateQueryKind.Root:
-    let blckRef = node.chainDag.getRef(stateIdent.root)
+    let blckRef = node.dag.getRef(stateIdent.root)
     if isNil(blckRef):
       return err("Block not found")
     ok(blckRef.toBlockSlot())
   of StateQueryKind.Named:
     case stateIdent.value
     of StateIdentType.Head:
-      ok(node.chainDag.head.toBlockSlot())
+      ok(node.dag.head.toBlockSlot())
     of StateIdentType.Genesis:
-      ok(node.chainDag.getGenesisBlockSlot())
+      ok(node.dag.getGenesisBlockSlot())
     of StateIdentType.Finalized:
-      ok(node.chainDag.finalizedHead)
+      ok(node.dag.finalizedHead)
     of StateIdentType.Justified:
-      ok(node.chainDag.head.atEpochStart(
-         getStateField(node.chainDag.headState, current_justified_checkpoint).epoch))
+      ok(node.dag.head.atEpochStart(
+         getStateField(node.dag.headState, current_justified_checkpoint).epoch))
 
 proc getBlockDataFromBlockIdent*(node: BeaconNode,
                                  id: BlockIdent): Result[BlockData, cstring] =
@@ -517,13 +517,13 @@ proc getBlockDataFromBlockIdent*(node: BeaconNode,
   of BlockQueryKind.Named:
     case id.value
     of BlockIdentType.Head:
-      ok(node.chainDag.get(node.chainDag.head))
+      ok(node.dag.get(node.dag.head))
     of BlockIdentType.Genesis:
-      ok(node.chainDag.getGenesisBlockData())
+      ok(node.dag.getGenesisBlockData())
     of BlockIdentType.Finalized:
-      ok(node.chainDag.get(node.chainDag.finalizedHead.blck))
+      ok(node.dag.get(node.dag.finalizedHead.blck))
   of BlockQueryKind.Root:
-    let res = node.chainDag.get(id.root)
+    let res = node.dag.get(id.root)
     if res.isNone():
       return err("Block not found")
     ok(res.get())
@@ -532,20 +532,20 @@ proc getBlockDataFromBlockIdent*(node: BeaconNode,
     let blockSlot = head.atSlot(id.slot)
     if isNil(blockSlot.blck):
       return err("Block not found")
-    ok(node.chainDag.get(blockSlot.blck))
+    ok(node.dag.get(blockSlot.blck))
 
 template withStateForBlockSlot*(node: BeaconNode,
                                 blockSlot: BlockSlot, body: untyped): untyped =
   template isState(state: StateData): bool =
     state.blck.atSlot(getStateField(state, slot)) == blockSlot
 
-  if isState(node.chainDag.headState):
-    withStateVars(node.chainDag.headState):
+  if isState(node.dag.headState):
+    withStateVars(node.dag.headState):
       var cache {.inject.}: StateCache
       body
   else:
-    let rpcState = assignClone(node.chainDag.headState)
-    node.chainDag.withState(rpcState[], blockSlot):
+    let rpcState = assignClone(node.dag.headState)
+    node.dag.withState(rpcState[], blockSlot):
       body
 
 proc toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
