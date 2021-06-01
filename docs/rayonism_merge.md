@@ -1,6 +1,6 @@
 # How to run Catalyst
 
-- Clone Geth master into ~/client/catalyst: `git clone https://github.com/ethereum/go-ethereum ~/client/catalyst`
+- Clone Geth master into ~/client/catalyst: `git clone https://github.com/ethereum/go-ethereum ~/clients/catalyst`
 - Build Geth and Catalyst with `go build -o ./build/bin/catalyst ./cmd/geth`
 - Run `scripts/run-catalyst.sh` to run Catalyst. It listens on port 8545.
 
