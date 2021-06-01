@@ -100,15 +100,14 @@ func parentOrSlot*(bs: BlockSlot): BlockSlot =
   else:
     BlockSlot(blck: bs.blck, slot: bs.slot - 1)
 
-func get_effective_balances(state: StateData): seq[Gwei] =
+func get_effective_balances(validators: openArray[Validator], epoch: Epoch):
+    seq[Gwei] =
   ## Get the balances from a state as counted for fork choice
-  result.newSeq(getStateField(state, validators).len) # zero-init
-
-  let epoch = get_current_epoch(state)
+  result.newSeq(validators.len) # zero-init
 
   for i in 0 ..< result.len:
     # All non-active validators have a 0 balance
-    let validator = unsafeAddr getStateField(state, validators)[i]
+    let validator = unsafeAddr validators[i]
     if validator[].is_active_validator(epoch):
       result[i] = validator[].effective_balance
 
@@ -181,8 +180,8 @@ func init(
 
   epochRef.effective_balances_bytes =
     snappyEncode(SSZ.encode(
-      List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT](
-        get_effective_balances(state))))
+      List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT](get_effective_balances(
+        getStateField(state, validators).asSeq, get_current_epoch(state)))))
 
   epochRef
 
