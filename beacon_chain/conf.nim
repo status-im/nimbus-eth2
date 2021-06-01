@@ -326,7 +326,7 @@ type
         name: "direct-peer" .}: seq[string]
 
       doppelgangerDetection* {.
-        desc: "Whether to detect whether another validator is be running the same validator keys"
+        desc: "If enabled, the beacon node prudently listens for 2 epochs for attestations from a validator with the same index (a doppelganger), before sending an attestation itself. This prevents slashing due to double-voting but means you will miss two attestations when restarting."
         defaultValue: true
         name: "doppelganger-detection"
       }: bool
