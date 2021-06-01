@@ -86,12 +86,13 @@ proc doTransition(conf: NcliConf) =
   var
     cache = StateCache()
     rewards = RewardInfo()
-  if not state_transition(getRuntimePresetForNetwork(conf.eth2Network),
-                          stateY[], blckX, cache, rewards, flags, noRollback):
-    error "State transition failed"
-    quit 1
-  else:
-    SSZ.saveFile(conf.postState, stateY.data)
+  when false:
+    if not state_transition(getRuntimePresetForNetwork(conf.eth2Network),
+                            stateY[], blckX, cache, rewards, flags, noRollback):
+      error "State transition failed"
+      quit 1
+    else:
+      SSZ.saveFile(conf.postState, stateY.data)
 
 proc doSlots(conf: NcliConf) =
   type

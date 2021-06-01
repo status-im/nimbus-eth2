@@ -117,13 +117,11 @@ proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
         HashedBeaconState(data: data.state, root: hash_tree_root(data.state))
       cache = StateCache()
       rewards = RewardInfo()
-    result =
-      state_transition(
-        preset, hashedState, blck, cache, rewards, flags, rollback)
+    when false:
+      result =
+        state_transition(
+          preset, hashedState, blck, cache, rewards, flags, rollback)
     data.state = hashedState.data
-
-  decodeAndProcess(BlockInput):
-    state_transition(defaultRuntimePreset, data, data.beaconBlock, flags, noRollback)
 
 proc nfuzz_block_header(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =

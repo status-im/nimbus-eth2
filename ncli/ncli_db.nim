@@ -207,11 +207,12 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
     withTimer(timers[tApplyBlock]):
       if conf.resetCache:
         cache = StateCache()
-      if not state_transition(
-          runtimePreset, state[].data, b, cache, rewards, {slotProcessed}, noRollback):
-        dump("./", b)
-        echo "State transition failed (!)"
-        quit 1
+      when false:
+        if not state_transition(
+            runtimePreset, state[].data, b, cache, rewards, {slotProcessed}, noRollback):
+          dump("./", b)
+          echo "State transition failed (!)"
+          quit 1
     if conf.printTimes:
       echo b.message.slot, ",", toHex(b.root.data), ",", nanoseconds(Moment.now() - start)
     if conf.storeBlocks:
@@ -529,10 +530,11 @@ proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimePreset) =
       if getStateField(state[], slot).isEpoch():
         processEpoch()
 
-    if not state_transition(
-        runtimePreset, state[].data, blck, cache, rewards, {slotProcessed}, noRollback):
-      echo "State transition failed (!)"
-      quit 1
+    when false:
+      if not state_transition(
+          runtimePreset, state[].data, blck, cache, rewards, {slotProcessed}, noRollback):
+        echo "State transition failed (!)"
+        quit 1
 
   # Capture rewards of empty slots as well
   while getStateField(state[], slot) < ends:
@@ -756,10 +758,11 @@ proc cmdValidatorDb(conf: DbConf, runtimePreset: RuntimePreset) =
       if getStateField(state[], slot).isEpoch():
         processEpoch()
 
-    if not state_transition(
-        runtimePreset, state[].data, blck, cache, rewards, {slotProcessed}, noRollback):
-      echo "State transition failed (!)"
-      quit 1
+    when false:
+      if not state_transition(
+          runtimePreset, state[].data, blck, cache, rewards, {slotProcessed}, noRollback):
+        echo "State transition failed (!)"
+        quit 1
 
   # Capture rewards of empty slots as well, including the epoch that got
   # finalized
