@@ -855,7 +855,7 @@ proc updateStateData*(
     assignDur
     replayDur
 
-  if (assignDur + replayDur) >= 1.seconds:
+  if (assignDur + replayDur) >= 250.millis:
     # This might indicate there's a cache that's not in order or a disk that is
     # too slow - for now, it's here for investigative purposes and the cutoff
     # time might need tuning
