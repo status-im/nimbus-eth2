@@ -34,7 +34,7 @@
 - [Back up your database](./database-backup.md)
 - [Set up email notifications](./email-notifications.md)
 - [Graffiti the blockchain](./graffiti.md)
-- [Maximise profits](./profits.md)
+- [Optimise for profitability](./profits.md)
 - [Monitor the health of your node](.health.md)
 - [Increase privacy](./privacy.md)
 
@@ -59,4 +59,5 @@
 - [Resources](./resources.md)
 - [Binary distribution internals](./distribution_internals.md)
 - [Prater: What you should know](./prater.md)
+- [Contribute without a validator](./contribute-network.md)
 - [FAQ](./faq.md)
