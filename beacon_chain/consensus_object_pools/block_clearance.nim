@@ -199,10 +199,12 @@ proc advanceClearanceState*(dag: ChainDagRef) =
     let next =
       dag.clearanceState.blck.atSlot(dag.clearanceState.blck.slot + 1)
 
-    debug "Preparing clearance state for next block", next
-
+    let startTick = Moment.now()
     var cache = StateCache()
     updateStateData(dag, dag.clearanceState, next, true, cache)
+
+    debug "Prepared clearance state for next block",
+      next, updateStateDur = Moment.now() - startTick
 
 proc addRawBlockKnownParent(
        dag: ChainDAGRef, quarantine: QuarantineRef,
