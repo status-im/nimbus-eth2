@@ -237,12 +237,12 @@ proc init*(T: type BeaconNode,
   let
     chainDagFlags = if config.verifyFinalization: {verifyFinalization}
                      else: {}
-    chainDag = ChainDAGRef.init(runtimePreset, db, chainDagFlags)
+    dag = ChainDAGRef.init(runtimePreset, db, chainDagFlags)
     beaconClock =
-      BeaconClock.init(getStateField(chainDag.headState, genesis_time))
+      BeaconClock.init(getStateField(dag.headState, genesis_time))
     quarantine = QuarantineRef.init(rng)
     databaseGenesisValidatorsRoot =
-      getStateField(chainDag.headState, genesis_validators_root)
+      getStateField(dag.headState, genesis_validators_root)
 
   if genesisStateContents.len != 0:
     let
@@ -260,14 +260,14 @@ proc init*(T: type BeaconNode,
       currentSlot = beaconClock.now.slotOrZero
       isCheckpointStale = not is_within_weak_subjectivity_period(
         currentSlot,
-        chainDag.headState,
+        dag.headState,
         config.weakSubjectivityCheckpoint.get)
 
     if isCheckpointStale:
       error "Weak subjectivity checkpoint is stale",
             currentSlot,
             checkpoint = config.weakSubjectivityCheckpoint.get,
-            headStateSlot = getStateField(chainDag.headState, slot)
+            headStateSlot = getStateField(dag.headState, slot)
       quit 1
 
   if checkpointState != nil:
@@ -278,7 +278,7 @@ proc init*(T: type BeaconNode,
             dataDir = config.dataDir
       quit 1
 
-    chainDag.setTailState(checkpointState[], checkpointBlock)
+    dag.setTailState(checkpointState[], checkpointBlock)
 
   if eth1Monitor.isNil and
      config.web3Urls.len > 0 and
@@ -308,13 +308,13 @@ proc init*(T: type BeaconNode,
     nickname = if config.nodeName == "auto": shortForm(netKeys)
                else: config.nodeName
     enrForkId = getENRForkID(
-      getStateField(chainDag.headState, fork),
-      getStateField(chainDag.headState, genesis_validators_root))
+      getStateField(dag.headState, fork),
+      getStateField(dag.headState, genesis_validators_root))
     topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.fork_digest)
     topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.fork_digest)
     network = createEth2Node(rng, config, netKeys, enrForkId)
-    attestationPool = newClone(AttestationPool.init(chainDag, quarantine))
-    exitPool = newClone(ExitPool.init(chainDag, quarantine))
+    attestationPool = newClone(AttestationPool.init(dag, quarantine))
+    exitPool = newClone(ExitPool.init(dag, quarantine))
 
   case config.slashingDbKind
   of SlashingDbKind.v2:
@@ -331,12 +331,12 @@ proc init*(T: type BeaconNode,
   let
     slashingProtectionDB =
       SlashingProtectionDB.init(
-          getStateField(chainDag.headState, genesis_validators_root),
+          getStateField(dag.headState, genesis_validators_root),
           config.validatorsDir(), SlashingDbName)
     validatorPool = newClone(ValidatorPool.init(slashingProtectionDB))
 
     consensusManager = ConsensusManager.new(
-      chainDag, attestationPool, quarantine
+      dag, attestationPool, quarantine
     )
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
@@ -345,7 +345,7 @@ proc init*(T: type BeaconNode,
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
       blockProcessor,
-      chainDag, attestationPool, exitPool, validatorPool,
+      dag, attestationPool, exitPool, validatorPool,
       quarantine,
       rng,
       proc(): BeaconTime = beaconClock.now())
@@ -358,7 +358,7 @@ proc init*(T: type BeaconNode,
     netKeys: netKeys,
     db: db,
     config: config,
-    chainDag: chainDag,
+    dag: dag,
     quarantine: quarantine,
     attestationPool: attestationPool,
     attachedValidators: validatorPool,
@@ -404,7 +404,7 @@ proc init*(T: type BeaconNode,
 
   # This merely configures the BeaconSync
   # The traffic will be started when we join the network.
-  network.initBeaconSync(chainDag, enrForkId.fork_digest)
+  network.initBeaconSync(dag, enrForkId.fork_digest)
 
   node.updateValidatorMetrics()
 
@@ -422,7 +422,7 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
   # during testing.
   if epoch >= 4 and slot mod SLOTS_PER_EPOCH > SETTLING_TIME_OFFSET:
     let finalizedEpoch =
-      node.chainDag.finalizedHead.slot.compute_epoch_at_slot()
+      node.dag.finalizedHead.slot.compute_epoch_at_slot()
     # Finalization rule 234, that has the most lag slots among the cases, sets
     # state.finalized_checkpoint = old_previous_justified_checkpoint.epoch + 3
     # and then state.slot gets incremented, to increase the maximum offset, if
@@ -436,9 +436,9 @@ func toBitArray(stabilitySubnets: auto): BitArray[ATTESTATION_SUBNET_COUNT] =
 proc getAttachedValidators(node: BeaconNode):
     Table[ValidatorIndex, AttachedValidator] =
   for validatorIndex in 0 ..<
-      getStateField(node.chainDag.headState, validators).len:
+      getStateField(node.dag.headState, validators).len:
     let attachedValidator = node.getAttachedValidator(
-      getStateField(node.chainDag.headState, validators),
+      getStateField(node.dag.headState, validators),
       validatorIndex.ValidatorIndex)
     if attachedValidator.isNil:
       continue
@@ -453,13 +453,12 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#lookahead
   # Only subscribe when this node should aggregate; libp2p broadcasting works
   # on subnet topics regardless.
-  let epochRef = node.chainDag.getEpochRef(node.chainDag.head, epoch)
+  let epochRef = node.dag.getEpochRef(node.dag.head, epoch)
 
   # Update proposals
   node.attestationSubnets.proposingSlots[epoch mod 2] = 0
-  for i in 0 ..< SLOTS_PER_EPOCH:
-    let beaconProposer = epochRef.beacon_proposers[i]
-    if beaconProposer.isSome and beaconProposer.get()[0] in attachedValidators:
+  for i, proposer in epochRef.beacon_proposers:
+    if proposer.isSome and proposer.get() in attachedValidators:
       node.attestationsubnets.proposingSlots[epoch mod 2] =
         node.attestationsubnets.proposingSlots[epoch mod 2] or (1'u32 shl i)
 
@@ -471,9 +470,9 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
       is_aggregator(
         committeeLen,
         await attachedValidators[it.ValidatorIndex].getSlotSig(
-          getStateField(node.chainDag.headState, fork),
+          getStateField(node.dag.headState, fork),
           getStateField(
-            node.chainDag.headState, genesis_validators_root), slot)))
+            node.dag.headState, genesis_validators_root), slot)))
 
   node.attestationSubnets.lastCalculatedEpoch = epoch
   node.attestationSubnets.attestingSlots[epoch mod 2] = 0
@@ -547,15 +546,15 @@ proc cycleAttestationSubnetsPerEpoch(
   # calculating future attestation subnets.
 
   # Only know RANDAO mix, which determines shuffling seed, one epoch in
-  # advance. When getStateField(node.chainDag.headState, slot).epoch is
+  # advance. When getStateField(node.dag.headState, slot).epoch is
   # ahead of wallSlot, the clock's just incorrect. If the slot's behind
   # wallSlot, it would have to look more than MIN_SEED_LOOKAHEAD epochs
   # ahead to compute the shuffling determining the beacon committees.
   static: doAssert MIN_SEED_LOOKAHEAD == 1
-  if getStateField(node.chainDag.headState, slot).epoch != wallSlot.epoch:
+  if getStateField(node.dag.headState, slot).epoch != wallSlot.epoch:
     debug "Requested attestation subnets too far in advance",
       wallSlot,
-      stateSlot = getStateField(node.chainDag.headState, slot)
+      stateSlot = getStateField(node.dag.headState, slot)
     return prevStabilitySubnets
 
   # This works so long as at least one block in an epoch provides a basis for
@@ -636,7 +635,7 @@ proc getInitialAggregateSubnets(node: BeaconNode): Table[SubnetId, Slot] =
     # TODO when https://github.com/nim-lang/Nim/issues/15972 and
     # https://github.com/nim-lang/Nim/issues/16217 are fixed, in
     # Nimbus's Nim, use (_, _, subnetIndex, slot).
-    let epochRef = node.chainDag.getEpochRef(node.chainDag.head, epoch)
+    let epochRef = node.dag.getEpochRef(node.dag.head, epoch)
     for (_, ci, subnet_id, slot) in get_committee_assignments(
         epochRef, epoch, validatorIndices):
       result.withValue(subnet_id, v) do:
@@ -823,7 +822,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.raises: [Defect, Catchab
     # this into the node.cycleAttestationSubnets() call.
     debug "Enabling topic subscriptions",
       wallSlot = slot,
-      headSlot = node.chainDag.head.slot,
+      headSlot = node.dag.head.slot,
       syncQueueLen
 
     node.setupDoppelgangerDetection(slot)
@@ -837,7 +836,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.raises: [Defect, Catchab
       syncQueueLen < 2 * slot.uint64:
     debug "Disabling topic subscriptions",
       wallSlot = slot,
-      headSlot = node.chainDag.head.slot,
+      headSlot = node.dag.head.slot,
       syncQueueLen
     node.removeMessageHandlers()
 
@@ -881,13 +880,13 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
   # next slot
 
-  if node.chainDag.needStateCachesAndForkChoicePruning():
+  if node.dag.needStateCachesAndForkChoicePruning():
     if node.attachedValidators.validators.len > 0:
       node.attachedValidators
           .slashingProtection
           # pruning is only done if the DB is set to pruning mode.
           .pruneAfterFinalization(
-            node.chainDag.finalizedHead.slot.compute_epoch_at_slot()
+            node.dag.finalizedHead.slot.compute_epoch_at_slot()
           )
 
   # Delay part of pruning until latency critical duties are done.
@@ -910,17 +909,6 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # the database are synced with the filesystem.
   node.db.checkpoint()
 
-  # When we're not behind schedule, we'll speculatively update the clearance
-  # state in anticipation of receiving the next block
-  if node.beaconClock.now() + 500.millis < (slot+1).toBeaconTime():
-    # This is not a perfect location to be calling advance since the block
-    # for the current slot may have not arrived yet, specially when running
-    # a node that is not attesting - there's a small chance we'll call
-    # advance twice for a block and not at all for the next because of these
-    # timing effect - this is fine, except for the missed opportunity to
-    # speculate
-    node.chainDag.advanceClearanceState()
-
   # -1 is a more useful output than 18446744073709551615 as an indicator of
   # no future attestation/proposal known.
   template displayInt64(x: Slot): int64 =
@@ -942,11 +930,11 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   info "Slot end",
     slot = shortLog(slot),
     nextSlot = shortLog(slot + 1),
-    head = shortLog(node.chainDag.head),
-    headEpoch = shortLog(node.chainDag.head.slot.compute_epoch_at_slot()),
-    finalizedHead = shortLog(node.chainDag.finalizedHead.blck),
+    head = shortLog(node.dag.head),
+    headEpoch = shortLog(node.dag.head.slot.compute_epoch_at_slot()),
+    finalizedHead = shortLog(node.dag.finalizedHead.blck),
     finalizedEpoch =
-      shortLog(node.chainDag.finalizedHead.blck.slot.compute_epoch_at_slot()),
+      shortLog(node.dag.finalizedHead.blck.slot.compute_epoch_at_slot()),
     nextAttestationSlot = displayInt64(nextAttestationSlot),
     nextProposalSlot = displayInt64(nextProposalSlot),
     nextActionWait =
@@ -959,6 +947,20 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     next_action_wait.set(nextActionWaitTime.toFloatSeconds)
 
   node.updateGossipStatus(slot)
+
+  # When we're not behind schedule, we'll speculatively update the clearance
+  # state in anticipation of receiving the next block - we do it after logging
+  # slot end since the nextActionWaitTime can be short
+  let
+    advanceCutoff = node.beaconClock.fromNow(
+      slot.toBeaconTime(chronos.seconds(int(SECONDS_PER_SLOT - 1))))
+  if advanceCutoff.inFuture:
+    # We wait until there's only a second left before the next slot begins, then
+    # we advance the clearance state to the next slot - this gives us a high
+    # probability of being prepared for the block that will arrive and the
+    # epoch processing that follows
+    await sleepAsync(advanceCutoff.offset)
+    node.dag.advanceClearanceState()
 
 proc onSlotStart(
     node: BeaconNode, wallTime: BeaconTime, lastSlot: Slot) {.async.} =
@@ -974,7 +976,7 @@ proc onSlotStart(
     # If everything was working perfectly, the slot that we should be processing
     expectedSlot = lastSlot + 1
     finalizedEpoch =
-      node.chainDag.finalizedHead.blck.slot.compute_epoch_at_slot()
+      node.dag.finalizedHead.blck.slot.compute_epoch_at_slot()
     delay = wallTime - expectedSlot.toBeaconTime()
 
   info "Slot start",
@@ -982,9 +984,9 @@ proc onSlotStart(
     wallSlot = shortLog(wallSlot),
     delay = shortLog(delay),
     peers = len(node.network.peerPool),
-    head = shortLog(node.chainDag.head),
-    headEpoch = shortLog(node.chainDag.head.slot.compute_epoch_at_slot()),
-    finalized = shortLog(node.chainDag.finalizedHead.blck),
+    head = shortLog(node.dag.head),
+    headEpoch = shortLog(node.dag.head.slot.compute_epoch_at_slot()),
+    finalized = shortLog(node.dag.finalizedHead.blck),
     finalizedEpoch = shortLog(finalizedEpoch),
     sync =
       if node.syncManager.inProgress: node.syncManager.syncStatus
@@ -1106,13 +1108,13 @@ proc runOnSecondLoop(node: BeaconNode) {.async.} =
 
 proc startSyncManager(node: BeaconNode) =
   func getLocalHeadSlot(): Slot =
-    node.chainDag.head.slot
+    node.dag.head.slot
 
   proc getLocalWallSlot(): Slot =
     node.beaconClock.now().slotOrZero
 
   func getFirstSlotAtFinalizedEpoch(): Slot =
-    node.chainDag.finalizedHead.slot
+    node.dag.finalizedHead.slot
 
   proc scoreCheck(peer: Peer): bool =
     if peer.score < PeerScoreLowLimit:
@@ -1299,8 +1301,8 @@ func shouldWeStartWeb3(node: BeaconNode): bool =
 
 proc start(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   let
-    head = node.chainDag.head
-    finalizedHead = node.chainDag.finalizedHead
+    head = node.dag.head
+    finalizedHead = node.dag.finalizedHead
     genesisTime = node.beaconClock.fromNow(toBeaconTime(Slot 0))
 
   notice "Starting beacon node",
@@ -1356,8 +1358,8 @@ proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
     error "Couldn't enable colors", err = exc.msg
 
   proc dataResolver(expr: string): string {.raises: [Defect].} =
-    template justified: untyped = node.chainDag.head.atEpochStart(
-      getStateField(node.chainDag.headState, current_justified_checkpoint).epoch)
+    template justified: untyped = node.dag.head.atEpochStart(
+      getStateField(node.dag.headState, current_justified_checkpoint).epoch)
     # TODO:
     # We should introduce a general API for resolving dot expressions
     # such as `db.latest_block.slot` or `metrics.connected_peers`.
@@ -1370,13 +1372,13 @@ proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
       $(node.connectedPeersCount)
 
     of "head_root":
-      shortLog(node.chainDag.head.root)
+      shortLog(node.dag.head.root)
     of "head_epoch":
-      $(node.chainDag.head.slot.epoch)
+      $(node.dag.head.slot.epoch)
     of "head_epoch_slot":
-      $(node.chainDag.head.slot mod SLOTS_PER_EPOCH)
+      $(node.dag.head.slot mod SLOTS_PER_EPOCH)
     of "head_slot":
-      $(node.chainDag.head.slot)
+      $(node.dag.head.slot)
 
     of "justifed_root":
       shortLog(justified.blck.root)
@@ -1388,13 +1390,13 @@ proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
       $(justified.slot)
 
     of "finalized_root":
-      shortLog(node.chainDag.finalizedHead.blck.root)
+      shortLog(node.dag.finalizedHead.blck.root)
     of "finalized_epoch":
-      $(node.chainDag.finalizedHead.slot.epoch)
+      $(node.dag.finalizedHead.slot.epoch)
     of "finalized_epoch_slot":
-      $(node.chainDag.finalizedHead.slot mod SLOTS_PER_EPOCH)
+      $(node.dag.finalizedHead.slot mod SLOTS_PER_EPOCH)
     of "finalized_slot":
-      $(node.chainDag.finalizedHead.slot)
+      $(node.dag.finalizedHead.slot)
 
     of "epoch":
       $node.currentSlot.epoch

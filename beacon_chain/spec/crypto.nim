@@ -25,7 +25,7 @@
 
 import
   # Standard library
-  std/[options, hashes, tables],
+  std/[options, hashes, sequtils, tables],
   # Internal
   ./digest,
   # Status
@@ -46,13 +46,14 @@ const
   # RawPrivKeySize* = 48 for Miracl / 32 for BLST
 
 type
-  # BLS deserialization is a bit slow, so we deserialize public keys and
-  # signatures lazily - this helps operations like comparisons and hashes to
-  # be fast (which is important), makes loading blocks and states fast, and
-  # allows invalid values in the SSZ byte stream, which is valid from an SSZ
-  # point of view - the invalid values are caught later
+  # Raw serialized key bytes - this type is used in so as to not eagerly
+  # load keys - deserialization is slow, as are equality checks - however, it
+  # is not guaranteed that the key is valid (except in some cases, like the
+  # database state)
   ValidatorPubKey* = object
     blob*: array[RawPubKeySize, byte]
+
+  CookedPubKey* = distinct blscurve.PublicKey ## Valid deserialized key
 
   ValidatorSig* = object
     blob*: array[RawSigSize, byte]
@@ -78,21 +79,37 @@ export AggregateSignature
 # ----------------------------------------------------------------------
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#bls-signatures
 
-func toPubKey*(privkey: ValidatorPrivKey): ValidatorPubKey =
+func toPubKey*(privkey: ValidatorPrivKey): CookedPubKey =
   ## Derive a public key from a private key
   # Un-specced in either hash-to-curve or Eth2
   var pubKey: blscurve.PublicKey
   let ok = publicFromSecret(pubKey, SecretKey privkey)
   doAssert ok, "The validator private key was a zero key. This should never happen."
 
-  ValidatorPubKey(blob: pubKey.exportRaw())
+  CookedPubKey(pubKey)
 
-proc loadWithCache*(v: ValidatorPubKey): Option[blscurve.PublicKey] =
+template toRaw*(x: CookedPubKey): auto =
+  PublicKey(x).exportRaw()
+
+func toPubKey*(pubKey: CookedPubKey): ValidatorPubKey =
+  ## Derive a public key from a private key
+  # Un-specced in either hash-to-curve or Eth2
+  ValidatorPubKey(blob: pubKey.toRaw())
+
+proc load*(v: ValidatorPubKey): Option[CookedPubKey] =
+  ## Parse signature blob - this may fail
+  var val: blscurve.PublicKey
+  if fromBytes(val, v.blob):
+    some CookedPubKey(val)
+  else:
+    none CookedPubKey
+
+proc loadWithCache*(v: ValidatorPubKey): Option[CookedPubKey] =
   ## Parse public key blob - this may fail - this function uses a cache to
   ## avoid the expensive deserialization - for now, external public keys only
   ## come from deposits in blocks - when more sources are added, the memory
   ## usage of the cache should be considered
-  var cache {.threadvar.}: Table[typeof(v.blob), blscurve.PublicKey]
+  var cache {.threadvar.}: Table[typeof(v.blob), CookedPubKey]
 
   # Try to get parse value from cache - if it's not in there, try to parse it -
   # if that's not possible, it's broken
@@ -100,12 +117,10 @@ proc loadWithCache*(v: ValidatorPubKey): Option[blscurve.PublicKey] =
     return some key[]
   do:
     # Only valid keys are cached
-    var val: blscurve.PublicKey
-    return
-      if fromBytes(val, v.blob):
-        some cache.mGetOrPut(v.blob, val)
-      else:
-        none blscurve.PublicKey
+    let cooked = v.load()
+    if cooked.isSome():
+      cache[v.blob] = cooked.get()
+    return cooked
 
 proc load*(v: ValidatorSig): Option[CookedSig] =
   ## Parse signature blob - this may fail
@@ -114,6 +129,23 @@ proc load*(v: ValidatorSig): Option[CookedSig] =
     some(CookedSig(parsed))
   else:
     none(CookedSig)
+
+func init*(agg: var AggregatePublicKey, pubkey: CookedPubKey) {.inline.}=
+  ## Initializes an aggregate signature context
+  agg.init(blscurve.PublicKey(pubkey))
+
+func init*(T: type AggregatePublicKey, pubkey: CookedPubKey): T =
+  result.init(pubkey)
+
+proc aggregate*(agg: var AggregatePublicKey, pubkey: CookedPubKey) {.inline.}=
+  ## Aggregate two valid Validator Public Keys
+  agg.aggregate(blscurve.PublicKey(pubkey))
+
+func finish*(agg: AggregatePublicKey): CookedPubKey {.inline.} =
+  ## Canonicalize an AggregatePublicKey into a signature
+  var pubkey: blscurve.PublicKey
+  pubkey.finish(agg)
+  CookedPubKey(pubkey)
 
 func init*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
   ## Initializes an aggregate signature context
@@ -134,7 +166,7 @@ func finish*(agg: AggregateSignature): CookedSig {.inline.} =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#bls-signatures
 proc blsVerify*(
-    pubkey: ValidatorPubKey, message: openArray[byte],
+    pubkey: CookedPubKey, message: openArray[byte],
     signature: CookedSig): bool =
   ## Check that a signature is valid for a message
   ## under the provided public key.
@@ -143,24 +175,32 @@ proc blsVerify*(
   ## The proof-of-possession MUST be verified before calling this function.
   ## It is recommended to use the overload that accepts a proof-of-possession
   ## to enforce correct usage.
+  PublicKey(pubkey).verify(message, blscurve.Signature(signature))
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#bls-signatures
+proc blsVerify*(
+    pubkey: ValidatorPubKey, message: openArray[byte],
+    signature: CookedSig): bool =
+  ## Check that a signature is valid for a message
+  ## under the provided public key.
+  ## returns `true` if the signature and the pubkey is valid, `false` otherwise.
+  ##
+  ## The proof-of-possession MUST be verified before calling this function.
+  ## It is recommended to use the overload that accepts a proof-of-possession
+  ## to enforce correct usage.
   let
     parsedKey = pubkey.loadWithCache()
 
-  # It may happen that signatures or keys fail to parse as invalid blobs may
-  # be passed around - for example, the deposit contract doesn't verify
-  # signatures, so the loading happens lazily at verification time instead!
-  parsedKey.isSome() and
-    parsedKey.get.verify(message, blscurve.Signature(signature))
+  # Guard against invalid signature blobs that fail to parse
+  parsedKey.isSome() and blsVerify(parsedKey.get(), message, signature)
 
 proc blsVerify*(
-    pubkey: ValidatorPubKey, message: openArray[byte],
+    pubkey: ValidatorPubKey | CookedPubKey, message: openArray[byte],
     signature: ValidatorSig): bool =
-  let parsedSig = signature.load()
-
-  if parsedSig.isNone():
-    false
-  else:
-    blsVerify(pubkey, message, parsedSig.get())
+  let
+    parsedSig = signature.load()
+  # Guard against invalid signature blobs that fail to parse
+  parsedSig.isSome() and blsVerify(pubkey, message, parsedSig.get())
 
 proc blsVerify*(sigSet: SignatureSet): bool =
   ## Unbatched verification
@@ -177,7 +217,7 @@ func blsSign*(privkey: ValidatorPrivKey, message: openArray[byte]): CookedSig =
   CookedSig(SecretKey(privkey).sign(message))
 
 proc blsFastAggregateVerify*(
-       publicKeys: openArray[ValidatorPubKey],
+       publicKeys: openArray[CookedPubKey],
        message: openArray[byte],
        signature: CookedSig
      ): bool =
@@ -199,14 +239,30 @@ proc blsFastAggregateVerify*(
   #           in blscurve which already exists internally
   #         - or at network/databases/serialization boundaries we do not
   #           allow invalid BLS objects to pollute consensus routines
+  let keys = mapIt(publicKeys, PublicKey(it))
+  fastAggregateVerify(keys, message, blscurve.Signature(signature))
+
+proc blsFastAggregateVerify*(
+       publicKeys: openArray[ValidatorPubKey],
+       message: openArray[byte],
+       signature: CookedSig
+     ): bool =
   var unwrapped: seq[PublicKey]
   for pubkey in publicKeys:
     let realkey = pubkey.loadWithCache()
     if realkey.isNone:
       return false
-    unwrapped.add realkey.get
+    unwrapped.add PublicKey(realkey.get)
 
   fastAggregateVerify(unwrapped, message, blscurve.Signature(signature))
+
+proc blsFastAggregateVerify*(
+       publicKeys: openArray[CookedPubKey],
+       message: openArray[byte],
+       signature: ValidatorSig
+     ): bool =
+  let parsedSig = signature.load()
+  parsedSig.isSome and blsFastAggregateVerify(publicKeys, message, parsedSig.get())
 
 proc blsFastAggregateVerify*(
        publicKeys: openArray[ValidatorPubKey],
@@ -214,10 +270,7 @@ proc blsFastAggregateVerify*(
        signature: ValidatorSig
      ): bool =
   let parsedSig = signature.load()
-  if not parsedSig.isSome():
-    false
-  else:
-    blsFastAggregateVerify(publicKeys, message, parsedSig.get())
+  parsedSig.isSome and blsFastAggregateVerify(publicKeys, message, parsedSig.get())
 
 proc toGaugeValue*(hash: Eth2Digest): int64 =
   # Only the last 8 bytes are taken into consideration in accordance
@@ -251,6 +304,12 @@ template toRaw*(x: TrustedSig): auto =
 
 func toHex*(x: BlsCurveType): string =
   toHex(toRaw(x))
+
+func toHex*(x: CookedPubKey): string =
+  toHex(x.toPubKey())
+
+func `$`*(x: CookedPubKey): string =
+  $(x.toPubKey())
 
 func toValidatorSig*(x: CookedSig): ValidatorSig =
   ValidatorSig(blob: blscurve.Signature(x).exportRaw())
@@ -293,7 +352,7 @@ template hash*(x: ValidatorPubKey | ValidatorSig): Hash =
 
 {.pragma: serializationRaises, raises: [SerializationError, IOError, Defect].}
 
-proc writeValue*(writer: var JsonWriter, value: ValidatorPubKey) {.
+proc writeValue*(writer: var JsonWriter, value: ValidatorPubKey | CookedPubKey) {.
     inline, raises: [IOError, Defect].} =
   writer.writeValue(value.toHex())
 
@@ -346,6 +405,10 @@ func shortLog*(x: ValidatorPubKey | ValidatorSig): string =
   ## Logging for wrapped BLS types
   ## that may contain valid or non-validated data
   byteutils.toHex(x.blob.toOpenArray(0, 3))
+
+func shortLog*(x: CookedPubKey): string =
+  let raw = x.toRaw()
+  byteutils.toHex(raw.toOpenArray(0, 3))
 
 func shortLog*(x: ValidatorPrivKey): string =
   ## Logging for raw unwrapped BLS types

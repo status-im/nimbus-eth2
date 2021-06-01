@@ -67,7 +67,7 @@ type
     ## Generally, we keep attestations only until a slot has been finalized -
     ## after that, they may no longer affect fork choice.
 
-    chainDag*: ChainDAGRef
+    dag*: ChainDAGRef
     quarantine*: QuarantineRef
 
     forkChoice*: ForkChoice
@@ -97,7 +97,7 @@ type
     prior_seen_voluntary_exit_indices*: IntSet ##\
     ## Records voluntary exit indices seen.
 
-    chainDag*: ChainDAGRef
+    dag*: ChainDAGRef
     quarantine*: QuarantineRef
 
   # #############################################
@@ -115,7 +115,7 @@ type
     pubKeyStr*: string
 
   AttachedValidator* = ref object
-    pubKey*: ValidatorPubKey
+    pubKey*: CookedPubKey
 
     case kind*: ValidatorKind
     of inProcess:

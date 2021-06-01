@@ -47,7 +47,7 @@ func makeDeposit*(i: int, flags: UpdateFlags = {}): DepositData =
     withdrawal_credentials = makeFakeHash(i)
 
   result = DepositData(
-    pubkey: pubkey,
+    pubkey: pubkey.toPubKey(),
     withdrawal_credentials: withdrawal_credentials,
     amount: MAX_EFFECTIVE_BALANCE)
 

@@ -33,7 +33,7 @@ func getDepositAddress(node: BeaconNode): string =
 proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     raises: [Exception].} = # TODO fix json-rpc
   rpcServer.rpc("get_v1_config_fork_schedule") do () -> seq[Fork]:
-    return @[getStateField(node.chainDag.headState, fork)]
+    return @[getStateField(node.dag.headState, fork)]
 
   rpcServer.rpc("get_v1_config_spec") do () -> JsonNode:
     return %*{

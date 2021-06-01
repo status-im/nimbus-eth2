@@ -42,7 +42,7 @@ proc genMockPrivKeys(privkeys: var openArray[ValidatorPrivKey]) =
 func genMockPubKeys(pubkeys: var openArray[ValidatorPubKey],
                     privkeys: openArray[ValidatorPrivKey]) =
   for i in 0 ..< privkeys.len:
-    pubkeys[i] = toPubKey(privkeys[i])
+    pubkeys[i] = toPubKey(privkeys[i]).toPubKey()
 
 # Ref array necessary to limit stack usage / binary size
 var MockPrivKeys* = newSeq[ValidatorPrivKey](defaultRuntimePreset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT)

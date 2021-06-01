@@ -47,7 +47,7 @@ type
   BeaconBlockCallback* = proc(signedBlock: SignedBeaconBlock) {.gcsafe, raises: [Defect].}
 
   BeaconSyncNetworkState* = ref object
-    chainDag*: ChainDAGRef
+    dag*: ChainDAGRef
     forkDigest*: ForkDigest
 
   BeaconSyncPeerState* = ref object
@@ -79,15 +79,15 @@ func disconnectReasonName(reason: uint64): string =
 
 proc getCurrentStatus*(state: BeaconSyncNetworkState): StatusMsg {.gcsafe.} =
   let
-    chainDag = state.chainDag
-    headBlock = chainDag.head
+    dag = state.dag
+    headBlock = dag.head
 
   StatusMsg(
     forkDigest: state.forkDigest,
     finalizedRoot:
-      getStateField(chainDag.headState, finalized_checkpoint).root,
+      getStateField(dag.headState, finalized_checkpoint).root,
     finalizedEpoch:
-      getStateField(chainDag.headState, finalized_checkpoint).epoch,
+      getStateField(dag.headState, finalized_checkpoint).epoch,
     headRoot: headBlock.root,
     headSlot: headBlock.slot)
 
@@ -159,14 +159,14 @@ p2pProtocol BeaconSync(version = 1,
     if reqCount > 0'u64 and reqStep > 0'u64:
       var blocks: array[MAX_REQUEST_BLOCKS, BlockRef]
       let
-        chainDag = peer.networkState.chainDag
+        dag = peer.networkState.dag
         # Limit number of blocks in response
         count = int min(reqCount, blocks.lenu64)
 
       let
         endIndex = count - 1
         startIndex =
-          chainDag.getBlockRange(startSlot, reqStep,
+          dag.getBlockRange(startSlot, reqStep,
                                  blocks.toOpenArray(0, endIndex))
       peer.updateRequestQuota(
         blockByRangeLookupCost +
@@ -177,7 +177,7 @@ p2pProtocol BeaconSync(version = 1,
         doAssert not blocks[i].isNil, "getBlockRange should return non-nil blocks only"
         trace "wrote response block",
           slot = blocks[i].slot, roor = shortLog(blocks[i].root)
-        await response.write(chainDag.get(blocks[i]).data)
+        await response.write(dag.get(blocks[i]).data)
 
       debug "Block range request done",
         peer, startSlot, count, reqStep, found = count - startIndex
@@ -195,7 +195,7 @@ p2pProtocol BeaconSync(version = 1,
       raise newException(InvalidInputsError, "No blocks requested")
 
     let
-      chainDag = peer.networkState.chainDag
+      dag = peer.networkState.dag
       count = blockRoots.len
 
     peer.updateRequestQuota(count.float * blockByRootLookupCost)
@@ -203,9 +203,9 @@ p2pProtocol BeaconSync(version = 1,
 
     var found = 0
     for i in 0..<count:
-      let blockRef = chainDag.getRef(blockRoots[i])
+      let blockRef = dag.getRef(blockRoots[i])
       if not isNil(blockRef):
-        await response.write(chainDag.get(blockRef).data)
+        await response.write(dag.get(blockRef).data)
         inc found
 
     peer.updateRequestQuota(found.float * blockResponseCost)
@@ -258,8 +258,8 @@ proc handleStatus(peer: Peer,
       # we can add this peer to PeerPool.
       await peer.handlePeer()
 
-proc initBeaconSync*(network: Eth2Node, chainDag: ChainDAGRef,
+proc initBeaconSync*(network: Eth2Node, dag: ChainDAGRef,
                      forkDigest: ForkDigest) =
   var networkState = network.protocolState(BeaconSync)
-  networkState.chainDag = chainDag
+  networkState.dag = dag
   networkState.forkDigest = forkDigest

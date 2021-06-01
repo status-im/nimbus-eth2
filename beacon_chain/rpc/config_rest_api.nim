@@ -28,7 +28,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
     # TODO: Implemenation needs a fix, when forks infrastructure will be
     # established.
     return RestApiResponse.jsonResponse(
-      [getStateField(node.chainDag.headState, fork)]
+      [getStateField(node.dag.headState, fork)]
     )
 
   router.api(MethodGet,
