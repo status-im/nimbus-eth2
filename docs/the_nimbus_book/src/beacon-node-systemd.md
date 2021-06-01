@@ -74,5 +74,3 @@ sudo journalctl -u nimbus-eth2-prater.service --since yesterday
 ```
 
 For more options, see [here](https://www.raspberrypi.org/documentation/linux/usage/systemd.md).
-
-

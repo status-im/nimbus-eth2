@@ -35,12 +35,22 @@ You can also use the `nimbus-eth2` [API](./api.md). For example, to check if you
 curl -d '{"jsonrpc":"2.0","method":"get_v1_validator_duties_proposer","params":[${EPOCH_NUMBER_OF_INTEREST}],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq ".result[]" | grep ${PATTERN_WHICH_MATCHES_VALIDATOR_PUBLIC_KEYS}
 ```
 
+### Bash script
+
+Quick and dirty bash monitoring/nbc-restarting loop:
+
+```bash
+while true; do tail -n2000 nimbus_beacon_node.log | grep nextActionWait | tail -n1 | jq -r .nextActionWait | grep '^[4-9]m' && kill -s SIGINT ${PID} && break; sleep 13; done
+```
+
 ## Subscribe to all subnets
 Launching the beacon node with the `--subscribe-all-subnets` option increases bandwidth and cpu usage, but helps the network and makes the block production algorithm perform slightly better.
 
 To elaborate a little, without this option enabled Nimbus only listens to a subset of the attestation traffic - in particular, Nimbus doesn't listen to all unaggregated traffic but instead relies on peers to aggregate attestations on the subnets it doesn't subscribe to. 
 
 With this option enabled, Nimbus listens to all unaggregated channels (subscribes to all subnets). Practically speaking, this means that when producing a block, Nimbus can "top up" the aggregates that other peers have made with it's own unaggregated attestations. This can lead to better packing in some cases, which can lead to slightly greater rewards.
+
+
 
 
 ## Keep track of your attestation effectiveness
