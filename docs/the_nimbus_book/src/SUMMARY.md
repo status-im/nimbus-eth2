@@ -59,5 +59,4 @@
 - [Resources](./resources.md)
 - [Binary distribution internals](./distribution_internals.md)
 - [Prater: What you should know](./prater.md)
-- [Contribute without a validator](./contribute-network.md)
 - [FAQ](./faq.md)

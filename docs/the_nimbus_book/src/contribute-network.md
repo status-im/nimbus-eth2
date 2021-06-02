@@ -1,4 +1,4 @@
-# Contribute without a validator
+# Contribute without a validator (WIP: UNPUBLISHED)
 
 <blockquote class="twitter-tweet"><p lang="en" dir="ltr">&quot;How could running a node be more of a compelling experience? How do I signal to my friends that I&#39;m running a node? Can running a node feel like a game?&quot;<a href="https://t.co/4WrhjGK4Kh">https://t.co/4WrhjGK4Kh</a></p>&mdash; Nimbus (@ethnimbus) <a href="https://twitter.com/ethnimbus/status/1385530083486670848?ref_src=twsrc%5Etfw">April 23, 2021</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
