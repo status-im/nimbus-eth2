@@ -35,8 +35,8 @@
 - [Set up email notifications](./email-notifications.md)
 - [Graffiti the blockchain](./graffiti.md)
 - [Optimise for profitability](./profits.md)
-- [Monitor the health of your node](.health.md)
 - [Increase privacy](./privacy.md)
+- [Monitor the health of your node](./health.md)
 
 # Guides
 - [Grafana and Prometheus](./metrics-pretty-pictures.md)
