@@ -1,5 +1,7 @@
 # Run an eth1 node
 
+⚠️ Warning: make sure you've copied the endpoint that starts with either `ws` or `wss` (websocket), and not `http` or `https`. Nimbus does not currently support `http` endpoints.
+
 > the eth1 stuff should be consolidated - right now it's spread out over beacon node (9, 10) and 19, where each title calls it something different and is phrased differently - instead, I think it makes sense that there's a general recommendation to set up an eth1 client (with short instructions for geth perhaps - similar to the import guide, ideally we'd have "options")
 > then we can have "how-to" or "faq" pages that point out more specific cases, like add an eth1 to existing setup etc
 
@@ -9,7 +11,7 @@ Validators are responsible for including new deposits when they propose blocks. 
 
 On this page we provide instructions for using Geth (however, any reputable eth1 client should do the trick).
 
-> **Note:** If you have a > 500GB SSD, and your [hardware](./hardware.md) can handle it, we strongly recommend running your own eth1 client. This will help ensure the network stays as decentralised as possible. If you can't however, the next best option is to set up an [infura endpoint](./infura.md).
+> **Note:** If you have a > 500GB SSD, and your [hardware](./hardware.md) can handle it, we strongly recommend running your own eth1 client. This will help ensure the network stays as decentralised as possible. If you can't however, the next best option is to set up an [infura endpoint](./infura-guide.md).
 
 ## Nimbus
 We have recently received a grant from the Ethereum Foundation to turbo charge work on [our eth1 client](https://github.com/status-im/nimbus-eth1). While this is  very much a project in development (i.e. not yet ready for public consumption), you are welcome to experiment with it.
@@ -58,6 +60,10 @@ INFO [05-29|01:16:10] Imported new chain segment               blocks=1 txs=0   
 INFO [05-29|01:16:10] Imported new chain segment               blocks=1 txs=1   mgas=0.021  elapsed=7.382ms   mgasps=2.845   number=3785447 hash=39986c…dd2a01
 INFO [05-29|01:16:14] Imported new chain segment               blocks=1 txs=11  mgas=1.135  elapsed=22.281ms  mgasps=50.943  number=3785444 hash=277bb9…623d8c
 ```
+
+
+Geth accepts connections from the loopback interface (`127.0.0.1`), with default WebSocket port `8546`. This means that your default Web3 provider URL should be: `ws://127.0.0.1:8546`
+
 
 
 

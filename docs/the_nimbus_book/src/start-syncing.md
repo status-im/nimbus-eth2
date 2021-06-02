@@ -5,26 +5,24 @@ If you're joining a network that has already launched, you need to ensure that y
 
 This is particularly important if you are joining a network that's been running for a while.
 
+> **N.B.** In order to process incoming validator deposits from the eth1 chain, you'll need to run an eth1 client (**web3 provider**) in parallel to your eth2 client. See [here](./eth1.md) for instructions on how to do so.
+
 ### Testnet
 
 To start syncing the `prater` testnet , from the `nimbus-eth2` repository, run:
 
 ```
- ./run-prater-beacon-node.sh 
+ ./run-prater-beacon-node.sh --web3-url="<YOUR_WEB3_PROVIDER_URL>"
 ```
 
 ### Mainnet
 
 
-To start syncing the eth2 mainnet, while monitoring the eth1 mainnet chain for deposits, run:
+To start syncing the eth2 mainnet, run:
 
 ```
- ./run-mainnet-beacon-node.sh --web3-url="ws://127.0.0.1:8546"
+ ./run-mainnet-beacon-node.sh --web3-url="<YOUR_WEB3_PROVIDER_URL>"
 ```
-
-Note, the above command assumes you are running a [local geth instance](./eth1.md). Geth accepts connections from the loopback interface (`127.0.0.1`), with default WebSocket port `8546`. This means that your default Web3 provider URL should be: `ws://127.0.0.1:8546`
-
->**N.B.** If you're using [your own Infura endpoint](./infura-guide), you should enter that instead.
 
 You should see the following output:
 
