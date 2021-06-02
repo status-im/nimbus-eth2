@@ -1,9 +1,7 @@
 # Run an eth1 node
 
-⚠️ Warning: make sure you've copied the endpoint that starts with either `ws` or `wss` (websocket), and not `http` or `https`. Nimbus does not currently support `http` endpoints.
+> ⚠️ Warning: make sure you've copied the endpoint that starts with either `ws` or `wss` (websocket), and not `http` or `https`. Nimbus does not currently support `http` endpoints.
 
-> the eth1 stuff should be consolidated - right now it's spread out over beacon node (9, 10) and 19, where each title calls it something different and is phrased differently - instead, I think it makes sense that there's a general recommendation to set up an eth1 client (with short instructions for geth perhaps - similar to the import guide, ideally we'd have "options")
-> then we can have "how-to" or "faq" pages that point out more specific cases, like add an eth1 to existing setup etc
 
 In order to process incoming validator deposits from the eth1 chain, you'll need to run an eth1 client in parallel to your eth2 client. 
 
