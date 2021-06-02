@@ -230,6 +230,11 @@ proc state_transition_block*(
   # that the block is sane.
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
 
+  notice "FOO1",
+    f = slotProcessed in flags,
+    sds = state.data.slot,
+    slot = signedBlock.message.slot
+
   if not (skipBLSValidation in flags or
       verify_block_signature(state.data, signedBlock)):
     when not (state is altair.HashedBeaconState):

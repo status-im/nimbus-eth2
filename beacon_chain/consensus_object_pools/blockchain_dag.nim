@@ -679,7 +679,8 @@ proc state_transition_with_fork_transition(
     state: var (phase0.HashedBeaconState | altair.HashedBeaconState), signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock | phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
     cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
     rollback: RollbackHashedProc): bool =
-  state_transition(
+  doAssert slotProcessed in flags
+  state_transition_block(
     preset, state, signedBlock,
     cache, rewards, flags, rollback)
 
@@ -701,7 +702,11 @@ proc applyBlock(
 
   # TODO split into state_transition_slots() and state_transition_blocks()
   # detect transition: slots part 1, maybe transition, slots part 2, blocks
-  let ok = state_transition_with_fork_transition(
+
+  # TODO doesn't work
+  #let ok = state_transition_with_fork_transition(
+
+  let ok = state_transition(
     dag.runtimePreset, state.data, blck.data,
     cache, rewards, flags + dag.updateFlags + {slotProcessed}, restore)
   if ok:

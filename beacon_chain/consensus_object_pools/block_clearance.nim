@@ -183,8 +183,8 @@ proc checkStateTransition(
   var rewards: RewardInfo
   # TODO split into state_transition_slots() and state_transition_blocks()
   # detect transition: slots part 1, maybe transition, slots part 2, blocks
-  if not state_transition(dag.runtimePreset, dag.clearanceState.data, signedBlock,
-                          cache, rewards, dag.updateFlags + {slotProcessed}, restore):
+  if not state_transition_block(dag.runtimePreset, dag.clearanceState.data, signedBlock,
+                                cache, rewards, dag.updateFlags + {slotProcessed}, restore):
     info "Invalid block"
 
     return (ValidationResult.Reject, Invalid)

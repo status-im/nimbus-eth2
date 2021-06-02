@@ -10,6 +10,7 @@
 import
   # Standard library
   std/[os, osproc, sequtils, streams, tables],
+  random,
 
   # Nimble packages
   stew/[assign2, byteutils, objects],
@@ -499,6 +500,11 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   let proposer = node.dag.getProposer(head, slot)
   if proposer.isNone():
     return head
+
+  # Ensure there are some missing blocks in local network sim
+  # TODO this is scaffolding to remove
+  if rand(1.0) < 0.0:
+    return
 
   let
     proposerKey = node.dag.validatorKeys[proposer.get()].toPubKey()
