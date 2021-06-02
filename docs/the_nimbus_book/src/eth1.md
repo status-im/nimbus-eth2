@@ -1,5 +1,8 @@
 # Run an eth1 node
 
+> the eth1 stuff should be consolidated - right now it's spread out over beacon node (9, 10) and 19, where each title calls it something different and is phrased differently - instead, I think it makes sense that there's a general recommendation to set up an eth1 client (with short instructions for geth perhaps - similar to the import guide, ideally we'd have "options")
+> then we can have "how-to" or "faq" pages that point out more specific cases, like add an eth1 to existing setup etc
+
 In order to process incoming validator deposits from the eth1 chain, you'll need to run an eth1 client in parallel to your eth2 client. 
 
 Validators are responsible for including new deposits when they propose blocks. And an eth1 client is needed to ensure your validator performs this task correctly.
@@ -7,6 +10,14 @@ Validators are responsible for including new deposits when they propose blocks. 
 On this page we provide instructions for using Geth (however, any reputable eth1 client should do the trick).
 
 > **Note:** If you have a > 500GB SSD, and your [hardware](./hardware.md) can handle it, we strongly recommend running your own eth1 client. This will help ensure the network stays as decentralised as possible. If you can't however, the next best option is to set up an [infura endpoint](./infura.md).
+
+## Nimbus
+We have recently received a grant from the Ethereum Foundation to turbo charge work on [our eth1 client](https://github.com/status-im/nimbus-eth1). While this is  very much a project in development (i.e. not yet ready for public consumption), you are welcome to experiment with it.
+
+## Nethermind
+*TBC*
+
+## Geth
 
 ### 1. Install Geth
 If you're running MacOS, follow the instructions [listed here](https://github.com/ethereum/go-ethereum/wiki/Installation-Instructions-for-Mac) to install geth. Otherwise [see here](https://github.com/ethereum/go-ethereum/wiki/Installing-Geth).
@@ -32,7 +43,7 @@ geth --ws
 
 Let it sync - Geth uses a fast sync mode by default. It may take anywhere between a few hours and a couple of days.
 
->**N.B.** It is safe to run Nimbus and start validating even if Geth hasn't fully synced yet.
+>**N.B.** It is safe to run Nimbus and start validating even if Geth hasn't fully synced yet
 
 You'll know Geth has finished syncing, when you start seeing logs that look like the following:
 

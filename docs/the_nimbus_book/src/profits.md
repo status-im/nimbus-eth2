@@ -37,7 +37,7 @@ curl -d '{"jsonrpc":"2.0","method":"get_v1_validator_duties_proposer","params":[
 
 ### Bash script
 
-Quick and dirty bash monitoring/nbc-restarting loop:
+Quick and dirty bash monitoring/Nimbus-restarting loop:
 
 ```bash
 while true; do tail -n2000 nimbus_beacon_node.log | grep nextActionWait | tail -n1 | jq -r .nextActionWait | grep '^[4-9]m' && kill -s SIGINT ${PID} && break; sleep 13; done
