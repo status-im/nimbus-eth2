@@ -40,7 +40,7 @@ type
     db*: BeaconChainDB
     config*: BeaconNodeConf
     attachedValidators*: ref ValidatorPool
-    chainDag*: ChainDAGRef
+    dag*: ChainDAGRef
     quarantine*: QuarantineRef
     attestationPool*: ref AttestationPool
     exitPool*: ref ExitPool

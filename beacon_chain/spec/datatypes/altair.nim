@@ -46,6 +46,9 @@ const
   PROPOSER_WEIGHT* = 8
   WEIGHT_DENOMINATOR* = 64
 
+  PARTICIPATION_FLAG_WEIGHTS* =
+    [TIMELY_SOURCE_WEIGHT, TIMELY_TARGET_WEIGHT, TIMELY_HEAD_WEIGHT]
+
   # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/validator.md#misc
   TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE* = 4
   SYNC_COMMITTEE_SUBNET_COUNT* = 4
@@ -73,8 +76,6 @@ let
           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
           0, 0, 0, 0])
 
-  PARTICIPATION_FLAG_WEIGHTS* =
-    [TIMELY_SOURCE_WEIGHT, TIMELY_TARGET_WEIGHT, TIMELY_HEAD_WEIGHT]
 type
   ### New types
 

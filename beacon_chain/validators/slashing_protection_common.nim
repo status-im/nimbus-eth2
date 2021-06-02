@@ -285,7 +285,7 @@ proc importInterchangeV5Impl*(
 
         result = siPartial
         continue
-      if key.get().loadWithCache().isNone():
+      if key.get().load().isNone():
         # The bytes don't deserialize to a valid BLS G1 elliptic curve point.
         # Deserialization is costly but done only once per validator.
         # and SlashingDB import is a very rare event.

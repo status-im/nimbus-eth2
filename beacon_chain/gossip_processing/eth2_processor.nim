@@ -51,7 +51,7 @@ type
 
     # Local sources of truth for validation
     # ----------------------------------------------------------------
-    chainDag*: ChainDAGRef
+    dag*: ChainDAGRef
     attestationPool*: ref AttestationPool
     validatorPool: ref ValidatorPool
 
@@ -79,7 +79,7 @@ type
 proc new*(T: type Eth2Processor,
           doppelGangerDetectionEnabled: bool,
           blockProcessor: ref BlockProcessor,
-          chainDag: ChainDAGRef,
+          dag: ChainDAGRef,
           attestationPool: ref AttestationPool,
           exitPool: ref ExitPool,
           validatorPool: ref ValidatorPool,
@@ -90,7 +90,7 @@ proc new*(T: type Eth2Processor,
     doppelGangerDetectionEnabled: doppelGangerDetectionEnabled,
     getWallTime: getWallTime,
     blockProcessor: blockProcessor,
-    chainDag: chainDag,
+    dag: dag,
     attestationPool: attestationPool,
     exitPool: exitPool,
     validatorPool: validatorPool,
@@ -123,7 +123,7 @@ proc blockValidator*(
 
   let delay = wallTime - signedBlock.message.slot.toBeaconTime
 
-  if signedBlock.root in self.chainDag:
+  if signedBlock.root in self.dag:
     # The gossip algorithm itself already does one round of hashing to find
     # already-seen data, but it is fairly aggressive about forgetting about
     # what it has seen already
@@ -134,7 +134,7 @@ proc blockValidator*(
   # decoding at this stage, which may be significant
   debug "Block received", delay
 
-  let blck = self.chainDag.isValidBeaconBlock(
+  let blck = self.dag.isValidBeaconBlock(
     self.quarantine, signedBlock, wallTime, {})
 
   self.blockProcessor[].dumpBlock(signedBlock, blck)
@@ -167,13 +167,13 @@ proc checkForPotentialDoppelganger(
     return
 
   if epoch < self.doppelgangerDetection.broadcastStartEpoch:
-    let tgtBlck = self.chainDag.getRef(attestation.data.target.root)
+    let tgtBlck = self.dag.getRef(attestation.data.target.root)
     doAssert not tgtBlck.isNil  # because attestation is valid above
 
-    let epochRef = self.chainDag.getEpochRef(
+    let epochRef = self.dag.getEpochRef(
       tgtBlck, attestation.data.target.epoch)
     for validatorIndex in attesterIndices:
-      let validatorPubkey = epochRef.validator_keys[validatorIndex]
+      let validatorPubkey = epochRef.validator_keys[validatorIndex].toPubKey()
       if  self.doppelgangerDetectionEnabled and
           self.validatorPool[].getValidator(validatorPubkey) !=
             default(AttachedValidator):

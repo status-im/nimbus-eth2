@@ -60,7 +60,7 @@ template asTrusted(x: SignedBeaconBlock or SigVerifiedBeaconBlock): TrustedSigne
 
   cast[ptr TrustedSignedBeaconBlock](signedBlock.unsafeAddr)[]
 
-func getOrResolve*(dag: ChainDAGRef, quarantine: var QuarantineRef, root: Eth2Digest): BlockRef =
+func getOrResolve*(dag: ChainDAGRef, quarantine: QuarantineRef, root: Eth2Digest): BlockRef =
   ## Fetch a block ref, or nil if not found (will be added to list of
   ## blocks-to-resolve)
   result = dag.getRef(root)
@@ -68,7 +68,7 @@ func getOrResolve*(dag: ChainDAGRef, quarantine: var QuarantineRef, root: Eth2Di
   if result.isNil:
     quarantine.addMissing(root)
 
-proc batchVerify(quarantine: var QuarantineRef, sigs: openArray[SignatureSet]): bool =
+proc batchVerify(quarantine: QuarantineRef, sigs: openArray[SignatureSet]): bool =
   var secureRandomBytes: array[32, byte]
   quarantine.rng[].brHmacDrbgGenerate(secureRandomBytes)
 
@@ -76,12 +76,12 @@ proc batchVerify(quarantine: var QuarantineRef, sigs: openArray[SignatureSet]): 
   return batchVerifySerial(quarantine.sigVerifCache, sigs, secureRandomBytes)
 
 proc addRawBlock*(
-      dag: var ChainDAGRef, quarantine: var QuarantineRef,
+      dag: ChainDAGRef, quarantine: QuarantineRef,
       signedBlock: SignedBeaconBlock, onBlockAdded: OnBlockAdded
      ): Result[BlockRef, (ValidationResult, BlockError)] {.gcsafe.}
 
 proc addResolvedBlock(
-       dag: var ChainDAGRef, quarantine: var QuarantineRef,
+       dag: ChainDAGRef, quarantine: QuarantineRef,
        state: var StateData, trustedBlock: TrustedSignedBeaconBlock,
        parent: BlockRef, cache: var StateCache,
        onBlockAdded: OnBlockAdded, stateDataDur, sigVerifyDur,
@@ -119,6 +119,12 @@ proc addResolvedBlock(
   # Up to here, state.data was referring to the new state after the block had
   # been applied but the `blck` field was still set to the parent
   state.blck = blockRef
+
+  # Regardless of the chain we're on, the deposits come in the same order so
+  # as soon as we import a block, we'll also update the shared public key
+  # cache
+
+  dag.updateValidatorKeys(getStateField(state, validators).asSeq())
 
   # Getting epochRef with the state will potentially create a new EpochRef
   let
@@ -159,11 +165,10 @@ proc addResolvedBlock(
       for v in resolved:
         discard addRawBlock(dag, quarantine, v, onBlockAdded)
 
-proc addRawBlockCheckStateTransition(
-       dag: ChainDAGRef, quarantine: var QuarantineRef,
-       signedBlock: SomeSignedBeaconBlock, cache: var StateCache
-     ): (ValidationResult, BlockError) =
-  ## addRawBlock - Ensure block can be applied on a state
+proc checkStateTransition(
+       dag: ChainDAGRef, signedBlock: SomeSignedBeaconBlock,
+       cache: var StateCache): (ValidationResult, BlockError) =
+  ## Ensure block can be applied on a state
   func restore(v: var HashedBeaconState) =
     # TODO address this ugly workaround - there should probably be a
     #      `state_transition` that takes a `StateData` instead and updates
@@ -183,7 +188,7 @@ proc addRawBlockCheckStateTransition(
     return (ValidationResult.Reject, Invalid)
   return (ValidationResult.Accept, default(BlockError))
 
-proc advanceClearanceState*(dag: var ChainDagRef) =
+proc advanceClearanceState*(dag: ChainDagRef) =
   # When the chain is synced, the most likely block to be produced is the block
   # right after head - we can exploit this assumption and advance the state
   # to that slot before the block arrives, thus allowing us to do the expensive
@@ -191,20 +196,23 @@ proc advanceClearanceState*(dag: var ChainDagRef) =
   # Notably, we use the clearance state here because that's where the block will
   # first be seen - later, this state will be copied to the head state!
   if dag.clearanceState.blck.slot == getStateField(dag.clearanceState, slot):
-    let next =  dag.clearanceState.blck.atSlot(
-      getStateField(dag.clearanceState, slot) + 1)
-    debug "Preparing clearance state for next block", next
+    let next =
+      dag.clearanceState.blck.atSlot(dag.clearanceState.blck.slot + 1)
 
+    let startTick = Moment.now()
     var cache = StateCache()
-    updateStateData(dag, dag.clearanceState,next, true, cache)
+    updateStateData(dag, dag.clearanceState, next, true, cache)
+
+    debug "Prepared clearance state for next block",
+      next, updateStateDur = Moment.now() - startTick
 
 proc addRawBlockKnownParent(
-       dag: var ChainDAGRef, quarantine: var QuarantineRef,
+       dag: ChainDAGRef, quarantine: QuarantineRef,
        signedBlock: SignedBeaconBlock,
        parent: BlockRef,
        onBlockAdded: OnBlockAdded
      ): Result[BlockRef, (ValidationResult, BlockError)] =
-  ## addRawBlock - Block has a parent
+  ## Add a block whose parent is known, after performing validity checks
 
   if parent.slot >= signedBlock.message.slot:
     # A block whose parent is newer than the block itself is clearly invalid -
@@ -239,27 +247,26 @@ proc addRawBlockKnownParent(
   # blocks we add to the database are clean for the given state
   let startTick = Moment.now()
 
-  # TODO if the block is from the future, we should not be resolving it (yet),
-  #      but maybe we should use it as a hint that our clock is wrong?
   var cache = StateCache()
   updateStateData(
     dag, dag.clearanceState, parent.atSlot(signedBlock.message.slot), true, cache)
   let stateDataTick = Moment.now()
 
-  # First batch verify crypto
+  # First, batch-verify all signatures in block
   if skipBLSValidation notin dag.updateFlags:
     # TODO: remove skipBLSValidation
 
     var sigs: seq[SignatureSet]
-    if not sigs.collectSignatureSets(signedBlock, dag.clearanceState, cache):
+    if sigs.collectSignatureSets(
+        signedBlock, dag.validatorKeys, dag.clearanceState, cache).isErr():
       # A PublicKey or Signature isn't on the BLS12-381 curve
       return err((ValidationResult.Reject, Invalid))
     if not quarantine.batchVerify(sigs):
       return err((ValidationResult.Reject, Invalid))
 
   let sigVerifyTick = Moment.now()
-  let (valRes, blockErr) = addRawBlockCheckStateTransition(
-    dag, quarantine, signedBlock.asSigVerified(), cache)
+  let (valRes, blockErr) = checkStateTransition(
+    dag, signedBlock.asSigVerified(), cache)
   if valRes != ValidationResult.Accept:
     return err((valRes, blockErr))
 
@@ -278,8 +285,8 @@ proc addRawBlockKnownParent(
   return ok dag.clearanceState.blck
 
 proc addRawBlockUnresolved(
-       dag: var ChainDAGRef,
-       quarantine: var QuarantineRef,
+       dag: ChainDAGRef,
+       quarantine: QuarantineRef,
        signedBlock: SignedBeaconBlock
      ): Result[BlockRef, (ValidationResult, BlockError)] =
   ## addRawBlock - Block is unresolved / has no parent
@@ -317,7 +324,7 @@ proc addRawBlockUnresolved(
   return err((ValidationResult.Ignore, MissingParent))
 
 proc addRawBlock*(
-       dag: var ChainDAGRef, quarantine: var QuarantineRef,
+       dag: ChainDAGRef, quarantine: QuarantineRef,
        signedBlock: SignedBeaconBlock,
        onBlockAdded: OnBlockAdded
      ): Result[BlockRef, (ValidationResult, BlockError)] =

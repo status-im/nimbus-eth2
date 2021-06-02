@@ -27,8 +27,8 @@ const
   VOLUNTARY_EXITS_BOUND* = MAX_VOLUNTARY_EXITS * 2
 
 proc init*(
-    T: type ExitPool, chainDag: ChainDAGRef, quarantine: QuarantineRef): T =
-  ## Initialize an ExitPool from the chainDag `headState`
+    T: type ExitPool, dag: ChainDAGRef, quarantine: QuarantineRef): T =
+  ## Initialize an ExitPool from the dag `headState`
   T(
     # Allow for filtering out some exit messages during block production
     attester_slashings:
@@ -37,7 +37,7 @@ proc init*(
       initDeque[ProposerSlashing](initialSize = PROPOSER_SLASHINGS_BOUND.int),
     voluntary_exits:
       initDeque[SignedVoluntaryExit](initialSize = VOLUNTARY_EXITS_BOUND.int),
-    chainDag: chainDag,
+    dag: dag,
     quarantine: quarantine
    )
 
@@ -111,7 +111,7 @@ func getExitMessagesForBlock[T](
 
     if allIt(
         getValidatorIndices(exit_message),
-        getStateField(pool.chainDag.headState, validators)[it].exit_epoch !=
+        getStateField(pool.dag.headState, validators)[it].exit_epoch !=
           FAR_FUTURE_EPOCH):
       # A beacon block exit message already targeted all these validators
       continue

@@ -160,15 +160,15 @@ proc getStatus(validator: Validator,
 proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData {.raises: [Defect, CatchableError].} =
   result = case blockId:
     of "head":
-      node.chainDag.get(node.chainDag.head)
+      node.dag.get(node.dag.head)
     of "genesis":
-      node.chainDag.getGenesisBlockData()
+      node.dag.getGenesisBlockData()
     of "finalized":
-      node.chainDag.get(node.chainDag.finalizedHead.blck)
+      node.dag.get(node.dag.finalizedHead.blck)
     else:
       if blockId.startsWith("0x"):
         let blckRoot = parseRoot(blockId)
-        let blockData = node.chainDag.get(blckRoot)
+        let blockData = node.dag.get(blckRoot)
         if blockData.isNone:
           raise newException(CatchableError, "Block not found")
         blockData.get()
@@ -176,15 +176,15 @@ proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData {.rai
         let blockSlot = node.getBlockSlotFromString(blockId)
         if blockSlot.blck.isNil:
           raise newException(CatchableError, "Block not found")
-        node.chainDag.get(blockSlot.blck)
+        node.dag.get(blockSlot.blck)
 
 proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     raises: [Exception].} = # TODO fix json-rpc
   rpcServer.rpc("get_v1_beacon_genesis") do () -> BeaconGenesisTuple:
     return (
-      genesis_time: getStateField(node.chainDag.headState, genesis_time),
+      genesis_time: getStateField(node.dag.headState, genesis_time),
       genesis_validators_root:
-        getStateField(node.chainDag.headState, genesis_validators_root),
+        getStateField(node.dag.headState, genesis_validators_root),
       genesis_fork_version: node.runtimePreset.GENESIS_FORK_VERSION
     )
 
@@ -210,7 +210,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       status: Option[seq[string]]) -> seq[BeaconStatesValidatorsTuple]:
     var vquery: ValidatorQuery
     var squery: StatusQuery
-    let current_epoch = getStateField(node.chainDag.headState, slot).epoch
+    let current_epoch = getStateField(node.dag.headState, slot).epoch
 
     template statusCheck(status, statusQuery, vstatus, current_epoch): bool =
       if status.isNone():
@@ -280,7 +280,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("get_v1_beacon_states_stateId_validators_validatorId") do (
       stateId: string, validatorId: string) -> BeaconStatesValidatorsTuple:
-    let current_epoch = getStateField(node.chainDag.headState, slot).epoch
+    let current_epoch = getStateField(node.dag.headState, slot).epoch
     let vqres = createIdQuery([validatorId])
     if vqres.isErr:
       raise newException(CatchableError, vqres.error)
@@ -396,13 +396,13 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     result.header.message.state_root = tsbb.message.state_root
     result.header.message.body_root = tsbb.message.body.hash_tree_root()
 
-    result.canonical = bd.refs.isAncestorOf(node.chainDag.head)
+    result.canonical = bd.refs.isAncestorOf(node.dag.head)
 
   rpcServer.rpc("post_v1_beacon_blocks") do (blck: SignedBeaconBlock) -> int:
     if not(node.syncManager.inProgress):
       raise newException(CatchableError,
                          "Beacon node is currently syncing, try again later.")
-    let head = node.chainDag.head
+    let head = node.dag.head
     if head.slot >= blck.message.slot:
       node.network.broadcast(getBeaconBlocksTopic(node.forkDigest), blck)
       # The block failed validation, but was successfully broadcast anyway.

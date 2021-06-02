@@ -208,7 +208,7 @@ $MAKE -j ${NPROC} LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:testnet_serv
 
 PIDS=""
 WEB3_ARG=""
-STATE_SNAPSHOT_ARG=""
+GENESIS_DATA_PATH=""
 BOOTSTRAP_TIMEOUT=30 # in seconds
 DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
 DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -239,7 +239,7 @@ if [[ $USE_GANACHE == "0" ]]; then
     --insecure-netkey-password=true \
     --genesis-offset=${GENESIS_OFFSET} # Delay in seconds
 
-  STATE_SNAPSHOT_ARG="--finalized-checkpoint-state=${NETWORK_DIR}/genesis.ssz"
+  GENESIS_DATA_PATH="\"genesisDataPath\": \"${NETWORK_DIR}/genesis.ssz\","
 else
   echo "Launching ganache"
   ganache-cli --blockTime 17 --gasLimit 100000000 -e 100000 --verbose > "${DATA_DIR}/log_ganache.txt" 2>&1 &
@@ -279,6 +279,7 @@ fi
 echo Wrote $NETWORK_METADATA_FILE:
 tee "$NETWORK_METADATA_FILE" <<EOF
 {
+  $GENESIS_DATA_PATH
   "runtimePreset": {
     "MIN_GENESIS_ACTIVE_VALIDATOR_COUNT": ${TOTAL_VALIDATORS},
     "MIN_GENESIS_TIME": 0,
@@ -388,7 +389,6 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     --max-peers=$(( NUM_NODES - 1 )) \
     --data-dir="${NODE_DATA_DIR}" \
     ${BOOTSTRAP_ARG} \
-    ${STATE_SNAPSHOT_ARG} \
     ${WEB3_ARG} \
     ${STOP_AT_EPOCH_FLAG} \
     --rpc \

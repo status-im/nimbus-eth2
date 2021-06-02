@@ -72,15 +72,15 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
   putInitialDepositContractSnapshot(db, depositContractSnapshot)
 
   var
-    chainDag = ChainDAGRef.init(runtimePreset, db)
+    dag = ChainDAGRef.init(runtimePreset, db)
     eth1Chain = Eth1Chain.init(runtimePreset, db)
     merkleizer = depositContractSnapshot.createMerkleizer
     quarantine = QuarantineRef.init(keys.newRng())
-    attPool = AttestationPool.init(chainDag, quarantine)
+    attPool = AttestationPool.init(dag, quarantine)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r = initRand(1)
-    tmpState = assignClone(chainDag.headState)
+    tmpState = assignClone(dag.headState)
 
   eth1Chain.addBlock Eth1Block(
     number: Eth1BlockNumber 1,
@@ -89,13 +89,13 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
       deposit_root: merkleizer.getDepositsRoot,
       deposit_count: merkleizer.getChunkCount))
 
-  let replayState = assignClone(chainDag.headState)
+  let replayState = assignClone(dag.headState)
 
   proc handleAttestations(slot: Slot) =
     let
-      attestationHead = chainDag.head.atSlot(slot)
+      attestationHead = dag.head.atSlot(slot)
 
-    chainDag.withState(tmpState[], attestationHead):
+    dag.withState(tmpState[], attestationHead):
       let committees_per_slot =
         get_committee_count_per_slot(stateData, slot.epoch, cache)
 
@@ -128,11 +128,11 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
       return
 
     let
-      head = chainDag.head
+      head = dag.head
 
-    chainDag.withState(tmpState[], head.atSlot(slot)):
+    dag.withState(tmpState[], head.atSlot(slot)):
       let
-        finalizedEpochRef = chainDag.getFinalizedEpochRef()
+        finalizedEpochRef = dag.getFinalizedEpochRef()
         proposerIdx = get_beacon_proposer_index(
           stateData.data.data, cache).get()
         privKey = hackPrivKey(
@@ -177,16 +177,16 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
           newBlock.message.slot,
           blockRoot, privKey).toValidatorSig()
 
-      let added = chainDag.addRawBlock(quarantine, newBlock) do (
+      let added = dag.addRawBlock(quarantine, newBlock) do (
           blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
           epochRef: EpochRef, state: HashedBeaconState):
         # Callback add to fork choice if valid
         attPool.addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
       blck() = added[]
-      chainDag.updateHead(added[], quarantine)
-      if chainDag.needStateCachesAndForkChoicePruning():
-        chainDag.pruneStateCachesDAG()
+      dag.updateHead(added[], quarantine)
+      if dag.needStateCachesAndForkChoicePruning():
+        dag.pruneStateCachesDAG()
         attPool.prune()
 
   var
@@ -235,7 +235,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
     # TODO if attestation pool was smarter, it would include older attestations
     #      too!
-    verifyConsensus(chainDag.headState, attesterRatio * blockRatio)
+    verifyConsensus(dag.headState, attesterRatio * blockRatio)
 
     if t == tEpoch:
       echo &". slot: {shortLog(slot)} ",
@@ -247,9 +247,9 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
   if replay:
     withTimer(timers[tReplay]):
       var cache = StateCache()
-      chainDag.updateStateData(
-        replayState[], chainDag.head.atSlot(Slot(slots)), false, cache)
+      dag.updateStateData(
+        replayState[], dag.head.atSlot(Slot(slots)), false, cache)
 
   echo "Done!"
 
-  printTimers(chainDag.headState, attesters, true, timers)
+  printTimers(dag.headState, attesters, true, timers)

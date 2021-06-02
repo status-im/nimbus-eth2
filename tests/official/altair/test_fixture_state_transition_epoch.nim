@@ -12,7 +12,7 @@ import
   os, strutils,
   # Beacon chain internals
   ../../../beacon_chain/spec/state_transition_epoch,
-  ../../../beacon_chain/spec/datatypes/altair,
+  ../../../beacon_chain/spec/[datatypes/altair, beaconstate],
   # Test utilities
   ../../testutil,
   ../fixtures_utils,
@@ -22,7 +22,9 @@ import
 from ../../../beacon_chain/spec/beaconstate import process_registry_updates
   # XXX: move to state_transition_epoch?
 
-template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, useCache: static bool): untyped =
+template runSuite(
+    suiteDir, testName: string, transitionProc: untyped{ident},
+    useCache, useTAB: static bool = false): untyped =
   suite "Official - Altair - Epoch Processing - " & testName & preset():
     doAssert dirExists(suiteDir)
     for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}):
@@ -33,9 +35,14 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
         var preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
         let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
 
+        doAssert not (useCache and useTAB)
         when useCache:
           var cache = StateCache()
           transitionProc(preState[], cache)
+        elif useTAB:
+          var cache = StateCache()
+          let total_active_balance = preState[].get_total_active_balance(cache)
+          transitionProc(preState[], total_active_balance)
         else:
           transitionProc(preState[])
 
@@ -45,9 +52,13 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
 # ---------------------------------------------------------------
 
 const JustificationFinalizationDir = SszTestsDir/const_preset/"altair"/"epoch_processing"/"justification_and_finalization"/"pyspec_tests"
-when false:
-  # TODO
-  runSuite(JustificationFinalizationDir, "Justification & Finalization",  process_justification_and_finalization, useCache = false)
+runSuite(JustificationFinalizationDir, "Justification & Finalization",  process_justification_and_finalization, useCache = false, useTAB = true)
+
+# Inactivity updates
+# ---------------------------------------------------------------
+
+const InactivityDir = SszTestsDir/const_preset/"altair"/"epoch_processing"/"inactivity_updates"/"pyspec_tests"
+runSuite(InactivityDir, "Inactivity", process_inactivity_updates, useCache = false)
 
 # Rewards & Penalties
 # ---------------------------------------------------------------
@@ -64,29 +75,46 @@ runSuite(RegistryUpdatesDir, "Registry updates",  process_registry_updates, useC
 # ---------------------------------------------------------------
 
 const SlashingsDir = SszTestsDir/const_preset/"altair"/"epoch_processing"/"slashings"/"pyspec_tests"
-when false:
-  # TODO needs totalbalance info
-  runSuite(SlashingsDir, "Slashings",  process_slashings, useCache = false)
+runSuite(SlashingsDir, "Slashings",  process_slashings, useCache = false, useTAB = true)
 
-# Final updates
+# Eth1 data reset
 # ---------------------------------------------------------------
 
 const Eth1DataResetDir = SszTestsDir/const_preset/"altair"/"epoch_processing"/"eth1_data_reset/"/"pyspec_tests"
 runSuite(Eth1DataResetDir, "Eth1 data reset", process_eth1_data_reset, useCache = false)
 
+# Effective balance updates
+# ---------------------------------------------------------------
+
 const EffectiveBalanceUpdatesDir = SszTestsDir/const_preset/"altair"/"epoch_processing"/"effective_balance_updates"/"pyspec_tests"
 runSuite(EffectiveBalanceUpdatesDir, "Effective balance updates", process_effective_balance_updates, useCache = false)
+
+# Slashings reset
+# ---------------------------------------------------------------
 
 const SlashingsResetDir = SszTestsDir/const_preset/"altair"/"epoch_processing"/"slashings_reset"/"pyspec_tests"
 runSuite(SlashingsResetDir, "Slashings reset", process_slashings_reset, useCache = false)
 
+# RANDAO mixes reset
+# ---------------------------------------------------------------
+
 const RandaoMixesResetDir = SszTestsDir/const_preset/"altair"/"epoch_processing"/"randao_mixes_reset"/"pyspec_tests"
 runSuite(RandaoMixesResetDir, "RANDAO mixes reset", process_randao_mixes_reset, useCache = false)
+
+# Historical roots update
+# ---------------------------------------------------------------
 
 const HistoricalRootsUpdateDir = SszTestsDir/const_preset/"altair"/"epoch_processing"/"historical_roots_update"/"pyspec_tests"
 runSuite(HistoricalRootsUpdateDir, "Historical roots update", process_historical_roots_update, useCache = false)
 
-const ParticipationRecordsDir = SszTestsDir/const_preset/"altair"/"epoch_processing"/"participation_record_updates"/"pyspec_tests"
-when false:
-  # TODO needs totalbalance info
-  runSuite(ParticipationRecordsDir, "Participation record updates", process_participation_record_updates, useCache = false)
+# Participation flag updates
+# ---------------------------------------------------------------
+
+const ParticipationFlagDir = SszTestsDir/const_preset/"altair"/"epoch_processing"/"participation_flag_updates"/"pyspec_tests"
+runSuite(ParticipationFlagDir, "Participation flag updates", process_participation_flag_updates, useCache = false)
+
+# Sync committee updates
+# ---------------------------------------------------------------
+
+const SyncCommitteeDir = SszTestsDir/const_preset/"altair"/"epoch_processing"/"sync_committee_updates"/"pyspec_tests"
+runSuite(SyncCommitteeDir, "Sync committee updates", process_sync_committee_updates, useCache = false)

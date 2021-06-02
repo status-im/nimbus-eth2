@@ -195,9 +195,15 @@ if [ "$USE_GANACHE" != "no" ]; then
   fi
 fi
 
+GENESIS_DATA_PATH=""
+if [ -f "${SNAPSHOT_FILE}" ]; then
+  GENESIS_DATA_PATH="\"genesisDataPath\": \"${SNAPSHOT_FILE}\","
+fi
+
 echo Wrote $NETWORK_METADATA_FILE:
 tee "$NETWORK_METADATA_FILE" <<EOF
 {
+  $GENESIS_DATA_PATH
   "runtimePreset": {
     "MIN_GENESIS_ACTIVE_VALIDATOR_COUNT": ${NUM_VALIDATORS},
     "MIN_GENESIS_TIME": 0,

@@ -161,6 +161,11 @@ FixtureAll-mainnet
 + [Valid]    new_deposit_under_max                                                           OK
 + [Valid]    success_top_up                                                                  OK
 + [Valid]    valid_sig_but_forked_state                                                      OK
++ [Valid]   Official - Altair - Finality - finality_no_updates_at_genesis [Preset: mainnet]  OK
++ [Valid]   Official - Altair - Finality - finality_rule_1 [Preset: mainnet]                 OK
++ [Valid]   Official - Altair - Finality - finality_rule_2 [Preset: mainnet]                 OK
++ [Valid]   Official - Altair - Finality - finality_rule_3 [Preset: mainnet]                 OK
++ [Valid]   Official - Altair - Finality - finality_rule_4 [Preset: mainnet]                 OK
 + [Valid]   Official - Altair - Sanity - Blocks - attestation [Preset: mainnet]              OK
 + [Valid]   Official - Altair - Sanity - Blocks - attester_slashing [Preset: mainnet]        OK
 + [Valid]   Official - Altair - Sanity - Blocks - balance_driven_status_transitions [Preset: OK
@@ -237,8 +242,22 @@ FixtureAll-mainnet
 + [Valid]   sync_committee_rewards_duplicate_committee                                       OK
 + [Valid]   sync_committee_rewards_empty_participants                                        OK
 + [Valid]   sync_committee_rewards_not_full_participants                                     OK
++ altair_fork_random_0                                                                       OK
++ altair_fork_random_1                                                                       OK
++ altair_fork_random_2                                                                       OK
++ altair_fork_random_3                                                                       OK
++ altair_fork_random_duplicate_attestations                                                  OK
++ altair_fork_random_low_balances                                                            OK
++ altair_fork_random_misc_balances                                                           OK
++ altair_fork_random_mismatched_attestations                                                 OK
++ fork_base_state                                                                            OK
++ fork_many_next_epoch                                                                       OK
++ fork_next_epoch                                                                            OK
++ fork_next_epoch_with_block                                                                 OK
++ fork_random_low_balances                                                                   OK
++ fork_random_misc_balances                                                                  OK
 ```
-OK: 235/235 Fail: 0/235 Skip: 0/235
+OK: 254/254 Fail: 0/254 Skip: 0/254
 ## Official - Altair - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -255,6 +274,40 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## Official - Altair - Epoch Processing - Inactivity [Preset: mainnet]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
++ Inactivity - genesis [Preset: mainnet]                                                     OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
+## Official - Altair - Epoch Processing - Justification & Finalization [Preset: mainnet]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
++ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
+```
+OK: 9/9 Fail: 0/9 Skip: 0/9
+## Official - Altair - Epoch Processing - Participation flag updates [Preset: mainnet]
+```diff
++ Participation flag updates - filled [Preset: mainnet]                                      OK
++ Participation flag updates - prev_zeroed [Preset: mainnet]                                 OK
++ Participation flag updates - random [Preset: mainnet]                                      OK
++ Participation flag updates - random_genesis [Preset: mainnet]                              OK
++ Participation flag updates - zeroed [Preset: mainnet]                                      OK
++ Participation flag updates - zeroing [Preset: mainnet]                                     OK
+```
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Official - Altair - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
@@ -272,6 +325,14 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit [Preset: mainnet]                             OK
 ```
 OK: 8/8 Fail: 0/8 Skip: 0/8
+## Official - Altair - Epoch Processing - Slashings [Preset: mainnet]
+```diff
++ Slashings - low_penalty [Preset: mainnet]                                                  OK
++ Slashings - max_penalties [Preset: mainnet]                                                OK
++ Slashings - minimal_penalty [Preset: mainnet]                                              OK
++ Slashings - scaled_penalties [Preset: mainnet]                                             OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Official - Altair - Epoch Processing - Slashings reset [Preset: mainnet]
 ```diff
 + Slashings reset - flush_slashings [Preset: mainnet]                                        OK
@@ -414,4 +475,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 340/340 Fail: 0/340 Skip: 0/340
+OK: 385/385 Fail: 0/385 Skip: 0/385

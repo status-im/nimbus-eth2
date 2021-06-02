@@ -150,7 +150,7 @@ proc storeBlock(
   let
     attestationPool = self.consensusManager.attestationPool
 
-  let blck = self.consensusManager.chainDag.addRawBlock(
+  let blck = self.consensusManager.dag.addRawBlock(
     self.consensusManager.quarantine, signedBlock) do (
       blckRef: BlockRef, trustedBlock: TrustedSignedBeaconBlock,
       epochRef: EpochRef, state: HashedBeaconState):
@@ -200,7 +200,7 @@ proc processBlock(self: var BlockProcessor, entry: BlockEntry) =
     beacon_store_block_duration_seconds.observe(storeBlockDur.toFloatSeconds())
 
     debug "Block processed",
-      localHeadSlot = self.consensusManager.chainDag.head.slot,
+      localHeadSlot = self.consensusManager.dag.head.slot,
       blockSlot = entry.blck.message.slot,
       validationDur = entry.validationDur,
       queueDur, storeBlockDur, updateHeadDur

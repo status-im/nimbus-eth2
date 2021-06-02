@@ -33,22 +33,22 @@ template count*(pool: ValidatorPool): int =
   pool.validators.len
 
 proc addLocalValidator*(pool: var ValidatorPool,
-                        pubKey: ValidatorPubKey,
+                        pubKey: CookedPubKey,
                         privKey: ValidatorPrivKey,
                         index: Option[ValidatorIndex]) =
   let v = AttachedValidator(pubKey: pubKey,
                             index: index,
                             kind: inProcess,
                             privKey: privKey)
-  pool.validators[pubKey] = v
+  pool.validators[pubKey.toPubKey()] = v
   notice "Local validator attached", pubKey, validator = shortLog(v)
 
   validators.set(pool.count().int64)
 
 proc addRemoteValidator*(pool: var ValidatorPool,
-                         pubKey: ValidatorPubKey,
+                         pubKey: CookedPubKey,
                          v: AttachedValidator) =
-  pool.validators[pubKey] = v
+  pool.validators[pubKey.toPubKey()] = v
   notice "Remote validator attached", pubKey, validator = shortLog(v)
 
   validators.set(pool.count().int64)

@@ -22,7 +22,7 @@ programMain:
   # load and send all public keys so the BN knows for which ones to ping us
   doAssert paramCount() == 2
   for curr in validatorKeysFromDirs(paramStr(1), paramStr(2)):
-    validators[curr.toPubKey] = curr
+    validators[curr.toPubKey.toPubKey()] = curr
     echo curr.toPubKey
   echo "end"
 

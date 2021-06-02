@@ -232,14 +232,12 @@ proc scheduleAttestationCheck*(
 
   doAssert batch.pendingBuffer.len < BatchedCryptoSize
 
-  let sig = batch
+  let sig = ? batch
               .pendingBuffer
               .addAttestation(
                 fork, genesis_validators_root, epochRef,
                 attestation
               )
-  if not sig.isSome():
-    return err("Attestation batch validation: no attester found or invalid pubkey found.")
 
   let fut = newFuture[BatchResult](
     "batch_validation.scheduleAttestationCheck"
@@ -249,7 +247,7 @@ proc scheduleAttestationCheck*(
 
   batchCrypto.scheduleBatch(fresh)
 
-  return ok((fut, sig.get()))
+  return ok((fut, sig))
 
 proc scheduleAggregateChecks*(
       batchCrypto: ref BatchCrypto,
@@ -290,31 +288,32 @@ proc scheduleAggregateChecks*(
   # ------------------------------------------------------
   let aggregator = epochRef.validator_keys[aggregate_and_proof.aggregator_index]
   block:
-    if not batch
+    if (let v = batch
             .pendingBuffer
             .addSlotSignature(
               fork, genesis_validators_root,
               aggregate.data.slot,
               aggregator,
               aggregate_and_proof.selection_proof
-            ):
-      return err("Aggregate batch validation: invalid pubkey or signature in addSlotSignature.")
+            ); v.isErr()):
+      return err(v.error())
+
   let futSlot = newFuture[BatchResult](
     "batch_validation.scheduleAggregateChecks.slotCheck"
   )
   batch.resultsBuffer.add(futSlot)
 
   block:
-    if not batch
+    if (let v = batch
             .pendingBuffer
             .addAggregateAndProofSignature(
               fork, genesis_validators_root,
               aggregate_and_proof,
               aggregator,
               signed_aggregate_and_proof.signature
-            ):
+            ); v.isErr()):
       batchCrypto.scheduleBatch(fresh)
-      return err("Aggregate batch validation: invalid pubkey or signature in addAggregateAndProofSignature.")
+      return err(v.error())
 
   let futAggregator = newFuture[BatchResult](
     "batch_validation.scheduleAggregateChecks.aggregatorCheck"
@@ -328,9 +327,9 @@ proc scheduleAggregateChecks*(
                 fork, genesis_validators_root, epochRef,
                 aggregate
               )
-  if not sig.isSome():
+  if sig.isErr():
     batchCrypto.scheduleBatch(fresh)
-    return err("Attestation batch validation: no attester found or invalid pubkey found.")
+    return err(sig.error())
 
   let futAggregate = newFuture[BatchResult](
     "batch_validation.scheduleAggregateChecks.aggregateCheck"

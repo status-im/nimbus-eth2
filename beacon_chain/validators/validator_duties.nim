@@ -71,11 +71,11 @@ proc addLocalValidator(node: BeaconNode,
   let pubKey = privKey.toPubKey()
   node.attachedValidators[].addLocalValidator(
     pubKey, privKey,
-    findValidator(getStateField(stateData, validators), pubKey))
+    findValidator(getStateField(stateData, validators), pubKey.toPubKey()))
 
 proc addLocalValidators*(node: BeaconNode) =
   for validatorKey in node.config.validatorKeys:
-    node.addLocalValidator node.chainDag.headState, validatorKey
+    node.addLocalValidator node.dag.headState, validatorKey
 
 proc addRemoteValidators*(node: BeaconNode) {.raises: [Defect, OSError, IOError].} =
   # load all the validators from the child process - loop until `end`
@@ -85,16 +85,19 @@ proc addRemoteValidators*(node: BeaconNode) {.raises: [Defect, OSError, IOError]
       let
         key = ValidatorPubKey.fromHex(line).get()
         index = findValidator(
-          getStateField(node.chainDag.headState, validators), key)
-
-      let v = AttachedValidator(pubKey: key,
-                                index: index,
-                                kind: ValidatorKind.remote,
-                                connection: ValidatorConnection(
-                                  inStream: node.vcProcess.inputStream,
-                                  outStream: node.vcProcess.outputStream,
-                                  pubKeyStr: $key))
-      node.attachedValidators[].addRemoteValidator(key, v)
+          getStateField(node.dag.headState, validators), key)
+        pk = key.load()
+      if pk.isSome():
+        let v = AttachedValidator(pubKey: pk.get(),
+                                  index: index,
+                                  kind: ValidatorKind.remote,
+                                  connection: ValidatorConnection(
+                                    inStream: node.vcProcess.inputStream,
+                                    outStream: node.vcProcess.outputStream,
+                                    pubKeyStr: $key))
+        node.attachedValidators[].addRemoteValidator(pk.get(), v)
+      else:
+        warn "Could not load public key", line
 
 proc getAttachedValidator*(node: BeaconNode,
                            pubkey: ValidatorPubKey): AttachedValidator =
@@ -119,7 +122,7 @@ proc getAttachedValidator*(node: BeaconNode,
                            epochRef: EpochRef,
                            idx: ValidatorIndex): AttachedValidator =
   if idx < epochRef.validator_keys.len.ValidatorIndex:
-    let validator = node.getAttachedValidator(epochRef.validator_keys[idx])
+    let validator = node.getAttachedValidator(epochRef.validator_keys[idx].toPubKey())
     if validator != nil and validator.index != some(idx.ValidatorIndex):
       # Update index, in case the validator was activated!
       notice "Validator activated", pubkey = validator.pubkey, index = idx
@@ -194,12 +197,12 @@ proc sendProposerSlashing*(node: BeaconNode, slashing: ProposerSlashing) =
 proc sendAttestation*(node: BeaconNode, attestation: Attestation): Future[bool] =
   # For the validator API, which doesn't supply the subnet id.
   let attestationBlck =
-    node.chainDag.getRef(attestation.data.beacon_block_root)
+    node.dag.getRef(attestation.data.beacon_block_root)
   if attestationBlck.isNil:
     debug "Attempt to send attestation without corresponding block"
     return
   let
-    epochRef = node.chainDag.getEpochRef(
+    epochRef = node.dag.getEpochRef(
       attestationBlck, attestation.data.target.epoch)
     subnet_id = compute_subnet_for_attestation(
       get_committee_count_per_slot(epochRef), attestation.data.slot,
@@ -227,7 +230,7 @@ proc createAndSendAttestation(node: BeaconNode,
       return
 
     if node.config.dumpEnabled:
-      dump(node.config.dumpDirOutgoing, attestation.data, validator.pubKey)
+      dump(node.config.dumpDirOutgoing, attestation.data, validator.pubKey.toPubKey())
 
     let wallTime = node.beaconClock.now()
     let deadline = attestationData.slot.toBeaconTime() +
@@ -260,7 +263,7 @@ proc getBlockProposalEth1Data*(node: BeaconNode,
     else:
       result.vote = getStateField(stateData, eth1_data)
   else:
-    let finalizedEpochRef = node.chainDag.getFinalizedEpochRef()
+    let finalizedEpochRef = node.dag.getFinalizedEpochRef()
     result = node.eth1Monitor.getBlockProposalData(
       stateData, finalizedEpochRef.eth1_data,
       finalizedEpochRef.eth1_deposit_index)
@@ -293,13 +296,13 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
   # Advance state to the slot that we're proposing for
 
   let
-    proposalState = assignClone(node.chainDag.headState)
+    proposalState = assignClone(node.dag.headState)
     proposalStateAddr = unsafeAddr proposalState[]
 
-  node.chainDag.withState(proposalState[], head.atSlot(slot)):
+  node.dag.withState(proposalState[], head.atSlot(slot)):
     let
       eth1Proposal = node.getBlockProposalEth1Data(stateData)
-      poolPtr = unsafeAddr node.chainDag # safe because restore is short-lived
+      poolPtr = unsafeAddr node.dag # safe because restore is short-lived
 
     if eth1Proposal.hasMissingDeposits:
       error "Eth1 deposits not available. Skipping block proposal", slot
@@ -333,7 +336,7 @@ proc proposeSignedBlock*(node: BeaconNode,
                          head: BlockRef,
                          validator: AttachedValidator,
                          newBlock: SignedBeaconBlock): BlockRef =
-  let newBlockRef = node.chainDag.addRawBlock(node.quarantine, newBlock) do (
+  let newBlockRef = node.dag.addRawBlock(node.quarantine, newBlock) do (
       blckRef: BlockRef, trustedBlock: TrustedSignedBeaconBlock,
       epochRef: EpochRef, state: HashedBeaconState):
     # Callback add to fork choice if signed block valid (and becomes trusted)
@@ -377,9 +380,9 @@ proc proposeBlock(node: BeaconNode,
     return head
 
   let
-    fork = getStateField(node.chainDag.headState, fork)
+    fork = getStateField(node.dag.headState, fork)
     genesis_validators_root =
-      getStateField(node.chainDag.headState, genesis_validators_root)
+      getStateField(node.dag.headState, genesis_validators_root)
     randao = await validator.genRandaoReveal(
       fork, genesis_validators_root, slot)
     message = await makeBeaconBlockForHeadAndSlot(
@@ -400,7 +403,7 @@ proc proposeBlock(node: BeaconNode,
     fork, genesis_validators_root, slot, newBlock.root)
   let notSlashable = node.attachedValidators
     .slashingProtection
-    .registerBlock(validator_index, validator.pubkey, slot, signing_root)
+    .registerBlock(validator_index, validator.pubkey.toPubKey(), slot, signing_root)
 
   if notSlashable.isErr:
     warn "Slashing protection activated",
@@ -448,12 +451,12 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # using empty slots as fillers.
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#validator-assignments
   let
-    epochRef = node.chainDag.getEpochRef(
+    epochRef = node.dag.getEpochRef(
       attestationHead.blck, slot.compute_epoch_at_slot())
     committees_per_slot = get_committee_count_per_slot(epochRef)
-    fork = getStateField(node.chainDag.headState, fork)
+    fork = getStateField(node.dag.headState, fork)
     genesis_validators_root =
-      getStateField(node.chainDag.headState, genesis_validators_root)
+      getStateField(node.dag.headState, genesis_validators_root)
 
   for committee_index in get_committee_indices(epochRef):
     let committee = get_beacon_committee(epochRef, slot, committee_index)
@@ -472,7 +475,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
           .slashingProtection
           .registerAttestation(
             validator_index,
-            validator.pubkey,
+            validator.pubkey.toPubKey(),
             data.source.epoch,
             data.target.epoch,
             signing_root)
@@ -493,22 +496,22 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   ## that is supposed to do so, given the shuffling at that slot for the given
   ## head - to compute the proposer, we need to advance a state to the given
   ## slot
-
-  let proposer = node.chainDag.getProposer(head, slot)
+  let proposer = node.dag.getProposer(head, slot)
   if proposer.isNone():
     return head
 
-  let validator =
-    node.attachedValidators[].getValidator(proposer.get()[1])
+  let
+    proposerKey = node.dag.validatorKeys[proposer.get()].toPubKey()
+    validator = node.attachedValidators[].getValidator(proposerKey)
 
   if validator != nil:
-    return await proposeBlock(node, validator, proposer.get()[0], head, slot)
+    return await proposeBlock(node, validator, proposer.get(), head, slot)
 
   debug "Expecting block proposal",
     headRoot = shortLog(head.root),
     slot = shortLog(slot),
-    proposer_index = proposer.get()[0],
-    proposer = shortLog(proposer.get()[1])
+    proposer_index = proposer.get(),
+    proposer = shortLog(proposerKey)
 
   return head
 
@@ -523,10 +526,10 @@ proc broadcastAggregatedAttestations(
   # the corresponding one -- whatver they are, they match.
 
   let
-    epochRef = node.chainDag.getEpochRef(aggregationHead, aggregationSlot.epoch)
-    fork = getStateField(node.chainDag.headState, fork)
+    epochRef = node.dag.getEpochRef(aggregationHead, aggregationSlot.epoch)
+    fork = getStateField(node.dag.headState, fork)
     genesis_validators_root =
-      getStateField(node.chainDag.headState, genesis_validators_root)
+      getStateField(node.dag.headState, genesis_validators_root)
     committees_per_slot = get_committee_count_per_slot(epochRef)
 
   var
@@ -585,14 +588,14 @@ proc updateValidatorMetrics*(node: BeaconNode) =
         if v.index.isNone():
           0.Gwei
         elif v.index.get().uint64 >=
-            getStateField(node.chainDag.headState, balances).lenu64:
+            getStateField(node.dag.headState, balances).lenu64:
           debug "Cannot get validator balance, index out of bounds",
             pubkey = shortLog(v.pubkey), index = v.index.get(),
-            balances = getStateField(node.chainDag.headState, balances).len,
-            stateRoot = node.chainDag.headState.data.root
+            balances = getStateField(node.dag.headState, balances).len,
+            stateRoot = node.dag.headState.data.root
           0.Gwei
         else:
-          getStateField(node.chainDag.headState, balances)[v.index.get()]
+          getStateField(node.dag.headState, balances)[v.index.get()]
 
       if i < 64:
         attached_validator_balance.set(
@@ -612,9 +615,9 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     # Nothing to do because we have no validator attached
     return
 
-  # The chainDag head might be updated by sync while we're working due to the
+  # The dag head might be updated by sync while we're working due to the
   # await calls, thus we use a local variable to keep the logic straight here
-  var head = node.chainDag.head
+  var head = node.dag.head
   if not node.isSynced(head):
     notice "Syncing in progress; skipping validator duties for now",
       slot, headSlot = head.slot
@@ -702,7 +705,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
     # Time passed - we might need to select a new head in that case
     node.consensusManager[].updateHead(slot)
-    head = node.chainDag.head
+    head = node.dag.head
 
   handleAttestations(node, head, slot)
 
@@ -726,6 +729,6 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     await broadcastAggregatedAttestations(node, head, slot)
 
   if node.eth1Monitor != nil and (slot mod SLOTS_PER_EPOCH) == 0:
-    let finalizedEpochRef = node.chainDag.getFinalizedEpochRef()
+    let finalizedEpochRef = node.dag.getFinalizedEpochRef()
     discard node.eth1Monitor.trackFinalizedState(
       finalizedEpochRef.eth1_data, finalizedEpochRef.eth1_deposit_index)

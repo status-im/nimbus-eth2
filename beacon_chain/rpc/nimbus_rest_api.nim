@@ -107,14 +107,14 @@ proc toNode(v: PubSubPeer, backoff: Moment): RestPubSubPeer =
 
 proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/api/nimbus/v1/beacon/head") do () -> RestApiResponse:
-    return RestApiResponse.jsonResponse(node.chainDag.head.slot)
+    return RestApiResponse.jsonResponse(node.dag.head.slot)
 
   router.api(MethodGet, "/api/nimbus/v1/chain/head") do() -> RestApiResponse:
     let
-      head = node.chainDag.head
-      finalized = getStateField(node.chainDag.headState, finalized_checkpoint)
+      head = node.dag.head
+      finalized = getStateField(node.dag.headState, finalized_checkpoint)
       justified =
-        getStateField(node.chainDag.headState, current_justified_checkpoint)
+        getStateField(node.dag.headState, current_justified_checkpoint)
     return RestApiResponse.jsonResponse(
       (
         head_slot: head.slot,
@@ -202,8 +202,8 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res.isErr():
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
         res.get()
-    let proposalState = assignClone(node.chainDag.headState)
-    node.chainDag.withState(proposalState[], head.atSlot(wallSlot)):
+    let proposalState = assignClone(node.dag.headState)
+    node.dag.withState(proposalState[], head.atSlot(wallSlot)):
       return RestApiResponse.jsonResponse(
         node.getBlockProposalEth1Data(stateData))
 

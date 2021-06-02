@@ -3,7 +3,7 @@
 # https://github.com/prysmaticlabs/bazel-go-ethereum/blob/catalyst/run-catalyst.sh
 
 # To increase verbosity: debug.verbosity(4)
-# MetaMask seed phrase for account with balance is:
+# MetaMask seed phrase for address with balance is:
 # lecture manual soon title cloth uncle gesture cereal common fruit tooth crater
 
 echo \{ \

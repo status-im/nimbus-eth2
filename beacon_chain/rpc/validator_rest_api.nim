@@ -89,11 +89,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       if qepoch >= Epoch(2):
         qhead.atSlot(compute_start_slot_at_epoch(qepoch - 1) - 1).blck.root
       else:
-        node.chainDag.genesis.root
+        node.dag.genesis.root
     let duties =
       block:
         var res: seq[RestAttesterDuty]
-        let epochRef = node.chainDag.getEpochRef(qhead, qepoch)
+        let epochRef = node.dag.getEpochRef(qhead, qepoch)
         let committees_per_slot = get_committee_count_per_slot(epochRef)
         for i in 0 ..< SLOTS_PER_EPOCH:
           let slot = compute_start_slot_at_epoch(qepoch) + i
@@ -107,7 +107,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 if validator_index in indexList:
                   res.add(
                     RestAttesterDuty(
-                      pubkey: validator_key,
+                      pubkey: validator_key.toPubKey(),
                       validator_index: validator_index,
                       committee_index: CommitteeIndex(committee_index),
                       committee_length: lenu64(commitee),
@@ -142,21 +142,20 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       if qepoch >= Epoch(2):
         qhead.atSlot(compute_start_slot_at_epoch(qepoch - 1) - 1).blck.root
       else:
-        node.chainDag.genesis.root
+        node.dag.genesis.root
     let duties =
       block:
         var res: seq[RestProposerDuty]
-        let epochRef = node.chainDag.getEpochRef(qhead, qepoch)
+        let epochRef = node.dag.getEpochRef(qhead, qepoch)
         # Fix for https://github.com/status-im/nimbus-eth2/issues/2488
         # Slot(0) at Epoch(0) do not have a proposer.
         let startSlot = if qepoch == Epoch(0): 1'u64 else: 0'u64
-        for i in startSlot ..< SLOTS_PER_EPOCH:
-          if epochRef.beacon_proposers[i].isSome():
-            let proposer = epochRef.beacon_proposers[i].get()
+        for i, bp in epochRef.beacon_proposers:
+          if bp.isSome():
             res.add(
               RestProposerDuty(
-                pubkey: proposer[1],
-                validator_index: proposer[0],
+                pubkey: epochRef.validator_keys[bp.get()].toPubKey(),
+                validator_index: bp.get(),
                 slot: compute_start_slot_at_epoch(qepoch) + i
               )
             )
@@ -200,17 +199,17 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           block:
             let res = node.getCurrentHead(qslot)
             if res.isErr():
-              if not(node.isSynced(node.chainDag.head)):
+              if not(node.isSynced(node.dag.head)):
                 return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
               else:
                 return RestApiResponse.jsonError(Http400, NoHeadForSlotError,
                                                  $res.error())
             res.get()
-        let proposer = node.chainDag.getProposer(qhead, qslot)
+        let proposer = node.dag.getProposer(qhead, qslot)
         if proposer.isNone():
           return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
         let res = await makeBeaconBlockForHeadAndSlot(
-          node, qrandao, proposer.get()[0], qgraffiti, qhead, qslot)
+          node, qrandao, proposer.get(), qgraffiti, qhead, qslot)
         if res.isNone():
           return RestApiResponse.jsonError(Http400, BlockProduceError)
         res.get()
@@ -249,7 +248,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             if res.isErr():
               return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
             res.get()
-        let epochRef = node.chainDag.getEpochRef(qhead, qslot.epoch)
+        let epochRef = node.dag.getEpochRef(qhead, qslot.epoch)
         makeAttestationData(epochRef, qhead.atSlot(qslot), qindex)
     return RestApiResponse.jsonResponse(adata)
 
@@ -330,7 +329,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            InvalidSubscriptionRequestValueError,
                                            $dres.error())
         dres.get()
-    if not(node.isSynced(node.chainDag.head)):
+    if not(node.isSynced(node.dag.head)):
       return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
 
     for request in requests:
@@ -341,10 +340,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         block:
           let idx = request.validator_index
           if uint64(idx) >=
-                           lenu64(getStateField(node.chainDag.headState, validators)):
+                           lenu64(getStateField(node.dag.headState, validators)):
             return RestApiResponse.jsonError(Http400,
                                              InvalidValidatorIndexValueError)
-          getStateField(node.chainDag.headState, validators)[idx].pubkey
+          getStateField(node.dag.headState, validators)[idx].pubkey
 
       let wallSlot = node.beaconClock.now.slotOrZero
       if wallSlot > request.slot + 1:
@@ -360,7 +359,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             return RestApiResponse.jsonError(Http400, NoHeadForSlotError,
                                              $res.error())
           res.get()
-      let epochRef = node.chainDag.getEpochRef(head, epoch)
+      let epochRef = node.dag.getEpochRef(head, epoch)
       let subnet = uint8(compute_subnet_for_attestation(
         get_committee_count_per_slot(epochRef), request.slot,
         request.committee_index)

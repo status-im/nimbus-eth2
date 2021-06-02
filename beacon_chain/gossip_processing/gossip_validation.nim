@@ -49,7 +49,7 @@ func check_attestation_block(
   # equal, but then we're voting for an already-finalized block which is pretty
   # useless - other blocks that are not rooted in the finalized chain will be
   # pruned by the chain dag, and thus we can no longer get a BlockRef for them
-  if not (blck.slot > pool.chainDag.finalizedHead.slot):
+  if not (blck.slot > pool.dag.finalizedHead.slot):
     return err((ValidationResult.Ignore, cstring(
       "Voting for already-finalized block")))
 
@@ -101,7 +101,7 @@ func check_beacon_and_target_block(
   # The target block is returned.
   # We rely on the chain DAG to have been validated, so check for the existence
   # of the block in the pool.
-  let blck = pool.chainDag.getRef(data.beacon_block_root)
+  let blck = pool.dag.getRef(data.beacon_block_root)
   if blck.isNil:
     pool.quarantine.addMissing(data.beacon_block_root)
     return err((ValidationResult.Ignore, cstring("Attestation block unknown")))
@@ -217,7 +217,7 @@ proc validateAttestation*(
   # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
   # store.finalized_checkpoint.root
   let
-    epochRef = pool.chainDag.getEpochRef(target, attestation.data.target.epoch)
+    epochRef = pool.dag.getEpochRef(target, attestation.data.target.epoch)
 
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
@@ -249,9 +249,9 @@ proc validateAttestation*(
       "validateAttestation: number of aggregation bits and committee size mismatch")))
 
   let
-    fork = getStateField(pool.chainDag.headState, fork)
+    fork = getStateField(pool.dag.headState, fork)
     genesis_validators_root =
-      getStateField(pool.chainDag.headState, genesis_validators_root)
+      getStateField(pool.dag.headState, genesis_validators_root)
     attesting_index = get_attesting_indices_one(
       epochRef, attestation.data, attestation.aggregation_bits)
 
@@ -404,7 +404,7 @@ proc validateAggregate*(
   # aggregator for the slot -- i.e. is_aggregator(state, aggregate.data.slot,
   # aggregate.data.index, aggregate_and_proof.selection_proof) returns True.
   let
-    epochRef = pool.chainDag.getEpochRef(target, aggregate.data.target.epoch)
+    epochRef = pool.dag.getEpochRef(target, aggregate.data.target.epoch)
 
   if not is_aggregator(
       epochRef, aggregate.data.slot, aggregate.data.index.CommitteeIndex,
@@ -431,9 +431,9 @@ proc validateAggregate*(
       return err((ValidationResult.Reject, cstring("Invalid aggregator_index")))
 
   let
-    fork = getStateField(pool.chainDag.headState, fork)
+    fork = getStateField(pool.dag.headState, fork)
     genesis_validators_root =
-      getStateField(pool.chainDag.headState, genesis_validators_root)
+      getStateField(pool.dag.headState, genesis_validators_root)
 
   let deferredCrypto = batchCrypto
                 .scheduleAggregateChecks(
@@ -505,7 +505,7 @@ proc validateAggregate*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_block
 proc isValidBeaconBlock*(
-       dag: ChainDAGRef, quarantine: var QuarantineRef,
+       dag: ChainDAGRef, quarantine: QuarantineRef,
        signed_beacon_block: SignedBeaconBlock, wallTime: BeaconTime,
        flags: UpdateFlags):
        Result[void, (ValidationResult, BlockError)] =
@@ -621,10 +621,9 @@ proc isValidBeaconBlock*(
     warn "cannot compute proposer for message"
     return err((ValidationResult.Ignore, Invalid)) # internal issue
 
-  if proposer.get()[0] !=
-      ValidatorIndex(signed_beacon_block.message.proposer_index):
+  if uint64(proposer.get()) != signed_beacon_block.message.proposer_index:
     notice "block had unexpected proposer",
-      expected_proposer = proposer.get()[0]
+      expected_proposer = proposer.get()
     return err((ValidationResult.Reject, Invalid))
 
   # [REJECT] The proposer signature, signed_beacon_block.signature, is valid
@@ -634,7 +633,7 @@ proc isValidBeaconBlock*(
       getStateField(dag.headState, genesis_validators_root),
       signed_beacon_block.message.slot,
       signed_beacon_block.message,
-      proposer.get()[1],
+      dag.validatorKeys[proposer.get()],
       signed_beacon_block.signature):
     debug "block failed signature verification",
       signature = shortLog(signed_beacon_block.signature)
@@ -671,7 +670,7 @@ proc validateAttesterSlashing*(
   # validation.
   let attester_slashing_validity =
     check_attester_slashing(
-      pool.chainDag.headState.data.data, attester_slashing, {})
+      pool.dag.headState.data.data, attester_slashing, {})
   if attester_slashing_validity.isErr:
     return err((ValidationResult.Reject, attester_slashing_validity.error))
 
@@ -701,7 +700,7 @@ proc validateProposerSlashing*(
   # [REJECT] All of the conditions within process_proposer_slashing pass validation.
   let proposer_slashing_validity =
     check_proposer_slashing(
-      pool.chainDag.headState.data.data, proposer_slashing, {})
+      pool.dag.headState.data.data, proposer_slashing, {})
   if proposer_slashing_validity.isErr:
     return err((ValidationResult.Reject, proposer_slashing_validity.error))
 
@@ -719,11 +718,11 @@ proc validateVoluntaryExit*(
   # [IGNORE] The voluntary exit is the first valid voluntary exit received for
   # the validator with index signed_voluntary_exit.message.validator_index.
   if signed_voluntary_exit.message.validator_index >=
-      getStateField(pool.chainDag.headState, validators).lenu64:
+      getStateField(pool.dag.headState, validators).lenu64:
     return err((ValidationResult.Ignore, cstring(
       "validateVoluntaryExit: validator index too high")))
 
-  # Given that getStateField(pool.chainDag.headState, validators) is a seq,
+  # Given that getStateField(pool.dag.headState, validators) is a seq,
   # signed_voluntary_exit.message.validator_index.int is already valid, but
   # check explicitly if one changes that data structure.
   if signed_voluntary_exit.message.validator_index.int in
@@ -735,7 +734,7 @@ proc validateVoluntaryExit*(
   # validation.
   let voluntary_exit_validity =
     check_voluntary_exit(
-      pool.chainDag.headState.data.data, signed_voluntary_exit, {})
+      pool.dag.headState.data.data, signed_voluntary_exit, {})
   if voluntary_exit_validity.isErr:
     return err((ValidationResult.Reject, voluntary_exit_validity.error))
 

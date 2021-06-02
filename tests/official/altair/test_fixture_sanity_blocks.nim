@@ -74,6 +74,5 @@ suite "Official - Altair - Sanity - Blocks " & preset():
     runTest("Official - Altair - Sanity - Blocks", SanityBlocksDir, path)
 
 suite "Official - Altair - Finality " & preset():
-  when false:
-    for kind, path in walkDir(FinalityDir, true):
-      runTest("Official - Altair - Finality", FinalityDir, path)
+  for kind, path in walkDir(FinalityDir, true):
+    runTest("Official - Altair - Finality", FinalityDir, path)

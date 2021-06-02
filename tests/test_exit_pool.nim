@@ -14,9 +14,9 @@ import ../beacon_chain/consensus_object_pools/[block_quarantine, blockchain_dag,
 import "."/[testutil, testdbutil]
 
 proc getExitPool(): auto =
-  let chainDag =
+  let dag =
     init(ChainDAGRef, defaultRuntimePreset, makeTestDB(SLOTS_PER_EPOCH * 3))
-  newClone(ExitPool.init(chainDag, QuarantineRef.init(keys.newRng())))
+  newClone(ExitPool.init(dag, QuarantineRef.init(keys.newRng())))
 
 suite "Exit pool testing suite":
   setup:

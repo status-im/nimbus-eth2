@@ -761,75 +761,16 @@ proc process_attestation*(
 
   ok()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.3/specs/altair/fork.md#upgrading-the-state
-func upgrade_to_altair(pre: phase0.BeaconState): altair.BeaconState =
-  let epoch = get_current_epoch(pre)
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.3/specs/altair/fork.md#configuration
-  const ALTAIR_FORK_VERSION = Version [byte 1, 0, 0, 0]
-
-  var empty_participation =
-    HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]()
-  for _ in 0 ..< len(pre.validators):
-    doAssert empty_participation.add 0.ParticipationFlags
-
-  altair.BeaconState(
-    genesis_time: pre.genesis_time,
-    genesis_validators_root: pre.genesis_validators_root,
-    slot: pre.slot,
-    fork: Fork(
-      previous_version: pre.fork.current_version,
-      current_version: ALTAIR_FORK_VERSION,
-      epoch: epoch
-    ),
-
-    # History
-    latest_block_header: pre.latest_block_header,
-    block_roots: pre.block_roots,
-    state_roots: pre.state_roots,
-    historical_roots: pre.historical_roots,
-
-    # Eth1
-    eth1_data: pre.eth1_data,
-    eth1_data_votes: pre.eth1_data_votes,
-    eth1_deposit_index: pre.eth1_deposit_index,
-
-    # Registry
-    validators: pre.validators,
-    balances: pre.balances,
-
-    # Randomness
-    randao_mixes: pre.randao_mixes,
-
-    # Slashings
-    slashings: pre.slashings,
-
-    # Attestations
-    previous_epoch_participation: empty_participation,
-    current_epoch_participation: empty_participation,
-
-    # Finality
-    justification_bits: pre.justification_bits,
-    previous_justified_checkpoint: pre.previous_justified_checkpoint,
-    current_justified_checkpoint: pre.current_justified_checkpoint,
-    finalized_checkpoint: pre.finalized_checkpoint
-  )
-
-  #TODO
-  # Fill in sync committees
-  #post.current_sync_committee = get_sync_committee(post, get_current_epoch(post))
-  #post.next_sync_committee = get_sync_committee(post, get_current_epoch(post) + EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
-  #post
-
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#get_next_sync_committee_indices
-func get_next_sync_committee_indices(state: altair.BeaconState): seq[ValidatorIndex] =
+func get_next_sync_committee_indices(state: altair.BeaconState):
+    seq[ValidatorIndex] =
   ## Return the sequence of sync committee indices (which may include
   ## duplicate indices) for the next sync committee, given a ``state`` at a
   ## sync committee period boundary.
 
   # Note: Committee can contain duplicate indices for small validator sets
   # (< SYNC_COMMITTEE_SIZE + 128)
-  let epoch = Epoch(get_current_epoch(state) + 1)
+  let epoch = get_current_epoch(state) + 1
 
   const MAX_RANDOM_BYTE = 255
   let
@@ -873,25 +814,114 @@ proc get_next_sync_committee*(state: altair.BeaconState): SyncCommittee =
     indices = get_next_sync_committee_indices(state)
     pubkeys = mapIt(indices, state.validators[it].pubkey)
 
-  # see signatures_batch, TODO shouldn't be here
-  var
-    aggregate_pubkey: blscurve.PublicKey
-    attestersAgg: AggregatePublicKey
-  let ck = pubkeys[0].loadWithCache()
-  if ck.isNone:
-    attestersAgg.init(ck.get)
-  for i in 1 ..< pubkeys.len:
-    let cookedKey = pubkeys[i].loadWithCache()
-    if cookedKey.isNone():
-      # TODO is this the correct failure handling?
-      continue
-    attestersAgg.aggregate(cookedKey.get)
-  aggregate_pubkey.finish(attestersAgg)
-
-  var res = SyncCommittee(aggregate_pubkey: ValidatorPubKey(blob: aggregate_pubkey.exportRaw()))
-  doAssert indices.len == SYNC_COMMITTEE_SIZE # needs to fill vector exactly
+  # TODO not robust
   doAssert pubkeys.len == SYNC_COMMITTEE_SIZE
+
+  # see signatures_batch, TODO shouldn't be here
+  # Deposit processing ensures all keys are valid
+  var
+    attestersAgg: AggregatePublicKey
+  attestersAgg.init(pubkeys[0].loadWithCache().get)
+  for i in 1 ..< pubkeys.len:
+    attestersAgg.aggregate(pubkeys[i].loadWithCache().get)
+  let aggregate_pubkey = finish(attestersAgg)
+
+  var res = SyncCommittee(aggregate_pubkey: aggregate_pubkey.toPubKey())
   for i in 0 ..< SYNC_COMMITTEE_SIZE:
     # obviously ineffecient
     res.pubkeys[i] = pubkeys[i]
   res
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/fork.md#upgrading-the-state
+func translate_participation(
+    state: var altair.BeaconState,
+    pending_attestations: openArray[phase0.PendingAttestation]) =
+  for attestation in pending_attestations:
+    let
+      data = attestation.data
+      inclusion_delay = attestation.inclusion_delay
+
+      # Translate attestation inclusion info to flag indices
+      participation_flag_indices =
+        get_attestation_participation_flag_indices(state, data, inclusion_delay)
+
+    # Apply flags to all attesting validators
+    var cache = StateCache()  # TODO hoist/pass as param
+
+    for index in get_attesting_indices(
+        state, data, attestation.aggregation_bits, cache):
+      for flag_index in participation_flag_indices:
+        state.previous_epoch_participation[index] =
+          add_flag(state.previous_epoch_participation[index], flag_index)
+
+proc upgrade_to_altair*(pre: phase0.BeaconState): altair.BeaconState =
+  let epoch = get_current_epoch(pre)
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/fork.md#configuration
+  const ALTAIR_FORK_VERSION = Version [byte 1, 0, 0, 0]
+
+  var
+    empty_participation =
+      HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]()
+    inactivity_scores = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]()
+  for _ in 0 ..< len(pre.validators):
+    doAssert empty_participation.add 0.ParticipationFlags
+  for _ in 0 ..< len(pre.validators):
+    doAssert inactivity_scores.add 0'u64
+
+  var post = altair.BeaconState(
+    genesis_time: pre.genesis_time,
+    genesis_validators_root: pre.genesis_validators_root,
+    slot: pre.slot,
+    fork: Fork(
+      previous_version: pre.fork.current_version,
+      current_version: ALTAIR_FORK_VERSION,
+      epoch: epoch
+    ),
+
+    # History
+    latest_block_header: pre.latest_block_header,
+    block_roots: pre.block_roots,
+    state_roots: pre.state_roots,
+    historical_roots: pre.historical_roots,
+
+    # Eth1
+    eth1_data: pre.eth1_data,
+    eth1_data_votes: pre.eth1_data_votes,
+    eth1_deposit_index: pre.eth1_deposit_index,
+
+    # Registry
+    validators: pre.validators,
+    balances: pre.balances,
+
+    # Randomness
+    randao_mixes: pre.randao_mixes,
+
+    # Slashings
+    slashings: pre.slashings,
+
+    # Attestations
+    previous_epoch_participation: empty_participation,
+    current_epoch_participation: empty_participation,
+
+    # Finality
+    justification_bits: pre.justification_bits,
+    previous_justified_checkpoint: pre.previous_justified_checkpoint,
+    current_justified_checkpoint: pre.current_justified_checkpoint,
+    finalized_checkpoint: pre.finalized_checkpoint,
+
+    # Inactivity
+    inactivity_scores: inactivity_scores
+  )
+
+  # Fill in previous epoch participation from the pre state's pending
+  # attestations
+  translate_participation(post, pre.previous_epoch_attestations.asSeq)
+
+  # Fill in sync committees
+  # Note: A duplicate committee is assigned for the current and next committee
+  # at the fork boundary
+  post.current_sync_committee = get_next_sync_committee(post)
+  post.next_sync_committee = get_next_sync_committee(post)
+
+  post

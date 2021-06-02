@@ -40,7 +40,7 @@ func get_slot_signature*(
 
 proc verify_slot_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    pubkey: ValidatorPubKey, signature: SomeSig): bool =
+    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   withTrust(signature):
     let
       epoch = compute_epoch_at_slot(slot)
@@ -65,7 +65,7 @@ func get_epoch_signature*(
 
 proc verify_epoch_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
-    pubkey: ValidatorPubKey, signature: SomeSig): bool =
+    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   withTrust(signature):
     let
       domain = get_domain(fork, DOMAIN_RANDAO, epoch, genesis_validators_root)
@@ -91,8 +91,7 @@ func get_block_signature*(
 proc verify_block_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     blck: Eth2Digest | SomeSomeBeaconBlock | BeaconBlockHeader,
-    pubkey: ValidatorPubKey,
-    signature: SomeSig): bool =
+    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   withTrust(signature):
     let
       epoch = compute_epoch_at_slot(slot)
@@ -118,9 +117,10 @@ func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth
   blsSign(privKey, compute_aggregate_and_proof_root(fork, genesis_validators_root,
                                                     aggregate_and_proof).data)
 
-proc verify_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
-                                           aggregate_and_proof: AggregateAndProof,
-                                           pubkey: ValidatorPubKey, signature: SomeSig): bool =
+proc verify_aggregate_and_proof_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    aggregate_and_proof: AggregateAndProof,
+    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   withTrust(signature):
     let
       epoch = compute_epoch_at_slot(aggregate_and_proof.aggregate.data.slot)
@@ -151,7 +151,7 @@ func get_attestation_signature*(
 proc verify_attestation_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     attestation_data: AttestationData,
-    pubkeys: openArray[ValidatorPubKey],
+    pubkeys: auto,
     signature: SomeSig): bool =
   withTrust(signature):
     let

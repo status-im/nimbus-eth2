@@ -27,22 +27,22 @@ logScope: topics = "attpool"
 declareGauge attestation_pool_block_attestation_packing_time,
   "Time it took to create list of attestations for block"
 
-proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: QuarantineRef): T =
-  ## Initialize an AttestationPool from the chainDag `headState`
+proc init*(T: type AttestationPool, dag: ChainDAGRef, quarantine: QuarantineRef): T =
+  ## Initialize an AttestationPool from the dag `headState`
   ## The `finalized_root` works around the finalized_checkpoint of the genesis block
   ## holding a zero_root.
-  let finalizedEpochRef = chainDag.getFinalizedEpochRef()
+  let finalizedEpochRef = dag.getFinalizedEpochRef()
 
   var forkChoice = ForkChoice.init(
     finalizedEpochRef,
-    chainDag.finalizedHead.blck)
+    dag.finalizedHead.blck)
 
   # Feed fork choice with unfinalized history - during startup, block pool only
   # keeps track of a single history so we just need to follow it
-  doAssert chainDag.heads.len == 1, "Init only supports a single history"
+  doAssert dag.heads.len == 1, "Init only supports a single history"
 
   var blocks: seq[BlockRef]
-  var cur = chainDag.head
+  var cur = dag.head
 
   # When the chain is finalizing, the votes between the head block and the
   # finalized checkpoint should be enough for a stable fork choice - when the
@@ -52,7 +52,7 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
   # it takes to replay that many blocks during startup and thus miss _new_
   # votes.
   const ForkChoiceHorizon = 256
-  while cur != chainDag.finalizedHead.blck:
+  while cur != dag.finalizedHead.blck:
     blocks.add cur
     cur = cur.parent
 
@@ -75,21 +75,21 @@ proc init*(T: type AttestationPool, chainDag: ChainDAGRef, quarantine: Quarantin
             epochRef.current_justified_checkpoint.epoch,
             epochRef.finalized_checkpoint.epoch)
         else:
-          epochRef = chainDag.getEpochRef(blck, blck.slot.epoch)
+          epochRef = dag.getEpochRef(blck, blck.slot.epoch)
           forkChoice.process_block(
-            chainDag, epochRef, blck, chainDag.get(blck).data.message, blck.slot)
+            dag, epochRef, blck, dag.get(blck).data.message, blck.slot)
 
     doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
 
   info "Fork choice initialized",
     justified_epoch = getStateField(
-      chainDag.headState, current_justified_checkpoint).epoch,
+      dag.headState, current_justified_checkpoint).epoch,
     finalized_epoch = getStateField(
-      chainDag.headState, finalized_checkpoint).epoch,
-    finalized_root = shortlog(chainDag.finalizedHead.blck.root)
+      dag.headState, finalized_checkpoint).epoch,
+    finalized_root = shortlog(dag.finalizedHead.blck.root)
 
   T(
-    chainDag: chainDag,
+    dag: dag,
     quarantine: quarantine,
     forkChoice: forkChoice
   )
@@ -100,7 +100,7 @@ proc addForkChoiceVotes(
     wallSlot: Slot) =
   # Add attestation votes to fork choice
   if (let v = pool.forkChoice.on_attestation(
-    pool.chainDag, slot, block_root, attesting_indices, wallSlot);
+    pool.dag, slot, block_root, attesting_indices, wallSlot);
     v.isErr):
       # This indicates that the fork choice and the chain dag are out of sync -
       # this is most likely the result of a bug, but we'll try to keep going -
@@ -313,7 +313,7 @@ proc addForkChoice*(pool: var AttestationPool,
                     wallSlot: Slot) =
   ## Add a verified block to the fork choice context
   let state = pool.forkChoice.process_block(
-    pool.chainDag, epochRef, blckRef, blck, wallSlot)
+    pool.dag, epochRef, blckRef, blck, wallSlot)
 
   if state.isErr:
     # This indicates that the fork choice and the chain dag are out of sync -
@@ -592,13 +592,13 @@ proc getAggregatedAttestation*(pool: var AttestationPool,
 proc selectHead*(pool: var AttestationPool, wallSlot: Slot): BlockRef =
   ## Trigger fork choice and returns the new head block.
   ## Can return `nil`
-  let newHead = pool.forkChoice.get_head(pool.chainDag, wallSlot)
+  let newHead = pool.forkChoice.get_head(pool.dag, wallSlot)
 
   if newHead.isErr:
     error "Couldn't select head", err = newHead.error
     nil
   else:
-    let ret = pool.chainDag.getRef(newHead.get())
+    let ret = pool.dag.getRef(newHead.get())
     if ret.isNil:
       # This should normally not happen, but if the chain dag and fork choice
       # get out of sync, we'll need to try to download the selected head - in

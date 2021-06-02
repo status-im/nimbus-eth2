@@ -71,6 +71,7 @@ type
       # `genesisData` will have `len == 0` for networks with a still
       # unknown genesis state.
       genesisData*: string
+      genesisDataPath*: string
       genesisDepositsSnapshot*: string
     else:
       incompatibilityDesc*: string
@@ -201,7 +202,7 @@ const
 {.pop.} # the following pocedures raise more than just `Defect`
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
-  let
+  var
     metadata = case toLowerAscii(networkName)
       of "mainnet":
         mainnetMetadata
@@ -224,6 +225,8 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
     fatal "The selected network is not compatible with the current build",
             reason = metadata.incompatibilityDesc
     quit 1
+  if metadata.genesisData.len == 0 and metadata.genesisDataPath.len > 0:
+    metadata.genesisData = readFile(metadata.genesisDataPath)
   return metadata
 
 proc getRuntimePresetForNetwork*(eth2Network: Option[string]): RuntimePreset =
