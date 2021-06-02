@@ -11,7 +11,6 @@ import
   # Standard library
   std/[math, os, osproc, random, sequtils, strformat, strutils,
        tables, times, terminal],
-  system/ansi_c,
 
   # Nimble packages
   stew/[objects, byteutils, endians2, io2], stew/shims/macros,
@@ -50,6 +49,9 @@ import
 
 from eth/common/eth_types import BlockHashOrNumber
 
+when defined(posix):
+  import system/ansi_c
+
 from
   libp2p/protocols/pubsub/gossipsub
 import
@@ -68,7 +70,11 @@ template init(T: type RestServerRef, ip: ValidIpAddress, port: Port): T =
   let address = initTAddress(ip, port)
   let serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
                      HttpServerFlags.NotifyDisconnect}
-  let res = RestServerRef.new(getRouter(), address, serverFlags = serverFlags)
+  # We increase default timeout to help validator clients who poll our server
+  # at least once per slot (12.seconds).
+  let headersTimeout = seconds(2'i64 * int64(SECONDS_PER_SLOT))
+  let res = RestServerRef.new(getRouter(), address, serverFlags = serverFlags,
+                              httpHeadersTimeout = headersTimeout)
   if res.isErr():
     notice "Rest server could not be started", address = $address,
            reason = res.error()
