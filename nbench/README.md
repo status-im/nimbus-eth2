@@ -41,9 +41,6 @@ build/nbench cmdEpochProcessing --epochProcessingCat=catRegistryUpdates -d="${SC
 # Slashings
 build/nbench cmdEpochProcessing --epochProcessingCat=catSlashings -d="${SCENARIOS}"/epoch_processing/slashings/pyspec_tests/max_penalties/
 
-# Final updates
-build/nbench cmdEpochProcessing --epochProcessingCat=catFinalUpdates -d="${SCENARIOS}"/epoch_processing/final_updates/pyspec_tests/effective_balance_hysteresis/
-
 # Block header processing
 build/nbench cmdBlockProcessing --blockProcessingCat=catBlockHeader -d="${SCENARIOS}"/operations/block_header/pyspec_tests/proposer_slashed/
 

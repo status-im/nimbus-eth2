@@ -13,12 +13,13 @@ import
   metrics, snappy, chronicles,
   ../ssz/[ssz_serialization, merkleization], ../beacon_chain_db, ../extras,
   ../spec/[
-    crypto, datatypes, digest, helpers, validator, state_transition,
+    crypto, digest, helpers, validator, state_transition,
     beaconstate],
+  ../spec/datatypes/[phase0, altair],
   ../beacon_clock,
   "."/[block_pools_types, block_quarantine, statedata_helpers]
 
-export block_pools_types, helpers, datatypes
+export block_pools_types, helpers, phase0
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"
@@ -44,7 +45,7 @@ declareGauge beacon_processed_deposits_total, "Number of total deposits included
 logScope: topics = "chaindag"
 
 proc putBlock*(
-    dag: ChainDAGRef, signedBlock: TrustedSignedBeaconBlock) =
+    dag: ChainDAGRef, signedBlock: phase0.TrustedSignedBeaconBlock) =
   dag.db.putBlock(signedBlock)
 
 proc updateStateData*(
@@ -233,10 +234,6 @@ func atEpochStart*(blck: BlockRef, epoch: Epoch): BlockSlot =
   ## Return the BlockSlot corresponding to the first slot in the given epoch
   atSlot(blck, epoch.compute_start_slot_at_epoch)
 
-func atEpochEnd(blck: BlockRef, epoch: Epoch): BlockSlot =
-  ## Return the BlockSlot corresponding to the last slot in the given epoch
-  atSlot(blck, (epoch + 1).compute_start_slot_at_epoch - 1)
-
 func epochAncestor*(blck: BlockRef, epoch: Epoch): BlockSlot =
   ## The state transition works by storing information from blocks in a
   ## "working" area until the epoch transition, then batching work collected
@@ -291,7 +288,8 @@ func init(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
     slot: slot
   )
 
-func init*(T: type BlockRef, root: Eth2Digest, blck: SomeBeaconBlock): BlockRef =
+func init*(T: type BlockRef, root: Eth2Digest, blck: SomeSomeBeaconBlock):
+    BlockRef =
   BlockRef.init(root, blck.slot)
 
 func contains*(dag: ChainDAGRef, root: Eth2Digest): bool =
@@ -506,7 +504,7 @@ proc getState(
     else:
       unsafeAddr dag.headState
 
-  func restore(v: var BeaconState) =
+  func restore(v: var phase0.BeaconState) =
     assign(v, restoreAddr[].data.data)
 
   if not dag.db.getState(stateRoot, state.data.data, restore):
@@ -681,7 +679,7 @@ proc applyBlock(
   doAssert state.blck == blck.refs.parent
 
   var statePtr = unsafeAddr state # safe because `restore` is locally scoped
-  func restore(v: var HashedBeaconState) =
+  func restore(v: var phase0.HashedBeaconState) =
     doAssert (addr(statePtr.data) == addr v)
     statePtr[] = dag.headState
 
@@ -1095,7 +1093,7 @@ proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): bool =
 
 proc preInit*(
     T: type ChainDAGRef, db: BeaconChainDB,
-    genesisState, tailState: var BeaconState, tailBlock: TrustedSignedBeaconBlock) =
+    genesisState, tailState: var phase0.BeaconState, tailBlock: phase0.TrustedSignedBeaconBlock) =
   # write a genesis state, the way the ChainDAGRef expects it to be stored in
   # database
   # TODO probably should just init a block pool with the freshly written
@@ -1125,8 +1123,8 @@ proc preInit*(
     db.putGenesisBlockRoot(genesisBlock.root)
 
 func setTailState*(dag: ChainDAGRef,
-                   checkpointState: BeaconState,
-                   checkpointBlock: TrustedSignedBeaconBlock) =
+                   checkpointState: phase0.BeaconState,
+                   checkpointBlock: phase0.TrustedSignedBeaconBlock) =
   # TODO(zah)
   # Delete all records up to the tail node. If the tail node is not
   # in the database, init the dabase in a way similar to `preInit`.

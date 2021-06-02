@@ -43,7 +43,6 @@ template withTimerRet*(stats: var RunningStat, body: untyped): untyped =
 
 var testTimes: seq[TestDuration]
 var status = initOrderedTable[string, OrderedTable[string, Status]]()
-var last: string
 
 type TimingCollector = ref object of OutputFormatter
 

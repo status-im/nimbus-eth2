@@ -60,15 +60,7 @@ template asTrusted(x: SignedBeaconBlock or SigVerifiedBeaconBlock): TrustedSigne
 
   cast[ptr TrustedSignedBeaconBlock](signedBlock.unsafeAddr)[]
 
-func getOrResolve*(dag: ChainDAGRef, quarantine: QuarantineRef, root: Eth2Digest): BlockRef =
-  ## Fetch a block ref, or nil if not found (will be added to list of
-  ## blocks-to-resolve)
-  result = dag.getRef(root)
-
-  if result.isNil:
-    quarantine.addMissing(root)
-
-proc batchVerify(quarantine: QuarantineRef, sigs: openArray[SignatureSet]): bool =
+func batchVerify(quarantine: QuarantineRef, sigs: openArray[SignatureSet]): bool =
   var secureRandomBytes: array[32, byte]
   quarantine.rng[].brHmacDrbgGenerate(secureRandomBytes)
 
@@ -181,8 +173,9 @@ proc checkStateTransition(
     blockRoot = shortLog(signedBlock.root)
 
   var rewards: RewardInfo
-  if not state_transition(dag.runtimePreset, dag.clearanceState.data, signedBlock,
-                          cache, rewards, dag.updateFlags + {slotProcessed}, restore):
+  if not state_transition_block(
+      dag.runtimePreset, dag.clearanceState.data, signedBlock,
+      cache, rewards, dag.updateFlags, restore):
     info "Invalid block"
 
     return (ValidationResult.Reject, Invalid)
@@ -323,7 +316,7 @@ proc addRawBlockUnresolved(
 
   return err((ValidationResult.Ignore, MissingParent))
 
-proc addRawBlock*(
+proc addRawBlock(
        dag: ChainDAGRef, quarantine: QuarantineRef,
        signedBlock: SignedBeaconBlock,
        onBlockAdded: OnBlockAdded

@@ -667,7 +667,7 @@ func process_rewards_and_penalties(
     decrease_balance(state.balances.asSeq()[idx], v.delta.penalties)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#rewards-and-penalties
-proc process_rewards_and_penalties(
+func process_rewards_and_penalties(
     state: var altair.BeaconState, total_active_balance: Gwei) {.nbench.} =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
@@ -828,17 +828,6 @@ func process_inactivity_updates*(state: var altair.BeaconState) =
     if not is_in_inactivity_leak(state):
       state.inactivity_scores[index] -= min(INACTIVITY_SCORE_RECOVERY_RATE.uint64, state.inactivity_scores[index])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#final-updates
-func process_final_updates*(state: var phase0.BeaconState) {.nbench.} =
-  # This function's a wrapper over the HF1 split/refactored HF1 version. TODO
-  # remove once test vectors become available for each HF1 function.
-  process_eth1_data_reset(state)
-  process_effective_balance_updates(state)
-  process_slashings_reset(state)
-  process_randao_mixes_reset(state)
-  process_historical_roots_update(state)
-  process_participation_record_updates(state)
-
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(
     state: var phase0.BeaconState, flags: UpdateFlags, cache: var StateCache,
@@ -873,7 +862,12 @@ proc process_epoch*(
   process_slashings(state, rewards.total_balances.current_epoch)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#final-updates
-  process_final_updates(state)
+  process_eth1_data_reset(state)
+  process_effective_balance_updates(state)
+  process_slashings_reset(state)
+  process_randao_mixes_reset(state)
+  process_historical_roots_update(state)
+  process_participation_record_updates(state)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#epoch-processing
 proc process_epoch*(
