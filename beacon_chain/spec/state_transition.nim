@@ -243,7 +243,7 @@ proc maybeUpgradeStateToAltair(
   # only run it once.
   if  getStateField(state, slot) == altairForkSlot and
       state.beaconStateFork == forkPhase0:
-    var newState = upgrade_to_altair_ref(state.hbsPhase0.data)
+    var newState = upgrade_to_altair(state.hbsPhase0.data)
     state = ForkedHashedBeaconState(
       beaconStateFork: forkAltair,
       hbsAltair: altair.HashedBeaconState(

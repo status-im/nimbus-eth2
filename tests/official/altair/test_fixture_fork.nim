@@ -36,7 +36,7 @@ proc runTest(identifier: string) =
           parseTest(testDir/"pre.ssz_snappy", SSZ, phase0.BeaconState))
         postState = newClone(
           parseTest(testDir/"post.ssz_snappy", SSZ, altair.BeaconState))
-        upgradedState = newClone(upgrade_to_altair(preState[]))
+        upgradedState = upgrade_to_altair(preState[])
       check: upgradedState[].hash_tree_root() == postState[].hash_tree_root()
       reportDiff(upgradedState, postState)
 
