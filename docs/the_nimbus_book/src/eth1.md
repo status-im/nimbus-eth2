@@ -9,10 +9,10 @@ Validators are responsible for including new deposits when they propose blocks. 
 
 On this page we provide instructions for using Geth (however, any reputable eth1 client should do the trick).
 
-> **Note:** If you have a > 500GB SSD, and your [hardware](./hardware.md) can handle it, we strongly recommend running your own eth1 client. This will help ensure the network stays as decentralised as possible. If you can't however, the next best option is to set up an [infura endpoint](./infura-guide.md).
+> **Note:** If you have a > 500GB SSD, and your [hardware](./hardware.md) can handle it, we strongly recommend running your own eth1 client. This will help ensure the network stays as decentralised as possible. If you can't however, the next best option is to set up a 3rd part provider like [infura](./infura-guide.md).
 
 ## Nimbus
-In parallel to `nimbus-eth2` we are working hard on our [our eth1 client](https://github.com/status-im/nimbus-eth1). While this is  very much a project in development (i.e. not yet ready for public consumption), you are welcome to experiment with it.
+In parallel to `nimbus-eth2` we are working hard on our [our exectution client](https://github.com/status-im/nimbus-eth1). While this is  very much a project in development (i.e. not yet ready for public consumption), we welcome you to experiment with it.
 
 ## Nethermind
 *TBC*
