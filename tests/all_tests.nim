@@ -26,7 +26,6 @@ import # Unit test
   ./test_interop,
   ./test_peer_pool,
   ./test_ssz,
-  ./test_state_transition,
   ./test_statediff,
   ./test_sync_manager,
   ./test_zero_signature,
