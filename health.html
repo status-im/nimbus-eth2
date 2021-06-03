@@ -1,0 +1,308 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Monitor the health of your node - The Nimbus Beacon Chain Book</title>
+        
+        
+
+
+        <!-- Custom HTML head -->
+        
+
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        
+        <link rel="icon" href="favicon.svg">
+        
+        
+        <link rel="shortcut icon" href="favicon.png">
+        
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        
+        <link rel="stylesheet" href="css/print.css" media="print">
+        
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+        <link rel="stylesheet" href="custom.css">
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="philosophy.html"><strong aria-hidden="true">2.</strong> Design goals</a></li><li class="chapter-item expanded "><a href="hardware.html"><strong aria-hidden="true">3.</strong> System requirements</a></li><li class="chapter-item expanded "><a href="preparation.html"><strong aria-hidden="true">4.</strong> Mainnet checklist</a></li><li class="chapter-item expanded affix "><li class="part-title">Quickstart</li><li class="chapter-item expanded "><a href="quick-start.html"><strong aria-hidden="true">5.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="run-a-validator.html"><strong aria-hidden="true">6.</strong> Run a validator</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (beacon node)</li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">7.</strong> Install dependencies</a></li><li class="chapter-item expanded "><a href="build.html"><strong aria-hidden="true">8.</strong> Build the beacon node</a></li><li class="chapter-item expanded "><a href="start-syncing.html"><strong aria-hidden="true">9.</strong> Sync the beacon node</a></li><li class="chapter-item expanded "><a href="web3-backup.html"><strong aria-hidden="true">10.</strong> Add a backup web3 provider</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (validator)</li><li class="chapter-item expanded "><a href="deposit.html"><strong aria-hidden="true">11.</strong> Make a deposit</a></li><li class="chapter-item expanded "><a href="keys.html"><strong aria-hidden="true">12.</strong> Import your validator keys</a></li><li class="chapter-item expanded "><a href="connect-eth2.html"><strong aria-hidden="true">13.</strong> Connect your validator to eth2</a></li><li class="chapter-item expanded "><a href="keep-an-eye.html"><strong aria-hidden="true">14.</strong> Keep an eye on your validator</a></li><li class="chapter-item expanded "><a href="more-keys.html"><strong aria-hidden="true">15.</strong> Recover / generate keys</a></li><li class="chapter-item expanded "><a href="voluntary-exit.html"><strong aria-hidden="true">16.</strong> Perform a voluntary exit</a></li><li class="chapter-item expanded "><a href="additional-validator.html"><strong aria-hidden="true">17.</strong> Add an additional validator</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (misc)</li><li class="chapter-item expanded "><a href="keep-updated.html"><strong aria-hidden="true">18.</strong> Update Nimbus</a></li><li class="chapter-item expanded "><a href="eth1.html"><strong aria-hidden="true">19.</strong> Run an eth1 node</a></li><li class="chapter-item expanded "><a href="beacon-node-systemd.html"><strong aria-hidden="true">20.</strong> Set up a systemd service</a></li><li class="chapter-item expanded "><a href="log-rotate.html"><strong aria-hidden="true">21.</strong> Set up log rotation</a></li><li class="chapter-item expanded "><a href="checksums.html"><strong aria-hidden="true">22.</strong> Verify the integrity of Nimbus</a></li><li class="chapter-item expanded "><a href="database-backup.html"><strong aria-hidden="true">23.</strong> Back up your database</a></li><li class="chapter-item expanded "><a href="email-notifications.html"><strong aria-hidden="true">24.</strong> Set up email notifications</a></li><li class="chapter-item expanded "><a href="graffiti.html"><strong aria-hidden="true">25.</strong> Graffiti the blockchain</a></li><li class="chapter-item expanded "><a href="profits.html"><strong aria-hidden="true">26.</strong> Optimise for profitability</a></li><li class="chapter-item expanded "><a href="health.html" class="active"><strong aria-hidden="true">27.</strong> Monitor the health of your node</a></li><li class="chapter-item expanded affix "><li class="part-title">Guides</li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">28.</strong> Grafana and Prometheus</a></li><li class="chapter-item expanded "><a href="infura-guide.html"><strong aria-hidden="true">29.</strong> Create your own Infura endpoint</a></li><li class="chapter-item expanded "><a href="migration.html"><strong aria-hidden="true">30.</strong> Migrate from another client</a></li><li class="chapter-item expanded "><a href="pi-guide.html"><strong aria-hidden="true">31.</strong> Validate with a Raspberry Pi</a></li><li class="chapter-item expanded affix "><li class="part-title">Downloads</li><li class="chapter-item expanded "><a href="binaries.html"><strong aria-hidden="true">32.</strong> Download binaries</a></li><li class="chapter-item expanded "><a href="docker.html"><strong aria-hidden="true">33.</strong> Download Docker images</a></li><li class="chapter-item expanded affix "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">34.</strong> API</a></li><li class="chapter-item expanded "><a href="options.html"><strong aria-hidden="true">35.</strong> Help / Command line options</a></li><li class="chapter-item expanded "><a href="migration-options.html"><strong aria-hidden="true">36.</strong> Advanced migration options</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">37.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="developers.html"><strong aria-hidden="true">38.</strong> For developers</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">39.</strong> Contribute</a></li><li class="chapter-item expanded "><a href="resources.html"><strong aria-hidden="true">40.</strong> Resources</a></li><li class="chapter-item expanded "><a href="distribution_internals.html"><strong aria-hidden="true">41.</strong> Binary distribution internals</a></li><li class="chapter-item expanded "><a href="prater.html"><strong aria-hidden="true">42.</strong> Prater: What you should know</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">43.</strong> FAQ</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">The Nimbus Beacon Chain Book</h1>
+
+                    <div class="right-buttons">
+                        
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        
+                        <a href="https://github.com/status-im/nimbus-eth2" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#monitor-the-health-of-your-node" id="monitor-the-health-of-your-node">Monitor the health of your node</a></h1>
+<p>The most important thing for the the health, performance and stablity of your node and the overall network is the strength of your node's network connectivity / peer count.</p>
+<h2><a class="header" href="#monitor-your-peer-count" id="monitor-your-peer-count">Monitor your Peer count</a></h2>
+<p>If your Peer count is low (less than <code>20</code>) and/or you repeatedly see the following warning:</p>
+<pre><code>WRN 2021-05-08 12:59:26.669+00:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; tid=1914 file=eth2_network.nim:963 discovered_nodes=9 new_peers=0 current_peers=1 wanted_peers=160
+</code></pre>
+<p>It probably means that your computer is not reachable from the outside. This means you won't be able to accept any incoming peer connections.</p>
+<p>If you're on a home network, the fix here is to set up port forwarding.</p>
+<h2><a class="header" href="#set-up-port-forwarding" id="set-up-port-forwarding">Set up port forwarding</a></h2>
+<p>If you're running on a home network and want to ensure you are able to receive incoming connections you may need to set up port forwarding (though some routers automagically set this up for you).</p>
+<blockquote>
+<p><strong>Note:</strong> If you are running your node on a virtual public cloud (VPC) instance, you can safely ignore this section.</p>
+</blockquote>
+<p>While the specific steps required vary based on your router, they can be summarised as follows:</p>
+<ol>
+<li>Determine your <a href="./health.html#public-ip-address">public IP address</a></li>
+<li>Determine your <a href="./health.html#private-ip-address">private IP address</a></li>
+<li>Browse to the management website for your home router (typically <a href="http://192.168.1.1">http://192.168.1.1)</a></li>
+<li>Log in as admin / root</li>
+<li>Find the section to configure port forwarding</li>
+<li>Configure a port forwarding rule with the following values:</li>
+</ol>
+<ul>
+<li>External port: <code>9000</code></li>
+<li>Internal port: <code>9000</code></li>
+<li>Protocol: <code>TCP</code></li>
+<li>IP Address: Private IP address of the computer running Nimbus</li>
+</ul>
+<ol start="7">
+<li>Configure a second port forwarding rule with the following values:</li>
+</ol>
+<ul>
+<li>External port: <code>9000</code></li>
+<li>Internal port: <code>9000</code></li>
+<li>Protocol: <code>UDP</code></li>
+<li>IP Address: Private IP address of the computer running Nimbus</li>
+</ul>
+<h3><a class="header" href="#determine-your-public-ip-address" id="determine-your-public-ip-address">Determine your public IP address</a></h3>
+<p>To determine your public IP address, visit <a href="http://v4.ident.me/">http://v4.ident.me/</a> or run this command:</p>
+<pre><code>curl v4.ident.me
+</code></pre>
+<h3><a class="header" href="#determine-your-private-ip-address" id="determine-your-private-ip-address">Determine your private IP address</a></h3>
+<p>To determine your private IP address, run the appropriate command for your OS:</p>
+<p><strong>Linux:</strong></p>
+<pre><code>ip addr show | grep &quot;inet &quot; | grep -v 127.0.0.1
+</code></pre>
+<p><strong>Windows:</strong></p>
+<pre><code>ipconfig | findstr /i &quot;IPv4 Address&quot;
+</code></pre>
+<p><strong>macOS:</strong></p>
+<pre><code>ifconfig | grep &quot;inet &quot; | grep -v 127.0.0.1
+</code></pre>
+<h3><a class="header" href="#check-open-ports-on-your-connection" id="check-open-ports-on-your-connection">Check open ports on your connection</a></h3>
+<p>Use <a href="https://www.yougetsignal.com/tools/open-ports/">this tool</a> to check your external (public) IP address and detect open ports on your connection (Nimbus TCP and UDP ports are both set to <code>9000</code> by default).</p>
+<h2><a class="header" href="#keep-track-of-your-attestation-effectiveness" id="keep-track-of-your-attestation-effectiveness">Keep track of your attestation effectiveness</a></h2>
+<p>Attestation effectiveness is a metric that directly affects your validator rewards. In simple terms, an attestation is more valuable the sooner it is put into a block and included in the chain. </p>
+<p>This interval is called the <em>inclusion distance</em> of an attestation. The smaller it is, the more profitable your validator will be. For a deeper understanding we highly recommend reading <a href="https://www.attestant.io/posts/defining-attestation-effectiveness/#:%7E:text=Stakers%20looking%20to%20maximize%20their,provide%20clear%20metrics%20for%20performance.">Attestant's wonderful blog post</a> on the matter.</p>
+<p>You can verify your validator's effectiveness on the <a href="https://beaconcha.in/">beaconcha.in</a> website.</p>
+<p><img src="https://i.imgur.com/u80Ub2j.png" alt="" /></p>
+<p>Ideally you want to see a value above 80%.</p>
+<p>While attestation effectiveness depends on a variety of factors - attestation network propagation, your network connectivity, and the peers you are connected to - your network connectivity is likely the most important factors you can control to improve this metric. Apart from the tips outlined on this guide, you could also experiment with <a href="./profits.html#subscribe-to-all-subnets">subscribing to all subnets</a>.</p>
+<h2><a class="header" href="#monitor-your-systems-network-io-usage" id="monitor-your-systems-network-io-usage">Monitor your system's network I/O usage</a></h2>
+<p>If you're a Linux user and want to track how much network I/O your system uses over time, you can install a nice utility called <a href="https://humdi.net/vnstat/"><code>vnstat</code></a>.</p>
+<p>To install, run:</p>
+<pre><code>sudo apt install vnstat
+</code></pre>
+<p>To run it:</p>
+<p><em>TBC -See <a href="https://github.com/jclapis/rp-pi-guide/blob/main/Native.md#monitoring-your-pis-performance">here</a> for more</em></p>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/health.md">Edit this file on GitHub.</a></footer>
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="profits.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="metrics-pretty-pictures.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="profits.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="metrics-pretty-pictures.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>
