@@ -35,13 +35,6 @@ You can also use the `nimbus-eth2` [API](./api.md). For example, to check if you
 curl -d '{"jsonrpc":"2.0","method":"get_v1_validator_duties_proposer","params":[${EPOCH_NUMBER_OF_INTEREST}],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq ".result[]" | grep ${PATTERN_WHICH_MATCHES_VALIDATOR_PUBLIC_KEYS}
 ```
 
-### Bash script
-
-Script to monitor the logs and restart when the next action is sufficiently far away:
-
-```bash
-while true; do tail -n2000 nimbus_beacon_node.log | grep nextActionWait | tail -n1 | jq -r .nextActionWait | grep '^[4-9]m' && kill -s SIGINT ${PID} && break; sleep 13; done
-```
 
 ## Subscribe to all subnets
 Launching the beacon node with the `--subscribe-all-subnets` option increases bandwidth and cpu usage, but helps the network and makes the block production algorithm perform slightly better.
