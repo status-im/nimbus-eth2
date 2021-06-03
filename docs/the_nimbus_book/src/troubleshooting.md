@@ -52,8 +52,8 @@ If you're experiencing a low peer count, you may be behind a firewall. Try resta
 ```
 ### noCommand does not accept arguments
 
-If, on start,  you see
-```The command 'noCommand' does not accept arguments```
+If, on start,  you see `The command 'noCommand' does not accept arguments`
+
 Double check to see if your command line flags are in the correct format, i.e. `--foo=bar`, `--baz`, or `--foo-bar=qux`.
 
 ### Address already in use error
@@ -104,6 +104,24 @@ If you see an error that looks like the following:
 ```
 
 It's because your node can't connect to the web3 provider you have specified. Please double check that you've correctly specified your provider. If you haven't done so already, we recommend [adding a backup](web3-backup.md).
+
+### Discovered new external address warning log
+
+```console
+WRN 2021-03-11 13:26:25.943-08:00
+Discovered new external address but ENR auto update is off
+topics="discv5" tid=77655 file=protocol.nim:940 majority=Some("myIPaddressHere":9000) previous=None[Address]
+```
+
+This message is displayed regularly when Nimbus canot detect your correct IP address. It may be a sign that you have a dynamic IP address that keeps changing. Or that Nimbus is unable to get your IP from the [UPnP](https://en.wikipedia.org/wiki/Universal_Plug_and_Play).
+
+The first step is to try relaunching the beacon node with the `--enr-auto-update` option.
+
+If that doesn't fix the problem, double check that your [ports are open](https://www.yougetsignal.com/tools/open-ports/) and that you have [port forwarding](https://www.computerhope.com/issues/ch001201.htm) enabled on your gateway (assuming that you are behind a [NAT](https://en.wikipedia.org/wiki/Network_address_translation)).
+
+See our page on [monitoring the health of your node](./health.md) for more.
+
+
 
 ## Raspberry Pi
 

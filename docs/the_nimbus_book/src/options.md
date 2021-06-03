@@ -1,8 +1,6 @@
 # Command line options
 
-> ⚠️  If you want to add your own options, remember that the format is `--foo=bar`, `--baz`, or `--foo-bar=qux`
-
-You can pass any `nimbus_beacon_node` options to the `prater` and `mainnet` scripts. For example, if you wanted to launch Nimbus on mainnet with different base ports than the default `9000/udp` and `9000/tcp`, say `9100/udp` and `9100/tcp`, you would run:
+You can pass any `nimbus_beacon_node` options to the `prater` and `mainnet` scripts. For example, if you want to launch Nimbus on mainnet with different base ports than the default `9000/udp` and `9000/tcp`, say `9100/udp` and `9100/tcp`, run:
 
 ```
 ./run-mainnet-beacon-node.sh --tcp-port=9100 --udp-port=9100

@@ -295,7 +295,7 @@ build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_pyrmont_0
 
 We're finally ready to connect to the Prater testnet!
 
->**Note:** If you haven't already, we recommend registering for, and running, your own Infura endpoint to connect to eth1. For instruction on how to do so, see [this page](./infura-guide.md).
+>**Note:** If you haven't already, we recommend registering for, and running, your own eth1 node in parallel. For instruction on how to do so, see [this page](./eth1.md).
 
 To connect to Prater, run:
 ```

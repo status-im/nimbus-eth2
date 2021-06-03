@@ -36,7 +36,9 @@ It's important that you disable the Prysm validator as well as stopping it, to p
 Run the following to export your Prysm validator's [slashing protection](https://eips.ethereum.org/EIPS/eip-3076) history:
 
 ```
-prysm.sh validator slashing-protection export --datadir=/your/prysm/wallet --slashing-protection-export-dir=/path/to/export_dir
+prysm.sh validator slashing-protection export \ 
+ --datadir=/your/prysm/wallet \ 
+ --slashing-protection-export-dir=/path/to/export_dir
 ```
 
 To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator have stopped attesting (check [beaconcha.in](https://beaconcha.in/)).

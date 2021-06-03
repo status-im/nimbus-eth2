@@ -20,12 +20,18 @@ Run the following command from the directory which contains the `deposit` execut
 
 **Prater**
 ```
-./deposit existing-mnemonic --validator_start_index 0 --num_validators 1 --chain prater
+./deposit existing-mnemonic \
+ --validator_start_index 0 \
+ --num_validators 1 \
+ --chain prater
 ```
 
 **Mainnet**
 ```
-./deposit existing-mnemonic --validator_start_index 0 --num_validators 1 --chain mainnet
+./deposit existing-mnemonic \
+ --validator_start_index 0 \
+ --num_validators 1 \
+ --chain mainnet
 ```
 
 You'll be prompted to enter your mnemonic, and a new password for your keystore.
@@ -46,12 +52,18 @@ Run the following command from the directory which contains the `deposit` execut
 
 **Prater**
 ```
-./deposit existing-mnemonic --validator_start_index 1 --num_validators 1 --chain prater
+./deposit existing-mnemonic \
+ --validator_start_index 1 \
+  --num_validators 1 \
+  --chain prater
 ```
 
 **Mainnet**
 ```
-./deposit existing-mnemonic --validator_start_index 1 --num_validators 1 --chain mainnet
+./deposit existing-mnemonic \
+ --validator_start_index 1 \
+ --num_validators 1 \
+ --chain mainnet
 ```
 
 You'll be prompted to enter your mnemonic, and a new password for your keystore.
