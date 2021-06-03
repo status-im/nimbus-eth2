@@ -37,7 +37,7 @@ curl -d '{"jsonrpc":"2.0","method":"get_v1_validator_duties_proposer","params":[
 
 ### Bash script
 
-Quick and dirty bash monitoring/Nimbus-restarting loop:
+Script to monitor the logs and restart when the next action is sufficiently far away:
 
 ```bash
 while true; do tail -n2000 nimbus_beacon_node.log | grep nextActionWait | tail -n1 | jq -r .nextActionWait | grep '^[4-9]m' && kill -s SIGINT ${PID} && break; sleep 13; done
@@ -53,16 +53,6 @@ With this option enabled, Nimbus listens to all unaggregated channels (subscribe
 
 
 
-## Keep track of your attestation effectiveness
-Attestation effectiveness is a metric that directly affects your validator rewards. In simple terms, an attestation is more valuable the sooner it is put into a block and included in the chain. This interval is called the "inclusion distance" of an attestation. The smaller it is, the more profitable your validator will be. For a deeper understanding we highly recommend reading [Attestant's wonderful blog post](https://www.attestant.io/posts/defining-attestation-effectiveness/#:~:text=Stakers%20looking%20to%20maximize%20their,provide%20clear%20metrics%20for%20performance.) on the matter and [bison trail's eth2 insights report](https://bisontrails.co/eth2-insights-validator-effectiveness/).
-
-You can verify your validator's effectiveness on the [beaconcha.in](https://beaconcha.in/) website.
-
-![](https://i.imgur.com/u80Ub2j.png)
-
-Ideally you want to see a value above 80%.
-
-While attestation effectiveness depends on a variety of factors - attestation network propagation, your network connectivity, and the peers you are connected to - your network connectivity is likely the most important factors you can control to improve this metric. See [here](./health.md) for some tips on how to do so.
 
 
 
