@@ -357,9 +357,6 @@ suite "chain DAG finalization tests" & preset():
 
     assign(tmpState[], dag.headState.data)
 
-    # StateCache is designed to only hold a single linear history at a time
-    cache = StateCache()
-
     for i in 0 ..< (SLOTS_PER_EPOCH * 6):
       if i == 1:
         # There are 2 heads now because of the fork at slot 1
@@ -392,6 +389,22 @@ suite "chain DAG finalization tests" & preset():
     block:
       for er in dag.epochRefs:
         check: er[1] == nil or er[1].epoch >= dag.finalizedHead.slot.epoch
+
+    block:
+      let tmpStateData = assignClone(dag.headState)
+
+      # Check that cached data is available after updateStateData - since we
+      # just processed the head the relevant epochrefs should not have been
+      # evicted yet
+      cache = StateCache()
+      updateStateData(
+        dag, tmpStateData[], dag.head.atSlot(dag.head.slot), false, cache)
+
+      check:
+        dag.head.slot.epoch in cache.shuffled_active_validator_indices
+        (dag.head.slot.epoch - 1) in cache.shuffled_active_validator_indices
+
+        dag.head.slot in cache.beacon_proposer_indices
 
     block:
       # The late block is a block whose parent was finalized long ago and thus

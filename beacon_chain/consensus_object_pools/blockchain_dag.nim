@@ -266,16 +266,15 @@ func loadStateCache(
   # functions
 
   template load(e: Epoch) =
-    if epoch notin cache.shuffled_active_validator_indices:
-      let epochRef = dag.findEpochRef(blck, epoch)
+    if e notin cache.shuffled_active_validator_indices:
+      let epochRef = dag.findEpochRef(blck, e)
       if epochRef != nil:
         cache.shuffled_active_validator_indices[epochRef.epoch] =
           epochRef.shuffled_active_validator_indices
 
-        if epochRef.epoch == epoch:
-          for i, idx in epochRef.beacon_proposers:
-            cache.beacon_proposer_indices[
-              epoch.compute_start_slot_at_epoch + i] = idx
+        for i, idx in epochRef.beacon_proposers:
+          cache.beacon_proposer_indices[
+            epochRef.epoch.compute_start_slot_at_epoch + i] = idx
 
   load(epoch)
 
@@ -662,6 +661,8 @@ proc advanceSlots(
   # target
   doAssert getStateField(state, slot) <= slot
   while getStateField(state, slot) < slot:
+    loadStateCache(dag, cache, state.blck, getStateField(state, slot).epoch)
+
     doAssert process_slots(
         state.data, getStateField(state, slot) + 1, cache, rewards,
         dag.updateFlags),
@@ -683,7 +684,7 @@ proc applyBlock(
     doAssert (addr(statePtr.data) == addr v)
     statePtr[] = dag.headState
 
-  loadStateCache(dag, cache, blck.refs, blck.data.message.slot.epoch)
+  loadStateCache(dag, cache, state.blck, getStateField(state, slot).epoch)
 
   let ok = state_transition(
     dag.runtimePreset, state.data, blck.data,
@@ -832,10 +833,11 @@ proc updateStateData*(
       dag.applyBlock(state, dag.get(ancestors[i]), {}, cache, rewards)
     doAssert ok, "Blocks in database should never fail to apply.."
 
-  loadStateCache(dag, cache, bs.blck, bs.slot.epoch)
-
   # ...and make sure to process empty slots as requested
   dag.advanceSlots(state, bs.slot, save, cache, rewards)
+
+  # ...and make sure to load the state cache, if it exists
+  loadStateCache(dag, cache, state.blck, getStateField(state, slot).epoch)
 
   let
     assignDur = assignTick - startTick
