@@ -61,7 +61,6 @@ proc runTest(testName, testDir, unitTestName: string) =
         if inBeforeTimes:
           let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, phase0.SignedBeaconBlock)
 
-          # TODO remove workaround https://github.com/ethereum/eth2.0-specs/pull/2443
           let success = state_transition(
             defaultRuntimePreset, sdPreState[], blck,
             cache, rewards,
@@ -71,7 +70,6 @@ proc runTest(testName, testDir, unitTestName: string) =
         else:
           let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, altair.SignedBeaconBlock)
 
-          # TODO remove workaround https://github.com/ethereum/eth2.0-specs/pull/2443
           let success = state_transition(
             defaultRuntimePreset, sdPreState[], blck,
             cache, rewards,
