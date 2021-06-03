@@ -177,7 +177,7 @@ proc process_proposer_slashing*(
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_slashable_attestation_data
-func is_slashable_attestation_data*(
+func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
   ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
   ## rules.

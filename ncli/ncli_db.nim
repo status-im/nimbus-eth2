@@ -207,8 +207,8 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
     withTimer(timers[tApplyBlock]):
       if conf.resetCache:
         cache = StateCache()
-      if not state_transition(
-          runtimePreset, state[].data, b, cache, rewards, {slotProcessed}, noRollback):
+      if not state_transition_block(
+          runtimePreset, state[].data, b, cache, rewards, {}, noRollback):
         dump("./", b)
         echo "State transition failed (!)"
         quit 1
@@ -529,8 +529,8 @@ proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimePreset) =
       if getStateField(state[], slot).isEpoch():
         processEpoch()
 
-    if not state_transition(
-        runtimePreset, state[].data, blck, cache, rewards, {slotProcessed}, noRollback):
+    if not state_transition_block(
+        runtimePreset, state[].data, blck, cache, rewards, {}, noRollback):
       echo "State transition failed (!)"
       quit 1
 
@@ -756,8 +756,8 @@ proc cmdValidatorDb(conf: DbConf, runtimePreset: RuntimePreset) =
       if getStateField(state[], slot).isEpoch():
         processEpoch()
 
-    if not state_transition(
-        runtimePreset, state[].data, blck, cache, rewards, {slotProcessed}, noRollback):
+    if not state_transition_block(
+        runtimePreset, state[].data, blck, cache, rewards, {}, noRollback):
       echo "State transition failed (!)"
       quit 1
 

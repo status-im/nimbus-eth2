@@ -53,7 +53,7 @@ import
 type Foo = phase0.SomeSignedBeaconBlock | altair.SomeSignedBeaconBlock | phase0.SignedBeaconBlock | altair.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-proc verify_block_signature*(
+proc verify_block_signature(
     #state: SomeBeaconState, signed_block: SomeSomeSignedBeaconBlock): bool {.nbench.} =
     state: SomeBeaconState, signed_block: Foo): bool {.nbench.} =
     #state: SomeBeaconState, signed_block: phase0.SomeSignedBeaconBlock | altair.SomeSignedBeaconBlock): bool {.nbench.} =
@@ -85,14 +85,14 @@ proc verifyStateRoot(state: SomeBeaconState, blck: phase0.BeaconBlock or phase0.
   else:
     true
 
-proc verifyStateRoot(state: phase0.BeaconState, blck: phase0.TrustedBeaconBlock): bool =
+func verifyStateRoot(state: phase0.BeaconState, blck: phase0.TrustedBeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   true
 
 type
   RollbackProc* = proc(v: var phase0.BeaconState) {.gcsafe, raises: [Defect].}
 
-proc noRollback*(state: var phase0.BeaconState) =
+func noRollback*(state: var phase0.BeaconState) =
   trace "Skipping rollback of broken state"
 
 type
@@ -176,16 +176,14 @@ proc process_slots*(state: var SomeHashedBeaconState, slot: Slot,
 
   true
 
-proc noRollback*(state: var phase0.HashedBeaconState) =
+func noRollback*(state: var phase0.HashedBeaconState) =
   trace "Skipping rollback of broken state"
 
-proc state_transition*(
+proc state_transition_slots(
     preset: RuntimePreset,
-    # TODO this will be StateData
     #state: var phase0.HashedBeaconState, signedBlock: phase0.SomeSignedBeaconBlock,
     state: var (phase0.HashedBeaconState | altair.HashedBeaconState), signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock | phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
-    cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
-    rollback: RollbackHashedProc): bool {.nbench.} =
+    cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags): bool {.nbench.} =
   ## Apply a block to the state, advancing the slot counter as necessary. The
   ## given state must be of a lower slot, or, in case the `slotProcessed` flag
   ## is set, can be the slot state of the same slot as the block (where the
@@ -201,8 +199,6 @@ proc state_transition*(
   ## it is safe to use `noRollback` and leave it broken, else the state
   ## object should be rolled back to a consistent state. If the transition fails
   ## before the state has been updated, `rollback` will not be called.
-  doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
-
   let slot = signedBlock.message.slot
   if not (state.data.slot < slot):
     if slotProcessed notin flags or state.data.slot != slot:
@@ -220,10 +216,20 @@ proc state_transition*(
       # Don't update state root for the slot of the block
       state.root = hash_tree_root(state.data)
 
+  true
+
+proc state_transition_block*(
+    preset: RuntimePreset,
+    #state: var phase0.HashedBeaconState, signedBlock: phase0.SomeSignedBeaconBlock,
+    state: var (phase0.HashedBeaconState | altair.HashedBeaconState), signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock | phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
+    cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
+    rollback: RollbackHashedProc): bool {.nbench.} =
   # Block updates - these happen when there's a new block being suggested
   # by the block proposer. Every actor in the network will update its state
   # according to the contents of this block - but first they will validate
   # that the block is sane.
+  doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
+
   if not (skipBLSValidation in flags or
       verify_block_signature(state.data, signedBlock)):
     when not (state is altair.HashedBeaconState):
@@ -263,6 +269,16 @@ proc state_transition*(
   state.root = signedBlock.message.state_root
 
   true
+
+proc state_transition*(
+    preset: RuntimePreset,
+    #state: var phase0.HashedBeaconState, signedBlock: phase0.SomeSignedBeaconBlock,
+    state: var (phase0.HashedBeaconState | altair.HashedBeaconState), signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock | phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
+    cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
+    rollback: RollbackHashedProc): bool {.nbench.} =
+  if not state_transition_slots(preset, state, signedBlock, cache, rewards, flags):
+    return false
+  state_transition_block(preset, state, signedBlock, cache, rewards, flags, rollback)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#preparing-for-a-beaconblock
 proc makeBeaconBlock*(
