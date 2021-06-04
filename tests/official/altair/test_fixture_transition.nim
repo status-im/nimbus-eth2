@@ -8,7 +8,7 @@
 {.used.}
 
 import
-  yaml,
+  chronicles, yaml,
   # Standard library
   os, sequtils,
   # Status internal

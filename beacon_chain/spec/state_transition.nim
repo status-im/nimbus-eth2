@@ -240,7 +240,7 @@ proc maybeUpgradeStateToAltair(
   # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/fork.md#upgrading-the-state
 
   # Both state_transition_slots() and state_transition_block() call this, so
-  # only run it once.
+  # only run it once by checking for existing fork.
   if  getStateField(state, slot) == altairForkSlot and
       state.beaconStateFork == forkPhase0:
     var newState = upgrade_to_altair(state.hbsPhase0.data)
@@ -279,9 +279,37 @@ proc state_transition_slots(
 
   true
 
+proc state_transition_slots(
+    preset: RuntimePreset,
+    state: var SomeHashedBeaconState,
+    signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
+                 phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
+    cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags):
+    bool {.nbench.} =
+  # TODO remove when the HashedBeaconState state_transition is removed; it's
+  # to avoid requiring a wrapped/memory-copied version
+  let slot = signedBlock.message.slot
+  if not (state.data.slot < slot):
+    if slotProcessed notin flags or state.data.slot != slot:
+      notice "State must precede block",
+        state_root = shortLog(state.root),
+        current_slot = state.data.slot,
+        blck = shortLog(signedBlock)
+      return false
+
+  # Update the state so its slot matches that of the block
+  while state.data.slot < slot:
+    advance_slot(state.data, state.root, flags, cache, rewards)
+
+    if state.data.slot < slot:
+      # Don't update state root for the slot of the block
+      state.root = hash_tree_root(state.data)
+
+  true
+
 proc state_transition_block*(
     preset: RuntimePreset,
-    state: var (phase0.HashedBeaconState | altair.HashedBeaconState),
+    state: var SomeHashedBeaconState,
     signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
                  phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
     cache: var StateCache, flags: UpdateFlags, rollback: RollbackHashedProc):
@@ -403,33 +431,27 @@ proc state_transition*(
 
 proc state_transition*(
     preset: RuntimePreset,
-    state: var (phase0.HashedBeaconState | altair.HashedBeaconState),
+    state: var SomeHashedBeaconState,
     signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
                  phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
     cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
     rollback: RollbackHashedProc): bool =
   # Does not follow hard forks; suitable only where that's irrelevant.
   # TODO remove when callers gone
-  var forkedHashedBeaconState =
-    when state is phase0.HashedBeaconState:
-      (ref ForkedHashedBeaconState)(
-        beaconStateFork: forkPhase0, hbsPhase0: state)
-    else:
-      (ref ForkedHashedBeaconState)(
-        beaconStateFork: forkAltair, hbsAltair: state)
+  let slot = signedBlock.message.slot
+  if not (state.data.slot < slot):
+    if slotProcessed notin flags or state.data.slot != slot:
+      notice "State must precede block",
+        state_root = shortLog(state.root),
+        current_slot = state.data.slot,
+        blck = shortLog(signedBlock)
+      return false
 
-  if not state_transition(
-      preset, forkedHashedBeaconState[], signedBlock, cache, rewards, flags,
-      rollback):
+  if not state_transition_slots(
+      preset, state, signedBlock, cache, rewards, flags):
     return false
-
-  state =
-    when state is phase0.HashedBeaconState:
-      forkedHashedBeaconState.hbsPhase0
-    else:
-      forkedHashedBeaconState.hbsAltair
-
-  true
+  state_transition_block(
+    preset, state, signedBlock, cache, flags, rollback)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#preparing-for-a-beaconblock
 proc makeBeaconBlock*(
