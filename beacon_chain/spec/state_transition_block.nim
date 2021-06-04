@@ -412,6 +412,13 @@ proc process_block*(
 
   ok()
 
+proc process_block*(
+    preset: RuntimePreset,
+    state: var altair.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] {.nbench.} =
+  # The transition-triggering block creates, not acts on, an Altair state
+  err("process_block: Altair state with Phase 0 block")
+
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/altair.nim
@@ -432,3 +439,9 @@ proc process_block*(
   ? process_sync_committee(state, blck.body.sync_aggregate, cache)  # [New in Altair]
 
   ok()
+
+proc process_block*(
+    preset: RuntimePreset,
+    state: var phase0.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] {.nbench.}=
+  err("process_block: Phase 0 state with Altair block")

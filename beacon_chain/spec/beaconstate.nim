@@ -854,7 +854,7 @@ func translate_participation(
         state.previous_epoch_participation[index] =
           add_flag(state.previous_epoch_participation[index], flag_index)
 
-proc upgrade_to_altair*(pre: phase0.BeaconState): altair.BeaconState =
+proc upgrade_to_altair*(pre: phase0.BeaconState): ref altair.BeaconState =
   let epoch = get_current_epoch(pre)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/fork.md#configuration
@@ -869,7 +869,7 @@ proc upgrade_to_altair*(pre: phase0.BeaconState): altair.BeaconState =
   for _ in 0 ..< len(pre.validators):
     doAssert inactivity_scores.add 0'u64
 
-  var post = altair.BeaconState(
+  var post = (ref altair.BeaconState)(
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
     slot: pre.slot,
@@ -916,12 +916,12 @@ proc upgrade_to_altair*(pre: phase0.BeaconState): altair.BeaconState =
 
   # Fill in previous epoch participation from the pre state's pending
   # attestations
-  translate_participation(post, pre.previous_epoch_attestations.asSeq)
+  translate_participation(post[], pre.previous_epoch_attestations.asSeq)
 
   # Fill in sync committees
   # Note: A duplicate committee is assigned for the current and next committee
   # at the fork boundary
-  post.current_sync_committee = get_next_sync_committee(post)
-  post.next_sync_committee = get_next_sync_committee(post)
+  post[].current_sync_committee = get_next_sync_committee(post[])
+  post[].next_sync_committee = get_next_sync_committee(post[])
 
   post

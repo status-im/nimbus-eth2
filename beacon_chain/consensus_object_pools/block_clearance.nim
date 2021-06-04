@@ -172,10 +172,9 @@ proc checkStateTransition(
     blck = shortLog(signedBlock.message)
     blockRoot = shortLog(signedBlock.root)
 
-  var rewards: RewardInfo
   if not state_transition_block(
       dag.runtimePreset, dag.clearanceState.data, signedBlock,
-      cache, rewards, dag.updateFlags, restore):
+      cache, dag.updateFlags, restore):
     info "Invalid block"
 
     return (ValidationResult.Reject, Invalid)

@@ -113,15 +113,6 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + updateStateData sanity [Preset: mainnet]                                                   OK
 ```
 OK: 7/7 Fail: 0/7 Skip: 0/7
-## Block processing [Preset: mainnet]
-```diff
-+ Attestation gets processed at epoch [Preset: mainnet]                                      OK
-+ Passes from genesis state, empty block [Preset: mainnet]                                   OK
-+ Passes from genesis state, no block [Preset: mainnet]                                      OK
-+ Passes through epoch update, empty block [Preset: mainnet]                                 OK
-+ Passes through epoch update, no block [Preset: mainnet]                                    OK
-```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## BlockRef and helpers [Preset: mainnet]
 ```diff
 + epochAncestor sanity [Preset: mainnet]                                                     OK
@@ -317,4 +308,4 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 179/187 Fail: 0/187 Skip: 8/187
+OK: 174/182 Fail: 0/182 Skip: 8/182
