@@ -722,8 +722,9 @@ proc loadSummaries(db: BeaconChainDB): Table[Eth2Digest, BeaconBlockSummary] =
 
   summaries
 
+type RootedSummary = tuple[root: Eth2Digest, summary: BeaconBlockSummary]
 iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
-    tuple[root: Eth2Digest, summary: BeaconBlockSummary] =
+    RootedSummary =
   ## Load a chain of ancestors for blck - returns a list of blocks with the
   ## oldest block last (blck will be at result[0]).
   ##
@@ -737,10 +738,29 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
   # initial startup very fast.
   var
     summaries = db.loadSummaries()
-    res: tuple[root: Eth2Digest, summary: BeaconBlockSummary]
+    res: RootedSummary
     blck: TrustedSignedBeaconBlock
+    newSummaries: seq[RootedSummary]
 
   res.root = root
+
+  defer: # in case iteration is stopped along the way
+    # Write the newly found summaries in a single transaction - on first migration
+    # from the old format, this brings down the write from minutes to seconds
+    if newSummaries.len() > 0:
+      db.db.exec("BEGIN TRANSACTION;").expectDb()
+      for s in newSummaries:
+        db.putBeaconBlockSummary(s.root, s.summary)
+      db.db.exec("COMMIT;").expectDb()
+
+    if false:
+      # When the current version has been online for a bit, we can safely remove
+      # summaries from kvstore by enabling this little snippet - if users were
+      # to downgrade after the summaries have been purged, the old versions that
+      # use summaries can also recreate them on the fly from blocks.
+      db.db.exec(
+        "DELETE FROM kvstore WHERE key >= ? and key < ?",
+        ([byte ord(kHashToBlockSummary)], [byte ord(kHashToBlockSummary) + 1])).expectDb()
 
   # Yield summaries in reverse chain order by walking the parent references.
   # If a summary is missing, try loading it from the older version or create one
@@ -758,15 +778,6 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
       else:
         break
       # Next time, load them from the right place
-      db.putBeaconBlockSummary(res.root, res.summary)
+      newSummaries.add(res)
 
     res.root = res.summary.parent_root
-
-  if false:
-    # When the current version has been online for a bit, we can safely remove
-    # summaries from kvstore by enabling this little snippet - if users were
-    # to downgrade after the summaries have been purged, the old versions that
-    # use summaries can also recreate them on the fly from blocks.
-    db.db.exec(
-      "DELETE FROM kvstore WHERE key >= ? and key < ?",
-      ([byte ord(kHashToBlockSummary)], [byte ord(kHashToBlockSummary) + 1])).expectDb()
