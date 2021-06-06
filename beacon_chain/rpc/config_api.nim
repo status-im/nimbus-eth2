@@ -14,7 +14,7 @@ import
   nimcrypto/utils as ncrutils,
   ../beacon_node_common,
   ../eth1/eth1_monitor,
-  ../spec/[datatypes, digest, presets]
+  ../spec/[datatypes, digest, forkedbeaconstate_helpers, presets]
 
 logScope: topics = "configapi"
 
@@ -33,7 +33,7 @@ func getDepositAddress(node: BeaconNode): string =
 proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     raises: [Exception].} = # TODO fix json-rpc
   rpcServer.rpc("get_v1_config_fork_schedule") do () -> seq[Fork]:
-    return @[getStateField(node.dag.headState, fork)]
+    return @[getStateField(node.dag.headState.data, fork)]
 
   rpcServer.rpc("get_v1_config_spec") do () -> JsonNode:
     return %*{

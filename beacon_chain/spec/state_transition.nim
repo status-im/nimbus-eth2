@@ -46,7 +46,7 @@ import
   stew/results,
   ../extras, ../ssz/merkleization, metrics,
   ./datatypes/[phase0, altair], ./crypto, ./digest, ./helpers, ./signatures, ./validator, ./beaconstate,
-  ./state_transition_block, ./state_transition_epoch,
+  ./state_transition_block, ./state_transition_epoch, forkedbeaconstate_helpers,
   ../../nbench/bench_lab
 
 # TODO why need anything except the first two?
@@ -196,44 +196,6 @@ proc process_slots*(state: var SomeHashedBeaconState, slot: Slot,
 
 func noRollback*(state: var phase0.HashedBeaconState) =
   trace "Skipping rollback of broken state"
-
-type
-  BeaconStateFork* = enum
-    forkPhase0,
-    forkAltair
-
-  ForkedHashedBeaconState* = object
-    case beaconStateFork*: BeaconStateFork
-    of forkPhase0: hbsPhase0*: phase0.HashedBeaconState
-    of forkAltair: hbsAltair*: altair.HashedBeaconState
-
-# Dispatch functions
-template getStateField*(x: ForkedHashedBeaconState, y: untyped): untyped =
-  case x.beaconStateFork:
-  of forkPhase0: x.hbsPhase0.data.y
-  of forkAltair: x.hbsAltair.data.y
-
-template getStateField*(x: var ForkedHashedBeaconState, y: untyped): untyped =
-  case x.beaconStateFork:
-  of forkPhase0: x.hbsPhase0.data.y
-  of forkAltair: x.hbsAltair.data.y
-
-template getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
-  case x.beaconStateFork:
-  of forkPhase0: x.hbsPhase0.root
-  of forkAltair: x.hbsAltair.root
-
-template hash_tree_root*(x: ForkedHashedBeaconState): Eth2Digest =
-  case x.beaconStateFork:
-  of forkPhase0: hash_tree_root(x.hbsPhase0.data)
-  of forkAltair: hash_tree_root(x.hbsAltair.data)
-
-template callWithBS*(op: untyped, y: ForkedHashedBeaconState): untyped =
-  let bs {.inject.} =
-    case y.beaconStateFork:
-    of forkPhase0: y.hbsPhase0.data
-    of forkAltair: y.hbsAltair.data
-  op
 
 proc maybeUpgradeStateToAltair(
     state: var ForkedHashedBeaconState, altairForkSlot: Slot) =

@@ -14,6 +14,7 @@ import
   ./eth2_json_rest_serialization, ./rest_utils,
   ../eth1/eth1_monitor,
   ../validators/validator_duties,
+  ../spec/forkedbeaconstate_helpers,
   ../beacon_node_common, ../nimbus_binary_common
 
 logScope: topics = "rest_nimbusapi"
@@ -112,9 +113,9 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/api/nimbus/v1/chain/head") do() -> RestApiResponse:
     let
       head = node.dag.head
-      finalized = getStateField(node.dag.headState, finalized_checkpoint)
+      finalized = getStateField(node.dag.headState.data, finalized_checkpoint)
       justified =
-        getStateField(node.dag.headState, current_justified_checkpoint)
+        getStateField(node.dag.headState.data, current_justified_checkpoint)
     return RestApiResponse.jsonResponse(
       (
         head_slot: head.slot,
@@ -205,7 +206,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let proposalState = assignClone(node.dag.headState)
     node.dag.withState(proposalState[], head.atSlot(wallSlot)):
       return RestApiResponse.jsonResponse(
-        node.getBlockProposalEth1Data(stateData))
+        node.getBlockProposalEth1Data(stateData.data))
 
   router.api(MethodGet, "/api/nimbus/v1/debug/chronos/futures") do (
     ) -> RestApiResponse:

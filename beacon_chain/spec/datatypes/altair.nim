@@ -255,8 +255,7 @@ type
   # phase 0 version of symbols; anywhere which specially handles it will
   # have to do so itself.
   SomeBeaconState* = BeaconState | phase0.BeaconState
-  SomeHashedBeaconState* = HashedBeaconState | phase0.HashedBeaconState  # probably not useful long-term,
-  ## since process_slots will need to be StateData
+  SomeHashedBeaconState* = HashedBeaconState | phase0.HashedBeaconState
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object

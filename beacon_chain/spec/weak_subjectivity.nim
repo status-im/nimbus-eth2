@@ -8,17 +8,16 @@
 {.push raises: [Defect].}
 
 import
-  ./datatypes, ./digest, ./helpers,
-  ../consensus_object_pools/statedata_helpers
+  ./datatypes, ./digest, ./forkedbeaconstate_helpers, ./helpers
 
 const
   SAFETY_DECAY* = 10'u64
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/weak-subjectivity.md#calculating-the-weak-subjectivity-period
-func compute_weak_subjectivity_period(state: StateData): uint64 =
+func compute_weak_subjectivity_period(state: ForkedHashedBeaconState): uint64 =
   var weak_subjectivity_period = MIN_VALIDATOR_WITHDRAWABILITY_DELAY
   let validator_count =
-    get_active_validator_indices_len(state.data.data, get_current_epoch(state))
+    get_active_validator_indices_len(state.hbsPhase0.data, get_current_epoch(state))
   if validator_count >= MIN_PER_EPOCH_CHURN_LIMIT * CHURN_LIMIT_QUOTIENT:
     weak_subjectivity_period += SAFETY_DECAY * CHURN_LIMIT_QUOTIENT div (2 * 100)
   else:
@@ -27,7 +26,7 @@ func compute_weak_subjectivity_period(state: StateData): uint64 =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/weak-subjectivity.md#checking-for-stale-weak-subjectivity-checkpoint
 func is_within_weak_subjectivity_period*(current_slot: Slot,
-                                         ws_state: StateData,
+                                         ws_state: ForkedHashedBeaconState,
                                          ws_checkpoint: Checkpoint): bool =
   # Clients may choose to validate the input state against the input Weak Subjectivity Checkpoint
   doAssert getStateField(ws_state, latest_block_header).state_root ==

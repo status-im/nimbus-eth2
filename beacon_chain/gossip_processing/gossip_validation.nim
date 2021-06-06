@@ -16,7 +16,8 @@ import
   # Internals
   ../spec/[
     beaconstate, state_transition_block,
-    datatypes, crypto, digest, helpers, network, signatures],
+    datatypes, crypto, digest, forkedbeaconstate_helpers, helpers, network,
+    signatures],
   ../consensus_object_pools/[
     spec_cache, blockchain_dag, block_quarantine, spec_cache,
     attestation_pool, exit_pool
@@ -249,9 +250,9 @@ proc validateAttestation*(
       "validateAttestation: number of aggregation bits and committee size mismatch")))
 
   let
-    fork = getStateField(pool.dag.headState, fork)
+    fork = getStateField(pool.dag.headState.data, fork)
     genesis_validators_root =
-      getStateField(pool.dag.headState, genesis_validators_root)
+      getStateField(pool.dag.headState.data, genesis_validators_root)
     attesting_index = get_attesting_indices_one(
       epochRef, attestation.data, attestation.aggregation_bits)
 
@@ -428,9 +429,9 @@ proc validateAggregate*(
   # 3. [REJECT] The signature of aggregate is valid.
 
   let
-    fork = getStateField(pool.dag.headState, fork)
+    fork = getStateField(pool.dag.headState.data, fork)
     genesis_validators_root =
-      getStateField(pool.dag.headState, genesis_validators_root)
+      getStateField(pool.dag.headState.data, genesis_validators_root)
 
   let deferredCrypto = batchCrypto
                 .scheduleAggregateChecks(
@@ -593,7 +594,8 @@ proc isValidBeaconBlock*(
   # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
   # store.finalized_checkpoint.root
   let
-    finalized_checkpoint = getStateField(dag.headState, finalized_checkpoint)
+    finalized_checkpoint = getStateField(
+      dag.headState.data, finalized_checkpoint)
     ancestor = get_ancestor(
       parent_ref, compute_start_slot_at_epoch(finalized_checkpoint.epoch))
 
@@ -626,8 +628,8 @@ proc isValidBeaconBlock*(
   # [REJECT] The proposer signature, signed_beacon_block.signature, is valid
   # with respect to the proposer_index pubkey.
   if not verify_block_signature(
-      getStateField(dag.headState, fork),
-      getStateField(dag.headState, genesis_validators_root),
+      getStateField(dag.headState.data, fork),
+      getStateField(dag.headState.data, genesis_validators_root),
       signed_beacon_block.message.slot,
       signed_beacon_block.message,
       dag.validatorKey(proposer.get()).get(),
@@ -667,7 +669,7 @@ proc validateAttesterSlashing*(
   # validation.
   let attester_slashing_validity =
     check_attester_slashing(
-      pool.dag.headState.data.data, attester_slashing, {})
+      pool.dag.headState.data.hbsPhase0.data, attester_slashing, {})
   if attester_slashing_validity.isErr:
     return err((ValidationResult.Reject, attester_slashing_validity.error))
 
@@ -697,7 +699,7 @@ proc validateProposerSlashing*(
   # [REJECT] All of the conditions within process_proposer_slashing pass validation.
   let proposer_slashing_validity =
     check_proposer_slashing(
-      pool.dag.headState.data.data, proposer_slashing, {})
+      pool.dag.headState.data.hbsPhase0.data, proposer_slashing, {})
   if proposer_slashing_validity.isErr:
     return err((ValidationResult.Reject, proposer_slashing_validity.error))
 
@@ -715,7 +717,7 @@ proc validateVoluntaryExit*(
   # [IGNORE] The voluntary exit is the first valid voluntary exit received for
   # the validator with index signed_voluntary_exit.message.validator_index.
   if signed_voluntary_exit.message.validator_index >=
-      getStateField(pool.dag.headState, validators).lenu64:
+      getStateField(pool.dag.headState.data, validators).lenu64:
     return err((ValidationResult.Ignore, cstring(
       "validateVoluntaryExit: validator index too high")))
 
@@ -731,7 +733,7 @@ proc validateVoluntaryExit*(
   # validation.
   let voluntary_exit_validity =
     check_voluntary_exit(
-      pool.dag.headState.data.data, signed_voluntary_exit, {})
+      pool.dag.headState.data.hbsPhase0.data, signed_voluntary_exit, {})
   if voluntary_exit_validity.isErr:
     return err((ValidationResult.Reject, voluntary_exit_validity.error))
 

@@ -17,11 +17,10 @@ import
   ../beacon_chain/gossip_processing/[gossip_validation, batch_validation],
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
   ../beacon_chain/consensus_object_pools/[
-    block_quarantine, blockchain_dag, block_clearance, attestation_pool,
-    statedata_helpers],
+    block_quarantine, blockchain_dag, block_clearance, attestation_pool],
   ../beacon_chain/ssz/merkleization,
-  ../beacon_chain/spec/[crypto, datatypes, digest, state_transition, helpers,
-                        presets, network],
+  ../beacon_chain/spec/[crypto, datatypes, digest, forkedbeaconstate_helpers,
+                        state_transition, helpers, presets, network],
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil
 
@@ -43,7 +42,7 @@ suite "Gossip validation " & preset():
       batchCrypto = BatchCrypto.new(keys.newRng(), eager = proc(): bool = false)
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
-      process_slots(state.data, getStateField(state, slot) + 1, cache, rewards)
+      process_slots(state.data.hbsPhase0, getStateField(state.data, slot) + 1, cache, rewards)
 
   test "Validation sanity":
     # TODO: refactor tests to avoid skipping BLS validation
@@ -67,14 +66,14 @@ suite "Gossip validation " & preset():
     var
       # Create attestations for slot 1
       beacon_committee = get_beacon_committee(
-        dag.headState, dag.head.slot, 0.CommitteeIndex, cache)
+        dag.headState.data, dag.head.slot, 0.CommitteeIndex, cache)
       att_1_0 = makeAttestation(
-        dag.headState, dag.head.root, beacon_committee[0], cache)
+        dag.headState.data, dag.head.root, beacon_committee[0], cache)
       att_1_1 = makeAttestation(
-        dag.headState, dag.head.root, beacon_committee[1], cache)
+        dag.headState.data, dag.head.root, beacon_committee[1], cache)
 
       committees_per_slot =
-        get_committee_count_per_slot(dag.headState,
+        get_committee_count_per_slot(dag.headState.data,
           att_1_0.data.slot.epoch, cache)
 
       subnet = compute_subnet_for_attestation(

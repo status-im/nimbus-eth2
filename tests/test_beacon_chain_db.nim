@@ -70,7 +70,7 @@ suite "Beacon chain DB" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
-      testStates = getTestStates(dag.headState.data)
+      testStates = getTestStates(dag.headState.data.hbsPhase0)
 
     # Ensure transitions beyond just adding validators and increasing slots
     sort(testStates) do (x, y: ref HashedBeaconState) -> int:
@@ -95,7 +95,7 @@ suite "Beacon chain DB" & preset():
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
 
     let stateBuffer = BeaconStateRef()
-    var testStates = getTestStates(dag.headState.data)
+    var testStates = getTestStates(dag.headState.data.hbsPhase0)
 
     # Ensure transitions beyond just adding validators and increasing slots
     sort(testStates) do (x, y: ref HashedBeaconState) -> int:

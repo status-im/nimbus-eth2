@@ -13,7 +13,9 @@ import
   stew/[assign2, results],
   eth/keys,
   ../extras, ../beacon_clock,
-  ../spec/[crypto, datatypes, digest, helpers, signatures, signatures_batch, state_transition],
+  ../spec/[
+    crypto, datatypes, digest, forkedbeaconstate_helpers, helpers, signatures,
+    signatures_batch, state_transition],
   ./block_pools_types, ./blockchain_dag, ./block_quarantine
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
@@ -80,7 +82,7 @@ proc addResolvedBlock(
        stateVerifyDur: Duration
      ) =
   # TODO move quarantine processing out of here
-  doAssert getStateField(state, slot) == trustedBlock.message.slot,
+  doAssert getStateField(state.data, slot) == trustedBlock.message.slot,
     "state must match block"
   doAssert state.blck.root == trustedBlock.message.parent_root,
     "the StateData passed into the addResolved function not yet updated!"
@@ -116,7 +118,7 @@ proc addResolvedBlock(
   # as soon as we import a block, we'll also update the shared public key
   # cache
 
-  dag.updateValidatorKeys(getStateField(state, validators).asSeq())
+  dag.updateValidatorKeys(getStateField(state.data, validators).asSeq())
 
   # Getting epochRef with the state will potentially create a new EpochRef
   let
@@ -134,7 +136,7 @@ proc addResolvedBlock(
   # Notify others of the new block before processing the quarantine, such that
   # notifications for parents happens before those of the children
   if onBlockAdded != nil:
-    onBlockAdded(blockRef, trustedBlock, epochRef, state.data)
+    onBlockAdded(blockRef, trustedBlock, epochRef, state.data.hbsPhase0)
 
   # Now that we have the new block, we should see if any of the previously
   # unresolved blocks magically become resolved
@@ -172,9 +174,12 @@ proc checkStateTransition(
     blck = shortLog(signedBlock.message)
     blockRoot = shortLog(signedBlock.root)
 
+  # TODO this won't transition because FAR_FUTURE_EPOCH so it's
+  # fine, for now, but in general, blockchain_dag.addBlock must
+  # match the transition here.
   if not state_transition_block(
       dag.runtimePreset, dag.clearanceState.data, signedBlock,
-      cache, dag.updateFlags, restore):
+      cache, dag.updateFlags, restore, FAR_FUTURE_SLOT):
     info "Invalid block"
 
     return (ValidationResult.Reject, Invalid)
@@ -187,7 +192,7 @@ proc advanceClearanceState*(dag: ChainDagRef) =
   # epoch transition ahead of time.
   # Notably, we use the clearance state here because that's where the block will
   # first be seen - later, this state will be copied to the head state!
-  if dag.clearanceState.blck.slot == getStateField(dag.clearanceState, slot):
+  if dag.clearanceState.blck.slot == getStateField(dag.clearanceState.data, slot):
     let next =
       dag.clearanceState.blck.atSlot(dag.clearanceState.blck.slot + 1)
 
@@ -247,10 +252,9 @@ proc addRawBlockKnownParent(
   # First, batch-verify all signatures in block
   if skipBLSValidation notin dag.updateFlags:
     # TODO: remove skipBLSValidation
-
     var sigs: seq[SignatureSet]
     if sigs.collectSignatureSets(
-        signedBlock, dag.db.immutableValidators, dag.clearanceState, cache).isErr():
+        signedBlock, dag.db.immutableValidators, dag.clearanceState.data, cache).isErr():
       # A PublicKey or Signature isn't on the BLS12-381 curve
       return err((ValidationResult.Reject, Invalid))
     if not quarantine.batchVerify(sigs):

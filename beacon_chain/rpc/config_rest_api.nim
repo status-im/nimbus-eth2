@@ -11,7 +11,7 @@ import
   chronicles,
   nimcrypto/utils as ncrutils,
   ../beacon_node_common, ../eth1/eth1_monitor,
-  ../spec/[datatypes, digest, presets],
+  ../spec/[datatypes, digest, forkedbeaconstate_helpers, presets],
   ./eth2_json_rest_serialization, ./rest_utils
 
 logScope: topics = "rest_config"
@@ -28,7 +28,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
     # TODO: Implemenation needs a fix, when forks infrastructure will be
     # established.
     return RestApiResponse.jsonResponse(
-      [getStateField(node.dag.headState, fork)]
+      [getStateField(node.dag.headState.data, fork)]
     )
 
   router.api(MethodGet,

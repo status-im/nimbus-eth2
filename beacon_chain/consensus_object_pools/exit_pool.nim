@@ -13,7 +13,7 @@ import
   # Status libraries
   chronicles,
   # Internal
-  ../spec/[crypto, datatypes, helpers],
+  ../spec/[crypto, datatypes, forkedbeaconstate_helpers, helpers],
   "."/[blockchain_dag, block_quarantine],
   ../beacon_node_types
 
@@ -111,7 +111,7 @@ func getExitMessagesForBlock[T](
 
     if allIt(
         getValidatorIndices(exit_message),
-        getStateField(pool.dag.headState, validators)[it].exit_epoch !=
+        getStateField(pool.dag.headState.data, validators)[it].exit_epoch !=
           FAR_FUTURE_EPOCH):
       # A beacon block exit message already targeted all these validators
       continue

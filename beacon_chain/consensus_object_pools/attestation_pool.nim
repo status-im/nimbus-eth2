@@ -14,9 +14,11 @@ import
   metrics,
   chronicles, stew/byteutils, json_serialization/std/sets as jsonSets,
   # Internal
-  ../spec/[beaconstate, datatypes, crypto, digest],
+  ../spec/[
+    beaconstate, datatypes, crypto, digest, forkedbeaconstate_helpers,
+    validator],
   ../ssz/merkleization,
-  "."/[spec_cache, blockchain_dag, block_quarantine, statedata_helpers],
+  "."/[spec_cache, blockchain_dag, block_quarantine],
   ".."/[beacon_clock, beacon_node_types, extras],
   ../fork_choice/fork_choice
 
@@ -83,9 +85,9 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef, quarantine: QuarantineRef)
 
   info "Fork choice initialized",
     justified_epoch = getStateField(
-      dag.headState, current_justified_checkpoint).epoch,
+      dag.headState.data, current_justified_checkpoint).epoch,
     finalized_epoch = getStateField(
-      dag.headState, finalized_checkpoint).epoch,
+      dag.headState.data, finalized_checkpoint).epoch,
     finalized_root = shortlog(dag.finalizedHead.blck.root)
 
   T(
@@ -370,16 +372,16 @@ func add(
   do:
     attCache[key] = aggregation_bits
 
-func init(T: type AttestationCache, state: StateData): T =
+func init(T: type AttestationCache, state: HashedBeaconState): T =
   # Load attestations that are scheduled for being given rewards for
-  for i in 0..<getStateField(state, previous_epoch_attestations).len():
+  for i in 0..<state.data.previous_epoch_attestations.len():
     result.add(
-      getStateField(state, previous_epoch_attestations)[i].data,
-      getStateField(state, previous_epoch_attestations)[i].aggregation_bits)
-  for i in 0..<getStateField(state, current_epoch_attestations).len():
+      state.data.previous_epoch_attestations[i].data,
+      state.data.previous_epoch_attestations[i].aggregation_bits)
+  for i in 0..<state.data.current_epoch_attestations.len():
     result.add(
-      getStateField(state, current_epoch_attestations)[i].data,
-      getStateField(state, current_epoch_attestations)[i].aggregation_bits)
+      state.data.current_epoch_attestations[i].data,
+      state.data.current_epoch_attestations[i].aggregation_bits)
 
 proc score(
     attCache: var AttestationCache, data: AttestationData,
@@ -403,12 +405,12 @@ proc score(
   bitsScore
 
 proc getAttestationsForBlock*(pool: var AttestationPool,
-                              state: StateData,
+                              state: HashedBeaconState,
                               cache: var StateCache): seq[Attestation] =
   ## Retrieve attestations that may be added to a new block at the slot of the
   ## given state
   ## https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#attestations
-  let newBlockSlot = getStateField(state, slot).uint64
+  let newBlockSlot = state.data.slot.uint64
 
   if newBlockSlot < MIN_ATTESTATION_INCLUSION_DELAY:
     return # Too close to genesis
@@ -448,7 +450,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
         # attestation to - there might have been a fork between when we first
         # saw the attestation and the time that we added it
         if not check_attestation(
-              state.data.data, attestation, {skipBlsValidation}, cache).isOk():
+              state.data, attestation, {skipBlsValidation}, cache).isOk():
           continue
 
         let score = attCache.score(
@@ -472,10 +474,10 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   #
   # A possible improvement here would be to use a maximum cover algorithm.
   var
-    prevEpoch = state.get_previous_epoch()
+    prevEpoch = state.data.get_previous_epoch()
     prevEpochSpace =
-      getStateField(state, previous_epoch_attestations).maxLen -
-        getStateField(state, previous_epoch_attestations).len()
+      state.data.previous_epoch_attestations.maxLen -
+        state.data.previous_epoch_attestations.len()
 
   var res: seq[Attestation]
   let totalCandidates = candidates.len()

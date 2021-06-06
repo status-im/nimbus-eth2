@@ -513,11 +513,14 @@ proc is_valid_indexed_attestation*(
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_attesting_indices
-iterator get_attesting_indices*(state: SomeBeaconState,
-                                data: AttestationData,
-                                bits: CommitteeValidatorsBits,
-                                cache: var StateCache): ValidatorIndex =
+func get_attesting_indices*(state: SomeBeaconState,
+                            data: AttestationData,
+                            bits: CommitteeValidatorsBits,
+                            cache: var StateCache): seq[ValidatorIndex] =
   ## Return the set of attesting indices corresponding to ``data`` and ``bits``.
+
+  var res: seq[ValidatorIndex]
+  # Can't be an iterator due to https://github.com/nim-lang/Nim/issues/18188
   if bits.lenu64 != get_beacon_committee_len(
       state, data.slot, data.index.CommitteeIndex, cache):
     trace "get_attesting_indices: inconsistent aggregation and committee length"
@@ -526,8 +529,10 @@ iterator get_attesting_indices*(state: SomeBeaconState,
     for index in get_beacon_committee(
         state, data.slot, data.index.CommitteeIndex, cache):
       if bits[i]:
-        yield index
+        res.add index
       inc i
+
+  res
 
 proc is_valid_indexed_attestation*(
     state: SomeBeaconState, attestation: SomeAttestation, flags: UpdateFlags,

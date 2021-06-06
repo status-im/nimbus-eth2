@@ -18,7 +18,7 @@ import
   ".."/[
     beacon_node_common, nimbus_binary_common, networking/eth2_network,
     eth1/eth1_monitor, validators/validator_duties],
-  ../spec/[digest, datatypes, presets]
+  ../spec/[digest, datatypes, forkedbeaconstate_helpers, presets]
 
 
 logScope: topics = "nimbusapi"
@@ -43,9 +43,9 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   rpcServer.rpc("getChainHead") do () -> JsonNode:
     let
       head = node.dag.head
-      finalized = getStateField(node.dag.headState, finalized_checkpoint)
+      finalized = getStateField(node.dag.headState.data, finalized_checkpoint)
       justified =
-        getStateField(node.dag.headState, current_justified_checkpoint)
+        getStateField(node.dag.headState.data, current_justified_checkpoint)
     return %* {
       "head_slot": head.slot,
       "head_block_root": head.root.data.toHex(),
@@ -105,7 +105,7 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
     let proposalState = assignClone(node.dag.headState)
     node.dag.withState(proposalState[], head.atSlot(wallSlot)):
-      return node.getBlockProposalEth1Data(stateData)
+      return node.getBlockProposalEth1Data(stateData.data)
 
   rpcServer.rpc("debug_getChronosFutures") do () -> seq[FutureInfo]:
     when defined(chronosFutureTracking):

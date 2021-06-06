@@ -922,9 +922,6 @@ proc readValue*(r: var JsonReader, T: type GraffitiBytes): T
   except ValueError as err:
     r.raiseUnexpectedValue err.msg
 
-template getStateField*(stateData, fieldName: untyped): untyped =
-  stateData.data.data.fieldName
-
 proc load*(
     validators: openArray[ImmutableValidatorData2],
     index: ValidatorIndex | uint64): Option[CookedPubKey] =
