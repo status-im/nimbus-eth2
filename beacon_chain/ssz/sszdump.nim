@@ -12,6 +12,9 @@ import
   ./ssz_serialization,
   ../spec/[crypto, datatypes, digest]
 
+# TODO remove scaffolding
+import ../consensus_object_pools/statedata_helpers
+
 # Dump errors are generally not fatal where used currently - the code calling
 # these functions, like most code, is not exception safe
 template logErrors(body: untyped) =

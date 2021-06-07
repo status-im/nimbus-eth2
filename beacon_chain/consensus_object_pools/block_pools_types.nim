@@ -17,6 +17,10 @@ import
   ../spec/[datatypes, crypto, digest, signatures_batch],
   ../beacon_chain_db, ../extras
 
+# TODO remove this scaffolding
+import "."/statedata_helpers
+export statedata_helpers
+
 export sets, tables
 
 # #############################################

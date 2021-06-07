@@ -97,25 +97,6 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  BlockRef* = ref object
-    ## Node in object graph guaranteed to lead back to tail block, and to have
-    ## a corresponding entry in database.
-    ## Block graph should form a tree - in particular, there are no cycles.
-
-    root*: Eth2Digest ##\
-    ## Root that can be used to retrieve block data from database
-
-    parent*: BlockRef ##\
-    ## Not nil, except for the tail
-
-    slot*: Slot # could calculate this by walking to root, but..
-
-  StateData* = object
-    data*: HashedBeaconState
-
-    blck*: BlockRef ##\
-    ## The block associated with the state found in data
-
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
@@ -273,15 +254,6 @@ Json.useCustomSerialization(BeaconState.justification_bits):
 
   write:
     writer.writeValue "0x" & value.toHex
-
-template getStateField*(stateData: StateData, fieldName: untyped): untyped =
-  stateData.data.data.fieldName
-
-template getStateField*(stateData: var StateData, fieldName: untyped): untyped =
-  stateData.data.data.fieldName
-
-template getStateField*(stateData: ref StateData, fieldName: untyped): untyped =
-  stateData.data.data.fieldName
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (

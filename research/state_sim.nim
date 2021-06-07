@@ -18,6 +18,9 @@ import
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
 
+# TODO remove scaffolding
+import ../beacon_chain/consensus_object_pools/statedata_helpers
+
 type Timers = enum
   tBlock = "Process non-epoch slot with block"
   tEpoch = "Process epoch slot with block"
