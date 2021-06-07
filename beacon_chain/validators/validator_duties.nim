@@ -56,7 +56,7 @@ logScope: topics = "beacval"
 
 proc findValidator(validators: auto, pubKey: ValidatorPubKey):
     Option[ValidatorIndex] =
-  let idx = validators.asSeq.findIt(it.pubKey == pubKey)
+  let idx = validators.findIt(it.pubKey == pubKey)
   if idx == -1:
     # We allow adding a validator even if its key is not in the state registry:
     # it might be that the deposit for this validator has not yet been processed
@@ -66,16 +66,17 @@ proc findValidator(validators: auto, pubKey: ValidatorPubKey):
     some(idx.ValidatorIndex)
 
 proc addLocalValidator(node: BeaconNode,
-                       stateData: StateData,
+                       validators: openArray[Validator],
                        privKey: ValidatorPrivKey) =
   let pubKey = privKey.toPubKey()
   node.attachedValidators[].addLocalValidator(
     pubKey, privKey,
-    findValidator(getStateField(stateData, validators), pubKey.toPubKey()))
+    findValidator(validators, pubKey.toPubKey()))
 
 proc addLocalValidators*(node: BeaconNode) =
   for validatorKey in node.config.validatorKeys:
-    node.addLocalValidator node.dag.headState, validatorKey
+    node.addLocalValidator(
+      getStateField(node.dag.headState, validators).asSeq, validatorKey)
 
 proc addRemoteValidators*(node: BeaconNode) {.raises: [Defect, OSError, IOError].} =
   # load all the validators from the child process - loop until `end`
@@ -85,7 +86,7 @@ proc addRemoteValidators*(node: BeaconNode) {.raises: [Defect, OSError, IOError]
       let
         key = ValidatorPubKey.fromHex(line).get()
         index = findValidator(
-          getStateField(node.dag.headState, validators), key)
+          getStateField(node.dag.headState, validators).asSeq, key)
         pk = key.load()
       if pk.isSome():
         let v = AttachedValidator(pubKey: pk.get(),

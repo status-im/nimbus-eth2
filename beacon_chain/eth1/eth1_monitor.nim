@@ -281,15 +281,16 @@ template toGaugeValue(x: Quantity): int64 =
 #             "Invalid configuration: GENESIS_DELAY is set too low"
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#get_eth1_data
-func compute_time_at_slot(state: StateData, slot: Slot): uint64 =
-  getStateField(state, genesis_time) + slot * SECONDS_PER_SLOT
+func compute_time_at_slot(genesis_time: uint64, slot: Slot): uint64 =
+  genesis_time + slot * SECONDS_PER_SLOT
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#get_eth1_data
 func voting_period_start_time*(state: StateData): uint64 =
   let eth1_voting_period_start_slot =
     getStateField(state, slot) - getStateField(state, slot) mod
       SLOTS_PER_ETH1_VOTING_PERIOD.uint64
-  compute_time_at_slot(state, eth1_voting_period_start_slot)
+  compute_time_at_slot(
+    getStateField(state, genesis_time), eth1_voting_period_start_slot)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#get_eth1_data
 func is_candidate_block(preset: RuntimePreset,
