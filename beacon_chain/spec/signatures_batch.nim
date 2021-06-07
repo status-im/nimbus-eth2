@@ -13,7 +13,8 @@ import
   stew/[byteutils, results],
   # Internal
   ../ssz/merkleization,
-  "."/[crypto, datatypes, helpers, presets, beaconstate, digest]
+  "."/[crypto, datatypes, helpers, presets, beaconstate, digest],
+  ../consensus_object_pools/statedata_helpers
 
 # Otherwise, error.
 import chronicles

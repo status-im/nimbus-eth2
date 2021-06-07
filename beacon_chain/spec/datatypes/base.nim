@@ -915,9 +915,6 @@ proc readValue*(r: var JsonReader, T: type GraffitiBytes): T
   except ValueError as err:
     r.raiseUnexpectedValue err.msg
 
-template getStateField*(stateData, fieldName: untyped): untyped =
-  stateData.data.data.fieldName
-
 static:
   # Sanity checks - these types should be trivial enough to copy with memcpy
   doAssert supportsCopyMem(Validator)

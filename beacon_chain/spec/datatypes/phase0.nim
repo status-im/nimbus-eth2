@@ -274,6 +274,15 @@ Json.useCustomSerialization(BeaconState.justification_bits):
   write:
     writer.writeValue "0x" & value.toHex
 
+template getStateField*(stateData: StateData, fieldName: untyped): untyped =
+  stateData.data.data.fieldName
+
+template getStateField*(stateData: var StateData, fieldName: untyped): untyped =
+  stateData.data.data.fieldName
+
+template getStateField*(stateData: ref StateData, fieldName: untyped): untyped =
+  stateData.data.data.fieldName
+
 func shortLog*(v: SomeBeaconBlock): auto =
   (
     slot: shortLog(v.slot),

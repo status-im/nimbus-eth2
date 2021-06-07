@@ -19,6 +19,9 @@ import
   ../beacon_clock,
   "."/[block_pools_types, block_quarantine, statedata_helpers]
 
+# TODO remove scaffolding
+export statedata_helpers
+
 export block_pools_types, helpers, phase0
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics

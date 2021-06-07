@@ -8,7 +8,11 @@
 {.push raises: [Defect].}
 
 import
+  ../spec/forkedbeaconstate_helpers,
   ../spec/[beaconstate, datatypes, digest, helpers, presets, validator]
+
+export forkedbeaconstate_helpers
+export getStateField
 
 # State-related functionality based on StateData instead of BeaconState
 
