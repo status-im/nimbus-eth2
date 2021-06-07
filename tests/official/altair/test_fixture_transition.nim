@@ -15,7 +15,7 @@ import
   faststreams, streams,
   # Beacon chain internals
   ../../../beacon_chain/spec/[
-    crypto, state_transition, presets, forkedbeaconstate_helpers],
+    crypto, state_transition, presets, forkedbeaconstate_helpers, helpers],
   ../../../beacon_chain/spec/datatypes/[phase0, altair],
   ../../../beacon_chain/[extras, ssz],
   # Test utilities
@@ -66,7 +66,7 @@ proc runTest(testName, testDir, unitTestName: string) =
             defaultRuntimePreset, sdPreState[], blck,
             cache, rewards,
             flags = {skipStateRootValidation}, noRollback,
-            transitionEpoch.fork_epoch.Epoch)
+            transitionEpoch.fork_epoch.Epoch.compute_start_slot_at_epoch)
           doAssert success, "Failure when applying block " & $i
         else:
           let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, altair.SignedBeaconBlock)
@@ -75,7 +75,7 @@ proc runTest(testName, testDir, unitTestName: string) =
             defaultRuntimePreset, sdPreState[], blck,
             cache, rewards,
             flags = {skipStateRootValidation}, noRollback,
-            transitionEpoch.fork_epoch.Epoch)
+            transitionEpoch.fork_epoch.Epoch.compute_start_slot_at_epoch)
           doAssert success, "Failure when applying block " & $i
 
       let postState = newClone(parseTest(testPath/"post.ssz_snappy", SSZ, altair.BeaconState))

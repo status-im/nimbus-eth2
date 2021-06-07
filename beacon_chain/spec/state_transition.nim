@@ -214,7 +214,8 @@ proc maybeUpgradeStateToAltair(
 proc state_transition_slots(
     preset: RuntimePreset,
     state: var ForkedHashedBeaconState,
-    signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock | phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
+    signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
+                 phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
     cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
     altairForkSlot: Slot): bool {.nbench.} =
   let slot = signedBlock.message.slot
@@ -358,7 +359,7 @@ proc state_transition*(
                  phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
     cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
     rollback: RollbackHashedProc,
-    altairForkEpoch: Epoch = FAR_FUTURE_EPOCH): bool {.nbench.} =
+    altairForkSlot: Slot = FAR_FUTURE_SLOT): bool {.nbench.} =
   ## Apply a block to the state, advancing the slot counter as necessary. The
   ## given state must be of a lower slot, or, in case the `slotProcessed` flag
   ## is set, can be the slot state of the same slot as the block (where the
@@ -384,12 +385,10 @@ proc state_transition*(
       return false
 
   if not state_transition_slots(
-      preset, state, signedBlock, cache, rewards, flags,
-      altairForkEpoch.compute_start_slot_at_epoch):
+      preset, state, signedBlock, cache, rewards, flags, altairForkSlot):
     return false
   state_transition_block(
-    preset, state, signedBlock, cache, flags, rollback,
-    altairForkEpoch.compute_start_slot_at_epoch)
+    preset, state, signedBlock, cache, flags, rollback, altairForkSlot)
 
 proc state_transition*(
     preset: RuntimePreset,

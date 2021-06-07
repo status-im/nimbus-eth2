@@ -23,6 +23,8 @@ type
     of forkPhase0: hbsPhase0*: phase0.HashedBeaconState
     of forkAltair: hbsAltair*: altair.HashedBeaconState
 
+# State-related functionality based on ForkedHashedBeaconState instead of BeaconState
+
 # Dispatch functions
 template callWithBS*(op: untyped, y: ForkedHashedBeaconState): untyped =
   let bs {.inject.} =
@@ -30,20 +32,18 @@ template callWithBS*(op: untyped, y: ForkedHashedBeaconState): untyped =
     of forkPhase0: y.hbsPhase0.data
     of forkAltair: y.hbsAltair.data
   op
-# State-related functionality based on ForkedHashedBeaconState instead of BeaconState
 
 func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
-  when false:
-    # This doesn't seem to be an issue, but leaving it for now
-    #
-    # TODO does nimOldCaseObjects allow for incremental assignment of fields
-    # to change type in-place? Otherwise, right now, doing that will cause a
-    # runtime error.
-    doAssert tgt.beaconStateFork == forkPhase0
-    case tgt.beaconStateFork:
-    of forkPhase0: assign(tgt.hbsPhase0, src.hbsPhase0)
-    of forkAltair: assign(tgt.hbsAltair, src.hbsAltair)
+  if tgt.beaconStateFork == src.beaconStateFork:
+    if tgt.beaconStateFork == forkPhase0:
+      assign(tgt.hbsPhase0, src.hbsPhase0):
+    elif tgt.beaconStateFork == forkAltair:
+      assign(tgt.hbsAltair, src.hbsAltair):
+    else:
+      doAssert false
   else:
+    # Ensure case object and discriminator get updated simultaneously, even
+    # with nimOldCaseObjects. This is infrequent.
     tgt = src
 
 template getStateField*(x: ForkedHashedBeaconState, y: untyped): untyped =
