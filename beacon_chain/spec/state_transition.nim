@@ -206,10 +206,10 @@ proc maybeUpgradeStateToAltair(
   if  getStateField(state, slot) == altairForkSlot and
       state.beaconStateFork == forkPhase0:
     var newState = upgrade_to_altair(state.hbsPhase0.data)
-    state = ForkedHashedBeaconState(
+    state = (ref ForkedHashedBeaconState)(
       beaconStateFork: forkAltair,
       hbsAltair: altair.HashedBeaconState(
-        root: hash_tree_root(newState[]), data: newState[]))
+        root: hash_tree_root(newState[]), data: newState[]))[]
 
 proc state_transition_slots(
     preset: RuntimePreset,
