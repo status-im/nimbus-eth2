@@ -63,7 +63,7 @@ template withStateVars*(
   template hashedState(): HashedBeaconState {.inject, used.} =
     stateDataInternal.data
   template stateRoot(): Eth2Digest {.inject, used.} =
-    stateDataInternal.data.root
+    getStateRoot(stateDataInternal.data)
   template blck(): BlockRef {.inject, used.} = stateDataInternal.blck
   template root(): Eth2Digest {.inject, used.} = stateDataInternal.data.root
 
@@ -148,7 +148,7 @@ func init*(
         cache.get_shuffled_active_validator_indices(state, epoch))
   for i in 0'u64..<SLOTS_PER_EPOCH:
     epochRef.beacon_proposers[i] = get_beacon_proposer_index(
-      state.data.data, cache, epoch.compute_start_slot_at_epoch() + i)
+      state.data, cache, epoch.compute_start_slot_at_epoch() + i)
 
   # When fork choice runs, it will need the effective balance of the justified
   # checkpoint - we pre-load the balances here to avoid rewinding the justified
@@ -386,8 +386,8 @@ proc init*(T: type ChainDAGRef,
     if cur.isStateCheckpoint():
       let root = db.getStateRoot(cur.blck.root, cur.slot)
       if root.isSome():
-        if db.getState(root.get(), tmpState.data.data, noRollback):
-          tmpState.data.root = root.get()
+        if db.getState(root.get(), tmpState.data.hbsPhase0.data, noRollback):
+          tmpState.data.hbsPhase0.root = root.get()
           tmpState.blck = cur.blck
 
           break
@@ -507,13 +507,13 @@ proc getState(
       unsafeAddr dag.headState
 
   func restore(v: var phase0.BeaconState) =
-    assign(v, restoreAddr[].data.data)
+    assign(v, restoreAddr[].data.hbsPhase0.data)
 
-  if not dag.db.getState(stateRoot, state.data.data, restore):
+  if not dag.db.getState(stateRoot, state.data.hbsPhase0.data, restore):
     return false
 
   state.blck = blck
-  state.data.root = stateRoot
+  state.data.hbsPhase0.root = stateRoot
 
   # In case a newer state is loaded from database than we previously knew - this
   # is in theory possible if the head state we load on init is older than
@@ -547,24 +547,24 @@ proc putState(dag: ChainDAGRef, state: var StateData) =
   logScope:
     blck = shortLog(state.blck)
     stateSlot = shortLog(getStateField(state, slot))
-    stateRoot = shortLog(state.data.root)
+    stateRoot = shortLog(state.data.hbsPhase0.root)
 
   if not isStateCheckpoint(state.blck.atSlot(getStateField(state, slot))):
     return
 
   # Don't consider legacy tables here, they are slow to read so we'll want to
   # rewrite things in the new database anyway.
-  if dag.db.containsState(state.data.root, legacy = false):
+  if dag.db.containsState(state.data.hbsPhase0.root, legacy = false):
     return
 
   let startTick = Moment.now()
   # Ideally we would save the state and the root lookup cache in a single
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
-  dag.db.putState(state.data.root, state.data.data)
+  dag.db.putState(state.data.hbsPhase0.root, state.data.hbsPhase0.data)
 
   dag.db.putStateRoot(
-    state.blck.root, getStateField(state, slot), state.data.root)
+    state.blck.root, getStateField(state, slot), state.data.hbsPhase0.root)
 
   debug "Stored state", putStateDur = Moment.now() - startTick
 
@@ -667,7 +667,7 @@ proc advanceSlots(
     loadStateCache(dag, cache, state.blck, getStateField(state, slot).epoch)
 
     doAssert process_slots(
-        state.data, getStateField(state, slot) + 1, cache, rewards,
+        state.data.hbsPhase0, getStateField(state, slot) + 1, cache, rewards,
         dag.updateFlags),
       "process_slots shouldn't fail when state slot is correct"
     if save:
@@ -824,7 +824,7 @@ proc updateStateData*(
   let
     assignTick = Moment.now()
     startSlot {.used.} = getStateField(state, slot) # used in logs below
-    startRoot {.used.} = state.data.root
+    startRoot {.used.} = state.data.hbsPhase0.root
   var rewards: RewardInfo
   # Time to replay all the blocks between then and now
   for i in countdown(ancestors.len - 1, 0):
@@ -849,7 +849,7 @@ proc updateStateData*(
   logScope:
     blocks = ancestors.len
     slots = getStateField(state, slot) - startSlot
-    stateRoot = shortLog(state.data.root)
+    stateRoot = shortLog(state.data.hbsPhase0.root)
     stateSlot = getStateField(state, slot)
     startRoot = shortLog(startRoot)
     startSlot
@@ -1007,7 +1007,7 @@ proc updateHead*(
     notice "Updated head block with chain reorg",
       lastHead = shortLog(lastHead),
       headParent = shortLog(newHead.parent),
-      stateRoot = shortLog(dag.headState.data.root),
+      stateRoot = shortLog(dag.headState.data.hbsPhase0.root),
       headBlock = shortLog(dag.headState.blck),
       stateSlot = shortLog(getStateField(dag.headState, slot)),
       justified =
@@ -1019,7 +1019,7 @@ proc updateHead*(
     beacon_reorgs_total.inc()
   else:
     debug "Updated head block",
-      stateRoot = shortLog(dag.headState.data.root),
+      stateRoot = shortLog(dag.headState.data.hbsPhase0.root),
       headBlock = shortLog(dag.headState.blck),
       stateSlot = shortLog(getStateField(dag.headState, slot)),
       justified = shortLog(getStateField(

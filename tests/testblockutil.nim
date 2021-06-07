@@ -285,8 +285,12 @@ func makeFullAttestations*(
     cache: var StateCache,
     flags: UpdateFlags = {}): seq[Attestation] =
   makeFullAttestations(
-    (ref StateData)(data: state, blck: BlockRef(
-      root: beacon_block_root, slot: slot))[], beacon_block_root, slot, cache,
+    (ref StateData)(
+      data: ForkedHashedBeaconState(
+        beaconStateFork: forkPhase0,
+        hbsPhase0: state),
+      blck: BlockRef(
+        root: beacon_block_root, slot: slot))[], beacon_block_root, slot, cache,
     flags)
 
 iterator makeTestBlocks*(

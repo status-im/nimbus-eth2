@@ -371,15 +371,17 @@ func add(
     attCache[key] = aggregation_bits
 
 func init(T: type AttestationCache, state: StateData): T =
+  doAssert state.data.beaconStateFork == forkPhase0
+
   # Load attestations that are scheduled for being given rewards for
-  for i in 0..<getStateField(state, previous_epoch_attestations).len():
+  for i in 0..<state.data.hbsPhase0.data.previous_epoch_attestations.len():
     result.add(
-      getStateField(state, previous_epoch_attestations)[i].data,
-      getStateField(state, previous_epoch_attestations)[i].aggregation_bits)
-  for i in 0..<getStateField(state, current_epoch_attestations).len():
+      state.data.hbsPhase0.data.previous_epoch_attestations[i].data,
+      state.data.hbsPhase0.data.previous_epoch_attestations[i].aggregation_bits)
+  for i in 0..<state.data.hbsPhase0.data.current_epoch_attestations.len():
     result.add(
-      getStateField(state, current_epoch_attestations)[i].data,
-      getStateField(state, current_epoch_attestations)[i].aggregation_bits)
+      state.data.hbsPhase0.data.current_epoch_attestations[i].data,
+      state.data.hbsPhase0.data.current_epoch_attestations[i].aggregation_bits)
 
 proc score(
     attCache: var AttestationCache, data: AttestationData,
@@ -448,7 +450,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
         # attestation to - there might have been a fork between when we first
         # saw the attestation and the time that we added it
         if not check_attestation(
-              state.data.data, attestation, {skipBlsValidation}, cache).isOk():
+              state.data.hbsPhase0.data, attestation, {skipBlsValidation}, cache).isOk():
           continue
 
         let score = attCache.score(
@@ -474,8 +476,8 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   var
     prevEpoch = state.get_previous_epoch()
     prevEpochSpace =
-      getStateField(state, previous_epoch_attestations).maxLen -
-        getStateField(state, previous_epoch_attestations).len()
+      state.data.hbsPhase0.data.previous_epoch_attestations.maxLen -
+        state.data.hbsPhase0.data.previous_epoch_attestations.len()
 
   var res: seq[Attestation]
   let totalCandidates = candidates.len()

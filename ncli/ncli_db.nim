@@ -200,7 +200,7 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
       let isEpoch = (getStateField(state[], slot) + 1).isEpoch()
       withTimer(timers[if isEpoch: tAdvanceEpoch else: tAdvanceSlot]):
         let ok = process_slots(
-          state[].data, getStateField(state[], slot) + 1, cache, rewards, {})
+          state[].data.hbsPhase0, getStateField(state[], slot) + 1, cache, rewards, {})
         doAssert ok, "Slot processing can't fail with correct inputs"
 
     var start = Moment.now()
@@ -208,7 +208,7 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
       if conf.resetCache:
         cache = StateCache()
       if not state_transition_block(
-          runtimePreset, state[].data, b, cache, {}, noRollback):
+          runtimePreset, state[].data.hbsPhase0, b, cache, {}, noRollback):
         dump("./", b)
         echo "State transition failed (!)"
         quit 1
@@ -220,15 +220,15 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
 
     if getStateField(state[], slot).isEpoch and conf.storeStates:
       if getStateField(state[], slot).epoch < 2:
-        dbBenchmark.putState(state[].data.root, state[].data.data)
+        dbBenchmark.putState(getStateRoot(state[].data), state[].data.hbsPhase0.data)
         dbBenchmark.checkpoint()
       else:
         withTimer(timers[tDbStore]):
-          dbBenchmark.putState(state[].data.root, state[].data.data)
+          dbBenchmark.putState(getStateRoot(state[].data), state[].data.hbsPhase0.data)
           dbBenchmark.checkpoint()
 
         withTimer(timers[tDbLoad]):
-          doAssert dbBenchmark.getState(state[].data.root, loadedState[], noRollback)
+          doAssert dbBenchmark.getState(getStateRoot(state[].data), loadedState[], noRollback)
 
         if getStateField(state[], slot).epoch mod 16 == 0:
           doAssert hash_tree_root(state[]) == hash_tree_root(loadedState[])
@@ -368,7 +368,7 @@ proc cmdRewindState(conf: DbConf, preset: RuntimePreset) =
   let tmpState = assignClone(dag.headState)
   dag.withState(tmpState[], blckRef.atSlot(Slot(conf.slot))):
     echo "Writing state..."
-    dump("./", hashedState, blck)
+    dump("./", stateData.data.hbsPhase0, blck)
 
 proc atCanonicalSlot(blck: BlockRef, slot: Slot): BlockSlot =
   if slot == 0:
@@ -406,7 +406,7 @@ proc cmdExportEra(conf: DbConf, preset: RuntimePreset) =
     defer: e2s.close()
 
     dag.withState(tmpState[], canonical):
-      e2s.appendRecord(stateData.data.data).get()
+      e2s.appendRecord(stateData.data.hbsPhase0.data).get()
 
     var
       ancestors: seq[BlockRef]
@@ -523,21 +523,21 @@ proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimePreset) =
     blck = db.getBlock(blockRefs[blockRefs.len - bi - 1].root).get()
     while getStateField(state[], slot) < blck.message.slot:
       let ok = process_slots(
-        state[].data, getStateField(state[], slot) + 1, cache, rewards, {})
+        state[].data.hbsPhase0, getStateField(state[], slot) + 1, cache, rewards, {})
       doAssert ok, "Slot processing can't fail with correct inputs"
 
       if getStateField(state[], slot).isEpoch():
         processEpoch()
 
     if not state_transition_block(
-        runtimePreset, state[].data, blck, cache, {}, noRollback):
+        runtimePreset, state[].data.hbsPhase0, blck, cache, {}, noRollback):
       echo "State transition failed (!)"
       quit 1
 
   # Capture rewards of empty slots as well
   while getStateField(state[], slot) < ends:
     let ok = process_slots(
-      state[].data, getStateField(state[], slot) + 1, cache, rewards, {})
+      state[].data.hbsPhase0, getStateField(state[], slot) + 1, cache, rewards, {})
     doAssert ok, "Slot processing can't fail with correct inputs"
 
     if getStateField(state[], slot).isEpoch():
@@ -750,14 +750,14 @@ proc cmdValidatorDb(conf: DbConf, runtimePreset: RuntimePreset) =
     blck = db.getBlock(blockRefs[blockRefs.len - bi - 1].root).get()
     while getStateField(state[], slot) < blck.message.slot:
       let ok = process_slots(
-        state[].data, getStateField(state[], slot) + 1, cache, rewards, {})
+        state[].data.hbsPhase0, getStateField(state[], slot) + 1, cache, rewards, {})
       doAssert ok, "Slot processing can't fail with correct inputs"
 
       if getStateField(state[], slot).isEpoch():
         processEpoch()
 
     if not state_transition_block(
-        runtimePreset, state[].data, blck, cache, {}, noRollback):
+        runtimePreset, state[].data.hbsPhase0, blck, cache, {}, noRollback):
       echo "State transition failed (!)"
       quit 1
 
@@ -765,7 +765,7 @@ proc cmdValidatorDb(conf: DbConf, runtimePreset: RuntimePreset) =
   # finalized
   while getStateField(state[], slot) <= ends:
     let ok = process_slots(
-      state[].data, getStateField(state[], slot) + 1, cache, rewards, {})
+      state[].data.hbsPhase0, getStateField(state[], slot) + 1, cache, rewards, {})
     doAssert ok, "Slot processing can't fail with correct inputs"
 
     if getStateField(state[], slot).isEpoch():

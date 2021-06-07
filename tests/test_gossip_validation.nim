@@ -43,7 +43,7 @@ suite "Gossip validation " & preset():
       batchCrypto = BatchCrypto.new(keys.newRng(), eager = proc(): bool = false)
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
-      process_slots(state.data, getStateField(state, slot) + 1, cache, rewards)
+      process_slots(state.data.hbsPhase0, getStateField(state, slot) + 1, cache, rewards)
 
   test "Validation sanity":
     # TODO: refactor tests to avoid skipping BLS validation
@@ -52,7 +52,7 @@ suite "Gossip validation " & preset():
     var
       cache: StateCache
     for blck in makeTestBlocks(
-        dag.headState.data, dag.head.root, cache,
+        dag.headState.data.hbsPhase0, dag.head.root, cache,
         int(SLOTS_PER_EPOCH * 5), false):
       let added = dag.addRawBlock(quarantine, blck) do (
           blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,

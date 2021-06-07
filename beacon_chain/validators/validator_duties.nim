@@ -318,7 +318,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
 
     return makeBeaconBlock(
       node.runtimePreset,
-      hashedState,
+      stateData.data.hbsPhase0,
       validator_index,
       head.root,
       randao_reveal,
@@ -593,7 +593,7 @@ proc updateValidatorMetrics*(node: BeaconNode) =
           debug "Cannot get validator balance, index out of bounds",
             pubkey = shortLog(v.pubkey), index = v.index.get(),
             balances = getStateField(node.dag.headState, balances).len,
-            stateRoot = node.dag.headState.data.root
+            stateRoot = node.dag.headState.data.hbsPhase0.root
           0.Gwei
         else:
           getStateField(node.dag.headState, balances)[v.index.get()]

@@ -670,7 +670,7 @@ proc validateAttesterSlashing*(
   # validation.
   let attester_slashing_validity =
     check_attester_slashing(
-      pool.dag.headState.data.data, attester_slashing, {})
+      pool.dag.headState.data.hbsPhase0.data, attester_slashing, {})
   if attester_slashing_validity.isErr:
     return err((ValidationResult.Reject, attester_slashing_validity.error))
 
@@ -700,7 +700,7 @@ proc validateProposerSlashing*(
   # [REJECT] All of the conditions within process_proposer_slashing pass validation.
   let proposer_slashing_validity =
     check_proposer_slashing(
-      pool.dag.headState.data.data, proposer_slashing, {})
+      pool.dag.headState.data.hbsPhase0.data, proposer_slashing, {})
   if proposer_slashing_validity.isErr:
     return err((ValidationResult.Reject, proposer_slashing_validity.error))
 
@@ -734,7 +734,7 @@ proc validateVoluntaryExit*(
   # validation.
   let voluntary_exit_validity =
     check_voluntary_exit(
-      pool.dag.headState.data.data, signed_voluntary_exit, {})
+      pool.dag.headState.data.hbsPhase0.data, signed_voluntary_exit, {})
   if voluntary_exit_validity.isErr:
     return err((ValidationResult.Reject, voluntary_exit_validity.error))
 

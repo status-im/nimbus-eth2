@@ -30,19 +30,19 @@ type
     slot*: Slot # could calculate this by walking to root, but..
 
   StateData* = object
-    data*: HashedBeaconState
+    data*: ForkedHashedBeaconState
 
     blck*: BlockRef ##\
     ## The block associated with the state found in data
 
 template getStateField*(stateData: StateData, fieldName: untyped): untyped =
-  stateData.data.data.fieldName
+  getStateField(stateData.data, fieldName)
 
 template getStateField*(stateData: var StateData, fieldName: untyped): untyped =
-  stateData.data.data.fieldName
+  getStateField(stateData.data, fieldName)
 
 template getStateField*(stateData: ref StateData, fieldName: untyped): untyped =
-  stateData.data.data.fieldName
+  getStateField(stateData.data, fieldName)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(stateData: StateData): Epoch =
@@ -67,27 +67,27 @@ func get_beacon_committee*(
   # diverging get_beacon_committee() in tests and beacon_chain/ by a
   # wrapper approach (e.g., toSeq). This is a perf tradeoff for test
   # correctness/consistency.
-  get_beacon_committee(state.data.data, slot, index, cache)
+  get_beacon_committee(state.data, slot, index, cache)
 
 func get_committee_count_per_slot*(state: StateData,
                                    epoch: Epoch,
                                    cache: var StateCache): uint64 =
   # Return the number of committees at ``epoch``.
-  get_committee_count_per_slot(state.data.data, epoch, cache)
+  get_committee_count_per_slot(state.data, epoch, cache)
 
 template hash_tree_root*(stateData: StateData): Eth2Digest =
   # Dispatch here based on type/fork of state. Since StateData is a ref object
   # type, if Nim chooses the wrong overload, it will simply fail to compile.
-  stateData.data.root
+  hash_tree_root(stateData.data)
 
 func get_shuffled_active_validator_indices*(
     cache: var StateCache, state: StateData, epoch: Epoch):
-    var seq[ValidatorIndex] =
-  cache.get_shuffled_active_validator_indices(state.data.data, epoch)
+    seq[ValidatorIndex] =
+  cache.get_shuffled_active_validator_indices(state.data, epoch)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: StateData,
                              slot: Slot): Eth2Digest =
   ## Return the block root at a recent ``slot``.
 
-  get_block_root_at_slot(state.data.data, slot)
+  get_block_root_at_slot(state.data, slot)

@@ -125,7 +125,7 @@ proc addAttestation(
      ): Result[void, cstring] =
   var inited = false
   var attestersAgg{.noInit.}: AggregatePublicKey
-  for valIndex in state.data.data.get_attesting_indices(
+  for valIndex in state.data.get_attesting_indices(
                     attestation.data,
                     attestation.aggregation_bits,
                     cache

@@ -123,7 +123,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
             0 ..< committees_per_slot.int,
             get_beacon_committee(state[].data, target_slot, it.CommitteeIndex, cache))
 
-        stateData = (ref StateData)(data: state[], blck: blockrefs[^1])
+        stateData = (ref StateData)(data: ForkedHashedBeaconState(hbsPhase0: state[], beaconStateFork: forkPhase0), blck: blockrefs[^1])
 
       for i, scas in scass:
         var

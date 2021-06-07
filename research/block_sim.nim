@@ -134,7 +134,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
       let
         finalizedEpochRef = dag.getFinalizedEpochRef()
         proposerIdx = get_beacon_proposer_index(
-          stateData.data.data, cache).get()
+          stateData.data.hbsPhase0.data, cache).get()
         privKey = hackPrivKey(
           getStateField(stateData, validators)[proposerIdx])
         eth1ProposalData = eth1Chain.getBlockProposalData(
@@ -143,7 +143,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
           finalizedEpochRef.eth1_deposit_index)
         message = makeBeaconBlock(
           runtimePreset,
-          hashedState,
+          stateData.data.hbsPhase0,
           proposerIdx,
           head.root,
           privKey.genRandaoReveal(
