@@ -57,8 +57,6 @@ template withStateVars*(
   ## Inject a few more descriptive names for the members of `stateData` -
   ## the stateData instance may get mutated through these names as well
   template stateData(): StateData {.inject, used.} = stateDataInternal
-  template hashedState(): HashedBeaconState {.inject, used.} =
-    stateDataInternal.data.hbsPhase0  # TODO this is wrong
   template stateRoot(): Eth2Digest {.inject, used.} =
     getStateRoot(stateDataInternal.data)
   template blck(): BlockRef {.inject, used.} = stateDataInternal.blck

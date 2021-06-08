@@ -143,7 +143,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
           finalizedEpochRef.eth1_deposit_index)
         message = makeBeaconBlock(
           runtimePreset,
-          hashedState,
+          stateData.data.hbsPhase0,
           proposerIdx,
           head.root,
           privKey.genRandaoReveal(

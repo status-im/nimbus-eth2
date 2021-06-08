@@ -369,7 +369,7 @@ proc cmdRewindState(conf: DbConf, preset: RuntimePreset) =
   let tmpState = assignClone(dag.headState)
   dag.withState(tmpState[], blckRef.atSlot(Slot(conf.slot))):
     echo "Writing state..."
-    dump("./", hashedState, blck)
+    dump("./", stateData.data.hbsPhase0, blck)
 
 proc atCanonicalSlot(blck: BlockRef, slot: Slot): BlockSlot =
   if slot == 0:

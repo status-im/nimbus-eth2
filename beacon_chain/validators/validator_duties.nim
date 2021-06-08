@@ -321,7 +321,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
 
     return makeBeaconBlock(
       node.runtimePreset,
-      hashedState,
+      stateData.data.hbsPhase0,
       validator_index,
       head.root,
       randao_reveal,
