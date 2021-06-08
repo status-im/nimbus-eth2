@@ -225,18 +225,18 @@ proc state_transition_slots(
     case state.beaconStateFork:
     of forkPhase0:
       advance_slot(
-        state.hbsPhase0.data, state.hbsPhase0.root, flags, cache, rewards) 
+        state.hbsPhase0.data, getStateRoot(state), flags, cache, rewards)
 
-      if state.hbsPhase0.data.slot < slot:
+      if getStateField(state, slot) < slot:
         # Don't update state root for the slot of the block
-        state.hbsPhase0.root = hash_tree_root(state.hbsPhase0.data)
+        state.hbsPhase0.root = hash_tree_root(state)
     of forkAltair:
       advance_slot(
         state.hbsAltair.data, state.hbsAltair.root, flags, cache, rewards)
 
       if getStateField(state, slot) < slot:
         # Don't update state root for the slot of the block
-        state.hbsAltair.root = hash_tree_root(state.hbsAltair.data)
+        state.hbsAltair.root = hash_tree_root(state)
 
     maybeUpgradeStateToAltair(state, altairForkSlot)
 

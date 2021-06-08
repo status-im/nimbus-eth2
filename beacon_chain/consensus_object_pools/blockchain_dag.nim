@@ -552,17 +552,17 @@ proc putState(dag: ChainDAGRef, state: var StateData) =
 
   # Don't consider legacy tables here, they are slow to read so we'll want to
   # rewrite things in the new database anyway.
-  if dag.db.containsState(state.data.hbsPhase0.root, legacy = false):
+  if dag.db.containsState(getStateRoot(state.data), legacy = false):
     return
 
   let startTick = Moment.now()
   # Ideally we would save the state and the root lookup cache in a single
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
-  dag.db.putState(state.data.hbsPhase0.root, state.data.hbsPhase0.data)
+  dag.db.putState(getStateRoot(state.data), state.data.hbsPhase0.data)
 
   dag.db.putStateRoot(
-    state.blck.root, getStateField(state.data, slot), state.data.hbsPhase0.root)
+    state.blck.root, getStateField(state.data, slot), getStateRoot(state.data))
 
   debug "Stored state", putStateDur = Moment.now() - startTick
 
