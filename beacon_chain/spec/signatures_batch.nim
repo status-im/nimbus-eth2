@@ -391,7 +391,6 @@ proc collectSignatureSets*(
         signed_block.message.body.attestations[i],
         validatorKeys, state, cache)
 
-
   # 6. VoluntaryExits
   # ----------------------------------------------------
   # Denial-of-service:

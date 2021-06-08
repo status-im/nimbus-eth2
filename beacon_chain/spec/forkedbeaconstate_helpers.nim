@@ -9,8 +9,10 @@
 
 import
   chronicles,
-  stew/assign2,
-  ../spec/[beaconstate, digest, helpers, presets, validator],
+  stew/[assign2, results],
+  ../extras,
+  ../spec/[
+    beaconstate, digest, helpers, presets, state_transition_block, validator],
   ./datatypes/[phase0, altair]
 
 type
@@ -134,6 +136,33 @@ proc get_attesting_indices*(state: ForkedHashedBeaconState;
     doAssert false
 
   idxBuf
+
+proc check_attester_slashing*(
+    state: var ForkedHashedBeaconState; attester_slashing: SomeAttesterSlashing;
+    flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
+  case state.beaconStateFork:
+  of forkPhase0:
+    check_attester_slashing(state.hbsPhase0.data, attester_slashing, flags)
+  of forkAltair:
+    check_attester_slashing(state.hbsAltair.data, attester_slashing, flags)
+
+proc check_proposer_slashing*(
+    state: var ForkedHashedBeaconState; proposer_slashing: SomeProposerSlashing;
+    flags: UpdateFlags): Result[void, cstring] =
+  case state.beaconStateFork:
+  of forkPhase0:
+    check_proposer_slashing(state.hbsPhase0.data, proposer_slashing, flags)
+  of forkAltair:
+    check_proposer_slashing(state.hbsAltair.data, proposer_slashing, flags)
+
+proc check_voluntary_exit*(
+    state: ForkedHashedBeaconState; signed_voluntary_exit: SomeSignedVoluntaryExit;
+    flags: UpdateFlags): Result[void, cstring] =
+  case state.beaconStateFork:
+  of forkPhase0:
+    check_voluntary_exit(state.hbsPhase0.data, signed_voluntary_exit, flags)
+  of forkAltair:
+    check_voluntary_exit(state.hbsAltair.data, signed_voluntary_exit, flags)
 
 # Derived utilities
 
