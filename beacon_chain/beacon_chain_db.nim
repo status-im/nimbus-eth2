@@ -13,7 +13,8 @@ import
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
   ./networking/network_metadata, ./beacon_chain_db_immutable,
-  ./spec/[crypto, datatypes, digest, state_transition],
+  ./spec/[crypto, digest, state_transition],
+  ./spec/datatypes/[phase0, altair],
   ./ssz/[ssz_serialization, merkleization],
   ./filepath
 
@@ -159,14 +160,14 @@ func subkey[N: static int](kind: DbKeyKind, key: array[N, byte]):
   result[0] = byte ord(kind)
   result[1 .. ^1] = key
 
-func subkey(kind: type BeaconState, key: Eth2Digest): auto =
+func subkey(kind: type phase0.BeaconState, key: Eth2Digest): auto =
   subkey(kHashToState, key.data)
 
 func subkey(
     kind: type BeaconStateNoImmutableValidators, key: Eth2Digest): auto =
   subkey(kHashToStateOnlyMutableValidators, key.data)
 
-func subkey(kind: type SignedBeaconBlock, key: Eth2Digest): auto =
+func subkey(kind: type phase0.SignedBeaconBlock, key: Eth2Digest): auto =
   subkey(kHashToBlock, key.data)
 
 func subkey(kind: type BeaconBlockSummary, key: Eth2Digest): auto =
@@ -459,7 +460,7 @@ proc close*(db: BeaconchainDB) =
 
   db.db = nil
 
-func toBeaconBlockSummary(v: SomeBeaconBlock): BeaconBlockSummary =
+func toBeaconBlockSummary(v: SomeSomeBeaconBlock): BeaconBlockSummary =
   BeaconBlockSummary(
     slot: v.slot,
     parent_root: v.parent_root,
@@ -470,7 +471,7 @@ proc putBeaconBlockSummary(
   # Summaries are too simple / small to compress, store them as plain SSZ
   db.summaries.putSSZ(root.data, value)
 
-proc putBlock*(db: BeaconChainDB, value: TrustedSignedBeaconBlock) =
+proc putBlock*(db: BeaconChainDB, value: phase0.TrustedSignedBeaconBlock) =
   db.blocks.putSnappySSZ(value.root.data, value)
   db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
@@ -485,13 +486,13 @@ proc updateImmutableValidators*(
     db.immutableValidatorsDb.add immutableValidator
     db.immutableValidators.add immutableValidator
 
-proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
+proc putState*(db: BeaconChainDB, key: Eth2Digest, value: phase0.BeaconState) =
   db.updateImmutableValidators(value.validators.asSeq())
   db.statesNoVal.putSnappySSZ(
     key.data,
     isomorphicCast[BeaconStateNoImmutableValidators](value))
 
-proc putState*(db: BeaconChainDB, value: BeaconState) =
+proc putState*(db: BeaconChainDB, value: phase0.BeaconState) =
   db.putState(hash_tree_root(value), value)
 
 func stateRootKey(root: Eth2Digest, slot: Slot): array[40, byte] =
@@ -535,18 +536,20 @@ proc putEth2FinalizedTo*(db: BeaconChainDB,
                          eth1Checkpoint: DepositContractSnapshot) =
   db.keyValues.putSnappySSZ(subkey(kDepositsFinalizedByEth2), eth1Checkpoint)
 
-proc getBlock(db: BeaconChainDBV0, key: Eth2Digest): Opt[TrustedSignedBeaconBlock] =
+proc getBlock(db: BeaconChainDBV0, key: Eth2Digest): Opt[phase0.TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
-  result.ok(TrustedSignedBeaconBlock())
-  if db.backend.getSnappySSZ(subkey(SignedBeaconBlock, key), result.get) != GetResult.found:
+  result.ok(default(phase0.TrustedSignedBeaconBlock))
+  if db.backend.getSnappySSZ(
+      subkey(phase0.SignedBeaconBlock, key), result.get) != GetResult.found:
     result.err()
   else:
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
 
-proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[TrustedSignedBeaconBlock] =
+proc getBlock*(db: BeaconChainDB, key: Eth2Digest):
+    Opt[phase0.TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
-  result.ok(TrustedSignedBeaconBlock())
+  result.ok(default(phase0.TrustedSignedBeaconBlock))
   if db.blocks.getSnappySSZ(key.data, result.get) != GetResult.found:
     result = db.v0.getBlock(key)
   else:
@@ -555,7 +558,7 @@ proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[TrustedSignedBeaconBlock
 
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
-    store: KvStoreRef, key: openArray[byte], output: var BeaconState,
+    store: KvStoreRef, key: openArray[byte], output: var phase0.BeaconState,
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
@@ -598,7 +601,7 @@ proc getStateOnlyMutableValidators(
 proc getState(
     db: BeaconChainDBV0,
     immutableValidators: openArray[ImmutableValidatorData2],
-    key: Eth2Digest, output: var BeaconState,
+    key: Eth2Digest, output: var phase0.BeaconState,
     rollback: RollbackProc): bool =
   # Nimbus 1.0 reads and writes writes genesis BeaconState to `backend`
   # Nimbus 1.1 writes a genesis BeaconStateNoImmutableValidators to `backend` and
@@ -615,7 +618,7 @@ proc getState(
       subkey(BeaconStateNoImmutableValidators, key), output, rollback):
     return true
 
-  case db.backend.getSnappySSZ(subkey(BeaconState, key), output)
+  case db.backend.getSnappySSZ(subkey(phase0.BeaconState, key), output)
   of GetResult.found:
     true
   of GetResult.notFound:
@@ -625,7 +628,7 @@ proc getState(
     false
 
 proc getState*(
-    db: BeaconChainDB, key: Eth2Digest, output: var BeaconState,
+    db: BeaconChainDB, key: Eth2Digest, output: var phase0.BeaconState,
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
@@ -692,7 +695,7 @@ proc getEth2FinalizedTo*(db: BeaconChainDB): Opt[DepositContractSnapshot] =
   if r != found: return db.v0.getEth2FinalizedTo()
 
 proc containsBlock*(db: BeaconChainDBV0, key: Eth2Digest): bool =
-  db.backend.contains(subkey(SignedBeaconBlock, key)).expectDb()
+  db.backend.contains(subkey(phase0.SignedBeaconBlock, key)).expectDb()
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.blocks.contains(key.data).expectDb() or db.v0.containsBlock(key)
@@ -701,25 +704,25 @@ proc containsState*(db: BeaconChainDBV0, key: Eth2Digest): bool =
   let sk = subkey(BeaconStateNoImmutableValidators, key)
   db.stateStore.contains(sk).expectDb() or
     db.backend.contains(sk).expectDb() or
-    db.backend.contains(subkey(BeaconState, key)).expectDb()
+    db.backend.contains(subkey(phase0.BeaconState, key)).expectDb()
 
 proc containsState*(db: BeaconChainDB, key: Eth2Digest, legacy: bool = true): bool =
   db.statesNoVal.contains(key.data).expectDb or
     (legacy and db.v0.containsState(key))
 
 iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
-    TrustedSignedBeaconBlock =
+    phase0.TrustedSignedBeaconBlock =
   ## Load a chain of ancestors for blck - returns a list of blocks with the
   ## oldest block last (blck will be at result[0]).
   ##
   ## The search will go on until the ancestor cannot be found.
 
   var
-    res: TrustedSignedBeaconBlock
+    res: phase0.TrustedSignedBeaconBlock
     root = root
   while db.blocks.getSnappySSZ(root.data, res) == GetResult.found or
         db.v0.backend.getSnappySSZ(
-          subkey(SignedBeaconBlock, root), res) == GetResult.found:
+          subkey(phase0.SignedBeaconBlock, root), res) == GetResult.found:
     res.root = root
     yield res
     root = res.message.parent_root
@@ -757,7 +760,7 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
   var
     summaries = db.loadSummaries()
     res: RootedSummary
-    blck: TrustedSignedBeaconBlock
+    blck: phase0.TrustedSignedBeaconBlock
     newSummaries: seq[RootedSummary]
 
   res.root = root
@@ -790,7 +793,8 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
     do: # Summary was not found in summary table, look elsewhere
       if db.v0.backend.getSnappySSZ(subkey(BeaconBlockSummary, res.root), res.summary) == GetResult.found:
         yield res
-      elif db.v0.backend.getSnappySSZ(subkey(SignedBeaconBlock, res.root), blck) == GetResult.found:
+      elif db.v0.backend.getSnappySSZ(
+          subkey(phase0.SignedBeaconBlock, res.root), blck) == GetResult.found:
         res.summary = blck.message.toBeaconBlockSummary()
         yield res
       else:
