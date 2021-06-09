@@ -243,6 +243,11 @@ jobs:
     needs: [build-amd64, build-arm64, build-arm, build-win64, build-macos-amd64, build-macos-arm64]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          ref: unstable
+
       - name: Download artefacts
         uses: actions/download-artifact@v2
 
@@ -271,7 +276,7 @@ jobs:
         uses: dev-drprasad/delete-tag-and-release@v0.2.0
         with:
           delete_release: true
-        tag_name: latest
+          tag_name: latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
