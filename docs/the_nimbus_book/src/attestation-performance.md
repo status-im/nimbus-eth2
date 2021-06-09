@@ -9,7 +9,7 @@ Make sure you're in the `nimbus-eth2` repository.
 ### 1. Build ncli_db
 The first step is to build `ncli_db`:
 ```
-make build/ncli_db
+make ncli_db
 ```
 
 ### 2. View options
