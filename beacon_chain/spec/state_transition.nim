@@ -185,12 +185,9 @@ proc process_slots*(state: var SomeHashedBeaconState, slot: Slot,
     advance_slot(state.data, state.root, flags, cache, rewards)
 
     # The root must be updated on every slot update, or the next `process_slot`
-    # will be incorrect
-    state.root = hash_tree_root(state.data)
-
-    # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/fork.md#upgrading-the-state
-    # says to put upgrading here too, TODO. It may not work in state reply
-    # otherwise, since updateStateData() uses this function.
+    # will be incorrect, unless there's a block update immediately following
+    if skipLastStateRootCalculation notin flags or state.data.slot < slot:
+      state.root = hash_tree_root(state.data)
 
   true
 
@@ -234,30 +231,6 @@ proc state_transition_slots(
         state.hbsAltair.root = hash_tree_root(state)
 
     maybeUpgradeStateToAltair(state, altairForkSlot)
-
-  true
-
-proc state_transition_slots(
-    state: var SomeHashedBeaconState, slot: Slot,
-    cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags):
-    bool {.nbench.} =
-  # TODO remove when the HashedBeaconState state_transition is removed; it's
-  # to avoid requiring a wrapped/memory-copied version
-  if not (state.data.slot < slot):
-    if slotProcessed notin flags or state.data.slot != slot:
-      notice "State must precede slot",
-        state_root = shortLog(state.root),
-        current_slot = state.data.slot,
-        slot = shortLog(slot)
-      return false
-
-  # Update the state so its slot matches that of the block
-  while state.data.slot < slot:
-    advance_slot(state.data, state.root, flags, cache, rewards)
-
-    if state.data.slot < slot:
-      # Don't update state root for the slot of the block
-      state.root = hash_tree_root(state.data)
 
   true
 
@@ -399,7 +372,8 @@ proc state_transition*(
         blck = shortLog(signedBlock)
       return false
 
-  if not state_transition_slots(state, slot, cache, rewards, flags):
+  if not process_slots(
+      state, slot, cache, rewards, flags + {skipLastStateRootCalculation}):
     return false
   state_transition_block(
     preset, state, signedBlock, cache, flags, rollback)
