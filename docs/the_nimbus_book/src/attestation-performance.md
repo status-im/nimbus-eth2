@@ -1,21 +1,20 @@
 # Monitor attestation performance
 
-<blockquote class="twitter-tweet"><p lang="en" dir="ltr">Very nice, so nice I just had to port it to <a href="https://twitter.com/ethnimbus?ref_src=twsrc%5Etfw">@ethnimbus</a> - `ncli_db` now has an option to pull these stats for any block range - great for comparing changes in your setup: <a href="https://t.co/wumkswHUoR">https://t.co/wumkswHUoR</a> <a href="https://t.co/umFC5yUUNQ">https://t.co/umFC5yUUNQ</a></p>&mdash; Jacek Sieka (@jcksie) <a href="https://twitter.com/jcksie/status/1390582250077630465?ref_src=twsrc%5Etfw">May 7, 2021</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
-
-A new `ncli_db validatorPerf` command. Use this to create a report for the attestation performance of your validator(s) over time - It records attestation performance per epoch in an sqlite database.
-
+Use the `ncli_db validatorPerf` command to create a report for the attestation performance of your validator over time.
 
 ## Steps
 
+Make sure you're in the `nimbus-eth2` repository.
 
-### 1.
-
+### 1. Build ncli_db
+The first step is to build `ncli_db`:
 ```
 make build/ncli_db
 ```
 
-### 2. 
+### 2. View options
 
+To view the options available to you, run:
 ```
 build/ncli_db --help
 ```
@@ -31,12 +30,14 @@ The following options are available:
  --network      The Eth2 network preset to use.
 ```
 
---network=mainnet OR prater
---db=build/data/shared_mainnet_0/db
---db=build/data/shared_prater_0/db
+Where:
+
+- The `network` can either be `mainnet`  or `prater`
+
+- The default location of the `db`  is either `build/data/shared_mainnet_0/db` or `build/data/shared_prater_0/db`
 
 
-Near the bottom:
+Near the bottom, you should see
 
 ```
 ncli_db validatorPerf [OPTIONS]...
@@ -47,13 +48,18 @@ The following options are available:
  --slots        Number of slots to run benchmark for, 0 = all the way to head [=0].
 ```
 
-3.
+Use `start-slot` and `slots` to restrict the analysis on a specific block range.
 
+### 3. Run
+
+To view the performance of all validators on Prater so far across the entire block range stored in your database, run:
 ```
-build/ncli_db validatorPerf --network=prater --db=build/data/shared_prater_0/db
+build/ncli_db validatorPerf \
+--network=prater \
+--db=build/data/shared_prater_0/db
 ```
 
-output should look like:
+You should see output that looks like to the following:
 
 ```
 validator_index,attestation_hits,attestation_misses,head_attestation_hits,head_attestation_misses,target_attestation_hits,target_attestation_misses,delay_avg,first_slot_head_attester_when_first_slot_empty,first_slot_head_attester_when_first_slot_not_empty
@@ -63,26 +69,34 @@ validator_index,attestation_hits,attestation_misses,head_attestation_hits,head_a
 ...
 ```
 
-4. Adjust to target a specific block range
+### 4. Adjust to target a specific block range
 
+To restrict the analysis to the performance between slots 0 and 128, say, run:
 ```
-build/ncli_db validatorPerf --network=prater --db=build/data/shared_prater_0/db --start-slot=-128 -slots=0
+build/ncli_db validatorPerf \
+--network=prater \
+--db=build/data/shared_prater_0/db \
+--start-slot=0 \
+--slots=128
 ```
 
-5. get my validators vs global average
+### 5. Compare my validators to the global average
 
-how to get index of my validators?
+We'll use [Paul Hauner's wonderful workbook](https://docs.google.com/spreadsheets/d/1SNFf4LsDOK91SWuQZm9DYBoX9JNQNMKHw66Rv0l5EGo/) as a template. This workbook consists of three inter-related spreadsheets - `Summary`, `My Validators`, and `datasource`.
 
-"dump output from validatorPerf into google sheets or something similar and take it from there"
+1. Make a copy of the document
 
-https://docs.google.com/spreadsheets/d/1SNFf4LsDOK91SWuQZm9DYBoX9JNQNMKHw66Rv0l5EGo/edit#gid=1539392557
+2. Remove the table entries in `My Validators` and delete everything in the `datasource` sheet
 
+3. Import the output from `validatorPerf` to `datasource` - the easiest way to do this is to pipe the output to a `csv`, remove the first few lines, and import the `csv` into `datasource`
+
+4. Manually copy over your validator(s) to the `My Validators` sheet  - the easiest way to find your validator's  `validator_index` is to search for it by its public key on [beaconcha.in](https://beaconcha.in/) (for example, [this validator's](https://beaconcha.in/validator/115733) index is 115733)
+
+5. Go to the `Summary` page and view your results
 
 
 ## Resources
 
-Inspired by [this workbook](https://docs.google.com/spreadsheets/d/1SNFf4LsDOK91SWuQZm9DYBoX9JNQNMKHw66Rv0l5EGo/edit#gid=553688981) by Paul Hauner, which compares the on-chain attestation performance of a user-defined list of validators vs. the global average.
-
-Method explained [here](https://hackmd.io/xQfi83kHQpm05-aAFVV0DA?view).
+The workbook's method  is explained [here](https://hackmd.io/xQfi83kHQpm05-aAFVV0DA?view).
 
 
