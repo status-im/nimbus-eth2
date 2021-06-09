@@ -212,14 +212,9 @@ proc maybeUpgradeStateToAltair(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
 proc state_transition_slots(
-    preset: RuntimePreset,
-    state: var ForkedHashedBeaconState,
-    signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
-                 phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
+    state: var ForkedHashedBeaconState, slot: Slot,
     cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
     altairForkSlot: Slot): bool {.nbench.} =
-  let slot = signedBlock.message.slot
-
   # Update the state so its slot matches that of the block
   while getStateField(state, slot) < slot:
     case state.beaconStateFork:
@@ -243,21 +238,17 @@ proc state_transition_slots(
   true
 
 proc state_transition_slots(
-    preset: RuntimePreset,
-    state: var SomeHashedBeaconState,
-    signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
-                 phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
+    state: var SomeHashedBeaconState, slot: Slot,
     cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags):
     bool {.nbench.} =
   # TODO remove when the HashedBeaconState state_transition is removed; it's
   # to avoid requiring a wrapped/memory-copied version
-  let slot = signedBlock.message.slot
   if not (state.data.slot < slot):
     if slotProcessed notin flags or state.data.slot != slot:
-      notice "State must precede block",
+      notice "State must precede slot",
         state_root = shortLog(state.root),
         current_slot = state.data.slot,
-        blck = shortLog(signedBlock)
+        slot = shortLog(slot)
       return false
 
   # Update the state so its slot matches that of the block
@@ -385,7 +376,7 @@ proc state_transition*(
       return false
 
   if not state_transition_slots(
-      preset, state, signedBlock, cache, rewards, flags, altairForkSlot):
+      state, slot, cache, rewards, flags, altairForkSlot):
     return false
   state_transition_block(
     preset, state, signedBlock, cache, flags, rollback, altairForkSlot)
@@ -408,8 +399,7 @@ proc state_transition*(
         blck = shortLog(signedBlock)
       return false
 
-  if not state_transition_slots(
-      preset, state, signedBlock, cache, rewards, flags):
+  if not state_transition_slots(state, slot, cache, rewards, flags):
     return false
   state_transition_block(
     preset, state, signedBlock, cache, flags, rollback)
