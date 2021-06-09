@@ -10,7 +10,7 @@
 import
   stew/assign2,
   ./ssz/types,
-  ./spec/[datatypes, digest, helpers]
+  ./spec/[crypto, datatypes, digest, helpers]
 
 func diffModIncEpoch[T, U](hl: HashArray[U, T], startSlot: uint64):
     array[SLOTS_PER_EPOCH, T] =
@@ -32,7 +32,7 @@ func applyValidatorIdentities(
     hl: auto) =
   for item in hl:
     if not validators.add Validator(
-        pubkey: item.pubkey,
+        pubkey: item.pubkey.load().get().toPubKey(),
         withdrawal_credentials: item.withdrawal_credentials):
       raiseAssert "cannot readd"
 

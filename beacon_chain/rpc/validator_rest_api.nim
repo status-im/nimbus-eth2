@@ -147,10 +147,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         var res: seq[RestProposerDuty]
         let epochRef = node.dag.getEpochRef(qhead, qepoch)
-        # Fix for https://github.com/status-im/nimbus-eth2/issues/2488
-        # Slot(0) at Epoch(0) do not have a proposer.
-        let startSlot = if qepoch == Epoch(0): 1'u64 else: 0'u64
         for i, bp in epochRef.beacon_proposers:
+          if i == 0 and qepoch == 0:
+            # Fix for https://github.com/status-im/nimbus-eth2/issues/2488
+            # Slot(0) at Epoch(0) do not have a proposer.
+            continue
+
           if bp.isSome():
             res.add(
               RestProposerDuty(

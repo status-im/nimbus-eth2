@@ -120,14 +120,6 @@ proc updateValidatorKeys*(dag: ChainDAGRef, validators: openArray[Validator]) =
   # data (but no earlier than that the whole block as been validated)
   dag.db.updateImmutableValidators(validators)
 
-proc load*(
-    validators: seq[ImmutableValidatorData2],
-    index: ValidatorIndex | uint64): Option[CookedPubKey] =
-  if validators.lenu64() <= index.uint64:
-    none(CookedPubKey)
-  else:
-    validators[index.int].pubkey.load()
-
 func validatorKey*(
     dag: ChainDAGRef, index: ValidatorIndex or uint64): Option[CookedPubKey] =
   ## Returns the validator pubkey for the index, assuming it's been observed
@@ -142,7 +134,7 @@ func validatorKey*(
   ## at any point in time - this function may return pubkeys for indicies that
   ## are not (yet) part of the head state (if the key has been observed on a
   ## non-head branch)!
-  epochRef.validatorKey(index)
+  epochRef.dag.validatorKey(index)
 
 func init*(
     T: type EpochRef, dag: ChainDAGRef, state: StateData,

@@ -32,7 +32,7 @@ import
   ./merge
 
 export
-  sszTypes, merge, presets, json_serialization
+  crypto, sszTypes, merge, presets, json_serialization
 
 # Presently, we're reusing the data types from the serialization (uint64) in the
 # objects we pass around to the beacon chain logic, thus keeping the two
@@ -926,6 +926,14 @@ proc readValue*(r: var JsonReader, T: type GraffitiBytes): T
 
 template getStateField*(stateData, fieldName: untyped): untyped =
   stateData.data.data.fieldName
+
+proc load*(
+    validators: openArray[ImmutableValidatorData2],
+    index: ValidatorIndex | uint64): Option[CookedPubKey] =
+  if validators.lenu64() <= index.uint64:
+    none(CookedPubKey)
+  else:
+    validators[index.int].pubkey.load()
 
 static:
   # Sanity checks - these types should be trivial enough to copy with memcpy

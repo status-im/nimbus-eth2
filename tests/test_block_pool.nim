@@ -14,7 +14,7 @@ import
   eth/keys,
   ../beacon_chain/spec/[datatypes, digest, helpers, state_transition, presets],
   ../beacon_chain/beacon_node_types,
-  ../beacon_chain/ssz,
+  ../beacon_chain/[beacon_chain_db, ssz],
   ../beacon_chain/consensus_object_pools/[
     blockchain_dag, block_quarantine, block_clearance, statedata_helpers],
   ./testutil, ./testdbutil, ./testblockutil
@@ -154,6 +154,8 @@ suite "Block pool processing" & preset():
     let
       b2Add = dag.addRawBlock(quarantine, b2, nil)
       b2Get = dag.get(b2.root)
+      er = dag.findEpochRef(b1Add[], b1Add[].slot.epoch)
+      validators = getStateField(dag.headState, validators).lenu64()
 
     check:
       b2Get.isSome()
@@ -161,10 +163,15 @@ suite "Block pool processing" & preset():
       b2Add[].root == b2Get.get().refs.root
       dag.heads.len == 1
       dag.heads[0] == b2Add[]
-      not dag.findEpochRef(b1Add[], b1Add[].slot.epoch).isNil
-      dag.findEpochRef(b1Add[], b1Add[].slot.epoch) ==
-        dag.findEpochRef(b2Add[], b2Add[].slot.epoch)
+      not er.isNil
+      # Same epoch - same epochRef
+      er == dag.findEpochRef(b2Add[], b2Add[].slot.epoch)
+      # Different epoch that was never processed
       dag.findEpochRef(b1Add[], b1Add[].slot.epoch + 1).isNil
+
+      er.validatorKey(0'u64).isSome()
+      er.validatorKey(validators - 1).isSome()
+      er.validatorKey(validators).isNone()
 
     # Skip one slot to get a gap
     check:
@@ -376,7 +383,7 @@ suite "chain DAG finalization tests" & preset():
       dag.heads.len() == 1
 
     check:
-      dag.validatorKeys.len() == getStateField(dag.headState, validators).len()
+      dag.db.immutableValidators.len() == getStateField(dag.headState, validators).len()
 
     let
       finalER = dag.findEpochRef(dag.finalizedHead.blck, dag.finalizedHead.slot.epoch)
@@ -516,4 +523,3 @@ suite "chain DAG finalization tests" & preset():
       dag2.finalizedHead.blck.root == dag.finalizedHead.blck.root
       dag2.finalizedHead.slot == dag.finalizedHead.slot
       hash_tree_root(dag2.headState) == hash_tree_root(dag.headState)
-      dag2.validatorKeys.len() == dag.validatorKeys.len()
