@@ -879,7 +879,7 @@ proc toPeerAddr(node: Node): Result[PeerAddr, cstring] {.raises: [Defect].} =
 
 proc queryRandom*(d: Eth2DiscoveryProtocol, forkId: ENRForkID,
     attnets: BitArray[ATTESTATION_SUBNET_COUNT]):
-    Future[seq[PeerAddr]] {.async, raises:[Exception, Defect].} =
+    Future[seq[PeerAddr]] {.async, raises: [Defect].} =
   ## Perform a discovery query for a random target matching the eth2 field
   ## (forkId) and matching at least one of the attestation subnets.
   let nodes = await d.queryRandom()

@@ -3,7 +3,6 @@
 import
   unittest2,
   chronos, stew/shims/net, eth/keys, eth/p2p/discoveryv5/enr,
-  ../beacon_chain/conf,
   ../beacon_chain/spec/datatypes,
   ../beacon_chain/networking/[eth2_network, eth2_discovery],
   ./testutil
