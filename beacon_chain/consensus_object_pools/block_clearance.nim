@@ -250,7 +250,7 @@ proc addRawBlockKnownParent(
 
     var sigs: seq[SignatureSet]
     if sigs.collectSignatureSets(
-        signedBlock, dag.validatorKeys, dag.clearanceState, cache).isErr():
+        signedBlock, dag.db.immutableValidators, dag.clearanceState, cache).isErr():
       # A PublicKey or Signature isn't on the BLS12-381 curve
       return err((ValidationResult.Reject, Invalid))
     if not quarantine.batchVerify(sigs):

@@ -286,14 +286,16 @@ proc scheduleAggregateChecks*(
 
   # Enqueue in the buffer
   # ------------------------------------------------------
-  let aggregator = epochRef.validator_keys[aggregate_and_proof.aggregator_index]
+  let aggregator = epochRef.validatorKey(aggregate_and_proof.aggregator_index)
+  if not aggregator.isSome():
+    return err("scheduleAggregateChecks: invalid aggregator index")
   block:
     if (let v = batch
             .pendingBuffer
             .addSlotSignature(
               fork, genesis_validators_root,
               aggregate.data.slot,
-              aggregator,
+              aggregator.get(),
               aggregate_and_proof.selection_proof
             ); v.isErr()):
       return err(v.error())
@@ -309,7 +311,7 @@ proc scheduleAggregateChecks*(
             .addAggregateAndProofSignature(
               fork, genesis_validators_root,
               aggregate_and_proof,
-              aggregator,
+              aggregator.get(),
               signed_aggregate_and_proof.signature
             ); v.isErr()):
       batchCrypto.scheduleBatch(fresh)

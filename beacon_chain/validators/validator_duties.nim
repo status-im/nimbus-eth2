@@ -121,16 +121,17 @@ proc getAttachedValidator*(node: BeaconNode,
 proc getAttachedValidator*(node: BeaconNode,
                            epochRef: EpochRef,
                            idx: ValidatorIndex): AttachedValidator =
-  if idx < epochRef.validator_keys.len.ValidatorIndex:
-    let validator = node.getAttachedValidator(epochRef.validator_keys[idx].toPubKey())
+  let key = epochRef.validatorKey(idx)
+  if key.isSome():
+    let validator = node.getAttachedValidator(key.get().toPubKey())
     if validator != nil and validator.index != some(idx.ValidatorIndex):
       # Update index, in case the validator was activated!
       notice "Validator activated", pubkey = validator.pubkey, index = idx
       validator.index  = some(idx.ValidatorIndex)
     validator
   else:
-    warn "Validator index out of bounds",
-      idx, epoch = epochRef.epoch, validators = epochRef.validator_keys.len
+    warn "Validator key not found",
+      idx, epoch = epochRef.epoch
     nil
 
 proc isSynced*(node: BeaconNode, head: BlockRef): bool =
@@ -501,7 +502,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     return head
 
   let
-    proposerKey = node.dag.validatorKeys[proposer.get()].toPubKey()
+    proposerKey = node.dag.validatorKey(proposer.get()).get().toPubKey()
     validator = node.attachedValidators[].getValidator(proposerKey)
 
   if validator != nil:

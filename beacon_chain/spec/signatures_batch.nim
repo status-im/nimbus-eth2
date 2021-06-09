@@ -69,7 +69,7 @@ func addSignatureSet[T](
 
 proc aggregateAttesters(
       validatorIndices: openArray[uint64],
-      validatorKeys: openArray[CookedPubKey],
+      validatorKeys: auto,
      ): Result[CookedPubKey, cstring] =
   if validatorIndices.len == 0:
     # Aggregation spec requires non-empty collection
@@ -78,22 +78,27 @@ proc aggregateAttesters(
     # - https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregateAttesters: no attesting indices")
 
-  var attestersAgg{.noInit.}: AggregatePublicKey
-  if validatorIndices[0] >= validatorKeys.lenu64():
+  let
+    firstKey = validatorKeys.load(validatorIndices[0])
+
+  if not firstKey.isSome():
     return err("aggregateAttesters: invalid attesting index")
 
-  attestersAgg.init(validatorKeys[validatorIndices[0].int])
+  var attestersAgg{.noInit.}: AggregatePublicKey
+
+  attestersAgg.init(firstKey.get())
   for i in 1 ..< validatorIndices.len:
-    if validatorIndices[i] >= validatorKeys.lenu64():
+    let key = validatorKeys.load(validatorIndices[i])
+    if not key.isSome():
       return err("aggregateAttesters: invalid attesting index")
-    attestersAgg.aggregate(validatorKeys[validatorIndices[i].int])
+    attestersAgg.aggregate(key.get())
 
   ok(finish(attestersAgg))
 
 proc addIndexedAttestation(
       sigs: var seq[SignatureSet],
       attestation: IndexedAttestation,
-      validatorKeys: openArray[CookedPubKey],
+      validatorKeys: auto,
       state: StateData,
      ): Result[void, cstring] =
   ## Add an indexed attestation for batched BLS verification
@@ -118,7 +123,7 @@ proc addIndexedAttestation(
 proc addAttestation(
       sigs: var seq[SignatureSet],
       attestation: Attestation,
-      validatorKeys: openArray[CookedPubKey],
+      validatorKeys: auto,
       state: StateData,
       cache: var StateCache
      ): Result[void, cstring] =
@@ -130,10 +135,10 @@ proc addAttestation(
                     cache
                   ):
     if not inited: # first iteration
-      attestersAgg.init(validatorKeys[valIndex.int])
+      attestersAgg.init(validatorKeys.load(valIndex).get())
       inited = true
     else:
-      attestersAgg.aggregate(validatorKeys[valIndex.int])
+      attestersAgg.aggregate(validatorKeys.load(valIndex).get())
 
   if not inited:
     # There were no attesters
@@ -169,7 +174,7 @@ proc addAttestation*(
   ## Returns true if the attestation was added to the batching buffer
   ## Returns false if sanity checks failed (non-empty, keys are valid)
   ## In that case the seq[SignatureSet] is unmodified
-  mixin get_attesting_indices, validator_keys, pubkey
+  mixin get_attesting_indices, validatorKey
 
   var inited = false
   var attestersAgg{.noInit.}: AggregatePublicKey
@@ -177,10 +182,10 @@ proc addAttestation*(
                     attestation.data,
                     attestation.aggregation_bits):
     if not inited: # first iteration
-      attestersAgg.init(epochRef.validator_keys[valIndex])
+      attestersAgg.init(epochRef.validatorKey(valIndex).get())
       inited = true
     else:
-      attestersAgg.aggregate(epochRef.validator_keys[valIndex])
+      attestersAgg.aggregate(epochRef.validatorKey(valIndex).get())
 
   if not inited:
     # There were no attesters
@@ -245,7 +250,7 @@ proc addAggregateAndProofSignature*(
 proc collectSignatureSets*(
        sigs: var seq[SignatureSet],
        signed_block: SignedBeaconBlock,
-       validatorKeys: openArray[CookedPubKey],
+       validatorKeys: auto,
        state: StateData,
        cache: var StateCache): Result[void, cstring] =
   ## Collect all signatures in a single signed block.
@@ -262,11 +267,12 @@ proc collectSignatureSets*(
 
   # Metadata
   # ----------------------------------------------------
+  mixin load
 
   let
     proposer_index = signed_block.message.proposer_index
-    validators = validatorKeys.lenu64
-  if proposer_index >= validators:
+    proposer_key = validatorKeys.load(proposer_index)
+  if not proposer_key.isSome():
     return err("collectSignatureSets: invalid proposer index")
 
   let epoch = signed_block.message.slot.compute_epoch_at_slot()
@@ -274,7 +280,7 @@ proc collectSignatureSets*(
   # 1. Block proposer
   # ----------------------------------------------------
   sigs.addSignatureSet(
-          validatorKeys[proposer_index],
+          proposer_key.get(),
           signed_block.message,
           signed_block.signature.loadOrExit(
             "collectSignatureSets: cannot load signature"),
@@ -286,7 +292,7 @@ proc collectSignatureSets*(
   # 2. Randao Reveal
   # ----------------------------------------------------
   sigs.addSignatureSet(
-          validatorKeys[proposer_index],
+          proposer_key.get(),
           epoch,
           signed_block.message.body.randao_reveal.loadOrExit(
             "collectSignatureSets: cannot load randao"),
@@ -311,13 +317,15 @@ proc collectSignatureSets*(
 
     # Proposed block 1
     block:
-      let header_1 = slashing.signed_header_1
-      if header_1.message.proposer_index >= validators:
+      let
+        header_1 = slashing.signed_header_1
+        key_1 = validatorKeys.load(header_1.message.proposer_index)
+      if not key_1.isSome():
         return err("collectSignatureSets: invalid slashing proposer index 1")
 
       let epoch1 = header_1.message.slot.compute_epoch_at_slot()
       sigs.addSignatureSet(
-              validatorKeys[header_1.message.proposer_index],
+              key_1.get(),
               header_1.message,
               header_1.signature.loadOrExit(
                 "collectSignatureSets: cannot load proposer slashing 1 signature"),
@@ -329,12 +337,14 @@ proc collectSignatureSets*(
 
     # Conflicting block 2
     block:
-      let header_2 = slashing.signed_header_2
-      if header_2.message.proposer_index >= validators:
+      let
+        header_2 = slashing.signed_header_2
+        key_2 = validatorKeys.load(header_2.message.proposer_index)
+      if not key_2.isSome():
         return err("collectSignatureSets: invalid slashing proposer index 2")
       let epoch2 = header_2.message.slot.compute_epoch_at_slot()
       sigs.addSignatureSet(
-              validatorKeys[header_2.message.proposer_index],
+              key_2.get(),
               header_2.message,
               header_2.signature.loadOrExit(
                 "collectSignatureSets: cannot load proposer slashing 2 signature"),
@@ -389,11 +399,12 @@ proc collectSignatureSets*(
     # due to https://github.com/nim-lang/Nim/issues/14421
     # fixed in 1.4.2
     template volex: untyped = signed_block.message.body.voluntary_exits[i]
-    if volex.message.validator_index >= validators:
+    let key = validatorKeys.load(volex.message.validator_index)
+    if not key.isSome():
       return err("collectSignatureSets: invalid voluntary exit")
 
     sigs.addSignatureSet(
-            validatorKeys[volex.message.validator_index],
+            key.get(),
             volex.message,
             volex.signature.loadOrExit(
               "collectSignatureSets: cannot load voluntary exit signature"),

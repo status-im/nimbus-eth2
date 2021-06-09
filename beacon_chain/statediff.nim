@@ -150,7 +150,7 @@ func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
 
 func applyDiff*(
     state: var BeaconState,
-    immutableValidators: openArray[ImmutableValidatorData],
+    immutableValidators: openArray[ImmutableValidatorData2],
     stateDiff: BeaconStateDiff) =
   template assign[T, U](tgt: var HashList[T, U], src: List[T, U]) =
     assign(tgt.data, src)

@@ -159,11 +159,6 @@ type
       ## block - we limit the number of held EpochRefs to put a cap on
       ## memory usage
 
-    validatorKeys*: seq[CookedPubKey] ##\
-      ## The deposit scheme in eth2 guarantees that validators are added in the
-      ## same order regardless of which fork the chain takes - there may be more
-      ## keys in the cache than there are validators in the head state however!
-
   EpochRef* = ref object
     dag*: ChainDAGRef
     epoch*: Epoch
@@ -197,8 +192,6 @@ type
   OnBlockAdded* = proc(
     blckRef: BlockRef, blck: TrustedSignedBeaconBlock,
     epochRef: EpochRef, state: HashedBeaconState) {.gcsafe, raises: [Defect].}
-
-template validator_keys*(e: EpochRef): seq[CookedPubKey] = e.dag.validatorKeys
 
 template head*(dag: ChainDagRef): BlockRef = dag.headState.blck
 

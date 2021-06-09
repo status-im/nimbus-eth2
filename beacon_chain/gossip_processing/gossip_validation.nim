@@ -420,15 +420,12 @@ proc validateAggregate*(
     return err((ValidationResult.Reject, cstring(
       "Aggregator's validator index not in committee")))
 
-  block:
-    # 1. [REJECT] The aggregate_and_proof.selection_proof is a valid signature of the
-    #    aggregate.data.slot by the validator with index
-    #    aggregate_and_proof.aggregator_index.
-    #    get_slot_signature(state, aggregate.data.slot, privkey)
-    # 2. [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
-    # 3. [REJECT] The signature of aggregate is valid.
-    if aggregate_and_proof.aggregator_index >= epochRef.validator_keys.lenu64:
-      return err((ValidationResult.Reject, cstring("Invalid aggregator_index")))
+  # 1. [REJECT] The aggregate_and_proof.selection_proof is a valid signature of the
+  #    aggregate.data.slot by the validator with index
+  #    aggregate_and_proof.aggregator_index.
+  #    get_slot_signature(state, aggregate.data.slot, privkey)
+  # 2. [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
+  # 3. [REJECT] The signature of aggregate is valid.
 
   let
     fork = getStateField(pool.dag.headState, fork)
@@ -633,7 +630,7 @@ proc isValidBeaconBlock*(
       getStateField(dag.headState, genesis_validators_root),
       signed_beacon_block.message.slot,
       signed_beacon_block.message,
-      dag.validatorKeys[proposer.get()],
+      dag.validatorKey(proposer.get()).get(),
       signed_beacon_block.signature):
     debug "block failed signature verification",
       signature = shortLog(signed_beacon_block.signature)

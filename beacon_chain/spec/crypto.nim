@@ -35,7 +35,7 @@ import
   json_serialization,
   nimcrypto/utils as ncrutils
 
-export results, json_serialization
+export results, json_serialization, blscurve
 
 # Type definitions
 # ----------------------------------------------------------------------
@@ -43,15 +43,21 @@ export results, json_serialization
 const
   RawSigSize* = 96
   RawPubKeySize* = 48
+  UncompressedPubKeySize* = 96
   # RawPrivKeySize* = 48 for Miracl / 32 for BLST
 
 type
-  # Raw serialized key bytes - this type is used in so as to not eagerly
-  # load keys - deserialization is slow, as are equality checks - however, it
-  # is not guaranteed that the key is valid (except in some cases, like the
-  # database state)
-  ValidatorPubKey* = object
+  ValidatorPubKey* = object ##\
+    ## Compressed raw serialized key bytes - this type is used in so as to not
+    ## eagerly load keys - deserialization is slow, as are equality checks -
+    ## however, it is not guaranteed that the key is valid (except in some
+    ## cases, like the database state)
     blob*: array[RawPubKeySize, byte]
+
+  UncompressedPubKey* = object
+    ## Uncompressed variation of ValidatorPubKey - this type is faster to
+    ## deserialize but doubles the storage footprint
+    blob*: array[UncompressedPubKeySize, byte]
 
   CookedPubKey* = distinct blscurve.PublicKey ## Valid deserialized key
 
@@ -90,6 +96,8 @@ func toPubKey*(privkey: ValidatorPrivKey): CookedPubKey =
 
 template toRaw*(x: CookedPubKey): auto =
   PublicKey(x).exportRaw()
+template toUncompressed*(x: CookedPubKey): auto =
+  UncompressedPubKey(blob: PublicKey(x).exportUncompressed())
 
 func toPubKey*(pubKey: CookedPubKey): ValidatorPubKey =
   ## Derive a public key from a private key
@@ -97,6 +105,14 @@ func toPubKey*(pubKey: CookedPubKey): ValidatorPubKey =
   ValidatorPubKey(blob: pubKey.toRaw())
 
 proc load*(v: ValidatorPubKey): Option[CookedPubKey] =
+  ## Parse signature blob - this may fail
+  var val: blscurve.PublicKey
+  if fromBytes(val, v.blob):
+    some CookedPubKey(val)
+  else:
+    none CookedPubKey
+
+proc load*(v: UncompressedPubKey): Option[CookedPubKey] =
   ## Parse signature blob - this may fail
   var val: blscurve.PublicKey
   if fromBytes(val, v.blob):
