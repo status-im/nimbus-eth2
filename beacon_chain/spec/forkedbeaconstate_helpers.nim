@@ -8,6 +8,7 @@
 {.push raises: [Defect].}
 
 import
+  std/macros,
   chronicles,
   stew/[assign2, results],
   ../extras,
@@ -48,15 +49,11 @@ func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
     # with nimOldCaseObjects. This is infrequent.
     tgt = src
 
-template getStateField*(x: ForkedHashedBeaconState, y: untyped): untyped =
-  case x.beaconStateFork:
-  of forkPhase0: x.hbsPhase0.data.y
-  of forkAltair: x.hbsAltair.data.y
-
-template getStateField*(x: var ForkedHashedBeaconState, y: untyped): untyped =
-  case x.beaconStateFork:
-  of forkPhase0: x.hbsPhase0.data.y
-  of forkAltair: x.hbsAltair.data.y
+macro getStateField*(s, y: untyped): untyped =
+  result = quote do:
+    (if `s`.beaconStateFork == forkPhase0:
+       unsafeAddr (`s`.hbsPhase0.data.`y`) else:
+         unsafeAddr (`s`.hbsAltair.data.`y`))[]
 
 template getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
   case x.beaconStateFork:
