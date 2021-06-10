@@ -212,7 +212,8 @@ proc attestationValidator*(
   let v = await self.attestationPool.validateAttestation(
       self.batchCrypto, attestation, wallTime, subnet_id, checkSignature)
   if v.isErr():
-    debug "Dropping attestation", err = v.error()
+    debug "Dropping attestation", validationError = v.error
+
     return v.error[0]
 
   beacon_attestations_received.inc()
@@ -256,7 +257,7 @@ proc aggregateValidator*(
       signedAggregateAndProof, wallTime)
   if v.isErr:
     debug "Dropping aggregate",
-      err = v.error,
+      validationError = v.error,
       aggregator_index = signedAggregateAndProof.message.aggregator_index,
       selection_proof = signedAggregateAndProof.message.selection_proof,
       wallSlot
@@ -289,7 +290,7 @@ proc attesterSlashingValidator*(
 
   let v = self.exitPool[].validateAttesterSlashing(attesterSlashing)
   if v.isErr:
-    debug "Dropping attester slashing", err = v.error
+    debug "Dropping attester slashing", validationError = v.error
     return v.error[0]
 
   beacon_attester_slashings_received.inc()
@@ -304,7 +305,7 @@ proc proposerSlashingValidator*(
 
   let v = self.exitPool[].validateProposerSlashing(proposerSlashing)
   if v.isErr:
-    debug "Dropping proposer slashing", err = v.error
+    debug "Dropping proposer slashing", validationError = v.error
     return v.error[0]
 
   beacon_proposer_slashings_received.inc()
@@ -319,7 +320,7 @@ proc voluntaryExitValidator*(
 
   let v = self.exitPool[].validateVoluntaryExit(signedVoluntaryExit)
   if v.isErr:
-    debug "Dropping voluntary exit", err = v.error
+    debug "Dropping voluntary exit", validationError = v.error
     return v.error[0]
 
   beacon_voluntary_exits_received.inc()
