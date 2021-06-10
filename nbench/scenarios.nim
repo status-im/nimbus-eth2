@@ -174,13 +174,15 @@ proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
   let prePath = dir / preState & ".ssz"
 
   echo "Running: ", prePath
-  let state = (ref HashedBeaconState)(
-    data: parseSSZ(prePath, BeaconState)
-  )
-  state.root = hash_tree_root(state.data)
+  let state = (ref ForkedHashedBeaconState)(
+    hbsPhase0: (ref HashedBeaconState)(data: parseSSZ(prePath, BeaconState))[],
+    beaconStateFork: forkPhase0)
+  state.hbsPhase0.root = hash_tree_root(state[])
 
   # Shouldn't necessarily assert, because nbench can run test suite
-  discard process_slots(state[], state.data.slot + numSlots, cache, rewards)
+  discard process_slots(
+    state[], getStateField(state[], slot) + numSlots, cache, rewards, {},
+    FAR_FUTURE_SLOT)
 
 template processEpochScenarioImpl(
            dir, preState: string,

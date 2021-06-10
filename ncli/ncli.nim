@@ -106,22 +106,26 @@ proc doSlots(conf: NcliConf) =
 
   var timers: array[Timers, RunningStat]
   let
-    stateY = withTimerRet(timers[tLoadState]): (ref HashedBeaconState)(
-      data: SSZ.loadFile(conf.preState2, BeaconState),
+    stateY = withTimerRet(timers[tLoadState]): (ref ForkedHashedBeaconState)(
+      hbsPhase0: (ref HashedBeaconState)(
+        data: SSZ.loadFile(conf.preState2, BeaconState))[],
+      beaconStateFork: forkPhase0
     )
 
-  stateY.root = hash_tree_root(stateY.data)
+  stateY.hbsPhase0.root = hash_tree_root(stateY[])
 
   var
     cache = StateCache()
     rewards = RewardInfo()
   for i in 0'u64..<conf.slot:
-    let isEpoch = (stateY[].data.slot + 1).isEpoch
+    let isEpoch = (getStateField(stateY[], slot) + 1).isEpoch
     withTimer(timers[if isEpoch: tApplyEpochSlot else: tApplySlot]):
-      doAssert process_slots(stateY[], stateY[].data.slot + 1, cache, rewards)
+      doAssert process_slots(
+        stateY[], getStateField(stateY[], slot) + 1, cache, rewards, {},
+        FAR_FUTURE_SLOT)
 
   withTimer(timers[tSaveState]):
-    SSZ.saveFile(conf.postState, stateY.data)
+    SSZ.saveFile(conf.postState, stateY.hbsPhase0.data)
 
   printTimers(false, timers)
 

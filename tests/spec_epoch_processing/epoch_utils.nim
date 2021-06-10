@@ -8,25 +8,27 @@
 import
   # Specs
   ../../beacon_chain/spec/[
-    datatypes, state_transition_epoch, state_transition]
+    datatypes, forkedbeaconstate_helpers, state_transition,
+    state_transition_epoch]
 
-proc processSlotsUntilEndCurrentEpoch(state: var HashedBeaconState) =
+proc processSlotsUntilEndCurrentEpoch(state: var ForkedHashedBeaconState) =
   # Process all slots until the end of the last slot of the current epoch
   var
     cache = StateCache()
     rewards = RewardInfo()
   let slot =
-    state.data.slot + SLOTS_PER_EPOCH - (state.data.slot mod SLOTS_PER_EPOCH)
+    getStateField(state, slot) + SLOTS_PER_EPOCH -
+      (getStateField(state, slot) mod SLOTS_PER_EPOCH)
 
   # Transition to slot before the epoch state transition
-  discard process_slots(state, slot - 1, cache, rewards)
+  discard process_slots(state, slot - 1, cache, rewards, {}, FAR_FUTURE_SLOT)
 
   # For the last slot of the epoch,
   # only process_slot without process_epoch
   # (see process_slots()) - state.root is invalid after here!
-  process_slot(state.data, state.root)
+  process_slot(state.hbsPhase0.data, getStateRoot(state))
 
-proc transitionEpochUntilJustificationFinalization*(state: var HashedBeaconState) =
+proc transitionEpochUntilJustificationFinalization*(state: var ForkedHashedBeaconState) =
   # Process slots and do the epoch transition until crosslinks
   processSlotsUntilEndCurrentEpoch(state)
 
@@ -34,7 +36,7 @@ proc transitionEpochUntilJustificationFinalization*(state: var HashedBeaconState
     cache = StateCache()
     rewards = RewardInfo()
 
-  rewards.init(state.data)
-  rewards.process_attestations(state.data, cache)
+  rewards.init(state.hbsPhase0.data)
+  rewards.process_attestations(state.hbsPhase0.data, cache)
   process_justification_and_finalization(
-    state.data, rewards.total_balances)
+    state.hbsPhase0.data, rewards.total_balances)

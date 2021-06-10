@@ -11,7 +11,7 @@ import
   ../beacon_chain/[beacon_node_types, extras],
   ../beacon_chain/validators/validator_pool,
   ../beacon_chain/ssz/merkleization,
-  ../beacon_chain/spec/[crypto, datatypes, digest, presets, helpers, validator,
+  ../beacon_chain/spec/[crypto, datatypes, digest, presets, helpers,
                         signatures, state_transition, forkedbeaconstate_helpers],
   ../beacon_chain/consensus_object_pools/attestation_pool
 
@@ -76,7 +76,7 @@ func signBlock(
   )
 
 proc addTestBlock*(
-    state: var HashedBeaconState,
+    state: var ForkedHashedBeaconState,
     parent_root: Eth2Digest,
     cache: var StateCache,
     eth1_data = Eth1Data(),
@@ -88,30 +88,34 @@ proc addTestBlock*(
   # Create and add a block to state - state will advance by one slot!
   if nextSlot:
     var rewards: RewardInfo
-    doAssert process_slots(state, state.data.slot + 1, cache, rewards, flags)
+    doAssert process_slots(
+      state, getStateField(state, slot) + 1, cache, rewards, flags,
+      FAR_FUTURE_SLOT)
 
   let
-    proposer_index = get_beacon_proposer_index(state.data, cache)
-    privKey = hackPrivKey(state.data.validators[proposer_index.get])
+    proposer_index = get_beacon_proposer_index(
+      state, cache, getStateField(state, slot))
+    privKey = hackPrivKey(getStateField(state, validators)[proposer_index.get])
     randao_reveal =
       if skipBlsValidation notin flags:
         privKey.genRandaoReveal(
-          state.data.fork, state.data.genesis_validators_root, state.data.slot).
-            toValidatorSig()
+          getStateField(state, fork),
+          getStateField(state, genesis_validators_root),
+          getStateField(state, slot)).toValidatorSig()
       else:
         ValidatorSig()
 
   let
     message = makeBeaconBlock(
       defaultRuntimePreset,
-      state,
+      state.hbsPhase0,
       proposer_index.get(),
       parent_root,
       randao_reveal,
       # Keep deposit counts internally consistent.
       Eth1Data(
         deposit_root: eth1_data.deposit_root,
-        deposit_count: state.data.eth1_deposit_index + deposits.lenu64,
+        deposit_count: getStateField(state, eth1_deposit_index) + deposits.lenu64,
         block_hash: eth1_data.block_hash),
       graffiti,
       attestations,
@@ -127,13 +131,14 @@ proc addTestBlock*(
 
   let
     new_block = signBlock(
-      state.data.fork,
-      state.data.genesis_validators_root, message.get(), privKey, flags)
+      getStateField(state, fork),
+      getStateField(state, genesis_validators_root), message.get(), privKey,
+      flags)
 
   new_block
 
 proc makeTestBlock*(
-    state: HashedBeaconState,
+    state: ForkedHashedBeaconState,
     parent_root: Eth2Digest,
     cache: var StateCache,
     eth1_data = Eth1Data(),
@@ -298,11 +303,13 @@ iterator makeTestBlocks*(
   blocks: int,
   attested: bool): SignedBeaconBlock =
   var
-    state = assignClone(state)
+    # TODO replace wrapper with more native usage
+    state = (ref ForkedHashedBeaconState)(
+      hbsPhase0: assignClone(state)[], beaconStateFork: forkPhase0)
     parent_root = parent_root
   for _ in 0..<blocks:
     let attestations = if attested:
-      makeFullAttestations(state[], parent_root, state[].data.slot, cache)
+      makeFullAttestations(state[], parent_root, getStateField(state[], slot), cache)
     else:
       @[]
 
@@ -310,25 +317,6 @@ iterator makeTestBlocks*(
       state[], parent_root, cache, attestations = attestations)
     yield blck
     parent_root = blck.root
-
-# TODO remove these once callers are gone; temporary scaffolding
-proc addTestBlock*(state: var ForkedHashedBeaconState; parent_root: Eth2Digest;
-                   cache: var StateCache; eth1_data = Eth1Data();
-                   attestations = newSeq[Attestation]();
-                   deposits = newSeq[Deposit]();
-                   graffiti = default(GraffitiBytes);
-                   flags: set[UpdateFlag] = {}; nextSlot = true): SignedBeaconBlock =
-  addTestBlock(
-    state.hbsPhase0, parent_root, cache, eth1_data, attestations,
-    deposits, graffiti, flags, nextSlot)
-
-proc makeTestBlock*(state: ForkedHashedBeaconState; parent_root: Eth2Digest;
-                    cache: var StateCache; eth1_data = Eth1Data();
-                    attestations = newSeq[Attestation]();
-                    deposits = newSeq[Deposit]();
-                    graffiti = default(GraffitiBytes)): SignedBeaconBlock =
-  makeTestBlock(
-    state.hbsPhase0, parent_root, cache, eth1_data, attestations, deposits, graffiti)
 
 iterator makeTestBlocks*(state: ForkedHashedBeaconState; parent_root: Eth2Digest;
                          cache: var StateCache; blocks: int; attested: bool): SignedBeaconBlock =

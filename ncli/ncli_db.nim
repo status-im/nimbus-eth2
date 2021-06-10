@@ -201,7 +201,8 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
       let isEpoch = (getStateField(state[].data, slot) + 1).isEpoch()
       withTimer(timers[if isEpoch: tAdvanceEpoch else: tAdvanceSlot]):
         let ok = process_slots(
-          state[].data.hbsPhase0, getStateField(state[].data, slot) + 1, cache, rewards, {})
+          state[].data, getStateField(state[].data, slot) + 1, cache, rewards,
+          {}, FAR_FUTURE_SLOT)
         doAssert ok, "Slot processing can't fail with correct inputs"
 
     var start = Moment.now()
@@ -524,7 +525,8 @@ proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimePreset) =
     blck = db.getBlock(blockRefs[blockRefs.len - bi - 1].root).get()
     while getStateField(state[].data, slot) < blck.message.slot:
       let ok = process_slots(
-        state[].data.hbsPhase0, getStateField(state[].data, slot) + 1, cache, rewards, {})
+        state[].data, getStateField(state[].data, slot) + 1, cache, rewards,
+        {}, FAR_FUTURE_SLOT)
       doAssert ok, "Slot processing can't fail with correct inputs"
 
       if getStateField(state[].data, slot).isEpoch():
@@ -538,7 +540,8 @@ proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimePreset) =
   # Capture rewards of empty slots as well
   while getStateField(state[].data, slot) < ends:
     let ok = process_slots(
-      state[].data.hbsPhase0, getStateField(state[].data, slot) + 1, cache, rewards, {})
+      state[].data, getStateField(state[].data, slot) + 1, cache, rewards, {},
+      FAR_FUTURE_SLOT)
     doAssert ok, "Slot processing can't fail with correct inputs"
 
     if getStateField(state[].data, slot).isEpoch():
@@ -751,7 +754,8 @@ proc cmdValidatorDb(conf: DbConf, runtimePreset: RuntimePreset) =
     blck = db.getBlock(blockRefs[blockRefs.len - bi - 1].root).get()
     while getStateField(state[].data, slot) < blck.message.slot:
       let ok = process_slots(
-        state[].data.hbsPhase0, getStateField(state[].data, slot) + 1, cache, rewards, {})
+        state[].data, getStateField(state[].data, slot) + 1, cache, rewards,
+        {}, FAR_FUTURE_SLOT)
       doAssert ok, "Slot processing can't fail with correct inputs"
 
       if getStateField(state[].data, slot).isEpoch():
@@ -766,7 +770,8 @@ proc cmdValidatorDb(conf: DbConf, runtimePreset: RuntimePreset) =
   # finalized
   while getStateField(state[].data, slot) <= ends:
     let ok = process_slots(
-      state[].data.hbsPhase0, getStateField(state[].data, slot) + 1, cache, rewards, {})
+      state[].data, getStateField(state[].data, slot) + 1, cache, rewards, {},
+      FAR_FUTURE_SLOT)
     doAssert ok, "Slot processing can't fail with correct inputs"
 
     if getStateField(state[].data, slot).isEpoch():

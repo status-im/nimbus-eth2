@@ -466,7 +466,7 @@ suite "chain DAG finalization tests" & preset():
       FAR_FUTURE_SLOT)
 
     # create another block, orphaning the head
-    let blck = makeTestBlock(prestate[].hbsPhase0, dag.head.parent.root, cache)
+    let blck = makeTestBlock(prestate[], dag.head.parent.root, cache)
 
     # Add block, but don't update head
     let added = dag.addRawBlock(quarantine, blck, nil)

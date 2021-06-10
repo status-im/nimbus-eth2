@@ -163,34 +163,6 @@ proc advance_slot(
 
   state.slot += 1
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-proc process_slots*(state: var SomeHashedBeaconState, slot: Slot,
-    cache: var StateCache, rewards: var RewardInfo,
-    flags: UpdateFlags = {}): bool {.nbench.} =
-  ## Process one or more slot transitions without blocks - if the slot transtion
-  ## passes an epoch boundary, epoch processing will run and `rewards` will be
-  ## updated, else it will be cleared
-  if not (state.data.slot < slot):
-    if slotProcessed notin flags or state.data.slot != slot:
-      notice(
-        "Unusual request for a slot in the past",
-        state_root = shortLog(state.root),
-        current_slot = state.data.slot,
-        target_slot = slot
-      )
-      return false
-
-  # Catch up to the target slot
-  while state.data.slot < slot:
-    advance_slot(state.data, state.root, flags, cache, rewards)
-
-    # The root must be updated on every slot update, or the next `process_slot`
-    # will be incorrect, unless there's a block update immediately following
-    if skipLastStateRootCalculation notin flags or state.data.slot < slot:
-      state.root = hash_tree_root(state.data)
-
-  true
-
 func noRollback*(state: var phase0.HashedBeaconState) =
   trace "Skipping rollback of broken state"
 
