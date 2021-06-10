@@ -143,7 +143,7 @@ func init*(
     epoch = state.get_current_epoch()
     epochRef = EpochRef(
       dag: dag, # This gives access to the validator pubkeys through an EpochRef
-      epoch: epoch,
+      key: EpochKey(epoch: epoch, blck: state.blck),
       eth1_data: getStateField(state, eth1_data),
       eth1_deposit_index: getStateField(state, eth1_deposit_index),
       current_justified_checkpoint:
@@ -242,7 +242,7 @@ func atEpochStart*(blck: BlockRef, epoch: Epoch): BlockSlot =
   ## Return the BlockSlot corresponding to the first slot in the given epoch
   atSlot(blck, epoch.compute_start_slot_at_epoch)
 
-func epochAncestor*(blck: BlockRef, epoch: Epoch): BlockSlot =
+func epochAncestor*(blck: BlockRef, epoch: Epoch): EpochKey =
   ## The state transition works by storing information from blocks in a
   ## "working" area until the epoch transition, then batching work collected
   ## during the epoch. Thus, last block in the ancestor epochs is the block
@@ -255,15 +255,15 @@ func epochAncestor*(blck: BlockRef, epoch: Epoch): BlockSlot =
   while blck.slot.epoch >= epoch and not blck.parent.isNil:
     blck = blck.parent
 
-  blck.atEpochStart(epoch)
+  EpochKey(epoch: epoch, blck: blck)
 
 func findEpochRef*(
     dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef = # may return nil!
   let ancestor = blck.epochAncestor(epoch)
   doAssert ancestor.blck != nil
   for i in 0..<dag.epochRefs.len:
-    if dag.epochRefs[i][0] == ancestor.blck and dag.epochRefs[i][1].epoch == epoch:
-      return dag.epochRefs[i][1]
+    if dag.epochRefs[i] != nil and dag.epochRefs[i].key == ancestor:
+      return dag.epochRefs[i]
 
   return nil
 
@@ -470,15 +470,13 @@ func getEpochRef*(
         oldest = 0
       for x in 0..<dag.epochRefs.len:
         let candidate = dag.epochRefs[x]
-        if candidate[1] == nil:
+        if candidate == nil:
           oldest = x
           break
-        if candidate[1].epoch < dag.epochRefs[oldest][1].epoch:
+        if candidate.key.epoch < dag.epochRefs[oldest].epoch:
           oldest = x
 
-      let
-        ancestor = blck.epochAncestor(epoch)
-      dag.epochRefs[oldest] = (ancestor.blck, epochRef)
+      dag.epochRefs[oldest] = epochRef
 
   epochRef
 
@@ -493,7 +491,9 @@ proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
   let
     ancestor = blck.epochAncestor(epoch)
 
-  dag.withState(dag.epochRefState, ancestor):
+  dag.withState(
+      dag.epochRefState,
+      ancestor.blck.atSlot(ancestor.epoch.compute_start_slot_at_epoch())):
     dag.getEpochRef(stateData, cache)
 
 proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
@@ -865,8 +865,9 @@ proc updateStateData*(
 
 proc delState(dag: ChainDAGRef, bs: BlockSlot) =
   # Delete state state and mapping for a particular block+slot
-  if not bs.slot.isEpoch:
+  if not isStateCheckpoint(bs):
     return # We only ever save epoch states
+
   if (let root = dag.db.getStateRoot(bs.blck.root, bs.slot); root.isSome()):
     dag.db.delState(root.get())
     dag.db.delStateRoot(bs.blck.root, bs.slot)
@@ -948,9 +949,9 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
     # After finalization, we can clear up the epoch cache and save memory -
     # it will be recomputed if needed
     for i in 0..<dag.epochRefs.len:
-      if dag.epochRefs[i][1] != nil and
-          dag.epochRefs[i][1].epoch < dag.finalizedHead.slot.epoch:
-        dag.epochRefs[i] = (nil, nil)
+      if dag.epochRefs[i] != nil and
+          dag.epochRefs[i].epoch < dag.finalizedHead.slot.epoch:
+        dag.epochRefs[i] = nil
   let epochRefPruneTick = Moment.now()
 
   dag.lastPrunePoint = dag.finalizedHead
