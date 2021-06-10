@@ -3,7 +3,8 @@ import
   confutils, chronicles, json_serialization,
   stew/byteutils,
   ../research/simutils,
-  ../beacon_chain/spec/[crypto, datatypes, digest, helpers, state_transition],
+  ../beacon_chain/spec/[
+    crypto, datatypes, digest, forkedbeaconstate_helpers, helpers, state_transition],
   ../beacon_chain/extras,
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/ssz/[merkleization, ssz_serialization]
@@ -75,13 +76,15 @@ type
 
 proc doTransition(conf: NcliConf) =
   let
-    stateY = (ref HashedBeaconState)(
-      data: SSZ.loadFile(conf.preState, BeaconState),
+    stateY = (ref ForkedHashedBeaconState)(
+      hbsPhase0: (ref HashedBeaconState)(
+        data: SSZ.loadFile(conf.preState, BeaconState))[],
+      beaconStateFork: forkPhase0
     )
     blckX = SSZ.loadFile(conf.blck, SignedBeaconBlock)
     flags = if not conf.verifyStateRoot: {skipStateRootValidation} else: {}
 
-  stateY.root = hash_tree_root(stateY.data)
+  stateY.hbsPhase0.root = hash_tree_root(stateY[])
 
   var
     cache = StateCache()
@@ -91,7 +94,7 @@ proc doTransition(conf: NcliConf) =
     error "State transition failed"
     quit 1
   else:
-    SSZ.saveFile(conf.postState, stateY.data)
+    SSZ.saveFile(conf.postState, stateY.hbsPhase0.data)
 
 proc doSlots(conf: NcliConf) =
   type
