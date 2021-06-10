@@ -157,7 +157,7 @@ suite "Block pool processing" & preset():
       b2Add = dag.addRawBlock(quarantine, b2, nil)
       b2Get = dag.get(b2.root)
       er = dag.findEpochRef(b1Add[], b1Add[].slot.epoch)
-      validators = getStateField(dag.headState, validators).lenu64()
+      validators = getStateField(dag.headState.data, validators).lenu64()
 
     check:
       b2Get.isSome()
