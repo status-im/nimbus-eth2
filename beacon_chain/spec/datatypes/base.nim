@@ -879,7 +879,7 @@ chronicles.formatIt Checkpoint: it.shortLog
 
 const
   # http://facweb.cs.depaul.edu/sjost/it212/documents/ascii-pr.htm
-  PrintableAsciiChars = {'!'..'~'}
+  PrintableAsciiChars = {' '..'~'}
 
 func `$`*(value: GraffitiBytes): string =
   result = strip(string.fromBytes(distinctBase value),
