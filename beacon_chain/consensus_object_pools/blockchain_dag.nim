@@ -143,7 +143,7 @@ func init*(
     epoch = state.get_current_epoch()
     epochRef = EpochRef(
       dag: dag, # This gives access to the validator pubkeys through an EpochRef
-      key: EpochKey(epoch: epoch, blck: state.blck),
+      key: state.blck.epochAncestor(epoch),
       eth1_data: getStateField(state, eth1_data),
       eth1_deposit_index: getStateField(state, eth1_deposit_index),
       current_justified_checkpoint:
@@ -452,7 +452,7 @@ func getEpochRef*(
     dag: ChainDAGRef, state: StateData, cache: var StateCache): EpochRef =
   let
     blck = state.blck
-    epoch = getStateField(state, slot).epoch
+    epoch = state.get_current_epoch()
 
   var epochRef = dag.findEpochRef(blck, epoch)
   if epochRef == nil:
@@ -492,8 +492,7 @@ proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
     ancestor = blck.epochAncestor(epoch)
 
   dag.withState(
-      dag.epochRefState,
-      ancestor.blck.atSlot(ancestor.epoch.compute_start_slot_at_epoch())):
+      dag.epochRefState, ancestor.blck.atEpochStart(ancestor.epoch)):
     dag.getEpochRef(stateData, cache)
 
 proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
