@@ -185,7 +185,7 @@ type
       udpPort* {.
         desc: "Listening UDP port for node discovery"
         defaultValue: defaultEth2TcpPort
-        # defaultValueDesc: 9000
+        defaultValueDesc: "9000"
         name: "udp-port" }: Port
 
       maxPeers* {.
