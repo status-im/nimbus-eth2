@@ -77,7 +77,7 @@ suite "BlockRef and helpers" & preset():
     let ancestor = cur.epochAncestor(cur.slot.epoch)
 
     check:
-      ancestor.slot.epoch == cur.slot.epoch
+      ancestor.epoch == cur.slot.epoch
       ancestor.blck != cur # should have selected a parent
 
       ancestor.blck.epochAncestor(cur.slot.epoch) == ancestor
@@ -395,7 +395,7 @@ suite "chain DAG finalization tests" & preset():
 
     block:
       for er in dag.epochRefs:
-        check: er[1] == nil or er[1].epoch >= dag.finalizedHead.slot.epoch
+        check: er == nil or er.epoch >= dag.finalizedHead.slot.epoch
 
     block:
       let tmpStateData = assignClone(dag.headState)

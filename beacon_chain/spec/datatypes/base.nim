@@ -811,10 +811,8 @@ func shortLog*(v: DepositData): auto =
   )
 
 func shortLog*(v: Checkpoint): auto =
-  (
-    epoch: shortLog(v.epoch),
-    root: shortLog(v.root),
-  )
+  # epoch:root when logging epoch, root:slot when logging slot!
+  $shortLog(v.epoch) & ":" & shortLog(v.root)
 
 func shortLog*(v: AttestationData): auto =
   (

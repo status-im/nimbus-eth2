@@ -9,9 +9,9 @@
 
 import
   # Standard library
-  std/[strformat, sets, tables, hashes],
+  std/[sets, tables, hashes],
   # Status libraries
-  stew/[endians2, byteutils], chronicles,
+  stew/[endians2], chronicles,
   eth/keys,
   # Internals
   ../spec/[datatypes, crypto, digest, signatures_batch],
@@ -154,20 +154,29 @@ type
 
     runtimePreset*: RuntimePreset
 
-    epochRefs*: array[32, (BlockRef, EpochRef)] ##\
+    epochRefs*: array[32, EpochRef] ##\
       ## Cached information about a particular epoch ending with the given
       ## block - we limit the number of held EpochRefs to put a cap on
       ## memory usage
 
+  EpochKey* = object
+    ## The epoch key fully determines the shuffling for proposers and
+    ## committees in a beacon state - the epoch level information in the state
+    ## is derived from the last known block in the particular history _before_
+    ## the beginning of that epoch, and then advanced with slot processing to
+    ## the epoch start - we call this block the "epoch ancestor" in other parts
+    ## of the code.
+    epoch*: Epoch
+    blck*: BlockRef
+
   EpochRef* = ref object
     dag*: ChainDAGRef
-    epoch*: Epoch
+    key*: EpochKey
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
     eth1_data*: Eth1Data
     eth1_deposit_index*: uint64
-    beacon_proposers*: array[
-      SLOTS_PER_EPOCH, Option[ValidatorIndex]]
+    beacon_proposers*: array[SLOTS_PER_EPOCH, Option[ValidatorIndex]]
     shuffled_active_validator_indices*: seq[ValidatorIndex]
 
     # balances, as used in fork choice
@@ -195,37 +204,39 @@ type
 
 template head*(dag: ChainDagRef): BlockRef = dag.headState.blck
 
-func shortLog*(v: BlockSlot): string =
-  try:
-    if v.blck.isNil():
-      &"nil:0@{v.slot}"
-    elif v.blck.slot == v.slot:
-      &"{v.blck.root.data.toOpenArray(0, 3).toHex()}:{v.blck.slot}"
-    else: # There was a gap - log it
-      &"{v.blck.root.data.toOpenArray(0, 3).toHex()}:{v.blck.slot}@{v.slot}"
-  except ValueError as err:
-    err.msg # Shouldn't happen - but also shouldn't crash!
+template epoch*(e: EpochRef): Epoch = e.key.epoch
 
 func shortLog*(v: BlockRef): string =
-  try:
-    if v.isNil():
-      "BlockRef(nil)"
-    else:
-      &"{v.root.data.toOpenArray(0, 3).toHex()}:{v.slot}"
-  except ValueError as err:
-    err.msg # Shouldn't happen - but also shouldn't crash!
+  # epoch:root when logging epoch, root:slot when logging slot!
+  if v.isNil():
+    "nil:0"
+  else:
+    shortLog(v.root) & ":" & $v.slot
+
+func shortLog*(v: BlockSlot): string =
+  # epoch:root when logging epoch, root:slot when logging slot!
+  if v.blck.isNil():
+    "nil:0@" & $v.slot
+  elif v.blck.slot == v.slot:
+    shortLog(v.blck)
+  else: # There was a gap - log it
+    shortLog(v.blck) & "@" & $v.slot
+
+func shortLog*(v: EpochKey): string =
+  # epoch:root when logging epoch, root:slot when logging slot!
+  $v.epoch & ":" & shortLog(v.blck)
 
 func shortLog*(v: EpochRef): string =
-  try:
-    if v.isNil():
-      "EpochRef(nil)"
-    else:
-      &"(epoch ref: {v.epoch})"
-  except ValueError as err:
-    err.msg # Shouldn't happen - but also shouldn't crash!
+  # epoch:root when logging epoch, root:slot when logging slot!
+  if v.isNil():
+    "0:nil"
+  else:
+    shortLog(v.key)
 
 chronicles.formatIt BlockSlot: shortLog(it)
 chronicles.formatIt BlockRef: shortLog(it)
+chronicles.formatIt EpochKey: shortLog(it)
+chronicles.formatIt EpochRef: shortLog(it)
 
 func hash*(key: KeyedBlockRef): Hash =
   hash(key.data.root)
