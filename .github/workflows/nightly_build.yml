@@ -276,13 +276,13 @@ jobs:
         uses: dev-drprasad/delete-tag-and-release@v0.2.0
         with:
           delete_release: true
-          tag_name: latest
+          tag_name: nightly
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create prerelease
         run: |
-          gh release create latest --prerelease --target unstable \
+          gh release create nightly --prerelease --target unstable \
             --title 'Nightly build ("unstable" branch)' --notes-file release_notes.md \
             Linux_amd64_archive/* \
             Linux_arm64_archive/* \
