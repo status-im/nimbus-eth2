@@ -933,7 +933,7 @@ proc load*(
   if validators.lenu64() <= index.uint64:
     none(CookedPubKey)
   else:
-    validators[index.int].pubkey.load()
+    some(validators[index.int].pubkey.loadValid())
 
 static:
   # Sanity checks - these types should be trivial enough to copy with memcpy

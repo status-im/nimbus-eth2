@@ -120,6 +120,16 @@ proc load*(v: UncompressedPubKey): Option[CookedPubKey] =
   else:
     none CookedPubKey
 
+func loadValid*(v: UncompressedPubKey | ValidatorPubKey): CookedPubKey {.noinit.} =
+  ## Parse known-to-be-valid key - this is the case for any key that's passed
+  ## parsing once and is the output of serialization, such as those keys we
+  ## keep in the database or state.
+  var val: blscurve.PublicKey
+  let ok = fromBytesKnownOnCurve(val, v.blob)
+  doAssert ok, "Valid key no longer parses, data corrupt? " & $v
+
+  CookedPubKey(val)
+
 proc loadWithCache*(v: ValidatorPubKey): Option[CookedPubKey] =
   ## Parse public key blob - this may fail - this function uses a cache to
   ## avoid the expensive deserialization - for now, external public keys only

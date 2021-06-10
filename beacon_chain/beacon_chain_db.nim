@@ -305,8 +305,10 @@ proc new*(T: type BeaconChainDB,
     stateDiffs = kvStore db.openKvStore("state_diffs").expectDb()
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
 
-  # Previous versions store immutable validators with compressed keys which is
-  # slow
+  # `immutable_validators` stores validator keys in compressed format - this is
+  # slow to load and has been superceded by `immutable_validators2` which uses
+  # uncompressed keys instead. The migration is lossless but the old table
+  # should not be removed until after altair, to permit downgrades.
   let immutableValidatorsDb1 =
       DbSeq[ImmutableValidatorData].init(db, "immutable_validators").expectDb()
 
@@ -316,7 +318,7 @@ proc new*(T: type BeaconChainDB,
     while immutableValidatorsDb.len() < immutableValidatorsDb1.len():
       let val = immutableValidatorsDb1.get(immutableValidatorsDb.len())
       immutableValidatorsDb.add(ImmutableValidatorData2(
-        pubkey: val.pubkey.load().get().toUncompressed(),
+        pubkey: val.pubkey.loadValid().toUncompressed(),
         withdrawal_credentials: val.withdrawal_credentials
       ))
   immutableValidatorsDb1.close()
@@ -579,7 +581,7 @@ proc getStateOnlyMutableValidators(
 
       assign(
         dstValidator.pubkey,
-        immutableValidators[i].pubkey.load().get().toPubKey())
+        immutableValidators[i].pubkey.loadValid().toPubKey())
       assign(
         dstValidator.withdrawal_credentials,
         immutableValidators[i].withdrawal_credentials)
