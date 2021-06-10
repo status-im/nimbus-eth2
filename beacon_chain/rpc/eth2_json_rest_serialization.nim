@@ -77,17 +77,6 @@ proc jsonErrorList*(t: typedesc[RestApiResponse],
       stream.getOutput(string)
   RestApiResponse.error(status, data, "application/json")
 
-template hexCompressed(data: openarray[byte]): string =
-  let offset =
-    block:
-      var res = 0
-      for i in 0 ..< len(data):
-        if data[i] != 0x00'u8:
-          res = i
-          break
-      res
-  "0x" & ncrutils.toHex(data.toOpenArray(offset, len(data) - 1), true)
-
 template hexOriginal(data: openarray[byte]): string =
   "0x" & ncrutils.toHex(data, true)
 
@@ -234,7 +223,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var BitSeq) {.
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: BitSeq) {.
      raises: [IOError, Defect].} =
-  writeValue(writer, hexCompressed(value.bytes()))
+  writeValue(writer, hexOriginal(value.bytes()))
 
 ## BitList
 proc readValue*(reader: var JsonReader[RestJson], value: var BitList) =
