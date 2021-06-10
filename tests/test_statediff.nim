@@ -11,7 +11,8 @@ import
   options, sequtils,
   unittest2,
   ./testutil, ./testdbutil, ./teststateutil,
-  ../beacon_chain/spec/[datatypes, digest, helpers, presets],
+  ../beacon_chain/spec/[
+    datatypes, digest, forkedbeaconstate_helpers, helpers, presets],
   ../beacon_chain/[beacon_node_types, statediff],
   ../beacon_chain/ssz,
   ../beacon_chain/consensus_object_pools/[blockchain_dag, block_quarantine]
@@ -26,23 +27,26 @@ suite "state diff tests" & preset():
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
 
   test "random slot differences" & preset():
-    let testStates = getTestStates(dag.headState.data.hbsPhase0)
+    let testStates = getTestStates(dag.headState.data)
 
     for i in 0 ..< testStates.len:
       for j in (i+1) ..< testStates.len:
-        doAssert testStates[i].data.slot < testStates[j].data.slot
-        if testStates[i].data.slot + SLOTS_PER_EPOCH != testStates[j].data.slot:
+        doAssert getStateField(testStates[i][], slot) <
+          getStateField(testStates[j][], slot)
+        if getStateField(testStates[i][], slot) + SLOTS_PER_EPOCH != getStateField(testStates[j][], slot):
           continue
-        var tmpStateApplyBase = assignClone(testStates[i].data)
-        let diff = diffStates(testStates[i].data, testStates[j].data)
+        var tmpStateApplyBase = assignClone(testStates[i].hbsPhase0.data)
+        let diff = diffStates(
+          testStates[i].hbsPhase0.data, testStates[j].hbsPhase0.data)
         # Immutable parts of validators stored separately, so aren't part of
         # the state diff. Synthesize required portion here for testing.
         applyDiff(
           tmpStateApplyBase[],
-          mapIt(testStates[j].data.validators.asSeq[
-              testStates[i].data.validators.len ..
-              testStates[j].data.validators.len - 1],
+          mapIt(
+            getStateField(testStates[j][], validators).asSeq[
+              getStateField(testStates[i][], validators).len ..
+              getStateField(testStates[j][], validators).len - 1],
             it.getImmutableValidatorData),
           diff)
-        check hash_tree_root(testStates[j].data) ==
+        check hash_tree_root(testStates[j][]) ==
           hash_tree_root(tmpStateApplyBase[])

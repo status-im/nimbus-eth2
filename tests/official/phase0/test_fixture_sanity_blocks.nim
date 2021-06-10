@@ -11,7 +11,8 @@ import
   # Standard library
   os, sequtils, chronicles,
   # Beacon chain internals
-  ../../../beacon_chain/spec/[crypto, state_transition, presets],
+  ../../../beacon_chain/spec/[
+    crypto, forkedbeaconstate_helpers, presets, state_transition],
   ../../../beacon_chain/spec/datatypes/phase0,
   ../../../beacon_chain/ssz,
   # Test utilities
@@ -38,8 +39,8 @@ proc runTest(testName, testDir, unitTestName: string) =
     test prefix & testName & " - " & unitTestName & preset():
       var
         preState = newClone(parseTest(testPath/"pre.ssz_snappy", SSZ, BeaconState))
-        hashedPreState = (ref HashedBeaconState)(
-          data: preState[], root: hash_tree_root(preState[]))
+        fhPreState = (ref ForkedHashedBeaconState)(hbsPhase0: phase0.HashedBeaconState(
+          data: preState[], root: hash_tree_root(preState[])), beaconStateFork: forkPhase0)
         cache = StateCache()
         rewards = RewardInfo()
 
@@ -51,12 +52,12 @@ proc runTest(testName, testDir, unitTestName: string) =
 
         if hasPostState:
           let success = state_transition(
-            defaultRuntimePreset, hashedPreState[], blck, cache, rewards, flags = {},
+            defaultRuntimePreset, fhPreState[], blck, cache, rewards, flags = {},
             noRollback)
           doAssert success, "Failure when applying block " & $i
         else:
           let success = state_transition(
-            defaultRuntimePreset, hashedPreState[], blck, cache, rewards, flags = {},
+            defaultRuntimePreset, fhPreState[], blck, cache, rewards, flags = {},
             noRollback)
           doAssert (i + 1 < numBlocks) or not success,
             "We didn't expect these invalid blocks to be processed"
@@ -64,8 +65,8 @@ proc runTest(testName, testDir, unitTestName: string) =
       if hasPostState:
         let postState = newClone(parseTest(testPath/"post.ssz_snappy", SSZ, BeaconState))
         when false:
-          reportDiff(hashedPreState.data, postState)
-        doAssert hashedPreState.root == postState[].hash_tree_root()
+          reportDiff(hashedPreState.hbsPhase0.data, postState)
+        doAssert getStateRoot(fhPreState[]) == postState[].hash_tree_root()
 
   `testImpl _ blck _ testName`()
 

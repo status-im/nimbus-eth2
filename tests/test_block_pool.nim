@@ -177,7 +177,9 @@ suite "Block pool processing" & preset():
 
     # Skip one slot to get a gap
     check:
-      process_slots(state[].hbsPhase0, getStateField(state[], slot) + 1, cache, rewards)
+      process_slots(
+        state[], getStateField(state[], slot) + 1, cache, rewards, {},
+        FAR_FUTURE_SLOT)
 
     let
       b4 = addTestBlock(state[], b2.root, cache)
@@ -356,8 +358,8 @@ suite "chain DAG finalization tests" & preset():
       tmpState = assignClone(dag.headState.data)
     check:
       process_slots(
-        tmpState[].hbsPhase0, getStateField(tmpState[], slot) + (5 * SLOTS_PER_EPOCH).uint64,
-        cache, rewards)
+        tmpState[], getStateField(tmpState[], slot) + (5 * SLOTS_PER_EPOCH).uint64,
+        cache, rewards, {}, FAR_FUTURE_SLOT)
 
     let lateBlock = addTestBlock(tmpState[], dag.head.root, cache)
     block:
@@ -441,13 +443,13 @@ suite "chain DAG finalization tests" & preset():
       hash_tree_root(dag2.headState.data) == hash_tree_root(dag.headState.data)
 
   test "orphaned epoch block" & preset():
-    var prestate = (ref HashedBeaconState)()
+    var prestate = (ref ForkedHashedBeaconState)(
+      hbsPhase0: (ref HashedBeaconState)()[], beaconStateFork: forkPhase0)
     for i in 0 ..< SLOTS_PER_EPOCH:
       if i == SLOTS_PER_EPOCH - 1:
-        assign(prestate[], dag.headState.data.hbsPhase0)
+        assign(prestate[], dag.headState.data)
 
-      let blck = makeTestBlock(
-        dag.headState.data, dag.head.root, cache)
+      let blck = makeTestBlock(dag.headState.data, dag.head.root, cache)
       let added = dag.addRawBlock(quarantine, blck, nil)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
@@ -459,11 +461,12 @@ suite "chain DAG finalization tests" & preset():
     # The loop creates multiple branches, which StateCache isn't suitable for
     cache = StateCache()
 
-    doAssert process_slots(prestate[], prestate[].data.slot + 1, cache, rewards)
+    doAssert process_slots(
+      prestate[], getStateField(prestate[], slot) + 1, cache, rewards, {},
+      FAR_FUTURE_SLOT)
 
     # create another block, orphaning the head
-    let blck = makeTestBlock(
-      prestate[], dag.head.parent.root, cache)
+    let blck = makeTestBlock(prestate[].hbsPhase0, dag.head.parent.root, cache)
 
     # Add block, but don't update head
     let added = dag.addRawBlock(quarantine, blck, nil)
@@ -488,7 +491,8 @@ suite "chain DAG finalization tests" & preset():
     # Advance past epoch so that the epoch transition is gapped
     check:
       process_slots(
-        dag.headState.data.hbsPhase0, Slot(SLOTS_PER_EPOCH * 6 + 2), cache, rewards)
+        dag.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2), cache, rewards, {},
+        FAR_FUTURE_SLOT)
 
     var blck = makeTestBlock(
       dag.headState.data, dag.head.root, cache,

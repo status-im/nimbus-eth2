@@ -227,8 +227,10 @@ proc process_slots*(
       advance_slot(
         state.hbsPhase0.data, getStateRoot(state), flags, cache, rewards)
 
-      if getStateField(state, slot) < slot:
-        # Don't update state root for the slot of the block
+      if skipLastStateRootCalculation notin flags or
+          getStateField(state, slot) < slot:
+        # Don't update state root for the slot of the block if going to process
+        # block after
         state.hbsPhase0.root = hash_tree_root(state)
     of forkAltair:
       advance_slot(
@@ -236,7 +238,8 @@ proc process_slots*(
 
       if skipLastStateRootCalculation notin flags or
           getStateField(state, slot) < slot:
-        # Don't update state root for the slot of the block
+        # Don't update state root for the slot of the block if going to process
+        # block after
         state.hbsAltair.root = hash_tree_root(state)
 
     maybeUpgradeStateToAltair(state, altairForkSlot)
@@ -375,7 +378,7 @@ proc state_transition*(
     signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
                  phase0.TrustedSignedBeaconBlock,
     cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
-    rollback: RollbackHashedProc): bool =
+    rollback: RollbackHashedProc): bool {.deprecated.} =
   # Does not follow hard forks; suitable only where that's irrelevant.
   # TODO remove when callers gone
   let slot = signedBlock.message.slot

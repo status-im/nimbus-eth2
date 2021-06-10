@@ -69,7 +69,8 @@ suite "Attestation pool processing" & preset():
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
       process_slots(
-        state.data.hbsPhase0, getStateField(state.data, slot) + 1, cache, rewards)
+        state.data, getStateField(state.data, slot) + 1, cache, rewards, {},
+        FAR_FUTURE_SLOT)
 
   test "Can add and retrieve simple attestations" & preset():
     let
@@ -99,9 +100,9 @@ suite "Attestation pool processing" & preset():
         none(Slot), some(CommitteeIndex(attestation.data.index + 1)))) == []
 
       process_slots(
-        state.data.hbsPhase0,
+        state.data,
         getStateField(state.data, slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
-        rewards)
+        rewards, {}, FAR_FUTURE_SLOT)
 
     let attestations = pool[].getAttestationsForTestBlock(state[], cache)
 
@@ -119,9 +120,9 @@ suite "Attestation pool processing" & preset():
 
     check:
       process_slots(
-        state.data.hbsPhase0,
+        state.data,
         getStateField(state.data, slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
-        rewards)
+        rewards, {}, FAR_FUTURE_SLOT)
 
     check:
       # shouldn't include already-included attestations
@@ -197,9 +198,9 @@ suite "Attestation pool processing" & preset():
 
     check:
       process_slots(
-        state.data.hbsPhase0,
+        state.data,
         getStateField(state.data, slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
-        rewards)
+        rewards, {}, FAR_FUTURE_SLOT)
 
     check:
       pool[].getAttestationsForTestBlock(state[], cache).len() == 2
@@ -244,8 +245,8 @@ suite "Attestation pool processing" & preset():
         inc attestations
 
       check:
-        process_slots(state.data.hbsPhase0, getStateField(state.data, slot) + 1, cache,
-        rewards)
+        process_slots(state.data, getStateField(state.data, slot) + 1, cache,
+        rewards, {}, FAR_FUTURE_SLOT)
 
     doAssert attestations.uint64 > MAX_ATTESTATIONS,
       "6*SLOTS_PER_EPOCH validators > 128 mainnet MAX_ATTESTATIONS"
@@ -265,7 +266,9 @@ suite "Attestation pool processing" & preset():
       attestation0 = makeAttestation(state[].data, state.blck.root, bc0[0], cache)
 
     check:
-      process_slots(state.data.hbsPhase0, getStateField(state.data, slot) + 1, cache, rewards)
+      process_slots(
+        state.data, getStateField(state.data, slot) + 1, cache, rewards, {},
+        FAR_FUTURE_SLOT)
 
     let
       bc1 = get_beacon_committee(state[].data,
@@ -279,7 +282,8 @@ suite "Attestation pool processing" & preset():
       attestation0, @[bc0[0]], attestation0.loadSig, attestation0.data.slot)
 
     discard process_slots(
-      state.data.hbsPhase0, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards)
+      state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards, {},
+      FAR_FUTURE_SLOT)
 
     let attestations = pool[].getAttestationsForTestBlock(state[], cache)
 
@@ -304,7 +308,8 @@ suite "Attestation pool processing" & preset():
 
     check:
       process_slots(
-        state.data.hbsPhase0, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards)
+        state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards,
+        {}, FAR_FUTURE_SLOT)
 
     let attestations = pool[].getAttestationsForTestBlock(state[], cache)
 
@@ -332,7 +337,8 @@ suite "Attestation pool processing" & preset():
 
     check:
       process_slots(
-        state.data.hbsPhase0, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards)
+        state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards,
+        {}, FAR_FUTURE_SLOT)
 
     let attestations = pool[].getAttestationsForTestBlock(state[], cache)
 
@@ -359,7 +365,8 @@ suite "Attestation pool processing" & preset():
 
     check:
       process_slots(
-        state.data.hbsPhase0, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards)
+        state.data, MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards,
+        {}, FAR_FUTURE_SLOT)
 
     let attestations = pool[].getAttestationsForTestBlock(state[], cache)
 

@@ -663,8 +663,8 @@ proc advanceSlots(
     loadStateCache(dag, cache, state.blck, getStateField(state.data, slot).epoch)
 
     doAssert process_slots(
-        state.data.hbsPhase0, getStateField(state.data, slot) + 1, cache, rewards,
-        dag.updateFlags),
+        state.data, getStateField(state.data, slot) + 1, cache, rewards,
+        dag.updateFlags, FAR_FUTURE_SLOT),
       "process_slots shouldn't fail when state slot is correct"
     if save:
       dag.putState(state)

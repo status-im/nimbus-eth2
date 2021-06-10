@@ -42,7 +42,9 @@ suite "Gossip validation " & preset():
       batchCrypto = BatchCrypto.new(keys.newRng(), eager = proc(): bool = false)
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
-      process_slots(state.data.hbsPhase0, getStateField(state.data, slot) + 1, cache, rewards)
+      process_slots(
+        state.data, getStateField(state.data, slot) + 1, cache, rewards, {},
+        FAR_FUTURE_SLOT)
 
   test "Validation sanity":
     # TODO: refactor tests to avoid skipping BLS validation

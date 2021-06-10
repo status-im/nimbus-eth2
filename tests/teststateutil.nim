@@ -12,8 +12,9 @@ import
   ./mocking/mock_deposits,
   ./helpers/math_helpers,
   ../beacon_chain/ssz/merkleization,
-  ../beacon_chain/spec/[beaconstate, crypto, datatypes, presets,
-                        helpers, state_transition]
+  ../beacon_chain/spec/[
+    beaconstate, crypto, datatypes, forkedbeaconstate_helpers, helpers,
+    presets, state_transition]
 
 proc valid_deposit(state: var BeaconState) =
   const deposit_amount = MAX_EFFECTIVE_BALANCE
@@ -40,8 +41,8 @@ proc valid_deposit(state: var BeaconState) =
       EFFECTIVE_BALANCE_INCREMENT
     )
 
-proc getTestStates*(initialState: HashedBeaconState):
-    seq[ref HashedBeaconState] =
+proc getTestStates*(initialState: ForkedHashedBeaconState):
+    seq[ref ForkedHashedBeaconState] =
   # Randomly generated slot numbers, with a jump to around
   # SLOTS_PER_HISTORICAL_ROOT to force wraparound of those
   # slot-based mod/increment fields.
@@ -64,9 +65,10 @@ proc getTestStates*(initialState: HashedBeaconState):
 
   for i, epoch in stateEpochs:
     let slot = epoch.Epoch.compute_start_slot_at_epoch
-    if tmpState.data.slot < slot:
-      doAssert process_slots(tmpState[], slot, cache, rewards)
+    if getStateField(tmpState[], slot) < slot:
+      doAssert process_slots(
+        tmpState[], slot, cache, rewards, {}, FAR_FUTURE_SLOT)
     if i mod 3 == 0:
-      valid_deposit(tmpState.data)
-    doAssert tmpState.data.slot == slot
+      valid_deposit(tmpState.hbsPhase0.data)
+    doAssert getStateField(tmpState[], slot) == slot
     result.add assignClone(tmpState[])
