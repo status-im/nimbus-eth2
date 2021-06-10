@@ -173,7 +173,7 @@ proc checkForPotentialDoppelganger(
     let epochRef = self.dag.getEpochRef(
       tgtBlck, attestation.data.target.epoch)
     for validatorIndex in attesterIndices:
-      let validatorPubkey = epochRef.validator_keys[validatorIndex].toPubKey()
+      let validatorPubkey = epochRef.validatorKey(validatorIndex).get().toPubKey()
       if  self.doppelgangerDetectionEnabled and
           self.validatorPool[].getValidator(validatorPubkey) !=
             default(AttachedValidator):

@@ -113,20 +113,28 @@ func get_effective_balances(validators: openArray[Validator], epoch: Epoch):
       result[i] = validator[].effective_balance
 
 proc updateValidatorKeys*(dag: ChainDAGRef, validators: openArray[Validator]) =
-  # Update validator key cache - must be called every time a state is loaded
-  # from database or a block is applied successfully (from anywhere).
-  # The validator key indexing is shared across all histories, and grows when a
-  # validated block is added.
-  while dag.validatorKeys.len() < validators.len():
-    let key = validators[dag.validatorKeys.len()].pubkey.load()
-    if not key.isSome():
-      # State keys are verified when deposit is processed - a state should never
-      # contain invalid keys
-      fatal "Invalid pubkey in state",
-        validator_index = dag.validatorKeys.len(),
-        raw = toHex(validators[dag.validatorKeys.len()].pubkey.toRaw())
-      quit 1
-    dag.validatorKeys.add(key.get())
+  # Update validator key cache - must be called every time a valid block is
+  # applied to the state - this is important to ensure that when we sync blocks
+  # without storing a state (non-epoch blocks essentially), the deposits from
+  # those blocks are persisted to the in-database cache of immutable validator
+  # data (but no earlier than that the whole block as been validated)
+  dag.db.updateImmutableValidators(validators)
+
+func validatorKey*(
+    dag: ChainDAGRef, index: ValidatorIndex or uint64): Option[CookedPubKey] =
+  ## Returns the validator pubkey for the index, assuming it's been observed
+  ## at any point in time - this function may return pubkeys for indicies that
+  ## are not (yet) part of the head state (if the key has been observed on a
+  ## non-head branch)!
+  dag.db.immutableValidators.load(index)
+
+func validatorKey*(
+    epochRef: EpochRef, index: ValidatorIndex or uint64): Option[CookedPubKey] =
+  ## Returns the validator pubkey for the index, assuming it's been observed
+  ## at any point in time - this function may return pubkeys for indicies that
+  ## are not (yet) part of the head state (if the key has been observed on a
+  ## non-head branch)!
+  epochRef.dag.validatorKey(index)
 
 func init*(
     T: type EpochRef, dag: ChainDAGRef, state: StateData,
@@ -414,8 +422,6 @@ proc init*(T: type ChainDAGRef,
 
   doAssert dag.updateFlags in [{}, {verifyFinalization}]
 
-  dag.updateValidatorKeys(getStateField(dag.headState, validators).asSeq())
-
   var cache: StateCache
   dag.updateStateData(dag.headState, headRef.atSlot(headRef.slot), false, cache)
   # We presently save states on the epoch boundary - it means that the latest
@@ -511,11 +517,6 @@ proc getState(
 
   state.blck = blck
   state.data.root = stateRoot
-
-  # In case a newer state is loaded from database than we previously knew - this
-  # is in theory possible if the head state we load on init is older than
-  # some other random known state in the database
-  dag.updateValidatorKeys(getStateField(state, validators).asSeq())
 
   true
 
@@ -691,9 +692,6 @@ proc applyBlock(
     cache, rewards, flags + dag.updateFlags + {slotProcessed}, restore)
   if ok:
     state.blck = blck.refs
-
-  # New validators might have been added by block (on startup for example)
-  dag.updateValidatorKeys(getStateField(state, validators).asSeq())
 
   ok
 
@@ -1146,12 +1144,12 @@ proc getProposer*(
 
   let proposer = epochRef.beacon_proposers[slotInEpoch]
   if proposer.isSome():
-    if proposer.get().uint64 >= dag.validatorKeys.lenu64():
+    if proposer.get().uint64 >= dag.db.immutableValidators.lenu64():
       # Sanity check - it should never happen that the key cache doesn't contain
       # a key for the selected proposer - that would mean that we somehow
       # created validators in the state without updating the cache!
       warn "Proposer key not found",
-        keys = dag.validatorKeys.lenu64(), proposer = proposer.get()
+        keys = dag.db.immutableValidators.lenu64(), proposer = proposer.get()
       return none(ValidatorIndex)
 
   proposer

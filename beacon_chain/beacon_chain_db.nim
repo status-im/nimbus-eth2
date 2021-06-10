@@ -17,6 +17,8 @@ import
   ./ssz/[ssz_serialization, merkleization],
   ./filepath
 
+export crypto
+
 logScope: topics = "bc_db"
 
 type
@@ -26,7 +28,6 @@ type
     recordCount: int64
 
   DepositsSeq = DbSeq[DepositData]
-  ImmutableValidatorsSeq = DbSeq[ImmutableValidatorData]
 
   DepositContractSnapshot* = object
     eth1Block*: Eth2Digest
@@ -79,10 +80,10 @@ type
     preset*: RuntimePreset
     genesisDeposits*: DepositsSeq
 
-    # ImmutableValidatorsSeq only stores the total count; it's a proxy for SQL
+    # immutableValidatorsDb only stores the total count; it's a proxy for SQL
     # queries.
-    immutableValidators*: ImmutableValidatorsSeq
-    immutableValidatorsMem*: seq[ImmutableValidatorData]
+    immutableValidatorsDb*: DbSeq[ImmutableValidatorData2]
+    immutableValidators*: seq[ImmutableValidatorData2]
 
     checkpoint*: proc() {.gcsafe, raises: [Defect].}
 
@@ -255,6 +256,10 @@ proc loadImmutableValidators(vals: DbSeq[ImmutableValidatorData]): seq[Immutable
   for i in 0 ..< vals.len:
     result.add vals.get(i)
 
+proc loadImmutableValidators(vals: DbSeq[ImmutableValidatorData2]): seq[ImmutableValidatorData2] =
+  for i in 0 ..< vals.len:
+    result.add vals.get(i)
+
 proc new*(T: type BeaconChainDB,
           preset: RuntimePreset,
           dir: string,
@@ -289,8 +294,8 @@ proc new*(T: type BeaconChainDB,
 
     genesisDepositsSeq =
       DbSeq[DepositData].init(db, "genesis_deposits").expectDb()
-    immutableValidatorsSeq =
-      DbSeq[ImmutableValidatorData].init(db, "immutable_validators").expectDb()
+    immutableValidatorsDb =
+      DbSeq[ImmutableValidatorData2].init(db, "immutable_validators2").expectDb()
 
     # V1 - expected-to-be small rows get without rowid optimizations
     keyValues = kvStore db.openKvStore("key_values", true).expectDb()
@@ -300,6 +305,24 @@ proc new*(T: type BeaconChainDB,
     stateDiffs = kvStore db.openKvStore("state_diffs").expectDb()
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
 
+  # `immutable_validators` stores validator keys in compressed format - this is
+  # slow to load and has been superceded by `immutable_validators2` which uses
+  # uncompressed keys instead. The migration is lossless but the old table
+  # should not be removed until after altair, to permit downgrades.
+  let immutableValidatorsDb1 =
+      DbSeq[ImmutableValidatorData].init(db, "immutable_validators").expectDb()
+
+  if immutableValidatorsDb.len() < immutableValidatorsDb1.len():
+    notice "Migrating validator keys, this may take a minute",
+      len = immutableValidatorsDb1.len()
+    while immutableValidatorsDb.len() < immutableValidatorsDb1.len():
+      let val = immutableValidatorsDb1.get(immutableValidatorsDb.len())
+      immutableValidatorsDb.add(ImmutableValidatorData2(
+        pubkey: val.pubkey.loadValid().toUncompressed(),
+        withdrawal_credentials: val.withdrawal_credentials
+      ))
+  immutableValidatorsDb1.close()
+
   T(
     db: db,
     v0: BeaconChainDBV0(
@@ -308,8 +331,8 @@ proc new*(T: type BeaconChainDB,
     ),
     preset: preset,
     genesisDeposits: genesisDepositsSeq,
-    immutableValidators: immutableValidatorsSeq,
-    immutableValidatorsMem: loadImmutableValidators(immutableValidatorsSeq),
+    immutableValidatorsDb: immutableValidatorsDb,
+    immutableValidators: loadImmutableValidators(immutableValidatorsDb),
     checkpoint: proc() = db.checkpoint(),
     keyValues: keyValues,
     blocks: blocks,
@@ -429,7 +452,7 @@ proc close*(db: BeaconchainDB) =
   discard db.stateRoots.close()
   discard db.blocks.close()
   discard db.keyValues.close()
-  db.immutableValidators.close()
+  db.immutableValidatorsDb.close()
   db.genesisDeposits.close()
   db.v0.close()
   db.db.close()
@@ -451,32 +474,24 @@ proc putBlock*(db: BeaconChainDB, value: TrustedSignedBeaconBlock) =
   db.blocks.putSnappySSZ(value.root.data, value)
   db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
-proc updateImmutableValidators(
-    db: BeaconChainDB, immutableValidators: var seq[ImmutableValidatorData],
-    validators: auto) =
-  let
-    numValidators = validators.lenu64
-    origNumImmutableValidators = immutableValidators.lenu64
+proc updateImmutableValidators*(
+    db: BeaconChainDB, validators: openArray[Validator]) =
+  # Must be called before storing a state that references the new validators
+  let numValidators = validators.len
 
-  doAssert immutableValidators.len == db.immutableValidators.len
-
-  if numValidators <= origNumImmutableValidators:
-    return
-
-  for validatorIndex in origNumImmutableValidators ..< numValidators:
-    # This precedes state storage
+  while db.immutableValidators.len() < numValidators:
     let immutableValidator =
-      getImmutableValidatorData(validators[validatorIndex])
+      getImmutableValidatorData(validators[db.immutableValidators.len()])
+    db.immutableValidatorsDb.add immutableValidator
     db.immutableValidators.add immutableValidator
-    immutableValidators.add immutableValidator
 
-proc putState*(db: BeaconChainDB, key: Eth2Digest, value: var BeaconState) =
-  db.updateImmutableValidators(db.immutableValidatorsMem, value.validators)
+proc putState*(db: BeaconChainDB, key: Eth2Digest, value: BeaconState) =
+  db.updateImmutableValidators(value.validators.asSeq())
   db.statesNoVal.putSnappySSZ(
     key.data,
     isomorphicCast[BeaconStateNoImmutableValidators](value))
 
-proc putState*(db: BeaconChainDB, value: var BeaconState) =
+proc putState*(db: BeaconChainDB, value: BeaconState) =
   db.putState(hash_tree_root(value), value)
 
 func stateRootKey(root: Eth2Digest, slot: Slot): array[40, byte] =
@@ -539,7 +554,7 @@ proc getBlock*(db: BeaconChainDB, key: Eth2Digest): Opt[TrustedSignedBeaconBlock
     result.get().root = key
 
 proc getStateOnlyMutableValidators(
-    immutableValidatorsMem: openArray[ImmutableValidatorData],
+    immutableValidators: openArray[ImmutableValidatorData2],
     store: KvStoreRef, key: openArray[byte], output: var BeaconState,
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
@@ -557,16 +572,19 @@ proc getStateOnlyMutableValidators(
     key, isomorphicCast[BeaconStateNoImmutableValidators](output))
   of GetResult.found:
     let numValidators = output.validators.len
-    doAssert immutableValidatorsMem.len >= numValidators
+    doAssert immutableValidators.len >= numValidators
 
     for i in 0 ..< numValidators:
       let
         # Bypass hash cache invalidation
         dstValidator = addr output.validators.data[i]
 
-      assign(dstValidator.pubkey, immutableValidatorsMem[i].pubkey)
-      assign(dstValidator.withdrawal_credentials,
-        immutableValidatorsMem[i].withdrawal_credentials)
+      assign(
+        dstValidator.pubkey,
+        immutableValidators[i].pubkey.loadValid().toPubKey())
+      assign(
+        dstValidator.withdrawal_credentials,
+        immutableValidators[i].withdrawal_credentials)
 
     output.validators.resetCache()
 
@@ -579,7 +597,7 @@ proc getStateOnlyMutableValidators(
 
 proc getState(
     db: BeaconChainDBV0,
-    immutableValidatorsMem: openArray[ImmutableValidatorData],
+    immutableValidators: openArray[ImmutableValidatorData2],
     key: Eth2Digest, output: var BeaconState,
     rollback: RollbackProc): bool =
   # Nimbus 1.0 reads and writes writes genesis BeaconState to `backend`
@@ -589,11 +607,11 @@ proc getState(
   # and reads BeaconState from `backend` and BeaconStateNoImmutableValidators
   # from `stateStore`. We will try to read the state from all these locations.
   if getStateOnlyMutableValidators(
-      immutableValidatorsMem, db.stateStore,
+      immutableValidators, db.stateStore,
       subkey(BeaconStateNoImmutableValidators, key), output, rollback):
     return true
   if getStateOnlyMutableValidators(
-      immutableValidatorsMem, db.backend,
+      immutableValidators, db.backend,
       subkey(BeaconStateNoImmutableValidators, key), output, rollback):
     return true
 
@@ -620,8 +638,8 @@ proc getState*(
   # TODO RVO is inefficient for large objects:
   #      https://github.com/nim-lang/Nim/issues/13879
   if not getStateOnlyMutableValidators(
-      db.immutableValidatorsMem, db.statesNoVal, key.data, output, rollback):
-    db.v0.getState(db.immutableValidatorsMem, key, output, rollback)
+      db.immutableValidators, db.statesNoVal, key.data, output, rollback):
+    db.v0.getState(db.immutableValidators, key, output, rollback)
   else:
     true
 

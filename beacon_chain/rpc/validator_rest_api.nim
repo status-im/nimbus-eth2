@@ -102,12 +102,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               epochRef, slot, CommitteeIndex(committee_index)
             )
             for index_in_committee, validator_index in commitee:
-              if validator_index < ValidatorIndex(len(epochRef.validator_keys)):
-                let validator_key = epochRef.validator_keys[validator_index]
-                if validator_index in indexList:
+              if validator_index in indexList:
+                let validator_key = epochRef.validatorKey(validator_index)
+                if validator_key.isSome():
                   res.add(
                     RestAttesterDuty(
-                      pubkey: validator_key.toPubKey(),
+                      pubkey: validator_key.get().toPubKey(),
                       validator_index: validator_index,
                       committee_index: CommitteeIndex(committee_index),
                       committee_length: lenu64(commitee),
@@ -147,14 +147,16 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         var res: seq[RestProposerDuty]
         let epochRef = node.dag.getEpochRef(qhead, qepoch)
-        # Fix for https://github.com/status-im/nimbus-eth2/issues/2488
-        # Slot(0) at Epoch(0) do not have a proposer.
-        let startSlot = if qepoch == Epoch(0): 1'u64 else: 0'u64
         for i, bp in epochRef.beacon_proposers:
+          if i == 0 and qepoch == 0:
+            # Fix for https://github.com/status-im/nimbus-eth2/issues/2488
+            # Slot(0) at Epoch(0) do not have a proposer.
+            continue
+
           if bp.isSome():
             res.add(
               RestProposerDuty(
-                pubkey: epochRef.validator_keys[bp.get()].toPubKey(),
+                pubkey: epochRef.validatorKey(bp.get()).get().toPubKey(),
                 validator_index: bp.get(),
                 slot: compute_start_slot_at_epoch(qepoch) + i
               )

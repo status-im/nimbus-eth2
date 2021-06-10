@@ -132,7 +132,7 @@ proc is_valid_indexed_attestation*(
       pubkeys = newSeqOfCap[CookedPubKey](sigs)
     for index in get_attesting_indices(
         epochRef, attestation.data, attestation.aggregation_bits):
-      pubkeys.add(epochRef.validator_keys[index])
+      pubkeys.add(epochRef.validatorKey(index).get())
 
     if not verify_attestation_signature(
         fork, genesis_validators_root, attestation.data,

@@ -10,7 +10,7 @@
 import
   stew/assign2,
   ./ssz/types,
-  ./spec/[datatypes, digest, helpers]
+  ./spec/[crypto, datatypes, digest, helpers]
 
 func diffModIncEpoch[T, U](hl: HashArray[U, T], startSlot: uint64):
     array[SLOTS_PER_EPOCH, T] =
@@ -32,7 +32,7 @@ func applyValidatorIdentities(
     hl: auto) =
   for item in hl:
     if not validators.add Validator(
-        pubkey: item.pubkey,
+        pubkey: item.pubkey.loadValid().toPubKey(),
         withdrawal_credentials: item.withdrawal_credentials):
       raiseAssert "cannot readd"
 
@@ -150,7 +150,7 @@ func diffStates*(state0, state1: BeaconState): BeaconStateDiff =
 
 func applyDiff*(
     state: var BeaconState,
-    immutableValidators: openArray[ImmutableValidatorData],
+    immutableValidators: openArray[ImmutableValidatorData2],
     stateDiff: BeaconStateDiff) =
   template assign[T, U](tgt: var HashList[T, U], src: List[T, U]) =
     assign(tgt.data, src)

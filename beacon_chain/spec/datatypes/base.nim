@@ -32,7 +32,7 @@ import
   ./merge
 
 export
-  sszTypes, merge, presets, json_serialization
+  crypto, sszTypes, merge, presets, json_serialization
 
 # Presently, we're reusing the data types from the serialization (uint64) in the
 # objects we pass around to the beacon chain logic, thus keeping the two
@@ -271,9 +271,15 @@ type
   SomeSignedBeaconBlockHeader* = SignedBeaconBlockHeader | TrustedSignedBeaconBlockHeader
   SomeSignedVoluntaryExit* = SignedVoluntaryExit | TrustedSignedVoluntaryExit
 
-  # Please note that this type is not part of the spec
+  # Legacy database type, see BeaconChainDB
   ImmutableValidatorData* = object
     pubkey*: ValidatorPubKey
+    withdrawal_credentials*: Eth2Digest
+
+  # Non-spec type that represents the immutable part of a validator - an
+  # uncompressed key serialization is used to speed up loading from database
+  ImmutableValidatorData2* = object
+    pubkey*: UncompressedPubKey
     withdrawal_credentials*: Eth2Digest
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#validator
@@ -550,9 +556,12 @@ type
     statuses*: seq[RewardStatus]
     total_balances*: TotalBalances
 
-func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData =
-  ImmutableValidatorData(
-    pubkey: validator.pubkey,
+func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData2 =
+  let cookedKey = validator.pubkey.load() # Loading the pubkey is slow!
+  doAssert cookedKey.isSome,
+    "Cannot parse validator key: " & toHex(validator.pubkey)
+  ImmutableValidatorData2(
+    pubkey: cookedKey.get().toUncompressed(),
     withdrawal_credentials: validator.withdrawal_credentials)
 
 # TODO when https://github.com/nim-lang/Nim/issues/14440 lands in Status's Nim,
@@ -917,6 +926,14 @@ proc readValue*(r: var JsonReader, T: type GraffitiBytes): T
 
 template getStateField*(stateData, fieldName: untyped): untyped =
   stateData.data.data.fieldName
+
+proc load*(
+    validators: openArray[ImmutableValidatorData2],
+    index: ValidatorIndex | uint64): Option[CookedPubKey] =
+  if validators.lenu64() <= index.uint64:
+    none(CookedPubKey)
+  else:
+    some(validators[index.int].pubkey.loadValid())
 
 static:
   # Sanity checks - these types should be trivial enough to copy with memcpy

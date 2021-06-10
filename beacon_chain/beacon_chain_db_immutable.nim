@@ -77,7 +77,7 @@ func getSizeofSig(x: auto, n: int = 0): seq[(string, int, int)] =
       result.add getSizeofSig(value, n + 1)
     result.add((name, sizeof(value), n))
 
-template isomorphicCast*[T, U](x: var U): T =
+template isomorphicCast*[T, U](x: U): T =
   # Each of these pairs of types has ABI-compatible memory representations, so
   # that the SSZ serialization can read and write directly from an object with
   # only mutable portions of BeaconState into a full BeaconState without using
@@ -85,4 +85,4 @@ template isomorphicCast*[T, U](x: var U): T =
   static:
     doAssert sizeof(T) == sizeof(U)
     doAssert getSizeofSig(T()) == getSizeofSig(U())
-  cast[ref T](addr x)[]
+  cast[ptr T](unsafeAddr x)[]
