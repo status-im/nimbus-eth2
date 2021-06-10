@@ -679,8 +679,9 @@ proc applyBlock(
   doAssert state.blck == blck.refs.parent
 
   var statePtr = unsafeAddr state # safe because `restore` is locally scoped
-  func restore(v: var phase0.HashedBeaconState) =
-    doAssert (addr(statePtr.data.hbsPhase0) == addr v)
+  func restore(v: var ForkedHashedBeaconState) =
+    doAssert (addr(statePtr.data) == addr v)
+    # TODO the block_clearance version uses assign() here
     statePtr[] = dag.headState
 
   loadStateCache(dag, cache, state.blck, getStateField(state.data, slot).epoch)

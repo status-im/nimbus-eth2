@@ -49,7 +49,7 @@ proc runTest(testName, testDir, unitTestName: string) =
     test testName & " - " & unitTestName & preset():
       var
         preState = newClone(parseTest(testPath/"pre.ssz_snappy", SSZ, phase0.BeaconState))
-        sdPreState = (ref ForkedHashedBeaconState)(hbsPhase0: phase0.HashedBeaconState(
+        fhPreState = (ref ForkedHashedBeaconState)(hbsPhase0: phase0.HashedBeaconState(
           data: preState[], root: hash_tree_root(preState[])), beaconStateFork: forkPhase0)
         cache = StateCache()
         rewards = RewardInfo()
@@ -63,7 +63,7 @@ proc runTest(testName, testDir, unitTestName: string) =
           let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, phase0.SignedBeaconBlock)
 
           let success = state_transition(
-            defaultRuntimePreset, sdPreState[], blck,
+            defaultRuntimePreset, fhPreState[], blck,
             cache, rewards,
             flags = {skipStateRootValidation}, noRollback,
             transitionEpoch.fork_epoch.Epoch.compute_start_slot_at_epoch)
@@ -72,7 +72,7 @@ proc runTest(testName, testDir, unitTestName: string) =
           let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, altair.SignedBeaconBlock)
 
           let success = state_transition(
-            defaultRuntimePreset, sdPreState[], blck,
+            defaultRuntimePreset, fhPreState[], blck,
             cache, rewards,
             flags = {skipStateRootValidation}, noRollback,
             transitionEpoch.fork_epoch.Epoch.compute_start_slot_at_epoch)
@@ -80,8 +80,8 @@ proc runTest(testName, testDir, unitTestName: string) =
 
       let postState = newClone(parseTest(testPath/"post.ssz_snappy", SSZ, altair.BeaconState))
       when false:
-        reportDiff(sdPreState.data, postState)
-      doAssert getStateRoot(sdPreState[]) == postState[].hash_tree_root()
+        reportDiff(fhPreState.data, postState)
+      doAssert getStateRoot(fhPreState[]) == postState[].hash_tree_root()
 
   `testImpl _ blck _ testName`()
 

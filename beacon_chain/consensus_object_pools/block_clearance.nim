@@ -163,7 +163,7 @@ proc checkStateTransition(
        dag: ChainDAGRef, signedBlock: SomeSignedBeaconBlock,
        cache: var StateCache): (ValidationResult, BlockError) =
   ## Ensure block can be applied on a state
-  func restore(v: var HashedBeaconState) =
+  func restore(v: var ForkedHashedBeaconState) =
     # TODO address this ugly workaround - there should probably be a
     #      `state_transition` that takes a `StateData` instead and updates
     #      the block as well
@@ -174,7 +174,7 @@ proc checkStateTransition(
     blck = shortLog(signedBlock.message)
     blockRoot = shortLog(signedBlock.root)
 
-  # TODO this won't transition because FAR_FUTURE_EPOCH so it's
+  # TODO this won't transition because FAR_FUTURE_SLOT, so it's
   # fine, for now, but in general, blockchain_dag.addBlock must
   # match the transition here.
   if not state_transition_block(

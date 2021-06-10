@@ -198,8 +198,8 @@ proc maybeUpgradeStateToAltair(
     state: var ForkedHashedBeaconState, altairForkSlot: Slot) =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/fork.md#upgrading-the-state
 
-  # Both state_transition_slots() and state_transition_block() call this, so
-  # only run it once by checking for existing fork.
+  # Both process_slots() and state_transition_block() call this, so only run it
+  # once by checking for existing fork.
   if  getStateField(state, slot) == altairForkSlot and
       state.beaconStateFork == forkPhase0:
     var newState = upgrade_to_altair(state.hbsPhase0.data)
@@ -208,10 +208,18 @@ proc maybeUpgradeStateToAltair(
       hbsAltair: altair.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
-proc state_transition_slots(
+proc process_slots*(
     state: var ForkedHashedBeaconState, slot: Slot,
     cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
     altairForkSlot: Slot): bool {.nbench.} =
+  if not (getStateField(state, slot) < slot):
+    if slotProcessed notin flags or getStateField(state, slot) != slot:
+      notice "Unusual request for a slot in the past",
+        state_root = shortLog(getStateRoot(state)),
+        current_slot = getStateField(state, slot),
+        target_slot = slot
+      return false
+
   # Update the state so its slot matches that of the block
   while getStateField(state, slot) < slot:
     case state.beaconStateFork:
@@ -226,7 +234,8 @@ proc state_transition_slots(
       advance_slot(
         state.hbsAltair.data, state.hbsAltair.root, flags, cache, rewards)
 
-      if getStateField(state, slot) < slot:
+      if skipLastStateRootCalculation notin flags or
+          getStateField(state, slot) < slot:
         # Don't update state root for the slot of the block
         state.hbsAltair.root = hash_tree_root(state)
 
@@ -234,30 +243,18 @@ proc state_transition_slots(
 
   true
 
-proc state_transition_block*(
+proc state_transition_block_aux(
     preset: RuntimePreset,
     state: var SomeHashedBeaconState,
     signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
                  phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
-    cache: var StateCache, flags: UpdateFlags, rollback: RollbackHashedProc):
-    bool {.nbench.} =
-  ## `rollback` is called if the transition fails and the given state has been
-  ## partially changed. If a temporary state was given to `state_transition`,
-  ## it is safe to use `noRollback` and leave it broken, else the state
-  ## object should be rolled back to a consistent state. If the transition fails
-  ## before the state has been updated, `rollback` will not be called.
-
+    cache: var StateCache, flags: UpdateFlags): bool {.nbench.} =
   # Block updates - these happen when there's a new block being suggested
   # by the block proposer. Every actor in the network will update its state
   # according to the contents of this block - but first they will validate
   # that the block is sane.
-  doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
-
   if not (skipBLSValidation in flags or
       verify_block_signature(state.data, signedBlock)):
-    when not (state is altair.HashedBeaconState):
-      # TODO re-enable in Altair
-      rollback(state)
     return false
 
   trace "state_transition: processing block, signature passed",
@@ -273,16 +270,10 @@ proc state_transition_block*(
       eth1_deposit_index = state.data.eth1_deposit_index,
       deposit_root = shortLog(state.data.eth1_data.deposit_root),
       error = res.error
-    when not (state is altair.HashedBeaconState):
-      # TODO re-enable in Altair
-      rollback(state)
     return false
 
   if not (skipStateRootValidation in flags or
         verifyStateRoot(state.data, signedBlock.message)):
-    when not (state is altair.HashedBeaconState):
-      # TODO re-enable in Altair
-      rollback(state)
     return false
 
   # only blocks currently being produced have an empty state root - we use a
@@ -295,26 +286,58 @@ proc state_transition_block*(
 
 proc state_transition_block*(
     preset: RuntimePreset,
-    state: var ForkedHashedBeaconState,
+    state: var phase0.HashedBeaconState,
     signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
-                 phase0.TrustedSignedBeaconBlock |
-                 altair.SignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock,
-    cache: var StateCache, flags: UpdateFlags,
-    rollback: RollbackHashedProc, altairForkSlot: Slot): bool {.nbench.} =
+                 phase0.TrustedSignedBeaconBlock,
+    cache: var StateCache, flags: UpdateFlags, rollback: RollbackHashedProc):
+    bool {.nbench.} =
   ## `rollback` is called if the transition fails and the given state has been
   ## partially changed. If a temporary state was given to `state_transition`,
   ## it is safe to use `noRollback` and leave it broken, else the state
   ## object should be rolled back to a consistent state. If the transition fails
   ## before the state has been updated, `rollback` will not be called.
+  doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
+
+  if not state_transition_block_aux(preset, state, signedBlock, cache, flags):
+    rollback(state)
+    return false
+
+  true
+
+type
+  RollbackForkedHashedProc* =
+    proc(state: var ForkedHashedBeaconState) {.gcsafe, raises: [Defect].}
+
+func noRollback*(state: var ForkedHashedBeaconState) =
+  trace "Skipping rollback of broken state"
+
+proc state_transition_block*(
+    preset: RuntimePreset,
+    state: var ForkedHashedBeaconState,
+    signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
+                 phase0.TrustedSignedBeaconBlock |
+                 altair.SignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock,
+    cache: var StateCache, flags: UpdateFlags,
+    rollback: RollbackForkedHashedProc, altairForkSlot: Slot): bool {.nbench.} =
+  ## `rollback` is called if the transition fails and the given state has been
+  ## partially changed. If a temporary state was given to `state_transition`,
+  ## it is safe to use `noRollback` and leave it broken, else the state
+  ## object should be rolled back to a consistent state. If the transition fails
+  ## before the state has been updated, `rollback` will not be called.
+  doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
 
   # Ensure state_transition_block()-only callers trigger this
   maybeUpgradeStateToAltair(state, altairForkSlot)
 
-  case state.beaconStateFork:
-  of forkPhase0: state_transition_block(
-    preset, state.hbsPhase0, signedBlock, cache, flags, rollback)
-  of forkAltair: state_transition_block(
-    preset, state.hbsAltair, signedBlock, cache, flags, rollback)
+  if not (case state.beaconStateFork:
+      of forkPhase0: state_transition_block_aux(
+        preset, state.hbsPhase0, signedBlock, cache, flags)
+      of forkAltair: state_transition_block_aux(
+        preset, state.hbsAltair, signedBlock, cache, flags)):
+    rollback(state)
+    return false
+
+  true
 
 proc state_transition*(
     preset: RuntimePreset,
@@ -322,7 +345,7 @@ proc state_transition*(
     signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
                  phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
     cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
-    rollback: RollbackHashedProc,
+    rollback: RollbackForkedHashedProc,
     altairForkSlot: Slot = FAR_FUTURE_SLOT): bool {.nbench.} =
   ## Apply a block to the state, advancing the slot counter as necessary. The
   ## given state must be of a lower slot, or, in case the `slotProcessed` flag
@@ -339,26 +362,18 @@ proc state_transition*(
   ## it is safe to use `noRollback` and leave it broken, else the state
   ## object should be rolled back to a consistent state. If the transition fails
   ## before the state has been updated, `rollback` will not be called.
-  let slot = signedBlock.message.slot
-  if not (getStateField(state, slot) < slot):
-    if slotProcessed notin flags or getStateField(state, slot) != slot:
-      notice "State must precede block",
-        state_root = shortLog(getStateRoot(state)),
-        current_slot = getStateField(state, slot),
-        blck = shortLog(signedBlock)
-      return false
-
-  if not state_transition_slots(
-      state, slot, cache, rewards, flags, altairForkSlot):
+  if not process_slots(
+      state, signedBlock.message.slot, cache, rewards,
+      flags + {skipLastStateRootCalculation}, altairForkSlot):
     return false
   state_transition_block(
     preset, state, signedBlock, cache, flags, rollback, altairForkSlot)
 
 proc state_transition*(
     preset: RuntimePreset,
-    state: var SomeHashedBeaconState,
+    state: var phase0.HashedBeaconState,
     signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
-                 phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
+                 phase0.TrustedSignedBeaconBlock,
     cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
     rollback: RollbackHashedProc): bool =
   # Does not follow hard forks; suitable only where that's irrelevant.
