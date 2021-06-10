@@ -259,26 +259,6 @@ proc state_transition_block_aux(
 
   true
 
-proc state_transition_block*(
-    preset: RuntimePreset,
-    state: var phase0.HashedBeaconState,
-    signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
-                 phase0.TrustedSignedBeaconBlock,
-    cache: var StateCache, flags: UpdateFlags, rollback: RollbackHashedProc):
-    bool {.nbench.} =
-  ## `rollback` is called if the transition fails and the given state has been
-  ## partially changed. If a temporary state was given to `state_transition`,
-  ## it is safe to use `noRollback` and leave it broken, else the state
-  ## object should be rolled back to a consistent state. If the transition fails
-  ## before the state has been updated, `rollback` will not be called.
-  doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
-
-  if not state_transition_block_aux(preset, state, signedBlock, cache, flags):
-    rollback(state)
-    return false
-
-  true
-
 type
   RollbackForkedHashedProc* =
     proc(state: var ForkedHashedBeaconState) {.gcsafe, raises: [Defect].}
