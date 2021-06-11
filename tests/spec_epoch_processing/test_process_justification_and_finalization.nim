@@ -218,8 +218,7 @@ proc payload =
 
     const NumValidators = uint64(8) * SLOTS_PER_EPOCH
     let genesisState = (ref ForkedHashedBeaconState)(
-      hbsPhase0: newClone(initGenesisState(NumValidators))[],
-      beaconStateFork: forkPhase0)
+      hbsPhase0: initGenesisState(NumValidators), beaconStateFork: forkPhase0)
     doAssert getStateField(genesisState[], validators).lenu64 == NumValidators
 
     setup:

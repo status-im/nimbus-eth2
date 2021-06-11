@@ -305,7 +305,7 @@ iterator makeTestBlocks*(
   var
     # TODO replace wrapper with more native usage
     state = (ref ForkedHashedBeaconState)(
-      hbsPhase0: assignClone(state)[], beaconStateFork: forkPhase0)
+      hbsPhase0: state, beaconStateFork: forkPhase0)
     parent_root = parent_root
   for _ in 0..<blocks:
     let attestations = if attested:

@@ -443,8 +443,7 @@ suite "chain DAG finalization tests" & preset():
       hash_tree_root(dag2.headState.data) == hash_tree_root(dag.headState.data)
 
   test "orphaned epoch block" & preset():
-    var prestate = (ref ForkedHashedBeaconState)(
-      hbsPhase0: (ref HashedBeaconState)()[], beaconStateFork: forkPhase0)
+    var prestate = (ref ForkedHashedBeaconState)(beaconStateFork: forkPhase0)
     for i in 0 ..< SLOTS_PER_EPOCH:
       if i == SLOTS_PER_EPOCH - 1:
         assign(prestate[], dag.headState.data)

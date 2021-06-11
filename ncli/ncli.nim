@@ -77,8 +77,8 @@ type
 proc doTransition(conf: NcliConf) =
   let
     stateY = (ref ForkedHashedBeaconState)(
-      hbsPhase0: (ref HashedBeaconState)(
-        data: SSZ.loadFile(conf.preState, BeaconState))[],
+      hbsPhase0: HashedBeaconState(
+        data: SSZ.loadFile(conf.preState, BeaconState)),
       beaconStateFork: forkPhase0
     )
     blckX = SSZ.loadFile(conf.blck, SignedBeaconBlock)
@@ -107,8 +107,8 @@ proc doSlots(conf: NcliConf) =
   var timers: array[Timers, RunningStat]
   let
     stateY = withTimerRet(timers[tLoadState]): (ref ForkedHashedBeaconState)(
-      hbsPhase0: (ref HashedBeaconState)(
-        data: SSZ.loadFile(conf.preState2, BeaconState))[],
+      hbsPhase0: HashedBeaconState(
+        data: SSZ.loadFile(conf.preState2, BeaconState)),
       beaconStateFork: forkPhase0
     )
 

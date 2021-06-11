@@ -150,7 +150,7 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
 
   echo "Running: ", prePath
   let state = (ref ForkedHashedBeaconState)(
-    hbsPhase0: (ref HashedBeaconState)(data: parseSSZ(prePath, BeaconState))[],
+    hbsPhase0: HashedBeaconState(data: parseSSZ(prePath, BeaconState)),
     beaconStateFork: forkPhase0
   )
   state.hbsPhase0.root = hash_tree_root(state[])
@@ -175,7 +175,7 @@ proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
 
   echo "Running: ", prePath
   let state = (ref ForkedHashedBeaconState)(
-    hbsPhase0: (ref HashedBeaconState)(data: parseSSZ(prePath, BeaconState))[],
+    hbsPhase0: HashedBeaconState(data: parseSSZ(prePath, BeaconState)),
     beaconStateFork: forkPhase0)
   state.hbsPhase0.root = hash_tree_root(state[])
 
