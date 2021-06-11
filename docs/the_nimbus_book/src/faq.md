@@ -2,6 +2,20 @@
 
 ## Nimbus
 
+### How do I fix the discovered new external address warning log?
+ 
+```
+WRN 2021-03-15 02:23:37.569+00:00 Discovered new external address but ENR auto update is off topics="discv5"...
+```
+
+It's possible that your ISP has changed your IP address without you knowing.
+
+The first thing to do it to try relaunching the beacon node with with `--enr-auto-update:true` (pass it as an option in the command line).
+
+If this doesn't fix the problem, the next thing to do is to check your external (public) IP address and detect open ports on your connection - you can use [https://www.yougetsignal.com/tools/open-ports/](https://www.yougetsignal.com/tools/open-ports/ ).  Note that Nimbus `TCP` and `UDP` ports are both set to `9000` by default.
+
+See [here](./health.md#set-up-port-forwarding), for how to set up port forwarding.
+
 ### Why are metrics not working?
 
 The metrics server is disabled by default, enable it by passing `--metrics` to the run command:
@@ -28,7 +42,7 @@ We recommend [running a Nimbus beacon node](./quick-start.md) on [Prater](./prat
 
 To stress test it, `add--subscribe-all-subnets` to the [beacon node options](./options.md). This represents more or less the maximum load you could have on eth2.
 
-# How do I add an additional validator?
+### How do I add an additional validator?
 
 To add an additional validator, just follow [the same steps](./keys.md) as you did when you added your first. You'll have to restart the beacon node for the changes to take effect.
 
