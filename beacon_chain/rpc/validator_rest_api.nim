@@ -12,7 +12,7 @@ import
   ../consensus_object_pools/[blockchain_dag, spec_cache, attestation_pool],
   ../gossip_processing/gossip_validation,
   ../validators/validator_duties,
-  ../spec/[crypto, digest, datatypes, network],
+  ../spec/[crypto, datatypes, digest, forkedbeaconstate_helpers, network],
   ../ssz/merkleization,
   ./eth2_json_rest_serialization, ./rest_utils
 
@@ -342,10 +342,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         block:
           let idx = request.validator_index
           if uint64(idx) >=
-                           lenu64(getStateField(node.dag.headState, validators)):
+                           lenu64(getStateField(node.dag.headState.data, validators)):
             return RestApiResponse.jsonError(Http400,
                                              InvalidValidatorIndexValueError)
-          getStateField(node.dag.headState, validators)[idx].pubkey
+          getStateField(node.dag.headState.data, validators)[idx].pubkey
 
       let wallSlot = node.beaconClock.now.slotOrZero
       if wallSlot > request.slot + 1:

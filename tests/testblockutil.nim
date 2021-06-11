@@ -8,12 +8,12 @@
 import
   chronicles,
   options, stew/endians2,
-  ../beacon_chain/extras,
+  ../beacon_chain/[beacon_node_types, extras],
   ../beacon_chain/validators/validator_pool,
   ../beacon_chain/ssz/merkleization,
-  ../beacon_chain/spec/[crypto, datatypes, digest, presets, helpers, validator,
-                        signatures, state_transition],
-  ../beacon_chain/consensus_object_pools/statedata_helpers
+  ../beacon_chain/spec/[crypto, datatypes, digest, presets, helpers,
+                        signatures, state_transition, forkedbeaconstate_helpers],
+  ../beacon_chain/consensus_object_pools/attestation_pool
 
 func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
   # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
@@ -76,7 +76,7 @@ func signBlock(
   )
 
 proc addTestBlock*(
-    state: var HashedBeaconState,
+    state: var ForkedHashedBeaconState,
     parent_root: Eth2Digest,
     cache: var StateCache,
     eth1_data = Eth1Data(),
@@ -88,30 +88,34 @@ proc addTestBlock*(
   # Create and add a block to state - state will advance by one slot!
   if nextSlot:
     var rewards: RewardInfo
-    doAssert process_slots(state, state.data.slot + 1, cache, rewards, flags)
+    doAssert process_slots(
+      state, getStateField(state, slot) + 1, cache, rewards, flags,
+      FAR_FUTURE_SLOT)
 
   let
-    proposer_index = get_beacon_proposer_index(state.data, cache)
-    privKey = hackPrivKey(state.data.validators[proposer_index.get])
+    proposer_index = get_beacon_proposer_index(
+      state, cache, getStateField(state, slot))
+    privKey = hackPrivKey(getStateField(state, validators)[proposer_index.get])
     randao_reveal =
       if skipBlsValidation notin flags:
         privKey.genRandaoReveal(
-          state.data.fork, state.data.genesis_validators_root, state.data.slot).
-            toValidatorSig()
+          getStateField(state, fork),
+          getStateField(state, genesis_validators_root),
+          getStateField(state, slot)).toValidatorSig()
       else:
         ValidatorSig()
 
   let
     message = makeBeaconBlock(
       defaultRuntimePreset,
-      state,
+      state.hbsPhase0,
       proposer_index.get(),
       parent_root,
       randao_reveal,
       # Keep deposit counts internally consistent.
       Eth1Data(
         deposit_root: eth1_data.deposit_root,
-        deposit_count: state.data.eth1_deposit_index + deposits.lenu64,
+        deposit_count: getStateField(state, eth1_deposit_index) + deposits.lenu64,
         block_hash: eth1_data.block_hash),
       graffiti,
       attestations,
@@ -127,13 +131,14 @@ proc addTestBlock*(
 
   let
     new_block = signBlock(
-      state.data.fork,
-      state.data.genesis_validators_root, message.get(), privKey, flags)
+      getStateField(state, fork),
+      getStateField(state, genesis_validators_root), message.get(), privKey,
+      flags)
 
   new_block
 
 proc makeTestBlock*(
-    state: HashedBeaconState,
+    state: ForkedHashedBeaconState,
     parent_root: Eth2Digest,
     cache: var StateCache,
     eth1_data = Eth1Data(),
@@ -150,7 +155,7 @@ proc makeTestBlock*(
     graffiti)
 
 func makeAttestationData*(
-    state: StateData, slot: Slot, committee_index: CommitteeIndex,
+    state: ForkedHashedBeaconState, slot: Slot, committee_index: CommitteeIndex,
     beacon_block_root: Eth2Digest): AttestationData =
   ## Create an attestation / vote for the block `beacon_block_root` using the
   ## data in `state` to fill in the rest of the fields.
@@ -181,7 +186,7 @@ func makeAttestationData*(
   )
 
 func makeAttestation*(
-    state: StateData, beacon_block_root: Eth2Digest,
+    state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest,
     committee: seq[ValidatorIndex], slot: Slot, index: CommitteeIndex,
     validator_index: ValidatorIndex, cache: var StateCache,
     flags: UpdateFlags = {}): Attestation =
@@ -216,7 +221,7 @@ func makeAttestation*(
   )
 
 func find_beacon_committee*(
-    state: StateData, validator_index: ValidatorIndex,
+    state: ForkedHashedBeaconState, validator_index: ValidatorIndex,
     cache: var StateCache): auto =
   let epoch = compute_epoch_at_slot(getStateField(state, slot))
   for epoch_committee_index in 0'u64 ..< get_committee_count_per_slot(
@@ -231,7 +236,7 @@ func find_beacon_committee*(
   doAssert false
 
 func makeAttestation*(
-    state: StateData, beacon_block_root: Eth2Digest,
+    state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest,
     validator_index: ValidatorIndex, cache: var StateCache): Attestation =
   let (committee, slot, index) =
     find_beacon_committee(state, validator_index, cache)
@@ -239,7 +244,7 @@ func makeAttestation*(
     validator_index, cache)
 
 func makeFullAttestations*(
-    state: StateData, beacon_block_root: Eth2Digest, slot: Slot,
+    state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest, slot: Slot,
     cache: var StateCache,
     flags: UpdateFlags = {}): seq[Attestation] =
   # Create attestations in which the full committee participates for each shard
@@ -284,10 +289,12 @@ func makeFullAttestations*(
     state: HashedBeaconState, beacon_block_root: Eth2Digest, slot: Slot,
     cache: var StateCache,
     flags: UpdateFlags = {}): seq[Attestation] =
+  # TODO this only supports phase 0 currently. Either expand that to
+  # Altair here or use the ForkedHashedBeaconState version only
   makeFullAttestations(
-    (ref StateData)(data: state, blck: BlockRef(
-      root: beacon_block_root, slot: slot))[], beacon_block_root, slot, cache,
-    flags)
+    (ref ForkedHashedBeaconState)(
+      beaconStateFork: forkPhase0, hbsPhase0: state)[],
+    beacon_block_root, slot, cache, flags)
 
 iterator makeTestBlocks*(
   state: HashedBeaconState,
@@ -296,11 +303,13 @@ iterator makeTestBlocks*(
   blocks: int,
   attested: bool): SignedBeaconBlock =
   var
-    state = assignClone(state)
+    # TODO replace wrapper with more native usage
+    state = (ref ForkedHashedBeaconState)(
+      hbsPhase0: state, beaconStateFork: forkPhase0)
     parent_root = parent_root
   for _ in 0..<blocks:
     let attestations = if attested:
-      makeFullAttestations(state[], parent_root, state[].data.slot, cache)
+      makeFullAttestations(state[], parent_root, getStateField(state[], slot), cache)
     else:
       @[]
 
@@ -308,3 +317,13 @@ iterator makeTestBlocks*(
       state[], parent_root, cache, attestations = attestations)
     yield blck
     parent_root = blck.root
+
+iterator makeTestBlocks*(state: ForkedHashedBeaconState; parent_root: Eth2Digest;
+                         cache: var StateCache; blocks: int; attested: bool): SignedBeaconBlock =
+  for blck in makeTestBlocks(state.hbsPhase0, parent_root, cache, blocks, attested):
+    yield blck
+
+proc getAttestationsforTestBlock*(
+    pool: var AttestationPool, stateData: StateData, cache: var StateCache):
+    seq[Attestation] =
+  pool.getAttestationsForBlock(stateData.data.hbsPhase0, cache)

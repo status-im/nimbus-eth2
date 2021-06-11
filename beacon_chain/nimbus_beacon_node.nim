@@ -40,8 +40,9 @@ import
   ./rpc/[beacon_api, config_api, debug_api, event_api, nimbus_api, node_api,
     validator_api],
   ./spec/[
-    datatypes, digest, crypto, beaconstate, eth2_apis/beacon_rpc_client,
-    helpers, network, presets, weak_subjectivity, signatures],
+    datatypes, digest, crypto, forkedbeaconstate_helpers, beaconstate,
+    eth2_apis/beacon_rpc_client, helpers, network, presets, weak_subjectivity,
+    signatures],
   ./consensus_object_pools/[
     blockchain_dag, block_quarantine, block_clearance, block_pools_types,
     attestation_pool, exit_pool, spec_cache],
@@ -245,10 +246,10 @@ proc init*(T: type BeaconNode,
                      else: {}
     dag = ChainDAGRef.init(runtimePreset, db, chainDagFlags)
     beaconClock =
-      BeaconClock.init(getStateField(dag.headState, genesis_time))
+      BeaconClock.init(getStateField(dag.headState.data, genesis_time))
     quarantine = QuarantineRef.init(rng)
     databaseGenesisValidatorsRoot =
-      getStateField(dag.headState, genesis_validators_root)
+      getStateField(dag.headState.data, genesis_validators_root)
 
   if genesisStateContents.len != 0:
     let
@@ -266,14 +267,14 @@ proc init*(T: type BeaconNode,
       currentSlot = beaconClock.now.slotOrZero
       isCheckpointStale = not is_within_weak_subjectivity_period(
         currentSlot,
-        dag.headState,
+        dag.headState.data,
         config.weakSubjectivityCheckpoint.get)
 
     if isCheckpointStale:
       error "Weak subjectivity checkpoint is stale",
             currentSlot,
             checkpoint = config.weakSubjectivityCheckpoint.get,
-            headStateSlot = getStateField(dag.headState, slot)
+            headStateSlot = getStateField(dag.headState.data, slot)
       quit 1
 
   if checkpointState != nil:
@@ -314,8 +315,8 @@ proc init*(T: type BeaconNode,
     nickname = if config.nodeName == "auto": shortForm(netKeys)
                else: config.nodeName
     enrForkId = getENRForkID(
-      getStateField(dag.headState, fork),
-      getStateField(dag.headState, genesis_validators_root))
+      getStateField(dag.headState.data, fork),
+      getStateField(dag.headState.data, genesis_validators_root))
     topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.fork_digest)
     topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.fork_digest)
     network = createEth2Node(rng, config, netKeys, enrForkId)
@@ -337,7 +338,7 @@ proc init*(T: type BeaconNode,
   let
     slashingProtectionDB =
       SlashingProtectionDB.init(
-          getStateField(dag.headState, genesis_validators_root),
+          getStateField(dag.headState.data, genesis_validators_root),
           config.validatorsDir(), SlashingDbName)
     validatorPool = newClone(ValidatorPool.init(slashingProtectionDB))
 
@@ -442,9 +443,9 @@ func toBitArray(stabilitySubnets: auto): BitArray[ATTESTATION_SUBNET_COUNT] =
 proc getAttachedValidators(node: BeaconNode):
     Table[ValidatorIndex, AttachedValidator] =
   for validatorIndex in 0 ..<
-      getStateField(node.dag.headState, validators).len:
+      getStateField(node.dag.headState.data, validators).len:
     let attachedValidator = node.getAttachedValidator(
-      getStateField(node.dag.headState, validators),
+      getStateField(node.dag.headState.data, validators),
       validatorIndex.ValidatorIndex)
     if attachedValidator.isNil:
       continue
@@ -476,9 +477,9 @@ proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
       is_aggregator(
         committeeLen,
         await attachedValidators[it.ValidatorIndex].getSlotSig(
-          getStateField(node.dag.headState, fork),
+          getStateField(node.dag.headState.data, fork),
           getStateField(
-            node.dag.headState, genesis_validators_root), slot)))
+            node.dag.headState.data, genesis_validators_root), slot)))
 
   node.attestationSubnets.lastCalculatedEpoch = epoch
   node.attestationSubnets.attestingSlots[epoch mod 2] = 0
@@ -557,10 +558,10 @@ proc cycleAttestationSubnetsPerEpoch(
   # wallSlot, it would have to look more than MIN_SEED_LOOKAHEAD epochs
   # ahead to compute the shuffling determining the beacon committees.
   static: doAssert MIN_SEED_LOOKAHEAD == 1
-  if getStateField(node.dag.headState, slot).epoch != wallSlot.epoch:
+  if getStateField(node.dag.headState.data, slot).epoch != wallSlot.epoch:
     debug "Requested attestation subnets too far in advance",
       wallSlot,
-      stateSlot = getStateField(node.dag.headState, slot)
+      stateSlot = getStateField(node.dag.headState.data, slot)
     return prevStabilitySubnets
 
   # This works so long as at least one block in an epoch provides a basis for
@@ -1365,7 +1366,8 @@ proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
 
   proc dataResolver(expr: string): string {.raises: [Defect].} =
     template justified: untyped = node.dag.head.atEpochStart(
-      getStateField(node.dag.headState, current_justified_checkpoint).epoch)
+      getStateField(
+        node.dag.headState.data, current_justified_checkpoint).epoch)
     # TODO:
     # We should introduce a general API for resolving dot expressions
     # such as `db.latest_block.slot` or `metrics.connected_peers`.

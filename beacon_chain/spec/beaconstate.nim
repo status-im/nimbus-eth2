@@ -513,11 +513,14 @@ proc is_valid_indexed_attestation*(
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_attesting_indices
-iterator get_attesting_indices*(state: SomeBeaconState,
-                                data: AttestationData,
-                                bits: CommitteeValidatorsBits,
-                                cache: var StateCache): ValidatorIndex =
+func get_attesting_indices*(state: SomeBeaconState,
+                            data: AttestationData,
+                            bits: CommitteeValidatorsBits,
+                            cache: var StateCache): seq[ValidatorIndex] =
   ## Return the set of attesting indices corresponding to ``data`` and ``bits``.
+
+  var res: seq[ValidatorIndex]
+  # Can't be an iterator due to https://github.com/nim-lang/Nim/issues/18188
   if bits.lenu64 != get_beacon_committee_len(
       state, data.slot, data.index.CommitteeIndex, cache):
     trace "get_attesting_indices: inconsistent aggregation and committee length"
@@ -526,8 +529,10 @@ iterator get_attesting_indices*(state: SomeBeaconState,
     for index in get_beacon_committee(
         state, data.slot, data.index.CommitteeIndex, cache):
       if bits[i]:
-        yield index
+        res.add index
       inc i
+
+  res
 
 proc is_valid_indexed_attestation*(
     state: SomeBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
@@ -702,16 +707,16 @@ proc process_attestation*(
   # In the spec, attestation validation is mixed with state mutation, so here
   # we've split it into two functions so that the validation logic can be
   # reused when looking for suitable blocks to include in attestations.
+  #
+  # TODO this should be two separate functions, but
+  # https://github.com/nim-lang/Nim/issues/18202 means that this being called
+  # by process_operations() in state_transition_block fails that way.
 
   let proposer_index = get_beacon_proposer_index(state, cache)
   if proposer_index.isNone:
     return err("process_attestation: no beacon proposer index and probably no active validators")
 
   ? check_attestation(state, attestation, flags, cache)
-
-  # TODO this should be split between two functions, but causes type errors
-  # in state_transition_block.process_operations()
-  # TODO investigate and, if real, file Nim bug
 
   # For phase0
   template addPendingAttestation(attestations: typed) =

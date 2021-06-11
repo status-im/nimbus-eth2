@@ -10,7 +10,8 @@
 import
   os, strformat, chronicles,
   ./ssz_serialization,
-  ../spec/[crypto, datatypes, digest]
+  ../spec/[crypto, datatypes, digest],
+  ../consensus_object_pools/block_pools_types
 
 # Dump errors are generally not fatal where used currently - the code calling
 # these functions, like most code, is not exception safe

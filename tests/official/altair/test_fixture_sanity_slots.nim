@@ -12,7 +12,7 @@ import
   # Standard library
   os, strutils,
   # Beacon chain internals
-  ../../../beacon_chain/spec/state_transition,
+  ../../../beacon_chain/spec/[forkedbeaconstate_helpers, state_transition],
   ../../../beacon_chain/spec/datatypes/altair,
   # Test utilities
   ../../testutil,
@@ -30,18 +30,21 @@ proc runTest(identifier: string) =
     test "Slots - " & identifier:
       var
         preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
-        hashedPreState = (ref HashedBeaconState)(
-          data: preState[], root: hash_tree_root(preState[]))
+        fhPreState = (ref ForkedHashedBeaconState)(
+          hbsAltair: altair.HashedBeaconState(
+            data: preState[], root: hash_tree_root(preState[])),
+          beaconStateFork: forkAltair)
         cache = StateCache()
         rewards: RewardInfo
       let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
 
       check:
         process_slots(
-          hashedPreState[], hashedPreState.data.slot + num_slots, cache, rewards)
+          fhPreState[], getStateField(fhPreState[], slot) + num_slots, cache,
+          rewards, {}, FAR_FUTURE_SLOT)
 
-        hashedPreState.root == postState[].hash_tree_root()
-      let newPreState = newClone(hashedPreState.data)
+        getStateRoot(fhPreState[]) == postState[].hash_tree_root()
+      let newPreState = newClone(fhPreState.hbsAltair.data)
       reportDiff(newPreState, postState)
 
   `testImpl _ slots _ identifier`()

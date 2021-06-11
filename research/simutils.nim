@@ -3,9 +3,10 @@ import
   ../tests/testblockutil,
   ../beacon_chain/[extras, beacon_chain_db],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
-  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, presets],
-  ../beacon_chain/consensus_object_pools/[
-    blockchain_dag, block_pools_types, statedata_helpers],
+  ../beacon_chain/spec/[
+    beaconstate, crypto, datatypes, digest, forkedbeaconstate_helpers,
+    helpers, presets],
+  ../beacon_chain/consensus_object_pools/[blockchain_dag, block_pools_types],
   ../beacon_chain/eth1/eth1_monitor
 
 template withTimer*(stats: var RunningStat, body: untyped) =
@@ -43,7 +44,7 @@ func verifyConsensus*(state: BeaconState, attesterRatio: auto) =
   if current_epoch >= 4:
     doAssert state.finalized_checkpoint.epoch + 2 >= current_epoch
 
-func verifyConsensus*(state: StateData, attesterRatio: auto) =
+func verifyConsensus*(state: ForkedHashedBeaconState, attesterRatio: auto) =
   if attesterRatio < 0.63:
     doAssert getStateField(state, current_justified_checkpoint).epoch == 0
     doAssert getStateField(state, finalized_checkpoint).epoch == 0
@@ -144,7 +145,7 @@ proc printTimers*[Timers: enum](
   printTimers(validate, timers)
 
 proc printTimers*[Timers: enum](
-    state: StateData, attesters: RunningStat, validate: bool,
+    state: ForkedHashedBeaconState, attesters: RunningStat, validate: bool,
     timers: array[Timers, RunningStat]) =
   echo "Validators: ", getStateField(state, validators).len, ", epoch length: ", SLOTS_PER_EPOCH
   echo "Validators per attestation (mean): ", attesters.mean

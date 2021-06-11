@@ -14,7 +14,8 @@
 import
   stew/results,
   # Specs
-  ../../beacon_chain/spec/[beaconstate, datatypes, helpers],
+  ../../beacon_chain/spec/[
+    beaconstate, datatypes, forkedbeaconstate_helpers, helpers],
   # Mock helpers
   ../mocking/[mock_genesis, mock_attestations, mock_state],
   ../testutil
@@ -22,8 +23,10 @@ import
 suite "[Unit - Spec - Block processing] Attestations " & preset():
 
   const NumValidators = uint64(8) * SLOTS_PER_EPOCH
-  let genesisState = newClone(initGenesisState(NumValidators))
-  doAssert genesisState.data.validators.lenu64 == NumValidators
+  let genesisState = (ref ForkedHashedBeaconState)(
+    hbsPhase0: initGenesisState(NumValidators), beaconStateFork: forkPhase0)
+
+  doAssert getStateField(genesisState[], validators).lenu64 == NumValidators
 
   template valid_attestation(name: string, body: untyped): untyped {.dirty.}=
     # Process a valid attestation
@@ -41,30 +44,34 @@ suite "[Unit - Spec - Block processing] Attestations " & preset():
       # Params for sanity checks
       # ----------------------------------------
       let
-        current_epoch_count = state.data.current_epoch_attestations.len
-        previous_epoch_count = state.data.previous_epoch_attestations.len
+        current_epoch_count =
+          state.hbsPhase0.data.current_epoch_attestations.len
+        previous_epoch_count =
+          state.hbsPhase0.data.previous_epoch_attestations.len
 
       # State transition
       # ----------------------------------------
       var cache = StateCache()
       check process_attestation(
-        state.data, attestation, flags = {}, cache
+        state.hbsPhase0.data, attestation, flags = {}, cache
       ).isOk
 
       # Check that the attestation was processed
-      if attestation.data.target.epoch == get_current_epoch(state.data):
-        check(state.data.current_epoch_attestations.len == current_epoch_count + 1)
+      if attestation.data.target.epoch == get_current_epoch(state[]):
+        check(state.hbsPhase0.data.current_epoch_attestations.len ==
+          current_epoch_count + 1)
       else:
-        check(state.data.previous_epoch_attestations.len == previous_epoch_count + 1)
+        check(state.hbsPhase0.data.previous_epoch_attestations.len ==
+          previous_epoch_count + 1)
 
   valid_attestation("Valid attestation"):
-    let attestation = mockAttestation(state.data)
-    state.data.slot += MIN_ATTESTATION_INCLUSION_DELAY
+    let attestation = mockAttestation(state.hbsPhase0.data)
+    getStateField(state[], slot) += MIN_ATTESTATION_INCLUSION_DELAY
 
   valid_attestation("Valid attestation from previous epoch"):
     nextSlot(state[])
-    let attestation = mockAttestation(state.data)
-    state.data.slot = Slot(SLOTS_PER_EPOCH - 1)
+    let attestation = mockAttestation(state.hbsPhase0.data)
+    getStateField(state[], slot) = Slot(SLOTS_PER_EPOCH - 1)
     nextEpoch(state[])
 
   # TODO: regression BLS V0.10.1

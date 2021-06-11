@@ -30,5 +30,9 @@ type
     slotProcessed ##\
     ## Allow blocks to be applied to states with the same slot number as the
     ## block which is what happens when `process_block` is called separately
+    skipLastStateRootCalculation ##\
+    ## When process_slots() is being called as part of a state_transition(),
+    ## the hash_tree_root() from the block will fill in the state.root so it
+    ## should skip calculating that last state root.
 
   UpdateFlags* = set[UpdateFlag]

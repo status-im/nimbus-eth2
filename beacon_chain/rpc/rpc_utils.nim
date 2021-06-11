@@ -12,7 +12,7 @@ import
   stew/byteutils,
   ../beacon_node_common, ../validators/validator_duties,
   ../consensus_object_pools/[block_pools_types, blockchain_dag],
-  ../spec/[datatypes, digest, helpers]
+  ../spec/[datatypes, digest, forkedbeaconstate_helpers, helpers]
 
 export blockchain_dag
 
@@ -21,7 +21,7 @@ template withStateForStateId*(stateId: string, body: untyped): untyped =
     bs = node.stateIdToBlockSlot(stateId)
 
   template isState(state: StateData): bool =
-    state.blck.atSlot(getStateField(state, slot)) == bs
+    state.blck.atSlot(getStateField(state.data, slot)) == bs
 
   if isState(node.dag.headState):
     withStateVars(node.dag.headState):
@@ -75,7 +75,7 @@ proc stateIdToBlockSlot*(node: BeaconNode, stateId: string): BlockSlot {.raises:
     node.dag.finalizedHead
   of "justified":
     node.dag.head.atEpochStart(
-      getStateField(node.dag.headState, current_justified_checkpoint).epoch)
+      getStateField(node.dag.headState.data, current_justified_checkpoint).epoch)
   else:
     if stateId.startsWith("0x"):
       let blckRoot = parseRoot(stateId)

@@ -10,7 +10,7 @@
 import
   options, tables, sets, macros,
   chronicles, chronos, stew/ranges/bitranges, libp2p/switch,
-  ../spec/[datatypes, network, crypto, digest],
+  ../spec/[crypto, datatypes, digest, forkedbeaconstate_helpers, network],
   ../beacon_node_types,
   ../networking/eth2_network,
   ../consensus_object_pools/blockchain_dag
@@ -85,9 +85,9 @@ proc getCurrentStatus*(state: BeaconSyncNetworkState): StatusMsg {.gcsafe.} =
   StatusMsg(
     forkDigest: state.forkDigest,
     finalizedRoot:
-      getStateField(dag.headState, finalized_checkpoint).root,
+      getStateField(dag.headState.data, finalized_checkpoint).root,
     finalizedEpoch:
-      getStateField(dag.headState, finalized_checkpoint).epoch,
+      getStateField(dag.headState.data, finalized_checkpoint).epoch,
     headRoot: headBlock.root,
     headSlot: headBlock.slot)
 

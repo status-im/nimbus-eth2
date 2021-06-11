@@ -13,7 +13,8 @@ import
   strformat,
   options, sequtils, random, tables,
   ../tests/testblockutil,
-  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest, helpers, validator],
+  ../beacon_chain/spec/[
+   beaconstate, crypto, datatypes, digest, forkedbeaconstate_helpers, helpers],
   ../beacon_chain/extras,
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
@@ -42,15 +43,16 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
        validate = true):
   let
     flags = if validate: {} else: {skipBlsValidation}
-    (state, _) = loadGenesis(validators, validate)
-    genesisBlock = get_initial_beacon_block(state.data)
+    (hashedState, _) = loadGenesis(validators, validate)
+    genesisBlock = get_initial_beacon_block(hashedState.data)
+    state = (ref ForkedHashedBeaconState)(
+      hbsPhase0: hashedState[], beaconStateFork: forkPhase0)
 
   echo "Starting simulation..."
 
   var
     attestations = initTable[Slot, seq[Attestation]]()
     latest_block_root = hash_tree_root(genesisBlock.message)
-    blockrefs = @[BlockRef(root: latest_block_root, slot: 0.Slot)]
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r = initRand(1)
@@ -59,16 +61,16 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
   proc maybeWrite(last: bool) =
     if write_last_json:
-      if state[].data.slot mod json_interval.uint64 == 0:
+      if getStateField(state[], slot) mod json_interval.uint64 == 0:
         write(stdout, ":")
       else:
         write(stdout, ".")
 
       if last:
-        writeJson("state.json", state[])
+        writeJson("state.json", state[].hbsPhase0)
     else:
-      if state[].data.slot mod json_interval.uint64 == 0:
-        writeJson(jsonName(prefix, state[].data.slot), state[].data)
+      if getStateField(state[], slot) mod json_interval.uint64 == 0:
+        writeJson(jsonName(prefix, getStateField(state[], slot)), state[].hbsPhase0.data)
         write(stdout, ":")
       else:
         write(stdout, ".")
@@ -79,10 +81,10 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
   for i in 0..<slots:
     maybeWrite(false)
-    verifyConsensus(state[].data, attesterRatio)
+    verifyConsensus(state[].hbsPhase0.data, attesterRatio)
 
     let
-      attestations_idx = state[].data.slot
+      attestations_idx = getStateField(state[], slot)
       blockAttestations = attestations.getOrDefault(attestations_idx)
 
     attestations.del attestations_idx
@@ -90,8 +92,8 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
       SLOTS_PER_EPOCH + MIN_ATTESTATION_INCLUSION_DELAY
 
     let t =
-      if (state[].data.slot > GENESIS_SLOT and
-        (state[].data.slot + 1).isEpoch): tEpoch
+      if (getStateField(state[], slot) > GENESIS_SLOT and
+        (getStateField(state[], slot) + 1).isEpoch): tEpoch
       else: tBlock
 
     withTimer(timers[t]):
@@ -107,20 +109,15 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
       # work for every slot - we'll randomize it deterministically to give
       # some variation
       let
-        target_slot = state[].data.slot + MIN_ATTESTATION_INCLUSION_DELAY - 1
+        target_slot = getStateField(state[], slot) + MIN_ATTESTATION_INCLUSION_DELAY - 1
         committees_per_slot =
-          get_committee_count_per_slot(state[].data, target_slot.epoch, cache)
-
-      blockrefs.add BlockRef(
-        root: latest_block_root, parent: blockrefs[^1], slot: target_slot)
+          get_committee_count_per_slot(state[], target_slot.epoch, cache)
 
       let
         scass = withTimerRet(timers[tShuffle]):
           mapIt(
             0 ..< committees_per_slot.int,
-            get_beacon_committee(state[].data, target_slot, it.CommitteeIndex, cache))
-
-        stateData = (ref StateData)(data: state[], blck: blockrefs[^1])
+            get_beacon_committee(state[], target_slot, it.CommitteeIndex, cache))
 
       for i, scas in scass:
         var
@@ -135,13 +132,13 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
             if (rand(r, high(int)).float * attesterRatio).int <= high(int):
               if first:
                 attestation =
-                  makeAttestation(stateData[], latest_block_root, scas, target_slot,
+                  makeAttestation(state[], latest_block_root, scas, target_slot,
                     i.CommitteeIndex, v, cache, flags)
                 agg.init(attestation.signature.load.get())
                 first = false
               else:
                 let att2 =
-                  makeAttestation(stateData[], latest_block_root, scas, target_slot,
+                  makeAttestation(state[], latest_block_root, scas, target_slot,
                     i.CommitteeIndex, v, cache, flags)
                 if not att2.aggregation_bits.overlaps(attestation.aggregation_bits):
                   attestation.aggregation_bits.incl(att2.aggregation_bits)
@@ -164,13 +161,13 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
     flushFile(stdout)
 
-    if (state[].data.slot).isEpoch:
-      echo &" slot: {shortLog(state[].data.slot)} ",
-        &"epoch: {shortLog(state[].data.get_current_epoch())}"
+    if getStateField(state[], slot).isEpoch:
+      echo &" slot: {shortLog(getStateField(state[], slot))} ",
+        &"epoch: {shortLog(state[].get_current_epoch())}"
 
 
   maybeWrite(true) # catch that last state as well..
 
   echo "Done!"
 
-  printTimers(state[].data, attesters, validate, timers)
+  printTimers(state[].hbsPhase0.data, attesters, validate, timers)

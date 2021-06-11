@@ -12,8 +12,8 @@ import
   confutils/defs, serialization, chronicles,
   # Beacon-chain
   ../beacon_chain/spec/[
-      datatypes, crypto, helpers, beaconstate, helpers,
-      state_transition_block, state_transition_epoch, state_transition],
+      beaconstate, crypto, datatypes, forkedbeaconstate_helpers, helpers,
+      state_transition, state_transition_block],
   ../beacon_chain/extras,
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ../tests/official/fixtures_utils
@@ -149,10 +149,11 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
     rewards = RewardInfo()
 
   echo "Running: ", prePath
-  let state = (ref HashedBeaconState)(
-    data: parseSSZ(prePath, BeaconState)
+  let state = (ref ForkedHashedBeaconState)(
+    hbsPhase0: HashedBeaconState(data: parseSSZ(prePath, BeaconState)),
+    beaconStateFork: forkPhase0
   )
-  state.root = hash_tree_root(state.data)
+  state.hbsPhase0.root = hash_tree_root(state[])
 
   for i in 0 ..< blocksQty:
     let blockPath = dir / blocksPrefix & $i & ".ssz"
@@ -173,13 +174,15 @@ proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
   let prePath = dir / preState & ".ssz"
 
   echo "Running: ", prePath
-  let state = (ref HashedBeaconState)(
-    data: parseSSZ(prePath, BeaconState)
-  )
-  state.root = hash_tree_root(state.data)
+  let state = (ref ForkedHashedBeaconState)(
+    hbsPhase0: HashedBeaconState(data: parseSSZ(prePath, BeaconState)),
+    beaconStateFork: forkPhase0)
+  state.hbsPhase0.root = hash_tree_root(state[])
 
   # Shouldn't necessarily assert, because nbench can run test suite
-  discard process_slots(state[], state.data.slot + numSlots, cache, rewards)
+  discard process_slots(
+    state[], getStateField(state[], slot) + numSlots, cache, rewards, {},
+    FAR_FUTURE_SLOT)
 
 template processEpochScenarioImpl(
            dir, preState: string,

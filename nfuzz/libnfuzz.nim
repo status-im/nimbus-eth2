@@ -4,8 +4,9 @@
 import
   stew/ptrops, stew/ranges/ptr_arith, chronicles,
   ../beacon_chain/extras,
-  ../beacon_chain/spec/[crypto, datatypes, digest, validator, beaconstate,
-                        state_transition_block, state_transition, presets],
+  ../beacon_chain/spec/[
+    beaconstate, crypto, datatypes, digest, forkedbeaconstate_helpers, presets,
+      validator, state_transition, state_transition_block],
   ../beacon_chain/ssz/[merkleization, ssz_serialization]
 
 type
@@ -110,17 +111,19 @@ proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
   # and requiring HashedBeaconState (yet). So to keep consistent, puts wrapper
   # only in one function.
   proc state_transition(
-      preset: RuntimePreset, data: auto, blck: auto, flags: auto, rollback: RollbackHashedProc):
-      auto =
+      preset: RuntimePreset, data: auto, blck: auto, flags: auto,
+      rollback: RollbackForkedHashedProc): auto =
     var
-      hashedState =
-        HashedBeaconState(data: data.state, root: hash_tree_root(data.state))
+      fhState = (ref ForkedHashedBeaconState)(
+        hbsPhase0: HashedBeaconState(
+          data: data.state, root: hash_tree_root(data.state)),
+        beaconStateFork: forkPhase0)
       cache = StateCache()
       rewards = RewardInfo()
     result =
       state_transition(
-        preset, hashedState, blck, cache, rewards, flags, rollback)
-    data.state = hashedState.data
+        preset, fhState[], blck, cache, rewards, flags, rollback)
+    data.state = fhState.hbsPhase0.data
 
   decodeAndProcess(BlockInput):
     state_transition(defaultRuntimePreset, data, data.beaconBlock, flags, noRollback)

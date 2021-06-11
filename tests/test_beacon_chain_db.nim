@@ -12,7 +12,8 @@ import
   unittest2,
   ../beacon_chain/[beacon_chain_db, extras, interop, ssz],
   ../beacon_chain/spec/[
-    beaconstate, datatypes, digest, crypto, state_transition, presets],
+    beaconstate, crypto, datatypes, digest, forkedbeaconstate_helpers, presets,
+    state_transition],
   ../beacon_chain/consensus_object_pools/blockchain_dag,
   eth/db/kvstore,
   # test utilies
@@ -73,12 +74,12 @@ suite "Beacon chain DB" & preset():
       testStates = getTestStates(dag.headState.data)
 
     # Ensure transitions beyond just adding validators and increasing slots
-    sort(testStates) do (x, y: ref HashedBeaconState) -> int:
-      cmp($x.root, $y.root)
+    sort(testStates) do (x, y: ref ForkedHashedBeaconState) -> int:
+      cmp($getStateRoot(x[]), $getStateRoot(y[]))
 
     for state in testStates:
-      db.putState(state[].data)
-      let root = hash_tree_root(state[].data)
+      db.putState(state[].hbsPhase0.data)
+      let root = hash_tree_root(state[])
 
       check:
         db.containsState(root)
@@ -98,12 +99,12 @@ suite "Beacon chain DB" & preset():
     var testStates = getTestStates(dag.headState.data)
 
     # Ensure transitions beyond just adding validators and increasing slots
-    sort(testStates) do (x, y: ref HashedBeaconState) -> int:
-      cmp($x.root, $y.root)
+    sort(testStates) do (x, y: ref ForkedHashedBeaconState) -> int:
+      cmp($getStateRoot(x[]), $getStateRoot(y[]))
 
     for state in testStates:
-      db.putState(state[].data)
-      let root = hash_tree_root(state[].data)
+      db.putState(state[].hbsPhase0.data)
+      let root = hash_tree_root(state[])
 
       check:
         db.getState(root, stateBuffer[], noRollback)

@@ -4,7 +4,7 @@ import presto,
        faststreams/[outputs],
        serialization, json_serialization,
        nimcrypto/utils as ncrutils,
-       ../spec/[crypto, digest, datatypes],
+       ../spec/[crypto, datatypes, digest, forkedbeaconstate_helpers],
        ../beacon_node_common,
        ../consensus_object_pools/[block_pools_types, blockchain_dag]
 export blockchain_dag, presto
@@ -508,8 +508,8 @@ proc getBlockSlot*(node: BeaconNode,
     of StateIdentType.Finalized:
       ok(node.dag.finalizedHead)
     of StateIdentType.Justified:
-      ok(node.dag.head.atEpochStart(
-         getStateField(node.dag.headState, current_justified_checkpoint).epoch))
+      ok(node.dag.head.atEpochStart(getStateField(
+        node.dag.headState.data, current_justified_checkpoint).epoch))
 
 proc getBlockDataFromBlockIdent*(node: BeaconNode,
                                  id: BlockIdent): Result[BlockData, cstring] =
@@ -537,7 +537,7 @@ proc getBlockDataFromBlockIdent*(node: BeaconNode,
 template withStateForBlockSlot*(node: BeaconNode,
                                 blockSlot: BlockSlot, body: untyped): untyped =
   template isState(state: StateData): bool =
-    state.blck.atSlot(getStateField(state, slot)) == blockSlot
+    state.blck.atSlot(getStateField(state.data, slot)) == blockSlot
 
   if isState(node.dag.headState):
     withStateVars(node.dag.headState):

@@ -21,7 +21,8 @@ import
 
   # Local modules
   ../spec/[
-    datatypes, digest, crypto, helpers, network, signatures, state_transition],
+    datatypes, digest, crypto, forkedbeaconstate_helpers, helpers, network,
+    signatures, state_transition],
   ../conf, ../beacon_clock,
   ../consensus_object_pools/[
     spec_cache, blockchain_dag, block_clearance,
@@ -56,7 +57,7 @@ logScope: topics = "beacval"
 
 proc findValidator(validators: auto, pubKey: ValidatorPubKey):
     Option[ValidatorIndex] =
-  let idx = validators.asSeq.findIt(it.pubKey == pubKey)
+  let idx = validators.findIt(it.pubKey == pubKey)
   if idx == -1:
     # We allow adding a validator even if its key is not in the state registry:
     # it might be that the deposit for this validator has not yet been processed
@@ -66,16 +67,17 @@ proc findValidator(validators: auto, pubKey: ValidatorPubKey):
     some(idx.ValidatorIndex)
 
 proc addLocalValidator(node: BeaconNode,
-                       stateData: StateData,
+                       validators: openArray[Validator],
                        privKey: ValidatorPrivKey) =
   let pubKey = privKey.toPubKey()
   node.attachedValidators[].addLocalValidator(
     pubKey, privKey,
-    findValidator(getStateField(stateData, validators), pubKey.toPubKey()))
+    findValidator(validators, pubKey.toPubKey()))
 
 proc addLocalValidators*(node: BeaconNode) =
   for validatorKey in node.config.validatorKeys:
-    node.addLocalValidator node.dag.headState, validatorKey
+    node.addLocalValidator(
+      getStateField(node.dag.headState.data, validators).asSeq, validatorKey)
 
 proc addRemoteValidators*(node: BeaconNode) {.raises: [Defect, OSError, IOError].} =
   # load all the validators from the child process - loop until `end`
@@ -85,7 +87,7 @@ proc addRemoteValidators*(node: BeaconNode) {.raises: [Defect, OSError, IOError]
       let
         key = ValidatorPubKey.fromHex(line).get()
         index = findValidator(
-          getStateField(node.dag.headState, validators), key)
+          getStateField(node.dag.headState.data, validators).asSeq, key)
         pk = key.load()
       if pk.isSome():
         let v = AttachedValidator(pubKey: pk.get(),
@@ -254,19 +256,20 @@ proc createAndSendAttestation(node: BeaconNode,
     notice "Error sending attestation", err = exc.msg
 
 proc getBlockProposalEth1Data*(node: BeaconNode,
-                               stateData: StateData): BlockProposalEth1Data =
+                               state: ForkedHashedBeaconState):
+                               BlockProposalEth1Data =
   if node.eth1Monitor.isNil:
     var pendingDepositsCount =
-      getStateField(stateData, eth1_data).deposit_count -
-        getStateField(stateData, eth1_deposit_index)
+      getStateField(state, eth1_data).deposit_count -
+        getStateField(state, eth1_deposit_index)
     if pendingDepositsCount > 0:
       result.hasMissingDeposits = true
     else:
-      result.vote = getStateField(stateData, eth1_data)
+      result.vote = getStateField(state, eth1_data)
   else:
     let finalizedEpochRef = node.dag.getFinalizedEpochRef()
     result = node.eth1Monitor.getBlockProposalData(
-      stateData, finalizedEpochRef.eth1_data,
+      state, finalizedEpochRef.eth1_data,
       finalizedEpochRef.eth1_deposit_index)
 
 func getOpaqueTransaction(s: string): OpaqueTransaction =
@@ -302,7 +305,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
 
   node.dag.withState(proposalState[], head.atSlot(slot)):
     let
-      eth1Proposal = node.getBlockProposalEth1Data(stateData)
+      eth1Proposal = node.getBlockProposalEth1Data(stateData.data)
       poolPtr = unsafeAddr node.dag # safe because restore is short-lived
 
     if eth1Proposal.hasMissingDeposits:
@@ -318,13 +321,14 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
 
     return makeBeaconBlock(
       node.runtimePreset,
-      hashedState,
+      stateData.data.hbsPhase0,
       validator_index,
       head.root,
       randao_reveal,
       eth1Proposal.vote,
       graffiti,
-      node.attestationPool[].getAttestationsForBlock(stateData, cache),
+      node.attestationPool[].getAttestationsForBlock(
+        stateData.data.hbsPhase0, cache),
       eth1Proposal.deposits,
       node.exitPool[].getProposerSlashingsForBlock(),
       node.exitPool[].getAttesterSlashingsForBlock(),
@@ -381,9 +385,9 @@ proc proposeBlock(node: BeaconNode,
     return head
 
   let
-    fork = getStateField(node.dag.headState, fork)
+    fork = getStateField(node.dag.headState.data, fork)
     genesis_validators_root =
-      getStateField(node.dag.headState, genesis_validators_root)
+      getStateField(node.dag.headState.data, genesis_validators_root)
     randao = await validator.genRandaoReveal(
       fork, genesis_validators_root, slot)
     message = await makeBeaconBlockForHeadAndSlot(
@@ -455,9 +459,9 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     epochRef = node.dag.getEpochRef(
       attestationHead.blck, slot.compute_epoch_at_slot())
     committees_per_slot = get_committee_count_per_slot(epochRef)
-    fork = getStateField(node.dag.headState, fork)
+    fork = getStateField(node.dag.headState.data, fork)
     genesis_validators_root =
-      getStateField(node.dag.headState, genesis_validators_root)
+      getStateField(node.dag.headState.data, genesis_validators_root)
 
   for committee_index in get_committee_indices(epochRef):
     let committee = get_beacon_committee(epochRef, slot, committee_index)
@@ -528,9 +532,9 @@ proc broadcastAggregatedAttestations(
 
   let
     epochRef = node.dag.getEpochRef(aggregationHead, aggregationSlot.epoch)
-    fork = getStateField(node.dag.headState, fork)
+    fork = getStateField(node.dag.headState.data, fork)
     genesis_validators_root =
-      getStateField(node.dag.headState, genesis_validators_root)
+      getStateField(node.dag.headState.data, genesis_validators_root)
     committees_per_slot = get_committee_count_per_slot(epochRef)
 
   var
@@ -589,14 +593,14 @@ proc updateValidatorMetrics*(node: BeaconNode) =
         if v.index.isNone():
           0.Gwei
         elif v.index.get().uint64 >=
-            getStateField(node.dag.headState, balances).lenu64:
+            getStateField(node.dag.headState.data, balances).lenu64:
           debug "Cannot get validator balance, index out of bounds",
             pubkey = shortLog(v.pubkey), index = v.index.get(),
-            balances = getStateField(node.dag.headState, balances).len,
-            stateRoot = node.dag.headState.data.root
+            balances = getStateField(node.dag.headState.data, balances).len,
+            stateRoot = getStateRoot(node.dag.headState.data)
           0.Gwei
         else:
-          getStateField(node.dag.headState, balances)[v.index.get()]
+          getStateField(node.dag.headState.data, balances)[v.index.get()]
 
       if i < 64:
         attached_validator_balance.set(
