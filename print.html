@@ -803,6 +803,10 @@ WantedBy=default.target
 <pre><code class="language-console">sudo journalctl -u nimbus-eth2-prater.service --since yesterday
 </code></pre>
 <p>For more options, see <a href="https://www.raspberrypi.org/documentation/linux/usage/systemd.md">here</a>.</p>
+<h2><a class="header" href="#further-examples" id="further-examples">Further examples</a></h2>
+<ul>
+<li><a href="https://github.com/chfast/ethereum-node/blob/main/nimbus%40.service">A systemd service file</a> by Pawel Bylica which allows you to start two services at the same time: e.g. <code>nimbus@prater.service</code> and <code>nimbus@mainnet.service</code>.</li>
+</ul>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/beacon-node-systemd.md">Edit this file on GitHub.</a></footer><h1><a class="header" href="#log-rotation" id="log-rotation">Log rotation</a></h1>
 <p>Nimbus logs are written to stdout, and optionally to a file. Writing to a file for a long-running process may lead to difficulties when the file grows large. This is typically solved with a <em>log rotator</em>. A log rotator is responsible for switching the written-to file, as well as compressing and removing old logs.</p>
 <h2><a class="header" href="#using-logrotate" id="using-logrotate">Using <code>logrotate</code></a></h2>
@@ -2187,6 +2191,13 @@ create distributable tarballs.</p>
 <p>If you're already validating with Nimbus, you should start thinking about transitioning from Pyrmont to Prater at some point over the next few weeks. However, there is no immediate rush, so please do so at your own convenience. If you're new to Nimbus then you could try starting directly with Prater.</p>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/prater.md">Edit this file on GitHub.</a></footer><h1><a class="header" href="#frequently-asked-questions" id="frequently-asked-questions">Frequently Asked Questions</a></h1>
 <h2><a class="header" href="#nimbus-1" id="nimbus-1">Nimbus</a></h2>
+<h3><a class="header" href="#how-do-i-fix-the-discovered-new-external-address-warning-log" id="how-do-i-fix-the-discovered-new-external-address-warning-log">How do I fix the discovered new external address warning log?</a></h3>
+<pre><code>WRN 2021-03-15 02:23:37.569+00:00 Discovered new external address but ENR auto update is off topics=&quot;discv5&quot;...
+</code></pre>
+<p>It's possible that your ISP has changed your IP address without you knowing.</p>
+<p>The first thing to do it to try relaunching the beacon node with with <code>--enr-auto-update:true</code> (pass it as an option in the command line).</p>
+<p>If this doesn't fix the problem, the next thing to do is to check your external (public) IP address and detect open ports on your connection - you can use <a href="https://www.yougetsignal.com/tools/open-ports/">https://www.yougetsignal.com/tools/open-ports/</a>.  Note that Nimbus <code>TCP</code> and <code>UDP</code> ports are both set to <code>9000</code> by default.</p>
+<p>See <a href="./health.html#set-up-port-forwarding">here</a>, for how to set up port forwarding.</p>
 <h3><a class="header" href="#why-are-metrics-not-working" id="why-are-metrics-not-working">Why are metrics not working?</a></h3>
 <p>The metrics server is disabled by default, enable it by passing <code>--metrics</code> to the run command:</p>
 <pre><code>./run-mainnet-beacon-node.sh --metrics ...
@@ -2200,7 +2211,7 @@ create distributable tarballs.</p>
 <h3><a class="header" href="#whats-the-best-way-to-stress-test-my-eth1--eth2-setup-before-committing-with-real-eth" id="whats-the-best-way-to-stress-test-my-eth1--eth2-setup-before-committing-with-real-eth">What's the best way to stress test my eth1 + eth2 setup before committing with real ETH?</a></h3>
 <p>We recommend <a href="./quick-start.html">running a Nimbus beacon node</a> on <a href="./prater.html">Prater</a> and a mainnet <a href="./eth1.html">eth1 client</a> on the same machine.</p>
 <p>To stress test it, <code>add--subscribe-all-subnets</code> to the <a href="./options.html">beacon node options</a>. This represents more or less the maximum load you could have on eth2.</p>
-<h1><a class="header" href="#how-do-i-add-an-additional-validator" id="how-do-i-add-an-additional-validator">How do I add an additional validator?</a></h1>
+<h3><a class="header" href="#how-do-i-add-an-additional-validator" id="how-do-i-add-an-additional-validator">How do I add an additional validator?</a></h3>
 <p>To add an additional validator, just follow <a href="./keys.html">the same steps</a> as you did when you added your first. You'll have to restart the beacon node for the changes to take effect.</p>
 <blockquote>
 <p>Note that a single Nimbus instance is able to handle multiple validators.</p>
