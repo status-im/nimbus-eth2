@@ -74,3 +74,7 @@ sudo journalctl -u nimbus-eth2-prater.service --since yesterday
 ```
 
 For more options, see [here](https://www.raspberrypi.org/documentation/linux/usage/systemd.md).
+
+## Further examples
+
+- [A systemd service file](https://github.com/chfast/ethereum-node/blob/main/nimbus%40.service) by Pawel Bylica which allows you to start two services at the same time: e.g. `nimbus@prater.service` and `nimbus@mainnet.service`.
