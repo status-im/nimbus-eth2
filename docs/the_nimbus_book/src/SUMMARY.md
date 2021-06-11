@@ -23,6 +23,7 @@
 - [Recover / generate keys](./more-keys.md)
 - [Perform a voluntary exit](./voluntary-exit.md)
 - [Add an additional validator](./additional-validator.md)
+- [Monitor attestation performance](./attestation-performance.md)
 
 
 # How-to (misc)
