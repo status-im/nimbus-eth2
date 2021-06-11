@@ -284,11 +284,13 @@ proc state_transition_block*(
   # Ensure state_transition_block()-only callers trigger this
   maybeUpgradeStateToAltair(state, altairForkSlot)
 
-  if not (case state.beaconStateFork:
-      of forkPhase0: state_transition_block_aux(
-        preset, state.hbsPhase0, signedBlock, cache, flags)
-      of forkAltair: state_transition_block_aux(
-        preset, state.hbsAltair, signedBlock, cache, flags)):
+  let success = case state.beaconStateFork:
+    of forkPhase0: state_transition_block_aux(
+      preset, state.hbsPhase0, signedBlock, cache, flags)
+    of forkAltair: state_transition_block_aux(
+      preset, state.hbsAltair, signedBlock, cache, flags)
+
+  if not success:
     rollback(state)
     return false
 

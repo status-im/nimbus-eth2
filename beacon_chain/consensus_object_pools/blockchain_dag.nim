@@ -451,7 +451,7 @@ func getEpochRef*(
     dag: ChainDAGRef, state: StateData, cache: var StateCache): EpochRef =
   let
     blck = state.blck
-    epoch = state.get_current_epoch()
+    epoch = state.data.get_current_epoch()
 
   var epochRef = dag.findEpochRef(blck, epoch)
   if epochRef == nil:

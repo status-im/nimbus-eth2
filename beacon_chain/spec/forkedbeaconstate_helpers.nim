@@ -29,13 +29,6 @@ type
 # State-related functionality based on ForkedHashedBeaconState instead of BeaconState
 
 # Dispatch functions
-template callWithBS*(op: untyped, y: ForkedHashedBeaconState): untyped =
-  let bs {.inject.} =
-    case y.beaconStateFork:
-    of forkPhase0: y.hbsPhase0.data
-    of forkAltair: y.hbsAltair.data
-  op
-
 func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
   if tgt.beaconStateFork == src.beaconStateFork:
     if tgt.beaconStateFork == forkPhase0:
