@@ -140,8 +140,7 @@ suite "Official - Altair - SSZ consensus objects " & preset():
           of "SyncCommittee": checkSSZ(SyncCommittee, path, hash)
           of "SyncCommitteeContribution":
             checkSSZ(SyncCommitteeContribution, path, hash)
-          of "SyncCommitteeSignature":
-            checkSSZ(SyncCommitteeSignature, path, hash)
+          of "SyncCommitteeMessage": checkSSZ(SyncCommitteeMessage, path, hash)
           of "Validator": checkSSZ(Validator, path, hash)
           of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
           else:

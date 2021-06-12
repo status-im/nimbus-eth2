@@ -24,15 +24,15 @@ import
 when isMainModule:
   import chronicles # or some random compile error happens...
 
-const OpSyncCommitteeDir = SszTestsDir/const_preset/"altair"/"operations"/"sync_committee"/"pyspec_tests"
+const OpSyncAggregateDir = SszTestsDir/const_preset/"altair"/"operations"/"sync_aggregate"/"pyspec_tests"
 
-proc runTest(identifier: string) =
+proc runTest(dir, identifier: string) =
   # We wrap the tests in a proc to avoid running out of globals
   # in the future: Nim supports up to 3500 globals
   # but unittest with the macro/templates put everything as globals
   # https://github.com/nim-lang/Nim/issues/12084#issue-486866402
 
-  let testDir = OpSyncCommitteeDir / identifier
+  let testDir = dir / identifier
 
   proc `testImpl_sync_committee _ identifier`() =
 
@@ -54,17 +54,17 @@ proc runTest(identifier: string) =
         let
           postState =
             newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
-          done = process_sync_committee(
+          done = process_sync_aggregate(
             preState[], syncAggregate, cache).isOk
         doAssert done, "Valid sync aggregate not processed"
         check: preState[].hash_tree_root() == postState[].hash_tree_root()
         reportDiff(preState, postState)
       else:
-        let done = process_sync_committee(preState[], syncAggregate, cache).isOk
+        let done = process_sync_aggregate(preState[], syncAggregate, cache).isOk
         doAssert done == false, "We didn't expect this invalid proposer slashing to be processed."
 
   `testImpl_sync_committee _ identifier`()
 
-suite "Official - Altair - Operations - Sync Committee " & preset():
-  for kind, path in walkDir(OpSyncCommitteeDir, true):
-    runTest(path)
+suite "Official - Altair - Operations - Sync Aggregate" & preset():
+  for kind, path in walkDir(OpSyncAggregateDir, true):
+    runTest(OpSyncAggregateDir, path)

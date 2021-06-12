@@ -559,7 +559,7 @@ func get_attestation_deltas(state: phase0.BeaconState, rewards: var RewardInfo) 
         rewards.statuses[proposer_index].delta.add(
           proposer_delta.get()[1])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#get_base_reward_per_increment
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#get_base_reward_per_increment
 func get_base_reward_per_increment(
     state: altair.BeaconState, total_active_balance: Gwei): Gwei =
   # TODO hoist this integer_squareroot, as with phase 0
