@@ -168,8 +168,6 @@ func noRollback*(state: var phase0.HashedBeaconState) =
 
 proc maybeUpgradeStateToAltair(
     state: var ForkedHashedBeaconState, altairForkSlot: Slot) =
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/fork.md#upgrading-the-state
-
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
   if  getStateField(state, slot) == altairForkSlot and

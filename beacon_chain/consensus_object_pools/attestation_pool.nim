@@ -15,8 +15,9 @@ import
   chronicles, stew/byteutils, json_serialization/std/sets as jsonSets,
   # Internal
   ../spec/[
-    beaconstate, datatypes, crypto, digest, forkedbeaconstate_helpers,
+    beaconstate, crypto, digest, forkedbeaconstate_helpers,
     validator],
+  ../spec/datatypes/[phase0, altair],
   ../ssz/merkleization,
   "."/[spec_cache, blockchain_dag, block_quarantine],
   ".."/[beacon_clock, beacon_node_types, extras],
@@ -311,7 +312,7 @@ proc addAttestation*(pool: var AttestationPool,
 proc addForkChoice*(pool: var AttestationPool,
                     epochRef: EpochRef,
                     blckRef: BlockRef,
-                    blck: TrustedBeaconBlock,
+                    blck: phase0.TrustedBeaconBlock,
                     wallSlot: Slot) =
   ## Add a verified block to the fork choice context
   let state = pool.forkChoice.process_block(
@@ -372,7 +373,7 @@ func add(
   do:
     attCache[key] = aggregation_bits
 
-func init(T: type AttestationCache, state: HashedBeaconState): T =
+func init(T: type AttestationCache, state: phase0.HashedBeaconState): T =
   # Load attestations that are scheduled for being given rewards for
   for i in 0..<state.data.previous_epoch_attestations.len():
     result.add(
@@ -405,7 +406,7 @@ proc score(
   bitsScore
 
 proc getAttestationsForBlock*(pool: var AttestationPool,
-                              state: HashedBeaconState,
+                              state: phase0.HashedBeaconState,
                               cache: var StateCache): seq[Attestation] =
   ## Retrieve attestations that may be added to a new block at the slot of the
   ## given state
