@@ -376,7 +376,7 @@ type
     # [New in Altair]
     sync_aggregate*: SyncAggregate
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig
