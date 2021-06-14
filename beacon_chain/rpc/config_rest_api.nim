@@ -18,7 +18,10 @@ import
 logScope: topics = "rest_config"
 
 func getDepositAddress(node: BeaconNode): string =
-  $node.runtimePreset.DEPOSIT_CONTRACT_ADDRESS
+  if isNil(node.eth1Monitor):
+    "0x0000000000000000000000000000000000000000"
+  else:
+    $node.eth1Monitor.depositContractAddress
 
 proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet,
