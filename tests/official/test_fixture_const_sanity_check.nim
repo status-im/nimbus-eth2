@@ -22,7 +22,7 @@ const
   SpecDir = currentSourcePath.rsplit(DirSep, 1)[0] /
                   ".."/".."/"beacon_chain"/"spec"
 
-  # v1.1.0-alpha.6 doesn't seem to have this file
+  # v1.1.0-alpha.7 doesn't seem to have this file
   OldSszTestsDir* = FixturesDir / "tests-v1.1.0-alpha.5"
   Config = OldSszTestsDir/const_preset/"config"/"phase0.yaml"
 

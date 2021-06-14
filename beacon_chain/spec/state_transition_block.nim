@@ -337,7 +337,7 @@ proc process_operations(preset: RuntimePreset,
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#sync-committee-processing
-proc process_sync_committee*(
+proc process_sync_aggregate*(
     state: var altair.BeaconState, aggregate: SyncAggregate, cache: var StateCache):
     Result[void, cstring] {.nbench.} =
   # Verify sync committee aggregate signature signing over the previous slot
@@ -356,7 +356,7 @@ proc process_sync_committee*(
   # Empty participants allowed
   if participant_pubkeys.len > 0 and not blsFastAggregateVerify(
       participant_pubkeys, signing_root.data, aggregate.sync_committee_signature):
-    return err("process_sync_committee: invalid signature")
+    return err("process_sync_aggregate: invalid signature")
 
   # Compute participant and proposer rewards
   let
@@ -377,18 +377,21 @@ proc process_sync_committee*(
     if v.pubkey in s:
       pubkeyIndices[v.pubkey] = i.ValidatorIndex
 
-  let committee_indices = mapIt(state.current_sync_committee.pubkeys, pubkeyIndices.getOrDefault(it))
-  var participant_indices: seq[ValidatorIndex]
-  for i, committee_index in committee_indices:
-    if aggregate.sync_committee_bits[i]:
-      participant_indices.add committee_index
-  for participant_index in participant_indices:
+  # TODO could use a sequtils2 zipIt
+  for i in 0 ..< min(
+      state.current_sync_committee.pubkeys.len,
+      aggregate.sync_committee_bits.len):
     let proposer_index = get_beacon_proposer_index(state, cache)
     if proposer_index.isSome:
-      increase_balance(state, participant_index, participant_reward)
-      increase_balance(state, proposer_index.get, proposer_reward)
+      let participant_index =
+        pubkeyIndices.getOrDefault(state.current_sync_committee.pubkeys[i])
+      if aggregate.sync_committee_bits[i]:
+        increase_balance(state, participant_index, participant_reward)
+        increase_balance(state, proposer_index.get, proposer_reward)
+      else:
+        decrease_balance(state, participant_index, participant_reward)
     else:
-      warn "process_sync_committee: get_beacon_proposer_index failed"
+      warn "process_sync_aggregate: get_beacon_proposer_index failed"
 
   ok()
 
@@ -419,7 +422,7 @@ proc process_block*(
   # The transition-triggering block creates, not acts on, an Altair state
   err("process_block: Altair state with Phase 0 block")
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#block-processing
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/altair.nim
 type SomeAltairBlock =
@@ -436,7 +439,7 @@ proc process_block*(
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
   ? process_operations(preset, state, blck.body, flags, cache)
-  ? process_sync_committee(state, blck.body.sync_aggregate, cache)  # [New in Altair]
+  ? process_sync_aggregate(state, blck.body.sync_aggregate, cache)  # [New in Altair]
 
   ok()
 

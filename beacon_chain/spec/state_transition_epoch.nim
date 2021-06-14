@@ -277,8 +277,8 @@ proc process_justification_and_finalization*(state: var phase0.BeaconState,
       current_epoch = current_epoch,
       checkpoint = shortLog(state.finalized_checkpoint)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#justification-and-finalization
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/phase0/beacon-chain.md#justification-and-finalization
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#justification-and-finalization
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/phase0/beacon-chain.md#justification-and-finalization
 # TODO merge these things -- effectively, the phase0 process_justification_and_finalization is mostly a stub in this world
 proc weigh_justification_and_finalization(state: var altair.BeaconState,
                                           total_active_balance: Gwei,
@@ -559,24 +559,19 @@ func get_attestation_deltas(state: phase0.BeaconState, rewards: var RewardInfo) 
         rewards.statuses[proposer_index].delta.add(
           proposer_delta.get()[1])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#get_base_reward_per_increment
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#get_base_reward_per_increment
 func get_base_reward_per_increment(
     state: altair.BeaconState, total_active_balance: Gwei): Gwei =
   # TODO hoist this integer_squareroot, as with phase 0
   EFFECTIVE_BALANCE_INCREMENT * BASE_REWARD_FACTOR div
     integer_squareroot(total_active_balance)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#get_base_reward
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward(
     state: altair.BeaconState, index: ValidatorIndex, total_active_balance: Gwei):
     Gwei =
   ## Return the base reward for the validator defined by ``index`` with respect
   ## to the current ``state``.
-  #
-  # Note: An optimally performing validator can earn one base reward per epoch
-  # over a long time horizon. This takes into account both per-epoch (e.g.
-  # attestation) and intermittent duties (e.g. block proposal and sync
-  # committees).
   let increments =
     state.validators[index].effective_balance div EFFECTIVE_BALANCE_INCREMENT
   increments * get_base_reward_per_increment(state, total_active_balance)

@@ -121,9 +121,7 @@ type
     DOMAIN_SELECTION_PROOF = 5
     DOMAIN_AGGREGATE_AND_PROOF = 6
 
-    # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.2/specs/altair/beacon-chain.md#domain-types
-    # Needs to be in same enum definition and is safe regardless of whether one
-    # only accesses phase 0 definitions
+    # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#domain-types
     DOMAIN_SYNC_COMMITTEE = 7
     DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF = 8
     DOMAIN_CONTRIBUTION_AND_PROOF = 9

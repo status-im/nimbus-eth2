@@ -604,7 +604,7 @@ func check_attestation_index(
 
   ok()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#get_attestation_participation_flag_indices
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(state: altair.BeaconState,
                                                 data: AttestationData,
                                                 inclusion_delay: uint64): seq[int] =
@@ -773,6 +773,8 @@ func get_next_sync_committee_indices(state: altair.BeaconState):
   ## duplicate indices) for the next sync committee, given a ``state`` at a
   ## sync committee period boundary.
 
+  # TODO this size is known statically, so return array[] if possible
+
   # Note: Committee can contain duplicate indices for small validator sets
   # (< SYNC_COMMITTEE_SIZE + 128)
   let epoch = get_current_epoch(state) + 1
@@ -799,42 +801,26 @@ func get_next_sync_committee_indices(state: altair.BeaconState):
     i += 1'u64
   sync_committee_indices
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#get_next_sync_committee
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#get_next_sync_committee
 proc get_next_sync_committee*(state: altair.BeaconState): SyncCommittee =
   ## Return the *next* sync committee for a given ``state``.
-  #
-  # ``SyncCommittee`` contains an aggregate pubkey that enables
-  # resource-constrained clients to save some computation when verifying the
-  # sync committee's signature.
-  #
-  # ``SyncCommittee`` can also contain duplicate pubkeys, when
-  # ``get_next_sync_committee_indices`` returns duplicate indices.
-  # Implementations must take care when handling optimizations relating to
-  # aggregation and verification in the presence of duplicates.
-  #
-  # Note: This function should only be called at sync committee period
-  # boundaries by ``process_sync_committee_updates`` as
-  # ``get_next_sync_committee_indices`` is not stable within a given period.
-  let
-    indices = get_next_sync_committee_indices(state)
-    pubkeys = mapIt(indices, state.validators[it].pubkey)
-
+  let indices = get_next_sync_committee_indices(state)
   # TODO not robust
-  doAssert pubkeys.len == SYNC_COMMITTEE_SIZE
+  doAssert indices.len == SYNC_COMMITTEE_SIZE
+
+  var res: SyncCommittee
+  for i, index in indices:
+    res.pubkeys.data[i] = state.validators[index].pubkey
+  res.pubkeys.resetCache()
 
   # see signatures_batch, TODO shouldn't be here
   # Deposit processing ensures all keys are valid
-  var
-    attestersAgg: AggregatePublicKey
-  attestersAgg.init(pubkeys[0].loadWithCache().get)
-  for i in 1 ..< pubkeys.len:
-    attestersAgg.aggregate(pubkeys[i].loadWithCache().get)
-  let aggregate_pubkey = finish(attestersAgg)
+  var attestersAgg: AggregatePublicKey
+  attestersAgg.init(res.pubkeys.data[0].loadWithCache().get)
+  for i in 1 ..< res.pubkeys.data.len:
+    attestersAgg.aggregate(res.pubkeys.data[i].loadWithCache().get)
 
-  var res = SyncCommittee(aggregate_pubkey: aggregate_pubkey.toPubKey())
-  for i in 0 ..< SYNC_COMMITTEE_SIZE:
-    # obviously ineffecient
-    res.pubkeys[i] = pubkeys[i]
+  res.aggregate_pubkey = finish(attestersAgg).toPubKey()
   res
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/fork.md#upgrading-the-state
@@ -862,7 +848,7 @@ func translate_participation(
 proc upgrade_to_altair*(pre: phase0.BeaconState): ref altair.BeaconState =
   let epoch = get_current_epoch(pre)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/fork.md#configuration
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/fork.md#configuration
   const ALTAIR_FORK_VERSION = Version [byte 1, 0, 0, 0]
 
   var

@@ -235,7 +235,7 @@ OK: 196/196 Fail: 0/196 Skip: 0/196
 +   Testing    SyncAggregatorSelectionData                                                   OK
 +   Testing    SyncCommittee                                                                 OK
 +   Testing    SyncCommitteeContribution                                                     OK
-+   Testing    SyncCommitteeSignature                                                        OK
++   Testing    SyncCommitteeMessage                                                          OK
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```

@@ -38,11 +38,11 @@ import ./base, ./phase0
 export base
 
 const
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#incentivization-weights
-  TIMELY_SOURCE_WEIGHT* = 12
-  TIMELY_TARGET_WEIGHT* = 24
-  TIMELY_HEAD_WEIGHT* = 12
-  SYNC_REWARD_WEIGHT* = 8
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#incentivization-weights
+  TIMELY_SOURCE_WEIGHT* = 14
+  TIMELY_TARGET_WEIGHT* = 26
+  TIMELY_HEAD_WEIGHT* = 14
+  SYNC_REWARD_WEIGHT* = 2
   PROPOSER_WEIGHT* = 8
   WEIGHT_DENOMINATOR* = 64
 
@@ -62,9 +62,14 @@ const
   TIMELY_TARGET_FLAG_INDEX* = 1
   TIMELY_HEAD_FLAG_INDEX* = 2
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#inactivity-penalties
-  #INACTIVITY_SCORE_BIAS* = 4
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#inactivity-penalties
+  INACTIVITY_SCORE_BIAS* = 4
   INACTIVITY_SCORE_RECOVERY_RATE* = 16
+
+# "Note: The sum of the weights equal WEIGHT_DENOMINATOR."
+static: doAssert TIMELY_SOURCE_WEIGHT + TIMELY_TARGET_WEIGHT +
+  TIMELY_HEAD_WEIGHT + SYNC_REWARD_WEIGHT + PROPOSER_WEIGHT ==
+  WEIGHT_DENOMINATOR
 
 let
   # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#misc
@@ -79,11 +84,11 @@ let
 type
   ### New types
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#custom-types
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#custom-types
   # TODO could be distinct
   ParticipationFlags* = uint8
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#syncaggregate
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#syncaggregate
   SyncAggregate* = object
     sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
     sync_committee_signature*: ValidatorSig
@@ -93,8 +98,8 @@ type
     pubkeys*: HashArray[Limit SYNC_COMMITTEE_SIZE, ValidatorPubKey]
     aggregate_pubkey*: ValidatorPubKey
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/validator.md#synccommitteesignature
-  SyncCommitteeSignature* = object
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#synccommitteemessage
+  SyncCommitteeMessage* = object
     slot*: Slot ##\
     ## Slot to which this contribution pertains
 
@@ -107,7 +112,7 @@ type
     signature*: ValidatorSig ##\
     ## Signature by the validator over the block root of `slot`
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/validator.md#synccommitteecontribution
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#synccommitteecontribution
   SyncCommitteeContribution* = object
     slot*: Slot ##\
     ## Slot to which this contribution pertains
@@ -138,7 +143,7 @@ type
     message*: ContributionAndProof
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/validator.md#syncaggregatorselectiondata
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#syncaggregatorselectiondata
   SyncAggregatorSelectionData* = object
     slot*: Slot
     subcommittee_index*: uint64
@@ -177,7 +182,7 @@ type
     fork_version*: Version ##\
     ## Fork version for the aggregate signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.5/specs/altair/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -371,7 +376,7 @@ type
     # [New in Altair]
     sync_aggregate*: SyncAggregate
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig

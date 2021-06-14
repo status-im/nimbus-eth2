@@ -308,12 +308,12 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Official - Altair - Epoch Processing - Participation flag updates [Preset: mainnet]
 ```diff
++ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
 + Participation flag updates - filled [Preset: mainnet]                                      OK
-+ Participation flag updates - prev_zeroed [Preset: mainnet]                                 OK
++ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
 + Participation flag updates - random [Preset: mainnet]                                      OK
 + Participation flag updates - random_genesis [Preset: mainnet]                              OK
-+ Participation flag updates - zeroed [Preset: mainnet]                                      OK
-+ Participation flag updates - zeroing [Preset: mainnet]                                     OK
 ```
 OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Official - Altair - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
@@ -381,7 +381,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    SyncAggregatorSelectionData                                                   OK
 +   Testing    SyncCommittee                                                                 OK
 +   Testing    SyncCommitteeContribution                                                     OK
-+   Testing    SyncCommitteeSignature                                                        OK
++   Testing    SyncCommitteeMessage                                                          OK
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```
