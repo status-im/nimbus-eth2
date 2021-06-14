@@ -35,6 +35,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
              "/api/eth/v1/config/spec") do () -> RestApiResponse:
     return RestApiResponse.jsonResponse(
       (
+        CONFIG_NAME:
+          CONFIG_NAME
         MAX_COMMITTEES_PER_SLOT:
           Base10.toString(MAX_COMMITTEES_PER_SLOT),
         TARGET_COMMITTEE_SIZE:
