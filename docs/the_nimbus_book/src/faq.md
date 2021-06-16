@@ -101,7 +101,7 @@ find <data-dir>/validators -type f -exec icacls {} /inheritance:r /grant:r $USER
 find <data-dir>/secrets -type f -exec icacls {} /inheritance:r /grant:r $USERDOMAIN\\$USERNAME:\(F\) \;
 ```
 
-> **N.B.** Make sure you run the above from inside `Git Bash`, these commands  will not work from inside the standard Windows Command Prompt.
+> **N.B.** Make sure you run the above from inside `Git Bash`, these commands  will not work from inside the standard Windows Command Prompt. If you don't already have a `Git Bash` shell, you'll need to install [Git for Windows](https://gitforwindows.org/).
 
 In sum:
 
