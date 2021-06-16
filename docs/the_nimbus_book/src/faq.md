@@ -1,6 +1,6 @@
 # Frequently Asked Questions
 
-## Nimbus
+## General
 
 ### How do I fix the discovered new external address warning log?
  
@@ -47,6 +47,67 @@ To stress test it, `add--subscribe-all-subnets` to the [beacon node options](./o
 To add an additional validator, just follow [the same steps](./keys.md) as you did when you added your first. You'll have to restart the beacon node for the changes to take effect.
 
 > Note that a single Nimbus instance is able to handle multiple validators.
+
+## Folder Permissions
+
+To protect against key loss, Nimbus requires that files and directories be owned by the user running the application. Furthermore, they should not be readable by others.
+
+It may happen that the wrong permissions are applied, particularly when creating the directories manually.
+
+The following errors are a sign of this:
+
+- `Data folder has insecure ACL`
+- `Data directory has insecure permissions`
+- `File has insecure permissions`
+
+Here is how to fix them.
+
+### Linux/ BSD / MacOS
+
+Run:
+
+```
+# Changing ownership to `user:group` for all files/directories in <data-dir>.
+chown user:group -R <data-dir>
+# Set permissions to (rwx------ 0700) for all directories starting from <data-dir>
+find <data-dir> -type d -exec chmod 700 {} \;
+
+# Set permissions to (rw------- 0600) for all files inside <data-dir>/validators
+find <data-dir>/validators -type f -exec chmod 0600 {} \;
+
+# Set permissions to (rw------- 0600) for all files inside <data-dir>/secrets
+find <data-dir>/secrets -type f -exec chmod 0600 {} \;
+
+```
+
+In sum:
+
+- Directories `<data-dir>`, `<data-dir>/validators`, `<data-dir>/secrets` MUST be owned by user and have `rwx------` or `0700`permissions set.
+
+- Files stored inside `<data-dir>`, `<data-dir>/validators`, `/secrets` MUST be owned by user and have `rw------` or `0600` permission set.
+
+### Windows
+
+From inside `Git Bash`, run:
+
+```
+# Set permissions for all the directories starting from <data-dir>
+find <data-dir> -type d -exec icacls {} /inheritance:r /grant:r $USERDOMAIN\\$USERNAME:\(OI\)\(CI\)\(F\) \;
+
+# Set permissions for all the files inside <data-dir>/validators
+find <data-dir>/validators -type f -exec icacls {} /inheritance:r /grant:r $USERDOMAIN\\$USERNAME:\(F\) \;
+
+# Set permissions for all the files inside <data-dir>/secrets
+find <data-dir>/secrets -type f -exec icacls {} /inheritance:r /grant:r $USERDOMAIN\\$USERNAME:\(F\) \;
+```
+
+> **N.B.** Make sure you run the above from inside `Git Bash`, these commands  will not work from inside the standard Windows Command Prompt. If you don't already have a `Git Bash` shell, you'll need to install [Git for Windows](https://gitforwindows.org/).
+
+In sum:
+
+- Directories `<data-dir>`, `<data-dir>/validators`, `<data-dir>/secrets` MUST be owned by user and have permissions set for the user only (OI)(CI)(F). All inherited permissions should be removed.
+
+- Files which are stored inside <data-dir>, <data-dir>/validators, <data-dir>/secrets MUST be owned by user and have permissions set for the user only (F). All inherited permissions should be removed.
 
 
 ## Validating

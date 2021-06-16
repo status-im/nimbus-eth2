@@ -85,6 +85,9 @@ To be extra sure that your validator has stopped, wait a few epochs and confirm 
 To import you validator key(s), follow the instructions [outlined here](./keys.md).
 
 > To check that your key(s) has been successfully imported, look for a file named after your public key in `build/data/shared_mainet_0/secrets/`.
+>
+> If you run into an error at this stage, it's probably because the wrong permissions have been set on either a folder or file. See [here](faq.md#folder-permissions) for how to fix this.
+
 
 ## Step 4 - Import your slashing protection history
 
