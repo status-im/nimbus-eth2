@@ -194,6 +194,9 @@
 </blockquote>
 <p>You'll be asked to enter the password you created to encrypt your keystore(s).</p>
 <p>Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your <a href="https://blog.ethereum.org/2020/05/21/keys/">key</a> (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).</p>
+<blockquote>
+<p><strong>Note:</strong> If you come across an error, it's probably because the wrong permissions have been set on either a folder or file. See <a href="faq.html#folder-permissions">here</a> for how to fix this.</p>
+</blockquote>
 <h2><a class="header" href="#storage" id="storage">Storage</a></h2>
 <p>When you import your keys into Nimbus, your validator signing key(s) are stored in the <code>build/data/shared_&lt;prater or mainnet&gt;_0/</code> folder, under <code>secrets</code> and <code>validators</code> - <strong>make sure you keep these folders backed up somewhere safe.</strong></p>
 <p>The <code>secrets</code> folder contains the common secret that gives you access to all your validator keys.</p>

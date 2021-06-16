@@ -218,6 +218,7 @@ sudo systemctl disable nimbus-eth2-mainnet.service
 <p>To import you validator key(s), follow the instructions <a href="./keys.html">outlined here</a>.</p>
 <blockquote>
 <p>To check that your key(s) has been successfully imported, look for a file named after your public key in <code>build/data/shared_mainet_0/secrets/</code>.</p>
+<p>If you run into an error at this stage, it's probably because the wrong permissions have been set on either a folder or file. See <a href="faq.html#folder-permissions">here</a> for how to fix this.</p>
 </blockquote>
 <h2><a class="header" href="#step-4---import-your-slashing-protection-history" id="step-4---import-your-slashing-protection-history">Step 4 - Import your slashing protection history</a></h2>
 <p>To import the slashing protection history you exported in <strong>step 3</strong>, from the <code>nimbus-eth2</code> directory run:</p>

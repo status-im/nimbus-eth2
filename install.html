@@ -207,13 +207,16 @@ yourAURmanager -S base-devel
 <h3><a class="header" href="#windows" id="windows">Windows</a></h3>
 <p>To build Nimbus on windows, the Mingw-w64 build environment is recommended.</p>
 <p>Install Mingw-w64 for your architecture using the &quot;<a href="https://sourceforge.net/projects/mingw-w64/files/">MinGW-W64 Online Installer</a>&quot;:</p>
-<ul>
-<li>select your architecture in the setup menu (<code>i686</code> on 32-bit, <code>x86_64</code> on 64-bit)</li>
-<li>set threads to <code>win32</code></li>
-<li>set exceptions to &quot;dwarf&quot; on 32-bit and &quot;seh&quot; on 64-bit.</li>
+<ol>
+<li>Select your architecture in the setup menu (<code>i686</code> on 32-bit, <code>x86_64</code> on 64-bit)</li>
+<li>Set threads to <code>win32</code></li>
+<li>Set exceptions to &quot;dwarf&quot; on 32-bit and &quot;seh&quot; on 64-bit.</li>
 <li>Change the installation directory to <code>C:\mingw-w64</code> and add it to your system PATH in <code>&quot;My Computer&quot;/&quot;This PC&quot; -&gt; Properties -&gt; Advanced system settings -&gt; Environment Variables -&gt; Path -&gt; Edit -&gt; New -&gt; C:\mingw-w64\mingw64\bin</code> (<code>C:\mingw-w64\mingw32\bin</code> on 32-bit)</li>
-</ul>
-<p>Install <a href="https://gitforwindows.org/">Git for Windows</a> and use a &quot;Git Bash&quot; shell to clone and build nimbus-eth2.</p>
+</ol>
+<p>Install <a href="https://gitforwindows.org/">Git for Windows</a> and use a &quot;Git Bash&quot; shell to clone and build <code>nimbus-eth2</code>.</p>
+<blockquote>
+<p><strong>Note:</strong> If the online installer isn't working you can try installing<code>Mingw-w64</code> through <a href="https://www.msys2.org/">MSYS2</a>.</p>
+</blockquote>
 <h3><a class="header" href="#android" id="android">Android</a></h3>
 <ul>
 <li>Install the <a href="https://termux.com">Termux</a> app from FDroid or the Google Play store</li>

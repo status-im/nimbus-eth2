@@ -170,7 +170,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#frequently-asked-questions" id="frequently-asked-questions">Frequently Asked Questions</a></h1>
-<h2><a class="header" href="#nimbus" id="nimbus">Nimbus</a></h2>
+<h2><a class="header" href="#general" id="general">General</a></h2>
 <h3><a class="header" href="#how-do-i-fix-the-discovered-new-external-address-warning-log" id="how-do-i-fix-the-discovered-new-external-address-warning-log">How do I fix the discovered new external address warning log?</a></h3>
 <pre><code>WRN 2021-03-15 02:23:37.569+00:00 Discovered new external address but ENR auto update is off topics=&quot;discv5&quot;...
 </code></pre>
@@ -196,6 +196,62 @@
 <blockquote>
 <p>Note that a single Nimbus instance is able to handle multiple validators.</p>
 </blockquote>
+<h2><a class="header" href="#folder-permissions" id="folder-permissions">Folder Permissions</a></h2>
+<p>To protect against key loss, Nimbus requires that files and directories be owned by the user running the application. Furthermore, they should not be readable by others.</p>
+<p>It may happen that the wrong permissions are applied, particularly when creating the directories manually.</p>
+<p>The following errors are a sign of this:</p>
+<ul>
+<li><code>Data folder has insecure ACL</code></li>
+<li><code>Data directory has insecure permissions</code></li>
+<li><code>File has insecure permissions</code></li>
+</ul>
+<p>Here is how to fix them.</p>
+<h3><a class="header" href="#linux-bsd--macos" id="linux-bsd--macos">Linux/ BSD / MacOS</a></h3>
+<p>Run:</p>
+<pre><code># Changing ownership to `user:group` for all files/directories in &lt;data-dir&gt;.
+chown user:group -R &lt;data-dir&gt;
+# Set permissions to (rwx------ 0700) for all directories starting from &lt;data-dir&gt;
+find &lt;data-dir&gt; -type d -exec chmod 700 {} \;
+
+# Set permissions to (rw------- 0600) for all files inside &lt;data-dir&gt;/validators
+find &lt;data-dir&gt;/validators -type f -exec chmod 0600 {} \;
+
+# Set permissions to (rw------- 0600) for all files inside &lt;data-dir&gt;/secrets
+find &lt;data-dir&gt;/secrets -type f -exec chmod 0600 {} \;
+
+</code></pre>
+<p>In sum:</p>
+<ul>
+<li>
+<p>Directories <code>&lt;data-dir&gt;</code>, <code>&lt;data-dir&gt;/validators</code>, <code>&lt;data-dir&gt;/secrets</code> MUST be owned by user and have <code>rwx------</code> or <code>0700</code>permissions set.</p>
+</li>
+<li>
+<p>Files stored inside <code>&lt;data-dir&gt;</code>, <code>&lt;data-dir&gt;/validators</code>, <code>/secrets</code> MUST be owned by user and have <code>rw------</code> or <code>0600</code> permission set.</p>
+</li>
+</ul>
+<h3><a class="header" href="#windows" id="windows">Windows</a></h3>
+<p>From inside <code>Git Bash</code>, run:</p>
+<pre><code># Set permissions for all the directories starting from &lt;data-dir&gt;
+find &lt;data-dir&gt; -type d -exec icacls {} /inheritance:r /grant:r $USERDOMAIN\\$USERNAME:\(OI\)\(CI\)\(F\) \;
+
+# Set permissions for all the files inside &lt;data-dir&gt;/validators
+find &lt;data-dir&gt;/validators -type f -exec icacls {} /inheritance:r /grant:r $USERDOMAIN\\$USERNAME:\(F\) \;
+
+# Set permissions for all the files inside &lt;data-dir&gt;/secrets
+find &lt;data-dir&gt;/secrets -type f -exec icacls {} /inheritance:r /grant:r $USERDOMAIN\\$USERNAME:\(F\) \;
+</code></pre>
+<blockquote>
+<p><strong>N.B.</strong> Make sure you run the above from inside <code>Git Bash</code>, these commands  will not work from inside the standard Windows Command Prompt. If you don't already have a <code>Git Bash</code> shell, you'll need to install <a href="https://gitforwindows.org/">Git for Windows</a>.</p>
+</blockquote>
+<p>In sum:</p>
+<ul>
+<li>
+<p>Directories <code>&lt;data-dir&gt;</code>, <code>&lt;data-dir&gt;/validators</code>, <code>&lt;data-dir&gt;/secrets</code> MUST be owned by user and have permissions set for the user only (OI)(CI)(F). All inherited permissions should be removed.</p>
+</li>
+<li>
+<p>Files which are stored inside <data-dir>, <data-dir>/validators, <data-dir>/secrets MUST be owned by user and have permissions set for the user only (F). All inherited permissions should be removed.</p>
+</li>
+</ul>
 <h2><a class="header" href="#validating" id="validating">Validating</a></h2>
 <h3><a class="header" href="#what-exactly-is-a-validator" id="what-exactly-is-a-validator">What exactly is a validator?</a></h3>
 <p>A validator is an entity that participates in the consensus of the Ethereum 2.0 protocol.</p>
