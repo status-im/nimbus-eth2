@@ -183,8 +183,6 @@ proc checkForPotentialDoppelganger(
           attestation = shortLog(attestation)
         quit QuitFailure
 
-{.pop.} # async can raise anything
-
 proc attestationValidator*(
     self: ref Eth2Processor,
     attestation: Attestation,
