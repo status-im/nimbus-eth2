@@ -199,9 +199,7 @@ const
   pyrmontMetadata* = eth2testnet "shared/pyrmont"
   praterMetadata* = eth2testnet "shared/prater"
 
-{.pop.} # the following pocedures raise more than just `Defect`
-
-proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
+proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
   var
     metadata = case toLowerAscii(networkName)
       of "mainnet":
@@ -229,10 +227,12 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
     metadata.genesisData = readFile(metadata.genesisDataPath)
   return metadata
 
-proc getRuntimePresetForNetwork*(eth2Network: Option[string]): RuntimePreset =
+proc getRuntimePresetForNetwork*(
+    eth2Network: Option[string]): RuntimePreset {.raises: [Defect, IOError].} =
   if eth2Network.isSome:
     return getMetadataForNetwork(eth2Network.get).runtimePreset
   return defaultRuntimePreset
 
-proc extractGenesisValidatorRootFromSnapshop*(snapshot: string): Eth2Digest =
+proc extractGenesisValidatorRootFromSnapshop*(
+    snapshot: string): Eth2Digest {.raises: [Defect, IOError, SszError].} =
   sszMount(snapshot, BeaconState).genesis_validators_root[]

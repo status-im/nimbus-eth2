@@ -770,8 +770,6 @@ template getBlockProposalData*(m: Eth1Monitor,
                                finalizedStateDepositIndex: uint64): BlockProposalEth1Data =
   getBlockProposalData(m.eth1Chain, state, finalizedEth1Data, finalizedStateDepositIndex)
 
-{.pop.}
-
 proc new(T: type Web3DataProvider,
          depositContractAddress: Eth1Address,
          web3Url: string): Future[Result[Web3DataProviderRef, string]] {.async.} =
