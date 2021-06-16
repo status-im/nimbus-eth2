@@ -472,6 +472,7 @@ type
 
   DoppelgangerProtection* = object
     broadcastStartEpoch*: Epoch
+    nodeLaunchSlot*: Slot
 
 type
   # Caches for computing justificiation, rewards and penalties - based on

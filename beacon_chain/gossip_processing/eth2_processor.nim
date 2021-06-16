@@ -88,6 +88,8 @@ proc new*(T: type Eth2Processor,
           getWallTime: GetWallTimeFn): ref Eth2Processor =
   (ref Eth2Processor)(
     doppelGangerDetectionEnabled: doppelGangerDetectionEnabled,
+    doppelgangerDetection: DoppelgangerProtection(
+      nodeLaunchSlot: getWallTime().slotOrZero),
     getWallTime: getWallTime,
     blockProcessor: blockProcessor,
     dag: dag,
@@ -158,15 +160,14 @@ proc blockValidator*(
 
 proc checkForPotentialDoppelganger(
     self: var Eth2Processor, attestation: Attestation,
-    attesterIndices: openArray[ValidatorIndex], wallSlot: Slot) =
-  let epoch = wallSlot.epoch
-
-  # Only check for current epoch, not potential attestations bouncing around
-  # from up to several minutes prior.
-  if attestation.data.slot.epoch < epoch:
+    attesterIndices: openArray[ValidatorIndex]) =
+  # Only check for attestations after node launch, not potential attestations
+  # bouncing around from up to several minutes prior.
+  if attestation.data.slot <= self.doppelgangerDetection.nodeLaunchSlot:
     return
 
-  if epoch < self.doppelgangerDetection.broadcastStartEpoch:
+  if attestation.data.slot.epoch <
+      self.doppelgangerDetection.broadcastStartEpoch:
     let tgtBlck = self.dag.getRef(attestation.data.target.root)
     doAssert not tgtBlck.isNil  # because attestation is valid above
 
@@ -219,8 +220,7 @@ proc attestationValidator*(
 
   let (attestation_index, sig) = v.get()
 
-  self[].checkForPotentialDoppelganger(
-    attestation, [attestation_index], wallSlot)
+  self[].checkForPotentialDoppelganger(attestation, [attestation_index])
 
   trace "Attestation validated"
   self.attestationPool[].addAttestation(
@@ -267,8 +267,7 @@ proc aggregateValidator*(
   let (attesting_indices, sig) = v.get()
 
   self[].checkForPotentialDoppelganger(
-    signedAggregateAndProof.message.aggregate, attesting_indices,
-    wallSlot)
+    signedAggregateAndProof.message.aggregate, attesting_indices)
 
   trace "Aggregate validated",
     aggregator_index = signedAggregateAndProof.message.aggregator_index,
