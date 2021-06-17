@@ -45,6 +45,10 @@ declareHistogram beacon_block_delay,
   "Time(s) between slot start and beacon block reception", buckets = delayBuckets
 
 type
+  DoppelgangerProtection = object
+    broadcastStartEpoch*: Epoch
+    nodeLaunchSlot: Slot
+
   Eth2Processor* = object
     doppelGangerDetectionEnabled*: bool
     getWallTime*: GetWallTimeFn

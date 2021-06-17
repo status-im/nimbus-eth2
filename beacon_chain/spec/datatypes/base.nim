@@ -470,10 +470,6 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-  DoppelgangerProtection* = object
-    broadcastStartEpoch*: Epoch
-    nodeLaunchSlot*: Slot
-
 type
   # Caches for computing justificiation, rewards and penalties - based on
   # implementation in Lighthouse:
