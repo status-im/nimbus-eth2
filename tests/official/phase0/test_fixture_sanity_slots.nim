@@ -8,7 +8,6 @@
 {.used.}
 
 import
-  chronicles,
   # Standard library
   os, strutils,
   # Beacon chain internals

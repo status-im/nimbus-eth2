@@ -384,6 +384,52 @@ func init(T: type AttestationCache, state: phase0.HashedBeaconState): T =
       state.data.current_epoch_attestations[i].data,
       state.data.current_epoch_attestations[i].aggregation_bits)
 
+func init(
+    T: type AttestationCache, state: altair.HashedBeaconState,
+    cache: var StateCache): T =
+  # Load attestations that are scheduled for being given rewards for
+  let
+    prev_epoch = state.data.get_previous_epoch()
+    cur_epoch = state.data.get_current_epoch()
+    prev_epoch_committees_per_slot = get_committee_count_per_slot(
+      state.data, prev_epoch, cache)
+    cur_epoch_committees_per_slot = get_committee_count_per_slot(
+      state.data, cur_epoch, cache)
+
+  # This treats all types of rewards as equivalent, which isn't ideal
+  for slot_offset in 0 ..< SLOTS_PER_EPOCH:
+    for slot_committee_index in 0'u64 ..< get_committee_count_per_slot(
+        state.data, state.data.get_previous_epoch(), cache):
+      var
+        validator_bits: CommitteeValidatorsBits
+        i = 0
+      let slot = prev_epoch.compute_start_slot_at_epoch + slot_offset
+      for index in get_beacon_committee(
+          state.data, slot, slot_committee_index.CommitteeIndex, cache):
+        if state.data.previous_epoch_participation[index] != 0:
+          # If any flag got set, there was an attestation from this validator.
+          validator_bits[i] = true
+        i += 1
+      result.add(
+        (slot, slot_committee_index),
+        validator_bits)
+
+    for slot_committee_index in 0'u64 ..< get_committee_count_per_slot(
+        state.data, state.data.get_current_epoch(), cache):
+      var
+        validator_bits: CommitteeValidatorsBits
+        i = 0
+      let slot = cur_epoch.compute_start_slot_at_epoch + slot_offset
+      for index in get_beacon_committee(
+          state.data, slot, slot_committee_index.CommitteeIndex, cache):
+        if state.data.current_epoch_participation[index] != 0:
+          # If any flag got set, there was an attestation from this validator.
+          validator_bits[i] = true
+        i += 1
+      result.add(
+        (slot, slot_committee_index),
+        validator_bits)
+
 proc score(
     attCache: var AttestationCache, data: AttestationData,
     aggregation_bits: CommitteeValidatorsBits): int =
