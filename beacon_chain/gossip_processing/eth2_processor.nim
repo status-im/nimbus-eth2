@@ -208,9 +208,8 @@ proc attestationValidator*(
     attestation = shortLog(attestation)
     subnet_id
 
-  let
-    wallTime = self.getWallTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot()
+  let wallTime = self.getWallTime()
+  var (afterGenesis, wallSlot) = wallTime.toSlot()
 
   if not afterGenesis:
     notice "Attestation before genesis"
@@ -227,8 +226,10 @@ proc attestationValidator*(
       self.batchCrypto, attestation, wallTime, subnet_id, checkSignature)
   if v.isErr():
     debug "Dropping attestation", validationError = v.error
-
     return v.error[0]
+
+  # Due to async validation the wallSlot here might have changed
+  (afterGenesis, wallSlot) = self.getWallTime().toSlot()
 
   beacon_attestations_received.inc()
   beacon_attestation_delay.observe(delay.toFloatSeconds())
@@ -250,9 +251,8 @@ proc aggregateValidator*(
     aggregate = shortLog(signedAggregateAndProof.message.aggregate)
     signature = shortLog(signedAggregateAndProof.signature)
 
-  let
-    wallTime = self.getWallTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot()
+  let wallTime = self.getWallTime()
+  var (afterGenesis, wallSlot) = wallTime.toSlot()
 
   if not afterGenesis:
     notice "Aggregate before genesis"
@@ -276,6 +276,9 @@ proc aggregateValidator*(
       wallSlot
     return v.error[0]
 
+  # Due to async validation the wallSlot here might have changed
+  (afterGenesis, wallSlot) = self.getWallTime().toSlot()
+
   beacon_aggregates_received.inc()
   beacon_aggregate_delay.observe(delay.toFloatSeconds())
 
@@ -286,8 +289,7 @@ proc aggregateValidator*(
 
   trace "Aggregate validated",
     aggregator_index = signedAggregateAndProof.message.aggregator_index,
-    selection_proof = signedAggregateAndProof.message.selection_proof,
-    wallSlot
+    selection_proof = signedAggregateAndProof.message.selection_proof
 
   self.attestationPool[].addAttestation(
     signedAggregateAndProof.message.aggregate, attesting_indices, sig, wallSlot)
