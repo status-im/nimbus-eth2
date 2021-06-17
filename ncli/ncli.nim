@@ -84,7 +84,7 @@ proc doTransition(conf: NcliConf) =
     blckX = SSZ.loadFile(conf.blck, SignedBeaconBlock)
     flags = if not conf.verifyStateRoot: {skipStateRootValidation} else: {}
 
-  stateY.hbsPhase0.root = hash_tree_root(stateY[])
+  setStateRoot(stateY[], hash_tree_root(stateY[]))
 
   var
     cache = StateCache()
@@ -112,7 +112,7 @@ proc doSlots(conf: NcliConf) =
       beaconStateFork: forkPhase0
     )
 
-  stateY.hbsPhase0.root = hash_tree_root(stateY[])
+  setStateRoot(stateY[], hash_tree_root(stateY[]))
 
   var
     cache = StateCache()

@@ -391,7 +391,7 @@ proc init*(T: type ChainDAGRef,
       let root = db.getStateRoot(cur.blck.root, cur.slot)
       if root.isSome():
         if db.getState(root.get(), tmpState.data.hbsPhase0.data, noRollback):
-          tmpState.data.hbsPhase0.root = root.get()
+          setStateRoot(tmpState.data, root.get())
           tmpState.blck = cur.blck
 
           break
@@ -514,7 +514,7 @@ proc getState(
     return false
 
   state.blck = blck
-  state.data.hbsPhase0.root = stateRoot
+  setStateRoot(state.data, stateRoot)
 
   true
 

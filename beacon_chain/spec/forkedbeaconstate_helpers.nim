@@ -53,6 +53,11 @@ template getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
   of forkPhase0: x.hbsPhase0.root
   of forkAltair: x.hbsAltair.root
 
+func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
+  case x.beaconStateFork:
+  of forkPhase0: x.hbsPhase0.root = root
+  of forkAltair: x.hbsAltair.root = root
+
 template hash_tree_root*(x: ForkedHashedBeaconState): Eth2Digest =
   case x.beaconStateFork:
   of forkPhase0: hash_tree_root(x.hbsPhase0.data)
