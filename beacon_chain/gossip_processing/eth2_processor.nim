@@ -46,8 +46,16 @@ declareHistogram beacon_block_delay,
 
 type
   DoppelgangerProtection = object
-    broadcastStartEpoch*: Epoch
-    nodeLaunchSlot: Slot
+    broadcastStartEpoch*: Epoch  ##\
+    ## Set anew, each time gossip is re-enabled after syncing completes, so
+    ## might reset multiple times per instance. This allows some safe level
+    ## of gossip interleaving between nodes so long as they don't gossip at
+    ## the same time.
+
+    nodeLaunchSlot: Slot ##\
+    ## Set once, at node launch. This functions as a basic protection against
+    ## false positives from attestations persisting within the gossip network
+    ## across quick restarts.
 
   Eth2Processor* = object
     doppelGangerDetectionEnabled*: bool
@@ -165,8 +173,10 @@ proc blockValidator*(
 proc checkForPotentialDoppelganger(
     self: var Eth2Processor, attestation: Attestation,
     attesterIndices: openArray[ValidatorIndex]) =
-  # Only check for attestations after node launch.
-  if attestation.data.slot <= self.doppelgangerDetection.nodeLaunchSlot:
+  # Only check for attestations after node launch. There might be one slot of
+  # overlap in quick intra-slot restarts so trade off a few true negatives in
+  # the service of avoiding more likely false positives.
+  if attestation.data.slot <= self.doppelgangerDetection.nodeLaunchSlot + 1:
     return
 
   if attestation.data.slot.epoch <
