@@ -165,8 +165,7 @@ proc blockValidator*(
 proc checkForPotentialDoppelganger(
     self: var Eth2Processor, attestation: Attestation,
     attesterIndices: openArray[ValidatorIndex]) =
-  # Only check for attestations after node launch, not potential attestations
-  # bouncing around from up to several minutes prior.
+  # Only check for attestations after node launch.
   if attestation.data.slot <= self.doppelgangerDetection.nodeLaunchSlot:
     return
 
