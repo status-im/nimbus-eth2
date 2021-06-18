@@ -136,7 +136,7 @@ proc addResolvedBlock(
   # Notify others of the new block before processing the quarantine, such that
   # notifications for parents happens before those of the children
   if onBlockAdded != nil:
-    onBlockAdded(blockRef, trustedBlock, epochRef, state.data.hbsPhase0)
+    onBlockAdded(blockRef, trustedBlock, epochRef)
 
   # Now that we have the new block, we should see if any of the previously
   # unresolved blocks magically become resolved

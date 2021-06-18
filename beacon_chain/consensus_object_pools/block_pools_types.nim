@@ -220,7 +220,7 @@ type
 
   OnBlockAdded* = proc(
     blckRef: BlockRef, blck: TrustedSignedBeaconBlock,
-    epochRef: EpochRef, state: HashedBeaconState) {.gcsafe, raises: [Defect].}
+    epochRef: EpochRef) {.gcsafe, raises: [Defect].}
 
 template head*(dag: ChainDagRef): BlockRef = dag.headState.blck
 

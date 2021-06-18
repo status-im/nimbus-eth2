@@ -179,7 +179,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
       let added = dag.addRawBlock(quarantine, newBlock) do (
           blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
-          epochRef: EpochRef, state: HashedBeaconState):
+          epochRef: EpochRef):
         # Callback add to fork choice if valid
         attPool.addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
