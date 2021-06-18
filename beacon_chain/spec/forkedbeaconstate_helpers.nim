@@ -63,6 +63,14 @@ template hash_tree_root*(x: ForkedHashedBeaconState): Eth2Digest =
   of forkPhase0: hash_tree_root(x.hbsPhase0.data)
   of forkAltair: hash_tree_root(x.hbsAltair.data)
 
+func get_active_validator_indices_len*(
+    state: ForkedHashedBeaconState; epoch: Epoch): uint64 =
+  case state.beaconStateFork:
+  of forkPhase0:
+    get_active_validator_indices_len(state.hbsPhase0.data, epoch)
+  of forkAltair:
+    get_active_validator_indices_len(state.hbsAltair.data, epoch)
+
 func get_beacon_committee*(
     state: ForkedHashedBeaconState, slot: Slot, index: CommitteeIndex,
     cache: var StateCache): seq[ValidatorIndex] =
@@ -74,7 +82,7 @@ func get_beacon_committee*(
   case state.beaconStateFork:
   of forkPhase0: get_beacon_committee(state.hbsPhase0.data, slot, index, cache)
   of forkAltair: get_beacon_committee(state.hbsAltair.data, slot, index, cache)
-  
+
 func get_committee_count_per_slot*(state: ForkedHashedBeaconState,
                                    epoch: Epoch,
                                    cache: var StateCache): uint64 =
