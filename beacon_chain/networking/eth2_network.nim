@@ -37,7 +37,7 @@ import
     ssz/ssz_serialization, beacon_clock],
   ../spec/[datatypes, digest, network],
   ../validators/keystore_management,
-  ./eth2_discovery, ./peer_pool, ./libp2p_json_serialization
+  ./eth2_discovery, ./peer_pool, ./libp2p_json_serialization, ./peer_balancer
 
 when chronicles.enabledLogLevel == LogLevel.TRACE:
   import std/sequtils
@@ -72,6 +72,7 @@ type
     discoveryEnabled*: bool
     wantedPeers*: int
     peerPool*: PeerPool[Peer, PeerID]
+    peerBalancer: PeerBalancer
     protocolStates*: seq[RootRef]
     libp2pTransportLoops*: seq[Future[void]]
     metadata*: MetaData
@@ -85,6 +86,11 @@ type
     rng*: ref BrHmacDrbgContext
     peers*: Table[PeerID, Peer]
     validTopics: HashSet[string]
+
+    #TMP
+    heartbeater*: Future[void]
+    attnetsPeerGroups: seq[PeerGroup]
+    eth2PeerGroup: PeerGroup
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
@@ -104,6 +110,8 @@ type
     lastReqTime*: Moment
     connections*: int
     enr*: Option[enr.Record]
+    metadata*: Option[MetaData]
+    metadata_received*: Moment
     direction*: PeerType
     disconnectedFut: Future[void]
 
@@ -1027,6 +1035,7 @@ proc handlePeer*(peer: Peer) {.async.} =
     peer.connectionState = Connected
     # We spawn task which will obtain ENR for this peer.
     resolvePeer(peer)
+    peer.network.eth2PeerGroup.addPeer(peer.info.peerId)
     debug "Peer successfully connected", peer = peer,
                                          connections = peer.connections
 
@@ -1093,6 +1102,8 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
       # Whatever caused disconnection, avoid connection spamming
       node.addSeen(peerId, SeenTableTimeReconnect)
 
+      node.peerBalancer.removePeer(peerId)
+
       let fut = peer.disconnectedFut
       if not(isNil(fut)):
         fut.complete()
@@ -1139,7 +1150,16 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, enrForkId: ENRForkID,
     rng: rng,
     connectTimeout: connectTimeout,
     seenThreshold: seenThreshold,
+    peerBalancer: PeerBalancer.new(10) #TODO use maxPeers instead
   )
+
+  proc peerKicker(peer: PeerID): Future[void] {.gcsafe, closure.} =
+    disconnect(node.getPeer(peer), PeerScoreLow)
+
+  const scorePerProtocol = 1_000_000_000
+  for attnet in 0..<metadata.attnets.len():
+    node.attnetsPeerGroups.add(node.peerBalancer.addGroup("attnet_"  & $attnet, scorePerProtocol div metadata.attnets.len(), peerKicker, 3))
+  node.eth2PeerGroup = node.peerBalancer.addGroup("eth2", scorePerProtocol div metadata.attnets.len(), peerKicker)
 
   newSeq node.protocolStates, allProtocols.len
   for proto in allProtocols:
@@ -1180,6 +1200,52 @@ proc startListening*(node: Eth2Node) {.async.} =
 
   await node.pubsub.start()
 
+proc updatePeerMetadata*(node: Eth2Node, peerId: PeerID, timeout = 20.seconds) {.async.} =
+  trace "updating peer metadata", peerId
+
+  const emptyBytes = newSeq[byte](0)
+  var peer = node.getPeer(peerId)
+  let
+    oldMetadata= peer.metadata
+    response = await makeEth2Request(
+      peer,
+      "/eth2/beacon_chain/req/metadata/1/",
+      emptyBytes,
+      Metadata,
+      timeout)
+
+  if response.isErr:
+    debug "Failed to retrieve metadata from peer!", peerId
+    return
+
+  let newMetadata = response.get()
+  peer.metadata = some(newMetadata)
+  peer.metadata_received = Moment.now()
+
+  for bit in 0..<newMetadata.attnets.len:
+    if newMetadata.attnets[bit]:
+      node.attnetsPeerGroups[bit].addPeer(peerId)
+    elif oldMetadata.isSome and oldMetadata.get().attnets[bit] == true:
+      node.attnetsPeerGroups[bit].removePeer(peerId)
+
+proc tmptmp*(node: Eth2Node) {.async.} =
+  while true:
+    let heartbeatStart_m = Moment.now()
+    var updateFutures: seq[Future[void]]
+
+    for peer in node.peers.values:
+      if peer.connectionState != Connected: continue
+
+      if peer.metadata.isNone or
+        heartbeatStart_m - peer.metadata_received > 30.minutes:
+        updateFutures.add(node.updatePeerMetadata(peer.info.peerId))
+
+    discard await allFinished(updateFutures)
+
+    await node.peerBalancer.trimConnections()
+
+    await sleepAsync(30.seconds)
+
 proc start*(node: Eth2Node) {.async.} =
 
   proc onPeerCountChanged() =
@@ -1208,6 +1274,7 @@ proc start*(node: Eth2Node) {.async.} =
         let pa = tr.get().toPeerAddr(tcpProtocol)
         if pa.isOk():
           await node.connQueue.addLast(pa.get())
+  node.heartbeater = node.tmptmp()
 
 proc stop*(node: Eth2Node) {.async.} =
   # Ignore errors in futures, since we're shutting down (but log them on the
